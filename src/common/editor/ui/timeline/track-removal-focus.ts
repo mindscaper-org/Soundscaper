@@ -17,8 +17,11 @@ export function prepareTimelineTrackRemovalFocus(ownerDocument: Document,
 			if (active !== focused && active !== ownerDocument.body) return;
 			const survivors = [...editor.querySelectorAll<HTMLElement>('[data-track-row]')]
 				.filter(candidate => !candidate.closest('[hidden], [aria-hidden="true"]'));
-			const next = neighbours.map(id => survivors.find(candidate => candidate.dataset.trackId === id)).find(Boolean)
-				?? survivors[0];
+			const byId = new Map<string | undefined, HTMLElement>();
+			for (const survivor of survivors) { const id = survivor.dataset.trackId; if (!byId.has(id)) byId.set(id, survivor); }
+			let next: HTMLElement | undefined;
+			for (const id of neighbours) { next = byId.get(id); if (next) break; }
+			next ??= survivors[0];
 			const target = next?.querySelector<HTMLElement>('.track')
 				?? next?.querySelector<HTMLElement>('[data-track-header] button:not(:disabled), button:not(:disabled)')
 				?? editor.querySelector<HTMLElement>('[data-ruler-focus]');

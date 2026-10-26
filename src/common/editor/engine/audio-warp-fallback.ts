@@ -17,6 +17,7 @@ import {
 } from './buffer-math.ts';
 import { projectGraphLatencyFrames } from './project-graph.ts';
 import { projectEffectRacks } from './project-effects.ts';
+import { resolveRenderFrameRange } from './rendering-range.ts';
 import type {
 	EngineRuntimeHost,
 	PreparedAudioWarpPlayback,
@@ -198,8 +199,7 @@ export async function renderExactAudioWarpToSink(
 	const onChunk = options.onChunk;
 	if (typeof onChunk !== 'function') throw new TypeError('Exact audio warp streaming requires an onChunk callback.');
 	const chunkFrames = boundedChunkFrames(options.chunkFrames ?? 4_096);
-	const startFrame = clampFrame(numberOption(options.startFrame) ?? 0, 0, engine.durationFrames);
-	const endFrame = clampFrame(numberOption(options.endFrame) ?? engine.durationFrames, startFrame, engine.durationFrames);
+	const { fromFrame: startFrame, toFrame: endFrame } = resolveRenderFrameRange(numberOption(options.startFrame) ?? 0, numberOption(options.endFrame) ?? engine.durationFrames);
 	if (endFrame <= startFrame) throw new RangeError('Exact audio warp streaming requires a non-empty range.');
 	// The graph preflight admits no stateful or latency-owning processors.
 	// Gain, pan, mute, envelopes, and clip fades are absolute-time schedules,

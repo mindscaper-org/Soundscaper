@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
-import { EDITOR_ENGLISH_COPY } from '../src/common/i18n/editor-copy-inventory.ts';
+import { EDITOR_COPY_AUDIT_INVENTORY as EDITOR_ENGLISH_COPY } from '../scripts/lib/editor-copy-audit-inventory.mjs';
 import { writeTranslationCatalog } from '../scripts/i18n-ai/catalog.mjs';
 import { checkLocales, MACHINE_TRANSLATION_EXCLUDED_KEYS } from '../scripts/i18n-ai/workflows.mjs';
 import { runCli } from '../scripts/i18n-ai/cli.mjs';

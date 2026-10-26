@@ -27,9 +27,12 @@ export function importWorkspaceRoutedFiles({
 	return withWebFileLoadLimitContext(async () => {
 		const routed = partitionWorkspaceFiles(files);
 		for (const file of routed.projects) await openProjectFile(file);
-		if (routed.media.length) await controller.actions.project.importFiles(routed.media, {
-			destination: 'auto', projectBinVisible, ...importOptions,
-		});
+		if (routed.media.length) {
+			const result = await controller.actions.project.importFiles(routed.media, {
+				destination: 'auto', projectBinVisible, ...importOptions,
+			});
+			if (result && typeof result === 'object' && 'cancelled' in result && result.cancelled === true) return 0;
+		}
 		const projectId = controller.project?.id;
 		const failures: unknown[] = [];
 		const assertCurrent = (): void => {

@@ -410,9 +410,9 @@ setLoop(loopOrEnabled, startFrame, endFrame) {
 		const value = typeof loopOrEnabled === 'object'
 			? loopOrEnabled
 			: { enabled: loopOrEnabled, startFrame, endFrame };
+		const position = this.state === 'playing' ? this.getPositionFrames() : null;
 		this.loop = normalizeLoop(value, this.playbackDurationFrames, this.durationFrames);
-		if (this.state === 'playing') {
-			const position = this.getPositionFrames();
+		if (position !== null) {
 			if (isPlaybackLoopEnabled(this) && (position < this.loop.startFrame || position >= this.loop.endFrame)) {
 				this.seek(this.loop.startFrame);
 			} else {

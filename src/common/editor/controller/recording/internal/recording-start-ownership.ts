@@ -15,6 +15,7 @@ export interface OwnedRecordingStartScope extends RecordingStartScope {
 	isHandedOff(recorder: RecordingControllerLike): boolean;
 	isCancellation(error: unknown): boolean;
 	claimFinalization(finalization: Promise<void>): void;
+	cancel(): void;
 }
 
 /** Keep transferred capture custody and its exact cancellation identity through cleanup. */
@@ -25,21 +26,26 @@ export function createRecordingStartOwnership(
 ): OwnedRecordingStartScope {
 	const generation = ++state.recordingStartGeneration;
 	const projectId = getProjectId();
+	const abort = new AbortController();
 	let cancellation: Readonly<{ reason: unknown }> | null = null;
+	const cancellationReason = () => {
+		cancellation ??= { reason: createAbortError() };
+		return cancellation.reason;
+	};
 	let claimedRecorder: RecordingControllerLike | null = null;
 	let finalization: Promise<void> | null = null;
 	return Object.freeze({
-		generation, projectId,
+		generation, projectId, signal: abort.signal,
 		get finalization() { return finalization; },
 		assertCurrent() {
-			if (!state.disposed && generation === state.recordingStartGeneration && projectId === getProjectId()) return;
-			cancellation ??= { reason: createAbortError() };
-			throw cancellation.reason;
+			if (!state.disposed && !abort.signal.aborted && generation === state.recordingStartGeneration && projectId === getProjectId()) return;
+			throw cancellationReason();
 		},
 		claimRecorder(recorder: RecordingControllerLike) { claimedRecorder = recorder; },
 		isHandedOff: (recorder: RecordingControllerLike) => claimedRecorder === recorder,
 		isCancellation: (error: unknown) => cancellation !== null && error === cancellation.reason,
 		claimFinalization(value: Promise<void>) { finalization = value; },
+		cancel() { abort.abort(cancellationReason()); },
 	});
 }
 

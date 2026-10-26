@@ -1,6 +1,7 @@
 import { decodeSubRipLabelText, decodeWebVttLabelText, encodeWebVttLabelText } from './label-cue-text.ts';
 import { decodeLabelInputText } from './label-input-text.ts';
 import { labelTimeFrame } from './label-time-frame.ts';
+import { AUDIO_EDITOR_LABEL_MAX_INPUT_CHARS } from './label-input-limits.ts';
 
 export const AUDIO_EDITOR_LABEL_FORMATS = Object.freeze(['txt', 'srt', 'vtt']);
 export const AUDIO_EDITOR_LABEL_EXPORT_FORMATS = Object.freeze([...AUDIO_EDITOR_LABEL_FORMATS, 'json']);
@@ -8,10 +9,10 @@ export const AUDIO_EDITOR_LABEL_EXPORT_FORMATS = Object.freeze([...AUDIO_EDITOR_
 const FORMAT_SET = new Set(AUDIO_EDITOR_LABEL_FORMATS);
 const EXPORT_FORMAT_SET = new Set(AUDIO_EDITOR_LABEL_EXPORT_FORMATS);
 const DEFAULT_SAMPLE_RATE = 48_000;
-const DEFAULT_MAX_INPUT_CHARS = 16 * 1024 * 1024;
 const DEFAULT_MAX_LABELS = 100_000;
 const DEFAULT_MAX_TITLE_CHARS = 1_000_000;
 const DEFAULT_MAX_TOTAL_TITLE_CHARS = 8 * 1024 * 1024;
+const WEBVTT_METADATA_HEADER = /^(?:NOTE(?:[ \t]|$)|(?:STYLE|REGION)[ \t]*$)/u;
 const TIME_ARROW = /\s+-->\s+/;
 
 /** Error with machine-readable context for a malformed label file. */
@@ -25,7 +26,7 @@ export class AudioEditorLabelIoError extends Error {
 }
 
 /**
- * Detect label interchange format from an explicit format, filename, or text.
+ * Detect label interchange format from an explicit format, filename, MIME, or text.
  * Explicit values always win so a caller never has to rely on content sniffing.
  */
 export function detectAudioEditorLabelFormat(options = {}) {
@@ -34,6 +35,9 @@ export function detectAudioEditorLabelFormat(options = {}) {
 	if (explicit) return assertFormat(explicit);
 	const match = String(options.filename || '').trim().toLowerCase().match(/\.([^.]+)$/);
 	if (match && FORMAT_SET.has(match[1])) return match[1];
+	const mimeType = String(options.mimeType || '').split(';', 1)[0].trim().toLowerCase();
+	if (mimeType === 'application/x-subrip') return 'srt';
+	if (mimeType === 'text/vtt') return 'vtt';
 	const text = stripBom(String(options.text || '')).trimStart();
 	if (/^WEBVTT(?:\s|$)/i.test(text)) return 'vtt';
 	if (/^(?:\d+\s*\r?\n)?\s*\d{1,}:\d{2}:\d{2}[,.]\d{1,3}\s+-->\s+/m.test(text)) return 'srt';
@@ -114,7 +118,7 @@ function normalizeInput(input, options) {
 	} else {
 		throw new TypeError('Label data must be a string, Uint8Array, or ArrayBuffer.');
 	}
-	const maxInputChars = positiveSafeInteger(options.maxInputChars ?? DEFAULT_MAX_INPUT_CHARS, 'maxInputChars');
+	const maxInputChars = positiveSafeInteger(options.maxInputChars ?? AUDIO_EDITOR_LABEL_MAX_INPUT_CHARS, 'maxInputChars');
 	if (text.length > maxInputChars) {
 		throw labelError('Label data exceeds the configured input limit.', 'INPUT_LIMIT', {
 			limit: maxInputChars,
@@ -211,7 +215,7 @@ function parseTimedEntries(text, context, format) {
 		while (index < lines.length && !lines[index].trim()) index += 1;
 		if (index >= lines.length) break;
 		const cueStartLine = index + 1;
-		if (format === 'vtt' && /^(?:NOTE(?:[ \t]|$)|(?:STYLE|REGION)[ \t]*$)/.test(lines[index])) {
+		if (format === 'vtt' && WEBVTT_METADATA_HEADER.test(lines[index])) {
 			while (index < lines.length && lines[index].trim()) index += 1;
 			continue;
 		}
@@ -347,7 +351,7 @@ function serializeTimed(labels, context, format) {
 		if (context.includeCueIdentifiers) {
 			const identifier = String(label.opaqueExtensions?.cueIdentifier || index + 1);
 			const safe = !/[\r\n\0]/u.test(identifier) && !identifier.includes('-->')
-				&& !/^(?:NOTE|STYLE|REGION)(?:[ \t]|$)/u.test(identifier);
+				&& !WEBVTT_METADATA_HEADER.test(identifier);
 			lines.push(String(format === 'srt' || !safe ? index + 1 : identifier));
 		}
 		const startMilliseconds = Math.round(label.startFrame * 1000 / context.sampleRate);
@@ -371,7 +375,7 @@ function serializeTimed(labels, context, format) {
 
 function serializePodcastJson(labels, context) {
 	const chapters = labels.map((label) => ({
-		startTime: Math.round(label.startFrame / context.sampleRate * 1000) / 1000,
+		startTime: label.startFrame / context.sampleRate,
 		title: label.title,
 	}));
 	const text = `${JSON.stringify({ version: '1.2.0', chapters }, null, 2)}\n`

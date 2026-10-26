@@ -1,5 +1,7 @@
+import { resolveSelectionRange } from '../selection-range.ts';
 import { videoExportRequestFormat } from '../video-export-request-format.ts';
 import { exportDialogHasDeliveredChapterLabels, exportDialogSupportsEmbeddedChapters } from './export-dialog-embedded-chapters.ts';
+import { exportDialogSupportsLoudnessNormalization } from './export-dialog-loudness.ts';
 import {
 	assertVideoDialogCanvasSize,
 	statedVideoAudioLayout,
@@ -38,6 +40,8 @@ export function isVideoExportDialogFormat(format) {
  */
 export function createExportDialogRequest(settings, options = {}) {
 	const metadata = options.metadata || {};
+	const selection = settings.range === 'selection' && options.project ? resolveSelectionRange(options.project) : null;
+	const range = selection ? { startFrame: selection.startFrame, endFrame: selection.endFrame } : settings.range;
 	if (isVideoExportDialogFormat(settings.format)) {
 		assertVideoDialogCanvasSize(settings);
 		const canvas = statedVideoCanvas(settings);
@@ -65,7 +69,7 @@ export function createExportDialogRequest(settings, options = {}) {
 			: canvas;
 		return {
 			mode: 'mix',
-			range: settings.range,
+			range,
 			format: settings.format,
 			metadata,
 			// A delivery target supplies the geometry and codec it stands for;
@@ -85,7 +89,7 @@ export function createExportDialogRequest(settings, options = {}) {
 	return {
 		mode: settings.format === 'bw64' ? 'mix' : settings.mode,
 		...(settings.mode === 'chapters' ? { chapterSource: settings.chapterSource === 'markers' ? 'markers' : 'labels' } : {}),
-		range: settings.range,
+		range,
 		format: settings.format,
 		...(['bwf', 'bw64'].includes(settings.format) ? { bext: options.bext ?? settings.bext } : {}),
 		...(settings.format === 'bw64' ? { adm: options.adm ?? settings.adm } : {}),
@@ -116,7 +120,7 @@ export function createExportDialogRequest(settings, options = {}) {
 			? { embedLabelChapters: true } : {}),
 		// Stated only when a target was chosen: there is no default target, and an
 		// untouched dialog must keep producing the request it always produced.
-		...(settings.mode === 'mix' && settings.loudnessNormalization ? { loudnessNormalization: settings.loudnessNormalization } : {}),
+		...(exportDialogSupportsLoudnessNormalization(settings) && settings.loudnessNormalization ? { loudnessNormalization: settings.loudnessNormalization } : {}),
 		...(settings.mode === 'mix' && settings.binaural ? { binaural: true } : {}),
 		...(settings.masteringSequenceId ? { masteringSequenceId: settings.masteringSequenceId } : {}),
 	};

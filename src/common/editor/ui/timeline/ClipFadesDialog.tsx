@@ -29,6 +29,8 @@ function stopPortalEvent(event: SyntheticEvent): void { event.stopPropagation();
 /** The upstream Fades dialog previews locally and publishes one undoable edit on Apply. */
 export default function ClipFadesDialog({ clip, sampleRate, copy, blocked, onPreview, onApply, onClose, portalHost }: Props) {
 	const [changes, setChanges] = useState<ClipFadeChanges>({});
+	const [lengthDrafts, setLengthDrafts] = useState<Partial<Record<ClipFadeEdge, string>>>({});
+	const incompleteLength = Object.values(lengthDrafts).some(text => !Number.isFinite(parseLengthSeconds(text, clip.durationFrames / sampleRate)));
 	const value = { ...clip, ...changes };
 	const labels = clipInteractionCopy(copy);
 	const baseId = useId();
@@ -36,12 +38,13 @@ export default function ClipFadesDialog({ clip, sampleRate, copy, blocked, onPre
 	const apply = () => {
 		const edited = (Object.keys(changes) as (keyof ClipFadeChanges)[]).some(field =>
 			(field.endsWith('Frames') ? clip[field] ?? 0 : clip[field]) !== changes[field]);
-		if (!blocked && edited) onApply(changes);
+		if (blocked || incompleteLength) return;
+		if (edited) onApply(changes);
 		onClose();
 	};
 	const dialog = <AudioEditorDialogShell isOpen title={labels.fades} onClose={onClose}
 		className="audio-editor-fades-dialog" width={460}
-		footer={<DialogFooter primaryText={labels.apply} secondaryText={copy.cancel} primaryDisabled={blocked}
+		footer={<DialogFooter primaryText={labels.apply} secondaryText={copy.cancel} primaryDisabled={blocked || incompleteLength}
 			onPrimaryClick={apply} onSecondaryClick={onClose} />}>
 		{(['in', 'out'] as const).map((edge: ClipFadeEdge) => {
 			const field = fadeField(edge);
@@ -50,9 +53,10 @@ export default function ClipFadesDialog({ clip, sampleRate, copy, blocked, onPre
 			return <div key={edge} className="audio-editor-fades-dialog__row">
 				<label>{edge === 'in' ? labels.fadeInLength : labels.fadeOutLength}
 					<NumberStepper ariaLabel={edge === 'in' ? labels.fadeInLength : labels.fadeOutLength}
-						incrementLabel={labels.increaseValue} decrementLabel={labels.decreaseValue} value={((value[field] ?? 0) / sampleRate).toFixed(3)} min={0} max={clip.durationFrames / sampleRate}
+						incrementLabel={labels.increaseValue} decrementLabel={labels.decreaseValue} value={lengthDrafts[edge] ?? String((value[field] ?? 0) / sampleRate)} min={0} max={clip.durationFrames / sampleRate}
 						step={0.1} disabled={blocked} onChange={text => {
-							const seconds = Number(text.replace(/\s*s\s*$/iu, '').replace(',', '.'));
+							setLengthDrafts(previous => ({ ...previous, [edge]: text }));
+							const seconds = parseLengthSeconds(text, clip.durationFrames / sampleRate);
 							if (Number.isFinite(seconds)) {
 								const length = clipFadeLengthChange(value, edge, Math.round(seconds * sampleRate));
 								setChanges(previous => ({ ...shapesForNewClipFades(clip, length), ...previous, ...length }));
@@ -77,4 +81,10 @@ export default function ClipFadesDialog({ clip, sampleRate, copy, blocked, onPre
 	return createPortal(<div onPointerDown={stopPortalEvent} onPointerUp={stopPortalEvent} onPointerMove={stopPortalEvent}
 		onMouseDown={stopPortalEvent} onMouseUp={stopPortalEvent} onMouseMove={stopPortalEvent}
 		onClick={stopPortalEvent} onDoubleClick={stopPortalEvent} onContextMenu={stopPortalEvent} onWheel={stopPortalEvent}>{dialog}</div>, host);
+}
+
+function parseLengthSeconds(text: string, maximum: number): number {
+	const numeric = text.replace(/\s*s\s*$/iu, '').replace(',', '.').trim();
+	const value = numeric ? Number(numeric) : Number.NaN;
+	return value >= 0 && value <= maximum ? value : Number.NaN;
 }

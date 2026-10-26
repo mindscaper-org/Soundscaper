@@ -149,7 +149,8 @@ for (const mode of ['gpu', 'creation-failure', 'inference-failure'] as const) {
 		const base = fakeRuntime(async (feeds) => hiddenState(feeds.input_ids!.dims[0]!, feeds.input_ids!.dims[1]!));
 		const runtime: AssistanceOnnxRuntimeModuleV1 = { Tensor: base.Tensor, InferenceSession: {
 			create: async (path, options) => {
-				const provider = options.executionProviders[0]!;
+				const selected = options.executionProviders[0]!;
+				const provider = typeof selected === 'string' ? selected : selected.name;
 				providers.push(provider);
 				if (provider === 'webgpu' && mode === 'creation-failure') throw new Error('GPU unavailable');
 				const native = await base.InferenceSession.create(path, { ...options, executionProviders: ['cpu'] });

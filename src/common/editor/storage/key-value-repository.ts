@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { decodeProjectIdKey } from '../project-validation-primitives.ts';
 import { readCursorPage, request, transact } from './indexeddb-backend.ts';
 import { canonicalKeyValueComparison } from './key-value-canonical-comparison.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';
@@ -459,7 +459,7 @@ function prefixRecord(value: unknown, prefix: string): Readonly<KeyValuePrefixRe
 }
 
 function decodeKeySuffix(value: string): string {
-	try { return decodeURIComponent(value); }
+	try { return decodeProjectIdKey(value); }
 	catch { return value; }
 }
 

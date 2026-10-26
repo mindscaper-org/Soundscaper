@@ -12,9 +12,10 @@ import {
 } from '../common/editor/unified-exact-linear-rgba-v13.ts';
 import type { UnifiedExactRenderFinishingNode } from '../common/editor/unified-exact-render-plan.ts';
 import type { UnifiedExactRenderVisualFrameEntryV13 } from '../common/editor/unified-exact-render-visual-consumers-v13.ts';
+import type { UnifiedExactLinearSourceFrame } from '../common/editor/unified-exact-linear-source-frame.ts';
 import type { UnifiedExactRenderRgbaFrameV13 } from '../common/editor/unified-exact-render-finishing-consumers-v13.ts';
 import type { UnifiedExactRenderVisualRgbaV13 } from '../common/editor/unified-exact-render-visual-materializer-v13.ts';
-import { gradeVisual, gradeLinearFrame, identityDescription, requiredInterpretation } from './selected-finishing-exact-frame-support.ts';
+import { gradeVisual, gradeVisualLinear, gradeLinearFrame, gradeLinearFloatFrame, identityDescription, requiredInterpretation } from './selected-finishing-exact-frame-support.ts';
 import { resolveFramescaperVisualPlacementFinishing, type FramescaperVisualCanvasFinishing } from './visual-placement-finishing.ts';
 
 const LIMITS = Object.freeze({ maximumSidePixels: 65_536, maximumPixels: 33_554_432, maximumBytes: 128 * 1024 * 1024 });
@@ -106,4 +107,38 @@ function eligible(frame: UnifiedExactRenderVisualRgbaV13, grades: readonly Video
 		&& Object.getPrototypeOf(pixels) === Uint8Array.prototype
 		&& !['buffer', 'length', 'byteLength', 'byteOffset'].some(key => Object.hasOwn(pixels, key))
 		&& pixels.buffer instanceof ArrayBuffer && !(RESIZABLE && Reflect.apply(RESIZABLE, pixels.buffer, []));
+}
+
+/** Exact composition retains floating-point channels until final picture encoding. */
+export async function placeFramescaperManagedGradedVisualLinearFrameV1(
+	input: Parameters<typeof placeFramescaperManagedGradedVisualFrameV1>[0],
+): Promise<UnifiedExactLinearPremultipliedFrameV13> {
+	const { finishing, entry, frame, luts, canvas, mask, signal } = input;
+	const placement = resolveFramescaperVisualPlacementFinishing(entry, canvas);
+	if (frame.width !== placement.width || frame.height !== placement.height) {
+		throw new RangeError(`Selected finishing visual ${entry.modelId} changed materialized geometry.`);
+	}
+	return placePrivateLinear(gradeVisualLinear(finishing, entry, frame, luts, signal), graded => placeUnifiedExactLinearRgbaFrameV13({
+		frame: graded, displayWidth: placement.width, displayHeight: placement.height,
+		outputWidth: canvas.width, outputHeight: canvas.height, renderDescription: placement.renderDescription,
+		...(mask ? { mask } : {}),
+	}));
+}
+
+export async function placeFramescaperManagedGradedAdjustmentLinearFrameV1(
+	input: Omit<Parameters<typeof placeFramescaperManagedGradedAdjustmentFrameV1>[0], 'frame'>
+		& Readonly<{ frame: UnifiedExactRenderRgbaFrameV13 | UnifiedExactLinearSourceFrame }>,
+): Promise<UnifiedExactLinearPremultipliedFrameV13> {
+	const { frame, grades, luts, width, height, blendMode, opacity, mask, signal } = input;
+	return placePrivateLinear(gradeLinearFloatFrame(frame, grades, luts, signal), graded => placeUnifiedExactLinearRgbaFrameV13({
+		frame: graded, displayWidth: width, displayHeight: height, outputWidth: width, outputHeight: height,
+		renderDescription: identityDescription(width, height, blendMode), opacity, ...(mask ? { mask } : {}),
+	}));
+}
+
+function placePrivateLinear(
+	frame: UnifiedExactLinearSourceFrame,
+	place: (frame: UnifiedExactLinearSourceFrame) => UnifiedExactLinearPremultipliedFrameV13,
+): UnifiedExactLinearPremultipliedFrameV13 {
+	try { return place(frame); } finally { frame.pixels.fill(0); }
 }

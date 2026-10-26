@@ -115,7 +115,7 @@ export function createHarness(options: Readonly<{
 			options.validateRenderSnapshot?.(snapshot as unknown as Readonly<Record<string, unknown>>);
 			return render.promise;
 		},
-		renderStagedSnapshot: async (snapshot, _range, sourceBuffers) => {
+		renderStagedSnapshot: async (snapshot, range, sourceBuffers) => {
 			const captured = structuredClone(snapshot) as unknown as Readonly<Record<string, unknown>>;
 			// A staged rack run renders audio the chain already holds, so the
 			// fake echoes back what the caller handed the source map.
@@ -123,12 +123,12 @@ export function createHarness(options: Readonly<{
 			stagedSources.push(sourceBuffers);
 			const staged = [...sourceBuffers.values()][0] as
 				Readonly<{ channels: readonly Float32Array[] }> | undefined;
-			return { channels: (staged?.channels ?? []).map((channel) => channel.map((value) => value * 4)) };
+			return { channels: (staged?.channels ?? []).map((channel) => channel.slice(Number(range.startFrame), Number(range.endFrame)).map((value) => value * 4)) };
 		},
 		projectFrameCount: () => 10_000,
 		renderDryTrackRange: async (trackId, startFrame, endFrame) => {
 			dryRanges.push([trackId, startFrame, endFrame]);
-			return [new Float32Array([1, 2])];
+			return [endFrame === target.startFrame ? new Float32Array(endFrame - startFrame) : new Float32Array([1, 2])];
 		},
 		runSelectionEffectWorker: async (request) => {
 			selectionEffectCalls.push({

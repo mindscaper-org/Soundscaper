@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { bundledLightscaperEditorCopyForLocale } from '../../src/common/i18n/lightscaper-editor-copy.ts';
-import { bundledSiteCopyForLocale } from '../../src/common/i18n/site-copy.js';
+import { resolveTestCatalog as resolveCatalog } from '../helpers/translation-catalogs.ts';
 import { photoDevelopCopy } from '../../src/common/i18n/lightscaper-develop-copy.ts';
 import { photoDevelopMenuLabel } from '../../src/common/i18n/lightscaper-develop-menu-copy.ts';
 import { photoDevelopSettingsCopy } from '../../src/common/i18n/lightscaper-develop-settings-copy.ts';
@@ -45,7 +45,7 @@ test('actual RAW menus author native Clone, local tone, detail and rotated crop,
 	const importer = named(page, 'dialog', copy.photoImportPhotos);
 	await importer.getByLabel(copy.photoChooseFiles, { exact: true }).setInputFiles({ name: NAME, mimeType: 'image/png', buffer: originalBytes });
 	await keyboard(named(importer, 'button', copy.photoImportAction)); await expect(importer).toHaveCount(0);
-	const library = named(app, 'region', bundledSiteCopyForLocale(locale).workspacePhoto), card = app.getByRole('button', { name: /^Native full stack\.dng/u });
+	const library = named(app, 'region', (await resolveCatalog(locale)).workspacePhoto), card = app.getByRole('button', { name: /^Native full stack\.dng/u });
 	await expect(card).toHaveCount(1); await expect(library).toHaveAttribute('aria-busy', 'false'); await keyboard(card);
 	const photoId = await card.getAttribute('data-photo-id'); expect(photoId).toBeTruthy();
 	const original = await observe(); immutable(original);

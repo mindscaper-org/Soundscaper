@@ -3,7 +3,7 @@
 import type { TimeCodeMusicalMap } from '../../../../vendor/audacity-design-system/components/src/TimeCode/time-code-musical-context.ts';
 import { barStartBeat, surroundingBarBoundaries, type SignatureEvent, type SignatureMap } from '../musical-grid.ts';
 import { sampleFrameToBeat } from '../timeline-tempo-inverse.ts';
-import { addRationals, beatToSampleFrame, divideRationals, sampleFrameToSeconds,
+import { addRationals, beatToSampleFrame, compareRationals, divideRationals, sampleFrameToSeconds,
 	secondsToSampleFrame, subtractRationals, type HoldTempoMap } from '../timeline-time.ts';
 import type { RationalInput } from '../timeline-time.ts';
 
@@ -51,6 +51,40 @@ export function createMusicalDurationTimeCodeMap(project: MusicalTimeCodeProject
 				{ num: Math.max(0, beat - 1) * 4, den: signature.denominator });
 			const end = beatToSampleFrame(addRationals(originBeat, elapsedBeat), project.tempoMap, project.sampleRate);
 			return sampleFrameToSeconds(end - origin, project.sampleRate);
+		},
+	};
+}
+
+/** A trailing duration counts back from its endpoint through the preceding tempos. */
+export function createMusicalEndingDurationTimeCodeMap(project: MusicalTimeCodeProject, endFrame: number): TimeCodeMusicalMap {
+	const end = Math.max(0, Math.round(endFrame));
+	const endBeat = sampleFrameToBeat(end, project.tempoMap, project.sampleRate);
+	const boundary = surroundingBarBoundaries(endBeat, project.signatureMap);
+	const endingBar = Math.max(0, boundary.lowerBar - Number(compareRationals(endBeat, boundary.lowerBeat) === 0));
+	const events = project.signatureMap.events;
+	let endingSignature = 0;
+	for (const [index, event] of events.entries()) {
+		if (event.bar > endingBar) break;
+		endingSignature = index;
+	}
+	const reversedSignatures: SignatureEvent[] = [{ ...signatureAtBar(endingBar, project.signatureMap), bar: 0 }];
+	for (let index = endingSignature; index > 0; index--) {
+		reversedSignatures.push({ ...events[index - 1]!, bar: endingBar - events[index]!.bar + 1 });
+	}
+	const signatures: SignatureMap = { events: reversedSignatures };
+	return {
+		fromSeconds(seconds) {
+			const elapsed = secondsToSampleFrame(Math.max(0, seconds), project.sampleRate);
+			const startBeat = sampleFrameToBeat(Math.max(0, end - elapsed), project.tempoMap, project.sampleRate);
+			return positionAtBeat(subtractRationals(endBeat, startBeat), signatures);
+		},
+		toSeconds(bar, beat) {
+			const signature = signatureAtBar(bar, signatures);
+			const elapsedBeat = addRationals(barStartBeat(bar, signatures),
+				{ num: Math.max(0, beat - 1) * 4, den: signature.denominator });
+			const startBeat = subtractRationals(endBeat, elapsedBeat);
+			const start = compareRationals(startBeat, 0) < 0 ? 0 : beatToSampleFrame(startBeat, project.tempoMap, project.sampleRate);
+			return sampleFrameToSeconds(end - start, project.sampleRate);
 		},
 	};
 }

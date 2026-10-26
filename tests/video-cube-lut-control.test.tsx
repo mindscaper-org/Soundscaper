@@ -5,6 +5,7 @@ import test from 'node:test';
 import React, { act } from 'react';
 import VideoCubeLutControl from '../src/common/editor/ui/inspector/VideoCubeLutControl.tsx';
 import { VIDEO_EFFECT_COPY_BY_LOCALE } from '../src/common/i18n/video-effect-copy.js';
+import { resolveCatalog } from '../src/common/i18n/runtime.js';
 import { mountPhotoImportUi } from './helpers/photo-import-options-react-fixture.tsx';
 import { reactProps } from './helpers/react-test-dom.ts';
 import { deferred, settle } from './helpers/async-test-control.ts';
@@ -15,7 +16,7 @@ const file = new File(['LUT_3D_SIZE 2'], 'look.cube');
 
 for (const locale of ['en', 'de'] as const) test(`${locale}: opted-in LUT control uses owning labels and only delivers the selected immutable file`, async () => {
 	let received: File | undefined, clears = 0;
-	const copy = VIDEO_EFFECT_COPY_BY_LOCALE[locale];
+	const copy = await resolveCatalog(locale);
 	const mounted = await mountPhotoImportUi(() => <VideoCubeLutControl reference={reference} copy={copy} disabled={false}
 		isCurrent={() => true} onImport={value => { received = value; }} onClear={() => { clears++; }} />);
 	try {

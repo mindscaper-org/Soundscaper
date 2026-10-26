@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -11,7 +13,7 @@ import {
 import { createApplicationViewMenu } from '../src/common/editor/ui/application-view-menu.js';
 import { resolveVideoPreviewCompositorSize } from '../src/common/editor/ui/video-preview-compositor-size.js';
 import { createVideoPreviewResolutionMenu } from '../src/common/editor/ui/video-preview-resolution-menu.ts';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 
 test('video preview resolution defaults to full, preserves saved choices and refuses invalid values', () => {
 	const defaults = createAudioEditorPreferencesV1();

@@ -9,7 +9,6 @@ function reason(name) {
 	const catalogKey = audacityParityReasonCopyKey(name);
 	return deepFreeze({
 		en: CANONICAL_EXTRA_COPY_BY_LOCALE.en[catalogKey],
-		de: CANONICAL_EXTRA_COPY_BY_LOCALE.de[catalogKey],
 		catalogKey,
 	});
 }

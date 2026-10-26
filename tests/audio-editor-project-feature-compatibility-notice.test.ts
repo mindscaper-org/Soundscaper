@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React from 'react';
@@ -10,7 +12,7 @@ import type { ProjectFeatureAudioRenderedFallbackMetadata } from '../src/common/
 import { PROJECT_FEATURE_CAPABILITY_IDS } from '../src/common/editor/project-feature-capabilities.ts';
 import type { ProjectFeatureVideoEffectBypassMetadata } from '../src/common/editor/project-feature-video-effect-bypass.ts';
 import type { ProjectFeatureVideoRenderedFallbackMetadata } from '../src/common/editor/project-feature-video-rendered-fallback.ts';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import ProjectFeatureCompatibilityReport from '../src/common/editor/ui/dialogs/ProjectFeatureCompatibilityReport.tsx';
 import {
 	createProjectFeatureCompatibilityNotice,

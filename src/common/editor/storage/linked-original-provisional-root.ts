@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { projectString } from '../project-validation-primitives.ts';
 import { compareCodeUnits } from '../code-unit-order.ts';
 import {
 	normalizeLegacyLinkedVideoOriginalBinding,
@@ -76,7 +76,7 @@ export function normalizeLinkedOriginalProvisionalRoot(
 		throw new RangeError('Unsupported linked original provisional-root schema version.');
 	}
 	const kind = linkedOriginalKind(candidate.kind);
-	const projectId = canonicalIdentity(candidate.projectId, 'projectId');
+	const projectId = projectString(candidate.projectId, 'projectId');
 	const sourceId = canonicalIdentity(candidate.sourceId, 'sourceId');
 	const key = linkedOriginalBindingKey(projectId, sourceId);
 	if (candidate.key !== key) {

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { encodeProjectIdKey, projectString } from '../project-validation-primitives.ts';
 import { captureSpoolStableText as stableText } from './capture-spool-validation.ts';
 
 const KEY_PREFIX = 'capture-spool-tail-cleanup-v1:';
@@ -97,7 +97,7 @@ function tailCleanup(value: CaptureSpoolTailCleanupIdentity): CaptureSpoolTailCl
 		version: 1,
 		kind: 'capture-spool-tail-cleanup',
 		storageKind: value.storageKind,
-		projectId: stableText(value.projectId, 'capture spool tail projectId', 256),
+		projectId: projectString(value.projectId, 'capture spool tail projectId'),
 		spoolId: stableText(value.spoolId, 'capture spool tail spoolId', 256),
 		spoolToken: stableText(value.spoolToken, 'capture spool tail token', 512),
 		sourceId: value.sourceId === null ? null : stableText(value.sourceId, 'capture spool tail sourceId', 256),
@@ -116,7 +116,7 @@ function normalizeTailCleanup(value: unknown): CaptureSpoolTailCleanupV1 {
 }
 
 function tailCleanupKey(value: CaptureSpoolTailCleanupIdentity): string {
-	return `${KEY_PREFIX}${value.storageKind}:${encodeURIComponent(value.projectId)}:${encodeURIComponent(value.spoolId)}`;
+	return `${KEY_PREFIX}${value.storageKind}:${encodeProjectIdKey(value.projectId)}:${encodeURIComponent(value.spoolId)}`;
 }
 
 function closedDataRecord(value: unknown, keys: readonly string[], name: string): Readonly<Record<string, unknown>> {

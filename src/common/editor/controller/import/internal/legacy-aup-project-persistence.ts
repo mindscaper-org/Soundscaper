@@ -105,7 +105,7 @@ export async function persistDecodedLegacyAupProject({
 				assertCurrent();
 				const peaks = await generateWaveformPeaks(channels, copy);
 				assertCurrent();
-				await store.saveAnalysis(peakCacheKey(source.id), peaks);
+				await Promise.resolve(store.saveAnalysis(peakCacheKey(source.id), peaks)).catch(() => undefined);
 				assertCurrent();
 			} catch (error) {
 				await writer.abort();

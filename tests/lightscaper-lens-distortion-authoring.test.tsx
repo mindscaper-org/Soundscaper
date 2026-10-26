@@ -6,7 +6,6 @@ import React, { act } from 'react';
 import PhotoDevelopWorkspaceCurrentV1 from '../src/common/editor/ui/lightscaper/PhotoDevelopWorkspaceCurrentV1.tsx';
 import VideoEffectRack from '../src/common/editor/ui/inspector/VideoEffectRack.jsx';
 import { photoDevelopCopy } from '../src/common/i18n/lightscaper-develop-copy.ts';
-import { VIDEO_EFFECT_COPY_BY_LOCALE } from '../src/common/i18n/video-effect-copy.js';
 import { VIDEO_EFFECT_TYPES, createVideoEffect, normalizeVideoEffect, serializeVideoEffectsToFfmpegOperations } from '../src/common/editor/video-effects.js';
 import { prepareLensDistortionEffectV1, normalizeLensDistortionParamsV1, normalizeLensDistortionEffectV1 } from '../src/common/editor/video-lens-distortion-v1.ts';
 import { videoEffectPasses, EFFECT_CODES, EFFECT_PROGRAM_COUNT } from '../src/common/editor/ui/video-preview-effects.js';
@@ -101,7 +100,7 @@ for (const locale of ['en', 'de'] as const) {
 		const actions = { add: service.addVideoClipEffect, beginGesture: service.beginVideoEffectGesture, preview: service.previewVideoEffectGesture,
 			commit: service.commitVideoEffectGesture, cancel: service.cancelVideoEffectGesture, toggle: service.toggleVideoClipEffect,
 			reorder: service.reorderVideoClipEffect, remove: service.removeVideoClipEffect, update: service.updateVideoClipEffect };
-		const copy = VIDEO_EFFECT_COPY_BY_LOCALE[locale];
+		const copy = photoDevelopCopy(locale).shared;
 		const mounted = await mountPhotoImportUi(() => <VideoEffectRack clip={view(project).clips.find(clip => clip.id === 'video-clip')}
 			controller={{ actions: { video: { effects: actions } } }} copy={{ ...copy, chooseEffect: 'Choose effect', addEffect: 'Add effect' }} disabled={false} onError={(value: string) => { error = value; }} />);
 		try {

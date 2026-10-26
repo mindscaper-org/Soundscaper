@@ -494,7 +494,7 @@ test('multi-file imports skip legacy blocks, summarize failures, and offset targ
 		file('good.mp4', 'video/mp4'),
 		file('bad.mp4', 'video/mp4'),
 	]);
-	assert.equal(legacy.statuses.at(-1)?.[0], '2 succeeded, 1 failed');
+	assert.equal(legacy.statuses.at(-1)?.[0], '2 succeeded, 1 failed\nbad.mp4: video failed');
 	assert.equal(legacy.calls.includes('error:video failed'), true);
 	assert.equal((legacy.runtime.state as { importing: boolean }).importing, false);
 

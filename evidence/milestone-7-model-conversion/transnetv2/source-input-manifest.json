@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "protocol": "soundscaper-model-conversion-v1",
   "candidateId": "transnetv2",
-  "planSha256": "3dde5798e22c63aaffa082b07dc0103ab74b8c9decc694991d7a3b3151a71d04",
+  "planSha256": "4abfaecb0b50b64931a1a16fb1a79ac574c63d9dc2b870043ad2395e9abb37c6",
   "sourceCodeArchive": {
     "path": "inputs/transnetv2-85cef72af9a916bdfd7cc94a670c9cdfbf12d1ed.tar.gz",
     "revision": "85cef72af9a916bdfd7cc94a670c9cdfbf12d1ed",

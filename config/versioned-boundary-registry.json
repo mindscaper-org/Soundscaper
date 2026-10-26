@@ -816,6 +816,8 @@
 		,
 		{ "path": "src/common/editor/audio-track-freeze-v21.ts", "kind": "persisted-contract", "justification": "audio-track-freeze-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
+		{ "path": "src/common/editor/automation-capture-boundaries-v21.ts", "kind": "persisted-contract", "justification": "automation-capture-boundaries-v21.ts preserves boundary point identities and segment shapes in the persisted V21 automation-lane contract." }
+		,
 		{ "path": "src/common/editor/automation-lane-inline-edit-v21.ts", "kind": "persisted-contract", "justification": "automation-lane-inline-edit-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/automation-lane-interval-boundary-id-v21.ts", "kind": "persisted-contract", "justification": "automation-lane-interval-boundary-id-v21.ts derives stable point identities for persisted automation interval edits." }
@@ -969,6 +971,8 @@
 		{ "path": "src/common/editor/engine/automation-control-v21.ts", "kind": "persisted-contract", "justification": "automation-control-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/engine/automation-lane-scheduler-v21.ts", "kind": "persisted-contract", "justification": "automation-lane-scheduler-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
+		,
+		{ "path": "src/common/editor/engine/automation-readback-v21.ts", "kind": "persisted-contract", "justification": "Restores the existing V21 automation lane scheduling contract on an active graph; no new product schema or lane vocabulary." }
 		,
 		{ "path": "src/common/editor/engine/native-effect-latency-v21.ts", "kind": "persisted-contract", "justification": "native-effect-latency-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
@@ -1831,6 +1835,8 @@
 		{ "path": "src/common/editor/unified-exact-render-clip-picture-v2.ts", "kind": "persisted-contract", "justification": "Version 2 exact-render clip picture records independently admit complete resource-aware effects and keyframes beside the unchanged composition and timing contracts." }
 		,
 		{ "path": "src/common/editor/unified-exact-render-delivery-v15.ts", "kind": "persisted-contract", "justification": "unified-exact-render-delivery-v15.ts is a persisted domain-component or render-contract revision independent of product schema." }
+		,
+		{ "path": "src/common/editor/unified-exact-render-finishing-color-v13.ts", "kind": "persisted-contract", "justification": "Managed color execution for the V13 exact finishing contract retains its independent render-contract revision." }
 		,
 		{ "path": "src/common/editor/unified-exact-render-finishing-consumers-v13.ts", "kind": "persisted-contract", "justification": "unified-exact-render-finishing-consumers-v13.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,

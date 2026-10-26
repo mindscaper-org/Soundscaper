@@ -54,7 +54,7 @@ export function bindSoundscaperProjectRecovery(
 
 /** Saved document or media damage can enter repair; an unrelated startup failure stays fatal. */
 export async function hasSoundscaperStartupRecovery(
-	store: Pick<SoundscaperProjectRecoveryStore, 'readProjectRecoveryCandidates'> & Partial<Pick<SoundscaperProjectRecoveryStore, 'readSourceChunks' | 'loadMediaAsset' | 'resolveLinkedVideoOriginal' | 'getLinkedOriginalBinding'>>,
+	store: Pick<SoundscaperProjectRecoveryStore, 'readProjectRecoveryCandidates'> & Partial<Pick<SoundscaperProjectRecoveryStore, 'readSourceChunks' | 'getSourceMetadata' | 'loadMediaAsset' | 'resolveLinkedVideoOriginal' | 'getLinkedOriginalBinding'>>,
 	projectId: string,
 	error: unknown,
 ): Promise<boolean> {
@@ -62,10 +62,11 @@ export async function hasSoundscaperStartupRecovery(
 	const rows = await store.readProjectRecoveryCandidates(projectId);
 	if (hasSoundscaperProjectRecoveryEvidence(rows, error)) return true;
 	const current = rows.find((row) => row.kind === 'current');
-	if (!current || !store.readSourceChunks) return false;
+	if (!current || !store.readSourceChunks || !store.getSourceMetadata) return false;
 	const project = current.project;
 	if (!validateSoundscaperProject(project)) return false;
 	const available = await readSoundscaperRecoveryAvailableMediaSources({ readSourceChunks: store.readSourceChunks.bind(store),
+		getSourceMetadata: store.getSourceMetadata.bind(store),
 		loadMediaAsset: store.loadMediaAsset?.bind(store), resolveLinkedVideoOriginal: store.resolveLinkedVideoOriginal?.bind(store),
 		getLinkedOriginalBinding: store.getLinkedOriginalBinding?.bind(store) }, project);
 	return project.sources.some((source) => (source.kind === 'audio' || source.kind === 'video') && !available.has(source.id));

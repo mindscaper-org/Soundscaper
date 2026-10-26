@@ -2,6 +2,7 @@
 
 import { cloneProject } from '../../project.js';
 import { exportSequenceProject } from '../../export-sequence-project.ts';
+import { assertSequenceMixerDependencies } from '../../export-sequence-mixer.ts';
 import type { ProjectFeatureAudioRenderedFallbackMetadata } from '../../project-feature-audio-rendered-fallback.ts';
 import type { ProjectFeatureVideoRenderedFallbackMetadata } from '../../project-feature-video-rendered-fallback.ts';
 import {
@@ -28,9 +29,12 @@ import {
  */
 export function createExportRenderProject<Project extends object>(project: Project, replacementTrackIds: readonly string[] = []): Project {
 	const mediaProject = projectTrackFolderMediaStateV12(project);
+	const selected = exportSequenceProject(cloneProject(mediaProject as Parameters<typeof cloneProject>[0]) as Project, undefined, replacementTrackIds);
+	const tracks = (selected as Readonly<{ tracks?: readonly Readonly<{ id: string }>[] }>).tracks ?? [];
+	assertSequenceMixerDependencies(mediaProject, new Set(tracks.map(track => track.id)));
 	return inheritTrackFolderMediaStateProjectionV12(
 		mediaProject,
-		exportSequenceProject(cloneProject(mediaProject as Parameters<typeof cloneProject>[0]) as Project, undefined, replacementTrackIds),
+		selected,
 	);
 }
 

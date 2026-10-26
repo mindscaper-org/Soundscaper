@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { exportSequenceMixer } from './export-sequence-mixer.ts';
+
 type Data = Readonly<Record<string, unknown>>;
 
 /** A delivered timeline belongs to its own track hierarchy, not the project-wide union. */
@@ -22,6 +24,7 @@ export function exportSequenceProject<Project extends object>(
 		...project,
 		tracks,
 		clips: records(data.clips).filter(clip => clipIds.has(String(clip.id))),
+		...exportSequenceMixer(data, new Set(tracks.map(track => String(track.id)))),
 		...(Array.isArray(data.timelineAnnotations) ? {
 			timelineAnnotations: records(data.timelineAnnotations).filter(annotation => annotation.sequenceId === id),
 		} : {}),

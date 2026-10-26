@@ -12,6 +12,7 @@ import {
 } from './desktop-export-codec-model.ts';
 import { getMediaExportFormat } from '../media-export.js';
 import { browserDedicatedAudioEncodeBitRates } from '../browser-dedicated-audio-profiles.ts';
+import { exportDialogSupportsLoudnessNormalization } from './export-dialog-loudness.ts';
 
 interface DialogOption {
 	readonly value: string;
@@ -272,6 +273,9 @@ export function normalizeExportDialogAudioSettings(
 	// must not make the capability query describe a different delivery.
 	if (['clips', 'chapters', 'stems'].includes(String(settings.mode)) && (settings.binaural === true || settings.loudnessNormalization)) {
 		settings = Object.freeze({ ...settings, binaural: false, loudnessNormalization: '' });
+	}
+	if (settings.mode === 'mix' && settings.loudnessNormalization && !exportDialogSupportsLoudnessNormalization(settings)) {
+		settings = Object.freeze({ ...settings, loudnessNormalization: '' });
 	}
 	const format = String(settings.format ?? '');
 	// Both current WavPack providers deliver float32. Retire old integer preset

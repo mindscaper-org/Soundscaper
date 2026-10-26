@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createMemorySourceChunkKeyReader } from './memory-source-chunk-keys.ts';
 import { collectProjectStorageKeys } from '../retention.js';
 import { collectRecoverableProjectStorageKeys, compactRecoverableProjectMetadata, collectRecordingRecoveryRoots } from './recovery-retention-roots.ts';
 import {
@@ -307,6 +308,7 @@ export class RetentionRepository {
 			if (this.#options.sessionGuard?.hasOtherMemorySession()) {
 				for (const sourceId of candidates.keys()) protectedIds.add(sourceId);
 			}
+			const chunkKeys = createMemorySourceChunkKeyReader(this.#options.port.memory.sourceChunks);
 			for (const [sourceId, candidate] of candidates) {
 				if (protectedIds.has(sourceId)) continue;
 				const eligibleAt = candidateEligibleAt(candidate, maximumAge);
@@ -319,7 +321,7 @@ export class RetentionRepository {
 				if (candidate.source) deletedSources.push(candidate.source);
 				if (candidate.mediaAsset) deletedBinaryRecords.push(candidate.mediaAsset);
 				deletedBinaryRecords.push(...candidate.derivatives);
-				this.#deleteMemoryCandidate(sourceId, candidate.source, candidate.derivatives);
+				this.#deleteMemoryCandidate(sourceId, candidate.source, candidate.derivatives, chunkKeys);
 			}
 		} else {
 			const result = await deleteIndexedDbRetentionCandidates(database, this.#options.sessionGuard, {
@@ -376,6 +378,7 @@ export class RetentionRepository {
 		sourceId: string,
 		source: StorageRecord | null,
 		derivatives: readonly StorageRecord[],
+		chunkKeys: (token: unknown) => readonly string[],
 	): void {
 		const memory = this.#options.port.memory;
 		memory.sources.delete(sourceId);
@@ -384,10 +387,7 @@ export class RetentionRepository {
 			if (typeof derivative.key === 'string') memory.videoDerivatives.delete(derivative.key);
 		}
 		for (const prefix of SOURCE_ANALYSIS_CACHE_PREFIXES) memory.analysis.delete(`${prefix}${sourceId}`);
-		for (const [key, value] of memory.sourceChunks) {
-			const chunk = asRecord(value);
-			if (source?.sourceToken && chunk?.sourceToken === source.sourceToken) memory.sourceChunks.delete(key);
-		}
+		for (const key of chunkKeys(source?.sourceToken)) memory.sourceChunks.delete(key);
 	}
 
 

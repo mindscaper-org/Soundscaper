@@ -7,7 +7,9 @@ import {
 	sealDeliveryReport,
 } from './delivery-report.ts';
 import { DAWPROJECT_DELIVERY_FORMAT, clamp, entryBaseName } from './dawproject-format.ts';
-import type { DawprojectDocument } from './dawproject-import.ts';
+import { isAudioEditorProjectSampleRate, normalizeProjectSampleRate } from './project-sample-rate.ts';
+import type { DawprojectDocument, DawprojectTrack } from './dawproject-import.ts';
+import type { SourceProvenanceV1 } from './source-provenance.ts';
 import { buildSignatureMap, buildTempoMap } from './dawproject-import-maps.ts';
 import { dawprojectImportedClipFades } from './dawproject-import-fades.ts';
 import {
@@ -24,6 +26,7 @@ import {
 	createDawprojectTimeResolver,
 	flattenDawprojectArrangement,
 	type DawprojectAudioEvent,
+	type DawprojectFlattenedOmissions,
 } from './dawproject-import-timeline.ts';
 
 /**
@@ -57,6 +60,7 @@ export interface DawprojectImportOptions {
 	readonly createStableId: (prefix: string) => string;
 	/** IDs already committed while each archive entry was decoded. */
 	readonly stagedSourceIds?: ReadonlyMap<string, string>;
+	readonly sourceProvenance?: ReadonlyMap<string, SourceProvenanceV1>;
 	readonly sampleRate?: number;
 }
 
@@ -85,7 +89,7 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 	});
 	const build: Build = {
 		draft, sampleRate, createStableId: options.createStableId,
-		tracks: [], trackByDawId: new Map(), trackNodes: [], folders: [], groups: [], sends: [],
+		tracks: [], trackByDawId: new Map(), folderByDawId: new Map(), trackNodes: [], folders: [], groups: [], sends: [],
 		stripByChannelId: new Map(), busByChannelId: new Map(), nodeRoutes: [], parameters: new Map(), routes: new Map(), sendTaps: [], parentFolderIds: new Map(),
 		masterChannels: 2,
 		master: { id: 'master', name: 'Master', gain: 1, pan: 0, mute: false, solo: false, envelope: [] },
@@ -103,6 +107,7 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 	const media: DawprojectImportMediaBinding[] = [];
 	const sourceByPath = new Map<string, DataRecord>();
 	const missingPaths = new Set<string>();
+	const trackWidths = new Map<string, number>();
 	let disabledClips = 0;
 	for (const event of flattened.audio) {
 		if (!event.enabled) {
@@ -133,6 +138,8 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 		const newSource = !source;
 		if (!source) {
 			source = createSource(event, info, build, options.stagedSourceIds?.get(event.path));
+			const provenance = options.sourceProvenance?.get(event.path);
+			if (provenance) source.provenance = provenance;
 		}
 		const clip = createClip(event, info, source, build);
 		if (!clip) continue;
@@ -145,7 +152,10 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 		const track = trackForEvent(event, build, document);
 		track.clipIds.push(String(clip.id));
 		clips.push(clip);
+		// The regular native width is the maximum physical source width, as in audioTrackChannelCount.
+		trackWidths.set(track.id, Math.max(trackWidths.get(track.id) ?? 0, info.channelCount));
 	}
+	reportTrackChannelWidths(document.tracks, build, trackWidths);
 	applyAutomation(flattened.automation, build);
 	const annotations = createMarkers(flattened.markers, build);
 	reportOmissions(document, flattened.omitted, disabledClips, build);
@@ -172,6 +182,8 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 			album: document.metadata.album ?? '',
 			year: document.metadata.year ?? '',
 			comments: document.metadata.comment ?? '',
+			tags: Object.fromEntries((['originalArtist', 'composer', 'songwriter', 'producer', 'arranger', 'genre', 'copyright', 'website'] as const)
+				.flatMap(key => document.metadata[key] === undefined ? [] : [[key, document.metadata[key]]])),
 		},
 		sources,
 		clips,
@@ -212,14 +224,11 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 
 function chooseSampleRate(options: DawprojectImportOptions): number {
 	if (options.sampleRate !== undefined) {
-		if (!Number.isSafeInteger(options.sampleRate) || options.sampleRate <= 0) {
-			throw new RangeError('The import sample rate must be a positive integer.');
-		}
-		return options.sampleRate;
+		return normalizeProjectSampleRate(options.sampleRate);
 	}
 	const counts = new Map<number, number>();
 	for (const info of options.media.values()) {
-		if (info && Number.isSafeInteger(info.sampleRate) && info.sampleRate > 0) {
+		if (info && isAudioEditorProjectSampleRate(info.sampleRate)) {
 			counts.set(info.sampleRate, (counts.get(info.sampleRate) ?? 0) + 1);
 		}
 	}
@@ -236,9 +245,10 @@ function chooseSampleRate(options: DawprojectImportOptions): number {
 
 function createSource(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInfo, build: Build, stagedId?: string): DataRecord {
 	const id = stagedId ?? build.createStableId('source');
-	const name = entryBaseName(event.path) || id;
+	const originalName = entryBaseName(event.path) || id;
+	const name = event.mediaName?.trim() ? event.mediaName : originalName;
 	return {
-		id, name, mimeType: dawprojectImportedAudioMimeType(name), storageKey: id,
+		id, name, mimeType: dawprojectImportedAudioMimeType(originalName), storageKey: id,
 		frameCount: info.frameCount, channelCount: info.channelCount,
 		sampleRate: info.sampleRate, originalSampleRate: info.sampleRate,
 		sampleFormat: 'float32',
@@ -310,10 +320,9 @@ function createClip(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInf
 		});
 	}
 	const speed = (sourceDurationFrames * sampleRate / sourceRate) / durationFrames;
+	const naturalDurationFrames = Math.max(1, Math.round(sourceDurationFrames * sampleRate / sourceRate));
 	let speedRatio = 1;
-	if (Math.abs(speed - 1) < 1e-4) {
-		durationFrames = Math.max(1, Math.round(sourceDurationFrames * sampleRate / sourceRate));
-	} else {
+	if (durationFrames !== naturalDurationFrames) {
 		speedRatio = clamp(speed, 0.001, 1000);
 		addDeliveryReportItem(draft, {
 			code: 'dawproject.speed-change-converted', disposition: 'converted', severity: 'info',
@@ -345,7 +354,7 @@ function createClip(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInf
 	return {
 		id: clipId,
 		sourceId: String(source.id),
-		title: event.name || String(source.name),
+		title: event.name?.trim() ? event.name : event.mediaName?.trim() ? event.mediaName : String(source.name),
 		timelineStartFrame: startFrame,
 		sourceStartFrame,
 		sourceDurationFrames,
@@ -394,13 +403,39 @@ function createMarkers(markers: readonly Readonly<{ frame: number; name: string;
 	return annotations;
 }
 
+/** Regular native strip widths come from their sources, not a separately authored mixer width. */
+function reportTrackChannelWidths(
+	tracks: readonly DawprojectTrack[], build: Build, trackWidths: ReadonlyMap<string, number>,
+): void {
+	for (const declared of tracks) {
+		reportTrackChannelWidths(declared.children, build, trackWidths);
+		// Folder and bus widths retain their existing routing conversion policy.
+		if (declared.id === null || build.folderByDawId.has(declared.id)) continue;
+		const imported = build.trackByDawId.get(declared.id);
+		const declaredChannels = declared.channel?.audioChannels;
+		if (!imported?.clipIds.length || declaredChannels == null || declaredChannels < 1) continue;
+		const importedChannels = trackWidths.get(imported.id);
+		if (importedChannels === undefined || declaredChannels === importedChannels) continue;
+		addDeliveryReportItem(build.draft, {
+			code: 'dawproject.track-channel-width-converted', disposition: 'converted', severity: 'warning',
+			scope: { kind: 'track', id: imported.id }, data: { declaredChannels, importedChannels },
+			message: `Track "${imported.name}" declares a channel count of ${String(declaredChannels)}, but the imported count is ${String(importedChannels)}, derived from its retained audio sources. The authored mixer-channel width is not preserved.`,
+		});
+	}
+}
+
 function reportOmissions(
 	document: DawprojectDocument,
-	omitted: Readonly<{ notes: number; video: number; clipAutomation: number; unresolvedReferences: number; unsupportedContent: number }>,
+	omitted: DawprojectFlattenedOmissions,
 	disabledClips: number,
 	build: Build,
 ): void {
 	const { draft } = build;
+	if (omitted.loopedClips > 0) addDeliveryReportItem(draft, {
+		code: 'dawproject.clip-loops-converted', disposition: 'converted', severity: 'warning',
+		data: { clips: omitted.loopedClips },
+		message: 'Clip looping is not imported; only the first pass up to the authored loop end is retained.',
+	});
 	const items: [string, number, string][] = [
 		['dawproject.notes-omitted', omitted.notes, 'Note events have no instrument to play here and are not imported.'],
 		['dawproject.video-omitted', omitted.video, 'Video clips are not imported by the audio project importer.'],
@@ -427,6 +462,7 @@ export function dawprojectImportedAudioMimeType(name: string): string {
 		case 'ogg': case 'oga': return 'audio/ogg';
 		case 'opus': return 'audio/opus';
 		case 'm4a': case 'mp4': return 'audio/mp4';
+		case 'mov': return 'video/quicktime';
 		default: return 'audio/wav';
 	}
 }

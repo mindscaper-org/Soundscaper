@@ -51,20 +51,22 @@ export function validateSoundscaperRoutingFolderAuthority(
 	const baseline = record(project?.mixer);
 	if (!baseline) return true;
 	const authority = routingFolderAuthority(projectValue);
-	const baselineGroups = records(baseline.groups);
+	const baselineGroups = firstById(records(baseline.groups));
+	const candidateGroups = firstById(graph.groups);
 	for (const id of authority.ownedFolderIds) {
-		const previous = baselineGroups.find((group) => group.id === id);
+		const previous = baselineGroups.get(id);
 		if (!previous) continue;
-		const candidate = graph.groups.find((group) => group.id === id);
+		const candidate = candidateGroups.get(id);
 		if (!candidate || candidate.name !== previous.name || candidate.channelCount !== previous.channelCount) {
 			throw new TypeError(`Mixer group ${id} is managed by its track folder and cannot be edited in the routing graph.`);
 		}
 	}
-	const baselineEdges = records(baseline.edges);
+	const baselineEdges = firstById(records(baseline.edges));
+	const candidateEdges = firstById(graph.edges);
 	for (const id of authority.canonicalEdgeIds) {
-		const previous = baselineEdges.find((edge) => edge.id === id);
+		const previous = baselineEdges.get(id);
 		if (!previous) continue;
-		const candidate = graph.edges.find((edge) => edge.id === id);
+		const candidate = candidateEdges.get(id);
 		if (!candidate || routingEdgeAuthorityKey(candidate) !== routingEdgeAuthorityKey(previous)) {
 			throw new TypeError(`Mixer connection ${id} is managed by the track-folder hierarchy and cannot be edited in the routing graph.`);
 		}
@@ -122,9 +124,7 @@ function walkFolders(
 	result: Set<string>,
 ): void {
 	let folderId = start;
-	const seen = new Set<string>();
-	while (folderId !== null && !seen.has(folderId)) {
-		seen.add(folderId);
+	while (folderId !== null && !result.has(folderId)) {
 		result.add(folderId);
 		folderId = parents.get(folderId) ?? null;
 	}
@@ -152,4 +152,13 @@ function record(value: unknown): DataRecord | null {
 
 function records(value: unknown): DataRecord[] {
 	return Array.isArray(value) ? value.map(record).filter((entry): entry is DataRecord => entry !== null) : [];
+}
+
+function firstById<T extends Readonly<{ id?: unknown }>>(values: readonly T[]): ReadonlyMap<unknown, T> {
+	const result = new Map<unknown, T>();
+	for (const value of values) {
+		const id = value.id;
+		if (!result.has(id)) result.set(id, value);
+	}
+	return result;
 }

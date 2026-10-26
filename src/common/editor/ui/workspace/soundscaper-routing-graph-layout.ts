@@ -6,6 +6,7 @@ import {
 	type MixerGraphV21,
 	type MixerNodeKindV21,
 } from '../../mixer-graph-v21.ts';
+import { routingLayoutRanks } from './routing-layout-ranks.ts';
 import { resolveTerminalChannelWidths } from '../../terminal-channel-widths.ts';
 import { SOUNDSCAPER_ROUTING_GRAPH_COPY } from '../../../i18n/editor-soundscaper-routing-graph-copy.ts';
 import { resolveEditorCopyScope } from '../../../i18n/editor-copy-scope.ts';
@@ -101,14 +102,19 @@ export function layoutSoundscaperRoutingGraph(
 		label: output.name || output.id, detail: outputDetail(output.role, text),
 		channelCount: output.channelCount, semanticOrder: semanticOrder++, rail: 'audio', initialRank: 2,
 	});
-	for (const vca of graph.vcas) pending.push({
+	const controlById = new Map<string, PendingNode>();
+	for (const vca of graph.vcas) {
+		const node: PendingNode = {
 		key: `vca:${vca.id}`, id: vca.id, kind: 'vca', label: vca.name || vca.id,
 		detail: (vca.members.length === 1 ? text.memberCountOne : text.memberCountMany).replace('{count}', String(vca.members.length)),
 		channelCount: null, semanticOrder: semanticOrder++, rail: 'control', initialRank: 0,
-	});
+		};
+		pending.push(node);
+		if (!controlById.has(vca.id)) controlById.set(vca.id, node);
+	}
 
 	const audioKeys = new Set(pending.filter(({ rail }) => rail === 'audio').map(({ key }) => key));
-	const rank = new Map(pending.map((node) => [node.key, node.initialRank]));
+	const initialRank = new Map(pending.map((node) => [node.key, node.initialRank]));
 	const predecessors = new Map<string, string[]>();
 	for (const edge of graph.edges) {
 		if (!edge.enabled || edge.kind === 'sidechain') continue;
@@ -120,19 +126,7 @@ export function layoutSoundscaperRoutingGraph(
 		entries.push(source);
 		predecessors.set(destination, entries);
 	}
-	// Validation guarantees the enabled routing graph is acyclic. Bounded relaxation
-	// therefore produces stable left-to-right ranks without persisting presentation state.
-	for (let pass = 0; pass < pending.length; pass += 1) {
-		let changed = false;
-		for (const [destination, sources] of predecessors) for (const source of sources) {
-			const candidate = (rank.get(source) ?? 0) + 1;
-			if (candidate > (rank.get(destination) ?? 0)) {
-				rank.set(destination, candidate);
-				changed = true;
-			}
-		}
-		if (!changed) break;
-	}
+	const rank = routingLayoutRanks(initialRank, predecessors, pending.length);
 
 	const byRank = new Map<number, PendingNode[]>();
 	for (const node of pending.filter(({ rail }) => rail === 'audio')) {
@@ -142,20 +136,18 @@ export function layoutSoundscaperRoutingGraph(
 		byRank.set(nodeRank, entries);
 	}
 	const orderIndex = new Map(pending.map((node) => [node.key, node.semanticOrder]));
-	for (const [nodeRank, entries] of [...byRank].sort(([left], [right]) => left - right)) {
+	const orderedRanks = [...byRank].sort(([left], [right]) => left - right);
+	for (const [nodeRank, entries] of orderedRanks) {
 		if (nodeRank === 0) continue;
-		entries.sort((left, right) => {
-			const leftMedian = median((predecessors.get(left.key) ?? []).map((key) => orderIndex.get(key) ?? 0));
-			const rightMedian = median((predecessors.get(right.key) ?? []).map((key) => orderIndex.get(key) ?? 0));
-			return leftMedian - rightMedian || left.semanticOrder - right.semanticOrder;
-		});
+		const medians = new Map(entries.map(node => [node.key, median((predecessors.get(node.key) ?? []).map(key => orderIndex.get(key) ?? 0))]));
+		entries.sort((left, right) => medians.get(left.key)! - medians.get(right.key)! || left.semanticOrder - right.semanticOrder);
 		entries.forEach((node, index) => orderIndex.set(node.key, index));
 	}
 
 	const hasControlRail = graph.vcas.length > 0;
 	const audioY = hasControlRail ? CONTROL_Y + CARD_HEIGHT + 66 : GRAPH_PADDING;
 	const positioned: RoutingLayoutNode[] = [];
-	for (const [nodeRank, entries] of [...byRank].sort(([left], [right]) => left - right)) {
+	for (const [nodeRank, entries] of orderedRanks) {
 		entries.forEach((node, row) => positioned.push(positionedNode(
 			node, nodeRank,
 			GRAPH_PADDING + nodeRank * (CARD_WIDTH + COLUMN_GAP),
@@ -163,7 +155,7 @@ export function layoutSoundscaperRoutingGraph(
 		)));
 	}
 	graph.vcas.forEach((vca, index) => {
-		const node = pending.find(({ key }) => key === `vca:${vca.id}`)!;
+		const node = controlById.get(vca.id)!;
 		positioned.push(positionedNode(
 			node, 0, GRAPH_PADDING + index * (CARD_WIDTH + 18), CONTROL_Y,
 		));

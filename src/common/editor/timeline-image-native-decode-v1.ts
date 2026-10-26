@@ -5,6 +5,7 @@ import { admitImageDecodeWorkload, IMAGE_IMPORT_LIMITS } from './image-import-ad
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
 import { routeImageDecoder } from './image-decoder-routing.ts';
 import { snapshotCanonicalRgba8V1 } from './imaging/pixel-frame-canonical-rgba8-v1.ts';
+import { assertBrowserNativeImageResources } from './browser-image-resource-admission.ts';
 import { assertBrowserNativeImagePrecision } from './browser-image-precision-admission.ts';
 import {
 	createFramescaperImageFramePackWithWarningsV1,
@@ -82,6 +83,7 @@ export async function decodeFramescaperBrowserNativeImageV1(
 	assertBrowserNativeImagePrecision(request.bytes, classification.format);
 	const maximumFileInputBytes = await confirmFileSizeWarning(request.bytes.byteLength,
 		request.maximumFileInputBytes ?? IMAGE_IMPORT_LIMITS.maximumFileInputBytes, request.fileName, request);
+	assertBrowserNativeImageResources(request.bytes, classification.format);
 	let session: FramescaperBrowserNativeImageDecodeSessionV1 | null = null;
 	try {
 		session = await request.open({

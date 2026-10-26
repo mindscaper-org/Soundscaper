@@ -44,7 +44,7 @@ export function buildTempoMap(document: DawprojectDocument, draft: Draft): HoldT
 			for (const point of childElements(automation, 'RealPoint')) {
 				const beat = numberAttribute(point, 'time');
 				const bpm = numberAttribute(point, 'value');
-				if (beat === null || bpm === null || beat < 0 || !Number.isFinite(bpm)) continue;
+				if (beat === null || bpm === null || !Number.isFinite(bpm)) continue;
 				if (attribute(point, 'interpolation') === 'linear') ramps += 1;
 				points.push({ beat, bpm });
 			}
@@ -59,7 +59,7 @@ export function buildTempoMap(document: DawprojectDocument, draft: Draft): HoldT
 		if (bounded !== bpm) clamped += 1;
 		events.push({ id: `tempo-${String(index)}`, beat: rationalFromDouble(beat), bpm: rationalFromDouble(bounded) });
 	};
-	push(0, finalPoints[0]?.beat === 0 ? finalPoints[0].bpm : rootBpm, 1);
+	push(0, finalPoints.filter(point => point.beat <= 0).at(-1)?.bpm ?? rootBpm, 1);
 	for (const point of finalPoints) {
 		if (point.beat <= (events.at(-1)?.beat.num ?? 0) / (events.at(-1)?.beat.den ?? 1)) continue;
 		push(point.beat, point.bpm, events.length + 1);

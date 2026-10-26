@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { collectProjectStorageKeys, compactProjectSourceMetadata } from '../retention.js';
-import { serializeScapeProjectDocument } from '../scape-project-document.ts';
+import { sameSerializedScapeProjectDocument } from '../scape-project-document.ts';
 import { request, transact } from './indexeddb-backend.ts';
 import { publishSource } from './media-records.ts';
 import { ProjectCommittedMaintenanceError } from './project-committed-maintenance-error.ts';
@@ -262,7 +262,7 @@ function canonicalProject(value: ProjectDocument): ProjectDocument {
 }
 
 function sameProject(left: unknown, right: ProjectDocument): boolean {
-	return Boolean(left) && serializeScapeProjectDocument(left) === serializeScapeProjectDocument(right);
+	return Boolean(left) && sameSerializedScapeProjectDocument(left, right);
 }
 
 function revisionNumber(value: unknown): number {

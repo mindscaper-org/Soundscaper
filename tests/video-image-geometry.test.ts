@@ -7,17 +7,17 @@ import { IMAGE_GEOMETRY_VIDEO_EFFECT_TYPE_V1, IMAGE_GEOMETRY_VIDEO_EFFECT_DEFINI
 import { createVideoEffect, VIDEO_EFFECT_TYPES, VIDEO_EFFECT_V5_TYPES, normalizeVideoEffect } from '../src/common/editor/video-effects.js';
 import { videoEffectPasses, EFFECT_CODES, EFFECT_PROGRAM_COUNT } from '../src/common/editor/ui/video-preview-effects.js';
 import { bindImageGeometryVideoUniformsV1 } from '../src/common/editor/ui/video-preview-image-geometry-v1.ts';
-import { VIDEO_EFFECT_COPY_BY_LOCALE } from '../src/common/i18n/video-effect-copy.js';
+import { resolveCatalog } from '../src/common/i18n/runtime.js';
 import { defaultPhotoDevelopV1, normalizePhotoDevelopV1 } from '../src/lightscaper/catalog/develop-state.ts';
 import { withGeometryPixelFrameV1 } from '../src/common/editor/imaging/pixel-frame-geometry-v1.ts';
 
-test('the versioned geometry effect is a menu-authorable numeric recipe with owning EN/DE controls', () => {
+test('the versioned geometry effect is a menu-authorable numeric recipe with owning EN/DE controls', async () => {
 	assert.deepEqual(VIDEO_EFFECT_TYPES.filter(type => type === IMAGE_GEOMETRY_VIDEO_EFFECT_TYPE_V1), [IMAGE_GEOMETRY_VIDEO_EFFECT_TYPE_V1]);
 	assert.equal(EFFECT_CODES[IMAGE_GEOMETRY_VIDEO_EFFECT_TYPE_V1], 20);
 	assert.deepEqual(Object.entries(EFFECT_CODES).filter(([, code]) => code === 20).map(([type]) => type), [IMAGE_GEOMETRY_VIDEO_EFFECT_TYPE_V1]);
 	assert.ok(EFFECT_PROGRAM_COUNT > 20, 'The owning geometry program remains linked when other effects are added.');
 	assert.throws(() => normalizeVideoEffect(createVideoEffect(IMAGE_GEOMETRY_VIDEO_EFFECT_TYPE_V1), 'old', { allowedTypes: VIDEO_EFFECT_V5_TYPES }), /not supported/u);
-	for (const copy of [VIDEO_EFFECT_COPY_BY_LOCALE.en, VIDEO_EFFECT_COPY_BY_LOCALE.de]) {
+	for (const copy of await Promise.all([resolveCatalog('en'), resolveCatalog('de')])) {
 		const messages: Readonly<Record<string, string>> = copy;
 		assert.ok(copy[IMAGE_GEOMETRY_VIDEO_EFFECT_DEFINITION_V1.labelKey]);
 		for (const parameter of Object.values(IMAGE_GEOMETRY_VIDEO_EFFECT_DEFINITION_V1.params)) assert.ok(messages[parameter.labelKey]);

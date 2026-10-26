@@ -387,6 +387,7 @@ export function AudioTrackRow({
 						halfWave={halfWave}
 						verticalZoom={waveformZoom}
 						waveformRulerFormat={waveformRulerFormat}
+						waveformRenderer={waveformDisplay?.renderer ?? 'canvas'}
 						channelHeightRatio={displayChannelHeightRatio}
 						spectrogramOptions={spectrogramOptions}
 					/>

@@ -12,14 +12,13 @@ interface PcmBuffer { readonly channels: Float32Array[]; }
 for (const native of [false, true]) test(`${native ? 'source' : 'mixed timeline'} macro stages its control beside rewritten PCM`, async () => {
 	const sampleRate = native ? 24_000 : 48_000;
 	const input = new Float32Array(sampleRate * 2).fill(0.35);
-	const control = new Float32Array(input.length).fill(0.35);
 	const target = { track: { id: native ? 'source-editor:music' : 'music-track' },
 		startFrame: sampleRate, endFrame: sampleRate * 3, channelCount: 1 };
 	const reads: Array<readonly [string, number, number]> = [];
 	const runner = createEffectMacroChainRunner<PcmBuffer>({
 		sampleRate, copy: { autoDuckControlTrack: 'Missing control', effectInvalidAudio: 'Invalid audio', noiseProfileMissing: 'Missing profile' },
 		assertCurrent() {}, projectFrameCount: () => sampleRate * 4,
-		renderDryRange: async (id, start, end) => { reads.push([id, start, end]); return [control]; },
+		renderDryRange: async (id, start, end) => { reads.push([id, start, end]); return [new Float32Array(end - start).fill(.35)]; },
 		runSelectionEffect: async (request) => ({ channels: applyAudacityEffect(request.effectType,
 			[...request.channels], request.sampleRate, request.params) }),
 		createAudioBuffer: async (channels) => ({ channels: [...channels] }),
@@ -53,7 +52,7 @@ for (const native of [false, true]) test(`${native ? 'source' : 'mixed timeline'
 			};
 			assert.equal(project.sampleRate, sampleRate);
 			return { channels: applyAudacityEffect(effect.type, read(track.clipIds?.[0]), sampleRate,
-				effect.params, { controlChannels: read(controlTrack.clipIds?.[0]) }) };
+				effect.params, { controlChannels: read(controlTrack.clipIds?.[0]) }).map(channel => channel.slice(Number(range.startFrame), Number(range.endFrame))) };
 		},
 		audioBufferChannels: buffer => buffer.channels,
 		matchSelectionChannels: channels => [...channels],
@@ -63,7 +62,7 @@ for (const native of [false, true]) test(`${native ? 'source' : 'mixed timeline'
 		{ id: 'duck', type: 'audacity-auto-duck', params: {}, context: { controlTrackId: 'voice-track' } },
 	];
 	const actual = await runner.runSegments(planEffectMacroChain(steps), [input], target);
-	assert.deepEqual(reads, [['voice-track', sampleRate, sampleRate * 3]]);
+	assert.deepEqual(reads, [[target.track.id, 0, sampleRate], ['voice-track', 0, sampleRate * 3]]);
 	assert.equal(actual[0]!.length, input.length);
 	assert.ok(Math.abs(actual[0]![Math.round(sampleRate * 0.75)]!) < 0.1);
 });

@@ -18,8 +18,8 @@ for (const fail of [false, true]) test(`MP57 ancillary: Clear Data ${fail ? 'fai
 	const started = new Promise<void>(resolve => { entered = resolve; });
 	context.after(async () => { release(); await controller.dispose(); }); await controller.ready;
 	const key = 'audio-editor-delivery-presets-v1';
-	const put = store.saveSetting.bind(store);
-	store.saveSetting = async (id, value) => { if (id === key) { entered(); await gate; } return put(id, value); };
+	const put = store.settingsRepository.putIfAbsent.bind(store.settingsRepository);
+	store.settingsRepository.putIfAbsent = async (id, value) => { if (id === key) { entered(); await gate; } return await put(id, value); };
 	if (fail) store.clear = async () => { throw new Error('Reset refused'); };
 	const initial = controller.actions.export.presets.save({ label: 'Private delivery', kind: 'audio', format: 'wav' });
 	await started;

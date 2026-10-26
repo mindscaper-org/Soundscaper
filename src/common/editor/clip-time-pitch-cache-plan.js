@@ -20,6 +20,7 @@ import {
 	pitchCentsToRatio,
 	staffPadTransformOutputFrames,
 } from './staffpad/index.js';
+import { describeClipTimePitchWorkingClock, CLIP_TIME_PITCH_RESAMPLER_REVISION } from './clip-time-pitch-working-clock.ts';
 import { cacheError } from './clip-time-pitch-cache-errors.js';
 import { stableSerialize } from './clip-time-pitch-cache-values.ts';
 import {
@@ -68,8 +69,8 @@ export function describeClipTimePitchRender(clip, source, options = {}) {
 		throw cacheError('INVALID_SOURCE_RANGE', 'The clip source range extends beyond its immutable source.');
 	}
 	const channelCount = integerRange(source.channelCount, 1, 2, 'source.channelCount');
-	const sampleRate = integerRange(
-		options.sampleRate ?? source.sampleRate,
+	const sourceSampleRate = integerRange(
+		source.sampleRate,
 		8_000,
 		192_000,
 		'sampleRate',
@@ -91,8 +92,10 @@ export function describeClipTimePitchRender(clip, source, options = {}) {
 		options.algorithmRevision ?? CLIP_TIME_PITCH_CACHE_ALGORITHM_REVISION,
 		'algorithmRevision',
 	);
+	const programmeRate = clip.warpMap == null && !clip.linkPitchAndTempo ? options.projectSampleRate ?? options.sampleRate : undefined;
+	const clock = describeClipTimePitchWorkingClock(sourceSampleRate, programmeRate, pitchCents, sourceDurationFrames);
 	const speedStages = decomposeSpeedRatio(speedRatio);
-	let inputFrames = sourceDurationFrames;
+	let inputFrames = clock.resampledInputFrames ?? sourceDurationFrames;
 	const stages = speedStages.map((tempoRatio, index) => {
 		const stagePitchCents = index === 0 ? pitchCents : 0;
 		const transform = normalizeStaffPadTransform({
@@ -144,7 +147,8 @@ export function describeClipTimePitchRender(clip, source, options = {}) {
 		sourceFrameCount,
 		sourceRange: Object.freeze({ startFrame: sourceStartFrame, frameCount: sourceDurationFrames }),
 		channelCount,
-		sampleRate,
+		sourceSampleRate,
+		...clock,
 		direction,
 		pitchCents,
 		speedRatio,
@@ -160,7 +164,7 @@ export function describeClipTimePitchRender(clip, source, options = {}) {
 			storageKey: nonEmptyString(source.storageKey || sourceId, 'source.storageKey'),
 			frameCount: sourceFrameCount,
 			channelCount,
-			sampleRate,
+			sampleRate: sourceSampleRate,
 			sampleFormat: String(source.sampleFormat || 'float32'),
 			revision: sourceRevision(source),
 			...(options.sourceContentSha256 ? { contentSha256: options.sourceContentSha256 } : {}),
@@ -185,6 +189,10 @@ export async function deriveClipTimePitchCachePlan(clip, source, options = {}) {
 					source: description.sourceIdentity,
 					range: description.sourceRange,
 					direction: description.direction,
+					...(description.resampledInputFrames === undefined ? {} : { resampling: {
+						revision: CLIP_TIME_PITCH_RESAMPLER_REVISION, inputSampleRate: description.sourceSampleRate,
+						outputFrames: description.resampledInputFrames,
+					} }),
 				})
 				: Object.freeze({
 					cacheKey: priorKey,

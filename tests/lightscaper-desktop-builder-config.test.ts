@@ -93,7 +93,7 @@ test('Lightscaper icons resolve under the effective build resources directory', 
 	const config = readConfiguration('lightscaper');
 	assert.equal(config.directories.app, '.desktop-build/app');
 	assert.equal(config.directories.buildResources, '.desktop-build/icons');
-	assert.equal(config.win.icon, 'icon.png');
+	assert.equal(config.win.icon, 'icon.ico');
 	assert.equal(config.mac.icon, 'icon.png');
 	assert.equal(config.linux.icon, 'linux');
 });

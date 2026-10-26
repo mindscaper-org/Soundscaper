@@ -494,7 +494,7 @@ function multiplySafeIntegers(left, right, name) {
 	return left * right;
 }
 
-function resolveExportRange(project, requestedRange) {
+export function resolveExportRange(project, requestedRange) {
 	if (requestedRange === 'project') return normalizeFrameRange(0, projectDurationFrames(project), 'export range');
 	if (requestedRange === 'selection') {
 		return normalizeFrameRange(project.selection.startFrame, project.selection.endFrame, 'export selection');

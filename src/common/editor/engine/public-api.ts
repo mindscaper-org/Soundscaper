@@ -258,6 +258,7 @@ export interface EnginePublicApi {
 	subscribePlaybackErrors(listener: (error: unknown) => void): () => boolean | void;
 	subscribeParametricEqErrors(listener: (error: unknown) => void): () => boolean | void;
 	previewScheduledParameter(address: unknown, value: number): boolean;
+	restoreScheduledAutomationLane(lane: unknown): boolean;
 	configureRackEffect(scope: EngineEffectScope, targetId: unknown, effectId: string, params: UnknownRecord, options?: EngineEffectMessageOptions): number | false;
 	configureParametricEq(scope: EngineEffectScope, targetId: unknown, effectId: string, params: UnknownRecord, options?: EngineEffectMessageOptions): number | false;
 	auditionParametricEq(scope: EngineEffectScope, targetId: unknown, effectId: string, bandId?: string | null): number | false;

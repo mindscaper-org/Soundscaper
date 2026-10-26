@@ -27,8 +27,8 @@ export const TRANSLATION_CATALOG_DIRECTORY = fileURLToPath(new URL('../../src/co
 export const TRANSLATION_CATALOG_INDEX_FILE = 'index.js';
 export { AUTOMATIC_ORIGINS, TRANSLATION_ORIGINS };
 
-/** Locales the bundled human catalogs already cover completely, or that are English. */
-const HUMAN_CATALOG_LANGUAGES = new Set(['en', 'de']);
+/** English source locales do not need automatic translation. */
+const HUMAN_CATALOG_LANGUAGES = new Set(['en']);
 const MACHINE_PROVENANCE_FIELDS = Object.freeze(['model', 'modelDigest', 'promptVersion']);
 const AUDACITY_PROVENANCE_FIELDS = Object.freeze([
 	'repository', 'headSha', 'runId', 'artifactId', 'workflowUrl', 'archiveName', 'archiveSha256', 'archiveByteLength',

@@ -7,6 +7,11 @@ on:
         description: Verified native source-cache artifact from this workflow run
         required: true
         type: string
+      assistance-runtime-handoff-artifact-prefix:
+        description: Same-run AI handoff prefix; standalone self-tests use committed runtime snapshots
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -88,24 +93,38 @@ jobs:
         run: node --import tsx --test tests/desktop-assistance-gpu-cmake.test.ts tests/desktop-assistance-sherpa-cmake.test.ts tests/desktop-assistance-vulkan-cmake.test.ts tests/desktop-assistance-build-process.test.ts
       - name: Verify durable native manifest staging
         run: node --import tsx --test tests/soundscaper-professional-native-manifest-sync.test.ts
-      - name: Install pinned uv for the Kokoro G2P helper
-        uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
-        with:
-          version: '0.12.5'
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ inputs.source-cache-artifact }}
           path: ${{ runner.temp }}/soundscaper-native-sources
-      - name: Install local-model build tools
-        if: runner.os == 'Linux'
-        timeout-minutes: 10
-        run: bash scripts/ci-apt-install.sh build-essential cmake pkg-config python3
+      - name: Download the source-bound AI runtime handoff
+        if: inputs.assistance-runtime-handoff-artifact-prefix != ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ inputs.assistance-runtime-handoff-artifact-prefix }}-${{ matrix.platform }}-${{ matrix.arch }}
+          path: ${{ github.workspace }}/.native-build/assistance-runtime-handoff
+
+      - name: Download the authenticated AI runtime archives
+        if: inputs.assistance-runtime-handoff-artifact-prefix != ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: assistance-runtime-archives-${{ matrix.platform }}-${{ matrix.arch }}
+          path: ${{ github.workspace }}/.native-build/assistance-runtime-handoff-cache
+
+      - name: Stage the pinned AI runtime handoff for standalone self-tests
+        if: inputs.assistance-runtime-handoff-artifact-prefix == ''
+        run: node scripts/stage-desktop-test-runtime-snapshot.mjs
+        env:
+          SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ matrix.platform }}
+          SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.arch }}
 
       - name: Build a non-publishable Electron self-test harness
         shell: bash
         env:
           SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ matrix.platform }}
           SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.arch }}
+          SOUNDSCAPER_SOURCE_REVISION: ${{ github.sha }}
+          SOUNDSCAPER_ASSISTANCE_RUNTIME_HANDOFF_ROOT: ${{ github.workspace }}/.native-build/assistance-runtime-handoff
           SOUNDSCAPER_NATIVE_HARNESS_PREPARATION: 'true'
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: |

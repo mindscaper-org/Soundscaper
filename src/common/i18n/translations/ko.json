@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "ko",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:5001f0d6fb1d3fa49753f9754f66b1408c2be8ee9caa455df6520d4c6ae81505","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:7200962c88dd7eaba93b5967dddfeb89ccd19763687437bcfd150546ba1c97a9","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -519,6 +519,7 @@
 		"clipMediaSettings": ["machine","Media settings","미디어 설정"],
 		"clipMixed": ["machine","Mixed","혼합"],
 		"clipName": ["machine","Clip name","클립 이름"],
+		"clipNormalizationUnmeasurable": ["machine","Loudness could not be measured for this clip. Choose a longer audible clip or use peak normalization.","이 클립의 라우드니스를 측정할 수 없습니다. 소리가 들리는 더 긴 클립을 선택하거나 피크 정규화를 사용하세요."],
 		"clipPitchAndSpeed": ["machine","Pitch & speed","피치 및 속도"],
 		"clipPitchField": ["machine","Pitch","피치"],
 		"clipPitchIndicator": ["machine","Clip pitch","클립 피치"],
@@ -1792,7 +1793,7 @@
 		"missingEffectLabel": ["machine","Missing: {name}","누락됨: {name}"],
 		"missingEffectReadOnly": ["machine","This effect is not installed. Local playback bypasses it while preserving its name, order, and activation state for other compatible programs.","이 효과는 설치되지 않았습니다. 지역 재생 시 우회되며, 이름, 순서 및 활성화 상태는 다른 호환 가능한 프로그램에 유지됩니다."],
 		"missingEffectUnknown": ["machine","Unknown effect","알 수 없는 효과"],
-		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Playback, analysis, and export are blocked until affected clips are removed.","일부 지역 오디오 소스가 누락되었습니다. 재생, 분석 및 내보내기가 영향을 받는 클립이 제거될 때까지 차단됩니다."],
+		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Operations that require them are blocked until affected clips are relinked or removed.","일부 로컬 오디오 소스를 찾을 수 없습니다. 해당 클립을 다시 연결하거나 제거할 때까지 이 소스가 필요한 작업이 차단됩니다."],
 		"missingSourcesPreventSave": ["machine","Missing audio sources prevent saving.","누락된 오디오 소스로 인해 저장이 방지됩니다."],
 		"mix": ["machine","Stereo mix","스테레오 믹스"],
 		"mixDown": ["machine","Mix down","믹스 다운"],
@@ -1840,6 +1841,7 @@
 		"mp3VariableBest": ["machine","220-260 kbps (Best Quality)","220-260 kbps (최고 품질)"],
 		"mp3VariableSmallest": ["machine","45-85 kbps (Smaller files)","45-85 kbps (더 작은 파일)"],
 		"multicamera": ["machine","Multicamera","다중 카메라"],
+		"multipleLegacyAupProjects": ["machine","Choose one legacy Audacity project (.aup) and its data files per import.","가져오기 한 번에 이전 형식의 Audacity 프로젝트 (.aup) 하나와 해당 데이터 파일을 선택하세요."],
 		"multiview": ["machine","Multi-view","다중 보기"],
 		"musicalAnchor": ["machine","Musically anchored","음악적으로 고정"],
 		"musicalTimeline": ["machine","Musical timeline","음악 타임라인"],
@@ -4459,6 +4461,9 @@
 		"waveformLogarithmicDb": ["machine","Logarithmic dB","로그 dB"],
 		"waveformLowMidCrossover": ["machine","Low/mid crossover (Hz)","저음/중음 교차 주파수 (Hz)"],
 		"waveformMidHighCrossover": ["machine","Mid/high crossover (Hz)","중음/고음 교차 주파수 (Hz)"],
+		"waveformRenderer": ["machine","Waveform renderer","파형 렌더러"],
+		"waveformRendererCanvas": ["machine","Canvas","Canvas"],
+		"waveformRendererGpu": ["machine","GPU (Canvas fallback)","GPU(Canvas 대체 사용)"],
 		"waveformRulerFormat": ["machine","Ruler format","눈금자 형식"],
 		"waveformSettings": ["machine","Waveform settings","파형 설정"],
 		"waveformShowRms": ["machine","Show RMS","RMS 표시"],

@@ -23,7 +23,7 @@ export interface XmlElement {
 	readonly name: string;
 	readonly attributes: Readonly<Record<string, string>>;
 	readonly children: readonly XmlElement[];
-	/** Concatenated character data, trimmed; element content only. */
+	/** Concatenated character data; trimmed unless parsing opts into exact text. */
 	readonly text: string;
 }
 
@@ -91,12 +91,14 @@ export function formatXmlNumber(value: number): string {
 
 export function serializeXmlDocument(root: XmlElement): string {
 	const lines: string[] = [XML_DECLARATION];
-	serializeInto(root, 0, lines);
+	serializeInto(root, 0, lines, ['']);
 	return `${lines.join('\n')}\n`;
 }
 
-function serializeInto(element: XmlElement, depth: number, lines: string[]): void {
-	const indent = '  '.repeat(depth);
+function serializeInto(element: XmlElement, depth: number, lines: string[], indents: string[]): void {
+	// One serialization owns at most 65 strings (4,160 combined characters).
+	const indent = depth <= DAWPROJECT_XML_LIMITS.maximumDepth
+		? indents[depth] ?? (indents[depth] = '  '.repeat(depth)) : '  '.repeat(depth);
 	const attributes = Object.entries(element.attributes)
 		.map(([key, value]) => ` ${key}="${escapeXml(value).replaceAll('\t', '&#9;').replaceAll('\n', '&#10;')}"`)
 		.join('');
@@ -107,21 +109,24 @@ function serializeInto(element: XmlElement, depth: number, lines: string[]): voi
 		return;
 	}
 	lines.push(`${indent}<${element.name}${attributes}>`);
-	for (const child of element.children) serializeInto(child, depth + 1, lines);
+	for (const child of element.children) serializeInto(child, depth + 1, lines, indents);
 	lines.push(`${indent}</${element.name}>`);
 }
 
 /** Escape for both attribute and element content; strip characters XML 1.0 cannot carry. */
 export function escapeXml(value: string): string {
-	return value
-		// XML 1.0 cannot carry these code points at all; the rule guards against typos, this is the point.
-		// eslint-disable-next-line no-control-regex
-		.replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/gu, '')
-		.replaceAll('&', '&amp;')
-		.replaceAll('<', '&lt;')
-		.replaceAll('>', '&gt;')
-		.replaceAll('"', '&quot;')
-		.replaceAll('\r', '&#13;');
+	// Under /u, valid surrogate pairs remain whole; lone surrogates are removed.
+	// eslint-disable-next-line no-control-regex
+	return value.replace(/[&<>"\r\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/gu, (character) => {
+		switch (character) {
+			case '&': return '&amp;';
+			case '<': return '&lt;';
+			case '>': return '&gt;';
+			case '"': return '&quot;';
+			case '\r': return '&#13;';
+			default: return '';
+		}
+	});
 }
 
 interface OpenElement {
@@ -132,7 +137,8 @@ interface OpenElement {
 	text: string[];
 }
 
-export function parseXmlDocument(text: string, limits: XmlParseLimits = DAWPROJECT_XML_LIMITS): XmlElement {
+export function parseXmlDocument(text: string, limits: XmlParseLimits = DAWPROJECT_XML_LIMITS,
+	options: Readonly<{ preserveTextWhitespace?: boolean; allowedSimpleDoctype?: string }> = {}): XmlElement {
 	if (typeof text !== 'string') throw new TypeError('An XML document must be a string.');
 	if (utf8ByteLength(text) > limits.maximumBytes) {
 		throw new RangeError(`The XML document exceeds the ${String(limits.maximumBytes)}-byte limit.`);
@@ -146,6 +152,11 @@ export function parseXmlDocument(text: string, limits: XmlParseLimits = DAWPROJE
 		failure ??= error;
 	};
 	parser.on('error', (error) => { fail(error instanceof Error ? error : new Error(String(error))); });
+	parser.on('doctype', (value) => {
+		if (options.allowedSimpleDoctype !== undefined && value.trim() !== options.allowedSimpleDoctype) {
+			fail(new SyntaxError('The XML document contains an unsupported doctype or entity declaration.'));
+		}
+	});
 	parser.on('opentag', (tag) => {
 		if (failure) return;
 		elements += 1;
@@ -186,7 +197,7 @@ export function parseXmlDocument(text: string, limits: XmlParseLimits = DAWPROJE
 			name: open.name,
 			attributes: Object.freeze(open.attributes),
 			children: Object.freeze(open.children),
-			text: open.text.join('').trim(),
+			text: options.preserveTextWhitespace ? open.text.join('') : open.text.join('').trim(),
 		});
 		const parent = stack.at(-1);
 		if (parent) parent.children.push(element);

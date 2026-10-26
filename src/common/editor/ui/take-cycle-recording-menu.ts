@@ -48,9 +48,15 @@ export function selectTakeCycleStartAdmission(snapshot: DataRecord): Readonly<Ta
 	if (!armed.length || armed.some(({ locked }) => locked === true)) return blocked('tracks');
 	const routes = dataRecord(inputs?.routes);
 	const sequences = dataRecords(project.sequences);
+	const sequenceCountByTrack = new Map<unknown, number>();
+	if (routes) for (const sequence of sequences) {
+		const trackIds = sequence.trackIds;
+		if (!Array.isArray(trackIds)) continue;
+		for (const id of new Set(trackIds)) sequenceCountByTrack.set(id, (sequenceCountByTrack.get(id) ?? 0) + 1);
+	}
 	const routed = routes && armed.every(({ id }) => typeof id === 'string'
 		&& dataRecord(routes[id]) !== null
-		&& sequences.filter(({ trackIds }) => Array.isArray(trackIds) && trackIds.includes(id)).length === 1);
+		&& sequenceCountByTrack.get(id) === 1);
 	return routed ? Object.freeze({ allowed: true, reason: null }) : blocked('routing');
 }
 

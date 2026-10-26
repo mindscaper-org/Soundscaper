@@ -1,24 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 export const MUSICAL_TIMELINE_COPY_BY_LOCALE = Object.freeze({
-	de: Object.freeze({
-		musicalTimeline: 'Musikalische Zeitleiste',
-		tempoMapMode: 'Tempoverankerung',
-		tempoMusicalAnchor: 'Musikalisch',
-		sampleLockedAnchor: 'Samplegebunden',
-		tempoEvents: 'Tempoereignisse',
-		signatureEvents: 'Taktart-Ereignisse',
-		addTempoEvent: 'Tempoereignis hinzufügen',
-		addSignatureEvent: 'Taktart-Ereignis hinzufügen',
-		tempoEvent: 'Tempoereignis',
-		signatureEvent: 'Taktart-Ereignis',
-		samplePosition: 'Sampleposition',
-		beatPosition: 'Beat-Position',
-		tempoBpm: 'Tempo (BPM)',
-		removeTempoEvent: 'Tempoereignis entfernen',
-		removeSignatureEvent: 'Taktart-Ereignis entfernen',
-		barPosition: 'Taktposition',
-	}),
 	en: Object.freeze({
 		musicalTimeline: 'Musical timeline',
 		tempoMapMode: 'Tempo anchoring',

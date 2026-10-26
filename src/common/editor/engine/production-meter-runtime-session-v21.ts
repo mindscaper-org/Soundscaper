@@ -71,6 +71,7 @@ export function sampleProductionMeterSessionV21(
 	project: unknown,
 	banks: ReadonlyMap<string, StripMeterAnalyserBankV21> | null | undefined,
 	masterLoudness: unknown,
+	demand: ReadonlySet<string> | null = null,
 ): ProductionMeterRuntimeSnapshotV21 {
 	const session = sessionFor(owner, project);
 	const parallel = parallelSessions.get(owner);
@@ -81,7 +82,7 @@ export function sampleProductionMeterSessionV21(
 			parallel.banks = banks;
 		}
 		if (!parallel.client.busy()) {
-			const scheduled = scheduledBanks(session, banks);
+			const scheduled = scheduledBanks(session, banks, demand);
 			if (scheduled.length) parallel.client.submit(scheduled.map((bank) => ({
 				strip: bank.strip,
 				channelLabels: bank.channelLabels,
@@ -89,14 +90,14 @@ export function sampleProductionMeterSessionV21(
 			})));
 		}
 		const loudness = session.loudnessHistory.push(masterLoudness);
-		return Object.freeze({ productionMeters: parallel.client.snapshot(),
+		return Object.freeze({ productionMeters: demandedSnapshots(parallel.client.snapshot(), demand, banks),
 			...(loudness ? { productionLoudnessHistory: loudness } : {}) });
 	}
 	if (parallel) {
 		parallel.client.dispose();
 		parallelSessions.delete(owner);
 	}
-	const scheduled = scheduledBanks(session, banks);
+	const scheduled = scheduledBanks(session, banks, demand);
 	for (const bank of scheduled) {
 		session.meterStore.update(bank.strip, {
 			channels: bank.analysers.map(readAnalyserFrames),
@@ -105,7 +106,7 @@ export function sampleProductionMeterSessionV21(
 	}
 	const loudness = session.loudnessHistory.push(masterLoudness);
 	return Object.freeze({
-		productionMeters: session.meterStore.snapshot(),
+		productionMeters: demandedSnapshots(session.meterStore.snapshot(), demand, banks),
 		...(loudness ? { productionLoudnessHistory: loudness } : {}),
 	});
 }
@@ -113,12 +114,13 @@ export function sampleProductionMeterSessionV21(
 function scheduledBanks(
 	session: ProductionMeterRuntimeSessionV21,
 	banks: ReadonlyMap<string, StripMeterAnalyserBankV21> | null | undefined,
+	demand: ReadonlySet<string> | null,
 ): readonly StripMeterAnalyserBankV21[] {
 	const bankValues = [...(banks?.values() ?? [])];
 	const byStrip = new Map(bankValues.map((bank) => [canonicalStripRefKey(bank.strip), bank]));
 	const plan = session.scheduler.plan(bankValues.map((bank) => ({
 		strip: bank.strip,
-		visible: true,
+		visible: demand === null || demand.has(canonicalStripRefKey(bank.strip)),
 		armed: false,
 		costFrames: bank.analysers.reduce((total, analyser) => total + analyserFrameCount(analyser), 0),
 	})));
@@ -126,6 +128,18 @@ function scheduledBanks(
 		const bank = byStrip.get(canonicalStripRefKey(candidate.strip));
 		return bank ? [bank] : [];
 	});
+}
+
+function demandedSnapshots(
+	snapshots: readonly StripMeterSnapshot[], demand: ReadonlySet<string> | null,
+	banks: ReadonlyMap<string, StripMeterAnalyserBankV21> | null | undefined,
+): readonly StripMeterSnapshot[] {
+	const available = new Set([...(banks?.values() ?? [])].map(({ strip }) => canonicalStripRefKey(strip)));
+	const retained = snapshots.filter(({ strip }) => {
+		const key = canonicalStripRefKey(strip);
+		return available.has(key) && (demand === null || demand.has(key));
+	});
+	return retained.length === snapshots.length ? snapshots : Object.freeze(retained);
 }
 
 /** Reset is session-only; it never mutates the project, history, or export state. */
@@ -183,13 +197,16 @@ function analyserFrameCount(analyser: AnalyserNode): number {
 
 function createLoudnessSnapshotHistory(capacity: number): LoudnessSnapshotHistory {
 	const history: LoudnessHistoryEntry[] = [];
+	let writeIndex = 0;
+	let size = 0;
 	let current: EbuMeterSnapshot | null = null;
 	let previousValue: unknown;
 	let sequence = 0;
 	let published: SessionLoudnessHistorySnapshot | null = null;
 	const snapshot = (): SessionLoudnessHistorySnapshot | null => {
 		if (!published && current) published = Object.freeze({
-			policy: METER_SESSION_POLICY, current, history: Object.freeze([...history]),
+			policy: METER_SESSION_POLICY, current,
+			history: Object.freeze(history.slice(size === capacity ? writeIndex : 0, (size === capacity ? writeIndex : 0) + size)),
 		});
 		return published;
 	};
@@ -202,7 +219,7 @@ function createLoudnessSnapshotHistory(capacity: number): LoudnessSnapshotHistor
 			current = reading;
 			published = null;
 			const loudness = reading.loudness;
-			history.push(Object.freeze({
+			const entry = Object.freeze({
 				sequence: sequence += 1,
 				measuredSeconds: loudness.measuredSeconds,
 				momentaryLufs: loudness.momentaryLufs,
@@ -210,13 +227,19 @@ function createLoudnessSnapshotHistory(capacity: number): LoudnessSnapshotHistor
 				integratedLufs: loudness.integratedLufs,
 				loudnessRangeLu: loudness.loudnessRangeLu,
 				truePeakDbtp: loudness.truePeakDbtp,
-			}));
-			if (history.length > capacity) history.splice(0, history.length - capacity);
+			});
+			// Mirror each bounded ring slot so publication remains one contiguous
+			// native slice, without shifting all retained entries on retirement.
+			history[writeIndex] = history[writeIndex + capacity] = entry;
+			writeIndex = (writeIndex + 1) % capacity;
+			size = Math.min(capacity, size + 1);
 			return snapshot();
 		},
 		snapshot,
 		reset(): void {
 			history.length = 0;
+			writeIndex = 0;
+			size = 0;
 			current = null;
 			previousValue = undefined;
 			sequence = 0;

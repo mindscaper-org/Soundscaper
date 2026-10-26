@@ -6,6 +6,7 @@ import { createAddClipCommand, createAddSourceCommand } from '../../../commands/
 import type { AudioEditorCommand } from '../../../commands/protocol.ts';
 import { scaleSampleFrame } from '../../../timeline-time.ts';
 import { remapAudioWarpSourceWindow } from '../../../audio-warp-source-window.ts';
+import { resampledClipSourceStretchFields } from '../../../clip-source-stretch-memory.ts';
 import { resampledClipSelectionCommands } from './resampled-clip-selection.ts';
 import type { DerivedSourceService } from './derived-audio/derived-source-service.ts';
 import {
@@ -52,7 +53,7 @@ export interface ClipResampleServiceDependencies {
 	editingBlocked(): boolean;
 	captureProject(): EditorProjectToken;
 	assertProject(token: EditorProjectToken): void;
-	commit(command: AudioEditorCommand, selection?: CommitSelection): unknown;
+	commit(command: AudioEditorCommand, selection?: CommitSelection, behavior?: Readonly<{ microfadeNewClips: boolean }>): unknown;
 	normalizeProjectSampleRate(value: unknown): number;
 	preflightStorage(bytes: number, category: 'effect'): Promise<unknown>;
 	setProcessing(processing: boolean): void;
@@ -114,6 +115,7 @@ export function resampledClipCommands(
 		{ type: 'clip/remove', clipId: clip.id },
 		createAddClipCommand(trackId, {
 			...clip,
+			...resampledClipSourceStretchFields(clip, originalSource, replacement),
 			...(avLinkId ? { avLinkId: null } : {}),
 			sourceId: replacement.id,
 			sourceStartFrame,
@@ -201,7 +203,7 @@ export function createClipResampleService(
 					...resampledClipCommands(track.id, clip, source, record.source, sampleRate, linkedVideo),
 					...resampledClipSelectionCommands(dependencies.getProject().selection, [clip.id]),
 				],
-			}, { selectTrackId: track.id, selectClipId: clip.id });
+			}, { selectTrackId: track.id, selectClipId: clip.id }, { microfadeNewClips: false });
 			setLocalizedStatus(dependencies.setStatus, dependencies.copy, "done", undefined, 'success');
 			return clip.id;
 		} catch (error) {

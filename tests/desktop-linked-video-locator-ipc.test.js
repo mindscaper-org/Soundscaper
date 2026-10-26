@@ -37,7 +37,7 @@ test('linked-video IPC chooses one video and returns only frozen opaque metadata
 		options: {
 			title: 'Link video original',
 			properties: ['openFile'],
-			filters: [{ name: 'Video', extensions: ['m4v', 'mp4', 'webm'] }],
+			filters: [{ name: 'Video', extensions: ['m4v', 'mov', 'mp4', 'webm'] }],
 		},
 	}]);
 	assert.deepEqual(fixture.storeCalls, [{

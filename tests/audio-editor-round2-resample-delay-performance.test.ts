@@ -24,7 +24,7 @@ test('sinc resampling consumes an initial chunk without cloning its full PCM', (
 	const resampler = createStreamingWindowedSincResampler(48000, 16000, 1) as SincResampler;
 	const first = resampler.push(input);
 	assert.equal(largeInputCopies, 0);
-	assert.equal(first[0]!.length, 334);
+	assert.equal(first[0]!.length, 318, '72 input frames of antialias lookahead retain the no-copy path');
 });
 
 test('sinc exact-fit output retains its array without a redundant channel mapping allocation', () => {

@@ -82,7 +82,7 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 		if (ownsProject && hasClip) {
 			const field = focusRequest.field === 'pitchCents' ? 'pitch' : focusRequest.field === 'speedRatio' ? 'speed' : 'name';
 			const input = focusRequest.field ? (root.current?.querySelector(`[data-clip-properties-field="${field}"]`)
-				?? root.current?.querySelector(`[data-clip-field="${focusRequest.field}"]`))?.querySelector<HTMLInputElement>('input') : null;
+				?? root.current?.querySelector(`[data-clip-field="${focusRequest.field}"]`))?.querySelector<HTMLInputElement | HTMLTextAreaElement>('input,textarea') : null;
 			const drawer = input?.closest('details');
 			if (input && !input.disabled && drawer) drawer.open = true;
 			if (input && !input.disabled) input.focus(); else root.current?.focus();
@@ -175,7 +175,7 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 				nativeTimeFields={nativeTimeFields} onNativeTimeFields={() => setNativeTimeFields(value => !value)}
 				pitchUnit={pitchUnit} onPitchUnit={setPitchUnit} />}
 		</> : clip?.kind === 'image' ? <ImageClipPropertiesBody controller={controller} project={snapshot.project} clipId={clip.id} copy={copy} disabled={blocked} onError={reportFailure} />
-			: clip?.kind === 'generator' ? <GeneratorClipPropertiesBody controller={controller} project={project} clipId={clip.id} copy={copy} disabled={blocked} onError={reportFailure} />
+			: (clip?.kind === 'generator' || clip?.kind === 'still') ? <GeneratorClipPropertiesBody controller={controller} project={project} clipId={clip.id} copy={copy} disabled={blocked} onError={reportFailure} />
 				: <ClipPropertiesBody key={targetKey} controller={controller} snapshot={{ ...snapshot, project }} copy={copy} clipId={clip?.id} onError={reportFailure} />}
 	</div>;
 }

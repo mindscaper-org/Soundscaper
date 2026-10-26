@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { COMMITTED_LOCALE_TAGS, LOCALE_BY_TAG } from '../src/common/i18n/locales.js';
 import {
 	acceptableTranslation,
@@ -51,7 +51,7 @@ test('every committed translation catalog is well formed, listed once in the ind
 	for (const locale of COMMITTED_LOCALE_TAGS) {
 		if (locale === 'en') continue;
 		assert.ok(locales.includes(locale), `${locale} has a catalog`);
-		if (locale !== 'de' && locale !== 'en-GB') {
+		if (locale !== 'en-GB') {
 			const assessment = assessTranslationCatalog(await readTranslationCatalog(locale), ENGLISH_COPY);
 			// New English copy and retired strings fall back until the catalog writer runs.
 			const current = Object.keys(assessment.current).length;
@@ -119,7 +119,7 @@ test('a locale is served by the catalog of its exact canonical tag and by nothin
 	);
 });
 
-test('resolving a locale lays its catalog over the bundled copy, and German keeps its bundled base', async () => {
+test('resolving every locale lays its catalog over English', async () => {
 	const translationLoaders = {
 		fr: async () => catalog('fr', {
 			fileMenu: ['audacity', ENGLISH_COPY.fileMenu, 'Fichier (Audacity)'],
@@ -137,9 +137,9 @@ test('resolving a locale lays its catalog over the bundled copy, and German keep
 	assert.ok(Object.isFrozen(french));
 	const german = await resolveCatalog('de', { translationLoaders });
 	assert.equal(german.play, 'Audacity-Wiedergabe');
-	assert.equal(german.fileMenu, GERMAN_COPY.fileMenu);
+	assert.equal(german.fileMenu, ENGLISH_COPY.fileMenu);
 	const austrian = await resolveCatalog('de-AT', { translationLoaders });
-	assert.equal(austrian.fileMenu, GERMAN_COPY.fileMenu);
+	assert.equal(austrian.fileMenu, ENGLISH_COPY.fileMenu);
 	const regional = await resolveCatalog('en-GB', { translationLoaders });
 	assert.equal(regional.audioTrack, 'Audio track (UK)');
 	assert.equal(regional.fileMenu, ENGLISH_COPY.fileMenu);

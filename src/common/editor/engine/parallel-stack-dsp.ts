@@ -42,7 +42,7 @@ function prepareTask(task: ParallelStackTask, plan: ParallelStackPlan, modules: 
 	for (const edge of task.edges) if (edge.sidechainEffectId && !sidechains.has(edge.sidechainEffectId)) {
 		sidechains.set(edge.sidechainEffectId, channels(task.channels, frames));
 	}
-	const edges = task.edges.map((edge) => ({ edge, scratch: channels(task.channels, frames),
+	const edges = task.edges.map((edge) => ({ edge, sources: sparseSourceRows(edge.matrix), scratch: channels(task.channels, frames),
 		delay: new ParallelStackDelay(edge.delayFrames, task.channels),
 		target: edge.sidechainEffectId ? sidechains.get(edge.sidechainEffectId)! : input }));
 	const effects = task.effects.map((effect, index) => ({
@@ -78,7 +78,15 @@ function prepareTask(task: ParallelStackTask, plan: ParallelStackPlan, modules: 
 			const { edge } = route;
 			for (let destination = 0; destination < task.channels; destination++) {
 				const channel = route.scratch[destination]!;
+				const selected = route.sources[destination]!;
+				if (selected >= 0) {
+					const samples = planes[edge.sourcePlanes[selected]!]!;
+					const coefficient = edge.matrix[destination]![selected]!;
+					for (let frame = 0; frame < frames; frame++) channel[frame] = 0 + samples[frame]! * coefficient;
+					continue;
+				}
 				channel.fill(0);
+				if (selected === -1) continue;
 				for (let source = 0; source < edge.sourcePlanes.length; source++) {
 					const coefficient = edge.matrix[destination]![source]!;
 					if (coefficient === 0) continue;
@@ -110,4 +118,17 @@ function prepareTask(task: ParallelStackTask, plan: ParallelStackPlan, modules: 
 		}
 		nextSequence++;
 	};
+}
+
+/** At most 32 bytes per edge, within its existing conservative descriptor allowance. */
+function sparseSourceRows(matrix: readonly (readonly number[])[]): Int8Array {
+	const sources = new Int8Array(matrix.length).fill(-1);
+	for (let destination = 0; destination < matrix.length; destination++) {
+		const row = matrix[destination]!;
+		for (let source = 0; source < row.length; source++) if (row[source] !== 0) {
+			if (sources[destination] !== -1) { sources[destination] = -2; break; }
+			sources[destination] = source;
+		}
+	}
+	return sources;
 }

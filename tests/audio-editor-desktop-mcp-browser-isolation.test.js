@@ -34,7 +34,7 @@ test('desktop MCP bridge and menu code compile out of browser renderers', async 
 	}
 });
 
-test('desktop MCP English and German copy compile out of browser renderers', async () => {
+test('desktop MCP source copy compiles out of browser renderers and German stays in JSON', async () => {
 	const source = await readFile(new URL('../src/common/i18n/editor-desktop-mcp-copy.ts', import.meta.url), 'utf8');
 	const browser = await transform(source, {
 		loader: 'ts', define: { __SCAPE_DESKTOP_RENDERER__: 'false' }, minify: true,
@@ -45,5 +45,5 @@ test('desktop MCP English and German copy compile out of browser renderers', asy
 	assert.equal(browser.code.includes('MCP connection'), false);
 	assert.equal(browser.code.includes('MCP-Verbindung'), false);
 	assert.equal(desktop.code.includes('MCP connection'), true);
-	assert.equal(desktop.code.includes('MCP-Verbindung'), true);
+	assert.equal(desktop.code.includes('MCP-Verbindung'), false);
 });

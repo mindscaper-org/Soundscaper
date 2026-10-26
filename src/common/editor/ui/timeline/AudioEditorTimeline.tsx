@@ -5,6 +5,7 @@ import type { ClipPropertiesFocus } from './clip-header-actions.ts';
 import type { FileSizeWarningConfirmation } from '../../controller/shared/file-size-warning.ts';
 import TimelineController from './TimelineController.jsx';
 import EditorSurfaceBoundary from '../EditorSurfaceBoundary.jsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
 export interface TrackHeaderDrawer {
 	readonly isOpen: boolean;
@@ -110,6 +111,7 @@ export default function AudioEditorTimeline({
 	return (
 		<EditorSurfaceBoundary copy={copy} surface="timeline" resetKey={snapshot.project}>
 			<TimelineController
+				key={editorProjectEditSessionKey(controller, snapshot.project?.id)}
 				controller={controller}
 				snapshot={snapshot}
 				runtimeProject={runtimeProject}

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createEnvelopeValueEvaluator } from '../common/editor/automation.js';
+import { readClipLoop, type ClipLoop } from '../common/editor/audio-clip-loop.ts';
 import { evaluateClipTransitionGainAt } from '../common/editor/audio-clip-transition-gain.ts';
 import {
 	createAudioWarpRuntimeEvaluator,
@@ -72,6 +73,7 @@ interface AudioBinding {
 	readonly fadeOutShape: number | undefined;
 	readonly envelopeAt: (frame: number) => number;
 	readonly warp: AudioWarpRuntimeEvaluator | null;
+	readonly loop: ClipLoop | null;
 }
 
 interface AudioChunk {
@@ -405,7 +407,7 @@ function binding(project: Data, clip: Data, sourceValue: Data): AudioBinding {
 		fadeInShape: optionalNonNegative(clip.fadeInShape, 'audio fade in shape'),
 		fadeOutShape: optionalNonNegative(clip.fadeOutShape, 'audio fade out shape'),
 		envelopeAt: createEnvelopeValueEvaluator(envelope, resolved.durationFrames),
-		warp,
+		warp, loop: readClipLoop(clip),
 	});
 }
 
@@ -425,8 +427,9 @@ function selectNearest(bindings: readonly AudioBinding[], frame: number): AudioB
 }
 
 function sourcePosition(binding: AudioBinding, frame: number): number {
-	const local = frame - binding.start;
-	const duration = binding.end - binding.start;
+	const loop = binding.loop;
+	const local = loop ? (frame - binding.start + loop.offsetFrames) % loop.periodFrames : frame - binding.start;
+	const duration = loop?.periodFrames ?? binding.end - binding.start;
 	const mapped = binding.warp
 		? (() => {
 			const point = binding.warp.sourceAtTimelineFrame(frame);

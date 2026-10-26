@@ -10,7 +10,7 @@ type DeliveryReportDraft = ReturnType<typeof createDeliveryReport>;
 
 export interface InterchangeTimeEffectOmission {
 	/** Which authority states the time effect, for the report's data field. */
-	readonly kind: 'speed' | 'audio-warp' | 'video-retime';
+	readonly kind: 'speed' | 'audio-warp' | 'video-retime' | 'reverse';
 	readonly data: DataRecord;
 }
 
@@ -27,6 +27,10 @@ export interface InterchangeTimeEffectOmission {
  */
 export function interchangeClipTimeEffect(clip: DataRecord): InterchangeTimeEffectOmission | null {
 	const speed = clip.speedRatio == null ? 1 : Number(clip.speedRatio);
+	if (clip.reversed === true) return { kind: 'reverse', data: Object.freeze({ reversed: true,
+		...(speed !== 1 ? { speedRatio: speed } : {}),
+		...(breakpointCount(clip.warpMap) > 0 ? { warpPoints: breakpointCount(clip.warpMap) } : {}),
+	}) };
 	if (speed !== 1) return { kind: 'speed', data: Object.freeze({ speedRatio: speed }) };
 	if (breakpointCount(clip.warpMap) > 0) {
 		return { kind: 'audio-warp', data: Object.freeze({ warpPoints: breakpointCount(clip.warpMap) }) };

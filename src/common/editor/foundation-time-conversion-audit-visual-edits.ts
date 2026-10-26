@@ -8,10 +8,11 @@ export const FOUNDATION_TIME_CONVERSION_VISUAL_EDIT_SITES: readonly FoundationTi
 	{
 		id: 'restored-native-visual-sequence-rate-conformance',
 		file: 'src/framescaper/editor-sequence-visual-rate-conformance.ts',
-		behavior: 'Detached native image, still and generator clips preserve absolute wall-clock placement across inherited sequence-rate changes by resolving both old sequence boundaries as nearest project samples, conforming each to the new sequence grid, and deriving extent from their difference while retaining native source phase and windows.',
+		behavior: 'Detached native image, still and generator clips preserve absolute wall-clock placement across inherited sequence-rate changes by resolving both old sequence boundaries as nearest project samples, conforming each to the new sequence grid, and deriving extent from their difference while retaining native source phase and windows. Explicit cross-sequence visual moves and Bin placement rebase coordinates directly between rational frame grids with nearest-point rounding before applying their existing source windows.',
 		conversions: [
 			{ helper: 'videoFrameToSampleFrame', policies: ['point'] },
 			{ helper: 'sampleFrameToVideoFrame', policies: ['point'] },
+			{ helper: 'roundRational', policies: ['point'] },
 		],
 	},
 	{
@@ -32,7 +33,7 @@ export const FOUNDATION_TIME_CONVERSION_VISUAL_EDIT_SITES: readonly FoundationTi
 	{
 		id: 'timeline-generator-trim-sequence-boundaries',
 		file: 'src/common/editor/timeline-generator-trim.ts',
-		behavior: 'Generated visual trims resolve requested sample positions to nearest sequence boundaries, carry the native source window with the authored sequence change, and resolve the requested right edge from the clamped absolute start sample point.',
+		behavior: 'Generated and frozen visual trims resolve requested sample positions to nearest sequence boundaries and resolve the requested right edge from the clamped absolute start sample point; generated clips additionally carry their bounded native source window.',
 		conversions: [
 			{ helper: 'sampleFrameToVideoFrame', policies: ['point'] },
 			{ helper: 'videoFrameToSampleFrame', policies: ['point'] },
@@ -41,13 +42,13 @@ export const FOUNDATION_TIME_CONVERSION_VISUAL_EDIT_SITES: readonly FoundationTi
 	{
 		id: 'timeline-generator-trim-pointer-preview',
 		file: 'src/common/editor/ui/timeline/generator-trim-pointer-preview.ts',
-		behavior: 'Generator trim previews use the owning sequence/source trim planner and convert the resulting absolute sequence start and end once to nearest project samples, preserving exact source phase and keeping the preview out of history.',
+		behavior: 'Generated and frozen picture trim previews use the owning sequence trim planner and convert the resulting absolute sequence edges once to nearest project samples; generated clips retain their exact source phase and previews stay out of history.',
 		conversions: [{ helper: 'videoFrameToSampleFrame', policies: ['point'] }],
 	},
 	{
 		id: 'timeline-generator-split-boundary',
 		file: 'src/framescaper/editor-timeline-generator-split-command.ts',
-		behavior: 'The generated visual split consumer resolves the requested project sample to the nearest authored sequence boundary before partitioning its exact sequence extent and native source window; compound cuts observe earlier generated visual mutations.',
+		behavior: 'Generated and frozen visual splits resolve the requested project sample to the nearest authored sequence boundary before partitioning the sequence extent; generators also partition their source window, while frozen PNGs retain their constant source. Compound cuts observe earlier visual mutations.',
 		conversions: [{ helper: 'sampleFrameToVideoFrame', policies: ['point'] }],
 	},
 	{

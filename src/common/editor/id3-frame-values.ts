@@ -9,6 +9,9 @@ export const ID3_TEXT_FRAME_IDS: Readonly<Record<string, string>> = Object.freez
 		.map(field => [normalizeId3Key(field.key), field.frame]),
 	['track', 'TRCK'], ['year', 'TDRC'], ['disc', 'TPOS'],
 ]));
+export const ID3_CANONICAL_FRAME_KEYS: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(
+	ID3_DESCRIPTIVE_FIELDS.filter(field => field.kind === 'text' || field.kind === 'pairs' || field.kind === 'url')
+		.map(field => [field.frame, field.key])));
 export const ID3_CONTROL_KEYS = new Set(['commentlanguage', 'commentdescription', 'lyricslanguage', 'lyricsdescription',
 	'termslanguage', 'id3artwork', 'identifierowner', 'ratingemail']);
 for (const key of ['ownershipprice', 'ownershipdate', 'commercialvaliduntil', 'commercialcontacturl',

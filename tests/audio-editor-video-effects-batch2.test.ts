@@ -1,3 +1,4 @@
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -45,16 +46,16 @@ test('second video effect batch is appended without widening the V5 vocabulary',
 test('every registry label and select option is localized in English and German', () => {
 	for (const definition of Object.values(VIDEO_EFFECT_DEFINITIONS)) {
 		for (const locale of ['en', 'de'] as const) {
-			assert.equal(typeof COPY_BY_LOCALE[locale][definition.labelKey], 'string');
+			assert.equal(typeof (locale === 'de' ? GERMAN_COPY : COPY_BY_LOCALE.en)[definition.labelKey], 'string');
 		}
 		for (const parameter of Object.values(definition.params) as Array<{
 			labelKey: string;
 			options?: Array<{ labelKey: string }>;
 		}>) {
 			for (const locale of ['en', 'de'] as const) {
-				assert.equal(typeof COPY_BY_LOCALE[locale][parameter.labelKey], 'string');
+				assert.equal(typeof (locale === 'de' ? GERMAN_COPY : COPY_BY_LOCALE.en)[parameter.labelKey], 'string');
 				for (const option of parameter.options || []) {
-					assert.equal(typeof COPY_BY_LOCALE[locale][option.labelKey], 'string');
+					assert.equal(typeof (locale === 'de' ? GERMAN_COPY : COPY_BY_LOCALE.en)[option.labelKey], 'string');
 				}
 			}
 		}

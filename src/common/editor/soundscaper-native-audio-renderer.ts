@@ -26,17 +26,23 @@ interface PreparedSession {
 	readonly node: AudioNode;
 	readonly client: ReturnType<typeof createNativeRealtimeClient>;
 	readonly direction: NativeAudioSessionOpenRequestV1['direction'];
+	readonly channelCount: number;
 	readonly sink: GainNode;
 	readonly capture: Readonly<{ activate(): void; revoke(reason?: string): void }> | null;
 	readonly calibrate: (config: Readonly<{ maxFrames: number; timeoutMs: number }>) => Promise<number>;
 	readonly attachment: ReturnType<typeof createAttachment>;
 }
 
-const ROUTES = new WeakMap<BaseAudioContext, AudioNode>();
+const ROUTES = new WeakMap<BaseAudioContext, Readonly<{ node: AudioNode; channelCount: number }>>();
 
 /** Live project graphs consult this only for output/duplex sessions. */
 export function soundscaperNativeAudioDestination(context: BaseAudioContext, fallback: AudioNode): AudioNode {
-	return ROUTES.get(context) ?? fallback;
+	return ROUTES.get(context)?.node ?? fallback;
+}
+
+/** The attached output request owns physical width; intermediary GainNodes do not. */
+export function soundscaperNativeAudioOutputChannelCount(context: BaseAudioContext): number | null {
+	return ROUTES.get(context)?.channelCount ?? null;
 }
 
 export function createSoundscaperNativeAudioRenderer(options: Readonly<{
@@ -89,7 +95,7 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 			session.capture?.activate();
 			session.attachment.resolve();
 			if (session.direction !== 'input') {
-				ROUTES.set(session.context, session.node);
+				ROUTES.set(session.context, Object.freeze({ node: session.node, channelCount: session.channelCount }));
 				void restartIfPlaying(options.engine).catch(() => undefined);
 			}
 		} else session.attachment.reject(new Error(outcome.message));
@@ -110,7 +116,7 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 			for (let index = expectedPorts.length - 1; index >= 0; index -= 1) {
 				if (expectedPorts[index] === current.sessionId) expectedPorts.splice(index, 1);
 			}
-			if (ROUTES.get(current.context) === current.node) {
+			if (ROUTES.get(current.context)?.node === current.node) {
 				ROUTES.delete(current.context);
 				outputReleased = true;
 			}
@@ -194,7 +200,7 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 				deviceId: route ? nativeAudioDeviceId(route.backend, 'audio-input', route.deviceHandle) : undefined,
 			});
 			prepared.set(sessionId, Object.freeze({
-				sessionId, context, node: transport.node, direction: request.direction,
+				sessionId, context, node: transport.node, direction: request.direction, channelCount: request.channelCount,
 				sink, capture, calibrate: transport.calibrate, attachment: createAttachment(),
 				client: createNativeRealtimeClient({
 					transport,

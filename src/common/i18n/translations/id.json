@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "id",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:4b1c69b593a7d11995aca59fcb1dcb3cc833e4d6239692afa3971c167fed8b83","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:852a22b44183312fab72dbe226f2eebb0db95b6788adbaedb4619af49e6ae382","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -519,6 +519,7 @@
 		"clipMediaSettings": ["machine","Media settings","Pengaturan media"],
 		"clipMixed": ["machine","Mixed","Campuran"],
 		"clipName": ["machine","Clip name","Nama klip"],
+		"clipNormalizationUnmeasurable": ["machine","Loudness could not be measured for this clip. Choose a longer audible clip or use peak normalization.","Kenyaringan klip ini tidak dapat diukur. Pilih klip yang lebih panjang dengan suara yang terdengar atau gunakan normalisasi puncak."],
 		"clipPitchAndSpeed": ["machine","Pitch & speed","Nada dan kecepatan"],
 		"clipPitchField": ["machine","Pitch","Nada"],
 		"clipPitchIndicator": ["machine","Clip pitch","Indikator nada klip"],
@@ -1792,7 +1793,7 @@
 		"missingEffectLabel": ["machine","Missing: {name}","Hilang: {name}"],
 		"missingEffectReadOnly": ["machine","This effect is not installed. Local playback bypasses it while preserving its name, order, and activation state for other compatible programs.","Efek ini tidak terpasang. Pemutaran lokal melewatinya sambil mempertahankan nama, urutan, dan status aktivasinya untuk program lain yang kompatibel."],
 		"missingEffectUnknown": ["machine","Unknown effect","Efek tidak dikenal"],
-		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Playback, analysis, and export are blocked until affected clips are removed.","Beberapa sumber audio lokal tidak ada. Pemutaran, analisis, dan ekspor diblokir hingga klip yang terpengaruh dihapus."],
+		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Operations that require them are blocked until affected clips are relinked or removed.","Beberapa sumber audio lokal tidak ditemukan. Operasi yang memerlukannya diblokir sampai klip yang terdampak ditautkan ulang atau dihapus."],
 		"missingSourcesPreventSave": ["machine","Missing audio sources prevent saving.","Sumber audio yang hilang mencegah penyimpanan."],
 		"mix": ["machine","Stereo mix","Campuran stereo"],
 		"mixDown": ["machine","Mix down","Mixdown"],
@@ -1840,6 +1841,7 @@
 		"mp3VariableBest": ["machine","220-260 kbps (Best Quality)","220-260 kbps (Kualitas terbaik)"],
 		"mp3VariableSmallest": ["machine","45-85 kbps (Smaller files)","45-85 kbps (Berkas lebih kecil)"],
 		"multicamera": ["machine","Multicamera","Multikamera"],
+		"multipleLegacyAupProjects": ["machine","Choose one legacy Audacity project (.aup) and its data files per import.","Pilih satu proyek Audacity lama (.aup) beserta berkas datanya untuk setiap impor."],
 		"multiview": ["machine","Multi-view","Tampilan ganda"],
 		"musicalAnchor": ["machine","Musically anchored","Berjangkar musikal"],
 		"musicalTimeline": ["machine","Musical timeline","Garis waktu musikal"],
@@ -4459,6 +4461,9 @@
 		"waveformLogarithmicDb": ["machine","Logarithmic dB","dB logaritmik"],
 		"waveformLowMidCrossover": ["machine","Low/mid crossover (Hz)","Crossover rendah/menengah (Hz)"],
 		"waveformMidHighCrossover": ["machine","Mid/high crossover (Hz)","Crossover menengah/tinggi (Hz)"],
+		"waveformRenderer": ["machine","Waveform renderer","Perender bentuk gelombang"],
+		"waveformRendererCanvas": ["machine","Canvas","Canvas"],
+		"waveformRendererGpu": ["machine","GPU (Canvas fallback)","GPU (Canvas cadangan)"],
 		"waveformRulerFormat": ["machine","Ruler format","Format penggaris"],
 		"waveformSettings": ["machine","Waveform settings","Pengaturan bentuk gelombang"],
 		"waveformShowRms": ["machine","Show RMS","Tampilkan RMS"],

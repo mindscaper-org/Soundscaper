@@ -31,6 +31,7 @@ import { COLLAPSED_TRACK_HEIGHT } from './constants.ts';
 import { focusFirst, focusPanelControl } from './timeline-navigation.js';
 import { TimelineGridLines } from './TimelineGridLines.jsx';
 import { OutputTelemetryMeters } from './TrackTelemetryMeters.tsx';
+import { usePlaybackMeterVisibility } from '../usePlaybackMeterVisibility.ts';
 
 export function OutputTrackDock({
 	controller,
@@ -426,6 +427,7 @@ export function OutputTrackControls({
 	onOpenEffects,
 }) {
 	const controlsRef = useRef(null);
+	usePlaybackMeterVisibility(controller.engine, scope, bus.id ?? '', controlsRef);
 	const [editingName, setEditingName] = useState(false);
 	const label = scope === 'master' ? copy.master : bus.name;
 	return (

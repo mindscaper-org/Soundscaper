@@ -293,7 +293,7 @@ export function TimelineMenus({
 					onClick={() => {
 						if (!menuClip) return;
 						if (!project.selection?.clipIds?.includes(menuClip.id)) run(() => controller.actions.timeline.selectClip(menuClip.id));
-						const clipElement = document.querySelector(`[data-clip-id="${menuClip.id}"]`);
+						const clipElement = document.querySelector(`[data-clip-id="${CSS.escape(menuClip.id)}"]`);
 						clipElement?.focus?.({ preventScroll: true });
 						onOpenClipProperties?.(menuClip.id);
 					}}

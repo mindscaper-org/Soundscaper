@@ -13,7 +13,8 @@
 import { InvalidModelOutputError, generateValidated } from '../docs-ai/generation.mjs';
 import { readCache, writeCache } from '../docs-ai/cache.mjs';
 import { sha256 } from '../docs-ai/provenance.mjs';
-import { EDITOR_ENGLISH_COPY as ENGLISH_COPY, EDITOR_GERMAN_COPY as GERMAN_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
+import { EDITOR_COPY_AUDIT_INVENTORY as ENGLISH_COPY } from '../lib/editor-copy-audit-inventory.mjs';
+import { loadTranslationCatalog } from '../../src/common/i18n/translation-catalog.js';
 import { TRANSLATION_EXCLUDED_KEYS } from '../../src/common/i18n/translation-scope.ts';
 import { editorTranslationCoverage } from './coverage.mjs';
 import { compareCodeUnits } from '../lib/canonical-json.mjs';
@@ -39,7 +40,7 @@ const MAXIMUM_BATCH_SIZE = 100;
 export const DEFAULT_BATCH_CHARACTERS = 1_500;
 /**
  * Keys that are not prose: their English is code the editor executes, and a
- * translation could only break it. They stay English (or bundled German).
+ * translation could only break it. They keep their source code or a catalog entry explicitly maintained for it.
  */
 export const MACHINE_TRANSLATION_EXCLUDED_KEYS = TRANSLATION_EXCLUDED_KEYS;
 /** The user's preferred translation model, and the one that covers the languages it does not. */
@@ -57,7 +58,7 @@ export function defaultModelForLocale(locale) {
 export async function translateLocale(options) {
 	const locale = assertMachineTranslatableLocale(options.locale);
 	const englishCopy = options.englishCopy ?? ENGLISH_COPY;
-	const germanCopy = options.germanCopy ?? GERMAN_COPY;
+	const germanCopy = locale === 'de' ? {} : options.germanCopy ?? await loadTranslationCatalog('de', { englishCopy }) ?? {};
 	const directory = options.directory ?? TRANSLATION_CATALOG_DIRECTORY;
 	const batchSize = validateBatchSize(options.batchSize ?? DEFAULT_BATCH_SIZE);
 	const batchCharacters = options.batchCharacters ?? DEFAULT_BATCH_CHARACTERS;

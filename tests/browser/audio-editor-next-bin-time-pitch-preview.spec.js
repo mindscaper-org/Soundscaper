@@ -5,6 +5,23 @@ import { bootEditor, closeClipProperties, collectClientErrors, importFiles, open
 
 for (const mode of ['pitch', 'tempo']) test(`Project Bin ${mode} audition retains the authored pitch`, async ({ page }) => {
 	await page.addInitScript(() => {
+		const NativeWorker = window.Worker;
+		globalThis.__holdBinRender = false;
+		globalThis.__heldBinRender = false;
+		window.Worker = class extends NativeWorker {
+			constructor(url, options) {
+				super(url, options);
+				if (options?.name !== 'audacity-staffpad-render') return;
+				const post = this.postMessage.bind(this);
+				this.postMessage = (message, ...ports) => {
+					if (message?.type === 'render' && globalThis.__holdBinRender) {
+						globalThis.__holdBinRender = false; globalThis.__heldBinRender = true;
+						return;
+					}
+					post(message, ...ports);
+				};
+			}
+		};
 		globalThis.__binPreviewFrequencies = [];
 		const connect = AudioNode.prototype.connect;
 		AudioNode.prototype.connect = function (destination, ...ports) {
@@ -39,7 +56,13 @@ for (const mode of ['pitch', 'tempo']) test(`Project Bin ${mode} audition retain
 	await clip.locator('.clip-header').click({ button: 'right' });
 	await page.getByRole('menuitem', { name: 'Move to Project bin', exact: true }).click();
 	const card = editor.locator('[data-project-bin-item]').first();
+	if (mode === 'pitch') await page.evaluate(() => { globalThis.__holdBinRender = true; });
 	await card.getByRole('button', { name: /^Play:/u }).click();
+	if (mode === 'pitch') {
+		await expect.poll(() => page.evaluate(() => globalThis.__heldBinRender)).toBe(true);
+		await card.getByRole('button', { name: /^Pause:/u }).click();
+		await card.getByRole('button', { name: /^Play:/u }).click();
+	}
 	await expect(card.getByRole('button', { name: /^Pause:/u })).toBeVisible();
 	const expected = mode === 'pitch' ? 440 * 2 ** (3 / 12) : 440;
 	await expect.poll(() => page.evaluate(frequency => globalThis.__binPreviewFrequencies.some(reading =>

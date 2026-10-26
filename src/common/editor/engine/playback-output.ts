@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { setParam } from './audio-node-utils.ts';
+import { soundscaperNativeAudioDestination } from '../soundscaper-native-audio-renderer.ts';
 import { connectPlaybackFrequencyOutput } from './playback-frequency-range.ts';
 import { ENGINE_ASSERT_ACTIVE } from './runtime-symbols.ts';
 import type { EngineRuntimeHost, EngineRuntimeMethodMap } from './runtime-types.ts';
@@ -56,6 +57,7 @@ export const enginePlaybackOutputMethods = {
 	getPlaybackDestination() {
 		this[ENGINE_ASSERT_ACTIVE]();
 		if (!this.context) throw new Error('Open the audio context before connecting a preview.');
-		return playbackOutputDestination(this, this.context, this.context.destination);
+		return playbackOutputDestination(this, this.context,
+			soundscaperNativeAudioDestination(this.context, this.context.destination));
 	},
 } satisfies EngineRuntimeMethodMap<'setPlaybackGain' | 'getPlaybackGain' | 'getPlaybackDestination'>;

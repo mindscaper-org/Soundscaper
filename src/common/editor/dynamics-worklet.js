@@ -1,3 +1,5 @@
+import { LimiterLookaheadPeakWindow } from './limiter-lookahead-peak-window.ts';
+
 const PROCESSOR_NAME = 'kw-audio-dynamics';
 
 export class DynamicsProcessor extends (globalThis.AudioWorkletProcessor || class {}) {
@@ -12,6 +14,7 @@ export class DynamicsProcessor extends (globalThis.AudioWorkletProcessor || clas
 		// (engine/effect-rack.ts effectLatencyFrames), so the ring must delay by
 		// exactly that many frames or a limited strip arrives ahead of its siblings.
 		this.lookaheadFrames = Math.max(0, Math.ceil((this.params.lookahead || 0) * globalThis.sampleRate));
+		this.peakWindow = this.type === 'limiter' ? new LimiterLookaheadPeakWindow(this.lookaheadFrames) : null;
 		this.rings = [];
 		this.writeIndex = 0;
 	}
@@ -57,8 +60,9 @@ export class DynamicsProcessor extends (globalThis.AudioWorkletProcessor || clas
 				this.rings[channel][this.writeIndex] = sample;
 			}
 			for (const channel of detectorInput) peak = Math.max(peak, Math.abs(channel[frame] || 0));
-			const target = peak > ceiling && peak > 0 ? ceiling / peak : 1;
-			this.envelope = target < this.envelope ? target : 1 + release * (this.envelope - 1);
+			const heldPeak = this.peakWindow.push(peak);
+			const target = heldPeak > ceiling && heldPeak > 0 ? ceiling / heldPeak : 1;
+			this.envelope = Math.min(target, 1 + release * (this.envelope - 1));
 			const readIndex = (this.writeIndex + 1) % ringLength;
 			for (let channel = 0; channel < output.length; channel += 1) {
 				output[channel][frame] = clamp(this.rings[channel][readIndex] * this.envelope, -ceiling, ceiling);

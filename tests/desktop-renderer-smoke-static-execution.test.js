@@ -188,6 +188,40 @@ function escape(webContents, productId, recipeId, source, userGesture) {
 	);
 });
 
+test('the speech runtime disposer imports only its authenticated addon sibling', async () => {
+	const source = await readFile(resolve(ROOT, 'desktop/assistance-inference-worker.js'), 'utf8');
+	const descriptor = { artifactPath: 'app/desktop/assistance-inference-worker.js', source };
+	assert.doesNotThrow(() => assertE2EExecutableStringPolicy([descriptor]));
+	for (const expression of [
+		"new URL('./foreign.js', verified.moduleSpecifier).href",
+		"new URL('./addon.js?foreign', verified.moduleSpecifier).href",
+		"new URL('./addon.js', untrusted.moduleSpecifier).href",
+		"new URL('./addon.js', verified.moduleSpecifier)",
+	]) {
+		const changed = source.replace("new URL('./addon.js', verified.moduleSpecifier).href", expression);
+		assert.notEqual(changed, source);
+		assert.throws(() => assertE2EExecutableStringPolicy([{ ...descriptor, source: changed }]),
+			/unattested executable-string primitive/u, expression);
+	}
+	for (const changed of [
+		source.replace('async function loadVerifiedRuntime()', 'async function loadForeignRuntime()'),
+		source.replace('const verified = await verifyAssistanceNativeRuntimePayload({',
+			'const verified = await trustAnything({'),
+		source.replace('const verified = await verifyAssistanceNativeRuntimePayload({',
+			'let verified = await verifyAssistanceNativeRuntimePayload({'),
+		source.replace("const addon = await import(new URL('./addon.js', verified.moduleSpecifier).href);",
+			"let addon = await import(new URL('./addon.js', verified.moduleSpecifier).href);"),
+		source.replace("const addon = await import(new URL('./addon.js', verified.moduleSpecifier).href);",
+			"{ const verified = { moduleSpecifier: untrusted }; const addon = await import(new URL('./addon.js', verified.moduleSpecifier).href); }"),
+		source.replace("import(new URL('./addon.js', verified.moduleSpecifier).href)",
+			"import(new URL('./addon.js', verified.moduleSpecifier).href, { with: { type: 'json' } })"),
+	]) {
+		assert.notEqual(changed, source);
+		assert.throws(() => assertE2EExecutableStringPolicy([{ ...descriptor, source: changed }]),
+			/unattested executable-string primitive/u);
+	}
+});
+
 test('the macro Worker admission binds the exact Blob producer to the exact Worker', async () => {
 	const source = await readFile(resolve(
 		ROOT, 'src/common/editor/macro-script/browser-sandbox.ts',

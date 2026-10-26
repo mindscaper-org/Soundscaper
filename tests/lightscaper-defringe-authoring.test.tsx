@@ -6,7 +6,6 @@ import React, { act } from 'react';
 import PhotoDevelopWorkspaceCurrentV1 from '../src/common/editor/ui/lightscaper/PhotoDevelopWorkspaceCurrentV1.tsx';
 import VideoEffectRack from '../src/common/editor/ui/inspector/VideoEffectRack.jsx';
 import { photoDevelopCopy } from '../src/common/i18n/lightscaper-develop-copy.ts';
-import { VIDEO_EFFECT_COPY_BY_LOCALE } from '../src/common/i18n/video-effect-copy.js';
 import { VIDEO_EFFECT_TYPES, createVideoEffect, normalizeVideoEffect, serializeVideoEffectsToFfmpegOperations } from '../src/common/editor/video-effects.js';
 import { normalizeDefringeParamsV1, prepareDefringeEffectV1 } from '../src/common/editor/video-defringe-v1.ts';
 import { videoEffectPasses, EFFECT_CODES, EFFECT_PROGRAM_COUNT } from '../src/common/editor/ui/video-preview-effects.js';
@@ -101,7 +100,7 @@ for (const locale of ['en', 'de'] as const) {
 			commit: command => { project = applyFramescaperProjectCommandFinishing(PROFILE, project, command); return view(project); }, publishDocumentSnapshot() {} });
 		const actions = { add: service.addVideoClipEffect, beginGesture: service.beginVideoEffectGesture, preview: service.previewVideoEffectGesture,
 			commit: service.commitVideoEffectGesture, cancel: service.cancelVideoEffectGesture, toggle: service.toggleVideoClipEffect,
-			reorder: service.reorderVideoClipEffect, remove: service.removeVideoClipEffect, update: service.updateVideoClipEffect }, copy = VIDEO_EFFECT_COPY_BY_LOCALE[locale];
+			reorder: service.reorderVideoClipEffect, remove: service.removeVideoClipEffect, update: service.updateVideoClipEffect }, copy = photoDevelopCopy(locale).shared;
 		const mounted = await mountPhotoImportUi(() => <VideoEffectRack clip={view(project).clips.find(clip => clip.id === 'video-clip')}
 			controller={{ actions: { video: { effects: actions } } }} copy={{ ...copy, chooseEffect: 'Choose effect', addEffect: 'Add effect' }} disabled={false} onError={(value: string) => { error = value; }} />);
 		const control = (label: string) => { const input = mounted.dom.container.querySelectorAll('input').find(node => node.getAttribute('aria-label') === `${copy.videoEffectExactValue}: ${label}`); assert.ok(input); return input; };

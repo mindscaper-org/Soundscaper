@@ -7,18 +7,18 @@ export async function wavPackAudioBlob(file: Blob, signal?: AbortSignal): Promis
 	if (file.size < 32) return file;
 	const tagEnd = await apeTagEnd(file, signal);
 	const footer = await metadataBlobBytes(file, tagEnd - 32, tagEnd, signal);
-	const info = apeFooter(footer);
-	if (!info) return tagEnd === file.size ? file : file.slice(0, tagEnd, file.type);
+	const info = apeFooter(footer, false);
+	if (!info) return file.slice(0, await wavPackZeroPaddingStart(file, tagEnd, signal), file.type);
 	const start = tagEnd - info.size - (info.header ? 32 : 0);
 	if (start < 32) throw new RangeError('The APEv2 trailer exceeds its WavPack file.');
 	if (info.header) {
 		const header = await metadataBlobBytes(file, start, start + 32, signal);
-		const declared = apeFooter(header);
+		const declared = apeFooter(header, false);
 		const view = new DataView(header.buffer);
 		if (!declared || declared.size !== info.size || view.getUint32(16, true) !== new DataView(footer.buffer).getUint32(16, true)
 			|| !(view.getUint32(20, true) & 0x2000_0000)) throw new RangeError('The APEv2 header is missing or inconsistent.');
 	}
-	return file.slice(0, start, file.type);
+	return file.slice(0, await wavPackZeroPaddingStart(file, start, signal), file.type);
 }
 
 /** Inspect APE text and cover art without asking a codec to decode the trailer. */
@@ -33,6 +33,7 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 	const view = new DataView(bytes.buffer);
 	const count = new DataView(footer.buffer).getUint32(16, true);
 	const entries: [string, string | Uint8Array][] = [];
+	const externalKeys = new Set<string>();
 	const images: Record<string, unknown>[] = [];
 	let offset = 0;
 	for (let index = 0; index < count; index++) {
@@ -48,7 +49,10 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 		const value = bytes.subarray(offset, offset + length);
 		offset += length;
 		if ((flags & 6) === 0) entries.push([key, new TextDecoder('utf-8', { fatal: true }).decode(value)]);
-		else {
+		else if ((flags & 6) === 4) {
+			entries.push([key, new TextDecoder('utf-8', { fatal: true }).decode(value)]);
+			externalKeys.add(key);
+		} else {
 			entries.push([key, value]);
 			if (key.toLowerCase().startsWith('cover art (')) {
 				const end = value.indexOf(0);
@@ -66,12 +70,16 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 	const names: Readonly<Record<string, string>> = { TITLE: 'title', ARTIST: 'artist', ALBUM: 'album', ALBUMARTIST: 'albumArtist', GENRE: 'genre',
 		TRACK: 'trackNumber', DISC: 'discNumber', YEAR: 'date', TOTALTRACKS: 'tracksTotal', TOTALDISCS: 'discsTotal',
 		COMMENT: 'comment', DATE: 'date', LYRICS: 'lyrics', TRACKNUMBER: 'trackNumber', TRACKTOTAL: 'tracksTotal', DISCNUMBER: 'discNumber', DISCTOTAL: 'discsTotal' };
-	const explicitDate = entries.some(([key, value]) => key.toUpperCase().replace(/[ _-]/gu, '') === 'DATE' && typeof value === 'string' && value !== '');
-	for (const [key, value] of entries) {
+	const explicitDate = entries.some(([key, value]) => !externalKeys.has(key) && key.toUpperCase().replace(/[ _-]/gu, '') === 'DATE' && typeof value === 'string' && value !== '');
+	for (const [key, encoded] of entries) {
+		if (externalKeys.has(key)) continue;
 		const normalizedKey = key.toUpperCase().replace(/[ _-]/gu, '');
 		if (normalizedKey === 'YEAR' && explicitDate) continue;
 		const name = names[normalizedKey];
-		if (!name || typeof value !== 'string') continue;
+		if (!name || typeof encoded !== 'string') continue;
+		const values = encoded.split('\0');
+		const value = name === 'date' || ['trackNumber', 'tracksTotal', 'discNumber', 'discsTotal'].includes(name)
+			? values[0]! : values.join('; ');
 		if (['trackNumber', 'tracksTotal', 'discNumber', 'discsTotal'].includes(name)) {
 			const pair = /^(\d+)\/(\d+)$/u.exec(value);
 			const number = Number(pair ? pair[1] : value);
@@ -86,11 +94,33 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 	return tags;
 }
 
-function apeFooter(bytes: Uint8Array): Readonly<{ size: number; header: boolean }> | null {
+/** Older native tag writers zero the released tag extent instead of truncating it. */
+async function wavPackZeroPaddingStart(file: Blob, end: number, signal?: AbortSignal): Promise<number> {
+	let offset = 0; let complete = false;
+	for (let blocks = 0; offset < end && blocks < 1_000_000; blocks++) {
+		const header = await metadataBlobBytes(file, offset, Math.min(offset + 32, end), signal);
+		if (header.length === 32 && new TextDecoder().decode(header.subarray(0, 4)) === 'wvpk') {
+			const view = new DataView(header.buffer); const size = view.getUint32(4, true) + 8;
+			if (size < 32 || size > end - offset) return end;
+			if (view.getUint32(20, true) > 0) complete = Boolean(view.getUint32(24, true) & 0x1000);
+			offset += size; continue;
+		}
+		if (!complete || end - offset > 16 * 1024 ** 2 || header.some(byte => byte !== 0)) return end;
+		for (let position = offset + header.length; position < end; position += 65_536) {
+			const bytes = await metadataBlobBytes(file, position, Math.min(position + 65_536, end), signal);
+			if (bytes.some(byte => byte !== 0)) return end;
+		}
+		return offset;
+	}
+	return end;
+}
+
+function apeFooter(bytes: Uint8Array, inspectItems = true): Readonly<{ size: number; header: boolean }> | null {
 	if (new TextDecoder().decode(bytes.subarray(0, 8)) !== 'APETAGEX') return null;
 	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 	const size = view.getUint32(12, true);
-	if (bytes.length !== 32 || view.getUint32(8, true) !== 2000 || size < 32 || size > 16 * 1024 ** 2 || view.getUint32(16, true) > 256) throw new RangeError('Invalid APEv2 trailer.');
+	if (bytes.length !== 32 || view.getUint32(8, true) !== 2000 || size < 32) throw new RangeError('Invalid APEv2 trailer.');
+	if (inspectItems && (size > 16 * 1024 ** 2 || view.getUint32(16, true) > 256)) throw new RangeError('APEv2 metadata exceeds its bounded inspection limit.');
 	return { size, header: Boolean(view.getUint32(20, true) & 0x8000_0000) };
 }
 

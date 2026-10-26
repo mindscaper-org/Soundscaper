@@ -150,14 +150,16 @@ test('a forced claim discards its result if disposal wins the acquisition race',
 	const previous = createLock('project-a', { readOnly: true });
 	const next = createLock('project-a');
 	const acquisition = deferred<ProjectLifecycleLock>();
+	const started = deferred<void>();
 	const fixture = createFixture(previous);
 	fixture.setAcquisition((_projectId, force) => {
 		assert.equal(force, true);
+		started.resolve();
 		return acquisition.promise;
 	});
 
 	const claim = fixture.service.claimProjectLock();
-	await Promise.resolve();
+	await started.promise;
 	fixture.state.disposed = true;
 	acquisition.resolve(next);
 

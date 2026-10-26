@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -19,7 +21,7 @@ import {
 	parseVideoCompositionDraft,
 } from '../src/common/editor/ui/video-composition-dialog-model.ts';
 import VideoCompositionDialog from '../src/common/editor/ui/inspector/VideoCompositionDialog.tsx';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 test('video composition is capability-gated for writable Framescaper v1 video clips', () => {

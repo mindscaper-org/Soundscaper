@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -12,7 +14,7 @@ import {
 	resolveVideoKeyframePreviewState,
 	videoKeyframeLocalSequencePositionAtTimelineSample,
 } from '../src/common/editor/video-keyframe-preview-state.ts';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 
 const rational = (num: number, den = 1) => ({ num, den });
 

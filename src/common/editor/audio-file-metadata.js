@@ -1,3 +1,22 @@
+import { inspectApeAudioSampleRate } from './ape-audio-sample-rate.ts';
+import { inspectSbcAudioSampleRate } from './sbc-audio-sample-rate.ts';
+import { inspectSdsPcmSourceGeometry } from './sds-pcm-source-geometry.ts';
+import { inspectTtaAudioSampleRate } from './tta-audio-sample-rate.ts';
+import { inspectMatroskaOpusSampleRate } from './matroska-audio-sample-rate.ts';
+import { readAlacSampleDescription } from './alac-sample-description.ts';
+import { inspectAuAudioSampleRate } from './au-audio-sample-rate.ts';
+import { inspectDolbyAudioSampleRate } from './dolby-audio-sample-rate.ts';
+import { inspectDtsAudioSampleRate } from './dts-audio-sample-rate.ts';
+import { readQuickTimePcmSampleDescription } from './quicktime-pcm-sample-description.ts';
+import { inspectWave64PcmSourceGeometry } from './wave64-pcm-source-geometry.ts';
+import { inspectNistPcmSourceGeometry } from './nist-pcm-source-geometry.ts';
+import { inspectIrcamPcmSourceGeometry } from './ircam-pcm-source-geometry.ts';
+import { inspectPafPcmSourceGeometry } from './paf-pcm-source-geometry.ts';
+import { inspectIff16svPcmSourceGeometry } from './iff16sv-pcm-source-geometry.ts';
+import { inspectVocPcmSampleRate } from './voc-pcm-sample-rate.ts';
+import { inspectAmrWbAudioSampleRate } from './amr-wb-audio-sample-rate.ts';
+import { inspectOggSpeexSampleRate } from './ogg-speex-source-identity.ts';
+
 const MAX_SIGNATURE_SCAN_BYTES = 1024 * 1024;
 const MAX_CONTAINER_BOXES = 16_384;
 const ASF_HEADER_GUID = Object.freeze([
@@ -35,11 +54,27 @@ export function inspectEncodedAudioSampleRate(input) {
 	if (!bytes || bytes.byteLength < 4) return null;
 	try {
 		return inspectWaveSampleRate(bytes)
+			?? inspectWave64PcmSourceGeometry(bytes)?.sampleRate
+			?? inspectNistPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectIrcamPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectPafPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectIff16svPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectSdsPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectVocPcmSampleRate(bytes)
 			?? inspectAiffSampleRate(bytes)
+			?? inspectAuAudioSampleRate(bytes)
+			?? inspectApeAudioSampleRate(bytes)
+			?? inspectTtaAudioSampleRate(bytes)
+			?? inspectSbcAudioSampleRate(bytes)
+			?? inspectAmrWbAudioSampleRate(bytes)
+			?? inspectDolbyAudioSampleRate(bytes)
+			?? inspectDtsAudioSampleRate(bytes)
 			?? inspectFlacSampleRate(bytes)
 			?? inspectOggSampleRate(bytes)
+			?? inspectOggSpeexSampleRate(bytes)
 			?? inspectIsoMediaSampleRate(bytes)
 			?? inspectAsfSampleRate(bytes)
+			?? inspectMatroskaOpusSampleRate(bytes)
 			?? inspectWavPackSampleRate(bytes)
 			?? inspectMpegOrAdtsSampleRate(bytes);
 	} catch {
@@ -62,9 +97,26 @@ export function inspectDecodedAudioSampleRate(input) {
 	if (!bytes || bytes.byteLength < 4) return null;
 	try {
 		return inspectWaveSampleRate(bytes)
+			?? inspectWave64PcmSourceGeometry(bytes)?.sampleRate
+			?? inspectNistPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectIrcamPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectPafPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectIff16svPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectSdsPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectVocPcmSampleRate(bytes)
 			?? inspectAiffSampleRate(bytes)
+			?? inspectAuAudioSampleRate(bytes)
+			?? inspectApeAudioSampleRate(bytes)
+			?? inspectTtaAudioSampleRate(bytes)
+			?? inspectSbcAudioSampleRate(bytes)
+			?? inspectAmrWbAudioSampleRate(bytes)
+			?? inspectDolbyAudioSampleRate(bytes)
+			?? inspectDtsAudioSampleRate(bytes)
 			?? inspectFlacSampleRate(bytes)
 			?? inspectOggSampleRate(bytes)
+			?? inspectOggSpeexSampleRate(bytes)
+			?? inspectIsoMediaSampleRate(bytes, true)
+			?? inspectMatroskaOpusSampleRate(bytes)
 			?? inspectWavPackSampleRate(bytes)
 			?? inspectMpegOrAdtsSampleRate(bytes, false);
 	} catch {
@@ -169,23 +221,30 @@ function inspectOggSampleRate(bytes) {
 	return null;
 }
 
-function inspectIsoMediaSampleRate(bytes) {
+function inspectIsoMediaSampleRate(bytes, decodedOnly = false) {
 	const topLevel = isoBoxes(bytes, 0, bytes.byteLength);
 	const moov = topLevel.find((box) => box.type === 'moov');
 	if (!moov) return null;
 	const view = dataView(bytes);
+	let audioTracks = 0, decodedRate = null;
 	for (const track of isoBoxes(bytes, moov.payload, moov.end).filter((box) => box.type === 'trak')) {
 		const mdia = isoBoxes(bytes, track.payload, track.end).find((box) => box.type === 'mdia');
 		if (!mdia) continue;
 		const mediaBoxes = isoBoxes(bytes, mdia.payload, mdia.end);
 		const handler = mediaBoxes.find((box) => box.type === 'hdlr');
 		if (!handler || handler.payload + 12 > handler.end || ascii(bytes, handler.payload + 8, 4) !== 'soun') continue;
+		audioTracks += 1;
 		const minf = mediaBoxes.find((box) => box.type === 'minf');
 		if (!minf) continue;
 		const stbl = isoBoxes(bytes, minf.payload, minf.end).find((box) => box.type === 'stbl');
 		if (!stbl) continue;
 		const stsd = isoBoxes(bytes, stbl.payload, stbl.end).find((box) => box.type === 'stsd');
 		if (!stsd || stsd.payload + 8 > stsd.end || bytes[stsd.payload] !== 0) continue;
+		if (decodedOnly) {
+			const description = bytes.subarray(stsd.payload - 8, stsd.end);
+			decodedRate = (readAlacSampleDescription(description) ?? readQuickTimePcmSampleDescription(description))?.sampleRate ?? null;
+			continue;
+		}
 		const entryCount = view.getUint32(stsd.payload + 4, false);
 		if (entryCount < 1 || entryCount > MAX_CONTAINER_BOXES) continue;
 		const entries = isoBoxes(bytes, stsd.payload + 8, stsd.end);
@@ -195,7 +254,7 @@ function inspectIsoMediaSampleRate(bytes) {
 			if (rate) return rate;
 		}
 	}
-	return null;
+	return decodedOnly && audioTracks === 1 ? decodedRate : null;
 }
 
 function inspectIsoAudioSampleEntryRate(entry, view) {

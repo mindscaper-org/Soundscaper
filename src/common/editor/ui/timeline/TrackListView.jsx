@@ -73,7 +73,7 @@ function TrackListViewSession({
 	viewportDurationFrames,
 	waveformRulerState,
 	updateWaveformRuler,
-	recordingPreviews,
+	recordingPreviews = EMPTY_TIMELINE_CLIPS,
 	waveformCache,
 	automationToolEnabled,
 	automationRuntime,
@@ -101,6 +101,14 @@ function TrackListViewSession({
 		() => new Map(project.tracks.map((track, index) => [track.id, index])),
 		[project.tracks],
 	);
+	const recordingPreviewByTrackId = useMemo(() => {
+		const byTrackId = new Map();
+		for (const preview of recordingPreviews) {
+			const trackId = preview.trackId;
+			if (!byTrackId.has(trackId)) byTrackId.set(trackId, preview);
+		}
+		return byTrackId;
+	}, [recordingPreviews]);
 	const trackFolderActions = controller.actions.trackFolders;
 	const selectFolder = (folderId) => {
 		setActiveFolderId(folderId);
@@ -255,7 +263,7 @@ function TrackListViewSession({
 					waveformZoom={normalizeWaveformRulerState(waveformRulerState[track.id]).zoom}
 					onWaveformZoom={(zoom) => updateWaveformRuler(track.id, { zoom })}
 					clipStyle={snapshot.preferences?.appearance?.clipStyle}
-					recordingPreview={recordingPreviews.find((preview) => preview.trackId === track.id) || null}
+					recordingPreview={recordingPreviewByTrackId.get(track.id) || null}
 					draggingClipIds={draggingClipIds}
 					clipDragPreview={clipDragPreview}
 					projectBinDragPreview={projectBinDragPreview}

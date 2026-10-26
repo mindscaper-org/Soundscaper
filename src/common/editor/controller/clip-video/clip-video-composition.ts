@@ -16,11 +16,13 @@ import { throwIfAborted } from '../shared/app-helpers.ts';
 import type { ClipVideoCompositionDependencies, ClipVideoCompositionProject } from './clip-video-composition-types.ts';
 import { createClipSourcePreviewService } from './internal/clip-source-preview-service.ts';
 import type { ClipSourcePreviewProject } from './internal/clip-source-preview-project.ts';
-import { createClipPropertyService, type ClipAnalysisResult } from './internal/clip/clip-property-service.ts';
+import { createClipPropertyService } from './internal/clip/clip-property-service.ts';
 import { loadStoredSourceChannels } from '../../clip-time-pitch-cache-channels.js';
+import { linkedSourceContentDigest } from '../../linked-source-cache-content.ts';
 import { createClipTimePitchRenderService } from './clip-time-pitch-render-service.ts';
 import { renderLinkedClipAudio } from './internal/linked-clip-render.ts';
 import { renderClipNormalizationAudio } from './internal/clip-normalization-render.ts';
+import { analyzeClipNormalizationChannels } from './internal/clip-normalization-analysis.ts';
 import { createClipTransformService } from './internal/clip/clip-transform-service.ts';
 import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-command.ts';
 import { createSampleEditService } from './internal/sample-edit-service.ts';
@@ -33,7 +35,7 @@ import { createVideoNavigationService } from './internal/video/video-navigation-
 import { createVideoRetimeProgramStateResolver } from './internal/video/video-retime-program-state.ts';
 import { createVideoSourceReprobeService } from './video-source-reprobe-service.ts';
 import { createVideoTrimServices } from './internal/trim/video-trim-composition.ts';
-import { analyzeChannelsInWorker, generateWaveformPeaks, peakCacheKey } from '../source/waveform-analysis.ts';
+import { generateWaveformPeaks, peakCacheKey } from '../source/waveform-analysis.ts';
 
 export type {
 	ClipVideoCommandProject,
@@ -44,9 +46,6 @@ export type {
 	ClipVideoCompositionState,
 	ClipVideoCompositionStore,
 } from './clip-video-composition-types.ts';
-
-/** Frames analysed per worker chunk when a clip's audio is inspected. */
-const CLIP_ANALYSIS_CHUNK_FRAMES = 65_536;
 
 type SampleEdit = ReturnType<typeof createSampleEditService>;
 type ClipTimePitchRender = ReturnType<typeof createClipTimePitchRenderService>;
@@ -213,6 +212,10 @@ export function createClipVideoComposition(dependencies: ClipVideoCompositionDep
 		lifetime,
 		copy,
 		sourceBuffers: dependencies.sourceBuffers,
+		sourceContentIdentity: async (sourceId, signal) => {
+			const source = dependencies.getCommandProject().sources.find(item => item.id === sourceId);
+			return source ? await linkedSourceContentDigest(dependencies.store, source, signal) : undefined;
+		},
 		loadSourceBuffer: async (sourceId, signal) => {
 			const source = dependencies.getCommandProject().sources.find((item) => item.id === sourceId);
 			if (!source) return null;
@@ -228,8 +231,8 @@ export function createClipVideoComposition(dependencies: ClipVideoCompositionDep
 		editingBlocked: dependencies.editingBlocked,
 		captureProject,
 		assertProject,
-		analyzeChannels: async (channels, sampleRate, signal) => clipAnalysisResult(
-			await analyzeChannelsInWorker([...channels], sampleRate, copy, CLIP_ANALYSIS_CHUNK_FRAMES, signal),
+		analyzeChannels: (channels, sampleRate, signal, peakOnly) => analyzeClipNormalizationChannels(
+			channels, sampleRate, copy, signal, peakOnly,
 		),
 		createId: createStableId,
 		commit: dependencies.commit,
@@ -304,12 +307,3 @@ export function createClipVideoComposition(dependencies: ClipVideoCompositionDep
 }
 
 export type ClipVideoComposition = ReturnType<typeof createClipVideoComposition>;
-
-/** The analysis worker answers with an untyped message; the clip service reads exactly these two measurements. */
-function clipAnalysisResult(analysis: unknown): ClipAnalysisResult {
-	const { peakAmplitude, integratedLufs } = (analysis ?? {}) as Partial<ClipAnalysisResult>;
-	if (typeof peakAmplitude !== 'number' || typeof integratedLufs !== 'number') {
-		throw new TypeError('Clip analysis returned no peak or loudness measurement.');
-	}
-	return { peakAmplitude, integratedLufs };
-}

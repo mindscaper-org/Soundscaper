@@ -26,7 +26,7 @@ interface ProxyFileService extends FramescaperSidecarFileReader {
 	readonly linkedVideoOriginalsAvailable?: boolean;
 	chooseFiles?(request: Readonly<{ readonly purpose: 'video'; readonly multiple: false }>):
 		PromiseLike<readonly unknown[]> | readonly unknown[];
-	chooseLinkedVideoOriginal?(): PromiseLike<unknown> | unknown;
+	chooseLinkedVideoOriginal?(request?: Readonly<{ readonly signal?: AbortSignal }>): PromiseLike<unknown> | unknown;
 }
 
 interface FramescaperVideoProxyDialogProps {
@@ -184,11 +184,14 @@ export default function FramescaperVideoProxyDialog({
 	};
 	const chooseOriginal = (): void => {
 		if (!runtime || !selectedSourceId || typeof fileService.chooseLinkedVideoOriginal !== 'function') return;
+		const abort = new AbortController();
+		abortRef.current = abort;
 		setPending('relink');
 		setStatus('');
 		setError('');
 		void runAwaitedAudioEditorOperation(run, async () => {
-			const choice = relinkChoice(await fileService.chooseLinkedVideoOriginal!());
+			const choice = relinkChoice(await fileService.chooseLinkedVideoOriginal!({ signal: abort.signal }));
+			throwIfAborted(abort.signal);
 			if (!choice) return;
 			const result = await runtime.relinkOriginal(selectedSourceId, choice);
 			if (result === 'confirmation-required') {
@@ -197,8 +200,12 @@ export default function FramescaperVideoProxyDialog({
 			}
 			setStatus({ key: 'videoProxyOriginalRelinked' });
 		}).catch((operationError: unknown) => {
-			setError(feedbackFailure(operationError));
-		}).finally(() => { setPending(null); });
+			if (isProxyCancellation(operationError)) setStatus({ key: 'videoProxyCancelled' });
+			else setError(feedbackFailure(operationError));
+		}).finally(() => {
+			if (abortRef.current === abort) abortRef.current = null;
+			setPending(null);
+		});
 	};
 	const confirmChangedOriginal = (): void => {
 		if (!runtime || !selectedSourceId || !changedRelink) return;

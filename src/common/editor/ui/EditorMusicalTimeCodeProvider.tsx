@@ -2,7 +2,7 @@
 
 import { useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { TimeCodeMusicalContext } from '../../../../vendor/audacity-design-system/components/src/TimeCode/time-code-musical-context.ts';
-import { createMusicalDurationTimeCodeMap, createMusicalTimeCodeMap, type MusicalTimeCodeProject } from './time-code-musical-map.ts';
+import { createMusicalDurationTimeCodeMap, createMusicalEndingDurationTimeCodeMap, createMusicalTimeCodeMap, type MusicalTimeCodeProject } from './time-code-musical-map.ts';
 
 interface MusicalController {
 	readonly subscribe: (listener: () => void) => () => void;
@@ -12,18 +12,20 @@ const emptySnapshot: Readonly<{ project?: unknown }> = {};
 const noSnapshot = () => emptySnapshot;
 const noSubscribe = () => () => undefined;
 
-export default function EditorMusicalTimeCodeProvider({ controller, children, originFrame }: {
+export default function EditorMusicalTimeCodeProvider({ controller, children, originFrame, endFrame }: {
 	readonly controller?: MusicalController;
 	readonly children: ReactNode;
 	readonly originFrame?: number;
+	readonly endFrame?: number;
 }) {
 	const getSnapshot = controller?.getSnapshot ?? noSnapshot;
 	const snapshot = useSyncExternalStore(controller?.subscribe ?? noSubscribe, getSnapshot, getSnapshot);
 	const map = useMemo(() => {
 		const project = snapshot.project as Partial<MusicalTimeCodeProject> | undefined;
 		return project?.sampleRate && project.tempoMap?.events.length && project.signatureMap?.events.length
-			? originFrame === undefined ? createMusicalTimeCodeMap(project as MusicalTimeCodeProject)
+			? endFrame !== undefined ? createMusicalEndingDurationTimeCodeMap(project as MusicalTimeCodeProject, endFrame)
+				: originFrame === undefined ? createMusicalTimeCodeMap(project as MusicalTimeCodeProject)
 				: createMusicalDurationTimeCodeMap(project as MusicalTimeCodeProject, originFrame) : undefined;
-	}, [snapshot.project, originFrame]);
+	}, [snapshot.project, originFrame, endFrame]);
 	return <TimeCodeMusicalContext.Provider value={map}>{children}</TimeCodeMusicalContext.Provider>;
 }

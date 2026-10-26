@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { compareCodeUnits } from '../code-unit-order.ts';
+import { commandIdentity, setCommandIdentity } from './command-identity-map.ts';
 import {
 	assertFrame,
 	clipEndFrame,
@@ -231,8 +232,8 @@ export function createClipboardRuntimeOwner(owner) {
 		for (const track of normalizedClipboard.tracks || []) {
 			for (const clip of track.clips || []) {
 				clipIds[clip.key] = idFactory('clip');
-				if (clip.groupId && !groupIds[clip.groupId]) groupIds[clip.groupId] = idFactory('clip-group');
-				if (clip.avLinkId && !avLinkIds[clip.avLinkId]) avLinkIds[clip.avLinkId] = idFactory('av-link');
+				if (clip.groupId && !Object.hasOwn(groupIds, clip.groupId)) Object.defineProperty(groupIds, clip.groupId, { value: idFactory('clip-group'), enumerable: true });
+				if (clip.avLinkId && !Object.hasOwn(avLinkIds, clip.avLinkId)) Object.defineProperty(avLinkIds, clip.avLinkId, { value: idFactory('av-link'), enumerable: true });
 				if (clip.kind === 'video' && clip.videoEffects?.length) {
 					videoEffectIds[clip.key] = clip.videoEffects.map(() => idFactory('video-effect'));
 				}
@@ -442,11 +443,11 @@ export function createClipboardRuntimeOwner(owner) {
 					: (command.mode === 'insert-track' || command.mode === 'insert-all')
 						&& clip.timelineStartFrame < span.startFrame && clipEndFrame(clip) > span.startFrame;
 				if (spansBoundary) {
-					command.splitClipIds[clip.id] = idFactory('clip');
+					setCommandIdentity(command.splitClipIds, clip.id, idFactory('clip'));
 					const effectIds = prepareVideoEffectIds(clip, idFactory);
-					if (effectIds) command.videoEffectIds[command.splitClipIds[clip.id]] = effectIds;
-					if (clip.avLinkId && !command.splitAvLinkIds[clip.avLinkId]) {
-						command.splitAvLinkIds[clip.avLinkId] = idFactory('av-link');
+					if (effectIds) setCommandIdentity(command.videoEffectIds, commandIdentity(command.splitClipIds, clip.id), effectIds);
+					if (clip.avLinkId && !commandIdentity(command.splitAvLinkIds, clip.avLinkId)) {
+						setCommandIdentity(command.splitAvLinkIds, clip.avLinkId, idFactory('av-link'));
 					}
 				}
 			}
@@ -483,7 +484,7 @@ export function createClipboardRuntimeOwner(owner) {
 				replacements.push(clip);
 				continue;
 			}
-			const rightId = splitClipIds[clip.id];
+			const rightId = commandIdentity(splitClipIds, clip.id);
 			if (!rightId) throw new TypeError(`A stable split clip ID is required for ${clip.id}.`);
 			assertUnusedClipId(project, rightId);
 			replacements.push(segmentOfClip(project, clip, clip.timelineStartFrame, atFrame, clip.timelineStartFrame, clip.id));
@@ -494,10 +495,10 @@ export function createClipboardRuntimeOwner(owner) {
 				clipEndFrame(clip),
 				atFrame + durationFrames,
 				rightId,
-				videoEffectIds[rightId],
+				commandIdentity(videoEffectIds, rightId),
 			);
 			if (clip.avLinkId) {
-				const rightAvLinkId = splitAvLinkIds[clip.avLinkId];
+				const rightAvLinkId = commandIdentity(splitAvLinkIds, clip.avLinkId);
 				if (!rightAvLinkId) throw new TypeError(`A stable split A/V link ID is required for ${clip.avLinkId}.`);
 				right = normalizeClipForProject(project, { ...right, avLinkId: rightAvLinkId, id: right.id });
 			}

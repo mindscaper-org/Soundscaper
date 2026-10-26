@@ -74,11 +74,15 @@ export function createTakeCompDialogModel(input: TakeCompDialogModelInput): Read
 	const project = dataRecord(input.project);
 	if (!project || !isTakeCompProjectSchema(project)) return emptyModel();
 	const canonical = createTakeCompDocumentGroupsV17(project.takeGroups, project);
-	const tracks = dataRecords(project.tracks);
+	const tracks = new Map<unknown, DataRecord>();
+	for (const track of dataRecords(project.tracks)) {
+		const id = track.id;
+		if (!tracks.has(id)) tracks.set(id, track);
+	}
 	const sources = dataRecords(project.sources);
 	const sourceNames = new Map(sources.map((source) => [String(source.id), String(source.name ?? source.id)]));
 	const groups = canonical.map((group): TakeCompDialogGroupModel => {
-		const track = tracks.find(({ id }) => id === group.trackId);
+		const track = tracks.get(group.trackId);
 		const takes = group.takes.map((take): TakeCompDialogTakeModel => Object.freeze({
 			id: take.id,
 			laneId: take.laneId,
@@ -86,13 +90,19 @@ export function createTakeCompDialogModel(input: TakeCompDialogModelInput): Read
 			startSample: take.startSample,
 			endSample: take.endSample,
 		}));
+		const takesByLane = new Map<string, TakeCompDialogTakeModel[]>();
+		for (const take of takes) {
+			const lane = takesByLane.get(take.laneId);
+			if (lane) lane.push(take);
+			else takesByLane.set(take.laneId, [take]);
+		}
 		return Object.freeze({
 			...group,
 			trackName: String(track?.name ?? group.trackId),
 			locked: track?.locked === true,
 			lanesView: Object.freeze(group.laneOrder.map((laneId) => Object.freeze({
 				id: laneId,
-				takes: Object.freeze(takes.filter((take) => take.laneId === laneId)),
+				takes: Object.freeze(takesByLane.get(laneId) ?? []),
 			}))),
 		});
 	});

@@ -28,7 +28,7 @@ interface SpreadsheetRowProps {
 	readonly activeColumn: number;
 	readonly draft: SpreadsheetCellDraft | null;
 	readonly blocked: boolean;
-	readonly inputRef: RefObject<HTMLInputElement | null>;
+	readonly inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
 	readonly actions: SpreadsheetRowActions;
 }
 
@@ -42,6 +42,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
 		{cells.map(column => {
 			const cell = { row: rowIndex, column: column.column };
 			const editing = draft?.clipId === row.id && draft.column === column.column;
+			const EditInput = editing && /[\r\n]/u.test(row.cells[column.id]) ? 'textarea' : 'input';
 			return <td key={column.id} role="gridcell" data-row={rowIndex} data-column={column.id}
 				ref={element => actions.registerCell(rowIndex, column.column, element)}
 				aria-selected={selectedLeft >= 0 && column.column >= selectedLeft && column.column <= selectedRight}
@@ -53,7 +54,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
 				}}
 				onMouseEnter={event => { if (event.buttons === 1 && !actions.isDraftActive()) actions.selectCell(cell, true); }}
 				onDoubleClick={() => { if (column.id !== 'reversed' && column.id !== 'inverted') actions.beginEdit(cell); }}>
-				{editing && draft ? <input ref={inputRef} aria-label={column.label} value={draft.value}
+				{editing && draft ? <EditInput ref={(element: HTMLInputElement | HTMLTextAreaElement | null) => { inputRef.current = element; }} aria-label={column.label} value={draft.value}
 					onChange={event => actions.updateDraft({ ...draft, value: event.currentTarget.value })}
 					onBlur={() => { actions.finishEdit(); }} /> : column.id === 'reversed' || column.id === 'inverted'
 					? <input type="checkbox" aria-label={column.label} tabIndex={-1} checked={row.cells[column.id] === 'true'}

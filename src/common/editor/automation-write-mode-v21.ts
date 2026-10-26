@@ -12,6 +12,8 @@ import {
 	thinAutomationLaneCaptureV21,
 	type AutomationLaneThinningOptionsV21,
 } from './automation-lane-thinning-v21.ts';
+import { guardAutomationCaptureBoundariesV21 } from './automation-capture-boundaries-v21.ts';
+import type { AutomationLaneFrameOptionsV21 } from './automation-lane-v21.ts';
 import type { InterpolationShape } from './interpolation-curve.ts';
 import { compareRationals } from './timeline-time.ts';
 
@@ -42,7 +44,9 @@ export interface AutomationWriteCommitResultV21 {
 }
 
 export interface AutomationWriteCommitOptionsV21
-	extends AutomationLaneNormalizationOptionsV21, Pick<AutomationLaneThinningOptionsV21, 'maximumPoints'> {}
+	extends AutomationLaneNormalizationOptionsV21, Pick<AutomationLaneThinningOptionsV21, 'maximumPoints'> {
+	readonly frameOptions?: AutomationLaneFrameOptionsV21;
+}
 
 interface CapturedEntry {
 	readonly point: Readonly<{ id: string; position: AutomationLanePositionV21; value: number }>;
@@ -103,7 +107,8 @@ export function commitAutomationWriteModeV21(
 	}
 
 	const changed = captured.some((entry) => entry.changed);
-	const capture = changed ? mergeCaptureIntoLane(lane, captured, options) : null;
+	const guarded = changed ? guardAutomationCaptureBoundariesV21(lane, captured.map(({ point }) => point), options.frameOptions) : lane;
+	const capture = changed ? mergeCaptureIntoLane(guarded, captured, options) : null;
 	return Object.freeze({
 		type: 'automation-write-commit-v21',
 		mode,

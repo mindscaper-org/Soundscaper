@@ -9,9 +9,8 @@ For product scope, status, and sequencing, use the
 [Lightscaper roadmap](../roadmap-lightscaper.md). The planned motion-graphics
 program has its own [Motionscaper implementation order](development/motionscaper-implementation-order.md).
 For end-user instructions, use the [handbook](../handbook/src/content/docs/index.md).
-Completed work
-packets, dated implementation inventories, and superseded qualification plans
-belong in Git history, not in the maintained documentation set.
+Completed work packets, dated implementation inventories, and superseded
+qualification plans belong in Git history, not in the maintained documentation set.
 
 ## Understand or change the architecture
 
@@ -152,7 +151,7 @@ belong in Git history, not in the maintained documentation set.
 - [End-to-end coverage](development/end-to-end-coverage.md) explains how Node
   and browser coverage is captured and combined.
 - [Quality diagnostics](development/quality-diagnostics.md) defines correctness
-  thresholds, performance observations, and how budgets change.
+  thresholds, performance observations, workflow assertion limits, and how budgets change.
 - [Editor performance](development/performance.md) records scaling behavior,
   profiling methods, regression checks, and correctness guardrails.
 - [Smaller performance candidates](development/performance-candidates.md)
@@ -229,8 +228,9 @@ belong in Git history, not in the maintained documentation set.
 Keep current behavior and stable design constraints here. Put status and future
 ordering in a roadmap, user workflows in the handbook, executable truth in
 source and machine-readable registers, and one-off implementation narration in
-the commit or pull request that performed the work. Completed bug-fix audits and
-performance-batch inventories, measurements, and validation logs belong in Git
+the commit or pull request that performed the work. Keep ongoing bug-hunt,
+test-review, and performance work logs under ignored `private/`. Completed
+audits, batch inventories, measurements, and validation logs belong in Git
 history; keep reusable profiling tools and regression tests with their owners.
 Preserve release, provenance, and compliance evidence in its established registers.
 Before removing a record, move any open work or durable design constraint into

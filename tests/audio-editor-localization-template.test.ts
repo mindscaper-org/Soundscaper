@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -12,9 +14,9 @@ import {
 
 test('accessible UI templates preserve locale-specific word order', () => {
 	assert.equal(formatOptionsLabel(COPY_BY_LOCALE.en, 'Record'), 'Record options');
-	assert.equal(formatOptionsLabel(COPY_BY_LOCALE.de, 'Aufnahme'), 'Optionen für Aufnahme');
+	assert.equal(formatOptionsLabel(GERMAN_COPY, 'Aufnahme'), 'Optionen für Aufnahme');
 	assert.equal(formatResizeLabel(COPY_BY_LOCALE.en, 'Mixer'), 'Resize: Mixer');
-	assert.equal(formatResizeLabel(COPY_BY_LOCALE.de, 'Mixer'), 'Größe ändern: Mixer');
+	assert.equal(formatResizeLabel(GERMAN_COPY, 'Mixer'), 'Größe ändern: Mixer');
 });
 
 test('localized templates reject missing substitutions instead of leaking placeholders', () => {

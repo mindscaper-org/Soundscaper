@@ -209,7 +209,7 @@ test('Web Audio engine reports unsupported non-default outputs without creating 
 	await engine.dispose();
 });
 
-test('live playback keeps field-free track clips at native rates against the device-rate context', async () => {
+test('live playback keeps field-free track clips at native rates when the device ignores the automatic project clock', async () => {
 	const context = new MockAudioContext({ sampleRate: 32_000 });
 	const constructorArguments = [];
 	function DeviceAudioContext(...args) {
@@ -257,7 +257,8 @@ test('live playback keeps field-free track clips at native rates against the dev
 			['stereo-source', stereo],
 		]));
 		await engine.play();
-		assert.deepEqual(constructorArguments, [[]], 'live playback does not request the project sample rate');
+		assert.deepEqual(constructorArguments, [[{ sampleRate: 48_000 }]]);
+		assert.equal(context.sampleRate, 32_000, 'native source scheduling retains a device-rate fallback');
 		assert.equal(Object.hasOwn(track, 'sampleRate'), false);
 		assert.equal(Object.hasOwn(track, 'channelCount'), false);
 		assert.deepEqual(context.bufferSources.map((source) => source.buffer.sampleRate), [44_100, 96_000]);

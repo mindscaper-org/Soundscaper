@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { sampleFrameToVideoFrame, videoFrameToSampleFrame, type RationalRate } from '../common/editor/timeline-time.ts';
+import { sampleFrameToVideoFrame, videoFrameToSampleFrame, roundRational, type RationalRate } from '../common/editor/timeline-time.ts';
 
 type DataRecord = Record<string, unknown>;
 
@@ -43,4 +43,11 @@ function record(value: unknown): DataRecord {
 		throw new TypeError('Sequence rate conformance requires a canonical record.');
 	}
 	return value as DataRecord;
+}
+
+/** Transfer an existing visual coordinate directly between exact sequence grids. */
+export function rebaseSequenceVisualFrame(frame: number, from: RationalRate, to: RationalRate): number {
+	if (!Number.isSafeInteger(frame) || frame < 0) throw new RangeError('A visual sequence coordinate must be a non-negative safe integer.');
+	return roundRational(BigInt(frame) * BigInt(from.den) * BigInt(to.num),
+		BigInt(from.num) * BigInt(to.den), 'point');
 }

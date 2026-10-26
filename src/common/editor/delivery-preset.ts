@@ -32,7 +32,7 @@ export type DeliveryPresetKind = (typeof DELIVERY_PRESET_KINDS)[number];
 export const DELIVERY_PRESET_SETTINGS: Readonly<Record<DeliveryPresetKind, readonly string[]>> = Object.freeze({
 	audio: Object.freeze([
 		'sampleRate', 'channelMapping', 'sampleFormat', 'dither',
-		'bitRate', 'quality', 'compressionLevel', 'mode', 'chapterSource', 'includeTail',
+		'bitRate', 'quality', 'compressionLevel', 'mode', 'chapterSource', 'includeTail', 'binaural',
 		'loudnessNormalization', 'embedLabelChapters',
 		/* MP3 carries Audacity's bit-rate mode plus the value each mode keeps. */
 		'bitRateMode', 'bitRatePreset', 'vbrQuality', 'averageBitRate',
@@ -110,6 +110,9 @@ export function validateDeliveryPreset(value: unknown): DeliveryPreset {
 		if (!DELIVERY_PRESET_SETTINGS[kind].includes(field)) {
 			throw new DeliveryPresetError(`Unknown ${kind} delivery setting: ${field}.`);
 		}
+	}
+	if (kind === 'audio' && Object.hasOwn(rawSettings, 'binaural') && typeof rawSettings.binaural !== 'boolean') {
+		throw new DeliveryPresetError('The binaural delivery setting must be a boolean.');
 	}
 	const textWatermark = Object.hasOwn(rawSettings, 'textWatermark')
 		? captureImageExportTextV1(readClosedDomainField(rawSettings, 'textWatermark', 'Delivery preset settings')) : undefined;

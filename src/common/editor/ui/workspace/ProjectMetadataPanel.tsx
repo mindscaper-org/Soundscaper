@@ -7,7 +7,8 @@ import MetadataEditorTabs, { type MetadataEditorTab } from '../MetadataEditorTab
 import { createProjectAdmEditorValue } from '../adm-metadata-editor-model.ts';
 import { createBextMetadataEditorValue } from '../bext-metadata-editor-model.ts';
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
-import { freesoundAttributionCopy } from '../../../i18n/freesound-attribution-copy.js';
+import { FREESOUND_ATTRIBUTION_ENGLISH_COPY } from '../../../i18n/freesound-attribution-copy.js';
+import { useTranslationScope } from '../use-translation-scope.ts';
 import { MetadataEditorField } from './LabelManagerRows.jsx';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import Id3MetadataFields from '../Id3MetadataFields.tsx';
@@ -51,7 +52,7 @@ export function ProjectMetadataPanel({
 	const tags = objectValue(metadata.tags);
 	const bext = createBextMetadataEditorValue(project);
 	const adm = createProjectAdmEditorValue(project);
-	const attributionTabLabel = freesoundAttributionCopy(locale, copy).metadataTab;
+	const attributionTabLabel = useTranslationScope('freesoundAttribution', FREESOUND_ATTRIBUTION_ENGLISH_COPY, locale, copy).metadataTab;
 	const fields = [
 		['title', copy.metadataTitle],
 		['artist', copy.metadataArtist],

@@ -8,6 +8,16 @@ These expensive checks use `playwright.nightly-local-assistance.config.mjs` and
 in the normal Node suite validate the case manifest, output checks, package
 integration, and generated documentation without downloading models.
 
+In the attended nightly runner, open **Test suite** and choose **Pause** to stop
+starting tests and cancel active workers in any of its six phases. The window
+shows **Pausing tests…** while workers shut down, then **Tests paused**. Choose
+**Resume** in the same menu to rerun canceled and pending tests and continue the
+suite. Completed tests keep their results, including failures. Partly completed
+serial groups replay together because their tests share state. Reports and
+diagnostics exclude canceled attempts; raw attempt logs remain beside each
+phase's console log in its `.attempts` directory. Unattended runs continue
+without interaction.
+
 Desktop builds prepare native-engine archives for all 22 published models and
 publish them to the same R2 bucket as model weights. Kokoro G2P is built from
 pinned offline inputs for the selected target. Each archive and its expanded

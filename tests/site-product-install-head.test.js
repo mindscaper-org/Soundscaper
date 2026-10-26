@@ -155,10 +155,9 @@ test('the privacy route names the launch after the product while the document ti
 	]);
 });
 
-test('an embedded desktop route marks the root for both and labels the boot progress', (context) => {
+test('an embedded desktop route marks the root and labels initial progress before the locale catalog loads', (context) => {
 	// The desktop shell and the embed both boot through this rewrite, and the
-	// progress element is the only thing on screen until the editor binds, so it
-	// has to be named in the locale the route asked for rather than in English.
+	// first progress label uses bundled English while the locale catalog loads.
 	const document = installDocument(context);
 	const progress = document.createElement('div');
 	progress.setAttribute('data-initial-load-progress', '');
@@ -166,7 +165,7 @@ test('an embedded desktop route marks the root for both and labels the boot prog
 
 	applyDocumentRoute({ productId: 'soundscaper', locale: 'de', direction: 'ltr', embedded: true, desktop: true });
 
-	assert.equal(progress.getAttribute('aria-label'), 'Projekt wird geladen');
+	assert.equal(progress.getAttribute('aria-label'), 'Loading project');
 	assert.equal(document.documentElement.lang, 'de');
 	assert.equal(document.documentElement.dataset.embedded, 'true');
 	assert.equal(document.documentElement.dataset.desktop, 'true');

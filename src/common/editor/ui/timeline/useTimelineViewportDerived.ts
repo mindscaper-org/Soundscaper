@@ -2,11 +2,23 @@
 
 import { useEffect, useMemo, type RefObject } from 'react';
 import { framesToSeconds } from '../../design-system-adapters/control-values.ts';
+import { createTimelineLabelTrackHeightReader, type TimelineLabelHeightTrack } from './label-track-height-reader.ts';
+import { useTimelineLabelFontRevision } from './useTimelineLabelFontRevision.ts';
 
 interface Track {
 	readonly id: string;
 	readonly type?: string;
 	readonly displayMode?: string;
+}
+
+export function useTimelineLabelTrackContentHeights(tracks: readonly TimelineLabelHeightTrack[] | undefined,
+	pixelsPerSecond: number, sampleRate: number, sizePt: number): ReadonlyMap<string, number> {
+	const read = useMemo(createTimelineLabelTrackHeightReader, []);
+	const fontRevision = useTimelineLabelFontRevision();
+	return useMemo(() => {
+		void fontRevision;
+		return read(tracks, pixelsPerSecond, sampleRate, sizePt);
+	}, [read, tracks, pixelsPerSecond, sampleRate, sizePt, fontRevision]);
 }
 
 /** These document-derived values are independent from pointer and scroll publications. */

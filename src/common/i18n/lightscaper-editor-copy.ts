@@ -4,6 +4,14 @@ import { localeLanguage } from './locale.js';
 import { LIGHTSCAPER_METADATA_QUERY_COPY_DE, LIGHTSCAPER_METADATA_QUERY_COPY_EN } from './lightscaper-metadata-query-copy.ts';
 import { LIGHTSCAPER_SAVED_FILTER_COPY_DE, LIGHTSCAPER_SAVED_FILTER_COPY_EN } from './lightscaper-saved-filter-copy.ts';
 
+/** German brand fallback belongs to the lazy photo editor, alongside its own copy. */
+export const LIGHTSCAPER_BRAND_COPY_DE = Object.freeze({
+	lightscaperTitle: 'Lightscaper',
+	lightscaperMetaDescription: 'Eine lokale Fotobibliothek mit nondestruktiver Bildentwicklung.',
+	photoEditor: 'Foto-Editor',
+	workspacePhoto: 'Fotobibliothek',
+});
+
 const ENGLISH = Object.freeze({
 	photoFileMenu: "File",
 	photoViewMenu: "View",

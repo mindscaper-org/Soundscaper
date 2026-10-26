@@ -42,6 +42,12 @@ test('desktop runtime compilation emits importable JavaScript with rewritten ext
 	}
 	assert.ok(result.files.includes('src/common/editor/project-hierarchy-document-validation.js'));
 	assert.ok(result.files.includes('src/common/editor/project-effect-tail-v21.js'));
+	const takeGroupSources = await import(pathToFileURL(join(
+		outputRoot, 'src/common/editor/take-group-source-references.js',
+	)).href);
+	assert.deepEqual([...takeGroupSources.collectTakeGroupSourceIds({
+		takeGroups: [{ takes: [{ sourceId: 'take-owned-recording' }] }],
+	})], ['take-owned-recording']);
 	assert.ok(result.files.includes('src/common/editor/source-provenance-extensions.js'));
 	assert.ok(result.files.includes('src/common/editor/source-provenance.js'));
 	assert.equal(result.files.includes('src/common/editor/engine/types.js'), false,

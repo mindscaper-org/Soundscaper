@@ -114,6 +114,7 @@ export type DocumentCompositionCopy = Readonly<{
 export type DocumentCompositionStore = Readonly<{
 	loadSetting(key: string, fallback: unknown): Promise<unknown>;
 	saveProject: ProjectSaveServiceDependencies<DocumentProject>['saveProject'];
+	createProjectIfAbsent?: (project: DocumentProject, options: Parameters<ProjectSaveServiceDependencies<DocumentProject>['saveProject']>[1]) => Promise<unknown>;
 	saveProjectIfCurrentWithWriteFence?: (
 		expected: DocumentProject, project: DocumentProject, writeFence: string,
 		options: Parameters<NonNullable<ProjectSaveServiceDependencies<DocumentProject>['saveProjectIfCurrentWithWriteFence']>>[3],
@@ -174,7 +175,7 @@ export interface DocumentCompositionDependencies {
 	readonly synchronizeAutomaticSampleEditMode: () => void;
 	readonly synchronizeMicrophoneMeterTarget: () => void;
 	readonly stopProjectBinPreview: () => unknown;
-	readonly reconcileRecordingRouting: (tracks: readonly MutationTrack[]) => boolean;
+	readonly reconcileRecordingRouting: (tracks: readonly MutationTrack[], activationGeneration?: number) => boolean;
 	readonly persistRecordingRouting: () => Promise<unknown>;
 	readonly publishDocumentSnapshot: () => void;
 	readonly handleError: (error: unknown) => void;

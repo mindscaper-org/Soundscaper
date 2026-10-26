@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "cs",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:30b3030d0d6ceb3af61ab509717fc8c33b1a60661fedb85d27f03d105547ed38","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:f806603c8b650aea66754d5a7b1013598e49ea00e0f420d72d8923f7bae082df","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -519,6 +519,7 @@
 		"clipMediaSettings": ["machine","Media settings","Nastavení médií"],
 		"clipMixed": ["machine","Mixed","Smíšené"],
 		"clipName": ["machine","Clip name","Název klipu"],
+		"clipNormalizationUnmeasurable": ["machine","Loudness could not be measured for this clip. Choose a longer audible clip or use peak normalization.","Hlasitost tohoto klipu se nepodařilo změřit. Vyberte delší slyšitelný klip nebo použijte normalizaci špiček."],
 		"clipPitchAndSpeed": ["machine","Pitch & speed","Výška tónu a rychlost"],
 		"clipPitchField": ["machine","Pitch","Výška tónu"],
 		"clipPitchIndicator": ["machine","Clip pitch","Výška tónu klipu"],
@@ -1792,7 +1793,7 @@
 		"missingEffectLabel": ["machine","Missing: {name}","Chybí: {name}"],
 		"missingEffectReadOnly": ["machine","This effect is not installed. Local playback bypasses it while preserving its name, order, and activation state for other compatible programs.","Tento efekt není nainstalován. Lokální přehrávání ho obchází, zatímco pro jiné kompatibilní programy zachovává jeho název, pořadí a stav aktivace."],
 		"missingEffectUnknown": ["machine","Unknown effect","Neznámý efekt"],
-		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Playback, analysis, and export are blocked until affected clips are removed.","Chybí některé lokální zdroje zvuku. Přehrávání, analýza a export jsou zablokovány, dokud nebudou odstraněny dotčené klipy."],
+		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Operations that require them are blocked until affected clips are relinked or removed.","Některé místní zvukové zdroje chybí. Operace, které je vyžadují, jsou zablokovány, dokud nebudou dotčené klipy znovu propojeny nebo odstraněny."],
 		"missingSourcesPreventSave": ["machine","Missing audio sources prevent saving.","Chybějící zdroje zvuku brání uložení."],
 		"mix": ["machine","Stereo mix","Stereo mix"],
 		"mixDown": ["machine","Mix down","Sloučit stopy"],
@@ -1840,6 +1841,7 @@
 		"mp3VariableBest": ["machine","220-260 kbps (Best Quality)","220-260 kbps (Nejlepší kvalita)"],
 		"mp3VariableSmallest": ["machine","45-85 kbps (Smaller files)","45-85 kbps (Menší soubory)"],
 		"multicamera": ["machine","Multicamera","Multikamera"],
+		"multipleLegacyAupProjects": ["machine","Choose one legacy Audacity project (.aup) and its data files per import.","Při každém importu vyberte jeden starší projekt Audacity (.aup) a jeho datové soubory."],
 		"multiview": ["machine","Multi-view","Vícenásobné zobrazení"],
 		"musicalAnchor": ["machine","Musically anchored","Hudebně ukotvený"],
 		"musicalTimeline": ["machine","Musical timeline","Hudební časová osa"],
@@ -4459,6 +4461,9 @@
 		"waveformLogarithmicDb": ["machine","Logarithmic dB","Logaritmické dB"],
 		"waveformLowMidCrossover": ["machine","Low/mid crossover (Hz)","Přechod mezi nízkými a středními frekvencemi (Hz)"],
 		"waveformMidHighCrossover": ["machine","Mid/high crossover (Hz)","Přechod mezi středními a vysokými frekvencemi (Hz)"],
+		"waveformRenderer": ["machine","Waveform renderer","Vykreslování průběhu"],
+		"waveformRendererCanvas": ["machine","Canvas","Canvas"],
+		"waveformRendererGpu": ["machine","GPU (Canvas fallback)","GPU (záložně Canvas)"],
 		"waveformRulerFormat": ["machine","Ruler format","Formát pravítka"],
 		"waveformSettings": ["machine","Waveform settings","Nastavení průběhu"],
 		"waveformShowRms": ["machine","Show RMS","Zobrazit RMS"],

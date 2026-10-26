@@ -430,6 +430,7 @@ function rewritePasteWithRenderedReplacements(
 		entries: Object.freeze(replacements.map(({ target, source }) => Object.freeze({
 			clipId: target.existingClip.id,
 			source,
+			...(paste.mode === 'insert-track' ? { insertionFrame: paste.atFrame } : {}),
 		}))),
 		rippleMode: paste.mode === 'overlap' ? 'none' : 'track',
 	});

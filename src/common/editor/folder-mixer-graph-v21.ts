@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { assignmentKey, mixerAssignmentIndex } from './mixer-assignment-index.ts'
+
 import {
 	mixerEndpointKeyV21,
 	normalizeMixerGraphV21,
@@ -17,6 +19,7 @@ interface FolderMixerProjectV21 {
 
 interface FolderMixerAuthorityV21 {
 	readonly audioTrackIds: readonly string[]
+	readonly audioTrackMembership: ReadonlySet<string>
 	readonly folderOrder: readonly string[]
 	readonly folderNames: ReadonlyMap<string, string>
 	readonly folderIds: ReadonlySet<string>
@@ -77,18 +80,18 @@ export function reconcileFolderMixerGraphV21(
 		&& (!isCanonicalFolderAssignment(edge, authority) || desiredAssignmentIds.has(edge.id))
 	))
 	const retainedEdgeIds = new Set(edges.map(({ id }) => id))
-	const groupedTrackIds = new Set(edges.flatMap((edge) => (
-		edge.kind === 'assignment' && edge.enabled
-			&& edge.source.kind === 'track' && edge.destination.kind === 'mixer-node'
+	const assignedTrackIds = new Set(edges.flatMap((edge) => (
+		edge.kind !== 'sidechain' && edge.enabled
+			&& edge.source.kind === 'track' && edge.destination.kind !== 'effect-sidechain'
 			? [edge.source.id]
 			: []
 	)))
 	for (const assignment of desiredAssignments) {
 		if (retainedEdgeIds.has(assignment.id)) continue
-		// A track the user routed into a group already reaches the mix through it, so the
-		// folder fallback to master would double its signal rather than restore it.
+		// Retain the user's programme assignment, including custom direct-to-master IDs.
+		// Adding a folder fallback would duplicate or bypass that assignment's level.
 		if (assignment.source.kind === 'track' && assignment.destination.kind === 'master'
-			&& groupedTrackIds.has(assignment.source.id)) continue
+			&& assignedTrackIds.has(assignment.source.id)) continue
 		edges.push(assignment)
 	}
 	const vcas = graph.vcas.map((vca) => Object.freeze({
@@ -165,8 +168,9 @@ export function validateFolderMixerGraphV21(
 	for (const vca of graph.vcas) {
 		if (folderNames.has(vca.id)) throw new RangeError(`V21 VCA ${vca.id} reuses a track folder ID`)
 	}
+	const assignments = mixerAssignmentIndex(graph.edges)
 	const hasAssignment = (sourceKind: 'track' | 'mixer-node', sourceId: string, destinationId: string): boolean => (
-		graph.edges.some((edge) => (
+		assignments ? assignments.has(assignmentKey(sourceKind, sourceId, destinationId)) : graph.edges.some((edge) => (
 			edge.enabled
 			&& edge.kind === 'assignment'
 			&& edge.source.kind === sourceKind
@@ -230,6 +234,7 @@ function deriveAuthority(project: FolderMixerProjectV21): FolderMixerAuthorityV2
 	}
 	return Object.freeze({
 		audioTrackIds: Object.freeze(audioTrackIds),
+		audioTrackMembership: new Set(audioTrackIds),
 		folderOrder: Object.freeze(folderOrder),
 		folderNames,
 		folderIds: new Set(folderNames.keys()),
@@ -283,7 +288,7 @@ function isCanonicalFolderAssignment(
 	authority: FolderMixerAuthorityV21,
 ): boolean {
 	if (edge.kind !== 'assignment' || edge.destination.kind === 'effect-sidechain') return false
-	if (edge.source.kind === 'track' && authority.audioTrackIds.includes(edge.source.id)) {
+	if (edge.source.kind === 'track' && authority.audioTrackMembership.has(edge.source.id)) {
 		// Folder authority owns a track's route to master or to a folder bus. A route to
 		// an ordinary group is the user's own mix routing, which the legacy mixer surface
 		// authors under this same identity, so claiming it would discard their assignment.

@@ -30,6 +30,7 @@ import type { createSettingPersistence } from '../preferences/setting-persistenc
 /** Action assembly preserves the contracts declared by the owning services. */
 export interface EditorActionFunctions {
 	readonly setSourceSelection: ReturnType<typeof createEffectsComposition>['sourceEditor']['setSourceSelection'];
+	readonly readSourceSelection: ReturnType<typeof createEffectsComposition>['sourceEditor']['readSourceSelection'];
 	readonly readSourceSelectionDuration: ReturnType<typeof createEffectsComposition>['sourceEditor']['readSourceSelectionDuration'];
 	readonly readSourceSelectionSampleRate: ReturnType<typeof createEffectsComposition>['sourceEditor']['readSourceSelectionSampleRate'];
 	readonly loadSourceAudio: ReturnType<typeof createEffectsComposition>['sourceEditor']['loadSourceAudio'];
@@ -104,6 +105,8 @@ export interface EditorActionFunctions {
 	readonly handleExportAction: ReturnType<typeof createTrackAudioComposition>['export']['handleExportAction'];
 	readonly handlePlayAtSpeed: ReturnType<typeof createTransportComposition>['transport']['handlePlayAtSpeed'];
 	readonly handleTransport: ReturnType<typeof createTransportComposition>['transport']['handleTransport'];
+	readonly handleScrub: ReturnType<typeof createTransportComposition>['transport']['handleScrub'];
+	readonly endScrub: ReturnType<typeof createTransportComposition>['transport']['endScrub'];
 	readonly hasMissingTimelineSources: ReturnType<typeof createSourceRuntimeComposition>['projectVisual']['hasMissingTimelineSources'];
 	readonly importEffectPresets: ReturnType<typeof createEffectsComposition>['controls']['importEffectPresets'];
 	readonly importFiles: ReturnType<typeof createImportComposition>['importFiles'];

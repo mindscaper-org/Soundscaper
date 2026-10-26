@@ -6,25 +6,28 @@ import { BoundedTextInput } from './BoundedTextInput.tsx';
 import PreferenceCheckbox from '../EditorPreferenceCheckbox.tsx';
 import { cancelDraftEditOnEscape, createDraftBlurCommitGuard, draftBlurShouldCommit } from '../draft-blur-commit.ts';
 
-export function CommitField({ label, name, value, type = 'text', min = undefined, max = undefined, step = undefined, disabled, readOnly, multiline, hookName = 'clip-field', visuallyHiddenLabel = false, onCommit }) {
+export function CommitField({ label, name, value, type = 'text', min = undefined, max = undefined, step = undefined, disabled, readOnly, multiline, multilineCommitOnEnter = false, hookName = 'clip-field', visuallyHiddenLabel = false, preserveEditedDraft = false, onCommit }) {
 	const [draft, setDraft] = useState(String(value ?? ''));
 	const [error, setError] = useState(false);
 	const editRevision = useRef(0);
+	const editedDraft = useRef(false);
 	const blurCommitGuard = useRef(createDraftBlurCommitGuard()).current;
 	const draftOwner = useRef({ name, focused: false, dirty: false });
 	useEffect(() => {
 		editRevision.current++;
 		const owner = draftOwner.current;
-		if (owner.name === name && owner.focused && owner.dirty) return;
+		if (owner.name === name && (owner.focused && owner.dirty || preserveEditedDraft && editedDraft.current)) return;
 		owner.name = name;
 		owner.dirty = false;
+		editedDraft.current = false;
 		setDraft(String(value ?? ''));
 		setError(false);
-	}, [name, value]);
+	}, [name, value, preserveEditedDraft]);
 	const commit = () => {
 		draftOwner.current.focused = false;
 		draftOwner.current.dirty = false;
 		if (disabled || readOnly || !draftBlurShouldCommit(blurCommitGuard)) return;
+		editedDraft.current = false;
 		const revision = editRevision.current;
 		const resolve = (accepted) => {
 			if (editRevision.current === revision) setError(accepted === false);
@@ -43,7 +46,7 @@ export function CommitField({ label, name, value, type = 'text', min = undefined
 	return (
 		<label className="audio-editor-field" {...hook} onKeyDown={(event) => {
 			if (disabled || readOnly || event.nativeEvent?.isComposing) return;
-			if (event.key === 'Enter' && !multiline) {
+			if (event.key === 'Enter' && (!multiline || multilineCommitOnEnter && !event.shiftKey)) {
 				event.preventDefault();
 				event.stopPropagation();
 				event.target.blur();
@@ -52,6 +55,7 @@ export function CommitField({ label, name, value, type = 'text', min = undefined
 					preventDefault: () => event.preventDefault(), stopPropagation: () => event.stopPropagation() }, () => {
 					draftOwner.current.dirty = false;
 					editRevision.current++;
+					editedDraft.current = false;
 					setDraft(String(value ?? ''));
 					setError(false);
 				});
@@ -70,6 +74,7 @@ export function CommitField({ label, name, value, type = 'text', min = undefined
 				onFocus={() => { draftOwner.current.focused = true; }}
 				onChange={(next) => {
 					editRevision.current++;
+					editedDraft.current = true;
 					draftOwner.current.dirty = next !== String(value ?? '');
 					setDraft(next);
 					setError(false);

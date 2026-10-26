@@ -1,4 +1,8 @@
 export const AUDIO_EDITOR_SEARCH_RESULT_LIMIT = 50;
+const preparedEntryText = new WeakMap();
+const ownedSearchEntries = new WeakMap();
+const MAXIMUM_PREPARED_SEARCH_ENTRIES = 16_384;
+const MAXIMUM_PREPARED_SEARCH_CHARACTERS = 4 * 1_024 * 1_024;
 
 const CHANGE_PITCH_ALIASES = [
 	'change pitch', 'higher pitch', 'lower pitch',
@@ -70,7 +74,7 @@ export function normalizeAudioEditorSearchText(value) {
 		.replace(/ß/g, 'ss')
 		.replace(/æ/g, 'ae')
 		.replace(/œ/g, 'oe')
-		.replace(/[^\p{L}\p{N}]+/gu, ' ')
+		.replace(/[^\p{L}\p{N}\p{Emoji}]+/gu, ' ')
 		.trim();
 }
 
@@ -228,7 +232,10 @@ export function createAudioEditorMediaSearchEntries(project, options = {}) {
 	return entries;
 }
 
-/** Build the complete search model for the active project. */
+/**
+ * Build the complete search model for the active project.
+ * @param {{ menus?: readonly object[], project?: object | null }} [options]
+ */
 export function createAudioEditorSearchEntries({ menus = [], project = null } = {}) {
 	const commands = flattenAudioEditorSearchMenus(menus);
 	const mediaStartOrder = commands.reduce(
@@ -239,6 +246,24 @@ export function createAudioEditorSearchEntries({ menus = [], project = null } = 
 		...commands,
 		...createAudioEditorMediaSearchEntries(project, { startOrder: mediaStartOrder }),
 	];
+}
+
+/** Own search text before caching it; arbitrary mutable entries remain uncached. */
+export function prepareAudioEditorSearchEntries(entries) {
+	const budget = { entries: MAXIMUM_PREPARED_SEARCH_ENTRIES, characters: MAXIMUM_PREPARED_SEARCH_CHARACTERS };
+	return Object.freeze(arrayOrEmpty(entries).map((entry) => {
+		if (!entry || typeof entry !== 'object') return entry;
+		const snapshot = { ...entry };
+		for (const key of ['aliases', 'breadcrumbs', 'terms']) {
+			if (Array.isArray(entry[key])) snapshot[key] = Object.freeze([...entry[key]]);
+		}
+		Object.freeze(snapshot);
+		const values = [snapshot.label, snapshot.commandId, snapshot.detail, ...arrayOrEmpty(snapshot.aliases)];
+		if (values.every(value => value === null || (typeof value !== 'object' && typeof value !== 'function'))) {
+			ownedSearchEntries.set(snapshot, budget);
+		}
+		return snapshot;
+	}));
 }
 
 /** Rank entries using deterministic text tiers and return at most 50 matches. */
@@ -361,7 +386,23 @@ function sourceSearchNames(source) {
 
 function scoreEntry(entry, query, queryTokens) {
 	let best = Number.POSITIVE_INFINITY;
-	const aliases = normalizedUnique(entry.aliases);
+	let prepared = preparedEntryText.get(entry);
+	const budget = ownedSearchEntries.get(entry);
+	if (!prepared && budget?.entries > 0 && budget.characters > 0) {
+		prepared = {
+			aliases: normalizedUnique(entry.aliases),
+			fields: searchFields(entry).map(([value, weight]) => [normalizeAudioEditorSearchText(value), weight]),
+		};
+		const characters = prepared.aliases.reduce((total, alias) => total + alias.length, 0)
+			+ prepared.fields.reduce((total, [value]) => total + value.length, 0);
+		// Large inventories retain a bounded prefix; the rest keeps live scoring
+		// instead of churning a cache on every sequential search pass.
+		if (characters <= budget.characters) {
+			preparedEntryText.set(entry, prepared);
+			budget.entries--; budget.characters -= characters;
+		} else ownedSearchEntries.delete(entry);
+	}
+	const aliases = prepared?.aliases ?? normalizedUnique(entry.aliases);
 	for (const alias of aliases) {
 		if (alias === query) best = Math.min(best, 5);
 		else if (query.includes(alias)) best = Math.min(best, 70 + Math.max(0, query.length - alias.length));
@@ -369,15 +410,9 @@ function scoreEntry(entry, query, queryTokens) {
 		else if (tokensCovered(alias, queryTokens)) best = Math.min(best, 145 + alias.length);
 	}
 
-	const fields = [
-		[entry.label, 0],
-		[entry.commandId, 10],
-		[entry.detail, 18],
-		...arrayOrEmpty(entry.breadcrumbs).map((value) => [textValue(value), 20]),
-		...arrayOrEmpty(entry.terms).map((value) => [textValue(value), 26]),
-	];
+	const fields = prepared?.fields ?? searchFields(entry);
 	for (const [rawValue, weight] of fields) {
-		const value = normalizeAudioEditorSearchText(rawValue);
+		const value = prepared ? rawValue : normalizeAudioEditorSearchText(rawValue);
 		if (!value) continue;
 		if (value === query) {
 			best = Math.min(best, weight);
@@ -400,6 +435,14 @@ function scoreEntry(entry, query, queryTokens) {
 		if (Number.isFinite(fuzzyPenalty)) best = Math.min(best, 400 + weight + fuzzyPenalty);
 	}
 	return best;
+}
+
+function searchFields(entry) {
+	return [
+		[entry.label, 0], [entry.commandId, 10], [entry.detail, 18],
+		...arrayOrEmpty(entry.breadcrumbs).map((value) => [textValue(value), 20]),
+		...arrayOrEmpty(entry.terms).map((value) => [textValue(value), 26]),
+	];
 }
 
 function tokensCovered(value, queryTokens) {

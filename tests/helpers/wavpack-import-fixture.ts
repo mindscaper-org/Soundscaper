@@ -50,3 +50,37 @@ export function withWavPackTotalFrames(group: Uint8Array, totalFrames: number): 
 	}
 	return output;
 }
+
+/** APEv2 text items carry several values inside one NUL-separated item. */
+export async function createMultiValueWavPackFixture(): Promise<File> {
+	const { createApeFileMetadata } = await import('../../src/common/editor/ape-file-metadata.ts');
+	return new File([await createAudacityWavPackFixture(4800), createApeFileMetadata({
+		title: 'Two credited performers', artist: 'Ada\0Béla', comment: 'First note\0Second note',
+		track: '3\0Alternate track', date: '2026-10-23\u00002025', Custom: 'One\0Two',
+	})], 'Multiple performers.wv', { type: 'audio/wavpack' });
+}
+
+/** APEv2 external-reference items contain UTF-8 locators, rather than binary attachments. */
+export async function createReferenceWavPackFixture(type: 0 | 1 | 2, key = 'Related'): Promise<File> {
+	const { createApeFileMetadata } = await import('../../src/common/editor/ape-file-metadata.ts');
+	const tag = createApeFileMetadata({ [key]: 'https://example.org/credits/Éva', title: 'Referenced performance', year: '2026' });
+	const keyBytes = new TextEncoder().encode(`${key.toUpperCase()}\0`);
+	const position = Buffer.from(tag).indexOf(keyBytes); if (position < 8) throw new Error('The APE fixture key was not encoded.');
+	new DataView(tag.buffer).setUint32(position - 4, type << 1, true);
+	return new File([await createAudacityWavPackFixture(4800), tag], 'Referenced performance.wv', { type: 'audio/wavpack' });
+}
+
+/** Legal APEv2 records can exceed the editor's optional metadata inspection budget. */
+export async function createMetadataBudgetWavPackFixture(mode: 'control' | 'fields' | 'bytes'): Promise<File> {
+	const { createApeFileMetadata } = await import('../../src/common/editor/ape-file-metadata.ts');
+	const entries = mode === 'bytes' ? { Archive: 'x'.repeat(17 * 1024 ** 2) }
+		: Object.fromEntries(Array.from({ length: mode === 'fields' ? 257 : 256 }, (_, index) => [`Field${String(index)}`, `Credit ${String(index)}`]));
+	return new File([await createAudacityWavPackFixture(4800), createApeFileMetadata(entries)], `Metadata ${mode}.wv`, { type: 'audio/wavpack' });
+}
+
+/** The native library pads a shortened tag when an older writer cannot truncate. */
+export async function createPaddedMetadataWavPackFixture(padding: number, retainTag = true): Promise<File> {
+	const { createApeFileMetadata } = await import('../../src/common/editor/ape-file-metadata.ts');
+	return new File([await createAudacityWavPackFixture(4800), new Uint8Array(padding),
+		...(retainTag ? [createApeFileMetadata({ title: 'Shorter edited metadata' })] : [])], `Padded${String(padding)}.wv`, { type: 'audio/wavpack' });
+}

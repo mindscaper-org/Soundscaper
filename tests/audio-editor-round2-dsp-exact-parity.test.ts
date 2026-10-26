@@ -93,8 +93,11 @@ function fixtures(): Record<string, string> {
 		output[`spectrum-${String(size)}-${String(average)}`] = createHash('sha256').update(JSON.stringify(calculateAudioSpectrum(channels, 48000, { size, average, offsetFrame: 17 }))).digest('hex');
 	}
 	for (const kind of ['linear', 'sinc']) for (const rate of [8000, 44100, 48000, 96000]) for (const blockSize of [1, 127, 1024, 8192]) {
-		const createResampler = kind === 'linear' ? createStreamingLinearResampler : createStreamingWindowedSincResampler;
-		const resampler = createResampler(48000, rate, channels.length) as { push(input: Float32Array[]): Float32Array[]; finish(): Float32Array[] };
+		// Preserve the original explicit kernel here; the adaptive default's independent
+		// stopband and source-context checks live in audio-editor-more200-resample-stopband.
+		const resampler = (kind === 'linear'
+			? createStreamingLinearResampler(48000, rate, channels.length)
+			: createStreamingWindowedSincResampler(48000, rate, channels.length, { radius: 24 })) as { push(input: Float32Array[]): Float32Array[]; finish(): Float32Array[] };
 		const blocks: Float32Array[][] = [];
 		for (let start = 0; start < channels[0]!.length; start += blockSize) blocks.push(resampler.push(channels.map(channel => channel.subarray(start, start + blockSize))));
 		blocks.push(resampler.finish());

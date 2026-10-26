@@ -24,6 +24,7 @@ test('Copy and Paste at a sequence boundary keep both copied tracks in one seque
 	await waitForProjectActivation(editor);
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'read-only');
 	await expect(editor.locator('[data-clip-id]')).toHaveCount(3);
+	await waitForProjectActivation(editor);
 	await clipByName(editor, 'A').locator('.clip-header').click();
 	await expect(clipByName(editor, 'A').locator('.clip-display')).toHaveAttribute('data-selected', 'true');
 	await clipByName(editor, 'B').locator('.clip-header').click({ modifiers: ['Shift'] });

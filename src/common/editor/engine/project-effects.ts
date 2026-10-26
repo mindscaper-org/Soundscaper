@@ -4,6 +4,7 @@ import type {
 	EngineEffect,
 	EngineEffectRackLocation,
 	EngineProject,
+	EngineTrack,
 	UnknownRecord,
 } from './types.ts';
 
@@ -26,14 +27,11 @@ export function* projectEffectRacks(
 	project: EngineProject | null | undefined,
 ): Generator<EngineEffectRackLocation> {
 	const audioTracks = (project?.tracks || [])
-		.filter((track) => track?.type !== 'label' && track?.type !== 'video');
-	for (const [index, track] of audioTracks.entries()) {
-		yield {
-			scope: 'track',
-			targetId: String(track?.id ?? index),
-			effectsActive: track?.effectsActive !== false,
-			effects: activeRackEffects(track),
-		};
+		.filter(track => track?.type !== 'label' && track?.type !== 'video');
+	if (Object.getPrototypeOf(audioTracks) === Array.prototype && !Object.hasOwn(audioTracks, 'entries')) {
+		for (let index = 0; index < audioTracks.length; index++) yield trackEffectRack(audioTracks[index]!, index);
+	} else {
+		for (const [index, track] of audioTracks.entries()) yield trackEffectRack(track, index);
 	}
 	for (const [scope, buses] of [
 		['group', project?.mixer?.groups],
@@ -129,7 +127,8 @@ export function projectRackEffect(
 	effectId: unknown,
 ): EngineEffect | null {
 	const normalizedScope = String(scope || '');
-	const normalizedTargetId = normalizedScope === 'master' ? null : String(targetId);
+	if (normalizedScope === 'master') return activeRackEffects(project?.master).find(effect => effect?.id === effectId) || null;
+	const normalizedTargetId = String(targetId);
 	for (const rack of projectEffectRacks(project)) {
 		if (rack.scope !== normalizedScope) continue;
 		if (rack.scope !== 'master' && rack.targetId !== normalizedTargetId) continue;
@@ -142,4 +141,13 @@ export function cloneMessageValue<Value>(value: Value): Value {
 	return typeof globalThis.structuredClone === 'function'
 		? globalThis.structuredClone(value)
 		: JSON.parse(JSON.stringify(value)) as Value;
+}
+
+function trackEffectRack(track: EngineTrack, index: number): EngineEffectRackLocation {
+	return {
+		scope: 'track',
+		targetId: String(track?.id ?? index),
+		effectsActive: track?.effectsActive !== false,
+		effects: activeRackEffects(track),
+	};
 }

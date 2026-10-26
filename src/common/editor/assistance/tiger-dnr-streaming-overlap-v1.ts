@@ -42,9 +42,8 @@ export function createTigerDnrStreamingOverlapV1(
 		|| floatCount * Float32Array.BYTES_PER_ELEMENT > MAXIMUM_ACCUMULATOR_BYTES) {
 		throw new RangeError('The streaming TIGER overlap-add exceeds its memory admission.');
 	}
-	const rings = Array.from({ length: STEM_COUNT }, () =>
-		Array.from({ length: channelCount }, () =>
-			new Float32Array(ASSISTANCE_TIGER_DNR_CHUNK_FRAMES)));
+	const rings = Array.from({ length: STEM_COUNT * channelCount }, () =>
+		new Float32Array(ASSISTANCE_TIGER_DNR_CHUNK_FRAMES));
 	let paddedPosition = 0;
 	let safePaddedEnd = 0;
 	let nextChunkIndex = 0;
@@ -78,7 +77,7 @@ export function createTigerDnrStreamingOverlapV1(
 			for (let stem = 0; stem < STEM_COUNT; stem += 1) {
 				for (let localChannel = 0; localChannel < batchChannels; localChannel += 1) {
 					const source = stems[stem]![localChannel]!;
-					const destination = rings[stem]![channelStart + localChannel]!;
+					const destination = rings[stem * channelCount + channelStart + localChannel]!;
 					for (let frame = 0; frame < chunk.availableFrameCount; frame += 1) {
 						if ((frame & 65_535) === 0) signal?.throwIfAborted();
 						const sample = source[frame]!;
@@ -111,15 +110,14 @@ export function createTigerDnrStreamingOverlapV1(
 			}
 			const output = emit ? Array.from({ length: STEM_COUNT }, () =>
 				Array.from({ length: channelCount }, () => new Float32Array(frameCount))) : null;
+			const outputPlanes = output?.flat();
 			for (let frame = 0; frame < frameCount; frame += 1) {
 				if ((frame & 16_383) === 0) signal?.throwIfAborted();
 				const offset = (paddedPosition + frame) % ASSISTANCE_TIGER_DNR_CHUNK_FRAMES;
-				for (let stem = 0; stem < STEM_COUNT; stem += 1) {
-					for (let channel = 0; channel < channelCount; channel += 1) {
-						const ring = rings[stem]![channel]!;
-						if (output) output[stem]![channel]![frame] = ring[offset]! / plan.overlapDivisor;
-						ring[offset] = 0;
-					}
+				for (let plane = 0; plane < rings.length; plane += 1) {
+					const ring = rings[plane]!;
+					if (outputPlanes) outputPlanes[plane]![frame] = ring[offset]! / plan.overlapDivisor;
+					ring[offset] = 0;
 				}
 			}
 			paddedPosition += frameCount;

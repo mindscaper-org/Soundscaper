@@ -306,12 +306,13 @@ test('a realtime run after an offline step renders through a staged one-clip pro
 		['compressor', 'delay'],
 	);
 	assert.equal(staged.clips.length, 1);
-	assert.equal(staged.clips[0]?.durationFrames, 2);
-	assert.equal(staged.sources[0]?.frameCount, 2);
+	assert.equal(staged.clips[0]?.durationFrames, 102);
+	assert.equal(staged.sources[0]?.frameCount, 102);
 	// The staged source carries the audio the offline step produced.
 	const stagedBuffer = [...harness.stagedSources[0]!.values()][0] as
 		Readonly<{ channels: readonly Float32Array[] }>;
-	assert.deepEqual([...stagedBuffer.channels[0]!], [2, 3]);
+	assert.deepEqual([...stagedBuffer.channels[0]!.subarray(0, 100)], Array(100).fill(0));
+	assert.deepEqual([...stagedBuffer.channels[0]!.subarray(100)], [2, 3]);
 	assert.deepEqual(
 		[...(harness.persisted[0] as [unknown, unknown, readonly Float32Array[]])[2][0]!],
 		[8, 12],

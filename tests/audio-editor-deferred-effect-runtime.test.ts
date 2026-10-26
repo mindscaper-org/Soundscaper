@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { EditorControllerLifetime, EditorProjectGeneration } from '../src/common/editor/controller/shared/lifecycle.ts';
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -122,11 +123,17 @@ test('spectral admission loads on first spectral execution and caches its module
 	assert.equal(loads, 1);
 });
 
+function exportInvocationPorts() {
+	const lifetime = new EditorControllerLifetime(); lifetime.markReady();
+	const projectGeneration = new EditorProjectGeneration(); projectGeneration.activate('export');
+	return { lifetime, projectGeneration, getProject: () => ({ id: 'export' }) };
+}
+
 test('export implementations load only when an export action is invoked', async () => {
 	const calls: unknown[][] = [];
 	let loads = 0;
 	const runtime = {
-		state: exportState(),
+		...exportInvocationPorts(), state: exportState(),
 		options: {},
 		sourceBuffers: new Map(),
 		taskProgress: null,
@@ -169,7 +176,7 @@ test('export implementations load only when an export action is invoked', async 
 test('export loader failures preserve the original rejection', async () => {
 	const failure = new Error('export loader failed');
 	const service = createDeferredEditorExportService({
-		state: exportState(),
+		...exportInvocationPorts(), state: exportState(),
 		options: {}, sourceBuffers: new Map(), taskProgress: null,
 		createCacheAwareRenderEngine: () => null,
 		prepareCommittedTimePitchCaches: async () => undefined,

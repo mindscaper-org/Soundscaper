@@ -20,3 +20,21 @@ test('packaged BW64 import waits for the new project to finish activation', asyn
 	assert.equal(result.bw64Completed, true);
 	assert.equal(scope.document.fixture.importedFiles.length, 2);
 });
+
+test('packaged BW64 import resolves the file input mounted for the new project', async () => {
+	const scope = createRendererScope();
+	const query = scope.document.querySelector.bind(scope.document);
+	const originalInput = query('[data-import-input]');
+	const replacement = { ...originalInput, files: [] };
+	const dispatch = originalInput.dispatchEvent.bind(originalInput);
+	originalInput.dispatchEvent = function (event) {
+		assert.equal(scope.document.fixture.newProjectCount, 0, 'the old project input is detached');
+		return dispatch(event);
+	};
+	scope.document.querySelector = selector => selector === '[data-import-input]' && scope.document.fixture.newProjectCount > 0
+		? replacement : query(selector);
+	const serializedRoutine = Function(`"use strict"; return (${runDirectWavRendererSmoke.toString()});`)();
+	const result = await serializedRoutine(scope, PLAN);
+	assert.equal(result.bw64Completed, true);
+	assert.equal(scope.document.fixture.importedFiles.length, 2);
+});

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createMenuActionFixture } from './helpers/application-menu-fixture.ts';
@@ -82,7 +84,7 @@ test('the archive checksum entry is present and follows what the session actuall
 
 test('both locales name the command and its outcomes', () => {
 	for (const locale of ['en', 'de'] as const) {
-		const copy = EXPORT_MENU_COPY_BY_LOCALE[locale];
+		const copy = (locale === 'de' ? GERMAN_COPY : EXPORT_MENU_COPY_BY_LOCALE.en);
 		for (const key of [
 			'consolidateMedia', 'consolidatingMedia', 'consolidatedMedia', 'consolidatedMediaIncomplete',
 			'saveArchiveManifest', 'archiveManifestSaved',

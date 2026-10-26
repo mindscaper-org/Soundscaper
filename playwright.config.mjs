@@ -9,6 +9,7 @@ import {
 const sitePlan = ordinaryBrowserProductSitePlan();
 const [soundscaper] = sitePlan.sites;
 const baseURL = soundscaper.origin;
+const browserCoverage = process.env.SCAPE_BROWSER_COVERAGE === '1';
 process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS = JSON.stringify(Object.fromEntries(
 	sitePlan.sites.map(({ productId, origin }) => [productId, origin]),
 ));
@@ -40,7 +41,12 @@ export default defineConfig({
 		screenshot: 'only-on-failure',
 	},
 	projects: [
-		{ name: 'chromium', use: { ...devices['Desktop Chrome'], browserName: 'chromium' } },
+		{
+			name: 'chromium', use: { ...devices['Desktop Chrome'], browserName: 'chromium' },
+			// Counted block coverage slows render and persistence work substantially.
+			// Explicit realtime assertions and per-test budgets retain their bounds.
+			...(browserCoverage ? { timeout: 90_000, expect: { timeout: 15_000 } } : {}),
+		},
 		{ name: 'firefox', use: { ...devices['Desktop Firefox'], browserName: 'firefox' } },
 		{ name: 'webkit', use: { ...devices['Desktop Safari'], browserName: 'webkit', deviceScaleFactor: 1 } },
 	],

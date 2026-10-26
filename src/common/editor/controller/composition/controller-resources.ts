@@ -4,6 +4,7 @@ import type { VideoTimingProbePort } from '../../video-timing-probe.ts'; import 
 import type { StaffPadRenderClient } from '../../staffpad/client.js';
 import { createAudioEditorEngine } from '../../engine.js';
 import { enableParallelProductionMeterSessionV21 } from '../../engine/production-meter-runtime-session-v21.ts';
+import { enablePlaybackMeterDemand } from '../../engine/playback-meter-demand.ts';
 import { enableParallelEffectStackPlayback } from '../transport/transport-composition.ts';
 import type { EngineMeterSnapshot, EnginePitchPreserver, EnginePublicApi } from '../../engine/public-api.ts';
 import { createAudioEditorFileService } from '../../file-service.js';
@@ -76,6 +77,7 @@ export function createControllerResources(options: ControllerResourceOptions, ca
 		onPosition: callbacks.onPosition, onMeter: callbacks.onMeter, onState: callbacks.onState,
 	});
 	if (options.productId === 'soundscaper') enableParallelProductionMeterSessionV21(engine);
+	if (options.productId === 'soundscaper') enablePlaybackMeterDemand(engine);
 	if (options.productId === 'soundscaper') enableParallelEffectStackPlayback(engine);
 	const renderEngineFactory = options.engineFactory || createAudioEditorEngine;
 	const playbackPreviews = createPlaybackPreviewEngines(renderEngineFactory, () => engine.getPlaybackGain(),

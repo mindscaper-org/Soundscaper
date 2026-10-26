@@ -15,7 +15,7 @@ function downloadProductId(value: string): DesktopDownloadProductId {
 	throw new RangeError(`Unsupported editor product: ${productId}.`);
 }
 
-/** A stable product-owned URL; Pages resolves the newest published desktop release on visit. */
+/** A stable product-owned URL; Pages resolves a matching installer or the latest release on visit. */
 export function desktopDownloadUrl(productId: string): string {
 	return `${DOWNLOAD_ORIGINS[downloadProductId(productId)]}/download/desktop/`;
 }

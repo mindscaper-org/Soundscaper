@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +10,7 @@ import { transformSync } from 'esbuild';
 import { chunkGroupForModulePath, chunkGroups } from '../scripts/lib/build-chunk-groups.mjs';
 import { photoDevelopCopy } from '../src/common/i18n/lightscaper-develop-copy.ts';
 import { photoDevelopSettingsCopy } from '../src/common/i18n/lightscaper-develop-settings-copy.ts';
+import { LIGHTSCAPER_SHARED_EFFECT_COPY_DE } from '../src/common/i18n/lightscaper-develop-shared-effect-copy.ts';
 import { VIDEO_EFFECT_COPY_BY_LOCALE } from '../src/common/i18n/video-effect-copy.js';
 import { EAGER_CHUNK_GROUPS, dynamicRelativeImports, resolveRelativeModule, sourceModules, staticRelativeDependencies } from './helpers/eager-chunk-group-crossings.ts';
 
@@ -17,11 +19,12 @@ const HOOK = 'src/common/editor/ui/lightscaper/use-lightscaper-editor-copy.ts';
 const DEVELOP = ['lightscaper-develop-copy', 'lightscaper-develop-settings-copy', 'lightscaper-develop-soft-proof-copy',
 	'lightscaper-develop-brush-mask-copy', 'lightscaper-develop-local-adjustments-copy', 'lightscaper-develop-mask-management-copy',
 	'lightscaper-develop-preview-renderer-copy', 'lightscaper-raw-development-copy', 'lightscaper-develop-repair-spots-copy',
-	'lightscaper-develop-input-quality-copy'].map(name => `src/common/i18n/${name}.ts`);
+	'lightscaper-develop-input-quality-copy', 'lightscaper-develop-shared-effect-copy'].map(name => `src/common/i18n/${name}.ts`);
 const HDR_MENU = 'src/common/editor/ui/lightscaper/use-photo-hdr-merge-entry-current-v1.tsx';
 const HDR_COPY = 'src/common/i18n/image-hdr-merge-copy.ts';
 const DEPTH_COPY = 'src/common/i18n/lightscaper-photo-raster-depth-copy.ts';
 const VISUAL = 'src/common/i18n/video-effect-copy.js';
+const GERMAN_VISUAL = 'src/common/i18n/lightscaper-develop-shared-effect-copy.ts';
 const COPY_MODULES = [...sourceModules(resolve(ROOT, 'src/common/i18n')), resolve(ROOT, HOOK)];
 const TRANSFER = 'src/common/editor/platform/bounded-transfer.ts';
 const CURRENT_IMAGE_LEAVES = ['video-effects-v2.ts', 'video-color-cube-lut-v27.ts',
@@ -98,8 +101,11 @@ test('the real import-preset copy route retains visual labels without canonical 
 	assert.ok(staticRelativeDependencies(kernel).includes('../../../../i18n/lightscaper-develop-settings-copy.ts'));
 	const reached = copyClosure(DEVELOP[1]!);
 	assert.ok(reached.has(DEVELOP[0]!)); assert.ok(reached.has(VISUAL));
+	assert.ok(reached.has(GERMAN_VISUAL));
 	for (const path of reached) assert.doesNotMatch(path, /\/i18n\/(?:canonical-extras[^/]*|catalogs|runtime|editor-copy-inventory)\./u);
 	assert.deepEqual(staticRelativeDependencies(runtimeSource(resolve(ROOT, VISUAL))), []);
+	assert.deepEqual(staticRelativeDependencies(runtimeSource(resolve(ROOT, GERMAN_VISUAL))), []);
+	assert.deepEqual(dynamicRelativeImports(runtimeSource(resolve(ROOT, GERMAN_VISUAL))), []);
 });
 
 test('historical and Current photo applications retain actual lazy entries with unchanged shared label identity', () => {
@@ -118,10 +124,20 @@ test('historical and Current photo applications retain actual lazy entries with 
 		assert.ok(staticRelativeDependencies(imports).includes(`./PhotoImportDialog${version}.tsx`));
 		assertLazyEntry(develop, `./PhotoDevelopWorkspace${version}.tsx`);
 	}
-	for (const locale of ['en', 'de'] as const) {
-		assert.equal(photoDevelopCopy(locale).shared, VIDEO_EFFECT_COPY_BY_LOCALE[locale]);
-		assert.equal(photoDevelopSettingsCopy(locale).shared, VIDEO_EFFECT_COPY_BY_LOCALE[locale]);
+	for (const [locale, shared] of [['en', VIDEO_EFFECT_COPY_BY_LOCALE.en], ['de', LIGHTSCAPER_SHARED_EFFECT_COPY_DE],
+		['de-AT', LIGHTSCAPER_SHARED_EFFECT_COPY_DE]] as const) {
+		assert.equal(photoDevelopCopy(locale).shared, shared);
+		assert.equal(photoDevelopSettingsCopy(locale).shared, shared);
 	}
+});
+
+test('the photo-owned German effect table preserves every prior shared label', () => {
+	assert.deepEqual(Object.keys(LIGHTSCAPER_SHARED_EFFECT_COPY_DE).sort(), Object.keys(VIDEO_EFFECT_COPY_BY_LOCALE.en).sort());
+	// Snapshot of VIDEO_EFFECT_COPY_BY_LOCALE.de at 220099a0e, before the common German table moved to JSON.
+	const snapshot = JSON.stringify(Object.keys(LIGHTSCAPER_SHARED_EFFECT_COPY_DE).sort()
+		.map(key => [key, LIGHTSCAPER_SHARED_EFFECT_COPY_DE[key as keyof typeof LIGHTSCAPER_SHARED_EFFECT_COPY_DE]]));
+	assert.equal(createHash('sha256').update(snapshot).digest('hex'), '07cb5a1d23789f13a496966d33bf6b1f4c8127cf1bd5fd4ba59f79ad055cb539');
+	assert.ok(Object.isFrozen(LIGHTSCAPER_SHARED_EFFECT_COPY_DE));
 });
 
 test('shared current transfer and image leaves have neutral owners without timeline dependencies', () => {
@@ -148,7 +164,8 @@ test('shared current transfer and image leaves have neutral owners without timel
 const MASK_PROCESSING_DEPENDENCIES = {
 	'video-mask-luminance-range-v1.ts': ['./closed-domain-value.ts', './imaging/pixel-frame-contract-v1.ts'],
 	'video-mask-color-range-v1.ts': [],
-	'video-mask-matte-graph-work-v1.ts': ['./video-mask-matte-v24.ts'],
+	'video-mask-matte-graph-work-v1.ts': ['./video-mask-matte-v24.ts', './video-mask-path-raster.ts'],
+	'video-mask-path-raster.ts': [],
 	'video-mask-matte-rgba-v13.ts': ['./closed-domain-value.ts', './video-mask-matte-v24.ts', './video-mask-luminance-range-v1.ts',
 		'./video-mask-color-range-v1.ts', './video-mask-matte-graph-work-v1.ts', './imaging/image-develop-brush-mask-v1.ts', './imaging/mask-raster-source-scope-v1.ts'],
 } as const;
@@ -160,7 +177,7 @@ void test('the finite generic mask pixel closure keeps exact imaging ownership a
 		const path = `src/common/editor/${leaf}`;
 		for (const separator of ['/', '\\']) {
 			assert.equal(chunkGroupForModulePath(path.replaceAll('/', separator)), 'editor-imaging', path);
-			for (const impostor of [path + '.foreign', path.replace(/-v[0-9]+\.ts$/u, '-v999.ts'), path.replace('editor/', 'editor/internal/')]) {
+			for (const impostor of [path + '.foreign', path.replace(/(?:-v[0-9]+)?\.ts$/u, '-v999.ts'), path.replace('editor/', 'editor/internal/')]) {
 				assert.notEqual(chunkGroupForModulePath(impostor.replaceAll('/', separator)), 'editor-imaging', impostor);
 			}
 		}
@@ -172,8 +189,29 @@ void test('the finite generic mask pixel closure keeps exact imaging ownership a
 			assert.equal(chunkGroupForModulePath(target), specifier === './closed-domain-value.ts' ? 'editor-neutral-foundations' : 'editor-imaging', specifier);
 		}
 	}
-	for (const leaf of ['video-mask-matte-ffmpeg-v1.ts', 'video-mask-luminance-range-v2.ts', 'video-mask-color-range-v2.ts', 'video-mask-project-v1.ts']) {
+	for (const leaf of ['video-mask-matte-ffmpeg-v1.ts', 'video-mask-luminance-range-v2.ts', 'video-mask-color-range-v2.ts', 'video-mask-project-v1.ts', 'video-mask-path-raster-v2.ts']) {
 		assert.notEqual(chunkGroupForModulePath(`src/common/editor/${leaf}`), 'editor-imaging', leaf);
+	}
+});
+
+test('shared scalar admission and archive JSON leaves keep exact owners and finite runtime dependencies', () => {
+	const contracts = {
+		'project-validation-primitives.ts': ['editor-neutral-foundations', []],
+		'video-preview-capture-admission.ts': ['editor-neutral-foundations', []],
+		'scape-literal-json-keys.ts': ['editor-neutral-foundations', []],
+		'scape-project-document-encode.ts': ['editor-scape-archive-bytes', ['./scape-literal-json-keys.ts']],
+	} as const;
+	for (const [leaf, [owner, dependencies]] of Object.entries(contracts)) {
+		const path = `src/common/editor/${leaf}`;
+		for (const separator of ['/', '\\']) {
+			assert.equal(chunkGroupForModulePath(path.replaceAll('/', separator)), owner, path);
+			for (const foreign of [path + '.foreign', path.replace('editor/', 'editor/internal/')]) {
+				assert.notEqual(chunkGroupForModulePath(foreign.replaceAll('/', separator)), owner, foreign);
+			}
+		}
+		const source = runtimeSource(resolve(ROOT, path));
+		assert.deepEqual(staticRelativeDependencies(source), dependencies, path);
+		assert.deepEqual(dynamicRelativeImports(source), [], path);
 	}
 });
 

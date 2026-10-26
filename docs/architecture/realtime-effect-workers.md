@@ -62,15 +62,12 @@ chunk order beyond the peak-level smoke test.
 
 Run `node --import tsx scripts/benchmark-parallel-effect-stacks.mjs` to compare
 the production collector and workers with the same DSP plan executed serially on
-the callback thread. On one Linux host, four stereo tracks with three bitcrushers
-each at 48 kHz and 32 ms buffering used 113–120 ms of callback-thread CPU over
-four measured seconds, versus 352–358 ms for the serial proxy; output checksums
-matched. Total process CPU rose to 509–536 ms from 365–444 ms. Repeated 16 ms
-runs missed deadlines on that host, and a heavier eight-track, six-effect graph
-also missed a 32 ms deadline. These are Node proxy measurements, not a comparison
-with Chromium's conventional Web Audio graph or proof of lower total CPU. The
-backend remains opt-in, with a deadline fault returning subsequent Play to the
-conventional engine.
+the callback thread. Compare callback-thread CPU, total process CPU, output
+checksums, and deadline misses across graph sizes and buffer settings. These
+Node proxy measurements cannot establish performance against Chromium's
+conventional Web Audio graph. Keep individual run results under `test-results/`
+and work logs under ignored `private/`. The backend remains opt-in, with a
+deadline fault returning subsequent Play to the conventional engine.
 
 ## Decision
 

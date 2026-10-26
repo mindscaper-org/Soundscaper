@@ -57,7 +57,7 @@ export function saveDeliveryPresetToState(state: unknown, options: {
 }): { state: DeliveryPresetState; preset: DeliveryPreset } {
 	const current = createDeliveryPresetState(state);
 	const now = timestamp(options.now);
-	const requestedId = String(options.id ?? '').trim();
+	const requestedId = String(options.id ?? '');
 	const existing = requestedId ? current.presets.find((preset) => preset.id === requestedId) : null;
 	if (requestedId && !existing) {
 		throw new ReferenceError(`Delivery preset ${requestedId} does not exist.`);
@@ -72,8 +72,8 @@ export function saveDeliveryPresetToState(state: unknown, options: {
 		kind: options.kind,
 		format: options.format,
 		settings: options.settings ?? {},
-		licensingRowId: options.licensingRowId ?? null,
-		fallbackPresetId: options.fallbackPresetId ?? null,
+		licensingRowId: options.licensingRowId === undefined && existing?.format === options.format ? existing.licensingRowId : options.licensingRowId ?? null,
+		fallbackPresetId: options.fallbackPresetId === undefined && existing?.format === options.format ? existing.fallbackPresetId : options.fallbackPresetId ?? null,
 		createdAt: existing?.createdAt || now,
 		updatedAt: now,
 	});
@@ -153,7 +153,7 @@ function timestamp(value?: string): string {
 }
 
 function nonEmptyString(value: unknown, name: string): string {
-	const result = String(value ?? '').trim();
+	const result = String(value ?? '');
 	if (!result) throw new TypeError(`${name} must be a non-empty string.`);
 	return result;
 }

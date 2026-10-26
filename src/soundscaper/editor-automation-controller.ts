@@ -36,6 +36,7 @@ export interface SoundscaperAutomationControllerHost {
 		subscribePosition(listener: () => void): () => boolean | void;
 		subscribeState(listener: () => void): () => boolean | void;
 		previewScheduledParameter?(address: unknown, value: number): boolean;
+		restoreScheduledAutomationLane?(lane: unknown): boolean;
 	}>;
 	readonly actions: Readonly<{
 		readonly edit: Readonly<{ commit(command: unknown): unknown }>;
@@ -204,9 +205,13 @@ function restoreAutomationReadbackV21(
 	laneId: string,
 	resolveTarget: (laneId: string) => SoundscaperAutomationTarget | null,
 ): void {
-	if (!host.engine.previewScheduledParameter) return;
+	if (!host.engine.previewScheduledParameter && !host.engine.restoreScheduledAutomationLane) return;
 	const target = resolveTarget(laneId);
 	if (!target) return;
+	if (host.engine.restoreScheduledAutomationLane) {
+		host.engine.restoreScheduledAutomationLane(target.lane);
+		return;
+	}
 	const current = controllerAuthority(host);
 	const value = evaluateAutomationLaneAtFrameV21(target.lane, current.positionFrame, {
 		sampleRate: current.sampleRate,
@@ -214,7 +219,7 @@ function restoreAutomationReadbackV21(
 			? { tempoMap: current.tempoMap }
 			: {}),
 	});
-	host.engine.previewScheduledParameter(target.descriptor.address, value);
+	host.engine.previewScheduledParameter?.(target.descriptor.address, value);
 }
 
 /** Resolve the canonical lane, descriptor, current control value, and lock fact. */

@@ -108,13 +108,20 @@ export async function readAacSourceMetadata(blob: Blob, signal?: AbortSignal): P
 				const prefix = await read(child.start, 4);
 				const content = child.start + (new DataView(prefix.buffer).getUint32(0) === 0 ? 4 : 0);
 				await scan(content, child.end, 'meta', await metaKeys(content, child.end));
-			} else if (parent === 'scaf') {
-				if (child.type !== 'data' || metadata !== null || child.end - child.start < 9
-					|| child.end - child.start > MAXIMUM_TAG_BYTES) invalidMetadata();
-				const data = await read(child.start, child.end - child.start);
-				const view = new DataView(data.buffer, data.byteOffset, data.length);
-				if (view.getUint32(0) !== 1 || view.getUint32(4) !== 0 || data.subarray(8).some((byte) => byte > 127)) invalidMetadata();
-				metadata = new TextDecoder().decode(data.subarray(8));
+			} else if (parent === 'scaf' && child.type === 'data' && child.end - child.start >= 8) {
+				const length = child.end - child.start;
+				const prefixBytes = length > 8 ? await read(child.start + 8, Math.min(length - 8, 32)) : new Uint8Array(0);
+				// Foreign applications may use this ordinary custom key. Only our
+				// value namespace claims authority over encoded source geometry.
+				const claimsGeometry = ['utf-8', 'utf-16be', 'utf-16le'].some(encoding =>
+					new TextDecoder(encoding).decode(prefixBytes).startsWith('SoundscaperAAC'));
+				if (claimsGeometry) {
+					if (metadata !== null || length > MAXIMUM_TAG_BYTES) invalidMetadata();
+					const data = await read(child.start, length);
+					const view = new DataView(data.buffer, data.byteOffset, data.length);
+					if (view.getUint32(0) !== 1 || view.getUint32(4) !== 0 || data.subarray(8).some((byte) => byte === 0 || byte > 127)) invalidMetadata();
+					metadata = new TextDecoder().decode(data.subarray(8));
+				}
 			}
 			offset = child.end;
 		}

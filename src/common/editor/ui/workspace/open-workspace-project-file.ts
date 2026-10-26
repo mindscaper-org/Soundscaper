@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { isProjectFileName } from '../../../project-file-extensions.ts';
+import { isScapeProjectFile } from '../../scape-project-format.ts';
 import { isWorkspaceImportFile, partitionWorkspaceFiles } from './workspace-file-routing.js';
 import { withWebFileLoadLimitContext } from '../../web-file-limit-failure.ts';
 
@@ -33,7 +33,7 @@ async function routeWorkspaceProjectFile(
 	// The file picker and drop target mount before the initial project exists.
 	await controller.ready;
 	if (/\.aup$/iu.test(file.name) && openLegacyAup) return openLegacyAup(file);
-	if (isProjectFileName(file.name)) return openScape(file);
+	if (isScapeProjectFile(file)) return openScape(file);
 	if (/\.dawproject$/iu.test(file.name)) return controller.actions.project.openDawproject(file);
 	if (/\.sesx$/iu.test(file.name)) {
 		if (!desktopSesx) throw new Error('Adobe Audition SESX import requires the desktop app.');
@@ -47,6 +47,7 @@ async function routeWorkspaceProjectFile(
 	if (routed.media.length && !controller.actions.project.importFiles) throw new TypeError('Media import is unavailable.');
 	if (routed.labels.length && !controller.actions.labels?.importFile) throw new TypeError('Label import is unavailable.');
 	if (routed.cues.length && !openCueFile) throw new TypeError('CUE import is unavailable.');
+	if (routed.media.length && file.size === 0) throw new RangeError('The selected media file is empty.');
 	const title = file.name.replace(/\.[^.]+$/u, '') || file.name;
 	if (routed.cues.length) return openCueFile?.(file, () => controller.actions.project.create?.({ title }));
 	await controller.actions.project.create({ title });

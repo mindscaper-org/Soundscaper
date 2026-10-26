@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, clipByName, commitInput, importFiles } from './audio-editor-test-helpers.js';
 
 test('spectral selection requires both frequency endpoints to contain a number', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
@@ -15,10 +15,10 @@ test('spectral selection requires both frequency endpoints to contain a number',
 	await page.getByRole('menuitem', { name: 'Select spectral frequency range', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Spectral selection', exact: true });
 	const minimum = dialog.getByRole('textbox', { name: /^Minimum frequency \(Hz\)/u });
-	await minimum.fill('');
+	await commitInput(minimum, '');
 	await expect(dialog.getByRole('button', { name: 'Select range', exact: true })).toBeDisabled();
 	await expect(dialog.getByRole('button', { name: 'Spectral Delete', exact: true })).toBeDisabled();
 	await expect(dialog.getByRole('button', { name: 'Spectral Amplify', exact: true })).toBeDisabled();
-	await minimum.fill('0');
+	await commitInput(minimum, '0');
 	await expect(dialog.getByRole('button', { name: 'Select range', exact: true })).toBeEnabled();
 });

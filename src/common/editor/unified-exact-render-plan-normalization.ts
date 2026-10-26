@@ -20,6 +20,7 @@ import {
 import {
 	canonicalizeNativeMediaPlan,
 } from './native-media-plan-canonical-form.ts';
+import { projectString } from './project-validation-primitives.ts';
 import { assertUnifiedExactRenderOutputAdmission } from './unified-exact-render-output-admission.ts';
 import {
 	requireDormantRenderGeneration as requireDormantGeneration,
@@ -386,7 +387,7 @@ function graphIdentities(
 function normalizeProject(value: unknown) {
 	const record = readClosedDomainRecord(value, 'unified render project', PROJECT_FIELDS);
 	return Object.freeze({
-		id: stableId(field(record, 'id', 'unified render project'), 'unified render project.id'),
+		id: projectString(field(record, 'id', 'unified render project'), 'unified render project.id'),
 		revision: integer(field(record, 'revision', 'unified render project'), 'unified render project.revision', 0),
 	});
 }

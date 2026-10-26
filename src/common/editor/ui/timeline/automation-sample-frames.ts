@@ -32,11 +32,15 @@ export function automationSampleFrames(options: Readonly<{
 	};
 	const visit = (start: number, end: number, depth: number) => {
 		if (end - start <= options.step || depth >= 24) return;
-		const probes = [0.25, 0.5, 0.75].map(amount => Math.round(start + (end - start) * amount));
+		const span = end - start;
 		const yStart = y(start), yEnd = y(end);
-		const flat = probes.every(frame => Math.abs(y(frame) - (yStart + (yEnd - yStart) * (frame - start) / (end - start))) <= 0.125);
+		let flat = true;
+		for (let quarter = 1; quarter <= 3; quarter++) {
+			const frame = Math.round(start + span * (quarter / 4));
+			if (!(Math.abs(y(frame) - (yStart + (yEnd - yStart) * (frame - start) / span)) <= 0.125)) { flat = false; break; }
+		}
 		if (flat && (end - start) * options.pixelsPerFrame <= 64) return;
-		const middle = probes[1]!;
+		const middle = Math.round(start + span * 0.5);
 		if (middle <= start || middle >= end) return;
 		result.add(middle);
 		visit(start, middle, depth + 1); visit(middle, end, depth + 1);

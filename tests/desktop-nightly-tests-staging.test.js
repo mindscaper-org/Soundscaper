@@ -72,6 +72,16 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		await readFile(new URL('./helpers/scape-archive-rewrite.js', import.meta.url)),
 		'the nightly label clipboard test must receive the original archive rewrite helper bytes',
 	);
+	assert.deepEqual(
+		await readFile(join(fixture.outputRoot, 'tests/helpers/riff-info-length-fixtures.ts')),
+		await readFile(new URL('./helpers/riff-info-length-fixtures.ts', import.meta.url)),
+		'the RIFF text-boundary browser test must receive its original fixture loader',
+	);
+	assert.deepEqual(
+		await readFile(join(fixture.outputRoot, 'native/soundscaper-professional-host/tests/os_audio_codec_self_test.cpp')),
+		await readFile(new URL('../native/soundscaper-professional-host/tests/os_audio_codec_self_test.cpp', import.meta.url)),
+		'the native codec browser fixtures must receive their pinned canary source bytes',
+	);
 	const releaseReader = await import(pathToFileURL(join(fixture.outputRoot, 'scripts/lib/product-release-lines.mjs')).href);
 	const recorderUrl = new URL('../fixtures/bwfmetaedit-ixml-clock.wav.base64',
 		pathToFileURL(join(fixture.outputRoot, 'tests/browser/example.spec.js')));
@@ -81,6 +91,8 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 	assert.equal(recorder.readUInt32LE(recorder.indexOf('fmt ') + 12), 48_000);
 	assert.ok(recorder.toString('utf8').includes('<SYNC_POINT_LOW>24000</SYNC_POINT_LOW>'));
 	for (const file of [
+		'ffmpeg-ima-info.wav.base64', 'ffmpeg-long-info.wav.gz.base64', 'ffmpeg-mp3-info.wav.base64',
+		'ffmpeg-pcm-info.wav.base64', 'ffmpeg-short-info.wav.gz.base64',
 		'chromium-audio-only.webm.base64', 'libsndfile-float32.aifc.base64',
 		'libsndfile-utf8-text.aiff.base64', 'libsndfile-zero-based-cues.wav.base64', 'python-uncompressed.aif.base64',
 	]) {
@@ -131,6 +143,7 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'desktop/desktop-video-codec-operation-contract.ts',
 		'desktop/coverage-checkpoint-exit.mjs',
 		'desktop/nightly-tests-main.mjs',
+		...['nightly-tests-control', 'nightly-tests-checkpoint-reporter', 'nightly-tests-pause-reports', 'process-tree-termination'].map((name) => `desktop/${name}.ts`),
 		'desktop/nightly-tests-assistance-host.mjs',
 		'desktop/nightly-tests-assistance.html',
 		'desktop/nightly-tests-manifest.mjs',
@@ -142,6 +155,7 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'desktop/soak-debug-process-metrics.mjs',
 		'scripts/lib/desktop-nightly-tests-runtime.mjs',
 		'scripts/lib/desktop-nightly-tests-playwright-child.mjs',
+		'scripts/lib/desktop-nightly-tests-child-bootstrap.mjs',
 		'scripts/lib/desktop-nightly-tests-progress-reporter.mjs',
 		'scripts/lib/desktop-nightly-tests-phases.mjs',
 		'scripts/lib/desktop-nightly-tests-dual-origin.mjs',
@@ -253,6 +267,8 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 	for (const name of BURN_IN_FONT_FILES) {
 		await access(join(fixture.outputRoot, 'node_modules/@fontsource/inter/files', name));
 	}
+	await access(join(fixture.outputRoot,
+		'node_modules/@fontsource/inter/files/inter-latin-700-normal.woff2'));
 	await assert.rejects(() => access(join(fixture.outputRoot, 'tests/browser/AGENTS.md')), /ENOENT/u);
 	await assert.rejects(() => access(join(fixture.outputRoot, 'tests/browser/handbook')), /ENOENT/u);
 	await assert.rejects(

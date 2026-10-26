@@ -276,8 +276,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		await page.mouse.up();
 		await expect(clip).toHaveCSS('opacity', '1');
 		await expect.poll(async () => (await clip.boundingBox())?.x || 0).toBeGreaterThan(clipBox.x + 100);
-		await expect.poll(() => waveform.evaluate((canvas) => canvas.__kwWaveformPlan?.endFrame))
-			.toBe(previewEndFrame);
+		await expect.poll(() => waveform.evaluate((canvas) => canvas.__kwWaveformPlan?.endFrame)).toBe(previewEndFrame);
 		expect(errors).toEqual([]);
 	});
 

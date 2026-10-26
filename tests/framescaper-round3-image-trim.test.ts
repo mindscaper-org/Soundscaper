@@ -13,7 +13,7 @@ import { resolveTimelineTrimPointerPreview } from '../src/common/editor/ui/timel
 for (const [changes, expected] of [
 	[{ durationFrames: 480_000 }, { sequenceStartFrame: 0, sequenceFrameCount: 100, sourceStartTicks: '0' }],
 	[{ timelineStartFrame: 48_000, durationFrames: 672_000 }, { sequenceStartFrame: 10, sequenceFrameCount: 140, sourceStartTicks: '1000000' }],
-	[{ timelineStartFrame: 336_000, durationFrames: 384_000 }, { sequenceStartFrame: 70, sequenceFrameCount: 80, sourceStartTicks: '4999999' }],
+	[{ timelineStartFrame: 336_000, durationFrames: 384_000 }, { sequenceStartFrame: 70, sequenceFrameCount: 80, sourceStartTicks: '7000000' }],
 	[{ durationFrames: 960_000 }, { sequenceStartFrame: 0, sequenceFrameCount: 200, sourceStartTicks: '0' }],
 	[{ durationFrames: 1 }, { sequenceStartFrame: 0, sequenceFrameCount: 1, sourceStartTicks: '0' }],
 ] as const) test(`a normal image trim ${JSON.stringify(changes)} retains exact geometry, phase and history`, () => {

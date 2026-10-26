@@ -30,7 +30,7 @@ export function renderLanguageReference({ routeLocales, bundledLocaleTags, machi
 	const body = [
 		'The editor is served at one route per language. A language that is not listed here falls back to English.',
 		'',
-		"Two languages are written and reviewed for this editor directly. The rest are machine translated from the English copy, and wherever Audacity's translators have reviewed the same command name, their wording is shown instead. English variants carry only Audacity's reviewed strings over English.",
+		"English is the editor's source language. Every other language, including German, uses a JSON translation catalog. Translations are machine generated, and wherever Audacity's translators have reviewed the same command name, their wording is shown instead. English variants carry only Audacity's reviewed strings over English.",
 		'',
 		table(
 			['Language', 'Tag', 'Route', 'Writing direction', 'Source'],

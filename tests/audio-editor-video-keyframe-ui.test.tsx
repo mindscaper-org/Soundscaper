@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -10,7 +12,7 @@ import { DEFAULT_VIDEO_CLIP_COMPOSITION } from '../src/common/editor/video-clip-
 import { createVideoEffect } from '../src/common/editor/video-effects.js';
 import VideoKeyframeDialog from '../src/common/editor/ui/inspector/VideoKeyframeDialog.tsx';
 import { videoKeyframeTransferShortcut } from '../src/common/editor/ui/video-keyframe-transfer-shortcut.ts';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 test('the baseline keyframe dialog exposes exact curve editing, transfer, and accessible keyboard-native controls', () => {

@@ -48,8 +48,8 @@ export class EditorProjectGeneration {
 	}
 
 	activate(projectId: string): EditorProjectToken {
-		const normalizedId = String(projectId || '').trim();
-		if (!normalizedId) throw new TypeError('A project id is required to activate a project generation.');
+		const normalizedId = String(projectId || '');
+		if (!normalizedId.trim()) throw new TypeError('A project id is required to activate a project generation.');
 		this.#generation += 1;
 		this.#projectId = normalizedId;
 		return this.capture();

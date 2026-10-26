@@ -52,11 +52,11 @@ for (const bin of [false, true]) test(`native recorded take audition retires ${b
 	const track = editor.locator(`[data-track-row][data-track-id="${project.takeGroups[0].trackId}"]`);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Project bin']);
 	const card = editor.locator('[data-project-bin-item]').first();
-	const before = await page.evaluate(() => globalThis.__round7TakeOutputs.length);
+	await expect.poll(() => page.evaluate(() => globalThis.__round7TakeOutputs.every(output => output.peak < .001))).toBe(true);
 	if (bin) await card.getByRole('button', { name: /^Play:/u }).click();
 	else await editor.getByRole('button', { name: 'Play', exact: true }).click();
-	await expect.poll(() => page.evaluate(index => globalThis.__round7TakeOutputs.slice(index).some(output => output.peak > .05), before)).toBe(true);
-	const oldOutput = await page.evaluate(index => globalThis.__round7TakeOutputs.findIndex((output, position) => position >= index && output.peak > .05), before);
+	await expect.poll(() => page.evaluate(() => globalThis.__round7TakeOutputs.some(output => output.peak > .05))).toBe(true);
+	const oldOutput = await page.evaluate(() => globalThis.__round7TakeOutputs.findIndex(output => output.peak > .05));
 	await chooseTrackMenuAction(page, editor, track, 'Take lanes and comps');
 	const takes = page.getByRole('dialog', { name: 'Take lanes and comps', exact: true });
 	await takes.getByRole('button', { name: /^Audition /u }).first().click();

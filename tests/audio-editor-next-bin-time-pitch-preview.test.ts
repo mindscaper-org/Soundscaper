@@ -24,8 +24,12 @@ for (const mode of ['pitch', 'tempo'] as const) test(`Project Bin ${mode} auditi
 	const renderedIds: string[] = [];
 	let releaseRender: () => void = () => {};
 	let renderStarted: () => void = () => {};
+	let releaseResume: () => void = () => {};
+	let resumeStarted: () => void = () => {};
 	const heldRender = new Promise<void>(resolve => { releaseRender = resolve; });
 	const firstRenderStarted = new Promise<void>(resolve => { renderStarted = resolve; });
+	const heldResume = new Promise<void>(resolve => { releaseResume = resolve; });
+	const resumedRenderStarted = new Promise<void>(resolve => { resumeStarted = resolve; });
 	const factory: typeof createAudioEditorEngine = (options = {}) => {
 		const context = new MockAudioContext({ sampleRate }); contexts.push(context);
 		return createAudioEditorEngine({ ...options, audioContextFactory: () => context as unknown as AudioContext,
@@ -37,6 +41,7 @@ for (const mode of ['pitch', 'tempo'] as const) test(`Project Bin ${mode} auditi
 			const normalized = normalizeStaffPadRenderRequest(request);
 			renderedIds.push(options.cacheKey ?? '');
 			if (mode === 'pitch' && renderedIds.length === 1) { renderStarted(); await heldRender; }
+			if (mode === 'pitch' && renderedIds.length === 2) { resumeStarted(); await heldResume; }
 			const channels = normalized.channels.map(() => new Float32Array(normalized.outputFrames));
 			await renderStaffPad(normalized, runtime, { isCancelled: () => options.signal?.aborted === true,
 				onChunk(chunk: Float32Array[], offset: number) { for (let channel = 0; channel < channels.length; channel++) channels[channel]!.set(chunk[channel]!, offset); } });
@@ -56,11 +61,16 @@ for (const mode of ['pitch', 'tempo'] as const) test(`Project Bin ${mode} auditi
 			releaseRender();
 			await assert.rejects(playing, { name: 'AbortError' });
 			assert.ok(contexts.every(context => context.bufferSources.length === 0), 'Pause must retire a pending cache before it can start audio');
-			await controller.actions.projectBin.stopPreview();
+			const resuming = controller.actions.projectBin.playPause('main-clip');
+			await resumedRenderStarted;
+			assert.equal(controller.getSnapshot().projectBinPreview?.state, 'playing', 'a pending resume remains pausable');
+			await controller.actions.projectBin.playPause('main-clip');
+			releaseResume();
+			await assert.rejects(resuming, { name: 'AbortError' });
+			assert.ok(contexts.every(context => context.bufferSources.length === 0), 'canceling resume must not start dry or late processed audio');
 			await controller.actions.projectBin.playPause('main-clip');
 		} else await playing;
-		const expectedRenders = mode === 'pitch' ? 2 : 1;
-		assert.equal(renderedIds.length, expectedRenders, 'only the chosen bin clip should prepare time/pitch PCM');
+		const expectedRenders = mode === 'pitch' ? 3 : 1;
 		const scheduled = contexts.flatMap(context => context.bufferSources as unknown as readonly ScheduledBuffer[])
 			.find(node => node.started && node.buffer && node.buffer.length === (mode === 'pitch' ? frames : frames / 2));
 		assert.ok(scheduled?.buffer, 'the private preview must resolve its exact prepared clip identity');
@@ -68,10 +78,11 @@ for (const mode of ['pitch', 'tempo'] as const) test(`Project Bin ${mode} auditi
 		const frequency = crossingFrequency(channel, sampleRate);
 		assert.ok(Math.abs(frequency - (mode === 'pitch' ? 440 * 2 ** (3 / 12) : 440)) < 5,
 			`authored ${mode} must retain its intended pitch; got ${frequency}Hz`);
+		assert.equal(renderedIds.length, expectedRenders, 'only the chosen bin clip should prepare time/pitch PCM');
 		await controller.actions.projectBin.stopPreview();
 		await controller.actions.projectBin.playPause('main-clip');
 		assert.equal(renderedIds.length, expectedRenders, 'unchanged exact cached audio should be reused');
-	} finally { releaseRender(); await controller.dispose(); }
+	} finally { releaseRender(); releaseResume(); await controller.dispose(); }
 });
 
 function crossingFrequency(samples: Float32Array, sampleRate: number): number {

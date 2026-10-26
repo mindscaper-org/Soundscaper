@@ -67,7 +67,11 @@ test.describe('Audacity action runtime browser routes', () => {
 		await selectClip(clip);
 		await pressClipShortcut(page, clip, 'Alt+Shift+Y');
 		await pressClipShortcut(page, clip, 'Alt+Shift+Y');
-		const firstClipId = await selectedClipId(editor);
+		// Both clips start at zero, so ID breaks the navigation order tie. Wait
+		// for the cold relative-item delegate before issuing its opposite command.
+		const firstClipId = [await clip.getAttribute('data-clip-id'),
+			await clipByName(editor, toneB.name).getAttribute('data-clip-id')].sort()[0];
+		await expect.poll(() => selectedClipId(editor)).toBe(firstClipId);
 		await pressEditorShortcut(page, editor, 'Alt+Y');
 		await expect.poll(() => selectedClipId(editor)).not.toBe(firstClipId);
 		await pressEditorShortcut(page, editor, 'Alt+Shift+Y');

@@ -8,7 +8,7 @@ import { fileSavingChunkGroups } from './build-chunk-file-saving.mjs';
 // closure one owner keeps optional photo dialogs out of the timeline shell,
 // whose theme provider may otherwise acquire a privacy-route initialization
 // back-edge through the reachability-placed musical time-code context.
-export const EDITOR_DIALOG_FOUNDATION_CHUNK_TEST = /(?:src[\\/]common[\\/]editor[\\/]ui[\\/](?:AudioEditorDialogShell\.tsx|AudioEditorResizableSurface\.jsx|dialog-(?:escape-ownership|focus-ownership|drag-bounds|move-lifecycle)\.ts|file-input-selection\.ts|modal-native-range-keys\.ts|focus-restoration\.ts|resizable-surface-mouse-lifecycle\.ts|dialogs[\\/]timed-recording-dialog-model\.ts)$|(?:^|[\\/])vendor[\\/]audacity-design-system[\\/]components[\\/]src[\\/]DialogHeader[\\/])/;
+export const EDITOR_DIALOG_FOUNDATION_CHUNK_TEST = /(?:src[\\/]common[\\/]editor[\\/]ui[\\/](?:AudioEditorDialogShell\.tsx|AudioEditorResizableSurface\.jsx|dialog-(?:escape-ownership|focus-ownership|drag-bounds|move-lifecycle)\.ts|file-input-selection\.ts|modal-native-range-keys\.ts|focus-restoration\.ts|resizable-surface-mouse-lifecycle\.ts)$|(?:^|[\\/])vendor[\\/]audacity-design-system[\\/]components[\\/]src[\\/]DialogHeader[\\/])/;
 
 /** @type {import('rolldown').CodeSplittingGroup[]} */
 export const editorUiChunkGroups = [
@@ -18,8 +18,9 @@ export const editorUiChunkGroups = [
 		// IDs, safe text, cancellation, ordering, worker lifetimes, file failures
 		// and closed value/archive validation share no product domain imports. One neutral owner
 		// avoids timeline passengers and preserves startup request ceilings.
+		// Shared ID/record validation and preview geometry/byte admission are inert scalar leaves.
 		name: 'editor-neutral-foundations',
-		test: /src[\\/]common[\\/]editor[\\/](?:platform[\\/]bounded-transfer\.ts|(?:abort-error|abort-race|desktop-read-profile|closed-domain-value|code-unit-order|error-diagnostic-message|image-export-graphic-request|image-export-text-v1|native-media-plan-canonical-form|photo-library-develop-(?:(?:proxy|original|full-resolution|mask-raster)-port-v1|proxy-port-v2|original-current-v1)|photo-library-saved-collection-port-v1|safe-visual-text|unicode-scalar-text|scape-archive-limits|scape-blob-budget|scape-project-format|web-file-limit-failure|worker-error-transport|worker-protocol|worker-request-broker)\.ts|stable-id\.js)$/,
+		test: /src[\\/]common[\\/]editor[\\/](?:platform[\\/]bounded-transfer\.ts|(?:abort-error|abort-race|desktop-read-profile|closed-domain-value|code-unit-order|error-diagnostic-message|image-export-graphic-request|image-export-text-v1|native-media-plan-canonical-form|photo-library-develop-(?:(?:proxy|original|full-resolution|mask-raster)-port-v1|proxy-port-v2|original-current-v1)|photo-library-saved-collection-port-v1|project-validation-primitives|safe-visual-text|unicode-scalar-text|scape-archive-limits|scape-blob-budget|scape-literal-json-keys|scape-project-format|video-preview-capture-admission|web-file-limit-failure|worker-error-transport|worker-protocol|worker-request-broker)\.ts|stable-id\.js)$/,
 		priority: 99,
 		minSize: 0,
 		maxSize: 400_000,
@@ -141,7 +142,7 @@ export const editorUiChunkGroups = [
 		// Develop and import presets read these labels only after their surfaces open.
 		// Co-owning them with the ordinary photo catalog would preload visual copy.
 		name: 'lightscaper-develop-copy',
-		test: /src[\\/]common[\\/]i18n[\\/]lightscaper-(?:develop(?:-(?:settings|soft-proof|brush-mask|local-adjustments|mask-management|preview-renderer|repair-spots|input-quality))?|raw-development)-copy\.ts$/,
+		test: /src[\\/]common[\\/]i18n[\\/]lightscaper-(?:develop(?:-(?:settings|soft-proof|brush-mask|local-adjustments|mask-management|preview-renderer|repair-spots|input-quality|shared-effect))?|raw-development)-copy\.ts$/,
 		priority: 98,
 		minSize: 0,
 		maxSize: 400_000,
@@ -167,7 +168,7 @@ export const editorUiChunkGroups = [
 	},
 	{
 		name: 'editor-shell',
-		test: new RegExp(`(?:${editorPath}(?!${editorOptionalSurfaceModule}$)ui[\\\\/](?!(?:lightscaper[\\\\/]|dialogs[\\\\/](?!(?:editor-dialog-model\\.js|AssistanceLoadingDialog\\.tsx|AssistanceModelGate\\.css)$)|inspector[\\\\/]))|src[\\\\/]common[\\\\/](?:products\\.js|url\\.ts)$|src[\\\\/]common[\\\\/]offline[\\\\/](?:file-handler-launch|install-prompt|share-target-launch)\\.ts$|src[\\\\/]soundscaper[\\\\/](?:editor-capture-toolbar-control|editor-framescaper-overlay-model|editor-video-preview-product-runtime|editor-application-menu-product-runtime|editor-workspace-application-menu-runtime|editor-workspace-panel-runtime)\\.(?:js|tsx?)$|src[\\\\/]framescaper[\\\\/]editor-soundscaper-workflow-product-runtime\\.tsx$)`),
+		test: new RegExp(`(?:${editorPath}(?!${editorOptionalSurfaceModule}$)ui[\\\\/](?!(?:lightscaper[\\\\/]|dialogs[\\\\/](?!(?:editor-dialog-model\\.js|AssistanceLoadingDialog\\.tsx|AssistanceModelGate\\.css|timed-recording-dialog-model\\.ts)$)|inspector[\\\\/]))|src[\\\\/]common[\\\\/](?:products\\.js|url\\.ts)$|src[\\\\/]common[\\\\/]offline[\\\\/](?:file-handler-launch|install-prompt|share-target-launch)\\.ts$|src[\\\\/]soundscaper[\\\\/](?:editor-capture-toolbar-control|editor-framescaper-overlay-model|editor-video-preview-product-runtime|editor-application-menu-product-runtime|editor-workspace-application-menu-runtime|editor-workspace-panel-runtime)\\.(?:js|tsx?)$|src[\\\\/]framescaper[\\\\/]editor-soundscaper-workflow-product-runtime\\.tsx$)`),
 		priority: 70,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,

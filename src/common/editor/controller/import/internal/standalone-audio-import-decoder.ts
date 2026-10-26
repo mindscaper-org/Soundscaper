@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { isDesktopMainAudioCodecRuntime } from '../../../desktop-main-audio-codec-runtime-marker.ts';
+import { raceAbortableRead } from '../../../abort-race.ts';
+import { prepareNativeRiffAudioDecode } from '../../../native-riff-audio-padding.ts';
 
 interface StandaloneAudioFile {
 	arrayBuffer(): Promise<ArrayBuffer>;
@@ -23,6 +25,7 @@ interface StandaloneAudioImportDecodeOptions<
 	readonly file: File;
 	readonly codecRuntime: unknown;
 	readonly sampleRate: number;
+	readonly signal?: AbortSignal;
 	readonly getAudioContext: () => Promise<Context>;
 	readonly decodeWithWebAudio: (
 		encoded: ArrayBuffer,
@@ -30,7 +33,7 @@ interface StandaloneAudioImportDecodeOptions<
 	) => Promise<Decoded>;
 	readonly decodeWithCodec: (
 		file: File,
-		settings: Readonly<{ sampleRate: number }>,
+		settings: Readonly<{ sampleRate: number; signal?: AbortSignal }>,
 	) => Promise<CodecDecodedAudio>;
 	readonly bufferFromChannels: (
 		channels: readonly Float32Array[],
@@ -60,10 +63,12 @@ export async function decodeStandaloneAudioForImport<
 >(options: StandaloneAudioImportDecodeOptions<File, Context, Decoded>): Promise<
 	StandaloneAudioImportDecodeResult<Context, Decoded>
 > {
+	options.signal?.throwIfAborted();
+	const codecSettings = { sampleRate: options.sampleRate, ...(options.signal ? { signal: options.signal } : {}) };
 	if (isDesktopMainAudioCodecRuntime(options.codecRuntime)) {
-		const codec = await options.decodeWithCodec(options.file, { sampleRate: options.sampleRate });
-		const context = await options.getAudioContext();
-		const decoded = await options.bufferFromChannels(codec.channels, codec.sampleRate, context);
+		const codec = await raceAbortableRead(() => options.decodeWithCodec(options.file, codecSettings), options.signal);
+		const context = await raceAbortableRead(() => options.getAudioContext(), options.signal);
+		const decoded = await raceAbortableRead(() => options.bufferFromChannels(codec.channels, codec.sampleRate, context), options.signal);
 		const inspectedSampleRate = await inspectOriginalSampleRate(options);
 		return Object.freeze({
 			context,
@@ -72,16 +77,17 @@ export async function decodeStandaloneAudioForImport<
 		});
 	}
 
-	const context = await options.getAudioContext();
+	const context = await raceAbortableRead(() => options.getAudioContext(), options.signal);
 	let originalSampleRate: number | null = null;
 	try {
-		const encoded = await options.file.arrayBuffer();
+		const encoded = await raceAbortableRead(() => options.file.arrayBuffer(), options.signal);
 		originalSampleRate = options.inspectEncodedSampleRate(encoded);
-		const decoded = await options.decodeWithWebAudio(encoded, options.inspectDecodedSampleRate(encoded));
+		const decoded = await raceAbortableRead(() => options.decodeWithWebAudio(prepareNativeRiffAudioDecode(encoded), options.inspectDecodedSampleRate(encoded)), options.signal);
 		return Object.freeze({ context, decoded, originalSampleRate });
 	} catch {
-		const codec = await options.decodeWithCodec(options.file, { sampleRate: options.sampleRate });
-		const decoded = await options.bufferFromChannels(codec.channels, codec.sampleRate, context);
+		options.signal?.throwIfAborted();
+		const codec = await raceAbortableRead(() => options.decodeWithCodec(options.file, codecSettings), options.signal);
+		const decoded = await raceAbortableRead(() => options.bufferFromChannels(codec.channels, codec.sampleRate, context), options.signal);
 		return Object.freeze({
 			context,
 			decoded,
@@ -96,8 +102,9 @@ async function inspectOriginalSampleRate<
 	Decoded extends DecodedAudio,
 >(options: StandaloneAudioImportDecodeOptions<File, Context, Decoded>): Promise<number | null> {
 	try {
-		return options.inspectEncodedSampleRate(await options.file.arrayBuffer());
+		return options.inspectEncodedSampleRate(await raceAbortableRead(() => options.file.arrayBuffer(), options.signal));
 	} catch {
+		options.signal?.throwIfAborted();
 		return null;
 	}
 }

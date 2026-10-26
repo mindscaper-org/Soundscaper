@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 const { load } = require('js-yaml') as { load: (source: string) => { jobs: Record<string, { 'timeout-minutes': unknown }> } };
 
 for (const [workflow, id, context, windowsBudget, otherBudget] of [
-	['desktop-preview', 'publish-assistance-runtime-handoff', 'matrix.target.platform', 180, 90],
+	['desktop-preview', 'prepare-assistance-runtime-handoff', 'matrix.target.platform', 180, 90],
 	['desktop-preview', 'soundscaper-project-library-lease-matrix', 'matrix.target.platform', 240, 90],
 	['update-ai-assets', 'publish', 'matrix.target.platform', 180, 90],
 	['soundscaper-professional-native-build', 'build', 'matrix.platform', 180, 120],

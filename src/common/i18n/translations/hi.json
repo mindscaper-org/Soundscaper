@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "hi",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:e8225db89937b2a1bfdd3feabd304d31ba37a9a8417154352e540ecbf6bd7123","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:ce6b5ef505da0473102c6964816c8a48aff545dccd9bd820bf8faf8e767b0e36","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -519,6 +519,7 @@
 		"clipMediaSettings": ["machine","Media settings","मीडिया सेटिंग्स"],
 		"clipMixed": ["machine","Mixed","मिश्रित"],
 		"clipName": ["machine","Clip name","क्लिप नाम"],
+		"clipNormalizationUnmeasurable": ["machine","Loudness could not be measured for this clip. Choose a longer audible clip or use peak normalization.","इस क्लिप की ध्वनि की प्रबलता मापी नहीं जा सकी। सुनाई देने वाली कोई लंबी क्लिप चुनें या पीक नॉर्मलाइज़ेशन का उपयोग करें।"],
 		"clipPitchAndSpeed": ["machine","Pitch & speed","पिच और गति"],
 		"clipPitchField": ["machine","Pitch","पिच"],
 		"clipPitchIndicator": ["machine","Clip pitch","क्लिप पिच"],
@@ -1792,7 +1793,7 @@
 		"missingEffectLabel": ["machine","Missing: {name}","गुम: {name}"],
 		"missingEffectReadOnly": ["machine","This effect is not installed. Local playback bypasses it while preserving its name, order, and activation state for other compatible programs.","यह प्रभाव इंस्टॉल नहीं है। स्थानीय प्लेबैक इसे नज़रअंदाज़ करता है जबकि अन्य संगत प्रोग्रामों के लिए इसका नाम, क्रम और सक्रियण स्थिति सुरक्षित रखता है।"],
 		"missingEffectUnknown": ["machine","Unknown effect","अज्ञात प्रभाव"],
-		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Playback, analysis, and export are blocked until affected clips are removed.","कुछ स्थानीय ऑडियो स्रोत गुम हैं। प्रभावित क्लिप हटाए जाने तक प्लेबैक, विश्लेषण और निर्यात अवरुद्ध रहेंगे।"],
+		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Operations that require them are blocked until affected clips are relinked or removed.","कुछ स्थानीय ऑडियो स्रोत उपलब्ध नहीं हैं। उनकी आवश्यकता वाले कार्य तब तक अवरुद्ध हैं जब तक प्रभावित क्लिप दोबारा लिंक नहीं की जातीं या हटा नहीं दी जातीं।"],
 		"missingSourcesPreventSave": ["machine","Missing audio sources prevent saving.","गुम ऑडियो स्रोत सहेजने से रोकते हैं।"],
 		"mix": ["machine","Stereo mix","स्टीरियो मिश्रण"],
 		"mixDown": ["machine","Mix down","मिक्स डाउन करें"],
@@ -1840,6 +1841,7 @@
 		"mp3VariableBest": ["machine","220-260 kbps (Best Quality)","220-260 kbps (सर्वोत्तम गुणवत्ता)"],
 		"mp3VariableSmallest": ["machine","45-85 kbps (Smaller files)","45-85 kbps (छोटी फ़ाइलें)"],
 		"multicamera": ["machine","Multicamera","मल्टीकैमरा"],
+		"multipleLegacyAupProjects": ["machine","Choose one legacy Audacity project (.aup) and its data files per import.","हर आयात के लिए एक पुराना Audacity प्रोजेक्ट (.aup) और उसकी डेटा फ़ाइलें चुनें।"],
 		"multiview": ["machine","Multi-view","मल्टी-व्यू"],
 		"musicalAnchor": ["machine","Musically anchored","संगीतमय रूप से एंकर किया गया"],
 		"musicalTimeline": ["machine","Musical timeline","संगीतमय टाइमलाइन"],
@@ -4459,6 +4461,9 @@
 		"waveformLogarithmicDb": ["machine","Logarithmic dB","लघुगणकीय dB"],
 		"waveformLowMidCrossover": ["machine","Low/mid crossover (Hz)","निम्न/मध्य क्रॉसओवर (Hz)"],
 		"waveformMidHighCrossover": ["machine","Mid/high crossover (Hz)","मध्य/उच्च क्रॉसओवर (Hz)"],
+		"waveformRenderer": ["machine","Waveform renderer","वेवफ़ॉर्म रेंडरर"],
+		"waveformRendererCanvas": ["machine","Canvas","Canvas"],
+		"waveformRendererGpu": ["machine","GPU (Canvas fallback)","GPU (Canvas विकल्प)"],
 		"waveformRulerFormat": ["machine","Ruler format","रूलर प्रारूप"],
 		"waveformSettings": ["machine","Waveform settings","तरंगरूप सेटिंग्स"],
 		"waveformShowRms": ["machine","Show RMS","RMS दिखाएँ"],

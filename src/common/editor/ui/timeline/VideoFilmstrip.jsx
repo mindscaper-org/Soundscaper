@@ -8,7 +8,7 @@ import { VideoClipFadeHandles } from './VideoClipFadeHandles.tsx';
 
 import { framesToSeconds } from '../../design-system-adapters.js';
 import { selectVideoThumbnailTimestamps } from '../../video-timeline.js';
-import { productVideoVisualPreviewRuntimeFor } from '../workspace/product-video-visual-preview-runtime.ts';
+import { productVideoVisualPreviewDocumentFor, productVideoVisualPreviewRuntimeFor } from '../workspace/product-video-visual-preview-runtime.ts';
 import { selectProductVisualThumbnailPoints } from './product-visual-thumbnail-points.ts';
 import { createVideoRateBadgeModel } from './video-rate-badge-model.ts';
 import { createVideoFilmstripFrameRequests } from './video-filmstrip-frame-requests.ts';
@@ -219,6 +219,8 @@ export function VideoFilmstripClip({
 }
 
 function useProductTimelineFilmstrip({ controller, project, clip, thumbnailModels, hostRef }) {
+	const ownerDocument = useMemo(() => productVideoVisualPreviewDocumentFor(controller)
+		?? globalThis.document, [controller]);
 	const runtime = useMemo(() => productVideoVisualPreviewRuntimeFor(controller), [controller]);
 	const createTimelineFilmstrip = runtime?.createTimelineFilmstrip;
 	const supported = Boolean(
@@ -238,17 +240,18 @@ function useProductTimelineFilmstrip({ controller, project, clip, thumbnailModel
 	useEffect(() => {
 		const owner = hostRef.current?.ownerDocument;
 		const target = owner?.defaultView;
-		if (!target || owner !== globalThis.document) return undefined;
-		const onPageHide = () => {
+		if (!target || owner !== ownerDocument || ownerDocument !== globalThis.document) return undefined;
+		const onPageHide = (event) => {
+			if (event.persisted) return;
 			documentRetired.current = true;
 			activeBatch.current?.abort(new DOMException('Timeline filmstrip document was retired.', 'AbortError'));
 		};
-		target.addEventListener('pagehide', onPageHide, { once: true });
+		target.addEventListener('pagehide', onPageHide);
 		return () => { target.removeEventListener('pagehide', onPageHide); };
-	}, [hostRef]);
+	}, [hostRef, ownerDocument]);
 	useEffect(() => {
-		if (documentRetired.current || hostRef.current?.ownerDocument !== globalThis.document) return undefined;
-		if (!supported || frames.length === 0) {
+		if (documentRetired.current || ownerDocument !== globalThis.document
+			|| hostRef.current?.ownerDocument !== ownerDocument || !supported || frames.length === 0) {
 			setState({ pending: false, error: null, values: new Map() });
 			return undefined;
 		}
@@ -278,7 +281,7 @@ function useProductTimelineFilmstrip({ controller, project, clip, thumbnailModel
 			if (activeBatch.current === abort) activeBatch.current = null;
 			abort.abort(new DOMException('Timeline filmstrip was replaced.', 'AbortError'));
 		};
-	}, [createTimelineFilmstrip, frames, hostRef, project, supported]);
+	}, [createTimelineFilmstrip, frames, hostRef, ownerDocument, project, supported]);
 	return { supported, ...state };
 }
 

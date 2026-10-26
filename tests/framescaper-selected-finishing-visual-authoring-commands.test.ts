@@ -136,7 +136,7 @@ function fence(source: Data, selectedClipId: string | null = 'clip-1', playheadS
 function dissolveRequest(source: Data, overrides: Data = {}): Data {
 	return {
 		fence: fence(source), clipId: 'clip-1', operation: 'apply',
-		pairId: 'video-track:clip-1:clip-2', durationFrames: 3, ...overrides,
+		pairId: JSON.stringify(['video-track', 'clip-1', 'clip-2']), durationFrames: 3, ...overrides,
 	};
 }
 

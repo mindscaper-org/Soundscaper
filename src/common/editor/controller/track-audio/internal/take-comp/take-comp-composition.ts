@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
 import { readTakeCompProjectGroups, type TakeCompProject } from './take-comp-project.ts';
 import type { TakePromotionRequest } from '../../../../take-comp-domain.ts';
 import type { EngineChunkSourceInput, EngineSourceBufferInput } from '../../../../engine/public-api.ts';
@@ -15,7 +14,7 @@ import {
 	createTakeCompPreviewService,
 	type TakeCompPreviewEngine,
 } from './take-comp-preview-service.ts';
-import { createTakeCompService } from './take-comp-service.ts';
+import { createTakeCompService, type TakeCompServiceDependencies } from './take-comp-service.ts';
 
 export interface TakeCompCompositionDependencies {
 	readonly copy?: object;
@@ -26,7 +25,7 @@ export interface TakeCompCompositionDependencies {
 	readonly derivedSources: DerivedSourceService;
 	getProject(): TakeCompProject;
 	editingBlocked(): boolean;
-	commit(command: AudioEditorCommand): unknown;
+	readonly commit: TakeCompServiceDependencies['commit'];
 	createId(prefix: string): string;
 	captureProject(): EditorProjectToken;
 	assertProject(token: EditorProjectToken): void;

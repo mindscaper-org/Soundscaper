@@ -25,6 +25,7 @@ export function SteppedSlider({ value, defaultValue, min, max, step, ariaLabel, 
 	const nativeRange = useNativeRangeTouchOwner();
 	const clampedValue = Math.max(min, Math.min(max, Number(value) || 0));
 	const gestureActiveRef = useRef(false);
+	const gestureEditedRef = useRef(false);
 	const pointerActiveRef = useRef(false);
 	const pointerIdRef = useRef<number | null>(null);
 	const canceledPointerRef = useRef(false);
@@ -36,13 +37,15 @@ export function SteppedSlider({ value, defaultValue, min, max, step, ariaLabel, 
 		if (disabled || gestureActiveRef.current) return;
 		canceledPointerRef.current = false;
 		gestureActiveRef.current = true;
+		gestureEditedRef.current = false;
 		gestureValueRef.current = clampedValue;
 		void onGestureStart?.(clampedValue);
 	};
 	const endGesture = () => {
 		if (!gestureActiveRef.current) return;
 		gestureActiveRef.current = false;
-		void onGestureEnd?.(gestureValueRef.current);
+		if (!gestureEditedRef.current && onGestureCancel) void onGestureCancel();
+		else void onGestureEnd?.(gestureValueRef.current);
 	};
 	const cancelGesture = () => {
 		if (!gestureActiveRef.current) return;
@@ -94,6 +97,7 @@ export function SteppedSlider({ value, defaultValue, min, max, step, ariaLabel, 
 					const next = Number(event.currentTarget.value);
 					const standalone = !gestureActiveRef.current;
 					if (standalone) beginGesture();
+					gestureEditedRef.current = true;
 					gestureValueRef.current = next;
 					void onChange(next);
 					if (standalone) endGesture();

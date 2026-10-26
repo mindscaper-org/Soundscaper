@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { exportSequenceProject } from '../common/editor/export-sequence-project.ts';
+import { derivedVideoVisualSourceName } from '../common/editor/video-visual-source-name.ts';
 import {
 	createAddTrackCommand,
 	createAddVideoEffectCommand,
@@ -15,6 +17,7 @@ import { videoFrameToSampleFrame } from '../common/editor/timeline-time.ts';
 import { sequenceFrameAtSample } from '../common/editor/sequence-frame-navigation.ts';
 import { createVideoFreezeFallbackV1 } from '../common/editor/video-freeze-v24.ts';
 import { resolveFramescaperSelectedFreezePictureFinishing } from './editor-selected-finishing-freeze-ordinal.ts';
+import { authorSelectedMaskShape } from '../common/editor/selected-mask-shape-authoring.ts';
 import { normalizeVideoMaskMatteGraphV1 } from '../common/editor/video-mask-matte-v24.ts';
 import { normalizeVideoVisualPresetV1 } from '../common/editor/video-visual-preset-v24.ts';
 import {
@@ -105,7 +108,7 @@ export async function prepareFramescaperSelectedVisualAuthoringFinishing(input: 
 
 function dissolveCommand(project: Data, request: Data): unknown {
 	const operation = oneOf(request.operation, ['apply', 'remove'] as const, 'dissolve operation');
-	const pairId = stableId(request.pairId, 'dissolve pair ID');
+	const pairId = request.pairId; // Opaque tuple token; only an exact model match grants a target.
 	const playhead = fencePlayhead(request);
 	const model = createFramescaperSelectedVisualAuthoringModelFinishing({
 		surface: 'video-transition-dissolve', project,
@@ -172,11 +175,15 @@ function maskCommand(project: Data, request: Data): unknown {
 		]);
 	}
 	const maskId = requestedMaskId ?? createStableId('mask-matte');
-	const currentMask = requestedMaskId === null ? null : requireById(records(project.videoMaskMattes, 'video masks'), maskId, 'selected mask');
-	const nodeId = currentMask ? stableId(currentMask.outputNodeId, 'mask node ID')
-		: createStableId('mask-node');
-	const node = createFramescaperMaskNodeFinishing(request, nodeId);
-	const mask = normalizeVideoMaskMatteGraphV1({ schemaVersion: 1, id: maskId, kind: currentMask?.kind ?? 'mask', inputs: [], nodes: [node], outputNodeId: nodeId });
+	const currentMask = requestedMaskId === null ? null : normalizeVideoMaskMatteGraphV1(requireById(records(project.videoMaskMattes, 'video masks'), maskId, 'selected mask'));
+	const output = currentMask?.nodes.find(node => node.id === currentMask.outputNodeId);
+	if (currentMask && !['vector-shape', 'linear-gradient', 'radial-gradient', 'luminance-range', 'color-range'].includes(output?.kind ?? '')) throw new Error('The selected mask graph is not editable by the selected mask editor.');
+	const nodeId = currentMask?.outputNodeId ?? createStableId('mask-node'), node = createFramescaperMaskNodeFinishing(request, nodeId);
+	const mask = node.kind === 'vector-shape' && (!currentMask || output?.kind === 'vector-shape')
+		? authorSelectedMaskShape({ maskId, current: currentMask, nodeId: () => nodeId, shape: node.shape, width: node.width, height: node.height })
+		: normalizeVideoMaskMatteGraphV1(currentMask
+			? { ...currentMask, nodes: currentMask.nodes.map(value => value.id === nodeId ? node : value) }
+			: { schemaVersion: 1, id: maskId, kind: 'mask', inputs: [], nodes: [node], outputNodeId: nodeId });
 	const presentation = currentPresentation
 		? normalizeVideoVisualPresentationV1({ ...currentPresentation, maskMatteIds: [...new Set([...currentPresentation.maskMatteIds, maskId])] })
 		: defaultPresentation(stableId(clip.id, 'selected clip ID'), [maskId]);
@@ -260,7 +267,7 @@ function saveGeneratorPreset(project: Data, clip: Data, request: Data): unknown 
 	const donorId = createStableId('visual-preset-model');
 	const donorClipId = createStableId('visual-preset-model-clip');
 	const donor = { ...structuredClone(source), id: donorId,
-		name: `${safeName(request.name, 'visual preset name')} Model` };
+		name: derivedVideoVisualSourceName(safeName(request.name, 'visual preset name'), ' Model') };
 	const donorClip = { ...structuredClone(clip), id: donorClipId, sourceId: donorId };
 	const presetId = createStableId('visual-preset');
 	const preset = normalizeVideoVisualPresetV1({
@@ -315,7 +322,8 @@ async function prepareFreeze(
 	const end = start + positiveInteger(clip.sequenceFrameCount, 'selected video duration');
 	if (sequenceFrame < start || sequenceFrame >= end) throw new RangeError('The playhead is outside the selected video.');
 	if (!capture) throw new Error('Exact freeze capture is unavailable for the selected preview.');
-	const picture = resolveFramescaperSelectedFreezePictureFinishing(runtimeProject,
+	const freezeProject = exportSequenceProject({ ...record(runtimeProject, 'freeze runtime project'), primarySequenceId: sequence.id });
+	const picture = resolveFramescaperSelectedFreezePictureFinishing(freezeProject,
 		stableId(clip.id, 'selected video clip ID'), playhead);
 	const source = requireById(records(project.sources, 'project sources'), picture.sourceId, 'selected freeze source');
 	const body = await capture.capture({
@@ -337,12 +345,12 @@ async function prepareFreeze(
 	const duration = positiveInteger(request.durationFrames, 'freeze duration');
 	const contentSha256 = await digestMediaContent(body.blob);
 	await store.writeMediaAsset(sourceId, body.blob, {
-		name: `${safeName(source.name ?? 'Video', 'video source name')} Freeze`,
+		name: derivedVideoVisualSourceName(safeName(source.name ?? 'Video', 'video source name'), ' Freeze'),
 		mimeType: 'image/png', width, height,
 	});
 	const stillSource = {
 		schemaVersion: 1, kind: 'still', id: sourceId,
-		name: `${safeName(source.name ?? 'Video', 'video source name')} Freeze`,
+		name: derivedVideoVisualSourceName(safeName(source.name ?? 'Video', 'video source name'), ' Freeze'),
 		mimeType: 'image/png', storageKey: sourceId, contentSha256,
 		width, height, hasAlpha: true,
 	};
@@ -363,7 +371,7 @@ async function prepareFreeze(
 	});
 	return prepared(batch([
 		{ ...createAddTrackCommand({ type: 'video', id: trackId,
-			name: 'Freeze', laneGroupId: null }), index: 0 },
+			name: 'Freeze', laneGroupId: null }), index: 0, sequenceId: clip.sequenceId },
 		{ type: 'video-visual-source/set', sourceId, expectedSource: null, source: stillSource },
 		{ type: 'video-visual-clip/set', clipId, expectedClip: null, expectedPlacement: null,
 			clip: stillClip, placement: { scope: 'timeline', trackId } },

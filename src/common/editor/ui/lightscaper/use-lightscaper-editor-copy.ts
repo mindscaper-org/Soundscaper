@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useEffect, useMemo, useState } from 'react';
-import { LIGHTSCAPER_EDITOR_COPY_BY_LOCALE, bundledLightscaperEditorCopyForLocale, type LightscaperEditorCopyV1 } from '../../../i18n/lightscaper-editor-copy.ts';
+import { LIGHTSCAPER_BRAND_COPY_DE, LIGHTSCAPER_EDITOR_COPY_BY_LOCALE, bundledLightscaperEditorCopyForLocale, type LightscaperEditorCopyV1 } from '../../../i18n/lightscaper-editor-copy.ts';
 import { normalizeBcp47Locale } from '../../../i18n/locale.js';
 import { SITE_COPY_BY_LOCALE } from '../../../i18n/site-copy.js';
 import { loadTranslationCatalog, translationCatalogLocale } from '../../../i18n/translation-catalog.js';
@@ -16,7 +16,7 @@ function brandCopy(copy: typeof SITE_COPY_BY_LOCALE.en) {
 		photoEditor: copy.photoEditor, workspacePhoto: copy.workspacePhoto };
 }
 const ENGLISH: LightscaperEditorUiCopyV1 = Object.freeze({ ...brandCopy(SITE_COPY_BY_LOCALE.en), ...LIGHTSCAPER_EDITOR_COPY_BY_LOCALE.en });
-const GERMAN: LightscaperEditorUiCopyV1 = Object.freeze({ ...brandCopy(SITE_COPY_BY_LOCALE.de), ...LIGHTSCAPER_EDITOR_COPY_BY_LOCALE.de });
+const GERMAN: LightscaperEditorUiCopyV1 = Object.freeze({ ...LIGHTSCAPER_BRAND_COPY_DE, ...LIGHTSCAPER_EDITOR_COPY_BY_LOCALE.de });
 
 /** The lazy photo editor requests only its own flat keys from published catalogs. */
 export function useLightscaperEditorCopy(locale: string, options: Readonly<{ loaders?: LightscaperCopyCatalogLoadersV1 }> = {}): LightscaperEditorUiCopyV1 {

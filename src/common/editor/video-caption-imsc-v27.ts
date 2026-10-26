@@ -29,7 +29,7 @@ import {
 	type VideoCaptionExportResultV1,
 } from './video-caption-interchange-contract-v27.ts';
 import { parseImscTime } from './video-caption-imsc-time.ts';
-
+import { imscPercentage } from './video-caption-imsc-percentage.ts';
 const TT = 'http://www.w3.org/ns/ttml';
 const TTP = 'http://www.w3.org/ns/ttml#parameter';
 const TTS = 'http://www.w3.org/ns/ttml#styling';
@@ -106,7 +106,6 @@ export function importImscCaptionTrackV1(
 	limits: Readonly<VideoCaptionInterchangeLimitsV1>,
 	normalize: VideoCaptionTrackNormalizerV1,
 ): VideoCaptionImportResultV1 {
-	assertNoActiveXml(xml);
 	const state: ParseState = {
 		options,
 		limits,
@@ -313,7 +312,7 @@ function readStyle(tag: SaxesTagNS, state: ParseState): VideoCaptionStyleV1 {
 		attribute(tag, TTS, 'fontWeight'), attribute(tag, TTS, 'fontStyle'),
 		attribute(tag, TTS, 'textDecoration'), attribute(tag, TTS, 'textAlign'),
 	];
-	if (values.some((value) => value === null)) state.losses.push(captionLoss('style-properties-defaulted', `styles.${id}`, 'Missing IMSC style properties use bounded caption defaults.'));
+	if (values.some((value) => value === null)) state.losses.push(captionLoss('style-properties-defaulted', `styles.${id}`, 'Missing IMSC style properties use their initial TTML values.'));
 	const familyToken = values[0] ?? 'sansSerif';
 	if (!Object.hasOwn(TTML_TO_FONT, familyToken)) {
 		throw interchangeError(`Unsupported IMSC font family: ${familyToken}.`, 'UNSUPPORTED_STYLE');
@@ -325,11 +324,11 @@ function readStyle(tag: SaxesTagNS, state: ParseState): VideoCaptionStyleV1 {
 		fontFamily: family,
 		fontSizePercent: percent(values[1] ?? '100%', 'IMSC font size') / 15, // The inherited 1c font is 1/15 of root height.
 		foregroundColor: color(values[2] ?? '#ffffffff', 'IMSC foreground color'),
-		backgroundColor: color(values[3] ?? '#000000cc', 'IMSC background color'),
+		backgroundColor: color(values[3] ?? '#00000000', 'IMSC background color'),
 		fontWeight: choice(values[4] ?? 'normal', ['normal', 'bold'] as const, 'IMSC font weight'),
 		fontStyle: choice(values[5] ?? 'normal', ['normal', 'italic'] as const, 'IMSC font style'),
 		textDecoration: choice(values[6] ?? 'none', ['none', 'underline'] as const, 'IMSC text decoration'),
-		textAlign: choice(values[7] ?? 'center', ['start', 'center', 'end'] as const, 'IMSC text alignment'),
+		textAlign: choice(values[7] ?? 'start', ['start', 'center', 'end'] as const, 'IMSC text alignment'),
 	});
 }
 
@@ -390,15 +389,15 @@ function readTiming(
 
 function exportStyle(style: VideoCaptionStyleV1, identities: ImscXmlIdentitiesV1): string {
 	return `<style xml:id="${xml(mapped(identities.styles, style.id))}" tts:fontFamily="${FONT_TO_TTML[style.fontFamily]}"`
-		+ ` tts:fontSize="${style.fontSizePercent * 15}%" tts:color="${style.foregroundColor}"`
+		+ ` tts:fontSize="${imscPercentage(style.fontSizePercent * 15)}" tts:color="${style.foregroundColor}"`
 		+ ` tts:backgroundColor="${style.backgroundColor}" tts:fontWeight="${style.fontWeight}"`
 		+ ` tts:fontStyle="${style.fontStyle}" tts:textDecoration="${style.textDecoration}"`
 		+ ` tts:textAlign="${style.textAlign}"/>`;
 }
 
 function exportRegion(region: VideoCaptionRegionV1, identities: ImscXmlIdentitiesV1): string {
-	return `<region xml:id="${xml(mapped(identities.regions, region.id))}" tts:origin="${region.xPercent}% ${region.yPercent}%"`
-		+ ` tts:extent="${region.widthPercent}% ${region.heightPercent}%" tts:displayAlign="${region.displayAlign}"/>`;
+	return `<region xml:id="${xml(mapped(identities.regions, region.id))}" tts:origin="${imscPercentage(region.xPercent)} ${imscPercentage(region.yPercent)}"`
+		+ ` tts:extent="${imscPercentage(region.widthPercent)} ${imscPercentage(region.heightPercent)}" tts:displayAlign="${region.displayAlign}"/>`;
 }
 
 function exportCue(
@@ -531,13 +530,6 @@ function positiveInteger(value: string | null, name: string, maximum: number): n
 	const number = Number(value);
 	if (!Number.isSafeInteger(number) || number < 1 || number > maximum) throw interchangeError(`${name} is outside its bound.`, 'UNSUPPORTED_PROFILE');
 	return number;
-}
-
-function assertNoActiveXml(value: string): void {
-	const withoutDeclaration = value.replace(/<!--[\s\S]*?-->/gu, '').replace(/^<\?xml[ \t\r\n]+[^?]*\?>/u, '');
-	if (/<!\s*(?:DOCTYPE|ENTITY)\b|<\?|<!\[CDATA\[/iu.test(withoutDeclaration)) {
-		throw activeContent('DTD, entity declarations, processing instructions, and CDATA are not allowed in IMSC.');
-	}
 }
 
 function imscTimingLoss(id: string, field: 'startFrame' | 'endFrame', source: string, frame: number): VideoCaptionInterchangeLossV1 {

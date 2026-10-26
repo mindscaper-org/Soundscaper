@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { normalizeFramescaperImageClipV1, type FramescaperImageClipV1 } from '../common/editor/timeline-image-model.ts';
+import { rebaseSequenceVisualFrame } from './editor-sequence-visual-rate-conformance.ts';
 import { sampleFrameToVideoFrame } from '../common/editor/timeline-time.ts';
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
 import type { FramescaperProjectTimelineImage } from './editor-project-timeline-image.ts';
@@ -58,8 +59,11 @@ export function prepareTimelineImageMoveCommand(project: FramescaperProjectTimel
 		const sequence = project.sequences.find(item => item.trackIds.includes(trackId))
 			?? project.sequences.find(item => item.id === expectedClip.sequenceId);
 		if (!sequence) throw new ReferenceError('A timeline image move requires its exact sequence clock.');
+		const origin = project.sequences.find(item => item.id === expectedClip.sequenceId);
+		if (!origin) throw new ReferenceError('A visual move requires its original sequence clock.');
 		const clip: FramescaperImageClipV1 = { ...expectedClip, sequenceId: sequence.id,
-			sequenceStartFrame: startFrame === undefined ? expectedClip.sequenceStartFrame
+			sequenceFrameCount: Math.max(1, rebaseSequenceVisualFrame(expectedClip.sequenceFrameCount, origin.rate, sequence.rate)),
+			sequenceStartFrame: startFrame === undefined ? rebaseSequenceVisualFrame(expectedClip.sequenceStartFrame, origin.rate, sequence.rate)
 				: sampleFrameToVideoFrame(Number(startFrame), sequence.rate, project.sampleRate, 'point') };
 		clips.set(clipId, clip);
 		owners.set(clipId, trackId);

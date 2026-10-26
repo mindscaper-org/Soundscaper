@@ -7,10 +7,11 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
-import { EDITOR_ENGLISH_COPY, EDITOR_GERMAN_COPY } from '../src/common/i18n/editor-copy-inventory.ts';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
+import { EDITOR_ENGLISH_COPY } from '../src/common/i18n/editor-copy-inventory.ts';
 import { SITE_COPY_BY_LOCALE } from '../src/common/i18n/site-copy.js';
-import { LIGHTSCAPER_EDITOR_COPY_BY_LOCALE, bundledLightscaperEditorCopyForLocale } from '../src/common/i18n/lightscaper-editor-copy.ts';
+import { LIGHTSCAPER_BRAND_COPY_DE, LIGHTSCAPER_EDITOR_COPY_BY_LOCALE, bundledLightscaperEditorCopyForLocale } from '../src/common/i18n/lightscaper-editor-copy.ts';
+import { resolveCatalog } from '../src/common/i18n/runtime.js';
 import { loadTranslationCatalog } from '../src/common/i18n/translation-catalog.js';
 import { translateLocale } from '../scripts/i18n-ai/workflows.mjs';
 import { chunkGroupForModulePath } from '../scripts/lib/build-chunk-groups.mjs';
@@ -26,8 +27,10 @@ const KEYS = Object.freeze([
 	'photoCamera', 'photoLens', 'photoKeywords', 'photoMetadataNotice',
 ] as const);
 
-test('the lazy photo source preserves every corrected English and German flat identity', () => {
+test('the lazy photo source preserves every corrected English and German flat identity', async () => {
 	const copy = LIGHTSCAPER_EDITOR_COPY_BY_LOCALE;
+	const german = await resolveCatalog('de');
+	const translations = await loadTranslationCatalog('de', { englishCopy: copy.en });
 	assert.deepEqual(Object.keys(copy.en).slice(0, KEYS.length), KEYS);
 	assert.deepEqual(Object.keys(copy.de), Object.keys(copy.en));
 	// Snapshot of the corrected source at 0f175d60a, before the ownership move.
@@ -35,16 +38,19 @@ test('the lazy photo source preserves every corrected English and German flat id
 	assert.equal(createHash('sha256').update(snapshot).digest('hex'), '2a3cf1bcafbd5adad36ff987d1cfe92bd1cf3d358854846928447f976a37e5b6');
 	for (const key of Object.keys(copy.en) as (keyof typeof copy.en)[]) {
 		assert.equal(ENGLISH_COPY[key], copy.en[key], key);
-		assert.equal(GERMAN_COPY[key], copy.de[key], key);
+		assert.equal(translations?.[key], copy.de[key], key);
 		assert.equal(EDITOR_ENGLISH_COPY[key], copy.en[key], key);
-		assert.equal(EDITOR_GERMAN_COPY[key], copy.de[key], key);
+		assert.equal(german[key], copy.de[key], key);
 		assert.equal(Object.hasOwn(SITE_COPY_BY_LOCALE.en, key), false, key);
-		assert.equal(Object.hasOwn(SITE_COPY_BY_LOCALE.de, key), false, key);
+		assert.equal(Object.hasOwn(LIGHTSCAPER_BRAND_COPY_DE, key), false, key);
 	}
-	for (const key of ['lightscaperTitle', 'lightscaperMetaDescription', 'photoEditor', 'workspacePhoto']) {
+	for (const key of ['lightscaperTitle', 'lightscaperMetaDescription', 'photoEditor', 'workspacePhoto'] as const) {
 		assert.equal(Object.hasOwn(SITE_COPY_BY_LOCALE.en, key), true, key);
-		assert.equal(Object.hasOwn(SITE_COPY_BY_LOCALE.de, key), true, key);
+		assert.equal(Object.hasOwn(LIGHTSCAPER_BRAND_COPY_DE, key), true, key);
+		assert.equal(german[key], LIGHTSCAPER_BRAND_COPY_DE[key], key);
 	}
+	assert.equal(german.productEditors, 'Editoren');
+	assert.ok(Object.isFrozen(LIGHTSCAPER_BRAND_COPY_DE));
 	assert.ok(Object.isFrozen(copy) && Object.isFrozen(copy.en) && Object.isFrozen(copy.de));
 	assert.equal(bundledLightscaperEditorCopyForLocale('de-AT'), copy.de);
 	assert.equal(bundledLightscaperEditorCopyForLocale('fr'), copy.en);
@@ -63,6 +69,20 @@ test('the shared committed catalog loader accepts the same flat keys and filters
 		} }),
 	} });
 	assert.deepEqual(entries, { photoRateStars: 'Noter {count} étoiles', photoFileMenu: 'Fichier', photoCaption: 'Description' });
+});
+
+test('the shared German catalog preserves photo develop effect copy', async () => {
+	const german = await resolveCatalog('de');
+	for (const [key, translated] of Object.entries({
+		videoEffectCubeLutImport: '.cube-LUT auswählen',
+		videoEffectPostCropVignette: 'Vignette nach Beschnitt',
+		videoEffectColorWheels: 'Farbkorrekturräder',
+		videoEffectWhiteBalance: 'Weißabgleich',
+		videoEffectCurveInvalid: 'Die Kurvenpunkte müssen von 0 bis 1 streng nach Eingang geordnet sein.',
+		videoEffectHslMixer: 'HSL-Mischer',
+		videoEffectNoiseReduction: 'Rauschreduzierung',
+		videoEffectParamPerspective: 'Quellviereck entzerren',
+	})) assert.equal(german[key], translated, key);
 });
 
 test('the automatic writer discovers moved photo strings through its default inventory', async () => {

@@ -23,6 +23,7 @@ export function convertLegacyAupToProject(structure, options = {}) {
 	const sources = [];
 	const sourceAudio = [];
 	const clips = [];
+	const binClips = [];
 	const tracks = [];
 	const selectedTrackIds = [];
 	const annotationTracks = [];
@@ -46,16 +47,32 @@ export function convertLegacyAupToProject(structure, options = {}) {
 		const trackId = idFactory('track');
 		if (inputTrack.selected) selectedTrackIds.push(trackId);
 		const trackRate = positiveRate(inputTrack.rate || sampleRate);
+		const requestedGain = Number(inputTrack.gain);
+		const importedGain = Number.isFinite(requestedGain) && requestedGain >= 0 ? requestedGain : 1;
+		if (importedGain > 64) throw new RangeError('Legacy AUP track gain exceeds the supported combined track and clip gain range.');
+		const trackGain = Math.min(4, importedGain);
+		const clipGain = importedGain > 4 ? importedGain / 4 : 1;
+		if (clipGain !== 1) warnings.push(`Track ${inputTrack.name || trackIndex + 1} gain above the fader range is retained in clip gain.`);
 		const clipIds = [];
 		for (const [clipIndex, inputClip] of (inputTrack.clips || []).entries()) {
 			const channels = normalizeSourceChannels(inputClip.channels);
 			const frameCount = channels[0].length;
-			const sourceStartFrame = boundedInteger(inputClip.sourceStart, 0, frameCount - 1, 0);
+			let sourceStartFrame = boundedInteger(inputClip.sourceStart, 0, frameCount - 1, 0);
 			const sourceEndFrame = boundedInteger(inputClip.sourceEnd, sourceStartFrame + 1, frameCount, frameCount);
-			const sourceDurationFrames = sourceEndFrame - sourceStartFrame;
 			const stretch = positive(inputClip.stretch, 1);
 			const legacySpeed = positive(inputClip.speedRatio, 1);
 			const speedRatio = legacySpeed / stretch;
+			const name = String(inputClip.name || `${inputTrack.name || 'Audio'} ${clipIndex + 1}`);
+			const inputStart = Number(inputClip.startSeconds);
+			const startSeconds = Number.isFinite(inputStart) ? inputStart : 0;
+			const hiddenFrames = startSeconds < 0
+				? Math.min(sourceEndFrame - sourceStartFrame, Math.round(-startSeconds * trackRate * speedRatio)) : 0;
+			const whollyHidden = hiddenFrames === sourceEndFrame - sourceStartFrame;
+			if (startSeconds < 0) warnings.push(whollyHidden
+				? `Audio ${name} lies before time zero and is retained in Project Bin instead of the timeline.`
+				: `Audio ${name} begins before time zero; its hidden prefix is retained in the source and excluded from the timeline.`);
+			if (!whollyHidden) sourceStartFrame += hiddenFrames;
+			const sourceDurationFrames = sourceEndFrame - sourceStartFrame;
 			const sourceSeconds = divideRationals(
 				divideRationals(sourceDurationFrames, normalizeRational(trackRate)),
 				normalizeRational(speedRatio),
@@ -63,7 +80,6 @@ export function convertLegacyAupToProject(structure, options = {}) {
 			const durationFrames = Math.max(1, secondsToSampleFrame(sourceSeconds, sampleRate));
 			const sourceId = idFactory('source');
 			const clipId = idFactory('clip');
-			const name = String(inputClip.name || `${inputTrack.name || 'Audio'} ${clipIndex + 1}`);
 		const source = createAudioSource({
 				id: sourceId,
 				storageKey: sourceId,
@@ -80,7 +96,8 @@ export function convertLegacyAupToProject(structure, options = {}) {
 				id: clipId,
 				sourceId,
 				title: name,
-				timelineStartFrame: secondsToSampleFrame(nonNegative(inputClip.startSeconds), sampleRate),
+				gain: clipGain,
+				timelineStartFrame: secondsToSampleFrame(Math.max(0, startSeconds), sampleRate),
 				sourceStartFrame,
 				sourceDurationFrames,
 				durationFrames,
@@ -96,13 +113,13 @@ export function convertLegacyAupToProject(structure, options = {}) {
 			});
 			sources.push(source);
 			sourceAudio.push({ sourceId, sampleRate: trackRate, channels });
-			clips.push(clip);
-			clipIds.push(clip.id);
+			if (whollyHidden) binClips.push(clip);
+			else { clips.push(clip); clipIds.push(clip.id); }
 		}
 		tracks.push(createAudioTrack({
 			id: trackId,
 			name: String(inputTrack.name || `Track ${trackIndex + 1}`),
-			gain: finiteInRange(inputTrack.gain, 0, 4, 1),
+			gain: trackGain,
 			pan: finiteInRange(inputTrack.pan, -1, 1, 0),
 			mute: Boolean(inputTrack.mute),
 			solo: Boolean(inputTrack.solo),
@@ -142,6 +159,7 @@ export function convertLegacyAupToProject(structure, options = {}) {
 		metadata,
 		sources,
 		clips,
+		projectBin: { clips: binClips },
 		tracks: laneTracks,
 		timelineAnnotations: annotationImport.annotations,
 		opaqueExtensions: {
@@ -188,7 +206,7 @@ function convertEnvelope(points = [], inputRate, projectRate, speedRatio, maximu
 		),
 		value: Math.max(0, Math.min(16, Number(point.value) || 0)),
 	})).sort((left, right) => left.frame - right.frame)
-		.filter((point, index, values) => !index || point.frame > values[index - 1].frame);
+		.filter((point, index, values) => values[index + 1]?.frame !== point.frame);
 	return convertAudacityEnvelopeInterpolation(converted, 0, maximumFrame, 'from-native');
 }
 

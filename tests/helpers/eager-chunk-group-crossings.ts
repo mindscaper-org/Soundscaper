@@ -37,6 +37,8 @@ const EAGER_ENTRY_MODULES: readonly string[] = [
 ];
 
 export const EAGER_CHUNK_GROUPS: ReadonlySet<string> = new Set([
+	// Ready product controllers already read profiles and suffix routing metadata.
+	'product-profiles',
 	'editor-codec-foundations',
 	'editor-copy',
 	// Photo and Frame HDR menus already read this one inert label owner.
@@ -188,14 +190,6 @@ export const REACHABILITY_PLACED_TARGETS: ReadonlyMap<string, string> = new Map(
 		'Product identity vocabulary shared with `src/common/site/route.js` and both product entries, so it belongs to no single product graph.',
 	],
 	[
-		'src/common/product-profiles.js',
-		'Product capability profiles shared with the site routes and the transfer pages, which is why they stay outside every editor group.',
-	],
-	[
-		'src/common/project-file-extensions.ts',
-		'Dependency-free suffix table shared by the site profiles, the transfer pages, the desktop shell and both editors; any owner adds a chunk to the ten-request initial graph.',
-	],
-	[
 		'src/common/editor/aup4-profile.js',
 		'AUP4 archive implementation, deliberately unowned, reached from the page only through the `aup4-worker.js` worker entry and the lazy file-menu archive actions.',
 	],
@@ -237,18 +231,6 @@ export const REACHABILITY_PLACED_TARGETS: ReadonlyMap<string, string> = new Map(
 	// pins the property that makes their placement safe, so these reasons are measured
 	// rather than asserted.
 	[
-		'src/framescaper/editor-project-finishing-source-rebind.ts',
-		'Finishing half of the source rebind the timeline-image rebind extends, reached only from that eagerly composed module.',
-	],
-	[
-		'src/framescaper/editor-scape-asset-import-finishing.ts',
-		'Finishing asset import the eagerly composed timeline-image asset import extends, reached only from it and its finishing sibling.',
-	],
-	[
-		'src/framescaper/editor-scape-assets-finishing.ts',
-		'Finishing asset inventory the eagerly composed timeline-image asset inventory extends, reached only from it.',
-	],
-	[
 		'src/framescaper/selected-finishing-exact-frame-support.ts',
 		'Exact-frame support shared by the finishing execution and the eagerly composed timeline-image export execution; no dynamic import reaches it.',
 	],
@@ -264,9 +246,6 @@ export const REACHABILITY_PLACED_TARGETS: ReadonlyMap<string, string> = new Map(
  * a comment that used to be true.
  */
 export const FRAMESCAPER_BOOTSTRAP_COMPOSITION_LEAVES: readonly string[] = [
-	'src/framescaper/editor-project-finishing-source-rebind.ts',
-	'src/framescaper/editor-scape-asset-import-finishing.ts',
-	'src/framescaper/editor-scape-assets-finishing.ts',
 	'src/framescaper/selected-finishing-exact-frame-support.ts',
 ];
 

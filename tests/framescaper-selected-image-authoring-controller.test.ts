@@ -36,7 +36,7 @@ type Bound = Readonly<{
 const PROJECT = createFramescaperProjectTimelineImage(PROFILE, { now: '2026-03-04T05:06:06.000Z' } as never) as unknown as Data;
 const PUBLISHED = createFramescaperProjectTimelineImage(
 	PROFILE,
-	{ title: 'Published', now: '2026-03-04T05:06:07.000Z' } as never,
+	{ id: PROJECT.id, title: 'Published', now: '2026-03-04T05:06:07.000Z' } as never,
 ) as unknown as Data;
 const NOW = '2026-03-04T05:06:07.000Z';
 const ONE_SECOND_SAMPLES = 48_000; // The default project runs a 30/1 sequence at 48000 Hz.
@@ -428,7 +428,9 @@ test('a desktop picker imports a frozen snapshot of the files its read scope yie
 	await still(controller);
 
 	assert.deepEqual(requests[0], { purpose: 'image', multiple: true });
-	assert.deepEqual(requests[1], { descriptors: ['descriptor-1'], request: {} });
+	const read = requests[1]; assert.ok(read); const request = read.request as Data;
+	assert.ok(request.signal instanceof AbortSignal && !request.signal.aborted);
+	assert.deepEqual({ ...read, request: { ...request, signal: undefined } }, { descriptors: ['descriptor-1'], request: { signal: undefined } });
 	assert.deepEqual(imports[0]?.files.map(({ name }) => name), ['desktop.png']);
 	assert.ok(Object.isFrozen(imports[0]?.files), 'the selection is snapshotted before it is imported');
 	assert.notEqual(imports[0]?.files, chosen, 'the caller keeps no handle on the imported array');

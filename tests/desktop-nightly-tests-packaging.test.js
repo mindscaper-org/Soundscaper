@@ -44,9 +44,10 @@ test('nightly-with-tests packaging is isolated, portable, and keeps its payload 
 	), false);
 	assert.deepEqual(config.linux.target, ['AppImage']);
 	for (const platform of ['win', 'mac']) {
-		assert.equal(config[platform].icon, '.desktop-build/icons/icon.png');
+		const iconPath = `.desktop-build/icons/icon.${platform === 'win' ? 'ico' : 'png'}`;
+		assert.equal(config[platform].icon, iconPath);
 		assert.equal(require(resolve(ROOT, 'electron-builder.config.cjs'))[platform].icon,
-			'.desktop-build/icons/icon.png');
+			iconPath);
 	}
 	assert.equal(config.linux.icon, '.desktop-build/icons/linux');
 	assert.equal(config.linux.executableName, 'soundscaper-nightly-tests');

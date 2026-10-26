@@ -33,6 +33,7 @@ export const DESKTOP_ASSISTANCE_RUNTIME_FILES = Object.freeze([
 	'desktop/assistance-onnx-gpu-closure.js',
 	'desktop/assistance-onnx-gpu-profile.js',
 	'desktop/assistance-onnx-gpu-validation.js',
+	'desktop/assistance-onnx-provider-options.js',
 	'desktop/assistance-onnx-audio-runtime-worker.js',
 	'desktop/assistance-onnx-dereverb-worker.js',
 	'desktop/assistance-onnx-enhancement-separation-worker.js',

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { VIDEO_EFFECT_COPY_BY_LOCALE } from './video-effect-copy.js';
+import { LIGHTSCAPER_SHARED_EFFECT_COPY_DE } from './lightscaper-develop-shared-effect-copy.ts';
 
 const EN = Object.freeze({ title: 'Develop', version: 'Version', useVersion: 'Use version', history: 'History', snapshots: 'Snapshots',
 	snapshotName: 'Snapshot name', saveSnapshot: 'Save snapshot', restoreSnapshot: 'Restore snapshot', deleteSnapshot: 'Delete snapshot',
@@ -37,5 +38,5 @@ const DE: Record<keyof typeof EN, string> = Object.freeze({ title: 'Entwickeln',
 export interface PhotoDevelopCopyV1 extends Record<keyof typeof EN, string> { readonly shared: Readonly<Record<string, string>> }
 export function photoDevelopCopy(locale: string): Readonly<PhotoDevelopCopyV1> {
 	const language = locale.toLowerCase().split('-')[0] === 'de' ? 'de' : 'en';
-	return Object.freeze({ ...(language === 'de' ? DE : EN), shared: VIDEO_EFFECT_COPY_BY_LOCALE[language] });
+	return Object.freeze({ ...(language === 'de' ? DE : EN), shared: language === 'de' ? LIGHTSCAPER_SHARED_EFFECT_COPY_DE : VIDEO_EFFECT_COPY_BY_LOCALE.en });
 }

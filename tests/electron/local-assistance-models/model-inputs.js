@@ -15,6 +15,11 @@ const HASHES = Object.freeze({
 	'astronaut.png': '88431cd9653ccd539741b555fb0a46b61558b301d4110412b5bc28b5e3ea6cb5',
 	'chelsea.png': '596aa1e7cb875eb79f437e310381d26b338a81c2da23439704a73c4651e8c4bb',
 });
+const OCR_FONT_SHA256 = '6f56409fd3d64bb85f7d070bce20749db2d66b6d63cec586cc22d1c761be2491';
+const OCR_RENDERING = Object.freeze({
+	fontFamily: 'Soundscaper OCR Fixture', fontWeight: '700', fontSizePixels: 96,
+	textAlign: 'center', textBaseline: 'middle', lineX: 256, lineYs: Object.freeze([128, 256, 384]),
+});
 
 export function digest(bytes) { return createHash('sha256').update(bytes).digest('hex'); }
 
@@ -110,7 +115,15 @@ export async function prepareModelInput(fixtureId, page) {
 	const photos = fixtureId !== 'visual-text-frames'
 		? await Promise.all(['astronaut.png', 'chelsea.png'].map(async (name) => (await authenticatedFixture(name)).toString('base64')))
 		: [null];
-	const rasters = await page.evaluate(async ({ sources, width, height, textLines }) => {
+	const ocrFont = fixtureId === 'visual-text-frames'
+		? await readFile(new URL('../../../node_modules/@fontsource/inter/files/inter-latin-700-normal.woff2', import.meta.url)) : null;
+	if (ocrFont) assert.equal(digest(ocrFont), OCR_FONT_SHA256, 'The OCR fixture font changed.');
+	const rasters = await page.evaluate(async ({ sources, width, height, textLines, ocrFontBase64, ocrRendering }) => {
+		if (ocrFontBase64) {
+			const bytes = Uint8Array.from(atob(ocrFontBase64), character => character.charCodeAt(0));
+			const font = new FontFace(ocrRendering.fontFamily, bytes.buffer, { weight: ocrRendering.fontWeight });
+			await font.load(); document.fonts.add(font);
+		}
 		const canvas = document.createElement('canvas');
 		canvas.width = width; canvas.height = height;
 		const context = canvas.getContext('2d');
@@ -125,14 +138,18 @@ export async function prepareModelInput(fixtureId, page) {
 				const drawnWidth = image.naturalWidth * scale; const drawnHeight = image.naturalHeight * scale;
 				context.drawImage(image, (width - drawnWidth) / 2, (height - drawnHeight) / 2, drawnWidth, drawnHeight);
 			} else {
-				context.fillStyle = 'black'; context.font = 'bold 54px sans-serif';
-				context.fillText(textLines[0], 35, 200);
-				context.fillText(textLines[1], 175, 280);
+				context.fillStyle = 'black';
+				context.font = `${ocrRendering.fontWeight} ${ocrRendering.fontSizePixels}px "${ocrRendering.fontFamily}"`;
+				context.textAlign = ocrRendering.textAlign; context.textBaseline = ocrRendering.textBaseline;
+				for (const [index, line] of textLines.entries()) {
+					context.fillText(line, ocrRendering.lineX, ocrRendering.lineYs[index]);
+				}
 			}
 			frames.push(Array.from(context.getImageData(0, 0, width, height).data));
 		}
 		return frames;
-	}, { sources: photos, width, height, textLines: MODEL_OCR_TEXT_LINES });
+	}, { sources: photos, width, height, textLines: MODEL_OCR_TEXT_LINES,
+		ocrFontBase64: ocrFont?.toString('base64') ?? null, ocrRendering: OCR_RENDERING });
 	const sequence = shots ? Array.from({ length: 120 }, (_, index) => rasters[index < MODEL_SHOT_FIXTURE.sourceFrame ? 0 : 1]) : rasters;
 	const frames = sequence.map((pixels, index) => ({ sourceFrame: index, presentationTick: String(index), rgba: Uint8Array.from(pixels) }));
 	const authority = { width, height, timescale: 30,

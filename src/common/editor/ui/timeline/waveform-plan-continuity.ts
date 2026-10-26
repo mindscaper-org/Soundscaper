@@ -40,7 +40,7 @@ export function reprojectWaveformRange<T extends WaveformRendering>(
 	endFrame: number,
 	pixelWidth: number,
 ): T {
-	if (plan.startFrame === startFrame && plan.endFrame === endFrame) return plan;
+	if (plan.startFrame === startFrame && plan.endFrame === endFrame && plan.pixelWidth === pixelWidth) return plan;
 	const frameCount = endFrame - startFrame;
 	const scale = plan.frameCount / frameCount * pixelWidth / plan.pixelWidth;
 	const offset = (plan.startFrame - startFrame) / frameCount * pixelWidth;

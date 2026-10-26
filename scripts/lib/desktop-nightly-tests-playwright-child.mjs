@@ -2,18 +2,23 @@
 
 import { spawn } from 'node:child_process';
 import { open } from 'node:fs/promises';
+import { join } from 'node:path';
+import { terminateProcessTree } from '../../desktop/process-tree-termination.ts';
 import { createDesktopNightlyTestsItemProgressReader } from './desktop-nightly-tests-progress-reporter.mjs';
 
-export async function runDesktopNightlyTestsPlaywrightChild(plan, onItems) {
+export async function runDesktopNightlyTestsPlaywrightChild(plan, onItems, { signal } = {}) {
 	const descriptor = await open(plan.logFile, 'wx');
 	const log = descriptor.createWriteStream();
+	let termination = Promise.resolve();
 	let child;
 	try {
-		child = spawn(plan.command, plan.args, {
+		child = spawn(plan.command, signal
+			? [join(plan.cwd, 'scripts/lib/desktop-nightly-tests-child-bootstrap.mjs'), ...plan.args]
+			: plan.args, {
 			cwd: plan.cwd,
-			detached: false,
+			detached: Boolean(signal) && process.platform !== 'win32',
 			env: { ...plan.env },
-			stdio: ['ignore', 'pipe', 'pipe'],
+			stdio: signal ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],
 			windowsHide: true,
 		});
 	} catch (error) {
@@ -26,7 +31,17 @@ export async function runDesktopNightlyTestsPlaywrightChild(plan, onItems) {
 	try {
 		return await new Promise((resolvePromise, reject) => {
 			let observerFailure = null;
+			let killTimer = null;
+			const onAbort = () => {
+				if (child.connected) child.send({ type: 'soundscaper-nightly-pause' }, () => undefined);
+				killTimer = setTimeout(() => {
+					termination = terminateProcessTree(child, 'SIGKILL').then(() => undefined);
+				}, 30_000);
+				killTimer.unref();
+			};
 			const cleanup = () => {
+				signal?.removeEventListener('abort', onAbort);
+				if (killTimer) clearTimeout(killTimer);
 				child.off('error', onChildError);
 				child.off('close', onClose);
 				child.stdout.off('data', onData);
@@ -49,8 +64,11 @@ export async function runDesktopNightlyTestsPlaywrightChild(plan, onItems) {
 			child.once('close', onClose);
 			child.stdout.on('data', onData);
 			log.once('error', onLogError);
+			signal?.addEventListener('abort', onAbort, { once: true });
+			if (signal?.aborted) onAbort();
 		});
 	} finally {
+		await termination;
 		await closeWritable(log);
 	}
 }

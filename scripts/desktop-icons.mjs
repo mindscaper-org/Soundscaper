@@ -55,13 +55,33 @@ export async function generateDesktopIcon({
 	// Render the launcher and menu sizes from the vectors for both deb and AppImage.
 	const linuxDirectory = resolve(dirname(outputPath), 'linux');
 	await mkdir(linuxDirectory, { recursive: true });
+	const windowsRasters = [];
 	for (const size of LINUX_ICON_SIZES) {
 		const bytes = size === 1024 ? master : new Resvg(squareSource, {
 			fitTo: { mode: 'width', value: size },
 			font: { loadSystemFonts: false },
 		}).render().asPng();
 		await writeCanonicalIcon(resolve(linuxDirectory, `${size}x${size}.png`), bytes);
+		if (size <= 256) windowsRasters.push({ size, bytes });
 	}
+	// Supply the final ICO to electron-builder. Its PNG converter loads native
+	// image tooling that can crash on Windows ARM64 after producing the output.
+	const directory = Buffer.alloc(6 + 16 * windowsRasters.length);
+	directory.writeUInt16LE(1, 2);
+	directory.writeUInt16LE(windowsRasters.length, 4);
+	let offset = directory.length;
+	for (const [index, { size, bytes }] of windowsRasters.entries()) {
+		const entry = 6 + 16 * index;
+		directory[entry] = size === 256 ? 0 : size;
+		directory[entry + 1] = size === 256 ? 0 : size;
+		directory.writeUInt16LE(1, entry + 4);
+		directory.writeUInt16LE(32, entry + 6);
+		directory.writeUInt32LE(bytes.length, entry + 8);
+		directory.writeUInt32LE(offset, entry + 12);
+		offset += bytes.length;
+	}
+	await writeCanonicalIcon(resolve(dirname(outputPath), 'icon.ico'),
+		Buffer.concat([directory, ...windowsRasters.map(({ bytes }) => bytes)]));
 	return outputPath;
 }
 

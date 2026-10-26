@@ -15,9 +15,9 @@ import { deleteAup4SampleBlocks, insertAup4SampleBlock, readAup4SampleBlock, wri
 import { audacityExportBlockRanges, createAudacitySampleBlockReuse } from './audacity-sample-block-reuse.ts';
 import {
 	createAup4ExportPlan,
-	normalizeAup4ExportSource,
 	requiredAup4SourceIds,
 } from './aup4-export.js';
+import { createAup4ExportSourceNormalizer } from './aup4-export-variants.js';
 import {
 	addAup4CompatibilityItem,
 	createAup4ProjectDocument,
@@ -64,6 +64,8 @@ export function createAup4SnapshotWrites({ requireWritableProject }) {
 			projectId: entry.projectId,
 			entry,
 			plan,
+			normalizeSource: createAup4ExportSourceNormalizer(plan),
+			variantById: new Map(plan.sources.map((variant) => [variant.source.id, variant])),
 			targetGeneration,
 			autosave: args.autosave !== false,
 			expectedSourceIds: new Set(requiredAup4SourceIds(plan).map(String)),
@@ -94,7 +96,7 @@ export function createAup4SnapshotWrites({ requireWritableProject }) {
 		if (session.receivedSourceIds.has(sourceId)) {
 			throw operationError(`PCM for project source ${sourceId} was supplied more than once.`, 'DUPLICATE_SOURCE');
 		}
-		const normalizedSources = normalizeAup4ExportSource(session.plan, args.source);
+		const normalizedSources = session.normalizeSource(args.source);
 		const localBlocks = new Map();
 		const localBlockIds = [];
 		let completedSamples = 0;
@@ -103,7 +105,7 @@ export function createAup4SnapshotWrites({ requireWritableProject }) {
 		session.entry.database.exec('BEGIN IMMEDIATE');
 		try {
 			for (const source of normalizedSources) {
-				const variant = session.plan.sources.find((candidate) => candidate.source.id === source.sourceId);
+				const variant = session.variantById.get(source.sourceId);
 				for (let channelIndex = 0; channelIndex < source.channels.length; channelIndex += 1) {
 					const samples = normalizeFloat32(source.channels[channelIndex]);
 					const blocks = [];

@@ -206,7 +206,7 @@ export function createTakeCycleRoutedCaptureService(
 		), 0);
 		await runtime.preflightStorage(
 			project.sampleRate * channelCount * Float32Array.BYTES_PER_ELEMENT * 60,
-			'take-cycle-recording',
+			'take-cycle-recording', scope.signal,
 		);
 		assertScopeCurrent(scope, project.id);
 		const session = await runtime.orchestrator.beginLiveSession({

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createTrackLockRelationshipReader, type TrackLockRelationshipReader } from './track-lock-relationship-index.ts';
 import type { AudioEditorCommand } from './protocol.ts';
 import type { CurrentAudioEditorMutationCommandV2 } from './clipboard-command-v2.ts';
 import {
@@ -20,6 +21,7 @@ interface TrackSnapshotContext {
 	readonly runtimeClipById: ReadonlyMap<string, DataRecord>;
 	readonly runtimeTrackById: ReadonlyMap<string, DataRecord>;
 	readonly sourceById: ReadonlyMap<string, DataRecord>;
+	readonly relationships: TrackLockRelationshipReader | null;
 }
 
 interface TrackLockBaseline {
@@ -94,8 +96,8 @@ export function createTrackLockAdmission(
 	const initiallyLocked = records(persistedBase.tracks, 'project.tracks')
 		.filter((track) => track.locked === true);
 	if (initiallyLocked.length > 0) {
-		const rawContext = createSnapshotContext(commandProjection);
-		const persistedContext = createSnapshotContext(persistedBase);
+		const rawContext = createSnapshotContext(commandProjection, initiallyLocked.length);
+		const persistedContext = createSnapshotContext(persistedBase, initiallyLocked.length);
 		for (const track of initiallyLocked) {
 			const id = stableId(track.id, 'track ID');
 			baselines.set(id, Object.freeze({
@@ -151,7 +153,7 @@ export function createTrackLockAdmission(
 			track.locked === true && !baselines.has(stableId(track.id, 'track ID'))
 		));
 		if (baselines.size === 0 && newlyLocked.length === 0) return;
-		const context = createSnapshotContext(project);
+		const context = createSnapshotContext(project, baselines.size + newlyLocked.length * 2);
 		for (const baseline of baselines.values()) {
 			const actual = protectedTrackSnapshot(context, baseline.id, 'raw-full');
 			if (!sameSnapshot(actual, baseline.raw)) refuseLockedTrack(baseline.id);
@@ -170,7 +172,7 @@ export function createTrackLockAdmission(
 	function assertPersistedResult(projectValue: unknown): void {
 		if (baselines.size === 0) return;
 		const project = record(projectValue, 'persisted project');
-		const context = createSnapshotContext(project);
+		const context = createSnapshotContext(project, baselines.size);
 		for (const baseline of baselines.values()) {
 			const actual = protectedTrackSnapshot(
 				context,
@@ -224,8 +226,8 @@ function protectedTrackSnapshot(
 		laneMembers: laneMembers(context.tracks, track),
 		clips: Object.freeze(clips),
 		labels,
-		groups: relatedMemberships(context.clips, clipIds, 'groupId'),
-		avLinks: relatedMemberships(context.clips, clipIds, 'avLinkId'),
+		groups: context.relationships ? context.relationships(clipIds, 'groupId') : relatedMemberships(context.clips, clipIds, 'groupId'),
+		avLinks: context.relationships ? context.relationships(clipIds, 'avLinkId') : relatedMemberships(context.clips, clipIds, 'avLinkId'),
 		takeGroups: takeGraphSnapshot(project, trackId),
 		sources: Object.freeze(sources),
 	});
@@ -441,7 +443,7 @@ function runtimeSnapshot(project: DataRecord): DataRecord {
 	return resolveRuntimeProjectProjection(project as RuntimeClipProject) as unknown as DataRecord;
 }
 
-function createSnapshotContext(project: DataRecord): TrackSnapshotContext {
+function createSnapshotContext(project: DataRecord, relationshipDemand: number): TrackSnapshotContext {
 	const runtime = runtimeSnapshot(project);
 	const tracks = records(project.tracks, 'project.tracks');
 	const clips = records(project.clips, 'project.clips');
@@ -453,6 +455,7 @@ function createSnapshotContext(project: DataRecord): TrackSnapshotContext {
 		runtimeClipById: indexById(records(runtime.clips, 'runtime clips'), 'runtime clip'),
 		runtimeTrackById: indexById(records(runtime.tracks, 'runtime tracks'), 'runtime track'),
 		sourceById: indexById(records(project.sources, 'project.sources'), 'source'),
+		relationships: relationshipDemand >= 8 ? createTrackLockRelationshipReader(project, clips) : null,
 	});
 }
 

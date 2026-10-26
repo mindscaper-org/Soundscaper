@@ -9,6 +9,7 @@ import { WORKSPACE_IMPORT_FILE_ACCEPT, WORKSPACE_OPEN_FILE_ACCEPT } from './work
 import AudioEditorButtonTooltips from '../AudioEditorButtonTooltips.jsx';
 import EditorOverlayHost from '../EditorOverlayHost.tsx';
 import AudioEditorMenuBar from '../AudioEditorMenuBar.jsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import AudioEditorTimeline from '../AudioEditorTimeline.jsx';
 import { audacityCompatibilityTitle, formatAup4CompatibilitySummary } from '../dialogs/editor-dialog-model.js';
 import { AccessibleSelectionToolbar, EditorActionBar } from '../toolbar/AudioEditorTransportControls.jsx';
@@ -30,7 +31,6 @@ import { useSplitToolShortcut } from '../timeline/useSplitToolShortcut.ts';
 import EditorSurfaceBoundary from '../EditorSurfaceBoundary.jsx';
 import { CueImportDestinationDialog, WorkspaceImportInput } from './cue-import-workspace.tsx';
 import WebFileLimitDialog from './WebFileLimitDialog.tsx';
-import { withWebFileLoadLimitContext } from '../../web-file-limit-failure.ts';
 import { MeterPanelControlsProvider } from './MeterPanelControls.jsx';
 import { createWorkspacePanelDockRuntime } from './workspace-model-boundaries.ts';
 const ProjectLockToast = lazyEditorModule(() => import('../ProjectLockToast.tsx'));
@@ -77,7 +77,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 		openProjectFile,
 		openSurface,
 		parityRuntime,
-		pendingLegacyProjectRef,
+		legacyProjectSelection,
 		playbackMeterSettings,
 		project,
 		runtimeProject,
@@ -226,6 +226,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 				desktopChrome={desktopChrome}
 				locale={locale}
 				menus={applicationMenus}
+				projectSessionKey={editorProjectEditSessionKey(controller, project?.id)}
 				chromeDrawer={chromeDrawer}
 				compact={compactLayout}
 				compactBarSlot={compactLayout ? <TransportToolbarGroup {...toolbarProps} buttons={COMPACT_BAR_TRANSPORT_BUTTONS} /> : null}
@@ -273,15 +274,13 @@ export default function AudioEditorWorkspaceView({ model }) {
 				webkitdirectory=""
 				directory=""
 				onChange={(event) => {
-					const projectFile = pendingLegacyProjectRef.current;
 					const files = [...event.currentTarget.files];
 					event.currentTarget.value = '';
-					pendingLegacyProjectRef.current = null;
-					if (projectFile && files.length) run(() => withWebFileLoadLimitContext(() => controller.actions.project.importFiles([projectFile, ...files])));
+					run(() => legacyProjectSelection.complete(files));
 				}}
 			/>
 
-			<WorkspaceImportInput accept={WORKSPACE_IMPORT_FILE_ACCEPT} copy={copy} importInputRef={importInputRef} importRoutedFiles={importRoutedFiles} run={run} />
+			<WorkspaceImportInput key={editorProjectEditSessionKey(controller, project?.id)} accept={WORKSPACE_IMPORT_FILE_ACCEPT} copy={copy} importInputRef={importInputRef} importRoutedFiles={importRoutedFiles} run={run} />
 			<CueImportDestinationDialog copy={copy} runtime={cueImportDialog} />
 
 			{!compactLayout && actionBar}

@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "zh-CN",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:7ebb24d8b28621768d56073a7e8152e35df5dcdc863a5dfd70b619109bdef411","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:9a383ad4a4d466401d392b183e5f1cf3a683a93b0d97879e4d5a3e090cd58e93","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -519,6 +519,7 @@
 		"clipMediaSettings": ["machine","Media settings","媒体设置"],
 		"clipMixed": ["machine","Mixed","多个值"],
 		"clipName": ["machine","Clip name","片段名称"],
+		"clipNormalizationUnmeasurable": ["machine","Loudness could not be measured for this clip. Choose a longer audible clip or use peak normalization.","无法测量此片段的响度。请选择更长且有可听声音的片段，或使用峰值归一化。"],
 		"clipPitchAndSpeed": ["machine","Pitch & speed","音高与速度"],
 		"clipPitchField": ["machine","Pitch","音高"],
 		"clipPitchIndicator": ["machine","Clip pitch","片段音高"],
@@ -1792,7 +1793,7 @@
 		"missingEffectLabel": ["machine","Missing: {name}","缺失：{name}"],
 		"missingEffectReadOnly": ["machine","This effect is not installed. Local playback bypasses it while preserving its name, order, and activation state for other compatible programs.","此效果器未安装。本地播放会跳过它，但会为其他兼容程序保留其名称、顺序和启用状态。"],
 		"missingEffectUnknown": ["machine","Unknown effect","未知效果器"],
-		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Playback, analysis, and export are blocked until affected clips are removed.","部分本地音频源缺失。在移除受影响的片段之前，播放、分析和导出功能将被阻止。"],
+		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Operations that require them are blocked until affected clips are relinked or removed.","部分本地音频源缺失。在重新链接或移除受影响的片段之前，需要这些音频源的操作将被阻止。"],
 		"missingSourcesPreventSave": ["machine","Missing audio sources prevent saving.","缺失的音频源会阻止保存。"],
 		"mix": ["machine","Stereo mix","立体声混音"],
 		"mixDown": ["machine","Mix down","缩混"],
@@ -1840,6 +1841,7 @@
 		"mp3VariableBest": ["machine","220-260 kbps (Best Quality)","220-260 kbps（最佳音质）"],
 		"mp3VariableSmallest": ["machine","45-85 kbps (Smaller files)","45-85 kbps（更小文件）"],
 		"multicamera": ["machine","Multicamera","多机位"],
+		"multipleLegacyAupProjects": ["machine","Choose one legacy Audacity project (.aup) and its data files per import.","每次导入请选择一个旧版 Audacity 项目 (.aup) 及其数据文件。"],
 		"multiview": ["machine","Multi-view","多视图"],
 		"musicalAnchor": ["machine","Musically anchored","音乐锚定"],
 		"musicalTimeline": ["machine","Musical timeline","音乐时间轴"],
@@ -4459,6 +4461,9 @@
 		"waveformLogarithmicDb": ["machine","Logarithmic dB","对数 dB"],
 		"waveformLowMidCrossover": ["machine","Low/mid crossover (Hz)","低频/中频分界（Hz）"],
 		"waveformMidHighCrossover": ["machine","Mid/high crossover (Hz)","中频/高频分界（Hz）"],
+		"waveformRenderer": ["machine","Waveform renderer","波形渲染器"],
+		"waveformRendererCanvas": ["machine","Canvas","Canvas"],
+		"waveformRendererGpu": ["machine","GPU (Canvas fallback)","GPU（Canvas 后备）"],
 		"waveformRulerFormat": ["machine","Ruler format","标尺格式"],
 		"waveformSettings": ["machine","Waveform settings","波形设置"],
 		"waveformShowRms": ["machine","Show RMS","显示 RMS"],

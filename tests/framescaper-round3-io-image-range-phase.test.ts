@@ -12,7 +12,7 @@ import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js
 const cases = [
 	{ sourceStartTicks: '0', start: 48_000, end: 144_000, expected: '1000000' },
 	{ sourceStartTicks: '1000000', start: 48_000, end: 144_000, expected: '2000000' },
-	{ sourceStartTicks: '0', start: 288_000, end: 384_000, expected: '4999999' },
+	{ sourceStartTicks: '0', start: 288_000, end: 384_000, expected: '6000000' },
 ] as const;
 
 for (const { sourceStartTicks, start, end, expected } of cases) test(`public image range Copy/Paste preserves source tick ${expected}`, async context => {

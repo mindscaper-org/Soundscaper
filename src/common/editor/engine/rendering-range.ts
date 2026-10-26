@@ -15,6 +15,12 @@ const tailFrames = projectEffectTailFrames as (
 	}>,
 ) => number;
 
+/** A delivery may include silence and effect history beyond the final clip. */
+export function resolveRenderFrameRange(startFrame: unknown, endFrame: unknown): Readonly<{ fromFrame: number; toFrame: number }> {
+	const fromFrame = clampFrame(startFrame, 0, Number.MAX_SAFE_INTEGER);
+	return { fromFrame, toFrame: clampFrame(endFrame, fromFrame, Number.MAX_SAFE_INTEGER) };
+}
+
 /** Charge the audible insert history before capturing a selected passage.
  * Output-tail limits do not limit the history of a finite echo already heard
  * inside the requested range. Never replay before the project starts.

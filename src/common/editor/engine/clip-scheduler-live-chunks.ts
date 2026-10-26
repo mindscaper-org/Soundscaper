@@ -9,8 +9,8 @@ import type { ClipSchedulePlan } from './clip-schedule-plan.ts';
 import type { AudioScheduledSourceNode } from './project-graph.ts';
 import type { UnknownRecord } from './types.ts';
 import type { ChunkAudioNodeFactory, ChunkStreamClientLike, ChunkStreamHandle, ScheduledChunkStreamUnderrun } from './clip-scheduler.ts';
+import { defaultWindowedSincRadius } from '../resample.js';
 
-const STREAM_RESAMPLE_RADIUS = 24;
 const SHARED_START_LEAD_QUANTA = 2;
 export const LIVE_STREAM_PREPARE_AHEAD_SECONDS = 5;
 export const MAX_LIVE_STREAM_PREPARATIONS = 8;
@@ -218,10 +218,11 @@ export async function prepareLiveChunkPlan({
 		if (endFrame <= roundedStart) throw longSourceError('The long-source clip range is empty.');
 		streamRange = { startFrame: roundedStart, endFrame };
 	} else {
-		const sourceStartFrame = Math.max(0, Math.floor(plan.offsetFrame) - STREAM_RESAMPLE_RADIUS);
+		const radius = defaultWindowedSincRadius(requestedInputFrames, outputFrameCount);
+		const sourceStartFrame = Math.max(0, Math.floor(plan.offsetFrame) - radius);
 		const sourceEndFrame = Math.min(
 			provider.frameCount,
-			Math.ceil(plan.offsetFrame + requestedInputFrames) + STREAM_RESAMPLE_RADIUS,
+			Math.ceil(plan.offsetFrame + requestedInputFrames) + radius,
 		);
 		if (sourceEndFrame <= sourceStartFrame) throw longSourceError('The long-source clip range is empty.');
 		streamRange = {

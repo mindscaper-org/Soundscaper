@@ -9,11 +9,11 @@ import { ensureStandardEffectWorklet, isStandardEffectWorkletLoaded, ensureStand
 import { loadParametricEqWasmModule } from '../parametric-eq/wasm-loader.js';
 import { loadPffftWasmModule } from '../pffft-wasm-loader.js';
 import { isParametricEqType, projectEffectRacks } from './project-effects.ts';
-import type { EngineProject } from './types.ts';
+import type { EngineEffect, EngineProject } from './types.ts';
 import { ensureNativePluginRealtimeWorklet } from '../native-plugin-realtime-node.js';
 import { createAudioWorkletLoadOnce, type AudioWorkletLoadOnce } from '../audio-worklet-load-once.ts';
 
-const dynamicsWorklet = workletModuleLoadOnce(() => new URL('../dynamics-worklet.js', import.meta.url));
+const dynamicsWorklet = workletModuleLoadOnce(dynamicsWorkletModuleUrl);
 const delayWorklet = workletModuleLoadOnce(() => new URL('../delay-worklet.js', import.meta.url));
 const bitcrusherWorklet = workletModuleLoadOnce(bitcrusherWorkletModuleUrl);
 const audacityWorklet = workletModuleLoadOnce(audacityWorkletModuleUrl);
@@ -62,7 +62,8 @@ export async function ensureProjectWorklets(
 	const needsBitcrusher = projectUsesBitcrusherWorklet(project) && !bitcrusherWorklet.isLoaded(context);
 	const needsBandDynamics = projectUsesEffect(project, isBandDynamicsEffect) && !isBandDynamicsWorkletLoaded(context);
 	const needsStandard = projectUsesEffect(project, isStandardEffect) && !isStandardEffectWorkletLoaded(context);
-	const usesStandardDelay = projectUsesEffect(project, type => type === 'multi-tap-delay');
+	const usesStandardDelay = projectUsesEffect(project, (type, effect) => type === 'multi-tap-delay'
+		&& Number(effect.params?.pitchShift ?? 0) !== 0 && Number(effect.params?.mix ?? 1) !== 0);
 	const usesAudacity = projectUsesAudacityWorklet(project);
 	const needsAudacity = usesAudacity && !audacityReadyContexts.has(context);
 	const usesParametricEq = projectUsesParametricEqWorklet(project);
@@ -217,6 +218,14 @@ async function audacityWorkletModuleUrl(): Promise<URL | string> {
 	return new URL('../audacity-effects/live-worklet.js', import.meta.url);
 }
 
+async function dynamicsWorkletModuleUrl(): Promise<URL | string> {
+	if (import.meta.env?.DEV || import.meta.env?.PROD) {
+		const module = await import('../dynamics-worklet.js?worker&url');
+		return module.default;
+	}
+	return new URL('../dynamics-worklet.js', import.meta.url);
+}
+
 async function bitcrusherWorkletModuleUrl(): Promise<URL | string> {
 	// The processor imports the shared DSP core, so it has to be bundled rather
 	// than copied beside a source path that does not survive the build.
@@ -259,12 +268,12 @@ function projectUsesNativePluginWorklet(project: EngineProject): boolean {
 	return projectUsesEffect(project, (type) => type === 'native-plugin');
 }
 
-function projectUsesEffect(project: EngineProject, predicate: (type: string) => boolean): boolean {
+function projectUsesEffect(project: EngineProject, predicate: (type: string, effect: EngineEffect) => boolean): boolean {
 	for (const rack of projectEffectRacks(project)) {
 		if (rack.effects.some((effect) => (
 			effect?.enabled !== false
 			&& effect?.bypassed !== true
-			&& predicate(String(effect?.type || '').toLowerCase())
+			&& predicate(String(effect?.type || '').toLowerCase(), effect)
 		))) return true;
 	}
 	return false;

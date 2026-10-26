@@ -33,6 +33,7 @@ import { createClipEditIndex, mediaClipOwnerIndex, requireIndexedOwner } from '.
 import { clipLoopJoinFields } from './clip-loop-join.ts';
 import { joinClipEnvelopes } from './joined-clip-envelope.ts';
 import { frameCommandCarriersV2 } from './frame-resource-command-carriers-v2.ts';
+import { clipJoinAvailabilityProject } from './clip-join-availability.ts';
 
 // foundation-edit-matrix: split
 
@@ -256,7 +257,7 @@ export function joinClips(project, clipIds) {
  */
 export function canJoinClips(project, clipIds) {
 	try {
-		createClipJoinPlan(project, clipIds);
+		createClipJoinPlan(clipJoinAvailabilityProject(project, clipIds), clipIds);
 		return true;
 	} catch {
 		return false;
@@ -331,6 +332,21 @@ function createSingleTrackJoinRun(project, clips, owners) {
 	if (!loopFields && clips.some((clip) => readClipLoop(clip))) {
 		throw new RangeError('Joined loop clips must have matching source periods and phases.');
 	}
+	if (!loopFields && clips.every(clip => clip.kind === 'audio' || clip.kind === undefined)) {
+		const duration = clips.reduce((sum, clip) => sum + BigInt(clip.durationFrames), 0n);
+		const sourceFrames = clips.reduce((sum, clip) => sum + BigInt(clip.sourceDurationFrames ?? clip.durationFrames), 0n);
+		let elapsed = 0n, sourceElapsed = 0n;
+		for (const clip of clips.slice(0, -1)) {
+			elapsed += BigInt(clip.durationFrames);
+			sourceElapsed += BigInt(clip.sourceDurationFrames ?? clip.durationFrames);
+			const difference = sourceElapsed * duration - elapsed * sourceFrames;
+			// A split can round its source boundary by one sample. Larger seam
+			// shifts would replace independently timed traversals with one rate.
+			if (difference > duration || difference < -duration) {
+				throw new RangeError('Clips with different source timing must be rendered before joining.');
+			}
+		}
+	}
 	for (let index = 1; index < clips.length; index += 1) {
 		const previous = clips[index - 1];
 		const current = clips[index];
@@ -355,13 +371,19 @@ function applyClipJoinRun(project, { clips, track, loopFields }) {
 	// A reversed run reads its source backwards, so source starts fall as the
 	// timeline advances and the joined window begins at the last clip's anchor.
 	const joinedSourceStartFrame = first.reversed ? last.sourceStartFrame : first.sourceStartFrame;
+	const sourceFrames = project.sources.find(source => source.id === first.sourceId)?.frameCount;
+	const retainedSourceStart = loopFields?.sourceStartFrame ?? joinedSourceStartFrame;
+	const retainedSourceEnd = retainedSourceStart + (loopFields?.sourceDurationFrames ?? joinedSourceDurationFrames);
 	let joined = normalizeClipForProject(project, {
 		...first,
 		sourceStartFrame: joinedSourceStartFrame,
 		durationFrames: joinedDurationFrames,
 		sourceDurationFrames: joinedSourceDurationFrames,
 		...loopFields,
-		trimEndFrames: last.trimEndFrames,
+		...(first.kind === 'audio' ? {
+			trimStartFrames: Math.min(first.trimStartFrames, retainedSourceStart),
+			trimEndFrames: Math.min(last.trimEndFrames, sourceFrames - retainedSourceEnd),
+		} : { trimEndFrames: last.trimEndFrames }),
 		...(Number.isSafeInteger(last.fadeOutFrames) ? { fadeOutFrames: last.fadeOutFrames } : {}),
 		...(first.kind === 'audio' ? { fadeOutShape: last.fadeOutShape } : {}),
 		envelope: joinClipEnvelopes(clips),

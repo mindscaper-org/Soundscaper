@@ -76,6 +76,7 @@ export const Slider: React.FC<SliderProps> = ({
     resetLabel: String(defaultValue),
   });
   const gestureActiveRef = React.useRef(false);
+  const gestureChangedRef = React.useRef(false);
   const pointerIdRef = React.useRef<number | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const gestureValueRef = React.useRef(value);
@@ -102,6 +103,7 @@ export const Slider: React.FC<SliderProps> = ({
       gestureValueRef.current = clampedValue;
       onGestureStart?.(clampedValue);
     }
+    gestureChangedRef.current = true;
     gestureValueRef.current = newValue;
     onChange?.(newValue);
     if (standalone) {
@@ -113,6 +115,7 @@ export const Slider: React.FC<SliderProps> = ({
   const beginGesture = () => {
     if (disabled || gestureActiveRef.current) return;
     gestureActiveRef.current = true;
+    gestureChangedRef.current = false;
     gestureValueRef.current = clampedValue;
     onGestureStart?.(clampedValue);
   };
@@ -120,7 +123,8 @@ export const Slider: React.FC<SliderProps> = ({
   const endGesture = () => {
     if (!gestureActiveRef.current) return;
     gestureActiveRef.current = false;
-    onGestureEnd?.(gestureValueRef.current);
+    if (!gestureChangedRef.current && onGestureCancel) onGestureCancel();
+    else onGestureEnd?.(gestureValueRef.current);
   };
 
   const cancelGesture = () => {

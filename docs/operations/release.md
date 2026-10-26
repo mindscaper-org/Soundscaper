@@ -65,6 +65,34 @@ Framescaper keeps its independent tag namespace and release timing. Neither
 product's release decision grants schema, storage, native-payload, or update
 authority to the other.
 
+## Desktop download links
+
+The existing Download link and application menu use
+`https://soundscaper.org/download/desktop/` (or the Framescaper origin). The
+Pages Function selects the newest published release with an installer for the
+request's desktop platform and architecture, including RCs and betas. Windows
+downloads use the EXE installer, and Linux downloads use the AppImage. Explicit
+links override browser detection and can be shared or bookmarked:
+
+| Package | Stable Soundscaper URL |
+| --- | --- |
+| Windows x64 installer | `https://soundscaper.org/download/desktop/soundscaper-windows-x64.exe` |
+| Windows ARM64 installer | `https://soundscaper.org/download/desktop/soundscaper-windows-arm64.exe` |
+| macOS Apple silicon | `https://soundscaper.org/download/desktop/soundscaper-mac-arm64.dmg` |
+| Linux x64 AppImage | `https://soundscaper.org/download/desktop/soundscaper-linux-x64.AppImage` |
+| Linux ARM64 AppImage | `https://soundscaper.org/download/desktop/soundscaper-linux-arm64.AppImage` |
+
+Windows ZIPs and Linux `.deb` and `.flatpak` packages use the same URLs with the
+matching extension. Framescaper uses `framescaper.org` and the `framescaper-`
+filename prefix. Redirects resolve on each visit, with a five-minute edge cache
+on GitHub release metadata, and preserve the versioned package filenames.
+
+Unknown platforms and architectures (including Macs whose browser hides the
+chip architecture) open the latest product release page. A missing matching
+package also falls back to that page; a failed GitHub lookup opens the product's
+release search. Only uploaded assets matching the requested product, version,
+platform, and architecture can be direct download destinations.
+
 See [Desktop signing setup](signing.md) for Developer ID,
 notarization, Windows signing, and the GitHub secrets and variables to configure
 before enabling signed release builds.

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { indexedLaneBlocks, removedClipIds } from './track-mixer-work.ts';
+import { prepareRemovedTrackDuckWork } from './removed-track-duck-work.ts';
 import { compareCodeUnits } from '../code-unit-order.ts';
 import { deriveFolderBusOwnershipV13 } from '../folder-bus-v13.ts';
 import { insertTrackNodeV12 } from '../track-hierarchy-mutation-v12.ts';
@@ -114,9 +115,18 @@ export function removeTracksAndDependents(project, trackIds) {
 		project.takeGroups = project.takeGroups
 			.filter((group) => !removedTrackIds.has(String(group?.trackId)));
 	}
+	let duckWork;
 	for (const removedTrackId of removedTrackIds) {
 		if (project.mixer?.routes) delete project.mixer.routes[removedTrackId];
-		disableAutoDuckForRemovedControlTrack(project, removedTrackId);
+		if (duckWork === undefined) duckWork = prepareRemovedTrackDuckWork(project, removedTrackIds);
+		if (duckWork === null) disableAutoDuckForRemovedControlTrack(project, removedTrackId);
+		else for (const slot of duckWork.get(removedTrackId) || []) {
+			const effect = slot.rack[slot.index];
+			if (effect !== slot.effect && !slot.lostControl) continue;
+			slot.rack[slot.index] = updateEffect(effect, slot.lostControl
+				? { enabled: false, context: { controlTrackId: null } }
+				: { context: { controlTrackId: slot.controlTrackId } });
+		}
 	}
 }
 

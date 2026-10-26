@@ -10,34 +10,31 @@
  * seam rather than pushing that ceiling up once per format.
  */
 const EXPORT_MENU_COPY_ENTRIES = Object.freeze([
-	['exportAudio', 'Export audio', 'Audio exportieren'],
-	['exportVideo', 'Export video', 'Video exportieren'],
-	['exportOther', 'Export other', 'Weitere Exporte'],
-	['exportLabels', 'Export labels', 'Beschriftungen exportieren'],
-	['exportEdl', 'Export edit list (EDL)', 'Schnittliste (EDL) exportieren'],
-	['exportOtio', 'Export OpenTimelineIO', 'OpenTimelineIO exportieren'],
-	['exportFcpxml', 'Export FCPXML', 'FCPXML exportieren'],
-	['consolidateMedia', 'Consolidate media', 'Medien konsolidieren'],
-	['consolidatingMedia', 'Consolidating media', 'Medien werden zusammengeführt'],
-	['consolidatedMedia', 'Media consolidated', 'Medien zusammengeführt'],
+	['exportAudio', 'Export audio'],
+	['exportVideo', 'Export video'],
+	['exportOther', 'Export other'],
+	['exportLabels', 'Export labels'],
+	['exportEdl', 'Export edit list (EDL)'],
+	['exportOtio', 'Export OpenTimelineIO'],
+	['exportFcpxml', 'Export FCPXML'],
+	['consolidateMedia', 'Consolidate media'],
+	['consolidatingMedia', 'Consolidating media'],
+	['consolidatedMedia', 'Media consolidated'],
 	[
 		'consolidatedMediaIncomplete',
 		'Some media could not be consolidated',
-		'Einige Medien konnten nicht zusammengeführt werden',
 	],
-	['trimMedia', 'Trim media to what is used', 'Medien auf Verwendetes kürzen'],
-	['trimmingMedia', 'Trimming media', 'Medien werden gekürzt'],
-	['trimmedMedia', 'Media trimmed', 'Medien gekürzt'],
+	['trimMedia', 'Trim media to what is used'],
+	['trimmingMedia', 'Trimming media'],
+	['trimmedMedia', 'Media trimmed'],
 	[
 		'trimmedMediaIncomplete',
 		'Some media could not be trimmed',
-		'Einige Medien konnten nicht gekürzt werden',
 	],
-	['saveArchiveManifest', 'Save archive checksums', 'Archiv-Prüfsummen speichern'],
-	['archiveManifestSaved', 'Archive checksums saved', 'Archiv-Prüfsummen gespeichert'],
+	['saveArchiveManifest', 'Save archive checksums'],
+	['archiveManifestSaved', 'Archive checksums saved'],
 ]);
 
 export const EXPORT_MENU_COPY_BY_LOCALE = Object.freeze({
 	en: Object.freeze(Object.fromEntries(EXPORT_MENU_COPY_ENTRIES.map(([key, en]) => [key, en]))),
-	de: Object.freeze(Object.fromEntries(EXPORT_MENU_COPY_ENTRIES.map(([key, , de]) => [key, de]))),
 });

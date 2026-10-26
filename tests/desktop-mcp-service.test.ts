@@ -47,7 +47,7 @@ test('desktop MCP checks the exact host, rejects every browser origin, and limit
 			const response = await fetch(url, { method: 'POST', headers: { ...headers, origin }, body: '{}' });
 			assert.equal(response.status, 403);
 		}
-		const tooLarge = await fetch(url, { method: 'POST', headers, body: 'x'.repeat(8 * 1024 * 1024 + 1) });
+		const tooLarge = await fetch(url, { method: 'POST', headers, body: 'x'.repeat(1024 * 1024 + 1) });
 		assert.equal(tooLarge.status, 413);
 	} finally {
 		await service.dispose();
@@ -116,6 +116,28 @@ test('desktop MCP bounds dispatch errors and oversized results', async () => {
 		const oversized = await callMcp(connection, 2, 'tools/call', { name: 'list_editor_commands', arguments: {} });
 		assert.equal((oversized.result as { isError: boolean }).isError, true);
 		assert.match((oversized.result as { content: Array<{ text: string }> }).content[0]!.text, /response limit/);
+	} finally {
+		await service.dispose();
+	}
+});
+
+test('desktop MCP rejects excessive tool input before validation or dispatch and remains usable', async () => {
+	const calls: string[] = [];
+	const service = createDesktopMcpService({ dispatch: async (operation) => { calls.push(operation); return {}; } });
+	const connection = await service.start();
+	try {
+		for (const command of [
+			{ type: 'batch', commands: Array.from({ length: 10_001 }, () => ({ type: 'project/rename', name: 'x' })) },
+			{ type: 'project/rename', ...Object.fromEntries(Array.from({ length: 10_001 }, (_, index) => [`key${index}`, 0])) },
+		]) {
+			const result = await callMcp(connection, 1, 'tools/call', {
+				name: 'execute_editor_command', arguments: { projectId: 'project-1', expectedRevision: 0, command },
+			});
+			assert.equal((result.result as { isError?: boolean }).isError, true);
+		}
+		assert.deepEqual(calls, []);
+		await callMcp(connection, 2, 'tools/call', { name: 'get_active_project', arguments: {} });
+		assert.deepEqual(calls, ['get_active_project']);
 	} finally {
 		await service.dispose();
 	}

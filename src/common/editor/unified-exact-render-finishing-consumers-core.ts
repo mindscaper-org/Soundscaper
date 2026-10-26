@@ -3,11 +3,11 @@
 /** Shared selected-V13 pixel resolver used by maintained preview and browser export. */
 
 import {
-	prepareManagedSdrGradeStackV1,
 	assertManagedVideoColorRenderAdmissionV1,
 	type ParsedCubeLutV1,
 } from './video-color-management-v27.ts';
-import { applyPreparedManagedSdrByteFrameV1 } from './video-color-byte-encoding.ts';
+import { managedColor, managedLinearColor } from './unified-exact-render-finishing-color-v13.ts';
+import type { UnifiedExactLinearSourceFrame } from './unified-exact-linear-source-frame.ts';
 import {
 	requireVideoMotionAnalysisBodyV1,
 	type VideoMotionAnalysisBodyV1,
@@ -95,6 +95,7 @@ export interface UnifiedExactRenderFinishingFrameRequestV13 {
 export interface ExactFinishingConsumerCore<Plan extends ExactConsumerPlanCore> {
 	readonly plan: Plan;
 	resolveFrame(request: UnifiedExactRenderFinishingFrameRequestV13): Promise<UnifiedExactRenderRgbaFrameV13>;
+	resolveLinearFrame(request: UnifiedExactRenderFinishingFrameRequestV13): Promise<UnifiedExactLinearSourceFrame>;
 }
 
 interface ResolutionAuthority {
@@ -112,16 +113,20 @@ export function createExactFinishingConsumerCore<Plan extends ExactConsumerPlanC
 	const authority = Object.freeze({ plan: planValue, finishing: finishingNodes[0]! });
 	return Object.freeze({
 		plan: planValue,
+		resolveLinearFrame: (request: UnifiedExactRenderFinishingFrameRequestV13) => resolveFrame(authority, request, true),
 		resolveFrame: (request: UnifiedExactRenderFinishingFrameRequestV13) => (
 			resolveFrame(authority, request)
 		),
 	});
 }
 
+function resolveFrame(authority: ResolutionAuthority, request: UnifiedExactRenderFinishingFrameRequestV13, linearWorking: true): Promise<UnifiedExactLinearSourceFrame>;
+function resolveFrame(authority: ResolutionAuthority, request: UnifiedExactRenderFinishingFrameRequestV13, linearWorking?: false): Promise<UnifiedExactRenderRgbaFrameV13>;
 async function resolveFrame(
 	authority: ResolutionAuthority,
 	request: UnifiedExactRenderFinishingFrameRequestV13,
-): Promise<UnifiedExactRenderRgbaFrameV13> {
+	linearWorking = false,
+): Promise<UnifiedExactRenderRgbaFrameV13 | UnifiedExactLinearSourceFrame> {
 	throwIfAborted(request?.signal);
 	const sourceFrame = nonNegativeInteger(request?.sourceFrame, 'V13 source frame');
 	const sequenceFrame = nonNegativeInteger(request?.sequenceFrame, 'V13 sequence frame');
@@ -182,13 +187,13 @@ async function resolveFrame(
 			}));
 		}
 	}
-	frame = managedColor(authority.finishing, source, presentations, frame,
-		request.lutBodies, request.outputEncoding ?? 'encoded-output',
-		request.frameEncoding ?? 'source-encoded', request.signal);
+	const managed = linearWorking
+		? managedLinearColor(authority.finishing, source, presentations, frame, request.lutBodies, request.frameEncoding ?? 'source-encoded', request.signal)
+		: managedColor(authority.finishing, source, presentations, frame, request.lutBodies, request.outputEncoding ?? 'encoded-output', request.frameEncoding ?? 'source-encoded', request.signal);
 	request.onProgress?.(Object.freeze({
 		phase: 'managed-color', completed: completed + 1, total: executable.length + 1,
 	}));
-	return frame;
+	return managed;
 }
 
 function applicablePresentations(
@@ -217,32 +222,6 @@ function applicablePresentations(
 			&& sequenceFrame >= layer.sequenceStartFrame
 			&& sequenceFrame < layer.sequenceStartFrame + layer.sequenceFrameCount;
 	});
-}
-
-function managedColor(
-	finishing: UnifiedExactRenderFinishingNode,
-	source: UnifiedExactRenderPlanSource,
-	presentations: readonly VideoVisualPresentationV1[],
-	frame: UnifiedExactRenderRgbaFrameV13,
-	lutBodies: ReadonlyMap<string, ParsedCubeLutV1> | undefined,
-	outputEncoding: 'encoded-output' | 'linear-rec709-d65',
-	frameEncoding: 'source-encoded' | 'canvas-srgb',
-	signal?: AbortSignal,
-): UnifiedExactRenderRgbaFrameV13 {
-	const interpretation = finishing.sourceInterpretations.find(({ sourceId }) => sourceId === source.sourceId);
-	if (!interpretation) throw new ReferenceError('The V13 source color interpretation is unavailable.');
-	const grades = presentations.flatMap(({ grade }) => grade === null ? [] : [grade]);
-	const luts = grades.map(({ lut }) => lut === null ? undefined : lutBodies?.get(lut.sha256));
-	// The interpretation and the grade stack are the frame's, not the pixel's:
-	// admitting and normalizing them once here is what keeps a preview frame
-	// off the main thread for seconds at a time.
-	const prepared = prepareManagedSdrGradeStackV1({
-		decoding: frameEncoding === 'canvas-srgb' ? 'canvas-readback' : 'file',
-		interpretation, grades, luts,
-	});
-	const pixels = applyPreparedManagedSdrByteFrameV1(prepared, frame,
-		outputEncoding === 'linear-rec709-d65' ? outputEncoding : finishing.colorContext.outputSpace, signal);
-	return Object.freeze({ width: frame.width, height: frame.height, pixels });
 }
 
 function spatialDenoise(

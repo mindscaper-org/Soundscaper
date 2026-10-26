@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { RecordingRecoveryJournal } from '../../../storage/recording-recovery-journal-repository.ts';
+import { readRecordingSourceMetadata } from './recording-metadata-values.ts';
 
 export interface RecordingRecoverySourceValidationPort {
 	getMetadata(sourceId: string): PromiseLike<Readonly<Record<string, unknown>> | null>;
@@ -20,7 +21,8 @@ export async function validateOrdinaryRecordingRecoveryPrefix(journal: Recording
 			const metadata = await sources.getMetadata(segment.sourceId);
 			try {
 				if (!metadata || metadata.frameCount !== segment.frameCount || metadata.sampleRate !== lane.destination.sampleRate
-					|| !Number.isSafeInteger(metadata.channelCount) || Number(metadata.channelCount) < 1) throw new RecordingCheckpointUnavailableError();
+					|| !Number.isSafeInteger(metadata.channelCount) || Number(metadata.channelCount) < 1
+					|| metadata.channelCount !== (readRecordingSourceMetadata(segment.metadata).channelCount || 1)) throw new RecordingCheckpointUnavailableError();
 				let frames = 0;
 				for await (const chunk of sources.chunks(segment.sourceId, { expectedSource: metadata })) {
 					if (!Number.isSafeInteger(chunk.frames) || chunk.frames < 1 || chunk.channels.length !== metadata.channelCount

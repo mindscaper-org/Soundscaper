@@ -19,8 +19,8 @@ const SITE_WORKFLOWS = new Map([
 		staticJobs: ['build', 'lint', 'typecheck', 'audits'],
 		buildJob: 'build',
 		gate: 'needs: build',
-		browserShardCount: 8,
-		firefoxShardCount: 6,
+		browserShardCount: 12,
+		firefoxShardCount: 12,
 	}],
 ]);
 
@@ -30,6 +30,28 @@ test('Playwright allows CI to pass when a retry succeeds', async () => {
 
 	assert.equal(config.retries, 1);
 	assert.equal(config.failOnFlakyTests, false);
+});
+
+test('only instrumented Chromium receives extra render and persistence time', async () => {
+	const previous = process.env.SCAPE_BROWSER_COVERAGE;
+	try {
+		delete process.env.SCAPE_BROWSER_COVERAGE;
+		const { default: ordinary } = await import('../playwright.config.mjs?ordinary-budgets');
+		assert.equal(ordinary.timeout, 30_000);
+		assert.equal(ordinary.expect.timeout, 5_000);
+		assert.equal(ordinary.projects[0].timeout, undefined);
+		process.env.SCAPE_BROWSER_COVERAGE = '1';
+		const { default: measured } = await import('../playwright.config.mjs?coverage-budgets');
+		assert.equal(measured.projects[0].timeout, 90_000);
+		assert.equal(measured.projects[0].expect.timeout, 15_000);
+		for (const project of measured.projects.slice(1)) {
+			assert.equal(project.timeout, undefined);
+			assert.equal(project.expect, undefined);
+		}
+	} finally {
+		if (previous === undefined) delete process.env.SCAPE_BROWSER_COVERAGE;
+		else process.env.SCAPE_BROWSER_COVERAGE = previous;
+	}
 });
 
 test('Playwright runs the maintained evergreen browser-engine matrix', async () => {
@@ -205,7 +227,7 @@ test('desktop verification gates Electron packaging on static checks and Node te
 	for (const jobName of ['package', 'soundscaper-project-library-lease-matrix']) {
 		const needs = jobName === 'package'
 			? /needs: \[quality, tests, publish-assistance-runtime-handoff, professional-native-build, milestone-5-native-audit-source\]/u
-			: /needs: \[quality, tests\]/u;
+			: /needs: \[quality, tests, prepare-assistance-runtime-handoff\]/u;
 		assert.match(extractJob(workflow, jobName), needs);
 	}
 	assert.doesNotMatch(workflow, /^ {2}project-library-handoff:/mu);
@@ -215,30 +237,17 @@ test('quality verification keeps Chromium and WebKit in the pinned container and
 	const workflow = await readFile(new URL('../.github/workflows/quality.yml', import.meta.url), 'utf8');
 	assertBrowserCoverage(workflow, 'quality', SITE_WORKFLOWS.get('quality.yml'));
 	const browserJob = extractJob(workflow, 'browser');
-	const browserRunStep = browserJob.match(
-		/ {6}- name: Run browser workflows against the existing build\n(?<step>[\s\S]*?)(?=\n {6}- name:)/u,
-	);
-	assert.ok(browserRunStep, 'weights must belong to the existing shared browser step');
-	const weightedShards = browserRunStep.groups.step.match(
-		/^\s+PWTEST_SHARD_WEIGHTS: \$\{\{ matrix\.project == 'chromium' && '(?<chromium>[^']+)' \|\| '(?<webkit>[^']+)' \}\}$/mu,
-	);
-	assert.ok(weightedShards, 'Chromium and WebKit must select their complete weighted partitions');
-	for (const [engine, expected] of [
-		['chromium', [24, 28, 28, 20]],
-		['webkit', [12, 13, 12, 8, 10, 12, 20, 13]],
-	]) {
-		const weights = weightedShards.groups[engine].split(':');
-		assert.ok(weights.every(weight => /^[1-9]\d*$/u.test(weight) && Number.isSafeInteger(Number(weight))),
-			'Playwright parses weights as integers, so decimals and zero-weight shards must be rejected');
-		assert.deepEqual(weights.map(Number), expected, `${engine} must retain its configured partition`);
-		assert.equal(expected.reduce((sum, weight) => sum + weight, 0), 100);
-	}
+	assert.doesNotMatch(browserJob, /^\s+exclude:/mu, 'both engines must run every container shard');
+	assert.doesNotMatch(browserJob, /PWTEST_SHARD_WEIGHTS/u, 'retired four-shard weights cannot govern the container shards');
 	const collectionStep = browserJob.match(
 		/ {6}- name: Collect browser shard run shape\n(?<step>[\s\S]*?)(?=\n {6}- name:)/u,
 	);
-	assert.ok(collectionStep, 'the execution policy must use the actual collected weighted shard');
-	assert.ok(collectionStep.groups.step.includes(weightedShards[0].trim()),
-		'collection and execution must use identical engine weights');
+	assert.ok(collectionStep, 'the execution policy must use the actual collected shard');
+	assert.match(collectionStep.groups.step,
+		/--shard=\$\{\{ matrix\.shard \}\}\/12 --workers=\$\{\{ matrix\.project == 'webkit' && 1 \|\| 2 \}\} --retries=1 --list --reporter=json/u);
+	assert.match(collectionStep.groups.step,
+		/node scripts\/ci-browser-shard-policy\.ts [^\n]+ "\$\{\{ matrix\.shard \}\}\/12"/u,
+		'the collection and policy must agree on the twelve-way partition');
 	assert.doesNotMatch(extractJob(workflow, 'firefox'), /PWTEST_SHARD_WEIGHTS/u);
 });
 
@@ -273,14 +282,9 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(browserJob, /container:\n\s+image: mcr\.microsoft\.com\/playwright:v1\.62\.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e\n\s+options: --user 1001/u);
 	assert.match(browserJob, /npm install --global --prefix "\$HOME\/\.local" npm@12\.0\.1/u);
 	assert.match(browserJob, /name: verified-site-build/u);
-	const browserTotal = "${{ matrix.project == 'webkit' && 8 || 4 }}";
-	assertEngineIsSharded(browserJob, `${label} browser`, 'npm run test:browser:built -- --project=${{ matrix.project }}', browserShardCount, browserTotal);
+	assertEngineIsSharded(browserJob, `${label} browser`, 'npm run test:browser:built -- --project=${{ matrix.project }}', browserShardCount);
 	assert.match(browserJob, /--workers=\$\{\{ steps\.browser-run-shape\.outputs\.workers \}\} --retries=\$\{\{ steps\.browser-run-shape\.outputs\.retries \}\}/u,
 		`${label} must execute the collected shard's worker and retry policy`);
-	for (const shard of [5, 6, 7, 8]) {
-		assert.ok(browserJob.includes(`- project: chromium\n            shard: ${shard}`),
-			`${label} must exclude Chromium shard ${shard} from its four-way partition`);
-	}
 
 	// The handbook suite has its own Playwright config, so `--shard` cannot
 	// divide it alongside the site suite. It has to be pinned to one leg of the
@@ -301,6 +305,10 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(firefoxJob, /node scripts\/ci-firefox-audio-clock\.mjs/u);
 	assert.match(firefoxJob, /name: verified-site-build/u);
 	assertEngineIsSharded(firefoxJob, `${label} firefox`, 'npm run test:browser:built -- --project=firefox', firefoxShardCount);
+	assert.ok(firefoxJob.includes(`--shard=\${{ matrix.shard }}/${firefoxShardCount} --workers=1 --retries=1 --list --reporter=json`),
+		`${label} must collect Firefox's actual complete shard`);
+	assert.ok(firefoxJob.includes(`firefox "\${{ matrix.shard }}/${firefoxShardCount}" 1 >> "$GITHUB_OUTPUT"`),
+		`${label} must bind Firefox's policy to the collected partition`);
 	assert.ok(
 		firefoxJob.includes(`--shard=\${{ matrix.shard }}/${firefoxShardCount} --workers=\${{ steps.browser-run-shape.outputs.workers }} --retries=\${{ steps.browser-run-shape.outputs.retries }}`),
 		`${label} must execute Firefox's collected worker and retry policy`,

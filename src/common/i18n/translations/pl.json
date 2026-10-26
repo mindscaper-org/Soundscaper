@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "pl",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:4b1c69b593a7d11995aca59fcb1dcb3cc833e4d6239692afa3971c167fed8b83","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:3f79304819c57cb655451ff3d01e7884930018cbac364bfd14fd47550f91f07b","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -519,6 +519,7 @@
 		"clipMediaSettings": ["machine","Media settings","Ustawienia mediów"],
 		"clipMixed": ["machine","Mixed","Różne wartości"],
 		"clipName": ["machine","Clip name","Nazwa clipu"],
+		"clipNormalizationUnmeasurable": ["machine","Loudness could not be measured for this clip. Choose a longer audible clip or use peak normalization.","Nie udało się zmierzyć głośności tego klipu. Wybierz dłuższy klip ze słyszalnym dźwiękiem lub użyj normalizacji szczytowej."],
 		"clipPitchAndSpeed": ["machine","Pitch & speed","Wysokość dźwięku i prędkość"],
 		"clipPitchField": ["machine","Pitch","Wysokość dźwięku"],
 		"clipPitchIndicator": ["machine","Clip pitch","Wysokość tonu klipu"],
@@ -1792,7 +1793,7 @@
 		"missingEffectLabel": ["machine","Missing: {name}","Brak: {name}"],
 		"missingEffectReadOnly": ["machine","This effect is not installed. Local playback bypasses it while preserving its name, order, and activation state for other compatible programs.","Ten efekt nie jest zainstalowany. Lokalne odtwarzanie go pomija, zachowując jego nazwę, kolejność i stan aktywacji dla innych kompatybilnych programów."],
 		"missingEffectUnknown": ["machine","Unknown effect","Nieznany efekt"],
-		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Playback, analysis, and export are blocked until affected clips are removed.","Brakuje niektórych lokalnych źródeł dźwięku. Odtwarzanie, analiza i eksport są zablokowane, dopóki nie usuniesz dotkniętych klipów."],
+		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Operations that require them are blocked until affected clips are relinked or removed.","Brakuje niektórych lokalnych źródeł dźwięku. Operacje, które ich wymagają, są zablokowane do czasu ponownego powiązania lub usunięcia odpowiednich klipów."],
 		"missingSourcesPreventSave": ["machine","Missing audio sources prevent saving.","Brak źródeł dźwięku uniemożliwia zapisywanie."],
 		"mix": ["machine","Stereo mix","Mieszanie stereo"],
 		"mixDown": ["machine","Mix down","Mieszanie"],
@@ -1840,6 +1841,7 @@
 		"mp3VariableBest": ["machine","220-260 kbps (Best Quality)","220-260 kbps (Najlepsza jakość)"],
 		"mp3VariableSmallest": ["machine","45-85 kbps (Smaller files)","45-85 kbps (Mniejsze pliki)"],
 		"multicamera": ["machine","Multicamera","Wielokamera"],
+		"multipleLegacyAupProjects": ["machine","Choose one legacy Audacity project (.aup) and its data files per import.","Przy każdym imporcie wybierz jeden projekt Audacity w starym formacie (.aup) wraz z jego plikami danych."],
 		"multiview": ["machine","Multi-view","Wielokadrowanie"],
 		"musicalAnchor": ["machine","Musically anchored","Muzycznie zakotwiczony"],
 		"musicalTimeline": ["machine","Musical timeline","Muzyczna oś czasu"],
@@ -4459,6 +4461,9 @@
 		"waveformLogarithmicDb": ["machine","Logarithmic dB","Logarytmiczne dB"],
 		"waveformLowMidCrossover": ["machine","Low/mid crossover (Hz)","Częstotliwość podziału niskie/średnie (Hz)"],
 		"waveformMidHighCrossover": ["machine","Mid/high crossover (Hz)","Częstotliwość podziału średnie/wysokie (Hz)"],
+		"waveformRenderer": ["machine","Waveform renderer","Renderowanie przebiegu"],
+		"waveformRendererCanvas": ["machine","Canvas","Canvas"],
+		"waveformRendererGpu": ["machine","GPU (Canvas fallback)","GPU (zapasowo Canvas)"],
 		"waveformRulerFormat": ["machine","Ruler format","Format podziałki"],
 		"waveformSettings": ["machine","Waveform settings","Ustawienia przebiegu fali"],
 		"waveformShowRms": ["machine","Show RMS","Pokaż RMS"],

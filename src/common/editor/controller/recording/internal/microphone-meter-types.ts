@@ -65,6 +65,7 @@ export interface AnalyserNodePort extends AudioNodePort {
 }
 
 export interface MeterAudioContext {
+	resume?(): Promise<void>;
 	readonly destination: AudioNodePort;
 	createMediaStreamSource(stream: MeterMediaStream): AudioNodePort;
 	createAnalyser(): AnalyserNodePort;
@@ -86,6 +87,7 @@ export interface NodeLoudnessMeter extends InputLoudnessMeter {
 }
 
 export interface MicrophoneMeterSession {
+	readonly releaseContext?: () => void;
 	readonly analysers: readonly AnalyserNodePort[];
 	readonly deviceId: string;
 	readonly disconnectSource: () => void;

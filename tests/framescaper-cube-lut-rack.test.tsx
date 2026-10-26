@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act } from 'react';
 import VideoEffectRack from '../src/common/editor/ui/inspector/VideoEffectRack.jsx';
-import { VIDEO_EFFECT_COPY_BY_LOCALE } from '../src/common/i18n/video-effect-copy.js';
+import { resolveCatalog } from '../src/common/i18n/runtime.js';
 import { VIDEO_EFFECT_TYPES_V2 } from '../src/common/editor/video-effects-v2.ts';
 import { bindCubeLutEffectPortV1 } from '../src/common/editor/controller/clip-video/cube-lut-effect-port-v1.ts';
 import { createFramescaperCubeLutEffectActionsFinishing } from '../src/framescaper/editor-cube-lut-effect-actions-finishing.ts';
@@ -41,7 +41,8 @@ for (const locale of ['en', 'de'] as const) test(`${locale}: the existing opted-
 			commit() { bodies.set(key, new Blob(chunks)); return Promise.resolve({}); }, abort() { return Promise.resolve(); } }); } };
 	const owner = createFramescaperCubeLutEffectActionsFinishing({ owner: controller, store });
 	bindCubeLutEffectPortV1(controller, { ...owner, importFile(binding, file, options) { const result = owner.importFile(binding, file, options); pending = result; return result; } });
-	const copy = { ...VIDEO_EFFECT_COPY_BY_LOCALE[locale], chooseEffect: 'Choose effect', addEffect: 'Add effect' };
+	const copy: Readonly<Record<string, string>> = { ...await resolveCatalog(locale), chooseEffect: 'Choose effect', addEffect: 'Add effect' };
+	assert.ok(copy.videoEffectCubeLutProfile);
 	const mounted = await mountPhotoImportUi(() => <VideoEffectRack clip={view(project).clips.find(row => row.id === 'video-clip')}
 		controller={controller} copy={copy} disabled={false} onError={(value: string) => { error = value; }} />);
 	const key = async (name: string) => { await act(async () => { reactProps(mounted.dom.one('.dropdown')).onKeyDown?.({ key: name, preventDefault() {} }); }); };

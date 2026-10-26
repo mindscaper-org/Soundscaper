@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { EDITOR_GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -104,5 +106,5 @@ test('every default macro has a name and the noise profile hint remains localize
 		assert.ok(draft.name, `${templateId} must have a name`);
 	}
 	assert.ok(TEMPLATE_COPY.profileRequired);
-	assert.match(resolveEffectMacroTemplateCopy('de').profileRequired, /Rauschprofil/u);
+	assert.match(resolveEffectMacroTemplateCopy('de', EDITOR_GERMAN_COPY).profileRequired, /Rauschprofil/u);
 });

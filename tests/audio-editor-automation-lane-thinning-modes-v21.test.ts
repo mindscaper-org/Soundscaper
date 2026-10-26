@@ -10,7 +10,7 @@ import {
 	type AutomationWritePhaseV21,
 } from '../src/common/editor/automation-write-mode-v21.ts';
 import { thinAutomationLaneCaptureV21 } from '../src/common/editor/automation-lane-thinning-v21.ts';
-import { normalizeAutomationLaneV21 } from '../src/common/editor/automation-lane-v21.ts';
+import { evaluateAutomationLaneAtFrameV21, normalizeAutomationLaneV21 } from '../src/common/editor/automation-lane-v21.ts';
 import { stripParameterDescriptor } from '../src/common/editor/effect-parameter-descriptors.ts';
 import type { InterpolationShape } from '../src/common/editor/interpolation-curve.ts';
 
@@ -124,7 +124,11 @@ test('each mode produces at most one deeply immutable capture commit', () => {
 		assert.equal(result.type, 'automation-write-commit-v21');
 		assert.equal(result.mode, mode);
 		assert.equal(result.changed, expected[mode].length > 0);
-		assert.deepEqual(result.capture?.points.map(({ value }) => value) ?? [], expected[mode]);
+		assert.deepEqual(result.capture?.points.filter(({ id }) => id.startsWith('point-') || id.startsWith('capture-')).map(({ value }) => value) ?? [], expected[mode]);
+		if (result.capture) for (const frame of [9, 31]) {
+			assert.equal(evaluateAutomationLaneAtFrameV21(result.capture, frame, { sampleRate: 48_000 }),
+				evaluateAutomationLaneAtFrameV21(lane, frame, { sampleRate: 48_000 }), `${mode} preserves the held outside sample`);
+		}
 		assertDeepFrozen(result);
 	}
 });
@@ -155,12 +159,17 @@ test('partial trim, touch, latch, and write commits preserve every anchor outsid
 			},
 		]);
 		assert.equal(result.changed, true, mode);
-		assert.deepEqual(result.capture?.points.map(({ id }) => id), [
+		assert.deepEqual(result.capture?.points.filter(({ position }) => position !== 119 && position !== 181).map(({ id }) => id), [
 			'outside-before-0', 'outside-before-1', `${mode}-start`, `${mode}-end`,
 			'outside-after-0', 'outside-after-1',
 		], mode);
+		assert.ok(result.capture);
+		for (const frame of [105, 119, 181, 195]) assert.ok(Math.abs(
+			evaluateAutomationLaneAtFrameV21(result.capture, frame, { sampleRate: 48_000 })
+			- evaluateAutomationLaneAtFrameV21(lane, frame, { sampleRate: 48_000 })) < 1e-12,
+		`${mode} retains the crossing curve outside capture at ${frame}`);
 		assert.deepEqual(
-			result.capture?.segments.slice(0, 1),
+			result.capture.segments.slice(0, 1),
 			lane.segments.slice(0, 1),
 			`${mode} keeps the untouched prefix curve`,
 		);
@@ -195,7 +204,11 @@ test('discrete parameter capture retains canonical held segments', () => {
 		{ id: 'capture-0', position: 10, phase: 'gesture', laneValue: 0, controlValue: 1, trimDelta: 0 },
 		{ id: 'capture-1', position: 20, phase: 'after-gesture', laneValue: 0, controlValue: 0, trimDelta: 0 },
 	], { descriptor });
-	assert.deepEqual(result.capture?.segments, [{ kind: 'hold' }, { kind: 'hold' }]);
+	assert.ok(result.capture);
+	assert.deepEqual(result.capture.segments, Array.from({ length: 4 }, () => ({ kind: 'hold' })));
+	assert.equal(evaluateAutomationLaneAtFrameV21(result.capture, 9, { sampleRate: 48_000 }), 0);
+	assert.equal(evaluateAutomationLaneAtFrameV21(result.capture, 10, { sampleRate: 48_000 }), 1);
+	assert.equal(evaluateAutomationLaneAtFrameV21(result.capture, 21, { sampleRate: 48_000 }), 0);
 });
 
 function assertDeepFrozen(value: unknown, seen = new Set<object>()): void {

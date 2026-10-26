@@ -10,7 +10,6 @@ import {
 } from './async-utils.ts';
 import {
 	clamp,
-	clampFrame,
 	positiveInteger,
 } from './buffer-math.ts';
 import {
@@ -54,7 +53,7 @@ import {
 	admitNativePluginRealtimeRender,
 	prepareNativePluginOfflineRuntimes,
 } from './native-plugin-realtime-render.ts';
-import { realtimeRenderUnderrunError, resolveRenderPreRollFrames, resolveRenderTailSeconds } from './rendering-range.ts';
+import { realtimeRenderUnderrunError, resolveRenderFrameRange, resolveRenderPreRollFrames, resolveRenderTailSeconds } from './rendering-range.ts';
 import { renderMix } from './rendering-offline-mix.ts';
 import { canStreamStatelessOffline, renderStatelessOfflineToSink } from './stateless-offline-stream.ts';
 import { admitsBoundedOfflineBackend } from './bounded-offline-backend-admission.ts';
@@ -99,8 +98,7 @@ async renderMixRealtime(this: EngineRuntimeHost, {
 				chunkFrames, onChunk, onProgress, signal,
 			});
 		}
-		const fromFrame = clampFrame(startFrame, 0, this.durationFrames);
-		const toFrame = clampFrame(endFrame, fromFrame, this.durationFrames);
+		const { fromFrame, toFrame } = resolveRenderFrameRange(startFrame, endFrame);
 		const renderFromFrame = fromFrame - resolveRenderPreRollFrames(this.project, fromFrame, preRollFrames,
 			{ trackId, includeMaster, respectMuteSolo });
 		const warmupProjectFrames = fromFrame - renderFromFrame;

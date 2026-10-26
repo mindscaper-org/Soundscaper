@@ -275,7 +275,7 @@ test('durable reconciliation removes unreachable bindings while preserving live 
 	assert.ok(await ephemeral.repository.get('project-linked-video', 'source-linked-video'));
 });
 
-test('canonical project identities use the exact linked-binding identity contract', async (context) => {
+test('canonical project reconciliation preserves exact authored identities and inventory limits', async (context) => {
 	const indexedDB = createInstrumentedIndexedDB();
 	const databaseName = `linked-video-project-identities-${Date.now()}-${Math.random()}`;
 	const database = await openDatabase(indexedDB as unknown as IDBFactory, databaseName);
@@ -286,22 +286,31 @@ test('canonical project identities use the exact linked-binding identity contrac
 	}, deterministicOptions());
 	assert.ok(await repository.putIfCurrent(bindingInput(), null));
 
-	for (const projectId of [`project\u0000id`, 'p'.repeat(257)]) {
+	const authoredProjectIds = ['project\u0000id', 'p'.repeat(257), ' padded ', 'e\u0301', 'é', '\ud800', '%ud800'];
+	for (const projectId of authoredProjectIds) {
+		const binding = await repository.putIfCurrent(bindingInput({ projectId }), null);
+		assert.equal(binding?.projectId, projectId);
+	}
+	for (const projectId of ['', ' \t ']) {
 		await assert.rejects(
 			repository.reconcileDurableLocatorReferences([projectId]),
-			/projectId|identity|character limit|control/iu,
+			/projectId|non-empty string/iu,
 		);
 	}
 	const exactProjectLimit = [
 		'project-linked-video',
-		...Array.from({ length: 9_999 }, (_, index) => `project-${String(index)}`),
+		...authoredProjectIds,
+		...Array.from({ length: 9_999 - authoredProjectIds.length }, (_, index) => `project-${String(index)}`),
 	];
 	assert.equal((await repository.reconcileDurableLocatorReferences(exactProjectLimit))?.length, 1);
 	await assert.rejects(
 		repository.reconcileDurableLocatorReferences([...exactProjectLimit, 'project-over-limit']),
 		/project.*limit|limit.*project/iu,
 	);
-	assert.equal(indexedDB.recordCount(databaseName, LINKED_VIDEO_ORIGINAL_STORE_NAME), 1);
+	assert.equal(indexedDB.recordCount(databaseName, LINKED_VIDEO_ORIGINAL_STORE_NAME), 1 + authoredProjectIds.length);
+	for (const projectId of authoredProjectIds) {
+		assert.equal((await repository.get(projectId, 'source-linked-video'))?.projectId, projectId);
+	}
 });
 
 test('durable reconciliation rejects conflicts and reference limits even across unreachable bindings', async (context) => {

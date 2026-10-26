@@ -1,5 +1,6 @@
 export const SHARED_CAPABILITIES = Object.freeze({
 	project: true,
+	literalJsonKeys: true,
 	projectBin: true,
 	audioImport: true,
 	audioPlayback: true,

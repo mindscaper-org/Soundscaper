@@ -6,16 +6,24 @@
 	"nodeHeadersVersion": "26.5.0",
 	"nodeAddonApiVersion": "8.3.1",
 	"nativeRecipeFiles": {
-		"native/assistance-sherpa-gpu/CMakeLists.txt": "3d54f789031ae5a79643e8615b48d5772351b4830248dd071189df3b9c590c1d",
-		"native/assistance-sherpa-gpu/webgpu-provider.cc": "179bc831f1efbfee008fb38a975e3fdaa9e4bba61e1c2c22c9563fa645735969",
+		"native/assistance-sherpa-gpu/CMakeLists.txt": "68a2b79423ad00a642b8ad2eb0ca02ee99d83a070161cc02efe64568359ed120",
+		"native/assistance-sherpa-gpu/webgpu-provider.cc": "d4df18545abb39e3ecc7f278a97ec8287bda978bb0dcad018b8701b83b533054",
 		"native/assistance-onnx-webgpu-node-api/webgpu_probe_main.cc": "2f4ac5d59d13a42ecc76c5eec0d2c74210c6c0e2085097970e3b4b6eb69cc7e2",
-		"native/assistance-onnx-webgpu-node-api/webgpu_probe.h": "2d64b57afb24248f1a56577785ef27ec9e2131b615282cd124fc39b08d48d8e4"
+		"native/assistance-onnx-webgpu-node-api/webgpu_probe.h": "2d64b57afb24248f1a56577785ef27ec9e2131b615282cd124fc39b08d48d8e4",
+		"native/assistance-sherpa-gpu/owned-handles.h": "25ff77c836d0d58830643a12975cc726591ddd1d46759b322be1fc68726b0ebf",
+		"native/assistance-sherpa-gpu/owned-external.h": "47e109199ad2411440f54f02f08decf55ac3b0251773658d0de874c45e1dacc2",
+		"native/assistance-sherpa-gpu/node-disposal.cc": "1ac8742d404f91b99f10d128e063e745c7a7412266cc5755e26d7abfdb806463"
 	},
 	"patchSourceFiles": {
 		"sherpa-onnx/csrc/provider.h": "bbdac833c579b65caaab0b782d20e05cb1d8ca69afab82fc7a84ed3c5d7b2f4a",
 		"sherpa-onnx/csrc/provider.cc": "d215ae1e926747ef30c296ae11fb5faa5d1cdb4e15a8011696417cd7733ab1df",
 		"sherpa-onnx/csrc/session.cc": "98bb45adf41e78cc87a4718bf34b3bd96554472bf1dafabbc49431662e4e4403",
-		"cmake/onnxruntime.cmake": "63cb67a92e7e484e5b8428f33386165175a0f999215dc17ccfa5c424eecca01d"
+		"cmake/onnxruntime.cmake": "63cb67a92e7e484e5b8428f33386165175a0f999215dc17ccfa5c424eecca01d",
+		"harmony-os/SherpaOnnxHar/sherpa_onnx/src/main/cpp/vad.cc": "ad989091a25d7170ee3629c92503fdc3b866362b246194538b5e1d6373c3e90a",
+		"harmony-os/SherpaOnnxHar/sherpa_onnx/src/main/cpp/non-streaming-asr.cc": "700c53f00971f1be65bd9392a245feacd709f9c6fcdd5ac0b03224105c074341",
+		"harmony-os/SherpaOnnxHar/sherpa_onnx/src/main/cpp/non-streaming-speaker-diarization.cc": "443cabbe447135b92e07373dc7f1cf9808b5292ac6184a556c2a548667126721",
+		"harmony-os/SherpaOnnxHar/sherpa_onnx/src/main/cpp/sherpa-onnx-node-addon-api.cc": "856a0559a9884ccc82fcd805e4ffaf97d4f44c149dd43bf98a777146c19858f1",
+		"sherpa-onnx/c-api/sherpa-onnx-symbols-c.exp": "7cd5e8a41aa10ec4109c146d387b4ae8ccf8f9675f6b5483b3b25c3744604dc9"
 	},
 	"sources": [
 		{

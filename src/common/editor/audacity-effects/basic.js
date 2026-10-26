@@ -240,6 +240,9 @@ export function applyAudacityLoudnessNormalization(
 	if (settings.mode === 'rms') {
 		return normalizeRms(channels, settings.targetRmsDb, settings.stereoIndependent);
 	}
+	if (sampleRate < 8_000) {
+		throw new RangeError('Perceived loudness normalization requires at least 8000 Hz; resample the recording or choose RMS normalization.');
+	}
 
 	const targetPower = 10 ** (settings.targetLufs / 10);
 	if (!settings.stereoIndependent) {
@@ -292,7 +295,10 @@ export function applyAudacityNormalize(channels, sampleRate = 48_000, params = {
 
 	return channels.map((channel, channelIndex) => {
 		const extent = settings.stereoIndependent ? extents[channelIndex] : linkedExtent;
-		const multiplier = Math.fround(settings.applyGain && extent > 0 ? target / extent : 1);
+		const exactMultiplier = settings.applyGain && extent > 0 ? target / extent : 1;
+		const roundedMultiplier = Math.fround(exactMultiplier);
+		// Finite PCM can require a nonzero gain outside Float32's range.
+		const multiplier = roundedMultiplier > 0 && Number.isFinite(roundedMultiplier) ? roundedMultiplier : exactMultiplier;
 		const offset = offsets[channelIndex];
 		const output = new Float32Array(channel.length);
 		for (let frame = 0; frame < channel.length; frame++) output[frame] = (channel[frame] + offset) * multiplier;

@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { sequenceFrameAtSample } from '../common/editor/sequence-frame-navigation.ts';
-import { fitPixelSizeV1, resizeRgba8NearestV1 } from '../common/editor/imaging/pixel-frame-resize-v1.ts';
+import { resizeRgba8NearestV1 } from '../common/editor/imaging/pixel-frame-resize-v1.ts';
+import { resolveVideoCanvasMaterializationSize, type VideoCanvasFit } from '../common/editor/video-canvas-fit.ts';
 import type { BlobLike } from '../common/editor/storage/media-records.ts';
 import {
 	estimateFramescaperImageFramePackReaderMetadataBytesV1,
@@ -151,11 +152,12 @@ export function fitFramescaperImagePreviewSizeTimelineImage(
 	source: FramescaperCurrentImageSourceTimelineImage,
 	maximumWidthValue: number,
 	maximumHeightValue: number,
+	fit: VideoCanvasFit = 'contain',
 ): Readonly<{ readonly width: number; readonly height: number }> {
 	const canonical = framescaperImageDimensionsTimelineImage(normalizeFramescaperImageSourceCurrentV1(source));
 	const maximumWidth = dimension(maximumWidthValue, 'timelineImage image preview width');
 	const maximumHeight = dimension(maximumHeightValue, 'timelineImage image preview height');
-	return fitPixelSizeV1(canonical.width, canonical.height, maximumWidth, maximumHeight);
+	return resolveVideoCanvasMaterializationSize(fit, maximumWidth, maximumHeight, canonical.width, canonical.height);
 }
 
 export function framescaperImageSourceForClipTimelineImage(

@@ -80,7 +80,7 @@ test('the codec-only CMake and Node-API surfaces have no device or plug-in autho
 	assert.doesNotMatch(adHocMac.stderr, /signing-identity/iu);
 });
 
-test('build plans authenticate exact Electron 43.7.7 headers and close the target matrix', async (context) => {
+test('build plans authenticate exact Electron 43.8.3 headers and close the target matrix', async (context) => {
 	assert.deepEqual(OS_AUDIO_CODEC_HOST_TARGETS, ['mac-arm64', 'win-x64', 'win-arm64']);
 	assert.deepEqual(OS_AUDIO_CODEC_HOST_SOURCE_FILES, [
 		'native/os-audio-codec-host/CMakeLists.txt',
@@ -112,12 +112,12 @@ test('build plans authenticate exact Electron 43.7.7 headers and close the targe
 		byteLength: electron.archive.byteLength, sha256: electron.archive.sha256,
 		fileCount: electron.extractedTree.fileCount, treeSha256: electron.extractedTree.sha256,
 	}, {
-		version: '43.7.7', tag: 'v43.7.7', commit: null,
-		url: 'https://electronjs.org/headers/v43.7.7/node-v43.7.7-headers.tar.gz',
-		fileName: 'node-v43.7.7-headers.tar.gz', byteLength: 346_855,
-		sha256: 'f697ced9453e4366258ed0ff3571122da37ba3ec9d349bd16d91856914e140f0',
+		version: '43.8.3', tag: 'v43.8.3', commit: null,
+		url: 'https://electronjs.org/headers/v43.8.3/node-v43.8.3-headers.tar.gz',
+		fileName: 'node-v43.8.3-headers.tar.gz', byteLength: 347_211,
+		sha256: 'd23630d0b98161bec7860dcc482187aca380b1e0da264c1ed5efb42bce79d604',
 		fileCount: 124,
-		treeSha256: '3bf9d5074349e105eb6176c387b828d7ebc6914c42d0683768de2fab8e83c482',
+		treeSha256: '5bc877a323ccc4f07976724fa0c1f6205e443a32f61d743a227b6a7e5ab3ab87',
 	});
 	const fixture = await electronHeaderFixture(context);
 	for (const target of ['linux-x64', 'linux-arm64', 'mac-x64']) {
@@ -217,7 +217,7 @@ test('execution emits a bounded immutable artifact, plan, source, toolchain and 
 			sha256: sha256(Buffer.from('exact-addon-fixture')),
 		},
 		electronHeaders: {
-			version: '43.7.7',
+			version: '43.8.3',
 			archive: fixture.headerIdentity.archive,
 			extractedTree: fixture.headerIdentity.extractedTree,
 		},

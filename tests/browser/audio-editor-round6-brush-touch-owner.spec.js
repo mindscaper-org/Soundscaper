@@ -11,9 +11,11 @@ for (const secondary of [false, true]) test(`a spectral brush completes ${second
 	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 	await chooseNestedCommandAction(page, editor, 'Select', ['Spectral', 'Spectral brush']);
 	const brush = editor.getByRole('button', { name: 'Spectral brush', exact: true });
+	await expect(brush).toBeVisible();
 	const bounds = await brush.boundingBox();
 	expect(bounds).not.toBeNull();
-	const first = { x: Math.round(bounds.x + 50), y: Math.round(bounds.y + bounds.height / 2), id: 1 };
+	// The stereo channel divider owns the midpoint above the brush overlay.
+	const first = { x: Math.round(bounds.x + 50), y: Math.round(bounds.y + bounds.height / 4), id: 1 };
 	const middle = { ...first, x: first.x + 10, y: first.y + 5 };
 	const final = { ...first, x: first.x + 20, y: first.y + 10 };
 	await expect(brush).toBeEnabled();

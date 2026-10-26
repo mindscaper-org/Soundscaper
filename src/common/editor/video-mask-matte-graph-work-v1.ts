@@ -4,6 +4,7 @@ import { VIDEO_MASK_MATTE_LIMITS_V1, type VideoMaskMatteGraphV1, type VideoMaskM
 	type VideoLuminanceRangeMaskNodeV1, type VideoColorRangeMaskNodeV1 } from './video-mask-matte-v24.ts';
 import type { VideoMaskMatteRgbaInputV13 } from './video-mask-matte-rgba-v13.ts';
 import type { BrushMaskResourceV1 } from './imaging/brush-mask-resource-v1.ts';
+import { rasterizeVideoMaskPathsWork } from './video-mask-path-raster.ts';
 
 /** Owning wrappers admit graph/body/frame authority and own every allocation.
  * Range sampling is separate from the unchanged byte coverage graph arithmetic. */
@@ -32,6 +33,7 @@ function* evaluateNode(node: VideoMaskMatteNodeV1, graph: VideoMaskMatteGraphV1,
 	inputs: ReadonlyMap<string, VideoMaskMatteRgbaInputV13>, evaluate: (id: string) => Work, allocate: (length: number) => Plane, ranges?: Readonly<VideoMaskMatteRangeSamplerV1>,
 	brushInputs?: ReadonlyMap<string, Readonly<BrushMaskResourceV1>>): Work {
 	if (node.kind === 'feather') return yield* feather(yield* evaluate(node.inputNodeId), width, height, node.radius, allocate);
+	if (node.kind === 'vector-path') return yield* rasterizeVideoMaskPathsWork(node.paths, node.fillRule, width, height, allocate(width * height));
 	const operands: Plane[] = [];
 	if (node.kind === 'invert') operands.push(yield* evaluate(node.inputNodeId));
 	if (node.kind === 'boolean') for (const id of node.inputNodeIds) operands.push(yield* evaluate(id));
@@ -63,16 +65,14 @@ function* evaluateNode(node: VideoMaskMatteNodeV1, graph: VideoMaskMatteGraphV1,
 			else if (node.kind === 'vector-shape') {
 				const inside = node.shape === 'rectangle' ? px >= node.x && px < node.x + node.width && py >= node.y && py < node.y + node.height
 					: ellipseContains(px, py, node.x, node.y, node.width, node.height); output[index] = inside ? 255 : 0;
-			} else if (node.kind === 'vector-path') {
-				let winding = 0; for (const path of node.paths) winding += pathWinding(path.points, px, py);
-				output[index] = (node.fillRule === 'even-odd' ? Math.abs(winding) % 2 === 1 : winding !== 0) ? 255 : 0;
 			} else if (node.kind === 'raster' || node.kind === 'alpha') {
 				if (brush) {
+					// Authenticated V1 brushes retain the native CPU/GPU corner-nearest grid.
 					const sx = Math.min(brush.reference.width - 1, Math.floor(x * brush.reference.width / width));
 					const sy = Math.min(brush.reference.height - 1, Math.floor(y * brush.reference.height / height));
 					output[index] = brush.alpha[sy * brush.reference.width + sx]!; continue;
 				}
-				const source = frame!, sourceX = Math.min(source.width - 1, Math.floor(x * source.width / width)), sourceY = Math.min(source.height - 1, Math.floor(y * source.height / height));
+				const source = frame!, sourceX = Math.min(source.width - 1, Math.floor((x + 0.5) * source.width / width)), sourceY = Math.min(source.height - 1, Math.floor((y + 0.5) * source.height / height));
 				const offset = (sourceY * source.width + sourceX) * 4;
 				output[index] = node.kind === 'alpha' || node.channel === 'alpha' ? source.pixels[offset + 3]!
 					: node.channel === 'red' ? source.pixels[offset]! : node.channel === 'green' ? source.pixels[offset + 1]!
@@ -126,19 +126,9 @@ function* feather(source: Plane, width: number, height: number, radiusValue: num
 	} finally { if (Number(Reflect.apply(BUFFER_SIZE, horizontal.buffer, []))) horizontal.fill(0); }
 }
 
-function pathWinding(points: readonly Readonly<{ position: Readonly<{ x: number; y: number }> }>[], x: number, y: number): number {
-	let winding = 0;
-	for (let index = 0; index < points.length; index++) {
-		const a = points[index]!.position, b = points[(index + 1) % points.length]!.position;
-		if (a.y <= y && b.y > y && cross(a, b, x, y) > 0) winding++;
-		else if (a.y > y && b.y <= y && cross(a, b, x, y) < 0) winding--;
-	}
-	return winding;
-}
 function ellipseContains(x: number, y: number, left: number, top: number, width: number, height: number): boolean {
 	const dx = (x - (left + width / 2)) / (width / 2), dy = (y - (top + height / 2)) / (height / 2); return dx * dx + dy * dy <= 1;
 }
-function cross(a: Readonly<{ x: number; y: number }>, b: Readonly<{ x: number; y: number }>, x: number, y: number): number { return (b.x - a.x) * (y - a.y) - (x - a.x) * (b.y - a.y); }
 function clamp(value: number, length: number): number { return Math.max(0, Math.min(length - 1, value)); }
 function dimension(value: unknown, name: string): number {
 	if (!Number.isSafeInteger(value) || Number(value) < 1 || Number(value) > 65_536) throw new RangeError(`${name} must be a positive bounded dimension.`); return Number(value);

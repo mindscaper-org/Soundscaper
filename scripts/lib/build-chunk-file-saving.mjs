@@ -12,8 +12,9 @@ export const fileSavingChunkGroups = [
 	{
 		// Portable ZIP framing, byte digests, bounded document serialization,
 		// durable asset plans and body checks share the archive byte owner.
+		// The bounded binary/JSON encoder consumes shared neutral literal-key contracts.
 		name: 'editor-scape-archive-bytes',
-		test: /src[\\/]common[\\/]editor[\\/](?:scape-(?:abort|byte-stream|export-estimate|export-destination|archive-zip-profile|photo-catalog-pack(?:-v[234])?|photo-cube-lut|photo-mask-raster-v1|photo-develop-preset-pack(?:-v4)?|photo-stack-pack|photo-smart-collection-pack|project-document|project-json-preflight|durable-asset-plan-core-v1)|video-motion-analysis-body-v1)\.ts$/,
+		test: /src[\\/]common[\\/]editor[\\/](?:scape-(?:abort|byte-stream|export-estimate|export-destination|archive-zip-profile|photo-catalog-pack(?:-v[234])?|photo-cube-lut|photo-mask-raster-v1|photo-develop-preset-pack(?:-v4)?|photo-stack-pack|photo-smart-collection-pack|project-document(?:-encode)?|project-json-preflight|durable-asset-plan-core-v1)|video-motion-analysis-body-v1)\.ts$/,
 		priority: 99, minSize: 0, maxSize: 400_000, includeDependenciesRecursively: false,
 	},
 ];

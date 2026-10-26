@@ -26,8 +26,10 @@ export default function AudacityDynamicsEffectLayout({
 		after={after}
 	/>;
 	const limiter = effectType === 'audacity-limiter';
-	const names = Object.keys(definition?.params || {});
-	const parameter = (name) => names.includes(name) ? (
+	const params = definition?.params || {};
+	const names = Object.keys(params);
+	const available = new Set(names);
+	const parameter = (name) => available.has(name) ? (
 		<div className="audio-editor-audacity-layout__parameter" data-audacity-parameter={name} key={name}>
 			{renderParameter(name)}
 		</div>
@@ -59,7 +61,9 @@ export default function AudacityDynamicsEffectLayout({
 }
 
 function MultibandCompressorLayout({ definition, renderParameter, copy, readDynamicsAnalysis, before, after }) {
-	const names = Object.keys(definition?.params || {});
+	const params = definition?.params || {};
+	const names = Object.keys(params);
+	const available = new Set(names);
 	const assigned = new Set(MULTIBAND_GROUPS.flatMap(group => group.names));
 	const groups = [
 		...MULTIBAND_GROUPS,
@@ -88,7 +92,7 @@ function MultibandCompressorLayout({ definition, renderParameter, copy, readDyna
 					>
 						<h3>{canonicalCopyValue(group.titleKey, copy)}</h3>
 						<div className="audio-editor-audacity-dynamics__multiband-parameters">
-							{group.names.filter(name => names.includes(name)).map(name => (
+							{group.names.filter(name => available.has(name)).map(name => (
 								<div className="audio-editor-audacity-layout__parameter" data-audacity-parameter={name} key={name}>
 									{renderParameter(name)}
 								</div>

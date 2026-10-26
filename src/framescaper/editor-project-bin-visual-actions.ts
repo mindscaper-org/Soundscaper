@@ -9,6 +9,7 @@ import {
 	bindProductProjectBinActions, type ProductProjectBinActions,
 } from '../common/editor/controller/composition/project-bin-action-group.ts';
 import { createFramescaperImageBatchPlacementTimelineImage } from './editor-image-placement-timeline-image.ts';
+import { rebaseSequenceVisualFrame } from './editor-sequence-visual-rate-conformance.ts';
 import { createSplitVisualPresentationPlanner } from './editor-split-visual-presentations.ts';
 
 type Data = Readonly<Record<string, unknown>>;
@@ -94,7 +95,13 @@ export function createFramescaperProjectBinVisualActions(
 		const source = records(project.sources).find(item => item.id === clip.sourceId);
 		if (!source) throw new ReferenceError('The visual source is missing.');
 		const retainedModel = collectVisualPresetGeneratorSourceIds(project).has(String(source.id));
-		if (!retainedModel) commands.push(sourceCommand(source, null));
+		if (!retainedModel) {
+			for (const fallback of records(project.videoFreezeFallbacks).filter(item => item.renderedSourceId === source.id)) {
+				commands.push({ type: 'video-freeze-fallback/set', renderedSourceId: source.id,
+					expectedFreezeFallback: fallback, freezeFallback: null });
+			}
+			commands.push(sourceCommand(source, null));
+		}
 		owner.actions.edit.commit({ type: 'batch', commands });
 		return Object.freeze([...ids]);
 	}
@@ -128,17 +135,22 @@ export function createFramescaperProjectBinVisualActions(
 		const clip = records(data(project.projectBin).clips).find(clip => clip.id === clipId);
 		if (!clip || !owned(clip)) return undefined;
 		if (blocked()) return null;
-		const sequence = resolveSequenceTimingView(project);
+		const targetSequence = placement.trackId ? records(project.sequences).find(sequence => (
+			Array.isArray(sequence.trackIds) && sequence.trackIds.includes(placement.trackId)
+		)) : undefined;
+		const sequence = resolveSequenceTimingView(project, targetSequence ? String(targetSequence.id) : undefined);
 		const sample = Number(placement.timelineStartFrame ?? owner.getTelemetrySnapshot().positionFrame);
 		if (!Number.isSafeInteger(sample) || sample < 0) throw new RangeError('Bin placement needs a non-negative exact playhead sample.');
 		const start = sampleFrameToVideoFrame(sample, sequence.rate, Number(project.sampleRate), 'point');
+		const origin = resolveSequenceTimingView(project, String(clip.sequenceId));
+		const duration = Math.max(1, rebaseSequenceVisualFrame(Number(clip.sequenceFrameCount), origin.rate, sequence.rate));
 		const targetProject = placement.trackId ? { ...project,
 			selection: { ...data(project.selection), trackIds: [placement.trackId] } } : project;
 		const target = createFramescaperImageBatchPlacementTimelineImage(targetProject, {
-			sequenceStartFrame: start, sequenceFrameCounts: [Number(clip.sequenceFrameCount)], createId,
+			sequenceId: sequence.id, sequenceStartFrame: start, sequenceFrameCounts: [duration], createId,
 		});
 		const id = createId('clip');
-		const candidate = { ...clip, id, sequenceId: target.sequenceId, sequenceStartFrame: start };
+		const candidate = { ...clip, id, sequenceId: target.sequenceId, sequenceStartFrame: start, sequenceFrameCount: duration };
 		const commands: Data[] = target.trackCommand ? [target.trackCommand] : [];
 		commands.push(clipCommand(null, candidate, null, { scope: 'timeline', trackId: target.trackId }));
 		const presentations = createSplitVisualPresentationPlanner(records(project.videoVisualPresentations)).copy(String(clip.id), id);

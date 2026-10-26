@@ -2,6 +2,7 @@
 
 /** Menu-only selected-baseline authoring for pathless, main-enabled OpenFX effects. */
 
+import { sameProjectSnapshot } from '../common/editor/storage/project-snapshot-equality.ts';
 import { fingerprintNativeMediaPlan } from '../common/editor/native-media-plan-canonical-form.ts';
 import {
 	assertNativeMediaCapabilitySnapshotV1,
@@ -57,6 +58,7 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 
 interface OpenFxControllerNativeMedia {
 	readonly project: unknown;
+	readonly captureProjectGeneration?: () => Readonly<{ generation: number; projectId: string }>;
 	readonly actions: Readonly<{
 		readonly edit: Readonly<{
 			commit(command: unknown): PromiseLike<unknown> | unknown;
@@ -387,12 +389,20 @@ async function enabledPlugins(
 
 async function commitWithRollback(owner: OpenFxControllerNativeMedia, command: unknown): Promise<void> {
 	let committed = false;
+	const activation = owner.captureProjectGeneration?.();
+	let published: unknown;
 	try {
-		await owner.actions.edit.commit(command); committed = true;
+		const result = owner.actions.edit.commit(command);
+		published = owner.project;
+		await result; committed = true;
 		await owner.actions.project.save();
 	} catch (error) {
 		if (!committed) throw error;
-		try { await owner.actions.edit.undo(); }
+		try {
+			const current = owner.captureProjectGeneration?.();
+			if ((!activation || (current?.generation === activation.generation && current.projectId === activation.projectId))
+				&& sameProjectSnapshot(owner.project, published)) await owner.actions.edit.undo();
+		}
 		catch (undoError) {
 			throw new AggregateError(
 				[error, undoError], 'Selected nativeMedia OpenFX save rollback failed.', { cause: error },

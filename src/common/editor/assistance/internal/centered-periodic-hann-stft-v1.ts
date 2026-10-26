@@ -34,9 +34,10 @@ export function centeredPeriodicHannStftChannelV1(
 		timeFrameCount * ASSISTANCE_CENTERED_PERIODIC_HANN_FREQUENCY_BIN_COUNT_V1,
 	);
 	const imaginaryOutput = new Float32Array(realOutput.length);
+	const real = new Float64Array(ASSISTANCE_CENTERED_PERIODIC_HANN_FFT_SIZE_V1);
+	const imaginary = new Float64Array(ASSISTANCE_CENTERED_PERIODIC_HANN_FFT_SIZE_V1);
 	for (let time = 0; time < timeFrameCount; time += 1) {
-		const real = new Float64Array(ASSISTANCE_CENTERED_PERIODIC_HANN_FFT_SIZE_V1);
-		const imaginary = new Float64Array(ASSISTANCE_CENTERED_PERIODIC_HANN_FFT_SIZE_V1);
+		imaginary.fill(0);
 		const paddedStart = time * ASSISTANCE_CENTERED_PERIODIC_HANN_HOP_FRAMES_V1;
 		for (let frame = 0; frame < ASSISTANCE_CENTERED_PERIODIC_HANN_FFT_SIZE_V1; frame += 1) {
 			real[frame] = reflectedFloat32SampleV1(channel, paddedStart + frame - CENTER_PADDING_FRAMES)
@@ -93,9 +94,9 @@ export function centeredPeriodicHannIstftChannelsV1(
 	}
 	return Object.freeze(channels.map((channel) => {
 		const accumulator = new Float64Array(paddedFrameCount);
+		const real = new Float64Array(ASSISTANCE_CENTERED_PERIODIC_HANN_FFT_SIZE_V1);
+		const imaginary = new Float64Array(ASSISTANCE_CENTERED_PERIODIC_HANN_FFT_SIZE_V1);
 		for (let time = 0; time < timeFrameCount; time += 1) {
-			const real = new Float64Array(ASSISTANCE_CENTERED_PERIODIC_HANN_FFT_SIZE_V1);
-			const imaginary = new Float64Array(ASSISTANCE_CENTERED_PERIODIC_HANN_FFT_SIZE_V1);
 			for (let bin = 0; bin < ASSISTANCE_CENTERED_PERIODIC_HANN_FREQUENCY_BIN_COUNT_V1;
 				bin += 1) {
 				const offset = time * ASSISTANCE_CENTERED_PERIODIC_HANN_FREQUENCY_BIN_COUNT_V1 + bin;

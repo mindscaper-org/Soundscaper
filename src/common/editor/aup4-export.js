@@ -1,4 +1,4 @@
-import { compareCodeUnits } from './code-unit-order.ts';
+import { assignAup4OverlapLanes } from './aup4-export-overlap-lanes.ts';
 import { addAup4CompatibilityItem, createAup4CompatibilityReport } from './aup4-profile.js';
 import { reportAup4OwnedFeatureOmissions } from './aup4-feature-omissions.ts';
 import {
@@ -26,14 +26,14 @@ import {
 } from './aup4-export-values.js';
 import {
 	automaticAup4CrossfadeRanges,
-	createNativeClipEnvelope,
+	createNativeTrackEnvelopeConverter,
 } from './aup4-export-envelopes.js';
 import {
 	omitVideoContent,
 	reportAup4EffectCompatibility,
 } from './aup4-export-compatibility.js';
 import {
-	normalizeAup4ExportSource,
+	createAup4ExportSourceNormalizer,
 	uniqueVariantId,
 } from './aup4-export-variants.js';
 
@@ -49,10 +49,11 @@ export function normalizeAup4ExportSnapshot(project, sourceAudio = []) {
 	const plan = createAup4ExportPlan(project);
 	const audioById = new Map(sourceAudio.map((source) => [source.sourceId, source]));
 	const normalizedSources = [];
+	const normalizeSource = createAup4ExportSourceNormalizer(plan);
 	for (const sourceId of requiredAup4SourceIds(plan)) {
 		const audio = audioById.get(sourceId);
 		if (!audio) throw exportError(`PCM for project source ${sourceId} is missing.`, 'MISSING_SOURCE');
-		normalizedSources.push(...normalizeAup4ExportSource(plan, audio));
+		normalizedSources.push(...normalizeSource(audio));
 	}
 	const normalizedById = new Map(normalizedSources.map((source) => [source.sourceId, source]));
 	return {
@@ -130,6 +131,7 @@ export function createAup4ExportPlan(project) {
 		}
 		if (aup4WaveformDisplayConversionCode(track.displayMode)) normalizedTrack.displayMode = 'waveform';
 
+		const convertClipEnvelope = createNativeTrackEnvelopeConverter(track);
 		for (const clip of clips) {
 			const source = sourceById.get(clip.sourceId);
 			const sourceRate = positiveRate(source.sampleRate, `source ${source.id} sampleRate`);
@@ -155,11 +157,7 @@ export function createAup4ExportPlan(project) {
 				throw exportError(`Audacity-project clip ${clip.id} exceeds source ${source.id}.`, 'INVALID_SNAPSHOT');
 			}
 			const normalizedClip = normalizedClipById.get(clip.id);
-			const envelopeConversion = createNativeClipEnvelope(
-				clip,
-				track,
-				automaticCrossfades.get(String(clip.id)),
-			);
+			const envelopeConversion = convertClipEnvelope(clip, automaticCrossfades.get(String(clip.id)));
 			const sliceStartFrame = loop ? sourceStartFrame : sourceStartFrame - trimStartFrames;
 			const sliceEndFrame = loop ? sourceEndFrame : sourceEndFrame + trimEndFrames;
 			const transform = {
@@ -402,27 +400,6 @@ export function createAup4ExportPlan(project) {
 export function requiredAup4SourceIds(plan) {
 	assertExportPlan(plan);
 	return [...new Set(plan.sources.map((variant) => variant.inputSourceId))];
-}
-
-function assignAup4OverlapLanes(clips) {
-	const lanes = [];
-	const laneEnds = [];
-	for (const clip of clips.slice().sort((left, right) => (
-		Number(left.timelineStartFrame) - Number(right.timelineStartFrame)
-		|| compareCodeUnits(String(left.id), String(right.id))
-	))) {
-		const start = nonNegativeFrame(clip.timelineStartFrame, `clip ${clip.id} timelineStartFrame`);
-		const end = start + positiveFrame(clip.durationFrames, `clip ${clip.id} durationFrames`);
-		let laneIndex = laneEnds.findIndex((laneEnd) => laneEnd <= start);
-		if (laneIndex < 0) {
-			laneIndex = lanes.length;
-			lanes.push([]);
-			laneEnds.push(0);
-		}
-		lanes[laneIndex].push(clip.id);
-		laneEnds[laneIndex] = end;
-	}
-	return lanes.length ? lanes : [[]];
 }
 
 function uniqueLaneTrackId(trackId, laneNumber, usedIds) {

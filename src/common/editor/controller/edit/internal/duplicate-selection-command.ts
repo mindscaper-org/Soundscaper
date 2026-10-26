@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { frozenRecordIdIndex, hasOwnDataValue } from '../../../frozen-record-id-index.ts';
 import { duplicateTrackAdmCommands } from '../../../derived-track-adm.ts';
 import { createAddTrackCommand } from '../../../commands/factories.ts';
 import { preparePasteCommand } from '../../../commands/clipboard-runtime.js';
@@ -8,6 +9,7 @@ import { preparePasteCommandV7 } from '../../../commands/clipboard-runtime-v7.ts
 import type { ControllerTrackDuplicateCarrier, ControllerTrackDuplicateRequest } from '../../document/project-runtime.ts';
 import { sampleFrameToBeat } from '../../../timeline-tempo-inverse.ts';
 import type { HoldTempoMap } from '../../../timeline-time.ts';
+import { isSelectedFramescaperProjectSchema } from '../../../project-schema-version.ts';
 
 interface DuplicateEffect extends Readonly<Record<string, unknown>> {
 	readonly id: string;
@@ -88,21 +90,23 @@ export function prepareDuplicateSelectionCommand(
 	const requested = new Set([...range.trackIds, ...clipboard.tracks.map((track) => track.sourceTrackId)]);
 	const sourceTracks = project.tracks.filter((track) => requested.has(track.id));
 	if (!sourceTracks.length) return null;
+	const completeLanes = completeLaneGroups(project, requested);
 	const commands: AudioEditorCommand[] = [];
 	const trackMap: Record<string, string> = {};
 	const laneGroups = new Map<string, string>();
 	for (const track of sourceTracks) {
 		const trackId = runtime.createStableId('track');
-		trackMap[track.id] = trackId;
+		Object.defineProperty(trackMap, track.id, { value: trackId, enumerable: true });
 		const effects = (track.effects ?? []).map((effect) => ({ ...structuredClone(effect), id: runtime.createStableId('effect') }));
 		const request = {
 			sourceTrackId: track.id,
 			targetTrackId: trackId,
 			effectIds: (track.effects ?? []).map((effect, index) => ({ sourceId: effect.id, targetId: effects[index]!.id })),
 		};
-		const laneGroupId = track.laneGroupId && project.tracks
-			.filter(candidate => candidate.laneGroupId === track.laneGroupId)
-			.every(candidate => requested.has(candidate.id)) ? track.laneGroupId : null;
+		const laneGroupId = track.laneGroupId && (completeLanes && hasOwnDataValue(project, 'tracks', completeLanes.tracks)
+			? completeLanes.ids.has(track.laneGroupId)
+			: project.tracks.filter(candidate => candidate.laneGroupId === track.laneGroupId)
+				.every(candidate => requested.has(candidate.id))) ? track.laneGroupId : null;
 		if (laneGroupId && !laneGroups.has(laneGroupId)) laneGroups.set(laneGroupId, runtime.createStableId('lane-group'));
 		const labels = track.type === 'label' ? duplicateLabels(runtime, project, track.labels ?? [], range) : undefined;
 		commands.push({
@@ -167,10 +171,31 @@ function duplicateLabels(runtime: DuplicateSelectionRuntime, project: DuplicateP
 }
 
 function duplicatePlacement(project: DuplicateProject, sourceTrackId: string) {
-	if (!project.trackFolders?.length) return {};
+	if (!project.trackFolders?.length && !isSelectedFramescaperProjectSchema(project)) return {};
 	for (const sequence of project.sequences ?? []) {
 		const node = sequence.trackNodes?.find((candidate) => candidate.id === sourceTrackId);
-		if (node || sequence.trackIds?.includes(sourceTrackId)) return { sequenceId: sequence.id, parentFolderId: node?.parentFolderId ?? null };
+		if (node || sequence.trackIds?.includes(sourceTrackId)) return { sequenceId: sequence.id,
+			...(project.trackFolders?.length ? { parentFolderId: node?.parentFolderId ?? null } : {}) };
 	}
 	return {};
+}
+
+function completeLaneGroups(project: DuplicateProject, requested: ReadonlySet<string>) {
+	const collection = Object.getOwnPropertyDescriptor(project, 'tracks');
+	if (!collection || !Object.hasOwn(collection, 'value') || !Array.isArray(collection.value)) return null;
+	const tracks = collection.value as DuplicateProject['tracks'];
+	if (!frozenRecordIdIndex(tracks)) return null;
+	const ids = new Set<string>(), incomplete = new Set<string>();
+	for (const track of tracks) {
+		const descriptor = Object.getOwnPropertyDescriptor(track, 'laneGroupId');
+		if (descriptor && !Object.hasOwn(descriptor, 'value')) return null;
+		if (!descriptor && 'laneGroupId' in track) return null;
+		const lane = descriptor?.value as unknown;
+		if (lane == null || lane === '') continue;
+		if (typeof lane !== 'string') return null;
+		ids.add(lane);
+		if (!requested.has(track.id)) incomplete.add(lane);
+	}
+	for (const lane of incomplete) ids.delete(lane);
+	return { tracks, ids };
 }

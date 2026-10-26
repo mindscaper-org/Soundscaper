@@ -14,7 +14,7 @@
  * applies: an entry of any origin is shown only while its English is the
  * current English, so editing copy retires its translations on its own until
  * the sync or the translator writes them again. At runtime a catalog is
- * lazy-imported and laid over the bundled English (and German) copy.
+ * lazy-imported and laid over the bundled English copy.
  *
  * This module deliberately imports no catalog: the site shell reads it in the
  * initial graph and passes the small site copy as its English reference, and
@@ -60,6 +60,7 @@ export async function loadTranslationCatalog(locale, options = {}) {
  * still exists, the recorded English is the current English, and the string
  * is acceptable for it. Anything else is left out. `options.origins` narrows
  * the result to some origins, which the site copy and the tests use.
+ * @returns {Readonly<Record<string, string>>}
  */
 export function currentTranslations(catalog, englishCopy, options = {}) {
 	assertTranslationCatalogShape(catalog, options.locale);

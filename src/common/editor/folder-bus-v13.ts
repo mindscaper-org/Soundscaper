@@ -155,6 +155,7 @@ export function validateFolderBusesV13(project: Record<string, unknown>): void {
 	const sends = Array.isArray(mixer.sends) ? mixer.sends as Record<string, unknown>[] : [];
 	const nameByFolderId = new Map(folders.map((folder) => [String(folder.id), String(folder.name)]));
 	const groupById = new Map(groups.map((bus) => [String(bus.id), bus]));
+	const busFolderIds = new Set(ownership.busFolderIds);
 
 	for (const bus of sends) {
 		if (ownership.folderIds.has(String(bus.id))) {
@@ -163,7 +164,7 @@ export function validateFolderBusesV13(project: Record<string, unknown>): void {
 	}
 	for (const bus of groups) {
 		const id = String(bus.id);
-		if (!ownership.folderIds.has(id) || ownership.busFolderIds.includes(id)) continue;
+		if (!ownership.folderIds.has(id) || busFolderIds.has(id)) continue;
 		throw new RangeError(`Group bus ${id} names a track folder that owns no bus.`);
 	}
 	for (const folderId of ownership.busFolderIds) {

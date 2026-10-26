@@ -47,6 +47,26 @@ remain in the runner code and its tests instead of becoming release policy in
 the register. Raw records use closed schemas and digest-bind source, package,
 runtime, model, or helper bytes where those bytes affect the observation.
 
+## Workflow assertion boundaries
+
+The following browser workflows still need stronger output or completion
+checks before their results establish the named outcomes. Preserve their
+existing UI and lifecycle coverage while extending the assertions. These
+limitations alone do not establish product defects.
+
+| Workflow | Remaining proof |
+| --- | --- |
+| [Silenced camera Bin preview](../../tests/browser/audio-editor-round5-io-bin-authored-audio.spec.js) | Observe the owned companion PCM; the HTML video is muted independently. |
+| [Take-source retention](../../tests/browser/audio-editor-round7-io-bin-take-retention.spec.js) and [remembered mono paste](../../tests/browser/audio-editor-mono-paste-confirmation.spec.js) | Await positive audition/paste completion and check the resulting audio; an early absence of errors or prompts is insufficient. |
+| [Take flattening](../../tests/browser/audio-editor-take-comp.spec.js) and [silent trailing extent](../../tests/browser/audio-editor-round7-take-flatten-trailing-gap.spec.js) | Inspect rendered PCM, including the trailing silence; metadata extent and successful publication do not establish sample content. |
+| [Multicamera Freeze](../../tests/browser/framescaper-round7-multicamera-freeze.spec.js) | Decode the stored PNG and check switched-camera pixels independently of its generated name. |
+| [Stem delivery](../../tests/browser/audio-editor-io-queue-regressions.spec.js) | Check stem PCM or the submitted normalization settings; Delivered status alone does not establish gain semantics. |
+| [Repeated cross-project exports](../../tests/browser/audio-editor-repeat-export-download.spec.js) | Decode the distinct audio payloads; names and container signatures cannot detect stale audio. |
+| [Labeled silence and Cut](../../tests/browser/audio-editor-labeled-audio.spec.js) | Check PCM, region/gap placement, and clipboard payload alongside clip counts and Paste availability. |
+| [Loop export](../../tests/browser/audio-editor-clip-loop.spec.js) | Check audible signal identity as well as repeated-window equality; identical silent windows can pass. |
+| [Storage publication](../../tests/browser/audio-editor-storage-publication.spec.js) | Exercise the owning repository; handwritten IndexedDB transactions prove platform serialization only. |
+| [Cross-product Scape custody](../../tests/browser/audio-editor-scape-product-roundtrip.spec.js) | Re-export from the recipient and compare preserved bytes; reopening the original outbound archive does not test recipient custody. |
+
 ## Hosted and local diagnostics
 
 Hosted CI is useful for deterministic structural checks, media correctness, and

@@ -11,6 +11,7 @@ import {
 import { cloneVideoEffects } from '../../video-effects.js';
 import type {
 	DocumentCompositionDependencies,
+	DocumentCompositionStore,
 	DocumentHistory,
 	DocumentProject,
 	DocumentSessionTab,
@@ -19,7 +20,7 @@ import { isEditorDisposedError, type EditorLifetimeToken, type EditorProjectToke
 import { createProjectMutationService, type MutationTrack } from './project-mutation-service.ts';
 import { createProjectRetentionService } from './internal/project/project-retention-service.ts';
 import { createProjectSaveService } from './project-save-service.ts';
-import { saveFencedProjectSnapshot } from './internal/project/project-fenced-save-adapter.ts';
+import { createInitialProjectSnapshot, saveFencedProjectSnapshot } from './internal/project/project-fenced-save-adapter.ts';
 import { createProjectSessionService } from './internal/project/project-session-service.ts';
 import { createProjectViewService } from './project-view-service.ts';
 import { createRegularIntervalAnnotationController } from './internal/annotations/regular-interval-annotation-controller.ts';
@@ -113,6 +114,7 @@ export function createDocumentComposition(dependencies: DocumentCompositionDepen
 			const project = document.get();
 			return Boolean(project && sessionTab(project.id)?.dirty);
 		},
+		hasUnsavedSessionChanges: () => session.getSnapshot().tabs.some(tab => tab.dirty),
 		isReadOnly: () => state.readOnly || Boolean(state.takeCycleRecovery || state.takeCycleRecoveryInspecting),
 		...(store.saveProjectIfCurrentWithWriteFence ? { getWriteFence: (projectId: string) =>
 			state.projectLock?.projectId === projectId && !state.projectLock.readOnly
@@ -129,6 +131,8 @@ export function createDocumentComposition(dependencies: DocumentCompositionDepen
 		admitProjectPublication: (bytes) => dependencies.preflightStorage(bytes, 'project'),
 		collectProtectedLinkedOriginalSourceReferences: () => retention.liveSessionLinkedOriginalSourceReferences(),
 		saveProject: (snapshot, saveOptions) => store.saveProject(snapshot, saveOptions),
+		...(store.createProjectIfAbsent ? { createProjectIfAbsent: (snapshot: DocumentProject, saveOptions: Parameters<DocumentCompositionStore['saveProject']>[1]) =>
+			createInitialProjectSnapshot((candidate, options) => store.createProjectIfAbsent!(candidate, options), snapshot, saveOptions) } : {}),
 		...(store.saveProjectIfCurrentWithWriteFence
 			? { saveProjectIfCurrentWithWriteFence: async (
 				expected: DocumentProject, snapshot: DocumentProject, writeFence: string,
@@ -226,7 +230,8 @@ export function createDocumentComposition(dependencies: DocumentCompositionDepen
 		saves,
 		stopProjectBinPreview: dependencies.stopProjectBinPreview,
 		clearWaveformPcmWindows: () => sources.sourceLifecycle.clearWaveformPcmWindows(),
-		reconcileRecordingRouting: dependencies.reconcileRecordingRouting,
+		synchronizeVideoSources: async () => { if (await sources.projectVisual.synchronizeVideoSources()) view.publishProjectState(); },
+		reconcileRecordingRouting: tracks => dependencies.reconcileRecordingRouting(tracks, document.captureCurrent().generation),
 		persistRecordingRouting: dependencies.persistRecordingRouting,
 		findClip,
 		findTrack,

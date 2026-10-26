@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { cancelDraftEditOnEscape, createDraftBlurCommitGuard, draftBlurShouldCommit } from '../draft-blur-commit.ts';
 
 interface Props {
@@ -13,6 +13,8 @@ interface Props {
 
 export default function ProjectBinNameEditor({ clip, name, copy, disabled, onCommit }: Props) {
 	const [draft, setDraft] = useState(name);
+	const multiline = /[\r\n]/u.test(name);
+	const NameInput = multiline ? 'textarea' : 'input';
 	const blurCommitGuard = useRef(createDraftBlurCommitGuard()).current;
 	useEffect(() => setDraft(name), [clip.id, name]);
 	const commit = () => {
@@ -27,16 +29,16 @@ export default function ProjectBinNameEditor({ clip, name, copy, disabled, onCom
 	return (
 		<label className="kw-audio-editor__project-bin-name">
 			<span className="kw-audio-editor-sr-only">{copy.projectBinRename}</span>
-			<input
+			<NameInput
 				data-project-bin-name
 				aria-label={`${copy.projectBinRename}: ${name}`}
 				value={draft}
 				disabled={disabled}
 				onChange={(event) => setDraft(event.currentTarget.value)}
 				onBlur={commit}
-				onKeyDown={(event) => {
+				onKeyDown={(event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
 					if (event.nativeEvent.isComposing) return;
-					if (event.key === 'Enter') event.currentTarget.blur();
+					if (event.key === 'Enter' && !(multiline && event.shiftKey)) event.currentTarget.blur();
 					else if (event.key === 'Escape') {
 						cancelDraftEditOnEscape(
 							blurCommitGuard,

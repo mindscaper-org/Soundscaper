@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { ReviewedImageFormat } from './image-format-signature.ts';
+import { assertBrowserNativeImageResources } from './browser-image-resource-admission.ts';
 import { encodedImageIsAnimated, encodedImageAnimationInfo } from './image-animation-topology.ts';
 import type {
 	FramescaperBrowserNativeImageDecodeSessionV1,
@@ -49,9 +51,10 @@ export const openFramescaperBrowserNativeImageV1: OpenFramescaperBrowserNativeIm
 	request,
 ): Promise<FramescaperBrowserNativeImageDecodeSessionV1> => {
 	cancelled(request.signal);
+	assertBrowserNativeImageResources(request.bytes, request.format);
 	const Decoder = imageDecoderConstructor();
 	if (Decoder && await supported(Decoder, request.mimeType)) {
-		return openImageDecoder(Decoder, request.bytes, request.mimeType, request.signal,
+		return openImageDecoder(Decoder, request.bytes, request.mimeType, request.format, request.signal,
 			encodedImageAnimationInfo(request.bytes, request.format));
 	}
 	if (encodedImageIsAnimated(request.bytes, request.format)) {
@@ -64,6 +67,7 @@ async function openImageDecoder(
 	Decoder: BrowserImageDecoderConstructor,
 	bytes: Uint8Array,
 	mimeType: string,
+	format: ReviewedImageFormat,
 	signal: AbortSignal | undefined,
 	animation: ReturnType<typeof encodedImageAnimationInfo>,
 ): Promise<FramescaperBrowserNativeImageDecodeSessionV1> {
@@ -77,6 +81,7 @@ async function openImageDecoder(
 		const reportedFrameCount = positiveInteger(track?.frameCount, 'ImageDecoder frame count');
 		// Some decoders count a separate PNG poster as another animation frame.
 		const frameCount = animation?.frameCount ?? reportedFrameCount;
+		assertBrowserNativeImageResources(bytes, format, frameCount);
 		const probe = await decoder.decode({ frameIndex: 0, completeFramesOnly: true });
 		let width: number;
 		let height: number;

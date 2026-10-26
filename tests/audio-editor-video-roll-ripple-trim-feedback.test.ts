@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { formatPresentationMessage, type LocalizedPresentationMessage } from '../src/common/i18n/presentation-message.ts';
@@ -90,7 +92,7 @@ test('no-op uses existing informational copy without formatting unavailable coor
 
 test('English and German copy expose all four menu labels and complete feedback placeholders', () => {
 	for (const locale of ['en', 'de'] as const) {
-		const copy = SEQUENCE_TIMING_COPY_BY_LOCALE[locale];
+		const copy = (locale === 'de' ? GERMAN_COPY : SEQUENCE_TIMING_COPY_BY_LOCALE.en);
 		for (const key of [
 			'rollLeftToPlayhead',
 			'rollRightToPlayhead',

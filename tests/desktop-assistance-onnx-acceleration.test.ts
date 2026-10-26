@@ -8,6 +8,7 @@ import test from 'node:test';
 
 import { createAssistanceOnnxAcceleratedRuntimeV1 } from '../desktop/assistance-onnx-acceleration.ts';
 import { withAssistanceGpuValidationJob } from '../desktop/assistance-gpu-validation.ts';
+import { assistanceOnnxExecutionProvidersV1 } from '../desktop/assistance-onnx-provider-options.ts';
 import type {
 	AssistanceOnnxInferenceSessionV1, AssistanceOnnxRuntimeModuleV1,
 } from '../desktop/assistance-onnx-runtime-worker.ts';
@@ -51,11 +52,27 @@ test('authenticated GPU providers are preferred with CPU operator fallback', asy
 	}
 });
 
+test('WebGPU CPU-node exception lists reject duplicate, malformed, or over-wide policy inputs', () => {
+	for (const forceCpuNodeNames of [
+		[''],
+		['/wide/Split', '/wide/Split'],
+		['/wide/Split\nforeign'],
+		['x'.repeat(257)],
+		Array.from({ length: 33 }, (_value, index) => `/wide/Split_${index}`),
+	]) {
+		assert.throws(
+			() => assistanceOnnxExecutionProvidersV1('webgpu', { forceCpuNodeNames }),
+			/The ONNX WebGPU CPU-node exception list is invalid\./u,
+		);
+	}
+});
+
 test('failed GPU session creation tries remaining authenticated providers and then CPU', async () => {
 	const attempted: string[][] = [];
 	const cpu = session();
 	const accelerated = createAssistanceOnnxAcceleratedRuntimeV1(runtime(async (_path, settings) => {
-		attempted.push([...settings.executionProviders]);
+		attempted.push(settings.executionProviders.map(provider =>
+			typeof provider === 'string' ? provider : provider.name));
 		if (settings.executionProviders[0] !== 'cpu') throw new Error('GPU device unavailable');
 		return cpu;
 	}), { executionProviders: ['coreml', 'webgpu', 'cpu'] });
@@ -68,7 +85,8 @@ test('a GPU inference error releases that session and retries the same authentic
 	const events: string[] = [];
 	const accelerated = createAssistanceOnnxAcceleratedRuntimeV1(runtime(async (path, settings) => {
 		assert.equal(path, '/authenticated/model.onnx');
-		const provider = settings.executionProviders[0]!;
+		const selected = settings.executionProviders[0]!;
+		const provider = typeof selected === 'string' ? selected : selected.name;
 		events.push(`create:${provider}`);
 		return { ...session(() => { events.push(`release:${provider}`); }), run: async (feeds) => {
 			events.push(`run:${provider}`);
@@ -135,7 +153,8 @@ test('CPU retry rejects a changed graph surface and releases both native session
 	const gpuError = new Error('GPU device lost');
 	const released: string[] = [];
 	const accelerated = createAssistanceOnnxAcceleratedRuntimeV1(runtime(async (_path, settings) => {
-		const provider = settings.executionProviders[0]!;
+		const selected = settings.executionProviders[0]!;
+		const provider = typeof selected === 'string' ? selected : selected.name;
 		const native = session(() => { released.push(provider); });
 		return provider === 'cpu' ? { ...native, inputNames: ['foreign'] }
 			: { ...native, run: async () => { throw gpuError; } };

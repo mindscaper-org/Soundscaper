@@ -201,6 +201,12 @@ const FOUNDATION_TIME_CONVERSION_EDITOR_SITES: readonly FoundationTimeConversion
 		conversions: [{ helper: 'sampleFrameToBeat', policies: ['exact'] }],
 	},
 	{
+		id: 'automation-capture-outside-boundaries',
+		file: 'src/common/editor/automation-capture-boundaries-v21.ts',
+		behavior: 'Captured musical automation retains the original curve at the immediately neighbouring programme samples, exactly inverting those samples through the gesture-owned clock and tempo map.',
+		conversions: [{ helper: 'sampleFrameToBeat', policies: ['exact'] }],
+	},
+	{
 		id: 'automation-lane-inline-editing',
 		file: 'src/common/editor/automation-lane-inline-edit-v21.ts',
 		behavior: 'Inline musical automation edits exactly invert each requested sample frame before placing a point or Bézier control in the lane-owned beat domain.',

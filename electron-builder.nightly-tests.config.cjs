@@ -22,6 +22,9 @@ module.exports = {
 	files: [
 		'desktop/coverage-checkpoint-exit.mjs',
 		'desktop/nightly-tests-main.mjs',
+		'desktop/nightly-tests-control.ts',
+		'desktop/nightly-tests-pause-reports.ts',
+		'desktop/process-tree-termination.ts',
 		'desktop/nightly-tests-assistance-host.mjs',
 		'desktop/nightly-tests-assistance.html',
 		'desktop/nightly-tests-manifest.mjs',
@@ -31,6 +34,7 @@ module.exports = {
 		'desktop/nightly-tests-progress.css',
 		'scripts/lib/desktop-nightly-tests-runtime.mjs',
 		'scripts/lib/desktop-nightly-tests-playwright-child.mjs',
+		'scripts/lib/desktop-nightly-tests-child-bootstrap.mjs',
 		'scripts/lib/desktop-nightly-tests-progress-reporter.mjs',
 		'scripts/lib/desktop-nightly-tests-phases.mjs',
 		'scripts/lib/desktop-nightly-tests-local-assistance.mjs',
@@ -71,6 +75,11 @@ module.exports = {
 				'.local-browsers/**/*',
 				'config/**/*',
 				'desktop/bundled-*-stream.ts',
+				'desktop/nightly-tests-checkpoint-reporter.ts',
+				'desktop/process-tree-termination.ts',
+				'desktop/nightly-tests-progress.html',
+				'desktop/nightly-tests-progress-renderer.js',
+				'desktop/nightly-tests-progress.css',
 				'desktop/desktop-audio-codec-capability-contract.ts',
 				'desktop/desktop-audio-codec-operation-contract.ts',
 				'desktop/desktop-audio-decode-formats.ts',
@@ -131,7 +140,7 @@ module.exports = {
 		{ from: 'LICENSES', to: 'licenses/LICENSES' },
 	],
 	win: {
-		icon: '.desktop-build/icons/icon.png',
+		icon: '.desktop-build/icons/icon.ico',
 		target: ['portable'],
 	},
 	portable: {

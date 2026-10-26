@@ -56,6 +56,7 @@ test.describe('Framescaper selected timeline images', () => {
 			fileName: 'poster.png',
 			width: 2,
 			height: 2,
+			outputSpace: 'rec709',
 			timelineOwned: true,
 			requiresTimelineImages: true,
 		});
@@ -284,6 +285,7 @@ async function storedImageState(page, projectId) {
 					fileName: sources[0]?.original?.fileName ?? null,
 					width: sources[0]?.canonical?.width ?? null,
 					height: sources[0]?.canonical?.height ?? null,
+					outputSpace: project?.videoColorContexts?.find((context) => context.sequenceId === project.primarySequenceId)?.outputSpace ?? null,
 					timelineOwned: clips.length === 1 && clipIds.has(clips[0].id),
 					requiresTimelineImages: requirements.some(({ featureId }) => (
 						featureId === 'org.soundscaper.capability.timeline-images-v1'

@@ -5,6 +5,8 @@ import {
 	STAFFPAD_MAXIMUM_MEMORY_BYTES,
 } from './staffpad/parameters.js';
 
+import { CLIP_TIME_PITCH_RESAMPLER_SCRATCH_BYTES } from './clip-time-pitch-working-clock.ts';
+
 const MIB = 1024 * 1024;
 const FLOAT32_BYTES = Float32Array.BYTES_PER_ELEMENT;
 const MAXIMUM_SAFE_BYTES = BigInt(Number.MAX_SAFE_INTEGER);
@@ -25,6 +27,7 @@ export interface ClipTimePitchRenderAdmissionStage {
 
 export interface ClipTimePitchRenderAdmissionPlan {
 	readonly sourceFrameCount: number;
+	readonly resampledInputFrames?: number;
 	readonly channelCount: number;
 	readonly direction: ClipTimePitchRenderDirection;
 	readonly stages: readonly ClipTimePitchRenderAdmissionStage[];
@@ -90,7 +93,8 @@ export function estimateClipTimePitchRenderAdmission(
 		'StaffPad clip-cache render channel count',
 	);
 	const direction = renderDirection(plan?.direction);
-	const stages = renderStages(plan?.stages, sourceFrameCount);
+	const resampledInputFrames = plan.resampledInputFrames === undefined ? 0 : safeIntegerRange(plan.resampledInputFrames, 1, Number.MAX_SAFE_INTEGER, 'StaffPad resampled input frames');
+	const stages = renderStages(plan?.stages, resampledInputFrames || sourceFrameCount);
 	const chunkFrames = safeIntegerRange(
 		options?.chunkFrames,
 		1_024,
@@ -114,7 +118,8 @@ export function estimateClipTimePitchRenderAdmission(
 			? 2
 			: 1;
 		const accountedInputFrames = firstStage ? sourceFrameCount : stage.inputFrames;
-		const sourceInputValue = BigInt(accountedInputFrames)
+		const resamplingValue = firstStage && resampledInputFrames ? BigInt(resampledInputFrames) * bytesPerPlanarFrame + BigInt(CLIP_TIME_PITCH_RESAMPLER_SCRATCH_BYTES) : 0n;
+		const sourceInputValue = resamplingValue + BigInt(accountedInputFrames)
 			* bytesPerPlanarFrame
 			* BigInt(inputCopies);
 		const outputValue = BigInt(stage.outputFrames) * bytesPerPlanarFrame;

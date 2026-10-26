@@ -1,8 +1,9 @@
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { MUSICAL_TIMELINE_COPY_BY_LOCALE } from '../src/common/i18n/musical-timeline-copy.js';
 import { SITE_SIDEBAR_COPY_BY_LOCALE } from '../src/common/i18n/site-sidebar-copy.js';
 import { TIMELINE_ANNOTATION_COPY_BY_LOCALE } from '../src/common/i18n/timeline-annotation-copy.js';
@@ -12,7 +13,7 @@ import { PREFERENCES_COPY_BY_LOCALE } from '../src/common/i18n/preferences-copy.
 import { AUDACITY_ACTION_MANIFEST } from '../src/common/editor/audacity-action-parity.js';
 import { normalizeLocale } from '../src/common/i18n/runtime.js';
 
-test('bundled catalogs are complete and user-visible values contain no ellipses', () => {
+test('English and JSON German catalogs are complete and user-visible values contain no ellipses', () => {
 	assert.deepEqual(Object.keys(GERMAN_COPY), Object.keys(ENGLISH_COPY));
 	for (const [locale, catalog] of Object.entries({ en: ENGLISH_COPY, de: GERMAN_COPY })) {
 		for (const [key, value] of Object.entries(catalog)) {
@@ -28,13 +29,13 @@ test('bundled catalogs are complete and user-visible values contain no ellipses'
 
 test('site sidebar copy stays localized and merged into the bundled catalogs', () => {
 	assert.equal(SITE_SIDEBAR_COPY_BY_LOCALE.en.reportIssueLink, 'Report an issue');
-	assert.equal(SITE_SIDEBAR_COPY_BY_LOCALE.de.reportIssueLink, 'Ein Problem melden');
-	assert.deepEqual(Object.keys(SITE_SIDEBAR_COPY_BY_LOCALE.de), Object.keys(SITE_SIDEBAR_COPY_BY_LOCALE.en));
+	assert.equal(GERMAN_COPY.reportIssueLink, 'Ein Problem melden');
+	for (const key of Object.keys(SITE_SIDEBAR_COPY_BY_LOCALE.en)) assert.equal(typeof GERMAN_COPY[key], 'string', key);
 	assert.ok(Object.isFrozen(SITE_SIDEBAR_COPY_BY_LOCALE));
 	assert.ok(Object.isFrozen(SITE_SIDEBAR_COPY_BY_LOCALE.en));
 	for (const locale of ['en', 'de']) {
 		const catalog = locale === 'en' ? ENGLISH_COPY : GERMAN_COPY;
-		for (const [key, value] of Object.entries(SITE_SIDEBAR_COPY_BY_LOCALE[locale])) {
+		for (const [key, value] of Object.entries(SITE_SIDEBAR_COPY_BY_LOCALE.en).map(([key, source]) => [key, locale === 'de' ? GERMAN_COPY[key] : source])) {
 			assert.equal(catalog[key], value, `${locale}.${key}`);
 		}
 	}
@@ -52,8 +53,8 @@ test('the Soundscaper and Audacity workspace labels and their chrome copy exist 
 	assert.equal(ENGLISH_COPY.workspaceOnboardingTitle, 'Getting started');
 	assert.equal(ENGLISH_COPY.workspaceOnboardingMenu, 'Set up workspace');
 	assert.equal(GERMAN_COPY.workspaceOnboardingMenu, 'Arbeitsbereich einrichten');
-	assert.deepEqual(Object.keys(WORKSPACE_CHROME_COPY_BY_LOCALE.de), Object.keys(WORKSPACE_CHROME_COPY_BY_LOCALE.en));
-	assert.deepEqual(Object.keys(WORKSPACE_ONBOARDING_COPY_BY_LOCALE.de), Object.keys(WORKSPACE_ONBOARDING_COPY_BY_LOCALE.en));
+	for (const key of Object.keys(WORKSPACE_CHROME_COPY_BY_LOCALE.en)) assert.equal(typeof GERMAN_COPY[key], 'string', key);
+	for (const key of Object.keys(WORKSPACE_ONBOARDING_COPY_BY_LOCALE.en)) assert.equal(typeof GERMAN_COPY[key], 'string', key);
 	for (const key of ['panelMenu', 'timecode', 'snapInterval']) {
 		assert.equal(typeof WORKSPACE_CHROME_COPY_BY_LOCALE.en[key], 'string', key);
 	}
@@ -66,7 +67,7 @@ test('the Soundscaper and Audacity workspace labels and their chrome copy exist 
 	}
 	for (const [locale, catalog] of Object.entries({ en: ENGLISH_COPY, de: GERMAN_COPY })) {
 		for (const module of [WORKSPACE_CHROME_COPY_BY_LOCALE, WORKSPACE_ONBOARDING_COPY_BY_LOCALE]) {
-			for (const [key, value] of Object.entries(module[locale])) {
+			for (const [key, value] of Object.entries(module.en).map(([key, source]) => [key, locale === 'de' ? GERMAN_COPY[key] : source])) {
 				assert.equal(catalog[key], value, `${locale}.${key}`);
 				assert.ok(value.length > 0, `${locale}.${key}`);
 			}
@@ -75,11 +76,11 @@ test('the Soundscaper and Audacity workspace labels and their chrome copy exist 
 });
 
 test("the General page's Program start copy reaches both catalogs", () => {
-	assert.deepEqual(Object.keys(PREFERENCES_COPY_BY_LOCALE.de), Object.keys(PREFERENCES_COPY_BY_LOCALE.en));
+	for (const key of Object.keys(PREFERENCES_COPY_BY_LOCALE.en)) assert.equal(typeof GERMAN_COPY[key], 'string', key);
 	assert.equal(ENGLISH_COPY.programStart, 'Program start');
 	assert.equal(GERMAN_COPY.programStart, 'Programmstart');
 	for (const [locale, catalog] of Object.entries({ en: ENGLISH_COPY, de: GERMAN_COPY })) {
-		for (const [key, value] of Object.entries(PREFERENCES_COPY_BY_LOCALE[locale])) {
+		for (const [key, value] of Object.entries(PREFERENCES_COPY_BY_LOCALE.en).map(([key, source]) => [key, locale === 'de' ? GERMAN_COPY[key] : source])) {
 			assert.equal(catalog[key], value, `${locale}.${key}`);
 			assert.ok(value.length > 0, `${locale}.${key}`);
 		}

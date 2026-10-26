@@ -278,8 +278,12 @@ test('worklet coverage drains during offline rendering completion', async ({ bro
 	await session.send('Runtime.enable');
 	await session.send('Page.enable');
 	await session.send('Debugger.enable');
+	let renderingCheckpoints = 0;
 	const checkpoints = await installNavigationCoverageCheckpoints({
-		checkpoint: () => collector.checkpoint(),
+		checkpoint: async (reason) => {
+			await collector.checkpoint();
+			if (reason === 'offline-rendering') renderingCheckpoints++;
+		},
 		session,
 	});
 	let capture;
@@ -290,8 +294,18 @@ test('worklet coverage drains during offline rendering completion', async ({ bro
 			await audioContext.audioWorklet.addModule(moduleUrl);
 			const node = new AudioWorkletNode(audioContext, 'coverage-lifecycle');
 			node.connect(audioContext.destination);
-			await audioContext.startRendering();
+			// Keep the short offline worklet alive until its later quantum has
+			// reached the real rendering checkpoint, independent of machine speed.
+			const suspended = audioContext.suspend(2_048 / 48_000);
+			globalThis.coverageOfflineRendering = { audioContext, rendered: audioContext.startRendering() };
+			await suspended;
 		}, WORKLET_SOURCE);
+		const suspendedAt = renderingCheckpoints;
+		await expect.poll(() => renderingCheckpoints).toBeGreaterThan(suspendedAt);
+		await page.evaluate(async () => {
+			await globalThis.coverageOfflineRendering.audioContext.resume();
+			await globalThis.coverageOfflineRendering.rendered;
+		});
 		await checkpoints.settle();
 		capture = await collector.collect();
 	} finally {

@@ -7,7 +7,8 @@ import { toNodeHandler } from '@modelcontextprotocol/node';
 import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod/v4';
 
-const MAX_REQUEST_BYTES = 8 * 1024 * 1024;
+const MAX_REQUEST_BYTES = 1024 * 1024;
+const MAX_TOOL_INPUT_ELEMENTS = 10_000;
 const MAX_RESULT_BYTES = 1024 * 1024;
 const MAX_ERROR_LENGTH = 300;
 
@@ -114,7 +115,9 @@ async function openServer(dispatch: DesktopMcpServiceOptions['dispatch']): Promi
 }
 
 function buildMcpServer(dispatch: DesktopMcpServiceOptions['dispatch']): McpServer {
-	const server = new McpServer({ name: 'soundscaper-desktop', version: '1.0.0' });
+	const server = new McpServer({ name: 'soundscaper-desktop', version: '1.0.0' }, {
+		maxToolInputElements: MAX_TOOL_INPUT_ELEMENTS,
+	});
 	const invoke = async (operation: string, args: unknown) => {
 		try {
 			const value = await dispatch(operation, args);

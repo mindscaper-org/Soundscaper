@@ -32,16 +32,21 @@ export class ParallelStackDelay {
 		this.#rings = Array.from({ length: channels }, () => new Float32Array(frames));
 	}
 	process(channels: readonly Float32Array[], count: number): void {
-		if (this.frames === 0) return;
+		const length = this.frames;
+		if (length === 0) return;
+		let cursor = this.#cursor;
 		for (let frame = 0; frame < count; frame++) {
 			for (let channel = 0; channel < channels.length; channel++) {
-				const old = this.#rings[channel]![this.#cursor]!;
-				this.#rings[channel]![this.#cursor] = channels[channel]![frame]!;
+				const old = this.#rings[channel]![cursor]!;
+				this.#rings[channel]![cursor] = channels[channel]![frame]!;
 				channels[channel]![frame] = old;
 			}
-			this.#cursor = (this.#cursor + 1) % this.frames;
+			cursor++;
+			if (cursor === length) cursor = 0;
 		}
+		this.#cursor = cursor;
 	}
+
 }
 
 /** StereoPannerNode equal-power equations, with separate float gain stages. */

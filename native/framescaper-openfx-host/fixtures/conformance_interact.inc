@@ -99,9 +99,13 @@ OfxStatus conformance_interact(
 		char* key_string = nullptr;
 		if (properties->propGetInt(input, kOfxPropKeySym, 0, &key_sym) != kOfxStatOK
 			|| properties->propGetString(input, kOfxPropKeyString, 0, &key_string) != kOfxStatOK
-			|| key_sym != kOfxKey_Return || key_string == nullptr || *key_string != '\0') {
+			|| key_string == nullptr || *key_string != '\0') {
 			return kOfxStatFailed;
 		}
+		// This fixture does not constrain its gesture with modifiers.
+		if ((key_sym >= kOfxKey_Shift_L && key_sym <= kOfxKey_Control_R)
+			|| (key_sym >= kOfxKey_Meta_L && key_sym <= kOfxKey_Alt_R)) return kOfxStatReplyDefault;
+		if (key_sym != kOfxKey_Return) return kOfxStatFailed;
 		const bool key_down = std::strcmp(action, kOfxInteractActionKeyDown) == 0;
 		const bool ordered = key_down
 			? advance_interact_sequence(handle, 4, 5)

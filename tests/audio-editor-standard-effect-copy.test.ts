@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { bundledCopyForLocale, ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { canonicalCopyValue, effectCardCopyKey } from '../src/common/i18n/canonical-extras.js';
 import { localizedValue } from '../src/common/i18n/locale.js';
 
@@ -13,7 +15,7 @@ const resolveCanonicalCopy = canonicalCopyValue as unknown as (
 	key: string, copyOrLocale?: string | Readonly<Record<string, string>>
 ) => string;
 
-test('standard effect card titles resolve from bundled catalogs in regional English and German locales', () => {
+test('standard effect card titles resolve from the English source and German JSON catalog', () => {
 	for (const [title, german] of [
 		['Notch filter', 'Kerbfilter'],
 		['Shelf filter', 'Shelving-Filter'],
@@ -22,10 +24,9 @@ test('standard effect card titles resolve from bundled catalogs in regional Engl
 		['Vocoder', 'Vocoder'],
 	]) {
 		const key = effectCardCopyKey(title);
-		for (const [locale, expected] of [['en-GB', title], ['de-AT', german]]) {
-			const catalog = bundledCopyForLocale(locale) as Readonly<Record<string, string>>;
+		for (const [locale, expected, catalog] of [['en', title, ENGLISH_COPY], ['de', german, GERMAN_COPY]] as const) {
 			assert.equal(catalog[key], expected, `${locale}: ${title}`);
-			assert.equal(resolveCanonicalCopy(key, locale), expected, `${locale}: ${title}`);
+			assert.equal(resolveCanonicalCopy(key, locale), title, 'a locale name alone uses the English source');
 			assert.equal(resolveCanonicalCopy(key, catalog), expected, 'resolved catalog objects preserve the same card copy');
 		}
 	}

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createDeliveryPresetService } from './delivery-preset-service.ts';
+import { createDeliveryPresetService, type DeliveryPresetServiceRuntime } from './delivery-preset-service.ts';
 import { createDeliveryQueueService } from './internal/delivery/delivery-queue-service.ts';
 import { saveCurrentDeliveryReport } from './internal/delivery/delivery-report-action.ts';
 import { exportProjectEdl, exportProjectFcpxml, exportProjectOtio } from './interchange-export-action.ts';
@@ -29,7 +29,7 @@ export interface ExportActionState extends OriginalOverwriteState {
  */
 
 export interface ExportActionGroupRuntime {
-	readonly store?: InterchangeTimingRuntime['store'];
+	readonly store?: InterchangeTimingRuntime['store'] & { readonly settingsRepository?: DeliveryPresetServiceRuntime['presetRepository'] };
 	readonly handleExportAction: (action: string, settings?: unknown) => Promise<unknown> | unknown;
 	readonly publishBlenderTracks?: (request: BlenderPublishRequest) => Promise<{ readonly revision: number }>;
 	readonly state: ExportActionState;
@@ -85,7 +85,7 @@ export function createExportActionGroup(runtime: ExportActionGroupRuntime) {
 		exportOtio: (options?: { sequenceId?: string }) => exportProjectOtio({ ...interchange(), ...options }),
 		exportFcpxml: (options?: { sequenceId?: string }) => exportProjectFcpxml({ ...interchange(), ...options }),
 		presets: createDeliveryPresetService({
-			state, persistSetting, publishDocumentSnapshot, createId, fileService,
+			state, persistSetting, publishDocumentSnapshot, createId, fileService, presetRepository: runtime.store?.settingsRepository,
 		}),
 		queue: createDeliveryQueueService({
 			handleExportAction, publishDocumentSnapshot, createId, state, getProject,

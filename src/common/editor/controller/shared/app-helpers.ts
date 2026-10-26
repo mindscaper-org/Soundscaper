@@ -135,7 +135,8 @@ export function generatorName(type: string, copy: GeneratorCopy): string {
 }
 
 export function stripExtension(name: unknown): string {
-	return String(name || '').replace(/\.[^.]+$/, '');
+	const stem = String(name || '').replace(/\.[^.]+$/, '');
+	return stem.trim() ? stem : '';
 }
 
 export function labelMimeType(format: string): string {

@@ -31,9 +31,16 @@ export function importSoundscaperAudacityMixer(decoded: AudioEditorProjectV17, p
 			}
 		}
 	}
+	const folderIds = new Set(project.trackFolders.map(folder => folder.id));
+	const parentByTrack = new Map(project.sequences.flatMap(sequence => sequence.trackNodes
+		.filter(node => node.kind === 'track').map(node => [node.id, node.parentFolderId] as const)));
 	for (const [trackId, route] of Object.entries(decoded.mixer.routes)) {
+		// The legacy graph collapses folder buses to the top level. The native
+		// graph already owns the complete immediate-parent assignment chain.
+		const groupId = route.groupId !== null && folderIds.has(route.groupId)
+			? parentByTrack.get(trackId) ?? route.groupId : route.groupId;
 		mixer = applySoundscaperMixerSurfaceCommand({ ...project, mixer }, {
-			type: 'mixer/route-update', trackId, changes: { groupId: route.groupId, sends: route.sends },
+			type: 'mixer/route-update', trackId, changes: { groupId, sends: route.sends },
 		});
 	}
 	for (const route of context?.nodeRoutes ?? []) {
@@ -55,6 +62,21 @@ export function importSoundscaperAudacityMixer(decoded: AudioEditorProjectV17, p
 				channelMap: defaultMixerChannelMapV21(source.channelCount,
 					mixer.sends.find(bus => bus.id === send.sendId)?.channelCount ?? project.masterChannels),
 			})),
+		] });
+	}
+	// The legacy staging route is destination-indexed. The import context owns
+	// every individual send, including parallel connections with different taps.
+	const authoredSends = context?.sendTaps.filter(tap => tap.level !== undefined) ?? [];
+	if (authoredSends.length) {
+		const owners = new Set(authoredSends.map(tap => tap.trackId));
+		const sends = authoredSends.flatMap((tap, index) => {
+			const edge = mixer.edges.find(edge => edge.kind === 'send' && edge.source.kind === 'track'
+				&& edge.source.id === tap.trackId && edge.destination.kind === 'mixer-node' && edge.destination.id === tap.sendId);
+			return edge ? [{ ...edge, id: `imported-track-send:${String(index)}`, level: tap.level!, position: tap.position }] : [];
+		});
+		return normalizeMixerGraphV21({ ...mixer, edges: [
+			...mixer.edges.filter(edge => edge.kind !== 'send' || edge.source.kind !== 'track' || !owners.has(edge.source.id)),
+			...sends,
 		] });
 	}
 	if (!context?.sendTaps.length) return mixer;

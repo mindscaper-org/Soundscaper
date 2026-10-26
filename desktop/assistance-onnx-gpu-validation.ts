@@ -10,6 +10,10 @@ import {
 import type {
 	AssistanceOnnxInferenceSessionV1, AssistanceOnnxRuntimeModuleV1,
 } from './assistance-onnx-runtime-worker.ts';
+import {
+	assistanceOnnxExecutionProvidersV1,
+	type AssistanceOnnxWebGpuPolicyV1,
+} from './assistance-onnx-provider-options.ts';
 
 export interface AssistanceOnnxGpuExecutionProofV1 extends AssistanceOnnxGpuKernelCountsV1 {
 	readonly provider: AssistanceOnnxGpuProviderV1;
@@ -20,6 +24,7 @@ export function createAssistanceOnnxGpuValidatedRuntimeV1(
 	providers: readonly AssistanceOnnxGpuProviderV1[],
 	getSignal: () => AbortSignal | undefined,
 	onExecution: (proof: AssistanceOnnxGpuExecutionProofV1) => PromiseLike<void> | void,
+	webGpuPolicy?: AssistanceOnnxWebGpuPolicyV1,
 ): AssistanceOnnxRuntimeModuleV1 {
 	// CoreML may route a profiled subgraph to CPU or ANE internally. Its EP name
 	// alone cannot certify physical GPU work; every maintained target ships WebGPU.
@@ -33,7 +38,8 @@ export function createAssistanceOnnxGpuValidatedRuntimeV1(
 			let native: AssistanceOnnxInferenceSessionV1;
 			try {
 				native = await runtime.InferenceSession.create(path, {
-					...settings, ...profile.settings, executionProviders: [provider, 'cpu'],
+					...settings, ...profile.settings,
+					executionProviders: assistanceOnnxExecutionProvidersV1(provider, webGpuPolicy),
 				});
 			} catch (error) {
 				await profile.dispose();
@@ -50,7 +56,8 @@ export function createAssistanceOnnxGpuValidatedRuntimeV1(
 			}
 			let tail: Promise<unknown> = Promise.resolve();
 			let release: Promise<void> | undefined;
-			let ran = false, failed = false;
+			let proof: AssistanceOnnxGpuKernelCountsV1 | undefined;
+			let profiling = true, ran = false, failed = false;
 			return {
 				inputNames: native.inputNames, outputNames: native.outputNames,
 				run: (feeds) => {
@@ -59,6 +66,13 @@ export function createAssistanceOnnxGpuValidatedRuntimeV1(
 						getSignal()?.throwIfAborted();
 						try {
 							const result = await native.run(feeds);
+							if (profiling) {
+								// A first successful output proves this exact native session. Stop here so
+								// multi-chunk audio jobs cannot grow an otherwise valid trace past its bound.
+								profiling = false;
+								await native.endProfiling!();
+								proof = await profile.review(provider);
+							}
 							ran = true;
 							return result;
 						} catch (error) { failed = true; throw error; }
@@ -71,9 +85,7 @@ export function createAssistanceOnnxGpuValidatedRuntimeV1(
 						await tail;
 						try {
 							getSignal()?.throwIfAborted();
-							if (ran && !failed) {
-								await native.endProfiling!();
-								const proof = await profile.review(provider);
+							if (ran && !failed && proof !== undefined) {
 								await onExecution(Object.freeze({ provider, ...proof }));
 							}
 						} finally {

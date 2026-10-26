@@ -5,7 +5,4 @@ export const FREESOUND_ATTRIBUTION_INVENTORY_COPY_BY_LOCALE = Object.freeze({
 	en: Object.freeze({
 		panel: 'Freesound',
 	}),
-	de: Object.freeze({
-		panel: 'Freesound',
-	}),
 });

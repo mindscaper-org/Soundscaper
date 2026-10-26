@@ -91,20 +91,29 @@ test('the existing Frame grading menu authors a durable command that the selecte
 		captureFrame: () => { throw new Error('no original media requested'); },
 		applyEffects: value => Promise.resolve(value), assertCurrent: () => undefined });
 	const target = new Uint8Array(WIDTH * HEIGHT * 4);
-	const fill = Uint8Array.prototype.fill;
-	const released: Uint8Array[] = [];
-	Uint8Array.prototype.fill = function(value, start, end) {
-		if (value === 0 && this.length === WIDTH * HEIGHT * 4 && this[0] === 110 && this[3] === 255) released.push(this);
+	const decoded = ((128 / 255 + 0.055) / 1.055) ** 2.4;
+	const workingChannel = Math.fround(decoded * 2);
+	const encodedByte = Math.round((1.055 * workingChannel ** (1 / 2.4) - 0.055) * 255);
+	assert.equal(encodedByte, 176, 'one exposure stop doubles decoded sRGB before the only byte encoding');
+	const expectedWorking = Array.from({ length: WIDTH * HEIGHT * 4 }, (_, channel) => channel % 4 === 3 ? 1 : workingChannel);
+	const fill = Float32Array.prototype.fill;
+	const released: { pixels: Float32Array; before: number[] }[] = [];
+	Float32Array.prototype.fill = function(value, start, end) {
+		if (value === 0 && this.length === WIDTH * HEIGHT * 4
+			&& !released.some(({ pixels }) => pixels.buffer === this.buffer)) {
+			released.push({ pixels: this, before: Array.from(this) });
+		}
 		return fill.call(this, value, start, end);
 	};
 	try {
 		await execution.render({ sequencePosition: { num: 0, den: 1 }, layers: [], width: WIDTH, height: HEIGHT, target, signal: LIVE });
-		assert.deepEqual(Array.from(target.subarray(0, 4)), [175, 175, 175, 255],
-			'128 encoded input becomes110 linear bytes, then175 encoded bytes in the established Frame pipeline');
-		assert.equal(new Set(released.map(value => value.buffer)).size, 2,
-			'the actual selected renderer releases both its transformed chunk and callback-scoped grade output');
-		assert.equal(released.every(value => value.every(byte => byte === 0)), true);
-	} finally { Uint8Array.prototype.fill = fill; await execution.dispose(); }
+		assert.deepEqual(Array.from(target.subarray(0, 4)), [encodedByte, encodedByte, encodedByte, 255],
+			'the selected exact renderer preserves floating-point linear channels until final sRGB encoding');
+		assert.equal(new Set(released.map(({ pixels }) => pixels.buffer)).size, 1,
+			'the actual selected renderer retires its single private Float32 grade frame');
+		assert.deepEqual(released.map(({ before }) => before), [expectedWorking], 'every graded channel and alpha reaches placement at full working precision');
+		assert.equal(released.every(({ pixels }) => pixels.every(channel => channel === 0)), true);
+	} finally { Float32Array.prototype.fill = fill; await execution.dispose(); }
 });
 
 test('numeric Frame grading and linear adjustments are byte-for-byte equal to the established exact math', async () => {

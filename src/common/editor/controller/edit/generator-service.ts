@@ -365,7 +365,7 @@ export function createAudioGeneratorService<Context, Target extends AudioGenerat
 				type: 'audio',
 				id: trackId,
 				name,
-			}));
+			}, Number(project.sampleRate)));
 		}
 		const clipId = dependencies.createId('clip');
 		commands.push(createAddClipCommand(trackId, {

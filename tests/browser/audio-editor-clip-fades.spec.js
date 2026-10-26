@@ -26,6 +26,9 @@ async function beginFadeDrag(page, handle, delta) {
 		return Number(id);
 	});
 	await page.mouse.move(bounds.x + bounds.width / 2 + delta, bounds.y + 5, { steps: 5 });
+	// Fade previews coalesce pointer moves on the next animation frame. Read
+	// the final move after its React update, before comparing preview and commit.
+	await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 	return pointer;
 }
 

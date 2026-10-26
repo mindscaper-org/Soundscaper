@@ -163,7 +163,7 @@ function parseRow(row: ClipSpreadsheetNewRow): ParsedRow {
 		if (Number(fadeIn) > seconds || Number(fadeOut) > seconds) throw new RangeError('A fade cannot be longer than the clip.');
 	}
 	return {
-		source, track: text('track', ''), name: text('name', ''), position, offset, duration, fadeIn, fadeOut,
+		source, track: row.track?.trim() ? row.track : '', name: text('name', ''), position, offset, duration, fadeIn, fadeOut,
 		pitchCents: spreadsheetNumber(text('pitch', '0'), -12, 12, 'Pitch') * 100,
 		speedRatio: spreadsheetNumber(text('speed', '1'), 0.001, 1_000, 'Speed'),
 		gain: spreadsheetGain(text('gain', '0')),

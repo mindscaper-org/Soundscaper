@@ -1,3 +1,4 @@
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -52,7 +53,7 @@ test('every parity record carries its action policy and upstream attribution', (
 			assert.equal(definition.handler, null);
 			assert.equal(definition.enableWhen, 'never');
 			assert.equal(typeof definition.reason.en, 'string');
-			assert.equal(typeof definition.reason.de, 'string');
+			assert.equal(typeof GERMAN_COPY[definition.reason.catalogKey], 'string');
 		}
 	}
 });
@@ -67,7 +68,7 @@ test('every Audacity action has a roadmap disposition with actionable ownership'
 			continue;
 		}
 		if (definition.roadmapDisposition === AUDACITY_ACTION_ROADMAP_DISPOSITION.JUSTIFIED_EXCLUDED) {
-			assert.ok(definition.reason?.en && definition.reason?.de, definition.id);
+			assert.ok(definition.reason?.en && GERMAN_COPY[definition.reason?.catalogKey], definition.id);
 			continue;
 		}
 		assert.match(definition.roadmapMilestone, /^(?:[1-9]|8[AB])$/u, definition.id);

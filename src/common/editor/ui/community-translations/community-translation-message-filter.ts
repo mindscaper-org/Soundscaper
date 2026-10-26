@@ -12,19 +12,41 @@ interface CommunityTranslationMessageOptions {
 export function communityTranslationMessageKeys(
 	snapshot: ContributionSnapshot,
 	draft: TranslationContribution,
-	{ query, filter, reviewKeys, locale }: CommunityTranslationMessageOptions,
-	metadata: Readonly<Record<string, Readonly<{ bundledGerman?: string }>>>,
+	{ query, filter, reviewKeys }: CommunityTranslationMessageOptions,
 ): readonly string[] {
 	const needle = query.toLocaleLowerCase();
-	const changedKeys = new Set(draft.entries.map(({ key }) => key));
+	const changes = new Map<string, TranslationContribution['entries'][number]>();
+	for (const change of draft.entries) {
+		const key = change.key;
+		if (!changes.has(key)) changes.set(key, change);
+	}
+	const changedKeys = changes.keys();
 	return [...new Set([...Object.keys(snapshot.entries), ...changedKeys])].sort().filter((key) => {
 		const entry = snapshot.entries[key];
-		const change = draft.entries.find((item) => item.key === key);
-		if (filter === 'changed' && !changedKeys.has(key)) return false;
+		const change = changes.get(key);
+		if (filter === 'changed' && !changes.has(key)) return false;
 		if (filter === 'review' && !reviewKeys.has(key)) return false;
-		if (filter === 'missing' && publishedTranslationOrigin(entry, locale === 'de'
-			? metadata[key]?.bundledGerman : undefined) !== 'missing') return false;
+		if (filter === 'missing' && publishedTranslationOrigin(entry) !== 'missing') return false;
 		return [key, entry?.source, entry?.baselineText, change?.translation]
 			.some((value) => value?.toLocaleLowerCase().includes(needle));
 	});
+}
+
+/** Current draft reader shared by selected-message and option-source presentation. */
+export function createCommunityTranslationDraftReader(draft: TranslationContribution | undefined) {
+	const direct = (key: string) => draft?.entries.find(entry => entry.key === key);
+	const entries = draft?.entries;
+	if (!entries || !Object.isFrozen(entries) || entries.length > 16_384
+		|| Object.getPrototypeOf(entries) !== Array.prototype || Object.hasOwn(entries, Symbol.iterator)) return direct;
+	const byKey = new Map<string, TranslationContribution['entries'][number]>();
+	for (let index = 0; index < entries.length; index++) {
+		const slot = Object.getOwnPropertyDescriptor(entries, index);
+		if (!slot || !('value' in slot)) return direct;
+		const entry = slot.value as TranslationContribution['entries'][number] | null;
+		if (!entry || !Object.isFrozen(entry)
+			|| typeof Object.getOwnPropertyDescriptor(entry, 'key')?.value !== 'string') return direct;
+		const key = entry.key;
+		if (!byKey.has(key)) byKey.set(key, entry);
+	}
+	return (key: string) => byKey.get(key);
 }

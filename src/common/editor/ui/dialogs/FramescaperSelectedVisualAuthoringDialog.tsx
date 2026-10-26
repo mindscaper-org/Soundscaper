@@ -254,6 +254,7 @@ function AdjustmentFields({ text, model, blocked, values, setters, onPerform }: 
 }
 
 function MaskFields({ text, model, blocked, values, setters, onPerform }: Parameters<typeof AuthoringFields>[0]) {
+	const editable = !values.maskId || model.maskDrafts.some(mask => mask.id === values.maskId);
 	if (!['video', 'still', 'generator'].includes(model.selectedClipKind ?? '')) {
 		return <p role="alert">{text.selectVisual}</p>;
 	}
@@ -265,6 +266,7 @@ function MaskFields({ text, model, blocked, values, setters, onPerform }: Parame
 			{model.attachedMaskIds.map((id) => <option key={id} value={id}>{id}</option>)}
 		</select></label>
 		<label><span>{text.shape}</span><select data-framescaper-authoring-mask-shape value={values.shape}
+			disabled={!editable}
 			onChange={(event) => setters.setShape(event.currentTarget.value as Values['shape'])}>
 			<option value="rectangle">{text.rectangle}</option><option value="ellipse">{text.ellipse}</option><option value="linear-gradient">{text.linearGradient}</option>
 			<option value="radial-gradient">{text.radialGradient}</option>
@@ -272,50 +274,50 @@ function MaskFields({ text, model, blocked, values, setters, onPerform }: Parame
 			<option value="color-range">{text.colorRange}</option>
 		</select></label>
 		{values.shape === 'color-range' ? <>
-			<label><span>{text.red}</span><input data-framescaper-authoring-mask-red type="number" min={0} max={1} step="any" value={values.red}
+			<label><span>{text.red}</span><input data-framescaper-authoring-mask-red type="number" min={0} max={1} step="any" value={values.red} disabled={!editable}
 				onChange={event => setters.setRed(event.currentTarget.value)} /></label>
-			<label><span>{text.green}</span><input data-framescaper-authoring-mask-green type="number" min={0} max={1} step="any" value={values.green}
+			<label><span>{text.green}</span><input data-framescaper-authoring-mask-green type="number" min={0} max={1} step="any" value={values.green} disabled={!editable}
 				onChange={event => setters.setGreen(event.currentTarget.value)} /></label>
-			<label><span>{text.blue}</span><input data-framescaper-authoring-mask-blue type="number" min={0} max={1} step="any" value={values.blue}
+			<label><span>{text.blue}</span><input data-framescaper-authoring-mask-blue type="number" min={0} max={1} step="any" value={values.blue} disabled={!editable}
 				onChange={event => setters.setBlue(event.currentTarget.value)} /></label>
-			<label><span>{text.radius}</span><input data-framescaper-authoring-mask-radius type="number" min={0} max={1} step="any" value={values.radius}
+			<label><span>{text.radius}</span><input data-framescaper-authoring-mask-radius type="number" min={0} max={1} step="any" value={values.radius} disabled={!editable}
 				onChange={event => setters.setRadius(event.currentTarget.value)} /></label>
-			<label><span>{text.falloff}</span><input data-framescaper-authoring-mask-falloff type="number" min={0} max={1} step="any" value={values.colorFalloff}
+			<label><span>{text.falloff}</span><input data-framescaper-authoring-mask-falloff type="number" min={0} max={1} step="any" value={values.colorFalloff} disabled={!editable}
 				onChange={event => setters.setColorFalloff(event.currentTarget.value)} /></label>
 		</> : values.shape === 'luminance-range' ? <>
-			<label><span>{text.lower}</span><input data-framescaper-authoring-mask-lower type="number" min={0} max={1} step="any" value={values.lower}
+			<label><span>{text.lower}</span><input data-framescaper-authoring-mask-lower type="number" min={0} max={1} step="any" value={values.lower} disabled={!editable}
 				onChange={event => setters.setLower(event.currentTarget.value)} /></label>
-			<label><span>{text.upper}</span><input data-framescaper-authoring-mask-upper type="number" min={0} max={1} step="any" value={values.upper}
+			<label><span>{text.upper}</span><input data-framescaper-authoring-mask-upper type="number" min={0} max={1} step="any" value={values.upper} disabled={!editable}
 				onChange={event => setters.setUpper(event.currentTarget.value)} /></label>
-			<label><span>{text.falloff}</span><input data-framescaper-authoring-mask-falloff type="number" min={0} max={1} step="any" value={values.falloff}
+			<label><span>{text.falloff}</span><input data-framescaper-authoring-mask-falloff type="number" min={0} max={1} step="any" value={values.falloff} disabled={!editable}
 				onChange={event => setters.setFalloff(event.currentTarget.value)} /></label>
 		</> : values.shape === 'radial-gradient' ? <>
-			<label><span>{text.centerX}</span><input data-framescaper-authoring-mask-center-x type="number" min={-1_000_000} max={1_000_000} step="any" value={values.centerX}
+			<label><span>{text.centerX}</span><input data-framescaper-authoring-mask-center-x type="number" min={-1_000_000} max={1_000_000} step="any" value={values.centerX} disabled={!editable}
 				onChange={event => setters.setCenterX(event.currentTarget.value)} /></label>
-			<label><span>{text.centerY}</span><input data-framescaper-authoring-mask-center-y type="number" min={-1_000_000} max={1_000_000} step="any" value={values.centerY}
+			<label><span>{text.centerY}</span><input data-framescaper-authoring-mask-center-y type="number" min={-1_000_000} max={1_000_000} step="any" value={values.centerY} disabled={!editable}
 				onChange={event => setters.setCenterY(event.currentTarget.value)} /></label>
-			<label><span>{text.radiusX}</span><input data-framescaper-authoring-mask-radius-x type="number" min={Number.MIN_VALUE} max={1_000_000} step="any" value={values.radiusX}
+			<label><span>{text.radiusX}</span><input data-framescaper-authoring-mask-radius-x type="number" min={Number.MIN_VALUE} max={1_000_000} step="any" value={values.radiusX} disabled={!editable}
 				onChange={event => setters.setRadiusX(event.currentTarget.value)} /></label>
-			<label><span>{text.radiusY}</span><input data-framescaper-authoring-mask-radius-y type="number" min={Number.MIN_VALUE} max={1_000_000} step="any" value={values.radiusY}
+			<label><span>{text.radiusY}</span><input data-framescaper-authoring-mask-radius-y type="number" min={Number.MIN_VALUE} max={1_000_000} step="any" value={values.radiusY} disabled={!editable}
 				onChange={event => setters.setRadiusY(event.currentTarget.value)} /></label>
-			<label><span>{text.innerFraction}</span><input data-framescaper-authoring-mask-inner-fraction type="number" min={0} max={1} step="any" value={values.innerFraction}
+			<label><span>{text.innerFraction}</span><input data-framescaper-authoring-mask-inner-fraction type="number" min={0} max={1} step="any" value={values.innerFraction} disabled={!editable}
 				onChange={event => setters.setInnerFraction(event.currentTarget.value)} /></label>
 		</> : values.shape === 'linear-gradient' ? <>
-			<label><span>{text.startX}</span><input data-framescaper-authoring-mask-start-x type="number" min={-1_000_000} max={1_000_000} step="any" value={values.startX}
+			<label><span>{text.startX}</span><input data-framescaper-authoring-mask-start-x type="number" min={-1_000_000} max={1_000_000} step="any" value={values.startX} disabled={!editable}
 				onChange={event => setters.setStartX(event.currentTarget.value)} /></label>
-			<label><span>{text.startY}</span><input data-framescaper-authoring-mask-start-y type="number" min={-1_000_000} max={1_000_000} step="any" value={values.startY}
+			<label><span>{text.startY}</span><input data-framescaper-authoring-mask-start-y type="number" min={-1_000_000} max={1_000_000} step="any" value={values.startY} disabled={!editable}
 				onChange={event => setters.setStartY(event.currentTarget.value)} /></label>
-			<label><span>{text.endX}</span><input data-framescaper-authoring-mask-end-x type="number" min={-1_000_000} max={1_000_000} step="any" value={values.endX}
+			<label><span>{text.endX}</span><input data-framescaper-authoring-mask-end-x type="number" min={-1_000_000} max={1_000_000} step="any" value={values.endX} disabled={!editable}
 				onChange={event => setters.setEndX(event.currentTarget.value)} /></label>
-			<label><span>{text.endY}</span><input data-framescaper-authoring-mask-end-y type="number" min={-1_000_000} max={1_000_000} step="any" value={values.endY}
+			<label><span>{text.endY}</span><input data-framescaper-authoring-mask-end-y type="number" min={-1_000_000} max={1_000_000} step="any" value={values.endY} disabled={!editable}
 				onChange={event => setters.setEndY(event.currentTarget.value)} /></label>
 		</> : <><label><span>{text.width}</span><input data-framescaper-authoring-mask-width type="number" min="0.01"
-			max="1" step="0.01" value={values.maskWidth}
+			max="1" step="0.01" value={values.maskWidth} disabled={!editable}
 			onChange={(event) => setters.setMaskWidth(event.currentTarget.value)} /></label>
 		<label><span>{text.height}</span><input data-framescaper-authoring-mask-height type="number" min="0.01"
-			max="1" step="0.01" value={values.maskHeight}
+			max="1" step="0.01" value={values.maskHeight} disabled={!editable}
 			onChange={(event) => setters.setMaskHeight(event.currentTarget.value)} /></label></>}
-		<div><button data-framescaper-authoring-apply type="button" onClick={() => onPerform('apply')}>
+		<div><button data-framescaper-authoring-apply type="button" disabled={!editable} onClick={() => onPerform('apply')}>
 			{values.maskId ? text.updateMask : text.createMask}</button>
 		<button data-framescaper-authoring-remove type="button" disabled={!values.maskId}
 			onClick={() => onPerform('remove')}>{text.removeAttachment}</button></div>

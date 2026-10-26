@@ -63,7 +63,8 @@ export default function ClipAudioSettingsMenu({ controller, clip, source, copy, 
 	const gainNumber = Number(gain);
 	const shape = dialog === 'fadeInShape' || dialog === 'fadeOutShape';
 	const valueLabel = dialog === 'fadeInShape' ? copy.fadeInShape : dialog === 'fadeOutShape' ? copy.fadeOutShape : `${copy.clipGain} (dB)`;
-	const gainValid = gain.trim() !== '' && Number.isFinite(gainNumber) && gainNumber >= (shape ? 0.15 : -60) && gainNumber <= (shape ? 6 : 24);
+	const maximum = shape ? 6 : 20 * Math.log10(16);
+	const gainValid = !valueEdited || (gain.trim() !== '' && Number.isFinite(gainNumber) && gainNumber >= (shape ? 0.15 : -60) && gainNumber <= maximum);
 	const applyGain = () => {
 		if (disabled || !gainValid) return;
 		if (valueEdited) run(() => actions.update(clip.id, shape ? { [dialog ?? 'gain']: gainNumber } : { gain: Math.min(16, 10 ** (gainNumber / 20)) }));
@@ -107,7 +108,7 @@ export default function ClipAudioSettingsMenu({ controller, clip, source, copy, 
 				if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
 				event.preventDefault(); event.stopPropagation(); applyGain();
 			}}><label className="kw-audio-editor-dialog__field" data-clip-field={dialog}><span>{valueLabel}</span>
-				<NumberStepper value={gain} onChange={value => { setValueEdited(true); setGain(value); }} ariaLabel={valueLabel} min={shape ? 0.15 : -60} max={shape ? 6 : 24} step={shape ? 0.01 : 1} disabled={disabled} />
+				<NumberStepper value={gain} onChange={value => { setValueEdited(true); setGain(value); }} ariaLabel={valueLabel} min={shape ? 0.15 : -60} max={maximum} step={shape ? 0.01 : 1} disabled={disabled} />
 			</label></form>
 		</AudioEditorDialogShell>}
 	</div>;

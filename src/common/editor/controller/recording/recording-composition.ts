@@ -8,7 +8,7 @@ import {
 	RECORDING_DEFAULT_DEVICE_ID,
 	RECORDING_DISPLAY_SOURCE_KEY,
 	normalizeRecordingRouting,
-	recordingRouteSourceKey,
+	recordingRouteSourceKey, recordingTrackRoute,
 	recordingRoutingSettingKey,
 	setRecordingSourceOffset,
 	setRecordingTrackRoute,
@@ -273,7 +273,7 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		recordingRouteSourceKey,
 		createId: createStableId,
 		createRecordingName: (name) => `${name} ${new Date().toLocaleTimeString(locale)}`,
-		preflightRecording: (bytes) => dependencies.preflightStorage(bytes, 'recording'),
+		preflightRecording: (bytes, signal) => dependencies.preflightStorage(bytes, 'recording', signal),
 		releaseInputs: () => releaseUnretainedRecordingInputs(),
 		activateStoredSource: (source, metadata) => (
 			dependencies.activateStoredSource(source, metadata, { requireChunkStream: true })
@@ -327,7 +327,7 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 			}
 			await startOwnedOrdinaryRecording({ begin: ordinaryRecovery.begin, scope,
 				capture: () => {
-					const route = options.trackId ? state.recordingRouting.routes[options.trackId] : null;
+					const route = recordingTrackRoute(state.recordingRouting.routes, options.trackId);
 					const routed = route && (route.kind === 'display' || route.deviceId !== RECORDING_DEFAULT_DEVICE_ID
 						|| route.channelStart > 0 || route.channelCount !== 2);
 					return options.trackId && !routed ? legacyCapture.capture(options, scope) : routedCapture.capture(options, scope);

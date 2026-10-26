@@ -18,6 +18,7 @@ import {
 	linearToDb,
 } from './geometry.ts';
 import { TrackTelemetryMeters } from './TrackTelemetryMeters.tsx';
+import { usePlaybackMeterVisibility } from '../usePlaybackMeterVisibility.ts';
 import { focusCandidate, focusFirst, focusPanelControl } from './timeline-navigation.js';
 import { finishInlineTrackRename } from './track-name-keyboard-focus.ts';
 import { useMixerParameterGestures } from '../useMixerParameterGestures.ts';
@@ -58,6 +59,7 @@ export function TrackControls({
 	onNavigateVertical,
 }) {
 	const controlsRef = useRef(null);
+	usePlaybackMeterVisibility(controller.engine, 'track', track.id, controlsRef);
 	const automationGestureRef = useRef(null);
 	const [editingName, setEditingName] = useState(false);
 	const staticGestures = useMixerParameterGestures(controller.actions.mixer,
@@ -347,9 +349,10 @@ export function TrackNameEditor({ track, label, blocked, controller, run, onClos
 	useEffect(() => { if (owner.current !== sessionKey) onClose(); }, [sessionKey, onClose]);
 	const editorRef = useRef(null);
 	const [name, setName] = useState(track.name);
+	const multiline = /[\r\n]/u.test(track.name);
 	useEffect(() => setName(track.name), [track.name]);
 	useEffect(() => {
-		const input = editorRef.current?.querySelector('input');
+		const input = editorRef.current?.querySelector('input,textarea');
 		input?.focus();
 		input?.select();
 	}, []);
@@ -366,13 +369,14 @@ export function TrackNameEditor({ track, label, blocked, controller, run, onClos
 	};
 	return (
 		<label ref={editorRef} data-track-name onBlur={commit} onKeyDown={(event) => {
+			if (multiline && event.key === 'Enter' && event.shiftKey) { event.stopPropagation(); return; }
 			finishInlineTrackRename(event, commit, () => {
 				setName(track.name);
 				onClose();
 			});
 		}}>
 			<span className="kw-audio-editor-sr-only">{label}: {track.name}</span>
-			<TextInput value={name} disabled={blocked} width="100%" onChange={setName} />
+			<TextInput value={name} multiline={multiline} disabled={blocked} width="100%" onChange={setName} />
 		</label>
 	);
 }

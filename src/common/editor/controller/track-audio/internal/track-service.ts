@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { recordingTrackRoute } from '../../../recording-routing.js';
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts'; import type { RecordingRoute, RecordingRouting } from '../../../recording-routing.js'; import { publishedCopyFor } from '../../shared/presentation-localization.ts';
 import { hasCoreEditingProjectAuthority } from '../../../project-schema-version.ts';
 import {
@@ -170,7 +171,7 @@ export function createEditorTrackService(
 			...(spectrogram ? { spectrogram } : {}),
 			armed: options.armed ?? project.tracks.length === 0,
 			height: options.height ?? 300,
-		});
+		}, project.sampleRate);
 		dependencies.commit(command, { selectTrackId: trackId });
 		assignPreferredInputToTrack(trackId);
 		return trackId;
@@ -209,7 +210,7 @@ export function createEditorTrackService(
 				armed: false,
 				...(spectrogram ? { spectrogram } : {}),
 				height: options.height ?? options.audioHeight ?? 300,
-			}),
+			}, project.sampleRate),
 			index: requestedIndex + 1,
 		}];
 		dependencies.commit({ type: 'batch', commands }, { selectTrackId: videoTrackId });
@@ -220,7 +221,7 @@ export function createEditorTrackService(
 		dependencies.lifetime.assertActive();
 		const project = dependencies.getProject();
 		const routing = dependencies.recording.getRouting();
-		if (routing.routes[trackId]) return false;
+		if (recordingTrackRoute(routing.routes, trackId)) return false;
 		const track = findControllerTrack(project, trackId);
 		if (!track || track.type !== 'audio') return false;
 		const deviceId = dependencies.recording.getPreferredDeviceId()
@@ -387,7 +388,7 @@ function timeSelectionRegion(
  */
 function labelTrackFrom(project: ControllerProject, focused: ControllerTrack | null): ControllerTrack | null {
 	const members = sequenceTrackMembers(project, focused?.id);
-	const labelTracks = project.tracks.filter((track) => track.type === 'label' && (!members || members.has(track.id)));
+	const labelTracks = project.tracks.filter((track) => track.type === 'label' && !track.locked && (!members || members.has(track.id)));
 	const start = focused ? project.tracks.indexOf(focused) : 0;
 	const below = labelTracks.find((track) => project.tracks.indexOf(track) >= start);
 	return below ?? labelTracks.at(-1) ?? null;

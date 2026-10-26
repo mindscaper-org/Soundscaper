@@ -216,7 +216,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 			const selection = runtime.activeSelection(project);
 			await runtime.preflightStorage(
 				captureSampleRate * routedChannelCount * Float32Array.BYTES_PER_ELEMENT * 60,
-				'recording',
+				'recording', scope.signal,
 			);
 			scope.assertCurrent();
 			const requestedStartFrame = selection?.startFrame ?? runtime.engine.getPositionFrames();

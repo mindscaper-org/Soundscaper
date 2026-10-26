@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { sha256 } from '@noble/hashes/sha2.js';
+import { encodeProjectIdKey } from './project-validation-primitives.ts';
 
 export interface ScapeDigestWriter {
 	update(bytes: Uint8Array): unknown;
@@ -24,7 +25,7 @@ export function scapeHex(bytes: Uint8Array): string {
 }
 
 export function safeScapeEntryId(value: unknown): string {
-	const encoded = encodeURIComponent(String(value || '')).replaceAll('_', '_5F').replaceAll('%', '_');
+	const encoded = encodeProjectIdKey(String(value || '')).replaceAll('_', '_5F').replaceAll('%', '_');
 	if (encoded === '.') return '_2E';
 	if (encoded === '..') return '_2E_2E';
 	return encoded;

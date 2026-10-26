@@ -51,8 +51,10 @@ export function createStandardFilterProcessor(options: StandardFilterProcessorOp
 			// calls. There are no allocations or coefficient calculations here.
 			for (let channel = 0; channel < channelCount; channel++) {
 				const channelBase = channel * coefficients.length * 2;
+				const source = input[channel];
+				const destination = output[channel];
 				for (let frame = 0; frame < frames; frame++) {
-					const sample = input[channel]?.[frame] ?? 0;
+					const sample = source?.[frame] ?? 0;
 					let value = Number.isFinite(sample) ? sample : 0;
 					for (let stage = 0; stage < coefficients.length; stage++) {
 						const coefficient = coefficients[stage];
@@ -62,7 +64,7 @@ export function createStandardFilterProcessor(options: StandardFilterProcessorOp
 						state[index + 1] = coefficient[2] * value - coefficient[4] * filtered;
 						value = filtered;
 					}
-					output[channel][frame] = value;
+					destination[frame] = value;
 				}
 			}
 		},

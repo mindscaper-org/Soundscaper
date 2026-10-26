@@ -8,7 +8,9 @@ import {
 } from './delivery-report.ts';
 import { reportInterchangeCaptionTrackOmission } from './interchange-omission-inventory.ts';
 import { reportOmittedDawprojectRouting } from './dawproject-export-routing-omissions.ts';
-import { audioTrackChannelCount } from './project-audio-factory.js';
+import { createDawprojectAudioWidthReader } from './dawproject-export-channel-width.ts';
+import { indexDawprojectRouting } from './dawproject-export-routing-index.ts';
+import { createDawprojectStripLaneReader } from './dawproject-export-automation.ts';
 import { serializeXmlDocument, xmlElement, type XmlElement } from './dawproject-xml.ts';
 import {
 	DAWPROJECT_DELIVERY_FORMAT,
@@ -28,6 +30,9 @@ import {
 	type DawprojectTrackRoute,
 	DawprojectMediaRegistry,
 	channelIdFor,
+	createDawprojectFolderBusReader,
+	dawprojectAdditionalFolderBusIds,
+	dawprojectHasMainOutputBypass,
 	dawprojectStructureTree,
 	finite,
 	parameterIdFor,
@@ -38,6 +43,7 @@ import {
 import { buildArrangement } from './dawproject-export-lanes.ts';
 import { portableFileStem } from './portable-file-stem.ts';
 import type { HoldTempoMap } from './timeline-time.ts';
+import { projectAudioMetadata } from './id3-descriptive-fields.ts';
 
 /**
  * DAWproject export.
@@ -94,6 +100,10 @@ interface ChannelSpec {
 }
 
 const DEFAULT_APPLICATION = Object.freeze({ name: 'Soundscaper', version: 'unknown' });
+const DISCONNECTED_OUTPUT_KEY = 'disconnected-output';
+const MAIN_OUTPUT_KEY = 'main-output';
+const METADATA_TAG_KEYS = ['originalArtist', 'composer', 'songwriter', 'producer', 'arranger', 'genre', 'copyright', 'website'] as const;
+const FOLDED_METADATA_TAG_KEYS = new Set(METADATA_TAG_KEYS.map(key => key.toLowerCase()));
 
 export function createDawprojectExport(request: DawprojectExportRequest): DawprojectExportResult {
 	const project = request?.project;
@@ -107,25 +117,34 @@ export function createDawprojectExport(request: DawprojectExportRequest): Dawpro
 		format: DAWPROJECT_DELIVERY_FORMAT, container: 'DAWproject', codec: 'pcm_f32le',
 		sampleRate, channelCount: null, lossless: true,
 	});
+	const sourceById = new Map(records(project.sources).map(source => [String(source.id), source]));
+	const clipById = new Map(records(project.clips).map(clip => [String(clip.id), clip]));
+	const structure = dawprojectStructureTree(project, request.sequenceId);
+	const routing = readDawprojectMixerRouting(project);
+	const readAdditionalFolderBusIds = createDawprojectFolderBusReader({ project, routing }, structure);
 	const context: DawprojectExportContext = {
 		project,
 		sampleRate,
 		ids: new DawprojectIdAllocator(),
 		draft,
-		sourceById: new Map(records(project.sources).map((source) => [String(source.id), source])),
-		clipById: new Map(records(project.clips).map((clip) => [String(clip.id), clip])),
+		sourceById,
+		clipById,
+		readAudioTrackChannels: createDawprojectAudioWidthReader(project, clipById, sourceById),
+		readStripAutomationLanes: createDawprojectStripLaneReader(project),
+		readAdditionalFolderBusIds,
 		media: new DawprojectMediaRegistry(),
-		routing: readDawprojectMixerRouting(project),
+		routing,
+		routingLookup: indexDawprojectRouting(routing),
+		separateOutputMaster: routing.masterDisconnected === true || dawprojectHasMainOutputBypass({ project, routing, readAdditionalFolderBusIds }, structure),
 		embeddableVideoSourceIds: new Set(request.embeddableVideoSourceIds ?? []),
 		tempoMap: tempoMapOf(project),
 		consumedLaneIds: new Set(),
 	};
-	const structure = dawprojectStructureTree(project, request.sequenceId);
 	const transport = buildTransport(context);
 	const structureElement = xmlElement('Structure', {}, [
 		...structure.map((node) => buildStructureNode(node, context)),
-		...buildMixerNodeTracks(context),
-		buildMasterTrack(context),
+		...buildMixerNodeTracks(context, structure),
+		...buildMasterTracks(context),
 	]);
 	const arrangement = buildArrangement(context, structure, request.sequenceId);
 	const application = request.application ?? DEFAULT_APPLICATION;
@@ -195,7 +214,8 @@ function buildStructureNode(node: DawprojectStructureNode, context: DawprojectEx
 function buildFolderTrack(node: DawprojectStructureNode, context: DawprojectExportContext): XmlElement {
 	// A folder-owned group bus is a submix channel with the folder's gates.
 	// Audio-free folders can remain structure only. The bus shares its id.
-	const bus = context.routing.groups.find((group) => group.id === node.id) ?? null;
+	const bus = (context.routingLookup ? context.routingLookup.groups.get(node.id)
+		: context.routing.groups.find((group) => group.id === node.id)) ?? null;
 	const mute = node.folder?.mute === true;
 	const solo = node.folder?.solo === true;
 	if (!bus && (mute || solo)) {
@@ -212,7 +232,7 @@ function buildFolderTrack(node: DawprojectStructureNode, context: DawprojectExpo
 	return xmlElement('Track', {
 		contentType: contentTypes.join(' '),
 		loaded: true,
-		id: context.ids.id(`folder:${node.id}`),
+		id: context.ids.id('folder', node.id),
 		name: String(node.folder?.name ?? node.id),
 	}, [
 		bus ? buildChannel(context, `mixer-node:${bus.id}`, {
@@ -231,7 +251,7 @@ function buildAudioTrack(track: DataRecord, context: DawprojectExportContext): X
 	return xmlElement('Track', {
 		contentType: 'audio',
 		loaded: true,
-		id: context.ids.id(key),
+		id: context.ids.id('track', trackId),
 		name: String(track.name ?? trackId),
 		color: isHexColor(track.color) ? track.color : null,
 	}, [
@@ -241,7 +261,7 @@ function buildAudioTrack(track: DataRecord, context: DawprojectExportContext): X
 			pan: finite(track.pan, 0),
 			mute: track.mute === true,
 			solo: track.solo === true,
-			audioChannels: audioTrackChannelCount(context.project, track, masterChannels(context)),
+			audioChannels: context.readAudioTrackChannels!(track, masterChannels(context)),
 			...channelRouting(context, route),
 			effects: Array.isArray(track.effects) ? track.effects : [],
 			scope: { kind: 'track', id: trackId },
@@ -252,13 +272,14 @@ function buildAudioTrack(track: DataRecord, context: DawprojectExportContext): X
 /** Bus and track edges share the same exported channel identities. */
 function channelRouting(context: DawprojectExportContext, route: DawprojectTrackRoute | undefined): Pick<ChannelSpec, 'destination' | 'sends'> {
 	const destination = route?.groupId
-		? [...context.routing.groups, ...context.routing.sends].find(candidate => candidate.id === route.groupId)
+		? context.routingLookup ? context.routingLookup.nodes.get(route.groupId)
+			: [...context.routing.groups, ...context.routing.sends].find(candidate => candidate.id === route.groupId)
 		: null;
 	return {
-		destination: channelIdFor(context, destination ? `mixer-node:${destination.id}` : 'master'),
+		destination: channelIdFor(context, route?.disconnected ? DISCONNECTED_OUTPUT_KEY : route?.mainOutput ? MAIN_OUTPUT_KEY : destination ? `mixer-node:${destination.id}` : 'master'),
 		sends: [...(route?.sends ?? [])]
-			.filter(([sendId]) => context.routing.sends.some(send => send.id === sendId))
-			.map(([id, send]) => ({ id, ...send })),
+			.filter(({ id }) => context.routingLookup ? context.routingLookup.sends.has(id)
+				: context.routing.sends.some(send => send.id === id)),
 	};
 }
 
@@ -277,22 +298,28 @@ function buildVideoTrack(track: DataRecord, context: DawprojectExportContext): X
 	return xmlElement('Track', {
 		contentType: 'video',
 		loaded: true,
-		id: context.ids.id(`track:${trackId}`),
+		id: context.ids.id('track', trackId),
 		name: String(track.name ?? trackId),
 	});
 }
 
 /** Group and send buses that no folder owns stand as their own tracks. */
-function buildMixerNodeTracks(context: DawprojectExportContext): XmlElement[] {
+function buildMixerNodeTracks(context: DawprojectExportContext, structure: readonly DawprojectStructureNode[]): XmlElement[] {
 	const folderIds = new Set(records(context.project.trackFolders).map((folder) => String(folder.id)));
+	const additionalFolderBusIds = context.readAdditionalFolderBusIds?.() ?? dawprojectAdditionalFolderBusIds(context, structure);
 	const result: XmlElement[] = [];
 	for (const [role, strips] of [['submix', context.routing.groups], ['effect', context.routing.sends]] as const) {
 		for (const strip of strips) {
-			if (role === 'submix' && folderIds.has(strip.id)) continue;
+			if (role === 'submix' && folderIds.has(strip.id) && !additionalFolderBusIds.has(strip.id)) continue;
+			if (additionalFolderBusIds.has(strip.id)) addDeliveryReportItem(context.draft, {
+				code: 'dawproject.additional-folder-bus-converted', disposition: 'converted', severity: 'info',
+				scope: { kind: 'mixer-node', id: strip.id },
+				message: 'A referenced bus outside the delivered arrangement is retained as a standalone submix; its other arrangement tracks remain omitted.',
+			});
 			result.push(xmlElement('Track', {
 				contentType: 'audio',
 				loaded: true,
-				id: context.ids.id(`strip-track:${strip.id}`),
+				id: context.ids.id('strip-track', strip.id),
 				name: strip.name,
 			}, [
 				buildChannel(context, `mixer-node:${strip.id}`, {
@@ -302,6 +329,18 @@ function buildMixerNodeTracks(context: DawprojectExportContext): XmlElement[] {
 				}),
 			]));
 		}
+	}
+	if (context.routing.masterDisconnected || [...context.routing.routes.values(), ...context.routing.nodeRoutes.values()].some(route => route.disconnected)) {
+		result.push(xmlElement('Track', { contentType: 'audio', loaded: true,
+			id: context.ids.id(DISCONNECTED_OUTPUT_KEY), name: 'Unassigned outputs',
+		}, [buildChannel(context, DISCONNECTED_OUTPUT_KEY, {
+			role: 'submix', gain: 1, pan: 0, mute: true, solo: false, audioChannels: masterChannels(context),
+			destination: channelIdFor(context, context.separateOutputMaster ? MAIN_OUTPUT_KEY : 'master'), sends: [], effects: [], scope: { kind: 'project' },
+		})]));
+		addDeliveryReportItem(context.draft, {
+			code: 'dawproject.unassigned-output-converted', disposition: 'converted', severity: 'info',
+			message: 'Channels without an assigned programme output route to a muted submix; their sends remain unchanged.',
+		});
 	}
 	if (context.routing.omittedNodes > 0) {
 		addDeliveryReportItem(context.draft, {
@@ -315,24 +354,36 @@ function buildMixerNodeTracks(context: DawprojectExportContext): XmlElement[] {
 	return result;
 }
 
-function buildMasterTrack(context: DawprojectExportContext): XmlElement {
+function buildMasterTracks(context: DawprojectExportContext): XmlElement[] {
 	const master = record(context.project.master);
-	return xmlElement('Track', {
-		contentType: 'audio', loaded: true, id: context.ids.id('track:master'), name: 'Master',
+	const original = xmlElement('Track', {
+		contentType: 'audio', loaded: true, id: context.ids.id('master-track'), name: 'Master',
 	}, [
 		buildChannel(context, 'master', {
-			role: 'master',
+			role: context.separateOutputMaster ? 'submix' : 'master',
 			gain: finite(master.gain, 1),
 			pan: finite(master.pan, 0),
 			mute: master.mute === true,
 			solo: master.solo === true,
 			audioChannels: masterChannels(context),
-			destination: null,
+			destination: context.routing.masterDisconnected ? channelIdFor(context, DISCONNECTED_OUTPUT_KEY)
+				: context.separateOutputMaster ? channelIdFor(context, MAIN_OUTPUT_KEY) : null,
 			sends: [],
 			effects: Array.isArray(master.effects) ? master.effects : [],
 			scope: { kind: 'master' },
 		}),
 	]);
+	if (!context.separateOutputMaster) return [original];
+	addDeliveryReportItem(context.draft, {
+		code: 'dawproject.master-output-converted', disposition: 'converted', severity: 'info',
+		message: 'The original Master is retained as a submix before a neutral output Master, so direct programme-output assignments keep bypassing its processing.',
+	});
+	return [original, xmlElement('Track', { contentType: 'audio', loaded: true,
+		id: context.ids.id('main-output-track'), name: 'Main output',
+	}, [buildChannel(context, MAIN_OUTPUT_KEY, {
+		role: 'master', gain: 1, pan: 0, mute: false, solo: false, audioChannels: masterChannels(context),
+		destination: null, sends: [], effects: [], scope: { kind: 'project' },
+	})])];
 }
 
 function buildChannel(context: DawprojectExportContext, key: string, spec: ChannelSpec): XmlElement {
@@ -346,14 +397,14 @@ function buildChannel(context: DawprojectExportContext, key: string, spec: Chann
 			message: 'DAWproject carries plug-in state by vendor identifier; the editor\'s effect stack has none, so the channel is written dry.',
 		});
 	}
-	const sends = spec.sends.map(({ id, level, position }) => xmlElement('Send', {
+	const sends = spec.sends.map(({ id, level, position }, index) => xmlElement('Send', {
 		destination: channelIdFor(context, `mixer-node:${id}`),
 		type: position,
-		id: context.ids.id(`send:${key}:${id}`),
+		id: context.ids.id('send', key, id, String(index)),
 	}, [
 		xmlElement('Volume', {
 			max: 4, min: 0, unit: 'linear', value: Math.max(0, level),
-			id: context.ids.id(`send:${key}:${id}:volume`), name: 'Send',
+			id: context.ids.id('send-volume', key, id, String(index)), name: 'Send',
 		}),
 	]));
 	// Child order is the schema's sequence: Devices, Mute, Pan, Sends, Volume.
@@ -379,16 +430,33 @@ function buildChannel(context: DawprojectExportContext, key: string, spec: Chann
 
 function buildMetadata(project: DataRecord, title: string): XmlElement {
 	const metadata = record(project.metadata);
+	const tags = projectAudioMetadata(metadata);
+	let foldedTags: ReadonlyMap<string, string> | undefined;
+	const tag = (key: typeof METADATA_TAG_KEYS[number]): string | undefined => {
+		if (tags[key] !== undefined) return tags[key];
+		if (!foldedTags) {
+			const prepared = new Map<string, string>();
+			for (const [name, value] of Object.entries(tags)) {
+				const folded = name.toLowerCase();
+				if (FOLDED_METADATA_TAG_KEYS.has(folded) && !prepared.has(folded)) prepared.set(folded, value);
+			}
+			foldedTags = prepared;
+		}
+		return foldedTags.get(key.toLowerCase());
+	};
 	const entries: [string, unknown][] = [
 		['Title', metadata.title || title],
 		['Artist', metadata.artist],
 		['Album', metadata.album],
+		['OriginalArtist', tag('originalArtist')], ['Composer', tag('composer')],
+		['Songwriter', tag('songwriter')], ['Producer', tag('producer')], ['Arranger', tag('arranger')],
 		['Year', metadata.year],
+		['Genre', tag('genre')], ['Copyright', tag('copyright')], ['Website', tag('website')],
 		['Comment', metadata.comments],
 	];
 	return xmlElement('MetaData', {}, entries
 		.filter(([, value]) => typeof value === 'string' && value.trim() !== '')
-		.map(([name, value]) => xmlElement(name, {}, [], String(value).trim())));
+		.map(([name, value]) => xmlElement(name, {}, [], String(value))));
 }
 
 function reportProjectOmissions(context: DawprojectExportContext, sequenceId?: string): void {

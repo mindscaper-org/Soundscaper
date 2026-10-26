@@ -12,7 +12,8 @@ import { integerRange, positiveInteger } from './clip-time-pitch-cache-validatio
 export async function loadStoredSourceChannels(store, source, options = {}) {
 	if (!store?.readSourceChunks) throw new TypeError('The project store cannot read source chunks.');
 	const frameCount = positiveInteger(source.frameCount, 'source.frameCount');
-	const channelCount = integerRange(source.channelCount, 1, 2, 'source.channelCount');
+	const maximumChannelCount = integerRange(options.maximumChannelCount ?? 2, 1, 64, 'maximumChannelCount');
+	const channelCount = integerRange(source.channelCount, 1, maximumChannelCount, 'source.channelCount');
 	const channels = Array.from({ length: channelCount }, () => new Float32Array(frameCount));
 	let offset = 0;
 	for await (const chunk of store.readSourceChunks(source.storageKey || source.id)) {

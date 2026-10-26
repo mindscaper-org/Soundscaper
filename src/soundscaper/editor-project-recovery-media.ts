@@ -6,11 +6,12 @@ import { isSoundscaperRecoveryBlockedFailure } from './editor-project-recovery-e
 import type { SoundscaperProjectRecoveryStore } from './editor-project-recovery-types.ts';
 import { createScapeDigest, scapeHex } from '../common/editor/scape-archive-media.ts';
 import type { SourcePcmChunk } from '../common/editor/storage/source-read-repository.ts';
+import { LinkedOriginalContentUnavailableError } from '../common/editor/storage/linked-original-content-unavailable-error.ts';
 
 import { soundscaperRecoveryVideoAvailable } from './editor-project-recovery-video.ts';
 import type { SoundscaperRecoveryVideoStore } from './editor-project-recovery-video.ts';
 
-type MediaReadStore = Pick<SoundscaperProjectRecoveryStore, 'readSourceChunks'> & SoundscaperRecoveryVideoStore;
+type MediaReadStore = Pick<SoundscaperProjectRecoveryStore, 'readSourceChunks' | 'getSourceMetadata'> & SoundscaperRecoveryVideoStore;
 
 /** Read canonical PCM and original video. Only confirmed missing/corrupt media may be omitted. */
 export async function readSoundscaperRecoveryAvailableMediaSources(
@@ -24,7 +25,7 @@ export async function readSoundscaperRecoveryAvailableMediaSources(
 		const source = record(value);
 		if (!source || typeof source.id !== 'string' || (source.kind !== 'audio' && source.kind !== 'video')) continue;
 		const storageKey = typeof source.storageKey === 'string' && source.storageKey ? source.storageKey : source.id;
-		const cacheKey = JSON.stringify([source.kind, storageKey, source.frameCount, source.channelCount, source.contentSha256, source.timingAsset]);
+		const cacheKey = JSON.stringify([source.kind, storageKey, source.frameCount, source.channelCount, source.sampleRate, source.contentSha256, source.timingAsset]);
 		if (availability.has(cacheKey)) { if (availability.get(cacheKey)) available.add(source.id); continue; }
 		try {
 			if (source.kind === 'video') {
@@ -32,6 +33,13 @@ export async function readSoundscaperRecoveryAvailableMediaSources(
 				availability.set(cacheKey, readable);
 				if (readable) available.add(source.id);
 				continue;
+			}
+			const metadata = record(await store.getSourceMetadata(storageKey));
+			// The existing PCM reader interprets legacy metadata without a rate as 48 kHz.
+			if (!metadata || (metadata.sampleRate ?? 48_000) !== source.sampleRate
+				|| (metadata.frameCount ?? metadata.frameLength) !== source.frameCount
+				|| metadata.channelCount !== source.channelCount) {
+				throw new PcmStorageCorruptionError('Source PCM metadata differs from its saved geometry.', 'PCM_RECORD_GEOMETRY');
 			}
 			let frames = 0;
 			let nextIndex = 0;
@@ -80,6 +88,7 @@ function updateRecoveryPcmDigest(digest: ReturnType<typeof createScapeDigest>, c
 function isConfirmedMediaDamage(error: unknown): boolean {
 	if (isSoundscaperRecoveryBlockedFailure(error)) return false;
 	if (error instanceof PcmStorageCorruptionError) return true;
+	if (error instanceof LinkedOriginalContentUnavailableError) return true;
 	if (!(error instanceof Error)) return false;
 	return error.name === 'NotFoundError' || ('code' in error && error.code === 'ENOENT')
 		|| /^(?:The requested (?:local )?audio source (?:could not be found|is missing)\.|Source storage chunk \d+ (?:is missing|does not exist)\.|The local audio source (?:is truncated|contains an invalid chunk)\.|The immutable source dependency graph contains a cycle\.|A derived source replacement points beyond its base source\.|The OPFS PCM packet is truncated\.)$/u.test(error.message);

@@ -54,7 +54,7 @@ const TIMING_FIELDS = new Set([
 ]);
 const REPOSITORY_ROOT = new URL('../', import.meta.url);
 const EDITOR_ROOT = new URL('../src/common/editor/', import.meta.url);
-const PROJECTION_IMPORT = /(?:runtime-clip-projection|project-current-runtime|generator-project-view|project-bin-runtime)\.ts$/u;
+const PROJECTION_IMPORT = /(?:runtime-clip-projection|clip-time-pitch-playback-projection|project-current-runtime|generator-project-view|project-bin-runtime)\.ts$/u;
 const parsedSources = new Map<string, Promise<SourceFile>>();
 
 test('every shielded consumer surface crosses a registered runtime projection boundary before timing reads', async () => {
@@ -168,7 +168,14 @@ test('unregistered raw-project timing readers fail unless they have one exact pe
 	assert.equal(callFirstIdentifier(downstreamCalls[0]), 'runtimeProject');
 });
 
-test('every projection or runtime-wrapper importer is an owned boundary or one exact non-consumer adapter', async () => {
+test('member projection discovery distinguishes registered delegation from passive text or unrelated receivers', () => {
+	assert.equal(importsRuntimeProjection('delegation.ts', 'function apply(project) { this.loadProject(project); }'), true);
+	assert.equal(importsRuntimeProjection('passive.ts', 'const text = "this.loadProject(project)";'), false);
+	assert.equal(importsRuntimeProjection('other.ts', 'function apply(project) { other.loadProject(project); }'), false);
+	assert.equal(importsRuntimeProjection('unregistered.ts', 'function apply(project) { this.unregistered(project); }'), false);
+});
+
+test('every projection importer or member delegate is an owned boundary or one exact non-consumer adapter', async () => {
 	const discovered: string[] = [];
 	const files = await sourceFiles(EDITOR_ROOT.pathname);
 	// Bound concurrent reads so small source files do not serialize the complete
@@ -294,11 +301,21 @@ function parsedSource(file: string): Promise<SourceFile> {
 function importsRuntimeProjection(file: string, sourceText: string): boolean {
 	// TypeScript's scanner decodes escaped specifiers without allocating a whole
 	// syntax tree for thousands of unrelated files. Parse candidates to retain
-	// the audit's exact static-import semantics, excluding exports and calls.
-	if (!preProcessFile(sourceText, true, true).importedFiles.some(({ fileName }) => PROJECTION_IMPORT.test(fileName))) return false;
+	// exact static imports plus this.<registered boundary>() delegation, without
+	// treating passive text or unrelated receivers as projection ownership.
+	const imported = preProcessFile(sourceText, true, true).importedFiles.some(({ fileName }) => PROJECTION_IMPORT.test(fileName));
+	const members = new Set(FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES.map(({ boundary }) => boundary));
+	if (!imported && ![...members].some((name) => sourceText.includes(name))) return false;
 	const source = createSourceFile(file, sourceText, ScriptTarget.Latest, false, scriptKind(file));
-	return source.statements.some((statement) => isImportDeclaration(statement)
-		&& isStringLiteral(statement.moduleSpecifier) && PROJECTION_IMPORT.test(statement.moduleSpecifier.text));
+	if (source.statements.some((statement) => isImportDeclaration(statement)
+		&& isStringLiteral(statement.moduleSpecifier) && PROJECTION_IMPORT.test(statement.moduleSpecifier.text))) return true;
+	let delegates = false;
+	visit(source, (node) => {
+		if (isCallExpression(node) && isPropertyAccessExpression(node.expression)
+			&& node.expression.expression.kind === SyntaxKind.ThisKeyword
+			&& members.has(node.expression.name.text)) delegates = true;
+	});
+	return delegates;
 }
 
 function findFunction(source: SourceFile, name: string): FunctionLikeDeclaration {

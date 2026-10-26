@@ -354,10 +354,11 @@ export async function canonicalizeBuffer(
 	context: AudioBufferContext | null | undefined,
 	targetSampleRate: number | null = AUDIO_EDITOR_SAMPLE_RATE,
 	copy: AudioCopy,
+	options: Readonly<{ preserveChannels?: boolean }> = {},
 ): Promise<AudioBufferLike> {
 	if (!input?.numberOfChannels || !input?.length) throw createLocalizedError(Error, copy, 'decodedAudioEmpty');
 	let channels: Float32Array[];
-	if (input.numberOfChannels <= 2) {
+	if (options.preserveChannels || input.numberOfChannels <= 2) {
 		channels = Array.from({ length: input.numberOfChannels }, (_, channel) => input.getChannelData(channel));
 	} else if (input.numberOfChannels === 6) {
 		channels = [...downmixSurroundToStereo(
@@ -379,7 +380,7 @@ export async function canonicalizeBuffer(
 		}
 		channels = [left, right];
 	}
-	if ((targetSampleRate == null || input.sampleRate === targetSampleRate) && input.numberOfChannels <= 2) return input;
+	if ((targetSampleRate == null || input.sampleRate === targetSampleRate) && (options.preserveChannels || input.numberOfChannels <= 2)) return input;
 	const downmixed = await bufferFromChannels(channels, input.sampleRate, context, copy);
 	return targetSampleRate == null || input.sampleRate === targetSampleRate
 		? downmixed
@@ -475,10 +476,13 @@ export { audioBufferChannels, type RenderedAudio } from '../../rendered-audio-ch
 
 export function scaleClipEnvelope(clip: ClipEnvelope, durationFrames: number): ClipEnvelopePoint[] {
 	const ratio = durationFrames / Math.max(1, clip.durationFrames);
-	return (clip.envelope || []).map((point) => ({
-		...point,
-		frame: Math.max(0, Math.min(durationFrames, Math.round(point.frame * ratio))),
-	})).filter((point, index, points) => index === 0 || point.frame > points[index - 1]!.frame);
+	const scaled = new Map<number, ClipEnvelopePoint>();
+	for (const point of clip.envelope || []) {
+		const frame = Math.max(0, Math.min(durationFrames, Math.round(point.frame * ratio)));
+		// A collapsed span carries its final authored gain into the next span.
+		scaled.set(frame, { ...point, frame });
+	}
+	return [...scaled.values()];
 }
 
 /** A profile arrives as an opaque worker result; anything that is not an object serialises to null. */

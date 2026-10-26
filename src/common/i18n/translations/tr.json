@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "tr",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:5f47c284deaae5adb78ed623d362784ac4bcbcd2a71711338b30c6ee78fa153d","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:1463f39ed9d66126ce255cfac521ac61be30bea4b5f0e4e569884ec67c5b10ff","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -519,6 +519,7 @@
 		"clipMediaSettings": ["machine","Media settings","Medya ayarları"],
 		"clipMixed": ["machine","Mixed","Karışık"],
 		"clipName": ["machine","Clip name","Klip adı"],
+		"clipNormalizationUnmeasurable": ["machine","Loudness could not be measured for this clip. Choose a longer audible clip or use peak normalization.","Bu klibin ses yüksekliği ölçülemedi. Duyulabilir ses içeren daha uzun bir klip seçin veya tepe normalleştirmesini kullanın."],
 		"clipPitchAndSpeed": ["machine","Pitch & speed","Perde ve hız"],
 		"clipPitchField": ["machine","Pitch","Perde"],
 		"clipPitchIndicator": ["human","Clip pitch","Klip perdesi"],
@@ -1792,7 +1793,7 @@
 		"missingEffectLabel": ["machine","Missing: {name}","Eksik: {name}"],
 		"missingEffectReadOnly": ["machine","This effect is not installed. Local playback bypasses it while preserving its name, order, and activation state for other compatible programs.","Bu etki yüklü değil. Yerel oynatma bu etkiyi atlar; ancak diğer uyumlu programlar için adını, sırasını ve etkinleştirme durumunu korur."],
 		"missingEffectUnknown": ["machine","Unknown effect","Bilinmeyen etki"],
-		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Playback, analysis, and export are blocked until affected clips are removed.","Bazı yerel ses kaynakları eksik. Etkilenen klipler kaldırılana kadar oynatma, çözümleme ve dışa aktarma engellenir."],
+		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Operations that require them are blocked until affected clips are relinked or removed.","Bazı yerel ses kaynakları eksik. Bu kaynakları gerektiren işlemler, ilgili klipler yeniden bağlanana veya kaldırılana kadar engellenir."],
 		"missingSourcesPreventSave": ["machine","Missing audio sources prevent saving.","Eksik ses kaynakları kaydetmeyi engelliyor."],
 		"mix": ["machine","Stereo mix","Stereo miks"],
 		"mixDown": ["machine","Mix down","Tek ize karıştır"],
@@ -1840,6 +1841,7 @@
 		"mp3VariableBest": ["machine","220-260 kbps (Best Quality)","220-260 kbps (En iyi kalite)"],
 		"mp3VariableSmallest": ["machine","45-85 kbps (Smaller files)","45-85 kbps (Daha küçük dosyalar)"],
 		"multicamera": ["machine","Multicamera","Çoklu kamera"],
+		"multipleLegacyAupProjects": ["machine","Choose one legacy Audacity project (.aup) and its data files per import.","Her içe aktarma için eski biçimdeki bir Audacity projesini (.aup) ve veri dosyalarını seçin."],
 		"multiview": ["machine","Multi-view","Çoklu görünüm"],
 		"musicalAnchor": ["machine","Musically anchored","Müziksel olarak sabitlenmiş"],
 		"musicalTimeline": ["machine","Musical timeline","Müziksel zaman çizelgesi"],
@@ -4459,6 +4461,9 @@
 		"waveformLogarithmicDb": ["machine","Logarithmic dB","Logaritmik dB"],
 		"waveformLowMidCrossover": ["machine","Low/mid crossover (Hz)","Düşük/orta geçiş frekansı (Hz)"],
 		"waveformMidHighCrossover": ["machine","Mid/high crossover (Hz)","Orta/yüksek geçiş frekansı (Hz)"],
+		"waveformRenderer": ["machine","Waveform renderer","Dalga biçimi işleyicisi"],
+		"waveformRendererCanvas": ["machine","Canvas","Canvas"],
+		"waveformRendererGpu": ["machine","GPU (Canvas fallback)","GPU (Canvas yedeği)"],
 		"waveformRulerFormat": ["machine","Ruler format","Cetvel biçimi"],
 		"waveformSettings": ["machine","Waveform settings","Dalga biçimi ayarları"],
 		"waveformShowRms": ["machine","Show RMS","RMS'yi göster"],

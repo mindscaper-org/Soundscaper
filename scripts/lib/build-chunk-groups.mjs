@@ -21,6 +21,7 @@
  */
 
 import { imagingChunkGroups } from './build-chunk-imaging.mjs';
+import { productProfileChunkGroups } from './build-chunk-product-profiles.mjs';
 import { translationCatalogChunkGroups } from './build-chunk-translation-catalogs.mjs';
 import { EDITOR_UI_CHUNK_GROUPS } from './build-editor-ui-chunks.mjs';
 
@@ -96,6 +97,7 @@ export {
 /** @type {import('rolldown').CodeSplittingGroup[]} */
 export const chunkGroups = [
 	...translationCatalogChunkGroups,
+	...productProfileChunkGroups,
 	{ name: 'editor-assistance-model-preflight', test: EDITOR_ASSISTANCE_MODEL_PREFLIGHT_CHUNK_TEST,
 		priority: 100, minSize: 0, maxSize: 400_000,
 		includeDependenciesRecursively: false },
@@ -437,14 +439,15 @@ export const chunkGroups = [
 	},
 	{
 		name: 'editor-timeline',
-		test: new RegExp(`${editorPath}(?:ui[\\\\/](?:AudioEditorTimeline|AudioEditorSampleTools)|audacity-waveform-renderer\\.js|waveform-stem-batch-capability\\.ts)`),
+		test: new RegExp(`${editorPath}(?:ui[\\\\/](?:AudioEditorTimeline|AudioEditorSampleTools|timeline[\\\\/])|audacity-waveform-renderer\\.js|waveform-stem-batch-capability\\.ts)`),
 		priority: 80,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,
 	},
 	{
+		// Exact action-runtime registries hold controller state without importing views.
 		name: 'editor-controller-core',
-		test: new RegExp(`${editorPath}(?!controller[\\\\/](?:${editorOptionalControllerModule}|${editorOptionalAssistanceModule}|${editorOptionalCaptureControllerModule})\\.ts$)(?:app\\.js|controller[\\\\/]|commands(?:\\.js|[\\\\/])|delivery-queue-runner\\.ts$|facade\\.ts|index\\.js)`),
+		test: new RegExp(`${editorPath}(?!controller[\\\\/](?:${editorOptionalControllerModule}|${editorOptionalAssistanceModule}|${editorOptionalCaptureControllerModule})\\.ts$)(?:app\\.js|controller[\\\\/]|commands(?:\\.js|[\\\\/])|delivery-queue-runner\\.ts$|ui[\\\\/]framescaper-(?:candidate-authoring-actions|native-project-actions)\\.ts$|facade\\.ts|index\\.js)`),
 		priority: 75,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,

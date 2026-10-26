@@ -60,7 +60,7 @@ export function prepareClipboardPasteTrackPlan(project: ClipboardEditProject, se
 				name: clipboardTrack.sourceTrackName
 					|| `${publishedCopyFor(copy).track} ${project.tracks.length + addedTrackCount}`,
 				laneGroupId,
-			}),
+			}, project.sampleRate),
 			...(placement === null ? {} : {
 				...(placement.sequenceId === project.primarySequenceId ? {} : { sequenceId: placement.sequenceId }),
 				...(project.trackFolders?.length ? { parentFolderId: placement.parentFolderId } : {}),

@@ -58,7 +58,7 @@ module.exports = {
 		// Preserve only the final ASAR-authenticated Photo helper bytes. App,
 		// installer, and all other executables retain builder's default signing.
 		signExts: ['win-x64', 'win-arm64'].flatMap(target => ['lightscaper_photo_granted_filesystem_current_v1.exe', 'lightscaper_photo_raw_current_v1.exe', 'milestone5-native-isolation-launcher.exe'].map(name => `!\\runtime\\photo-native\\current-v1\\${target}\\bin\\${name}`)),
-		icon: 'icon.png',
+		icon: 'icon.ico',
 		target: ['nsis', 'zip'],
 	},
 	nsis: {

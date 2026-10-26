@@ -4,6 +4,7 @@ import { assertProducts, compareText, page, productSentence, reviewedLabel, tabl
 
 const CAPABILITY_LABELS = Object.freeze({
 	project: 'Projects',
+	literalJsonKeys: 'Literal JSON metadata keys',
 	projectBin: 'Project bin',
 	photoLibrarySurface: 'Photo library shell',
 	photoCatalog: 'Photo catalog',
@@ -48,6 +49,7 @@ const CAPABILITY_LABELS = Object.freeze({
 	sequenceTiming: 'Sequence timing',
 	timelineImages: 'Timeline images',
 	timelineImagePhase: 'Exact animated-image phase',
+	timelineImageHoldPhase: 'Restorable held-image phase',
 	videoRetime: 'Video retiming',
 	videoCaptions: 'Video captions',
 	videoColorManagement: 'Video color management',

@@ -29,7 +29,7 @@ export type ClipPropertyAction = 'reverse' | 'invert' | 'normalize-peak' | 'norm
 
 export interface ClipAnalysisResult {
 	readonly peakAmplitude: number;
-	readonly integratedLufs: number;
+	readonly integratedLufs: number | null;
 }
 
 export interface ClipTimePitchChanges extends Readonly<Record<string, unknown>> {
@@ -91,7 +91,8 @@ export interface ClipPropertyServiceDependencies {
 	readonly copy: ClipPropertyCopy;
 	readonly sourceBuffers: Pick<Map<string, AudioBufferLike>, 'get'>;
 	loadSourceBuffer?(sourceId: string, signal: AbortSignal): Promise<AudioBufferLike | null>;
-	renderNormalizationAudio?(project: ClipTransformProject, clip: ClipTransformClip, buffer: AudioBufferLike, signal: AbortSignal): Promise<AudioBufferLike>;
+	sourceContentIdentity?(sourceId: string, signal: AbortSignal): Promise<string | undefined>;
+	renderNormalizationAudio?(project: ClipTransformProject, clip: ClipTransformClip, buffer: AudioBufferLike | null, signal: AbortSignal): Promise<AudioBufferLike>;
 	getProject(): ClipTransformProject;
 	getSelectedClipId(): string | null;
 	editingBlocked(): boolean;
@@ -101,6 +102,7 @@ export interface ClipPropertyServiceDependencies {
 		channels: readonly Float32Array[],
 		sampleRate: number,
 		signal: AbortSignal,
+		peakOnly?: boolean,
 	): Promise<ClipAnalysisResult>;
 	createId(prefix: string): string;
 	commit(command: AudioEditorCommand, selection?: CommitSelection): unknown;
@@ -149,25 +151,35 @@ export function createClipPropertyService(
 		const projectToken = dependencies.captureProject();
 		const fingerprint = fingerprintClip(project, clip);
 		try {
-			const buffer = dependencies.sourceBuffers.get(clip.sourceId)
-				?? await dependencies.loadSourceBuffer?.(clip.sourceId, task.signal);
+			const sourceIdentity = dependencies.sourceContentIdentity ? await dependencies.sourceContentIdentity(clip.sourceId, task.signal) : undefined;
 			assertOwned(task, projectToken, fingerprint);
-			if (!buffer) return undefined;
-			const rendered = await dependencies.renderNormalizationAudio?.(project, clip, buffer, task.signal);
+			const buffer = dependencies.sourceBuffers.get(clip.sourceId)
+				?? (dependencies.renderNormalizationAudio ? null : await dependencies.loadSourceBuffer?.(clip.sourceId, task.signal));
+			assertOwned(task, projectToken, fingerprint);
+			const rendered = await dependencies.renderNormalizationAudio?.(project, clip, buffer ?? null, task.signal);
 			assertOwned(task, projectToken, fingerprint);
 			const analysisBuffer = rendered ?? buffer;
+			if (!analysisBuffer) return undefined;
 			const channels = Array.from({ length: analysisBuffer.numberOfChannels }, (_, channel) => (
-				rendered ? rendered.getChannelData(channel) : buffer.getChannelData(channel).subarray(
+				rendered ? rendered.getChannelData(channel) : analysisBuffer.getChannelData(channel).subarray(
 					clip.sourceStartFrame, clip.sourceStartFrame + clip.sourceDurationFrames,
 				)
 			));
-			const result = await dependencies.analyzeChannels(channels, analysisBuffer.sampleRate, task.signal);
+			const result = await dependencies.analyzeChannels(channels, analysisBuffer.sampleRate, task.signal, action === 'normalize-peak');
 			assertOwned(task, projectToken, fingerprint);
+			if (dependencies.sourceContentIdentity) {
+				const currentIdentity = await dependencies.sourceContentIdentity(clip.sourceId, task.signal);
+				assertOwned(task, projectToken, fingerprint);
+				if (currentIdentity !== sourceIdentity) throw new DOMException('The source audio changed before normalization completed.', 'AbortError');
+			}
 			let gain = clip.gain;
 			if (action === 'normalize-peak' && result.peakAmplitude > 0) {
 				gain = 10 ** (-1 / 20) / result.peakAmplitude;
 			}
-			if (action === 'normalize-lufs' && Number.isFinite(result.integratedLufs)) {
+			if (action === 'normalize-lufs') {
+				if (typeof result.integratedLufs !== 'number' || !Number.isFinite(result.integratedLufs)) {
+					throw createLocalizedError(RangeError, dependencies.copy, 'clipNormalizationUnmeasurable');
+				}
 				gain = 10 ** ((-14 - result.integratedLufs) / 20);
 			}
 			if (gain > 16) throw createLocalizedError(RangeError, dependencies.copy, 'clipNormalizationGainLimit');
@@ -258,6 +270,7 @@ export function createClipPropertyService(
 		if (!Number.isSafeInteger(timelineStartFrame) || !Number.isSafeInteger(durationFrames)) {
 			throw createLocalizedError(TypeError, dependencies.copy, 'timelineFramesFinite');
 		}
+		if (timelineStartFrame === clip.timelineStartFrame && durationFrames === clip.durationFrames) return project;
 		assertCameraAudioDurationChange(project, clip, durationFrames, dependencies.copy);
 		const clipIds = collectClipTransformIds(project, clip.id);
 		if (clipIds.length > 1) {
@@ -271,6 +284,7 @@ export function createClipPropertyService(
 				)));
 				stretchFactor = Math.min(stretchFactor, maximumFactor);
 			}
+			if (stretchFactor === 1) return project;
 			const transforms = clips.map((item): PreparedTransform => {
 				const nextDurationFrames = Math.max(1, Math.round(item.durationFrames * stretchFactor));
 				assertScalarTimePitchChange(project, item, Boolean(item.linkPitchAndTempo), item.pitchCents,

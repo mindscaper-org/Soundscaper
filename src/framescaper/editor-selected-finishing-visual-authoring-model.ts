@@ -293,7 +293,7 @@ function createTransitionPairs(project: Data, clips: readonly Data[]): readonly 
 				? positiveInteger(existing.durationFrames, 'transition duration')
 				: Math.min(12, maximumDurationFrames);
 			result.push(Object.freeze({
-				id: `${String(track.id)}:${String(outgoing.id)}:${String(incoming.id)}`,
+				id: JSON.stringify([track.id, outgoing.id, incoming.id]),
 				trackId: stableId(track.id, 'transition track ID'),
 				outgoingClipId: stableId(outgoing.id, 'outgoing clip ID'),
 				incomingClipId: stableId(incoming.id, 'incoming clip ID'),

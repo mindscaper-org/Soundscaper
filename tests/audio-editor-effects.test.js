@@ -1,3 +1,4 @@
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -353,7 +354,7 @@ test('selection effect registry includes regular streaming effects, canonical EQ
 	assert.equal(AUDIO_SELECTION_EFFECT_DEFINITIONS.eq.maximumBands, 12);
 	assert.equal(AUDIO_SELECTION_EFFECT_DEFINITIONS.eq.preRollSeconds, 10);
 	assert.equal(audioEffectLabel('eq', 'en'), 'Parametric EQ');
-	assert.equal(audioEffectLabel('eq', 'de'), 'Parametrischer EQ');
+	assert.equal(audioEffectLabel('eq', GERMAN_COPY), 'Parametrischer EQ');
 	assert.equal(audioSelectionEffectAppliesToAllAudio('audacity-amplify'), true);
 	assert.equal(audioSelectionEffectAppliesToAllAudio('audacity-noise-reduction'), false);
 	assert.equal(audioSelectionEffectAppliesToAllAudio('audacity-auto-duck'), false);
@@ -366,14 +367,14 @@ test('selection effect registry includes regular streaming effects, canonical EQ
 test('rack labels name the standard dynamics and retain saved native labels', () => {
 	assert.equal(audioEffectLabel('compressor', 'en'), 'Compressor');
 	assert.equal(audioEffectLabel('audacity-compressor', 'en'), 'Compressor');
-	assert.equal(audioEffectLabel('compressor', 'de'), 'Kompressor');
-	assert.equal(audioEffectLabel('audacity-compressor', 'de'), 'Kompressor');
+	assert.equal(audioEffectLabel('compressor', GERMAN_COPY), 'Kompressor');
+	assert.equal(audioEffectLabel('audacity-compressor', GERMAN_COPY), 'Kompressor');
 	assert.equal(audioEffectLabel('limiter', 'en'), 'Limiter');
 	assert.equal(audioEffectLabel('audacity-limiter', 'en'), 'Limiter');
 	assert.equal(audioEffectLabel('compressor', { effectNameCompressor: 'Remote dynamics' }), 'Remote dynamics');
 	for (const type of EXPECTED_AUDACITY_RACK_TYPES) {
 		assert.equal(audioEffectLabel(type, 'en'), audacityEffectLabel(type, 'en'));
-		assert.equal(audioEffectLabel(type, 'de'), audacityEffectLabel(type, 'de'));
+		assert.equal(audioEffectLabel(type, GERMAN_COPY), audacityEffectLabel(type, GERMAN_COPY));
 	}
 	assert.throws(() => audioEffectLabel('audacity-normalize'), /Unsupported audio effect/);
 });

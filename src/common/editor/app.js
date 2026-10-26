@@ -68,7 +68,7 @@ import { resolveControllerProjectRuntime } from './controller/document/project-r
 import {
 	createPlaybackProjectService,
 } from './controller/source/playback-project-service.ts';
-import { createMicrophoneMeterService } from './controller/recording/microphone-meter-service.ts'; import { createProjectVisualService } from './controller/document/project-visual-service.ts';
+import { createMicrophoneMeterService } from './controller/recording/microphone-meter-service.ts'; import { createProjectVisualService } from './controller/document/project-visual-service.ts'; import { reloadPublishedVideoVisual } from './controller/document/reload-published-video-visual.ts';
 
 import { createNativeProjectComposition } from './controller/document/native-project-composition.ts';
 import { createDawprojectAudioPreparer } from './controller/import/dawproject-audio-decode.ts'; import { createDeferredExternalMediaAudioDecoder } from './deferred-external-media-audio-decoder.ts';
@@ -155,7 +155,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		copy, onPosition: updatePlayhead, onMeter: bindings.updateMeters, onState: bindings.updateTransportState,
 		setStatus: bindings.setStatus, updateExportProgress: bindings.updateExportProgress,
 	});
-	const defaultOptimizationMode = fileService.isDesktop ? 'speed' : 'memory', sessionController = bindSessionHistoryAdmission(rawSessionController, (value) => projectRuntime.createHistory(value).present);
+	const defaultOptimizationMode = fileService.isDesktop ? 'speed' : 'memory', defaultWaveformRenderer = fileService.isDesktop ? 'gpu' : undefined, sessionController = bindSessionHistoryAdmission(rawSessionController, (value) => projectRuntime.createHistory(value).present);
 	const currentTimeMs = typeof options.now === 'function' ? options.now : () => Date.now();
 	const { scheduleTimer, clearScheduledTimer, scheduleInterval, clearScheduledInterval } = createControllerTimers(options);
 	/** @type {import('./controller/document/document-state.ts').ControllerDocumentState<import('./controller/document/document-composition-types.ts').DocumentProject, import('./controller/document/document-composition-types.ts').DocumentHistory>} */
@@ -165,10 +165,10 @@ export function createAudioEditorController(_root = null, options = {}) {
 	const { state, effectsAccess, effectsStatePorts, recordingAccess, transportAccess,
 		recordingPort, reconcileRecordingRouting,
 	} = createControllerOwnedStateComposition({ document: documentState,
-		preferences: createAudioEditorPreferencesV1({ workspace: { activeId: product.defaultWorkspace }, performance: { optimizeFor: defaultOptimizationMode } }),
+		preferences: createAudioEditorPreferencesV1({ workspace: { activeId: product.defaultWorkspace }, performance: { optimizeFor: defaultOptimizationMode }, waveformDisplay: { renderer: defaultWaveformRenderer } }),
 		effectPresets: createAudioEditorEffectPresets(),
 		initialEffectType: audioSelectionEffectTypes()[0],
-		phase: lifetime.phase,
+		phase: lifetime.phase, signal: lifetime.signal,
 		readyMessage: copy.ready,
 		mobile: classifyMobile(),
 		defaultPixelsPerSecond: AUDIO_EDITOR_DEFAULT_PIXELS_PER_SECOND,
@@ -242,7 +242,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		state: recordingAccess,
 		defaultDeviceId: RECORDING_DEFAULT_DEVICE_ID,
 		recordingCapturePool,
-		getAudioContext: () => engine.getAudioContext({ resume: true }),
+		getAudioContext: () => engine.getAudioContext({ resume: false }),
 		createLoudnessMeterNode: createEbuR128MeterNode,
 		streamAudioChannelCount,
 		projectSampleRate: () => state.audioHost === 'browser' || state.audioHost === 'electron' ? projectSampleRate() : state.preferredRecordingSampleRate,
@@ -269,7 +269,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		getProject: () => documentState.project, publishDocumentSnapshot, setStatus: bindings.setStatus, handleError: bindings.handleError,
 	});
 	const preferences = createPreferencesComposition({
-		productId, defaultWorkspace: product.defaultWorkspace, defaultOptimizationMode, state, lifetime, copy,
+		productId, defaultWorkspace: product.defaultWorkspace, defaultOptimizationMode, defaultWaveformRenderer, state, lifetime, copy,
 		loadSetting: (key, fallback) => store.loadSetting(key, fallback), persistSetting, publish: publishDocumentSnapshot, setPcmOptimizationMode: (mode) => store.setPcmOptimizationMode?.(mode),
 	});
 	const preferencesService = preferences.service;
@@ -471,7 +471,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 	const viewStateService = transportComposition.view;
 	const {
 		setPlayAtSpeedRate,
-		cancelPlayAtSpeedPreparation, retireTimelinePlayback,
+		cancelPlayAtSpeedPreparation, retireTimelinePlayback, handleScrub, endScrub,
 		handlePlayAtSpeed,
 		handleTransport,
 		clearLoopRegion,
@@ -491,7 +491,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		state, copy, lifetime, projectGeneration, projectRuntime, store, engine, ffmpeg, helperTimingProbe: fileService.helperTimingProbe, setEffectProcessing: effectsStatePorts.processing.set,
 		sourceBuffers, sourcePeaks, sourceChunkFrames: SOURCE_CHUNK_FRAMES, taskProgress, currentTimeMs, monotonicNow: options.monotonicNow, sourcePreview: { sourceBuffers, sourceChunkProviders, sourceResolver: clipTimePitchSourceResolver, createEngine: (previewOptions) => playbackPreviews.create(previewOptions), prepare: bindings.prepareCommittedTimePitchCaches, retirePlayback: () => { retireTimelinePlayback(); void bindings.projectBin.stopPreview().catch(bindings.handleError); }, subscribeTimelineState: (listener) => engine.subscribeState(listener) },
 		setInterval: scheduleInterval, clearInterval: clearScheduledInterval, createVideoRetimeProgramOrdinalBridge: options.createProductVideoRetimeProgramOrdinalBridge,
-		prepareCommittedOutput: (clip, source, prepareOptions) => clipTimePitchCache.prepareCommittedOutput(clip, source, prepareOptions),
+		prepareCommittedOutput: (clip, source, prepareOptions) => clipTimePitchCache.prepareCommittedOutput(clip, source, { ...prepareOptions, projectSampleRate: projectSampleRate() }),
 		materializeTimePitchCacheEntry: (entry, signal) => sources.timePitchCaches.materializeTimePitchCacheEntry(entry, signal), createLinkedRenderEngine: () => sources.timePitchCaches.createCacheAwareRenderEngine(),
 		retireSourceChunkProvider: sources.sourceLifecycle.retireSourceChunkProvider,
 		getProject: () => documentState.project, getCommandProject, editingBlocked, commit: bindings.commit, publishProjectState: bindings.publishProjectState, publishDocumentSnapshot, setStatus: bindings.setStatus, handleError: bindings.handleError,
@@ -570,7 +570,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		engine, playbackPreviews,
 		exportVideo, ffmpeg, fileService, findClip, findTrack,
 		getVideoSourceVisualData: sources.projectVisual.getVideoSourceVisualData, handleEdit: edits.handleEdit,
-		handleExportAction, handlePlayAtSpeed, handleTransport,
+		handleExportAction, handlePlayAtSpeed, handleTransport, handleScrub, endScrub,
 		importFiles: imports.importFiles, pasteClipSpreadsheet: imports.pasteSpreadsheet, inspectScape,
 		listAudioEditorEffectPresets,
 		moveTrack, normalizePlaybackFrame,
@@ -658,7 +658,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 
 	function publishDocumentSnapshot({ force = false } = {}) { documentChannel.publish({ force }); }
 	function publishTelemetrySnapshot() { telemetryChannel.publish(); }
-	async function reloadVideoSourceVisual(/** @type {string} */ sourceId) { const source = findSource(documentState.project, sourceId); if (!source || source.kind !== 'video') throw new ReferenceError(`Video source ${String(sourceId)} is missing.`); await bindings.revokeVideoVisual(source.id); return bindings.activateVideoSource(source); }
+	function reloadVideoSourceVisual(/** @type {string} */ sourceId) { return reloadPublishedVideoVisual(sourceId, { findSource: id => findSource(documentState.project, id), revoke: bindings.revokeVideoVisual, activate: bindings.activateVideoSource, publish: () => publishDocumentSnapshot({ force: true }) }); }
 
 	function pauseLoudnessMeasurement(kind = 'playback') { return microphoneMeterService.pauseLoudnessMeasurement(kind); }
 	function continueLoudnessMeasurement(kind = 'playback') { return microphoneMeterService.continueLoudnessMeasurement(kind); }

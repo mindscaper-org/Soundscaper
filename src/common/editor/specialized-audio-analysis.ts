@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { calculateAudioSpectrum, findAudioClippingRegions } from './analysis.js';
+import { calculateAudioSpectrum } from './analysis.js';
+import { AUDIO_CLIPPING_FULL_SCALE_THRESHOLD, findAudioClippingRegions } from './audio-clipping-regions.ts';
 interface AnalysisRange { readonly startFrame: number; readonly endFrame: number }
 
 export function spectrumReport(
@@ -26,7 +27,7 @@ export function clippingReport(
 	channels: Float32Array[],
 	options: Record<string, unknown>,
 ) {
-	const threshold = Number(options.threshold ?? 1);
+	const threshold = Number(options.threshold ?? AUDIO_CLIPPING_FULL_SCALE_THRESHOLD);
 	const minimumConsecutiveSamples = Number(options.minimumConsecutiveSamples ?? 3);
 	const regions = findAudioClippingRegions(channels, { threshold, minimumConsecutiveSamples })
 		.map((region) => Object.freeze({

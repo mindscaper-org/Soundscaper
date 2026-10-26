@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createMenuActionFixture } from './helpers/application-menu-fixture.ts';
@@ -61,8 +63,8 @@ test('the delivery command carries each product its own name', () => {
 	);
 	assert.notEqual(EXPORT_MENU_COPY_BY_LOCALE.en.exportVideo, EXPORT_MENU_COPY_BY_LOCALE.en.exportAudio);
 	for (const locale of ['en', 'de'] as const) {
-		assert.equal(typeof EXPORT_MENU_COPY_BY_LOCALE[locale].exportVideo, 'string');
-		assert.ok(EXPORT_MENU_COPY_BY_LOCALE[locale].exportVideo);
+		assert.equal(typeof (locale === 'de' ? GERMAN_COPY : EXPORT_MENU_COPY_BY_LOCALE.en).exportVideo, 'string');
+		assert.ok((locale === 'de' ? GERMAN_COPY : EXPORT_MENU_COPY_BY_LOCALE.en).exportVideo);
 	}
 });
 

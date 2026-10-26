@@ -15,6 +15,7 @@ import { resampledClipCommands } from './clip-resample-service.ts';
 import { trackReplacementPlacement } from './track-replacement-placement.ts';
 import { stereoTrackRenderRange } from './stereo-track-render-range.ts';
 import { splitStereoSourceChannels } from './split-stereo-source-channels.ts';
+import { splitStereoClipCommands } from './split-stereo-clip-commands.ts';
 import { assertStereoSplitRoutingRepresentable } from './stereo-split-routing-admission.ts';
 import { monoMergeRoutingCompatible } from './mono-merge-routing-admission.ts';
 import { admChannelTransformCommands } from './adm-channel-transforms.ts';
@@ -78,7 +79,7 @@ export interface TrackTransformServiceDependencies {
 	captureProject(): EditorProjectToken;
 	assertProject(token: EditorProjectToken): void;
 	createId(prefix: string): string;
-	commit(command: AudioEditorCommand, selection?: CommitSelection): unknown;
+	commit(command: AudioEditorCommand, selection?: CommitSelection, behavior?: Readonly<{ microfadeNewClips: boolean }>): unknown;
 	projectSampleRate(): number;
 	normalizeProjectSampleRate(value: unknown): number;
 	audioTrackChannelCount(project: ControllerProject, track: ControllerTrack): number;
@@ -167,7 +168,7 @@ export function createTrackTransformService(
 				for (const clip of clips) addResampledClipCommands(commands, track, clip, replacements, sampleRate);
 				assertOwned(ownership);
 				commands.push(...resampledClipSelectionCommands(dependencies.getProject().selection, clips.map(clip => clip.id)));
-				dependencies.commit({ type: 'batch', commands }, { selectTrackId: track.id });
+				dependencies.commit({ type: 'batch', commands }, { selectTrackId: track.id }, { microfadeNewClips: false });
 				setLocalizedStatus(dependencies.setStatus, dependencies.copy, "done", undefined, 'success');
 				return track.id;
 			} catch (error) {
@@ -301,7 +302,11 @@ export function createTrackTransformService(
 					...copyDerivedTrackEffectAutomation(project, track.id, track.id, leftEffectIds, dependencies.createId),
 					...copyDerivedTrackEffectAutomation(project, track.id, rightTrackId, rightEffectIds, dependencies.createId),
 				];
-				for (const clip of clips) addSplitClipCommands(commands, track, rightTrackId, clip, sourcePairs);
+				for (const clip of clips) {
+					const pair = sourcePairs.get(clip.sourceId), original = findControllerSource(project, clip.sourceId);
+					if (pair && original) commands.push(...splitStereoClipCommands(track.id, rightTrackId, clip,
+						original, pair, dependencies.createId, publishedCopyFor(dependencies.copy).rightChannel));
+				}
 				commands.push(...admChannelTransformCommands(project, [{
 					trackId: track.id, sourceChannel: 1, targetTrackId: rightTrackId, targetChannel: 0,
 				}]));
@@ -310,7 +315,7 @@ export function createTrackTransformService(
 					{ sourceTrackId: track.id, targetTrackId: track.id },
 					{ sourceTrackId: track.id, targetTrackId: rightTrackId },
 				], dependencies.previewCommand, dependencies.createId);
-				dependencies.commit(command, { selectTrackId: track.id });
+				dependencies.commit(command, { selectTrackId: track.id }, { microfadeNewClips: false });
 				setLocalizedStatus(dependencies.setStatus, dependencies.copy, "done", undefined, 'success');
 				return Object.freeze({ leftTrackId: track.id, rightTrackId });
 			} catch (error) {
@@ -407,7 +412,7 @@ export function createTrackTransformService(
 				const command = preserveProductionTrackRouting(project, { type: 'batch', commands }, [
 					{ sourceTrackId: track.id, targetTrackId: track.id },
 				], dependencies.previewCommand, dependencies.createId);
-				dependencies.commit(command, { selectTrackId: track.id, selectClipId: clipId });
+				dependencies.commit(command, { selectTrackId: track.id, selectClipId: clipId }, { microfadeNewClips: false });
 				setLocalizedStatus(dependencies.setStatus, dependencies.copy, "done", undefined, 'success');
 				return track.id;
 			} catch (error) {
@@ -491,27 +496,6 @@ export function createTrackTransformService(
 		commands.push(...resampledClipCommands(
 			track.id, clip, originalSource, replacement.source, sampleRate, linkedVideo,
 		));
-	}
-
-	function addSplitClipCommands(
-		commands: AudioEditorCommand[],
-		track: ControllerTrack,
-		rightTrackId: string,
-		clip: ControllerClip,
-		pairs: ReadonlyMap<string, Readonly<{ left: ControllerSource; right: ControllerSource }>>,
-	): void {
-		const pair = pairs.get(clip.sourceId);
-		if (!pair) return;
-		commands.push(
-			createAddClipCommand(track.id, { ...clip, sourceId: pair.left.id, avLinkId: null }),
-			createAddClipCommand(rightTrackId, {
-				...clip,
-				id: dependencies.createId('clip'),
-				sourceId: pair.right.id,
-				title: `${clip.title} — ${publishedCopyFor(dependencies.copy).rightChannel}`,
-				avLinkId: null,
-			}),
-		);
 	}
 
 	function findMonoPartner(

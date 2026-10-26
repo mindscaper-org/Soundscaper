@@ -30,6 +30,7 @@ export interface ClipSourceController {
 		};
 		readonly effects: {
 			setSourceSelection(selection: (SourceSelection & { readonly clipId: string }) | null): unknown;
+			readSourceSelection?(): (SourceSelection & { readonly clipId: string }) | null;
 			loadSourceAudio?(clipId: string): Promise<TimelineAudioBuffer>;
 			loadSourceAudioWindow?(clipId: string, range: SourceSelection & { readonly signal?: AbortSignal }): Promise<TimelinePcmWindow | null>;
 		};

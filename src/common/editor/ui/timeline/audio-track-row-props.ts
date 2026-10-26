@@ -26,7 +26,16 @@ export interface AudioTrackRowMemoProps extends Readonly<Record<string, unknown>
 const EMPTY_IDS: ReadonlySet<string> = new Set();
 const EMPTY_TARGETS: readonly unknown[] = Object.freeze([]);
 const entries = (preview: DragPreview | null | undefined) => preview?.previews ?? (preview ? [preview] : []);
-const sameIds = (left: ReadonlySet<string>, right: ReadonlySet<string>) => left.size === right.size && [...left].every(id => right.has(id));
+
+function retainIntersection(previous: ReadonlySet<string>, source: ReadonlySet<string>, belongs: (id: string) => boolean): ReadonlySet<string> {
+	let count = 0, changed = false;
+	for (const id of source) if (belongs(id)) { count++; if (!previous.has(id)) changed = true; }
+	if (!changed && previous.size === count) return previous;
+	if (!count) return EMPTY_IDS;
+	const next = new Set<string>();
+	for (const id of source) if (belongs(id)) next.add(id);
+	return next;
+}
 
 /** Narrow global selection/media notifications before the expensive row reconciles. */
 export function createAudioTrackRowPropReader() {
@@ -34,6 +43,9 @@ export function createAudioTrackRowPropReader() {
 	let clips: readonly CanonicalRowClip[] | null = null;
 	let clipIds: ReadonlySet<string> = EMPTY_IDS;
 	let viewportIndex: TimelineViewportClipIndex<CanonicalRowClip> | null = null;
+	// One result belongs to the current immutable track snapshot and frame range.
+	let visibleClips: readonly CanonicalRowClip[] | null = null;
+	let visibleStart = NaN, visibleEnd = NaN;
 	let selectedIds: ReadonlySet<string> = EMPTY_IDS;
 	let draggedIds: ReadonlySet<string> = EMPTY_IDS;
 	let visualRevision: readonly unknown[] | null = null;
@@ -48,21 +60,25 @@ export function createAudioTrackRowPropReader() {
 				clips = props.trackClips;
 				clipIds = new Set(clips.map(clip => clip.id));
 				viewportIndex = clips.length > 128 ? createTimelineViewportClipIndex(clips) : null;
+				visibleClips = null;
 			}
 			const previewEntries = entries(props.clipDragPreview);
 			const clipDragPreview = previewEntries.some(preview => preview.trackId === props.track.id || (preview.clipId && clipIds.has(preview.clipId)))
 				? props.clipDragPreview : null;
 			const projectBinDragPreview = entries(props.projectBinDragPreview).some(preview => preview.trackId === props.track.id && preview.clip?.kind === props.track.type)
 				? props.projectBinDragPreview : null;
-			const incoming = new Set(clipDragPreview ? previewEntries.filter(preview => preview.trackId === props.track.id).flatMap(preview => preview.clipId ? [preview.clipId] : []) : []);
+			const incoming = clipDragPreview ? new Set(previewEntries.filter(preview => preview.trackId === props.track.id).flatMap(preview => preview.clipId ? [preview.clipId] : [])) : EMPTY_IDS;
 			const binVisualClips = entries(projectBinDragPreview).flatMap(preview => preview.clip?.id ? [{ id: preview.clip.id, projectBinClipId: preview.clip.projectBinClipId }] : []);
 			const belongs = (id: string) => clipIds.has(id) || incoming.has(id);
-			const nextSelected = new Set([...props.selectedClipIdSet].filter(belongs));
-			const nextDragged = new Set([...(props.draggingClipIds ?? EMPTY_IDS)].filter(belongs));
-			if (!sameIds(selectedIds, nextSelected)) selectedIds = nextSelected;
-			if (!sameIds(draggedIds, nextDragged)) draggedIds = nextDragged;
-			const visible = viewportIndex?.query(Math.max(0, props.renderViewportStartFrame - props.viewportDurationFrames),
-				Math.min(Number.MAX_SAFE_INTEGER, props.renderViewportStartFrame + props.viewportDurationFrames * 2)) ?? props.trackClips;
+			selectedIds = retainIntersection(selectedIds, props.selectedClipIdSet, belongs);
+			draggedIds = retainIntersection(draggedIds, props.draggingClipIds ?? EMPTY_IDS, belongs);
+			const start = Math.max(0, props.renderViewportStartFrame - props.viewportDurationFrames);
+			const end = Math.min(Number.MAX_SAFE_INTEGER, props.renderViewportStartFrame + props.viewportDurationFrames * 2);
+			if (!visibleClips || visibleStart !== start || visibleEnd !== end) {
+				visibleClips = viewportIndex?.query(start, end) ?? props.trackClips;
+				visibleStart = start; visibleEnd = end;
+			}
+			const visible = visibleClips;
 			const visualClips = incoming.size || binVisualClips.length
 				? [...visible, ...[...incoming].flatMap(id => props.clipLookup.get(id) ?? []), ...binVisualClips] : visible;
 			const nextVisualRevision = readVisual(props.controller, visualClips);

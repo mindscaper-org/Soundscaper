@@ -99,7 +99,10 @@ test('Match frame reopening the current source cancels playback but ordinary mar
 	let openRevision = 1;
 	let mediaSeconds = 0;
 	let paused = 0;
-	const sourceMonitor = { view: () => ({ sourceId: 'source', openRevision, positionFrame: 0, mediaSeconds, sourceFrameCount: 25 }) };
+	const sourceMonitor = {
+		view: () => ({ sourceId: 'source', openRevision, positionFrame: 0, mediaSeconds, sourceFrameCount: 25 }),
+		seekMediaTime: (seconds: number) => { mediaSeconds = seconds; render(); },
+	};
 	const render = () => root.render(<SourceMonitorPanel
 		controller={{ actions: { video: { sourceMonitor, getSourceVisualData: () => ({ mediaUrl: 'source.mp4' }) } } }}
 		snapshot={{ readOnly: false }} copy={{}} run={(operation: () => unknown) => operation()} blocked={false} />);
@@ -107,7 +110,11 @@ test('Match frame reopening the current source cancels playback but ordinary mar
 		await act(async () => { render(); });
 		const video = dom.one('video');
 		Reflect.set(video, 'play', () => Promise.resolve());
-		Reflect.set(video, 'pause', () => { paused += 1; });
+		Reflect.set(video, 'pause', () => {
+			paused += 1;
+			// WebKit may deliver the departing clock as the media is paused.
+			reactProps(video).onTimeUpdate();
+		});
 		await act(async () => { reactProps(dom.one('[data-source-monitor-action="play"]')).onClick(); });
 		Reflect.set(video, 'currentTime', 0.4);
 		mediaSeconds = 0.42;

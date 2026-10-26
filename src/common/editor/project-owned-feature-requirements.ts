@@ -17,9 +17,11 @@ import {
 import { createDefaultMixerGraphV21, normalizeMixerGraphV21 } from './mixer-graph-v21.ts';
 import { resolveTerminalChannelWidths } from './terminal-channel-widths.ts';
 import { VIDEO_EFFECT_TYPES } from './video-effects.js';
+import { projectHasScapeLiteralKeys, SCAPE_LITERAL_KEYS_REQUIREMENT_ID } from './scape-literal-json-keys.ts';
 
 export const PROJECT_OWNED_FEATURE_REQUIREMENT_IDS = Object.freeze({
 	assistanceAssets: 'soundscaper.assistance-assets',
+	literalJsonKeys: SCAPE_LITERAL_KEYS_REQUIREMENT_ID,
 	audioEffects: 'soundscaper.audio-effects',
 	videoEffects: 'soundscaper.video-effects',
 	musicalTimeline: 'soundscaper.musical-timeline',
@@ -34,6 +36,7 @@ export const PROJECT_OWNED_FEATURE_REQUIREMENT_IDS = Object.freeze({
 	sequenceTiming: 'framescaper.sequence-timing',
 	timelineImages: 'framescaper.timeline-images-v1',
 	timelineImagePhase: 'framescaper.timeline-image-phase-v1',
+	timelineImageHoldPhase: 'framescaper.timeline-image-hold-phase-v1',
 	videoRetime: 'framescaper.video-retime',
 	videoTimingAssets: 'framescaper.video-timing-assets',
 	sourceCharacteristics: 'framescaper.source-characteristics',
@@ -87,6 +90,9 @@ const OWNED_ASSISTANCE_FEATURE_REQUIREMENT = foundationOwned(
 	() => true,
 );
 const OWNED_FEATURE_REQUIREMENTS: readonly OwnedFeatureRequirement[] = Object.freeze([
+	foundationOwned(Object.freeze({ id: PROJECT_OWNED_FEATURE_REQUIREMENT_IDS.literalJsonKeys,
+		featureId: PROJECT_FEATURE_CAPABILITY_IDS.literalJsonKeys, displayName: 'Literal JSON metadata keys',
+		disposition: 'bypass', fallback: null }), projectHasScapeLiteralKeys, () => true),
 	Object.freeze({
 		requirement: OWNED_AUDIO_EFFECT_REQUIREMENT,
 		conflictMessage: 'The reserved owned audio-effects requirement conflicts with publisher data.',

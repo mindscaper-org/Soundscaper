@@ -49,6 +49,8 @@ test.describe('project archive and checksum files', () => {
 		const archive = await downloadBytes(archiveDownload);
 		expect([...archive.subarray(0, 4)]).toEqual([0x50, 0x4b, 0x03, 0x04]);
 		await archiveDownload.delete();
+		// The download precedes the archive's checksum readback and publication.
+		await expect(editor.locator('[data-editor-task-progress]')).toBeHidden({ timeout: 20_000 });
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 
 		const checksumDownloadPromise = page.waitForEvent('download');

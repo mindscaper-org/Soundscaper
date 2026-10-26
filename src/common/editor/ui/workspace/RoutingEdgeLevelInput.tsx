@@ -21,7 +21,8 @@ export function routingLevelDraftValue(draft: string, unchangedLevel?: number): 
 	if (draft.trim() === '') return null;
 	const value = Number(draft);
 	if (unchangedLevel !== undefined && value === routingLevelDisplayDb(unchangedLevel)) return unchangedLevel;
-	return Number.isFinite(value) ? value <= -60 ? 0 : Math.min(4, 10 ** (value / 20)) : null;
+	return Number.isFinite(value) && value >= -60 && value <= 12.04
+		? value === -60 ? 0 : 10 ** (value / 20) : null;
 }
 
 export default function RoutingEdgeLevelInput(props: RoutingEdgeLevelInputProps) {

@@ -5,6 +5,7 @@ import { ProgressBar } from '@soundscaper/design-system/ProgressBar';
 import { Separator } from '@soundscaper/design-system/Separator';
 import { TextInput } from '@soundscaper/design-system/TextInput';
 import { MEDIA_EXPORT_FORMATS } from '../../media-export.js';
+import { resolveSelectionRange } from '../../selection-range.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
 import VideoDeliveryFields from '../VideoDeliveryFields.jsx';
@@ -111,12 +112,14 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		setSettings, setPresetId, setPresetName,
 		isCurrent: () => currentOperationOwner.current === operationOwner,
 	});
-	const hasSelection = Boolean(snapshot.selection);
+	const hasSelection = Boolean(resolveSelectionRange(snapshot.project));
 	const hasLoop = Boolean(snapshot.project?.loop?.enabled);
 	const exporting = Boolean(snapshot.exporting);
 	const progress = Math.round(Math.max(0, Math.min(1, exportProgress ?? snapshot.export?.progress ?? 0)) * 100);
 	const output = snapshot.export?.output;
-	const blocked = !snapshot.ready || snapshot.importing || snapshot.recording || snapshot.processingEffect || snapshot.missingSourceIds?.length > 0 || !snapshot.project?.clips?.length;
+	// The export action admits sources for its chosen delivery, including verified
+	// render fallbacks; an unavailable unused Bin source does not block that output.
+	const blocked = !snapshot.ready || snapshot.importing || snapshot.recording || snapshot.processingEffect || !snapshot.project?.clips?.length;
 	const hasTimelineVideo = projectHasTimelineVideo(snapshot.project);
 	const videoFormat = isVideoExportDialogFormat(settings.format);
 	const captionDeliveryUnavailable = videoCaptionDeliveryUnavailable(
@@ -155,6 +158,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		setError('');
 		setPresetId('');
 		setPresetName('');
+		setMappingOpen(false);
 	}, [projectIdentity, snapshot.project, setError]);
 
 	useEffect(() => {
@@ -338,7 +342,14 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 			setMetadataOpen(false);
 			return;
 		}
-		if (!exporting) onClose?.();
+		if (!exporting) {
+			if (activeExportSubmission.current?.owner === operationOwner) {
+				activeExportSubmission.current = null;
+				try { void Promise.resolve(controller.actions.export.cancel()).catch(() => undefined); }
+				catch { /* Closing still dismisses a canceled submission if cancellation fails. */ }
+			}
+			onClose?.();
+		}
 	};
 	if (metadataOpen) {
 		return (

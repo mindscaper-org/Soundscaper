@@ -5,6 +5,7 @@ import {
 } from '../common/editor/timeline-image-model.ts';
 import { normalizeFramescaperImageSourceCurrentV1 } from '../common/editor/timeline-image-model-current-v1.ts';
 import { rebindFramescaperSourceIdentitiesFinishing } from './editor-project-finishing-source-rebind.ts';
+import { projectString } from '../common/editor/project-validation-primitives.ts';
 
 /** Follow one Scape source collision map through finishing state and exact timelineImage image authority. */
 export function rebindFramescaperSourceIdentitiesTimelineImage(
@@ -71,7 +72,7 @@ function assertSourceIdMap(value: ReadonlyMap<string, string>): void {
 }
 
 function assertUniqueIds(values: readonly Record<string, unknown>[], name: string): void {
-	const ids = values.map(({ id }) => stableId(id, `${name} ID`));
+	const ids = values.map(({ id }) => projectString(id, `${name} ID`));
 	if (new Set(ids).size !== ids.length) throw new RangeError(`${name} must retain unique identities.`);
 }
 

@@ -54,9 +54,10 @@ export class MediaAssetDisposalRepository {
 	async #hasMediaReference(indexName: string, value: string): Promise<boolean> {
 		const database = await this.#port.database();
 		if (!database) {
-			return [...this.#port.memory.mediaAssets.values()].some((candidate) => (
-				storageRecord(candidate)?.[indexName] === value
-			));
+			for (const candidate of this.#port.memory.mediaAssets.values()) {
+				if (storageRecord(candidate)?.[indexName] === value) return true;
+			}
+			return false;
 		}
 		return transact(database, 'mediaAssets', 'readonly', ({ mediaAssets }) => (
 			request(mediaAssets.index(indexName).count(value)).then((count) => count > 0)
@@ -68,11 +69,14 @@ export class MediaAssetDisposalRepository {
 		if (await this.#isActiveStaging({ path })) return true;
 		const database = await this.#port.database();
 		if (!database) {
-			return [
+			for (const records of [
 				this.#port.memory.sources,
 				this.#port.memory.mediaAssets,
 				this.#port.memory.videoDerivatives,
-			].some((records) => [...records.values()].some((candidate) => storageRecord(candidate)?.path === path));
+			]) for (const candidate of records.values()) {
+				if (storageRecord(candidate)?.path === path) return true;
+			}
+			return false;
 		}
 		return transact(database, [
 			'sources',

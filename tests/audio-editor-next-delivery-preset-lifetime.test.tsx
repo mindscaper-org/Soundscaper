@@ -20,10 +20,11 @@ for (const operation of ['save', 'delete'] as const) {
 		await fixture.store.saveProject(incoming);
 		const held = deferred<void>(), started = deferred<void>(), completed = deferred<void>();
 		let delay = false;
-		const saveSetting = fixture.store.saveSetting.bind(fixture.store);
-		fixture.store.saveSetting = async (...args: Parameters<typeof fixture.store.saveSetting>) => {
+		const repository = fixture.store.settingsRepository;
+		const replace = repository.replaceIfCurrent.bind(repository);
+		repository.replaceIfCurrent = async (...args: Parameters<typeof repository.replaceIfCurrent>) => {
 			if (delay && args[0] === DELIVERY_PRESETS_SETTING_KEY) { started.resolve(); await held.promise; }
-			const result = await saveSetting(...args);
+			const result = await replace(...args);
 			if (delay && args[0] === DELIVERY_PRESETS_SETTING_KEY) completed.resolve();
 			return result;
 		};

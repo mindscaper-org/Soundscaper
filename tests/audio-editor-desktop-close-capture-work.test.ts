@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -8,7 +10,7 @@ import {
 	sealEditorCaptureForClose,
 } from '../src/common/editor/ui/workspace/desktop-editor-close-work.ts';
 import { desktopActiveWorkQuitPrompt } from '../src/common/editor/ui/workspace/useDesktopEditorBridge.js';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 
 test('desktop close recognizes unsealed 8A/Web VCR work but not durable recovery', () => {
 	assert.equal(editorCloseHasActiveWork({ capture: { phase: 'recording' } }), true);

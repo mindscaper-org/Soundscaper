@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { projectString } from '../../../../project-validation-primitives.ts';
 import {
 	TAKE_CYCLE_CAPTURE_MAXIMUM_PASSES,
 	TAKE_CYCLE_CAPTURE_MAXIMUM_SPANS,
@@ -197,7 +197,7 @@ export function createTakeCycleLiveCaptureSpool(
 	}
 
 	async function inspect(projectIdValue: string): Promise<TakeCycleLiveCaptureInventory> {
-		const projectId = stableId(projectIdValue, 'take cycle projectId');
+		const projectId = projectString(projectIdValue, 'take cycle projectId');
 		const drafts: TakeCycleCaptureDraft[] = [];
 		const capturing: TakeCycleCapturingSpoolEvidence[] = [];
 		for (const record of await repository.list(projectId)) {
@@ -235,7 +235,7 @@ export function createTakeCycleLiveCaptureSpool(
 		decision: 'recover' | 'discard',
 		createPassIdentities: (passIndex: number, firstLaneId: string) => TakeCycleCapturePassIdentities,
 	): Promise<readonly TakeCycleCaptureDraft[]> {
-		const projectId = stableId(projectIdValue, 'take cycle projectId');
+		const projectId = projectString(projectIdValue, 'take cycle projectId');
 		const drafts: TakeCycleCaptureDraft[] = [];
 		for (let record of await repository.list(projectId)) {
 			const kind = takeCycleSpoolKind(record.data);
@@ -421,7 +421,7 @@ function normalizeSeed(value: TakeCycleLiveCaptureSeed): NormalizedSeed {
 	return Object.freeze({
 		...value,
 		draftId: stableId(value.draftId, 'take cycle draftId'),
-		projectId: stableId(value.projectId, 'take cycle projectId'),
+		projectId: projectString(value.projectId, 'take cycle projectId'),
 		publicationGeneration: positiveInteger(value.publicationGeneration, 'take cycle publicationGeneration'),
 		envelopeId: stableId(value.envelopeId, 'take cycle envelopeId'),
 		groupId: stableId(value.groupId, 'take cycle groupId'),
@@ -462,7 +462,7 @@ function normalizeIntent(value: unknown, record: RawPcmSpoolRecord): LiveCapture
 	});
 	const normalized = Object.freeze({
 		kind: INTENT_KIND,
-		projectId: stableId(intent.projectId, 'take cycle projectId'),
+		projectId: projectString(intent.projectId, 'take cycle projectId'),
 		publicationGeneration: positiveInteger(intent.publicationGeneration, 'take cycle publicationGeneration'),
 		envelopeId: stableId(intent.envelopeId, 'take cycle envelopeId'),
 		groupId: stableId(intent.groupId, 'take cycle groupId'),

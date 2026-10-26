@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY as BASE_GERMAN_COPY, FREESOUND_GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act } from 'react';
@@ -27,10 +29,7 @@ import { workspacePanelAvailable as framescaperPanelAvailable } from '../src/com
 import { filterProductMenus } from '../src/common/editor/ui/application-menu-product-filter.js';
 import { DEFAULT_PANELS } from '../src/common/editor/workspace-layout-defaults.ts';
 import { workspacePanelAvailable as soundscaperPanelAvailable } from '../src/soundscaper/editor-workspace-panel-runtime.ts';
-import {
-	ENGLISH_COPY as BASE_ENGLISH_COPY,
-	GERMAN_COPY as BASE_GERMAN_COPY,
-} from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY as BASE_ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { FREESOUND_ATTRIBUTION_COPY_BY_LOCALE } from '../src/common/i18n/freesound-attribution-copy.js';
 import { installReactTestDom, reactProps, type ReactTestElement } from './helpers/react-test-dom.ts';
 
@@ -41,7 +40,7 @@ const ENGLISH_COPY = Object.freeze({
 });
 const GERMAN_COPY = Object.freeze({
 	...BASE_GERMAN_COPY,
-	...FREESOUND_ATTRIBUTION_COPY_BY_LOCALE.de,
+	...FREESOUND_GERMAN_COPY,
 });
 
 const FREESOUND_STATE: FreesoundPanelState = Object.freeze({

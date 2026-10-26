@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import test from 'node:test';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
+import { writeTranslationCatalog } from '../scripts/i18n-ai/catalog.mjs';
 import { importCommunityTranslationFile, exportCommunityTranslationPo } from '../scripts/community-translations.ts';
 import { createContributionSnapshot, createTranslationDraft, updateTranslationDraft } from '../src/common/i18n/community-translations.ts';
 
@@ -19,7 +20,7 @@ test('JSON dry-run leaves catalogs untouched; applying writes only selected huma
 		draft = { ...updateTranslationDraft(draft, snapshot, 'open', 'Ouvrir'), contributor: 'Jane' };
 		const file = join(directory, 'contribution.json');
 		await writeFile(file, JSON.stringify(draft));
-		const options = { file, englishCopy, germanCopy: {}, catalogDirectory };
+		const options = { file, englishCopy, catalogDirectory };
 		const report = await importCommunityTranslationFile(options);
 		assert.deepEqual(report.clean, ['open', 'save']);
 		assert.deepEqual(report.diffs.find(({ key }) => key === 'save'), {
@@ -43,12 +44,12 @@ test('JSON dry-run leaves catalogs untouched; applying writes only selected huma
 	}
 });
 
-test('PO ZIP round-trip imports only changed entries and supports German bundled baselines', async () => {
+test('PO ZIP round-trip imports only changed entries and supports German JSON catalog baselines', async () => {
 	const directory = await mkdtemp(join(tmpdir(), 'scape-community-po-'));
 	try {
 		const englishCopy = { save: 'Save' };
-		const germanCopy = { save: 'Speichern' };
-		const options = { englishCopy, germanCopy, catalogDirectory: directory };
+		await writeTranslationCatalog({ locale: 'de', entries: { save: ['human', 'Save', 'Speichern'] } }, directory);
+		const options = { englishCopy, catalogDirectory: directory };
 		const output = join(directory, 'de.zip');
 		await exportCommunityTranslationPo('de', output, options);
 		assert.deepEqual((await importCommunityTranslationFile({ ...options, file: output })).clean, []);

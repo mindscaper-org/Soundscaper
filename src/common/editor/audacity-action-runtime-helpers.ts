@@ -106,3 +106,44 @@ export function freezeAudacityActionTree<T>(value: T): T {
 	for (const child of Object.values(value)) freezeAudacityActionTree(child);
 	return Object.freeze(value);
 }
+
+interface DeferredProjectController {
+	getSnapshot(): Readonly<{ project?: Readonly<{ id?: unknown }> | null }>;
+	captureProjectGeneration?(): unknown;
+}
+interface DeferredProjectOwner { readonly id: string; readonly generation: number | null }
+
+/** Lazy commands belong to one activation, while ordinary edits may keep advancing. */
+export function createAudacityDeferredProjectActions(controller: DeferredProjectController) {
+	let disposed = false;
+	function owner(): DeferredProjectOwner | null {
+		if (disposed) return null;
+		try {
+			const id = controller.getSnapshot().project?.id;
+			if (typeof id !== 'string' || !id) return null;
+			if (!controller.captureProjectGeneration) return { id, generation: null };
+			const token = controller.captureProjectGeneration();
+			if (!token || typeof token !== 'object' || !('projectId' in token) || token.projectId !== id
+				|| !('generation' in token) || typeof token.generation !== 'number'
+				|| !Number.isSafeInteger(token.generation) || token.generation < 0) return null;
+			return { id, generation: token.generation };
+		} catch {
+			return null;
+		}
+	}
+	function current(expected: DeferredProjectOwner): boolean {
+		const actual = owner();
+		return actual?.id === expected.id && actual.generation === expected.generation;
+	}
+	return Object.freeze({
+		async run<Module, Result>(load: () => Promise<Module>, apply: (module: Module) => Result): Promise<Result | null> {
+			const expected = owner();
+			if (!expected) return null;
+			let module: Module;
+			try { module = await load(); }
+			catch (error) { if (!current(expected)) return null; throw error; }
+			return current(expected) ? apply(module) : null;
+		},
+		dispose() { disposed = true; },
+	});
+}

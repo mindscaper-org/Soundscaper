@@ -2,6 +2,7 @@
 
 import { randomBytes as nodeRandomBytes } from 'node:crypto';
 import { stat as nodeStat } from 'node:fs/promises';
+import { assertLinkedOriginalReadAuthority, readLinkedOriginalFileIdentity } from './linked-original-read-authority.ts';
 import { confirmDesktopFileSizeWarning, type DesktopSaveSizeWarning } from './save-size-warning-dialog.ts';
 
 import {
@@ -278,14 +279,14 @@ export class DesktopLinkedVideoLocatorStore {
 		const expectedRevision = nullableLocatorRevision(options?.expectedRevision);
 		const state = this.#ownerState(owner);
 		const entry = this.#entries.get(id);
-		if (!entry || state.revoked
-			|| expectedRevision !== null && entry.locatorRevision !== expectedRevision) return null;
+		assertLinkedOriginalReadAuthority(entry !== undefined && !state.revoked);
+		assertLinkedOriginalReadAuthority(expectedRevision === null || entry.locatorRevision === expectedRevision);
 		if (entry.kind !== expectedKind) {
 			throw new Error(`A linked-${entry.kind} locator cannot be loaded as linked-${expectedKind}.`);
 		}
-		const before = await this.#currentIdentity(entry.path);
-		if (!before || !samePersistedLinkedVideoFileIdentity(before, entry.identity)
-			|| this.#entries.get(id) !== entry) return null;
+		const before = await readLinkedOriginalFileIdentity(entry.path, this.#stat);
+		assertLinkedOriginalReadAuthority(this.#entries.get(id) === entry && !state.revoked);
+		if (!before || !samePersistedLinkedVideoFileIdentity(before, entry.identity)) return null;
 		const rangeProfile = expectedKind === 'audio' ? 'linked-audio-range-v1' : 'linked-video-range-v1';
 		const descriptor = await (playback
 			? this.#readCapabilities.registerLinkedOriginalRangePath(entry.path, {
@@ -295,13 +296,15 @@ export class DesktopLinkedVideoLocatorStore {
 			: this.#readCapabilities.registerMaterializedPath(entry.path, {
 				owner, mimeType: entry.mimeType, displayName: entry.name,
 			}));
+		let releaseStarted = false;
 		try {
 			assertDescriptorMatches(
 				descriptor, entry, playback ? rangeProfile : 'materialized-v1',
 			);
-			const after = playback ? entry.identity : await this.#currentIdentity(entry.path);
-			if (!after || !samePersistedLinkedVideoFileIdentity(after, entry.identity)
-				|| this.#entries.get(id) !== entry || state.revoked) {
+			const after = playback ? entry.identity : await readLinkedOriginalFileIdentity(entry.path, this.#stat);
+			assertLinkedOriginalReadAuthority(this.#entries.get(id) === entry && !state.revoked);
+			if (!after || !samePersistedLinkedVideoFileIdentity(after, entry.identity)) {
+				releaseStarted = true;
 				await this.#readCapabilities.release(descriptor.id, { owner });
 				return null;
 			}
@@ -310,6 +313,7 @@ export class DesktopLinkedVideoLocatorStore {
 				descriptor: Object.freeze(descriptor),
 			});
 		} catch (error) {
+			if (releaseStarted) throw error;
 			try {
 				await this.#readCapabilities.release(descriptor.id, { owner });
 			} catch (cleanupError) {
@@ -460,14 +464,6 @@ export class DesktopLinkedVideoLocatorStore {
 			}
 			this.#add(entry);
 			this.#startupEntries.set(entry.locatorId, entry);
-		}
-	}
-
-	async #currentIdentity(path: string): Promise<FileIdentity | null> {
-		try {
-			return persistedLinkedVideoFileIdentityFromStat(await this.#stat(path));
-		} catch {
-			return null;
 		}
 	}
 

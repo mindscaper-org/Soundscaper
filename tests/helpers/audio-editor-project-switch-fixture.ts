@@ -152,7 +152,7 @@ export function createFixture(
 				projectId: value.id,
 				history: options.history ?? { present: value },
 				metadata: options.metadata,
-				dirty: false,
+				dirty: Boolean(options.dirty),
 			});
 		},
 		updateProjectMetadata(projectId: string, metadata: Readonly<Record<string, unknown>>) {
@@ -167,7 +167,7 @@ export function createFixture(
 		},
 		getProjectHistory(projectId: string) { const history = tabs.get(projectId)?.history; if (!history) throw new Error(`Missing session history for ${projectId}.`); return history; },
 		clipboardForProject() { return { descriptor: { schemaVersion: 1 as const, sampleRate: 48_000, durationFrames: 0, tracks: [] } }; },
-		markProjectSaved(projectId: string) { events.push(`marked-saved:${projectId}`); },
+		markProjectSaved(projectId: string) { events.push(`marked-saved:${projectId}`); const tab = tabs.get(projectId); if (tab) tabs.set(projectId, { ...tab, dirty: false }); },
 	};
 	const runtime = {
 		state,

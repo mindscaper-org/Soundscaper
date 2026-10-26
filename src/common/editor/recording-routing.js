@@ -27,6 +27,16 @@ export function recordingRouteSourceKey(route) {
 }
 
 /**
+ * @template Route
+ * @param {Readonly<Record<string, Route>>} routes
+ * @param {string | null | undefined} trackId
+ * @returns {Route | null}
+ */
+export function recordingTrackRoute(routes, trackId) {
+	return trackId && Object.hasOwn(routes, trackId) ? routes[trackId] : null;
+}
+
+/**
  * @param {unknown} route
  * @param {{ readonly type?: string } | null} [track]
  * @returns {RecordingRoute}
@@ -81,7 +91,7 @@ export function normalizeRecordingRouting(value = {}, tracks = []) {
 			// necessarily enforce conflicts. Keep the first valid assignment instead
 			// of allowing one stale duplicate to make the whole project unreadable.
 			assertRecordingRouteConflicts({ ...routes, [trackId]: normalized });
-			routes[trackId] = normalized;
+			Object.defineProperty(routes, trackId, { value: normalized, enumerable: true, configurable: true, writable: true });
 		} catch {
 			// Stale or malformed local routes must not make a project unreadable.
 		}
@@ -100,7 +110,7 @@ export function setRecordingTrackRoute(routing, track, route) {
 	if (typeof track.id !== 'string' || !track.id) throw new TypeError('A recording track ID is required.');
 	const routes = { ...(routing?.routes || {}) };
 	if (route == null) delete routes[track.id];
-	else routes[track.id] = normalizeRecordingRoute(route, track);
+	else Object.defineProperty(routes, track.id, { value: normalizeRecordingRoute(route, track), enumerable: true, configurable: true, writable: true });
 	assertRecordingRouteConflicts(routes);
 	return Object.freeze({
 		routes: Object.freeze(routes),
@@ -133,7 +143,8 @@ export function assertRecordingRouteConflicts(routes = {}) {
 }
 
 export function recordingChannelOptions(track, availableChannels, routes = {}) {
-	const current = routes?.[track?.id] ? normalizeRecordingRoute(routes[track.id]) : null;
+	const assigned = recordingTrackRoute(routes || {}, track?.id);
+	const current = assigned ? normalizeRecordingRoute(assigned) : null;
 	const channelCount = current?.channelCount ?? 1;
 	const maximum = nonNegativeInteger(availableChannels ?? 0, 'available recording channels');
 	const occupied = new Set();

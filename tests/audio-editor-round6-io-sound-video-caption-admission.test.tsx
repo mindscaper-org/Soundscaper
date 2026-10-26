@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React from 'react';
@@ -8,7 +10,7 @@ import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { framescaperCaptionDeliveryUnavailable } from '../src/common/editor/ui/video-caption-delivery-surface.ts';
 import VideoDeliveryFields from '../src/common/editor/ui/VideoDeliveryFields.jsx';
 import { createExportDialogRequest } from '../src/common/editor/ui/export-dialog-model.js';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 
 Reflect.set(globalThis, 'React', React);
 const project = createSoundscaperProject();

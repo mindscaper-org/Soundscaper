@@ -3,6 +3,8 @@
 import type { ScheduledParameterRegistry } from './scheduled-parameter-registry.ts';
 import type { EngineRuntimeMethodMap } from './runtime-types.ts';
 import { ENGINE_ASSERT_ACTIVE } from './runtime-symbols.ts';
+import { restoreAutomationReadbackV21 } from './automation-readback-v21.ts';
+import { isPlaybackLoopEnabled } from './playback-frequency-range.ts';
 
 export interface AutomationControlPreviewInputV21 {
 	readonly graph: Readonly<{ readonly parameterRegistry: ScheduledParameterRegistry }> | null;
@@ -40,6 +42,21 @@ export function scheduleAutomationControlPreviewV21(
 }
 
 export const engineAutomationControlMethods = {
+	restoreScheduledAutomationLane(lane: unknown) {
+		this[ENGINE_ASSERT_ACTIVE]();
+		if (!this.graph || !this.context || !this.project) return false;
+		const playing = this.state === 'playing';
+		return restoreAutomationReadbackV21({ lane, registry: this.graph.parameterRegistry,
+			sampleRate: this.sampleRate, contextSampleRate: this.context.sampleRate,
+			contextTime: this.context.currentTime, transportRate: this.playbackRate,
+			startFrame: playing ? this.playbackStartFrame : this.positionFrame,
+			inputStartTime: playing ? Math.max(0, this.playbackStartTime - (this.graph.latencyFrames || 0) / this.context.sampleRate)
+				: this.context.currentTime,
+			endFrame: playing ? this.playEndFrame : this.positionFrame, tempoMap: this.project.tempoMap,
+			...(playing && isPlaybackLoopEnabled(this) ? { loop: { startFrame: this.loop.startFrame,
+				endFrame: this.loop.endFrame, scheduledThroughTime: this.loopScheduleTime } } : {}),
+		});
+	},
 	previewScheduledParameter(address, value) {
 		this[ENGINE_ASSERT_ACTIVE]();
 		return scheduleAutomationControlPreviewV21({
@@ -52,7 +69,7 @@ export const engineAutomationControlMethods = {
 			transportRate: this.playbackRate,
 		});
 	},
-} satisfies EngineRuntimeMethodMap<'previewScheduledParameter'>;
+} satisfies EngineRuntimeMethodMap<'previewScheduledParameter' | 'restoreScheduledAutomationLane'>;
 
 function finiteNumber(value: unknown, name: string): number {
 	if (typeof value !== 'number' || !Number.isFinite(value) || Object.is(value, -0)) {

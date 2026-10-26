@@ -8,7 +8,7 @@ import { createProjectStore } from '../../src/common/editor/storage.js';
 
 test('Invert on a time range retains the unbaked native gain automation in exported audio and Undo', async ({ page }) => {
 	const { project, source, samples } = effectAutomationProject();
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false }); let blob;
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` }); let blob;
 	try {
 		const writer = await store.beginSourceWrite(source.storageKey, source);
 		await writer.write([samples]); await writer.commit(); blob = (await exportScapeProject(project, store)).blob;

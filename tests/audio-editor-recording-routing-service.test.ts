@@ -55,6 +55,38 @@ test('input channel preferences do not route a missing selected track', async ()
 	assert.deepEqual(fixture.assignedTrackIds, []);
 });
 
+test('browser and Electron host refresh retain the selected display audio route', async () => {
+	for (const host of ['browser', 'electron']) {
+		const fixture = createFixture({ enumerateDevices: async () => [
+			{ kind: 'audioinput', deviceId: 'web-mic', label: 'Web mic' },
+		] });
+		fixture.state.audioHost = host;
+		fixture.state.recordingRouting = {
+			routes: { track: { kind: 'device', deviceId: 'default', channelStart: 0, channelCount: 1, followsPreferences: true } },
+			offsets: {},
+		};
+		await fixture.service.setPreferredInputDevice('display');
+		await fixture.service.setHostInventory(host, null);
+		assert.equal(fixture.state.preferredInputDeviceId, 'display');
+		assert.equal(fixture.state.recordingRouting.routes.track.kind, 'display');
+		assert.equal(fixture.releaseAllCalls(), 0);
+		assert.ok(fixture.persistCalls.some(([key, value]) => key === 'audio-devices'
+			&& (value as { inputDeviceId?: string }).inputDeviceId === 'display'));
+	}
+});
+
+test('switching to a native host replaces display audio with its default input', async () => {
+	const fixture = createFixture();
+	await fixture.service.setPreferredInputDevice('display');
+	await fixture.service.setHostInventory('wasapi', {
+		backend: 'wasapi', status: 'available', detail: '', devices: [{
+			handle: 'microphone', label: 'Microphone', direction: 'input', channelCount: 2, isDefault: true,
+		}],
+	});
+	assert.equal(fixture.state.preferredInputDeviceId, 'native:wasapi:in:microphone');
+	assert.equal(fixture.releaseAllCalls(), 1);
+});
+
 test('input selection moves the matching active route and persists it without opening a display chooser', async () => {
 	const fixture = createFixture();
 	fixture.state.recordingRouting = {

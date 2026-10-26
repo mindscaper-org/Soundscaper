@@ -5,7 +5,6 @@ import test from 'node:test';
 import React, { act } from 'react';
 import PhotoDevelopWorkspace from '../src/common/editor/ui/lightscaper/PhotoDevelopWorkspace.tsx';
 import { photoDevelopCopy } from '../src/common/i18n/lightscaper-develop-copy.ts';
-import { VIDEO_EFFECT_COPY_BY_LOCALE } from '../src/common/i18n/video-effect-copy.js';
 import { VIDEO_EFFECT_TYPES } from '../src/common/editor/video-effects.js';
 import { PhotoLibrarySessionV1 } from '../src/lightscaper/controller/photo-library-session.ts';
 import { PhotoCatalogRepositoryV1 } from '../src/lightscaper/catalog/repository.ts';
@@ -86,7 +85,7 @@ for (const locale of ['en','de'] as const) {
 			commit:command=>{project=applyFramescaperProjectCommandFinishing(PROFILE,project,command);return view(project);},publishDocumentSnapshot(){} });
 		const actions = { add:service.addVideoClipEffect,beginGesture:service.beginVideoEffectGesture,preview:service.previewVideoEffectGesture,commit:service.commitVideoEffectGesture,
 			cancel:service.cancelVideoEffectGesture,toggle:service.toggleVideoClipEffect,reorder:service.reorderVideoClipEffect,remove:service.removeVideoClipEffect,update:service.updateVideoClipEffect };
-		const copy = VIDEO_EFFECT_COPY_BY_LOCALE[locale];
+		const copy = photoDevelopCopy(locale).shared;
 		const mounted = await mountPhotoImportUi(() => <VideoEffectRack clip={view(project).clips.find(row=>row.id==='video-clip')}
 			controller={{actions:{video:{effects:actions}}}} copy={{...copy,chooseEffect:'Choose effect',addEffect:'Add effect'}} disabled={false} onError={(message:string)=>{error=message;}} />);
 		try {

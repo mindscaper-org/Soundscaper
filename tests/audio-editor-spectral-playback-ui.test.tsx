@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { type ReactElement } from 'react';
@@ -7,7 +9,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import TransportAuditionMenu from '../src/common/editor/ui/toolbar/TransportAuditionMenu.tsx';
 import { createApplicationSelectMenu } from '../src/common/editor/ui/application-select-menu.js';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 
 (globalThis as unknown as { React: unknown }).React = React;
 

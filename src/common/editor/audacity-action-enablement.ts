@@ -50,21 +50,24 @@ export function resolveAudacityActionSelectionFacts(snapshot: ActionSnapshot) {
 		...(selectedClipIds.length && authority.trackSource === 'focus' ? [] : authority.trackIds),
 		...authority.clipTrackIds,
 	])];
+	// First matches stay cheap for small selections; index repeated multitrack lookups.
+	const indexed = selectedTrackIds.length > 8 ? indexActionTracks(tracks) : null;
+	const findTrack = (id: string) => indexed
+		? indexed.firstTracks.get(id) : tracks.find(track => track.id === id);
 	const selectedTracks = selectedTrackIds
-		.map((trackId) => tracks.find((track) => track.id === trackId))
+		.map((trackId) => findTrack(trackId))
 		.filter((track): track is EditingAuthorityTrack => Boolean(track));
 	const selectedTrack = selectedTracks[0] ?? null;
 	const selectedAudioTrack = selectedTracks.find((track) => track.type === 'audio') ?? null;
-	const focusedTrack = tracks.find((track) => track.id === snapshot.selectedTrackId) ?? null;
+	const focusedTrack = typeof snapshot.selectedTrackId === 'string' ? findTrack(snapshot.selectedTrackId) ?? null : null;
 	const selectionNamesTracks = rangeTrackIds.length > 0;
 	const selectionAudioTrack = selectionNamesTracks
-		? rangeTrackIds.map((trackId) => tracks.find((track) => track.id === trackId))
+		? rangeTrackIds.map((trackId) => findTrack(trackId))
 			.find((track) => track?.type === 'audio') ?? null
 		: selectedAudioTrack;
 	const selectionTrackIds = authority.trackIds;
-	const selectedMediaTrack = selectionTrackIds.some((id) => (
-		tracks.some((track) => track.id === id && track.type !== 'label')
-	));
+	const selectedMediaTrack = selectionTrackIds.some((id) => indexed
+		? indexed.mediaTrackIds.has(id) : tracks.some(track => track.id === id && track.type !== 'label'));
 	const selectedClip = selectedClips[0]
 		?? clips.find((clip) => clip.id === snapshot.selectedClipId)
 		?? null;
@@ -81,7 +84,7 @@ export function resolveAudacityActionSelectionFacts(snapshot: ActionSnapshot) {
 		&& Number.isFinite(selection.frequencyRange?.minimumFrequency)
 		&& Number.isFinite(selection.frequencyRange?.maximumFrequency)
 		&& Number(selection.frequencyRange?.maximumFrequency) > Number(selection.frequencyRange?.minimumFrequency);
-	const projectHasAudio = tracks.some((track) => (
+	const projectHasAudio = indexed?.projectHasAudio ?? tracks.some(track => (
 		track.type === 'audio' && Array.isArray(track.clipIds) && track.clipIds.length > 0
 	));
 	const audioSelection = timeSelection && Boolean(selectionAudioTrack);
@@ -114,6 +117,20 @@ export function resolveAudacityActionSelectionFacts(snapshot: ActionSnapshot) {
 		groupAvailable: authority.group,
 		ungroupAvailable: authority.ungroup,
 	};
+}
+
+/** Per-call ownership also preserves updates to mutable caller tracks. */
+function indexActionTracks(tracks: readonly EditingAuthorityTrack[]) {
+	const firstTracks = new Map<string, EditingAuthorityTrack>();
+	const mediaTrackIds = new Set<string>();
+	let projectHasAudio = false;
+	for (const track of tracks) {
+		const { id, type } = track;
+		if (!firstTracks.has(id)) firstTracks.set(id, track);
+		if (type !== 'label') mediaTrackIds.add(id);
+		if (type === 'audio' && Array.isArray(track.clipIds) && track.clipIds.length > 0) projectHasAudio = true;
+	}
+	return { firstTracks, mediaTrackIds, projectHasAudio };
 }
 
 export function audacitySpectrogramTrackSelected(

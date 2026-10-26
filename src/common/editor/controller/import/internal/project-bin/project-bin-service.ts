@@ -7,6 +7,7 @@ import {
 	collectRelatedClipIds as collectLegacyRelatedClipIds,
 } from '../../../../commands/clip-basic-runtime.js';
 import { createAddTrackCommand } from '../../../../commands/factories.ts';
+import { projectBinTrackPlacement } from './project-bin-track-placement.ts';
 import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
 import {
 	createProjectBinPreviewService,
@@ -74,6 +75,7 @@ export interface ProjectBinServiceDependencies extends ProjectBinReplacementDepe
 	readonly missingSourceIds: Set<string>;
 	readonly sourceResolver?: EngineSourceResolver | null;
 	readonly prepareTimePitchCaches?: ProjectBinPreviewDependencies['prepareTimePitchCaches'];
+	readonly previewBlocked?: ProjectBinPreviewDependencies['previewBlocked'];
 	createPreviewEngine(options: Readonly<{ onState(state: string): void }>): ProjectBinPreviewEngine;
 	getSelectedClipId(): string | null;
 	getSelectedTrackId(): string | null;
@@ -225,6 +227,7 @@ export function createProjectBinService(
 					laneGroupId,
 				}),
 				index: insertion,
+				...projectBinTrackPlacement(project, requestedTrack?.id ?? null),
 			}, {
 				...createAddTrackCommand({
 					type: 'audio',
@@ -232,18 +235,19 @@ export function createProjectBinService(
 					name: `${binClip.title || publishedCopyFor(dependencies.copy).track} Audio`,
 					laneGroupId,
 					armed: false,
-				}),
+				}, project.sampleRate),
 				index: insertion + 1,
+				...projectBinTrackPlacement(project, requestedTrack?.id ?? null, 2),
 			});
 			videoTrack = { id: videoTrackId, type: 'video', laneGroupId, clipIds: [] };
 			audioTrack = { id: audioTrackId, type: 'audio', laneGroupId, clipIds: [] };
 		} else if (audioClip && !audioTrack) {
 			const audioTrackId = dependencies.createId('track');
-			commands.push(createAddTrackCommand({
+			commands.push({ ...createAddTrackCommand({
 				type: 'audio',
 				id: audioTrackId,
 				name: binClip.title || `${publishedCopyFor(dependencies.copy).track} ${project.tracks.length + 1}`,
-			}));
+			}, project.sampleRate), ...projectBinTrackPlacement(project, requestedTrack?.id ?? null) });
 			audioTrack = { id: audioTrackId, type: 'audio', laneGroupId: null, clipIds: [] };
 		}
 		const timelineStartFrame = dependencies.normalizeTimelineStartFrame(
@@ -456,6 +460,7 @@ function previewDependencies(
 		sourceChunkProviders: dependencies.sourceChunkProviders as EngineChunkSourceInput,
 		sourceResolver: dependencies.sourceResolver,
 		prepareTimePitchCaches: dependencies.prepareTimePitchCaches,
+		previewBlocked: dependencies.previewBlocked,
 		createPreviewEngine: dependencies.createPreviewEngine,
 		createId: dependencies.createId,
 		captureProject: dependencies.captureProject,

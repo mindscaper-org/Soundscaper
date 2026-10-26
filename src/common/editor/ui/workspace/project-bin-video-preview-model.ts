@@ -23,7 +23,7 @@ export function projectBinVisualDurationFrames(project: SequenceTimingProject, c
 	if (!clip || !['image', 'still', 'generator'].includes(String(clip.kind))) return null;
 	const count = Number(clip.sequenceFrameCount);
 	if (!Number.isSafeInteger(count) || count < 0) return null;
-	const sequence = resolveSequenceTimingView(project);
+	const sequence = resolveSequenceTimingView(project, typeof clip.sequenceId === 'string' ? clip.sequenceId : undefined);
 	const sampleRate = Number(project.sampleRate);
 	return videoFrameToSampleFrame(count, sequence.rate, sampleRate, 'point');
 }

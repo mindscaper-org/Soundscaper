@@ -67,13 +67,7 @@ export function resolveVideoCanvasPlacement(
 	sourceWidth: number,
 	sourceHeight: number,
 ): VideoCanvasPlacement {
-	if (!isVideoCanvasFit(fit)) throw new RangeError(`Unsupported video canvas fit: ${String(fit)}.`);
-	for (const [value, name] of [
-		[canvasWidth, 'canvas width'], [canvasHeight, 'canvas height'],
-		[sourceWidth, 'source width'], [sourceHeight, 'source height'],
-	] as const) {
-		if (!Number.isFinite(value) || value <= 0) throw new RangeError(`Video canvas ${name} must be positive.`);
-	}
+	validateGeometry(fit, canvasWidth, canvasHeight, sourceWidth, sourceHeight);
 	const widthRatio = canvasWidth / sourceWidth;
 	const heightRatio = canvasHeight / sourceHeight;
 	const scaleX = fit === 'stretch' ? widthRatio : fit === 'cover'
@@ -88,4 +82,34 @@ export function resolveVideoCanvasPlacement(
 		fittedX: Math.round((canvasWidth - fittedWidth) / 2),
 		fittedY: Math.round((canvasHeight - fittedHeight) / 2),
 	});
+}
+
+/** Retain the source detail needed by the final fit, without enlarging its raster. */
+export function resolveVideoCanvasMaterializationSize(
+	fit: VideoCanvasFit,
+	canvasWidth: number,
+	canvasHeight: number,
+	sourceWidth: number,
+	sourceHeight: number,
+): Readonly<{ width: number; height: number }> {
+	validateGeometry(fit, canvasWidth, canvasHeight, sourceWidth, sourceHeight);
+	const widthRatio = canvasWidth / sourceWidth, heightRatio = canvasHeight / sourceHeight;
+	const scale = Math.min(1, fit === 'contain'
+		? Math.min(widthRatio, heightRatio) : Math.max(widthRatio, heightRatio));
+	return Object.freeze({
+		width: Math.max(1, Math.round(sourceWidth * scale)),
+		height: Math.max(1, Math.round(sourceHeight * scale)),
+	});
+}
+
+function validateGeometry(
+	fit: VideoCanvasFit, canvasWidth: number, canvasHeight: number, sourceWidth: number, sourceHeight: number,
+): void {
+	if (!isVideoCanvasFit(fit)) throw new RangeError(`Unsupported video canvas fit: ${String(fit)}.`);
+	for (const [value, name] of [
+		[canvasWidth, 'canvas width'], [canvasHeight, 'canvas height'],
+		[sourceWidth, 'source width'], [sourceHeight, 'source height'],
+	] as const) {
+		if (!Number.isFinite(value) || value <= 0) throw new RangeError(`Video canvas ${name} must be positive.`);
+	}
 }

@@ -78,6 +78,14 @@ export interface DawprojectArrangement {
 }
 
 export interface DawprojectMetadata {
+	readonly originalArtist?: string;
+	readonly composer?: string;
+	readonly songwriter?: string;
+	readonly producer?: string;
+	readonly arranger?: string;
+	readonly genre?: string;
+	readonly copyright?: string;
+	readonly website?: string;
 	readonly title: string | null;
 	readonly artist: string | null;
 	readonly album: string | null;
@@ -107,7 +115,8 @@ export function parseDawprojectDocument(projectXml: string, metadataXml?: string
 	options: Readonly<{ maximumBytes?: number }> = {}): DawprojectDocument {
 	const limits = { ...DAWPROJECT_XML_LIMITS, maximumBytes: options.maximumBytes ?? DAWPROJECT_XML_LIMITS.maximumBytes };
 	const root = parseXmlDocument(projectXml, limits);
-	const metadataRoot = typeof metadataXml === 'string' && metadataXml.trim() ? parseXmlDocument(metadataXml, limits) : null;
+	const metadataRoot = typeof metadataXml === 'string' && metadataXml.trim()
+		? parseXmlDocument(metadataXml, limits, { preserveTextWhitespace: true }) : null;
 	return parseDawprojectProjectElement(root, metadataRoot);
 }
 
@@ -245,11 +254,14 @@ function parseRealParameter(element: XmlElement): DawprojectParameter {
 function parseMetadata(root: XmlElement | null): DawprojectMetadata {
 	const text = (elementName: string): string | null => {
 		if (!root || root.name !== 'MetaData') return null;
-		const value = childElement(root, elementName)?.text.trim() ?? '';
-		return value || null;
+		const value = childElement(root, elementName)?.text ?? '';
+		return value.trim() ? value : null;
 	};
+	const credits = { originalArtist: text('OriginalArtist'), composer: text('Composer'), songwriter: text('Songwriter'),
+		producer: text('Producer'), arranger: text('Arranger'), genre: text('Genre'), copyright: text('Copyright'), website: text('Website') };
 	return Object.freeze({
 		title: text('Title'), artist: text('Artist'), album: text('Album'), year: text('Year'), comment: text('Comment'),
+		...Object.fromEntries(Object.entries(credits).filter(([, value]) => value !== null)),
 	});
 }
 

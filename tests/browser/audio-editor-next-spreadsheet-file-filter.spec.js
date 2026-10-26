@@ -8,6 +8,13 @@ import { registerFileCapabilityIpc } from '../../desktop/main-file-capability-ip
 import { aacLcM4a44_100Fixture } from '../helpers/os-audio-codec-fixtures.ts';
 
 for (const extension of ['aifc', 'mp4', 'm4v']) test(`the spreadsheet referenced-file chooser imports supported ${extension} recordings`, async ({ page }) => {
+	// Keep the device clock distinct from the compressed source on every host.
+	await page.addInitScript(() => {
+		const NativeContext = globalThis.AudioContext;
+		globalThis.AudioContext = class extends NativeContext {
+			constructor(options) { super({ ...options, sampleRate: options?.sampleRate ?? 48_000 }); }
+		};
+	});
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [createWavFixture({ name: 'Template.wav', frequency: 330, duration: extension === 'aifc' ? 0.1 : 0.02 })]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Clip spreadsheet']);

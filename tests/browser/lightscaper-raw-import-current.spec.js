@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { bundledLightscaperEditorCopyForLocale } from '../../src/common/i18n/lightscaper-editor-copy.ts';
-import { bundledSiteCopyForLocale } from '../../src/common/i18n/site-copy.js';
+import { resolveTestCatalog as resolveCatalog } from '../helpers/translation-catalogs.ts';
 import { photoDevelopCopy } from '../../src/common/i18n/lightscaper-develop-copy.ts';
 import { photoDevelopMenuLabel } from '../../src/common/i18n/lightscaper-develop-menu-copy.ts';
 import { rawDngFixtureV1 } from '../helpers/lightscaper-raw-dng-current-fixture.ts';
@@ -76,7 +76,7 @@ test('real RAW File import, native word Original, thumbnail and linear Develop s
 	// owned DNG container is permitted to select the real RAW route.
 	await importer.getByLabel(copy.photoChooseFiles, { exact: true }).setInputFiles({ name: NAME, mimeType: 'image/png', buffer: originalBytes });
 	await keyboard(named(importer, 'button', copy.photoImportAction)); await expect(importer).toHaveCount(0);
-	const library = named(app, 'region', bundledSiteCopyForLocale(locale).workspacePhoto), card = app.getByRole('button', { name: /^Native precision\.dng/u });
+	const library = named(app, 'region', (await resolveCatalog(locale)).workspacePhoto), card = app.getByRole('button', { name: /^Native precision\.dng/u });
 	await expect(card).toHaveCount(1); await expect(library).toHaveAttribute('aria-busy', 'false'); await keyboard(card);
 	const photoId = await card.getAttribute('data-photo-id'); expect(photoId).toBeTruthy();
 	const initial = await observe(); expectOriginal(initial); expect(initial.photo.original.mimeType).toBe('image/x-adobe-dng');

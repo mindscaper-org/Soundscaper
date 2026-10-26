@@ -9,6 +9,7 @@ import {
 import { normalizeAutomationLaneV21 } from './automation-lane-v21.ts';
 import { normalizeMixerGraphV21 } from './mixer-graph-v21.ts';
 import { resolveTerminalChannelWidths } from './terminal-channel-widths.ts';
+import { collectTakeGroupSourceIds } from './take-group-source-references.ts';
 import { createExactFreezeRecordIndex, inspectFreezeDataRecord as inspectDataRecord, freezeStableId as stableId } from './audio-freeze-work-index.ts';
 import {
 	classifyAudioTrackFreezeFreshnessV1,
@@ -256,7 +257,7 @@ export function commitAudioTrackFreezeCandidateV21(
 		lane.address.kind === 'effect' && lane.address.strip.kind === 'track'
 		&& lane.address.strip.id === trackId
 	)));
-	const retainedSourceIds = clipSourceIds(nextClips);
+	const retainedSourceIds = collectTakeGroupSourceIds(project, clipSourceIds(nextClips));
 	for (const sourceId of projectBinClipSourceIds(project)) retainedSourceIds.add(sourceId);
 	const nextSources = Object.freeze(sources.filter((candidate, index) => {
 		const sourceId = recordId(candidate, `project source ${String(index)}`);

@@ -5,6 +5,7 @@ import { Button } from '@soundscaper/design-system/Button';
 import { PreferencePanel } from '@soundscaper/design-system/PreferencePanel';
 import { Separator } from '@soundscaper/design-system/Separator';
 import type { AudioEditorPerformancePreferences } from '../../performance-preferences.ts';
+import type { WaveformDisplayPreferences } from '../../waveform-display-preferences.ts';
 import PreferenceDropdownField from './PreferenceDropdownField.jsx';
 import {
 	AUDIO_COM_DEFAULT_SERVER_URL, normalizeAudioComServerUrl,
@@ -22,6 +23,9 @@ interface AdvancedPreferencesCopy {
 	readonly optimizeForMemory: string;
 	readonly optimizeForSpeed: string;
 	readonly optimizeForDescription: string;
+	readonly waveformRenderer: string;
+	readonly waveformRendererCanvas: string;
+	readonly waveformRendererGpu: string;
 }
 
 interface AdvancedPreferencesPageProps {
@@ -29,11 +33,13 @@ interface AdvancedPreferencesPageProps {
 		readonly update: (changes: {
 			readonly advanced?: AudioEditorAdvancedPreferences;
 			readonly performance?: AudioEditorPerformancePreferences;
+			readonly waveformDisplay?: Partial<WaveformDisplayPreferences>;
 		}) => unknown;
 	} } };
 	readonly preferences: {
 		readonly advanced: AudioEditorAdvancedPreferences;
 		readonly performance?: AudioEditorPerformancePreferences;
+		readonly waveformDisplay?: WaveformDisplayPreferences;
 	};
 	readonly productId?: string;
 	readonly copy: AdvancedPreferencesCopy;
@@ -66,6 +72,16 @@ export default function AdvancedPreferencesPage({ controller, preferences, copy,
 					]} />
 			</div>
 			<p className="kw-audio-editor-preferences__note">{copy.optimizeForDescription}</p>
+		</PreferencePanel>
+		<Separator />
+		<PreferencePanel title={copy.waveformRenderer}>
+			<PreferenceDropdownField label={copy.waveformRenderer} value={preferences.waveformDisplay?.renderer ?? 'canvas'}
+				onChange={(renderer: NonNullable<WaveformDisplayPreferences['renderer']>) => run(() => controller.actions.preferences.update({
+					waveformDisplay: { renderer },
+				}))} options={[
+					{ value: 'canvas', label: copy.waveformRendererCanvas },
+					{ value: 'gpu', label: copy.waveformRendererGpu },
+				]} />
 		</PreferencePanel>
 		{productId === 'soundscaper' && <>
 			<Separator />

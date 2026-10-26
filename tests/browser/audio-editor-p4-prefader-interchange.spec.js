@@ -1,0 +1,51 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+import { expect, test } from './audio-editor-test-fixtures.js';
+import { bootEditor, chooseFileAction, chooseNestedCommandAction, disableNativeSavePicker, downloadBytes, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { exportSamples } from './helpers/round2-audio-export.js';
+import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
+import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
+import { createProjectStore } from '../../src/common/editor/storage.js';
+import { exportScapeProject } from '../../src/common/editor/scape-project.js';
+
+for (const owner of ['track', 'bus', 'vca']) for (const position of ['pre-fader', 'post-fader']) test(`cut export keeps actually audible ${position} sends on a muted ${owner}`, async ({ page }) => {
+	test.setTimeout(90_000);
+	const source = createAudioSource({ id: 'source', name: 'Voice.wav', sampleRate: 48_000, frameCount: 4800, channelCount: 2 });
+	const base = createSoundscaperProject({ id: `cut-send-${position}`, title: 'Pre-fader programme', sources: [source],
+		clips: [createAudioClip({ id: 'clip', sourceId: source.id, title: 'Audible send', durationFrames: 4800, sourceDurationFrames: 4800 })],
+		tracks: [createAudioTrack({ id: 'voice', name: 'Voice', mute: owner === 'track', clipIds: ['clip'] })] });
+	const wet = { id: 'wet', name: 'Wet', color: '#456789', gain: 1, pan: 0, mute: false, solo: false,
+		collapsed: false, effectsActive: true, effects: [], channelCount: 2 };
+	const bus = { ...wet, id: 'bus', name: 'Muted bus', mute: true };
+	const from = owner === 'bus' ? { kind: 'mixer-node', id: bus.id } : { kind: 'track', id: 'voice' };
+	const project = createSoundscaperProject({ ...base, mixer: { ...base.mixer, groups: owner === 'bus' ? [bus] : [], sends: [wet],
+		vcas: owner === 'vca' ? [{ id: 'vca', name: 'VCA', gain: 1, mute: true, members: [{ kind: 'track', id: 'voice' }] }] : [], edges: [
+		...base.mixer.edges.map(edge => owner === 'bus' && edge.source.kind === 'track'
+			? { ...edge, destination: { kind: 'mixer-node', id: bus.id } } : edge),
+		...(owner === 'bus' ? [{ id: 'bus-master', kind: 'assignment', source: from, destination: { kind: 'master' },
+			position: 'post-fader', level: 1, enabled: true, channelMap: [0, 1] }] : []),
+		{ id: 'voice-send', kind: 'send', source: from, destination: { kind: 'mixer-node', id: wet.id },
+			position, level: .4, enabled: true, channelMap: [0, 1] },
+		{ id: 'wet-master', kind: 'assignment', source: { kind: 'mixer-node', id: wet.id }, destination: { kind: 'master' },
+			position: 'post-fader', level: 1, enabled: true, channelMap: [0, 1] },
+	] } });
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: crypto.randomUUID() }); let archive;
+	try {
+		const writer = await store.beginSourceWrite(source.storageKey, source);
+		await writer.write([new Float32Array(4800).fill(.25), new Float32Array(4800).fill(-.125)]); await writer.commit();
+		archive = (await exportScapeProject(project, store)).blob;
+	} finally { await store.close(); }
+	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/', { defaultWorkspace: true });
+	let choosing = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Open');
+	await (await choosing).setFiles({ name: 'Muted send.sscape', mimeType: 'application/zip', buffer: Buffer.from(await archive.arrayBuffer()) });
+	await expect(editor).toHaveAttribute('data-project-id', project.id); await waitForProjectActivation(editor);
+	const samples = await exportSamples(page, editor); expect(samples).toHaveLength(4800);
+	expect(samples[2000]).toBeCloseTo(position === 'pre-fader' ? .1 : 0, 5);
+	const downloading = page.waitForEvent('download');
+	await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export OpenTimelineIO']);
+	const download = await downloading; let bytes;
+	try { bytes = await downloadBytes(download); } finally { await download.delete(); }
+	const timeline = JSON.parse(Buffer.from(bytes).toString('utf8'));
+	const clips = timeline.tracks.children.filter(track => track.kind === 'Audio').flatMap(track => track.children).filter(child => child.OTIO_SCHEMA === 'Clip.1');
+	expect(clips).toHaveLength(position === 'pre-fader' ? 1 : 0);
+});

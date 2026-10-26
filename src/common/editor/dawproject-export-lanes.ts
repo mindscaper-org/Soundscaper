@@ -14,6 +14,7 @@ import {
 	type DataRecord,
 	type DawprojectExportContext,
 	type DawprojectStructureNode,
+	dawprojectAdditionalFolderBusIds,
 	dawprojectExportSequence,
 	dawprojectStructureTracks,
 	finite,
@@ -48,8 +49,8 @@ export function buildArrangement(
 ): XmlElement {
 	const lanes = xmlElement('Lanes', { timeUnit: 'seconds', id: context.ids.id('arrangement-lanes') }, [
 		...structure.map((node) => buildNodeLanes(node, context)),
-		...buildMixerNodeLanes(context),
-		wrapLanes(context, 'track:master', buildStripAutomation('master', record(context.project.master), context)),
+		...buildMixerNodeLanes(context, structure),
+		wrapLanes(context, ['master-track'], buildStripAutomation('master', record(context.project.master), context)),
 	]);
 	const arrangement = xmlElement('Arrangement', { id: context.ids.id('arrangement') }, [
 		lanes,
@@ -63,9 +64,10 @@ export function buildArrangement(
 
 function buildNodeLanes(node: DawprojectStructureNode, context: DawprojectExportContext): XmlElement | null {
 	if (node.kind === 'folder') {
-		const bus = context.routing.groups.find((group) => group.id === node.id);
+		const bus = context.routingLookup ? context.routingLookup.groups.get(node.id)
+			: context.routing.groups.find((group) => group.id === node.id);
 		return xmlElement('Lanes', {
-			track: context.ids.id(`folder:${node.id}`), id: context.ids.id(`lanes:folder:${node.id}`),
+			track: context.ids.id('folder', node.id), id: context.ids.id('folder-lanes', node.id),
 		}, [
 			...(bus ? buildStripAutomation(`mixer-node:${bus.id}`, { envelope: bus.envelope }, context) : []),
 			...node.children.map((child) => buildNodeLanes(child, context)),
@@ -78,20 +80,21 @@ function buildNodeLanes(node: DawprojectStructureNode, context: DawprojectExport
 	const clips = orderedClips(track, context);
 	const clipElements = clips
 		.map((clip) => (type === 'audio' ? buildAudioClip(clip, context) : buildVideoClip(clip, context)));
-	return xmlElement('Lanes', { track: context.ids.id(`track:${trackId}`), id: context.ids.id(`lanes:${trackId}`) }, [
-		xmlElement('Clips', { id: context.ids.id(`clips:${trackId}`) }, clipElements),
+	return xmlElement('Lanes', { track: context.ids.id('track', trackId), id: context.ids.id('track-lanes', trackId) }, [
+		xmlElement('Clips', { id: context.ids.id('clips', trackId) }, clipElements),
 		...(type === 'audio' ? buildStripAutomation(`track:${trackId}`, track, context) : []),
 	]);
 }
 
-function buildMixerNodeLanes(context: DawprojectExportContext): XmlElement[] {
+function buildMixerNodeLanes(context: DawprojectExportContext, structure: readonly DawprojectStructureNode[]): XmlElement[] {
 	const folderIds = new Set(records(context.project.trackFolders).map((folder) => String(folder.id)));
+	const additionalFolderBusIds = context.readAdditionalFolderBusIds?.() ?? dawprojectAdditionalFolderBusIds(context, structure);
 	const result: XmlElement[] = [];
 	for (const strip of [...context.routing.groups, ...context.routing.sends]) {
-		if (folderIds.has(strip.id)) continue;
+		if (folderIds.has(strip.id) && !additionalFolderBusIds.has(strip.id)) continue;
 		const wrapped = wrapLanes(
 			context,
-			`strip-track:${strip.id}`,
+			['strip-track', strip.id],
 			buildStripAutomation(`mixer-node:${strip.id}`, { envelope: strip.envelope }, context),
 		);
 		if (wrapped) result.push(wrapped);
@@ -99,9 +102,9 @@ function buildMixerNodeLanes(context: DawprojectExportContext): XmlElement[] {
 	return result;
 }
 
-function wrapLanes(context: DawprojectExportContext, trackKey: string, points: readonly XmlElement[]): XmlElement | null {
+function wrapLanes(context: DawprojectExportContext, trackKey: readonly string[], points: readonly XmlElement[]): XmlElement | null {
 	if (points.length === 0) return null;
-	return xmlElement('Lanes', { track: context.ids.id(trackKey), id: context.ids.id(`lanes:${trackKey}`) }, points);
+	return xmlElement('Lanes', { track: context.ids.id(...trackKey), id: context.ids.id('strip-lanes', ...trackKey) }, points);
 }
 
 function orderedClips(track: DataRecord, context: DawprojectExportContext): readonly DataRecord[] {
@@ -157,11 +160,12 @@ function buildAudioClip(clip: DataRecord, context: DawprojectExportContext): Xml
 
 	const entry = context.media.register(source, 'audio');
 	const audio = xmlElement('Audio', {
+		name: String(source.name ?? entry.sourceId),
 		channels: Math.max(1, finite(source.channelCount, 1)),
 		duration: finite(source.frameCount, sourceDurationFrames) / sourceRate,
 		sampleRate: sourceRate,
 		timeUnit: 'seconds',
-		id: context.ids.id(`audio:${clipId}`),
+		id: context.ids.id('audio', clipId),
 	}, [xmlElement('File', { path: entry.path, external: false })]);
 
 	const timeEffect = interchangeClipTimeEffect(clip);
@@ -232,7 +236,7 @@ function buildWarps(
 	points: readonly WarpPoint[],
 ): XmlElement {
 	return xmlElement('Warps', {
-		contentTimeUnit: 'seconds', timeUnit: 'seconds', id: context.ids.id(`warps:${clipId}`),
+		contentTimeUnit: 'seconds', timeUnit: 'seconds', id: context.ids.id('warps', clipId),
 	}, [
 		content,
 		...points.map((point) => xmlElement('Warp', { time: point.time, contentTime: point.contentTime })),
@@ -293,7 +297,7 @@ function buildVideoClip(clip: DataRecord, context: DawprojectExportContext): Xml
 			duration: finite(source.sampleFrameCount, durationFrames) / sourceRate,
 			sampleRate: sourceRate,
 			timeUnit: 'seconds',
-			id: context.ids.id(`video:${clipId}`),
+			id: context.ids.id('video', clipId),
 		}, [xmlElement('File', { path: entry.path, external: false })]),
 	]);
 }

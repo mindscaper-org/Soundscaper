@@ -78,7 +78,7 @@ export default function TelemetryTimeCode({
 						negative ? -seconds : seconds, sequenceView,
 					))
 					: controller.actions?.transport?.seek(secondsToFrames(seconds, {
-						maximumFrame: durationFrames, sampleRate,
+						maximumFrame: project ? Number.MAX_SAFE_INTEGER : durationFrames, sampleRate,
 					})))}
 			/>
 		</TimeCodeFormatControl>

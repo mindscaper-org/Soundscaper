@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { transformSync } from 'esbuild';
 
 import { chunkGroupForModulePath, chunkGroups, workerChunkGroups } from '../scripts/lib/build-chunk-groups.mjs';
+import { dynamicRelativeImports, staticRelativeDependencies } from './helpers/eager-chunk-group-crossings.ts';
 
 test('optional editor ownership is independent of path separator', () => {
 	for (const [path, owner] of [
@@ -16,6 +19,58 @@ test('optional editor ownership is independent of path separator', () => {
 		assert.equal(chunkGroupForModulePath(path), owner, path);
 		const windowsPath = path.replaceAll('/', '\\');
 		assert.equal(chunkGroupForModulePath(windowsPath), owner, windowsPath);
+	}
+});
+
+test('container decode and metadata preparation retain their exact deferred owners', () => {
+	for (const [leaf, owner] of [
+		['video-webm-decoder-source.ts', 'editor-optional-execution'],
+		['browser-container-opus-decoder.ts', 'editor-optional-execution'],
+		['opaque-iso-audio-import-identity.ts', 'editor-import-admission'],
+		['ogg-flac-metadata-read-view.ts', 'editor-import-admission'],
+		['iso-audio-presentation-edit.ts', 'editor-import-admission'],
+		['aiff-imported-metadata.ts', 'editor-import-admission'],
+	] as const) {
+		const path = `src/common/editor/${leaf}`;
+		for (const separator of ['/', '\\']) {
+			assert.equal(chunkGroupForModulePath(path.replaceAll('/', separator)), owner, path);
+			for (const foreign of [path + '.foreign', path.replace(/\.ts$/u, '-future.ts'), path.replace('editor/', 'editor/internal/')]) {
+				assert.notEqual(chunkGroupForModulePath(foreign.replaceAll('/', separator)), owner, foreign);
+			}
+		}
+	}
+});
+
+test('action runtime registries belong to controller state without acquiring views or runtime dependencies', () => {
+	for (const leaf of ['framescaper-candidate-authoring-actions', 'framescaper-native-project-actions']) {
+		const path = `src/common/editor/ui/${leaf}.ts`;
+		for (const separator of ['/', '\\']) {
+			assert.equal(chunkGroupForModulePath(path.replaceAll('/', separator)), 'editor-controller-core', path);
+			for (const foreign of [path + '.foreign', `${path}x`, path.replace(/\.ts$/u, '-future.ts'), path.replace('ui/', 'ui/internal/')]) {
+				assert.notEqual(chunkGroupForModulePath(foreign.replaceAll('/', separator)), 'editor-controller-core', foreign);
+			}
+		}
+		const source = transformSync(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'), { loader: 'ts', format: 'esm' }).code;
+		assert.deepEqual(staticRelativeDependencies(source), [], path);
+		assert.deepEqual(dynamicRelativeImports(source), [], path);
+		assert.doesNotMatch(source, /^import\s|\bimport\s*\(|^export\s+[^;]*\bfrom\s*['"]/mu, path);
+	}
+});
+
+test('the maintained timeline subtree retains its owner and deferred tools', () => {
+	for (const [leaf, owner] of [
+		['AudioEditorTimeline.jsx', 'editor-timeline'],
+		['timeline/AudioEditorTimeline.tsx', 'editor-timeline'],
+		['timeline/video-filmstrip-cell-model.ts', 'editor-timeline'],
+		['timeline/waveform-canvas-renderer.js', 'editor-timeline'],
+		['timeline/useTimelineViewportModel.js', 'editor-timeline'],
+		['timeline/frequency-waveform-renderer.ts', 'editor-frequency-waveform'],
+		['timeline/split-tool-shortcut.ts', 'editor-optional-split-tool'],
+	] as const) {
+		const path = `src/common/editor/ui/${leaf}`;
+		for (const variant of [path, path.replaceAll('/', '\\')]) {
+			assert.equal(chunkGroupForModulePath(variant), owner, variant);
+		}
 	}
 });
 
@@ -117,6 +172,7 @@ test('small product-ready foundations have non-recursive semantic owners', () =>
 		['src/soundscaper/editor-scape-assets.ts', 'soundscaper-project-foundations'],
 		['src/soundscaper/editor-scape-native.ts', 'soundscaper-project-foundations'],
 		['src/framescaper/editor-captured-video-proxy-preservation.ts', 'framescaper-project-foundations'],
+		['src/framescaper/editor-native-action-bridge-availability.ts', 'framescaper-project-foundations'],
 		['src/framescaper/editor-project.ts', 'framescaper-project-foundations'],
 		['src/framescaper/editor-project-assistance.ts', 'framescaper-project-foundations'],
 		['src/framescaper/editor-project-feature-capabilities.ts', 'framescaper-project-foundations'],
@@ -162,6 +218,17 @@ test('small product-ready foundations have non-recursive semantic owners', () =>
 		const group = chunkGroups.find((candidate) => candidate.name === name);
 		assert.ok(group);
 		assert.equal(group.includeDependenciesRecursively, false);
+	}
+});
+
+test('the timed recording model shares the workspace owner while its dialog stays deferred', () => {
+	const path = 'src/common/editor/ui/dialogs/timed-recording-dialog-model.ts';
+	for (const variant of [path, path.replaceAll('/', '\\')]) {
+		assert.equal(chunkGroupForModulePath(variant), 'editor-shell', variant);
+	}
+	for (const name of ['EditorDialog.jsx', 'TimedRecordingDialogFields.tsx']) {
+		assert.equal(chunkGroupForModulePath(`src/common/editor/ui/dialogs/${name}`), null,
+			`${name} must stay with the deferred dialog entry`);
 	}
 });
 

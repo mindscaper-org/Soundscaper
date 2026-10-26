@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React from 'react';
@@ -11,7 +13,7 @@ import TransportToolbarGroup, {
 	transportToolbarButtonsVisible,
 } from '../src/common/editor/ui/toolbar/TransportToolbarGroup.jsx';
 import { AccessibleTimeCode, PlaySpeedFlyout, TelemetryTimeCode } from '../src/common/editor/ui/toolbar/AudioEditorTransportControls.jsx';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { createAudioEditorPreferencesV1 } from '../src/common/editor/preferences.js';
 import { ThemeProvider } from '../vendor/audacity-design-system/components/src/ThemeProvider/ThemeProvider.tsx';
 

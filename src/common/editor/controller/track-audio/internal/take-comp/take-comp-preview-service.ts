@@ -76,7 +76,7 @@ export function createTakeCompPreviewService(
 
 	async function auditionTake(groupId: string, takeId: string): Promise<Readonly<TakeCompPreviewState>> {
 		const plan = dependencies.service.auditionTake(groupId, takeId);
-		return startPreview(plan.groupId, plan.laneId, [plan.takeId], `take:${plan.groupId}:${plan.takeId}`);
+		return startPreview(plan.groupId, plan.laneId, [plan.takeId], JSON.stringify(['take', plan.groupId, plan.takeId]));
 	}
 
 	async function auditionLane(groupId: string, laneId: string): Promise<Readonly<TakeCompPreviewState>> {
@@ -85,7 +85,7 @@ export function createTakeCompPreviewService(
 			plan.groupId,
 			plan.laneId,
 			plan.takes.map(({ takeId }) => takeId),
-			`lane:${plan.groupId}:${plan.laneId}`,
+			JSON.stringify(['lane', plan.groupId, plan.laneId]),
 		);
 	}
 

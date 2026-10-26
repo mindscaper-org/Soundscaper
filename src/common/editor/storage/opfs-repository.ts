@@ -5,6 +5,7 @@ import { inspectOpfsBinaryRecord, type OpfsBinaryInspection } from './opfs-binar
 import { createOpfsBlobWritePlan, deleteOpfsBlobPathExact, type OpfsBlobWritePlan } from './opfs-blob-write-plan.ts';
 import { normalizeOpfsWorkerPath } from './opfs-sync-worker-protocol.ts';
 
+import { readVideoDerivativeBytePayload } from './video-derivative-payload.ts';
 import {
 	PCM_CONTAINER_EXTENSION,
 	parsePcmContainerIndex,
@@ -115,6 +116,8 @@ export class OpfsRepository {
 		missingMessage: string,
 		operationId: OpfsSyncOperationId = 'media-asset-chunk-read',
 	): Promise<BlobLike> {
+		const bytes = readVideoDerivativeBytePayload(record);
+		if (bytes) return bytes;
 		if (record.storage !== 'opfs') {
 			if (!record.blob) throw new Error(missingMessage);
 			return blobWithMimeType(record.blob as BlobLike, record.mimeType);

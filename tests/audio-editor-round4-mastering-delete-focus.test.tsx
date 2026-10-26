@@ -32,7 +32,7 @@ for (const operation of ['sequence', 'entry', 'last-entry'] as const) {
 		const controller = { actions: { edit: { commit: () => pending } } };
 		const render = async (sequences: readonly DocumentMasteringSequenceSnapshot[]): Promise<void> => {
 			const document: DocumentMasteringSequenceDocumentSnapshot = {
-				primarySequenceId: 'main', sequences, regions: [{ id: 'region', name: 'Region', startFrame: 0, endFrame: 48_000 }],
+				primarySequenceId: 'main', sequences, regions: [{ id: 'region', sequenceId: 'main', name: 'Region', startFrame: 0, endFrame: 48_000 }],
 			};
 			await act(async () => { root.render(<SoundscaperMasteringSequenceDialog controller={controller}
 				snapshot={{ project, masteringSequences: document }} copy={SOUNDSCAPER_MASTERING_SEQUENCE_COPY}

@@ -85,8 +85,11 @@ export function createFreesoundWorkspaceActions(
 			if (snapshot.productId !== 'soundscaper') {
 				throw new Error('Freesound is unavailable for this product.');
 			}
-			if (activeImports.has(controller)) {
-				throw new Error('A Freesound import is already in progress.');
+			const active = activeImports.get(controller);
+			if (active) {
+				try { controller.assertProjectGeneration(active); }
+				catch { activeImports.delete(controller); }
+				if (activeImports.has(controller)) throw new Error('A Freesound import is already in progress.');
 			}
 			if (snapshot.importing) throw new Error('Editing is blocked during Freesound import.');
 			if (snapshot.readOnly) throw new Error('The project is read-only.');
@@ -94,6 +97,10 @@ export function createFreesoundWorkspaceActions(
 			if (!projectId) throw new Error('Freesound import requires an open project.');
 			const projectToken = controller.captureProjectGeneration(projectId);
 			activeImports.set(controller, projectToken);
+			const releaseAdmission = () => {
+				if (activeImports.get(controller) === projectToken) activeImports.delete(controller);
+			};
+			request.signal?.addEventListener('abort', releaseAdmission, { once: true });
 			const assertProjectCurrent = () => {
 				request.signal?.throwIfAborted();
 				if (activeImports.get(controller) !== projectToken) {
@@ -111,7 +118,8 @@ export function createFreesoundWorkspaceActions(
 			try {
 				return await service.importSound(request, assertProjectCurrent);
 			} finally {
-				if (activeImports.get(controller) === projectToken) activeImports.delete(controller);
+				request.signal?.removeEventListener('abort', releaseAdmission);
+				releaseAdmission();
 			}
 		},
 	});

@@ -4,6 +4,7 @@ import {
 	clipNeedsTimePitchRender as legacyClipNeedsTimePitchRender,
 } from '../../clip-time-pitch-cache.js';
 import { hasCoreEditingProjectAuthority } from '../../project-schema-version.ts';
+import { clipTimePitchPlaybackProjection } from '../../clip-time-pitch-playback-projection.ts';
 import { throwIfAborted } from '../shared/app-helpers.ts';
 import { admitTimePitchCacheProject } from './internal/time-pitch-cache-project-admission.ts';
 import type { OwnedStateWriteScope } from '../shared/owned-state.ts';
@@ -29,12 +30,12 @@ export interface ClipTimePitchCachePort {
 	prepareCommittedOutput(
 		clip: ProjectVisualClip,
 		source: ProjectVisualSource,
-		options?: Readonly<{ signal?: AbortSignal | null }>,
+		options?: Readonly<{ signal?: AbortSignal | null; projectSampleRate?: number }>,
 	): Promise<ClipTimePitchCacheEntry>;
 	resolveForPlayback(
 		clip: ProjectVisualClip,
 		source: ProjectVisualSource,
-		options?: Readonly<{ signal?: AbortSignal | null }>,
+		options?: Readonly<{ signal?: AbortSignal | null; projectSampleRate?: number }>,
 	): Promise<ClipTimePitchCacheEntry>;
 	getCommitted?(cacheKey: string): ClipTimePitchCacheEntry | undefined;
 	loadCommittedChannels(
@@ -143,9 +144,11 @@ export function createClipTimePitchCacheService<
 		if (!snapshot || !hasCoreEditingProjectAuthority(snapshot)) return Object.freeze([]);
 		const pairs: ClipTimePitchPair[] = [];
 		for (const clip of snapshot.clips) {
-			if (clip.kind === 'video' || !clipNeedsTimePitchRender(clip)) continue;
+			if (clip.kind === 'video') continue;
 			const source = findSource(snapshot, clip.sourceId);
-			if (source) pairs.push(Object.freeze({ clip, source }));
+			if (!source) continue;
+			const playbackClip = clipTimePitchPlaybackProjection(snapshot, clip, source);
+			if (clipNeedsTimePitchRender(playbackClip)) pairs.push(Object.freeze({ clip: playbackClip, source }));
 		}
 		return Object.freeze(pairs);
 	}
@@ -238,13 +241,14 @@ export function createClipTimePitchCacheService<
 		dependencies.lifetime.assertActive();
 		const snapshot = admitTimePitchCacheProject(input);
 		const projectToken = dependencies.captureProject(snapshot.id);
-		dependencies.cache.retainClipIds?.(snapshot.clips.map((clip) => clip.id));
+		// A render draft may omit other live clips. Document/session retention,
+		// rather than its temporary inventory, owns retirement of their caches.
 		const entries: ClipTimePitchCacheEntry[] = [];
 		const requestedIds = options ? new Set(options.clipIds) : null;
 		for (const { clip, source } of projectTimePitchPairs(snapshot)) {
 			if (requestedIds && !requestedIds.has(clip.id)) continue;
 			assertOwned(projectToken, signal);
-			const entry = await dependencies.cache.prepareCommittedOutput(clip, source, { signal });
+			const entry = await dependencies.cache.prepareCommittedOutput(clip, source, { signal, projectSampleRate: typeof snapshot.sampleRate === 'number' ? snapshot.sampleRate : undefined });
 			assertOwned(projectToken, signal);
 			entries.push(await materializeOwned(entry, signal, projectToken));
 		}
@@ -269,7 +273,7 @@ export function createClipTimePitchCacheService<
 		const refreshes: Promise<ClipTimePitchCacheEntry>[] = [];
 		for (const { clip, source } of projectTimePitchPairs(snapshot)) {
 			assertOwned(projectToken, signal);
-			const resolved = await dependencies.cache.resolveForPlayback(clip, source, { signal });
+			const resolved = await dependencies.cache.resolveForPlayback(clip, source, { signal, projectSampleRate: typeof snapshot.sampleRate === 'number' ? snapshot.sampleRate : undefined });
 			assertOwned(projectToken, signal);
 			await materializeOwned(resolved, signal, projectToken);
 			if (resolved.stale && resolved.pending) {

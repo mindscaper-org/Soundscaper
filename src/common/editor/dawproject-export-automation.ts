@@ -14,11 +14,7 @@ import { type DataRecord, type DawprojectExportContext, finite, parameterIdFor, 
  * structure declared, by the same id.
  */
 export function buildStripAutomation(key: string, strip: DataRecord, context: DawprojectExportContext): XmlElement[] {
-	const lanes = records(context.project.automationLanes).filter((lane) => {
-		const address = record(lane.address);
-		return address.kind === 'strip' && stripKey(record(address.strip)) === key;
-	});
-	const byParameter = new Map(lanes.map((lane) => [String(record(lane.address).parameterId), lane]));
+	const byParameter = context.readStripAutomationLanes?.(key) ?? stripLanes(context.project.automationLanes, key);
 	const result: XmlElement[] = [];
 	const gainLane = byParameter.get('gain');
 	if (gainLane) {
@@ -42,7 +38,7 @@ export function buildStripAutomation(key: string, strip: DataRecord, context: Da
 	if (muteLane) {
 		const points = lanePoints(muteLane, context);
 		if (points) {
-			result.push(xmlElement('Points', { id: context.ids.id(`points:${key}:mute`),
+			result.push(xmlElement('Points', { id: context.ids.id('points', key, 'mute'),
 				...(points[0]?.beat === undefined ? {} : { timeUnit: 'beats' }) }, [
 				xmlElement('Target', { parameter: parameterIdFor(context, key, 'mute') }),
 				...points.map((point) => xmlElement('BoolPoint', {
@@ -50,6 +46,65 @@ export function buildStripAutomation(key: string, strip: DataRecord, context: Da
 				})),
 			]));
 		}
+	}
+	return result;
+}
+
+/** One synchronous export owns only its current immutable address partition. */
+export function createDawprojectStripLaneReader(project: DataRecord): (key: string) => ReadonlyMap<string, DataRecord> {
+	let source: unknown = Symbol('unprepared');
+	let index: ReadonlyMap<string, ReadonlyMap<string, DataRecord>> | null = null;
+	const empty = new Map<string, DataRecord>();
+	return key => {
+		const current = project.automationLanes;
+		if (current !== source) { source = current; index = frozenStripLaneIndex(current); }
+		return index ? index.get(key) ?? empty : stripLanes(current, key);
+	};
+}
+
+function stripLanes(value: unknown, key: string): ReadonlyMap<string, DataRecord> {
+	const lanes = records(value).filter(lane => {
+		const address = record(lane.address);
+		return address.kind === 'strip' && stripKey(record(address.strip)) === key;
+	});
+	return new Map(lanes.map(lane => [String(record(lane.address).parameterId), lane]));
+}
+
+const UNSAFE_ADDRESS = Symbol('mutable automation address');
+function ownData(value: DataRecord, key: string): unknown {
+	const descriptor = Object.getOwnPropertyDescriptor(value, key);
+	return descriptor && Object.hasOwn(descriptor, 'value') ? descriptor.value : UNSAFE_ADDRESS;
+}
+function frozenRecord(value: unknown): value is DataRecord {
+	return Boolean(value) && typeof value === 'object' && !Array.isArray(value) && Object.isFrozen(value);
+}
+function frozenStripLaneIndex(value: unknown): ReadonlyMap<string, ReadonlyMap<string, DataRecord>> | null {
+	if (!Array.isArray(value) || !Object.isFrozen(value) || Object.getPrototypeOf(value) !== Array.prototype
+		|| ['filter', 'map', 'constructor', Symbol.iterator].some(key => Object.hasOwn(value, key))) return null;
+	const result = new Map<string, Map<string, DataRecord>>();
+	for (let offset = 0; offset < value.length; offset++) {
+		const descriptor = Object.getOwnPropertyDescriptor(value, String(offset));
+		if (!descriptor || !Object.hasOwn(descriptor, 'value')) return null;
+		const lane: unknown = descriptor.value;
+		if (!lane || typeof lane !== 'object') continue;
+		if (!frozenRecord(lane)) return null;
+		const address = ownData(lane, 'address');
+		if (address !== UNSAFE_ADDRESS && (!address || typeof address !== 'object')) continue;
+		if (!frozenRecord(address)) return null;
+		const kind = ownData(address, 'kind');
+		if (kind === UNSAFE_ADDRESS) return null;
+		if (kind !== 'strip') continue;
+		const strip = ownData(address, 'strip');
+		if (!frozenRecord(strip)) return null;
+		const stripKind = ownData(strip, 'kind');
+		if (stripKind === UNSAFE_ADDRESS || stripKind !== 'master' && ownData(strip, 'id') === UNSAFE_ADDRESS) return null;
+		const key = stripKey(strip);
+		if (!key) continue;
+		const parameter = ownData(address, 'parameterId');
+		if (parameter === UNSAFE_ADDRESS || parameter !== null && (typeof parameter === 'object' || typeof parameter === 'function')) return null;
+		let parameters = result.get(key);
+		if (!parameters) { parameters = new Map(); result.set(key, parameters); }
+		parameters.set(String(parameter), lane);
 	}
 	return result;
 }
@@ -114,7 +169,7 @@ function pointsElement(
 	points: readonly ResolvedPoint[],
 	convert: (value: number) => number,
 ): XmlElement {
-	return xmlElement('Points', { unit, id: context.ids.id(`points:${key}:${parameter}`),
+	return xmlElement('Points', { unit, id: context.ids.id('points', key, parameter),
 		...(points[0]?.beat === undefined ? {} : { timeUnit: 'beats' }) }, [
 		xmlElement('Target', { parameter: parameterIdFor(context, key, parameter) }),
 		...points.map((point) => xmlElement('RealPoint', {
@@ -140,4 +195,3 @@ export function reportUnconsumedLanes(context: DawprojectExportContext): void {
 		});
 	}
 }
-

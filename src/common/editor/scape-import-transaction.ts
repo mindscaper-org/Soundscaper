@@ -97,6 +97,8 @@ export class ScapeImportTransaction {
 	readonly #publicationOptions: FileSizeWarningOptions;
 	readonly #sourcePublications: StorageRecord[] = [];
 	readonly #mediaPublications: OwnedMediaAssetPublication[] = [];
+	readonly #sourceTokens = new Map<string, string | Set<string>>();
+	readonly #mediaIdentities = new WeakSet<OwnedMediaAssetPublication>();
 	#projectId: string | null = null;
 	#projectSnapshot: ProjectSnapshot | null = null;
 	#createdProject: ScapeProjectDocument | null = null;
@@ -122,11 +124,13 @@ export class ScapeImportTransaction {
 		if (!isOwnedScapeSource(source)) {
 			throw new TypeError('A Scape provisional PCM source requires exact storage ownership.');
 		}
-		if (!this.#sourcePublications.some((candidate) => (
-			candidate.id === source.id && candidate.sourceToken === source.sourceToken
-		))) {
-			this.#sourcePublications.push(Object.freeze({ ...source }));
-		}
+		const { id, sourceToken } = source;
+		const previous = this.#sourceTokens.get(id);
+		if (typeof previous === 'string' ? previous === sourceToken : previous?.has(sourceToken)) return;
+		this.#sourcePublications.push(Object.freeze({ ...source }));
+		if (previous === undefined) this.#sourceTokens.set(id, sourceToken);
+		else if (typeof previous === 'string') this.#sourceTokens.set(id, new Set([previous, sourceToken]));
+		else previous.add(sourceToken);
 	}
 
 	trackProvisionalMedia(publication: OwnedMediaAssetPublication): void {
@@ -135,7 +139,10 @@ export class ScapeImportTransaction {
 			|| typeof publication.discardIfCurrent !== 'function') {
 			throw new TypeError('A Scape provisional media publication requires exact ownership.');
 		}
-		if (!this.#mediaPublications.includes(publication)) this.#mediaPublications.push(publication);
+		if (!this.#mediaIdentities.has(publication)) {
+			this.#mediaPublications.push(publication);
+			this.#mediaIdentities.add(publication);
+		}
 	}
 
 	async captureProject(projectId: string, expected?: ScapeProjectDocument | null): Promise<void> {
@@ -289,7 +296,7 @@ function isScapeProjectDocument(value: unknown, projectId: string): value is Sca
 		&& 'id' in value && value.id === projectId);
 }
 
-function isOwnedScapeSource(value: unknown): value is StorageRecord {
+function isOwnedScapeSource(value: unknown): value is StorageRecord & { readonly id: string; readonly sourceToken: string } {
 	return Boolean(value && typeof value === 'object'
 		&& 'id' in value && typeof value.id === 'string' && value.id.length
 		&& 'sourceToken' in value && typeof value.sourceToken === 'string' && value.sourceToken.length);

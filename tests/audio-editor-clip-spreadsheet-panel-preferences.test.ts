@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { EDITOR_GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
@@ -9,7 +11,7 @@ import {
 import { AUDIO_EDITOR_BUILT_IN_WORKSPACES } from '../src/common/editor/workspace-layout-defaults.ts';
 import { placeWorkspacePanel, setWorkspacePanelDockExtent } from '../src/common/editor/workspace-panel-layout.ts';
 import { WORKSPACE_DISCOVERABLE_PANEL_IDS, workspacePanelLabel } from '../src/common/editor/ui/workspace/workspace-panel-model.ts';
-import { EDITOR_ENGLISH_COPY, EDITOR_GERMAN_COPY } from '../src/common/i18n/editor-copy-inventory.ts';
+import { EDITOR_ENGLISH_COPY } from '../src/common/i18n/editor-copy-inventory.ts';
 import { workspacePanelAvailable } from '../src/common/editor/ui/framescaper-capture-ui-model.ts';
 
 test('the clip spreadsheet is a hidden bottom panel in new and restored preferences', () => {

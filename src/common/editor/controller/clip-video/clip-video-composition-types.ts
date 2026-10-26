@@ -59,7 +59,8 @@ export type ClipVideoCompositionCopy =
 export type ClipVideoCompositionStore =
 	& VideoSourceReprobeDependencies['store']
 	& ClipTimePitchRenderServiceDependencies['store']
-	& SampleEditStore;
+	& SampleEditStore
+	& { getSourceMetadata(sourceId: string): PromiseLike<unknown> | unknown };
 
 export type ClipVideoCompositionEngine = Pick<EnginePublicApi,
 	| 'endScrub' | 'getPositionFrames' | 'pause' | 'scrub' | 'seek'

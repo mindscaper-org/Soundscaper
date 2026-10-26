@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -23,7 +25,7 @@ test('Audacity collapse and expand all tracks stay superseded by the relative st
 		assert.equal(definition.enableWhen, 'never', id);
 		assert.equal(definition.menuVisible, false, `${id} must never render as a menu item`);
 		assert.match(definition.reason.en, /superseded/u, id);
-		assert.ok(definition.reason.de, id);
+		assert.ok(GERMAN_COPY[definition.reason.catalogKey], id);
 		assert.equal(definition.roadmapDisposition, AUDACITY_ACTION_ROADMAP_DISPOSITION.JUSTIFIED_EXCLUDED, id);
 		assert.ok(
 			AUDACITY_PINNED_UI_ACTIONS.some((action: { id: string }) => action.id === id),

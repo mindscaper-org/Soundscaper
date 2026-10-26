@@ -9,7 +9,7 @@ export interface EffectMacroTemplateCopy {
 
 
 /** Keep the macro noise-profile hint localized without growing the legacy catalog. */
-export function resolveEffectMacroTemplateCopy(locale?: string, copy: Readonly<Record<string, string | undefined>> = {}): EffectMacroTemplateCopy {
-	const base = locale?.toLowerCase().startsWith('de') ? EFFECT_MACRO_TEMPLATE_COPY_BY_LOCALE.de : EFFECT_MACRO_TEMPLATE_COPY_BY_LOCALE.en;
+export function resolveEffectMacroTemplateCopy(_locale?: string, copy: Readonly<Record<string, string | undefined>> = {}): EffectMacroTemplateCopy {
+	const base = EFFECT_MACRO_TEMPLATE_COPY_BY_LOCALE.en;
 	return resolveEditorCopyScope('effectMacroTemplate', base, copy);
 }

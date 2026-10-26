@@ -3,7 +3,7 @@
 import { TrackMeter } from '@soundscaper/design-system/TrackMeter';
 
 import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
-import { meterChannelReadings, productionStripMeter, type ScalarMeterSnapshot, type ChannelMeterSource } from '../meter-channel-readings.ts';
+import { meterChannelReadings, productionStripMeter, sameMeterChannelDisplay, type ScalarMeterSnapshot, type ChannelMeterSource } from '../meter-channel-readings.ts';
 import type { StripMeterSnapshot } from '../../production-audio/strip-meter-session.ts';
 
 interface MeterTelemetrySnapshot {
@@ -22,10 +22,7 @@ interface MeterTelemetryController {
 }
 
 /** Only each displayed channel's level and clipping invalidate the meter leaves. */
-export function sameTrackMeterDisplay(left: ChannelMeterSource, right: ChannelMeterSource): boolean {
-	const previous = meterChannelReadings(left), next = meterChannelReadings(right);
-	return previous.every((reading, index) => reading.level === next[index]?.level && reading.clipped === next[index]?.clipped);
-}
+export const sameTrackMeterDisplay = sameMeterChannelDisplay;
 
 export function TrackTelemetryMeters({
 	controller,

@@ -23,10 +23,11 @@ export function createTimelineClipRemovalFocus(readRoot: () => HTMLElement | nul
 		orderedClips = [];
 		if (active !== oldFocus && active !== root.ownerDocument.body) return;
 		const clips = clipGroups(root);
+		const currentClips = new Set(clips);
 		const index = previousOrder.indexOf(oldFocus);
 		const neighbours = [...previousOrder.slice(index + 1), ...previousOrder.slice(0, index).reverse()];
 		const target = clips.find(clip => clip.dataset.clipId === oldFocus.dataset.clipId)
-			?? neighbours.find(clip => clips.includes(clip))
+			?? neighbours.find(clip => currentClips.has(clip))
 			?? clips[0]
 			?? root.querySelector<HTMLElement>('.track');
 		if (target?.isConnected && !target.closest('[hidden], [aria-hidden="true"]')) {

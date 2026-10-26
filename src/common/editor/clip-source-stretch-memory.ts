@@ -2,7 +2,8 @@
 
 import { evaluateAudioWarpMapAtSource, normalizeAudioWarpMap, type AudioWarpMap } from './audio-warp-domain.ts';
 import { clipSourceDisplayRange, clipSourcePreviewWarpMap, type ClipSourceTimingClip, type ClipSourceTimingProject, type ClipSourceTimingSource } from './clip-source-timing.ts';
-import { addRationals, subtractRationals, type Rational } from './timeline-time.ts';
+import { addRationals, compareRationals, subtractRationals, multiplyDivideRationals, type Rational } from './timeline-time.ts';
+import { remapAudioWarpSourceWindow } from './audio-warp-source-window.ts';
 
 export const CLIP_SOURCE_STRETCH_EXTENSION = 'org.soundscaper.clipSourceStretch';
 interface StretchClip extends ClipSourceTimingClip { readonly sourceId?: unknown; readonly opaqueExtensions?: unknown }
@@ -36,7 +37,67 @@ export function clipSourceStretchExtensions(clip: StretchClip, source: ClipSourc
 	return { ...extensionsOf(clip), [CLIP_SOURCE_STRETCH_EXTENSION]: { sourceId: clip.sourceId ?? null, sourceFrameCount: source.frameCount, map } };
 }
 
-function extensionsOf(clip: StretchClip): Readonly<Record<string, unknown>> {
+/** A resampled source retains hidden anchors on its replacement sample grid. */
+export function resampledClipSourceStretchFields(
+	clip: StretchClip,
+	previous: Readonly<{ id: string; frameCount: number }>,
+	replacement: Readonly<{ id: string; frameCount: number }>,
+): Readonly<{ opaqueExtensions?: Readonly<Record<string, unknown>> }> {
+	const extensions = extensionsOf(clip);
+	const memory = extensions[CLIP_SOURCE_STRETCH_EXTENSION] as ClipSourceStretchMemory | undefined;
+	if (!memory || memory.sourceId !== previous.id || memory.sourceFrameCount !== previous.frameCount) return {};
+	const map = remapAudioWarpSourceWindow(memory.map,
+		{ sourceStartFrame: 0, sourceDurationFrames: previous.frameCount },
+		{ sourceStartFrame: 0, sourceDurationFrames: replacement.frameCount });
+	return { opaqueExtensions: { ...extensions, [CLIP_SOURCE_STRETCH_EXTENSION]: {
+		sourceId: replacement.id, sourceFrameCount: replacement.frameCount, map,
+	} } };
+}
+
+/** A replacement file keeps authored source-time anchors that still exist in its media. */
+export function replacedClipSourceStretchFields(
+	clip: StretchClip,
+	previous: ClipSourceTimingSource & Readonly<{ id: string }>,
+	replacement: ClipSourceTimingSource & Readonly<{ id: string }>,
+	projectSampleRate: number,
+): Readonly<{ opaqueExtensions?: Readonly<Record<string, unknown>> }> {
+	const extensions = extensionsOf(clip);
+	const memory = extensions[CLIP_SOURCE_STRETCH_EXTENSION] as ClipSourceStretchMemory | undefined;
+	if (!memory || memory.sourceId !== previous.id || memory.sourceFrameCount !== previous.frameCount) return {};
+	const original = normalizeAudioWarpMap(memory.map);
+	const map = normalizeAudioWarpMap({ ...original, points: original.points.map(point => ({ ...point,
+		source: multiplyDivideRationals(point.source, replacement.sampleRate, previous.sampleRate),
+	})) });
+	const last = map.points.at(-1)!;
+	const end = replacement.frameCount;
+	const outer = compareRationals(end, last.source) <= 0 ? evaluateAudioWarpMapAtSource(map, end)
+		: addRationals(last.outer, multiplyDivideRationals(subtractRationals(end, last.source), projectSampleRate, replacement.sampleRate));
+	const rebound = normalizeAudioWarpMap({ ...map, points: [
+		...map.points.filter(point => compareRationals(point.source, end) < 0),
+		{ source: { num: end, den: 1 }, outer, mode: 'forward' },
+	] });
+	return { opaqueExtensions: { ...extensions, [CLIP_SOURCE_STRETCH_EXTENSION]: {
+		sourceId: replacement.id, sourceFrameCount: replacement.frameCount, map: rebound,
+	} } };
+}
+
+/** Clipboard destinations use their own timeline sample grid around the same source. */
+export function retimedClipSourceStretchFields(
+	clip: Pick<StretchClip, 'sourceId' | 'opaqueExtensions'>, sampleRate: number, previousSampleRate: number,
+): Readonly<{ opaqueExtensions?: Readonly<Record<string, unknown>> }> {
+	if (sampleRate === previousSampleRate) return {};
+	const extensions = extensionsOf(clip);
+	const memory = extensions[CLIP_SOURCE_STRETCH_EXTENSION] as ClipSourceStretchMemory | undefined;
+	if (!memory || memory.sourceId !== clip.sourceId) return {};
+	const map = normalizeAudioWarpMap(memory.map);
+	return { opaqueExtensions: { ...extensions, [CLIP_SOURCE_STRETCH_EXTENSION]: {
+		...memory, map: { ...map, points: map.points.map(point => ({ ...point,
+			outer: multiplyDivideRationals(point.outer, sampleRate, previousSampleRate),
+		})) },
+	} } };
+}
+
+function extensionsOf(clip: Pick<StretchClip, 'opaqueExtensions'>): Readonly<Record<string, unknown>> {
 	return clip.opaqueExtensions && typeof clip.opaqueExtensions === 'object' && !Array.isArray(clip.opaqueExtensions)
 		? clip.opaqueExtensions as Readonly<Record<string, unknown>> : {};
 }

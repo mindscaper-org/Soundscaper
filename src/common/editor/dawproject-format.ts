@@ -34,10 +34,12 @@ export function isDawprojectFileName(value: unknown): boolean {
 }
 
 /** Stable sequential `xs:ID` values, one per distinct key, in first-seen order. */
+/** Keep roles and original identifiers in separate tuple slots before assigning XML IDs. */
 export class DawprojectIdAllocator {
 	readonly #ids = new Map<string, string>();
 
-	id(key: string): string {
+	id(...parts: string[]): string {
+		const key = JSON.stringify(parts);
 		let id = this.#ids.get(key);
 		if (id === undefined) {
 			id = `id${String(this.#ids.size)}`;
@@ -46,8 +48,8 @@ export class DawprojectIdAllocator {
 		return id;
 	}
 
-	has(key: string): boolean {
-		return this.#ids.has(key);
+	has(...parts: string[]): boolean {
+		return this.#ids.has(JSON.stringify(parts));
 	}
 }
 

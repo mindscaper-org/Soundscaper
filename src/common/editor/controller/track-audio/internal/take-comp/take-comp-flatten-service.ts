@@ -12,7 +12,7 @@ import type { EngineChunkSourceInput, EngineSourceBufferInput } from '../../../.
 import type { EngineProject } from '../../../../engine/types.ts';
 import type { DerivedSourceService } from '../derived-audio/derived-source-service.ts';
 import type { AudioBufferLike } from '../../../source/source-audio.ts';
-import type { DerivedSourceRecord } from '../../track-domain-types.ts';
+import { findControllerSource, type DerivedSourceRecord } from '../../track-domain-types.ts';
 import type {
 	EditorControllerLifetime,
 	EditorProjectToken,
@@ -105,6 +105,12 @@ export function createTakeCompFlattenService(dependencies: TakeCompFlattenServic
 		ownership: Readonly<{ project: EditorProjectToken; task: EditorTaskScope }>,
 	): Promise<TakeCompFlattenPublication> {
 		const renderProject = flattenRenderProject(project, group, preparation, dependencies.createId);
+		const sourceIds = (renderProject.sources ?? []).map(({ id }) => String(id));
+		const audioSources = sourceIds.map((id) => {
+			const source = findControllerSource(project, id);
+			if (!source) throw new RangeError(`Take comp flatten requires a PCM source: ${id}.`);
+			return source;
+		});
 		const rendered = await dependencies.renderSnapshot(renderProject, {
 			startFrame: preparation.renderPlan.startSample,
 			endFrame: preparation.renderPlan.endSample,
@@ -121,7 +127,7 @@ export function createTakeCompFlattenService(dependencies: TakeCompFlattenServic
 		const { deriveSourceProvenanceForIds } = await loadSourceProvenanceDerivation();
 		assertOwned(ownership);
 		const provenance = deriveSourceProvenanceForIds(
-			project.sources, renderProject.sources?.map(({ id }) => id) ?? [],
+			audioSources, sourceIds,
 		);
 		const record = await dependencies.derivedSources.persistRenderedMixSource(
 			rendered,

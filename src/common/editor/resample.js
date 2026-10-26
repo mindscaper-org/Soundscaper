@@ -95,7 +95,12 @@ export function createStreamingWindowedSincResampler(inputSampleRate, outputSamp
 	const inputRate = positiveRate(inputSampleRate, 'inputSampleRate');
 	const outputRate = positiveRate(outputSampleRate, 'outputSampleRate');
 	const channels = positiveChannelCount(channelCount);
-	const radius = Math.max(8, Math.min(64, Math.round(Number(options.radius) || 24)));
+	// Preserve the low-pass window's span in output samples when decimating.
+	// Explicit radii retain their latency contract (for example Noise Reduction).
+	// The bounded default covers every maintained audio sample-rate ratio.
+	const radius = options.radius === undefined
+		? defaultWindowedSincRadius(inputRate, outputRate)
+		: Math.max(8, Math.min(64, Math.round(Number(options.radius) || 24)));
 	const step = inputRate / outputRate;
 	const cutoff = Math.min(1, outputRate / inputRate) * 0.94;
 	const sampleChannels = createWindowedSincChannelSampler(radius, cutoff);
@@ -190,6 +195,11 @@ export function createStreamingWindowedSincResampler(inputSampleRate, outputSamp
 		buffered = buffered.map((values) => Float32Array.prototype.slice.call(values, Math.min(values.length, dropFrames)));
 		bufferStartFrame = retainFrom;
 	}
+}
+
+/** Input lookahead for the default bounded, output-clock antialias window. */
+export function defaultWindowedSincRadius(inputRate, outputRate) {
+	return Math.max(24, Math.min(4096, Math.ceil(24 * inputRate / outputRate)));
 }
 
 function appendChannels(previous, next) {

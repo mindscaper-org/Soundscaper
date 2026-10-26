@@ -121,13 +121,13 @@ test('the photo shell follows its own lazy bootstrap instead of the audio shell 
 });
 
 test('photo shell isolation preserves the shared audio/video shell owner', () => {
-	for (const path of [
-		'src/common/editor/ui/AudioEditorMenuBar.jsx',
-		'src/common/editor/ui/application-menu/product-runtime.ts',
-		'src/common/products.js',
-		'src/common/url.ts',
-	]) {
-		assert.equal(chunkGroupForModulePath(path), 'editor-shell', path);
+	for (const [path, owner] of [
+		['src/common/editor/ui/AudioEditorMenuBar.jsx', 'editor-shell'],
+		['src/common/editor/ui/application-menu/product-runtime.ts', 'editor-shell'],
+		['src/common/products.js', 'product-profiles'],
+		['src/common/url.ts', 'editor-shell'],
+	] as const) {
+		assert.equal(chunkGroupForModulePath(path), owner, path);
 	}
 });
 
@@ -275,15 +275,20 @@ test('shared still admission, effect and mask contracts retain only imaging and 
 		'video-post-crop-vignette-v1.ts', 'video-post-crop-vignette-ffmpeg-v1.ts', 'video-clarity-v1.ts', 'video-clarity-ffmpeg-v1.ts', 'video-noise-reduction-v1.ts', 'video-noise-reduction-ffmpeg-v1.ts', 'video-original-alpha-ffmpeg-v1.ts', 'video-effect-closed-creation.ts', 'video-mask-matte-v24.ts', 'video-visual-model-v24.ts',
 		'timeline-image-model.ts', 'timeline-image-frame-pack-v1.ts', 'timeline-image-frame-pack-v1-layout.ts',
 		'timeline-image-native-decode-v1.ts', 'timeline-image-browser-native-port.ts', 'timeline-image-conversion-receipt-v1.ts',
-		'browser-image-precision-admission.ts', 'image-animation-topology.ts'];
+		'browser-image-resource-admission.ts', 'browser-image-precision-admission.ts', 'image-animation-topology.ts'];
 	const nativePorts = new Map<string, readonly (readonly [string, string])[]>([
 		['timeline-image-native-decode-v1.ts', [
 			['./image-format-signature.ts', 'editor-imaging'], ['./image-import-admission.ts', 'editor-imaging'],
 			['./controller/shared/file-size-warning.ts', 'project-interchange-foundations'], ['./image-decoder-routing.ts', 'editor-imaging'],
 			['./imaging/pixel-frame-canonical-rgba8-v1.ts', 'editor-imaging'],
+			['./browser-image-resource-admission.ts', 'editor-image-file-admission'],
 			['./browser-image-precision-admission.ts', 'editor-image-file-admission'], ['./timeline-image-frame-pack-v1.ts', 'editor-imaging'],
 		]],
-		['timeline-image-browser-native-port.ts', [['./image-animation-topology.ts', 'editor-image-file-admission']]],
+		['timeline-image-browser-native-port.ts', [
+			['./browser-image-resource-admission.ts', 'editor-image-file-admission'],
+			['./image-animation-topology.ts', 'editor-image-file-admission'],
+		]],
+		['browser-image-resource-admission.ts', [['./image-import-admission.ts', 'editor-imaging']]],
 		['browser-image-precision-admission.ts', []], ['image-animation-topology.ts', []],
 	]);
 	for (const module of modules) {
@@ -344,6 +349,7 @@ test('shared media storage pins exact source-reference and custody dependencies 
 			['./project-schema-version.ts', owner], ['./take-group-source-references.ts', owner],
 			['./video-visual-preset-v24.ts', 'editor-imaging'], ['./video-source-characteristics.ts', owner],
 			['./video-cube-lut-project-references-current-v1.ts', owner],
+			['./scape-literal-json-keys.ts', 'editor-neutral-foundations'],
 		]],
 		['project-schema-version.ts', [
 			['./project-schema-identity.ts', 'project-interchange-foundations'],
@@ -438,14 +444,14 @@ test('shared file-storage failure classification uses neutral message metadata w
 	const target = resolveRelativeModule(path, dependencies[0]); assert.ok(target);
 	assert.equal(chunkGroupForModulePath(target), 'editor-presentation');
 	assert.deepEqual(staticRelativeDependencies(readFileSync(target, 'utf8')), []);
-	assert.equal(chunkGroupForModulePath(directory + 'wav-import.js'), 'editor-domain');
+	assert.equal(chunkGroupForModulePath(directory + 'wav-import.js'), 'editor-codec-foundations');
 });
 
 test('the actual photo session borrows shared media repositories without linked readers or timeline storage passengers', () => {
 	const root = fileURLToPath(new URL('../src/lightscaper/photo-library-session-runtime.ts', import.meta.url));
 	const pending = [root], seen = new Set<string>(), storage = new Set<string>();
 	const fileAdmission = new Set(['timeline-image-browser-native-port.ts', 'timeline-image-native-decode-v1.ts',
-		'browser-image-precision-admission.ts', 'image-animation-topology.ts'].map(leaf => directory + leaf));
+		'browser-image-resource-admission.ts', 'browser-image-precision-admission.ts', 'image-animation-topology.ts'].map(leaf => directory + leaf));
 	const unexpectedOwners: string[] = [];
 	while (pending.length) {
 		const path = pending.pop()!;
@@ -474,8 +480,16 @@ test('the actual photo session borrows shared media repositories without linked 
 	assert.deepEqual([...seen].filter(path => fileAdmission.has(path)).sort(), [...fileAdmission].sort());
 	assert.ok(seen.has(fileURLToPath(new URL('../config/lightscaper-libraw-runtime-manifest.json', import.meta.url))));
 	// The native schema registry and byte-stream writer are explicit shared custody leaves.
-	assert.equal(storage.size, 66);
+	assert.equal(storage.size, 68);
 	assert.ok(storage.has(directory + 'storage/indexeddb-schema.ts'));
+	const payload = directory + 'storage/video-derivative-payload.ts';
+	assert.ok(storage.has(payload));
+	assert.deepEqual(staticRelativeDependencies(transformSync(readFileSync(payload, 'utf8'), { loader: 'ts', format: 'esm' }).code),
+		['../video-preview-capture-admission.ts']);
+	const projection = directory + 'storage/storage-record-projection.ts';
+	assert.ok(storage.has(projection));
+	assert.deepEqual(staticRelativeDependencies(transformSync(readFileSync(projection, 'utf8'), { loader: 'ts', format: 'esm' }).code),
+		['./storage-clone.ts']);
 	for (const leaf of ['media-asset-blob-stream.ts', 'media-asset-path-staging.ts', 'media-asset-opfs-startup-namespace.ts', 'media-asset-opfs-startup-reconciliation.ts', 'opfs-blob-write-plan.ts']) {
 		assert.ok(storage.has(directory + 'storage/' + leaf));
 	}

@@ -10,6 +10,9 @@ test('an imported image can be renamed from its existing timeline header', async
 	const clip = editor.getByRole('group', { name: 'Image clip: poster', exact: true });
 	await expect(clip).toBeVisible();
 	await waitForProjectActivation(editor);
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
+	await clip.focus();
+	await expect(clip).toBeFocused();
 	await clip.press('Enter');
 	await expect(clip.locator('.clip-display')).toHaveClass(/clip-display--selected/u);
 	await expect(clip.getByRole('button', { name: 'Trim left edge', exact: true })).toBeVisible();

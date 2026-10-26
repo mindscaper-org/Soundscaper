@@ -19,6 +19,7 @@ import { runOfflineSelectionSegment, type RunOfflineSelectionChain } from './off
 import { createMacroNeighbourPcmCache, type MacroNeighbourPcmCache } from './macro-neighbour-pcm-cache.ts';
 import { independentTrackEffectParams } from '../independent-track-effect-params.ts';
 import { composeMacroSpectralResult, type MacroSpectralSelection } from './macro-spectral-context.ts';
+import { macroRackHistoryFrames, prependMacroRackHistory } from './macro-rack-history.ts';
 
 const selectionEffectDefinitions = AUDIO_SELECTION_EFFECT_DEFINITIONS as unknown as
 	Readonly<Record<string, SelectionEffectDefinition | undefined>>;
@@ -189,16 +190,23 @@ export function createEffectMacroChainRunner<Buffer = MacroRenderBuffer>(runtime
 	/**
 	 * Render a run of realtime steps over audio the chain already holds. The
 	 * rack has no timeline to read from once an offline step has rewritten the
-	 * selection, so the audio is staged as a one-clip render project instead.
+	 * selection, so its untouched prefix and current audio are staged together.
 	 */
 	async function renderRackSegment(
 		steps: readonly EffectMacroChainStep[],
 		channels: readonly Float32Array[],
 		target: EffectMacroChainTarget,
+		cache?: MacroNeighbourPcmCache,
 	): Promise<readonly Float32Array[]> {
 		const frames = channels[0]?.length ?? 0;
 		if (!frames) throw createLocalizedError(Error, runtime.copy, 'effectInvalidAudio');
-		const buffer = await runtime.createAudioBuffer(channels, runtime.sampleRate);
+		const historyFrames = macroRackHistoryFrames(steps, runtime.sampleRate, target.startFrame);
+		const before = historyFrames ? await renderNeighbouringRange(target,
+			target.startFrame - historyFrames, target.startFrame, channels.length, cache) : [];
+		runtime.assertCurrent();
+		const stagedChannels = prependMacroRackHistory(channels, before, historyFrames);
+		const stagedFrames = frames + historyFrames;
+		const buffer = await runtime.createAudioBuffer(stagedChannels, runtime.sampleRate);
 		runtime.assertCurrent();
 		const sourceId = createStableId('macro-step-source');
 		const clipId = createStableId('macro-step-clip');
@@ -211,7 +219,7 @@ export function createEffectMacroChainRunner<Buffer = MacroRenderBuffer>(runtime
 		const controlIds = new Set(steps.filter(step => step.type === 'audacity-auto-duck')
 			.map(step => step.context?.controlTrackId).filter((id): id is string => typeof id === 'string' && Boolean(id)));
 		for (const controlTrackId of controlIds) {
-			const controlTarget = { ...target, endFrame: target.startFrame + frames };
+			const controlTarget = { ...target, startFrame: target.startFrame - historyFrames, endFrame: target.startFrame + frames };
 			const control = runtime.renderControlTrackRange
 				? await runtime.renderControlTrackRange(controlTrackId, controlTarget)
 				: await runtime.renderDryRange(controlTrackId, controlTarget.startFrame, controlTarget.endFrame, 1);
@@ -223,9 +231,9 @@ export function createEffectMacroChainRunner<Buffer = MacroRenderBuffer>(runtime
 			sourceBuffers.set(controlSourceId, controlBuffer);
 			controlWidths.set(controlTrackId, control.length);
 			controlSources.push({ id: controlSourceId, name: 'Macro control', storageKey: controlSourceId,
-				frameCount: frames, channelCount: control.length, sampleRate: runtime.sampleRate });
+				frameCount: stagedFrames, channelCount: control.length, sampleRate: runtime.sampleRate });
 			controlClips.push({ id: controlClipId, sourceId: controlSourceId, timelineStartFrame: 0,
-				durationFrames: frames, sourceStartFrame: 0, sourceDurationFrames: frames });
+				durationFrames: stagedFrames, sourceStartFrame: 0, sourceDurationFrames: stagedFrames });
 			controlTracks.push({ id: controlTrackId, name: 'Macro control', clipIds: [controlClipId],
 				effects: [], gain: 1, pan: 0, mute: false, solo: false });
 		}
@@ -237,7 +245,7 @@ export function createEffectMacroChainRunner<Buffer = MacroRenderBuffer>(runtime
 				id: sourceId,
 				name: 'Macro step',
 				storageKey: sourceId,
-				frameCount: frames,
+				frameCount: stagedFrames,
 				channelCount: channels.length,
 				sampleRate: runtime.sampleRate,
 			}, ...controlSources],
@@ -246,9 +254,9 @@ export function createEffectMacroChainRunner<Buffer = MacroRenderBuffer>(runtime
 				sourceId,
 				title: 'Macro step',
 				timelineStartFrame: 0,
-				durationFrames: frames,
+				durationFrames: stagedFrames,
 				sourceStartFrame: 0,
-				sourceDurationFrames: frames,
+				sourceDurationFrames: stagedFrames,
 			}, ...controlClips],
 			tracks: [{
 				id: trackId,
@@ -273,14 +281,14 @@ export function createEffectMacroChainRunner<Buffer = MacroRenderBuffer>(runtime
 		// render omits other programme edges while keeping their sidechains.
 		const staged = { ...project, mixer: { ...mixer, edges: [...mixer.edges, ...sidechainEdges] } };
 		const rendered = await runtime.renderSnapshot(staged, {
-			startFrame: 0,
-			endFrame: frames,
+			startFrame: historyFrames,
+			endFrame: stagedFrames,
 			trackId,
 			includeMaster: false,
 			includeTrackPan: false,
 			respectMuteSolo: false,
 			outputFrames: frames,
-			preRollFrames: 0,
+			preRollFrames: historyFrames,
 		}, sourceBuffers);
 		runtime.assertCurrent();
 		return runtime.matchSelectionChannels(
@@ -303,12 +311,12 @@ export function createEffectMacroChainRunner<Buffer = MacroRenderBuffer>(runtime
 					// Each step receives audio with the preceding step's unselected
 					// bins intact. A final-only blend changes nonlinear detectors.
 					for (const step of segment.steps) {
-						const processed = await renderRackSegment([step], channels, target);
+						const processed = await renderRackSegment([step], channels, target, cache);
 						channels = step.type === 'eq' ? processed : await composeMacroSpectralResult(
 							channels, processed, runtime.sampleRate, runtime.spectralSelection);
 						runtime.assertCurrent();
 					}
-				} else channels = await renderRackSegment(segment.steps, channels, target);
+				} else channels = await renderRackSegment(segment.steps, channels, target, cache);
 				continue;
 			}
 			const steps = segment.steps.map(step => ({ ...step,

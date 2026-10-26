@@ -6,7 +6,7 @@ import {
 	type ClipTimePitchRenderStore,
 } from '../src/common/editor/controller/clip-video/clip-time-pitch-render-service.ts';
 import type { ClipTimePitchCacheEntry } from '../src/common/editor/controller/source/clip-time-pitch-service.ts';
-import type { ClipTransformProject } from '../src/common/editor/controller/clip-video/internal/clip/clip-domain-types.ts';
+import type { ClipTransformClip, ClipTransformProject } from '../src/common/editor/controller/clip-video/internal/clip/clip-domain-types.ts';
 import {
 	EditorControllerLifetime,
 	EditorProjectGeneration,
@@ -255,6 +255,21 @@ test('loop period and phase edits retire scalar and linked renders before public
 	}
 });
 
+test('explicit rendering bakes tempo-derived independent stretch with its authored pitch', async () => {
+	const rates: unknown[] = [];
+	const project = projectFixture({
+		tempoMap: { mode: 'musical', events: [{ id: 'tempo', beat: { num: 0, den: 1 }, bpm: { num: 240, den: 1 } }] },
+		clips: [clipFixture({ anchor: 'musical', musicalStartBeat: 0, musicalExtent: 'beat', musicalDurationBeats: 2,
+			durationFrames: 24_000, sourceDurationFrames: 48_000, speedRatio: 1, pitchCents: 1200 })],
+		sources: [sourceFixture({ frameCount: 48_000 })],
+	});
+	const harness = createHarness(project, { prepareClip: clip => { rates.push(clip.speedRatio); },
+		materialize: async () => cacheEntry('musical', audioBufferFixture(24_000)) });
+	await harness.service.renderClipPitchSpeed('clip');
+	assert.deepEqual(rates, [2]);
+	assert.equal(addedClip(harness.commits).durationFrames, 24_000);
+});
+
 function addedClip(commits: readonly { readonly command: AudioEditorCommand }[]) {
 	const command = commits[0]?.command;
 	if (command?.type !== 'batch') assert.fail('Expected a render replacement batch.');
@@ -266,6 +281,7 @@ function addedClip(commits: readonly { readonly command: AudioEditorCommand }[])
 function createHarness(
 	initialProject: ClipTransformProject,
 	options: Readonly<{
+		prepareClip?: (clip: ClipTransformClip) => void;
 		materialize?: () => Promise<ClipTimePitchCacheEntry>;
 		renderLinked?: () => Promise<AudioBufferLike>;
 		failCommit?: boolean;
@@ -326,7 +342,7 @@ function createHarness(
 		editingBlocked: () => blocked,
 		captureProject: () => generation.capture(project.id),
 		assertProject: (token) => generation.assertCurrent(token),
-		prepareCommittedOutput: async () => cacheEntry('cache', rendered),
+		prepareCommittedOutput: async clip => { options.prepareClip?.(clip); return cacheEntry('cache', rendered); },
 		materializeEntry: options.materialize ?? (async (entry) => entry),
 		preflightStorage: async (bytes, purpose) => {
 			preflights.push({ bytes, purpose });

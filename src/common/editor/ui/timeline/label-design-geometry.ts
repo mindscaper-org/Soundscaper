@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { pointLabelWidth, prepareTimelineLabels, timelineLabelFontRevision } from './label-layout-preparation.ts';
+
 /** Geometry adapted from audacity-design-system's 2026-09 label rewrite. */
 export interface TimelineLabelRange {
 	readonly id: string;
@@ -25,16 +27,6 @@ export function getLabelMetrics(sizePt = 9) {
 export type TimelineLabelMetrics = ReturnType<typeof getLabelMetrics>;
 export const TIMELINE_LABEL_CONTENT_TOP = 18;
 
-let measureContext: CanvasRenderingContext2D | null | undefined;
-function pointLabelWidth(title: string, metrics: TimelineLabelMetrics): number {
-	if (measureContext === undefined && typeof document !== 'undefined') {
-		measureContext = document.createElement('canvas').getContext?.('2d') ?? null;
-	}
-	if (measureContext) measureContext.font = `500 ${String(metrics.fontSizePx)}px Inter, sans-serif`;
-	const textWidth = measureContext?.measureText(title).width ?? title.length * metrics.fontSizePx * 0.6;
-	return Math.max(metrics.minPointWidth, Math.min(metrics.maxPointWidth, Math.ceil(textWidth) + metrics.padX * 2));
-}
-
 export interface LabelLayout {
 	readonly row: number;
 	readonly width: number;
@@ -50,7 +42,7 @@ export function layoutTimelineLabels(
 	const busy: Array<{ key: number; row: number }> = [];
 	const available: Array<{ key: number; row: number }> = [];
 	const layout = new Map<string, LabelLayout>();
-	for (const label of [...labels].sort((left, right) => left.startFrame - right.startFrame)) {
+	for (const label of prepareTimelineLabels(labels).sorted) {
 		const point = label.startFrame === label.endFrame;
 		const startX = label.startFrame / sampleRate * pixelsPerSecond;
 		const width = point ? pointLabelWidth(label.title ?? '', metrics)
@@ -79,10 +71,33 @@ export function timelineLabelTrackContentHeight(
 ): number {
 	if (!labels.length) return 0;
 	const metrics = getLabelMetrics(sizePt);
-	const layout = layoutTimelineLabels(labels, pixelsPerSecond, sampleRate, metrics);
-	let lastRow = 0;
-	for (const item of layout.values()) lastRow = Math.max(lastRow, item.row);
-	return TIMELINE_LABEL_CONTENT_TOP + lastRow * metrics.rowHeight + metrics.bannerHeight + 4;
+	const key = `${timelineLabelFontRevision()}|${pixelsPerSecond}|${sampleRate}|${sizePt}`;
+	const preparation = prepareTimelineLabels(labels);
+	const previous = preparation.heights.get(key);
+	if (previous !== undefined) return previous;
+	const busy: Array<{ key: number; row: number }> = [], available: Array<{ key: number; row: number }> = [];
+	// Duplicate IDs overwrite earlier entries in layoutTimelineLabels' public Map.
+	const finalRows = preparation.uniqueIds ? null : new Map<string, number>();
+	let rowCount = 0;
+	for (const label of preparation.sorted) {
+		const point = label.startFrame === label.endFrame;
+		const startX = label.startFrame / sampleRate * pixelsPerSecond;
+		const width = point ? pointLabelWidth(label.title ?? '', metrics)
+			: (label.endFrame - label.startFrame) / sampleRate * pixelsPerSecond;
+		while (busy[0] && busy[0].key <= startX) {
+			const released = heapPop(busy)!;
+			heapPush(available, { key: released.row, row: released.row });
+		}
+		const row = heapPop(available)?.row ?? rowCount++;
+		heapPush(busy, { key: startX + width + (point ? metrics.earWidth + metrics.pointFlagGap : 0), row });
+		finalRows?.set(label.id, row);
+	}
+	let lastRow = Math.max(0, rowCount - 1);
+	if (finalRows) { lastRow = 0; for (const row of finalRows.values()) lastRow = Math.max(lastRow, row); }
+	const height = TIMELINE_LABEL_CONTENT_TOP + lastRow * metrics.rowHeight + metrics.bannerHeight + 4;
+	if (preparation.heights.size >= 8) preparation.heights.delete(preparation.heights.keys().next().value!);
+	preparation.heights.set(key, height);
+	return height;
 }
 
 export function snapLabelFrame(frame: number, targets: readonly number[], pixelsPerSecond: number, sampleRate: number): number {

@@ -17,6 +17,7 @@ import {
 } from './project-import-options.ts';
 import { externalMediaFileReference } from '../../../desktop-external-media.ts';
 import { digestMediaContent } from '../../../storage/media-content-digest.ts';
+import { raceAbortableRead } from '../../../abort-race.ts';
 
 export type ImportedMediaMetadataInspector = (
 	file: Blob,
@@ -39,9 +40,9 @@ export async function prepareImportedSourceProvenance(
 	const existing = options.existing
 		? normalizeSourceProvenance(options.existing, 'import source provenance')
 		: undefined;
-	const inspected = await (options.inspectMetadata ?? inspectImportedMediaMetadata)(file, {
+	const inspected = await raceAbortableRead(() => (options.inspectMetadata ?? inspectImportedMediaMetadata)(file, {
 		...(options.signal ? { signal: options.signal } : {}),
-	});
+	}), options.signal);
 	options.signal?.throwIfAborted();
 	if (existing) return enrichExistingProvenance(existing, inspected);
 	return createImportedSourceProvenance({
@@ -56,6 +57,25 @@ export async function prepareImportedSourceProvenance(
 		metadata: inspected.metadata,
 		attachments: inspected.attachments,
 		warnings: inspected.warnings,
+	});
+}
+
+/** Session readers retain the original bounded media view, whose modification time is unknown. */
+export async function prepareSessionMediaProvenance(
+	file: Blob,
+	options: Pick<PrepareImportedSourceProvenanceOptions, 'createContributionId' | 'signal' | 'inspectMetadata'>
+	& Readonly<{ originalFileName: string; mimeType: string }>,
+): Promise<SourceProvenanceV1> {
+	options.signal?.throwIfAborted();
+	const inspected = await raceAbortableRead(() => (options.inspectMetadata ?? inspectImportedMediaMetadata)(file, {
+		...(options.signal ? { signal: options.signal } : {}),
+	}), options.signal);
+	options.signal?.throwIfAborted();
+	return createImportedSourceProvenance({
+		id: options.createContributionId(),
+		origin: { kind: 'local-file', originalFileName: options.originalFileName,
+			mimeType: options.mimeType, byteLength: file.size, lastModified: null },
+		metadata: inspected.metadata, attachments: inspected.attachments, warnings: inspected.warnings,
 	});
 }
 

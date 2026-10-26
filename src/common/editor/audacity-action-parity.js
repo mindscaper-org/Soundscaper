@@ -137,7 +137,7 @@ export function evaluateAudacityEnableWhen(enableWhen, context = {}) {
 		'history-can-redo': Boolean(snapshot.history?.canRedo),
 		selection: hasSelection,
 		'time-selection': timeSelection,
-		'time-selection-and-not-recording': timeSelection && !recording,
+		'time-or-clip-selection-and-not-recording': (timeSelection || selectedClips.length > 0) && !recording,
 		'project-opened-and-not-recording': projectOpened && !recording,
 		// What every command that acts on "the selection" asks: a drawn time
 		// range or a set of selected clips. Selecting a clip leaves the time

@@ -9,6 +9,7 @@ import type {
 } from './recording-routing-service-types.d.ts';
 import { adaptNativeAudioInventory, type NativeAudioInventoryReport } from '../native-audio-inventory.ts';
 import { normalizeRecordingSampleRate } from '../recording-model.ts';
+import { recordingTrackRoute } from '../../../recording-routing.js';
 import { preferredRecordingRoutes } from './preferred-recording-routes.ts';
 import { supportsDisplayAudioCapture } from '../../../recording-display-input.ts';
 import { raceAbortableRead } from '../../../abort-race.ts';
@@ -245,7 +246,7 @@ export function createRecordingRoutingService<
 		const previous = state.recordingRouting;
 		const armed = getProject()?.tracks.filter(track => track.armed) ?? [];
 		const trackId = state.selectedTrackId ?? (armed.length === 1 ? armed[0].id : undefined);
-		const route = trackId ? previous.routes[trackId] : null;
+		const route = recordingTrackRoute(previous.routes, trackId);
 		const followsPrevious = route?.kind === 'display' ? previousDeviceId === RECORDING_DISPLAY_SOURCE_KEY
 			: route?.deviceId === previousDeviceId;
 		const followTrackId = !state.recorder && armed.length <= 1 && route?.channelStart === 0 && followsPrevious ? trackId : undefined;
@@ -294,7 +295,9 @@ export function createRecordingRoutingService<
 		await refreshAudioDevices({ probe: false, publish: false, nativeInventory: inventory });
 		if (state.audioHost !== normalized) return state.audioHost;
 		const webHost = normalized === 'browser' || normalized === 'electron';
-		if (!state.audioInputDevices.some(device => device.deviceId === state.preferredInputDeviceId)) {
+		const displayInputAvailable = webHost && state.preferredInputDeviceId === RECORDING_DISPLAY_SOURCE_KEY
+			&& supportsDisplayAudioCapture(mediaDevices);
+		if (!displayInputAvailable && !state.audioInputDevices.some(device => device.deviceId === state.preferredInputDeviceId)) {
 			state.preferredInputDeviceId = webHost ? RECORDING_DEFAULT_DEVICE_ID
 				: (state.audioInputDevices.find(device => device.isDefault) ?? state.audioInputDevices[0])?.deviceId ?? RECORDING_DEFAULT_DEVICE_ID;
 		}

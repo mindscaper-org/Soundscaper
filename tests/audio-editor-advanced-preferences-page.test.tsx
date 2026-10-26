@@ -87,3 +87,12 @@ test('Advanced leaves optimization unchanged until the user chooses a mode in ei
 		dom.restore();
 	}
 });
+
+
+test('Advanced owns the waveform renderer in both products', () => {
+	for (const productId of ['soundscaper', 'framescaper']) {
+		assert.match(renderPage('advanced', productId), /Waveform renderer/u);
+		assert.match(renderPage('advanced', productId), />Canvas</u);
+		assert.doesNotMatch(renderPage('track-display', productId), /Waveform renderer/u);
+	}
+});

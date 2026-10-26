@@ -31,7 +31,10 @@ export function workspacePanelMenu(editor) {
 /** Open a panel's overflow menu and return the menu locator. */
 export async function openWorkspacePanelMenu(editor, panelId) {
 	const panel = editor.locator(`[data-workspace-panel="${panelId}"]`);
-	await workspacePanelMenuButton(panel).click();
+	const button = workspacePanelMenuButton(panel);
+	await button.focus();
+	await expect(button).toBeFocused();
+	await button.press('Enter');
 	const menu = workspacePanelMenu(editor);
 	await expect(menu).toBeVisible();
 	return menu;

@@ -7,6 +7,7 @@ import {
 	type ClosedDomainRecord,
 } from './closed-domain-value.ts';
 import type { RationalRate } from './timeline-time.ts';
+import { projectString } from './project-validation-primitives.ts';
 import type { UnifiedExactRenderTimingIndex } from './unified-exact-render-timing-authority.ts';
 import {
 	normalizeVideoClipComposition,
@@ -142,7 +143,7 @@ export function normalizeUnifiedExactRenderTracks(
 		const name = `unified render tracks[${String(index)}]`;
 		const track = readClosedDomainRecord(candidate, name, TRACK_FIELDS);
 		const normalized = Object.freeze({
-			trackId: stableId(field(track, 'trackId', name), `${name}.trackId`),
+			trackId: projectString(field(track, 'trackId', name), `${name}.trackId`),
 			sequenceOrder: integer(field(track, 'sequenceOrder', name), `${name}.sequenceOrder`, 0),
 			mute: booleanValue(field(track, 'mute', name), `${name}.mute`),
 			solo: booleanValue(field(track, 'solo', name), `${name}.solo`),

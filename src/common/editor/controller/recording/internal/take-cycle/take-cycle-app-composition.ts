@@ -80,7 +80,7 @@ export interface TakeCycleAppCompositionDependencies {
 	readonly getProjectWriteFence?: TakeCycleProductionCompositionDependencies['getProjectWriteFence'];
 	readonly recordPersistedSnapshot?: TakeCycleProductionCompositionDependencies['onDurableProjectPublished'];
 	createRecordingName(trackName: string): string;
-	preflightRecording(bytes: number): Promise<void>;
+	preflightRecording(bytes: number, signal?: AbortSignal): Promise<void>;
 	releaseInputs(): void;
 	activateStoredSource(source: TakeCycleAppSource, metadata: unknown): PromiseLike<unknown> | unknown;
 	publishProject(project: TakeCycleProjectDocument): PromiseLike<void> | void;
@@ -143,7 +143,7 @@ export function createTakeCycleAppComposition(
 			createRecordingName: (trackId) => dependencies.createRecordingName(
 				dependencies.trackName(requireProject(), trackId),
 			),
-			preflightStorage: (bytes) => dependencies.preflightRecording(bytes),
+			preflightStorage: (bytes, _operation, signal) => dependencies.preflightRecording(bytes, signal),
 			releaseInputs: dependencies.releaseInputs,
 			get monitor() { return dependencies.state.monitoring; },
 			get inputGain() { return dependencies.state.recordingInputGain; },

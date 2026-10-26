@@ -32,6 +32,9 @@ test('every ARM runner installs native Node before installing dependencies', () 
 				if (typeof value === 'string') continue;
 				const row = record(value);
 				if (row.arch !== 'arm64' && !String(row.target).endsWith('-arm64')) continue;
+				// Publishing an ARM archive does not execute its payload on the runner.
+				const runner = row.runner ?? job['runs-on'];
+				if (!String(runner).endsWith('-arm') && runner !== 'macos-15') continue;
 				assertNativeArmSetup(job, row,
 					Array.isArray(matrix.include) ? 'matrix' : 'matrix.target', `${name}/${id}`);
 				checked += 1;

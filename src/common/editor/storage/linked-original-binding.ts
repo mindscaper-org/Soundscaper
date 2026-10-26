@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { projectString } from '../project-validation-primitives.ts';
 import { linkedOriginalCanonicalIdentity } from './linked-original-schema.ts';
 
 export const LINKED_ORIGINAL_BINDING_SCHEMA_VERSION = 2 as const;
@@ -316,7 +316,7 @@ function normalizeCurrentBinding(candidate: Record<string, unknown>): LinkedOrig
 
 function normalizeSharedFields(candidate: Record<string, unknown>, kind: LinkedOriginalKind) {
 	return {
-		projectId: linkedOriginalCanonicalIdentity(candidate.projectId, 'projectId'),
+		projectId: projectString(candidate.projectId, 'projectId'),
 		sourceId: linkedOriginalCanonicalIdentity(candidate.sourceId, 'sourceId'),
 		storageKey: linkedOriginalCanonicalIdentity(candidate.storageKey, 'storageKey'),
 		locatorId: opaqueToken(

@@ -23,8 +23,10 @@ export default function AnalysisDialog({ mode, controller, snapshot, copy, fileS
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState('');
 	const operationRef = useRef(null);
+	const reportSaveRef = useRef(null);
 	const blocked = !snapshot.ready || !project?.clips?.length || snapshot.importing || snapshot.recording
-		|| snapshot.exporting || snapshot.analysisProcessing || snapshot.missingSourceIds?.length > 0;
+		|| snapshot.exporting || snapshot.analysisProcessing
+		|| project.clips.some(clip => snapshot.missingSourceIds?.includes(clip.sourceId));
 	const title = copy[MODES[analysisMode] || MODES.levels];
 	const perform = useCallback((operation, toPayload) => {
 		const operationId = Symbol('offline-analysis');
@@ -61,7 +63,7 @@ export default function AnalysisDialog({ mode, controller, snapshot, copy, fileS
 				? { result: value, report: { type: 'levels', scope: repeatRequest?.scope || 'master', ...range } }
 				: { result: null, report: value });
 		}
-		return () => { operationRef.current = null; };
+		return () => { operationRef.current = null; reportSaveRef.current = null; };
 	// The modal analyses capture the selection on opening; contrast deliberately
 	// remains open while the user changes the timeline selection between captures.
 	// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -72,6 +74,8 @@ export default function AnalysisDialog({ mode, controller, snapshot, copy, fileS
 	};
 	const exportReport = () => {
 		if (!payload) return;
+		const submission = Symbol('analysis-report-save');
+		reportSaveRef.current = submission;
 		const text = JSON.stringify({
 			schemaVersion: 1,
 			project: { id: project?.id, title: project?.title, sampleRate: project?.sampleRate },
@@ -80,7 +84,9 @@ export default function AnalysisDialog({ mode, controller, snapshot, copy, fileS
 		void Promise.resolve().then(() => fileService.saveFile({
 			purpose: 'report', suggestedName: `${macroFileName(project?.title || 'soundscaper')}-analysis.json`,
 			mimeType: 'application/json', text,
-		})).catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)));
+		})).catch((cause) => {
+			if (reportSaveRef.current === submission) setError(cause instanceof Error ? cause.message : String(cause));
+		});
 	};
 	return <AudioEditorDialogShell
 		title={title} onClose={onClose} width={620} modal={analysisMode !== 'contrast'}

@@ -86,7 +86,7 @@ export function conformFramescaperVideoRetimeSnapshotsForReprobeRetime(
 ): readonly FramescaperVideoRetimeSnapshotRetime[] {
 	if (snapshots.length === 0) return snapshots;
 	let conformed = snapshots;
-	for (const sourceId of reprobedSourceIds(command)) {
+	for (const sourceId of sourceCommandIds(command, 'source/reprobe')) {
 		conformed = conformReprobedSource(before, commanded, sourceId, conformed);
 	}
 	return conformed;
@@ -142,11 +142,11 @@ function conformReprobedSource(
 	}));
 }
 
-function reprobedSourceIds(command: DataRecord): ReadonlySet<string> {
+function sourceCommandIds(command: DataRecord, type: 'source/reprobe' | 'source/rewrite-media'): ReadonlySet<string> {
 	const result = new Set<string>();
 	const visit = (candidate: DataRecord): void => {
-		if (candidate.type === 'source/reprobe') {
-			result.add(identifier(candidate.sourceId, 'source/reprobe.sourceId'));
+		if (candidate.type === type) {
+			result.add(identifier(candidate.sourceId, `${type}.sourceId`));
 		} else if (candidate.type === 'batch') {
 			if (!Array.isArray(candidate.commands)) throw new TypeError('batch.commands must be an array.');
 			candidate.commands.forEach((child, index) => visit(record(child, `batch.commands[${String(index)}]`)));
@@ -216,9 +216,43 @@ export function restoreFramescaperVideoRetimeMapsAfterCommandRetime(
 	command: DataRecord,
 	snapshots: readonly FramescaperVideoRetimeSnapshotRetime[],
 ): void {
-	restoreFramescaperVideoRetimeMapsRetime(commanded, conformFramescaperVideoRetimeSnapshotsForReprobeRetime(
+	const conformed = conformFramescaperVideoRetimeSnapshotsForReprobeRetime(
 		before, commanded, command, conformFramescaperVideoRetimeReplacementSnapshots(before, commanded, command, snapshots),
-	));
+	);
+	restoreFramescaperVideoRetimeMapsRetime(commanded, rebaseRewrittenSourceCurves(before, commanded, command, conformed));
+}
+
+/** A lossless trim preserves each occurrence's contiguous source span on a new origin. */
+function rebaseRewrittenSourceCurves(
+	before: DataRecord, commanded: DataRecord, command: DataRecord,
+	snapshots: readonly FramescaperVideoRetimeSnapshotRetime[],
+): readonly FramescaperVideoRetimeSnapshotRetime[] {
+	if (!snapshots.length) return snapshots;
+	const rewritten = sourceCommandIds(command, 'source/rewrite-media');
+	if (!rewritten.size) return snapshots;
+	const bindings = (project: DataRecord) => {
+		const result = new Map<string, Readonly<{ sourceId: string; start: number }>>();
+		visitClipCollections(project, (clip, name) => {
+			if (dataProperty(clip, 'kind', name) !== 'video') return;
+			result.set(identifier(dataProperty(clip, 'id', name), `${name}.id`), {
+				sourceId: identifier(dataProperty(clip, 'sourceId', name), `${name}.sourceId`),
+				start: dataProperty(clip, 'sourceInFrame', name) as number,
+			});
+		});
+		return result;
+	};
+	const oldBindings = bindings(before), newBindings = bindings(commanded);
+	return snapshots.map(snapshot => {
+		const previous = oldBindings.get(snapshot.id), current = newBindings.get(snapshot.id);
+		if (!previous || !current || previous.sourceId !== current.sourceId || !rewritten.has(previous.sourceId)) return snapshot;
+		const delta = BigInt(current.start) - BigInt(previous.start);
+		if (!delta) return snapshot;
+		return { ...snapshot, retimeMap: { ...snapshot.retimeMap, points: snapshot.retimeMap.points.map(point => {
+			const num = BigInt(point.sourceFrame.num) + delta * BigInt(point.sourceFrame.den);
+			if (num < 0n || num > BigInt(Number.MAX_SAFE_INTEGER)) throw new RangeError('A trimmed retime source point exceeds its exact domain.');
+			return { ...point, sourceFrame: { num: Number(num), den: point.sourceFrame.den } };
+		}) } };
+	});
 }
 
 export function findFramescaperVideoClipRetime(

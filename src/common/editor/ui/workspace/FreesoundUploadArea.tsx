@@ -84,10 +84,10 @@ export default function FreesoundUploadArea({
 		event.currentTarget.value = '';
 	};
 	const dragOver = (event: DragEvent<HTMLElement>) => {
-		if (disabled || !acceptedTransfer(event.dataTransfer)) return;
+		if (!acceptedTransfer(event.dataTransfer)) return;
 		event.preventDefault();
-		event.dataTransfer.dropEffect = 'copy';
-		setDragging(true);
+		event.dataTransfer.dropEffect = disabled ? 'none' : 'copy';
+		setDragging(!disabled);
 	};
 	const drop = (event: DragEvent<HTMLElement>) => {
 		event.preventDefault();

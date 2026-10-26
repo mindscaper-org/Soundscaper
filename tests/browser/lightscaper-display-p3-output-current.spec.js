@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
 import { bundledLightscaperEditorCopyForLocale } from '../../src/common/i18n/lightscaper-editor-copy.ts';
-import { bundledSiteCopyForLocale } from '../../src/common/i18n/site-copy.js';
+import { resolveTestCatalog as resolveCatalog } from '../helpers/translation-catalogs.ts';
 import { photoDevelopCopy } from '../../src/common/i18n/lightscaper-develop-copy.ts';
 import { photoDevelopMenuLabel } from '../../src/common/i18n/lightscaper-develop-menu-copy.ts';
 import { photoDevelopSettingsCopy } from '../../src/common/i18n/lightscaper-develop-settings-copy.ts';
@@ -53,7 +53,7 @@ for (const locale of ['en', 'de']) test(`${locale}: menu-owned soft proof and re
 	await importer.getByLabel(copy.photoChooseFiles, { exact: true }).setInputFiles({ name: NAME, mimeType: 'image/png', buffer: original });
 	await keyboard(named(importer, 'button', copy.photoImportAction)); await expect(importer).toHaveCount(0);
 	const card = app.getByRole('button', { name: /^P3 recovered output\.dng/u }); await expect(card).toHaveCount(1);
-	await expect(named(app, 'region', bundledSiteCopyForLocale(locale).workspacePhoto)).toHaveAttribute('aria-busy', 'false'); await keyboard(card);
+	await expect(named(app, 'region', (await resolveCatalog(locale)).workspacePhoto)).toHaveAttribute('aria-busy', 'false'); await keyboard(card);
 	const photoId = await card.getAttribute('data-photo-id'); expect(photoId).toBeTruthy(); const initial = await observe();
 	expect(initial.bytes).toEqual([...original]); expect(initial.original.sha256).toBe(createHash('sha256').update(original).digest('hex'));
 	await openDevelop(); const editing = named(page, 'dialog', `${develop.title}: ${NAME}`), preview = editing.locator('[data-photo-develop-preview]');

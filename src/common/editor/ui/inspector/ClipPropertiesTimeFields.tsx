@@ -45,7 +45,8 @@ export function clipPropertiesTimeFields({ controller, clip, source, sampleRate,
 		className="clip-properties__field clip-properties__field--timecode"
 		data-clip-properties-field={slot} data-clip-field={name} data-tooltip={label}>
 		<span className="clip-properties__glyph-cell">{glyph}</span>
-		<EditorMusicalTimeCodeProvider controller={controller} originFrame={duration ? clip.timelineStartFrame : undefined}>
+		<EditorMusicalTimeCodeProvider controller={controller} originFrame={duration ? clip.timelineStartFrame : undefined}
+			endFrame={slot === 'fade-out' ? clip.timelineStartFrame + clip.durationFrames : undefined}>
 			<AudioEditorTimeCodeInput label={label} value={value} unit="samples" rate={rate} sampleRate={rate}
 				frameRate={slot === 'trim-start' || slot === 'trim-end' ? sourceFrameRate : frameRate}
 				format="hh:mm:ss+milliseconds" minimum={minimum} maximum={maximum}

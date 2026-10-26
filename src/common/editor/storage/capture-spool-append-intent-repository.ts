@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { encodeProjectIdKey, projectString } from '../project-validation-primitives.ts';
 import {
 	captureSpoolStableId as stableId,
 	captureSpoolStableText as stableText,
@@ -143,7 +143,7 @@ function normalizeIdentity(value: CaptureSpoolAppendIdentity): CaptureSpoolAppen
 	}
 	return Object.freeze({
 		storageKind,
-		projectId: stableId(value.projectId, 'capture spool append projectId'),
+		projectId: projectString(value.projectId, 'capture spool append projectId'),
 		spoolId: stableId(value.spoolId, 'capture spool append spoolId'),
 		spoolToken: stableText(value.spoolToken, 'capture spool append token', 512),
 		sourceId,
@@ -151,7 +151,7 @@ function normalizeIdentity(value: CaptureSpoolAppendIdentity): CaptureSpoolAppen
 }
 
 function appendIntentKey(value: CaptureSpoolAppendIdentity): string {
-	return `${KEY_PREFIX}${value.storageKind}:${encodeURIComponent(value.projectId)}:${encodeURIComponent(value.spoolId)}`;
+	return `${KEY_PREFIX}${value.storageKind}:${encodeProjectIdKey(value.projectId)}:${encodeURIComponent(value.spoolId)}`;
 }
 
 function exactDataRecord(value: unknown, keys: readonly string[], name: string): Readonly<Record<string, unknown>> {

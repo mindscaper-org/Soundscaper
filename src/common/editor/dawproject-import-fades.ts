@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { evaluateClipTransitionGainAt } from './audio-clip-transition-gain.ts';
+import { envelopeValueAtFrame } from './automation.js';
 import type { DawprojectAudioEvent } from './dawproject-import-timeline.ts';
 
 export interface DawprojectFadeLayer {
@@ -10,8 +11,20 @@ export interface DawprojectFadeLayer {
 	readonly fadeOutFrames: number;
 }
 
-/** Preserve the authored fade positions when import crops an audio clip. */
+/** Preserve fade phase and content stops while retaining the parent clip extent. */
 export function dawprojectImportedClipFades(event: DawprojectAudioEvent, startFrame: number, durationFrames: number) {
+	const fades = importedClipFades(event, startFrame, durationFrames);
+	const stop = event.contentStopFrame;
+	if (stop === undefined || stop === null || stop >= startFrame + durationFrames) return fades;
+	const frame = Math.max(0, stop - startFrame);
+	const envelope = (fades.envelope ?? []).filter(point => point.frame < frame - 1);
+	if (frame > 0) envelope.push({ frame: frame - 1,
+		value: Number(envelopeValueAtFrame(fades.envelope ?? [], frame - 1, durationFrames)) });
+	envelope.push({ frame, value: 0 }, { frame: durationFrames, value: 0 });
+	return { ...fades, envelope };
+}
+
+function importedClipFades(event: DawprojectAudioEvent, startFrame: number, durationFrames: number) {
 	const layers = (event.fadeLayers ?? [event]).map((layer) => ({
 		...layer, endFrame: layer.endFrame ?? event.endFrame,
 		fadeInFrames: Math.min((layer.endFrame ?? event.endFrame) - layer.startFrame, Math.max(0, layer.fadeInFrames)),

@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { ActivateStoredSourceOptions, SourceLifecycleServiceRuntime, SourceLifecycleSource } from './source-lifecycle-types.d.ts';
+import { isUnsupportedNativeAudioBuffer } from '../../../source-pcm-contract.ts';
+import { saveOptionalWaveformPeaks } from './optional-waveform-cache.ts';
 
 type ActivationRuntime<Buffer, Provider, Peaks, Metadata> = Pick<
 	SourceLifecycleServiceRuntime<Buffer, never, Provider, Peaks, Metadata>,
@@ -30,7 +32,11 @@ export async function activateStoredSourceWithProgress<Buffer, Provider, Peaks, 
 	} else {
 		const context = peakBuffer ? null : await runtime.engine.getAudioContext!({ resume: false });
 		signal?.throwIfAborted();
-		peakBuffer ||= await runtime.readStoredAudioBuffer(runtime.store, source, context);
+		try { peakBuffer ||= await runtime.readStoredAudioBuffer(runtime.store, source, context); }
+		catch (error) {
+			if (!provider || !isUnsupportedNativeAudioBuffer(error)) throw error;
+			runtime.sourceBuffers.delete(source.id);
+		}
 		signal?.throwIfAborted();
 		if (peakBuffer) runtime.cacheSourceBuffer(source.id, peakBuffer);
 	}
@@ -42,7 +48,7 @@ export async function activateStoredSourceWithProgress<Buffer, Provider, Peaks, 
 	signal?.throwIfAborted();
 	const peakKey = runtime.peakCacheKey(source.id);
 	try {
-		await runtime.store.saveAnalysis(peakKey, peaks);
+		await saveOptionalWaveformPeaks(() => runtime.store.saveAnalysis(peakKey, peaks));
 		signal?.throwIfAborted();
 		runtime.sourcePeaks.set(source.id, peaks);
 		onProgress?.(1);

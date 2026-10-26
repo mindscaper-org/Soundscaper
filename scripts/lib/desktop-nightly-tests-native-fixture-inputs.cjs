@@ -3,11 +3,12 @@
 const externalDisplaySources = require('./desktop-nightly-tests-external-display-inputs.cjs');
 const lightscaperSources = require('./desktop-nightly-tests-lightscaper-inputs.cjs');
 
-// The preload fixture bundles these maintained sources with its two exact
+// Browser fixtures bundle or inspect these maintained sources with their exact
 // project-library-runtime aliases; no generated desktop runtime is required.
 module.exports = Object.freeze([
 	...externalDisplaySources,
 	...lightscaperSources,
+	'native/soundscaper-professional-host/tests/os_audio_codec_self_test.cpp',
 	'desktop/preload.mjs',
 	'desktop/audiocom-authorization.ts',
 	'desktop/audiocom-links.ts',

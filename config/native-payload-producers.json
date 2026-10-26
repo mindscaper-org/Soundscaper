@@ -144,7 +144,10 @@
 				"config/assistance-onnx-webgpu-plugin.json",
 				"config/assistance-onnx-runtime-payloads.json",
 				"native/assistance-sherpa-gpu/CMakeLists.txt",
-				"native/assistance-sherpa-gpu/webgpu-provider.cc"
+				"native/assistance-sherpa-gpu/webgpu-provider.cc",
+				"native/assistance-sherpa-gpu/owned-handles.h",
+				"native/assistance-sherpa-gpu/owned-external.h",
+				"native/assistance-sherpa-gpu/node-disposal.cc"
 			]
 		},
 		{

@@ -21,12 +21,47 @@ import {
 const AUP4_CLIP_ENVELOPE_MAX = 4;
 
 export function createNativeClipEnvelope(clip, track, automaticCrossfade = {}) {
+	return nativeClipEnvelope(clip, track, automaticCrossfade);
+}
+
+/** One export-track invocation owns this reader; mutable envelopes stay fresh. */
+export function createNativeTrackEnvelopeConverter(track) {
+	let owner = null;
+	let prepared = null;
+	function readTrackEnvelope() {
+		const points = track.envelope;
+		if (prepared && points === owner) return prepared;
+		const normalized = normalizedEnvelope(points, Number.MAX_SAFE_INTEGER);
+		if (immutableEnvelope(points)) { owner = points; prepared = normalized; }
+		else { owner = null; prepared = null; }
+		return normalized;
+	}
+	return (clip, automaticCrossfade = {}) => nativeClipEnvelope(clip, track, automaticCrossfade, readTrackEnvelope);
+}
+
+function immutableEnvelope(points) {
+	if (!Array.isArray(points) || Object.getPrototypeOf(points) !== Array.prototype || !Object.isFrozen(points)
+		|| Reflect.ownKeys(points).length !== points.length + 1) return false;
+	for (let index = 0; index < points.length; index++) {
+		const item = Object.getOwnPropertyDescriptor(points, String(index));
+		if (!item || !Object.hasOwn(item, 'value')) return false;
+		const point = item.value;
+		if (!point || typeof point !== 'object' || !Object.isFrozen(point)) return false;
+		for (const key of ['frame', 'value']) {
+			const field = Object.getOwnPropertyDescriptor(point, key);
+			if (!field || !Object.hasOwn(field, 'value') || typeof field.value !== 'number') return false;
+		}
+	}
+	return true;
+}
+
+function nativeClipEnvelope(clip, track, automaticCrossfade, readTrackEnvelope) {
 	const duration = positiveFrame(clip.durationFrames, `clip ${clip.id} durationFrames`);
 	const gain = finiteNonNegative(clip.gain, 1);
 	const fadeIn = boundedFrame(clip.fadeInFrames, duration);
 	const fadeOut = boundedFrame(clip.fadeOutFrames, duration);
 	const clipEnvelope = normalizedEnvelope(clip.envelope, duration);
-	const trackEnvelope = normalizedEnvelope(track.envelope, Number.MAX_SAFE_INTEGER);
+	const trackEnvelope = readTrackEnvelope ? readTrackEnvelope() : normalizedEnvelope(track.envelope, Number.MAX_SAFE_INTEGER);
 	const crossfadeInRanges = normalizedFrameRanges(automaticCrossfade.crossfadeInRanges, duration);
 	const crossfadeOutRanges = normalizedFrameRanges(automaticCrossfade.crossfadeOutRanges, duration);
 	const transitionGain = {
@@ -41,7 +76,7 @@ export function createNativeClipEnvelope(clip, track, automaticCrossfade = {}) {
 	const converted = gain !== 1 || fadeIn > 0 || fadeOut > 0 || trackEnvelope.length > 0 || hasAutomaticCrossfade;
 	if (!converted) {
 		const points = envelopeWithBoundaries(clipEnvelope);
-		const maximum = Math.max(1, ...points.map((point) => point.value));
+		const maximum = envelopeMaximum(points);
 		const pcmGain = maximum > AUP4_CLIP_ENVELOPE_MAX ? maximum / AUP4_CLIP_ENVELOPE_MAX : 1;
 		return {
 			points: pcmGain === 1 ? points : points.map((point) => ({
@@ -70,7 +105,7 @@ export function createNativeClipEnvelope(clip, track, automaticCrossfade = {}) {
 			* envelopeValueAt(trackEnvelope, timelineStart + frame)
 			* evaluateClipTransitionGainAt(frame, duration, transitionGain));
 	const rawPoints = adaptiveEnvelopePoints([...boundaries], valueAt);
-	const maximum = Math.max(1, ...rawPoints.map((point) => point.value));
+	const maximum = envelopeMaximum(rawPoints);
 	const pcmGain = maximum > AUP4_CLIP_ENVELOPE_MAX ? maximum / AUP4_CLIP_ENVELOPE_MAX : 1;
 	const points = rawPoints.map((point) => ({
 		frame: point.frame,
@@ -94,22 +129,21 @@ function adaptiveEnvelopePoints(boundaries, valueAt) {
 	return [...points].sort(([left], [right]) => left - right)
 		.map(([frame, value]) => ({ frame, value }));
 
+	function differs(frame, left, right, leftValue, rightValue) {
+		if (frame <= left || frame >= right) return false;
+		const actual = valueAt(frame);
+		const linear = leftValue + (rightValue - leftValue) * (frame - left) / (right - left);
+		return Math.abs(actual - linear) > tolerance;
+	}
+
 	function subdivide(left, right, leftValue, rightValue, depth) {
 		if (right - left <= 1 || depth >= 16 || points.size >= maximumPoints) return;
-		const probeFrames = [
-			Math.round(left + (right - left) / 4),
-			Math.round(left + (right - left) / 2),
-			Math.round(left + (right - left) * 3 / 4),
-		].filter((frame, index, all) => frame > left && frame < right && all.indexOf(frame) === index);
-		let split = false;
-		for (const frame of probeFrames) {
-			const actual = valueAt(frame);
-			const linear = leftValue + (rightValue - leftValue) * (frame - left) / (right - left);
-			if (Math.abs(actual - linear) > tolerance) {
-				split = true;
-				break;
-			}
-		}
+		const first = Math.round(left + (right - left) / 4);
+		const second = Math.round(left + (right - left) / 2);
+		const third = Math.round(left + (right - left) * 3 / 4);
+		const split = differs(first, left, right, leftValue, rightValue)
+			|| (second !== first && differs(second, left, right, leftValue, rightValue))
+			|| (third !== first && third !== second && differs(third, left, right, leftValue, rightValue));
 		if (!split) return;
 		const middle = Math.round((left + right) / 2);
 		if (middle <= left || middle >= right) return;
@@ -172,4 +206,10 @@ export function automaticAup4CrossfadeRanges(clips) {
 		startFrame: (clip) => Number(clip.timelineStartFrame),
 		durationFrames: (clip) => Number(clip.durationFrames),
 	}, (ranges) => normalizedFrameRanges(ranges, Number.MAX_SAFE_INTEGER));
+}
+
+function envelopeMaximum(points) {
+	let maximum = 1;
+	for (const point of points) maximum = Math.max(maximum, point.value);
+	return maximum;
 }

@@ -119,7 +119,7 @@ export interface ImportCompositionDependencies {
 	readonly projectVisual: Pick<ProjectVisualService, 'getProjectBinClipVisualData' | 'activateVideoSource' | 'revokeVideoVisual'>;
 	readonly createPreviewEngine: ProjectBinServiceDependencies['createPreviewEngine'];
 	readonly getProject: () => ImportCompositionProject | null;
-	readonly editingBlocked: () => boolean;
+	readonly editingBlocked: (allowReadOnly?: boolean) => boolean;
 	readonly commit: ProjectBinServiceDependencies['commit'];
 	readonly updateSelection: ProjectBinServiceDependencies['updateSelection'];
 	readonly setStatus: (message: string, state?: string, localization?: import('../../../../i18n/presentation-message.ts').LocalizedPresentationMessage) => void;

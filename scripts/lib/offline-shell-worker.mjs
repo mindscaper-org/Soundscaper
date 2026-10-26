@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-export const MAXIMUM_INSTALL_ASSET_BYTES = 12 * 1024 * 1024;
+export const MAXIMUM_INSTALL_ASSET_BYTES = offlineShellInstallByteLimit();
 
 export function offlineShellFunctionSources() {
-	return `const MAXIMUM_INSTALL_ASSET_BYTES = ${String(MAXIMUM_INSTALL_ASSET_BYTES)};\n` + [
+	return [
 		plainObject,
 		exactKeys,
 		validShellPath,
 		validShellScope,
+		offlineShellInstallByteLimit,
 		validateOfflineShellConfiguration,
 		sha256Hex,
 		shellCacheName,
@@ -49,6 +50,10 @@ function validShellPath(value) {
 /** A worker may only claim a slash-terminated prefix; its script URL bounds it at deploy time. */
 function validShellScope(value) {
 	return validShellPath(value) && value.endsWith('/') && !value.includes('//');
+}
+
+export function offlineShellInstallByteLimit() {
+	return 12 * 1024 * 1024;
 }
 
 export function validateOfflineShellConfiguration(value) {
@@ -100,7 +105,7 @@ export function validateOfflineShellConfiguration(value) {
 			throw new Error('Offline shell install descriptor exceeds its in-flight byte limit.');
 		}
 		installBytes += descriptor.byteLength;
-		if (!Number.isSafeInteger(installBytes) || installBytes > MAXIMUM_INSTALL_ASSET_BYTES) {
+		if (!Number.isSafeInteger(installBytes) || installBytes > offlineShellInstallByteLimit()) {
 			throw new Error('Offline shell install byte limit is exceeded.');
 		}
 	}

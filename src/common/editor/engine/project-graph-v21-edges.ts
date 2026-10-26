@@ -49,6 +49,17 @@ export function applyChannelMap(
 	edge: MixerEdgeV21,
 	declaredWidth: number = sourceWidth,
 ): AudioNode {
+	if (declaredWidth === 1 && sourceWidth === 2 && destinationWidth === 1
+		&& edge.channelMap.length === 1 && edge.channelMap[0] === 0) {
+		// Channel 0 names the declared mono strip, not the left half of the
+		// stereo pair its panner produces. Fold both sides at a mono boundary.
+		const mono = addNode(nodes, context.createGain());
+		mono.channelCount = 1;
+		mono.channelCountMode = 'explicit';
+		mono.channelInterpretation = 'speakers';
+		connect(input, mono);
+		return mono;
+	}
 	const map = pannedSourceChannelMap(edge.channelMap, sourceWidth, declaredWidth);
 	if (!map.length || (
 		map.length === destinationWidth

@@ -303,7 +303,7 @@ export interface RecordingCaptureCommonRuntime {
 	readonly streamAudioChannelCount: (stream: RecordingMediaStream) => number;
 	readonly recordingStreamIsLive: (stream: RecordingMediaStream, kind: string) => boolean;
 	readonly createRecorder: RecordingControllerFactory;
-	readonly preflightStorage: (requiredBytes: number, operation: 'recording') => Promise<void>;
+	readonly preflightStorage: (requiredBytes: number, operation: 'recording', signal?: AbortSignal) => Promise<void>;
 	readonly startMicrophoneMetering: () => Promise<unknown>;
 	readonly syncRecordingPoolSnapshot: () => void;
 	readonly releaseUnretainedRecordingInputs: () => void;

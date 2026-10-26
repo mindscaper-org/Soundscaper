@@ -126,7 +126,7 @@ export function createWaveformPcmWindowRequester<
 			}
 			if (maximumBlockSize < 1) return null;
 			return requestCachedWaveformPeakWindow({
-				cacheKey, sourceId: source.id, range: peakRange, pixelWidth, maximumBlockSize,
+				cacheKey, sourceId: source.id, sourceFrameCount, range: peakRange, pixelWidth, maximumBlockSize,
 				maximumEntries: MAXIMUM_WAVEFORM_PCM_WINDOW_ENTRIES,
 				requests: clipWaveformPeakRequests, windows: clipWaveformPeakWindows,
 				getProvider: async () => sourceChunkProviders.get(source.id)

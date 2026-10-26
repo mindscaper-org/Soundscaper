@@ -14,6 +14,7 @@ import {
 	type AutomationWritePhaseV21,
 } from '../common/editor/automation-write-mode-v21.ts';
 import type { ParameterDescriptor } from '../common/editor/parameter-address.ts';
+import { normalizeControlValue } from './editor-automation-control-value.ts';
 import { sampleFrameToBeat } from '../common/editor/timeline-tempo-inverse.ts';
 import { compareRationals, type HoldTempoMap } from '../common/editor/timeline-time.ts';
 import type {
@@ -38,7 +39,6 @@ export type {
 	SoundscaperAutomationSession,
 	SoundscaperAutomationTarget,
 } from './editor-automation-session-types.ts';
-
 interface CaptureSession {
 	readonly laneId: string;
 	readonly mode: AutomationWriteModeV21;
@@ -48,6 +48,7 @@ interface CaptureSession {
 	readonly projectRevision: number;
 	readonly generation: number;
 	readonly samples: AutomationWriteCaptureSampleV21[];
+	readonly frameOptions: Pick<SoundscaperAutomationAuthority, 'sampleRate' | 'tempoMap'>;
 	trimAnchor: number;
 	lastControlValue: number;
 	phase: AutomationWritePhaseV21;
@@ -95,6 +96,15 @@ export function createSoundscaperAutomationSession<Result = unknown>(
 		if (session && (nextMode !== mode || nextLaneId !== laneId)) finishSession(true);
 		mode = nextMode;
 		laneId = nextLaneId;
+		if (!session && mode === 'write') {
+			const current = authority(ports.captureAuthority());
+			if (transportActive(current.transportState)) {
+				const target = assertWritableTarget(laneId, current);
+				session = createSession(target, current, mode, 'readback');
+				known = current;
+				appendSample(session, current, target.controlValue);
+			}
+		}
 		return getSnapshot();
 	}
 
@@ -254,6 +264,7 @@ export function createSoundscaperAutomationSession<Result = unknown>(
 			projectRevision: current.projectRevision,
 			generation,
 			samples: [],
+			frameOptions: { sampleRate: current.sampleRate, tempoMap: current.tempoMap },
 			trimAnchor: controlValue,
 			lastControlValue: controlValue,
 			phase,
@@ -306,7 +317,6 @@ export function createSoundscaperAutomationSession<Result = unknown>(
 		ports.preview?.(preview);
 		return preview;
 	}
-
 	function finishSession(accept: boolean): Result | null {
 		const completed = session;
 		if (!completed) return null;
@@ -324,7 +334,7 @@ export function createSoundscaperAutomationSession<Result = unknown>(
 				completed.lane,
 				completed.mode,
 				completed.samples,
-				{ descriptor: completed.descriptor },
+				{ descriptor: completed.descriptor, frameOptions: completed.frameOptions },
 			);
 			if (!capture.changed || !capture.capture) {
 				result = null;
@@ -534,16 +544,6 @@ function lanePosition(
 function requiredTempoMap(current: SoundscaperAutomationAuthority): HoldTempoMap {
 	if (!current.tempoMap) throw new TypeError('Musical automation capture requires the authoritative tempo map.');
 	return current.tempoMap;
-}
-
-function normalizeControlValue(value: unknown, descriptor: ParameterDescriptor): number {
-	if (typeof value !== 'number' || !Number.isFinite(value) || Object.is(value, -0)) {
-		throw new RangeError('Automation control value must be a finite canonical number.');
-	}
-	if (value < descriptor.minimum || value > descriptor.maximum) {
-		throw new RangeError('Automation control value is outside its parameter range.');
-	}
-	return value;
 }
 
 function transportActive(value: string): boolean {

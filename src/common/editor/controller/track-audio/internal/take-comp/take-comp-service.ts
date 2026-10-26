@@ -49,7 +49,8 @@ export interface TakeCompServiceDependencies {
 	readonly lifetime: Pick<EditorControllerLifetime, 'assertActive'>;
 	getProject(): TakeCompProject;
 	editingBlocked(): boolean;
-	commit(command: AudioEditorCommand): unknown;
+	commit(command: AudioEditorCommand, selection?: Readonly<{ selectTrackId?: string | null; selectClipId?: string | null }>,
+		behavior?: Readonly<{ microfadeNewClips: boolean }>): unknown;
 }
 
 export interface TakeCompService {
@@ -179,7 +180,7 @@ export function createTakeCompService(
 			preFlattenSnapshot: commandObject(preparation.documentSnapshot),
 			source: publication.source,
 			clip: publication.clip,
-		});
+		}, {}, { microfadeNewClips: false });
 	}
 
 	function updateFromPlan(

@@ -104,9 +104,6 @@ function validateImageModels(project: Record<string, unknown>): void {
 			if (!sequenceIds.has(normalized.sequenceId)) {
 				throw new ReferenceError(`Image clip sequence ${normalized.sequenceId} is missing.`);
 			}
-			if (BigInt(normalized.sourceStartTicks) >= BigInt(String(
-				record(source.canonical, 'image canonical summary').durationTicks,
-			))) throw new RangeError('Image clip source start must precede its source duration.');
 			(scope === 'timeline' ? timelineImageIds : binImageIds).add(normalized.id);
 		}
 	}

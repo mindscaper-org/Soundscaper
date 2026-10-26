@@ -20,6 +20,7 @@ const PAYLOADS: Readonly<Record<ReviewedCodec, Payload>> = {
 };
 const enabled = new Set<ReviewedCodec>();
 let preferredConfigurations = new WeakMap<AudioDecoderConfig, ReviewedCodec>();
+let opusPresentationTimelines = new WeakSet<AudioDecoderConfig>();
 let registered = false;
 const MAXIMUM_PACKET_BYTES = 1024 * 1024;
 const MAXIMUM_FRAMES = 65_536;
@@ -33,10 +34,15 @@ export function enableReviewedAudioImportDecoder(codec: AudioCodec | null): bool
 }
 
 /** Select one audited packet decoder before any source chunks reach storage. */
-export function preferReviewedAudioImportDecoder(codec: AudioCodec | null, config: AudioDecoderConfig): boolean {
+export function preferReviewedAudioImportDecoder(codec: AudioCodec | null, config: AudioDecoderConfig,
+	options: Readonly<{ opusTimestampsIncludePreSkip?: boolean }> = {}): boolean {
 	if (codec !== 'flac' && codec !== 'opus' && codec !== 'vorbis' && codec !== 'mp3') return false;
 	preferredConfigurations.set(config, codec);
 	if (!ReviewedAudioImportDecoder.supports(codec, config)) { preferredConfigurations.delete(config); return false; }
+	if (codec === 'opus') {
+		if (options.opusTimestampsIncludePreSkip) opusPresentationTimelines.add(config);
+		else opusPresentationTimelines.delete(config);
+	}
 	registerReviewedDecoder();
 	return true;
 }
@@ -51,7 +57,7 @@ function registerReviewedDecoder(): void {
 }
 
 /** Clear source preferences before each desktop import; large LayerII may opt back in. */
-export function disableReviewedAudioImportDecoders(): void { enabled.clear(); preferredConfigurations = new WeakMap(); }
+export function disableReviewedAudioImportDecoders(): void { enabled.clear(); preferredConfigurations = new WeakMap(); opusPresentationTimelines = new WeakSet(); }
 
 class ReviewedAudioImportDecoder extends CustomAudioDecoder {
 	#exports: WebAssembly.Exports | null = null;
@@ -100,7 +106,8 @@ class ReviewedAudioImportDecoder extends CustomAudioDecoder {
 			this.#outputGain = 10 ** (gain / (20 * 256));
 			// libopus returns its lookahead samples; native WebCodecs consumes this
 			// header field itself. Keep the reviewed output on the same source clock.
-			this.#timestampOffset = head.getUint16(10, true) / 48_000;
+			// ISO edit lists already project packet timestamps past their priming.
+			this.#timestampOffset = opusPresentationTimelines.has(this.config) ? 0 : head.getUint16(10, true) / 48_000;
 		}
 		const pointer = description.length ? this.#allocate(description.length) : 0;
 		try {
@@ -125,7 +132,17 @@ class ReviewedAudioImportDecoder extends CustomAudioDecoder {
 			const pcm = new Float32Array(this.#memory(), this.#output, frames * this.config.numberOfChannels).slice();
 			if (this.#outputGain !== 1) for (let index = 0; index < pcm.length; index += 1) pcm[index]! *= this.#outputGain;
 			if (pcm.some((sample) => !Number.isFinite(sample))) throw new Error('The reviewed packet decoder returned non-finite PCM.');
-			this.#timestamp ??= packet.timestamp - this.#timestampOffset;
+			if (this.codec === 'opus' && opusPresentationTimelines.has(this.config)) {
+				const clock = reviewedOpusPresentationTimestamp(packet.timestamp, this.#timestamp, this.config.sampleRate);
+				if (clock.synchronize) {
+					// The sink consumes and closes empty samples to synchronize its clock.
+					// No gap-sized PCM allocation or queued silence is necessary.
+					const synchronization = new AudioSample({ data: new Float32Array(0), format: 'f32',
+						sampleRate: this.config.sampleRate, numberOfChannels: this.config.numberOfChannels, timestamp: clock.timestamp });
+					try { this.onSample(synchronization); } finally { synchronization.close(); }
+				}
+				this.#timestamp = clock.timestamp;
+			} else this.#timestamp ??= packet.timestamp - this.#timestampOffset;
 			const sample = new AudioSample({ data: pcm, format: 'f32', sampleRate: this.config.sampleRate,
 				numberOfChannels: this.config.numberOfChannels, timestamp: this.#timestamp });
 			this.#timestamp += frames / this.config.sampleRate;
@@ -243,4 +260,14 @@ function importsFor(module: WebAssembly.Module, payload: Payload): WebAssembly.I
 			: () => 8;
 	}
 	return imports;
+}
+
+/** ISO packet clocks retain real gaps; one frame of timestamp quantization is harmless. */
+export function reviewedOpusPresentationTimestamp(timestamp: number, expected: number | null, sampleRate: number): Readonly<{ timestamp: number; synchronize: boolean }> {
+	const frame = Math.round(timestamp * sampleRate), previous = expected === null ? frame : Math.round(expected * sampleRate);
+	if (!Number.isSafeInteger(sampleRate) || sampleRate < 1 || !Number.isSafeInteger(frame) || !Number.isSafeInteger(previous)) {
+		throw new RangeError('The Opus packet timestamp exceeds its safe source clock.');
+	}
+	if (frame < previous - 1) throw new RangeError('The Opus presentation packets overlap.');
+	return { timestamp: frame / sampleRate, synchronize: frame > previous + 1 };
 }

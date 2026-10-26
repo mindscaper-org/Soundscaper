@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
-import { EDITOR_ENGLISH_COPY, EDITOR_GERMAN_COPY } from '../src/common/i18n/editor-copy-inventory.ts';
+import { EDITOR_COPY_AUDIT_INVENTORY } from './lib/editor-copy-audit-inventory.mjs';
 import {
 	assessTranslationContribution, createContributionSnapshot, parseTranslationContribution, publishedTranslationOrigin,
 	type TranslationContribution,
@@ -20,7 +20,6 @@ import { importTranslationPo } from './community-translations-po.ts';
 export interface CommunityTranslationToolOptions {
 	readonly catalogDirectory?: string;
 	readonly englishCopy?: Readonly<Record<string, string>>;
-	readonly germanCopy?: Readonly<Record<string, string>>;
 }
 export interface CommunityTranslationImportOptions extends CommunityTranslationToolOptions {
 	readonly file: string;
@@ -48,8 +47,7 @@ export async function importCommunityTranslationFile(options: CommunityTranslati
 		diffs: contribution.entries.map((entry) => ({ key: entry.key, source: entry.source,
 			currentSource: snapshot.entries[entry.key]?.source ?? null,
 			before: entry.baselineText, current: snapshot.entries[entry.key]?.baselineText ?? null,
-			after: entry.translation, origin: publishedTranslationOrigin(snapshot.entries[entry.key],
-				contribution.locale === 'de' ? (options.germanCopy ?? EDITOR_GERMAN_COPY)[entry.key] : undefined),
+			after: entry.translation, origin: publishedTranslationOrigin(snapshot.entries[entry.key]),
 			...(entry.note ? { note: entry.note } : {}),
 		})),
 	};
@@ -95,9 +93,8 @@ async function readContribution(options: CommunityTranslationImportOptions): Pro
 }
 
 function currentSnapshot(locale: string, catalog: CommunityWritableCatalog | null, options: CommunityTranslationToolOptions) {
-	const english = options.englishCopy ?? EDITOR_ENGLISH_COPY;
-	const german = options.germanCopy ?? EDITOR_GERMAN_COPY;
-	const published = { ...english, ...(new Intl.Locale(locale).language === 'de' ? german : {}),
+	const english = options.englishCopy ?? EDITOR_COPY_AUDIT_INVENTORY;
+	const published = { ...english,
 		...(catalog ? currentTranslations(catalog, english, { locale }) : {}),
 	};
 	return createContributionSnapshot(locale, english, published, catalog);

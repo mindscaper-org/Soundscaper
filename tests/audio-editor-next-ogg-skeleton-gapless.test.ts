@@ -6,6 +6,7 @@ import test from 'node:test';
 import { encodeDedicatedAudioPcm } from '../src/common/editor/browser-dedicated-audio-codec.ts';
 import { prepareStreamedAudioImport } from '../src/common/editor/browser-streamed-audio-import.ts';
 import { validateAudioEditorProjectV17 } from '../src/common/editor/project-v17-validation.ts';
+import { resolveDesktopOriginalExportSettings } from '../src/common/editor/desktop-original-export-settings.ts';
 import { createController, createTwoTrackFixture, storedSample } from './helpers/audio-editor-multitrack-selection-harness.js';
 
 function skeletonPage(): Uint8Array<ArrayBuffer> {
@@ -46,7 +47,8 @@ for (const format of ['opus', 'ogg-vorbis'] as const) test(`File Open retains th
 		let firstSample: number | undefined;
 		await reference.stream({ chunkFrames: 65_536, onChunk(channels) { firstSample ??= channels[0]![0]; } });
 		await controller.ready;
-		await controller.actions.project.importFiles([new File([skeletonPage(), bytes], 'Multiplexed.ogg', { type: 'audio/ogg' })], { destination: 'timeline' });
+		const file = new File([skeletonPage(), bytes], 'Multiplexed.ogg', { type: 'audio/ogg' });
+		await controller.actions.project.importFiles([file], { destination: 'timeline' });
 		const project = controller.getSnapshot().project;
 		assert.ok(validateAudioEditorProjectV17(project));
 		assert.equal(project.sources.length, 1, 'File Open must publish the healthy audio stream');
@@ -54,5 +56,7 @@ for (const format of ['opus', 'ogg-vorbis'] as const) test(`File Open retains th
 		assert.equal(source.frameCount, frames, 'codec end padding must not extend the authored programme');
 		assert.equal(project.clips[0]?.durationFrames, frames);
 		assert.equal(await storedSample(store, source.id, 0), firstSample);
+		const original = await resolveDesktopOriginalExportSettings(file, project.sources);
+		assert.equal(original?.format, format, 'Original must inspect the same admitted audio BOS stream');
 	} finally { await controller.dispose(); globalThis.fetch = originalFetch; }
 });

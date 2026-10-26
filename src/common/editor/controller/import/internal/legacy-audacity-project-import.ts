@@ -88,6 +88,7 @@ export function createLegacyAudacityProjectImport(runtime: LegacyAudacityImportR
 		const detail = decoded.warnings.map(formatLegacyAupWarning).filter(Boolean).join(' ');
 		return {
 			project: importedProject,
+			consumedDataFiles: Array.isArray(structure.consumedDataFiles) ? structure.consumedDataFiles : null,
 			warnings: decoded.warnings,
 			notice: detail ? `${copy.aupImported} ${detail}` : copy.aupImported,
 			noticeLocalization: { key: 'aupImported', fallback: copy.aupImported, ...(detail ? { suffix: ` ${detail}` } : {}) },

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseNestedCommandAction, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createSoundscaperScapeNativeRuntime } from '../../src/soundscaper/editor-scape-native.ts';
 
@@ -37,6 +37,7 @@ test('opening another project retires a Nyquist plug-in source read before it ca
 			globalThis.__nextNyquistLaunch({ files: [{ kind: 'file', getFile: () => Promise.resolve(new File([bytes], 'incoming.sscape')) }] });
 		}, incoming);
 		await expect(editor).toHaveAttribute('data-project-id', 'nyquist-source-incoming');
+		await waitForProjectActivation(editor);
 		await expect(dialog.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();
 		releaseSource();
 		await expect(editor.locator('[data-clip-id][role="group"]')).toHaveCount(0);

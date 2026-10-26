@@ -133,7 +133,7 @@ function VideoCompositionDialogSession({
 	const applyDraft = (): void => {
 		try {
 			commit(
-				parseVideoCompositionDraft(draft),
+				parseVideoCompositionDraft(draft, model.composition ?? undefined),
 				{ key: 'videoCompositionApplied', fallback: 'Composition applied.' },
 			);
 		} catch {

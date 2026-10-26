@@ -1,5 +1,5 @@
 import { projectDurationFrames } from './project.js';
-import { audacityTimelineStepFrame, createAudacityCursorActionRuntime, freezeAudacityActionTree } from './audacity-action-runtime-helpers.ts';
+import { audacityTimelineStepFrame, createAudacityCursorActionRuntime, createAudacityDeferredProjectActions, freezeAudacityActionTree } from './audacity-action-runtime-helpers.ts';
 import { NYQUIST_BUNDLED_PLUGINS } from './nyquist/plugin-registry.js';
 import { createAudacityClipPitchActionRuntime, createAudacityToolActionRuntime } from './controller/effects/audacity-tool-action-runtime.ts';
 import { advanceAudacityTrackSelection, audacityToggledTrackSelection, audacityTrackRangeSelection } from './audacity-track-selection.ts';
@@ -192,8 +192,9 @@ export function createAudacityActionRuntime(controller, options = {}) {
 	const selectEntireProject = () => setSelection(0, projectDurationFrames(project()));
 	const nudgeFrame = (frame, direction) => audacityTimelineStepFrame(frame, direction, project(), snapshot().timeline?.pixelsPerSecond);
 	const cursorActions = createAudacityCursorActionRuntime(controller, project, setSelection, nudgeFrame);
-	const navigateItem = (action) => import('./audacity-shortcut-actions/item-navigation.ts')
-		.then(({ applyAudacityItemNavigationAction }) => applyAudacityItemNavigationAction(action, controller));
+	const deferredActions = createAudacityDeferredProjectActions(controller);
+	const navigateItem = (action) => deferredActions.run(() => import('./audacity-shortcut-actions/item-navigation.ts'),
+		({ applyAudacityItemNavigationAction }) => applyAudacityItemNavigationAction(action, controller));
 	function openEffect(type = null) {
 		const preparation = type ? controllerActions.effects.setSelectionType(type) : null;
 		const surface = openSurface('selection-effect', type ? { type } : {});
@@ -213,7 +214,7 @@ export function createAudacityActionRuntime(controller, options = {}) {
 	function updateSelectedTrack(changes) { const track = selectedTrack(); return track ? controllerActions.track.update(track.id, changes) : null; }
 
 	function selectRelativeClip(direction) {
-		return import('./audacity-shortcut-actions/relative-item-navigation.ts').then(({ relativeNavigationClipId }) => {
+		return deferredActions.run(() => import('./audacity-shortcut-actions/relative-item-navigation.ts'), ({ relativeNavigationClipId }) => {
 			const id = relativeNavigationClipId(project(), snapshot().selectedClipId, direction, snapshot().trackFolders);
 			if (!id) return null;
 			controllerActions.timeline.selectClip(id);
@@ -421,8 +422,8 @@ export function createAudacityActionRuntime(controller, options = {}) {
 		},
 		track: {
 			...controllerActions.track,
-			audacityMixer: (action) => import('./audacity-shortcut-actions/track-mixer.ts')
-				.then(({ applyAudacityTrackMixerAction }) => applyAudacityTrackMixerAction(
+			audacityMixer: (action) => deferredActions.run(() => import('./audacity-shortcut-actions/track-mixer.ts'),
+				({ applyAudacityTrackMixerAction }) => applyAudacityTrackMixerAction(
 					action, snapshot(), controllerActions.edit.commit,
 				)),
 			duplicate: (context = null) => {
@@ -533,6 +534,7 @@ export function createAudacityActionRuntime(controller, options = {}) {
 		actions: freezeAudacityActionTree(runtime),
 		uiController,
 		dispose() {
+			deferredActions.dispose();
 			if (!options.uiController) uiController.dispose();
 		},
 	});

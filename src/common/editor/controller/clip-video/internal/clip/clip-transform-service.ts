@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { createClipTransformReaders } from './clip-transform-readers.ts';
 import { clipHasLoopRepeats, normalizeInactiveClipLoop } from '../../../../audio-clip-loop.ts';
 
 import { publishedCopyFor } from '../../../shared/presentation-localization.ts'; import { createLocalizedError } from '../../../../../i18n/presentation-message.ts'; import { clipTrimSourceFrameCount } from '../../clip-trim-source-frame-count.ts';
 import { hasProjectBinMediaAuthority } from '../../../../project-schema-version.ts';
 import { prepareClipPointerDuplicateCommand, type ClipPointerDuplicateRuntime } from './clip-pointer-duplicate-command.ts';
 import { clipMoveSelection, type ClipMoveOptions } from './clip-move-options.ts';
-import { prepareMediaNewTrackPlan } from './media-new-track-plan.ts';
+import { clipNewTrackSequencePlacement, prepareMediaNewTrackPlan } from './media-new-track-plan.ts';
 import { prepareGroupedLoopTrimCommand } from './grouped-loop-trim-command.ts';
 
 import {
@@ -111,13 +112,14 @@ export function createClipTransformService(
 		const requestedStartFrame = requestedMoveStartFrame(timelineStartFrame, clip.timelineStartFrame, options);
 		const clipIds = collectClipTransformIds(project, clip.id, options);
 		const audioTracks = timelineTracks(project);
-		const oldTrackIndex = audioTracks.findIndex((item) => item.id === oldTrack.id);
-		const targetTrackIndex = audioTracks.findIndex((item) => item.id === targetTrack?.id);
+		const readers = createClipTransformReaders(project, audioTracks);
+		const oldTrackIndex = readers.trackIndex(oldTrack.id);
+		const targetTrackIndex = readers.trackIndex(targetTrack?.id);
 		if (oldTrackIndex < 0 || targetTrackIndex < 0) {
 			throw new RangeError('Clip destination must be an audio track.');
 		}
 		const trackDelta = targetTrackIndex - oldTrackIndex;
-		const clips = clipIds.map((id) => findClip(project, id)).filter(isClip);
+		const clips = clipIds.map((id) => readers.clip(id)).filter(isClip);
 		const selection = dependencies.activeSelection();
 		const clipSelection = clipMoveSelection(project, clipIds, options);
 		const movesClipSelection = Boolean(clipSelection?.clipIds?.includes(clip.id));
@@ -128,8 +130,8 @@ export function createClipTransformService(
 		);
 		const deltaFrames = Math.max(requestedDelta, -earliestMovingFrame);
 		const transforms = clips.map((item): PreparedTransform => {
-			const sourceTrack = findClipTrack(project, item.id);
-			const sourceTrackIndex = audioTracks.findIndex((candidate) => candidate.id === sourceTrack?.id);
+			const sourceTrack = readers.owner(item.id);
+			const sourceTrackIndex = readers.trackIndex(sourceTrack?.id);
 			const destinationTrack = audioTracks[sourceTrackIndex + trackDelta];
 			if (!sourceTrack || !destinationTrack) {
 				throw new RangeError('The selected clips cannot move beyond the available audio tracks.');
@@ -168,12 +170,13 @@ export function createClipTransformService(
 		const sourceTrack = clip ? findClipTrack(project, clip.id) : null;
 		if (!clip || !sourceTrack) throw createLocalizedError(Error, dependencies.copy, 'audioClipNotFound');
 		const audioTracks = timelineTracks(project);
-		const activeTrackIndex = audioTracks.findIndex((track) => track.id === sourceTrack.id);
+		const readers = createClipTransformReaders(project, audioTracks);
+		const activeTrackIndex = readers.trackIndex(sourceTrack.id);
 		if (activeTrackIndex < 0) throw new RangeError('Clip source must be an audio track.');
 		const clipIds = collectClipTransformIds(project, clip.id, options);
-		const clips = clipIds.map((id) => findClip(project, id)).filter(isClip);
+		const clips = clipIds.map((id) => readers.clip(id)).filter(isClip);
 		const sourceTrackIndices = clips.map((item) => (
-			audioTracks.findIndex((track) => track.clipIds.includes(item.id))
+			readers.ownerIndex(item.id)
 		));
 		if (sourceTrackIndices.some((index) => index < 0)) {
 			throw createLocalizedError(Error, dependencies.copy, 'audioClipNotFound');
@@ -191,7 +194,7 @@ export function createClipTransformService(
 		if (options.duplicate) {
 			const plan = prepareMediaNewTrackPlan(project, clips, dependencies.createId, publishedCopyFor(dependencies.copy).track);
 			const transforms = clips.map(item => ({ clipId: item.id,
-				trackId: plan.destinationTrackIds.get(findClipTrack(project, item.id)?.id ?? ''),
+				trackId: plan.destinationTrackIds.get(readers.owner(item.id)?.id ?? ''),
 				changes: { timelineStartFrame: item.timelineStartFrame + deltaFrames } }));
 			const duplicate = prepareClipPointerDuplicateCommand(dependencies, project, clip, clips, transforms, plan.commands);
 			const trackId = plan.destinationTrackIds.get(sourceTrack.id) ?? null;
@@ -204,14 +207,15 @@ export function createClipTransformService(
 				selection, movesClipSelection, deltaFrames,
 			);
 		}
-		const trackDelta = audioTracks.length - Math.min(...sourceTrackIndices);
+		const firstSourceTrackIndex = Math.min(...sourceTrackIndices);
+		const trackDelta = audioTracks.length - firstSourceTrackIndex;
 		const newTrackCount = Math.max(...sourceTrackIndices) + trackDelta - audioTracks.length + 1;
-		const newTrackCommands = Array.from({ length: newTrackCount }, (_, index) => createAddTrackCommand({
+		const newTrackCommands = Array.from({ length: newTrackCount }, (_, index) => ({ ...createAddTrackCommand({
 			type: 'audio',
 			id: dependencies.createId('track'),
 			name: `${publishedCopyFor(dependencies.copy).track} ${project.tracks.length + index + 1}`,
 			armed: false,
-		}));
+		}, project.sampleRate), ...clipNewTrackSequencePlacement(project, audioTracks[firstSourceTrackIndex + index]!.id) }));
 		const virtualTracks: ClipTransformTrack[] = [
 			...audioTracks,
 			...newTrackCommands.map((command) => command.track as unknown as ClipTransformTrack),
@@ -232,7 +236,7 @@ export function createClipTransformService(
 				startFrame: selection ? selection.startFrame + deltaFrames : clipSelection.startFrame,
 				endFrame: selection ? selection.endFrame + deltaFrames : clipSelection.endFrame,
 				trackIds: [...new Set((clipSelection.trackIds ?? []).map((selectedTrackId) => {
-					const index = audioTracks.findIndex((track) => track.id === selectedTrackId);
+					const index = readers.trackIndex(selectedTrackId);
 					return index < 0 ? selectedTrackId : virtualTracks[index + trackDelta]?.id ?? selectedTrackId;
 				}))],
 				clipIds: clipSelection.clipIds ?? [],
@@ -303,7 +307,7 @@ export function createClipTransformService(
 		const clip = findClip(project, clipId);
 		const track = clip ? findClipTrack(project, clip.id) : null;
 		if (!clip || !track) throw createLocalizedError(Error, dependencies.copy, 'audioClipNotFound');
-		if (clip.kind === 'image' || clip.kind === 'generator') {
+		if (clip.kind === 'image' || clip.kind === 'generator' || clip.kind === 'still') {
 			if (options.overwrite) throw new RangeError('Still image edge trims cannot overwrite other media.');
 			return dependencies.commit(trimCommand(clip.id, changes), { selectClipId: clip.id });
 		}

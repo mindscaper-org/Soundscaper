@@ -8,14 +8,13 @@
  * seam, as the export menu's does.
  */
 const DAWPROJECT_COPY_ENTRIES = Object.freeze([
-	['saveDawproject', 'Export DAWproject', 'DAWproject exportieren'],
-	['chooseDawprojectFile', 'Choose a DAWproject file (.dawproject).', 'Wähle eine DAWproject-Datei (.dawproject).'],
-	['dawprojectOpened', 'DAWproject imported.', 'DAWproject importiert.'],
-	['dawprojectSaving', 'Exporting DAWproject', 'DAWproject wird exportiert'],
-	['dawprojectSaved', 'DAWproject exported.', 'DAWproject exportiert.'],
+	['saveDawproject', 'Export DAWproject'],
+	['chooseDawprojectFile', 'Choose a DAWproject file (.dawproject).'],
+	['dawprojectOpened', 'DAWproject imported.'],
+	['dawprojectSaving', 'Exporting DAWproject'],
+	['dawprojectSaved', 'DAWproject exported.'],
 ]);
 
 export const DAWPROJECT_COPY_BY_LOCALE = Object.freeze({
 	en: Object.freeze(Object.fromEntries(DAWPROJECT_COPY_ENTRIES.map(([key, en]) => [key, en]))),
-	de: Object.freeze(Object.fromEntries(DAWPROJECT_COPY_ENTRIES.map(([key, , de]) => [key, de]))),
 });

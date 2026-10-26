@@ -39,25 +39,34 @@ export function parseCubeLutV1(value: string): ParsedCubeLutV1 {
 	let domainMin: RgbTripletV1 = Object.freeze([0, 0, 0]);
 	let domainMax: RgbTripletV1 = Object.freeze([1, 1, 1]);
 	const values: number[] = [];
+	const keywords = new Set<string>();
+	const declare = (keyword: string): void => {
+		if (values.length > 0) throw new TypeError('A cube LUT keyword must appear before table data.');
+		if (keywords.has(keyword)) throw new TypeError(`The cube LUT keyword ${keyword} appears more than once.`);
+		keywords.add(keyword);
+	};
 	for (const rawLine of value.split(/\r?\n/u)) {
 		const line = cubeLutLine(rawLine);
 		if (!line) continue;
 		if (/^TITLE\s/u.test(line)) {
+			declare('TITLE');
 			const match = /^TITLE\s+"([^"\r\n]{0,512})"$/u.exec(line);
 			if (!match) throw new TypeError('The cube LUT title is invalid.');
 			title = match[1]!;
 			continue;
 		}
 		if (/^LUT_3D_SIZE\s/u.test(line)) {
-			if (size !== null) throw new TypeError('The cube LUT declares its size more than once.');
+			declare('LUT_3D_SIZE');
 			size = boundedInteger(token(line, 'LUT_3D_SIZE'), 2, VIDEO_COLOR_LIMITS_V1.maximumCubeLutSize, 'cube LUT size');
 			continue;
 		}
 		if (/^DOMAIN_MIN\s/u.test(line)) {
+			declare('DOMAIN_MIN');
 			domainMin = numericLine(line, 'DOMAIN_MIN', 'cube LUT domain minimum');
 			continue;
 		}
 		if (/^DOMAIN_MAX\s/u.test(line)) {
+			declare('DOMAIN_MAX');
 			domainMax = numericLine(line, 'DOMAIN_MAX', 'cube LUT domain maximum');
 			continue;
 		}
@@ -166,7 +175,7 @@ function numericLine(line: string, directive: string | null, name: string): RgbT
 	const payload = directive === null ? line : line.slice(directive.length).trim();
 	const parts = payload.split(/\s+/u);
 	if (parts.length !== 3) throw new TypeError(`${name} requires exactly three scalars.`);
-	return Object.freeze(parts.map((part, index) => finite(Number(part), `${name}[${String(index)}]`)) as [number, number, number]);
+	return Object.freeze(parts.map((part, index) => cubeNumber(part, `${name}[${String(index)}]`)) as [number, number, number]);
 }
 
 function token(line: string, directive: string): string {
@@ -175,9 +184,14 @@ function token(line: string, directive: string): string {
 	return parts[0]!;
 }
 
-function finite(value: unknown, name: string): number {
-	if (typeof value !== 'number' || !Number.isFinite(value)) {
-		throw new RangeError(`${name} must be a finite number.`);
+/** Adobe Cube 1.0 §5.4 states decimal numbers within the ±1e37 range. */
+function cubeNumber(token: string, name: string): number {
+	if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/u.test(token)) {
+		throw new TypeError(`${name} must use decimal CUBE number syntax.`);
+	}
+	const value = Number(token);
+	if (!Number.isFinite(value) || Math.abs(value) > 1e37) {
+		throw new RangeError(`${name} must be within the CUBE number range ±1e37.`);
 	}
 	return value === 0 ? 0 : value;
 }

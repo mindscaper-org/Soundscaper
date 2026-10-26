@@ -3,6 +3,7 @@
 import { createLocalizedError } from '../../../i18n/presentation-message.ts'; import type { FramescaperCaptureAdminInterlockLease } from '../capture/framescaper-capture-admin-interlock.ts'; import { publishedCopyFor } from '../shared/presentation-localization.ts';
 import type { AdminProject, AdminHistory, AdminSessionTab, AdminCloseOptions, ProjectAdminServiceRuntime } from './internal/project/project-admin-runtime.ts';
 import { sameProjectSnapshot } from '../../storage/project-snapshot-equality.ts';
+import { preserveDeletedProjectClipboardMedia } from './internal/project/deleted-project-clipboard-media.ts';
 export type { ProjectAdminServiceRuntime } from './internal/project/project-admin-runtime.ts';
 
 export interface ProjectHandoffExpectation {
@@ -115,6 +116,7 @@ export function createProjectAdminService<
 	) {
 		const active = project?.id === projectId;
 		const discard = closeOptions.discard === true;
+		if (tab.dirty && tab.readOnly && !discard) throw createLocalizedError(Error, copy, 'projectReadOnly');
 		let projectSaveSuspended = false;
 		let inactiveCloseReservation: Readonly<{ release(): boolean }> | null = null;
 		if (discard) {
@@ -170,10 +172,14 @@ export function createProjectAdminService<
 			const result = sessionController.closeProject(projectId, { force: true });
 			if (!result.closed) return result;
 			projectSaveService.forgetPersistedSnapshot?.(projectId);
-			if (active) state.projects = Object.freeze(await store.listProjects());
 			clipTimePitchCache.retainClipIds?.(liveSessionClipIds());
 			evictUnreferencedSourceCaches(sourceBuffers, sourcePeaks, liveSessionSourceIds());
 			publishDocumentSnapshot();
+			if (active) {
+				try { state.projects = Object.freeze(await store.listProjects()); }
+				catch (error) { handleError(error); }
+				publishDocumentSnapshot();
+			}
 			await garbageCollectSources();
 			return result;
 		} finally {
@@ -199,13 +205,25 @@ export function createProjectAdminService<
 		const project = getProject();
 		if (!project || project.id !== initiatingProject.id) return null;
 		if (generation) projectGeneration.assertCurrent?.(generation);
+		if (state.readOnly && !sameProjectSnapshot(projectSaveService.getPersistedSnapshot?.(project.id), project)) {
+			throw createLocalizedError(Error, copy, 'projectReadOnly');
+		}
 		if (project !== initiatingProject && !sameProjectSnapshot(
 			projectSaveService.getPersistedSnapshot?.(project.id), project,
 		)) return null;
 		const title = String(requestedTitle || `${project.title} ${publishedCopyFor(copy).projectCopySuffix}`).trim();
 		const duplicated = await store.duplicateProject(project.id, { title, confirmFileSizeWarning: runtime.confirmFileSizeWarning,
 			assertCurrent: () => { if (getProject() !== project) throw new DOMException('The project changed during duplication.', 'AbortError'); } });
-		await persistSetting(recordingRoutingSettingKey(duplicated.id), recordingRouting, { policy: 'required' });
+		try {
+			await persistSetting(recordingRoutingSettingKey(duplicated.id), recordingRouting, { policy: 'required' });
+		} catch (error) {
+			try {
+				if (!sessionTab(duplicated.id)) await store.deleteProjectIfCurrent?.(duplicated);
+			} catch (rollbackError) {
+				throw new AggregateError([error, rollbackError], 'Project duplication and its rollback both failed.', { cause: rollbackError });
+			}
+			throw error;
+		}
 		if (getProject() !== project) {
 			state.projects = Object.freeze(await store.listProjects());
 			publishDocumentSnapshot();
@@ -243,6 +261,19 @@ export function createProjectAdminService<
 		let deleteResolved = false;
 		let saveSuspended = false;
 		try {
+			const clipboard = sessionController.clipboardForProject?.(id);
+			const clipboardKey = JSON.stringify(clipboard);
+			const generation = projectGeneration.capture?.(id);
+			const assertCurrent = () => {
+				if (state.disposed || getProject() !== project
+					|| JSON.stringify(sessionController.clipboardForProject?.(id)) !== clipboardKey) {
+					throw new DOMException('The project or clipboard changed during deletion.', 'AbortError');
+				}
+				if (generation) projectGeneration.assertCurrent?.(generation);
+				interlock?.assertCurrent();
+			};
+			await preserveDeletedProjectClipboardMedia(id, clipboard, store, assertCurrent);
+			assertCurrent();
 			// These synchronous operations close mutation, project-token, and save
 			// admission before the first drain await. The exact-history reservation
 			// prevents a competing tab activation from replacing that ownership.

@@ -74,7 +74,7 @@ export interface NativeMediaImageSequenceFrameV1 {
 export interface NativeMediaImageSequenceV1 {
 	readonly stem: string;
 	readonly extension: string;
-	/** Zero-padding width, or 0 when the sequence is unpadded. */
+	/** Minimum zero-padding width, or 0 when the sequence is unpadded. */
 	readonly frameNumberWidth: number;
 	readonly firstFrameNumber: number;
 	readonly lastFrameNumber: number;
@@ -245,19 +245,20 @@ function assertSingleSequence(parsed: readonly ParsedName[]): void {
  * ends up silently reordered.
  */
 function resolveFrameNumberWidth(parsed: readonly ParsedName[]): number {
-	const padded = parsed.some((entry) => entry.digits.length > 1 && entry.digits.startsWith('0'));
-	// Unpadded numbering legitimately changes width as it crosses a decade,
-	// so only a sequence that pads at all is held to one width.
-	if (!padded) return 0;
-	const widths = new Set(parsed.map((entry) => entry.digits.length));
-	if (widths.size > 1) {
+	const padded = parsed.filter((entry) => entry.digits.length > 1 && entry.digits.startsWith('0'));
+	if (padded.length === 0) return 0;
+	const widths = new Set(padded.map((entry) => entry.digits.length));
+	const width = padded[0]!.digits.length;
+	// printf padding is a minimum: %02d produces 99, then 100. Only actual
+	// leading zeroes establish the width; every name must fit that same pattern.
+	if (widths.size > 1 || parsed.some((entry) => entry.digits !== String(entry.frameNumber).padStart(width, '0'))) {
 		throw new NativeMediaImageSequenceError(
 			'inconsistent-frame-number-width',
-			'A zero-padded image sequence must pad every frame number to the same width.',
-			bounded([...widths].sort((left, right) => left - right)),
+			'A zero-padded image sequence must use one minimum padding width.',
+			bounded([...new Set(parsed.map((entry) => entry.digits.length))].sort((left, right) => left - right)),
 		);
 	}
-	return [...widths][0]!;
+	return width;
 }
 
 function exactFrameRate(value: unknown): NativeMediaImageSequenceRateV1 {

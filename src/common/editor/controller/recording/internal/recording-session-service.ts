@@ -67,6 +67,7 @@ export interface RecordingStartOptions {
 }
 
 export interface RecordingStartScope {
+	readonly signal?: AbortSignal;
 	readonly generation: number;
 	readonly projectId: string | null;
 	assertCurrent(): void;
@@ -339,6 +340,7 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 		if (!state.recordingStarting && !state.recordingStartPromise) return false;
 		state.recordingStartGeneration += 1;
 		state.recordingStarting = false;
+		activeStartScope?.cancel();
 		runtime.resetSoundActivationSources?.();
 		if (!state.recorder) releaseInputs();
 		return true;

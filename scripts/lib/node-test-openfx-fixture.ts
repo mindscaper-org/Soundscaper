@@ -37,7 +37,8 @@ interface FixtureOptions {
 /** Only consumers of this particular conformance fixture need its compilation. */
 export function openFxTestFixtureArtifacts(testFiles: readonly string[]): readonly Artifact[] {
 	if (testFiles.some(file => basename(file) === 'framescaper-openfx-native-runtime.test.js')) return RUNTIME_ARTIFACTS;
-	return testFiles.some(file => ['framescaper-openfx-gpu-source.test.js', 'framescaper-openfx-native-interact.test.js'].includes(basename(file)))
+	return testFiles.some(file => ['framescaper-openfx-gpu-source.test.js', 'framescaper-openfx-native-interact.test.js',
+		'framescaper-more200-openfx-pointer-pressure.test.ts'].includes(basename(file)))
 		? BASIC_ARTIFACTS : [];
 }
 

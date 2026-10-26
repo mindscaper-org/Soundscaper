@@ -106,7 +106,7 @@ test('source helpers validate memory limits, stored geometry, and clip metadata'
 	assert.deepEqual(scaleClipEnvelope({
 		durationFrames: 10,
 		envelope: [{ frame: 0, value: 1 }, { frame: 4, value: 0.5 }, { frame: 5, value: 0.25 }],
-	}, 4), [{ frame: 0, value: 1 }, { frame: 2, value: 0.5 }]);
+	}, 4), [{ frame: 0, value: 1 }, { frame: 2, value: 0.25 }]);
 	assert.deepEqual(serializeAudacityNoiseProfile({ meanPowers: Float32Array.of(1, 2), smoothing: 3 }), {
 		meanPowers: [1, 2], smoothing: 3,
 	});

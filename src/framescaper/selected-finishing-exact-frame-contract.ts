@@ -5,6 +5,7 @@ import type { UnifiedExactRenderPlanV13 } from '../common/editor/unified-exact-r
 import type { UnifiedExactRenderPlanV16 } from '../common/editor/unified-exact-render-plan-v16.ts';
 import type { UnifiedExactRenderTimingSidecars } from '../common/editor/unified-exact-render-timing-authority.ts';
 import type { UnifiedExactRenderRgbaFrameV13 } from '../common/editor/unified-exact-render-finishing-consumers-v13.ts';
+import type { UnifiedExactLinearSourceFrame } from '../common/editor/unified-exact-linear-source-frame.ts';
 import type { FramescaperProjectFinishing } from './editor-project-finishing.ts';
 import type { FramescaperVideoExportVisualAssetStoreFinishing } from './video-export-visual-assets-finishing.ts';
 import type { FramescaperVideoExportFinishingAssetStoreFinishing } from './video-export-finishing-finishing.ts';
@@ -41,7 +42,7 @@ export interface FramescaperSelectedExactSupplementalPictureFinishing {
 	readonly trackId: string;
 	readonly clipId: string;
 	readonly sourceId: string;
-	readonly frame: UnifiedExactRenderRgbaFrameV13;
+	readonly frame: UnifiedExactRenderRgbaFrameV13 | UnifiedExactLinearSourceFrame;
 	readonly displayWidth: number;
 	readonly displayHeight: number;
 	readonly renderDescription: unknown;

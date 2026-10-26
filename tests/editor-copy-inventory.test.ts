@@ -1,14 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY, EDITOR_GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
-import {
-	EDITOR_ENGLISH_COPY,
-	EDITOR_GERMAN_COPY,
-	buildEditorCopyInventory,
-	getEditorCopyMetadata,
-} from '../src/common/i18n/editor-copy-inventory.ts';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
+import { EDITOR_ENGLISH_COPY, buildEditorCopyInventory, getEditorCopyMetadata } from '../src/common/i18n/editor-copy-inventory.ts';
 import { resolveMacroManagerCopy } from '../src/common/editor/ui/inspector/macro-manager-copy.ts';
 import { resolveTrackAutomationCopy } from '../src/common/editor/ui/timeline/track-automation-copy.ts';
 import { resolveSoundscaperRoutingGraphCopy } from '../src/common/editor/ui/workspace/soundscaper-routing-graph-copy.ts';
@@ -74,21 +71,17 @@ test('editor inventory preserves legacy identities and isolates independently ow
 
 test('translation metadata is built only on demand and retains catalog identities', () => {
 	const english = { plain: 'Plain' };
-	const german = { plain: 'Einfach' };
 	const ownedEnglish = { open: 'Open', shared: 'Plain' };
-	const ownedGerman = { open: 'Öffnen' };
-	const owner = { owner: 'panel', en: ownedEnglish, de: ownedGerman, aliases: { shared: 'plain' } };
-	const inventory = buildEditorCopyInventory(english, german, [owner]);
+	const owner = { owner: 'panel', en: ownedEnglish, aliases: { shared: 'plain' } };
+	const inventory = buildEditorCopyInventory(english, [owner]);
 	english.plain = 'Changed';
-	german.plain = 'Geändert';
 	ownedEnglish.open = 'Changed';
-	ownedGerman.open = 'Geändert';
 	owner.owner = 'changed';
 	const metadata = inventory.getMetadata();
 	assert.equal(inventory.getMetadata(), metadata);
 	assert.ok(Object.isFrozen(metadata));
-	assert.deepEqual(metadata.plain, { key: 'plain', owner: 'editor', source: 'Plain', bundledGerman: 'Einfach' });
-	assert.deepEqual(metadata['ui.panel.open'], { key: 'ui.panel.open', owner: 'panel', source: 'Open', bundledGerman: 'Öffnen' });
+	assert.deepEqual(metadata.plain, { key: 'plain', owner: 'editor', source: 'Plain' });
+	assert.deepEqual(metadata['ui.panel.open'], { key: 'ui.panel.open', owner: 'panel', source: 'Open' });
 	assert.equal(metadata['ui.panel.shared'], undefined);
 	assert.equal(getEditorCopyMetadata(), getEditorCopyMetadata());
 });
@@ -118,13 +111,11 @@ test('published locale loading and topical resolvers use the same namespaced sou
 });
 
 test('inventory refuses ambiguous keys and malformed owned source before publication', () => {
-	assert.throws(() => buildEditorCopyInventory({ 'ui.a.label': 'Old' }, {}, [
+	assert.throws(() => buildEditorCopyInventory({ 'ui.a.label': 'Old' }, [
 		{ owner: 'a', en: { label: 'New' } },
 	]), /duplicate/i);
-	assert.throws(() => buildEditorCopyInventory({}, {}, [
+	assert.throws(() => buildEditorCopyInventory({}, [
 		{ owner: 'a', en: { label: 'Open…' } },
 	]), /source/i);
-	assert.throws(() => buildEditorCopyInventory({}, {}, [
-		{ owner: 'a', en: { label: 'Band {number}' }, de: { label: 'Band {nummer}' } },
-	]), /German/i);
+
 });

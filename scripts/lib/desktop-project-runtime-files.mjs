@@ -3,6 +3,7 @@
 /** Shared project authorities shipped in the compiled desktop runtime. */
 export const DESKTOP_PROJECT_RUNTIME_FILES = Object.freeze([
 	'config/lightscaper-libraw-runtime-manifest.json',
+	'src/common/editor/adm-strip-existence.js',
 	'src/common/editor/commands/clipboard-codec-core.js',
 	'src/common/editor/commands/clipboard-codec-v7.js',
 	'src/common/editor/commands/clipboard-codec.js',
@@ -13,6 +14,7 @@ export const DESKTOP_PROJECT_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/commands/video-keyframe-carrier-core.js',
 	'src/common/editor/commands/video-keyframe-carrier-v2.js',
 	'src/common/editor/cube-lut-reference-contract.js',
+	'src/common/editor/frozen-record-id-index.js',
 	'src/common/editor/image-develop-handoff-provenance-current-v1.js',
 	'src/common/editor/image-develop-handoff-provenance-hdr-current-v1.js',
 	'src/common/editor/image-develop-handoff-provenance-v1.js',
@@ -74,8 +76,11 @@ export const DESKTOP_PROJECT_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/project-validation-primitives.js',
 	'src/common/editor/project-video-clip-factory-core.js',
 	'src/common/editor/safe-visual-text.js',
+	'src/common/editor/scape-literal-json-keys.js',
 	'src/common/editor/scape-photo-mask-raster-v1.js',
+	'src/common/editor/scape-project-document-encode.js',
 	'src/common/editor/storage/project-recovery-repository.js',
+	'src/common/editor/take-group-source-references.js',
 	'src/common/editor/timeline-image-conversion-receipt-v1.js',
 	'src/common/editor/timeline-image-frame-pack-v1-layout.js',
 	'src/common/editor/timeline-image-hdr-receipt-v1.js',

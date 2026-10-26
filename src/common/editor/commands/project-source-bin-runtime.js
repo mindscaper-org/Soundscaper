@@ -20,12 +20,13 @@ import {
 import { scaleSampleFrame } from '../timeline-time.ts';
 import { clipLoopTransformFields } from '../audio-clip-loop.ts';
 import { projectBinReplacementWarp } from '../project-bin-replacement-warp.ts';
+import { replacedClipSourceStretchFields } from '../clip-source-stretch-memory.ts';
 import { createProjectBinContractionEvaluator } from '../project-bin-replacement-contractions.ts';
 import { isNativeProjectBinVideo, projectBinVideoReplacementRange } from '../project-bin-video-replacement.ts';
 import { resolveRuntimeClipProjection } from '../runtime-clip-projection.ts';
 import { collectTakeGroupSourceIds } from '../take-group-source-references.ts';
+import { binSourceTimelineRemovalIds } from './bin-source-timeline-removal.ts';
 import {
-	collectRelatedClipIds,
 	removeClips,
 } from './clip-basic-runtime.js';
 import {
@@ -159,7 +160,7 @@ function moveTimelineClipsToProjectBin(project, clipIds) {
 		}
 	}
 	const material = project.clips.filter((clip) => movedIds.has(clip.id));
-	const binItemByClipId = movedBinItemIds(material);
+	const binItemByClipId = movedBinItemIds(material, projectBin.clips.map(clip => clip.binItemId || clip.id));
 	const movedClips = material
 		.map((clip) => normalizeClipForProject(project, {
 			...clip,
@@ -292,10 +293,9 @@ function removeProjectBinSourceFromProject(project, clipId) {
 		? projectBin.clips.filter((candidate) => candidate.binItemId === clip.binItemId)
 		: [clip];
 	const sourceIds = new Set(itemClips.map((candidate) => candidate.sourceId));
-	const timelineIds = collectRelatedClipIds(
-		project,
-		project.clips.filter((candidate) => sourceIds.has(candidate.sourceId)).map((candidate) => candidate.id),
-	);
+	const timelineIds = binSourceTimelineRemovalIds(project.clips, sourceIds);
+	const removedIds = new Set(timelineIds);
+	for (const candidate of project.clips) if (removedIds.has(candidate.id)) candidate.groupId = null;
 	if (timelineIds.length) removeClips(project, timelineIds);
 	projectBin.clips = projectBin.clips.filter((candidate) => !sourceIds.has(candidate.sourceId));
 	const takeSourceIds = collectTakeGroupSourceIds(project);
@@ -482,7 +482,9 @@ function remapReplacementClip(project, clip, oldSource, newSource) {
 }
 
 function normalizeReplacementClip(project, original, replacement) {
-	const clip = normalizeClipForProject(project, { ...replacement, warpMap: null });
+	const memory = replacedClipSourceStretchFields(original, requireSource(project, original.sourceId),
+		requireSource(project, replacement.sourceId), project.sampleRate);
+	const clip = normalizeClipForProject(project, { ...replacement, ...memory, warpMap: null });
 	return normalizeClipForProject(project, { ...clip, ...projectBinReplacementWarp(original, clip) });
 }
 

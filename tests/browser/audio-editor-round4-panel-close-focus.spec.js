@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, chooseNestedCommandAction, openWorkspacePanelMenu } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, chooseNestedCommandAction, openWorkspacePanelMenu, workspacePanelMenuButton } from './audio-editor-test-helpers.js';
 
 for (const remainingId of ['history', 'metadata']) test(`closing an active workspace tab returns keyboard focus to ${remainingId}`, async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
@@ -13,6 +13,8 @@ for (const remainingId of ['history', 'metadata']) test(`closing an active works
 		await groupAsTab(editor, 'metadata', /History.*Markers.*Right/u);
 	}
 	const markers = editor.getByRole('tab', { name: 'Markers', exact: true });
+	await markers.focus();
+	await expect(markers).toBeFocused();
 	await markers.press('Enter');
 	await expect(markers).toHaveAttribute('aria-selected', 'true');
 	const menu = await openWorkspacePanelMenu(editor, 'markers');
@@ -32,4 +34,6 @@ async function groupAsTab(editor, panelId, targetName) {
 	const target = arrange.getByRole('menu').getByRole('menuitem', { name: targetName }).first();
 	await target.press('ArrowRight');
 	await target.getByRole('menu').getByRole('menuitem', { name: 'As tab', exact: true }).press('Enter');
+	await expect(menu).toBeHidden();
+	await expect(workspacePanelMenuButton(editor.locator(`[data-workspace-panel="${panelId}"]`))).toBeFocused();
 }

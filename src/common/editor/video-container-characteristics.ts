@@ -44,9 +44,21 @@ export async function readContainerVideoSourceCharacteristics(
 	try {
 		const tracks = await input.getTracks();
 		throwIfAborted(options.signal);
-		const video = tracks.find((track) => track.isVideoTrack());
+		const videos = tracks.filter((track) => track.isVideoTrack());
+		const video = videos[0];
 		if (!video?.isVideoTrack()) {
 			return normalizeVideoSourceCharacteristics({ backend: 'container' });
+		}
+		const audioStreams = await readAudioStreams(
+			tracks.filter((track): track is InputAudioTrack => track.isAudioTrack()),
+			tracks,
+		);
+		throwIfAborted(options.signal);
+		// Native decoders do not select the same track from every multi-video
+		// container. A container default cannot authenticate the presented codec,
+		// colour or geometry; retain only facts independent of that selection.
+		if (videos.length > 1) {
+			return normalizeVideoSourceCharacteristics({ backend: 'container', audioStreams });
 		}
 		const [codedWidth, codedHeight, rotation, aspect, codec, colour, hasAlpha] = await Promise.all([
 			video.getCodedWidth(),
@@ -57,10 +69,6 @@ export async function readContainerVideoSourceCharacteristics(
 			video.getColorSpace(),
 			video.canBeTransparent(),
 		]);
-		const audioStreams = await readAudioStreams(
-			tracks.filter((track): track is InputAudioTrack => track.isAudioTrack()),
-			tracks,
-		);
 		const format = await input.getFormat();
 		const declaredAspect = format === MP4 || format === QTFF
 			? await readContainerVideoPixelAspect(blob, video.id, options) : null;

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -8,7 +10,7 @@ import {
 	describeVideoSourceReprobeResult,
 } from '../src/common/editor/source-reprobe-outcome.ts';
 import { VideoSourceUpgradeRefusedError } from '../src/common/editor/video-source-upgrade.ts';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 
 test('an upgrade names what moved and what it could not keep whole', () => {
 	assert.deepEqual(describeVideoSourceReprobeResult({

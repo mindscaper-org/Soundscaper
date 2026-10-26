@@ -4,7 +4,7 @@ import { build } from 'esbuild';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { bundledLightscaperEditorCopyForLocale } from '../../src/common/i18n/lightscaper-editor-copy.ts';
-import { bundledSiteCopyForLocale } from '../../src/common/i18n/site-copy.js';
+import { resolveTestCatalog as resolveCatalog } from '../helpers/translation-catalogs.ts';
 import { photoDevelopCopy } from '../../src/common/i18n/lightscaper-develop-copy.ts';
 import { photoDevelopMenuLabel } from '../../src/common/i18n/lightscaper-develop-menu-copy.ts';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
@@ -38,7 +38,7 @@ for (const locale of ['en', 'de']) {
 		const importer = page.getByRole('dialog', { name: copy.photoImportPhotos, exact: true });
 		await importer.getByLabel(copy.photoChooseFiles).setInputFiles({ name: 'Develop original.png', mimeType: 'image/png', buffer: PNG });
 		await keyboard(page, importer.getByRole('button', { name: copy.photoImportAction, exact: true }));
-		const library = app.getByRole('region', { name: bundledSiteCopyForLocale(locale).workspacePhoto, exact: true }), card = library.locator('[data-photo-id]');
+		const library = app.getByRole('region', { name: (await resolveCatalog(locale)).workspacePhoto, exact: true }), card = library.locator('[data-photo-id]');
 		await expect(card).toHaveCount(1); await expect(library).toHaveAttribute('aria-busy', 'false');
 		await keyboard(page, card); const photoId = await card.getAttribute('data-photo-id'), original = await observe(page, photoId);
 		await openDevelop();

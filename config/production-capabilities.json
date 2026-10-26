@@ -269,6 +269,8 @@
 				"stems"
 			],
 			"projectFeatures": {
+				"assistanceAssets": true,
+				"literalJsonKeys": true,
 				"project": true,
 				"projectBin": true,
 				"audioImport": true,
@@ -314,6 +316,7 @@
 				"timelineImagePhase": false,
 				"audioWarp": true,
 				"sequenceTiming": true,
+				"timelineImageHoldPhase": false,
 				"videoRetime": false,
 				"videoCaptions": false,
 				"videoColorManagement": false,
@@ -673,6 +676,8 @@
 				"labels"
 			],
 			"projectFeatures": {
+				"assistanceAssets": true,
+				"literalJsonKeys": true,
 				"project": true,
 				"projectBin": true,
 				"audioImport": true,
@@ -718,6 +723,7 @@
 				"timelineImagePhase": true,
 				"audioWarp": false,
 				"sequenceTiming": true,
+				"timelineImageHoldPhase": true,
 				"videoRetime": true,
 				"videoCaptions": true,
 				"videoColorManagement": true,

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { readClosedDomainRecord, readClosedDomainField as field } from './closed-domain-value.ts';
+import { projectString } from './project-validation-primitives.ts';
 import { assertUnifiedExactRetimeAuthority, assertUnifiedExactRetimeStructureWithDeferredVfr } from './unified-exact-retime-authority.ts';
 import { normalizeVideoRetimeExportIntentV6Wire } from './video-retime-exact-ordinal-oracle.ts';
 import { normalizeVideoRetimeCurveV16 } from './video-retime-v16.ts';
@@ -40,8 +41,8 @@ export function normalizeUnifiedExactRenderClipNodeCore<PictureState>(
 	if (field(mapping, 'kind', `${name}.sourceTimeMapping`) !== 'video-retime-export-intent-v6') {
 		throw new RangeError('Unified clip source-time mapping kind is unsupported.');
 	}
-	const clipId = stableId(field(clip, 'clipId', name), `${name}.clipId`);
-	const trackId = stableId(field(clip, 'trackId', name), `${name}.trackId`);
+	const clipId = projectString(field(clip, 'clipId', name), `${name}.clipId`);
+	const trackId = projectString(field(clip, 'trackId', name), `${name}.trackId`);
 	if (!tracks.byId.has(trackId)) throw new ReferenceError('Unified clip references an unknown video track.');
 	const pictureState = normalizePictureState(
 		field(clip, 'pictureState', name), sequenceFrameCount, clipId,

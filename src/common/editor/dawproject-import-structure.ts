@@ -66,7 +66,7 @@ export interface DawprojectImportNodeRoute {
 
 /** Per-import graph semantics that the shared numeric-send document cannot carry. */
 export interface DawprojectImportRoutingContext {
-	readonly sendTaps: readonly Readonly<{ trackId: string; sendId: string; position: 'pre-fader' | 'post-fader' }>[];
+	readonly sendTaps: readonly Readonly<{ trackId: string; sendId: string; level?: number; position: 'pre-fader' | 'post-fader' }>[];
 	readonly nodeRoutes?: readonly DawprojectImportNodeRoute[];
 	readonly stripChannelCounts?: readonly Readonly<{ id: string; channelCount: number }>[];
 }
@@ -77,6 +77,7 @@ export interface Build {
 	readonly createStableId: (prefix: string) => string;
 	readonly tracks: TrackBuild[];
 	readonly trackByDawId: Map<string, TrackBuild>;
+	readonly folderByDawId: Map<string, string>;
 	readonly trackNodes: DataRecord[];
 	readonly folders: DataRecord[];
 	readonly groups: StripBuild[];
@@ -86,7 +87,7 @@ export interface Build {
 	readonly stripByChannelId: Map<string, Readonly<{ kind: 'group' | 'send' | 'folder'; id: string }>>;
 	readonly parameters: Map<string, ParameterTarget>;
 	readonly routes: Map<string, { groupId: string | null; sends: Record<string, number> }>;
-	readonly sendTaps: { trackId: string; sendId: string; position: 'pre-fader' | 'post-fader' }[];
+	readonly sendTaps: { trackId: string; sendId: string; level?: number; position: 'pre-fader' | 'post-fader' }[];
 	/** Parent folder per built track and per folder, for bus membership. */
 	readonly parentFolderIds: Map<string, string | null>;
 	master: StripBuild;
@@ -104,7 +105,9 @@ export function walkTrack(track: DawprojectTrack, parentFolderId: string | null,
 	build.devices += channel?.devices ?? 0;
 	if (track.contentTypes.includes('tracks') || track.children.length > 0) {
 		const id = build.createStableId('folder');
-		build.folders.push({ id, name: track.name || 'Folder', mute: channel?.mute?.value === true, solo: channel?.solo === true });
+		const name = track.name.trim() ? track.name : 'Folder';
+		if (track.id) build.folderByDawId.set(track.id, id);
+		build.folders.push({ id, name, mute: channel?.mute?.value === true, solo: channel?.solo === true });
 		build.trackNodes.push({ kind: 'folder', id, parentFolderId });
 		build.parentFolderIds.set(id, parentFolderId);
 		if (channel) {
@@ -113,7 +116,7 @@ export function walkTrack(track: DawprojectTrack, parentFolderId: string | null,
 			if (parentFolderId === null) {
 				// Structural gates belong to the folder; its owned bus cannot
 				// duplicate them as independent mixer mute or solo state.
-				build.groups.push({ ...strip(id, track.name || 'Folder', channel), mute: false, solo: false });
+				build.groups.push({ ...strip(id, name, channel), mute: false, solo: false });
 				if (channel.id) build.busByChannelId.set(channel.id, id);
 				registerParameters(channel, { kind: 'group', id }, build);
 			} else {
@@ -186,7 +189,7 @@ function isInsideFolder(trackId: string, folderId: string, build: Build): boolea
 function createAudioTrack(name: string, channel: DawprojectChannel | null, build: Build): TrackBuild {
 	const built: TrackBuild = {
 		id: build.createStableId('track'),
-		name: name || `Track ${String(build.tracks.length + 1)}`,
+		name: name.trim() ? name : `Track ${String(build.tracks.length + 1)}`,
 		gain: clamp(gainOf(channel?.volume), 0, 4),
 		pan: panOf(channel?.pan),
 		mute: channel?.mute?.value === true,
@@ -239,7 +242,7 @@ export function resolveRouting(document: DawprojectDocument, build: Build): void
 			const target = build.stripByChannelId.get(send.destination);
 			if (target?.kind !== 'send') continue;
 			route.sends[target.id] = clamp(gainOf(send.volume), 0, 4);
-			build.sendTaps.push({ trackId: built.id, sendId: target.id,
+			build.sendTaps.push({ trackId: built.id, sendId: target.id, level: route.sends[target.id],
 				position: send.type === 'pre' ? 'pre-fader' : 'post-fader' });
 		}
 		if (route.groupId !== null || Object.keys(route.sends).length > 0) build.routes.set(built.id, route);
@@ -259,16 +262,16 @@ function resolveBusRouting(channel: DawprojectChannel, build: Build): void {
 			message: 'The bus feeds a folder; folder buses here take only their own tracks, so the bus routes to the master.',
 		});
 	}
-	const sends = new Map<string, DawprojectImportNodeRoute['sends'][number]>();
+	const sends: DawprojectImportNodeRoute['sends'][number][] = [];
 	for (const send of channel.sends) {
 		if (!send.enabled || !send.destination) continue;
 		const target = build.stripByChannelId.get(send.destination);
 		if (target?.kind !== 'send') continue;
-		sends.set(target.id, { sendId: target.id, level: clamp(gainOf(send.volume), 0, 4),
+		sends.push({ sendId: target.id, level: clamp(gainOf(send.volume), 0, 4),
 			position: send.type === 'pre' ? 'pre-fader' : 'post-fader' });
 	}
 	build.nodeRoutes.push({ busId, groupId: destination?.kind === 'group' ? destination.id : null,
-		sends: [...sends.values()] });
+		sends });
 }
 
 export function trackForEvent(event: DawprojectAudioEvent, build: Build, document: DawprojectDocument): TrackBuild {
@@ -276,9 +279,13 @@ export function trackForEvent(event: DawprojectAudioEvent, build: Build, documen
 		const existing = build.trackByDawId.get(event.trackId);
 		if (existing) return existing;
 		const declared = findTrack(document.tracks, event.trackId);
-		const built = createAudioTrack(declared?.name ?? event.trackId, declared?.channel ?? null, build);
+		const folderId = build.folderByDawId.get(event.trackId) ?? null;
+		// A folder's own audio enters its existing channel alongside child tracks.
+		// Its channel state belongs to that bus, never to this synthetic leaf too.
+		const built = createAudioTrack(declared?.name ?? event.trackId, folderId ? null : declared?.channel ?? null, build);
 		build.trackByDawId.set(event.trackId, built);
-		build.trackNodes.push({ kind: 'track', id: built.id, parentFolderId: null });
+		build.trackNodes.push({ kind: 'track', id: built.id, parentFolderId: folderId });
+		build.parentFolderIds.set(built.id, folderId);
 		return built;
 	}
 	const fallback = build.trackByDawId.get('');

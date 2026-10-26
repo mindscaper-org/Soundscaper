@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { raceAbortableRead } from './abort-race.ts';
 import { consumeDs64TableSize, readDs64Directory } from './wav-ds64.js';
 import { riffMetadataCodePage } from './riff-metadata-text.ts';
 import { parseAiffMarkChunk } from './aiff-markers.ts';
@@ -33,28 +34,40 @@ export interface EncodedAudioMarkerScan {
 
 export async function scanEncodedAudioMarkers(
 	source: unknown,
+	signal?: AbortSignal,
 ): Promise<EncodedAudioMarkerScan | null> {
+	signal?.throwIfAborted();
 	if (!isScanSource(source)) return null;
+	const scanSource = signal ? abortableSource(source, signal) : source;
 	try {
 		if (source.size < 12) return null;
-		const signature = await readBytes(source, 0, 12);
+		const signature = await readBytes(scanSource, 0, 12);
 		const container = ascii(signature, 0, 4);
 		if (['RIFF', 'RIFX', 'RF64', 'BW64'].includes(container) && ascii(signature, 8, 4) === 'WAVE') {
 			const littleEndian = container !== 'RIFX';
 			const payloadBytes = new DataView(signature.buffer, signature.byteOffset + 4, 4).getUint32(0, littleEndian);
 			if (payloadBytes < 4) return null;
 			const directory = container === 'RF64' || container === 'BW64'
-				? await readDs64Directory(source, undefined, MAXIMUM_SCANNED_CHUNKS, payloadBytes, container.toLowerCase(), readBytes) as MarkerDs64Directory : null;
-			return await scanRiffMarkers(source, Math.min(source.size, directory?.riffEnd ?? payloadBytes + 8), littleEndian, directory);
+				? await readDs64Directory(scanSource, signal, MAXIMUM_SCANNED_CHUNKS, payloadBytes, container.toLowerCase(), readBytes) as MarkerDs64Directory : null;
+			return await scanRiffMarkers(scanSource, Math.min(source.size, directory?.riffEnd ?? payloadBytes + 8), littleEndian, directory);
 		}
 		const formType = ascii(signature, 8, 4);
 		if (container === 'FORM' && (formType === 'AIFF' || formType === 'AIFC')) {
-			return await scanAiffMarkers(source);
+			return await scanAiffMarkers(scanSource);
 		}
 		return null;
 	} catch {
+		signal?.throwIfAborted();
 		return null;
 	}
+}
+
+function abortableSource(source: EncodedAudioMarkerScanSource, signal: AbortSignal): EncodedAudioMarkerScanSource {
+	return { size: source.size, slice(start, end) { return { async arrayBuffer() {
+		const bytes = await raceAbortableRead(() => source.slice(start, end).arrayBuffer(), signal);
+		signal.throwIfAborted();
+		return bytes;
+	} }; } };
 }
 
 async function scanRiffMarkers(source: EncodedAudioMarkerScanSource, riffEnd: number, littleEndian = true, directory: MarkerDs64Directory | null = null): Promise<EncodedAudioMarkerScan | null> {

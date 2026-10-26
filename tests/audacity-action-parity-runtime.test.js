@@ -1,3 +1,4 @@
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -186,7 +187,7 @@ test('menu decoration removes hidden actions and preserves pending local actions
 		{ id: 'extra', label: 'Extra', items: [{ id: 'extra-play', label: 'Play' }] },
 	];
 
-	const decorated = applyAudacityParityToMenus(menus, { locale: 'de' });
+	const decorated = applyAudacityParityToMenus(menus, { locale: 'de', copy: GERMAN_COPY });
 	assert.deepEqual(decorated.map(({ id }) => id), ['file']);
 	assert.deepEqual(decorated[0].items.map((item) => item.divider ? 'divider' : item.id), [
 		'save-project', 'divider', 'new-project',
@@ -232,7 +233,7 @@ test('shortcut command inventory consumes manifest actions while keeping disable
 			{ id: 'plugin-manager', label: 'Plugin-Manager' },
 			{ id: 'local-command', label: 'Lokaler Befehl', disabled: true, disabledReason: 'Lokaler Platzhalter.' },
 		],
-	}], { locale: 'de' });
+	}], { locale: 'de', copy: GERMAN_COPY });
 	const byId = new Map(commands.map((command) => [command.id, command]));
 
 	assert.equal(byId.has('plugin-manager'), false);
