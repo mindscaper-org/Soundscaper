@@ -3,6 +3,7 @@
 /** Status and validation copy for desktop Adobe Audition session import. */
 const SESX_COPY_ENTRIES = Object.freeze([
 	['sesxOpened', 'Adobe Audition session imported.'],
+	['sesOpened', 'Legacy session imported. See File > Delivery Report for unsupported settings.'],
 ]);
 
 export const SESX_COPY_BY_LOCALE = Object.freeze({

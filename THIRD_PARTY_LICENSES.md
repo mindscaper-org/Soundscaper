@@ -33,6 +33,17 @@ Framescaper video-codec archives. This checked technical
 inventory does not claim legal, trademark, or patent clearance beyond the
 recorded owner review.
 
+## Legacy Cool Edit / Audition session format reference
+
+The legacy `.ses` reader was developed using the binary format notes in
+[`outhud/audition-ses-to-sesx-converter`](https://github.com/outhud/audition-ses-to-sesx-converter),
+`ses2sesx.py`, Git blob `e99b702bec76fe52e7a7d9030016666652b7e730`.
+Copyright (c) 2026 outhud; MIT. The [complete license](LICENSES/ses2sesx-MIT.txt)
+is retained. Soundscaper implements its own bounded TypeScript reader and
+project mapping; it does not bundle or execute the Python converter.
+Independent format evidence and validation limits are recorded in
+[the interoperability notes](docs/legacy-ses-import.md).
+
 ## Audacity appearance previews
 
 The Preferences theme illustration and clip-style SVGs are derived from Audacity
