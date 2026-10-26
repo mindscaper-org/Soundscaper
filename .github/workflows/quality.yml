@@ -453,11 +453,17 @@ jobs:
         # "The enforcement handshake ended early" before it can complete.
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
+      - name: Resolve the selected test prerequisites
+        id: test-prerequisites
+        run: node scripts/ci-test-prerequisites.mjs --node-shard=${{ matrix.shard }} >> "$GITHUB_OUTPUT"
+
       - name: Resolve the interchange download cache identity
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         id: interchange-cache-key
         run: node scripts/provision-interchange-conformance.mjs --cache-key >> "$GITHUB_OUTPUT"
 
       - name: Restore verified interchange download inputs
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .wrangler/test-download-cache/interchange
@@ -465,6 +471,7 @@ jobs:
             interchange-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.interchange-cache-key.outputs.key }}-${{ hashFiles('scripts/provision-interchange-conformance.mjs', 'scripts/lib/interchange-download-cache.mjs') }}
 
       - name: Provision interchange conformance reference tools
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         run: npm run provision:interchange-conformance
 
       - name: Restore authenticated Boost test headers
@@ -615,16 +622,23 @@ jobs:
         if: steps.dependency-tree.outputs.cache-hit != 'true'
         run: npm ci
 
+      - name: Resolve the selected test prerequisites
+        id: test-prerequisites
+        run: node scripts/ci-test-prerequisites.mjs --project=${{ matrix.project }} --shard=${{ matrix.shard }}/12 >> "$GITHUB_OUTPUT"
+
       - name: Set up the interchange reference Python
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: '3.12'
 
       - name: Resolve the interchange download cache identity
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         id: interchange-cache-key
         run: node scripts/provision-interchange-conformance.mjs --cache-key >> "$GITHUB_OUTPUT"
 
       - name: Restore verified interchange download inputs
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .wrangler/test-download-cache/interchange
@@ -632,6 +646,7 @@ jobs:
             interchange-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.interchange-cache-key.outputs.key }}-${{ hashFiles('scripts/provision-interchange-conformance.mjs', 'scripts/lib/interchange-download-cache.mjs') }}
 
       - name: Provision interchange conformance readers
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         run: npm run provision:interchange-conformance
 
       - name: Download the verified website build
@@ -778,16 +793,23 @@ jobs:
       - name: Require a live Firefox AudioContext clock
         run: node scripts/ci-firefox-audio-clock.mjs
 
+      - name: Resolve the selected test prerequisites
+        id: test-prerequisites
+        run: node scripts/ci-test-prerequisites.mjs --project=firefox --shard=${{ matrix.shard }}/12 >> "$GITHUB_OUTPUT"
+
       - name: Set up the interchange reference Python
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: '3.12'
 
       - name: Resolve the interchange download cache identity
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         id: interchange-cache-key
         run: node scripts/provision-interchange-conformance.mjs --cache-key >> "$GITHUB_OUTPUT"
 
       - name: Restore verified interchange download inputs
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .wrangler/test-download-cache/interchange
@@ -795,6 +817,7 @@ jobs:
             interchange-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.interchange-cache-key.outputs.key }}-${{ hashFiles('scripts/provision-interchange-conformance.mjs', 'scripts/lib/interchange-download-cache.mjs') }}
 
       - name: Provision interchange conformance readers
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         run: npm run provision:interchange-conformance
 
       - name: Download the verified website build

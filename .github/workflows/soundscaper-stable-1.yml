@@ -109,11 +109,17 @@ jobs:
       - name: Install virtual display for the native-helper Electron proof
         timeout-minutes: 10
         run: bash scripts/ci-apt-install.sh xvfb
+      - name: Resolve the selected test prerequisites
+        id: test-prerequisites
+        run: node scripts/ci-test-prerequisites.mjs --node-shard=${{ matrix.shard }} >> "$GITHUB_OUTPUT"
+
       - name: Resolve the interchange download cache identity
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         id: interchange-cache-key
         run: node scripts/provision-interchange-conformance.mjs --cache-key >> "$GITHUB_OUTPUT"
 
       - name: Restore verified interchange download inputs
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .wrangler/test-download-cache/interchange
@@ -129,7 +135,8 @@ jobs:
           key: >-
             boost-test-headers-v1-${{ hashFiles('config/boost-multiprecision-source-manifest.json', 'native/framescaper-media-host/source-manifest.json', 'scripts/lib/framescaper-boost-ci.mjs', 'scripts/lib/framescaper-boost-ci-cache.mjs') }}
 
-      - run: npm run provision:interchange-conformance
+      - if: steps.test-prerequisites.outputs.interchange == 'true'
+        run: npm run provision:interchange-conformance
       - if: matrix.shard == 'framescaper'
         run: node scripts/ci-provision-framescaper-boost.mjs
       - name: Download the fresh desktop test runtime
