@@ -79,7 +79,7 @@ test('nightly test staging admits only the exact optional registry-bound winldd 
 	assert.deepEqual(await readJson(join(fixture.outputRoot, 'stage-manifest.json')), withoutWinldd.manifest);
 });
 
-test('nightly test staging drops browser links that packaging cannot materialize', async (context) => {
+test('read-only browser packaging checks share one staged default payload', async (context) => {
 	const fixture = await createFixture(context);
 	await stageDesktopNightlyTests({
 		repositoryRoot: fixture.repositoryRoot,
@@ -87,73 +87,57 @@ test('nightly test staging drops browser links that packaging cannot materialize
 		browserSourceRoot: fixture.browserSourceRoot,
 	});
 
-	const framework = join(fixture.outputRoot, '.local-browsers/webkit-103/WebKit.framework');
-	for (const kept of ['WebKit', 'Resources', 'Versions/Current']) {
-		assert.equal((await lstat(join(framework, kept))).isSymbolicLink(), true, kept);
-	}
-	assert.equal(
-		(await lstat(join(fixture.outputRoot, '.local-browsers/webkit-103/libalias'))).isSymbolicLink(),
-		true,
-	);
-	for (const dropped of ['Frameworks', 'Modules']) {
-		await assert.rejects(() => lstat(join(framework, dropped)), /ENOENT/u, dropped);
-	}
-	assert.equal((await lstat(join(framework, 'Versions/A/Frameworks'))).isDirectory(), true);
-	assert.equal((await lstat(join(framework, 'Versions/A/Modules/nested'))).isDirectory(), true);
-});
-
-test('nightly test staging drops framework headers no packaged browser reads', async (context) => {
-	const fixture = await createFixture(context);
-	await stageDesktopNightlyTests({
-		repositoryRoot: fixture.repositoryRoot,
-		outputRoot: fixture.outputRoot,
-		browserSourceRoot: fixture.browserSourceRoot,
+	await context.test('nightly test staging drops browser links that packaging cannot materialize', async () => {
+		const framework = join(fixture.outputRoot, '.local-browsers/webkit-103/WebKit.framework');
+		for (const kept of ['WebKit', 'Resources', 'Versions/Current']) {
+			assert.equal((await lstat(join(framework, kept))).isSymbolicLink(), true, kept);
+		}
+		assert.equal(
+			(await lstat(join(fixture.outputRoot, '.local-browsers/webkit-103/libalias'))).isSymbolicLink(),
+			true,
+		);
+		for (const dropped of ['Frameworks', 'Modules']) {
+			await assert.rejects(() => lstat(join(framework, dropped)), /ENOENT/u, dropped);
+		}
+		assert.equal((await lstat(join(framework, 'Versions/A/Frameworks'))).isDirectory(), true);
+		assert.equal((await lstat(join(framework, 'Versions/A/Modules/nested'))).isDirectory(), true);
 	});
 
-	const browsers = join(fixture.outputRoot, '.local-browsers');
-	const framework = join(browsers, 'webkit-103/WebKit.framework');
-	for (const dropped of ['Versions/A/Headers', 'Versions/A/PrivateHeaders', 'Headers', 'PrivateHeaders']) {
-		await assert.rejects(() => lstat(join(framework, dropped)), /ENOENT/u, dropped);
-	}
-	assert.equal((await lstat(join(framework, 'Versions/A/WebKit'))).isFile(), true);
-	assert.equal(
-		(await lstat(join(framework, 'Versions/A/Resources/Info.plist'))).isFile(),
-		true,
-	);
-	assert.equal(
-		(await lstat(join(browsers, 'webkit-103/Headers/keep.h'))).isFile(),
-		true,
-		'headers outside a framework bundle stay',
-	);
-});
-
-test('nightly test staging drops the framework linker stubs macOS signing refuses', async (context) => {
-	// codesign walks a framework and treats a .tbd sitting beside the binary as a
-	// subcomponent of it. A .tbd is a text symbol description only the linker reads, so
-	// it carries no signature, and the whole bundle failed with "code object is not
-	// signed at all" before the mac package could be produced.
-	const fixture = await createFixture(context);
-	await stageDesktopNightlyTests({
-		repositoryRoot: fixture.repositoryRoot,
-		outputRoot: fixture.outputRoot,
-		browserSourceRoot: fixture.browserSourceRoot,
+	await context.test('nightly test staging drops framework headers no packaged browser reads', async () => {
+		const browsers = join(fixture.outputRoot, '.local-browsers');
+		const framework = join(browsers, 'webkit-103/WebKit.framework');
+		for (const dropped of ['Versions/A/Headers', 'Versions/A/PrivateHeaders', 'Headers', 'PrivateHeaders']) {
+			await assert.rejects(() => lstat(join(framework, dropped)), /ENOENT/u, dropped);
+		}
+		assert.equal((await lstat(join(framework, 'Versions/A/WebKit'))).isFile(), true);
+		assert.equal(
+			(await lstat(join(framework, 'Versions/A/Resources/Info.plist'))).isFile(),
+			true,
+		);
+		assert.equal(
+			(await lstat(join(browsers, 'webkit-103/Headers/keep.h'))).isFile(),
+			true,
+			'headers outside a framework bundle stay',
+		);
 	});
 
-	const browsers = join(fixture.outputRoot, '.local-browsers');
-	await assert.rejects(
-		() => lstat(join(browsers, 'webkit-103/WebKit.framework/Versions/A/WebKit.tbd')),
-		/ENOENT/u,
-	);
-	assert.equal(
-		(await lstat(join(browsers, 'webkit-103/WebKit.framework/Versions/A/WebKit'))).isFile(),
-		true,
-		'the framework binary itself stays',
-	);
-	assert.equal(
-		(await lstat(join(browsers, 'webkit-103/keep.tbd'))).isFile(),
-		true,
-		'a stub outside a framework bundle is never walked as a subcomponent',
-	);
+	await context.test('nightly test staging drops the framework linker stubs macOS signing refuses', async () => {
+		const browsers = join(fixture.outputRoot, '.local-browsers');
+		await assert.rejects(
+			() => lstat(join(browsers, 'webkit-103/WebKit.framework/Versions/A/WebKit.tbd')),
+			/ENOENT/u,
+		);
+		assert.equal(
+			(await lstat(join(browsers, 'webkit-103/WebKit.framework/Versions/A/WebKit'))).isFile(),
+			true,
+			'the framework binary itself stays',
+		);
+		assert.equal(
+			(await lstat(join(browsers, 'webkit-103/keep.tbd'))).isFile(),
+			true,
+			'a stub outside a framework bundle is never walked as a subcomponent',
+		);
+	});
 });
 
 test('nightly test staging refuses destructive or self-referential paths', async (context) => {
