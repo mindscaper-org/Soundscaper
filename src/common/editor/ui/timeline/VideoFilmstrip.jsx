@@ -8,7 +8,7 @@ import { VideoClipFadeHandles } from './VideoClipFadeHandles.tsx';
 
 import { framesToSeconds } from '../../design-system-adapters.js';
 import { selectVideoThumbnailTimestamps } from '../../video-timeline.js';
-import { productVideoVisualPreviewRuntimeFor } from '../workspace/product-video-visual-preview-runtime.ts';
+import { productVideoVisualPreviewDocumentFor, productVideoVisualPreviewRuntimeFor } from '../workspace/product-video-visual-preview-runtime.ts';
 import { selectProductVisualThumbnailPoints } from './product-visual-thumbnail-points.ts';
 import { createVideoRateBadgeModel } from './video-rate-badge-model.ts';
 import { createVideoFilmstripFrameRequests } from './video-filmstrip-frame-requests.ts';
@@ -218,6 +218,9 @@ export function VideoFilmstripClip({
 }
 
 function useProductTimelineFilmstrip({ controller, project, clip, thumbnailModels, generatedSource }) {
+	const ownerDocument = useMemo(() => productVideoVisualPreviewDocumentFor(controller)
+		?? globalThis.document, [controller]);
+	const pageRetired = useRef(false);
 	const runtime = useMemo(() => productVideoVisualPreviewRuntimeFor(controller), [controller]);
 	const createTimelineFilmstrip = runtime?.createTimelineFilmstrip;
 	const supported = Boolean(
@@ -233,11 +236,18 @@ function useProductTimelineFilmstrip({ controller, project, clip, thumbnailModel
 	]);
 	const [state, setState] = useState(() => ({ pending: false, error: null, values: new Map() }));
 	useEffect(() => {
-		if (!supported || frames.length === 0) {
+		if (pageRetired.current || ownerDocument !== globalThis.document || !supported || frames.length === 0) {
 			setState({ pending: false, error: null, values: new Map() });
 			return undefined;
 		}
 		const abort = new AbortController();
+		const ownerWindow = ownerDocument?.defaultView;
+		const retirePage = (event) => {
+			if (event.persisted) return;
+			pageRetired.current = true;
+			abort.abort(new DOMException('Timeline filmstrip page was retired.', 'AbortError'));
+		};
+		ownerWindow?.addEventListener('pagehide', retirePage);
 		setState({ pending: true, error: null, values: new Map() });
 		void createTimelineFilmstrip({
 			project, width: 160, height: 90, frames, signal: abort.signal,
@@ -258,8 +268,11 @@ function useProductTimelineFilmstrip({ controller, project, clip, thumbnailModel
 				values: new Map(),
 			});
 		});
-		return () => { abort.abort(new DOMException('Timeline filmstrip was replaced.', 'AbortError')); };
-	}, [createTimelineFilmstrip, frames, project, supported]);
+		return () => {
+			ownerWindow?.removeEventListener('pagehide', retirePage);
+			abort.abort(new DOMException('Timeline filmstrip was replaced.', 'AbortError'));
+		};
+	}, [createTimelineFilmstrip, frames, ownerDocument, project, supported]);
 	return { supported, ...state };
 }
 

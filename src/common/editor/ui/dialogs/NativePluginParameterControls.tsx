@@ -83,7 +83,7 @@ export default function NativePluginParameterControls({
 		const session: ParameterWriteSession = { generation: current, pending: new Map(), confirmed: [], operation: null };
 		writeSession.current = session;
 		setSnapshot(loadingSnapshot());
-		void loadParameters(runtime, instanceId).then(
+		void loadParameters(runtime, instanceId, () => generation.current === current).then(
 			(value) => {
 				if (generation.current !== current) return;
 				session.confirmed = [...value.values];
@@ -164,6 +164,7 @@ export default function NativePluginParameterControls({
 					max={parameter.maximumValue}
 					step="any"
 					value={value}
+					aria-valuetext={formatValue(value)}
 					disabled={controlDisabled}
 					onChange={(event) => { void update(parameter, Number(event.currentTarget.value)); }}
 					onDoubleClick={(event) => {
@@ -172,7 +173,7 @@ export default function NativePluginParameterControls({
 						void update(parameter, parameter.defaultValue);
 					}}
 				/>}
-				{!isBoolean && <output>{formatValue(value, parameter.label)}</output>}
+				{!isBoolean && <output>{formatValue(value)}</output>}
 			</label>;
 		})}
 	</fieldset>;
@@ -181,6 +182,7 @@ export default function NativePluginParameterControls({
 async function loadParameters(
 	runtime: NativePluginParameterRuntime,
 	instanceId: string,
+	isCurrent: () => boolean,
 ): Promise<ParameterSnapshot> {
 	const [capabilities, parameters] = await Promise.all([
 		runtime.capabilities(instanceId), runtime.describeParameters(instanceId),
@@ -189,9 +191,14 @@ async function loadParameters(
 		|| capabilities.parameterCount > 4_096 || capabilities.parameterCount !== parameters.length) {
 		throw new Error('The plug-in returned inconsistent parameter capabilities.');
 	}
-	const values = await Promise.all(parameters.map(async ({ index }) => (
-		runtime.readParameter(instanceId, index)
-	)));
+	// Controls share the isolated host's FIFO with realtime audio. Sending the
+	// entire inventory at once can put thousands of reads ahead of its next PCM
+	// packet; one outstanding read leaves audio room between control replies.
+	const values: number[] = [];
+	for (const { index } of parameters) {
+		if (!isCurrent()) throw new DOMException('Native parameter controls closed.', 'AbortError');
+		values.push(await runtime.readParameter(instanceId, index));
+	}
 	if (values.some((value) => !normalizedValue(value))) {
 		throw new Error('The plug-in returned an invalid parameter value.');
 	}
@@ -216,6 +223,6 @@ function normalizedValue(value: number): boolean {
 	return Number.isFinite(value) && value >= 0 && value <= 1;
 }
 
-function formatValue(value: number, label: string): string {
-	return `${value.toFixed(3).replace(/0+$/u, '').replace(/\.$/u, '')}${label ? ` ${label}` : ''}`;
+function formatValue(value: number): string {
+	return `${(value * 100).toFixed(1).replace(/\.0$/u, '')}%`;
 }

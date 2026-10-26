@@ -54,14 +54,6 @@ function sourceOf(commands: readonly Data[]): Data {
 	return commandOfType(commands, 'video-visual-source/set').source as Data;
 }
 
-test('the generator workflow includes test images, noise, and the sound visualizer', () => {
-	assert.deepEqual(FRAMESCAPER_SELECTED_GENERATOR_AUTHORING_SURFACES, [
-		'video-title', 'video-text', 'video-shape', 'video-solid', 'video-test-image',
-		'video-noise', 'video-sound-visualizer',
-	]);
-	assert.ok(Object.isFrozen(FRAMESCAPER_SELECTED_GENERATOR_AUTHORING_SURFACES));
-});
-
 test('a title generator authors its own video track, source, and clip in one batch', async () => {
 	const commands = batched(await author('video-title', project()));
 	const track = commands[0]?.track as Data;

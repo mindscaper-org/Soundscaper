@@ -17,12 +17,8 @@ import {
  *
  * The guard matched `import ... from` only, so every `export ... from` line was invisible
  * and a barrel's static dependencies did not exist as far as the eager/lazy boundary was
- * concerned. That is the worst possible blind spot to have, because a barrel is the one
- * module shape whose entire content is re-exports: `src/common/editor/ui/AudioEditorInspector.jsx`
- * named seven lazily loaded Inspector panels this way while `editor-shell` owned it, which
- * made all seven optional chunks static dependencies of the shell the moment anything
- * imported the barrel, and `src/common/editor/index.js` re-exported the AUP4 archive client
- * that `controller/document/deferred-archive-runtime.ts` exists to keep behind a dynamic import.
+ * concerned. The editor facade re-exported the AUP4 archive client that
+ * `controller/document/deferred-archive-runtime.ts` keeps behind a dynamic import.
  *
  * A type-only re-export is not an edge: it is erased before the bundler sees it.
  */
@@ -92,24 +88,4 @@ test('the public editor facade re-exports nothing the archive boundary keeps laz
 	assert.ok(!staticRelativeDependencies(facade).includes('./aup4-client.js'));
 	assert.equal(chunkGroupForModulePath('src/common/editor/aup4-client.js'), null);
 	assert.equal(chunkGroupForModulePath('src/common/editor/index.js'), 'editor-controller-core');
-});
-
-test('the legacy Inspector facade names its panels through dynamic imports only', () => {
-	const facade = sourceOf('src/common/editor/ui/AudioEditorInspector.jsx');
-	assert.deepEqual(
-		staticRelativeReexports(facade),
-		[],
-		'a static re-export here makes every Inspector panel chunk a shell dependency',
-	);
-	for (const panel of [
-		'AnalysisPanel.jsx',
-		'AudioEditorEffectsOverlay.jsx',
-		'AudioEditorMacroManagerDialog.jsx',
-		'ClipPropertiesDialog.jsx',
-		'ExportDialog.jsx',
-		'LabelExportDialog.jsx',
-		'SelectionEffectsDialog.jsx',
-	]) {
-		assert.match(facade, new RegExp(`import\\('\\./inspector/${panel.replace('.', '\\.')}'\\)`, 'u'), panel);
-	}
 });

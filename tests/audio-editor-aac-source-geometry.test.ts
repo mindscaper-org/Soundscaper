@@ -60,7 +60,7 @@ test('MP4 source metadata uses bounded structural and tag reads without material
 });
 
 test('MP4 source metadata rejects oversized tags, duplicates, and truncated box geometry', async () => {
-	await assert.rejects(readAacSourceMetadata(metadataFile('x'.repeat(129))), /AAC source metadata/u);
+	await assert.rejects(readAacSourceMetadata(metadataFile(`SoundscaperAAC1:${'x'.repeat(129)}`)), /AAC source metadata/u);
 	const value = new TextEncoder().encode(aacSourceMetadata(48_000, 2, 1024));
 	const item = box('scaf', box('data', Uint8Array.of(0, 0, 0, 1, 0, 0, 0, 0), value));
 	const duplicate = new Blob([box('ftyp'), box('moov', box('udta', box('meta', new Uint8Array(4), box('ilst', item, item))))]);
@@ -82,5 +82,5 @@ test('MP4 source metadata rejects oversized tags, duplicates, and truncated box 
 			return super.slice(start, end, type);
 		}
 	}
-	await assert.rejects(readAacSourceMetadata(new HugeMetadataBlob([prefix])), /AAC source metadata/u);
+	assert.equal(await readAacSourceMetadata(new HugeMetadataBlob([prefix])), null);
 });

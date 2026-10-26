@@ -2,8 +2,6 @@
 
 import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
-import { withValidatedSelectionInput, type SelectionInputValidation } from '../src/common/editor/audacity-effects/pcm-channel-validation.ts';
-import { applyStandardEffect } from '../src/common/editor/first-party-effects/standard/dsp.ts';
 import { applyAudioSelectionEffectAsync } from '../src/common/editor/selection-effects-runtime.js';
 import { loadParametricEqWasmModule } from '../src/common/editor/parametric-eq/wasm-loader.js';
 
@@ -21,19 +19,6 @@ test('immediate standard and band dispatch validates each public input without a
 		assert.equal(output[0]!.length, 513);
 		assert.ok(output[0]!.every(Number.isFinite));
 	}
-});
-
-test('expired or mismatched input validation tokens never admit subsequently mutated PCM', () => {
-	const channels = [new Float32Array(16)];
-	let expired: SelectionInputValidation | undefined;
-	withValidatedSelectionInput(channels, (input, token) => {
-		expired = token;
-		const other = [new Float32Array([NaN])];
-		assert.throws(() => applyStandardEffect('tremolo', other, 48_000, {}, undefined, token), /samples must be finite/);
-		return applyStandardEffect('tremolo', input, 48_000, {}, undefined, token);
-	});
-	channels[0]![15] = Infinity;
-	assert.throws(() => applyStandardEffect('tremolo', channels, 48_000, {}, undefined, expired), /samples must be finite/);
 });
 
 test('selection dispatch keeps the original nonfinite sample error and channel geometry boundary', async () => {

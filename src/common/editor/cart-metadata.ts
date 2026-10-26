@@ -12,6 +12,8 @@ export interface CartMetadata {
 	readonly startDate: string; readonly startTime: string; readonly endDate: string; readonly endTime: string;
 	readonly producerAppId: string; readonly producerAppVersion: string; readonly userDef: string;
 	readonly levelReference: number; readonly postTimers: readonly CartTimer[]; readonly url: string; readonly tagText: string;
+	/** Project-only sample unit for the reference; never written into the CART payload. */
+	readonly levelReferenceScale?: number;
 }
 export type CartMetadataInput = Partial<Omit<CartMetadata, 'postTimers'>> & { readonly postTimers?: readonly Partial<CartTimer>[] };
 
@@ -33,6 +35,7 @@ export function normalizeCartMetadata(input: CartMetadataInput = {}): CartMetada
 	return Object.freeze({
 		...values,
 		levelReference: int32(input.levelReference ?? 0, 'CART levelReference'),
+		...(input.levelReferenceScale == null ? {} : { levelReferenceScale: referenceScale(input.levelReferenceScale) }),
 		postTimers: Object.freeze(timers),
 		url: ascii(input.url ?? '', CART_URL_BYTES, 'CART URL'),
 		tagText: cartTagText(input.tagText ?? '', MAX_CART_TEXT_BYTES, 'CART tag text'),
@@ -87,8 +90,9 @@ export function parseCartPayload(bytes: Uint8Array): CartMetadata {
 }
 
 function ascii(value: unknown, maximum: number, name: string): string { if (typeof value !== 'string') throw new TypeError(`${name} must be a string.`); if (value.length > maximum) throw new RangeError(`${name} is too long.`); for (const character of value) { const code = character.charCodeAt(0); if (code < 0x20 || code > 0x7e) throw new RangeError(`${name} must contain printable ASCII only.`); } return value; }
-function cartTagText(value: unknown, maximum: number, name: string): string { if (typeof value !== 'string') throw new TypeError(`${name} must be a string.`); if (value.length > maximum) throw new RangeError(`${name} is too long.`); for (const character of value) { const code = character.charCodeAt(0); if (code !== 0x0a && code !== 0x0d && (code < 0x20 || code > 0x7e)) throw new RangeError(`${name} must contain ASCII text only.`); } return value; }
+function cartTagText(value: unknown, maximum: number, name: string): string { if (typeof value !== 'string') throw new TypeError(`${name} must be a string.`); if (value.length > maximum) throw new RangeError(`${name} is too long.`); for (const character of value) { const code = character.charCodeAt(0); if (code !== 0x09 && code !== 0x0a && code !== 0x0d && (code < 0x20 || code > 0x7e)) throw new RangeError(`${name} must contain ASCII text only.`); } return value; }
 function decode(bytes: Uint8Array): string { const end = bytes.indexOf(0); return new TextDecoder('ascii').decode(end < 0 ? bytes : bytes.subarray(0, end)).trimEnd(); }
 function decodeTagText(bytes: Uint8Array): string { const end = bytes.indexOf(0); return new TextDecoder('ascii').decode(end < 0 ? bytes : bytes.subarray(0, end)); }
 function uint32(value: unknown, name: string): number { const number = Number(value); if (!Number.isInteger(number) || number < 0 || number > 0xffff_ffff) throw new RangeError(`${name} must be unsigned 32-bit.`); return number; }
 function int32(value: unknown, name: string): number { const number = Number(value); if (!Number.isInteger(number) || number < -0x8000_0000 || number > 0x7fff_ffff) throw new RangeError(`${name} must be signed 32-bit.`); return number; }
+function referenceScale(value: number): number { if (!Number.isSafeInteger(value) || value < 1 || value > 0x8000_0000 || !Number.isInteger(Math.log2(value))) throw new RangeError('CART reference scale must be a supported power of two.'); return value; }

@@ -27,9 +27,9 @@ for (const format of ['FCPXML', 'edit list (EDL)', 'OpenTimelineIO', 'DAWproject
 		const text = new TextDecoder().decode(bytes);
 		if (format === 'FCPXML') {
 			const sourceStart = /<asset-clip[^>]*\bstart="([^"]+)"/u.exec(text)?.[1];
-			// The captured WebM's sixth source ordinal has PTS 456/1000s;
-			// its nearest boundary on the 30 fps interchange grid is frame 14.
-			expect(sourceStart).toBe('7/15s');
+			// FCPXML retains the captured WebM's sixth source ordinal at PTS
+			// 456/1000s on the native media clock, reduced to its exact rational.
+			expect(sourceStart).toBe('57/125s');
 		} else if (format === 'edit list (EDL)') {
 			const event = text.split('\n').find((line) => /^001\s/u.test(line));
 			expect(event?.trim().split(/\s+/u)[4]).toBe('00:00:00:14');
@@ -37,7 +37,9 @@ for (const format of ['FCPXML', 'edit list (EDL)', 'OpenTimelineIO', 'DAWproject
 			const timeline = JSON.parse(text);
 			const video = timeline.tracks.children.find((track) => track.kind === 'Video');
 			const delivered = video.children.find((child) => child.OTIO_SCHEMA === 'Clip.1');
-			expect(delivered.source_range.start_time).toEqual({ OTIO_SCHEMA: 'RationalTime.1', value: 14, rate: 30 });
+			// OTIO preserves the same native456ms boundary as FCPXML above:
+			// its30fps RationalTime can retain a fractional13.68-frame in-point.
+			expect(delivered.source_range.start_time).toEqual({ OTIO_SCHEMA: 'RationalTime.1', value: 13.68, rate: 30 });
 		} else {
 			const archive = await readDawprojectArchive(new Blob([bytes]));
 			try {

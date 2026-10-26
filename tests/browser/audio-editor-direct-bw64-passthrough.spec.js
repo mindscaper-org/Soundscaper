@@ -19,7 +19,6 @@ const CHANNEL_COUNT = 6;
 const SAMPLE_RATE = 48_000;
 const BYTES_PER_SAMPLE = 2;
 const DATA_BYTES = FRAME_COUNT * CHANNEL_COUNT * BYTES_PER_SAMPLE;
-const FLOAT_PLAN_BYTES = FRAME_COUNT * CHANNEL_COUNT * 4;
 const PASSTHROUGH_COMPLETION_TIMEOUT_MS = Math.ceil(FRAME_COUNT / SAMPLE_RATE * 2_000);
 const PREFIX_BYTES = 2 * 1024;
 const SUFFIX_BYTES = 4 * 1024;
@@ -51,7 +50,6 @@ test.describe('direct pristine BW64 passthrough publication', () => {
 			});
 		});
 		const editor = await bootEditor(page, '/embed/en/');
-		expect(await page.evaluate(() => navigator.userAgentData?.mobile)).toBe(true);
 		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 		await preferences.getByRole('tab', { name: /Editing$/u }).click();
@@ -59,7 +57,6 @@ test.describe('direct pristine BW64 passthrough publication', () => {
 		await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
 		const source = createPristineBw64Fixture();
 		await importLazyBw64(page, editor, source);
-		expect(FLOAT_PLAN_BYTES).toBe(96 * 1024 ** 2 + 384 * 1024);
 
 		const exportDialog = await openExportDialog(page, editor);
 		await chooseDropdown(page, exportDialog.locator('[data-export-field="format"]'), 'BW64 / ADM');

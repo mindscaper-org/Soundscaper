@@ -38,7 +38,7 @@ test('take and lane audition use an isolated exact-source preview and toggle wit
 	const fixture = compositionFixture();
 	const take = await fixture.composition.auditionTake('group-a', 'take-b');
 	assert.deepEqual(take, {
-		key: 'take:group-a:take-b', groupId: 'group-a', laneId: 'lane-b',
+		key: JSON.stringify(['take', 'group-a', 'take-b']), groupId: 'group-a', laneId: 'lane-b',
 		takeIds: ['take-b'], state: 'playing',
 	});
 	assert.equal(fixture.playbackStops, 1);
@@ -65,6 +65,14 @@ test('take and lane audition use an isolated exact-source preview and toggle wit
 	await fixture.composition.dispose();
 	assert.equal(fixture.previewEngines[0]!.stopCount, 2);
 	assert.equal(fixture.previewEngines[0]!.disposeCount, 1);
+});
+
+test('flattening the auditioned take group retires its isolated preview after publication', async () => {
+	const fixture = compositionFixture();
+	await fixture.composition.auditionTake('group-a', 'take-b');
+	await fixture.composition.flatten('group-a');
+	assert.deepEqual(fixture.project().takeGroups, []);
+	assert.equal(fixture.previewEngines[0]?.stopCount, 1);
 });
 
 test('a retired take-comp preview engine cannot overwrite its replacement with a late state event', async () => {

@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { EDITOR_GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { applyAudacityParityToMenus } from '../src/common/editor/audacity-action-parity.js';
 import { createBlenderApplicationMenuItems } from '../src/common/editor/ui/blender-application-menu.ts';
 import { materializeApplicationMenu } from '../src/common/editor/ui/application-menu-materialization.ts';
-import { EDITOR_ENGLISH_COPY, EDITOR_GERMAN_COPY } from '../src/common/i18n/editor-copy-inventory.ts';
+import { EDITOR_ENGLISH_COPY } from '../src/common/i18n/editor-copy-inventory.ts';
 
 test('Blender export and connection are localized opt-in menu entries', () => {
 	const context = { blocked: false, materialAvailable: true, copy: EDITOR_ENGLISH_COPY };

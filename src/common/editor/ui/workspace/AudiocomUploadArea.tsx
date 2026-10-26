@@ -50,10 +50,10 @@ export default function AudiocomUploadArea({
 		catch (reason) { setError(reason instanceof Error ? reason.message : copy.uploadError); }
 	};
 	const dragOver = (event: DragEvent<HTMLElement>) => {
-		if (disabled || !event.dataTransfer.types.includes('Files')) return;
+		if (!event.dataTransfer.types.includes('Files')) return;
 		event.preventDefault();
-		event.dataTransfer.dropEffect = 'copy';
-		setDragging(true);
+		event.dataTransfer.dropEffect = disabled ? 'none' : 'copy';
+		setDragging(!disabled);
 	};
 	const closeDialog = () => {
 		const itemId = publishItem?.id;
@@ -76,7 +76,7 @@ export default function AudiocomUploadArea({
 					}}>
 					<p>{copy.uploadDrop}</p>
 					<input ref={inputRef} className="kw-audio-editor-sr-only" type="file" multiple disabled={disabled}
-						aria-label={copy.chooseFiles} accept="audio/wav,audio/mpeg,audio/flac,audio/x-wavpack,audio/aiff,audio/ogg,audio/mp4,.wav,.mp3,.flac,.wv,.aif,.aiff,.ogg,.oga,.m4a"
+						aria-label={copy.chooseFiles} accept="audio/wav,audio/mpeg,audio/flac,audio/x-wavpack,audio/aiff,audio/ogg,audio/mp4,.wav,.wave,.rf64,.bw64,.mp3,.flac,.wv,.aif,.aiff,.ogg,.oga,.m4a"
 						onChange={(event) => {
 							files(Array.from(event.currentTarget.files ?? []));
 							event.currentTarget.value = '';

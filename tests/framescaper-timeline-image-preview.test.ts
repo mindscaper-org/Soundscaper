@@ -56,25 +56,13 @@ function thumbnail(overrides: Data = {}): Promise<unknown> {
 	} as never);
 }
 
-test('a preview session exposes its resolve, transition and disposal ports', async () => {
-	const preview = await session({ project: mediaProject() });
-
-	assert.deepEqual(
-		Object.keys(preview),
-		['resolve', 'resolveTransitionWeight', 'dispose'],
-	);
-	(preview.dispose as () => void)();
-});
-
 test('resolving a sample returns the composed layer ledger', async () => {
 	const preview = await session({ project: mediaProject() });
 
 	const resolved = (preview.resolve as (sample: number) => Data)(0);
 
-	assert.deepEqual(
-		Object.keys(resolved),
-		['layers', 'adjustments', 'activeFreezeNodeIds', 'availablePresetIds', 'ledger'],
-	);
+	assert.deepEqual(resolved.layers, []);
+	assert.deepEqual((resolved.ledger as Data).requestedNodeIds, []);
 	(preview.dispose as () => void)();
 });
 

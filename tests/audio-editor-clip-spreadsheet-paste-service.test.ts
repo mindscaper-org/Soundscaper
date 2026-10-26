@@ -28,7 +28,6 @@ function fixture() {
 	let importedHook: (() => void) | null = null;
 	let cleanupHook: (() => void) | null = null;
 	let failCommit = false;
-	let invalidSource = false;
 	const lifetime = new EditorControllerLifetime();
 	lifetime.markReady();
 	const generation = new EditorProjectGeneration();
@@ -68,7 +67,7 @@ function fixture() {
 			sourceBuffers.set(sourceId, {}); sourcePeaks.set(sourceId, {});
 			onSourcePrepared(sourceId);
 			importedHook?.();
-			return { id: sourceId, storageKey: sourceId, name: file.name, sampleRate: 44_100, originalSampleRate: 44_100, frameCount: 441_000, channelCount: invalidSource ? 0 : 2 };
+			return { id: sourceId, storageKey: sourceId, name: file.name, sampleRate: 44_100, originalSampleRate: 44_100, frameCount: 441_000, channelCount: 2 };
 		},
 	});
 	return {
@@ -80,7 +79,6 @@ function fixture() {
 		setCleanupHook: (hook: () => void) => { cleanupHook = hook; },
 		startAnotherImport: () => { importing = true; },
 		failFinalCommit: () => { failCommit = true; },
-		invalidateImportedMetadata: () => { invalidSource = true; },
 		editProject: () => commit({ type: 'clip/update', clipId: 'original', changes: { title: 'Later edit' } }),
 		switchProject: () => { history = createEditorHistory(createCurrentAudioEditorProject({ id: 'other' })); generation.activate('other'); importing = false; },
 	};
@@ -93,6 +91,16 @@ test('loaded-source rows and existing edits paste as one undo entry without impo
 	assert.equal(f.history.undoStack.length, 1);
 	assert.equal(getClipSpreadsheetRows(f.history.present).length, 2);
 	assert.deepEqual(getClipSpreadsheetRows(undoEditorCommand(f.history).present), getClipSpreadsheetRows(f.initial));
+});
+
+test('selected spreadsheet source files retain whitespace in the requested reference across import', async () => {
+	const f = fixture();
+	const file = new File(['RIFF'], ' take.wav ', { type: 'audio/wav' });
+	await f.paste('sheet', [], [{ source: ' take.wav ', track: 'Voice', duration: '1' }],
+		[{ reference: ' take.wav ', file }]);
+	assert.deepEqual(f.imports, [' take.wav ']);
+	assert.equal(f.history.present.sources[1]?.name, file.name);
+	assert.equal(f.history.present.clips[1]?.sourceId, f.history.present.sources[1]?.id);
 });
 
 test('source edits import replacement files and join other pasted edits in one undo entry', async () => {
@@ -276,21 +284,16 @@ test('sources are cleaned when cancellation or a switch happens after preparatio
 	}
 });
 
-test('invalid imported metadata or final commit failure cleans prepared sources and leaves history unchanged', async () => {
-	for (const failure of ['metadata', 'commit']) {
-		const f = fixture();
-		f.setImportedHook(() => {
-			if (failure === 'metadata') f.invalidateImportedMetadata();
-			else f.failFinalCommit();
-		});
-		await assert.rejects(f.paste('sheet', [], [{ source: 'Late.wav' }], [{ reference: 'Late.wav', file: new File(['audio'], 'Late.wav') }]));
-		assert.equal(f.history.present, f.initial);
-		assert.equal(f.history.undoStack.length, 0);
-		assert.deepEqual(f.deleted, ['imported-1']);
-		assert.equal(f.sourceBuffers.size, 0);
-		assert.equal(f.protectedSourceIds.size, 0);
-		assert.equal(f.importing, false);
-	}
+test('final commit failure cleans prepared sources and leaves history unchanged', async () => {
+	const f = fixture();
+	f.setImportedHook(() => { f.failFinalCommit(); });
+	await assert.rejects(f.paste('sheet', [], [{ source: 'Late.wav' }], [{ reference: 'Late.wav', file: new File(['audio'], 'Late.wav') }]));
+	assert.equal(f.history.present, f.initial);
+	assert.equal(f.history.undoStack.length, 0);
+	assert.deepEqual(f.deleted, ['imported-1']);
+	assert.equal(f.sourceBuffers.size, 0);
+	assert.equal(f.protectedSourceIds.size, 0);
+	assert.equal(f.importing, false);
 });
 
 test('an unrelated edit during source preparation is preserved and refuses the stale paste', async () => {

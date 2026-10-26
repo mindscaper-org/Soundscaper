@@ -1,6 +1,7 @@
 import { normalizeMediaMetadata } from './media-metadata.ts';
+import { id3CompanionMetadata, id3StructuredGroup, preferredId3StructuredEntries } from './id3-structured-metadata.ts';
 
-import { ID3_TEXT_FRAME_IDS as TEXT_FRAME_IDS, ID3_CONTROL_KEYS, id3FramePayload,
+import { ID3_TEXT_FRAME_IDS as TEXT_FRAME_IDS, ID3_CANONICAL_FRAME_KEYS, ID3_CONTROL_KEYS, id3FramePayload,
 	structuredId3Payload, id3ArtworkFrames } from './id3-frame-values.ts';
 
 const TEXT_FRAME_PRIORITIES = Object.freeze({ tracknumber: 2, date: 2 });
@@ -11,12 +12,18 @@ const TEXT_FRAME_PRIORITIES = Object.freeze({ tracknumber: 2, date: 2 });
  */
 export function createAudioMetadataId3Tag(metadata = {}) {
 	const normalized = normalizeMediaMetadata(metadata);
+	const companionMetadata = id3CompanionMetadata(normalized);
 	const entries = Object.entries(normalized).map(([key, value]) => ({
 		key,
 		value,
 		normalizedKey: key.toLowerCase().replace(/[^a-z0-9]/g, ''),
 	}));
+	if (companionMetadata.ownershipPrice && companionMetadata.ownershipDate
+		&& !entries.some(({ normalizedKey }) => normalizedKey === 'ownershipseller')) {
+		entries.push({ key: 'ownershipSeller', normalizedKey: 'ownershipseller', value: '' });
+	}
 	const preferredTextFrames = selectPreferredTextFrames(entries);
+	const preferredStructured = preferredId3StructuredEntries(entries);
 	const frames = [];
 	for (const entry of entries) {
 		const { key, normalizedKey, value } = entry;
@@ -26,7 +33,8 @@ export function createAudioMetadataId3Tag(metadata = {}) {
 				Uint8Array.of(0), id3FramePayload('WXXX', value))));
 			continue;
 		}
-		const structured = structuredId3Payload(normalizedKey, value, normalized);
+		const structured = preferredStructured.get(id3StructuredGroup(normalizedKey)) === entry
+			? structuredId3Payload(normalizedKey, value, companionMetadata) : null;
 		if (structured) {
 			frames.push(createId3Frame(structured.id, structured.payload));
 			continue;
@@ -35,7 +43,7 @@ export function createAudioMetadataId3Tag(metadata = {}) {
 			? TEXT_FRAME_IDS[normalizedKey]
 			: undefined;
 		if (frameId && preferredTextFrames.get(frameId) === entry) {
-			frames.push(createId3Frame(frameId, id3FramePayload(frameId, value)));
+			frames.push(createId3Frame(frameId, id3FramePayload(frameId, positionWithTotal(frameId, value, companionMetadata))));
 			continue;
 		}
 		frames.push(createId3Frame('TXXX', concatBytes(
@@ -45,7 +53,7 @@ export function createAudioMetadataId3Tag(metadata = {}) {
 			new TextEncoder().encode(value),
 		)));
 	}
-	frames.push(...id3ArtworkFrames(normalized));
+	frames.push(...id3ArtworkFrames(companionMetadata));
 	if (!frames.length) return new Uint8Array(0);
 	const body = concatBytes(...frames);
 	const header = new Uint8Array(10);
@@ -65,8 +73,8 @@ function selectPreferredTextFrames(entries) {
 			: undefined;
 		if (!frameId) continue;
 		const current = selected.get(frameId);
-		const priority = TEXT_FRAME_PRIORITIES[entry.normalizedKey] || 1;
-		const currentPriority = current ? TEXT_FRAME_PRIORITIES[current.normalizedKey] || 1 : 0;
+		const priority = entry.key === ID3_CANONICAL_FRAME_KEYS[frameId] ? 3 : TEXT_FRAME_PRIORITIES[entry.normalizedKey] || 1;
+		const currentPriority = current ? current.key === ID3_CANONICAL_FRAME_KEYS[frameId] ? 3 : TEXT_FRAME_PRIORITIES[current.normalizedKey] || 1 : 0;
 		if (!current || priority > currentPriority || (priority === currentPriority && entry.key < current.key)) {
 			selected.set(frameId, entry);
 		}
@@ -128,4 +136,10 @@ function concatBytes(...parts) {
 
 function writeAscii(view, offset, value) {
 	for (let index = 0; index < value.length; index += 1) view.setUint8(offset + index, value.charCodeAt(index));
+}
+
+function positionWithTotal(frameId, value, metadata) {
+	const total = frameId === 'TRCK' ? metadata.tracksTotal : frameId === 'TPOS' ? metadata.discsTotal : undefined;
+	if (total === undefined || !/^\d+$/.test(value) || !/^\d+$/.test(total)) return value;
+	return `${value}/${total}`;
 }

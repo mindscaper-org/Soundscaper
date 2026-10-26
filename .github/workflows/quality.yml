@@ -568,24 +568,16 @@ jobs:
         run: npm run coverage:check
 
   browser:
-    name: Browser / ${{ matrix.project }} ${{ matrix.shard }}/${{ matrix.project == 'webkit' && 8 || 4 }}
+    name: Browser / ${{ matrix.project }} ${{ matrix.shard }}/12
     needs: build
     strategy:
       fail-fast: false
-      # One WebKit worker avoids competing real-time audio clocks. Eight shards
-      # keep that full suite inside the hour budget; Chromium keeps four.
+      # Run 40155855679 exhausted WebKit shard 8's hour before completion.
+      # Twelve shards retain single-worker WebKit and instrumented Chromium
+      # workflows within the existing hour budget.
       matrix:
         project: [chromium, webkit]
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
-        exclude:
-          - project: chromium
-            shard: 5
-          - project: chromium
-            shard: 6
-          - project: chromium
-            shard: 7
-          - project: chromium
-            shard: 8
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     runs-on: ubuntu-24.04
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
@@ -686,18 +678,12 @@ jobs:
           path: .wrangler/browser-products/motionscaper-source-maps
 
       - name: Run browser workflows against the existing build
-        run: npm run test:browser:built -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}/${{ matrix.project == 'webkit' && 8 || 4 }} --workers=${{ matrix.project == 'webkit' && 1 || 2 }}
+        run: npm run test:browser:built -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}/12 --workers=${{ matrix.project == 'webkit' && 1 || 2 }}
         env:
           # Chromium is the only engine whose V8 coverage Playwright can read, so
           # it is the only one that records. Every other project runs exactly as
           # it did before, with the collector inert.
           SCAPE_BROWSER_COVERAGE: ${{ matrix.project == 'chromium' && '1' || '' }}
-          # 2026-10-06 Quality runs 37445798396 and 37459997191 both put
-          # Chromium's slowest workload on shard 4. Coarse weights leave
-          # shard 1 room for reciprocal-origin and handbook workflows.
-          # This internal option is verified for pinned Playwright 1.62.1;
-          # recheck --list coverage and serial groups when upgrading it.
-          PWTEST_SHARD_WEIGHTS: ${{ matrix.project == 'chromium' && '24:28:28:20' || '' }}
 
       - name: Run the reciprocal-origin editable-copy workflow
         if: matrix.project == 'chromium' && matrix.shard == 1
@@ -752,13 +738,14 @@ jobs:
           retention-days: 7
 
   firefox:
-    name: Browser / firefox ${{ matrix.shard }}/6
+    name: Browser / firefox ${{ matrix.shard }}/12
     needs: build
     strategy:
       fail-fast: false
-      # Six single-worker shards keep the expanded suite within its hour budget.
+      # Run 40155855679 needed 58 minutes for Firefox shard 4.
+      # Twelve retain the live audio clock with room within the existing hour.
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     runs-on: ubuntu-24.04
     # Run 37733071611 passed all 395 shard-2 tests in 44 minutes, then the
     # 45-minute job limit cancelled the job after setup overhead.
@@ -865,9 +852,9 @@ jobs:
 
       - name: Run Firefox workflows against the existing build
         # A second Firefox content process can starve the live AudioContext even
-        # after the PulseAudio clock probe passes. The six shard runners still
+        # after the PulseAudio clock probe passes. The twelve shard runners still
         # keep the suite parallel without competing for one runner's audio clock.
-        run: npm run test:browser:built -- --project=firefox --shard=${{ matrix.shard }}/6 --workers=1
+        run: npm run test:browser:built -- --project=firefox --shard=${{ matrix.shard }}/12 --workers=1
 
       - name: Upload Firefox diagnostics
         if: always()

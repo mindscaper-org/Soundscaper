@@ -1,4 +1,7 @@
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
 import { spectrumReport, clippingReport, normalizeSpectrumSize } from '../../specialized-audio-analysis.ts';
+import { AUDIO_CLIPPING_FULL_SCALE_THRESHOLD } from '../../audio-clipping-regions.ts';
 import { createLocalizedError, setLocalizedStatus } from '../../../i18n/presentation-message.ts';
 import { measureBextLoudness } from '../../broadcast-loudness.ts';
 import { EBU_R128_MAXIMUM_CHANNELS } from '../../ebu-r128.js';
@@ -162,9 +165,10 @@ export function createAudioAnalysisService(dependencies: AnalysisDependencies) {
 		const projectToken = dependencies.captureProject();
 		const task = begin('analysisRendering');
 		const key = [
-			'audio-editor-analysis-v4',
+			'audio-editor-analysis-v5',
 			request.projectId,
 			request.revision,
+			analysisDocumentFingerprint(project),
 			request.scope,
 			request.scope === 'track' ? request.selectedTrackId : 'master',
 			request.range.startFrame,
@@ -172,7 +176,8 @@ export function createAudioAnalysisService(dependencies: AnalysisDependencies) {
 		].join(':');
 		try {
 			assertAnalysisChannelAdmission(project);
-			const cached = readStoredAnalysis(await dependencies.loadAnalysis(key));
+			// Cache availability is optional; measurement and report export remain usable without it.
+			const cached = readStoredAnalysis(await dependencies.loadAnalysis(key).catch(() => null));
 			assertCurrent(task, projectToken, request);
 			if (cached?.result) {
 				complete(task, () => {
@@ -191,7 +196,7 @@ export function createAudioAnalysisService(dependencies: AnalysisDependencies) {
 				visuals,
 				report,
 				createdAt: new Date().toISOString(),
-			});
+			}).catch(() => undefined);
 			assertCurrent(task, projectToken, request);
 			complete(task, () => {
 				remember({ type: 'levels', scope });
@@ -216,8 +221,8 @@ export function createAudioAnalysisService(dependencies: AnalysisDependencies) {
 			assertAnalysisChannelAdmission(project);
 			const reportOptions = type === 'spectrum'
 				? { size: normalizeSpectrumSize(options.size ?? dependencies.getSpectrumWindowSize()) }
-				: { threshold: Number(options.threshold ?? 1), minimumConsecutiveSamples: Number(options.minimumConsecutiveSamples ?? 3) };
-			const key = JSON.stringify([request, type, reportOptions]);
+				: { threshold: Number(options.threshold ?? AUDIO_CLIPPING_FULL_SCALE_THRESHOLD), minimumConsecutiveSamples: Number(options.minimumConsecutiveSamples ?? 3) };
+			const key = JSON.stringify([analysisDocumentFingerprint(project), request, type, reportOptions]);
 			if (specializedCache?.key === key) {
 				const cached = specializedCache;
 				complete(task, () => {
@@ -487,6 +492,11 @@ function captureRequest(project: AnalysisProjectIdentity, scope: string, range: 
 		selectedTrackId: scope === 'track' ? selectedTrackId : null,
 		range: Object.freeze({ startFrame: range.startFrame, endFrame: range.endFrame }),
 	});
+}
+
+/** Numeric revisions can recur when a saved document is reopened and branched. */
+function analysisDocumentFingerprint(project: AnalysisProjectIdentity): string {
+	return bytesToHex(sha256(new TextEncoder().encode(JSON.stringify(project))));
 }
 
 function assertAnalysisChannelAdmission(project: AnalysisProjectIdentity): void {

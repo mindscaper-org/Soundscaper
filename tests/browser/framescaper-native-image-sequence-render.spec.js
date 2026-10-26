@@ -9,6 +9,8 @@ import {
 	collectClientErrors,
 } from './audio-editor-test-helpers.js';
 
+import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
+
 const WORKFLOW = { timeout: 120_000 };
 
 test('renders an imported native image sequence through the pathless desktop decode bridge', async ({ page }) => {
@@ -81,9 +83,80 @@ test('renders an imported native image sequence through the pathless desktop dec
 	expect(clientErrors).toEqual([]);
 });
 
-async function installNativeImageSequenceFixture(page) {
+test('native image sequence picker cancellation returns to ready without reporting a completed import', async ({ page }) => {
+	await installNativeImageSequenceFixture(page, true);
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	await expect.poll(() => page.evaluate(() => globalThis.__nativeSequenceJourney.snapshots)).toBeGreaterThan(0);
+	await chooseCommandAction(page, editor, 'File', 'Image sequence', WORKFLOW);
+	const dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
+	const action = dialog.locator('[data-framescaper-native-project-action="image-sequence-import"]');
+	const status = action.locator('xpath=ancestor::section[1]').getByRole('status');
+	const ready = await status.textContent();
+	await action.click();
+	await expect(status).toHaveText(ready, WORKFLOW);
+	await expect(status).not.toContainText(/complete/iu);
+	await expect(action).toBeEnabled();
+	await expect(editor.locator('[data-project-bin-item]')).toHaveCount(0);
+	expect(await page.evaluate(() => globalThis.__nativeSequenceJourney.importOperations)).toEqual([]);
+});
+
+test('copied native sequence media survives deleting its old project and pasting into a new one', async ({ page }) => {
+	await installNativeImageSequenceFixture(page);
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	await chooseCommandAction(page, editor, 'File', 'Image sequence', WORKFLOW);
+	const native = page.locator('[data-framescaper-native-services-dialog="true"]');
+	const action = native.locator('[data-framescaper-native-project-action="image-sequence-import"]');
+	await action.click();
+	await expect(action.locator('xpath=ancestor::section[1]').getByRole('status')).toContainText(/complete/iu, WORKFLOW);
+	await native.locator('button').filter({ hasText: /^Close$/u }).click();
+	await editor.locator('[data-project-bin-item]').first().getByRole('button', { name: /Add to timeline:/u }).click();
+	await expect(editor).toHaveAttribute('data-clip-count', '1');
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+	const copiedClip = editor.locator('[data-clip-id][role="group"]').first();
+	await expect(copiedClip.locator('.clip-display')).toHaveClass(/clip-display--selected/u);
+	await chooseCommandAction(page, editor, 'Edit', 'Copy');
+	// A normal old project has already passed the media publication's grace period.
+	await page.evaluate(databaseName => new Promise((resolve, reject) => {
+		const request = indexedDB.open(databaseName);
+		request.onerror = () => reject(request.error);
+		request.onsuccess = () => {
+			const database = request.result, transaction = database.transaction('mediaAssets', 'readwrite');
+			const store = transaction.objectStore('mediaAssets'), rows = store.getAll();
+			rows.onsuccess = () => { for (const row of rows.result) store.put({ ...row, committedAt: '2020-01-01T00:00:00.000Z', pendingProjectUntil: '2020-01-02T00:00:00.000Z' }); };
+			transaction.oncomplete = () => { database.close(); resolve(); };
+			transaction.onerror = () => reject(transaction.error);
+		};
+	}), FRAMESCAPER_DATABASE_NAME);
+	const retainedKeys = await nativeSequenceStorageKeys(page);
+	expect(retainedKeys).toHaveLength(2);
+	const originalId = await editor.getAttribute('data-project-id');
+	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Delete project']);
+	const confirmation = page.getByRole('dialog', { name: 'Delete this project?', exact: true });
+	await confirmation.getByRole('button', { name: 'Delete permanently', exact: true }).click();
+	await expect(editor).not.toHaveAttribute('data-project-id', originalId);
+	await chooseNestedCommandAction(page, editor, 'Edit', ['Paste', 'Paste']);
+	await expect(editor).toHaveAttribute('data-clip-count', '1');
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+	expect(await nativeSequenceStorageKeys(page)).toEqual(retainedKeys);
+});
+
+async function nativeSequenceStorageKeys(page) {
+	return page.evaluate(databaseName => new Promise((resolve, reject) => {
+		const request = indexedDB.open(databaseName);
+		request.onerror = () => reject(request.error);
+		request.onsuccess = () => {
+			const database = request.result, transaction = database.transaction('mediaAssets', 'readonly');
+			const rows = transaction.objectStore('mediaAssets').getAll();
+			rows.onsuccess = () => resolve(rows.result.map(row => row.sourceId).filter(id => id.startsWith('image-sequence-')).sort());
+			transaction.oncomplete = () => database.close();
+			transaction.onerror = () => reject(transaction.error);
+		};
+	}), FRAMESCAPER_DATABASE_NAME);
+}
+
+async function installNativeImageSequenceFixture(page, cancelImageSelection = false) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(() => {
+	await page.addInitScript((cancelImageSelection) => {
 		const FRAME_COUNT = 2;
 		const WIDTH = 2;
 		const HEIGHT = 2;
@@ -163,7 +236,7 @@ async function installNativeImageSequenceFixture(page) {
 				hardwareEncodeEnabled: false,
 				ofxConsentEnabled: false,
 			}),
-			selectImageSequence: async () => ({
+			selectImageSequence: async () => cancelImageSelection ? null : ({
 				selectionId: 'c'.repeat(40),
 				files: sourceFrames.map(({ fileId, name, bytes }) => ({
 					fileId, name, byteLength: bytes.byteLength,
@@ -328,5 +401,5 @@ async function installNativeImageSequenceFixture(page) {
 				}),
 			}),
 		});
-	});
+	}, cancelImageSelection);
 }

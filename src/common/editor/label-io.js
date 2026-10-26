@@ -1,5 +1,7 @@
-import { decodeWebVttLabelText, encodeWebVttLabelText } from './label-cue-text.ts';
+import { decodeSubRipLabelText, decodeWebVttLabelText, encodeWebVttLabelText } from './label-cue-text.ts';
 import { decodeLabelInputText } from './label-input-text.ts';
+import { labelTimeFrame } from './label-time-frame.ts';
+import { AUDIO_EDITOR_LABEL_MAX_INPUT_CHARS } from './label-input-limits.ts';
 
 export const AUDIO_EDITOR_LABEL_FORMATS = Object.freeze(['txt', 'srt', 'vtt']);
 export const AUDIO_EDITOR_LABEL_EXPORT_FORMATS = Object.freeze([...AUDIO_EDITOR_LABEL_FORMATS, 'json']);
@@ -7,10 +9,10 @@ export const AUDIO_EDITOR_LABEL_EXPORT_FORMATS = Object.freeze([...AUDIO_EDITOR_
 const FORMAT_SET = new Set(AUDIO_EDITOR_LABEL_FORMATS);
 const EXPORT_FORMAT_SET = new Set(AUDIO_EDITOR_LABEL_EXPORT_FORMATS);
 const DEFAULT_SAMPLE_RATE = 48_000;
-const DEFAULT_MAX_INPUT_CHARS = 16 * 1024 * 1024;
 const DEFAULT_MAX_LABELS = 100_000;
 const DEFAULT_MAX_TITLE_CHARS = 1_000_000;
 const DEFAULT_MAX_TOTAL_TITLE_CHARS = 8 * 1024 * 1024;
+const WEBVTT_METADATA_HEADER = /^(?:NOTE(?:[ \t]|$)|(?:STYLE|REGION)[ \t]*$)/u;
 const TIME_ARROW = /\s+-->\s+/;
 
 /** Error with machine-readable context for a malformed label file. */
@@ -24,7 +26,7 @@ export class AudioEditorLabelIoError extends Error {
 }
 
 /**
- * Detect label interchange format from an explicit format, filename, or text.
+ * Detect label interchange format from an explicit format, filename, MIME, or text.
  * Explicit values always win so a caller never has to rely on content sniffing.
  */
 export function detectAudioEditorLabelFormat(options = {}) {
@@ -33,6 +35,9 @@ export function detectAudioEditorLabelFormat(options = {}) {
 	if (explicit) return assertFormat(explicit);
 	const match = String(options.filename || '').trim().toLowerCase().match(/\.([^.]+)$/);
 	if (match && FORMAT_SET.has(match[1])) return match[1];
+	const mimeType = String(options.mimeType || '').split(';', 1)[0].trim().toLowerCase();
+	if (mimeType === 'application/x-subrip') return 'srt';
+	if (mimeType === 'text/vtt') return 'vtt';
 	const text = stripBom(String(options.text || '')).trimStart();
 	if (/^WEBVTT(?:\s|$)/i.test(text)) return 'vtt';
 	if (/^(?:\d+\s*\r?\n)?\s*\d{1,}:\d{2}:\d{2}[,.]\d{1,3}\s+-->\s+/m.test(text)) return 'srt';
@@ -113,7 +118,7 @@ function normalizeInput(input, options) {
 	} else {
 		throw new TypeError('Label data must be a string, Uint8Array, or ArrayBuffer.');
 	}
-	const maxInputChars = positiveSafeInteger(options.maxInputChars ?? DEFAULT_MAX_INPUT_CHARS, 'maxInputChars');
+	const maxInputChars = positiveSafeInteger(options.maxInputChars ?? AUDIO_EDITOR_LABEL_MAX_INPUT_CHARS, 'maxInputChars');
 	if (text.length > maxInputChars) {
 		throw labelError('Label data exceeds the configured input limit.', 'INPUT_LIMIT', {
 			limit: maxInputChars,
@@ -154,11 +159,11 @@ function createSerializeContext(options, format) {
 function parseTxtEntries(text, context) {
 	const entries = [];
 	const lines = text.split('\n');
+	let previous = null;
 	for (let index = 0; index < lines.length; index += 1) {
 		const line = lines[index];
 		if (!line.trim()) continue;
 		if (line.startsWith('\\')) {
-			const previous = entries.at(-1);
 			if (!previous) {
 				recoverableError(context, 'A TXT continuation has no preceding label.', 'ORPHAN_CONTINUATION', { line: index + 1 });
 				continue;
@@ -173,18 +178,21 @@ function parseTxtEntries(text, context) {
 				} else {
 					recoverableError(context, 'A TXT frequency continuation is malformed.', 'INVALID_CONTINUATION', { line: index + 1 });
 				}
-			} else if (fields[0] === '\\') recoverableError(context, 'A TXT continuation is malformed.', 'INVALID_CONTINUATION', { line: index + 1 });
+			} else recoverableError(context, 'A TXT continuation is malformed.', 'INVALID_CONTINUATION', { line: index + 1 });
 			continue;
 		}
+		previous = null;
 		try {
 			assertCanAddLabel(entries, context, index + 1);
 			const fields = line.split('\t');
 			if (fields.length < 2) throw labelError('A TXT label needs a time and title.', 'INVALID_TXT_ROW', { line: index + 1 });
 			const startSeconds = requiredSeconds(fields[0], { line: index + 1, field: 'start' });
-			const possibleEnd = parseFiniteNumber(fields[1]);
+			const possibleEnd = fields.length >= 3 ? parseFiniteNumber(fields[1]) : null;
 			const endSeconds = possibleEnd == null ? startSeconds : requiredSeconds(fields[1], { line: index + 1, field: 'end' });
 			const title = possibleEnd == null ? fields.slice(1).join('\t') : fields.slice(2).join('\t');
-			entries.push(validateEntry({ startSeconds, endSeconds, title, line: index + 1 }, context));
+			previous = validateEntry({ startSeconds, endSeconds, startTimeText: fields[0],
+				endTimeText: possibleEnd == null ? fields[0] : fields[1], title, line: index + 1 }, context);
+			entries.push(previous);
 		} catch (error) {
 			handleEntryError(error, context, { line: index + 1 });
 		}
@@ -207,7 +215,7 @@ function parseTimedEntries(text, context, format) {
 		while (index < lines.length && !lines[index].trim()) index += 1;
 		if (index >= lines.length) break;
 		const cueStartLine = index + 1;
-		if (format === 'vtt' && /^(NOTE|STYLE|REGION)(?:[ \t]|$)/.test(lines[index])) {
+		if (format === 'vtt' && WEBVTT_METADATA_HEADER.test(lines[index])) {
 			while (index < lines.length && lines[index].trim()) index += 1;
 			continue;
 		}
@@ -227,7 +235,7 @@ function parseTimedEntries(text, context, format) {
 			const timing = parseCueTiming(timingLine, format, cueStartLine + (identifier == null ? 0 : 1));
 			entries.push(validateEntry({
 				...timing,
-				title: format === 'vtt' ? decodeWebVttLabelText(titleLines.join('\n')) : titleLines.join('\n'),
+				title: format === 'vtt' ? decodeWebVttLabelText(titleLines.join('\n')) : decodeSubRipLabelText(titleLines.join('\n')),
 				identifier,
 				line: cueStartLine,
 			}, context));
@@ -243,41 +251,32 @@ function parseCueTiming(line, format, lineNumber) {
 	if (parts.length !== 2) throw labelError('A subtitle timing line must contain one arrow.', 'INVALID_CUE_TIMING', { line: lineNumber });
 	const startToken = parts[0].trim();
 	const endToken = parts[1].trim().split(/[ \t]+/, 1)[0];
+	const start = parseTimestamp(startToken, format, lineNumber);
+	const end = parseTimestamp(endToken, format, lineNumber);
 	return {
-		startSeconds: parseTimestamp(startToken, format, lineNumber),
-		endSeconds: parseTimestamp(endToken, format, lineNumber),
+		startSeconds: start.seconds, endSeconds: end.seconds,
+		startTimeText: start.secondsText, endTimeText: end.secondsText,
 	};
 }
 
 function parseTimestamp(value, format, line) {
-	const separator = format === 'srt' ? ',' : '\\.';
+	const separator = format === 'srt' ? '[,.]' : '\\.';
 	const expression = format === 'vtt'
 		? new RegExp(`^(?:(\\d+):)?([0-5]\\d):([0-5]\\d)${separator}(\\d{1,3})$`)
 		: new RegExp(`^(\\d+):([0-5]\\d):([0-5]\\d)${separator}(\\d{1,3})$`);
 	const match = value.match(expression);
 	if (!match) throw labelError('A subtitle timestamp is malformed.', 'INVALID_TIMESTAMP', { line, value });
-	let hours;
-	let minutes;
-	let seconds;
-	let fraction;
-	if (format === 'vtt') {
-		hours = Number(match[1] || 0);
-		minutes = Number(match[2]);
-		seconds = Number(match[3]);
-		fraction = match[4];
-	} else {
-		hours = Number(match[1]);
-		minutes = Number(match[2]);
-		seconds = Number(match[3]);
-		fraction = match[4];
-	}
-	const milliseconds = Number(fraction.padEnd(3, '0'));
-	const result = hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
+	const fraction = match[4];
+	const milliseconds = BigInt(format === 'srt' ? fraction : fraction.padEnd(3, '0'));
+	const total = ((BigInt(match[1] || 0) * 60n + BigInt(match[2])) * 60n + BigInt(match[3])) * 1000n + milliseconds;
+	const result = Number(total) / 1000;
 	if (!Number.isFinite(result)) throw labelError('A subtitle timestamp is outside the supported range.', 'INVALID_TIMESTAMP', { line, value });
-	return result;
+	return { seconds: result, secondsText: `${total}e-3` };
 }
 
 function validateEntry(entry, context) {
+	secondsToFrame(entry.startSeconds, context.sampleRate, entry.line, entry.startTimeText);
+	secondsToFrame(entry.endSeconds, context.sampleRate, entry.line, entry.endTimeText);
 	if (entry.endSeconds < entry.startSeconds) {
 		throw labelError('A label end cannot precede its start.', 'REVERSED_RANGE', { line: entry.line });
 	}
@@ -300,8 +299,8 @@ function validateEntry(entry, context) {
 }
 
 function materializeLabel(entry, index, context) {
-	const startFrame = secondsToFrame(entry.startSeconds, context.sampleRate, entry.line);
-	const endFrame = secondsToFrame(entry.endSeconds, context.sampleRate, entry.line);
+	const startFrame = secondsToFrame(entry.startSeconds, context.sampleRate, entry.line, entry.startTimeText);
+	const endFrame = secondsToFrame(entry.endSeconds, context.sampleRate, entry.line, entry.endTimeText);
 	const id = nonEmptyString(String(context.idFactory(index, Object.freeze({ ...entry, startFrame, endFrame }))), `label ID at index ${index}`);
 	const opaqueExtensions = {};
 	if (entry.identifier) opaqueExtensions.cueIdentifier = entry.identifier;
@@ -349,7 +348,12 @@ function serializeTxt(labels, context) {
 function serializeTimed(labels, context, format) {
 	const lines = format === 'vtt' ? ['WEBVTT', ''] : [];
 	labels.forEach((label, index) => {
-		if (context.includeCueIdentifiers) lines.push(String(format === 'srt' ? index + 1 : label.opaqueExtensions?.cueIdentifier || index + 1));
+		if (context.includeCueIdentifiers) {
+			const identifier = String(label.opaqueExtensions?.cueIdentifier || index + 1);
+			const safe = !/[\r\n\0]/u.test(identifier) && !identifier.includes('-->')
+				&& !WEBVTT_METADATA_HEADER.test(identifier);
+			lines.push(String(format === 'srt' || !safe ? index + 1 : identifier));
+		}
 		const startMilliseconds = Math.round(label.startFrame * 1000 / context.sampleRate);
 		// Subtitle cues must last at least one representable millisecond. A point
 		// label or a shorter range would otherwise disappear during playback.
@@ -371,7 +375,7 @@ function serializeTimed(labels, context, format) {
 
 function serializePodcastJson(labels, context) {
 	const chapters = labels.map((label) => ({
-		startTime: Math.round(label.startFrame / context.sampleRate * 1000) / 1000,
+		startTime: label.startFrame / context.sampleRate,
 		title: label.title,
 	}));
 	const text = `${JSON.stringify({ version: '1.2.0', chapters }, null, 2)}\n`
@@ -396,9 +400,9 @@ function formatFrameSeconds(frame, sampleRate) {
 	return text === '-0' ? '0' : text;
 }
 
-function secondsToFrame(seconds, sampleRate, line) {
-	const frame = Math.round(seconds * sampleRate);
-	if (!Number.isSafeInteger(frame) || frame < 0) {
+function secondsToFrame(seconds, sampleRate, line, exactText = String(seconds)) {
+	const frame = labelTimeFrame(exactText, sampleRate);
+	if (frame === null || !Number.isSafeInteger(frame) || frame < 0) {
 		throw labelError('A label time is outside the supported frame range.', 'TIME_RANGE', { line, seconds, sampleRate });
 	}
 	return frame;

@@ -30,6 +30,8 @@ export function projectProductionStemSnapshot(value: unknown, trackId: string): 
 	project.automationLanes = project.automationLanes.filter(value => {
 		const { address } = normalizeAutomationLaneV21(value);
 		if (address.kind === 'edge') return isolation.retainedEdges.has(address.edgeId);
+		if (address.kind === 'strip' && address.strip.kind === 'track'
+			&& address.parameterId === 'mute' && address.strip.id === trackId) return false;
 		return address.strip.kind !== 'master';
 	});
 	project.master = { ...project.master, gain: 1, pan: 0, mute: false, solo: false,

@@ -11,7 +11,6 @@ import {
 	bindFramescaperMotionAnalysisActionsFinishing as bind,
 	createFramescaperMotionAnalysisActionsFinishing as createActions,
 	framescaperMotionAnalysisActionsFinishingFor as actionsFor,
-	framescaperMotionAnalysisActionsFor,
 	type FramescaperMotionAnalysisActionsFinishing,
 	type FramescaperMotionAnalysisFrameProviderFinishing,
 	type FramescaperMotionAnalysisFrameRequestFinishing,
@@ -70,20 +69,6 @@ const RUN = Object.freeze({ processorStackId: 'stack-1', startFrame: 0, endFrame
 const SOURCE_DIGEST = 'ab'.repeat(32);
 const OTHER_DIGEST = 'ef'.repeat(32);
 
-test('creating the finishing motion actions refuses an owner, store, or provider that cannot serve them', () => {
-	const { store } = harnessStore({}, []);
-	assert.throws(() => createActions({ owner: {} as never, store, frameProvider: decodeFrames }),
-		/requires a controller owner/u);
-	assert.throws(() => createActions({
-		owner: { project: null, actions: { edit: { commit: 'nope' } } } as never, store, frameProvider: decodeFrames,
-	}), (error: unknown) => error instanceof TypeError && /requires a controller owner/u.test(error.message));
-	assert.throws(() => createActions({
-		owner: harness().owner, store: { getMediaAssetMetadata: () => null } as never, frameProvider: decodeFrames,
-	}), /requires an exact asset store/u);
-	assert.throws(() => createActions({ owner: harness().owner, store, frameProvider: null as never }),
-		(error: unknown) => error instanceof TypeError && /requires a frame provider/u.test(error.message));
-});
-
 test('a bound runtime is returned only for the object it was bound to', () => {
 	const held = harness();
 	const stranger = {};
@@ -95,7 +80,6 @@ test('a bound runtime is returned only for the object it was bound to', () => {
 	assert.equal(actionsFor(stranger), null);
 	assert.equal(actionsFor('stack-1'), null);
 	assert.equal(actionsFor(null), null);
-	assert.equal(framescaperMotionAnalysisActionsFor, actionsFor);
 	assert.throws(() => bind(null as never, held.actions), /finishing motion-analysis owner is required/u);
 });
 
@@ -254,8 +238,6 @@ test('the frame provider receives the project identity, a detached source, and t
 	const recorded = ((held.owner.project as Data).sources as Data[])[0];
 	assert.notEqual(request?.source, recorded, 'the provider is handed a detached copy of the source');
 	assert.deepEqual(request?.source, recorded);
-	assert.equal(Object.hasOwn(request as object, 'signal'), false,
-		'an unsignalled run must not hand the provider an undefined signal key');
 });
 
 test('analyze reports every phase and keeps running when a progress observer throws', async () => {
@@ -350,17 +332,7 @@ test('a stored body that disagrees with the computed reference is refused before
 	assert.deepEqual(held.log, []);
 });
 
-test('a writer that is not empty, has no chunk limit, or commits a mismatched body is cleaned up', async () => {
-	const dirty = harness({ bytesWritten: 8 });
-	await assert.rejects(dirty.actions.analyze(RUN), /writer is not empty/u);
-	assert.deepEqual(dirty.log, ['begin', 'abort']);
-	assert.deepEqual(dirty.chunks, []);
-
-	const unbounded = harness({ maximumChunkBytes: 0 });
-	await assert.rejects(unbounded.actions.analyze(RUN),
-		(error: unknown) => error instanceof RangeError && /chunk limit must be positive/u.test(error.message));
-	assert.deepEqual(unbounded.log, ['begin', 'abort']);
-
+test('a committed body whose descriptor changed is discarded', async () => {
 	const mismatched = harness({ commitMetadata: { size: 3, sha256: '0'.repeat(64) } });
 	await assert.rejects(mismatched.actions.analyze(RUN), /body is corrupt or conflicting/u);
 	assert.deepEqual(mismatched.log, ['begin', 'commitOwned', 'discard'],

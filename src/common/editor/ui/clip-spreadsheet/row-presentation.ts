@@ -8,17 +8,37 @@ export function useSpreadsheetRowIdentity(rows: readonly ClipSpreadsheetRow[]): 
 }
 
 export function useSpreadsheetRows(rows: readonly ClipSpreadsheetRow[], labels: Readonly<Record<string, string>>) {
-	return useMemo(() => rows.map((row, rowIndex) => ({
-		row,
-		label: formatLocalizedTemplate(labels.selectRow, { row: rowIndex + 1 }),
-		cells: CLIP_SPREADSHEET_COLUMNS.map((column, columnIndex) => {
-			const editable = isClipSpreadsheetCellEditable(row, column.id);
+	return useMemo(() => {
+		// Three boolean flags produce at most eight column descriptor shapes.
+		const shapes = new Map<number, SpreadsheetCellPresentation[]>();
+		return rows.map((row, rowIndex) => {
+			const shape = Number(row.editable) + Number(Boolean(row.pitchLinked)) * 2 + Number(Boolean(row.warpMapped)) * 4;
+			let cells = shapes.get(shape);
+			if (!cells) {
+				cells = CLIP_SPREADSHEET_COLUMNS.map((column, columnIndex) => {
+					const editable = isClipSpreadsheetCellEditable(row, column.id);
+					return {
+						id: column.id, column: columnIndex, editable, label: labels[column.id],
+						title: editable ? undefined : row.pitchLinked && column.id === 'pitch' ? labels.linkedPitchReadOnly : labels.readOnly,
+					};
+				});
+				shapes.set(shape, cells);
+			}
 			return {
-				id: column.id, column: columnIndex, editable, label: labels[column.id],
-				title: editable ? undefined : row.pitchLinked && column.id === 'pitch' ? labels.linkedPitchReadOnly : labels.readOnly,
+				row,
+				label: formatLocalizedTemplate(labels.selectRow, { row: rowIndex + 1 }),
+				cells,
 			};
-		}),
-	})), [rows, labels]);
+		});
+	}, [rows, labels]);
+}
+
+interface SpreadsheetCellPresentation {
+	readonly id: (typeof CLIP_SPREADSHEET_COLUMNS)[number]['id'];
+	readonly column: number;
+	readonly editable: boolean;
+	readonly label: string;
+	readonly title: string | undefined;
 }
 
 export type SpreadsheetRowPresentation = ReturnType<typeof useSpreadsheetRows>[number];

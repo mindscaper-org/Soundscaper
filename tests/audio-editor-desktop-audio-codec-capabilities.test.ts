@@ -11,7 +11,6 @@ import {
 
 test('desktop media capabilities are fail-closed until exact main tuples are admitted', () => {
 	const query = createDesktopAudioCodecCapabilityQuery({ sampleRate: 48_000, channelCount: 2 });
-	assert.equal(query.operations.length, 14);
 	const unavailable = desktopAudioCodecMediaExportCapabilities(null, query);
 	for (const format of ['flac', 'mp3', 'ogg-vorbis', 'opus', 'wavpack', 'mp2', 'aac-m4a']) {
 		assert.equal(unavailable.formats[format]?.available, false, format);

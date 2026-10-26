@@ -12,7 +12,7 @@ import audacityNotice from '../../../i18n/translations/NOTICE.md?raw';
 import audacityLicense from '../../../i18n/translations/LICENSE.txt?raw';
 
 export interface CommunityTranslationFileService {
-	saveFile(request: { purpose: 'interchange'; text?: string; bytes?: Uint8Array; mimeType: string; suggestedName: string }): Promise<unknown>;
+	saveFile(request: { purpose: 'translation'; text?: string; bytes?: Uint8Array; mimeType: string; suggestedName: string }): Promise<unknown>;
 }
 
 export async function loadCommunityTranslationSnapshot(locale: string): Promise<{
@@ -31,7 +31,7 @@ export async function exportCommunityTranslationJson(
 	draft: TranslationContribution,
 ): Promise<void> {
 	await fileService.saveFile({
-		purpose: 'interchange',
+		purpose: 'translation',
 		text: serializeTranslationContribution(draft), mimeType: 'application/json',
 		suggestedName: `soundscaper-translations-${draft.locale}.json`,
 	});
@@ -53,7 +53,7 @@ export async function exportCommunityTranslationPo(
 		'LICENSE.txt': strToU8(audacityLicense),
 	});
 	await fileService.saveFile({
-		purpose: 'interchange',
+		purpose: 'translation',
 		bytes, mimeType: 'application/zip', suggestedName: `soundscaper-translations-${snapshot.locale}.zip`,
 	});
 }

@@ -10,9 +10,11 @@ test.use({ browserCoverage: false });
 
 async function samples(page, editor) {
 	const dialog = await openExportDialog(page, editor);
-	await dialog.getByRole('button', { name: 'Export', exact: true }).click();
 	const link = dialog.locator('[data-export-download]');
+	const previousDownload = await link.count() ? await link.getAttribute('href') : null;
+	await dialog.getByRole('button', { name: 'Export', exact: true }).click();
 	await expect(link).toBeVisible();
+	await expect.poll(() => link.getAttribute('href')).not.toBe(previousDownload);
 	const downloading = page.waitForEvent('download'); await link.click();
 	const download = await downloading;
 	const bytes = await downloadBytes(download); await download.delete();

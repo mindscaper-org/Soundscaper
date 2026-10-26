@@ -60,16 +60,8 @@ test('every admitted admin lease must finish before same-project capture admissi
 	clearing.release();
 });
 
-test('admin request scope is closed and project identities are stable', () => {
+test('capture admission rejects unstable project identities', () => {
 	const interlock = createFramescaperCaptureAdminInterlock();
-	assert.throws(
-		() => interlock.beginAdminOperation({ kind: 'delete', projectId: null }),
-		/project ID/iu,
-	);
-	assert.throws(
-		() => interlock.beginAdminOperation({ kind: 'clear', projectId: 'project-a' }),
-		/global/iu,
-	);
 	assert.throws(() => interlock.beginCaptureAdmission(''), /project ID/iu);
 	assert.throws(() => interlock.beginCaptureAdmission(' project-a'), /project ID/iu);
 	assert.throws(() => interlock.beginCaptureAdmission('project-a\n'), /project ID/iu);

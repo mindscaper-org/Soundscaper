@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { individualPreFaderPrintWidth } from './internal/mix-render/individual-pre-fader-print.ts';
 import { isAudacityRackEffectType } from '../../effects.js';
 import { isSoundscaperProductionProject } from '../../project-schema-version.ts';
 import {
@@ -30,7 +31,8 @@ export function predictIndividualMixRenderOutputChannelCount(
 	targetTrack: ControllerTrack,
 	renderEffects = true,
 ): number | null {
-	return predictOutputChannelCount(project, [targetTrack], renderEffects, false);
+	return individualPreFaderPrintWidth(project, targetTrack, renderEffects)
+		?? predictOutputChannelCount(project, [targetTrack], renderEffects, false);
 }
 
 /** Return the exact combined-output widths offered by the Mix and Render dialog. */

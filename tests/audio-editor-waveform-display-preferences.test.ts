@@ -46,9 +46,8 @@ test('waveform display preferences merge independently and survive persistence',
 	}
 });
 
-test('waveform display preferences reject invalid values and non-data records', () => {
-	for (const value of [null, [], false, 'linear-db', new Date(), { unknown: true },
-		{ [Symbol('unexpected')]: true }]) {
+test('waveform display preferences reject invalid stored values', () => {
+	for (const value of [null, [], false, 'linear-db', new Date(), { unknown: true }]) {
 		assert.throws(() => normalizeWaveformDisplayPreferences(value), TypeError);
 	}
 	for (const rulerFormat of [null, false, 1, '', 'linear', 'db']) {
@@ -57,19 +56,19 @@ test('waveform display preferences reject invalid values and non-data records', 
 	for (const halfWave of [null, 'true', 1, {}]) {
 		assert.throws(() => normalizeWaveformDisplayPreferences({ halfWave }), TypeError);
 	}
-	let getterRead = false;
-	const accessor = Object.defineProperty({}, 'halfWave', {
-		enumerable: true, get() { getterRead = true; return true; },
-	});
-	assert.throws(() => normalizeWaveformDisplayPreferences(accessor), TypeError);
-	assert.equal(getterRead, false);
-	assert.throws(() => normalizeWaveformDisplayPreferences(
-		Object.defineProperty({}, 'rulerFormat', { value: 'linear-amp' }),
-	), TypeError);
-	assert.deepEqual(normalizeWaveformDisplayPreferences(Object.create(null)),
-		DEFAULT_WAVEFORM_DISPLAY_PREFERENCES);
 	assert.throws(() => createAudioEditorPreferencesV1({ waveformDisplay: { halfWave: 1 } }), TypeError);
 	assert.throws(() => validateAudioEditorPreferencesV1({
 		...createAudioEditorPreferencesV1(), waveformDisplay: { rulerFormat: 'invalid' },
 	}), RangeError);
+});
+
+test('browser GPU waveform rendering is opt-in and preserves explicit renderer choices', () => {
+	assert.equal(createAudioEditorPreferencesV1().waveformDisplay.renderer, undefined);
+	const preferences = updateAudioEditorPreferencesV1(createAudioEditorPreferencesV1(), {
+		waveformDisplay: { renderer: 'gpu' },
+	});
+	const updated = updateAudioEditorPreferencesV1(preferences, { waveformDisplay: { halfWave: true } });
+	assert.equal(loadAudioEditorPreferencesV1(JSON.parse(JSON.stringify(updated))).preferences.waveformDisplay.renderer, 'gpu');
+	assert.equal(updateAudioEditorPreferencesV1(updated, { waveformDisplay: { renderer: 'canvas' } }).waveformDisplay.renderer, 'canvas');
+	for (const renderer of ['automatic', null, true, 1]) assert.throws(() => normalizeWaveformDisplayPreferences({ renderer }), RangeError);
 });

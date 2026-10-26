@@ -116,7 +116,8 @@ test('exact picture execution uses delivery ordinals to animate noise', async ()
 		const tenth = await render(10);
 		const eleventh = await render(11);
 		assert.deepEqual([...tenth.subarray(4, 8)], [142, 142, 142, 255]);
-		assert.deepEqual([...eleventh.subarray(4, 8)], [68, 68, 68, 255]);
+		// Raw sRGB82 converts directly to Rec.70967; an intermediate linear byte rounded it to68.
+		assert.deepEqual([...eleventh.subarray(4, 8)], [67, 67, 67, 255]);
 		assert.deepEqual(tenth, await render(10));
 	} finally {
 		await exact.dispose();

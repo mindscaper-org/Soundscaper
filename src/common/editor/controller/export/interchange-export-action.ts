@@ -5,6 +5,7 @@ import { createProjectEdlExport } from '../../edl-project-adapter.ts';
 import { type OtioExportResult, createOtioExport } from '../../otio-export.ts';
 import { type FcpxmlExportResult, createFcpxmlExport } from '../../fcpxml-export.ts';
 import { projectForRuntimeConsumers } from '../../project-current-runtime.ts';
+import { exportSequenceProject } from '../../export-sequence-project.ts';
 import { resolveSequenceTimingView } from '../../sequence-timing-model.ts';
 import {
 	inheritTrackFolderMediaStateProjectionV12,
@@ -14,12 +15,13 @@ import type { DeliveryReportState } from './export-state.ts';
 import type { DeliveryReport } from '../../delivery-report.ts';
 import { reportInterchangeAudioOmissions } from './internal/interchange-audio-omissions.ts';
 import { reportInterchangePictureOmissions } from './internal/interchange-picture-omissions.ts';
+import { withInterchangeExportTiming, type InterchangeTimingRuntime } from './interchange-export-timing.ts';
 import { projectInterchangeMulticamera, reportInterchangeMulticameraConversion, type InterchangeProductProjection } from '../../interchange-multicamera-delivery.ts';
 import {
 	admitInterchangeVisualProject,
 	reportInterchangeVisualOmissions,
 	type InterchangeVisualOmission,
-} from './internal/interchange-visual-admission.ts';
+} from '../../interchange-visual-admission.ts';
 
 /**
  * Export the current project through an interchange profile.
@@ -33,7 +35,7 @@ import {
  * ones with no surface.
  */
 
-interface InterchangeRuntime {
+interface InterchangeRuntime extends InterchangeTimingRuntime {
 	readonly getProject: () => Readonly<Record<string, unknown>> | null | undefined;
 	readonly state: DeliveryReportState;
 	readonly fileService?: { saveFile?: (request: Readonly<Record<string, unknown>>) => unknown } | null;
@@ -49,12 +51,13 @@ export async function exportProjectEdl(runtime: InterchangeRuntime & {
 	const delivery = resolveInterchangeDelivery(runtime);
 	if (!delivery) return null;
 	const { project, omissions, original } = delivery;
-	return deliver(runtime, createProjectEdlExport({
+	const result = await withInterchangeExportTiming(runtime, project, original, () => createProjectEdlExport({
 		project,
 		sequenceId: runtime.sequenceId,
 		trackId: runtime.trackId,
 		reelNames: runtime.reelNames,
-	}), omissions, project, original);
+	}), runtime.trackId ?? null);
+	return deliver(runtime, result, omissions, project, original);
 }
 
 export async function exportProjectOtio(
@@ -65,13 +68,14 @@ export async function exportProjectOtio(
 	const { project, omissions, original } = delivery;
 	// The sequence is the rate authority; OTIO must never infer one from media.
 	const sequence = resolveSequenceTimingView(project, runtime.sequenceId);
-	return deliver(runtime, createOtioExport({
+	const result = await withInterchangeExportTiming(runtime, project, original, () => createOtioExport({
 		project,
 		sequenceId: sequence.id,
 		sequenceRate: sequence.rate,
 		dropFrame: sequence.dropFrame,
 		startFrameCount: sequence.startFrameCount,
-	}), omissions, project, original);
+	}));
+	return deliver(runtime, result, omissions, project, original);
 }
 
 export async function exportProjectFcpxml(
@@ -81,13 +85,14 @@ export async function exportProjectFcpxml(
 	if (!delivery) return null;
 	const { project, omissions, original } = delivery;
 	const sequence = resolveSequenceTimingView(project, runtime.sequenceId);
-	return deliver(runtime, createFcpxmlExport({
+	const result = await withInterchangeExportTiming(runtime, project, original, () => createFcpxmlExport({
 		project,
 		sequenceId: sequence.id,
 		sequenceRate: sequence.rate,
 		dropFrame: sequence.dropFrame,
 		startFrameCount: sequence.startFrameCount,
-	}), omissions, project, original);
+	}));
+	return deliver(runtime, result, omissions, project, original);
 }
 
 function resolveInterchangeDelivery(runtime: InterchangeRuntime) {
@@ -120,9 +125,8 @@ export function resolveDeliveredProject(
 	const selectedProject = projectInterchangeMulticamera(persistedProject, runtime.projectForRuntimeConsumers);
 	const mediaProject = projectTrackFolderMediaStateV12(selectedProject);
 	const project = projectForRuntimeConsumers(mediaProject as never);
-	return project === mediaProject
-		? project
-		: inheritTrackFolderMediaStateProjectionV12(mediaProject, project);
+	return inheritTrackFolderMediaStateProjectionV12(mediaProject,
+		exportSequenceProject(project, runtime.sequenceId));
 }
 
 async function deliver<T extends {

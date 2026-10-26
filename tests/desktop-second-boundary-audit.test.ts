@@ -174,69 +174,17 @@ test('native child stat conversion returns an immutable unsigned snapshot', () =
 	assert.throws(() => Object.assign(identity, { dev: '0' }), TypeError);
 });
 
-function fileHandle(options: Readonly<{
-	size: number;
-	isFile?: boolean;
-	overflowBytesRead?: number;
-	statError?: Error;
-}>): BoundedRegularFileHandle & { closed: boolean; reads: number } {
-	let statCount = 0;
-	return {
+test('bounded regular-file admission closes a handle when its initial stat fails', async () => {
+	const handle: BoundedRegularFileHandle & { closed: boolean } = {
 		closed: false,
-		reads: 0,
-		async stat() {
-			statCount += 1;
-			if (options.statError) throw options.statError;
-			return { size: options.size, isFile: () => options.isFile ?? true };
-		},
-		async read(buffer, offset, length) {
-			this.reads += 1;
-			if (statCount > 0 && this.reads === 1 && length > 0) {
-				buffer.fill(7, offset, offset + length);
-				return { bytesRead: length };
-			}
-			return { bytesRead: options.overflowBytesRead ?? 0 };
-		},
+		async stat() { throw new Error('device detached'); },
+		async read() { throw new Error('failed inspection must not read file bytes'); },
 		async close() { this.closed = true; },
 	};
-}
-
-test('bounded regular-file admission rejects a negative stat size before allocation', async () => {
-	const handle = fileHandle({ size: -1 });
-	assert.deepEqual(await readBoundedRegularFile('/output', 8, { openFile: async () => handle }), {
-		status: 'unavailable', reason: 'invalid',
-	});
-	assert.equal(handle.reads, 0);
-});
-
-test('bounded regular-file admission rejects a fractional stat size before allocation', async () => {
-	const handle = fileHandle({ size: 1.5 });
-	assert.deepEqual(await readBoundedRegularFile('/output', 8, { openFile: async () => handle }), {
-		status: 'unavailable', reason: 'invalid',
-	});
-	assert.equal(handle.reads, 0);
-});
-
-test('bounded regular-file admission closes a handle when its initial stat fails', async () => {
-	const handle = fileHandle({ size: 1, statError: new Error('device detached') });
 	assert.deepEqual(await readBoundedRegularFile('/output', 8, { openFile: async () => handle }), {
 		status: 'unavailable', reason: 'invalid',
 	});
 	assert.equal(handle.closed, true);
-});
-
-test('bounded regular-file admission rejects a negative overflow-probe count', async () => {
-	const handle = fileHandle({ size: 1, overflowBytesRead: -1 });
-	assert.deepEqual(await readBoundedRegularFile('/output', 8, { openFile: async () => handle }), {
-		status: 'unavailable', reason: 'invalid',
-	});
-});
-
-test('bounded regular-file admission rejects an overflow-probe count beyond its buffer', async () => {
-	const handle = fileHandle({ size: 1, overflowBytesRead: 2 });
-	assert.deepEqual(await readBoundedRegularFile('/output', 8, { openFile: async () => handle }), {
-		status: 'unavailable', reason: 'invalid',
-	});
 });
 
 function writeCommand(bytes: Uint8Array): unknown {

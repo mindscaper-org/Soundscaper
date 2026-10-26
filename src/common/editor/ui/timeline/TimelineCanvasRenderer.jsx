@@ -6,7 +6,8 @@ import {
 	preparePffftSpectrogram,
 } from '../../pffft-spectrogram.js';
 import { useRetainedCanvasFrame } from './useRetainedCanvasFrame.ts';
-import { snapshotWaveformCanvasStyle } from './canvas-paint-measurements.ts';
+import { readWaveformCanvasMeasurements } from './waveform-canvas-measurements.ts';
+import { createWaveformGpuDisplay } from '../../design-system-adapters/waveform-gpu-display.ts';
 import { releaseWaveformSelectionLayers } from './waveform-selection-layers.ts';
 import { reprojectPendingWaveform } from './waveform-plan-continuity.ts';
 import { spectrogramCanvasDrawKey } from './spectrogram-canvas-options.ts';
@@ -25,6 +26,7 @@ export function AudacityWaveformCanvases({
 	showRms,
 	halfWave,
 	waveformRulerFormat = 'linear-db',
+	waveformRenderer = 'canvas',
 	verticalZoom,
 	channelHeightRatio,
 	spectrogramOptions,
@@ -61,6 +63,23 @@ export function AudacityWaveformCanvases({
 	const spectrogramDrawKey = useMemo(() => spectrogramCanvasDrawKey(renderSpectrogramOptions), [renderSpectrogramOptions]);
 	const spectrogramRevision = useSpectrogramCanvasRevision(displayMode === 'spectrogram' || displayMode === 'multiview');
 	const [frequencyWaveformRenderer, setFrequencyWaveformRenderer] = useState(null);
+	const [gpuRenderer, setGpuRenderer] = useState(null);
+	const [gpuRevision, setGpuRevision] = useState(0);
+	useEffect(() => {
+		if (waveformRenderer !== 'gpu') return undefined;
+		let active = true;
+		let lease = null;
+		void import('../../controller/source/waveform-gpu-renderer.ts').then((module) => {
+			if (!active) return;
+			const owner = rootRef.current?.ownerDocument;
+			if (!owner) return;
+			lease = module.acquireWaveformGpuRenderer(owner, () => owner.createElement('canvas'),
+				() => setGpuRevision(value => value + 1), createWaveformGpuDisplay);
+			setGpuRenderer(lease);
+			setGpuRevision(value => value + 1);
+		}).catch(() => {});
+		return () => { active = false; lease?.release(); };
+	}, [rootRef, waveformRenderer]);
 	useEffect(() => {
 		if ((displayMode !== 'waveform-three-band' && displayMode !== 'waveform-rainbow')
 			|| frequencyWaveformRenderer) return undefined;
@@ -86,6 +105,7 @@ export function AudacityWaveformCanvases({
 				showRms,
 				halfWave,
 				waveformRulerFormat,
+				waveformRenderer, gpuRevision,
 				verticalZoom,
 				channelHeightRatio,
 				spectrogramDrawKey,
@@ -94,26 +114,12 @@ export function AudacityWaveformCanvases({
 				editorRoot?.dataset.editorTheme || '',
 			].join('|');
 			const liveCanvases = new Set();
-			const measurements = [];
-			// Normalize every canvas before reading any geometry, then measure the
-			// whole row before resizing backing stores or painting its canvases.
-			const clipElements = root.querySelectorAll('[data-clip-id]');
-			for (const element of clipElements) {
-				const canvas = element.querySelector('canvas.clip-body__waveform');
-				if (canvas) normalizeAudacityCanvasStyle(canvas);
-			}
-			for (const clipElement of clipElements) {
-				const clip = clipById.get(String(clipElement.dataset.clipId));
-				const canvas = clipElement.querySelector('canvas.clip-body__waveform');
-				if (!canvas) continue;
+			const measurements = readWaveformCanvasMeasurements(root, normalizeAudacityCanvasStyle);
+			for (const { canvas, clipId, bounds, style } of measurements) {
+				const clip = clipById.get(clipId);
 				liveCanvases.add(canvas);
-				const bounds = canvas.getBoundingClientRect();
-				const color = canvas.closest('.clip-body')?.dataset.color || 'blue';
-				const style = snapshotWaveformCanvasStyle(getComputedStyle(canvas), color);
-				measurements.push({ canvas, clip, bounds, style });
-			}
-			for (const { canvas, clip, bounds, style } of measurements) {
-				if (!clip) { resetAudacityClipCanvas(canvas); continue; }
+				if (waveformRenderer !== 'gpu') gpuRenderer?.releaseOwner(canvas);
+				if (!clip) { gpuRenderer?.releaseOwner(canvas); resetAudacityClipCanvas(canvas); continue; }
 				const selection = clipSelectionPixels(clip, timeSelection, pixelsPerSecond, bounds.width);
 				const clipDrawKey = `${drawKey}|${selection.start}|${selection.end}`;
 				const canvasDrawKey = audacityCanvasDrawKey(canvas, clip, clipDrawKey, bounds);
@@ -127,6 +133,7 @@ export function AudacityWaveformCanvases({
 					verticalZoom,
 					channelHeightRatio,
 					frequencyWaveformRenderer,
+					waveformGpuRenderer: waveformRenderer === 'gpu' ? gpuRenderer : null,
 					spectrogramOptions: renderSpectrogramOptions,
 					bounds, style,
 				};
@@ -161,7 +168,7 @@ export function AudacityWaveformCanvases({
 						canvas.dataset.waveformPending = 'true';
 						continue;
 					}
-					resetAudacityClipCanvas(canvas);
+					gpuRenderer?.releaseOwner(canvas); resetAudacityClipCanvas(canvas);
 					if (clip.waveformError) canvas.dataset.waveformError = clip.waveformError;
 					continue;
 				}
@@ -189,12 +196,12 @@ export function AudacityWaveformCanvases({
 				}
 			}
 			for (const canvas of paintedCanvases.current) {
-				if (!liveCanvases.has(canvas)) { releaseSpectrogramCanvas(canvas); releaseWaveformSelectionLayers(canvas); }
+				if (!liveCanvases.has(canvas)) { gpuRenderer?.releaseOwner(canvas); releaseSpectrogramCanvas(canvas); releaseWaveformSelectionLayers(canvas); }
 			}
 			paintedCanvases.current = liveCanvases;
 		};
 		scheduleDraw(draw);
-	}, [channelHeightRatio, clips, displayMode, frequencyWaveformRenderer, halfWave, pixelsPerSecond, renderSpectrogramOptions, rootRef, scheduleDraw, showRms, spectrogramDrawKey, spectrogramRevision, themeDrawKey, timeSelection, verticalZoom, waveformRulerFormat]);
+	}, [channelHeightRatio, clips, displayMode, frequencyWaveformRenderer, gpuRenderer, gpuRevision, halfWave, pixelsPerSecond, renderSpectrogramOptions, rootRef, scheduleDraw, showRms, spectrogramDrawKey, spectrogramRevision, themeDrawKey, timeSelection, verticalZoom, waveformRenderer, waveformRulerFormat]);
 	return null;
 }
 
@@ -236,6 +243,7 @@ export function resetAudacityClipCanvas(canvas) {
 	delete canvas.dataset.spectrogramRenderer;
 	delete canvas.dataset.frequencyWaveformMode;
 	delete canvas.dataset.waveformAmplitudeScale;
+	delete canvas.dataset.waveformAcceleration;
 }
 
 export function audacityCanvasDrawKey(canvas, clip, drawKey, bounds = canvas.getBoundingClientRect()) {

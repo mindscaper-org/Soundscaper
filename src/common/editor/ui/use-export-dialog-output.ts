@@ -4,6 +4,7 @@ import { useEffect, useMemo, type Dispatch, type SetStateAction } from 'react';
 
 import { exportChapterCount } from '../export-chapters.ts';
 import { exportClipCount } from '../export-clip-boundaries.ts';
+import { exportSequenceProject } from '../export-sequence-project.ts';
 import { isVideoExportDialogFormat } from './export-dialog-model.js';
 import {
 	exportDialogOutputNoLabelsHint,
@@ -36,9 +37,11 @@ export function useExportDialogOutput<Settings extends DataRecord>({
 	const masteringSequences = useMemo(() => (
 		settings.mode !== 'mix' || singleFileOnly ? [] : sequences ?? []
 	), [sequences, settings.mode, singleFileOnly]);
-	const labelChapterCount = useMemo(() => exportChapterCount(project, 'labels'), [project]);
-	const markerChapterCount = useMemo(() => exportChapterCount(project, 'markers'), [project]);
-	const audioClipCount = useMemo(() => exportClipCount(project), [project]);
+	const deliveredProject = useMemo(() => project !== null && typeof project === 'object'
+		? exportSequenceProject(project) : project, [project]);
+	const labelChapterCount = useMemo(() => exportChapterCount(deliveredProject, 'labels'), [deliveredProject]);
+	const markerChapterCount = useMemo(() => exportChapterCount(deliveredProject, 'markers'), [deliveredProject]);
+	const audioClipCount = useMemo(() => exportClipCount(deliveredProject), [deliveredProject]);
 	const context = {
 		hasSelection, hasLoop, labelChapterCount, markerChapterCount,
 		audioClipCount, singleFileOnly, masteringSequences,

@@ -146,23 +146,29 @@ function selectionRecord(value: unknown): Record<string, unknown> {
 function sanitizeProjectDocument(value: unknown): unknown {
 	const active = new Set<object>();
 	let nodes = 0;
-	function visit(current: unknown, depth: number): unknown {
+	type Context = 'ordinary' | 'metadata' | 'raw' | 'text-tags';
+	function visit(current: unknown, depth: number, context: Context = 'ordinary'): unknown {
 		if (current === null || typeof current !== 'object') return current;
 		if (ArrayBuffer.isView(current) || current instanceof ArrayBuffer) return undefined;
 		if (depth > 64 || ++nodes > MAXIMUM_DOCUMENT_NODES) throw new RangeError('Project metadata exceeds the MCP read limit.');
 		if (active.has(current)) throw new TypeError('Project metadata contains a cycle.');
 		const prototype: unknown = Object.getPrototypeOf(current);
 		if (!Array.isArray(current) && prototype !== Object.prototype && prototype !== null) return undefined;
-		if (Object.hasOwn(current, '$soundscaperOpaqueBinary')) return undefined;
+		const marker = Object.getOwnPropertyDescriptor(current, '$soundscaperOpaqueBinary');
+		const literalTag = context === 'text-tags' && marker && Object.hasOwn(marker, 'value') && typeof marker.value === 'string';
+		if (marker && !literalTag) return undefined;
 		active.add(current);
 		const result: Record<string, unknown> | unknown[] = Array.isArray(current) ? [] : {};
 		for (const key of Object.keys(current)) {
-			if (key === 'opaqueExtensions' || key === '$soundscaperOpaqueBinary') continue;
+			if (key === 'opaqueExtensions' || key === '$soundscaperOpaqueBinary' && !literalTag) continue;
 			const descriptor = Object.getOwnPropertyDescriptor(current, key);
 			if (!descriptor || !Object.hasOwn(descriptor, 'value')) continue;
-			const next = visit(descriptor.value, depth + 1);
+			const nextContext = key === 'metadata' ? 'metadata'
+				: context === 'metadata' && key === 'raw' ? 'raw'
+					: context === 'metadata' && key === 'tags' || context === 'raw' && key === 'TXXX' ? 'text-tags' : 'ordinary';
+			const next = visit(descriptor.value, depth + 1, nextContext);
 			if (Array.isArray(result)) result.push(next ?? null);
-			else if (next !== undefined) result[key] = next;
+			else if (next !== undefined) Object.defineProperty(result, key, { value: next, enumerable: true, configurable: true, writable: true });
 		}
 		active.delete(current);
 		return result;

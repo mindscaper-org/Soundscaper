@@ -54,7 +54,7 @@ const TIMING_FIELDS = new Set([
 ]);
 const REPOSITORY_ROOT = new URL('../', import.meta.url);
 const EDITOR_ROOT = new URL('../src/common/editor/', import.meta.url);
-const PROJECTION_IMPORT = /(?:runtime-clip-projection|project-current-runtime|generator-project-view|project-bin-runtime)\.ts$/u;
+const PROJECTION_IMPORT = /(?:runtime-clip-projection|clip-time-pitch-playback-projection|project-current-runtime|generator-project-view|project-bin-runtime)\.ts$/u;
 const parsedSources = new Map<string, Promise<SourceFile>>();
 
 test('every shielded consumer surface crosses a registered runtime projection boundary before timing reads', async () => {
@@ -86,22 +86,6 @@ test('every shielded consumer surface crosses a registered runtime projection bo
 			);
 		}
 		assert.ok(consumer.evidence.length > 20, `${consumer.surface} must explain its projection ownership`);
-	}
-});
-
-test('timing-read order admits a completed inline projection and rejects pre-projection argument reads', () => {
-	for (const [body, expected] of [
-		['return resolveRuntimeClipProjection(project, clip).timelineEndFrame;', true],
-		['const resolved = resolveRuntimeClipProjection(project, clip); return resolved.timelineEndFrame;', true],
-		['const end = clip.timelineEndFrame; return resolveRuntimeClipProjection(project, clip);', false],
-		['return resolveRuntimeClipProjection(project, clip.timelineEndFrame);', false],
-	] as const) {
-		const source = createSourceFile('fixture.ts', `function read(project, clip) { ${body} }`, ScriptTarget.Latest, true, ScriptKind.TS);
-		const entryPoint = findFunction(source, 'read');
-		const boundaryCall = findCalls(entryPoint, 'resolveRuntimeClipProjection')[0];
-		const timingRead = propertyReads(entryPoint).find(({ name }) => TIMING_FIELDS.has(name));
-		assert.ok(boundaryCall && timingRead);
-		assert.equal(boundaryCall.getEnd() < timingRead.position, expected, body);
 	}
 });
 
@@ -184,7 +168,14 @@ test('unregistered raw-project timing readers fail unless they have one exact pe
 	assert.equal(callFirstIdentifier(downstreamCalls[0]), 'runtimeProject');
 });
 
-test('every projection or runtime-wrapper importer is an owned boundary or one exact non-consumer adapter', async () => {
+test('member projection discovery distinguishes registered delegation from passive text or unrelated receivers', () => {
+	assert.equal(importsRuntimeProjection('delegation.ts', 'function apply(project) { this.loadProject(project); }'), true);
+	assert.equal(importsRuntimeProjection('passive.ts', 'const text = "this.loadProject(project)";'), false);
+	assert.equal(importsRuntimeProjection('other.ts', 'function apply(project) { other.loadProject(project); }'), false);
+	assert.equal(importsRuntimeProjection('unregistered.ts', 'function apply(project) { this.unregistered(project); }'), false);
+});
+
+test('every projection importer or member delegate is an owned boundary or one exact non-consumer adapter', async () => {
 	const discovered: string[] = [];
 	const files = await sourceFiles(EDITOR_ROOT.pathname);
 	// Bound concurrent reads so small source files do not serialize the complete
@@ -208,46 +199,20 @@ test('every projection or runtime-wrapper importer is an owned boundary or one e
 	}
 });
 
-test('runtime importer discovery preserves escaped and type-only static imports without counting other references', () => {
-	for (const [source, expected] of [
-		['import { view } from "./runtime-clip-projection.ts";', true],
-		['import type { View } from "./project-current-runtime.ts";', true],
-		['import "./generator-project-view.ts";', true],
-		['import { view } from "./runtime\\x2dclip-projection.ts";', true],
-		['const element = <div>{`ignored ${`template`}`}</div>; import "./project-bin-runtime.ts";', true],
-		['export { view } from "./runtime-clip-projection.ts";', false],
-		['const view = import("./runtime-clip-projection.ts");', false],
-		['const view = require("./runtime-clip-projection.ts");', false],
-		['// import "./runtime-clip-projection.ts";\nconst text = "project-current-runtime.ts";', false],
-	] as const) {
-		assert.equal(importsRuntimeProjection('fixture.tsx', source), expected, source);
-	}
-});
-
-test('offline exact export assembly and inventory own reviewed runtime boundaries', () => {
-	const consumers = FOUNDATION_RUNTIME_CONSUMER_SURFACES.filter(({ id }) => (
-		id === 'offline-keyframe-video-export-assembly'
-		|| id === 'video-keyframe-export-inventory'
-	));
-	assert.deepEqual(consumers.map(({ id }) => id), [
-		'offline-keyframe-video-export-assembly',
-		'video-keyframe-export-inventory',
-	]);
-	assert.deepEqual(consumers.map(({ file }) => file), [
-		'src/common/editor/ui/video-keyframe-offline-video-export.ts',
-		'src/common/editor/video-keyframe-export-inventory.ts',
-	]);
-});
-
 test('registered projection boundaries terminate at the owned clip and project resolvers', async () => {
 	const roots = FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES.filter(({ root }) => root);
-	assert.deepEqual(roots.map(({ boundary }) => boundary), ['resolveRuntimeClipProjection', 'resolveRuntimeProjectProjection']);
+	assert.deepEqual(roots.map(({ boundary }) => boundary), ['resolveRuntimeClipProjection', 'resolveRuntimeTrackProjection', 'resolveRuntimeProjectProjection']);
 	for (const boundary of FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES) {
 		const source = await parsedSource(boundary.file);
 		const implementation = findFunction(source, boundary.boundary);
 		if (boundary.root && boundary.boundary === 'resolveRuntimeClipProjection') {
 			assert.equal(findCalls(implementation, 'resolveVideoCoordinates').length, 1);
 			assert.equal(findCalls(implementation, 'resolveAudioOrLegacyCoordinates').length, 1);
+			continue;
+		}
+		if (boundary.root && boundary.boundary === 'resolveRuntimeTrackProjection') {
+			assert.equal(findCalls(implementation, 'resolveBeatFrame').length, 2);
+			assert.ok(implementation.parameters.some(parameter => parameter.initializer?.getText(source) === 'beatToSampleFrame'));
 			continue;
 		}
 		if (boundary.root) {
@@ -291,55 +256,7 @@ test('audio export admission receives resolved musical clip timing from its entr
 	assert.equal(plan.render.offlineRenderAdmission?.preRollFrames, 80_000);
 });
 
-test('clip selection navigation owns its projected timing boundary', () => {
-	const consumer = FOUNDATION_RUNTIME_CONSUMER_SURFACES.find(({ id }) => (
-		id === 'clip-selection-navigation'
-	));
-	assert.deepEqual(consumer, {
-		id: 'clip-selection-navigation',
-		surface: 'navigation',
-		file: 'src/common/editor/controller/track-audio/internal/clip-selection-navigation-service.ts',
-		entryPoint: 'projectedAudioClips',
-		inputIdentifier: 'navigationProject',
-		projectedIdentifier: 'projection',
-		boundary: 'resolveRuntimeProjectProjection',
-		evidence: 'Clip-boundary and adjacent-clip navigation collect audio candidates only after resolving musical and sequence-backed clip timing at the owned service boundary.',
-	});
-	assert.deepEqual(
-		FOUNDATION_RUNTIME_SHIELDED_OWNERS.find(({ file }) => file === consumer?.file),
-		{ file: consumer?.file, surfaces: ['navigation'] },
-	);
-});
-
-test('Framescaper edit-control menus own their projected timing boundary', () => {
-	const consumer = FOUNDATION_RUNTIME_CONSUMER_SURFACES.find(({ id }) => (
-		id === 'framescaper-edit-control-menus'
-	));
-	assert.deepEqual(consumer, {
-		id: 'framescaper-edit-control-menus',
-		surface: 'timeline',
-		file: 'src/common/editor/ui/framescaper-edit-control-menu-model.ts',
-		entryPoint: 'projectForLinkedControls',
-		inputIdentifier: 'project',
-		projectedIdentifier: null,
-		boundary: 'projectForRuntimeConsumers',
-		evidence: 'Framescaper linked-audio menu admission crosses the shared runtime projection boundary after removing only V19’s validated-empty unavailable annotation carrier.',
-	});
-	assert.deepEqual(
-		FOUNDATION_RUNTIME_SHIELDED_OWNERS.find(({ file }) => file === consumer?.file),
-		{ file: consumer?.file, surfaces: ['timeline'] },
-	);
-});
-
 test('clip spreadsheet display and edit planning own their resolved timing boundary', () => {
-	const file = 'src/common/editor/clip-spreadsheet.ts';
-	const consumers = FOUNDATION_RUNTIME_CONSUMER_SURFACES.filter(consumer => consumer.file === file);
-	assert.deepEqual(consumers.map(({ entryPoint, surface, boundary }) => ({ entryPoint, surface, boundary })), [
-		{ entryPoint: 'getClipSpreadsheetRows', surface: 'timeline', boundary: 'runtimeProject' },
-		{ entryPoint: 'planEdits', surface: 'composition', boundary: 'runtimeProject' },
-	]);
-	assert.deepEqual(FOUNDATION_RUNTIME_SHIELDED_OWNERS.find(owner => owner.file === file)?.surfaces, ['timeline', 'composition']);
-
 	const source = createAudioSource({ id: 'spreadsheet-source', frameCount: 192_000, channelCount: 1, sampleRate: 48_000 });
 	const clip = createAudioClip({
 		id: 'spreadsheet-clip', sourceId: source.id, sourceDurationFrames: 48_000,
@@ -371,23 +288,6 @@ test('clip spreadsheet display and edit planning own their resolved timing bound
 	assert.deepEqual(project, before);
 });
 
-test('the runtime consumer audit is immutable and uniquely identifies each surface', () => {
-	assert.equal(
-		new Set(FOUNDATION_RUNTIME_CONSUMER_SURFACES.map(({ id }) => id)).size,
-		FOUNDATION_RUNTIME_CONSUMER_SURFACES.length,
-	);
-	assert.ok(Object.isFrozen(FOUNDATION_RUNTIME_CONSUMER_SURFACES));
-	assert.ok(Object.isFrozen(FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES));
-	assert.ok(Object.isFrozen(FOUNDATION_RUNTIME_SHIELDED_OWNERS));
-	assert.ok(Object.isFrozen(FOUNDATION_RUNTIME_TIMING_READER_EXCLUSIONS));
-	assert.ok(Object.isFrozen(FOUNDATION_RUNTIME_PROJECTION_IMPORTER_EXCLUSIONS));
-	for (const consumer of FOUNDATION_RUNTIME_CONSUMER_SURFACES) assert.ok(Object.isFrozen(consumer));
-	for (const boundary of FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES) assert.ok(Object.isFrozen(boundary));
-	for (const owner of FOUNDATION_RUNTIME_SHIELDED_OWNERS) assert.ok(Object.isFrozen(owner));
-	for (const exclusion of FOUNDATION_RUNTIME_TIMING_READER_EXCLUSIONS) assert.ok(Object.isFrozen(exclusion));
-	for (const exclusion of FOUNDATION_RUNTIME_PROJECTION_IMPORTER_EXCLUSIONS) assert.ok(Object.isFrozen(exclusion));
-});
-
 function parsedSource(file: string): Promise<SourceFile> {
 	let parsed = parsedSources.get(file);
 	if (parsed === undefined) {
@@ -401,11 +301,21 @@ function parsedSource(file: string): Promise<SourceFile> {
 function importsRuntimeProjection(file: string, sourceText: string): boolean {
 	// TypeScript's scanner decodes escaped specifiers without allocating a whole
 	// syntax tree for thousands of unrelated files. Parse candidates to retain
-	// the audit's exact static-import semantics, excluding exports and calls.
-	if (!preProcessFile(sourceText, true, true).importedFiles.some(({ fileName }) => PROJECTION_IMPORT.test(fileName))) return false;
+	// exact static imports plus this.<registered boundary>() delegation, without
+	// treating passive text or unrelated receivers as projection ownership.
+	const imported = preProcessFile(sourceText, true, true).importedFiles.some(({ fileName }) => PROJECTION_IMPORT.test(fileName));
+	const members = new Set(FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES.map(({ boundary }) => boundary));
+	if (!imported && ![...members].some((name) => sourceText.includes(name))) return false;
 	const source = createSourceFile(file, sourceText, ScriptTarget.Latest, false, scriptKind(file));
-	return source.statements.some((statement) => isImportDeclaration(statement)
-		&& isStringLiteral(statement.moduleSpecifier) && PROJECTION_IMPORT.test(statement.moduleSpecifier.text));
+	if (source.statements.some((statement) => isImportDeclaration(statement)
+		&& isStringLiteral(statement.moduleSpecifier) && PROJECTION_IMPORT.test(statement.moduleSpecifier.text))) return true;
+	let delegates = false;
+	visit(source, (node) => {
+		if (isCallExpression(node) && isPropertyAccessExpression(node.expression)
+			&& node.expression.expression.kind === SyntaxKind.ThisKeyword
+			&& members.has(node.expression.name.text)) delegates = true;
+	});
+	return delegates;
 }
 
 function findFunction(source: SourceFile, name: string): FunctionLikeDeclaration {

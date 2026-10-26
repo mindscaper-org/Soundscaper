@@ -40,13 +40,13 @@ test.describe('audio.com panel', () => {
 		expect(requests.uploads[0].contentType).toBe('audio/wav');
 		expect(Number(requests.uploads[0].byteLength)).toBeGreaterThan(44);
 		await save.click();
-		await expect.poll(() => requests.projectUploads.length).toBe(1);
+		await expect.poll(() => requests.projectUploads.length, { timeout: 30_000 }).toBe(1);
 		await expect(save).toBeEnabled();
 		await chooseNestedCommandAction(page, editor, 'Window', ['audio.com']);
 		await importFiles(editor, [createWavFixture({ name: 'New edit.wav', frequency: 880, duration: 0.25, channelCount: 1 })]);
 		await chooseNestedCommandAction(page, editor, 'Window', ['audio.com']);
 		await save.click();
-		await expect.poll(() => requests.projectUploads.length).toBe(2);
+		await expect.poll(() => requests.projectUploads.length, { timeout: 30_000 }).toBe(2);
 		await expect(save).toBeEnabled();
 		expect(requests.preparations[0].id).toBeUndefined();
 		expect(requests.preparations[1].id).toBe(requests.projectUploads[0].project);

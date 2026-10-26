@@ -5,7 +5,6 @@ import AudioEditorMixerPanel from './AudioEditorMixerPanel.jsx';
 import ClockPanel from './ClockPanel.tsx';
 import MeterWorkspacePanel from './MeterWorkspacePanel.jsx';
 import LabelManagerList from './LabelManagerList.tsx';
-import { newLabelRange } from './new-label-range.ts';
 import ProjectBinPanel from './ProjectBinPanel.jsx';
 import SourceMonitorPanel from './SourceMonitorPanel.jsx';
 import TimelineAnnotationWorkspacePanel from './TimelineAnnotationWorkspacePanel.tsx';
@@ -15,6 +14,9 @@ import { historyCommandLabel } from './workspace-panel-model.ts';
 import { consumeEffectsFocusSuppression, hasEffectsFocusSuppression } from './workspace-preset-focus.js';
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 import { readProjectRecordingNotes } from '../../recording-notes.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
+import { resolveRuntimeProjectProjection } from '../../runtime-clip-projection.ts';
+import { audioEditorTrackFrameRate } from '../AudioEditorTimeCodeInput.tsx';
 
 const RealtimeAnalysisPanel = lazyEditorModule(() => import('../inspector/RealtimeAnalysisPanel.jsx'));
 const AudioSourceMonitorPanel = lazyEditorModule(() => import('../inspector/ClipSourceMonitorPanel.tsx'));
@@ -79,7 +81,7 @@ export default function WorkspacePanelContent({
 	controller,
 	clipPropertiesFocusRequest = /** @type {import('../../controller/composition/clip-properties-panel-opening.ts').ClipPropertiesFocusRequest | null} */ (null),
 	snapshot,
-	runtimeProject = null,
+	runtimeProject = /** @type {import('../../runtime-clip-projection.ts').RuntimeClipProject | null} */ (null),
 	productId = snapshot.productId,
 	capabilities = snapshot.capabilities,
 	copy,
@@ -219,18 +221,21 @@ export default function WorkspacePanelContent({
 	}
 	if (panelId === 'labels') {
 		if (!project) return null;
-		const labelTracks = (project?.tracks || []).filter((track) => track.type === 'label');
+		const labelInput = { sampleRate: project.sampleRate, tempoMap: project.tempoMap, tracks: project.tracks || [], clips: [] };
+		const labelProject = runtimeProject || resolveRuntimeProjectProjection(labelInput);
+		const labelTracks = (labelProject.tracks || []).filter((track) => track.type === 'label');
 		const labels = labelTracks.flatMap((track) => (track.labels || []).map((label) => ({
 			...label,
+			frameRate: audioEditorTrackFrameRate(project, track.id),
 			trackId: track.id,
 			trackName: track.name,
+			locked: track.locked === true,
 		})));
-		const targetTrack = labelTracks.find((track) => track.id === snapshot.selectedTrackId) || labelTracks[0];
-		return <LabelManagerList projectId={project?.id} labels={labels} sampleRate={project.sampleRate}
-			controller={controller} copy={copy} disabled={snapshot.readOnly} run={run}
+		const targetTrack = labelTracks.find((track) => track.id === snapshot.selectedTrackId);
+		return <LabelManagerList key={editorProjectEditSessionKey(controller, project.id)} projectId={project.id} labels={labels} sampleRate={project.sampleRate}
+			controller={controller} copy={copy} disabled={snapshot.readOnly || blocked} addDisabled={targetTrack?.locked === true} run={run}
 			onAdd={() => run(() => controller.actions.labels.add(targetTrack?.id || null, {
 				title: publishedCopyFor(copy).newLabel || publishedCopyFor(copy).untitledLabel,
-				...newLabelRange(snapshot.selection, controller.getTelemetrySnapshot().positionFrame),
 			}))} />;
 	}
 	if (panelId === 'markers') {

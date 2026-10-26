@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import {
 	SITE_COPY_BY_LOCALE,
 	bundledSiteCopyForLocale,
@@ -19,11 +19,11 @@ import {
 const ROOT = new URL('../', import.meta.url);
 
 test('site copy is a strict localized subset of the complete editor catalogs', () => {
-	assert.deepEqual(Object.keys(SITE_COPY_BY_LOCALE.de), Object.keys(SITE_COPY_BY_LOCALE.en));
+	assert.deepEqual(Object.keys(SITE_COPY_BY_LOCALE), ['en']);
 	assert.ok(Object.keys(SITE_COPY_BY_LOCALE.en).length < Object.keys(ENGLISH_COPY).length / 10);
 	assert.equal(bundledSiteCopyForLocale('en'), SITE_COPY_BY_LOCALE.en);
-	assert.equal(bundledSiteCopyForLocale('de'), SITE_COPY_BY_LOCALE.de);
-	for (const [locale, catalog] of Object.entries({ en: ENGLISH_COPY, de: GERMAN_COPY })) {
+	assert.equal(bundledSiteCopyForLocale('de'), SITE_COPY_BY_LOCALE.en);
+	for (const [locale, catalog] of Object.entries({ en: ENGLISH_COPY })) {
 		for (const [key, value] of Object.entries(SITE_COPY_BY_LOCALE[locale])) {
 			assert.equal(catalog[key], value, `${locale}.${key}`);
 		}

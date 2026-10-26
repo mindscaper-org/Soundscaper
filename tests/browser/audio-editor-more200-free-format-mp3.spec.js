@@ -1,0 +1,39 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+import { strFromU8, unzipSync } from 'fflate';
+import { expect, test } from './audio-editor-test-fixtures.js';
+import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes } from './audio-editor-test-helpers.js';
+import { freeFormatMp3Fixture, crcOffsetMp3Fixture } from '../helpers/ordinary-cover-mp3-fixture.ts';
+
+for (const generic of [false, true]) test(`native free-format MP3 preserves decoded PCM through File Import and Save (generic=${generic})`, async ({ page }) => {
+	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/'); const bytes = new Uint8Array(await freeFormatMp3Fixture().arrayBuffer());
+	const expected = await page.evaluate(async ({ data }) => {
+		// The existing MPEG header probe pins the source clock even on generic-file import.
+		const context = new OfflineAudioContext(1, 1, 48_000);
+		try {
+			const decoded = await context.decodeAudioData(Uint8Array.from(data).buffer);
+			return { supported: true, sampleRate: decoded.sampleRate, frames: decoded.length,
+				channels: Array.from({ length: decoded.numberOfChannels }, (_, channel) => [...decoded.getChannelData(channel)]) };
+		} catch (error) { return { supported: false, error: `${error.name}: ${error.message}` };
+		} finally { if (context instanceof AudioContext) await context.close(); }
+	}, { data: [...bytes] });
+	await editor.locator('[data-import-input]').setInputFiles({ name: generic ? 'Free-format.bin' : 'Free-format.mp3',
+		mimeType: generic ? 'application/octet-stream' : 'audio/mpeg', buffer: Buffer.from(bytes) });
+	if (!expected.supported) {
+		// Admission reuses the platform decoder and adds no codec to unsupported hosts.
+		await expect(editor.locator('[data-editor-toast="workspace-status-error"]')).toContainText('0 file(s) imported, 1 failed', { timeout: 30_000 });
+		await expect(editor).toHaveAttribute('data-clip-count', '0');
+		await editor.locator('[data-import-input]').setInputFiles({ name: 'Supported.mp3', mimeType: 'audio/mpeg', buffer: Buffer.from(await (await crcOffsetMp3Fixture('unprotected')).arrayBuffer()) });
+		await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 30_000 }); return;
+	}
+	expect(expected).toMatchObject({ sampleRate: 48_000, frames: 4800 });
+	expect(expected.frames / expected.sampleRate).toBeCloseTo(.1, 8); expect(expected.channels).toHaveLength(1);
+	expect(Math.max(...expected.channels[0])).toBeGreaterThan(.19);
+	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 30_000 });
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
+	const downloading = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
+	const entries = unzipSync(await downloadBytes(await downloading)); const project = JSON.parse(strFromU8(entries['project.json']));
+	expect(project.sources).toHaveLength(1); expect(project.sources[0]).toMatchObject({ sampleRate: expected.sampleRate, frameCount: expected.frames, channelCount: 1 });
+	const [, payload] = Object.entries(entries).find(([name]) => name.endsWith('.f32c')); const pcm = Buffer.from(payload);
+	expect(pcm.readUInt32LE(0)).toBe(expected.frames);
+	for (let channel = 0; channel < 1; channel++) expect(Array.from({ length: expected.frames }, (_, frame) => pcm.readFloatLE(4 + (channel * expected.frames + frame) * 4))).toEqual(expected.channels[channel]);
+});

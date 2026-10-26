@@ -13,9 +13,33 @@ export function recordingCapturePeak(channels: readonly Float32Array[]): number 
 	return peak;
 }
 
+/** The recorded route, rather than a retained idle input, owns its stereo bars. */
+export function recordingCaptureChannelMeters(channels: readonly Float32Array[]): readonly Readonly<{ peak: number; rms: number }>[] {
+	return channels.map(channel => {
+		let peak = 0, squares = 0;
+		for (const sample of channel) {
+			if (!Number.isFinite(sample)) continue;
+			peak = Math.max(peak, Math.abs(sample));
+			squares += sample * sample;
+		}
+		return Object.freeze({ peak, rms: Math.sqrt(squares / Math.max(1, channel.length)) });
+	});
+}
+
 export function recordingCapturePeakDb(channels: readonly Float32Array[]): number {
 	const peak = recordingCapturePeak(channels);
 	return peak > 0 ? Math.max(-60, 20 * Math.log10(peak)) : -60;
+}
+
+/** A shared physical-input gate listens only to channels assigned to surviving armed routes. */
+export function routedRecordingDetectorChannels(routes: readonly RecordingRoute[], availableChannels: number): readonly number[] {
+	const channels = new Set<number>();
+	for (const route of routes) {
+		for (let channel = route.channelStart; channel < Math.min(availableChannels, route.channelStart + route.channelCount); channel++) {
+			channels.add(channel);
+		}
+	}
+	return Object.freeze([...channels].sort((left, right) => left - right));
 }
 
 export function selectRoutedRecordingChannels(

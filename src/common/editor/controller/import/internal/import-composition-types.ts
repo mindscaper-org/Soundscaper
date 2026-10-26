@@ -110,6 +110,7 @@ export interface ImportCompositionDependencies {
 	readonly sourceChunkProviders: ProjectBinServiceDependencies['sourceChunkProviders'];
 	readonly sourcePeaks: ProjectBinServiceDependencies['sourcePeaks'];
 	readonly sourceResolver: ProjectBinServiceDependencies['sourceResolver'];
+	readonly prepareTimePitchCaches?: ProjectBinServiceDependencies['prepareTimePitchCaches'];
 	readonly sourceChunkFrames: number;
 	/** Shared with project retention so staged bin imports stay live until they settle. */
 	readonly protectedSourceIds: ProjectBinServiceDependencies['protectedSourceIds'];
@@ -118,7 +119,7 @@ export interface ImportCompositionDependencies {
 	readonly projectVisual: Pick<ProjectVisualService, 'getProjectBinClipVisualData' | 'activateVideoSource' | 'revokeVideoVisual'>;
 	readonly createPreviewEngine: ProjectBinServiceDependencies['createPreviewEngine'];
 	readonly getProject: () => ImportCompositionProject | null;
-	readonly editingBlocked: () => boolean;
+	readonly editingBlocked: (allowReadOnly?: boolean) => boolean;
 	readonly commit: ProjectBinServiceDependencies['commit'];
 	readonly updateSelection: ProjectBinServiceDependencies['updateSelection'];
 	readonly setStatus: (message: string, state?: string, localization?: import('../../../../i18n/presentation-message.ts').LocalizedPresentationMessage) => void;

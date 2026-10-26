@@ -3,12 +3,12 @@
 import type { PlanarPcm } from './buffer-math.ts';
 import type { EngineRealtimeRenderOptions } from './public-api.ts';
 import type { EngineRuntimeHost } from './runtime-types.ts';
-import { clamp, clampFrame, positiveInteger } from './buffer-math.ts';
+import { clamp, positiveInteger } from './buffer-math.ts';
 import {
 	MAXIMUM_OFFLINE_RENDER_OUTPUT_USEFUL_BINARY_BYTES,
 	planOfflineRenderOutputAdmission,
 } from './offline-render-admission.ts';
-import { resolveRenderTailSeconds } from './rendering-range.ts';
+import { resolveRenderFrameRange, resolveRenderTailSeconds } from './rendering-range.ts';
 import { scaleSampleFrame } from '../timeline-time.ts';
 import {
 	assertNativePluginOfflineRenderAdmission,
@@ -38,8 +38,7 @@ export async function renderNativePluginRealtimePcmIfRequired(
 	if (!nativePluginOfflineInstanceIds(project, options).length) return null;
 	if (!project) throw new Error('Load an audio editor project before rendering.');
 	admitNativePluginRealtimeRender(project, options);
-	const fromFrame = clampFrame(options.startFrame ?? 0, 0, host.durationFrames);
-	const toFrame = clampFrame(options.endFrame ?? host.durationFrames, fromFrame, host.durationFrames);
+	const { fromFrame, toFrame } = resolveRenderFrameRange(options.startFrame ?? 0, options.endFrame ?? host.durationFrames);
 	const tailFrames = Math.round(resolveRenderTailSeconds(project, options.includeTail ?? false, {
 		trackId: options.trackId, includeMaster: options.includeMaster, respectMuteSolo: options.respectMuteSolo,
 	}) * host.sampleRate);

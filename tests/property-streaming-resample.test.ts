@@ -22,9 +22,6 @@ import {
 const SEED = 20_260_906;
 const RUNS = 200;
 
-/** The default `radius` the windowed-sinc resampler builds its kernel with. */
-const SINC_RADIUS = 24;
-
 /** Float32 storage rounds every written sample, so comparisons carry one ulp of slack. */
 const FLOAT32_SLACK = 1e-6;
 
@@ -98,15 +95,17 @@ function peakOf(values: readonly number[]): number {
 function windowedSincPeakGain(inputRate: number, outputRate: number, inputFrames: number): number {
 	const step = inputRate / outputRate;
 	const cutoff = Math.min(1, outputRate / inputRate) * 0.94;
+	// The default filter spans24output samples on either side when decimating.
+	const radius = Math.max(24, Math.min(4096, Math.ceil(24 * step)));
 	let bound = 1;
 	for (let position = 0; position < inputFrames; position += step) {
 		const center = Math.floor(position);
 		let absolute = 0;
 		let signed = 0;
-		for (let frame = center - SINC_RADIUS + 1; frame <= center + SINC_RADIUS; frame += 1) {
+		for (let frame = center - radius + 1; frame <= center + radius; frame += 1) {
 			if (frame < 0 || frame >= inputFrames) continue;
 			const distance = position - frame;
-			const normalized = Math.abs(distance) / SINC_RADIUS;
+			const normalized = Math.abs(distance) / radius;
 			if (normalized >= 1) continue;
 			const window = 0.5 + 0.5 * Math.cos(Math.PI * normalized);
 			const argument = Math.PI * distance * cutoff;

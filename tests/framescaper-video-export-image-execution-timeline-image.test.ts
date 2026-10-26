@@ -249,7 +249,7 @@ test('a visible image clip resolves into one straight-linear supplemental pictur
 		['video-track', 'image-clip-1', 'image-source-1', 2, 1, 1],
 	);
 	assert.deepEqual([picture.frame.width, picture.frame.height], [2, 1]);
-	assert.deepEqual([...picture.frame.pixels], RED_FRAME);
+	assert.deepEqual([...picture.frame.pixels], [...Float32Array.from(RED_FRAME, value => value / 255)]);
 	// A 2x1 source contained in a 1280x720 canvas scales by 640 and sits 40 rows down.
 	assert.deepEqual([...picture.renderDescription.sourceDisplayToCanvas], [640, 0, 0, 640, 0, 40]);
 	assert.equal(picture.renderDescription.opacityStart, 1);
@@ -263,7 +263,7 @@ test('a fractional sequence position floors onto the next frame of the packed ti
 	// 105/10 floors to sequence frame 10, which is one second in at 10 fps.
 	const pictures = await subject.resolve(request({ sequencePosition: { num: 105, den: 10 } }));
 
-	assert.deepEqual([...pictures[0]!.frame.pixels], GREEN_FRAME);
+	assert.deepEqual([...pictures[0]!.frame.pixels], [...Float32Array.from(GREEN_FRAME, value => value / 255)]);
 	subject.dispose();
 });
 

@@ -19,7 +19,7 @@ import {
 	type FramescaperStoredImageAssetStoreTimelineImage,
 } from './editor-selected-timeline-image-image-frame-source.ts';
 import { cloneFramescaperProjectTimelineImage, type FramescaperProjectTimelineImage } from './editor-project-timeline-image.ts';
-import { gradeEncodedFrame } from './selected-finishing-exact-frame-support.ts';
+import { gradeEncodedLinearFrame } from './selected-finishing-exact-frame-support.ts';
 import type { FramescaperSelectedExactSupplementalPictureFinishing } from './selected-finishing-exact-frame-execution.ts';
 import type { FramescaperVideoExportSupplementalPictureExecutionFinishing } from './video-export-exact-execution-finishing.ts';
 import type { FramescaperSupplementalPictureExecution } from './selected-finishing-supplemental-picture-execution.ts';
@@ -35,7 +35,7 @@ interface ImageContextTimelineImage {
 type LinearImageFrameTimelineImage = Readonly<{
 	readonly width: number;
 	readonly height: number;
-	readonly pixels: Uint8Array<ArrayBuffer>;
+	readonly pixels: Float32Array<ArrayBuffer>;
 }>;
 
 interface CachedImageFrameTimelineImage {
@@ -247,8 +247,8 @@ function admitResolvedImageFrames(
 	let maximumDecodedFrameBytes = 0n;
 	for (const source of frames.values()) {
 		const frameBytes = decodedFrameBytes(source);
-		decodedCacheBytes += frameBytes;
-		maximumDecodedFrameBytes = maximumBigInt(maximumDecodedFrameBytes, frameBytes);
+		decodedCacheBytes += frameBytes * 4n; // Float32 working channels, not encoded RGBA8.
+		maximumDecodedFrameBytes = maximumBigInt(maximumDecodedFrameBytes, frameBytes * 4n); // Detached floating-point readback.
 	}
 	const decodedWorkingBytes = executionBaseBytes(resources, resources.readerMetadataBytes)
 		+ decodedCacheBytes + maximumDecodedFrameBytes;
@@ -278,7 +278,7 @@ async function linearFrame(
 	const sourcePixels = await context.reader.readFrame(frameIndex, signal);
 	let linear: LinearImageFrameTimelineImage;
 	try {
-		linear = gradeEncodedFrame({
+		linear = gradeEncodedLinearFrame({
 			width: context.source.canonical.width,
 			height: context.source.canonical.height,
 			pixels: sourcePixels as Uint8Array<ArrayBuffer>,

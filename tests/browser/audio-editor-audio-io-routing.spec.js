@@ -22,6 +22,7 @@ test.describe('audio I/O signal routing', () => {
 
 	test('renders matching signal through group and send buses with a realtime effect', async ({ page }) => {
 		test.setTimeout(90_000);
+		await page.setViewportSize({ width: 1600, height: 1200 });
 		await disableNativeSavePicker(page);
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/');

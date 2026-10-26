@@ -37,7 +37,7 @@ export class ClickRemovalLiveProcessor extends LiveProcessor {
 	updateParams(params = {}) {
 		const latency = this.latencyFrames;
 		const state = {
-			overlap: this.overlap, incoming: this.incoming,
+			overlap: this.overlap, incoming: this.incoming, incomingFill: this.incomingFill,
 			outputQueues: this.outputQueues, separation: this.separation,
 		};
 		super.updateParams(params);
@@ -48,6 +48,7 @@ export class ClickRemovalLiveProcessor extends LiveProcessor {
 	reset() {
 		this.overlap = null;
 		this.incoming = [];
+		this.incomingFill = 0;
 		this.outputQueues = [];
 		this.separation = 2_049;
 	}
@@ -59,32 +60,30 @@ export class ClickRemovalLiveProcessor extends LiveProcessor {
 		}
 		if (this.incoming.length !== output.length) {
 			this.overlap = null;
-			this.incoming = Array.from({ length: output.length }, () => []);
+			this.incoming = Array.from({ length: output.length }, () => new Float32Array(CLICK_WINDOW_SIZE));
+			this.incomingFill = 0;
 			this.outputQueues = Array.from({ length: output.length }, () => new SampleQueue());
 			this.separation = 2_049;
 		}
 		for (let frame = 0; frame < frames; frame += 1) {
-			for (let channel = 0; channel < output.length; channel += 1) this.incoming[channel].push(channelAt(input, channel)?.[frame] || 0);
-			const needed = this.overlap ? CLICK_HOP_SIZE : CLICK_WINDOW_SIZE;
-			if (this.incoming[0].length === needed) this.#processWindow();
+			for (let channel = 0; channel < output.length; channel += 1) this.incoming[channel][this.incomingFill] = channelAt(input, channel)?.[frame] || 0;
+			this.incomingFill += 1;
+			if (this.incomingFill === CLICK_WINDOW_SIZE) this.#processWindow();
 			for (let channel = 0; channel < output.length; channel += 1) output[channel][frame] = this.outputQueues[channel].shift(0);
 		}
 		return true;
 	}
 	#processWindow() {
-		const nextOverlap = [];
 		for (let channel = 0; channel < this.incoming.length; channel += 1) {
-			const window = new Float32Array(CLICK_WINDOW_SIZE);
-			if (this.overlap) window.set(this.overlap[channel]);
-			window.set(this.incoming[channel], this.overlap ? CLICK_HOP_SIZE : 0);
+			const window = this.incoming[channel];
 			this.separation = removeAudacityClicksFromWindowInPlace(
 				window, this.params.threshold, this.params.maximumWidth, this.separation,
 			);
 			this.outputQueues[channel].push(window.subarray(0, CLICK_HOP_SIZE));
-			nextOverlap.push(window.slice(CLICK_HOP_SIZE));
-			this.incoming[channel] = [];
+			window.copyWithin(0, CLICK_HOP_SIZE);
 		}
-		this.overlap = nextOverlap;
+		this.incomingFill = CLICK_HOP_SIZE;
+		this.overlap = true;
 	}
 }
 
@@ -231,21 +230,22 @@ export class NoiseReductionLiveProcessor extends LiveProcessor {
 	reset() {
 		this.data = [];
 		this.outputQueues = [];
-		this.baseFrame = 0;
 		this.totalFrames = 0;
 		this.nextChunkStart = 0;
 	}
 	process(input, output) {
 		const frames = validateBlock(input, output);
 		if (this.data.length !== output.length) {
-			this.data = Array.from({ length: output.length }, () => []);
+			// One complete context window bounds retained PCM independently of stream duration.
+			const capacity = this.leftContext + NOISE_CHUNK_SIZE + this.rightContext;
+			this.data = Array.from({ length: output.length }, () => new Float32Array(capacity));
 			this.outputQueues = Array.from({ length: output.length }, () => new SampleQueue());
-			this.baseFrame = 0;
 			this.totalFrames = 0;
 			this.nextChunkStart = 0;
 		}
 		for (let frame = 0; frame < frames; frame += 1) {
-			for (let channel = 0; channel < output.length; channel += 1) this.data[channel].push(channelAt(input, channel)?.[frame] || 0);
+			const writeIndex = this.totalFrames % this.data[0].length;
+			for (let channel = 0; channel < output.length; channel += 1) this.data[channel][writeIndex] = channelAt(input, channel)?.[frame] || 0;
 			this.totalFrames += 1;
 			if (this.totalFrames >= this.nextChunkStart + NOISE_CHUNK_SIZE + this.rightContext) this.#renderChunk();
 			for (let channel = 0; channel < output.length; channel += 1) output[channel][frame] = this.outputQueues[channel].shift(0);
@@ -259,8 +259,9 @@ export class NoiseReductionLiveProcessor extends LiveProcessor {
 			const channel = new Float32Array(contextLength);
 			for (let frame = 0; frame < contextLength; frame += 1) {
 				const sourceFrame = contextStart + frame;
-				const index = sourceFrame - this.baseFrame;
-				if (index >= 0 && index < values.length) channel[frame] = values[index];
+				if (sourceFrame >= Math.max(0, this.totalFrames - values.length) && sourceFrame < this.totalFrames) {
+					channel[frame] = values[sourceFrame % values.length];
+				}
 			}
 			return channel;
 		});
@@ -269,11 +270,5 @@ export class NoiseReductionLiveProcessor extends LiveProcessor {
 			this.outputQueues[channel].push(reduced[channel].subarray(this.leftContext, this.leftContext + NOISE_CHUNK_SIZE));
 		}
 		this.nextChunkStart += NOISE_CHUNK_SIZE;
-		const dropBefore = Math.max(0, this.nextChunkStart - this.leftContext);
-		const drop = dropBefore - this.baseFrame;
-		if (drop > 0) {
-			for (let channel = 0; channel < this.data.length; channel += 1) this.data[channel].splice(0, drop);
-			this.baseFrame = dropBefore;
-		}
 	}
 }

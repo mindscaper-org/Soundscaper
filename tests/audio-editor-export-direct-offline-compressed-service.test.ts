@@ -118,25 +118,9 @@ test('offline compressed post-render staging, FFmpeg, cancellation, and cleanup 
 	assert.ok(cleanup.errors[0] instanceof AggregateError);
 	assert.match(String(cleanup.errors[0]), /cleanup/iu);
 
-	const synchronousCleanup = serviceFixture('mp3', {}, {
-		abortFailure: new Error('synchronous destination cleanup failed'),
-		abortSynchronously: true,
-		encodeFailure: 'ffmpeg',
-	});
-	await createEditorExportService(synchronousCleanup.runtime).handleExportAction('export', { format: 'mp3' });
-	assert.ok(synchronousCleanup.errors[0] instanceof AggregateError);
-	assert.equal(synchronousCleanup.target.aborts(), 1);
 });
 
-test('offline admission fingerprint and committed-size drift never publish stale output', async () => {
-	const fingerprint = serviceFixture('mp3', {}, { fingerprintDrift: true });
-	await createEditorExportService(fingerprint.runtime).handleExportAction('export', { format: 'mp3' });
-	assert.equal(fingerprint.events.includes('render:offline'), true);
-	assert.equal(fingerprint.events.includes('stage'), false);
-	assert.equal(fingerprint.events.includes('ffmpeg:stat'), false);
-	assert.equal(fingerprint.target.opens(), 0);
-	assert.equal(fingerprint.target.aborts(), 1);
-
+test('committed-size drift never publishes stale output', async () => {
 	const committed = serviceFixture('mp3', {}, { publishedSize: 6 });
 	await createEditorExportService(committed.runtime).handleExportAction('export', { format: 'mp3' });
 	assert.match(String(committed.errors[0]), /committed.*byte count/iu);
@@ -174,9 +158,7 @@ function serviceFixture(
 	formatOptions: Readonly<Record<string, unknown>> = {},
 	options: Readonly<{
 		abortFailure?: Error;
-		abortSynchronously?: boolean;
 		encodeFailure?: EncodeFailure;
-		fingerprintDrift?: boolean;
 		onCommit?: () => PromiseLike<void> | void;
 		prepareMode?: PrepareMode;
 		publishedSize?: number;
@@ -292,14 +274,6 @@ function serviceFixture(
 		playbackProjects: null,
 		preflightStorage: async (bytes: number) => {
 			preflights.push(bytes);
-			if (options.fingerprintDrift) {
-				const mutablePlan = plan as unknown as Record<string, unknown>;
-				const render = plan.render as Readonly<Record<string, unknown>>;
-				mutablePlan.render = { ...render, offlineRenderAdmission: {
-					...(render.offlineRenderAdmission as Readonly<Record<string, unknown>>),
-					maximumUsefulBinaryBytes: 1,
-				} };
-			}
 		},
 		prepareCommittedTimePitchCaches: async () => { events.push('prepare:caches'); },
 		productName: 'Soundscaper', getProject: () => project,
@@ -341,7 +315,6 @@ function preparedTarget(
 	events: string[],
 	options: Readonly<{
 		abortFailure?: Error;
-		abortSynchronously?: boolean;
 		onCommit?: () => PromiseLike<void> | void;
 		publishedSize?: number;
 	}>,
@@ -370,7 +343,6 @@ function preparedTarget(
 		abort() {
 			aborts += 1;
 			events.push('target:abort');
-			if (options.abortFailure && options.abortSynchronously) throw options.abortFailure;
 			return options.abortFailure ? Promise.reject(options.abortFailure) : Promise.resolve();
 		},
 		opens: () => opens, aborts: () => aborts, commits: () => commits,

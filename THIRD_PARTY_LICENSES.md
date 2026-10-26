@@ -7,7 +7,7 @@ inventory under `licenses/professional-native/`. The exact filenames, byte
 lengths, SHA-256 digests, source targets, and selected license arms are recorded
 in [`config/soundscaper-professional-native-notices.json`](config/soundscaper-professional-native-notices.json):
 
-- Electron 43.7.7 Node-API headers — MIT; all five targets
+- Electron 43.8.3 Node-API headers — MIT; all five targets
 - JUCE 9.0.1 — AGPL-3.0-only selected; all five targets
 - CLAP 1.2.4 — MIT; all five targets
 - VST3 SDK 3.8.0 build 66 — MIT; all five targets
@@ -77,7 +77,7 @@ The effect registry covers Audacity's menu-visible native processors and browser
 
 ## Audacity-derived waveform rendering
 
-Parts of `src/common/editor/audacity-waveform-renderer.js`, the waveform-window adapters under `src/common/editor/design-system-adapters/`, and the canvas/recording-preview integration under `src/common/editor/ui/timeline/` are JavaScript and TypeScript translations and browser adaptations of Audacity waveform rendering at exact commit `4c177d436e48c1d20f231eada44035593cb26292`:
+Parts of `src/common/editor/audacity-waveform-renderer.js`, the waveform-window adapters under `src/common/editor/design-system-adapters/`, `src/common/editor/controller/source/internal/waveform-gpu-geometry.ts`, and the canvas/recording-preview integration under `src/common/editor/ui/timeline/` are JavaScript and TypeScript translations and browser adaptations of Audacity waveform rendering at exact commit `4c177d436e48c1d20f231eada44035593cb26292`:
 
 - source: <https://github.com/audacity/audacity/tree/4c177d436e48c1d20f231eada44035593cb26292>
 - rendering-mode and sample-painter sources: `src/projectscene/view/tracksitemsview/au3/wavepainterutils.cpp`, `src/projectscene/view/tracksitemsview/au3/connectingdotspainter.cpp`, `src/projectscene/view/tracksitemsview/au3/samplespainterutils.cpp`, and `src/projectscene/view/tracksitemsview/au3/samplespainter.cpp`
@@ -516,7 +516,7 @@ reject application-supplied FFmpeg and libav executables or libraries, the
 FFmpeg media host. The desktop application therefore does not redistribute an
 FFmpeg/libav application codec provider or FFmpeg WebAssembly runtime.
 
-Electron itself is a distinct framework dependency. Stock Electron 43.7.7
+Electron itself is a distinct framework dependency. Stock Electron 43.8.3
 includes a Chromium `libffmpeg` media library with proprietary codec support.
 Desktop packaging sets electron-builder's `downloadAlternateFFmpeg` option so
 the stock library is replaced with Electron's matching alternate release asset,
@@ -530,7 +530,7 @@ against
 - macOS ARM64 uses `libffmpeg.dylib`; macOS x64 is unsupported and has no row;
 - Windows x64 and ARM64 use `ffmpeg.dll`.
 
-That manifest binds Electron 43.7.7, the exact five release-archive names and
+That manifest binds Electron 43.8.3, the exact five release-archive names and
 archive SHA-256 values, and each unpacked library's byte length and SHA-256.
 The after-pack verifier re-hashes the exact framework location before final
 package assembly. The library remains part of Electron/Chromium and its notices; it
@@ -655,11 +655,12 @@ source pinning, and an update to this document before distribution.
 
 ## Desktop runtime and build tooling
 
-- Electron 43.7.7 — MIT; source: <https://github.com/electron/electron/tree/v43.7.7>. Packaged desktop applications include Electron's license and `LICENSES.chromium.html`, which carries Chromium and bundled component notices.
-- `@modelcontextprotocol/core` 2.0.0, `@modelcontextprotocol/node` 2.0.0, and `@modelcontextprotocol/server` 2.0.0 — the pinned desktop MCP server SDK packages. Their npm metadata declares MIT; the installed `LICENSE` files record an ongoing transition to Apache-2.0 while retaining MIT for contributions without relicensing consent. Copyright the MCP project contributors; source and license at the three package release tags' common commit: <https://github.com/modelcontextprotocol/typescript-sdk/tree/cc4b41617ce3601b1290d67216ea0b194a3cd9ac>.
+- Electron 43.8.3 — MIT; source: <https://github.com/electron/electron/tree/v43.8.3>. Packaged desktop applications include Electron's license and `LICENSES.chromium.html`, which carries Chromium and bundled component notices.
+- `@modelcontextprotocol/core` 2.3.0 and `@modelcontextprotocol/server` 2.3.0 — the pinned desktop MCP protocol and server SDK packages. Their npm metadata declares Apache-2.0; the installed `LICENSE` files retain MIT for contributions without relicensing consent. Copyright the MCP project contributors; exact source packages: <https://registry.npmjs.org/@modelcontextprotocol/core/-/core-2.3.0.tgz> and <https://registry.npmjs.org/@modelcontextprotocol/server/-/server-2.3.0.tgz>.
+- `@modelcontextprotocol/node` 2.0.0 — the desktop MCP Node HTTP adapter. Its npm metadata declares MIT; its installed `LICENSE` records the Apache-2.0 transition with MIT retained for contributions without relicensing consent. Copyright the MCP project contributors; source: <https://github.com/modelcontextprotocol/typescript-sdk/tree/cc4b41617ce3601b1290d67216ea0b194a3cd9ac>.
 - `@hono/node-server` 1.19.17 — MIT; transitive HTTP adapter for the desktop MCP server; Copyright © 2022-present Yusuke Wada and Hono contributors; source and license: <https://github.com/honojs/node-server/tree/v1.19.17>.
-- `hono` 4.13.8 — MIT; transitive HTTP routing for the desktop MCP server; Copyright © 2021-present Yusuke Wada and Hono contributors; source and license: <https://github.com/honojs/hono/tree/v4.13.8>.
-- `zod` 4.6.5 — MIT; schema validation for desktop MCP tool inputs; Copyright © 2025 Colin McDonnell; source and license: <https://github.com/colinhacks/zod/tree/v4.6.5>.
+- `hono` 4.13.13 — MIT; transitive HTTP routing for the desktop MCP server; Copyright © 2021-present Yusuke Wada and Hono contributors; source and license: <https://github.com/honojs/hono/tree/v4.13.13>.
+- `zod` 4.6.6 — MIT; schema validation for desktop MCP tool inputs; Copyright © 2025 Colin McDonnell; source and license: <https://github.com/colinhacks/zod/tree/v4.6.6>.
 - electron-builder 26.17.0 — MIT; build-time packaging tool, not part of the application runtime; exact npm source package: <https://registry.npmjs.org/electron-builder/-/electron-builder-26.17.0.tgz> (`sha512-iYHBRiagS9sDIbZx1ZD113f5rEGQvtpvTvHf70ovHKJ8mRvxwIkWX7JCwfmVQmVS4eX735p7TZmoxHnBPwF3vA==`); upstream repository: <https://github.com/electron-userland/electron-builder>.
 - `@electron/fuses` 2.1.3 — MIT; build-time hardening tool used to disable unsafe Electron runtime switches during package finalization; source: <https://github.com/electron/fuses/tree/v2.1.3>.
 - `@resvg/resvg-js` 2.6.2 — MPL-2.0; unmodified build-time rasterizer used only to derive platform icons from the existing Soundscaper SVG mark; source: <https://github.com/yisibl/resvg-js/tree/v2.6.2>.
@@ -758,7 +759,7 @@ The browser tools can distribute the following pinned browser-side packages as p
 - `gettext-parser` 9.1.1 — MIT; Copyright (c) 2014-2015 Andris Reinman; source: <https://github.com/smhg/gettext-parser>; development-only PO parsing for reviewed community translation imports, excluded from the browser application
 - `@types/gettext-parser` 9.0.0 — MIT; Copyright (c) Microsoft Corporation; source: <https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/gettext-parser>; development-only TypeScript declarations for the PO importer
 - `@echogarden/pffft-wasm` 0.4.2 — UCAR/NCAR permissive license; SIMD WebAssembly build of PFFFT used by spectrograms, spectral editing, and FFT-based effects; source: <https://github.com/echogarden-project/pffft-wasm>
-- `mediabunny` 1.55.3 — MPL-2.0; unmodified pure-TypeScript browser media toolkit used for browser-native AAC and MP4/WebM container generation; exact npm archive: <https://registry.npmjs.org/mediabunny/-/mediabunny-1.55.3.tgz> (`sha512-kpBhMiJHGmerizzObAT1XLZDyImO4ZEKXaxjjfxGVkycQ0U5of/xlLepm1Izp3P+3jlaedFSRI5fJnv3Q5xV6A==`); upstream source: <https://github.com/Vanilagy/mediabunny>
+- `mediabunny` 1.55.3 — MPL-2.0; pure-TypeScript browser media toolkit used for browser-native AAC and MP4/WebM container generation; exact npm archive: <https://registry.npmjs.org/mediabunny/-/mediabunny-1.55.3.tgz> (`sha512-kpBhMiJHGmerizzObAT1XLZDyImO4ZEKXaxjjfxGVkycQ0U5of/xlLepm1Izp3P+3jlaedFSRI5fJnv3Q5xV6A==`); upstream source: <https://github.com/Vanilagy/mediabunny>; Soundscaper modifies FLAC end-of-file frame lookahead and empty-stream termination (2026-10-22), uncommon FLAC frame sample-rate kilohertz units, and bounded ordered MP4 localized-text data values (2026-10-24), and ID3 unsynchronisation byte removal, frame boundaries, optional payload-header decoding, legacy recording-date assembly, picture MIME fields and exact artwork descriptions, null-separated text lists, custom text-key custody, legacy user-defined text frames, UTC timestamp precision, empty UTF-16 field boundaries, genre references and refinements, and fallback fields, appended footer-tag discovery and repeated structured-frame custody, CRC-protected MPEG information-frame recognition and exclusion of terminal APE binary previews from MPEG packet traversal, plus bounded RIFF INFO Latin-1 text projection without argument-count overflow, plus MP4 multi-value cover-art, numeric-genre, reverse-DNS custom-tag reading, bounded localized QuickTime international-text records, modern metadata precedence over compatibility user data, order-independent MP4 metadata key tables, and own-key MP4/Matroska custom-tag custody, plus Matroska all-track tag targets, order-independent tag fields and track settings, nested-tag subject ownership, original-language tag selection, collision-safe Matroska attachment/tag namespaces with FileUID-preserving remux, repeated Matroska text records and repeated Xiph comment records (2026-10-23), with the MPL-preserving source and distribution changes in [`patches/npm/mediabunny+1.55.3.patch`](patches/npm/mediabunny+1.55.3.patch)
 - `@types/dom-mediacapture-transform` 0.1.12 — MIT; transitive compile-time definitions required by Mediabunny, represented in the npm production closure but not emitted as runtime JavaScript; exact npm archive: <https://registry.npmjs.org/@types/dom-mediacapture-transform/-/dom-mediacapture-transform-0.1.12.tgz> (`sha512-d7/QsLRwF864A5mgIM/YrfiglHoYn7zgCcAoJgW404r+2DwnNr7EBbLnCWpmOMgH8y0te73L1AV6H1bmauaWFw==`); source: <https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-mediacapture-transform>
 - `@types/dom-webcodecs` 0.1.13 — MIT; transitive compile-time WebCodecs definitions required by Mediabunny, represented in the npm production closure but not emitted as runtime JavaScript; exact npm archive: <https://registry.npmjs.org/@types/dom-webcodecs/-/dom-webcodecs-0.1.13.tgz> (`sha512-O5hkiFIcjjszPIYyUSyvScyvrBoV3NOEEZx/pMlsu44TKzWNkLVBBxnxJz42in5n3QIolYOcBYFCPZZ0h8SkwQ==`); source: <https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-webcodecs>
 - `react` 19.2.7 — MIT; Copyright © Meta Platforms, Inc. and affiliates; source and license: <https://github.com/facebook/react/tree/v19.2.7/packages/react>

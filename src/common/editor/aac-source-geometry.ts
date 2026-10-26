@@ -2,7 +2,6 @@
 
 const FRAME_SAMPLES = 1024;
 const MAXIMUM_TAG_BYTES = 128;
-const MAXIMUM_METADATA_ITEM_BYTES = 1024 * 1024;
 const MAXIMUM_BOX_HEADERS = 8192;
 
 interface AacEncodedGeometry {
@@ -74,25 +73,55 @@ export async function readAacSourceMetadata(blob: Blob, signal?: AbortSignal): P
 		if (!Number.isSafeInteger(size) || size < headerSize || offset + size > end) invalidMetadata();
 		return { type: ascii(bytes, 4), start: offset + headerSize, end: offset + size };
 	};
-	const scan = async (start: number, end: number, parent: string): Promise<void> => {
+	const metaKeys = async (start: number, end: number): Promise<ReadonlySet<string>> => {
+		const names = new Set<string>(['scaf']);
+		for (let offset = start; offset < end;) {
+			const box = await header(offset, end);
+			if (box.type === 'keys') {
+				if (box.end - box.start < 8) invalidMetadata();
+				const prefix = await read(box.start, 8);
+				const view = new DataView(prefix.buffer);
+				const count = view.getUint32(4);
+				if (view.getUint32(0) !== 0 || count > MAXIMUM_BOX_HEADERS) invalidMetadata();
+				let entryOffset = box.start + 8;
+				for (let index = 1; index <= count; index++) {
+					const entry = await header(entryOffset, box.end);
+					if (entry.type === 'mdta' && entry.end - entry.start === 4 && ascii(await read(entry.start, 4), 0) === 'scaf') {
+						names.add(String.fromCharCode(index >>> 24, index >>> 16 & 255, index >>> 8 & 255, index & 255));
+					}
+					entryOffset = entry.end;
+				}
+				if (entryOffset !== box.end) invalidMetadata();
+			}
+			offset = box.end;
+		}
+		return names;
+	};
+	const scan = async (start: number, end: number, parent: string, tagNames: ReadonlySet<string> = new Set(['scaf'])): Promise<void> => {
 		let offset = start;
 		while (offset < end) {
 			const child = await header(offset, end);
-			if ((parent === 'udta' && child.type !== 'meta') || parent === 'ilst') {
-				if (child.end - child.start > MAXIMUM_METADATA_ITEM_BYTES) invalidMetadata();
-			}
 			if ((parent === 'moov' && child.type === 'udta') || (parent === 'meta' && child.type === 'ilst')
-				|| (parent === 'ilst' && child.type === 'scaf')) await scan(child.start, child.end, child.type);
+				|| (parent === 'ilst' && tagNames.has(child.type))) await scan(child.start, child.end, parent === 'ilst' ? 'scaf' : child.type, tagNames);
 			else if (parent === 'udta' && child.type === 'meta') {
 				if (child.end - child.start < 4) invalidMetadata();
-				await scan(child.start + 4, child.end, 'meta');
-			} else if (parent === 'scaf') {
-				if (child.type !== 'data' || metadata !== null || child.end - child.start < 9
-					|| child.end - child.start > MAXIMUM_TAG_BYTES) invalidMetadata();
-				const data = await read(child.start, child.end - child.start);
-				const view = new DataView(data.buffer, data.byteOffset, data.length);
-				if (view.getUint32(0) !== 1 || view.getUint32(4) !== 0 || data.subarray(8).some((byte) => byte > 127)) invalidMetadata();
-				metadata = new TextDecoder().decode(data.subarray(8));
+				const prefix = await read(child.start, 4);
+				const content = child.start + (new DataView(prefix.buffer).getUint32(0) === 0 ? 4 : 0);
+				await scan(content, child.end, 'meta', await metaKeys(content, child.end));
+			} else if (parent === 'scaf' && child.type === 'data' && child.end - child.start >= 8) {
+				const length = child.end - child.start;
+				const prefixBytes = length > 8 ? await read(child.start + 8, Math.min(length - 8, 32)) : new Uint8Array(0);
+				// Foreign applications may use this ordinary custom key. Only our
+				// value namespace claims authority over encoded source geometry.
+				const claimsGeometry = ['utf-8', 'utf-16be', 'utf-16le'].some(encoding =>
+					new TextDecoder(encoding).decode(prefixBytes).startsWith('SoundscaperAAC'));
+				if (claimsGeometry) {
+					if (metadata !== null || length > MAXIMUM_TAG_BYTES) invalidMetadata();
+					const data = await read(child.start, length);
+					const view = new DataView(data.buffer, data.byteOffset, data.length);
+					if (view.getUint32(0) !== 1 || view.getUint32(4) !== 0 || data.subarray(8).some((byte) => byte === 0 || byte > 127)) invalidMetadata();
+					metadata = new TextDecoder().decode(data.subarray(8));
+				}
 			}
 			offset = child.end;
 		}

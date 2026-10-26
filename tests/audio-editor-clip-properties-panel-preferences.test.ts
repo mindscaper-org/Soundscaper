@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -15,7 +17,7 @@ import {
 	WORKSPACE_DISCOVERABLE_PANEL_IDS,
 	workspacePanelLabel,
 } from '../src/common/editor/ui/workspace/workspace-panel-model.ts';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 
 test('Clip properties is an optional hidden right panel in fresh and older preferences', () => {
 	const preferences = createAudioEditorPreferencesV1();

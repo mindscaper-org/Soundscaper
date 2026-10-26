@@ -14,9 +14,10 @@ test('Escape cancels a spectral-brush gesture before its pointer release', async
 	await brush.focus();
 	const box = await brush.boundingBox();
 	expect(box).not.toBeNull();
-	await brush.hover({ position: { x: 200, y: box.height / 2 } });
+	// Stay inside the first channel, clear of its draggable stereo divider.
+	await brush.hover({ position: { x: 200, y: box.height / 4 } });
 	await page.mouse.down();
-	await page.mouse.move(box.x + 215, box.y + box.height / 2 + 15, { steps: 4 });
+	await page.mouse.move(box.x + 215, box.y + box.height / 4 + 15, { steps: 4 });
 	await expect(brush.locator('.audio-editor-spectral-brush__preview')).toBeVisible();
 	await page.keyboard.press('Escape');
 	await expect(brush.locator('.audio-editor-spectral-brush__preview')).toHaveCount(0);
@@ -34,7 +35,7 @@ test('the spectral brush receives pointer gestures over a selected clip', async 
 	await chooseNestedCommandAction(page, editor, 'Select', ['Spectral', 'Spectral brush']);
 	const brush = editor.getByRole('button', { name: 'Spectral brush', exact: true });
 	await brush.focus();
-	const bounds = await clip.boundingBox();
+	const bounds = await clip.locator('.clip-display').boundingBox();
 	expect(bounds).not.toBeNull();
 	await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 3);
 	await page.mouse.down();

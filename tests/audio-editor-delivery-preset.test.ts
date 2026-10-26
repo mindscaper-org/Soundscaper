@@ -7,7 +7,6 @@ import test from 'node:test';
 import { createExportPlan } from '../src/common/editor/export.js';
 import { createVideoExportPlan } from '../src/common/editor/video-export.js';
 import {
-	DeliveryPresetError,
 	resolveDeliveryPresetAvailability,
 	resolveDeliveryPresetPlanOptions,
 	validateDeliveryPreset,
@@ -144,12 +143,10 @@ test('a preset whose licensing row does not exist remains testable and flags lic
 	assert.equal(availability.licensingPending, true);
 });
 
-test('validated presets are frozen data and round-trip through JSON', () => {
+test('validated presets round-trip through JSON', () => {
 	const value = preset();
-	assert.ok(Object.isFrozen(value) && Object.isFrozen(value.settings));
 	const roundTripped = validateDeliveryPreset(JSON.parse(JSON.stringify(value)));
 	assert.deepEqual(roundTripped, value, 'presets import and export as plain data');
-	assert.throws(() => resolveDeliveryPresetPlanOptions({} as never), DeliveryPresetError);
 });
 
 test('a video preset canvas setting actually reaches the plan canvas', () => {

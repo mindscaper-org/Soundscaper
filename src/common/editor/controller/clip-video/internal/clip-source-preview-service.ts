@@ -36,7 +36,7 @@ export interface ClipSourcePreviewResources {
 	readonly sourceChunkProviders: EngineChunkSourceInput;
 	readonly sourceResolver?: EngineSourceResolver;
 	createEngine(options: Readonly<{ onState(state: string): void }>): ClipSourcePreviewEngine;
-	prepare(project: unknown, signal: AbortSignal): Promise<unknown>;
+	prepare(project: unknown, signal: AbortSignal, options?: Readonly<{ clipIds: readonly string[] }>): Promise<unknown>;
 	retirePlayback(): unknown;
 	subscribeTimelineState(listener: (state: string) => void): () => unknown;
 }
@@ -59,6 +59,7 @@ export function createClipSourcePreviewService(dependencies: ClipSourcePreviewDe
 	let unsubscribePosition: (() => unknown) | null = null;
 	let preparation: AbortController | null = null;
 	let loadedFingerprint: string | null = null;
+	let loadedSourceResources: readonly [unknown, unknown] | null = null;
 	let disposed = false;
 	let disposal: Promise<void> | null = null;
 	let focusedToken: EditorProjectToken | null = null;
@@ -91,6 +92,7 @@ export function createClipSourcePreviewService(dependencies: ClipSourcePreviewDe
 		if (snapshot.clipId !== clipId || projectChanged) {
 			stop();
 			loadedFingerprint = null;
+			loadedSourceResources = null;
 			update({ clipId, positionFrame: range.startFrame, selection: null, loopRange: null, durationFrames: range.totalFrames });
 		}
 		if (snapshot.durationFrames !== range.totalFrames) {
@@ -136,7 +138,7 @@ export function createClipSourcePreviewService(dependencies: ClipSourcePreviewDe
 		update({ state: 'loading', durationFrames: sourcePreviewTarget(project, clipId).range.totalFrames });
 		try {
 			resources.retirePlayback();
-			await resources.prepare(project, abort.signal);
+			await resources.prepare(project, abort.signal, { clipIds: [clipId] });
 			if (!isCurrent()) return;
 			dependencies.assertProject(token);
 			if (!engine) {
@@ -152,9 +154,14 @@ export function createClipSourcePreviewService(dependencies: ClipSourcePreviewDe
 				engine.setSourceResolver?.(resources.sourceResolver);
 			}
 			const savedPosition = snapshot.positionFrame;
-			if (loadedFingerprint !== fingerprint) {
+			const sourceId = sourcePreviewTarget(project, clipId).source.id;
+			const buffer = sourceResource(resources.sourceBuffers, sourceId);
+			const provider = sourceResource(resources.sourceChunkProviders, sourceId);
+			if (loadedFingerprint !== fingerprint || !loadedSourceResources
+				|| loadedSourceResources[0] !== buffer || loadedSourceResources[1] !== provider) {
 				engine.loadProject(preview, resources.sourceBuffers, { chunkSources: resources.sourceChunkProviders });
 				loadedFingerprint = fingerprint;
+				loadedSourceResources = [buffer, provider];
 			}
 			configureRange();
 			const playRange = snapshot.loop ? snapshot.loopRange ?? snapshot.selection : snapshot.selection;
@@ -248,7 +255,13 @@ export function createClipSourcePreviewService(dependencies: ClipSourcePreviewDe
 		listeners.clear();
 		const owned = engine;
 		engine = null;
+		loadedSourceResources = null;
 		disposal = Promise.resolve().then(() => owned?.dispose());
 		return disposal;
 	}
+}
+
+/** Match the engine's Map/record inputs without retaining an obsolete PCM owner. */
+function sourceResource(input: EngineSourceBufferInput | EngineChunkSourceInput, sourceId: string): unknown {
+	return input instanceof Map ? input.get(sourceId) : Object.getOwnPropertyDescriptor(input, sourceId)?.value;
 }

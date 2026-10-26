@@ -2,7 +2,7 @@
 
 // The closed request one batch of catalog keys is translated through, and the
 // reading of the model's answer. The packet carries the English messages, the
-// human German translations of the same keys as a meaning reference, and the
+// current German catalog translations of the same keys as a meaning reference, and the
 // Audacity-reviewed glossary for the target language; the answer must return
 // exactly the requested keys, and every value is held to the same predicate
 // the runtime applies before it shows a machine translation.
@@ -25,7 +25,7 @@ Rules:
 - Never use an ellipsis character or three dots. Never add, remove, soften, strengthen or explain anything. Keep a string that is only a product name, unit, symbol or abbreviation unchanged.
 - Write in the register of professional audio software in the target language: concise, imperative for commands, following that language's user-interface conventions for capitalisation and punctuation.
 - "glossary" lists translations reviewed by Audacity's translators for this language. Use their wording for the same terms wherever it applies.
-- "reference" gives the reviewed German translation of the same message. Use it only to resolve what the English means; translate from the English, not from the German.`;
+- "reference" gives a current German catalog translation of the same message. Use it only to resolve what the English means; translate from the English, not from the German.`;
 
 const MAXIMUM_TRANSLATION_GROWTH = 3;
 

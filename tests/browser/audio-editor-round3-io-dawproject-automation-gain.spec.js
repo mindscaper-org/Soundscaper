@@ -48,7 +48,7 @@ test('an ordinary gain-automated DAWproject round trip keeps its audible level',
 	expect(after.length).toBe(before.length);
 	expect(rms(after) / rms(before)).toBeCloseTo(1, 3);
 	expect(rms(after, 28_800, 33_600) / rms(before, 28_800, 33_600)).toBeCloseTo(1, 3);
-	const importedRow = clipByName(editor, monoTone.name.replace(/\.[^.]+$/u, '')).locator('xpath=ancestor::div[@data-track-row]');
+	const importedRow = clipByName(editor, monoTone.name).locator('xpath=ancestor::div[@data-track-row]');
 	await chooseTrackMenuAction(page, editor, importedRow, 'Add automation');
 	await expect(importedRow.locator('[data-automation-point-id]')).toHaveCount(2);
 	await expect(importedRow.locator('[data-automation-point-id]').last()).toHaveAttribute('aria-valuenow', finalValue);

@@ -25,14 +25,16 @@ import { normalizeExportDialogAudioSettings } from './export-dialog-audio-codec-
  *   presetKind: 'audio' | 'video',
  *   desktop: boolean,
  *   projectChannelCount: number,
+ *   projectSampleRate?: number,
+ *   isCurrent?: () => boolean,
  *   setSettings: (update: (current: any) => any) => void,
  *   setPresetId: (id: string) => void,
  *   setPresetName: (name: string) => void,
  * }} options
  */
 export function createExportPresetActions({
-	controller, settings, presetId, presetName, presetKind, desktop, projectChannelCount,
-	setSettings, setPresetId, setPresetName,
+	controller, settings, presetId, presetName, presetKind, desktop, projectChannelCount, projectSampleRate,
+	setSettings, setPresetId, setPresetName, isCurrent = () => true,
 }) {
 	const store = controller.actions.export.presets;
 	return {
@@ -45,7 +47,7 @@ export function createExportPresetActions({
 			// over a chosen loop or selection has to put the dialog back on a whole
 			// delivery rather than leave it showing a form it is not delivering.
 			setSettings((current) => conformExportDialogOutput(normalizeExportDialogAudioSettings(
-				{ ...current, ...dialogSettingsFromPreset(preset) }, desktop, projectChannelCount,
+				{ ...current, ...dialogSettingsFromPreset(preset, { desktop, projectSampleRate }) }, desktop, projectChannelCount,
 			)));
 		},
 		onNameChange: setPresetName,
@@ -57,11 +59,13 @@ export function createExportPresetActions({
 				format: presetFormatFromDialog(settings.format, presetKind),
 				settings: presetSettingsFromDialog(settings, presetKind),
 			});
+			if (!isCurrent()) return;
 			setPresetId(preset.id);
 			setPresetName(preset.label);
 		},
 		onDelete: async () => {
 			await store.delete(presetId);
+			if (!isCurrent()) return;
 			setPresetId('');
 			setPresetName('');
 		},

@@ -6,6 +6,7 @@ import {
 	type RuntimePersistedClip,
 } from './runtime-clip-projection.ts';
 import {
+	createImportedSourceProvenance,
 	normalizeSourceMetadata,
 	normalizeSourceProvenance,
 	type SourceAttributionContributionV1,
@@ -210,10 +211,19 @@ function createMutableSourceReport(source: DataRecord): MutableSourceReport {
 			uses: [],
 		};
 	}
+	if (source.kind === 'image' && source.original != null) {
+		const original = dataRecord(source.original, 'image source original');
+		return createMutableSourceReport({ ...source, provenance: createImportedSourceProvenance({
+			id: requiredString(source.id, 'image source ID'),
+			origin: { kind: 'local-file', originalFileName: requiredString(original.fileName, 'image original filename'),
+				mimeType: optionalString(original.mimeType) ?? 'application/octet-stream',
+				byteLength: nonNegativeSafeInteger(original.byteLength, 'image original byteLength') },
+		}) });
+	}
 	const legacy = sourceExtensionMetadata(source.opaqueExtensions, 'Legacy metadata');
 	return {
 		source,
-		classification: 'legacy',
+		classification: source.kind === 'generator' ? 'generated' : 'legacy',
 		contributions: Object.freeze([]),
 		sourceMetadata: legacy.metadata,
 		warnings: Object.freeze([

@@ -7,24 +7,6 @@ import { createGroupedEditorActions } from '../src/common/editor/controller/comp
 import { createEditorProjectBinActionGroup } from '../src/common/editor/controller/composition/project-bin-action-group.ts';
 import { createActionFacadeRuntime } from './helpers/action-facade-runtime-fixture.ts';
 
-const EXPECTED_PROJECT_BIN_ACTIONS = Object.freeze([
-	'moveFromTimeline', 'place', 'rename', 'setColor', 'remove', 'removeFromBin',
-	'removeFromProject', 'selectInstances', 'instanceCount', 'prepareReplacement',
-	'applyReplacement', 'cancelReplacement', 'canRelinkLinkedAudio',
-	'classifyLinkedAudioRelink', 'relinkLinkedAudio', 'canRelinkLinkedVideo',
-	'classifyLinkedVideoRelink', 'relinkLinkedVideo', 'playPause', 'stopPreview',
-	'getVisualData',
-]);
-
-test('controller action facade preserves branded Project Bin identity and exact keys', () => {
-	const runtime = createActionFacadeRuntime();
-	const projectBin = createGroupedEditorActions(runtime).projectBin;
-
-	assert.equal(projectBin, runtime.projectBin);
-	assert.deepEqual(Object.keys(projectBin), EXPECTED_PROJECT_BIN_ACTIONS);
-	assert.equal(Object.isFrozen(projectBin), true);
-});
-
 test('controller action facade forwards the exact linked-video relink snapshot', async () => {
 	const calls: unknown[][] = [];
 	const base = createActionFacadeRuntime();

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -12,7 +14,7 @@ import {
 import { createApplicationWindowMenu } from '../src/common/editor/ui/application-window-menu.js';
 import { APPLICATION_MENU_REFERENCE_BY_ID } from '../src/common/editor/ui/application-menu-reference.ts';
 import { WORKSPACE_DISCOVERABLE_PANEL_IDS, workspacePanelLabel } from '../src/common/editor/ui/workspace/workspace-panel-model.ts';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 
 test('recording notes stay hidden in every built-in workspace and older preferences', () => {
 	const preferences = createAudioEditorPreferencesV1();

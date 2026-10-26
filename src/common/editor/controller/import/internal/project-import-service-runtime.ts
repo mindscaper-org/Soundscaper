@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
-import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { inspectWavContainerSignature, inspectWavForImport } from './wav-import-routing.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts'; import { publishImportCompletionStatus, type LocalizedImportNotice } from './import-status-localization.ts';
+import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { inspectWavContainerSignature, inspectWavForImport } from './wav-import-routing.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts'; import { publishImportCompletionStatus, publishImportFailureStatus, type LocalizedImportFailure, type LocalizedImportNotice } from './import-status-localization.ts';
 import { loadImportAdmissionExecution } from './import-admission-loader.ts'; import { attachExternalMedia } from '../../../desktop-external-media.ts'; import { createDesktopOriginalImportRecorder } from '../../../desktop-overwrite-original.ts';
+import { claimImportBusyState } from '../../shared/import-busy-state.ts';
 import { admitAudioImportChannelCount } from './audio-import-channel-admission.ts';
+import { nativeSurroundOpusAdmission, assertNativeSurroundOpusGeometry } from './native-surround-opus-admission.ts';
+import { nativeContainerAudioAdmission, assertNativeContainerAudioGeometry, normalizeNativeContainerAudio, isNativeContainerAudioView } from './native-container-audio-admission.ts';
+import { importFilePlacement } from './import-file-placement.ts';
 import { resolveMediaImportVideoRoute } from './media-import-video-route.ts';
 import {
 	createImportedAdmPassthroughMetadata,
@@ -30,6 +33,8 @@ import { createLegacyAudacityProjectImport } from './legacy-audacity-project-imp
 import { createLinkedAudioImportAdmission } from './linked-media/linked-audio-import-admission.ts';
 import { createLinkedPcmImporter } from './linked-media/linked-wav-import-service.ts';
 import { persistDecodedLegacyAupProject } from './legacy-aup-project-persistence.ts';
+import { assertSingleLegacyAupProject } from './legacy-aup-batch-admission.ts';
+import { legacyAupImportPlacement } from './legacy-aup-import-placement.ts';
 import { createAddTimelineAnnotationCommand } from '../../../commands/factories.ts';
 import {
 	createOmittedRiffAnnotationImportReport,
@@ -98,7 +103,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		}
 		const { createImportTaskCancellation } = await loadImportAdmissionExecution();
 		const cancellation = createImportTaskCancellation(await normalizedImportOptionsForUse(requestedOptions)); assertRequestedProjectCurrent?.();
-		const importOptions = cancellation.options;
+		let importOptions = cancellation.options; const importSampleRate = projectSampleRate();
 		const linkedOriginalLocator = linkedOriginalLocatorReferenceFromImportOptions(importOptions);
 		if (!files.length || editingBlocked()) {
 			if (linkedOriginalLocator) await releaseLinkedOriginalLocator(linkedOriginalLocator);
@@ -111,74 +116,77 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			catch (error) { handleError(error); }
 			return;
 		}
+		assertSingleLegacyAupProject(files, isLegacyAupFile, copy);
 		const progressTask = taskProgress?.begin?.('import', copy.importing, undefined, { key: 'importing' }) || null;
 		progressTask?.setCancellation?.(cancellation.abort);
 		activeImportProgress = progressTask;
-		state.importing = true;
+		const importing = claimImportBusyState(state);
 		publishDocumentSnapshot();
 		setLocalizedStatus(setStatus, copy, "importing");
-		let failures = 0; let successes = 0;
+		let failures = 0; let successes = 0; const failureDetails: LocalizedImportFailure[] = [];
 		const webFileLimitFailures = createImportFileLimitFailures(cancellation.signal);
 		const notices: LocalizedImportNotice[] = []; let importQueue = files;
 		const progressFiles = files.filter((file: RuntimeValue) => !isLegacyBlockFile(file));
 		const totalBytes = Math.max(1, progressFiles.reduce((sum: number, file: RuntimeValue) => (
 			sum + Math.max(1, Number(file?.size) || 0)
 		), 0));
-		let completedBytes = 0; const legacyProject = files.find(isLegacyAupFile);
+		let completedBytes = 0; const legacyProject = files.find(isLegacyAupFile); let consumedLegacyFiles: Set<unknown> | null = null;
 		if (legacyProject) {
 			setImportFileProgress(legacyProject, completedBytes, totalBytes);
 			try {
 				assertRequestedProjectCurrent?.();
 				const result = await importLegacyAudacityProject(
 					legacyProject,
-					files.filter((file: RuntimeValue) => file !== legacyProject && !isLegacyAupFile(file)),
+					files.filter((file: RuntimeValue) => file !== legacyProject && !isLegacyAupFile(file)), { signal: cancellation.signal, assertCurrent: assertRequestedProjectCurrent },
 				);
 				if (getProject()?.id !== result.project?.id) throw new Error('The project changed during audio import.');
+				importOptions = legacyAupImportPlacement(importOptions, importSampleRate, projectSampleRate());
 				const importedProjectToken = captureProject();
 				assertRequestedProjectCurrent = () => {
 					assertProject(importedProjectToken);
 					if (getProject()?.id !== result.project.id) throw new Error('The project changed during audio import.');
 				};
 				if (result?.notice) notices.push({ text: result.notice, localization: result.noticeLocalization });
+				if (result.consumedDataFiles) consumedLegacyFiles = new Set(result.consumedDataFiles);
 				successes += 1;
 			} catch (error) {
-				failures += 1;
+				failures += 1; if (failureDetails.length < 3) failureDetails.push({ fileName: String(legacyProject.name), error });
 				handleError(error); webFileLimitFailures.collect(error);
 			}
 			activeImportProgress?.update?.(1);
 			completedBytes += Math.max(1, Number(legacyProject.size) || 0);
-			// `.au` files selected with a legacy project are its immutable block
-			// store, not independent media imports.
-			importQueue = files.filter((file: RuntimeValue) => file !== legacyProject && !isLegacyAupFile(file) && !isLegacyBlockFile(file));
+			importQueue = files.filter((file: RuntimeValue) => file !== legacyProject && !isLegacyAupFile(file)
+				&& !(consumedLegacyFiles ? consumedLegacyFiles.has(file) : isLegacyBlockFile(file)));
 		}
 		let audioFileIndex = 0;
 		for (const file of importQueue) {
 			if (cancellation.signal.aborted) break;
 			setImportFileProgress(file, completedBytes, totalBytes);
 			try {
-				const result = await importFile(file, importFilePlacement(importOptions, audioFileIndex), assertRequestedProjectCurrent);
+				const result = await importFile(file, importFilePlacement(requireProject(), importOptions, audioFileIndex), assertRequestedProjectCurrent);
 				if (result?.notice) notices.push({ text: result.notice, localization: result.noticeLocalization });
 				successes += 1;
+				audioFileIndex += 1;
 			} catch (error) {
 				if (cancellation.signal.aborted && !(error instanceof AggregateError)) break;
-				failures += 1;
+				failures += 1; if (failureDetails.length < 3) failureDetails.push({ fileName: String(file.name), error });
 				handleError(error); webFileLimitFailures.collect(error);
 			}
 			activeImportProgress?.update?.(1);
 			completedBytes += Math.max(1, Number(file?.size) || 0);
-			audioFileIndex += 1;
 		}
 		try {
+			if (!importing.isCurrent()) return;
 			if (cancellation.signal.aborted && !failures) setStatus('');
 			else if (!failures) publishImportCompletionStatus(setStatus, copy, notices);
-			else setLocalizedStatus(setStatus, copy, "importSummary", { successes: String(successes), failures: String(failures) }, 'error');
+			else publishImportFailureStatus(setStatus, copy, successes, failures, failureDetails);
 		} finally {
-			state.importing = false;
-			publishDocumentSnapshot();
+			if (importing.finish()) publishDocumentSnapshot();
 			progressTask?.finish?.();
 			if (activeImportProgress === progressTask) activeImportProgress = null;
 		}
 		webFileLimitFailures.throwIfAny();
+		if (cancellation.signal.aborted) return Object.freeze({ cancelled: true as const });
 	}
 
 	function setImportFileProgress(file: RuntimeValue, completedBytes: number, totalBytes: number) {
@@ -247,17 +255,6 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		return normalizeProjectImportTimelineStartFrame(value, copy.timelineFramesFinite);
 	}
 
-	function importFilePlacement(importOptions: RuntimeValue, fileIndex: RuntimeValue) {
-		if (importOptions.destination !== 'timeline' || !importOptions.trackId) return importOptions;
-		if (fileIndex === 0) return importOptions;
-		const targetTrackIndex = requireProject().tracks.findIndex((track: RuntimeValue) => track.id === importOptions.trackId);
-		return freezeImportOptions({
-			...importOptions,
-			trackId: null,
-			trackIndex: targetTrackIndex < 0 ? undefined : targetTrackIndex + fileIndex,
-		}, Boolean(importOptions.timelineStartExplicit));
-	}
-
 	function prepareImportedMediaCommand(
 		source: RuntimeValue,
 		clip: RuntimeValue,
@@ -319,8 +316,9 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 					type: 'audio',
 					id: trackId,
 					name: trackName,
-				}),
+				}, projectSampleRate()),
 				...(Number.isSafeInteger(importOptions.trackIndex) ? { index: importOptions.trackIndex } : {}),
+				...(importOptions.trackPlacement ?? {}),
 			});
 		}
 		commands.push(createAddClipCommand(trackId, {
@@ -346,7 +344,6 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		if (!track || track.type !== 'audio') throw createLocalizedError(Error, copy, 'audioTrackNotFound');
 		return track;
 	}
-
 	async function importMediaFile(file: RuntimeValue, importOptions: RuntimeValue = normalizeImportOptions(), assertRequestedProjectCurrent?: () => void) {
 		assertRequestedProjectCurrent?.(); const normalizedImportOptions = await normalizedImportOptionsForUse(importOptions); assertRequestedProjectCurrent?.();
 		const linkedOriginalLocator = linkedOriginalLocatorReferenceFromImportOptions(normalizedImportOptions);
@@ -410,37 +407,40 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			return importIncrementalPcm(file, wavDescriptor, wavMetadata.importOptions, wavMetadata,
 				{ requireChunkStream }, { assertCurrent: assertImportProjectCurrent });
 		}
-		const { isStreamedAudioImportFile, scanEncodedAudioMarkers, decodeStandaloneAudioForImport } = await loadImportAdmissionExecution();
-		if (wavSignature === 'RIFX' || isStreamedAudioImportFile(file)) {
-			const { importStreamedAudioFile } = await import('./streamed-audio-import-service.ts');
-			return importStreamedAudioFile(file, { ...attributedImportOptions, confirmFileSizeWarning: runtime.confirmFileSizeWarning }, ffmpeg, wavMetadata,
+		const { inspectStreamedAudioImportFile, scanEncodedAudioMarkers, decodeStandaloneAudioForImport } = await loadImportAdmissionExecution();
+		const streamedAudio = await inspectStreamedAudioImportFile(file, attributedImportOptions.signal); assertImportProjectCurrent();
+		const nativeAdmission = streamedAudio ? await nativeSurroundOpusAdmission(file, { signal: attributedImportOptions.signal, codecRuntime: ffmpeg }) : null; assertImportProjectCurrent();
+		const nativeContainer = streamedAudio ? await nativeContainerAudioAdmission(file, { signal: attributedImportOptions.signal, codecRuntime: ffmpeg, nativeSampleRate: async () => Number((await engine.getAudioContext({ resume: false })).sampleRate) }) : null; assertImportProjectCurrent();
+		if (wavSignature === 'RIFX' || streamedAudio && !nativeAdmission && !nativeContainer) {
+			const { importStreamedAudioFile, NATIVE_AAC_IMPORT_FALLBACK } = await import('./streamed-audio-import-service.ts');
+			const imported = await importStreamedAudioFile(file, { ...attributedImportOptions, confirmFileSizeWarning: runtime.confirmFileSizeWarning, rescueMarkers: wavSignature === 'RIFX' }, ffmpeg, wavMetadata,
 				importIncrementalPcm, assertImportProjectCurrent);
+			if (imported !== NATIVE_AAC_IMPORT_FALLBACK) return imported;
 		}
 		await preflightStorage(Math.max(file.size * 8, 8 * 1024 * 1024), 'import');
 		assertImportProjectCurrent();
 		// A container the maintained PCM reader refused (a non-PCM WAV, say) still
 		// carries its cue chunk; scan it out before the codec decode discards
 		// everything but samples.
-		const rescuedMarkerScan = wavDescriptor ? null : await scanEncodedAudioMarkers(file);
+		const rescuedMarkerScan = wavDescriptor ? null : await scanEncodedAudioMarkers(file, attributedImportOptions.signal);
 		assertImportProjectCurrent();
 		const { context, decoded, originalSampleRate } = await decodeStandaloneAudioForImport({
-			file, codecRuntime: ffmpeg, sampleRate: projectSampleRate(),
+			file, codecRuntime: ffmpeg, sampleRate: projectSampleRate(), signal: attributedImportOptions.signal,
 			getAudioContext: () => engine.getAudioContext({ resume: false }),
-			// Pinning the native decode to the file's own rate keeps a compressed
-			// import from inheriting the output device's rate, the way the PCM
-			// streaming path above keeps a WAV's.
-			decodeWithWebAudio: (encoded: ArrayBuffer, decodedSampleRate: number | null) => (
-				engine.decodeAudioData(encoded, { sampleRate: decodedSampleRate })
+			// Pinning native decoding keeps the file's own rate, like PCM streaming,
+			// instead of inheriting the output device's rate.
+			decodeWithWebAudio: async (encoded: ArrayBuffer, decodedSampleRate: number | null) => (
+				normalizeNativeContainerAudio(await engine.decodeAudioData(encoded.slice(0), { sampleRate: decodedSampleRate }), nativeContainer, encoded)
 			),
 			decodeWithCodec: async (input, settings) => ffmpeg.decode(input, settings),
 			bufferFromChannels: (channels, sampleRate, audioContext) => (
 				bufferFromChannels(channels, sampleRate, audioContext, copy)
 			),
 			inspectEncodedSampleRate: inspectEncodedAudioSampleRate,
-			inspectDecodedSampleRate: inspectDecodedAudioSampleRate,
+			inspectDecodedSampleRate: encoded => nativeContainer?.decodeSampleRate ?? inspectDecodedAudioSampleRate(encoded),
 		});
-		assertImportProjectCurrent();
-		const canonical = await canonicalizeBuffer(decoded, context, null, copy);
+		assertImportProjectCurrent(); assertNativeSurroundOpusGeometry(decoded, nativeAdmission); assertNativeContainerAudioGeometry(decoded, nativeContainer); admitAudioImportChannelCount(decoded.numberOfChannels);
+		const canonical = await canonicalizeBuffer(decoded, context, null, copy, { preserveChannels: true });
 		assertImportProjectCurrent();
 		await preflightStorage(canonical.length * canonical.numberOfChannels * Float32Array.BYTES_PER_ELEMENT, 'import');
 		assertImportProjectCurrent();
@@ -501,11 +501,11 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 					canonical.length, canonical.sampleRate, projectSampleRate(), 'point',
 				)),
 			}, trackName, wavMetadata.importOptions, wavMetadata.projectBext, wavDescriptor?.markers || rescuedMarkerScan?.markers || [], wavDescriptor?.sampleRate || rescuedMarkerScan?.sampleRate || canonical.sampleRate, wavMetadata.projectIxml, wavMetadata.projectCart, wavMetadata.projectAdmCandidate, wavDescriptor);
-			cacheSourceBuffer(sourceId, canonical);
+			if (!isNativeContainerAudioView(canonical)) cacheSourceBuffer(sourceId, canonical);
 			const peaks = await generateWaveformPeaks(audioBufferChannels(canonical), copy);
 			assertImportProjectCurrent();
 			sourcePeaks.set(sourceId, peaks);
-			await store.saveAnalysis(peakCacheKey(sourceId), peaks);
+			await store.saveAnalysis(peakCacheKey(sourceId), peaks).catch(() => undefined);
 			assertImportProjectCurrent();
 			commit(prepared.command, prepared.selection);
 			importedResult = prepared.result;
@@ -527,7 +527,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			throw error;
 		}
 		warnEnvelope();
-		return importResultWithWarnings(importedResult, wavMetadata.warnings);
+		return importResultWithWarnings(importedResult, [...wavMetadata.warnings, ...(rescuedMarkerScan?.metadataWarnings ?? [])]);
 	}
 	function requireProject() {
 		const project = getProject();
@@ -539,7 +539,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		return prepareImportedWavMetadata({ descriptor, importOptions, project: getProject(),
 			projectSampleRate: projectSampleRate(), copy, freezeImportOptions });
 	}
-	const importFile = createDesktopOriginalImportRecorder({ state, getProject, publishDocumentSnapshot }, importMediaFile);
+	const importFile = createDesktopOriginalImportRecorder({ state, getProject, publishDocumentSnapshot, codecRuntime: ffmpeg }, importMediaFile);
 	return Object.freeze({
 		importFile,
 		importFiles,

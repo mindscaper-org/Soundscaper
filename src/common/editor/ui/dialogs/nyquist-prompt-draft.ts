@@ -14,7 +14,7 @@ export function loadNyquistPromptDraft(
 	try {
 		const available = storage ?? globalThis.localStorage;
 		return {
-			source: available?.getItem(SOURCE_KEY) || fallback,
+			source: available?.getItem(SOURCE_KEY) ?? fallback,
 			language: available?.getItem(LANGUAGE_KEY) === 'sal' ? 'sal' : 'lisp',
 		};
 	} catch {

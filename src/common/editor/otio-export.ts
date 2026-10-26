@@ -9,7 +9,7 @@ import {
 } from './delivery-report.ts';
 import { type SequenceRationalRate } from './sequence-timecode.ts';
 import { sequenceFrameAtSample } from './sequence-frame-navigation.ts';
-import { interchangeSourceInPoint } from './interchange-source-in-point.ts';
+import { interchangeSourceInTime } from './interchange-source-in-point.ts';
 import {
 	interchangeClipTimeEffect,
 	reportInterchangeAnnotationOmission,
@@ -17,6 +17,8 @@ import {
 } from './interchange-omission-inventory.ts';
 import { createInterchangeVisibility } from './interchange-track-visibility.ts';
 import { portableFileStem } from './portable-file-stem.ts';
+import { interchangeTrackClips } from './interchange-track-clips.ts';
+import { interchangePainterOrder } from './interchange-painter-order.ts';
 
 /**
  * OpenTimelineIO export.
@@ -27,10 +29,9 @@ import { portableFileStem } from './portable-file-stem.ts';
  * - **Rates are computed quotients, never literals.** `30000/1001` is emitted
  *   as the division, so the double is the closest representable value to the
  *   exact rate. A `29.97` literal in a file is a rate that has already lost.
- * - **Values are pre-rounded here.** `rescaled_to()` preserves fractional
- *   doubles and downstream consumers truncate toward zero, so a fractional
- *   `value` is a frame that silently disappears somewhere else. Every value
- *   this module writes is an integer in its own timebase.
+ * - **Timeline values are pre-rounded here.** Cuts and durations retain whole
+ *   sequence frames or audio samples. A source in-point may be fractional on
+ *   that grid: rounding it would change the native media frame being selected.
  * - **One timebase per item.** Video items are counted in sequence frames at
  *   the sequence rate; audio items in samples at the sample rate. Mixing them
  *   inside one item is how a rounding error becomes permanent.
@@ -117,7 +118,7 @@ export function createOtioExport(request: OtioExportRequest): OtioExportResult {
 	const sourceById = new Map(
 		asRecords(project.sources).map((source) => [String(source.id), source]),
 	);
-	const tracks = asRecords(project.tracks);
+	const tracks = interchangePainterOrder(asRecords(project.tracks));
 
 	const visibility = createInterchangeVisibility(tracks as never, project);
 	reportInterchangeAnnotationOmission(draft, project, 'otio');
@@ -157,9 +158,7 @@ export function createOtioExport(request: OtioExportRequest): OtioExportResult {
 			// One timebase per item: sequence frames for picture, samples for sound.
 			timebase: isVideo ? sequenceRateValue : sampleRate,
 			rateValue: isVideo ? sequenceRateValue : sampleRate,
-			clips: asStrings(track.clipIds)
-				.map((clipId) => clipById.get(clipId))
-				.filter((clip): clip is Readonly<Record<string, unknown>> => Boolean(clip))
+			clips: interchangeTrackClips(track, clipById, draft, 'otio')
 				.sort((left, right) => (
 					Number(left.timelineStartFrame ?? 0) - Number(right.timelineStartFrame ?? 0)
 					|| compareCodeUnits(String(left.id), String(right.id))
@@ -177,7 +176,7 @@ export function createOtioExport(request: OtioExportRequest): OtioExportResult {
 		OTIO_SCHEMA: 'Timeline.1',
 		name: title,
 		global_start_time: rationalTime(
-			nonNegativeInteger(request?.startFrameCount ?? 0, 'startFrameCount'),
+			request?.startFrameCount ?? 0,
 			sequenceRateValue,
 		),
 		metadata: {
@@ -247,7 +246,11 @@ function buildTracks(walk: TrackWalk, context: {
 			});
 			continue;
 		}
-		let lane = laneEnds.findIndex((position) => position <= start);
+		// A later picture is above every still-active outgoing picture. Reusing
+		// a retired lower lane would invert that order on the next overlap.
+		const minimumLane = walk.kind === 'Video'
+			? laneEnds.reduce((minimum, position, index) => position > start ? index + 1 : minimum, 0) : 0;
+		let lane = laneEnds.findIndex((position, index) => index >= minimumLane && position <= start);
 		if (lane < 0) {
 			lane = lanes.length;
 			lanes.push([]);
@@ -343,7 +346,9 @@ function buildClip(
 			severity: 'warning',
 			scope: { kind: 'clip', id: String(clip.id) },
 			data: { kind: timeEffect.kind, ...timeEffect.data },
-			message: 'The profile emits no time-effect vocabulary; the clip carries its rendered duration.',
+			message: timeEffect.kind === 'reverse'
+				? 'The profile emits no time-effect vocabulary; reversed playback becomes forward at the rendered duration.'
+				: 'The profile emits no time-effect vocabulary; the clip carries its rendered duration.',
 		});
 	}
 
@@ -371,7 +376,7 @@ function buildClip(
 	return {
 		OTIO_SCHEMA: 'Clip.1',
 		name: String(clip.title ?? source?.name ?? clip.id ?? ''),
-		source_range: timeRange(sourceStart, durationInTimebase, walk.rateValue),
+		source_range: timeRange(sourceStart, durationInTimebase, walk.rateValue, true),
 		media_reference: source
 			? {
 				OTIO_SCHEMA: 'ExternalReference.1',
@@ -412,7 +417,7 @@ function sourceStartInTimebase(
 ): number {
 	const stated = nonNegativeInteger(clip.sourceStartFrame ?? 0, 'clip.sourceStartFrame');
 	if (walk.kind === 'Audio') {
-		return interchangeSourceInPoint(clip, source, { num: context.sampleRate, den: 1 }, context.sampleRate);
+		return nativeSourceStart(clip, source, { num: context.sampleRate, den: 1 }, context.sampleRate);
 	}
 	if (!Object.hasOwn(clip, 'sourceInFrame')) {
 		return toTimebase(stated, walk, context);
@@ -430,7 +435,15 @@ function sourceStartInTimebase(
 		});
 		return stated;
 	}
-	return interchangeSourceInPoint(clip, source, context.sequenceRate, context.sampleRate);
+	return nativeSourceStart(clip, source, context.sequenceRate, context.sampleRate);
+}
+
+function nativeSourceStart(
+	clip: Readonly<Record<string, unknown>>, source: Readonly<Record<string, unknown>> | undefined,
+	rate: SequenceRationalRate, sampleRate: number,
+): number {
+	const time = interchangeSourceInTime(clip, source, sampleRate);
+	return Number(time.numerator * BigInt(rate.num)) / Number(time.denominator * BigInt(rate.den));
 }
 
 function exactRate(value: unknown): SequenceRationalRate | null {
@@ -472,17 +485,18 @@ function toTimebase(sampleFrame: number, walk: TrackWalk, context: {
 	return sequenceFrameAtSample(sampleFrame, context.sequenceRate, context.sampleRate);
 }
 
-function rationalTime(value: number, rate: number): Record<string, unknown> {
-	if (!Number.isSafeInteger(value)) {
+function rationalTime(value: number, rate: number, fractional = false): Record<string, unknown> {
+	if (!Number.isFinite(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER
+		|| (!fractional && !Number.isSafeInteger(value))) {
 		throw new RangeError('An OTIO value must be a whole number in its own timebase.');
 	}
 	return { OTIO_SCHEMA: 'RationalTime.1', value, rate };
 }
 
-function timeRange(start: number, duration: number, rate: number): Record<string, unknown> {
+function timeRange(start: number, duration: number, rate: number, fractionalStart = false): Record<string, unknown> {
 	return {
 		OTIO_SCHEMA: 'TimeRange.1',
-		start_time: rationalTime(start, rate),
+		start_time: rationalTime(start, rate, fractionalStart),
 		duration: rationalTime(duration, rate),
 	};
 }

@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { addDeliveryReportItem, type createDeliveryReport } from './delivery-report.ts';
-import { attribute, childElements, integerAttribute, numberAttribute } from './dawproject-xml.ts';
-import { clamp, rationalFromDouble } from './dawproject-format.ts';
+import { attribute, childElements, integerAttribute, numberAttribute, type XmlElement } from './dawproject-xml.ts';
+import { clamp, rationalFromDouble, rationalToNumber } from './dawproject-format.ts';
+import { sampleFrameToBeat } from './timeline-tempo-inverse.ts';
 import type { DawprojectDocument } from './dawproject-import.ts';
 import type { HoldTempoMap, Rational } from './timeline-time.ts';
 
@@ -43,13 +44,14 @@ export function buildTempoMap(document: DawprojectDocument, draft: Draft): HoldT
 			for (const point of childElements(automation, 'RealPoint')) {
 				const beat = numberAttribute(point, 'time');
 				const bpm = numberAttribute(point, 'value');
-				if (beat === null || bpm === null || beat < 0 || !Number.isFinite(bpm)) continue;
+				if (beat === null || bpm === null || !Number.isFinite(bpm)) continue;
 				if (attribute(point, 'interpolation') === 'linear') ramps += 1;
 				points.push({ beat, bpm });
 			}
 		}
 	}
 	points.sort((left, right) => left.beat - right.beat);
+	const finalPoints = points.filter((point, index) => points[index + 1]?.beat !== point.beat);
 	const events: { id: string; beat: Rational; bpm: Rational }[] = [];
 	let clamped = 0;
 	const push = (beat: number, bpm: number, index: number): void => {
@@ -57,8 +59,8 @@ export function buildTempoMap(document: DawprojectDocument, draft: Draft): HoldT
 		if (bounded !== bpm) clamped += 1;
 		events.push({ id: `tempo-${String(index)}`, beat: rationalFromDouble(beat), bpm: rationalFromDouble(bounded) });
 	};
-	push(0, points[0]?.beat === 0 ? points[0].bpm : rootBpm, 1);
-	for (const point of points) {
+	push(0, finalPoints.filter(point => point.beat <= 0).at(-1)?.bpm ?? rootBpm, 1);
+	for (const point of finalPoints) {
 		if (point.beat <= (events.at(-1)?.beat.num ?? 0) / (events.at(-1)?.beat.den ?? 1)) continue;
 		push(point.beat, point.bpm, events.length + 1);
 	}
@@ -83,7 +85,7 @@ export function buildTempoMap(document: DawprojectDocument, draft: Draft): HoldT
 	return { mode: 'musical', events };
 }
 
-export function buildSignatureMap(document: DawprojectDocument, draft: Draft): DataRecord {
+export function buildSignatureMap(document: DawprojectDocument, draft: Draft, tempoMap: HoldTempoMap, sampleRate: number): DataRecord {
 	const root = document.transport.timeSignature ?? { numerator: 4, denominator: 4 };
 	const events: { id: string; bar: number; numerator: number; denominator: number }[] = [
 		{ id: 'signature-1', bar: 0, numerator: root.numerator, denominator: root.denominator },
@@ -92,15 +94,16 @@ export function buildSignatureMap(document: DawprojectDocument, draft: Draft): D
 	if (!automation) return { events };
 	const points = childElements(automation, 'TimeSignaturePoint')
 		.map((point) => ({
-			beat: numberAttribute(point, 'time') ?? Number.NaN,
+			beat: signaturePointBeat(point, attribute(automation, 'timeUnit'), tempoMap, sampleRate),
 			numerator: integerAttribute(point, 'numerator') ?? 0,
 			denominator: integerAttribute(point, 'denominator') ?? 0,
 		}))
 		.filter((point) => Number.isFinite(point.beat) && point.beat >= 0 && point.numerator > 0 && point.denominator > 0)
 		.sort((left, right) => left.beat - right.beat);
+	const finalPoints = points.filter((point, index) => points[index + 1]?.beat !== point.beat);
 	let previousBeat = 0;
 	let offBar = 0;
-	for (const point of points) {
+	for (const point of finalPoints) {
 		const previous = events.at(-1)!;
 		const barsSince = (point.beat - previousBeat) / (previous.numerator * 4 / previous.denominator);
 		const bar = previous.bar + Math.round(barsSince);
@@ -126,4 +129,10 @@ export function buildSignatureMap(document: DawprojectDocument, draft: Draft): D
 		});
 	}
 	return { events };
+}
+
+function signaturePointBeat(point: XmlElement, unit: string | null, tempoMap: HoldTempoMap, sampleRate: number): number {
+	const time = numberAttribute(point, 'time') ?? Number.NaN;
+	if (unit !== 'seconds' || !Number.isFinite(time) || time < 0) return time;
+	return rationalToNumber(sampleFrameToBeat(Math.round(time * sampleRate), tempoMap, sampleRate));
 }

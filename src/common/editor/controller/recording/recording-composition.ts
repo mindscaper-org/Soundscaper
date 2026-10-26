@@ -8,7 +8,7 @@ import {
 	RECORDING_DEFAULT_DEVICE_ID,
 	RECORDING_DISPLAY_SOURCE_KEY,
 	normalizeRecordingRouting,
-	recordingRouteSourceKey,
+	recordingRouteSourceKey, recordingTrackRoute,
 	recordingRoutingSettingKey,
 	setRecordingSourceOffset,
 	setRecordingTrackRoute,
@@ -272,7 +272,7 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		recordingRouteSourceKey,
 		createId: createStableId,
 		createRecordingName: (name) => `${name} ${new Date().toLocaleTimeString(locale)}`,
-		preflightRecording: (bytes) => dependencies.preflightStorage(bytes, 'recording'),
+		preflightRecording: (bytes, signal) => dependencies.preflightStorage(bytes, 'recording', signal),
 		releaseInputs: () => releaseUnretainedRecordingInputs(),
 		activateStoredSource: (source, metadata) => (
 			dependencies.activateStoredSource(source, metadata, { requireChunkStream: true })
@@ -326,7 +326,7 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 			}
 			await ordinaryRecovery.begin();
 			scope.assertCurrent();
-			const route = options.trackId ? state.recordingRouting.routes[options.trackId] : null;
+			const route = recordingTrackRoute(state.recordingRouting.routes, options.trackId);
 			const routed = route && (
 				route.kind === 'display'
 				|| route.deviceId !== RECORDING_DEFAULT_DEVICE_ID
@@ -335,6 +335,7 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 			);
 			try {
 				await (options.trackId && !routed ? legacyCapture.capture(options, scope) : routedCapture.capture(options, scope));
+				if (!state.recorder) await ordinaryRecovery.abandon();
 			} catch (error) { await ordinaryRecovery.abandon(); throw error; }
 		},
 		beginTakeCycleRecording: takeCycleSession.begin,

@@ -30,7 +30,7 @@ test.describe('installed PWA file handling', () => {
 			buffer: await projectArchive(),
 		}, toneA]);
 
-		let editor = await bootEditor(page, '/embed/en/');
+		let editor = await bootEditor(page, '/embed/en/', { defaultWorkspace: true });
 		await expect(editor).toHaveAttribute('data-project-id', PROJECT_ID, { timeout: 30_000 });
 		await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 30_000 });
 		await expect(clipByName(editor, toneA.name)).toBeVisible();

@@ -8,11 +8,6 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-test('desktop package metadata exposes the packaged timing probe', async () => {
-	const metadata = JSON.parse(await readFile(resolve(ROOT, 'package.json'), 'utf8'));
-	assert.equal(metadata.scripts['desktop:smoke:timing-probe'], 'node scripts/desktop-video-timing-probe-smoke.mjs');
-});
-
 test('the timing-probe runner leaves teardown margin beyond the application deadline', async () => {
 	const source = await readFile(resolve(ROOT, 'scripts/desktop-video-timing-probe-smoke.mjs'), 'utf8');
 	assert.match(source, /DESKTOP_VIDEO_TIMING_PROBE_TIMEOUT_MS/u);

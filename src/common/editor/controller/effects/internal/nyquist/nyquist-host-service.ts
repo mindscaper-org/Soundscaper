@@ -5,6 +5,7 @@ import type { AudioBufferContext } from '../../../source/source-audio.ts';
 import { createAddLabelCommand, createAddLabelTrackCommand } from '../../../../commands/factories.ts';
 import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
 import { projectForRuntimeConsumers } from '../../../../project-current-runtime.ts';
+import { sequenceTrackMembers } from '../../../../sequence-track-members.ts';
 import { sampleFrameToBeat } from '../../../../timeline-tempo-inverse.ts';
 import { compareRationals, type HoldTempoEvent, type HoldTempoMap } from '../../../../timeline-time.ts';
 import { nyquistChannelStats } from './nyquist-audio.ts';
@@ -95,6 +96,9 @@ export interface NyquistHostProperties {
 	readonly TRACK: Readonly<{
 		INDEX: number;
 		NAME: string;
+		START_TIME: number;
+		END_TIME: number;
+		VIEW: string | null;
 		CLIPS: readonly unknown[];
 		INCLIPS: readonly unknown[];
 	}>;
@@ -169,6 +173,7 @@ export function createNyquistHostService(runtime: NyquistHostServiceRuntime) {
 				clip.timelineStartFrame / projectRate,
 				(clip.timelineStartFrame + clip.durationFrames) / projectRate,
 			] as const) ?? [];
+		clips.sort((left, right) => left[0] - right[0] || left[1] - right[1]);
 		const stats = nyquistChannelStats([...channels]);
 		const lowHz = Number(frequencyRange?.minimumFrequency);
 		const highHz = Number(frequencyRange?.maximumFrequency);
@@ -189,6 +194,7 @@ export function createNyquistHostService(runtime: NyquistHostServiceRuntime) {
 			END: endFrame / sampleRate,
 			TRACKS: selectedTrackIndices,
 			PEAK: stats.peak,
+			PEAK_LEVEL: Array.isArray(stats.peak) ? Math.max(0, ...stats.peak) : stats.peak,
 			RMS: stats.rms,
 		};
 		if (Number.isFinite(lowHz)) selectionProperties.LOW_HZ = lowHz;
@@ -213,6 +219,9 @@ export function createNyquistHostService(runtime: NyquistHostServiceRuntime) {
 			TRACK: {
 				INDEX: selectedTrackIndex >= 0 ? selectedTrackIndex + 1 : index + 1,
 				NAME: track?.name || String(request.name || ''),
+				START_TIME: clips.length ? clips.reduce((start, clip) => Math.min(start, clip[0]), Infinity) : 0,
+				END_TIME: clips.reduce((end, clip) => Math.max(end, clip[1]), 0),
+				VIEW: request.preview === true ? null : track?.displayMode === 'spectrogram' ? 'Spectrogram' : 'Waveform',
 				CLIPS: trackClips,
 				INCLIPS: trackClips,
 			},
@@ -253,8 +262,10 @@ export function createNyquistHostService(runtime: NyquistHostServiceRuntime) {
 	function persistNyquistLabels(labels: readonly NyquistLabel[], name: unknown = null): string | null {
 		if (!labels.length) return null;
 		const project = runtime.getProject();
-		let target = project.tracks.find((track) => track.id === runtime.state.selectedTrackId) ?? null;
-		if (target?.type !== 'label') target = project.tracks.find((track) => track.type === 'label') ?? null;
+		const members = sequenceTrackMembers(project, runtime.state.selectedTrackId);
+		const destinations = project.tracks.filter(track => track.type === 'label' && track.locked !== true);
+		const target = destinations.find(track => track.id === runtime.state.selectedTrackId)
+			?? destinations.find(track => members?.has(track.id)) ?? destinations[0] ?? null;
 		const commands: AudioEditorCommand[] = [];
 		let targetId = target?.id ?? null;
 		if (!targetId) {

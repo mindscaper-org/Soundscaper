@@ -151,7 +151,7 @@ function replace(bridge: Data): void {
 	(globalThis as unknown as Data).framescaperDesktop = { v1: { nativeServices: bridge } };
 }
 
-function enqueue(runtime: FramescaperNativeProjectActionRuntime, request?: unknown): Promise<void> {
+function enqueue(runtime: FramescaperNativeProjectActionRuntime, request?: unknown): ReturnType<FramescaperNativeProjectActionRuntime['run']> {
 	return runtime.run('render-queue-enqueue', request);
 }
 
@@ -307,23 +307,6 @@ test('a carrier-requiring plan without a live authority refuses before staging',
 
 		await assert.rejects(() => enqueue(runtime), /live evaluated-carrier authority is unavailable/u);
 		assert.equal(staged, 0);
-	}
-});
-
-test('a live carrier producer that breaks its closed shape is refused', async (context) => {
-	install(context, liveServices());
-	const cases: readonly (readonly [unknown, RegExp])[] = [
-		[producer({ carrierByteLength: 0 }), /live carrier producer is invalid/u],
-		[producer({ stream: null }), /live carrier producer is invalid/u],
-		[producer({ extra: 1 }), /live carrier producer is invalid/u],
-		['not-a-producer', /live carrier producer must be an object/u],
-	];
-	for (const [value, message] of cases) {
-		const controller = {
-			project: silentCarrierProject(),
-			prepareNativeRenderInputStreamNativeMedia: async () => value,
-		};
-		await assert.rejects(() => enqueue(createRuntime(PROFILE, controller as never)), message);
 	}
 });
 

@@ -11,9 +11,10 @@ export function resolveEffectMenuTargeting({
 		track.type === 'audio' && track.clipIds?.length
 	)) || null;
 	const selectionNamesTracks = Boolean(project?.selection?.trackIds?.length);
+	const selectedTrackIds = selectionNamesTracks ? new Set(project.selection.trackIds) : null;
 	const selectionAudioTrack = selectionNamesTracks
 		? project.tracks.find((track) => (
-			track.type === 'audio' && project.selection.trackIds.includes(track.id)
+			track.type === 'audio' && selectedTrackIds.has(track.id)
 		)) || null
 		: selectedAudioTrack;
 	const nonAudioEffectFocus = selectionNamesTracks

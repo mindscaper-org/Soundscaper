@@ -249,7 +249,7 @@ export function createNyquistGeneratedAudioService<Buffer extends NyquistGenerat
 				targetTrackId = runtime.createId('track');
 				commands.push(createAddTrackCommand({
 					type: 'audio', id: targetTrackId, name,
-				}));
+				}, sampleRate));
 			}
 			const selectedClipId = runtime.createId('clip');
 			commands.push(createAddClipCommand(requireId(targetTrackId, 'track'), {
@@ -266,7 +266,7 @@ export function createNyquistGeneratedAudioService<Buffer extends NyquistGenerat
 			assertOwnership();
 			runtime.sourcePeaks.set(sourceId, peaks);
 			analysisKey = runtime.peakCacheKey(sourceId);
-			await runtime.store.saveAnalysis(analysisKey, peaks);
+			await runtime.store.saveAnalysis(analysisKey, peaks).catch(() => undefined);
 			assertOwnership();
 			runtime.commit({ type: 'batch', commands }, {
 				selectTrackId: requireId(targetTrackId, 'track'),

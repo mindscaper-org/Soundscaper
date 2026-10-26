@@ -52,8 +52,8 @@ export function readAup4AnnotationTracks(
 	return xmlChildren(root, 'labeltrack').map((labelNode, index) => {
 		const labels = xmlChildren(labelNode, 'label').map((node) => ({
 			title: String(xmlAttribute(node, 'title', '')),
-			startSeconds: nonNegativeFinite(xmlAttribute(node, 't', 0), 'AUP4 label start'),
-			endSeconds: nonNegativeFinite(
+			startSeconds: finiteNumber(xmlAttribute(node, 't', 0), 'AUP4 label start'),
+			endSeconds: finiteNumber(
 				xmlAttribute(node, 't1', xmlAttribute(node, 't', 0)),
 				'AUP4 label end',
 			),
@@ -106,9 +106,11 @@ export function createAudacityAnnotationImport(
 			if (!label || typeof label !== 'object') {
 				throw new TypeError(`Audacity annotation label ${String(trackIndex)}:${String(labelIndex)} must be an object.`);
 			}
-			const startSeconds = nonNegativeFinite(label.startSeconds, 'Audacity label startSeconds');
-			const endSeconds = nonNegativeFinite(label.endSeconds ?? startSeconds, 'Audacity label endSeconds');
-			if (endSeconds < startSeconds) throw new RangeError('Audacity label endSeconds cannot precede startSeconds.');
+			const originalStart = finiteNumber(label.startSeconds, 'Audacity label startSeconds');
+			const endSeconds = finiteNumber(label.endSeconds ?? originalStart, 'Audacity label endSeconds');
+			if (endSeconds < originalStart) throw new RangeError('Audacity label endSeconds cannot precede startSeconds.');
+			if (endSeconds < 0 || (originalStart < 0 && endSeconds === 0)) continue;
+			const startSeconds = Math.max(0, originalStart);
 			const startFrame = secondsToSampleFrame(startSeconds, sampleRate, 'point');
 			const resolvedEndFrame = secondsToSampleFrame(endSeconds, sampleRate, 'point');
 			const positiveRegion = endSeconds > startSeconds;
@@ -173,9 +175,9 @@ function canonicalId(value: unknown, name: string): string {
 	return value;
 }
 
-function nonNegativeFinite(value: unknown, name: string): number {
+function finiteNumber(value: unknown, name: string): number {
 	const number = Number(value);
-	if (!Number.isFinite(number) || number < 0) throw new RangeError(`${name} must be finite and non-negative.`);
+	if (!Number.isFinite(number)) throw new RangeError(`${name} must be finite.`);
 	return number;
 }
 

@@ -4,11 +4,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-	DESKTOP_CODEC_TARGETS,
-	createBundledDesktopCodecProvider,
 	createExternalFfmpegDesktopCodecProvider,
 	createOperatingSystemDesktopCodecProvider,
-	type BundledDesktopCodecComponent,
 	type DesktopCodecCapability,
 } from '../src/common/editor/desktop-codec-provider-catalog.ts';
 import type { DesktopCodecOperation } from '../src/common/editor/desktop-codec-coordinator.ts';
@@ -19,91 +16,8 @@ const AV1_ENCODE = operation({
 	profile: 'main', pixelFormat: 'yuv420p', width: 1_920, height: 1_080,
 });
 
-test('the desktop target matrix is closed and macOS x64 is rejected', () => {
-	assert.deepEqual(DESKTOP_CODEC_TARGETS, [
-		'linux-x64', 'linux-arm64', 'mac-arm64', 'win-x64', 'win-arm64',
-	]);
-	assert.throws(() => createBundledDesktopCodecProvider({
-		target: 'mac-x64' as 'mac-arm64', capabilityGeneration: 'review-1', inventory: {},
-	}), /target/iu);
-});
 
-test('bundled audio capabilities match the executable reviewed runtime tuples', async () => {
-	const complete = createBundledDesktopCodecProvider({
-		target: 'linux-x64', capabilityGeneration: 'review-42', inventory: reviewedAudioInventory(),
-	});
-	for (const candidate of [
-		operation({ direction: 'encode', mediaKind: 'audio', container: 'bw64', codec: 'pcm', sampleFormat: 's24', sampleRate: 96_000, channelCount: 8 }),
-		operation({ direction: 'encode', mediaKind: 'audio', container: 'flac', codec: 'flac', sampleFormat: 's24', sampleRate: 192_000, channelCount: 8 }),
-		operation({ direction: 'decode', mediaKind: 'audio', container: 'flac', codec: 'flac', sampleFormat: 'f32', sampleRate: 8_000, channelCount: 1 }),
-		operation({ direction: 'encode', mediaKind: 'audio', container: 'ogg', codec: 'vorbis', sampleFormat: 'f32p', sampleRate: 8_000, channelCount: 1 }),
-		operation({ direction: 'decode', mediaKind: 'audio', container: 'ogg', codec: 'vorbis', sampleFormat: 'f32p', sampleRate: 192_000, channelCount: 2 }),
-		operation({ direction: 'encode', mediaKind: 'audio', container: 'ogg', codec: 'opus', sampleFormat: 'f32p', sampleRate: 48_000, channelCount: 1 }),
-		operation({ direction: 'decode', mediaKind: 'audio', container: 'ogg', codec: 'opus', sampleFormat: 'f32p', sampleRate: 48_000, channelCount: 2 }),
-		operation({ direction: 'decode', mediaKind: 'audio', container: 'mp3', codec: 'mp3', sampleFormat: 'f32', sampleRate: 44_100, channelCount: 2 }),
-		operation({ direction: 'encode', mediaKind: 'audio', container: 'mp3', codec: 'mp3', sampleFormat: 'f32p', sampleRate: 48_000, channelCount: 2 }),
-		operation({ direction: 'encode', mediaKind: 'audio', container: 'mp2', codec: 'mp2', sampleFormat: 'f32p', sampleRate: 48_000, channelCount: 2 }),
-		operation({ direction: 'decode', mediaKind: 'audio', container: 'mp2', codec: 'mp2', sampleFormat: 'f32', sampleRate: 48_000, channelCount: 2 }),
-		operation({ direction: 'encode', mediaKind: 'audio', container: 'wavpack', codec: 'wavpack', sampleFormat: 'f32', sampleRate: 8_000, channelCount: 1 }),
-		operation({ direction: 'decode', mediaKind: 'audio', container: 'wavpack', codec: 'wavpack', sampleFormat: 'f32', sampleRate: 192_000, channelCount: 8 }),
-	]) assert.equal((await complete.preflight(candidate, {})).disposition, 'supported');
 
-	for (const candidate of [
-		operation({ direction: 'encode', mediaKind: 'audio', container: 'flac', codec: 'flac', sampleFormat: 'f32', sampleRate: 48_000, channelCount: 2 }),
-		operation({ direction: 'decode', mediaKind: 'audio', container: 'flac', codec: 'flac', sampleFormat: 's24', sampleRate: 48_000, channelCount: 2 }),
-		operation({ direction: 'encode', mediaKind: 'audio', container: 'flac', codec: 'flac', sampleFormat: 's24', sampleRate: 7_999, channelCount: 2 }),
-		operation({ direction: 'encode', mediaKind: 'audio', container: 'ogg', codec: 'vorbis', sampleFormat: 'f32p', sampleRate: 192_001, channelCount: 2 }),
-		operation({ direction: 'decode', mediaKind: 'audio', container: 'ogg', codec: 'vorbis', sampleFormat: 'f32p', sampleRate: 48_000, channelCount: 3 }),
-		operation({ direction: 'encode', mediaKind: 'audio', container: 'ogg', codec: 'opus', sampleFormat: 'f32p', sampleRate: 24_000, channelCount: 2 }),
-		operation({ direction: 'decode', mediaKind: 'audio', container: 'ogg', codec: 'opus', sampleFormat: 'f32p', sampleRate: 48_000, channelCount: 3 }),
-		operation({ direction: 'decode', mediaKind: 'audio', container: 'mp3', codec: 'mp3', sampleFormat: 'f32', sampleRate: 24_000, channelCount: 2 }),
-		operation({ direction: 'encode', mediaKind: 'audio', container: 'mp2', codec: 'mp2', sampleFormat: 'f32p', sampleRate: 48_000, channelCount: 3 }),
-		operation({ direction: 'decode', mediaKind: 'audio', container: 'wavpack', codec: 'wavpack', sampleFormat: 's24', sampleRate: 48_000, channelCount: 2 }),
-		operation({ direction: 'encode', mediaKind: 'audio', container: 'wavpack', codec: 'wavpack', sampleFormat: 'f32', sampleRate: 192_001, channelCount: 2 }),
-	]) assert.equal((await complete.preflight(candidate, {})).disposition, 'unsupported');
-
-	const bundledMp2Decode = operation({
-		direction: 'decode', mediaKind: 'audio', container: 'mp2', codec: 'mp2',
-		sampleFormat: 'f32', sampleRate: 44_100, channelCount: 1,
-	});
-	assert.equal(complete.resolve(bundledMp2Decode)?.implementation, 'mpg123');
-	assert.equal((await complete.preflight(operation({
-		...bundledMp2Decode, sampleRate: 24_000,
-	}), {})).disposition, 'unsupported');
-
-	const missingContainer = createBundledDesktopCodecProvider({
-		target: 'linux-x64', capabilityGeneration: 'review-43',
-		inventory: { libopus: '1.6.1' },
-	});
-	assert.equal((await missingContainer.preflight(operation({
-		direction: 'encode', mediaKind: 'audio', container: 'ogg', codec: 'opus',
-		sampleFormat: 'f32p', sampleRate: 48_000, channelCount: 2,
-	}), {})).disposition, 'unsupported');
-	assert.equal(missingContainer.capabilities.length, 0);
-});
-
-test('caller-supplied inventory cannot synthesize bundled video runtimes', async () => {
-	const provider = createBundledDesktopCodecProvider({
-		target: 'win-arm64', capabilityGeneration: 'review-audio-only',
-		inventory: reviewedAudioInventory(),
-	});
-	assert.equal(provider.capabilities.every(({ mediaKind }) => mediaKind === 'audio'), true);
-	for (const codec of ['vp8', 'vp9', 'av1']) {
-		const candidate = operation({
-			direction: 'decode', mediaKind: 'video', container: 'webm', codec,
-			profile: codec === 'vp8' ? null : 'main', pixelFormat: 'yuv420p',
-			width: 1_920, height: 1_080,
-		});
-		assert.equal((await provider.preflight(candidate, {})).disposition, 'unsupported');
-		assert.equal(provider.resolve(candidate), null);
-	}
-	assert.throws(() => createBundledDesktopCodecProvider({
-		target: 'linux-x64', capabilityGeneration: 'legacy-video-inventory',
-		inventory: { libwebm: '1.0.0.32', libvpx: '1.15.2' } as unknown as Partial<
-			Record<BundledDesktopCodecComponent, string>
-		>,
-	}), /inventory component/iu);
-});
 
 test('OS providers expose only exact canary-verified tuples and Linux stays unavailable', async () => {
 	const capability = videoCapability('wmf-h264-canary', 'h264', 'main', 'nv12');
@@ -202,27 +116,6 @@ test('provider identities and admitted capabilities are immutable copies', () =>
 	}, TypeError);
 });
 
-test('provider option schemas reject legacy qualified-capability fields', () => {
-	const capability = videoCapability('wmf-h264-canary', 'h264', 'main', 'nv12');
-	assert.throws(() => createOperatingSystemDesktopCodecProvider({
-		target: 'win-x64', osVersion: '10.0.26100', capabilityGeneration: 'canary-legacy',
-		canaryVerifiedCapabilities: [{ capability, implementation: 'media-foundation-h264' }],
-		canaryQualifiedCapabilities: [],
-	} as unknown as Parameters<typeof createOperatingSystemDesktopCodecProvider>[0]), /closed|fields/iu);
-	assert.throws(() => createExternalFfmpegDesktopCodecProvider({
-		target: 'win-x64', version: '9.0.1', capabilityGeneration: 'probe-legacy',
-		capabilitySets: { encoders: [], decoders: [], muxers: [], demuxers: [], filters: [] },
-		verifiedCapabilities: [], qualifiedCapabilities: [],
-	} as unknown as Parameters<typeof createExternalFfmpegDesktopCodecProvider>[0]), /closed|fields/iu);
-});
-
-function reviewedAudioInventory(): Partial<Record<BundledDesktopCodecComponent, string>> {
-	return {
-		'specialized-pcm': '1.0.0', libflac: '1.5.0', libogg: '1.3.6',
-		libvorbis: '1.3.7', libopus: '1.6.1', mpg123: '1.33.7', lame: '4.0',
-		twolame: '0.4.0', wavpack: '5.9.0',
-	};
-}
 
 function videoCapability(
 	id: string, codec: string, profile: string, pixelFormat: string,

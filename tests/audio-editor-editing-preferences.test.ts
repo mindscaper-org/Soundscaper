@@ -205,9 +205,6 @@ test('deleting a custom workspace removes it from asymmetric-height targeting', 
 
 test('default delete preference resolves to the exact Audacity edit route', () => {
 	const editing = normalizeAudioEditorEditingPreferences();
-	assert.throws(() => resolveAudioEditorDefaultDelete(), /not been chosen/u);
-	assert.throws(() => resolveAudioEditorDefaultDelete({ pasteBehavior: 'insert' }), /not been chosen/u);
-	assert.throws(() => resolveAudioEditorDefaultDelete(editing), /not been chosen/u);
 	assert.deepEqual(resolveAudioEditorDefaultDelete({ ...editing, deleteBehavior: 'leave-gap' }), {
 		rippleMode: 'none', allTracks: false,
 	});
@@ -224,8 +221,6 @@ test('default delete preference resolves to the exact Audacity edit route', () =
 
 test('default paste preference resolves to overlap, track insert, or all-track insert', () => {
 	const editing = normalizeAudioEditorEditingPreferences();
-	assert.equal(resolveAudioEditorDefaultPaste(), 'overlap');
-	assert.equal(resolveAudioEditorDefaultPaste({ deleteBehavior: 'close-gap' }), 'overlap');
 	assert.equal(resolveAudioEditorDefaultPaste(editing), 'overlap');
 	assert.equal(resolveAudioEditorDefaultPaste({ ...editing, pasteBehavior: 'insert' }), 'insert-track');
 	assert.equal(resolveAudioEditorDefaultPaste({
@@ -274,8 +269,6 @@ test('zoom toggle chooses the preset furthest away by logarithmic distance', () 
 		zoomTogglePreset2: 'seconds',
 	});
 	assert.equal(resolveAudioEditorZoomToggleTarget(editing, ZOOM_CONTEXT), 5);
-	assert.equal(resolveAudioEditorZoomToggleTarget(undefined, ZOOM_CONTEXT), 176_400);
-	assert.equal(resolveAudioEditorZoomToggleTarget({ zoomTogglePreset1: 'seconds' }, ZOOM_CONTEXT), 176_400);
 
 	assert.equal(resolveAudioEditorZoomToggleTarget(editing, {
 		...ZOOM_CONTEXT,

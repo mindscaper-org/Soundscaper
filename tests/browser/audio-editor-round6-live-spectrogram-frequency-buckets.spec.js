@@ -18,15 +18,12 @@ for (const [label, fftBin] of [['retained neighboring bucket', 278], ['narrow sk
 			};
 		});
 		const editor = await bootEditor(page, '/embed/en/');
-		const sampleRate = await page.evaluate(async () => {
-			const context = new AudioContext();
-			const rate = context.sampleRate;
-			await context.close();
-			return rate;
-		});
+		// Automatic playback follows the 48 kHz project/fixture clock, which can
+		// differ from a new unconfigured AudioContext's device-default clock.
+		const sampleRate = 48_000;
 		const frequency = fftBin * sampleRate / 4096;
 		await importFiles(editor, [createWavFixture({ name: 'live-analysis-tone.wav', frequency,
-			duration: 8, channelCount: 1, channelAmplitudes: [.5] })]);
+			duration: 8, sampleRate, channelCount: 1, channelAmplitudes: [.5] })]);
 		await chooseCommandAction(page, editor, 'Analyze', 'Analysis');
 		const panel = editor.locator('[data-workspace-panel="analysis"]');
 		for (const id of ['spectrum', 'spectrogram']) {

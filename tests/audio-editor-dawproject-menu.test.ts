@@ -1,16 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createMenuActionFixture } from './helpers/application-menu-fixture.ts';
 
 import createApplicationMenus from '../src/common/editor/ui/application-menus.js';
 import { partitionWorkspaceFiles, WORKSPACE_OPEN_FILE_ACCEPT } from '../src/common/editor/ui/workspace/workspace-file-routing.js';
 import { WORKSPACE_PANEL_IDS } from '../src/common/editor/ui/workspace/workspace-panel-model.ts';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
-
-const ROOT = new URL('../', import.meta.url);
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 
 type MenuItem = Record<string, unknown> & { items?: MenuItem[] };
 
@@ -53,16 +52,13 @@ function submenu(menus: readonly unknown[], id: string): MenuItem {
 	return entry;
 }
 
-test('both locales carry every DAWproject status string, and none of the retired submenu labels', () => {
+test('both locales carry every DAWproject status string', () => {
 	for (const copy of [ENGLISH_COPY, GERMAN_COPY]) {
 		for (const key of [
 			'saveDawproject', 'chooseDawprojectFile', 'dawprojectOpened', 'dawprojectSaving', 'dawprojectSaved',
 		]) {
 			assert.equal(typeof copy[key], 'string', `${key} is missing`);
 			assert.ok((copy[key] as string).length > 0, `${key} is empty`);
-		}
-		for (const key of ['dawprojectMenu', 'openDawproject', 'dawprojectReport']) {
-			assert.equal(copy[key], undefined, `${key} outlived the submenu it labelled`);
 		}
 	}
 });
@@ -103,19 +99,11 @@ test('the delivery report answers for every profile from the File menu itself', 
 	assert.deepEqual(opened, ['report']);
 });
 
-test('the ordinary Open command takes a .dawproject file', async () => {
+test('ordinary file routing and Open acceptance include .dawproject files', () => {
 	assert.deepEqual(
 		partitionWorkspaceFiles([{ name: 'exchange.dawproject' }]).projects.map((file) => file.name),
 		['exchange.dawproject'],
 		'a dropped DAWproject is classified as a project, not as media',
 	);
-	const view = await readFile(new URL('src/common/editor/ui/workspace/AudioEditorWorkspaceView.jsx', ROOT), 'utf8');
-	const openInput = view.slice(view.indexOf('data-aup4-input'));
-	assert.match(openInput.slice(0, openInput.indexOf('/>')), /accept=\{WORKSPACE_OPEN_FILE_ACCEPT\}/u);
 	assert.ok(WORKSPACE_OPEN_FILE_ACCEPT.split(',').includes('.dawproject'));
-	const workspace = await readFile(new URL('src/common/editor/ui/workspace/AudioEditorWorkspace.jsx', ROOT), 'utf8');
-	assert.match(workspace, /const openProjectFile = useCallback\(\(file, desktopSesx = false\) => openWorkspaceProjectFile\(/u);
-	const menus = await readFile(new URL('src/common/editor/ui/application-menus.js', ROOT), 'utf8');
-	assert.match(menus, /id: 'open-project', label: copy\.open, shortcut: 'Ctrl\+O'/u);
-	assert.doesNotMatch(menus, /dawproject-menu\.js/u);
 });

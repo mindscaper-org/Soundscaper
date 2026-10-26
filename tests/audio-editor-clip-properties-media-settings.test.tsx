@@ -3,35 +3,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act } from 'react';
-import ClipPropertiesBody from '../src/common/editor/ui/inspector/ClipPropertiesBody.jsx';
+import ClipPropertiesPanel from '../src/common/editor/ui/inspector/ClipPropertiesPanel.tsx';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
-
-test('media controls read source time at its own rate and slip only the selected clip', async () => {
-	const f = await fixture();
-	try {
-		assert.equal(f.digits('sourceInFrame'), '000001000');
-		assert.equal(f.digits('durationFrame'), '000001000');
-		await f.commit('sourceInFrame', 48_000);
-		assert.deepEqual(f.trims, [{ clipId: 'clip', changes: {
-			sourceStartFrame: 48_000, sourceDurationFrames: 48_000, durationFrames: 48_000,
-		} }]);
-		assert.deepEqual(f.timelineTrims, []);
-		assert.equal(f.project.clips[0]!.timelineStartFrame, 192_000);
-	} finally { await f.cleanup(); }
-});
-
-test('source in clamps the retained span at the end of the media', async () => {
-	const f = await fixture();
-	try {
-		await f.commit('sourceInFrame', 228_000);
-		assert.deepEqual(f.trims[0]?.changes, {
-			sourceStartFrame: 228_000, sourceDurationFrames: 12_000, durationFrames: 12_000,
-		});
-	} finally { await f.cleanup(); }
-});
 
 test('duration uses the clip source-to-project ratio including speed and keeps reversed media anchored', async () => {
 	for (const reversed of [false, true]) {
@@ -69,12 +45,17 @@ async function fixture(reversed = false, speedRatio = 2) {
 	} };
 	const { createRoot } = await import('react-dom/client');
 	const root = createRoot(dom.container as unknown as Element);
-	await act(async () => root.render(<ClipPropertiesBody controller={controller}
+	await act(async () => root.render(<ClipPropertiesPanel controller={controller} run={operation => operation()}
 		snapshot={{ project, selectedClipId: 'clip', capabilities: { audioEffects: false } }} copy={ENGLISH_COPY} />));
+	const trigger = dom.one('[data-clip-audio-settings]');
+	await act(async () => reactProps(trigger).onClick({ currentTarget: trigger }));
+	const timeFields = dom.container.querySelectorAll('[role="menuitemcheckbox"]').find(node =>
+		node.querySelector('.context-menu-item-label')?.textContent === ENGLISH_COPY.clipTimecodeFields);
+	assert.ok(timeFields);
+	await act(async () => reactProps(timeFields).onClick({ stopPropagation() {} }));
 	const field = (name: string) => dom.one(`[data-clip-field="${name}"]`);
 	return {
 		project, trims, timelineTrims,
-		digits: (name: string) => field(name).querySelectorAll('.timecode-digit').map(node => node.textContent).join(''),
 		commit: async (name: string, value: number) => {
 			const input = field(name).querySelector('input');
 			assert.ok(input);

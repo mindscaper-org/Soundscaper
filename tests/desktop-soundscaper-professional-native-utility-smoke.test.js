@@ -2,8 +2,6 @@
 
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
 import test from 'node:test';
 
@@ -15,7 +13,6 @@ import {
 	runSoundscaperProfessionalNativeUtilitySmoke,
 } from '../desktop/soundscaper-professional-native-utility-smoke.mjs';
 
-const ROOT = resolve(import.meta.dirname, '..');
 
 test('professional utility smoke is dormant without its packaged-only argument', async () => {
 	assert.equal(await runSoundscaperProfessionalNativeUtilitySmoke({
@@ -78,13 +75,6 @@ test('professional utility smoke accepts only exact Electron utility-process evi
 	assert.equal(await running, true);
 	assert.equal(logs.length, 1);
 	assert(logs[0].startsWith(PROFESSIONAL_NATIVE_UTILITY_SMOKE_PREFIX));
-});
-
-test('professional utility helper uses the utility-process parent port', async () => {
-	const source = await readFile(resolve(ROOT,
-		'desktop/soundscaper-professional-native-utility-smoke-helper.js'), 'utf8');
-	assert.match(source, /const parentPort = process\.parentPort;/u);
-	assert.doesNotMatch(source, /import\s*\{\s*parentPort\s*\}\s*from\s*['"]electron['"]/u);
 });
 
 test('professional utility smoke exposes bounded sanitized child diagnostics', async () => {

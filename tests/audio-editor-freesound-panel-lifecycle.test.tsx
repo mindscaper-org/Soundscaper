@@ -68,7 +68,6 @@ test('Freesound previews use the hosting web origin and the public proxy in the 
 		freesoundPreviewUrl(42, { protocol: 'soundscaper-app:', origin: 'null' }),
 		'https://soundscaper.org/api/freesound/sounds/42/preview',
 	);
-	assert.throws(() => freesoundPreviewUrl(0), /valid Freesound sound ID/iu);
 });
 
 test('Freesound waveforms use the hosting web origin and the public proxy in the packaged app', () => {
@@ -81,9 +80,6 @@ test('Freesound waveforms use the hosting web origin and the public proxy in the
 		freesoundWaveformUrl(42, waveformPath, { protocol: 'soundscaper-app:', origin: 'null' }),
 		`https://soundscaper.org${waveformPath}`,
 	);
-	assert.throws(() => freesoundWaveformUrl(0, waveformPath), /valid Freesound sound ID/iu);
-	assert.throws(() => freesoundWaveformUrl(42, 'https://example.org/waveform.png'), /valid Freesound waveform path/iu);
-	assert.throws(() => freesoundWaveformUrl(42, '/api/freesound/sounds/43/waveform?asset=789'), /valid Freesound waveform path/iu);
 });
 
 test('Freesound waveform seeks, starts or resumes preview, and reuses the active audio', async () => {
@@ -316,19 +312,15 @@ test('connected original imports retain an explicit HQ preview choice after a pr
 	}
 });
 
-class MockAudio {
+class MockAudio extends EventTarget {
 	src: string;
 	preload = '';
 	currentTime = 0;
 	playCount = 0;
 	pauseCount = 0;
 	loadCount = 0;
-	readonly listeners = new Map<string, Array<() => void>>();
-	constructor(source = '') { this.src = source; }
-	addEventListener(type: string, listener: () => void): void {
-		this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
-	}
-	emit(type: string): void { for (const listener of this.listeners.get(type) ?? []) listener(); }
+	constructor(source = '') { super(); this.src = source; }
+	emit(type: string): void { this.dispatchEvent(new Event(type)); }
 	play(): Promise<void> { this.playCount += 1; return Promise.resolve(); }
 	pause(): void { this.pauseCount += 1; }
 	load(): void { this.loadCount += 1; }

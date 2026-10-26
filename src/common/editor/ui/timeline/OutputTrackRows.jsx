@@ -3,6 +3,7 @@ import { CLIP_CONTENT_OFFSET } from '@soundscaper/design-system/constants';
 import { EnvelopeCurve } from '@soundscaper/design-system/EnvelopeCurve';
 import { EnvelopeInteractionLayer } from '@soundscaper/design-system/EnvelopeInteractionLayer';
 import { TrackControlPanel } from '@soundscaper/design-system/TrackControlPanel';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { OutputTrackNameEditor } from './OutputTrackNameEditor.tsx';
 
 export { OutputTrackNameEditor };
@@ -30,6 +31,7 @@ import { COLLAPSED_TRACK_HEIGHT } from './constants.ts';
 import { focusFirst, focusPanelControl } from './timeline-navigation.js';
 import { TimelineGridLines } from './TimelineGridLines.jsx';
 import { OutputTelemetryMeters } from './TrackTelemetryMeters.tsx';
+import { usePlaybackMeterVisibility } from '../usePlaybackMeterVisibility.ts';
 
 export function OutputTrackDock({
 	controller,
@@ -58,6 +60,7 @@ export function OutputTrackDock({
 	onOpenEffects,
 }) {
 	const dockRef = useRef(null);
+	const projectSession = editorProjectEditSessionKey(controller, controller.project?.id ?? controller.getSnapshot?.().project?.id);
 	const outputRows = useCallback(() => [
 		...(dockRef.current?.querySelectorAll(':scope > [data-output-track-row]') || []),
 	], []);
@@ -91,7 +94,7 @@ export function OutputTrackDock({
 			}}
 		>
 			{rows.map(({ key, scope, bus }, rowIndex) => <OutputTrackRow
-				key={key}
+				key={`${projectSession}:${key}`}
 				controller={controller}
 				rowKey={key}
 				scope={scope}
@@ -424,6 +427,7 @@ export function OutputTrackControls({
 	onOpenEffects,
 }) {
 	const controlsRef = useRef(null);
+	usePlaybackMeterVisibility(controller.engine, scope, bus.id ?? '', controlsRef);
 	const [editingName, setEditingName] = useState(false);
 	const label = scope === 'master' ? copy.master : bus.name;
 	return (

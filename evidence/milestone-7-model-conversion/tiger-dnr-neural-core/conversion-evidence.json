@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "candidateId": "tiger-dnr-neural-core",
-  "executionPlanSha256": "8535bf2360ac4602c3aecc0404ab9cd060d6d3be62e5f21b0cadbe029816c139",
+  "executionPlanSha256": "c959c7c9d8cb4c5deba7dfea060972cbb8c7cb55de06c5f0bafeb25886c09976",
   "toolchain": {
     "lockFile": "scripts/models/milestone-7-conversion-tool/uv.lock",
-    "sha256": "9d96681f5ad90a9b97f146fda4bc77bcc56a21bb0058705ab4e07c3c48dc9726"
+    "sha256": "e0b28f4a23aa18c04e965cc943c0c66bfe31fccb6ea388ffceb80d988f39a49b"
   },
   "sourceCodeArchive": {
     "path": "tiger-9f18d4a10a7137e1ce8052cfb62215179f1287b6.tar.gz",
@@ -22,7 +22,7 @@
   "commandRuns": [
     {
       "id": "convert",
-      "commandSha256": "5ada8a6cdc2cc80fa76c78c1a6052c9b37b1f899f6490037ce9437693fc04767",
+      "commandSha256": "a91db1850c03b6c9036dbd737334d7822a7f3a1843f5b59ba69ddf4169379384",
       "exitCode": 0,
       "stdout": {
         "path": "convert.stdout.log",
@@ -37,7 +37,7 @@
     },
     {
       "id": "parity",
-      "commandSha256": "e9a410dceb72f6abd7a8bdc5cd3f1698848e722ff5611ba0a02bafdf4268cf62",
+      "commandSha256": "2772ec7a113f67ad79aeb5ace201d92c84f2d099833af1357b4a0f2a0cc56970",
       "exitCode": 0,
       "stdout": {
         "path": "parity.stdout.log",

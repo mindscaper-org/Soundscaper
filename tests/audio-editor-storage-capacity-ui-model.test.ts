@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { EDITOR_GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -69,7 +71,7 @@ test('storage capacity UI model makes memory fallback and unavailable estimates 
 		persistent: false,
 		ephemeral: true,
 		degradedReason: 'SecurityError',
-	}, 'de');
+	}, 'de', EDITOR_GERMAN_COPY);
 
 	assert.equal(model.capacity, 'Speicherbelegung nicht verfügbar');
 	assert.equal(model.backend, 'Flüchtiger Arbeitsspeicher-Fallback (SecurityError)');

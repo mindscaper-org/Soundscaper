@@ -11,13 +11,14 @@ interface ClipSourceInTimeCodeFieldProps {
 	readonly value: number;
 	readonly source: unknown;
 	readonly sampleRate: number;
+	readonly frameRate?: number;
 	readonly disabled: boolean;
 	readonly onCommit: (value: number) => unknown;
 }
 
 /** Native video source positions are ordinals; audio positions are samples. */
 export default function ClipSourceInTimeCodeField({
-	label, value, source, sampleRate, disabled, onCommit,
+	label, value, source, sampleRate, frameRate, disabled, onCommit,
 }: ClipSourceInTimeCodeFieldProps) {
 	const video = isNativeVideoSource(source) ? source : null;
 	const rate = video ? normalizeSourceFrameRate(video.frameRate) : null;
@@ -25,7 +26,7 @@ export default function ClipSourceInTimeCodeField({
 	return <label className="audio-editor-field" data-clip-field="sourceInFrame"><span>{label}</span>
 		<AudioEditorTimeCodeInput label={label} value={video ? seconds : value}
 			unit={video ? 'seconds' : 'samples'} rate={sampleRate} sampleRate={sampleRate}
-			frameRate={rate ? rate.num / rate.den : undefined} format="hh:mm:ss+milliseconds"
+			frameRate={rate ? rate.num / rate.den : frameRate} format="hh:mm:ss+milliseconds"
 			disabled={disabled} onCommit={(position) => onCommit(video && rate
 				? mediaSecondsToSourceFrame(position, rate, Number(video.sourceFrameCount), video)
 				: position)} />

@@ -1,5 +1,5 @@
-import { EDITOR_ENGLISH_COPY as ENGLISH_COPY, EDITOR_GERMAN_COPY as GERMAN_COPY } from './editor-copy-inventory.ts';
-import { localeLanguage, normalizeBcp47Locale } from './locale.js';
+import { EDITOR_ENGLISH_COPY as ENGLISH_COPY } from './editor-copy-inventory.ts';
+import { normalizeBcp47Locale } from './locale.js';
 import { loadTranslationCatalog, sameNamedPlaceholders } from './translation-catalog.js';
 import { isModuleLoadFailure } from '../offline/stale-build.ts';
 import { reportStaleBuildCandidate } from '../offline/stale-build-runtime.ts';
@@ -11,20 +11,18 @@ export function normalizeLocale(candidate = 'en') {
 	return normalizeBcp47Locale(candidate);
 }
 
-export function bundledCatalogForLocale(locale = 'en') {
-	const normalizedLocale = normalizeLocale(locale);
-	return localeLanguage(normalizedLocale) === 'de'
-		? GERMAN_COPY
-		: ENGLISH_COPY;
+export function bundledCatalogForLocale(_locale = 'en') {
+	return ENGLISH_COPY;
 }
 
 /**
  * Resolve copy before the editor controller is constructed: the bundled
- * catalogs, then the locale's committed translation catalog — machine
+ * English copy, then the locale's committed translation catalog — machine
  * translations, Audacity's reviewed strings and hand-written entries in one
  * lazy chunk. A chunk that fails to load is reported through `onFallback`
  * (and to the stale-build prompt when a retired deploy took it away) and left
  * out; an existing controller is never updated in place.
+ * @returns {Promise<Readonly<Record<string, string>>>}
  */
 export async function resolveCatalog(locale, options = {}) {
 	const normalizedLocale = normalizeLocale(locale);
@@ -42,14 +40,12 @@ export async function resolveCatalog(locale, options = {}) {
 }
 
 /**
- * Compose a catalog from its layers, lowest priority first: English, the
- * bundled German catalog for German locales, and the locale's translations.
+ * Compose a catalog from English and the locale's current translations.
+ * @returns {Readonly<Record<string, string>>}
  */
-export function mergeCatalog(locale, translations = {}) {
-	const bundled = bundledCatalogForLocale(locale);
+export function mergeCatalog(_locale, translations = {}) {
 	return Object.freeze({
 		...ENGLISH_COPY,
-		...(bundled === GERMAN_COPY ? GERMAN_COPY : {}),
 		...validateMessages(translations || {}),
 	});
 }

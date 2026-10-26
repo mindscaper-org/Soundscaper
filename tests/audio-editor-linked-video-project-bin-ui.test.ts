@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import ProjectBinPanel from '../src/common/editor/ui/workspace/ProjectBinPanel.jsx';
 
 const PANEL_URL = new URL('../src/common/editor/ui/workspace/ProjectBinPanel.jsx', import.meta.url);
@@ -26,12 +28,16 @@ test('the Project Bin exposes the localized linked-video chooser only when its p
 });
 
 test('the linked-video Project Bin action forwards only the chosen File and opaque locator snapshot', async () => {
-	const source = await readFile(PANEL_URL, 'utf8');
-
-	assert.match(source, /const chooseLinkedVideo = \(\) => run\(async \(\) => \{\s*if \(mutationBlocked\) return;\s*const choice = await fileService\.chooseLinkedVideoOriginal\(\)/u);
-	assert.match(source, /if \(!choice\) return;[\s\S]*controller\.actions\.project\.importFiles\(\[choice\.file\], \{[\s\S]*destination: 'project-bin',[\s\S]*linkedVideoLocatorId: choice\.locatorId,[\s\S]*linkedVideoLocatorRevision: choice\.locatorRevision,[\s\S]*\}\)/u);
-	assert.doesNotMatch(source, /chooseLinkedVideo = [\s\S]{0,400}releaseLinkedVideoOriginal/u);
-	assert.doesNotMatch(source, /choice\.(?:name|path|mimeType|size)/u);
+	const [source, handoff] = await Promise.all([
+		readFile(PANEL_URL, 'utf8'),
+		readFile(new URL('../src/common/editor/ui/workspace/linked-project-bin-import.ts', import.meta.url), 'utf8'),
+	]);
+	assert.match(source, /const chooseLinkedVideo = \(\) => chooseLinkedMedia\('video'\)/u);
+	assert.match(source, /choose: [\s\S]*fileService.chooseLinkedVideoOriginal\(\)/u);
+	assert.match(handoff, /destination: 'project-bin'/u);
+	assert.match(handoff, /'linkedVideoLocatorId'[\s\S]*reference.locatorId/u);
+	assert.match(handoff, /'linkedVideoLocatorRevision'[\s\S]*reference.locatorRevision/u);
+	assert.doesNotMatch(handoff, /choice\.(?:name|path|mimeType|size)/u);
 });
 
 test('a bound Project Bin video can relink through only the pathless chooser snapshot', async () => {

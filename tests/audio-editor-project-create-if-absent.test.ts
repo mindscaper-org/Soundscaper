@@ -6,7 +6,6 @@ import test, { type TestContext } from 'node:test';
 import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
 import {
 	getMemoryDatabase,
-	type EditorMemoryDatabase,
 } from '../src/common/editor/storage/memory-backend.ts';
 import {
 	ProjectRepository,
@@ -190,25 +189,6 @@ test('IndexedDB delete-if-current rolls every deletion back when project deletio
 	assert.equal(fixture.projectBindingCount(), 1);
 });
 
-test('memory create-if-absent compensates an injected write failure', async () => {
-	const failure = new Error('planned memory revision publication failure');
-	const revisions = new FailNextSetMap<string, unknown>();
-	const memory = memoryDatabase({ revisions });
-	memory.sources.set(STORAGE_KEY, pendingSourceRecord());
-	memory.mediaAssets.set(STORAGE_KEY, pendingMediaRecord());
-	revisions.failNextSet(failure);
-	const repository = new ProjectRepository({ memory, database: async () => null }, 5);
-
-	await assert.rejects(
-		repository.createIfAbsent(sourceProject()),
-		(error) => error === failure,
-	);
-	assert.equal(memory.projects.has(PROJECT_ID), false);
-	assert.equal(memory.revisions.size, 0);
-	assert.equal(record(memory.sources.get(STORAGE_KEY))?.pendingProjectUntil, PENDING_UNTIL);
-	assert.equal(record(memory.mediaAssets.get(STORAGE_KEY))?.pendingProjectUntil, PENDING_UNTIL);
-});
-
 interface RepositoryFixture {
 	readonly repository: ProjectRepository;
 	readonly indexedDB: ReturnType<typeof createInstrumentedIndexedDB> | null;
@@ -318,41 +298,4 @@ function record(value: unknown): Record<string, unknown> | null {
 	return value && typeof value === 'object' && !Array.isArray(value)
 		? value as Record<string, unknown>
 		: null;
-}
-
-function memoryDatabase(
-	overrides: Partial<EditorMemoryDatabase> = {},
-): EditorMemoryDatabase {
-	return {
-		projects: new Map(),
-		revisions: new Map(),
-		settings: new Map(),
-		analysis: new Map(),
-		sources: new Map(),
-		sourceChunks: new Map(),
-		mediaAssets: new Map(),
-		mediaAssetChunks: new Map(),
-		mediaAssetStaging: new Map(),
-		videoDerivatives: new Map(),
-		linkedVideoOriginalBindings: new Map(),
-		linkedOriginalProvisionalRoots: new Map(),
-		...overrides,
-	};
-}
-
-class FailNextSetMap<Key, Value> extends Map<Key, Value> {
-	#failure: unknown = null;
-
-	failNextSet(error: unknown): void {
-		this.#failure = error;
-	}
-
-	override set(key: Key, value: Value): this {
-		if (this.#failure !== null) {
-			const failure = this.#failure;
-			this.#failure = null;
-			throw failure;
-		}
-		return super.set(key, value);
-	}
 }

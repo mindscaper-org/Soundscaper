@@ -25,6 +25,7 @@ import { createLabeledAudioSilence } from './internal/labeled-audio-silence.ts';
 import { prepareGeneratorRangeReplacement } from './internal/generator-range-replacement.ts';
 import { generatorChannelGroups } from './internal/generator-channel-groups.ts';
 import type { GeneratedSignalStream } from '../../signal-generator-stream-client.ts';
+import { raceAbortableRead } from '../../abort-race.ts';
 
 export type AudioGeneratorType = 'silence' | 'tone' | 'chirp' | 'noise' | 'dtmf' | 'morse';
 
@@ -225,11 +226,11 @@ export function createAudioGeneratorService<Context, Target extends AudioGenerat
 					() => new Float32Array(target.durationFrames),
 				)),
 			}));
-			await dependencies.preflightStorage(results.reduce((sum, result) => (
+			await raceAbortableRead(() => dependencies.preflightStorage(results.reduce((sum, result) => (
 				sum + result.target.durationFrames
 					* result.target.channelCount
 					* Float32Array.BYTES_PER_ELEMENT
-			), 0), 'effect');
+			), 0), 'effect'), ownership.task.signal, 'immediate');
 			assertOwnership(ownership);
 			processing = markProcessing();
 			await dependencies.persistEffectResults(results, null, {
@@ -292,8 +293,8 @@ export function createAudioGeneratorService<Context, Target extends AudioGenerat
 				if (stream) streams.push(stream);
 				assertOwnership(ownership);
 				if (index === 0) {
-					await dependencies.preflightStorage(generated.frameCount
-						* groups.reduce((sum, target) => sum + target.channelCount, 0) * Float32Array.BYTES_PER_ELEMENT, 'effect');
+					await raceAbortableRead(() => dependencies.preflightStorage(generated.frameCount
+						* groups.reduce((sum, target) => sum + target.channelCount, 0) * Float32Array.BYTES_PER_ELEMENT, 'effect'), ownership.task.signal, 'immediate');
 					assertOwnership(ownership);
 				}
 				return await publishGeneratedAudioSource(dependencies, {
@@ -364,7 +365,7 @@ export function createAudioGeneratorService<Context, Target extends AudioGenerat
 				type: 'audio',
 				id: trackId,
 				name,
-			}));
+			}, Number(project.sampleRate)));
 		}
 		const clipId = dependencies.createId('clip');
 		commands.push(createAddClipCommand(trackId, {

@@ -5,6 +5,7 @@ import type { EngineAudioContext } from '../../../engine/public-api.ts'; import 
 import { hasCoreEditingProjectAuthority } from '../../../project-schema-version.ts';
 import { resolveSelectionRange } from '../../../selection-range.ts';
 import { bindPlaybackToTimeSelection, playSpectralSelection, requireSpectralPlaybackSelection } from './selection-playback.ts';
+import { createTimePitchScrub } from './time-pitch-scrub.ts';
 import type {
 	TransportLoopCommand,
 	TransportProject,
@@ -44,9 +45,15 @@ export function createEditorTransportService<Project extends TransportProject = 
 		setExactSelection, setStatus, startRecording, state,
 		stopProjectBinPreview, stopRecording, throwIfAborted,
 	} = runtime;
+	const playbackSelection = () => resolveSelectionRange(getProject(), { selectedClipId: state.selectedClipId }) ?? activeSelection();
 	let metronomeSchedulerGeneration = 0;
 	let foregroundPlayPreparation: symbol | null = null;
 	let transportRequestGeneration = 0;
+	const scrubbing = createTimePitchScrub({ engine, getProject, normalizeFrame: normalizePlaybackFrame,
+		blocked: () => state.disposed || Boolean(state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recorder),
+		assertSources: () => { if (hasMissingTimelineSources()) throw createLocalizedError(Error, copy, 'localSourcesMissing'); },
+		prepare: (project, abortController) => beginPlaybackCachePreparation(project, { abortController }),
+	});
 
 	function requireProject(): Project {
 		const project = getProject();
@@ -55,7 +62,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 	}
 
 	function setPlayAtSpeedRate(value: unknown) {
-		const rate = normalizePlayAtSpeedRate(value);
+		const rate = normalizePlayAtSpeedRate(value, state.preferences?.playback?.playAtSpeedMode === 'staffpad');
 		state.playAtSpeedRate = rate;
 		publishDocumentSnapshot();
 		return rate;
@@ -74,6 +81,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 	}
 
 	function retireTimelinePlayback() {
+		scrubbing.cancel();
 		transportRequestGeneration += 1;
 		foregroundPlayPreparation = null;
 		cancelPlaybackCachePreparation();
@@ -82,6 +90,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 	}
 
 	async function handlePlayAtSpeed(requestedRate: unknown = state.playAtSpeedRate) {
+		scrubbing.cancel();
 		const requestGeneration = ++transportRequestGeneration;
 		foregroundPlayPreparation = null;
 		if (state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recorder) return false;
@@ -141,6 +150,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 		}
 	}
 	async function handleTransport(action: string) {
+		scrubbing.cancel();
 		const playbackStart = ['play', 'play-selection', 'play-spectral-selection', 'cut-preview'].includes(action);
 		const generation = playbackStart || ['stop', 'record', 'play-stop-select'].includes(action)
 			? ++transportRequestGeneration : transportRequestGeneration;
@@ -163,7 +173,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 		}
 		if (action === 'cut-preview') {
 			foregroundPlayPreparation = null;
-			const selection = activeSelection();
+			const selection = playbackSelection();
 			if (!selection || selection.endFrame <= selection.startFrame) throw createLocalizedError(Error, copy, 'timeSelectionRequired');
 			cancelPlayAtSpeedPreparation();
 			cancelPlaybackCachePreparation();
@@ -189,7 +199,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 				return;
 			}
 			const snapshot = requireProject();
-			if (action === 'play-selection' && !activeSelection()) throw createLocalizedError(Error, copy, 'timeSelectionRequired');
+			if (action === 'play-selection' && !playbackSelection()) throw createLocalizedError(Error, copy, 'timeSelectionRequired');
 			const spectral = action === 'play-spectral-selection' ? requireSpectralPlaybackSelection(snapshot.selection, copy) : null;
 			const preparation = Symbol('foreground-play-preparation');
 			foregroundPlayPreparation = preparation;
@@ -198,7 +208,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 				if (generation !== transportRequestGeneration || foregroundPlayPreparation !== preparation || snapshot !== getProject()) return;
 				if (spectral) return await playSpectralSelection(engine, spectral, () => generation === transportRequestGeneration && foregroundPlayPreparation === preparation);
 				engine.setPlaybackFrequencyRange?.(null);
-				bindPlaybackToTimeSelection(engine, action === 'play-selection' && !snapshot.loop?.enabled ? activeSelection() : null);
+				bindPlaybackToTimeSelection(engine, action === 'play-selection' && !snapshot.loop?.enabled ? playbackSelection() : null);
 				return await engine.play();
 			} finally {
 				if (foregroundPlayPreparation === preparation) foregroundPlayPreparation = null;
@@ -315,8 +325,10 @@ export function createEditorTransportService<Project extends TransportProject = 
 	}
 
 	function syncMetronome() {
+		const recordingAnchor = state.transportState === 'recording' ? state.metronomeAnchor : null;
 		stopMetronome();
-		if (!state.metronomeEnabled || !['playing', 'recording'].includes(state.transportState)) return;
+		state.metronomeAnchor = recordingAnchor;
+		if ((!state.metronomeEnabled && state.transportState !== 'recording') || !['playing', 'recording'].includes(state.transportState)) return;
 		void runMetronomeScheduler();
 	}
 
@@ -338,11 +350,11 @@ export function createEditorTransportService<Project extends TransportProject = 
 	 * corrected.
 	 */
 	async function runMetronomeScheduler(generation = metronomeSchedulerGeneration) {
-		if (!metronomeSchedulerIsCurrent(generation)) return;
+		if (!metronomeClockIsCurrent(generation)) return;
 		try {
 			const context = await engine.getAudioContext?.({ resume: false });
 			// A test or headless context may lack the oscillator API; the guard is runtime, not type.
-			if (metronomeSchedulerIsCurrent(generation)
+			if (metronomeClockIsCurrent(generation)
 				&& typeof context?.createOscillator === 'function' && typeof context?.createGain === 'function' && context.destination) {
 				scheduleMetronomeWindow(context);
 			}
@@ -361,6 +373,10 @@ export function createEditorTransportService<Project extends TransportProject = 
 	function metronomeSchedulerIsCurrent(generation: number) {
 		return generation === metronomeSchedulerGeneration && metronomeRunning();
 	}
+	function metronomeClockIsCurrent(generation: number) {
+		return generation === metronomeSchedulerGeneration && !state.disposed
+			&& (metronomeRunning() || state.transportState === 'recording');
+	}
 
 	function scheduleMetronomeWindow(context: EngineAudioContext) {
 		const project = getProject();
@@ -369,13 +385,18 @@ export function createEditorTransportService<Project extends TransportProject = 
 		const playbackRate = Number(playback?.playbackRate) || 1;
 		const framesPerSecond = sampleRate * playbackRate;
 		if (!Number.isFinite(framesPerSecond) || framesPerSecond <= 0) return;
-		const position = Math.max(0, engine.getPositionFrames());
+		let position = Math.max(0, engine.getPositionFrames());
 		const playbackStartTime = engine.getPlaybackAudibleStartTime?.() ?? null;
-		const audibleStartTime = playbackStartTime !== null && Number.isFinite(playbackStartTime)
+		let audibleStartTime = playbackStartTime !== null && Number.isFinite(playbackStartTime)
 			? playbackStartTime : null;
-		const loop = (playback?.loop?.enabled ?? project?.loop?.enabled) && project?.loop && project.loop.endFrame > project.loop.startFrame
+		const loop = playback && (playback.loop?.enabled ?? project?.loop?.enabled) && project?.loop && project.loop.endFrame > project.loop.startFrame
 			? project.loop : null;
 		let anchor = state.metronomeAnchor;
+		if (!playback && anchor) {
+			// Capture owns a continuous audio clock after backing playback ends.
+			position = anchor.frame + Math.max(0, context.currentTime - anchor.contextTime) * framesPerSecond;
+			audibleStartTime = anchor.audibleStartTime;
+		}
 		// The cursor is only meaningful while the playhead keeps advancing from where it
 		// was anchored, so a seek, a rate change, or a fresh start re-anchors it.
 		const expectedFrame = anchor
@@ -402,6 +423,8 @@ export function createEditorTransportService<Project extends TransportProject = 
 				loopStartFrame: loop?.startFrame ?? null, loopEndFrame: loop?.endFrame ?? null };
 			state.metronomeAnchor = anchor;
 		}
+		if (!state.metronomeEnabled) return;
+		anchor.cursorFrame = Math.max(anchor.cursorFrame, position);
 		const horizonFrame = anchor.frame
 			+ (context.currentTime + METRONOME_LOOKAHEAD_SECONDS - anchor.contextTime) * framesPerSecond;
 		const scheduleAt = (positionFrame: number) => calculateAudioEditorMetronomeSchedule({
@@ -501,6 +524,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 			: AUDIO_EDITOR_SAMPLE_RATE;
 	}
 	return Object.freeze({
+		handleScrub: scrubbing.request, endScrub: scrubbing.end,
 		setPlayAtSpeedRate,
 		cancelPlayAtSpeedPreparation,
 		retireTimelinePlayback,

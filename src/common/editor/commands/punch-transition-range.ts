@@ -23,6 +23,16 @@ function boundedFrames(value: unknown, durationFrames: number): number {
 	return Math.min(value as number, Math.floor((durationFrames - 1) / 2));
 }
 
+function uniqueBoundaryClip(clips: readonly PunchTransitionClip[], frame: number): PunchTransitionClip | null {
+	let candidate: PunchTransitionClip | null = null;
+	for (const clip of clips) {
+		if (clip.timelineStartFrame >= frame || clip.timelineStartFrame + clip.durationFrames <= frame) continue;
+		if (candidate) return null;
+		candidate = clip;
+	}
+	return candidate;
+}
+
 /** Keep only unambiguous old material under each edge of a recorded punch. */
 export function punchTransitionCutRange(
 	range: PunchTransitionRange,
@@ -35,19 +45,16 @@ export function punchTransitionCutRange(
 	let startFrame = range.startFrame;
 	let endFrame = range.endFrame;
 	if (requestedIn > 0) {
-		const outgoing = clips.filter((clip) => clip.timelineStartFrame < range.startFrame
-			&& clip.timelineStartFrame + clip.durationFrames > range.startFrame);
-		if (outgoing.length === 1 && clips.every((clip) => clip === outgoing[0]
+		const outgoing = uniqueBoundaryClip(clips, range.startFrame);
+		if (outgoing && clips.every((clip) => clip === outgoing
 			|| clip.timelineStartFrame + clip.durationFrames <= range.startFrame
 			|| clip.timelineStartFrame >= range.startFrame + requestedIn)) {
 			startFrame += requestedIn;
 		}
 	}
 	if (requestedOut > 0) {
-		const incoming = clips.filter((clip) => clip.timelineStartFrame < range.endFrame
-			&& clip.timelineStartFrame + clip.durationFrames > range.endFrame);
-		const candidate = incoming[0];
-		if (incoming.length === 1 && candidate) {
+		const candidate = uniqueBoundaryClip(clips, range.endFrame);
+		if (candidate) {
 			const available = Math.min(requestedOut, range.endFrame - candidate.timelineStartFrame);
 			if (clips.every((clip) => clip === candidate
 				|| clip.timelineStartFrame >= range.endFrame

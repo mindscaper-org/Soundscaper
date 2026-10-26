@@ -30,6 +30,9 @@ export interface SoundActivatedRecordingCaptureOptions {
 	/** Raw capture frames which precede project frame zero after latency compensation. */
 	readonly sourceOffsetFrames?: number;
 	readonly now?: () => number;
+	/** Map the AudioContext frame clock to wall time independently of queued storage writes. */
+	readonly timestampAtFrame?: (frame: number) => number;
+	readonly detectorChannels?: readonly number[];
 }
 
 /**
@@ -123,7 +126,7 @@ export function createSoundActivatedRecordingCaptureSession(
 			channels: Object.freeze(admitted.channels.map((channel) => channel.slice(eligibleOffset))),
 		});
 		const previous = currentState()!;
-		const filtered = filterSoundActivatedRecordingChunk(gate, eligibleChunk);
+		const filtered = filterSoundActivatedRecordingChunk(gate, eligibleChunk, options.detectorChannels);
 		const activationFrames = addTimestamps
 			? new Set(filtered.transitions.filter((transition) => transition.type === 'activated')
 				.map((transition) => transition.frame))
@@ -133,9 +136,8 @@ export function createSoundActivatedRecordingCaptureSession(
 			if (activationFrames?.has(segment.frameStart) && chunkReceivedAtMs !== null) {
 				activationTimestamps.push(Object.freeze({
 					offsetFrames: admittedFrames,
-					occurredAtMs: Math.round(chunkReceivedAtMs - (
-						chunkEndFrame - segment.frameStart
-					) * 1_000 / source.sampleRate),
+					occurredAtMs: Math.round(options.timestampAtFrame?.(segment.frameStart)
+						?? chunkReceivedAtMs - (chunkEndFrame - segment.frameStart) * 1_000 / source.sampleRate),
 				}));
 			}
 			admittedFrames += segment.frames;

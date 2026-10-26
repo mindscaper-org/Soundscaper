@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { soundscaperNativeAudioOutputChannelCount } from './soundscaper-native-audio-renderer.ts';
+
 interface SurroundDestination {
 	readonly maxChannelCount?: number;
 	channelCount?: number;
@@ -68,7 +70,9 @@ export function connectSurroundMonitoring(
 		return 'direct';
 	}
 	const deviceDestination = (context as BaseAudioContext & { destination?: AudioDestinationNode }).destination;
-	if (configureNativeSurroundDestination(deviceDestination, channelCount)) {
+	const nativeOutputChannels = soundscaperNativeAudioOutputChannelCount(context);
+	if (nativeOutputChannels === null ? configureNativeSurroundDestination(deviceDestination, channelCount)
+		: nativeOutputChannels >= channelCount) {
 		source.connect(destination);
 		return 'native';
 	}

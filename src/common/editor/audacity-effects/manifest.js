@@ -16,6 +16,7 @@ import {
 	effectParameterCopyKey,
 } from '../../i18n/canonical-extras.js';
 import { localizedValue } from '../../i18n/locale.js';
+import { parseAudacityCurveEntries } from './curve-text.ts';
 
 export const AUDACITY_EFFECT_SOURCE = Object.freeze({
 	version: '3.7.7',
@@ -495,12 +496,7 @@ export function formatAudacityCurve(points) {
 }
 
 export function parseAudacityCurve(value) {
-	if (Array.isArray(value)) return normalizeCurve(value, 'curve');
-	const points = String(value || '').split(/[;,\n]+/).filter((part) => part.trim()).map((part) => {
-		const [frequency, gain] = part.trim().split(/\s*:\s*|\s+/).map(Number);
-		return { frequency, gain };
-	});
-	return normalizeCurve(points, 'curve');
+	return normalizeCurve(parseAudacityCurveEntries(value), 'curve');
 }
 
 export function localized(value, locale = 'en') {

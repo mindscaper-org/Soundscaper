@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { programmeReachableStrips, soloRelatedStrips } from './mixer-programme-reachability.ts';
 import { isMixerGraphV21Surface } from './mixer-graph-surface-v21.ts';
 import {
 	createMixerSignalTopologyV21,
+	mixerEdgeCarriesSignalV21,
 	mixerSignalEndpointKeyV21,
 	type MixerSignalEndpointV21,
 } from './mixer-signal-topology-v21.ts';
@@ -20,9 +22,9 @@ interface StripState {
  * A track's own mute and solo are not the whole answer once a graph exists. Solo
  * is resolved over the routing: while anything is soloed, a strip is audible
  * only if it is soloed or connected to something that is. A group or send strip
- * carries its own mute, so a track that reaches the mix only through a muted bus
- * is silent. A VCA that is muted zeroes every strip in it. All of that decides
- * what plays, so it decides what an export describes too.
+ * carries its own mute, so its post-fader paths are silent when muted. Pre-fader
+ * taps precede mute, solo and VCA gates and can still carry that programme.
+ * All of that decides what plays, so it decides what an export describes too.
  *
  * The master's own mute is deliberately not part of this: it is the monitoring
  * decision at the end of the chain, and an edit list is a statement about the
@@ -34,7 +36,9 @@ export interface MixerGraphAudibilityV21 {
 	readonly reason: (trackId: string) => 'muted' | 'not-soloed' | 'routed-to-silence';
 }
 
-export function createMixerGraphAudibilityV21(project: unknown): MixerGraphAudibilityV21 | null {
+export function createMixerGraphAudibilityV21(project: unknown, options: Readonly<{
+	muteMayOpen?: (kind: 'track' | 'mixer-node', id: string) => boolean;
+}> = {}): MixerGraphAudibilityV21 | null {
 	const document = (project && typeof project === 'object' ? project : {}) as DataRecord;
 	const mixer = document.mixer;
 	if (!isMixerGraphV21Surface(mixer)) return null;
@@ -43,13 +47,13 @@ export function createMixerGraphAudibilityV21(project: unknown): MixerGraphAudib
 	const strips = new Map<string, StripState>();
 	for (const track of tracks) {
 		strips.set(`track:${String(track.id)}`, {
-			muted: track.mute === true,
+			muted: track.mute === true && !options.muteMayOpen?.('track', String(track.id)),
 			soloed: track.solo === true,
 		});
 	}
 	for (const strip of [...records(graph.groups), ...records(graph.sends), ...records(graph.cues)]) {
 		strips.set(`mixer-node:${String(strip.id)}`, {
-			muted: strip.mute === true,
+			muted: strip.mute === true && !options.muteMayOpen?.('mixer-node', String(strip.id)),
 			soloed: strip.solo === true,
 		});
 	}
@@ -61,6 +65,15 @@ export function createMixerGraphAudibilityV21(project: unknown): MixerGraphAudib
 		}
 	}
 	const programmeTopology = createMixerSignalTopologyV21(mixer, { includeOutputs: true });
+	const preFaderSuccessors = new Map<string, Set<string>>();
+	for (const edge of mixer.edges) {
+		if (edge.position !== 'pre-fader' || !mixerEdgeCarriesSignalV21(edge)
+			|| edge.destination.kind === 'effect-sidechain') continue;
+		const source = mixerSignalEndpointKeyV21(edge.source);
+		const targets = preFaderSuccessors.get(source) ?? new Set<string>();
+		targets.add(mixerSignalEndpointKeyV21(edge.destination));
+		preFaderSuccessors.set(source, targets);
+	}
 	const soloTopology = createMixerSignalTopologyV21(mixer, { includeOutputs: false });
 	// The render connects only the main-role output to the destination; cue and
 	// control-room outputs terminate unconnected, so a path ending there never
@@ -69,39 +82,22 @@ export function createMixerGraphAudibilityV21(project: unknown): MixerGraphAudib
 		.filter((output) => output.role === 'main')
 		.map((output) => `output:${String(output.id)}`));
 	const soloed = [...strips].filter(([, state]) => state.soloed).map(([key]) => key);
+	const soloRelated = soloed.length ? soloRelatedStrips(soloTopology, strips.keys(), soloed) : null;
 	const open = (key: string): boolean => {
 		const state = strips.get(key);
 		if (state === undefined) return true;
 		if (state.muted || mutedByVca.has(key)) return false;
 		if (soloed.length === 0) return true;
-		return soloed.some((solo) => (
-			soloTopology.reaches(key, solo) || soloTopology.reaches(solo, key)
-		));
+		return soloRelated!.has(key);
 	};
-	const reachesProgramme = (key: string): boolean => {
-		const pending = [key];
-		const seen = new Set<string>();
-		while (pending.length) {
-			const current = pending.pop()!;
-			if (seen.has(current)) continue;
-			seen.add(current);
-			// Only a main-role output reaches the rendered programme. Master is a
-			// strip on the way there, and its own output edge may be disabled or
-			// explicitly map every destination channel to silence.
-			if (programmeOutputs.has(current)) return true;
-			for (const next of programmeTopology.successors(current)) {
-				if (next.startsWith('mixer-node:') && !open(next)) continue;
-				pending.push(next);
-			}
-		}
-		return false;
-	};
+	const programmeReachable = programmeReachableStrips(programmeTopology, strips.keys(), programmeOutputs,
+		(from, to) => open(from) || preFaderSuccessors.get(from)?.has(to) === true);
 
 	return Object.freeze({
 		audibleTrack: (trackId: string): boolean => {
 			const key = `track:${trackId}`;
 			if (!strips.has(key)) return true;
-			return open(key) && reachesProgramme(key);
+			return programmeReachable.has(key);
 		},
 		reason: (trackId: string): 'muted' | 'not-soloed' | 'routed-to-silence' => {
 			const key = `track:${trackId}`;

@@ -16,8 +16,8 @@ interface TakeGraphRange {
  * that left the graph behind desynchronized every take and comp region from the
  * audio they were recorded against, silently and permanently.
  *
- * A group the deleted span runs through cannot be moved: it would have to be
- * trimmed, which means splitting takes and comp regions and minting the
+ * A fully enclosed group is removed. A partially covered group cannot be
+ * trimmed: that means splitting takes and comp regions and minting the
  * identities for the halves. The clipboard already refuses the mirror image of
  * that ("Insert paste cannot move an existing take graph without explicit split
  * identities"), so this refuses in the same terms rather than inventing them.
@@ -31,6 +31,7 @@ export function planTakeGraphRangeDelete(
 		project,
 		trackRanges,
 		(range) => (ripple ? range.startFrame - range.endFrame : 0),
+		true,
 	);
 }
 
@@ -90,25 +91,30 @@ function planTakeGraphRangeShift(
 	project: DataRecord,
 	trackRanges: ReadonlyMap<string, TakeGraphRange>,
 	deltaOf: (range: TakeGraphRange) => number,
+	removeCovered = false,
 ): (() => void) | null {
 	const groups = Array.isArray(project.takeGroups) ? project.takeGroups as readonly DataRecord[] : null;
 	if (!groups || groups.length === 0) return null;
 	let moved = false;
-	const next = groups.map((group) => {
+	const next = groups.flatMap((group): DataRecord[] => {
 		const range = trackRanges.get(String(group?.trackId));
-		if (!range) return group;
+		if (!range) return [group];
 		const startSample = Number(group.startSample);
 		const endSample = Number(group.endSample);
-		if (endSample <= range.startFrame) return group;
+		if (removeCovered && startSample >= range.startFrame && endSample <= range.endFrame) {
+			moved = true;
+			return [];
+		}
+		if (endSample <= range.startFrame) return [group];
 		if (startSample < range.endFrame) {
 			throw new RangeError(
 				'A range edit cannot trim an existing take graph without explicit split identities.',
 			);
 		}
 		const delta = deltaOf(range);
-		if (delta === 0) return group;
+		if (delta === 0) return [group];
 		moved = true;
-		return shiftGroup(group, delta);
+		return [shiftGroup(group, delta)];
 	});
 	if (!moved) return null;
 	return () => { project.takeGroups = next; };

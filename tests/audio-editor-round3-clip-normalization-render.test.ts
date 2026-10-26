@@ -51,7 +51,10 @@ function fixture(mode: 'plain' | 'reverse' | 'loop' | 'warp', fail = false) {
 		tempoMap: { mode: 'musical', events: [{ beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }] } } as ClipTransformProject;
 	const buffer = { sampleRate: 24_000, numberOfChannels: 1, length: 1000, getChannelData: () => new Float32Array(1000).fill(0.5) } as unknown as AudioBuffer;
 	let loaded: EngineProject | undefined, buffers: EngineSourceBufferInput | undefined, disposed = 0;
-	const resources: Pick<ClipSourcePreviewResources, 'createEngine' | 'sourceChunkProviders'> = { sourceChunkProviders: new Map(),
+	const resources: Pick<ClipSourcePreviewResources, 'createEngine' | 'sourceChunkProviders' | 'prepare'> = { sourceChunkProviders: new Map(),
+		async prepare(actual, signal, options) {
+			assert.equal(actual, project); assert.deepEqual(options, { clipIds: [clip.id] }); signal.throwIfAborted();
+		},
 		createEngine: () => ({
 			async getAudioContext(options: Readonly<{ resume?: boolean }>) {
 				assert.equal(options.resume, false);

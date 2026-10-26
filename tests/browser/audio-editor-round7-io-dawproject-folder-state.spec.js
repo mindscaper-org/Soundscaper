@@ -37,13 +37,13 @@ for (const mute of [false, true]) test(`own DAWproject archive and Open preserve
 	await (await choosing).setFiles({ name: download.suggestedFilename(), mimeType: 'application/zip', buffer: Buffer.from(bytes) });
 	await expect(editor.locator('[data-status]')).toContainText('DAWproject imported', { timeout: 30_000 });
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
-	await expect(clipByName(editor, monoTone.name.replace(/\.wav$/u, '')))
-		.toHaveAttribute('aria-label', 'browser-mono-tone clip, starts at 0 seconds, 0.8 seconds long');
+	await expect(clipByName(editor, monoTone.name))
+		.toHaveAttribute('aria-label', `${monoTone.name} clip, starts at 0 seconds, 0.8 seconds long`);
 	await expect(muted).toHaveAttribute('aria-pressed', String(mute));
 	if (mute) {
 		await muted.click();
 		await expect(muted).toHaveAttribute('aria-pressed', 'false');
-		const imported = clipByName(editor, monoTone.name.replace(/\.wav$/u, ''));
+		const imported = clipByName(editor, monoTone.name);
 		const importedTrack = imported.locator('xpath=ancestor::div[@data-track-row][1]');
 		await expect(importedTrack.getByRole('button', { name: 'Mute', exact: true })).toHaveAttribute('aria-pressed', 'false');
 	}

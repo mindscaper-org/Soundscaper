@@ -5,7 +5,9 @@ import { publishedCopyFor } from '../shared/presentation-localization.ts'; impor
 import {
 	clipNeedsTimePitchRender as legacyClipNeedsTimePitchRender,
 } from '../../clip-time-pitch-cache.js';
+import { withoutExternalMedia } from '../../desktop-external-media.ts';
 import { estimatePcmRenderPublication } from '../../publication-byte-estimates.ts';
+import { clipTimePitchPlaybackProjection } from '../../clip-time-pitch-playback-projection.ts';
 import { scaleSampleFrame } from '../../timeline-time.ts';
 import { readClipLoop, withoutClipLoop } from '../../audio-clip-loop.ts';
 import { loadSourceProvenanceDerivation } from '../../source-provenance-derivation-loader.ts';
@@ -135,7 +137,7 @@ export interface ClipTimePitchRenderServiceDependencies {
 	): Promise<unknown>;
 	peakCacheKey(sourceId: string): string;
 	cacheSourceBuffer(sourceId: string, buffer: AudioBufferLike): void;
-	commit(command: AudioEditorCommand, selection?: CommitSelection): unknown;
+	commit(command: AudioEditorCommand, selection?: CommitSelection, behavior?: Readonly<{ microfadeNewClips?: boolean }>): unknown;
 	setProcessing(processing: boolean): void;
 	setStatus(message: string, kind?: string, localization?: import('../../../i18n/presentation-message.ts').LocalizedPresentationMessage): void;
 	publish(): void;
@@ -161,7 +163,8 @@ export function createClipTimePitchRenderService(
 		const track = clip ? findClipTrack(project, clip.id) : null;
 		const source = clip ? findRenderSource(project, clip.sourceId) : null;
 		if (!clip || !track || !source) throw createLocalizedError(Error, dependencies.copy, 'audioClipNotFound');
-		if (!clipNeedsTimePitchRender(clip) && !(clip.linkPitchAndTempo && clip.speedRatio !== 1)) return clip.id;
+		const playbackClip = clipTimePitchPlaybackProjection(project, clip, source);
+		if (!clipNeedsTimePitchRender(playbackClip) && !(clip.linkPitchAndTempo && clip.speedRatio !== 1)) return clip.id;
 		const task = dependencies.lifetime.startTask('clip-time-pitch-render');
 		const operation = ++renderGeneration;
 		const projectToken = dependencies.captureProject();
@@ -178,7 +181,7 @@ export function createClipTimePitchRenderService(
 				if (!dependencies.renderLinkedOutput) throw new Error('Linked clip rendering is unavailable.');
 				buffer = await dependencies.renderLinkedOutput(project, clip, source, task.signal);
 			} else {
-				const entry = await dependencies.prepareCommittedOutput(clip, source, { signal: task.signal });
+				const entry = await dependencies.prepareCommittedOutput(playbackClip, source, { signal: task.signal });
 				assertOwned(task, projectToken, fingerprint);
 				buffer = (await dependencies.materializeEntry(entry, task.signal)).audioBuffer;
 			}
@@ -217,14 +220,14 @@ export function createClipTimePitchRenderService(
 			writerCommitted = true;
 			assertOwned(task, projectToken, fingerprint);
 			const nextSource = renderedSource(
-				source, renderedSourceId, name, buffer, deriveSourceProvenance,
+				source, renderedSourceId, name, buffer, dependencies.sourceChunkFrames, deriveSourceProvenance,
 			);
 			const nextClip = renderedClip(clip, renderedSourceId, buffer, project.sampleRate);
 			dependencies.cacheSourceBuffer(renderedSourceId, buffer);
 			const peaks = await dependencies.generateWaveformPeaks(channels, task.signal);
 			assertOwned(task, projectToken, fingerprint);
 			dependencies.sourcePeaks.set(renderedSourceId, peaks);
-			await dependencies.store.saveAnalysis(dependencies.peakCacheKey(renderedSourceId), peaks);
+			await dependencies.store.saveAnalysis(dependencies.peakCacheKey(renderedSourceId), peaks).catch(() => undefined);
 			assertOwned(task, projectToken, fingerprint);
 			dependencies.commit({
 				type: 'batch',
@@ -232,7 +235,7 @@ export function createClipTimePitchRenderService(
 					createAddSourceCommand(nextSource),
 					...timePitchClipReplacementCommands(dependencies.getProject(), track.id, clip, nextClip),
 				],
-			}, { selectTrackId: track.id, selectClipId: clip.id });
+			}, { selectTrackId: track.id, selectClipId: clip.id }, { microfadeNewClips: false });
 			setLocalizedStatus(dependencies.setStatus, dependencies.copy, "done", undefined, 'success');
 			return clip.id;
 		} catch (error) {
@@ -275,17 +278,20 @@ function renderedSource(
 	id: string,
 	name: string,
 	buffer: AudioBufferLike,
+	chunkFrames: number,
 	deriveSourceProvenance: DeriveSourceProvenance,
 ): RenderSource {
 	const provenance = deriveSourceProvenance([source]);
+	const { contentSha256: _contentSha256, byteLength: _byteLength, ...contentIndependent } = withoutExternalMedia(source);
 	return {
-		...source,
+		...contentIndependent,
 		...(provenance ? { provenance } : {}),
 		id,
 		storageKey: id,
 		name,
 		frameCount: buffer.length,
 		channelCount: buffer.numberOfChannels,
+		chunkFrames,
 		sampleRate: buffer.sampleRate,
 		originalSampleRate: source.originalSampleRate || source.sampleRate,
 	};

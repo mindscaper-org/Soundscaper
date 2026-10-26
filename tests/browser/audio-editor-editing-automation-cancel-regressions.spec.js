@@ -34,7 +34,7 @@ test('automation curve menus close when the user clicks another control', async 
 	const curve = overlay.getByRole('button', { name: /^Insert automation point:/u });
 	await curve.press('Enter');
 	await curve.press('Shift+F10');
-	const menu = overlay.getByRole('menu', { name: 'Automation curve', exact: true });
+	const menu = editor.getByRole('menu', { name: 'Automation curve', exact: true });
 	await expect(menu).toBeVisible();
 	await editor.getByRole('button', { name: 'Jump to project end', exact: true }).click();
 	await expect(menu).toHaveCount(0);

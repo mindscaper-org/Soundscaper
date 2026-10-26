@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -9,7 +11,7 @@ import {
 	updateAudioEditorPreferencesV1,
 } from '../src/common/editor/preferences.js';
 import { createApplicationViewMenu } from '../src/common/editor/ui/application-view-menu.js';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 
 test('fade shape handles show by default and preserve the saved View choice', () => {
 	const defaults = createAudioEditorPreferencesV1();

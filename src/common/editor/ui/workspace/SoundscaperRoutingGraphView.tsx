@@ -15,6 +15,7 @@ import React, {
 import EditorToast from '../EditorToast.tsx';
 import RoutingGraphWires from './RoutingGraphWires.tsx';
 import { useOperationFocusRecovery } from '../useOperationFocusRecovery.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { indexRoutingNodes, indexRoutingEdges, indexRoutingPorts, indexRoutingConnections, indexRoutingEndpointLabels, routingNavigationTarget } from './routing-graph-presentation.ts';
 import { useRoutingHoverFrame } from './useRoutingHoverFrame.ts';
 import { routingGraphOwnsKeyboardEvent } from './routing-keyboard-event-ownership.ts';
@@ -57,6 +58,7 @@ export interface SoundscaperRoutingGraphCommit {
 }
 
 export interface SoundscaperRoutingGraphViewProps {
+	readonly controller?: unknown;
 	readonly project: unknown;
 	readonly graph: MixerGraphV21;
 	readonly disabled: boolean;
@@ -76,7 +78,12 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 1.5;
 const ZOOM_STEP = 0.1;
 
-export default function SoundscaperRoutingGraphView({
+export default function SoundscaperRoutingGraphView(props: SoundscaperRoutingGraphViewProps) {
+	const id = props.project && typeof props.project === 'object' && 'id' in props.project ? props.project.id : null;
+	return <RoutingGraphProjectSession key={editorProjectEditSessionKey(props.controller, id)} {...props} />;
+}
+
+function RoutingGraphProjectSession({
 	project,
 	graph,
 	disabled,
@@ -89,7 +96,10 @@ export default function SoundscaperRoutingGraphView({
 }: SoundscaperRoutingGraphViewProps) {
 	const layout = useMemo(() => layoutSoundscaperRoutingGraph(project, graph, copy), [copy, graph, project]);
 	const destinations = useMemo(() => routingDestinationOptions(project, graph), [graph, project]);
-	const [selection, setSelection] = useState<RoutingSelection | null>(null);
+	const [selectionState, setSelectionState] = useState<{ selection: RoutingSelection | null; confirmingDelete: boolean }>({ selection: null, confirmingDelete: false });
+	const { selection, confirmingDelete } = selectionState;
+	const setSelection = useCallback((next: RoutingSelection | null) => setSelectionState({ selection: next, confirmingDelete: false }), []);
+	const setConfirmingDelete = useCallback((confirming: boolean) => setSelectionState(previous => ({ ...previous, confirmingDelete: confirming })), []);
 	const [connecting, setConnecting] = useState<MixerEdgeV21['source'] | null>(null);
 	const [previewPoint, setPreviewPoint] = useState<Readonly<{ x: number; y: number }> | null>(null);
 	const [zoom, setZoom] = useState(1);
@@ -98,7 +108,6 @@ export default function SoundscaperRoutingGraphView({
 	const [error, setError] = usePresentationFeedback(copy);
 	const [toast, setToast] = useState<{ readonly type: 'success' | 'error'; readonly id: number } | null>(null); const toastIdRef = useRef(0);
 	const [pending, setPending] = useState(false);
-	const [confirmingDelete, setConfirmingDelete] = useState(false);
 	const [focusKey, setFocusKey] = useState(layout.nodes.find(({ rail }) => rail === 'audio')?.key ?? layout.nodes[0]?.key ?? '');
 	const viewportRef = useRef<HTMLDivElement>(null);
 	const nodeRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -124,8 +133,7 @@ export default function SoundscaperRoutingGraphView({
 		setStatus({ key: 'newNodeSelected' });
 		requestAnimationFrame(() => nodeRefs.current.get(key)?.focus());
 		onRequestedSelectionConsumed?.();
-	}, [layout.nodes, onRequestedSelectionConsumed, requestedSelection, setStatus]);
-	useEffect(() => setConfirmingDelete(false), [selection]);
+	}, [layout.nodes, onRequestedSelectionConsumed, requestedSelection, setSelection, setStatus]);
 
 	const applyCandidate = useCallback((kind: RoutingCommitKind, candidate: RoutingGraphCandidate): void => {
 		if (graphDisabled) return;
@@ -147,7 +155,7 @@ export default function SoundscaperRoutingGraphView({
 			})
 			.catch((reason: unknown) => { setError(feedbackFailure(reason)); setStatus(''); setToast({ type: 'error', id: ++toastIdRef.current }); })
 			.finally(() => setPending(false));
-	}, [captureOperationFocus, graphDisabled, onCommit, setError, setStatus]);
+	}, [captureOperationFocus, graphDisabled, onCommit, setError, setSelection, setStatus]);
 
 	const failAction = useCallback((reason: unknown): void => {
 		setError(feedbackFailure(reason)); setStatus(''); setToast({ type: 'error', id: ++toastIdRef.current });

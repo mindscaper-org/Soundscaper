@@ -7,6 +7,7 @@ import type { FramescaperProjectTimelineImage } from './editor-project-timeline-
 type Data = Readonly<Record<string, unknown>>;
 
 export interface FramescaperImageBatchPlacementRequestTimelineImage {
+	readonly sequenceId?: string;
 	readonly sequenceStartFrame: number;
 	readonly sequenceFrameCounts: readonly number[];
 	readonly createId: (prefix: string) => string;
@@ -39,10 +40,10 @@ export function createFramescaperImageBatchPlacementTimelineImage(
 	));
 	const total = counts.reduce((sum, value) => safeAdd(sum, value, 'image batch range'), 0);
 	const end = safeAdd(start, total, 'image batch range');
-	const sequenceId = stableId(project.primarySequenceId, 'primary sequence ID');
+	const sequenceId = stableId(request.sequenceId ?? project.primarySequenceId, 'image placement sequence ID');
 	const sequence = records(project.sequences, 'sequences').find(({ id }) => id === sequenceId);
 	if (!sequence || !Array.isArray(sequence.trackIds)) {
-		throw new ReferenceError('Image placement requires the primary sequence track order.');
+		throw new ReferenceError('Image placement requires the destination sequence track order.');
 	}
 	const sequenceTrackIds = new Set(sequence.trackIds.map(String));
 	const tracks = records(project.tracks, 'tracks');
@@ -64,7 +65,7 @@ export function createFramescaperImageBatchPlacementTimelineImage(
 		if (tracks.some(({ id }) => id === trackId)) throw new RangeError('The new image track ID is not unique.');
 		trackCommand = Object.freeze({
 			...createAddTrackCommand({ type: 'video', id: trackId, name: 'Images', laneGroupId: null }),
-			index: tracks.length,
+			index: tracks.length, sequenceId,
 		});
 	}
 	let cursor = start;

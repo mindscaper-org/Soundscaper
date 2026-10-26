@@ -2,6 +2,7 @@
 
 import { normalizeVideoGeneratorClipV1, normalizeVideoStillClipV1 } from '../common/editor/video-visual-model-v24.ts';
 import type { VideoGeneratorClipV1, VideoStillClipV1 } from '../common/editor/video-visual-model-v24.ts';
+import { rebaseSequenceVisualFrame } from './editor-sequence-visual-rate-conformance.ts';
 import { sampleFrameToVideoFrame } from '../common/editor/timeline-time.ts';
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
 import type { FramescaperProjectTimelineImage } from './editor-project-timeline-image.ts';
@@ -58,8 +59,12 @@ export function prepareTimelineVisualMoveCommand(project: FramescaperProjectTime
 		const sequence = project.sequences.find(item => item.trackIds.includes(trackId))
 			?? project.sequences.find(item => item.id === expectedClip.sequenceId);
 		if (!sequence) throw new ReferenceError('A generated visual move requires its sequence clock.');
-		const clip = { ...expectedClip, sequenceId: sequence.id, sequenceStartFrame: startFrame === undefined
-			? expectedClip.sequenceStartFrame : sampleFrameToVideoFrame(Number(startFrame), sequence.rate, project.sampleRate, 'point') };
+		const origin = project.sequences.find(item => item.id === expectedClip.sequenceId);
+		if (!origin) throw new ReferenceError('A visual move requires its original sequence clock.');
+		const clip = { ...expectedClip, sequenceId: sequence.id,
+			sequenceFrameCount: Math.max(1, rebaseSequenceVisualFrame(expectedClip.sequenceFrameCount, origin.rate, sequence.rate)),
+			sequenceStartFrame: startFrame === undefined
+			? rebaseSequenceVisualFrame(expectedClip.sequenceStartFrame, origin.rate, sequence.rate) : sampleFrameToVideoFrame(Number(startFrame), sequence.rate, project.sampleRate, 'point') };
 		clips.set(clipId, clip); owners.set(clipId, trackId);
 		return { type: 'video-visual-clip/set', clipId, expectedClip,
 			expectedPlacement: { scope: 'timeline', trackId: owner }, clip, placement: { scope: 'timeline', trackId } };

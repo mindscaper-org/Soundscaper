@@ -11,6 +11,11 @@ import { TransportButton } from '@soundscaper/design-system/TransportButton';
 
 import { iconNameToChar } from '../../audacity-iconcodes.js';
 import { framesToSeconds, secondsToFrames } from '../../design-system-adapters.js';
+import { editorTimelineDurationFrames } from '../../project.js';
+import { resolveSelectionRange } from '../../selection-range.ts';
+import { playAtSpeedRateBounds } from '../../engine/buffer-math.ts';
+import { audioEditorProjectFrameRate } from '../AudioEditorTimeCodeInput.tsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import AudioEditorSplitButton from '../AudioEditorSplitButton.tsx';
 import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
 import { formatOptionsLabel } from '../localization-template.ts';
@@ -72,12 +77,13 @@ export function PlaySpeedFlyout({ copy, snapshot, blocked, controller, run, clos
 	// Preferences owns the same choice as a dropdown; the transport keeps it one
 	// click from the slider because pitch is what the listener notices first.
 	const preservePitch = snapshot.playbackOptions?.mode === 'staffpad';
+	const { minimum, maximum } = playAtSpeedRateBounds(preservePitch);
 	return (
 		<div className="kw-audio-editor__split-button-options" data-play-at-speed>
 			<ContextMenuItem
 				label={copy.playSelection}
 				shortcut={snapshot.preferences?.shortcuts?.['action://playback/play-selection']?.join(', ')}
-				disabled={blocked || transportState === 'playing' || !snapshot.selection}
+				disabled={blocked || transportState === 'playing' || !(resolveSelectionRange(snapshot.project) ?? snapshot.selection)}
 				onClick={() => {
 					close();
 					run(() => controller.actions.transport.playSelection());
@@ -96,8 +102,8 @@ export function PlaySpeedFlyout({ copy, snapshot, blocked, controller, run, clos
 				<span>{copy.playbackSpeed}</span>
 				<input
 					type="range"
-					min="0.01"
-					max="3"
+					min={minimum}
+					max={maximum}
 					step="0.01"
 					value={snapshot.playbackOptions?.rate || 1}
 					aria-label={copy.playbackSpeed}
@@ -313,7 +319,9 @@ export function AccessibleSelectionToolbar({
 	const [statusTarget, setStatusTarget] = useState(null);
 	const [format, setFormat] = useState('hh:mm:ss+milliseconds');
 	const [durationFormat, setDurationFormat] = useState('hh:mm:ss+milliseconds');
-	const selection = snapshot.selection;
+	const editSession = editorProjectEditSessionKey(controller, snapshot.project?.id);
+	const [rangeDraft, setRangeDraft] = useState(null);
+	const selection = snapshot.selection ?? (rangeDraft?.session === editSession ? rangeDraft.selection : null);
 	const projectLockStatus = snapshot.lockReadOnly && statusMessage === copy.projectOpenOtherTab;
 	const sampleRate = snapshot.project?.sampleRate || 48_000;
 	const canEdit = Boolean(selection && !disabled);
@@ -364,15 +372,17 @@ export function AccessibleSelectionToolbar({
 	const updateStart = (seconds) => {
 		if (!canEdit) return;
 		const startFrame = secondsToFrames(seconds, { maximumFrame: selection.endFrame, sampleRate });
+		setRangeDraft({ session: editSession, selection: { ...selection, startFrame } });
 		run(() => controller.actions.timeline.setSelection(startFrame, selection.endFrame));
 	};
 	const updateEnd = (seconds) => {
 		if (!canEdit) return;
 		const endFrame = secondsToFrames(seconds, {
 			minimumFrame: selection.startFrame,
-			maximumFrame: Math.max(selection.startFrame, durationFrames),
+			maximumFrame: Math.max(selection.startFrame, durationFrames, editorTimelineDurationFrames(snapshot.project, sampleRate)),
 			sampleRate,
 		});
+		setRangeDraft({ session: editSession, selection: { ...selection, endFrame } });
 		run(() => controller.actions.timeline.setSelection(selection.startFrame, endFrame));
 	};
 	if (!showSelectionToolbar) {
@@ -398,6 +408,10 @@ export function AccessibleSelectionToolbar({
 			data-selection-toolbar
 			data-project-lock-status={projectLockStatus ? '' : undefined}
 			aria-disabled={disabled ? 'true' : 'false'}
+			onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setRangeDraft(null); }}
+			onKeyDownCapture={(event) => {
+				if (['Enter', 'Escape'].includes(event.key) && event.target.closest('.timecode')) setRangeDraft(null);
+			}}
 		>
 			<SelectionToolbar
 				selectionStart={selectionStart}
@@ -408,6 +422,7 @@ export function AccessibleSelectionToolbar({
 				durationFormat={durationFormat}
 				durationMusicalMap={durationMusicalMap}
 				sampleRate={sampleRate}
+				frameRate={audioEditorProjectFrameRate(snapshot.project)}
 				onFormatChange={setFormat}
 				onDurationFormatChange={setDurationFormat}
 				onSelectionStartChange={updateStart}

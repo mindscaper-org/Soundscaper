@@ -10,12 +10,14 @@ import type {
 	WaveformPeakWindow,
 } from '../waveform-analysis.ts';
 import { MAXIMUM_WAVEFORM_PEAK_WINDOW_BUCKETS } from '../../../waveform-peak-contract.ts';
+import { planWaveformPeakWindow } from './waveform-peak-window-plan.ts';
 
 type Awaitable<Value> = PromiseLike<Value> | Value;
 
 interface WaveformPeakWindowCacheOptions<Provider> {
 	readonly cacheKey: string;
 	readonly sourceId: string;
+	readonly sourceFrameCount?: number;
 	readonly range: WaveformPcmRange;
 	readonly pixelWidth: number;
 	readonly maximumBlockSize: number;
@@ -37,6 +39,7 @@ interface WaveformPeakWindowCacheOptions<Provider> {
 export async function requestCachedWaveformPeakWindow<Provider>({
 	cacheKey,
 	sourceId,
+	sourceFrameCount,
 	range,
 	pixelWidth,
 	maximumBlockSize,
@@ -49,10 +52,8 @@ export async function requestCachedWaveformPeakWindow<Provider>({
 	isRetiredError,
 	publish,
 }: WaveformPeakWindowCacheOptions<Provider>): Promise<SourceLifecycleWaveformPeakWindow | null> {
-	const blockSize = Math.min(
-		Math.floor((range.endFrame - range.startFrame) / pixelWidth),
-		maximumBlockSize,
-	);
+	const plan = planWaveformPeakWindow(range, pixelWidth, maximumBlockSize, sourceFrameCount);
+	const blockSize = plan.blockSize;
 	if (blockSize < 1) throw new RangeError('This waveform scale requires individual PCM samples.');
 	const pending = requests.get(cacheKey);
 	const pendingMatches = Boolean(pending && pending.sourceId === sourceId
@@ -71,7 +72,7 @@ export async function requestCachedWaveformPeakWindow<Provider>({
 	const superseded = pending;
 	requests.delete(cacheKey);
 	superseded?.abort();
-	if (Math.ceil((range.endFrame - range.startFrame) / blockSize)
+	if (Math.ceil((plan.endFrame - plan.startFrame) / blockSize)
 		> MAXIMUM_WAVEFORM_PEAK_WINDOW_BUCKETS) return null;
 	while (requests.size >= maximumEntries) {
 		const oldestKey = requests.keys().next().value;
@@ -83,13 +84,15 @@ export async function requestCachedWaveformPeakWindow<Provider>({
 	const controller = new AbortController();
 	const request: SourceLifecycleWaveformPeakRequest = {
 		sourceId,
-		...range,
+		startFrame: plan.startFrame, endFrame: plan.endFrame,
 		blockSize,
 		abort: () => controller.abort(),
 		promise: Promise.resolve().then(async () => {
 			const provider = await getProvider();
 			if (!provider || controller.signal.aborted || requests.get(cacheKey) !== request || !isCurrent()) return null;
-			return readWindow(provider, range, { pixelWidth, maximumBlockSize, signal: controller.signal });
+			return readWindow(provider, { startFrame: plan.startFrame, endFrame: plan.endFrame }, {
+				pixelWidth: plan.pixelWidth, maximumBlockSize: plan.maximumBlockSize, signal: controller.signal,
+			});
 		}).then((result) => {
 			if (!result || requests.get(cacheKey) !== request) {
 				if (requests.get(cacheKey) === request) requests.delete(cacheKey);

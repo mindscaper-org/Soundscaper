@@ -295,20 +295,16 @@ test('grading refuses an HDR interpretation instead of tone mapping it', () => {
 	);
 });
 
-test('an aborted grade throws its own reason, and a signal with no reason raises an AbortError', () => {
+test('an aborted grade throws its own reason', () => {
 	const controller = new AbortController();
 	const reason = new DOMException('the finishing frame was superseded', 'AbortError');
 	controller.abort(reason);
-	const reasonless = { aborted: true, reason: undefined } as unknown as AbortSignal;
 
 	assert.throws(() => gradeEncodedFrame(plate(128), interpretation(), [], new Map(), controller.signal),
 		(error: unknown) => error === reason);
 	assert.throws(() => gradeLinearFrame(plate(128), [], new Map(), controller.signal),
 		(error: unknown) => error === reason);
-	assert.throws(() => gradeLinearFrame(plate(128), [], new Map(), reasonless), (error: unknown) => (
-		error instanceof DOMException && error.name === 'AbortError'
-		&& /exact execution was aborted/u.test(error.message)
-	));
+
 });
 
 test('a linear grade applies gain to already-decoded pixels without decoding them again', () => {

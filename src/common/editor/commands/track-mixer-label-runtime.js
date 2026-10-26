@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { indexedLaneBlocks, removedClipIds } from './track-mixer-work.ts';
+import { prepareRemovedTrackDuckWork } from './removed-track-duck-work.ts';
 import { compareCodeUnits } from '../code-unit-order.ts';
 import { deriveFolderBusOwnershipV13 } from '../folder-bus-v13.ts';
 import { insertTrackNodeV12 } from '../track-hierarchy-mutation-v12.ts';
@@ -19,6 +20,7 @@ import {
 	createAudioMixerBus,
 } from '../project-audio-factory.js';
 import { createLabel } from '../project-media-factory.ts';
+import { normalizeCommandLabel } from './label-command-normalization.ts';
 import {
 	allEffects,
 } from './effects-video-runtime.js';
@@ -113,9 +115,18 @@ export function removeTracksAndDependents(project, trackIds) {
 		project.takeGroups = project.takeGroups
 			.filter((group) => !removedTrackIds.has(String(group?.trackId)));
 	}
+	let duckWork;
 	for (const removedTrackId of removedTrackIds) {
 		if (project.mixer?.routes) delete project.mixer.routes[removedTrackId];
-		disableAutoDuckForRemovedControlTrack(project, removedTrackId);
+		if (duckWork === undefined) duckWork = prepareRemovedTrackDuckWork(project, removedTrackIds);
+		if (duckWork === null) disableAutoDuckForRemovedControlTrack(project, removedTrackId);
+		else for (const slot of duckWork.get(removedTrackId) || []) {
+			const effect = slot.rack[slot.index];
+			if (effect !== slot.effect && !slot.lostControl) continue;
+			slot.rack[slot.index] = updateEffect(effect, slot.lostControl
+				? { enabled: false, context: { controlTrackId: null } }
+				: { context: { controlTrackId: slot.controlTrackId } });
+		}
 	}
 }
 
@@ -138,11 +149,20 @@ function disableAutoDuckForRemovedControlTrack(project, controlTrackId) {
 	for (const rack of racks) {
 		for (let index = 0; index < rack.length; index += 1) {
 			const effect = rack[index];
-			if (effect.type !== 'audacity-auto-duck' || effect.context?.controlTrackId !== controlTrackId) continue;
-			rack[index] = updateEffect(effect, {
-				enabled: false,
-				context: { controlTrackId: null },
-			});
+			if (effect.type !== 'audacity-auto-duck') continue;
+			// Native routing can rebind the detector without rewriting the legacy
+			// selector. Its explicit routes own the processor's actual input.
+			const explicit = (project.mixer?.edges || []).filter((edge) => edge.destination.kind === 'effect-sidechain'
+				&& edge.destination.effectId === effect.id);
+			const surviving = explicit.some((edge) => edge.enabled !== false && (edge.source.kind !== 'track'
+				|| project.tracks.some((track) => track.id === edge.source.id)));
+			const lostControl = explicit.length ? !surviving : effect.context?.controlTrackId === controlTrackId;
+			if (lostControl) {
+				rack[index] = updateEffect(effect, { enabled: false, context: { controlTrackId: null } });
+			} else if (effect.context?.controlTrackId === controlTrackId) {
+				const source = explicit.length === 1 ? explicit[0].source : null;
+				rack[index] = updateEffect(effect, { context: { controlTrackId: source?.kind === 'track' ? source.id : null } });
+			}
 		}
 	}
 }
@@ -159,7 +179,7 @@ function updateTrack(project, trackId, changes = {}) {
 	if (track.type === 'label') {
 		const allowed = TRACK_UPDATE_FIELDS.label;
 		for (const key of Object.keys(changes)) if (!allowed.has(key)) throw new RangeError(`Label track field cannot be updated: ${key}.`);
-		Object.assign(track, normalizeTrackForProject(project, { ...track, ...changes, labels: track.labels }));
+		Object.assign(track, normalizeTrackForProject(project, { ...track, ...changes, labels: track.labels }), { labels: track.labels });
 		return;
 	}
 	if (track.type === 'video') {
@@ -247,7 +267,7 @@ function updateLabel(project, trackId, labelId, changes = {}) {
 	if (index < 0) throw new ReferenceError(`Unknown label: ${labelId}.`);
 	const allowed = new Set(['title', 'startFrame', 'endFrame', 'color', 'opaqueExtensions']);
 	for (const key of Object.keys(changes)) if (!allowed.has(key)) throw new RangeError(`Label field cannot be updated: ${key}.`);
-	track.labels[index] = createLabel({ ...track.labels[index], ...changes, id: labelId });
+	track.labels[index] = normalizeCommandLabel({ ...track.labels[index], ...changes, id: labelId });
 	track.labels.sort((left, right) => left.startFrame - right.startFrame
 		|| left.endFrame - right.endFrame || compareCodeUnits(left.id, right.id));
 }

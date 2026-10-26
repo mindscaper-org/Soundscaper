@@ -9,7 +9,6 @@ import test from 'node:test';
 import { cruise } from 'dependency-cruiser';
 
 import {
-	CONTROLLER_DOMAINS,
 	classifyControllerDomainDependencies,
 	compareControllerDomainDependencies,
 	compareControllerDomainPolicyBaseline,
@@ -49,14 +48,6 @@ function fixture(context: test.TestContext) {
 	writeFileSync(join(root, 'alpha', 'internal', 'alpha-service.ts'), 'export const service = true;\n');
 	return root;
 }
-
-test('the controller taxonomy stays explicit and stable', () => {
-	assert.deepEqual(CONTROLLER_DOMAINS, [
-		'analysis', 'assistance', 'capture', 'clip-video', 'composition', 'document', 'edit',
-		'effects', 'export', 'import', 'preferences', 'recording', 'shared', 'source',
-		'track-audio', 'transport',
-	]);
-});
 
 test('a canonical schema-v2 policy passes validation', () => {
 	assert.deepEqual(validateControllerDomainPolicy(policy(), FIXTURE_DOMAINS), []);

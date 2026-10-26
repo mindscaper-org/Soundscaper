@@ -131,7 +131,7 @@ export function buildProjectGraphV21(
 	const pathPdcDelayParamsV21 = new Map<string, AudioParam>();
 	const trackWidths = resolveTerminalChannelWidths(project, project.masterChannels).tracks;
 	const edgeGeometry = prepareProjectEdgeGeometryV21(graph, tracks, trackWidths, project.masterChannels);
-	const vcaFactorForStrip = createProjectVcaGainResolverV21(graph.vcas);
+	const vcaFactorForStrip = createProjectVcaGainResolverV21(graph.vcas, respectMuteSolo);
 	const compensatedTrackInputs = new Map<string, AudioNode>();
 	for (const track of tracks) {
 		const input = addNode(nodes, context.createGain());

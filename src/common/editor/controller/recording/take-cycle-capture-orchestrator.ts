@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { projectString } from '../../project-validation-primitives.ts';
 import type {
 	TakeCycleEnvelopeRecoveryPlan,
 	TakeCycleRecoveryEnvelope,
@@ -305,7 +305,7 @@ export function createTakeCycleCaptureOrchestrator(
 	async function inspectOpenRecovery(
 		requestValue: InspectTakeCycleOpenRecoveryRequest,
 	): Promise<TakeCyclePendingOpenRecovery | null> {
-		const projectId = stableId(requestValue.projectId, 'take cycle projectId');
+		const projectId = projectString(requestValue.projectId, 'take cycle projectId');
 		const inventory = await dependencies.spool.inspect(projectId);
 		for (const draft of inventory.drafts) indexDraft(draft);
 		const envelope = await dependencies.loadRecoveryEnvelope(projectId);
@@ -430,7 +430,7 @@ function normalizeFinalizationRequest(value: FinalizeTakeCycleCaptureRequest): N
 		groupTargets.set(lane.groupId, target);
 	}
 	return Object.freeze({
-		projectId: stableId(value.projectId, 'take cycle projectId'),
+		projectId: projectString(value.projectId, 'take cycle projectId'),
 		loopStartSample,
 		loopEndSample,
 		lanes: Object.freeze(normalizedLanes),
@@ -469,7 +469,7 @@ function normalizeRecoveryRequest(value: RecoverTakeCycleOnOpenRequest): Readonl
 		throw new TypeError('Take cycle recovery requires an exact pending authority.');
 	}
 	return Object.freeze({
-		projectId: stableId(pending.projectId, 'take cycle projectId'),
+		projectId: projectString(pending.projectId, 'take cycle projectId'),
 		publicationGeneration: positiveInteger(pending.publicationGeneration, 'take cycle publicationGeneration'),
 		recoveryToken: stableId(pending.recoveryToken, 'take cycle recovery token'),
 		decision: value.decision,

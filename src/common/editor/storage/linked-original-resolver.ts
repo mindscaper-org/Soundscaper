@@ -17,6 +17,7 @@ import type {
 	LinkedOriginalRepository,
 } from './linked-original-repository.ts';
 import { sameLinkedOriginalBinding } from './linked-original-custody.ts';
+import { LinkedOriginalContentUnavailableError } from './linked-original-content-unavailable-error.ts';
 import type { LinkedOriginalRangeByteSource } from './linked-original-range-byte-source.ts';
 import {
 	failLinkedOriginalRangeLease,
@@ -220,18 +221,25 @@ export class LinkedOriginalResolver {
 			...(options.signal ? { signal: options.signal } : {}),
 		});
 		throwIfAborted(options.signal);
-		if (snapshot === null) throw new Error('The linked original is unavailable or changed.');
+		if (snapshot === null) {
+			await this.assertBindingCurrent(projectId, source, binding, options);
+			throw new LinkedOriginalContentUnavailableError('The linked original is unavailable or changed.');
+		}
 		const loaded = snapshotValue(snapshot);
 		if (loaded.locatorRevision !== binding.locatorRevision) {
 			throw new Error('The linked original locator changed during resolution.');
 		}
 		const blob = canonicalMediaContentBlob(loaded.blob);
 		if (blob.size !== binding.byteLength) {
-			throw new Error('The linked original changed byte length.');
+			await this.assertBindingCurrent(projectId, source, binding, options);
+			throw new LinkedOriginalContentUnavailableError('The linked original changed byte length.');
 		}
 		const sha256 = await digestMediaContent(blob, { signal: options.signal });
 		throwIfAborted(options.signal);
-		if (sha256 !== binding.sha256) throw new Error('The linked original failed SHA-256 verification.');
+		if (sha256 !== binding.sha256) {
+			await this.assertBindingCurrent(projectId, source, binding, options);
+			throw new LinkedOriginalContentUnavailableError('The linked original failed SHA-256 verification.');
+		}
 		await this.assertBindingCurrent(projectId, source, binding, options);
 		return Object.freeze({ binding, blob, metadata: inspected.metadata });
 	}
@@ -251,7 +259,12 @@ export class LinkedOriginalResolver {
 			expectedRevision: binding.locatorRevision,
 			...(options.signal ? { signal: options.signal } : {}),
 		});
-		const lease = await verifyLinkedOriginalRangeLease(rawLease, binding, options.signal);
+		let lease;
+		try { lease = await verifyLinkedOriginalRangeLease(rawLease, binding, options.signal); }
+		catch (error) {
+			if (error instanceof LinkedOriginalContentUnavailableError) await this.assertBindingCurrent(projectId, source, binding, options);
+			throw error;
+		}
 		try {
 			await this.assertBindingCurrent(projectId, source, binding, options);
 			return Object.freeze({ binding, source: lease.source, release: lease.release });

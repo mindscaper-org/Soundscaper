@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { ID3_DESCRIPTIVE_FIELDS } from './id3-descriptive-fields.ts';
 import type { MetadataTags } from 'mediabunny';
 import { decodeArtworkData, parseId3Artwork } from './id3-artwork.ts';
 
@@ -8,6 +9,7 @@ export function browserAacMetadataTags(
 	metadata: Readonly<Record<string, string>> | undefined,
 ): MetadataTags {
 	if (!metadata) return Object.freeze({});
+	metadata = canonicalAacMetadata(metadata);
 	const tags: MetadataTags = {};
 	const consumed = new Set<string>();
 	const text = (source: string, target: keyof MetadataTags): void => {
@@ -53,6 +55,11 @@ export function browserAacMetadataTags(
 		consumed.add('year');
 	}
 	const artwork = parseId3Artwork(metadata.id3Artwork);
+	consumed.add('id3Artwork');
+	// The maintained MP4 writer omits every image with a different role.
+	if (artwork.some(picture => picture.pictureType !== 3)) {
+		throw new RangeError('AAC supports front-cover artwork only. Choose a front cover or an audio format that retains the requested picture type.');
+	}
 	if (artwork.length) {
 		tags.images = artwork.map(picture => ({ data: decodeArtworkData(picture.data), mimeType: picture.mimeType,
 			kind: picture.pictureType === 3 ? 'coverFront' : picture.pictureType === 4 ? 'coverBack' : 'unknown', description: picture.description }));
@@ -90,4 +97,15 @@ function assertValidIsoCalendarDate(value: string): void {
 		|| calendar.getUTCDate() !== day) {
 		throw new RangeError('AAC metadata date is invalid.');
 	}
+}
+
+/** Share the project tag vocabulary when metadata comes from an import or caller. */
+function canonicalAacMetadata(metadata: Readonly<Record<string, string>>): Readonly<Record<string, string>> {
+	const names = new Map(ID3_DESCRIPTIVE_FIELDS.map(field => [field.key.toLowerCase().replace(/[^a-z0-9]/gu, ''), field.key]));
+	for (const key of ['tracksTotal', 'discsTotal', 'year', 'description', 'id3Artwork']) names.set(key.toLowerCase(), key);
+	for (const [alias, name] of [['track', 'trackNumber'], ['disc', 'discNumber'], ['comment', 'comments']] as const) names.set(alias, name);
+	return Object.fromEntries(Object.entries(metadata).map(([key, value]) => {
+		const canonical = names.get(key.toLowerCase().replace(/[^a-z0-9]/gu, '')) ?? key;
+		return [canonical, metadata[canonical] ?? value];
+	}));
 }

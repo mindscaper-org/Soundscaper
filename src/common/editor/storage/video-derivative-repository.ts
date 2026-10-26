@@ -20,6 +20,7 @@ import {
 } from './derivative-cache-policy.ts';
 import { request, transact } from './indexeddb-backend.ts';
 import { canonicalMediaContentBlob, digestMediaContent } from './media-content-digest.ts';
+import { prepareVideoDerivativePayload } from './video-derivative-payload.ts';
 import { isMediaContentSha256, isMediaContentToken } from './media-content-provenance.ts';
 import {
 	binaryMetadata,
@@ -29,6 +30,7 @@ import {
 } from './media-records.ts';
 import type { OpfsRepository } from './opfs-repository.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';
+import { cloneSelectedStorageRecords } from './storage-record-projection.ts';
 import { cloneStorageValue as clone } from './storage-clone.ts';
 import {
 	assertVideoDerivativeOriginalUnchanged,
@@ -119,9 +121,7 @@ export class VideoDerivativeRepository {
 				originalMediaContentToken: original.mediaContentToken,
 				outputSha256,
 				cacheToken: createCacheToken(),
-				storage: storedFile ? 'opfs' : 'indexeddb-blob',
-				path: storedFile?.path,
-				blob: storedFile ? undefined : blob,
+				...(await prepareVideoDerivativePayload(blob, storedFile, Boolean(database))),
 				size: blob.size,
 				mimeType: String(metadata.mimeType || blob.type || ''),
 				committedAt: new Date(publicationTime).toISOString(),
@@ -341,11 +341,7 @@ export class VideoDerivativeRepository {
 		const database = await this.#port.database();
 		let records: StorageRecord[];
 		if (!database) {
-			records = [...this.#port.memory.videoDerivatives.values()]
-				.map(asStorageRecord)
-				.filter(isStorageRecord)
-				.filter(matches)
-				.map(clone);
+			records = cloneSelectedStorageRecords(this.#port.memory.videoDerivatives.values(), matches);
 			for (const record of records) {
 				if (typeof record.key === 'string') this.#port.memory.videoDerivatives.delete(record.key);
 			}
@@ -386,10 +382,8 @@ export class VideoDerivativeRepository {
 		const database = await this.#port.database();
 		let records: unknown[];
 		if (!database) {
-			records = [...this.#port.memory.videoDerivatives.values()]
-				.map(asStorageRecord)
-				.filter((record) => record?.sourceId === sourceId
-					&& (requestedType === null || record.type === requestedType));
+			return cloneSelectedStorageRecords(this.#port.memory.videoDerivatives.values(), record => record.sourceId === sourceId
+				&& (requestedType === null || record.type === requestedType));
 		} else {
 			records = await transact(
 				database,

@@ -51,8 +51,11 @@ export function encodeIxmlPayload(input: IxmlMetadataInput = {}): Uint8Array {
 	const value = normalizeIxmlMetadata(input);
 	if (value.rawXml) return validatedXmlBytes(value.rawXml);
 	const tracks = value.tracks.map((track) => `<TRACK><CHANNEL_INDEX>${track.channelIndex}</CHANNEL_INDEX><NAME>${escape(track.name)}</NAME><FUNCTION>${escape(track.function)}</FUNCTION></TRACK>`).join('');
-	const points = value.syncPoints.map((point) => `<SYNC_POINT><POINT_TYPE>${point.type}</POINT_TYPE><SAMPLE_COUNT>${point.sampleCount}</SAMPLE_COUNT><FUNCTION>${escape(point.function)}</FUNCTION></SYNC_POINT>`).join('');
-	return validatedXmlBytes(`<BWFXML><IXML_VERSION>1.5</IXML_VERSION><PROJECT>${escape(value.project)}</PROJECT><SCENE>${escape(value.scene)}</SCENE><TAKE>${escape(value.take)}</TAKE><TAPE>${escape(value.tape)}</TAPE><NOTE>${escape(value.note)}</NOTE><CIRCLED>${value.circled ? 'TRUE' : 'FALSE'}</CIRCLED><SPEED><TIMECODE_RATE>${escape(value.timecodeRate)}</TIMECODE_RATE><TIMECODE_FLAG>${value.timecodeFlag}</TIMECODE_FLAG></SPEED><FILE_SET><FAMILY_UID>${escape(value.fileSetId)}</FAMILY_UID></FILE_SET><TRACK_LIST>${tracks}</TRACK_LIST><SYNC_POINT_LIST>${points}</SYNC_POINT_LIST></BWFXML>`);
+	const points = value.syncPoints.map((point) => {
+		const samples = BigInt(point.sampleCount);
+		return `<SYNC_POINT><SYNC_POINT_TYPE>${point.type}</SYNC_POINT_TYPE><SYNC_POINT_LOW>${samples & 0xffff_ffffn}</SYNC_POINT_LOW><SYNC_POINT_HIGH>${samples >> 32n}</SYNC_POINT_HIGH><SYNC_POINT_FUNCTION>${escape(point.function)}</SYNC_POINT_FUNCTION></SYNC_POINT>`;
+	}).join('');
+	return validatedXmlBytes(`<BWFXML><IXML_VERSION>1.5</IXML_VERSION><PROJECT>${escape(value.project)}</PROJECT><SCENE>${escape(value.scene)}</SCENE><TAKE>${escape(value.take)}</TAKE><TAPE>${escape(value.tape)}</TAPE><NOTE>${escape(value.note)}</NOTE><CIRCLED>${value.circled ? 'TRUE' : 'FALSE'}</CIRCLED><SPEED><TIMECODE_RATE>${escape(value.timecodeRate)}</TIMECODE_RATE><TIMECODE_FLAG>${value.timecodeFlag}</TIMECODE_FLAG></SPEED><FILE_SET><FAMILY_UID>${escape(value.fileSetId)}</FAMILY_UID></FILE_SET><TRACK_LIST><TRACK_COUNT>${value.tracks.length}</TRACK_COUNT>${tracks}</TRACK_LIST><SYNC_POINT_LIST><SYNC_POINT_COUNT>${value.syncPoints.length}</SYNC_POINT_COUNT>${points}</SYNC_POINT_LIST></BWFXML>`);
 }
 
 export function createRiffIxmlChunk(input: IxmlMetadataInput | null | undefined): Uint8Array {
@@ -76,7 +79,8 @@ export function parseIxmlPayload(bytes: Uint8Array): IxmlMetadata {
 	}));
 	const syncPoints = parsed.syncPoints.map((point) => ({
 		type: point.type?.trim() === 'ABSOLUTE' ? 'ABSOLUTE' as const : 'RELATIVE' as const,
-		sampleCount: point.sampleCount?.trim() || '0',
+		sampleCount: point.low === undefined && point.high === undefined ? point.sampleCount?.trim() || '0'
+			: (sampleWord(point.low) + (sampleWord(point.high) << 32n)).toString(),
 		function: point.function ?? '',
 	}));
 	return normalizeIxmlMetadata({
@@ -95,7 +99,7 @@ function validatedXmlBytes(xml: string): Uint8Array {
 
 type DocumentField = 'project' | 'scene' | 'take' | 'tape' | 'note' | 'circled' | 'timecodeRate' | 'timecodeFlag' | 'fileSetId';
 type TrackField = 'channelIndex' | 'name' | 'function';
-type SyncPointField = 'type' | 'sampleCount' | 'function';
+type SyncPointField = 'type' | 'sampleCount' | 'low' | 'high' | 'function';
 type TrackFields = Partial<Record<TrackField, string>>;
 type SyncPointFields = Partial<Record<SyncPointField, string>>;
 type TextCapture = {
@@ -198,7 +202,9 @@ function captureTarget(
 		if (field !== null && track[field] === undefined) return { kind: 'track', field, record: track };
 	}
 	if (syncPoint !== null) {
-		const field = name === 'POINT_TYPE' ? 'type' : name === 'SAMPLE_COUNT' ? 'sampleCount' : name === 'FUNCTION' ? 'function' : null;
+		const field = name === 'POINT_TYPE' || name === 'SYNC_POINT_TYPE' ? 'type'
+			: name === 'SAMPLE_COUNT' ? 'sampleCount' : name === 'SYNC_POINT_LOW' ? 'low' : name === 'SYNC_POINT_HIGH' ? 'high'
+				: name === 'FUNCTION' || name === 'SYNC_POINT_FUNCTION' ? 'function' : null;
 		if (field !== null && syncPoint[field] === undefined) return { kind: 'syncPoint', field, record: syncPoint };
 	}
 	return null;
@@ -225,6 +231,12 @@ function applyCapturedText(capture: TextCapture, document: Partial<Record<Docume
 }
 
 class IxmlValidationError extends Error {}
+
+function sampleWord(value: string | undefined): bigint {
+	const word = BigInt(uint64(value?.trim() || '0'));
+	if (word > 0xffff_ffffn) throw new RangeError('iXML sample-count words must be unsigned 32-bit integers.');
+	return word;
+}
 
 function escape(value: string): string { return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;'); }
 function string(value: unknown): string { if (value == null) return ''; if (typeof value !== 'string') throw new TypeError('iXML text fields must be strings.'); if (value.includes('\0')) throw new RangeError('iXML text cannot contain NUL.'); return value; }

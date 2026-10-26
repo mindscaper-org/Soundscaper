@@ -103,10 +103,12 @@ test('canonical project reachability retains a live locator and prunes a crash-l
 		locatorId: live.locatorId,
 		locatorRevision: live.locatorRevision,
 	}]]);
-	assert.equal(await nextMain.load(orphan.locatorId, {
+	const readGrantsBeforeRejectedLoad = nextReads.paths.size;
+	await assert.rejects(nextMain.load(orphan.locatorId, {
 		owner: nextOwner,
 		expectedRevision: orphan.locatorRevision,
-	}), null);
+	}), { name: 'InvalidStateError' });
+	assert.equal(nextReads.paths.size, readGrantsBeforeRejectedLoad, 'a pruned locator cannot publish a read capability');
 	assert.equal(await nextRenderer.getLinkedVideoOriginalBinding(
 		'linked-reconciliation-unpublished-project',
 		orphanSource.id,

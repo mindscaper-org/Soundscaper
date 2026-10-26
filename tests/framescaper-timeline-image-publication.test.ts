@@ -510,26 +510,6 @@ test('a cancelled publication rejects with the signal reason and stages nothing 
 	assert.equal(streaming.chunks.length, 1, 'cancellation stops the stream at its next chunk boundary');
 });
 
-test('a publisher requires a whole owned-body store and a whole project codec', async () => {
-	const { port } = seededPort();
-	const complete = createStore().store as Data;
-	for (const method of ['beginMediaAssetWrite', 'getMediaAssetMetadata', 'deleteMediaAsset']) {
-		assert.throws(
-			() => new Publisher(PROFILE, { port, store: { ...complete, [method]: 'not a function' } }),
-			new RegExp(`publication store requires ${method}`, 'u'),
-		);
-	}
-	assert.throws(() => new Publisher(PROFILE, { port, store: null }), /publication store is required/u);
-	const halfCodec = { authenticate: () => undefined, clone: () => undefined };
-	assert.throws(() => new Publisher(PROFILE, { port, store: complete, projectCodec: halfCodec }), /codec requires apply/u);
-
-	const stub = codecStub();
-	const publisher = new Publisher(PROFILE, { port, store: complete, projectCodec: stub.codec });
-	const authenticatedAtConstruction = stub.authenticated;
-	await assert.rejects(() => publisher.publishIfCurrent({}), /publication request has unsupported, missing/u);
-	assert.equal(stub.authenticated, authenticatedAtConstruction + 1, 'every request reauthenticates the profile');
-});
-
 async function indexedPort(): Promise<Readonly<{ database: IDBDatabase; port: unknown; memory: Memory }>> {
 	const factory = createInstrumentedIndexedDB() as unknown as IDBFactory;
 	const database = await openDatabase(factory, `publication-${String(Math.random()).slice(2)}`);

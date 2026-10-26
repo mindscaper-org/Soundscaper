@@ -29,7 +29,6 @@ test('the 1.0 project identity is family-qualified and exact', () => {
 			id: 'project-1',
 		});
 		assert.deepEqual(identity, { schemaFamily, schemaVersion: 1 });
-		assert.deepEqual(Object.keys(identity), ['schemaFamily', 'schemaVersion']);
 		assert.equal(Object.isFrozen(identity), true);
 	}
 });

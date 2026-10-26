@@ -3,6 +3,7 @@
 import { addDeliveryReportItem, createDeliveryReport, sealDeliveryReport, type DeliveryReport } from '../../../delivery-report.ts';
 import { createInterchangeVisibility } from '../../../interchange-track-visibility.ts';
 import { isDefaultVideoClipComposition } from '../../../video-clip-composition.ts';
+import { createInterchangeFinishingOmissions } from './interchange-finishing-omissions.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
 
@@ -18,9 +19,10 @@ export function reportInterchangePictureOmissions(report: DeliveryReport, projec
 	const clipIds = new Set(tracks.filter(track => track.type === 'video' && visibility.contributes(track)
 		&& !omittedTracks.has(String(track.id)))
 		.flatMap(track => Array.isArray(track.clipIds) ? track.clipIds.map(String) : []));
+	const finishingFields = createInterchangeFinishingOmissions(project, tracks);
 	const omissions = records(project.clips).filter(clip => clip.kind === 'video'
 		&& clipIds.has(String(clip.id)) && !omittedClips.has(String(clip.id)))
-		.map(clip => ({ clip, fields: processingFields(clip) }))
+		.map(clip => ({ clip, fields: { ...processingFields(clip), ...finishingFields(clip) } }))
 		.filter(({ fields }) => Object.keys(fields).length > 0);
 	if (!omissions.length) return report;
 	const draft = createDeliveryReport(report.subject);
@@ -30,6 +32,10 @@ export function reportInterchangePictureOmissions(report: DeliveryReport, projec
 			...(fields.videoComposition ? ['transform and compositing (including opacity)'] : []),
 			...(fields.videoEffects ? ['picture effects'] : []),
 			...(fields.videoKeyframes ? ['picture animation'] : []),
+			...(fields.videoMaskMattes ? ['masks/mattes'] : []),
+			...(fields.videoVisualPresentations ? ['native compositing'] : []),
+			...(fields.videoColorGrades ? ['colour grades'] : []),
+			...(fields.videoProcessorStacks ? ['native picture processing'] : []),
 		];
 		addDeliveryReportItem(draft, {
 			code: `${report.subject.format}.picture-processing-omitted`,

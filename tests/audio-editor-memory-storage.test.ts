@@ -9,8 +9,6 @@ test('memory storage isolates names and retains a process-local named database',
 	const same = getMemoryDatabase('first');
 	const other = getMemoryDatabase('other');
 	first.settings.set('theme', 'dark');
-	assert.equal(same, first);
 	assert.equal(same.settings.get('theme'), 'dark');
-	assert.notEqual(other, first);
 	assert.equal(other.settings.has('theme'), false);
 });

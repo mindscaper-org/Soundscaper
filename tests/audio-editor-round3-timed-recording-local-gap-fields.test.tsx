@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act } from 'react';
@@ -26,7 +28,7 @@ test('timer fields associate localized gap validation with the invalid active da
 	const render = async (value: TimedRecordingDialogValue, locale: 'en' | 'de' = 'en'): Promise<void> => {
 		await act(async () => { root.render(<TimedRecordingDialogFields value={value}
 			onValueChange={() => {}} onSubmit={() => {}} locale={locale}
-			copy={RECORDING_COPY_BY_LOCALE[locale]} />); });
+			copy={(locale === 'de' ? GERMAN_COPY : RECORDING_COPY_BY_LOCALE.en)} />); });
 	};
 	try {
 		await render({ ...base, startTime: '2030-03-31T02:30' });
@@ -41,7 +43,7 @@ test('timer fields associate localized gap validation with the invalid active da
 		assert.equal(dates[0]?.getAttribute('aria-invalid'), null);
 		assert.equal(dates[1]?.getAttribute('aria-invalid'), 'true');
 		assert.equal(dates[1]?.getAttribute('aria-describedby'), dom.one('[role="alert"]').getAttribute('id'));
-		assert.equal(dom.one('[role="alert"]').textContent, RECORDING_COPY_BY_LOCALE.de.timedRecordingInvalidLocalDateTime);
+		assert.equal(dom.one('[role="alert"]').textContent, GERMAN_COPY.timedRecordingInvalidLocalDateTime);
 		await render(base);
 		assert.equal(dom.find('[role="alert"]'), null);
 		assert.equal(dates[0]?.getAttribute('aria-invalid'), null);

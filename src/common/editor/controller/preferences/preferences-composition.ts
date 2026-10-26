@@ -19,6 +19,7 @@ export function createPreferencesComposition(d: {
 	readonly productId: string;
 	readonly defaultWorkspace: string;
 	readonly defaultOptimizationMode?: AudioEditorOptimizationMode;
+	readonly defaultWaveformRenderer?: 'gpu';
 	readonly state: { preferences: Preferences; preferencesReadOnly: boolean; timelineView: string };
 	readonly lifetime: EditorControllerLifetime;
 	readonly copy: Readonly<{ preferencesNewerSchema: string; shortcutActionRequired: string; shortcutConflict: string }>;
@@ -40,11 +41,18 @@ export function createPreferencesComposition(d: {
 		persistSettingRequired: (key, value) => d.persistSetting(key, value, { policy: 'required' }),
 		publish: d.publish, loadPreferences: (saved) => {
 			const loaded = loadAudioEditorPreferencesV1(saved);
+			if (loaded.readOnly) return loaded;
+			let preferences = loaded.preferences;
 			const savedMode = (saved as { readonly performance?: { readonly optimizeFor?: unknown } }).performance?.optimizeFor;
-			if (loaded.readOnly || d.defaultOptimizationMode !== 'speed' || savedMode === 'memory' || savedMode === 'speed') return loaded;
-			return { ...loaded, preferences: updateAudioEditorPreferencesV1(loaded.preferences, { performance: { optimizeFor: 'speed' } }) };
+			if (d.defaultOptimizationMode === 'speed' && savedMode !== 'memory' && savedMode !== 'speed') {
+				preferences = updateAudioEditorPreferencesV1(preferences, { performance: { optimizeFor: 'speed' } });
+			}
+			if (d.defaultWaveformRenderer === 'gpu' && preferences.waveformDisplay.renderer === undefined) {
+				preferences = updateAudioEditorPreferencesV1(preferences, { waveformDisplay: { renderer: 'gpu' } });
+			}
+			return { ...loaded, preferences };
 		},
-		createPreferences: (activeId) => createAudioEditorPreferencesV1({ workspace: { activeId }, performance: { optimizeFor: d.defaultOptimizationMode ?? 'memory' } }),
+		createPreferences: (activeId) => createAudioEditorPreferencesV1({ workspace: { activeId }, performance: { optimizeFor: d.defaultOptimizationMode ?? 'memory' }, waveformDisplay: { renderer: d.defaultWaveformRenderer } }),
 		applyWorkspace: applyAudioEditorWorkspace, updatePreferences: (preferences, patch) => updateAudioEditorPreferencesV1(preferences, patch ?? {}),
 		normalizeShortcut: normalizeAudioEditorShortcut, findShortcutConflicts: findAudioEditorShortcutConflicts,
 		createWorkspace: createCustomAudioEditorWorkspace, updateWorkspace: (preferences, id, changes) => updateCustomAudioEditorWorkspace(preferences, id, changes ?? {}), deleteWorkspace: (preferences, id) => deleteCustomAudioEditorWorkspace(preferences, id, d.defaultWorkspace),

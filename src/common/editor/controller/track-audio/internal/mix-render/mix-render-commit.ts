@@ -7,6 +7,9 @@ import {
 	createMoveTrackNodeCommand,
 } from '../../../../commands/factories.ts';
 import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
+import { duplicateTrackAdmCommands } from '../../../../derived-track-adm.ts';
+import { individualPreFaderPrintWidth, individualPrintLaneCommands, retainIndividualStripControls } from './individual-pre-fader-print.ts';
+import { combinedAdmMixCommands } from './mix-render-adm.ts';
 import { isSoundscaperProductionProject } from '../../../../project-schema-version.ts';
 import { v21StripLaneRemovalCommands } from '../../mix-render-model.ts';
 import type { NormalizedMixRenderOptions } from '../../mix-render-options.ts';
@@ -74,6 +77,8 @@ export function prepareMixRenderOperationCommit(
 			);
 		}
 	}
+	if (options.mixDown) commands.push(...combinedAdmMixCommands(project, outputs[0]!.targetTracks, results[0]!.trackId, options));
+	else if (!options.replaceOriginals) commands.push(...duplicateTrackAdmCommands(project, routingCopies, runtime.createId));
 	commands.push(selectionCommand(project, results.map(({ trackId }) => trackId)));
 	return Object.freeze({
 		type: 'mix-render',
@@ -184,28 +189,31 @@ function prepareIndividualOutput(
 		throw new RangeError('An individual mix render output requires exactly one target track.');
 	}
 	const target = output.targetTracks[0]!;
+	const retainControls = individualPreFaderPrintWidth(project, target, options.renderEffects) !== null;
 	const trackId = options.replaceOriginals ? target.id : runtime.createId('rendered-track');
 	const clipId = runtime.createId('rendered-clip');
 	commands.push(createAddSourceCommand(output.source));
 	if (options.replaceOriginals) {
 		commands.push(
 			...freezeRemovalCommands(project, target),
-			...v21StripLaneRemovalCommands(project, target.id),
+			...(retainControls ? individualPrintLaneCommands(project, target.id, target.id, runtime.createId)
+				: v21StripLaneRemovalCommands(project, target.id)),
 			...renderedOriginalRemovalCommands(project, target),
 			...(target.effects ?? []).map((effect): AudioEditorCommand => ({
 				type: 'effect/remove', scope: 'track', trackId: target.id, effectId: effect.id,
 			})),
-			{ type: 'track/update', trackId, changes: neutralTrackChanges(project) },
+			{ type: 'track/update', trackId, changes: { ...neutralTrackChanges(project), ...(retainControls ? retainIndividualStripControls(target) : {}) } },
 		);
 	} else {
 		const originalIndex = project.tracks.findIndex(({ id }) => id === target.id);
 		commands.push({
-			...createAddTrackCommand(renderedTrack(target, trackId, output.name, project)),
+			...createAddTrackCommand({ ...renderedTrack(target, trackId, output.name, project), ...(retainControls ? retainIndividualStripControls(target) : {}) }),
 			index: originalIndex + outputIndex + 1,
 			...siblingPlacement(project, target.id, placementOffsets),
 		});
 	}
 	commands.push(renderedClipCommand(trackId, clipId, output));
+	if (retainControls && !options.replaceOriginals) commands.push(...individualPrintLaneCommands(project, target.id, trackId, runtime.createId));
 	if (!options.replaceOriginals) {
 		if (isSoundscaperProductionProject(project)) {
 			routingCopies.push({ sourceTrackId: target.id, targetTrackId: trackId });

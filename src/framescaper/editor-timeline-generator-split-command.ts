@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
-import { normalizeVideoGeneratorClipV1, type VideoGeneratorClipV1 } from '../common/editor/video-visual-model-v24.ts';
+import { normalizeVideoGeneratorClipV1, normalizeVideoStillClipV1, type VideoGeneratorClipV1, type VideoStillClipV1 } from '../common/editor/video-visual-model-v24.ts';
 import { sampleFrameToVideoFrame } from '../common/editor/timeline-time.ts';
 import type { FramescaperProjectTimelineImage } from './editor-project-timeline-image.ts';
 import type { FramescaperProjectCommandTimelineImage, FramescaperProjectCommandBatchTimelineImage } from './editor-project-timeline-image-commands.ts';
@@ -9,12 +9,13 @@ import type { FramescaperVideoVisualClipSetCommandVisual } from './editor-projec
 import { createSplitVisualPresentationPlanner } from './editor-split-visual-presentations.ts';
 import type { FramescaperVideoVisualPresentationSetCommandFinishing } from './editor-project-finishing-finishing-command.ts';
 
-/** Split generated visuals before the inherited camera/audio executor omits them. */
+/** Split generated and frozen visuals before the inherited camera/audio executor omits them. */
 export function prepareTimelineGeneratorSplitCommand(project: FramescaperProjectTimelineImage,
 	command: FramescaperProjectCommandTimelineImage): FramescaperProjectCommandTimelineImage {
-	const clips = new Map<string, VideoGeneratorClipV1>();
+	const clips = new Map<string, VideoGeneratorClipV1 | VideoStillClipV1>();
 	for (const clip of project.clips as readonly Readonly<Record<string, unknown>>[]) {
 		if (clip.kind === 'generator') clips.set(String(clip.id), normalizeVideoGeneratorClipV1(clip));
+		else if (clip.kind === 'still') clips.set(String(clip.id), normalizeVideoStillClipV1(clip));
 	}
 	const owners = new Map(project.tracks.flatMap(track => (Array.isArray(track.clipIds)
 		? track.clipIds as readonly string[] : []).map(id => [id, track.id] as const)));
@@ -29,7 +30,8 @@ export function prepareTimelineGeneratorSplitCommand(project: FramescaperProject
 		}
 		if (value.type === 'video-visual-clip/set') {
 			const mutation = value as FramescaperVideoVisualClipSetCommandVisual;
-			if (mutation.clip?.kind === 'generator' && mutation.placement?.scope === 'timeline') {
+			if (mutation.clip && (mutation.clip.kind === 'generator' || mutation.clip.kind === 'still')
+				&& mutation.placement?.scope === 'timeline') {
 				clips.set(mutation.clipId, mutation.clip); owners.set(mutation.clipId, mutation.placement.trackId);
 			} else { clips.delete(mutation.clipId); owners.delete(mutation.clipId); }
 			return value;
@@ -43,15 +45,23 @@ export function prepareTimelineGeneratorSplitCommand(project: FramescaperProject
 		const boundary = sampleFrameToVideoFrame(split.atFrame, sequence.rate, project.sampleRate, 'point');
 		const leftCount = boundary - expectedClip.sequenceStartFrame;
 		if (leftCount <= 0 || leftCount >= expectedClip.sequenceFrameCount) throw new RangeError('A generated visual split must be inside its sequence extent.');
-		const elapsed = Math.round(leftCount * expectedClip.sourceFrameCount / expectedClip.sequenceFrameCount);
-		const leftSourceCount = Math.max(1, elapsed);
-		const rightSourceStart = Math.min(expectedClip.sourceInFrame + elapsed,
-			expectedClip.sourceInFrame + expectedClip.sourceFrameCount - 1);
-		const left = normalizeVideoGeneratorClipV1({ ...expectedClip,
-			sequenceFrameCount: leftCount, sourceFrameCount: leftSourceCount });
-		const right = normalizeVideoGeneratorClipV1({ ...expectedClip, id: split.rightClipId, sequenceStartFrame: boundary,
-			sequenceFrameCount: expectedClip.sequenceFrameCount - leftCount, sourceInFrame: rightSourceStart,
-			sourceFrameCount: expectedClip.sourceInFrame + expectedClip.sourceFrameCount - rightSourceStart });
+		let left: VideoGeneratorClipV1 | VideoStillClipV1;
+		let right: VideoGeneratorClipV1 | VideoStillClipV1;
+		if (expectedClip.kind === 'still') {
+			left = normalizeVideoStillClipV1({ ...expectedClip, sequenceFrameCount: leftCount });
+			right = normalizeVideoStillClipV1({ ...expectedClip, id: split.rightClipId, sequenceStartFrame: boundary,
+				sequenceFrameCount: expectedClip.sequenceFrameCount - leftCount });
+		} else {
+			const elapsed = Math.round(leftCount * expectedClip.sourceFrameCount / expectedClip.sequenceFrameCount);
+			const leftSourceCount = Math.max(1, elapsed);
+			const rightSourceStart = Math.min(expectedClip.sourceInFrame + elapsed,
+				expectedClip.sourceInFrame + expectedClip.sourceFrameCount - 1);
+			left = normalizeVideoGeneratorClipV1({ ...expectedClip,
+				sequenceFrameCount: leftCount, sourceFrameCount: leftSourceCount });
+			right = normalizeVideoGeneratorClipV1({ ...expectedClip, id: split.rightClipId, sequenceStartFrame: boundary,
+				sequenceFrameCount: expectedClip.sequenceFrameCount - leftCount, sourceInFrame: rightSourceStart,
+				sourceFrameCount: expectedClip.sourceInFrame + expectedClip.sourceFrameCount - rightSourceStart });
+		}
 		const trackId = owners.get(split.clipId);
 		if (!trackId) throw new ReferenceError('A generated visual split requires its picture track.');
 		const placement = { scope: 'timeline' as const, trackId };

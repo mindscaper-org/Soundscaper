@@ -8,13 +8,6 @@ export const CLIP_INTERACTIONS_COPY_BY_LOCALE = {
 		fadeInLength: 'Fade-in length', fadeOutLength: 'Fade-out length',
 		fadeInShape: 'Fade-in shape', fadeOutShape: 'Fade-out shape',
 	},
-	de: {
-		apply: 'Anwenden', custom: 'Benutzerdefiniert', increaseValue: 'Wert erhöhen', decreaseValue: 'Wert verringern',
-		secondsUnit: 's', fades: 'Blenden', editFadeIn: 'Einblendung bearbeiten', editFadeOut: 'Ausblendung bearbeiten',
-		removeFadeIn: 'Einblendung entfernen', removeFadeOut: 'Ausblendung entfernen',
-		fadeInLength: 'Einblendlänge', fadeOutLength: 'Ausblendlänge',
-		fadeInShape: 'Einblendkurve', fadeOutShape: 'Ausblendkurve',
-	},
 } as const;
 
 export function clipInteractionCopy(copy: Readonly<Record<string, string>>) {

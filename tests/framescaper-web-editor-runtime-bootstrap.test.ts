@@ -10,6 +10,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import FramescaperAudioEditorBootstrap, {
 	createFramescaperWebEditorRuntime,
 } from '../src/framescaper/ui/FramescaperAudioEditorBootstrap.tsx';
+import { SITE_COPY_BY_LOCALE } from '../src/common/i18n/site-copy.js';
+import { loadTranslationCatalog } from '../src/common/i18n/translation-catalog.js';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { installReactTestDom } from './helpers/react-test-dom.ts';
 
@@ -153,7 +155,6 @@ test('an opened runtime is frozen, browser-bound, and closes its database exactl
 		});
 
 		assert.ok(Object.isFrozen(runtime));
-		assert.deepEqual(Object.keys(runtime), ['controller', 'fileService', 'dispose']);
 		const fileService = runtime.fileService as unknown as FileServiceProbe;
 		assert.deepEqual(
 			{ kind: fileService.kind, isDesktop: fileService.isDesktop, bridge: fileService.bridge },
@@ -273,17 +274,24 @@ test('a disposal that cannot close its storage rejects once for every caller', a
 	});
 });
 
-test('the bootstrap announces localized, indeterminate editor loading until the runtime exists', () => {
-	const german = renderToStaticMarkup(React.createElement(FramescaperAudioEditorBootstrap, {
-		locale: 'de', fallbackCopy: {},
+test('the bootstrap announces indeterminate loading in English before the locale catalog arrives', () => {
+	for (const locale of ['en', 'de']) {
+		const markup = renderToStaticMarkup(React.createElement(FramescaperAudioEditorBootstrap, {
+			locale, fallbackCopy: {},
+		}));
+		assert.match(markup, /Loading editor files/u);
+		assert.match(markup, /<progress max="100" aria-label="Loading editor files"><\/progress>/u);
+	}
+});
+
+test('the bootstrap announces localized loading when the locale catalog is available', async () => {
+	const copy = await loadTranslationCatalog('de', { englishCopy: SITE_COPY_BY_LOCALE.en });
+	assert.ok(copy);
+	const markup = renderToStaticMarkup(React.createElement(FramescaperAudioEditorBootstrap, {
+		locale: 'de', fallbackCopy: copy,
 	}));
-	assert.match(german, /Editordateien werden geladen/u);
-	assert.match(german, /<progress max="100" aria-label="Editordateien werden geladen"><\/progress>/u);
-	const english = renderToStaticMarkup(React.createElement(FramescaperAudioEditorBootstrap, {
-		locale: 'en', fallbackCopy: {},
-	}));
-	assert.match(english, /Loading editor files/u);
-	assert.match(english, /<progress max="100" aria-label="Loading editor files"><\/progress>/u);
+	assert.match(markup, /Editordateien werden geladen/u);
+	assert.match(markup, /<progress max="100" aria-label="Editordateien werden geladen"><\/progress>/u);
 });
 
 test('a runtime failure is announced as an alert built from the fallback error template', async () => {

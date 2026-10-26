@@ -166,19 +166,6 @@ test('a superseding macro task fences stale persistence and cleanup publication'
 	successor.finish();
 });
 
-test('a command reaching the effect runner is a split that failed, not a step to skip', async () => {
-	// The sequencer hands this runner only runs of effects. If one ever arrives
-	// here the split is wrong, and skipping it would apply the effects to whatever
-	// happened to be selected instead of what the macro says.
-	const harness = createHarness();
-	await assert.rejects(
-		() => harness.service.runEffectMacro({
-			effects: [{ kind: 'command', id: 'select', enabled: true, command: 'SelectTime', params: { start: 0 } }],
-		}),
-		/A macro command \(SelectTime\) cannot be applied as an effect/u,
-	);
-	assert.equal(harness.processing, false);
-});
 
 test('cancelling a run aborts it without persisting anything', async () => {
 	// The manager had no way to stop a macro at all: a long chain ran to the end
@@ -319,12 +306,13 @@ test('a realtime run after an offline step renders through a staged one-clip pro
 		['compressor', 'delay'],
 	);
 	assert.equal(staged.clips.length, 1);
-	assert.equal(staged.clips[0]?.durationFrames, 2);
-	assert.equal(staged.sources[0]?.frameCount, 2);
+	assert.equal(staged.clips[0]?.durationFrames, 102);
+	assert.equal(staged.sources[0]?.frameCount, 102);
 	// The staged source carries the audio the offline step produced.
 	const stagedBuffer = [...harness.stagedSources[0]!.values()][0] as
 		Readonly<{ channels: readonly Float32Array[] }>;
-	assert.deepEqual([...stagedBuffer.channels[0]!], [2, 3]);
+	assert.deepEqual([...stagedBuffer.channels[0]!.subarray(0, 100)], Array(100).fill(0));
+	assert.deepEqual([...stagedBuffer.channels[0]!.subarray(100)], [2, 3]);
 	assert.deepEqual(
 		[...(harness.persisted[0] as [unknown, unknown, readonly Float32Array[]])[2][0]!],
 		[8, 12],

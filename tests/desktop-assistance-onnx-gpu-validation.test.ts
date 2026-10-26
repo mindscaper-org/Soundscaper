@@ -27,7 +27,7 @@ test('strict ONNX validation rejects missing GPU providers and never retries inf
 const settings = { executionProviders: ['cpu'] as const, graphOptimizationLevel: 'all' as const,
 	interOpNumThreads: 1 as const, intraOpNumThreads: 4 as const };
 
-test('strict ONNX validation proves model GPU kernels before final release and retains its actual outputs', async () => {
+test('strict ONNX validation bounds a multi-run model profile to its first successful output', async () => {
 	const events: string[] = [];
 	const proofs: unknown[] = [];
 	let creations = 0;
@@ -49,11 +49,60 @@ test('strict ONNX validation proves model GPU kernels before final release and r
 	const session = await wrapped.InferenceSession.create('/model.onnx', settings);
 	assert.equal(await session.run({}), output);
 	assert.equal(creations, 1, 'WebGPU must be selected directly ahead of CoreML in strict validation');
+	assert.deepEqual(events, ['run', 'profile']);
 	assert.deepEqual(proofs, []);
+	assert.equal(await session.run({}), output);
 	await session.release?.();
 	await session.release?.();
-	assert.deepEqual(events, ['run', 'profile', 'proof', 'release']);
+	assert.deepEqual(events, ['run', 'profile', 'run', 'proof', 'release']);
 	assert.deepEqual(proofs, [{ provider: 'webgpu', gpuKernelCount: 1, cpuKernelCount: 0, processIds: [12345] }]);
+});
+
+test('strict ONNX validation retains reviewed WebGPU CPU-node exceptions', async () => {
+	let providers: unknown;
+	const runtime = { Tensor: class {}, InferenceSession: { create: async (_path: string,
+		options: typeof settings) => {
+		providers = options.executionProviders;
+		return { inputNames: ['x'], outputNames: ['y'], run: async () => ({}),
+			endProfiling() {}, release() {} };
+	} } } as unknown as AssistanceOnnxRuntimeModuleV1;
+	const wrapped = createAssistanceOnnxGpuValidatedRuntimeV1(
+		runtime, ['webgpu'], () => undefined, () => {},
+		{ forceCpuNodeNames: ['/wide/Split'] },
+	);
+	const session = await wrapped.InferenceSession.create('/model.onnx', settings);
+	await session.release?.();
+	assert.deepEqual(providers, [
+		{ name: 'webgpu', forceCpuNodeNames: ['/wide/Split'] }, 'cpu',
+	]);
+});
+
+test('a later failed run suppresses an earlier session proof while releasing cleanly', async () => {
+	let runs = 0, releases = 0, proofs = 0;
+	const failure = new Error('second chunk failed');
+	const runtime = { Tensor: class {}, InferenceSession: { create: async (_path: string,
+		options: typeof settings & { profileFilePrefix: string }) => ({
+		inputNames: ['x'], outputNames: ['y'], run: async () => {
+			runs += 1;
+			if (runs === 2) throw failure;
+			return {};
+		},
+		endProfiling() {
+			writeFileSync(`${options.profileFilePrefix}_trace.json`, JSON.stringify([
+				{ cat: 'Node', ph: 'X', name: 'MatMul_kernel_time', dur: 50,
+					args: { provider: 'WebGpuExecutionProvider' } },
+			]));
+		},
+		release() { releases += 1; },
+	}) } } as unknown as AssistanceOnnxRuntimeModuleV1;
+	const wrapped = createAssistanceOnnxGpuValidatedRuntimeV1(runtime, ['webgpu'], () => undefined,
+		() => { proofs += 1; });
+	const session = await wrapped.InferenceSession.create('/model.onnx', settings);
+	await session.run({});
+	await assert.rejects(async () => session.run({}), (error: unknown) => error === failure);
+	await session.release?.();
+	assert.equal(proofs, 0);
+	assert.equal(releases, 1);
 });
 
 test('strict ONNX validation rejects a native session without profiling support and retains creation errors', async () => {
@@ -86,8 +135,8 @@ test('a requested GPU session that actually runs entirely on CPU fails validatio
 	const wrapped = createAssistanceOnnxGpuValidatedRuntimeV1(runtime, ['webgpu'], () => undefined,
 		() => { proved = true; });
 	const session = await wrapped.InferenceSession.create('/model.onnx', settings);
-	await session.run({});
-	await assert.rejects(async () => session.release?.(), /no executed GPU kernels/u);
+	await assert.rejects(async () => session.run({}), /no executed GPU kernels/u);
+	await session.release?.();
 	assert.equal(released, true);
 	assert.equal(proved, false);
 });

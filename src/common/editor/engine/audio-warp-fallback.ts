@@ -17,6 +17,7 @@ import {
 } from './buffer-math.ts';
 import { projectGraphLatencyFrames } from './project-graph.ts';
 import { projectEffectRacks } from './project-effects.ts';
+import { resolveRenderFrameRange } from './rendering-range.ts';
 import type {
 	EngineRuntimeHost,
 	PreparedAudioWarpPlayback,
@@ -150,8 +151,8 @@ export function prepareExactAudioWarpPlayback(
 	assertExactAudioWarpWindowGraph(project);
 	const graphLatencyFrames = exactGraphLatencyFrames(engine, null, true);
 	const range = planExactAudioWarpWindow({
-		startFrame: clampFrame(startFrame, 0, engine.durationFrames),
-		endFrame: clampFrame(endFrame, 0, engine.durationFrames),
+		startFrame: clampFrame(startFrame, 0, engine.playbackDurationFrames),
+		endFrame: clampFrame(endFrame, 0, engine.playbackDurationFrames),
 		sampleRate: engine.sampleRate,
 		channelCount: clamp(Number(project.masterChannels) || 2, 1, 32),
 		graphLatencyFrames,
@@ -198,8 +199,7 @@ export async function renderExactAudioWarpToSink(
 	const onChunk = options.onChunk;
 	if (typeof onChunk !== 'function') throw new TypeError('Exact audio warp streaming requires an onChunk callback.');
 	const chunkFrames = boundedChunkFrames(options.chunkFrames ?? 4_096);
-	const startFrame = clampFrame(numberOption(options.startFrame) ?? 0, 0, engine.durationFrames);
-	const endFrame = clampFrame(numberOption(options.endFrame) ?? engine.durationFrames, startFrame, engine.durationFrames);
+	const { fromFrame: startFrame, toFrame: endFrame } = resolveRenderFrameRange(numberOption(options.startFrame) ?? 0, numberOption(options.endFrame) ?? engine.durationFrames);
 	if (endFrame <= startFrame) throw new RangeError('Exact audio warp streaming requires a non-empty range.');
 	// The graph preflight admits no stateful or latency-owning processors.
 	// Gain, pan, mute, envelopes, and clip fades are absolute-time schedules,
@@ -301,7 +301,10 @@ async function renderExactPlaybackWindow(
 	signal: AbortSignal | null,
 ): Promise<Readonly<PreparedAudioWarpPlayback>> {
 	throwIfAborted(signal);
-	const rendered = await engine.renderMix({
+	const rendered = range.startFrame >= engine.durationFrames ? {
+		channels: Array.from({ length: Number(project.masterChannels) || 2 }, () => new Float32Array(range.frameCount)),
+		sampleRate: engine.sampleRate,
+	} : await engine.renderMix({
 		startFrame: range.startFrame,
 		endFrame: range.endFrame,
 		includeTail: false,
@@ -310,7 +313,13 @@ async function renderExactPlaybackWindow(
 	});
 	throwIfAborted(signal);
 	assertProjectAuthority(engine, project, authorityFingerprint);
-	const channels = audioBufferChannels(rendered);
+	let channels = audioBufferChannels(rendered);
+	// Software renderers may return only the occupied intersection. The rest of
+	// this bounded playback window is deliberately selected timeline silence.
+	const occupiedFrames = Math.max(0, Math.min(range.endFrame, engine.durationFrames) - range.startFrame);
+	if (range.endFrame > engine.durationFrames && channels.every(channel => channel.length === occupiedFrames)) {
+		channels = channels.map(channel => { const padded = new Float32Array(range.frameCount); padded.set(channel); return padded; });
+	}
 	const channelCount = clamp(Number(project.masterChannels) || 2, 1, 32);
 	assertPlanarGeometry(channels, channelCount, range.frameCount);
 	const prepared = {
@@ -321,7 +330,7 @@ async function renderExactPlaybackWindow(
 		channels: Object.freeze(channels.slice()),
 		frameCount: range.frameCount,
 		sampleRate: engine.sampleRate,
-		audioBuffer: isAudioBuffer(rendered) ? rendered : null,
+		audioBuffer: isAudioBuffer(rendered) && rendered.length === range.frameCount ? rendered : null,
 	} satisfies PreparedAudioWarpPlayback;
 	engine.preparedAudioWarpPlayback = prepared;
 	return prepared;

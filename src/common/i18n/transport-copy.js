@@ -2,33 +2,6 @@
 
 /** Copy for the transport: playback and record commands, the loop region, and the metronome's tempo and time signature. */
 export const TRANSPORT_COPY_BY_LOCALE = Object.freeze({
-	de: Object.freeze({
-			transport: 'Wiedergabe und Aufnahme',
-			jumpStart: 'Zum Projektanfang',
-			play: 'Abspielen',
-			pause: 'Pause',
-			resumePlayback: 'Wiedergabe fortsetzen',
-			playCutPreview: 'Schnitt vorhören',
-			playSpectralSelection: 'Ausgewählte Frequenzen abspielen',
-			spectralSelectionRequired: 'Wähle zuerst einen Frequenzbereich aus.',
-			playStopSetCursor: 'Abspielen/Stoppen und Cursor setzen',
-			stop: 'Stopp',
-			jumpEnd: 'Zum Projektende',
-			loop: 'Auswahl loopen',
-			clearLoopRegion: 'Loop-Bereich löschen',
-			loopToSelection: 'Loop-Bereich auf Auswahl setzen',
-			selectionToLoop: 'Auswahl auf Loop-Bereich setzen',
-			selectionFollowsLoop: 'Loop-Bereich wählt Audio aus',
-			setLoopInOut: 'Loop vom Cursor bis zum Ende setzen',
-			metronome: 'Metronom',
-			projectTempo: 'Projekttempo (BPM)',
-			timeSignature: 'Taktart',
-			numerator: 'Zähler',
-			denominator: 'Nenner',
-			record: 'Auf der aktivierten Spur aufnehmen',
-			recordActiveTrack: 'Auf der aktiven Spur aufnehmen',
-			monitor: 'Eingang mithören',
-	}),
 	en: Object.freeze({
 			transport: 'Playback and recording',
 			jumpStart: 'Jump to project start',

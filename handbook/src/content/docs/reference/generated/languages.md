@@ -10,13 +10,13 @@ sidebar:
 
 The editor is served at one route per language. A language that is not listed here falls back to English.
 
-Two languages are written and reviewed for this editor directly. The rest are machine translated from the English copy, and wherever Audacity's translators have reviewed the same command name, their wording is shown instead. English variants carry only Audacity's reviewed strings over English.
+English is the editor's source language. Every other language, including German, uses a JSON translation catalog. Translations are machine generated, and wherever Audacity's translators have reviewed the same command name, their wording is shown instead. English variants carry only Audacity's reviewed strings over English.
 
 | Language | Tag | Route | Writing direction | Source |
 | --- | --- | --- | --- | --- |
 | العربية | `ar` | `/ar/` | Right to left | Machine translated, with Audacity's reviewed strings |
 | Čeština | `cs` | `/cs/` | Left to right | Machine translated, with Audacity's reviewed strings |
-| Deutsch | `de` | `/de/` | Left to right | Written for this editor |
+| Deutsch | `de` | `/de/` | Left to right | Machine translated, with Audacity's reviewed strings |
 | Ελληνικά | `el` | `/el/` | Left to right | Machine translated, with Audacity's reviewed strings |
 | English | `en` | `/en/` | Left to right | Written for this editor |
 | English (UK) | `en-GB` | `/en-GB/` | Left to right | Audacity's reviewed strings over English |

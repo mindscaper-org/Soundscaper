@@ -9,6 +9,9 @@ import {
 	createAssistanceOnnxAcceleratedRuntimeV1,
 	type AssistanceOnnxGpuValidationOptionsV1,
 } from './assistance-onnx-acceleration.ts';
+import type {
+	AssistanceOnnxExecutionProviderV1, AssistanceOnnxWebGpuPolicyV1,
+} from './assistance-onnx-provider-options.ts';
 import { isAssistanceGpuValidationEnabled } from './assistance-gpu-validation.ts';
 
 import {
@@ -90,7 +93,7 @@ export interface AssistanceOnnxRuntimeModuleV1 {
 		create(
 			modelPath: string,
 			options: Readonly<{
-				executionProviders: readonly ('cpu' | 'coreml' | 'webgpu')[];
+				executionProviders: readonly AssistanceOnnxExecutionProviderV1[];
 				graphOptimizationLevel: 'all';
 				interOpNumThreads: 1;
 				intraOpNumThreads: 4;
@@ -142,6 +145,7 @@ export function createAssistanceOnnxRuntimeWorkerAdapterV1(
 			await baseLoader(entrypoint), context.job.descriptor,
 			() => sessionCache === undefined ? context.signal : sessionCache.activeSignal,
 			gpuValidation,
+			dereverbWebGpuPolicy(context),
 		);
 		const loadRuntime = sessionCache === undefined ? acceleratedLoader
 			: async (entrypoint: string) => sessionCache.wrapRuntime(await acceleratedLoader(entrypoint));
@@ -178,6 +182,25 @@ export function createAssistanceOnnxRuntimeWorkerAdapterV1(
 	};
 	return (context) => options.sessionCache === undefined ? execute(context)
 		: options.sessionCache.runAuthenticated(context, () => execute(context));
+}
+
+const DEREVERB_WEBGPU_CPU_NODES = Object.freeze([
+	'/band_split/Split',
+	'/mask_estimators.0/Split',
+]);
+
+function dereverbWebGpuPolicy(
+	context: AssistanceRuntimeFamilyWorkerExecutionContext,
+): AssistanceOnnxWebGpuPolicyV1 | undefined {
+	if (context.grant.task !== 'dereverberation') return undefined;
+	const model = context.grant.models[0];
+	if (context.grant.models.length !== 1
+		|| model?.modelId !== 'dereverb-room' || model.version !== '1.0.0'
+		|| model.artifactRole !== 'network') return undefined;
+	// Both pinned Split nodes expose more storage outputs than baseline WebGPU
+	// permits. Keep only those two operators on CPU; strict profiling still
+	// requires the rest of this exact model to execute real GPU kernels.
+	return Object.freeze({ forceCpuNodeNames: DEREVERB_WEBGPU_CPU_NODES });
 }
 
 async function executeTransNetV2(

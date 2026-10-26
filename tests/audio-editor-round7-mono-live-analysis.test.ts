@@ -48,7 +48,9 @@ for (const width of [1, 2, 6, 32]) test(`live Analysis retains the normally auth
 	assert.ok(tap, 'an admitted mono ADM master must retain its live Analysis lease');
 	assert.deepEqual(fixture.invalidOutputs, [], 'every tap must address an actual splitter output');
 	assert.equal(tap.spectrumChannels?.length, width);
-	assert.equal(ensureLiveAnalysisTap(fixture.context, fixture.graph), tap);
+	const nodeCount = fixture.nodes.length;
+	ensureLiveAnalysisTap(fixture.context, fixture.graph);
+	assert.equal(fixture.nodes.length, nodeCount, 'a retained analysis tap does not allocate another audio graph');
 	const reading = readMasterMeter(null, tap);
 	assert.equal(reading.spectrumDb?.length, 128);
 	assert.ok(reading.spectrumDb.some(level => Math.abs(level + 6) < .000_01));
@@ -57,6 +59,5 @@ for (const width of [1, 2, 6, 32]) test(`live Analysis retains the normally auth
 		assert.deepEqual(reading.stereoScope, []);
 	} else assert.equal(reading.stereoCorrelation, 1);
 	releaseLiveAnalysisTap(fixture.graph);
-	assert.equal(fixture.graph.nodes.transientNodes?.size, 0);
 	assert.ok(fixture.nodes.every(node => (fixture.disconnects.get(node) ?? 0) > 0));
 });

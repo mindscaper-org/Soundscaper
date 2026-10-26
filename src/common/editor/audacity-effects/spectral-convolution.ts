@@ -28,7 +28,7 @@ export function createSameConvolver(kernel: Float64Array): (input: Float32Array)
 		accumulated.fill(0);
 		for (let inputOffset = 0; inputOffset < input.length; inputOffset += blockSize) {
 			const count = Math.min(blockSize, input.length - inputOffset);
-			real.fill(0);
+			real.fill(0, count);
 			imaginary.fill(0);
 			real.set(input.subarray(inputOffset, inputOffset + count));
 			fft(real, imaginary, false);

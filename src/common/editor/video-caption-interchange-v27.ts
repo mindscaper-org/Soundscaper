@@ -26,14 +26,13 @@ import {
 	type VideoCaptionTrackNormalizerV1,
 } from './video-caption-interchange-contract-v27.ts';
 import { exportImscCaptionTrackV1, importImscCaptionTrackV1 } from './video-caption-imsc-v27.ts';
+import { decodePassiveCaptionText as decodePassiveText } from './video-caption-passive-text.ts';
 
 const STABLE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const WEBVTT_RESERVED_CUE_ID = /^(?:NOTE|REGION|STYLE)$/u;
-const SRT_TIMING = /^(\d+):([0-5]\d):([0-5]\d),(\d{3}) --> (\d+):([0-5]\d):([0-5]\d),(\d{3})$/u;
+const SRT_TIMING = /^[ \t]*(\d+):([0-5]\d):([0-5]\d)[,.](\d{1,3})[ \t]+-->[ \t]+(\d+):([0-5]\d):([0-5]\d)[,.](\d{1,3})[ \t]*$/u;
 const VTT_TIMING = /^(?:(\d+):)?([0-5]\d):([0-5]\d)\.(\d{3})[ \t]+-->[ \t]+(?:(\d+):)?([0-5]\d):([0-5]\d)\.(\d{3})(.*)$/u;
-const PASSIVE_ENTITIES: Readonly<Record<string, string>> = Object.freeze({
-	amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
-});
+
 
 interface TimedCueSource {
 	readonly identifier: string | null;
@@ -53,6 +52,7 @@ interface TextImportState {
 	readonly styleIds: Map<string, string>;
 	readonly speakerIds: Map<string, string>;
 	readonly cueIds: Set<string>;
+	readonly reservedCueIds: ReadonlySet<string>;
 }
 
 export function importCaptionInterchangeV1(
@@ -68,6 +68,7 @@ export function importCaptionInterchangeV1(
 		return importImscCaptionTrackV1(text, { ...options, format, sampleRate }, limits, normalize);
 	}
 	const losses: VideoCaptionInterchangeLossV1[] = [];
+	const sources = format === 'srt' ? parseSrt(text, limits) : parseWebVtt(text, limits);
 	const state: TextImportState = {
 		options,
 		sampleRate,
@@ -78,8 +79,8 @@ export function importCaptionInterchangeV1(
 		styleIds: new Map(),
 		speakerIds: new Map(),
 		cueIds: new Set(),
+		reservedCueIds: new Set(sources.map(({ identifier }) => identifier).filter((id): id is string => id !== null && STABLE_ID.test(id))),
 	};
-	const sources = format === 'srt' ? parseSrt(text, limits) : parseWebVtt(text, limits);
 	const cues = sources.map((source, index) => materializeTextCue(source, index, format, state));
 	const track = normalize({
 		schemaVersion: 1,
@@ -151,7 +152,7 @@ function parseSrt(text: string, limits: Readonly<VideoCaptionInterchangeLimitsV1
 		const lines = block.split('\n');
 		let timingIndex = 0;
 		if (!SRT_TIMING.test(lines[0] ?? '')) {
-			if (!/^\d+$/u.test(lines[0] ?? '')) throw interchangeError(`SRT cue ${index + 1} has no numeric sequence.`, 'INVALID_CUE');
+			if (!/^\d+$/u.test((lines[0] ?? '').trim())) throw interchangeError(`SRT cue ${index + 1} has no numeric sequence.`, 'INVALID_CUE');
 			timingIndex = 1;
 		}
 		const match = (lines[timingIndex] ?? '').match(SRT_TIMING);
@@ -173,11 +174,19 @@ function parseWebVtt(text: string, limits: Readonly<VideoCaptionInterchangeLimit
 	if (!/^WEBVTT(?:[ \t][^\n]*)?$/u.test(lines[0] ?? '') || lines[0]?.includes('-->')) {
 		throw interchangeError('WebVTT input must begin with a WEBVTT header.', 'INVALID_HEADER');
 	}
-	const blocks = subtitleBlocks(lines.slice(1).join('\n')).filter((block) => !/^NOTE(?:[ \t]|\n|$)/u.test(block));
+	let bodyStart = 1;
+	while (bodyStart < lines.length && lines[bodyStart]?.trim() && !VTT_TIMING.test(lines[bodyStart] ?? '')) {
+		if (/^(?:REGION|STYLE)[ \t]*$/u.test(lines[bodyStart] ?? '')) {
+			throw interchangeError('The maintained WebVTT subset does not accept global scriptable or styling blocks.', 'ACTIVE_CONTENT');
+		}
+		if (VTT_TIMING.test(lines[bodyStart + 1] ?? '')) break;
+		bodyStart += 1;
+	}
+	const blocks = subtitleBlocks(lines.slice(bodyStart).join('\n')).filter((block) => !/^NOTE(?:[ \t]|\n|$)/u.test(block));
 	assertCueCount(blocks.length, limits);
 	return blocks.map((block, index) => {
 		const cueLines = block.split('\n');
-		if (/^(?:REGION|STYLE)(?:\s|$)/u.test(cueLines[0] ?? '')) {
+		if (/^(?:REGION|STYLE)[ \t]*$/u.test(cueLines[0] ?? '')) {
 			throw interchangeError('The maintained WebVTT subset does not accept global scriptable or styling blocks.', 'ACTIVE_CONTENT');
 		}
 		let identifier: string | null = null;
@@ -355,12 +364,13 @@ function parseSrtCueMarkup(value: string): {
 	let italic = false;
 	let underline = false;
 	for (;;) {
-		const tag = content.match(/^<(b|i|u)>/u)?.[1];
-		if (!tag || !content.endsWith(`</${tag}>`)) break;
+		const wrapper = content.match(/^<(b|i|u)>([\s\S]*)<\/\1>$/iu);
+		const tag = wrapper?.[1]?.toLowerCase();
+		if (!tag) break;
 		if (tag === 'b') bold = true;
 		if (tag === 'i') italic = true;
 		if (tag === 'u') underline = true;
-		content = content.slice(3, -(tag.length + 3));
+		content = wrapper?.[2] ?? '';
 	}
 	// Complete tag-shaped markup stays outside the passive subset. An
 	// incomplete angle-bracket comparison is ordinary literal caption text.
@@ -379,17 +389,17 @@ function parseVttCueMarkup(value: string): {
 } {
 	let content = value;
 	let speaker: string | null = null;
-	const voice = content.match(/^<v ([^<>]+)>/u);
-	if (voice) {
-		speaker = decodePassiveText(voice[1] ?? '');
-		content = content.slice(voice[0].length);
-		// A whole-cue voice may either close explicitly or omit its end tag.
-		if (content.endsWith('</v>')) content = content.slice(0, -4);
-	}
 	let bold = false;
 	let italic = false;
 	let underline = false;
 	for (;;) {
+		const voice = speaker === null ? content.match(/^<v[ \t]([^<>]+)>/u) : null;
+		if (voice) {
+			speaker = decodePassiveText(voice[1] ?? '');
+			content = content.slice(voice[0].length);
+			if (content.endsWith('</v>')) content = content.slice(0, -4);
+			continue;
+		}
 		const tag = content.match(/^<(b|i|u)>/u)?.[1];
 		if (!tag || !content.endsWith(`</${tag}>`)) break;
 		if (tag === 'b') bold = true;
@@ -441,7 +451,7 @@ function uniqueCueId(preferred: string | null, index: number, state: TextImportS
 		return preferred;
 	}
 	let suffix = index + 1;
-	while (state.cueIds.has(`cue-${suffix}`)) suffix += 1;
+	while (state.cueIds.has(`cue-${suffix}`) || state.reservedCueIds.has(`cue-${suffix}`)) suffix += 1;
 	const id = `cue-${suffix}`;
 	state.cueIds.add(id);
 	if (preferred !== null) state.losses.push(captionLoss('cue-identity-normalized', `cues.${index}.id`, 'A WebVTT cue identifier was not a unique stable ID.', { source: preferred, id }));
@@ -460,7 +470,7 @@ function parseVttSettings(value: string): VideoCaptionStyleV1['textAlign'] | nul
 }
 
 function subtitleBlocks(text: string): string[] {
-	const trimmed = text.replace(/^\n+/u, '').replace(/\n+$/u, '');
+	const trimmed = text.replace(/\n[ \t]+(?=\n[^\n])/gu, '\n').replace(/^\n+/u, '').replace(/\n+$/u, '');
 	return trimmed === '' ? [] : trimmed.split(/\n{2,}/u);
 }
 
@@ -499,32 +509,4 @@ function exportTimingLoss(cue: VideoCaptionCueV1, field: 'startFrame' | 'endFram
 
 function escapePassiveText(value: string): string {
 	return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-}
-
-function decodePassiveText(value: string): string {
-	if (/[<>]/u.test(value)) throw interchangeError('Caption cue markup is outside the passive maintained subset.', 'ACTIVE_CONTENT');
-	let invalid = false;
-	// Every entity-shaped run has to be classified while it is still in the
-	// source. Once decoding has run, an ampersand it produced is indistinguishable
-	// from one that opens an entity: escaping `AT&T` gives `AT&amp;T`, so scanning
-	// the decoded text refused this exporter's own output.
-	const decoded = value.replace(/&(#x?[\da-z]*|[a-z][\da-z]*);/giu, (_entity, body: string) => {
-		const reference = body.toLowerCase();
-		if (reference.startsWith('#x')) return passiveCodePoint(reference.slice(2), 16);
-		if (reference.startsWith('#')) return passiveCodePoint(reference.slice(1), 10);
-		const replacement = PASSIVE_ENTITIES[reference];
-		if (replacement === undefined) invalid = true;
-		return replacement ?? '';
-	});
-	if (invalid) throw interchangeError('Caption cue contains an unsupported entity.', 'ACTIVE_CONTENT');
-	return decoded;
-}
-
-function passiveCodePoint(value: string, radix: number): string {
-	const codePoint = Number.parseInt(value, radix);
-	if (!Number.isSafeInteger(codePoint) || codePoint < 0 || codePoint > 0x10ffff
-		|| (codePoint >= 0xd800 && codePoint <= 0xdfff)) {
-		throw interchangeError('Caption cue contains an invalid numeric entity.', 'ACTIVE_CONTENT');
-	}
-	return String.fromCodePoint(codePoint);
 }

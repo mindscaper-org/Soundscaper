@@ -2,8 +2,9 @@
 import { useMemo, useRef } from 'react';
 import { AudacityWaveformCanvases } from '../timeline/TimelineCanvasRenderer.jsx';
 import type { TimelineClipVisualData } from '../timeline/waveform-view-model.ts';
-import { createSpectrogramCanvasOptions } from '../timeline/spectrogram-canvas-options.ts';
+import { clipSourceSpectrogramOptions } from './clip-source-spectrogram-options.ts';
 import { useClipSourceAudioWindows } from './useClipSourceAudioWindows.ts';
+import { useClipSourceSpectrogramTiles } from './useClipSourceSpectrogramTiles.ts';
 import type { ClipSourceController } from './clip-source-editor-types.ts';
 import type { AudioWarpRuntimeProject, AudioWarpRuntimeClip } from '../../audio-warp-runtime.ts';
 import type { TrackDisplayMode } from '../../track-display-mode.ts';
@@ -39,13 +40,13 @@ interface Props {
 export default function ClipSourceWaveforms({ project, clip, source, visual, width, startFrame, endFrame, displayMode, verticalZoom, selection, copy, loadSourceAudioWindow, onLoadError }: Props) {
 	const rootRef = useRef<HTMLDivElement>(null);
 	const pixelsPerSecond = width * project.sampleRate / (endFrame - startFrame);
-	const { buffer, peaks, pcmWindow, peakWindow, frequencyAnalysis, frequencyWindow } = visual;
-	const stableVisual = useMemo(() => ({ source, buffer, peaks, pcmWindow, peakWindow, frequencyAnalysis, frequencyWindow }),
-		[source, buffer, peaks, pcmWindow, peakWindow, frequencyAnalysis, frequencyWindow]);
+	const { buffer, peaks, pcmWindow, peakWindow, frequencyAnalysis, frequencyWindow, prepareSpectrogramPcm, available } = visual;
+	const stableVisual = useMemo(() => ({ source, buffer, peaks, pcmWindow, peakWindow, frequencyAnalysis, frequencyWindow, prepareSpectrogramPcm, available }),
+		[source, buffer, peaks, pcmWindow, peakWindow, frequencyAnalysis, frequencyWindow, prepareSpectrogramPcm, available]);
 	const options = useMemo(() => ({ project, clip, source, visual: stableVisual, width,
 		startFrame, endFrame, displayMode, clipLabel: copy.clip }), [project, clip, source, stableVisual, width, startFrame, endFrame, displayMode, copy.clip]);
 	const plans = useClipSourceAudioWindows(options, loadSourceAudioWindow, onLoadError);
-	const models = plans.models;
+	const models = useClipSourceSpectrogramTiles(options, plans.models);
 	return <div ref={rootRef} className="audio-editor-source-waveforms" aria-hidden="true">
 		{models.map(model => <div key={model.id} data-clip-id={model.id} className="clip-body clip-body--blue" data-source-active={model.selected} style={{ left: model.start * pixelsPerSecond, width: model.duration * pixelsPerSecond }}>
 			<canvas className="clip-body__waveform" />
@@ -53,6 +54,6 @@ export default function ClipSourceWaveforms({ project, clip, source, visual, wid
 		<AudacityWaveformCanvases rootRef={rootRef} clips={models} displayMode={displayMode} pixelsPerSecond={pixelsPerSecond}
 			timeSelection={selection ? { startTime: (selection.startFrame - startFrame) / project.sampleRate, endTime: (selection.endFrame - startFrame) / project.sampleRate } : null}
 			showRms halfWave={displayMode === 'half-wave'} verticalZoom={verticalZoom} channelHeightRatio={0.5}
-			spectrogramOptions={createSpectrogramCanvasOptions({ scale: 'linear', maximumFrequency: source.sampleRate / 2 }, source.sampleRate)} />
+			spectrogramOptions={clipSourceSpectrogramOptions(project.sampleRate, source.sampleRate, Boolean(visual.prepareSpectrogramPcm) && Number(clip.pitchCents) > 0)} />
 	</div>;
 }

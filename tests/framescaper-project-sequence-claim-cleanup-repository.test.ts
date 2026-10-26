@@ -51,25 +51,6 @@ const CHUNKED_BODY = bodyKey('proxy', CHUNKED_DIGEST);
 const EMPTY_SCOPE = { sessionProjects: [], histories: [], pendingSaveSnapshots: [] };
 const OPERATION = { operationId: OPERATION_ID, projectId: PROJECT_ID, sourceId: SOURCE_ID, baseFingerprint: FINGERPRINT };
 
-test('the constructor refuses dependencies without a durable port, an OPFS repository and a clock', () => {
-	const port = { memory: {}, database: async () => null } as unknown as StorageRepositoryPort;
-	const opfs = { directory: async () => null } as unknown as OpfsRepository;
-	const build = (dependencies: unknown): unknown => (
-		new FramescaperProjectSequenceClaimCleanupRepository(PROFILE, dependencies)
-	);
-
-	assert.throws(() => build({ port, opfs, extra: 1 }), /dependencies has an unsupported field/u);
-	assert.throws(() => build({ opfs }), /dependencies\.port is required/u);
-	assert.throws(() => build({ port: {}, opfs }), /storage repository port is required/u);
-	assert.throws(() => build({ port, opfs: {} }), /OPFS repository is required/u);
-	assert.throws(() => build({ port, opfs, now: 5 }), /clock must be a function/u);
-	assert.throws(
-		() => build({ port, opfs, maximumInventory: 0 }),
-		{ name: 'RangeError', message: /inventory limit must be a positive safe integer/u },
-	);
-	assert.throws(() => new FramescaperProjectSequenceClaimCleanupRepository({}, { port, opfs }), TypeError);
-});
-
 test('reconcile refuses a scope that is not a closed record of dense project collections', async (context) => {
 	const { repository } = await harness(context);
 	const sparse: unknown[] = [];

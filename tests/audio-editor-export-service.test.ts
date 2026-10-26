@@ -251,7 +251,7 @@ test('compressed exports stage PCM and return publisher cancellation cleanly', a
 	fixture.setPublishCancelled(true);
 	const cancelled = await createEditorExportService(fixture.runtime).handleExportAction('export');
 	assert.equal(cancelled.cancelled, true);
-	assert.equal(fixture.state.outputUrl, null);
+	assert.equal(fixture.state.outputUrl, result.url, 'cancelled replacement retains the prior successful download');
 });
 
 test('realtime exports stream native PCM and transcode staged compressed formats', async () => {

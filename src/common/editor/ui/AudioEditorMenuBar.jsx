@@ -42,6 +42,7 @@ export default function AudioEditorMenuBar({
 	onSearchActivate,
 	projectTabs,
 	projectName,
+	projectSessionKey = '',
 	productId = 'soundscaper',
 	saveState,
 	saveText,
@@ -97,6 +98,7 @@ export default function AudioEditorMenuBar({
 		openMenuRef.current = null;
 		setOpenMenu(null);
 	}, []);
+	useLayoutEffect(() => { closeMenu(false); }, [closeMenu, projectSessionKey]);
 
 	// Deferred planners keep their open-time snapshot unless the owning product
 	// explicitly invalidates availability. Only the currently open menu resolves.

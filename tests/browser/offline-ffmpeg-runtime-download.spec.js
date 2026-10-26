@@ -2,6 +2,7 @@
 
 import { expect } from '@playwright/test';
 import { test } from './audio-editor-test-fixtures.js';
+import { bootEditor } from './audio-editor-test-helpers.js';
 
 test('browser preferences do not retain the legacy offline FFmpeg runtime', async ({ page }) => {
 	const runtimeRequests = [];
@@ -11,9 +12,7 @@ test('browser preferences do not retain the legacy offline FFmpeg runtime', asyn
 		}
 	});
 
-	await page.goto('/en/');
-	const editor = page.locator('[data-audio-editor]');
-	await expect(editor).toHaveAttribute('data-audio-editor-bound', 'true', { timeout: 20_000 });
+	const editor = await bootEditor(page, '/en/');
 	await chooseCommand(page, editor, 'Edit', 'Preferences');
 
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });

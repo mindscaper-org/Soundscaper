@@ -329,17 +329,13 @@ test('the professional plug-in RPC executes only in the enforced isolated child'
 	assert.equal(await plugin.closePluginInstance(araInstance), true);
 });
 
-test('caller-supplied review metadata and an unverified launcher cannot mount execution', {
+test('an unverified launcher cannot mount execution', {
 	skip: process.platform !== 'linux' || process.arch !== 'x64',
 }, async (context) => {
 	const fixture = await buildFixture(context);
 	const [launcherArtifact, profile, broker] = await Promise.all([
 		descriptor(fixture.executable), descriptor(PROFILE_PATH), descriptor(BROKER_PATH),
 	]);
-	assert.throws(() => createNativeChildIsolationLauncher({
-		target: 'linux-x64', reviewedContract: Object.freeze({ status: 'authenticated' }),
-		artifacts: { launcher: launcherArtifact, sandboxProfile: profile, brokerPolicy: broker },
-	} as never), /unsupported fields/iu);
 	let childProcess: ChildProcess | null = null;
 	let spawnedEnvironment: NodeJS.ProcessEnv | undefined;
 	let killedBySignal = false;

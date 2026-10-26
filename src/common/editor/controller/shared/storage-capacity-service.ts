@@ -79,7 +79,7 @@ export interface StorageCapacityService {
 		operation: StorageOperation,
 		signal?: AbortSignal,
 	): Promise<Readonly<StorageEstimate>>;
-	preflightStorage(requiredBytes: unknown, operation: StorageOperation): Promise<void>;
+	preflightStorage(requiredBytes: unknown, operation: StorageOperation, signal?: AbortSignal): Promise<void>;
 	requestStoragePersistence(): Promise<Readonly<StorageCapacitySnapshot> | null>;
 	cleanupDisposableStorage(): Promise<Readonly<StorageCapacitySnapshot> | null>;
 	cleanupDerivativeCache(): Promise<Readonly<StorageCapacitySnapshot> | null>;
@@ -181,9 +181,10 @@ export function createStorageCapacityService(
 	async function preflightStorage(
 		requiredBytes: unknown,
 		operation: StorageOperation,
+		signal?: AbortSignal,
 	): Promise<void> {
 		const requirement = storagePreflightRequirement(requiredBytes, operation);
-		const estimate = await estimateStorageForPreflight(requirement.requiredBytes, operation);
+		const estimate = await estimateStorageForPreflight(requirement.requiredBytes, operation, signal);
 		const capacity = capacityFromEstimate(estimate);
 		if (capacity.free === null
 			|| (dependencies.isInactive() && operation !== 'project')

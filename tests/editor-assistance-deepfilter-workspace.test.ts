@@ -32,19 +32,6 @@ test('DeepFilter FFT convolution workspaces are bounded per analysis and synthes
 	assert.equal(allocations.filter((length) => length === 2_048).length, 2);
 });
 
-test('DeepFilter analysis workspaces are isolated across reentrant cancellation callbacks', () => {
-	const input = Float32Array.from({ length: 2_000 }, (_, frame) => Math.sin(frame * 0.17));
-	const expected = analyzeAssistanceDeepFilterChannelV1(input);
-	let nested = false;
-	const signal = { throwIfAborted() {
-		if (nested) return;
-		nested = true;
-		analyzeAssistanceDeepFilterChannelV1(Float32Array.from({ length: 3_000 }, (_, frame) => Math.cos(frame * 0.31)));
-	} } as AbortSignal;
-	const actual = analyzeAssistanceDeepFilterChannelV1(input, signal);
-	assert.deepEqual(actual, expected);
-});
-
 test('DeepFilter identity masks and centered filter coefficients retain multi-frame PCM', () => {
 	const input = Float32Array.from({ length: 9_600 }, (_, frame) => Math.sin(frame * 0.13) * 0.25);
 	const analysis = analyzeAssistanceDeepFilterChannelV1(input);

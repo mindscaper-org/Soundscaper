@@ -17,7 +17,6 @@ const PROJECT_IDENTITY = Object.freeze({
 function createHarness(options: Readonly<{
 	applyEffectsToAllAudio?: boolean;
 	audioTrackChannelCounts?: Readonly<Record<string, number>>;
-	genericRangeErrors?: boolean;
 }> = {}) {
 	let project: EffectSelectionProject = {
 		...PROJECT_IDENTITY,
@@ -49,9 +48,9 @@ function createHarness(options: Readonly<{
 		copy: {
 			audioTrackRequired: 'Select audio',
 			maximumFrequency: 'Maximum frequency',
-			...(options.genericRangeErrors ? {} : { maximumFrequencyInvalid: 'Maximum invalid' }),
+			maximumFrequencyInvalid: 'Maximum invalid',
 			minimumFrequency: 'Minimum frequency',
-			...(options.genericRangeErrors ? {} : { minimumFrequencyInvalid: 'Minimum invalid' }),
+			minimumFrequencyInvalid: 'Minimum invalid',
 			parameterRangeError: '{label}: {minimum} to {maximum}',
 			spectralEffectLengthChanging: 'Cannot stretch a spectral box',
 			timeSelectionRequired: 'Select time',
@@ -467,17 +466,6 @@ test('selection details and range targets retain explicit track and frequency me
 	});
 });
 
-test('generic spectral range messages interpolate labels and Nyquist bounds', () => {
-	const harness = createHarness({ genericRangeErrors: true });
-	assert.throws(
-		() => harness.service.setSpectralBoxSelection({ minimumFrequency: -1, maximumFrequency: 1_000 }),
-		/Minimum frequency: 0 to 24000/u,
-	);
-	assert.throws(
-		() => harness.service.setSpectralBoxSelection({ minimumFrequency: 1_000, maximumFrequency: 500 }),
-		/Maximum frequency: 1000 to 24000/u,
-	);
-});
 
 test('legacy projects and non-audio focus are rejected before selection mutation', () => {
 	const harness = createHarness();

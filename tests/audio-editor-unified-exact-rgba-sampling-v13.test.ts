@@ -17,7 +17,8 @@ const frame = Object.freeze({
 test('V13 RGBA sampling bilinearly interpolates and clamps every canvas edge', () => {
 	assert.equal(sampleUnifiedExactRgbaChannelV13(frame, -1, -1, 0), 0);
 	assert.equal(sampleUnifiedExactRgbaChannelV13(frame, 8, 8, 0), 255);
-	assert.equal(sampleUnifiedExactRgbaChannelV13(frame, 0.5, 0.5, 0), 138.75);
-	assert.equal(sampleUnifiedExactRgbaChannelV13(frame, 0.5, -8, 0), 50);
-	assert.equal(sampleUnifiedExactRgbaChannelV13(frame, -8, 0.5, 0), 100);
+	// RGB is weighted by each texel's alpha before returning straight color.
+	assert.ok(Math.abs(sampleUnifiedExactRgbaChannelV13(frame, 0.5, 0.5, 0) - 182) < 1e-12);
+	assert.ok(Math.abs(sampleUnifiedExactRgbaChannelV13(frame, 0.5, -8, 0) - 200 / 3) < 1e-12);
+	assert.equal(sampleUnifiedExactRgbaChannelV13(frame, -8, 0.5, 0), 150);
 });

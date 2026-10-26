@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ID3_DESCRIPTIVE_FIELDS, id3ProjectFieldValue, isId3ProjectTag, updateId3ProjectField } from '../id3-descriptive-fields.ts';
-import { createId3Artwork, parseId3Artwork, type Id3Artwork } from '../id3-artwork.ts';
+import { createId3Artwork, parseId3Artwork, suggestId3ArtworkDescription, type Id3Artwork } from '../id3-artwork.ts';
 import { id3MetadataCopy } from '../../i18n/editor-id3-metadata-copy.ts';
 import { MetadataEditorField } from './workspace/LabelManagerRows.jsx';
 import './id3-metadata-fields.css';
@@ -42,7 +42,9 @@ export default function Id3MetadataFields({ metadata, copy, locale, disabled, on
 			const picture = await createId3Artwork(file);
 			if (!alive.current || current.current.disabled) return;
 			const latest = current.current;
-			const items = parseId3Artwork([ ...parseId3Artwork(id3ProjectFieldValue(latest.metadata, 'id3Artwork')), picture ]);
+			const existing = parseId3Artwork(id3ProjectFieldValue(latest.metadata, 'id3Artwork'));
+			const items = parseId3Artwork([...existing, { ...picture,
+				description: suggestId3ArtworkDescription(picture.description, existing) }]);
 			latest.onUpdate(updateId3ProjectField(latest.metadata, 'id3Artwork', JSON.stringify(items)));
 		} catch { if (alive.current) setError(labels.artworkError); }
 		finally { if (alive.current) setBusy(false); }

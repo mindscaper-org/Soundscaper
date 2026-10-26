@@ -97,8 +97,8 @@ test('track service prepares stable atomic track commands and moves linked lanes
 
 	const labelId = service.addLabel(null, { text: 'Marker' });
 	assert.match(labelId ?? '', /^label-/);
-	assert.equal(commits.at(-2)?.command.type, 'track/add');
-	assert.equal(commits.at(-1)?.command.type, 'label/add');
+	const labelBatch = commits.at(-1)?.command; assert.equal(labelBatch?.type, 'batch');
+	assert.deepEqual(labelBatch?.type === 'batch' ? labelBatch.commands.map(command => command.type) : [], ['track/add', 'label/add']);
 });
 
 test('mix model scopes routing and auto-duck control tracks without mutating the live project', () => {

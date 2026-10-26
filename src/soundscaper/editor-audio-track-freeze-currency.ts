@@ -2,17 +2,34 @@
 
 import { audioTrackFreezeRenderFingerprintV1 } from '../common/editor/audio-track-freeze-v21.ts';
 import type { SoundscaperProject } from './editor-project.ts';
+import type { EditorProjectToken } from '../common/editor/controller/shared/lifecycle.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
 
-interface FreezeCurrencyController {
+export interface SoundscaperFreezeCurrencyController {
 	readonly project: unknown;
+	readonly captureProjectGeneration?: (projectId?: string | null) => EditorProjectToken;
+	readonly assertProjectGeneration?: (token: EditorProjectToken) => void;
 }
 
 export interface SoundscaperFreezeTicket {
 	readonly project: SoundscaperProject;
 	readonly trackId: string;
 	readonly fingerprint: string;
+	readonly generation?: EditorProjectToken;
+}
+
+/** Content edits can preserve a render; closing and reopening its document cannot. */
+export function captureSoundscaperFreezeProject(
+	controller: SoundscaperFreezeCurrencyController,
+	project: SoundscaperProject,
+	trackId: string,
+): SoundscaperFreezeTicket {
+	return Object.freeze({
+		project, trackId, fingerprint: soundscaperFreezeRenderFingerprint(project, trackId),
+		...(controller.captureProjectGeneration && controller.assertProjectGeneration
+			? { generation: controller.captureProjectGeneration(project.id) } : {}),
+	});
 }
 
 /**
@@ -25,9 +42,10 @@ export interface SoundscaperFreezeTicket {
  * freeze — and one that does not, does not.
  */
 export function assertCurrentSoundscaperFreezeProject(
-	controller: FreezeCurrencyController,
+	controller: SoundscaperFreezeCurrencyController,
 	ticket: SoundscaperFreezeTicket,
 ): void {
+	if (ticket.generation) controller.assertProjectGeneration?.(ticket.generation);
 	if (controller.project === ticket.project) return;
 	const current = controller.project as SoundscaperProject | undefined;
 	if (current?.id !== ticket.project.id) {

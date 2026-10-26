@@ -71,7 +71,6 @@ test('missing source discovery validates row fields before returning unique disk
 		{ source: '' }, { source: 'missing.wav', pitch: '13' }, { source: 'missing.wav', speed: '0' },
 		{ source: 'missing.wav', duration: '-1' }, { source: 'missing.wav', position: 'Infinity' },
 		{ source: 'missing.wav', reversed: 'maybe' }, { source: 'missing.wav', gain: '25' },
-		{ source: 'missing.wav', sampleRate: '1.5' }, { source: 'missing.wav', channels: '0' },
 		{ source: 'missing.wav', duration: '1', fadeOut: '2' },
 		{ source: 'missing.wav', position: '1e15' }, { source: 'missing.wav', duration: '0.00000001' },
 	]) assert.throws(() => findMissingClipSpreadsheetSources(project, [row]));
@@ -90,38 +89,14 @@ test('source and track ambiguity require explicit IDs and locked tracks remain p
 	assert.throws(() => findMissingClipSpreadsheetSources(locked, [{ source: 'missing.wav', track: 'Existing' }]), /locked/i);
 });
 
-test('source bounds and removed metadata columns reject the whole insertion without changing the project', () => {
+test('source bounds reject the whole insertion without changing the project', () => {
 	const project = fixture();
 	const before = structuredClone(project);
 	for (const row of [
 		{ source: 'source', offset: '9', duration: '2' }, { source: 'source', offset: '10' },
-		{ source: 'source', duration: '0.00000001' }, { source: 'source', sampleRate: '48000' }, { source: 'source', channels: '1' },
+		{ source: 'source', duration: '0.00000001' },
 	]) assert.throws(() => insert(project, [{ source: 'source', duration: '1' }, row]));
 	assert.deepEqual(project, before);
-});
-
-test('prepared imported sources and all rows belong to a single undo step', () => {
-	const project = fixture();
-	const source = createAudioSource({ id: 'imported', storageKey: 'imported', name: 'Fresh.wav', sampleRate: 32_000, frameCount: 160_000, channelCount: 1 });
-	const command = planClipSpreadsheetInsert(project, [{ source: '/disk/Fresh.wav', track: 'Imported', offset: '1', duration: '2' }], {
-		createId: idFactory(), additionalSources: [source], resolvedSourceIds: { '/disk/Fresh.wav': source.id },
-	});
-	assert.ok(command);
-	const history = executeEditorCommand(createEditorHistory(project), command);
-	assert.equal(validateCurrentAudioEditorProject(history.present), true);
-	assert.equal(history.undoStack.length, 1);
-	assert.ok(Array.isArray(history.present.sources));
-	assert.equal(history.present.sources.length, 2);
-	assert.ok(Array.isArray(history.present.clips));
-	assert.equal(history.present.clips.length, 2);
-	assert.equal(getClipSpreadsheetRows(history.present)[1]?.cells.source, 'imported');
-	const restored = undoEditorCommand(history).present;
-	assert.ok(Array.isArray(restored.sources));
-	assert.ok(Array.isArray(restored.tracks));
-	assert.ok(Array.isArray(restored.clips));
-	assert.equal(restored.sources.length, 1);
-	assert.equal(restored.tracks.length, 1);
-	assert.equal(restored.clips.length, 1);
 });
 
 test('existing edits and new rows compose into the same atomic command', () => {
@@ -148,11 +123,9 @@ test('new tracks use the project sample rate while source spans retain their nat
 	assert.equal(spectrogram.maximumFrequency, 8_000);
 });
 
-test('invalid imported identities and non-audio targets are refused', () => {
+test('non-audio targets are refused', () => {
 	const project = fixture();
 	const source = createAudioSource({ id: 'source', storageKey: 'other', name: 'Other.wav', sampleRate: 48_000, frameCount: 48_000, channelCount: 1 });
-	assert.throws(() => planClipSpreadsheetInsert(project, [{ source: 'source' }], { createId: idFactory(), additionalSources: [source] }), /source ID/i);
-	assert.throws(() => planClipSpreadsheetInsert(project, [{ source: 'source' }], { createId: () => 'source' }), /fresh stable IDs/i);
 	const labelProject = applyEditorCommand(project, { type: 'track/add', track: { type: 'label', id: 'labels', name: 'Labels' } });
 	assert.throws(() => findMissingClipSpreadsheetSources(labelProject, [{ source: 'source', track: 'Labels' }]), /audio track/i);
 	const videoSourceProject = { ...project, sources: [{ ...source, kind: 'video' }] };

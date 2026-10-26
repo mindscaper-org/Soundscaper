@@ -54,8 +54,6 @@ test('analysis composition renders the live selection and publishes progress, re
 	assert.equal(f.renders.length, 1);
 	assert.equal(f.workerCalls.length, 1);
 	assert.equal(f.workerCalls[0]?.[1], 48000);
-	assert.strictEqual(f.workerCalls[0]?.[2], ENGLISH_COPY);
-	assert.equal(f.workerCalls[0]?.[3], 65536);
 	assert.partialDeepStrictEqual(f.renders[0]?.[1], { startFrame: 10, endFrame: 14, includeTail: false, preRollFrames: 10 });
 	assert.equal(f.saved.length, 1);
 	assert.equal(f.shown.length, 1);

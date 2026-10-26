@@ -126,6 +126,7 @@ test('startup media inspection propagates storage, permission and cancellation f
 		Object.assign(new Error('Blocked by another tab'), { name: 'EditorStoreBlockedError' }), new DOMException('Cancelled', 'AbortError'),
 		new Error('Origin-private audio storage is unavailable.')]) {
 		const blocked = { readProjectRecoveryCandidates: store.readProjectRecoveryCandidates.bind(store),
+			getSourceMetadata: () => Promise.resolve(source),
 			async *readSourceChunks() { yield* []; throw failure; } };
 		await assert.rejects(hasSoundscaperStartupRecovery(blocked, project.id, new Error('Activation failed.')), (error) => error === failure);
 	}

@@ -149,6 +149,7 @@ export function findMissingClipSpreadsheetEditSources(projectValue: unknown, edi
 function planEdits(projectValue: unknown, edits: readonly ClipSpreadsheetEdit[], options: ClipSpreadsheetEditOptions, missing?: Set<string>): AudioEditorCommand | null {
 	const project = runtimeProject(projectValue);
 	const sources = new Map([...project.sources, ...options.additionalSources ?? []].map(source => [source.id, source]));
+	const sourceForReference = createSourceReferenceReader(sources);
 	const rows = new Map(rowsForProject(project, sources).map(row => [row.id, row]));
 	const values = new Map<string, Map<ClipSpreadsheetColumnId, string>>();
 	for (const edit of edits) {
@@ -158,7 +159,8 @@ function planEdits(projectValue: unknown, edits: readonly ClipSpreadsheetEdit[],
 		const sameNumericValue = !['name', 'track', 'source', 'reversed', 'inverted'].includes(edit.column)
 			&& edit.value.trim() !== '' && row.cells[edit.column] !== ''
 			&& Number(edit.value) === Number(row.cells[edit.column]);
-		const sameIdentifier = (edit.column === 'track' || edit.column === 'source') && edit.value.trim() === row.cells[edit.column];
+		const sameIdentifier = edit.column === 'track' && edit.value.trim() === row.cells.track
+			|| edit.column === 'source' && sourceForReference(edit.value)?.id === row.cells.source;
 		if (row.cells[edit.column] === edit.value || sameNumericValue || sameIdentifier) {
 			// An explicitly pasted duration stays authoritative when speed changes too.
 			if (edit.column === 'duration' && row.editable) {
@@ -182,11 +184,11 @@ function planEdits(projectValue: unknown, edits: readonly ClipSpreadsheetEdit[],
 		if (!originalSource) throw new RangeError('The clip source is missing.');
 		let source = originalSource;
 		if (fields.has('source')) {
-			const reference = fields.get('source')!.trim();
-			if (!reference) throw new RangeError('A source file is required.');
+			const reference = fields.get('source')!;
+			if (!reference.trim()) throw new RangeError('A source file is required.');
 			const resolvedReference = options.resolvedSourceIds && Object.hasOwn(options.resolvedSourceIds, reference)
 				? options.resolvedSourceIds[reference]! : reference;
-			const target = sourceForReference(sources, resolvedReference);
+			const target = sourceForReference(resolvedReference);
 			if (!target) {
 				if (!missing) throw new RangeError(`The source file is missing: ${reference}.`);
 				missing.add(reference);
@@ -241,7 +243,7 @@ function planClip(project: SpreadsheetProject, clip: SpreadsheetClip, source: Sp
 			set(transform, 'pitchCents', numeric(raw, -12, 12, 'Pitch') * 100);
 		} else if (column === 'gain') {
 			const gain = spreadsheetGain(raw);
-			if (Math.abs(gain - clip.gain) > 1e-12) update.gain = gain;
+			if (Math.abs(gain - clip.gain) > 1e-12 * Math.max(gain, clip.gain)) update.gain = gain;
 		} else if (column === 'reversed' || column === 'inverted') set(update, column, booleanValue(raw));
 	}
 	const speedChanged = speedRatio !== clip.speedRatio;
@@ -286,12 +288,26 @@ function planClip(project: SpreadsheetProject, clip: SpreadsheetClip, source: Sp
 	return { transform, update };
 }
 
-function sourceForReference(sources: ReadonlyMap<string, SpreadsheetSource>, reference: string): SpreadsheetSource | undefined {
-	const byId = sources.get(reference);
-	if (byId) return byId;
-	const byName = [...sources.values()].filter(source => source.name === reference);
-	if (byName.length > 1) throw new RangeError(`The source name is ambiguous; use its ID: ${reference}.`);
-	return byName[0];
+/** Build names lazily so ID-only edits never inspect unrelated source names. */
+function createSourceReferenceReader(sources: ReadonlyMap<string, SpreadsheetSource>): (reference: string) => SpreadsheetSource | undefined {
+	let names: Map<string, SpreadsheetSource | null> | undefined;
+	return reference => {
+		for (const spelling of new Set([reference, reference.trim()])) {
+			const byId = sources.get(spelling);
+			if (byId) return byId;
+			if (!names) {
+				names = new Map();
+				for (const source of sources.values()) {
+					const name = source.name;
+					names.set(name, names.has(name) ? null : source);
+				}
+			}
+			const byName = names.get(spelling);
+			if (byName === null) throw new RangeError(`The source name is ambiguous; use its ID: ${reference}.`);
+			if (byName) return byName;
+		}
+		return undefined;
+	};
 }
 
 function validateSource(source: SpreadsheetSource): void {

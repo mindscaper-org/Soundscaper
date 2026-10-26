@@ -65,6 +65,7 @@ export interface RecordingStartOptions {
 }
 
 export interface RecordingStartScope {
+	readonly signal?: AbortSignal;
 	readonly generation: number;
 	readonly projectId: string | null;
 	assertCurrent(): void;
@@ -248,6 +249,7 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 	const publishDocumentSnapshot = runtime.publishDocumentSnapshot || (() => {});
 	const releaseInputs = runtime.releaseUnretainedRecordingInputs || (() => {});
 	const handleError = runtime.handleError || (() => {});
+	let startAbort: AbortController | null = null;
 
 	function startBlocked(): boolean {
 		return state.readOnly
@@ -265,6 +267,8 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 
 	function createStartScope(): RecordingStartScope {
 		const generation = ++state.recordingStartGeneration;
+		const abort = new AbortController();
+		startAbort = abort;
 		const projectId = runtime.getProjectId();
 		const assertCurrent = () => {
 			if (state.disposed
@@ -273,7 +277,7 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 				throw runtime.abortError?.() || new DOMException('The recording start was superseded.', 'AbortError');
 			}
 		};
-		return Object.freeze({ generation, projectId, assertCurrent });
+		return Object.freeze({ generation, projectId, signal: abort.signal, assertCurrent });
 	}
 
 	function startRecording(options: RecordingStartOptions = {}) { return startRecordingSession(options, false); }
@@ -291,6 +295,7 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 		const tracked = operation.finally(() => {
 			if (state.recordingStartPromise === tracked) {
 				state.recordingStartPromise = null;
+				startAbort = null;
 				if (!state.recorder) { state.recordingKind = null; runtime.setSoundActivationCaptureEnabled?.(false); }
 				publishDocumentSnapshot();
 			}
@@ -315,6 +320,7 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 		const tracked = operation.finally(() => {
 			if (state.recordingStartPromise === tracked) {
 				state.recordingStartPromise = null;
+				startAbort = null;
 				state.recordingStarting = false;
 				if (!state.recorder) state.recordingKind = null;
 				publishDocumentSnapshot();
@@ -339,6 +345,8 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 		if (!state.recordingStarting && !state.recordingStartPromise) return false;
 		state.recordingStartGeneration += 1;
 		state.recordingStarting = false;
+		startAbort?.abort(runtime.abortError?.() || new DOMException('The recording start was cancelled.', 'AbortError'));
+		startAbort = null;
 		runtime.resetSoundActivationSources?.();
 		if (!state.recorder) releaseInputs();
 		return true;
@@ -351,7 +359,9 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 			const resumed = state.recorder.resume?.();
 			if (resumed !== false) {
 				state.recordingPaused = false;
-				void runtime.playTransport?.();
+				// A completed backing run stays completed while microphone capture
+				// continues. Only a transport paused with this take needs restarting.
+				if (!runtime.getTransportState || runtime.getTransportState() === 'paused') void runtime.playTransport?.();
 				runtime.updateTransportState?.('recording');
 			}
 		} else {

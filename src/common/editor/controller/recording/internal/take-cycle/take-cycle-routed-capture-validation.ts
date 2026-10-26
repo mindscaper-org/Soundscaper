@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { RECORDING_DISPLAY_ROUTE_LABEL } from '../../../../recording-routing.js';
+import { RECORDING_DISPLAY_ROUTE_LABEL, recordingTrackRoute } from '../../../../recording-routing.js';
 import type { EngineLoop } from '../../../../engine/types.ts';
 import { TAKE_COMP_MAXIMUM_ENTITIES } from '../../../../take-comp-domain.ts';
 import { TAKE_CYCLE_CAPTURE_MAXIMUM_CHUNK_BYTES } from './take-cycle-capture-spool.ts';
@@ -85,13 +85,13 @@ export function snapshotTakeCycleRoutedRoutes(
 ): Readonly<Record<string, RecordingRoute>> {
 	const routes: Record<string, RecordingRoute> = {};
 	for (const track of tracks) {
-		const route = dataRecord(value?.[track.id], `take cycle route ${track.id}`);
+		const route = dataRecord(recordingTrackRoute(value, track.id), `take cycle route ${track.id}`);
 		if (route.kind !== 'device' && route.kind !== 'display') {
 			throw new TypeError(`Take cycle route ${track.id} kind is invalid.`);
 		}
 		const channelStart = nonNegativeTakeCycleRoutedInteger(route.channelStart, 'route channel start');
 		const channelCount = positiveTakeCycleRoutedInteger(route.channelCount, 64, 'route channel count');
-		routes[track.id] = Object.freeze(route.kind === 'display'
+		Object.defineProperty(routes, track.id, { enumerable: true, value: Object.freeze(route.kind === 'display'
 			? {
 				kind: 'display' as const,
 				channelStart,
@@ -104,7 +104,7 @@ export function snapshotTakeCycleRoutedRoutes(
 				deviceLabel: typeof route.deviceLabel === 'string' ? route.deviceLabel : '',
 				channelStart,
 				channelCount,
-			});
+			}) });
 	}
 	return Object.freeze(routes);
 }

@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { preparedVideoSaveStream } from './helpers/direct-video-save-stream.ts';
 
 import { createEditorVideoExportAction } from '../src/common/editor/controller/export/internal/video/video-export-service.ts';
 import { PROJECT_FEATURE_CAPABILITY_IDS } from '../src/common/editor/project-feature-capabilities.ts';
@@ -109,7 +110,10 @@ test('desktop composed export without a direct target preserves whole-byte publi
 	assert.equal(fixture.downloads[0]?.blob.type, 'video/mp4');
 });
 
-test('direct video publication cleans prior output, closes before commit, and tolerates ownership loss during commit', async () => {
+test('direct video retires prior output only after commit and tolerates ownership loss during commit', async () => {
+	const current = createDesktopFixture({ priorOutput: true });
+	assert.ok(await current.exportVideo());
+	assertOrder(current.events, ['seal', 'commit', 'old-cleanup']);
 	const fixture = createDesktopFixture({
 		priorOutput: true,
 		onCommit() { fixture.state.disposed = true; },
@@ -117,7 +121,8 @@ test('direct video publication cleans prior output, closes before commit, and to
 	const result = await fixture.exportVideo();
 
 	assert.equal(result?.size, 4);
-	assertOrder(fixture.events, ['seal', 'old-cleanup', 'commit']);
+	assertOrder(fixture.events, ['seal', 'commit']);
+	assert.equal(fixture.events.includes('old-cleanup'), false, 'ownership loss leaves retirement to the session owner');
 	assert.equal(fixture.state.exportOutput, null, 'late ownership loss cannot publish stale success state');
 	assert.equal(fixture.statuses.some(([status]) => status === 'Done'), false);
 	assert.equal(fixture.errors.length, 0);
@@ -199,16 +204,6 @@ test('direct video rejects plan drift and count disagreement with one rollback a
 		}));
 	}
 });
-test('direct video declines stale, aliased, and underspecified plans before target preparation', async () => {
-	for (const invalidPlan of ['legacy', 'alias', 'underspecified'] as const) {
-		const fixture = createDesktopFixture({ invalidPlan });
-		const result = await fixture.exportVideo();
-		assert.equal(result?.method, 'object-url');
-		assert.equal(fixture.events.includes('prepare'), false);
-		assert.equal(fixture.events.includes('encode-sink'), false);
-		assertOrder(fixture.events, ['plan', 'encode-bytes', 'download']);
-	}
-});
 test('direct video write and close failures roll back once and aggregate cleanup failure', async () => {
 	for (const failure of ['write', 'close'] as const) {
 		const primary = new Error(`${failure} failed`);
@@ -230,20 +225,15 @@ test('direct video write and close failures roll back once and aggregate cleanup
 	assert.equal(aggregate.events.includes('commit'), false);
 	assert.equal(aggregate.events.includes('download'), false);
 
-	const synchronous = createDesktopFixture({
-		writeFailure: primary, abortFailure: cleanup, abortSynchronously: true,
-	});
-	assert.equal(await synchronous.exportVideo(), null);
-	assert.ok(synchronous.errors[0] instanceof AggregateError);
-	assert.deepEqual((synchronous.errors[0] as AggregateError).errors, [primary, cleanup]);
-	assert.equal(synchronous.events.filter((event) => event === 'abort').length, 1);
 });
 
 test('direct video commit failure rolls back the destination without stale publication', async () => {
 	const primary = new Error('commit failed');
-	const fixture = createDesktopFixture({ commitFailure: primary });
+	const fixture = createDesktopFixture({ commitFailure: primary, priorOutput: true });
 	assert.equal(await fixture.exportVideo(), null);
 	assert.strictEqual(fixture.errors[0], primary);
+	assert.equal(fixture.state.outputUrl, 'blob:old-video', 'failed commit preserves the previous movie download');
+	assert.equal(fixture.events.includes('old-cleanup'), false);
 	assertOrder(fixture.events, ['seal', 'commit', 'abort']);
 	assert.equal(fixture.events.filter((event) => event === 'abort').length, 1);
 	assert.equal(fixture.events.includes('download'), false);
@@ -271,7 +261,6 @@ test('rendered-fallback integrity admission precedes direct target preparation a
 
 interface FixtureOptions {
 	readonly abortFailure?: Error;
-	readonly abortSynchronously?: boolean;
 	readonly afterOpen?: (plan: ReturnType<typeof videoPlan>) => void;
 	readonly closeFailure?: Error;
 	readonly captionSidecar?: boolean;
@@ -282,7 +271,6 @@ interface FixtureOptions {
 	readonly downloadCleanup?: boolean;
 	readonly emittedByteLength?: number;
 	readonly format?: Format;
-	readonly invalidPlan?: 'legacy' | 'alias' | 'underspecified';
 	readonly multiSource?: boolean;
 	readonly onCommit?: () => void;
 	readonly prepared?: Readonly<Record<string, unknown>>;
@@ -313,11 +301,6 @@ function createFixture(options: FixtureOptions = {}) {
 	if (options.captionSidecar) {
 		plan.captions = { trackId: 'caption-track', sidecarFormat: 'vtt' };
 	}
-	if (options.invalidPlan === 'legacy') plan.version = 5;
-	if (options.invalidPlan === 'alias') {
-		(plan as { format: string }).format = format === 'mp4' ? 'h264' : 'vp9';
-	}
-	if (options.invalidPlan === 'underspecified') plan.codecs.videoEncoder = '';
 	const state = {
 		exportGeneration: 0,
 		exportAbort: null as null | Readonly<{ signal: AbortSignal; abort(): void }>,
@@ -328,7 +311,7 @@ function createFixture(options: FixtureOptions = {}) {
 		disposed: false,
 	};
 	let activeController: AbortController | null = null;
-	const prepared = options.prepared ?? preparedStream(events, options);
+	const prepared = options.prepared ?? preparedVideoSaveStream(events, options);
 	const runtime = {
 		abortError: () => Object.assign(new Error('aborted'), { name: 'AbortError' }),
 		audioBufferChannels: (buffer: { channels: readonly Float32Array[] }) => buffer.channels,
@@ -461,38 +444,6 @@ interface DirectSink {
 	abort(reason?: unknown): Promise<void>;
 }
 
-function preparedStream(events: string[], options: FixtureOptions) {
-	let written = 0;
-	return {
-		mode: 'stream' as const,
-		async createWritable(exactByteLength: number, sizeMode: string) {
-			events.push(`open:${exactByteLength}:${sizeMode}`);
-			return new WritableStream<Uint8Array>({
-				write(chunk) {
-					if (options.writeFailure) throw options.writeFailure;
-					written += chunk.byteLength;
-					events.push(`write:${chunk.byteLength}`);
-				},
-				close() {
-					if (options.closeFailure) throw options.closeFailure;
-					events.push('seal');
-				},
-			});
-		},
-		bytesWritten: () => written,
-		async commit() {
-			events.push('commit');
-			options.onCommit?.();
-			if (options.commitFailure) throw options.commitFailure;
-			return { fileName: `Direct-video.${options.format ?? 'mp4'}`, method: options.desktop ? 'desktop' : 'file-system-access', size: written };
-		},
-		abort() {
-			events.push('abort');
-			if (options.abortFailure && options.abortSynchronously) throw options.abortFailure;
-			return options.abortFailure ? Promise.reject(options.abortFailure) : Promise.resolve();
-		},
-	};
-}
 
 
 function videoPlan(format: Format, sourceId = 'original-video') {

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { UnifiedExactRenderVisualFrameEntryV13 } from '../common/editor/unified-exact-render-visual-consumers-v13.ts';
-import type { VideoCanvasFit } from '../common/editor/video-canvas-fit.ts';
+import { resolveVideoCanvasMaterializationSize, type VideoCanvasFit } from '../common/editor/video-canvas-fit.ts';
 import { DEFAULT_VIDEO_CLIP_COMPOSITION } from '../common/editor/video-clip-composition.ts';
 import {
 	resolveVideoRenderDescription,
@@ -32,11 +32,13 @@ export function resolveFramescaperVisualPlacementFinishing(
 	const sourceHeight = dimension(entry.authoredState.source.height, 'finishing visual source height');
 	const canvasWidth = dimension(canvas?.width, 'finishing visual canvas width');
 	const canvasHeight = dimension(canvas?.height, 'finishing visual canvas height');
-	const scale = Math.min(1, canvasWidth / sourceWidth, canvasHeight / sourceHeight);
+	const raster = resolveVideoCanvasMaterializationSize(
+		canvas.fit ?? 'contain', canvasWidth, canvasHeight, sourceWidth, sourceHeight,
+	);
 	const width = entry.modelKind === 'external-generator'
-		? canvasWidth : Math.max(1, Math.round(sourceWidth * scale));
+		? canvasWidth : raster.width;
 	const height = entry.modelKind === 'external-generator'
-		? canvasHeight : Math.max(1, Math.round(sourceHeight * scale));
+		? canvasHeight : raster.height;
 	return Object.freeze({
 		width,
 		height,

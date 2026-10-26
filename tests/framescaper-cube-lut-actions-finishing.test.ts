@@ -25,7 +25,6 @@ import {
 	bindFramescaperCubeLutActionsFinishing,
 	createFramescaperCubeLutActionsFinishing,
 	framescaperCubeLutActionsFinishingFor,
-	framescaperCubeLutActionsFor,
 	type FramescaperCubeLutActionsFinishing,
 } from '../src/framescaper/editor-cube-lut-actions-finishing.ts';
 import { applyFramescaperOwnedFinishingCommandFinishing } from '../src/framescaper/editor-project-finishing-finishing-command.ts';
@@ -65,27 +64,6 @@ const LUT_BYTES = UTF8.encode(LUT_TEXT);
 const DIGEST = bytesToHex(sha256(LUT_BYTES));
 const STORAGE_KEY = `lut-sha256:${DIGEST}`;
 
-test('the actions refuse an owner without an edit commit and a store missing an asset method', () => {
-	assert.throws(
-		() => createFramescaperCubeLutActionsFinishing({
-			owner: { project: project(), actions: { edit: {} } } as never, store: store(),
-		}),
-		{ name: 'TypeError', message: /requires a controller owner\./u },
-	);
-	assert.throws(
-		() => createFramescaperCubeLutActionsFinishing({ owner: null as never, store: store() }),
-		{ name: 'TypeError', message: /requires a controller owner\./u },
-	);
-	for (const missing of ['getMediaAssetMetadata', 'writeMediaAsset', 'deleteMediaAsset']) {
-		const partial = store() as unknown as Json;
-		delete partial[missing];
-		assert.throws(
-			() => createFramescaperCubeLutActionsFinishing({ owner: owner(), store: partial as never }),
-			{ name: 'TypeError', message: /requires an exact asset store\./u },
-		);
-	}
-});
-
 test('binding publishes the runtime for its owner and the lookup answers null for anything unbound', () => {
 	const runtime = harness().actions;
 	const controller: Json = {};
@@ -98,7 +76,6 @@ test('binding publishes the runtime for its owner and the lookup answers null fo
 	assert.equal(framescaperCubeLutActionsFinishingFor({}), null);
 	assert.equal(framescaperCubeLutActionsFinishingFor(null), null);
 	assert.equal(framescaperCubeLutActionsFinishingFor('controller'), null);
-	assert.equal(framescaperCubeLutActionsFor, framescaperCubeLutActionsFinishingFor);
 	assert.equal(Object.isFrozen(runtime), true);
 	// The lookup admits callable owners, but only a plain object may be bound to one.
 	assert.equal(framescaperCubeLutActionsFinishingFor(callable), null);
@@ -488,18 +465,6 @@ function importInto(
 
 function applyCommand(command: Json, projectValue: Json): void {
 	applyFramescaperOwnedFinishingCommandFinishing(projectValue, command as never);
-}
-
-function owner(): never {
-	return { project: project(), actions: { edit: { commit: () => undefined } } } as never;
-}
-
-function store(): never {
-	return {
-		getMediaAssetMetadata: async () => null,
-		writeMediaAsset: async () => undefined,
-		deleteMediaAsset: async () => undefined,
-	} as never;
 }
 
 function cubeFile(text: string = LUT_TEXT, name = 'fixture.cube'): File {

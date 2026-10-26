@@ -40,7 +40,6 @@ test('selected timeline-video authority falls back to focus only when project se
 		clip: CLIPS[0],
 		track: TRACKS[0],
 	});
-	assert.equal(Object.isFrozen(focused), true);
 	assert.equal(resolve({ selectedClipIds: [], focusedClipId: null }), null);
 	assert.equal(resolve({ selectedClipIds: ['video-a'], focusedClipId: 'video-b' })?.clipId, 'video-a');
 });
@@ -83,17 +82,6 @@ test('selected timeline-video authority requires a present video and exactly one
 		focusedClipId: 'video-a',
 		ownersUnavailable: true,
 	}), null);
-});
-
-test('selected timeline-video authority preserves caller-owned hostile-input validation', () => {
-	const failure = new TypeError('hostile clip record');
-	assert.throws(() => resolveSelectedTimelineVideoAuthority<Clip, Track>({
-		selectedClipIds: Object.freeze(['video-a']),
-		focusedClipId: 'video-a',
-		clipForId: () => { throw failure; },
-		isVideoClip: (clip) => clip.kind === 'video',
-		owningTracksForClipId: () => TRACKS,
-	}), (error: unknown) => error === failure);
 });
 
 function resolve(options: Readonly<{

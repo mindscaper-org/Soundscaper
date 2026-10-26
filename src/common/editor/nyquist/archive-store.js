@@ -107,6 +107,9 @@ function browserStorage() {
 export const nyquistArchiveStore = createNyquistArchiveStore(browserStorage());
 if (typeof globalThis.addEventListener === 'function') {
 	globalThis.addEventListener('storage', (event) => {
-		if (event.key === STORAGE_KEY) nyquistArchiveStore.reload();
+		if (event.key === STORAGE_KEY || event.key === null) {
+			nyquistArchiveStore.reload();
+			announceInstalledChange();
+		}
 	});
 }

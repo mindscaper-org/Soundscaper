@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { projectString } from '../project-validation-primitives.ts';
 import { compareCodeUnits } from '../code-unit-order.ts';
 import {
 	captureSpoolDataRecord as dataRecord,
@@ -61,7 +61,7 @@ export function normalizeRawPcmSpoolRecord(value: unknown): RawPcmSpoolRecord {
 	}
 	return freezeRawPcmSpoolRecord({
 		version: 1,
-		projectId: stableId(record.projectId, 'raw PCM spool projectId'),
+		projectId: projectString(record.projectId, 'raw PCM spool projectId'),
 		spoolId: stableId(record.spoolId, 'raw PCM spool ID'),
 		spoolToken: stableId(record.spoolToken, 'raw PCM spool token'),
 		state,

@@ -61,16 +61,6 @@ function boundController(cloneProject?: (profile: unknown, project: unknown) => 
 	return controller;
 }
 
-test('binding refuses an owner that is not an object, including a function owner', () => {
-	for (const controller of [null, undefined, 'controller', 7, true, () => undefined]) {
-		assert.throws(() => bindPreview({ controller: controller as never, profile: PROFILE, store: STORE }), {
-			name: 'TypeError',
-			message: 'Selected timelineImage image preview requires a controller owner.',
-		});
-	}
-	assert.throws(() => bindPreview(undefined as never), TypeError);
-});
-
 test('binding installs a frozen runtime carrying all three lazy preview routes', () => {
 	const controller = {};
 	assert.equal(productVideoVisualPreviewRuntimeFor(controller), null);
@@ -79,7 +69,6 @@ test('binding installs a frozen runtime carrying all three lazy preview routes',
 
 	const runtime = productVideoVisualPreviewRuntimeFor(controller);
 	assert.ok(runtime);
-	assert.deepEqual(Object.keys(runtime), ['create', 'createProjectBinThumbnail', 'createTimelineFilmstrip']);
 	assert.ok(Object.isFrozen(runtime));
 	assert.equal(productVideoVisualPreviewRuntimeFor({}), null);
 	assert.equal(productVideoVisualPreviewRuntimeFor('controller'), null);

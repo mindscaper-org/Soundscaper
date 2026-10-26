@@ -32,6 +32,7 @@ export interface BrowserContainerAudioDecodeSession {
 	readonly timelineOrigin: number;
 	readonly sampleRate: number;
 	readonly channelCount: number;
+	readonly endPaddingFrames?: number;
 	samples(endTimestamp?: number): AsyncIterable<BrowserContainerAudioSample>;
 	dispose(): void;
 }
@@ -82,7 +83,9 @@ export async function decodeBrowserContainerAudio(
 		);
 		let previousEndFrame = 0;
 		let copiedFrames = 0;
-		for await (const sample of session.samples(session.timelineOrigin + durationSeconds)) {
+		let decodedEndFrame = 0, completed = true;
+		const padding = session.endPaddingFrames ?? 0;
+		for await (const sample of session.samples(padding ? undefined : session.timelineOrigin + durationSeconds)) {
 			try {
 				throwIfAborted(options.signal);
 				validateSample(sample, session.sampleRate, session.channelCount);
@@ -92,6 +95,9 @@ export async function decodeBrowserContainerAudio(
 				if (!Number.isSafeInteger(rawStartFrame)) {
 					throw new RangeError('The container audio timestamp is outside the safe frame range.');
 				}
+				if (padding && rawStartFrame >= targetFrameCount) { completed = false; break; }
+				decodedEndFrame = rawStartFrame + sample.numberOfFrames;
+				if (!Number.isSafeInteger(decodedEndFrame)) throw new RangeError('The container audio ending exceeds the safe frame range.');
 				let frameOffset = Math.max(0, -rawStartFrame);
 				let startFrame = Math.max(0, rawStartFrame);
 				const overlapFrames = Math.max(0, previousEndFrame - startFrame);
@@ -122,6 +128,10 @@ export async function decodeBrowserContainerAudio(
 			}
 		}
 		throwIfAborted(options.signal);
+		if (padding && completed) {
+			if (padding > decodedEndFrame) throw new RangeError('The container audio padding exceeds its decoded frames.');
+			for (const channel of channels) channel.fill(0, Math.max(0, decodedEndFrame - padding));
+		}
 		if (copiedFrames === 0) {
 			throw new Error('The video container has no decodable primary audio samples.');
 		}
@@ -177,6 +187,10 @@ async function openMediabunnySession(
 			input.getPrimaryVideoTrack(),
 		]);
 		throwIfAborted(signal);
+		const codec = await track?.getCodec();
+		if (track && codec === 'opus') await (await import('./browser-container-opus-decoder.ts')).preferContainerOpusPreSkipDecoder(track, signal, {
+			opusTimestampsIncludePreSkip: [MP4, QTFF].includes(await input.getFormat()),
+		});
 		if (!track || !await track.canDecode()) {
 			throw new Error('The video container has no browser-decodable primary audio track.');
 		}
@@ -186,9 +200,12 @@ async function openMediabunnySession(
 			track.getNumberOfChannels(),
 		]);
 		throwIfAborted(signal);
+		const endPaddingFrames = sampleRate === 48_000 && codec === 'opus'
+			? await (await import('./matroska-opus-end-padding.ts')).readMatroskaOpusEndPadding(blob, track.id, signal) : 0;
+		throwIfAborted(signal);
 		const sink = new AudioSampleSink(track);
 		return Object.freeze({
-			timelineOrigin, sampleRate, channelCount,
+			timelineOrigin, sampleRate, channelCount, ...(endPaddingFrames ? { endPaddingFrames } : {}),
 			samples: (endTimestamp?: number) => sink.samples(undefined, endTimestamp),
 			dispose: () => input.dispose(),
 		});
@@ -202,6 +219,8 @@ async function openMediabunnySession(
 }
 
 function validateSession(session: BrowserContainerAudioDecodeSession): void {
+	if (session.endPaddingFrames !== undefined && (!Number.isSafeInteger(session.endPaddingFrames)
+		|| session.endPaddingFrames < 0 || session.endPaddingFrames > 5760)) throw new RangeError('The container audio end padding is invalid.');
 	if (!Number.isSafeInteger(session.sampleRate) || session.sampleRate < 1
 		|| session.sampleRate > VIDEO_SOURCE_MAXIMUM_AUDIO_SAMPLE_RATE) {
 		throw new RangeError('The container audio sample rate is unsupported.');

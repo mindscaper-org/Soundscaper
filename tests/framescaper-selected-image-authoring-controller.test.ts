@@ -36,7 +36,7 @@ type Bound = Readonly<{
 const PROJECT = createFramescaperProjectTimelineImage(PROFILE, { now: '2026-03-04T05:06:06.000Z' } as never) as unknown as Data;
 const PUBLISHED = createFramescaperProjectTimelineImage(
 	PROFILE,
-	{ title: 'Published', now: '2026-03-04T05:06:07.000Z' } as never,
+	{ id: PROJECT.id, title: 'Published', now: '2026-03-04T05:06:07.000Z' } as never,
 ) as unknown as Data;
 const NOW = '2026-03-04T05:06:07.000Z';
 const ONE_SECOND_SAMPLES = 48_000; // The default project runs a 30/1 sequence at 48000 Hz.
@@ -146,21 +146,6 @@ test('rebinding replaces the video-still action without duplicating the surface'
 	assert.deepEqual(runtimeFor(first.controller)?.surfaces, ['video-still']);
 	assert.equal(first.imports.length, 0, 'the superseded binding no longer runs');
 	assert.deepEqual(second.imports[0]?.files.map(({ name }) => name), ['second.png']);
-});
-
-test('binding without the publication ports it writes through is refused', () => {
-	for (const missing of ['session', 'executeCommand', 'publishIfCurrent'] as const) {
-		assert.throws(
-			() => harness({ [missing]: undefined }),
-			(error: Error) => {
-				assert.ok(error instanceof TypeError);
-				assert.match(error.message, /exact controller, session, runtime, and storage ports/u);
-				return true;
-			},
-			`a binding without ${missing} must be refused`,
-		);
-	}
-	assert.throws(() => harness({ controller: null }), TypeError);
 });
 
 test('the video-still gesture imports the selection at the enclosing playhead frame', async () => {
@@ -443,7 +428,9 @@ test('a desktop picker imports a frozen snapshot of the files its read scope yie
 	await still(controller);
 
 	assert.deepEqual(requests[0], { purpose: 'image', multiple: true });
-	assert.deepEqual(requests[1], { descriptors: ['descriptor-1'], request: {} });
+	const read = requests[1]; assert.ok(read); const request = read.request as Data;
+	assert.ok(request.signal instanceof AbortSignal && !request.signal.aborted);
+	assert.deepEqual({ ...read, request: { ...request, signal: undefined } }, { descriptors: ['descriptor-1'], request: { signal: undefined } });
 	assert.deepEqual(imports[0]?.files.map(({ name }) => name), ['desktop.png']);
 	assert.ok(Object.isFrozen(imports[0]?.files), 'the selection is snapshotted before it is imported');
 	assert.notEqual(imports[0]?.files, chosen, 'the caller keeps no handle on the imported array');

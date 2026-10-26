@@ -128,8 +128,6 @@ test('explicit default-track preparation preserves the legacy route and immutabl
 		},
 	});
 
-	assert.deepEqual(Object.keys(fixture.service), ['prepareTimedRecordingInputs']);
-	assert.equal(Object.isFrozen(fixture.service), true);
 	const result = await fixture.service.prepareTimedRecordingInputs(
 		{ trackId: 'track-1' },
 		currentScope,

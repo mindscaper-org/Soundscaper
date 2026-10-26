@@ -4,6 +4,7 @@ import { createLocalizedError } from '../../../../../i18n/presentation-message.t
 
 import { createAddSourceCommand } from '../../../../commands/factories.ts';
 import type { AudioEditorCommand, CommandObject } from '../../../../commands/protocol.ts';
+import type { ImportBusyClaim } from '../../../shared/import-busy-state.ts';
 import {
 	isCurrentAssertion,
 	type EditorControllerLifetime,
@@ -70,6 +71,7 @@ export interface ProjectBinReplacementDependencies {
 	captureActiveDocument(): ProjectBinDocumentSnapshot;
 	restoreActiveDocument(snapshot: ProjectBinDocumentSnapshot): void;
 	setImporting(importing: boolean): void;
+	claimImporting?(): ImportBusyClaim;
 	importProjectBinFile(
 		file: unknown,
 		options: Readonly<{ signal: AbortSignal }>,
@@ -91,6 +93,7 @@ export function createProjectBinReplacementService(
 	dependencies: ProjectBinReplacementDependencies,
 ): Readonly<ProjectBinReplacementService> {
 	const stages = new Map<string, ReplacementStage>();
+	const retiringStages = new Set<Promise<void>>();
 	const assertCurrent = (task: EditorTaskScope, projectToken: EditorProjectToken): void => {
 		task.assertCurrent();
 		dependencies.assertProject(projectToken);
@@ -119,7 +122,8 @@ export function createProjectBinReplacementService(
 		let restored = false;
 		let protectedSources: readonly ProjectBinSource[] = [];
 		let protectionTransferred = false;
-		dependencies.setImporting(true);
+		const importing = dependencies.claimImporting?.();
+		if (!importing) dependencies.setImporting(true);
 		dependencies.publish();
 		try {
 			const result = await dependencies.importProjectBinFile(file, { signal: task.signal });
@@ -197,17 +201,21 @@ export function createProjectBinReplacementService(
 				}
 				if (projectIsCurrent) restoreBaseDocument(baseDocument);
 				// A switched project must not be replaced by this task's saved document.
-				else dependencies.setImporting(false);
+				else finishImporting();
 			}
 			task.finish();
 		}
 
 		function restoreBaseDocument(snapshot: ProjectBinDocumentSnapshot): void {
 			dependencies.restoreActiveDocument(snapshot);
-			dependencies.setImporting(false);
+			finishImporting();
 			dependencies.projectChanged();
 			dependencies.publish();
 			restored = true;
+		}
+		function finishImporting(): void {
+			if (importing) importing.finish();
+			else dependencies.setImporting(false);
 		}
 	}
 
@@ -216,7 +224,10 @@ export function createProjectBinReplacementService(
 		shortfallMode: ProjectBinReplacementShortfallMode = 'keep-spacing',
 	): string | null {
 		dependencies.lifetime.assertActive();
-		if (dependencies.editingBlocked()) return null;
+		if (dependencies.editingBlocked()) {
+			void cancelProjectBinReplacement(token).catch(() => undefined);
+			return null;
+		}
 		const stage = stages.get(token);
 		if (!stage) throw new Error('The staged Project Bin replacement is no longer available.');
 		const project = dependencies.getProject();
@@ -234,7 +245,11 @@ export function createProjectBinReplacementService(
 				shortfallMode,
 			},
 		];
-		dependencies.commit({ type: 'batch', commands });
+		try { dependencies.commit({ type: 'batch', commands }); }
+		catch (error) {
+			void cancelProjectBinReplacement(token).catch(() => undefined);
+			throw error;
+		}
 		stages.delete(token);
 		for (const source of stage.sources) dependencies.protectedSourceIds.delete(source.id);
 		return stage.clipId;
@@ -244,13 +259,17 @@ export function createProjectBinReplacementService(
 		const stage = stages.get(token);
 		if (!stage) return false;
 		stages.delete(token);
-		await discardImportedReplacement(stage.sources, true);
+		const retirement = discardImportedReplacement(stage.sources, true);
+		retiringStages.add(retirement);
+		try { await retirement; }
+		finally { retiringStages.delete(retirement); }
 		return true;
 	}
 
 	async function cancelAllProjectBinReplacements(): Promise<void> {
 		dependencies.lifetime.cancelTask(PROJECT_BIN_REPLACEMENT_TASK);
 		for (const token of [...stages.keys()]) await cancelProjectBinReplacement(token);
+		await Promise.all(retiringStages);
 	}
 
 	async function discardImportedReplacement(

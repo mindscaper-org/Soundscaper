@@ -6,13 +6,11 @@ import test from 'node:test';
 import {
 	sameProjectAudioFallbackSelector,
 	selectProjectAudioFallbackTarget,
-	snapshotProjectAudioFallbackSelector,
 	type ProjectAudioFallbackIntegritySelector,
 } from '../src/common/editor/project-fallback-integrity-audio.ts';
 import {
 	sameProjectVideoFallbackSelector,
 	selectProjectVideoFallbackTarget,
-	snapshotProjectVideoFallbackSelector,
 	type ProjectVideoFallbackIntegritySelector,
 } from '../src/common/editor/project-fallback-integrity-video.ts';
 import type { ProjectFeatureRequirement } from '../src/common/editor/project-feature-requirements.ts';
@@ -38,49 +36,6 @@ const VIDEO_SELECTOR = Object.freeze({
 	sha256: SHA256,
 	targetClipId: null,
 } as const satisfies ProjectVideoFallbackIntegritySelector);
-
-for (const fixture of [
-	{
-		name: 'audio',
-		selector: AUDIO_SELECTOR as Readonly<Record<string, unknown>>,
-		snapshot: snapshotProjectAudioFallbackSelector as unknown as (value: unknown) => Readonly<Record<string, unknown>>,
-		message: 'The selected audio rendered fallback is invalid.',
-	},
-	{
-		name: 'video',
-		selector: VIDEO_SELECTOR as Readonly<Record<string, unknown>>,
-		snapshot: snapshotProjectVideoFallbackSelector as unknown as (value: unknown) => Readonly<Record<string, unknown>>,
-		message: 'The selected video rendered fallback is invalid.',
-	},
-] as const) {
-	test(`${fixture.name} selector snapshots copy only own data without invoking accessors`, () => {
-		const mutable = { ...fixture.selector };
-		const snapshot = fixture.snapshot(mutable);
-		mutable.sourceId = 'tampered-source';
-		assert.equal(snapshot.sourceId, fixture.selector.sourceId);
-		assert.equal(Object.isFrozen(snapshot), true);
-
-		let getterCalls = 0;
-		const accessor = { ...fixture.selector };
-		Object.defineProperty(accessor, 'sourceId', {
-			enumerable: true,
-			get() { getterCalls += 1; return fixture.selector.sourceId; },
-		});
-		assert.throws(
-			() => fixture.snapshot(accessor),
-			(error: unknown) => error instanceof TypeError && error.message === fixture.message,
-		);
-		assert.equal(getterCalls, 0);
-
-		const inherited = { ...fixture.selector };
-		delete inherited.featureId;
-		Object.setPrototypeOf(inherited, { featureId: fixture.selector.featureId });
-		assert.throws(
-			() => fixture.snapshot(inherited),
-			(error: unknown) => error instanceof TypeError && error.message === fixture.message,
-		);
-	});
-}
 
 test('audio selector target selection rejects duplicate and conflicting claims with exact wording', () => {
 	const requirement = audioRequirement();

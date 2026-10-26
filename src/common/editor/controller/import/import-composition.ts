@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { inspectEncodedAudioSampleRate } from '../../audio-file-metadata.js';
+import { claimImportBusyState } from '../shared/import-busy-state.ts';
+import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-command.ts';
 import { createAddClipCommand, createAddSourceCommand, createAddTrackCommand } from '../../commands.js';
 import { isAudioEditorEngineSupported } from '../../engine.js';
 import { createStableId, findTrack } from '../../project.js';
@@ -180,6 +182,7 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 		sourcePeaks: dependencies.sourcePeaks,
 		missingSourceIds: state.missingSourceIds,
 		sourceResolver: dependencies.sourceResolver,
+		prepareTimePitchCaches: dependencies.prepareTimePitchCaches,
 		store,
 		activateVideoSource,
 		createPreviewEngine: dependencies.createPreviewEngine,
@@ -198,7 +201,8 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 		getPreview: () => state.projectBinPreview,
 		setPreview: (preview) => { state.projectBinPreview = preview; },
 		editingBlocked: dependencies.editingBlocked,
-		commit: dependencies.commit,
+		previewBlocked: () => dependencies.editingBlocked(true),
+		commit: (command, selection) => dependencies.commit(prepareFrozenTrackEditCommand(dependencies.getProject(), command), selection),
 		updateSelection: dependencies.updateSelection,
 		getPositionFrames: () => engine.getPositionFrames(),
 		normalizeTimelineStartFrame: projectImport.normalizeImportTimelineStartFrame,
@@ -206,6 +210,7 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 		captureActiveDocument: dependencies.captureActiveDocument,
 		restoreActiveDocument: dependencies.restoreActiveDocument,
 		setImporting: (importing) => { state.importing = importing; },
+		claimImporting: () => claimImportBusyState(state),
 		importProjectBinFile: async (file, { signal }) => {
 			throwIfAborted(signal);
 			const result = await projectImport.importFile(file, projectImport.normalizeImportOptions({ destination: 'project-bin' }));
@@ -242,6 +247,7 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 			getProject: dependencies.getProject, captureProject, assertProject,
 			editingBlocked: dependencies.editingBlocked,
 			setImporting: importing => { state.importing = importing; },
+			claimImporting: () => claimImportBusyState(state),
 			createId: createStableId, commit: dependencies.commit,
 			prepareAudioSource: createClipSpreadsheetSourcePreparer(projectImportRuntime),
 			retireSourceChunkProvider: dependencies.retireSourceChunkProvider,

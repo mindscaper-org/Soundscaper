@@ -425,7 +425,8 @@ Status ExactVampAnalyzer::configure(
 			}
 			impl_->plugin->setParameter(parameterId, value);
 		}
-		if (seen.size() != impl_->descriptor.parameters.size()) return Status::configurationRefused;
+		if (!configuration.program.has_value()
+			&& seen.size() != impl_->descriptor.parameters.size()) return Status::configurationRefused;
 		if (!impl_->plugin->initialise(configuration.channelCount,
 			configuration.stepSize, configuration.blockSize)) {
 			detail = "The Vamp analyzer refused its stream configuration.";

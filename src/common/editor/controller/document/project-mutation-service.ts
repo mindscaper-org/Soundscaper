@@ -128,6 +128,7 @@ export interface ProjectMutationServiceDependencies<
 	readonly saves: ProjectSavePort;
 	readonly stopProjectBinPreview: () => unknown;
 	readonly clearWaveformPcmWindows: () => void;
+	readonly synchronizeVideoSources?: () => PromiseLike<unknown>;
 	/** Reconcile the recording owner's routing to the active track set. */
 	readonly reconcileRecordingRouting: (tracks: readonly Track[]) => boolean;
 	readonly persistRecordingRouting: () => Promise<unknown>;
@@ -305,6 +306,9 @@ export function createProjectMutationService<
 		dependencies.lifetime.assertActive();
 		if (dependencies.state.projectBinPreview) void dependencies.stopProjectBinPreview();
 		dependencies.clearWaveformPcmWindows();
+		if (dependencies.synchronizeVideoSources) void Promise.resolve(dependencies.synchronizeVideoSources()).catch((error: unknown) => {
+			if (!dependencies.isExpectedCancellation(error)) dependencies.handleError(error);
+		});
 		// Inside a macro these run once at the end instead of once per step. Both
 		// walk every retained history project and every clip in it, so a long
 		// macro would otherwise spend most of its time compacting a history it is

@@ -486,7 +486,7 @@ test('WebVTT keeps an ampersand that an entity scan could mistake for a referenc
 
 	// An entity the passive subset does not carry is still refused.
 	assertInterchangeError(
-		() => importVideoCaptionTrackV1('WEBVTT\n\ncue\n00:00:00.000 --> 00:00:01.000\nhard&nbsp;space\n', {
+		() => importVideoCaptionTrackV1('WEBVTT\n\ncue\n00:00:00.000 --> 00:00:01.000\ncopyright&copy;mark\n', {
 			format: 'webvtt', sampleRate: 48_000, ...IMPORT_IDENTITY,
 		}),
 		'ACTIVE_CONTENT',

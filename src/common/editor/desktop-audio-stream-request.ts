@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { DESKTOP_AUDIO_CODEC_INPUT_LIMIT_BYTES, DESKTOP_AUDIO_CODEC_MAXIMUM_CHANNEL_COUNT, type DesktopAudioCodecFormat } from '../../../desktop/desktop-audio-codec-operation-contract.ts';
 import type { DesktopAudioCodecCapabilityTuple } from '../../../desktop/desktop-audio-codec-capability-contract.ts';
-import { applyMediaChannelMapping, createMediaExportCapabilities, normalizeMediaExportSettings, mp3CodecRateSettings, opusCodecRateSettings } from './media-export.js';
+import { applyMediaChannelMapping, createMediaExportCapabilities, normalizeMediaExportSettings } from './media-export.js';
 import { inspectWavBlobPcm, streamWavBlobPcm } from './wav-import.js';
 import { writeInterleavedFloat32Pcm } from './interleaved-float32-pcm.ts';
 import type { WavPcmDescriptor } from './wav-pcm-chunk-reader.ts';
@@ -9,6 +9,7 @@ import type { DesktopAudioCodecRuntimeSettings, NormalizedMediaSettings } from '
 import type { DesktopAudioStreamEncoderRequest } from './desktop-audio-stream-encoder.ts';
 import { queryDesktopAudioCodecCapability } from './desktop-audio-codec-capabilities.ts';
 import { LARGE_AUDIO_FILE_BYTES } from './large-audio-policy.ts';
+import { encodeDesktopAudioSettings } from './desktop-audio-encode-settings.ts';
 const capabilities = createMediaExportCapabilities();
 
 export async function buildDesktopAudioStreamRequest(file: Blob, format: DesktopAudioCodecFormat,
@@ -34,30 +35,6 @@ export async function buildDesktopAudioStreamRequest(file: Blob, format: Desktop
 			settings: encodeDesktopAudioSettings(format, media) as DesktopAudioCodecCapabilityTuple['settings'] },
 		maximumOutputBytes }, channelMapping: media.channelMapping,
 		extension: `.${media.extension}`, mimeType: media.mimeType, settings };
-}
-
-export function encodeDesktopAudioSettings(format: DesktopAudioCodecFormat, media: NormalizedMediaSettings,
-): Readonly<Record<string, number>> {
-	if (format === 'flac') {
-		return Object.freeze({
-			compressionLevel: requiredInteger(media.compressionLevel, 'flac compression level'),
-			bitDepth: requiredInteger(media.bitDepth, 'flac bit depth'),
-		});
-	}
-	if (format === 'wavpack') {
-		return Object.freeze({ compressionLevel: requiredInteger(media.compressionLevel, `${format} compression level`) });
-	}
-	if (format === 'ogg-vorbis') {
-		return Object.freeze({ quality: requiredInteger(media.quality, 'Vorbis quality') });
-	}
-	if (format === 'mp3') return mp3CodecRateSettings(media);
-	if (format === 'opus') return opusCodecRateSettings(media);
-	return Object.freeze({ bitrateKbps: requiredInteger(media.bitRate, `${format} bitrate`) });
-}
-
-function requiredInteger(value: unknown, label: string): number {
-	if (!Number.isSafeInteger(value)) throw new TypeError(`Invalid ${label}.`);
-	return Number(value);
 }
 
 export async function stagedDesktopWavPcm(file: Blob, format: DesktopAudioCodecFormat,

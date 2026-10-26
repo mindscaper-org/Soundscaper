@@ -83,14 +83,14 @@ export function createAudiocomUploadQueue(
 			if (disposed || !connected()) throw new Error('Connect to audio.com before adding files.');
 			if (entries.size + files.length > 50) throw new Error('The audio.com upload queue holds at most 50 files.');
 			for (const file of files) {
-				if (!(file instanceof File) || !/\.(?:wav|mp3|flac|wv|aif|aiff|ogg|oga|m4a)$/iu.test(file.name)) {
+				if (!(file instanceof File) || !/\.(?:wav|wave|rf64|bw64|mp3|flac|wv|aif|aiff|ogg|oga|m4a)$/iu.test(file.name)) {
 					throw new Error('Choose a supported audio file. Use Project archives for project files when your server supports them.');
 				}
 				if (file.size < 1 || file.size > MAXIMUM_BYTES) throw new Error('audio.com uploads in Soundscaper must be between 1 byte and 100 MB.');
 			}
 			const ids = files.map(file => {
 				const id = crypto.randomUUID();
-				entries.set(id, { file, item: Object.freeze({ id, fileName: file.name, title: file.name.replace(/\.[^.]+$/u, ''), status: 'draft' }) });
+				entries.set(id, { file, item: Object.freeze({ id, fileName: file.name, title: initialTitle(file.name), status: 'draft' }) });
 				return id;
 			});
 			changed(); return ids;
@@ -121,3 +121,12 @@ function validateDraft(draft: AudiocomUploadDraft): AudiocomUploadDraft {
 }
 
 function message(error: unknown): string { return error instanceof Error ? error.message : 'The audio.com upload failed.'; }
+
+function initialTitle(fileName: string): string {
+	let title = '';
+	for (const character of fileName.replace(/\.[^.]+$/u, '').trim()) {
+		if (title.length + character.length > 200) break;
+		title += character;
+	}
+	return title || 'Untitled audio';
+}

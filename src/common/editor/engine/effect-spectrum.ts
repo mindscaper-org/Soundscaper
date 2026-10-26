@@ -75,12 +75,12 @@ export function readParametricEqSpectrumEntry(
 	if (channels.length <= 1) analyser.getFloatFrequencyData(target);
 	else {
 		target.fill(0);
+		let values = channelReadBuffers.get(analyser);
+		if (!values || values.length !== target.length) {
+			values = new Float32Array(target.length);
+			channelReadBuffers.set(analyser, values);
+		}
 		for (const channel of channels) {
-			let values = channelReadBuffers.get(channel);
-			if (!values || values.length !== target.length) {
-				values = new Float32Array(target.length);
-				channelReadBuffers.set(channel, values);
-			}
 			channel.getFloatFrequencyData(values);
 			for (let bin = 0; bin < target.length; bin++) target[bin] = target[bin]! + 10 ** (values[bin]! / 10);
 		}

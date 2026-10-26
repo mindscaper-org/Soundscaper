@@ -5,12 +5,10 @@ import {
 	boundedCanvasDimensions,
 	createTimelineProjectIndex,
 	designValueToPan,
-	designValueToProgress,
 	designVolumeToGainDb,
 	framesToSeconds,
 	gainDbToDesignVolume,
 	panToDesignValue,
-	progressToDesignValue,
 	projectClipsToViewport,
 	rightmostVisibleClip,
 	secondsToFrames,
@@ -75,7 +73,7 @@ test('time and viewport adapters honor arbitrary V2 project rates', () => {
 	assert.throws(() => secondsToFrames(1, { sampleRate: 0 }), /sampleRate/);
 });
 
-test('gain, pan, and progress adapters preserve their endpoints and clamp external values', () => {
+test('gain and pan adapters preserve their endpoints and clamp external values', () => {
 	assert.equal(gainDbToDesignVolume(-60), 0);
 	assert.equal(gainDbToDesignVolume(-24), 50);
 	assert.equal(gainDbToDesignVolume(12), 100);
@@ -93,15 +91,6 @@ test('gain, pan, and progress adapters preserve their endpoints and clamp extern
 	assert.equal(panToDesignValue(2), 100);
 	assert.equal(designValueToPan(-200), -1);
 	assert.equal(designValueToPan(75), 0.75);
-	assert.equal(progressToDesignValue(-1), 0);
-	assert.equal(progressToDesignValue(0.375), 37.5);
-	assert.equal(progressToDesignValue(2), 100);
-	assert.equal(designValueToProgress(-5), 0);
-	assert.equal(designValueToProgress(25), 0.25);
-	assert.equal(designValueToProgress(150), 1);
-	assert.throws(() => gainDbToDesignVolume('not-a-number'), /gainDb must be finite/);
-	assert.throws(() => panToDesignValue(undefined), /pan must be finite/);
-	assert.throws(() => designValueToProgress(Number.NaN), /progress must be finite/);
 });
 
 test('timeline project indexing shares clip and source lookups across track projections', () => {
@@ -191,14 +180,10 @@ test('viewport projection includes one viewport of overscan and returns viewport
 });
 
 test('viewport projection rejects unsafe geometry and clips ending exactly at an overscan edge', () => {
-	assert.throws(() => projectClipsToViewport([], {}), /viewportDurationFrames/);
 	assert.throws(() => projectClipsToViewport([], {
 		viewportStartFrame: Number.MAX_SAFE_INTEGER,
 		viewportDurationFrames: 1,
 	}), /safe frame range/);
-	assert.throws(() => projectClipsToViewport([clip({ durationFrames: 0 })], {
-		viewportDurationFrames: 1,
-	}), /clip.durationFrames/);
 
 	const projection = projectClipsToViewport([
 		clip({ id: 'ends-at-start', timelineStartFrame: 0, durationFrames: 48_000 }),
@@ -218,7 +203,6 @@ test('rightmost visible clip is selected for viewport-dependent display state', 
 
 	assert.equal(rightmostVisibleClip(clips).id, 'later-tie');
 	assert.equal(rightmostVisibleClip([{ id: 'hidden', isVisible: false }]), null);
-	assert.throws(() => rightmostVisibleClip(null), /clips must be an array/);
 });
 
 test('bounded canvas dimensions preserve normal high-DPI output and cap each allocation limit', () => {

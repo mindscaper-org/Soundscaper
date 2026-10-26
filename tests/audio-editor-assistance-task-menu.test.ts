@@ -21,19 +21,18 @@ test('every guided task has one destination and opens its own workflow', () => {
 		}
 	};
 	visit(menus);
-	assert.equal(ASSISTANCE_TASKS.length, 14);
 	assert.equal(taskEntries.length, ASSISTANCE_TASKS.length);
 	for (const entry of taskEntries) {
 		assert.equal(entry.icon, String.fromCodePoint(0xF476));
 		assert.doesNotMatch(entry.label ?? '', /…|\.{3}/u);
 	}
-	assert.equal(requests.length, 14);
+	assert.equal(requests.length, ASSISTANCE_TASKS.length);
 	for (const task of ASSISTANCE_TASKS) {
 		const request = { mode: 'task' as const, workflowId: task.workflowId };
 		assert.deepEqual(assistanceDialogRequest(assistanceDialogSurface(request)), request);
 		assert.ok(requests.some((value) => JSON.stringify(value) === JSON.stringify(request)));
 	}
-	assert.equal(assistanceDialogRequest('local-assistance:unknown'), null);
+	assert.equal(assistanceDialogRequest('local-models'), null);
 	assert.deepEqual(assistanceDialogRequest('local-assistance'), { mode: 'advanced' });
 });
 
@@ -64,7 +63,9 @@ test('effects join existing categories and honor alphabetical organization', () 
 	const options = { productId: 'soundscaper', available: true, copy: {}, open: () => undefined };
 	const grouped = mergeAssistanceTaskMenus(base, options);
 	assert.equal(grouped[0].items?.filter((item) => item.id === 'noiseRepair').length, 1);
-	assert.equal(grouped[0].items?.find((item) => item.id === 'noiseRepair')?.items?.length, 4);
+	const repairItems = grouped[0].items?.find((item) => item.id === 'noiseRepair')?.items;
+	assert.ok(repairItems?.some((item) => item.id === 'existing'));
+	assert.ok(repairItems?.some((item) => item.id === 'assistance-task-enhance-dialogue'));
 	assert.equal(grouped[0].items?.find((item) => item.id === 'noiseRepair')?.disabled, false);
 	const sorted = mergeAssistanceTaskMenus([{ id: 'effect', items: [] }], {
 		...options, organization: 'sortby:name',

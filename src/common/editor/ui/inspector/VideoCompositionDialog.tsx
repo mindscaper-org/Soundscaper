@@ -17,6 +17,7 @@ import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 
 import { usePresentationFeedback, type PresentationFeedback } from '../presentation-feedback.ts'; import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { runAwaitedAudioEditorOperation } from '../workspace/audio-editor-workspace-runner.ts';
 import {
 	createVideoCompositionDialogModel,
@@ -52,7 +53,17 @@ type TextDraftKey = Exclude<keyof VideoCompositionDraft,
 
 const COMPOSITION_FIELD_STYLE = Object.freeze({ color: 'var(--text)' });
 
-export default function VideoCompositionDialog({
+export default function VideoCompositionDialog(props: VideoCompositionDialogProps) {
+	const model = createVideoCompositionDialogModel({
+		productId: props.productId, capability: props.capability, project: props.snapshot.project, snapshot: props.snapshot,
+	});
+	const project = props.snapshot.project;
+	const projectId = project && typeof project === 'object' && 'id' in project ? project.id : null;
+	const session = JSON.stringify([editorProjectEditSessionKey(props.controller, projectId), model.clipId]);
+	return <VideoCompositionDialogSession key={session} {...props} />;
+}
+
+function VideoCompositionDialogSession({
 	productId,
 	capability,
 	controller,
@@ -122,7 +133,7 @@ export default function VideoCompositionDialog({
 	const applyDraft = (): void => {
 		try {
 			commit(
-				parseVideoCompositionDraft(draft),
+				parseVideoCompositionDraft(draft, model.composition ?? undefined),
 				{ key: 'videoCompositionApplied', fallback: 'Composition applied.' },
 			);
 		} catch {

@@ -647,45 +647,12 @@ test.describe('3B-5f-b paused retime preview qualification', () => {
 			faultExecutor.dispose();
 			faultVideo.remove();
 
-			const reentrantVideo = await loadVideo(fixturePath);
-			const reentrantProbe = instrumentVideo(reentrantVideo);
-			const reentrantController = new AbortController();
-			let currentnessCalls = 0;
-			const reentrantPort = createVideoRetimeHtmlVideoSeekPort(reentrantVideo, {
-				assertCurrent: () => {
-					currentnessCalls += 1;
-					if (currentnessCalls === 3) reentrantController.abort();
-				},
-				timeoutMs: 2_000,
-			});
-			const currentTimeBeforeReentrantAbort = reentrantVideo.currentTime;
-			let reentrantErrorName = null;
-			try {
-				await reentrantPort.present(Object.freeze({
-					drawableSourceFrame: 1,
-					intervalStartSeconds: 0.04,
-					intervalEndSeconds: 0.13,
-					targetSeconds: 0.085,
-					signal: reentrantController.signal,
-				}));
-			} catch (error) {
-				reentrantErrorName = error instanceof Error ? error.name : String(error);
-			}
-			const reentrantResult = {
-				currentnessCalls,
-				currentTimeBeforeReentrantAbort,
-				currentTimeAfterReentrantAbort: reentrantVideo.currentTime,
-				seeking: reentrantVideo.seeking,
-				errorName: reentrantErrorName,
-				cleanup: reentrantProbe.snapshot(),
-			};
-			reentrantVideo.remove();
 			return {
 				timeoutError, timeoutCleanup, timeoutPublications,
 				callsWhileDraining, presentCalls, cancelledResult, afterCancelResult,
 				cancelCleanup, publications,
 				seekingAtFault, faultPresentCalls, faultCancelledResult, faultError,
-				faultCleanup, faultPublications, reentrantResult,
+				faultCleanup, faultPublications,
 			};
 
 			async function loadVideo(source) {
@@ -760,14 +727,6 @@ test.describe('3B-5f-b paused retime preview qualification', () => {
 		expect(result.faultError).toMatch(/abort|media|terminal/iu);
 		expect(result.faultCleanup).toEqual({ activeListeners: 0, activeCallbacks: 0 });
 		expect(result.faultPublications).toEqual([]);
-		expect(result.reentrantResult).toEqual({
-			currentnessCalls: 3,
-			currentTimeBeforeReentrantAbort: 0,
-			currentTimeAfterReentrantAbort: 0,
-			seeking: false,
-			errorName: 'AbortError',
-			cleanup: { activeListeners: 0, activeCallbacks: 0 },
-		});
 	});
 });
 

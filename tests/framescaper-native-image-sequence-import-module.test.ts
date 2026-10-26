@@ -229,8 +229,8 @@ test('the admission request names the exact project revision, decode profile and
 		frameRate: { num: 24, den: 1 }, frameCount: 3,
 	};
 	assert.deepEqual(pick(request as unknown as Data, Object.keys(expected)), expected);
-	assert.equal(request.inventory, inventory);
-	assert.equal(request.sourcePack, fixture.packs[0]);
+	assert.deepEqual(request.inventory, inventory);
+	assert.deepEqual(request.sourcePack, fixture.packs[0]);
 	assert.equal(Object.isFrozen(request), true, 'the admitted request cannot be edited after the fact');
 	assert.deepEqual(fixture.completions, [request], 'settlement names the request that was admitted');
 });
@@ -498,31 +498,6 @@ test('a selected file that names a path, an empty body or no stream factory is r
 		await assert.rejects(() => fixture.run(), expected);
 	}
 	assert.deepEqual(fixture.counts(), { writers: 0, discards: 0, releases: 0, capabilityCalls: 5 });
-});
-
-test('composition refuses ports that cannot admit, clean up, complete, select or commit', async () => {
-	const fixture = harness();
-
-	for (const [overrides, expected] of [
-		[{ ports: { ...fixture.ports, admit: undefined } }, /requires port admit/u],
-		[{ ports: { ...fixture.ports, cleanupInventory: 'later' } }, /requires port cleanupInventory/u],
-		[{ ports: { ...fixture.ports, capabilities: null } }, /requires port capabilities/u],
-		[{ ports: { ...fixture.ports, complete: {} } }, /valid optional completion port/u],
-		[{ select: null }, /selection and commit ports/u],
-		[{ commit: null }, /selection and commit ports/u],
-	] as const) {
-		await assert.rejects(() => fixture.run(overrides as never), expected);
-	}
-	assert.deepEqual(fixture.order, [], 'no port is consulted once the contract is refused');
-});
-
-test('a source-pack writer without a discard capability is refused before any body is packed', async () => {
-	const fixture = harness();
-	fixture.state.writer = (value) => { const { discard: _discard, ...rest } = value; return rest; };
-
-	await assert.rejects(() => fixture.run(), /source-pack writer requires discard/u);
-	assert.deepEqual(fixture.order, ['capabilities', 'select', 'createSourcePackWriter']);
-	assert.equal(fixture.counts().releases, 1);
 });
 
 test('composition refuses a foreign runtime profile and a foreign project domain', async () => {

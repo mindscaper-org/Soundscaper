@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import React, { type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -155,20 +154,7 @@ test('annotation creation feedback is success-only, announces the created row, t
 	assert.deepEqual(focused, ['verse']);
 });
 
-test('corner, panel, layer, and ruler creation entries share the accessible completion path', () => {
-	const directory = new URL('../src/common/editor/ui/timeline/', import.meta.url);
-	const entries = [
-		['TimelineAnnotationLaneActions.jsx', 2],
-		['TimelineAnnotationPanel.jsx', 2],
-		['TimelineAnnotationLayer.jsx', 0],
-		['useTimelineAnnotationInteractions.js', 1],
-		['TimelineWorkspaceView.jsx', 1],
-	] as const;
-	for (const [file, expected] of entries) {
-		const source = readFileSync(new URL(file, directory), 'utf8');
-		assert.equal(source.match(/createAnnotation\(/gu)?.length ?? 0, expected, file);
-	}
-});
+
 
 test('short annotation regions retain two non-overlapping edge hit targets', () => {
 	const shortRegion = Object.freeze({
@@ -202,30 +188,7 @@ test('short annotation regions retain two non-overlapping edge hit targets', () 
 	assert.equal(markup.match(/data-annotation-edge="(?:start|end)"/gu)?.length, 2);
 });
 
-test('shown annotation visuals occupy a dedicated lane below the unblocked ruler surface', () => {
-	const css = readFileSync(new URL(
-		'../src/common/editor/ui/audio-editor-design-system/19-timeline-annotations.css', import.meta.url,
-	), 'utf8');
-	const workspace = readFileSync(new URL(
-		'../src/common/editor/ui/timeline/TimelineWorkspaceView.jsx', import.meta.url,
-	), 'utf8');
-	const rulerCanvas = readFileSync(new URL(
-		'../src/common/editor/ui/timeline/TimelineRulerCanvas.jsx', import.meta.url,
-	), 'utf8');
-	const cornerIndex = workspace.indexOf('className="audio-editor-ruler-corner"');
-	const actionsIndex = workspace.indexOf('<TimelineAnnotationLaneActions', cornerIndex);
-	const viewportIndex = workspace.indexOf('className="audio-editor-ruler-viewport"', actionsIndex);
-	assert.match(css, /data-show-markers='true'[^}]*audio-editor-ruler-viewport[^}]*\{\s*height: 66px;/u);
-	assert.match(css, /audio-editor-timeline-annotations\s*\{[^}]*top: 33px;/u);
-	assert.match(css, /audio-editor-timeline-annotation\s*\{[^}]*min-width: 16px;/u);
-	assert.ok(cornerIndex >= 0 && cornerIndex < actionsIndex && actionsIndex < viewportIndex);
-	// The three ruler variants share one prop bag, so the lane is reserved once
-	// and every variant spreads it.
-	assert.match(rulerCanvas, /height: markerLaneVisible \? TIMELINE_RULER_HEIGHT_WITH_ANNOTATIONS : undefined,/u);
-	assert.equal(rulerCanvas.match(/\{\.\.\.shared\}/gu)?.length, 3, 'every ruler variant reserves the annotation lane');
-	assert.match(workspace, /<TimelineRulerCanvas/u);
-	assert.match(workspace, /\{markerLaneVisible && <TimelineAnnotationLayer/u);
-});
+
 
 test('annotation list exposes equivalent named editing fields and native workflow actions', () => {
 	const markup = render(<TimelineAnnotationPanel
@@ -443,34 +406,9 @@ test('the marker panel stays out of the dock until the project and product carry
 	assert.equal(annotationReads, 0);
 });
 
-test('the ruler-corner marker actions stay hidden until Show markers is enabled', () => {
-	const workspace = readFileSync(new URL(
-		'../src/common/editor/ui/timeline/TimelineWorkspaceView.jsx', import.meta.url,
-	), 'utf8');
 
-	assert.match(workspace, /\{markerLaneVisible && <TimelineAnnotationLaneActions/u);
-	assert.equal(workspace.match(/<TimelineAnnotationLaneActions/gu)?.length, 1);
-});
 
-test('the Add Track flyout offers Show markers only where the project carries annotations', () => {
-	const flyouts = readFileSync(new URL(
-		'../src/common/editor/ui/timeline/TimelineFlyouts.jsx', import.meta.url,
-	), 'utf8');
-	const row = flyouts.match(/\{markersAvailable && <div className="add-track-flyout__row" role="none">[\S\s]*?<\/div>\}/u)?.[0];
 
-	assert.ok(row, 'the marker toggle is gated on annotation availability');
-	// The flyout body is a menu, so the toggle is a menuitemcheckbox that the
-	// arrow-key rotation can reach; a bare input inside role="menu" was both
-	// invalid and unreachable, since Tab closes the flyout.
-	assert.match(row, /role="menuitemcheckbox"/u);
-	assert.match(row, /aria-checked=\{showMarkers\}/u);
-	assert.match(row, /onClick=\{onToggleMarkers\}/u);
-	assert.match(row, /\{copy\.showMarkers\}/u);
-	// The marker toggle is a view preference, not an edit, so it stays usable
-	// while mutations are blocked — unlike the track-type options above it.
-	assert.doesNotMatch(row, /disabled=/u);
-	assert.equal(ENGLISH_COPY.showMarkers, 'Show markers');
-});
 
 function annotationSnapshotFixture() {
 	return {

@@ -280,10 +280,6 @@ test('the idle snapshot is what the real binding reports before its first gestur
 	assert.deepEqual(deferredIdle, realIdle, 'every idle field but the adapter-chosen display mode must match');
 	assert.ok(realMode === null || ['source-list', 'system-picker', 'owned-source'].includes(realMode));
 	assert.equal(deferredMode, null);
-	assert.deepEqual(Object.keys(deferred.actions).sort(), Object.keys(real.actions).sort());
-	assert.deepEqual(Object.keys(deferred.webVcrActions).sort(), Object.keys(real.webVcrActions).sort());
-	assert.deepEqual(Object.keys(deferred).sort(), Object.keys(real).sort());
-	assert.deepEqual(Object.keys(deferred.service).sort(), Object.keys(real.service).sort());
 
 	// The editor awaits initialize() before it renders, so the cold Web VCR
 	// capability has to be the one the real controller settles on for this

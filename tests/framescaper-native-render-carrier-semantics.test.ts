@@ -152,7 +152,7 @@ const CLIP_ROW = Object.freeze({ nodeId: 'clip-node', kind: 'clip', disposition:
 test('a planning rate at or below thirty frames a second is carried through unchanged', () => {
 	for (const rate of [{ num: 1, den: 1 }, { num: 24, den: 1 }, { num: 30, den: 1 },
 		{ num: 30_000, den: 1_001 }, { num: 60, den: 4 }]) {
-		assert.equal(planningRate(rate), rate, `${String(rate.num)}/${String(rate.den)} is already exact`);
+		assert.deepEqual(planningRate(rate), rate, `${String(rate.num)}/${String(rate.den)} is already exact`);
 	}
 });
 

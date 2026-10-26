@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useCallback, useEffect, useLayoutEffect, useRef, type MouseEvent, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, type MouseEvent, type PointerEvent, type RefObject } from 'react';
 
 /** The label renderer owns a mouse draft separately from timeline pointer gestures. */
 export function useLabelMarkerDragCancellation(
@@ -45,14 +45,19 @@ export function useLabelMarkerDragCancellation(
 			owner.removeEventListener('mouseup', finish, true);
 		};
 	}, [cancelDrag, markerRef]);
+	const startTracking = (event: MouseEvent<HTMLElement> | PointerEvent<HTMLElement>) => {
+		if (event.button !== 0 || !(event.target as Element).closest('.label-marker')) return;
+		expectedRangeRef.current = range;
+		activeRef.current = true;
+		cancelledRef.current = false;
+	};
 	return {
 		activeRef,
 		cancelledRef,
-		onMouseDownCapture: (event: MouseEvent<HTMLElement>) => {
-			if (event.button !== 0 || !(event.target as Element).closest('.label-marker')) return;
-			expectedRangeRef.current = range;
-			activeRef.current = true;
-			cancelledRef.current = false;
+		cancelDrag,
+		onMouseDownCapture: startTracking,
+		onPointerDownCapture: (event: PointerEvent<HTMLElement>) => {
+			if (event.pointerType !== 'mouse' && event.isPrimary !== false && !activeRef.current) startTracking(event);
 		},
 	};
 }

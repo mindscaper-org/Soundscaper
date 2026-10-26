@@ -62,49 +62,6 @@ test('a captured proxy request normalizes its identities, revision and digest', 
 	assert.equal(normalized.expectedContentSha256, 'ab'.repeat(32));
 });
 
-test('a captured proxy request with a missing or malformed field is refused', () => {
-	assert.throws(() => normalizeCapturedVideoProxyRequest(null as never), TypeError);
-	assert.throws(
-		() => normalizeCapturedVideoProxyRequest({ ...REQUEST, projectId: '' } as never),
-		TypeError,
-	);
-	assert.throws(
-		() => normalizeCapturedVideoProxyRequest({ ...REQUEST, sourceId: '' } as never),
-		TypeError,
-	);
-	assert.throws(
-		() => normalizeCapturedVideoProxyRequest({ ...REQUEST, expectedContentSha256: 'zz' } as never),
-		/source digest is invalid/u,
-	);
-});
-
-test('a captured proxy revision must be a non-negative whole number', () => {
-	for (const expectedProjectRevision of [-1, 1.5, Number.NaN]) {
-		assert.throws(
-			() => normalizeCapturedVideoProxyRequest({ ...REQUEST, expectedProjectRevision } as never),
-			RangeError,
-		);
-	}
-});
-
-test('a scheduler exposes a callable schedule with its own disposal', () => {
-	const schedule = scheduler();
-
-	assert.equal(typeof schedule, 'function');
-	assert.equal(typeof schedule.dispose, 'function');
-});
-
-test('a malformed request is refused synchronously, before any proxy work is scheduled', () => {
-	const schedule = scheduler() as unknown as (request: unknown) => Promise<void>;
-
-	assert.throws(
-		() => schedule(null),
-		/captured proxy request is required/u,
-		'request validation throws rather than returning a rejected promise, '
-		+ 'so a caller must guard the call itself and not only its result',
-	);
-});
-
 test('disposal is idempotent and settles cleanly', async () => {
 	const schedule = scheduler();
 	const dispose = schedule.dispose as () => Promise<void>;

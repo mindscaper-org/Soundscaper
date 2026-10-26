@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createMenuActionFixture } from './helpers/application-menu-fixture.ts';
@@ -52,7 +54,7 @@ test('trim is reachable from File > Project management and blocked on a read-onl
 
 test('both locales name the command and its outcomes', () => {
 	for (const locale of ['en', 'de'] as const) {
-		const copy = EXPORT_MENU_COPY_BY_LOCALE[locale];
+		const copy = (locale === 'de' ? GERMAN_COPY : EXPORT_MENU_COPY_BY_LOCALE.en);
 		for (const key of ['trimMedia', 'trimmingMedia', 'trimmedMedia', 'trimmedMediaIncomplete']) {
 			assert.equal(typeof copy[key], 'string', `${locale}.${key}`);
 			assert.ok(copy[key].length > 0, `${locale}.${key}`);

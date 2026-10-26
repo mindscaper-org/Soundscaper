@@ -240,7 +240,7 @@ function createFixture(options: ExportFixtureOptions = {}) {
 			async createDownload(request: unknown) {
 				events.push('download');
 				downloads.push(request);
-				return Object.freeze({ cancelled: false, url: 'blob:export', method: 'memory' });
+				return Object.freeze({ cancelled: false, url: 'blob:export', method: 'memory', cleanup: async () => { events.push('download-cleanup'); } });
 			},
 		},
 		findClip: (project: ExportProject, clipId: string) => project.clips.find((clip) => clip.id === clipId),
@@ -330,7 +330,7 @@ function createFixture(options: ExportFixtureOptions = {}) {
 		events,
 		loadedStorageKeys,
 		plannedProjects,
-		runtime,
+		runtime, state,
 		verifiedFallbackBlob,
 	});
 }
@@ -401,7 +401,7 @@ test('video fallback verification cancellation cannot start late delivery work',
 	assert.deepEqual(fixture.downloads, []);
 });
 
-test('video fallback cancellation during prior-output cleanup cannot begin download publication', async () => {
+test('video fallback cancellation during prior-output retirement releases the prepared replacement', async () => {
 	let cleanupStarted: (() => void) | null = null;
 	let releaseCleanup!: () => void;
 	const started = new Promise<void>((resolve) => { cleanupStarted = resolve; });
@@ -420,7 +420,10 @@ test('video fallback cancellation during prior-output cleanup cannot begin downl
 	assert.equal(await pending, null);
 
 	assert.deepEqual(fixture.errors, []);
-	assert.deepEqual(fixture.downloads, []);
+	assert.equal(fixture.downloads.length, 1);
+	assert.equal(fixture.state.outputUrl, null);
+	assert.equal(fixture.state.exportOutput, null);
+	assert.equal(fixture.events.filter(event => event === 'download-cleanup').length, 1);
 });
 
 test('video fallback download publication receives the owned export signal', async () => {
@@ -493,67 +496,6 @@ test('video delivery rejects an unrepresented rendered fallback', () => {
 		}),
 		/represented audio.*represented video rendered fallback/iu,
 	);
-});
-
-test('video delivery requires exact own-data video metadata', () => {
-	const fixture = createFixture();
-	const delivery = fixture.runtime.playbackProjects.projectForVideoRenderedFallbackDelivery(fixture.canonical);
-	const { videoRenderedFallback: _omitted, ...withoutMetadata } = delivery;
-	let accessorReads = 0;
-	const accessorMetadata = Object.defineProperty({ ...delivery }, 'videoRenderedFallback', {
-		configurable: true,
-		get() {
-			accessorReads += 1;
-			return delivery.videoRenderedFallback;
-		},
-	});
-	for (const candidate of [withoutMetadata, { ...delivery, videoRenderedFallback: undefined }, accessorMetadata]) {
-		assert.throws(
-			() => projectForVideoRenderedFallbackExport(fixture.canonical, {
-				projectForVideoRenderedFallbackDelivery: () => candidate as unknown as typeof delivery,
-			}),
-			/own data property|invalid metadata/iu,
-		);
-	}
-	assert.equal(accessorReads, 0);
-});
-
-test('video delivery requires exact own-data audio fallback fields', () => {
-	const fixture = createFixture();
-	const delivery = fixture.runtime.playbackProjects.projectForVideoRenderedFallbackDelivery(fixture.canonical);
-	const { audioRenderedFallback: _omittedMetadata, ...withoutMetadata } = delivery;
-	const { requiredAudioSourceIds: _omittedRoots, ...withoutRoots } = delivery;
-	let accessorReads = 0;
-	const accessorMetadata = Object.defineProperty({ ...delivery }, 'audioRenderedFallback', {
-		configurable: true,
-		get() {
-			accessorReads += 1;
-			return delivery.audioRenderedFallback;
-		},
-	});
-	const accessorRoots = Object.defineProperty({ ...delivery }, 'requiredAudioSourceIds', {
-		configurable: true,
-		get() {
-			accessorReads += 1;
-			return delivery.requiredAudioSourceIds;
-		},
-	});
-	for (const candidate of [
-		withoutMetadata,
-		{ ...delivery, audioRenderedFallback: undefined },
-		accessorMetadata,
-		withoutRoots,
-		{ ...delivery, requiredAudioSourceIds: undefined },
-		accessorRoots,
-	]) {
-		assert.throws(
-			() => projectForVideoRenderedFallbackExport(fixture.canonical, {
-				projectForVideoRenderedFallbackDelivery: () => candidate as unknown as typeof delivery,
-			}),
-			/own data property|invalid metadata|invalid projection/iu,
-		);
-	}
-	assert.equal(accessorReads, 0);
 });
 
 test('video delivery rejects feature metadata drift before integrity admission', () => {

@@ -3,8 +3,8 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import {
-	assertCurrentSoundscaperFreezeProject, soundscaperFreezeRenderFingerprint,
-	type SoundscaperFreezeTicket,
+	assertCurrentSoundscaperFreezeProject, captureSoundscaperFreezeProject,
+	type SoundscaperFreezeCurrencyController,
 } from './editor-audio-track-freeze-currency.ts';
 import { normalizeAutomationLaneV21 } from '../common/editor/automation-lane-v21.ts';
 import { clipNeedsTimePitchRender } from '../common/editor/clip-time-pitch-cache.js';
@@ -79,7 +79,7 @@ export function planFreezeRange(project: SoundscaperProject, trackId: string) {
 		'clip range',
 	)));
 	const sampleRate = positiveInteger(project.sampleRate, 'project sample rate');
-	const tailFrames = track.effectsActive === false ? 0 : rackTailFrames(track.effects, sampleRate, 10);
+	const tailFrames = track.effectsActive === false ? 0 : rackTailFrames(track.effects, sampleRate, 10, runtime.automationLanes);
 	return Object.freeze({
 		renderStartFrame,
 		renderFrameCount: safeAdd(laneEndFrame - renderStartFrame, tailFrames, 'freeze render range'),
@@ -88,7 +88,7 @@ export function planFreezeRange(project: SoundscaperProject, trackId: string) {
 
 export async function renderFreezeBody(
 	store: FreezeStore,
-	controller: Readonly<{ readonly project: unknown }>,
+	controller: SoundscaperFreezeCurrencyController,
 	createEngine: () => SoundscaperAudioFreezeRenderEngine,
 	request: Readonly<{
 		readonly project: SoundscaperProject;
@@ -100,11 +100,7 @@ export async function renderFreezeBody(
 	}>,
 	options: FreezeTimePitchRenderOptions = {},
 ): Promise<Readonly<{ readonly body: FreezeBody; readonly frameCount: number; readonly sampleRate: number; readonly channelCount: number }>> {
-	const ticket: SoundscaperFreezeTicket = Object.freeze({
-		project: request.project,
-		trackId: request.trackId,
-		fingerprint: soundscaperFreezeRenderFingerprint(request.project, request.trackId),
-	});
+	const ticket = captureSoundscaperFreezeProject(controller, request.project, request.trackId);
 	const runtime = resolveRuntimeProjectProjection(request.project);
 	const track = exactRecordById(runtime.tracks, request.trackId, 'audio freeze render track');
 	const ownedIds = new Set(arrayValue(track.clipIds, 'audio freeze render track.clipIds').map(String));
@@ -128,7 +124,7 @@ export async function renderFreezeBody(
 		const latency = compileProjectPathPdcPlanV21(request.project, { sampleRate: request.sampleRate })
 			.freezeLatencyFramesByTrack.get(request.trackId) ?? 0;
 		const laneEndFrame = request.renderStartFrame + request.renderFrameCount
-			- (track.effectsActive === false ? 0 : rackTailFrames(track.effects, request.sampleRate, 10));
+			- (track.effectsActive === false ? 0 : rackTailFrames(track.effects, request.sampleRate, 10, runtime.automationLanes));
 		const renderProject = freezeRenderProject(runtime, track, clips, sources);
 		if (options.prepareTimePitchCaches) {
 			await options.prepareTimePitchCaches(renderProject, request.signal);
@@ -198,6 +194,8 @@ function freezeRenderProject(
 	} as never, masterChannels).tracks.get(trackId) ?? masterChannels;
 	return Object.freeze({
 		...project,
+		// Programme bed/object mapping belongs after the frozen source strip.
+		metadata: Object.freeze({ ...dataRecord(project.metadata, 'project.metadata'), adm: null }),
 		// The capture is pre-master, so the programme width is not the render width. Sizing
 		// the offline context from masterChannels downmixed a wide stem to the delivery
 		// width, and committing that render narrowed the track underneath every channel map

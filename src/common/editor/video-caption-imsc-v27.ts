@@ -21,7 +21,6 @@ import {
 	captionLoss,
 	freezeCaptionLosses,
 	interchangeError,
-	timeUnitsToFrame,
 	type VideoCaptionImportOptionsV1,
 	type VideoCaptionImportResultV1,
 	type VideoCaptionInterchangeLimitsV1,
@@ -29,7 +28,8 @@ import {
 	type VideoCaptionTrackNormalizerV1,
 	type VideoCaptionExportResultV1,
 } from './video-caption-interchange-contract-v27.ts';
-
+import { parseImscTime } from './video-caption-imsc-time.ts';
+import { imscPercentage } from './video-caption-imsc-percentage.ts';
 const TT = 'http://www.w3.org/ns/ttml';
 const TTP = 'http://www.w3.org/ns/ttml#parameter';
 const TTS = 'http://www.w3.org/ns/ttml#styling';
@@ -90,6 +90,7 @@ interface ParseState {
 	readonly stack: XmlFrame[];
 	readonly singletonElements: Set<FrameKind>;
 	readonly xmlIds: Set<string>;
+	readonly cueBeginTimes: Map<string, string>;
 	elements: number;
 	tickRate: number;
 	trackId: string;
@@ -105,7 +106,6 @@ export function importImscCaptionTrackV1(
 	limits: Readonly<VideoCaptionInterchangeLimitsV1>,
 	normalize: VideoCaptionTrackNormalizerV1,
 ): VideoCaptionImportResultV1 {
-	assertNoActiveXml(xml);
 	const state: ParseState = {
 		options,
 		limits,
@@ -117,6 +117,7 @@ export function importImscCaptionTrackV1(
 		stack: [],
 		singletonElements: new Set(),
 		xmlIds: new Set(),
+		cueBeginTimes: new Map(),
 		elements: 0,
 		tickRate: 0,
 		trackId: options.trackId,
@@ -228,11 +229,12 @@ function openImscElement(tag: SaxesTagNS, state: ParseState): void {
 	else if (kind === 'p') {
 		if (state.cues.length >= state.limits.maximumCues) throw interchangeError('IMSC exceeds its cue-count limit.', 'CUE_LIMIT', { maximum: state.limits.maximumCues, observed: state.cues.length + 1 });
 		frame.cue = readCue(tag, state);
+		state.cueBeginTimes.set(frame.cue.id, requiredAttribute(tag, '', 'begin', 'caption cue begin'));
 	} else if (kind === 'span') {
 		const cue = state.stack.at(-1)?.cue;
 		if (!cue) throw interchangeError('IMSC word spans must be direct cue children.', 'INVALID_XML');
 		frame.wordTiming = readTiming(
-			tag, state, 'caption word', cue.startFrame, `${cue.id}.words.${cue.words.length}`,
+			tag, state, 'caption word', state.cueBeginTimes.get(cue.id), `${cue.id}.words.${cue.words.length}`,
 		);
 	}
 	state.stack.push(frame);
@@ -310,7 +312,7 @@ function readStyle(tag: SaxesTagNS, state: ParseState): VideoCaptionStyleV1 {
 		attribute(tag, TTS, 'fontWeight'), attribute(tag, TTS, 'fontStyle'),
 		attribute(tag, TTS, 'textDecoration'), attribute(tag, TTS, 'textAlign'),
 	];
-	if (values.some((value) => value === null)) state.losses.push(captionLoss('style-properties-defaulted', `styles.${id}`, 'Missing IMSC style properties use bounded caption defaults.'));
+	if (values.some((value) => value === null)) state.losses.push(captionLoss('style-properties-defaulted', `styles.${id}`, 'Missing IMSC style properties use their initial TTML values.'));
 	const familyToken = values[0] ?? 'sansSerif';
 	if (!Object.hasOwn(TTML_TO_FONT, familyToken)) {
 		throw interchangeError(`Unsupported IMSC font family: ${familyToken}.`, 'UNSUPPORTED_STYLE');
@@ -320,13 +322,13 @@ function readStyle(tag: SaxesTagNS, state: ParseState): VideoCaptionStyleV1 {
 		schemaVersion: 1,
 		id,
 		fontFamily: family,
-		fontSizePercent: percent(values[1] ?? '5%', 'IMSC font size'),
+		fontSizePercent: percent(values[1] ?? '100%', 'IMSC font size') / 15, // The inherited 1c font is 1/15 of root height.
 		foregroundColor: color(values[2] ?? '#ffffffff', 'IMSC foreground color'),
-		backgroundColor: color(values[3] ?? '#000000cc', 'IMSC background color'),
+		backgroundColor: color(values[3] ?? '#00000000', 'IMSC background color'),
 		fontWeight: choice(values[4] ?? 'normal', ['normal', 'bold'] as const, 'IMSC font weight'),
 		fontStyle: choice(values[5] ?? 'normal', ['normal', 'italic'] as const, 'IMSC font style'),
 		textDecoration: choice(values[6] ?? 'none', ['none', 'underline'] as const, 'IMSC text decoration'),
-		textAlign: choice(values[7] ?? 'center', ['start', 'center', 'end'] as const, 'IMSC text alignment'),
+		textAlign: choice(values[7] ?? 'start', ['start', 'center', 'end'] as const, 'IMSC text alignment'),
 	});
 }
 
@@ -368,15 +370,15 @@ function readTiming(
 	tag: SaxesTagNS,
 	state: ParseState,
 	name: string,
-	baseFrame = 0,
+	baseValue?: string,
 	ownerId?: string,
 ): Readonly<{ startFrame: number; endFrame: number }> {
 	const startValue = requiredAttribute(tag, '', 'begin', `${name} begin`);
 	const endValue = requiredAttribute(tag, '', 'end', `${name} end`);
-	const start = parseImscTime(startValue, state.tickRate, state.options.sampleRate);
-	const end = parseImscTime(endValue, state.tickRate, state.options.sampleRate);
-	const startFrame = baseFrame + start.frame;
-	const endFrame = baseFrame + end.frame;
+	const start = parseImscTime(startValue, state.tickRate, state.options.sampleRate, baseValue);
+	const end = parseImscTime(endValue, state.tickRate, state.options.sampleRate, baseValue);
+	const startFrame = start.frame;
+	const endFrame = end.frame;
 	if (!Number.isSafeInteger(startFrame) || !Number.isSafeInteger(endFrame)) throw interchangeError(`${name} exceeds the safe sample-frame range.`, 'INVALID_TIMING');
 	const id = ownerId ?? attribute(tag, XML, 'id') ?? `${state.cues.length}`;
 	if (!start.exact) state.losses.push(imscTimingLoss(id, 'startFrame', startValue, startFrame));
@@ -385,31 +387,17 @@ function readTiming(
 	return Object.freeze({ startFrame, endFrame });
 }
 
-function parseImscTime(value: string, tickRate: number, sampleRate: number): { readonly frame: number; readonly exact: boolean } {
-	const ticks = value.match(/^(\d+)t$/u);
-	if (ticks) {
-		if (tickRate === 0) throw interchangeError('IMSC tick timing requires ttp:tickRate.', 'UNSUPPORTED_PROFILE');
-		return timeUnitsToFrame(BigInt(ticks[1] ?? 0), BigInt(tickRate), sampleRate);
-	}
-	const clock = value.match(/^(\d+):([0-5]\d):([0-5]\d)(?:\.(\d{1,9}))?$/u);
-	if (!clock) throw interchangeError(`Unsupported IMSC time expression: ${value}.`, 'INVALID_TIMING');
-	const fraction = clock[4] ?? '';
-	const denominator = 10n ** BigInt(fraction.length);
-	const seconds = (BigInt(clock[1] ?? 0) * 60n + BigInt(clock[2] ?? 0)) * 60n + BigInt(clock[3] ?? 0);
-	return timeUnitsToFrame(seconds * denominator + BigInt(fraction || 0), denominator, sampleRate);
-}
-
 function exportStyle(style: VideoCaptionStyleV1, identities: ImscXmlIdentitiesV1): string {
 	return `<style xml:id="${xml(mapped(identities.styles, style.id))}" tts:fontFamily="${FONT_TO_TTML[style.fontFamily]}"`
-		+ ` tts:fontSize="${style.fontSizePercent}%" tts:color="${style.foregroundColor}"`
+		+ ` tts:fontSize="${imscPercentage(style.fontSizePercent * 15)}" tts:color="${style.foregroundColor}"`
 		+ ` tts:backgroundColor="${style.backgroundColor}" tts:fontWeight="${style.fontWeight}"`
 		+ ` tts:fontStyle="${style.fontStyle}" tts:textDecoration="${style.textDecoration}"`
 		+ ` tts:textAlign="${style.textAlign}"/>`;
 }
 
 function exportRegion(region: VideoCaptionRegionV1, identities: ImscXmlIdentitiesV1): string {
-	return `<region xml:id="${xml(mapped(identities.regions, region.id))}" tts:origin="${region.xPercent}% ${region.yPercent}%"`
-		+ ` tts:extent="${region.widthPercent}% ${region.heightPercent}%" tts:displayAlign="${region.displayAlign}"/>`;
+	return `<region xml:id="${xml(mapped(identities.regions, region.id))}" tts:origin="${imscPercentage(region.xPercent)} ${imscPercentage(region.yPercent)}"`
+		+ ` tts:extent="${imscPercentage(region.widthPercent)} ${imscPercentage(region.heightPercent)}" tts:displayAlign="${region.displayAlign}"/>`;
 }
 
 function exportCue(
@@ -515,13 +503,13 @@ function requiredAttribute(tag: SaxesTagNS, uri: string, local: string, name: st
 }
 
 function pair(value: string, name: string): readonly [number, number] {
-	const match = value.match(/^(\d+(?:\.\d+)?)% (\d+(?:\.\d+)?)%$/u);
+	const match = value.match(/^(\+?(?:\d+(?:\.\d+)?|\.\d+))%[ \t\r\n]+(\+?(?:\d+(?:\.\d+)?|\.\d+))%$/u);
 	if (!match) throw interchangeError(`${name} must contain two percentages.`, 'INVALID_CAPTION');
 	return [Number(match[1]), Number(match[2])];
 }
 
 function percent(value: string, name: string): number {
-	const match = value.match(/^(\d+(?:\.\d+)?)%$/u);
+	const match = value.match(/^(\+?(?:\d+(?:\.\d+)?|\.\d+))%$/u);
 	if (!match) throw interchangeError(`${name} must be a percentage.`, 'UNSUPPORTED_STYLE');
 	return Number(match[1]);
 }
@@ -542,13 +530,6 @@ function positiveInteger(value: string | null, name: string, maximum: number): n
 	const number = Number(value);
 	if (!Number.isSafeInteger(number) || number < 1 || number > maximum) throw interchangeError(`${name} is outside its bound.`, 'UNSUPPORTED_PROFILE');
 	return number;
-}
-
-function assertNoActiveXml(value: string): void {
-	const withoutDeclaration = value.replace(/^<\?xml\s+version=(?:"1\.0"|'1\.0')(?:\s+encoding=(?:"UTF-8"|'UTF-8'))?\s*\?>/iu, '');
-	if (/<!\s*(?:DOCTYPE|ENTITY)\b|<\?|<!\[CDATA\[/iu.test(withoutDeclaration)) {
-		throw activeContent('DTD, entity declarations, processing instructions, and CDATA are not allowed in IMSC.');
-	}
 }
 
 function imscTimingLoss(id: string, field: 'startFrame' | 'endFrame', source: string, frame: number): VideoCaptionInterchangeLossV1 {

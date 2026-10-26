@@ -10,6 +10,7 @@ export interface FramescaperControllerFoundationViewAssistance {
 	readonly project: unknown;
 	readonly actions: Readonly<Record<string, unknown>>;
 	readonly getSnapshot: () => Readonly<Record<string, unknown>>;
+	readonly captureProjectGeneration?: () => Readonly<{ generation: number; projectId: string }>;
 	readonly getTelemetrySnapshot: () => Readonly<Record<string, unknown>>;
 	readonly prepareNativeRenderInputStreamNativeMedia?: (request: unknown) => Promise<unknown>;
 }
@@ -23,12 +24,15 @@ export function createFramescaperControllerFoundationViewAssistance(
 	const actions = data(controller, 'actions', 'assistance controller actions');
 	const getSnapshot = operation(controller, 'getSnapshot');
 	const getTelemetrySnapshot = operation(controller, 'getTelemetrySnapshot');
+	const captureGeneration = typeof controller.captureProjectGeneration === 'function'
+		? controller.captureProjectGeneration as () => Readonly<{ generation: number; projectId: string }> : null;
 	return Object.freeze({
 		get project(): unknown {
 			return framescaperProjectNativeMediaFoundationShapeAssistance(foundationInput(
 				data(controller, 'project', 'Framescaper controller project'),
 			));
 		},
+		...(captureGeneration ? { captureProjectGeneration: () => captureGeneration.call(controller) } : {}),
 		actions: actions as Readonly<Record<string, unknown>>,
 		getSnapshot: () => getSnapshot.call(controller) as Readonly<Record<string, unknown>>,
 		getTelemetrySnapshot: () => getTelemetrySnapshot.call(controller) as Readonly<Record<string, unknown>>,

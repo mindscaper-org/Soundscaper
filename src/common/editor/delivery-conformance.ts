@@ -98,7 +98,12 @@ export async function conformDeliveredAudio(
 	];
 	const sampleFormat = plan.encoding?.sampleFormat;
 	if (typeof sampleFormat === 'string') {
-		findings.push(compare('delivery.conformance-sample-format', 'sampleFormat', sampleFormat, descriptor.sampleFormat));
+		// The reader's sample format chooses a physical PCM decoder. Extensible
+		// 20-bit delivery stores those valid bits in a left-aligned 24-bit word.
+		const deliveredSampleFormat = descriptor.encoding === 'pcm-integer'
+			&& descriptor.bitDepth === 24 && descriptor.validBitsPerSample === 20
+			? 'int20' : descriptor.sampleFormat;
+		findings.push(compare('delivery.conformance-sample-format', 'sampleFormat', sampleFormat, deliveredSampleFormat));
 	}
 	findings.push(channelMapFinding(descriptor));
 	// The plan's BEXT is not what the writer wrote when a delivery captured its

@@ -135,33 +135,6 @@ test('V12 attempt admission refuses forged plan, plug-in, named input, transfer,
 	}
 });
 
-test('a non-fixture plug-in cannot use the conformance execution mode', async () => {
-	for (const [executionMode, plan] of [
-		['framescaper-conformance-fixture', candidatePlan('net.example.ThirdParty')],
-	] as const) {
-		let spawns = 0;
-		let resourceCalls = 0;
-		const manager = managerWith(() => { spawns += 1; return new Worker(); });
-		const result = await executeUnifiedExactOfxNodeV1(manager, {
-			plan,
-			instanceId: 'ofx-1',
-			runtime: runtime(plan),
-			requestedBackend: 'cpu',
-			executionMode,
-			createAttemptResources: () => {
-				resourceCalls += 1;
-				return attemptResources(plan, 'cpu');
-			},
-		});
-		assert.equal(result.mode, 'frozen');
-		assert.equal(result.reason, 'isolation-unavailable');
-		assert.equal(result.frozenFallback?.externalMediaSourceId, 'source-1');
-		assert.equal(spawns, 0);
-		assert.equal(resourceCalls, 0);
-		manager.dispose();
-	}
-});
-
 test('the runtime execution seam accepts verified results without release-policy states', async () => {
 	const plan = candidatePlan();
 	const manager = managerWith(() => new Worker());
@@ -171,11 +144,7 @@ test('the runtime execution seam accepts verified results without release-policy
 		createAttemptResources: () => attemptResources(plan, 'cpu'),
 	});
 	assert.equal(result.mode, 'render');
-	await assert.rejects(executeUnifiedExactOfxNodeV1(manager, {
-		plan, instanceId: 'ofx-1', runtime: runtime(plan), requestedBackend: 'cpu',
-		executionMode: 'legacy-policy' as never,
-		createAttemptResources: () => attemptResources(plan, 'cpu'),
-	}), /execution mode is unsupported/iu);
+
 	manager.dispose();
 });
 

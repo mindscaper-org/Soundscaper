@@ -87,6 +87,12 @@ To explore these context shortcuts, open **Edit → Preferences → Keyboard
 shortcuts** and choose **Show keyboard**. Pick a context and modifier state,
 or hold a modifier key, then click a key to see its commands.
 
+To bring over your own Audacity 3 or 4 shortcuts, export the shortcut XML file
+from Audacity, then choose **Import Audacity shortcuts** on the same preferences
+page. Review the changes and skipped entries, then choose **Apply shortcuts**.
+Imported keys replace conflicting assignments; unrelated shortcuts stay as they
+are. **Reset shortcuts** restores Soundscaper’s defaults.
+
 ### Edit a clip’s source {#clip-source-properties}
 
 Choose **Window → Source monitor** to open the source waveform editor for the

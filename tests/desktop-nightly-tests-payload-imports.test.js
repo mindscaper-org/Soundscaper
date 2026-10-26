@@ -99,6 +99,36 @@ test('the nightly package carries the Nyquist archive fixtures read by its brows
 	}
 });
 
+test('the nightly package carries the RIFF text-boundary helper and its encoded media', async () => {
+	const filter = await readPackagedPayloadFilter();
+	for (const input of [
+		'tests/helpers/riff-info-length-fixtures.ts',
+		'tests/fixtures/ffmpeg-long-info.wav.gz.base64',
+		'tests/fixtures/ffmpeg-short-info.wav.gz.base64',
+	]) {
+		assert.ok(isStagedInput(input), `NIGHTLY_TEST_PAYLOAD_INPUTS is missing ${input}`);
+		const packaged = packagedPathOf(input);
+		assert.ok(packaged !== null && filter.some(pattern => matchesGlob(packaged, pattern)),
+			`the nightly-tests extraResources filter drops ${input}`);
+	}
+});
+
+test('the nightly package carries dynamically selected codec fixtures', async () => {
+	const inputs = [
+		'native/soundscaper-professional-host/tests/os_audio_codec_self_test.cpp',
+		'tests/fixtures/ffmpeg-ima-info.wav.base64',
+		'tests/fixtures/ffmpeg-mp3-info.wav.base64',
+		'tests/fixtures/ffmpeg-pcm-info.wav.base64',
+	];
+	const filter = await readPackagedPayloadFilter();
+	for (const input of inputs) {
+		assert.ok(isStagedInput(input), `NIGHTLY_TEST_PAYLOAD_INPUTS is missing ${input}`);
+		const packaged = packagedPathOf(input);
+		assert.ok(packaged !== null && filter.some(pattern => matchesGlob(packaged, pattern)),
+			`the nightly-tests extraResources filter drops ${input}`);
+	}
+});
+
 test('the nightly package retains every staged browser source-map input', async () => {
 	const sourceMapInputs = NIGHTLY_TEST_PAYLOAD_INPUTS
 		.filter(({ label }) => label.endsWith('source map input'));

@@ -8,7 +8,6 @@ import {
 	adaptNativeAudioInventory, isOpaqueNativeAudioHandle, nativeAudioChannelMap,
 	nativeAudioDeviceGroupId, nativeAudioDeviceId, type NativeAudioInventoryReport,
 } from '../src/common/editor/controller/recording/native-audio-inventory.ts';
-import * as session from '../src/common/editor/controller/recording/internal/native-audio/native-audio-session.ts';
 
 const INPUT_ID = 'native:alsa:in:hw:0,0';
 const OUTPUT_ID = 'native:alsa:out:hw:0,0';
@@ -37,14 +36,6 @@ test('a device id and channel map are pure functions of what main published', ()
 	assert.deepEqual(nativeAudioChannelMap(1), [{ index: 0, pairStart: null }]);
 	for (const absent of [0, -1, 1.5, undefined, '2']) assert.deepEqual(nativeAudioChannelMap(absent), []);
 	assert.equal(nativeAudioChannelMap(4_096).length, PLATFORM_TRANSFER_HARD_LIMITS.audioChunkChannels);
-});
-
-test('the session module re-exports this one surface rather than forking a second device model', () => {
-	assert.equal(session.adaptNativeAudioInventory, adaptNativeAudioInventory);
-	assert.equal(session.nativeAudioDeviceId, nativeAudioDeviceId);
-	assert.equal(session.nativeAudioDeviceGroupId, nativeAudioDeviceGroupId);
-	assert.equal(session.nativeAudioChannelMap, nativeAudioChannelMap);
-	assert.equal(session.isOpaqueNativeAudioHandle, isOpaqueNativeAudioHandle);
 });
 
 test('the inventory adapts into the existing rows and does not depend on enumeration order', () => {

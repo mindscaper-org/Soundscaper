@@ -65,7 +65,8 @@ export function createSelectedLabelClipboardService(d: Dependencies) {
 		const project = requireProject();
 		const refs = paste ? [] : selectedLabelsForProject(project, d.state);
 		if (refs.length && (action === 'copy' || CUT_ACTIONS.has(action))) {
-			const labels = refs.map(ref => readLabel(project, ref.trackId, ref.labelId)!);
+			const readSelectedLabel = selectedLabelReader(project);
+			const labels = refs.map(ref => readSelectedLabel(ref.trackId, ref.labelId)!);
 			const first = labels.reduce((frame, label) => Math.min(frame, label.startFrame), Number.MAX_SAFE_INTEGER);
 			const last = labels.reduce((frame, label) => Math.max(frame, label.endFrame), 0);
 			const descriptor = normalizeLabelClipboardDescriptor({ schemaVersion: 7, sampleRate: project.sampleRate,
@@ -134,6 +135,32 @@ function readLabel(project: Project, trackId: string, labelId: string) {
 	const track = project.tracks.find(track => isRecord(track) && track.id === trackId && track.type === 'label');
 	if (!isRecord(track) || !Array.isArray(track.labels)) return null;
 	const label: unknown = (track.labels as unknown[]).find(label => isRecord(label) && label.id === labelId);
+	return labelValue(label);
+}
+
+/** This index belongs to one clipboard command; subsequent edits read fresh records. */
+function selectedLabelReader(project: Project) {
+	const tracks = new Map<unknown, Record<string, unknown>>();
+	for (const track of project.tracks) if (isRecord(track) && track.type === 'label' && !tracks.has(track.id)) tracks.set(track.id, track);
+	const labelsByTrack = new Map<string, ReadonlyMap<unknown, Record<string, unknown>>>();
+	return (trackId: string, labelId: string) => {
+		let labels = labelsByTrack.get(trackId);
+		if (!labels) {
+			const track = tracks.get(trackId);
+			const indexed = new Map<unknown, Record<string, unknown>>();
+			for (const label of (Array.isArray(track?.labels) ? track.labels : []) as unknown[]) {
+				if (!isRecord(label)) continue;
+				const id = label.id;
+				if (!indexed.has(id)) indexed.set(id, label);
+			}
+			labelsByTrack.set(trackId, indexed);
+			labels = indexed;
+		}
+		return labelValue(labels.get(labelId));
+	};
+}
+
+function labelValue(label: unknown) {
 	if (!isRecord(label)) return null;
 	return { title: typeof label.title === 'string' ? label.title : '',
 		color: typeof label.color === 'string' ? label.color : 'auto',

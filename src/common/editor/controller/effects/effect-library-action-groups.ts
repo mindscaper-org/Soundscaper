@@ -35,7 +35,7 @@ export type EffectLibraryActionScope = Pick<EditorActionFunctions,
 	| 'timelineDurationFrames'
 	| 'beginMacroTransaction'
 > & Pick<EditorActionResources, 'effectLibraryState' | 'copy' | 'productId' | 'locale' | 'onMacroScriptLog' | 'macroScriptStartedAt' | 'startMacroScriptTask'> & {
-	readonly state: Pick<EditorActionResources['state'], 'selectedTrackId'>;
+	readonly state: Pick<EditorActionResources['state'], 'selectedTrackId' | 'projectAdministrationPending'>;
 	readonly getEditorActions?: () => Readonly<Record<string, unknown>> | null;
 	readonly selection: Pick<MacroCommandServiceRuntime, 'setExactSelection'>;
 };
@@ -56,13 +56,13 @@ export function createEffectPresetActions(
 		list: (effectType: string = state.audacityEffectType) => (
 			scope.listAudioEditorEffectPresets(state.effectPresets, effectType)
 		),
-		apply: restricted('audioEffects', scope.applyEffectPreset),
-		save: restricted('audioEffects', scope.saveEffectPreset),
-		saveAs: restricted('audioEffects', ((name: string, params: Readonly<Record<string, unknown>> = scope.currentAudacityEffectParams()) => (
+		apply: restricted('audioEffects', writableLibraryAction(scope, scope.applyEffectPreset)),
+		save: restricted('audioEffects', writableLibraryAction(scope, scope.saveEffectPreset)),
+		saveAs: restricted('audioEffects', writableLibraryAction(scope, (name: string, params: Readonly<Record<string, unknown>> = scope.currentAudacityEffectParams()) => (
 			scope.saveEffectPreset({ name, params })
 		))),
-		delete: restricted('audioEffects', scope.deleteEffectPreset),
-		import: restricted('audioEffects', scope.importEffectPresets),
+		delete: restricted('audioEffects', writableLibraryAction(scope, scope.deleteEffectPreset)),
+		import: restricted('audioEffects', writableLibraryAction(scope, scope.importEffectPresets)),
 		export: restricted('audioEffects', scope.exportEffectPreset),
 	});
 }
@@ -184,19 +184,19 @@ export function createEffectMacroActions(
 		})),
 		scripts: Object.freeze({
 			list: restricted('audioMacros', () => scripts.list()),
-			save: restricted('audioMacros', ((script: unknown) => scripts.save(script))),
-			delete: restricted('audioMacros', ((scriptId: string) => scripts.delete(scriptId))),
+			save: restricted('audioMacros', writableLibraryAction(scope, (script: unknown) => scripts.save(script))),
+			delete: restricted('audioMacros', writableLibraryAction(scope, (scriptId: string) => scripts.delete(scriptId))),
 			// Importing stores text and nothing else; enabling it is a separate act.
-			import: restricted('audioMacros', ((text: unknown, origin?: unknown) => scripts.import(text, origin))),
+			import: restricted('audioMacros', writableLibraryAction(scope, (text: unknown, origin?: unknown) => scripts.import(text, origin))),
 			export: restricted('audioMacros', ((scriptId: string) => scripts.export(scriptId))),
-			trust: restricted('audioMacros', ((scriptId: string) => scripts.trust(scriptId))),
+			trust: restricted('audioMacros', writableLibraryAction(scope, (scriptId: string) => scripts.trust(scriptId))),
 			blocked: (source: unknown) => scripts.blocked(String(source ?? '')),
 			flush: () => scripts.flush(),
 		}),
 		library: Object.freeze({
 			list: restricted('audioMacros', () => library.list()),
-			save: restricted('audioMacros', ((macro: unknown) => library.save(macro))),
-			delete: restricted('audioMacros', ((macroId: string) => library.delete(macroId))),
+			save: restricted('audioMacros', writableLibraryAction(scope, (macro: unknown) => library.save(macro))),
+			delete: restricted('audioMacros', writableLibraryAction(scope, (macroId: string) => library.delete(macroId))),
 			flush: () => library.flush(),
 		}),
 		/** Lets the facade hand back the assembled tree these commands walk. */
@@ -218,4 +218,16 @@ function readScriptRequest(
 	if (!source.trim()) throw new RangeError('A macro program needs source to run.');
 	const name = String(value.name ?? '').trim() || publishedCopyFor(scope.copy).untitledMacro || 'Untitled macro';
 	return Object.freeze({ name, source });
+}
+
+/** A library edit queued before reset admission must not repopulate its deleted settings. */
+function writableLibraryAction<Args extends unknown[], Result>(
+	scope: EffectLibraryActionScope, operation: (...args: Args) => Result,
+): (...args: Args) => Result {
+	return (...args) => {
+		if (scope.state.projectAdministrationPending) {
+			throw new DOMException('Local editor data is being cleared.', 'InvalidStateError');
+		}
+		return operation(...args);
+	};
 }

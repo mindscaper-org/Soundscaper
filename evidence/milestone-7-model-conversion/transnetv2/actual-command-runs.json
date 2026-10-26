@@ -12,13 +12,13 @@
       "--candidate",
       "transnetv2",
       "--plan-sha256",
-      "3dde5798e22c63aaffa082b07dc0103ab74b8c9decc694991d7a3b3151a71d04",
+      "4abfaecb0b50b64931a1a16fb1a79ac574c63d9dc2b870043ad2395e9abb37c6",
       "--source-manifest",
       "source-input-manifest.json",
       "--output-manifest",
       "converted-artifacts.json"
     ],
-    "program": "/home/splowatt/git/Soundscaper/.native-build/model-conversion/.venv/bin/python",
+    "program": "/home/splowatt/git/Soundscaper-security-alerts/scripts/models/milestone-7-conversion-tool/.venv/bin/python",
     "environment": [
       {
         "name": "CUBLAS_WORKSPACE_CONFIG",
@@ -49,8 +49,8 @@
         "value": "1"
       }
     ],
-    "started": "2026-09-30T19:18:47.607Z",
-    "ended": "2026-09-30T19:18:57.900Z",
+    "started": "2026-10-24T12:22:01.203016+00:00",
+    "ended": "2026-10-24T12:22:13.763420+00:00",
     "exitCode": 0
   },
   {
@@ -66,7 +66,7 @@
       "--candidate",
       "transnetv2",
       "--plan-sha256",
-      "3dde5798e22c63aaffa082b07dc0103ab74b8c9decc694991d7a3b3151a71d04",
+      "4abfaecb0b50b64931a1a16fb1a79ac574c63d9dc2b870043ad2395e9abb37c6",
       "--fixture",
       "parity-fixture.bin",
       "--source-runs",
@@ -80,9 +80,9 @@
       "--toolchain-lock",
       "uv.lock",
       "--toolchain-sha256",
-      "9d96681f5ad90a9b97f146fda4bc77bcc56a21bb0058705ab4e07c3c48dc9726"
+      "e0b28f4a23aa18c04e965cc943c0c66bfe31fccb6ea388ffceb80d988f39a49b"
     ],
-    "program": "/home/splowatt/git/Soundscaper/.native-build/model-conversion/.venv/bin/python",
+    "program": "/home/splowatt/git/Soundscaper-security-alerts/scripts/models/milestone-7-conversion-tool/.venv/bin/python",
     "environment": [
       {
         "name": "CUBLAS_WORKSPACE_CONFIG",
@@ -113,8 +113,8 @@
         "value": "1"
       }
     ],
-    "started": "2026-09-30T19:18:57.901Z",
-    "ended": "2026-09-30T19:19:10.878Z",
+    "started": "2026-10-24T12:22:13.763751+00:00",
+    "ended": "2026-10-24T12:22:30.515785+00:00",
     "exitCode": 0
   }
 ]

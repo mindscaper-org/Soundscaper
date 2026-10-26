@@ -173,16 +173,11 @@ test('prepared cancellation and Blob mode retain the legacy stem route', async (
 	assert.equal(offlineBlob.downloads.length, 1);
 });
 
-test('custom FFmpeg and 7z compressed stems remain on legacy delivery', async () => {
+test('custom FFmpeg compressed stems remain on legacy delivery', async () => {
 	const custom = actualPlan('custom-ffmpeg', {
 		extension: 'foo', mimeType: 'audio/x-foo', customArguments: ['-c:a', 'copy'],
 	});
-	const sevenZip = structuredClone(actualPlan('mp3'));
-	sevenZip.archive = {
-		...sevenZip.archive, format: '7z', fileName: 'session-stems.7z',
-		mimeType: 'application/x-7z-compressed',
-	};
-	for (const [label, plan] of [['custom', custom], ['7z', sevenZip]] as const) {
+	for (const [label, plan] of [['custom', custom]] as const) {
 		const fixture = serviceFixture({ plan, requestedSettings: { mode: 'stems', format: plan.format } });
 		const result = await fixture.service.handleExportAction('export', fixture.requestedSettings);
 		assert.equal(captureDirectCompressedStemArchiveContract(plan as never), null, label);

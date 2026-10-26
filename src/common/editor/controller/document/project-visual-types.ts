@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { VideoTimingIndex } from '../../video-timing-asset.ts';
+import type { PrepareSpectrogramProcessedPcm } from '../../spectrogram-processed-pcm-contract.ts';
 
 /**
  * What the project visual service reads, and what it hands back.
@@ -133,6 +134,7 @@ export interface VideoVisualRecord {
 }
 
 export interface ClipVisualData {
+	readonly prepareSpectrogramPcm?: PrepareSpectrogramProcessedPcm;
 	readonly clip: ProjectVisualClip;
 	readonly track: ProjectVisualTrack | null;
 	readonly source: ProjectVisualSource | null;
@@ -161,6 +163,7 @@ export interface VideoSourceVisualData {
 }
 
 export interface ProjectVisualServiceDependencies {
+	prepareSpectrogramPcm?(project: ProjectVisualProject, clip: ProjectVisualClip, source: ProjectVisualSource): PrepareSpectrogramProcessedPcm | undefined;
 	getProject(): ProjectVisualProject | null;
 	captureProject(projectId: string): unknown;
 	assertProject(token: unknown): void;
@@ -180,6 +183,7 @@ export interface ProjectVisualServiceDependencies {
 }
 
 export interface ProjectVisualService {
+	synchronizeVideoSources(): Promise<boolean>;
 	getClipVisualData(clipId: string): Readonly<ClipVisualData> | null;
 	getProjectBinClipVisualData(clipId: string): Readonly<ClipVisualData> | null;
 	getVideoSourceVisualData(sourceId: string): Readonly<VideoSourceVisualData> | null;

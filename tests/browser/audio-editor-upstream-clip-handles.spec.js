@@ -29,6 +29,39 @@ test('right stretch arrows follow their direction and Alt+S reaches the playhead
 	await expect(fadeOut).toHaveAttribute('aria-valuemax', '0.8');
 });
 
+for (const kind of ['Trim', 'Stretch']) for (const edge of ['left', 'right']) {
+	test(`${kind} ${edge} release without a final move produces one undoable edit`, async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [toneA]);
+		const clip = clipByName(editor, toneA.name);
+		const duration = clip.getByRole('slider', { name: 'Fade out', exact: true });
+		await clip.hover();
+		const handle = clip.getByRole('button', { name: `${kind} ${edge} edge`, exact: true });
+		await handle.hover();
+		const box = await handle.boundingBox();
+		expect(box).not.toBeNull();
+		const x = box.x + box.width / 2;
+		const y = box.y + box.height / 2;
+		// A press and release alone must not add an undo state.
+		await page.mouse.down();
+		await page.mouse.up();
+		await expect(duration).toHaveAttribute('aria-valuemax', '0.8');
+		await page.mouse.move(x, y);
+		await page.mouse.down();
+		await page.mouse.move(x + (edge === 'left' ? 18 : -18), y, { steps: 3 });
+		await page.mouse.up();
+		await expect(duration).not.toHaveAttribute('aria-valuemax', '0.8');
+		const edited = await duration.getAttribute('aria-valuemax');
+		await chooseCommandAction(page, editor, 'Edit', 'Undo');
+		await expect(duration).toHaveAttribute('aria-valuemax', '0.8');
+		await chooseCommandAction(page, editor, 'Edit', 'Redo');
+		await expect(duration).toHaveAttribute('aria-valuemax', edited);
+		await chooseCommandAction(page, editor, 'Edit', 'Undo');
+		await chooseCommandAction(page, editor, 'Edit', 'Undo');
+		await expect(clip).toHaveCount(0);
+	});
+}
+
 for (const height of [54, 60]) test(`trim and stretch handles remain reachable inside a ${height}px collapsed clip`, async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [toneA]);

@@ -14,6 +14,7 @@ import AudioEditorWorkspaceView from './AudioEditorWorkspaceView.jsx';
 import { resolveWorkspaceRuntimeProjection } from './workspace-runtime-projection.ts';
 import { workspaceStatusPresentation } from './workspace-status-presentation.ts';
 import { withDesktopProjectReadDescriptor } from './desktop-project-file-routing.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { openDesktopWorkspaceFiles } from './desktop-workspace-file-choice.ts';
 import { workspacePreferencesPage } from './workspace-preferences-routing.ts';
 import { focusOpenedWorkspacePanel } from './workspace-panel-opening-focus.ts';
@@ -41,6 +42,7 @@ import { supportsDisplayAudioCapture } from '../../recording-display-input.ts';
 import { focusedRecordingTrackId, hasLockedRecordingTarget } from '../../recording-target-admission.ts';
 import { importWorkspaceRoutedFiles } from './import-workspace-routed-files.ts';
 import { openWorkspaceProjectFile } from './open-workspace-project-file.ts';
+import { createLegacyAupDirectorySelection } from './legacy-aup-directory-selection.ts';
 import { desktopExternalDestination } from '../workspace-runtime.js'; import { createTimedRecordingDialogValue } from '../dialogs/timed-recording-dialog-model.ts';
 import { useTrackHeaderDrawerFlag, useWorkspaceCompactLayout } from './useWorkspaceCompactLayout.js';
 import { useWorkspaceEffectsPanel } from './useWorkspaceEffectsPanel.js';
@@ -89,7 +91,11 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	const { cueImportDialog, importInputRef, requestCueImport } = useCueImportWorkspace(controller, snapshot.project?.id);
 	const aup4InputRef = useRef(null);
 	const legacyDataInputRef = useRef(null);
-	const pendingLegacyProjectRef = useRef(null);
+	const legacyProjectSelection = useMemo(() => createLegacyAupDirectorySelection({
+		getProjectSessionKey: () => editorProjectEditSessionKey(controller, controller.getSnapshot().project?.id),
+		chooseDirectory: () => legacyDataInputRef.current?.click(),
+		importFiles: files => controller.actions.project.importFiles(files),
+	}), [controller]);
 	const editorRef = useRef(null);
 	const workspaceRef = useRef(null);
 	const {
@@ -218,10 +224,8 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		controller.actions.project.openScapeFile(file, requestScapeOpenDecision)
 	), [controller, requestScapeOpenDecision]);
 	const openProjectFile = useCallback((file, desktopSesx = false) => openWorkspaceProjectFile(
-		controller, file, openScapeProjectFile, (legacyFile) => {
-			pendingLegacyProjectRef.current = legacyFile;
-			legacyDataInputRef.current?.click();
-		}, desktopSesx, (cueFile, prepareProject) => requestCueImport(cueFile, controller.getSnapshot().project?.id, prepareProject)), [controller, openScapeProjectFile, requestCueImport]);
+		controller, file, openScapeProjectFile, legacyProjectSelection.choose,
+		desktopSesx, (cueFile, prepareProject) => requestCueImport(cueFile, controller.getSnapshot().project?.id, prepareProject)), [controller, legacyProjectSelection, openScapeProjectFile, requestCueImport]);
 	const openDesktopProjectDescriptor = useCallback((descriptor) => withDesktopProjectReadDescriptor(
 		fileService,
 		descriptor,
@@ -236,6 +240,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	});
 	const openDesktopFiles = useCallback((purpose, multiple = false, importOptions = {}) => openDesktopWorkspaceFiles({
 		getProjectId: () => controller.getSnapshot().project?.id ?? null,
+		getProjectSessionKey: () => editorProjectEditSessionKey(controller, controller.getSnapshot().project?.id),
 		fileService, importFiles: importRoutedFiles, openProjectDescriptor: openDesktopProjectDescriptor,
 	}, purpose, multiple, importOptions), [controller, fileService, importRoutedFiles, openDesktopProjectDescriptor]);
 	const { clipPropertiesFocusRequest, openClipPropertiesSurface } = useWorkspaceClipPropertiesPanel({
@@ -265,7 +270,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	const recordingTargetLocked = hasLockedRecordingTarget(project,
 		focusedRecordingTrackId(project, snapshot.selectedTrackId, showArmControls), snapshot.recordingInputs?.routes);
 	const editItems = createWorkspaceEditItems({
-		copy, editBlocked, editSelectionActive, selectedLabels: snapshot.selectedLabels, hasClipboard: Boolean(snapshot.history?.hasClipboard), splitAvailable: editingActions.split,
+		copy, editBlocked, copyBlocked: blocked, editSelectionActive, selectedLabels: snapshot.selectedLabels, hasClipboard: Boolean(snapshot.history?.hasClipboard), splitAvailable: editingActions.split,
 		pasteTargetLocked: Boolean(snapshot.history?.pasteTargetLocked),
 	});
 
@@ -495,7 +500,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		openProjectFile,
 		openSurface,
 		parityRuntime,
-		pendingLegacyProjectRef,
+		legacyProjectSelection,
 		playbackMeterSettings,
 		project,
 		runtimeProject,

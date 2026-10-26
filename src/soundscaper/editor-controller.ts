@@ -139,7 +139,7 @@ export function createSoundscaperAudioEditorController(
 	});
 	productController = createControllerFacade(
 		delegate, automation, freeze, createSoundscaperNativePluginActions(delegate), persistentDelivery,
-		bindSoundscaperProjectRecovery(environment.controllerStore, (project) => delegate.actions.project.open(project)),
+		bindSoundscaperProjectRecovery(environment.controllerStore, (project) => delegate.actions.project.open(project), delegate),
 	);
 	return productController;
 }

@@ -13,11 +13,12 @@ const EAR_PATHS = {
 };
 
 export function TimelineLabelChrome({ text, point, width, stalkHeight, metrics, trackColor,
-	selected, leftNeighbor, rightNeighbor, leftNeighborSelected, onGesture, onSelect, onEdit, editing, children }) {
+	selected, leftNeighbor, rightNeighbor, leftNeighborSelected, onGesture, onPointerGesture, onSelect, onEdit, editing, children }) {
 	const color = COLORS[trackColor] || (/^#[\da-f]{3,8}$/iu.test(trackColor || '') ? trackColor : COLORS.blue);
 	const bannerLeft = point ? metrics.earWidth + metrics.pointFlagGap : 0;
 	const ear = (side, left) => <div className={`label-marker__${side}-ear`}
-		data-label-ear={side} style={{ left, width: metrics.earWidth, height: metrics.earHeight }} onMouseDown={(event) => onGesture(event, side)}>
+		data-label-ear={side} style={{ left, width: metrics.earWidth, height: metrics.earHeight }} onMouseDown={(event) => onGesture(event, side)}
+		onPointerDown={(event) => onPointerGesture?.(event, side)}>
 		<svg width={metrics.earWidth} height={metrics.earHeight} viewBox="0 0 7 14" preserveAspectRatio="none" aria-hidden="true">
 			<path d={EAR_PATHS[side]} />
 		</svg>
@@ -25,6 +26,7 @@ export function TimelineLabelChrome({ text, point, width, stalkHeight, metrics, 
 	const stalk = (side, left, shared) => <div className={`label-marker__${side}-stalk`}
 		data-label-stalk={side} data-shared-boundary={shared ? 'true' : undefined}
 		style={{ left: left - 4, height: stalkHeight, cursor: point && !shared ? 'move' : 'ew-resize' }}
+		onPointerDown={(event) => onPointerGesture?.(event, shared ? `shared-${side}` : point ? 'move-point' : side)}
 		onMouseDown={(event) => onGesture(event, shared ? `shared-${side}` : point ? 'move-point' : side)}>
 		<div className="label-marker__stalk-line" />
 	</div>;
@@ -40,6 +42,11 @@ export function TimelineLabelChrome({ text, point, width, stalkHeight, metrics, 
 		</>}
 		<div className="label-marker__label-box" data-label-banner
 			style={{ left: bannerLeft, width }}
+			onPointerDown={(event) => {
+				if (event.pointerType === 'mouse' || event.button !== 0 || event.isPrimary === false || editing) return;
+				onSelect(event);
+				onPointerGesture?.(event, 'move');
+			}}
 			onMouseDown={(event) => {
 				if (event.button !== 0 || editing) return;
 				onSelect(event);

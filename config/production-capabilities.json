@@ -270,6 +270,7 @@
 			],
 			"projectFeatures": {
 				"assistanceAssets": true,
+				"literalJsonKeys": true,
 				"project": true,
 				"projectBin": true,
 				"audioImport": true,
@@ -308,6 +309,8 @@
 				"audioWarp": true,
 				"sequenceTiming": true,
 				"timelineImages": false,
+				"timelineImagePhase": false,
+				"timelineImageHoldPhase": false,
 				"videoRetime": false,
 				"videoCaptions": false,
 				"videoColorManagement": false,
@@ -668,6 +671,7 @@
 			],
 			"projectFeatures": {
 				"assistanceAssets": true,
+				"literalJsonKeys": true,
 				"project": true,
 				"projectBin": true,
 				"audioImport": true,
@@ -706,6 +710,8 @@
 				"audioWarp": false,
 				"sequenceTiming": true,
 				"timelineImages": true,
+				"timelineImagePhase": true,
+				"timelineImageHoldPhase": true,
 				"videoRetime": true,
 				"videoCaptions": true,
 				"videoColorManagement": true,

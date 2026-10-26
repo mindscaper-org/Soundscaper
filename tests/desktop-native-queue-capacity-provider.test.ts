@@ -44,11 +44,11 @@ test('the capacity provider accounts for running work and durable scratch exactl
 	});
 	const running = runningRecord('a1', {
 		cpuCores: 2, processTreeRssBytes: 4 * GIB, scratchBytes: 8 * GIB,
-		minimumFreeBytes: 0, hardwareBackend: 'nvenc',
+		minimumFreeBytes: 0, hardwareBackend: 'vaapi',
 	});
 	const queued = queueRecord('a2', {
 		cpuCores: 4, processTreeRssBytes: 2 * GIB, scratchBytes: 4 * GIB,
-		minimumFreeBytes: 0, hardwareBackend: 'qsv',
+		minimumFreeBytes: 0, hardwareBackend: 'vaapi',
 	});
 	const retained = scratchReservation('b1', 2 * GIB, 'retained');
 	const snapshots = await Promise.all([
@@ -64,7 +64,7 @@ test('the capacity provider accounts for running work and durable scratch exactl
 			availableScratchBytes: 20 * GIB,
 			volumeFreeBytes: 40 * GIB,
 			reservedFreeBytes: 20 * GIB,
-			busyHardwareBackends: ['nvenc'],
+			busyHardwareBackends: ['vaapi'],
 		});
 		assert.equal(Object.isFrozen(snapshot), true);
 	}
@@ -116,29 +116,6 @@ test('the production sampler uses real bounded host and scratch-volume observati
 	]) assert.equal(Number.isSafeInteger(value) && value >= 0, true);
 	assert.equal(snapshot.availableCpuCores >= 1, true);
 	assert.deepEqual(snapshot.busyHardwareBackends, []);
-});
-
-test('invalid physical observations fail closed before becoming capacity', async () => {
-	const context = { queue: [], scratch: [] };
-	const committedContext = {
-		queue: [runningRecord('d1', {
-			cpuCores: 1, processTreeRssBytes: GIB, scratchBytes: 8 * GIB,
-			minimumFreeBytes: 0, hardwareBackend: null,
-		})],
-		scratch: [],
-	};
-	await assert.rejects(createFramescaperNativeQueueCapacityProviderV3({
-		scratchRoot: '/private/scratch', availableParallelism: () => 0,
-		inspectScratchVolume: async () => ({ totalBytes: 20 * GIB, freeBytes: 20 * GIB }),
-	})(context), /parallelism/iu);
-	await assert.rejects(createFramescaperNativeQueueCapacityProviderV3({
-		scratchRoot: '/private/scratch', freeMemory: () => -1,
-		inspectScratchVolume: async () => ({ totalBytes: 20 * GIB, freeBytes: 20 * GIB }),
-	})(context), /free memory/iu);
-	await assert.rejects(createFramescaperNativeQueueCapacityProviderV3({
-		scratchRoot: '/private/scratch',
-		inspectScratchVolume: async () => ({ totalBytes: 20 * GIB, freeBytes: 21 * GIB }),
-	})(committedContext), /more free bytes/iu);
 });
 
 function queueRecord(

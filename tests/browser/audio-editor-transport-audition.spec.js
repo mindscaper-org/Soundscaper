@@ -198,7 +198,7 @@ test.describe('transport audition shortcuts', () => {
 		await expect(menu.getByRole('button', { name: 'Pause recording' })).toHaveCount(0);
 		await page.keyboard.press('Escape');
 		await playOptions(editor).click();
-		playMenu = page.getByRole('menu', { name: 'Pause options', exact: true });
+		playMenu = page.getByRole('menu', { name: 'Play options', exact: true });
 		await expect(menuItem(playMenu, 'Pause recording').locator('.context-menu-item-shortcut')).toHaveText('P');
 		await page.keyboard.press('Escape');
 		await editor.getByRole('button', { name: 'Stop', exact: true }).click();

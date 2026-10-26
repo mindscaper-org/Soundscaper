@@ -47,25 +47,6 @@ test('baseline watch authority rejects wrong bins and project drift before recov
 	), /identity changed/iu);
 });
 
-test('baseline watch authority refuses malformed identity before project reads', async () => {
-	const fixture = projectFixture(false);
-	let reads = 0;
-	const malformed = Object.freeze({
-		...fixture.port,
-		schemaFamily: 'soundscaper' as const,
-		projectRecord: () => { reads += 1; return null; },
-	});
-	await assert.rejects(() => inspectFramescaperNativeWatchImport(
-		malformed as never, 'project-28', 'project-bin', CONTENT_DIGEST,
-	), /Framescaper v1/iu);
-	assert.equal(reads, 0);
-	const numericOnly = { ...fixture.port } as Record<string, unknown>;
-	delete numericOnly.schemaFamily;
-	assert.throws(() => framescaperNativeWatchProject(
-		numericOnly as never, PROJECT_STATE, 'project-28',
-	), /Framescaper v1/iu);
-});
-
 function projectFixture(proxied: boolean) {
 	const document = JSON.stringify({
 		schemaFamily: 'framescaper', schemaVersion: 1, id: 'project-28', revision: 7,

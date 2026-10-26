@@ -91,6 +91,7 @@ export interface ImportVideoFrameExtractor {
 		readonly height: number;
 	}>;
 	capture(timestampSeconds: number, options?: Readonly<{
+		readonly signal?: AbortSignal;
 		readonly maximumWidth?: number;
 		readonly maximumHeight?: number;
 		readonly alpha?: boolean;
@@ -99,6 +100,7 @@ export interface ImportVideoFrameExtractor {
 }
 
 export interface ImportVideoAudioContext {
+	readonly sampleRate?: number;
 	createBuffer(channelCount: number, length: number, sampleRate: number): AudioBufferLike;
 }
 
@@ -215,6 +217,7 @@ export interface ImportVideoRuntime {
 		context: ImportVideoAudioContext,
 		targetSampleRate: number,
 		copy: ImportVideoCopy,
+		options?: Readonly<{ preserveChannels?: boolean }>,
 	): PromiseLike<AudioBufferLike>;
 	commit(
 		command: AudioEditorCommand,
@@ -222,8 +225,8 @@ export interface ImportVideoRuntime {
 	): unknown;
 	createAddClipCommand(trackId: string, clip: CommandFactoryValue): AddClipCommand;
 	createAddSourceCommand(source: CommandFactoryValue): AddSourceCommand;
-	createAddTrackCommand(track: CommandFactoryValue): AddTrackCommand;
-	createAudioEditorVideoFrameExtractor(file: ImportVideoMedia): Awaitable<ImportVideoFrameExtractor>;
+	createAddTrackCommand(track: CommandFactoryValue, projectSampleRate?: number): AddTrackCommand;
+	createAudioEditorVideoFrameExtractor(file: ImportVideoMedia, options?: Readonly<{ signal?: AbortSignal }>): Awaitable<ImportVideoFrameExtractor>;
 	createStableId(prefix: string): string;
 	captureProject(): EditorProjectToken;
 	findTrack(project: ImportVideoProject, trackId: string): ImportVideoTrack | null;

@@ -248,8 +248,8 @@ export const Knob: React.FC<KnobProps> = ({
     const deltaY = dragStartYRef.current - e.clientY;
     const sensitivity = (max - min) / 200;
     const deltaValue = (Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY) * sensitivity;
-    let newValue = dragStartValueRef.current + deltaValue;
-    newValue = Math.round(newValue / step) * step;
+    let newValue = deltaValue === 0 ? dragStartValueRef.current
+      : Math.round((dragStartValueRef.current + deltaValue) / step) * step;
     newValue = Math.max(min, Math.min(max, newValue));
 
     gestureValueRef.current = newValue;

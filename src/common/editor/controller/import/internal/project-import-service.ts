@@ -47,7 +47,7 @@ export function createProjectImportService(
 	const service = () => {
 		servicePromise ??= loadRuntime().then(({ createProjectImportServiceRuntime: createRuntime }) => (
 			createRuntime(runtime)
-		));
+		)).catch((error: unknown) => { servicePromise = null; throw error; });
 		return servicePromise;
 	};
 	const importFile: ProjectImportServiceRuntime['importFile'] = async (

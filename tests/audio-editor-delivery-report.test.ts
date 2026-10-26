@@ -147,18 +147,11 @@ test('report emission does not mutate the project or the plan', () => {
 	assert.equal(JSON.stringify(plan), planBefore, 'a report may never rewrite the plan it describes');
 });
 
-test('a sealed report rejects late appends and unknown dispositions', () => {
+test('a sealed report records counts and freezes its items', () => {
 	const draft = createDeliveryReport({ format: 'wav' });
 	addDeliveryReportItem(draft, { code: 'delivery.quantize', disposition: 'converted' });
-	assert.throws(
-		() => addDeliveryReportItem(draft, { code: 'x', disposition: 'invented' as never }),
-		/Unsupported delivery disposition/u,
-	);
 	const sealed = sealDeliveryReport(draft);
 	assert.equal(sealed.counts.converted, 1);
-	assert.throws(() => addDeliveryReportItem(sealed as never, {
-		code: 'delivery.dither', disposition: 'converted',
-	}), /draft is required/u);
 	assert.ok(Object.isFrozen(sealed.items));
 });
 

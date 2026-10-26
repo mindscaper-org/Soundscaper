@@ -94,23 +94,3 @@ export const SOUNDSCAPER_NATIVE_SERVICES_COPY = Object.freeze({
 	clearByRescan: 'Clear and rescan',
 	clearByReEnable: 'Clear and re-enable',
 });
-
-export const SOUNDSCAPER_NATIVE_SERVICES_GERMAN_COPY = Object.freeze({
-	pluginFolders: 'Plugin-Ordner',
-	pluginFoldersHelp: 'Diese Ordner werden beim Öffnen des Desktop-Editors durchsucht. Deaktiviere die Plugin-Suche, um eine Suche abzubrechen und die automatische Suche zu stoppen.',
-	pluginScanningOff: 'Die Plugin-Suche ist deaktiviert.',
-	pluginScanningEnabled: 'Plugin-Suche aktivieren',
-	pluginFormatAudioUnits: 'Audio Units',
-	pluginFormatVamp: 'Vamp',
-	customPluginPaths: 'Zusätzliche Pfade',
-	noCustomPluginPaths: 'Keine zusätzlichen Pfade.',
-	addPluginPath: 'Pfad hinzufügen',
-	removePluginPath: 'Pfad entfernen',
-	scanPluginFolders: 'Nach Plugins suchen',
-	pluginScanToastRunning: 'Plugins werden gesucht',
-	pluginScanToastComplete: 'Plugin-Suche abgeschlossen',
-	pluginScanToastCancelled: 'Plugin-Suche abgebrochen',
-	pluginScanToastFailed: 'Plugin-Suche benötigt Aufmerksamkeit',
-	pluginScanToastProgress: '{completed} von {total} Ordnern durchsucht',
-	pluginScanToastPreferences: 'Einstellungen zur Plugin-Suche',
-});

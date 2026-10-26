@@ -109,7 +109,9 @@ export const ClipHeader: React.FC<ClipHeaderProps> = ({
 }) => {
   const [isRenaming, setIsRenaming] = React.useState(false);
   const [renameDraft, setRenameDraft] = React.useState(name);
-  const renameInputRef = React.useRef<HTMLInputElement>(null);
+  const renameInputRef = React.useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const multilineName = /[\r\n]/u.test(name);
+  const RenameInput = multilineName ? 'textarea' : 'input';
   const consumedRenameRequestRef = React.useRef<number | undefined>(undefined);
   // The callback a rename commits through is the one that existed when the
   // rename began. A host that withdraws onRename while the editor is busy
@@ -239,14 +241,15 @@ export const ClipHeader: React.FC<ClipHeaderProps> = ({
       )}
       <div className="clip-header__content">
         {isRenaming ? (
-          <input
-            ref={renameInputRef}
+          <RenameInput
+            ref={(element: HTMLInputElement | HTMLTextAreaElement | null) => { renameInputRef.current = element; }}
             className="clip-header__name-input"
             value={renameDraft}
-            onChange={(e) => setRenameDraft(e.target.value)}
-            onKeyDown={(e) => {
+            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setRenameDraft(e.target.value)}
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
               e.stopPropagation();
               if (e.nativeEvent?.isComposing) return;
+              if (multilineName && e.key === 'Enter' && e.shiftKey) return;
               if (e.key === 'Enter') {
                 e.preventDefault();
                 const clip = e.currentTarget.closest<HTMLElement>('[data-clip-id]');
@@ -259,7 +262,7 @@ export const ClipHeader: React.FC<ClipHeaderProps> = ({
                 clip?.focus({ preventScroll: true });
               }
             }}
-            onBlur={(e) => commitRename(e.currentTarget.value)}
+            onBlur={(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => commitRename(e.currentTarget.value)}
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             aria-label="Clip name"

@@ -66,16 +66,16 @@ test('a frame count becomes a whole multiple of the frame duration', () => {
 	assert.equal(frameTime(30_000, NTSC), '1001s');
 });
 
-test('every emitted duration is a whole number of frames', () => {
-	// A duration that is not a multiple of frameDuration is a clip starting
-	// mid-frame, which FCP cannot represent and will silently move.
+test('video and sequence durations are whole frames while audio keeps its own clock', () => {
 	const { text } = createFcpxmlExport({ project: project(), sequenceRate: NTSC });
-	for (const match of text.matchAll(/duration="(\d+)(?:\/(\d+))?s"/gu)) {
+	const video = text.replaceAll(/<asset-clip[^>]*srcEnable="audio"[^>]*\/>/gu, '');
+	for (const match of video.matchAll(/duration="(\d+)(?:\/(\d+))?s"/gu)) {
 		const numerator = Number(match[1]);
 		const denominator = match[2] ? Number(match[2]) : 1;
 		const frames = (numerator * 30_000) / (denominator * 1_001);
 		assert.ok(Number.isInteger(frames), `duration ${match[0]} is not a whole frame count`);
 	}
+	assert.match(text, /<asset-clip[^>]*srcEnable="audio"[^>]*duration="1s"/u);
 });
 
 test('one asset is written per source identity, however often it is used', () => {
@@ -207,7 +207,7 @@ test('serialization is deterministic and the export refuses a guessed rate', () 
 
 test('simultaneous tracks go to connected lanes, not on top of each other in the spine', () => {
 	// A spine is a single sequential lane. Two clips sharing offset="0s" in it
-	// is not a second track, it is a malformed first one — so the first video
+	// is not a second track, it is a malformed first one — so the lowest video
 	// track is the spine and everything simultaneous with it is connected:
 	// further video above at 1, 2, ..., audio below at -1, -2, ...
 	const result = createFcpxmlExport({
@@ -238,8 +238,8 @@ test('simultaneous tracks go to connected lanes, not on top of each other in the
 		.map((match) => ({ name: match[1], lane: match[2] ?? '0' }));
 	assert.deepEqual(
 		clips,
-		[{ name: 'A', lane: '0' }, { name: 'B', lane: '1' }, { name: 'C', lane: '-1' }],
-		'the primary video track is the spine; video stacks above and audio below',
+		[{ name: 'B', lane: '0' }, { name: 'A', lane: '1' }, { name: 'C', lane: '-1' }],
+		'the lowest picture track is the spine; the foreground stacks above and audio below',
 	);
 });
 

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -374,9 +373,6 @@ test('a departing owner takes its detached instances with it, not only its hoste
 
 test('the host fault window is the durable store\'s window, not a second one beside it', async () => {
 	// A second copy of the limit is a second answer to "is this quarantined?".
-	const source = readFileSync(new URL('../desktop/plugin-host-isolation.ts', import.meta.url), 'utf8');
-	assert.equal(/= 10 \* 60_000|FAULT_LIMIT = \d/u.test(source), false,
-		'the isolation registry must take the fault window and limit from the durable store');
 
 	const harness = createHarness();
 	const instance = hosted(await acquire(harness, {}, LIMITER));

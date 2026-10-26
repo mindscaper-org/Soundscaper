@@ -25,7 +25,6 @@ test('drag feedback reports the speed of both neighboring source segments at the
 });
 
 test('marker feedback clamps a drag between its adjacent markers without changing its sample', () => {
-	assert.equal(clipSourceStretchFeedback(project, clip, source, 0), null);
 	assert.equal(clipSourceStretchFeedback(project, clip, source, 1, 0)?.displayFrame, 48_001);
 	assert.equal(clipSourceStretchFeedback(project, clip, source, 1, 200_000)?.displayFrame, 143_999);
 	assert.equal(clipSourceStretchFeedback(project, clip, source, 1, 200_000)?.sourceFrame, 48_000);

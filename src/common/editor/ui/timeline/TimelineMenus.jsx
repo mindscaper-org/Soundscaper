@@ -287,13 +287,13 @@ export function TimelineMenus({
 				<ManifestContextMenuItem
 					actionId={AUDACITY_CLIP_CONTEXT_ACTION_IDS.properties}
 					label={copy.clipPropertiesCommand}
-					disabled={!menuClip || (menuClip.kind !== 'audio' && menuClip.kind !== 'video')}
+					disabled={!menuClip || !['audio', 'video', 'image', 'generator'].includes(menuClip.kind)}
 					disabledReason={unavailableReason}
 					locale={contextLocale}
 					onClick={() => {
 						if (!menuClip) return;
 						if (!project.selection?.clipIds?.includes(menuClip.id)) run(() => controller.actions.timeline.selectClip(menuClip.id));
-						const clipElement = document.querySelector(`[data-clip-id="${menuClip.id}"]`);
+						const clipElement = document.querySelector(`[data-clip-id="${CSS.escape(menuClip.id)}"]`);
 						clipElement?.focus?.({ preventScroll: true });
 						onOpenClipProperties?.(menuClip.id);
 					}}

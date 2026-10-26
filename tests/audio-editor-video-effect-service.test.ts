@@ -8,6 +8,7 @@ import { EffectGestureTargetChangedError } from '../src/common/editor/controller
 import { EditorProjectChangedError, EditorProjectGeneration } from '../src/common/editor/controller/shared/lifecycle.ts';
 import {
 	createVideoEffectService,
+	videoEffectGestureKey,
 	type ControllerVideoEffect,
 	type VideoEffectControllerState,
 	type VideoEffectProject,
@@ -160,7 +161,7 @@ test('video effect gestures preview transient params, commit once, and cancel cl
 		blockSize: 32,
 	});
 	assert.equal(harness.project.clips[0]?.videoEffects?.[0]?.params.blockSize, 16);
-	assert.equal(state.videoEffectGestures.get('clip-1:video-effect-1')?.params.blockSize, 32);
+	assert.equal(state.videoEffectGestures.get(videoEffectGestureKey('clip-1', 'video-effect-1'))?.params.blockSize, 32);
 
 	service.commitVideoEffectGesture('clip-1', 'video-effect-1');
 	assert.equal(harness.commands.length, 1);

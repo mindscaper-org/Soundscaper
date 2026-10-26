@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import React, { useId, useRef, useState } from 'react';
+import React, { useId, useMemo, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 
@@ -8,6 +8,7 @@ import { MUSESCORE_ICON_CODES, iconNameToChar } from '../../audacity-iconcodes.j
 import type { CustomToolbarButton } from '../../custom-toolbar-buttons.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import type { CustomToolbarButtonAction } from '../toolbar/custom-toolbar-button-actions.ts';
+import { prepareCustomToolbarActionSearch, prepareCustomToolbarSymbolSearch } from './custom-toolbar-button-search.ts';
 import './CustomToolbarButtonDialog.css';
 
 interface Props {
@@ -19,7 +20,7 @@ interface Props {
 	readonly onClose: () => void;
 }
 
-const SYMBOLS = Object.keys(MUSESCORE_ICON_CODES);
+const SYMBOLS = Object.freeze(Object.keys(MUSESCORE_ICON_CODES));
 
 export default function CustomToolbarButtonDialog({ button, copy, actions, onSave, onRemove, onClose }: Props) {
 	const formId = useId();
@@ -32,9 +33,11 @@ export default function CustomToolbarButtonDialog({ button, copy, actions, onSav
 	const [saving, setSaving] = useState(false);
 	const savingRef = useRef(false);
 	const [failure, setFailure] = useState('');
-	const matchingActions = actions.filter((action) => `${action.path.join(' ')} ${action.actionId}`.toLowerCase().includes(actionSearch.trim().toLowerCase()));
+	const findActions = useMemo(() => prepareCustomToolbarActionSearch(actions), [actions]);
+	const matchingActions = findActions(actionSearch);
 	const selectedAction = actions.find((action) => action.actionId === actionId);
-	const matchingSymbols = SYMBOLS.filter((symbol) => symbol.replaceAll('_', ' ').toLowerCase().includes(symbolSearch.trim().replaceAll('_', ' ').toLowerCase()));
+	const findSymbols = useMemo(() => prepareCustomToolbarSymbolSearch(SYMBOLS), []);
+	const matchingSymbols = findSymbols(symbolSearch);
 	const canSave = name.trim().length > 0 && Boolean(selectedAction) && !saving;
 	const persist = (operation: () => Promise<unknown>) => {
 		if (savingRef.current) return;

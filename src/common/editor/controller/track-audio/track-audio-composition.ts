@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { takeCompContentRange } from '../../take-comp-content-range.ts';
 import { createAiffStreamEncoder, encodeAiff } from '../../aiff.js';
-import { loadStoredSourceChannels } from '../../clip-time-pitch-cache.js';
+import { loadStoredSourceChannels } from '../../clip-time-pitch-cache-channels.js';
 import { collectRelatedClipIds } from '../../commands.js';
 import { isAudacityRackEffectType, rackTailFrames } from '../../effects.js';
 import { createExportPlan } from '../../export.js';
@@ -101,7 +102,7 @@ export function createTrackAudioComposition(dependencies: TrackAudioCompositionD
 		preflightStorage: dependencies.preflightStorage,
 		getAudioContext,
 		createBufferFromChannels,
-		loadSourceChannels: (source) => loadStoredSourceChannels(store, source),
+		loadSourceChannels: (source) => loadStoredSourceChannels(store, source, { maximumChannelCount: 64 }),
 		writeBuffer,
 		generateWaveformPeaks: (channels) => generateWaveformPeaks(channels, copy),
 		peakCacheKey,
@@ -279,6 +280,7 @@ export function createTrackAudioComposition(dependencies: TrackAudioCompositionD
 		previewCommand: mixPreview.previewCommand,
 	});
 	const selectionView = createSelectionViewService({
+		captureProject, assertProject,
 		DEFAULT_PIXELS_PER_SECOND: dependencies.defaultPixelsPerSecond,
 		MAX_PIXELS_PER_SECOND: dependencies.maximumPixelsPerSecond,
 		activeSelection: dependencies.activeSelection,
@@ -298,7 +300,7 @@ export function createTrackAudioComposition(dependencies: TrackAudioCompositionD
 		normalizeTimelineFrame: dependencies.normalizeTimelineFrame,
 		persistSetting: dependencies.persistSetting,
 		productSettingKey: dependencies.productSettingKey,
-		projectDurationFrames: dependencies.projectDurationFrames,
+		projectDurationFrames: (project) => Math.max(dependencies.projectDurationFrames(project), takeCompContentRange(project)?.endFrame ?? 0),
 		projectSampleRate: dependencies.projectSampleRate,
 		publishDocumentSnapshot: dependencies.publishDocumentSnapshot,
 		publishProjectState: dependencies.publishProjectState,

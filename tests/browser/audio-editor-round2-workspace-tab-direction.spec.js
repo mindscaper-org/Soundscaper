@@ -14,6 +14,8 @@ async function groupAsTab(editor, panelId, targetName) {
 	const target = arrange.getByRole('menu').getByRole('menuitem', { name: targetName }).first();
 	await target.press('ArrowRight');
 	await target.getByRole('menu').getByRole('menuitem', { name: 'As tab', exact: true }).press('Enter');
+	await expect(menu).toHaveCount(0);
+	await expect(editor.locator(`[data-workspace-panel-menu="${panelId}"] > button`)).toBeFocused();
 }
 
 test('workspace tab arrows follow their physical order in an RTL locale', async ({ page }) => {

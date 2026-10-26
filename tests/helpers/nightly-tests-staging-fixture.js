@@ -18,6 +18,7 @@ const BURN_IN_FONT_FILES = [
 	'inter-latin-600-normal.woff',
 	'inter-vietnamese-600-normal.woff',
 ];
+const OCR_FIXTURE_FONT_FILE = 'inter-latin-700-normal.woff2';
 
 /**
  * A minimal checkout the nightly-tests payload can be staged out of.
@@ -70,6 +71,7 @@ export async function createFixture(context) {
 		['tests/fixtures/nyquist-archive/LICENSE-GPL-3.0.txt', 'GPL-3.0 fixture notice\n'],
 		['desktop/coverage-checkpoint-exit.mjs', 'export const exitAfterCoverageCheckpoint = true;\n'],
 		['desktop/nightly-tests-main.mjs', 'export const launcher = true;\n'],
+		...['nightly-tests-control', 'nightly-tests-checkpoint-reporter', 'nightly-tests-pause-reports', 'process-tree-termination'].map((name) => [`desktop/${name}.ts`, 'export const control = true;\n']),
 		['desktop/nightly-tests-assistance-host.mjs', 'export const assistanceHost = true;\n'],
 		['desktop/nightly-tests-assistance.html', '<!doctype html><title>Model tests</title>\n'],
 		['desktop/nightly-tests-manifest.mjs', 'export const manifest = true;\n'],
@@ -94,11 +96,13 @@ export async function createFixture(context) {
 		['desktop/desktop-video-codec-operation-contract.ts', 'export const videoOperation = true;\n'],
 		['scripts/lib/desktop-nightly-tests-runtime.mjs', 'export const runtime = true;\n'],
 		['scripts/lib/desktop-nightly-tests-playwright-child.mjs', 'export const playwrightChild = true;\n'],
+		['scripts/lib/desktop-nightly-tests-child-bootstrap.mjs', 'export const bootstrap = true;\n'],
 		['scripts/lib/desktop-nightly-tests-progress-reporter.mjs', 'export default class NightlyProgressReporter {}\n'],
 		['scripts/lib/desktop-nightly-tests-phases.mjs', 'export const phases = true;\n'],
 		['scripts/lib/desktop-nightly-tests-dual-origin.mjs', 'export const dualOrigin = true;\n'],
 		['scripts/lib/pages-site-static-server.mjs', 'export const pagesServer = true;\n'],
 		['scripts/lib/product-web-routing.mjs', 'export const routing = true;\n'],
+		['scripts/lib/build-worker-chunk-groups.mjs', 'export const workerChunkGroups = [];\n'],
 		['scripts/lib/build-worker-chunks.mjs', 'export const workerChunkGroups = [];\n'],
 		['scripts/lib/desktop-nightly-tests-local-assistance.mjs', 'export const realModels = true;\n'],
 		['scripts/lib/local-model-real-test-cases.mjs', 'export const modelCases = true;\n'],
@@ -185,7 +189,7 @@ export async function createFixture(context) {
 		['tests/aup3-fixture.js', 'export const fixture = true;\n'],
 		['tests/helpers/aup4-database-harness.js', await readFile(new URL('./aup4-database-harness.js', import.meta.url), 'utf8')],
 		['tests/helpers/png-fixture.mjs', await readFile(new URL('./png-fixture.mjs', import.meta.url), 'utf8')],
-		...await Promise.all(['desktop-preload-source.mjs', 'framescaper-ordinary-animation-fixture.ts', 'framescaper-ordinary-high-precision-image-fixture.ts', 'interchange-reference.ts', 'ordinary-cover-mp3-fixture.ts', 'native-original-import-fixture.ts', 'ordinary-ogg-opus-fixture.ts', 'ordinary-tail-m4a-fixture.ts', 'os-audio-codec-fixtures.ts', 'round7-speech-preview-bridge.ts', 'round7-warp-drums.ts', 'scape-archive-rewrite.js', 'wavpack-import-fixture.ts'].map(async (file) => [`tests/helpers/${file}`, await readFile(new URL(`./${file}`, import.meta.url), 'utf8')])),
+		...await Promise.all(['audacity-large-shortcut-fixture.ts', 'desktop-preload-source.mjs', 'freesound-long-m4a-fixture.ts', 'framescaper-ordinary-animation-fixture.ts', 'framescaper-ordinary-high-precision-image-fixture.ts', 'ordinary-image-resource-fixture.ts', 'interchange-reference.ts', 'interchange-top-clip.ts', 'ordinary-cover-mp3-fixture.ts', 'more200-delivery-selection-fixture.ts', 'more200-legacy-aup-file.ts', 'p3-trim-preview-video.ts', 'native-original-import-fixture.ts', 'next-mastering-region-project.ts', 'next-mix-detector-project.ts', 'next-overlap-ripple-project.ts', 'next-route-ripple-project.ts', 'next-time-preserving-effect-project.ts', 'next-vca-print-project.ts', 'next-zero-crossing-route-project.ts', 'ordinary-ogg-opus-fixture.ts', 'ogg-multiplexed-tail-fixture.ts', 'ordinary-tail-m4a-fixture.ts', 'localized-m4a-metadata-fixture.ts', 'surround-vorbis-fixture.ts', 'vorbis-timestamp-fixture.ts', 'dolby-native-audio-fixture.ts', 'dts-native-audio-fixture.ts', 'quicktime-pcm-audio-fixture.ts', 'repeated-vorbis-comments-fixture.ts', 'riff-info-length-fixtures.ts', 'os-audio-codec-fixtures.ts', 'round7-speech-preview-bridge.ts', 'round7-warp-drums.ts', 'scape-archive-rewrite.js', 'single-frame-poster-apng.ts', 'wavpack-import-fixture.ts', 'implicit-sbr-aac-fixture.ts', 'native-wave64-fixture.ts', 'native-nist-fixture.ts', 'native-ircam-fixture.ts', 'native-paf-fixture.ts', 'native-iff16sv-fixture.ts', 'native-voc-fixture.ts', 'native-ape-fixture.ts', 'foreign-scaf-aac-fixture.ts', 'native-quicktime-av-fixture.ts', 'native-video-audio-tail-fixture.ts', 'assert-pcm-samples.ts', 'native-opus-mp4-fixture.ts', 'gapped-opus-mp4-fixture.ts', 'unequal-av-preview-fixture.ts', 'oversized-video-audio-fixture.ts', 'native-ape-metadata-fixture.ts', 'native-amrwb-fixture.ts', 'native-ms-adpcm-fixture.ts', 'native-speex-fixture.ts', 'native-tta-fixture.ts', 'native-sbc-fixture.ts', 'native-mpeg-layer-one-fixture.ts', 'native-sds-fixture.ts', 'opaque-iso-aac-fixture.ts', 'native-g711-odd-wav-fixture.ts', 'low-clock-pcm-fixture.ts', 'next200-aiff-metadata-fixture.ts'].map(async (file) => [`tests/helpers/${file}`, await readFile(new URL(`./${file}`, import.meta.url), 'utf8')])),
 		['tests/helpers/framescaper-native-sidecar-fixture.ts', await readFile(new URL('./framescaper-native-sidecar-fixture.ts', import.meta.url), 'utf8')],
 		['tests/helpers/libsndfile-rifx-fixture.ts', await readFile(new URL('./libsndfile-rifx-fixture.ts', import.meta.url), 'utf8')],
 		['tests/fixtures/aup4-native-rich.js', 'export const fixture = true;\n'],
@@ -193,6 +197,10 @@ export async function createFixture(context) {
 		['tests/fixtures/bwfmetaedit-ixml-clock.wav.base64', await readFile(new URL('../fixtures/bwfmetaedit-ixml-clock.wav.base64', import.meta.url), 'utf8')],
 		['tests/fixtures/ffmpeg-libmp3lame-one-second.mp3.base64', await readFile(new URL('../fixtures/ffmpeg-libmp3lame-one-second.mp3.base64', import.meta.url), 'utf8')],
 		...await Promise.all([
+			'ffmpeg-aac-lc-600s-silence.m4a.gz.base64',
+			'ffmpeg-ima-info.wav.base64',
+			'ffmpeg-long-info.wav.gz.base64', 'ffmpeg-short-info.wav.gz.base64',
+			'ffmpeg-mp3-info.wav.base64', 'ffmpeg-pcm-info.wav.base64',
 			'chromium-audio-only.webm.base64', 'libsndfile-float32.aifc.base64',
 			'libsndfile-utf8-text.aiff.base64', 'libsndfile-zero-based-cues.wav.base64', 'python-uncompressed.aif.base64',
 		].map(async (file) => [`tests/fixtures/${file}`, await readFile(new URL(`../fixtures/${file}`, import.meta.url), 'utf8')])),
@@ -206,7 +214,8 @@ export async function createFixture(context) {
 		['@ffmpeg/core', {}],
 		['@ffmpeg/ffmpeg', { dependencies: { '@ffmpeg/types': '0.12.4' } }],
 		['@ffmpeg/types', {}],
-		['@fontsource/inter', { licenses: ['LICENSE'], files: BURN_IN_FONT_FILES.map((name) => `files/${name}`) }],
+		['@fontsource/inter', { licenses: ['LICENSE'],
+			files: [...BURN_IN_FONT_FILES, OCR_FIXTURE_FONT_FILE].map((name) => `files/${name}`) }],
 		['@noble/hashes', { licenses: ['LICENSE'] }],
 		['@playwright/test', { dependencies: { playwright: '1.61.1' }, licenses: ['LICENSE', 'NOTICE'] }],
 		['@types/dom-mediacapture-transform', { dependencies: { '@types/dom-webcodecs': '0.1.13' }, licenses: ['LICENSE'] }],

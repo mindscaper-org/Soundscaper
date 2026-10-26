@@ -136,6 +136,8 @@
 
 .audio-editor-track-automation-menu__surface {
 	display: grid;
+	max-height: calc(100dvh - 4px);
+	overflow-y: auto;
 	box-sizing: border-box;
 	width: 100%;
 	padding: 4px;

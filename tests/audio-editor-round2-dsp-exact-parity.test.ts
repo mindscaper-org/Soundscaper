@@ -7,7 +7,6 @@ import test from 'node:test';
 import * as basic from '../src/common/editor/audacity-effects/basic.js';
 import * as realtime from '../src/common/editor/audacity-effects/realtime.js';
 import { createAudacityLiveProcessor } from '../src/common/editor/audacity-effects/live.js';
-import { LiveProcessor } from '../src/common/editor/audacity-effects/live-processor-base.js';
 import { ReverbLiveProcessor } from '../src/common/editor/audacity-effects/reverb-live-processor.ts';
 import { createAudioEditorSignalRenderer } from '../src/common/editor/signal-generator-renderer.ts';
 import { calculateAudioSpectrum } from '../src/common/editor/audio-spectrum.ts';
@@ -40,7 +39,7 @@ function fixtures(): Record<string, string> {
 		const params = { mode, dcBlock, parameter1: 57, parameter2: 43, repeats: 2, thresholdDb: -11 };
 		output[`distortion-${mode}-${String(dcBlock)}`] = digest(realtime.applyAudacityDistortion(channels, 48000, params));
 		const live = createAudacityLiveProcessor('audacity-distortion', 48000, params);
-		assert.ok(live instanceof LiveProcessor);
+		assert.ok(live);
 		const result = channels.map(channel => new Float32Array(channel.length));
 		live.process(channels, result);
 		output[`live-distortion-${mode}-${String(dcBlock)}`] = digest(result);
@@ -94,8 +93,11 @@ function fixtures(): Record<string, string> {
 		output[`spectrum-${String(size)}-${String(average)}`] = createHash('sha256').update(JSON.stringify(calculateAudioSpectrum(channels, 48000, { size, average, offsetFrame: 17 }))).digest('hex');
 	}
 	for (const kind of ['linear', 'sinc']) for (const rate of [8000, 44100, 48000, 96000]) for (const blockSize of [1, 127, 1024, 8192]) {
-		const createResampler = kind === 'linear' ? createStreamingLinearResampler : createStreamingWindowedSincResampler;
-		const resampler = createResampler(48000, rate, channels.length) as { push(input: Float32Array[]): Float32Array[]; finish(): Float32Array[] };
+		// Preserve the original explicit kernel here; the adaptive default's independent
+		// stopband and source-context checks live in audio-editor-more200-resample-stopband.
+		const resampler = (kind === 'linear'
+			? createStreamingLinearResampler(48000, rate, channels.length)
+			: createStreamingWindowedSincResampler(48000, rate, channels.length, { radius: 24 })) as { push(input: Float32Array[]): Float32Array[]; finish(): Float32Array[] };
 		const blocks: Float32Array[][] = [];
 		for (let start = 0; start < channels[0]!.length; start += blockSize) blocks.push(resampler.push(channels.map(channel => channel.subarray(start, start + blockSize))));
 		blocks.push(resampler.finish());

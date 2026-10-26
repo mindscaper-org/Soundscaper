@@ -64,6 +64,7 @@ export const ENGINE_PUBLIC_METHOD_NAMES = [
 	'subscribePlaybackErrors',
 	'subscribeParametricEqErrors',
 	'previewScheduledParameter',
+	'restoreScheduledAutomationLane',
 	'configureRackEffect',
 	'configureParametricEq',
 	'auditionParametricEq',

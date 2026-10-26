@@ -4,4 +4,4 @@
 export { createImportTaskCancellation } from './import-task-cancellation.ts';
 export { decodeStandaloneAudioForImport } from './standalone-audio-import-decoder.ts';
 export { scanEncodedAudioMarkers } from '../../../encoded-audio-marker-scan.ts';
-export { isStreamedAudioImportFile } from '../../../streamed-audio-import-file.ts';
+export { inspectStreamedAudioImportFile } from '../../../streamed-audio-content-admission.ts';

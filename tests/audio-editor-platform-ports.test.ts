@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import type { AudioDeviceHostPort, AudioInputStreamPort, AudioOutputStreamPort } from '../src/common/editor/platform/audio-device-port.ts';
@@ -14,11 +12,6 @@ import {
 	createBoundedByteChunk,
 	createBoundedPortMessage,
 } from '../src/common/editor/platform/bounded-transfer.ts';
-import {
-	ACTIVE_PLATFORM_CONTRACTS,
-	DEFERRED_PLATFORM_CONTRACTS,
-	PLATFORM_PORT_CONTRACT,
-} from '../src/common/editor/platform/contract-policy.ts';
 import type {
 	MediaDecodePort,
 	MediaDecodeSessionPort,
@@ -142,58 +135,4 @@ test('bounded transfer factories reject oversized or malformed chunks and messag
 		sequence: 0,
 		maximumEncodedBytes: 256,
 	}), /JSON-compatible/u);
-});
-
-test('runtime policy activates Framescaper capture while keeping MIDI contracts blocked', () => {
-	assert.equal(PLATFORM_PORT_CONTRACT.version, 1);
-	assert.equal(PLATFORM_PORT_CONTRACT.requiresAbortSignal, true);
-	assert.deepEqual(PLATFORM_PORT_CONTRACT.implementationBoundary, {
-		projectDomainImplementations: 'forbidden',
-		reactUiImplementations: 'forbidden',
-	});
-	assert.deepEqual(PLATFORM_PORT_CONTRACT.activeFamilies, [
-		'audio-device',
-		'audio-effect-host',
-		'capture-source',
-		'external-display',
-		'media-decode',
-		'media-encode',
-		'media-probe',
-		'media-stream-read',
-		'media-stream-write',
-		'persistent-render-queue',
-		'render-job',
-	]);
-	assert.deepEqual(ACTIVE_PLATFORM_CONTRACTS, [{
-		id: 'framescaper-capture',
-		family: 'capture-source',
-		milestone: '8A',
-		status: 'active',
-	}]);
-	assert.deepEqual(DEFERRED_PLATFORM_CONTRACTS.map(({ id, milestone, status }) => ({ id, milestone, status })), [
-		{ id: 'midi-device', milestone: '8B', status: 'blocked' },
-		{ id: 'midi-event', milestone: '8B', status: 'blocked' },
-	]);
-	assert.equal(Object.isFrozen(PLATFORM_PORT_CONTRACT.activeFamilies), true);
-	assert.equal(Object.isFrozen(ACTIVE_PLATFORM_CONTRACTS), true);
-	assert.equal(Object.isFrozen(DEFERRED_PLATFORM_CONTRACTS), true);
-});
-
-test('port contracts remain direct owner imports without a platform barrel', () => {
-	const platformDirectory = fileURLToPath(new URL('../src/common/editor/platform/', import.meta.url));
-	assert.equal(existsSync(`${platformDirectory}/index.ts`), false);
-	assert.deepEqual(PLATFORM_PORT_CONTRACT.ownerModules, {
-		'audio-device': 'src/common/editor/platform/audio-device-port.ts',
-		'audio-effect-host': 'src/common/editor/platform/audio-effect-host-port.ts',
-		'bounded-transfer': 'src/common/editor/platform/bounded-transfer.ts',
-		'capture-source': 'src/common/editor/platform/capture-source-port.ts',
-		'external-display': 'src/common/editor/platform/external-display-port.ts',
-		'media-codec': 'src/common/editor/platform/media-codec-port.ts',
-		'media-stream': 'src/common/editor/platform/media-stream-port.ts',
-		'persistent-render-queue': 'src/common/editor/platform/persistent-render-queue-port.ts',
-		'render-job': 'src/common/editor/platform/render-job-port.ts',
-	});
-	for (const path of Object.values(PLATFORM_PORT_CONTRACT.ownerModules)) {
-		assert.equal(existsSync(fileURLToPath(new URL(`../${path}`, import.meta.url))), true, path);
-	}
 });

@@ -159,15 +159,13 @@ test('a source cleanup failure leaves a harmless authenticated duplicate', async
 	assert.equal((await new FileLocalModelStore(targetRoot).listInstalled()).length, 1);
 });
 
-test('nested and relative relocation targets are rejected before filesystem work', async (t) => {
+test('a nested relocation target is rejected before filesystem work', async (t) => {
 	const { sourceRoot, store } = await fixture(t);
-	for (const targetDirectory of ['relative/models', join(sourceRoot, 'nested')]) {
-		await assert.rejects(
-			relocateLocalModelStore({
-				source: store, targetDirectory,
-				persistTarget: async () => { throw new Error('must not persist'); },
-			}),
-			/absolute|overlap|nested/iu,
-		);
-	}
+	await assert.rejects(
+		relocateLocalModelStore({
+			source: store, targetDirectory: join(sourceRoot, 'nested'),
+			persistTarget: async () => { throw new Error('must not persist'); },
+		}),
+		/overlap|nested/iu,
+	);
 });

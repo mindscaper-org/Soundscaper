@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React from 'react';
@@ -10,7 +12,7 @@ import { computeAudioTrackFreezeDigestsV1 } from '../src/common/editor/audio-tra
 import { installAudioTrackFreezeCandidateV21, removeAudioTrackFreezeCandidateV21 } from '../src/common/editor/audio-track-freeze-lifecycle-v21.ts';
 import { exportClipCount, resolveExportClips } from '../src/common/editor/export-clip-boundaries.ts';
 import ExportOutputHints from '../src/common/editor/ui/inspector/ExportOutputHints.tsx';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 
 function projects() {
 	const source = createAudioSource({ id: 'voice', sampleRate: 48_000, frameCount: 512,

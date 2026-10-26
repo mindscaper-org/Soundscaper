@@ -119,6 +119,7 @@ export interface EffectSelectionServiceRuntime {
 		trackId: string,
 		startFrame: number,
 		endFrame: number,
+		clipIds?: readonly string[] | null,
 	) => number;
 	readonly audioTrackChannelCount: (
 		project: EffectSelectionProject,
@@ -183,7 +184,7 @@ export function createEffectSelectionService(runtime: EffectSelectionServiceRunt
 			?? (trackClip ? trackClip.timelineStartFrame + trackClip.durationFrames : null);
 		if (!Number.isSafeInteger(startFrame) || !Number.isSafeInteger(endFrame)
 			|| startFrame == null || endFrame == null || endFrame <= startFrame) return null;
-		const channelCount = runtime.audacitySelectionChannelCount(project, track.id, startFrame, endFrame);
+		const channelCount = runtime.audacitySelectionChannelCount(project, track.id, startFrame, endFrame, trackClip ? [trackClip.id] : null);
 		if (!channelCount) return null;
 		return {
 			track,
@@ -209,7 +210,7 @@ export function createEffectSelectionService(runtime: EffectSelectionServiceRunt
 				if (!clip || clip.kind !== 'audio' || track?.type !== 'audio') return null;
 				const startFrame = clip.timelineStartFrame;
 				const endFrame = clip.timelineStartFrame + clip.durationFrames;
-				const channelCount = runtime.audacitySelectionChannelCount(project, track.id, startFrame, endFrame)
+				const channelCount = runtime.audacitySelectionChannelCount(project, track.id, startFrame, endFrame, [clip.id])
 					|| runtime.audioTrackChannelCount(project, track, 1);
 				return {
 					track,

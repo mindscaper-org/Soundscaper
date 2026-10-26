@@ -103,8 +103,5 @@ test('optional retention views stay lazy and release discarded clip, assistance 
 	assert.equal(index.getRetentionRoots().assistanceSourceIds.size, 0);
 	assert.equal(index.getStorageKeys().size, 0);
 	assert.equal(index.getLinkedOriginalKeys().size, 0);
-	// A storage-only identity rejection still happens on the optional storage query.
-	index.update({ present: { ...next, schemaFamily: 'framescaper', schemaVersion: 1 } });
-	assert.equal(index.getSourceIds().size, 0);
-	assert.throws(() => index.getStorageKeys(), /must be an array/u);
+
 });

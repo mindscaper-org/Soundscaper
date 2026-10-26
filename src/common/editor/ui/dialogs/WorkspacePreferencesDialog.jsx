@@ -27,6 +27,7 @@ import PlaybackRecordingPreferencesPage from './PlaybackRecordingPreferencesPage
 import PreferenceDropdownField from './PreferenceDropdownField.jsx';
 import TrackDisplayPreferencesPage from './TrackDisplayPreferencesPage.jsx';
 import { ShortcutEditorRow } from './ShortcutEditorRow.tsx';
+import AudacityShortcutImport from './AudacityShortcutImport.tsx';
 import { useWorkspaceDeletionFocus } from './useWorkspaceDeletionFocus.ts';
 import { useShortcutCommands, useShortcutCommandGroups } from './useShortcutPresentation.ts';
 import { createShortcutDraftConflictIndex } from './shortcut-draft-conflict-index.ts';
@@ -280,6 +281,7 @@ export default function WorkspacePreferencesDialog({
 							<PreferencePanel title={copy.shortcuts} className="kw-audio-editor-preferences__shortcuts">
 								<p>{copy.shortcutMouseHelp}</p>
 								<Button variant="secondary" onClick={() => setKeyboardVisible(true)}>{keyboardCopy.showKeyboard}</Button>
+								<AudacityShortcutImport productId={productId} commands={commands} shortcuts={preferences.shortcuts} copy={copy} controller={controller} run={run} />
 								{keyboardVisible && <Suspense fallback={null}><KeyboardMapDialog commands={commands} shortcuts={preferences.shortcuts} copy={copy} onClose={() => setKeyboardVisible(false)} /></Suspense>}
 								<div className="kw-audio-editor-preferences__shortcut-controls">
 									<label className="kw-audio-editor-preferences__search">

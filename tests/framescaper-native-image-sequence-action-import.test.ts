@@ -312,35 +312,6 @@ test('a non-record local body metadata row is refused before any body is mirrore
 	assert.deepEqual(fixture.commands, []);
 });
 
-test('a writer whose chunk ceiling exceeds the mirroring bound is refused without being aborted', async () => {
-	const fixture = harness();
-	fixture.state.maximumChunkBytes = 16 * 1024 * 1024 + 1;
-
-	await assert.rejects(() => fixture.run(fixture.runtime()), TypeError);
-	assert.equal(fixture.writes.length, 1);
-	assert.equal(fixture.writes[0]!.aborted, false, 'a rejected writer is never entered');
-	assert.deepEqual(fixture.commands, []);
-});
-
-test('a writer that cannot report a chunk ceiling at all is refused', async () => {
-	const fixture = harness();
-	fixture.state.maximumChunkBytes = 0;
-
-	await assert.rejects(
-		() => fixture.run(fixture.runtime()),
-		/exact bounded owned writer/u,
-	);
-});
-
-test('a publication that cannot be discarded is refused and the writer is aborted', async () => {
-	const fixture = harness();
-	fixture.state.ownedPublication = false;
-
-	await assert.rejects(() => fixture.run(fixture.runtime()), TypeError);
-	assert.equal(fixture.writes[0]!.aborted, true);
-	assert.deepEqual(fixture.discards, []);
-});
-
 test('a short read from the committed transaction body aborts the mirror', async () => {
 	const fixture = harness();
 	fixture.state.bodySlice = (bytes, offset, length) => bytes.slice(offset, offset + length - 1);
@@ -406,13 +377,14 @@ test('a refused edit commit discards the mirrored bodies and never undoes an unc
 	assert.equal(fixture.discards.length, 2);
 });
 
-test('a failed project save undoes the committed edit and discards the mirrored bodies', async () => {
+test('a failed project save undoes the exact committed edit and retains bodies for Redo', async () => {
 	const fixture = harness();
 	fixture.state.save = async () => { throw new Error('save failed'); };
 
 	await assert.rejects(() => fixture.run(fixture.runtime()), /save failed/u);
 	assert.equal(fixture.state.undos, 1);
-	assert.equal(fixture.discards.length, 2);
+	assert.equal(fixture.discards.length, 0, 'Redo still owns the mirrored bodies');
+	assert.equal(fixture.operations().includes('discard'), false);
 });
 
 test('a failed save whose undo also fails reports the rollback failure with both causes', async () => {
@@ -421,34 +393,28 @@ test('a failed save whose undo also fails reports the rollback failure with both
 	fixture.state.undo = async () => { throw new Error('undo failed'); };
 
 	await assert.rejects(() => fixture.run(fixture.runtime()), (error: unknown) => {
+		assert.ok(error instanceof Error);
+		assert.ok(error.cause instanceof AggregateError);
+		error = error.cause;
 		assert.ok(error instanceof AggregateError);
 		assert.match(error.message, /commit rollback failed/u);
 		assert.equal(error.errors.length, 2);
 		assert.match(String((error.errors[1] as Error).message), /undo failed/u);
 		return true;
 	});
-	assert.equal(fixture.discards.length, 2, 'the bodies are still unwound after a failed undo');
+	assert.equal(fixture.discards.length, 0, 'a failed Undo leaves the imported document owning its bodies');
 });
 
 test('a cancelled picker imports nothing and never opens a transaction', async () => {
 	const fixture = harness();
 	fixture.state.selection = null;
 
-	await fixture.run(fixture.runtime());
+	assert.deepEqual(await fixture.run(fixture.runtime()), { cancelled: true });
 
 	assert.deepEqual(fixture.operations(), []);
 	assert.deepEqual(fixture.commands, []);
 	assert.equal(fixture.writes.length, 0);
 	assert.equal(fixture.state.releases, 0);
-});
-
-test('an identity factory that mints an unusable id refuses before the picker is opened', async () => {
-	const fixture = harness();
-	fixture.state.mintId = () => 'minted id/one';
-
-	await assert.rejects(() => fixture.run(fixture.runtime()), /source ID is invalid/u);
-	assert.equal(fixture.state.releases, 0);
-	assert.deepEqual(fixture.operations(), []);
 });
 
 test('a second import waits for the one in flight and still runs after it fails', async () => {

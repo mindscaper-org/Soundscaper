@@ -20,6 +20,7 @@ const FORMATS = [
 	['Ogg Vorbis (.oga alias)', 'oga', 'libvorbis', ''],
 	['WavPack (.wavpack alias)', 'wavpack', 'wavpack', ''],
 	['AIFF (.aif alias)', 'aif', 'pcm_s16be', ''],
+	['AIFF-C little-endian PCM', 'aifc', 'pcm_s16le', ''],
 ];
 
 async function encodedFixture(extension, codec, mimeType) {
@@ -134,7 +135,7 @@ test.describe('audio file import formats', () => {
 		const editor = await bootEditor(page, '/embed/en/');
 		await expect(editor.locator('[data-workspace-panel="project-bin"]')).toBeVisible();
 		const requiredExtensions = [
-			'.aac', '.aif', '.aiff', '.bw64', '.flac', '.m4a', '.mp2', '.mp3',
+			'.aac', '.aif', '.aifc', '.aiff', '.bw64', '.bwf', '.flac', '.m4a', '.mp2', '.mp3',
 			'.oga', '.ogg', '.opus', '.rf64', '.wav', '.wave', '.wavpack', '.wv',
 		];
 		const projectBinChoosingFile = page.waitForEvent('filechooser');
@@ -177,6 +178,20 @@ test.describe('audio file import formats', () => {
 		await expect(secondClip).toBeVisible();
 		expect(await firstClip.getAttribute('data-track-index'))
 			.not.toBe(await secondClip.getAttribute('data-track-index'));
+	});
+
+	test('File Open accepts an Ogg container MIME without an audio filename suffix', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		const initialId = await editor.getAttribute('data-project-id');
+		const encoded = await encodedFixture('ogg', 'libvorbis', 'application/ogg');
+		const choosingFile = page.waitForEvent('filechooser');
+		await chooseFileAction(page, editor, 'Open');
+		await (await choosingFile).setFiles({ ...encoded, name: 'downloaded-original' });
+		await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 20_000 });
+		expect(await editor.getAttribute('data-project-id')).not.toBe(initialId);
+		const peaks = await sourcePeakChannels(page, 'downloaded-original');
+		expect(peaks.channelCount).toBe(2);
+		expect(peaks.channels[0].maximum).toBeGreaterThan(0.2);
 	});
 
 	for (const signature of ['RF64', 'BW64']) {

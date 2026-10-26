@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-	EFFECT_MACRO_STEP_DEFINITIONS,
 	createEffectMacroStep,
 	effectMacroStepTypes,
 	isEffectMacroStepType,
@@ -17,7 +16,6 @@ test('a macro step accepts every rack effect and every selection effect', () => 
 	const types = new Set(effectMacroStepTypes());
 	for (const type of audioEffectTypes() as readonly string[]) assert.ok(types.has(type), type);
 	for (const type of audioSelectionEffectTypes() as readonly string[]) assert.ok(types.has(type), type);
-	assert.equal(types.size, Object.keys(EFFECT_MACRO_STEP_DEFINITIONS).length - 2);
 	for (const type of ['compressor', 'limiter']) assert.equal(types.has(type), false);
 });
 

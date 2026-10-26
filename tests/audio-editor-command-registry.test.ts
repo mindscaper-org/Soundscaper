@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import * as commandFacade from '../src/common/editor/commands.js';
 import { applyEditorCommand } from '../src/common/editor/commands.js';
 import {
 	AUDIO_WARP_COMMAND_TYPES,
@@ -59,63 +58,6 @@ test('command domains partition the authoritative protocol exactly once', () => 
 test('the decomposed runtime registry remains exhaustive', () => {
 	const registry = createEditorCommandRuntime(() => undefined);
 	assert.deepEqual(Object.keys(registry).sort(), [...AUDIO_EDITOR_COMMAND_TYPES].sort());
-});
-
-test('the compatibility facade keeps its established public command surface', () => {
-	assert.deepEqual(Object.keys(commandFacade).sort(), [
-		'applyEditorCommand',
-		'collectClipTransformIds',
-		'collectClipTrimIds',
-		'collectRelatedClipIds',
-		'createAddClipCommand',
-		'createAddLabelCommand',
-		'createAddLabelTrackCommand',
-		'createAddSignatureEventCommand',
-		'createAddSourceCommand',
-		'createAddTempoEventCommand',
-		'createAddTimelineAnnotationCommand',
-		'createAddTrackCommand',
-		'createAddTrackFolderCommand',
-		'createAddVideoEffectCommand',
-		'createBypassVideoEffectCommand',
-		'createBatchSetTimelineAnnotationsCommand',
-		'createConvertTimelineAnnotationCommand',
-		'createClipboardDescriptor',
-		'createRemoveVideoEffectCommand',
-		'createRemoveSignatureEventCommand',
-		'createRemoveTempoEventCommand',
-		'createRemoveTimelineAnnotationsCommand',
-		'createRemoveTrackFolderCommand',
-		'createMoveTimelineAnnotationsCommand',
-		'createMoveTrackNodeCommand',
-		'createRegenerateTtsClipCommand',
-		'createReorderVideoEffectCommand',
-		'createReplaceClipSourceCommand',
-		'createResizeTimelineAnnotationCommand',
-		'createSetTempoMapModeCommand',
-		'createSetVideoKeyframesCommand',
-		'createUpdateSequenceTimingCommand',
-		'createUpdateSignatureEventCommand',
-		'createUpdateTempoEventCommand',
-		'createUpdateTimelineAnnotationsCommand',
-		'createUpdateTrackFolderCommand',
-		'createUpdateVideoEffectCommand',
-		'prepareCut',
-		'prepareDisjointRangeDeleteCommand',
-		'prepareGroupClipsCommand',
-		'prepareKeepRangeCommand',
-		'prepareLinkAvCommand',
-		'prepareLinkedSplitCommand',
-		'prepareOverwriteClipCommand',
-		'preparePasteCommand',
-		'preparePunchCommand',
-		'prepareRangeDeleteCommand',
-		'prepareRangeReplacementCommand',
-		'prepareSplitCommand',
-		'prepareTransformClipsCommand',
-		'prepareUnlinkAvCommand',
-		'resolveEditingSelection',
-	].sort());
 });
 
 test('the exhaustive registry rejects a missing handler and dispatches every declared type', () => {

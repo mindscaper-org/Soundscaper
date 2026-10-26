@@ -3,7 +3,8 @@
 import { buildClipSchedulePlans } from './engine/clip-schedule-plan.ts';
 import { getProjectClips, getProjectDurationFrames } from './engine/buffer-math.ts';
 import type { EngineChunkSource, EngineProject } from './engine/types.ts';
-import { OFFLINE_CHUNK_RESAMPLE_INPUT_FEED_FRAMES, OFFLINE_CHUNK_RESAMPLE_RADIUS } from './engine/offline-chunk-resample.ts';
+import { OFFLINE_CHUNK_RESAMPLE_INPUT_FEED_FRAMES } from './engine/offline-chunk-resample.ts';
+import { defaultWindowedSincRadius } from './resample.js';
 import { STAFFPAD_CLIP_TIME_PITCH_WASM_BYTES, STAFFPAD_CLIP_TIME_PITCH_MAXIMUM_BLOCK_FRAMES } from './clip-time-pitch-render-admission.ts';
 import { SOURCE_CHUNK_FRAMES, SHORT_SOURCE_AUDIO_BUFFER_MAX_BYTES } from './source-pcm-contract.ts';
 import { scaleSampleFrame } from './timeline-time.ts';
@@ -119,11 +120,13 @@ export function estimateExportSourceWorkingSetBytes(
 			}
 			// One decoded storage chunk for direct reads; resampling/reversal also
 			// retains input copies and filter scratch while building the AudioBuffer.
+			const radius = direct ? 0 : defaultWindowedSincRadius(inputFrames, outputFrames);
 			const temporaryOutputFrames = direct ? 0 : Math.max(outputFrames,
-				Math.ceil((OFFLINE_CHUNK_RESAMPLE_INPUT_FEED_FRAMES + OFFLINE_CHUNK_RESAMPLE_RADIUS * 2) * outputFrames / inputFrames));
+				Math.ceil((OFFLINE_CHUNK_RESAMPLE_INPUT_FEED_FRAMES + radius * 2) * outputFrames / inputFrames));
 			const scratchFrames = (direct && !plan.reversed ? source.chunkFrames : source.chunkFrames * 3 + 8_192)
-				+ temporaryOutputFrames;
-			renderBytes = addBytes(renderBytes, pcmBytes(retainedFrames + scratchFrames, source.channelCount));
+				+ radius * 2 + temporaryOutputFrames;
+			const kernelBytes = radius * 4 * Float64Array.BYTES_PER_ELEMENT;
+			renderBytes = addBytes(renderBytes, addBytes(pcmBytes(retainedFrames + scratchFrames, source.channelCount), kernelBytes));
 		}
 		largestBytes = Math.max(largestBytes, renderBytes);
 	}

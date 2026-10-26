@@ -80,7 +80,7 @@ function ClipSpreadsheetSurface({ controller, snapshot, copy, fileService }: Cli
 	const [pasting, setPasting] = useState(false);
 	const tableRef = useRef<HTMLTableElement>(null);
 	const restoreGridFocus = useRef<SpreadsheetCell | 'grid' | null>(null);
-	const inputRef = useRef<HTMLInputElement>(null);
+	const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
 	const filesRef = useRef<HTMLInputElement>(null);
 	const alive = useRef(true);
 	const liveProject = useRef(snapshot.project);
@@ -247,7 +247,7 @@ function ClipSpreadsheetSurface({ controller, snapshot, copy, fileService }: Cli
 		if (!pending || blocked) return;
 		if (!fileService?.isDesktop) { filesRef.current?.click(); return; }
 		try {
-			const descriptors = await fileService.chooseFiles({ purpose: 'audio', multiple: true });
+			const descriptors = await fileService.chooseFiles({ purpose: 'audio-video', multiple: true });
 			await fileService.withReadDescriptors(descriptors, {}, async files => {
 				if (files.length) await completePaste(pending, files);
 			});
@@ -272,6 +272,7 @@ function ClipSpreadsheetSurface({ controller, snapshot, copy, fileService }: Cli
 		if (event.target instanceof HTMLButtonElement) return;
 		if (draft) {
 			if (event.nativeEvent?.isComposing) return;
+			if (event.key === 'Enter' && event.shiftKey && inputRef.current?.tagName === 'TEXTAREA') return;
 			if (event.key === 'Escape') {
 				event.preventDefault(); updateDraft(null); setError(''); focusCell(active);
 			} else if (event.key === 'Enter' || event.key === 'Tab') {
@@ -331,7 +332,7 @@ function ClipSpreadsheetSurface({ controller, snapshot, copy, fileService }: Cli
 		<div className="audio-editor-clip-spreadsheet__content" onKeyDown={event => {
 			if (spreadsheetOwnsKeyboard(event, draft !== null) && (!['Escape', 'Tab'].includes(event.key) || draft)) event.stopPropagation();
 		}}>
-			<input ref={filesRef} type="file" multiple hidden accept="audio/*,.aac,.aif,.aiff,.bw64,.flac,.m4a,.mka,.mp2,.mp3,.oga,.ogg,.opus,.rf64,.wav,.wave,.wavpack,.webm,.wma,.wv"
+			<input ref={filesRef} type="file" multiple hidden accept="audio/*,video/mp4,video/webm,application/ogg,application/x-ogg,.aac,.aif,.aifc,.aiff,.bw64,.bwf,.flac,.m4a,.m4v,.mka,.mp2,.mp3,.mp4,.oga,.ogg,.opus,.rf64,.wav,.wave,.wavpack,.webm,.wma,.wv"
 				onChange={event => {
 					const files = Array.from(event.currentTarget.files ?? []);
 					event.currentTarget.value = '';
@@ -351,7 +352,7 @@ function ClipSpreadsheetSurface({ controller, snapshot, copy, fileService }: Cli
 						catch (cause) { setError(feedbackFailure(cause)); }
 					}}
 					onPaste={event => {
-						if (draft && !/[\t\r\n]/u.test(event.clipboardData.getData('text/plain'))) return;
+						if (draft && (inputRef.current?.tagName === 'TEXTAREA' || !/[\t\r\n]/u.test(event.clipboardData.getData('text/plain')))) return;
 						event.preventDefault(); event.stopPropagation(); updateDraft(null); void pasteText(event.clipboardData.getData('text/plain'));
 					}}>
 					<thead><tr>

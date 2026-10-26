@@ -56,7 +56,7 @@ export function compactFields<T extends Record<string, unknown>>(value: T): Part
 export function macroFileName(value: unknown): string {
 	return String(value || 'macro')
 		.trim()
-		.replace(/[^a-z0-9_-]+/gi, '-')
+		.replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '-')
 		.replace(/^-+|-+$/g, '')
 		|| 'macro';
 }

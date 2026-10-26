@@ -6,12 +6,12 @@ import { installReactTestDom } from './helpers/react-test-dom.ts';
 import { useCompatibilityOwnerLookup, useFeatureAffectedLookup } from '../src/common/editor/ui/dialogs/useCompatibilityPresentation.ts';
 import type { ProjectFeatureAffectedObjectIndex } from '../src/common/editor/project-feature-affected-objects.ts';
 
-void test('compatibility owner and requirement queries use prepared indexes and retain authored first-match order', async () => {
+void test('compatibility owner and requirement queries use prepared indexes and refresh changed requirements', async () => {
 	const dom = installReactTestDom(); const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const previous = globals.IS_REACT_ACT_ENVIRONMENT; globals.IS_REACT_ACT_ENVIRONMENT = true;
 	let ownerReads = 0, requirementReads = 0, objectReads = 0;
 	const tracks = Array.from({ length: 4000 }, (_, index) => ({ get id() { ownerReads++; return `track${index}`; }, name: `Track ${index}` }));
-	const project = { tracks: [...tracks, { id: 'track1', name: 'Duplicate' }] };
+	const project = { tracks };
 	let index: ProjectFeatureAffectedObjectIndex = { schemaVersion: 1, truncated: false, requirements: Array.from({ length: 1000 }, (_, value) => ({
 		get requirementId() { requirementReads++; return `requirement${value}`; }, featureId: 'future', availability: 'unknown', attributable: true, omittedObjectCount: 0,
 		objects: [{ channel: 'audio-effect', location: 'mixer', scope: 'track', ownerId: 'track1', objectId: 'effect', objectType: 'foreign', get registered() { objectReads++; return false; } }],

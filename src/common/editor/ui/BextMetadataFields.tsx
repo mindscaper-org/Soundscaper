@@ -87,7 +87,7 @@ function DraftField({
 			) : (
 				<input
 					name={name}
-					type={type}
+					type={type === 'date' && presentedValue.startsWith('0000-') ? 'text' : type}
 					inputMode={inputMode}
 					maxLength={maxLength}
 					pattern={pattern}
@@ -131,7 +131,7 @@ export function BextMetadataFields({ value, copy, disabled = false, onCommit }: 
 		{ name: 'originationDate', label: copy.bextOriginationDate, type: 'date', maxLength: 10 },
 		{ name: 'originationTime', label: copy.bextOriginationTime, type: 'time', maxLength: 8, step: '1' },
 		{ name: 'timeReference', label: copy.bextTimeReference, inputMode: 'numeric', maxLength: 20, pattern: '[0-9]*' },
-		{ name: 'umid', label: copy.bextUmid, maxLength: 128 },
+		{ name: 'umid', label: copy.bextUmid, maxLength: 256 },
 	];
 	const numberFields: readonly Readonly<{ name: BextNumberFieldName; label: string }>[] = [
 		{ name: 'loudnessValue', label: copy.bextLoudnessValue },

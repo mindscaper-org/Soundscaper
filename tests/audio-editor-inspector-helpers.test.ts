@@ -13,6 +13,7 @@ import {
 } from '../src/common/editor/effect-presets.js';
 import * as inspectorHelpers from '../src/common/editor/ui/inspector/inspector-helpers.ts';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
 
 const {
 	clipPitchUnitToCents,
@@ -49,17 +50,6 @@ test('a clip gain draft must state its decibel value while explicit zero remains
 	assert.equal(inspectorHelpers.dbToLinear(0, 16, ENGLISH_COPY), 1);
 	assert.equal(inspectorHelpers.dbToLinear('0', 16, ENGLISH_COPY), 1);
 	assert.ok(Math.abs(inspectorHelpers.dbToLinear('-6', 16, ENGLISH_COPY) - 0.5011872336272722) < 1e-12);
-});
-
-test('the inspector helper surface carries only operations a shipped inspector calls', () => {
-	for (const name of [
-		'bitrateOption',
-		'createFallbackFileService',
-		'framesToSecondsText',
-		'secondsInputToFrames',
-	]) {
-		assert.equal(Object.hasOwn(inspectorHelpers, name), false, `${name} has no shipped caller`);
-	}
 });
 
 test('effect helpers keep labels, presets, and conditional controls deterministic', () => {
@@ -103,7 +93,7 @@ test('preset choices name the presets Audacity ships from the catalog', () => {
 	) => ReadonlyArray<Readonly<{ id: string; name: string; labelKey?: string; custom?: boolean }>>;
 	const presets = listPresets(createAudioEditorEffectPresets(), 'audacity-reverb');
 	const english = effectPresetChoices(presets, 'No preset', 'en');
-	const german = effectPresetChoices(presets, 'Kein Preset', 'de');
+	const german = effectPresetChoices(presets, 'Kein Preset', GERMAN_COPY);
 	assert.equal(english.length, 18);
 	// Factory presets are not the project's own, so the bar must not offer to
 	// overwrite or delete one, and their names come from the copy catalog.

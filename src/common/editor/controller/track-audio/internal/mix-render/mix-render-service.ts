@@ -32,6 +32,7 @@ import {
 	createNormalizingMixRenderPacketSink,
 	normalizeMixRenderChannels,
 } from './mix-render-channel-normalizer.ts';
+import { authoredMixRenderAdm } from './mix-render-adm.ts';
 import { assertMixRenderPreflight } from './mix-render-operation-model.ts';
 import {
 	normalizeMixRenderOptions,
@@ -111,7 +112,7 @@ export interface MixRenderServiceDependencies {
 	captureProject(): EditorProjectToken;
 	assertProject(token: EditorProjectToken): void;
 	createId(prefix: string): string;
-	commit(command: AudioEditorCommand, selection?: CommitSelection): unknown;
+	commit(command: AudioEditorCommand, selection?: CommitSelection, behavior?: Readonly<{ microfadeNewClips: boolean }>): unknown;
 	preflightStorage(bytes: number, category: 'effect'): Promise<unknown>;
 	setProcessing(processing: boolean): void;
 	setStatus(message: string, state?: string, localization?: import('../../../../../i18n/presentation-message.ts').LocalizedPresentationMessage): void;
@@ -153,6 +154,7 @@ interface MixRenderJob {
 	readonly plan: NonNullable<ReturnType<typeof createMixRenderPlan>>;
 	readonly name: string;
 	readonly sourceName: string;
+	readonly includeTrackPan: boolean;
 }
 
 export function createMixRenderService(
@@ -174,7 +176,7 @@ export function createMixRenderService(
 			dependencies.getSelectedClipId(),
 		));
 		if (!targetTracks.length) throw createLocalizedError(Error, dependencies.copy, dependencies.copy.mixRenderRequiresAudio ? 'mixRenderRequiresAudio' : dependencies.copy.audacitySelectionHint ? 'audacitySelectionHint' : 'audioTrackRequired');
-		assertMixRenderPreflight(project, targetTracks, options);
+		assertMixRenderPreflight(project, targetTracks, options, dependencies.copy);
 		const jobs = prepareJobs(project, targetTracks, options);
 		const outputBytes = jobs.reduce((total, job) => total + job.plan.outputBytes, 0);
 		if (!Number.isSafeInteger(outputBytes) || outputBytes < 0) {
@@ -199,7 +201,7 @@ export function createMixRenderService(
 				let renderedSource: DerivedSourceRecord;
 				if (job.plan.streamToStorage) {
 					renderedSource = await persistStreamedMixSource(
-						job.renderProject, job.sourceName, job.plan, ownership, provenance,
+						job.renderProject, job.sourceName, job.plan, ownership, job.includeTrackPan, provenance,
 					);
 				} else {
 					const rendered = await dependencies.renderSnapshot(job.renderProject, {
@@ -208,7 +210,7 @@ export function createMixRenderService(
 						includeTail: job.plan.tailFrames
 							? job.plan.tailFrames / project.sampleRate : false,
 						includeMaster: false,
-						includeTrackPan: true,
+						includeTrackPan: job.includeTrackPan,
 						respectMuteSolo: false,
 						preRollFrames: job.plan.preRollFrames,
 					});
@@ -246,7 +248,7 @@ export function createMixRenderService(
 			dependencies.commit(prepared.command, {
 				selectTrackId: primary.trackId,
 				selectClipId: primary.clipId,
-			});
+			}, { microfadeNewClips: false });
 			published = true;
 			setLocalizedStatus(dependencies.setStatus, dependencies.copy, "done", undefined, 'success');
 			return primary;
@@ -304,6 +306,7 @@ export function createMixRenderService(
 					: `${jobTracks[0]!.name} — Rendered`;
 			return Object.freeze({
 				targetTracks: jobTracks,
+				includeTrackPan: options.mixDown || authoredMixRenderAdm(project) === null,
 				renderProject,
 				plan,
 				name,
@@ -353,6 +356,7 @@ export function createMixRenderService(
 			outputChannelCount: number;
 		}>,
 		ownership: MixOwnership,
+		includeTrackPan: boolean,
 		provenance?: SourceProvenanceV1,
 	): Promise<DerivedSourceRecord> {
 		const sampleRate = project.sampleRate;
@@ -386,7 +390,7 @@ export function createMixRenderService(
 				endFrame: plan.endFrame,
 				includeTail: plan.tailFrames ? plan.tailFrames / sampleRate : false,
 				includeMaster: false,
-				includeTrackPan: true,
+				includeTrackPan,
 				respectMuteSolo: false,
 				preRollFrames: plan.preRollFrames,
 				outputFrames: plan.outputFrames,

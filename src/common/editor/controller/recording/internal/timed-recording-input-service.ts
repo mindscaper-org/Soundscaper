@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { recordingTrackRoute } from '../../../recording-routing.js';
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts'; import type {
 	PreparedTimedRecordingInputs,
 	TimedRecordingOptions,
@@ -117,7 +118,7 @@ export function createTimedRecordingInputService<Stream>(
 	): Promise<PreparedTimedRecordingInputs> {
 		const track = runtime.findTrack(project, trackId);
 		if (!track || track.type !== 'audio') throw createLocalizedError(Error, { ['armTrackForRecording']: runtime.messages.armTrack }, 'armTrackForRecording');
-		const explicitRoute = routes[track.id];
+		const explicitRoute = recordingTrackRoute(routes, track.id);
 		const needsRoutedRecording = Boolean(explicitRoute && (
 			explicitRoute.kind === 'display'
 				|| explicitRoute.deviceId !== runtime.defaultDeviceId
@@ -164,7 +165,7 @@ export function createTimedRecordingInputService<Stream>(
 		if (!armedTracks.length) throw createLocalizedError(Error, { ['armTrackForRecording']: runtime.messages.armTrack }, 'armTrackForRecording');
 		const groups = new Map<string, RoutedTrack[]>();
 		for (const track of armedTracks) {
-			const route = routes[track.id];
+			const route = recordingTrackRoute(routes, track.id);
 			if (!route) {
 				runtime.setRecordingRouteHealth(track.id, 'skipped');
 				continue;

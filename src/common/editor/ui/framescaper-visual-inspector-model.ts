@@ -127,8 +127,10 @@ export function createFramescaperVisualInspectorCommand(
 	}
 	const maskId = draft.maskId === null ? null : stableId(draft.maskId, 'selected mask ID');
 	if (maskId !== null) {
-		const current = supportedMasks(project).find(({ id }) => id === maskId);
+		const current = records(project.videoMaskMattes, 'visual masks').map(normalizeVideoMaskMatteGraphV1).find(({ id }) => id === maskId);
 		if (!current) throw new ReferenceError(`Visual mask ${maskId} is unavailable or not editable.`);
+		const editable = supportedMasks(project).some(({ id }) => id === maskId);
+		if (!editable && draft.maskWidth !== 1) throw new ReferenceError(`Visual mask ${maskId} is unavailable or not editable.`);
 		const replacement = resizeMask(current, finite(draft.maskWidth, 0.01, 1, 'mask width'));
 		if (!same(current, replacement)) commands.push({
 			type: 'video-mask-matte/set', maskMatteId: maskId,

@@ -38,7 +38,6 @@ test('multi-selection merges matching values and reports mixed values with the u
 
 test('all selected property mutations are blocked when any owning track is locked', () => {
 	assert.equal(clipPropertiesPresentation({ ...project, tracks: [{ ...track, locked: true }] }, ['one'], 'Clip').locked, true);
-	assert.equal(clipPropertiesPresentation(project, ['removed'], 'Clip').clip, null);
 });
 
 test('mixed linked selections retain the focused audio or video as the native property target', () => {

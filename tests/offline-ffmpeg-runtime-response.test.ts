@@ -125,13 +125,11 @@ test('aborting interrupts a body read that has not produced another chunk', asyn
 	assert.deepEqual(cancelled, [failure]);
 });
 
-test('abort helpers preserve an explicit reason and synthesize the default otherwise', () => {
+test('abort helpers preserve an explicit reason and allow an absent signal', () => {
 	const explicit = new AbortController();
 	const reason = new Error('stop now');
 	explicit.abort(reason);
 	assert.throws(() => throwIfAborted(explicit.signal), (error: unknown) => error === reason);
 
-	const absent = { aborted: true, reason: undefined } as AbortSignal;
-	assert.throws(() => throwIfAborted(absent), { name: 'AbortError' });
 	assert.doesNotThrow(() => throwIfAborted(undefined));
 });

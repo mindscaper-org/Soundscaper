@@ -5,8 +5,28 @@ import type { ImportedVideoDecodedAudio } from './video-import-audio-decode.ts';
 
 const MAXIMUM_OUTPUT_BYTES = 128 * 1024 * 1024;
 
-/** Whole-file decoders return PCM at zero; retain its primary track's picture-relative start. */
+interface VideoContainerAudioTiming {
+	readonly offsetSeconds: number;
+	readonly audioTrackCount: number;
+	/** A native decoder may choose any programme only when all have these timings. */
+	readonly nativeTimingShared: boolean;
+	/** Authenticated ISO AAC-LC presentation end, relative to picture zero. */
+	readonly programmeEndSeconds: number | null;
+}
+
+/** Whole-file decoders return PCM at zero; retain the primary picture-relative start. */
 export async function readVideoContainerAudioOffset(blob: Blob, signal?: AbortSignal): Promise<number> {
+	return (await inspectVideoContainerAudioTiming(blob, signal, false)).offsetSeconds;
+}
+
+/** Inspect programme end only where the container declares the decoded AAC extent. */
+export async function readVideoContainerAudioTiming(blob: Blob, signal?: AbortSignal,
+	selection: 'primary' | 'first' = 'primary'): Promise<VideoContainerAudioTiming> {
+	return inspectVideoContainerAudioTiming(blob, signal, true, selection);
+}
+
+async function inspectVideoContainerAudioTiming(blob: Blob, signal: AbortSignal | undefined,
+	includeProgrammeEnd: boolean, selection: 'primary' | 'first' = 'primary'): Promise<VideoContainerAudioTiming> {
 	throwIfAborted(signal);
 	const { BlobSource, Input, MATROSKA, MP4, QTFF, WEBM } = await import('mediabunny');
 	throwIfAborted(signal);
@@ -14,14 +34,48 @@ export async function readVideoContainerAudioOffset(blob: Blob, signal?: AbortSi
 	const onAbort = (): void => input.dispose();
 	signal?.addEventListener('abort', onAbort, { once: true });
 	try {
-		const [audio, video] = await Promise.all([input.getPrimaryAudioTrack(), input.getPrimaryVideoTrack()]);
-		if (!audio || !video) return 0;
+		// getAudioTracks preserves file order, matching FFmpeg's explicit 0:a:0.
+		const [tracks, video] = await Promise.all([input.getAudioTracks(), input.getPrimaryVideoTrack()]);
+		const audio = selection === 'first' ? tracks[0] : await input.getPrimaryAudioTrack();
+		const audioTrackCount = tracks.length;
+		if (!audio || !video) return { offsetSeconds: 0, programmeEndSeconds: null, audioTrackCount, nativeTimingShared: audioTrackCount <= 1 };
 		const [audioStart, videoStart] = await Promise.all([audio.getFirstTimestamp(), video.getFirstTimestamp()]);
 		throwIfAborted(signal);
 		if (!Number.isFinite(audioStart) || !Number.isFinite(videoStart)) throw new RangeError('Invalid container audio timing.');
 		// Native whole-file decoders already remove samples before composition zero
 		// (for example negative AAC priming); those must not be removed twice.
-		return Math.max(0, audioStart) - Math.max(0, videoStart);
+		const offsetSeconds = Math.max(0, audioStart) - Math.max(0, videoStart);
+		let programmeEndSeconds: number | null = null;
+		if (includeProgrammeEnd) {
+			try {
+				const format = await input.getFormat();
+				// Matroska's last-packet timestamp can exclude packet duration or
+				// include codec padding, so it cannot establish this source extent.
+				if ((format === MP4 || format === QTFF) && await audio.getCodec() === 'aac'
+					&& await audio.getCodecParameterString() === 'mp4a.40.2') {
+					const end = await audio.computeDuration();
+					if (Number.isFinite(end) && end >= audioStart) programmeEndSeconds = Math.max(0, end - Math.max(0, videoStart));
+				}
+			} catch { throwIfAborted(signal); }
+		}
+		let nativeTimingShared = audioTrackCount <= 1;
+		if (!nativeTimingShared && programmeEndSeconds !== null) {
+			try {
+				nativeTimingShared = true;
+				for (const other of tracks) {
+					if (other.id === audio.id) continue;
+					const start = await other.getFirstTimestamp();
+					const shared = Number.isFinite(start)
+						&& Math.max(0, start) - Math.max(0, videoStart) === offsetSeconds
+						&& await other.getCodec() === 'aac' && await other.getCodecParameterString() === 'mp4a.40.2'
+						&& Math.max(0, await other.computeDuration() - Math.max(0, videoStart)) === programmeEndSeconds;
+					throwIfAborted(signal);
+					if (!shared) { nativeTimingShared = false; break; }
+				}
+			} catch { throwIfAborted(signal); nativeTimingShared = false; }
+		}
+		throwIfAborted(signal);
+		return { offsetSeconds, programmeEndSeconds, audioTrackCount, nativeTimingShared };
 	} finally {
 		signal?.removeEventListener('abort', onAbort);
 		input.dispose();

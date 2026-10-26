@@ -3,6 +3,7 @@
 import { amplitudeToDb, calculateAudioSpectrum } from './audio-spectrum.ts';
 import { prepareBoundedWaveformWindow } from './design-system-adapters/waveform.ts';
 import type { WaveformRendering } from './design-system-adapters/types.ts';
+import { decodeManagedSdrOutputPixelV1, encodeManagedSdrLinearPixelV1 } from './video-color-management-v27.ts';
 import {
 	SOUND_VISUALIZER_SPECTRUM_SIZE,
 	soundVisualizerSpectrumWindowStarts,
@@ -32,6 +33,7 @@ export interface SoundVisualizerRgbaFrame {
 }
 
 type Rgba = readonly [number, number, number, number];
+type PixelBlends = Map<Rgba, Map<number, Rgba>>;
 
 const MAXIMUM_PIXELS = 33_554_432;
 const MAXIMUM_PCM_FRAMES = 4_194_304;
@@ -59,9 +61,10 @@ export function renderSoundVisualizerRgba(request: SoundVisualizerRgbaRequest): 
 	}
 	const pixels = new Uint8Array(width * height * 4);
 	fillBackground(pixels, background);
+	const blends: PixelBlends = new Map();
 	if (channels !== null) {
-		if (request.mode === 'waveform') drawWaveform(pixels, width, height, channels, foreground);
-		else drawSpectrum(pixels, width, height, channels, request.sampleRate, foreground);
+		if (request.mode === 'waveform') drawWaveform(pixels, width, height, channels, foreground, blends);
+		else drawSpectrum(pixels, width, height, channels, request.sampleRate, foreground, blends);
 	}
 	drawMovingMarker(pixels, width, height, request.timelineFrame);
 	return Object.freeze({ width, height, pixels });
@@ -69,7 +72,7 @@ export function renderSoundVisualizerRgba(request: SoundVisualizerRgbaRequest): 
 
 function drawWaveform(
 	pixels: Uint8Array<ArrayBuffer>, width: number, height: number,
-	channels: readonly Float32Array[], foreground: Rgba,
+	channels: readonly Float32Array[], foreground: Rgba, blends: PixelBlends,
 ): void {
 	const sampleCount = channels[0]!.length;
 	const rendering = prepareBoundedWaveformWindow(channels, {
@@ -82,14 +85,14 @@ function drawWaveform(
 	const centerY = Math.floor(height / 2);
 	const maximumAmplitude = Math.max(0, Math.floor((height - 2) / 2));
 	const centerColor: Rgba = [foreground[0], foreground[1], foreground[2], Math.round(foreground[3] / 4)];
-	for (let x = 0; x < width; x += 1) paintPixel(pixels, width, x, centerY, centerColor);
+	for (let x = 0; x < width; x += 1) paintPixel(pixels, width, x, centerY, centerColor, blends);
 	for (let x = 0; x < width; x += 1) {
 		const extrema = rendering?.mode === 'summary'
 			? summaryExtrema(rendering, x, width)
 			: interpolatedExtrema(channels, x, width);
 		const top = centerY - Math.round(extrema.maximum * maximumAmplitude);
 		const bottom = centerY - Math.round(extrema.minimum * maximumAmplitude);
-		paintVertical(pixels, width, height, x, top, bottom, foreground);
+		paintVertical(pixels, width, height, x, top, bottom, foreground, blends);
 	}
 }
 
@@ -127,7 +130,7 @@ function interpolatedExtrema(channels: readonly Float32Array[], x: number, width
 
 function drawSpectrum(
 	pixels: Uint8Array<ArrayBuffer>, width: number, height: number,
-	channels: readonly Float32Array[], sampleRate: number, foreground: Rgba,
+	channels: readonly Float32Array[], sampleRate: number, foreground: Rgba, blends: PixelBlends,
 ): void {
 	const sampleCount = channels[0]!.length;
 	const starts = soundVisualizerSpectrumWindowStarts(sampleCount);
@@ -141,6 +144,8 @@ function drawSpectrum(
 		}
 	}
 	const lastBin = powers.length - 1;
+	const tops = new Int32Array(width).fill(height);
+	const bottoms = new Int32Array(width).fill(-1);
 	let previousY = height - 1;
 	for (let x = 0; x < width; x += 1) {
 		const normalizedX = x / Math.max(1, width - 1);
@@ -158,45 +163,66 @@ function drawSpectrum(
 			(db - SPECTRUM_FLOOR_DB) / (SPECTRUM_CEILING_DB - SPECTRUM_FLOOR_DB),
 		));
 		const y = Math.round((height - 1) * (1 - intensity));
-		if (x > 0) paintLine(pixels, width, height, x - 1, previousY, x, y, foreground);
-		else paintPixel(pixels, width, x, y, foreground);
+		if (x > 0) traceLine(tops, bottoms, x - 1, previousY, x, y);
+		else { tops[x] = y; bottoms[x] = y; }
 		previousY = y;
+	}
+	for (let x = 0; x < width; x++) {
+		paintVertical(pixels, width, height, x, tops[x]!, bottoms[x]!, foreground, blends);
 	}
 }
 
-function paintLine(
-	pixels: Uint8Array<ArrayBuffer>, width: number, height: number,
-	x0: number, y0: number, x1: number, y1: number, rgba: Rgba,
+/** Adjacent segments share pixel coverage, so blend their contiguous column union once. */
+function traceLine(
+	tops: Int32Array, bottoms: Int32Array, x0: number, y0: number, x1: number, y1: number,
 ): void {
 	const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
 	for (let step = 0; step <= steps; step += 1) {
 		const fraction = steps === 0 ? 0 : step / steps;
 		const x = Math.round(x0 + (x1 - x0) * fraction);
 		const y = Math.round(y0 + (y1 - y0) * fraction);
-		if (x >= 0 && x < width && y >= 0 && y < height) paintPixel(pixels, width, x, y, rgba);
+		tops[x] = Math.min(tops[x]!, y);
+		bottoms[x] = Math.max(bottoms[x]!, y);
 	}
 }
 
 function paintVertical(
 	pixels: Uint8Array<ArrayBuffer>, width: number, height: number,
-	x: number, y0: number, y1: number, rgba: Rgba,
+	x: number, y0: number, y1: number, rgba: Rgba, blends: PixelBlends,
 ): void {
 	const first = Math.max(0, Math.min(y0, y1));
 	const last = Math.min(height - 1, Math.max(y0, y1));
-	for (let y = first; y <= last; y += 1) paintPixel(pixels, width, x, y, rgba);
+	for (let y = first; y <= last; y += 1) paintPixel(pixels, width, x, y, rgba, blends);
 }
 
-function paintPixel(pixels: Uint8Array<ArrayBuffer>, width: number, x: number, y: number, rgba: Rgba): void {
+function paintPixel(pixels: Uint8Array<ArrayBuffer>, width: number, x: number, y: number, rgba: Rgba, blends: PixelBlends): void {
 	const offset = (y * width + x) * 4;
-	const sourceAlpha = rgba[3] / 255;
-	if (sourceAlpha === 0) return;
-	const targetAlpha = pixels[offset + 3]! / 255;
-	const outputAlpha = sourceAlpha + targetAlpha * (1 - sourceAlpha);
-	for (let component = 0; component < 3; component += 1) {
-		pixels[offset + component] = Math.round((rgba[component]! * sourceAlpha
-			+ pixels[offset + component]! * targetAlpha * (1 - sourceAlpha)) / outputAlpha);
+	if (rgba[3] === 0) return;
+	if (rgba[3] === 255 || pixels[offset + 3] === 0) { pixels.set(rgba, offset); return; }
+	// A frame has one foreground, one centerline color, and their fixed
+	// background blends. Cache those few colors instead of running transfer
+	// functions for every waveform pixel.
+	let colors = blends.get(rgba);
+	if (!colors) { colors = new Map(); blends.set(rgba, colors); }
+	const key = ((pixels[offset]! << 24) | (pixels[offset + 1]! << 16)
+		| (pixels[offset + 2]! << 8) | pixels[offset + 3]!) >>> 0;
+	let mixed = colors.get(key);
+	if (!mixed) {
+		mixed = sourceOver(rgba, [pixels[offset]!, pixels[offset + 1]!, pixels[offset + 2]!, pixels[offset + 3]!]);
+		colors.set(key, mixed);
 	}
-	pixels[offset + 3] = Math.round(outputAlpha * 255);
+	pixels.set(mixed, offset);
+}
+
+/** Authoring colors are sRGB; all selected finishing composition is linear Rec.709/D65. */
+function sourceOver(source: Rgba, backdrop: Rgba): Rgba {
+	const upper = decodeManagedSdrOutputPixelV1(source.map(value => value / 255), 'srgb');
+	const lower = decodeManagedSdrOutputPixelV1(backdrop.map(value => value / 255), 'srgb');
+	const lowerAlpha = lower[3] * (1 - upper[3]);
+	const alpha = upper[3] + lowerAlpha;
+	const channel = (index: 0 | 1 | 2): number => (upper[index] * upper[3] + lower[index] * lowerAlpha) / alpha;
+	const output = encodeManagedSdrLinearPixelV1([channel(0), channel(1), channel(2), alpha], 'srgb');
+	return [Math.round(output[0] * 255), Math.round(output[1] * 255), Math.round(output[2] * 255), Math.round(output[3] * 255)];
 }
 
 function drawMovingMarker(

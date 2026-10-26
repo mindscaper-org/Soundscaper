@@ -1,3 +1,5 @@
+import { resolveRuntimeProjectProjection } from '../../runtime-clip-projection.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { trackPanelClickSelection } from './clip-pointer-selection.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TextInput } from '@soundscaper/design-system/TextInput';
@@ -16,6 +18,7 @@ import {
 	linearToDb,
 } from './geometry.ts';
 import { TrackTelemetryMeters } from './TrackTelemetryMeters.tsx';
+import { usePlaybackMeterVisibility } from '../usePlaybackMeterVisibility.ts';
 import { focusCandidate, focusFirst, focusPanelControl } from './timeline-navigation.js';
 import { finishInlineTrackRename } from './track-name-keyboard-focus.ts';
 import { useMixerParameterGestures } from '../useMixerParameterGestures.ts';
@@ -56,6 +59,7 @@ export function TrackControls({
 	onNavigateVertical,
 }) {
 	const controlsRef = useRef(null);
+	usePlaybackMeterVisibility(controller.engine, 'track', track.id, controlsRef);
 	const automationGestureRef = useRef(null);
 	const [editingName, setEditingName] = useState(false);
 	const staticGestures = useMixerParameterGestures(controller.actions.mixer,
@@ -223,7 +227,7 @@ export function TrackControls({
 		<div ref={controlsRef} className="audio-editor-track-controls" data-track-header data-selected={selected ? 'true' : 'false'} style={{ width: panelWidth }} onClickCapture={(event) => {
 			if (blocked || event.detail < 2 || event.target.closest('button, input, textarea, select, .track-control-panel__track-name-text')) return;
 			const project = controller.getSnapshot().project;
-			const selection = project && trackPanelClickSelection(project, track.id, event.detail);
+			const selection = project && trackPanelClickSelection(resolveRuntimeProjectProjection(project), track.id, event.detail);
 			if (!selection) return;
 			event.preventDefault(); event.stopPropagation();
 			run(() => controller.actions.timeline.setExactSelection(selection.startFrame, selection.endFrame, selection));
@@ -340,15 +344,20 @@ export function TrackControls({
 }
 
 export function TrackNameEditor({ track, label, blocked, controller, run, onClose }) {
+	const sessionKey = editorProjectEditSessionKey(controller, controller.getSnapshot?.()?.project?.id);
+	const owner = useRef(sessionKey);
+	useEffect(() => { if (owner.current !== sessionKey) onClose(); }, [sessionKey, onClose]);
 	const editorRef = useRef(null);
 	const [name, setName] = useState(track.name);
+	const multiline = /[\r\n]/u.test(track.name);
 	useEffect(() => setName(track.name), [track.name]);
 	useEffect(() => {
-		const input = editorRef.current?.querySelector('input');
+		const input = editorRef.current?.querySelector('input,textarea');
 		input?.focus();
 		input?.select();
 	}, []);
 	const commit = () => {
+		if (owner.current !== editorProjectEditSessionKey(controller, controller.getSnapshot?.()?.project?.id)) { onClose(); return; }
 		const nextName = name.trim();
 		if (!nextName) {
 			setName(track.name);
@@ -360,13 +369,14 @@ export function TrackNameEditor({ track, label, blocked, controller, run, onClos
 	};
 	return (
 		<label ref={editorRef} data-track-name onBlur={commit} onKeyDown={(event) => {
+			if (multiline && event.key === 'Enter' && event.shiftKey) { event.stopPropagation(); return; }
 			finishInlineTrackRename(event, commit, () => {
 				setName(track.name);
 				onClose();
 			});
 		}}>
 			<span className="kw-audio-editor-sr-only">{label}: {track.name}</span>
-			<TextInput value={name} disabled={blocked} width="100%" onChange={setName} />
+			<TextInput value={name} multiline={multiline} disabled={blocked} width="100%" onChange={setName} />
 		</label>
 	);
 }

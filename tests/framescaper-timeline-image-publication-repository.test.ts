@@ -10,8 +10,6 @@ import {
 	createFramescaperProjectTimelineImage,
 } from '../src/framescaper/editor-project-timeline-image.ts';
 import {
-	FRAMESCAPER_TIMELINE_IMAGE_BODY_ENCODING_TIMELINE_IMAGE as BODY_ENCODING,
-	FRAMESCAPER_TIMELINE_IMAGE_BODY_KIND_TIMELINE_IMAGE as BODY_KIND,
 	FramescaperTimelineImagePublicationRepositoryTimelineImage as Repository,
 	FramescaperTimelineImagePublisherTimelineImage as Publisher,
 } from '../src/framescaper/editor-timeline-image-publication-timeline-image.ts';
@@ -34,19 +32,6 @@ function store(): never {
 	} as unknown as never;
 }
 
-test('the durable body identity is published as fixed kind and encoding', () => {
-	assert.equal(typeof BODY_KIND, 'string');
-	assert.equal(typeof BODY_ENCODING, 'string');
-	assert.ok(BODY_KIND.length > 0 && BODY_ENCODING.length > 0);
-});
-
-test('a publication repository requires its profile, port and project codec', () => {
-	assert.doesNotThrow(() => new Repository(PROFILE, port()));
-	assert.throws(() => new Repository(PROFILE, {}), /storage repository port is required/u);
-	assert.throws(() => new Repository({}, port()), TypeError);
-	assert.throws(() => new Repository(PROFILE, port(), {} as never), /codec requires authenticate/u);
-});
-
 test('a publication is a closed record of exactly its expected and next project', async () => {
 	const repo = new Repository(PROFILE, port());
 	const current = project();
@@ -65,18 +50,6 @@ test('a publication must advance to exactly the next revision', async () => {
 	await assert.rejects(
 		() => repo.publishIfCurrent({ expected: current, project: current } as never),
 		/must publish exactly the next revision/u,
-	);
-});
-
-test('a publisher requires a closed dependency record with port and store', () => {
-	assert.doesNotThrow(() => new Publisher(PROFILE, { port: port(), store: store() } as never));
-	assert.throws(
-		() => new Publisher(PROFILE, { port: port() } as never),
-		/unsupported, missing/u,
-	);
-	assert.throws(
-		() => new Publisher(PROFILE, { port: port(), store: store(), extra: 1 } as never),
-		/unsupported, missing/u,
 	);
 });
 

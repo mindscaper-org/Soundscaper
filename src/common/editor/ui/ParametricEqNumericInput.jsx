@@ -9,6 +9,7 @@ export function ParametricEqNumericInput({ value, onCommit, disabled, min, max, 
 	const formattedValue = String(roundForInput(value));
 	const [text, setText] = React.useState(formattedValue);
 	const editingRef = React.useRef(false);
+	const changedRef = React.useRef(false);
 	const cancelRef = React.useRef(false);
 
 	React.useEffect(() => {
@@ -17,6 +18,12 @@ export function ParametricEqNumericInput({ value, onCommit, disabled, min, max, 
 
 	const finish = () => {
 		editingRef.current = false;
+		if (!changedRef.current) {
+			cancelRef.current = false;
+			setText(formattedValue);
+			return;
+		}
+		changedRef.current = false;
 		const result = resolveParametricEqNumericCommit(text, formattedValue, cancelRef.current, min, max);
 		cancelRef.current = false;
 		if (!result.commit) {
@@ -34,8 +41,8 @@ export function ParametricEqNumericInput({ value, onCommit, disabled, min, max, 
 		max,
 		step,
 		value: text,
-		onFocus: () => { editingRef.current = true; },
-		onChange: (event) => setText(event.currentTarget.value),
+		onFocus: () => { editingRef.current = true; changedRef.current = false; },
+		onChange: (event) => { changedRef.current = true; setText(event.currentTarget.value); },
 		onBlur: finish,
 		onKeyDown: (event) => {
 			if (event.nativeEvent?.isComposing) return;

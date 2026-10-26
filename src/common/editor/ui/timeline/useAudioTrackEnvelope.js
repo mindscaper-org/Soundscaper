@@ -86,7 +86,7 @@ export function useAudioTrackEnvelope({
 				designPoints,
 				sampleRate,
 				canonical.durationFrames,
-				{ startFrame, endFrame, maximumValue: 2 },
+				{ startFrame, endFrame, maximumValue: 16 },
 			),
 		});
 		setEnvelopePreviewRevision((revision) => revision + 1);

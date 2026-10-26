@@ -21,6 +21,22 @@ export const FRAMESCAPER_TIMELINE_IMAGE_TIMELINE_IMAGES_REQUIREMENT: ProjectFeat
 	fallback: null,
 });
 
+export const FRAMESCAPER_TIMELINE_IMAGE_PHASE_REQUIREMENT: ProjectFeatureRequirement = Object.freeze({
+	id: PROJECT_OWNED_FEATURE_REQUIREMENT_IDS.timelineImagePhase,
+	featureId: PROJECT_FEATURE_CAPABILITY_IDS.timelineImagePhase,
+	displayName: 'Exact animated-image phase',
+	disposition: 'bypass',
+	fallback: null,
+});
+
+export const FRAMESCAPER_TIMELINE_IMAGE_HOLD_PHASE_REQUIREMENT: ProjectFeatureRequirement = Object.freeze({
+	id: PROJECT_OWNED_FEATURE_REQUIREMENT_IDS.timelineImageHoldPhase,
+	featureId: PROJECT_FEATURE_CAPABILITY_IDS.timelineImageHoldPhase,
+	displayName: 'Restorable held-image phase',
+	disposition: 'bypass',
+	fallback: null,
+});
+
 export function reconcileFramescaperProjectFeatureRequirementsTimelineImage(
 	profile: unknown,
 	project: unknown,
@@ -33,6 +49,18 @@ export function reconcileFramescaperProjectFeatureRequirementsTimelineImage(
 	const requirements = [...baseline.requirements];
 	if (records(candidate.sources, 'sources').some(({ kind }) => kind === 'image')) {
 		requirements.push(FRAMESCAPER_TIMELINE_IMAGE_TIMELINE_IMAGES_REQUIREMENT);
+	}
+	const bin = record(candidate.projectBin, 'projectBin');
+	if ([...records(candidate.clips, 'clips'), ...records(bin.clips, 'projectBin.clips')]
+		.some(clip => clip.kind === 'image' && Object.hasOwn(clip, 'sourceStartFraction'))) {
+		requirements.push(FRAMESCAPER_TIMELINE_IMAGE_PHASE_REQUIREMENT);
+	}
+	const sources = new Map(records(candidate.sources, 'sources').filter(source => source.kind === 'image')
+		.map(source => [source.id, record(source.canonical, 'image canonical summary')]));
+	if ([...records(candidate.clips, 'clips'), ...records(bin.clips, 'projectBin.clips')]
+		.some(clip => clip.kind === 'image' && sources.has(clip.sourceId)
+			&& BigInt(String(clip.sourceStartTicks)) >= BigInt(String(sources.get(clip.sourceId)?.durationTicks)))) {
+		requirements.push(FRAMESCAPER_TIMELINE_IMAGE_HOLD_PHASE_REQUIREMENT);
 	}
 	return Object.freeze({ schemaVersion: baseline.schemaVersion, requirements: Object.freeze(requirements) });
 }
@@ -82,12 +110,15 @@ export function createFramescaperProjectFeatureCompatibilityServiceTimelineImage
 }
 
 function assertNoImageRequirementConflict(manifest: ProjectFeatureRequirementsManifest): void {
-	for (const row of manifest.requirements) {
-		const ownsId = row.id === FRAMESCAPER_TIMELINE_IMAGE_TIMELINE_IMAGES_REQUIREMENT.id;
-		const ownsFeature = row.featureId === FRAMESCAPER_TIMELINE_IMAGE_TIMELINE_IMAGES_REQUIREMENT.featureId;
-		if (ownsId !== ownsFeature || ((ownsId || ownsFeature)
-			&& JSON.stringify(row) !== JSON.stringify(FRAMESCAPER_TIMELINE_IMAGE_TIMELINE_IMAGES_REQUIREMENT))) {
-			throw new TypeError('A publisher requirement cannot replace Framescaper timelineImage image ownership.');
+	for (const requirement of [FRAMESCAPER_TIMELINE_IMAGE_TIMELINE_IMAGES_REQUIREMENT, FRAMESCAPER_TIMELINE_IMAGE_PHASE_REQUIREMENT,
+		FRAMESCAPER_TIMELINE_IMAGE_HOLD_PHASE_REQUIREMENT]) {
+		for (const row of manifest.requirements) {
+			const ownsId = row.id === requirement.id;
+			const ownsFeature = row.featureId === requirement.featureId;
+			if (ownsId !== ownsFeature || ((ownsId || ownsFeature)
+				&& JSON.stringify(row) !== JSON.stringify(requirement))) {
+				throw new TypeError('A publisher requirement cannot replace Framescaper timelineImage image ownership.');
+			}
 		}
 	}
 }

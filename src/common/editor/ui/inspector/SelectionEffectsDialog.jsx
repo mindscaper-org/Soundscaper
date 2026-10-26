@@ -17,6 +17,7 @@ import { useAudacityEffectOptions } from './audacity-effect-options.ts';
 import { selectAudioEditorEditBlock } from '../edit-blocking.ts';
 import EffectPresetBar from './EffectPresetBar.jsx';
 import EffectParameterEditor from './EffectParameterEditor.jsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { LabeledDropdown } from './inspector-controls.jsx';
 import { effectPresetChoices, safeEffectLabel, samePresetParams } from './effect-helpers.ts';
 
@@ -173,7 +174,7 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 		const encoded = controller.actions.effects.presets.export(selectedPresetId);
 		await fileService.saveFile({
 			purpose: 'preset',
-			suggestedName: `${(presetName || 'audacity-effect-preset').replace(/[^a-z0-9_-]+/gi, '-')}.json`,
+			suggestedName: `${(presetName || 'audacity-effect-preset').replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '-')}.json`,
 			mimeType: 'application/json',
 			text: encoded,
 		});
@@ -298,7 +299,7 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 					/>
 				)}
 				<EffectParameterEditor
-					key={JSON.stringify([projectIdentity, selectionType])}
+					key={JSON.stringify([editorProjectEditSessionKey(controller, projectIdentity), selectionType])}
 					advancedSettings={advancedSettings}
 					effect={{
 						type: selectionType,

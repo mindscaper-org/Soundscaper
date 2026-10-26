@@ -16,9 +16,12 @@ const PROJECT_EXTENSIONS = Object.freeze(
 );
 const NATIVE_PROJECT_EXTENSION = PROJECT_FILE_EXTENSION.slice(1);
 const MEDIA_IMPORT_EXTENSIONS = Object.freeze([
-	'aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'cue', 'flac', 'm4a', 'm4v', 'mka', 'mp2', 'mp3', 'mp4',
+	'aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'cue', 'flac', 'm4a', 'm4v', 'mka', 'mov', 'mp2', 'mp3', 'mp4',
 	'oga', 'ogg', 'opus', 'rf64', 'srt', 'txt', 'vtt', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv',
 ]);
+const AUDIO_VIDEO_IMPORT_EXTENSIONS = Object.freeze(MEDIA_IMPORT_EXTENSIONS.filter(
+	(extension) => !['cue', 'srt', 'txt', 'vtt'].includes(extension),
+));
 const PROJECT_OPEN_EXTENSIONS = Object.freeze([
 	...new Set([...PROJECT_EXTENSIONS, 'aup', 'aup3', 'aup4', 'dawproject', 'sesx', ...MEDIA_IMPORT_EXTENSIONS]),
 ]);
@@ -37,16 +40,20 @@ const FILE_PURPOSES = Object.freeze({
 		filters: Object.freeze([{ name: 'Audio', extensions: ['aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'flac', 'm4a', 'mka', 'mp2', 'mp3', 'oga', 'ogg', 'opus', 'rf64', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv'] }]),
 	}),
 	video: Object.freeze({
-		extensions: Object.freeze(['m4v', 'mp4', 'webm']),
-		filters: Object.freeze([{ name: 'Video', extensions: ['m4v', 'mp4', 'webm'] }]),
+		extensions: Object.freeze(['m4v', 'mov', 'mp4', 'webm']),
+		filters: Object.freeze([{ name: 'Video', extensions: ['m4v', 'mov', 'mp4', 'webm'] }]),
 	}),
 	media: Object.freeze({
 		extensions: MEDIA_IMPORT_EXTENSIONS,
 		filters: Object.freeze([{ name: 'Audio, video, CUE sheets, and labels', extensions: [...MEDIA_IMPORT_EXTENSIONS] }]),
 	}),
+	'audio-video': Object.freeze({
+		extensions: AUDIO_VIDEO_IMPORT_EXTENSIONS,
+		filters: Object.freeze([{ name: 'Audio and video', extensions: [...AUDIO_VIDEO_IMPORT_EXTENSIONS] }]),
+	}),
 	image: Object.freeze({
-		extensions: Object.freeze(['jpg', 'jpeg', 'png', 'apng', 'gif', 'webp', 'bmp']),
-		filters: Object.freeze([{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'apng', 'gif', 'webp', 'bmp'] }]),
+		extensions: Object.freeze(['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'apng', 'gif', 'webp', 'bmp']),
+		filters: Object.freeze([{ name: 'Images', extensions: ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'apng', 'gif', 'webp', 'bmp'] }]),
 	}),
 	labels: Object.freeze({
 		extensions: Object.freeze(['srt', 'txt', 'vtt', 'webvtt', 'ttml', 'imsc', 'xml']),
@@ -56,6 +63,11 @@ const FILE_PURPOSES = Object.freeze({
 		extensions: Object.freeze(['cube']),
 		filters: Object.freeze([{ name: 'Cube LUT', extensions: ['cube'] }]),
 	}),
+});
+
+const MACRO_PROGRAM_SAVE = Object.freeze({
+	defaultExtension: 'soundscapemacro',
+	filters: [{ name: 'Soundscaper macro program', extensions: ['soundscapemacro'] }],
 });
 
 const SAVE_PURPOSES = Object.freeze({
@@ -96,7 +108,7 @@ const SAVE_PURPOSES = Object.freeze({
 			{ name: 'All files', extensions: ['*'] },
 		],
 	}),
-	labels: Object.freeze({ defaultExtension: 'txt', filters: [{ name: 'Labels and captions', extensions: ['txt', 'srt', 'vtt'] }] }),
+	labels: Object.freeze({ defaultExtension: 'txt', filters: [{ name: 'Labels and captions', extensions: ['txt', 'srt', 'vtt', 'ttml', 'json'] }] }),
 	preset: Object.freeze({ defaultExtension: 'json', filters: [{ name: 'Soundscaper preset', extensions: ['json'] }] }),
 	macro: Object.freeze({ defaultExtension: 'txt', filters: [{ name: 'Audacity macro', extensions: ['txt'] }] }),
 	report: Object.freeze({ defaultExtension: 'json', filters: [{ name: 'Analysis report', extensions: ['json'] }] }),
@@ -109,6 +121,10 @@ const SAVE_PURPOSES = Object.freeze({
 	interchange: Object.freeze({
 		defaultExtension: 'edl',
 		filters: [{ name: 'Edit interchange', extensions: ['edl', 'otio', 'fcpxml', 'xml', 'dawproject'] }],
+	}),
+	translation: Object.freeze({
+		defaultExtension: 'json',
+		filters: [{ name: 'Community translations', extensions: ['json', 'zip'] }],
 	}),
 });
 
@@ -136,9 +152,12 @@ const MIME_TYPES = Object.freeze({
 	'.gif': 'image/gif',
 	'.jpeg': 'image/jpeg',
 	'.jpg': 'image/jpeg',
+	'.jpe': 'image/jpeg',
+	'.jfif': 'image/jpeg',
 	'.m4a': 'audio/mp4',
 	'.m4v': 'video/mp4',
 	'.mka': 'audio/x-matroska',
+	'.mov': 'video/quicktime',
 	'.mp2': 'audio/mpeg',
 	'.mp3': 'audio/mpeg',
 	'.mp4': 'video/mp4',
@@ -227,8 +246,10 @@ export function acceptsFile(purpose, filePath) {
 export function validateSaveChoice(value) {
 	const purpose = String(value?.purpose || '');
 	if (!Object.hasOwn(SAVE_PURPOSES, purpose)) throw new TypeError('Unsupported save purpose');
-	const definition = SAVE_PURPOSES[purpose];
-	const suggestedName = sanitizeSuggestedName(value?.suggestedName, `untitled.${definition.defaultExtension}`);
+	const purposeDefinition = SAVE_PURPOSES[purpose];
+	const suggestedName = sanitizeSuggestedName(value?.suggestedName, `untitled.${purposeDefinition.defaultExtension}`);
+	const definition = purpose === 'macro' && extname(suggestedName).toLowerCase() === '.soundscapemacro'
+		? MACRO_PROGRAM_SAVE : purposeDefinition;
 	return {
 		purpose,
 		suggestedName: ensureExtension(suggestedName, definition.defaultExtension),

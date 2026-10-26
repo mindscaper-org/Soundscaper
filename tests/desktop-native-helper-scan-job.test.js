@@ -230,8 +230,7 @@ test('the helper announces scanning and routes a scan job to the scan runner', {
 			posted.push(message);
 			if (message.type === 'result') completed.resolve(message);
 		},
-		runDeviceJob: () => { throw new Error('a scan must never reach the device runner'); },
-		runScanJob: runner(fakeAddon(['/roots/one.scapefx'])),
+		runJob: runner(fakeAddon(['/roots/one.scapefx'])),
 		heartbeatIntervalMs: 1_000_000,
 		exit: () => undefined,
 	});

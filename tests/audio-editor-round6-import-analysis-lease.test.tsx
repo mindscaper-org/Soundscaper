@@ -50,15 +50,14 @@ for (const raw of [true, false]) {
 			} }));
 			const submit = action(raw ? ENGLISH_COPY.importFile : ENGLISH_COPY.regularIntervalCreate);
 			assert.equal(submit.hasAttribute('disabled'), false);
-			const staleSubmit = reactProps(dom.one('form')).onSubmit;
 			await render(true);
 			assert.equal(submit.hasAttribute('disabled'), true, 'the open surface follows the live writer lease');
 			assert.equal(action(ENGLISH_COPY.cancel).hasAttribute('disabled'), false);
 			await act(async () => {
-				staleSubmit({ preventDefault() {} });
+				reactProps(dom.one('form')).onSubmit({ preventDefault() {} });
 				await Promise.all(running);
 			});
-			assert.equal(calls, 0, 'a saved form callback cannot start an unavailable write');
+			assert.equal(calls, 0, 'the current form cannot start an unavailable write');
 			assert.equal(closes, 0);
 			await render(false);
 			assert.equal(submit.hasAttribute('disabled'), false);

@@ -1,15 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { disposeEngine, disposeEngineResources } from './disposal.ts';
-import { createRealtimeContext, prepareRealtimeSampleRate, realtimeSampleRate } from './realtime-sample-rate.ts';
+import { createEngineRealtimeContext, prepareAutomaticRealtimeSampleRate, prepareRealtimeSampleRate } from './realtime-sample-rate.ts';
 export { createRealtimeContext } from './realtime-sample-rate.ts';
 import { ChunkStreamClient } from '../chunk-stream-client.js';
 import { createChunkStreamAudioNode } from '../chunk-stream-worklet-node.js';
 import { createAudioWarpRenderPathStatus } from '../audio-warp-runtime.ts';
 import { resolveAdmEbuChannelWeights } from '../loudness-channel-layout.ts';
-import {
-	clearPreparedAudioWarpPlayback,
-} from './audio-warp-fallback.ts';
+import { clearPreparedAudioWarpPlayback } from './audio-warp-fallback.ts';
 import {
 	getProjectDurationFrames,
 	getProjectTimelineDurationFrames,
@@ -32,8 +30,8 @@ import {
 	projectTrackFolderMediaStateV12,
 } from '../track-folder-media-runtime.ts';
 import { resolveProjectGraphSelection } from './project-graph-selection.ts';
-import { playbackSessionStart, restorePlaybackSessionStart } from './playback-session.ts';
-import { resolveRuntimeProjectProjection } from '../runtime-clip-projection.ts';
+import { engineProjectRefreshMethods } from './project-refresh-playback.ts';
+import { resolveTimePitchPlaybackProject } from '../clip-time-pitch-playback-projection.ts';
 import {
 	ENGINE_ASSERT_ACTIVE,
 	ENGINE_CANCEL_SCRUB,
@@ -275,7 +273,7 @@ loadProject(project, sourceBuffers = new Map(), options = {}) {
 		this[ENGINE_HALT_GRAPH]();
 		const mediaProject = project ? projectTrackFolderMediaStateV12(project) : project;
 		const resolvedProject = mediaProject?.schemaVersion
-			? resolveRuntimeProjectProjection(mediaProject)
+			? resolveTimePitchPlaybackProject(mediaProject)
 			: mediaProject;
 		const runtimeProject = mediaProject && resolvedProject
 			? inheritTrackFolderMediaStateProjectionV12(mediaProject, resolvedProject)
@@ -318,7 +316,7 @@ loadProject(project, sourceBuffers = new Map(), options = {}) {
 		clearPreparedAudioWarpPlayback(this);
 		this.positionFrame = Math.min(this.positionFrame, this.playbackDurationFrames);
 		this.playEndFrame = this.playbackDurationFrames;
-		this.loop = normalizeLoop(runtimeProject?.loop, this.durationFrames);
+		this.loop = normalizeLoop(runtimeProject?.loop, this.playbackDurationFrames, this.durationFrames);
 		this.playRange = null;
 		// The graph stops here, so the meter always stops with it; `play()` re-arms it
 		// with the manual pause honoured. Retiring the measurement itself belongs to a
@@ -334,24 +332,7 @@ loadProject(project, sourceBuffers = new Map(), options = {}) {
 		return this;
 	},
 
-applyProject(this: EngineRuntimeHost, project, sourceBuffers = this.sources, options = {}) {
-		const wasPlaying = this.state === 'playing';
-		// Reissue a pending Play over the refreshed sources after loadProject cancels its generation.
-		const playRequested = this.pendingPlayRequest !== 0;
-		const position = this.getPositionFrames();
-		const sessionStart = playbackSessionStart(this);
-		const playbackRate = this.playbackRate;
-		const playbackMode = this.playbackMode;
-		this.loadProject(project, sourceBuffers, { ...options, preserveLoudnessMeasurement: true });
-		this.positionFrame = Math.min(position, this.playbackDurationFrames);
-		restorePlaybackSessionStart(this, sessionStart);
-		if (wasPlaying && playbackMode === 'naive') return this.playAtSpeed(playbackRate);
-		// Stop a stale StaffPad mix instead of resuming it or falling back to 1x.
-		if (wasPlaying && playbackMode !== 'staffpad') return this.play();
-		if (!wasPlaying && playRequested) return this.play();
-		this[ENGINE_EMIT_POSITION]();
-		return Promise.resolve();
-	},
+...engineProjectRefreshMethods,
 
 setSourceResolver(sourceResolver = null) {
 		this[ENGINE_ASSERT_ACTIVE]();
@@ -461,10 +442,12 @@ dispose() { return disposeEngine(this); },
 [ENGINE_DISPOSE_RESOURCES]: disposeEngineResources,
 async [ENGINE_GET_CONTEXT]() {
 		this[ENGINE_ASSERT_ACTIVE]();
+		if (this.context) await prepareAutomaticRealtimeSampleRate(this);
+		this[ENGINE_ASSERT_ACTIVE]();
 		if (this.context) return this.context;
 		if (!this.audioContextFactory) throw new Error('Web Audio is not supported in this browser.');
 		const generation = this.lifecycleGeneration;
-		const context = createRealtimeContext(this.audioContextFactory, realtimeSampleRate(this));
+		const context = createEngineRealtimeContext(this, this.audioContextFactory);
 		if (this.disposed || generation !== this.lifecycleGeneration) {
 			if (context?.state !== 'closed') await context?.close?.();
 			throw new AudioEditorEngineDisposedError();
@@ -500,7 +483,7 @@ async [ENGINE_GET_CONTEXT]() {
 			}
 		}
 		this[ENGINE_ASSERT_ACTIVE]();
-		return context;
+		return context === this.context ? context : this[ENGINE_GET_CONTEXT]();
 	},
 
 [ENGINE_ASSERT_ACTIVE]() {

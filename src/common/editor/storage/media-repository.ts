@@ -33,6 +33,7 @@ import {
 import type { OpfsRepository } from './opfs-repository.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';
 import type { RetentionSessionGuard } from './retention-session-guard.ts';
+import { cloneSelectedStorageRecords, mediaAssetRetentionRecords } from './storage-record-projection.ts';
 import { cloneStorageValue as clone } from './storage-clone.ts';
 import {
 	deletePairedVideoDerivativeRecords,
@@ -198,10 +199,7 @@ export class MediaRepository {
 				[...this.#port.memory.projects.values()],
 				[...this.#port.memory.revisions.values()]);
 			record = clone(asStorageRecord(this.#port.memory.mediaAssets.get(id)));
-			derivatives = [...this.#port.memory.videoDerivatives.values()]
-				.map(asStorageRecord)
-				.filter((candidate): candidate is StorageRecord => candidate?.sourceId === id)
-				.map(clone);
+			derivatives = cloneSelectedStorageRecords(this.#port.memory.videoDerivatives.values(), candidate => candidate.sourceId === id);
 			this.#port.memory.mediaAssets.delete(id);
 			for (const derivative of derivatives) {
 				if (typeof derivative.key === 'string') this.#port.memory.videoDerivatives.delete(derivative.key);
@@ -287,6 +285,13 @@ export class MediaRepository {
 			? [...this.#port.memory.mediaAssets.values()]
 			: await transact(database, 'mediaAssets', 'readonly', ({ mediaAssets }) => request(mediaAssets.getAll()));
 		return records.map(asStorageRecord).filter(isStorageRecord).map(clone);
+	}
+
+	async assetRetentionRecords(): Promise<StorageRecord[]> {
+		const database = await this.#port.database();
+		const records = !database ? [...this.#port.memory.mediaAssets.values()]
+			: await transact(database, 'mediaAssets', 'readonly', ({ mediaAssets }) => request(mediaAssets.getAll()));
+		return mediaAssetRetentionRecords(records);
 	}
 
 	async derivativeRecord(key: string): Promise<StorageRecord | null> {

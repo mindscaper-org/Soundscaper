@@ -13,28 +13,31 @@ export function createAudioTrackVisualRevisionReader(): (
 ) => readonly unknown[] {
 	let previous: readonly unknown[] = Object.freeze([]);
 	return (controller, clips) => {
-		const content: unknown[] = [];
+		let content: unknown[] | undefined;
+		let index = 0;
+		const compare = (value: unknown) => {
+			if (!content && !Object.is(value, previous[index])) content = previous.slice(0, index);
+			if (content) content.push(value);
+			index++;
+		};
 		for (const clip of clips) {
 			if (clip.isRecordingPreview) continue;
 			const visual = controller.getClipVisualData(clip.id)
 				|| controller.getProjectBinClipVisualData?.(clip.projectBinClipId || clip.id);
 			// Visual getters return fresh wrappers. Immutable media references
 			// change when a source or a bounded analysis window is published.
-			content.push(
-				clip.id,
-				visual?.available ?? false,
-				visual?.source ?? null,
-				visual?.buffer ?? null,
-				visual?.peaks ?? null,
-				visual?.pcmWindow ?? null,
-				visual?.peakWindow ?? null,
-				visual?.frequencyAnalysis ?? null,
-				visual?.frequencyWindow ?? null,
-			);
+			compare(clip.id);
+			compare(visual?.available ?? false);
+			compare(visual?.source ?? null);
+			compare(visual?.buffer ?? null);
+			compare(visual?.peaks ?? null);
+			compare(visual?.pcmWindow ?? null);
+			compare(visual?.peakWindow ?? null);
+			compare(visual?.frequencyAnalysis ?? null);
+			compare(visual?.frequencyWindow ?? null);
 		}
-		if (content.length === previous.length
-			&& content.every((value, index) => Object.is(value, previous[index]))) return previous;
-		previous = Object.freeze(content);
+		if (!content && index === previous.length) return previous;
+		previous = Object.freeze(content ?? previous.slice(0, index));
 		return previous;
 	};
 }

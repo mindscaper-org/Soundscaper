@@ -3,6 +3,7 @@
 import { setLocalizedStatus } from '../../../../../i18n/presentation-message.ts';
 import { confirmFileSizeWarning } from '../../../shared/file-size-warning.ts';
 import { desktopReadCapabilityIdFor } from '../../../../desktop-read-capability-registry.ts';
+import { decodeBomMarkedUtf16 } from '../../../../bom-marked-text.ts';
 import { SESX_XML_MAXIMUM_BYTES } from '../../../../sesx-format.ts';
 import { sesxAudioReferences, parseSesxDocument, type SesxAudioReference } from '../../../../sesx-import.ts';
 import { buildSesxProject, type SesxDecodedMediaInfo } from '../../../../sesx-import-project.ts';
@@ -12,6 +13,7 @@ import { AUDIO_EDITOR_PCM_CHUNK_FRAMES } from '../../../../pcm-chunks.js';
 import { inspectWavBlobPcm } from '../../../../wav-import.js';
 import { createWavBlobPcmChunkReader, type WavBlobPcmChunkReader, type WavPcmDescriptor } from '../../../../wav-pcm-chunk-reader.ts';
 import { stageDawprojectCompressedSource } from '../dawproject/dawproject-import-compressed.ts';
+import type { SourceProvenanceV1 } from '../../../../source-provenance.ts';
 import type { PreparedStreamedAudioImport } from '../../../../browser-streamed-audio-import.ts';
 import type { DawprojectServiceHelpers } from '../dawproject/dawproject-service.ts';
 import type {
@@ -59,17 +61,19 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 			try {
 				const maximumBytes = await confirmFileSizeWarning(file.size, SESX_XML_MAXIMUM_BYTES, file.name, {
 					confirmFileSizeWarning: runtime.confirmFileSizeWarning, signal, assertCurrent: assertReady });
-				const document = parseSesxDocument(await file.text(), { maximumBytes });
+				const document = parseSesxDocument(await readSesxText(file), { maximumBytes });
 				assertReady();
 				const references = sesxAudioReferences(document);
 				const media = new Map<string, SesxDecodedMediaInfo | null>();
 				const resolutionIssues = new Map<string, 'ambiguous' | 'scan-limited'>();
 				const stagedSourceIds = new Map<string, string>();
+				const sourceProvenance = new Map<string, SourceProvenanceV1>();
 				await resolveReferences(sessionReadId, references, resolveMedia, chooseFolder, assertReady,
 					async (reference, descriptor, index) => {
 					await withRead([descriptor], { signal }, async (blobs) => {
 						const blob = blobs[0];
 						if (!blob) throw new Error(`SESX media ${reference.name} was not opened.`);
+						if (blob.size === 0) { media.set(reference.id, null); return; }
 						const wav = await inspectPcmWav(blob, signal);
 						let prepared: PreparedStreamedAudioImport | null = null;
 						try {
@@ -106,6 +110,12 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 								return;
 							}
 							assertReady();
+							const { prepareSessionMediaProvenance } = await import('../imported-source-provenance.ts');
+							sourceProvenance.set(reference.id, await prepareSessionMediaProvenance(blob, {
+								originalFileName: reference.name, mimeType: dawprojectImportedAudioMimeType(reference.name),
+								createContributionId: () => runtime.createStableId('contribution'), signal,
+							}));
+							assertReady();
 							media.set(reference.id, info);
 							stagedSourceIds.set(reference.id, sourceId);
 						} finally { prepared?.dispose(); }
@@ -119,7 +129,7 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 					if (status === 'ambiguous' || status === 'scan-limited') resolutionIssues.set(reference.id, status);
 				});
 				const plan = buildSesxProject(document, {
-					fileName: String(file.name), media, resolutionIssues, stagedSourceIds, createStableId: runtime.createStableId,
+					fileName: String(file.name), media, resolutionIssues, stagedSourceIds, sourceProvenance, createStableId: runtime.createStableId,
 				});
 				const created = createCurrentAudioEditorProject(plan.project as never);
 				importedProject = runtime.adaptAudacityProject
@@ -154,6 +164,15 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 			await files.releaseSesxSession?.(sessionReadId);
 		}
 	}
+}
+
+async function readSesxText(file: NativeProjectFile): Promise<string> {
+	const prefix = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+	if ((prefix[0] === 0xff && prefix[1] === 0xfe) || (prefix[0] === 0xfe && prefix[1] === 0xff)) {
+		const decoded = decodeBomMarkedUtf16(await file.arrayBuffer());
+		if (decoded !== null) return decoded;
+	}
+	return file.text();
 }
 
 async function resolveReferences(
@@ -194,15 +213,16 @@ async function resolveReferences(
 }
 
 function mediaLookupPath(reference: SesxAudioReference): string | null {
-	const relative = reference.relativePath?.replaceAll('\\', '/');
+	const relative = reference.relativePath?.replaceAll('\\', '/').split('/')
+		.filter((part) => part !== '.').join('/');
 	const parts = relative?.split('/') ?? [];
 	if (relative && relative.length <= 4096 && parts.length <= 32 && !relative.startsWith('/')
-		&& !/^[a-z][a-z\d+.-]*:/iu.test(relative)
+		&& !/^[a-z]:/iu.test(relative) && !relative.includes('://')
 		&& parts.every((part) => part && part.length <= 255 && part !== '.' && part !== '..'
 			&& !hasControlCharacter(part))) return relative;
 	const name = reference.name;
 	return name && name.length <= 255 && name !== '.' && name !== '..'
-		&& !/[\\/:]/u.test(name) && !hasControlCharacter(name) ? name : null;
+		&& !/[\\/]/u.test(name) && !/^[a-z]:/iu.test(name) && !hasControlCharacter(name) ? name : null;
 }
 
 function hasControlCharacter(value: string): boolean {

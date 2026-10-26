@@ -402,14 +402,6 @@ test('workspace resolution is Framescaper-only and keeps blocked-state surfaces 
 		'the pending projection must not claim helper availability');
 });
 
-test('numeric-only custody resolves no baseline native project actions', () => {
-	const runtime = resolveFramescaperNativeServicesWorkspaceRuntime({
-		productId: 'framescaper', bridge: fakeBridge().bridge,
-		project: { schemaVersion: 1 },
-	});
-	assert.deepEqual(runtime?.projectActionSurfaces, []);
-});
-
 test('only current family-qualified custody can surface baseline native services', () => {
 	const actions = candidateActions();
 	assert.deepEqual(resolveFramescaperNativeServicesWorkspaceRuntime({
@@ -454,18 +446,6 @@ test('the baseline watch context derives only its exact writable project bin', (
 		...project, projectBin: { clips: [], path: '/private/bin' },
 	}, { writable: true, videoImportAvailable: true, proxyGenerationAvailable: true }), {
 		projectId: 'project-28', binId: null, allowProxyGeneration: false,
-	});
-});
-
-test('another baseline project retains the writable project-bin authority', () => {
-	const project = Object.freeze({
-		id: 'project-31', schemaFamily: 'framescaper', schemaVersion: 1,
-		projectBin: Object.freeze({ clips: Object.freeze([]) }),
-	});
-	assert.deepEqual(framescaperNativeServicesDialogContextForProject(project, {
-		writable: true, videoImportAvailable: true, proxyGenerationAvailable: true,
-	}), {
-		projectId: 'project-31', binId: 'project-bin', allowProxyGeneration: true,
 	});
 });
 

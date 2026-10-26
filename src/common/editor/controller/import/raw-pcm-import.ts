@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from '../shared/file-size-warning.ts';
+import { createImportedSourceProvenance, type SourceProvenanceV1 } from '../../source-provenance.ts';
+import { createStableId } from '../../stable-id.js';
 
 export const MAXIMUM_RAW_PCM_IMPORT_BYTES = 256 * 1024 * 1024;
 
@@ -16,6 +18,16 @@ export interface RawPcmImportOptions {
 }
 
 const FORMAT_BYTES = Object.freeze({ uint8: 1, int16: 2, int24: 3, int32: 4, float32: 4 });
+
+/** The WAV wrapper is decoder input; attribution belongs to the selected raw file. */
+export function createRawPcmSourceProvenance(file: File): SourceProvenanceV1 {
+	const timestamp = new Date(file.lastModified);
+	return createImportedSourceProvenance({ id: createStableId('import'), origin: {
+		kind: 'local-file', originalFileName: file.name,
+		mimeType: file.type || 'application/octet-stream', byteLength: file.size,
+		lastModified: file.lastModified >= 0 && Number.isFinite(timestamp.getTime()) ? timestamp.toISOString() : null,
+	} });
+}
 
 /** Wrap admitted raw PCM as WAV, retaining large inputs through bounded slices. */
 export async function prepareRawPcmWaveFile(file: File, options: RawPcmImportOptions,

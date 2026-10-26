@@ -169,12 +169,16 @@ export function assertTakeCompClipboardTrackOwnership(
 	const tracks = denseArray(tracksValue, 'clipboard.tracks', 100_000).map((value, index) => (
 		record(value, `clipboard.tracks[${String(index)}]`)
 	));
+	const bySource = new Map<unknown, DataRecord | null>();
+	for (const track of tracks) {
+		const sourceId = track.sourceTrackId;
+		bySource.set(sourceId, bySource.has(sourceId) ? null : track);
+	}
 	for (const group of groups) {
-		const matches = tracks.filter((track) => track.sourceTrackId === group.sourceTrackId);
-		if (matches.length !== 1) {
+		const track = bySource.get(group.sourceTrackId);
+		if (!track) {
 			throw new ReferenceError(`Clipboard take group ${group.key} references missing source track ${group.sourceTrackId}.`);
 		}
-		const track = matches[0]!;
 		if (track.sourceTrackType !== 'audio' || track.sourceSequenceId !== group.sourceSequenceId) {
 			throw new RangeError(`Clipboard take group ${group.key} must belong to its source audio-track sequence.`);
 		}
@@ -321,12 +325,13 @@ function normalizeGroup(
 			{ id, takeId, startSample, endSample }
 		)),
 	});
+	const regionsByKey = new Map(regions.map(region => [region.key, region]));
 	return Object.freeze({
 		key, sourceSequenceId, sourceTrackId, startOffsetFrame, endOffsetFrame,
 		laneOrder: core.laneOrder,
 		lanes: Object.freeze(core.lanes.map(({ id }) => Object.freeze({ key: id }))),
 		takes: Object.freeze(core.takes.map(({ id }) => Object.freeze(takesByKey.get(id)!))),
-		compRegions: Object.freeze(core.compRegions.map(({ id }) => Object.freeze(regions.find(({ key: regionKey }) => regionKey === id)!))),
+		compRegions: Object.freeze(core.compRegions.map(({ id }) => Object.freeze(regionsByKey.get(id)!))),
 	});
 }
 

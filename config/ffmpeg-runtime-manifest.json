@@ -64,28 +64,28 @@
 		},
 		"notices": {
 			"path": "THIRD_PARTY_LICENSES.md",
-			"byteLength": 93739,
-			"sha256": "2c576f97206d7ebce9df866bf1d7478f79052889f6848feefb2bab33d403668a"
+			"byteLength": 95702,
+			"sha256": "367b976fc87ca8f7c7162b1536228dc95b665f78112c885af5d038f9287b9042"
 		},
 		"licensingPolicy": {
 			"path": "docs/policies/licensing.md",
 			"byteLength": 34064,
-			"sha256": "2d931d17f9334f5a94b3b2819fcf5051833b4305ca31d3b741854e710c480b63"
+			"sha256": "31d2406ed23e76df34a7641aefd9228928f5fd303f7816fc74260540199d5ca2"
 		},
 		"licensingMatrix": {
 			"path": "config/production-licensing-matrix.json",
-			"byteLength": 154957,
-			"sha256": "a2c834fae8e0426f08895bfb371934a6e14cbda556a5477bc13eb9fb84511b75"
+			"byteLength": 154973,
+			"sha256": "9872b2d1aff97224434429123925ab734e86bd598c8e31de231ce53c56f19631"
 		},
 		"securityMatrix": {
 			"path": "config/production-security-matrix.json",
-			"byteLength": 909701,
-			"sha256": "0767d0f5dfc6912f39143e1f8cda2ad160cccf2e74ac4fec18d389acbae28ab3"
+			"byteLength": 909956,
+			"sha256": "81de18273f53f3226e9bea8e618c989990a4e8c3bb10ddf50990ca9a8fc826d6"
 		},
 		"threatModel": {
 			"path": "docs/policies/security.md",
 			"byteLength": 356155,
-			"sha256": "3f7ff0aee54d225afa7341e087f5d8caac4262ebd5f19352be693e5744deeca7"
+			"sha256": "34e57e777606a2be5297fbab3373f9cd3eb0647ad2a96501b7c8d8c6e280d664"
 		}
 	},
 	"security": {
@@ -115,6 +115,6 @@
 		}
 	},
 	"integrity": {
-		"payloadSha256": "1bc7bb351aac930fb34e4f03b7224f333198e464b34fb56287b75cc224813075"
+		"payloadSha256": "81f902e930a7320938e723c494a6521822037a2b7b8d0639118b7b15fbbe274f"
 	}
 }

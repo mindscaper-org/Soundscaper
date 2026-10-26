@@ -4,50 +4,16 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createScapeInspectionService } from '../src/common/editor/controller/document/internal/scape/scape-inspection-service.ts';
-import * as quiescenceModule from '../src/common/editor/controller/document/internal/scape/scape-inspection-quiescence.ts';
-import type {
-	ScapeInspectionAdmission,
-	ScapeInspectionQuiescence,
+import {
+	createScapeInspectionQuiescence as createBoundedQuiescence,
+	resolveScapeInspectionQuiescenceLimits as resolveLimits,
+	SCAPE_INSPECTION_QUIESCENCE_HARD_LIMITS,
+	ScapeInspectionCapacityError,
+	ScapeInspectionSettlementTimeoutError,
+	type ScapeInspectionAdmission,
+	type ScapeInspectionQuiescence,
+	type ScapeInspectionQuiescenceLimits,
 } from '../src/common/editor/controller/document/internal/scape/scape-inspection-quiescence.ts';
-
-interface ScapeInspectionQuiescenceLimits {
-	readonly maximumActiveInspections: number;
-	readonly settlementTimeoutMs: number;
-}
-
-interface ScapeInspectionQuiescenceOptions {
-	readonly limits?: Partial<ScapeInspectionQuiescenceLimits>;
-	readonly setTimeout?: (callback: () => void, delayMs: number) => unknown;
-	readonly clearTimeout?: (handle: unknown) => void;
-}
-
-interface ScapeInspectionCapacityErrorShape extends Error {
-	readonly code: 'SCAPE_INSPECTION_CAPACITY';
-	readonly limit: number;
-	readonly activeInspections: number;
-}
-
-interface ScapeInspectionSettlementTimeoutErrorShape extends Error {
-	readonly code: 'SCAPE_INSPECTION_SETTLEMENT_TIMEOUT';
-	readonly timeoutMs: number;
-	readonly pendingInspections: number;
-}
-
-type ErrorConstructor<ErrorType extends Error> = new (...args: never[]) => ErrorType;
-
-interface BoundedQuiescenceModule {
-	readonly SCAPE_INSPECTION_QUIESCENCE_HARD_LIMITS?: Readonly<ScapeInspectionQuiescenceLimits>;
-	readonly ScapeInspectionCapacityError?: ErrorConstructor<ScapeInspectionCapacityErrorShape>;
-	readonly ScapeInspectionSettlementTimeoutError?: ErrorConstructor<ScapeInspectionSettlementTimeoutErrorShape>;
-	readonly resolveScapeInspectionQuiescenceLimits?: (
-		overrides?: unknown,
-	) => Readonly<ScapeInspectionQuiescenceLimits>;
-}
-
-const boundedModule = quiescenceModule as unknown as BoundedQuiescenceModule;
-const createBoundedQuiescence = quiescenceModule.createScapeInspectionQuiescence as unknown as (
-	options?: ScapeInspectionQuiescenceOptions,
-) => ScapeInspectionQuiescence;
 
 const EXPECTED_HARD_LIMITS = Object.freeze({
 	maximumActiveInspections: 8,
@@ -55,14 +21,9 @@ const EXPECTED_HARD_LIMITS = Object.freeze({
 });
 
 test('Scape inspection quiescence exposes frozen lower-only production limits', () => {
-	assert.deepEqual(boundedModule.SCAPE_INSPECTION_QUIESCENCE_HARD_LIMITS, EXPECTED_HARD_LIMITS);
-	assert.equal(Object.isFrozen(boundedModule.SCAPE_INSPECTION_QUIESCENCE_HARD_LIMITS), true);
-	assert.equal(typeof boundedModule.ScapeInspectionCapacityError, 'function');
-	assert.equal(typeof boundedModule.ScapeInspectionSettlementTimeoutError, 'function');
+	assert.deepEqual(SCAPE_INSPECTION_QUIESCENCE_HARD_LIMITS, EXPECTED_HARD_LIMITS);
+	assert.equal(Object.isFrozen(SCAPE_INSPECTION_QUIESCENCE_HARD_LIMITS), true);
 
-	const resolveLimits = boundedModule.resolveScapeInspectionQuiescenceLimits;
-	assert.equal(typeof resolveLimits, 'function');
-	if (!resolveLimits) return;
 	assert.deepEqual(resolveLimits(), EXPECTED_HARD_LIMITS);
 	const lowered = resolveLimits({ maximumActiveInspections: 2, settlementTimeoutMs: 25 });
 	assert.deepEqual(lowered, { maximumActiveInspections: 2, settlementTimeoutMs: 25 });
@@ -80,7 +41,7 @@ test('Scape inspection quiescence exposes frozen lower-only production limits', 
 		{ unsupportedLimit: 1 },
 	]) {
 		assert.throws(
-			() => resolveLimits(limits),
+			() => resolveLimits(limits as Partial<ScapeInspectionQuiescenceLimits>),
 			(error: unknown) => error instanceof TypeError || error instanceof RangeError,
 		);
 	}
@@ -398,11 +359,9 @@ function expectCapacityError(
 function assertCapacityError(
 	error: unknown,
 	expected: Readonly<{ limit: number; activeInspections: number }>,
-): asserts error is ScapeInspectionCapacityErrorShape {
-	const ErrorType = boundedModule.ScapeInspectionCapacityError;
-	if (!ErrorType) assert.fail('Expected ScapeInspectionCapacityError to be exported.');
-	assert.equal(error instanceof ErrorType, true);
-	const typed = error as ScapeInspectionCapacityErrorShape;
+): asserts error is ScapeInspectionCapacityError {
+	assert.ok(error instanceof ScapeInspectionCapacityError);
+	const typed = error;
 	assert.deepEqual(
 		{
 			name: typed.name,
@@ -417,11 +376,9 @@ function assertCapacityError(
 function assertSettlementTimeoutError(
 	error: unknown,
 	expected: Readonly<{ timeoutMs: number; pendingInspections: number }>,
-): asserts error is ScapeInspectionSettlementTimeoutErrorShape {
-	const ErrorType = boundedModule.ScapeInspectionSettlementTimeoutError;
-	if (!ErrorType) assert.fail('Expected ScapeInspectionSettlementTimeoutError to be exported.');
-	assert.equal(error instanceof ErrorType, true);
-	const typed = error as ScapeInspectionSettlementTimeoutErrorShape;
+): asserts error is ScapeInspectionSettlementTimeoutError {
+	assert.ok(error instanceof ScapeInspectionSettlementTimeoutError);
+	const typed = error;
 	assert.deepEqual(
 		{
 			name: typed.name,

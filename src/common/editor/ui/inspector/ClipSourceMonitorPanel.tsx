@@ -67,9 +67,10 @@ export default function ClipSourceMonitorPanel({ controller, snapshot, copy, foc
 	const handleTabKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
 		if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
 		let nextIndex: number;
-		if (event.key === 'ArrowRight') nextIndex = (index + 1) % selection.clips.length;
-		else if (event.key === 'ArrowLeft') nextIndex = (index - 1 + selection.clips.length) % selection.clips.length;
-		else if (event.key === 'Home') nextIndex = 0;
+		if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+			const forward = window.getComputedStyle(event.currentTarget).direction === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
+			nextIndex = (index + (event.key === forward ? 1 : -1) + selection.clips.length) % selection.clips.length;
+		} else if (event.key === 'Home') nextIndex = 0;
 		else if (event.key === 'End') nextIndex = selection.clips.length - 1;
 		else return;
 		event.preventDefault();
@@ -90,6 +91,7 @@ export default function ClipSourceMonitorPanel({ controller, snapshot, copy, foc
 		const track = value as Readonly<{ readonly locked?: boolean; readonly clipIds?: readonly string[] }>;
 		return track.locked === true && activeClipId !== null && track.clipIds?.includes(activeClipId);
 	}) === true;
+	const previewBlocked = selectAudioEditorBusyBlock(snapshot as Parameters<typeof selectAudioEditorBusyBlock>[0]).blocked;
 	const mutationBlocked = ownerLocked || selectAudioEditorEditBlock(snapshot as Parameters<typeof selectAudioEditorEditBlock>[0]).blocked;
 	const hasSourceEditor = panelActive && sourceClip?.kind === 'audio' && sourceController.actions?.clipSourcePreview
 		&& sourceProject?.sources.some(source => source.id === sourceClip.sourceId);
@@ -98,7 +100,7 @@ export default function ClipSourceMonitorPanel({ controller, snapshot, copy, foc
 		event.stopPropagation();
 		if (event.target instanceof Element && event.target.closest('input, textarea, select, button, a, summary, [contenteditable]:not([contenteditable="false"]), [role="button"], [role="slider"], [role="spinbutton"]')) return;
 		event.preventDefault();
-		run(() => sourceController.actions.clipSourcePreview.playPause(activeClipId));
+		if (!previewBlocked) run(() => sourceController.actions.clipSourcePreview.playPause(activeClipId));
 	};
 
 	return <div className="audio-editor-clip-properties-panel audio-editor-source-monitor-panel" data-audio-source-monitor-panel>
@@ -112,10 +114,10 @@ export default function ClipSourceMonitorPanel({ controller, snapshot, copy, foc
 		{activeClipId ? <div ref={bodyRef} id={bodyId} role={multiple ? 'tabpanel' : undefined}
 			aria-labelledby={multiple ? tabId(activeClipId) : undefined} tabIndex={-1} data-clip-properties-active-clip={activeClipId}
 			onKeyDown={handlePlaybackKey}
-			onFocusCapture={() => { if (hasSourceEditor && activeClipId) run(() => sourceController.actions.clipSourcePreview.focus(activeClipId)); }}>
+			onFocusCapture={() => { if (hasSourceEditor && activeClipId && !previewBlocked) run(() => sourceController.actions.clipSourcePreview.focus(activeClipId)); }}>
 			{hasSourceEditor && sourceProject && activeClipId && <ClipSourceEditor key={`source:${sourceProject.id}:${activeClipId}`} controller={sourceController}
 				project={sourceProject} clipId={activeClipId} copy={copy} blocked={mutationBlocked} run={run}
-				previewBlocked={selectAudioEditorBusyBlock(snapshot as Parameters<typeof selectAudioEditorBusyBlock>[0]).blocked} />}
+				previewBlocked={previewBlocked} />}
 		</div> : <p className="audio-editor-panel-hint" data-no-clip>{copy.clipSourceEmpty}</p>}
 	</div>;
 }

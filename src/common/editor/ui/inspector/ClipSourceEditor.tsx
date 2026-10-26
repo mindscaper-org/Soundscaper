@@ -10,11 +10,12 @@ import { renderAmplitudeRulers, renderFrequencyRulers } from '../timeline/track-
 import { useNonPassiveWheel } from '../useNonPassiveWheel.js';
 import ClipSourceWaveforms from './ClipSourceWaveforms.tsx';
 import ClipSourceFades from './ClipSourceFades.tsx';
+import { clipSourceSpectrogramOptions } from './clip-source-spectrogram-options.ts';
 import type { ClipFadeChanges } from '../timeline/ClipFadeOverlays.tsx';
 import { fadeDurationAtPointer, fadeShapeAtPointer, fadeField, fadeShapeField } from '../timeline/clip-fade-geometry.ts';
 import { clipSourceStretchFeedback, formatSourceStretchSpeed } from './clip-source-stretch-feedback.ts';
 import ClipSourceRuler, { INITIAL_SOURCE_RULER_OPTIONS } from './ClipSourceRuler.tsx';
-import { clipSourceSelection } from './clip-source-selection.ts';
+import { clipSourceSelection, clipSourceSelectionDisplay } from './clip-source-selection.ts';
 import { clipSourceTrim } from './clip-source-view.ts';
 import { useClipSourceMarkerDeletion } from './useClipSourceMarkerDeletion.ts';
 import type { TimelineAudioBuffer } from '../timeline/waveform-view-model.ts';
@@ -80,7 +81,7 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 		preview.setSelection(normalized.display);
 		controller.actions.effects.setSourceSelection({ clipId, ...normalized.source });
 	};
-	const focus = () => run(() => { preview.focus(clipId); applySelection(selectedRef.current); });
+	const focus = () => { if (!previewBlocked) run(() => { preview.focus(clipId); applySelection(selectedRef.current); }); };
 	const restoreSourceFocus = useRef(() => {});
 	restoreSourceFocus.current = () => run(() => { preview.focus(clipId); applySelection(selectedRef.current); });
 	useEffect(() => {
@@ -88,15 +89,20 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 		else controller.actions.effects.setSourceSelection(null);
 	}, [transport.focused, transport.clipId, clipId, controller]);
 	const contentKey = useMemo(() => JSON.stringify([clip, source.id, source.frameCount]), [clip, source.id, source.frameCount]);
-	const previousContent = useRef(contentKey);
+	const previousContent = useRef({ key: contentKey, sourceId: source.id });
 	useEffect(() => {
-		if (previousContent.current === contentKey) return;
-		previousContent.current = contentKey;
+		if (previousContent.current.key === contentKey) return;
+		const replacedSource = previousContent.current.sourceId !== source.id;
+		previousContent.current = { key: contentKey, sourceId: source.id };
 		preview.stop();
 		const current = preview.snapshot();
-		if (current.focused && current.clipId === clipId) restoreSourceFocus.current();
+		if (current.focused && current.clipId === clipId) {
+			const selected = replacedSource && selectedRef.current ? controller.actions.effects.readSourceSelection?.() : null;
+			if (selected?.clipId === clipId) selectedRef.current = clipSourceSelectionDisplay(project, clip, source, selected);
+			restoreSourceFocus.current();
+		}
 		else setSelection(value => clipSourceSelection(project, clip, source, value).display);
-	}, [contentKey, preview, project, clip, source, clipId]);
+	}, [contentKey, preview, project, clip, source, clipId, controller]);
 	useEffect(() => preview.subscribe(() => setTransport(preview.snapshot())), [preview]);
 	useEffect(() => {
 		const element = rootRef.current;
@@ -122,13 +128,13 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 			run(() => controller.actions.timeline.requestFrequencyWaveform?.(clipId));
 		}
 		let current = true;
-		if (!visual?.buffer && (displayMode === 'spectrogram' || displayMode === 'multiview')) {
+		if (!visual?.buffer && !visual?.prepareSpectrogramPcm && (displayMode === 'spectrogram' || displayMode === 'multiview')) {
 			run(() => controller.actions.effects.loadSourceAudio?.(clipId).then(buffer => {
 				if (current) setLoadedAudio({ sourceId: source.id, buffer });
 			}).catch(cause => { if (current) throw cause; }));
 		}
 		return () => { current = false; };
-	}, [controller, clipId, source.id, displayMode, visual?.buffer, run]);
+	}, [controller, clipId, source.id, displayMode, visual?.buffer, visual?.prepareSpectrogramPcm, run]);
 	useEffect(() => {
 		if (!(transport.state === 'playing') || !view || !ruler.scroll) return;
 		const span = endFrame - startFrame;
@@ -194,7 +200,9 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 		if (current.kind === 'selection') {
 			run(() => { applySelection(frame === current.startFrame ? null : { startFrame: Math.min(current.startFrame, frame), endFrame: Math.max(current.startFrame, frame) }); preview.seek(frame); });
 		} else if (current.kind === 'start' || current.kind === 'end') {
-			run(() => preview.trim(clipId, clipSourceTrim(clip, source, project.sampleRate, current.kind as 'start' | 'end', clip.reversed ? clip.sourceStartFrame + (frame - range.startFrame) / clip.durationFrames * clip.sourceDurationFrames : sourceAt(frame), project)));
+			const sourceFrame = clip.reversed && frame >= range.startFrame && frame <= range.endFrame
+				? clip.sourceStartFrame + (frame - range.startFrame) / clip.durationFrames * clip.sourceDurationFrames : sourceAt(frame);
+			run(() => preview.trim(clipId, clipSourceTrim(clip, source, project.sampleRate, current.kind as 'start' | 'end', sourceFrame, project)));
 		} else if (current.kind === 'marker') {
 			moveMarker(current.pointIndex!, frame);
 		} else if (current.kind.startsWith('shape-') ? event.clientY !== current.startY : event.clientX !== current.startX) {
@@ -228,24 +236,24 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 		onKeyDownCapture={event => { if (event.key === 'Escape' && gesture.current) { event.preventDefault(); event.stopPropagation(); cancelGesture(); } }}
 		onKeyDown={event => {
 			if (event.defaultPrevented || event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement) return;
-			if (event.code === 'Space' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) { event.preventDefault(); event.stopPropagation(); run(() => preview.playPause(clipId)); }
+			if (event.code === 'Space' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) { event.preventDefault(); event.stopPropagation(); if (!previewBlocked) run(() => preview.playPause(clipId)); }
 			if (event.key === 'Escape') { gesture.current = null; setDragFrame(null); setFadePreview(null); run(() => preview.stop()); }
-			if ((event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey) && !event.altKey && !event.shiftKey && event.key === 'a') { event.preventDefault(); event.stopPropagation(); run(() => applySelection({ startFrame: 0, endFrame: range.totalFrames })); }
+			if ((event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'a') { event.preventDefault(); event.stopPropagation(); run(() => applySelection({ startFrame: 0, endFrame: range.totalFrames })); }
 		}}>
 		<ClipSourceRuler copy={copy} width={width} sampleRate={project.sampleRate} startFrame={startFrame} endFrame={endFrame}
 			clipStartFrame={range.startFrame} projectStartFrame={clip.timelineStartFrame} tempoMap={project.tempoMap} signatureMap={project.signatureMap}
-			positionFrame={transport.positionFrame} onSeekFrame={frame => run(() => preview.seek(frame))}
+			positionFrame={transport.positionFrame} onSeekFrame={frame => { if (!previewBlocked) run(() => preview.seek(frame)); }}
 			options={ruler} onOptions={setRuler} playing={(transport.state === 'playing')} loop={transport.loop} loopRange={transport.loopRange} selection={selection} disabled={previewBlocked || !available}
 			onPlay={() => run(() => preview.playPause(clipId))} onStop={() => run(() => preview.stop())} onLoop={() => run(() => preview.setLoop(!transport.loop))}
 			onClearLoop={() => run(() => { preview.setLoop(false); preview.setLoopRange(null); })}
 			onLoopSelection={() => run(() => { preview.setLoopRange(selection); preview.setLoop(true); if (ruler.selectionFollows) applySelection(selection ?? { startFrame: 0, endFrame: range.totalFrames }); })}
 			onSelectionLoop={() => run(() => applySelection(transport.loopRange ?? { startFrame: 0, endFrame: range.totalFrames }))}
-			onSeek={event => { if (event.button !== 0) return; event.preventDefault(); focus(); run(() => { preview.seek(frameAt(event.clientX)); if (ruler.clickToPlay && !(transport.state === 'playing')) return preview.playPause(clipId); }); }} />
+			onSeek={event => { if (event.button !== 0 || previewBlocked) return; event.preventDefault(); focus(); run(() => { preview.seek(frameAt(event.clientX)); if (ruler.clickToPlay && !(transport.state === 'playing')) return preview.playPause(clipId); }); }} />
 		<div className="audio-editor-source-body">
 			<div className="audio-editor-source-vertical-ruler" role="region" aria-label={copy.clipSourceVerticalRuler} tabIndex={0}
 				onContextMenu={event => { event.preventDefault(); setMenu({ kind: 'view', x: event.clientX, y: event.clientY, frame: 0 }); }}
 				onKeyDown={event => { if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return; if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); setMenu({ kind: 'view', x: rect.left, y: rect.bottom, frame: 0 }); } }}>
-				{spectral && renderFrequencyRulers(source.channelCount, displayMode === 'multiview' ? bodyHeight / 2 : bodyHeight, 40, 0, source.sampleRate / 2, 'linear', 0.5)}
+				{spectral && renderFrequencyRulers(source.channelCount, displayMode === 'multiview' ? bodyHeight / 2 : bodyHeight, 40, 0, clipSourceSpectrogramOptions(project.sampleRate, source.sampleRate, Boolean(visual?.prepareSpectrogramPcm) && Number(clip.pitchCents) > 0).maxFreq, 'linear', 0.5)}
 				{displayMode !== 'spectrogram' && amplitudeRulers(source.channelCount, displayMode === 'multiview' ? bodyHeight / 2 : bodyHeight, 40, displayMode, 'linear-db', verticalZoom, 0.5)}
 			</div>
 			<div ref={waveRef} className="audio-editor-source-wave-area" role="region" aria-label={copy.clipSourceWaveform} tabIndex={0}

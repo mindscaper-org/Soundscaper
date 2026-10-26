@@ -5,6 +5,7 @@ import type {
 	AudiocomSearchPage, AudiocomSearchResult,
 } from '../audiocom-panel-session.ts';
 import { audiocomProvider, DEFAULT_AUDIOCOM_PROVIDER, selectedAudiocomApiOrigin, type AudiocomProvider } from './audiocom-provider.ts';
+import { sanitizeSuggestedFileName } from '../../../portable-save-file-name.ts';
 
 const PREFIX = '/api/audiocom/';
 const DESKTOP_PREFIX = 'soundscaper-app://bundle/_desktop/audiocom';
@@ -84,13 +85,14 @@ export function createAudiocomApiClient(options: ClientOptions = {}): AudiocomAp
 		},
 		upload: async (file, draft, signal) => {
 			await loadProvider(signal);
+			const transfer = prepareUploadFile(file);
 			const params = new URLSearchParams({
 				title: draft.title, description: draft.description, category: draft.category, license: draft.license,
 				listed: draft.visibility === 'listed' ? '1' : '0', downloadable: draft.downloadable ? '1' : '0',
 			});
 			const data = record(await responseData(await request(`${PREFIX}uploads?${params}`, {
-				method: 'POST', signal, body: file,
-				headers: { 'Content-Type': uploadMime(file), 'X-Audiocom-Filename': encodeURIComponent(file.name), 'X-Audiocom-Content-Length': String(file.size) },
+				method: 'POST', signal, body: transfer,
+				headers: { 'Content-Type': uploadMime(transfer), 'X-Audiocom-Filename': encodeURIComponent(transfer.name), 'X-Audiocom-Content-Length': String(transfer.size) },
 			})));
 			return { audio: normalizeResult(data.audio, requestUrl, provider), processing: data.processing === true };
 		},
@@ -206,6 +208,12 @@ async function parseResponseData(response: Response): Promise<unknown> {
 	return body.data;
 }
 function uploadMime(file: File): string {
-	const types: Record<string, string> = { wav: 'audio/wav', mp3: 'audio/mpeg', flac: 'audio/flac', wv: 'audio/x-wavpack', aif: 'audio/aiff', aiff: 'audio/aiff', ogg: 'audio/ogg', oga: 'audio/ogg', m4a: 'audio/mp4' };
+	const types: Record<string, string> = { wav: 'audio/wav', wave: 'audio/wav', rf64: 'audio/wav', bw64: 'audio/wav', mp3: 'audio/mpeg', flac: 'audio/flac', wv: 'audio/x-wavpack', aif: 'audio/aiff', aiff: 'audio/aiff', ogg: 'audio/ogg', oga: 'audio/ogg', m4a: 'audio/mp4' };
 	return types[file.name.toLowerCase().split('.').at(-1) ?? ''] ?? file.type;
+}
+
+/** Keep the selected filename for display and send an endpoint-admitted disk basename. */
+function prepareUploadFile(file: File): File {
+	const name = sanitizeSuggestedFileName(file.name.replaceAll('\u007f', '-'));
+	return name === file.name ? file : new File([file], name, { type: file.type, lastModified: file.lastModified });
 }

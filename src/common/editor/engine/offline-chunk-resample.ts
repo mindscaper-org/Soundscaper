@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createStreamingWindowedSincResampler } from '../resample.js';
+import { createStreamingWindowedSincResampler, defaultWindowedSincRadius } from '../resample.js';
 import { throwIfAborted } from './async-utils.ts';
 import { chunkChannels } from './clip-scheduler-chunk-sources.ts';
 import type { EngineChunkSource } from './types.ts';
 
 export const OFFLINE_CHUNK_RESAMPLE_INPUT_FEED_FRAMES = 4_096;
-export const OFFLINE_CHUNK_RESAMPLE_RADIUS = 24;
 
 interface StreamingResampler {
 	push(channels: readonly Float32Array[]): readonly Float32Array[];
@@ -31,10 +30,11 @@ export async function createOfflineChunkResampleBuffer(options: Readonly<{
 	if (inputOffsetFrame >= source.frameCount) {
 		throw new RangeError('The offline long-source resample range is empty.');
 	}
-	const sourceStartFrame = Math.max(0, Math.floor(inputOffsetFrame) - OFFLINE_CHUNK_RESAMPLE_RADIUS);
+	const radius = defaultWindowedSincRadius(inputFrameCount, outputFrameCount);
+	const sourceStartFrame = Math.max(0, Math.floor(inputOffsetFrame) - radius);
 	const sourceEndFrame = Math.min(
 		source.frameCount,
-		Math.ceil(inputOffsetFrame + inputFrameCount) + OFFLINE_CHUNK_RESAMPLE_RADIUS,
+		Math.ceil(inputOffsetFrame + inputFrameCount) + radius,
 	);
 	if (sourceEndFrame <= sourceStartFrame) {
 		throw new RangeError('The offline long-source resample range is empty.');
@@ -93,9 +93,12 @@ function copyOutput(
 ): number {
 	if (values.length !== target.length) throw new Error('The offline long-source resample changed channel count.');
 	const frames = values[0]?.length ?? 0;
-	if (values.some((channel) => channel.length !== frames) || offset + frames > targetFrames) {
+	if (values.some((channel) => channel.length !== frames) || offset > targetFrames) {
 		throw new Error('The offline long-source resample returned invalid channel geometry.');
 	}
-	for (let channel = 0; channel < target.length; channel += 1) target[channel]!.set(values[channel]!, offset);
-	return offset + frames;
+	// Lookahead beyond a fractional source endpoint can produce an extra sample.
+	// The requested output window owns the crop; preserve lookahead only as input.
+	const retained = Math.min(frames, targetFrames - offset);
+	for (let channel = 0; channel < target.length; channel += 1) target[channel]!.set(values[channel]!.subarray(0, retained), offset);
+	return offset + retained;
 }

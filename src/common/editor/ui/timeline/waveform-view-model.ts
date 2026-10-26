@@ -5,7 +5,7 @@ import {
 	prepareBoundedWaveformWindow,
 	preparePeakPyramidWaveformWindow,
 } from '../../design-system-adapters.js';
-import { envelopeFramesToDesignPoints } from '../../automation.js';
+import { projectTimelineEnvelopeDesignPoints } from './envelope-design-projection.ts';
 import {
 	audioWarpMinimumSourceSpanPerColumn,
 	type AudioWarpRuntimeProject,
@@ -77,6 +77,8 @@ export interface TimelineWaveformClip {
 	readonly reversed?: boolean;
 	readonly inverted?: boolean;
 	readonly pitchCents?: number;
+	readonly preserveFormants?: boolean;
+	readonly renderCacheRevision?: number;
 	readonly linkPitchAndTempo?: boolean;
 	readonly speedRatio?: number;
 	readonly kind?: unknown;
@@ -110,6 +112,7 @@ export interface TimelinePeakWindow {
 }
 
 export interface TimelineClipVisualData {
+	readonly prepareSpectrogramPcm?: import('../../spectrogram-processed-pcm-contract.ts').PrepareSpectrogramProcessedPcm;
 	readonly available?: boolean;
 	readonly source?: TimelineWaveformSource | null;
 	readonly buffer?: TimelineAudioBuffer | null;
@@ -278,7 +281,7 @@ export function createTimelineClipViewModel({
 		// The clip header draws a pitch badge beside the time-stretch one, so the
 		// shift the pitch commands step has to reach the design system too.
 		pitchCents: badgedPitchCents(clip.linkPitchAndTempo ? 1200 * Math.log2(clip.speedRatio ?? 1) : clip.pitchCents),
-		envelopePoints: envelopeFramesToDesignPoints(clip.envelope, sampleRate, {
+		envelopePoints: projectTimelineEnvelopeDesignPoints(cache, clip.envelope, sampleRate, {
 			startFrame: clip.waveformStartFrame,
 			endFrame: clip.waveformEndFrame,
 		}),

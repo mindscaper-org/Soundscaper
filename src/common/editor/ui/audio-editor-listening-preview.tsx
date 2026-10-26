@@ -21,7 +21,7 @@ export function AudioEditorListeningPreview(props: AudioHTMLAttributes<HTMLAudio
 	useLayoutEffect(() => {
 		currentVolume.current = volume;
 		if (audio.current) audio.current.volume = volume;
-	}, [volume]);
+	}, [volume, props.src]);
 	useLayoutEffect(() => {
 		const player = audio.current;
 		if (player) return bindListeningMediaReadiness(player, () => currentVolume.current, () => audio.current === player);

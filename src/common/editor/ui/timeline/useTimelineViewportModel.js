@@ -27,11 +27,10 @@ import {
 	resolveTrackPanelGeometry,
 } from './constants.ts';
 import { timelineAnnotationsAvailable } from './timeline-annotation-ui-model.ts';
-import { timelineLabelTrackContentHeight } from './label-design-geometry.ts';
 import { useAnchoredTimelineRenderScrollX } from './timeline-render-window.ts';
 import { useTimelineTrackCounts, useTimelineFrequencyRuler, useTimelineOutputDockContentHeight,
 	useTimelineTotalTrackHeight, useTimelineTimeSelection, useTimelineWaveformCacheMembership,
-	useTimelineDocumentDuration } from './useTimelineViewportDerived.ts';
+	useTimelineDocumentDuration, useTimelineLabelTrackContentHeights } from './useTimelineViewportDerived.ts';
 import {
 	createTimelineScrollSpace,
 	timelineContentScrollX,
@@ -124,10 +123,7 @@ export function useTimelineViewportModel({
 	const pixelsPerSecond = snapshot.timeline?.pixelsPerSecond || 120;
 	const sampleRate = project?.sampleRate || 48_000;
 	const labelTextSizePt = snapshot.preferences?.appearance?.labelTextSizePt ?? 9;
-	const labelTrackContentHeights = useMemo(() => new Map((project?.tracks || [])
-		.filter(track => track.type === 'label')
-		.map(track => [track.id, timelineLabelTrackContentHeight(track.labels, pixelsPerSecond, sampleRate, labelTextSizePt)])),
-	[project?.tracks, pixelsPerSecond, sampleRate, labelTextSizePt]);
+	const labelTrackContentHeights = useTimelineLabelTrackContentHeights(project?.tracks, pixelsPerSecond, sampleRate, labelTextSizePt);
 	const recordingPreviews = snapshot.recordingPreviews?.length
 		? snapshot.recordingPreviews
 		: snapshot.recordingPreview ? [snapshot.recordingPreview] : [];

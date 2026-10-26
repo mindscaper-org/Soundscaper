@@ -3,6 +3,7 @@
 import { clipSourceDisplayRange, clipSourcePreviewWarpMap, type ClipSourceTimingClip, type ClipSourceTimingProject, type ClipSourceTimingSource } from '../../../clip-source-timing.ts';
 import { createAudioPreviewProject } from '../../../engine/audio-preview-project.ts';
 import type { EngineProject } from '../../../engine/types.ts';
+import { clipTimePitchPlaybackProjection } from '../../../clip-time-pitch-playback-projection.ts';
 
 export interface ClipSourcePreviewClip extends ClipSourceTimingClip, Readonly<Record<string, unknown>> { readonly id: string; readonly sourceId: string }
 export interface ClipSourcePreviewSource extends ClipSourceTimingSource, Readonly<Record<string, unknown>> { readonly id: string }
@@ -22,11 +23,13 @@ export function sourcePreviewTarget(project: ClipSourcePreviewProject, clipId: s
 /** Audition all media while preserving the active clip's non-destructive processing. */
 export function createClipSourcePreviewProject(project: ClipSourcePreviewProject, clipId: string): EngineProject {
 	const { clip, source, range } = sourcePreviewTarget(project, clipId);
+	const playbackProject = { sampleRate: project.sampleRate, tempoMap: project.tempoMap };
+	const playbackClip = clipTimePitchPlaybackProjection(playbackProject, clip, source);
 	const clips: Readonly<object>[] = [];
 	const raw = { sourceId: source.id, kind: 'audio', anchor: 'sample', gain: 1, pitchCents: 0, speedRatio: 1, reversed: false, inverted: false, fadeInFrames: 0, fadeOutFrames: 0, envelope: [], warpMap: null };
 	if (range.startFrame > 0) clips.push({ ...raw, id: `${clip.id}-source-before`, timelineStartFrame: 0, durationFrames: range.startFrame, sourceStartFrame: 0, sourceDurationFrames: clip.sourceStartFrame });
 	clips.push({
-		...clip, anchor: 'sample', musicalStartBeat: null, musicalDurationBeats: null, musicalExtent: 'fixedSamples',
+		...playbackClip, anchor: 'sample', musicalStartBeat: null, musicalDurationBeats: null, musicalExtent: 'fixedSamples',
 		timelineStartFrame: range.startFrame, groupId: null, avLinkId: null, binItemId: null,
 		warpMap: clipSourcePreviewWarpMap(project, clip, source),
 	});

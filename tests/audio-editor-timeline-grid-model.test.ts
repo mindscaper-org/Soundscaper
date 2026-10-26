@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { CLIP_CONTENT_OFFSET } from '../vendor/audacity-design-system/components/src/constants.ts';
@@ -9,14 +8,9 @@ import { createSequenceRulerTicks } from '../src/common/editor/ui/timeline/seque
 import {
 	createTimelineGridLines,
 	resolveTimelineRulerScale,
-	timelineMajorInterval,
 	type TimelineRulerScale,
 } from '../src/common/editor/ui/timeline/timeline-grid-model.ts';
 
-const VENDORED_RULER = new URL(
-	'../vendor/audacity-design-system/components/src/TimelineRuler/TimelineRuler.tsx',
-	import.meta.url,
-);
 const SAMPLE_RATE = 48_000;
 const MINUTES_SECONDS: TimelineRulerScale = Object.freeze({ kind: 'minutes-seconds' as const });
 
@@ -120,30 +114,6 @@ test('the ruler scale resolves the way the timeline picks its ruler canvas', () 
 	assert.equal(timecode.kind, 'timecode');
 	assert.ok(timecode.kind === 'timecode' && timecode.view.id === 'main' && timecode.view.nominalFrameRate === 25);
 	assert.deepEqual(resolveTimelineRulerScale({ ...SEQUENCE_PROJECT, sequences: [] }), { kind: 'minutes-seconds' });
-});
-
-test('the zoom table and tick rounding mirror the vendored ruler source', () => {
-	const source = readFileSync(VENDORED_RULER, 'utf8');
-	const body = source.slice(source.indexOf('function getTimelineMajorInterval'));
-	const rows = [...body.matchAll(/if \(pixelsPerSecond < (\d+)\) return ([\d.]+);/gu)]
-		.map((match) => [Number(match[1]), Number(match[2])] as const);
-	const fallback = /\n {2}return ([\d.]+);\n\}/u.exec(body);
-	assert.ok(rows.length >= 5 && fallback, 'the vendored zoom table must still be readable');
-	let lowerBound = 0;
-	for (const [threshold, interval] of rows) {
-		assert.equal(timelineMajorInterval(lowerBound), interval, `zoom ${lowerBound}`);
-		assert.equal(timelineMajorInterval(threshold - 0.001), interval, `zoom just under ${threshold}`);
-		lowerBound = threshold;
-	}
-	assert.equal(timelineMajorInterval(lowerBound), Number(fallback[1]));
-	assert.equal(timelineMajorInterval(lowerBound * 10), Number(fallback[1]));
-	assert.match(source, /const minorInterval = majorInterval \/ 5;/u);
-	assert.match(source, /if \(x < CLIP_CONTENT_OFFSET \|\| x > width\) continue;/u);
-	assert.match(source, /const tickX = Math\.floor\(x\) \+ 0\.5;/u);
-	assert.match(source, /if \(pixelsPerBeat >= 160\) subdivisionsPerBeat = 8;/u);
-	assert.match(source, /const showBeatTicks = pixelsPerBeat >= 8;/u);
-	assert.match(source, /if \(pixelsPerMeasure \* interval >= 60\)/u);
-	assert.match(source, /const showMinorMeasureTicks = pixelsPerMeasure >= 6;/u);
 });
 
 test('minutes-and-seconds lines sit on every ruler tick with labelled ticks as major lines', () => {

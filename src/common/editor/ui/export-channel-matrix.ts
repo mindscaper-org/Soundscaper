@@ -5,10 +5,9 @@
  *
  * A mapping is a list of output channels, each naming the input channels that
  * feed it and at what gain. The matrix editor states routing only, so every
- * checked cell is unity gain and every unchecked one is absent — which is what
- * makes it a grid of checkboxes rather than a grid of faders. A mapping already
- * holding gains the grid cannot express is left exactly as it is until the
- * operator applies an edit, so opening the window never rewrites it.
+ * newly checked cell is unity gain and every unchecked one is absent. Existing
+ * contributions retain their gains until that route is edited, so reviewing
+ * the grid or editing another route never rewrites attenuation or polarity.
  */
 
 export const MAXIMUM_EXPORT_CHANNELS = 32;
@@ -87,21 +86,35 @@ export function toggleExportChannelMatrix(
 	output: number,
 	checked: boolean,
 ): ExportChannelMatrix {
-	return freezeMatrix(matrix.map((row, rowIndex) => row.map((cell, cellIndex) => (
-		rowIndex === input && cellIndex === output ? checked : cell
-	))));
+	return Object.freeze(matrix.map((row, rowIndex) => rowIndex === input
+		? Object.freeze(row.map((cell, cellIndex) => cellIndex === output ? checked : cell))
+		: Object.isFrozen(row) ? row : Object.freeze([...row])));
 }
 
 /** The mapping the grid means, in the shape the export request already parses. */
 export function serializeExportChannelMatrix(
 	matrix: ExportChannelMatrix,
 	outputChannelCount: number = exportChannelMatrixOutputCount(matrix),
+	baseline?: unknown,
+	editedCells: ReadonlySet<string> = new Set(),
 ): string {
 	const outputs = boundedExportChannelCount(outputChannelCount, exportChannelMatrixOutputCount(matrix));
+	const original = readOutputChannels(baseline);
 	return `${JSON.stringify({
-		channels: Array.from({ length: outputs }, (_, output) => ({
-			inputs: matrix.flatMap((row, input) => (row[output] ? [{ channel: input, gain: 1 }] : [])),
-		})),
+		channels: Array.from({ length: outputs }, (_, output) => {
+			const originalInputs = new Map<number, Readonly<{ channel: number; gain: number }>[]>();
+			for (const contribution of readInputs(original?.[output])) {
+				const retained = originalInputs.get(contribution.channel);
+				if (retained) retained.push(contribution);
+				else originalInputs.set(contribution.channel, [contribution]);
+			}
+			return { inputs: matrix.flatMap((row, input) => {
+				if (!row[output]) return [];
+				const retained = editedCells.has(`${String(input)}-${String(output)}`) ? []
+					: originalInputs.get(input) ?? [];
+				return retained.length ? retained : [{ channel: input, gain: 1 }];
+			}) };
+		}),
 	}, null, 2)}\n`;
 }
 

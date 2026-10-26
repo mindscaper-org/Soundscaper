@@ -2,11 +2,13 @@
 
 import { spawn } from 'node:child_process';
 import { open } from 'node:fs/promises';
+import { join } from 'node:path';
+import { terminateProcessTree } from '../../desktop/process-tree-termination.ts';
 import { createDesktopNightlyTestsItemProgressReader } from './desktop-nightly-tests-progress-reporter.mjs';
 
 const CHILD_TERMINATION_GRACE_MS = 250;
 
-export async function runDesktopNightlyTestsPlaywrightChild(plan, onItems) {
+export async function runDesktopNightlyTestsPlaywrightChild(plan, onItems, { signal } = {}) {
 	const descriptor = await open(plan.logFile, 'wx');
 	const log = descriptor.createWriteStream();
 	const reader = onItems ? createDesktopNightlyTestsItemProgressReader(onItems) : null;
@@ -18,6 +20,9 @@ export async function runDesktopNightlyTestsPlaywrightChild(plan, onItems) {
 	let childClosed = false;
 	let terminationStarted = false;
 	let forceTimer;
+	let pauseTimer;
+	let pauseRequested = false;
+	let termination = Promise.resolve();
 	let waitForClose;
 	const rememberFailure = (error) => {
 		if (failed) return;
@@ -26,13 +31,33 @@ export async function runDesktopNightlyTestsPlaywrightChild(plan, onItems) {
 	};
 	const childRunning = () => child && Number.isSafeInteger(child.pid) && child.pid > 0
 		&& !exitSeen && !childClosed && child.exitCode === null && child.signalCode === null;
+	const kill = (processSignal) => {
+		if (signal) {
+			termination = termination.then(() => terminateProcessTree(child, processSignal))
+				.then(() => undefined).catch(rememberFailure);
+		} else {
+			try { child.kill(processSignal); } catch { /* Keep the original failure and close waiter. */ }
+		}
+	};
+	const onAbort = () => {
+		if (pauseRequested || childClosed) return;
+		pauseRequested = true;
+		if (child.connected) {
+			try { child.send({ type: 'soundscaper-nightly-pause' }, () => undefined); }
+			catch { /* Whole-tree escalation below still requires OS closure. */ }
+		}
+		pauseTimer = setTimeout(() => {
+			if (!childClosed) kill('SIGKILL');
+		}, 30_000);
+		pauseTimer.unref();
+	};
 	const terminate = () => {
 		if (terminationStarted || !childRunning()) return;
 		terminationStarted = true;
-		try { child.kill('SIGTERM'); } catch { /* Keep the original failure and close waiter. */ }
+		kill('SIGTERM');
 		forceTimer = setTimeout(() => {
 			if (!childRunning()) return;
-			try { child.kill('SIGKILL'); } catch { /* OS closure remains required. */ }
+			kill('SIGKILL');
 		}, CHILD_TERMINATION_GRACE_MS);
 	};
 	const onChildError = (error) => { rememberFailure(error); terminate(); };
@@ -55,38 +80,47 @@ export async function runDesktopNightlyTestsPlaywrightChild(plan, onItems) {
 	};
 	log.on('error', onLogError);
 	try {
-		child = spawn(plan.command, plan.args, {
+		child = spawn(plan.command, signal
+			? [join(plan.cwd, 'scripts/lib/desktop-nightly-tests-child-bootstrap.mjs'), ...plan.args]
+			: plan.args, {
 			cwd: plan.cwd,
-			detached: false,
+			detached: Boolean(signal) && process.platform !== 'win32',
 			env: { ...plan.env },
-			stdio: ['ignore', 'pipe', 'pipe'],
+			stdio: signal ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],
 			windowsHide: true,
 		});
 		waitForClose = new Promise((resolvePromise) => {
 			child.on('error', onChildError);
 			child.once('exit', onExit);
-			child.once('close', (code, signal) => {
+			child.once('close', (code, processSignal) => {
 				childClosed = true;
 				clearTimeout(forceTimer);
+				clearTimeout(pauseTimer);
+				signal?.removeEventListener('abort', onAbort);
 				if (!failed) {
 					try { reader?.finish(); } catch (error) { rememberFailure(error); }
 				}
-				result = { code, signal };
+				result = { code, signal: processSignal };
 				resolvePromise();
 			});
 		});
 		child.stdout.pipe(log, { end: false });
 		child.stderr.pipe(log, { end: false });
 		child.stdout.on('data', onData);
+		signal?.addEventListener('abort', onAbort, { once: true });
+		if (signal?.aborted) onAbort();
 		await waitForClose;
 	} catch (error) {
 		rememberFailure(error);
 		terminate();
 		if (waitForClose) await waitForClose;
 	}
+	await termination;
 	try { await closeWritable(log); } catch (error) { rememberFailure(error); }
 	finally {
 		clearTimeout(forceTimer);
+		clearTimeout(pauseTimer);
+		signal?.removeEventListener('abort', onAbort);
 		child?.off('error', onChildError);
 		child?.off('exit', onExit);
 		child?.stdout.off('data', onData);

@@ -402,7 +402,7 @@ function normalizeRiffChunks(value, name) {
 }
 
 function normalizeChannelMask(value, channelCount) {
-	if (value == null) return channelCount === 32 ? UINT32_MAX : (2 ** channelCount - 1) >>> 0;
+	if (value == null) return channelCount > 18 ? 0 : channelCount === 1 ? 4 : (2 ** channelCount - 1) >>> 0;
 	if (!Number.isInteger(value) || value < 0 || value > UINT32_MAX) throw new RangeError('WAV channelMask must be an unsigned 32-bit integer.');
 	return value;
 }

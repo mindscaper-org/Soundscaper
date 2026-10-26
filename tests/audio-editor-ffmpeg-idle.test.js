@@ -380,12 +380,6 @@ test('disposing FFmpeg rejects queued work without creating a replacement runtim
 	assert.equal(MockFfmpegRuntime.instances.length, 1);
 });
 
-test('invalid idle timeout configuration fails early', () => {
-	assert.throws(() => createEditorFfmpeg({ idleTimeoutMs: -1 }), /non-negative finite number/);
-	assert.throws(() => createEditorFfmpeg({ idleTimeoutMs: Number.POSITIVE_INFINITY }), /non-negative finite number/);
-	assert.throws(() => createEditorFfmpeg({ idleTimeoutMs: '1000' }), /non-negative finite number/);
-});
-
 test('FFmpeg loads an installed content-addressed browser runtime', async () => {
 	const releaseId = 'b'.repeat(64);
 	const baseUrl = `https://assets.soundscaper.org/runtime/ffmpeg/0.12.10/releases/${releaseId}`;

@@ -1,3 +1,22 @@
+import { inspectApeAudioSampleRate } from './ape-audio-sample-rate.ts';
+import { inspectSbcAudioSampleRate } from './sbc-audio-sample-rate.ts';
+import { inspectSdsPcmSourceGeometry } from './sds-pcm-source-geometry.ts';
+import { inspectTtaAudioSampleRate } from './tta-audio-sample-rate.ts';
+import { inspectMatroskaOpusSampleRate } from './matroska-audio-sample-rate.ts';
+import { readAlacSampleDescription } from './alac-sample-description.ts';
+import { inspectAuAudioSampleRate } from './au-audio-sample-rate.ts';
+import { inspectDolbyAudioSampleRate } from './dolby-audio-sample-rate.ts';
+import { inspectDtsAudioSampleRate } from './dts-audio-sample-rate.ts';
+import { readQuickTimePcmSampleDescription } from './quicktime-pcm-sample-description.ts';
+import { inspectWave64PcmSourceGeometry } from './wave64-pcm-source-geometry.ts';
+import { inspectNistPcmSourceGeometry } from './nist-pcm-source-geometry.ts';
+import { inspectIrcamPcmSourceGeometry } from './ircam-pcm-source-geometry.ts';
+import { inspectPafPcmSourceGeometry } from './paf-pcm-source-geometry.ts';
+import { inspectIff16svPcmSourceGeometry } from './iff16sv-pcm-source-geometry.ts';
+import { inspectVocPcmSampleRate } from './voc-pcm-sample-rate.ts';
+import { inspectAmrWbAudioSampleRate } from './amr-wb-audio-sample-rate.ts';
+import { inspectOggSpeexSampleRate } from './ogg-speex-source-identity.ts';
+
 const MAX_SIGNATURE_SCAN_BYTES = 1024 * 1024;
 const MAX_CONTAINER_BOXES = 16_384;
 const ASF_HEADER_GUID = Object.freeze([
@@ -35,11 +54,27 @@ export function inspectEncodedAudioSampleRate(input) {
 	if (!bytes || bytes.byteLength < 4) return null;
 	try {
 		return inspectWaveSampleRate(bytes)
+			?? inspectWave64PcmSourceGeometry(bytes)?.sampleRate
+			?? inspectNistPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectIrcamPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectPafPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectIff16svPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectSdsPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectVocPcmSampleRate(bytes)
 			?? inspectAiffSampleRate(bytes)
+			?? inspectAuAudioSampleRate(bytes)
+			?? inspectApeAudioSampleRate(bytes)
+			?? inspectTtaAudioSampleRate(bytes)
+			?? inspectSbcAudioSampleRate(bytes)
+			?? inspectAmrWbAudioSampleRate(bytes)
+			?? inspectDolbyAudioSampleRate(bytes)
+			?? inspectDtsAudioSampleRate(bytes)
 			?? inspectFlacSampleRate(bytes)
 			?? inspectOggSampleRate(bytes)
+			?? inspectOggSpeexSampleRate(bytes)
 			?? inspectIsoMediaSampleRate(bytes)
 			?? inspectAsfSampleRate(bytes)
+			?? inspectMatroskaOpusSampleRate(bytes)
 			?? inspectWavPackSampleRate(bytes)
 			?? inspectMpegOrAdtsSampleRate(bytes);
 	} catch {
@@ -62,9 +97,26 @@ export function inspectDecodedAudioSampleRate(input) {
 	if (!bytes || bytes.byteLength < 4) return null;
 	try {
 		return inspectWaveSampleRate(bytes)
+			?? inspectWave64PcmSourceGeometry(bytes)?.sampleRate
+			?? inspectNistPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectIrcamPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectPafPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectIff16svPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectSdsPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectVocPcmSampleRate(bytes)
 			?? inspectAiffSampleRate(bytes)
+			?? inspectAuAudioSampleRate(bytes)
+			?? inspectApeAudioSampleRate(bytes)
+			?? inspectTtaAudioSampleRate(bytes)
+			?? inspectSbcAudioSampleRate(bytes)
+			?? inspectAmrWbAudioSampleRate(bytes)
+			?? inspectDolbyAudioSampleRate(bytes)
+			?? inspectDtsAudioSampleRate(bytes)
 			?? inspectFlacSampleRate(bytes)
 			?? inspectOggSampleRate(bytes)
+			?? inspectOggSpeexSampleRate(bytes)
+			?? inspectIsoMediaSampleRate(bytes, true)
+			?? inspectMatroskaOpusSampleRate(bytes)
 			?? inspectWavPackSampleRate(bytes)
 			?? inspectMpegOrAdtsSampleRate(bytes, false);
 	} catch {
@@ -117,7 +169,7 @@ function inspectFlacSampleRate(bytes) {
 		if (tagLength === null) return null;
 		offset = 10 + tagLength + (bytes[5] & 0x10 ? 10 : 0);
 	}
-	if (offset > 64 * 1024 || ascii(bytes, offset, 4) !== 'fLaC') return null;
+	if (ascii(bytes, offset, 4) !== 'fLaC') return null;
 	const block = offset + 4;
 	if (block + 38 > bytes.byteLength || (bytes[block] & 0x7f) !== 0) return null;
 	const length = (bytes[block + 1] << 16) | (bytes[block + 2] << 8) | bytes[block + 3];
@@ -131,50 +183,68 @@ function inspectFlacSampleRate(bytes) {
 }
 
 function inspectOggSampleRate(bytes) {
-	if (bytes.byteLength < 28 || ascii(bytes, 0, 4) !== 'OggS' || bytes[4] !== 0) return null;
-	const segmentCount = bytes[26];
-	const packetOffset = 27 + segmentCount;
-	if (packetOffset > bytes.byteLength) return null;
-	let packetLength = 0;
-	let complete = false;
-	for (let index = 0; index < segmentCount; index += 1) {
-		const segmentLength = bytes[27 + index];
-		packetLength += segmentLength;
-		if (segmentLength < 255) {
-			complete = true;
-			break;
+	let offset = 0;
+	const limit = Math.min(bytes.byteLength, MAX_SIGNATURE_SCAN_BYTES);
+	for (let pages = 0; pages < MAX_CONTAINER_BOXES && offset + 27 <= limit; pages += 1) {
+		if (ascii(bytes, offset, 4) !== 'OggS' || bytes[offset + 4] !== 0) return null;
+		const segmentCount = bytes[offset + 26];
+		const packetOffset = offset + 27 + segmentCount;
+		if (packetOffset > limit) return null;
+		let packetLength = 0;
+		let pageLength = 0;
+		let complete = false;
+		for (let index = 0; index < segmentCount; index += 1) {
+			const segmentLength = bytes[offset + 27 + index];
+			pageLength += segmentLength;
+			if (!complete) {
+				packetLength += segmentLength;
+				if (segmentLength < 255) complete = true;
+			}
 		}
-	}
-	if (!complete || packetOffset + packetLength > bytes.byteLength) return null;
-	if (packetLength >= 16 && bytes[packetOffset] === 1
-		&& ascii(bytes, packetOffset + 1, 6) === 'vorbis') {
-		return sampleRate(dataView(bytes).getUint32(packetOffset + 12, true));
-	}
-	if (packetLength >= 19 && ascii(bytes, packetOffset, 8) === 'OpusHead') {
-		// Opus packets always use a 48 kHz decode clock. The header's input
-		// rate field is informational and must not drive PCM resampling.
-		return 48_000;
+		if (!complete || packetOffset + pageLength > limit) return null;
+		if (packetLength >= 16 && bytes[packetOffset] === 1
+			&& ascii(bytes, packetOffset + 1, 6) === 'vorbis') {
+			return sampleRate(dataView(bytes).getUint32(packetOffset + 12, true));
+		}
+		if (packetLength >= 19 && ascii(bytes, packetOffset, 8) === 'OpusHead') {
+			// Opus always decodes on a 48 kHz clock; the input rate is informational.
+			return 48_000;
+		}
+		if (packetLength >= 51 && bytes[packetOffset] === 0x7f
+			&& ascii(bytes, packetOffset + 1, 4) === 'FLAC' && bytes[packetOffset + 5] === 1) {
+			return inspectFlacSampleRate(bytes.subarray(packetOffset + 9, packetOffset + packetLength));
+		}
+		// Skeleton and other non-audio BOS streams can precede the primary audio.
+		if (!(bytes[offset + 5] & 2)) return null;
+		offset = packetOffset + pageLength;
 	}
 	return null;
 }
 
-function inspectIsoMediaSampleRate(bytes) {
+function inspectIsoMediaSampleRate(bytes, decodedOnly = false) {
 	const topLevel = isoBoxes(bytes, 0, bytes.byteLength);
 	const moov = topLevel.find((box) => box.type === 'moov');
 	if (!moov) return null;
 	const view = dataView(bytes);
+	let audioTracks = 0, decodedRate = null;
 	for (const track of isoBoxes(bytes, moov.payload, moov.end).filter((box) => box.type === 'trak')) {
 		const mdia = isoBoxes(bytes, track.payload, track.end).find((box) => box.type === 'mdia');
 		if (!mdia) continue;
 		const mediaBoxes = isoBoxes(bytes, mdia.payload, mdia.end);
 		const handler = mediaBoxes.find((box) => box.type === 'hdlr');
 		if (!handler || handler.payload + 12 > handler.end || ascii(bytes, handler.payload + 8, 4) !== 'soun') continue;
+		audioTracks += 1;
 		const minf = mediaBoxes.find((box) => box.type === 'minf');
 		if (!minf) continue;
 		const stbl = isoBoxes(bytes, minf.payload, minf.end).find((box) => box.type === 'stbl');
 		if (!stbl) continue;
 		const stsd = isoBoxes(bytes, stbl.payload, stbl.end).find((box) => box.type === 'stsd');
 		if (!stsd || stsd.payload + 8 > stsd.end || bytes[stsd.payload] !== 0) continue;
+		if (decodedOnly) {
+			const description = bytes.subarray(stsd.payload - 8, stsd.end);
+			decodedRate = (readAlacSampleDescription(description) ?? readQuickTimePcmSampleDescription(description))?.sampleRate ?? null;
+			continue;
+		}
 		const entryCount = view.getUint32(stsd.payload + 4, false);
 		if (entryCount < 1 || entryCount > MAX_CONTAINER_BOXES) continue;
 		const entries = isoBoxes(bytes, stsd.payload + 8, stsd.end);
@@ -184,7 +254,7 @@ function inspectIsoMediaSampleRate(bytes) {
 			if (rate) return rate;
 		}
 	}
-	return null;
+	return decodedOnly && audioTracks === 1 ? decodedRate : null;
 }
 
 function inspectIsoAudioSampleEntryRate(entry, view) {
@@ -221,8 +291,28 @@ function inspectAsfSampleRate(bytes) {
 
 function inspectWavPackSampleRate(bytes) {
 	if (ascii(bytes, 0, 4) !== 'wvpk' || bytes.byteLength < 32) return null;
-	const flags = dataView(bytes).getUint32(24, true);
-	return sampleRate(WAVPACK_SAMPLE_RATES[(flags >>> 23) & 0x0f]);
+	const view = dataView(bytes);
+	const flags = view.getUint32(24, true);
+	const rateIndex = (flags >>> 23) & 0x0f;
+	if (rateIndex !== 15) return sampleRate(WAVPACK_SAMPLE_RATES[rateIndex]);
+	const end = Math.min(bytes.byteLength, view.getUint32(4, true) + 8, MAX_SIGNATURE_SCAN_BYTES);
+	let offset = 32;
+	while (offset + 2 <= end) {
+		const id = bytes[offset++];
+		let words = bytes[offset++];
+		if (id & 0x80) {
+			if (offset + 2 > end) return null;
+			words += bytes[offset++] * 256 + bytes[offset++] * 65_536;
+		}
+		const paddedLength = words * 2;
+		const length = paddedLength - (id & 0x40 ? 1 : 0);
+		if (offset + paddedLength > end || length < 0) return null;
+		if ((id & 0x3f) === 0x27 && length === 3) {
+			return sampleRate(bytes[offset] + bytes[offset + 1] * 256 + bytes[offset + 2] * 65_536);
+		}
+		offset += paddedLength;
+	}
+	return null;
 }
 
 function inspectMpegOrAdtsSampleRate(bytes, includeAdts = true) {
@@ -265,7 +355,7 @@ function inspectMpegOrAdtsSampleRate(bytes, includeAdts = true) {
 		const layer = (header >>> 17) & 0x03;
 		const bitrateIndex = (header >>> 12) & 0x0f;
 		const frequencyIndex = (header >>> 10) & 0x03;
-		if (version === 1 || layer === 0 || bitrateIndex === 0 || bitrateIndex === 0x0f || frequencyIndex === 3) continue;
+		if (version === 1 || layer === 0 || bitrateIndex === 0x0f || frequencyIndex === 3) continue;
 		const rates = version === 3
 			? [44_100, 48_000, 32_000]
 			: version === 2

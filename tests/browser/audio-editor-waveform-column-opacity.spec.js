@@ -7,6 +7,40 @@ import { bootEditor, clipByName, importFiles, registerAudioEditorHooks } from '.
 
 // Exercise each browser's actual rasterizer: a recording context cannot detect
 // the transparency seams caused by adjacent subpixel fillRect calls.
+test('silent and quiet summaries retain a continuous thin line at every display scale', async ({ page }) => {
+	const bundled = await build({
+		entryPoints: [fileURLToPath(new URL('../../src/common/editor/audacity-waveform-renderer.js', import.meta.url))],
+		bundle: true, write: false, format: 'iife', globalName: 'waveformRenderer', target: 'es2022',
+	});
+	await page.addScriptTag({ content: bundled.outputFiles[0].text });
+	const failures = await page.evaluate(() => {
+		const failures = [];
+		for (const width of [163, 163.5, 480.25]) for (const density of [1, 1.25, 1.5, 2]) {
+			for (const amplitude of [0, 1e-8]) for (const amplitudeScale of ['linear', 'db']) {
+				const canvas = document.createElement('canvas');
+				canvas.width = Math.round(width * density); canvas.height = Math.round(100 * density);
+				const context = canvas.getContext('2d');
+				const pixelRatioX = canvas.width / width;
+				context.scale(pixelRatioX, density);
+				globalThis.waveformRenderer.drawAudacityWaveformChannel(context, {
+					mode: 'summary', pixelWidth: width,
+					channels: [{ minimum: [-amplitude], maximum: [amplitude], rms: [amplitude] }],
+				}, { width, centerY: 50, maxAmplitude: 40, pixelRatioX, amplitudeScale, sampleColor: '#123456', showRms: true });
+				const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+				for (let x = 0; x < canvas.width; x++) {
+					let visibleRows = 0;
+					for (let y = 0; y < canvas.height; y++) if (pixels[(y * canvas.width + x) * 4 + 3]) visibleRows++;
+					if (visibleRows < 1 || visibleRows > Math.ceil(density) + 1) {
+						failures.push({ width, density, amplitude, amplitudeScale, x, visibleRows }); break;
+					}
+				}
+			}
+		}
+		return failures;
+	});
+	expect(failures).toEqual([]);
+});
+
 test('summary and RMS columns stay opaque at fractional clip widths and display scales', async ({ page }) => {
 	const bundled = await build({
 		entryPoints: [fileURLToPath(new URL('../../src/common/editor/audacity-waveform-renderer.js', import.meta.url))],

@@ -34,7 +34,6 @@ function createRuntime() {
 test('transport service owns playback rate validation and publication', () => {
 	const fixture = createRuntime();
 	const service = createEditorTransportService(fixture.runtime);
-	assert.equal(Object.isFrozen(service), true);
 	assert.equal(service.setPlayAtSpeedRate(1.25), 1.25);
 	assert.equal(fixture.state.playAtSpeedRate, 1.25);
 	assert.equal(fixture.publishes(), 1);

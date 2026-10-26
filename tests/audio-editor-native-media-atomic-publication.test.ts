@@ -7,7 +7,6 @@ import {
 	assertNativeMediaRelativeDestination,
 	createNativeMediaPublicationPlan,
 	evaluateNativeMediaPublication,
-	nativeMediaPartialOutputIsDisposable,
 	NATIVE_MEDIA_DESTINATION_NAME_MAXIMUM_LENGTH,
 	NATIVE_MEDIA_DESTINATION_SEGMENT_MAXIMUM_LENGTH,
 	NATIVE_MEDIA_PARTIAL_SUFFIX,
@@ -116,29 +115,16 @@ test('a complete, current, verified output publishes', () => {
 	const verdict = evaluateNativeMediaPublication(attempt());
 
 	assert.deepEqual(verdict, { publish: true, refusals: [] });
-	assert.equal(nativeMediaPartialOutputIsDisposable(verdict), true);
 });
 
-test('a cancelled, failed, unfinalized, or superseded job publishes nothing', () => {
+test('an unfinalized or superseded job publishes nothing', () => {
 	for (const [overrides, expected] of [
-		[{ outcome: 'cancelled' as const }, ['job-cancelled']],
-		[{ outcome: 'failed' as const }, ['job-failed']],
 		[{ finalized: false }, ['output-not-finalized']],
 		[{ currentPlanFingerprint: OTHER_PLAN }, ['plan-superseded']],
 	] as const) {
 		const verdict = evaluateNativeMediaPublication(attempt(overrides));
 		assert.equal(verdict.publish, false);
 		assert.deepEqual(verdict.refusals, expected);
-	}
-});
-
-test('an outcome outside the closed set never counts as a completed job', () => {
-	for (const outcome of ['helper-crashed', 'canceled', 'Completed', 'complete', '', null, undefined, 0]) {
-		assert.throws(
-			() => evaluateNativeMediaPublication(attempt({ outcome: outcome as never })),
-			/completed, cancelled, or failed outcome/u,
-			String(outcome),
-		);
 	}
 });
 
@@ -163,34 +149,14 @@ test('an output that fails verification publishes nothing', () => {
 
 test('every publication refusal is reported at once', () => {
 	const verdict = evaluateNativeMediaPublication(attempt({
-		outcome: 'failed',
 		currentPlanFingerprint: OTHER_PLAN,
 		observedByteLength: 5,
 		observedSha256: null,
 	}));
 
 	assert.deepEqual(verdict.refusals, [
-		'job-failed', 'plan-superseded', 'byte-length-mismatch', 'unverified-output',
+		'plan-superseded', 'byte-length-mismatch', 'unverified-output',
 	]);
-});
-
-test('a failed partial is retained for retry while a cancelled one is disposable', () => {
-	assert.equal(
-		nativeMediaPartialOutputIsDisposable(evaluateNativeMediaPublication(attempt({ outcome: 'cancelled' }))),
-		true,
-	);
-	assert.equal(
-		nativeMediaPartialOutputIsDisposable(evaluateNativeMediaPublication(attempt({ currentPlanFingerprint: OTHER_PLAN }))),
-		true,
-	);
-	assert.equal(
-		nativeMediaPartialOutputIsDisposable(evaluateNativeMediaPublication(attempt({ outcome: 'failed' }))),
-		false,
-	);
-	assert.equal(
-		nativeMediaPartialOutputIsDisposable(evaluateNativeMediaPublication(attempt({ observedSha256: OTHER_DIGEST }))),
-		false,
-	);
 });
 
 test('a publication without the main-minted job id or a real digest is refused', () => {

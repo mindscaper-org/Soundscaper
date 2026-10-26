@@ -4,9 +4,12 @@ import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
-import { createDeliveryBatch, deliveryBatchPresetSupportsMode } from '../../delivery-batch.ts';
+import { createStableId } from '../../stable-id.js';
+import { deliveryBatchPresetSupportsMode } from '../../delivery-batch.ts';
 import { summarizeDeliveryBatchReport } from '../../delivery-batch-report.ts';
+import { resolveSelectionRange } from '../../selection-range.ts';
 import {
+	createDeliveryBatchForProjectSelection,
 	deliveryBatchTargetOptions,
 	selectableDeliveryBatchTargets,
 } from '../delivery-batch-dialog-model.ts';
@@ -40,7 +43,7 @@ export function DeliveryQueueDialog({ isOpen, controller, snapshot, copy, onClos
 	// exists or hide one that was just saved.
 	const presets = controller.actions.export.presets.list('audio');
 	const targets = useMemo(() => deliveryBatchTargetOptions({
-		hasSelection: Boolean(snapshot.selection),
+		hasSelection: Boolean(resolveSelectionRange(snapshot.project)),
 		hasLoop: Boolean(snapshot.project?.loop?.enabled),
 		masteringSequences: snapshot.masteringSequences ?? null,
 	}, {
@@ -51,7 +54,7 @@ export function DeliveryQueueDialog({ isOpen, controller, snapshot, copy, onClos
 		noLoop: copy.deliveryTargetNoLoop,
 		undeliverableSequence: copy.deliveryTargetSequenceUndeliverable,
 		stemsUnsupported: copy.deliveryTargetStemsUnsupported,
-	}), [copy, snapshot.masteringSequences, snapshot.project?.loop?.enabled, snapshot.selection]);
+	}), [copy, snapshot.masteringSequences, snapshot.project]);
 
 	const [mode, setMode] = useState('mix');
 	const [targetKeys, setTargetKeys] = useState(['project']);
@@ -85,8 +88,8 @@ export function DeliveryQueueDialog({ isOpen, controller, snapshot, copy, onClos
 
 	const queueBatch = async () => {
 		try {
-			const batch = createDeliveryBatch(snapshot.project, {
-				batchId: `delivery-batch-${queue.entries.length + 1}-${chosenTargets.length}x${chosenPresets.length}`,
+			const batch = createDeliveryBatchForProjectSelection(snapshot.project, {
+				batchId: createStableId('delivery-batch'),
 				presets: chosenPresets,
 				targets: chosenTargets.map(({ target }) => target),
 				mode,

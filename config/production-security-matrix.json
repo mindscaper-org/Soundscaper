@@ -11779,7 +11779,11 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "desktop/native-media-execution.ts"
+							"path": "desktop/native-media-v14-executor.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "desktop/native-services-project-media-authority.ts"
 						},
 						{
 							"kind": "implementation",
@@ -11863,7 +11867,11 @@
 						},
 						{
 							"kind": "test",
-							"path": "tests/desktop-native-media-execution.test.ts"
+							"path": "tests/desktop-native-media-v14-proxy-helper-adapter.test.ts"
+						},
+						{
+							"kind": "test",
+							"path": "tests/desktop-native-services-project-media-authority.test.ts"
 						},
 						{
 							"kind": "test",

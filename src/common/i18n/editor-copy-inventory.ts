@@ -1,23 +1,23 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { ENGLISH_COPY, GERMAN_COPY } from './catalogs.js';
+import { ENGLISH_COPY } from './catalogs.js';
 import { ARA_COPY_BY_LOCALE } from './editor-ara-copy.ts';
 import { acceptableTranslation } from './translation-catalog.js';
 import { MACRO_MANAGER_COPY_BY_LOCALE } from './editor-macro-manager-copy.ts';
 import { TRACK_AUTOMATION_COPY_BY_LOCALE } from './editor-track-automation-copy.ts';
 import { EFFECT_MACRO_TEMPLATE_COPY_BY_LOCALE } from './editor-effect-macro-template-copy.ts';
-import { SOUNDSCAPER_NATIVE_SERVICES_COPY, SOUNDSCAPER_NATIVE_SERVICES_GERMAN_COPY } from './editor-soundscaper-native-services-copy.ts';
+import { SOUNDSCAPER_NATIVE_SERVICES_COPY } from './editor-soundscaper-native-services-copy.ts';
 import { FRAMESCAPER_NATIVE_SERVICES_COPY } from './editor-framescaper-native-services-copy.ts';
 import { SOUNDSCAPER_MASTERING_SEQUENCE_COPY } from './editor-soundscaper-mastering-sequence-copy.ts';
 import { SOUNDSCAPER_ROUTING_GRAPH_COPY } from './editor-soundscaper-routing-graph-copy.ts';
 import { COMMUNITY_TRANSLATIONS_COPY_BY_LOCALE } from './community-translations-copy.ts';
 import { LOCAL_ASSISTANCE_ADDITIONAL_COPY } from './editor-local-assistance-additional-copy.ts';
-import { FRAMESCAPER_FINISHING_ADDITIONAL_COPY, FRAMESCAPER_FINISHING_ADDITIONAL_GERMAN_COPY } from './editor-framescaper-finishing-additional-copy.ts';
+import { FRAMESCAPER_FINISHING_ADDITIONAL_COPY } from './editor-framescaper-finishing-additional-copy.ts';
 import { FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY } from './editor-framescaper-visual-inspector-additional-copy.ts';
 import { VIDEO_PROXY_ADDITIONAL_COPY } from './editor-video-proxy-additional-copy.ts';
 import { VIDEO_RETIME_ADDITIONAL_COPY } from './editor-video-retime-additional-copy.ts';
 import { FRAMESCAPER_MENUS_ADDITIONAL_COPY } from './editor-framescaper-menus-additional-copy.ts';
-import { TIMELINE_ADDITIONAL_COPY, TIMELINE_ADDITIONAL_GERMAN_COPY } from './editor-timeline-additional-copy.ts';
+import { TIMELINE_ADDITIONAL_COPY } from './editor-timeline-additional-copy.ts';
 import { VIDEO_PREVIEW_ADDITIONAL_COPY } from './editor-video-preview-additional-copy.ts';
 import { STORAGE_CAPACITY_COPY_BY_LOCALE } from './editor-storage-capacity-copy.ts';
 import { DESKTOP_FFMPEG_COPY } from './editor-desktop-ffmpeg-copy.ts';
@@ -26,7 +26,7 @@ import { PROCESSING_DIALOG_COPY_BY_LOCALE } from './processing-dialog-copy.js';
 import { LOCAL_MODEL_NAMES_COPY } from './editor-local-model-names-copy.ts';
 import { PARAMETRIC_EQ_BAND_COPY } from './editor-parametric-eq-copy.ts';
 import { VIDEO_FILMSTRIP_COPY } from './editor-video-filmstrip-copy.ts';
-import { FRAMESCAPER_INPUTS_COPY, FRAMESCAPER_INPUTS_GERMAN_COPY } from './editor-framescaper-inputs-copy.ts';
+import { FRAMESCAPER_INPUTS_COPY } from './editor-framescaper-inputs-copy.ts';
 import { SOUNDSCAPER_WORKFLOW_COPY } from './editor-soundscaper-workflow-copy.ts';
 import { TAKE_COMP_COPY } from './editor-take-comp-copy.ts';
 import { NATIVE_PROJECT_STATUS_COPY_BY_LOCALE } from './editor-native-project-status-copy.ts';
@@ -63,7 +63,6 @@ import { MOTIONSCAPER_TRACKING_COPY_BY_LOCALE } from './editor-motionscaper-trac
 export interface EditorCopyOwner {
 	readonly owner: string;
 	readonly en: Readonly<Record<string, string>>;
-	readonly de?: Readonly<Record<string, string>>;
 	readonly aliases?: Readonly<Record<string, string>>;
 }
 
@@ -74,16 +73,13 @@ export interface EditorCopyMetadata {
 	readonly key: string;
 	readonly owner: string;
 	readonly source: string;
-	readonly bundledGerman?: string;
 }
 
 export function buildEditorCopyInventory(
 	english: Readonly<Record<string, string>>,
-	german: Readonly<Record<string, string>>,
 	owners: readonly EditorCopyOwner[],
 ) {
 	const en: Record<string, string> = { ...english };
-	const de: Record<string, string> = { ...german };
 	const baseKeys = Object.keys(en);
 	const ownedKeys: string[] = [];
 	const ownedOwners: string[] = [];
@@ -97,10 +93,7 @@ export function buildEditorCopyInventory(
 			const key = `ui.${owner.owner}.${localKey}`;
 			if (Object.hasOwn(en, key)) throw new Error(`Duplicate editor copy key: ${key}`);
 			if (!acceptableTranslation(source, source)) throw new Error(`Invalid editor copy source: ${key}`);
-			const translation = owner.de?.[localKey] ?? (english[localKey] === source ? german[localKey] : undefined);
-			if (translation !== undefined && !acceptableTranslation(source, translation)) throw new Error(`Invalid German editor copy: ${key}`);
 			en[key] = source;
-			if (translation !== undefined) de[key] = translation;
 			ownedKeys.push(key);
 			ownedOwners.push(owner.owner);
 		}
@@ -110,41 +103,37 @@ export function buildEditorCopyInventory(
 		if (metadata) return metadata;
 		const entries: Record<string, EditorCopyMetadata> = {};
 		for (const key of baseKeys) entries[key] = Object.freeze({
-			key, owner: 'editor', source: en[key]!, ...(de[key] === undefined ? {} : { bundledGerman: de[key] }),
+			key, owner: 'editor', source: en[key]!,
 		});
 		for (let index = 0; index < ownedKeys.length; index += 1) {
 			const key = ownedKeys[index]!;
-			entries[key] = Object.freeze({ key, owner: ownedOwners[index]!, source: en[key]!,
-				...(de[key] === undefined ? {} : { bundledGerman: de[key] }) });
+			entries[key] = Object.freeze({ key, owner: ownedOwners[index]!, source: en[key]! });
 		}
 		metadata = Object.freeze(entries);
 		return metadata;
 	};
-	return Object.freeze({ english: Object.freeze(en), german: Object.freeze(de), getMetadata });
+	return Object.freeze({ english: Object.freeze(en), getMetadata });
 }
 
 const templateEnglish = EFFECT_MACRO_TEMPLATE_COPY_BY_LOCALE.en;
-const templateGerman = EFFECT_MACRO_TEMPLATE_COPY_BY_LOCALE.de;
 const processingAliases = Object.freeze(Object.fromEntries(
 	Object.keys(PROCESSING_DIALOG_COPY_BY_LOCALE.en).map((key) => [key, key]),
 ));
 const { pressure: pressureEnglish, preflightStatus: preflightEnglish, operation: operationEnglish,
 	...storageEnglish } = STORAGE_CAPACITY_COPY_BY_LOCALE.en;
-const { pressure: pressureGerman, preflightStatus: preflightGerman, operation: operationGerman,
-	...storageGerman } = STORAGE_CAPACITY_COPY_BY_LOCALE.de;
-const inventory = buildEditorCopyInventory(ENGLISH_COPY, GERMAN_COPY, [
+const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'ara', ...ARA_COPY_BY_LOCALE },
 	{ owner: 'originalFileOverwrite', ...ORIGINAL_FILE_OVERWRITE_COPY_BY_LOCALE },
 	{ owner: 'blender', ...BLENDER_COPY_BY_LOCALE },
 	{ owner: 'about', ...ABOUT_DIALOG_COPY_BY_LOCALE },
 	{ owner: 'macroManager', ...MACRO_MANAGER_COPY_BY_LOCALE },
 	{ owner: 'trackAutomation', ...TRACK_AUTOMATION_COPY_BY_LOCALE },
-	{ owner: 'effectMacroTemplate', en: templateEnglish, de: templateGerman },
-	{ owner: 'soundscaperNative', en: SOUNDSCAPER_NATIVE_SERVICES_COPY, de: SOUNDSCAPER_NATIVE_SERVICES_GERMAN_COPY, aliases: processingAliases },
+	{ owner: 'effectMacroTemplate', en: templateEnglish },
+	{ owner: 'soundscaperNative', en: SOUNDSCAPER_NATIVE_SERVICES_COPY, aliases: processingAliases },
 	{ owner: 'parallelStacks', ...PARALLEL_STACK_COPY_BY_LOCALE },
 	{ owner: 'clipSpreadsheet', ...CLIP_SPREADSHEET_COPY_BY_LOCALE },
 	{ owner: 'framescaperNative', en: FRAMESCAPER_NATIVE_SERVICES_COPY, aliases: processingAliases },
-	{ owner: 'framescaperInputs', en: FRAMESCAPER_INPUTS_COPY, de: FRAMESCAPER_INPUTS_GERMAN_COPY },
+	{ owner: 'framescaperInputs', en: FRAMESCAPER_INPUTS_COPY },
 	{ owner: 'mastering', en: SOUNDSCAPER_MASTERING_SEQUENCE_COPY },
 	{ owner: 'routing', en: SOUNDSCAPER_ROUTING_GRAPH_COPY },
 	{ owner: 'communityTranslations', ...COMMUNITY_TRANSLATIONS_COPY_BY_LOCALE },
@@ -152,17 +141,17 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, GERMAN_COPY, [
 		? [{ owner: 'desktopMcp', ...DESKTOP_MCP_COPY_BY_LOCALE! }] : []),
 	{ owner: 'localAssistance', en: LOCAL_ASSISTANCE_ADDITIONAL_COPY },
 	{ owner: 'textToSpeech', ...TEXT_TO_SPEECH_COPY_BY_LOCALE },
-	{ owner: 'framescaperFinishing', en: FRAMESCAPER_FINISHING_ADDITIONAL_COPY, de: FRAMESCAPER_FINISHING_ADDITIONAL_GERMAN_COPY },
+	{ owner: 'framescaperFinishing', en: FRAMESCAPER_FINISHING_ADDITIONAL_COPY },
 	{ owner: 'framescaperVisualInspector', en: FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY },
 	{ owner: 'videoProxy', en: VIDEO_PROXY_ADDITIONAL_COPY },
 	{ owner: 'videoRetime', en: VIDEO_RETIME_ADDITIONAL_COPY },
 	{ owner: 'framescaperMenus', en: FRAMESCAPER_MENUS_ADDITIONAL_COPY },
-	{ owner: 'timeline', en: TIMELINE_ADDITIONAL_COPY, de: TIMELINE_ADDITIONAL_GERMAN_COPY },
+	{ owner: 'timeline', en: TIMELINE_ADDITIONAL_COPY },
 	{ owner: 'videoPreview', en: VIDEO_PREVIEW_ADDITIONAL_COPY },
-	{ owner: 'storageCapacity', en: storageEnglish, de: storageGerman },
-	{ owner: 'storageCapacity.pressure', en: pressureEnglish, de: pressureGerman },
-	{ owner: 'storageCapacity.preflightStatus', en: preflightEnglish, de: preflightGerman },
-	{ owner: 'storageCapacity.operation', en: operationEnglish, de: operationGerman },
+	{ owner: 'storageCapacity', en: storageEnglish },
+	{ owner: 'storageCapacity.pressure', en: pressureEnglish },
+	{ owner: 'storageCapacity.preflightStatus', en: preflightEnglish },
+	{ owner: 'storageCapacity.operation', en: operationEnglish },
 	{ owner: 'desktopFfmpeg', en: DESKTOP_FFMPEG_COPY },
 	{ owner: 'localModelNames', en: LOCAL_MODEL_NAMES_COPY },
 	{ owner: 'parametricEq.band', en: PARAMETRIC_EQ_BAND_COPY },
@@ -203,7 +192,6 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, GERMAN_COPY, [
 ]);
 
 export const EDITOR_ENGLISH_COPY = inventory.english as EditorCopy;
-export const EDITOR_GERMAN_COPY = inventory.german as EditorCopy;
 /** Construct review metadata only when the menu-only translation surface loads. */
 export function getEditorCopyMetadata(): Readonly<Record<string, EditorCopyMetadata>> {
 	return inventory.getMetadata();

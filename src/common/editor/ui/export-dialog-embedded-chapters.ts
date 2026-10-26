@@ -5,6 +5,8 @@ import { projectDurationFrames } from '../project.js';
 import { projectForRuntimeConsumers } from '../project-current-runtime.ts';
 import type { RuntimeClipProject } from '../runtime-clip-projection.ts';
 import { scaleSampleFrame } from '../timeline-time.ts';
+import { exportSequenceProject } from '../export-sequence-project.ts';
+import { resolveSelectionRange } from '../selection-range.ts';
 
 /** A chapter-bearing file follows the ordinary mixed browser delivery timeline. */
 export function exportDialogSupportsEmbeddedChapters(
@@ -20,7 +22,7 @@ export function exportDialogSupportsEmbeddedChapters(
 /** Embedded chapters use all label tracks, including labels beyond the first one. */
 export function exportDialogHasChapterLabels(projectValue: unknown): boolean {
 	if (!projectValue || typeof projectValue !== 'object') return false;
-	const tracks = (projectValue as Readonly<Record<string, unknown>>).tracks;
+	const tracks = (exportSequenceProject(projectValue) as Readonly<Record<string, unknown>>).tracks;
 	if (!Array.isArray(tracks)) return false;
 	return tracks.some((value: unknown) => {
 		if (!value || typeof value !== 'object') return false;
@@ -32,9 +34,10 @@ export function exportDialogHasChapterLabels(projectValue: unknown): boolean {
 /** Availability follows the same exclusive span and output-frame rounding as the chapter writer. */
 export function exportDialogHasDeliveredChapterLabels(projectValue: unknown, settings: Readonly<Record<string, unknown>>): boolean {
 	try {
-		const project = projectForRuntimeConsumers(projectValue as RuntimeClipProject);
+		const selectedProject = exportSequenceProject(projectValue as RuntimeClipProject);
+		const project = projectForRuntimeConsumers(selectedProject);
 		const loop = record(project.loop);
-		const selected = settings.range === 'selection' ? record(project.selection) : settings.range === 'loop'
+		const selected = settings.range === 'selection' ? resolveSelectionRange(project) : settings.range === 'loop'
 			? loop.enabled ? loop : null
 			: { startFrame: 0, endFrame: projectDurationFrames(project) };
 		if (!selected) return false;

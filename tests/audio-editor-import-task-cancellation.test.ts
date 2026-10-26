@@ -10,7 +10,6 @@ test('import cancellation preserves placement and shares task cancellation with 
 	const task = createImportTaskCancellation(request);
 	assert.equal(task.options.timelineStartFrame, 44);
 	assert.equal(task.options.timelineStartExplicit, true);
-	assert.strictEqual(task.options.signal, task.signal);
 	task.abort();
 	assert.throws(() => task.options.signal?.throwIfAborted(), { name: 'AbortError' });
 });

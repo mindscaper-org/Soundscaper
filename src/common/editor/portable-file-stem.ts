@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { escapeReservedFileName } from './portable-save-file-name.ts';
+
 export const PORTABLE_FILE_STEM_MAX_LENGTH = 64;
 
 /** ASCII-only stem shared by portable interchange and evidence artifacts. */
@@ -8,11 +10,11 @@ export function portableFileStem(value: unknown, fallback = ''): string {
 }
 
 function normalizePortableFileStem(value: unknown): string {
-	return String(value ?? '')
+	return escapeReservedFileName(String(value ?? '')
 		.trim()
 		.replaceAll(/[^\w.-]+/gu, '-')
 		.replaceAll(/[-.]{2,}/gu, '-')
-		.replaceAll(/^[-.]+|[-.]+$/gu, '')
+		.replaceAll(/^[-.]+|[-.]+$/gu, ''))
 		.slice(0, PORTABLE_FILE_STEM_MAX_LENGTH)
 		.replaceAll(/^[-.]+|[-.]+$/gu, '');
 }

@@ -2,8 +2,9 @@
 
 import { type FormEvent, useMemo, useState } from 'react'; import { usePresentationFeedback, type PresentationFeedback } from '../presentation-feedback.ts';
 
-import { addRationals, multiplyRationals } from '../../timeline-time.ts';
+import { normalizeRational } from '../../timeline-time.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { runAwaitedAudioEditorOperation } from '../workspace/audio-editor-workspace-runner.ts';
 import {
 	createVideoKeyframeCurveTransfer,
@@ -25,6 +26,7 @@ import { videoKeyframeTransferShortcut } from '../video-keyframe-transfer-shortc
 import VideoKeyframeCurveEditor from './VideoKeyframeCurveEditor.tsx';
 import { parseVideoKeyframeNumber as parseNumber, parseVideoKeyframePosition as parseRationalText } from './video-keyframe-exact-input.ts';
 import { videoKeyframeInterpolationKinds } from './video-keyframe-interpolation.ts';
+import { easedVideoKeyframeBezierControls } from './video-keyframe-bezier-controls.ts';
 
 interface VideoKeyframeDialogProps {
 	readonly productId: string;
@@ -43,7 +45,17 @@ interface VideoKeyframeDialogProps {
 
 type CurveKind = 'hold' | 'linear' | 'eased' | 'bezier';
 
-export default function VideoKeyframeDialog({
+export default function VideoKeyframeDialog(props: VideoKeyframeDialogProps) {
+	const model = createVideoKeyframeDialogModel({
+		productId: props.productId, capability: props.capability, project: props.snapshot.project, snapshot: props.snapshot,
+	});
+	const project = props.snapshot.project;
+	const projectId = project && typeof project === 'object' && 'id' in project ? project.id : null;
+	const session = JSON.stringify([editorProjectEditSessionKey(props.controller, projectId), model.clipId]);
+	return <VideoKeyframeDialogSession key={session} {...props} />;
+}
+
+function VideoKeyframeDialogSession({
 	productId, capability, controller, snapshot, copy, run, onClose,
 }: VideoKeyframeDialogProps) {
 	const model = useMemo(() => createVideoKeyframeDialogModel({
@@ -91,16 +103,15 @@ export default function VideoKeyframeDialog({
 		event.preventDefault();
 		if (!selected) return;
 		try {
-			const start = parseRationalText(startText);
-			const end = parseRationalText(endText);
+			const start = { position: normalizeRational(parseRationalText(startText)), value: parseNumber(startValue) };
+			const end = { position: normalizeRational(parseRationalText(endText)), value: parseNumber(endValue) };
 			commit(createVideoKeyframeCurve(model, {
 				target: selected.target,
-				start: { position: start, value: parseNumber(startValue) },
-				end: { position: end, value: parseNumber(endValue) },
+				start,
+				end,
 				segment: kind === 'bezier' ? {
 					kind,
-					control1: { position: weightedRational(start, end, 1, 3), value: parseNumber(startValue) },
-					control2: { position: weightedRational(start, end, 2, 3), value: parseNumber(endValue) },
+					...easedVideoKeyframeBezierControls(start, end),
 				} : { kind },
 			}), { key: 'videoKeyframesApplied', fallback: 'Video keyframes applied.' });
 		} catch {
@@ -220,18 +231,6 @@ function NumberField({ hook, label: fieldLabel, value, choice, onChange }: Reado
 		min={choice?.minimum} max={choice?.maximum} step={choice?.integer ? choice.step : 'any'}
 		onChange={(event) => onChange(event.currentTarget.value)}
 	/></label>;
-}
-
-function weightedRational(
-	start: number | Readonly<{ num: number; den: number }>,
-	end: number | Readonly<{ num: number; den: number }>,
-	endWeight: number,
-	denominator: number,
-) {
-	return addRationals(
-		multiplyRationals(start, { num: denominator - endWeight, den: denominator }),
-		multiplyRationals(end, { num: endWeight, den: denominator }),
-	);
 }
 
 function choiceLabel(choice: VideoKeyframeTargetChoice, copy: Readonly<Record<string, string>>): string {

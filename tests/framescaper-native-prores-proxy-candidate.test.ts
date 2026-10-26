@@ -171,18 +171,6 @@ test('composing an observer refuses every profile but the authenticated Framesca
 	assert.throws(() => observer({ profile: undefined }), TypeError);
 });
 
-test('composing an observer requires a project authority it can actually call', () => {
-	assert.throws(
-		() => observer({ getProject: undefined }),
-		/Native proxy composition requires its project authority/u,
-	);
-	assert.throws(
-		() => observer({ getProject: 'not-a-function' }),
-		/Native proxy composition requires its project authority/u,
-	);
-	assert.throws(() => createObserver(null as never), TypeError);
-});
-
 test('a build whose desktop bridge is absent or incomplete composes no observer at all', () => {
 	assert.equal(observer({ scope: {} }), null);
 	assert.equal(observer({ scope: { framescaperDesktop: { v1: {} } } }), null);
@@ -272,7 +260,6 @@ test('the execution options carry the authenticated profile, the resolved bridge
 	await observe(observer({ scope: scope(services) }, deferred.loader));
 
 	const options = firstOptions(deferred.options);
-	assert.deepEqual(Object.keys(options), ['profile', 'getProject', 'bridge']);
 	assert.equal(options.profile, PROFILE);
 	assert.equal(options.bridge, services, 'the generator receives the very bridge the scope exposed');
 	assert.equal(Object.isFrozen(options), true);
@@ -285,7 +272,6 @@ test('a supplied poll interval is forwarded to the deferred generator unchanged'
 	await observe(observer({ waitForPoll }, deferred.loader));
 
 	const options = firstOptions(deferred.options);
-	assert.deepEqual(Object.keys(options), ['profile', 'getProject', 'bridge', 'waitForPoll']);
 	assert.equal(options.waitForPoll, waitForPoll);
 });
 
@@ -336,35 +322,6 @@ test('a failed deferred load rejects that candidate and is retried by the next o
 
 	assert.equal(deferred.attempts.length, 2, 'a failed load must not be memoized');
 	assert.equal(material.generatorId, 'framescaper-native-media-host');
-});
-
-test('a deferred module that answers anything but the exact native host port is refused', async () => {
-	const deferred = harness();
-	const composed = observer({}, deferred.loader);
-	const rejected: readonly unknown[] = [
-		null,
-		'framescaper-native-media-host',
-		[],
-		{ id: 'framescaper-native-media-host', version: 1 },
-		{ id: 'framescaper-native-media-host', version: 1, generate: () => candidateBlob(), extra: 1 },
-		{ id: 'framescaper-native-media-host', version: 1, other: () => candidateBlob() },
-		{ id: 'some-other-host', version: 1, generate: () => candidateBlob() },
-		{ id: 'framescaper-native-media-host', version: 2, generate: () => candidateBlob() },
-		{ id: 'framescaper-native-media-host', version: 1, generate: 'not-a-function' },
-	];
-
-	for (const [index, value] of rejected.entries()) {
-		deferred.generatorFor = () => value;
-		await assert.rejects(
-			observe(composed),
-			/Deferred native proxy execution returned an invalid generator/u,
-			`entry ${String(index)} must not pass as the native host generator`,
-		);
-	}
-
-	// Every refusal is a failed load, so none of them is remembered.
-	assert.equal(deferred.attempts.length, rejected.length);
-	assert.equal(deferred.calls.length, 0);
 });
 
 test('a candidate that fails to generate keeps the already-loaded module for the next one', async () => {

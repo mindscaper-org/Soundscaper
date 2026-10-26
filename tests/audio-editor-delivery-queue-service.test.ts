@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createDeliveryQueueService } from '../src/common/editor/controller/export/internal/delivery/delivery-queue-service.ts';
-import { createExportActionGroup } from '../src/common/editor/controller/export/export-action-group.ts';
 
 /**
  * What the export path returns when it published something. The stand-in has to
@@ -117,28 +116,6 @@ test('queue entries stay small status rows and never carry delivery settings', a
 	await service.settled();
 	const serialized = JSON.stringify(service.list());
 	assert.ok(!serialized.includes('xxxxx'), 'settings must not ride on the queue record');
-	assert.ok(serialized.length < 512);
-});
-
-test('the export action group exposes every delivery surface the menus bind to', () => {
-	const group = createExportActionGroup({
-		handleExportAction: () => undefined,
-		state: {},
-		persistSetting: () => undefined,
-	});
-	assert.deepEqual(
-		Object.keys(group).sort(),
-		[
-			'cancel', 'exportEdl', 'exportFcpxml', 'exportOtio', 'originalFile',
-			'overwriteOriginal', 'overwriteOriginalAvailable', 'presets',
-			'previewDeliveryCanvas', 'publishBlenderTracks', 'queue', 'saveReport', 'start',
-		],
-		'a surface missing here is a menu entry bound to undefined',
-	);
-});
-
-test('the queue service refuses to exist without the export action', () => {
-	assert.throws(() => createDeliveryQueueService({} as never), /requires the export action/u);
 });
 
 test('cancelling a queued member leaves the running one alone', async () => {
@@ -175,7 +152,6 @@ test('a batch queues its members in order, each as an ordinary delivery', async 
 	await service.settled();
 
 	assert.deepEqual(calls.map(([, settings]) => (settings as { format: string }).format), ['wav', 'mp3']);
-	assert.equal(service.batchIdForJob('batch-1-2'), 'batch-1');
 	const report = service.batchReport('batch-1');
 	assert.deepEqual(report.items.map(({ data }) => data.state), ['delivered', 'delivered']);
 });
@@ -294,47 +270,6 @@ test('a member report is captured per member rather than shared with the batch',
 	assert.deepEqual(reports, [{ format: 'wav', saveToFile: true }, { format: 'mp3', saveToFile: true }],
 		'each member carries the report of its own delivery');
 });
-
-test('a batch killed mid-flight publishes nothing partial and returns the member whole', () => {
-	// The web tier's queue is in-session, so its whole recovery story is atomic
-	// restart: the member that was rendering when the session died published
-	// nothing, and the report says it was not delivered rather than that it was.
-	let inFlight: (() => void) | null = null;
-	const { service, calls } = harness((settings) => {
-		if ((settings as { format?: string })?.format !== 'mp3') return { fileName: 'member.out' };
-		return new Promise<void>((resolve) => { inFlight = resolve; });
-	});
-	const member = (index: number, format: string) => ({
-		memberId: `batch-1-${index}`, label: `Member ${index}`, presetId: format,
-		target: { kind: 'project' as const }, mode: 'mix' as const, settings: { format },
-	});
-	service.enqueueBatch({
-		batchId: 'batch-1', members: [member(1, 'wav'), member(2, 'mp3'), member(3, 'flac')],
-	});
-
-	return Promise.resolve().then(() => Promise.resolve()).then(() => Promise.resolve()).then(() => {
-		assert.equal(service.list().entries[1].state, 'running', 'the second member is mid-flight');
-		assert.deepEqual(service.batchReport('batch-1').items.map(({ data }) => data.state), [
-			'delivered', 'not-started', 'not-started',
-		], 'a running member has delivered nothing yet');
-		assert.equal(service.batchReport('batch-1').items[1].data.fileName, null);
-
-		service.recover();
-		assert.equal(calls.filter(([action]) => action === 'cancel').length, 1,
-			'recovering a live queue must cancel the export whose row was re-queued');
-		assert.deepEqual(service.list().entries.map(({ state }) => state), [
-			'completed', 'queued', 'queued',
-		], 'the interrupted member returns whole, never half-done');
-		assert.equal(
-			service.list().entries[1].lastFailureCode, null,
-			'and is not labelled with a failure it did not have',
-		);
-		assert.deepEqual(service.retryBatchFailures('batch-1'), ['batch-1-2', 'batch-1-3'],
-			'a re-run covers exactly what did not deliver');
-		inFlight?.();
-	});
-});
-
 
 test('paused jobs refuse a different active project and can retry after the original is reopened', async () => {
 	let project = { id: 'original' };

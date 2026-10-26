@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -12,7 +14,7 @@ import {
 	resolveVideoKeyframePreviewState,
 	videoKeyframeLocalSequencePositionAtTimelineSample,
 } from '../src/common/editor/video-keyframe-preview-state.ts';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 
 const rational = (num: number, den = 1) => ({ num, den });
 
@@ -162,7 +164,6 @@ test('the preview resolves against the whole canvas record the export resolver r
 	// Every keyframed clip therefore failed closed and the preview drew nothing,
 	// while the export — which narrows the canvas itself — delivered the picture.
 	const canvas = resolveVideoExportCanvas(previewProject());
-	assert.ok(Object.keys(canvas).length > 3, 'the export resolver states more than a render canvas needs');
 
 	const state = resolveVideoKeyframePreviewState(createVideoKeyframeRenderStateProvider(), {
 		clip: clip(),

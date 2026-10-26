@@ -7,7 +7,6 @@ import {
 } from './async-utils.ts';
 import {
 	clamp,
-	clampFrame,
 	positiveInteger,
 	sliceAudioBuffer,
 } from './buffer-math.ts';
@@ -42,7 +41,7 @@ import type {
 import {
 	renderNativePluginRealtimePcmIfRequired,
 } from './native-plugin-realtime-render.ts';
-import { resolveRenderPreRollFrames, resolveRenderTailSeconds } from './rendering-range.ts';
+import { resolveRenderFrameRange, resolveRenderPreRollFrames, resolveRenderTailSeconds } from './rendering-range.ts';
 import type { EngineRenderMixOptions } from './public-api.ts';
 
 /**
@@ -74,8 +73,7 @@ export async function renderMix(this: EngineRuntimeHost, {
 		});
 		if (native) return native;
 		throwIfAborted(signal);
-		const fromFrame = clampFrame(startFrame, 0, this.durationFrames);
-		const toFrame = clampFrame(endFrame, fromFrame, this.durationFrames);
+		const { fromFrame, toFrame } = resolveRenderFrameRange(startFrame, endFrame);
 		const renderFromFrame = fromFrame - resolveRenderPreRollFrames(this.project, fromFrame, preRollFrames,
 			{ trackId, includeMaster, respectMuteSolo });
 		const warmupFrames = fromFrame - renderFromFrame;

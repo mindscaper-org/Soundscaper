@@ -83,6 +83,9 @@ test('a loss another item already reported is one loss, not two', () => {
 	const reported = reportAup4OwnedFeatureOmissions(
 		project([
 			PROJECT_OWNED_FEATURE_REQUIREMENT_IDS.videoEffects,
+			PROJECT_OWNED_FEATURE_REQUIREMENT_IDS.timelineImages,
+			PROJECT_OWNED_FEATURE_REQUIREMENT_IDS.timelineImagePhase,
+			PROJECT_OWNED_FEATURE_REQUIREMENT_IDS.timelineImageHoldPhase,
 			PROJECT_OWNED_FEATURE_REQUIREMENT_IDS.videoRetime,
 			PROJECT_OWNED_FEATURE_REQUIREMENT_IDS.videoTimingAssets,
 		]),

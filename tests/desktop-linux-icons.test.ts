@@ -61,7 +61,7 @@ test('Debian and AppImage configurations select the Linux icon set', () => {
 			assert.deepEqual(config.linux?.target, ['AppImage', 'deb']);
 			assert.equal(config.linux?.icon, '.desktop-build/icons/linux');
 			assert.equal(config.linux?.executableName, productId);
-			assert.equal(config.win?.icon, '.desktop-build/icons/icon.png');
+			assert.equal(config.win?.icon, '.desktop-build/icons/icon.ico');
 			assert.equal(config.mac?.icon, '.desktop-build/icons/icon.png');
 		}
 		const nightly = require(join(repositoryRoot, 'electron-builder.nightly-tests.config.cjs')) as Configuration;

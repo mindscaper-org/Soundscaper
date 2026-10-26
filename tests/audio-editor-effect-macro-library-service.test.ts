@@ -145,13 +145,6 @@ test('a read-only library refuses edits and writes nothing', async () => {
 	assert.equal(harness.service.readOnly(), true);
 });
 
-test('an ordinary library reports itself writable and still saves', async () => {
-	const harness = createHarness();
-	assert.equal(harness.service.readOnly(), false);
-	harness.service.save({ name: 'Restoration', effects: [] });
-	await harness.service.flush();
-	assert.equal(harness.writes.length, 1);
-});
 
 function createHarness({ readOnly = false }: { readOnly?: boolean } = {}) {
 	const state = { effectMacros: createInitialEffectMacroLibrary(), effectMacrosReadOnly: readOnly };

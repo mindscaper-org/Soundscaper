@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { projectString } from '../../../../project-validation-primitives.ts';
 import type {
 	TakeCycleCaptureDraft,
 	TakeCycleCapturePcmSpan,
@@ -17,7 +17,6 @@ import {
 	createTakeCyclePassIdentityAllocator,
 	registerFreshTakeCycleIdentity as freshIdentity,
 } from './take-cycle-identity-allocation.ts';
-import { takeCycleStableId as stableId } from '../../take-cycle-value-validation.ts';
 
 export type TakeCycleLiveLaneDescription = TakeCycleLiveLaneRequest['lane'];
 export type BeginTakeCycleLiveSessionRequest = Omit<
@@ -141,7 +140,7 @@ function normalizeSessionRequest(value: BeginTakeCycleLiveSessionRequest): Begin
 	const loopEndSample = nonNegativeInteger(value.loopEndSample, 'take cycle loopEndSample');
 	if (loopEndSample <= loopStartSample) throw new RangeError('Take cycle loop extent must be positive.');
 	return Object.freeze({
-		projectId: stableId(value.projectId, 'take cycle projectId'),
+		projectId: projectString(value.projectId, 'take cycle projectId'),
 		loopStartSample,
 		loopEndSample,
 	});

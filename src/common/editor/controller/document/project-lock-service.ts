@@ -213,9 +213,28 @@ export function createProjectLockService(runtime: ProjectLockServiceRuntime) {
 		const previousLock = runtime.state.projectLock;
 		const metadata = projectId ? runtime.getProjectMetadata(projectId) : {};
 		if (!projectId || !previousLock?.readOnly || metadata.intrinsicReadOnly) return false;
-		await releaseProjectLock(previousLock);
-		const nextLock = await runtime.acquireProjectLock(projectId, { force: true });
-		if (runtime.state.disposed || runtime.getProjectId() !== projectId) {
+		const releasing = releaseProjectLock(previousLock);
+		const pending: ProjectLifecycleLock = {
+			projectId, readOnly: true, method: previousLock.method, release() {},
+		};
+		runtime.state.projectLock = pending;
+		let nextLock: ProjectLifecycleLock;
+		try {
+			await releasing;
+			if (!ownsLock(projectId, pending)) {
+				if (runtime.state.projectLock === pending) runtime.state.projectLock = null;
+				return false;
+			}
+			nextLock = await runtime.acquireProjectLock(projectId, { force: true });
+		} catch (error) {
+			if (ownsLock(projectId, pending)) {
+				scheduleProjectLockRecovery(projectId, pending);
+				runtime.publishProjectState();
+			}
+			throw error;
+		}
+		if (!ownsLock(projectId, pending)) {
+			if (runtime.state.projectLock === pending) runtime.state.projectLock = null;
 			await discardLock(nextLock);
 			return false;
 		}

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "protocol": "soundscaper-model-conversion-v1",
   "candidateId": "beat-this",
-  "planSha256": "ebab32abd1d7c48a831d367825a0d65f53ed301b8b99d45bdbccbb5851e67575",
+  "planSha256": "58d5cee97c3a415dece0a675eab862551be59868fdc3ac9dd0640be16e13c209",
   "sourceCodeArchive": {
     "path": "inputs/beat-this-ad7974846029835307ba19a3d5cefbf40b243041.tar.gz",
     "revision": "ad7974846029835307ba19a3d5cefbf40b243041",

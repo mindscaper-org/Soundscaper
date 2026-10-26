@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createMenuActionFixture } from './helpers/application-menu-fixture.ts';
@@ -82,7 +84,7 @@ test('the archive checksum entry is present and follows what the session actuall
 
 test('both locales name the command and its outcomes', () => {
 	for (const locale of ['en', 'de'] as const) {
-		const copy = EXPORT_MENU_COPY_BY_LOCALE[locale];
+		const copy = (locale === 'de' ? GERMAN_COPY : EXPORT_MENU_COPY_BY_LOCALE.en);
 		for (const key of [
 			'consolidateMedia', 'consolidatingMedia', 'consolidatedMedia', 'consolidatedMediaIncomplete',
 			'saveArchiveManifest', 'archiveManifestSaved',
@@ -164,7 +166,7 @@ test('consolidate immediately saves after success and propagates save failures',
 	assert.equal(saves, 0);
 });
 
-test('planning answers without copying, and a project with no store answers null', async () => {
+test('planning answers without copying, and a closed project answers null', async () => {
 	const store = createStore();
 	const planned = await createProjectMediaActionGroup({
 		state: {},
@@ -177,11 +179,11 @@ test('planning answers without copying, and a project with no store answers null
 	}).planConsolidate();
 	assert.deepEqual(planned?.copy.map(({ sourceId }) => sourceId), ['linked']);
 
-	const withoutStore = createProjectMediaActionGroup({
-		state: {}, getProject: () => ({ id: 'project-1', sources: [], clips: [] }), store: null,
+	const withoutProject = createProjectMediaActionGroup({
+		state: {}, getProject: () => null, store,
 	});
-	assert.equal(await withoutStore.consolidate(), null);
-	assert.equal(await withoutStore.planConsolidate(), null);
+	assert.equal(await withoutProject.consolidate(), null);
+	assert.equal(await withoutProject.planConsolidate(), null);
 });
 
 function createStore(options: { unreachable?: boolean } = {}) {

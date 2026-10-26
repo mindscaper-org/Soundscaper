@@ -5,6 +5,7 @@ import {
 	formatSequenceTimecode,
 	isSequenceDropFrameRate,
 	sequenceTimecodeFromFrameCount,
+	sequenceTimecodeFrameRate,
 } from './sequence-timecode.ts';
 import {
 	type DeliveryReport,
@@ -94,7 +95,13 @@ export function createEdlExport(request: EdlExportRequest): EdlExportResult {
 	if (!rate || !Number.isFinite(rate.num) || !Number.isFinite(rate.den) || rate.den <= 0) {
 		throw new TypeError('An EDL export requires an exact rational sequence rate.');
 	}
+	if (sequenceTimecodeFrameRate(rate) > 100) {
+		throw new RangeError('CMX3600 requires two-digit frame fields. Export OTIO or FCPXML for this sequence frame rate.');
+	}
 	const events = Array.isArray(request?.events) ? request.events : [];
+	if (events.length > 999) {
+		throw new RangeError('CMX3600 supports at most 999 events. Export OTIO or FCPXML for a longer edit list.');
+	}
 	const dropFrame = Boolean(request?.dropFrame);
 	if (dropFrame && !isSequenceDropFrameRate(rate)) {
 		throw new RangeError(`Drop frame is illegal at ${rate.num}/${rate.den}.`);
@@ -129,7 +136,7 @@ export function createEdlExport(request: EdlExportRequest): EdlExportResult {
 			timecode(event?.recordInFrames, rate, dropFrame, `event ${index} record in`),
 			timecode(event?.recordOutFrames, rate, dropFrame, `event ${index} record out`),
 		].join(' '));
-		const clipName = String(event?.clipName ?? '').replaceAll(/[\r\n]+/gu, ' ').trim();
+		const clipName = String(event?.clipName ?? '').replaceAll(/[\r\n\v\f\u0085\u2028\u2029]+/gu, ' ').trim();
 		if (clipName) lines.push(`* FROM CLIP NAME: ${clipName}`);
 
 		if (event?.transition) {
@@ -219,5 +226,5 @@ function reportReel(
 }
 
 function sanitizeTitle(value: string): string {
-	return value.replaceAll(/[\r\n]+/gu, ' ').slice(0, 70);
+	return value.replaceAll(/[\r\n\v\f\u0085\u2028\u2029]+/gu, ' ').slice(0, 70);
 }

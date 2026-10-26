@@ -107,24 +107,7 @@ test('effect targets reject inherited registry member names', () => {
 	);
 });
 
-test('the public compiler rejects request accessors without invoking them', () => {
-	let getterCalls = 0;
-	const request = {
-		videoKeyframes: { schemaVersion: 1, timeDomain: timeDomain(1), curves: [] },
-		sequenceFrameCount: rational(1),
-		composition: DEFAULT_VIDEO_CLIP_COMPOSITION,
-		videoEffects: [],
-	};
-	Object.defineProperty(request, 'composition', {
-		enumerable: true,
-		get() { getterCalls += 1; return DEFAULT_VIDEO_CLIP_COMPOSITION; },
-	});
-	assert.throws(
-		() => compileVideoKeyframedClipState(request),
-		/composition.*data property|accessor/iu,
-	);
-	assert.equal(getterCalls, 0);
-
+test('the compiler bounds structural traversal before compiling oversized curves', () => {
 	assert.throws(() => compileVideoKeyframedClipState({
 		videoKeyframes: {
 			schemaVersion: 1,

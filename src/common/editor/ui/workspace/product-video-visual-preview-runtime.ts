@@ -124,6 +124,7 @@ export interface ProductVideoVisualPreviewRuntime {
 
 const RUNTIMES = new WeakSet<ProductVideoVisualPreviewRuntime>();
 const OWNER_RUNTIMES = new WeakMap<object, ProductVideoVisualPreviewRuntime>();
+const OWNER_DOCUMENTS = new WeakMap<object, Document>();
 
 export function createProductVideoVisualPreviewRuntime(
 	create: ProductVideoVisualPreviewRuntime['create'],
@@ -157,6 +158,14 @@ export function bindProductVideoVisualPreviewRuntime(
 		throw new TypeError('Only an exact product visual-preview runtime can be bound.');
 	}
 	OWNER_RUNTIMES.set(owner, runtime);
+	if (!OWNER_DOCUMENTS.has(owner) && globalThis.document) {
+		OWNER_DOCUMENTS.set(owner, globalThis.document);
+	}
+}
+
+export function productVideoVisualPreviewDocumentFor(owner: unknown): Document | undefined {
+	return owner && (typeof owner === 'object' || typeof owner === 'function')
+		? OWNER_DOCUMENTS.get(owner as object) : undefined;
 }
 
 export function productVideoVisualPreviewRuntimeFor(

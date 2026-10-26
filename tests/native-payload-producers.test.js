@@ -80,7 +80,8 @@ test('an unreachable GPU builder cannot grant reachability to its own recipe or 
 		await writeFile(sourcePath, source.replace("from './desktop-assistance-sherpa-gpu-runtime.mjs'", "from './missing-builder.mjs'"));
 		const audit = auditNativePayloadProducers(fixture);
 		assert.equal(audit.status, 'failed');
-		for (const path of ['desktop-assistance-sherpa-gpu-runtime.mjs', 'assistance-sherpa-gpu-build.json', 'webgpu-provider.cc']) {
+		for (const path of ['desktop-assistance-sherpa-gpu-runtime.mjs', 'assistance-sherpa-gpu-build.json',
+			'webgpu-provider.cc', 'owned-handles.h', 'owned-external.h', 'node-disposal.cc']) {
 			assert.ok(audit.findings.some((finding) => finding.includes('assistance-sherpa-onnx-node pipeline')
 				&& finding.includes(path)));
 		}

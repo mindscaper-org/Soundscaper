@@ -71,7 +71,7 @@ export function evaluateAudacityActionEnablement(id, context) {
 	if (!definition || definition.status !== AUDACITY_ACTION_STATUS.IMPLEMENTED) return false;
 	const resolvedContext = resolveActionContext(context);
 	if (resolvedContext?.snapshot?.selectedLabels?.length && ['action://copy', 'action://cut', 'cut-leave-gap', 'cut-per-clip-ripple', 'cut-per-track-ripple', 'cut-all-tracks-ripple'].includes(definition.id))
-		return Boolean(resolvedContext.snapshot.project) && !selectAudioEditorEditBlock(resolvedContext.snapshot).blocked && !resolvedContext.telemetry?.recording;
+		return Boolean(resolvedContext.snapshot.project) && !selectAudioEditorEditBlock(definition.id === 'action://copy' ? { ...resolvedContext.snapshot, readOnly: false } : resolvedContext.snapshot).blocked && !resolvedContext.telemetry?.recording;
 	return evaluateAudacityEnableWhen(definition.enableWhen, resolvedContext);
 }
 
@@ -137,7 +137,7 @@ export function evaluateAudacityEnableWhen(enableWhen, context = {}) {
 		'history-can-redo': Boolean(snapshot.history?.canRedo),
 		selection: hasSelection,
 		'time-selection': timeSelection,
-		'time-selection-and-not-recording': timeSelection && !recording,
+		'time-or-clip-selection-and-not-recording': (timeSelection || selectedClips.length > 0) && !recording,
 		'project-opened-and-not-recording': projectOpened && !recording,
 		// What every command that acts on "the selection" asks: a drawn time
 		// range or a set of selected clips. Selecting a clip leaves the time

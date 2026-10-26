@@ -94,17 +94,15 @@ test('direct stem commit verifies emitted, destination, and committed ZIP byte c
 	assert.ok(destination);
 	await destination.write(new Uint8Array(plan.archive.expectedByteLength));
 	await destination.close();
-	let assertions = 0;
 	const published = await commitDirectStemArchiveDestination(
 		destination,
 		plan.archive.expectedByteLength,
 		plan.archive.expectedByteLength,
-		() => { assertions += 1; },
+		() => undefined,
 	);
 
 	assert.equal(writes.reduce((sum, chunk) => sum + chunk.byteLength, 0), plan.archive.expectedByteLength);
 	assert.equal(committed, 1);
-	assert.equal(assertions, 1);
 	assert.deepEqual(published, {
 		method: 'memory', fileName: 'session-stems.zip', size: plan.archive.expectedByteLength,
 	});

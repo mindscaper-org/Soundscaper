@@ -11,7 +11,6 @@ test('AudioParam timing preparation returns scalar data without a per-event proj
 	const prepared = prepareScheduledParameterAudioParamWindowTiming({
 		contextStartTime: 1, fromFrame: 37, sampleRate: 44_100, transportRate: 1.2,
 	});
-	assert.equal(typeof prepared, 'object');
 	assert.deepEqual(prepared, { contextStartTime: 1, fromFrame: 37, framesPerSecond: 44_100 * 1.2 });
 });
 

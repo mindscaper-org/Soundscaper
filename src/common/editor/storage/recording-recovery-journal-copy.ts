@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { normalizeRecordingRecoveryJournal, RECORDING_RECOVERY_KEY_PREFIX } from './recording-recovery-journal-repository.ts';
+import { encodeProjectIdKey } from '../project-validation-primitives.ts';
 import type { ProjectDocument } from './project-repository.ts';
 import { canonicalKeyValueComparison } from './key-value-canonical-comparison.ts';
 
@@ -15,8 +16,8 @@ export async function copyOrdinaryRecordingRecoveryToProject(
 	repairedProject: ProjectDocument,
 ): Promise<void> {
 	if (originProjectId === repairedProject.id) throw new Error('Recording recovery requires a distinct repaired project copy.');
-	const originKey = `${RECORDING_RECOVERY_KEY_PREFIX}${encodeURIComponent(originProjectId)}`;
-	const targetKey = `${RECORDING_RECOVERY_KEY_PREFIX}${encodeURIComponent(repairedProject.id)}`;
+	const originKey = `${RECORDING_RECOVERY_KEY_PREFIX}${encodeProjectIdKey(originProjectId)}`;
+	const targetKey = `${RECORDING_RECOVERY_KEY_PREFIX}${encodeProjectIdKey(repairedProject.id)}`;
 	const raw = await port.get(originKey);
 	if (raw == null) return;
 	const origin = normalizeRecordingRecoveryJournal(raw);

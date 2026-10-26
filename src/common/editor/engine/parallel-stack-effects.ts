@@ -7,6 +7,7 @@ import { createStandardEffectProcessor } from '../first-party-effects/standard/d
 import { standardDelayCapacityFrames, normalizeStandardDelayParams } from '../first-party-effects/standard/delay-definition.ts';
 import { noiseGateLatencyFrames } from '../first-party-effects/standard/noise-gate-definition.ts';
 import { ParametricEqWasmRuntime, designParametricEqWasmConfiguration, PARAMETRIC_EQ_WASM_MEMORY_BYTES } from '../parametric-eq/wasm-runtime.js';
+import { limiterLookaheadPeakWindowBytes } from '../limiter-lookahead-peak-window.ts';
 import { createParallelDynamics } from './parallel-stack-effects-dynamics.ts';
 import type { EngineEffect } from './types.ts';
 import type { ParallelStackEffect, ParallelStackRuntimeModules } from './parallel-stack-types.ts';
@@ -47,6 +48,7 @@ export function compileParallelStackEffect(effect: EngineEffect, sampleRate: num
 		latencyFrames = type === 'limiter' ? Math.max(0, Math.ceil(Number(params.lookahead ?? 0) * sampleRate)) : 0;
 		if (latencyFrames > 60 * sampleRate) throw new Error('Parallel dynamics lookahead exceeds the memory limit.');
 		stateBytes += (latencyFrames + 1) * channels * 4;
+		if (type === 'limiter') stateBytes += limiterLookaheadPeakWindowBytes(latencyFrames);
 	} else if (!isStandardEffect(type) && !['bitcrusher', 'deesser', 'multiband-compressor'].includes(type)) {
 		throw new Error(`Parallel stacks do not support effect ${type}.`);
 	}

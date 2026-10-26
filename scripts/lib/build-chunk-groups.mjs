@@ -448,7 +448,8 @@ export const chunkGroups = [
 	},
 	{
 		name: 'editor-shell',
-		test: new RegExp(`(?:src[\\\\/]motionscaper[\\\\/]desktop-locale-contract\\.ts$|${editorPath}documentation-links\\.ts$|${editorPath}(?!${editorOptionalSurfaceModule}$)ui[\\\\/](?!(?:dialogs[\\\\/](?!(?:editor-dialog-model\\.js|AssistanceLoadingDialog\\.tsx)$)|inspector[\\\\/]|motionscaper[\\\\/](?!(?:MotionscaperShell\\.tsx|shell-menu\\.ts|motionscaper-copy\\.ts|motionscaper-documentation\\.ts|motionscaper-locale\\.ts|motionscaper-updates\\.ts|motionscaper-shell\\.css)$)))|src[\\\\/]common[\\\\/](?:products\\.js|url\\.ts)$|src[\\\\/]common[\\\\/]offline[\\\\/](?:file-handler-launch|install-prompt|share-target-launch)\\.ts$|src[\\\\/]soundscaper[\\\\/](?:editor-capture-toolbar-control|editor-framescaper-overlay-model|editor-video-preview-product-runtime|editor-application-menu-product-runtime|editor-workspace-application-menu-runtime|editor-workspace-panel-runtime)\\.(?:js|tsx?)$|src[\\\\/]framescaper[\\\\/]editor-soundscaper-workflow-product-runtime\\.tsx$)`),
+		// The workspace reads timed-recording values before its dialog is opened.
+		test: new RegExp(`(?:src[\\\\/]motionscaper[\\\\/]desktop-locale-contract\\.ts$|${editorPath}documentation-links\\.ts$|${editorPath}(?!${editorOptionalSurfaceModule}$)ui[\\\\/](?!(?:dialogs[\\\\/](?!(?:editor-dialog-model\\.js|AssistanceLoadingDialog\\.tsx|timed-recording-dialog-model\\.ts)$)|inspector[\\\\/]|motionscaper[\\\\/](?!(?:MotionscaperShell\\.tsx|shell-menu\\.ts|motionscaper-copy\\.ts|motionscaper-documentation\\.ts|motionscaper-locale\\.ts|motionscaper-updates\\.ts|motionscaper-shell\\.css)$)))|src[\\\\/]common[\\\\/](?:products\\.js|url\\.ts)$|src[\\\\/]common[\\\\/]offline[\\\\/](?:file-handler-launch|install-prompt|share-target-launch)\\.ts$|src[\\\\/]soundscaper[\\\\/](?:editor-capture-toolbar-control|editor-framescaper-overlay-model|editor-video-preview-product-runtime|editor-application-menu-product-runtime|editor-workspace-application-menu-runtime|editor-workspace-panel-runtime)\\.(?:js|tsx?)$|src[\\\\/]framescaper[\\\\/]editor-soundscaper-workflow-product-runtime\\.tsx$)`),
 		priority: 70,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,
@@ -488,7 +489,8 @@ export const chunkGroups = [
 	},
 ];
 
-export { WORKER_XML_VENDOR_CHUNK_TEST, WORKER_EFFECT_CONTRACT_CHUNK_TEST, workerChunkGroups } from './build-worker-chunks.mjs';
+export { workerChunkGroups, WORKER_EFFECT_CONTRACT_CHUNK_TEST, WORKER_XML_VENDOR_CHUNK_TEST }
+	from './build-worker-chunk-groups.mjs';
 
 /**
  * The group that claims one repository-relative module path, or null.

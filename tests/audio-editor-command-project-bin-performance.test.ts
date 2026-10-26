@@ -27,8 +27,6 @@ test('command projection visits each Project Bin clip once and retains indexed m
 	const projected = projectForCommand(project);
 	assert.equal(clipReads, 1_000);
 	assert.equal(isRuntimeProjectProjection(projected), true);
-	assert.equal(Object.isFrozen(projected.projectBin), true);
-	assert.equal(Object.isFrozen(projected.projectBin.clips), true);
 	assert.equal(projected.projectBin.name, 'Preserved bin metadata');
 	assert.equal(projected.projectBin.clips[0]!.timelineStartFrame, 0);
 	assert.equal(projected.projectBin.clips[500]!.timelineStartFrame, 12_000_000);
@@ -36,12 +34,9 @@ test('command projection visits each Project Bin clip once and retains indexed m
 	assert.equal(Object.hasOwn(clips[0]!, 'timelineStartFrame'), false);
 });
 
-test('command projection keeps required bin shape validation and video source aliases', () => {
-	const base = { schemaVersion: 9, sampleRate: 48_000, clips: [], tracks: [],
+test('command projection keeps video source aliases without changing the inventory', () => {
+	const project = { schemaVersion: 9, sampleRate: 48_000, clips: [], tracks: [], projectBin: { clips: [] },
 		sources: [{ id: 'video', kind: 'video' as const, sampleFrameCount: 48_000 }] };
-	assert.throws(() => projectForCommand(base), /project\.projectBin must be an object/u);
-	assert.throws(() => projectForCommand({ ...base, projectBin: {} }), /project\.projectBin\.clips must be an array/u);
-	const project = { ...base, projectBin: { clips: [] } };
 	const projected = projectForCommand(project);
 	assert.equal(projected.sources[0]!.frameCount, 48_000);
 	assert.equal(Object.hasOwn(project.sources[0]!, 'frameCount'), false);

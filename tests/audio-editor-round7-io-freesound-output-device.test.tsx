@@ -80,7 +80,7 @@ for (const [initialOutput, delayed] of [['', false], ['speakers-a', false], ['sp
 	}
 });
 
-class PreviewAudio {
+class PreviewAudio extends EventTarget {
 	volume = 1;
 	preload = '';
 	playCount = 0;
@@ -88,8 +88,7 @@ class PreviewAudio {
 	readonly playSinks: string[] = [];
 	outputGate: Promise<void> = Promise.resolve();
 	async setSinkId(deviceId: string): Promise<void> { await this.outputGate; this.sinkId = deviceId; }
-	constructor(public src: string) {}
-	addEventListener(): void {}
+	constructor(public src: string) { super(); }
 	play(): Promise<void> { this.playCount += 1; this.playSinks.push(this.sinkId); return Promise.resolve(); }
 	pause(): void {}
 	load(): void {}

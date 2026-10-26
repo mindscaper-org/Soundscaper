@@ -79,11 +79,14 @@ export function connectDelay(
 	if (mix <= 0) return input;
 	const WorkletNode = audioWorkletNodeConstructor();
 	if (isDelayWorkletLoaded(context) && WorkletNode) {
+		const channelCount = clamp(positiveInteger(options.effectChannelCount, 2), 1, 32);
 		const delay = addNode(nodes, new WorkletNode(context, DELAY_WORKLET_NAME, {
 			numberOfInputs: 1,
 			numberOfOutputs: 1,
-			outputChannelCount: [clamp(positiveInteger(options.effectChannelCount, 2), 1, 32)],
-			channelCountMode: 'max',
+			outputChannelCount: [channelCount],
+			// Let Web Audio map narrower clips to the strip instead of duplicating their first channel.
+			channelCount,
+			channelCountMode: 'explicit',
 			channelInterpretation: 'speakers',
 			processorOptions: {
 				sampleRate: context.sampleRate || DEFAULT_SAMPLE_RATE,

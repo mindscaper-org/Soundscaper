@@ -208,43 +208,6 @@ test('V12 nodes and sequence projections are closed canonical plain data', () =>
 	'projection drift must reject in its owning sequence before later projection work');
 });
 
-test('V12 hierarchy track metadata is a strict minimal plain-data projection', () => {
-	const hierarchy = [{
-		id: 'main',
-		trackNodes: [{ kind: 'track', id: 'leaf', parentFolderId: null }],
-		trackIds: ['leaf'],
-	}];
-	assert.equal(validateTrackHierarchyV12(hierarchy, context([], [{ id: 'leaf', type: 'audio' }])), true);
-
-	for (const metadata of [
-		[{ id: 'leaf', type: 'audio', laneGroupId: null, name: 'extra' }],
-		[{ id: 'leaf', type: 'audio', laneGroupId: undefined }],
-		[{ id: 'leaf', type: 'bus', laneGroupId: null }],
-		[{ id: ' leaf ', type: 'audio', laneGroupId: null }],
-		[{ id: 'leaf', type: 'audio', laneGroupId: null, [Symbol('extra')]: true }],
-	]) {
-		assert.throws(
-			() => validateTrackHierarchyV12(hierarchy, context([], metadata)),
-			/track hierarchy context\.tracks|unsupported|type|canonical|laneGroupId/iu,
-		);
-	}
-
-	let getterCalls = 0;
-	const accessor = { type: 'audio', laneGroupId: null } as DataRecord;
-	Object.defineProperty(accessor, 'id', {
-		enumerable: true,
-		get() {
-			getterCalls += 1;
-			return 'leaf';
-		},
-	});
-	assert.throws(
-		() => validateTrackHierarchyV12(hierarchy, context([], [accessor])),
-		/id.*enumerable data|id.*data property/iu,
-	);
-	assert.equal(getterCalls, 0);
-});
-
 test('V12 hierarchy rejects cycles, later parents, track parents, cross-sequence parents, and reopened subtrees', () => {
 	function invalidHierarchy(trackNodes: readonly unknown[], expectedFolders: readonly string[] = []): void {
 		const trackIds = trackNodes

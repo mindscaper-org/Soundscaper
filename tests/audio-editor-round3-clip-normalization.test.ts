@@ -23,7 +23,7 @@ for (const action of ['normalize-peak', 'normalize-lufs'] as const) test(`${acti
 	let rendered = false;
 	const commits: AudioEditorCommand[] = [];
 	const dependencies: ClipPropertyServiceDependencies & {
-		renderNormalizationAudio(project: ClipTransformProject, clip: ClipTransformClip, buffer: AudioBufferLike, signal: AbortSignal): Promise<AudioBufferLike>;
+		renderNormalizationAudio(project: ClipTransformProject, clip: ClipTransformClip, buffer: AudioBufferLike | null, signal: AbortSignal): Promise<AudioBufferLike>;
 	} = { lifetime, copy: { audioClipNotFound: '', clipPitchRange: '', clipSpeedPositive: '', timelineFramesFinite: '' },
 		sourceBuffers: new Map([['source', raw]]), getProject: () => project, getSelectedClipId: () => 'clip', editingBlocked: () => false,
 		captureProject: () => generation.capture(), assertProject: token => { generation.assertCurrent(token); }, createId: prefix => prefix,

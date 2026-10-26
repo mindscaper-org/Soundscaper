@@ -124,16 +124,6 @@ test('a desktop static product range preserves the legacy V6 FFmpeg encoder path
 	assert.deepEqual(fixture.errors, []);
 });
 
-test('common strategy rejects missing, duplicate, and accessor active source IDs before timing loads', async () => {
-	for (const malformed of ['missing', 'duplicate', 'accessor', 'entries', 'prototype'] as const) {
-		const fixture = createFixture({ mode: 'blob', malformedPlan: malformed });
-		assert.equal(await fixture.exportVideo({ format: 'video-mp4' }), null);
-		assert.match((fixture.errors[0] as Error).message, /activeSourceIds|active source/iu);
-		assert.equal(fixture.events.includes('active-timing-load'), false);
-		assert.equal(fixture.events.includes('off-range-timing-load'), false);
-	}
-});
-
 test('common strategy preserves video format aliases and refuses unsupported formats', async () => {
 	for (const staticRange of [false, true]) {
 		const fixture = createFixture({ mode: 'blob', staticRange, cancelPreparation: true, desktop: staticRange });
@@ -156,9 +146,9 @@ test('desktop keyed delivery prefers WebCodecs and falls back to verified extern
 	}
 });
 test('product picture authority exports stills and generators without fake video timing or audio', async () => {
-	for (const kind of ['still', 'generator'] as const) {
+	for (const kind of ['still', 'generator'] as const) for (const range of ['project', { startFrame: 0, endFrame: SAMPLE_RATE }]) {
 		const fixture = createPictureOnlyFixture(kind, false);
-		const result = await fixture.exportVideo({ format: 'video-mp4' });
+		const result = await fixture.exportVideo({ format: 'video-mp4', range });
 		assert.equal(result?.fileName, `Picture-${kind}.mp4`);
 		assert.deepEqual(fixture.capture.timingSourceIds, []);
 		assert.deepEqual(fixture.capture.videoBlobIds, []);
@@ -172,17 +162,27 @@ test('product picture authority exports stills and generators without fake video
 	assert.ok(mixed.capture.audioMix instanceof Blob);
 });
 
+test('product audio authority preserves generated audio detection and the explicit audio opt-out', async () => {
+	for (const [withAudio, reportedAudio, includeAudio, expected] of [
+		[false, true, undefined, true], [true, false, undefined, false], [false, true, false, false],
+	] as const) {
+		const fixture = createPictureOnlyFixture('generator', withAudio, reportedAudio);
+		assert.ok(await fixture.exportVideo({ format: 'video-mp4', includeAudio }));
+		assert.equal(fixture.capture.includeAudio, expected);
+		assert.equal(fixture.capture.audioMix instanceof Blob, expected);
+	}
+});
+
 interface FixtureOptions {
 	readonly mode: 'blob' | 'direct';
 	readonly desktop?: boolean;
 	readonly encodeFailure?: Error;
 	readonly cancelPreparation?: boolean;
-	readonly malformedPlan?: 'missing' | 'duplicate' | 'accessor' | 'entries' | 'prototype';
 	readonly staticRange?: boolean;
 	readonly linkedOriginal?: boolean;
 }
 
-function createPictureOnlyFixture(kind: 'still' | 'generator', withAudio: boolean) {
+function createPictureOnlyFixture(kind: 'still' | 'generator', withAudio: boolean, reportedAudio?: boolean) {
 	const fixture = createExportServiceFixture();
 	const pictureClip = Object.freeze({
 		id: `${kind}-clip`, kind, sourceId: `${kind}-source`,
@@ -228,6 +228,7 @@ function createPictureOnlyFixture(kind: 'still' | 'generator', withAudio: boolea
 	const strategy: ProductVideoExportStrategy = Object.freeze({
 		createExportProject: () => project,
 		hasPicture: (candidate: Readonly<Record<string, unknown>>) => candidate === project,
+		...(reportedAudio === undefined ? {} : { hasAudio: () => reportedAudio }),
 		createPlan(request: ProductVideoExportStrategyPlanRequest) {
 			capture.includeAudio = request.includeAudio;
 			return plan;
@@ -299,13 +300,13 @@ function createFixture(options: FixtureOptions) {
 		height: 360,
 	});
 	const activeClip = Object.freeze({
-		id: 'active-clip', kind: 'video', sourceId: ACTIVE_SOURCE_ID,
+		id: 'active-clip', kind: 'video', sourceId: ACTIVE_SOURCE_ID, sequenceId: 'main', sequenceStartFrame: 0, sequenceFrameCount: 3,
 		timelineStartFrame: 0, durationFrames: SAMPLE_RATE,
 		sourceStartFrame: 0, sourceDurationFrames: 3,
 		sourceInFrame: 0, sourceFrameCount: 3,
 	});
 	const offRangeClip = Object.freeze({
-		id: 'off-range-clip', kind: 'video', sourceId: OFF_RANGE_SOURCE_ID,
+		id: 'off-range-clip', kind: 'video', sourceId: OFF_RANGE_SOURCE_ID, sequenceId: 'main', sequenceStartFrame: 6, sequenceFrameCount: 3,
 		timelineStartFrame: SAMPLE_RATE * 2, durationFrames: SAMPLE_RATE,
 		sourceStartFrame: 0, sourceDurationFrames: 3,
 		sourceInFrame: 0, sourceFrameCount: 3,
@@ -316,7 +317,7 @@ function createFixture(options: FixtureOptions) {
 		sourceStartFrame: 0, sourceDurationFrames: SAMPLE_RATE,
 	});
 	const project = Object.freeze({
-		id: 'keyed-video', title: 'Keyed video', sampleRate: SAMPLE_RATE, masterChannels: 2,
+		id: 'keyed-video', title: 'Keyed video', sampleRate: SAMPLE_RATE, masterChannels: 2, primarySequenceId: 'main', sequences: [{ id: 'main', rate: { num: 3, den: 1 }, trackIds: ['video-track', 'audio-track'] }],
 		tracks: Object.freeze([
 			Object.freeze({
 				id: 'video-track', type: 'video', hidden: false,
@@ -360,33 +361,7 @@ function createFixture(options: FixtureOptions) {
 			events.push(`product-format:${request.format}`);
 			assert.strictEqual(request.canonicalProject, project);
 			if (options.staticRange) return null;
-			if (options.malformedPlan === 'missing') {
-				const malformed = { ...keyedPlan } as Record<string, unknown>;
-				delete malformed.activeSourceIds;
-				return malformed as never;
-			}
-			if (options.malformedPlan === 'duplicate') {
-				return { ...keyedPlan, activeSourceIds: [ACTIVE_SOURCE_ID, ACTIVE_SOURCE_ID] } as never;
-			}
-			if (options.malformedPlan === 'accessor') {
-				return Object.defineProperty({ ...keyedPlan }, 'activeSourceIds', {
-					enumerable: true,
-					get() { throw new Error('active source accessor'); },
-				}) as never;
-			}
-			if (options.malformedPlan === 'entries') {
-				const ids = [ACTIVE_SOURCE_ID];
-				Object.defineProperty(ids, 'entries', {
-					enumerable: true,
-					get() { throw new Error('entries accessor must not run'); },
-				});
-				return { ...keyedPlan, activeSourceIds: ids } as never;
-			}
-			if (options.malformedPlan === 'prototype') {
-				const ids = [ACTIVE_SOURCE_ID];
-				Object.setPrototypeOf(ids, null);
-				return { ...keyedPlan, activeSourceIds: ids } as never;
-			}
+
 			return keyedPlan;
 		},
 		async encode(request: ProductVideoExportStrategyEncodeRequest) {

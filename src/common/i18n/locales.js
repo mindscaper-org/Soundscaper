@@ -69,7 +69,7 @@ export const AUDACITY_LOCALE_SUPERSET = deepFreeze([
 ]);
 
 /** Bundled catalogs that are available even when the R2 manifest is offline. */
-export const DEFAULT_LOCALE_TAGS = Object.freeze(['en', 'de']);
+export const DEFAULT_LOCALE_TAGS = Object.freeze(['en']);
 
 /**
  * Locales whose standalone/embed routes are included in this Pages

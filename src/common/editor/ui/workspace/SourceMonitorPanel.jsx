@@ -15,6 +15,7 @@ import '../audio-editor-design-system/23-source-monitor.css';
  */
 export default function SourceMonitorPanel({ controller, snapshot, copy, run, blocked }) {
 	const videoRef = useRef(null);
+	const playingRef = useRef(false);
 	const [playback, setPlayback] = useState(null);
 	const view = controller.actions.video.sourceMonitor.view();
 	const playing = playback?.sourceId === view.sourceId && playback?.project === snapshot.project && playback?.openRevision === view.openRevision;
@@ -33,15 +34,20 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 	// Playing a source is a viewing action; stopping it is what makes the
 	// controller's frame authoritative again.
 	const stop = useCallback(() => {
+		// pause() can dispatch a final timeupdate before React commits the state.
+		playingRef.current = false;
 		videoRef.current?.pause?.();
 		setPlayback(null);
 	}, []);
 	const stopGenerated = useCallback(() => { if (generatedIsCurrent()) stop(); }, [generatedIsCurrent, stop]);
 	const generatedPlayingChanged = useCallback(value => { if (!value) stopGenerated(); }, [stopGenerated]);
-	useEffect(() => { stop(); }, [stop, view.sourceId, view.openRevision, snapshot.project]);
+	useEffect(() => { stop(); }, [stop, view.sourceId, view.openRevision, snapshot.project, mediaUrl]);
 	useEffect(() => {
 		const media = videoRef.current;
 		if (!media || playing || !Number.isFinite(view.mediaSeconds)) return;
+		// Seeking the last frame's midpoint would turn natural end into a paused
+		// final-frame seek, so native Play could no longer restart the source.
+		if (media.ended && view.positionFrame === view.sourceFrameCount - 1) return;
 		if (Math.abs((Number(media.currentTime) || 0) - view.mediaSeconds) > 1e-3) {
 			try {
 				media.currentTime = view.mediaSeconds;
@@ -49,7 +55,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 				// Metadata can still be loading; the readiness callback retries.
 			}
 		}
-	}, [playing, view.mediaSeconds, view.sourceId]);
+	}, [playing, view.mediaSeconds, view.positionFrame, view.sourceFrameCount, view.sourceId]);
 
 	if (!view.sourceId) {
 		return <div className="kw-audio-editor__source-monitor" data-source-monitor="empty">
@@ -59,7 +65,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 
 	const publish = (frame) => run(() => controller.actions.video.sourceMonitor.seek(frame));
 	const capturePlayback = () => {
-		if (playing && videoRef.current) {
+		if (playing && playingRef.current && videoRef.current) {
 			controller.actions.video.sourceMonitor.seekMediaTime(Number(videoRef.current.currentTime) || 0);
 		}
 	};
@@ -86,6 +92,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 			run(() => controller.actions.video.sourceMonitor.seekMediaTime(Number(media.currentTime) || 0));
 			return;
 		}
+		playingRef.current = true;
 		setPlayback({ sourceId: view.sourceId, project: snapshot.project, openRevision: view.openRevision });
 		void media.play?.().catch(() => stop());
 	};
@@ -109,6 +116,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 					preload="auto"
 					aria-label={`${copy.panelSourceMonitor}: ${view.sourceName || copy.videoClip}`}
 					onLoadedMetadata={(event) => { event.currentTarget.currentTime = view.mediaSeconds; }}
+					onTimeUpdate={capturePlayback}
 					onEnded={() => run(() => { capturePlayback(); stop(); })}
 				/>
 				: <p className="kw-audio-editor__panel-empty" role="status">{copy.videoPreviewUnavailable}</p>}

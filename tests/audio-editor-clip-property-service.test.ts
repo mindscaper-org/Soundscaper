@@ -238,14 +238,14 @@ test('clip property validation, blocking, defaults, and single-clip paths are ex
 	harness.service.setClipTimePitch('active');
 	harness.service.resetClipPitchSpeed('active');
 	harness.service.stretchClip('active');
+	assert.equal(harness.commits.length, 2, 'an unchanged stretch does not invalidate its render or history');
 	harness.service.stretchClip('active', { timelineStartFrame: 20, durationFrames: 250 });
 	assert.throws(
 		() => harness.service.stretchClip('active', { timelineStartFrame: Number.POSITIVE_INFINITY }),
 		/Timeline/,
 	);
 	await harness.service.handleClipAction('normalize-peak', 'active');
-	await harness.service.handleClipAction('unknown', 'active');
-	assert.equal(harness.commits.length, 6);
+	assert.equal(harness.commits.length, 4);
 
 	harness.sourceBuffers.delete('source');
 	assert.equal(await harness.service.handleClipAction('normalize-peak', 'active'), undefined);
@@ -262,7 +262,10 @@ test('clip property validation, blocking, defaults, and single-clip paths are ex
 });
 
 test('left-edge grouped stretching clamps companions at the timeline origin', () => {
-	const project = projectFixture();
+	const project = projectFixture({ clips: [clipFixture({ timelineStartFrame: 1_000 }), clipFixture({
+		id: 'companion', timelineStartFrame: 250, sourceStartFrame: 1_000,
+		sourceDurationFrames: 500, durationFrames: 500, renderCacheRevision: 4,
+	})] });
 	const harness = createHarness(project);
 
 	harness.service.stretchClip('active', { timelineStartFrame: 500, durationFrames: 2_000 });
@@ -275,10 +278,29 @@ test('left-edge grouped stretching clamps companions at the timeline origin', ()
 		timelineStartFrame: changes.timelineStartFrame,
 		durationFrames: changes.durationFrames,
 	})), [{
-		clipId: 'active', timelineStartFrame: 0, durationFrames: 1_000,
+		clipId: 'active', timelineStartFrame: 500, durationFrames: 1_500,
 	}, {
-		clipId: 'companion', timelineStartFrame: 1_500, durationFrames: 500,
+		clipId: 'companion', timelineStartFrame: 0, durationFrames: 750,
 	}]);
+});
+
+test('sub-sample stretches leave single clips and groups unchanged without undo or render invalidation', () => {
+	for (const grouped of [false, true]) {
+		const project = grouped ? projectFixture() : projectFixture({ clips: [clipFixture({ groupId: null })] });
+		const harness = createHarness(project);
+		for (let repeat = 0; repeat < 3; repeat++) {
+			harness.service.stretchClip('active', { durationFrames: 999.6 });
+			harness.service.stretchClip('active', { timelineStartFrame: 0.4, durationFrames: 999.6 });
+		}
+		assert.deepEqual(harness.commits, []);
+		if (grouped) {
+			harness.service.stretchClip('active', { timelineStartFrame: 500, durationFrames: 2_000 });
+			assert.deepEqual(harness.commits, [], 'a stretch clamped to the existing origin is also unchanged');
+		}
+		assert.equal(project.clips[0]?.renderCacheRevision, 2);
+		harness.service.stretchClip('active', { durationFrames: 1_001 });
+		assert.equal(harness.commits.length, 1);
+	}
 });
 
 function createHarness(

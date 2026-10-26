@@ -1,31 +1,48 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dropdown } from '@soundscaper/design-system/Dropdown';
 import { TextInput } from '@soundscaper/design-system/TextInput';
+import { BoundedTextInput } from './BoundedTextInput.tsx';
 
 import PreferenceCheckbox from '../EditorPreferenceCheckbox.tsx';
 import { cancelDraftEditOnEscape, createDraftBlurCommitGuard, draftBlurShouldCommit } from '../draft-blur-commit.ts';
 import { observeNativeDraftSelection } from './native-draft-selection.ts';
 
-export function CommitField({ label, name, value, type = 'text', disabled, readOnly, multiline, hookName = 'clip-field', visuallyHiddenLabel = false, onCommit, onDraftChange = undefined }) {
+export function CommitField({ label, name, value, type = 'text', min = undefined, max = undefined, step = undefined, disabled, readOnly, multiline, multilineCommitOnEnter = false, hookName = 'clip-field', visuallyHiddenLabel = false, preserveEditedDraft = false, onCommit, onDraftChange = undefined }) {
 	const [draft, setDraft] = useState(String(value ?? ''));
 	const [error, setError] = useState(false);
+	const editRevision = useRef(0);
+	const editedDraft = useRef(false);
+	const draftName = useRef(name);
 	const blurCommitGuard = useRef(createDraftBlurCommitGuard()).current;
 	const fieldOwner = useRef(null);
 	useEffect(() => observeNativeDraftSelection(fieldOwner.current?.querySelector('input, textarea') ?? null,
 		disabled || readOnly ? undefined : onDraftChange), [disabled, readOnly, multiline, onDraftChange]);
 	useEffect(() => {
+		editRevision.current++;
+		if (preserveEditedDraft && draftName.current === name && editedDraft.current) return;
+		draftName.current = name;
+		editedDraft.current = false;
 		setDraft(String(value ?? ''));
 		setError(false);
-	}, [name, value]);
+	}, [name, value, preserveEditedDraft]);
 	const commit = () => {
 		if (disabled || readOnly || !draftBlurShouldCommit(blurCommitGuard)) return;
+		editedDraft.current = false;
+		const revision = editRevision.current;
+		const resolve = (accepted) => {
+			if (editRevision.current === revision) setError(accepted === false);
+		};
 		try {
-			setError(onCommit(name, draft) === false);
+			const outcome = onCommit(name, draft);
+			if (outcome && typeof outcome.then === 'function') {
+				void Promise.resolve(outcome).then(resolve, () => resolve(false));
+			} else resolve(outcome);
 		} catch {
-			setError(true);
+			resolve(false);
 		}
 	};
 	const hook = { [`data-${hookName}`]: name };
+	const Input = type === 'number' ? BoundedTextInput : TextInput;
 	return (
 		<label ref={fieldOwner} className="audio-editor-field" {...hook} onKeyDown={(event) => {
 			if (disabled || readOnly || event.nativeEvent?.isComposing) return;
@@ -34,20 +51,25 @@ export function CommitField({ label, name, value, type = 'text', disabled, readO
 				// Reserve replacement intent before an asynchronous default can collapse the native selection.
 				onDraftChange?.();
 			}
-			if (event.key === 'Enter' && !multiline) {
+			if (event.key === 'Enter' && (!multiline || multilineCommitOnEnter && !event.shiftKey)) {
 				event.preventDefault();
 				event.stopPropagation();
 				event.target.blur();
 			} else if (event.key === 'Escape') {
 				cancelDraftEditOnEscape(blurCommitGuard, { currentTarget: event.target,
 					preventDefault: () => event.preventDefault(), stopPropagation: () => event.stopPropagation() }, () => {
+					editRevision.current++;
+					editedDraft.current = false;
 					setDraft(String(value ?? ''));
 					setError(false);
 				});
 			}
 		}}>
 			<span className={visuallyHiddenLabel ? 'kw-audio-editor-sr-only' : undefined}>{label}</span>
-			<TextInput
+			<Input
+				min={min}
+				max={max}
+				step={step}
 				value={draft}
 				type={type}
 				multiline={multiline}
@@ -56,7 +78,10 @@ export function CommitField({ label, name, value, type = 'text', disabled, readO
 				onChange={(next) => {
 					if (disabled || readOnly) return;
 					onDraftChange?.();
+					editRevision.current++;
+					editedDraft.current = true;
 					setDraft(next);
+					setError(false);
 				}}
 				onBlur={commit}
 				width="100%"

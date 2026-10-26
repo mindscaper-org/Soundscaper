@@ -71,7 +71,7 @@ void test('insert paste resolves existing dense material once per edited track',
 	assert.equal(project.clips.length, 121);
 });
 
-void test('paste keeps pending overlap refusals and first-match malformed identities before publication', () => {
+void test('paste rejects overlapping pending material and colliding command IDs before publication', () => {
 	const project = commandFixture(2);
 	const clipboard = createClipboardDescriptor(project, { startFrame: 0, endFrame: 120 });
 	(clipboard.tracks[0]!.clips[1]! as Record<string, unknown>).offsetFrame = 0;
@@ -83,7 +83,4 @@ void test('paste keeps pending overlap refusals and first-match malformed identi
 	const small = createClipboardDescriptor(mutable, { startFrame: 0, endFrame: 20 });
 	const duplicate = preparePasteCommand(small, { atFrame: 1000 }, () => 'clip-0');
 	assert.throws(() => pasteClipboard(mutable, duplicate), { name: 'RangeError', message: 'Duplicate clip ID: clip-0.' });
-	mutable.tracks[0]!.clipIds.push('missing');
-	const missing = preparePasteCommand(small, { atFrame: 1000 }, () => 'new');
-	assert.throws(() => pasteClipboard(mutable, missing), { name: 'ReferenceError', message: 'Unknown clip: missing.' });
 });

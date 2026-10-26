@@ -71,8 +71,10 @@ test('legacy image properties routes the original native commit refusal without 
 test('legacy generator properties routes the original trim refusal without an inline alert', async context => {
 	const failure = new RangeError('Generated clip trim refused');
 	const errors: unknown[] = [];
-	const project = { sampleRate: 48_000, clips: [{ id: 'clip', kind: 'generator', sourceId: 'source', timelineStartFrame: 0, durationFrames: 48_000 }],
-		sources: [{ id: 'source', name: 'Title' }], tracks: [{ id: 'track', clipIds: ['clip'] }] };
+	const project = { sampleRate: 48_000, sequences: [{ id: 'main', rate: { num: 30, den: 1 } }],
+		clips: [{ id: 'clip', kind: 'generator', sourceId: 'source', sequenceId: 'main', sequenceStartFrame: 0, sequenceFrameCount: 30,
+			sourceInFrame: 0, sourceFrameCount: 30, timelineStartFrame: 0, durationFrames: 48_000 }],
+		sources: [{ id: 'source', name: 'Title', frameCount: 30 }], tracks: [{ id: 'track', clipIds: ['clip'] }] };
 	const controller = { actions: { clip: { trim() { throw failure; } } } };
 	const dom = await mount(context, <GeneratorClipPropertiesBody controller={controller} project={project} clipId="clip"
 		copy={ENGLISH_COPY} disabled={false} onError={cause => errors.push(cause)} />);
@@ -107,13 +109,4 @@ test('legacy video rack errors route their existing nonempty message without pub
 	await act(async () => { reactProps(button).onClick(); });
 	assert.deepEqual(errors, ['Video effect refused']);
 	assert.equal(dom.container.querySelectorAll('[role="alert"]').length, 0);
-});
-
-test('standalone image properties retains its local error fallback without a host boundary', async context => {
-	const { project, clip } = createFramescaperBaselineImageFixture({ imageOnly: true });
-	const controller = { actions: { edit: { commit() { throw new Error('Standalone image edit refused'); } } } };
-	const dom = await mount(context, <ImageClipPropertiesBody controller={controller} project={project} clipId={clip.id}
-		copy={ENGLISH_COPY} disabled={false} />);
-	await changeDuration(dom);
-	assert.equal(dom.one('[role="alert"]').textContent, 'Standalone image edit refused');
 });

@@ -75,6 +75,7 @@ export function createProjectMediaActionGroup(runtime: ProjectMediaActionRuntime
 			if (runtime.setStatus) setLocalizedStatus(runtime.setStatus, copy, 'consolidatingMedia',
 				undefined, undefined, { fallback: 'Consolidating media' });
 			let result = await consolidateProjectMedia(request);
+			request.assertCurrent();
 			// Published before the status settles, so a run that left something
 			// behind is readable the moment the message says it finished.
 			runtime.state.deliveryReport = result.run.report;
@@ -95,6 +96,7 @@ export function createProjectMediaActionGroup(runtime: ProjectMediaActionRuntime
 					bound = true;
 				} catch (error) {
 					failure = { error };
+					assertCurrent();
 					runtime.state.deliveryReport = reportConsolidatedPcm(result.run.report, [], error);
 					runtime.publishDocumentSnapshot?.();
 					if (runtime.setStatus) setLocalizedStatus(runtime.setStatus, copy, 'consolidatedMediaIncomplete',
@@ -110,7 +112,9 @@ export function createProjectMediaActionGroup(runtime: ProjectMediaActionRuntime
 					runtime.state.deliveryReport = result.run.report;
 					runtime.publishDocumentSnapshot?.();
 				}
+				const assertSavedProjectCurrent = projectFence(runtime, runtime.getProject() ?? request.project);
 				const saved = await runtime.saveScape?.();
+				assertSavedProjectCurrent();
 				if (saved && typeof saved === 'object' && 'cancelled' in saved && saved.cancelled) {
 					throw new DOMException('Media was consolidated, but the project save was cancelled.', 'AbortError');
 				}

@@ -6,8 +6,8 @@ import { SITE_COPY_BY_LOCALE, bundledSiteCopyForLocale } from '../i18n/site-copy
 import { loadTranslationCatalog, translationCatalogLocale } from '../i18n/translation-catalog.js';
 
 /**
- * The site's own copy for a locale. The first paint uses the bundled English
- * or German, because the shell never waits on a chunk to draw; for a locale a
+ * The site's own copy for a locale. The first paint uses the bundled English,
+ * because the shell never waits on a chunk to draw; for a locale a
  * translation catalog serves, that catalog's site strings replace them once
  * its chunk has arrived. A chunk that never arrives leaves the bundled copy
  * in place. The editor resolves its own, complete catalog separately in its

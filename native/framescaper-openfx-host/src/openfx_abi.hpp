@@ -302,6 +302,14 @@ struct OfxOpenCLProgramSuiteV1 {
 	#define kOfxKey_Insert 0xFF63
 	#define kOfxKey_KP_Enter 0xFF8D
 	#define kOfxKey_Delete 0xFFFF
+	#define kOfxKey_Shift_L 0xFFE1
+	#define kOfxKey_Shift_R 0xFFE2
+	#define kOfxKey_Control_L 0xFFE3
+	#define kOfxKey_Control_R 0xFFE4
+	#define kOfxKey_Meta_L 0xFFE7
+	#define kOfxKey_Meta_R 0xFFE8
+	#define kOfxKey_Alt_L 0xFFE9
+	#define kOfxKey_Alt_R 0xFFEA
 #define kOfxPropEffectInstance "OfxPropEffectInstance"
 #define kOfxPropTime "OfxPropTime"
 #define kOfxImageEffectPropRenderScale "OfxImageEffectPropRenderScale"

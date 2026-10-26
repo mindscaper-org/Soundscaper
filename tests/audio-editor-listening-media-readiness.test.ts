@@ -41,6 +41,7 @@ test('listening readiness uses latest gain before metadata and on subsequent sou
 	assert.equal(player.volume, 0.25);
 	assert.equal(player.paused, false);
 	gain = 0.75; player.volume = 0;
+	player.dispatchEvent(new Event('loadstart'));
 	player.dispatchEvent(new Event('loadedmetadata'));
 	assert.equal(player.volume, 0.75); dispose();
 });
@@ -69,4 +70,26 @@ test('listening readiness disposal removes listeners and fences previously queue
 		else listener.handleEvent(new Event('loadeddata'));
 	}
 	assert.equal(reads, 0); assert.equal(player.volume, 0.5); assert.equal(callerEvents, 1);
+});
+
+test('listening readiness restores each loading phase once and retains later native volume edits', () => {
+	const player = new Player(); let gain = 0.25;
+	const dispose = bindListeningMediaReadiness(player, () => gain, () => true);
+	try {
+		for (const type of ['loadedmetadata', 'loadeddata']) {
+			player.volume = 0;
+			player.dispatchEvent(new Event(type));
+			assert.equal(player.volume, gain, `${type} restores the current gain during initialization`);
+			player.volume = 0.6;
+			player.dispatchEvent(new Event(type));
+			assert.equal(player.volume, 0.6, `later ${type} retains native volume ownership`);
+		}
+		gain = 0;
+		player.dispatchEvent(new Event('loadstart'));
+		for (const type of ['loadedmetadata', 'loadeddata']) {
+			player.volume = 1;
+			player.dispatchEvent(new Event(type));
+			assert.equal(player.volume, 0, `a new load restores mute at ${type}`);
+		}
+	} finally { dispose(); }
 });

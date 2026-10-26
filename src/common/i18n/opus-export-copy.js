@@ -9,13 +9,12 @@
  * ceiling that a per-mode string should not push up.
  */
 const OPUS_EXPORT_COPY_ENTRIES = Object.freeze([
-	['vbrMode', 'VBR Mode', 'VBR-Modus'],
-	['vbrModeOff', 'Off', 'Aus'],
-	['vbrModeOn', 'On', 'An'],
-	['vbrModeConstrained', 'Constrained', 'Beschränkt'],
+	['vbrMode', 'VBR Mode'],
+	['vbrModeOff', 'Off'],
+	['vbrModeOn', 'On'],
+	['vbrModeConstrained', 'Constrained'],
 ]);
 
 export const OPUS_EXPORT_COPY_BY_LOCALE = Object.freeze({
 	en: Object.freeze(Object.fromEntries(OPUS_EXPORT_COPY_ENTRIES.map(([key, en]) => [key, en]))),
-	de: Object.freeze(Object.fromEntries(OPUS_EXPORT_COPY_ENTRIES.map(([key, , de]) => [key, de]))),
 });

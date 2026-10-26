@@ -158,7 +158,7 @@ test('generated audio publication owns the durable writer, caches, analysis, and
 	]);
 });
 
-for (const failureStage of ['commit', 'cache', 'analysis'] as const) {
+for (const failureStage of ['commit', 'cache'] as const) {
 	void test(`generated audio publication rolls back a ${failureStage} failure`, async () => {
 		const fixture = publicationFixture({ failureStage });
 
@@ -174,6 +174,14 @@ for (const failureStage of ['commit', 'cache', 'analysis'] as const) {
 		assert.equal(fixture.acceptedSource(), null);
 	});
 }
+
+test('generated audio publication retains committed PCM when optional analysis persistence fails', async () => {
+	const fixture = publicationFixture({ failureStage: 'analysis' });
+	assert.equal(await publishGeneratedAudioSource(fixture.dependencies, fixture.request), 'accepted');
+	assert.equal(fixture.buffers.has('generator-1'), true);
+	assert.equal(fixture.peaks.has('generator-1'), true);
+	assert.equal(fixture.events.includes('source-delete'), false);
+});
 
 test('generated audio rollback attempts every cleanup and aggregates its failures after the primary', async () => {
 	const fixture = publicationFixture({ failureStage: 'commit', rollbackFailures: true });

@@ -32,6 +32,7 @@ import { renderSimpleDryTrackPcm } from './direct-dry-track-pcm.ts';
 import { createBusNoiseProfileRenderProject } from './bus-noise-profile-render-project.ts';
 import type { MixerGraphV21 } from '../../../mixer-graph-v21.ts';
 import { createTrackNoiseProfileRenderProject } from './track-noise-profile-render-project.ts';
+import { createMasterNoiseProfileRenderProject } from './master-noise-profile-render-project.ts';
 
 export type * from './effect-audio-service-types.ts';
 
@@ -161,8 +162,10 @@ export function createEffectAudioService<Buffer = EffectAudioBuffer>(runtime: Ef
 			const effectIndex = snapshot.master.effects.findIndex((candidate) => candidate.id === effect.id);
 			if (effectIndex < 0) throw createLocalizedError(Error, runtime.copy, 'rackEffectNotFound');
 			snapshot.master.effects = snapshot.master.effects.slice(0, effectIndex);
-			snapshot.master.gain = 1;
-			snapshot.master.mute = false;
+			Object.assign(snapshot.master, { gain: 1, pan: 0, mute: false });
+			if (hasProductionMixerProjectAuthority(snapshot)) snapshot = createMasterNoiseProfileRenderProject(
+				snapshot as unknown as EffectAudioProject,
+			) as unknown as MutableEffectAudioProject;
 		}
 		await runtime.prepareCommittedTimePitchCaches(snapshot);
 		runtime.assertProject(token);
@@ -170,7 +173,9 @@ export function createEffectAudioService<Buffer = EffectAudioBuffer>(runtime: Ef
 		let channels: Float32Array[];
 		try {
 			engine.loadProject(snapshot, runtime.sourceBuffers);
-			const rendered = scope === 'track'
+			const detectorContext = scope === 'track' && hasProductionMixerProjectAuthority(snapshot)
+				&& (snapshot.mixer as unknown as MixerGraphV21).edges.some(edge => edge.kind === 'sidechain');
+			const rendered = scope === 'track' && !detectorContext
 				? await engine.renderTrack(requireTrackId(trackId), { startFrame, endFrame, includeTrackPan: false })
 				: await engine.renderMix({ startFrame, endFrame, includeMaster: true, respectMuteSolo: true });
 			runtime.assertProject(token);

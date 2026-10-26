@@ -16,6 +16,7 @@ import { prepareTimelineVisualMoveCommand } from './editor-timeline-visual-move-
 import { prepareTimelineImageRemoveCommand } from './editor-timeline-image-remove-command.ts';
 import { prepareTimelineImageSplitCommand } from './editor-timeline-image-split-command.ts';
 import { prepareTimelineImageTrimCommand } from './editor-timeline-image-trim-command.ts';
+import { prepareTimelineImageRenameCommand } from './editor-timeline-image-rename-command.ts';
 import { prepareTimelineGeneratorTrimCommand } from './editor-timeline-generator-trim-command.ts';
 import { prepareTimelineGeneratorSplitCommand } from './editor-timeline-generator-split-command.ts';
 
@@ -27,6 +28,7 @@ export function prepareFramescaperVideoTransitionAllocationsTimelineImage(
 	createId: (prefix?: string) => string,
 ): FramescaperProjectCommandTimelineImage {
 	validateFramescaperProjectTimelineImage(profile, project);
+	command = prepareTimelineImageRenameCommand(project as Parameters<typeof prepareTimelineImageRenameCommand>[0], command);
 	command = prepareTimelineImageSplitCommand(project as Parameters<typeof prepareTimelineImageSplitCommand>[0], command);
 	command = prepareTimelineGeneratorSplitCommand(project as Parameters<typeof prepareTimelineGeneratorSplitCommand>[0], command);
 	command = prepareTimelineImageTrimCommand(project as Parameters<typeof prepareTimelineImageTrimCommand>[0], command);

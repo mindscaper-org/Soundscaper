@@ -61,7 +61,7 @@ test('download route resolves each origin at request time and never trusts an AP
 		assert.equal(response.headers.get('cache-control'), 'no-store');
 	}
 	assert.equal(requested.length, 2);
-	assert.ok(requested.every((url) => url.startsWith('https://api.github.com/repos/LeoWattenberg/Soundscaper/releases?')));
+	assert.ok(requested.every((url) => url.startsWith('https://api.github.com/repositories/1299822768/releases?')));
 });
 
 test('download route scans subsequent release pages and requests short edge caching', async () => {
@@ -90,8 +90,8 @@ test('download route scans subsequent release pages and requests short edge cach
 	);
 	assert.equal(response.headers.get('location'), `${RELEASE_ROOT}/tag/soundscaper-v1.0.0-rc.1`);
 	assert.deepEqual(requested, [
-		'https://api.github.com/repos/LeoWattenberg/Soundscaper/releases?per_page=100&page=1',
-		'https://api.github.com/repos/LeoWattenberg/Soundscaper/releases?per_page=100&page=2',
+		'https://api.github.com/repositories/1299822768/releases?per_page=100&page=1',
+		'https://api.github.com/repositories/1299822768/releases?per_page=100&page=2',
 	]);
 	assert.equal(signals[0], signals[1], 'page scans share one lookup deadline');
 });

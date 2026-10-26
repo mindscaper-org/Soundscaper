@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+
 import { effectAboutMetadata } from '../src/common/editor/ui/inspector/effect-about-metadata.ts';
 
 function values(type: Parameters<typeof effectAboutMetadata>[0], options?: Parameters<typeof effectAboutMetadata>[2]) {

@@ -65,7 +65,8 @@ export function createVideoRetimeDialogModel(
 	return Object.freeze({
 		blockReason: input.editingBlocked ? 'busy' : track.locked === true ? 'locked' : null,
 		clipId,
-		clipName: typeof clip.name === 'string' && clip.name.length > 0 ? clip.name : clipId,
+		clipName: typeof clip.title === 'string' && clip.title.length > 0 ? clip.title
+			: typeof clip.name === 'string' && clip.name.length > 0 ? clip.name : clipId,
 		hasRetimeMap: expectedRetimeMap !== null,
 		commandAuthority: Object.freeze({ clipId, expectedRetimeMap }),
 		bounds: Object.freeze({

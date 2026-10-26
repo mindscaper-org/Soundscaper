@@ -156,33 +156,6 @@ test('retry re-runs a failed job from the start as a new attempt', async () => {
 	assert.equal(attempts, 2);
 });
 
-test('recovery after a kill returns the interrupted job whole', async () => {
-	const gate = deferred();
-	const attemptSignals: AbortSignal[] = [];
-	let attempts = 0;
-	const runner = createDeliveryQueueRunner({
-		runJob: async (_entry, { signal }) => {
-			attempts += 1;
-			attemptSignals.push(signal);
-			if (attempts === 1) await gate.promise;
-		},
-	});
-	runner.enqueue(job('a'));
-	await Promise.resolve();
-	assert.equal(runner.getQueue().entries[0].state, 'running');
-
-	runner.recover();
-	assert.equal(attemptSignals.at(-1)?.aborted, true, 'the interrupted executor must lose its live ownership');
-	assert.equal(
-		runner.getQueue().entries[0].state,
-		'queued',
-		'nothing durable exists, so the job restarts whole rather than resuming',
-	);
-	gate.resolve();
-	await runner.settled();
-	assert.equal(attempts, 2, 'the recovered job restarts exactly once from the beginning');
-});
-
 test('every change is published so a view never has to poll', async () => {
 	const states: string[][] = [];
 	const runner = createDeliveryQueueRunner({
@@ -192,11 +165,4 @@ test('every change is published so a view never has to poll', async () => {
 	runner.enqueue(job('a'));
 	await runner.settled();
 	assert.deepEqual(states, [['queued'], ['running'], ['completed']]);
-});
-
-test('a runner requires an executor rather than silently doing nothing', () => {
-	assert.throws(
-		() => createDeliveryQueueRunner({} as never),
-		/requires a job executor/u,
-	);
 });

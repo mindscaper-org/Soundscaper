@@ -29,7 +29,7 @@ export default function AudacityRecoveryDialog({ open, copy, run, onClose }: Pro
 			.catch((failure: unknown) => setError(feedbackFailure(failure)))
 			.finally(() => { admission.current = false; setPending(false); });
 	};
-	return <AudioEditorDialogShell title={copy.recoverAudacityProjectTitle} onClose={onClose}
+	return <AudioEditorDialogShell title={copy.recoverAudacityProjectTitle} onClose={pending ? undefined : onClose}
 		ariaDescribedBy="audacity-recovery-description" width={560}
 		footer={<DialogFooter className="audio-editor-dialog-footer" rightContent={<>
 			<Button variant="secondary" disabled={pending} onClick={onClose}>{copy.close}</Button>

@@ -3,7 +3,7 @@ import type { RecordingSelection, RecordingSourceSegment } from '../controller/r
 import type { ProjectDocument } from './project-repository.ts';
 import type { TakeCycleRecoveryEnvelopeKeyValuePort } from './take-cycle-recovery-envelope-repository.ts';
 import { cloneStorageValue } from './storage-clone.ts';
-
+import { encodeProjectIdKey, projectString } from '../project-validation-primitives.ts';
 export const RECORDING_RECOVERY_KEY_PREFIX = 'recording-recovery-v1:';
 export interface RecordingRecoveryDestination {
 	readonly trackId: string;
@@ -76,7 +76,7 @@ export class RecordingRecoveryJournalRepository {
 export function normalizeRecordingRecoveryJournal(value: unknown): RecordingRecoveryJournal {
 	const row = record(value, 'journal');
 	if (row.version !== 1) throw new TypeError('Recording recovery journal version is unsupported.');
-	const projectId = identifier(row.projectId, 'projectId');
+	const projectId = projectString(row.projectId, 'projectId');
 	const id = identifier(row.id, 'id');
 	const base = project(row.base, projectId);
 	if (!Array.isArray(row.lanes) || row.lanes.length > 128) throw new TypeError('Recording recovery lanes are invalid.');
@@ -116,7 +116,7 @@ export function normalizeRecordingRecoveryJournal(value: unknown): RecordingReco
 	return Object.freeze({ version: 1, projectId, id, base, lanes: Object.freeze(lanes), decision, targetBase, target, lostCheckpointCount });
 }
 function assertCapturing(journal: RecordingRecoveryJournal): void { if (journal.decision !== null) throw new Error('Recording recovery is already settling.'); }
-function key(projectId: string): string { return `${RECORDING_RECOVERY_KEY_PREFIX}${encodeURIComponent(identifier(projectId, 'projectId'))}`; }
+function key(projectId: string): string { return `${RECORDING_RECOVERY_KEY_PREFIX}${encodeProjectIdKey(projectString(projectId, 'projectId'))}`; }
 function identifier(value: unknown, label: string): string {
 	if (typeof value !== 'string' || !value.length || value.length > 512 || value.trim() !== value || Array.from(value).some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) throw new TypeError(`Recording recovery ${label} is invalid.`);
 	return value;

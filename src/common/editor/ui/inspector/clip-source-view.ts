@@ -14,16 +14,24 @@ type Source = { readonly sampleRate: number; readonly frameCount: number };
 /** The untrimmed source surrounds the clip's processed output on one continuous axis. */
 export function clipSourceSegments<T extends Clip>(clip: T, source: Source, sampleRate: number) {
 	const range = clipSourceDisplayRange(clip, source, sampleRate);
-	const plain = { ...clip, anchor: 'sample', warpMap: null, reversed: false, pitchCents: 0, speedRatio: 1,
-		gain: 1, inverted: false, fadeInFrames: 0, fadeOutFrames: 0, envelope: [],
-		opaqueExtensions: withoutClipLoop(clip.opaqueExtensions) };
-	return [
-		{ ...plain, id: `${clip.id}:before`, active: false, timelineStartFrame: 0, durationFrames: range.startFrame, sourceStartFrame: 0, sourceDurationFrames: clip.sourceStartFrame },
-		{ ...clip, id: `${clip.id}:source`, active: true, timelineStartFrame: range.startFrame },
-		{ ...plain, id: `${clip.id}:after`, active: false, timelineStartFrame: range.endFrame, durationFrames: range.totalFrames - range.endFrame,
-			sourceStartFrame: clip.sourceStartFrame + clip.sourceDurationFrames,
-			sourceDurationFrames: source.frameCount - clip.sourceStartFrame - clip.sourceDurationFrames },
-	].filter(segment => segment.durationFrames > 0 && segment.sourceDurationFrames > 0);
+	const result: (T & { active: boolean })[] = [];
+	const hasBefore = range.startFrame > 0 && clip.sourceStartFrame > 0;
+	const hasAfter = range.totalFrames - range.endFrame > 0
+		&& source.frameCount - clip.sourceStartFrame - clip.sourceDurationFrames > 0;
+	if (hasBefore || hasAfter) {
+		const plain = { ...clip, anchor: 'sample', warpMap: null, reversed: false, pitchCents: 0, speedRatio: 1,
+			gain: 1, inverted: false, fadeInFrames: 0, fadeOutFrames: 0, envelope: [],
+			opaqueExtensions: withoutClipLoop(clip.opaqueExtensions) };
+		if (hasBefore) result.push({ ...plain, id: `${clip.id}:before`, active: false, timelineStartFrame: 0,
+			durationFrames: range.startFrame, sourceStartFrame: 0, sourceDurationFrames: clip.sourceStartFrame } as T & { active: boolean });
+		if (clip.durationFrames > 0 && clip.sourceDurationFrames > 0) result.push({ ...clip, id: `${clip.id}:source`, active: true, timelineStartFrame: range.startFrame });
+		if (hasAfter) result.push({ ...plain, id: `${clip.id}:after`, active: false, timelineStartFrame: range.endFrame,
+			durationFrames: range.totalFrames - range.endFrame, sourceStartFrame: clip.sourceStartFrame + clip.sourceDurationFrames,
+			sourceDurationFrames: source.frameCount - clip.sourceStartFrame - clip.sourceDurationFrames } as T & { active: boolean });
+	} else if (clip.durationFrames > 0 && clip.sourceDurationFrames > 0) {
+		result.push({ ...clip, id: `${clip.id}:source`, active: true, timelineStartFrame: range.startFrame });
+	}
+	return result;
 }
 
 /** Source handles never author the clip's project placement. */
@@ -50,12 +58,12 @@ export function sourceRulerTicks({ startFrame, endFrame, width, sampleRate, orig
 	const step = [1, 2, 5, 10].map(value => value * power).find(value => value >= secondsPerLabel) ?? power * 10;
 	const first = Math.ceil((startFrame + originFrame) / sampleRate / step) * step;
 	const ticks: { frame: number; label: string }[] = [];
+	const precision = Math.max(0, Math.min(3, -Math.floor(Math.log10(step))));
 	for (let i = 0; i < 100; i++) {
 		const seconds = first + i * step;
 		const frame = Math.round(seconds * sampleRate - originFrame);
 		if (frame > endFrame) break;
 		const absolute = Math.abs(seconds);
-		const precision = Math.max(0, Math.min(3, -Math.floor(Math.log10(step))));
 		const tail = (absolute % 60).toFixed(precision).padStart(precision ? precision + 3 : 2, '0');
 		ticks.push({ frame, label: `${seconds < 0 ? '−' : ''}${Math.floor(absolute / 60)}:${tail}` });
 	}

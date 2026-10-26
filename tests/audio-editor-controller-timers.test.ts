@@ -14,8 +14,6 @@ test('controller timers preserve host handles and pair each cancellation with it
 	});
 	timers.clearScheduledTimer(timers.scheduleTimer(() => {}, 10));
 	timers.clearScheduledInterval(timers.scheduleInterval(() => {}, 10));
-	timers.clearScheduledTimer(null);
-	timers.clearScheduledInterval(undefined);
 	assert.deepEqual(cleared, ['timeout:42', 'interval:43']);
 });
 

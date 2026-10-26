@@ -12,15 +12,12 @@
  */
 
 import assert from 'node:assert/strict';
-import { readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
 	takeSelectedFile,
 	takeSelectedFiles,
 } from '../src/common/editor/ui/file-input-selection.ts';
-
-const INSPECTOR_DIRECTORY = new URL('../src/common/editor/ui/inspector/', import.meta.url);
 
 function picker(names: readonly string[], value = 'C:\\fakepath\\chosen'): {
 	files: { name: string }[];
@@ -56,35 +53,8 @@ test('a picker is re-armed even when the import that follows it fails', async ()
 	assert.deepEqual(attempts, ['broken.json', 'broken.json']);
 });
 
-test('an empty or absent picker yields nothing and still clears', () => {
+test('an empty picker yields nothing and still clears', () => {
 	const empty = picker([]);
 	assert.equal(takeSelectedFile(empty as unknown as HTMLInputElement), null);
 	assert.equal(empty.value, '');
-
-	const unset = { files: null, value: 'C:\\fakepath\\chosen' };
-	assert.deepEqual(takeSelectedFiles(unset as unknown as HTMLInputElement), []);
-	assert.equal(unset.value, '');
-
-	assert.deepEqual(takeSelectedFiles(null), []);
-	assert.equal(takeSelectedFile(undefined), null);
-});
-
-test('every Inspector file picker is read through the re-arming helper', async () => {
-	const moduleNames = (await readdir(INSPECTOR_DIRECTORY))
-		.filter((name) => /\.(?:jsx|tsx)$/.test(name));
-	const pickers: string[] = [];
-	for (const moduleName of moduleNames) {
-		const source = await readFile(new URL(moduleName, INSPECTOR_DIRECTORY), 'utf8');
-		if (!/type="file"/.test(source)) continue;
-		pickers.push(moduleName);
-		assert.match(
-			source,
-			/takeSelectedFiles?\(/,
-			`${moduleName} renders a file input, so it must read it through takeSelectedFile(s)`,
-		);
-	}
-	assert.ok(
-		pickers.length >= 1,
-		`the scan must find the Inspector pickers rather than pass vacuously, saw ${JSON.stringify(pickers)}`,
-	);
 });

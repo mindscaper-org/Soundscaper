@@ -44,7 +44,9 @@ Application source 70a02ba9e passed complete Node/static gates, five fixed Linux
 | Audio track freeze | Enabled | Not enabled | Not enabled |
 | Audio warping | Enabled | Not enabled | Not enabled |
 | Dissolve video transitions | Not enabled | Enabled | Not enabled |
+| Exact animated-image phase | Not enabled | Enabled | Not enabled |
 | Immersive ADM audio | Enabled | Not enabled | Not enabled |
+| Literal JSON metadata keys | Enabled | Enabled | Not enabled |
 | Local assistance assets | Enabled | Enabled | Not enabled |
 | Mastering sequences | Enabled | Not enabled | Not enabled |
 | Multicamera editing | Not enabled | Enabled | Not enabled |
@@ -53,6 +55,7 @@ Application source 70a02ba9e passed complete Node/static gates, five fixed Linux
 | OpenFX effects | Not enabled | Enabled | Not enabled |
 | Project bin | Enabled | Enabled | Not enabled |
 | Projects | Enabled | Enabled | Not enabled |
+| Restorable held-image phase | Not enabled | Enabled | Not enabled |
 | Sample-level audio editing | Enabled | Not enabled | Not enabled |
 | Sequence timing | Enabled | Enabled | Not enabled |
 | Source characteristics | Enabled | Enabled | Not enabled |

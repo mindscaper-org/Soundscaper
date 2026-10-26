@@ -18,6 +18,9 @@ import {
 	type DawprojectTimeUnit,
 } from './dawproject-format.ts';
 import type { DawprojectDocument } from './dawproject-import.ts';
+import { warpInverse, warpValue, type Warp } from './dawproject-import-warps.ts';
+import type { DawprojectFadeLayer } from './dawproject-import-fades.ts';
+import { readDawprojectAutomationPoints } from './dawproject-import-points.ts';
 
 /**
  * The reading half of DAWproject, part two: the arrangement flattened into
@@ -39,6 +42,7 @@ import type { DawprojectDocument } from './dawproject-import.ts';
 
 export interface DawprojectTimeResolver {
 	readonly sampleRate: number;
+	readonly tempoChangeBeats?: readonly number[];
 	frameAtBeat(beat: number): number;
 	beatAtFrame(frame: number): number;
 }
@@ -53,10 +57,14 @@ export interface DawprojectAudioEvent {
 	readonly fileDurationSeconds: number | null;
 	readonly fileChannels: number | null;
 	readonly fileSampleRate: number | null;
+	readonly mediaName?: string | null;
 	readonly sourceOffsetSeconds: number;
 	readonly contentSpanSeconds: number;
+	/** Absolute programme frame where this content becomes silent, if earlier than its container. */
+	readonly contentStopFrame?: number | null;
 	readonly fadeInFrames: number;
 	readonly fadeOutFrames: number;
+	readonly fadeLayers?: readonly DawprojectFadeLayer[];
 	readonly crossfade: boolean;
 	readonly name: string | null;
 	readonly color: string | null;
@@ -89,6 +97,7 @@ export interface DawprojectAutomationEvent {
 }
 
 export interface DawprojectFlattenedOmissions {
+	readonly loopedClips: number;
 	readonly notes: number;
 	readonly video: number;
 	readonly clipAutomation: number;
@@ -120,6 +129,7 @@ interface Scope {
 }
 
 interface ClipInfo {
+	readonly contentStopFrame: number | null;
 	readonly name: string | null;
 	readonly color: string | null;
 	readonly enabled: boolean;
@@ -127,6 +137,7 @@ interface ClipInfo {
 	readonly fadeOutFrames: number;
 	readonly crossfade: boolean;
 	readonly looped: boolean;
+	readonly fadeLayers: readonly DawprojectFadeLayer[];
 }
 
 interface WalkState {
@@ -138,14 +149,10 @@ interface WalkState {
 	clipAutomation: number;
 	unresolvedReferences: number;
 	unsupportedContent: number;
+	loopedClips: number;
 }
 
-interface Warp {
-	readonly time: number;
-	readonly contentTime: number;
-}
-
-const MAXIMUM_DEPTH = 48;
+export const DAWPROJECT_MAXIMUM_TIMELINE_DEPTH = 48;
 
 export function createDawprojectTimeResolver(tempoMap: HoldTempoMap, sampleRate: number): DawprojectTimeResolver {
 	const first = tempoMap.events[0];
@@ -153,6 +160,7 @@ export function createDawprojectTimeResolver(tempoMap: HoldTempoMap, sampleRate:
 	const rootBpm = rationalToNumber(first.bpm);
 	return Object.freeze({
 		sampleRate,
+		tempoChangeBeats: Object.freeze(tempoMap.events.slice(1).map(event => rationalToNumber(event.beat))),
 		frameAtBeat(beat: number): number {
 			if (!Number.isFinite(beat)) throw new RangeError('A beat position must be finite.');
 			return beatToSampleFrame(rationalFromDouble(beat), tempoMap, sampleRate);
@@ -172,7 +180,7 @@ export function flattenDawprojectArrangement(
 ): DawprojectFlattenedArrangement {
 	const state: WalkState = {
 		audio: [], markers: [], automation: [],
-		notes: 0, video: 0, clipAutomation: 0, unresolvedReferences: 0, unsupportedContent: 0,
+		notes: 0, video: 0, clipAutomation: 0, unresolvedReferences: 0, unsupportedContent: 0, loopedClips: 0,
 	};
 	const arrangement = document.arrangement;
 	if (arrangement?.lanes) visitTimeline(arrangement.lanes, rootScope('beats'), null, state, document, resolver);
@@ -184,6 +192,7 @@ export function flattenDawprojectArrangement(
 		markers: Object.freeze(state.markers),
 		automation: Object.freeze(state.automation),
 		omitted: Object.freeze({
+			loopedClips: state.loopedClips,
 			notes: state.notes,
 			video: state.video,
 			clipAutomation: state.clipAutomation,
@@ -205,14 +214,16 @@ function visitTimeline(
 	document: DawprojectDocument,
 	resolver: DawprojectTimeResolver,
 ): void {
-	if (scope.depth > MAXIMUM_DEPTH) {
+	const trackId = attribute(element, 'track');
+	if (trackId !== null) scope = { ...scope, trackId };
+	if (scope.depth > DAWPROJECT_MAXIMUM_TIMELINE_DEPTH) {
 		state.unsupportedContent += 1;
 		return;
 	}
 	switch (element.name) {
 		case 'Lanes': {
 			const inner = rebase(scope, timeUnit(attribute(element, 'timeUnit')) ?? scope.unit, resolver);
-			const next = { ...inner, trackId: attribute(element, 'track') ?? scope.trackId, depth: scope.depth + 1 };
+			const next = { ...inner, depth: scope.depth + 1 };
 			for (const child of element.children) visitTimeline(child, next, clip, state, document, resolver);
 			return;
 		}
@@ -239,7 +250,7 @@ function visitTimeline(
 			return;
 		case 'Markers':
 		case 'markers':
-			visitMarkers(element, scope, state, resolver);
+			if (clip?.enabled !== false) visitMarkers(element, scope, state, resolver);
 			return;
 		case 'ClipSlot':
 		case 'Timeline':
@@ -269,27 +280,40 @@ function visitClip(
 	let endFrame: number | null = null;
 	if (duration !== null) endFrame = frameOf(scope, time + duration, resolver);
 	else if (playStop !== null) endFrame = frameOf(inner, playStop, resolver);
-	const window = intersect(scope.window, { start: startFrame, end: endFrame });
-	if (!window) return;
-
 	const fadeUnit = timeUnit(attribute(clip, 'fadeTimeUnit')) ?? scope.unit;
 	const fadeFrames = (value: number): number => (fadeUnit === 'seconds'
 		? Math.round(Math.abs(value) * resolver.sampleRate)
 		: Math.max(0, resolver.frameAtBeat(clipStartBeat + Math.abs(value)) - startFrame));
 	const fadeIn = numberAttribute(clip, 'fadeInTime') ?? 0;
 	const fadeOut = numberAttribute(clip, 'fadeOutTime') ?? 0;
+	const crossfadeHead = fadeIn < 0 ? (fadeUnit === 'beats'
+		? Math.max(0, startFrame - resolver.frameAtBeat(clipStartBeat - Math.abs(fadeIn))) : fadeFrames(fadeIn)) : 0;
+	const fadeStartFrame = startFrame - crossfadeHead;
 	const loopStart = numberAttribute(clip, 'loopStart');
 	const loopEnd = numberAttribute(clip, 'loopEnd');
-	const looped = loopStart !== null && loopEnd !== null && loopEnd > loopStart && endFrame !== null
-		&& endFrame - startFrame > frameOf(inner, loopEnd, resolver) - frameOf(inner, loopStart, resolver) + 1;
+	const loopEndFrame = loopStart !== null && loopEnd !== null && loopEnd > loopStart
+		? frameOf(inner, loopEnd, resolver) : null;
+	const looped = loopEndFrame !== null && (endFrame === null || endFrame > loopEndFrame);
+	const enabled = booleanAttribute(clip, 'enable') !== false && (inherited?.enabled ?? true);
+	if (looped && enabled) state.loopedClips += 1;
+	const window = intersect(scope.window, { start: fadeStartFrame, end: looped ? loopEndFrame : endFrame });
+	if (!window) return;
+	const fadeInFrames = fadeIn !== 0 ? (fadeIn < 0 ? crossfadeHead : fadeFrames(fadeIn)) : (inherited?.fadeInFrames ?? 0);
+	const fadeOutFrames = fadeOut !== 0 ? (fadeUnit === 'beats' && endFrame !== null
+		? Math.max(0, endFrame - resolver.frameAtBeat(resolver.beatAtFrame(endFrame) - Math.abs(fadeOut)))
+		: fadeFrames(fadeOut)) : (inherited?.fadeOutFrames ?? 0);
 	const info: ClipInfo = {
+		contentStopFrame: playStop === null ? inherited?.contentStopFrame ?? null
+			: Math.min(frameOf(inner, playStop, resolver), inherited?.contentStopFrame ?? Infinity),
 		name: attribute(clip, 'name') ?? inherited?.name ?? null,
 		color: attribute(clip, 'color') ?? inherited?.color ?? null,
-		enabled: booleanAttribute(clip, 'enable') !== false && (inherited?.enabled ?? true),
-		fadeInFrames: fadeIn !== 0 ? fadeFrames(fadeIn) : (inherited?.fadeInFrames ?? 0),
-		fadeOutFrames: fadeOut !== 0 ? fadeFrames(fadeOut) : (inherited?.fadeOutFrames ?? 0),
+		enabled,
+		fadeInFrames, fadeOutFrames,
 		crossfade: fadeIn < 0 || inherited?.crossfade === true,
 		looped: looped || inherited?.looped === true,
+		fadeLayers: [...(inherited?.fadeLayers ?? []), ...(fadeIn || fadeOut ? [{
+			startFrame: fadeStartFrame, endFrame, fadeInFrames: fadeIn ? fadeInFrames : 0, fadeOutFrames: fadeOut ? fadeOutFrames : 0,
+		}] : [])],
 	};
 	const content = resolveContent(clip, scope, state, document);
 	if (!content) return;
@@ -305,8 +329,7 @@ function resolveContent(
 ): Readonly<{ element: XmlElement; reference: string | null }> | null {
 	const inline = clip.children[0];
 	if (inline) return { element: inline, reference: null };
-	const reference = attribute(clip, 'reference');
-	if (reference === null) return null;
+	const reference = attribute(clip, 'reference'); if (reference === null) return null;
 	const element = document.elementsById.get(reference);
 	if (!element || scope.expanding.has(reference)) {
 		state.unresolvedReferences += 1;
@@ -407,15 +430,18 @@ function visitAudio(
 		trackId: scope.trackId,
 		startFrame: window.start,
 		endFrame: end,
-		path: normalizeEntryPath(path.trim()),
+		path: normalizeEntryPath(path),
 		external: booleanAttribute(file, 'external') === true,
 		fileDurationSeconds: fileDuration,
 		fileChannels: integerAttribute(element, 'channels'),
 		fileSampleRate: integerAttribute(element, 'sampleRate'),
+		mediaName: attribute(element, 'name'),
 		sourceOffsetSeconds,
 		contentSpanSeconds,
+		contentStopFrame: clip.contentStopFrame,
 		fadeInFrames: clip.fadeInFrames,
 		fadeOutFrames: clip.fadeOutFrames,
+		fadeLayers: clip.fadeLayers,
 		crossfade: clip.crossfade,
 		name: clip.name,
 		color: clip.color,
@@ -428,35 +454,10 @@ function visitAudio(
 
 function visitPoints(element: XmlElement, scope: Scope, state: WalkState, resolver: DawprojectTimeResolver): void {
 	const pointScope = rebase(scope, timeUnit(attribute(element, 'timeUnit')) ?? scope.unit, resolver);
-	const target = childElement(element, 'Target');
-	let kind: 'real' | 'bool' = 'real';
-	const points: DawprojectAutomationPoint[] = [];
-	for (const point of element.children) {
-		const time = point.name === 'Target' ? null : numberAttribute(point, 'time');
-		if (time === null || !Number.isFinite(time)) continue;
-		const frame = frameOf(pointScope, time, resolver);
-		if (point.name === 'RealPoint') {
-			const value = numberAttribute(point, 'value');
-			if (value === null) continue;
-			const interpolation = attribute(point, 'interpolation') === 'linear' ? 'linear' : 'hold';
-			points.push({ frame, value, interpolation });
-		} else if (point.name === 'BoolPoint') {
-			kind = 'bool';
-			points.push({ frame, value: booleanAttribute(point, 'value') === true ? 1 : 0, interpolation: 'hold' });
-		} else if (point.name === 'IntegerPoint' || point.name === 'EnumPoint') {
-			const value = integerAttribute(point, 'value');
-			if (value !== null) points.push({ frame, value, interpolation: 'hold' });
-		}
-	}
-	if (points.length === 0) return;
-	points.sort((left, right) => left.frame - right.frame);
-	state.automation.push(Object.freeze({
-		trackId: scope.trackId,
-		parameterId: target ? attribute(target, 'parameter') : null,
-		unit: attribute(element, 'unit'),
-		kind,
-		points: Object.freeze(points),
-	}));
+	const event = readDawprojectAutomationPoints(element, { trackId: pointScope.trackId,
+		frameAt: time => frameOf(pointScope, time, resolver), originBeat: pointScope.originBeat,
+		beatTimebase: pointScope.unit === 'beats', resolver });
+	if (event) state.automation.push(event);
 }
 
 function visitMarkers(element: XmlElement, scope: Scope, state: WalkState, resolver: DawprojectTimeResolver): void {
@@ -464,8 +465,10 @@ function visitMarkers(element: XmlElement, scope: Scope, state: WalkState, resol
 	for (const marker of childElements(element, 'Marker')) {
 		const time = numberAttribute(marker, 'time');
 		if (time === null) continue;
+		const frame = frameOf(markerScope, time, resolver);
+		if (scope.window && (frame < scope.window.start || (scope.window.end !== null && frame >= scope.window.end))) continue;
 		state.markers.push(Object.freeze({
-			frame: frameOf(markerScope, time, resolver),
+			frame,
 			name: attribute(marker, 'name') ?? '',
 			color: attribute(marker, 'color'),
 			comment: attribute(marker, 'comment'),
@@ -517,29 +520,6 @@ function intersect(outer: Window | null, inner: Window): Window | null {
 		: inner.end === null ? outer.end : Math.min(outer.end, inner.end);
 	if (end !== null && end <= start) return null;
 	return { start, end };
-}
-
-/** Piecewise-linear content time at a warped time, extrapolating past the ends. */
-function warpValue(warps: readonly Warp[], time: number): number {
-	const first = warps[0]!;
-	const last = warps[warps.length - 1]!;
-	if (time <= first.time) return interpolate(first, warps[1] ?? last, time);
-	if (time >= last.time) return interpolate(warps[warps.length - 2] ?? first, last, time);
-	for (let index = 1; index < warps.length; index += 1) {
-		if (time <= warps[index]!.time) return interpolate(warps[index - 1]!, warps[index]!, time);
-	}
-	return last.contentTime;
-}
-
-function warpInverse(warps: readonly Warp[], contentTime: number): number {
-	const inverted = warps.map((warp) => ({ time: warp.contentTime, contentTime: warp.time }));
-	return warpValue(inverted, contentTime);
-}
-
-function interpolate(from: Warp, to: Warp, time: number): number {
-	const span = to.time - from.time;
-	if (span === 0) return from.contentTime;
-	return from.contentTime + (time - from.time) * (to.contentTime - from.contentTime) / span;
 }
 
 function timeUnit(value: string | null): DawprojectTimeUnit | null {

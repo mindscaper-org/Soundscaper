@@ -22,6 +22,8 @@ Browser adaptations made on 2026-07-15:
 - omitted libsndfile and PortAudio translation units and supplied erroring file-I/O stubs;
 - capped captured output, source size, channels, caller-selected render length, and linear memory.
 
+An additional browser adaptation on 2026-10-22 clears the previous result when evaluation exits with a reader or runtime error, so a failed expression cannot publish an earlier successful value.
+
 The Soundscaper bridge, stubs, browser runtime adaptations, build script, and audit script are licensed under AGPL-3.0-only as part of this application. The selected AGPLv3/GPLv3 terms are bundled at the repository root.
 
 ## Emscripten-linked runtime

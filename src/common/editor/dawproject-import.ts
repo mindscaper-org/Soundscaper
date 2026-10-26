@@ -78,6 +78,14 @@ export interface DawprojectArrangement {
 }
 
 export interface DawprojectMetadata {
+	readonly originalArtist?: string;
+	readonly composer?: string;
+	readonly songwriter?: string;
+	readonly producer?: string;
+	readonly arranger?: string;
+	readonly genre?: string;
+	readonly copyright?: string;
+	readonly website?: string;
 	readonly title: string | null;
 	readonly artist: string | null;
 	readonly album: string | null;
@@ -107,7 +115,8 @@ export function parseDawprojectDocument(projectXml: string, metadataXml?: string
 	options: Readonly<{ maximumBytes?: number }> = {}): DawprojectDocument {
 	const limits = { ...DAWPROJECT_XML_LIMITS, maximumBytes: options.maximumBytes ?? DAWPROJECT_XML_LIMITS.maximumBytes };
 	const root = parseXmlDocument(projectXml, limits);
-	const metadataRoot = typeof metadataXml === 'string' && metadataXml.trim() ? parseXmlDocument(metadataXml, limits) : null;
+	const metadataRoot = typeof metadataXml === 'string' && metadataXml.trim()
+		? parseXmlDocument(metadataXml, limits, { preserveTextWhitespace: true }) : null;
 	return parseDawprojectProjectElement(root, metadataRoot);
 }
 
@@ -120,7 +129,9 @@ export function parseDawprojectProjectElement(root: XmlElement, metadataRoot: Xm
 	const elementsById = new Map<string, XmlElement>();
 	for (const element of walkXml(root)) {
 		const id = attribute(element, 'id');
-		if (id !== null && !elementsById.has(id)) elementsById.set(id, element);
+		if (id === null) continue;
+		if (elementsById.has(id)) throw new SyntaxError(`Duplicate DAWproject ID: ${id}.`);
+		elementsById.set(id, element);
 	}
 	return Object.freeze({
 		root,
@@ -129,7 +140,13 @@ export function parseDawprojectProjectElement(root: XmlElement, metadataRoot: Xm
 			? { name: attribute(application, 'name') ?? '', version: attribute(application, 'version') ?? '' }
 			: null,
 		transport: parseTransport(childElement(root, 'Transport')),
-		tracks: Object.freeze(childElements(childElement(root, 'Structure') ?? root, 'Track').map(parseTrack)),
+		tracks: Object.freeze((childElement(root, 'Structure') ?? root).children.flatMap((element) => {
+			if (element.name === 'Track') return [parseTrack(element)];
+			if (element.name !== 'Channel') return [];
+			return [Object.freeze({ id: attribute(element, 'id'), name: attribute(element, 'name') ?? '',
+				color: attribute(element, 'color'), contentTypes: Object.freeze(['audio']),
+				channel: parseChannel(element), children: Object.freeze([]) })];
+		})),
 		arrangement: arrangementElement
 			? Object.freeze({
 				lanes: childElement(arrangementElement, 'Lanes'),
@@ -152,11 +169,13 @@ export function dawprojectMediaReferences(document: DawprojectDocument): readonl
 		const file = childElement(element, 'File');
 		const path = file ? attribute(file, 'path') : null;
 		if (!file || path === null || !path.trim()) continue;
-		const normalized = normalizeEntryPath(path.trim());
-		if (references.has(normalized)) continue;
-		references.set(normalized, Object.freeze({
+		const normalized = normalizeEntryPath(path);
+		const external = booleanAttribute(file, 'external') === true;
+		const key = JSON.stringify([normalized, external, element.name]);
+		if (references.has(key)) continue;
+		references.set(key, Object.freeze({
 			path: normalized,
-			external: booleanAttribute(file, 'external') === true,
+			external,
 			kind: element.name === 'Audio' ? 'audio' : 'video',
 		}));
 	}
@@ -235,11 +254,14 @@ function parseRealParameter(element: XmlElement): DawprojectParameter {
 function parseMetadata(root: XmlElement | null): DawprojectMetadata {
 	const text = (elementName: string): string | null => {
 		if (!root || root.name !== 'MetaData') return null;
-		const value = childElement(root, elementName)?.text.trim() ?? '';
-		return value || null;
+		const value = childElement(root, elementName)?.text ?? '';
+		return value.trim() ? value : null;
 	};
+	const credits = { originalArtist: text('OriginalArtist'), composer: text('Composer'), songwriter: text('Songwriter'),
+		producer: text('Producer'), arranger: text('Arranger'), genre: text('Genre'), copyright: text('Copyright'), website: text('Website') };
 	return Object.freeze({
 		title: text('Title'), artist: text('Artist'), album: text('Album'), year: text('Year'), comment: text('Comment'),
+		...Object.fromEntries(Object.entries(credits).filter(([, value]) => value !== null)),
 	});
 }
 

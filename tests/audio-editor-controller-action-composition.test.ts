@@ -51,29 +51,6 @@ test('real controller export actions retain the configured file service', async 
 	}
 });
 
-test('real controller exposes linked-audio relink classification to the Project Bin UI', async () => {
-	const controller = createController([]);
-	try {
-		await controller.ready;
-		assert.equal(
-			typeof controller.actions.projectBin.classifyLinkedAudioRelink,
-			'function',
-		);
-	} finally {
-		await controller.dispose();
-	}
-});
-
-test('common controller does not claim the selected product assistance command owner', async () => {
-	const controller = createController([]);
-	try {
-		await controller.ready;
-		assert.equal(controller.selectedMediaPreparation.acceptValidatedResult, undefined);
-	} finally {
-		await controller.dispose();
-	}
-});
-
 test('composed timeline actions write transport-owned display preferences', async () => {
 	const controller = createController([]);
 	try {
@@ -312,8 +289,6 @@ test('composed owner actions retain the lifetime fence without exposing internal
 		const rename = controller.actions.project.rename;
 		await rename('Owned action');
 		assert.equal(controller.project?.title, 'Owned action');
-		assert.equal('bootstrap' in controller.actions, false);
-		assert.equal('getSnapshot' in controller.actions, false);
 		await controller.dispose();
 		assert.throws(() => rename('Too late'), /disposed/u);
 	} finally { await controller.dispose(); }

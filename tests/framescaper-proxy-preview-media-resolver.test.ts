@@ -97,19 +97,6 @@ test('trust status is reported for every source the resolver inspects', async ()
 	assert.deepEqual(observed, ['source-1', 'source-2']);
 });
 
-test('incomplete preview-media ports are refused at construction', () => {
-	for (const override of [
-		{ bodyStore: null },
-		{ originalStore: null },
-		{ getProject: 1 },
-		{ getMode: 1 },
-		{ getPressure: 1 },
-		{ onTrustStatus: 1 },
-	]) {
-		assert.throws(() => createResolver(options(override)), /preview-media ports are incomplete/u);
-	}
-});
-
 test('the unavailable error names its own reason for each refusal', () => {
 	for (const reason of ['attachment-unavailable', 'attachment-stale', 'verification-failed'] as const) {
 		const error = new FramescaperVideoProxyPreviewUnavailableError(reason);

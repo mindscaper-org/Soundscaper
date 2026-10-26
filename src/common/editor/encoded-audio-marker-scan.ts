@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { raceAbortableRead } from './abort-race.ts';
+import { consumeDs64TableSize, readDs64Directory } from './wav-ds64.js';
+import { riffMetadataCodePage } from './riff-metadata-text.ts';
 import { parseAiffMarkChunk } from './aiff-markers.ts';
-import { parseRiffMarkers, type RiffMarker } from './riff-markers.ts';
+import { parseRiffMarkers, type RiffMarker, type RiffMarkerTextWarning } from './riff-markers.ts';
 
 /**
  * Rescue markers from an encoded audio file the maintained PCM readers refused.
@@ -24,45 +27,65 @@ export interface EncodedAudioMarkerScanSource {
 
 export interface EncodedAudioMarkerScan {
 	readonly markers: readonly RiffMarker[];
+	readonly metadataWarnings?: readonly RiffMarkerTextWarning[];
 	/** The container's declared sample rate — the rate the cue offsets count in. */
 	readonly sampleRate: number | null;
 }
 
 export async function scanEncodedAudioMarkers(
 	source: unknown,
+	signal?: AbortSignal,
 ): Promise<EncodedAudioMarkerScan | null> {
+	signal?.throwIfAborted();
 	if (!isScanSource(source)) return null;
+	const scanSource = signal ? abortableSource(source, signal) : source;
 	try {
 		if (source.size < 12) return null;
-		const signature = await readBytes(source, 0, 12);
+		const signature = await readBytes(scanSource, 0, 12);
 		const container = ascii(signature, 0, 4);
-		if (container === 'RIFF' && ascii(signature, 8, 4) === 'WAVE') {
-			const payloadBytes = new DataView(signature.buffer, signature.byteOffset + 4, 4).getUint32(0, true);
+		if (['RIFF', 'RIFX', 'RF64', 'BW64'].includes(container) && ascii(signature, 8, 4) === 'WAVE') {
+			const littleEndian = container !== 'RIFX';
+			const payloadBytes = new DataView(signature.buffer, signature.byteOffset + 4, 4).getUint32(0, littleEndian);
 			if (payloadBytes < 4) return null;
-			// Appended bytes cannot supply cues or change labels inside the RIFF container.
-			return await scanRiffMarkers(source, Math.min(source.size, payloadBytes + 8));
+			const directory = container === 'RF64' || container === 'BW64'
+				? await readDs64Directory(scanSource, signal, MAXIMUM_SCANNED_CHUNKS, payloadBytes, container.toLowerCase(), readBytes) as MarkerDs64Directory : null;
+			return await scanRiffMarkers(scanSource, Math.min(source.size, directory?.riffEnd ?? payloadBytes + 8), littleEndian, directory);
 		}
 		const formType = ascii(signature, 8, 4);
 		if (container === 'FORM' && (formType === 'AIFF' || formType === 'AIFC')) {
-			return await scanAiffMarkers(source);
+			return await scanAiffMarkers(scanSource);
 		}
 		return null;
 	} catch {
+		signal?.throwIfAborted();
 		return null;
 	}
 }
 
-async function scanRiffMarkers(source: EncodedAudioMarkerScanSource, riffEnd: number): Promise<EncodedAudioMarkerScan | null> {
+function abortableSource(source: EncodedAudioMarkerScanSource, signal: AbortSignal): EncodedAudioMarkerScanSource {
+	return { size: source.size, slice(start, end) { return { async arrayBuffer() {
+		const bytes = await raceAbortableRead(() => source.slice(start, end).arrayBuffer(), signal);
+		signal.throwIfAborted();
+		return bytes;
+	} }; } };
+}
+
+async function scanRiffMarkers(source: EncodedAudioMarkerScanSource, riffEnd: number, littleEndian = true, directory: MarkerDs64Directory | null = null): Promise<EncodedAudioMarkerScan | null> {
 	let cue: Uint8Array | null = null;
 	const adtl: Uint8Array[] = [];
 	let sampleRate: number | null = null;
-	let offset = 12;
+	let codePage = 0;
+	let dataSeen = false;
+	let offset = directory?.nextOffset ?? 12;
 	let chunksRead = 0;
 	while (offset + 8 <= riffEnd && chunksRead < MAXIMUM_SCANNED_CHUNKS) {
 		chunksRead += 1;
 		const header = await readBytes(source, offset, offset + 8);
 		const id = ascii(header, 0, 4);
-		const size = new DataView(header.buffer, header.byteOffset + 4, 4).getUint32(0, true);
+		let size = new DataView(header.buffer, header.byteOffset + 4, 4).getUint32(0, littleEndian);
+		if (directory && size === 0xffff_ffff) size = id === 'data' && !dataSeen
+			? directory.dataByteLength : consumeDs64TableSize(directory, id) as number;
+		if (id === 'data') dataSeen = true;
 		const payloadStart = offset + 8;
 		const payloadEnd = payloadStart + size;
 		// A truncated final chunk is a sloppy writer, not a reason to drop the
@@ -70,8 +93,10 @@ async function scanRiffMarkers(source: EncodedAudioMarkerScanSource, riffEnd: nu
 		if (!Number.isSafeInteger(payloadEnd) || payloadEnd > riffEnd) break;
 		if (id === 'fmt ' && size >= 16) {
 			const fmt = await readBytes(source, payloadStart, payloadStart + 16);
-			const declared = new DataView(fmt.buffer, fmt.byteOffset + 4, 4).getUint32(0, true);
+			const declared = new DataView(fmt.buffer, fmt.byteOffset + 4, 4).getUint32(0, littleEndian);
 			if (Number.isSafeInteger(declared) && declared > 0) sampleRate = declared;
+		} else if (id === 'CSET' && size >= 8) {
+			codePage = riffMetadataCodePage(await readBytes(source, payloadStart, payloadStart + 8), littleEndian);
 		} else if (id === 'cue ' && !cue && size <= MAXIMUM_MARKER_PAYLOAD_BYTES) {
 			cue = await readBytes(source, payloadStart, payloadEnd);
 		} else if (id === 'LIST' && size >= 4 && size <= MAXIMUM_MARKER_PAYLOAD_BYTES) {
@@ -81,9 +106,10 @@ async function scanRiffMarkers(source: EncodedAudioMarkerScanSource, riffEnd: nu
 		offset = payloadEnd + (size & 1);
 	}
 	if (!cue) return null;
-	const markers = parseRiffMarkers(cue, adtl);
+	const warnings: RiffMarkerTextWarning[] = [];
+	const markers = parseRiffMarkers(cue, adtl, codePage, littleEndian, warning => { warnings.push(warning); });
 	if (!markers.length) return null;
-	return Object.freeze({ markers, sampleRate });
+	return Object.freeze({ markers, sampleRate, ...(warnings.length ? { metadataWarnings: Object.freeze(warnings) } : {}) });
 }
 
 async function scanAiffMarkers(source: EncodedAudioMarkerScanSource): Promise<EncodedAudioMarkerScan | null> {
@@ -146,4 +172,12 @@ function isScanSource(value: unknown): value is EncodedAudioMarkerScanSource {
 
 function ascii(bytes: Uint8Array, offset: number, length: number): string {
 	return String.fromCharCode(...bytes.subarray(offset, offset + length));
+}
+
+interface MarkerDs64Directory {
+	readonly name: string;
+	readonly riffEnd: number;
+	readonly nextOffset: number;
+	readonly dataByteLength: number;
+	readonly table: Map<string, { readonly values: number[]; index: number }>;
 }

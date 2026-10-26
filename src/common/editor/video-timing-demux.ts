@@ -61,6 +61,21 @@ export async function demuxVideoTiming(
 	return timingResult(track, characteristics);
 }
 
+/** A recorded WebM may omit Duration while retaining every timed video packet. */
+export async function demuxVideoDuration(
+	input: Blob,
+	options: VideoTimingDemuxReaderOptions = {},
+): Promise<number> {
+	const timing = await demuxVideoTiming(input, options);
+	options.signal?.throwIfAborted();
+	const end = timing.presentationTicks.at(-1)! + timing.finalFrameDurationTicks;
+	const seconds = Number(end) / timing.timescale;
+	if (!Number.isFinite(seconds) || seconds <= 0) {
+		throw new VideoTimingDemuxError('The video container states no finite positive duration.');
+	}
+	return seconds;
+}
+
 /**
  * The demuxing probe as a port, for the preference-ordered probe lists.
  *

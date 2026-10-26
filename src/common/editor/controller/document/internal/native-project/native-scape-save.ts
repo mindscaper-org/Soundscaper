@@ -89,15 +89,6 @@ export async function publishNativeScape(
 	if (!(exported.blob instanceof Blob)) {
 		throw new TypeError('The fallback Scape export did not produce a Blob.');
 	}
-	// Read the archive that was just built back and record what is in it, so this
-	// file can be verified later against something measured rather than copied
-	// from the writer's own account of itself.
-	await recordScapeArchiveManifest(runtime, {
-		archive: exported.blob,
-		fileName: request.fileName,
-		projectTitle: String(request.project?.title ?? '') || null,
-		signal: request.signal,
-	});
 	request.assertReadyToCommit();
 	const saved = await runtime.fileService.saveFile({
 		purpose: 'project',
@@ -109,6 +100,10 @@ export async function publishNativeScape(
 		signal: request.signal,
 	});
 	if (saved.cancelled) throw new DOMException('The file save was cancelled.', 'AbortError');
+	await recordScapeArchiveManifest(runtime, {
+		archive: exported.blob, fileName: savedScapeFileName(saved, request.fileName),
+		projectTitle: String(request.project?.title ?? '') || null, signal: request.signal,
+	});
 	return { exported, saved };
 }
 
@@ -206,7 +201,7 @@ export async function publishNativeScapeArchiveCopy(
 			throw error;
 		}
 		await recordScapeArchiveManifest(runtime, {
-			archive: request.archive, fileName: request.fileName, signal: request.signal,
+			archive: request.archive, fileName: savedScapeFileName(publication.saved, request.fileName), signal: request.signal,
 		});
 		return publication;
 	}
@@ -231,7 +226,7 @@ export async function publishNativeScapeArchiveCopy(
 	});
 	if (saved.cancelled) throw new DOMException('The file save was cancelled.', 'AbortError');
 	await recordScapeArchiveManifest(runtime, {
-		archive: request.archive, fileName: request.fileName, signal: request.signal,
+		archive: request.archive, fileName: savedScapeFileName(saved, request.fileName), signal: request.signal,
 	});
 	return { copied, saved };
 }
@@ -278,9 +273,13 @@ async function publishDirectScape(
 	}
 	await recordScapeArchiveManifest(runtime, {
 		archive: null,
-		fileName: request.fileName,
+		fileName: savedScapeFileName(publication.saved, request.fileName),
 		projectTitle: String(request.project?.title ?? '') || null,
 		signal: request.signal,
 	});
 	return publication;
+}
+
+function savedScapeFileName(saved: NativeSavedFile, fallback: string): string {
+	return typeof saved.fileName === 'string' && saved.fileName ? saved.fileName : fallback;
 }

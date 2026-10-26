@@ -6,16 +6,6 @@ import { createFramescaperAudioEditorController } from '../src/framescaper/edito
 import { createFramescaperEditorProjectEnvironment } from '../src/framescaper/editor-project-environment.ts';
 import { framescaperCandidateAuthoringActionRuntimeFor } from '../src/common/editor/ui/framescaper-candidate-authoring-actions.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
-import { FOUNDATION_TIME_CONVERSION_SITES } from '../src/common/editor/foundation-time-conversion-audit.ts';
-
-test('generated visual movement owns its nearest sequence-frame policy', () => {
-	assert.deepEqual(FOUNDATION_TIME_CONVERSION_SITES.find(site => site.id === 'framescaper-generated-visual-move-placement'), {
-		id: 'framescaper-generated-visual-move-placement',
-		file: 'src/framescaper/editor-timeline-visual-move-command.ts',
-		behavior: 'Ordinary generator and still moves resolve the requested project sample position once to the nearest destination sequence frame, retaining their authored extent, source clock and exact owner through the existing visual mutation command.',
-		conversions: [{ helper: 'sampleFrameToVideoFrame', policies: ['point'] }],
-	});
-});
 
 for (const destination of ['existing', 'new']) test(`a public generated Title moves to an ${destination} picture track with one Undo`, async context => {
 	const environment = await createFramescaperEditorProjectEnvironment({ storeOptions: {

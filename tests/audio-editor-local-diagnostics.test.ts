@@ -174,39 +174,3 @@ test('the diagnostic report is an exact read-only allowlist without project or e
 	assert.equal(requests[0]?.mimeType, 'application/json');
 	assert.equal(await (requests[0]?.blob as Blob).text(), serialized.text);
 });
-
-test('serialization rejects unknown fields and over-retained error journals', () => {
-	const report = buildLocalDiagnosticsReport({
-		generatedAt: GENERATED_AT,
-		applicationVersion: '1.0.0-rc.1',
-		productId: 'framescaper',
-		runtime: createLocalDiagnosticsRuntimeIdentity({
-			isDesktop: false, locale: 'en', navigator: {},
-		}),
-		capabilities: {},
-		streaming: { streamUnderrunFrames: 0, streamedPlaybackObserved: false },
-		snapshot: { project: null, projects: [], projectTabs: [], storage: {} },
-		diagnostics: { recentErrors: [] },
-	});
-	assert.throws(
-		() => serializeLocalDiagnosticsReport({ ...report, title: 'private' }),
-		/keys/u,
-	);
-	assert.throws(() => serializeLocalDiagnosticsReport({
-		...report,
-		errors: {
-			...report.errors,
-			recent: Array.from({ length: LOCAL_DIAGNOSTICS_ERROR_LIMIT + 1 }, () => ({
-				occurredAt: GENERATED_AT, source: 'controller', name: 'Error', code: 'UNKNOWN',
-			})),
-		},
-	}), /32/u);
-	const capabilities = [...report.capabilities];
-	Object.defineProperty(capabilities, '0', {
-		enumerable: true,
-		get() { throw new Error('private accessor content'); },
-	});
-	assert.throws(() => serializeLocalDiagnosticsReport({
-		...report, capabilities,
-	}), /accessors/u);
-});

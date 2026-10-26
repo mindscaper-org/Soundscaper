@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { clipRenameTitle } from '../src/common/editor/ui/inspector/ClipPropertiesDialog.jsx';
+import { clipRenameTitle } from '../src/common/editor/ui/inspector/ClipPropertiesBody.jsx';
 
 /**
  * The Clip Properties name field commits on blur, and an untitled clip shows a

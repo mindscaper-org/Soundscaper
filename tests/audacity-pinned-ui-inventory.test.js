@@ -1,3 +1,4 @@
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -137,7 +138,7 @@ test('every pinned registration and app-menu action has exactly one honest parit
 		} else {
 			assert.equal(definition.handler, null, id);
 			assert.equal(definition.enableWhen, 'never', id);
-			assert.ok(definition.reason.en && definition.reason.de, id);
+			assert.ok(definition.reason.en && GERMAN_COPY[definition.reason.catalogKey], id);
 		}
 	}
 	for (const id of ['audacity://cloud/open-project-page', 'audacity://cloud/open-audio-page']) {

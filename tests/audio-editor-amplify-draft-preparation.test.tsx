@@ -109,7 +109,11 @@ test('non-Amplify text edits do not reserve selection parameters, and blocked Am
 		await fixture.type('bassDb', '6');
 		assert.equal(fixture.state.audacityEffectTouchedParams.size, 0);
 		await fixture.authoritative({ bassDb: 3 });
-		assert.equal(fixture.field('bassDb').value, '3');
+		assert.equal(fixture.params().bassDb, 3, 'model updates remain authoritative while the field is edited');
+		assert.equal(fixture.field('bassDb').value, '6', 'unsubmitted numeric drafts survive model publication');
+		await fixture.key('bassDb', 'Escape');
+		assert.equal(fixture.field('bassDb').value, '3', 'cancelling the draft restores the latest model value');
+		assert.equal(fixture.params().bassDb, 3, 'Escape does not commit the abandoned draft');
 		await fixture.replace('project-b', 'audacity-amplify');
 		await fixture.block();
 		assert.notEqual(fixture.field('gainDb').getAttribute('disabled'), null);

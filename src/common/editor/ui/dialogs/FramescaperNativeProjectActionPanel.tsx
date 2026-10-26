@@ -23,7 +23,7 @@ export default function FramescaperNativeProjectActionPanel({
 		setStatus('working');
 		setError('');
 		void projectActions.run(surface, request).then(
-			() => setStatus('complete'),
+			(result) => setStatus(result?.cancelled ? 'ready' : 'complete'),
 			(failure: unknown) => {
 				setStatus('ready');
 				setError(feedbackFailure(failure));
@@ -62,7 +62,7 @@ function ImageSequenceImportPanel({
 	const [den, setDen] = useState('1');
 	const submit = (event: FormEvent<HTMLFormElement>): void => {
 		event.preventDefault();
-		run({ frameRate: { num: Number(num), den: Number(den) } });
+		run({ frameRate: frameRateFromInputs(num, den) });
 	};
 	return <section aria-label={title}>
 		{statusLine}
@@ -87,7 +87,7 @@ function RenderQueueDeliveryPanel({
 		event.preventDefault();
 		run(sequence ? {
 			kind: 'image-sequence', format: delivery,
-			frameRate: { num: Number(num), den: Number(den) }, preserveAlpha,
+			frameRate: frameRateFromInputs(num, den), preserveAlpha,
 		} : { kind: 'encoded-mov' });
 	};
 	return <section aria-label={title}>
@@ -141,4 +141,13 @@ function RationalRateFields({
 				onChange={(event) => setDen(event.currentTarget.value)} />
 		</label>
 	</div>;
+}
+
+/** User-entered numerator/denominator pairs need not already be in lowest terms. */
+function frameRateFromInputs(numerator: string, denominator: string): Readonly<{ num: number; den: number }> {
+	const num = Number(numerator), den = Number(denominator);
+	if (![num, den].every(value => Number.isSafeInteger(value) && value >= 1 && value <= 1_000_000)) return { num, den };
+	let divisor = num, remainder = den;
+	while (remainder !== 0) [divisor, remainder] = [remainder, divisor % remainder];
+	return { num: num / divisor, den: den / divisor };
 }

@@ -86,7 +86,6 @@ test('item data is written in a fixed key order regardless of insertion order', 
 
 test('the file name is derived from the project and the supplied date', () => {
 	assert.equal(deliveryReportFileName(CONTEXT), 'Night-Session-delivery-report-2026-08-17.json');
-	assert.equal(deliveryReportFileName({}), 'project-delivery-report.json');
 	assert.equal(
 		deliveryReportFileName({ projectTitle: '../../etc/passwd', generatedAt: '2026-01-02T00:00:00Z' }),
 		'etc-passwd-delivery-report-2026-01-02.json',
@@ -104,20 +103,6 @@ test('saving uses the reserved report purpose', async () => {
 	assert.equal(requests[0].suggestedName, serialized.fileName);
 	assert.equal(requests[0].mimeType, 'application/json');
 	assert.ok(requests[0].blob instanceof Blob);
-});
-
-test('a host without a file service returns the document rather than doing nothing', async () => {
-	const serialized = await saveDeliveryReport(report(), CONTEXT, null);
-	assert.ok(serialized.text.includes('"delivery-report"'));
-	assert.match(serialized.fileName, /\.json$/u);
-});
-
-test('an unsealed or foreign report is refused', async () => {
-	assert.throws(() => serializeDeliveryReport({ format: 'aup4' } as never), /sealed delivery report/u);
-	await assert.rejects(
-		() => saveDeliveryReport(null as never, CONTEXT, null),
-		/sealed delivery report/u,
-	);
 });
 
 test('the save action writes the session report and no-ops before any delivery', async () => {

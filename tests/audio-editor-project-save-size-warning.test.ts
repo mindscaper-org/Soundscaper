@@ -6,7 +6,7 @@ import { createProjectSaveService } from '../src/common/editor/controller/docume
 import { admitProjectPublication } from '../src/common/editor/storage/project-publication-options.ts';
 
 function fixture(confirm: () => Promise<boolean>) {
-	let project = { id: 'project', schemaVersion: 9, revision: 1, title: 'Large project' };
+	let project = { id: 'project', schemaFamily: 'soundscaper', schemaVersion: 1, revision: 1, title: 'Large project' };
 	let timer: (() => void) | undefined;
 	let writes = 0;
 	const store = { backend: 'memory', maximumProjectDocumentBytes: 1,

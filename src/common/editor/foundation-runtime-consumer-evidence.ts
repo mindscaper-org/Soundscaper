@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { FOUNDATION_SELECTION_RUNTIME_CONSUMERS } from './foundation-selection-consumer-evidence.ts';
+import { FOUNDATION_TIME_PITCH_RUNTIME_CONSUMERS } from './foundation-time-pitch-consumer-evidence.ts';
+import { FOUNDATION_FILE_DELIVERY_RUNTIME_CONSUMERS } from './foundation-file-delivery-consumer-evidence.ts';
 export type FoundationRuntimeConsumerSurface =
 	| 'playback'
 	| 'preview'
@@ -29,6 +31,13 @@ export interface FoundationRuntimeConsumerEvidence {
  * boundary before reading any persisted/resolved clip timing field.
  */
 const entries: FoundationRuntimeConsumerEvidence[] = [
+	...FOUNDATION_SELECTION_RUNTIME_CONSUMERS, ...FOUNDATION_TIME_PITCH_RUNTIME_CONSUMERS, ...FOUNDATION_FILE_DELIVERY_RUNTIME_CONSUMERS,
+	{ id: 'bin-audio-duration-presentation', surface: 'preview', file: 'src/common/editor/ui/workspace/useProjectBinPresentation.ts', entryPoint: 'useProjectBinAudioDuration', inputIdentifier: 'project', projectedIdentifier: null, boundary: 'resolveRuntimeClipProjection', evidence: 'Audio Bin cards resolve authored beat extents at the current tempo before displaying duration; sample clips and visual media retain their existing timing paths.' },
+	{
+		id: 'video-source-readiness', surface: 'video-export', file: 'src/common/editor/controller/export/video-export-source-inventory.ts',
+		entryPoint: 'videoExportSourceInventory', inputIdentifier: 'project', projectedIdentifier: 'resolved', boundary: 'resolveRuntimeClipProjection',
+		evidence: 'Movie source readiness resolves each visible video clip before intersecting its geometry with the selected output span; product picture leaves retain their owning renderer and audio inputs remain available for effect pre-roll.',
+	},
 	{
 		id: 'dawproject-imported-delivery', surface: 'interchange',
 		file: 'src/common/editor/controller/import/internal/dawproject/dawproject-service.ts',
@@ -46,7 +55,7 @@ const entries: FoundationRuntimeConsumerEvidence[] = [
 	{
 		id: 'export-dialog-delivered-chapter-admission', surface: 'audio-export',
 		file: 'src/common/editor/ui/export-dialog-embedded-chapters.ts',
-		entryPoint: 'exportDialogHasDeliveredChapterLabels', inputIdentifier: 'projectValue', projectedIdentifier: 'project',
+		entryPoint: 'exportDialogHasDeliveredChapterLabels', inputIdentifier: 'selectedProject', projectedIdentifier: 'project',
 		boundary: 'projectForRuntimeConsumers',
 		evidence: 'Chapter availability resolves the authored project before checking the selected delivery span, project duration and label occurrences; it uses the same output-frame rounding and exclusive range as the chapter writer.',
 	},
@@ -234,13 +243,13 @@ const entries: FoundationRuntimeConsumerEvidence[] = [
 		entryPoint: 'loadProject',
 		inputIdentifier: 'mediaProject',
 		projectedIdentifier: 'resolvedProject',
-		boundary: 'resolveRuntimeProjectProjection',
-		evidence: 'The engine stores, sizes, seeks, and schedules only the transient resolved project derived from the folder media projection at loadProject entry.',
+		boundary: 'resolveTimePitchPlaybackProject',
+		evidence: 'The engine stores, sizes, seeks, and schedules the resolved folder media projection with the same beat-derived scalar used by independent time/pitch cache admission.',
 	},
 	{
 		id: 'engine-project-apply',
 		surface: 'playback',
-		file: 'src/common/editor/engine/lifecycle.ts',
+		file: 'src/common/editor/engine/project-refresh-playback.ts',
 		entryPoint: 'applyProject',
 		inputIdentifier: 'project',
 		projectedIdentifier: null,

@@ -88,7 +88,7 @@ module.exports = {
 	win: {
 		...signing.win,
 		...(motionscaper ? { signExts: ['!motionscaper-media-host.exe'] } : {}),
-		icon: '.desktop-build/icons/icon.png',
+		icon: '.desktop-build/icons/icon.ico',
 		target: ['nsis', 'zip'],
 	},
 	nsis: {

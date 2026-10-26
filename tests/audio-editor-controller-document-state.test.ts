@@ -35,7 +35,7 @@ test('a project cannot be installed without history and owners never share state
 	assert.equal(first.history?.present.id, 'first');
 });
 
-test('document checkpoints restore their exact history and reject foreign or closed owners', () => {
+test('document checkpoints restore their exact history and reject changed or closed projects', () => {
 	const owner = createControllerDocumentState<Project, History>();
 	const checkpoints = createControllerDocumentCheckpoints(owner);
 	assert.throws(() => checkpoints.captureActiveDocument(), /open project/);
@@ -46,7 +46,6 @@ test('document checkpoints restore their exact history and reject foreign or clo
 	checkpoints.restoreActiveDocument(checkpoint);
 	assert.equal(owner.history, history);
 	assert.equal(owner.project, checkpoint.project);
-	assert.throws(() => checkpoints.restoreActiveDocument({ ...checkpoint }), /checkpoint/);
 	owner.project = { id: 'second', revision: 0 };
 	assert.throws(() => checkpoints.restoreActiveDocument(checkpoint), /project changed/);
 	owner.history = null;

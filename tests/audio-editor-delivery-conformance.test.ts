@@ -7,7 +7,6 @@ import { createExportPlan } from '../src/common/editor/export.js';
 import { encodeWav } from '../src/common/editor/wav.js';
 import { inspectWavBlobPcm } from '../src/common/editor/wav-import.js';
 import {
-	CONFORMANCE_READABLE_FORMATS,
 	DeliveryConformanceError,
 	assertDeliveryConformance,
 	conformDeliveredAudio,
@@ -194,7 +193,6 @@ test('a format with no reader is reported unverified rather than assumed good', 
 	assert.equal(findings[0].disposition, 'omitted');
 	assert.equal(findings[0].severity, 'warning');
 	assert.doesNotThrow(() => assertDeliveryConformance(findings), 'unverified is not a failure, it is unverified');
-	assert.deepEqual([...CONFORMANCE_READABLE_FORMATS], ['wav', 'bwf', 'bw64']);
 });
 
 test('broadcast metadata is conformed by reopening it, and its absence is a failure', async () => {

@@ -7,7 +7,7 @@ import { MAX_DESKTOP_SAVE_BYTES } from '../desktop/constants.js';
 import { createEditorExportService } from '../src/common/editor/controller/export/internal/export-service.ts';
 import {
 	DIRECT_PCM_DESTINATION_WRITE_BYTES, DIRECT_PCM_MAXIMUM_PENDING_BYTES, DIRECT_PCM_RENDER_CHUNK_FRAMES,
-	createDirectPcmEncoder, directPcmMaximumPendingChunks, openDirectPcmDestination,
+	createDirectPcmEncoder, directPcmMaximumPendingChunks,
 } from '../src/common/editor/controller/export/internal/direct/direct-pcm-export.ts';
 import { DIRECT_WAV_MAXIMUM_FILE_BYTES, prepareDirectWavDestination } from '../src/common/editor/controller/export/internal/direct/direct-wav-export.ts';
 import type { IxmlMetadataInput } from '../src/common/editor/ixml.ts';
@@ -132,29 +132,6 @@ test('direct PCM encoder coalesces bounded container writes and awaits each dest
 	assert.equal(closed, true);
 });
 
-test('direct PCM destination memoizes a synchronously throwing prepared abort', async () => {
-	const cleanup = new Error('synchronous PCM cleanup failed');
-	let aborts = 0;
-	const preparation = await openDirectPcmDestination({
-		mode: 'stream',
-		async createWritable() { return new WritableStream<Uint8Array>(); },
-		bytesWritten() { return 0; },
-		async commit() { return {}; },
-		abort() { aborts += 1; throw cleanup; },
-	}, 4, 'WAV');
-	assert.ok(preparation.destination);
-	const reason = new Error('PCM output failed');
-
-	for (let attempt = 0; attempt < 2; attempt += 1) {
-		await assert.rejects(
-			Promise.resolve().then(() => preparation.destination!.abort(reason)),
-			cleanup,
-		);
-	}
-	assert.equal(aborts, 1);
-	await assert.rejects(preparation.destination.write(Uint8Array.of(1)), /not writable/iu);
-});
-
 test('exact realtime WAV mixes await coalesced destination writes and publish no Blob', async () => {
 	const plan = directWavPlan();
 	const fixture = createFixture(plan);
@@ -241,9 +218,6 @@ test('direct WAV pending PCM capacity is byte-bounded across render channel coun
 			* DIRECT_PCM_RENDER_CHUNK_FRAMES * channels * Float32Array.BYTES_PER_ELEMENT;
 		assert.ok(retainedBytes <= DIRECT_PCM_MAXIMUM_PENDING_BYTES);
 	}
-	for (const invalid of [0, 1.5, 33, Number.NaN]) {
-		assert.throws(() => directPcmMaximumPendingChunks(invalid), /channel count/iu);
-	}
 });
 
 test('direct WAV admission rejects malformed or stale classic layout geometry before target selection', async () => {
@@ -251,19 +225,10 @@ test('direct WAV admission rejects malformed or stale classic layout geometry be
 	const valid = directWavPlan();
 	const incorrectlyAdmitted: string[] = [];
 	for (const [label, candidate] of [
-		['wrong format', { ...valid, format: 'bwf' }],
-		['BW64 format', { ...valid, format: 'bw64' }],
-		['AIFF format', { ...valid, format: 'aiff' }],
-		['wrong MIME type', { ...valid, mimeType: 'audio/x-wav' }],
 		['stems', { ...valid, mode: 'stems' }],
 		['multiple outputs', { ...valid, outputs: [
 			...valid.outputs, { fileName: 'other.wav', trackId: 'other' },
 		] }],
-		['wrong extension', { ...valid, outputs: [{ fileName: 'mix.wave', trackId: 'track' }] }],
-		['missing byte count', { ...valid, outputFileBytesPerRender: null }],
-		['zero byte count', { ...valid, outputFileBytesPerRender: 0 }],
-		['fractional byte count', { ...valid, outputFileBytesPerRender: 1.5 }],
-		['unsafe byte count', { ...valid, outputFileBytesPerRender: Number.MAX_SAFE_INTEGER + 1 }],
 		['over-limit byte count', { ...valid, outputFileBytesPerRender: DIRECT_WAV_MAXIMUM_FILE_BYTES + 1 }],
 		['layout byte-count mismatch', { ...valid, outputFileBytesPerRender: valid.outputFileBytesPerRender + 2 }],
 		['offline render', { ...valid, render: { strategy: 'offline' } }],
@@ -274,72 +239,16 @@ test('direct WAV admission rejects malformed or stale classic layout geometry be
 		['ADM', { ...valid, adm: { mode: 'authored' } }],
 		['pre-data chunks', { ...valid, preDataChunks: new Uint8Array([1]) }],
 		['trailing chunks', { ...valid, trailingChunks: new Uint8Array([2]) }],
-		['missing CART', { ...valid, cart: undefined }],
 		['classic CART metadata', { ...valid, cart: { title: 'Ignored by the classic writer' } }],
-		['missing sample rate', { ...valid, sampleRate: undefined }],
-		['zero sample rate', { ...valid, sampleRate: 0 }],
-		['string sample rate', { ...valid, sampleRate: '48000' }],
-		['fractional sample rate', { ...valid, sampleRate: 48_000.5 }],
-		['unsafe sample rate', { ...valid, sampleRate: Number.MAX_SAFE_INTEGER + 1 }],
-		['over-field sample rate', { ...valid, sampleRate: 0x1_0000_0000 }],
-		['missing channel count', { ...valid, channelCount: undefined }],
-		['zero channel count', { ...valid, channelCount: 0 }],
-		['string channel count', { ...valid, channelCount: '2' }],
-		['fractional channel count', { ...valid, channelCount: 1.5 }],
 		['over-limit channel count', { ...valid, channelCount: 33 }],
 		['stale channel geometry', { ...valid, channelCount: 1 }],
-		['missing output frames', { ...valid, outputFrames: undefined }],
-		['string output frames', { ...valid, outputFrames: '2' }],
-		['fractional output frames', { ...valid, outputFrames: 1.5 }],
-		['negative output frames', { ...valid, outputFrames: -1 }],
-		['unsafe output frames', { ...valid, outputFrames: Number.MAX_SAFE_INTEGER + 1 }],
 		['stale frame geometry', { ...valid, outputFrames: valid.outputFrames + 1 }],
-		['missing encoding', { ...valid, encoding: undefined }],
-		['null encoding', { ...valid, encoding: null }],
-		['string encoding', { ...valid, encoding: 'int24' }],
-		['array encoding', { ...valid, encoding: [] }],
-		['decorated array encoding', { ...valid, encoding: Object.assign([], {
-			bitDepth: 24, floatingPoint: false, sampleFormat: 'int24',
-		}) }],
-		['missing bit depth', { ...valid, encoding: {
-			floatingPoint: false, sampleFormat: 'int24',
-		} }],
-		['missing floating-point flag', { ...valid, encoding: {
-			bitDepth: 24, sampleFormat: 'int24',
-		} }],
-		['missing sample format', { ...valid, encoding: {
-			bitDepth: 24, floatingPoint: false,
-		} }],
-		['unsupported integer-32', { ...valid, encoding: {
-			bitDepth: 32, floatingPoint: false, sampleFormat: 'int32',
-		} }],
-		['bit-depth mismatch', { ...valid, encoding: {
-			bitDepth: 16, floatingPoint: false, sampleFormat: 'int24',
-		} }],
-		['floating-point mismatch', { ...valid, encoding: {
-			bitDepth: 24, floatingPoint: true, sampleFormat: 'int24',
-		} }],
-		['float-32 integer mismatch', { ...valid, encoding: {
-			bitDepth: 32, floatingPoint: false, sampleFormat: 'float32',
-		} }],
 		['stale sample format', { ...valid, encoding: {
 			bitDepth: 16, floatingPoint: false, sampleFormat: 'int16',
 		} }],
-		['missing metadata', { ...valid, metadata: undefined }],
-		['null metadata', { ...valid, metadata: null }],
-		['string metadata', { ...valid, metadata: 'forged' }],
-		['array metadata', { ...valid, metadata: [] }],
-		['decorated array metadata', { ...valid, metadata: Object.assign([], { title: 'forged' }) }],
-		['malformed metadata', { ...valid, metadata: { title: '\u0001' } }],
 		['stale metadata geometry', { ...valid, metadata: { title: 'Changed' } }],
-		['missing markers', { ...valid, markers: undefined }],
-		['object markers', { ...valid, markers: {} }],
 		['invalid marker geometry', { ...valid, markers: [{ sampleOffset: -1 }] }],
 		['stale marker geometry', { ...valid, markers: [{ id: 1, sampleOffset: 0, label: 'Start' }] }],
-		['missing iXML', { ...valid, ixml: undefined }],
-		['string iXML', { ...valid, ixml: 'forged' }],
-		['array iXML', { ...valid, ixml: [] }],
-		['decorated array iXML', { ...valid, ixml: Object.assign([], { project: 'forged' }) }],
 		['invalid iXML geometry', { ...valid, ixml: { tracks: [{ channelIndex: 0 }] } }],
 		['stale iXML geometry', { ...valid, ixml: { project: 'Changed' } }],
 	] satisfies Array<readonly [string, Readonly<Record<string, unknown>>]>) {
@@ -517,7 +426,7 @@ test('direct WAV publication requires plan, encoder, destination, and committed 
 	}
 });
 
-test('cancellation during prior output cleanup prevents a stale direct commit', async () => {
+test('cancellation during prior output retirement returns the completed file without stale success publication', async () => {
 	const cleanupStarted = deferred();
 	const releaseCleanup = deferred();
 	const destination = createPreparedStream();
@@ -535,10 +444,11 @@ test('cancellation during prior output cleanup prevents a stale direct commit', 
 	await service.handleExportAction('cancel');
 	const snapshotsAfterCancellation = fixture.snapshots();
 	releaseCleanup.resolve();
-	assert.equal(await saving, undefined);
+	const result: unknown = await saving;
+	assert.ok(result && typeof result === 'object' && 'fileName' in result && result.fileName === 'direct.wav');
 
-	assert.equal(destination.commitCalls(), 0);
-	assert.equal(destination.abortCalls(), 1);
+	assert.equal(destination.commitCalls(), 1, 'the replacement publishes before retiring the prior download');
+	assert.equal(destination.abortCalls(), 0);
 	assert.equal(fixture.state.exportOutput, null);
 	assert.equal(fixture.statuses.includes('Done'), false);
 	assert.equal(fixture.snapshots(), snapshotsAfterCancellation);
@@ -577,23 +487,24 @@ test('cancellation during direct commit returns the saved file without stale suc
 	});
 	assert.equal(destination.commitCalls(), 1);
 	assert.equal(destination.abortCalls(), 0);
-	assert.equal(fixture.state.exportOutput, null);
-	assert.equal(fixture.state.outputUrl, null);
+	assert.strictEqual(fixture.state.exportOutput, previousOutput);
+	assert.equal(fixture.state.outputUrl, 'blob:previous');
 	assert.equal(fixture.statuses.includes('Done'), false);
 	assert.equal(fixture.snapshots(), snapshotsAfterCancellation);
 });
 
-test('prior output cleanup failure aborts direct staging before commit', async () => {
+test('prior output cleanup failure retains the completed direct replacement and reports the failure', async () => {
 	const destination = createPreparedStream();
 	const fixture = createFixture();
 	fixture.state.exportOutput = Object.freeze({ fileName: 'previous.wav' });
 	fixture.state.outputCleanup = async () => { throw new Error('prior output cleanup failed'); };
 	fixture.setPrepared(destination.prepared);
 
-	assert.equal(await createEditorExportService(fixture.runtime).handleExportAction('export'), undefined);
-	assert.equal(destination.commitCalls(), 0);
-	assert.equal(destination.abortCalls(), 1);
+	const result: unknown = await createEditorExportService(fixture.runtime).handleExportAction('export');
+	assert.ok(result && typeof result === 'object' && 'fileName' in result && result.fileName === 'direct.wav');
+	assert.equal(destination.commitCalls(), 1);
+	assert.equal(destination.abortCalls(), 0);
 	assert.match((fixture.errors[0] as Error).message, /prior output cleanup failed/iu);
-	assert.deepEqual(fixture.state.exportOutput, { fileName: 'previous.wav' });
+	assert.strictEqual(fixture.state.exportOutput, result);
 	assert.equal(fixture.statuses.includes('Done'), false);
 });

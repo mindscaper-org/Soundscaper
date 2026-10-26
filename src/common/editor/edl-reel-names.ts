@@ -23,7 +23,8 @@ export function allocateEdlReelNames(
 		return { name, preferred: name.slice(0, maximumLength), identity: request.reelIdentity ?? (raw || `empty:${String(index)}`) };
 	});
 	const reserved = new Set(normalized.map((entry) => entry.preferred));
-	const used = new Set<string>();
+	// CMX readers interpret these names as generators rather than source reels.
+	const used = new Set<string>(['BL', 'BLACK', 'BARS']);
 	const identities = new Map<string, string>();
 	return Object.freeze(normalized.map((entry) => {
 		let name = identities.get(entry.identity);

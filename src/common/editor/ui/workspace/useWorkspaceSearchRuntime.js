@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { createAudioEditorSearchEntries } from '../../search.js';
+import {
+	createAudioEditorMediaSearchEntries, flattenAudioEditorSearchMenus, prepareAudioEditorSearchEntries,
+} from '../../search.js';
 import {
 	handleProjectZoomShortcut,
 	isWorkspaceModalShortcutTarget,
 } from '../workspace-shortcuts.ts';
 import { runAwaitedAudioEditorOperation } from './audio-editor-workspace-runner.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
 export function useWorkspaceSearchRuntime({
 	applicationMenus,
@@ -33,10 +36,17 @@ export function useWorkspaceSearchRuntime({
 		document.addEventListener('keydown', handleBrowserZoomShortcut, true);
 		return () => document.removeEventListener('keydown', handleBrowserZoomShortcut, true);
 	}, [applicationMenus, editorRef, parityRuntime.actions, run, snapshot]);
-	const searchEntries = useMemo(() => createAudioEditorSearchEntries({
-		menus: applicationMenus,
-		project,
-	}), [applicationMenus, project]);
+	const commands = useMemo(() => prepareAudioEditorSearchEntries(
+		flattenAudioEditorSearchMenus(applicationMenus),
+	), [applicationMenus]);
+	const mediaStartOrder = commands.reduce((maximum, entry) => Math.max(maximum, entry.sourceOrder + 1), 0);
+	// Workspace snapshots own immutable collections; menu availability changes
+	// must not rebuild the unchanged media inventory, including while Search is closed.
+	const { sources, tracks, clips, projectBin } = project ?? {};
+	const media = useMemo(() => prepareAudioEditorSearchEntries(createAudioEditorMediaSearchEntries(
+		{ sources, tracks, clips, projectBin }, { startOrder: mediaStartOrder },
+	)), [sources, tracks, clips, projectBin, mediaStartOrder]);
+	const searchEntries = useMemo(() => [...commands, ...media], [commands, media]);
 	const activateSearchEntry = useCallback((entry) => {
 		if (!entry || entry.disabled) return;
 		if (entry.kind === 'command') {
@@ -54,12 +64,18 @@ export function useWorkspaceSearchRuntime({
 		if (entry.kind === 'timeline') {
 			const clipId = entry.target?.clipId;
 			if (!clipId) return;
+			const projectIdentity = editorProjectEditSessionKey(controller, project?.id);
+			if (snapshot.readOnly) {
+				setTimelineSearchReveal({ clipId, revision, projectIdentity });
+				return;
+			}
 			void runAwaitedAudioEditorOperation(
 				run,
 				() => controller.actions.timeline.selectClip(clipId),
 			).then(() => {
-				if (searchRevealRevisionRef.current === revision) {
-					setTimelineSearchReveal({ clipId, revision });
+				if (searchRevealRevisionRef.current === revision
+					&& editorProjectEditSessionKey(controller, project?.id) === projectIdentity) {
+					setTimelineSearchReveal({ clipId, revision, projectIdentity });
 				}
 			}).catch(() => undefined);
 			return;
@@ -70,7 +86,7 @@ export function useWorkspaceSearchRuntime({
 			openWorkspacePanel('project-bin');
 			setProjectBinSearchReveal({ binItemId, revision });
 		}
-	}, [controller, openWorkspacePanel, run, setProjectBinSearchReveal, setTimelineSearchReveal]);
+	}, [controller, openWorkspacePanel, project?.id, run, setProjectBinSearchReveal, setTimelineSearchReveal, snapshot.readOnly]);
 
 	return { activateSearchEntry, searchEntries };
 }

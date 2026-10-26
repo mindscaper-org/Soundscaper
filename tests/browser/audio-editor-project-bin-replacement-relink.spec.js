@@ -14,6 +14,7 @@ import { showClipTimingFields,
 	registerAudioEditorHooks,
 	stubStorageEstimate,
 	waitForEditor,
+	waitForProjectActivation,
 } from './audio-editor-test-helpers.js';
 import { createDeterministicSilentVideoFixture } from './fixtures/deterministic-av-media.js';
 import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
@@ -62,8 +63,11 @@ test.describe('Project Bin replacement and linked original relink', () => {
 		await expectClipFrames(page, editor, firstId, { start: 0, duration: shorterFrameCount });
 		await expectClipFrames(page, editor, laterId, { start: laterStartFrame, duration: shorterFrameCount });
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		const projectId = await editor.getAttribute('data-project-id');
 		await page.reload();
 		await waitForEditor(page);
+		await expect(editor).toHaveAttribute('data-project-id', projectId);
+		await waitForProjectActivation(editor);
 		await expectClipFrames(page, editor, firstId, { start: 0, duration: shorterFrameCount });
 		await expectClipFrames(page, editor, laterId, { start: laterStartFrame, duration: shorterFrameCount });
 		expect(errors).toEqual([]);
@@ -90,8 +94,11 @@ test.describe('Project Bin replacement and linked original relink', () => {
 			duration: shorterFrameCount,
 		});
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		const projectId = await editor.getAttribute('data-project-id');
 		await page.reload();
 		await waitForEditor(page);
+		await expect(editor).toHaveAttribute('data-project-id', projectId);
+		await waitForProjectActivation(editor);
 		await expectClipFrames(page, editor, laterId, {
 			start: laterStartFrame - (originalFrameCount - shorterFrameCount),
 			duration: shorterFrameCount,
@@ -289,7 +296,7 @@ async function linkedOriginalLocatorId(page, projectId, kind) {
 }
 
 async function clearSourceProvenance(page, projectId) {
-	// Current imports carry attribution; this fixture models an older unattributed project.
+	// Model older unattributed sources; video also predates immutable content digests.
 	await page.evaluate(async ({ databaseName, id }) => {
 		const open = indexedDB.open(databaseName);
 		const database = await new Promise((resolve, reject) => {
@@ -309,10 +316,11 @@ async function clearSourceProvenance(page, projectId) {
 			}
 			const sources = project.sources.map((source) => {
 				const copy = { ...source };
-				delete copy.provenance;
+				delete copy.provenance; if (copy.kind === 'video') { delete copy.contentSha256; copy.timingAsset = null; copy.timingDecision = { mode: 'conform-cfr-at-ingest', rate: copy.frameRate }; }
 				return copy;
 			});
-			store.put({ ...project, sources });
+			const featureRequirements = { ...project.featureRequirements, requirements: project.featureRequirements.requirements.filter((requirement) => requirement.id !== 'framescaper.video-timing-assets') };
+			store.put({ ...project, sources, featureRequirements });
 			await new Promise((resolve, reject) => {
 				transaction.oncomplete = resolve;
 				transaction.onabort = () => reject(transaction.error);

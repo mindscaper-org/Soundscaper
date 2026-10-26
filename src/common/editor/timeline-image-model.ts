@@ -6,6 +6,8 @@ import {
 	type ClosedDomainRecord,
 } from './closed-domain-value.ts';
 import type { Rational } from './timeline-time.ts';
+import { timelineImageSourceTickAtFrame, normalizeTimelineImageSourceFraction,
+	type TimelineImageSourceFraction } from './timeline-image-phase.ts';
 
 export const FRAMESCAPER_IMAGE_ASSET_MAGIC = 'FSCIAB01' as const;
 export const FRAMESCAPER_IMAGE_ASSET_MIME_TYPE = 'application/vnd.framescaper.image-asset' as const;
@@ -62,6 +64,7 @@ export interface FramescaperImageClipV1 {
 	readonly sequenceStartFrame: number;
 	readonly sequenceFrameCount: number;
 	readonly sourceStartTicks: string;
+	readonly sourceStartFraction?: TimelineImageSourceFraction;
 }
 
 export interface FramescaperImageFrameTimingV1 {
@@ -143,7 +146,12 @@ export function normalizeFramescaperImageSourceV1(value: unknown): FramescaperIm
 }
 
 export function normalizeFramescaperImageClipV1(value: unknown): FramescaperImageClipV1 {
-	const record = exact(value, 'Framescaper image clip', CLIP_FIELDS, 'image');
+	const record = readClosedDomainRecord(value, 'Framescaper image clip',
+		[...CLIP_FIELDS, 'sourceStartFraction'], CLIP_FIELDS);
+	if (field(record, 'schemaVersion', 'Framescaper image clip') !== 1
+		|| field(record, 'kind', 'Framescaper image clip') !== 'image') {
+		throw new RangeError('Framescaper image clip requires image schema version 1.');
+	}
 	const sequenceStartFrame = nonNegativeInteger(
 		field(record, 'sequenceStartFrame', 'Framescaper image clip'),
 		Number.MAX_SAFE_INTEGER,
@@ -173,6 +181,8 @@ export function normalizeFramescaperImageClipV1(value: unknown): FramescaperImag
 			field(record, 'sourceStartTicks', 'Framescaper image clip'),
 			'Framescaper image clip source start ticks',
 		),
+		...(Object.hasOwn(record, 'sourceStartFraction') ? { sourceStartFraction:
+			normalizeTimelineImageSourceFraction(field(record, 'sourceStartFraction', 'Framescaper image clip')) } : {}),
 	});
 }
 
@@ -190,9 +200,9 @@ export function mapFramescaperImageTimelineFrameV1(
 	}
 	const rate = normalizedRate(request?.sequenceRate);
 	const timings = normalizedTimings(request?.timings);
-	const localFrame = BigInt(sequenceFrame - clip.sequenceStartFrame);
-	const sourceTicks = BigInt(clip.sourceStartTicks)
-		+ localFrame * BigInt(FRAMESCAPER_IMAGE_TICKS_PER_SECOND) * BigInt(rate.den) / BigInt(rate.num);
+	const sourceTicks = timelineImageSourceTickAtFrame(
+		clip, sequenceFrame - clip.sequenceStartFrame, rate,
+	);
 	let low = 0;
 	let high = timings.length;
 	while (low < high) {
@@ -346,7 +356,8 @@ function digest(value: unknown, name: string): string {
 function decimalTicks(value: unknown, name: string, positive = false): string {
 	if (typeof value !== 'string' || !DECIMAL_TICKS.test(value)) throw new TypeError(`${name} ticks must be a canonical decimal string.`);
 	const ticks = BigInt(value);
-	if ((positive && ticks === 0n) || ticks > BigInt(FRAMESCAPER_IMAGE_MODEL_LIMITS_V1.maximumDurationTicks)) {
+	// Asset duration remains bounded; elapsed hold phase carries no additional pixels.
+	if (positive && (ticks === 0n || ticks > BigInt(FRAMESCAPER_IMAGE_MODEL_LIMITS_V1.maximumDurationTicks))) {
 		throw new RangeError(`${name} ticks are outside the 24-hour domain.`);
 	}
 	return value;

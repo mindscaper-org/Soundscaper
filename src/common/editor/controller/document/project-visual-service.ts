@@ -2,7 +2,7 @@
 
 import { isAudioMediaKind } from '../../audio-media-kind.ts';
 import { hasProjectBinMediaAuthority } from '../../project-schema-version.ts';
-
+import { createVideoVisualMediaSynchronizer, videoVisualMediaIdentity } from './internal/video-visual-media-sync.ts';
 import {
 	resolveRuntimeProjectProjection,
 	type RuntimeClipProject,
@@ -32,10 +32,14 @@ export function createProjectVisualService(
 ): Readonly<ProjectVisualService> {
 	const videoVisuals = new Map<string, Readonly<VideoVisualRecord>>();
 	const generations = new Map<string, number>();
+	const mediaIdentities = new Map<string, string>();
 	let disposed = false;
 	let disposePromise: Promise<void> | null = null;
-
+	const synchronizeVideoSources = createVideoVisualMediaSynchronizer(
+		() => dependencies.getProject()?.sources ?? [], videoVisuals, mediaIdentities, revokeVideoVisual, activateVideoSource,
+	);
 	return Object.freeze({
+		synchronizeVideoSources,
 		getClipVisualData,
 		getProjectBinClipVisualData,
 		getVideoSourceVisualData,
@@ -59,8 +63,10 @@ export function createProjectVisualService(
 		const peakWindow = dependencies.waveformPeakWindows?.get(String(clip.id));
 		const frequencyAnalysis = sourceFrequencyAnalysis(project, source);
 		const frequencyWindow = clipFrequencyWindow(project, clip, source);
+		const prepareSpectrogramPcm = source ? dependencies.prepareSpectrogramPcm?.(project, clip, source) : undefined;
 		return Object.freeze({
 			clip,
+			...(prepareSpectrogramPcm ? { prepareSpectrogramPcm } : {}),
 			track: findClipTrack(project, clip.id),
 			source,
 			buffer: dependencies.sourceBuffers.get(clip.sourceId) ?? null,
@@ -90,8 +96,10 @@ export function createProjectVisualService(
 		const video = videoClip ? videoVisuals.get(videoClip.sourceId)?.visual : null;
 		const frequencyAnalysis = sourceFrequencyAnalysis(project, source);
 		const frequencyWindow = clipFrequencyWindow(project, clip, source);
+		const prepareSpectrogramPcm = source ? dependencies.prepareSpectrogramPcm?.(project, clip, source) : undefined;
 		return Object.freeze({
 			clip,
+			...(prepareSpectrogramPcm ? { prepareSpectrogramPcm } : {}),
 			track: null,
 			source,
 			buffer: dependencies.sourceBuffers.get(clip.sourceId) ?? null,
@@ -173,6 +181,7 @@ export function createProjectVisualService(
 		options: Readonly<{ signal?: AbortSignal }> = {},
 	): Promise<Readonly<VideoVisual> | null> {
 		if (disposed) return null;
+		mediaIdentities.set(source.id, videoVisualMediaIdentity(source));
 		const operation = nextGeneration(source.id);
 		const project = dependencies.getProject();
 		const projectId = project?.id ?? null;
@@ -254,6 +263,15 @@ export function createProjectVisualService(
 			}
 			if (!mediaBlob && !linkedPlaybackLease) {
 				throw new Error('The original video file is missing.');
+			}
+			if (mediaBlob instanceof Blob && (/^(?:video|audio)\/webm(?:;|$)/iu.test(mediaBlob.type)
+				|| ('name' in mediaBlob && typeof mediaBlob.name === 'string' && /\.webm$/iu.test(mediaBlob.name)))) {
+				mediaBlob = await (await import('../../video-webm-decoder-source.ts'))
+					.prepareVideoWebmDecoderSource(mediaBlob, options);
+				throwIfAborted(options.signal);
+				if (!isActivationCurrent(source.id, operation, project, projectToken)) {
+					return cleanupLate(ownedUrls, linkedPlaybackLease);
+				}
 			}
 			const mediaUrl = linkedPlaybackLease?.mediaUrl
 				?? (mediaBlob ? dependencies.url.createObjectURL(requireVisualBlob(mediaBlob)) : null);
@@ -348,6 +366,7 @@ export function createProjectVisualService(
 	}
 
 	async function revokeVideoVisuals(): Promise<void> {
+		mediaIdentities.clear();
 		const sourceIds = new Set([...generations.keys(), ...videoVisuals.keys()]);
 		for (const sourceId of sourceIds) nextGeneration(sourceId);
 		const records = [...videoVisuals.values()];
@@ -355,7 +374,6 @@ export function createProjectVisualService(
 		videoVisuals.clear();
 		await cleanupRecords(records);
 	}
-
 	function projectBinClips(
 		project: ProjectVisualProject | null = dependencies.getProject(),
 	): readonly ProjectVisualClip[] {
@@ -438,7 +456,7 @@ export function createProjectVisualService(
 	): boolean {
 		if (!isCurrent(sourceId, generation)) return false;
 		if (projectToken !== null) dependencies.assertProject(projectToken);
-		return dependencies.getProject() === project;
+		return dependencies.getProject()?.id === project?.id;
 	}
 
 	async function dropVisual(sourceId: string): Promise<boolean> {

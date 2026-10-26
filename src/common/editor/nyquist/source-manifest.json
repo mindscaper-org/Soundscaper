@@ -41,7 +41,7 @@
 		]
 	},
 	"licenseFiles": [
-		{ "path": "NOTICE.md", "sha256": "9868ea3cf5d29c556a192e6b013a46635e28d707588a2eaee25baa20c8d51d33" },
+		{ "path": "NOTICE.md", "sha256": "bed82a829030812ce52798e87120caea3342df19233600823d838821f7b0c18c" },
 		{ "path": "licenses/LIBNYQUIST.txt", "sha256": "47d299369b87f75dd1074d5d21215e1c05aa1c452e7b4105fa6144b3912c5e5a" },
 		{ "path": "licenses/NYQUIST-XLISP.txt", "sha256": "ee23127788763c9fd6968e39b56dce7a3232a527936c1f43ec56f058870fc05a" },
 		{ "path": "../staffpad/licenses/COMPILER_RT.txt", "sha256": "1a8f1058753f1ba890de984e48f0242a3a5c29a6a8f2ed9fd813f36985387e8d" },
@@ -57,7 +57,7 @@
 		{ "path": "native/nyquist_browser.h", "sha256": "64392c2745edbbc61bdef33ab5bda742cb6292b89d0fd775bbfdaba5ce83f1ae", "origin": "soundscaper-browser-adaptation" },
 		{ "path": "native/nyquist_io_stubs.c", "sha256": "29d3619f94d90b7e32862f3402a6c5f798bd097014dc3fa8c153c42e3a32ba7a", "origin": "soundscaper-browser-adaptation" },
 		{ "path": "native/nyquist_wasm.c", "sha256": "bcabdb74b8de71a62f8cf2154f485f17ed5a7c4d3346767efcf19c395a4a96d0", "origin": "soundscaper-browser-adaptation" },
-		{ "path": "native/patches/nyx-browser.patch", "sha256": "bfc271cc3a888402ba2dc74c622158745d730bcf2635aa4f966ec71467bd4dc4", "origin": "soundscaper-browser-adaptation" },
+		{ "path": "native/patches/nyx-browser.patch", "sha256": "65850ec1edf7b0a67e3d57d99f1a59a9be3a1680cd69e89646f7067529960550", "origin": "soundscaper-browser-adaptation" },
 		{ "path": "native/sndfile.h", "sha256": "751908e307b1c444ed8e216f18d05a4e778df8b47b06dad306fe349de36ab6ba", "origin": "soundscaper-browser-adaptation" },
 		{ "path": "../../../../scripts/build-nyquist-wasm.mjs", "sha256": "f11498a4e5aed1b639bc5fa0eeaeb5585cbf25928d87e7a4325046d15ea0c73a", "origin": "soundscaper-reproducibility" },
 		{ "path": "../../../../scripts/audit-nyquist-wasm.mjs", "sha256": "cac11dff901bd33d835181ca108757dd41923030d5f181792e55b474c39b3de8", "origin": "soundscaper-reproducibility" },
@@ -72,7 +72,7 @@
 	],
 	"wasm": {
 		"path": "nyquist.wasm",
-		"sha256": "146d1418e8150b2d1ac3269ddae9bdf7b483cd72a62a5d28cf410b41500da214",
+		"sha256": "8a4be0c32b137c8314813bcb0f9a2e8df775c344d3354593d84b4aeb03ac707b",
 		"maximumBytes": 8388608,
 		"initialMemoryBytes": 33554432,
 		"maximumMemoryBytes": 268435456,

@@ -284,6 +284,7 @@ function controlKind(type) {
 }
 
 function parseChoiceOptions(value) {
+	if (typeof value === "string") value = value.split(",");
 	if (!Array.isArray(value)) {
 		return [];
 	}

@@ -89,11 +89,11 @@ function localMaxima(values: Float32Array): readonly number[] {
 		if (candidate <= 0) continue;
 		const start = Math.max(0, frame - MAX_POOL_RADIUS);
 		const end = Math.min(values.length - 1, frame + MAX_POOL_RADIUS);
-		let maximum = Number.NEGATIVE_INFINITY;
+		let strongest = true;
 		for (let neighbor = start; neighbor <= end; neighbor += 1) {
-			maximum = Math.max(maximum, values[neighbor]!);
+			if (values[neighbor]! > candidate) { strongest = false; break; }
 		}
-		if (candidate === maximum) result.push(frame);
+		if (strongest) result.push(frame);
 	}
 	return result;
 }
@@ -119,16 +119,19 @@ function collapseAdjacentPeaks(peaks: readonly number[]): readonly number[] {
 }
 
 function nearestFrame(target: number, candidates: readonly number[]): number | null {
-	let nearest: number | null = null;
-	let distance = Number.POSITIVE_INFINITY;
-	for (const candidate of candidates) {
-		const candidateDistance = Math.abs(candidate - target);
-		if (candidateDistance < distance) {
-			nearest = candidate;
-			distance = candidateDistance;
-		}
+	if (!candidates.length) return null;
+	let low = 0;
+	let high = candidates.length;
+	while (low < high) {
+		const middle = Math.floor((low + high) / 2);
+		if (candidates[middle]! < target) low = middle + 1;
+		else high = middle;
 	}
-	return nearest;
+	if (low === 0) return candidates[0]!;
+	if (low === candidates.length) return candidates[low - 1]!;
+	const previous = candidates[low - 1]!;
+	const next = candidates[low]!;
+	return Math.abs(previous - target) <= Math.abs(next - target) ? previous : next;
 }
 
 function frameToSample(frame: number): number {

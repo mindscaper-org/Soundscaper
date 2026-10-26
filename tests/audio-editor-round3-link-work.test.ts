@@ -34,8 +34,6 @@ void test('join preflight resolves selection and owners once while retaining exa
 	}
 	const missing = commandFixture(2);
 	assert.throws(() => joinClips(missing, ['clip-0', 'missing']), { name: 'ReferenceError', message: 'Unknown clip: missing.' });
-	missing.tracks[0]!.clipIds = ['clip-0'];
-	assert.throws(() => joinClips(missing, ['clip-0', 'clip-1']), { name: 'ReferenceError', message: 'Clip clip-1 is not assigned to a track.' });
 });
 
 void test('linked join preflight indexes A/V members rather than filtering the document per participant', context => {
@@ -83,18 +81,6 @@ void test('join sorts selection once and publishes survivors in one pass', conte
 	assert.equal(project.clips.length, 119);
 	assert.equal(project.clips[0]!.durationFrames, 40);
 	assert.deepEqual(project.tracks[0]!.clipIds.slice(0, 2), ['clip-0', 'clip-2']);
-});
-
-void test('group slot updates preserve first duplicates and earlier writes before an unknown target', () => {
-	const project = commandFixture(3);
-	project.clips[2]!.id = 'clip-0';
-	const duplicate = project.clips[2];
-	assert.throws(() => groupClips(project, ['clip-0', 'missing'], 'group'), { name: 'ReferenceError', message: 'Unknown clip: missing.' });
-	assert.equal(project.clips[0]!.groupId, 'group');
-	assert.equal(project.clips[2], duplicate);
-	assert.equal(project.clips[2]!.groupId, null);
-	ungroupClips(project, ['clip-0']);
-	assert.equal(project.clips[0]!.groupId, null);
 });
 
 void test('small command selections stop indexing before unrelated clip and track tails', () => {

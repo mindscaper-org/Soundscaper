@@ -6,6 +6,7 @@ import { hasCoreEditingProjectAuthority } from '../../../../project-schema-versi
 import { confirmFileSizeWarning } from '../../../shared/file-size-warning.ts';
 import {
 	EDITOR_PROJECT_TASK_SCOPE,
+	isCurrentAssertion,
 	type EditorProjectToken,
 	type EditorTaskScope,
 } from '../../../shared/lifecycle.ts';
@@ -19,6 +20,7 @@ import type {
 	NativeCompatibilityReport,
 	NativeProgress,
 	NativeProjectAudioSource,
+	NativeProjectDocument,
 	NativeProjectServiceRuntime,
 	NativeSavedFile,
 	NativeStorageEstimate,
@@ -36,7 +38,7 @@ type SaveResult = Readonly<NativeSavedFile & {
 interface AudacityProjectSaveDependencies {
 	readonly assertOwnership: (task: EditorTaskScope, token: EditorProjectToken) => void;
 	readonly beginProjectTask: (name: string, expectedProjectId?: string, options?: Readonly<{ scope?: string | null }>) => ProjectTask;
-	readonly beginSave: (task: EditorTaskScope, token: EditorProjectToken) => void;
+	readonly beginSave: (task: EditorTaskScope, token: EditorProjectToken, snapshot?: NativeProjectDocument) => void;
 	readonly failSave: (task: EditorTaskScope, token: EditorProjectToken) => void;
 	readonly finishSave: (task: EditorTaskScope, token: EditorProjectToken, state: 'saved') => boolean;
 	readonly getClient: () => Promise<NativeAup4Client>;
@@ -131,9 +133,9 @@ export function createNativeAudacityProjectSave(
 			client = await dependencies.getClient();
 			dependencies.assertOwnership(operation.task, operation.projectToken);
 			nativeId = sanitizeNativeId(runtime.createStableId(target.idPrefix));
-			const referencedSources = snapshot.sources.filter((source): source is NativeProjectAudioSource => (
+			const referencedSources = exportSnapshot.sources.filter((source): source is NativeProjectAudioSource => (
 				isAudioMediaKind(source.kind)
-					&& snapshot.clips.some((clip) => isAudioMediaKind(clip.kind) && clip.sourceId === source.id)
+					&& exportSnapshot.clips.some((clip) => isAudioMediaKind(clip.kind) && clip.sourceId === source.id)
 			));
 			const sourceBytes = referencedSources.reduce(
 				(total, source) => total + runtime.sourcePcmBytes(source), 0,
@@ -163,7 +165,7 @@ export function createNativeAudacityProjectSave(
 			let admittedPortable: Aup4PortableOptions = { ...portable, maxBytes, fileSizeWarningApproved: maxBytes > threshold };
 			setLocalizedStatus(runtime.setStatus, runtime.copy, target.savingKey);
 			if (updatesSaveState) {
-				dependencies.beginSave(operation.task, operation.projectToken);
+				dependencies.beginSave(operation.task, operation.projectToken, exportSnapshot);
 			}
 			await client.create(nativeId, { targetGeneration: target.generation, signal });
 			nativeCreated = true;
@@ -183,6 +185,10 @@ export function createNativeAudacityProjectSave(
 			const result = await withAudacityWorkerSizeAdmission((workerOptions) => writingClient.export(writingNativeId, workerOptions),
 				admittedPortable, target.ensureFileName(options.fileName || snapshot.title), warningOptions, 'export');
 			dependencies.assertOwnership(operation.task, operation.projectToken);
+			const validation = result.validation || await client.inspect(nativeId);
+			dependencies.assertOwnership(operation.task, operation.projectToken);
+			const rawReport = written.compatibilityReport || result.compatibilityReport || validation.compatibilityReport;
+			const compatibilityReport = runtime.normalizeCompatibilityReport(rawReport, 'save');
 			const saved = await target.saveResult(result, {
 				fileName: options.fileName || snapshot.title,
 				fileHandle,
@@ -190,23 +196,19 @@ export function createNativeAudacityProjectSave(
 				saveTarget: saveDestination,
 				signal,
 			});
-			dependencies.assertOwnership(operation.task, operation.projectToken);
 			if (saved.cancelled) {
 				if (updatesSaveState) {
 					dependencies.failSave(operation.task, operation.projectToken);
 				}
 				return { cancelled: true };
 			}
-			const validation = result.validation || await client.inspect(nativeId);
-			dependencies.assertOwnership(operation.task, operation.projectToken);
-			const compatibilityReport = dependencies.rememberCompatibilityReport(
-				written.compatibilityReport || result.compatibilityReport || validation.compatibilityReport,
-				'save', snapshot.id,
-			);
-			dependencies.assertOwnership(operation.task, operation.projectToken);
-			const mayPublish = !updatesSaveState
-				|| dependencies.finishSave(operation.task, operation.projectToken, 'saved');
+			// A successful destination acknowledgement is final even if File New or
+			// Cancel superseded this task while the file was being committed.
+			const mayPublish = updatesSaveState
+				? dependencies.finishSave(operation.task, operation.projectToken, 'saved')
+				: isCurrentAssertion(() => dependencies.assertOwnership(operation.task, operation.projectToken));
 			if (mayPublish) {
+				dependencies.rememberCompatibilityReport(rawReport, 'save', snapshot.id);
 				setLocalizedStatus(runtime.setStatus, runtime.copy, target.savedKey, undefined, 'success');
 				runtime.publishDocumentSnapshot();
 			}
@@ -263,7 +265,7 @@ async function* readAudacitySourceAudio(
 		const buffer = runtime.sourceBuffers.get(source.id);
 		const channels = buffer
 			? Array.from({ length: buffer.numberOfChannels }, (_, channel) => buffer.getChannelData(channel))
-			: await runtime.loadStoredSourceChannels(runtime.store, source);
+			: await readStoredAudacityChannels(runtime, source, operation.task.signal);
 		assertOwnership(operation.task, operation.projectToken);
 		if (!channels?.length) {
 			throw createLocalizedError(Error, runtime.copy, 'sourcePcmUnavailable', {
@@ -272,6 +274,32 @@ async function* readAudacitySourceAudio(
 		}
 		yield { sourceId: source.id, sampleRate: source.sampleRate, channels };
 	}
+}
+
+/** Audacity can downmix wider sources; StaffPad's stereo-only loader cannot. */
+async function readStoredAudacityChannels(
+	runtime: NativeProjectServiceRuntime,
+	source: NativeProjectAudioSource,
+	signal: AbortSignal,
+): Promise<readonly Float32Array[] | null | undefined> {
+	if (!runtime.store.readSourceChunks) return runtime.loadStoredSourceChannels(runtime.store, source);
+	signal.throwIfAborted();
+	const channels = Array.from({ length: source.channelCount }, () => new Float32Array(source.frameCount));
+	let offset = 0;
+	for await (const chunk of runtime.store.readSourceChunks(source.storageKey || source.id, { signal })) {
+		signal.throwIfAborted();
+		const packet: readonly Float32Array[] = 'channels' in chunk ? chunk.channels : chunk;
+		const frames = packet[0]?.length ?? 0;
+		if (packet.length !== source.channelCount || frames < 1 || offset + frames > source.frameCount
+			|| packet.some(channel => !(channel instanceof Float32Array) || channel.length !== frames)) {
+			throw new Error(`Audacity source ${source.id} has invalid stored PCM chunks.`);
+		}
+		for (let channel = 0; channel < channels.length; channel += 1) channels[channel]!.set(packet[channel]!, offset);
+		offset += frames;
+	}
+	signal.throwIfAborted();
+	if (offset !== source.frameCount) throw new Error(`Audacity source ${source.id} ended early.`);
+	return channels;
 }
 
 function portableOptions(

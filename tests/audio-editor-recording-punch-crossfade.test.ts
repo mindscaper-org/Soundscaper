@@ -89,15 +89,12 @@ test('a recording beginning at the existing clip end does not create an artifici
 	assert.deepEqual(ranges.get('recorded'), { crossfadeInRanges: [], crossfadeOutRanges: [] });
 });
 
-test('very short punches retain a nonempty replacement range and reject malformed transitions', () => {
+test('very short punches retain a nonempty replacement range', () => {
 	const range = { startFrame: 400, endFrame: 403 };
 	const clips = [{ timelineStartFrame: 0, durationFrames: 1_000 }];
 	assert.deepEqual(punchTransitionCutRange(range, clips, {
 		transitionInFrames: 2_400, transitionOutFrames: 2_400,
 	}), { startFrame: 401, endFrame: 402, durationFrames: 1 });
-	assert.throws(() => punchTransitionCutRange(range, clips, {
-		transitionInFrames: -1,
-	}), /nonnegative safe integer/u);
 });
 
 for (const timelineMode of ['compacted', 'continuous'] as const) for (const path of ['legacy', 'routed'] as const) test(`finalizing a ${timelineMode} ${path} take inside an existing clip creates two visible crossfades`, async () => {

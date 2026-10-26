@@ -60,7 +60,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 				.filter((track) => track.type === 'video').length;
 			await preflightStorage(Math.max(file.size * 2, 16 * 1024 * 1024), 'import');
 			let canonicalVideoFile: Blob = file;
-			extractor = await createAudioEditorVideoFrameExtractor(canonicalVideoFile);
+			extractor = await createAudioEditorVideoFrameExtractor(canonicalVideoFile, { signal: importOptions.signal });
 			const sampleRate = projectSampleRate();
 			const ffmpegTimingProbe = createFfmpegVideoTimingProbe(ffmpeg);
 			// The native helper probes by opaque capability id and its failure
@@ -95,7 +95,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 					signal: importOptions.signal,
 				});
 				extractor.dispose();
-				extractor = await createAudioEditorVideoFrameExtractor(canonicalVideoFile);
+				extractor = await createAudioEditorVideoFrameExtractor(canonicalVideoFile, { signal: importOptions.signal });
 				const conformedProbe = createFfmpegVideoTimingProbe(ffmpeg);
 				timingProbe = await probeVideoTiming(canonicalVideoFile, {
 					probes: [conformedProbe, createContainerVideoTimingProbe()]
@@ -200,14 +200,14 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 				timingAsset = published.reference;
 				timingAssetPublication = published.publication;
 			}
-			const thumbnailTimes = audioEditorVideoThumbnailTimes(extractor.metadata.durationSeconds);
+			const thumbnailTimes = audioEditorVideoThumbnailTimes(durationFrames / sampleRate);
 			let sourcePreviewUnavailable = false;
 			const reportsAlpha = timingProbe.characteristics.hasAlpha === true;
 			try {
 				const poster = await extractor.capture(0, {
 					maximumWidth: 640,
 					maximumHeight: 360,
-					alpha: reportsAlpha,
+					alpha: reportsAlpha, signal: importOptions.signal,
 				});
 				await savePreviewDerivative({
 					timestamp: 0,
@@ -220,12 +220,13 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 					},
 				});
 			} catch (error) {
+				importOptions.signal?.throwIfAborted();
 				// A preview derivative is disposable; the original media remains importable.
 				sourcePreviewUnavailable = error instanceof VideoPreviewSourceGeometryTooLargeError;
 			}
 			for (const timestamp of sourcePreviewUnavailable ? [] : thumbnailTimes) {
 				try {
-					const thumbnail = await extractor.capture(timestamp, { alpha: reportsAlpha });
+					const thumbnail = await extractor.capture(timestamp, { alpha: reportsAlpha, signal: importOptions.signal });
 					await savePreviewDerivative({
 						timestamp: thumbnail.timestampSeconds,
 						type: 'thumbnail',
@@ -237,6 +238,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 						},
 					});
 				} catch (error) {
+					importOptions.signal?.throwIfAborted();
 					// Keep the rest of the filmstrip when one seek/capture fails.
 					if (error instanceof VideoPreviewEncodedPayloadTooLargeError) break;
 				}
@@ -244,9 +246,9 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 
 			const context = await engine.getAudioContext({ resume: false });
 			try {
-				const { decodedAudio, declaredAudioSampleRate } = await decodeImportedVideoAudio({
+				const { decodedAudio, declaredAudioSampleRate, programmeFrameCount } = await decodeImportedVideoAudio({
 					file: canonicalVideoFile,
-					projectSampleRate: sampleRate,
+					projectSampleRate: sampleRate, nativeContextSampleRate: context.sampleRate ?? sampleRate,
 					durationSeconds: timelineDurationFrames / sampleRate,
 					hasAudio: timingProbe.characteristics.audioStreams?.some(() => true),
 					signal: importOptions.signal,
@@ -268,8 +270,8 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 						context,
 						copy,
 					);
-					const resampled = await canonicalizeBuffer(decodedBuffer, context, sampleRate, copy);
-					canonicalAudio = fitAudioBufferToFrames(resampled, timelineDurationFrames, context);
+					const resampled = await canonicalizeBuffer(decodedBuffer, context, sampleRate, copy, { preserveChannels: true });
+					canonicalAudio = fitAudioBufferToFrames(resampled, programmeFrameCount ?? timelineDurationFrames, context);
 				}
 			} catch {
 				throwIfImportAborted(importOptions.signal);
@@ -310,7 +312,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 				cacheSourceBuffer(audioSourceId, canonicalAudio);
 				const peaks = await generateWaveformPeaks(audioBufferChannels(canonicalAudio), copy);
 				sourcePeaks.set(audioSourceId, peaks);
-				await store.saveAnalysis(peakCacheKey(audioSourceId), peaks);
+				await Promise.resolve(store.saveAnalysis(peakCacheKey(audioSourceId), peaks)).catch(() => undefined);
 			}
 
 			const sourceRate = timingProbe.decision === 'timing-asset' ? timingProbe.nominalRate : timingProbe.rate;
@@ -450,7 +452,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 							name: `${trackName} Audio`,
 							laneGroupId,
 							armed: false,
-						}),
+						}, sampleRate),
 						index: index + 1,
 					});
 					videoTrack = { id: videoTrackId, type: 'video' };

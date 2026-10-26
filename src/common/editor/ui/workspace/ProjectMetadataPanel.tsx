@@ -7,15 +7,19 @@ import MetadataEditorTabs, { type MetadataEditorTab } from '../MetadataEditorTab
 import { createProjectAdmEditorValue } from '../adm-metadata-editor-model.ts';
 import { createBextMetadataEditorValue } from '../bext-metadata-editor-model.ts';
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
-import { freesoundAttributionCopy } from '../../../i18n/freesound-attribution-copy.js';
+import { FREESOUND_ATTRIBUTION_ENGLISH_COPY } from '../../../i18n/freesound-attribution-copy.js';
+import { useTranslationScope } from '../use-translation-scope.ts';
 import { MetadataEditorField } from './LabelManagerRows.jsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import Id3MetadataFields from '../Id3MetadataFields.tsx';
 import { id3ProjectFieldValue, isId3ProjectTag, updateId3ProjectField } from '../../id3-descriptive-fields.ts';
 
 const ProjectAttributionTab = lazyEditorModule(() => import('./ProjectAttributionTab.tsx'));
 
 export interface ProjectMetadataPanelProps {
+	readonly controller?: unknown;
 	readonly project: Readonly<Record<string, unknown>> | null | undefined;
+	readonly runtimeProject?: Readonly<Record<string, unknown>> | null;
 	readonly copy: Readonly<Record<string, string>>;
 	readonly locale?: string;
 	readonly disabled: boolean;
@@ -32,7 +36,9 @@ function objectValue(value: unknown): Readonly<Record<string, unknown>> {
 }
 
 export function ProjectMetadataPanel({
+	controller,
 	project,
+	runtimeProject = null,
 	copy,
 	locale,
 	disabled,
@@ -46,7 +52,7 @@ export function ProjectMetadataPanel({
 	const tags = objectValue(metadata.tags);
 	const bext = createBextMetadataEditorValue(project);
 	const adm = createProjectAdmEditorValue(project);
-	const attributionTabLabel = freesoundAttributionCopy(locale, copy).metadataTab;
+	const attributionTabLabel = useTranslationScope('freesoundAttribution', FREESOUND_ATTRIBUTION_ENGLISH_COPY, locale, copy).metadataTab;
 	const fields = [
 		['title', copy.metadataTitle],
 		['artist', copy.metadataArtist],
@@ -70,6 +76,7 @@ export function ProjectMetadataPanel({
 				onChange={setActiveTab}
 			/>
 			<div
+				key={editorProjectEditSessionKey(controller, project?.id)}
 				role="tabpanel"
 				aria-label={activeTab === 'bext'
 					? copy.metadataBextTab
@@ -106,7 +113,7 @@ export function ProjectMetadataPanel({
 						))}
 					</div>
 				) : activeTab === 'id3' ? (
-					<Id3MetadataFields key={String(project?.id ?? '')} metadata={metadata} copy={copy} locale={locale}
+					<Id3MetadataFields key={editorProjectEditSessionKey(controller, project?.id)} metadata={metadata} copy={copy} locale={locale}
 						disabled={disabled} onUpdate={onUpdate} />
 				) : activeTab === 'sequence' ? (
 					sequenceEditor
@@ -128,7 +135,7 @@ export function ProjectMetadataPanel({
 				) : (
 					<Suspense fallback={<p role="status" aria-live="polite">{copy.loading}</p>}>
 						<ProjectAttributionTab
-							project={project}
+							project={runtimeProject ?? project}
 							copy={copy}
 							locale={locale}
 							fileService={fileService}

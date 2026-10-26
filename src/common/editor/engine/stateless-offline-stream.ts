@@ -2,9 +2,9 @@
 
 import { readClipLoop } from '../audio-clip-loop.ts';
 import { planExactAudioWarpWindow } from './audio-warp-fallback.ts';
-import { audioBufferChannels, clampFrame } from './buffer-math.ts';
+import { audioBufferChannels } from './buffer-math.ts';
 import { projectEffectRacks } from './project-effects.ts';
-import { resolveRenderTailSeconds } from './rendering-range.ts';
+import { resolveRenderFrameRange, resolveRenderTailSeconds } from './rendering-range.ts';
 import type { EngineRuntimeHost } from './runtime-types.ts';
 import type { EngineProject } from './types.ts';
 import type { EngineRealtimeRenderOptions, EngineRenderResult } from './public-api.ts';
@@ -51,8 +51,7 @@ export async function renderStatelessOfflineToSink(
 	if ((options.sampleRate ?? engine.sampleRate) !== engine.sampleRate) throw new RangeError('Offline windows require the project sample rate.');
 	const chunkFrames = options.chunkFrames ?? 4_096;
 	if (!Number.isSafeInteger(chunkFrames) || chunkFrames < 256 || chunkFrames > 65_536) throw new RangeError('Offline packet size is out of bounds.');
-	const startFrame = clampFrame(options.startFrame ?? 0, 0, engine.durationFrames);
-	const endFrame = clampFrame(options.endFrame ?? engine.durationFrames, startFrame, engine.durationFrames);
+	const { fromFrame: startFrame, toFrame: endFrame } = resolveRenderFrameRange(options.startFrame ?? 0, options.endFrame ?? engine.durationFrames);
 	if (endFrame <= startFrame) throw new RangeError('Offline streaming requires a non-empty range.');
 	const tailFrames = Math.round(resolveRenderTailSeconds(project, options.includeTail ?? false, options) * engine.sampleRate);
 	if (tailFrames !== 0) throw new TypeError('Bounded stateless streaming requires a tail-free graph.');

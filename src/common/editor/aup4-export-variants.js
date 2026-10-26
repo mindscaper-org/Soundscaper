@@ -25,6 +25,23 @@ export function normalizeAup4ExportSource(plan, sourceAudio) {
 	assertExportPlan(plan);
 	const sourceId = String(sourceAudio?.sourceId || '');
 	const variants = plan.sources.filter((variant) => variant.inputSourceId === sourceId);
+	return normalizeVariants(variants, sourceAudio);
+}
+
+/** One private snapshot/session owns the partition; no PCM is retained here. */
+export function createAup4ExportSourceNormalizer(plan) {
+	assertExportPlan(plan);
+	const byInput = new Map();
+	for (const variant of plan.sources) {
+		const group = byInput.get(variant.inputSourceId);
+		if (group) group.push(variant);
+		else byInput.set(variant.inputSourceId, [variant]);
+	}
+	return (sourceAudio) => normalizeVariants(byInput.get(String(sourceAudio?.sourceId || '')) ?? [], sourceAudio);
+}
+
+function normalizeVariants(variants, sourceAudio) {
+	const sourceId = String(sourceAudio?.sourceId || '');
 	if (!variants.length) return [];
 	const inputSource = variants[0].inputSource;
 	const inputChannels = normalizeInputChannels(sourceAudio.channels, inputSource);
@@ -97,6 +114,16 @@ export function resampleChannels(channels, inputRate, outputRate, outputFrames =
 	const resampler = createStreamingWindowedSincResampler(inputRate, outputRate, channels.length);
 	const head = resampler.push(channels); const tail = resampler.finish(outputFrames);
 	return head.map((values, channel) => {
+		if (Number.isSafeInteger(outputFrames) && outputFrames >= 0) {
+			const output = new Float32Array(Math.min(values.length + tail[channel].length, outputFrames));
+			const headFrames = Math.min(values.length, output.length);
+			output.set(headFrames === values.length ? values : values.subarray(0, headFrames));
+			if (headFrames < output.length) {
+				const remainder = tail[channel];
+				output.set(output.length - headFrames === remainder.length ? remainder : remainder.subarray(0, output.length - headFrames), headFrames);
+			}
+			return output;
+		}
 		const output = new Float32Array(values.length + tail[channel].length);
 		output.set(values);
 		output.set(tail[channel], values.length);

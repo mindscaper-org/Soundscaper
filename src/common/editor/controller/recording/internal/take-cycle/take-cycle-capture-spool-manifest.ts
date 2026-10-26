@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { projectString } from '../../../../project-validation-primitives.ts';
 import {
 	TAKE_CYCLE_CAPTURE_MAXIMUM_PASSES,
 	TAKE_CYCLE_CAPTURE_MAXIMUM_SPANS,
@@ -106,7 +106,7 @@ export function normalizeDraft(value: unknown, draftTokenValue: unknown): TakeCy
 		version: DRAFT_VERSION,
 		draftId: stableId(record.draftId, 'take cycle draftId'),
 		draftToken: stableId(draftTokenValue, 'take cycle draft token'),
-		projectId: stableId(record.projectId, 'take cycle projectId'),
+		projectId: projectString(record.projectId, 'take cycle projectId'),
 		publicationGeneration: positiveInteger(record.publicationGeneration, 'take cycle publicationGeneration'),
 		lane: Object.freeze({
 			envelopeId: stableId(laneRecord.envelopeId, 'take cycle envelopeId'),

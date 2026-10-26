@@ -124,7 +124,10 @@ export function processBiquad(input, filter) {
 	filter.x1 = input;
 	filter.y2 = filter.y1;
 	filter.y1 = output;
-	return Math.fround(output);
+	const rounded = Math.fround(output);
+	// Supported float PCM can exceed Float32 only between the weighting stages.
+	// Keep finite measurement values; ordinary Audacity precision is unchanged.
+	return Number.isFinite(rounded) ? rounded : output;
 }
 
 function addLoudnessBlock(histogram, ring, validLength) {

@@ -109,9 +109,10 @@ export async function saveCurrentScapeArchiveManifest(
 				key: 'ui.projectMedia.noArchive', fallback: PROJECT_MEDIA_COPY_BY_LOCALE.en.noArchive,
 			} });
 	}
-	await saveArchiveManifest(
+	const saved = await saveArchiveManifest(
 		record.manifest,
 		runtime.fileService as Parameters<typeof saveArchiveManifest>[1],
 	);
+	if (saved.cancelled) return Object.freeze({ saved: false, reason: null });
 	return Object.freeze({ saved: true, reason: null });
 }

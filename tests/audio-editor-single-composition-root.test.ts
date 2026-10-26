@@ -2,7 +2,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
 
@@ -24,29 +24,6 @@ const SOURCES = sourceFiles(SOURCE_ROOT).map((path) => ({
 	path: relative(REPOSITORY_ROOT, path).replaceAll('\\', '/'),
 	text: readFileSync(path, 'utf8'),
 }));
-
-test('the retired second composition root and its workspace owner are gone', () => {
-	for (const retired of [
-		'src/common/editor/ui/AudioEditorBootstrap.jsx',
-		'src/common/editor/ui/workspace/DefaultAudioEditorWorkspace.jsx',
-	]) {
-		assert.equal(existsSync(join(REPOSITORY_ROOT, retired)), false, `${retired} must stay deleted`);
-	}
-
-	for (const source of SOURCES) {
-		assert.doesNotMatch(source.text, /AudioEditorBootstrap\.jsx/u, source.path);
-		assert.doesNotMatch(source.text, /DefaultAudioEditorWorkspace/u, source.path);
-	}
-
-	const suppressions = JSON.parse(
-		readFileSync(join(REPOSITORY_ROOT, 'eslint-suppressions.json'), 'utf8'),
-	) as Record<string, unknown>;
-	assert.equal(Object.hasOwn(suppressions, 'src/common/editor/ui/AudioEditorBootstrap.jsx'), false);
-	assert.equal(
-		Object.hasOwn(suppressions, 'src/common/editor/ui/workspace/DefaultAudioEditorWorkspace.jsx'),
-		false,
-	);
-});
 
 test('the shared editor app is a presentation seam with no self-constructing default export', () => {
 	const app = SOURCES.find((source) => source.path === 'src/common/editor/ui/AudioEditorApp.jsx');

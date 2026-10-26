@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { useRef } from 'react';
 import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
-import { meterChannelReadings, productionStripMeter, type ScalarMeterSnapshot } from '../meter-channel-readings.ts';
+import { usePlaybackMeterVisibility } from '../usePlaybackMeterVisibility.ts';
+import { meterChannelReadings, productionStripMeter, sameMeterChannelDisplay, type ScalarMeterSnapshot } from '../meter-channel-readings.ts';
 import type { StripMeterSnapshot } from '../../production-audio/strip-meter-session.ts';
 
 interface MixerMeterTelemetrySnapshot {
@@ -15,6 +17,7 @@ interface MixerMeterTelemetrySnapshot {
 }
 
 interface MixerMeterTelemetryController {
+	readonly engine?: object;
 	readonly getTelemetrySnapshot: () => MixerMeterTelemetrySnapshot;
 	readonly subscribeTelemetry: (listener: () => void) => () => void;
 }
@@ -30,6 +33,8 @@ export function MixerTelemetryMeters({
 	scope: MixerMeterScope;
 	targetId: string;
 }>) {
+	const meterRef = useRef<HTMLDivElement>(null);
+	usePlaybackMeterVisibility(controller.engine, scope, targetId, meterRef);
 	const meter = useAudioEditorTelemetrySelector(
 		controller,
 		(telemetry: MixerMeterTelemetrySnapshot) => {
@@ -39,14 +44,17 @@ export function MixerTelemetryMeters({
 			if (scope === 'master') return telemetry.meters?.master;
 			return telemetry.meters?.[`${scope}s`]?.[targetId];
 		},
+		sameMeterChannelDisplay,
 	);
 
-	return <>{meterChannelReadings(meter).map((reading, index) => <MixerMeterBar key={index} {...reading} />)}</>;
+	return <>{meterChannelReadings(meter).map((reading, index) => <MixerMeterBar key={index} {...reading} meterRef={index === 0 ? meterRef : undefined} />)}</>;
 }
 
-function MixerMeterBar({ level, clipped }: Readonly<{ level: number; clipped: boolean }>) {
+function MixerMeterBar({ level, clipped, meterRef }: Readonly<{
+	level: number; clipped: boolean; meterRef?: React.RefObject<HTMLDivElement | null>;
+}>) {
 	const clampedLevel = Math.max(0, Math.min(100, level));
-	return <div className="mixer-channel__meter-bar">
+	return <div ref={meterRef} className="mixer-channel__meter-bar">
 		<div className={`mixer-channel__meter-clip ${clipped ? 'mixer-channel__meter-clip--active' : ''}`} />
 		<div className="mixer-channel__meter-fill" style={{ top: 0, height: '100%', transformOrigin: 'bottom', transform: `scaleY(${clampedLevel / 100})` }} />
 	</div>;

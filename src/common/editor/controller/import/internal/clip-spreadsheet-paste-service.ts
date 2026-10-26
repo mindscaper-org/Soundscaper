@@ -7,6 +7,7 @@ import {
 	type ClipSpreadsheetInsertSource, type ClipSpreadsheetNewRow,
 } from '../../../clip-spreadsheet-insert.ts';
 import type { AudioEditorCommand } from '../../../commands/protocol.ts';
+import type { ImportBusyClaim } from '../../shared/import-busy-state.ts';
 import { peakCacheKey } from '../../../source-analysis-cache.ts';
 import { isAudioEditorVideoFile } from '../../../video-media.js';
 import { resolveMediaImportVideoRoute } from './media-import-video-route.ts';
@@ -41,6 +42,7 @@ export interface ClipSpreadsheetPasteDependencies {
 	assertProject(token: EditorProjectToken): void;
 	editingBlocked(): boolean;
 	setImporting(value: boolean): void;
+	claimImporting?(): ImportBusyClaim;
 	createId(prefix: string): string;
 	commit(command: AudioEditorCommand): unknown;
 	prepareAudioSource(file: File, options: Readonly<{
@@ -71,8 +73,9 @@ export function createClipSpreadsheetPasteService(dependencies: ClipSpreadsheetP
 		const sourcesById = new Map(project.sources.map(source => [source.id, source]));
 		const sourcesByName = new Map(project.sources.map(source => [Reflect.get(source, 'name') as unknown, source]));
 		for (const referenceValue of [...rows.map(row => row.source), ...edits.filter(edit => edit.column === 'source').map(edit => edit.value)]) {
-			const reference = referenceValue?.trim();
-			const source = (reference ? sourcesById.get(reference) : undefined) ?? sourcesByName.get(reference);
+			const reference = referenceValue;
+			const source = (reference ? sourcesById.get(reference) : undefined) ?? sourcesByName.get(reference)
+				?? (reference ? sourcesById.get(reference.trim()) ?? sourcesByName.get(reference.trim()) : undefined);
 			if (source && dependencies.missingSourceIds.has(source.id)) throw new RangeError(`Relink the missing source before pasting clips: ${reference ?? source.id}`);
 		}
 		const fileByReference = await validatedFiles(files);
@@ -107,7 +110,8 @@ export function createClipSpreadsheetPasteService(dependencies: ClipSpreadsheetP
 			task.assertCurrent(); dependencies.assertProject(projectToken);
 			if (dependencies.getProject() !== project) throw new Error('The project changed before the spreadsheet paste could finish.');
 		};
-		dependencies.setImporting(true);
+		const importing = dependencies.claimImporting?.();
+		if (!importing) dependencies.setImporting(true);
 		dependencies.publish();
 		try {
 			for (const reference of missing) {
@@ -139,7 +143,7 @@ export function createClipSpreadsheetPasteService(dependencies: ClipSpreadsheetP
 			const insertCommand = planClipSpreadsheetInsert({ ...project, sources: [...project.sources, ...sources] }, rows, {
 				createId: dependencies.createId, resolvedSourceIds: resolved,
 			});
-			dependencies.setImporting(false);
+			finishImporting();
 			importingHeld = false;
 			if (dependencies.editingBlocked()) throw new RangeError('Clip editing is currently unavailable.');
 			assertCurrent();
@@ -154,10 +158,14 @@ export function createClipSpreadsheetPasteService(dependencies: ClipSpreadsheetP
 		} finally {
 			for (const id of stagedSourceIds) dependencies.protectedSourceIds.delete(id);
 			if (ownsProject()) {
-				if (importingHeld) dependencies.setImporting(false);
+				if (importingHeld) finishImporting();
 				dependencies.publish();
 			}
 			progress.finish(); task.finish();
+		}
+		function finishImporting(): void {
+			if (importing) importing.finish();
+			else dependencies.setImporting(false);
 		}
 	};
 }
@@ -165,8 +173,8 @@ export function createClipSpreadsheetPasteService(dependencies: ClipSpreadsheetP
 async function validatedFiles(files: readonly ClipSpreadsheetImportFile[]): Promise<Map<string, File>> {
 	const result = new Map<string, File>();
 	for (const { reference, file } of files) {
-		const key = reference.trim();
-		if (!key || result.has(key)) throw new RangeError('Every selected spreadsheet file needs one unique source reference.');
+		const key = reference;
+		if (!key.trim() || result.has(key)) throw new RangeError('Every selected spreadsheet file needs one unique source reference.');
 		if (!file || typeof file.name !== 'string' || typeof file.arrayBuffer !== 'function'
 			|| file.type.startsWith('image/')
 			|| isProjectFileName(file.name) || /\.(?:aup[34]?|sesx|dawproject|rpp|otio|fcpxml|xml|zip)$/iu.test(file.name)) {

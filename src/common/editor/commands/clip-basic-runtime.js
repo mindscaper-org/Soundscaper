@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { frozenTrimParticipants } from './frozen-trim-participants.ts';
+
 import {
 	assertFrame,
 	clipEndFrame,
@@ -7,7 +9,8 @@ import {
 	findClipTrack,
 } from '../project.js';
 import { shapesForNewClipFades } from '../audio-clip-transition-gain.ts';
-import { clipLoopUpdateFields } from '../audio-clip-loop.ts';
+import { clipLoopUpdateFields, withoutClipLoop } from '../audio-clip-loop.ts';
+import { resampledClipSourceStretchFields } from '../clip-source-stretch-memory.ts';
 import { collectRelatedClipIds, mergeEditingRanges } from './editing-selection-authority.ts';
 import { hasCoreEditingProjectAuthority, hasProjectBinMediaAuthority } from '../project-schema-version.ts';
 import {
@@ -73,13 +76,12 @@ export function removeClips(project, clipIds, rippleMode = 'none') {
 	}
 	project.clips = project.clips.filter((candidate) => !removedIds.has(candidate.id));
 	if (rippleMode !== 'track') return;
-	const commitTakeGraph = planTakeGraphClipRipple(project, takeGraphClipRemovals(removedByTrack));
+	const removals = takeGraphClipRemovals(removedByTrack);
+	const commitTakeGraph = planTakeGraphClipRipple(project, removals);
 	for (const track of project.tracks) {
 		const removed = removedByTrack.get(track.id) || [];
 		if (!removed.length || !Array.isArray(track.clipIds)) continue;
-		const removedRanges = mergeEditingRanges(removed.map((clip) => ({
-			startFrame: clip.timelineStartFrame, endFrame: clipEndFrame(clip),
-		})));
+		const removedRanges = removals.get(track.id);
 		const shiftAt = createCompletedFrameSum(removedRanges.map(range => ({ endFrame: range.endFrame, frames: range.durationFrames })));
 		for (const clipId of track.clipIds) {
 			const clip = requireIndexedClip(clipById, clipId);
@@ -96,10 +98,10 @@ function takeGraphClipRemovals(removedByTrack) {
 	const removals = new Map();
 	for (const [trackId, removed] of removedByTrack) {
 		if (!removed.length) continue;
-		removals.set(String(trackId), removed.map((clip) => ({
+		removals.set(String(trackId), mergeEditingRanges(removed.map((clip) => ({
 			startFrame: clip.timelineStartFrame,
 			endFrame: clipEndFrame(clip),
-		})));
+		}))));
 	}
 	return removals;
 }
@@ -144,8 +146,11 @@ export function replaceClipSource(project, clipId, sourceId) {
 	if (hasProjectBinMediaAuthority(project) && source.kind !== clip.kind) {
 		throw new RangeError(`A ${clip.kind} clip cannot reference a ${source.kind} source.`);
 	}
+	const previous = project.sources.find((candidate) => candidate.id === clip.sourceId);
 	const updated = normalizeClipForProject(project, {
 		...clip,
+		...(previous?.frameCount === source.frameCount && previous.sampleRate === source.sampleRate
+			? resampledClipSourceStretchFields(clip, previous, source) : {}),
 		sourceId: source.id,
 		renderCacheRevision: (clip.renderCacheRevision ?? 0) + 1,
 		id: clip.id,
@@ -274,10 +279,12 @@ export function replaceRenderedClips(project, command) {
 				? normalizeClipForProject(project, {
 					...current,
 					sourceId: target.source.id,
+					opaqueExtensions: withoutClipLoop(current.opaqueExtensions),
 					timelineStartFrame,
 					sourceStartFrame: 0,
 					sourceDurationFrames: durationFrames,
 					durationFrames,
+					warpMap: null,
 					gain: 1,
 					fadeInFrames: 0,
 					fadeOutFrames: 0,
@@ -365,10 +372,12 @@ export function collectClipTrimIds(project, activeClipId, edge) {
 	const activeClip = findClip(project, activeClipId);
 	const activeTrack = activeClip ? findClipTrack(project, activeClip.id) : null;
 	if (!activeClip || !activeTrack) return [];
-	return collectClipTransformIds(project, activeClip.id).filter((clipId) => {
+	const ids = collectClipTransformIds(project, activeClip.id);
+	const participants = frozenTrimParticipants(project, ids.length);
+	return ids.filter((clipId) => {
 		if (clipId === activeClip.id) return true;
-		const clip = findClip(project, clipId);
-		const track = clip ? findClipTrack(project, clip.id) : null;
+		const clip = participants.clip(clipId);
+		const track = clip ? participants.owner(clip.id) : null;
 		return Boolean(clip && track && track.id !== activeTrack.id);
 	});
 }

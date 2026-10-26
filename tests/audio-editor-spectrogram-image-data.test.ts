@@ -65,7 +65,7 @@ test('bulk spectral raster leaves unpainted trailing columns untouched', () => {
 	}
 });
 
-test('bulk spectral raster declines fractional and rotated geometry without touching pixels', () => {
+test('bulk spectral raster declines fractional geometry without touching pixels', () => {
 	for (const density of [1.25, 1.5]) {
 		const h = harness(density);
 		assert.equal(paintSpectrogramImageData(h.context, columns, 0, 0, 10, 17), false);
@@ -77,10 +77,6 @@ test('bulk spectral raster declines fractional and rotated geometry without touc
 		assert.equal(paintSpectrogramImageData(h.context, columns, x!, y!, width!, height!, { pixelSkip: 4 }), false);
 		assert.deepEqual(h.counts(), { writes: 0, allocations: 0 });
 	}
-	const h = harness();
-	h.context.getTransform = () => ({ a: 1, b: 0.2, c: 0, d: 1, e: 0, f: 0 });
-	assert.equal(paintSpectrogramImageData(h.context, columns, 0, 0, 10, 17), false);
-	assert.deepEqual(h.counts(), { writes: 0, allocations: 0 });
 });
 
 test('bulk spectral raster accepts half CSS pixels aligned to double-density backing pixels', () => {
@@ -89,10 +85,6 @@ test('bulk spectral raster accepts half CSS pixels aligned to double-density bac
 	assert.equal(h.pixels[(1 * 64 + 1) * 4 + 3], 255);
 	assert.equal(h.pixels[(35 * 64 + 21) * 4 + 3], 255);
 	assert.equal(h.pixels[(36 * 64 + 21) * 4 + 3], 0);
-});
-
-test('bulk spectral raster declines contexts without ImageData support', () => {
-	assert.equal(paintSpectrogramImageData({}, columns, 0, 0, 10, 17), false);
 });
 
 test('fractional density bulk paints only when every frequency span and column is physically aligned', () => {

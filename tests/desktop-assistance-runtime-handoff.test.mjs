@@ -156,6 +156,34 @@ test('publisher handoff imports the exact five target archives without rebuildin
 	});
 });
 
+test('unpublished archives seed both product imports offline and corrupted local bytes fail closed', async () => {
+	await fixture(async ({ buildRoot, handoffRoot, native, archiveRoot, bundles }) => {
+		const options = { buildRoot, handoffRoot, sourceRevision: SOURCE_REVISION,
+			targetId: TARGET_ID, sourceNativeManifest: native };
+		await exportDesktopAssistanceRuntimeHandoff(options);
+		const fetchImpl = async () => { throw new Error('Unpublished runtime archives must stay offline.'); };
+		for (const product of ['soundscaper', 'framescaper']) {
+			const destination = join(handoffRoot, '..', product, 'archives');
+			const imported = await stageDesktopAssistanceRuntimeHandoff({ ...options,
+				archiveRoot: destination, cacheRoot: archiveRoot, fetchImpl });
+			assert.equal(imported.distribution.manifest.bundles.length, 5);
+			for (const bundle of bundles) {
+				const bytes = await readFile(join(destination, bundle.familyId, bundle.runtimeVersion,
+					TARGET_ID, `${bundle.archive.sha256}.tar.gz`));
+				assert.equal(sha256(bytes), bundle.archive.sha256);
+			}
+		}
+		const bundle = bundles[2];
+		await writeFile(join(archiveRoot, bundle.familyId, bundle.runtimeVersion,
+			TARGET_ID, `${bundle.archive.sha256}.tar.gz`), 'corrupted artifact');
+		const destination = join(handoffRoot, '..', 'refused-product');
+		await assert.rejects(stageDesktopAssistanceRuntimeHandoff({ ...options,
+			archiveRoot: destination, cacheRoot: archiveRoot, fetchImpl }), /digest|length/u);
+		await assert.rejects(readdir(destination), /ENOENT/u,
+			'no archive may be copied into the package before the entire handoff verifies');
+	});
+});
+
 test('handoff accepts a full GET without Content-Length after exact HEAD and Range checks', async () => {
 	await fixture(async ({ buildRoot, handoffRoot, native, archiveRoot, bundles }) => {
 		const options = { buildRoot, handoffRoot, sourceRevision: SOURCE_REVISION,

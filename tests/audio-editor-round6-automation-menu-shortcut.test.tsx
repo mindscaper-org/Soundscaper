@@ -22,9 +22,11 @@ for (const owner of ['ctrlKey', 'metaKey', 'altKey', 'defaultPrevented', 'plain'
 				lane={null} descriptor={stripParameterDescriptor({ kind: 'strip', strip: { kind: 'track', id: 'track' }, parameterId: 'gain' })} width={500} height={250} bodyTop={0}
 				copy={{}} onKind={() => undefined} onDelete={() => undefined} onClose={() => undefined} />
 			</svg>); });
-			const surface = dom.one('[role="menu"]');
-			const first = dom.one('[role="menuitemradio"]');
-			const close = dom.one('[role="menuitem"]');
+			const surface = dom.container.ownerDocument.body.querySelector('[role="menu"]');
+			assert.ok(surface);
+			const first = surface.querySelector('[role="menuitemradio"]');
+			const close = surface.querySelector('[role="menuitem"]');
+			assert.ok(first); assert.ok(close);
 			assert.equal(first.ownerDocument.activeElement, first);
 			let prevented = false; let stopped = false;
 			await act(async () => { reactProps(surface).onKeyDown?.({

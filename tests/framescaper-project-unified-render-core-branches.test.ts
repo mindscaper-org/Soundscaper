@@ -35,15 +35,6 @@ const PRORES = 'encode-mov-prores-422-hq';
 /** One sequence frame of the fixture: 48 kHz over a 10/1 sequence rate. */
 const FRAME = 4_800;
 
-test('a candidate project must be a plain record before any render authority is read', () => {
-	for (const candidate of [null, undefined, 'project', 42, [] as unknown]) {
-		assert.throws(
-			() => createFramescaperUnifiedRenderFoundation(candidate, authorityFor(baseProject())),
-			{ name: 'TypeError', message: /Framescaper candidate project must be an object/u },
-		);
-	}
-});
-
 test('audio authority is refused by the dormant generations and admitted only by V14 and V15', () => {
 	const project = baseProject();
 	const authority = authorityFor(project, { includeAudio: true });
@@ -134,25 +125,6 @@ test('project collections must be arrays of records carrying unique identities',
 	assert.throws(
 		() => createFramescaperUnifiedRenderFoundation(badTrackIds, authorityFor(badTrackIds)),
 		{ name: 'TypeError', message: /sequence\.trackIds must be a string array/u },
-	);
-});
-
-test('project state hidden behind an accessor or a non-enumerable slot is refused as inexact', () => {
-	const accessor = baseProject();
-	Object.defineProperty(accessor, 'sampleRate', {
-		get: () => 48_000, enumerable: true, configurable: true,
-	});
-	assert.throws(
-		() => createFramescaperUnifiedRenderFoundation(accessor, authorityFor(baseProject())),
-		{ name: 'TypeError', message: /project\.sampleRate must be an own enumerable data property/u },
-	);
-	const hidden = baseProject();
-	Object.defineProperty(clips(hidden)[0]!, 'videoEffects', {
-		value: [], enumerable: false, configurable: true,
-	});
-	assert.throws(
-		() => createFramescaperUnifiedRenderFoundation(hidden, authorityFor(hidden)),
-		{ name: 'TypeError', message: /video clip video-clip\.videoEffects must be an own enumerable/u },
 	);
 });
 

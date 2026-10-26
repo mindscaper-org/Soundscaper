@@ -57,6 +57,7 @@ test.describe('Framescaper selected timeline images', () => {
 			fileName: 'poster.png',
 			width: 2,
 			height: 2,
+			outputSpace: 'rec709',
 			timelineOwned: true,
 			requiresTimelineImages: true,
 		});
@@ -150,6 +151,10 @@ test.describe('Framescaper selected timeline images', () => {
 		for (const [channel, expected] of [255, 32, 0].entries()) {
 			expect(Math.abs(fileCenter[channel] - expected)).toBeLessThanOrEqual(12);
 		}
+		// Native presentation also retains the authored Rec.709 transfer conversion.
+		for (const [channel, expected] of [255, 17, 0].entries()) {
+			expect(Math.abs(witness.centerPixel[channel] - expected)).toBeLessThanOrEqual(12);
+		}
 		expect(witness.centerPixel[3]).toBe(255);
 		expect(fileCenter[3]).toBe(255);
 		expect(clientErrors).toEqual([]);
@@ -228,6 +233,7 @@ async function storedImageState(page, projectId) {
 					fileName: sources[0]?.original?.fileName ?? null,
 					width: sources[0]?.canonical?.width ?? null,
 					height: sources[0]?.canonical?.height ?? null,
+					outputSpace: project?.videoColorContexts?.find((context) => context.sequenceId === project.primarySequenceId)?.outputSpace ?? null,
 					timelineOwned: clips.length === 1 && clipIds.has(clips[0].id),
 					requiresTimelineImages: requirements.some(({ featureId }) => (
 						featureId === 'org.soundscaper.capability.timeline-images-v1'

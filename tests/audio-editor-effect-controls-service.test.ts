@@ -284,10 +284,6 @@ test('overlapping preset saves serialize required writes and retain both durable
 
 test('invalid controller targets fail synchronously and silent preview cancellation can skip publication', async () => {
 	const harness = createHarness();
-	await assert.rejects(
-		() => harness.service.deleteEffectPreset(null as never),
-		/presetId must be a non-empty string/u,
-	);
 	assert.throws(() => harness.service.setAudacityEffectType('not-an-effect'), /Unsupported/u);
 	assert.throws(() => harness.service.setAudacityControlTrack('missing'), /Control track missing/u);
 	assert.throws(

@@ -11,6 +11,7 @@ import type { AudioBufferLike } from '../../source/source-audio.ts';
 import { loadSourceProvenanceDerivation } from '../../../source-provenance-derivation-loader.ts';
 import type { SourceProvenanceV1 } from '../../../source-provenance.ts';
 import { prepareExactClipEffectResultCommands } from './effect-result-clip-commands.ts';
+import { isUnsupportedNativeAudioBuffer } from '../../../source-pcm-contract.ts';
 
 type RangeReplacementCommand = Extract<AudioEditorCommand, { readonly type: 'range/replace' }>;
 type SelectionCommand = Extract<AudioEditorCommand, { readonly type: 'selection/set' }>;
@@ -142,7 +143,7 @@ interface PasteOptions {
 }
 
 export interface SelectionEffectResultRuntime<Buffer extends AudioBufferLike = AudioBufferLike> {
-	readonly expandSourceResult?: (target: EffectTarget, channels: Float32Array[]) => Promise<Float32Array[]>;
+	readonly expandSourceResult?: (target: EffectTarget, channels: Float32Array[], signal?: AbortSignal | null) => Promise<Float32Array[]>;
 	readonly SOURCE_CHUNK_FRAMES: number;
 	readonly assertAudacityEffectOutput: (channels: Float32Array[]) => unknown;
 	readonly audioSelectionEffectLabel: (type: string | null, copy: EffectResultCopy) => string;
@@ -212,7 +213,7 @@ interface SilentEffectResultEntry extends EffectResultEntryBase {
 }
 
 interface PersistedEffectResultEntry<Buffer extends AudioBufferLike = AudioBufferLike> extends EffectResultEntryBase {
-	readonly buffer: Buffer;
+	readonly buffer: Buffer | null;
 	readonly source: EffectResultSource;
 	readonly sourceId: string;
 	readonly sourceName: string;
@@ -278,7 +279,7 @@ export function createSelectionEffectResultService<Buffer extends AudioBufferLik
 				throw createLocalizedError(Error, copy, 'effectChannelLengthsMismatch');
 			}
 			const channels = target.sourceId && runtime.expandSourceResult
-				? await runtime.expandSourceResult(target, rawChannels) : rawChannels;
+				? await runtime.expandSourceResult(target, rawChannels, signal) : rawChannels;
 			assertOperationCurrent();
 			const frameCount = channels[0]!.length;
 			assertAudacityEffectOutput(channels);
@@ -297,7 +298,9 @@ export function createSelectionEffectResultService<Buffer extends AudioBufferLik
 				});
 				continue;
 			}
-			const buffer = await bufferFromChannels(channels, sampleRate, context, copy);
+			let buffer: Buffer | null = null;
+			try { buffer = await bufferFromChannels(channels, sampleRate, context, copy); }
+			catch (error) { if (!isUnsupportedNativeAudioBuffer(error)) throw error; }
 			assertOperationCurrent();
 			const { deriveEffectResultProvenance, deriveSourceProvenanceForIds } = await loadSourceProvenanceDerivation();
 			assertOperationCurrent();
@@ -313,7 +316,7 @@ export function createSelectionEffectResultService<Buffer extends AudioBufferLik
 				name: sourceName,
 				mimeType: 'audio/wav',
 				frameCount,
-				channelCount: buffer.numberOfChannels,
+				channelCount: channels.length,
 				sampleRate,
 				originalSampleRate: sampleRate,
 				...(provenance ? { provenance } : {}),
@@ -364,14 +367,17 @@ export function createSelectionEffectResultService<Buffer extends AudioBufferLik
 					name: entry.sourceName,
 					mimeType: 'audio/wav',
 					sampleRate,
-					channelCount: entry.buffer.numberOfChannels,
+					channelCount: entry.channels.length,
 					chunkFrames: SOURCE_CHUNK_FRAMES,
 				});
 				try {
 					assertOperationCurrent();
-					await writeBuffer(writer, entry.buffer, signal);
+					await writeBuffer(writer, entry.buffer ?? {
+						length: entry.frameCount, numberOfChannels: entry.channels.length, sampleRate,
+						getChannelData: index => entry.channels[index]!,
+					}, signal);
 					assertOperationCurrent();
-					await writer.commit({ sampleRate, channelCount: entry.buffer.numberOfChannels });
+					await writer.commit({ sampleRate, channelCount: entry.channels.length });
 					persistedEntries.push(entry);
 					assertOperationCurrent();
 				} catch (error) {
@@ -382,11 +388,11 @@ export function createSelectionEffectResultService<Buffer extends AudioBufferLik
 			for (const entry of entries) {
 				assertOperationCurrent();
 				if (!isPersistedEntry(entry)) continue;
-				cacheSourceBuffer(entry.sourceId, entry.buffer);
+				if (entry.buffer) cacheSourceBuffer(entry.sourceId, entry.buffer);
 				const peaks = await generateWaveformPeaks(entry.channels, copy);
 				assertOperationCurrent();
 				sourcePeaks.set(entry.sourceId, peaks);
-				await store.saveAnalysis(peakCacheKey(entry.sourceId), peaks);
+				await store.saveAnalysis(peakCacheKey(entry.sourceId), peaks).catch(() => undefined);
 				assertOperationCurrent();
 			}
 			assertOperationCurrent();
@@ -469,7 +475,7 @@ export function createSelectionEffectResultService<Buffer extends AudioBufferLik
 }
 
 function isPersistedEntry<Buffer extends AudioBufferLike>(entry: EffectResultEntry<Buffer>): entry is PersistedEffectResultEntry<Buffer> {
-	return entry.buffer !== null;
+	return entry.sourceId !== null;
 }
 
 function isCommand(command: AudioEditorCommand | null): command is AudioEditorCommand {

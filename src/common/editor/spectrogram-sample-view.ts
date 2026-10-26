@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createEnvelopeValueEvaluator } from './automation.js';
 import { projectUnwarpedClipSourceRange } from './audio-clip-source-projection.ts';
 import { readClipLoop } from './audio-clip-loop.ts';
 import {
@@ -28,6 +29,7 @@ export interface SpectrogramSampleClip extends WaveformClipLike {
 	readonly musicalExtent?: unknown;
 	readonly musicalDurationBeats?: unknown;
 	readonly warpMap?: unknown;
+	readonly envelope?: readonly Readonly<{ frame?: number; value?: number }>[];
 }
 
 export interface SpectrogramSampleView {
@@ -62,6 +64,7 @@ export function createSpectrogramSampleViews(
 	}
 	const sourceFrameOffset = nonNegativeSafeInteger(options.sourceFrameOffset ?? 0, 'sourceFrameOffset');
 	const frameCount = endFrame - startFrame;
+	const envelopeAt = createEnvelopeValueEvaluator(clip.envelope, durationFrames);
 	const signedGain = finiteNumber(clip.gain ?? 1, 'clip.gain') * (clip.inverted ? -1 : 1);
 	const fadeInFrames = clampedLocalFrame(clip.fadeInFrames ?? 0, durationFrames, 'clip.fadeInFrames');
 	const fadeOutFrames = clampedLocalFrame(clip.fadeOutFrames ?? 0, durationFrames, 'clip.fadeOutFrames');
@@ -114,7 +117,7 @@ export function createSpectrogramSampleViews(
 			const sourceFrame = sourceFrameAt(localFrame) - sourceFrameOffset;
 			if (!Number.isSafeInteger(sourceFrame) || sourceFrame < 0 || sourceFrame >= sourceLength) return 0;
 			const sample = Number(channel[sourceFrame]);
-			const value = (Number.isFinite(sample) ? sample : 0) * signedGain * fadeEnvelope(
+			const value = (Number.isFinite(sample) ? sample : 0) * signedGain * envelopeAt(localFrame) * fadeEnvelope(
 				localFrame,
 				durationFrames,
 				fadeInFrames,

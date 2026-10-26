@@ -85,28 +85,11 @@ const DETERMINISTIC_ORDER_MODULES = Object.freeze([
 	'../src/common/editor/video-timeline.js',
 ]);
 
-// The one place a shortcut label is collated for a human reader. The Audacity 4
-// shortcut import moved it out of the command inventory and into the
-// preferences surface that renders the list.
-const LOCALIZED_SHORTCUT_INVENTORY =
-	'../src/common/editor/ui/dialogs/workspace-preferences-shortcut-commands.ts';
-
 test('canonical render and export ordering never delegates to host collation', async () => {
 	for (const module of DETERMINISTIC_ORDER_MODULES) {
 		const source = await readFile(new URL(module, import.meta.url), 'utf8');
 		assert.doesNotMatch(source, /\.localeCompare\s*\(/u, module);
 	}
-	const shortcutSource = await readFile(
-		new URL(LOCALIZED_SHORTCUT_INVENTORY, import.meta.url),
-		'utf8',
-	);
-	const localizedLabelCompare = /left\.label\.localeCompare\(right\.label,\s*normalizedLocale\)/u;
-	assert.match(shortcutSource, localizedLabelCompare);
-	assert.doesNotMatch(
-		shortcutSource.replace(localizedLabelCompare, ''),
-		/\.localeCompare\s*\(/u,
-		LOCALIZED_SHORTCUT_INVENTORY,
-	);
 });
 
 test('V13 and V14 finishing plans use code-unit audio-track order', () => {

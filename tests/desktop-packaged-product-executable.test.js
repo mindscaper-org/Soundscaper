@@ -7,12 +7,8 @@ import test from 'node:test';
 import {
 	resolvePackagedProductExecutable as resolveFromLeaf,
 } from '../scripts/lib/desktop-packaged-product-executable.mjs';
-import {
-	resolvePackagedProductExecutable as resolveFromRuntime,
-} from '../scripts/lib/desktop-nightly-tests-packaged-runtime.mjs';
 
-test('the packaged-product executable resolver is a stable dependency-free leaf', () => {
-	assert.equal(resolveFromRuntime, resolveFromLeaf, 'the historical runtime export stays compatible');
+test('the packaged-product executable resolver selects the staged target product', () => {
 	const root = '/opt/Soundscaper Tests/resources/nightly-tests/products';
 	assert.equal(resolveFromLeaf({
 		productRoot: root, productId: 'soundscaper', platform: 'win32', arch: 'x64',

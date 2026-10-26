@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -75,16 +74,6 @@ test('shared clip routing owns selection and leaves horizontal arrows with the p
 	} finally {
 		if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
 		else Reflect.deleteProperty(globalThis, 'document');
-	}
-});
-
-test('audio and video consumers use the shared focus-navigation hook', () => {
-	const directory = new URL('../src/common/editor/ui/timeline/', import.meta.url);
-	const audio = readFileSync(new URL('useAudioTrackRowNavigation.js', directory), 'utf8');
-	const video = readFileSync(new URL('VideoTrackRow.jsx', directory), 'utf8');
-	for (const source of [audio, video]) {
-		assert.match(source, /useTrackRowFocusNavigation\(/u);
-		assert.doesNotMatch(source, /normalizeClipSemantics/u);
 	}
 });
 

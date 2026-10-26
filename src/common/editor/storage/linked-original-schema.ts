@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { projectString } from '../project-validation-primitives.ts';
 /** Legacy physical names are retained so existing durable databases need no migration. */
 export const LINKED_ORIGINAL_STORE_NAME = 'linkedVideoOriginalBindings';
 export const LINKED_ORIGINAL_PROJECT_INDEX_NAME = 'projectId';
@@ -9,7 +9,7 @@ const MAXIMUM_ID_CHARACTERS = 256;
 /** Unambiguous exact project/source key for one product-local linked original. */
 export function linkedOriginalBindingKey(projectId: unknown, sourceId: unknown): string {
 	return JSON.stringify([
-		linkedOriginalCanonicalIdentity(projectId, 'projectId'),
+		projectString(projectId, 'projectId'),
 		linkedOriginalCanonicalIdentity(sourceId, 'sourceId'),
 	]);
 }

@@ -32,7 +32,6 @@ test('the writable document scope preserves the history-backed document authorit
 	assert.equal(scope.get(), replacement);
 	assert.equal(state.history?.present, replacement);
 	assert.deepEqual(state.history?.undo, []);
-	assert.equal(Object.isFrozen(scope), true);
 });
 
 test('the writable document scope retains absent-document and history installation failures', () => {

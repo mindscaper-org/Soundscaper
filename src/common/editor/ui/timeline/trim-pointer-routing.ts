@@ -52,7 +52,7 @@ export function resolveTimelineTrimPointerPreview(
 ): Readonly<FrameCanonicalEdgeTrimPreview & {
 	readonly previews: readonly FrameCanonicalEdgeTrimPreview[];
 }> | unknown | null {
-	if (input.session.original.kind === 'generator' && input.project) {
+	if ((input.session.original.kind === 'generator' || input.session.original.kind === 'still') && input.project) {
 		return createGeneratorTrimPointerPreview(input.project as Parameters<typeof createGeneratorTrimPointerPreview>[0],
 			input.session, input.edge, input.requestedBoundarySample);
 	}

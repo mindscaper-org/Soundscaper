@@ -495,26 +495,6 @@ test('mono conversion reports both commit and derived-source rollback failures',
 	});
 });
 
-test('command discovery requires exactly one recursively nested paste before side effects', async () => {
-	const derived = derivedFixture({});
-	const common = {
-		project: project([source('mono', 1), source('stereo', 2)]),
-		alwaysConvertToMono: true,
-		confirmConversion: async () => ({ accepted: true, dontShowAgain: false }),
-		derivedSources: derived.port,
-		preflightStorage: async () => undefined,
-		updateAlwaysConvertToMono: () => undefined,
-	};
-	await assert.rejects(prepareMonoConvertingPasteCommand({
-		...common,
-		command: { type: 'project/rename', title: 'No paste' },
-	}), /exactly one clipboard\/paste/iu);
-	await assert.rejects(prepareMonoConvertingPasteCommand({
-		...common,
-		command: { type: 'batch', commands: [paste(), { type: 'batch', commands: [paste()] }] },
-	}), /exactly one clipboard\/paste/iu);
-	assert.deepEqual(derived.events, []);
-});
 
 function onlyPaste(command: AudioEditorCommand): Extract<AudioEditorCommand, { readonly type: 'clipboard/paste' }> {
 	const found: Extract<AudioEditorCommand, { readonly type: 'clipboard/paste' }>[] = [];

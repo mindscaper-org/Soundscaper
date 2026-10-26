@@ -158,10 +158,6 @@ test('silent results prepare shrink, growth, and unchanged ripple commands witho
 
 test('invalid effect result layouts fail before persistence', async (suite) => {
 	const cases: Array<Readonly<{ name: string; results: unknown; message: string }>> = [
-		{ name: 'not an array', results: null, message: 'Invalid audio.' },
-		{ name: 'empty result list', results: [], message: 'Invalid audio.' },
-		{ name: 'missing target', results: [{ channels: [new Float32Array(1)] }], message: 'Invalid audio.' },
-		{ name: 'missing channels', results: [{ target: target('track-1') }], message: 'Invalid audio.' },
 		{ name: 'more than the native channel bound', results: [{ target: target('track-1', { channelCount: 33 }), channels: Array.from({ length: 33 }, () => new Float32Array(1)) }], message: 'Invalid audio.' },
 		{ name: 'non-Float32 channel', results: [{ target: target('track-1'), channels: [[1]] }], message: 'Channel lengths changed.' },
 		{ name: 'unequal channels', results: [{ target: target('track-1', { channelCount: 2 }), channels: [new Float32Array(2), new Float32Array(3)] }], message: 'Channel lengths changed.' },
@@ -223,11 +219,15 @@ test('writer failure aborts the incomplete source and never commits the editor c
 	assert.equal(sourcePeaks.size, 0);
 });
 
-test('analysis failure rolls back every persisted source and cache atomically', async () => {
-	const analysisError = new Error('analysis storage failed');
-	let saveCount = 0;
+test('waveform generation failure rolls back every persisted source and cache atomically', async () => {
+	const analysisError = new Error('waveform generation failed');
+	let analysisCount = 0;
 	const { events, service, sourceBuffers, sourcePeaks } = createHarness({
 		runtime: {
+			async generateWaveformPeaks(channels) {
+				if (++analysisCount === 2) throw analysisError;
+				return { channelCount: channels.length };
+			},
 			store: {
 				async beginSourceWrite(sourceId) {
 					events.sourcesOpened.push(sourceId);
@@ -238,8 +238,6 @@ test('analysis failure rolls back every persisted source and cache atomically', 
 					};
 				},
 				async saveAnalysis(key) {
-					saveCount += 1;
-					if (saveCount === 2) throw analysisError;
 					events.analysesSaved.push(key);
 				},
 				async deleteAnalysis(key) { events.analysesDeleted.push(key); },

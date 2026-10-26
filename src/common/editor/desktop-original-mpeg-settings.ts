@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { leadingId3AudioOffset, type Id3PrefixByteSource } from './leading-id3-tags.ts';
+
 interface MpegFrame {
 	readonly offset: number;
 	readonly version: number;
@@ -13,20 +15,10 @@ const MPEG1_LAYER2_RATES = [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 
 const MPEG2_RATES = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
 
 /** Seek past the ordinary ID3 album-art payload without retaining that payload to inspect a frame. */
-export async function readOriginalMpegFrameHeader(file: Readonly<{
-	readonly size: number;
-	slice(start: number, end: number): Readonly<{ arrayBuffer(): PromiseLike<ArrayBuffer> }>;
-}>, prefix: Uint8Array): Promise<Uint8Array | null> {
+export async function readOriginalMpegFrameHeader(file: Id3PrefixByteSource, prefix: Uint8Array): Promise<Uint8Array | null> {
 	if (ascii(prefix, 0, 3) !== 'ID3') return prefix;
-	if (prefix.length < 10) return null;
-	let size = 0;
-	for (let index = 6; index < 10; index += 1) {
-		const byte = prefix[index]!;
-		if (byte & 0x80) return null;
-		size = size * 128 + byte;
-	}
-	const offset = 10 + size + (prefix[5]! & 0x10 ? 10 : 0);
-	if (offset + 4 > file.size) return null;
+	const offset = await leadingId3AudioOffset(file, prefix);
+	if (offset === null || offset + 4 > file.size) return null;
 	const end = Math.min(file.size, offset + 4096);
 	if (end <= prefix.length) return prefix.subarray(offset, end);
 	return new Uint8Array(await file.slice(offset, end).arrayBuffer());
@@ -43,9 +35,13 @@ export function originalMpegExportSettings(
 	if (format === 'mp2') return Object.freeze({ bitRate: frame.bitRate });
 	const sideInfo = frame.version === 3 ? frame.mono ? 17 : 32 : frame.mono ? 9 : 17;
 	const crcBytes = bytes[frame.offset + 1]! & 1 ? 0 : 2;
-	const xingOffset = frame.offset + 4 + crcBytes + sideInfo;
+	const sideInfoEnd = frame.offset + 4 + sideInfo;
+	// LAME keeps Xing at the ordinary side-info offset even with CRC enabled;
+	// other encoders include the two CRC bytes before the tag.
+	const xingOffset = ['Xing', 'Info'].includes(ascii(bytes, sideInfoEnd, 4)) ? sideInfoEnd : sideInfoEnd + crcBytes;
 	const tag = ascii(bytes, xingOffset, 4);
-	const vbri = ascii(bytes, frame.offset + 36 + crcBytes, 4) === 'VBRI';
+	const vbri = ascii(bytes, frame.offset + 36, 4) === 'VBRI'
+		|| ascii(bytes, frame.offset + 36 + crcBytes, 4) === 'VBRI';
 	if (tag !== 'Xing' && !vbri) return Object.freeze({ bitRateMode: 'constant', bitRate: frame.bitRate });
 	const lame = tag === 'Xing' ? xingLameSettings(bytes, xingOffset) : null;
 	if (lame?.averageBitRate) return Object.freeze({ bitRateMode: 'average', bitRate: frame.bitRate,
@@ -88,7 +84,13 @@ function xingLameSettings(bytes: Uint8Array, offset: number): Readonly<{ quality
 	// https://github.com/lameproject/lame/blob/master/libmp3lame/VbrTag.c
 	if (ascii(bytes, cursor, 4) !== 'LAME' || scale > 100) return null;
 	const method = cursor + 10 <= bytes.length ? bytes[cursor + 9]! & 0x0f : null;
-	const averageBitRate = method === 2 && cursor + 21 <= bytes.length ? bytes[cursor + 20]! : null;
+	let averageBitRate = method === 2 && cursor + 21 <= bytes.length ? bytes[cursor + 20]! : null;
+	if (averageBitRate === 255 && cursor + 28 <= bytes.length) {
+		// LAME saturates this one-byte ABR field at 255. Its 16-bit preset
+		// field retains the exact ABR target, even for highly compressible audio.
+		const preset = view.getUint16(cursor + 26, false) & 0x07ff;
+		if (preset >= 255 && preset <= 320) averageBitRate = preset;
+	}
 	return { quality: Math.min(9, Math.floor((100 - scale) / 10)), averageBitRate };
 }
 

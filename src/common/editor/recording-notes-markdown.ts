@@ -60,7 +60,11 @@ function formatInline(value: string, start: number, end: number, marker: string,
 	if (applies(markerRun(value, start - 1, -1)) && applies(markerRun(value, end, 1))) {
 		return replaceSelection(value, start - marker.length, end + marker.length, selected, 0, selected.length);
 	}
-	const text = selected || placeholder;
+	// A literal trailing backslash must not escape the added closing marker.
+	// Keep existing paired escapes intact; only an unmatched final one needs pairing.
+	const content = selected || placeholder;
+	const trailingSlashes = /\\+$/u.exec(content)?.[0].length ?? 0;
+	const text = content + (trailingSlashes % 2 === 1 ? '\\' : '');
 	return replaceSelection(value, start, end, marker + text + marker, marker.length, marker.length + text.length);
 }
 

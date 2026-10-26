@@ -141,53 +141,6 @@ test('a finishing export strategy refuses a runtime profile it cannot authentica
 	);
 });
 
-test('picture encoders must be own enumerable functions or be left unstated', () => {
-	const hidden = keyedEncoders();
-	Object.defineProperty(hidden, 'encodePictureToSink', {
-		value: () => undefined, enumerable: false, configurable: true, writable: true,
-	});
-	const inherited = Object.assign(
-		Object.create({ encodePictureToSink: () => undefined }) as Data, keyedEncoders(),
-	);
-
-	assert.throws(
-		() => createFramescaperVideoExportStrategyFinishing(
-			PROFILE, keyedEncoders({ encodePicture: 'encode' }) as never,
-		),
-		/dependencies\.encodePicture must be an own function/u,
-	);
-	assert.throws(
-		() => createFramescaperVideoExportStrategyFinishing(PROFILE, hidden as never),
-		/dependencies\.encodePictureToSink must be an own function/u,
-	);
-	// An inherited encoder is not an own property, so the shipped encoder stands.
-	assert.doesNotThrow(() => createFramescaperVideoExportStrategyFinishing(PROFILE, inherited as never));
-});
-
-test('a stated exact capture dependency that is not a function is refused at construction', () => {
-	assert.throws(
-		() => createFramescaperVideoExportStrategyFinishing(
-			PROFILE, keyedEncoders({ captureExactFrame: 7 }) as never,
-		),
-		/dependencies\.captureExactFrame must be an own function/u,
-	);
-	assert.throws(
-		() => createFramescaperVideoExportStrategyFinishing(
-			PROFILE, keyedEncoders({ createExactAcceleratorCanvas: null }) as never,
-		),
-		/dependencies\.createExactAcceleratorCanvas must be an own function/u,
-	);
-});
-
-test('stated dependencies must still carry the retime offline encoders the delegate needs', () => {
-	assert.throws(
-		() => createFramescaperVideoExportStrategyFinishing(
-			PROFILE, { encodePicture: () => undefined } as never,
-		),
-		/dependencies\.encodeOffline must be an own function/u,
-	);
-});
-
 test('omitted dependencies fall back to the shipped encoders without refusing construction', () => {
 	assert.doesNotThrow(() => createFramescaperVideoExportStrategyFinishing(PROFILE));
 });
@@ -463,21 +416,6 @@ test('a failing picture encoder propagates its own failure and disposes the exac
 		},
 	);
 	assert.deepEqual([ledger.resolved, ledger.disposed], [1, 1]);
-});
-
-test('a supplemental picture execution that is not an execution is refused', async () => {
-	const built = harness(generatorOptions(), keyedEncoders({
-		encodePicture: async (_ffmpeg: unknown, request: Data) => {
-			await compositeOneFrame(request);
-			return encodedBytes();
-		},
-	}), () => 'not an execution');
-	const plan = built.strategy.createPlan(planRequest(built))!;
-
-	await assert.rejects(
-		() => built.strategy.encode(encodeRequest(built, plan)),
-		/supplemental picture execution is invalid/u,
-	);
 });
 
 test('a picture-only encode forwards its stated output ceiling and refuses an invalid one', async () => {

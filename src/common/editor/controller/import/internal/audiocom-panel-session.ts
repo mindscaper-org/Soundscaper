@@ -128,6 +128,7 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 			try {
 				const result = await client.search({ query: normalized, page }, abort.signal);
 				if (disposed || abort.signal.aborted || generation !== accountGeneration || searchAbort !== abort) return;
+				stopPreview();
 				emit({ search: { ...result, query: normalized, status: 'ready' } });
 			} catch (error) {
 				if (disposed || abort.signal.aborted || generation !== accountGeneration || searchAbort !== abort) return;
@@ -165,7 +166,10 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 				await audio.play();
 				if (previewAudio !== audio) { audio.pause(); audio.src = ''; audio.load(); }
 			} catch (error) {
-				if (previewAbort === abort && !abort.signal.aborted) { stopPreview(); emit({ previewError: message(error) }); }
+				if (previewAbort === abort && !abort.signal.aborted) {
+					stopPreview(); expire(error);
+					if (connected()) emit({ previewError: message(error) });
+				}
 			}
 		},
 		stopPreview,

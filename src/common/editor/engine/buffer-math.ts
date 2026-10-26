@@ -5,6 +5,8 @@ import {
 	estimateAudacityEffectPeakBytes,
 } from '../audacity-effects/contracts.js';
 import { EDITOR_TIMELINE_MINIMUM_SECONDS } from '../project.js';
+import { runtimeTimelineAnnotationExtent } from '../runtime-timeline-annotation-projection.ts';
+import { STAFFPAD_MINIMUM_RATIO, STAFFPAD_MAXIMUM_RATIO } from '../staffpad/parameters.js';
 import type { EngineClip, EngineProject } from './types.ts';
 
 export const DEFAULT_SAMPLE_RATE = 48_000;
@@ -58,8 +60,12 @@ export function getProjectClips(project: EngineProject | null | undefined): Engi
 
 export function getProjectDurationFrames(project: EngineProject | null | undefined): number {
 	let duration = 0;
-	for (const clip of getProjectClips(project)) {
-		duration = Math.max(duration, clipStart(clip) + clipDuration(clip));
+	if (Array.isArray(project?.clips)) {
+		for (const clip of project.clips) duration = Math.max(duration, clipStart(clip) + clipDuration(clip));
+	} else for (const track of project?.tracks || []) {
+		for (const clip of track.clips || []) if (clip && typeof clip === 'object') {
+			duration = Math.max(duration, clipStart(clip as EngineClip) + clipDuration(clip as EngineClip));
+		}
 	}
 	return duration;
 }
@@ -67,7 +73,7 @@ export function getProjectDurationFrames(project: EngineProject | null | undefin
 export function getProjectTimelineDurationFrames(project: EngineProject | null | undefined): number {
 	const sampleRate = positiveInteger(project?.sampleRate, DEFAULT_SAMPLE_RATE);
 	return Math.max(
-		getProjectDurationFrames(project) * 2,
+		Math.max(getProjectDurationFrames(project), runtimeTimelineAnnotationExtent(project)) * 2,
 		Math.round(sampleRate * EDITOR_TIMELINE_MINIMUM_SECONDS),
 	);
 }
@@ -114,21 +120,27 @@ export function playRangeStopFrame(
 	return Math.min(range.endFrame, durationFrames);
 }
 
-export function normalizeLoop(value: unknown, durationFrames: number): NormalizedLoop {
+export function normalizeLoop(value: unknown, durationFrames: number, defaultEndFrame = durationFrames): NormalizedLoop {
 	const candidate = value && typeof value === 'object'
 		? value as { enabled?: unknown; startFrame?: unknown; endFrame?: unknown }
 		: {};
 	const startFrame = clampFrame(candidate.startFrame, 0, durationFrames);
-	const endFrame = clampFrame(candidate.endFrame ?? durationFrames, startFrame, durationFrames);
+	const endFrame = clampFrame(candidate.endFrame ?? defaultEndFrame, startFrame, durationFrames);
 	return { enabled: Boolean(candidate.enabled) && endFrame > startFrame, startFrame, endFrame };
 }
 
-export function normalizePlayAtSpeedRate(value: unknown): number {
+export function playAtSpeedRateBounds(preservePitch = false): Readonly<{ minimum: number; maximum: number }> {
+	return preservePitch ? { minimum: STAFFPAD_MINIMUM_RATIO, maximum: STAFFPAD_MAXIMUM_RATIO }
+		: { minimum: PLAY_AT_SPEED_MINIMUM_RATE, maximum: PLAY_AT_SPEED_MAXIMUM_RATE };
+}
+
+export function normalizePlayAtSpeedRate(value: unknown, preservePitch = false): number {
 	const rate = Number(value);
 	if (!Number.isFinite(rate) || rate < PLAY_AT_SPEED_MINIMUM_RATE || rate > PLAY_AT_SPEED_MAXIMUM_RATE) {
 		throw new RangeError(`Playback speed must be between ${PLAY_AT_SPEED_MINIMUM_RATE} and ${PLAY_AT_SPEED_MAXIMUM_RATE}.`);
 	}
-	return rate;
+	const { minimum, maximum } = playAtSpeedRateBounds(preservePitch);
+	return clamp(rate, minimum, maximum);
 }
 
 export function estimatePlayAtSpeedStaffPadPeakBytes(
@@ -231,13 +243,14 @@ export function sliceAudioBuffer(
 export function createImpulseResponse(context: BaseAudioContext, duration: number, decay: number): AudioBuffer {
 	const length = Math.max(1, Math.round(duration * context.sampleRate));
 	const impulse = context.createBuffer(2, length, context.sampleRate);
-	for (let channel = 0; channel < impulse.numberOfChannels; channel += 1) {
-		const data = impulse.getChannelData(channel);
-		let seed = 0x1234567 + channel * 997;
-		for (let index = 0; index < length; index += 1) {
-			seed = (seed * 16807) % 2147483647;
+	const channels = Array.from({ length: impulse.numberOfChannels }, (_, channel) => impulse.getChannelData(channel));
+	const seeds = channels.map((_, channel) => 0x1234567 + channel * 997);
+	for (let index = 0; index < length; index += 1) {
+		const envelope = (1 - index / length) ** decay;
+		for (let channel = 0; channel < channels.length; channel += 1) {
+			const seed = seeds[channel] = (seeds[channel]! * 16807) % 2147483647;
 			const noise = seed / 1073741823.5 - 1;
-			data[index] = noise * ((1 - index / length) ** decay);
+			channels[channel]![index] = noise * envelope;
 		}
 	}
 	return impulse;

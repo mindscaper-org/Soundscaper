@@ -2,20 +2,10 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { EffectAudioProject } from '../src/common/editor/controller/effects/internal/effect-audio-service.ts';
 import { createCurrentAudioEditorProject } from '../src/common/editor/project-current.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { createEffect } from '../src/common/editor/effects.js';
 import { createHarness } from './audio-editor-effect-audio-service-fixture.ts';
-import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
-
-void test('effect rendering accepts admitted audio and visual documents without resolved coordinates', () => {
-	const current: EffectAudioProject = createCurrentAudioEditorProject();
-	const frame: EffectAudioProject = createFramescaperProject();
-	assert.equal(current.schemaVersion, 17);
-	assert.equal(frame.schemaFamily, 'framescaper');
-	assert.equal(frame.schemaVersion, 1);
-});
 
 void test('rack profiling uses a musical clip range when no time selection is active', async () => {
 	const effect = createEffect('audacity-noise-reduction', { id: 'noise', enabled: false });
@@ -27,7 +17,6 @@ void test('rack profiling uses a musical clip range when no time selection is ac
 	const project = createCurrentAudioEditorProject({ sampleRate: 48_000, sources: [source], clips: [clip],
 		tracks: [createAudioTrack({ id: 'track-a', clipIds: [clip.id], effects: [effect] })],
 	});
-	assert.equal(Object.hasOwn(project.clips[0], 'timelineStartFrame'), false);
 	const harness = createHarness({ project });
 	harness.setSelection(null);
 	await harness.service.captureRackNoiseProfile(effect, 'track', 'track-a');

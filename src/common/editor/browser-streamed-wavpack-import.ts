@@ -33,7 +33,9 @@ export async function openStreamedWavPackImportSession(
 ): Promise<StreamedAudioImportSession> {
 	signal?.throwIfAborted();
 	file = await wavPackAudioBlob(file, signal);
-	const first = await readGroup(file, 0, signal);
+	const inferredFrames = await inferUnknownWavPackFrames(file, signal);
+	const first = await readNextAudioGroup(file, 0, signal, inferredFrames);
+	if (!first) throw new Error('The WavPack source has no audio frames.');
 	if (first.blockIndex !== 0) throw new Error('The WavPack original does not begin at source frame zero.');
 	let decoder = suppliedDecoder;
 	let disposeDecoder: (() => void) | null = null;
@@ -54,11 +56,12 @@ export async function openStreamedWavPackImportSession(
 				decoder = runtime;
 				disposeDecoder = () => runtime.dispose();
 			}
-			let offset = 0;
+			let offset = first.offset;
 			let frames = 0;
 			while (offset < file.size) {
 				assertCurrent();
-				const group = offset === 0 ? first : await readGroup(file, offset, signal, first.totalFrames);
+				const group = offset === first.offset ? first : await readNextAudioGroup(file, offset, signal, first.totalFrames);
+				if (!group) break;
 				assertCurrent();
 				if (group.totalFrames !== first.totalFrames || group.blockIndex !== frames
 					|| group.sampleRate !== first.sampleRate || group.channelCount !== first.channelCount) {
@@ -83,12 +86,54 @@ export async function openStreamedWavPackImportSession(
 					close() { /* The source chunk owner releases the bounded planar arrays after this sample. */ },
 				};
 				frames += group.frameCount;
-				offset += group.byteLength;
+				offset = group.offset + group.byteLength;
 			}
 			if (frames !== first.totalFrames) throw new Error('The WavPack original ends before its declared source frames.');
 		},
 		dispose() { if (!disposed) { disposed = true; disposeDecoder?.(); } },
 	});
+}
+
+/** WavPack stores wrapper trailers and MD5 digests in authenticated zero-sample blocks. */
+async function readNextAudioGroup(file: Blob, start: number, signal?: AbortSignal, totalFrames?: number): Promise<Group | null> {
+	let offset = start;
+	while (offset < file.size) {
+		const header = await read(file, offset, HEADER_BYTES, signal);
+		const view = new DataView(header.buffer);
+		if (view.getUint32(20, true) !== 0) return readGroup(file, offset, signal, totalFrames);
+		const bytes = view.getUint32(4, true) + 8;
+		const flags = view.getUint32(24, true);
+		if (String.fromCharCode(...header.subarray(0, 4)) !== 'wvpk' || header[10] || header[11]
+			|| flags !== 0x1000_0000 || bytes < HEADER_BYTES || bytes > MAXIMUM_GROUP_BYTES) {
+			throw new Error('The WavPack metadata block has invalid bounded geometry.');
+		}
+		verifyOriginalBlockChecksum(await read(file, offset, bytes, signal), flags);
+		offset += bytes;
+	}
+	return null;
+}
+
+/** An unseekable encoder cannot rewrite its first total; block indexes still prove EOF. */
+async function inferUnknownWavPackFrames(file: Blob, signal?: AbortSignal): Promise<number | undefined> {
+	const first = await read(file, 0, HEADER_BYTES, signal);
+	if (new DataView(first.buffer).getUint32(12, true) !== 0xffff_ffff) return undefined;
+	let offset = 0;
+	let total = 0;
+	let blocks = 0;
+	while (offset < file.size) {
+		if (++blocks > 1_000_000) throw new RangeError('The WavPack source exceeds its block inspection bound.');
+		const header = await read(file, offset, HEADER_BYTES, signal);
+		const view = new DataView(header.buffer);
+		const size = view.getUint32(4, true) + 8;
+		const endFrame = view.getUint32(16, true) + view.getUint32(20, true);
+		if (String.fromCharCode(...header.subarray(0, 4)) !== 'wvpk' || header[10] || header[11]
+			|| size < HEADER_BYTES || size > MAXIMUM_GROUP_BYTES || size > file.size - offset
+			|| endFrame >= 0xffff_ffff) throw new Error('The WavPack source has invalid block geometry.');
+		total = Math.max(total, endFrame);
+		offset += size;
+	}
+	if (total < 1) throw new Error('The WavPack source has no audio frames.');
+	return total;
 }
 
 async function readGroup(file: Blob, offset: number, signal?: AbortSignal, sourceTotalFrames?: number): Promise<Group> {

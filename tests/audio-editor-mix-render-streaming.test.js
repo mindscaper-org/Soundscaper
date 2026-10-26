@@ -225,7 +225,7 @@ test('a streamed Mix-down rejects mismatched sink geometry before committing', a
 	}
 });
 
-test('a streamed Mix-down removes committed PCM when analysis activation fails', async () => {
+test('a streamed Mix-down removes committed PCM when reading its committed audio fails', async () => {
 	const store = createTestStore('streamed-activation-failure');
 	await writeSource(store, 'activation-input', [new Float32Array(4).fill(0.2)]);
 	const attemptedSourceIds = observeMixedSourceWrites(store);
@@ -263,13 +263,13 @@ test('a streamed Mix-down removes committed PCM when analysis activation fails',
 	try {
 		await controller.ready;
 		controller.actions.timeline.selectTrack('activation-track');
-		const saveAnalysis = store.saveAnalysis.bind(store);
-		store.saveAnalysis = async (key, value) => {
-			if (key.includes(attemptedSourceIds[0] || 'mixed-source')) throw new Error('Analysis storage failed.');
-			return saveAnalysis(key, value);
+		const loadSourceAudioBuffer = store.loadSourceAudioBuffer.bind(store);
+		store.loadSourceAudioBuffer = async (sourceId, context) => {
+			if (sourceId === attemptedSourceIds[0]) throw new Error('Committed PCM could not be read.');
+			return loadSourceAudioBuffer(sourceId, context);
 		};
 		const historyBefore = controller.getSnapshot().history.undoEntries.length;
-		await assert.rejects(controller.actions.track.mixAndRender(), /Analysis storage failed/);
+		await assert.rejects(controller.actions.track.mixAndRender(), /Committed PCM could not be read/);
 		assert.equal(controller.getSnapshot().history.undoEntries.length, historyBefore);
 		assert.equal(attemptedSourceIds.length, 1);
 		assert.equal(await store.getSourceMetadata(attemptedSourceIds[0]), null);

@@ -15,13 +15,14 @@ import {
 } from '../src/common/editor/controller/shared/lifecycle.ts';
 import { createOwnedStateAccess } from '../src/common/editor/controller/shared/owned-state.ts';
 
-test('committed cache preparation retains the semantic clip inventory and materializes exact entries', async () => {
+test('committed cache preparation preserves authoritative retention and materializes exact entries', async () => {
 	const project = projectFixture();
 	const harness = createHarness(project);
+	harness.cache.retainClipIds(['history-clip', 'pitched', 'plain', 'video']);
 
 	const entries = await harness.service.prepareCommittedTimePitchCaches(project);
 
-	assert.deepEqual(harness.cache.retained, ['pitched', 'plain', 'video']);
+	assert.deepEqual(harness.cache.retained, ['history-clip', 'pitched', 'plain', 'video']);
 	assert.deepEqual(harness.cache.prepared, ['pitched']);
 	assert.equal(entries.length, 1);
 	assert.equal(entries[0]?.cacheKey, 'committed-pitched');
@@ -33,8 +34,20 @@ test('committed cache preparation retains the semantic clip inventory and materi
 	]), [['pitched', 'source']]);
 });
 
+test('source audition scopes cache preparation without evicting other project clip caches', async () => {
+	const project = projectFixture();
+	const harness = createHarness(project);
+	harness.cache.retainClipIds(['pitched', 'plain', 'video']);
+	assert.deepEqual(await harness.service.prepareCommittedTimePitchCaches(project, null, { clipIds: ['plain'] }), []);
+	assert.deepEqual(harness.cache.retained, ['pitched', 'plain', 'video']);
+	assert.deepEqual(harness.cache.prepared, []);
+	await harness.service.prepareCommittedTimePitchCaches(project, null, { clipIds: ['pitched'] });
+	assert.deepEqual(harness.cache.prepared, ['pitched']);
+});
+
 test('canonical clips need no transient coordinates when deciding whether caches are needed', async () => {
 	const harness = createHarness(projectFixture());
+	harness.cache.retainClipIds(['pitched', 'plain', 'video']);
 	const canonical = {
 		id: 'project', schemaVersion: 17,
 		tracks: [{ id: 'track', clipIds: ['plain'] }],
@@ -43,7 +56,7 @@ test('canonical clips need no transient coordinates when deciding whether caches
 	};
 	assert.equal(harness.service.projectHasTimePitchClips(canonical), false);
 	assert.deepEqual(await harness.service.prepareCommittedTimePitchCaches(canonical), []);
-	assert.deepEqual(harness.cache.retained, ['plain']);
+	assert.deepEqual(harness.cache.retained, ['pitched', 'plain', 'video']);
 });
 
 test('linked playback and committed exports bypass StaffPad preparation even with retained independent pitch', async () => {

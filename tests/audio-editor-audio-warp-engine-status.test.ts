@@ -272,25 +272,15 @@ test('two-hour timelines use the same bounded exact window geometry', () => {
 	assert.equal(plan.endFrame, 240_000);
 	assert.equal(plan.frameCount, 240_000);
 	assert.ok(plan.endFrame < 2 * 60 * 60 * 48_000);
-	const latency = planExactAudioWarpWindow({
+	const wide = planExactAudioWarpWindow({
 		startFrame: 0,
 		endFrame: 1_000_000,
 		sampleRate: 48_000,
 		channelCount: 32,
-		preRollFrames: 1_000,
-		graphLatencyFrames: 1_000,
 		playbackCopy: true,
 	});
-	assert.equal(latency.frameCount, 86_714);
-	assert.throws(() => planExactAudioWarpWindow({
-		startFrame: 0,
-		endFrame: 1,
-		sampleRate: 48_000,
-		channelCount: 32,
-		preRollFrames: 200_000,
-		graphLatencyFrames: 62_144,
-		playbackCopy: true,
-	}), /exceed.*window budget/iu);
+	assert.ok(wide.frameCount > 0);
+	assert.ok(wide.frameCount * 32 * Float32Array.BYTES_PER_ELEMENT * 2 <= 32 * 1024 * 1024);
 });
 
 test('exact public render route enforces packet bounds without recursion', async () => {

@@ -8,13 +8,15 @@ import {
 	entryBaseName,
 	isDawprojectFileName,
 } from '../../../../dawproject-format.ts';
-import { dawprojectMediaReferences, parseDawprojectDocument } from '../../../../dawproject-import.ts';
+import { parseDawprojectDocument } from '../../../../dawproject-import.ts';
+import { dawprojectArrangementAudioReferences } from '../../../../dawproject-arrangement-media.ts';
 import { buildDawprojectProject, dawprojectImportedAudioMimeType, type DawprojectDecodedMediaInfo } from '../../../../dawproject-import-project.ts';
 import { createCurrentAudioEditorProject } from '../../../../project-current.ts';
 import { AUDIO_EDITOR_PCM_CHUNK_FRAMES } from '../../../../pcm-chunks.js';
 import { admitAudioImportChannelCount } from '../audio-import-channel-admission.ts';
 import { projectForRuntimeConsumers } from '../../../../project-current-runtime.ts';
 import { projectInterchangeMulticamera, reportInterchangeMulticameraConversion } from '../../../../interchange-multicamera-delivery.ts';
+import { admitInterchangeVisualProject, reportInterchangeVisualOmissions } from '../../../../interchange-visual-admission.ts';
 import { DAWPROJECT_BLOB_EXPORT_BYTE_LIMIT, dawprojectWavByteLength, dawprojectWavStream } from './dawproject-export-audio.ts';
 import { assertDawprojectCompressedWorkingBudget, stageDawprojectCompressedSource } from './dawproject-import-compressed.ts';
 import { inspectWavBlobPcm } from '../../../../wav-import.js';
@@ -22,6 +24,7 @@ import { createWavBlobPcmChunkReader, type WavBlobPcmChunkReader, type WavPcmDes
 import type { BlobLike } from '../../../../storage/media-records.ts';
 import type { PreparedStreamedAudioImport } from '../../../../browser-streamed-audio-import.ts';
 import { confirmFileSizeWarning } from '../../../shared/file-size-warning.ts';
+import type { SourceProvenanceV1 } from '../../../../source-provenance.ts';
 
 import type { EditorProjectToken, EditorTaskScope } from '../../../shared/lifecycle.ts';
 import type {
@@ -113,10 +116,10 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 				...(temporaryDirectory ? { temporaryDirectory, maximumEntryBytes: Number.MAX_SAFE_INTEGER } : {}) });
 			assertReady();
 			const document = parseDawprojectDocument(archive.projectXml, archive.metadataXml, { maximumBytes: archive.xmlMaximumBytes });
-			const references = dawprojectMediaReferences(document)
-				.filter((reference) => reference.kind === 'audio' && !reference.external);
+			const references = dawprojectArrangementAudioReferences(document);
 			const media = new Map<string, DawprojectDecodedMediaInfo | null>();
 			const stagedSourceIds = new Map<string, string>();
+			const sourceProvenance = new Map<string, SourceProvenanceV1>();
 			for (const [index, reference] of references.entries()) {
 				const entrySize = archive.entrySize(reference.path);
 				let admittedWorkingBytes = DAWPROJECT_IMPORT_WORKING_BYTE_LIMIT;
@@ -126,6 +129,7 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 				const blob = await archive.readEntry(reference.path);
 				assertReady();
 				if (!blob) continue;
+				if (blob.size === 0) { media.set(reference.path, null); continue; }
 				if (!temporaryDirectory) admittedWorkingBytes = await confirmFileSizeWarning(blob.size + 64 * 1024 * 1024,
 					admittedWorkingBytes, `DAWproject media ${reference.path}`, { confirmFileSizeWarning: runtime.confirmFileSizeWarning,
 						signal, assertCurrent: assertReady });
@@ -171,6 +175,12 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 						continue;
 					}
 					assertReady();
+					const { prepareSessionMediaProvenance } = await import('../imported-source-provenance.ts');
+					sourceProvenance.set(reference.path, await prepareSessionMediaProvenance(blob, {
+						originalFileName: entryBaseName(reference.path), mimeType: dawprojectImportedAudioMimeType(reference.path),
+						createContributionId: () => runtime.createStableId('contribution'), signal,
+					}));
+					assertReady();
 					stagedSourceIds.set(reference.path, sourceId);
 					media.set(reference.path, info);
 					helpers.updateNativeProjectProgress(
@@ -179,7 +189,7 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 				} finally { try { prepared?.dispose(); } finally { await archive.releaseEntry(reference.path); } }
 			}
 			const plan = buildDawprojectProject(document, {
-				fileName: String(file.name), media, stagedSourceIds, createStableId: runtime.createStableId,
+				fileName: String(file.name), media, stagedSourceIds, sourceProvenance, createStableId: runtime.createStableId,
 			});
 			const created = createCurrentAudioEditorProject(plan.project as never);
 			// Both interchange readers produce the shared audio document. Apply the
@@ -230,7 +240,9 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 			setLocalizedStatus(runtime.setStatus, runtime.copy, 'dawprojectSaving', undefined, undefined, { fallback: 'Exporting DAWproject' });
 			// Project exchange carries editable folder and leaf gates separately;
 			// render-profile folder flattening would duplicate those gates.
-			const selected = projectInterchangeMulticamera(snapshot, runtime.projectForRuntimeConsumers);
+			const active = projectInterchangeMulticamera(snapshot, runtime.projectForRuntimeConsumers);
+			const admission = admitInterchangeVisualProject(active, snapshot);
+			const selected = admission.project;
 			const delivered = projectForRuntimeConsumers(selected as never);
 			const embeddableVideoSourceIds = typeof runtime.store.loadMediaAsset === 'function'
 				? snapshot.sources.filter((source) => source.kind === 'video').map((source) => source.id)
@@ -244,7 +256,9 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 				},
 				embeddableVideoSourceIds,
 			});
-			const exported = { ...generated, report: reportInterchangeMulticameraConversion(generated.report, snapshot, delivered) };
+			const exported = { ...generated, report: reportInterchangeMulticameraConversion(
+				reportInterchangeVisualOmissions(generated.report, admission.omissions), snapshot, delivered,
+			) };
 			// Publish before the save dialog: a cancelled save keeps the report.
 			runtime.state.deliveryReport = exported.report;
 			runtime.publishDocumentSnapshot();

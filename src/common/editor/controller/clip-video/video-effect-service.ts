@@ -66,7 +66,7 @@ export interface AddVideoEffectOptions {
 }
 
 export function videoEffectGestureKey(clipId: string, effectId: string): string {
-	return `${clipId}:${effectId}`;
+	return JSON.stringify([clipId, effectId]);
 }
 
 export function createVideoEffectService(runtime: VideoEffectServiceRuntime) {

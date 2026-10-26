@@ -7,6 +7,7 @@ import {
 } from './export-snapshot-renderer.ts';
 import type { EditorExportState } from './export-state.ts';
 import type { BlenderRenderProject, BlenderPublishRequest } from './blender-publication.ts';
+import type { EditorControllerLifetime, EditorProjectGeneration } from '../shared/lifecycle.ts';
 import type { RenderedAudio } from '../../rendered-audio-channels.ts';
 import { loadProductVideoExportStrategyOptions } from './product-video-export-strategy.ts';
 
@@ -15,7 +16,9 @@ type EditorExportService = ReturnType<DeferredEditorExportModule['createEditorEx
 
 export interface DeferredEditorExportRuntime extends ExportSnapshotRendererRuntime {
 	readonly state: EditorExportState;
-	readonly getProject?: () => object | null | undefined;
+	readonly lifetime: Pick<EditorControllerLifetime, 'assertActive'>;
+	readonly projectGeneration: Pick<EditorProjectGeneration, 'capture' | 'assertCurrent'>;
+	getProject(): Readonly<{ id: string }> | null | undefined;
 }
 
 export type DeferredEditorExportLoader = () => Promise<DeferredEditorExportModule>;
@@ -49,6 +52,7 @@ export function createDeferredEditorExportService<Runtime extends DeferredEditor
 	const exportSnapshotRenderer = createExportSnapshotRenderer(runtime);
 	let servicePromise: Promise<EditorExportService> | null = null;
 	let loadedService: EditorExportService | null = null;
+	let cancellationGeneration = 0;
 	const loadService = (): Promise<EditorExportService> => {
 		servicePromise ??= Promise.resolve()
 			.then(loadModule)
@@ -64,7 +68,18 @@ export function createDeferredEditorExportService<Runtime extends DeferredEditor
 			});
 		return servicePromise;
 	};
-	return createDeferredModuleFacade(loadService, DEFERRED_EXPORT_METHOD_NAMES, {
+	const facade = createDeferredModuleFacade(loadService, DEFERRED_EXPORT_METHOD_NAMES, {
+		prepareInvocation: (name, args) => {
+			if (name !== 'exportVideo' && (name !== 'handleExportAction'
+				|| args[0] === 'cancel' || args[3] === 'persistent')) return undefined;
+			runtime.lifetime.assertActive();
+			const token = runtime.projectGeneration.capture(runtime.getProject()?.id ?? null);
+			const generation = cancellationGeneration;
+			return () => {
+				runtime.lifetime.assertActive(); runtime.projectGeneration.assertCurrent(token);
+				if (generation !== cancellationGeneration) throw new DOMException('Export canceled.', 'AbortError');
+			};
+		},
 		eager: {
 			publishBlenderTracks: async (request: BlenderPublishRequest) => {
 				const { publishBlenderTracks } = await import('./blender-publication.ts');
@@ -81,6 +96,15 @@ export function createDeferredEditorExportService<Runtime extends DeferredEditor
 			}) satisfies EditorExportService['whenPersistentAudioDeliveryAvailable'],
 			renderSnapshot: exportSnapshotRenderer.renderSnapshot satisfies
 				EditorExportService['renderSnapshot'],
+		},
+	});
+	return Object.freeze({ ...facade,
+		handleExportAction: async (...args: Parameters<EditorExportService['handleExportAction']>) => {
+			if (args[0] === 'cancel' && args[3] !== 'persistent') {
+				cancellationGeneration += 1;
+				if (!loadedService) return;
+			}
+			return await facade.handleExportAction(...args);
 		},
 	});
 }

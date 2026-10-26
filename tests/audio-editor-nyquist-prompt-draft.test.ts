@@ -21,6 +21,14 @@ test('existing saved Lisp prompts retain their source without a stored language'
 	assert.deepEqual(loadNyquistPromptDraft('42', storage), { source: '(+ 20 22)', language: 'lisp' });
 });
 
+test('an intentionally cleared prompt reopens empty rather than restoring the default source', () => {
+	const values = new Map<string, string>();
+	const storage = { getItem: (key: string) => values.get(key) ?? null,
+		setItem: (key: string, value: string) => { values.set(key, value); } };
+	storeNyquistPromptDraft({ source: '', language: 'sal' }, storage);
+	assert.deepEqual(loadNyquistPromptDraft('return 42', storage), { source: '', language: 'sal' });
+});
+
 test('the prompt remains usable when browser storage is unavailable', () => {
 	const storage = {
 		getItem: () => { throw new Error('Storage unavailable'); },

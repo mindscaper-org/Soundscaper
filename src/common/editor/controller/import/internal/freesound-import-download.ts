@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from '../../shared/file-size-warning.ts';
+import { sanitizeSuggestedFileName } from '../../../portable-save-file-name.ts';
 
 export const DEFAULT_MAXIMUM_FREESOUND_IMPORT_BYTES = 128 * 1024 * 1024;
 
@@ -79,9 +80,15 @@ export async function downloadFreesoundImport(options: Readonly<FileSizeWarningO
 		);
 	}
 	const declaredMimeType = response.headers.get('Content-Type')?.split(';', 1)[0]?.trim().toLowerCase() ?? '';
-	const mimeType = variant === 'original'
-		? originalMimeType(declaredMimeType, sound.originalFile.format)
-		: previewMimeType(declaredMimeType);
+	let mimeType: string;
+	try {
+		mimeType = variant === 'original'
+			? originalMimeType(declaredMimeType, sound.originalFile.format)
+			: previewMimeType(declaredMimeType);
+	} catch (error) {
+		await response.body?.cancel(error).catch(() => undefined);
+		throw error;
+	}
 	const blob = await readAdmittedBody(response, thresholdBytes, approvedBytes, variant, options);
 	const fileName = variant === 'preview-hq-ogg'
 		? previewFileName(sound.name, sound.id)
@@ -164,12 +171,12 @@ function originalMimeType(value: string, format: string): string {
 
 function contentDispositionFileName(value: string | null): string | null {
 	if (!value) return null;
-	const encoded = /(?:^|;)\s*filename\*\s*=\s*UTF-8''([^;]*)/iu.exec(value)?.[1];
+	const encoded = /(?:^|;)\s*filename\*\s*=\s*UTF-8'[^']*'([^;]*)/iu.exec(value)?.[1];
 	if (encoded) {
 		try { return decodeURIComponent(encoded.trim()); }
-		catch { return null; }
+		catch { /* Fall back to the plain filename when extended bytes are invalid. */ }
 	}
-	const quoted = /(?:^|;)\s*filename\s*=\s*"([^"]*)"/iu.exec(value)?.[1];
+	const quoted = /(?:^|;)\s*filename\s*=\s*"((?:[^"\\]|\\.)*)"/iu.exec(value)?.[1]?.replace(/\\(.)/gu, '$1');
 	const bare = /(?:^|;)\s*filename\s*=\s*([^;]*)/iu.exec(value)?.[1];
 	return quoted ?? bare?.trim() ?? null;
 }
@@ -179,13 +186,13 @@ function safeFileName(value: string, fallback: string): string {
 	const sanitized = Array.from(leaf, (character) => {
 		const code = character.codePointAt(0)!;
 		return code < 32 || code === 127 || /[:*?"<>|]/u.test(character) ? '-' : character;
-	}).join('').trim().replace(/^\.+/u, '').slice(0, 240);
-	return sanitized && sanitized !== '.' && sanitized !== '..' ? sanitized : fallback;
+	}).join('').trim().replace(/^\.+/u, '');
+	return sanitizeSuggestedFileName(sanitized && sanitized !== '.' && sanitized !== '..' ? sanitized : fallback);
 }
 
 function previewFileName(value: string, soundId: number): string {
 	const safeName = safeFileName(value, `freesound-${String(soundId)}`);
-	return safeName.toLowerCase().endsWith('.ogg') ? safeName : `${safeName}.ogg`;
+	return sanitizeSuggestedFileName(safeName.toLowerCase().endsWith('.ogg') ? safeName : `${safeName}.ogg`);
 }
 
 function nullableNonNegativeInteger(value: string | null): number | null {

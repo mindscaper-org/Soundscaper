@@ -193,6 +193,14 @@ explicit adapter, validator, canonical form, and parity evidence. Native
 execution may accelerate the plan but may not add native-only timeline or render
 semantics.
 
+OpenFX Interact still has a helper-admission gap: the main service supplies
+`dataPlaneTransfers: []`, while control-only admission accepts only `undefined`.
+The isolated manager forwards the list unchanged, so the supervisor refuses
+the request before native execution. Correct the dispatcher and exercise the
+real supervisor path before treating the mocked-worker
+[Interact integration test](../../tests/desktop-openfx-main-service-integration.test.ts)
+as proof of native Interact operation.
+
 Inputs owned by browser storage cross bounded streams. Main-revalidated linked
 files may use helper-scoped handles. Raw frames, audio intermediates, and output
 trees remain bounded and backpressured. Final files are written to a temporary

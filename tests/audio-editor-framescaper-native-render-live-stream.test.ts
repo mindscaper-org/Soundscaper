@@ -51,6 +51,6 @@ test('V14 live carrier waits for every direct-sink acknowledgement and trailers 
 	for (const bytes of chunks) { body.set(bytes, offset); offset += bytes.byteLength; }
 	assert.equal(maximumActive, 1);
 	assert.equal(result.byteLength, body.byteLength);
-	assert.equal(result.chunkCount, 7);
+	assert.equal(result.chunkCount, chunks.length);
 	assert.equal(result.sha256, bytesToHex(sha256(body)));
 });

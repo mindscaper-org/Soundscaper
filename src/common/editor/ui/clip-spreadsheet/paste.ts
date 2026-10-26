@@ -86,21 +86,30 @@ export function matchClipSpreadsheetSourceFiles<SourceFile extends ClipSpreadshe
 	const exact = new Map<string, Set<SourceFile>>();
 	const basenames = new Map<string, Set<SourceFile>>();
 	const windowsBasenames = new Map<string, Set<SourceFile>>();
+	const canonicalExact = new Map<string, Set<SourceFile>>();
+	const canonicalBasenames = new Map<string, Set<SourceFile>>();
+	const canonicalWindowsBasenames = new Map<string, Set<SourceFile>>();
 	const selected = new Set(files);
 	for (const file of selected) {
-		for (const value of new Set([file.name, file.webkitRelativePath, file.relativePath, file.path].filter((value): value is string => Boolean(value)))) {
-			const reference = sourceReference(value);
+		const paths = new Set([file.webkitRelativePath, file.relativePath, file.path].filter((value): value is string => Boolean(value)));
+		for (const reference of [sourceReference(file.name, true), ...[...paths].map(value => sourceReference(value))]) {
 			addMatch(exact, reference.path, file);
 			addMatch(basenames, reference.basename, file);
 			addMatch(windowsBasenames, reference.basename.toLowerCase(), file);
+			addMatch(canonicalExact, reference.path.normalize('NFC'), file);
+			addMatch(canonicalBasenames, reference.basename.normalize('NFC'), file);
+			addMatch(canonicalWindowsBasenames, reference.basename.toLowerCase().normalize('NFC'), file);
 		}
 	}
 	const matched = new Map<string, SourceFile>();
 	const referencesByFile = new Map<SourceFile, string>();
 	for (const value of references) {
-		const reference = sourceReference(value);
+		const reference = sourceReference(value, exact.has(value) || canonicalExact.has(value.normalize('NFC')));
 		const candidates = exact.get(reference.path)
-			?? (reference.windows ? windowsBasenames.get(reference.basename.toLowerCase()) : basenames.get(reference.basename));
+			?? canonicalExact.get(reference.path.normalize('NFC'))
+			?? (reference.windows ? windowsBasenames.get(reference.basename.toLowerCase()) : basenames.get(reference.basename))
+			?? (reference.windows ? canonicalWindowsBasenames.get(reference.basename.toLowerCase().normalize('NFC'))
+				: canonicalBasenames.get(reference.basename.normalize('NFC')));
 		if (!candidates?.size) throw new RangeError(`Selected source file is missing: ${value}`);
 		if (candidates.size !== 1) throw new RangeError(`Selected source file is ambiguous: ${value}`);
 		const file = candidates.values().next().value!;
@@ -121,11 +130,12 @@ function addMatch<SourceFile>(index: Map<string, Set<SourceFile>>, key: string, 
 	index.set(key, matches);
 }
 
-function sourceReference(value: string): SourceReference {
+function sourceReference(value: string, literal = false): SourceReference {
 	if (typeof value !== 'string' || !value.trim() || value.length > 4_096 || value.includes('\0')) {
 		throw new RangeError('Invalid spreadsheet source reference.');
 	}
-	let path = value.trim();
+	if (literal) return { path: value, basename: value, windows: false };
+	let path = value;
 	let windows = /^[a-z]:[\\/]/iu.test(path) || path.startsWith('\\\\');
 	if (/^file:/iu.test(path)) {
 		try {
@@ -138,7 +148,7 @@ function sourceReference(value: string): SourceReference {
 	} else if (!windows && /^[a-z][a-z\d+.-]*:/iu.test(path)) {
 		throw new RangeError('Spreadsheet source references must name local files.');
 	}
-	path = path.replaceAll('\\', '/');
+	if (windows || !path.startsWith('/')) path = path.replaceAll('\\', '/');
 	const prefix = path.startsWith('//') ? '//' : path.startsWith('/') ? '/' : '';
 	const segments: string[] = [];
 	for (const segment of path.split('/')) {

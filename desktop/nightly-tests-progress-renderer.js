@@ -6,6 +6,13 @@ const status = document.getElementById('status');
 const count = document.getElementById('count');
 const currentItem = document.getElementById('current-item');
 const progress = document.getElementById('progress');
+const pauseResume = document.getElementById('pause-resume');
+let controlAction = 'pause';
+pauseResume?.addEventListener('click', () => {
+	if (pauseResume.disabled) return;
+	pauseResume.disabled = true;
+	globalThis.location.href = new URL(`__control__/${controlAction}`, globalThis.location.href).href;
+});
 const phaseLabels = Object.freeze([
 	'Browser tests',
 	'Dual-origin browser coverage',
@@ -44,6 +51,11 @@ globalThis.renderNightlyTestsProgress = (value) => {
 		throw new TypeError('Nightly tests item progress is invalid.');
 	}
 	const active = phaseLabels.indexOf(value.label);
+	if (pauseResume) {
+		controlAction = value.label === 'Tests paused' ? 'resume' : 'pause';
+		pauseResume.textContent = controlAction === 'resume' ? 'Resume' : 'Pause';
+		pauseResume.disabled = active < 0 && value.label !== 'Tests paused';
+	}
 	if (active >= 0 && value.items !== undefined) {
 		phaseItems[active] = { ...value.items };
 	}

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { projectString } from '../project-validation-primitives.ts';
 import {
 	normalizeCaptureSpoolCreationFence,
 	type CaptureSpoolCreationFence,
@@ -31,7 +31,7 @@ export function normalizeRawPcmSpoolCreateRequest(
 ): CreateRawPcmSpoolRequest {
 	const creationFence = normalizeCaptureSpoolCreationFence(value?.creationFence);
 	const request = {
-		projectId: stableId(value?.projectId, 'raw PCM spool projectId'),
+		projectId: projectString(value?.projectId, 'raw PCM spool projectId'),
 		spoolId: stableId(value?.spoolId, 'raw PCM spool ID'),
 		...(value?.spoolToken === undefined ? {} : {
 			spoolToken: stableId(value.spoolToken, 'raw PCM spool token'),

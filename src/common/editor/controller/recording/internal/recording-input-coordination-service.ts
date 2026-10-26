@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { recordingTrackRoute } from '../../../recording-routing.js';
 import type { RecordingMediaStream } from '../recording-transaction-types.ts';
 import type {
 	MicrophoneMeterSession,
@@ -144,7 +145,7 @@ export function createRecordingInputCoordinationService<Stream = RecordingMediaS
 		route: RecordingInputRoute | null,
 	): Promise<RecordingInputRoute | null> {
 		if (state.timedRecordingPreparing || state.timedRecording) {
-			return state.recordingRouting.routes[trackId] || null;
+			return recordingTrackRoute(state.recordingRouting.routes, trackId);
 		}
 		const capturedOperation = runtime.captureOperation();
 		const generation = ++operationGeneration;
@@ -163,12 +164,12 @@ export function createRecordingInputCoordinationService<Stream = RecordingMediaS
 		state.recordingRouting = runtime.setRecordingTrackRoute(state.recordingRouting, track, route);
 		if (trackId === state.selectedTrackId) runtime.meter.clearRoutedLoudnessMeter();
 		if (route == null) delete state.recordingRouteHealth[trackId];
-		else state.recordingRouteHealth[trackId] = 'unavailable';
+		else Object.defineProperty(state.recordingRouteHealth, trackId, { value: 'unavailable', enumerable: true, configurable: true, writable: true });
 		runtime.routing.updateRecordingDeviceRows();
 		runtime.publishDocumentSnapshot();
 		const persist = runtime.routing.persistRecordingRouting();
 		void persist.catch(() => undefined);
-		const normalized = state.recordingRouting.routes[trackId] || null;
+		const normalized = recordingTrackRoute(state.recordingRouting.routes, trackId);
 		const meterRouteAfter = state.microphoneMetering ? runtime.meter.getRoute() : null;
 		const restartMetering = Boolean(
 			state.microphoneMetering

@@ -71,9 +71,9 @@ set(source_names audio-tagging.cc keyword-spotting.cc non-streaming-asr.cc
   sherpa-onnx-node-addon-api.cc speaker-identification.cc spoken-language-identification.cc
   streaming-asr.cc vad.cc version.cc wave-reader.cc wave-writer.cc resampler.cc)
 list(TRANSFORM source_names PREPEND "${addon_source}/")
-add_library(sherpa-onnx-node SHARED ${source_names})
+add_library(sherpa-onnx-node SHARED ${source_names} "${CMAKE_CURRENT_SOURCE_DIR}/node-disposal.cc")
 set_target_properties(sherpa-onnx-node PROPERTIES PREFIX "" SUFFIX ".node" OUTPUT_NAME "sherpa-onnx")
-target_include_directories(sherpa-onnx-node PRIVATE "${addon_source}" "${SHERPA_SOURCE}"
+target_include_directories(sherpa-onnx-node PRIVATE "${addon_source}" "${SHERPA_SOURCE}" "${CMAKE_CURRENT_SOURCE_DIR}"
   "${NODE_HEADERS}/include/node" "${NODE_ADDON_API}")
 # Convert every Ort/std exception at the Node-API boundary into a JS exception,
 # allowing the isolated helper to release the failed GPU job and retry on CPU.

@@ -111,7 +111,7 @@ test.describe('shared audio editor dialog behavior', () => {
 		await chooseTimeCodeFormat(page, timers.nth(2), 'CD frames', 'CDDA frames (75 fps)');
 		await expect(timers.nth(2).locator('.timecode-digit')).toHaveText([...('600'.padStart(12, '0'))]);
 		for (const [label, expected] of [
-			['film frames (24fps)', ['1', '9', '2']],
+			['film frames (30fps)', ['2', '4', '0']],
 			['NTSC frames (29.97 fps)', ['2', '3', '9']],
 			['PAL frames (25 fps)', ['2', '0', '0']],
 		]) {

@@ -5,13 +5,15 @@ import { ProgressBar } from '@soundscaper/design-system/ProgressBar';
 import { Separator } from '@soundscaper/design-system/Separator';
 import { TextInput } from '@soundscaper/design-system/TextInput';
 import { MEDIA_EXPORT_FORMATS } from '../../media-export.js';
+import { resolveSelectionRange } from '../../selection-range.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
 import VideoDeliveryFields from '../VideoDeliveryFields.jsx';
 import {
-	dialogSettingsFromDeliveryTarget, previewPresetSettingsFromDialog,
+	previewPresetSettingsFromDialog, previewPresetSettingsFromPreset,
 	statedVideoCanvas, statedVideoDeliveryTarget,
 } from '../export-preset-model.ts';
+import { changeVideoDeliveryDialogSetting } from './video-delivery-setting-change.ts';
 import {
 	createExportDialogInitialSettings, exportDialogProjectIdentity,
 } from '../export-dialog-initial-settings.ts';
@@ -21,6 +23,7 @@ import {
 	isVideoExportDialogFormat,
 } from '../export-dialog-model.js';
 import { exportDialogOutputSettings } from '../export-dialog-output-options.ts';
+import { exportDialogMetadataFields } from '../export-dialog-metadata-fields.ts';
 import { useExportDialogOutput } from '../use-export-dialog-output.ts';
 import { createExportPresetActions } from '../export-preset-actions.js';
 import { projectHasTimelineVideo } from '../timeline-media-presence.ts';
@@ -101,14 +104,18 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 	const previewPresetSettings = presetId ? previewPresetSettingsFromDialog(settings, presetKind) : null;
 	const presetActions = createExportPresetActions({
 		controller, settings, presetId, presetName, presetKind, desktop, projectChannelCount,
+		projectSampleRate: snapshot.project?.sampleRate,
 		setSettings, setPresetId, setPresetName,
+		isCurrent: () => currentOperationOwner.current === operationOwner,
 	});
-	const hasSelection = Boolean(snapshot.selection);
+	const hasSelection = Boolean(resolveSelectionRange(snapshot.project));
 	const hasLoop = Boolean(snapshot.project?.loop?.enabled);
 	const exporting = Boolean(snapshot.exporting);
 	const progress = Math.round(Math.max(0, Math.min(1, exportProgress ?? snapshot.export?.progress ?? 0)) * 100);
 	const output = snapshot.export?.output;
-	const blocked = !snapshot.ready || snapshot.importing || snapshot.recording || snapshot.processingEffect || snapshot.missingSourceIds?.length > 0 || !snapshot.project?.clips?.length;
+	// The export action admits sources for its chosen delivery, including verified
+	// render fallbacks; an unavailable unused Bin source does not block that output.
+	const blocked = !snapshot.ready || snapshot.importing || snapshot.recording || snapshot.processingEffect || !snapshot.project?.clips?.length;
 	const hasTimelineVideo = projectHasTimelineVideo(snapshot.project);
 	const videoFormat = isVideoExportDialogFormat(settings.format);
 	const captionDeliveryUnavailable = videoCaptionDeliveryUnavailable(
@@ -147,6 +154,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		setError('');
 		setPresetId('');
 		setPresetName('');
+		setMappingOpen(false);
 	}, [projectIdentity, snapshot.project, setError]);
 
 	useEffect(() => {
@@ -222,11 +230,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		controller.actions.export.previewDeliveryCanvas(Object.keys(merged).length > 0 ? merged : null);
 		return () => controller.actions.export.previewDeliveryCanvas(null);
 	}, [controller, settings, videoFormat]);
-	const setVideoDeliverySetting = (name, value) => {
-		if (name !== 'deliveryTarget') return set(name, value);
-		const patch = dialogSettingsFromDeliveryTarget(value);
-		return setSettings((current) => ({ ...current, ...patch, deliveryTarget: value }));
-	};
+	const setVideoDeliverySetting = (name, value) => setSettings((current) => changeVideoDeliveryDialogSetting(current, name, value));
 	const setFormat = (format) => setSettings((current) => {
 		const passthrough = format === 'bw64' && current.adm?.mode === 'passthrough';
 		return normalizeExportDialogAudioSettings({
@@ -272,18 +276,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 			const customMetadata = metadataAvailable
 				? parseJsonObject(settings.metadataCustom, copy.customMetadata, copy)
 				: {};
-			const metadata = compactFields({
-				...customMetadata,
-				title: settings.metadataTitle,
-				artist: settings.metadataArtist,
-				album: settings.metadataAlbum,
-				trackNumber: settings.metadataTrack,
-				year: settings.metadataYear,
-				genre: settings.metadataGenre,
-				comments: settings.metadataComments,
-				copyright: settings.metadataCopyright,
-				id3Artwork: settings.metadataArtwork,
-			});
+			const metadata = compactFields(exportDialogMetadataFields(settings, customMetadata));
 			const request = createExportDialogRequest(admittedSettings, {
 				metadata: exportDialogMetadata(admittedSettings.format, desktop, metadata), desktop, captionDeliveryUnavailable, project: snapshot.project,
 				bext: admittedSettings.bext,
@@ -343,7 +336,14 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 			setMetadataOpen(false);
 			return;
 		}
-		if (!exporting) onClose?.();
+		if (!exporting) {
+			if (activeExportSubmission.current?.owner === operationOwner) {
+				activeExportSubmission.current = null;
+				try { void Promise.resolve(controller.actions.export.cancel()).catch(() => undefined); }
+				catch { /* Closing still dismisses a canceled submission if cancellation fails. */ }
+			}
+			onClose?.();
+		}
 	};
 	if (metadataOpen) {
 		return (
@@ -387,6 +387,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		>
 			<div className="audio-editor-export-dialog__body">
 				<ExportPresetSection
+					key={projectIdentity}
 					copy={copy}
 					presets={presets}
 					selectedId={presetId}
@@ -394,9 +395,11 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 					resetKey={projectIdentity}
 					unsaved={Boolean(presetId) && (previewPresetSettings === null || !samePresetParams(
 						previewPresetSettings,
-						presets.find((preset) => preset.id === presetId)?.settings,
+						previewPresetSettingsFromPreset(presets.find((preset) => preset.id === presetId), {
+							desktop, projectSampleRate: snapshot.project?.sampleRate,
+						}),
 					))}
-					onError={(cause) => setError(
+					onError={(cause) => currentOperationOwner.current === operationOwner && setError(
 						cause == null ? '' : (cause instanceof Error ? cause.message : String(cause)),
 					)}
 					{...presetActions}

@@ -8,25 +8,22 @@
  * string it translates.
  */
 const EXPORT_CHANNEL_MAPPING_COPY_ENTRIES = Object.freeze([
-	['editChannelMapping', 'Edit mapping', 'Zuordnung bearbeiten'],
-	['channelMappingApply', 'Apply', 'Übernehmen'],
-	['channelMappingTitle', 'Edit channel mapping', 'Kanalzuordnung bearbeiten'],
-	['channelMappingOutputCount', 'Output channels', 'Ausgabekanäle'],
-	['channelMappingInputChannel', 'Input {channel}', 'Eingang {channel}'],
-	['channelMappingOutputChannel', 'Output {channel}', 'Ausgang {channel}'],
+	['editChannelMapping', 'Edit mapping'],
+	['channelMappingApply', 'Apply'],
+	['channelMappingTitle', 'Edit channel mapping'],
+	['channelMappingOutputCount', 'Output channels'],
+	['channelMappingInputChannel', 'Input {channel}'],
+	['channelMappingOutputChannel', 'Output {channel}'],
 	[
 		'channelMappingCell',
 		'Route input {input} to output {output}',
-		'Eingang {input} auf Ausgang {output} legen',
 	],
 	[
 		'channelMappingMatrixHint',
 		'Each checked cell routes that input to that output at unity gain. An output with nothing checked is delivered silent.',
-		'Jedes angehakte Feld legt diesen Eingang mit Einheitsverstärkung auf diesen Ausgang. Ein Ausgang ohne Haken wird stumm ausgeliefert.',
 	],
 ]);
 
 export const EXPORT_CHANNEL_MAPPING_COPY_BY_LOCALE = Object.freeze({
 	en: Object.freeze(Object.fromEntries(EXPORT_CHANNEL_MAPPING_COPY_ENTRIES.map(([key, en]) => [key, en]))),
-	de: Object.freeze(Object.fromEntries(EXPORT_CHANNEL_MAPPING_COPY_ENTRIES.map(([key, , de]) => [key, de]))),
 });

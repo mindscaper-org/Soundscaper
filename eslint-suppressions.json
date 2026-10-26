@@ -531,11 +531,6 @@
       "count": 1
     }
   },
-  "src/common/editor/file-service.js": {
-    "no-control-regex": {
-      "count": 1
-    }
-  },
   "src/common/editor/framescaper-capture-domain.ts": {
     "no-control-regex": {
       "count": 1
@@ -673,11 +668,6 @@
     }
   },
   "src/common/editor/storage/source-write-repository.ts": {
-    "no-control-regex": {
-      "count": 1
-    }
-  },
-  "src/common/editor/storage/take-cycle-recovery-envelope-repository.ts": {
     "no-control-regex": {
       "count": 1
     }
@@ -1107,11 +1097,6 @@
   },
   "tests/audio-editor-project-fallback-integrity.test.ts": {
     "no-unsafe-finally": {
-      "count": 1
-    }
-  },
-  "tests/audio-editor-scape-archive-layout.test.ts": {
-    "require-yield": {
       "count": 1
     }
   },

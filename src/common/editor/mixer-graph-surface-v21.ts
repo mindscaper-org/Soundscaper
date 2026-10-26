@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { AudioEditorCommand } from './commands/protocol.ts';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
 import { resolveTerminalChannelWidths } from './terminal-channel-widths.ts';
 import {
 	defaultMixerChannelMapV21,
@@ -38,21 +40,27 @@ export function mixerTrackSurfaceRouteV21(
 		? assignments[0]! : null;
 	const groupId = assignment?.destination.kind === 'mixer-node'
 		? assignment.destination.id : null;
+	const sendsByDestination = new Map<string, MixerEdgeV21[]>();
+	for (const edge of graph.edges) {
+		if (edge.kind !== 'send' || edge.source.kind !== 'track' || edge.source.id !== trackId
+			|| edge.destination.kind !== 'mixer-node') continue;
+		const matching = sendsByDestination.get(edge.destination.id);
+		if (matching) matching.push(edge);
+		else sendsByDestination.set(edge.destination.id, [edge]);
+	}
 	const sends: Record<string, number> = {};
 	const editableSendIds: string[] = [];
+	const firstSendWidths = new Map<string, number>();
 	for (const send of graph.sends) {
-		const matching = graph.edges.filter((edge) => (
-			edge.kind === 'send'
-			&& edge.source.kind === 'track' && edge.source.id === trackId
-			&& edge.destination.kind === 'mixer-node' && edge.destination.id === send.id
-		));
+		if (!firstSendWidths.has(send.id)) firstSendWidths.set(send.id, send.channelCount);
+		const matching = sendsByDestination.get(send.id) ?? [];
 		if (matching.length === 0) {
 			editableSendIds.push(send.id);
 			continue;
 		}
 		if (matching.length !== 1
-			|| !isMixerTrackSurfaceSendV21(graph, matching[0]!, trackId, send.id, widths)) continue;
-		sends[send.id] = matching[0]!.level;
+			|| !isMixerTrackSurfaceSendV21(graph, matching[0]!, trackId, send.id, widths, firstSendWidths.get(send.id))) continue;
+		Object.defineProperty(sends, send.id, { value: matching[0]!.level, enumerable: true, configurable: true, writable: true });
 		editableSendIds.push(send.id);
 	}
 	return Object.freeze({
@@ -85,7 +93,8 @@ export function isMixerTrackSurfaceAssignmentV21(
 		: graph.groups.find(({ id }) => id === destination.id)?.channelCount;
 	if (destination.kind === 'mixer-node' && destinationChannels === undefined) return false;
 	const suffix = destination.kind === 'master' ? 'master' : `mixer-node:${destination.id}`;
-	return edge.id === `assignment:track:${trackId}:${suffix}`
+	const legacyId = `assignment:track:${trackId}:${suffix}`;
+	return (edge.id === legacyId || edge.id === surfaceEdgeId(legacyId, ['assignment', 'track', trackId, destination.kind, destination.kind === 'master' ? '' : destination.id]))
 		&& hasSurfaceChannelMap(edge, widths?.sourceChannels, destinationChannels);
 }
 
@@ -95,19 +104,26 @@ export function isMixerTrackSurfaceSendV21(
 	trackId: string,
 	sendId: string,
 	widths?: MixerTrackSurfaceWidthsV21,
+	knownDestinationChannels?: number,
 ): boolean {
-	const destinationChannels = graph.sends.find(({ id }) => id === sendId)?.channelCount;
+	const destinationChannels = knownDestinationChannels ?? graph.sends.find(({ id }) => id === sendId)?.channelCount;
 	return destinationChannels !== undefined
 		&& edge.kind === 'send'
 		&& edge.source.kind === 'track' && edge.source.id === trackId
 		&& edge.destination.kind === 'mixer-node' && edge.destination.id === sendId
-		&& edge.id === sendEdgeId(trackId, sendId)
+		&& (edge.id === `send:track:${trackId}:mixer-node:${sendId}` || edge.id === sendEdgeId(trackId, sendId))
 		&& edge.position === 'post-fader' && edge.enabled
 		&& hasSurfaceChannelMap(edge, widths?.sourceChannels, destinationChannels);
 }
 
 function sendEdgeId(trackId: string, sendId: string): string {
-	return `send:track:${trackId}:mixer-node:${sendId}`;
+	return surfaceEdgeId(`send:track:${trackId}:mixer-node:${sendId}`, ['send', 'track', trackId, 'mixer-node', sendId]);
+}
+
+/** Keep ordinary persisted IDs, and frame exceptional endpoint tuples unambiguously. */
+function surfaceEdgeId(legacyId: string, parts: readonly string[]): string {
+	if (legacyId.length <= 256 && !parts.slice(2).some(part => part.includes(':'))) return legacyId;
+	return `mixer-surface-${bytesToHex(sha256(new TextEncoder().encode(JSON.stringify(parts))))}`;
 }
 
 function hasSurfaceChannelMap(
@@ -395,7 +411,7 @@ function trackAssignment(
 ): MixerEdgeV21 {
 	const suffix = destination.kind === 'master' ? 'master' : `mixer-node:${destination.id}`;
 	return {
-		id: `assignment:track:${trackId}:${suffix}`, kind: 'assignment',
+		id: surfaceEdgeId(`assignment:track:${trackId}:${suffix}`, ['assignment', 'track', trackId, destination.kind, destination.kind === 'master' ? '' : destination.id]), kind: 'assignment',
 		source: { kind: 'track', id: trackId }, destination,
 		position: 'post-fader', level: 1, enabled,
 		channelMap: defaultMixerChannelMapV21(sourceChannels, destinationChannels),

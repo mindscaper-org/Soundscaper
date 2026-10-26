@@ -154,19 +154,6 @@ test('an exact baseline action port enables only its declared project mutations'
 	assert.deepEqual(opened, FRAMESCAPER_NATIVE_PROJECT_ACTION_SURFACES);
 });
 
-test('the baseline retains native project actions only when the runtime gates admit them', () => {
-	const items = menu({
-		project: baselineProject(),
-		projectCapabilities: { ...selectedCapabilities(), ofxEffects: true },
-		projectActionSurfaces: FRAMESCAPER_NATIVE_PROJECT_ACTION_SURFACES,
-	});
-	for (const id of [
-		'framescaper-import-image-sequence', 'framescaper-add-to-render-queue',
-		'framescaper-proxy-generate', 'framescaper-proxy-attach',
-		'framescaper-proxy-detach', 'framescaper-proxy-relink', 'framescaper-ofx-add',
-	]) assert.equal(item(items, id)?.disabled, false, id);
-});
-
 test('an action declaration cannot bypass the owning identity and capability gates', () => {
 	const items = menu({
 		projectActionSurfaces: FRAMESCAPER_NATIVE_PROJECT_ACTION_SURFACES,

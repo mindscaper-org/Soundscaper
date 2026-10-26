@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { snapAudioEditorFrameWithProject } from '../../snap-grid.js';
+import { adjacentSplitToolBoundaries, splitToolClipIndex, splitToolItemBoundaries } from './split-tool-item-index.ts';
+import { SPLIT_TOOL_INDEX_ENTRY_LIMIT } from './split-tool-cache-budget.ts';
 
 interface TimelineToolPrecedenceInput {
 	readonly automationToolEnabled: boolean;
@@ -82,24 +84,10 @@ export function resolveSplitToolGuidelineFrame({
 	if (project.snap?.enabled) {
 		return snapAudioEditorFrameWithProject(inputFrame, { ...project, sampleRate });
 	}
-	const timelineClipIds = new Set(project.tracks.flatMap((track) => (
-		Array.isArray(track.clipIds) ? track.clipIds : []
-	)));
-	const boundaries = [
-		...project.clips
-			.filter((clip) => timelineClipIds.has(clip.id))
-			.flatMap((clip) => [clip.timelineStartFrame, clip.timelineStartFrame + clip.durationFrames]),
-		...project.tracks.flatMap((track) => (
-			track.labels?.flatMap((label) => [label.startFrame, label.endFrame]) ?? []
-		)),
-		...(project.timelineAnnotations?.flatMap((annotation) => [
-			annotation.timelineStartFrame,
-			annotation.timelineEndFrame,
-		]) ?? []),
-	].filter((boundary) => Number.isFinite(boundary));
+	const boundaries = splitToolItemBoundaries(project.clips, project.tracks, project.timelineAnnotations);
 	let nearest = inputFrame;
 	let nearestDistance = Number.POSITIVE_INFINITY;
-	for (const boundary of boundaries) {
+	for (const boundary of pixelsPerSecond > 0 && sampleRate > 0 ? adjacentSplitToolBoundaries(boundaries, inputFrame) : boundaries) {
 		const distance = splitToolGuidelineDistancePixels(
 			inputFrame, boundary, pixelsPerSecond, sampleRate,
 		);
@@ -131,8 +119,10 @@ export function splitToolTrackHasClipAt(
 ): boolean {
 	const track = tracks.find((candidate) => candidate.id === trackId);
 	if (!splitToolTrackSplittable(track)) return false;
+	const byId = clips.length > 128 && clips.length <= SPLIT_TOOL_INDEX_ENTRY_LIMIT && Object.isFrozen(clips) ? splitToolClipIndex(clips) : null;
 	return track.clipIds.some((clipId) => {
-		const clip = clips.find((candidate) => candidate.id === clipId);
+		if (typeof clipId === 'number' && Number.isNaN(clipId)) return false;
+		const clip = byId ? byId.get(clipId) : clips.find(candidate => candidate.id === clipId);
 		return Boolean(clip && frame >= clip.timelineStartFrame
 			&& frame <= clip.timelineStartFrame + clip.durationFrames);
 	});

@@ -27,6 +27,10 @@ export function audacityShelfCoefficients(
 	sampleRate: number,
 	highShelf: boolean,
 ): AudacityShelfCoefficients {
+	// A high shelf above the source Nyquist limit has no represented passband.
+	// Use its identity boundary instead of designing unstable aliased poles.
+	// Retain the audited coefficients at and below Nyquist.
+	if (highShelf && frequency > sampleRate / 2) return { b0: 1, b1: 0, b2: 0, a0: 1, a1: 0, a2: 0 };
 	const omega = 2 * Math.PI * frequency / sampleRate;
 	const amplitude = Math.exp(Math.log(10) * gainDb / 40);
 	const beta = Math.sqrt((amplitude * amplitude + 1) / slope - (amplitude - 1) ** 2);

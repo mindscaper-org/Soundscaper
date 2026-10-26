@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { isCurrentAssertion } from '../../shared/lifecycle.ts';
 import type { CommandObject } from '../../../commands/protocol.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
 import type { RenderedAudio } from '../../../rendered-audio-channels.ts';
 import { hasCoreEditingProjectAuthority, isActiveAudioEditorProjectSchema } from '../../../project-schema-version.ts';
@@ -265,7 +266,8 @@ export function createSelectionViewService<
 		const project = getProject();
 		if (!project) return null;
 		const trackIds = project.tracks.map((track) => track.id);
-		const next = applySelectionRange(project, 0, projectDurationFrames(project), { trackIds }, false);
+		const endFrame = Math.max(projectDurationFrames(project), selectedTrackContentRange(project, trackIds, () => 0)?.endFrame ?? 0);
+		const next = applySelectionRange(project, 0, endFrame, { trackIds }, false);
 		if (!state.selectedTrackId && trackIds.length) {
 			state.selectedTrackId = trackIds[0];
 			synchronizeMicrophoneMeterTarget();
@@ -418,6 +420,7 @@ export function createSelectionViewService<
 		));
 		if (!audioTrackIds.length) return null;
 		const generation = ++zeroCrossingGeneration;
+		const projectToken = runtime.captureProject?.();
 		const radius = Math.max(1, Math.round(projectSampleRate() * 0.01));
 		const renderStart = Math.max(0, selection.startFrame - radius);
 		const renderEnd = Math.min(projectDurationFrames(projectAtStart), selection.endFrame + radius);
@@ -437,7 +440,7 @@ export function createSelectionViewService<
 			}));
 			if (getProject() !== projectAtStart) return null;
 			const channels = rendered.flatMap(audioBufferChannels);
-			const snapEdge = (frame: number) => frame < renderStart || frame >= renderEnd
+			const snapEdge = (frame: number) => frame < renderStart || frame > renderEnd
 				? frame
 				: renderStart + findNearestAudioZeroCrossing(
 					channels, frame - renderStart, { maximumDistance: radius },
@@ -461,7 +464,8 @@ export function createSelectionViewService<
 			return null;
 		} finally {
 			if (generation === zeroCrossingGeneration
-				&& getProject()?.id === projectAtStart.id) {
+				&& getProject()?.id === projectAtStart.id
+				&& (!projectToken || isCurrentAssertion(() => runtime.assertProject?.(projectToken)))) {
 				state.analysisProcessing = false;
 				publishDocumentSnapshot();
 			}

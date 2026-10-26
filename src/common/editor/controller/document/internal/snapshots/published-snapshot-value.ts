@@ -47,7 +47,10 @@ export function materializeSnapshotValue<Value>(
 	const copy = Object.create(prototype) as Record<string, unknown>;
 	seen.set(value, copy);
 	for (const key of Object.keys(value)) {
-		copy[key] = materializeSnapshotValue((value as Record<string, unknown>)[key], seen, strict);
+		Object.defineProperty(copy, key, {
+			value: materializeSnapshotValue((value as Record<string, unknown>)[key], seen, strict),
+			enumerable: true, configurable: true, writable: true,
+		});
 	}
 	return Object.freeze(copy) as Value;
 }

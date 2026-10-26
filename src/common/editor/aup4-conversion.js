@@ -132,6 +132,13 @@ export async function decodeAudacityProjectTree(root, loadBlock, options = {}) {
 		const group = channelGroups[trackIndex];
 		const trackId = idFactory('track');
 		const clipIds = [];
+		const requestedGain = finite(lastAttribute(group[0], 'gain', 1), 1);
+		const importedGain = requestedGain >= 0 ? requestedGain : 1;
+		if (importedGain > 64) throw conversionError('Audacity fader gain exceeds the supported combined track and clip gain range.', 'UNSUPPORTED_TRACK_GAIN');
+		const clipGain = importedGain > 4 ? importedGain / 4 : 1;
+		if (clipGain !== 1 && group.some((node) => audacityXmlChildren(audacityXmlChildren(node, 'effects')[0], 'effect').length)) {
+			throw conversionError('Audacity fader gain above the native fader range cannot be retained with a realtime rack.', 'UNSUPPORTED_TRACK_GAIN');
+		}
 		const trackRate = positiveRate(audacityXmlAttribute(group[0], 'rate', projectRate));
 		const firstSequence = audacityXmlChildren(audacityXmlChildren(group[0], 'waveclip')[0], 'sequence')[0];
 		const sourceSampleFormat = sampleFormatName(audacityXmlAttribute(
@@ -186,6 +193,7 @@ export async function decodeAudacityProjectTree(root, loadBlock, options = {}) {
 				stretchRatio, stretchToTempo, trimLeftSeconds, trimStartFrames, trimEndFrames,
 				sourceDurationFrames, timelineStartFrame, durationFrames,
 			} = readAup4ClipTiming(clipNode, frameCount, trackRate, projectRate, importedTempoBpm);
+			if (sourceDurationFrames <= 0 || durationFrames <= 0) continue;
 			const sourceId = reusedSource?.id || idFactory('source');
 			const clipId = idFactory('clip');
 			const pitchAndSpeedPreset = readPitchAndSpeedPreset(clipNode);
@@ -223,7 +231,7 @@ export async function decodeAudacityProjectTree(root, loadBlock, options = {}) {
 				durationFrames,
 				trimStartFrames,
 				trimEndFrames,
-				gain: 1,
+				gain: clipGain,
 				envelope,
 				groupId: Number(groupId) >= 0 ? `aup4-group-${groupId}` : null,
 				color: String(audacityXmlAttribute(clipNode, 'colorindex', audacityXmlAttribute(clipNode, 'color', 'auto'))) || 'auto',
@@ -266,6 +274,15 @@ export async function decodeAudacityProjectTree(root, loadBlock, options = {}) {
 			trackIndex,
 			name: String(audacityXmlAttribute(group[0], 'name', `Track ${trackIndex + 1}`)),
 		}, idFactory, (active) => { effectsActive = active; });
+		if (clipGain !== 1) {
+			if (!clipIds.length) throw conversionError('Audacity fader gain above the native fader range requires playable clips to retain its gain.', 'UNSUPPORTED_TRACK_GAIN');
+			warn(state, `Track ${trackIndex + 1} fader gain above the native range is retained in clip gain.`);
+			addAup4CompatibilityItem(compatibilityReport, {
+				code: 'TRACK_FADER_GAIN_CONVERTED', severity: 'warning', disposition: 'converted',
+				scope: { kind: 'track', trackId, trackIndex }, data: { authoredGain: importedGain, trackGain: 4, clipGain },
+				message: 'Track gain above the native fader range is preserved by combining track and clip gains.',
+			});
+		}
 		for (let channel = 1; channel < group.length; channel += 1) {
 			if (!audacityXmlChildren(group[channel], 'effects').length) continue;
 			addAup4CompatibilityItem(compatibilityReport, {
@@ -280,7 +297,7 @@ export async function decodeAudacityProjectTree(root, loadBlock, options = {}) {
 			id: trackId,
 			name: String(audacityXmlAttribute(group[0], 'name', `Track ${trackIndex + 1}`)),
 			color: trackColor(audacityXmlAttribute(group[0], 'colorindex', 0)),
-			gain: finiteInRange(lastAttribute(group[0], 'gain', 1), 0, 4, 1),
+			gain: Math.min(4, importedGain),
 			pan: finiteInRange(audacityXmlAttribute(group[0], 'pan', 0), -1, 1, 0),
 			mute: Boolean(audacityXmlAttribute(group[0], 'mute', false)),
 			solo: Boolean(audacityXmlAttribute(group[0], 'solo', false)),

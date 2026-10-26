@@ -174,6 +174,7 @@ async function executeAnalysis(
 ): Promise<VideoMotionAnalysisReferenceV1> {
 	throwIfAborted(request.signal);
 	const initial = projectRecord(options.owner.project);
+	const projectId = stableId(initial.id, 'finishing project ID');
 	const stack = stackById(initial, request.processorStackId);
 	const source = sourceById(initial, stack.sourceId);
 	const range = analysisRange(request.startFrame, request.endFrame, source);
@@ -185,13 +186,13 @@ async function executeAnalysis(
 	};
 	onProgress({ phase: 'decoding', completed: 0, total: range.endFrame - range.startFrame });
 	const frames = await options.frameProvider({
-		projectId: stableId(initial.id, 'finishing project ID'), source,
+		projectId, source,
 		...range,
 		...(request.signal ? { signal: request.signal } : {}),
 		onProgress,
 	});
 	throwIfAborted(request.signal);
-	assertCurrent(options.owner.project, source, stack, existing);
+	assertCurrent(options.owner.project, projectId, source, stack, existing);
 	const analysisModule = await import('../common/editor/video-motion-analysis-v27.ts');
 	const result = await analysisModule.analyzeVideoMotionV1({
 		analysisId,
@@ -204,8 +205,8 @@ async function executeAnalysis(
 		},
 	});
 	throwIfAborted(request.signal);
-	assertCurrent(options.owner.project, source, stack, existing);
-	return publishAnalysis(options, result, existing, source, stack, request.signal, onProgress);
+	assertCurrent(options.owner.project, projectId, source, stack, existing);
+	return publishAnalysis(options, result, existing, source, stack, projectId, request.signal, onProgress);
 }
 
 async function publishAnalysis(
@@ -214,6 +215,7 @@ async function publishAnalysis(
 	existing: VideoMotionAnalysisReferenceV1 | null,
 	expectedSource: Readonly<Record<string, unknown>>,
 	expectedStack: VideoProcessorStackV1,
+	projectId: string,
 	signal: AbortSignal | undefined,
 	onProgress: (progress: FramescaperMotionAnalysisProgressFinishing) => void,
 ): Promise<VideoMotionAnalysisReferenceV1> {
@@ -228,7 +230,7 @@ async function publishAnalysis(
 	}
 	try {
 		throwIfAborted(signal);
-		assertCurrent(options.owner.project, expectedSource, expectedStack, existing);
+		assertCurrent(options.owner.project, projectId, expectedSource, expectedStack, existing);
 		if (JSON.stringify(existing) === JSON.stringify(result.reference)) {
 			onProgress({ phase: 'complete', completed: 1, total: 1 });
 			return result.reference;
@@ -353,11 +355,13 @@ function analysisFreshness(
 
 function assertCurrent(
 	projectValue: unknown,
+	projectId: string,
 	source: Readonly<Record<string, unknown>>,
 	stack: VideoProcessorStackV1,
 	expectedAnalysis: VideoMotionAnalysisReferenceV1 | null,
 ): void {
 	const project = projectRecord(projectValue);
+	if (project.id !== projectId) throw new DOMException('The motion-analysis project changed before publication.', 'AbortError');
 	const currentSource = sourceById(project, stack.sourceId);
 	const currentStack = stackById(project, stack.id);
 	const currentAnalysis = analysisForStack(project, stack);

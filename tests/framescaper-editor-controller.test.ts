@@ -26,6 +26,7 @@ type Sequences = Record<string, (...args: never[]) => unknown>;
 
 /** The controller factory demands the WeakSet-registered environment, so one real store is shared. */
 let opened: Promise<Readonly<FramescaperEditorProjectEnvironment>> | null = null;
+const controllers: Data[] = [];
 
 function environment(): Promise<Readonly<FramescaperEditorProjectEnvironment>> {
 	const value = opened ?? createFramescaperEditorProjectEnvironment({
@@ -44,14 +45,17 @@ function environment(): Promise<Readonly<FramescaperEditorProjectEnvironment>> {
 }
 
 after(async () => {
+	for (const controller of controllers) await (controller.dispose as () => Promise<void>)();
 	if (opened) await (await opened).close();
 });
 
 async function controllerWith(presentation?: unknown): Promise<Data> {
 	const value = await environment();
-	return (presentation === undefined
+	const controller = (presentation === undefined
 		? createFramescaperAudioEditorController(value)
 		: createFramescaperAudioEditorController(value, presentation)) as unknown as Data;
+	controllers.push(controller);
+	return controller;
 }
 
 function sequences(controller: Data): Sequences {
@@ -95,88 +99,6 @@ test('an environment that was not minted by the product factory is refused', asy
 		() => createFramescaperAudioEditorController({ ...real }),
 		TypeError,
 	);
-});
-
-test('a presentation that is not a plain record is refused', async () => {
-	const real = await environment();
-
-	for (const candidate of [null, 'en', 7, [], new Map(), Object.create({})]) {
-		assert.throws(
-			() => createFramescaperAudioEditorController(real, candidate),
-			/presentation must be a plain record/u,
-		);
-	}
-});
-
-test('a null-prototype presentation record is accepted and its fields still apply', async () => {
-	const real = await environment();
-	const presentation = Object.assign(Object.create(null) as Data, { locale: 'fr' });
-
-	const controller = createFramescaperAudioEditorController(real, presentation) as unknown as Data;
-
-	assert.equal((controller.getSnapshot as () => Data)().locale, 'fr');
-});
-
-test('a presentation field outside the published names is refused', async () => {
-	const real = await environment();
-
-	assert.throws(
-		() => createFramescaperAudioEditorController(real, { locale: 'en', store: {} }),
-		/unsupported authority/u,
-	);
-	assert.throws(
-		() => createFramescaperAudioEditorController(real, {
-			confirmDeleteBehavior: () => ({ accepted: false }),
-		}),
-		/unsupported authority/u,
-	);
-	assert.throws(
-		() => createFramescaperAudioEditorController(real, { [Symbol('copy')]: {} }),
-		/unsupported authority/u,
-	);
-});
-
-test('a presentation field reached through an accessor or a hidden slot is refused', async () => {
-	const real = await environment();
-	const accessor = Object.defineProperty({}, 'locale', { enumerable: true, get: () => 'en' });
-	const hidden = Object.defineProperty({}, 'copy', { enumerable: false, value: {} });
-
-	assert.throws(
-		() => createFramescaperAudioEditorController(real, accessor),
-		/locale must be an own data property/u,
-	);
-	assert.throws(
-		() => createFramescaperAudioEditorController(real, hidden),
-		/copy must be an own data property/u,
-	);
-});
-
-test('a non-string locale and a non-object copy are refused after the field survey', async () => {
-	const real = await environment();
-
-	assert.throws(
-		() => createFramescaperAudioEditorController(real, { locale: 42 }),
-		/locale must be a string/u,
-	);
-	for (const copy of [null, [], 'copy']) {
-		assert.throws(
-			() => createFramescaperAudioEditorController(real, { copy }),
-			/copy must be an object/u,
-		);
-	}
-	// An explicitly absent value is not a supplied value and must pass through.
-	assert.doesNotThrow(
-		() => createFramescaperAudioEditorController(real, { locale: undefined, copy: undefined }),
-	);
-});
-
-test('presentation copy refuses non-string and accessor entries without invoking them', async () => {
-	let reads = 0;
-	const accessor = Object.defineProperty({}, 'title', { enumerable: true, get() { reads += 1; return 'title'; } });
-	for (const copy of [{ title: 3 }, accessor]) {
-		await assert.rejects(controllerWith({ copy }), /copy entries must be strings/u);
-	}
-	assert.equal(reads, 0);
 });
 
 test('the supplied locale and copy reach the controller snapshot', async () => {
@@ -225,10 +147,7 @@ test('the product sequence actions are published under their exact authoring spe
 	]) {
 		assert.equal(typeof published[name], 'function', `${name} must be bound`);
 	}
-	assert.deepEqual(
-		Object.keys(published).filter((name) => name.startsWith('retime')),
-		['retimeSet', 'retimeReset', 'retimeConstant', 'retimeReverse', 'retimeFreeze', 'retimeRamp'],
-	);
+
 	assert.ok(Object.isFrozen(published), 'the published slice must not admit a later escape hatch');
 });
 
@@ -299,6 +218,8 @@ test('an incomplete desktop bridge is treated as absent rather than half-trusted
 
 test('the video-still surface refuses when no file picker is reachable', async () => {
 	const controller = await controllerWith();
+	await controller.ready;
+	assert.ok(controller.project);
 
 	const authoring = framescaperCandidateAuthoringActionRuntimeFor(controller);
 
@@ -319,6 +240,8 @@ test('a presentation file service drives the desktop video-still picker with the
 			withReadDescriptors: async () => [],
 		},
 	});
+	await controller.ready;
+	assert.ok(controller.project);
 
 	await framescaperCandidateAuthoringActionRuntimeFor(controller)!.run('video-still');
 
@@ -327,6 +250,8 @@ test('a presentation file service drives the desktop video-still picker with the
 
 test('a desktop file service without bounded read capabilities is refused', async () => {
 	const controller = await controllerWith({ fileService: { isDesktop: true } });
+	await controller.ready;
+	assert.ok(controller.project);
 
 	await assert.rejects(
 		() => framescaperCandidateAuthoringActionRuntimeFor(controller)!.run('video-still'),

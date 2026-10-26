@@ -3,6 +3,7 @@
 export const AUDIO_EDITOR_EDIT_BLOCK_REASONS = Object.freeze({
 	READ_ONLY: 'read-only',
 	PROJECT_ACTIVATION: 'project-activation',
+	PROJECT_ADMINISTRATION: 'project-administration',
 	TAKE_CYCLE_RECOVERY: 'take-cycle-recovery',
 	IMPORTING: 'importing',
 	RECORDING_STARTING: 'recording-starting',
@@ -23,6 +24,7 @@ export type AudioEditorEditBlockReason = typeof AUDIO_EDITOR_EDIT_BLOCK_REASONS[
 export interface AudioEditorEditBlockingSnapshot {
 	readonly readOnly?: unknown;
 	readonly projectActivationPending?: unknown;
+	readonly projectAdministrationPending?: unknown;
 	readonly takeCycleRecovery?: unknown;
 	readonly featureRequirementsReadOnly?: unknown;
 	readonly lockReadOnly?: unknown;
@@ -47,6 +49,7 @@ export interface AudioEditorEditBlock {
 export interface AudioEditorControllerEditState {
 	readonly readOnly?: unknown;
 	readonly projectActivationPending?: unknown;
+	readonly projectAdministrationPending?: unknown;
 	readonly takeCycleRecovery?: unknown;
 	readonly takeCycleRecoveryInspecting?: unknown;
 	readonly importing?: unknown;
@@ -67,6 +70,7 @@ type BlockRule = readonly [AudioEditorEditBlockReason, BlockPredicate];
 const EDIT_BLOCK_RULES = Object.freeze<BlockRule[]>([
 	[AUDIO_EDITOR_EDIT_BLOCK_REASONS.READ_ONLY, (snapshot) => Boolean(snapshot.readOnly)],
 	[AUDIO_EDITOR_EDIT_BLOCK_REASONS.PROJECT_ACTIVATION, (snapshot) => Boolean(snapshot.projectActivationPending)],
+	[AUDIO_EDITOR_EDIT_BLOCK_REASONS.PROJECT_ADMINISTRATION, (snapshot) => Boolean(snapshot.projectAdministrationPending)],
 	[AUDIO_EDITOR_EDIT_BLOCK_REASONS.TAKE_CYCLE_RECOVERY, (snapshot) => Boolean(snapshot.takeCycleRecovery)],
 	[AUDIO_EDITOR_EDIT_BLOCK_REASONS.IMPORTING, (snapshot) => Boolean(snapshot.importing)],
 	[AUDIO_EDITOR_EDIT_BLOCK_REASONS.RECORDING_STARTING, (snapshot) => Boolean(snapshot.recordingStarting)],
@@ -111,6 +115,7 @@ export function selectAudioEditorControllerEditBlock(
 	return selectAudioEditorEditBlock({
 		readOnly: state.readOnly,
 		projectActivationPending: state.projectActivationPending,
+		projectAdministrationPending: state.projectAdministrationPending,
 		takeCycleRecovery: state.takeCycleRecovery || state.takeCycleRecoveryInspecting,
 		importing: state.importing,
 		recordingStarting: state.recordingStarting,

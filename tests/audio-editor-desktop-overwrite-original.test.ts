@@ -154,7 +154,7 @@ test('an unreadable optional source probe does not fail a completed import', asy
 	assert.equal(desktopOriginalForProject(state, project.id), null);
 });
 
-test('compressed settings preserve FLAC precision and derive MP3 VBR quality from the source rate', async () => {
+test('compressed settings preserve FLAC precision and derive MP3 VBR quality from encoded frames', async () => {
 	const flac = new Uint8Array(42);
 	flac.set(new TextEncoder().encode('fLaC'));
 	flac[7] = 34;
@@ -168,7 +168,7 @@ test('compressed settings preserve FLAC precision and derive MP3 VBR quality fro
 		[{ ...source, originalSampleRate: 44_100, sampleRate: 48_000, frameCount: 48_000 }]);
 	assert.equal(settings?.bitRateMode, 'variable');
 	assert.equal(settings?.bitRate, 128);
-	assert.equal(settings?.vbrQuality, 2);
+	assert.equal(settings?.vbrQuality, 5, 'Unparsed trailing bytes do not inflate the encoded frame bitrate.');
 	assert.equal(settings?.sampleRate, 44_100);
 });
 
@@ -239,6 +239,7 @@ test('CRC-protected MP3 VBR tags retain their quality and M4A brands cannot prov
 test('WavPack floating point precision is retained and hybrid data remains ineligible', async () => {
 	const bytes = new Uint8Array(32);
 	bytes.set(new TextEncoder().encode('wvpk'));
+	new DataView(bytes.buffer).setUint32(20, 1, true);
 	new DataView(bytes.buffer).setUint32(24, 0x83, true);
 	const settings = await resolveDesktopOriginalExportSettings(new File([bytes], 'float.wv'), [source]);
 	assert.equal(settings?.sampleFormat, 'float32');

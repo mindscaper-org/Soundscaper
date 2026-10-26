@@ -28,7 +28,7 @@ interface AudacityActionDefinitionInput {
 	readonly upstreamAction: string;
 	readonly upstreamSource: string | null;
 	readonly origin: 'upstream' | 'local';
-	readonly reason?: Readonly<{ en: string; de: string; catalogKey: string }>;
+	readonly reason?: Readonly<{ en: string; catalogKey: string }>;
 	readonly menuVisible?: boolean;
 }
 

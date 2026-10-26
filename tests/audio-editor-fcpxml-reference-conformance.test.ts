@@ -7,28 +7,10 @@ import { createFcpxmlExport } from '../src/common/editor/fcpxml-export.ts';
 import { readWithReference, referenceItems } from './helpers/interchange-reference.ts';
 
 /**
- * FCPXML round trip through a third-party reader.
- *
- * 6C-1c's acceptance asked for validation against a pinned FCPXML DTD. Apple's
- * DTD is not redistributable, so this suite gets the same assurance a different
- * way: our file is parsed by the `otio-fcpx-xml-adapter` reference reader and
- * every structural fact we claim is checked from the far side of it.
- *
- * ONE KNOWN LIMITATION, WHICH IS THE READER'S AND NOT OURS. The adapter derives
- * the sequence rate like this (fcpx_xml.py, `_format_frame_rate`):
- *
- *     return int(float(fd_rate) / float(fd_total))
- *
- * For `frameDuration="1001/30000s"` that is `int(29.97002997…)` — 29. The
- * truncation loses every NTSC rate: 29.97 becomes 29, 23.976 becomes 23, 59.94
- * becomes 59, and the frame counts computed from our exact rational times then
- * come out short with a phantom gap where a clip no longer abuts its neighbour.
- *
- * `1001/30000s` is precisely how FCPXML expresses 29.97 and precisely what Final
- * Cut Pro itself writes, so our output is correct and must not be contorted to
- * satisfy an integer-only reader. The NTSC case is therefore asserted as a
- * *known reader limitation* rather than skipped: if the adapter is ever fixed,
- * that test fails and tells us to strengthen this suite.
+ * Read exported FCPXML with the pinned third-party adapter and verify the
+ * resulting timeline. The adapter truncates fractional frame rates, so these
+ * round trips use integer rates. Exact NTSC rationals and sequence timecodes
+ * are covered by audio-editor-fcpxml-export.test.ts.
  */
 
 const SAMPLE_RATE = 48_000;
@@ -112,24 +94,6 @@ test('the reader resolves our deduplicated assets rather than losing a reference
 	assert.equal(readBack(result.text).length, 3, 'three clips still resolve');
 });
 
-test('we write the sequence start timecode even though this reader discards it', () => {
-	// The adapter has no tcStart code path at all — grep it for `tcStart` and
-	// nothing comes back — so it reports no global start for any FCPXML file,
-	// ours included. That is a second reader limitation rather than a gap in
-	// what we emit, and dropping tcStart to match it would corrupt every file
-	// for readers that do honour it.
-	const result = createFcpxmlExport({
-		project: project(), sequenceRate: { num: 25, den: 1 }, startFrameCount: 90_000,
-	});
-	assert.match(result.text, /tcStart="3600s"/u, '90000 frames at 25fps is exactly one hour');
-	const [timeline] = readWithReference(result.text, 'fcpx_xml', {}, '.fcpxml');
-	assert.equal(
-		timeline.globalStartValue,
-		null,
-		'when this reader learns to read tcStart, tighten this to assert 90000',
-	);
-});
-
 test('a clip we omitted is absent to the reader, and the rest is undamaged', () => {
 	const blink = {
 		...project(),
@@ -145,27 +109,4 @@ test('a clip we omitted is absent to the reader, and the rest is undamaged', () 
 	const result = createFcpxmlExport({ project: blink, sequenceRate: { num: 25, den: 1 } });
 	assert.ok(result.report.items.some((item) => item.code === 'fcpxml.sub-frame-clip-omitted'));
 	assert.deepEqual(readBack(result.text).map((item) => item.name), ['A', 'B', 'C']);
-});
-
-test('the NTSC misread is the reader truncating the rate, not us emitting a wrong one', () => {
-	// This pins a known third-party limitation. `1001/30000s` is exactly how
-	// FCPXML expresses 29.97 and exactly what Final Cut Pro writes, so the fix
-	// is never to change what we emit. If this test starts failing, the adapter
-	// has been fixed and the NTSC rates belong in EXACT_RATES above.
-	const result = createFcpxmlExport({ project: project(), sequenceRate: { num: 30_000, den: 1_001 } });
-	assert.match(
-		result.text,
-		/frameDuration="1001\/30000s"/u,
-		'our file states the exact rational, which is the correct FCPXML for 29.97',
-	);
-	const items = readBack(result.text);
-	assert.equal(
-		items[0].durationRate,
-		29,
-		'the reader truncates int(30000/1001) to 29; when this changes, widen this suite',
-	);
-	assert.ok(
-		items.some((item) => item.schema === 'Gap'),
-		'the truncated rate is what makes clips stop abutting, producing a gap we never wrote',
-	);
 });

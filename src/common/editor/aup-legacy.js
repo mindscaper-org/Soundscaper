@@ -9,6 +9,7 @@ import {
 	LegacyAupBlockBudget,
 	resolveLegacyAupBlockLimits,
 } from './aup-legacy-block-budget.ts';
+import { legacyAupDataFileCustody } from './aup-legacy-file-custody.ts';
 
 export {
 	decodeAuBlockFile,
@@ -36,7 +37,7 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 	for (const [trackIndex, trackNode] of waveTracks.entries()) {
 		const trackRate = positiveRate(attribute(trackNode, 'rate', projectRate));
 		const clipPlans = [];
-		for (const [clipIndex, clipNode] of children(trackNode, 'waveclip').entries()) {
+		for (const [clipIndex, clipNode] of legacyTrackClips(trackNode).entries()) {
 			const sequence = children(clipNode, 'sequence')[0];
 			if (!sequence) continue;
 			const clipPlan = {
@@ -47,6 +48,10 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 				trackRate,
 			};
 			for (const waveBlock of children(sequence, 'waveblock')) {
+				const start = attribute(waveBlock, 'start', undefined);
+				if (start !== undefined && nonNegativeInteger(start) !== clipPlan.frameCount) {
+					throw new LegacyAupError('Legacy sequence block positions are not contiguous.', 'CORRUPT_BLOCK_FILE');
+				}
 				const silent = children(waveBlock, 'silentblockfile')[0];
 				if (silent) {
 					const length = positiveBlockLength(attribute(silent, 'len', undefined));
@@ -72,6 +77,10 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 				}
 				referenced.placements.push({ clipPlan, destinationOffset, length, filename });
 			}
+			const declaredFrames = attribute(sequence, 'numsamples', undefined);
+			if (declaredFrames !== undefined && nonNegativeInteger(declaredFrames) !== clipPlan.frameCount) {
+				throw new LegacyAupError('Legacy sequence length does not match its audio blocks.', 'CORRUPT_BLOCK_FILE');
+			}
 			if (clipPlan.frameCount) clipPlans.push(clipPlan);
 		}
 		physicalPlans.push({ clipPlans, trackIndex, trackNode, trackRate });
@@ -83,7 +92,8 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 	}
 	admitLinkedTrackPadding(physicalPlans, budget);
 	const physicalTracks = physicalPlans.map(materializePhysicalTrack);
-	const tracks = linkLegacyAupTracks(physicalTracks);
+	const warnings = [];
+	const tracks = linkLegacyAupTracks(physicalTracks, warnings);
 	const totalBlocks = [...referencedFiles.values()].reduce((sum, entry) => sum + entry.placements.length, 0);
 	const corrupt = [];
 	let completed = 0;
@@ -113,26 +123,52 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 	if (corrupt.length) throw new LegacyAupError(`Corrupt legacy Audacity block files: ${corrupt.map((entry) => entry.filename).join(', ')}.`, 'CORRUPT_BLOCK_FILES', { files: corrupt });
 	for (const [index, trackNode] of children(project, 'labeltrack').entries()) tracks.push({
 		type: 'label',
+		selected: booleanAttribute(trackNode, 'isSelected', false),
 		name: String(attribute(trackNode, 'name', `Labels ${index + 1}`)),
 		labels: children(trackNode, 'label').map((label) => ({
+			selected: booleanAttribute(label, 'isSelected', false),
 			title: String(attribute(label, 'title', '')),
-			startSeconds: nonNegative(attribute(label, 't', 0)),
-			endSeconds: nonNegative(attribute(label, 't1', attribute(label, 't', 0))),
+			startSeconds: finite(attribute(label, 't', 0)),
+			endSeconds: finite(attribute(label, 't1', attribute(label, 't', 0))),
 			opaqueExtensions: { legacyAupLabel: cloneNode(label) },
 		})),
 		opaqueExtensions: { legacyAupLabelTrack: cloneNode(trackNode) },
 	});
 	options.onProgress?.({ progress: 1, phase: 'complete' });
 	return {
+		consumedDataFiles: legacyAupDataFileCustody(dataFiles || [], [...referencedFiles.keys()]),
 		sampleRate: projectRate,
 		tempo: { bpm: positive(attribute(project, 'time_signature_tempo', 120), 120), timeSignature: { numerator: 4, denominator: 4 } },
 		selection: { startSeconds: nonNegative(attribute(project, 'sel0', 0)), endSeconds: nonNegative(attribute(project, 'sel1', 0)) },
 		view: { zoom: positive(attribute(project, 'zoom', 100), 100), horizontalPosition: nonNegative(attribute(project, 'h', 0)), verticalPosition: Math.round(nonNegative(attribute(project, 'vpos', 0))) },
 		tracks,
-		metadata: { title: String(attribute(project, 'projname', projectFile.name || 'Audacity project')).replace(/\.aup$/i, '') },
-		warnings: [],
+		metadata: readLegacyMetadata(project, projectFile.name),
+		warnings,
 		opaqueExtensions: { legacyAupProject: cloneNode(project) },
 	};
+}
+
+function readLegacyMetadata(project, fileName) {
+	const metadata = { title: String(fileName || attribute(project, 'projname', 'Audacity project')).replace(/\.aup$/i, ''), tags: {} };
+	const known = { TITLE: 'title', ARTIST: 'artist', ALBUM: 'album', TRACK: 'trackNumber', TRACKNUMBER: 'trackNumber', YEAR: 'year', COMMENTS: 'comments', COMMENT: 'comments' };
+	for (const tag of children(children(project, 'tags')[0], 'tag')) {
+		const name = String(attribute(tag, 'name', '')).toUpperCase();
+		const value = String(attribute(tag, 'value', ''));
+		if (known[name]) metadata[known[name]] = value;
+		else if (name) Object.defineProperty(metadata.tags, name, { value, enumerable: true, writable: true, configurable: true });
+	}
+	return metadata;
+}
+
+function legacyTrackClips(trackNode) {
+	const clips = children(trackNode, 'waveclip');
+	if (clips.length || !children(trackNode, 'sequence').length) return clips;
+	// Before Audacity 1.3, each wave track stored one sequence directly.
+	return [{
+		name: 'waveclip',
+		attributes: { ...trackNode.attributes },
+		children: trackNode.children,
+	}];
 }
 
 function indexLegacyFiles(values, budget) {
@@ -209,6 +245,7 @@ function materializePhysicalTrack({ clipPlans, trackIndex, trackNode, trackRate 
 	});
 	return {
 		type: 'audio',
+		selected: booleanAttribute(trackNode, 'isSelected', false),
 		name: String(attribute(trackNode, 'name', `Track ${trackIndex + 1}`)),
 		rate: trackRate,
 		channel: Number(attribute(trackNode, 'channel', 2)),
@@ -229,6 +266,10 @@ function admitLinkedTrackPadding(physicalPlans, budget) {
 		const left = physicalPlans[index];
 		const right = physicalPlans[index + 1];
 		if (!booleanAttribute(left.trackNode, 'linked', false) || !right) continue;
+		if (left.trackRate !== right.trackRate) {
+			throw new LegacyAupError('Legacy linked-track sample rates do not match.', 'CORRUPT_LINKED_TRACK',
+				{ leftRate: left.trackRate, rightRate: right.trackRate });
+		}
 		for (let clipIndex = 0; clipIndex < Math.max(left.clipPlans.length, right.clipPlans.length); clipIndex += 1) {
 			const leftClip = left.clipPlans[clipIndex];
 			const rightClip = right.clipPlans[clipIndex];
@@ -267,12 +308,29 @@ function legacyClipPlanStart(plan) {
 		+ nonNegative(attribute(plan.clipNode, 'trimleft', 0));
 }
 
-function linkLegacyAupTracks(physical) {
+function linkLegacyAupTracks(physical, warnings) {
 	const output = [];
 	for (let index = 0; index < physical.length; index += 1) {
 		const left = physical[index];
 		const right = physical[index + 1];
 		if (left.linked && right) {
+			if (left.clips.some((clip, clipIndex) => right.clips[clipIndex]
+				&& JSON.stringify(clip.envelope) !== JSON.stringify(right.clips[clipIndex].envelope))) {
+				// Audacity 2.x keeps the two WaveClip envelopes when joining tracks.
+				// Native clips have one envelope, so retain independent mono channels.
+				for (const [channelIndex, track] of [left, right].entries()) output.push({
+					...track, linked: false, channelCount: 1, channelLayout: 'mono',
+					gain: left.gain, mute: left.mute, solo: left.solo,
+					pan: channelIndex === 0 ? (left.pan > 0 ? 2 * left.pan - 1 : -1)
+						: (left.pan < 0 ? 2 * left.pan + 1 : 1),
+					clips: track.clips.map((clip, clipIndex) => ({ ...clip,
+						groupId: `legacy-linked-${index}-clip-${clipIndex}`,
+					})),
+				});
+				warnings.push(`Independent channel envelopes on ${left.name} were preserved on linked mono tracks.`);
+				index += 1;
+				continue;
+			}
 			const clips = [];
 			for (let clipIndex = 0; clipIndex < Math.max(left.clips.length, right.clips.length); clipIndex += 1) {
 				const first = left.clips[clipIndex] || right.clips[clipIndex];

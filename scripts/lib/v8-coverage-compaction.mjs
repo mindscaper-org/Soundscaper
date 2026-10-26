@@ -6,6 +6,8 @@ import { resolve } from 'node:path';
 
 import { mergeProcessCovs } from '@bcoe/v8-coverage';
 
+import { coverageScriptIdentity } from './coverage-script-identity.mjs';
+
 // Every `node --test` child writes its own raw V8 profile, and each one carries a
 // full copy of the source-map cache for the TypeScript it loaded. A sharded run
 // therefore leaves gigabytes behind, almost all of it duplicated. Compaction
@@ -32,10 +34,12 @@ export function compactV8Coverage(temporaryDirectory, repositoryRoot) {
 		if (!name.endsWith('.json')) continue;
 		const profile = readProfile(resolve(temporaryDirectory, name));
 		if (profile === null) continue;
-		batch.push({ result: (profile.result ?? []).filter((entry) => keep(entry.url)) });
-		for (const [url, entry] of Object.entries(profile['source-map-cache'] ?? {})) {
-			if (keep(url) && !(url in sourceMapCache)) sourceMapCache[url] = entry;
-		}
+		const result = (profile.result ?? []).filter((entry) => keep(entry.url)).map((script) => {
+			const { url, sourceMap } = coverageScriptIdentity(script, profile['source-map-cache']?.[script.url]);
+			if (sourceMap && !(url in sourceMapCache)) sourceMapCache[url] = sourceMap;
+			return url === script.url ? script : { ...script, url };
+		});
+		batch.push({ result });
 		if (batch.length >= MERGE_BATCH_SIZE) {
 			merged = mergeProcessCovs([merged, ...batch]);
 			batch = [];

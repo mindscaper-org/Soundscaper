@@ -165,9 +165,8 @@ export function sanitizeExportName(value, fallback = 'audio-project') {
 		.normalize('NFC')
 		.replace(/[^\p{L}\p{N}\p{M}_-]+/gu, '-')
 		.replace(/-{2,}/g, '-')
-		.replace(/^[-_.]+|[-_.]+$/g, '')
-		.slice(0, 96);
-	return normalized || fallback;
+		.replace(/^[-_.]+|[-_.]+$/g, '');
+	return Array.from(normalized).slice(0, 96).join('') || fallback;
 }
 
 export function createExportFileName(project, options = {}) {
@@ -241,11 +240,11 @@ export function createExportPlan(project, options = {}) {
 	const ixml = ixmlMetadata(range);
 	const spanIxml = spans?.map((span) => ixmlMetadata(span));
 	const cartMetadata = (deliveryRange) => cartForDeliveryRange(
-		runtimeProject.metadata?.cart, deliveryRange, runtimeProject.sampleRate, sampleRate,
+		runtimeProject.metadata?.cart, deliveryRange, runtimeProject.sampleRate, sampleRate, encoding.bitDepth,
 	);
 	let cart = format === 'bwf' || format === 'bw64'
 		? masteringSequence
-			? cartForMasteringSequence(runtimeProject.metadata?.cart, masteringSequence.plan, runtimeProject.sampleRate, sampleRate)
+			? cartForMasteringSequence(runtimeProject.metadata?.cart, masteringSequence.plan, runtimeProject.sampleRate, sampleRate, encoding.bitDepth)
 			: cartMetadata(range) : null;
 	// The TimeReference states where the delivered audio sits on the project's
 	// timeline, so it is derived per delivered span, not once for the whole plan.
@@ -495,7 +494,7 @@ function multiplySafeIntegers(left, right, name) {
 	return left * right;
 }
 
-function resolveExportRange(project, requestedRange) {
+export function resolveExportRange(project, requestedRange) {
 	if (requestedRange === 'project') return normalizeFrameRange(0, projectDurationFrames(project), 'export range');
 	if (requestedRange === 'selection') {
 		return normalizeFrameRange(project.selection.startFrame, project.selection.endFrame, 'export selection');

@@ -3,6 +3,8 @@
 import type { AudioBufferLike } from '../../source/source-audio.ts';
 import type { EffectSelectionProject, EffectTarget } from '../effect-selection-service.ts';
 import type { SourceEditorAudioWindow, SourceEditorAudioWindowRequest } from './source-editor-audio-window.ts';
+import { SOURCE_CHUNK_FRAMES } from '../../../source-pcm-contract.ts';
+import { raceAbortableRead } from '../../../abort-race.ts';
 
 const SOURCE_TRACK_PREFIX = 'source-editor:';
 
@@ -62,8 +64,10 @@ export function createSourceEditorEffects<Buffer extends AudioBufferLike>(depend
 				selection.endFrame + source.frameCount - selection.sourceFrameCount));
 			selection = { ...selection, sourceId: source.id, sourceFrameCount: source.frameCount, startFrame, endFrame };
 		}
+		let privateTrackId = `${SOURCE_TRACK_PREFIX}${source.id}`;
+		while (project.tracks.some(item => item.id === privateTrackId)) privateTrackId = `${SOURCE_TRACK_PREFIX}${privateTrackId}`;
 		return {
-			track: { ...track, id: `${SOURCE_TRACK_PREFIX}${source.id}` },
+			track: { ...track, id: privateTrackId },
 			sourceId: source.id, sourceTrackId: track.id, sourceClipId: clip.id, sourceFrameCount: source.frameCount,
 			sourceSampleRate: source.sampleRate,
 			startFrame: selection.startFrame, endFrame: selection.endFrame,
@@ -95,8 +99,14 @@ export function createSourceEditorEffects<Buffer extends AudioBufferLike>(depend
 		return !request.signal?.aborted && current.id === project.id && current.clips.some(item => item.id === clipId && item.sourceId === source.id) ? result : null;
 	}
 	async function renderRange(trackId: string, startFrame: number, endFrame: number): Promise<Float32Array[] | null> {
-		if (!trackId.startsWith(SOURCE_TRACK_PREFIX)) return null;
-		const buffer = await readSource(trackId.slice(SOURCE_TRACK_PREFIX.length));
+		const selected = target();
+		if (!selected?.sourceId || selected.track.id !== trackId) return null;
+		const sourceId = selected.sourceId;
+		const source = findSource(dependencies.getProject(), sourceId);
+		if (!source) throw new RangeError('The selected source is no longer available.');
+		const windowed = await readWindows(source, startFrame, endFrame);
+		if (windowed) return windowed;
+		const buffer = await readSource(sourceId);
 		return Array.from({ length: buffer.numberOfChannels }, (_, index) => {
 			const output = new Float32Array(endFrame - startFrame);
 			const from = Math.max(0, startFrame);
@@ -105,25 +115,52 @@ export function createSourceEditorEffects<Buffer extends AudioBufferLike>(depend
 			return output;
 		});
 	}
-	async function expandResult(resultTarget: EffectTarget, channels: Float32Array[]): Promise<Float32Array[]> {
-		if (!resultTarget.sourceId) return channels;
-		const buffer = await readSource(resultTarget.sourceId);
+	async function readWindows(source: SourceEditorAudioSource, startFrame: number, endFrame: number, signal?: AbortSignal | null): Promise<Float32Array[] | null> {
+		signal?.throwIfAborted();
+		const loadSourceWindow = dependencies.loadSourceWindow;
+		if (!loadSourceWindow) return null;
+		const output = Array.from({ length: source.channelCount }, () => new Float32Array(endFrame - startFrame));
+		let available = true;
+		for (let from = Math.max(0, startFrame); from < Math.min(source.frameCount, endFrame); from += SOURCE_CHUNK_FRAMES) {
+			const to = Math.min(source.frameCount, endFrame, from + SOURCE_CHUNK_FRAMES);
+			const window = await raceAbortableRead(() => loadSourceWindow(source, {
+				startFrame: from, endFrame: to, ...(signal ? { signal } : {}),
+			}), signal ?? undefined);
+			signal?.throwIfAborted();
+			if (!window) { available = false; break; }
+			for (let channel = 0; channel < source.channelCount; channel++) output[channel]!.set(window.channels[channel]!, from - startFrame);
+		}
+		return available ? output : null;
+	}
+	async function expandResult(resultTarget: EffectTarget, channels: Float32Array[], signal?: AbortSignal | null): Promise<Float32Array[]> {
+		signal?.throwIfAborted();
+		const sourceId = resultTarget.sourceId;
+		if (!sourceId) return channels;
+		const source = findSource(dependencies.getProject(), sourceId);
+		if (!source) throw new RangeError('The selected source is no longer available.');
 		const { startFrame, endFrame } = resultTarget;
+		if (startFrame === 0 && endFrame === source.frameCount) return channels;
+		const windowed = await readWindows(source, 0, source.frameCount, signal);
+		const buffer = windowed ? null : await raceAbortableRead(() => readSource(sourceId), signal ?? undefined);
 		return channels.map((channel, index) => {
-			const original = buffer.getChannelData(index);
-			const merged = new Float32Array(startFrame + channel.length + buffer.length - endFrame);
+			const original = windowed?.[index] ?? buffer!.getChannelData(index);
+			const merged = new Float32Array(startFrame + channel.length + source.frameCount - endFrame);
 			merged.set(original.subarray(0, startFrame));
 			merged.set(channel, startFrame);
 			merged.set(original.subarray(endFrame), startFrame + channel.length);
 			return merged;
 		});
 	}
+	function readSourceSelection(): SourceEditorSelection | null {
+		const current = target();
+		return current?.sourceClipId ? { clipId: current.sourceClipId, startFrame: current.startFrame, endFrame: current.endFrame } : null;
+	}
 	function readSourceSelectionDuration(): number | null {
 		const current = target();
 		return current?.sourceSampleRate ? current.durationFrames / current.sourceSampleRate : null;
 	}
 	function readSourceSelectionSampleRate(): number | null { return target()?.sourceSampleRate ?? null; }
-	return Object.freeze({ setSourceSelection, target, readSourceSelectionDuration, readSourceSelectionSampleRate, loadSourceAudio, loadSourceAudioWindow, renderRange, expandResult });
+	return Object.freeze({ setSourceSelection, readSourceSelection, target, readSourceSelectionDuration, readSourceSelectionSampleRate, loadSourceAudio, loadSourceAudioWindow, renderRange, expandResult });
 }
 
 function findSource(project: EffectSelectionProject, sourceId: string): SourceEditorAudioSource | null {

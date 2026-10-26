@@ -10,6 +10,18 @@ import { paintWaveformSelectionLayers, releaseWaveformSelectionLayers } from './
 import { audioEditorStereoChannelGeometry } from './stereo-channel-height-runtime.ts';
 import { drawAudacityClipSpectrogram, releaseSpectrogramCanvas } from './spectrogram-canvas-renderer.js';
 
+const envelopeGains = new WeakMap();
+
+function waveformEnvelopeGain(rendering, width) {
+	if (!rendering.envelope?.length) return undefined;
+	const cached = envelopeGains.get(rendering);
+	if (cached?.width === width) return cached.gain;
+	const evaluate = createEnvelopeValueEvaluator(rendering.envelope, rendering.durationFrames);
+	const gain = (x) => evaluate(rendering.startFrame + x / width * rendering.frameCount);
+	envelopeGains.set(rendering, { width, gain });
+	return gain;
+}
+
 export function drawAudacityClipCanvas(canvas, clip, options) {
 	const rendering = clip.audacityWaveform;
 	const context = canvas.getContext('2d', { alpha: true });
@@ -49,12 +61,7 @@ export function drawAudacityClipCanvas(canvas, clip, options) {
 		: [{ top: 0, height: waveformHeight }];
 	const verticalMagnification = 2 ** Math.max(0, Math.min(MAXIMUM_WAVEFORM_VERTICAL_ZOOM, Number(options.verticalZoom) || 0));
 	const amplitudeScale = options.waveformRulerFormat === 'logarithmic-db' ? 'db' : 'linear';
-	const evaluateEnvelope = rendering.envelope?.length
-		? createEnvelopeValueEvaluator(rendering.envelope, rendering.durationFrames)
-		: null;
-	const envelopeGain = evaluateEnvelope
-		? (x) => evaluateEnvelope(rendering.startFrame + x / width * rendering.frameCount)
-		: undefined;
+	const envelopeGain = waveformEnvelopeGain(rendering, width);
 	const waveformColor = (x) => x >= selection.start && x < selection.end
 		? selectedWaveform
 		: baseWaveform;
@@ -70,19 +77,20 @@ export function drawAudacityClipCanvas(canvas, clip, options) {
 	}
 
 	let frequencyPainted = false;
-	const cachedSelection = options.cacheSelectionLayers !== false && options.displayMode === 'waveform'
-		&& rendering.mode === 'summary' && pixelRatioX === 1 && paintWaveformSelectionLayers(context, {
+	let gpuPainted = false;
+	const cachedSelection = !options.waveformGpuRenderer && options.cacheSelectionLayers !== false && options.displayMode === 'waveform'
+		&& rendering.mode === 'summary' && paintWaveformSelectionLayers(context, {
 			key: [rendering, width, height, options.showRms, options.halfWave, options.waveformRulerFormat,
 				options.verticalZoom, options.channelHeightRatio, baseWaveform, selectedWaveform, baseRms, selectedRms, divider,
 				cssColor(style, `--clip-${color}-time-selection-body`, 'rgba(255, 255, 255, 0.15)')],
 			width, start: selection.start, end: selection.end,
-			draw: (surface, selected) => drawAudacityClipCanvas(surface, clip, { ...options, color, cacheSelectionLayers: false,
+			draw: (surface, selected) => drawAudacityClipCanvas(surface, clip, { ...options, color, style, cacheSelectionLayers: false,
 				selectionPixels: selected ? { start: 0, end: width } : { start: -1, end: -1 }, bounds: { width, height } }),
-			drawEdges: (columnRanges) => drawAudacityClipCanvas(canvas, clip, { ...options, cacheSelectionLayers: false, columnRanges }),
+			drawEdges: (surface, columnRanges) => drawAudacityClipCanvas(surface, clip, { ...options, color, style,
+				cacheSelectionLayers: false, columnRanges, bounds: { width, height } }),
 		});
 	if (cachedSelection) { releaseSpectrogramCanvas(canvas); delete canvas.dataset.spectrogramRenderer; }
 	if (!cachedSelection) {
-		if (options.cacheSelectionLayers !== false) releaseWaveformSelectionLayers(canvas);
 		context.save();
 		context.setTransform(pixelRatioX, 0, 0, pixelRatioY, 0, 0);
 		context.globalAlpha = 1;
@@ -102,7 +110,22 @@ export function drawAudacityClipCanvas(canvas, clip, options) {
 			releaseSpectrogramCanvas(canvas);
 			delete canvas.dataset.spectrogramRenderer;
 		}
-		if (waveformHeight > 0 && selection.end > selection.start) {
+		const gpuEligible = options.displayMode === 'waveform' && rendering.mode === 'summary' && options.waveformGpuRenderer;
+		if (gpuEligible) {
+			gpuPainted = options.waveformGpuRenderer.drawFrame(context, rendering, channelGeometry.map((item, channel) => {
+				const geometry = audacityWaveformChannelGeometry(item.top, item.height, options.halfWave);
+				return { channel, width, ...geometry, pixelRatioX, pixelRatioY, channelTop: item.top, channelHeight: item.height,
+					maxAmplitude: geometry.maxAmplitude * verticalMagnification, amplitudeScale, halfWave: options.halfWave,
+					envelopeGain, showRms: options.showRms, baseSampleColor: baseWaveform, selectedSampleColor: selectedWaveform,
+					baseRmsColor: baseRms, selectedRmsColor: selectedRms, selectionStart: selection.start, selectionEnd: selection.end };
+			}), cssColor(style, `--clip-${color}-time-selection-body`, 'rgba(255, 255, 255, 0.15)'));
+		} else options.waveformGpuRenderer?.releaseOwner(canvas);
+		if (gpuEligible && !gpuPainted) {
+			context.restore();
+			return drawAudacityClipCanvas(canvas, clip, { ...options, waveformGpuRenderer: null });
+		}
+		if (options.cacheSelectionLayers !== false) releaseWaveformSelectionLayers(canvas);
+		if (!gpuPainted && waveformHeight > 0 && selection.end > selection.start) {
 			context.fillStyle = cssColor(style, frequencyDisplay ? '--frequency-selection-body' : `--clip-${color}-time-selection-body`, 'rgba(255, 255, 255, 0.15)');
 			context.fillRect(selection.start, splitY, selection.end - selection.start, waveformHeight);
 		}
@@ -135,7 +158,7 @@ export function drawAudacityClipCanvas(canvas, clip, options) {
 				drawingOptions, style, options.showRms,
 			);
 			frequencyPainted ||= Boolean(channelFrequencyPainted);
-			if (!channelFrequencyPainted) {
+			if (!channelFrequencyPainted && !gpuPainted) {
 				drawAudacityWaveformChannel(context, rendering, {
 					...drawingOptions,
 					sampleColor: waveformColor,
@@ -160,6 +183,7 @@ export function drawAudacityClipCanvas(canvas, clip, options) {
 	canvas.dataset.waveformMode = rendering.mode;
 	canvas.dataset.waveformOwner = 'audacity';
 	canvas.dataset.waveformAmplitudeScale = amplitudeScale;
+	canvas.dataset.waveformAcceleration = gpuPainted ? 'webgl2' : 'canvas';
 	const frequencyMode = frequencyPainted ? options.displayMode : null;
 	if (frequencyMode) canvas.dataset.frequencyWaveformMode = frequencyMode;
 	else delete canvas.dataset.frequencyWaveformMode;
@@ -185,8 +209,10 @@ export function cssColor(style, property, fallback) {
 }
 
 export function drawHorizontalCanvasLine(context, y, width) {
-	context.beginPath();
-	context.moveTo(0, y);
-	context.lineTo(width, y);
-	context.stroke();
+	// Windows Canvas2D accumulates fractional stroke coverage across repaints.
+	// An equivalent filled one-pixel span remains stable within native rounding.
+	const fillStyle = context.fillStyle;
+	context.fillStyle = context.strokeStyle;
+	context.fillRect(0, y - 0.5, width, 1);
+	context.fillStyle = fillStyle;
 }

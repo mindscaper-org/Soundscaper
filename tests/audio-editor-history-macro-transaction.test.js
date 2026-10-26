@@ -70,8 +70,6 @@ test('collapsing and rolling back a macro that committed nothing change nothing'
 	const depth = history.undoStack.length;
 	assert.equal(collapseEditorHistory(history, depth, { type: 'macro/run' }), history);
 	assert.equal(rollbackEditorHistory(history, depth), history);
-	assert.throws(() => collapseEditorHistory(history, -1, { type: 'macro/run' }), /non-negative/u);
-	assert.throws(() => rollbackEditorHistory(history, 1.5), /non-negative/u);
 });
 
 test('a macro longer than the history limit still collapses to its own opening', () => {

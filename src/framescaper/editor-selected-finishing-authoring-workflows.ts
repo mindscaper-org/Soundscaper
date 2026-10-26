@@ -73,17 +73,21 @@ function generatorCommand(
 }
 
 function placementPlan(project: ReadonlyData) {
-	const sequenceId = typeof project.primarySequenceId === 'string'
+	const primarySequenceId = typeof project.primarySequenceId === 'string'
 		? project.primarySequenceId : String(records(project.sequences, 'sequences')[0]?.id ?? 'main-sequence');
-	const sequence = records(project.sequences, 'sequences').find(({ id }) => id === sequenceId);
-	if (!sequence) throw new Error('Framescaper visual authoring requires a primary sequence.');
+	const sequences = records(project.sequences, 'sequences');
+	const primarySequence = sequences.find(({ id }) => id === primarySequenceId);
+	if (!primarySequence) throw new Error('Framescaper visual authoring requires a primary sequence.');
 	const tracks = records(project.tracks, 'tracks');
 	const selectedTrackIds = recordsOrEmpty(project.selection).trackIds;
 	const selectedId = Array.isArray(selectedTrackIds) ? selectedTrackIds.find((id) => (
 		tracks.some((track) => track.id === id && track.type === 'video' && track.locked !== true)
 	)) : undefined;
 	const existing = tracks.find((track) => track.id === selectedId)
-		?? tracks.find((track) => track.type === 'video' && track.locked !== true);
+		?? tracks.find((track) => track.type === 'video' && track.locked !== true
+			&& (trackSequence(sequences, track)?.id ?? primarySequenceId) === primarySequenceId);
+	const sequence = existing ? trackSequence(sequences, existing) ?? primarySequence : primarySequence;
+	const sequenceId = String(sequence.id);
 	const trackId = existing ? String(existing.id) : createStableId('video-track');
 	const trackCommands = existing ? [] : [{
 		...createAddTrackCommand({ type: 'video', id: trackId, name: 'Visuals', laneGroupId: null }),
@@ -99,6 +103,12 @@ function placementPlan(project: ReadonlyData) {
 	const frameRate = rate(sequence);
 	const duration = Math.max(1, Math.round(frameRate.num * 5 / frameRate.den));
 	return Object.freeze({ sequenceId, trackId, trackCommands, start, duration, rate: frameRate });
+}
+
+function trackSequence(sequences: readonly ReadonlyData[], track: ReadonlyData): ReadonlyData | undefined {
+	return sequences.find(sequence => (Array.isArray(sequence.trackIds) && sequence.trackIds.includes(track.id))
+		|| (Array.isArray(sequence.trackNodes) && sequence.trackNodes.some(node => node !== null && typeof node === 'object'
+			&& 'kind' in node && node.kind === 'track' && 'id' in node && node.id === track.id)));
 }
 
 function batch(commands: readonly unknown[]): unknown {

@@ -20,7 +20,7 @@ const SOUND = {
 	waveform: { available: true, url: '/api/freesound/sounds/42/waveform?asset=789' },
 };
 
-for (const initialGain of [0, 1]) test(`Freesound listening gain starts at ${String(initialGain)} and follows live and paused output changes`, async () => {
+for (const [initialGain, loadingGain] of [[0, 0], [1, 1], [1, .25], [1, 0]] as const) test(`Freesound listening gain starts at ${String(initialGain)}, loads at ${String(loadingGain)} and follows live and paused output changes`, async () => {
 	const dom = installReactTestDom();
 	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const priorAct = globals.IS_REACT_ACT_ENVIRONMENT;
@@ -46,6 +46,7 @@ for (const initialGain of [0, 1]) test(`Freesound listening gain starts at ${Str
 		assert.ok(button);
 		await act(async () => reactProps(button).onClick());
 	};
+	let unmounted = false;
 	try {
 		await render(initialGain);
 		await act(async () => reactProps(dom.one('input')).onChange({ currentTarget: { value: 'rain' } }));
@@ -55,13 +56,22 @@ for (const initialGain of [0, 1]) test(`Freesound listening gain starts at ${Str
 		const audio = audios[0]!;
 		assert.equal(audio.volume, initialGain, 'the actual new preview inherits the current listening output');
 		assert.equal(audio.playCount, 1);
-		audio.volume = initialGain === 1 ? 0 : 1;
+		await render(loadingGain);
+		audio.volume = loadingGain === 0 ? 1 : 0;
 		audio.dispatchEvent(new Event('loadedmetadata'));
-		assert.equal(audio.volume, initialGain, 'media readiness restores the current gain after a native load reset');
-		await render(0.25);
+		assert.equal(audio.volume, loadingGain, 'native initialization retains the latest requested gain, including mute');
+		audio.volume = .4;
+		audio.dispatchEvent(new Event('loadedmetadata'));
+		assert.equal(audio.volume, .4, 'later native volume edits retain ownership');
+		const liveGain = loadingGain === .25 ? .5 : .25;
+		await render(liveGain);
+		assert.equal(audio.volume, liveGain);
 		audio.volume = 0;
 		audio.dispatchEvent(new Event('loadeddata'));
-		assert.equal(audio.volume, 0.25);
+		assert.equal(audio.volume, liveGain, 'data readiness also restores gain after a delayed native reset');
+		audio.volume = .6;
+		audio.dispatchEvent(new Event('loadeddata'));
+		assert.equal(audio.volume, .6, 'later native data events retain volume ownership');
 		assert.equal(audio.playCount, 1, 'changing listening gain retains the current preview transport');
 		await clickPreview('Pause preview');
 		await render(0);
@@ -77,8 +87,16 @@ for (const initialGain of [0, 1]) test(`Freesound listening gain starts at ${Str
 		audio.dispatchEvent(new Event('loadeddata'));
 		assert.equal(audio.volume, 0.75, 'replaced previews release gain readiness listeners');
 		assert.equal(audios[1]?.volume, 0);
+		const retiring = audios.at(-1)!;
+		await act(async () => root.unmount()); unmounted = true;
+		retiring.volume = .6;
+		retiring.dispatchEvent(new Event('loadedmetadata'));
+		assert.equal(retiring.volume, .6, 'retired media cannot apply a late readiness update');
+		retiring.volume = .7;
+		retiring.dispatchEvent(new Event('loadeddata'));
+		assert.equal(retiring.volume, .7, 'retired media also releases its data readiness listener');
 	} finally {
-		await act(async () => root.unmount());
+		if (!unmounted) await act(async () => root.unmount());
 		globalThis.Audio = priorAudio; globalThis.fetch = priorFetch;
 		globals.IS_REACT_ACT_ENVIRONMENT = priorAct; dom.restore();
 	}

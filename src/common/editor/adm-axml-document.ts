@@ -103,6 +103,7 @@ export function inspectAdmAxml(input: string | Uint8Array | ArrayBuffer | ArrayB
 	const trackUids: TrackUidBuilder[] = [];
 	const definedFormatIds = new Map<string, string>();
 	const declaredIds = new Map<string, string>();
+	const referenceIds = new Map<string[], Set<string>>();
 	const frames: XmlFrame[] = [];
 	let formatExtendedCount = 0;
 	let version = '';
@@ -158,7 +159,7 @@ export function inspectAdmAxml(input: string | Uint8Array | ArrayBuffer | ArrayB
 	parser.on('closetag', () => {
 		const frame = frames.pop();
 		if (!frame) throw new Error('ADM AXML contains an unexpected closing element.');
-		if (frame.referenceName) applyReference(frame);
+		if (frame.referenceName) applyReference(frame, referenceIds);
 		if (frame.formatRoot) formatExtendedDepth = -1;
 	});
 	parser.write(xml).close();
@@ -243,18 +244,18 @@ function createBuilder(
 	return null;
 }
 
-function applyReference(frame: XmlFrame): void {
+function applyReference(frame: XmlFrame, referenceIds: Map<string[], Set<string>>): void {
 	const value = frame.text.trim();
 	const pattern = REFERENCE_PATTERNS[frame.referenceName];
 	if (!pattern?.test(value)) throw new Error(`ADM ${frame.referenceName} is missing or invalid.`);
 	const owner = frame.owner;
-	if (frame.referenceName === 'audioContentIDRef' && owner?.kind === 'programme') addUnique(owner.contentRefs, value, frame.referenceName);
-	else if (frame.referenceName === 'audioObjectIDRef' && owner?.kind === 'content') addUnique(owner.objectRefs, value, frame.referenceName);
+	if (frame.referenceName === 'audioContentIDRef' && owner?.kind === 'programme') addUnique(owner.contentRefs, value, frame.referenceName, referenceIds);
+	else if (frame.referenceName === 'audioObjectIDRef' && owner?.kind === 'content') addUnique(owner.objectRefs, value, frame.referenceName, referenceIds);
 	else if (frame.referenceName === 'audioTrackUIDRef' && owner?.kind === 'object') {
 		if (equalId(value, 'ATU_00000000')) owner.trackUidRefs.push(value);
-		else addUnique(owner.trackUidRefs, value, frame.referenceName);
+		else addUnique(owner.trackUidRefs, value, frame.referenceName, referenceIds);
 	}
-	else if (frame.referenceName === 'audioPackFormatIDRef' && owner?.kind === 'object') addUnique(owner.packRefs, value, frame.referenceName);
+	else if (frame.referenceName === 'audioPackFormatIDRef' && owner?.kind === 'object') addUnique(owner.packRefs, value, frame.referenceName, referenceIds);
 	else if (frame.referenceName === 'audioPackFormatIDRef' && owner?.kind === 'trackUid') setOnce(owner, 'packRef', value, frame.referenceName);
 	else if (frame.referenceName === 'audioChannelFormatIDRef' && owner?.kind === 'trackUid') setTrackReference(owner, value, 'audioChannelFormat');
 	else if (frame.referenceName === 'audioTrackFormatIDRef' && owner?.kind === 'trackUid') setTrackReference(owner, value, 'audioTrackFormat');
@@ -375,9 +376,13 @@ export function equalId(left: string, right: string): boolean { return left.toUp
 
 export function sameIds(left: readonly string[], right: readonly string[]): boolean { return left.length === right.length && left.every((value, index) => equalId(value, right[index] ?? '')); }
 
-function addUnique(values: string[], value: string, field: string): void {
-	if (values.some((candidate) => equalId(candidate, value))) throw new Error(`ADM ${field} contains duplicate reference ${value}.`);
+function addUnique(values: string[], value: string, field: string, referenceIds: Map<string[], Set<string>>): void {
+	let ids = referenceIds.get(values);
+	if (!ids) { ids = new Set(); referenceIds.set(values, ids); }
+	const key = value.toUpperCase();
+	if (ids.has(key)) throw new Error(`ADM ${field} contains duplicate reference ${value}.`);
 	values.push(value);
+	ids.add(key);
 }
 
 function setOnce<Target extends { [key in Key]: string }, Key extends keyof Target>(target: Target, key: Key, value: string, field: string): void {

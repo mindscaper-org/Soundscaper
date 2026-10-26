@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React from 'react';
@@ -8,11 +10,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import TransportToolbarGroup, {
 	COMPACT_BAR_TRANSPORT_BUTTONS,
 	DRAWER_TRANSPORT_BUTTONS,
-	TRANSPORT_BUTTON_IDS,
 	transportToolbarButtonsVisible,
 } from '../src/common/editor/ui/toolbar/TransportToolbarGroup.jsx';
 import { AccessibleTimeCode, PlaySpeedFlyout, TelemetryTimeCode } from '../src/common/editor/ui/toolbar/AudioEditorTransportControls.jsx';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { createAudioEditorPreferencesV1 } from '../src/common/editor/preferences.js';
 import { ThemeProvider } from '../vendor/audacity-design-system/components/src/ThemeProvider/ThemeProvider.tsx';
 
@@ -58,11 +59,6 @@ function render(buttons: readonly string[], audioRecording = true, toolbarButton
 		/>,
 	);
 }
-
-test('the compact-bar and drawer button sets partition the transport group', () => {
-	assert.deepEqual([...COMPACT_BAR_TRANSPORT_BUTTONS, ...DRAWER_TRANSPORT_BUTTONS].sort(), [...TRANSPORT_BUTTON_IDS].sort());
-	assert.equal(COMPACT_BAR_TRANSPORT_BUTTONS.some((id) => DRAWER_TRANSPORT_BUTTONS.includes(id)), false);
-});
 
 test('the compact-bar set renders play, stop and record and nothing else', () => {
 	const markup = render(COMPACT_BAR_TRANSPORT_BUTTONS);

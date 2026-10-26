@@ -140,16 +140,17 @@ function ClipPropertiesPanelBody({
             <Row>
               <div
                 className="clip-properties__field clip-properties__field--text clip-properties__field--wide"
-                ref={(node) => { node?.querySelector('input')?.setAttribute('aria-label', t('Clip name')); }}
+                ref={(node) => { node?.querySelector('input,textarea')?.setAttribute('aria-label', t('Clip name')); }}
                 data-clip-properties-field="name"
                 data-tooltip={t('Clip name')}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') { commitName(); (e.target as HTMLElement).blur(); }
+                  if (e.key === 'Enter' && !(e.shiftKey && /[\r\n]/u.test(clip.name))) { e.preventDefault(); commitName(); (e.target as HTMLElement).blur(); }
                   if (e.key === 'Escape') { setName(null); (e.target as HTMLElement).blur(); e.stopPropagation(); }
                 }}
               >
                 <TextInput
                   value={nameDraft ?? clip.name}
+                  multiline={/[\r\n]/u.test(clip.name)}
                   onChange={setName}
                   onBlur={commitName}
                   disabled={!onRename}

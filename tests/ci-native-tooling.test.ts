@@ -32,6 +32,9 @@ test('every ARM runner installs native Node before installing dependencies', () 
 				if (typeof value === 'string') continue;
 				const row = record(value);
 				if (row.arch !== 'arm64' && !String(row.target).endsWith('-arm64')) continue;
+				// Publishing an ARM archive on Ubuntu does not execute its payload.
+				const runner = row.runner ?? job['runs-on'];
+				if (!String(runner).endsWith('-arm') && runner !== 'macos-15') continue;
 				assert.equal(row.node_arch, 'arm64', `${name}/${id} Node architecture`);
 				if (row.tooling_node_arch) {
 					assert.equal(row.tooling_node_arch, 'arm64', `${name}/${id} npm architecture`);

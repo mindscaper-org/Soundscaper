@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { encodeProjectIdKey, projectString } from '../project-validation-primitives.ts';
 import type { KeyValueRepository } from './key-value-repository.ts';
 import {
 	captureSpoolDataRecord as dataRecord,
@@ -82,8 +82,8 @@ export class RawPcmSpoolRepository {
 		this.#chunks = chunks;
 	}
 	async allocateGeneration(projectIdValue: string): Promise<number> {
-		const projectId = stableId(projectIdValue, 'take cycle generation projectId');
-		const key = `${GENERATION_KEY_PREFIX}${encodeURIComponent(projectId)}`;
+		const projectId = projectString(projectIdValue, 'take cycle generation projectId');
+		const key = `${GENERATION_KEY_PREFIX}${encodeProjectIdKey(projectId)}`;
 		for (let attempt = 0; attempt < MAXIMUM_CAS_ATTEMPTS; attempt += 1) {
 			const value = await this.#values.get(key);
 			if (value === undefined || value === null) {
@@ -154,7 +154,7 @@ export class RawPcmSpoolRepository {
 	}
 
 	async list(projectIdValue: string): Promise<readonly RawPcmSpoolRecord[]> {
-		const projectId = stableId(projectIdValue, 'raw PCM spool projectId');
+		const projectId = projectString(projectIdValue, 'raw PCM spool projectId');
 		return this.#loadRegistry(projectId).then(({ records }) => records);
 	}
 
@@ -162,7 +162,7 @@ export class RawPcmSpoolRepository {
 		const records: RawPcmSpoolRecord[] = [];
 		for (const value of await this.#values.listByPrefix(KEY_PREFIX)) {
 			const record = dataRecord(value, 'raw PCM spool registry entry');
-			const registry = await this.#loadRegistry(stableId(record.projectId, 'raw PCM spool projectId'));
+			const registry = await this.#loadRegistry(projectString(record.projectId, 'raw PCM spool projectId'));
 			records.push(...registry.records);
 			if (records.length > MAXIMUM_GLOBAL_ACTIVE_SPOOLS) {
 				throw new RangeError('Raw PCM spool inventory exceeds its global bound.');
@@ -171,14 +171,14 @@ export class RawPcmSpoolRepository {
 		return Object.freeze(records);
 	}
 	async load(projectIdValue: string, spoolIdValue: string): Promise<RawPcmSpoolRecord | null> {
-		const projectId = stableId(projectIdValue, 'raw PCM spool projectId');
+		const projectId = projectString(projectIdValue, 'raw PCM spool projectId');
 		const spoolId = stableId(spoolIdValue, 'raw PCM spool ID');
 		return (await this.#loadRegistry(projectId)).records.find((record) => record.spoolId === spoolId) ?? null;
 	}
 
 	async releaseReservation(identityValue: RawPcmSpoolReservationIdentity): Promise<boolean> {
 		const identity: RawPcmSpoolReservationIdentity = Object.freeze({
-			projectId: stableId(identityValue?.projectId, 'raw PCM spool projectId'),
+			projectId: projectString(identityValue?.projectId, 'raw PCM spool projectId'),
 			spoolId: stableId(identityValue?.spoolId, 'raw PCM spool ID'),
 			spoolToken: stableId(identityValue?.spoolToken, 'raw PCM spool token'),
 		});
@@ -473,7 +473,7 @@ export class RawPcmSpoolRepository {
 		const entries = [];
 		for (const value of await this.#values.listByPrefix(KEY_PREFIX)) {
 			const record = dataRecord(value, 'raw PCM spool registry entry');
-			const registry = normalizeRegistry(record.value, stableId(record.projectId, 'raw PCM spool projectId'));
+			const registry = normalizeRegistry(record.value, projectString(record.projectId, 'raw PCM spool projectId'));
 			entries.push(...registry.records.map(globalEntry));
 			if (entries.length > MAXIMUM_GLOBAL_ACTIVE_SPOOLS) {
 				throw new RangeError('Raw PCM spool inventory exceeds its global bound.');
@@ -546,7 +546,7 @@ function sameData(left: unknown, right: unknown): boolean {
 }
 
 function chunkKey(token: string, index: number): string { return `${token}:${String(index).padStart(10, '0')}`; }
-function registryKey(projectId: string): string { return `${KEY_PREFIX}${encodeURIComponent(projectId)}`; }
+function registryKey(projectId: string): string { return `${KEY_PREFIX}${encodeProjectIdKey(projectId)}`; }
 function boundedPositiveInteger(value: unknown, maximum: number, name: string): number {
 	if (!Number.isSafeInteger(value) || Number(value) < 1 || Number(value) > maximum) {
 		throw new RangeError(`${name} must be a supported positive integer.`);

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 /** Local assistance preparation refusal and exposed UI surface. */
 
 import assert from 'node:assert/strict';
@@ -8,7 +10,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { ASSISTANCE_OPERATIONS } from '../src/common/editor/assistance/operation.ts';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { createLocalAssistanceMenuItems } from '../src/common/editor/ui/local-assistance-menu.ts';
 import AudioEditorSearch from '../src/common/editor/ui/AudioEditorSearch.jsx';
 import { createLocalAssistanceAdvancedWorkflowSessionStore } from
@@ -111,7 +113,6 @@ test('the focused EN/DE catalog and dialog expose all operations without an impl
 		onRun={() => undefined} onCancel={() => undefined}
 		onReview={() => undefined} onAccept={() => undefined}
 	/>);
-	assert.equal(ASSISTANCE_OPERATIONS.length, 17);
 	for (const operation of ASSISTANCE_OPERATIONS.filter((candidate) => candidate !== 'text-to-speech')) {
 		assert.match(markup, new RegExp(operation, 'u'));
 	}

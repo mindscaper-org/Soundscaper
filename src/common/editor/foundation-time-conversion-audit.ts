@@ -111,12 +111,6 @@ const FOUNDATION_TIME_CONVERSION_EDITOR_SITES: readonly FoundationTimeConversion
 		],
 	},
 	{
-		id: 'desktop-original-source-bitrate',
-		file: 'src/common/editor/desktop-original-export-settings.ts',
-		behavior: 'Remembered compressed export settings derive source duration exactly from decoded sample frames and their own sample rate before estimating the original bitrate.',
-		conversions: [{ helper: 'sampleFrameToSeconds', policies: ['exact'] }],
-	},
-	{
 		id: 'clip-warp-rate-stretch-anchor',
 		file: 'src/common/editor/audio-warp-rate-stretch.ts',
 		behavior: 'Changing a warped clip playback rate preserves source samples and exactly recovers the musical origin when grouped stretching moves its timeline anchor.',
@@ -204,6 +198,12 @@ const FOUNDATION_TIME_CONVERSION_EDITOR_SITES: readonly FoundationTimeConversion
 		id: 'automation-lane-interval-editing',
 		file: 'src/common/editor/automation-lane-interval-edit-v21.ts',
 		behavior: 'Musical automation interval edits exactly invert each conformed sample boundary once before applying the requested edit in the lane-owned beat domain.',
+		conversions: [{ helper: 'sampleFrameToBeat', policies: ['exact'] }],
+	},
+	{
+		id: 'automation-capture-outside-boundaries',
+		file: 'src/common/editor/automation-capture-boundaries-v21.ts',
+		behavior: 'Captured musical automation retains the original curve at the immediately neighbouring programme samples, exactly inverting those samples through the gesture-owned clock and tempo map.',
 		conversions: [{ helper: 'sampleFrameToBeat', policies: ['exact'] }],
 	},
 	{

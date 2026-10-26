@@ -47,7 +47,6 @@ test('the label action group stays frozen and resolves each owner only at invoca
 	});
 
 	assert.equal(Object.isFrozen(labels), true);
-	assert.deepEqual(Object.keys(labels), ['add', 'select', 'update', 'updateMany', 'remove', 'importFile', 'importCueFile', 'export']);
 	assert.deepEqual([trackReads, labelReads], [0, 0]);
 	assert.equal(labels.add('label-track', { title: 'Marker' }), 'label-created');
 	assert.deepEqual([trackReads, labelReads], [1, 0]);

@@ -51,6 +51,7 @@ export interface ProjectSwitchState<
 > {
 	projectQueue: Promise<void>;
 	projectActivationPending: boolean;
+	projectAdministrationPending?: boolean;
 	projectLock: ProjectLifecycleLock | null;
 	readOnly: boolean;
 	history: History | null;
@@ -108,6 +109,7 @@ export interface ProjectSwitchSession<
 	openProject(project: Project, options: Readonly<{
 		activationToken?: unknown;
 		history?: History;
+		dirty?: boolean;
 		readOnly: boolean;
 		readOnlyReason: string | null;
 		lockMethod: string;

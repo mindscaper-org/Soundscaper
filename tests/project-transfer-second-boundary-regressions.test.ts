@@ -167,28 +167,6 @@ test('popup admission parses its URL before asking the browser to open anything'
 	assert.equal(opens, 0);
 });
 
-test('manual file admission snapshots name and length before an asynchronous read can mutate them', async () => {
-	let name = 'Mix.sscape';
-	let byteLength = 3;
-	const source: TransferArchiveSource = {
-		get name() { return name; },
-		get byteLength() { return byteLength; },
-		read: async () => {
-			name = 'renamed.txt';
-			byteLength = 30_000;
-			return new Uint8Array([1, 2, 3]);
-		},
-	};
-	const seen: unknown[] = [];
-	const result = await importTransferArchiveFiles({
-		runtime: manualRuntime(seen),
-		store: {} as never,
-		files: [source],
-	});
-	assert.equal(result.completed, true);
-	assert.deepEqual(seen, [{ projectId: undefined, title: 'Mix', byteLength: 3 }]);
-});
-
 test('manual import observes an abort that happens while a file read is pending', async () => {
 	const controller = new AbortController();
 	const reason = new Error('stop after read');

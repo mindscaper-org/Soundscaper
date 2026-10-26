@@ -39,6 +39,8 @@ test('File Open recovers missing AUP3 audio as timed silence and exports an edit
 	expect(copy.project.clips[0].timelineStartFrame).toBe(96_000);
 	expect(copy.project.clips[0].durationFrames).toBe(6);
 	expect(Array.from(copy.sources[0].channels[0])).toEqual([0.25, -0.5, 0, 0, 0, -0.25]);
+	// Lazy recovery imports must not install a second worker dispatcher.
+	expect(await page.evaluate(() => globalThis.__audacityRecoveryDuplicateReplies)).toEqual([]);
 	expect(errors).toEqual([]);
 });
 
@@ -129,6 +131,7 @@ async function observeWorkerRecovery(page) {
 	await page.addInitScript(() => {
 		const NativeWorker = globalThis.Worker;
 		globalThis.__audacityRecoveryOpenRequests = [];
+		globalThis.__audacityRecoveryDuplicateReplies = [];
 		const events = [], unanswered = new Map(), workerIds = new WeakMap();
 		let workerSequence = 0, totalEvents = 0, collectionErrors = 0, unansweredEvictions = 0;
 		const clip = (value) => typeof value === 'string' ? value.slice(0, 64) : null;
@@ -185,6 +188,12 @@ async function observeWorkerRecovery(page) {
 			constructor(url, options) {
 				super(url, options); this.audacity = options?.name === 'kw-media-audacity-projects';
 				if (this.audacity) {
+					const replies = new Set();
+					this.addEventListener('message', ({ data }) => {
+						if (!data.id || data.progress) return;
+						if (replies.has(data.id)) globalThis.__audacityRecoveryDuplicateReplies.push(data.id);
+						replies.add(data.id);
+					});
 					try {
 						const worker = ++workerSequence;
 						workerIds.set(this, worker);

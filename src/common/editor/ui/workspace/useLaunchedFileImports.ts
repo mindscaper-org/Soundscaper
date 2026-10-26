@@ -43,7 +43,7 @@ export interface LaunchedFileImportsInput {
 	/** Injectable for tests; the shared launch buffer otherwise. */
 	readonly subscribe?: (handler: (launch: LaunchedFiles) => unknown) => () => void;
 	/** Injectable for tests; claims the browser launch queue otherwise. */
-	readonly claim?: (options: Readonly<{ desktop: boolean }>) => unknown;
+	readonly claim?: (options: Readonly<{ desktop: boolean; onError: (error: unknown) => void }>) => unknown;
 	/** Injectable for tests; collects the share sheet's stashed files otherwise. */
 	readonly collect?: (options: Readonly<{
 		desktop: boolean;
@@ -64,11 +64,12 @@ export function useLaunchedFileImports({
 	// changes; the subscription is not, so a launch in flight is never handed to
 	// a closure that has just been replaced.
 	const importRef = useRef(importFiles);
+	const pendingImports = useRef<Promise<unknown>>(Promise.resolve());
 	useEffect(() => { importRef.current = importFiles; }, [importFiles]);
 	useEffect(() => {
 		// Claiming is idempotent, so a remount re-subscribes without disturbing the
 		// consumer the first mount installed.
-		claim({ desktop });
+		claim({ desktop, onError });
 		// Collecting is idempotent too: the token is stripped from the address
 		// before the first collection reads a byte, so a remount finds nothing
 		// left to replay. The files land in the same buffer a launch does, which
@@ -77,18 +78,18 @@ export function useLaunchedFileImports({
 			onError(desktop ? error : markWebFileLoadLimitFailure(error));
 		};
 		void Promise.resolve(collect({ desktop, onError: reportCollectionError })).catch(reportCollectionError);
-		const unsubscribe = subscribe(async (launch: LaunchedFiles) => {
+		const unsubscribe = subscribe((launch: LaunchedFiles) => {
 			const files = [...(launch?.files ?? [])];
 			if (files.length === 0) return;
-			try {
+			const importing = pendingImports.current.then(async () => {
 				// The launch is delivered while the editor is still booting, so the
 				// files wait for the controller rather than being routed at an
 				// engine that cannot open them yet.
 				await controller?.ready;
 				await importRef.current(files);
-			} catch (error) {
-				onError(error);
-			}
+			}).catch(onError);
+			pendingImports.current = importing;
+			return importing;
 		});
 		// A launch that arrives while nothing is subscribed goes back to the
 		// buffer, so tearing this down between renders costs nothing but delay.

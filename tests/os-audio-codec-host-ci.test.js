@@ -19,20 +19,20 @@ import {
 
 const ROOT = resolve(import.meta.dirname, '..');
 const REDIRECT_URL =
-	'https://artifacts.electronjs.org/headers/dist/v43.7.7/node-v43.7.7-headers.tar.gz';
+	'https://artifacts.electronjs.org/headers/dist/v43.8.3/node-v43.8.3-headers.tar.gz';
 
-test('CI accepts only the exact Electron 43.7.7 archive and extracted tree', async (context) => {
+test('CI accepts only the exact Electron 43.8.3 archive and extracted tree', async (context) => {
 	assert.deepEqual(ELECTRON_HEADERS_CI_SOURCE, {
-		version: '43.7.7',
-		requestUrl: 'https://electronjs.org/headers/v43.7.7/node-v43.7.7-headers.tar.gz',
+		version: '43.8.3',
+		requestUrl: 'https://electronjs.org/headers/v43.8.3/node-v43.8.3-headers.tar.gz',
 		redirectUrl: REDIRECT_URL,
 		archive: {
-			fileName: 'node-v43.7.7-headers.tar.gz', byteLength: 346_855,
-			sha256: 'f697ced9453e4366258ed0ff3571122da37ba3ec9d349bd16d91856914e140f0',
+			fileName: 'node-v43.8.3-headers.tar.gz', byteLength: 347_211,
+			sha256: 'd23630d0b98161bec7860dcc482187aca380b1e0da264c1ed5efb42bce79d604',
 		},
 		extractedTree: {
 			algorithm: 'framescaper-portable-source-tree-sha256-v1', fileCount: 124,
-			sha256: '3bf9d5074349e105eb6176c387b828d7ebc6914c42d0683768de2fab8e83c482',
+			sha256: '5bc877a323ccc4f07976724fa0c1f6205e443a32f61d743a227b6a7e5ab3ab87',
 		},
 	});
 	const temporary = await mkdtemp(join(tmpdir(), 'soundscaper-codec-ci-auth-'));
@@ -189,9 +189,9 @@ test('all OS-capable desktop staging paths build the codec host while Linux rece
 		'--runner-os=${{ runner.os }}',
 		'--runner-arch=${{ runner.arch }}',
 	]) assert.equal((workflow + testedWorkflow).match(new RegExp(escapeRegExp(argument), 'gu'))?.length, 4, argument);
-	const previewPublisherJob = jobSource(workflow, 'publish-assistance-runtime-handoff', 'package');
-	assert.match(previewPublisherJob, /windows-2025[\s\S]*windows-11-arm/u);
-	assert.match(previewPublisherJob, /node scripts\/ci-build-os-audio-codec-host\.mjs/u);
+	const previewProducerJob = jobSource(workflow, 'prepare-assistance-runtime-handoff', 'publish-assistance-runtime-handoff');
+	assert.match(previewProducerJob, /windows-2025[\s\S]*windows-11-arm/u);
+	assert.match(previewProducerJob, /node scripts\/ci-build-os-audio-codec-host\.mjs/u);
 	const packageJob = jobSource(workflow, 'package', 'milestone-5-package-audit-summary');
 	assert.match(packageJob,
 		/if: matrix\.product == 'soundscaper' && matrix\.target\.platform != 'linux'[\s\S]*ci-build-os-audio-codec-host/u);

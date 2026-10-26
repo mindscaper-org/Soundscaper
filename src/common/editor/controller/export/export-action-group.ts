@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createDeliveryPresetService } from './delivery-preset-service.ts';
+import { createDeliveryPresetService, type DeliveryPresetServiceRuntime } from './delivery-preset-service.ts';
 import { createDeliveryQueueService } from './internal/delivery/delivery-queue-service.ts';
 import { saveCurrentDeliveryReport } from './internal/delivery/delivery-report-action.ts';
 import { exportProjectEdl, exportProjectFcpxml, exportProjectOtio } from './interchange-export-action.ts';
@@ -9,9 +9,11 @@ import type { DeliveryQueue } from '../../delivery-queue.ts';
 import { createOriginalOverwriteActions, type OriginalOverwriteState, type OriginalOverwriteFileService } from './internal/overwrite-original-action.ts';
 import type { BlenderPublishRequest } from './blender-publication.ts';
 import type { InterchangeProductProjection } from '../../interchange-multicamera-delivery.ts';
+import type { InterchangeTimingRuntime } from './interchange-export-timing.ts';
 
 /** Delivery owns these optional workspace slots; reports remain inert domain data. */
 export interface ExportActionState extends OriginalOverwriteState {
+	projectAdministrationPending?: boolean;
 	deliveryReport?: unknown;
 	deliveryPresets?: unknown;
 	deliveryQueue?: DeliveryQueue;
@@ -27,6 +29,7 @@ export interface ExportActionState extends OriginalOverwriteState {
  */
 
 export interface ExportActionGroupRuntime {
+	readonly store?: InterchangeTimingRuntime['store'] & { readonly settingsRepository?: DeliveryPresetServiceRuntime['presetRepository'] };
 	readonly handleExportAction: (action: string, settings?: unknown) => Promise<unknown> | unknown;
 	readonly publishBlenderTracks?: (request: BlenderPublishRequest) => Promise<{ readonly revision: number }>;
 	readonly state: ExportActionState;
@@ -49,7 +52,7 @@ export function createExportActionGroup(runtime: ExportActionGroupRuntime) {
 	} = runtime;
 	const interchangeState = createDeliveryReportStateAccess(state);
 	const interchange = () => ({
-		getProject: getProject ?? (() => null), state: interchangeState, fileService, publishDocumentSnapshot, projectForRuntimeConsumers: runtime.projectForRuntimeConsumers,
+		getProject: getProject ?? (() => null), state: interchangeState, fileService, store: runtime.store, publishDocumentSnapshot, projectForRuntimeConsumers: runtime.projectForRuntimeConsumers,
 	});
 	return Object.freeze({
 		publishBlenderTracks: (request: BlenderPublishRequest) => {
@@ -82,7 +85,7 @@ export function createExportActionGroup(runtime: ExportActionGroupRuntime) {
 		exportOtio: (options?: { sequenceId?: string }) => exportProjectOtio({ ...interchange(), ...options }),
 		exportFcpxml: (options?: { sequenceId?: string }) => exportProjectFcpxml({ ...interchange(), ...options }),
 		presets: createDeliveryPresetService({
-			state, persistSetting, publishDocumentSnapshot, createId, fileService,
+			state, persistSetting, publishDocumentSnapshot, createId, fileService, presetRepository: runtime.store?.settingsRepository,
 		}),
 		queue: createDeliveryQueueService({
 			handleExportAction, publishDocumentSnapshot, createId, state, getProject,

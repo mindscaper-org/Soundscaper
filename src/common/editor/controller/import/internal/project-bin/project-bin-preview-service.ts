@@ -10,10 +10,11 @@ import type {
 } from '../../../../engine/public-api.ts';
 import { createAudioPreviewProject } from '../../../../engine/audio-preview-project.ts';
 import type { EngineProject, EngineSourceResolver } from '../../../../engine/types.ts';
-import type {
-	EditorControllerLifetime,
-	EditorProjectToken,
-	EditorTaskScope,
+import {
+	EDITOR_PROJECT_TASK_SCOPE,
+	type EditorControllerLifetime,
+	type EditorProjectToken,
+	type EditorTaskScope,
 } from '../../../shared/lifecycle.ts';
 import {
 	findProjectBinClip,
@@ -52,6 +53,8 @@ export interface ProjectBinPreviewDependencies {
 	readonly sourceBuffers: EngineSourceBufferInput;
 	readonly sourceChunkProviders: EngineChunkSourceInput;
 	readonly sourceResolver?: EngineSourceResolver | null;
+	readonly prepareTimePitchCaches?: (project: unknown, signal: AbortSignal, options: Readonly<{ clipIds: readonly string[] }>) => Promise<unknown>;
+	readonly previewBlocked?: () => boolean;
 	createPreviewEngine(options: Readonly<{ onState(state: string): void }>): ProjectBinPreviewEngine;
 	createId(prefix: string): string;
 	captureProject(): EditorProjectToken;
@@ -91,7 +94,10 @@ export function createProjectBinPreviewService(
 		const videoClip = itemClips.find((candidate) => candidate.kind === 'video') ?? null;
 		const audioClip = itemClips.find((candidate) => candidate.kind !== 'video') ?? (videoClip ? null : clip);
 		const active = dependencies.getPreview();
-		if (active?.clipId === clipId) return toggleActivePreview(active, Boolean(videoClip) && !active.audioSourceId);
+		if (dependencies.previewBlocked?.() && !(active?.clipId === clipId && active.state === 'playing')) {
+			throw new DOMException('Project Bin playback is blocked while the editor is busy.', 'AbortError');
+		}
+		if (active?.clipId === clipId) return toggleActivePreview(active, Boolean(videoClip) && !active.audioSourceId, project, audioClip?.id ?? clipId);
 
 		await stopProjectBinPreview();
 		const projectToken = dependencies.captureProject();
@@ -116,14 +122,15 @@ export function createProjectBinPreviewService(
 		if (!source || dependencies.isSourceMissing(source.id)) {
 			throw createLocalizedError(Error, dependencies.copy, 'localSourcesMissing');
 		}
-		const task = dependencies.lifetime.startTask(PROJECT_BIN_PREVIEW_TASK);
+		const task = dependencies.lifetime.startTask(PROJECT_BIN_PREVIEW_TASK, { scope: EDITOR_PROJECT_TASK_SCOPE });
+		let startingPreview: ProjectBinPreview | null = null;
 		try {
 			previewEngine ??= createOwnedPreviewEngine();
 			previewEngine.setSourceResolver?.(dependencies.sourceResolver);
 			const previewTrackId = dependencies.createId('project-bin-preview-track');
 			const previewClip = {
 				...resolveProjectBinAudioPreviewClip(project, audioClip),
-				id: dependencies.createId('project-bin-preview-clip'),
+				id: audioClip.id,
 				timelineStartFrame: 0,
 				groupId: null,
 				avLinkId: null,
@@ -152,8 +159,12 @@ export function createProjectBinPreviewService(
 				kind: videoClip ? 'video' as const : 'audio' as const,
 				...(videoClip ? { mediaUrl: dependencies.getVisualData(clipId)?.mediaUrl || null, audioSourceId: source.id } : {}),
 			});
+			startingPreview = preview;
 			dependencies.setPreview(preview);
 			dependencies.publish();
+			await dependencies.prepareTimePitchCaches?.({ ...project, clips: [...project.clips, ...projectBinClips(project)] },
+				task.signal, { clipIds: [audioClip.id] });
+			assertCurrent(task, projectToken);
 			await previewEngine.play();
 			assertCurrent(task, projectToken);
 			if (videoClip) {
@@ -161,6 +172,9 @@ export function createProjectBinPreviewService(
 				dependencies.publish();
 			}
 			return dependencies.getPreview() ?? preview;
+		} catch (error) {
+			await retireFailedPreview(task, projectToken, startingPreview);
+			throw error;
 		} finally {
 			task.finish();
 		}
@@ -169,8 +183,11 @@ export function createProjectBinPreviewService(
 	async function toggleActivePreview(
 		active: ProjectBinPreview,
 		video: boolean,
+		project: ProjectBinProject,
+		audioClipId: string,
 	): Promise<ProjectBinPreview> {
 		if (active.state === 'playing') {
+			dependencies.lifetime.cancelTask(PROJECT_BIN_PREVIEW_TASK);
 			previewEngine?.pause();
 			const paused = Object.freeze({ ...active, state: 'paused' as const });
 			dependencies.setPreview(paused);
@@ -184,17 +201,32 @@ export function createProjectBinPreviewService(
 			return playing;
 		}
 		const projectToken = dependencies.captureProject();
-		const task = dependencies.lifetime.startTask(PROJECT_BIN_PREVIEW_TASK);
+		const task = dependencies.lifetime.startTask(PROJECT_BIN_PREVIEW_TASK, { scope: EDITOR_PROJECT_TASK_SCOPE });
+		const starting = active.kind === 'audio' ? Object.freeze({ ...active, state: 'playing' as const }) : active;
+		if (starting !== active) { dependencies.setPreview(starting); dependencies.publish(); }
 		try {
+			await dependencies.prepareTimePitchCaches?.({ ...project, clips: [...project.clips, ...projectBinClips(project)] },
+				task.signal, { clipIds: [audioClipId] });
+			assertCurrent(task, projectToken);
 			await previewEngine?.play();
 			assertCurrent(task, projectToken);
 			const playing = Object.freeze({ ...active, state: 'playing' as const });
 			dependencies.setPreview(playing);
 			dependencies.publish();
 			return playing;
+		} catch (error) {
+			await retireFailedPreview(task, projectToken, starting);
+			throw error;
 		} finally {
 			task.finish();
 		}
+	}
+
+	async function retireFailedPreview(
+		task: EditorTaskScope, projectToken: EditorProjectToken, expected: ProjectBinPreview | null,
+	): Promise<void> {
+		try { assertCurrent(task, projectToken); } catch { return; }
+		if (expected && dependencies.getPreview() === expected) await stopProjectBinPreview();
 	}
 
 	async function stopProjectBinPreview(

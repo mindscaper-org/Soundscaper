@@ -12,7 +12,8 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { InvalidModelOutputError } from '../docs-ai/generation.mjs';
-import { EDITOR_ENGLISH_COPY as ENGLISH_COPY, EDITOR_GERMAN_COPY as GERMAN_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
+import { EDITOR_COPY_AUDIT_INVENTORY as ENGLISH_COPY } from '../lib/editor-copy-audit-inventory.mjs';
+import { loadTranslationCatalog } from '../../src/common/i18n/translation-catalog.js';
 import {
 	TRANSLATION_CATALOG_DIRECTORY,
 	assertMachineTranslatableLocale,
@@ -31,7 +32,7 @@ import {
 export async function writeTranslationPackets(options) {
 	const locale = assertMachineTranslatableLocale(options.locale);
 	const englishCopy = options.englishCopy ?? ENGLISH_COPY;
-	const germanCopy = options.germanCopy ?? GERMAN_COPY;
+	const germanCopy = locale === 'de' ? {} : options.germanCopy ?? await loadTranslationCatalog('de', { englishCopy }) ?? {};
 	const excluded = new Set(options.excludedKeys ?? MACHINE_TRANSLATION_EXCLUDED_KEYS);
 	const existing = await readTranslationCatalog(locale, options.directory ?? TRANSLATION_CATALOG_DIRECTORY);
 	const assessment = assessTranslationCatalog(existing, englishCopy, { promptVersion: MACHINE_TRANSLATION_PROMPT_VERSION, excludedKeys: excluded });

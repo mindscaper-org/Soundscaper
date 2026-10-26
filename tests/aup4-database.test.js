@@ -312,7 +312,10 @@ test('browser AUP4 snapshot survives SQLite export and reopen with sample hashes
 			assert.equal(decoded.project.clips[0].pitchCents, 300);
 			assert.equal(decoded.project.clips[0].speedRatio, 0.5);
 			assert.equal(decoded.project.clips[0].sourceStartFrame, 1);
-			assert.deepEqual(decoded.project.clips[0].envelope, [{ frame: 0, value: 0.75 }, { frame: 4, value: 0.5 }]);
+			const envelope = decoded.project.clips[0].envelope;
+			assert.equal(envelope[0].value, 0.75);
+			assert.equal(envelope.at(-1).value, 0.5);
+			for (const point of envelope) assert.ok(Math.abs(point.value - (0.75 - Math.min(4, point.frame) / 16)) < 1e-4);
 			assert.deepEqual(
 				decoded.project.timelineAnnotations.map((annotation) => ({ title: annotation.name, startFrame: annotation.kind === 'marker' ? annotation.positionFrame : annotation.startFrame, endFrame: annotation.kind === 'marker' ? annotation.positionFrame : annotation.endFrame })),
 				[

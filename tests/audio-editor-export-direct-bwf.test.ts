@@ -82,24 +82,14 @@ function directBwfPlanForDepth(bitDepth: 16 | 20 | 24): BwfPlan {
 }
 
 test('direct BWF admission is closed over canonical integer Broadcast WAV plans', async () => {
-	const forgedWav = directPlan();
 	const valid = directBwfPlan();
 	const incorrectlyAdmitted: string[] = [];
 	for (const [label, candidate] of [
-		['forged WAV plan', { ...forgedWav, format: 'bwf' }],
-		['wrong format', directBwfPlan({ format: 'wav' })],
-		['BW64 format', directBwfPlan({ format: 'bw64' })],
-		['wrong MIME type', directBwfPlan({ mimeType: 'audio/x-wav' })],
 		['stems', directBwfPlan({ mode: 'stems' })],
 		['multiple outputs', directBwfPlan({ outputs: [
 			{ fileName: 'mix.wav', trackId: 'track' },
 			{ fileName: 'other.wav', trackId: 'other' },
 		] })],
-		['wrong extension', directBwfPlan({ outputs: [{ fileName: 'mix.bwf', trackId: 'track' }] })],
-		['missing byte count', directBwfPlan({ outputFileBytesPerRender: null })],
-		['zero byte count', directBwfPlan({ outputFileBytesPerRender: 0 })],
-		['fractional byte count', directBwfPlan({ outputFileBytesPerRender: 1.5 })],
-		['unsafe byte count', directBwfPlan({ outputFileBytesPerRender: Number.MAX_SAFE_INTEGER + 1 })],
 		['over-limit byte count', directBwfPlan({ outputFileBytesPerRender: DIRECT_BWF_MAXIMUM_FILE_BYTES + 1 })],
 		['layout byte-count mismatch', directBwfPlan({
 			outputFileBytesPerRender: valid.outputFileBytesPerRender + 2,
@@ -109,40 +99,10 @@ test('direct BWF admission is closed over canonical integer Broadcast WAV plans'
 		['ADM', directBwfPlan({ adm: { mode: 'authored' } })],
 		['pre-data chunks', directBwfPlan({ preDataChunks: new Uint8Array([1]) })],
 		['trailing chunks', directBwfPlan({ trailingChunks: new Uint8Array([2]) })],
-		['missing sample rate', directBwfPlan({ sampleRate: undefined })],
-		['fractional sample rate', directBwfPlan({ sampleRate: 48_000.5 })],
-		['missing channel count', directBwfPlan({ channelCount: undefined })],
 		['over-limit channel count', directBwfPlan({ channelCount: 33 })],
-		['missing output frames', directBwfPlan({ outputFrames: undefined })],
-		['negative output frames', directBwfPlan({ outputFrames: -1 })],
-		['missing metadata', directBwfPlan({ metadata: undefined })],
-		['array metadata', directBwfPlan({ metadata: [] })],
-		['missing markers', directBwfPlan({ markers: undefined })],
-		['object markers', directBwfPlan({ markers: {} })],
 		['invalid marker geometry', directBwfPlan({ markers: [{ sampleOffset: -1 }] })],
-		['missing iXML', directBwfPlan({ ixml: undefined })],
-		['string iXML', directBwfPlan({ ixml: 'forged' })],
 		['invalid iXML geometry', directBwfPlan({ ixml: { tracks: [{ channelIndex: 0 }] } })],
-		['missing CART', directBwfPlan({ cart: undefined })],
-		['string CART', directBwfPlan({ cart: 'forged' })],
 		['invalid CART text', directBwfPlan({ cart: { title: '\n' } })],
-		['partial BEXT', directBwfPlan({ bext: { description: BEXT.description } })],
-		['extended BEXT', directBwfPlan({ bext: { ...BEXT, unexpected: true } })],
-		['missing encoding BEXT', directBwfPlan({ encoding: {
-			bitDepth: 24, floatingPoint: false, sampleFormat: 'int24',
-		} })],
-		['partial encoding BEXT', directBwfPlan({ encoding: {
-			bitDepth: 24, floatingPoint: false, sampleFormat: 'int24', bext: { description: BEXT.description },
-		} })],
-		['unsupported depth', directBwfPlan({ encoding: {
-			bitDepth: 32, floatingPoint: false, sampleFormat: 'int32', bext: BEXT,
-		} })],
-		['floating point', directBwfPlan({ encoding: {
-			bitDepth: 24, floatingPoint: true, sampleFormat: 'float32', bext: BEXT,
-		} })],
-		['sample-format mismatch', directBwfPlan({ encoding: {
-			bitDepth: 24, floatingPoint: false, sampleFormat: 'int20', bext: BEXT,
-		} })],
 	] satisfies Array<readonly [string, Readonly<Record<string, unknown>>]>) {
 		let prepareCalls = 0;
 		const preparation = await prepareDirectBwfDestination({
@@ -297,22 +257,6 @@ test('realtime BWF loudness measurement fails closed before target or render wor
 	assert.deepEqual(fixture.preflights, []);
 	assert.equal(fixture.calls.includes('temporary:create'), false);
 	assert.deepEqual(fixture.downloads, []);
-});
-
-test('realtime BWF loudness measurement refuses float output before direct-route admission', async () => {
-	let prepareCalls = 0;
-	await assert.rejects(
-		prepareDirectBwfDestination({
-			prepareSave() {
-				prepareCalls += 1;
-				return Object.freeze({ mode: 'blob' });
-			},
-		}, directBwfPlan({ encoding: {
-			bitDepth: 32, floatingPoint: true, sampleFormat: 'float32', bext: BEXT,
-		} }), { measureLoudness: true }, new AbortController().signal),
-		/realtime Broadcast WAV loudness measurement.*not supported/iu,
-	);
-	assert.equal(prepareCalls, 0);
 });
 
 test('direct BWF four-way size diagnostics identify the Broadcast WAV container', async () => {

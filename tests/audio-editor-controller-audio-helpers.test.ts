@@ -72,13 +72,14 @@ test('Nyquist helpers normalize roles, bounds, channels, and transferable payloa
 	assert.equal(nyquistResultStatus(evaluations, { done: 'done' }), 'ok');
 
 	const transfer: ArrayBuffer[] = [];
+	const original = Float32Array.of(1);
 	const cloned = cloneAudacityWorkerPayload({
-		channels: [Float32Array.of(1)],
+		channels: [original],
 		params: { gain: 2 },
 		context: { beforeChannels: [Float32Array.of(0.5)] },
 	}, transfer);
 	assert.equal(transfer.length, 2);
-	assert.notEqual(cloned.channels[0], evaluations[0]?.result.channels?.[0]);
+	assert.notEqual(cloned.channels[0], original);
 });
 
 test('source helpers validate memory limits, stored geometry, and clip metadata', async () => {
@@ -104,8 +105,8 @@ test('source helpers validate memory limits, stored geometry, and clip metadata'
 
 	assert.deepEqual(scaleClipEnvelope({
 		durationFrames: 10,
-		envelope: [{ frame: 0, value: 1 }, { frame: 5, value: 0.5 }, { frame: 5, value: 0.25 }],
-	}, 20), [{ frame: 0, value: 1 }, { frame: 10, value: 0.5 }]);
+		envelope: [{ frame: 0, value: 1 }, { frame: 4, value: 0.5 }, { frame: 5, value: 0.25 }],
+	}, 4), [{ frame: 0, value: 1 }, { frame: 2, value: 0.25 }]);
 	assert.deepEqual(serializeAudacityNoiseProfile({ meanPowers: Float32Array.of(1, 2), smoothing: 3 }), {
 		meanPowers: [1, 2], smoothing: 3,
 	});

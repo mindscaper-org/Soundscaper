@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { encodeWav as encodeProjectWav } from '../../../wav.js';
+import { encodeWav as encodeProjectWav, inspectWavLayout } from '../../../wav.js';
 import { createDefaultMixerGraphV21 } from '../../../mixer-graph-v21.ts';
 import { createAudioTrack } from '../../../project-media-factory.ts';
+import { resolveRuntimeClipProjection } from '../../../runtime-clip-projection.ts';
+import { clipTimePitchPlaybackProjection } from '../../../clip-time-pitch-playback-projection.ts';
+import { fitExportFileName } from '../../../export-name-byte-budget.ts';
 import {
 	inheritTrackFolderMediaStateProjectionV12,
 	projectTrackFolderMediaStateV12,
@@ -17,7 +20,6 @@ import type {
 } from '../../../freesound-upload-metadata.ts';
 
 const MAXIMUM_UPLOAD_BYTES = 100_000_000;
-const WAV_HEADER_ALLOWANCE_BYTES = 4_096;
 
 interface MaterializerClip extends FreesoundUploadClipMetadata, Readonly<Record<string, unknown>> {
 	readonly id: string;
@@ -117,7 +119,7 @@ export function createFreesoundClipUploadMaterializer<Project extends object>(
 		const projection = createIsolatedFreesoundClipRenderProject(project, clip.id);
 		const expectedChannels = projectedOutputChannelCount(projection, source);
 		assertWavSize(clip.durationFrames, expectedChannels, maximumBytes);
-		const projectedClip = findTimelineClip(projection, clip.id);
+		const projectedClip = findClip(projection, clip.id);
 		const range = Object.freeze({
 			startFrame: projectedClip.timelineStartFrame,
 			endFrame: projectedClip.timelineStartFrame + projectedClip.durationFrames,
@@ -143,7 +145,7 @@ export function createFreesoundClipUploadMaterializer<Project extends object>(
 		return Object.freeze({
 			file: new File([owned.buffer], `${fileStem(clipTitle)}.wav`, { type: 'audio/wav', lastModified: 0 }),
 			source,
-			clip,
+			clip: Object.freeze({ ...clip, durationSeconds: rendered.length / rendered.sampleRate }),
 			clipTitle,
 		});
 	}
@@ -160,6 +162,10 @@ export function createIsolatedFreesoundClipRenderProject<Project extends Freesou
 	const clip = located.clip;
 	const source = project.sources.find(({ id }) => id === clip.sourceId);
 	if (!source) throw new ReferenceError(`The clip source ${clip.sourceId} is unavailable.`);
+	const binClip = located.store === 'project-bin' && clip.anchor === 'musical' ? {
+		...clipTimePitchPlaybackProjection(project, clip, source),
+		anchor: 'sample', musicalStartBeat: null, musicalDurationBeats: null, musicalExtent: 'fixedSamples',
+	} : clip;
 	const owner = project.tracks.find(({ clipIds }) => clipIds?.includes(clip.id))
 		?? project.tracks.find(({ type }) => type === 'audio')
 		?? createAudioTrack({
@@ -179,7 +185,7 @@ export function createIsolatedFreesoundClipRenderProject<Project extends Freesou
 	clone.clips = located.store === 'timeline'
 		? clone.clips.filter(({ id }) => id === clip.id)
 		: [{
-			...structuredClone(clip),
+			...structuredClone(binClip),
 			timelineStartFrame: 0,
 			groupId: null,
 			avLinkId: null,
@@ -291,8 +297,9 @@ function locateClip(
 ): Readonly<{ clip: RenderableMaterializerClip; store: 'timeline' | 'project-bin' }> {
 	if (typeof value !== 'string' || !value) throw new TypeError('A clip ID is required.');
 	const timelineClip = project.clips.find(({ id }) => id === value);
-	const clip = timelineClip ?? project.projectBin?.clips?.find(({ id }) => id === value);
-	if (!clip) throw new ReferenceError(`Unknown audio clip: ${value}.`);
+	const candidate = timelineClip ?? project.projectBin?.clips?.find(({ id }) => id === value);
+	if (!candidate) throw new ReferenceError(`Unknown audio clip: ${value}.`);
+	const clip = candidate.anchor === 'musical' ? resolveRuntimeClipProjection(project, candidate) : candidate;
 	if (clip.kind !== undefined && clip.kind !== 'audio') throw new TypeError('Only audio clips can be uploaded.');
 	positiveInteger(clip.durationFrames, 'clip duration');
 	if (typeof clip.timelineStartFrame !== 'number'
@@ -303,15 +310,6 @@ function locateClip(
 		clip: clip as RenderableMaterializerClip,
 		store: timelineClip ? 'timeline' : 'project-bin',
 	});
-}
-
-function findTimelineClip(
-	project: FreesoundClipMaterializerProject,
-	value: string,
-): RenderableMaterializerClip {
-	const clip = project.clips.find(({ id }) => id === value);
-	if (!clip) throw new ReferenceError(`The isolated audio clip ${value} is unavailable.`);
-	return clip as RenderableMaterializerClip;
 }
 
 function materializerProject(value: object): FreesoundClipMaterializerProject {
@@ -337,8 +335,8 @@ function renderedChannels(rendered: FreesoundRenderedClipAudio, expectedFrames: 
 }
 
 function assertWavSize(frameCount: number, channelCount: number, maximumBytes: number): void {
-	const sampleBytes = frameCount * channelCount * 3;
-	if (!Number.isSafeInteger(sampleBytes) || sampleBytes + WAV_HEADER_ALLOWANCE_BYTES > maximumBytes) {
+	const layout = inspectWavLayout({ totalFrames: frameCount, channelCount, bitDepth: 24, float: false });
+	if (layout.byteLength > maximumBytes) {
 		throw new RangeError('The rendered clip exceeds the 100 MB Freesound upload limit.');
 	}
 }
@@ -355,15 +353,20 @@ function positiveInteger(value: unknown, name: string): number {
 }
 
 function cleanTitle(value: unknown): string {
-	return typeof value === 'string'
-		? replaceControlCharacters(value, ' ').replace(/\s+/gu, ' ').trim().slice(0, 512)
-		: '';
+	if (typeof value !== 'string') return '';
+	const text = replaceControlCharacters(value, ' ').replace(/\s+/gu, ' ').trim();
+	let title = '';
+	for (const character of text) {
+		if (title.length + character.length > 512) break;
+		title += character;
+	}
+	return title;
 }
 
 function fileStem(value: string): string {
 	const safe = replaceControlCharacters(value, '-').replace(/[\\/:*?"<>|]+/gu, '-')
-		.replace(/^\.+/u, '').trim().slice(0, 220);
-	return safe || 'soundscaper-clip';
+		.replace(/^\.+/u, '').trim();
+	return fitExportFileName(safe || 'soundscaper-clip', '', '.wav').slice(0, -4);
 }
 
 function replaceControlCharacters(value: string, replacement: string): string {

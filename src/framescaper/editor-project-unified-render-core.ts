@@ -20,6 +20,8 @@ import {
 	type VideoSourceTimingView,
 } from '../common/editor/video-source-timing-view.ts';
 import type { FramescaperUnifiedExactRenderAuthority } from './editor-project-unified-render-authority.ts';
+import { generatedNodeId } from './editor-render-node-identity.ts';
+export { generatedNodeId } from './editor-render-node-identity.ts';
 
 export interface FramescaperActiveVisualPlacement {
 	readonly clip: Readonly<Record<string, unknown>>;
@@ -246,18 +248,6 @@ function requiredProfessionalDeliveryProfile(
 		throw new TypeError(`A V${String(version)} render requires one exact professional delivery profile.`);
 	}
 	return value;
-}
-
-export function generatedNodeId(
-	family: string,
-	ownerId: string,
-	projectIdentities: ReadonlySet<string>,
-): string {
-	const result = `render:${family}:${ownerId}`;
-	if (projectIdentities.has(result)) {
-		throw new RangeError(`Generated render node identity ${result} collides with project identity.`);
-	}
-	return result;
 }
 
 function activePlacements(

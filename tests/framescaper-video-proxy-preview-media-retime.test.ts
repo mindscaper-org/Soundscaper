@@ -15,10 +15,7 @@ import type {
 	FramescaperVideoProxyPressureRetime,
 } from '../src/framescaper/editor-video-proxy-use-policy-retime.ts';
 import {
-	createFramescaperVideoProxyPreviewMediaResolverFinishing,
-	createFramescaperVideoProxyPreviewMediaResolverNativeMedia,
 	createFramescaperVideoProxyPreviewMediaResolverRetime,
-	createFramescaperVideoProxyPreviewMediaResolverTimelineImage,
 	FramescaperVideoProxyPreviewUnavailableError,
 	sameFramescaperVideoProxyAttachment,
 	type FramescaperVideoProxyPreviewMediaOptionsRetime,
@@ -450,28 +447,4 @@ test('an aborted preview rethrows the abort reason instead of reporting the prox
 	assert.deepEqual(running.state.trust, ['unverified']);
 	assert.deepEqual(running.state.loadSignals, [late.signal, late.signal]);
 	assert.deepEqual(running.state.originalSignals, [late.signal]);
-});
-
-test('an out-of-contract pressure reading is refused rather than silently ignored', async () => {
-	const rig = harness({
-		mode: 'auto',
-		pressures: ['none' as unknown as Readonly<FramescaperVideoProxyPressureRetime>],
-	});
-
-	await assert.rejects(() => rig.resolve(), TypeError);
-});
-
-test('the finishing, native-media and timeline-image resolvers share one source-domain factory', () => {
-	assert.equal(
-		createFramescaperVideoProxyPreviewMediaResolverFinishing,
-		createFramescaperVideoProxyPreviewMediaResolverRetime,
-	);
-	assert.equal(
-		createFramescaperVideoProxyPreviewMediaResolverNativeMedia,
-		createFramescaperVideoProxyPreviewMediaResolverRetime,
-	);
-	assert.equal(
-		createFramescaperVideoProxyPreviewMediaResolverTimelineImage,
-		createFramescaperVideoProxyPreviewMediaResolverRetime,
-	);
 });

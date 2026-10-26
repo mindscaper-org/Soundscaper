@@ -22,11 +22,11 @@ export interface ContributionBaseline {
 
 /** Retired entries remain in the review baseline but no longer supply displayed text. */
 export function publishedTranslationOrigin(
-	baseline: ContributionBaseline | undefined, bundledTranslation?: string,
-): TranslationOrigin | 'bundled' | 'missing' {
+	baseline: ContributionBaseline | undefined,
+): TranslationOrigin | 'missing' {
 	const entry = baseline?.baselineEntry;
 	if (entry && entry[1] === baseline?.source && entry[2] === baseline?.baselineText) return entry[0];
-	return bundledTranslation !== undefined && baseline?.baselineText === bundledTranslation ? 'bundled' : 'missing';
+	return 'missing';
 }
 
 export interface ContributionSnapshot {

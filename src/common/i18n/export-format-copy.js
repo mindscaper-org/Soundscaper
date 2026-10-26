@@ -2,32 +2,6 @@
 
 /** Copy for the export dialog's format, sample and channel options, including its custom FFmpeg fields. */
 export const EXPORT_FORMAT_COPY_BY_LOCALE = Object.freeze({
-	de: Object.freeze({
-			format: 'Format',
-			customFfmpeg: 'Benutzerdefiniertes FFmpeg',
-			bitDepth: 'Bittiefe',
-			sampleFormat: 'Sampleformat',
-			quality: 'Qualität',
-			sampleRate: 'Samplerate',
-			channelMapping: 'Kanalzuordnung',
-			preserveChannels: 'Kanäle beibehalten',
-			customChannelMapping: 'Benutzerdefinierte Kanalzuordnung',
-			customChannelMappingHint: 'JSON-Matrix, z. B. [[0.5, 0.5]] für Mono aus Stereo.',
-			mono: 'Mono',
-			stereo: 'Stereo',
-			dither: 'Dither',
-			none: 'Keine',
-			triangularDither: 'Dreieckig',
-			highpassDither: 'Dreieckig, Hochpass',
-			level: 'Stufe',
-			customExtension: 'Dateiendung',
-			customMimeType: 'MIME-Typ',
-			customArguments: 'FFmpeg-Ausgabeargumente (eines pro Zeile)',
-			customMetadata: 'Weitere Metadaten (JSON)',
-			includeTails: 'Effektfahnen bis 10 Sekunden einbeziehen',
-			startExport: 'Exportieren',
-			cancelExport: 'Export abbrechen',
-	}),
 	en: Object.freeze({
 			format: 'Format',
 			customFfmpeg: 'Custom FFmpeg',

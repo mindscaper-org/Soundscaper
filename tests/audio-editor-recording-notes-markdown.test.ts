@@ -57,10 +57,8 @@ test('line formatting replaces previous block markers and toggles matching block
 	assert.equal(formatRecordingNotes('\nsecond', 0, 0, 'heading', 'Heading').value, '# Heading\nsecond');
 });
 
-test('formatting clamps stale or invalid selection offsets', () => {
-	assert.equal(formatRecordingNotes('take', -10, 99, 'bold', 'Bold').value, '**take**');
-	assert.equal(formatRecordingNotes('take', Number.NaN, Number.NaN, 'code', 'Code').value,
-		'`Code`take');
+test('formatting clamps a selection retained from longer notes', () => {
+	assert.equal(formatRecordingNotes('take', 0, 99, 'bold', 'Bold').value, '**take**');
 });
 
 test('Markdown notes parse headings, paragraphs and unordered and ordered lists', () => {

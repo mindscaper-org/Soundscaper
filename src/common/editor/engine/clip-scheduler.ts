@@ -390,7 +390,8 @@ async function scheduleOfflineChunkPlan({
 		const rangeStart = Math.max(plan.offsetFrame, chunkStart);
 		const rangeEnd = Math.min(sourceEndFrame, chunkStart + chunkFrames);
 		if (rangeEnd <= rangeStart) continue;
-		const buffer = context.createBuffer(provider.channelCount, chunkFrames, provider.sampleRate);
+		// This branch already has exactly one input sample per output frame.
+		const buffer = context.createBuffer(provider.channelCount, chunkFrames, context.sampleRate);
 		for (let channel = 0; channel < provider.channelCount; channel += 1) {
 			const values = channels[channel];
 			if (!values) throw new Error('A long-source storage chunk has missing channels.');
@@ -405,13 +406,13 @@ async function scheduleOfflineChunkPlan({
 		const source = addNode(allNodes, context.createBufferSource());
 		source.buffer = buffer;
 		connect(source, chain.input);
-		const when = clipStartTime + (rangeStart - plan.offsetFrame) / (provider.sampleRate * plan.playbackRate);
-		setParam(source.playbackRate, plan.playbackRate, when);
+		const when = clipStartTime + (rangeStart - plan.offsetFrame) / context.sampleRate;
+		setParam(source.playbackRate, 1, when);
 		try {
 			source.start(
 				when,
-				(rangeStart - chunkStart) / provider.sampleRate,
-				(rangeEnd - rangeStart) / provider.sampleRate,
+				(rangeStart - chunkStart) / context.sampleRate,
+				(rangeEnd - rangeStart) / context.sampleRate,
 			);
 			activeSources.add(source);
 		} catch {

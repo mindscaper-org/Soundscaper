@@ -17,6 +17,7 @@ import {
 	type VideoKeyframeCurves,
 } from './video-keyframe-curves.ts';
 import { normalizeVideoEffects } from './video-effects.js';
+import { projectString } from './project-validation-primitives.ts';
 import {
 	assertUnifiedExactRetimeAuthority,
 	assertUnifiedExactRetimeStructureWithDeferredVfr,
@@ -157,7 +158,7 @@ export function normalizeUnifiedExactRenderTracks(
 		const name = `unified render tracks[${String(index)}]`;
 		const track = readClosedDomainRecord(candidate, name, TRACK_FIELDS);
 		const normalized = Object.freeze({
-			trackId: stableId(field(track, 'trackId', name), `${name}.trackId`),
+			trackId: projectString(field(track, 'trackId', name), `${name}.trackId`),
 			sequenceOrder: integer(field(track, 'sequenceOrder', name), `${name}.sequenceOrder`, 0),
 			mute: booleanValue(field(track, 'mute', name), `${name}.mute`),
 			solo: booleanValue(field(track, 'solo', name), `${name}.solo`),
@@ -236,8 +237,8 @@ export function normalizeUnifiedExactRenderClipNode(
 	if (field(mapping, 'kind', `${name}.sourceTimeMapping`) !== 'video-retime-export-intent-v6') {
 		throw new RangeError('Unified clip source-time mapping kind is unsupported.');
 	}
-	const clipId = stableId(field(clip, 'clipId', name), `${name}.clipId`);
-	const trackId = stableId(field(clip, 'trackId', name), `${name}.trackId`);
+	const clipId = projectString(field(clip, 'clipId', name), `${name}.clipId`);
+	const trackId = projectString(field(clip, 'trackId', name), `${name}.trackId`);
 	if (!tracks.byId.has(trackId)) throw new ReferenceError('Unified clip references an unknown video track.');
 	const pictureState = normalizePictureState(
 		field(clip, 'pictureState', name), sequenceFrameCount, clipId,

@@ -36,6 +36,43 @@ h1 {
 	line-height: 1.2;
 }
 
+.controls {
+	position: relative;
+	margin: 0 0 16px;
+	font-size: 13px;
+}
+
+.controls summary {
+	cursor: pointer;
+	width: fit-content;
+}
+
+.controls [role="menu"] {
+	position: absolute;
+	z-index: 1;
+	margin-top: 6px;
+	padding: 6px;
+	border: 1px solid #aaa5d9;
+	border-radius: 6px;
+	background: #171927;
+}
+
+.controls button {
+	min-width: 120px;
+	padding: 8px 16px;
+	border: 0;
+	border-radius: 4px;
+	background: #302660;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.controls button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
 .status {
 	margin: 0 0 10px;
 	font-size: 16px;

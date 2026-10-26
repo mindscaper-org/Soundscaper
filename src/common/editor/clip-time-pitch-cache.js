@@ -26,8 +26,10 @@ import {
 	deriveClipTimePitchCachePlan,
 	describeClipTimePitchRender,
 } from './clip-time-pitch-cache-plan.js';
+import { linkedSourceContentDigest } from './linked-source-cache-content.ts';
 import { ClipTimePitchCacheSessionFence } from './clip-time-pitch-cache-session.ts';
-import { cloneJson, reverseFloat32 } from './clip-time-pitch-cache-values.ts';
+import { prepareClipTimePitchWorkingInput } from './clip-time-pitch-working-clock.ts';
+import { cloneJson } from './clip-time-pitch-cache-values.ts';
 import {
 	integerRange,
 	nonNegativeInteger,
@@ -49,8 +51,7 @@ export {
 export const CLIP_TIME_PITCH_DEFAULT_RESIDENT_CHANNEL_BYTES = 32 * 1024 ** 2;
 
 /**
- * Coordinates immutable StaffPad renders and their atomic source-store commit.
- * A clip may retain its previous committed entry while a newer revision runs.
+ * Coordinate immutable StaffPad renders and atomic source-store commits.
  */
 export class ClipTimePitchRenderCacheCoordinator {
 	constructor(options = {}) {
@@ -114,13 +115,13 @@ export class ClipTimePitchRenderCacheCoordinator {
 	async plan(clip, source, options = {}) {
 		return deriveClipTimePitchCachePlan(clip, source, {
 			...options,
+			sourceContentSha256: await linkedSourceContentDigest(this.store, source, options.signal),
 			maximumOutputBytes: options.maximumOutputBytes ?? this.maximumOutputBytes,
 		});
 	}
 
 	/**
-	 * Begin or join an exact render. `current` is the last valid committed cache
-	 * for this clip and remains usable until `pending` publishes atomically.
+	 * Join an exact render, retaining `current` until `pending` publishes atomically.
 	 */
 	async requestClipRender(clip, source, options = {}) {
 		this.#assertActive();
@@ -146,7 +147,8 @@ export class ClipTimePitchRenderCacheCoordinator {
 				warnings: plan.warnings,
 			});
 		}
-		const current = this.lastCommittedByClip.get(plan.clipId)?.entry || null;
+		const previous = this.lastCommittedByClip.get(plan.clipId)?.entry;
+		const current = previous?.sourceId === plan.sourceId && previous.sourceContentSha256 === plan.sourceIdentity.contentSha256 ? previous : null;
 		const job = this.#getOrCreateJob(plan, clip, source, { ...options, replaceExpectedSourceToken });
 		job.interests.set(plan.clipId, Math.max(sequence, job.interests.get(plan.clipId) || 0));
 		const pending = this.#subscribe(job, options.signal);
@@ -448,22 +450,10 @@ export class ClipTimePitchRenderCacheCoordinator {
 			{ limitBytes: this.maximumRenderWorkingBytes, peakWorkingBytes, scope },
 		);
 		await assertQuota(this.store, plan, this.chunkFrames, this.requiredQuotaHeadroomBytes);
-		let channels = normalizeLoadedChannels(
-			await this.loadSourceChannels(source, { signal: options.signal, clip, plan }),
-			plan,
-		);
-		let ownsChannels = this.transferLoadedSourceChannels;
-		throwIfAborted(options.signal);
-		let selection = plan.direction === 'reverse'
-			? {
-				startFrame: plan.sourceFrameCount - plan.sourceRange.startFrame - plan.sourceRange.frameCount,
-				frameCount: plan.sourceRange.frameCount,
-			}
-			: { ...plan.sourceRange };
-		if (plan.direction === 'reverse') {
-			channels = channels.map(reverseFloat32);
-			ownsChannels = true;
-		}
+		const prepared = await prepareClipTimePitchWorkingInput(normalizeLoadedChannels(
+			await this.loadSourceChannels(source, { signal: options.signal, clip, plan }), plan,
+		), plan, { signal: options.signal, ownsChannels: this.transferLoadedSourceChannels });
+		let { channels, selection, ownsChannels } = prepared;
 		for (const stage of plan.stages) {
 			throwIfAborted(options.signal);
 			const result = await this.client.render({
@@ -526,8 +516,6 @@ export class ClipTimePitchRenderCacheCoordinator {
 	}
 }
 
-/** Load one immutable source into planar arrays through the store's chunk API. */
-
 function resolvedEntry(entry, request, stale) {
 	return Object.freeze({
 		...entry,
@@ -544,6 +532,7 @@ function createCommittedEntry(plan, metadata) {
 		cacheSourceId: plan.cacheSourceId,
 		algorithmRevision: plan.algorithmRevision,
 		sourceId: plan.sourceId,
+		sourceContentSha256: plan.sourceIdentity.contentSha256,
 		renderCacheRevision: plan.renderCacheRevision,
 		sampleRate: plan.sampleRate,
 		channelCount: plan.channelCount,

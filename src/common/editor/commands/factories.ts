@@ -47,8 +47,8 @@ export function createAddSourceCommand(options: CommandFactoryValue): CommandFor
 	return { type: 'source/add', source: normalizeSourceValue(options) };
 }
 
-export function createAddTrackCommand(options: CommandFactoryValue = {}): CommandFor<'track/add'> & { readonly track: MediaTrackLeaf } {
-	return { type: 'track/add', track: normalizeTrackValue(options) };
+export function createAddTrackCommand(options: CommandFactoryValue = {}, projectSampleRate?: number): CommandFor<'track/add'> & { readonly track: MediaTrackLeaf } {
+	return { type: 'track/add', track: normalizeTrackValue(options, projectSampleRate) };
 }
 
 export function createAddClipCommand(trackId: string, options: CommandFactoryValue): CommandFor<'clip/add'> {
@@ -346,9 +346,9 @@ function normalizeSourceValue(value: CommandFactoryValue): CommandObject {
 	return createMediaSource(value) as CommandObject;
 }
 
-function normalizeTrackValue(value: CommandFactoryValue): MediaTrackLeaf {
+function normalizeTrackValue(value: CommandFactoryValue, projectSampleRate?: number): MediaTrackLeaf {
 	const { audioFreeze: _audioFreeze, ...addableTrack } = value;
-	return createMediaTrack(addableTrack);
+	return createMediaTrack(addableTrack, projectSampleRate);
 }
 
 function normalizeClipValue(value: CommandFactoryValue): CommandObject {

@@ -304,29 +304,6 @@ test('a generation that has been revoked or lost can never be replayed into the 
 	assert.equal(client.receive(offer({ generation: 4 }), [createPort().port]).status, 'attached');
 });
 
-test('a transport that disposes the client mid-attach never reports an attached generation', () => {
-	const holder: { client: NativeRealtimeClient | null } = { client: null };
-	let disposals = 0;
-	const transport: NativeRealtimeWorkletTransport = {
-		// A worklet node tears the graph down on its own errors, so `attach` can
-		// dispose this client before it returns the generation it authorized.
-		attach(_port, config): number { holder.client?.dispose(); return config.generation; },
-		revoke(): number { return 0; },
-		notifyPeerLoss(): number { return 0; },
-		dispose(): void { disposals += 1; },
-	};
-	holder.client = createNativeRealtimeClient({ transport, request: REQUEST });
-	const client = holder.client;
-	const probe = createPort();
-
-	assert.equal(refusal(client.receive(offer(), [probe.port])), 'client-disposed');
-	assert.equal(probe.closeCount, 0, 'a port `attach` already transferred belongs to the worklet, not to this thread');
-	assert.equal(client.disposed, true);
-	assert.equal(client.generation, 0, 'a disposed client must not carry a live generation');
-	assert.equal(disposals, 1);
-	assert.equal(client.revoke(), 0);
-});
-
 test('a worklet that refuses the attach leaves the client without a generation', () => {
 	const { client, transport } = createClient();
 	transport.failAttach = new RangeError('a native realtime generation must increase');

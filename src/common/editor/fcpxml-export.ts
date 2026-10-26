@@ -9,7 +9,8 @@ import {
 } from './delivery-report.ts';
 import { type SequenceRationalRate } from './sequence-timecode.ts';
 import { sequenceFrameAtSample } from './sequence-frame-navigation.ts';
-import { interchangeSourceInPoint } from './interchange-source-in-point.ts';
+import { roundRational } from './timeline-time.ts';
+import { interchangeSourceInTime } from './interchange-source-in-point.ts';
 import {
 	interchangeClipTimeEffect,
 	reportInterchangeAnnotationOmission,
@@ -17,6 +18,9 @@ import {
 } from './interchange-omission-inventory.ts';
 import { createInterchangeVisibility } from './interchange-track-visibility.ts';
 import { portableFileStem } from './portable-file-stem.ts';
+import { interchangeTrackClips } from './interchange-track-clips.ts';
+import { interchangePainterOrder } from './interchange-painter-order.ts';
+import { fcpxmlRationalTime } from './fcpxml-rational-time.ts';
 
 /**
  * FCPXML export.
@@ -28,10 +32,8 @@ import { portableFileStem } from './portable-file-stem.ts';
  * seconds — `0.033367s` is a frame boundary that has already stopped being a
  * frame boundary.
  *
- * Durations are whole multiples of the format's `frameDuration`, which is how
- * FCP itself expresses a frame count. A duration that is not such a multiple
- * would be a clip that starts mid-frame, so this module counts frames and
- * multiplies, rather than converting seconds and hoping the result lands.
+ * Video durations follow the format's frame grid; audio positions and durations
+ * retain their sample grid. Source trim times keep the media's native clock.
  *
  * Resources are deduplicated by stable source identity rather than by path
  * string, because two references to the same media under different paths are
@@ -134,7 +136,7 @@ export function createFcpxmlExport(request: FcpxmlExportRequest): FcpxmlExportRe
 	const visibility = createInterchangeVisibility(asRecords(project.tracks) as never, project);
 	reportInterchangeAnnotationOmission(draft, project, 'fcpxml');
 	reportInterchangeCaptionTrackOmission(draft, project, 'fcpxml', request.sequenceId);
-	for (const track of asRecords(project.tracks)) {
+	for (const track of interchangePainterOrder(asRecords(project.tracks))) {
 		const type = String(track.type ?? '');
 		if (type !== 'video' && type !== 'audio') continue;
 		if (!visibility.contributes(track as never)) {
@@ -149,7 +151,16 @@ export function createFcpxmlExport(request: FcpxmlExportRequest): FcpxmlExportRe
 			continue;
 		}
 		if (asStrings(track.clipIds).length === 0) continue;
-		// Lane 0 is the spine itself and holds the first contributing video
+		if (type === 'video') for (const transition of asRecords(track.videoTransitions)) {
+			addDeliveryReportItem(draft, {
+				code: 'fcpxml.transition-omitted', disposition: 'omitted', severity: 'warning',
+				scope: { kind: 'transition', id: String(transition.id) },
+				data: { trackId: String(track.id), type: String(transition.type),
+					outgoingClipId: String(transition.outgoingClipId), incomingClipId: String(transition.incomingClipId) },
+				message: 'The profile emits no transition vocabulary; the authored video transition is omitted.',
+			});
+		}
+		// Lane 0 is the spine itself and holds the lowest contributing video
 		// track. Everything simultaneous with it is a connected clip: further
 		// video above at 1, 2, …, audio below at -1, -2, …. Without lanes they
 		// would all share offset="0s" in a sequential spine, which is not a
@@ -174,9 +185,7 @@ export function createFcpxmlExport(request: FcpxmlExportRequest): FcpxmlExportRe
 		// clipIds carries authoring order, not time order, and a spine is serial.
 		// The other two exporters sort; this one must too, or a track authored
 		// out of order emits descending offsets in a sequential container.
-		const ordered = asStrings(track.clipIds)
-			.map((clipId) => clipById.get(clipId))
-			.filter((clip): clip is Readonly<Record<string, unknown>> => Boolean(clip))
+		const ordered = interchangeTrackClips(track, clipById, draft, 'fcpxml')
 			.sort((left, right) => (
 				Number(left.timelineStartFrame ?? 0) - Number(right.timelineStartFrame ?? 0)
 				|| compareCodeUnits(String(left.id), String(right.id))
@@ -229,6 +238,7 @@ export function createFcpxmlExport(request: FcpxmlExportRequest): FcpxmlExportRe
 		});
 	}
 
+	const audioAttributes = sequenceAudioAttributes(project, sampleRate, draft);
 	const lines = [
 		'<?xml version="1.0" encoding="UTF-8"?>',
 		'<!DOCTYPE fcpxml>',
@@ -240,7 +250,7 @@ export function createFcpxmlExport(request: FcpxmlExportRequest): FcpxmlExportRe
 		`\t\t<event name="${escapeXml(title)}">`,
 		`\t\t\t<project name="${escapeXml(title)}">`,
 		`\t\t\t\t<sequence format="r1" duration="${frameTime(sequenceEndFrames, rate)}"`
-			+ ` tcStart="${frameTime(startFrames, rate)}" tcFormat="${dropFrame ? 'DF' : 'NDF'}">`,
+			+ ` tcStart="${frameTime(startFrames, rate)}" tcFormat="${dropFrame ? 'DF' : 'NDF'}"${audioAttributes}>`,
 		'\t\t\t\t\t<spine>',
 		...spine,
 		'\t\t\t\t\t</spine>',
@@ -259,6 +269,23 @@ export function createFcpxmlExport(request: FcpxmlExportRequest): FcpxmlExportRe
 	});
 }
 
+/** FCPXML defaults an omitted timeline audio description to stereo at 48 kHz. */
+function sequenceAudioAttributes(project: Readonly<Record<string, unknown>>, sampleRate: number, draft: Draft): string {
+	const sourceChannelCount = positiveInteger(project.masterChannels ?? 2, 'project.masterChannels');
+	const rate = new Map([[32_000, '32k'], [44_100, '44.1k'], [48_000, '48k'], [88_200, '88.2k'],
+		[96_000, '96k'], [176_400, '176.4k'], [192_000, '192k']]).get(sampleRate);
+	const layout = sourceChannelCount === 1 ? 'mono' : sourceChannelCount === 2 ? 'stereo'
+		: sourceChannelCount === 6 ? 'surround' : null;
+	if (!rate || !layout) addDeliveryReportItem(draft, {
+		code: 'fcpxml.sequence-audio-converted', disposition: 'converted', severity: 'warning',
+		scope: { kind: 'sequence' },
+		data: { sourceSampleRate: sampleRate, sourceChannelCount,
+			sampleRate: rate ? sampleRate : 48_000, channelCount: layout ? sourceChannelCount : 2 },
+		message: 'The FCPXML timeline cannot represent these audio characteristics; unsupported values use its 48 kHz or stereo default. Original media and cut timing are unchanged.',
+	});
+	return ` audioLayout="${layout ?? 'stereo'}" audioRate="${rate ?? '48k'}"`;
+}
+
 function buildClip(clip: Readonly<Record<string, unknown>>, context: {
 	rate: SequenceRationalRate;
 	sampleRate: number;
@@ -271,8 +298,10 @@ function buildClip(clip: Readonly<Record<string, unknown>>, context: {
 }): { xml: string; endFrames: number } | null {
 	const timelineStart = nonNegativeInteger(clip.timelineStartFrame ?? 0, 'clip.timelineStartFrame');
 	const duration = positiveInteger(clip.durationFrames, 'clip.durationFrames');
-	const offsetFrames = toFrames(timelineStart, context.rate, context.sampleRate);
-	const endFrames = toFrames(timelineStart + duration, context.rate, context.sampleRate);
+	const audio = context.type === 'audio';
+	const timeRate = audio ? { num: context.sampleRate, den: 1 } : context.rate;
+	const offsetFrames = audio ? timelineStart : toFrames(timelineStart, context.rate, context.sampleRate);
+	const endFrames = audio ? timelineStart + duration : toFrames(timelineStart + duration, context.rate, context.sampleRate);
 	if (endFrames <= offsetFrames) {
 		addDeliveryReportItem(context.draft, {
 			code: 'fcpxml.sub-frame-clip-omitted',
@@ -301,6 +330,13 @@ function buildClip(clip: Readonly<Record<string, unknown>>, context: {
 	// or a video retime curve. Reading only the scalar wrote a source range that
 	// claimed media a warped clip never uses, and reported nothing.
 	const timeEffect = interchangeClipTimeEffect(clip);
+	if (clip.transition != null && String(clip.transition)) addDeliveryReportItem(context.draft, {
+		code: 'fcpxml.transition-omitted',
+		disposition: 'omitted', severity: 'warning',
+		scope: { kind: 'clip', id: String(clip.id) },
+		data: { transition: String(clip.transition) },
+		message: 'The profile emits no transition vocabulary; the edit becomes a cut.',
+	});
 	if (timeEffect) {
 		addDeliveryReportItem(context.draft, {
 			code: 'fcpxml.speed-change-omitted',
@@ -308,29 +344,37 @@ function buildClip(clip: Readonly<Record<string, unknown>>, context: {
 			severity: 'warning',
 			scope: { kind: 'clip', id: String(clip.id) },
 			data: { kind: timeEffect.kind, ...timeEffect.data },
-			message: 'The profile emits no timeMap; the clip carries its rendered duration.',
+			message: timeEffect.kind === 'reverse'
+				? 'The profile emits no timeMap; reversed playback becomes forward at the rendered duration.'
+				: 'The profile emits no timeMap; the clip carries its rendered duration.',
 		});
 	}
-	const startFrames = interchangeSourceInPoint(
+	const sourceStart = interchangeSourceInTime(
 		clip,
 		context.sourceById.get(sourceId),
-		context.rate,
 		context.sampleRate,
 	);
 	// `asset-clip` declares audioRole and videoRole; a bare `role` attribute is
 	// not in the DTD at all. One default per track kind; no vocabulary invented.
 	const role = context.type === 'video' ? 'videoRole="video"' : 'audioRole="dialogue"';
 	const lane = context.laneFor(offsetFrames, endFrames);
+	const offset = fcpxmlRationalTime(
+		BigInt(offsetFrames) * BigInt(timeRate.den) * BigInt(context.rate.num)
+			+ BigInt(context.startFrames) * BigInt(context.rate.den) * BigInt(timeRate.num),
+		BigInt(timeRate.num) * BigInt(context.rate.num),
+	);
 	const xml = `\t\t\t\t\t\t<asset-clip ref="${ref}" name="${escapeXml(String(clip.title ?? clip.id ?? ''))}"`
 		// Picture and audio are authored as independent timeline leaves. FCPXML
 		// defaults to every source component, which would restore embedded audio.
 		+ ` srcEnable="${context.type}"`
 		+ (lane === 0 ? '' : ` lane="${lane}"`)
-		+ ` offset="${frameTime(offsetFrames + context.startFrames, context.rate)}"`
-		+ ` start="${frameTime(startFrames, context.rate)}"`
-		+ ` duration="${frameTime(endFrames - offsetFrames, context.rate)}"`
+		+ ` offset="${offset}"`
+		+ ` start="${fcpxmlRationalTime(sourceStart.numerator, sourceStart.denominator)}"`
+		+ ` duration="${frameTime(endFrames - offsetFrames, timeRate)}"`
 		+ ` ${role}/>`;
-	return { xml, endFrames };
+	const sequenceEnd = audio ? roundRational(BigInt(endFrames) * BigInt(context.rate.num),
+		BigInt(context.sampleRate) * BigInt(context.rate.den), 'enclosingEnd') : endFrames;
+	return { xml, endFrames: sequenceEnd };
 }
 
 /**
@@ -343,12 +387,7 @@ export function frameTime(frames: number, rate: SequenceRationalRate): string {
 	if (!Number.isSafeInteger(frames) || frames < 0) {
 		throw new RangeError('An FCPXML time must be a non-negative whole frame count.');
 	}
-	if (frames === 0) return '0s';
-	const numerator = frames * rate.den;
-	const divisor = gcd(numerator, rate.num);
-	const reducedNumerator = numerator / divisor;
-	const reducedDenominator = rate.num / divisor;
-	return reducedDenominator === 1 ? `${reducedNumerator}s` : `${reducedNumerator}/${reducedDenominator}s`;
+	return fcpxmlRationalTime(BigInt(frames) * BigInt(rate.den), BigInt(rate.num));
 }
 
 /** The duration of exactly one frame, which every other duration is a multiple of. */
@@ -416,7 +455,8 @@ function escapeXml(value: string): string {
 		.replaceAll('<', '&lt;')
 		.replaceAll('>', '&gt;')
 		.replaceAll('"', '&quot;')
-		.replaceAll("'", '&apos;');
+		.replaceAll("'", '&apos;')
+		.replaceAll('\n', '&#10;').replaceAll('\r', '&#13;').replaceAll('\t', '&#9;');
 }
 
 function asRecords(value: unknown): readonly Readonly<Record<string, unknown>>[] {

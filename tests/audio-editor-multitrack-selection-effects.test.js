@@ -81,20 +81,15 @@ test('selection effects replace every selected audio track in one atomic history
 		const beginSourceWrite = store.beginSourceWrite.bind(store);
 		store.beginSourceWrite = async (sourceId, metadata) => {
 			createdSourceIds.push(sourceId);
-			return beginSourceWrite(sourceId, metadata);
-		};
-		const saveAnalysis = store.saveAnalysis.bind(store);
-		let analysisCalls = 0;
-		store.saveAnalysis = async (...args) => {
-			analysisCalls += 1;
-			if (analysisCalls === 2) throw new Error('Peak persistence failed.');
-			return saveAnalysis(...args);
+			const writer = await beginSourceWrite(sourceId, metadata);
+			if (createdSourceIds.length === 2) writer.write = async () => { throw new Error('PCM persistence failed.'); };
+			return writer;
 		};
 		const historyBeforeStorageFailure = controller.getSnapshot().history.undoEntries.length;
 		await assert.rejects(controller.actions.effects.applySelection({
 			type: 'audacity-invert',
 			params: {},
-		}), /Peak persistence failed/);
+		}), /PCM persistence failed/);
 		snapshot = controller.getSnapshot();
 		assert.equal(snapshot.history.undoEntries.length, historyBeforeStorageFailure);
 		assert.deepEqual(snapshot.project.clips.map((clip) => clip.id).sort(), [

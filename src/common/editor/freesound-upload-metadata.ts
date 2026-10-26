@@ -55,6 +55,8 @@ export interface FreesoundUploadSourceMetadata {
 export interface FreesoundUploadClipMetadata {
 	readonly title?: string;
 	readonly durationFrames?: number;
+	/** Materialized audio duration; clip frames may use a different clock from its source. */
+	readonly durationSeconds?: number;
 	readonly gain?: number;
 	readonly fadeInFrames?: number;
 	readonly fadeOutFrames?: number;
@@ -273,11 +275,20 @@ function metadataTags(provenance: SourceProvenanceV1): string[] {
 			collectTags(metadata, '', tags);
 		}
 	}
-	return [...new Map(tags.map((tag) => [tag.toLocaleLowerCase('en-US'), tag])).values()].slice(0, 30);
+	const unique = new Map(tags.map((tag) => [tag.toLocaleLowerCase('en-US'), tag]));
+	const result: string[] = [];
+	let length = 0;
+	for (const tag of unique.values()) {
+		const added = tag.length + (result.length ? 1 : 0);
+		if (length + added > 512) continue;
+		result.push(tag);
+		length += added;
+		if (result.length === 30) break;
+	}
+	return result;
 }
 
 function collectTags(value: SourceMetadataValue, key: string, tags: string[]): void {
-	if (tags.length >= 30) return;
 	if (key.toLocaleLowerCase('en-US') === 'tags' && Array.isArray(value)) {
 		for (const tag of value) {
 			if (typeof tag !== 'string') continue;
@@ -299,10 +310,11 @@ function technicalLines(
 	const sampleRate = positiveFinite(source.sampleRate);
 	const channels = positiveInteger(source.channelCount);
 	const frames = positiveInteger(clip?.durationFrames) ?? positiveInteger(source.frameCount);
+	const duration = positiveFinite(clip?.durationSeconds) ?? (frames && sampleRate ? frames / sampleRate : null);
 	const details = [
 		...(sampleRate ? [`${sampleRate.toLocaleString('en-US')} Hz`] : []),
 		...(channels ? [`${String(channels)} ${channels === 1 ? 'channel' : 'channels'}`] : []),
-		...(frames && sampleRate ? [`${(frames / sampleRate).toFixed(3)} seconds`] : []),
+		...(duration ? [`${duration.toFixed(3)} seconds`] : []),
 	];
 	return [
 		...(source.mimeType ? [`Format: ${singleLine(source.mimeType)}`] : []),
@@ -362,7 +374,12 @@ export function normalizeFreesoundUploadTag(value: string): string {
 	const replaced = value.normalize('NFKC').trim()
 		.replace(/[^\p{L}\p{N}_-]+/gu, '-')
 		.replace(/^[-_]+|[-_]+$/gu, '');
-	const bounded = Array.from(replaced).slice(0, 64).join('').replace(/[-_]+$/gu, '');
+	let prefix = '';
+	for (const character of replaced) {
+		if (prefix.length + character.length > 64) break;
+		prefix += character;
+	}
+	const bounded = prefix.replace(/[-_]+$/gu, '');
 	return /^[\p{L}\p{N}][\p{L}\p{N}_-]*$/u.test(bounded) ? bounded : '';
 }
 
@@ -370,8 +387,8 @@ function metadataLabel(value: string): string {
 	const labels: Readonly<Record<string, string>> = Object.freeze({ artist: 'Artist', title: 'Title', album: 'Album', comment: 'Comment',
 		description: 'Description', genre: 'Genre', date: 'Date', copyright: 'Copyright',
 		IART: 'Artist', INAM: 'Title', ICMT: 'Comment', IGNR: 'Genre', ICRD: 'Date' });
-	return labels[value]
-		?? value.replace(/[_-]+/gu, ' ').replace(/^./u, (letter) => letter.toLocaleUpperCase('en-US'));
+	return Object.hasOwn(labels, value) ? labels[value]!
+		: value.replace(/[_-]+/gu, ' ').replace(/^./u, (letter) => letter.toLocaleUpperCase('en-US'));
 }
 
 function taxonomy(
@@ -397,7 +414,13 @@ function requiredString(value: unknown, name: string, maximum: number): string {
 }
 
 function boundedTitle(value: unknown): string {
-	return typeof value === 'string' ? singleLine(value).slice(0, 512) : '';
+	if (typeof value !== 'string') return '';
+	let title = '';
+	for (const character of singleLine(value)) {
+		if (title.length + character.length > 512) break;
+		title += character;
+	}
+	return title;
 }
 
 function fileStem(value: string): string {

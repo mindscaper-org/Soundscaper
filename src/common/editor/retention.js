@@ -12,6 +12,7 @@ import {
 import { collectTakeGroupSourceIds } from './take-group-source-references.ts';
 import { collectVisualPresetGeneratorSourceIds } from './video-visual-preset-v24.ts';
 import { videoSourceCharacteristicsAreReported } from './video-source-characteristics.ts';
+import { retireUnusedScapeLiteralKeys } from './scape-literal-json-keys.ts';
 
 const MAXIMUM_FRAMESCAPER_PROJECT_ASSET_ROOTS = 16_384;
 const SHA256 = /^[a-f0-9]{64}$/u;
@@ -354,7 +355,7 @@ export function compactProjectSourceMetadata(project, { preserveSourceIds = [] }
 	const retained = collectProjectSourceIds(project);
 	for (const sourceId of preserveSourceIds) if (sourceId) retained.add(sourceId);
 	const sources = project.sources.filter((source) => retained.has(source?.id));
-	return sources.length === project.sources.length ? project : { ...project, sources };
+	return sources.length === project.sources.length ? project : retireUnusedScapeLiteralKeys({ ...project, sources });
 }
 
 export function compactEditorHistorySourceMetadata(history, { preservePresentSourceIds = [] } = {}) {

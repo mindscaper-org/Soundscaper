@@ -26,20 +26,6 @@ test('render strategy callers which omit admission retain the legacy result', ()
 	});
 });
 
-test('render strategy owns the central offline refusal reason', () => {
-	const render = chooseRenderStrategy({
-		outputBytes: 8 * MIB,
-		livePcmBytes: 16 * MIB,
-		offlineRenderAdmission: {
-			admitted: false,
-			reason: 'caller-controlled-reason',
-		},
-	});
-
-	assert.equal(render.strategy, 'realtime-stream');
-	assert.equal(render.reason, 'offline-render-output-memory');
-});
-
 test('export planning keeps the exact central offline output boundary offline', () => {
 	const plan = createExportPlan(projectFixture({
 		durationFrames: 33_554_432,

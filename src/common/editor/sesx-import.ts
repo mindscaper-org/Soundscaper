@@ -38,8 +38,10 @@ export interface SesxClip {
 	readonly offline: boolean;
 	readonly looped: boolean;
 	readonly linkedCrossfade: boolean;
+	readonly crossfadePartnerIds: readonly string[];
 	readonly unsupportedPan: boolean;
 	readonly remappedChannels: boolean;
+	readonly mappedChannelCount: number | null;
 	readonly stretch: boolean;
 }
 
@@ -80,18 +82,13 @@ const SESX_XML_LIMITS = Object.freeze({
 	maximumElements: 500_000,
 	maximumTextBytes: 2 * 1024 * 1024,
 });
-const SIMPLE_DOCTYPE = /<!DOCTYPE\s+sesx\s*>/iu;
-const DECLARATION = /<!\s*(?:DOCTYPE|ENTITY|ELEMENT|ATTLIST|NOTATION)\b/iu;
-
 export function parseSesxDocument(xml: string, options: Readonly<{ maximumBytes?: number }> = {}): SesxDocument {
 	if (typeof xml !== 'string') throw new TypeError('An SESX session must be XML text.');
 	// Audition writes <!DOCTYPE sesx> without an external or internal subset.
-	// Removing only that spelling lets the bounded shared SAX reader parse the
-	// document while refusing DTD entities and external declarations.
-	const withoutDoctype = xml.replace(SIMPLE_DOCTYPE, '');
-	if (DECLARATION.test(withoutDoctype)) throw new SyntaxError('SESX contains an unsupported doctype or entity declaration.');
-	const root = parseXmlDocument(withoutDoctype, { ...SESX_XML_LIMITS,
-		maximumBytes: options.maximumBytes ?? SESX_XML_LIMITS.maximumBytes });
+	// Check actual declarations at the SAX boundary; comments and CDATA retain
+	// declaration-shaped character data without being rewritten or activated.
+	const root = parseXmlDocument(xml, { ...SESX_XML_LIMITS,
+		maximumBytes: options.maximumBytes ?? SESX_XML_LIMITS.maximumBytes }, { allowedSimpleDoctype: 'sesx', preserveTextWhitespace: true });
 	if (root.name !== 'sesx') throw new SyntaxError(`An SESX document starts with <sesx>, not <${root.name}>.`);
 	const session = childElement(root, 'session');
 	if (!session) throw new SyntaxError('SESX has no <session> element.');
@@ -142,8 +139,8 @@ function readFiles(files: XmlElement | null): ReadonlyMap<string, SesxAudioRefer
 	for (const file of files ? childElements(files, 'file') : []) {
 		const id = requiredTextAttribute(file, 'id');
 		if (refs.has(id)) throw new SyntaxError(`Duplicate SESX file ID: ${id}.`);
-		const relativePath = attribute(file, 'relativePath')?.trim() || null;
-		const absolutePath = attribute(file, 'absolutePath')?.trim() || null;
+		const relativePath = attribute(file, 'relativePath') || null;
+		const absolutePath = attribute(file, 'absolutePath') || null;
 		const path = relativePath || absolutePath || '';
 		refs.set(id, Object.freeze({
 			id, relativePath, absolutePath,
@@ -158,7 +155,7 @@ function readTrack(element: XmlElement, index: number, sessionChannels: 1 | 2): 
 	const controls = staticControls(parameters, 'track');
 	return Object.freeze({
 		id: attribute(element, 'id'),
-		name: childElement(childElement(element, 'trackParameters') ?? element, 'name')?.text.trim() || `Track ${String(index + 1)}`,
+		name: authoredName(childElement(childElement(element, 'trackParameters') ?? element, 'name')?.text) || `Track ${String(index + 1)}`,
 		channelCount: channelType(parameters, sessionChannels),
 		gain: controls.gain,
 		pan: controls.pan,
@@ -180,11 +177,13 @@ function readClip(element: XmlElement): SesxClip {
 	const fadeOutFrames = fadeLength(fadeOut);
 	const clipPan = childElements(element, 'component').find((component) => attribute(component, 'id') === 'clipPan');
 	const channelMap = childElement(element, 'channelMap');
+	const crossfadePartnerIds = ['crossFadeHeadClipID', 'crossFadeTailClipID']
+		.map(name => attribute(element, name)?.trim()).filter((id): id is string => Boolean(id && id !== '-1'));
 	return Object.freeze({
 		zOrder: integerAttribute(element, 'zOrder') ?? 0,
 		id: attribute(element, 'id'),
 		fileId: requiredTextAttribute(element, 'fileID'),
-		name: attribute(element, 'name')?.trim() ?? '',
+		name: authoredName(attribute(element, 'name')),
 		startFrame, endFrame, sourceInFrame, sourceOutFrame,
 		fadeInFrames, fadeOutFrames,
 		fadeCurvesChanged: (fadeInFrames > 0 && fadeTypeChanged(fadeIn)) || (fadeOutFrames > 0 && fadeTypeChanged(fadeOut)),
@@ -192,16 +191,19 @@ function readClip(element: XmlElement): SesxClip {
 		muted: controls.mute,
 		offline: booleanAttribute(element, 'offline') ?? false,
 		looped: booleanAttribute(element, 'looped') ?? false,
-		linkedCrossfade: ['crossFadeHeadClipID', 'crossFadeTailClipID'].some((name) => {
-			const id = attribute(element, name)?.trim();
-			return Boolean(id && id !== '-1');
-		}),
+		linkedCrossfade: crossfadePartnerIds.length > 0,
+		crossfadePartnerIds: Object.freeze(crossfadePartnerIds),
 		unsupportedPan: Boolean(clipPan?.children.length),
 		remappedChannels: Boolean(channelMap && childElements(channelMap, 'channel').some((channel) =>
 			attribute(channel, 'index') !== attribute(channel, 'sourceIndex'))),
+		mappedChannelCount: channelMap ? childElements(channelMap, 'channel').length : null,
 		stretch: Boolean(attribute(element, 'stretchMode') || attribute(element, 'stretchRatio')
 			|| element.children.some((child) => /stretch|warp/iu.test(child.name))),
 	});
+}
+
+function authoredName(value: string | null | undefined): string {
+	return value?.trim() ? value : '';
 }
 
 function staticControls(element: XmlElement | null, scope: 'track' | 'clip'): Readonly<{ gain: number; pan: number; mute: boolean }> {

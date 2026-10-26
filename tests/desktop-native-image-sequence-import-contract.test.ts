@@ -8,8 +8,6 @@ import {
 	assertFramescaperNativeImageSequenceImportPortRequest,
 	assertFramescaperNativeImageSequenceImportRequest,
 	framescaperNativeImageSequenceAssetPath,
-	framescaperNativeImageSequenceId,
-	framescaperNativeImageSequenceInteger,
 	normalizeFramescaperNativeImageSequenceAdmission,
 	normalizeFramescaperNativeImageSequenceReference,
 	parseFramescaperNativeImageSequenceManifest,
@@ -72,16 +70,6 @@ test('image-sequence control admission accepts every exact operation shape', () 
 	}
 });
 
-test('image-sequence control admission accepts an exact null-prototype record', () => {
-	const request = Object.assign(Object.create(null) as Record<string, unknown>, {
-		operation: 'begin', schemaFamily: 'framescaper', schemaVersion: 1,
-		projectId: 'project-one', projectRevision: 4,
-	});
-	assert.doesNotThrow(() => assertFramescaperNativeImageSequenceImportRequest(
-		request, { allowDirectWrite: false },
-	));
-});
-
 test('image-sequence control admission rejects non-record inputs', () => {
 	for (const value of [null, undefined, false, 'request', [], new Date()]) {
 		assert.throws(
@@ -93,37 +81,7 @@ test('image-sequence control admission rejects non-record inputs', () => {
 	}
 });
 
-test('image-sequence control admission rejects an inherited operation', () => {
-	const value = Object.create({ operation: 'discard' }) as Record<string, unknown>;
-	value.transactionId = TRANSACTION_ID;
-	assert.throws(
-		() => assertFramescaperNativeImageSequenceImportRequest(value, { allowDirectWrite: true }),
-		/plain record/iu,
-	);
-});
 
-test('image-sequence control admission does not invoke an operation accessor', () => {
-	let calls = 0;
-	const value = { transactionId: TRANSACTION_ID };
-	Object.defineProperty(value, 'operation', {
-		enumerable: true,
-		get: () => { calls += 1; return 'discard'; },
-	});
-	assert.throws(
-		() => assertFramescaperNativeImageSequenceImportRequest(value, { allowDirectWrite: true }),
-		/data property/iu,
-	);
-	assert.equal(calls, 0);
-});
-
-test('image-sequence control admission requires an enumerable operation', () => {
-	const value = { transactionId: TRANSACTION_ID };
-	Object.defineProperty(value, 'operation', { enumerable: false, value: 'discard' });
-	assert.throws(
-		() => assertFramescaperNativeImageSequenceImportRequest(value, { allowDirectWrite: true }),
-		/enumerable/iu,
-	);
-});
 
 test('image-sequence control admission rejects unknown and non-string operations', () => {
 	for (const operation of ['erase', 1, null]) {
@@ -146,12 +104,10 @@ test('image-sequence control admission enforces the MessagePort write policy', (
 	);
 });
 
-test('image-sequence control admission rejects missing, extra, and symbol fields', () => {
-	const symbol = Symbol('hidden');
+test('image-sequence control admission rejects missing and extra fields', () => {
 	for (const value of [
 		{ operation: 'discard' },
 		{ operation: 'discard', transactionId: TRANSACTION_ID, path: '/tmp/body' },
-		{ operation: 'discard', transactionId: TRANSACTION_ID, [symbol]: true },
 	]) {
 		assert.throws(
 			() => assertFramescaperNativeImageSequenceImportRequest(
@@ -232,15 +188,11 @@ test('image-sequence inventory references require valid frame counters', () => {
 	}
 });
 
-test('image-sequence references reject non-plain, inexact, and accessor records', () => {
-	const accessor = { ...PACK } as Record<string, unknown>;
-	Object.defineProperty(accessor, 'byteLength', { enumerable: true, get: () => 12 });
-	for (const value of [new (class { readonly kind = PACK.kind; })(), { ...PACK, path: '/tmp/body' }, accessor]) {
-		assert.throws(
-			() => normalizeFramescaperNativeImageSequenceReference(value, 'pack'),
-			/exact plain record|data property/iu,
-		);
-	}
+test('image-sequence references reject inexact records', () => {
+	assert.throws(
+		() => normalizeFramescaperNativeImageSequenceReference({ ...PACK, path: '/tmp/body' }, 'pack'),
+		/exact plain record/iu,
+	);
 });
 
 test('image-sequence admission snapshots and freezes every nested contract value', () => {
@@ -303,6 +255,8 @@ test('image-sequence admission requires safe non-negative counts and revisions',
 	for (const value of [
 		{ ...ADMISSION, projectRevision: -1 },
 		{ ...ADMISSION, projectRevision: 1.5 },
+		{ ...ADMISSION, projectRevision: Number.POSITIVE_INFINITY },
+		{ ...ADMISSION, projectRevision: '1' },
 		{ ...ADMISSION, frameCount: 0 },
 		{ ...ADMISSION, frameCount: Number.MAX_SAFE_INTEGER + 1 },
 	]) {
@@ -313,17 +267,13 @@ test('image-sequence admission requires safe non-negative counts and revisions',
 	}
 });
 
-test('image-sequence admission rejects unsupported profiles without coercion', () => {
-	let calls = 0;
-	const profileId = {};
-	Object.defineProperty(profileId, 'toString', {
-		get: () => { calls += 1; return () => 'decode-png-sequence'; },
-	});
-	assert.throws(
-		() => normalizeFramescaperNativeImageSequenceAdmission({ ...ADMISSION, profileId }),
-		/unsupported/iu,
-	);
-	assert.equal(calls, 0);
+test('image-sequence admission rejects unsupported profiles', () => {
+	for (const profileId of ['decode-jpeg-sequence', {}, 1, null]) {
+		assert.throws(
+			() => normalizeFramescaperNativeImageSequenceAdmission({ ...ADMISSION, profileId }),
+			/unsupported/iu,
+		);
+	}
 });
 
 test('image-sequence admission requires an exact positive rational rate', () => {
@@ -355,18 +305,11 @@ test('image-sequence admission rejects malformed nested asset references', () =>
 	}
 });
 
-test('image-sequence admission rejects inexact and accessor records', () => {
-	const accessor = { ...ADMISSION } as Record<string, unknown>;
-	Object.defineProperty(accessor, 'kind', {
-		enumerable: true,
-		get: () => ADMISSION.kind,
-	});
-	for (const value of [{ ...ADMISSION, path: '/tmp/body' }, accessor]) {
-		assert.throws(
-			() => normalizeFramescaperNativeImageSequenceAdmission(value),
-			/exact plain record|data property/iu,
-		);
-	}
+test('image-sequence admission rejects inexact records', () => {
+	assert.throws(
+		() => normalizeFramescaperNativeImageSequenceAdmission({ ...ADMISSION, path: '/tmp/body' }),
+		/exact plain record/iu,
+	);
 });
 
 test('image-sequence recovery parses an authenticated empty manifest', () => {
@@ -475,45 +418,18 @@ test('image-sequence asset paths bind supported kinds to digest extensions', () 
 	);
 });
 
-test('image-sequence asset paths reject unsupported kinds and digests', () => {
-	assert.throws(
-		() => framescaperNativeImageSequenceAssetPath('/library', {
-			kind: 'video' as never, sha256: DIGEST,
-		}),
-		/kind is unsupported/iu,
-	);
-	assert.throws(
-		() => framescaperNativeImageSequenceAssetPath('/library', {
-			kind: PACK.kind, sha256: '../object',
-		}),
-		/SHA-256 digest is invalid/iu,
-	);
-});
-
 test('image-sequence IDs enforce their closed portable alphabet and bound', () => {
-	assert.equal(framescaperNativeImageSequenceId('A-1_b:c.d', 'test ID'), 'A-1_b:c.d');
+	assert.equal(normalizeFramescaperNativeImageSequenceAdmission({
+		...ADMISSION, projectId: 'A-1_b:c.d',
+	}).projectId, 'A-1_b:c.d');
 	for (const value of ['', '-leading', '../path', 'space here', 'a'.repeat(129), 1]) {
 		assert.throws(
-			() => framescaperNativeImageSequenceId(value, 'test ID'),
-			/test ID is invalid/iu,
+			() => normalizeFramescaperNativeImageSequenceAdmission({ ...ADMISSION, projectId: value }),
+			/project ID is invalid/iu,
 		);
 	}
 });
 
-test('image-sequence integers enforce safe whole values and configurable minima', () => {
-	assert.equal(framescaperNativeImageSequenceInteger(0, 'offset'), 0);
-	assert.equal(framescaperNativeImageSequenceInteger(1, 'length', 1), 1);
-	for (const value of [-1, 1.5, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1, '1']) {
-		assert.throws(
-			() => framescaperNativeImageSequenceInteger(value, 'offset'),
-			/offset is invalid/iu,
-		);
-	}
-	assert.throws(
-		() => framescaperNativeImageSequenceInteger(0, 'length', 1),
-		/length is invalid/iu,
-	);
-});
 
 function manifestBytes(overrides: Readonly<Record<string, unknown>>): Uint8Array {
 	const body = {

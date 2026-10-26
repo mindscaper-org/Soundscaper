@@ -20,7 +20,7 @@ for (const atFrame of [48_000, 336_000]) test(`a normal image split at sample ${
 	const boundary = atFrame / 4_800;
 	assert.deepEqual(left, { ...fixture.clip, sequenceFrameCount: boundary });
 	assert.deepEqual(right, { ...fixture.clip, id: 'right-image', sequenceStartFrame: boundary,
-		sequenceFrameCount: 150 - boundary, sourceStartTicks: String(Math.min(atFrame / 48_000 * 1_000_000, 4_999_999)) });
+		sequenceFrameCount: 150 - boundary, sourceStartTicks: String(atFrame / 48_000 * 1_000_000) });
 	const timings = [{ presentationTicks: 0n, durationTicks: 1_000_000n },
 		{ presentationTicks: 1_000_000n, durationTicks: 4_000_000n }];
 	for (const sequenceFrame of [boundary, boundary + 3, 149]) {
@@ -29,6 +29,8 @@ for (const atFrame of [48_000, 336_000]) test(`a normal image split at sample ${
 		const split = mapFramescaperImageTimelineFrameV1({ clip: right, sequenceFrame,
 			sequenceRate: { num: 10, den: 1 }, timings });
 		assert.equal(split.frameIndex, original.frameIndex);
+		// Elapsed phase may pass EOF; it must still render the held final frame.
+		if (sequenceFrame >= 50) assert.equal(split.frameIndex, timings.length - 1);
 	}
 	assert.deepEqual(history.present.sources, before.present.sources);
 	const after = history.present;

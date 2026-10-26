@@ -15,6 +15,7 @@ const SELECTION_EFFECT_TASK = 'selection-effect-apply';
 /** The registry name a Nyquist evaluation holds while the evaluator runs. */
 import { processIndependentSelectionTargets, type IndependentSelectionPorts } from './independent-selection-targets.ts';
 import { assertCompleteNyquistOutput, planNyquistOutputAdmission } from './nyquist/nyquist-output-admission.ts';
+import { conformNyquistTargetChannels } from './nyquist/nyquist-audio.ts';
 
 export const NYQUIST_EVALUATION_TASK = 'nyquist-evaluation';
 
@@ -253,7 +254,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 			batchPresentation(() => { state.lastAudacityEffect = {
 				type,
 				params: structuredClone(params),
-				controlTrackId: state.audacityControlTrackId,
+				controlTrackId: definition.requiresControlTrack ? state.audacityControlTrackId : null,
 			};
 			setLocalizedStatus(setStatus, copy, "audacityApplied", undefined, 'success');
 				finishSelectionEffectProcessing(runtime, ownership); finished = true; });
@@ -330,13 +331,13 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 				const hostTargets = availableTargets.length ? availableTargets : targets;
 				const outputAdmission = planNyquistOutputAdmission(maxOutputFrames, channels.length, preview);
 				const hostTargetIndex = target ? Math.max(0, hostTargets.indexOf(target)) : index;
-				const result = await nyquistEvaluator({
+				let result = await nyquistEvaluator({
 					source,
 					language: request.language === 'sal' ? 'sal' : 'lisp',
 					sampleRate,
 					channels,
 					controls: { ...(request.controls || {}) },
-					properties: nyquistHostProperties(runTarget, hostTargets, hostTargetIndex, channels, request),
+					properties: nyquistHostProperties(runTarget, hostTargets, hostTargetIndex, channels, { ...request, preview }),
 					globals: { PREVIEWP: preview },
 					maxOutputFrames: outputAdmission.renderFrames,
 					debug: Boolean(request.debug),
@@ -350,6 +351,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 				assertCompleteNyquistOutput(result, outputAdmission,
 					() => createLocalizedError(RangeError, copy, 'nyquistAudioOutputTooLong'));
 				if (result?.type === 'audio') {
+					result = conformNyquistTargetChannels(result, runTarget?.channelCount);
 					aggregateAudioBytes += nyquistAudioResultBytes(result);
 					if (aggregateAudioBytes > NYQUIST_AGGREGATE_AUDIO_LIMIT_BYTES) {
 						throw audacityEffectMemoryError(copy);
@@ -430,15 +432,19 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 				failure = rollbackError;
 			}
 			if ((failure as Readonly<{ name?: string }>)?.name === 'AbortError') {
-				setLocalizedStatus(setStatus, copy, (copy.audacityPreviewCancelled ? "audacityPreviewCancelled" : "ready"));
+				if (state.nyquistAbort === abort && (!projectToken || isCurrentAssertion(() => runtime.assertProject(projectToken)))) {
+					setLocalizedStatus(setStatus, copy, (copy.audacityPreviewCancelled ? "audacityPreviewCancelled" : "ready"));
+				}
 				return null;
 			}
 			throw failure;
 		} finally {
 			abort.finish();
-			if (state.nyquistAbort === abort) state.nyquistAbort = null;
-			state.audacityEffectProcessing = false;
-			publishDocumentSnapshot();
+			if (state.nyquistAbort === abort) {
+				state.nyquistAbort = null;
+				state.audacityEffectProcessing = false;
+				publishDocumentSnapshot();
+			}
 		}
 	}
 	function publishNyquistStatus(evaluations: RuntimeValue[]): void {

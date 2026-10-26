@@ -37,7 +37,8 @@ export default function MacroScriptEditor({
 	const nameCancelledRef = useRef(false);
 	const [nameDraft, setNameDraft] = useState(script.name || '');
 	const [tabEscapes, setTabEscapes] = useState(false);
-	const [reviewed, setReviewed] = useState(false);
+	const [reviewedSource, setReviewedSource] = useState(null);
+	const reviewed = reviewedSource === script.source;
 	useEffect(() => {
 		if (!nameFocusedRef.current) setNameDraft(script.name || '');
 	}, [script.name]);
@@ -154,12 +155,12 @@ export default function MacroScriptEditor({
 						className="audio-editor-macro-script__review-acknowledge"
 						onClick={(event) => {
 							if (event.target.closest('[role="checkbox"]')) return;
-							setReviewed((current) => !current);
+							setReviewedSource((current) => current === script.source ? null : script.source);
 							}}
 					>
 						<Checkbox
 							checked={reviewed}
-							onChange={setReviewed}
+							onChange={(checked) => setReviewedSource(checked ? script.source : null)}
 							aria-label={copy.reviewAcknowledge}
 						/>
 						<span aria-hidden="true">{copy.reviewAcknowledge}</span>

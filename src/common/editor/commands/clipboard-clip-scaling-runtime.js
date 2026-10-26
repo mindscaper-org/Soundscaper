@@ -58,7 +58,7 @@ export function scaleClipboardClip(
 			envelope: descriptor.envelope.map((point) => ({
 				...point,
 				frame: Math.min(durationFrames, Math.max(0, Math.round(point.frame * scale))),
-			})).filter((point, index, values) => !index || point.frame > values[index - 1].frame),
+			})).filter((point, index, values) => index === values.length - 1 || point.frame < values[index + 1].frame),
 		} : {}),
 	};
 	return rebindVideoKeyframeCarrierEffects(

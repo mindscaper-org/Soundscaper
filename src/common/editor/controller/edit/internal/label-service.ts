@@ -5,11 +5,15 @@ import {
 	createAddTimelineAnnotationCommand,
 } from '../../../commands/factories.ts'; import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
 import type { AudioEditorCommand } from '../../../commands/protocol.ts';
+import { resolveRuntimeProjectProjection } from '../../../runtime-clip-projection.ts';
+import type { HoldTempoMap } from '../../../timeline-time.ts';
+import { claimImportBusyState } from '../../shared/import-busy-state.ts';
 import {
 	parseAudioEditorCueSheet,
 	type CueImportDestination,
 } from '../../../cue-import.ts';
 import { parseAudioEditorLabels, serializeAudioEditorLabels } from '../../../label-io.js';
+import { AUDIO_EDITOR_LABEL_MAX_INPUT_BYTES } from '../../../label-input-limits.ts';
 import { AUDIO_EDITOR_TIMELINE_ANNOTATION_LIMITS } from '../../../timeline-annotation.ts';
 import {
 	labelExportFileName,
@@ -43,6 +47,7 @@ export interface LabelProjectDocument {
 	readonly id: string;
 	readonly title: string;
 	readonly sampleRate: number;
+	readonly tempoMap?: HoldTempoMap;
 	readonly primarySequenceId: string;
 	readonly timelineAnnotations: readonly unknown[];
 	readonly tracks: readonly (LabelTrack | Readonly<Record<string, unknown>>)[];
@@ -65,6 +70,8 @@ export interface LabelServiceCopy {
 
 export interface LabelInputFile {
 	readonly name: string;
+	readonly type?: string;
+	readonly size?: number;
 	arrayBuffer?(): Promise<ArrayBuffer>;
 	text?(): Promise<string>;
 }
@@ -137,8 +144,6 @@ interface ParsedLabels {
 }
 
 export function createLabelService(dependencies: LabelServiceDependencies): Readonly<LabelService> {
-	let importGeneration = 0;
-
 	return Object.freeze({ importLabelFile, importCueFile, exportLabels });
 
 	async function importLabelFile(
@@ -148,8 +153,7 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 		dependencies.lifetime.assertActive();
 		if (!file || dependencies.editingBlocked()) return null;
 		const ownership = captureOwnership('labels:import');
-		const generation = ++importGeneration;
-		dependencies.state.importing = true;
+		const importing = claimImportBusyState(dependencies.state);
 		dependencies.publish();
 		setLocalizedStatus(dependencies.setStatus, dependencies.copy, "labelsImporting");
 		try {
@@ -157,6 +161,7 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 			assertOwnership(ownership);
 			const parsed = parseAudioEditorLabels(data, {
 				filename: file.name,
+				mimeType: file.type,
 				format: options.format,
 				sampleRate: ownership.project.sampleRate,
 				strict: options.strict,
@@ -177,8 +182,7 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 			return { ...parsed, trackId };
 		} finally {
 			ownership.task.finish();
-			if (generation === importGeneration) {
-				dependencies.state.importing = false;
+			if (importing.finish()) {
 				if (!dependencies.lifetime.inactive) dependencies.publish();
 			}
 		}
@@ -194,8 +198,7 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 		}
 		if (!file || dependencies.editingBlocked()) return null;
 		const ownership = captureOwnership('cue:import');
-		const generation = ++importGeneration;
-		dependencies.state.importing = true;
+		const importing = claimImportBusyState(dependencies.state);
 		dependencies.publish();
 		setLocalizedStatus(dependencies.setStatus, dependencies.copy, "labelsImporting");
 		try {
@@ -217,7 +220,7 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 				assertOwnership(ownership);
 				dependencies.commit(createAddLabelTrackCommand({
 					id: trackId,
-					name: parsed.title || stripExtension(file.name) || publishedCopyFor(dependencies.copy).labels,
+					name: parsed.title.trim() ? parsed.title : stripExtension(file.name).trim() || publishedCopyFor(dependencies.copy).labels,
 					labels,
 				}), { selectTrackId: trackId });
 				setLocalizedStatus(dependencies.setStatus, dependencies.copy, "labelsImported", { count: String(labels.length) }, 'success');
@@ -247,8 +250,7 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 			return Object.freeze({ destination, count: commands.length });
 		} finally {
 			ownership.task.finish();
-			if (generation === importGeneration) {
-				dependencies.state.importing = false;
+			if (importing.finish()) {
 				if (!dependencies.lifetime.inactive) dependencies.publish();
 			}
 		}
@@ -259,7 +261,11 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 		const ownership = captureOwnership('labels:export');
 		try {
 			const requestedIds = Array.isArray(options.trackIds) ? new Set(options.trackIds) : null;
-			let tracks = ownership.project.tracks
+			const labelProject = {
+				sampleRate: ownership.project.sampleRate, tempoMap: ownership.project.tempoMap,
+				tracks: ownership.project.tracks, clips: [],
+			};
+			let tracks = resolveRuntimeProjectProjection(labelProject).tracks
 				.filter(isLabelTrack)
 				.filter((track) => !requestedIds || requestedIds.has(track.id));
 			const selected = tracks.find((track) => track.id === dependencies.state.selectedTrackId);
@@ -321,6 +327,9 @@ function isLabelTrack(track: Readonly<Record<string, unknown>>): track is LabelT
 }
 
 async function readLabelFile(file: LabelInputFile): Promise<ArrayBuffer | string> {
+	if (typeof file.size === 'number' && file.size > AUDIO_EDITOR_LABEL_MAX_INPUT_BYTES) {
+		throw new RangeError('Label data exceeds the configured input limit.');
+	}
 	if (typeof file.arrayBuffer === 'function') return file.arrayBuffer();
 	if (typeof file.text === 'function') return file.text();
 	throw new TypeError('A readable label file is required.');

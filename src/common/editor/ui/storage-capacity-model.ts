@@ -76,8 +76,7 @@ export function createStorageCapacityViewModel(
 	locale = 'en',
 	overrides: Readonly<Record<string, string | undefined>> = {},
 ): Readonly<StorageCapacityViewModel> {
-	const language = locale.toLowerCase().startsWith('de') ? 'de' : 'en';
-	const { pressure, preflightStatus, operation, ...labels } = STORAGE_CAPACITY_COPY_BY_LOCALE[language];
+	const { pressure, preflightStatus, operation, ...labels } = STORAGE_CAPACITY_COPY_BY_LOCALE.en;
 	const copy = Object.freeze({
 		...resolveEditorCopyScope('storageCapacity', labels, overrides),
 		pressure: resolveEditorCopyScope('storageCapacity.pressure', pressure, overrides),

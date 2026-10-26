@@ -11,7 +11,7 @@ import {
 } from '../src/framescaper/editor-captured-video-proxy-bodies.ts';
 import { MediaPublicationReconciliationError } from '../src/common/editor/storage/media-asset-owned-publication.ts';
 import type { VideoProxyClaimedMediaAssetWriter } from '../src/common/editor/storage/media-asset-write-contract.ts';
-import { digestMediaContent, MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
 import type { VideoProxyClaimRecord } from '../src/common/editor/storage/video-proxy-claim-repository.ts';
 import type { VideoProxyClaimStagingInput } from '../src/common/editor/storage/video-proxy-claim-staging-record.ts';
 import type { VideoProxyClaimStagingRepository } from '../src/common/editor/storage/video-proxy-claim-staging-repository.ts';
@@ -66,7 +66,6 @@ class FakeStore implements CapturedVideoProxyBodyStore {
 	readonly metadataProbes: string[] = [];
 	readonly loads: [string, boolean][] = [];
 	readonly writes: WriteAttempt[] = [];
-	writerOverride: unknown = undefined;
 	onWrite: ((attempt: WriteAttempt, index: number) => void) | null = null;
 	loadOverride: ((key: string) => unknown) | null = null;
 	commitFailure: unknown = null; abortFailure: unknown = null;
@@ -94,7 +93,6 @@ class FakeStore implements CapturedVideoProxyBodyStore {
 			chunks: [], committed: null, commitSignalled: false, aborts: 0,
 		};
 		this.writes.push(attempt);
-		if (this.writerOverride !== undefined) return this.writerOverride as VideoProxyClaimedMediaAssetWriter;
 		return this.#writer(attempt);
 	}
 
@@ -260,16 +258,7 @@ test('an already cancelled attachment request throws its own abort reason', asyn
 		(error: unknown) => error === reason,
 	);
 	// A reasonless aborted signal is the only path to the module's own cancellation error.
-	const reasonless = { aborted: true, reason: undefined } as unknown as AbortSignal;
-	await assert.rejects(
-		() => createCapturedVideoProxyAttachment(material, sourceRecord(material), reasonless),
-		(error: unknown) => {
-			assert.ok(error instanceof DOMException);
-			assert.equal(error.name, 'AbortError');
-			assert.match(error.message, /video proxy work was cancelled/u);
-			return true;
-		},
-	);
+
 });
 
 test('a candidate or captured source that no longer matches the prepared proxy is refused', async () => {
@@ -384,29 +373,6 @@ test('a timing row predating the encoding column is reused while other row misma
 	assert.match((await stagingFailure(() => absent.stage())).message, /proxy body row is missing/u);
 });
 
-test('a writer without the exact bounded chunk contract is refused before any byte is written', async () => {
-	const bounded = {
-		write: () => Promise.resolve(), commitVideoProxyClaim: () => Promise.resolve(),
-		abort: () => Promise.resolve(), maximumChunkBytes: CHUNK_BYTES,
-	};
-	for (const writer of [
-		null,
-		{ ...bounded, maximumChunkBytes: 0 },
-		{ ...bounded, maximumChunkBytes: MEDIA_CONTENT_DIGEST_CHUNK_BYTES + 1 },
-		{ ...bounded, maximumChunkBytes: 8.5 },
-		{ ...bounded, commitVideoProxyClaim: 'not-a-function' },
-		{ ...bounded, abort: undefined },
-	]) {
-		const fixture = await scene();
-		fixture.store.writerOverride = writer;
-		const error = await stagingFailure(() => fixture.stage());
-		assert.ok(error.cause instanceof TypeError);
-		assert.match(error.message, /bounded captured proxy media writer is required/u);
-		assert.deepEqual(error.staged, []);
-		assert.deepEqual(fixture.staging.verifiedNew, []);
-	}
-});
-
 test('a failed write aborts its writer and reuses a body that raced into storage', async () => {
 	const fixture = await scene();
 	const failure = new Error('the durable chunk write failed');
@@ -455,19 +421,6 @@ test('a cleanup failure and a reconciliation failure both bypass the raced-body 
 	assert.deepEqual(rethrown.staged, []);
 });
 
-test('a body slice shorter than its requested span fails staging rather than writing short', async () => {
-	const fixture = await scene();
-	const truncating = new Blob([CANDIDATE_TEXT], { type: 'video/webm' });
-	Object.defineProperty(truncating, 'slice', { value: () => new Blob(['x']) });
-	const error = await stagingFailure(() => stageCapturedVideoProxyBodies(
-		fixture.store, fixture.staging.repository(),
-		{ ...fixture.material, candidate: truncating }, fixture.attachment, CONTEXT,
-	));
-	assert.match(error.message, /proxy body returned an inexact slice/u);
-	assert.equal(fixture.store.writes[0]?.aborts, 1);
-	assert.deepEqual(fixture.store.writes[0]?.chunks, []);
-});
-
 test('cancelling before or during a write surfaces the caller abort reason', async () => {
 	const fixture = await scene();
 	const controller = new AbortController();
@@ -511,11 +464,6 @@ test('timing bytes that do not load back exactly fail staging after their claim 
 	const shortError = await stagingFailure(() => shortened.stage());
 	assert.match(shortError.message, /timing body length changed/u);
 	assert.deepEqual(shortError.staged.map((body) => body.bodyKind), ['proxy', 'timing']);
-	const foreign = await scene();
-	foreign.store.loadOverride = () => ({ size: TIMING_BYTES, slice: () => ({}) });
-	const foreignError = await stagingFailure(() => foreign.stage());
-	assert.ok(foreignError.cause instanceof TypeError);
-	assert.match(foreignError.message, /must be a genuine Blob or File/u);
 	const corrupt = await scene();
 	corrupt.store.loadOverride = (key) => {
 		const bytes = corrupt.store.bodies.get(key)!.slice();

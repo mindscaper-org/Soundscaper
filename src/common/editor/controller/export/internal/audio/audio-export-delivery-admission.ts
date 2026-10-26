@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { projectTrackFolderMediaStateV12 } from '../../../../track-folder-media-runtime.ts';
+import { inheritTrackFolderMediaStateProjectionV12, projectTrackFolderMediaStateV12 } from '../../../../track-folder-media-runtime.ts';
+import { exportSequenceProject } from '../../../../export-sequence-project.ts';
+import { assertSequenceMixerDependencies } from '../../../../export-sequence-mixer.ts';
+import { exportReplacementTrackIds } from '../../export-render-project.ts';
+import { audioExportSourceInventory } from '../../audio-export-source-inventory.ts';
 import {
 	assertAudioRenderedFallbackExportSettings,
 	projectForAudioRenderedFallbackExport,
@@ -42,15 +46,23 @@ export function admitAudioExportDelivery(
 	const canonicalProject = getProject();
 	const delivery = projectForAudioRenderedFallbackExport(canonicalProject, playbackProjects);
 	const settings = normalizeExportSettings(requestedSettings || {});
+	const mediaProject = projectTrackFolderMediaStateV12(delivery.project);
+	const masteringOwner = settings.masteringSequenceId == null ? undefined : mediaProject.masteringSequences?.find(
+		(sequence: Readonly<{ id: string; sequenceId: string }>) => sequence.id === settings.masteringSequenceId,
+	)?.sequenceId;
+	// Subsequent render/engine projections must keep the order's owning timeline.
+	const sequenceProject = masteringOwner ? { ...mediaProject, primarySequenceId: masteringOwner } : mediaProject;
+	const deliveredProject = inheritTrackFolderMediaStateProjectionV12(mediaProject,
+		exportSequenceProject(sequenceProject, undefined, exportReplacementTrackIds(delivery)));
+	assertSequenceMixerDependencies(sequenceProject, new Set(deliveredProject.tracks.map((track: Readonly<{ id: string }>) => track.id)));
 	// A frozen lane is delivered as one rendered track. Its original overlapping
 	// clips cannot be separated again from that render.
-	if (settings.mode === 'clips' && canonicalProject.tracks.some(
+	if (settings.mode === 'clips' && deliveredProject.tracks.some(
 		(track: Readonly<Record<string, unknown>>) => track.audioFreeze != null,
 	)) {
 		throw new RangeError('Unfreeze audio tracks before exporting individual clips.');
 	}
 	assertAudioRenderedFallbackExportSettings(delivery, settings);
-	const deliveredProject = projectTrackFolderMediaStateV12(delivery.project);
 	return Object.freeze({
 		canonicalProject,
 		delivery,
@@ -60,6 +72,6 @@ export function admitAudioExportDelivery(
 		// The whole-mix role renders from its verified provider alone; the track role still
 		// mixes native lanes, so their sources must be present.
 		localSourcesMissing: delivery.audioRenderedFallback?.role !== 'project-audio-mix-v1'
-			&& Boolean(hasMissingTimelineSources()),
+			&& Boolean(hasMissingTimelineSources(audioExportSourceInventory(deliveredProject, settings))),
 	});
 }

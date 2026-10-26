@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { raceAbortableRead } from './abort-race.ts';
+
 export async function readBlobBytes(
 	blob: Blob,
 	start: number,
@@ -9,7 +11,10 @@ export async function readBlobBytes(
 	throwIfAborted(signal);
 	const part = blob.slice(start, end);
 	if (!part || typeof part.arrayBuffer !== 'function') throw new TypeError('Blob slices must provide arrayBuffer().');
-	const buffer = await part.arrayBuffer();
+	const buffer = await raceAbortableRead(() => part.arrayBuffer(), signal).catch((error: unknown) => {
+		throwIfAborted(signal);
+		throw error;
+	});
 	throwIfAborted(signal);
 	if (!(buffer instanceof ArrayBuffer)) throw new TypeError('Blob arrayBuffer() must return an ArrayBuffer.');
 	const expectedBytes = end - start;

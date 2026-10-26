@@ -93,6 +93,7 @@ export function createProjectSwitchService<
 		nextProject: Project | Input,
 		options: ProjectSwitchOptions<History> = {},
 	): Promise<void> {
+		if (runtime.state.projectAdministrationPending && !options.skipFlush) return Promise.reject(new DOMException('Local data reset is pending.', 'AbortError'));
 		const token = runtime.lifetime.capture();
 		if (options.adoptSessionRevision !== true
 			&& activationEditFence.pending === 0 && isActiveProjectSwitchInput(nextProject, readyProjectId, runtime.getProject()?.id)) {
@@ -271,7 +272,7 @@ export function createProjectSwitchService<
 				}
 			} else runtime.session.openProject(activationProject, {
 				activationToken: activation.token,
-				history: activationHistory,
+				history: activationHistory, dirty: Boolean(options.save && !runtime.state.readOnly),
 				readOnly: runtime.state.readOnly,
 				readOnlyReason: lockReadOnly ? 'project-lock' : intrinsicReadOnlyReason,
 				lockMethod: activationLock.method,
@@ -285,8 +286,10 @@ export function createProjectSwitchService<
 				lockMethod: activationLock.method,
 			});
 			runtime.state.history = runtime.session.getProjectHistory(projectId);
+			runtime.state.saveState = runtime.sessionTab(projectId)?.dirty ? 'dirty' : 'saved';
 			const activeProject = runtime.state.history.present;
 			fallbackAdmission.assertCurrent(activeProject);
+			resetProjectScopedState();
 			runtime.setProject(activeProject);
 			runtime.projectGeneration.activate(activeProject.id);
 			await guard(openRecovery.inspectOpenedProject(projectId));
@@ -294,7 +297,6 @@ export function createProjectSwitchService<
 			const tabMetadata = runtime.sessionTab(projectId)?.metadata || {};
 			runtime.restoreProjectSelection(activeProject, tabMetadata);
 			runtime.state.clipboard = runtime.session.clipboardForProject(projectId)?.descriptor ?? null;
-			resetProjectScopedState();
 			const outputUrl = runtime.state.outputUrl;
 			runtime.state.outputUrl = null;
 			if (outputUrl) runtime.revokeOutputUrl(outputUrl);
@@ -351,7 +353,6 @@ export function createProjectSwitchService<
 			runtime.synchronizeMicrophoneMeterTarget();
 			runtime.publishProjectState();
 			readyProjectId = activeProject.id;
-			// Foreign/future custody is opaque; maintenance must not traverse or mutate it.
 			if (!runtime.state.readOnly) {
 				await guard(openRecovery.deferGarbageCollection(() => runtime.garbageCollectSources()));
 			}

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { projectString } from './project-validation-primitives.ts';
 import { digestScapeBytes } from './scape-archive-media.ts';
 import {
 	parseScapeProjectDocument,
@@ -450,7 +450,7 @@ function normalizeProjectFence(value: unknown): TakeCycleProjectPublicationFence
 		'projectId', 'baseRevision', 'baseSha256', 'targetRevision', 'targetSha256',
 	]);
 	const result = Object.freeze({
-		projectId: stableId(fence.projectId, 'take cycle projectId'),
+		projectId: projectString(fence.projectId, 'take cycle projectId'),
 		baseRevision: nonNegativeSafeInteger(fence.baseRevision, 'take cycle baseRevision'),
 		baseSha256: digest(fence.baseSha256, 'take cycle baseSha256'),
 		targetRevision: nonNegativeSafeInteger(fence.targetRevision, 'take cycle targetRevision'),
@@ -513,7 +513,7 @@ function normalizeProjectEvidence(value: unknown): TakeCycleProjectPublicationEv
 		'projectId', 'revision', 'sha256',
 	]);
 	return Object.freeze({
-		projectId: stableId(evidence.projectId, 'take cycle project evidence projectId'),
+		projectId: projectString(evidence.projectId, 'take cycle project evidence projectId'),
 		revision: nonNegativeSafeInteger(evidence.revision, 'take cycle project evidence revision'),
 		sha256: digest(evidence.sha256, 'take cycle project evidence sha256'),
 	});

@@ -11,7 +11,6 @@ test('final export writes retain cancellation and map acknowledgements onto the 
 	const task = progress.begin('export', 'Encoding', 0.95);
 	const abort = new AbortController();
 	const request = audioExportPublicationProgress(task, 'Save', abort.signal);
-	assert.equal(request.signal, abort.signal);
 	request.onProgress(0.5);
 	assert.equal(progress.getSnapshot()?.value, 0.975);
 	assert.equal(progress.getSnapshot()?.label, 'Save');

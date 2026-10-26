@@ -1,24 +1,24 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { FileSizeWarningConfirmation } from '../common/editor/controller/shared/file-size-warning.ts'; import {
-	addUnifiedExactLinearCompositionEntryV13,
+	addUnifiedExactLinearCompositionEntryV13, applyUnifiedExactLinearAdjustmentV13,
 	addUnifiedExactLinearDissolveEntryV13,
 	compositeUnifiedExactLinearFrameV13,
 	createUnifiedExactLinearPremultipliedFrameV13,
 	encodeUnifiedExactLinearFrameV13,
 	flattenUnifiedExactLinearCompositionV13,
 	placeUnifiedExactLinearRgbaFrameV13,
-	straightUnifiedExactLinearFrameV13,
+	straightUnifiedExactLinearSourceFrameV13,
 	type UnifiedExactLinearCompositionEntryV13,
 } from '../common/editor/unified-exact-linear-rgba-v13.ts';
 import {
 	authoredCompositingOrder,
 	backgroundLinear,
 	captureBrowserFrame,
-	checkedFrame,
+	checkedFrame, byteWorkingFrame, checkedLinearFrame,
 	combinedGraphs,
 	combinedMask,
-	gradeLinearFrame,
-	gradeVisual,
+	gradeLinearFloatFrame,
+	gradeVisualLinear,
 	identityDescription,
 	mediaPresentation,
 	orderBucketEntries,
@@ -74,6 +74,8 @@ import {
 } from './selected-finishing-supplemental-picture-authority.ts';
 import { resolveFramescaperVisualPlacementFinishing } from './visual-placement-finishing.ts';
 import { createFramescaperSoundVisualizerWindowReader } from './sound-visualizer-window.ts';
+import { captureSelectedFinishingVideoMaskInputs, resolveSelectedFinishingMediaEntry } from './selected-finishing-video-mask-inputs.ts';
+import { quantizeUnifiedExactLinearSourceFrame, type UnifiedExactLinearSourceFrame } from '../common/editor/unified-exact-linear-source-frame.ts';
 type Data = Readonly<Record<string, unknown>>;
 export interface FramescaperSelectedExactFrameExecutionFinishing {
 	render(request: Readonly<{
@@ -104,7 +106,7 @@ export interface FramescaperSelectedExactSupplementalPictureFinishing {
 	readonly trackId: string;
 	readonly clipId: string;
 	readonly sourceId: string;
-	readonly frame: UnifiedExactRenderRgbaFrameV13;
+	readonly frame: UnifiedExactRenderRgbaFrameV13 | UnifiedExactLinearSourceFrame;
 	readonly displayWidth: number;
 	readonly displayHeight: number;
 	readonly renderDescription: unknown;
@@ -234,6 +236,9 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 					if ('source' in entry.authoredState) rawVisuals.set(entry.authoredState.source.id, transparent);
 				}
 			}
+			const maskCaptures = await captureSelectedFinishingVideoMaskInputs({ clips, sourceIdByNodeId,
+				layers: request.layers, visualMasks: [...visualEntries.flatMap(entry => entry.masks),
+					...visual.activeAdjustmentLayers.flatMap(layer => layer.masks)], masks, finishing, inputs: rawVisuals, capture: captureFrame, signal });
 			const trackFrames = new Map<string, TrackOrderBucketFinishing[]>();
 			const clipCompositingOrders = new Map<string, number>();
 			const openFx = openFxPlanes === null ? null : createFramescaperSelectedOpenFxCompositionNativeMedia({
@@ -249,7 +254,7 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 			for (const layerValue of request.layers) await renderMediaLayer(
 				record(layerValue, 'Selected finishing media layer'), trackFrames,
 				clipCompositingOrders, rawVisuals, consumed, adjustmentEffects,
-				openFx, width, height, signal,
+				openFx, width, height, signal, maskCaptures,
 			);
 			if (openFx) {
 				const transitionFrames = new Map<string, UnifiedExactLinearCompositionEntryV13[]>();
@@ -332,7 +337,7 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 		const { trackId } = framescaperSupplementalPictureIdentityFinishing(
 			picture, visuals, activeVisualIds,
 		);
-		const frame = checkedFrame(picture.frame, 'Selected finishing supplemental linear frame');
+		const frame = checkedLinearFrame(picture.frame, 'Selected finishing supplemental linear frame');
 		const renderDescription = picture.renderDescription;
 		const placed = placeUnifiedExactLinearRgbaFrameV13({
 			frame,
@@ -358,9 +363,9 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 		consumed: Set<string>,
 		adjustmentEffects: ReadonlySet<string>,
 		openFx: FramescaperSelectedOpenFxCompositionNativeMedia | null,
-		width: number,
-		height: number,
+		width: number, height: number,
 		signal: AbortSignal,
+		maskCaptures: ReadonlyMap<Data, UnifiedExactRenderRgbaFrameV13>,
 	): Promise<void> {
 		const trackId = stableId(layer.trackId, 'Selected finishing media track ID');
 		const entries = records(layer.entries, 'Selected finishing media entries');
@@ -368,24 +373,13 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 			const effects = records(entry.effects ?? [], 'Selected finishing media effects').filter((effect) => (
 				!adjustmentEffects.has(stableId(effect.id, 'Selected finishing media effect ID'))
 			));
-			const clipId = stableId(entry.clipId, 'Selected finishing media clip ID');
-			const clip = clips.get(clipId);
-			if (!clip) throw new ReferenceError(`Selected finishing clip ${clipId} is absent from its V13 plan.`);
-			const sourceId = sourceIdByNodeId.get(clip.sourceNodeId);
-			if (!sourceId || entry.sourceId !== sourceId) {
-				throw new Error(`Selected finishing clip ${clipId} changed source authority.`);
-			}
-			const descriptor = record(entry.presentationDescriptor, 'Selected finishing media presentation');
-			const sourceFrame = nonNegativeInteger(
-				descriptor.drawableSourceFrame, 'Selected finishing drawable source frame',
-			);
-			const outerCell = nonNegativeInteger(descriptor.outerCell, 'Selected finishing outer cell');
-			const raw = await captureFrame(entry, signal);
+			const { clipId, clip, sourceId, sourceFrame, outerCell } = resolveSelectedFinishingMediaEntry({ clips, sourceIdByNodeId }, entry);
+			const raw = maskCaptures.get(entry) ?? await captureFrame(entry, signal);
 			let frame = checkedFrame(raw, 'Selected finishing captured media frame');
 			if (effects.length > 0) frame = checkedFrame(
 				await applyEffects(frame, effects, signal), 'Selected finishing effected media frame',
 			);
-			const resolved = await finishingConsumer.resolveFrame({
+			const resolved = await finishingConsumer.resolveLinearFrame({
 				clipId, sourceFrame, sequenceFrame: clip.sequenceStartFrame + outerCell,
 				frame, presentationScope: 'source', outputEncoding: 'linear-rec709-d65',
 				// Captured media pixels are browser readback: full-range canvas sRGB.
@@ -439,7 +433,7 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 		const target = orderBucketEntries(trackFrames, trackId, 0);
 		for (const entry of entries) {
 			const raw = requiredVisual(maskInputs, entry.modelId);
-			const linear = gradeVisual(finishing, entry, raw, finishingAssets.luts, signal);
+			const linear = gradeVisualLinear(finishing, entry, raw, finishingAssets.luts, signal);
 			const placement = resolveFramescaperVisualPlacementFinishing(entry, {
 				width, height, fit: options.plan.output.canvas.fit,
 			});
@@ -488,11 +482,11 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 				}
 				const preservedBlendMode = bucket.entries[0]!.blendMode;
 				const target = flattenUnifiedExactLinearCompositionV13(width, height, bucket.entries);
-				let adjusted = straightUnifiedExactLinearFrameV13(target);
-				if (adjustment.effectIds.length > 0) adjusted = checkedFrame(await applyEffects(
-					adjusted, adjustment.effectIds.map((id) => requiredVisual(effectsById, id)), signal,
+				let adjusted = straightUnifiedExactLinearSourceFrameV13(target);
+				if (adjustment.effectIds.length > 0) adjusted = byteWorkingFrame(await applyEffects(
+					quantizeUnifiedExactLinearSourceFrame(adjusted), adjustment.effectIds.map((id) => requiredVisual(effectsById, id)), signal,
 				), 'Selected finishing adjustment effect frame');
-				const graded = gradeLinearFrame(adjusted, grades,
+				const graded = gradeLinearFloatFrame(adjusted, grades,
 					finishingAssets.luts, signal);
 				const mask = adjustment.masks.length === 0 ? undefined
 					: combinedGraphs(adjustment.masks, width, height, maskInputs);
@@ -500,10 +494,9 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 					frame: graded, displayWidth: width, displayHeight: height,
 					outputWidth: width, outputHeight: height,
 					renderDescription: identityDescription(width, height, adjustment.blendMode),
-					opacity: adjustment.opacity, ...(mask ? { mask } : {}),
 				});
 				if (openFx) overlay = await openFx.adjustment(overlay, adjustment.modelId);
-				compositeUnifiedExactLinearFrameV13(target, overlay, adjustment.blendMode);
+				applyUnifiedExactLinearAdjustmentV13(target, overlay, adjustment.blendMode, adjustment.opacity, mask);
 				bucket.entries = [Object.freeze({ frame: target, blendMode: preservedBlendMode })];
 			}
 		}
@@ -547,11 +540,6 @@ function dimension(value: unknown, name: string): number {
 	if (!Number.isSafeInteger(value) || Number(value) < 1 || Number(value) > 65_536) {
 		throw new RangeError(`${name} must be a positive bounded integer.`);
 	}
-	return Number(value);
-}
-
-function nonNegativeInteger(value: unknown, name: string): number {
-	if (!Number.isSafeInteger(value) || Number(value) < 0) throw new RangeError(`${name} must be non-negative.`);
 	return Number(value);
 }
 

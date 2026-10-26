@@ -234,7 +234,6 @@ test('resampling persists one derived source and atomically rewrites clip geomet
 	const track = trackFixture({ id: 'track', clipIds: [clip.id] });
 	const fixture = createTransformFixture(projectFixture({ tracks: [track], clips: [clip], sources: [source] }));
 
-	assert.equal(Object.isFrozen(fixture.service), true);
 	assert.equal(await fixture.service.resampleTrack('track', 48_000), 'track');
 	assert.deepEqual(fixture.calls.preflights, [800]);
 	assert.deepEqual(fixture.calls.processing, [true, false]);

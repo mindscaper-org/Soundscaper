@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import WaveformDisplayPreferencesPanel from '../src/common/editor/ui/dialogs/WaveformDisplayPreferencesPanel.tsx';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps, type ReactTestElement } from './helpers/react-test-dom.ts';
 
 (globalThis as unknown as { React: unknown }).React = React;

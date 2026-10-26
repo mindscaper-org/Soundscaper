@@ -5,8 +5,8 @@ import { inspectAiffBlobPcm } from './aiff-pcm-chunk-reader.ts';
 import { inspectWavBlobPcm } from './wav-import.js';
 import { originalMpegExportSettings, readOriginalMpegFrameHeader } from './desktop-original-mpeg-settings.ts';
 import { readDesktopOriginalM4aMovie } from './desktop-original-m4a-movie.ts';
+import { readDesktopOriginalAudioBitRate } from './desktop-original-audio-bit-rate.ts';
 import { BIT_RATES } from './media-export-values.js';
-import { sampleFrameToSeconds } from './timeline-time.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
 export type DesktopOriginalExportSettings = Readonly<Record<string, unknown>>;
@@ -27,9 +27,9 @@ interface PcmSettings {
 
 const MAXIMUM_HEADER_BYTES = 1024 * 1024;
 const EXTENSIONS: Readonly<Record<string, string>> = Object.freeze({
-	wav: 'wav', bwf: 'bwf', bw64: 'bw64', aif: 'aiff', aiff: 'aiff', aifc: 'aiff',
+	wav: 'wav', wave: 'wav', rf64: 'wav', bwf: 'bwf', bw64: 'bw64', aif: 'aiff', aiff: 'aiff', aifc: 'aiff',
 	flac: 'flac', mp3: 'mp3', mp2: 'mp2', ogg: 'ogg-vorbis', oga: 'ogg-vorbis',
-	opus: 'opus', wv: 'wavpack', wavpack: 'wavpack', m4a: 'aac-m4a',
+	opus: 'opus', wv: 'wavpack', wavpack: 'wavpack', m4a: 'aac-m4a', mp4: 'aac-m4a',
 });
 
 /** Remember facts from the imported bytes rather than the project's decoded float cache. */
@@ -53,6 +53,13 @@ export async function resolveDesktopOriginalExportSettings(
 			if (!frameHeader) return null;
 			header = frameHeader;
 		}
+		if (format === 'flac') {
+			const offset = id3Offset(header);
+			if (offset !== null && offset + 42 > header.length && offset + 42 <= file.size) {
+				header = new Uint8Array(await file.slice(offset, offset + 42).arrayBuffer());
+			}
+		}
+		if (format === 'wavpack') header = await originalWavPackAudioHeader(file, header);
 		if (format === 'ogg-vorbis' && matchesEncodedContainer('opus', header)) format = 'opus';
 		const pcm = await pcmSettings(format, file, header);
 		if (pcm !== undefined) {
@@ -84,12 +91,12 @@ export async function resolveDesktopOriginalExportSettings(
 			settings.bitDepth = bits;
 			settings.sampleFormat = flags & 0x80 ? 'float32' : `int${String(bits)}`;
 		} else if (format === 'mp3' || format === 'mp2') {
-			const mpeg = originalMpegExportSettings(header, format, sourceBitRate(file, source, sampleRate));
+			const mpeg = originalMpegExportSettings(header, format, await readDesktopOriginalAudioBitRate(file));
 			if (!mpeg || !BIT_RATES[format].includes(Number(mpeg.bitRate))
 				|| (mpeg.averageBitRate !== undefined && !BIT_RATES.mp3.includes(Number(mpeg.averageBitRate)))) return null;
 			Object.assign(settings, mpeg);
 		} else if (format === 'opus' || format === 'aac-m4a') {
-			const bitRate = sourceBitRate(file, source, sampleRate);
+			const bitRate = await readDesktopOriginalAudioBitRate(file);
 			if (bitRate) settings.bitRate = BIT_RATES[format].reduce((closest, rate) => (
 				Math.abs(rate - bitRate) < Math.abs(closest - bitRate) ? rate : closest
 			));
@@ -99,6 +106,22 @@ export async function resolveDesktopOriginalExportSettings(
 		// The import has already succeeded; an unprovable re-export disables the shortcut.
 		return null;
 	}
+}
+
+/** Imported wrapper/MD5 blocks carry no audio format flags. Seek only bounded headers. */
+async function originalWavPackAudioHeader(file: NamedByteSource, prefix: Uint8Array): Promise<Uint8Array> {
+	let offset = 0;
+	let header = prefix.subarray(0, 32);
+	for (let block = 0; block < 1_000_000; block++) {
+		if (header.length !== 32 || ascii(header, 0, 4) !== 'wvpk') throw new RangeError('Invalid WavPack header.');
+		const view = new DataView(header.buffer, header.byteOffset, header.byteLength);
+		if (view.getUint32(20, true) > 0) return header;
+		const size = view.getUint32(4, true) + 8;
+		if (size < 32 || size > 4 * 1024 ** 2 || offset + size + 32 > file.size) throw new RangeError('Invalid WavPack metadata block.');
+		offset += size;
+		header = new Uint8Array(await file.slice(offset, offset + 32).arrayBuffer());
+	}
+	throw new RangeError('The WavPack source has too many metadata blocks.');
 }
 
 function audioBase(format: string, sampleRate: number, channelCount: number): DataRecord {
@@ -111,6 +134,8 @@ async function pcmSettings(format: string, file: NamedByteSource, header: Uint8A
 		if (!['RIFF', 'RIFX', 'RF64', 'BW64'].includes(ascii(header, 0, 4)) || ascii(header, 8, 4) !== 'WAVE') return null;
 		const descriptor = await inspectWavBlobPcm(file);
 		if (!descriptor) return null;
+		// Original carries only the channel count, not custom speaker roles.
+		if (descriptor.channelMask !== 0 && descriptor.channelMask !== (descriptor.channelCount === 1 ? 4 : 3)) return null;
 		const bitDepth = descriptor.validBitsPerSample ?? descriptor.bitDepth;
 		const sampleFormat = descriptor.sampleFormat === 'float32' ? 'float32' : `int${String(bitDepth)}`;
 		if (!['int16', 'int20', 'int24', 'float32'].includes(sampleFormat)) return null;
@@ -120,7 +145,10 @@ async function pcmSettings(format: string, file: NamedByteSource, header: Uint8A
 	}
 	if (format === 'aiff') {
 		if (ascii(header, 0, 4) !== 'FORM') return null;
-		return inspectAiffBlobPcm(file);
+		const descriptor = await inspectAiffBlobPcm(file);
+		if (!['int16', 'int24', 'int32', 'float32'].includes(descriptor.sampleFormat)
+			|| descriptor.bitDepth !== Number(descriptor.sampleFormat.replace(/\D/gu, ''))) return null;
+		return descriptor;
 	}
 	return undefined;
 }
@@ -151,10 +179,7 @@ function matchesEncodedContainer(format: string, bytes: Uint8Array): boolean {
 	if (format === 'wavpack') return ascii(bytes, 0, 4) === 'wvpk';
 	if (format === 'aac-m4a') return ascii(bytes, 4, 4) === 'ftyp' && hasAacSampleEntry(bytes);
 	if (format === 'opus' || format === 'ogg-vorbis') {
-		if (ascii(bytes, 0, 4) !== 'OggS' || bytes.byteLength < 28) return false;
-		const offset = 27 + bytes[26]!;
-		return format === 'opus' ? ascii(bytes, offset, 8) === 'OpusHead'
-			: bytes[offset] === 1 && ascii(bytes, offset + 1, 6) === 'vorbis';
+		return oggAudioFormat(bytes) === format;
 	}
 	if (format === 'mp3' || format === 'mp2') {
 		const offset = id3Offset(bytes);
@@ -164,6 +189,27 @@ function matchesEncodedContainer(format: string, bytes: Uint8Array): boolean {
 		return layer === (format === 'mp3' ? 1 : 2) && inspectEncodedAudioSampleRate(bytes) !== null;
 	}
 	return false;
+}
+
+/** Auxiliary BOS streams do not identify the imported programme's codec. */
+function oggAudioFormat(bytes: Uint8Array): 'opus' | 'ogg-vorbis' | null {
+	for (let offset = 0; offset + 27 <= bytes.length;) {
+		if (ascii(bytes, offset, 4) !== 'OggS' || bytes[offset + 4] !== 0 || (bytes[offset + 5]! & 3) !== 2) return null;
+		const segments = bytes[offset + 26]!;
+		const body = offset + 27 + segments;
+		if (body > bytes.length) return null;
+		let size = 0, packet = 0, complete = false;
+		for (let index = 0; index < segments; index++) {
+			const length = bytes[offset + 27 + index]!;
+			size += length;
+			if (!complete) { packet += length; complete = length < 255; }
+		}
+		if (!complete || body + size > bytes.length) return null;
+		if (packet >= 19 && ascii(bytes, body, 8) === 'OpusHead') return 'opus';
+		if (packet >= 30 && bytes[body] === 1 && ascii(bytes, body + 1, 6) === 'vorbis') return 'ogg-vorbis';
+		offset = body + size;
+	}
+	return null;
 }
 
 function hasAacSampleEntry(bytes: Uint8Array): boolean {
@@ -192,14 +238,6 @@ function hasAacSampleEntry(bytes: Uint8Array): boolean {
 		}
 	}
 	return false;
-}
-
-function sourceBitRate(file: NamedByteSource, source: DataRecord, sampleRate: number): number | null {
-	const frames = positiveInteger(source.frameCount);
-	if (!frames) return null;
-	const durationSeconds = sampleFrameToSeconds(frames, positiveInteger(source.sampleRate) ?? sampleRate);
-	const kilobits = Math.round(file.size * 8 / durationSeconds / 1000);
-	return kilobits > 0 ? kilobits : null;
 }
 
 function flacOffset(bytes: Uint8Array): number | null {

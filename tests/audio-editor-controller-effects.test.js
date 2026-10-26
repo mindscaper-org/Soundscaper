@@ -526,7 +526,7 @@ test('canceling an asynchronous parametric EQ selection preview prevents a late 
 		await renderStarted.promise;
 		assert.equal(controller.getSnapshot().processingEffect, true);
 
-		assert.equal(controller.actions.effects.cancelPreview(), false);
+		assert.equal(controller.actions.effects.cancelPreview(), true);
 		renderGate.resolve();
 		assert.equal(await pending, false);
 		assert.equal(previewCreations, 0);

@@ -7,10 +7,6 @@ export const ORIGINAL_FILE_OVERWRITE_COPY_BY_LOCALE = Object.freeze({
 		overwriteOriginal: 'Overwrite original file',
 		overwriteNamedOriginal: 'Overwrite {filename}',
 	}),
-	de: Object.freeze({
-		overwriteOriginal: 'Originaldatei überschreiben',
-		overwriteNamedOriginal: '{filename} überschreiben',
-	}),
 });
 
 export function resolveOriginalFileOverwriteCopy(copy: Readonly<Record<string, unknown>> = {}) {

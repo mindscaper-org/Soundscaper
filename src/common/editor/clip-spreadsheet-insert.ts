@@ -149,8 +149,8 @@ function parseRow(row: ClipSpreadsheetNewRow): ParsedRow {
 	for (const [key, value] of Object.entries(row)) {
 		if (!CLIP_SPREADSHEET_COLUMNS.some(column => column.id === key) || typeof value !== 'string') throw new TypeError('Spreadsheet rows require known columns with text values.');
 	}
-	const source = row.source?.trim() ?? '';
-	if (!source) throw new RangeError('A source file is required for each new clip.');
+	const source = row.source ?? '';
+	if (!source.trim()) throw new RangeError('A source file is required for each new clip.');
 	const text = (key: ClipSpreadsheetColumnId, fallback: string): string => row[key]?.trim() || fallback;
 	const position = text('position', '0');
 	const offset = text('offset', '0');
@@ -163,7 +163,7 @@ function parseRow(row: ClipSpreadsheetNewRow): ParsedRow {
 		if (Number(fadeIn) > seconds || Number(fadeOut) > seconds) throw new RangeError('A fade cannot be longer than the clip.');
 	}
 	return {
-		source, track: text('track', ''), name: text('name', ''), position, offset, duration, fadeIn, fadeOut,
+		source, track: row.track?.trim() ? row.track : '', name: text('name', ''), position, offset, duration, fadeIn, fadeOut,
 		pitchCents: spreadsheetNumber(text('pitch', '0'), -12, 12, 'Pitch') * 100,
 		speedRatio: spreadsheetNumber(text('speed', '1'), 0.001, 1_000, 'Speed'),
 		gain: spreadsheetGain(text('gain', '0')),
@@ -199,9 +199,12 @@ function indexNamed<Value extends { readonly id: string; readonly name: string }
 	index.names.set(value.name, matches);
 }
 function resolveNamed<Value>(index: NamedIndex<Value>, reference: string, label: string): Value | undefined {
-	const byId = index.ids.get(reference);
-	if (byId) return byId;
-	const matches = index.names.get(reference) ?? [];
-	if (matches.length > 1) throw new RangeError(`The ${label} name is ambiguous; use its ID: ${reference}.`);
-	return matches[0];
+	for (const spelling of new Set([reference, reference.trim()])) {
+		const byId = index.ids.get(spelling);
+		if (byId) return byId;
+		const matches = index.names.get(spelling) ?? [];
+		if (matches.length > 1) throw new RangeError(`The ${label} name is ambiguous; use its ID: ${reference}.`);
+		if (matches[0]) return matches[0];
+	}
+	return undefined;
 }

@@ -1,0 +1,29 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { inflateSync } from 'node:zlib';
+// Untouched FFmpeg5.1.4 rawSBC encoder: stereo32k,4800 input frames ->37complete128-frame packets.
+// Separately invoked FFmpeg decoder supplies the complete4736-frame interleaved f32le reference.
+const ENCODED = [
+	'eNqbUyt179+xYGOlzYaMzPW76xP47t8Q3v5MkPfrRN9KHXYZHRVzdpW3bw/vnpDL92rm4z1mQu8jc3ffDnv3RVR5t6nLO9U5tVKCDRsYGBgOALHB6cRLcivKrBbsfe/2o/vnqSV5PSfurOvjPW9efmX3HOGkdKGHsR9nakz4p6h1NLPG2189pmAJ0ACmBpBmkCHrtO6skirwXDipTPhIeo5lWyjfhC/iG6/c56+yDIm/OFO59OKxp88+5E0v3rfG58Ec7R3TVfl7gAZwgm0H4TNL7xpNtIvhsv126LTR7J9/Fiqku52U0YzynOKyOJFPXv6zaYTGtRtH7MNShS+2PLO/8vDthf8oBkxOVl4V0Xt7q9Rr2WdzzixS2jTh4BwuJ7ZDV87M/sesqDhj2cnki1FhWS5L5vXJ3f9sqn7h2nErFC/gdugRlfa3+mGaTx5Ficx6nHvs0XXWhVvVoxTdCm1HA3E0EEcDcTQQRwNxNBBHA3HYBSIAS/1OgQ==',
+].join('');
+const REFERENCE = [
+	'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',
+].join('');
+const SHA256 = 'e2af26eb97c7ec3921017991400aa09f47d65a9e97b4c8abf28adb03bc2fa783';
+
+export function nativeSbcFixture(): Readonly<{ file: File; channels: readonly Float32Array[] }> {
+	const bytes = Uint8Array.from(inflateSync(Buffer.from(ENCODED, 'base64')));
+	assert.equal(createHash('sha256').update(bytes).digest('hex'), SHA256);
+	const reference = inflateSync(Buffer.from(REFERENCE, 'base64'));
+	assert.equal(reference.length, 4736 * 2 * 4);
+	return { file: new File([bytes], 'Recording.sbc', { type: 'audio/sbc' }),
+		channels: [0, 1].map(channel => Float32Array.from({ length: 4736 }, (_, frame) => reference.readFloatLE((frame * 2 + channel) * 4))) };
+}

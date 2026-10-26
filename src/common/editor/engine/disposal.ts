@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { clearPreparedAudioWarpPlayback } from './audio-warp-fallback.ts';
+import { clearPlaybackMeterDemand } from './playback-meter-demand.ts';
 import { disposePlaybackFrequencyOutput } from './playback-frequency-range.ts';
 import { ENGINE_CANCEL_SCRUB, ENGINE_DISPOSE_RESOURCES, ENGINE_HALT_GRAPH } from './runtime-symbols.ts';
 import type { EngineRuntimeHost } from './runtime-types.ts';
@@ -16,6 +17,7 @@ export function disposeEngine(engine: EngineRuntimeHost): Promise<void> {
 }
 
 export async function disposeEngineResources(this: EngineRuntimeHost): Promise<void> {
+	clearPlaybackMeterDemand(this);
 	this[ENGINE_CANCEL_SCRUB](); this[ENGINE_HALT_GRAPH]();
 	this.project = null; this.projectGraphSelection = null;
 	this.sources.clear(); this.chunkSources.clear();

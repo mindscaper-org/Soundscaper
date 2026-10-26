@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { recordingTrackRoute } from '../../recording-routing.js';
+import { retainRealtimeContext } from '../../engine/realtime-context-custody.ts';
 
 import { soundscaperNativeAudioCaptureSource } from '../../soundscaper-native-audio-capture.ts';
 import type { RoutedInputLoudnessMeter } from './recording-transaction-types.ts';
@@ -12,6 +14,7 @@ export function createMicrophoneMeterService(
 	const { state } = dependencies;
 	let session: MicrophoneMeterSession | null = null;
 	let startPromise: Promise<boolean> | null = null;
+	let pendingContextRelease: (() => void) | null = null;
 	let generation = 0;
 	let targetKey: string | null = null;
 	let routedLoudnessMeter: RoutedInputLoudnessMeter | null = null;
@@ -55,9 +58,7 @@ export function createMicrophoneMeterService(
 	}
 
 	function getRoute(): RecordingDeviceRoute {
-		const selectedRoute = state.selectedTrackId
-			? state.recordingRouting.routes[state.selectedTrackId]
-			: null;
+		const selectedRoute = recordingTrackRoute(state.recordingRouting.routes, state.selectedTrackId);
 		const route = selectedRoute?.kind === 'device'
 			? selectedRoute
 			: Object.values(state.recordingRouting.routes)
@@ -70,6 +71,8 @@ export function createMicrophoneMeterService(
 	}
 
 	function invalidate(): number {
+		pendingContextRelease?.();
+		pendingContextRelease = null;
 		generation += 1;
 		return generation;
 	}
@@ -132,8 +135,11 @@ export function createMicrophoneMeterService(
 		let splitter: AudioNodePort | null = null;
 		let merger: AudioNodePort | null = null;
 		let loudnessMeter: NodeLoudnessMeter | null = null;
+		let releaseContext = (): void => undefined;
 		const analysers: AnalyserNodePort[] = [];
 		const discardPendingGraph = (): void => {
+			releaseContext();
+			if (pendingContextRelease === releaseContext) pendingContextRelease = null;
 			disconnectSource();
 			disconnect(splitter);
 			disconnect(merger);
@@ -146,13 +152,20 @@ export function createMicrophoneMeterService(
 				channelCount: requestedChannels,
 				sampleRate: dependencies.projectSampleRate(),
 			});
-			if (operationIsStale(operationGeneration)) {
+			if (operationIsStale(operationGeneration, force)) {
 				releaseIfUnused(deviceId);
 				return false;
 			}
 			const context = await dependencies.getAudioContext();
-			if (operationIsStale(operationGeneration)) {
+			if (operationIsStale(operationGeneration, force)) {
 				releaseIfUnused(deviceId);
+				return false;
+			}
+			releaseContext = retainRealtimeContext(context);
+			pendingContextRelease = releaseContext;
+			await context.resume?.();
+			if (operationIsStale(operationGeneration, force)) {
+				discardPendingGraph();
 				return false;
 			}
 			const nativeSource = soundscaperNativeAudioCaptureSource(
@@ -213,7 +226,7 @@ export function createMicrophoneMeterService(
 				loudnessMeter = null;
 				merger = null;
 			}
-			if (operationIsStale(operationGeneration)) {
+			if (operationIsStale(operationGeneration, force)) {
 				discardPendingGraph();
 				return false;
 			}
@@ -226,6 +239,7 @@ export function createMicrophoneMeterService(
 				endedListeners,
 				interval: null,
 				loudnessMeter,
+				releaseContext,
 				merger,
 				routeKey: getRouteKey(route),
 				source,
@@ -240,8 +254,9 @@ export function createMicrophoneMeterService(
 				endedListeners.push(() => track.removeEventListener?.('ended', handleEnded));
 			}
 			session = nextSession;
+			if (pendingContextRelease === releaseContext) pendingContextRelease = null;
 			const update = (): void => {
-				if (session !== nextSession
+				if (session !== nextSession || routedCaptureOwnsMeter()
 					|| (!state.microphoneMetering && !state.recorder && !state.recordingStarting)
 					|| state.disposed) return;
 				let peak = 0;
@@ -291,6 +306,7 @@ export function createMicrophoneMeterService(
 	): void {
 		const stoppedSession = session;
 		session = null;
+		stoppedSession?.releaseContext?.();
 		inputChannels = [];
 		targetKey = null;
 		if (stoppedSession?.interval != null) dependencies.clearInterval(stoppedSession.interval);
@@ -426,8 +442,12 @@ export function createMicrophoneMeterService(
 		return analyser;
 	}
 
+	function routedCaptureOwnsMeter(): boolean {
+		return Boolean(state.recorder && state.recordingEntries?.length);
+	}
+
 	function publishLoudnessReading(reading: unknown): void {
-		if (!session?.loudnessMeter) return;
+		if (!session?.loudnessMeter || routedCaptureOwnsMeter()) return;
 		state.inputMeter = reading && typeof reading === 'object' && inputChannels.length
 			? { ...reading, channels: inputChannels }
 			: reading;
@@ -438,8 +458,9 @@ export function createMicrophoneMeterService(
 		dependencies.publishTelemetrySnapshot();
 	}
 
-	function operationIsStale(operationGeneration: number): boolean {
-		return generation !== operationGeneration || !state.microphoneMetering || state.disposed;
+	function operationIsStale(operationGeneration: number, force: boolean): boolean {
+		const recordingOwnsMeter = force && (state.recordingStarting || state.recorder !== null);
+		return generation !== operationGeneration || (!state.microphoneMetering && !recordingOwnsMeter) || state.disposed;
 	}
 
 	function releaseIfUnused(deviceId: string): void {

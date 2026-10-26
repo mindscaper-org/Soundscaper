@@ -1,5 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+/** Project supported whole-cue SubRip emphasis into the plain label title. */
+export function decodeSubRipLabelText(value: string): string {
+	let text = value;
+	for (;;) {
+		const wrapper = /^<(b|i|u)>([\s\S]*)<\/\1>$/iu.exec(text);
+		if (!wrapper) return text;
+		text = wrapper[2] ?? '';
+	}
+}
+
 /** Labels are plain text; WebVTT cue payloads give punctuation markup meaning. */
 export function encodeWebVttLabelText(value: string): string {
 	return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
@@ -11,7 +21,10 @@ const WEBVTT_ENTITIES: Readonly<Record<string, string>> = Object.freeze({
 
 /** Decode the six character references the WebVTT text reader recognizes once. */
 export function decodeWebVttLabelText(value: string): string {
-	return value.replace(/&(amp|lt|gt|nbsp|lrm|rlm);/gu, (reference: string, name: string) => (
+	// Remove source markup before decoding references so exported literal tags
+	// such as &lt;b&gt; remain ordinary label text after a round trip.
+	const plain = value.replace(/<\/?(?:b|i|u|c|v|lang|ruby|rt)(?:\.[^\s<>]+)?(?:[ \t][^<>]*)?>|<(?:\d+:)?[0-5]\d:[0-5]\d\.\d{3}>/gu, '');
+	return plain.replace(/&(amp|lt|gt|nbsp|lrm|rlm);/gu, (reference: string, name: string) => (
 		WEBVTT_ENTITIES[name] ?? reference
 	));
 }

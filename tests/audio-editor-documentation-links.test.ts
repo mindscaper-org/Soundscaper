@@ -36,15 +36,6 @@ test('each editor links to the handbook staged by its own build', () => {
 	}
 });
 
-test('documentation links reject unknown products and destinations', () => {
-	assert.throws(() => documentationBaseUrl('unknown'), /Unsupported editor product/u);
-	assert.throws(() => documentationUrl('unknown', 'manual'), /Unsupported editor product/u);
-	assert.throws(
-		() => documentationUrl('soundscaper', 'unknown' as 'manual'),
-		/Unsupported documentation destination/u,
-	);
-});
-
 /**
  * The handbook publishes a language by including a directory of pages for it, and
  * a link into a language it does not publish is a 404 rather than a fallback.

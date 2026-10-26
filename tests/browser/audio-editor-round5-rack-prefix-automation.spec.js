@@ -45,7 +45,7 @@ test('a track noise profile retains the authored automation of its earlier filte
 	await closeEffectsPanel(panel);
 	const curve = row.getByRole('button', { name: /^Insert automation point:/u });
 	await curve.press('Shift+F10');
-	await row.getByRole('menuitem', { name: 'Delete automation lane', exact: true }).click();
+	await page.getByRole('menu', { name: 'Automation curve', exact: true }).getByRole('menuitem', { name: 'Delete automation lane', exact: true }).click();
 	panel = await openEffectsForTrack(editor, 1);
 	await panel.getByRole('group', { name: 'Resonant low-pass filter', exact: true })
 		.getByRole('button', { name: 'Select effect', exact: true }).click();

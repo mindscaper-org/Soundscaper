@@ -235,14 +235,23 @@ function measureWindow(samples, sampleRate, startSeconds, endSeconds) {
 }
 
 function toneAmplitude(samples, frequency, sampleRate) {
-	let cosine = 0;
-	let sine = 0;
-	for (let frame = 0; frame < samples.length; frame += 1) {
-		const angle = 2 * Math.PI * frequency * frame / sampleRate;
-		cosine += samples[frame] * Math.cos(angle);
-		sine += samples[frame] * Math.sin(angle);
+	// Native MediaStream clocks can change phase within this half-second window.
+	// Measure local frequency energy so those phase changes cannot cancel a tone.
+	const windowFrames = Math.round(sampleRate * 0.05);
+	let weightedEnergy = 0;
+	for (let offset = 0; offset < samples.length; offset += windowFrames) {
+		const length = Math.min(windowFrames, samples.length - offset);
+		let cosine = 0;
+		let sine = 0;
+		for (let frame = 0; frame < length; frame += 1) {
+			const angle = 2 * Math.PI * frequency * frame / sampleRate;
+			cosine += samples[offset + frame] * Math.cos(angle);
+			sine += samples[offset + frame] * Math.sin(angle);
+		}
+		const amplitude = 2 * Math.hypot(cosine, sine) / length;
+		weightedEnergy += amplitude * amplitude * length;
 	}
-	return 2 * Math.hypot(cosine, sine) / samples.length;
+	return Math.sqrt(weightedEnergy / samples.length);
 }
 
 async function persistedAudioClips(page) {

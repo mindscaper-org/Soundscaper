@@ -7,14 +7,36 @@ const VIRTUAL_PREFIX = '\0scape:translation-catalog:';
 const VIRTUAL_EXTENSION = '.mjs';
 const CATALOG_INDEX_SUFFIX = '/src/common/i18n/translations/index.js';
 const CATALOG_FIELDS = ['schemaVersion', 'locale', 'provenance', 'entries', 'community'];
-const ORIGIN_DECLARATIONS = ['machine', 'audacity', 'human']
-	.map((origin) => `const __catalogOrigin_${origin} = ${JSON.stringify(origin)};`);
 
 /** @param {unknown} value */
 function compactCatalogValue(value) {
-	return JSON.stringify(value)
-		.replace(/\["(machine|audacity|human)",/gu, '[__catalogOrigin_$1,')
-		.replaceAll('"__proto__":', '["__proto__"]:');
+	const normalized = JSON.parse(JSON.stringify(value));
+	const counts = new Map();
+	countStrings(normalized, counts);
+	const strings = new Map([...counts].filter(([text, count]) => count > 1
+		&& (['machine', 'audacity', 'human'].includes(text) || new TextEncoder().encode(JSON.stringify(text)).byteLength >= 16))
+		.map(([text], index) => [text, `__catalogText_${index}`]));
+	return {
+		declarations: [...strings].map(([text, name]) => `const ${name} = ${JSON.stringify(text)};`),
+		expression: catalogValue(normalized, strings),
+	};
+}
+
+/** @param {unknown} value @param {Map<string, number>} counts */
+function countStrings(value, counts) {
+	if (typeof value === 'string') counts.set(value, (counts.get(value) ?? 0) + 1);
+	else if (Array.isArray(value)) for (const item of value) countStrings(item, counts);
+	else if (value && typeof value === 'object') for (const item of Object.values(value)) countStrings(item, counts);
+}
+
+/** @param {unknown} value @param {ReadonlyMap<string, string>} strings @returns {string} */
+function catalogValue(value, strings) {
+	if (typeof value === 'string') return strings.get(value) ?? JSON.stringify(value);
+	if (Array.isArray(value)) return `[${value.map(item => catalogValue(item, strings)).join(',')}]`;
+	if (value && typeof value === 'object') return `{${Object.entries(value).map(([key, item]) => (
+		`${key === '__proto__' ? '["__proto__"]' : JSON.stringify(key)}:${catalogValue(item, strings)}`
+	)).join(',')}}`;
+	return JSON.stringify(value) ?? 'null';
 }
 
 /** @param {Record<string, unknown>} catalog */
@@ -43,20 +65,22 @@ function translationOwner(key) {
 function renderCatalogPart(entries, owner) {
 	const values = Object.fromEntries(Object.entries(entries)
 		.filter(([key]) => translationOwner(key) === owner));
-	return [...ORIGIN_DECLARATIONS, `export default ${compactCatalogValue(values)};`].join('\n');
+	const { declarations, expression } = compactCatalogValue(values);
+	return [...declarations, `export default ${expression};`].join('\n');
 }
 
 /**
- * Keep the committed JSON and its runtime shape intact, but emit each origin
- * tag once instead of repeating "machine" thousands of times in a JS chunk.
- * Only tuple prefixes are substituted; quoted text stays JSON-escaped.
+ * Keep the committed JSON and its runtime shape intact while sharing repeated
+ * string values in each emitted owner. Keys remain literal and text stays
+ * JSON-escaped; no catalog entry or provenance is removed.
  *
  * @param {Record<string, unknown>} catalog
  */
 export function renderTranslationCatalogModule(catalog) {
+	const { declarations, expression } = compactCatalogValue(catalog);
 	return [
-		...ORIGIN_DECLARATIONS,
-		`const catalog = ${compactCatalogValue(catalog)};`,
+		...declarations,
+		`const catalog = ${expression};`,
 		...catalogExports(catalog),
 	].join('\n');
 }
@@ -99,12 +123,13 @@ export function createTranslationCatalogBundlePlugin() {
 				parts.set(partId, { path, owner });
 				imports.push(`import(${JSON.stringify(partId)})`);
 			}
+			const { declarations, expression } = compactCatalogValue({ ...catalog, entries: undefined });
 			return [
 				// The selected locale awaits its fragments. Static imports here would
 				// put every locale's fragment URLs in the initial Vite preload list.
 				`const [core, motion, framescaper] = await Promise.all([${imports.join(', ')}]);`,
-				...ORIGIN_DECLARATIONS,
-				`const catalog = { ...${compactCatalogValue({ ...catalog, entries: undefined })}, entries: { ...core.default, ...motion.default, ...framescaper.default } };`,
+				...declarations,
+				`const catalog = { ...${expression}, entries: { ...core.default, ...motion.default, ...framescaper.default } };`,
 				...catalogExports(catalog),
 			].join('\n');
 		},

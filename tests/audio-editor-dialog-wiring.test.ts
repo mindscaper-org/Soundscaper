@@ -14,7 +14,9 @@ const DIALOG_STYLE_FILES = [
 	'../src/common/editor/ui/audio-editor-design-system/10b-dialog-export.css',
 ].map((path) => new URL(path, import.meta.url));
 
-test('custom track-rate dialog retains the track whose submenu opened it', async () => {
+test('custom track-rate dialog retains its opening track through submission', async () => {
+	// These are the sole cross-component guards that the opened track, rather
+	// than a later selection, reaches the dialog; keep that custody covered.
 	const [workspace, trackRateHook, overlays, dialog, menus, parity] = await Promise.all([
 		readFile(new URL('AudioEditorWorkspace.jsx', WORKSPACE_ROOT), 'utf8'),
 		readFile(new URL('useTrackRateDialog.js', WORKSPACE_ROOT), 'utf8'),
@@ -30,7 +32,6 @@ test('custom track-rate dialog retains the track whose submenu opened it', async
 	assert.match(dialog, /applyTrackRateDialog\(\{ trackId, value,[\s\S]*setRate: controller\.actions\.track\.setRate/u);
 	assert.match(menus, /openTrackRate: \(\) => openTrackRate\(selectedAudioTrack\)/u);
 	assert.match(parity, /openTrackRate\(selectedTrack\)/u);
-
 	const { applyTrackRateDialog, TRACK_RATE_DIALOG_MISSING_TRACK } = await import(
 		'../src/common/editor/ui/dialogs/editor-dialog-model.js'
 	);
@@ -50,12 +51,6 @@ test('custom track-rate dialog retains the track whose submenu opened it', async
 		run: () => { throw new Error('missing tracks must not run'); },
 		setRate: () => undefined,
 	}), TRACK_RATE_DIALOG_MISSING_TRACK);
-});
-
-test('workspace overlays forward the product-specific About label to the dialog', async () => {
-	const overlays = await readFile(new URL('AudioEditorWorkspaceOverlays.jsx', WORKSPACE_ROOT), 'utf8');
-	assert.match(overlays, /dialog === 'about' && <AboutDialog title=\{aboutLabel\} productId=\{productId\}/u);
-	assert.match(overlays, /dialog !== 'about'/u);
 });
 
 test('dialog surfaces use a drop shadow without blurring the editor behind them', async () => {

@@ -175,6 +175,10 @@ export function closedDynamicImportCallsite(call, context) {
 		&& argument.expression.text === 'verified' && argument.name.text === 'moduleSpecifier') {
 		return 'closed-callsite:assistance-inference-runtime-import';
 	}
+	if (path.endsWith('/desktop/assistance-inference-worker.js')
+		&& authenticatedAssistanceAddonImport(call)) {
+		return 'closed-callsite:assistance-inference-addon-import';
+	}
 	if (path.endsWith('/desktop/assistance-speech-runtime.js')
 		&& (ts.isIdentifier(argument) && argument.text === 'id'
 			|| rewriteRelativeImport(argument, 'id'))) {
@@ -366,6 +370,51 @@ function pathToFileHref(node, identifier) {
 		&& node.expression.arguments.length === 1
 		&& ts.isIdentifier(node.expression.arguments[0])
 		&& node.expression.arguments[0].text === identifier;
+}
+
+function authenticatedAssistanceAddonImport(call) {
+	const argument = call.arguments[0];
+	if (call.arguments.length !== 1
+		|| !ts.isPropertyAccessExpression(argument) || argument.name.text !== 'href'
+		|| !ts.isNewExpression(argument.expression)
+		|| !ts.isIdentifier(argument.expression.expression)
+		|| argument.expression.expression.text !== 'URL'
+		|| argument.expression.arguments?.length !== 2
+		|| literalText(argument.expression.arguments[0]) !== './addon.js'
+		|| !ts.isPropertyAccessExpression(argument.expression.arguments[1])
+		|| !ts.isIdentifier(argument.expression.arguments[1].expression)
+		|| argument.expression.arguments[1].expression.text !== 'verified'
+		|| argument.expression.arguments[1].name.text !== 'moduleSpecifier'
+		|| !ts.isAwaitExpression(call.parent)
+		|| !ts.isVariableDeclaration(call.parent.parent)
+		|| !ts.isIdentifier(call.parent.parent.name) || call.parent.parent.name.text !== 'addon') return false;
+	const owner = enclosingFunction(call);
+	if (!ts.isFunctionDeclaration(owner) || owner.name?.text !== 'loadVerifiedRuntime'
+		|| owner.parameters.length !== 0 || owner.body === undefined) return false;
+	const addonDeclaration = call.parent.parent;
+	const addonList = addonDeclaration.parent;
+	const addonStatement = addonList.parent;
+	if (!ts.isVariableDeclarationList(addonList)
+		|| (addonList.flags & ts.NodeFlags.Const) === 0
+		|| addonList.declarations.length !== 1
+		|| !ts.isVariableStatement(addonStatement)
+		|| addonStatement.parent !== owner.body) return false;
+	const addonIndex = owner.body.statements.indexOf(addonStatement);
+	const verifiedDeclarations = owner.body.statements.flatMap((statement, index) => {
+		if (!ts.isVariableStatement(statement)
+			|| (statement.declarationList.flags & ts.NodeFlags.Const) === 0
+			|| statement.declarationList.declarations.length !== 1) return [];
+		const [declaration] = statement.declarationList.declarations;
+		return ts.isIdentifier(declaration.name) && declaration.name.text === 'verified'
+			? [{ declaration, index }] : [];
+	});
+	if (verifiedDeclarations.length !== 1) return false;
+	const [{ declaration, index }] = verifiedDeclarations;
+	return index < addonIndex && declaration.initializer !== undefined
+		&& ts.isAwaitExpression(declaration.initializer)
+		&& ts.isCallExpression(declaration.initializer.expression)
+		&& ts.isIdentifier(declaration.initializer.expression.expression)
+		&& declaration.initializer.expression.expression.text === 'verifyAssistanceNativeRuntimePayload';
 }
 
 function isNamedProperty(node, receiver, property) {

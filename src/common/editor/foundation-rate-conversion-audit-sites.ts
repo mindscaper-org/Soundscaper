@@ -5,6 +5,48 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Focused WP-0.1 inventory for integer sample-rate changes of basis. */
 export const FOUNDATION_RATE_CONVERSION_AUDIT_SITES: readonly FoundationTimeConversionSite[] = [
 	{
+		id: 'generator-inspector-authored-source-duration',
+		file: 'src/common/editor/ui/inspector/GeneratorClipPropertiesBody.tsx',
+		behavior: 'Generator duration entry uses the authored source EOF on its sequence grid; both absolute sequence edges round to their nearest project sample before their displayed duration is subtracted.',
+		conversions: [{ helper: 'videoFrameToSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'duplicate-musical-label-range-authority',
+		file: 'src/common/editor/controller/edit/internal/duplicate-selection-command.ts',
+		behavior: 'Duplicating a selected label range clips its resolved sample endpoints, then exactly inverts those endpoints through the project tempo map to retain authoritative musical coordinates.',
+		conversions: [{ helper: 'sampleFrameToBeat', policies: ['exact'] }],
+	},
+	{
+		id: 'annotation-move-gesture-musical-boundary',
+		file: 'src/common/editor/ui/timeline/timeline-annotation-move-preview.ts',
+		behavior: 'Annotation move gestures resolve the primary sample delta to one exact beat delta; a musical lower bound rounds inward at its enclosing end before exact inversion, while the shared indexed point projector matches native annotation previews.',
+		conversions: [{ helper: 'sampleFrameToBeat', policies: ['exact'] }, { helper: 'beatToSampleFrame', policies: ['enclosingEnd'] }],
+	},
+	{
+		id: 'label-file-decimal-timestamps',
+		file: 'src/common/editor/label-time-frame.ts',
+		behavior: 'Label file decimal seconds and subtitle millisecond clocks retain their exact decimal tokens until one nearest-point conversion to the project sample grid.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'dawproject-signature-seconds-position',
+		file: 'src/common/editor/dawproject-import-maps.ts',
+		behavior: 'Seconds-based signature automation rounds once onto the project sample grid, then converts exactly through the imported tempo map before meter changes are snapped to bars.',
+		conversions: [{ helper: 'sampleFrameToBeat', policies: ['exact'] }],
+	},
+	{
+		id: 'edl-camera-timecode-origin',
+		file: 'src/common/editor/edl-source-in-point.ts',
+		behavior: 'Camera timecode origin and native media trim are added as exact seconds before nearest-point conversion to the EDL sequence frame grid.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'fcpxml-audio-sequence-extent',
+		file: 'src/common/editor/fcpxml-export.ts',
+		behavior: 'Audio clip positions and durations retain exact sample times; the enclosing sequence duration rounds outward to cover the final audio sample on its video frame grid.',
+		conversions: [{ helper: 'roundRational', policies: ['enclosingEnd'] }],
+	},
+	{
 		id: 'external-video-companion-audio-rebuild',
 		file: 'src/common/editor/external-media-audio-decoder.ts',
 		behavior: 'Reopening a referenced video reconstructs its companion audio at the saved project rate using the same nearest-frame resampling length as the original import, before padding or trimming to the timeline extent.',

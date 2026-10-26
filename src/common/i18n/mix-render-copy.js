@@ -2,27 +2,6 @@
 
 /** Copy for the Tracks menu Mix & Render workflow and its rendered source names. */
 export const MIX_RENDER_COPY_BY_LOCALE = Object.freeze({
-	de: Object.freeze({
-		mixdownTo: 'Abmischen nach',
-		mixMenu: 'Mischen',
-		mixedTrack: 'Mix',
-		mixRender: 'Mischen und rendern',
-		mixRenderNew: 'Mischen und auf neuer Spur rendern',
-		mixRenderRequiresAudio: 'Wähle mindestens eine Audiospur mit Audio aus.',
-		mixRenderTitle: 'Mischen & rendern',
-		mixDown: 'Abmischen',
-		mixDownTo: 'Abmischen auf',
-		mixDownMono: 'Mono',
-		mixDownStereo: 'Stereo',
-		mixDownChannels: '{count} Kanäle',
-		mixDownDescription: 'Fasst die ausgewählten Spuren zu einer gerenderten Spur zusammen. Deaktiviere diese Option, um jede Spur einzeln zu rendern.',
-		renderEffects: 'Effekte rendern',
-		renderEffectsDescription: 'Brennt Echtzeiteffekte in das gerenderte Audio ein.',
-		replaceOriginals: 'Originale ersetzen',
-		replaceOriginalsDescription: 'Ersetzt die ausgewählten Spuren. Deaktiviere diese Option, um neue Spuren zu erstellen.',
-		mixRenderNoOperation: 'Aktiviere „Abmischen“ oder „Effekte rendern“, um fortzufahren.',
-		mixRenderLockedOriginals: 'Gesperrte Spuren können nicht ersetzt werden. Deaktiviere „Originale ersetzen“, um neue Spuren zu erstellen.',
-	}),
 	en: Object.freeze({
 		mixdownTo: 'Mix-down to',
 		mixMenu: 'Mix',

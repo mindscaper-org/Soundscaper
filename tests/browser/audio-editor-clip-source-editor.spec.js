@@ -75,10 +75,14 @@ test.describe('clip source editor', () => {
 		const endTrim = panel.getByRole('button', { name: 'Trim source end', exact: true });
 		expect(await startTrim.evaluate(element => getComputedStyle(element).cursor)).toContain('ClipTrimLeft');
 		expect(await endTrim.evaluate(element => getComputedStyle(element).cursor)).toContain('ClipTrimRight');
+		const canvas = waveform.locator('[data-source-active="true"] canvas').first();
+		await expect(canvas).toHaveAttribute('data-waveform-renderer', 'audacity');
+		await canvas.evaluate(element => { globalThis.__sourceFadePlan = element.__kwWaveformPlan; });
 		await fadeIn.press('Shift+ArrowRight');
+		// The slider and curve update before the scheduled waveform paint.
+		await expect.poll(() => canvas.evaluate(element => element.__kwWaveformPlan !== globalThis.__sourceFadePlan)).toBe(true);
 		const initial = await fadeIn.getAttribute('aria-valuenow');
 		const placement = await clip.getAttribute('aria-label');
-		const canvas = waveform.locator('[data-source-active="true"] canvas').first();
 		const image = () => canvas.evaluate(element => element.toDataURL());
 		const before = await image();
 		const curve = waveform.locator('path[data-fade-curve="in"]');
@@ -216,6 +220,13 @@ test.describe('clip source editor', () => {
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [longTone]);
+		// Keep the timeline running while coverage checkpoints retire the source
+		// worklet; the transport assertions should not race the recording's end.
+		await chooseCommandAction(page, editor, 'Select', 'Select all');
+		await chooseNestedCommandAction(page, editor, 'Select', ['Loop region', 'Set loop to selection']);
+		const mainTransport = editor.locator('.kw-audio-editor__transport');
+		const timelineLoop = mainTransport.getByRole('button', { name: 'Loop selection', exact: true });
+		if (await timelineLoop.getAttribute('aria-pressed') !== 'true') await timelineLoop.click();
 		const panel = await openSourceMonitor(page, editor, clipByName(editor, longTone.name));
 		const vertical = panel.getByRole('region', { name: 'Source vertical ruler', exact: true });
 		await vertical.click({ button: 'right' });
@@ -235,14 +246,17 @@ test.describe('clip source editor', () => {
 		await propertiesBody.press('Space');
 		await expect(panel.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 		await expect.poll(() => ruler.getAttribute('aria-valuenow')).not.toBe('0');
-		const mainTransport = editor.locator('.kw-audio-editor__transport');
 		await expect(mainTransport.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
 		await propertiesBody.press('Space');
 		await expect(panel.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
 		await propertiesBody.press('Space');
 		await expect(panel.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
-		await mainTransport.getByRole('button', { name: 'Play', exact: true }).click();
+		// Moving focus retires the source worklet and its coverage checkpoint.
+		// Finish that transition before sending the timeline's click gesture.
+		const timelinePlay = mainTransport.getByRole('button', { name: 'Play', exact: true });
+		await timelinePlay.focus();
 		await expect(panel.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+		await timelinePlay.press('Enter');
 		await expect(mainTransport.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 		// Focusing the source transport retires the timeline worklet. Let its
 		// coverage checkpoint finish before sending the next mouse gesture.
@@ -250,7 +264,7 @@ test.describe('clip source editor', () => {
 		await sourcePlay.focus();
 		await expect(mainTransport.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
 		const sourcePosition = await ruler.getAttribute('aria-valuenow');
-		await sourcePlay.click();
+		await sourcePlay.press('Enter');
 		await expect(panel.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 		await expect(mainTransport.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
 		// The Pause label appears while the audio engine is still starting.

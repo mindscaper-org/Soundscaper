@@ -188,3 +188,19 @@ test('tagged AAC rejects a negative edited packet timeline rather than trimming 
 	await assert.rejects(prepareStreamedAudioImport(blob), /AAC source geometry/u);
 	assert.equal(seen.packets, 0); assert.equal(seen.constructors, 0);
 }));
+
+test('a full presentation edit does not subtract tagged AAC priming twice', async () => withNativeAacFixture(async () => {
+	const edited = new Uint8Array(await (await negativeEditList(await encodedFixture(1030))).arrayBuffer());
+	const ascii = new TextDecoder('latin1').decode(edited);
+	const movie = ascii.indexOf('mvhd'), edit = ascii.indexOf('elst');
+	assert.ok(movie >= 4 && edit >= 4);
+	const view = new DataView(edited.buffer);
+	const movieScale = view.getUint32(movie + 16);
+	view.setUint32(edit + 12, Math.round(3072 / 48_000 * movieScale));
+	view.setInt32(edit + 16, 0);
+	const prepared = await prepareStreamedAudioImport(new Blob([edited]));
+	const values: number[] = [];
+	await prepared.stream({ chunkFrames: 127, onChunk(channels) { values.push(...channels[0]!); } });
+	assert.equal(prepared.descriptor.frameCount, 1030);
+	assert.deepEqual(values, Array.from({ length: 1030 }, (_, index) => index + 1024));
+}));

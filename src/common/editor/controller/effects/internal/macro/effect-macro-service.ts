@@ -29,6 +29,7 @@ import type { RunOfflineSelectionChain } from './offline-selection-chain.ts';
 import { MACRO_NEIGHBOUR_PCM_CACHE_LIMIT_BYTES } from './macro-neighbour-pcm-cache.ts';
 import { macroSpectralContext, type MacroSpectralSelection } from './macro-spectral-context.ts';
 import { runMacroTargetPlans } from './macro-linked-truncation.ts';
+import { macroRackHistoryFrames, macroRackHistoryScratchBytes } from './macro-rack-history.ts';
 
 const EFFECT_MACRO_TASK = 'selection-effect-macro';
 
@@ -211,13 +212,13 @@ export function createEffectMacroService<Buffer = MacroRenderBuffer>(runtime: Ef
 			const effects = enabledEffects.map((effect) => materializeStep(effect, target.sourceTrackId ?? target.track.id));
 			const spectral = macroSpectralContext(project.selection?.frequencyRange, target, effects,
 				() => createLocalizedError(Error, runtime.copy, 'spectralEffectLengthChanging'));
-			const preRollFrames = Math.min(target.startFrame, sampleRate * 10);
+			const preRollFrames = macroRackHistoryFrames(effects, sampleRate, target.startFrame);
 			const outputFrames = chainOutputFrames(effects, target.durationFrames);
 			const outputBytes = outputFrames * target.channelCount * Float32Array.BYTES_PER_ELEMENT;
 			const processingFrames = target.durationFrames + preRollFrames;
 			const latencyFrames = runtime.effectRackLatencyFrames(effects, sampleRate);
 			const offlineBytes = (processingFrames + latencyFrames) * 2 * Float32Array.BYTES_PER_ELEMENT;
-			return { target, effects, spectralSelection: spectral?.selection, preRollFrames, outputBytes, peakBytes: (spectral?.peakBytes ?? 0) + Math.max(
+			return { target, effects, spectralSelection: spectral?.selection, preRollFrames, outputBytes, peakBytes: (spectral?.peakBytes ?? 0) + macroRackHistoryScratchBytes(effects, preRollFrames, target.channelCount, Boolean(target.sourceId || spectral || effects[0]?.type === 'audacity-auto-duck')) + Math.max(
 				offlineBytes * 2 + outputBytes * 3,
 				chainPeakBytes(effects, target, sampleRate, processingFrames),
 			) };
@@ -457,7 +458,7 @@ export function createEffectMacroService<Buffer = MacroRenderBuffer>(runtime: Ef
 			projectFrameCount: () => target.sourceFrameCount ?? runtime.projectFrameCount(),
 			renderDryRange: runtime.renderDryTrackRange,
 			renderControlTrackRange: runtime.renderControlTrackRange ? (trackId, current) => runtime.renderControlTrackRange!(
-				trackId, { ...target, endFrame: current.endFrame, durationFrames: current.endFrame - current.startFrame },
+				trackId, { ...target, startFrame: current.startFrame, endFrame: current.endFrame, durationFrames: current.endFrame - current.startFrame },
 			) : undefined,
 			runSelectionEffect: runtime.runSelectionEffectWorker, runSelectionEffectChain: runtime.runSelectionEffectChain,
 			createAudioBuffer: runtime.createAudioBuffer,
