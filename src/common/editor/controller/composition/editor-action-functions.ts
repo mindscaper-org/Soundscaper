@@ -165,6 +165,7 @@ export interface EditorActionFunctions {
 	readonly resampleTrack: ReturnType<typeof createTrackAudioComposition>['resampleTrack'];
 	readonly resetClipPitchSpeed: ReturnType<typeof createClipVideoComposition>['clipProperty']['resetClipPitchSpeed'];
 	readonly resetLoudnessMeasurement: ReturnType<typeof createMicrophoneMeterService>['resetLoudnessMeasurement'];
+	readonly setTrackHeightMode: ReturnType<typeof createTransportComposition>['view']['setTrackHeightMode'];
 	readonly resizeTrackHeight: ReturnType<typeof createTransportComposition>['view']['resizeTrackHeight'];
 	readonly revertFactorySettings: ReturnType<typeof createPreferencesComposition>['service']['revertFactorySettings'];
 	readonly runEffectMacro: ReturnType<typeof createEffectsComposition>['runEffectMacro'];

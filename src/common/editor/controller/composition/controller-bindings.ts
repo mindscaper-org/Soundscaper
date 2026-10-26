@@ -62,7 +62,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 	const { addVideoClipEffect, updateVideoClipEffect, toggleVideoClipEffect, bypassVideoClipEffect, previewVideoEffectGesture, commitVideoEffectGesture } = deferControllerMethods(() => services.clips().videoEffect, ['addVideoClipEffect', 'updateVideoClipEffect', 'toggleVideoClipEffect', 'bypassVideoClipEffect', 'previewVideoEffectGesture', 'commitVideoEffectGesture']);
 	const { cancelTimedRecording } = deferControllerMethods(() => services.recording().timed, ['cancelTimedRecording']);
 	const { startRecording, startSoundActivatedRecording } = deferControllerMethods(() => services.recording().session, ['startRecording', 'startSoundActivatedRecording']);
-	const { setVisibleTrackHeights, resizeTrackHeight } = deferControllerMethods(() => services.viewStateService(), ['setVisibleTrackHeights', 'resizeTrackHeight']);
+	const { setVisibleTrackHeights, resizeTrackHeight, setTrackHeightMode } = deferControllerMethods(() => services.viewStateService(), ['setVisibleTrackHeights', 'resizeTrackHeight', 'setTrackHeightMode']);
 	const { newProject } = deferAsyncControllerMethods(() => services.projectSwitchService(), ['newProject']);
 	const { releaseProjectLock } = deferAsyncControllerMethods(() => services.projectLockService(), ['releaseProjectLock']);
 	const { requestWaveformPcmWindow, activateStoredSource } = deferAsyncControllerMethods(() => services.sources().sourceLifecycle, ['requestWaveformPcmWindow', 'activateStoredSource']);
@@ -141,7 +141,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 		sampleEditingAvailable, setSampleEditMode, applySamplePencil, smoothSelectedSamples,
 		updateRecordingDeviceRows, addVideoClipEffect, updateVideoClipEffect, toggleVideoClipEffect,
 		bypassVideoClipEffect, previewVideoEffectGesture, commitVideoEffectGesture, cancelTimedRecording,
-		startRecording, startSoundActivatedRecording, setVisibleTrackHeights, resizeTrackHeight, newProject,
+		startRecording, startSoundActivatedRecording, setVisibleTrackHeights, resizeTrackHeight, setTrackHeightMode, newProject,
 		releaseProjectLock, requestWaveformPcmWindow, requestFrequencyWaveform, activateStoredSource, loadRecordingRouting,
 		refreshRecordingInputs, refreshAudioDevices, startRecordingOnNewTrack, scheduleTimedRecording,
 		bootstrap, openProject, claimProjectLock,
