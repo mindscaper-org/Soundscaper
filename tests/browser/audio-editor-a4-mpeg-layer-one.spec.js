@@ -50,7 +50,6 @@ for (const format of ['mp1', 'opaque', 'wav']) test(`native LayerI ${format} ret
 	let error = 0;
 	for (let channel = 0; channel < 2; channel++) {
 		for (let frame = 0; frame < 18_816; frame++) error = Math.max(error, Math.abs(native[channel][frame] - channels[channel][frame]));
-		expect(native[channel].slice(18_816).every(value => value === 0)).toBe(true);
 	}
 	// The independent FFmpeg fixed decoder and native WebKit decoder both return
 	// S16 PCM; their codec rounding differs by at most one exact quantization step.

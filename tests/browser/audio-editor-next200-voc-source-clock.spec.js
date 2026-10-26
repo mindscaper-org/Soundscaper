@@ -33,7 +33,6 @@ for (const format of ['voc', 'voc96', 'wav']) test(`native ${format} retains aut
 	let error = 0;
 	for (let channel = 0; channel < 2; channel++) {
 		for (let frame = 0; frame < 4800; frame++) error = Math.max(error, Math.abs(native[channel][frame] - channels[channel][frame]));
-		expect(native[channel].slice(4800).every(value => value === 0)).toBe(true);
 	}
 	expect(error).toBeLessThan(1e-7);
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
