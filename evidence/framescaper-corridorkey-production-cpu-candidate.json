@@ -4,7 +4,7 @@
   "publicationReady": false,
   "gpuValidated": false,
   "modelId": "corridorkey-2.0",
-  "measuredAt": "2026-10-22T22:21:21.073Z",
+  "measuredAt": "2026-10-26T17:24:32.451Z",
   "validationScope": "Two synthetic 256 by 256 recurrent frames per mode, without hints and with normal Chroma Key hints, on authenticated Linux x64 production ONNX 1.29 CPU; no desktop GPU or publication evidence.",
   "environment": {
     "target": "linux-x64",
@@ -29,8 +29,8 @@
   "provenance": {
     "conversionReport": {
       "path": "evidence/framescaper-corridorkey-conversion-candidate.json",
-      "byteLength": 15492,
-      "sha256": "71f0e383ffec92957a81f062f73be1a6da00101e000e337564adf9e0c29f733d"
+      "byteLength": 18241,
+      "sha256": "f94643e3c388bf9d804f1d65847c3f43f0b55db79f6020674623b5467ebbd49c"
     },
     "sourceRegister": {
       "path": "config/framescaper-corridorkey-model-source-candidate.json",
@@ -69,9 +69,9 @@
         "sha256": "d675e406379a01d7fc9192f7a6c42809375cab168fb042cb35ac31e831dd9b84"
       },
       {
-        "path": "evidence/corridorkey-production-cpu-sources-2026-10-22/desktop-assistance-onnx-acceleration.ts.txt",
-        "byteLength": 4647,
-        "sha256": "9994ecfc004015d22dec3b5440eac9a06672f24522afd429a5104a44cfa1cf08"
+        "path": "desktop/assistance-onnx-acceleration.ts",
+        "byteLength": 4891,
+        "sha256": "caf57ac65e0710a687f435684f59bddbcc2ca95053d2b174d821f54ff9e33525"
       },
       {
         "path": "desktop/assistance-onnx-visual-tensors.ts",
@@ -86,9 +86,9 @@
     ],
     "runnerSources": [
       {
-        "path": "evidence/corridorkey-production-cpu-sources-2026-10-22/scripts-models-validate-corridorkey-production-cpu-candidate.ts.txt",
-        "byteLength": 14232,
-        "sha256": "f9212f40826e5ed21762efe2f6809da703df07842c9fd21fb85e079c2a1dfa55"
+        "path": "scripts/models/validate-corridorkey-production-cpu-candidate.ts",
+        "byteLength": 15682,
+        "sha256": "a71f8982b70048a603753048954d6e0b215600ebb35055cd4376ab753a8bf811"
       },
       {
         "path": "scripts/models/corridorkey-production-cpu-reference.py",
@@ -116,32 +116,32 @@
     {
       "role": "cradio",
       "fileName": "cradio.onnx",
-      "byteLength": 1727663765,
-      "sha256": "f33324c398f74eff73a29e9c094fd24308444de731ad2edf636ffa96b9456a61"
+      "byteLength": 1725128268,
+      "sha256": "5e9f2068f80e63ae81efaa16c00f77c7b26a2dac42f0efd06cea1a4b7ab3345f"
     },
     {
       "role": "moge",
       "fileName": "moge.onnx",
-      "byteLength": 352255692,
-      "sha256": "262a8786120b823f22228b0b8e02f31c40e9d54a1ad82f94fa68fdceadc9369c"
+      "byteLength": 351133937,
+      "sha256": "4a0fdf370a20e8138929ae1e82dc3c7267681de9e75179408bc97809163d1baa"
     },
     {
       "role": "rvm",
       "fileName": "rvm.onnx",
-      "byteLength": 134996829,
-      "sha256": "ddf1866d38ef9f03176e3d8c47c1ff45bd8c4d2be7a3559d88a635741659adbf"
+      "byteLength": 133421377,
+      "sha256": "a74756a230e84c891d4f40c1cd26705ee99399211120fa22deaf8d1d00846230"
     },
     {
       "role": "stage1",
       "fileName": "stage1.onnx",
-      "byteLength": 1854944460,
-      "sha256": "0e511199835884c786f696c512c3182a7e8a5b441b15bc57c3d2c198d56f6ca9"
+      "byteLength": 1849637713,
+      "sha256": "9f54dcf8fe0634142a45011aba2d441a55426412aa346171cd2e8c19bf7b6b07"
     },
     {
       "role": "stage2",
       "fileName": "stage2.onnx",
-      "byteLength": 810350799,
-      "sha256": "83b1a62dfaff43ac298af93ea56bfbb78657f95533c786c67a179550a6ad88f0"
+      "byteLength": 807908972,
+      "sha256": "137517e2c5f00411c9e86252c19d6ffb1e44a874ed070cf29475cc257e0b32ff"
     }
   ],
   "sessions": [
@@ -268,9 +268,9 @@
     "tsx",
     "scripts/models/validate-corridorkey-production-cpu-candidate.ts",
     "--runtime-root",
-    "/tmp/corridorkey-production-onnxruntime-1.29.0",
+    "/tmp/corridorkey-cpu-runtime/production-onnxruntime/extracted",
     "--runtime-archive",
-    "/tmp/corridorkey-production-onnxruntime-1.29.0.tar.gz",
+    "/tmp/corridorkey-cpu-runtime/production-onnxruntime/onnxruntime.tar.gz",
     "--model-root",
     "/tmp/corridorkey-real-embedded-candidate",
     "--source-root",
@@ -278,7 +278,7 @@
     "--python",
     "/tmp/corridorkey-tool-locked-venv/bin/python",
     "--output",
-    "/home/splowatt/git/Soundscaper-corridorkey-2/evidence/framescaper-corridorkey-production-cpu-candidate.json"
+    "/tmp/corridorkey-real-embedded-candidate/production-cpu-report.json"
   ],
-  "elapsedSeconds": 42.4
+  "elapsedSeconds": 52.5
 }

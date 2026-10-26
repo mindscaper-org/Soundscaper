@@ -89,8 +89,8 @@
       "artifacts": [
         {
           "fileName": "cradio.onnx",
-          "byteLength": 1727663765,
-          "sha256": "f33324c398f74eff73a29e9c094fd24308444de731ad2edf636ffa96b9456a61"
+          "byteLength": 1725128268,
+          "sha256": "5e9f2068f80e63ae81efaa16c00f77c7b26a2dac42f0efd06cea1a4b7ab3345f"
         }
       ],
       "cpuParity": [
@@ -157,8 +157,8 @@
       "artifacts": [
         {
           "fileName": "moge.onnx",
-          "byteLength": 352255692,
-          "sha256": "262a8786120b823f22228b0b8e02f31c40e9d54a1ad82f94fa68fdceadc9369c"
+          "byteLength": 351133937,
+          "sha256": "4a0fdf370a20e8138929ae1e82dc3c7267681de9e75179408bc97809163d1baa"
         }
       ],
       "cpuParity": [
@@ -227,8 +227,8 @@
       "artifacts": [
         {
           "fileName": "rvm.onnx",
-          "byteLength": 134996829,
-          "sha256": "ddf1866d38ef9f03176e3d8c47c1ff45bd8c4d2be7a3559d88a635741659adbf"
+          "byteLength": 133421377,
+          "sha256": "a74756a230e84c891d4f40c1cd26705ee99399211120fa22deaf8d1d00846230"
         }
       ],
       "cpuParity": [
@@ -397,8 +397,8 @@
       "artifacts": [
         {
           "fileName": "stage1.onnx",
-          "byteLength": 1854944460,
-          "sha256": "0e511199835884c786f696c512c3182a7e8a5b441b15bc57c3d2c198d56f6ca9"
+          "byteLength": 1849637713,
+          "sha256": "9f54dcf8fe0634142a45011aba2d441a55426412aa346171cd2e8c19bf7b6b07"
         }
       ],
       "cpuParity": [
@@ -502,8 +502,8 @@
       "artifacts": [
         {
           "fileName": "stage2.onnx",
-          "byteLength": 810350799,
-          "sha256": "83b1a62dfaff43ac298af93ea56bfbb78657f95533c786c67a179550a6ad88f0"
+          "byteLength": 807908972,
+          "sha256": "137517e2c5f00411c9e86252c19d6ffb1e44a874ed070cf29475cc257e0b32ff"
         }
       ],
       "cpuParity": [
@@ -575,5 +575,90 @@
   "rasterPaddingQuantum": 256,
   "stage1Frames": 1,
   "rvmState": "Recurrent across frames; zero initial state; preserve state_out between consecutive frames",
-  "allFiveGraphsValidated": true
+  "allFiveGraphsValidated": true,
+  "canonicalization": {
+    "recipe": "remove-onnx-debug-metadata-v1",
+    "script": {
+      "fileName": "canonicalize-corridorkey-assets.py",
+      "byteLength": 4351,
+      "sha256": "ac95e34d8a72a753341c0f8b1bc856f639f984a9a29ee283bb3962517c2ecb20"
+    },
+    "graphs": [
+      {
+        "role": "cradio",
+        "original": {
+          "fileName": "cradio.onnx",
+          "byteLength": 1727660348,
+          "sha256": "afe69fd156081727587bd6fa10afb78b258b689aaf0f91ecceb0e54f50603657"
+        },
+        "canonical": {
+          "fileName": "cradio.onnx",
+          "byteLength": 1725128268,
+          "sha256": "5e9f2068f80e63ae81efaa16c00f77c7b26a2dac42f0efd06cea1a4b7ab3345f"
+        },
+        "outputComparison": "byte-exact",
+        "rasterCases": 3
+      },
+      {
+        "role": "moge",
+        "original": {
+          "fileName": "moge.onnx",
+          "byteLength": 352253937,
+          "sha256": "e8f9735d4cf4936c977240779dbe49d94becbf73013b3d3a9625f8caa467b7da"
+        },
+        "canonical": {
+          "fileName": "moge.onnx",
+          "byteLength": 351133937,
+          "sha256": "4a0fdf370a20e8138929ae1e82dc3c7267681de9e75179408bc97809163d1baa"
+        },
+        "outputComparison": "byte-exact",
+        "rasterCases": 3
+      },
+      {
+        "role": "rvm",
+        "original": {
+          "fileName": "rvm.onnx",
+          "byteLength": 134994231,
+          "sha256": "92188b4f91791e09592635d7559c16dd0bda7c7f85a7a513fb0d5c076620cde7"
+        },
+        "canonical": {
+          "fileName": "rvm.onnx",
+          "byteLength": 133421377,
+          "sha256": "a74756a230e84c891d4f40c1cd26705ee99399211120fa22deaf8d1d00846230"
+        },
+        "outputComparison": "byte-exact",
+        "rasterCases": 3
+      },
+      {
+        "role": "stage1",
+        "original": {
+          "fileName": "stage1.onnx",
+          "byteLength": 1854934092,
+          "sha256": "ff7cf8ebc9e1b9106cbd82b95939dfeca1ccd0aa9a778357e4ab96d051997f97"
+        },
+        "canonical": {
+          "fileName": "stage1.onnx",
+          "byteLength": 1849637713,
+          "sha256": "9f54dcf8fe0634142a45011aba2d441a55426412aa346171cd2e8c19bf7b6b07"
+        },
+        "outputComparison": "byte-exact",
+        "rasterCases": 3
+      },
+      {
+        "role": "stage2",
+        "original": {
+          "fileName": "stage2.onnx",
+          "byteLength": 810345570,
+          "sha256": "04c8cacbdb7240382fbb9618c2eeb366d9ef0931e560dd22016cd98bc19a1cc2"
+        },
+        "canonical": {
+          "fileName": "stage2.onnx",
+          "byteLength": 807908972,
+          "sha256": "137517e2c5f00411c9e86252c19d6ffb1e44a874ed070cf29475cc257e0b32ff"
+        },
+        "outputComparison": "byte-exact",
+        "rasterCases": 3
+      }
+    ]
+  }
 }
