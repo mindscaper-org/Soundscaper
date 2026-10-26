@@ -2,6 +2,7 @@
 /** Authenticated, frame-exact selected-video custody for explicit shot modes. */
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
+import { reframePublicationSampleBudget } from '../../assistance/reframe-publication-capacity.ts';
 import {
 	normalizeAssistanceOperation,
 	type AssistanceOperation,
@@ -72,8 +73,7 @@ const SELECTED_VIDEO_MODEL_OPERATIONS = new Set<LocalAssistanceSelectedVideoMode
 	'image-text-embedding', 'optical-character-recognition', 'subject-detection', 'saliency-detection',
 ]);
 const SELECTED_VIDEO_OPERATIONS = Object.freeze(
-	['shot-detection', ...SELECTED_VIDEO_MODEL_OPERATIONS] as const);
-type DataRecord = Readonly<Record<string, unknown>>;
+	['shot-detection', ...SELECTED_VIDEO_MODEL_OPERATIONS] as const);type DataRecord = Readonly<Record<string, unknown>>;
 
 interface SelectedVideoProject extends DataRecord {
 	readonly id: string;
@@ -251,7 +251,7 @@ export function createLocalAssistanceSelectedVideoPreparation(
 					? { createFramePack: dependencies.createVisualFramePack } : {}),
 			}, { operation: modelOperation, body: bytes,
 				timing: createLocalAssistanceSelectedVideoReframeFramePackTiming(
-					state.binding, shotAnchors,
+					state.binding, shotAnchors, reframePublicationSampleBudget(selected.project, selected.clip),
 				),
 				sourceWidth: integer(selected.source.width, 1, 'source width'),
 				sourceHeight: integer(selected.source.height, 1, 'source height'),
