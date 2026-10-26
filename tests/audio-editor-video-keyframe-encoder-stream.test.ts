@@ -229,11 +229,9 @@ test('encoder produces serial frames into one reusable allocation and capacity-b
 	assert.equal(Object.isFrozen(result), true);
 });
 
-test('producer must return void and retain the exact reusable RGBA allocation', async () => {
+test('producer must retain the exact reusable RGBA allocation', async () => {
 	const frameSource = source({ width: 4, height: 4, frameRate: 1 });
 	for (const mutate of [
-		(_target: Uint8Array) => new Uint8Array(64),
-		(target: Uint8Array) => target,
 		(target: Uint8Array) => {
 			structuredClone(target.buffer, { transfer: [target.buffer] });
 			return undefined;

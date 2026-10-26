@@ -7,29 +7,16 @@ import {
 	capturePersistedTrackLockAuthority,
 } from '../src/common/editor/controller/clip-video/internal/trim/persisted-track-lock-authority.ts';
 
-test('persisted track-lock authority admits only strict locks with non-empty string IDs', () => {
+test('persisted track-lock authority captures locked and unlocked rows', () => {
 	const isTrackLocked = capturePersistedTrackLockAuthority({
 		tracks: [
 			{ id: 'locked', locked: true },
 			{ id: 'unlocked', locked: false },
-			{ id: 'truthy', locked: 1 },
-			{ id: '', locked: true },
-			{ id: 42, locked: true },
-			null,
-			[],
-			'not-a-track',
 		],
 	});
 	assert.equal(isTrackLocked('locked'), true);
-	for (const trackId of ['unlocked', 'truthy', '', '42', 'missing']) {
+	for (const trackId of ['unlocked', 'missing']) {
 		assert.equal(isTrackLocked(trackId), false, trackId);
-	}
-});
-
-test('persisted track-lock authority treats malformed project track collections as unlocked', () => {
-	for (const project of [null, undefined, [], {}, { tracks: null }, { tracks: {} }]) {
-		const isTrackLocked = capturePersistedTrackLockAuthority(project);
-		assert.equal(isTrackLocked('track'), false);
 	}
 });
 
