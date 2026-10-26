@@ -30,7 +30,8 @@ test('a CART recording dropped later on the timeline retains its cue position in
 	await expect(clip).toBeVisible();
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
 	const properties = await openClipProperties(page, editor, clip);
-	const start = Number(await clipField(properties, 'startFrame').inputValue());
+	await clipField(properties, 'startFrame').focus();
+	const start = Math.round(Number(await clipField(properties, 'startFrame').inputValue()) * 48_000);
 	expect(start).toBeGreaterThan(0);
 	await closeClipProperties(properties);
 	const dialog = await openExportDialog(page, editor);

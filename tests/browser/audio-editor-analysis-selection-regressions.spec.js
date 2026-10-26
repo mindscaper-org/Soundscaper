@@ -10,7 +10,7 @@ test('Plot spectrum includes audio after a silent lead-in in the selected range'
 	await importFiles(editor, [monoTone]);
 	const properties = await openClipProperties(page, editor, clipByName(editor, monoTone.name));
 	await showClipTimingFields(properties);
-	await clipField(properties, 'startFrame').fill('24000');
+	await clipField(properties, 'startFrame').fill('0.5');
 	await clipField(properties, 'startFrame').press('Tab');
 	await closeClipProperties(properties);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');

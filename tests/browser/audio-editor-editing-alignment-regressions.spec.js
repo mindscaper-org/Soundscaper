@@ -10,7 +10,7 @@ test('track alignment reads the end of selected clips as the selection end', asy
 	const clip = clipByName(editor, monoTone.name);
 	const properties = await openClipProperties(page, editor, clip);
 	await showClipTimingFields(properties);
-	await clipField(properties, 'startFrame').fill('48000');
+	await clipField(properties, 'startFrame').fill('1');
 	await clipField(properties, 'startFrame').press('Tab');
 	await closeClipProperties(properties);
 	await clip.locator('.clip-header').click();

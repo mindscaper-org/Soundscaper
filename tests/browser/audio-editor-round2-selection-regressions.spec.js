@@ -14,8 +14,10 @@ test('Cursor to track end selects from the end when the cursor is beyond the sel
 	const cursor = await playhead.getAttribute('aria-valuenow');
 	const properties = await openClipProperties(page, editor, clip);
 	await showClipTimingFields(properties);
-	const start = Number(await clipField(properties, 'startFrame').inputValue());
-	const duration = Number(await clipField(properties, 'durationFrame').inputValue());
+	await clipField(properties, 'startFrame').focus();
+	const start = Math.round(Number(await clipField(properties, 'startFrame').inputValue()) * 48_000);
+	await clipField(properties, 'durationFrame').focus();
+	const duration = Math.round(Number(await clipField(properties, 'durationFrame').inputValue()) * 48_000);
 	await closeClipProperties(properties);
 	await expect(playhead).toHaveAttribute('aria-valuenow', cursor);
 	await chooseNestedCommandAction(page, editor, 'Select', ['Region', 'Cursor to track end']);
