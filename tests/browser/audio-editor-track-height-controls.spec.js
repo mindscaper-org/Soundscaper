@@ -42,6 +42,8 @@ test('track visual group keeps per-track height stepping and fitting on the clic
 	const second = rows.nth(1);
 	const initial = (await second.boundingBox()).height;
 	const firstHeight = (await first.boundingBox()).height;
+	const reservedHeight = await rows.evaluateAll(elements => elements.reduce((sum, element, index) =>
+		index === 1 ? sum : sum + element.getBoundingClientRect().height, 0));
 	await second.getByRole('button', { name: 'Track menu', exact: true }).click();
 	const menu = page.locator('.audio-editor-track-menu[role="menu"]');
 	const height = menu.getByRole('menuitem', { name: /^Track height/u });
@@ -53,6 +55,6 @@ test('track visual group keeps per-track height stepping and fitting on the clic
 	await height.hover();
 	await height.getByRole('menu').getByRole('menuitem', { name: 'Fit to height', exact: true }).click();
 	const available = Number(await editor.locator('[data-track-height-available]').getAttribute('data-track-height-available'));
-	await expect.poll(async () => (await second.boundingBox()).height).toBe(Math.max(40, Math.floor(available - firstHeight)));
+	await expect.poll(async () => (await second.boundingBox()).height).toBe(Math.max(40, Math.floor(available - reservedHeight)));
 	await expect.poll(async () => (await first.boundingBox()).height).toBe(firstHeight);
 });

@@ -26,7 +26,7 @@ test('shortening a warped recording in Properties retains the audible prefix and
 	expect(rms(before, .2, .24)).toBeLessThan(.001);
 	const properties = await openClipProperties(page, editor, clip);
 	await showClipTimingFields(properties);
-	await clipField(properties, 'durationFrame').fill('24000');
+	await clipField(properties, 'durationFrame').fill('0.5');
 	await clipField(properties, 'durationFrame').press('Tab');
 	await closeClipProperties(properties);
 	await expect(clip).toHaveAccessibleName(/0\.5 seconds long$/u);

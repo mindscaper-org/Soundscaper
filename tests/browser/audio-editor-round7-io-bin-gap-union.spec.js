@@ -16,7 +16,7 @@ test('shorter bin replacement contracts coincident tails once', async ({ page })
 	const laterId = await laterClip.getAttribute('data-clip-id');
 	const before = await openClipProperties(page, editor, laterClip);
 	await showClipTimingFields(before);
-	await clipField(before, 'startFrame').fill('60000');
+	await clipField(before, 'startFrame').fill('1.25');
 	await clipField(before, 'startFrame').press('Tab');
 	await closeClipProperties(before);
 	await card.getByRole('button', { name: /More file actions/u }).click();
@@ -29,7 +29,7 @@ test('shorter bin replacement contracts coincident tails once', async ({ page })
 	await expect(choice).toBeHidden();
 	const later = await openClipProperties(page, editor, editor.locator(`[data-clip-id="${laterId}"][role="group"]`));
 	await showClipTimingFields(later);
-	await expect(clipField(later, 'startFrame')).toHaveValue('40800');
-	await expect(clipField(later, 'durationFrame')).toHaveValue('19200');
+	await expect(clipField(later, 'startFrame')).toHaveValue('0.85');
+	await expect(clipField(later, 'durationFrame')).toHaveValue('0.4');
 	await closeClipProperties(later);
 });

@@ -36,7 +36,7 @@ test('paste into existing audio preserves the pitch of independently sped-up aud
 	const properties = await openClipProperties(page, editor, original);
 	await expectClipMediaSettingChecked(properties, 'Link pitch and tempo', false);
 	await commitInput(clipField(properties, 'speedRatio'), '200');
-	await expect(clipField(properties, 'durationFrame')).toHaveValue('19200');
+	await expect(clipField(properties, 'durationFrame')).toHaveValue('0.4');
 	await closeClipProperties(properties);
 	const before = await exportSamples(page, editor);
 	expect(amplitude(before, 440)).toBeGreaterThan(0.15);
@@ -55,7 +55,7 @@ test('paste into existing audio preserves the pitch of independently sped-up aud
 	expect(amplitude(after, 440), JSON.stringify({ at440: amplitude(after, 440), at880: amplitude(after, 880) })).toBeGreaterThan(0.15);
 	expect(amplitude(after, 880)).toBeLessThan(0.01);
 	const pasted = await openClipProperties(page, editor, clipByName(editor, monoTone.name));
-	await expect(clipField(pasted, 'durationFrame')).toHaveValue('19200');
+	await expect(clipField(pasted, 'durationFrame')).toHaveValue('0.4');
 	await closeClipProperties(pasted);
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
