@@ -97,6 +97,20 @@ test('the length field commits a sample-exact duration without a timecode option
 	} finally { await f.cleanup(); }
 });
 
+for (const sampleRate of [44_100, 48_000]) test(`numeric Length retains its one-sample minimum at ${sampleRate} Hz`, async () => {
+	const f = await fixture(sampleRate);
+	try {
+		await f.render(['one']);
+		for (const [seconds, frames] of [[0, 1], [0.5 / sampleRate, 1], [1 / sampleRate, 1], [48 / sampleRate, 48], [0.001, Math.round(sampleRate / 1000)]] as const) {
+			await f.typeAndCommit('length', String(seconds));
+			assert.deepEqual(f.trims.pop(), { id: 'one', changes: {
+				sourceStartFrame: 0, sourceDurationFrames: frames, durationFrames: frames,
+			} }, `${seconds} seconds must retain the native sample boundary`);
+		}
+		assert.deepEqual(f.failures, []);
+	} finally { await f.cleanup(); }
+});
+
 test('numeric time fields roll back refused moves and trims while reporting each failure once', async () => {
 	for (const mode of ['sync', 'async'] as const) {
 		const f = await fixture();
@@ -266,7 +280,7 @@ test('native blocked state disables every property mutation while German fields 
 	} finally { await f.cleanup(); }
 });
 
-async function fixture() {
+async function fixture(sampleRate = 48_000) {
 	const dom = installReactTestDom();
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const priorAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
@@ -275,7 +289,7 @@ async function fixture() {
 	Object.defineProperty(globalThis, 'React', { configurable: true, value: React });
 	const { createRoot } = await import('react-dom/client');
 	const root = createRoot(dom.container as unknown as Element);
-	let current = project();
+	let current = project(undefined, undefined, undefined, sampleRate);
 	const updates: unknown[] = [], commits: unknown[] = [], timePitch: unknown[] = [];
 	const operations: unknown[] = [];
 	const trims: { id: string; changes: Readonly<Record<string, number>> }[] = [];
@@ -326,7 +340,7 @@ async function fixture() {
 		render: async (ids: string[], options: { projectId?: string; locked?: boolean; copy?: typeof ENGLISH_COPY; audioEffects?: boolean;
 			timePitch?: Partial<Pick<ReturnType<typeof createAudioClip>, 'pitchCents' | 'speedRatio' | 'linkPitchAndTempo' | 'preserveFormants'>>;
 			focusRequest?: ComponentProps<typeof ClipPropertiesPanel>['focusRequest']; panelActive?: boolean } = {}) => {
-			current = project(options.projectId, ids, options.locked);
+			current = project(options.projectId, ids, options.locked, sampleRate);
 			if (options.timePitch) current = { ...current, clips: current.clips.map(clip => ({ ...clip, ...options.timePitch })) };
 			await act(async () => root.render(<ClipPropertiesPanel controller={controller} copy={options.copy ?? ENGLISH_COPY}
 				run={run}
@@ -337,12 +351,12 @@ async function fixture() {
 			if (priorReact) Object.defineProperty(globalThis, 'React', priorReact); else Reflect.deleteProperty(globalThis, 'React'); dom.restore(); },
 	};
 }
-function project(id = 'project-a', selectedIds: string[] = [], locked = false) {
+function project(id = 'project-a', selectedIds: string[] = [], locked = false, sampleRate = 48_000) {
 	const sources = ['one', 'two'].map(key => createAudioSource({ id: `source-${key}`, name: key === 'one' ? 'First source' : 'Second source',
-		storageKey: `${id}-${key}`, frameCount: 48_000, channelCount: 1, sampleRate: 48_000 }));
+		storageKey: `${id}-${key}`, frameCount: 48_000, channelCount: 1, sampleRate }));
 	const clips = ['one', 'two'].map(key => createAudioClip({ id: key, sourceId: `source-${key}`, title: key === 'one' ? 'First clip' : '',
 		timelineStartFrame: 0, durationFrames: 24_000, sourceStartFrame: 0, sourceDurationFrames: 24_000, pitchCents: key === 'one' ? 0 : 100 }));
-	const created = createSoundscaperProject({ id, title: id, now: '2026-10-02T00:00:00.000Z', sources, clips,
+	const created = createSoundscaperProject({ id, sampleRate, title: id, now: '2026-10-02T00:00:00.000Z', sources, clips,
 		tracks: [createAudioTrack({ id: 'track', name: 'Track', clipIds: clips.map(clip => clip.id), locked })],
 		selection: { clipIds: selectedIds, trackIds: ['track'], startFrame: 0, endFrame: 0 } });
 	return { ...created, clips: created.clips.map(clip => clip.id === 'two' ? { ...clip, title: '' } : clip) };

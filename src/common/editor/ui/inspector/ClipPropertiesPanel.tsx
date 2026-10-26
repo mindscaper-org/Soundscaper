@@ -128,7 +128,7 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 	return <div ref={root} className="audio-editor-upstream-clip-properties" data-upstream-clip-properties tabIndex={-1}>
 		{audio ? <><fieldset>
 			<UpstreamClipPropertiesPanel key={targetKey} clip={presentation.clip} selection={presentation.selection}
-				labels={upstreamClipPropertiesLabels(copy)} showFadeShapes={false}
+				labels={upstreamClipPropertiesLabels(copy)} showFadeShapes={false} minimumDuration={project ? 1 / project.sampleRate : undefined}
 				pitchSpeedHeadingControl={mediaControls.heading} pitchSpeedAction={mediaControls.action}
 				pitchSpeedFooter={mediaControls.footer} invertControl={mediaControls.invert} mediaSections={mediaControls.sections}
 				trackDetail={project ? `${project.sampleRate / 1000} kHz` : undefined}

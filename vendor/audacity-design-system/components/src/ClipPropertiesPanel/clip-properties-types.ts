@@ -110,6 +110,8 @@ export interface ClipPropertiesPanelProps {
   onStartChange?: (seconds: number) => void;
   /** New visible length, seconds (the host clamps to the source) */
   onDurationChange?: (seconds: number) => void;
+  /** The host's minimum visible length, seconds (for example one project sample). */
+  minimumDuration?: number;
   /** Trim the LEFT edge: how much of the source to hide at the head,
    *  seconds of source; the clip's content stays where it is (user
    *  request 2026-10-06 — until then only the right edge trimmed here) */

@@ -40,6 +40,7 @@ function ClipPropertiesPanelBody({
   onColorChange,
   onStartChange,
   onDurationChange,
+  minimumDuration = 0.02,
   onTrimStartChange,
   onTrimEndChange,
   onFadeChange,
@@ -232,7 +233,7 @@ function ClipPropertiesPanelBody({
                   end): one row, always */}
               <Row three>
                 {timingFields['start'] ?? <NumberField testId="start" label={t('Start')} glyph={<StartGlyph />} value={clip.start} onCommit={onStartChange} step={0.1} min={0} />}
-                {timingFields['length'] ?? <NumberField testId="length" label={t('Length')} glyph={<LengthGlyph />} value={clip.duration} onCommit={onDurationChange} step={0.1} min={0.02} />}
+                {timingFields['length'] ?? <NumberField testId="length" label={t('Length')} glyph={<LengthGlyph />} value={clip.duration} onCommit={onDurationChange} step={0.1} min={minimumDuration} />}
                 {timingFields.end ?? <ReadField testId="end" label={t('End')} glyph={<EndGlyph />}>{fmt(clip.start + clip.duration)} s</ReadField>}
               </Row>
               <ClipStrip clip={clip} onTrimStartChange={onTrimStartChange} onTrimEndChange={onTrimEndChange} onOpenSource={onOpenSource} />
