@@ -20,6 +20,8 @@ export class RateConvertedNoiseReductionProcessor {
 	private queues: SampleQueue[] = [];
 	private dry: Float32Array[] = [];
 	private cursor = 0;
+	private processedPlanes: Float32Array[] = [];
+	private processedCapacity = 0;
 	private requestedOutput: unknown;
 	constructor(readonly sampleRate: number, params: Parameters, profile: unknown) {
 		this.profileRate = noiseReductionProfileRate(profile, sampleRate);
@@ -46,7 +48,7 @@ export class RateConvertedNoiseReductionProcessor {
 		this.profileRate = rate; this.inner = replacement; this.reset();
 	}
 	reset(): void {
-		this.inner.reset(); this.inputResampler = null; this.outputResampler = null; this.queues = []; this.dry = []; this.cursor = 0;
+		this.inner.reset(); this.processedPlanes = []; this.processedCapacity = 0; this.inputResampler = null; this.outputResampler = null; this.queues = []; this.dry = []; this.cursor = 0;
 	}
 	readAnalysis(): null { return null; }
 	process(input: readonly Float32Array[], output: readonly Float32Array[]): boolean {
@@ -54,7 +56,12 @@ export class RateConvertedNoiseReductionProcessor {
 		if (this.profileRate === this.sampleRate) return this.inner.process(input, output);
 		if (output.length !== this.queues.length) this.prepare(output.length);
 		const incoming = this.inputResampler!.push(output.map((_, channel) => channelAt(input, channel) ?? new Float32Array(frames)));
-		const processed = incoming.map(channel => new Float32Array(channel.length));
+		const length = incoming[0]!.length;
+		if (this.processedPlanes.length !== incoming.length || this.processedCapacity < length) {
+			this.processedPlanes = incoming.map(() => new Float32Array(length));
+			this.processedCapacity = length;
+		}
+		const processed = this.processedPlanes.map((channel) => channel.subarray(0, length));
 		this.inner.process(incoming, processed);
 		const converted = this.outputResampler!.push(processed);
 		for (let channel = 0; channel < output.length; channel++) {
@@ -75,7 +82,7 @@ export class RateConvertedNoiseReductionProcessor {
 		return true;
 	}
 	private prepare(channelCount: number): void {
-		this.inner.reset();
+		this.inner.reset(); this.processedPlanes = []; this.processedCapacity = 0;
 		const geometry = noiseReductionClockGeometry(this.sampleRate, this.profileRate, this.inner.latencyFrames);
 		const options = { radius: NOISE_REDUCTION_RESAMPLE_RADIUS };
 		this.inputResampler = createStreamingWindowedSincResampler(this.sampleRate, this.profileRate, channelCount, options);

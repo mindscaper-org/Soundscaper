@@ -25,6 +25,7 @@
  */
 import { AUDACITY_EFFECT_DEFINITIONS, normalizeAudacityEffectParams } from './manifest.js';
 import { fft } from '../pffft.js';
+import { validateAudacitySpectralChannels as validateChannels } from './spectral-channel-admission.ts';
 import { dbToLinear } from './basic-channel-math.js';
 import {
 	buildEqualizationKernel,
@@ -242,31 +243,6 @@ export function applyAudacityRepair(channels, sampleRate, params = {}, context =
 }
 
 const EMPTY_FLOAT32 = new Float32Array(0);
-
-function validateChannels(channels, sampleRate) {
-	if (!Number.isFinite(sampleRate) || sampleRate <= 0) {
-		throw new RangeError('sampleRate must be a positive finite number.');
-	}
-	if (!Array.isArray(channels) || channels.length === 0) {
-		throw new TypeError('channels must be a non-empty array of Float32Array objects.');
-	}
-	let frameCount = null;
-	for (let channelIndex = 0; channelIndex < channels.length; channelIndex += 1) {
-		const channel = channels[channelIndex];
-		if (!(channel instanceof Float32Array)) {
-			throw new TypeError(`channels[${channelIndex}] must be a Float32Array.`);
-		}
-		if (frameCount == null) frameCount = channel.length;
-		else if (channel.length !== frameCount) throw new RangeError('All channels must have the same frame count.');
-		for (let frame = 0; frame < channel.length; frame += 1) {
-			if (!Number.isFinite(channel[frame])) {
-				throw new RangeError(`channels[${channelIndex}][${frame}] must be finite.`);
-			}
-		}
-	}
-	if (frameCount === 0) throw new RangeError('The audio selection must contain at least one frame.');
-	return { frameCount };
-}
 
 function normalizeContextChannels(value, channelCount, name) {
 	if (value == null) return null;
