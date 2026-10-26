@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { DatabaseSync, SQLInputValue } from 'node:sqlite';
+import { nativeQueueStatusProjection } from './native-services-queue-status-projection.ts';
+import type { FramescaperNativeQueueProjection } from './native-services-controller-contracts-v3.ts';
 
 import {
 	admitNativeQueueJobs,
@@ -90,6 +92,16 @@ export class FramescaperNativeQueueRepository {
 		`).all() as Record<string, unknown>[];
 		if (rows.length > MAXIMUM_QUEUE_ROWS) throw new RangeError('The native render queue exceeds its row ceiling.');
 		return Object.freeze(rows.map(decodeRecord));
+	}
+
+
+	/** Status consumers do not need source inventories, reservations, or canonical plan bodies. */
+	listStatusProjections(): readonly FramescaperNativeQueueProjection[] {
+		const rows = this.#database.prepare(`SELECT job_id,schema_family,schema_version,task_kind,project_id,
+			relative_destination,state,position,progress,attempt,last_failure_code FROM render_queue_jobs
+			ORDER BY position,created_at_ms,job_id LIMIT ${String(MAXIMUM_QUEUE_ROWS + 1)}`).all() as Record<string, unknown>[];
+		if (rows.length > MAXIMUM_QUEUE_ROWS) throw new RangeError('The native render queue exceeds its row ceiling.');
+		return Object.freeze(rows.map(nativeQueueStatusProjection));
 	}
 
 	/** Recheck the exact writer generation around an awaited physical operation. */

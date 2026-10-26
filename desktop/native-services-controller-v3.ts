@@ -145,7 +145,7 @@ export class FramescaperNativeServicesControllerV3 {
 			snapshotVersion: FRAMESCAPER_NATIVE_SERVICES_SNAPSHOT_VERSION,
 			runtimeAvailable: this.#runtimeAvailable() === true,
 			nativeMediaEnabled: this.#nativeMediaEnabled() === true,
-			queue: Object.freeze(this.#queue.list().map(framescaperNativeQueueProjection)),
+			queue: this.#queue.listStatusProjections(),
 			roots: Object.freeze(this.#roots.list().map((grant) => this.#rootProjection(grant))),
 			watchRules: Object.freeze(this.#watch.list().map(watchProjection)),
 		});
