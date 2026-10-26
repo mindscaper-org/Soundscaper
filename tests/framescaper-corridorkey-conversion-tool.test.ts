@@ -15,6 +15,7 @@ interface ConversionEvidence {
 	readonly allFiveGraphsValidated: boolean;
 	readonly registerSha256: string;
 	readonly toolchainLockSha256: string;
+	readonly toolchainSnapshot?: { readonly lockPath: string; readonly projectPath: string };
 	readonly conversionToolFiles: readonly { fileName: string; byteLength: number; sha256: string }[];
 	readonly graphs: readonly {
 		role: string; status: string; storage: string;
@@ -66,6 +67,25 @@ print(json.dumps(expected, sort_keys=True))
 		torch: '2.13.0', torchvision: '0.28.0' });
 });
 
+test('CorridorKey conversion excludes vulnerable Pillow and Transformers releases in the manifest and lock', () => {
+	const result = python(['-c', `
+from pathlib import Path
+import tomllib
+
+project = tomllib.loads(Path("pyproject.toml").read_text())
+lock = tomllib.loads(Path("uv.lock").read_text())
+direct = dict(value.split("==", 1) for value in project["project"]["dependencies"] if "==" in value)
+# Pillow 13 addresses the image decoder advisories; Transformers 5.10 fixes
+# model-loading and save_pretrained advisories and requires Hub >= 1.5.
+minimums = {"pillow": (13, 0, 0), "transformers": (5, 10, 0), "huggingface-hub": (1, 5, 0)}
+for name, minimum in minimums.items():
+    assert tuple(map(int, direct[name].split("."))) >= minimum, name
+    packages = [package for package in lock["package"] if package["name"] == name]
+    assert packages and all(package["version"] == direct[name] for package in packages), name
+`]);
+	assert.equal(result.status, 0, result.stderr);
+});
+
 test('retained real-weight CPU parity binds all five embedded graphs to the measured recipe and source pins', async () => {
 	const report = JSON.parse(await readFile(new URL(
 		'../evidence/framescaper-corridorkey-conversion-candidate.json', import.meta.url), 'utf8')) as ConversionEvidence;
@@ -78,9 +98,13 @@ test('retained real-weight CPU parity binds all five embedded graphs to the meas
 	})), 'Runtime graph admission must use the exact artifacts that passed real-weight conversion parity.');
 	assert.equal(report.registerSha256, digest(await readFile(new URL(
 		'../config/framescaper-corridorkey-model-source-candidate.json', import.meta.url))));
-	assert.equal(report.toolchainLockSha256, digest(await readFile(`${TOOL_ROOT}/uv.lock`)));
+	const snapshot = report.toolchainSnapshot;
+	const lockPath = snapshot ? new URL(`../${snapshot.lockPath}`, import.meta.url) : `${TOOL_ROOT}/uv.lock`;
+	assert.equal(report.toolchainLockSha256, digest(await readFile(lockPath)));
 	for (const file of report.conversionToolFiles) {
-		const body = await readFile(`${TOOL_ROOT}/${file.fileName}`);
+		const path = snapshot && file.fileName === 'pyproject.toml'
+			? new URL(`../${snapshot.projectPath}`, import.meta.url) : `${TOOL_ROOT}/${file.fileName}`;
+		const body = await readFile(path);
 		assert.equal(body.byteLength, file.byteLength, file.fileName);
 		assert.equal(digest(body), file.sha256, file.fileName);
 	}

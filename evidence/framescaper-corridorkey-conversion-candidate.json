@@ -660,5 +660,10 @@
         "rasterCases": 3
       }
     ]
+  },
+  "toolchainSnapshot": {
+    "lockPath": "evidence/corridorkey-production-cpu-sources-2026-10-22/corridorkey-conversion-uv.lock.txt",
+    "projectPath": "evidence/corridorkey-production-cpu-sources-2026-10-22/corridorkey-conversion-pyproject.toml.txt",
+    "scope": "Original measured dependencies; retained CPU parity does not certify the maintained security-updated toolchain."
   }
 }

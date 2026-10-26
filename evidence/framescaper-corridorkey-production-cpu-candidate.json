@@ -29,8 +29,8 @@
   "provenance": {
     "conversionReport": {
       "path": "evidence/framescaper-corridorkey-conversion-candidate.json",
-      "byteLength": 18241,
-      "sha256": "f94643e3c388bf9d804f1d65847c3f43f0b55db79f6020674623b5467ebbd49c"
+      "byteLength": 18626,
+      "sha256": "b1a946e78aa9418a19a7b4a736bd683a4448352386ecaaaca6fb7025b7749faa"
     },
     "sourceRegister": {
       "path": "config/framescaper-corridorkey-model-source-candidate.json",
@@ -38,7 +38,7 @@
       "sha256": "9d51c9d0b7fd0cac777cdf9c5673f161309f58cfa1c4667446b84a05af8b1709"
     },
     "toolchainLock": {
-      "path": "scripts/models/corridorkey-conversion-tool/uv.lock",
+      "path": "evidence/corridorkey-production-cpu-sources-2026-10-22/corridorkey-conversion-uv.lock.txt",
       "byteLength": 90762,
       "sha256": "756023e01ad58a2b47f6a76ed865effad6e1acb642e4eb755537bc54a6410b4b"
     },
