@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { masteringSequenceIssueLabel } from './mastering-sequence-issue-label.ts';
 
 import { memo, useEffect, useState } from 'react';
 import { useMasteringEntryKeys } from './mastering-entry-form-keys.ts';
@@ -150,7 +151,7 @@ export default function SoundscaperMasteringSequenceEditor({
 				<h4>{copy.masteringIssues}</h4>
 				<ul>
 					{sequence.issues.map((issue, index) => <li key={`${issue.code}-${issue.entryId ?? index}`}>
-						{issue.message}
+						{masteringSequenceIssueLabel(issue, copy)}
 					</li>)}
 				</ul>
 			</section>}
