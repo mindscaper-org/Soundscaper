@@ -43,6 +43,8 @@ test('Motion AE rendered File transfer matches every normal full-quality PNG, pr
 		const pixels = await page.evaluate(async (bytes: number[]) => { const bitmap = await createImageBitmap(new Blob([Uint8Array.from(bytes)], { type: 'image/png' })); const canvas = document.createElement('canvas'); canvas.width = bitmap.width; canvas.height = bitmap.height; const context = canvas.getContext('2d')!; context.drawImage(bitmap, 0, 0); bitmap.close(); const data = context.getImageData(0, 0, canvas.width, canvas.height).data; return { visible: data.filter((_value, index) => index % 4 === 3 && data[index]! > 0).length, partial: data.filter((_value, index) => index % 4 === 3 && data[index]! > 0 && data[index]! < 128).length }; }, [...png.get('frames/frame000000000001.png')!]);
 		expect(pixels.visible).toBeGreaterThan(0); expect(pixels.partial).toBeGreaterThan(0);
 	} finally { await zip.close(); }
+	await dialog.getByRole('button', { name: 'Close', exact: true }).last().click();
+	await expect(dialog).toBeHidden();
 	await expect(page.locator('[data-motion-save-status]')).toHaveText('Saved on this device');
 });
 test('Motion AE rendered menu refuses a partial over-budget composition and cancels a real render without a download', async ({ page }) => {
