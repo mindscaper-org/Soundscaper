@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { TRACK_AUTOMATION_COPY_BY_LOCALE } from '../../src/common/i18n/editor-track-automation-copy.ts';
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
+
+const MASTER_ASSIGNMENT = TRACK_AUTOMATION_COPY_BY_LOCALE.en.automationAssignmentTarget.replace('{destination}', 'Master');
 
 test('Duplicate track preserves automation on its output connection', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
@@ -12,7 +15,7 @@ test('Duplicate track preserves automation on its output connection', async ({ p
 	await chooseTrackMenuAction(page, editor, row, 'Add automation');
 	const controls = row.locator('[data-track-automation-controls]');
 	await controls.getByRole('combobox', { name: 'Automation parameter', exact: true })
-		.selectOption({ label: 'Master assignment' });
+		.selectOption({ label: MASTER_ASSIGNMENT });
 	const points = row.locator('[data-automation-point-id]');
 	await row.getByRole('button', { name: /^Insert automation point:/u }).press('Enter');
 	await expect(points).toHaveCount(2);
@@ -26,7 +29,7 @@ test('Duplicate track preserves automation on its output connection', async ({ p
 	const copied = rows.last();
 	await chooseTrackMenuAction(page, editor, copied, 'Add automation');
 	await copied.getByRole('combobox', { name: 'Automation parameter', exact: true })
-		.selectOption({ label: 'Master assignment' });
+		.selectOption({ label: MASTER_ASSIGNMENT });
 	const copiedPoints = copied.locator('[data-automation-point-id]');
 	await expect(copiedPoints).toHaveCount(2);
 	expect(await copiedPoints.evaluateAll(elements => elements.map(element => element.getAttribute('aria-valuenow')))).toEqual(values);
@@ -37,6 +40,6 @@ test('Duplicate track preserves automation on its output connection', async ({ p
 	await expect(rows).toHaveCount(originalCount + 1);
 	await chooseTrackMenuAction(page, editor, copied, 'Add automation');
 	await copied.getByRole('combobox', { name: 'Automation parameter', exact: true })
-		.selectOption({ label: 'Master assignment' });
+		.selectOption({ label: MASTER_ASSIGNMENT });
 	await expect(copiedPoints).toHaveCount(2);
 });
