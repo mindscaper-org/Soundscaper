@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { withNyquistArchiveFailure as failure, writeNyquistArchiveStorage } from './archive-failure.ts';
 import { parseNyquistPluginHeader } from './plugin-parser.js';
 import { NYQUIST_MAX_SOURCE_BYTES } from './protocol.js';
 
@@ -9,7 +10,7 @@ const MAX_ARCHIVE_FILE_BYTES = Math.min(NYQUIST_MAX_SOURCE_BYTES, 512 * 1024);
 
 function validateArchiveFileName(fileName) {
 	if (!/^[A-Za-z0-9][A-Za-z0-9._-]*\.ny$/u.test(fileName)) {
-		throw new Error('Invalid Nyquist archive file name.');
+		throw failure(new Error('Invalid Nyquist archive file name.'), 'invalidCatalog');
 	}
 }
 
@@ -64,12 +65,12 @@ export function createNyquistArchiveStore(storage) {
 		source: (id) => records.find((record) => record.id === id)?.source ?? null,
 		install(record) {
 			const plugin = parsedInstalledPlugin(record);
-			if (!plugin) throw new Error('This Nyquist plug-in needs features unavailable in the browser.');
-			if (!storage) throw new Error('Browser storage is unavailable for Nyquist plug-ins.');
+			if (!plugin) throw failure(new Error('This Nyquist plug-in needs features unavailable in the browser.'), 'unsupportedPlugin');
+			if (!storage) throw failure(new Error('Browser storage is unavailable for Nyquist plug-ins.'), 'storageUnavailable');
 			const next = [...records.filter((saved) => saved.id !== record.id), {
 				...record, name: plugin.name, role: plugin.role, spectral: plugin.spectral,
 			}];
-			storage?.setItem(STORAGE_KEY, JSON.stringify(next));
+			if (storage) writeNyquistArchiveStorage(storage, STORAGE_KEY, JSON.stringify(next));
 			records = next;
 			plugins = [...plugins.filter((saved) => saved.id !== record.id), plugin];
 			announceInstalledChange();
@@ -77,7 +78,7 @@ export function createNyquistArchiveStore(storage) {
 		},
 		remove(id) {
 			const next = records.filter((record) => record.id !== id);
-			storage?.setItem(STORAGE_KEY, JSON.stringify(next));
+			if (storage) writeNyquistArchiveStorage(storage, STORAGE_KEY, JSON.stringify(next));
 			records = next;
 			plugins = plugins.filter((plugin) => plugin.id !== id);
 			announceInstalledChange();
@@ -91,7 +92,7 @@ export function createNyquistArchiveStore(storage) {
 					: record;
 			});
 			if (next.every((record, index) => record === records[index])) return;
-			storage?.setItem(STORAGE_KEY, JSON.stringify(next));
+			if (storage) writeNyquistArchiveStorage(storage, STORAGE_KEY, JSON.stringify(next));
 			records = next;
 			plugins = records.map(parsedInstalledPlugin);
 			announceInstalledChange();
