@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createTrackLockRelationshipReader, type TrackLockRelationshipReader } from './track-lock-relationship-index.ts';
+import { createTrackLockSnapshotIndex, type TrackLockSnapshotIndex } from './track-lock-snapshot-index.ts';
 import type { AudioEditorCommand } from './protocol.ts';
 import {
 	resolveRuntimeProjectProjection,
@@ -21,6 +22,7 @@ interface TrackSnapshotContext {
 	readonly runtimeTrackById: ReadonlyMap<string, DataRecord>;
 	readonly sourceById: ReadonlyMap<string, DataRecord>;
 	readonly relationships: TrackLockRelationshipReader | null;
+	readonly snapshots: TrackLockSnapshotIndex | null;
 }
 
 interface TrackLockBaseline {
@@ -193,7 +195,7 @@ function protectedTrackSnapshot(
 	mode: SnapshotMode,
 ): SnapshotValue {
 	const { project } = context;
-	const track = context.tracks.find((candidate) => candidate.id === trackId);
+	const track = context.snapshots ? context.snapshots.tracks.get(trackId) : context.tracks.find((candidate) => candidate.id === trackId);
 	if (!track) return Object.freeze({ missingTrack: trackId });
 	const semantic = mode.endsWith('semantic');
 	const raw = mode.startsWith('raw');
@@ -221,13 +223,13 @@ function protectedTrackSnapshot(
 	});
 	return Object.freeze({
 		track: protectedTrackData(track),
-		locations: trackLocations(project, trackId),
-		laneMembers: laneMembers(context.tracks, track),
+		locations: context.snapshots ? context.snapshots.locations(trackId) : trackLocations(project, trackId),
+		laneMembers: context.snapshots ? context.snapshots.laneMembers(track) : laneMembers(context.tracks, track),
 		clips: Object.freeze(clips),
 		labels,
 		groups: context.relationships ? context.relationships(clipIds, 'groupId') : relatedMemberships(context.clips, clipIds, 'groupId'),
 		avLinks: context.relationships ? context.relationships(clipIds, 'avLinkId') : relatedMemberships(context.clips, clipIds, 'avLinkId'),
-		takeGroups: takeGraphSnapshot(project, trackId),
+		takeGroups: context.snapshots ? context.snapshots.takeGroups(trackId) : takeGraphSnapshot(project, trackId),
 		sources: Object.freeze(sources),
 	});
 }
@@ -446,6 +448,7 @@ function createSnapshotContext(project: DataRecord, relationshipDemand: number):
 	const runtime = runtimeSnapshot(project);
 	const tracks = records(project.tracks, 'project.tracks');
 	const clips = records(project.clips, 'project.clips');
+	const relationships = relationshipDemand >= 8 || clips.length >= 8 ? createTrackLockRelationshipReader(project, clips) : null;
 	return Object.freeze({
 		project,
 		tracks,
@@ -454,7 +457,8 @@ function createSnapshotContext(project: DataRecord, relationshipDemand: number):
 		runtimeClipById: indexById(records(runtime.clips, 'runtime clips'), 'runtime clip'),
 		runtimeTrackById: indexById(records(runtime.tracks, 'runtime tracks'), 'runtime track'),
 		sourceById: indexById(records(project.sources, 'project.sources'), 'source'),
-		relationships: relationshipDemand >= 8 ? createTrackLockRelationshipReader(project, clips) : null,
+		relationships,
+		snapshots: relationships ? createTrackLockSnapshotIndex(project, tracks, snapshotValue, snapshotRecord) : null,
 	});
 }
 
