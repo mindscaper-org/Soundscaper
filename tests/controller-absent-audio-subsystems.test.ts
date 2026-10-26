@@ -40,6 +40,10 @@ const SHAPES = Object.freeze({
 test('an absent subsystem refuses the work it was never composed for', async () => {
 	for (const [name, shape] of Object.entries(SHAPES)) {
 		for (const [member, value] of Object.entries(shape as Record<string, unknown>)) {
+			if (name === 'nyquistHost' && member === 'prepareNyquistHostProperties') {
+				assert.equal(value, undefined, 'an absent host exposes no optional preparation');
+				continue;
+			}
 			if (SILENT_MEMBERS.has(member)) continue;
 			const call = value as (...args: readonly unknown[]) => unknown;
 			if (SYNCHRONOUS_MEMBERS.has(member)) {
