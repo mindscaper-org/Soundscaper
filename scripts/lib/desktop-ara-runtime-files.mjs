@@ -2,6 +2,7 @@
 
 /** Compiled ARA document host shared by both desktop products. */
 export const DESKTOP_ARA_RUNTIME_FILES = Object.freeze([
+	'src/common/editor/ara-failure.js',
 	'desktop/ara-session-service.js',
 	'desktop/ara-helper-session.js',
 	'desktop/ara-preload.js',

@@ -2,6 +2,8 @@
 
 /** 5B leaf modules emitted through the desktop runtime's owning entry points. */
 export const DESKTOP_5B_TRANSITIVE_RUNTIME_FILES = Object.freeze([
+	'desktop/native-services-plan-timing-authority.js',
+	'desktop/native-services-queue-status-projection.js',
 	'desktop/framescaper-m5b-diagnostic-runner.js',
 	'desktop/framescaper-native-image-sequence-registration.js',
 	'desktop/native-image-sequence-decode-admission.js',

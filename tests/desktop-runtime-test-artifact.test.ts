@@ -111,7 +111,11 @@ async function sourceFixture(t: test.TestContext) {
 	const root = await mkdtemp(join(tmpdir(), 'desktop-artifact-identity-'));
 	t.after(() => rm(root, { recursive: true, force: true }));
 	for (const directory of ['src/common/editor', 'desktop', 'scripts/lib', 'config', 'node_modules/typescript/lib', 'node_modules/esbuild/bin', 'node_modules/@esbuild/linux-x64/bin']) await mkdir(join(root, directory), { recursive: true });
-	const inputs = ['src/common/editor/source.ts', 'desktop/host.ts', 'scripts/lib/recipe.mjs', 'config/pins.json', 'package-lock.json', 'tsconfig.desktop-runtime.json', 'node_modules/typescript/lib/compiler.js', 'node_modules/esbuild/bin/compiler', 'node_modules/@esbuild/linux-x64/bin/esbuild'];
+	const inputs = ['src/common/editor/source.ts', 'desktop/host.ts', 'scripts/lib/recipe.mjs',
+		'scripts/lib/desktop-project-library-expected-runtime-files.mjs',
+		'config/pins.json', 'package-lock.json', 'tsconfig.desktop-runtime.json',
+		'node_modules/typescript/lib/compiler.js', 'node_modules/esbuild/bin/compiler',
+		'node_modules/@esbuild/linux-x64/bin/esbuild'];
 	for (const file of inputs) await writeFile(join(root, file), 'original');
 	for (const command of [['init', '--quiet'], ['add', 'src', 'desktop', 'scripts', 'config', 'package-lock.json', 'tsconfig.desktop-runtime.json'], ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--quiet', '-m', 'fixture']]) {
 		assert.equal(spawnSync('git', command, { cwd: root }).status, 0);

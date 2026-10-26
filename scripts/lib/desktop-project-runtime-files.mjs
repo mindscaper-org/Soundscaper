@@ -4,10 +4,13 @@
 export const DESKTOP_PROJECT_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/adm-strip-existence.js',
 	'src/common/editor/commands/label-clipboard-codec.js',
+	'src/common/editor/exact-record-id-index.js',
 	'src/common/editor/frozen-record-id-index.js',
 	'src/common/editor/project-audio-warp-validation.js',
 	'src/common/editor/project-bext-metadata.js',
+	'src/common/editor/project-command-musical-labels.js',
 	'src/common/editor/project-command-projection.js',
+	'src/common/editor/project-command-tempo-projection.js',
 	'src/common/editor/project-current-runtime.js',
 	'src/common/editor/project-document-validation.js',
 	'src/common/editor/project-effect-tail-v21.js',

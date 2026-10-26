@@ -2,6 +2,10 @@
 
 /** Exact compiled closure owned by desktop local assistance and its model store. */
 export const DESKTOP_ASSISTANCE_RUNTIME_FILES = Object.freeze([
+	'desktop/assistance-wave-channel-group-reader.js',
+	'src/common/editor/assistance/frame-pack-ordinal-range-index.js',
+	'src/common/editor/assistance/guided-terminal-output-capacity.js',
+	'src/common/editor/assistance/reframe-path-wire.js',
 	'desktop/assistance-acceleration-entrypoints.js',
 	'desktop/assistance-cleanup-barrier.js',
 	'desktop/assistance-runtime-family-cancellation.js',
