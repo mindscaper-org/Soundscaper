@@ -7,7 +7,7 @@ import {
 	createUpdateTrackFolderCommand,
 } from '../../../commands/factories.ts';
 import type { AudioEditorCommand, CommandObject } from '../../../commands/protocol.ts';
-import { resolveTrackNodeSpanV12, trackNodeLaneGroupsV12 } from '../../../track-hierarchy-mutation-v12.ts';
+import { createTrackNodeSpanResolverV12, resolveTrackNodeSpanV12, trackNodeLaneGroupsV12 } from '../../../track-hierarchy-mutation-v12.ts';
 import type { EditorControllerLifetime } from '../../shared/lifecycle.ts';
 
 type RuntimeValue = string | number | boolean | null | undefined;
@@ -215,12 +215,13 @@ function wrappedTrackBlocks(project: FolderedProjectShape, trackIds: readonly st
 	const nodes = project.sequences?.find(sequence => sequence.id === sequenceId)?.trackNodes;
 	if (!nodes) throw new ReferenceError(`Unknown sequence: ${sequenceId}.`);
 	const groups = trackNodeLaneGroupsV12(project.tracks ?? []);
+	const resolveSpan = createTrackNodeSpanResolverV12(nodes, groups);
 	const consumed = new Set<string>();
 	const blocks: Readonly<{ nodeId: string; index: number }>[] = [];
 	let index = 0;
 	for (const trackId of trackIds) {
 		if (consumed.has(trackId)) continue;
-		const span = resolveTrackNodeSpanV12(nodes, trackId, groups);
+		const span = resolveSpan(trackId);
 		const members = nodes.slice(span.start, span.end);
 		const head = members[0]!;
 		for (const member of members) consumed.add(member.id);
