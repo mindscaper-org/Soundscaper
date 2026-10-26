@@ -34,7 +34,7 @@ export default function CorridorKeyDialog(props: Props) {
 		<CorridorKeyRunDialog {...props} />
 	</AssistanceModelGate>;
 }
-function CorridorKeyRunDialog({ bridgeScope, controller, copy, locale, onClose }: Props) {
+function CorridorKeyRunDialog({ bridgeScope, controller, copy, onClose }: Props) {
 	const bridge = useMemo(() => resolveLocalAssistanceBridge(bridgeScope), [bridgeScope]);
 	const modelBridge = useMemo(() => resolveLocalModelManagerBridge(bridgeScope), [bridgeScope]);
 	const manager = useMemo(() => modelBridge ? localModelManagerStoreFor(modelBridge) : null, [modelBridge]);
