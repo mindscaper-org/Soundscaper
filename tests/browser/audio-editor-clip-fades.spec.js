@@ -549,14 +549,25 @@ test.describe('non-destructive clip fade handles', () => {
 		// Unselected clips expose the clipped boundary zone, not the hidden slider.
 		const x = bounds.x + 27, y = bounds.y + 16;
 		await page.mouse.move(x, y);
+		await corner.evaluate(element => {
+			window.addEventListener('pointerdown', event => {
+				if (event.target === element) element.setAttribute('data-test-pointer-id', String(event.pointerId));
+			}, { capture: true, once: true });
+		});
 		await page.mouse.down();
-		await expect(first.locator('[data-fade-length-drag]')).toHaveCount(1);
+		const pointerId = await corner.evaluate(element => {
+			const id = element.getAttribute('data-test-pointer-id');
+			element.removeAttribute('data-test-pointer-id');
+			return id === null ? null : Number(id);
+		});
+		expect(pointerId).not.toBeNull();
+		expect(await corner.evaluate((element, id) => element.hasPointerCapture(id), pointerId)).toBe(true);
 		await page.mouse.move(x + 30, y, { steps: 5 });
 		await expect.poll(async () => Number(await firstFade.getAttribute('aria-valuenow'))).toBeGreaterThan(0.002);
 		await expect(first.locator('.clip-display')).toHaveAttribute('data-selected', 'false');
 		await expect(secondFade).toHaveAttribute('aria-valuenow', '0.002');
 		await page.mouse.up();
-		await expect(first.locator('[data-fade-length-drag]')).toHaveCount(0);
+		expect(await corner.evaluate((element, id) => element.hasPointerCapture(id), pointerId)).toBe(false);
 		await expect(first.locator('.clip-display')).toHaveAttribute('data-selected', 'false');
 		await expect(second.locator('.clip-display')).toHaveAttribute('data-selected', 'true');
 		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
