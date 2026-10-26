@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { normalizeAutomationLaneV21, prepareAutomationLaneForSchedulingV21 } from '../automation-lane-v21.ts';
+import { prepareAutomationLaneForSchedulingV21 } from '../automation-lane-v21.ts';
 import { hasProductionMixerProjectAuthority } from '../project-schema-version.ts';
 import {
 	compileAutomationLaneEventsV21,
@@ -29,7 +29,7 @@ export function scheduleProjectAutomationLanesV21(
 	if (!Array.isArray(project.automationLanes)) {
 		throw new TypeError('A V21 project requires an automationLanes array.');
 	}
-	const lanes = project.automationLanes.map((value) => normalizeAutomationLaneV21(value));
+	const lanes = project.automationLanes.map((value) => prepareAutomationLaneForSchedulingV21(value));
 	const activeLanes = [];
 	let retainedEvents = 0;
 	for (const lane of lanes) {

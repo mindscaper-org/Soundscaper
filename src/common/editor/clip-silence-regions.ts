@@ -79,6 +79,7 @@ export function findClipSilenceRegions(
 			regions.push(Object.freeze([timelineStart, timelineEnd]));
 		}
 	};
+	const channels = Array.from({ length: buffer.numberOfChannels }, (_, channel) => buffer.getChannelData(channel));
 	let silenceStart: number | null = null;
 	for (let relativeSourceFrame = scan.start; relativeSourceFrame < scan.end; relativeSourceFrame += 1) {
 		const loopSourceFrame = loop
@@ -88,8 +89,8 @@ export function findClipSilenceRegions(
 			? clip.sourceStartFrame + sourceDurationFrames - 1 - loopSourceFrame
 			: clip.sourceStartFrame + loopSourceFrame;
 		let peak = 0;
-		for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
-			peak = Math.max(peak, Math.abs(buffer.getChannelData(channel)?.[sourceFrame] ?? 0));
+		for (let channel = 0; channel < channels.length; channel += 1) {
+			peak = Math.max(peak, Math.abs(channels[channel]?.[sourceFrame] ?? 0));
 		}
 		if (peak <= SILENCE_PEAK) silenceStart ??= relativeSourceFrame;
 		else if (silenceStart != null) {

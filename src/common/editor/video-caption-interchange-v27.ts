@@ -111,9 +111,11 @@ export function exportCaptionInterchangeV1(
 	)];
 	reportUnreferencedDefinitions(track, format, losses);
 	const webVttIdentities = format === 'webvtt' ? createWebVttCueIdentities(track, losses) : null;
+	const definitions = format === 'webvtt' ? { styles: new Map(track.styles.map(style => [style.id, style])),
+		speakers: new Map(track.speakers.map(speaker => [speaker.id, speaker])) } : null;
 	const blocks = track.cues.map((cue, index) => format === 'srt'
 		? exportSrtCue(cue, index, sampleRate, losses)
-		: exportWebVttCue(cue, webVttIdentities?.get(cue.id) ?? cue.id, track, sampleRate, losses));
+		: exportWebVttCue(cue, webVttIdentities?.get(cue.id) ?? cue.id, definitions!, sampleRate, losses));
 	const text = format === 'srt'
 		? `${blocks.join('\n\n')}${blocks.length > 0 ? '\n' : ''}`
 		: `WEBVTT\n\n${blocks.join('\n\n')}${blocks.length > 0 ? '\n' : ''}`;
@@ -268,12 +270,13 @@ function exportSrtCue(
 function exportWebVttCue(
 	cue: VideoCaptionCueV1,
 	identifier: string,
-	track: VideoCaptionTrackV1,
+	definitions: Readonly<{ styles: ReadonlyMap<string, VideoCaptionTrackV1['styles'][number]>;
+		speakers: ReadonlyMap<string, VideoCaptionTrackV1['speakers'][number]> }>,
 	sampleRate: number,
 	losses: VideoCaptionInterchangeLossV1[],
 ): string {
-	const style = cue.styleId === null ? null : track.styles.find((candidate) => candidate.id === cue.styleId) ?? null;
-	const speaker = cue.speakerId === null ? null : track.speakers.find((candidate) => candidate.id === cue.speakerId) ?? null;
+	const style = cue.styleId === null ? null : definitions.styles.get(cue.styleId) ?? null;
+	const speaker = cue.speakerId === null ? null : definitions.speakers.get(cue.speakerId) ?? null;
 	const settings = style === null ? '' : ` align:${style.textAlign}`;
 	const timing = exportMillisecondTiming(cue, sampleRate, 'webvtt', losses) + settings;
 	const printable = cue.text.split('\n').filter((line) => line.trim().length > 0);
