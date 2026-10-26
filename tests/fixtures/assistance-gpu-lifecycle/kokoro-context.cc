@@ -23,4 +23,10 @@ int main() {
   FakeOrt::available = false;
   assert(scape_g2p_gpu_open(&first, nullptr) == 2 && first == nullptr);
   assert(FakeOrt::registrations == 0 && FakeOrt::sessions == 0);
+
+  FakeOrt::available = true;
+  FakeOrt::fail_unregister = true;
+  assert(scape_g2p_gpu_open(&first, nullptr) == 0);
+  assert(scape_g2p_gpu_close(first) == 0);
+  assert(FakeOrt::registrations == 0 && FakeOrt::sessions == 0);
 }

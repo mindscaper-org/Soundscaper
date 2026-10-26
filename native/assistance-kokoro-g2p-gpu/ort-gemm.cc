@@ -68,7 +68,10 @@ struct Runtime {
     plugin_path = plugin;
     env.RegisterExecutionProviderLibrary("soundscaper-g2p-webgpu", plugin.c_str());
   }
-  ~Runtime() { env.UnregisterExecutionProviderLibrary("soundscaper-g2p-webgpu"); }
+  ~Runtime() noexcept {
+    try { env.UnregisterExecutionProviderLibrary("soundscaper-g2p-webgpu"); }
+    catch (...) { /* Destruction must not throw across the native C ABI. */ }
+  }
 };
 
 std::shared_ptr<Runtime> GpuRuntime() {

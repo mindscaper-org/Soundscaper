@@ -18,6 +18,7 @@ inline int registrations = 0;
 inline int sessions = 0;
 inline bool fail_session = false;
 inline bool available = true;
+inline bool fail_unregister = false;
 }
 
 namespace Ort {
@@ -26,6 +27,7 @@ inline void InitApi() {}
 struct Env {
   bool registered = false;
   Env(int, const char *) {}
+  ~Env() { if (registered) --FakeOrt::registrations; }
   void RegisterExecutionProviderLibrary(const char *, const char *) {
     if (FakeOrt::registrations) throw std::runtime_error("duplicate provider registration");
     registered = true;
@@ -33,6 +35,7 @@ struct Env {
   }
   void UnregisterExecutionProviderLibrary(const char *) {
     if (FakeOrt::sessions || !registered) throw std::runtime_error("provider has active sessions");
+    if (FakeOrt::fail_unregister) throw std::runtime_error("provider shutdown failed");
     registered = false;
     --FakeOrt::registrations;
   }
