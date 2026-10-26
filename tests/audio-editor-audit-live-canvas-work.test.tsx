@@ -122,3 +122,31 @@ test('EQ reuses its pooled FFT intervals until width or native sample rate chang
 		assert.ok(floors > 0, 'resizing rebuilds the frequency projection');
 	} finally { Math.floor = originalFloor; await fixture.close(); }
 });
+
+test('idle EQ spectra clear once and resume drawing when analyser data arrives', async () => {
+	const fixture = await canvasFixture();
+	let active = false;
+	function View(): React.ReactElement {
+		const refs = useParametricEqSpectrum({ sampleRate: 48_000, showInput: true, showOutput: true,
+			readSpectrum: (_source, values) => { values.fill(-120); return active ? { sampleRate: 48_000 } : null; } });
+		return <><canvas ref={refs.inputCanvasRef} /><canvas ref={refs.outputCanvasRef} /></>;
+	}
+	try {
+		await act(async () => fixture.root.render(<View />));
+		await fixture.frame(40);
+		assert.equal(fixture.paints, 2);
+		for (let time = 80; time <= 400; time += 40) await fixture.frame(time);
+		assert.equal(fixture.paints, 2);
+		active = true;
+		await fixture.frame(440);
+		assert.equal(fixture.paints, 4);
+		active = false;
+		await fixture.frame(480);
+		assert.equal(fixture.paints, 6, 'both retained spectra clear when their data disappears');
+		await fixture.frame(520);
+		assert.equal(fixture.paints, 6);
+		fixture.resize();
+		await fixture.frame(560);
+		assert.equal(fixture.paints, 8, 'resizing refreshes each blank backing store');
+	} finally { await fixture.close(); }
+});
