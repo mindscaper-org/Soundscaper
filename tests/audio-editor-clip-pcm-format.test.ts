@@ -74,3 +74,14 @@ test('reinterpretation keeps envelope frames unique when a shorter clock merges 
 	assert.ok(addition?.type === 'clip/add');
 	assert.deepEqual(addition.clip.envelope, [{ frame: 0, value: 0.5 }, { frame: 2, value: 0.25 }]);
 });
+
+test('reinterpretation rounds its combined PCM-width and sample-rate ratio once at large exact frame counts', () => {
+	const source = { id: 'source', sampleRate: 16000, frameCount: 3 } as ControllerSource;
+	const clip = { id: 'clip', sourceId: source.id, timelineStartFrame: 0, sourceStartFrame: 0,
+		sourceDurationFrames: 3, durationFrames: 4_000_000_000_000_001 } as ControllerClip;
+	const commands = reinterpretedClipCommands('track', clip, source, { ...source, id: 'replacement', sampleRate: 8000, frameCount: 2 });
+	const addition = commands.find(command => command.type === 'clip/add');
+	assert.ok(addition?.type === 'clip/add');
+	assert.equal(addition.clip.durationFrames, 5_333_333_333_333_335);
+	assert.equal(addition.clip.sourceDurationFrames, 2);
+});
