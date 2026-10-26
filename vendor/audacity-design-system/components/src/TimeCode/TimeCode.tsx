@@ -59,6 +59,7 @@ export interface TimeCodeProps {
    * Callback when value changes
    */
   onChange?: (value: number) => void;
+  onTextChange?: (magnitude: number, sign: '+' | '-' | null) => void;
   /** Confirm the current value when digit editing ends with Enter. */
   onCommit?: () => void;
   /**
@@ -102,7 +103,7 @@ export function TimeCode({
   formatDomain = format === 'Hz' ? 'frequency' : 'time',
   sampleRate = 44100,
   frameRate = 24,
-  onChange,
+  onChange, onTextChange,
   onCommit,
   onFormatChange,
   showFormatSelector = true,
@@ -124,10 +125,9 @@ export function TimeCode({
   const digitRefsMap = useRef<Map<number, HTMLSpanElement>>(new Map());
   useTimeCodeSubmenuPosition(containerRef, showMenu);
 
-
   const segments = formatTimeToSegments(value, format, sampleRate, frameRate, musicalMap);
   const segmentsRef = useRef(segments);
-  const textEntry = useTimeCodeText({ value, format, sampleRate, frameRate, disabled, ariaLabel, onChange, onCommit, containerRef });
+  const textEntry = useTimeCodeText({ value, format, sampleRate, frameRate, disabled, ariaLabel, onChange, onTextChange, onCommit, containerRef });
 
   // Keep segmentsRef up to date
   useEffect(() => {
