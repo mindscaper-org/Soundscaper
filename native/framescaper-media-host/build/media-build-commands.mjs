@@ -175,7 +175,7 @@ export function createFramescaperMediaHostBuildCommands(input) {
 	];
 	const ffmpegArgs = [
 		shellPath(join(ffmpegSourceRoot, 'configure'), windows), ...configureFlags,
-		`--prefix=${shellPath(paths.ffmpegInstall, windows)}`, ...ffmpegTargetArguments(target),
+		`--prefix=${makefilePath(paths.ffmpegInstall, windows)}`, ...ffmpegTargetArguments(target),
 		`--cc=${shellTool(tools.executables.c.path, windows)}`,
 		`--cxx=${shellTool(tools.executables.cxx.path, windows)}`,
 		`--ar=${shellTool(tools.executables.ar.path, windows)}`,
@@ -206,6 +206,14 @@ export function createFramescaperMediaHostBuildCommands(input) {
 			'GEN_VCPROJ=$(if $(VCPROJ_SRCS),$(file >$@.sources,$(VCPROJ_SRCS)))'
 			+ `${makeShellPath(tools.executables.shell.path)} ${makeShellPath(join(hostRoot, 'build/windows-vpx-project.sh'))} `
 			+ `${makeShellPath(join(externalSourceRoots.libvpx, 'build/make/gen_msvs_vcxproj.sh'))} $@.sources`] : [];
+	// Configure records Git Bash's /c aliases, which native Make cannot open.
+	// Read the authenticated upstream Makefile directly and override both aliases.
+	const ffmpegMake = windows ? ['-f', makefilePath(join(ffmpegSourceRoot, 'Makefile'), true),
+		`SRC_PATH=${makefilePath(ffmpegSourceRoot, true)}`, `SRC_LINK=${makefilePath(ffmpegSourceRoot, true)}`,
+		`SHELL=${makefilePath(tools.executables.shell.path, true)}`, '.SHELLFLAGS=-e -c'] : [];
+	const ffmpegBuildEnvironment = windows ? Object.freeze({ ...dependencyEnvironment,
+		PATH: vpxBuildEnvironment.PATH,
+	}) : dependencyEnvironment;
 	const zlibLibrary = windows ? 'zlibstatic.lib' : 'libz.a';
 	const installedZlibLibrary = windows ? 'zlib.lib' : 'libz.a';
 	return Object.freeze([
@@ -238,8 +246,8 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		command('libopus-build', tools.executables.cmake.path, ['--build', paths.libopusBuild, '--config', 'Release', '--target', 'opus', '--parallel', '1'], paths.libopusBuild, nativeEnvironment),
 		command('libopus-install', tools.executables.cmake.path, ['--install', paths.libopusBuild, '--config', 'Release', '--prefix', paths.libopusInstall], paths.libopusBuild, nativeEnvironment),
 		command('ffmpeg-configure', tools.executables.shell.path, ffmpegArgs, paths.ffmpegBuild, dependencyEnvironment),
-		command('ffmpeg-build', tools.executables.make.path, ['-C', paths.ffmpegBuild, '-j1'], paths.ffmpegBuild, dependencyEnvironment),
-		command('ffmpeg-install', tools.executables.make.path, ['-C', paths.ffmpegBuild, 'install'], paths.ffmpegBuild, dependencyEnvironment),
+		command('ffmpeg-build', tools.executables.make.path, ['-C', paths.ffmpegBuild, '-j1', ...ffmpegMake], paths.ffmpegBuild, ffmpegBuildEnvironment),
+		command('ffmpeg-install', tools.executables.make.path, ['-C', paths.ffmpegBuild, 'install', ...ffmpegMake], paths.ffmpegBuild, ffmpegBuildEnvironment),
 		command('host-configure', tools.executables.cmake.path, hostArgs, hostRoot, hostEnvironment),
 		command('host-build', tools.executables.cmake.path, ['--build', paths.hostBuild, '--config', 'Release', '--parallel', '1'], hostRoot, hostEnvironment),
 		command('host-install', tools.executables.cmake.path, ['--install', paths.hostBuild, '--config', 'Release', '--prefix', paths.hostInstall], hostRoot, hostEnvironment),
