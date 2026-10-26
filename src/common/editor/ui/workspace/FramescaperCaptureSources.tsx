@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 
 import type { CaptureSourceRole } from '../../framescaper-capture-domain.ts';
@@ -125,9 +125,10 @@ function CaptureSourcePreview({
 	const title = source.label || sourceRoleLabel(copy, source.role) || '';
 	const settings = sourceSettingsText(source);
 	const level = typeof source.level === 'number' ? Math.max(0, Math.min(1, source.level)) : null;
+	const levelFormatter = useMemo(() => new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }), [locale]);
 	const levelText = level === null
 		? String(copy.captureConfidenceUnavailable)
-		: new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(level);
+		: levelFormatter.format(level);
 	return <article className="kw-framescaper-capture__preview" data-capture-source-role={source.role}>
 		<header><strong>{title}</strong><span>{sourceRoleLabel(copy, source.role)}</span></header>
 		{['camera', 'display'].includes(source.role) && (source.previewUrl || source.previewStream)

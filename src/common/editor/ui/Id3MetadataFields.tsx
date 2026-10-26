@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ID3_DESCRIPTIVE_FIELDS, id3ProjectFieldValue, isId3ProjectTag, updateId3ProjectField } from '../id3-descriptive-fields.ts';
 import { createId3Artwork, parseId3Artwork, suggestId3ArtworkDescription, type Id3Artwork } from '../id3-artwork.ts';
 import { id3MetadataCopy } from '../../i18n/editor-id3-metadata-copy.ts';
@@ -26,9 +26,13 @@ export default function Id3MetadataFields({ metadata, copy, locale, disabled, on
 	const current = useRef({ metadata, disabled, onUpdate });
 	current.current = { metadata, disabled, onUpdate };
 	useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-	let artwork: readonly Id3Artwork[] = [];
-	let artworkError = '';
-	try { artwork = parseId3Artwork(id3ProjectFieldValue(metadata, 'id3Artwork')); } catch { artworkError = labels.artworkError; }
+	const artworkValue = id3ProjectFieldValue(metadata, 'id3Artwork');
+	const parsedArtwork = useMemo(() => {
+		try { return { artwork: parseId3Artwork(artworkValue), failed: false }; }
+		catch { return { artwork: [] as readonly Id3Artwork[], failed: true }; }
+	}, [artworkValue]);
+	const { artwork } = parsedArtwork;
+	const artworkError = parsedArtwork.failed ? labels.artworkError : '';
 	const commitArtwork = (items: readonly Id3Artwork[]): void => {
 		try {
 			onUpdate(updateId3ProjectField(metadata, 'id3Artwork', items.length ? JSON.stringify(parseId3Artwork(items)) : ''));

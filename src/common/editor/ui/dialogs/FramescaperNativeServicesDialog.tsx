@@ -211,7 +211,8 @@ function QueuePanel({ copy, snapshot, busy, perform, projectActions }: Readonly<
 	const queue = snapshot.services.queue;
 	if (queue.length === 0) return <p>{copy.noQueueJobs}</p>;
 	const pending = queue.filter(reorderable);
-	const pendingIndex = (job: FramescaperNativeQueueProjection) => pending.indexOf(job);
+	const pendingIndices = new Map(pending.map((job, index) => [job, index]));
+	const pendingIndex = (job: FramescaperNativeQueueProjection) => pendingIndices.get(job) ?? -1;
 	const runtimeUsable = snapshot.services.runtimeAvailable && snapshot.services.nativeMediaEnabled;
 	return <ol aria-label={copy.backgroundJobs}>
 		{queue.map((job) => <li key={job.jobId} data-native-queue-job={job.jobId}>
