@@ -247,7 +247,7 @@ export function createEditorEditService(runtime: EditServiceRuntime): HandleEdit
 				// always done with one.
 				if (baseSelection) {
 					const plan = prepareSplitRangeIntoNewTrackCommand({
-						getProject, findClip, createStableId, createAddTrackCommand, prepareLinkedSplitCommand, supportsTrackFolders, preserveTrackRouting,
+						getProject, createStableId, createAddTrackCommand, prepareLinkedSplitCommand, supportsTrackFolders, preserveTrackRouting,
 					}, { startFrame: baseSelection.startFrame, endFrame: baseSelection.endFrame, trackIds });
 					if (!plan) return;
 					commit(plan.command, { selectTrackId: plan.selectTrackId, selectClipId: plan.selectClipId });

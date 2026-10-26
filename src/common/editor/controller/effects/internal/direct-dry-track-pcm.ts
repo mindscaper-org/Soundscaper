@@ -42,9 +42,11 @@ export async function renderSimpleDryTrackPcm(project: EffectAudioProject, sourc
 		|| (clip.pitchCents ?? 0) !== 0 || (clip.speedRatio ?? 1) !== 1 || clip.linkPitchAndTempo
 		|| clip.stretchToTempo || readClipLoop(clip)) return null;
 	// A wider track route can downmix even when the selected source is stereo.
+	const clipById = new Map(project.clips.map(clip => [clip.id, clip]));
+	const sourceById = new Map(project.sources.map(source => [source.id, source]));
 	for (const clipId of track.clipIds ?? []) {
-		const authored = project.clips.find((candidate) => candidate.id === clipId);
-		const source = authored && project.sources.find((candidate) => candidate.id === authored.sourceId);
+		const authored = clipById.get(clipId);
+		const source = authored && sourceById.get(authored.sourceId);
 		if (!source || source.channelCount !== 1 && source.channelCount !== 2) return null;
 	}
 	const buffers = sourceBuffers as ReadonlyMap<unknown, AudioBuffer>;

@@ -137,6 +137,7 @@ function resolveInteractionClip(
 	project: ControllerProject,
 	selectedClipId: string | null | undefined,
 ): ControllerClip | null {
+	if (selectedClipId == null) return null;
 	const focused = project.clips.find((clip) => clip.id === selectedClipId) ?? null;
 	if (!focused) return null;
 	const selectedIds = project.selection?.clipIds || [];
@@ -145,9 +146,11 @@ function resolveInteractionClip(
 }
 
 function selectedInteractionClip(project: ControllerProject): ControllerClip | null {
-	return project.selection?.clipIds
-		?.map((id) => project.clips.find((clip) => clip.id === id))
-		.find((clip): clip is ControllerClip => Boolean(clip)) ?? null;
+	for (const id of project.selection?.clipIds ?? []) {
+		const clip = project.clips.find(clip => clip.id === id);
+		if (clip) return clip;
+	}
+	return null;
 }
 
 function moveClip(
