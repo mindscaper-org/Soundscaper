@@ -188,7 +188,7 @@ export const chunkGroups = [
 	},
 	{
 		name: 'vendor-design-system',
-		test: /(?:^|[\\/])vendor[\\/]audacity-design-system[\\/](?:core[\\/]src|tokens[\\/]src|components[\\/]src[\\/](?:ThemeProvider|contexts|hooks|utils|constants\.ts|assets[\\/]fonts))/,
+		test: /(?:^|[\\/])vendor[\\/]audacity-design-system[\\/](?:core[\\/]src|tokens[\\/]src|components[\\/]src[\\/](?:ThemeProvider|contexts|hooks|utils|component-copy\.ts|constants\.ts|assets[\\/]fonts))/,
 		priority: 95,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,

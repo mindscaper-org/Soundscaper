@@ -88,7 +88,7 @@ export const EDITOR_WEB_BOOTSTRAP_CHUNK_TEST =
 
 /** Source analysis and presentation loaded only after a frequency waveform is selected. */
 export const EDITOR_FREQUENCY_WAVEFORM_CHUNK_TEST =
-	/src[\\/]common[\\/]editor[\\/](?:frequency-waveform-(?:analysis|band-peaks|contract|worker-client|worker-protocol)|controller[\\/]source[\\/]frequency-waveform-(?:runtime-composition|source-service|window-service)|ui[\\/]timeline[\\/]frequency-waveform-(?:continuity|palette|projection|renderer))\.ts$/;
+	/src[\\/]common[\\/]editor[\\/](?:frequency-waveform-(?:analysis|band-peaks|centroid-stream|contract|worker-client|worker-protocol)|controller[\\/]source[\\/]frequency-waveform-(?:runtime-composition|source-service|window-service)|ui[\\/]timeline[\\/]frequency-waveform-(?:continuity|palette|projection|renderer))\.ts$/;
 
 /** Drafts and file interchange run only after the translation menu opens its surface. */
 export const EDITOR_COMMUNITY_TRANSLATIONS_CHUNK_TEST = /src[\\/]common[\\/](?:i18n[\\/]community-translations(?:-po)?\.ts|editor[\\/](?:controller[\\/]preferences[\\/]translation-drafts\.ts|ui[\\/]community-translations[\\/](?!(?:CommunityTranslationMount\.tsx|community-translation-(?:menu|presentation)\.ts)$)[^\\/]+))$/;
@@ -240,7 +240,9 @@ const framescaperProjectFoundationModules = Object.freeze([
 	'editor-domain-runtime-profile',
 	// Eager controller bindings and deferred native actions share these pure guards.
 	'editor-native-action-bridge-availability',
+	'editor-native-plan-timing-authority',
 	'editor-native-project-action-requests',
+	'editor-native-render-plan-authority',
 	'editor-project-assistance-foundation',
 	'editor-project-assistance-validation',
 	'editor-project-assistance',
@@ -305,6 +307,14 @@ const framescaperProjectFoundationModules = Object.freeze([
 	'editor-project-timeline-image-foundation',
 	'editor-project-timeline-image-validation',
 	'editor-project-timeline-image',
+	'editor-project-unified-render-core',
+	'editor-project-unified-render-authority',
+	'editor-project-unified-render-visual',
+	'editor-render-node-identity',
+	'video-export-visual-freshness-finishing',
+	'editor-project-unified-render-professional',
+	'editor-project-unified-render-openfx',
+	'editor-project-unified-render-plan-native-media',
 	'editor-project-transitions-validation',
 	'editor-project-transitions',
 	'editor-project-visual-validation',
@@ -407,7 +417,7 @@ export const FRAMESCAPER_TIMELINE_IMAGE_CHUNK_TEST =
  * imports, so sharing this owner does not grow the mounted transfer graph.
  */
 export const PROJECT_INTERCHANGE_FOUNDATION_CHUNK_TEST = new RegExp(
-	`(?:${editorPath}(?:import-file-extensions|project-schema-identity|controller[\\\\/](?:document[\\\\/]deferred-archive-runtime|shared[\\\\/]file-size-warning(?:-confirmation)?))|src[\\\\/]common[\\\\/]cross-product-handoff-intent)\\.ts$`,
+	`(?:${editorPath}(?:import-file-extensions|project-schema-identity|controller[\\\\/](?:document[\\\\/]deferred-archive-runtime|shared[\\\\/]file-size-warning(?:-confirmation)?))|src[\\\\/]common[\\\\/](?:cross-product-handoff-intent|project-file-extensions))\\.ts$`,
 );
 
 /** Flat editor modules and `assistance/` domain modules shared by the shell and dialogs. */
