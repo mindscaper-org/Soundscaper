@@ -165,7 +165,7 @@ export function executeFramescaperMediaHostBuildRecipe(
 	EXECUTED.add(recipe);
 	for (const path of [
 		'x264-build', 'x264-install', 'x265-build', 'x265-install',
-		'libvpx-build', 'libvpx-install', 'libopus-build', 'libopus-install',
+		'libvpx-build', 'libvpx-install', 'svt-av1-build', 'svt-av1-install', 'libopus-build', 'libopus-install',
 		'zlib-build', 'zlib-install', 'ffmpeg-build', 'ffmpeg-install',
 		'host-build', 'host-install',
 	]) {
@@ -422,9 +422,10 @@ function verifyToolchain(pathValue, identityValue, target, witnesses) {
 }
 
 function toolRoles(targetId) {
+	const assembler = targetId.endsWith('-x64') ? ['nasm'] : [];
 	return targetId.startsWith('win-')
-		? Object.freeze([...BASE_TOOL_ROLES, 'msbuild', 'rc'])
-		: BASE_TOOL_ROLES;
+		? Object.freeze([...BASE_TOOL_ROLES, ...assembler, 'msbuild', 'rc'])
+		: Object.freeze([...BASE_TOOL_ROLES, ...assembler]);
 }
 
 function exactEnvironment(toolchain, sourceDateEpoch, ffmpeg) {

@@ -8,12 +8,12 @@ import test from 'node:test';
 import { createFramescaperMediaHostBuildCommands, framescaperMediaHostBuildPaths } from '../native/framescaper-media-host/build/media-build-commands.mjs';
 
 function commands(root: string, source: string, shell: string, target = 'win-x64') {
-	const executables = Object.fromEntries(['ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell']
+	const executables = Object.fromEntries(['ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'nasm', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell']
 		.map(role => [role, { path: role === 'shell' ? shell : `/tools/${role}` }]));
 	return createFramescaperMediaHostBuildCommands({ target: { id: target, cmakePreset: target },
 		hostRoot: root, ffmpegSourceRoot: source, boostSourceRoot: '/boost', paths: framescaperMediaHostBuildPaths(root),
 		tools: { executables }, environment: { PATH: process.env.PATH }, configureFlags: [],
-		externalSourceRoots: Object.fromEntries(['x264', 'x265', 'libvpx', 'libopus', 'zlib'].map(role => [role, source])),
+		externalSourceRoots: Object.fromEntries(['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib'].map(role => [role, source])),
 	}) as readonly { phase: string; args: readonly string[]; cwd: string }[];
 }
 

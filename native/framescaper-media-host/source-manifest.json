@@ -57,8 +57,8 @@
 	"sourceFiles": [
 		{
 			"path": "CMakeLists.txt",
-			"byteLength": 7442,
-			"sha256": "34545b37817d61f9d527c637266b7f2a98aa035e293a605224edad72a974e303"
+			"byteLength": 8214,
+			"sha256": "273a40b9849edf2b180050fc2e25b971ff326b5a794fbeddbb0645db711bb3fd"
 		},
 		{
 			"path": "CMakePresets.json",
@@ -67,28 +67,28 @@
 		},
 		{
 			"path": "THIRD_PARTY_NOTICES.md",
-			"byteLength": 1600,
-			"sha256": "2d5d8d323fb6fff8b764eeb23f98eb16934627b5225017b44372bf290af1cb72"
+			"byteLength": 14412,
+			"sha256": "774167f2dfd1de8e0b3f2049f89dc74eeb8fbd30fe6363c867325f1aff93b516"
 		},
 		{
 			"path": "build/external-source-authentication.mjs",
-			"byteLength": 4602,
-			"sha256": "450df777d71f7f7fdcdc01a812969927311da53810c4267c17afdc6c9021824c"
+			"byteLength": 4800,
+			"sha256": "8bfacd2c12b1e1d46f54b5e4c0426c67460776c434288e5a48605327d4ad4011"
 		},
 		{
 			"path": "build/ffmpeg-9.0.1-configure.json",
-			"byteLength": 2792,
-			"sha256": "11fa1ad92a91271a0587350d7a67e576d0d35e325301c30a80b1d9501f10af20"
+			"byteLength": 3177,
+			"sha256": "f0639b9af085f5defb511c6fd42785eece687c8f9ad87c1c59ae3e64dad7f294"
 		},
 		{
 			"path": "build/ffmpeg-9.0.1-external-sources.json",
-			"byteLength": 2929,
-			"sha256": "feb2daa581936e74579255040e415f2f6acb52f57a864ca448ba1a53f71774e4"
+			"byteLength": 3502,
+			"sha256": "d524a9ab821146e57eff8c261045ccbb393e442211ee8579c2e6deaca8c64c9b"
 		},
 		{
 			"path": "build/media-build-commands.mjs",
-			"byteLength": 18795,
-			"sha256": "b0e563a056db085b810238baed5feb5e1b5c5ad81080fb42750c1f00c1d50497"
+			"byteLength": 20244,
+			"sha256": "5f41e94394b717f7571325d92a6d7e7125a2513c33ab2c2a67a1199db09d90ff"
 		},
 		{
 			"path": "build/recipe-cli.mjs",
@@ -97,8 +97,8 @@
 		},
 		{
 			"path": "build/recipe-driver.mjs",
-			"byteLength": 22058,
-			"sha256": "bbc4d66a1122e146dac77addc7f995d7ee1dc6a524d630851d7cea49e9510966"
+			"byteLength": 22204,
+			"sha256": "85d22a909b79f342c96299ccf836c75c84c29a7360bab6a9bd5ea03b8aeefe05"
 		},
 		{
 			"path": "build/source-authentication.mjs",
@@ -172,8 +172,8 @@
 		},
 		{
 			"path": "src/ffmpeg_hardware_encode.cpp",
-			"byteLength": 17506,
-			"sha256": "e41b65c33321dfb290a0f76a2ccf56ba3dbc34f987561c2ab410c08832ae74ce"
+			"byteLength": 19298,
+			"sha256": "7edc2b458aed80f453bd9259394246e25fe085df1ba005346a2d2102b25a62cf"
 		},
 		{
 			"path": "src/ffmpeg_hardware_encode.hpp",
@@ -192,8 +192,8 @@
 		},
 		{
 			"path": "src/ffmpeg_media_engine.cpp",
-			"byteLength": 24335,
-			"sha256": "fbb2a70541922f4c5d3bf6592442f295640bfec5e13b4f62ab0a495f393a95a6"
+			"byteLength": 24359,
+			"sha256": "2fbfe66671cf62367a162c53f18ec806ecb094b64b6e1366a97dc99f8d0f2af9"
 		},
 		{
 			"path": "src/ffmpeg_media_engine.hpp",
@@ -212,8 +212,8 @@
 		},
 		{
 			"path": "src/ffmpeg_selected_v20_adapter.cpp",
-			"byteLength": 26676,
-			"sha256": "9d875707de97e990eb9bebebc6ae34e00bdac65a22763ec00e13a15e385d4220"
+			"byteLength": 26958,
+			"sha256": "6e07a646e04c9211751efb93000700bb39ebd62b871e13cc0fc2f8d2f5096977"
 		},
 		{
 			"path": "src/ffmpeg_selected_v20_adapter.hpp",
@@ -232,8 +232,8 @@
 		},
 		{
 			"path": "src/ffmpeg_simple_render.cpp",
-			"byteLength": 13092,
-			"sha256": "3d547bdf75a50176eaeca322d726076d5f4ef7e7dd38b368790ca0edf511249e"
+			"byteLength": 13263,
+			"sha256": "06e9b57abe7a7d180cefc77cf79bbca5cbc52550a25e743a8cf4b44671ac65cb"
 		},
 		{
 			"path": "src/ffmpeg_simple_render.hpp",
@@ -249,6 +249,16 @@
 			"path": "src/image_sequence_pack.hpp",
 			"byteLength": 1918,
 			"sha256": "24cd2b334f7173ba32dd2f1246ca0b283a8304d432c9c18b1575011479d33b58"
+		},
+		{
+			"path": "src/keyed_webm_verifier.cpp",
+			"byteLength": 4259,
+			"sha256": "c3e1e120e24fcc4721370a77779b807c0e3e79cb4f0d8cfe83fc086ab722b26c"
+		},
+		{
+			"path": "src/keyed_webm_verifier.hpp",
+			"byteLength": 663,
+			"sha256": "030561c6927f16adb6505b5d935117006ce765cc20dfb808f9e638fa4d0f816f"
 		},
 		{
 			"path": "src/legacy_plan_semantics.cpp",
@@ -317,8 +327,8 @@
 		},
 		{
 			"path": "src/media_plan.cpp",
-			"byteLength": 17213,
-			"sha256": "784a1f3c7e4d21429779165db359b098fe03cc87fef26d97af324e4e90309240"
+			"byteLength": 17575,
+			"sha256": "db9249f6f3bbaf5d95a9e88849c56f21e19cb63347c6160122d0f74f666f15cc"
 		},
 		{
 			"path": "src/media_plan.hpp",
@@ -441,9 +451,14 @@
 			"sha256": "b636d9357bbceedd7aa8aca88e6cce1b4f989d5c91323a05a266fd94eab3ac72"
 		},
 		{
+			"path": "src/webm_encode_settings.hpp",
+			"byteLength": 1053,
+			"sha256": "95ac8e342eb49284b4326a5579c096bfa14c6885098c7d35bbe75a8678612bcb"
+		},
+		{
 			"path": "tests/codec_closure_canary.cpp",
-			"byteLength": 4366,
-			"sha256": "2fd84ae5d6bbfdf47d8b5e65f367e9983d1ce72b423cfea69096d3a386510611"
+			"byteLength": 4413,
+			"sha256": "e228dee648b22cccba1aeb2d9f03b5e9fd957b108f50172d9793e2d9c02d5b56"
 		},
 		{
 			"path": "tests/decoded_frame_alpha_fixture.cpp",
@@ -499,6 +514,11 @@
 			"path": "tests/unified_plan_admission_fixture.cpp",
 			"byteLength": 996,
 			"sha256": "10002611292f36c2c922a864ae32c496af2a462f88bf9418a57fad37ea909f46"
+		},
+		{
+			"path": "tests/webm_encode_fixture.cpp",
+			"byteLength": 6599,
+			"sha256": "9849e060e3e96cc806d23f0495d63f2dff51ff7931843b286a2a88332d41f2cd"
 		}
 	],
 	"targets": {

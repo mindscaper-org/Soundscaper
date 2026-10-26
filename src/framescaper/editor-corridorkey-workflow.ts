@@ -32,7 +32,7 @@ export async function runFramescaperCorridorKey(controller: CorridorKeyControlle
 	const encoder = request.bridge.videoKeying;
 	if (!encoder) throw new Error('The authenticated CorridorKey alpha-video encoder is unavailable.');
 	request.signal?.throwIfAborted();
-	if (!await encoder.available()) throw new Error('Configure an external FFmpeg with the libvpx-vp9 encoder and decoder, WebM muxer and alphaextract filter before using CorridorKey.');
+	if (!await encoder.available()) throw new Error('CorridorKey requires the bundled VP9 alpha encoder or a compatible external FFmpeg installation.');
 	request.signal?.throwIfAborted();
 	let inspection: (LocalAssistanceKeyedVideoInspection & Readonly<{ sha256: string }>) | null = null;
 	const capacity = createStorageCapacityService({ estimateStorage: () => store.estimateStorage(),

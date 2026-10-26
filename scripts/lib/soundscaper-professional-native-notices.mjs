@@ -21,7 +21,7 @@ const ALL_SOURCE_IDS = Object.freeze([
 	'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 	'asio-sdk', 'ladspa-sdk', 'lv2',
 ]);
-const FORBIDDEN_SOURCE_IDS = new Set(['x264', 'x265', 'libvpx', 'libopus', 'zlib']);
+const FORBIDDEN_SOURCE_IDS = new Set(['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib']);
 const SHA256 = /^[a-f\d]{64}$/u;
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/u;
 const MAXIMUM_NOTICE_BYTES = 2 * 1024 * 1024;

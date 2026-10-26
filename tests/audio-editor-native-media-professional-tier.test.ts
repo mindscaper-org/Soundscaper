@@ -150,7 +150,7 @@ test('the required professional baseline covers every named decode and encode ro
 	]);
 	assert.deepEqual(ids.filter((id) => id.startsWith('encode-')), [
 		'encode-mp4-h264', 'encode-hevc-main10-hdr10', 'encode-hevc-main10-sdr',
-		'encode-webm-vp9',
+		'encode-webm-vp8', 'encode-webm-vp9', 'encode-webm-vp9-alpha', 'encode-webm-av1',
 		'encode-mov-prores-proxy', 'encode-mov-prores-422-hq', 'encode-mov-prores-4444',
 		'encode-mxf-dnxhr-hqx', 'encode-matroska-ffv1',
 		'encode-png-sequence', 'encode-tiff-sequence', 'encode-openexr-sequence',

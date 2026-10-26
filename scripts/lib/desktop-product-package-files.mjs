@@ -424,15 +424,15 @@ export function soundscaperAssistanceRegistrationSource(sourceValue) {
 		/import \{ createExternalFfmpegAssistanceVideoMaterializer \} from '[^']+';\n/u,
 		/import \{ createAssistanceWorkflowOwnedVideoHighlightStageRuntime \} from '[^']+';\n/u,
 		/import \{ createAssistanceKeyedVideoService \} from '[^']+';\n/u,
+		/import \{ createAssistanceNativeKeyedVideoEncoder \} from '[^']+';\n/u,
 	]) source = replaceOnce(source, pattern, '', 'deferred visual assistance import');
 	source = replaceOnce(source,
 		/\tconst shotDetectionRuntime = createExternalFfmpegAssistanceShotRuntimeAdapter\(\{\n\t\tpreferences: externalFfmpegPreferences,\n\t\}\);\n/u,
 		'', 'deferred shot-detection runtime');
 	source = replaceOnce(source, '\t\t\tshotDetectionRuntime,\n', '',
 		'deferred shot-detection operation');
-	source = replaceOnce(source,
-		/\t\tcreateKeyedVideo: [^\n]+\n/u,
-		'', 'deferred keyed-video encoder factory');
+	source = replaceRange(source, '\t\tcreateKeyedVideo:', '\t\tconfirmOperation:',
+		'\t\tconfirmOperation:', 'deferred keyed-video encoder factory');
 	source = replaceRange(source,
 		'\tconst videoMaterializer =',
 		'\tconst workflowExecute =',

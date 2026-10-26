@@ -40,7 +40,7 @@ test('the Windows x265 build explicitly selects the static MSVC runtime', () => 
 		target: { id: 'win-arm64', cmakePreset: 'win-arm64' }, hostRoot: '/host',
 		ffmpegSourceRoot: '/ffmpeg', boostSourceRoot: '/boost', paths,
 		externalSourceRoots: Object.fromEntries(
-			['x264', 'x265', 'libvpx', 'libopus', 'zlib'].map((id) => [id, `D:/sources/${id}`]),
+			['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib'].map((id) => [id, `D:/sources/${id}`]),
 		),
 		tools: { executables }, environment: { PATH: 'C:/Windows/System32;C:/tools' }, configureFlags: [],
 	});
@@ -54,6 +54,9 @@ test('the Windows x265 build explicitly selects the static MSVC runtime', () => 
 	assert.ok(x265Library, 'MSVC x265 must be installed under the name requested by its pkg-config metadata.');
 	assert.deepEqual(x265Library.args.slice(-2), ['D:/work/x265-install/lib/x265-static.lib', 'D:/work/x265-install/lib/x265.lib']);
 	const vpx = commands.find(({ phase }) => phase === 'libvpx-configure');
+	const svt = commands.find(({ phase }) => phase === 'svt-av1-configure');
+	assert.ok(svt.args.includes('-DCMAKE_OUTPUT_DIRECTORY=D:/work/svt-av1-build/bin'),
+		'SVT must leave the authenticated source tree unchanged when it writes its library.');
 	assert.equal(vpx.args[0], '../../sources/libvpx/configure',
 		'Native Windows Make must keep source prerequisites relative so every codec source reaches its project.');
 	assert.ok(vpx.args.includes('--prefix=D:/work/libvpx-install'));

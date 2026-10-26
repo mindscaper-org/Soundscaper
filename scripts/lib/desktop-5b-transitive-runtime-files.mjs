@@ -49,6 +49,7 @@ export const DESKTOP_5B_TRANSITIVE_RUNTIME_FILES = Object.freeze([
 	'desktop/native-media-helper-filesystem.js',
 	'desktop/native-media-host-process.js',
 	'desktop/native-media-isolated-host-process.js',
+	'desktop/native-media-webm-output-verification.js',
 	'desktop/native-media-queue-dispatcher-v3.js',
 	'desktop/native-media-v14-executor.js',
 	'desktop/native-media-v14-helper-adapter.js',

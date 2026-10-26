@@ -100,7 +100,9 @@ function professionalDescriptor(profileId: NativeMediaV14EncodeProfileId | undef
 		container: row.muxer,
 		video: profileId === 'encode-mp4-h264' ? 'h264'
 			: profileId.startsWith('encode-hevc-') ? 'hevc'
-				: profileId === 'encode-webm-vp9' ? 'vp9'
+				: profileId === 'encode-webm-vp8' ? 'vp8'
+					: profileId.startsWith('encode-webm-vp9') ? 'vp9'
+						: profileId === 'encode-webm-av1' ? 'av1'
 					: profileId.startsWith('encode-mov-prores-') ? 'prores'
 						: profileId === 'encode-mxf-dnxhr-hqx' ? 'dnxhr'
 							: profileId === 'encode-matroska-ffv1' ? 'ffv1'

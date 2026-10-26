@@ -20,12 +20,12 @@ test('Windows libvpx generation preserves a complete CRLF response file and vend
 	const capture = join(root, 'captured.txt');
 	writeFileSync(join(source, 'build/make/common.sh'), 'marker=vendor-context\n');
 	writeFileSync(join(source, 'build/make/gen_msvs_vcxproj.sh'), '#!/bin/bash\nsource "${0%/*}/common.sh"\nprintf "%s\\0" "$marker" "$@" > "$CAPTURE"\n');
-	const executables = Object.fromEntries(['ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell']
+	const executables = Object.fromEntries(['ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'nasm', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell']
 		.map(role => [role, { path: role === 'shell' ? shell : `/tools/${role}` }]));
 	const commands = createFramescaperMediaHostBuildCommands({ target: { id: 'win-arm64', cmakePreset: 'win-arm64' },
 		hostRoot: join(repository, 'native/framescaper-media-host'), ffmpegSourceRoot: '/ffmpeg', boostSourceRoot: '/boost',
 		paths: framescaperMediaHostBuildPaths(root), tools: { executables }, environment: { PATH: process.env.PATH }, configureFlags: [],
-		externalSourceRoots: Object.fromEntries(['x264', 'x265', 'libvpx', 'libopus', 'zlib'].map(role => [role, source])),
+		externalSourceRoots: Object.fromEntries(['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib'].map(role => [role, source])),
 	}) as readonly { phase: string; args: readonly string[] }[];
 	const generator = commands.find(command => command.phase === 'libvpx-build')!.args.find(value => value.startsWith('GEN_VCPROJ='));
 	assert.ok(generator, 'The Windows generator must use a response file, rather than a long command line.');

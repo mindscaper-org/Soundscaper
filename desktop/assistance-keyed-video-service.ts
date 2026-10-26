@@ -13,6 +13,7 @@ import { closeExternalFfmpegVideoInput, launchExternalFfmpegVideoProcess, writeE
 import { inspectKeyedVideoProbe, keyedVideoEncodeArguments, validateAssistanceKeyedVideoRequest } from './assistance-keyed-video-contract.ts';
 import { openAssistanceKeyedVideoFrames } from './assistance-keyed-video-frames.ts';
 import { assertKeyedVideoAlphaHashes, captureKeyedVideoProcess } from './assistance-keyed-video-process.ts';
+import type { createAssistanceNativeKeyedVideoEncoder } from './assistance-native-keyed-video.ts';
 
 type Operations = Pick<ReturnType<typeof createAssistanceOperationService>, 'assertJob' | 'openOutput'>;
 type Registry = Pick<AssistanceStagingRegistry, 'reserveOutput' | 'resolveOutputReservationPathForMain' | 'authenticateOutput' | 'resolveInputPathForMain'>;
@@ -21,6 +22,7 @@ export function createAssistanceKeyedVideoService(options: Readonly<{
 	operations: Operations;
 	registry: Registry;
 	preferences: Pick<ExternalFfmpegPreferenceService, 'admission' | 'invalidateAdmission'>;
+	nativeEncoder?: ReturnType<typeof createAssistanceNativeKeyedVideoEncoder>;
 }>) {
 	const sourceDecoder = createAssistanceKeyingSourceDecodeService(options);
 	const active = new Map<string, Readonly<{ controller: AbortController; completion: Promise<unknown> }>>();
@@ -28,6 +30,8 @@ export function createAssistanceKeyedVideoService(options: Readonly<{
 	const perform = async (value: unknown, signal: AbortSignal) => {
 		const request = validateAssistanceKeyedVideoRequest(value);
 		options.operations.assertJob(request.jobId);
+		const nativeEncoder = options.nativeEncoder;
+		if (nativeEncoder && await nativeEncoder.available(request, signal)) return nativeEncoder.encode(request, signal);
 		const admission = options.preferences.admission();
 		const pair = externalFfmpegExecutablePairFromRuntimeAdmission(admission);
 		if (!supportsKeyedVideo(admission) || !pair) {
@@ -102,6 +106,7 @@ export function createAssistanceKeyedVideoService(options: Readonly<{
 		decodeSource: sourceDecoder.decode, readDecodedSource: sourceDecoder.read,
 		async available(): Promise<boolean> {
 			if (disposed) return false;
+			if (await options.nativeEncoder?.available()) return true;
 			const admission = options.preferences.admission();
 			const pair = externalFfmpegExecutablePairFromRuntimeAdmission(admission);
 			if (!supportsKeyedVideo(admission) || !pair) return false;

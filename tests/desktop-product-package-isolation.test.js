@@ -398,6 +398,7 @@ test('Soundscaper omits the Framescaper keyed-video preload and encoder service 
 	assert.equal(stagedRegistration.includes('assistance-keyed-video-service.js'), false);
 	assert.equal(stagedRegistration.includes('createAssistanceKeyedVideoService'), false);
 	assert.equal(stagedRegistration.includes('createKeyedVideo:'), false);
+	assert.equal(stagedRegistration.includes('createAssistanceNativeKeyedVideoEncoder'), false);
 	assert.ok(stagedPreload.includes('localAssistance: Object.freeze({ models:'));
 	assert.ok(stagedRegistration.includes('registerAssistanceOperationIpc'));
 });

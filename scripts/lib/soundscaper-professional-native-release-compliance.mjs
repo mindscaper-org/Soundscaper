@@ -24,7 +24,7 @@ const SOURCE_IDS = Object.freeze([
 	'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 	'asio-sdk', 'ladspa-sdk', 'lv2',
 ]);
-const FORBIDDEN_SOURCE_IDS = new Set(['x264', 'x265', 'libvpx', 'libopus', 'zlib']);
+const FORBIDDEN_SOURCE_IDS = new Set(['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib']);
 const MAXIMUM_ARCHIVE_BYTES = 64 * 1024 * 1024;
 
 export async function stageSoundscaperProfessionalNativeReleaseCompliance(options, dependencies = {}) {

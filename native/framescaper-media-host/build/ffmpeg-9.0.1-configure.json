@@ -30,10 +30,12 @@
 		"--enable-libx264",
 		"--enable-libx265",
 		"--enable-libvpx",
+		"--enable-libsvtav1",
 		"--enable-libopus",
 		"--enable-zlib",
 		"--enable-decoder=h264",
 		"--enable-decoder=hevc",
+		"--enable-decoder=vp8",
 		"--enable-decoder=vp9",
 		"--enable-decoder=libvpx_vp9",
 		"--enable-decoder=av1",
@@ -45,7 +47,9 @@
 		"--enable-decoder=exr",
 		"--enable-encoder=libx264",
 		"--enable-encoder=libx265",
+		"--enable-encoder=libvpx_vp8",
 		"--enable-encoder=libvpx_vp9",
+		"--enable-encoder=libsvtav1",
 		"--enable-encoder=prores_ks",
 		"--enable-encoder=dnxhd",
 		"--enable-encoder=ffv1",
@@ -72,6 +76,7 @@
 		"--enable-filter=aresample",
 		"--enable-parser=h264",
 		"--enable-parser=hevc",
+		"--enable-parser=vp8",
 		"--enable-parser=vp9",
 		"--enable-parser=av1",
 		"--enable-parser=png",
@@ -81,14 +86,77 @@
 	"policy": {
 		"rawFfmpegArguments": false,
 		"network": false,
-		"externalLibraries": ["x264", "x265", "libvpx", "libopus", "zlib"],
-		"enabledDecoders": ["h264", "hevc", "vp9", "libvpx-vp9", "av1", "prores", "dnxhd", "pcm_f32le", "png", "tiff", "exr"],
-		"enabledEncoders": ["libx264", "libx265", "libvpx-vp9", "prores_ks", "dnxhd", "ffv1", "png", "tiff", "exr", "aac", "libopus", "pcm_s16le", "flac"],
-		"enabledDemuxers": ["mov", "wav", "matroska", "mxf", "image2"],
-		"enabledMuxers": ["mp4", "webm", "mov", "mxf", "matroska", "image2"],
-		"enabledFilters": ["scale", "format", "aresample"],
-		"enabledParsers": ["h264", "hevc", "vp9", "av1", "png"],
-		"enabledProtocols": ["file", "pipe"],
+		"externalLibraries": [
+			"x264",
+			"x265",
+			"libvpx",
+			"svt-av1",
+			"libopus",
+			"zlib"
+		],
+		"enabledDecoders": [
+			"h264",
+			"hevc",
+			"vp8",
+			"vp9",
+			"libvpx-vp9",
+			"av1",
+			"prores",
+			"dnxhd",
+			"pcm_f32le",
+			"png",
+			"tiff",
+			"exr"
+		],
+		"enabledEncoders": [
+			"libx264",
+			"libx265",
+			"libvpx",
+			"libvpx-vp9",
+			"libsvtav1",
+			"prores_ks",
+			"dnxhd",
+			"ffv1",
+			"png",
+			"tiff",
+			"exr",
+			"aac",
+			"libopus",
+			"pcm_s16le",
+			"flac"
+		],
+		"enabledDemuxers": [
+			"mov",
+			"wav",
+			"matroska",
+			"mxf",
+			"image2"
+		],
+		"enabledMuxers": [
+			"mp4",
+			"webm",
+			"mov",
+			"mxf",
+			"matroska",
+			"image2"
+		],
+		"enabledFilters": [
+			"scale",
+			"format",
+			"aresample"
+		],
+		"enabledParsers": [
+			"h264",
+			"hevc",
+			"vp8",
+			"vp9",
+			"av1",
+			"png"
+		],
+		"enabledProtocols": [
+			"file",
+			"pipe"
+		],
 		"blockedComponents": [],
 		"payloadPublicationRequiresVerifiedBuildResult": true
 	}
