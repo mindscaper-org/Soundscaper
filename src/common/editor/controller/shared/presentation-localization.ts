@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { forwardEditorCopyOrigin, rebaseEditorCopyOrigin } from '../../../i18n/editor-copy-origin.ts';
 import { COMMITTED_LOCALE_TAGS } from '../../../i18n/locales.js';
 import { acceptableTranslation } from '../../../i18n/translation-catalog.js';
 import { isTranslatableMessageKey } from '../../../i18n/translation-scope.ts';
@@ -61,7 +62,7 @@ export function createPresentationLocalization<Copy extends Readonly<Record<stri
 		for (const key of new Set([...Object.keys(options.englishCopy), ...Object.keys(publishedCopy)])) {
 			Object.defineProperty(facade, key, { enumerable: true, get: () => snapshot.copy[key] });
 		}
-		return Object.freeze(facade) as Readonly<Copy>;
+		return Object.freeze(forwardEditorCopyOrigin(facade, () => snapshot.copy)) as Readonly<Copy>;
 	}
 
 	function publish(locale: string, nextCopy: Readonly<Record<string, string>>): void {
@@ -99,7 +100,7 @@ export function createPresentationLocalization<Copy extends Readonly<Record<stri
 					throw new Error(`Invalid translation preview: ${key}.`);
 				}
 			}
-			publish(locale, Object.freeze({ ...publishedCopy, ...translations }));
+			publish(locale, rebaseEditorCopyOrigin({ ...publishedCopy, ...translations }, Object.keys(translations)));
 		},
 		resetPreview: () => { if (!disposed && snapshot.copy !== publishedCopy) publish(options.locale, publishedCopy); },
 	});

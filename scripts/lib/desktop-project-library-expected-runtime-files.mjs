@@ -336,6 +336,7 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/pcm-stream-settlement.js',
 	'src/common/editor/video-color-grade-channels.js',
 	'src/common/editor/video-timeline-index.js',
+	'src/common/i18n/editor-copy-origin.js',
 	'src/common/i18n/editor-copy-scope.js',
 	'src/common/i18n/editor-file-validation-copy.js',
 	'src/common/i18n/editor-format-file-failure-copy.js',
