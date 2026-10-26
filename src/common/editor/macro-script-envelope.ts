@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { fileValidationFailure as failure } from './file-validation-failure.ts';
 
 /**
  * The file a macro program travels in.
@@ -52,33 +53,33 @@ export function serializeMacroScriptEnvelope(
  * person.
  */
 export function parseMacroScriptEnvelope(text: unknown): MacroScriptEnvelope {
-	if (typeof text !== 'string') throw new TypeError('A macro program file must be text.');
-	if (text.length > MAX_ENVELOPE_CODE_UNITS) throw new RangeError('The macro program file is too large.');
+	if (typeof text !== 'string') throw failure(new TypeError('A macro program file must be text.'), 'macro', 'macroInvalidProgram', 'macroInvalidProgram');
+	if (text.length > MAX_ENVELOPE_CODE_UNITS) throw failure(new RangeError('The macro program file is too large.'), 'macro', 'macroTooLarge', 'macroTooLarge', { maximum: MACRO_SCRIPT_FILE_MAXIMUM_BYTES });
 	let value: unknown;
 	try {
 		value = JSON.parse(text);
 	} catch (cause) {
-		throw new SyntaxError(
+		throw failure(new SyntaxError(
 			`That is not a macro program file: ${cause instanceof Error ? cause.message : String(cause)}`,
 			{ cause },
-		);
+		), 'macro', 'json', 'macroInvalidJson');
 	}
 	if (!value || typeof value !== 'object' || Array.isArray(value)) {
-		throw new TypeError('A macro program file holds one program.');
+		throw failure(new TypeError('A macro program file holds one program.'), 'macro', 'macroInvalidProgram', 'macroInvalidProgram');
 	}
 	const envelope = value as Record<string, unknown>;
-	if (envelope.kind !== 'script') throw new RangeError('That file is not a macro program.');
+	if (envelope.kind !== 'script') throw failure(new RangeError('That file is not a macro program.'), 'macro', 'macroInvalidProgram', 'macroInvalidProgram');
 	if (envelope.schemaVersion !== MACRO_SCRIPT_ENVELOPE_VERSION) {
-		throw new RangeError(`Unsupported macro program file version: ${String(envelope.schemaVersion)}.`);
+		throw failure(new RangeError(`Unsupported macro program file version: ${String(envelope.schemaVersion)}.`), 'macro', 'macroVersion', 'macroVersion');
 	}
 	if (envelope.engine !== MACRO_SCRIPT_ENGINE) {
-		throw new RangeError(`Unsupported macro program engine: ${String(envelope.engine)}.`);
+		throw failure(new RangeError(`Unsupported macro program engine: ${String(envelope.engine)}.`), 'macro', 'macroEngine', 'macroEngine');
 	}
 	const name = String(envelope.name ?? '').trim();
-	if (!name) throw new TypeError('A macro program file names its program.');
-	if (name.length > MAX_NAME_CODE_UNITS) throw new RangeError('The macro program name is too long.');
-	if (typeof envelope.source !== 'string') throw new TypeError('A macro program file carries its source.');
-	if (envelope.source.length > MAX_SOURCE_CODE_UNITS) throw new RangeError('The macro program is too large.');
+	if (!name) throw failure(new TypeError('A macro program file names its program.'), 'macro', 'macroName', 'macroName', { maximum: MAX_NAME_CODE_UNITS });
+	if (name.length > MAX_NAME_CODE_UNITS) throw failure(new RangeError('The macro program name is too long.'), 'macro', 'macroName', 'macroName', { maximum: MAX_NAME_CODE_UNITS });
+	if (typeof envelope.source !== 'string') throw failure(new TypeError('A macro program file carries its source.'), 'macro', 'macroInvalidProgram', 'macroInvalidProgram');
+	if (envelope.source.length > MAX_SOURCE_CODE_UNITS) throw failure(new RangeError('The macro program is too large.'), 'macro', 'macroSourceTooLarge', 'macroSourceTooLarge', { maximum: MAX_SOURCE_CODE_UNITS });
 	return Object.freeze({
 		schemaVersion: MACRO_SCRIPT_ENVELOPE_VERSION,
 		kind: 'script',

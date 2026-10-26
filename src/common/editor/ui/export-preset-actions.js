@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { fileValidationFailure } from '../file-validation-failure.ts';
 
 import {
 	dialogSettingsFromPreset,
@@ -69,7 +70,14 @@ export function createExportPresetActions({
 			setPresetId('');
 			setPresetName('');
 		},
-		onImport: async (file) => { await store.import(await file.text()); },
+		onImport: async (file) => {
+			let text;
+			try { text = await file.text(); } catch (error) {
+				if (!(error instanceof Error)) throw error;
+				throw fileValidationFailure(error, 'export-preset', 'read', 'exportPresetReadFailed');
+			}
+			await store.import(text);
+		},
 		onExport: () => store.saveToFile(presetId),
 	};
 }

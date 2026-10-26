@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { fileValidationFailure as failure } from '../../file-validation-failure.ts';
 import { createAddTimelineAnnotationCommand } from '../../commands/factories.ts';
 import type { BatchAudioEditorCommand } from '../../commands/protocol.ts';
 import { isTimelineAnnotationProjectSchema } from '../../project-schema-version.ts';
@@ -79,9 +80,9 @@ export function createRegularIntervalAnnotationCommand(
 	if (typeof createId !== 'function') throw new TypeError('A stable annotation ID factory is required.');
 	const capacity = AUDIO_EDITOR_TIMELINE_ANNOTATION_LIMITS.maximumAnnotations
 		- project.timelineAnnotations.length;
-	if (capacity < 1) throw new RangeError('Timeline annotation capacity is exhausted.');
+	if (capacity < 1) throw failure(new RangeError('Timeline annotation capacity is exhausted.'), 'labels', 'regular-capacity', 'annotationCapacity', { maximum: AUDIO_EDITOR_TIMELINE_ANNOTATION_LIMITS.maximumAnnotations });
 	if (!project.sequences.some(({ id }) => id === options.sequenceId)) {
-		throw new RangeError(`Timeline annotation sequence ${options.sequenceId} does not exist.`);
+		throw failure(new RangeError(`Timeline annotation sequence ${options.sequenceId} does not exist.`), 'labels', 'regular-sequence', 'annotationSequence');
 	}
 	const coordinates = options.anchor === 'sample'
 		? sampleIntervals(options, capacity)
@@ -127,7 +128,7 @@ function sampleIntervals(
 	const start = nonNegativeSafeInteger(options.startFrame, 'regular interval start frame');
 	const end = nonNegativeSafeInteger(options.endFrame, 'regular interval end frame');
 	const interval = positiveSafeInteger(options.intervalFrames, 'regular interval frame interval');
-	if (end <= start) throw new RangeError('The regular interval sample range must be positive.');
+	if (end <= start) throw failure(new RangeError('The regular interval sample range must be positive.'), 'labels', 'annotationRange', 'annotationRange');
 	const includeEnd = markerIncludesEnd(options);
 	const result: SampleInterval[] = [];
 	for (let position = BigInt(start);;) {
@@ -155,10 +156,10 @@ function musicalIntervals(
 	const end = normalizeRational(options.endBeat, rationalOptions);
 	const interval = normalizeRational(options.intervalBeats, rationalOptions);
 	if (compareRationals(start, end) >= 0) {
-		throw new RangeError('The regular interval musical range must be positive.');
+		throw failure(new RangeError('The regular interval musical range must be positive.'), 'labels', 'annotationRange', 'annotationRange');
 	}
 	if (compareRationals(interval, 0) <= 0) {
-		throw new RangeError('The regular interval beat interval must be positive.');
+		throw failure(new RangeError('The regular interval beat interval must be positive.'), 'labels', 'annotationInterval', 'annotationInterval');
 	}
 	const includeEnd = markerIncludesEnd(options);
 	const result: MusicalInterval[] = [];
@@ -266,19 +267,19 @@ function intervalName(prefix: string, index: number): string {
 
 function nonNegativeSafeInteger(value: unknown, name: string): number {
 	if (!Number.isSafeInteger(value) || Number(value) < 0 || Object.is(value, -0)) {
-		throw new RangeError(`${name} must be a non-negative safe integer.`);
+		throw failure(new RangeError(`${name} must be a non-negative safe integer.`), 'labels', 'regular-coordinate', 'annotationCoordinate', { field: { key: name.includes('start') ? 'regularIntervalStartFrame' : name.includes('end') ? 'regularIntervalEndFrame' : 'regularIntervalFrames', fallback: name } });
 	}
 	return Number(value);
 }
 
 function positiveSafeInteger(value: unknown, name: string): number {
 	const result = nonNegativeSafeInteger(value, name);
-	if (result < 1) throw new RangeError(`${name} must be positive.`);
+	if (result < 1) throw failure(new RangeError(`${name} must be positive.`), 'labels', 'regular-interval', 'annotationInterval');
 	return result;
 }
 
 function capacityError(): RangeError {
-	return new RangeError(`Regular interval annotations exceed the ${String(
+	return failure(new RangeError(`Regular interval annotations exceed the ${String(
 		AUDIO_EDITOR_TIMELINE_ANNOTATION_LIMITS.maximumAnnotations,
-	)} item capacity.`);
+	)} item capacity.`), 'labels', 'regular-capacity', 'annotationCapacity', { maximum: AUDIO_EDITOR_TIMELINE_ANNOTATION_LIMITS.maximumAnnotations });
 }

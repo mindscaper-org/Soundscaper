@@ -1,3 +1,5 @@
+import { fileValidationFailure } from '../../file-validation-failure.ts';
+import { audacityMacroFileLimitError } from '../../audacity-macro-parser-failure.ts';
 import { usePresentationFeedback, feedbackFailure, feedbackErrorParameter } from '../presentation-feedback.ts';
 import './AudioEditorMacroManagerDialog.css';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -86,7 +88,7 @@ export function AudioEditorMacroManagerDialog({
 		const operation = startOperation(activeImportRef);
 		try {
 			if (file.size > MACRO_SCRIPT_FILE_MAXIMUM_BYTES) {
-				throw new RangeError('File exceeds the 2 MiB macro program import limit.');
+				throw fileValidationFailure(new RangeError('File exceeds the 2 MiB macro program import limit.'), 'macro', 'file-size', 'macroTooLarge', { maximum: MACRO_SCRIPT_FILE_MAXIMUM_BYTES });
 			}
 			const text = await file.text();
 			if (!ownsOperation(activeImportRef, operation)) return;
@@ -328,7 +330,7 @@ export function AudioEditorMacroManagerDialog({
 		const operation = startOperation(activeImportRef);
 		try {
 			if (file.size > MAX_MACRO_IMPORT_BYTES) {
-				throw new RangeError('File exceeds the 1 MiB macro import limit.');
+				throw audacityMacroFileLimitError();
 			}
 			const parsed = parseAudacityEffectMacro(await file.text());
 			if (!ownsOperation(activeImportRef, operation)) return;
