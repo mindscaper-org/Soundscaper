@@ -55,5 +55,29 @@ int main(int argc, char **argv)
 			|| features[0].values[0] != (overrideProgram ? 0.25F : 0.125F)) return 9;
 		analyzer->cancel();
 	}
+	if (ExactVampAnalyzer::openExactLibrary(path, descriptors[0].identifier, 48000.0,
+		analyzer, detail) != Status::ok) return 10;
+	configuration.program = "Default";
+	configuration.parameters = { { "gain", 1.0F } };
+	configuration.stepSize = 512u;
+	configuration.blockSize = 1024u;
+	configuration.frameCount = 131072u;
+	if (analyzer->configure(configuration, outputs, detail) != Status::ok) return 11;
+	std::vector<float> streamed(configuration.frameCount);
+	for (std::size_t frame = 0u; frame < streamed.size(); ++frame) {
+		streamed[frame] = static_cast<float>(frame) / 262144.0F;
+	}
+	std::size_t window = 0u;
+	for (std::size_t start = 0u; start < streamed.size(); start += 65536u) {
+		const float *chunk[] = { streamed.data() + start };
+		if (analyzer->processPcm(start, chunk, 1u, 65536u, features, detail) != Status::ok
+			|| features.size() != (start == 0u ? 127u : 128u)) return 12;
+		for (const auto &feature : features) {
+			if (feature.values.size() != 1u || feature.values[0] != streamed[window * 512u]) return 13;
+			++window;
+		}
+	}
+	if (window != 255u || analyzer->finish(features, detail) != Status::ok
+		|| features.empty() || features[0].values[0] != streamed[window * 512u]) return 14;
 	return 0;
 }
