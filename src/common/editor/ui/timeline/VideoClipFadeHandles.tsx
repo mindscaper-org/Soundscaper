@@ -27,9 +27,25 @@ interface Gesture {
 	readonly authority: string; readonly target: HTMLButtonElement;
 }
 
+const canonicalClipIndices = new WeakMap<readonly ProjectClip[], ReadonlyMap<string, ProjectClip>>();
+function canonicalClip(clips: readonly ProjectClip[], id: string): ProjectClip | undefined {
+	let index = canonicalClipIndices.get(clips);
+	if (!index) {
+		const prepared = new Map<string, ProjectClip>();
+		for (const clip of clips) if (!prepared.has(clip.id)) prepared.set(clip.id, clip);
+		index = prepared;
+		canonicalClipIndices.set(clips, index);
+	}
+	return index.get(id);
+}
+
+export function VideoClipFadeHandles(props: Props) {
+	return props.clip.kind === 'video' ? <VideoClipFadeControls {...props} /> : null;
+}
+
 /** Uses the audio quick-fade glyphs while committing video opacity keyframes. */
-export function VideoClipFadeHandles({ controller, project, clip, selected, visibleStartFrame, visibleEndFrame, pixelsPerSecond, sampleRate, blocked, copy, run, onTabOut }: Props) {
-	const rawClip = project.clips?.find(({ id }) => id === clip.id);
+function VideoClipFadeControls({ controller, project, clip, selected, visibleStartFrame, visibleEndFrame, pixelsPerSecond, sampleRate, blocked, copy, run, onTabOut }: Props) {
+	const rawClip = canonicalClip(project.clips, clip.id);
 	const envelope = useMemo(() => {
 		try { return rawClip?.videoKeyframes ? readVideoFadeEnvelope(rawClip) : null; } catch { return null; }
 	}, [rawClip]);

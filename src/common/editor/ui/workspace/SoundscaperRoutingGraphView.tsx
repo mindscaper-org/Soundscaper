@@ -207,6 +207,7 @@ function RoutingGraphProjectSession({
 
 	const selectedKey = selectionKey(selection);
 	const nodeByKey = useMemo(() => indexRoutingNodes(layout.nodes), [layout.nodes]);
+	const edgeHandleStyles = useMemo(() => new Map(layout.edges.map(edge => { const source = nodeByKey.get(edge.sourceKey), destination = nodeByKey.get(edge.destinationKey); return [edge.key, source && destination && edge.kind !== 'vca-membership' ? routingEdgeHandleStyle(source, destination, layout.nodes, edge.parallelOffset) : undefined]; })), [layout, nodeByKey]);
 	const edgeById = useMemo(() => indexRoutingEdges(graph.edges), [graph.edges]);
 	const portsByNode = useMemo(() => indexRoutingPorts(destinations), [destinations]);
 	const countsByNode = useMemo(() => indexRoutingConnections(graph), [graph]);
@@ -288,7 +289,7 @@ function RoutingGraphProjectSession({
 							key={`handle:${edge.key}`}
 							type="button"
 							className={`kw-routing-graph__edge-handle kw-routing-graph__edge-handle--${edge.kind}${edge.enabled ? '' : ' is-disabled'}`}
-							style={routingEdgeHandleStyle(source, destination, layout.nodes, edge.parallelOffset)}
+							style={edgeHandleStyles.get(edge.key)}
 							data-routing-edge={edge.id}
 							aria-pressed={selection?.kind === 'edge' && selection.id === edge.id}
 							aria-label={edgeAriaLabel(copy, model, endpointLabels)}
