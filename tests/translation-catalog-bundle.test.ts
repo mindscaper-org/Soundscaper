@@ -9,10 +9,19 @@ import { transform } from 'esbuild';
 import {
 	createTranslationCatalogBundlePlugin,
 	renderTranslationCatalogModule,
+	translationCatalogSourceTexts,
 } from '../scripts/lib/translation-catalog-bundle.mjs';
 
 async function loadModule(source: string): Promise<Record<string, unknown>> {
 	return await import(`data:text/javascript,${encodeURIComponent(source)}`) as Record<string, unknown>;
+}
+
+async function loadBundledModule(plugin: ReturnType<typeof createTranslationCatalogBundlePlugin>, source: string) {
+	const id = plugin.resolveId('scape:translation-source-text', undefined);
+	assert.ok(id);
+	const shared = await plugin.load.call({ addWatchFile() {} }, id);
+	assert.ok(shared);
+	return loadModule(source.replace('"scape:translation-source-text"', JSON.stringify(`data:text/javascript,${encodeURIComponent(shared)}`)));
 }
 
 test('compact catalogs retain translation tuples, provenance and community attribution exactly', async () => {
@@ -63,12 +72,55 @@ test('the bundle plugin only substitutes lazy imports from the generated catalog
 	const path = fileURLToPath(new URL('../src/common/i18n/translations/hi.json', import.meta.url));
 	assert.deepEqual(watched, [path]);
 	const catalog: unknown = JSON.parse(await readFile(path, 'utf8'));
-	assert.deepEqual((await loadModule(source)).default, catalog);
+	assert.deepEqual((await loadBundledModule(plugin, source)).default, catalog);
 });
 
 test('the complete Hindi catalog fits the production chunk budget without removing entries', async () => {
 	const catalog = JSON.parse(await readFile(new URL('../src/common/i18n/translations/hi.json', import.meta.url), 'utf8')) as Record<string, unknown>;
-	const { code } = await transform(renderTranslationCatalogModule(catalog), { minify: true, charset: 'utf8' });
+	const plugin = createTranslationCatalogBundlePlugin();
+	const importer = fileURLToPath(new URL('../src/common/i18n/translations/index.js', import.meta.url));
+	const id = plugin.resolveId('./hi.json', importer);
+	assert.ok(id);
+	const source = await plugin.load.call({ addWatchFile() {} }, id);
+	assert.ok(source);
+	const { code } = await transform(source, { minify: true, charset: 'utf8' });
 	assert.ok(Buffer.byteLength(code) < 490_000, 'Leave room for the bundler runtime under the 500 KB ceiling.');
-	assert.deepEqual((await loadModule(code)).default, catalog);
+	assert.deepEqual((await loadBundledModule(plugin, code)).default, catalog);
+});
+
+
+test('expanded Russian catalog fits a locale chunk while retaining all source text and provenance', async () => {
+	const catalog = JSON.parse(await readFile(new URL('../src/common/i18n/translations/ru.json', import.meta.url), 'utf8')) as Record<string, unknown>;
+	const plugin = createTranslationCatalogBundlePlugin();
+	const importer = fileURLToPath(new URL('../src/common/i18n/translations/index.js', import.meta.url));
+	const id = plugin.resolveId('./ru.json', importer);
+	assert.ok(id);
+	const source = await plugin.load.call({ addWatchFile() {} }, id);
+	assert.ok(source);
+	const { code } = await transform(source, { minify: true, charset: 'utf8' });
+	assert.ok(Buffer.byteLength(code) < 490_000, `Russian locale module is ${Buffer.byteLength(code)} bytes`);
+	assert.deepEqual((await loadBundledModule(plugin, code)).default, catalog);
+	const sharedId = plugin.resolveId('scape:translation-source-text', undefined);
+	assert.ok(sharedId);
+	const sharedSource = await plugin.load.call({ addWatchFile() {} }, sharedId);
+	assert.ok(sharedSource);
+	const sharedCode = await transform(sharedSource, { minify: true, charset: 'utf8' });
+	assert.ok(Buffer.byteLength(sharedCode.code) < 490_000, 'The shared source text has its own unchanged chunk ceiling.');
+});
+
+
+test('cross-locale source sharing preserves escaped values, literal keys and attributed previous entries', async () => {
+	const english = 'Repeated English with "quotes", \\paths,\nnewlines and __proto__';
+	const a = { schemaVersion: 2, locale: 'fr', entries: { a: ['machine', english, 'Texte\nfrançais'] },
+		community: { a: { previousEntry: ['audacity', english, 'Ancien\ntexte'], contributor: 'Example' } } };
+	const b = { schemaVersion: 2, locale: 'de', entries: { b: ['human', english, 'Deutscher\nText'] } };
+	const pool = translationCatalogSourceTexts([a, b]);
+	assert.deepEqual(pool, [english]);
+	assert.deepEqual(translationCatalogSourceTexts([a]), [], 'Repeated entries in one catalog stay locally owned.');
+	for (const catalog of [a, b]) {
+		const source = renderTranslationCatalogModule(catalog, pool);
+		const sharedModule = `export default ${JSON.stringify(pool)};`;
+		const shared: string = `data:text/javascript,${encodeURIComponent(sharedModule)}`;
+		assert.deepEqual((await loadModule(source.replace('"scape:translation-source-text"', JSON.stringify(shared)))).default, catalog);
+	}
 });
