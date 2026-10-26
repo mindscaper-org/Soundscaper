@@ -39,6 +39,7 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 		this.dry = [];
 		this.controlRequests = new Map();
 		this.frameCount = 0;
+		this.reportedLatencyFrames = null;
 		this.silentInput = [];
 		for (let id = 0; id < this.queueCapacity; id += 1) this.free.push({ id, input: null, output: null });
 		this.port.onmessage = (event) => this.#control(event?.data || {}, event?.ports || []);
@@ -198,11 +199,12 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 		const record = this.timeline.get(claim.sequence);
 		if (record) record.processed = slot;
 		else this.free.push(slot);
-		this.#post({
-			type: NATIVE_PLUGIN_CONTROL.latency,
-			latencyFrames: integer(message.reportedLatencyFrames, 0, 1_048_576, 0)
-				+ this.queueCapacity * this.frameCount,
-		});
+		const latencyFrames = integer(message.reportedLatencyFrames, 0, 1_048_576, 0)
+			+ this.queueCapacity * this.frameCount;
+		if (latencyFrames !== this.reportedLatencyFrames) {
+			this.reportedLatencyFrames = latencyFrames;
+			this.#post({ type: NATIVE_PLUGIN_CONTROL.latency, latencyFrames });
+		}
 	}
 
 	#requestControl(message, kind) {
@@ -330,6 +332,7 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 			this.renderFailureReason ||= reason;
 		}
 		this.peer = null;
+		this.reportedLatencyFrames = null;
 		this.#discardTimeline();
 		this.busy.clear();
 		this.free = Array.from({ length: this.queueCapacity }, (_, id) => ({ id, input: null, output: null }));
