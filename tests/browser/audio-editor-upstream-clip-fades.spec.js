@@ -70,7 +70,8 @@ test.describe('upstream clip handle interaction', () => {
 		const clip = clipByName(editor, toneA.name);
 		await chooseCommandAction(page, editor, 'Select', 'Select none');
 		await clip.hover();
-		await expect(clip.getByRole('slider', { name: 'Fade in', exact: true })).toBeVisible();
+		await expect(clip.locator('[data-fade-zone="in"]')).toBeVisible();
+		await expect(clip.locator('button[data-clip-fade-handle="in"]')).toHaveCSS('opacity', '0');
 		await clip.click({ button: 'right', position: { x: 40, y: 50 } });
 		const menu = page.locator('.audio-editor-clip-context-menu');
 		const fade = menu.getByRole('menuitem', { name: /^Fade in\b/u });

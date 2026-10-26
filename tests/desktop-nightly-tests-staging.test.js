@@ -92,6 +92,11 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		await readFile(new URL('../native/soundscaper-professional-host/tests/os_audio_codec_self_test.cpp', import.meta.url)),
 		'the native codec browser fixtures must receive their pinned canary source bytes',
 	);
+	assert.deepEqual(
+		await readFile(join(fixture.outputRoot, 'vendor/audacity-design-system/components/src/Track/track-fade-handle-geometry.ts')),
+		await readFile(new URL('../vendor/audacity-design-system/components/src/Track/track-fade-handle-geometry.ts', import.meta.url)),
+		'the generated thumbnail browser harness must receive its original fade geometry helper bytes',
+	);
 	const releaseReader = await import(pathToFileURL(join(fixture.outputRoot, 'scripts/lib/product-release-lines.mjs')).href);
 	const recorderUrl = new URL('../fixtures/bwfmetaedit-ixml-clock.wav.base64',
 		pathToFileURL(join(fixture.outputRoot, 'tests/browser/example.spec.js')));

@@ -13,7 +13,7 @@ test('duration uses the clip source-to-project ratio including speed and keeps r
 	for (const reversed of [false, true]) {
 		const f = await fixture(reversed, 1.5);
 		try {
-			await f.commit('durationFrame', 32_000);
+			await f.commit('length', 32_000 / 48_000);
 			assert.deepEqual(f.trims[0]?.changes, {
 				sourceStartFrame: reversed ? 48_000 : 24_000, sourceDurationFrames: 24_000, durationFrames: 32_000,
 			});
@@ -47,22 +47,15 @@ async function fixture(reversed = false, speedRatio = 2) {
 	const root = createRoot(dom.container as unknown as Element);
 	await act(async () => root.render(<ClipPropertiesPanel controller={controller} run={operation => operation()}
 		snapshot={{ project, selectedClipId: 'clip', capabilities: { audioEffects: false } }} copy={ENGLISH_COPY} />));
-	const trigger = dom.one('[data-clip-audio-settings]');
-	await act(async () => reactProps(trigger).onClick({ currentTarget: trigger }));
-	const timeFields = dom.container.querySelectorAll('[role="menuitemcheckbox"]').find(node =>
-		node.querySelector('.context-menu-item-label')?.textContent === ENGLISH_COPY.clipTimecodeFields);
-	assert.ok(timeFields);
-	await act(async () => reactProps(timeFields).onClick({ stopPropagation() {} }));
-	const field = (name: string) => dom.one(`[data-clip-field="${name}"]`);
+	const field = (name: string) => dom.one(`[data-clip-properties-field="${name}"]`);
 	return {
 		project, trims, timelineTrims,
 		commit: async (name: string, value: number) => {
 			const input = field(name).querySelector('input');
 			assert.ok(input);
-			await act(async () => reactProps(input).onChange({ currentTarget: { valueAsNumber: value } }));
-			const wrapper = field(name).querySelector('[data-timecode-input]');
-			assert.ok(wrapper);
-			await act(async () => reactProps(wrapper).onBlur({ currentTarget: wrapper, relatedTarget: null }));
+			input.focus();
+			await act(async () => reactProps(input).onChange({ target: { value: String(value) } }));
+			await act(async () => reactProps(field(name)).onBlur({ target: input }));
 		},
 		cleanup: async () => {
 			await act(async () => root.unmount());

@@ -8,6 +8,8 @@ import { scaleSampleFrame } from '../../../timeline-time.ts';
 import { remapAudioWarpSourceWindow } from '../../../audio-warp-source-window.ts';
 import { resampledClipSourceStretchFields } from '../../../clip-source-stretch-memory.ts';
 import { resampledClipSelectionCommands } from './resampled-clip-selection.ts';
+import { clipPcmFormat, convertPcmPrecision, pcmBytesPerSample, reinterpretPcmChannels, storedPcmFormat, type ClipPcmFormat, type StoredPcmFormat } from './clip-pcm-format.ts';
+import { assertClipCanReinterpret, reinterpretedClipCommands } from './clip-reinterpret-commands.ts';
 import type { DerivedSourceService } from './derived-audio/derived-source-service.ts';
 import {
 	isCurrentAssertion,
@@ -29,6 +31,7 @@ const CLIP_RESAMPLE_TASK = 'clip-resample';
 
 export interface ClipResampleRequest {
 	readonly sampleRate?: unknown;
+	readonly sampleFormat?: ClipPcmFormat;
 }
 
 interface ClipResampleCopy {
@@ -69,6 +72,7 @@ export interface ClipResampleServiceDependencies {
 
 export interface ClipResampleService {
 	resampleClip(clipId?: string | null, request?: ClipResampleRequest): Promise<string | null>;
+	reinterpretClip(clipId?: string | null, request?: ClipResampleRequest): Promise<string | null>;
 }
 
 /**
@@ -133,21 +137,28 @@ export function resampledClipCommands(
 export function createClipResampleService(
 	dependencies: ClipResampleServiceDependencies,
 ): Readonly<ClipResampleService> {
-	return Object.freeze({ resampleClip });
+	return Object.freeze({ resampleClip, reinterpretClip });
 
 	/**
 	 * Resample one clip, and only that clip, to a requested rate.
 	 *
 	 * The clip is repointed at a private derived source, so a source shared with
-	 * other clips keeps its own rate for them. The replacement inherits whatever
-	 * format the original declared: the store holds float32 PCM regardless, and
-	 * the declaration exists only to carry an imported Audacity project's own
-	 * back out again.
+	 * other clips keeps its own rate for them. An explicit precision request
+	 * quantizes the replacement PCM; an omitted format preserves the original
+	 * declaration and existing resample callers' sample behavior.
 	 */
 	async function resampleClip(
 		clipId: string | null = dependencies.getSelectedClipId(),
 		request: ClipResampleRequest = {},
 	): Promise<string | null> {
+		return rewriteClip(clipId, request, false);
+	}
+
+	async function reinterpretClip(clipId: string | null = dependencies.getSelectedClipId(), request: ClipResampleRequest = {}): Promise<string | null> {
+		return rewriteClip(clipId, request, true);
+	}
+
+	async function rewriteClip(clipId: string | null, request: ClipResampleRequest, reinterpret: boolean): Promise<string | null> {
 		dependencies.lifetime.assertActive();
 		if (dependencies.editingBlocked()) return null;
 		const project = dependencies.getProject();
@@ -157,9 +168,12 @@ export function createClipResampleService(
 		const track = findControllerClipTrack(project, clip.id);
 		const source = findControllerSource(project, clip.sourceId);
 		if (!track || !source) throw createLocalizedError(Error, dependencies.copy, 'audioClipNotFound');
+		if (track.locked) throw new RangeError('A locked track cannot change its clip format.');
 		const sampleRate = dependencies.normalizeProjectSampleRate(request.sampleRate ?? source.sampleRate);
-		if (sampleRate === source.sampleRate) return clip.id;
-		return runResample(track, clip, source, sampleRate);
+		const sampleFormat = request.sampleFormat === undefined ? storedPcmFormat(source.sampleFormat) : clipPcmFormat(request.sampleFormat);
+		if (sampleRate === source.sampleRate && (request.sampleFormat === undefined || request.sampleFormat === (source.sampleFormat ?? 'float32'))) return clip.id;
+		if (reinterpret) assertClipCanReinterpret(clip);
+		return runResample(track, clip, source, sampleRate, sampleFormat, request.sampleFormat !== undefined, reinterpret);
 	}
 
 	async function runResample(
@@ -167,20 +181,25 @@ export function createClipResampleService(
 		clip: ControllerClip,
 		source: ControllerSource,
 		sampleRate: number,
+		sampleFormat: StoredPcmFormat,
+		convertPrecision: boolean,
+		reinterpret: boolean,
 	): Promise<string | null> {
 		const linkedVideo = typeof clip.avLinkId === 'string'
 			? dependencies.getProject().clips.find((candidate) => candidate.id !== clip.id && candidate.avLinkId === clip.avLinkId) ?? null
 			: null;
-		const outputFrames = Math.max(1, scaleSampleFrame(
+		const outputFrames = reinterpret ? source.frameCount * pcmBytesPerSample(storedPcmFormat(source.sampleFormat)) / pcmBytesPerSample(sampleFormat) : Math.max(1, scaleSampleFrame(
 			source.frameCount, source.sampleRate, sampleRate, 'point',
 		));
+		if (!Number.isSafeInteger(outputFrames) || outputFrames < 1) throw new RangeError('Reinterpret requires complete PCM frames at the selected bit depth.');
+		if (reinterpret) reinterpretedClipCommands(track.id, clip, source, { ...source, id: 'pending-reinterpret', sampleRate, frameCount: outputFrames });
 		const estimatedBytes = outputFrames * source.channelCount * Float32Array.BYTES_PER_ELEMENT;
 		const ownership = {
 			project: dependencies.captureProject(),
 			task: dependencies.lifetime.startTask(CLIP_RESAMPLE_TASK),
 		};
 		dependencies.setProcessing(true);
-		setLocalizedStatus(dependencies.setStatus, dependencies.copy, (dependencies.copy.resamplingClip ? "resamplingClip" : "audacityProcessing"));
+		setLocalizedStatus(dependencies.setStatus, dependencies.copy, (!reinterpret && dependencies.copy.resamplingClip ? "resamplingClip" : "audacityProcessing"));
 		dependencies.publish();
 		let record = null;
 		try {
@@ -188,19 +207,22 @@ export function createClipResampleService(
 			assertOwned(ownership);
 			const input = await dependencies.derivedSources.sourceChannelsForEdit(source);
 			assertOwned(ownership);
-			const channels = dependencies.resampleChannels(input, source.sampleRate, sampleRate, outputFrames);
+			const converted = reinterpret ? reinterpretPcmChannels(input, source.sampleFormat, sampleFormat)
+				: sampleRate === source.sampleRate ? input : dependencies.resampleChannels(input, source.sampleRate, sampleRate, outputFrames);
+			const channels = !reinterpret && convertPrecision ? convertPcmPrecision(converted, clipPcmFormat(sampleFormat)) : converted;
 			record = await dependencies.derivedSources.persistDerivedSource(
-				{ ...source, sampleRate, originalSampleRate: source.originalSampleRate || source.sampleRate },
+				{ ...source, sampleRate, ...(convertPrecision ? { sampleFormat } : {}), originalSampleRate: source.originalSampleRate || source.sampleRate },
 				channels,
 				`${source.name || clip.title} (${sampleRate} Hz)`,
-				'resampled-source',
+				reinterpret ? 'reinterpreted-source' : 'resampled-source',
 			);
 			assertOwned(ownership);
 			dependencies.commit({
 				type: 'batch',
 				commands: [
 					createAddSourceCommand(record.source),
-					...resampledClipCommands(track.id, clip, source, record.source, sampleRate, linkedVideo),
+					...(reinterpret ? reinterpretedClipCommands(track.id, clip, source, record.source)
+						: resampledClipCommands(track.id, clip, source, record.source, sampleRate, linkedVideo)),
 					...resampledClipSelectionCommands(dependencies.getProject().selection, [clip.id]),
 				],
 			}, { selectTrackId: track.id, selectClipId: clip.id }, { microfadeNewClips: false });

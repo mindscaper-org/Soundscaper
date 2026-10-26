@@ -160,6 +160,7 @@ module.exports = {
 				'vendor/audacity-design-system/components/src/TimeCode/time-code-musical-context.ts',
 				'vendor/audacity-design-system/components/src/Track/Track.css',
 				'vendor/audacity-design-system/components/src/Track/TrackFadeHandle.tsx',
+				'vendor/audacity-design-system/components/src/Track/track-fade-handle-geometry.ts',
 				'vendor/audacity-design-system/components/src/types/clip.ts',
 				'vendor/audacity-design-system/tokens/**/*',
 				'vendor/audacity-design-system/components/src/utils/roseus-colormap.ts',

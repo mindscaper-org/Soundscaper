@@ -70,7 +70,7 @@ function sourceFixture(id: string, overrides: Partial<ControllerSource> = {}): C
 	};
 }
 
-function createResampleFixture(initialProject: ControllerProject) {
+function createResampleFixture(initialProject: ControllerProject, inputChannels?: Float32Array[]) {
 	const project = initialProject;
 	let blocked = false;
 	let sequence = 0;
@@ -82,6 +82,7 @@ function createResampleFixture(initialProject: ControllerProject) {
 		}>,
 		finishes: 0,
 		persisted: [] as ControllerSource[],
+		persistedChannels: [] as Float32Array[][],
 		preflights: [] as number[],
 		processing: [] as boolean[],
 		resamples: [] as unknown[][],
@@ -114,7 +115,7 @@ function createResampleFixture(initialProject: ControllerProject) {
 				return audio && clips.some((clip) => clip.sourceId === source.id) ? [audio] : [];
 			}),
 			async sourceChannelsForEdit(source) {
-				return Array.from({ length: source.channelCount }, () => Float32Array.of(1, 2, 3, 4));
+				return inputChannels ?? Array.from({ length: source.channelCount }, () => Float32Array.of(1, 2, 3, 4));
 			},
 			async persistDerivedSource(template, channels, name, prefix) {
 				if (persistenceFails) throw new Error('Persistence failed');
@@ -128,6 +129,7 @@ function createResampleFixture(initialProject: ControllerProject) {
 					channelCount: channels.length,
 				});
 				calls.persisted.push(source);
+				calls.persistedChannels.push(channels);
 				return { source, buffer: null, channels };
 			},
 			async persistRenderedMixSource() {
@@ -272,6 +274,42 @@ test('a request that changes nothing commits nothing', async () => {
 
 	assert.equal(await fixture.service.resampleClip('clip', { sampleRate: 48_000 }), 'clip');
 	assert.equal(await fixture.service.resampleClip('clip'), 'clip');
+	assert.deepEqual(fixture.calls.commits, []);
+});
+
+test('a bit-depth-only conversion quantizes samples without invoking the rate converter', async () => {
+	const source = sourceFixture('source', { frameCount: 4 });
+	const clip = clipFixture('clip', source.id, { durationFrames: 4, sourceDurationFrames: 4 });
+	const channels = [Float32Array.of(0.1234567, -0.1234567, 1.5, -1.5)];
+	const fixture = createResampleFixture(projectFixture({ tracks: [trackFixture({ clipIds: [clip.id] })], clips: [clip], sources: [source] }), channels);
+	assert.equal(await fixture.service.resampleClip('clip', { sampleRate: 48_000, sampleFormat: 'int16' }), 'clip');
+	assert.equal(fixture.calls.persisted[0]?.sampleFormat, 'int16');
+	assert.deepEqual([...fixture.calls.persistedChannels[0]![0]!], [4045 / 32768, -4045 / 32768, 32767 / 32768, -1]);
+	assert.deepEqual(fixture.calls.resamples, []);
+	assert.equal(fixture.calls.commits.length, 1);
+});
+
+test('a rate reinterpretation retains exact samples, changes duration and never resamples', async () => {
+	const source = sourceFixture('source', { frameCount: 4, sampleRate: 16_000, sampleFormat: 'int16' });
+	const clip = clipFixture('clip', source.id, { durationFrames: 12, sourceDurationFrames: 4 });
+	const channels = [Float32Array.of(0.1234567, -0.1234567, 1, -1)];
+	const fixture = createResampleFixture(projectFixture({ tracks: [trackFixture({ clipIds: [clip.id] })], clips: [clip], sources: [source] }), channels);
+	assert.equal(await fixture.service.reinterpretClip('clip', { sampleRate: 8000, sampleFormat: 'int16' }), 'clip');
+	assert.equal(fixture.calls.persistedChannels[0], channels);
+	assert.equal(fixture.calls.persisted[0]?.sampleRate, 8000);
+	assert.deepEqual(fixture.calls.resamples, []);
+	const commands = (fixture.calls.commits[0]!.command as Extract<AudioEditorCommand, { type: 'batch' }>).commands;
+	const addition = commands.find(command => command.type === 'clip/add') as Extract<AudioEditorCommand, { type: 'clip/add' }>;
+	assert.equal(addition.clip.durationFrames, 24);
+	assert.equal(addition.clip.sourceDurationFrames, 4);
+});
+
+test('incompatible reinterpretation fails before persisting or committing any source', async () => {
+	const source = sourceFixture('source', { frameCount: 1, sampleFormat: 'int16' });
+	const clip = clipFixture('clip', source.id, { durationFrames: 1, sourceDurationFrames: 1 });
+	const fixture = createResampleFixture(projectFixture({ tracks: [trackFixture({ clipIds: [clip.id] })], clips: [clip], sources: [source] }), [Float32Array.of(0)]);
+	await assert.rejects(() => fixture.service.reinterpretClip('clip', { sampleFormat: 'int24' }), /complete PCM frames/);
+	assert.deepEqual(fixture.calls.persisted, []);
 	assert.deepEqual(fixture.calls.commits, []);
 });
 

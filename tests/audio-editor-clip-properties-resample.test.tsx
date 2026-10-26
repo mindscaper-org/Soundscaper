@@ -21,8 +21,8 @@ test('clip properties report the rate of the clip that is selected', async () =>
 		await fixture.render();
 		await fixture.openSettings();
 		assert.match(fixture.sourceRate().textContent, /96000/u);
-		// Sources are stored as float32 PCM whatever they declare, so the editor
-		// neither offers a format nor reports one it would never convert.
+		// The committed menu exposes resampling by rate; precision conversion is
+		// covered at its controller boundary rather than reported as a source fact.
 		assert.equal(fixture.declaredFormatShown(), false);
 		assert.equal(Boolean(fixture.resampleDialog()), false);
 	} finally {

@@ -162,9 +162,11 @@ export interface EditorActionFunctions {
 	readonly requestStoragePersistence: ReturnType<typeof createControllerStorageCapacityService>['requestStoragePersistence'];
 	readonly requestWaveformPcmWindow: ReturnType<typeof createSourceRuntimeComposition>['sourceLifecycle']['requestWaveformPcmWindow'];
 	readonly resampleClip: ReturnType<typeof createTrackAudioComposition>['resampleClip'];
+	readonly reinterpretClip: ReturnType<typeof createTrackAudioComposition>['reinterpretClip'];
 	readonly resampleTrack: ReturnType<typeof createTrackAudioComposition>['resampleTrack'];
 	readonly resetClipPitchSpeed: ReturnType<typeof createClipVideoComposition>['clipProperty']['resetClipPitchSpeed'];
 	readonly resetLoudnessMeasurement: ReturnType<typeof createMicrophoneMeterService>['resetLoudnessMeasurement'];
+	readonly fitTrackHeights: ReturnType<typeof createTransportComposition>['view']['fitTrackHeights'];
 	readonly resizeTrackHeight: ReturnType<typeof createTransportComposition>['view']['resizeTrackHeight'];
 	readonly revertFactorySettings: ReturnType<typeof createPreferencesComposition>['service']['revertFactorySettings'];
 	readonly runEffectMacro: ReturnType<typeof createEffectsComposition>['runEffectMacro'];
