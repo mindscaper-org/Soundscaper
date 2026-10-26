@@ -10,6 +10,7 @@ import {
 	workspacePanelMenu,
 	workspacePanelMenuButton,
 } from './audio-editor-test-helpers.js';
+import { savedWorkspacePanels } from './helpers/workspace-preferences.js';
 
 test.describe('workspace panel resizing', () => {
 	registerAudioEditorHooks();
@@ -178,6 +179,9 @@ test.describe('workspace panel resizing', () => {
 		await page.mouse.up();
 		await expect.poll(async () => Number(await projectBin.getAttribute('data-workspace-panel-size'))).toBeGreaterThan(initialSize + 20);
 		const savedSize = await projectBin.getAttribute('data-workspace-panel-size');
+		await expect.poll(() => savedWorkspacePanels(page)).toMatchObject({
+			'project-bin': { size: Number(savedSize) },
+		});
 		await page.reload();
 		await waitForEditor(page);
 		await expect(projectBin).toHaveAttribute('data-workspace-panel-size', savedSize);
