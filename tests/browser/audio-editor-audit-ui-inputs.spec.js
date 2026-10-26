@@ -36,7 +36,7 @@ test('mono capture route controls and History respect live recording admission',
 	await source.selectOption('device:default');
 	await expect.poll(() => page.evaluate(() => globalThis.__complexWorkflowStreams.length)).toBeGreaterThan(0);
 	const width = editor.getByRole('combobox', { name: /^Track channels:/u }).first();
-	await expect(width.getByRole('option', { name: 'Stereo', exact: true })).toBeDisabled();
+	await expect(width.getByRole('option', { name: 'Stereo', exact: true })).toHaveAttribute('disabled', '');
 	await chooseCommandAction(page, editor, 'Window', 'History');
 	const history = editor.locator('[data-workspace-panel="history"]');
 	await expect(history.getByRole('button', { name: 'Undo', exact: true })).toBeEnabled();
@@ -78,7 +78,7 @@ test('floating Web VCR targets its contained picture and keeps remote wheel even
 	await resize.focus();
 	for (let step = 0; step < 5; step++) await resize.press('ArrowLeft');
 	const interaction = editor.getByRole('application', { name: 'Interact with web page', exact: true });
-	const video = editor.getByLabel('Web VCR preview', { exact: true });
+	const video = editor.getByLabel('Web page preview', { exact: true });
 	await expect.poll(() => video.evaluate(element => element.videoWidth)).toBeGreaterThan(0);
 	const picture = await video.evaluate(element => {
 		const box = element.getBoundingClientRect();
