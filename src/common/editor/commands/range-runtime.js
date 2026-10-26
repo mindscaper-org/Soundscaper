@@ -2,7 +2,6 @@
 
 import { createFrozenClipReader } from './frozen-clip-reader.ts';
 import { commandIdentity, setCommandIdentity } from './command-identity-map.ts';
-
 import { compareCodeUnits } from '../code-unit-order.ts';
 import { punchTransitionCutRange } from './punch-transition-range.ts';
 import {
@@ -39,6 +38,7 @@ import {
 	validateTrackReplacement,
 } from './shared-runtime.js';
 import { firstById } from './editing-work-index.ts';
+import { createRangeClipCatalog } from './range-clip-catalog.ts';
 import { readTrackClips, requireIndexedTrack } from './clip-edit-index.ts';
 import { collectRangeAvClipIds, collectRangeLinkedTrackTargets } from './range-relationship-index.ts';
 import { resolveRangeSequenceGeometry } from './range-sequence-geometry.ts';
@@ -54,13 +54,13 @@ import {
 
 // foundation-edit-matrix: ripple
 // foundation-edit-matrix: range-delete
-
 export function deleteRange(project, command, rippleMode) {
 	const range = normalizeFrameRange(command.startFrame, command.endFrame, 'delete range');
 	const trackIds = command.trackIds || project.tracks.filter((track) => Array.isArray(track.clipIds)).map((track) => track.id);
 	const affectedClipIds = Array.isArray(command.clipIds) ? new Set(command.clipIds) : null;
 	const geometry = resolveRangeSequenceGeometry(project, trackIds, range);
 	const trackById = firstById(project.tracks);
+	const catalog = createRangeClipCatalog(project, trackIds);
 	if (rippleMode !== 'track' && Object.hasOwn(command, 'annotationRippleOperations')) {
 		throw new RangeError('Annotation ripple operations are only valid for range/ripple-delete.');
 	}
@@ -94,8 +94,10 @@ export function deleteRange(project, command, rippleMode) {
 			command.splitAvLinkIds || {},
 			command.videoEffectIds || {},
 			affectedClipIds,
+			catalog,
 		);
 	}
+	catalog?.commit();
 	commitAnnotationRipple();
 	commitTakeGraph?.();
 }
@@ -128,8 +130,9 @@ export function processTrackRange(
 	splitAvLinkIds = {},
 	videoEffectIds = {},
 	affectedClipIds = null,
+	catalog = null,
 ) {
-	const originals = readTrackClips(project, track);
+	const originals = catalog ? catalog.read(track) : readTrackClips(project, track);
 	const replacements = [];
 	const deletedIds = new Set(track.clipIds);
 	for (const clip of originals) {
@@ -157,7 +160,7 @@ export function processTrackRange(
 		if (hasRight) {
 			const rightId = hasLeft ? commandIdentity(splitClipIds, clip.id) : clip.id;
 			if (!rightId) throw new TypeError(`A stable split clip ID is required for ${clip.id}.`);
-			if (hasLeft) assertUnusedClipId(project, rightId);
+			if (hasLeft) { if (catalog) catalog.assertUnused(rightId); else assertUnusedClipId(project, rightId); }
 			const timelineStartFrame = rippleMode === 'track'
 				? range.startFrame
 				: rippleMode === 'clip'
@@ -181,8 +184,11 @@ export function processTrackRange(
 		}
 	}
 
-	project.clips = project.clips.filter((clip) => !deletedIds.has(clip.id));
-	project.clips.push(...replacements);
+	if (catalog) catalog.stage(track, replacements);
+	else {
+		project.clips = project.clips.filter((clip) => !deletedIds.has(clip.id));
+		project.clips.push(...replacements);
+	}
 	track.clipIds = replacements
 		.sort((first, second) => first.timelineStartFrame - second.timelineStartFrame)
 		.map((clip) => clip.id);
@@ -200,10 +206,11 @@ export function keepRange(project, command) {
 		project,
 		new Map(trackIds.map((trackId) => [String(trackId), range])),
 	);
+	const trackById = firstById(project.tracks), catalog = createRangeClipCatalog(project, trackIds);
 	for (const trackId of trackIds) {
-		const track = requireTrack(project, trackId);
+		const track = requireIndexedTrack(trackById, trackId);
 		if (!Array.isArray(track.clipIds)) continue;
-		const originals = readTrackClips(project, track);
+		const originals = catalog ? catalog.read(track) : readTrackClips(project, track);
 		const deletedIds = new Set(track.clipIds);
 		const replacements = [];
 		for (const clip of originals) {
@@ -216,13 +223,17 @@ export function keepRange(project, command) {
 			if (end <= start) continue;
 			replacements.push(segmentOfClip(project, clip, start, end, start, clip.id));
 		}
-		project.clips = project.clips.filter((clip) => !deletedIds.has(clip.id));
-		project.clips.push(...replacements);
+		if (catalog) catalog.stage(track, replacements);
+		else {
+			project.clips = project.clips.filter((clip) => !deletedIds.has(clip.id));
+			project.clips.push(...replacements);
+		}
 		track.clipIds = replacements
 			.sort((left, right) => left.timelineStartFrame - right.timelineStartFrame
 				|| compareCodeUnits(left.id, right.id))
 			.map((clip) => clip.id);
 	}
+	catalog?.commit();
 	commitTakeGraph?.();
 }
 
@@ -308,6 +319,7 @@ function rangeDeleteRippleMode(type) {
 	return 'none';
 }
 
+/** @returns {import('./protocol.ts').AudioEditorCommand} */
 export function prepareKeepRangeCommand(project, options = {}) {
 	const range = normalizeFrameRange(options.startFrame, options.endFrame, 'kept range');
 	const requestedTrackIds = options.trackIds || project.tracks.filter((track) => Array.isArray(track.clipIds)).map((track) => track.id);
