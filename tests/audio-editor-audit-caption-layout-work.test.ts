@@ -8,15 +8,16 @@ test('caption font fitting segments a job once while retaining exact Unicode wra
 	const text = 'Captions preserve cafés, Á, emoji 👩‍💻 and long words antidisestablishmentarianism. '.repeat(3);
 	const expected = 'Captions preserve cafés, Á, emoji 👩‍💻\nand long words antidisestablishmentarianism.\n'.repeat(3).trimEnd();
 	const original = Intl.Segmenter;
+	const descriptor = Object.getOwnPropertyDescriptor(Intl, 'Segmenter')!;
 	let constructors = 0;
 	let segmentCalls = 0;
-	Intl.Segmenter = new Proxy(original, { construct(target, args: ConstructorParameters<typeof Intl.Segmenter>) {
+	Object.defineProperty(Intl, 'Segmenter', { ...descriptor, value: new Proxy(original, { construct(target, args: ConstructorParameters<typeof Intl.Segmenter>) {
 		constructors++;
 		const segmenter = new target(...args);
 		const segment = segmenter.segment.bind(segmenter);
 		segmenter.segment = input => { segmentCalls++; return segment(input); };
 		return segmenter;
-	} });
+	} }) });
 	try {
 		const fitted = fitBurnInTexts(Array.from({ length: 200 }, () => text), 720, 300, 24, 48);
 		assert.equal(fitted.fontSizePx, 27);
@@ -25,5 +26,5 @@ test('caption font fitting segments a job once while retaining exact Unicode wra
 		assert.ok(fitted.texts.every(caption => caption === expected));
 		assert.equal(constructors, 1);
 		assert.ok(segmentCalls <= 10, 'repeated words and font trials reuse job-owned graphemes');
-	} finally { Intl.Segmenter = original; }
+	} finally { Object.defineProperty(Intl, 'Segmenter', descriptor); }
 });

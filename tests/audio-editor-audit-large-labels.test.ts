@@ -26,6 +26,7 @@ test('an admitted many-track labeled edit reaches storage preflight with the cor
 	});
 	assert.ok(validateSoundscaperProject(project));
 	const targets = selectLabeledAudioTargets(project, { startFrame: 0, endFrame: end }, project.tracks.map(track => track.id));
+	assert.ok(targets);
 	const quotaFailure = new Error('Storage quota declined');
 	const estimates: number[] = [];
 	const fixture = createFixture({ getProject: () => project as unknown as AudioGeneratorDocument,
