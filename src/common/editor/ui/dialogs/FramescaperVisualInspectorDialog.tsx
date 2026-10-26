@@ -1,6 +1,7 @@
 import { usePresentationFeedback, feedbackFailure } from '../presentation-feedback.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { visualKindLabel, visualBlendLabel } from './framescaper-visual-state-labels.ts';
 import { FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY } from '../../../i18n/editor-framescaper-visual-inspector-additional-copy.ts';
 
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
@@ -112,7 +113,7 @@ export default function FramescaperVisualInspectorDialog({
 		<form id={formId} noValidate className="audio-editor-clip-inspector" onSubmit={apply}>
 			{model.clipId === null ? <p role="status">{label(copy, 'visualInspectorSelection',
 				FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.visualInspectorSelection)}</p> : <>
-				<p data-visual-inspector-kind>{model.kind}</p>
+				<p data-visual-inspector-kind>{visualKindLabel(model.kind, copy)}</p>
 					<GeneratorFields generator={draft.generator} audioSources={model.audioSources} disabled={sourceBlocked} copy={copy}
 						numberDrafts={numberDrafts} onNumber={updateNumber} onChange={updateGenerator} />
 				{model.presets.length > 0 && <label>
@@ -145,7 +146,7 @@ export default function FramescaperVisualInspectorDialog({
 								FramescaperVisualInspectorDraft['blendMode'];
 							setDraft((current) => ({ ...current, blendMode }));
 						}}>
-						{BLEND_MODES.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
+						{BLEND_MODES.map((mode) => <option key={mode} value={mode}>{visualBlendLabel(mode, copy)}</option>)}
 					</select>
 				</label>
 				{model.masks.length > 0 && <fieldset disabled={blocked}>
