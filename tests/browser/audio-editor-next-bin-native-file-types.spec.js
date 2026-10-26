@@ -2,6 +2,7 @@
 
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, collectClientErrors } from './audio-editor-test-helpers.js';
+import { installDesktopSpeedWarmupManifest } from './helpers/desktop-speed-warmup-fixture.js';
 import { registerFileCapabilityIpc } from '../../desktop/main-file-capability-ipc.mjs';
 
 test('Project Bin native chooser offers only audio and video source files', async ({ page }) => {
@@ -18,6 +19,7 @@ test('Project Bin native chooser offers only audio and video source files', asyn
 		readCapabilities: {}, saves: {}, saveTargets: {}, windowFor: () => null,
 	});
 	await page.exposeBinding('__binNativePanel', async (_source, request) => await handlers.get('open')({}, request));
+	await installDesktopSpeedWarmupManifest(page);
 	await page.addInitScript(() => Object.defineProperty(globalThis, 'soundscaperDesktop', { value: { v1: {
 		chooseFiles: request => globalThis.__binNativePanel(request),
 	} } }));
