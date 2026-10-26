@@ -67,11 +67,14 @@ export function DeliveryQueueDialog({ isOpen, controller, snapshot, copy, onClos
 	useEffect(() => {
 		if (!isOpen || !queueActions.persistent) return undefined;
 		let active = true;
-		const refresh = () => Promise.resolve(queueActions.refresh())
-			.catch((cause) => { if (active) setError(feedbackFailure(cause)); });
+		let timer = 0;
+		const refresh = async () => {
+			try { await queueActions.refresh(); }
+			catch (cause) { if (active) setError(feedbackFailure(cause)); }
+			finally { if (active) timer = setTimeout(() => { void refresh(); }, 1_000); }
+		};
 		void refresh();
-		const timer = setInterval(() => { void refresh(); }, 1_000);
-		return () => { active = false; clearInterval(timer); };
+		return () => { active = false; clearTimeout(timer); };
 	}, [isOpen, queueActions, setError]);
 
 	const selectable = selectableDeliveryBatchTargets(targets, mode);
