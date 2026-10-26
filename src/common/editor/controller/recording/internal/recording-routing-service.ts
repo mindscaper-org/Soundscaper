@@ -295,7 +295,9 @@ export function createRecordingRoutingService<
 		await refreshAudioDevices({ probe: false, publish: false, nativeInventory: inventory });
 		if (state.audioHost !== normalized) return state.audioHost;
 		const webHost = normalized === 'browser' || normalized === 'electron';
-		if (!state.audioInputDevices.some(device => device.deviceId === state.preferredInputDeviceId)) {
+		const displayInputAvailable = webHost && state.preferredInputDeviceId === RECORDING_DISPLAY_SOURCE_KEY
+			&& supportsDisplayAudioCapture(mediaDevices);
+		if (!displayInputAvailable && !state.audioInputDevices.some(device => device.deviceId === state.preferredInputDeviceId)) {
 			state.preferredInputDeviceId = webHost ? RECORDING_DEFAULT_DEVICE_ID
 				: (state.audioInputDevices.find(device => device.isDefault) ?? state.audioInputDevices[0])?.deviceId ?? RECORDING_DEFAULT_DEVICE_ID;
 		}
