@@ -60,15 +60,26 @@ export class SourceRecordRepository {
 		return value ? clone(value as StorageRecord) : null;
 	}
 
-	/** Read generation fences together from one readonly database snapshot. */
+	/** Read detached complete records together from one readonly database snapshot. */
 	async getMetadataMany(sourceIds: readonly string[]): Promise<readonly (StorageRecord | null)[]> {
+		return (await this.#readMetadataMany(sourceIds)).map((value) => value ? clone(value) : null);
+	}
+
+	/** Fresh scalar generation identities share one readonly snapshot without cloning immutable layouts. */
+	async getGenerationFences(sourceIds: readonly string[]): Promise<readonly (StorageRecord | null)[]> {
+		return (await this.#readMetadataMany(sourceIds)).map((value) => value ? {
+			id: value.id, storage: value.storage, sourceToken: value.sourceToken, path: value.path,
+			baseSourceId: value.baseSourceId, pcmEncodingVersion: value.pcmEncodingVersion,
+		} : null);
+	}
+
+	async #readMetadataMany(sourceIds: readonly string[]): Promise<readonly (StorageRecord | undefined)[]> {
 		const database = await this.#port.database();
-		const values = !database
-			? sourceIds.map((sourceId) => this.#port.memory.sources.get(sourceId))
-			: await transact(database, 'sources', 'readonly', ({ sources }) => Promise.all(
-				sourceIds.map((sourceId) => request(sources.get(sourceId))),
+		return !database
+			? sourceIds.map((sourceId) => this.#port.memory.sources.get(sourceId) as StorageRecord | undefined)
+			: transact(database, 'sources', 'readonly', ({ sources }) => Promise.all(
+				sourceIds.map((sourceId) => request(sources.get(sourceId)) as Promise<StorageRecord | undefined>),
 			));
-		return values.map((value) => value ? clone(value as StorageRecord) : null);
 	}
 
 	async list(): Promise<StorageRecord[]> {
