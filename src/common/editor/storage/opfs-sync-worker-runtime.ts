@@ -32,8 +32,17 @@ interface WorkerWriter {
 	offset: number;
 }
 
+interface OpfsReadLockPort {
+	request<Result>(
+		name: string,
+		options: { readonly mode: 'exclusive' },
+		consume: () => Promise<Result>,
+	): Promise<Result>;
+}
+
 interface OpfsSyncWorkerRuntimeOptions {
 	readonly supportsSyncAccessHandles?: () => boolean;
+	readonly locks?: OpfsReadLockPort | null;
 }
 
 interface WorkerRequest extends Record<string, unknown> {
@@ -46,6 +55,7 @@ let nextWriterId = 1;
 /** Worker-owned synchronous OPFS sessions with one closed operation vocabulary. */
 export class OpfsSyncWorkerRuntime {
 	readonly #supportsSyncAccessHandles: () => boolean;
+	readonly #locks: OpfsReadLockPort | null;
 	readonly #writers = new Map<string, WorkerWriter>();
 	readonly #active = new Set<string>();
 	readonly #cancelled = new Set<string>();
@@ -56,6 +66,7 @@ export class OpfsSyncWorkerRuntime {
 	constructor(options: OpfsSyncWorkerRuntimeOptions = {}) {
 		this.#supportsSyncAccessHandles = options.supportsSyncAccessHandles
 			?? defaultSupportsSyncAccessHandles;
+		this.#locks = options.locks === undefined ? globalThis.navigator?.locks ?? null : options.locks;
 	}
 
 	async handle(value: unknown): Promise<Record<string, unknown>> {
@@ -153,8 +164,17 @@ export class OpfsSyncWorkerRuntime {
 		this.#readOwners.set(path, terminal);
 		await previous;
 		try {
-			this.#throwIfCancelled(id);
-			return await consume();
+			const owned = async () => {
+				this.#throwIfCancelled(id);
+				return consume();
+			};
+			// Read-only native handles can still exclude another worker's reader.
+			// Coordinate by physical directory and path through getFile completion.
+			if (this.#locks) {
+				const name = `scape:opfs-read:${JSON.stringify([this.#directory!.name, path])}`;
+				return await this.#locks.request(name, { mode: 'exclusive' }, owned);
+			}
+			return await owned();
 		} finally {
 			release();
 			if (this.#readOwners.get(path) === terminal) this.#readOwners.delete(path);
