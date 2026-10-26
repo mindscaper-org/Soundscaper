@@ -147,8 +147,9 @@ export function createConsolidatePlan(request: ConsolidatePlanRequest): Consolid
 		});
 	}
 
+	const plannedSourceIds = new Set(plans.map(plan => plan.sourceId));
 	for (const [sourceId, binding] of bindings) {
-		if (plans.some((plan) => plan.sourceId === sourceId)) continue;
+		if (plannedSourceIds.has(sourceId)) continue;
 		plans.push(entry(sourceId, 'unbound', binding));
 		addDeliveryReportItem(draft, {
 			code: 'consolidate.binding-without-source',
