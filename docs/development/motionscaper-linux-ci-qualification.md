@@ -8,14 +8,15 @@ software-rendered workflows, not all milestones or the complete release.
 See [final validation status](motionscaper-final-integration-validation.md).
 
 Motion candidate packages and desktop nightly test artifacts require the same
-three external Linux workflows before their package upload can succeed:
+four external Linux workflows before their package upload can succeed:
 
 1. Actual cold and warm archive launch, native Save, reviewed Copy, queued opaque
    custody and renderer-reload recovery.
 2. Actual packaged 2.5D camera, lighting, shadow, four-sample shutter and
    sixteen-sample lens preview and ProRes delivery against matching-quality
    reference pixels.
-3. Actual Frame successor linked Motion picture and PCM, saved updates,
+3. Actual packaged title/text authoring and native ProRes delivery.
+4. Actual Frame successor linked Motion picture and PCM, saved updates,
    Undo/Resume, offline retained originals, Frame finishing and native delivery.
 
 The composite action at
@@ -61,7 +62,7 @@ node scripts/motionscaper-reference-artifact-build.ts --target=linux-x64 \
   --output=/absolute/new-decoder-artifact
 ```
 
-Run all three qualifiers with explicit package and stage locations:
+Run all four qualifiers with explicit package and stage locations:
 
 ```sh
 xvfb-run -a node scripts/motionscaper-linux-qualification.ts --target=linux-x64 \
@@ -73,8 +74,8 @@ xvfb-run -a node scripts/motionscaper-linux-qualification.ts --target=linux-x64 
 
 The output directory is created exclusively. Each phase is sequential and
 bounded to six minutes and 2 MiB of process output. The final `qualification.json`
-is written only after exactly one of all four required workflow receipts
-matches the current source revision. It hashes the logs and copies the two
+requires exactly one receipt for each of the five required workflow markers,
+all matching the current source revision. It hashes the logs and copies the two
 stage manifests, helper build receipt and decoder receipt. CI retains this
 separate `motionscaper-linux-qualification-<target>` evidence artifact even when
 partial failure diagnostics exist; a failed qualifier still fails the package
