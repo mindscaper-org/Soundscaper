@@ -14,7 +14,7 @@ for (const jobName of ['browser', 'firefox']) {
 		assert.ok(selection >= 0 && provision > selection);
 		assert.ok(job.includes(jobName === 'browser' ? '--project=${{ matrix.project }}' : '--project=firefox'));
 		assert.ok(job.includes('--shard=${{ matrix.shard }}/12'));
-		for (const step of job.split(/\n {6}- /u).filter(step => (
+		for (const step of job.split(/\n {6}- /u).filter((step: string) => (
 			step.includes('uses: actions/setup-python@') || step.includes('id: interchange-cache-key')
 			|| step.includes('path: .wrangler/test-download-cache/interchange')
 			|| step.includes('run: npm run provision:interchange-conformance')
@@ -29,7 +29,7 @@ for (const workflowName of ['quality.yml', 'desktop-preview.yml', 'soundscaper-s
 	test(`${workflowName} Node prerequisites follow the actual selected shard closure`, async () => {
 		const job = extractJob(await readWorkflow(workflowName), 'tests');
 		assert.ok(job.includes('node scripts/ci-test-prerequisites.mjs --node-shard=${{ matrix.shard }}'));
-		const provisions = job.split(/\n {6}- /u).filter(step => step.includes('run: npm run provision:interchange-conformance'));
+		const provisions = job.split(/\n {6}- /u).filter((step: string) => step.includes('run: npm run provision:interchange-conformance'));
 		assert.equal(provisions.length, 1);
 		assert.ok(provisions[0]?.includes(REQUIRED));
 	});
