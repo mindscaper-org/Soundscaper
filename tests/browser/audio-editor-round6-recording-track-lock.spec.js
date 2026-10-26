@@ -56,8 +56,10 @@ for (const multitrack of [false, true]) test(`a ${multitrack ? 'multitrack' : 'f
 	const after = await persistedProject(page, projectId);
 	expect(after.tracks[0]).toEqual(before.tracks[0]);
 	expect(after.clips.find(clip => clip.id === before.clips[0].id)).toEqual(before.clips[0]);
+	await expect(editor.getByRole('button', { name: 'Undo', exact: true })).toBeEnabled();
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
+	await expect(editor.getByRole('button', { name: 'Redo', exact: true })).toBeEnabled();
 	await chooseCommandAction(page, editor, 'Edit', 'Redo');
 	await expect(editor).toHaveAttribute('data-clip-count', '2');
 });
