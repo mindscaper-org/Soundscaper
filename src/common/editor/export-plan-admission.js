@@ -19,9 +19,23 @@ export function deliversMasterMix(mode) {
 	return mode !== 'stems' && mode !== 'clips';
 }
 
-export function assertSoundscaperEffectChannelSafety(project, mode, outputs = []) {
+/** Reuse each isolated output only within this synchronous planning invocation. */
+export function createExportPlanAdmission(project, mode, outputs) {
+	const prepared = new Map();
+	const clipProject = (output) => {
+		if (!prepared.has(output)) prepared.set(output, createExportClipProject(project, output));
+		return prepared.get(output);
+	};
+	return {
+		assertChannelSafety: () => assertSoundscaperEffectChannelSafety(project, mode, outputs, clipProject),
+		estimateSourceWorkingSetBytes: (ranges) => estimateExportPlanSourceWorkingSetBytes(project, mode, outputs, ranges, clipProject),
+		selectOfflineRenderAdmission: (options) => selectExportOfflineRenderAdmission({ ...options, project, mode, outputs }, clipProject),
+	};
+}
+
+export function assertSoundscaperEffectChannelSafety(project, mode, outputs = [], clipProject = output => createExportClipProject(project, output)) {
 	if (!isSoundscaperProductionProject(project)) return;
-	const targets = mode === 'clips' ? outputs.map((output) => ({ project: createExportClipProject(project, output), trackId: output.trackId })) : [{ project }];
+	const targets = mode === 'clips' ? outputs.map((output) => ({ project: clipProject(output), trackId: output.trackId })) : [{ project }];
 	const issues = targets.flatMap((target) => findStereoLimitedMultichannelRenderEffects(target.project, Number(project.masterChannels), {
 		includeMaster: deliversMasterMix(mode),
 	}).filter((issue) => target.trackId == null || issue.scope !== 'track' || issue.targetId === target.trackId));
@@ -72,13 +86,13 @@ export function resolveExportLoudnessNormalization(options, { mode, admMetadata,
 
 export function selectExportOfflineRenderAdmission({
 	project, mode, outputs, range, chapters, renderRanges = null, tailFrames, channelCount,
-}) {
+}, clipProject = output => createExportClipProject(project, output)) {
 	const ranges = renderRanges ?? (mode === 'chapters' && chapters?.length ? chapters : [range]);
 	const targets = deliversMasterMix(mode)
 		? [{ trackId: null, includeMaster: true }]
 		: outputs.map(({ trackId }) => ({ trackId, includeMaster: false }));
 	const renders = mode === 'clips'
-		? outputs.map((output) => ({ project: createExportClipProject(project, output), renderRange: output.range, target: { trackId: output.trackId, includeMaster: false } }))
+		? outputs.map((output) => ({ project: clipProject(output), renderRange: output.range, target: { trackId: output.trackId, includeMaster: false } }))
 		: ranges.flatMap((renderRange) => targets.map((target) => ({ project, renderRange, target })));
 	return renders
 		.reduce((selected, { project: renderProject, renderRange, target }) => {
@@ -95,8 +109,8 @@ export function selectExportOfflineRenderAdmission({
 		}, null);
 }
 
-export function estimateExportPlanSourceWorkingSetBytes(project, mode, outputs, ranges) {
+export function estimateExportPlanSourceWorkingSetBytes(project, mode, outputs, ranges, clipProject = output => createExportClipProject(project, output)) {
 	return mode === 'clips'
-		? Math.max(...outputs.map((output) => estimateExportSourceWorkingSetBytes(createExportClipProject(project, output), [output.range])))
+		? Math.max(...outputs.map((output) => estimateExportSourceWorkingSetBytes(clipProject(output), [output.range])))
 		: estimateExportSourceWorkingSetBytes(project, ranges);
 }
