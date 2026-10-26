@@ -53,7 +53,7 @@
 		"src/common/editor/browser-audio-codec-runtime.ts": 558,
 		"src/common/editor/chunk-stream-client.js": 565,
 		"src/common/editor/clip-time-pitch-cache.js": 565,
-		"src/common/editor/controller/assistance/local-assistance-selected-video.ts": 598,
+		"src/common/editor/controller/assistance/local-assistance-selected-video.ts": 552,
 		"src/common/editor/controller/capture/framescaper-capture-app-composition.ts": 589,
 		"src/common/editor/controller/capture/internal/framescaper-capture-durable-session.ts": 589,
 		"src/common/editor/controller/capture/internal/framescaper-capture-publication-plan.ts": 596,
