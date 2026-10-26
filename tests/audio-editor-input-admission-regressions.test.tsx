@@ -15,7 +15,7 @@ const noop = () => undefined;
 
 test('History reflects the same mutation admission as editor actions', () => {
 	for (const blocked of [true, false]) {
-		const html = renderToStaticMarkup(<WorkspacePanelContent panelId="history" controller={{}} snapshot={{ history: { canUndo: true, canRedo: true } }} copy={ENGLISH_COPY} blocked={blocked} />);
+		const html = renderToStaticMarkup(<WorkspacePanelContent panelId="history" controller={{}} snapshot={{ history: { canUndo: true, canRedo: true } }} copy={ENGLISH_COPY} blocked={blocked} locale="en" fileService={{}} playbackMeterSettings={{}} run={(operation: () => unknown) => operation()} showArmControls={false} displayAudioSupported={false} onOpenEffects={noop} effectsPanelTarget={null} onEffectWindowChange={noop} />);
 		assert.equal((html.match(/disabled=""/gu) ?? []).length, blocked ? 2 : 0);
 	}
 });
@@ -37,5 +37,5 @@ test('shortcut conflicts identify the localized command rather than its internal
 
 test('fractional resampled source markers retain their exact output position', () => {
 	const clip = { kind: 'audio', anchor: 'sample', timelineStartFrame: 0, sourceStartFrame: 0, sourceDurationFrames: 12000, durationFrames: 48000, warpMap: normalizeAudioWarpMap({ feature: 'audio-warp', points: [{ outer: 0, source: 0, mode: 'forward' }, { outer: 24000, source: { num: 1, den: 4 }, mode: 'forward' }, { outer: 48000, source: 12000, mode: 'forward' }] }) };
-	assert.equal(clipSourceFrameToDisplay({ sampleRate: 48000 }, clip, { sampleRate: 12000, frameCount: 12000 }, 0.25), 24000);
+	assert.equal(clipSourceFrameToDisplay({ sampleRate: 48000, tempoMap: { mode: 'musical', events: [{ beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }] } }, clip, { sampleRate: 12000, frameCount: 12000 }, 0.25), 24000);
 });

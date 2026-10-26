@@ -55,7 +55,7 @@ test('routing node and port labels preserve authored tokens without consuming la
 });
 
 test('completed cloud saves retain the real archive filename', async () => {
-	const archive = { id: 'archive', name, format: 'aup3', size: 16, snapshotId: null };
+	const archive = { id: 'archive', name, format: 'aup3' as const, size: 16, snapshotId: null };
 	const archives = createAudiocomProjectArchives({ client: { capabilities: async () => ({ formats: ['aup3'], maximumBytes: 100000000 }), list: async () => ({ results: [archive], page: 1, hasNext: false }), upload: async () => archive }, revisionStorage: null });
 	try {
 		await archives.setConnected(true);

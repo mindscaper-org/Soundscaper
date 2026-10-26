@@ -288,11 +288,23 @@ export function FreesoundPanel({
 										<Icon name={playing ? 'pause' : 'play'} size={16} />
 									</button>
 									{result.waveformUrl ? <button
-										type="button"
+										type="button" role="slider" aria-orientation="horizontal"
+										aria-valuemin={0} aria-valuemax={result.durationSeconds}
+										aria-valuenow={previewing ? state.previewPositionSeconds ?? 0 : 0}
 										className="kw-audio-editor__freesound-waveform"
 										disabled={result.previewAvailable === false}
 										aria-label={`${copy.seekPreview}: ${result.name}`}
-										onClick={(event) => onSeekPreview(result.soundId, waveformSeekSeconds(
+										onKeyDown={(event) => {
+											const position = previewing ? state.previewPositionSeconds ?? 0 : 0;
+											const step = Math.min(1, result.durationSeconds / 100) * (event.shiftKey ? 10 : 1);
+											const next = event.key === 'Home' ? 0 : event.key === 'End' ? result.durationSeconds
+												: event.key === 'ArrowRight' || event.key === 'ArrowUp' ? position + step
+												: event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? position - step : null;
+											if (next === null) return;
+											event.preventDefault();
+											onSeekPreview(result.soundId, Math.max(0, Math.min(result.durationSeconds, next)));
+										}}
+										onClick={(event) => onSeekPreview(result.soundId, event.detail === 0 ? (previewing ? state.previewPositionSeconds ?? 0 : 0) : waveformSeekSeconds(
 											event.clientX,
 											event.currentTarget.getBoundingClientRect(),
 											result.durationSeconds,
