@@ -159,7 +159,7 @@ export function createWorkspaceApplicationMenus({
 				soundscaperNativeServices,
 				araClipEditing: fileService.isDesktop === true && controller?.araClipEditing ? {
 					open: () => run(() => import('./AraClipEditorSurface.tsx').then(({ openAraClipEditorSurface }) =>
-						openAraClipEditorSurface({ controller, copy }))),
+						openAraClipEditorSurface({ controller, copy, locale }))),
 				} : null,
 				parallelStackProcessing: createParallelStackMenuRuntime({
 					productId, controller, run,
