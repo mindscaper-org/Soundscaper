@@ -20,3 +20,8 @@ the nightly does not fetch a model twice. Its install and inference attachments
 bind those results to the exact source revision and packaged product identity.
 This repeat check needs network access but no storage or catalog-change
 credentials.
+
+`corridorkey-2.0.json` covers five model graphs and three upstream notice files.
+It also verifies HEAD and range access from `https://framescaper.org`. Its GPU
+and catalog-readiness flags remain false; public delivery is independently
+verified while those activation checks are pending.
