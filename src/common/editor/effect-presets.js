@@ -10,6 +10,10 @@ import {
 import { parseAudacityEffectPreset } from './audacity-effect-preset-import.ts';
 
 export const AUDIO_EDITOR_EFFECT_PRESETS_SCHEMA_VERSION = 1;
+const CANONICAL_PRESET_STATES = new WeakSet();
+
+/** Factory identity alone grants no mutation authority; only an owned library reuses it. */
+export function isCanonicalAudioEditorEffectPresets(value) { return CANONICAL_PRESET_STATES.has(value); }
 
 /** @param {unknown} [value] */
 export function createAudioEditorEffectPresets(value = {}) {
@@ -191,8 +195,10 @@ function assertUniquePresetIds(presets) {
 }
 
 function freezeState(presets) {
-	return Object.freeze({
+	const state = Object.freeze({
 		schemaVersion: AUDIO_EDITOR_EFFECT_PRESETS_SCHEMA_VERSION,
 		presets: Object.freeze([...presets]),
 	});
+	CANONICAL_PRESET_STATES.add(state);
+	return state;
 }

@@ -14,6 +14,7 @@ import {
 	type ControllerEffectsState,
 } from '../effects/effects-state.ts';
 import { createOwnedStateAccess } from '../shared/owned-state.ts';
+import { registerEffectsLibraryAccess } from '../effects/internal/owned-effect-library-state.ts';
 import {
 	createEditorControllerState,
 	type EditorControllerStateOptions,
@@ -64,7 +65,7 @@ export function createControllerOwnedStateComposition<Preferences, EffectPresets
 	});
 	return Object.freeze({
 		state,
-		effectsAccess: createOwnedStateAccess(state, effectsState),
+		effectsAccess: registerEffectsLibraryAccess(createOwnedStateAccess(state, effectsState), effectsState),
 		effectsStatePorts: createControllerEffectsStatePorts(effectsState),
 		recordingAccess: createOwnedStateAccess(state, recordingState),
 		transportAccess: createOwnedStateAccess(state, transportState),

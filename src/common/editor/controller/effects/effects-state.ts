@@ -9,6 +9,7 @@ import {
 	type MacroScriptLibraryState,
 } from './macro-script-library-service.ts';
 import type { EffectsCompositionState } from './effects-composition-types.ts';
+import { registerEffectsLibraryOwner } from './internal/owned-effect-library-state.ts';
 
 type SharedEffectsCompositionField =
 	| 'selectedTrackId'
@@ -44,7 +45,7 @@ export function createControllerEffectsState<EffectPresets>({
 	effectPresets,
 	initialEffectType,
 }: ControllerEffectsStateOptions<EffectPresets>): ControllerEffectsState<EffectPresets> {
-	return {
+	return registerEffectsLibraryOwner({
 		effectClipboard: null,
 		readSourceSelectionFrames: null,
 		audacityEffectType: initialEffectType,
@@ -70,7 +71,7 @@ export function createControllerEffectsState<EffectPresets>({
 		nyquistAbort: null,
 		nyquistResult: null,
 		spectralWorker: null,
-	};
+	});
 }
 
 /** Capabilities used by the few non-effects coordinators that transition effect state. */
