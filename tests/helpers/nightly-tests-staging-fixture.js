@@ -17,6 +17,7 @@ const BURN_IN_FONT_FILES = [
 	'inter-latin-600-normal.woff',
 	'inter-vietnamese-600-normal.woff',
 ];
+const OCR_FIXTURE_FONT_FILE = 'inter-latin-700-normal.woff2';
 
 /**
  * A minimal checkout the nightly-tests payload can be staged out of.
@@ -204,7 +205,8 @@ export async function createFixture(context) {
 		['@ffmpeg/core', {}],
 		['@ffmpeg/ffmpeg', { dependencies: { '@ffmpeg/types': '0.12.4' } }],
 		['@ffmpeg/types', {}],
-		['@fontsource/inter', { licenses: ['LICENSE'], files: BURN_IN_FONT_FILES.map((name) => `files/${name}`) }],
+		['@fontsource/inter', { licenses: ['LICENSE'],
+			files: [...BURN_IN_FONT_FILES, OCR_FIXTURE_FONT_FILE].map((name) => `files/${name}`) }],
 		['@noble/hashes', { licenses: ['LICENSE'] }],
 		['@playwright/test', { dependencies: { playwright: '1.61.1' }, licenses: ['LICENSE', 'NOTICE'] }],
 		['@types/dom-mediacapture-transform', { dependencies: { '@types/dom-webcodecs': '0.1.13' }, licenses: ['LICENSE'] }],

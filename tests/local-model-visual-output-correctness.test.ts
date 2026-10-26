@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { prepareModelInput } from './electron/local-assistance-models/model-inputs.js';
+import { digest, prepareModelInput } from './electron/local-assistance-models/model-inputs.js';
 import { validateModelOutput } from './electron/local-assistance-models/model-output-validation.js';
 
 const box = { x: 0.1, y: 0.1, width: 0.4, height: 0.1 };
@@ -62,15 +62,24 @@ test('subject correctness binds the face and cat to their known fixture frames',
 });
 
 test('visual fixture metadata binds the actual rendered text and photo order to correctness checks', async () => {
-	const rendering: { textLines?: readonly string[] }[] = [];
-	const page = { evaluate: (_render: unknown, options: { sources: readonly unknown[]; width: number; height: number; textLines: readonly string[] }) => {
+	type OcrRendering = { fontFamily: string; fontWeight: string; fontSizePixels: number;
+		textAlign: string; textBaseline: string; lineX: number; lineYs: readonly number[] };
+	const rendering: { textLines?: readonly string[]; ocrFontBase64?: string | null; ocrRendering?: OcrRendering }[] = [];
+	const page = { evaluate: (_render: unknown, options: { sources: readonly unknown[]; width: number; height: number;
+		textLines: readonly string[]; ocrFontBase64: string | null; ocrRendering: OcrRendering }) => {
 		rendering.push(options);
 		return Promise.resolve(options.sources.map(() => new Uint8Array(options.width * options.height * 4)));
 	} };
 	const text = await prepareModelInput('visual-text-frames', page);
 	assert.ok('expectedOcr' in text, 'The text fixture must carry its rendered-text expectation.');
-	assert.deepEqual(text.expectedOcr, ocrInput.expectedOcr);
-	assert.deepEqual(rendering[0].textLines, ['LOCAL MODEL', 'TEST']);
+	assert.deepEqual(text.expectedOcr, { sourceFrame: 0, text: 'Local Model Test', maximumCharacterErrorRate: 0.1 });
+	assert.deepEqual(rendering[0].textLines, ['Local', 'Model', 'Test']);
+	assert.equal(digest(Buffer.from(rendering[0].ocrFontBase64 ?? '', 'base64')),
+		'6f56409fd3d64bb85f7d070bce20749db2d66b6d63cec586cc22d1c761be2491');
+	assert.deepEqual(rendering[0].ocrRendering, {
+		fontFamily: 'Soundscaper OCR Fixture', fontWeight: '700', fontSizePixels: 96,
+		textAlign: 'center', textBaseline: 'middle', lineX: 256, lineYs: [128, 256, 384],
+	});
 	const photos = await prepareModelInput('visual-subject-frames', page);
 	assert.ok('expectedSubjects' in photos, 'The photo fixture must carry its expected frame subjects.');
 	assert.deepEqual(photos.expectedSubjects, expectedSubjects);

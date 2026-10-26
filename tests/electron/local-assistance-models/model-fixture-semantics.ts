@@ -7,7 +7,7 @@ import type {
 	AssistanceSubjectResultV1,
 } from '../../../src/common/editor/assistance/visual-semantic-results-v1.ts';
 
-export const MODEL_OCR_TEXT_LINES = Object.freeze(['LOCAL MODEL', 'TEST']);
+export const MODEL_OCR_TEXT_LINES = Object.freeze(['Local', 'Model', 'Test']);
 export const MODEL_OCR_FIXTURE = Object.freeze({
 	sourceFrame: 0, text: MODEL_OCR_TEXT_LINES.join(' '), maximumCharacterErrorRate: 0.1,
 });

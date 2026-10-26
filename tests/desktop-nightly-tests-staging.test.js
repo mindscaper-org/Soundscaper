@@ -254,6 +254,8 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 	for (const name of BURN_IN_FONT_FILES) {
 		await access(join(fixture.outputRoot, 'node_modules/@fontsource/inter/files', name));
 	}
+	await access(join(fixture.outputRoot,
+		'node_modules/@fontsource/inter/files/inter-latin-700-normal.woff2'));
 	await assert.rejects(() => access(join(fixture.outputRoot, 'tests/browser/AGENTS.md')), /ENOENT/u);
 	await assert.rejects(() => access(join(fixture.outputRoot, 'tests/browser/handbook')), /ENOENT/u);
 	await assert.rejects(
