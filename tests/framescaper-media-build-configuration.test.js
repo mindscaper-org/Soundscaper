@@ -45,6 +45,11 @@ test('the Windows x265 build explicitly selects the static MSVC runtime', () => 
 	});
 	assert.ok(commands.find(({ phase }) => phase === 'x265-configure')
 		.args.includes('-DSTATIC_LINK_CRT=ON'));
+	const vpx = commands.find(({ phase }) => phase === 'libvpx-configure');
+	assert.ok(vpx.args.includes('--target=arm64-win64-vs17'));
+	assert.equal(Object.hasOwn(vpx.environment, 'CC'), false);
+	assert.equal(Object.hasOwn(vpx.environment, 'CXX'), false);
+	assert.equal(commands.find(({ phase }) => phase === 'x264-configure').environment.CC, 'c');
 });
 
 test('source-tree authentication admits genuine names and rejects nonportable entries', (context) => {
