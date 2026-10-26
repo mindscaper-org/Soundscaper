@@ -4,7 +4,6 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, closeClipProperties,
 	importFiles, openClipProperties, openSourceMonitor } from './audio-editor-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
-import { openClipMediaSettings } from './audio-editor-clip-settings-test-helpers.js';
 
 test('Clip properties retains live track lock and unlock admission', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
@@ -21,9 +20,7 @@ test('Clip properties retains live track lock and unlock admission', async ({ pa
 	await expect(clip).toBeVisible();
 	await chooseTrackMenuAction(page, editor, track, 'Lock track');
 	await expect(name).toBeDisabled();
-	const settings = await openClipMediaSettings(panel);
-	await expect(settings.getByRole('menuitemcheckbox', { name: 'Invert', exact: true })).toHaveAttribute('aria-disabled', 'true');
-	await settings.press('Escape');
+	await expect(panel.getByRole('switch', { name: 'Invert', exact: true })).toBeDisabled();
 	const source = await openSourceMonitor(page, editor);
 	await expect(source.locator('.audio-editor-source-ruler__transport').getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
 	await chooseTrackMenuAction(page, editor, track, 'Unlock track');

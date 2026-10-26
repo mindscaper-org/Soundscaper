@@ -9,14 +9,14 @@ export async function openClipProperties(page, editor, clip, { additional = true
 	await expect(panel).toBeVisible();
 	await expect(panel.locator('[data-upstream-clip-properties]')).toBeVisible();
 	// Audio timing fields use upstream seconds; native video keeps its media drawer.
-	if (additional && await panel.locator('[data-clip-audio-settings]').count()) await showClipTimingFields(panel);
+	if (additional && await panel.locator('[data-clip-properties-field="start"]').count()) await showClipTimingFields(panel);
 	return panel;
 }
 
 export async function showClipTimingFields(panel) {
-	const settings = panel.locator('[data-clip-audio-settings]');
-	if (await settings.count()) {
-		await expect(panel.locator('[data-clip-properties-field="start"]')).toBeVisible();
+	const start = panel.locator('[data-clip-properties-field="start"]');
+	if (await start.count()) {
+		await expect(start).toBeVisible();
 		return;
 	}
 	// Native video/image/generator inspectors retain their media drawer.

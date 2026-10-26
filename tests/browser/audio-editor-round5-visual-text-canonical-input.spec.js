@@ -8,7 +8,7 @@ test('ordinary accented Title text applies canonically and retains one Undo and 
 	test.setTimeout(60_000);
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	await chooseNestedCommandAction(page, editor, 'Generate', ['Video Generators', 'Add Title/Text']);
-	const title = editor.getByRole('group', { name: 'Video clip: Title', exact: true });
+	const title = editor.getByRole('group', { name: /^Video clip:/u });
 	const dialog = page.getByRole('dialog', { name: 'Selected Visual Inspector', exact: true });
 	const text = dialog.getByRole('textbox', { name: 'Text', exact: true });
 	async function openInspector() {

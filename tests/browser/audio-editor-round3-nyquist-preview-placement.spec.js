@@ -3,6 +3,7 @@
 import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseCommandAction, clipByName, closeClipProperties, importFiles,
 	openClipProperties } from './audio-editor-test-helpers.js';
+import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
 test('Nyquist preview preserves the relative placement of two header-selected clips', async ({ page }) => {
 	await page.addInitScript(() => {
@@ -19,11 +20,7 @@ test('Nyquist preview preserves the relative placement of two header-selected cl
 	const second = clipByName(editor, toneB.name);
 	const properties = await openClipProperties(page, editor, second);
 	await showClipTimingFields(properties);
-	const start = properties.locator('[data-clip-field="startFrame"]');
-	await start.locator('.timecode-digit').first().click();
-	await page.keyboard.type('000000400');
-	await page.keyboard.press('Enter');
-	await expect(start.locator('.timecode__display')).toHaveText('00h00m00.400s');
+	await setClipTimeFrames(properties, 'startFrame', 19_200);
 	await closeClipProperties(properties);
 	await first.locator('.clip-header').click();
 	await second.locator('.clip-header').click({ modifiers: ['Shift'] });

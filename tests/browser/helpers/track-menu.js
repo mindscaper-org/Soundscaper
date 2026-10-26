@@ -14,7 +14,10 @@ export const TRACK_MENU_TRIGGER = /^(?:Track menu|Track options|Spuroptionen|Spu
  * reach a submenu such as Move track or Track visualization.
  */
 export async function chooseTrackMenuAction(page, editor, trackRow, path) {
-	await (await openTrackMenuPath(page, editor, trackRow, path)).click();
+	const item = await openTrackMenuPath(page, editor, trackRow, path);
+	await item.focus();
+	await expect(item).toBeFocused();
+	await item.press('Enter');
 }
 
 async function openTrackMenuPath(page, editor, trackRow, path) {

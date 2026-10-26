@@ -3,6 +3,7 @@
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseCommandAction, closeWorkspacePanel, collectClientErrors,
 	importFiles, openClipProperties } from './audio-editor-test-helpers.js';
+import { expectClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
 test('one generated bar follows the tempo at its ordinary insertion playhead', async ({ page }) => {
 	const errors = collectClientErrors(page);
@@ -39,7 +40,7 @@ test('one generated bar follows the tempo at its ordinary insertion playhead', a
 		return properties;
 	};
 	let properties = await generateBar();
-	await expect(properties.locator('[data-clip-field="durationFrame"] [data-timecode-direct-entry]')).toHaveValue('192000');
+	await expectClipTimeFrames(properties, 'durationFrame', 192_000);
 	await closeWorkspacePanel(editor, 'clip-properties');
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
@@ -49,6 +50,6 @@ test('one generated bar follows the tempo at its ordinary insertion playhead', a
 	await page.keyboard.press('Enter');
 	await expect(playhead.locator('.timecode-digit')).toHaveText(['0', '0', '0', '0', '0', '4', '0', '0']);
 	properties = await generateBar();
-	await expect(properties.locator('[data-clip-field="durationFrame"] [data-timecode-direct-entry]')).toHaveValue('96000');
+	await expectClipTimeFrames(properties, 'durationFrame', 96_000);
 	expect(errors).toEqual([]);
 });

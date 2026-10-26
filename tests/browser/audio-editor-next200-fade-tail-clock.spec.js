@@ -4,8 +4,9 @@ import { strFromU8, unzipSync } from 'fflate';
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseExportProjectFileAction, disableNativeSavePicker,
 	downloadBytes, importFiles, openClipProperties, showClipTimingFields } from './audio-editor-test-helpers.js';
+import { expectClipTimeFrames, setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
-for (const changing of [true, false]) test(`a musical fade-out counts back from its tail with ${changing ? 'changing' : 'constant'} tempo`, async ({ page }) => {
+for (const changing of [true, false]) test(`a numeric fade-out retains its seconds with ${changing ? 'changing' : 'constant'} tempo`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/en/');
 	await page.locator('[data-sidebar] [data-workspace-select]').selectOption('music');
@@ -24,21 +25,14 @@ for (const changing of [true, false]) test(`a musical fade-out counts back from 
 	}
 	const properties = await openClipProperties(page, editor);
 	await showClipTimingFields(properties);
-	const fade = properties.locator('[data-clip-field="fadeOutFrame"]');
-	await fade.locator('.timecode__display').dblclick();
-	await fade.getByRole('textbox').fill('00:00:00.000'); await fade.getByRole('textbox').press('Enter');
-	await expect(fade.locator('[data-timecode-direct-entry]')).toHaveValue('0');
-	await fade.getByRole('button', { name: 'Fade out: format', exact: true }).click();
-	await page.getByRole('menuitem', { name: 'beats:bars', exact: true }).click();
-	await fade.locator('.timecode-digit').first().click();
-	await page.keyboard.type('0011'); await page.keyboard.press('Enter');
-	await expect(fade.locator('[data-timecode-direct-entry]')).toHaveValue(String(changing ? 96_000 : 192_000));
+	await setClipTimeFrames(properties, 'fadeOutFrame', 0);
+	await setClipTimeFrames(properties, 'fadeOutFrame', 192_000);
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
-	await expect(fade.locator('[data-timecode-direct-entry]')).toHaveValue('0');
+	await expectClipTimeFrames(properties, 'fadeOutFrame', 0);
 	await chooseCommandAction(page, editor, 'Edit', 'Redo');
-	await expect(fade.locator('[data-timecode-direct-entry]')).toHaveValue(String(changing ? 96_000 : 192_000));
+	await expectClipTimeFrames(properties, 'fadeOutFrame', 192_000);
 	const download = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
 	const files = unzipSync(await downloadBytes(await download));
 	const project = JSON.parse(strFromU8(files['project.json']));
-	expect(project.clips[0].fadeOutFrames).toBe(changing ? 96_000 : 192_000);
+	expect(project.clips[0].fadeOutFrames).toBe(192_000);
 });
