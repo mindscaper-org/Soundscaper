@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 
 import { ROUTE_LOCALES, getLocaleDescriptor } from '../../../i18n/locales.js';
 import { COMMUNITY_TRANSLATIONS_COPY_BY_LOCALE } from '../../../i18n/community-translations-copy.ts';
-import { EDITOR_ENGLISH_COPY, getEditorCopyMetadata } from '../../../i18n/editor-copy-inventory.ts';
 import { isTranslatableMessageKey } from '../../../i18n/translation-scope.ts';
 import { resolveEditorCopyScope } from '../../../i18n/editor-copy-scope.ts';
 import { acceptableTranslation } from '../../../i18n/translation-catalog.js';
@@ -37,7 +36,6 @@ interface CommunityTranslationSurfaceProps {
 }
 
 const translationLocales = ROUTE_LOCALES as readonly { readonly locale: string; readonly nativeName: string }[];
-const EDITOR_COPY_METADATA = getEditorCopyMetadata();
 
 export default function CommunityTranslationSurface({ port, initialLocale, copy: hostCopy, fileService, onClose }: CommunityTranslationSurfaceProps) {
 	const copy = useMemo(() => resolveEditorCopyScope('communityTranslations', COMMUNITY_TRANSLATIONS_COPY_BY_LOCALE.en, hostCopy), [hostCopy]);
@@ -62,7 +60,7 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 	const readDraft = useMemo(() => createCommunityTranslationDraftReader(loaded?.draft), [loaded?.draft]);
 	const selectedDraft = readDraft(selectedKey);
 	const source = baseline?.source ?? selectedDraft?.source ?? '';
-	const metadata = EDITOR_COPY_METADATA[selectedKey];
+	const metadata = loaded?.inventory.metadata[selectedKey];
 	const origin = publishedTranslationOrigin(baseline);
 	const originText = { human: copy.originHuman, machine: copy.originMachine, audacity: copy.originAudacity,
 		bundled: copy.originBundled, missing: copy.originMissing }[origin];
@@ -98,7 +96,7 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 			event.preventDefault();
 			event.stopImmediatePropagation();
 			setPickedObject(event.target.closest('button, input, select, textarea, a, [role="menuitem"], [role="option"]') ?? event.target);
-			const matches = findTranslationCandidates(translationTextsForElement(event.target), EDITOR_ENGLISH_COPY, port.getSnapshot().copy)
+			const matches = findTranslationCandidates(translationTextsForElement(event.target), loaded?.inventory.english ?? {}, { ...loaded?.published, ...port.getSnapshot().copy })
 				.filter(({ key }) => isTranslatableMessageKey(key));
 			setCandidates(matches);
 			setPicking(false);
@@ -116,7 +114,7 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 			searchRef.current?.focus({ preventScroll: true });
 		};
 		return retainCommunityTranslationPicker(document, panelRef, inspect, cancel);
-	}, [picking, port, setMessage]);
+	}, [picking, port, setMessage, loaded?.inventory, loaded?.published]);
 	function chooseCandidate(candidate: TranslationCandidate): void {
 		setFilter('all');
 		setQuery(candidate.key);
@@ -175,7 +173,7 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 		{candidates.length > 1 && <fieldset><legend>{copy.candidates}</legend><p>{candidates.some(({ isTarget }) => isTarget) ? copy.identified : copy.ambiguous}</p>
 			{candidates.map((candidate) => <button key={`${candidate.key}:${candidate.attribute}`} type="button"
 				aria-pressed={candidate.key === selectedKey} onClick={() => chooseCandidate(candidate)}>
-				{candidate.key} ({candidate.attribute}) — {EDITOR_ENGLISH_COPY[candidate.key]}
+				{candidate.key} ({candidate.attribute}) — {loaded?.inventory.english[candidate.key]}
 				{candidate.isTarget && <> — <strong>{copy.clicked}</strong></>}</button>)}
 		</fieldset>}
 		<label>{copy.search}<input ref={searchRef} type="search" value={query} onChange={(event) => { setQuery(event.target.value); setCandidates([]); setPickedObject(null); }} /></label>
