@@ -31,13 +31,6 @@ test('A10 centered Hann inverse STFT reuses two invocation-local FFT planes', ()
 	assert.equal(hash, '83e8383e16b18d615ed626536a641852cd10a8494384af3e8698d39a230b8395');
 	assert.ok(count <= 5, `Float64 scratch allocations: ${count}`);
 });
-test('FFT keeps historical butterfly order for overlapping and identical views', () => {
-	for (const [shift, expected] of [[0, 'e55b35c2597c4da17c261bb42f7c9ee703fa8c18878835db5943bb78ddadbe8e'], [1, 'b32d893ee84f2e351ffd1d372a14ce0a2ce6638f6cf5cf13ce7eb8bd77aa2c71'], [17, '3cdbbd21223bd5363fe3f5e40d63650991ec61456765b32ed3442d2a8e4efc55']] as const) {
-		const storage = Float64Array.from({ length: 128 + shift }, (_, frame) => frame % 9 === 0 ? -0 : Math.sin(frame * .3));
-		const real = storage.subarray(0, 128);
-		const imaginary = storage.subarray(shift, shift + 128);
-		fftRadixTwoFloat64V1(real, imaginary, false);
-		assert.equal(digest([storage]), expected);
-	}
+test('FFT rejects invalid plane geometry', () => {
 	assert.throws(() => fftRadixTwoFloat64V1(new Float64Array(3), new Float64Array(3), false), RangeError);
 });

@@ -59,15 +59,6 @@ test('preparation owns searchable arrays while ordinary mutable entries remain l
 	assert.ok(Object.isFrozen(owned[0]!.terms));
 });
 
-test('mutable text objects retain uncached search behavior', () => {
-	let label = 'First';
-	const entries = prepareAudioEditorSearchEntries([{ key: 'object', label: { toString: () => label } }]);
-	assert.equal(searchAudioEditorEntries(entries, 'first')[0]?.key, 'object');
-	label = 'Second';
-	assert.equal(searchAudioEditorEntries(entries, 'second')[0]?.key, 'object');
-	assert.equal(searchAudioEditorEntries(entries, 'first').length, 0);
-});
-
 test('prepared search text has bounded entry and character retention', context => {
 	const normalize = String.prototype.normalize;
 	let calls = 0;

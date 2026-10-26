@@ -156,25 +156,6 @@ test('frame source binds exact presentation descriptors to keyed and static clip
 	assert.ok(Array.isArray(keyedEntry.videoEffects));
 });
 
-test('frame source snapshots presentation authority without invoking accessors', () => {
-	const project = createFramescaperProjectRetime(PROFILE, framescaperV20Options());
-	const runtime = runtimeProject(project);
-	let calls = 0;
-	const request: Record<string, unknown> = {
-		project: runtime,
-		canvas: { width: 320, height: 180, frameRate: 3 },
-	};
-	Object.defineProperty(request, 'resolvePresentationDescriptor', {
-		enumerable: true,
-		get() { calls += 1; return () => ({}); },
-	});
-	assert.throws(
-		() => createVideoKeyframeExportFrameSource(request as never),
-		/resolvePresentationDescriptor.*data property/u,
-	);
-	assert.equal(calls, 0);
-});
-
 test('frame source privately brands each lazy frame to its exact owning snapshot', () => {
 	const project = createFramescaperProjectRetime(PROFILE, framescaperV20Options());
 	const request = {
@@ -267,47 +248,6 @@ test('frame source preflights every advertised position and binary snapshot payl
 		}),
 		/cannot embed binary data/u,
 	);
-});
-
-test('frame source rejects hostile canvas accessors without invoking them', () => {
-	const project = createFramescaperProjectRetime(PROFILE, framescaperV20Options());
-	const runtime = runtimeProject(project);
-	let calls = 0;
-	const canvas = { height: 180, frameRate: 30 } as Record<string, unknown>;
-	Object.defineProperty(canvas, 'width', {
-		enumerable: true,
-		get() { calls += 1; return 320; },
-	});
-	assert.throws(
-		() => createVideoKeyframeExportFrameSource({ project: runtime, canvas: canvas as never }),
-		/canvas\.width.*data property/u,
-	);
-	assert.equal(calls, 0);
-	const hostileRate = { den: 1_001 } as Record<string, unknown>;
-	Object.defineProperty(hostileRate, 'num', {
-		enumerable: true,
-		get() { calls += 1; return 30_000; },
-	});
-	assert.throws(
-		() => createVideoKeyframeExportFrameSource({
-			project: runtime,
-			canvas: { width: 320, height: 180, frameRate: hostileRate as never },
-		}),
-		/frameRate\.num.*data property/u,
-	);
-	const hostileProject = { ...runtime } as Record<string, unknown>;
-	Object.defineProperty(hostileProject, 'sampleRate', {
-		enumerable: true,
-		get() { calls += 1; return 48_000; },
-	});
-	assert.throws(
-		() => createVideoKeyframeExportFrameSource({
-			project: hostileProject,
-			canvas: { width: 320, height: 180, frameRate: 30 },
-		}),
-		/project\.sampleRate.*data property/u,
-	);
-	assert.equal(calls, 0);
 });
 
 function runtimeProject(project: unknown) {

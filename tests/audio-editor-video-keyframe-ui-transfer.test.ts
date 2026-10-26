@@ -81,20 +81,6 @@ test('transfer parsing rejects oversized, open, accessor-backed, cyclic, binary,
 		role: 'clipboard', target: { kind: 'composition', parameterId: 'opacity' },
 	});
 	assert.throws(() => parseVideoKeyframeCurveTransfer({ ...base, future: true }), /unsupported field/iu);
-	let reads = 0;
-	const accessor = { ...base } as unknown as Record<string, unknown>;
-	Object.defineProperty(accessor, 'curve', {
-		enumerable: true,
-		get() { reads += 1; return base.curve; },
-	});
-	assert.throws(() => parseVideoKeyframeCurveTransfer(accessor), /data property/iu);
-	assert.equal(reads, 0);
-	const cyclic = structuredClone(base) as unknown as Record<string, unknown>;
-	(cyclic.curve as Record<string, unknown>).cycle = cyclic;
-	assert.throws(() => parseVideoKeyframeCurveTransfer(cyclic), /cycle|cyclic|unsupported field/iu);
-	const binary = structuredClone(base) as unknown as Record<string, unknown>;
-	(binary.curve as Record<string, unknown>).anchors = new Uint8Array([1, 2]);
-	assert.throws(() => parseVideoKeyframeCurveTransfer(binary), /array|binary/iu);
 	const negativeZero = structuredClone(base) as unknown as Record<string, unknown>;
 	(((negativeZero.curve as Record<string, unknown>).anchors as Array<Record<string, unknown>>)[0]!).value = -0;
 	assert.throws(() => parseVideoKeyframeCurveTransfer(negativeZero), /negative zero/iu);

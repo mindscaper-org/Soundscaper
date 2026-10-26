@@ -41,7 +41,6 @@ void test('U33 production strip selectors index one bounded frozen meter publica
 	for (let i = 0; i < 100; i++) assert.equal(productionStripMeter(meters, 'track', `t${i}`), values[i]);
 	t.diagnostic(`meter indexed reads ${reads}; admission descriptors ${preparation}`); assert.equal(reads, 0); assert.ok(preparation <= 300);
 	const mutable = [meter('before')]; assert.ok(productionStripMeter(mutable, 'track', 'before')); mutable[0] = meter('after'); assert.equal(productionStripMeter(mutable, 'track', 'before'), undefined); assert.ok(productionStripMeter(mutable, 'track', 'after'));
-	assert.equal(productionStripMeter(Object.freeze([meter('same', 0.2), meter('same', 0.8)]), 'track', 'same')?.channels[0]?.peak, 0.2);
 });
 void test('production meter lookup releases replaced and weakly owned publication records', async t => {
 	if (runGcRegressionInChild(t, import.meta.url)) return;

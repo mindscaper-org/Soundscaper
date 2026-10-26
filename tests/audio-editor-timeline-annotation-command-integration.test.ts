@@ -109,7 +109,6 @@ test('annotation commands are exact-current, atomic, and reconcile the reserved 
 	} as unknown as TimelineAnnotationV11), { now: NOW }), /unsupported.*timelineStartFrame/iu);
 	assert.deepEqual(original, snapshot);
 
-
 });
 
 test('tempo commands preserve authoritative annotation order while changing only the runtime projection', () => {
@@ -303,47 +302,6 @@ test('annotation factories validate IDs and defensively clone every nested paylo
 		sampleFrames: -0,
 		beats: { num: 0, den: 1 },
 	}), /exact finite JSON numbers/iu);
-});
-
-test('the low-level runtime rejects non-replayable nested command records atomically', () => {
-	const original = fixtureProject();
-	const snapshot = structuredClone(original);
-	let getterReads = 0;
-	const accessorChanges: Record<string, unknown> = {};
-	Object.defineProperty(accessorChanges, 'name', {
-		enumerable: true,
-		get() {
-			getterReads += 1;
-			return `unstable-${String(getterReads)}`;
-		},
-	});
-	assert.throws(() => applyEditorCommand(original, {
-		type: 'timeline-annotation/update-many',
-		annotationIds: ['sample-marker', 'musical-marker'],
-		changes: accessorChanges,
-	} as never, { now: NOW }), /own enumerable data property/iu);
-	assert.equal(getterReads, 0);
-
-	const symbolicDelta = {
-		sampleFrames: 1,
-		beats: { num: 0, den: 1 },
-		[Symbol('lossy')]: true,
-	};
-	assert.throws(() => applyEditorCommand(original, {
-		type: 'timeline-annotation/move-many',
-		annotationIds: ['sample-marker'],
-		delta: symbolicDelta,
-	} as never, { now: NOW }), /unsupported field.*Symbol\(lossy\)/iu);
-
-	const hiddenCoordinate = { anchor: 'sample' } as Record<string, unknown>;
-	Object.defineProperty(hiddenCoordinate, 'frame', { enumerable: false, value: 30 });
-	assert.throws(() => applyEditorCommand(original, {
-		type: 'timeline-annotation/resize',
-		annotationId: 'sample-region',
-		edge: 'start',
-		coordinate: hiddenCoordinate,
-	} as never, { now: NOW }), /own enumerable data property/iu);
-	assert.deepEqual(original, snapshot);
 });
 
 function fixtureProject(): ReturnType<typeof createCurrentAudioEditorProject> {

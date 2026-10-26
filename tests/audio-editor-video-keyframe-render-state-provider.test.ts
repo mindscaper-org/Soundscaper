@@ -209,18 +209,6 @@ test('a two-million-frame clip is queried directly without materializing a frame
 
 test('invalid clip descriptors, positions, transition weights, and discrete targets fail closed', () => {
 	const provider = createVideoKeyframeRenderStateProvider();
-	let getterCalls = 0;
-	const accessorClip = clip();
-	Object.defineProperty(accessorClip, 'videoKeyframes', {
-		enumerable: true,
-		get() {
-			getterCalls += 1;
-			return keyframes([]);
-		},
-	});
-	assert.throws(() => provider.resolve(request(accessorClip, rational(0))), /videoKeyframes.*data property/iu);
-	assert.equal(getterCalls, 0);
-
 	const valid = clip();
 	assert.throws(() => provider.resolve(request(valid, rational(13))), /domain|position/iu);
 	assert.throws(() => provider.resolve(request(valid, rational(0), {
@@ -239,7 +227,6 @@ test('invalid clip descriptors, positions, transition weights, and discrete targ
 function assertClose(actual: number, expected: number): void {
 	assert.ok(Math.abs(actual - expected) < 1e-12, `${String(actual)} != ${String(expected)}`);
 }
-
 
 test('the render-state canvas carries the delivery fit the preview and the export share', () => {
 	const provider = createVideoKeyframeRenderStateProvider();

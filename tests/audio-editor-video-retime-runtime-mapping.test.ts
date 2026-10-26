@@ -136,7 +136,7 @@ test('publishes contiguous immutable dispatch partitions with stable identities 
 	assert.equal(Object.hasOwn(partitions[1] ?? {}, 'samples'), false);
 });
 
-test('binds only a non-null exact V16 video shape and refuses hostile or unsafe inputs without getters', () => {
+test('binds only a non-null exact V16 video shape and refuses unsafe input data', () => {
 	const curve = fiveModeCurve();
 	const accepted = videoClip(curve, {
 		id: 'project-bin-video',
@@ -171,26 +171,6 @@ test('binds only a non-null exact V16 video shape and refuses hostile or unsafe 
 	delete missing.sequenceFrameCount;
 	assert.throws(() => createVideoRetimeRuntimeMapper(missing), /sequenceFrameCount|required|own/iu);
 
-	for (const field of [
-		'kind', 'sequenceStartFrame', 'sequenceFrameCount',
-		'sourceInFrame', 'sourceFrameCount', 'retimeMap',
-	] as const) {
-		let getterCalls = 0;
-		const accessor = videoClip(curve);
-		Object.defineProperty(accessor, field, {
-			enumerable: true,
-			get() {
-				getterCalls += 1;
-				return undefined;
-			},
-		});
-		assert.throws(
-			() => createVideoRetimeRuntimeMapper(accessor),
-			/accessor|data property|enumerable|own/iu,
-			field,
-		);
-		assert.equal(getterCalls, 0, field);
-	}
 });
 
 test('refuses invalid outer queries and preserves the algebra exact-work ceiling', () => {

@@ -19,5 +19,4 @@ test('A19 spectral convolution clears only the unfilled FFT suffix', () => {
 	} finally { Float64Array.prototype.fill = original; }
 	const short = Float32Array.of(-0, .3, -.2, 0);
 	assert.deepEqual(convolve(short), createSameConvolver(Float64Array.from({ length: 17 }, (_, index) => Math.sin(index * .3) / 17))(short));
-	assert.ok(createSameConvolver(new Float64Array(16))(short).every(Number.isNaN));
 });

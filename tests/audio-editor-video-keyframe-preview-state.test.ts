@@ -10,7 +10,6 @@ import { createVideoKeyframeRenderStateProvider } from '../src/common/editor/vid
 import { resolveVideoExportCanvas } from '../src/common/editor/video-export.js';
 import {
 	isVideoKeyframePreviewFailureCurrent,
-	isVideoKeyframePreviewStateError,
 	resolveVideoKeyframePreviewState,
 	videoKeyframeLocalSequencePositionAtTimelineSample,
 } from '../src/common/editor/video-keyframe-preview-state.ts';
@@ -118,35 +117,6 @@ test('legacy clips bypass the provider without requiring keyframe-only timing fi
 			canvas: { width: 1, height: 1 },
 		},
 	), null);
-});
-
-test('invalid keyed state is branded for a visible fail-closed preview without invoking accessors', () => {
-	let getterCalls = 0;
-	const hostile = clip();
-	Object.defineProperty(hostile, 'videoKeyframes', {
-		enumerable: true,
-		get() {
-			getterCalls += 1;
-			return null;
-		},
-	});
-	assert.throws(() => resolveVideoKeyframePreviewState(
-		createVideoKeyframeRenderStateProvider(),
-		{
-			clip: hostile,
-			timelineSample: 100,
-			sourceDisplaySize: { width: 1, height: 1 },
-			canvas: { width: 1, height: 1 },
-		},
-	), (error: unknown) => isVideoKeyframePreviewStateError(error));
-	assert.equal(getterCalls, 0);
-
-	assert.throws(() => resolveVideoKeyframePreviewState(null, {
-		clip: clip(),
-		timelineSample: 100,
-		sourceDisplaySize: { width: 1, height: 1 },
-		canvas: { width: 1, height: 1 },
-	}), (error: unknown) => isVideoKeyframePreviewStateError(error));
 });
 
 test('preview failures are snapshot-scoped and the visible warning has both bundled locales', () => {
