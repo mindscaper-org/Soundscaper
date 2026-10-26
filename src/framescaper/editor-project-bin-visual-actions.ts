@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createProjectBinInstanceCountReader } from '../common/editor/project-bin-instance-count-index.ts';
 import { createStableId } from '../common/editor/stable-id.js';
 import { fingerprintNativeMediaPlan } from '../common/editor/native-media-plan-canonical-form.ts';
 import { collectVisualPresetGeneratorSourceIds, normalizeVideoVisualPresetV1 } from '../common/editor/video-visual-preset-v24.ts';
@@ -34,6 +35,7 @@ export function createFramescaperProjectBinVisualActions(
 	owner: FramescaperProjectBinVisualOwner,
 	createId: (prefix: string) => string = createStableId,
 ): ProductProjectBinActions {
+	const readInstanceCount = createProjectBinInstanceCountReader(owned);
 	return Object.freeze({ moveFromTimeline, place, rename, removeFromBin, removeFromProject, selectInstances, instanceCount });
 
 	function binClip(id: string): Data | undefined {
@@ -41,8 +43,8 @@ export function createFramescaperProjectBinVisualActions(
 	}
 
 	function instanceCount(id: string): number | undefined {
-		const clip = binClip(id);
-		return clip ? records(data(owner.project).clips).filter(item => item.sourceId === clip.sourceId).length : undefined;
+		const project = data(owner.project);
+		return readInstanceCount(project.clips, data(project.projectBin).clips, id);
 	}
 
 	function selectInstances(id: string): readonly string[] | null | undefined {
