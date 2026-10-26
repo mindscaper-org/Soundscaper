@@ -64,3 +64,26 @@ test('reinterpretation rejects linked, looping and warped clocks before producin
 			{ ...source, id: 'replacement', sampleRate: 8000 }), /reinterpret.*(unlink|render|loop|musical)/i);
 	}
 });
+
+test('PCM reinterpretation resolves an exact half-sample duration on the shared point policy', () => {
+	const original: ControllerSource = { id: 'source', storageKey: 'source', name: 'Source', mimeType: 'audio/wav',
+		frameCount: 3, channelCount: 1, sampleRate: 24_000, originalSampleRate: 24_000, sampleFormat: 'int16' };
+	const channels = reinterpretPcmChannels([Float32Array.of(0, 0, 0)], 'int16', 'int24');
+	const replacement: ControllerSource = { ...original, id: 'replacement', storageKey: 'replacement',
+		frameCount: channels[0]!.length, channelCount: channels.length, sampleRate: 32_000, sampleFormat: 'int24' };
+	assert.equal(replacement.frameCount, 2);
+	assert.equal(replacement.channelCount, original.channelCount);
+	const clip: ControllerClip = { id: 'clip', sourceId: original.id, timelineStartFrame: 50,
+		sourceStartFrame: 0, sourceDurationFrames: 3, durationFrames: 7, fadeInFrames: 3,
+		envelope: [{ frame: 0, value: 1 }, { frame: 7, value: 0.5 }] };
+	const commands = reinterpretedClipCommands('track', clip, original, replacement);
+	const add = commands.find(command => command.type === 'clip/add');
+	assert.ok(add && add.type === 'clip/add');
+	// 7 × (2/3) × (24000/32000) is exactly 3.5; rounding the floating
+	// intermediate instead can incorrectly shorten the clip to three frames.
+	assert.equal(add.clip.durationFrames, 4);
+	assert.equal(add.clip.timelineStartFrame, 50);
+	assert.equal(add.clip.sourceDurationFrames, 2);
+	assert.equal(add.clip.fadeInFrames, 2);
+	assert.deepEqual(add.clip.envelope, [{ frame: 0, value: 1 }, { frame: 4, value: 0.5 }]);
+});

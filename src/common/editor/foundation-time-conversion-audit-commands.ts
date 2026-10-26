@@ -13,6 +13,12 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
  */
 export const FOUNDATION_TIME_CONVERSION_COMMAND_SITES: readonly FoundationTimeConversionSite[] = deepFreezeAuditSites([
 	{
+		id: 'clip-pcm-reinterpret-duration',
+		file: 'src/common/editor/controller/track-audio/internal/clip-reinterpret-commands.ts',
+		behavior: 'PCM reinterpretation preserves complete source byte boundaries and resolves the exact frame-packing and playback-clock ratio once to the nearest authored timeline sample.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
 		id: 'selected-label-clipboard-placement',
 		file: 'src/common/editor/controller/edit/internal/selected-label-clipboard.ts',
 		behavior: 'Label-only paste independently scales resolved offsets to nearest destination samples, then recovers exact destination beat coordinates for musical labels while retaining their anchor kind.',

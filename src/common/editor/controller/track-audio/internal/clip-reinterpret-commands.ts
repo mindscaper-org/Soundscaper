@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { readClipLoop } from '../../../audio-clip-loop.ts';
+import { roundRational } from '../../../timeline-time.ts';
 import { CLIP_SOURCE_STRETCH_EXTENSION } from '../../../clip-source-stretch-memory.ts';
 import { createAddClipCommand } from '../../../commands/factories.ts';
 import type { AudioEditorCommand } from '../../../commands/protocol.ts';
@@ -24,7 +25,10 @@ export function reinterpretedClipCommands(trackId: string, clip: ControllerClip,
 		if (!Number.isSafeInteger(output)) throw new RangeError('Reinterpret requires complete PCM frames at every clip trim boundary.');
 		return output;
 	};
-	const durationFrames = Math.max(1, Math.round(clip.durationFrames * sourceRatio * original.sampleRate / replacement.sampleRate));
+	const durationFrames = Math.max(1, roundRational(
+		BigInt(clip.durationFrames) * BigInt(replacement.frameCount) * BigInt(original.sampleRate),
+		BigInt(original.frameCount) * BigInt(replacement.sampleRate), 'point',
+	));
 	if (!Number.isSafeInteger(durationFrames + clip.timelineStartFrame)) throw new RangeError('Reinterpreted clip duration exceeds the safe frame range.');
 	const timelineFrame = (frame: number): number => Math.min(durationFrames, Math.max(0, Math.round(frame * durationFrames / clip.durationFrames)));
 	const envelope = Array.isArray(clip.envelope) ? clip.envelope as readonly Readonly<{ frame: number; value: number }>[] : undefined;
