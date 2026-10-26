@@ -144,6 +144,97 @@ export function createNyquistHostService(runtime: NyquistHostServiceRuntime) {
 		return Boolean(running || preview);
 	}
 
+	function prepareNyquistHostProperties(targets: readonly (EffectTarget | null)[]) {
+		const persistedProject = runtime.getProject();
+		const project = projectForRuntimeConsumers(persistedProject);
+		const projectRate = runtime.projectSampleRate();
+		const trackOrdinals = new Map<string, number>();
+		let audioTracks = 0, labelTracks = 0;
+		for (const [position, track] of project.tracks.entries()) {
+			if (!trackOrdinals.has(track.id)) trackOrdinals.set(track.id, position + 1);
+			if (track.type === 'audio') audioTracks++;
+			if (track.type === 'label') labelTracks++;
+		}
+		const clipById = new Map<string, (typeof project.clips)[number]>();
+		for (const clip of project.clips) if (!clipById.has(clip.id)) clipById.set(clip.id, clip);
+		const selectedTrackIndices = [...new Set(targets.map(candidate =>
+			trackOrdinals.get(candidate?.sourceTrackId ?? candidate?.track.id ?? '') ?? null).filter(isInteger))];
+		const selectionOrdinals = new Map(selectedTrackIndices.map((ordinal, index) => [ordinal, index + 1]));
+		return function properties(
+			target: EffectTarget | null, _targets: readonly (EffectTarget | null)[], index: number,
+			channels: readonly Float32Array[], request: NyquistHostRequest,
+		): NyquistHostProperties {
+			const sampleRate = target?.sourceSampleRate ?? projectRate;
+			const selection = runtime.activeSelection();
+			const frequencyRange = selection?.frequencyRange;
+			const startFrame = target?.startFrame ?? selection?.startFrame ?? runtime.getPositionFrames();
+			const endFrame = target?.endFrame ?? selection?.endFrame ?? startFrame;
+			const tempoFrame = target?.sourceClipId
+				? nyquistLabelTimelineRange(persistedProject, { sourceTarget: target, baseFrame: 0,
+					start: 0, end: (endFrame - startFrame) / sampleRate })[0]
+				: startFrame;
+			const track = target?.track ?? null;
+			const clips = target?.sourceId && target.sourceFrameCount
+				? [[0, target.sourceFrameCount / sampleRate] as const]
+				: track?.clipIds
+				?.map((clipId) => clipById.get(clipId) ?? null)
+				.filter(isPresent)
+				.map((clip) => [
+					clip.timelineStartFrame / projectRate,
+					(clip.timelineStartFrame + clip.durationFrames) / projectRate,
+				] as const) ?? [];
+			clips.sort((left, right) => left[0] - right[0] || left[1] - right[1]);
+			const stats = nyquistChannelStats([...channels]);
+			const lowHz = Number(frequencyRange?.minimumFrequency);
+			const highHz = Number(frequencyRange?.maximumFrequency);
+			const projectTrackOrdinal = trackOrdinals.get(target?.sourceTrackId ?? track?.id ?? '');
+			const selectedTrackOrdinal = projectTrackOrdinal === undefined ? undefined : selectionOrdinals.get(projectTrackOrdinal);
+			const selectionProperties: Record<string, unknown> & {
+				START: number;
+				END: number;
+				TRACKS: readonly number[];
+				PEAK: number | number[];
+				RMS: number | number[];
+			} = {
+				START: startFrame / sampleRate,
+				END: endFrame / sampleRate,
+				TRACKS: selectedTrackIndices.slice(),
+				PEAK: stats.peak,
+				PEAK_LEVEL: Array.isArray(stats.peak) ? Math.max(0, ...stats.peak) : stats.peak,
+				RMS: stats.rms,
+			};
+			if (Number.isFinite(lowHz)) selectionProperties.LOW_HZ = lowHz;
+			if (Number.isFinite(highHz)) selectionProperties.HIGH_HZ = highHz;
+			if (Number.isFinite(lowHz) && lowHz > 0 && Number.isFinite(highHz) && highHz > lowHz) {
+				selectionProperties.CENTER_HZ = Math.sqrt(lowHz * highHz);
+				selectionProperties.BANDWIDTH = Math.log2(highHz / lowHz);
+			}
+			const trackClips: readonly unknown[] = channels.length > 1 ? channels.map(() => clips) : clips;
+			return {
+				AUDACITY: { VERSION: [3, 7, 7], LANGUAGE: runtime.locale },
+				PROJECT: {
+					NAME: project.title || '',
+					RATE: projectRate,
+					TEMPO: projectTempo(project, tempoFrame, projectRate),
+					TRACKS: project.tracks.length,
+					WAVETRACKS: audioTracks,
+					LABELTRACKS: labelTracks,
+					PREVIEW_DURATION: 6,
+				},
+				SELECTION: selectionProperties,
+				TRACK: {
+					INDEX: selectedTrackOrdinal ?? index + 1,
+					NAME: track?.name || String(request.name || ''),
+					START_TIME: clips.length ? clips.reduce((start, clip) => Math.min(start, clip[0]), Infinity) : 0,
+					END_TIME: clips.reduce((end, clip) => Math.max(end, clip[1]), 0),
+					VIEW: request.preview === true ? null : track?.displayMode === 'spectrogram' ? 'Spectrogram' : 'Waveform',
+					CLIPS: trackClips,
+					INCLIPS: trackClips,
+				},
+			};
+		};
+	}
+
 	function nyquistHostProperties(
 		target: EffectTarget | null,
 		targets: readonly (EffectTarget | null)[],
@@ -151,81 +242,7 @@ export function createNyquistHostService(runtime: NyquistHostServiceRuntime) {
 		channels: readonly Float32Array[],
 		request: NyquistHostRequest,
 	): NyquistHostProperties {
-		const persistedProject = runtime.getProject();
-		const project = projectForRuntimeConsumers(persistedProject);
-		const projectRate = runtime.projectSampleRate();
-		const sampleRate = target?.sourceSampleRate ?? projectRate;
-		const selection = runtime.activeSelection();
-		const frequencyRange = selection?.frequencyRange;
-		const startFrame = target?.startFrame ?? selection?.startFrame ?? runtime.getPositionFrames();
-		const endFrame = target?.endFrame ?? selection?.endFrame ?? startFrame;
-		const tempoFrame = target?.sourceClipId
-			? nyquistLabelTimelineRange(persistedProject, { sourceTarget: target, baseFrame: 0,
-				start: 0, end: (endFrame - startFrame) / sampleRate })[0]
-			: startFrame;
-		const track = target?.track ?? null;
-		const clips = target?.sourceId && target.sourceFrameCount
-			? [[0, target.sourceFrameCount / sampleRate] as const]
-			: track?.clipIds
-			?.map((clipId) => project.clips.find((clip) => clip.id === clipId) ?? null)
-			.filter(isPresent)
-			.map((clip) => [
-				clip.timelineStartFrame / projectRate,
-				(clip.timelineStartFrame + clip.durationFrames) / projectRate,
-			] as const) ?? [];
-		clips.sort((left, right) => left[0] - right[0] || left[1] - right[1]);
-		const stats = nyquistChannelStats([...channels]);
-		const lowHz = Number(frequencyRange?.minimumFrequency);
-		const highHz = Number(frequencyRange?.maximumFrequency);
-		const selectedTrackIndices = [...new Set(targets.map((candidate) => {
-			const projectIndex = project.tracks.findIndex((projectTrack) => projectTrack.id === (candidate?.sourceTrackId ?? candidate?.track.id));
-			return projectIndex >= 0 ? projectIndex + 1 : null;
-		}).filter(isInteger))];
-		const projectTrackIndex = project.tracks.findIndex(candidate => candidate.id === (target?.sourceTrackId ?? track?.id));
-		const selectedTrackIndex = selectedTrackIndices.indexOf(projectTrackIndex + 1);
-		const selectionProperties: Record<string, unknown> & {
-			START: number;
-			END: number;
-			TRACKS: readonly number[];
-			PEAK: number | number[];
-			RMS: number | number[];
-		} = {
-			START: startFrame / sampleRate,
-			END: endFrame / sampleRate,
-			TRACKS: selectedTrackIndices,
-			PEAK: stats.peak,
-			PEAK_LEVEL: Array.isArray(stats.peak) ? Math.max(0, ...stats.peak) : stats.peak,
-			RMS: stats.rms,
-		};
-		if (Number.isFinite(lowHz)) selectionProperties.LOW_HZ = lowHz;
-		if (Number.isFinite(highHz)) selectionProperties.HIGH_HZ = highHz;
-		if (Number.isFinite(lowHz) && lowHz > 0 && Number.isFinite(highHz) && highHz > lowHz) {
-			selectionProperties.CENTER_HZ = Math.sqrt(lowHz * highHz);
-			selectionProperties.BANDWIDTH = Math.log2(highHz / lowHz);
-		}
-		const trackClips: readonly unknown[] = channels.length > 1 ? channels.map(() => clips) : clips;
-		return {
-			AUDACITY: { VERSION: [3, 7, 7], LANGUAGE: runtime.locale },
-			PROJECT: {
-				NAME: project.title || '',
-				RATE: projectRate,
-				TEMPO: projectTempo(project, tempoFrame, projectRate),
-				TRACKS: project.tracks.length,
-				WAVETRACKS: project.tracks.filter((candidate) => candidate.type === 'audio').length,
-				LABELTRACKS: project.tracks.filter((candidate) => candidate.type === 'label').length,
-				PREVIEW_DURATION: 6,
-			},
-			SELECTION: selectionProperties,
-			TRACK: {
-				INDEX: selectedTrackIndex >= 0 ? selectedTrackIndex + 1 : index + 1,
-				NAME: track?.name || String(request.name || ''),
-				START_TIME: clips.length ? clips.reduce((start, clip) => Math.min(start, clip[0]), Infinity) : 0,
-				END_TIME: clips.reduce((end, clip) => Math.max(end, clip[1]), 0),
-				VIEW: request.preview === true ? null : track?.displayMode === 'spectrogram' ? 'Spectrogram' : 'Waveform',
-				CLIPS: trackClips,
-				INCLIPS: trackClips,
-			},
-		};
+		return prepareNyquistHostProperties(targets)(target, targets, index, channels, request);
 	}
 
 	async function playNyquistPreview(
@@ -287,6 +304,7 @@ export function createNyquistHostService(runtime: NyquistHostServiceRuntime) {
 	return Object.freeze({
 		cancelNyquistEvaluation,
 		nyquistHostProperties,
+		prepareNyquistHostProperties,
 		persistNyquistLabels,
 		playNyquistPreview,
 	});

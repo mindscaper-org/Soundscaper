@@ -20,6 +20,7 @@ import { conformNyquistTargetChannels } from './nyquist/nyquist-audio.ts';
 export const NYQUIST_EVALUATION_TASK = 'nyquist-evaluation';
 
 export interface SelectionEffectExecutionRuntime {
+	readonly prepareNyquistHostProperties?: ReturnType<typeof import('./nyquist/nyquist-host-service.ts').createNyquistHostService>['prepareNyquistHostProperties'];
 	readonly cancelSelectionWorkers?: () => void;
 	readonly batchPresentation?: (mutation: () => void) => void;
 	readonly runIndependentSelectionEffects?: IndependentSelectionPorts['runIndependentSelectionEffects'];
@@ -305,6 +306,8 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 		try {
 			const evaluations = [];
 			let aggregateAudioBytes = 0;
+			const hostTargets = availableTargets.length ? availableTargets : targets;
+			const hostProperties = runtime.prepareNyquistHostProperties?.(hostTargets) ?? nyquistHostProperties;
 			for (let index = 0; index < targets.length; index += 1) {
 				const target = targets[index];
 				// Nyquist's `$preview selection` contract requires the complete
@@ -328,7 +331,6 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 					generate: role === 'generate' || !runTarget,
 					requested: request.maxOutputFrames,
 				});
-				const hostTargets = availableTargets.length ? availableTargets : targets;
 				const outputAdmission = planNyquistOutputAdmission(maxOutputFrames, channels.length, preview);
 				const hostTargetIndex = target ? Math.max(0, hostTargets.indexOf(target)) : index;
 				let result = await nyquistEvaluator({
@@ -337,7 +339,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 					sampleRate,
 					channels,
 					controls: { ...(request.controls || {}) },
-					properties: nyquistHostProperties(runTarget, hostTargets, hostTargetIndex, channels, { ...request, preview }),
+					properties: hostProperties(runTarget, hostTargets, hostTargetIndex, channels, { ...request, preview }),
 					globals: { PREVIEWP: preview },
 					maxOutputFrames: outputAdmission.renderFrames,
 					debug: Boolean(request.debug),

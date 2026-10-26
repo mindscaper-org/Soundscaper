@@ -385,6 +385,7 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 			nyquistAudioResultBytes,
 			nyquistEvaluator: dependencies.nyquistEvaluator,
 			nyquistHostProperties: nyquistHost.nyquistHostProperties,
+			prepareNyquistHostProperties: nyquistHost.prepareNyquistHostProperties,
 			nyquistMaximumOutputFrames,
 			nyquistResultStatus,
 			persistAudacityEffectResults: (...args: Parameters<SelectionEffectResult['persistAudacityEffectResults']>) => (
