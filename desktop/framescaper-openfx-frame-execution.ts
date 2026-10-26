@@ -31,6 +31,9 @@ import {
 	readProjectSchemaIdentity,
 } from '../src/common/editor/project-schema-identity.ts';
 
+const ADMITTED_CONTROLS = new WeakSet<object>();
+const PREPARED_REQUESTS = new WeakMap<object, AdmittedFramescaperOpenFxFrameControlV1>();
+
 const SHA256 = /^[a-f\d]{64}$/u;
 const ID = /^[A-Za-z0-9][A-Za-z0-9 ._:-]{0,127}$/u;
 export const FRAMESCAPER_OPENFX_FRAME_MAXIMUM_PLAN_BYTES = 16 * 1024 * 1024;
@@ -171,13 +174,31 @@ export function admitFramescaperOpenFxFrameControlV1(
 	if (row.outputOrdinal >= plan.output.frameCount) {
 		throw new RangeError('The OpenFX frame control exceeds its V14 output domain.');
 	}
-	return Object.freeze({
+	const control = Object.freeze({
 		protocolVersion: 1 as const, ...identity, planPayload: row.planPayload,
 		planFingerprint: row.planFingerprint, plan, instanceId: row.instanceId,
 		outputOrdinal: row.outputOrdinal,
 		requestedBackend: row.requestedBackend as OfxRenderBackendV1 | 'supported-preferred',
 		transitionProgress: row.transitionProgress as number | null,
 	});
+	ADMITTED_CONTROLS.add(control);
+	return control;
+}
+
+/** Main-private handoff of the broker's immutable admitted control; pixels still admit in execute. */
+export function executeFramescaperOpenFxPreparedFrame(
+	service: FramescaperOpenFxFrameExecutionService,
+	control: AdmittedFramescaperOpenFxFrameControlV1,
+	inputs: FramescaperOpenFxFrameMainRequestV1['inputs'],
+	signal: AbortSignal,
+): Promise<FramescaperOpenFxFrameExecutionResultNativeMedia> {
+	if (!ADMITTED_CONTROLS.has(control)) throw new TypeError('An OpenFX prepared frame requires main-owned control admission.');
+	const request = Object.freeze({ protocolVersion: control.protocolVersion, schemaFamily: control.schemaFamily,
+		schemaVersion: control.schemaVersion, planPayload: control.planPayload, planFingerprint: control.planFingerprint,
+		instanceId: control.instanceId, outputOrdinal: control.outputOrdinal, requestedBackend: control.requestedBackend,
+		transitionProgress: control.transitionProgress, inputs, signal });
+	PREPARED_REQUESTS.set(request, control);
+	return service.execute(request);
 }
 
 function admitRequest(value: unknown): FramescaperOpenFxFrameMainRequestV1 & Readonly<{
@@ -190,7 +211,7 @@ function admitRequest(value: unknown): FramescaperOpenFxFrameMainRequestV1 & Rea
 		'protocolVersion', 'schemaFamily', 'schemaVersion', 'planPayload', 'planFingerprint', 'instanceId', 'outputOrdinal',
 		'requestedBackend', 'transitionProgress', 'inputs',
 	], 'OpenFX frame execution request');
-	const control = admitFramescaperOpenFxFrameControlV1({
+	const control = PREPARED_REQUESTS.get(value as object) ?? admitFramescaperOpenFxFrameControlV1({
 		protocolVersion: row.protocolVersion, schemaFamily: row.schemaFamily,
 		schemaVersion: row.schemaVersion, planPayload: row.planPayload,
 		planFingerprint: row.planFingerprint, instanceId: row.instanceId,
