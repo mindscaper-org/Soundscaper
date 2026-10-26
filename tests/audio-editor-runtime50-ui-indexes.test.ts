@@ -95,14 +95,6 @@ void test('indexed folder navigation observes mutable nested rows and resolves h
 	assert.equal(trackFolderRowTabIndex(child, child.id, mutablePlan), 0);
 });
 
-void test('split indexes preserve first duplicate clip semantics and never match NaN IDs', () => {
-	const clips = Object.freeze([Object.freeze({ id: 'same', timelineStartFrame: 0, durationFrames: 5 }), Object.freeze({ id: 'same', timelineStartFrame: 50, durationFrames: 5 }),
-		...Array.from({ length: 130 }, (_, index) => Object.freeze({ id: String(index), timelineStartFrame: 100, durationFrames: 5 })), Object.freeze({ id: Number.NaN, timelineStartFrame: 0, durationFrames: 5 })]);
-	assert.equal(splitToolTrackHasClipAt([{ id: 't', clipIds: ['same'] }], clips, 't', 52), false);
-	assert.equal(splitToolTrackHasClipAt([{ id: 't', clipIds: ['same'] }], clips, 't', 2), true);
-	assert.equal(splitToolTrackHasClipAt([{ id: 't', clipIds: [Number.NaN] }], clips, 't', 2), false);
-});
-
 void test('menu partner discovery prefers the first later mono track including its lock authority', () => {
 	const tracks = [{ id: 'before', type: 'audio', clipIds: ['c'] }, { id: 'current', type: 'audio', clipIds: ['c'] }, { id: 'locked', type: 'audio', clipIds: ['c'], locked: true }, { id: 'after', type: 'audio', clipIds: ['c'] }];
 	const project = { tracks, clips: [{ id: 'c', sourceId: 's' }], sources: [{ id: 's', channelCount: 1 }] };

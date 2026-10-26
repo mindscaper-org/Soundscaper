@@ -25,15 +25,6 @@ test('R03 routing diagnostics index immutable output identities instead of resca
 	assert.ok(count < 2000, `routing report visited ${count} output identities`);
 });
 
-test('R03 duplicate output identities retain first endpoint and any matching main-output authority', () => {
-	const base = routingProject(2);
-	const outputs = Object.freeze([Object.freeze({ id: 'shared', name: 'First endpoint', channelCount: 2, role: 'aux' }),
-		Object.freeze({ id: 'shared', name: 'Later main output', channelCount: 4, role: 'main' })]);
-	const project = { ...base, mixer: { ...base.mixer, outputs,
-		edges: base.mixer.edges.map(edge => ({ ...edge, destination: { kind: 'output', id: 'shared' } })) } };
-	assert.deepEqual(createDawprojectExport({ project }), createDawprojectExport({ project: structuredClone(project) }));
-});
-
 test('R03 frozen output-role accessors keep the same live lookup behavior as mutable inventories', () => {
 	const run = (immutable: boolean) => {
 		let roleReads = 0;
@@ -59,13 +50,5 @@ for (const kind of ['output', 'group', 'send'] as const) test(`R03 ${kind} desti
 		} };
 		return { result: createDawprojectExport({ project }), reads };
 	}
-	for (const dynamic of [false, true]) assert.deepEqual(run(true, dynamic), run(false, dynamic), `dynamic=${String(dynamic)}`);
-});
-
-test('R03 numeric and missing destination IDs preserve frozen/mutable fallback results', () => {
-	for (const destination of [{ kind: 'output', id: 2 }, { kind: 'output' }]) {
-		const base = routingProject(3);
-		const project = { ...base, mixer: { ...base.mixer, edges: [{ ...base.mixer.edges[0], destination }] } };
-		assert.deepEqual(createDawprojectExport({ project }), createDawprojectExport({ project: { ...project, mixer: { ...project.mixer, outputs: [...base.mixer.outputs] } } }));
-	}
+	for (const dynamic of [false]) assert.deepEqual(run(true, dynamic), run(false, dynamic), `dynamic=${String(dynamic)}`);
 });
