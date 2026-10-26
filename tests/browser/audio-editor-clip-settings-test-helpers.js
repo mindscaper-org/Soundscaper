@@ -101,9 +101,17 @@ export async function readClipSampleRate(properties) {
 /** Format edits stay drafts until the conversion is requested explicitly. */
 export async function resampleClipFormat(properties, sampleRate, sampleFormat) {
 	const input = properties.locator('[data-clip-properties-field="format-rate"] input');
-	await input.fill(String(sampleRate));
-	if (sampleFormat) await properties.locator('[data-clip-properties-field="format-depth"] select').selectOption(sampleFormat);
-	await properties.getByRole('button', { name: 'Resample', exact: true }).click();
+	if (await input.count()) {
+		await input.fill(String(sampleRate));
+		if (sampleFormat) await properties.locator('[data-clip-properties-field="format-depth"] select').selectOption(sampleFormat);
+		await properties.getByRole('button', { name: 'Resample', exact: true }).click();
+	} else {
+		await chooseClipMediaSetting(properties, 'Resample');
+		const dialog = properties.page().getByRole('dialog', { name: 'Resample clip', exact: true });
+		await dialog.getByRole('textbox').fill(String(sampleRate));
+		await dialog.getByRole('button', { name: 'Resample', exact: true }).click();
+		await expect(dialog).toBeHidden();
+	}
 	await expectClipSampleRate(properties, sampleRate);
 }
 

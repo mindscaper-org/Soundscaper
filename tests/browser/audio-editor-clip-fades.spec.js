@@ -8,10 +8,12 @@ async function selectClip(clip) {
 	await clip.press('Enter');
 }
 
-async function beginFadeDrag(page, handle, delta) {
+async function beginFadeDrag(page, handle, delta, position = null) {
 	const bounds = await handle.boundingBox();
 	expect(bounds).not.toBeNull();
-	await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + 5);
+	const x = bounds.x + (position?.x ?? bounds.width / 2);
+	const y = bounds.y + (position?.y ?? 5);
+	await page.mouse.move(x, y);
 	await handle.evaluate(element => {
 		window.addEventListener('pointerdown', event => {
 			element.setAttribute('data-test-pointer-id', String(event.pointerId));
@@ -24,7 +26,7 @@ async function beginFadeDrag(page, handle, delta) {
 		if (id === null) throw new Error('The fade handle did not receive a pointer press.');
 		return Number(id);
 	});
-	await page.mouse.move(bounds.x + bounds.width / 2 + delta, bounds.y + 5, { steps: 5 });
+	await page.mouse.move(x + delta, y, { steps: 5 });
 	// Fade previews coalesce pointer moves on the next animation frame. Read
 	// the final move after its React update, before comparing preview and commit.
 	await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -138,7 +140,7 @@ test.describe('non-destructive clip fade handles', () => {
 			await expect(shading).toHaveCSS('fill', 'rgba(0, 0, 0, 0.18)');
 			for (const [edge, fraction] of [['in', 0.125], ['out', 0.875]]) {
 				const guide = curves.locator(`[data-fade-boundary="${edge}"]`);
-				await expect(guide).toHaveAttribute('stroke-dasharray', '4 3');
+				await expect(guide).toHaveAttribute('stroke-dasharray', '4 4');
 				await expect(guide).toHaveAttribute('vector-effect', 'non-scaling-stroke');
 				const position = await guide.evaluate(line => ({
 					x1: line.x1.baseVal.value / line.ownerSVGElement.viewBox.baseVal.width,
@@ -541,7 +543,7 @@ test.describe('non-destructive clip fade handles', () => {
 		await first.click({ modifiers: ['Control'], position: { x: 40, y: 60 } });
 		await expect(first.locator('.clip-display')).toHaveAttribute('data-selected', 'false');
 		await expect(second.locator('.clip-display')).toHaveAttribute('data-selected', 'true');
-		await beginFadeDrag(page, firstFade, 30);
+		await beginFadeDrag(page, first.locator('[data-fade-zone="in"]'), 30, { x: 27, y: 16 });
 		await expect.poll(async () => Number(await firstFade.getAttribute('aria-valuenow'))).toBeGreaterThan(0.002);
 		await expect(secondFade).toHaveAttribute('aria-valuenow', '0.002');
 		await page.mouse.up();
