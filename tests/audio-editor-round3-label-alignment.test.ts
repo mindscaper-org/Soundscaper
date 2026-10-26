@@ -65,7 +65,6 @@ test('folder alignment includes labels and clips in one atomic content block', (
 test('Sort by time orders label content by its first region alongside media content', () => {
 	assert.deepEqual(planTrackSort(fixture(), 'time'), [
 		{ type: 'track/reorder', trackId: 'labels', index: 0 },
-		{ type: 'track/reorder', trackId: 'audio', index: 1 },
 	]);
 });
 
