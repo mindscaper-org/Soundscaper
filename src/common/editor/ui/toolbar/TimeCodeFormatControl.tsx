@@ -25,7 +25,7 @@ interface TimeCodeFormatControlProps {
 export default function TimeCodeFormatControl({
 	label, enterValueLabel = KEYBOARD_MAP_COPY_BY_LOCALE.en.enterValue, format, frameRate, onFormatChange, dockingLabel, onDockingChange, children,
 }: TimeCodeFormatControlProps) {
-	const { copy } = useComponentCopy();
+	const { copy: componentCopy } = useComponentCopy();
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const containerRef = useRef<HTMLSpanElement>(null);
 	const [timeCodeHost, setTimeCodeHost] = useState<Element | null>(null);
@@ -35,7 +35,7 @@ export default function TimeCodeFormatControl({
 	}, []);
 	const close = useCallback(() => setMenu(null), []);
 	const consumeTriggerDismissal = useMenuTriggerDismissal(buttonRef, Boolean(menu));
-	const options = timeCodeFormatOptionsForDomain('time', frameRate, copy);
+	const options = timeCodeFormatOptionsForDomain('time', frameRate, componentCopy);
 	const open = (keyboard: boolean) => {
 		const bounds = buttonRef.current?.getBoundingClientRect();
 		if (!bounds) return;
@@ -73,7 +73,7 @@ export default function TimeCodeFormatControl({
 			<ContextMenuItem label={enterValueLabel} onClick={() => { close(); timeCodeHost?.dispatchEvent(new Event('timecode-enter-value')); }} />
 			{options.filter((option) => !option.group).map(menuItem)}
 			{(['Video frames', 'CD frames'] as const).map((group) => <ContextMenuItem
-				key={group} label={group === 'Video frames' ? copy.videoFrames : copy.cdFrames} hasSubmenu
+				key={group} label={group === 'Video frames' ? componentCopy.videoFrames : componentCopy.cdFrames} hasSubmenu
 				checked={options.some((option) => option.group === group && option.format === format)}
 			>
 				{options.filter((option) => option.group === group).map(menuItem)}
