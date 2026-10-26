@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createSerialLaneAllocator } from './interchange-serial-lane-index.ts';
 import { compareCodeUnits } from './code-unit-order.ts';
 import {
 	type DeliveryReport,
@@ -227,6 +228,7 @@ function buildTracks(walk: TrackWalk, context: {
 	// Stack tracks so each clip keeps its actual position in the timeline.
 	const lanes: TimedClip[][] = [[]];
 	const laneEnds = [0];
+	const audioLane = walk.kind === 'Audio' ? createSerialLaneAllocator(1) : null;
 	for (const clip of walk.clips) {
 		const timelineStart = nonNegativeInteger(clip.timelineStartFrame ?? 0, 'clip.timelineStartFrame');
 		const duration = positiveInteger(clip.durationFrames, 'clip.durationFrames');
@@ -250,8 +252,8 @@ function buildTracks(walk: TrackWalk, context: {
 		// a retired lower lane would invert that order on the next overlap.
 		const minimumLane = walk.kind === 'Video'
 			? laneEnds.reduce((minimum, position, index) => position > start ? index + 1 : minimum, 0) : 0;
-		let lane = laneEnds.findIndex((position, index) => index >= minimumLane && position <= start);
-		if (lane < 0) {
+		let lane = audioLane ? audioLane(start, end) : laneEnds.findIndex((position, index) => index >= minimumLane && position <= start);
+		if (lane < 0 || lane === lanes.length) {
 			lane = lanes.length;
 			lanes.push([]);
 			laneEnds.push(0);

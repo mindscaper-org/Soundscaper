@@ -15,6 +15,7 @@ export function reportInterchangeAudioOmissions(report: DeliveryReport, project:
 	const visibility = createInterchangeVisibility(tracks, project);
 	const audioTracks = tracks.filter(track => track.type === 'audio' && visibility.contributes(track));
 	const topology = isMixerGraphV21Surface(project.mixer) ? createMixerSignalTopologyV21(project.mixer, { includeOutputs: false }) : null;
+	const automationFields = createTrackAutomationFields(project, topology);
 	const clipIds = new Set(audioTracks.flatMap(track => Array.isArray(track.clipIds) ? track.clipIds.map(String) : []));
 	const owners = [
 		...records(project.clips).filter(clip => clipIds.has(String(clip.id))).map(clip => ({ kind: 'clip', owner: clip })),
@@ -22,7 +23,7 @@ export function reportInterchangeAudioOmissions(report: DeliveryReport, project:
 	];
 	const omissions = owners.map(({ kind, owner }) => ({ kind, owner, fields: {
 		...processingFields(owner, kind === 'clip'),
-		...(kind === 'track' ? trackAutomationFields(project, owner, topology) : {}),
+		...(kind === 'track' ? automationFields(owner) : {}),
 	} }))
 		.filter(({ fields }) => Object.keys(fields).length > 0);
 	if (!omissions.length) return report;
@@ -56,17 +57,27 @@ function processingFields(owner: DataRecord, clip: boolean): DataRecord {
 	return fields;
 }
 
-function trackAutomationFields(project: DataRecord, track: DataRecord, topology: ReturnType<typeof createMixerSignalTopologyV21> | null): DataRecord {
-	const lanes = records(project.automationLanes).filter(lane => {
-		if (!records(lane.points).length) return false;
-		const address = record(lane.address);
-		const strip = record(address.strip);
-		if (address.kind !== 'strip') return false;
-		if (strip.kind === 'track') return strip.id === track.id;
-		return strip.kind === 'mixer-node' && address.parameterId === 'mute'
-			&& typeof strip.id === 'string' && topology?.reaches(`track:${String(track.id)}`, `mixer-node:${strip.id}`) === true;
-	});
-	return lanes.length ? { automationLanes: lanes.map(lane => String(lane.id)) } : {};
+function createTrackAutomationFields(project: DataRecord, topology: ReturnType<typeof createMixerSignalTopologyV21> | null): (track: DataRecord) => DataRecord {
+	interface Entry { readonly id: string; readonly order: number }
+	const owned = new Map<unknown, Entry[]>(), buses: (Entry & { stripId: string })[] = [];
+	for (const [order, lane] of records(project.automationLanes).entries()) {
+		if (!records(lane.points).length) continue;
+		const address = record(lane.address), strip = record(address.strip);
+		if (address.kind !== 'strip') continue;
+		const entry = { id: String(lane.id), order };
+		if (strip.kind === 'track') {
+			const entries = owned.get(strip.id);
+			if (entries) entries.push(entry); else owned.set(strip.id, [entry]);
+		} else if (strip.kind === 'mixer-node' && address.parameterId === 'mute' && typeof strip.id === 'string') {
+			buses.push({ ...entry, stripId: strip.id });
+		}
+	}
+	return track => {
+		const entries = [...owned.get(track.id) ?? [], ...buses.filter(entry =>
+			topology?.reaches(`track:${String(track.id)}`, `mixer-node:${entry.stripId}`) === true)]
+			.sort((left, right) => left.order - right.order);
+		return entries.length ? { automationLanes: entries.map(entry => entry.id) } : {};
+	};
 }
 
 function record(value: unknown): DataRecord {

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createSerialLaneAllocator } from './interchange-serial-lane-index.ts';
 import { compareCodeUnits } from './code-unit-order.ts';
 import {
 	type DeliveryReport,
@@ -169,16 +170,16 @@ export function createFcpxmlExport(request: FcpxmlExportRequest): FcpxmlExportRe
 		if (type === 'video' && spineTrackId === null) spineTrackId = String(track.id);
 		else if (type === 'video') lane = (videoLane += 1);
 		else lane = -(audioLane += 1);
-		const lanes: { lane: number; endFrames: number }[] = [];
+		const lanes: number[] = [], allocateLane = createSerialLaneAllocator();
 		const laneFor = (startFrames: number, endFrames: number): number => {
 			// Each FCP lane is serial even when its authored track permits overlap.
 			// Reserve additional connected lanes globally so later tracks cannot
 			// collide with them; clips that merely touch can reuse the first lane.
-			const available = lanes.find(candidate => candidate.endFrames <= startFrames);
-			if (available) { available.endFrames = endFrames; return available.lane; }
+			const index = allocateLane(startFrames, endFrames);
+			if (index < lanes.length) return lanes[index]!;
 			const allocated = lanes.length === 0 ? lane
 				: type === 'video' ? (videoLane += 1) : -(audioLane += 1);
-			lanes.push({ lane: allocated, endFrames });
+			lanes.push(allocated);
 			return allocated;
 		};
 
