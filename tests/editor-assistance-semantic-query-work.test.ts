@@ -35,9 +35,9 @@ test('owned Indexed Search avoids row copies, repeated OCR normalization and dis
 			return sort.call(this, fused && compare ? (left, right) => { fusionComparisons += 1; return compare(left, right); } : compare);
 		} });
 	context.after(() => Object.defineProperty(Array.prototype, 'sort', { configurable: true, writable: true, value: sort }));
-	const request = { session: { sessionVersion: 1, sessionId: 'a'.repeat(40), schemaFamily: 'framescaper' as const,
+	const request = { session: { sessionVersion: 1 as const, sessionId: 'a'.repeat(40), schemaFamily: 'framescaper' as const,
 		schemaVersion: 1 as const, projectId: 'project', projectRevision: 7, expiresAtEpochMs: now + 60000 },
-		query: 'alpha beta', maximumResults: 50, signal: new AbortController().signal };
+		query: 'alpha beta', maximumResults: 50 as const, signal: new AbortController().signal };
 	const results = await single.search(request);
 	assert.deepEqual(results, rows.slice(0, 50).map((row) => ({ ...row, detail: null, providers: ['visual'] })));
 	assert.equal(fusionComparisons, 0);
