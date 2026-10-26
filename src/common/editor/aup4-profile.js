@@ -25,8 +25,9 @@ import {
 	createLabelTrackNode,
 	createMetadataNode,
 	createWaveTrackNode,
-	trackChannelCount,
+	prepareAup4Track,
 } from './aup4-track-nodes.js';
+import { createAup4TrackMediaIndex } from './aup4-track-media-index.ts';
 import {
 	AUDIO_EDITOR_SNAP_UPSTREAM_MAX,
 	audioEditorSnapGrid,
@@ -193,6 +194,7 @@ export function inspectAup4Header({ applicationId, userVersion, xmlVersion }) {
 
 export function createAup4ProjectTree(project, channelBlocks = new Map()) {
 	if (!project || !Array.isArray(project.tracks) || !Array.isArray(project.clips)) throw new TypeError('An audio editor project is required.');
+	const media = createAup4TrackMediaIndex(project);
 	const sampleRate = positiveRate(project.sampleRate || 48_000);
 	const tempo = finiteInRange(project.tempo?.bpm ?? project.tempo ?? 120, 1, 1000, 120);
 	const timeSignature = project.timeSignature || project.tempo?.timeSignature || {};
@@ -243,10 +245,11 @@ export function createAup4ProjectTree(project, channelBlocks = new Map()) {
 			key: 'track',
 			entry: { kind: 'node', node: createLabelTrackNode(track, sampleRate, selectedTrackIds) },
 		});
-		else for (let channel = 0; channel < trackChannelCount(project, track); channel += 1) {
-			generatedRootChildren.push({
+		else {
+			const prepared = prepareAup4Track(project, track, sampleRate, media);
+			for (let channel = 0; channel < prepared.channelCount; channel += 1) generatedRootChildren.push({
 				key: 'track',
-				entry: { kind: 'node', node: createWaveTrackNode(project, track, channel, channelBlocks, sampleRate, tempo, selectedTrackIds, selectedClipIds, groupNumbers) },
+				entry: { kind: 'node', node: createWaveTrackNode(project, track, channel, channelBlocks, sampleRate, tempo, selectedTrackIds, selectedClipIds, groupNumbers, prepared) },
 			});
 		}
 	}
