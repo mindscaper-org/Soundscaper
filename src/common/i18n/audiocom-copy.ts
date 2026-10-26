@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { UPLOAD_VALIDATION_COPY } from '../editor/ui/workspace/upload-validation-copy.ts';
 
 import { resolveEditorCopyScope } from './editor-copy-scope.ts';
 
 const ENGLISH = Object.freeze({
+	...UPLOAD_VALIDATION_COPY,
 	panel: 'audio.com', siteName: 'audio.com', searchLabel: 'Search audio.com',
 	searchPlaceholder: 'Search audio', search: 'Search', searching: 'Searching audio.com',
 	searchPrompt: 'Connect to audio.com to search and share audio.', noResults: 'No audio matches this search.',

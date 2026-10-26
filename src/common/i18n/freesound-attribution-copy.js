@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { UPLOAD_VALIDATION_COPY } from '../editor/ui/workspace/upload-validation-copy.ts';
 
 import { resolveEditorCopyScope } from './editor-copy-scope.ts';
 
 export const FREESOUND_ATTRIBUTION_ENGLISH_COPY = Object.freeze({
+	...UPLOAD_VALIDATION_COPY,
 	metadataTab: 'Attribution',
 	panel: 'Freesound',
 	intro: 'Imported sources currently used on the timeline or held in the Project Bin.',

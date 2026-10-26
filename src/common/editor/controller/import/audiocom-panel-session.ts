@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import type { UploadValidationFailure } from '../../upload-validation-failure.ts';
 
 import { createPanelSession } from './internal/audiocom-panel-session.ts';
 
@@ -28,6 +29,7 @@ export interface AudiocomUploadDraft {
 }
 
 export interface AudiocomUploadItem {
+	readonly uploadFailure?: UploadValidationFailure;
 	readonly id: string;
 	readonly fileName: string;
 	readonly title: string;

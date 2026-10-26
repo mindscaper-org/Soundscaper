@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { withUploadValidationFailure as failure, uploadValidationFailure, type UploadValidationFailure } from '../../upload-validation-failure.ts';
 
 import type {
 	FreesoundDescribeUploadRequest,
@@ -61,6 +62,7 @@ export interface FreesoundUploadItem {
 	readonly rightsConfirmed?: boolean;
 	readonly uploadFilename?: string;
 	readonly errorMessage?: string;
+	readonly uploadFailure?: UploadValidationFailure;
 	readonly soundId?: number;
 	readonly soundUrl?: string;
 	readonly remoteStatus?: string;
@@ -140,12 +142,12 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 	const publish = async (id: string, draft: FreesoundPublishDraft): Promise<void> => {
 		const record = findRecord(records, id);
 		if (record.item.status !== 'ready-to-publish' || !record.item.uploadFilename) {
-			throw new Error('This upload is not ready to publish.');
+			throw failure(new Error('This upload is not ready to publish.'), 'notReady', {});
 		}
 		const request = validatePublishDraft(record.item.uploadFilename, draft, record.licenseAnalysis);
 		const abort = new AbortController();
 		record.abort = abort;
-		update(record, { ...draft, tags: Object.freeze([...request.tags]), status: 'publishing', errorMessage: undefined });
+		update(record, { ...draft, tags: Object.freeze([...request.tags]), status: 'publishing', errorMessage: undefined, uploadFailure: undefined });
 		try {
 			const submitted = await raceAbortablePromise(runtime.describe(request, abort.signal), abort.signal);
 			abort.signal.throwIfAborted();
@@ -158,7 +160,7 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 		} catch (error) {
 			update(record, {
 				status: abort.signal.aborted ? 'cancelled' : 'ready-to-publish',
-				errorMessage: errorMessage(error, 'Freesound could not publish this upload.'),
+				errorMessage: errorMessage(error, 'Freesound could not publish this upload.'), uploadFailure: uploadValidationFailure(error),
 			});
 			throw error;
 		} finally {
@@ -181,8 +183,8 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 				try {
 					let file = record.file;
 					if (!file && record.clip) {
-						if (!runtime.materializeClip) throw new Error('Clip uploads are unavailable in this build.');
-						update(record, { status: 'preparing', errorMessage: undefined });
+						if (!runtime.materializeClip) throw failure(new Error('Clip uploads are unavailable in this build.'), 'clipUnavailable', {});
+						update(record, { status: 'preparing', errorMessage: undefined, uploadFailure: undefined });
 						const materialized = await raceAbortablePromise(runtime.materializeClip({ ...record.clip, signal: abort.signal }), abort.signal);
 						abort.signal.throwIfAborted();
 						validateInputFile(materialized.file);
@@ -207,10 +209,10 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 						});
 						record.licenseAnalysis = defaults;
 					}
-					if (!file) throw new Error('The queued audio is unavailable.');
+					if (!file) throw failure(new Error('The queued audio is unavailable.'), 'audioUnavailable', {});
 					if (!FREESOUND_DIRECT_EXTENSION.test(file.name)) {
-						if (!runtime.prepareFile) throw new Error(`${file.name} must be converted to WAV before upload.`);
-						update(record, { status: 'preparing', errorMessage: undefined });
+						if (!runtime.prepareFile) throw failure(new Error(`${file.name} must be converted to WAV before upload.`), 'conversionRequired', { fileName: file.name });
+						update(record, { status: 'preparing', errorMessage: undefined, uploadFailure: undefined });
 						file = await raceAbortablePromise(runtime.prepareFile(file, abort.signal), abort.signal);
 						abort.signal.throwIfAborted();
 						validatePreparedFile(file);
@@ -222,14 +224,14 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 					file = normalizeDirectUploadFile(file);
 					record.file = file;
 					abort.signal.throwIfAborted();
-					update(record, { status: 'uploading', errorMessage: undefined });
+					update(record, { status: 'uploading', errorMessage: undefined, uploadFailure: undefined });
 					const result = await raceAbortablePromise(runtime.upload(file, abort.signal), abort.signal);
 					abort.signal.throwIfAborted();
 					update(record, { status: 'ready-to-publish', uploadFilename: result.uploadFilename });
 				} catch (error) {
 					if (owner === generation) update(record, {
 						status: abort.signal.aborted ? 'cancelled' : 'failed',
-						errorMessage: errorMessage(error, 'Freesound could not upload this audio.'),
+						errorMessage: errorMessage(error, 'Freesound could not upload this audio.'), uploadFailure: uploadValidationFailure(error) ?? { reason: record.item.status === 'preparing' ? 'preparationFailed' : 'transferFailed', parameters: {} },
 					});
 				} finally {
 					record.abort = undefined;
@@ -288,7 +290,7 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 			return Object.freeze(ids);
 		},
 		enqueueClip: (reference: FreesoundClipUploadReference) => {
-			if (!reference.projectId || !reference.clipId) throw new TypeError('A valid project clip is required.');
+			if (!reference.projectId || !reference.clipId) throw failure(new TypeError('A valid project clip is required.'), 'invalidClip', {});
 			const duplicate = records.find(({ clip, item }) => item.status !== 'submitted' && clip?.projectId === reference.projectId
 				&& clip.clipId === reference.clipId);
 			if (duplicate) return duplicate.item.id;
@@ -319,7 +321,7 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 		retry: (id: string) => {
 			const record = findRecord(records, id);
 			if (!['failed', 'cancelled'].includes(record.item.status)) return;
-			update(record, { status: 'queued', errorMessage: undefined });
+			update(record, { status: 'queued', errorMessage: undefined, uploadFailure: undefined });
 			void pump();
 		},
 		cancel: (id: string) => {
@@ -332,7 +334,7 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 			if (index < 0) return;
 			const record = records[index]!;
 			if (record.abort || ['preparing', 'uploading', 'publishing'].includes(record.item.status)) {
-				throw new Error('Cancel the active upload before removing it.');
+				throw failure(new Error('Cancel the active upload before removing it.'), 'cancelBeforeRemoving', {});
 			}
 			records.splice(index, 1);
 			publishSnapshot();
@@ -395,20 +397,20 @@ function validatePublishDraft(
 
 function validateInputFile(file: File): void {
 	if (!(file instanceof Blob) || typeof file.name !== 'string' || !file.name) {
-		throw new TypeError('A named audio file is required.');
+		throw failure(new TypeError('A named audio file is required.'), 'namedFileRequired', {});
 	}
-	if (file.size <= 0) throw new RangeError(`${file.name} is empty.`);
+	if (file.size <= 0) throw failure(new RangeError(`${file.name} is empty.`), 'emptyFile', { fileName: file.name });
 	if (!file.type.toLowerCase().startsWith('audio/') && !AUDIO_FILE_EXTENSION.test(file.name)) {
-		throw new TypeError(`${file.name} is not a supported audio file.`);
+		throw failure(new TypeError(`${file.name} is not a supported audio file.`), 'unsupportedFile', { fileName: file.name });
 	}
 }
 
 function validatePreparedFile(file: File): void {
 	validateInputFile(file);
 	if (!FREESOUND_DIRECT_EXTENSION.test(file.name)) {
-		throw new TypeError('Prepared Freesound audio must be WAV, AIFF, FLAC, OGG, or MP3.');
+		throw failure(new TypeError('Prepared Freesound audio must be WAV, AIFF, FLAC, OGG, or MP3.'), 'preparedFormat', {});
 	}
-	if (file.size > MAXIMUM_UPLOAD_BYTES) throw new RangeError(`${file.name} exceeds the 100 MB upload limit.`);
+	if (file.size > MAXIMUM_UPLOAD_BYTES) throw failure(new RangeError(`${file.name} exceeds the 100 MB upload limit.`), 'fileTooLarge', { fileName: file.name, maximum: 100 });
 }
 
 /** Supply a portable transfer filename and the proxy's extension-derived MIME. */
@@ -417,7 +419,7 @@ function normalizeDirectUploadFile(file: File): File {
 	const type = FREESOUND_DIRECT_MIME_BY_EXTENSION[
 		extension as keyof typeof FREESOUND_DIRECT_MIME_BY_EXTENSION
 	];
-	if (!type) throw new TypeError('Prepared Freesound audio must be WAV, AIFF, FLAC, OGG, or MP3.');
+	if (!type) throw failure(new TypeError('Prepared Freesound audio must be WAV, AIFF, FLAC, OGG, or MP3.'), 'preparedFormat', {});
 	const name = sanitizeSuggestedFileName(file.name.replaceAll('\u007f', '-'));
 	return file.name === name && file.type.toLocaleLowerCase('en-US') === type
 		? file
@@ -425,13 +427,13 @@ function normalizeDirectUploadFile(file: File): File {
 }
 
 function assertQueueCapacity(current: number, addition: number): void {
-	if (!Number.isSafeInteger(addition) || addition < 1) throw new TypeError('Select one or more audio files.');
-	if (current + addition > MAXIMUM_QUEUE_ITEMS) throw new RangeError('The Freesound queue accepts up to 100 items.');
+	if (!Number.isSafeInteger(addition) || addition < 1) throw failure(new TypeError('Select one or more audio files.'), 'selectFiles', {});
+	if (current + addition > MAXIMUM_QUEUE_ITEMS) throw failure(new RangeError('The Freesound queue accepts up to 100 items.'), 'queueFull', { maximum: 100 });
 }
 
 function findRecord(records: readonly QueueRecord[], id: string): QueueRecord {
 	const record = records.find(({ item }) => item.id === id);
-	if (!record) throw new Error('The Freesound upload no longer exists.');
+	if (!record) throw failure(new Error('The Freesound upload no longer exists.'), 'invalidState', {});
 	return record;
 }
 
@@ -446,8 +448,8 @@ function normalizedTitle(value: string, fileName: string): string {
 }
 
 function boundedRequiredText(value: unknown, label: string, maximum: number): string {
-	if (typeof value !== 'string' || !value.trim()) throw new TypeError(`Set a ${label}.`);
-	if (value.length > maximum) throw new RangeError(`The ${label} is too long.`);
+	if (typeof value !== 'string' || !value.trim()) throw failure(new TypeError(`Set a ${label}.`), 'fieldRequired', { field: label });
+	if (value.length > maximum) throw failure(new RangeError(`The ${label} is too long.`), 'fieldTooLong', { field: label, maximum });
 	return value.trim();
 }
 
