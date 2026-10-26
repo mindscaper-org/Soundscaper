@@ -103,6 +103,7 @@ belong in Git history, not in the maintained documentation set.
 - [Direct After Effects format research](development/motionscaper-aep-native-format-research.md).
 - [Motionscaper composition link foundations](development/motionscaper-composition-links.md).
 - [Desktop saved Motionscaper links](development/motionscaper-desktop-saved-links.md).
+- [Native Motionscaper Save publication](development/motionscaper-native-save-publication.md).
 - [Linux packaged qualification gate](development/motionscaper-linux-ci-qualification.md).
 - [Motionscaper native delivery](development/motionscaper-native-delivery.md).
 - [Packaged Motionscaper file launch qualification](development/motionscaper-native-launch-qualification.md).
