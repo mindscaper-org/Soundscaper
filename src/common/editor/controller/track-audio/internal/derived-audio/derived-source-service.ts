@@ -11,7 +11,7 @@ import {
 } from '../../../import/imported-audio-content-identity.ts';
 import type { AudioBufferLike } from '../../../source/source-audio.ts';
 import {
-	findControllerSource,
+	isControllerPcmSource,
 	type ControllerClip,
 	type ControllerProject,
 	type ControllerSource,
@@ -89,10 +89,11 @@ export function createDerivedSourceService(
 	function uniqueClipSources(clips: readonly ControllerClip[]): ControllerSource[] {
 		dependencies.lifetime.assertActive();
 		const project = dependencies.getProject();
-		return [...new Map(clips.map((clip) => {
-			const source = findControllerSource(project, clip.sourceId);
-			return [source?.id, source] as const;
-		})).values()].filter((source): source is ControllerSource => Boolean(source));
+		const sourceById = new Map(project.sources.map(source => [source.id, source]));
+		return [...new Set(clips.map(clip => clip.sourceId))].flatMap(id => {
+			const source = sourceById.get(id);
+			return source && isControllerPcmSource(source) ? [source] : [];
+		});
 	}
 
 	async function sourceChannelsForEdit(source: ControllerSource): Promise<Float32Array[]> {
