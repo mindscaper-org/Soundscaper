@@ -9,7 +9,7 @@ import { AUDIO_EDITOR_MIN_PIXELS_PER_SECOND } from '../../../timeline-zoom-limit
 import { createClipSelectionNavigationService } from './clip-selection-navigation-service.ts';
 import { selectedTrackContentRange } from './selected-track-content-range.ts';
 import { createSelectionBoundaryAdjustmentService } from './selection-boundary-adjustment-service.ts';
-import { zeroCrossingRenderProject } from './zero-crossing-render-project.ts';
+import { renderZeroCrossingEdges } from './zero-crossing-edge-windows.ts';
 import type {
 	SelectionViewClipOptions,
 	SelectionViewProject,
@@ -34,11 +34,11 @@ export function createSelectionViewService<
 >(runtime: SelectionViewServiceRuntime<Project, Rendered>) {
 	const {
 		DEFAULT_PIXELS_PER_SECOND, MAX_PIXELS_PER_SECOND,
-		activeSelection, audioBufferChannels, cloneProject, collectRelatedClipIds,
+		activeSelection, collectRelatedClipIds,
 		commit, copy, editorTimelineDurationFrames, engine, findClip, findClipTrack,
-		findNearestAudioZeroCrossing, findTrack, getProject, handleError,
+		findTrack, getProject, handleError,
 		normalizeTimelineFrame, persistSetting, productSettingKey, projectDurationFrames,
-		projectSampleRate, publishDocumentSnapshot, publishProjectState, renderSnapshot,
+		projectSampleRate, publishDocumentSnapshot, publishProjectState,
 		resetRoutedInputMeter, setStatus, snapAudioEditorFrameWithProject, state,
 		synchronizeAutomaticSampleEditMode, synchronizeMicrophoneMeterTarget,
 		updatePlayhead, updateSelection,
@@ -428,25 +428,10 @@ export function createSelectionViewService<
 		state.analysisProcessing = true;
 		publishDocumentSnapshot();
 		try {
-			const rendered = await Promise.all(audioTrackIds.map((trackId) => {
-				const capture = zeroCrossingRenderProject(cloneProject(projectAtStart), trackId);
-				return renderSnapshot(capture.project, {
-				startFrame: renderStart,
-				endFrame: renderEnd,
-				includeTail: false,
-				outputFrames: renderEnd - renderStart,
-				trackId: capture.trackId, includeMaster: false, includeTrackPan: false, respectMuteSolo: false,
-				});
-			}));
-			if (getProject() !== projectAtStart) return null;
-			const channels = rendered.flatMap(audioBufferChannels);
-			const snapEdge = (frame: number) => frame < renderStart || frame > renderEnd
-				? frame
-				: renderStart + findNearestAudioZeroCrossing(
-					channels, frame - renderStart, { maximumDistance: radius },
-				);
-			const startFrame = snapEdge(selection.startFrame);
-			const endFrame = snapEdge(selection.endFrame);
+			const snapped = await renderZeroCrossingEdges(runtime, projectAtStart, audioTrackIds, selection, radius,
+				{ startFrame: renderStart, endFrame: renderEnd });
+			if (!snapped || getProject() !== projectAtStart) return null;
+			const { startFrame, endFrame } = snapped;
 			const next = commit({
 				type: 'selection/set',
 				startFrame: Math.min(startFrame, endFrame),

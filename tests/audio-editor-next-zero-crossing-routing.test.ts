@@ -36,7 +36,8 @@ for (const mode of ['assignment', 'adm', 'detector'] as const) test(`NP038: zero
 	controller.actions.timeline.setExactSelection(10_007, 30_007, { trackIds: ['voice'] });
 	const before = structuredClone(controller.project);
 	await controller.actions.timeline.zeroCross();
-	assert.equal(captures.length, 1);
+	assert.equal(captures.length, mode === 'detector' ? 1 : 2);
+	if (captures.length === 2) assert.deepEqual(captures[1], captures[0], 'both edge windows retain the same isolated route');
 	const captured = captures[0]!, graph = normalizeMixerGraphV21(captured.mixer);
 	const output = graph.edges.filter(edge => edge.kind === 'assignment' && edge.source.kind === 'track' && edge.source.id === 'voice');
 	assert.ok(output.length && output.every(edge => edge.enabled && edge.level > 0), 'the capture bypasses a zero programme output level');
