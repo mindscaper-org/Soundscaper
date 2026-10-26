@@ -28,6 +28,9 @@ export function reinterpretedClipCommands(trackId: string, clip: ControllerClip,
 	if (!Number.isSafeInteger(durationFrames + clip.timelineStartFrame)) throw new RangeError('Reinterpreted clip duration exceeds the safe frame range.');
 	const timelineFrame = (frame: number): number => Math.min(durationFrames, Math.max(0, Math.round(frame * durationFrames / clip.durationFrames)));
 	const envelope = Array.isArray(clip.envelope) ? clip.envelope as readonly Readonly<{ frame: number; value: number }>[] : undefined;
+	const scaledEnvelope = envelope ? [...new Map(envelope.map(point => {
+		const frame = timelineFrame(point.frame); return [frame, { ...point, frame }] as const;
+	})).values()] : undefined;
 	return [
 		...(typeof clip.groupId === 'string' && clip.groupId ? [{ type: 'clip/ungroup' as const, clipIds: [clip.id] }] : []),
 		{ type: 'clip/remove', clipId: clip.id },
@@ -36,7 +39,7 @@ export function reinterpretedClipCommands(trackId: string, clip: ControllerClip,
 			trimStartFrames: sourceFrame(clip.trimStartFrames ?? 0), trimEndFrames: sourceFrame(clip.trimEndFrames ?? 0), durationFrames,
 			...(typeof clip.fadeInFrames === 'number' ? { fadeInFrames: timelineFrame(clip.fadeInFrames) } : {}),
 			...(typeof clip.fadeOutFrames === 'number' ? { fadeOutFrames: timelineFrame(clip.fadeOutFrames) } : {}),
-			...(envelope ? { envelope: envelope.map(point => ({ ...point, frame: timelineFrame(point.frame) })) } : {}),
+			...(scaledEnvelope ? { envelope: scaledEnvelope } : {}),
 		}),
 	];
 }

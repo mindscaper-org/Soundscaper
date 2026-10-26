@@ -64,3 +64,13 @@ test('reinterpretation rejects linked, looping and warped clocks before producin
 			{ ...source, id: 'replacement', sampleRate: 8000 }), /reinterpret.*(unlink|render|loop|musical)/i);
 	}
 });
+
+test('reinterpretation keeps envelope frames unique when a shorter clock merges their positions', () => {
+	const source = { id: 'source', sampleRate: 8000, frameCount: 8 } as ControllerSource;
+	const clip = { id: 'clip', sourceId: source.id, timelineStartFrame: 0, sourceStartFrame: 0,
+		sourceDurationFrames: 8, durationFrames: 8, envelope: [{ frame: 0, value: 1 }, { frame: 1, value: 0.5 }, { frame: 8, value: 0.25 }] } as ControllerClip;
+	const commands = reinterpretedClipCommands('track', clip, source, { ...source, id: 'replacement', sampleRate: 32000 });
+	const addition = commands.find(command => command.type === 'clip/add');
+	assert.ok(addition?.type === 'clip/add');
+	assert.deepEqual(addition.clip.envelope, [{ frame: 0, value: 0.5 }, { frame: 2, value: 0.25 }]);
+});
