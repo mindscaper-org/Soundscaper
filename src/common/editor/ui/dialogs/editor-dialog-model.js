@@ -1,4 +1,4 @@
-import { reportItemLabel } from './report-item-presentation.ts';
+import { reportItemLabel } from '../report-item-presentation.ts';
 import { formatLocalizedTemplate } from '../localization-template.ts';
 import { parseNativeEffectId } from '../../aup4-browser-effect-payload.js';
 

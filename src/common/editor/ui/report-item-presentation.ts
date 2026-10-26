@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { REPORT_ITEM_COPY } from '../../../i18n/editor-report-item-copy.ts';
-import { formatLocalizedTemplate } from '../localization-template.ts';
+import { REPORT_ITEM_COPY } from '../../i18n/editor-report-item-copy.ts';
+import { formatLocalizedTemplate } from './localization-template.ts';
 export function reportItemLabel(value: unknown, copy: Readonly<Record<string, string | undefined>> = {}): string {
 	const item = value && typeof value === 'object' ? value as Readonly<Record<string, unknown>> : {};
 	const key = `reportItem.${String(item.code ?? '')}`;
