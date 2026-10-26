@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useEffect, useRef, type RefObject } from 'react';
+import { createSpectrumIntervalCache } from './spectrum-bin-intervals.ts';
 
-const MIN_FREQUENCY = 10;
-const MAX_FREQUENCY = 24_000;
 const SPECTRUM_BIN_COUNT = 2_048;
 
 type SpectrumSource = 'input' | 'output';
@@ -42,6 +41,7 @@ export function useParametricEqSpectrum({
 		}
 		const input = new Float32Array(SPECTRUM_BIN_COUNT);
 		const output = new Float32Array(SPECTRUM_BIN_COUNT);
+		const intervals = createSpectrumIntervalCache();
 		let animationFrame = 0;
 		let previousTime = 0;
 		const draw = (time: number) => {
@@ -50,8 +50,8 @@ export function useParametricEqSpectrum({
 			previousTime = time;
 			const inputMetadata = showInput ? readerRef.current?.('input', input) : null;
 			const outputMetadata = showOutput ? readerRef.current?.('output', output) : null;
-			drawSpectrumCanvas(inputCanvasRef.current, inputMetadata ? input : null, sampleRate, 'input', inputMetadata);
-			drawSpectrumCanvas(outputCanvasRef.current, outputMetadata ? output : null, sampleRate, 'output', outputMetadata);
+			drawSpectrumCanvas(inputCanvasRef.current, inputMetadata ? input : null, sampleRate, 'input', inputMetadata, intervals);
+			drawSpectrumCanvas(outputCanvasRef.current, outputMetadata ? output : null, sampleRate, 'output', outputMetadata, intervals);
 		};
 		animationFrame = requestAnimationFrame(draw);
 		return () => cancelAnimationFrame(animationFrame);
@@ -66,6 +66,7 @@ function drawSpectrumCanvas(
 	sampleRate: number,
 	source: SpectrumSource,
 	metadata?: unknown,
+	intervals?: ReturnType<typeof createSpectrumIntervalCache>,
 ): void {
 	if (!canvas) return;
 	const rect = canvas.getBoundingClientRect();
@@ -83,15 +84,12 @@ function drawSpectrumCanvas(
 	const nativeRate = typeof metadata === 'object' && metadata !== null && 'sampleRate' in metadata
 		&& typeof metadata.sampleRate === 'number' && Number.isFinite(metadata.sampleRate) && metadata.sampleRate > 0
 		? metadata.sampleRate : sampleRate;
-	const maximum = Math.min(MAX_FREQUENCY, sampleRate * 0.49);
-	const binAt = (pixel: number): number => MIN_FREQUENCY * (maximum / MIN_FREQUENCY)
-		** (pixel / Math.max(1, width - 1)) / (nativeRate / 2) * values.length;
+	const projection = intervals!(width, sampleRate, nativeRate, values.length);
 	context.beginPath();
 	context.moveTo(0, height);
 	for (let pixel = 0; pixel < width; pixel += 2) {
 		// Pool the FFT interval covered by each point on the analyser's native clock.
-		const first = Math.max(0, Math.floor(binAt(pixel - 1)));
-		const end = Math.min(values.length, Math.ceil(binAt(pixel + 1)) + 1);
+		const [first, end] = projection[pixel / 2]!;
 		let db = -120;
 		for (let bin = first; bin < end; bin++) if (Number.isFinite(values[bin])) db = Math.max(db, values[bin]!);
 		const y = height * (1 - clamp((db + 120) / 120, 0, 1));
