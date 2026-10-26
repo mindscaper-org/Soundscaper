@@ -51,7 +51,7 @@ interface Props {
 export function ClipFadeOverlays({ rootRef, clips, selectedIds, startFrame, endFrame, pixelsPerSecond, sampleRate, blocked, handleTabIndex = -1, showFadeShapeHandles, crossfadedFadeEdges, copy, onChange, onTabOut, onEditFades = () => undefined }: Props) {
 	const [targets, setTargets] = useState<ReadonlyMap<string, HTMLElement>>(new Map());
 	const [menu, setMenu] = useState<(FadeShapeMenuPosition & { readonly clipId: string; readonly edge: ClipFadeEdge }) | null>(null);
-	const { drag, start } = useClipFadeDragAppearance(blocked);
+	const drag = useClipFadeDragAppearance(blocked, rootRef);
 	const close = useCallback(() => setMenu(null), []);
 	const menuClip = menu && clips.find(clip => clip.id === menu.clipId);
 	const handleKeyboard = (event: KeyboardEvent<HTMLButtonElement>) => {
@@ -95,8 +95,7 @@ export function ClipFadeOverlays({ rootRef, clips, selectedIds, startFrame, endF
 		return createPortal(<div className="audio-editor-clip-fade" data-fade-selected={selected ? 'true' : undefined}
 			data-fade-length-drag={drag?.clipId === clip.id && !drag.shape ? '' : undefined}
 			data-fade-floor={height > 0 && height <= 44 || undefined}
-			data-fade-editing={drag?.clipId === clip.id || undefined} data-fade-pointer={displayWidth >= 66 ? "true" : "false"}
-			onPointerDownCapture={start}>
+			data-fade-editing={drag?.clipId === clip.id || undefined} data-fade-pointer={displayWidth >= 66 ? "true" : "false"}>
 			{hasFade && <svg className="audio-editor-clip-fade__curve" viewBox={`0 0 ${geometry.width} 100`}
 				preserveAspectRatio="none" aria-hidden="true">
 				<path data-fade-shading d={curves.map(curve => curve.shadePath).join(' ')}

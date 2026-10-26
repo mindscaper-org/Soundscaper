@@ -12,6 +12,20 @@ test('unselected audio clips expose corner zones and a bare-edge peek without se
 	const previous = globals.IS_REACT_ACT_ENVIRONMENT;
 	globals.IS_REACT_ACT_ENVIRONMENT = true;
 	const root = createRoot(dom.container as unknown as Element);
+	const document = dom.container.ownerDocument as unknown as Document;
+	const listeners = new Map<string, Set<EventListener>>();
+	const add = document.addEventListener.bind(document), remove = document.removeEventListener.bind(document);
+	document.addEventListener = ((name: string, listener: EventListener, capture?: boolean) => {
+		if (capture === true) { const group = listeners.get(name) ?? new Set<EventListener>(); group.add(listener); listeners.set(name, group); }
+		add(name, listener, capture);
+	}) as Document['addEventListener'];
+	document.removeEventListener = ((name: string, listener: EventListener, capture?: boolean) => {
+		if (capture === true) listeners.get(name)?.delete(listener);
+		remove(name, listener, capture);
+	}) as Document['removeEventListener'];
+	const capture = async (name: string, event: Readonly<Record<string, unknown>>) => act(async () => {
+		for (const listener of [...listeners.get(name) ?? []]) listener({ type: name, ...event } as unknown as Event);
+	});
 	context.after(async () => { await act(async () => root.unmount()); globals.IS_REACT_ACT_ENVIRONMENT = previous; dom.restore(); });
 	const clip = { id: 'one', kind: 'audio', timelineStartFrame: 0, durationFrames: 48_000, fadeOutFrames: 12_000 };
 	const rootRef = { current: dom.container as unknown as HTMLDivElement };
@@ -30,6 +44,20 @@ test('unselected audio clips expose corner zones and a bare-edge peek without se
 	await act(async () => reactProps(zone).onMouseEnter({ buttons: 0 }));
 	assert.equal(dom.one('[data-fade-peek="in"]').getAttribute('aria-hidden'), 'true');
 	assert.deepEqual(changes, [], 'hover is a preview only');
+	assert.equal(listeners.get('pointerdown')?.size, 1, 'observe before the timeline ancestor can stop capture');
+	const foreign = document.createElement('div');
+	foreign.dataset.clipFadeHandle = 'in';
+	await capture('pointerdown', { target: foreign, button: 0, pointerId: 99 });
+	assert.equal(dom.find('[data-fade-length-drag]'), null, 'another row cannot arm this overlay');
+	await capture('pointerdown', { target: zone, button: 0, pointerId: 7 });
+	assert.equal(dom.one('.audio-editor-clip-fade').getAttribute('data-fade-length-drag'), '');
+	assert.equal(dom.find('[data-fade-peek="in"]'), null, 'a press retires the hover preview');
+	await capture('pointerup', { pointerId: 99, pointerType: 'mouse', button: 0 });
+	await capture('pointerup', { pointerId: 7, pointerType: 'mouse', button: 1 });
+	assert.ok(dom.find('[data-fade-length-drag]'), 'foreign pointers and auxiliary releases do not end the drag');
+	await capture('pointerup', { pointerId: 7, pointerType: 'mouse', button: 0 });
+	assert.equal(dom.find('[data-fade-length-drag]'), null);
+	assert.deepEqual(changes, [], 'presentation never commits edits owned by the native timeline');
 	await render(true);
 	assert.equal(dom.container.querySelectorAll('[data-fade-zone]').length, 0);
 	assert.equal(dom.one('.audio-editor-clip-fade').getAttribute('data-fade-selected'), 'true');

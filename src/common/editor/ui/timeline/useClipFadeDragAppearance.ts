@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 
 interface Drag {
 	readonly pointerId: number;
@@ -10,7 +10,7 @@ interface Drag {
 }
 
 /** Presentation follows the native timeline session; it never commits an edit. */
-export function useClipFadeDragAppearance(blocked: boolean) {
+export function useClipFadeDragAppearance(blocked: boolean, rootRef: RefObject<HTMLDivElement | null>) {
 	const [drag, setDrag] = useState<Drag | null>(null);
 	const current = useRef<Drag | null>(null);
 	const clear = useCallback(() => {
@@ -35,9 +35,10 @@ export function useClipFadeDragAppearance(blocked: boolean) {
 			document.removeEventListener('keydown', escape, true);
 		};
 	}, [clear, drag]);
-	const start = (event: ReactPointerEvent<HTMLDivElement>) => {
+	const start = useCallback((event: PointerEvent) => {
 		if (blocked || event.button !== 0 || current.current) return;
-		const target = (event.target as Element).closest<HTMLElement>('[data-clip-fade-handle], [data-clip-fade-shape-handle]');
+		if (!(event.target instanceof Element) || !rootRef.current?.contains(event.target)) return;
+		const target = event.target.closest<HTMLElement>('[data-clip-fade-handle], [data-clip-fade-shape-handle]');
 		const clipId = target?.closest<HTMLElement>('[data-clip-id]')?.dataset.clipId;
 		if (!target || !clipId) return;
 		const shape = target.dataset.clipFadeShapeHandle !== undefined;
@@ -45,6 +46,14 @@ export function useClipFadeDragAppearance(blocked: boolean) {
 			edge: (shape ? target.dataset.clipFadeShapeHandle : target.dataset.clipFadeHandle)!, shape };
 		current.current = next;
 		setDrag(next);
-	};
-	return { drag, start };
+	}, [blocked, rootRef]);
+	useEffect(() => {
+		const document = rootRef.current?.ownerDocument;
+		if (!document) return;
+		// The native timeline claims fade presses in ancestor capture and stops
+		// propagation. Observe first without consuming or changing its edit session.
+		document.addEventListener('pointerdown', start, true);
+		return () => document.removeEventListener('pointerdown', start, true);
+	}, [rootRef, start]);
+	return drag;
 }
