@@ -43,7 +43,9 @@ const responseShell = shells.find(shell => existsSync(shell));
 if (responseShell) {
 	const resultPath = join(directory, 'response-result.txt');
 	const wrapper = join(directory, 'response.sh');
-	writeFileSync(wrapper, `#!/bin/bash\nset -euo pipefail\nread -r -a arguments < "$2"\nsource ${quote(script)} "$1" "\${arguments[@]}"\n`);
+	writeFileSync(wrapper, ['#!/bin/bash', 'set -euo pipefail', 'IFS= read -r line < "$2"',
+		"line=${line%$'\\r'}", 'read -r -a arguments <<< "$line"',
+		`source ${quote(script)} "$1" "\${arguments[@]}"`, ''].join('\n'));
 	const makefile = join(directory, 'response.mk');
 	writeFileSync(makefile, `all:\n\t$(file >full-args.rsp,${args.join(' ')})\n\t@${quote(responseShell)} ${quote(wrapper)} ${quote(resultPath)} full-args.rsp\n`);
 	const run = spawnSync(make, ['-f', makefile, `SHELL=${forward(responseShell)}`, '.SHELLFLAGS=-e -c'], {

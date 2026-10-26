@@ -115,6 +115,7 @@ jobs:
             ${{ runner.temp }}/framescaper-media-work/media-build/ffmpeg-build/ffbuild/config.log
             ${{ runner.temp }}/framescaper-media-work/media-build/*-install/lib/pkgconfig/*.pc
             ${{ runner.temp }}/framescaper-media-work/media-build/libvpx-build/*.vcxproj
+            ${{ runner.temp }}/framescaper-media-work/media-build/libvpx-build/*.sources
             ${{ runner.temp }}/framescaper-media-work/media-build/libvpx-build/*.mk
             ${{ runner.temp }}/framescaper-media-work/media-build/libvpx-build/Makefile
             ${{ runner.temp }}/framescaper-media-work/media-build/libvpx-build/vpx_config.h
