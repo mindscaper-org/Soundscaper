@@ -480,11 +480,6 @@
       "count": 1
     }
   },
-  "src/common/editor/delivery-preset-store.ts": {
-    "preserve-caught-error": {
-      "count": 1
-    }
-  },
   "src/common/editor/desktop-linked-original-port.ts": {
     "no-control-regex": {
       "count": 1
