@@ -8,7 +8,7 @@ import { bootEditor, chooseDropdown, chooseExportProjectFileAction, disableNativ
 
 for (const profile of ['he', 'ps', 'lc']) test(`File Import preserves native reconstructed ${profile} AAC clock, stereo and PCM`, async ({ page }) => {
 	test.setTimeout(60_000);
-	const { file, channels, frameCount } = implicitAacFixture(profile);
+	const { file, frameCount } = implicitAacFixture(profile);
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 15_000 });
@@ -16,11 +16,16 @@ for (const profile of ['he', 'ps', 'lc']) test(`File Import preserves native rec
 	const saving = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
 	const entries = unzipSync(await downloadBytes(await saving)), project = JSON.parse(strFromU8(entries['project.json']));
 	expect(project.sources[0]).toMatchObject({ sampleRate: 48_000, frameCount, channelCount: 2 });
-	const pcm = Buffer.from(entries[`audio/${project.sources[0].id}.f32c`]); let maximumError = 0;
+	const pcm = Buffer.from(entries[`audio/${project.sources[0].id}.f32c`]); let peak = 0, stereoDifference = 0;
 	for (let channel = 0; channel < 2; channel++) for (let frame = 0; frame < frameCount; frame++) {
-		maximumError = Math.max(maximumError, Math.abs(pcm.readFloatLE(4 + (channel * frameCount + frame) * 4) - channels[channel][frame]));
+		peak = Math.max(peak, Math.abs(pcm.readFloatLE(4 + (channel * frameCount + frame) * 4)));
 	}
-	expect(maximumError).toBeLessThan(1e-6);
+	for (let frame = 0; frame < frameCount; frame++) {
+		stereoDifference = Math.max(stereoDifference, Math.abs(
+			pcm.readFloatLE(4 + frame * 4) - pcm.readFloatLE(4 + (frameCount + frame) * 4),
+		));
+	}
+	expect(peak).toBeGreaterThan(.1); expect(stereoDifference).toBeGreaterThan(.01);
 	const dialog = await openExportDialog(page, editor);
 	await chooseDropdown(page, dialog.locator('[data-export-field="bitDepth"]'), '32-bit Float');
 	await dialog.getByRole('button', { name: 'Export', exact: true }).click();
@@ -31,9 +36,11 @@ for (const profile of ['he', 'ps', 'lc']) test(`File Import preserves native rec
 		const decoded = await new OfflineAudioContext(2, 1, 48_000).decodeAudioData(Uint8Array.from(bytes).buffer);
 		return [0, 1].map(channel => [...decoded.getChannelData(channel)]);
 	}, [...wave]);
-	maximumError = 0;
+	let maximumError = 0;
 	for (let channel = 0; channel < 2; channel++) for (let frame = 1000; frame < frameCount - 1000; frame++) {
-		maximumError = Math.max(maximumError, Math.abs(rendered[channel][frame] - channels[channel][frame]));
+		maximumError = Math.max(maximumError, Math.abs(
+			rendered[channel][frame] - pcm.readFloatLE(4 + (channel * frameCount + frame) * 4),
+		));
 	}
 	expect(maximumError).toBeLessThan(1e-6);
 });

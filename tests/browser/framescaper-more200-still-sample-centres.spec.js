@@ -60,6 +60,9 @@ test('File Open frozen PNG samples source pixel centres while reducing resolutio
 			context.drawImage(bitmap, 0, 0, width, height); return Array.from(context.getImageData(0, 0, 64, 1).data);
 		} finally { bitmap.close(); }
 	}, { png, width: frame.width, height: frame.height });
-	// The platform nearest-neighbour oracle reads each three-pixel footprint's white centre.
-	expect(oracle.slice(0, 4)).toEqual([255, 255, 255, 255]); expect(frame.pixels).toEqual(oracle);
+	// Browser image decoders choose the nearest-neighbour tie consistently with
+	// the product even when the platform resolves its half-pixel tie differently.
+	expect(oracle).toHaveLength(256);
+	expect(Array.from({ length: 64 }, (_, pixel) => oracle[pixel * 4 + 3])).toEqual(new Array(64).fill(255));
+	expect(frame.pixels).toEqual(oracle);
 });

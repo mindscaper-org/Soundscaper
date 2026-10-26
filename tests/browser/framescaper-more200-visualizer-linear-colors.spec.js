@@ -13,14 +13,30 @@ test('visualizer foreground over background matches the same native solid-layer 
 	test.setTimeout(60_000);
 	await page.addInitScript(() => {
 		globalThis.__visualizerColors = null;
+		const frames = new WeakMap();
 		const put = CanvasRenderingContext2D.prototype.putImageData;
 		CanvasRenderingContext2D.prototype.putImageData = function (...args) {
 			const result = Reflect.apply(put, this, args), image = args[0];
 			if (image.width !== 1280 || image.height !== 720) return result;
 			const pixel = y => Array.from(image.data.subarray((y * image.width + 640) * 4, (y * image.width + 640) * 4 + 4));
-			globalThis.__visualizerColors = { line: pixel(719), center: pixel(360) };
+			frames.set(this.canvas, { line: pixel(719), center: pixel(360) });
 			return result;
 		};
+		// A preview render also writes generator intermediates; publish only the
+		// exact frame that the maintained WebGL preview consumes.
+		for (const prototype of [WebGLRenderingContext.prototype, WebGL2RenderingContext.prototype]) {
+			for (const name of ['texImage2D', 'texSubImage2D']) {
+				const upload = prototype[name];
+				prototype[name] = function (...args) {
+					const result = Reflect.apply(upload, this, args);
+					for (const source of args) {
+						const colors = source && typeof source === 'object' ? frames.get(source) : null;
+						if (colors) globalThis.__visualizerColors = colors;
+					}
+					return result;
+				};
+			}
+		}
 	});
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	test.skip(!await page.evaluate(hasWebGl2Capability), 'Color parity requires the maintained exact WebGL2 preview.');

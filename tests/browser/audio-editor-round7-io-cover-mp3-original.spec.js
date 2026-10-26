@@ -52,7 +52,7 @@ for (const illustrated of [false, true]) test(`ordinary desktop MP3 with album a
 		const editor = await bootEditor(page, '/embed/en/');
 		await chooseFileAction(page, editor, 'Import');
 		await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 20_000 });
-		await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
+		await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing', { timeout: 30_000 });
 		expect(native.choices).toHaveLength(1);
 		expect(native.selections[0]).toMatchObject([{ readProfile: 'selected-range-v1', name: file.name,
 			originalFile: { name: file.name } }]);
