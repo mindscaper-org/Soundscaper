@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { useMasteringEntryKeys } from './mastering-entry-form-keys.ts';
 
 import type {
@@ -187,7 +187,7 @@ export default function SoundscaperMasteringSequenceEditor({
 	</fieldset>;
 }
 
-function EntryEditor({ copy, entry, index, lastIndex, sequenceId, sampleRate, onOperation }: Readonly<{
+const EntryEditor = memo(function EntryEditor({ copy, entry, index, lastIndex, sequenceId, sampleRate, onOperation }: Readonly<{
 	copy: SoundscaperMasteringSequenceCopy;
 	entry: DocumentMasteringSequenceEntrySnapshot;
 	index: number;
@@ -270,7 +270,7 @@ function EntryEditor({ copy, entry, index, lastIndex, sequenceId, sampleRate, on
 			})}>{copy.masteringRemoveEntry}</button>
 		</div>
 	</form>;
-}
+});
 
 function NumberField({ name, label, value, sampleRate, onChange }: Readonly<{
 	name: string; label: string; value: number; sampleRate: number; onChange(value: number): void;

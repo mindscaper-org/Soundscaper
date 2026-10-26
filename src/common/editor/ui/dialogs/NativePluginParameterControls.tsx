@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import {
 	describeNativePluginRuntimeParameters,
@@ -100,11 +100,8 @@ export default function NativePluginParameterControls({
 		setSnapshot((value) => ({ ...value, values: [...session.confirmed] }));
 	}, [disabled]);
 
-	if (snapshot.phase === 'loading') return <p role="status">{copy.loading}</p>;
-	if (snapshot.phase === 'failed') return <p role="alert">{snapshot.error || copy.unavailable}</p>;
-	if (snapshot.parameters.length === 0) return null;
 
-	const drain = async (session: ParameterWriteSession) => {
+	const drain = useCallback(async (session: ParameterWriteSession) => {
 		try {
 			while (generation.current === session.generation && !disabledRef.current && session.pending.size) {
 				const [index, next] = session.pending.entries().next().value!;
@@ -126,8 +123,8 @@ export default function NativePluginParameterControls({
 		} finally {
 			session.operation = null;
 		}
-	};
-	const update = (parameter: NativePluginParameterDescriptor, next: number) => {
+	}, [instanceId, runtime]);
+	const update = useCallback((parameter: NativePluginParameterDescriptor, next: number) => {
 		const session = writeSession.current;
 		if (disabled || !session || !normalizedValue(next)) return;
 		session.pending.set(parameter.index, next);
@@ -140,44 +137,55 @@ export default function NativePluginParameterControls({
 			trackNativePluginParameterWrites(instanceId, operation);
 			void operation.catch(() => undefined);
 		}
-	};
+	}, [disabled, drain, instanceId]);
+
+	if (snapshot.phase === 'loading') return <p role="status">{copy.loading}</p>;
+	if (snapshot.phase === 'failed') return <p role="alert">{snapshot.error || copy.unavailable}</p>;
+	if (snapshot.parameters.length === 0) return null;
 
 	return <fieldset data-native-plugin-parameter-controls disabled={disabled}>
 		<legend>{copy.title}</legend>
-		{snapshot.parameters.map((parameter) => {
-			const value = snapshot.values[parameter.index] ?? parameter.defaultValue;
-			const controlDisabled = disabled;
-			const isBoolean = (parameter.flags & BOOLEAN_PARAMETER_FLAG) !== 0;
-			return <label key={parameter.id}>
-				<span>{parameter.name}</span>
-				{isBoolean ? <input
-					data-native-plugin-parameter={parameter.id}
-					type="checkbox"
-					checked={value >= (parameter.minimumValue + parameter.maximumValue) / 2}
-					disabled={controlDisabled}
-					onChange={(event) => { void update(parameter, event.currentTarget.checked
-						? parameter.maximumValue : parameter.minimumValue); }}
-				/> : <input
-					data-native-plugin-parameter={parameter.id}
-					type="range"
-					min={parameter.minimumValue}
-					max={parameter.maximumValue}
-					step="any"
-					value={value}
-					aria-valuetext={formatValue(value)}
-					disabled={controlDisabled}
-					onChange={(event) => { void update(parameter, Number(event.currentTarget.value)); }}
-					onDoubleClick={(event) => {
-						event.preventDefault();
-						event.stopPropagation();
-						void update(parameter, parameter.defaultValue);
-					}}
-				/>}
-				{!isBoolean && <output>{formatValue(value)}</output>}
-			</label>;
-		})}
+		{snapshot.parameters.map(parameter => <NativeParameterRow key={parameter.id} parameter={parameter}
+			value={snapshot.values[parameter.index] ?? parameter.defaultValue} disabled={disabled} onUpdate={update} />)}
 	</fieldset>;
 }
+
+const NativeParameterRow = memo(function NativeParameterRow({ parameter, value, disabled, onUpdate }: Readonly<{
+	parameter: NativePluginParameterDescriptor; value: number; disabled: boolean;
+	onUpdate(parameter: NativePluginParameterDescriptor, next: number): void;
+}>) {
+	
+	
+	const isBoolean = (parameter.flags & BOOLEAN_PARAMETER_FLAG) !== 0;
+	return <label key={parameter.id}>
+		<span>{parameter.name}</span>
+		{isBoolean ? <input
+			data-native-plugin-parameter={parameter.id}
+			type="checkbox"
+			checked={value >= (parameter.minimumValue + parameter.maximumValue) / 2}
+			disabled={disabled}
+			onChange={(event) => { onUpdate(parameter, event.currentTarget.checked
+				? parameter.maximumValue : parameter.minimumValue); }}
+		/> : <input
+			data-native-plugin-parameter={parameter.id}
+			type="range"
+			min={parameter.minimumValue}
+			max={parameter.maximumValue}
+			step="any"
+			value={value}
+			aria-valuetext={formatValue(value)}
+			disabled={disabled}
+			onChange={(event) => { onUpdate(parameter, Number(event.currentTarget.value)); }}
+			onDoubleClick={(event) => {
+				event.preventDefault();
+				event.stopPropagation();
+				onUpdate(parameter, parameter.defaultValue);
+			}}
+		/>}
+		{!isBoolean && <output>{formatValue(value)}</output>}
+	</label>;
+
+});
 
 async function loadParameters(
 	runtime: NativePluginParameterRuntime,

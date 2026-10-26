@@ -93,7 +93,9 @@ export default function FramescaperFinishingDialog({
 	const cubeLutFileRef = useRef<HTMLInputElement | null>(null);
 	const cubeLutAbortRef = useRef<AbortController | null>(null);
 	const motionRuntime = framescaperMotionAnalysisActionsFor(controller);
-	const motionTargets = motionRuntime?.targets() ?? [];
+	const cubeLutRuntime = framescaperCubeLutActionsFor(controller);
+	const inventoryOwner = useMemo(() => ({ project, motionRuntime, cubeLutRuntime }), [project, motionRuntime, cubeLutRuntime]);
+	const motionTargets = useMemo(() => surface === 'motion-tracking' ? inventoryOwner.motionRuntime?.targets() ?? [] : [], [surface, inventoryOwner]);
 	const [motionStackId, setMotionStackId] = useState(() => motionTargets[0]?.stackId ?? '');
 	const motionTarget = motionTargets.find(({ stackId }) => stackId === motionStackId)
 		?? motionTargets[0] ?? null;
@@ -101,8 +103,7 @@ export default function FramescaperFinishingDialog({
 	const [motionEndFrame, setMotionEndFrame] = useState(() => motionTarget?.endFrame ?? 0);
 	const [motionProgress, setMotionProgress] = useState<FramescaperMotionAnalysisProgress | null>(null);
 	const motionAbortRef = useRef<AbortController | null>(null);
-	const cubeLutRuntime = framescaperCubeLutActionsFor(controller);
-	const cubeLutTargets = cubeLutRuntime?.targets() ?? [];
+	const cubeLutTargets = useMemo(() => surface === 'grading-presets' ? inventoryOwner.cubeLutRuntime?.targets() ?? [] : [], [surface, inventoryOwner]);
 	const [cubeLutTargetToken, setCubeLutTargetToken] = useState(() => (
 		cubeLutTargets[0] ? targetToken(cubeLutTargets[0]) : ''
 	));
