@@ -173,6 +173,26 @@ test('native completion remains the release boundary after all request successes
 	} finally { release.resolve(); f.database.transaction = native; await f.close(); }
 });
 
+test('a handled bubbling write error still rejects with its original reason and rolls back the batch', async () => {
+	for (const store of ['catalogs', 'photoQueryBuildStatesV2']) {
+		const f = await fixture(), native = f.database.transaction.bind(f.database);
+		f.database.transaction = ((...args: Parameters<IDBDatabase['transaction']>) => {
+			const transaction = native(...args);
+			transaction.onerror = event => { event.preventDefault(); };
+			return transaction;
+		}) as IDBDatabase['transaction'];
+		try {
+			const before = f.records(), failure = new Error(`Native ${store} write failed.`);
+			f.indexedDB.failNextPutForStore(store, failure);
+			await publishLargePhotoLibrarySeedBatchV1(f.database, f.root,
+				createLargeLibraryPhotoBatchV1(f.source, 1), async () => undefined).then(
+				() => assert.fail('Expected the native request error.'), error => { assert.equal(error, failure); },
+			);
+			assert.deepEqual(f.records(), before); assert.equal(f.indexedDB.stats.activeTransactions, 0);
+		} finally { f.database.transaction = native; await f.close(); }
+	}
+});
+
 test('the actual seed helper closure has exact nightly staging and package admission', async () => {
 	const entry = 'tests/helpers/lightscaper-large-library-native-fixture.ts', leaf = 'tests/helpers/lightscaper-large-library-seed-publication.ts';
 	const result = await build({ entryPoints: [fileURLToPath(new URL('./helpers/lightscaper-large-library-native-fixture.ts', import.meta.url))],

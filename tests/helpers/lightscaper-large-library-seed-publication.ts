@@ -69,17 +69,25 @@ export async function publishLargePhotoLibrarySeedBatchV1(database: IDBDatabase,
 			const nextBuild2 = readPhotoQueryBuildStateV2({ ...build2, indexedCount: next.photoCount }, root.id);
 			admittedBytes += bytes(nextState) + bytes(nextBuild1) + bytes(nextBuild2);
 			if (admittedBytes > PHOTO_CATALOG_REPOSITORY_LIMITS.maximumImportBytes) throw new RangeError('Seed publication control rows exceed the byte bound.');
-			const writes: Promise<unknown>[] = [];
-			const add = (store: string, value: unknown) => { nativeWrites++; writes.push(request(stores[store].add(value))); };
-			const put = (store: string, value: unknown) => { nativeWrites++; writes.push(request(stores[store].put(value))); };
-			for (const packet of packets) {
-				add('photos', packet.photo); add('summaries', packet.summary);
-				add('photoQueryRows', packet.queryV1); add('photoQueryRowsV2', packet.queryV2);
-				for (const membership of packet.memberships) add('memberships', membership);
-			}
-			put('catalogs', next); put('catalogStates', nextState);
-			put('photoQueryBuildStates', nextBuild1); put('photoQueryBuildStatesV2', nextBuild2);
-			await Promise.all(writes); return next;
+			// Native requests run in FIFO order. Keep every original write failure,
+			// with one final-write success fence before the owning transaction join.
+			await new Promise<void>((resolve, reject) => {
+				const observeFailure = (write: IDBRequest<IDBValidKey>) => {
+					write.onerror = () => { reject(write.error || new Error('An IndexedDB request failed.')); };
+					return write;
+				};
+				const add = (store: string, value: unknown) => { nativeWrites++; return observeFailure(stores[store].add(value)); };
+				const put = (store: string, value: unknown) => { nativeWrites++; return observeFailure(stores[store].put(value)); };
+				for (const packet of packets) {
+					add('photos', packet.photo); add('summaries', packet.summary);
+					add('photoQueryRows', packet.queryV1); add('photoQueryRowsV2', packet.queryV2);
+					for (const membership of packet.memberships) add('memberships', membership);
+				}
+				put('catalogs', next); put('catalogStates', nextState);
+				put('photoQueryBuildStates', nextBuild1);
+				put('photoQueryBuildStatesV2', nextBuild2).onsuccess = () => { resolve(); };
+			});
+			return next;
 		});
 		return Object.freeze({ root: result, trace: Object.freeze({ photos: packets.length, maximumResidentPhotos: packets.length,
 			nativeTransactions: 1, pointReads, nativeWrites, admittedBytes, getAllRequests: 0, cursorRequests: 0 }) });
