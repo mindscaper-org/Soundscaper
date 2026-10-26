@@ -16,6 +16,7 @@ export function createMotionSavedFileConnection(options: MotionSavedFileConnecti
 	if (!Number.isSafeInteger(interval) || interval < 250 || interval > 60000) throw new RangeError('Motion saved-file polling interval must be 250–60000 milliseconds.');
 	let state: MotionSavedFileConnectionState = Object.freeze({ status: 'disconnected', name: null, receipt: null, error: null });
 	let watch: MotionSavedFileWatch | null = null, abort: AbortController | null = null, generation = 0, disposed = false, blocked = false;
+	let compositionId = options.compositionId;
 	let selecting: Promise<void> | null = null, flight: Promise<void> | null = null, stopping: Promise<void> | null = null, timer: ReturnType<typeof setTimeout> | null = null;
 	let interruptionFailure: unknown = null;
 	function update(status: MotionSavedFileConnectionState['status'], error: unknown = null, receipt = state.receipt): void {
@@ -39,13 +40,15 @@ export function createMotionSavedFileConnection(options: MotionSavedFileConnecti
 					throw error;
 				}
 				if (discovery.state !== 'snapshot') { generation = next; if (!signal.aborted && discovery.state === 'unavailable') update('unavailable'); return; }
-				const receipt = await receiveMotionSavedFileSnapshot(options.files, discovery.snapshot, { compositionId: options.compositionId, receive: options.receive, signal });
+				const receipt = await receiveMotionSavedFileSnapshot(options.files, discovery.snapshot, { compositionId, receive: options.receive, signal });
+				// Changing the source primary does not retarget an already accepted link.
+				compositionId ??= receipt.compositionId;
 				generation = next;
 				update(signal.aborted ? 'disconnecting' : 'connected', null, receipt); options.onReceived?.(receipt);
 			} catch (error) {
 				if (signal.aborted && error instanceof DOMException && error.name === 'AbortError') return;
 				if (signal.aborted) interruptionFailure = error;
-				if (error instanceof MotionSavedFilePostPublicationError) { blocked = true; update('error', error, error.receipt); options.onReceived?.(error.receipt); }
+				if (error instanceof MotionSavedFilePostPublicationError) { compositionId ??= error.receipt.compositionId; blocked = true; update('error', error, error.receipt); options.onReceived?.(error.receipt); }
 				else { if (error instanceof AggregateError) blocked = true; update('error', error); }
 			}
 		})();
@@ -54,7 +57,7 @@ export function createMotionSavedFileConnection(options: MotionSavedFileConnecti
 	async function connect(): Promise<void> {
 		if (disposed) throw new Error('Motion saved-file connection is disposed.');
 		if (watch || selecting || stopping) throw new Error('Disconnect the current Motion saved file before selecting another.');
-		abort = new AbortController(); generation = 0; blocked = false; interruptionFailure = null; update('connecting');
+		abort = new AbortController(); generation = 0; blocked = false; interruptionFailure = null; compositionId = options.compositionId; update('connecting');
 		selecting = (async () => {
 			try {
 				const selected = await options.files.select(); if (selected === null) { if (!stopping) update('disconnected'); return; }
@@ -73,7 +76,7 @@ export function createMotionSavedFileConnection(options: MotionSavedFileConnecti
 			if (interruptionFailure !== null) { failures.push(interruptionFailure); interruptionFailure = null; }
 			if (watch) try { await options.files.cancel({ watchId: watch.watchId }); watch = null; } catch (error) { failures.push(error); }
 			if (failures.length) { const error = failures.length === 1 ? failures[0] : new AggregateError(failures, 'Motion saved-file cancellation and cleanup failed.'); update('error', error); throw error; }
-			abort = null; update('disconnected');
+			abort = null; compositionId = options.compositionId; update('disconnected');
 		})();
 		try { await stopping; } finally { stopping = null; }
 	}

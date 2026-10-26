@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createMotionSavedFileConnection } from '../src/common/editor/motion-saved-file-connection.ts';
 import { createMotionscaperProject } from '../src/motionscaper/editor-project.ts';
+import type { MotionscaperProject } from '../src/motionscaper/editor-project-types.ts';
 import { exportMotionscaperArchive } from '../src/motionscaper/editor-scape.ts';
 import type { MotionSavedFileCapabilities } from '../src/common/editor/motion-saved-file-contract.ts';
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
-async function fixture() {
+async function fixture(projects = ['First', 'Second', 'Newest'].map(title => createMotionscaperProject({ id: 'motion-source', compositionId: 'comp', title }))) {
 	const versions: Uint8Array[] = [];
-	for (const title of ['First', 'Second', 'Newest']) { const blob = await exportMotionscaperArchive(createMotionscaperProject({ id: 'motion-source', compositionId: 'comp', title }), () => null); assert.ok(blob); versions.push(new Uint8Array(await blob.arrayBuffer())); }
+	for (const project of projects) { const blob = await exportMotionscaperArchive(project, () => null); assert.ok(blob); versions.push(new Uint8Array(await blob.arrayBuffer())); }
 	let generation = 1, cancelled = 0, releases = 0, polls = 0, cancelFailure = false; const tokens = new Map<string, Uint8Array>();
 	const files: MotionSavedFileCapabilities = { select: () => Promise.resolve({ watchId: 'watch', name: 'Selected.mscape' }),
 		poll: ({ afterGeneration }) => { polls++; if (afterGeneration === generation) return Promise.resolve({ state: 'unchanged', generation }); const token = `revision-${generation}`; tokens.set(token, versions[generation - 1]!); return Promise.resolve({ state: 'snapshot', snapshot: { token, name: 'Selected.mscape', generation, byteLength: versions[generation - 1]!.length } }); },
@@ -47,4 +48,35 @@ test('Motion saved-file connection retries an unchanged complete snapshot after 
 		await connection.refresh(); assert.equal(receives, 2); assert.equal(connection.state().status, 'connected');
 		assert.equal(connection.state().receipt?.generation, 1); assert.equal(f.releases(), 2);
 	} finally { await connection.dispose(); }
+});
+
+function changingPrimary(): readonly [MotionscaperProject, MotionscaperProject] {
+	const first = createMotionscaperProject({ id: 'motion-source', compositionId: 'a', title: 'Source' });
+	const original: MotionscaperProject = { ...first, compositions: [...first.compositions, { ...first.compositions[0]!, id: 'b', name: 'Other' }] };
+	return [original, { ...original, primaryCompositionId: 'b' }];
+}
+test('Motion saved-file composition selection is pinned per successful connection and reset on reselection', async () => {
+	const f = await fixture([...changingPrimary()]), received: string[] = [];
+	const connection = createMotionSavedFileConnection({ files: f.files, pollIntervalMs: 60000, receive: offer => { received.push(offer.compositionId); return Promise.resolve(); } });
+	try {
+		await connection.connect(); f.next(2); await connection.refresh(); assert.deepEqual(received, ['a', 'a']);
+		await connection.disconnect(); await connection.connect(); assert.deepEqual(received, ['a', 'a', 'b']);
+	} finally { await connection.dispose(); }
+});
+test('Motion saved-file connection does not pin an uncommitted receive', async () => {
+	const f = await fixture([...changingPrimary()]), received: string[] = []; let rejectFirst = true;
+	const connection = createMotionSavedFileConnection({ files: f.files, pollIntervalMs: 60000, receive: offer => {
+		if (rejectFirst) { rejectFirst = false; return Promise.reject(new Error('Receiver rejected before commit')); }
+		received.push(offer.compositionId); return Promise.resolve();
+	} });
+	try {
+		await connection.connect(); assert.equal(connection.state().receipt, null); f.next(2); await connection.refresh();
+		assert.equal(connection.state().status, 'connected'); assert.deepEqual(received, ['b']);
+	} finally { await connection.dispose(); }
+});
+test('Motion saved-file connection honors explicit composition selection across primary changes', async () => {
+	const f = await fixture([...changingPrimary()]), received: string[] = [];
+	const connection = createMotionSavedFileConnection({ files: f.files, compositionId: 'b', pollIntervalMs: 60000, receive: offer => { received.push(offer.compositionId); return Promise.resolve(); } });
+	try { await connection.connect(); f.next(2); await connection.refresh(); assert.deepEqual(received, ['b', 'b']); }
+	finally { await connection.dispose(); }
 });
