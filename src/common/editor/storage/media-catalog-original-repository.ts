@@ -14,7 +14,7 @@ import {
 } from './media-catalog-original-schema.ts';
 import {
 	catalogCustodyTransaction, deleteCatalogOriginalRoot, makeCatalogOriginalRoot,
-	putCatalogOriginalRoot, throwIfCatalogCustodyAborted,
+	putCatalogOriginalRoot, retainCatalogOriginalRoots, throwIfCatalogCustodyAborted,
 } from './media-catalog-original-records.ts';
 
 interface CustodyOptions { readonly signal?: AbortSignal }
@@ -136,12 +136,7 @@ export class MediaCatalogOriginalRepositoryV1 {
 		const references = catalogOriginalReferences(input);
 		catalogOriginalPhotoIds(references.map(({ photoId }) => photoId));
 		const database = await this.#database(signal);
-		await catalogCustodyTransaction(database, async (stores) => {
-			for (const reference of references) {
-				throwIfCatalogCustodyAborted(signal);
-				await putCatalogOriginalRoot(stores, await makeCatalogOriginalRoot(stores.mediaAssets, catalogId, importId, reference));
-			}
-		}, signal);
+		await catalogCustodyTransaction(database, stores => retainCatalogOriginalRoots(stores, catalogId, importId, references, signal), signal);
 	}
 
 	async #release(catalogId: string, importId: string | null, input: unknown, { signal }: CustodyOptions): Promise<void> {
