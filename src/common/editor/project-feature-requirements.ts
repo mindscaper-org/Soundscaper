@@ -24,6 +24,7 @@ import type {
 import { normalizeVideoEffects } from './video-effects.js';
 import { resolveRuntimeClipProjection } from './runtime-clip-projection.ts';
 import { normalizeAudioTrackFreezeV1 } from './audio-track-freeze-v21.ts';
+import { exactRecordIdIndex } from './exact-record-id-index.ts';
 
 export type {
 	EvaluateProjectFeatureRequirementsOptions,
@@ -123,8 +124,8 @@ function normalizeFallback(
 	manifestSchemaVersion: 1 | 2,
 	featureId: string,
 	sourcesById: ReadonlyMap<string, ProjectSourceReference>,
-	clips: readonly ProjectTimelineClipReference[],
-	tracks: readonly ProjectTrackReference[],
+	clips: ReadonlyMap<unknown, ProjectTimelineClipReference | null>,
+	tracks: ReadonlyMap<unknown, ProjectTrackReference | null>,
 	options: NormalizeProjectFeatureRequirementsOptions,
 ): ProjectFeatureFallback {
 	const candidate = objectValue(value, 'requirement.fallback');
@@ -224,14 +225,13 @@ function validateAudioTrackFallback(
 	fallbackSourceId: string,
 	fallbackSha256: string,
 	fallbackSource: ProjectSourceReference,
-	clips: readonly ProjectTimelineClipReference[],
-	tracks: readonly ProjectTrackReference[],
+	clips: ReadonlyMap<unknown, ProjectTimelineClipReference | null>,
+	tracks: ReadonlyMap<unknown, ProjectTrackReference | null>,
 ): void {
-	const targets = tracks.filter((track) => track.id === targetTrackId);
-	if (targets.length !== 1) {
+	const target = tracks.get(targetTrackId);
+	if (!target) {
 		throw new ReferenceError(`An audio track rendered fallback requires exactly one target track ${targetTrackId}.`);
 	}
-	const target = targets[0]!;
 	if (target.type !== 'audio') throw new RangeError(`Fallback target ${targetTrackId} must be an audio track.`);
 	if (featureId === PROJECT_FEATURE_CAPABILITY_IDS.audioTrackFreeze) {
 		validateAudioFreezeTrackFallback(
@@ -257,11 +257,10 @@ function validateAudioTrackFallback(
 	}
 	let extentFrames = 0;
 	for (const clipId of target.clipIds) {
-		const matches = clips.filter((clip) => clip.id === clipId);
-		if (matches.length !== 1) {
+		const clip = clips.get(clipId);
+		if (!clip) {
 			throw new ReferenceError(`Fallback target ${targetTrackId} references a missing timeline clip.`);
 		}
-		const clip = matches[0]!;
 		if (clip.kind === 'video') {
 			throw new RangeError(`Fallback target ${targetTrackId} must reference only audio clips.`);
 		}
@@ -287,7 +286,7 @@ function validateAudioFreezeTrackFallback(
 	fallbackSourceId: string,
 	fallbackSha256: string,
 	fallbackSource: ProjectSourceReference,
-	clips: readonly ProjectTimelineClipReference[],
+	clips: ReadonlyMap<unknown, ProjectTimelineClipReference | null>,
 ): void {
 	const freeze = normalizeAudioTrackFreezeV1(target.audioFreeze);
 	if (freeze.derivedSourceId !== fallbackSourceId) {
@@ -303,11 +302,11 @@ function validateAudioFreezeTrackFallback(
 		throw new RangeError(`Frozen fallback target ${targetTrackId} requires retained editable clips.`);
 	}
 	for (const clipId of target.clipIds) {
-		const matches = clips.filter((clip) => clip.id === clipId);
-		if (matches.length !== 1) {
+		const clip = clips.get(clipId);
+		if (!clip) {
 			throw new ReferenceError(`Frozen fallback target ${targetTrackId} references a missing timeline clip.`);
 		}
-		if (matches[0]!.sourceId === fallbackSourceId) {
+		if (clip.sourceId === fallbackSourceId) {
 			throw new RangeError('A frozen track fallback source cannot replace retained editable authority in the document.');
 		}
 	}
@@ -319,17 +318,16 @@ function validateVideoClipFallback(
 	fallbackSourceId: string,
 	fallbackSource: ProjectSourceReference,
 	sourcesById: ReadonlyMap<string, ProjectSourceReference>,
-	clips: readonly ProjectTimelineClipReference[],
+	clips: ReadonlyMap<unknown, ProjectTimelineClipReference | null>,
 	options: NormalizeProjectFeatureRequirementsOptions,
 ): void {
 	if (featureId !== PROJECT_FEATURE_CAPABILITY_IDS.videoEffects) {
 		throw new RangeError('A video clip rendered fallback requires the maintained video-effects feature.');
 	}
-	const targets = clips.filter((clip) => clip.id === targetClipId);
-	if (targets.length !== 1) {
+	const target = clips.get(targetClipId);
+	if (!target) {
 		throw new ReferenceError(`A video clip rendered fallback requires exactly one timeline target clip ${targetClipId}.`);
 	}
-	const target = targets[0]!;
 	if (target.kind !== 'video') throw new RangeError(`Fallback target ${targetClipId} must be a video clip.`);
 	const effects = normalizeVideoEffects(target.videoEffects, `clip ${targetClipId}.videoEffects`);
 	if (!effects.some((effect: { readonly enabled: boolean }) => effect.enabled)) {
@@ -424,8 +422,8 @@ export function normalizeProjectFeatureRequirements(
 		throw new RangeError('Too many project feature requirements; the maximum requirements limit was exceeded.');
 	}
 	const sourcesById = sourceMap(options.sources);
-	const clips = timelineClips(options.clips ?? []);
-	const tracks = timelineTracks(options.tracks ?? []);
+	const clips = exactRecordIdIndex(timelineClips(options.clips ?? []));
+	const tracks = exactRecordIdIndex(timelineTracks(options.tracks ?? []));
 	const ids = new Set<string>();
 	const requirements = Array.from(candidate.requirements, (value, index) => {
 		const requirement = objectValue(value, `project.featureRequirements.requirements[${String(index)}]`);
