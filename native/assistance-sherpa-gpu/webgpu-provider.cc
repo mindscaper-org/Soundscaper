@@ -2,6 +2,8 @@
 // Native GPU registration shared by every Sherpa ONNX model family.
 #include <algorithm>
 #include <filesystem>
+#include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -59,10 +61,23 @@ struct WebGpuPlugin {
     env.RegisterExecutionProviderLibrary("soundscaper-sherpa-webgpu", path.c_str());
   }
 };
+
+struct WebGpuState {
+  std::mutex mutex;
+  std::unique_ptr<WebGpuPlugin> plugin;
+};
+
+WebGpuState &GpuState() {
+  static WebGpuState state;
+  return state;
+}
 }  // namespace
 
 void ScapeAppendWebGpuProvider(Ort::SessionOptions &options) {
-  static WebGpuPlugin plugin;
+  auto &state = GpuState();
+  std::lock_guard<std::mutex> lock(state.mutex);
+  if (!state.plugin) state.plugin = std::make_unique<WebGpuPlugin>();
+  auto &plugin = *state.plugin;
   const auto devices = plugin.env.GetEpDevices();
   for (const auto &device : devices) {
     if (ScapeIsWebGpuPluginDevice(device, plugin.path)) {
@@ -74,3 +89,20 @@ void ScapeAppendWebGpuProvider(Ort::SessionOptions &options) {
   throw std::runtime_error("No compatible WebGPU device is available");
 }
 }  // namespace sherpa_onnx
+
+// Called only after the owning Node-API environment has released every session.
+#if defined(_WIN32)
+#define SCAPE_SHERPA_EXPORT __declspec(dllexport)
+#else
+#define SCAPE_SHERPA_EXPORT __attribute__((visibility("default")))
+#endif
+extern "C" SCAPE_SHERPA_EXPORT int SherpaOnnxReleaseWebGpuProvider() noexcept {
+  auto &state = sherpa_onnx::GpuState();
+  std::lock_guard<std::mutex> lock(state.mutex);
+  if (!state.plugin) return 0;
+  try {
+    state.plugin->env.UnregisterExecutionProviderLibrary("soundscaper-sherpa-webgpu");
+    state.plugin.reset();
+    return 0;
+  } catch (...) { return 1; }
+}

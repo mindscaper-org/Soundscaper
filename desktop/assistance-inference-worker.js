@@ -19,6 +19,7 @@ import { isAssistanceGpuValidationEnabled } from './project-library-runtime/desk
 import { createSherpaGpuProfileProvider } from './project-library-runtime/desktop/assistance-sherpa-gpu-validation.js';
 
 let executionProviders;
+let disposeNativeResources;
 const gpuProfile = isAssistanceGpuValidationEnabled() && workerData?.operation !== 'status' && workerData?.grant?.operation !== 'status'
 	? createSherpaGpuProfileProvider(workerData?.gpuValidation) : null;
 const acceleration = () => ({ executionProviders,
@@ -28,7 +29,7 @@ const runtime = createSpeechRuntimeAdapter({
 	load: loadVerifiedRuntime,
 });
 
-void run().then(
+void run().finally(() => disposeNativeResources?.()).then(
 	(result) => {
 		if (gpuProfile) parentPort?.postMessage({ type: 'gpu-profiles', selections: gpuProfile.selections() });
 		parentPort?.postMessage({ type: 'result', result });
@@ -108,7 +109,12 @@ async function loadVerifiedRuntime() {
 		throw error;
 	}
 	executionProviders = verified.executionProviders;
-	return import(verified.moduleSpecifier);
+	const module = await import(verified.moduleSpecifier);
+	const addon = await import(new URL('./addon.js', verified.moduleSpecifier).href);
+	if (typeof addon.default?.disposeGpuResources === 'function') {
+		disposeNativeResources = () => addon.default.disposeGpuResources();
+	}
+	return module;
 }
 
 async function verifyGrantedFile(grant) {

@@ -28,6 +28,7 @@ test('the root Sherpa build target includes the excluded upstream C++ library an
 	await mkdir(native, { recursive: true });
 	await copyFile(new URL('../native/assistance-sherpa-gpu/CMakeLists.txt', import.meta.url), join(native, 'CMakeLists.txt'));
 	await write(join(native, 'webgpu-provider.cc'), '');
+	await write(join(native, 'node-disposal.cc'), '');
 	await write(join(root, 'native/assistance-onnx-webgpu-node-api/webgpu_probe_main.cc'), 'int main() { return 0; }\n');
 	// Keep the real wrapper and upstream target layout; stand in for the model
 	// implementation so this regression needs no downloads or AI runtime build.

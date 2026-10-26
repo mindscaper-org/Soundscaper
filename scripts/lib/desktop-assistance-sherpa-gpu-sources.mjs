@@ -58,7 +58,18 @@ export async function patchSherpaGpuSources(root, recipe) {
 		let patched;
 		if (path.endsWith('/provider.h')) patched = source.replace('  kCPU = 0,', '  kWebGPU = 8,  // WebGpuExecutionProvider\n  kCPU = 0,');
 		else if (path.endsWith('/provider.cc')) patched = source.replace('  if (s == "cpu") {', '  if (s == "webgpu") {\n    return Provider::kWebGPU;\n  } else if (s == "cpu") {');
-		else if (path.endsWith('/session.cc')) {
+		else if (path.endsWith('/sherpa-onnx-symbols-c.exp')) {
+			patched = `${source.trimEnd()}\n_SherpaOnnxReleaseWebGpuProvider\n`;
+		} else if (path.endsWith('/sherpa-onnx-node-addon-api.cc')) {
+			patched = source.replace('Napi::Object Init(Napi::Env env, Napi::Object exports) {',
+				'void InitScapeSpeechDisposal(Napi::Env env, Napi::Object exports);\n\nNapi::Object Init(Napi::Env env, Napi::Object exports) {\n  InitScapeSpeechDisposal(env, exports);');
+		} else if (/\/(?:vad|non-streaming-asr|non-streaming-speaker-diarization)\.cc$/u.test(path)) {
+			patched = `#include "owned-external.h"\n${source}`;
+			for (const name of ['SherpaOnnxVoiceActivityDetector', 'SherpaOnnxOfflineRecognizer',
+				'SherpaOnnxOfflineStream', 'SherpaOnnxOfflineSpeakerDiarization']) {
+				patched = patched.replaceAll(`Napi::External<${name}>`, `ScapeOwnedExternal<${name}>`);
+			}
+		} else if (path.endsWith('/session.cc')) {
 			patched = source.replace(/#if defined\(__APPLE__\) && \(ORT_API_VERSION >= 15\) && \\\n {4}!defined\(SHERPA_ONNX_DISABLE_COREML\)\n#include "coreml_provider_factory.h" {2}\/\/ NOLINT\n#endif/u, '');
 			patched = patched.replace('namespace sherpa_onnx {', 'namespace sherpa_onnx {\nvoid ScapeAppendWebGpuProvider(Ort::SessionOptions &options);');
 			patched = patched.replace('    case Provider::kCPU:', '    case Provider::kWebGPU:\n      ScapeAppendWebGpuProvider(sess_opts);\n      break;\n    case Provider::kCPU:');
