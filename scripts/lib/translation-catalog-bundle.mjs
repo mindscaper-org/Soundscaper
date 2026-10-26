@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { readFile, readdir } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
+import { transform } from 'esbuild';
 
 const VIRTUAL_PREFIX = '\0scape:translation-catalog:';
 const VIRTUAL_EXTENSION = '.mjs';
 const SOURCE_POOL_SPECIFIER = 'scape:translation-source-text';
 const SOURCE_POOL_ID = '\0scape:translation-source-text.mjs';
+const LOCALE_POOL_SPECIFIER = 'scape:translation-locale-text:';
+const MAXIMUM_CATALOG_MODULE_BYTES = 490_000;
+const MAXIMUM_LOCALE_TEXT_MODULE_BYTES = 400_000;
 const CATALOG_INDEX_SUFFIX = '/src/common/i18n/translations/index.js';
 const CATALOG_FIELDS = ['schemaVersion', 'locale', 'provenance', 'entries', 'community'];
 
@@ -17,24 +21,52 @@ const CATALOG_FIELDS = ['schemaVersion', 'locale', 'provenance', 'entries', 'com
  *
  * @param {Record<string, unknown>} catalog
  * @param {readonly string[]} sourceTexts
+ * @param {readonly { specifier: string; texts: readonly string[] }[]} localePools
  */
-export function renderTranslationCatalogModule(catalog, sourceTexts = []) {
+export function renderTranslationCatalogModule(catalog, sourceTexts = [], localePools = []) {
 	const normalized = JSON.parse(JSON.stringify(catalog));
 	const counts = new Map();
 	countStrings(normalized, counts);
 	const shared = new Map(sourceTexts.map((value, index) => [value, `__catalogSourceText[${index}]`]));
 	const usesShared = [...counts.keys()].some(value => shared.has(value));
+	for (const [poolIndex, pool] of localePools.entries()) {
+		for (const [index, text] of pool.texts.entries()) shared.set(text, `__catalogLocaleText_${poolIndex}[${index}]`);
+	}
 	const strings = new Map([...counts].filter(([value, count]) => !shared.has(value) && count > 1
 		&& (['machine', 'audacity', 'human'].includes(value) || new TextEncoder().encode(JSON.stringify(value)).byteLength >= 16))
 		.map(([value], index) => [value, `__catalogText_${index}`]));
 	return [
 		...(usesShared ? [`import __catalogSourceText from ${JSON.stringify(SOURCE_POOL_SPECIFIER)};`] : []),
+		...localePools.map((pool, index) => `const __catalogLocaleText_${index} = (await import(${JSON.stringify(pool.specifier)})).default;`),
 		...[...strings].map(([value, name]) => `const ${name} = ${JSON.stringify(value)};`),
 		`const catalog = ${catalogValue(normalized, new Map([...shared, ...strings]))};`,
 		...CATALOG_FIELDS.filter((key) => Object.hasOwn(catalog, key))
 			.map((key) => `export const ${key} = catalog.${key};`),
 		'export default catalog;',
 	].join('\n');
+}
+
+/** Only oversized lazy locales need an additional, independently bounded text module.
+ * @param {Record<string, unknown>} catalog
+ * @param {readonly string[]} sourceTexts
+ * @returns {readonly (readonly string[])[]}
+ */
+function localeTextPools(catalog, sourceTexts) {
+	const counts = new Map();
+	countStrings(catalog, counts);
+	const shared = new Set(sourceTexts);
+	const pools = [];
+	let texts = [], bytes = 20;
+	for (const text of counts.keys()) {
+		const length = new TextEncoder().encode(JSON.stringify(text)).byteLength + 1;
+		if (shared.has(text) || length < 16) continue;
+		if (bytes + length > MAXIMUM_LOCALE_TEXT_MODULE_BYTES && texts.length) {
+			pools.push(texts); texts = []; bytes = 20;
+		}
+		texts.push(text); bytes += length;
+	}
+	if (texts.length) pools.push(texts);
+	return pools;
 }
 
 /** @param {unknown} value @param {Map<string, number>} counts */
@@ -73,6 +105,8 @@ export function translationCatalogSourceTexts(catalogs) {
 /** Substitute only the generated index's lazy catalog imports during builds. */
 export function createTranslationCatalogBundlePlugin() {
 	let catalogDirectory = '';
+	/** @type {Map<string, { path: string; source: string }>} */
+	const localeTextModules = new Map();
 	/** @type {Promise<{ paths: string[], texts: readonly string[] }> | null} */
 	let pendingPool = null;
 	async function loadPool() {
@@ -88,10 +122,14 @@ export function createTranslationCatalogBundlePlugin() {
 		name: 'scape:compact-translation-catalogs',
 		enforce: /** @type {const} */ ('pre'),
 		apply: /** @type {const} */ ('build'),
-		buildStart() { pendingPool = null; },
+		buildStart() { pendingPool = null; localeTextModules.clear(); },
 		/** @param {string} source @param {string | undefined} importer */
 		resolveId(source, importer) {
 			if (source === SOURCE_POOL_SPECIFIER) return SOURCE_POOL_ID;
+			if (source.startsWith(LOCALE_POOL_SPECIFIER)) {
+				const id = `\0${source}${VIRTUAL_EXTENSION}`;
+				return localeTextModules.has(id) ? id : null;
+			}
 			if (!importer?.replaceAll('\\', '/').endsWith(CATALOG_INDEX_SUFFIX)
 				|| !/^\.\/[^/\\]+\.json$/u.test(source)) return null;
 			catalogDirectory = dirname(importer);
@@ -99,6 +137,8 @@ export function createTranslationCatalogBundlePlugin() {
 		},
 		/** @this {{ addWatchFile(path: string): void }} @param {string} id */
 		async load(id) {
+			const localeText = localeTextModules.get(id);
+			if (localeText) { this.addWatchFile(localeText.path); return localeText.source; }
 			if (id === SOURCE_POOL_ID) {
 				const pool = await loadPool();
 				for (const path of pool.paths) this.addWatchFile(path);
@@ -107,7 +147,18 @@ export function createTranslationCatalogBundlePlugin() {
 			if (!id.startsWith(VIRTUAL_PREFIX)) return null;
 			const path = id.slice(VIRTUAL_PREFIX.length, -VIRTUAL_EXTENSION.length);
 			this.addWatchFile(path);
-			return renderTranslationCatalogModule(JSON.parse(await readFile(path, 'utf8')), (await loadPool()).texts);
+			const catalog = JSON.parse(await readFile(path, 'utf8'));
+			const { texts } = await loadPool();
+			const source = renderTranslationCatalogModule(catalog, texts);
+			if (new TextEncoder().encode(source).byteLength < MAXIMUM_CATALOG_MODULE_BYTES) return source;
+			const minified = await transform(source, { minify: true, charset: 'utf8' });
+			if (new TextEncoder().encode(minified.code).byteLength < MAXIMUM_CATALOG_MODULE_BYTES) return source;
+			const pools = localeTextPools(catalog, texts).map((pool, index) => {
+				const specifier = `${LOCALE_POOL_SPECIFIER}${basename(path)}:${index}`;
+				localeTextModules.set(`\0${specifier}${VIRTUAL_EXTENSION}`, { path, source: `export default ${JSON.stringify(pool)};` });
+				return { specifier, texts: pool };
+			});
+			return renderTranslationCatalogModule(catalog, texts, pools);
 		},
 	};
 }

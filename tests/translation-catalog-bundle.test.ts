@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { transform } from 'esbuild';
+import { rolldown } from 'rolldown';
 
 import {
 	createTranslationCatalogBundlePlugin,
@@ -16,12 +17,20 @@ async function loadModule(source: string): Promise<Record<string, unknown>> {
 	return await import(`data:text/javascript,${encodeURIComponent(source)}`) as Record<string, unknown>;
 }
 
-async function loadBundledModule(plugin: ReturnType<typeof createTranslationCatalogBundlePlugin>, source: string) {
-	const id = plugin.resolveId('scape:translation-source-text', undefined);
-	assert.ok(id);
-	const shared = await plugin.load.call({ addWatchFile() {} }, id);
-	assert.ok(shared);
-	return loadModule(source.replace('"scape:translation-source-text"', JSON.stringify(`data:text/javascript,${encodeURIComponent(shared)}`)));
+async function loadBundledModule(plugin: ReturnType<typeof createTranslationCatalogBundlePlugin>, source: string,
+	onDependency?: (source: string) => Promise<void>) {
+	for (const match of source.matchAll(/(?:from\s*|import\()\s*("scape:translation-(?:source-text|locale-text:)[^"\\]*")/gu)) {
+		const specifier: unknown = JSON.parse(match[1]!);
+		assert.equal(typeof specifier, 'string');
+		const id = plugin.resolveId(specifier as string, undefined);
+		assert.ok(id);
+		const dependency = await plugin.load.call({ addWatchFile() {} }, id);
+		assert.ok(dependency);
+		await onDependency?.(dependency);
+		const url = `data:text/javascript,${encodeURIComponent(dependency)}`;
+		source = source.replace(match[0], match[0].replace(match[1]!, JSON.stringify(url)));
+	}
+	return loadModule(source);
 }
 
 test('compact catalogs retain translation tuples, provenance and community attribution exactly', async () => {
@@ -54,6 +63,11 @@ test('repeated catalog text compacts without changing literal keys or escaped va
 	assert.ok(Buffer.byteLength(code) < Buffer.byteLength(JSON.stringify(catalog)) / 2,
 		'repeated source and translated text should leave room without deleting catalog content');
 	assert.deepEqual((await loadModule(code)).default, catalog);
+	const pool = `export default ${JSON.stringify([english, translated])};`;
+	const splitSource = renderTranslationCatalogModule(catalog, [], [{ specifier: 'test:locale-text', texts: [english, translated] }]);
+	const module = await loadModule(splitSource.replace('"test:locale-text"', JSON.stringify(`data:text/javascript,${encodeURIComponent(pool)}`)));
+	assert.deepEqual(module.default, catalog, 'The additional lazy text module preserves escaped and attributed values.');
+	for (const [key, value] of Object.entries(catalog)) assert.deepEqual(module[key], value);
 });
 
 test('the bundle plugin only substitutes lazy imports from the generated catalog index', async () => {
@@ -62,6 +76,7 @@ test('the bundle plugin only substitutes lazy imports from the generated catalog
 	assert.equal(plugin.resolveId('./hi.json', '/workspace/another/index.js'), null);
 	assert.equal(plugin.resolveId('../hi.json', importer), null);
 	assert.equal(plugin.resolveId('./hi.json?raw', importer), null);
+	assert.equal(plugin.resolveId('scape:translation-locale-text:unregistered', importer), null);
 	assert.equal(await plugin.load.call({ addWatchFile() {} }, '\0unrelated'), null);
 	const id = plugin.resolveId('./hi.json', importer);
 	assert.equal(typeof id, 'string');
@@ -85,7 +100,36 @@ test('the complete Hindi catalog fits the production chunk budget without removi
 	assert.ok(source);
 	const { code } = await transform(source, { minify: true, charset: 'utf8' });
 	assert.ok(Buffer.byteLength(code) < 490_000, 'Leave room for the bundler runtime under the 500 KB ceiling.');
-	assert.deepEqual((await loadBundledModule(plugin, code)).default, catalog);
+	let dependencies = 0;
+	const module = await loadBundledModule(plugin, code, async dependency => {
+		dependencies++;
+		const minified = await transform(dependency, { minify: true, charset: 'utf8' });
+		assert.ok(Buffer.byteLength(minified.code) < 490_000, 'Each lazy text dependency stays below the unchanged chunk ceiling.');
+	});
+	assert.ok(dependencies >= 2, 'The real expanded Hindi catalog needs locale text beside the shared English text.');
+	assert.deepEqual(module.default, catalog);
+	for (const [key, value] of Object.entries(catalog)) assert.deepEqual(module[key], value);
+});
+
+test('the production bundler keeps oversized Hindi text separate and lazy while ordinary locale imports stay synchronous', async () => {
+	const plugin = createTranslationCatalogBundlePlugin();
+	const importer = fileURLToPath(new URL('../src/common/i18n/translations/index.js', import.meta.url));
+	const entry = 'translation-budget-entry.mjs';
+	const bundle = await rolldown({ input: entry, plugins: [{ name: 'catalog-budget-fixture',
+		resolveId(source, owner) { return source === entry ? entry : plugin.resolveId(source, owner === entry ? importer : owner); },
+		async load(id) {
+			return id === entry ? 'export const hindi = () => import("./hi.json"); export const french = () => import("./fr.json");'
+				: await plugin.load.call({ addWatchFile() {} }, id);
+		},
+	}] });
+	try {
+		const { output } = await bundle.generate({ format: 'es', minify: true });
+		const chunks = output.filter(item => item.type === 'chunk');
+		const main = chunks.find(chunk => chunk.isEntry);
+		assert.ok(main); assert.equal(main.imports.length, 0, 'Neither locale nor its text may become an eager dependency.');
+		assert.ok(chunks.some(chunk => !chunk.isEntry && chunk.dynamicImports.length > 0), 'Locale-only text stays in a real dynamic chunk.');
+		for (const chunk of chunks) assert.ok(Buffer.byteLength(chunk.code) < 490_000, `${chunk.fileName} exceeds the production budget margin.`);
+	} finally { await bundle.close(); }
 });
 
 
@@ -97,6 +141,7 @@ test('expanded Russian catalog fits a locale chunk while retaining all source te
 	assert.ok(id);
 	const source = await plugin.load.call({ addWatchFile() {} }, id);
 	assert.ok(source);
+	assert.equal(source.includes('scape:translation-locale-text:'), false, 'Locales already under budget retain their existing module graph.');
 	const { code } = await transform(source, { minify: true, charset: 'utf8' });
 	assert.ok(Buffer.byteLength(code) < 490_000, `Russian locale module is ${Buffer.byteLength(code)} bytes`);
 	assert.deepEqual((await loadBundledModule(plugin, code)).default, catalog);
