@@ -12,6 +12,8 @@ test('AE bridge is an idle File command available before a document is created',
 	assert.equal(find(createMotionscaperShellMenus({ ...options, copy: motionscaperCopy('de') }))?.label, motionscaperCopy('de').motionscaperAfterEffectsBridge);
 });
 import { motionscaperCopy } from '../src/common/editor/ui/motionscaper/motionscaper-copy.ts';
+import { MOTIONSCAPER_CANONICAL_ENGLISH_COPY } from '../src/common/i18n/editor-motionscaper-copy.ts';
+import { loadTranslationCatalog } from '../src/common/i18n/translation-catalog.js';
 import { createMotionscaperShellMenus } from '../src/common/editor/ui/motionscaper/shell-menu.ts';
 
 test('manual Motion updates are a desktop-supplied Help action and coalesce while checking', () => {
@@ -80,9 +82,15 @@ test('tracking is a localized opt-in layer command that requires an idle documen
 	assert.equal(tracking(createMotionscaperShellMenus({ ...options, copy: motionscaperCopy('de') }))?.label, 'Tracking und Stabilisierung');
 });
 
-test('compositing is localized, opt-in and available only for an idle document', () => {
+test('compositing is localized, opt-in and available only for an idle document', async () => {
+	assert.equal(motionscaperCopy('de').videoEffectGaussianBlur, 'Gaussian Blur');
+	const translated = await loadTranslationCatalog('de', {
+		englishCopy: MOTIONSCAPER_CANONICAL_ENGLISH_COPY,
+		loaders: { de: () => import('../src/common/i18n/translations/de.json', { with: { type: 'json' } }) },
+	});
+	assert.ok(translated);
 	const commands: string[] = [];
-	const options = { copy: motionscaperCopy('de'), workspaceOpen: true, onToggleWorkspace: () => undefined,
+	const options = { copy: motionscaperCopy('de', translated), workspaceOpen: true, onToggleWorkspace: () => undefined,
 		onCommand: (command: string) => { commands.push(command); }, hasProject: true, busy: false };
 	const entry = (values: ReturnType<typeof createMotionscaperShellMenus>) => values.find(({ id }) => id === 'tracks')?.items.find(({ id }) => id === 'motion-compositing');
 	assert.equal(entry(createMotionscaperShellMenus(options))?.label, 'Masken und Compositing');
@@ -90,6 +98,7 @@ test('compositing is localized, opt-in and available only for an idle document',
 	assert.equal(entry(createMotionscaperShellMenus({ ...options, hasProject: false }))?.onClick, undefined);
 	assert.equal(entry(createMotionscaperShellMenus({ ...options, busy: true }))?.disabled, true);
 	assert.equal(options.copy.videoEffectGaussianBlur, 'Gaußscher Weichzeichner');
+	assert.equal(motionscaperCopy('en').videoEffectGaussianBlur, 'Gaussian Blur', 'loaded German overrides never mutate the English defaults');
 });
 
 test('expression authoring remains an idle-document menu with German command copy', () => {
