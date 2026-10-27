@@ -40,7 +40,7 @@ test('actual captions and finishing-document parsers keep diagnostics beside loc
 	assert.ok(document instanceof SyntaxError);
 	assert.equal(text(document, { 'ui.fileValidation.finishingDocument': 'Ungültiges Bearbeitungsdokument' }), 'Ungültiges Bearbeitungsdokument');
 });
-void test('the real selected mask authoring command reports localized finite bounds for an emptied Width field', async () => {
+void test('the real selected mask authoring command reports localized finite bounds for emptied Width and Height fields', async () => {
 	const source = createVideoSource({ id: 'source', name: 'Authored', storageKey: 'source', mimeType: 'video/mp4', contentSha256: 'ab'.repeat(32),
 		sampleFrameCount: 16_000, sourceFrameCount: 10, frameRate: { num: 30, den: 1 }, width: 640, height: 360 });
 	const project = { schemaFamily: 'framescaper', schemaVersion: 1, id: 'project', revision: 0, sampleRate: 48_000, selection: { clipIds: ['clip'] },
@@ -48,10 +48,13 @@ void test('the real selected mask authoring command reports localized finite bou
 		clips: [{ id: 'clip', kind: 'video', sourceId: source.id, sequenceId: 'sequence', sequenceStartFrame: 0, sequenceFrameCount: 10, sourceInFrame: 0, sourceFrameCount: 10, retimeMap: null }],
 		sources: [source], videoVisualPresentations: [], videoMaskMattes: [], videoVisualPresets: [], videoFinishingPresets: [], videoAdjustmentLayers: [], videoFreezeFallbacks: [], trackFolders: [] };
 	const fence = createFramescaperSelectedVisualAuthoringFenceFinishing({ project, selectedClipId: 'clip', playheadSample: 0 });
-	let error: unknown;
-	try { await prepareFramescaperSelectedVisualAuthoringFinishing({ surface: 'video-mask-matte', project, store: {} as AudioEditorProjectStore,
-		request: { fence, clipId: 'clip', operation: 'apply', maskId: null, shape: 'rectangle', width: NaN, height: 0.75 } }); } catch (cause) { error = cause; }
-	assert.ok(error instanceof RangeError); assert.match(error.message, /mask width/u);
-	assert.equal(text(error, { 'ui.fileValidation.visualBounds': '{field}: {minimum} bis {maximum}', 'ui.selectedVisualAuthoring.width': 'Breite' }), 'Breite: 0.01 bis 1');
+	for (const [field, width, height, label] of [['width', NaN, 0.75, 'Breite'], ['height', 0.75, NaN, 'Höhe']] as const) {
+		let error: unknown;
+		try { await prepareFramescaperSelectedVisualAuthoringFinishing({ surface: 'video-mask-matte', project, store: {} as AudioEditorProjectStore,
+			request: { fence, clipId: 'clip', operation: 'apply', maskId: null, shape: 'rectangle', width, height } }); } catch (cause) { error = cause; }
+		assert.ok(error instanceof RangeError); assert.ok(error.message.includes(`mask ${field}`));
+		assert.equal(text(error, { 'ui.fileValidation.visualBounds': '{field}: {minimum} bis {maximum}',
+			'ui.selectedVisualAuthoring.width': 'Breite', 'ui.selectedVisualAuthoring.height': 'Höhe' }), `${label}: 0.01 bis 1`);
+	}
 });
 function caught(operation: () => unknown): Error { try { operation(); } catch (error) { assert.ok(error instanceof Error); return error; } throw new Error('Expected input failure'); }

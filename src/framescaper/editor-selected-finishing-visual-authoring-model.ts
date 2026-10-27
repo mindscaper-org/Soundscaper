@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { selectedAdjustmentEffectId } from './editor-adjustment-effect-membership.ts';
+import { boundedVisualAuthoringValue } from './editor-selected-visual-validation.ts';
 
 import { normalizeVideoVisualPresetV1 } from '../common/editor/video-visual-preset-v24.ts';
 import { normalizeVideoMaskMatteGraphV1, type VideoLinearGradientMaskNodeV1, type VideoMaskMatteNodeV1 } from '../common/editor/video-mask-matte-v24.ts';
@@ -57,15 +58,11 @@ export function createFramescaperMaskNodeFinishing(request: Data, nodeId: string
 			radius: field('radius'), falloff: field('falloff') };
 	} else {
 		if (shape !== 'rectangle' && shape !== 'ellipse' && shape !== 'line') throw new RangeError('mask shape is unsupported.');
-		const width = maskSize(request.width, 'mask width'), height = maskSize(request.height, 'mask height');
+		const width = boundedVisualAuthoringValue(request.width, 0.01, 1, 'mask width');
+		const height = boundedVisualAuthoringValue(request.height, 0.01, 1, 'mask height');
 		node = { id: nodeId, kind: 'vector-shape', shape, x: (1 - width) / 2, y: (1 - height) / 2, width, height };
 	}
 	return normalizeVideoMaskMatteGraphV1({ schemaVersion: 1, id: nodeId, kind: 'mask', inputs: [], nodes: [node], outputNodeId: nodeId }).nodes[0]!;
-}
-
-function maskSize(value: unknown, name: string): number {
-	if (typeof value !== 'number' || !Number.isFinite(value) || value < 0.01 || value > 1) throw new RangeError(`${name} is outside its finite bound.`);
-	return value;
 }
 
 export const FRAMESCAPER_SELECTED_FINISHING_DIALOG_AUTHORING_SURFACES = Object.freeze([
