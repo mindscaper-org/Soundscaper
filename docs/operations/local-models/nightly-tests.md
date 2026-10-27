@@ -71,7 +71,9 @@ Run the manual **Update AI assets** workflow on main to publish the authenticate
 runtime archives for the selected targets and read back their complete public
 responses. The separate **Desktop test artifacts (internal)** workflow runs on
 every push to `main` and can also be dispatched manually there. It reuses the
-committed runtime handoff snapshots without compiling or publishing engines.
+committed runtime handoff snapshots in
+`config/desktop-test-assistance-runtime-snapshots/` without compiling or publishing
+engines.
 Its package jobs receive no upload credentials and download the pinned public
 archives. CI uploads the test packages without running their suites; launch a
 package on a real machine for the browser and local-model results.

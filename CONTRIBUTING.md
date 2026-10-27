@@ -16,9 +16,14 @@ build. The external EBU R128 conformance corpus is intentionally separate; run
 
 CI runs the same work as several parallel jobs: `npm run check:static` covers
 everything except the Node suite, and the suite is split by product into a
-`common`, a `framescaper` and a `soundscaper` shard. To run just the shard your
-change touches, use `npm test -- --shard=framescaper`. The coverage thresholds
-are checked once over the union of all three shards, never per shard.
+`common` owner (execution shards `common-1` and `common-2`), a `framescaper`
+shard and a `soundscaper` shard. To run just the shard your change touches, use
+`npm test -- --shard=framescaper`. The coverage thresholds
+are checked once over the required coverage union, never per shard.
+
+These full-suite commands are for maintainers and CI. Agents use focused tests
+and hand off an exact command anchored to their worktree's absolute path; see
+the [development testing guide](docs/development/testing.md).
 
 Browser workflows are a separate gate because they install Chromium and bind a
 loopback preview server:

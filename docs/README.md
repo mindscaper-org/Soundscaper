@@ -37,6 +37,10 @@ qualification plans belong in Git history, not in the maintained documentation s
 
 ## Develop and test
 
+- [Development testing](development/testing.md) covers focused checks, CI
+  shards, browser setup, and worktree-specific test handoff from agents.
+- [Editor and handbook localization](development/localization.md) explains
+  translation ownership, regeneration, and language publication.
 - [Source graphs](development/source-graphs.md) generates focused dependency
   views for local development.
 - [End-to-end coverage](development/end-to-end-coverage.md) explains how Node
@@ -127,7 +131,17 @@ audits, batch inventories, measurements, and validation logs belong in Git
 history; keep reusable profiling tools and regression tests with their owners.
 Preserve release, provenance, and compliance evidence in its established registers.
 Before removing a record, move any open work or durable design constraint into
-the relevant guide or roadmap. When a policy paragraph is
-bounded by `policy-narrative` comments, edit its owning register and run the
-documented synchronization command; never edit the generated paragraph by
-hand.
+the relevant guide or roadmap.
+
+Policy paragraphs bounded by `policy-narrative` comments are generated; never
+edit them by hand. Bindings live in `scripts/lib/policy-narratives.mjs`. Edit
+the owning register field, then run `node scripts/sync-policy-narratives.mjs`.
+When register prose duplicates a narrative document, add a binding rather than
+maintaining a second hand-written paragraph.
+
+After changing a file digest-pinned by `config/ffmpeg-runtime-manifest.json`,
+including `config/production-security-matrix.json` or `docs/policies/security.md`,
+run `node scripts/repin-runtime-evidence.mjs`. Commit the refreshed byte lengths,
+SHA-256 pins, and review payload digest with the source edit; never hand-edit
+those pins. Use `node scripts/repin-runtime-evidence.mjs --check` to verify them
+without writing.

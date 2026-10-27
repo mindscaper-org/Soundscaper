@@ -1,131 +1,47 @@
 # AGENTS.md
 
-- Soundscaper is a Vite/React local-first browser audio editor.
-- Use test-driven development principles.
-- Use Node.js 26.5.0 and npm 12.0.1. Use npm and preserve `package-lock.json`;
-  never edit dependency metadata without updating the lockfile.
-- Release versions belong in `config/product-release-lines.json`. Use
-  `npm run release:soundscaper:prepare -- <version>` for stable, RC, or beta
-  releases, or omit the version to synchronize packaging metadata after editing
-  the register. Commit the register and generated packaging metadata together;
-  version bumps do not require policy inventories or test fixtures to change.
-- Application UI lives in `src/common/editor/ui/`.
-- Every newly added feature must be reachable through a menu. Do not surface new
-  features by default in the UI: no new always-visible toolbar buttons, panels,
-  side rails, badges, or inline controls. Add the entry point to an existing
-  menu (or a menu submenu) and let the user opt in from there.
-- Audio models, workers, storage, effects, import/export, and WASM integration
-  live in `src/common/editor/`.
-- Every local AI model must offer GPU execution on every maintained desktop
-  target. Select authenticated GPU providers automatically and retain CPU as a
-  fallback. Never force model adapters to CPU or silently omit GPU runtime builds.
+- Use test-driven development principles and keep changes narrowly scoped.
+- Follow [contribution setup](CONTRIBUTING.md) and use npm. Preserve
+  `package-lock.json`; update it whenever dependency metadata changes.
+- Read the relevant [engineering documentation](docs/README.md) and nearest
+  nested `AGENTS.md` before changing a subsystem. Source ownership and build
+  guardrails belong in [architecture and maintainability](docs/architecture/overview.md).
+- Every newly added feature must be reachable through an existing menu or
+  submenu. Let the user opt in; do not add always-visible toolbar buttons,
+  panels, side rails, badges, or inline controls for new features.
+- Preserve the [local-model GPU requirements](docs/architecture/local-assistance.md)
+  on every maintained desktop target; never force adapters to CPU or omit GPU builds.
+- Never run the full test suite yourself, including full Node or browser suites,
+  either directly or through aggregate commands such as `npm run check`.
+  Focused tests for the changed behavior are allowed. At the end of every
+  implementation, give the user the exact test command to run, anchored to your
+  specific worktree's absolute path (for example, `cd '/absolute/worktree' && npm run check`).
+  Include the browser-suite command when interactive workflows changed, and
+  report which focused checks you actually ran. See the
+  [testing guide](docs/development/testing.md) for commands and scope.
+- During development and handoff, run `npm run lint:changed` for added and
+  modified lintable files. Use appropriate focused tests, static checks, and
+  builds from the testing guide. Limit RAM usage to 12 GB.
+- Write new controller/domain modules and their tests in strict TypeScript.
+  Import the owning module directly; do not add broad barrel dependencies.
+  Await, catch, return, or explicitly `void` every promise, and do not pass
+  promise callbacks to void-returning APIs.
+- Do not grow ratcheted files or weaken architecture, coverage, chunk, or startup
+  budgets to make checks pass; extract focused modules and claim reductions.
+- Follow the [localization workflow](docs/development/localization.md).
+  Never hand-edit `machine` or `audacity` entries or the generated loader index;
+  mark hand-written corrections `human`.
+- Preserve AGPL and third-party notices, pinned source hashes, and the StaffPad
+  reproducibility/audit workflow. Follow the
+  [documentation maintenance rules](docs/README.md#maintaining-this-directory)
+  for generated policy prose and digest-pinned evidence.
+- Follow the [release process](docs/operations/release.md) for version changes;
+  commit the release register and generated packaging metadata together.
 - Do not commit generated `dist/`, `coverage/`, `playwright-report/`,
   `test-results/`, or `node_modules/` content.
-- Keep FFmpeg runtime assets out of the Pages bundle; production assets are
-  versioned under `https://assets.soundscaper.org/runtime/ffmpeg/`.
-- Desktop test artifacts reuse the committed snapshots in
-  `config/desktop-test-assistance-runtime-snapshots/`; they do not compile or
-  publish AI runtime archives.
-- Locales other than English are served by one committed catalog
-  per locale in `src/common/i18n/translations/`, where every entry is tagged
-  `machine` (generated), `audacity` (GPL-3.0 strings the weekly sync
-  workflow commits, with their notice) or `human` (hand-written). Automatic
-  writers replace `machine` and `audacity` entries and never a `human` one;
-  to fix a string by hand, change its tag to `human`. Edit English copy
-  freely: an entry whose English changed retires itself until
-  `npm run i18n:translate -- --all` or the sync writes it again (see
-  `scripts/i18n-ai/README.md`). Never edit `machine` or `audacity` entries
-  or the loader index by hand.
-- The handbook is translated the same way and by the same models. English pages
-  are the source at `handbook/src/content/docs/`; a language is a directory of
-  the same tree beside them, named with the lowercased tag, and having one is
-  what publishes the language. `npm run docs:translate:handbook -- --locale fr`
-  writes what a language owes and `npm run docs:translate:check` reports it
-  (see `scripts/docs-ai/README.md`). Write body links base-free and
-  language-free, write a linked heading's id out as `{#the-id}`, and add a new
-  language to `HANDBOOK_LANGUAGES` in
-  `src/common/editor/documentation-links.ts` so the editor links into it.
-- `npm run check` is the canonical non-browser gate. During development and task
-  handoff, lint added and modified lintable files with `npm run lint:changed`. Also run `npm test` after helper changes, `npm run build` after
-  Vite/UI changes, and `npm run test:browser` for interactive workflows. Limit RAM usage to 12GB.
-- CI runs that gate as several jobs, because one runner has four cores and the
-  Node suite no longer fits in them: `npm run check:static` is everything except
-  the suite, and the suite runs as one job per shard. A test belongs to the
-  `framescaper` or `soundscaper` shard when it reaches into that product's own
-  tree (`src/`, `desktop/` or `native/`) or carries the product in its filename,
-  and to `common` otherwise — cross-product tests included, since neither product
-  owns them. Run one shard locally with `npm test -- --shard=framescaper`. The
-  coverage floors live in `config/coverage-gates.json` (`.c8rc.json` only
-  selects which files c8 instruments) and are enforced once over the union of
-  what the shards recorded, so never weaken them per shard. They ratchet: run
-  `npm run coverage:tighten` after a shard run to raise a floor to the coverage
-  a scope has gained; lowering one stays a deliberate edit with its reason
-  recorded in that file.
-- New controller/domain modules and their tests should be strict TypeScript.
-  Keep imports at the owning module instead of adding broad barrel dependencies.
-- TypeScript linting is type-aware: await, catch, return, or explicitly `void`
-  every promise, and do not pass promise callbacks to void-returning APIs.
-- Do not grow files ratcheted in `config/maintainability-allowlist.json`; extract
-  a focused module instead. New maintained source files have a 600-line ceiling;
-  browser specs have an 800-line ceiling. Source files enter the warning band at
-  550 lines and browser specs at 750 lines; each becomes growth-frozen at its
-  checked-in size. An unbaselined file may
-  not enter the band, and a baselined file may not grow by even one line.
-  The gate compares source lines with `MAINTAINABILITY_BASE_REVISION` in CI and
-  `HEAD` in a local working tree, following Git renames.
-  `node scripts/check-file-size.mjs --warnings` lists the ratchets, and a PostToolUse
-  hook reports the applicable boundary as you edit. Files may shrink freely; run
-  `npm run check:size:tighten` to claim recovered lines or remove a ratchet once
-  its file is below its warning threshold.
-- Production JavaScript chunks have a 500,000-byte ceiling. Preserve the
-  semantic chunk groups in `vite.config.mjs`; split module ownership instead of
-  weakening the build-output guard.
-- Startup graph ceilings live in `config/startup-graph-budgets.json`, and every
-  build prints its observed requests and bytes per graph and writes them to
-  `.startup-graph-report.json` beside the bundle. Run
-  `npm run check:startup-graph:tighten` after a build to claim a smaller
-  initial-page graph; product byte and request ceilings are stable maxima,
-  paired with measured editor-loading progress. Raising a ceiling stays a
-  deliberate edit with its reason recorded in that file.
-- Browser tests live in `tests/browser/` and use `playwright.config.mjs`.
-  Playwright runs Chromium headlessly and starts its own loopback preview server
-  at `http://127.0.0.1:4322`; no IDE browser, graphical session, or separately
-  running development server is required.
-- Run the full browser suite with `npm run test:browser`. For a focused run,
-  build first, then use `npx playwright test tests/browser/<file>.spec.js
-  --project=chromium` and optionally `--grep='test name'`. Loopback binding
-  fails with `listen EPERM` in a sandboxed environment, always request permission to
-  run the browser test outside the sandbox.
-- If port 4322 is occupied, set `PLAYWRIGHT_PORT` for the command (for example,
-  `PLAYWRIGHT_PORT=4323 npm run test:browser`). Inspect failed-run diagnostics in
-  `test-results/`, but do not edit or commit that generated directory.
-- Chromium browser runs can record coverage of the built site. Build with
-  `SCAPE_BUILD_SOURCE_MAPS=1 npm run pretest:browser` — the maps are `hidden` and
-  land in a sibling `<output directory>-source-maps/`, so the built sites and
-  `dist/` keep exactly the bytes they had — then run with
-  `SCAPE_BROWSER_COVERAGE=1 npx playwright test --project=chromium`, which writes
-  one raw V8 profile per test into `coverage/v8-browser/`. Compact them with
-  `npm run coverage:compact:browser -- coverage/shards/browser-chromium-local.json`.
-  A spec whose budget is bound by realtime work opts out of collection with
-  `test.use({ browserCoverage: false })`.
-  A local browser-only shard is not the union the floors are scored against, so
-  run `npm run coverage:tighten` only after CI has merged the Node and Chromium
-  shards, never against one shard on its own.
-- Preserve AGPL and third-party notices, pinned source hashes, and the StaffPad
-  reproducibility/audit workflow.
-- Markdown blocks fenced by `<!-- policy-narrative:… -->` comments are derived
-  from register prose (see `scripts/lib/policy-narratives.mjs`); edit the
-  register field, run `node scripts/sync-policy-narratives.mjs`, and never edit
-  the fenced text by hand. When a register paragraph duplicates a narrative
-  document, prefer adding a binding over hand-mirroring the prose.
-- After editing any file digest-pinned by `config/ffmpeg-runtime-manifest.json`
-  (notably `config/production-security-matrix.json` and
-  `docs/policies/security.md`), run
-  `node scripts/repin-runtime-evidence.mjs` to refresh the byteLength/sha256
-  pins and the review payload digest in the same commit; never hand-edit those
-  pins. `--check` verifies without writing.
-- Use tabs in existing JavaScript/JSX sources and keep changes narrowly scoped.
-- Before declaring an implementation task complete, commit your changes in atomic commits.
-- When committing, explicitly select your own files to avoid sweeping up someone else's changes.
-- Clean up your worktrees, branches and caches after a merge.
-- Write work logs (eg progress logs of bug sweeps) in private/, don't commit them in docs/. Keep docs for meaningful architectural info.
+- Use tabs in existing JavaScript/JSX sources.
+- Before declaring an implementation task complete, commit your changes in
+  atomic commits. Explicitly select your own files when committing.
+- Clean up your worktrees, branches, and caches after a merge.
+- Write work logs in ignored `private/`, never in `docs/`. Keep docs for durable
+  technical information.

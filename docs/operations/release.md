@@ -49,6 +49,14 @@ beta, push the printed `soundscaper-v<version>` tag to start the desktop preview
 workflow. It assembles packages and checksums in its `release-inventory`
 artifact; GitHub prerelease publication remains a separate step.
 
+## FFmpeg runtime assets
+
+Keep FFmpeg runtime assets outside the Pages bundle. Their versioned publication
+namespace is `https://assets.soundscaper.org/runtime/ffmpeg/`. The production
+browser does not fetch or publish this retained runtime; the
+[technical deployment guide](../../Technical_README.md#1-retained-legacy-ffmpeg-publication-tooling)
+documents the historical publication tooling and its current restrictions.
+
 ## Stable release sequence
 
 1. Run the ordinary development and browser checks and use a local QA worksheet
