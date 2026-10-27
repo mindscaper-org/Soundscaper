@@ -43,6 +43,7 @@ export function createMotionReferenceCompilePlan(input: MotionReferenceCompileIn
 
 export function createMotionReferenceCompileEnvironment(environment: Readonly<Record<string, string>>, installRoots: readonly string[], target: MotionNativeTarget): NodeJS.ProcessEnv {
 	const path = target.startsWith('win-') ? win32 : posix;
-	return { ...environment, PKG_CONFIG_LIBDIR: installRoots.flatMap(root => [path.join(root, 'lib/pkgconfig'), path.join(root, 'share/pkgconfig')]).join(target.startsWith('win-') ? ';' : ':'),
+	// Node otherwise injects parent coverage into this object during spawn, changing its audited bytes.
+	return { ...environment, NODE_V8_COVERAGE: undefined, PKG_CONFIG_LIBDIR: installRoots.flatMap(root => [path.join(root, 'lib/pkgconfig'), path.join(root, 'share/pkgconfig')]).join(target.startsWith('win-') ? ';' : ':'),
 		PKG_CONFIG_PATH: '', PKG_CONFIG_SYSROOT_DIR: '', LC_ALL: 'C', TZ: 'UTC' };
 }
