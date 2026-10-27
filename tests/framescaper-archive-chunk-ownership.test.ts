@@ -54,9 +54,17 @@ test('the complete Frame archive and identity rebind cluster has one exact image
 	}
 	for (const leaf of [
 		'editor-project-runtime-selection',
-		'editor-native-render-plan-authority',
 		'editor-selected-finishing-authoring-controller',
 	]) assert.equal(chunkGroupForModulePath(`src/framescaper/${leaf}.ts`), null, leaf);
+	const renderAuthority = 'src/framescaper/editor-native-render-plan-authority.ts';
+	for (const separator of ['/', '\\']) {
+		assert.equal(chunkGroupForModulePath(renderAuthority.replaceAll('/', separator)), 'framescaper-project-foundations');
+		assert.notEqual(chunkGroupForModulePath(renderAuthority.replaceAll('/', separator)), OWNER);
+		for (const foreign of [renderAuthority + '.foreign', renderAuthority.replace('.ts', '-future.ts'),
+			renderAuthority.replace('/editor-', '/internal/editor-')]) {
+			assert.notEqual(chunkGroupForModulePath(foreign.replaceAll('/', separator)), 'framescaper-project-foundations', foreign);
+		}
+	}
 });
 
 test('actual image archive extensions and their base archive dependencies cannot split into a chunk cycle', () => {

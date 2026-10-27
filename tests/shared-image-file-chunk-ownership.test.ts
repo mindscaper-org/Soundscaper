@@ -23,6 +23,15 @@ for (const path of sourceModules(resolve(ROOT, 'src')).filter(path => !path.ends
 	if (owner && PAID.has(owner)) { const paths = COOWNERS.get(owner) ?? []; paths.push(path); COOWNERS.set(owner, paths); }
 }
 
+test('the runtime graph retains the actual Freesound SVG asset through its static importer', () => {
+	const importer = 'src/common/editor/ui/workspace/FreesoundResultRow.tsx';
+	const asset = 'src/common/editor/ui/workspace/assets/cc-nc-icon.svg';
+	assert.ok(staticRelativeDependencies(runtimeSource(resolve(ROOT, importer))).includes('./assets/cc-nc-icon.svg'));
+	const reached = closure(importer);
+	assert.ok(reached.has(importer)); assert.ok(reached.has(asset), 'an asset module must remain part of the observed closure');
+	assert.deepEqual(staticRelativeDependencies(runtimeSource(resolve(ROOT, asset))), [], 'SVG markup is asset data without JavaScript imports');
+});
+
 for (const [name, leaves] of [['editor-image-file-admission', FILE_READERS], ['editor-image-export-resize', RESIZE]] as const) {
 	test(`${name} owns only its exact current leaves and preserves independent dependency placement`, () => {
 		for (const leaf of leaves) for (const separator of ['/', '\\']) {
@@ -86,8 +95,9 @@ test('actual raster and graphic delivery retain resizing without opening a selec
 function runtimeSource(path: string): string {
 	let source = RUNTIME.get(path);
 	if (source === undefined) {
+		// Vite imports SVGs as asset modules; retain the file without parsing markup as code.
 		source = transformSync(readFileSync(path, 'utf8'), { sourcefile: path,
-			loader: path.endsWith('.tsx') ? 'tsx' : path.endsWith('.ts') ? 'ts' : path.endsWith('.jsx') ? 'jsx' : path.endsWith('.json') ? 'json' : 'js', format: 'esm' }).code;
+			loader: path.endsWith('.svg') ? 'text' : path.endsWith('.tsx') ? 'tsx' : path.endsWith('.ts') ? 'ts' : path.endsWith('.jsx') ? 'jsx' : path.endsWith('.json') ? 'json' : 'js', format: 'esm' }).code;
 		RUNTIME.set(path, source);
 	}
 	return source;

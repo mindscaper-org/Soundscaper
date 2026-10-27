@@ -19,8 +19,10 @@ export const editorUiChunkGroups = [
 		// and closed value/archive validation share no product domain imports. One neutral owner
 		// avoids timeline passengers and preserves startup request ceilings.
 		// Shared ID/record validation and preview geometry/byte admission are inert scalar leaves.
+		// Shared file-failure identities and their literal labels must not acquire
+		// timeline or broad catalog co-owners when a byte codec reports bad input.
 		name: 'editor-neutral-foundations',
-		test: /src[\\/]common[\\/]editor[\\/](?:platform[\\/]bounded-transfer\.ts|(?:abort-error|abort-race|desktop-read-profile|closed-domain-value|code-unit-order|error-diagnostic-message|image-export-graphic-request|image-export-text-v1|native-media-plan-canonical-form|photo-library-develop-(?:(?:proxy|original|full-resolution|mask-raster)-port-v1|proxy-port-v2|original-current-v1)|photo-library-saved-collection-port-v1|project-validation-primitives|safe-visual-text|unicode-scalar-text|scape-archive-limits|scape-blob-budget|scape-literal-json-keys|scape-project-format|video-preview-capture-admission|web-file-limit-failure|worker-error-transport|worker-protocol|worker-request-broker)\.ts|stable-id\.js)$/,
+		test: /src[\\/]common[\\/](?:editor[\\/](?:platform[\\/]bounded-transfer\.ts|(?:abort-error|abort-race|desktop-read-profile|closed-domain-value|code-unit-order|error-diagnostic-message|file-validation-failure|format-file-failure|image-export-graphic-request|image-export-text-v1|native-media-plan-canonical-form|pcm-stream-settlement|photo-library-develop-(?:(?:proxy|original|full-resolution|mask-raster)-port-v1|proxy-port-v2|original-current-v1)|photo-library-saved-collection-port-v1|project-validation-primitives|safe-visual-text|unicode-scalar-text|scape-archive-limits|scape-blob-budget|scape-literal-json-keys|scape-project-format|video-preview-capture-admission|web-file-limit-failure|worker-error-transport|worker-protocol|worker-request-broker)\.ts|stable-id\.js)|i18n[\\/](?:editor-(?:file-validation|id3-metadata)-copy|editor-copy-(?:scope|origin))\.ts)$/,
 		priority: 99,
 		minSize: 0,
 		maxSize: 400_000,

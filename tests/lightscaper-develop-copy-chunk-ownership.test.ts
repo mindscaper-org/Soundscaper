@@ -28,7 +28,7 @@ const GERMAN_VISUAL = 'src/common/i18n/lightscaper-develop-shared-effect-copy.ts
 const COPY_MODULES = [...sourceModules(resolve(ROOT, 'src/common/i18n')), resolve(ROOT, HOOK)];
 const TRANSFER = 'src/common/editor/platform/bounded-transfer.ts';
 const CURRENT_IMAGE_LEAVES = ['video-effects-v2.ts', 'video-color-cube-lut-v27.ts',
-	'video-color-management-v27.ts', 'video-color-byte-encoding.ts'].map(name => `src/common/editor/${name}`);
+	'video-color-management-v27.ts', 'video-color-byte-encoding.ts', 'video-color-grade-channels.ts'].map(name => `src/common/editor/${name}`);
 const CURRENT_PACK_TAGS = ['scape-photo-catalog-pack-v2.ts', 'scape-photo-catalog-pack-v3.ts', 'scape-photo-catalog-pack-v4.ts', 'scape-photo-cube-lut.ts'].map(name => `src/common/editor/${name}`);
 const PHOTO_OWNERS = new Set(['editor-neutral-foundations', 'editor-photo-library-scalars', 'editor-imaging',
 	'editor-media-storage-contracts', 'editor-media-custody-storage',
@@ -155,7 +155,10 @@ test('shared current transfer and image leaves have neutral owners without timel
 			assert.ok(PHOTO_OWNERS.has(chunkGroupForModulePath(target) ?? ''), `${path} imports ${specifier}`);
 		}
 	}
-	for (const name of ['video-effects-v3.ts', 'video-color-management-v28.ts', 'video-color-cube-lut-v28.ts', 'video-clip-composition.ts']) {
+	const channels = runtimeSource(resolve(ROOT, 'src/common/editor/video-color-grade-channels.ts'));
+	assert.deepEqual(staticRelativeDependencies(channels), [], 'Channel arithmetic retains no runtime timeline or grade-model dependency.');
+	for (const name of ['video-effects-v3.ts', 'video-color-management-v28.ts', 'video-color-cube-lut-v28.ts',
+		'video-color-grade-channels-future.ts', 'internal/video-color-grade-channels.ts', 'video-clip-composition.ts']) {
 		assert.notEqual(chunkGroupForModulePath(`src/common/editor/${name}`), 'editor-imaging', name);
 	}
 });

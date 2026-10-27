@@ -68,7 +68,7 @@ test('real Light bootstrap/import/backup runtime imports and paid copy co-owners
 			const path = pending.pop()!; if (reached.has(path)) continue; reached.add(path);
 			const owner = chunkGroupForModulePath(path);
 			if (owner && paid.has(owner) && !charged.has(owner)) { charged.add(owner); pending.push(...coowners.get(owner) ?? []); }
-			if (!source.has(path)) source.set(path, transformSync(readFileSync(path, 'utf8'), { loader: path.endsWith('.tsx') ? 'tsx' : path.endsWith('.ts') ? 'ts' : path.endsWith('.jsx') ? 'jsx' : path.endsWith('.json') ? 'json' : 'js', format: 'esm' }).code);
+			if (!source.has(path)) source.set(path, transformSync(readFileSync(path, 'utf8'), { sourcefile: path, loader: path.endsWith('.svg') ? 'text' : path.endsWith('.tsx') ? 'tsx' : path.endsWith('.ts') ? 'ts' : path.endsWith('.jsx') ? 'jsx' : path.endsWith('.json') ? 'json' : 'js', format: 'esm' }).code);
 			for (const specifier of staticRelativeDependencies(source.get(path)!)) { const target = resolveRelativeModule(path, specifier); assert.ok(target, specifier); pending.push(target); }
 		}
 		for (const path of reached) assert.doesNotMatch(relative(root, path).split(sep).join('/'), /\/imaging\/image-develop-frame-(?:core|v2|v3|current-v1)\.ts$/u, entry);
