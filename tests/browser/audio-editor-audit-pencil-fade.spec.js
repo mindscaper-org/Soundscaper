@@ -16,6 +16,11 @@ test('a horizontal Pencil stroke through a fade exports the drawn level between 
 	const fade = clip.getByRole('slider', { name: 'Fade in', exact: true });
 	await fade.press('End');
 	await expect(fade).toHaveAttribute('aria-valuenow', '0.002');
+	// Focusing the expanded fade can scroll the first stroke sample beneath
+	// the sticky track controls. Reveal the clip start before measuring it.
+	const timeline = editor.locator('[data-timeline]');
+	await timeline.evaluate(element => { element.scrollLeft = 0; });
+	await expect.poll(() => timeline.evaluate(element => element.scrollLeft)).toBe(0);
 	const geometry = await clip.evaluate(element => {
 		const display = element.querySelector('.clip-display').getBoundingClientRect();
 		const lane = element.closest('[data-track-lane]');
