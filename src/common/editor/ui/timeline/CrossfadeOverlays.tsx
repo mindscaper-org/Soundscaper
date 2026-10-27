@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { useComponentCopy } from '@soundscaper/design-system/contexts/ComponentCopyContext';
+import { localizedOverlapDescription } from './localized-overlap-description.ts';
 
 import { useCallback, useState } from 'react';
 import { TrackCrossfadeVisual } from '@soundscaper/design-system/Track/TrackCrossfadeVisual';
@@ -20,6 +22,8 @@ interface CrossfadeOverlay {
 	readonly outgoingClipId: string;
 	readonly incomingClipId: string;
 	readonly label: string;
+	readonly outgoingName?: string;
+	readonly incomingName?: string;
 }
 
 interface CrossfadeClip {
@@ -44,6 +48,7 @@ interface Props {
 export function CrossfadeOverlays({
 	overlays, clipLookup, selectedIds, top, height, blocked, copy, controller, run, onTabOut,
 }: Props) {
+	const { copy: componentCopy } = useComponentCopy();
 	const [menu, setMenu] = useState<(FadeShapeMenuPosition & { readonly overlayId: string }) | null>(null);
 	const close = useCallback(() => setMenu(null), []);
 	const activeOverlay = menu && overlays.find(overlay => overlay.id === menu.overlayId);
@@ -98,7 +103,7 @@ export function CrossfadeOverlays({
 				minimumPosition={overlay.minimumPosition} maximumPosition={overlay.maximumPosition}
 				outgoingClipId={overlay.outgoingClipId} incomingClipId={overlay.incomingClipId}
 				outgoingSelected={selectedIds.has(overlay.outgoingClipId)} incomingSelected={selectedIds.has(overlay.incomingClipId)}
-				label={overlay.label} disabled={blocked}
+				label={localizedOverlapDescription(overlay, componentCopy)} disabled={blocked}
 				onKeyboardAdjust={(key, fine) => {
 					const shapes = crossfadeShapesAtKey({
 						key, shiftKey: fine, initialPosition: overlay.intersectionPosition,

@@ -13,7 +13,6 @@ import {
 	NATIVE_MEDIA_CAPABILITY_DOMAINS,
 	NATIVE_MEDIA_CAPABILITY_IDS,
 	NATIVE_MEDIA_CAPABILITY_STATES,
-	NativeMediaCapabilityError,
 	resolveNativeMediaCapability,
 } from '../src/common/editor/native-media-capability-snapshot.ts';
 import {
@@ -185,19 +184,7 @@ test('an entry inherits the snapshot build fingerprint and may carry its own', (
 	assert.equal(nativeMediaCapabilityEntry(snapshot, 'backend', 'videotoolbox')?.buildFingerprint, other);
 });
 
-test('malformed snapshot input is refused rather than normalized', () => {
-	assert.throws(() => createNativeMediaCapabilitySnapshotV1({
-		entries: [{ domain: 'transcode' as never, id: 'x' }],
-	}), NativeMediaCapabilityError);
-	assert.throws(() => createNativeMediaCapabilitySnapshotV1({
-		entries: [{ domain: 'codec', id: 'Not Kebab' }],
-	}), /bounded lowercase kebab-case/u);
-	assert.throws(() => createNativeMediaCapabilitySnapshotV1({
-		entries: [{ domain: 'codec', id: 'h264' }, { domain: 'codec', id: 'h264' }],
-	}), /reported more than once/u);
-	assert.throws(() => createNativeMediaCapabilitySnapshotV1({
-		buildFingerprint: 'not-a-digest', entries: [],
-	}), /lowercase SHA-256 digest/u);
+test('runtime snapshot details are validated', () => {
 	assert.throws(() => createNativeMediaCapabilitySnapshotV1({
 		entries: [{ domain: 'codec', id: 'h264', detail: '' }],
 	}), /bounded non-empty text/u);

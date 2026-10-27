@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { UPLOAD_VALIDATION_COPY } from '../editor/ui/workspace/upload-validation-copy.ts';
 
 import { resolveEditorCopyScope } from './editor-copy-scope.ts';
 
 export const FREESOUND_ATTRIBUTION_ENGLISH_COPY = Object.freeze({
+	...UPLOAD_VALIDATION_COPY,
 	metadataTab: 'Attribution',
 	panel: 'Freesound',
 	intro: 'Imported sources currently used on the timeline or held in the Project Bin.',
@@ -34,6 +36,8 @@ export const FREESOUND_ATTRIBUTION_ENGLISH_COPY = Object.freeze({
 	sortRating: 'Highest rated',
 	searching: 'Searching Freesound',
 	searchError: 'Freesound search failed.',
+	searchRequestFailed: 'Freesound search could not connect. Check your connection and try again.',
+	searchRequestHttpFailed: 'Freesound returned HTTP {status}. Try the search again later.',
 	importError: 'The Freesound sound could not be imported.',
 	unavailable: 'Freesound is unavailable right now.',
 	searchPrompt: 'Search Freesound to find audio for this project.',

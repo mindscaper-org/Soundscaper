@@ -161,7 +161,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 	/** @type {import('./controller/document/document-state.ts').ControllerDocumentState<import('./controller/document/document-composition-types.ts').DocumentProject, import('./controller/document/document-composition-types.ts').DocumentHistory>} */
 	const documentState = createControllerDocumentState();
 	const documentScope = createControllerDocumentScope(documentState, projectGeneration);
-	const { activeSelection, normalizeExportSettings } = createControllerProjectQueries({ getProject: () => documentState.project, projectSampleRate: () => projectSampleRate() });
+	const { activeSelection, normalizeExportSettings } = createControllerProjectQueries({ getProject: () => documentState.project, projectSampleRate: () => projectSampleRate(), immutableExportInputs: true });
 	const { state, effectsAccess, effectsStatePorts, recordingAccess, transportAccess,
 		recordingPort, reconcileRecordingRouting,
 	} = createControllerOwnedStateComposition({ document: documentState,

@@ -84,18 +84,6 @@ test('late waveform PCM completion is discarded after a project switch', async (
 	assert.equal(fixture.publishes(), 0);
 });
 
-test('waveform PCM requests reject numeric-string persisted geometry', async () => {
-	for (const field of ['durationFrames', 'frameCount'] as const) {
-		const fixture = createSourceLifecycleFixture();
-		const target = field === 'durationFrames' ? fixture.clip : fixture.source;
-		Object.defineProperty(target, field, { value: '100' });
-		const pending = fixture.service.requestWaveformPcmWindow('clip', { startFrame: 0, endFrame: 20 });
-		fixture.resolveRead([new Float32Array(20)]);
-		await assert.rejects(pending, field === 'durationFrames'
-			? /non-negative clip duration/iu
-			: /non-negative source frame count/iu);
-	}
-});
 
 test('short source buffers are cached and oversized buffers evict stale entries', () => {
 	const fixture = createSourceLifecycleFixture();

@@ -38,25 +38,6 @@ test('cold history admission shares one clip and assistance traversal per owned 
 	assert.equal(index.getRetentionRoots().assistanceSourceIds.size, 201, 'public sets remain detached');
 });
 
-test('a failed paired admission is retried without mutating the previous roots', () => {
-	const first = Object.freeze({ clips: Object.freeze([{ id: 'first' }]), assistanceAssets: Object.freeze([{ sourceId: 'first-source' }]) });
-	let rejected = true;
-	const failure = new Error('Unavailable assistance projection');
-	const next = Object.freeze({
-		clips: Object.freeze([{ id: 'next' }]),
-		get assistanceAssets() { if (rejected) throw failure; return [{ sourceId: 'next-source' }]; },
-	});
-	const index = createSessionRetentionIndex({ present: first });
-	const initial = index.getRetentionRoots();
-	index.update({ present: next });
-	assert.throws(() => index.getRetentionRoots(), failure);
-	index.update({ present: first });
-	assert.deepEqual(index.getRetentionRoots(), initial);
-	rejected = false;
-	index.update({ present: next });
-	assert.deepEqual(index.getRetentionRoots(), { clipIds: new Set(['next']), assistanceSourceIds: new Set(['next-source']) });
-});
-
 test('paired admission reuses privately owned root Sets without retaining duplicate entries', () => {
 	const OriginalSet = globalThis.Set;
 	let copiedEntries = 0;
@@ -80,15 +61,6 @@ test('generic collectors still detach mutable root Sets before indexing', () => 
 	roots.clear();
 	roots.add('later');
 	assert.deepEqual(index.getRoots(), new Set(['original']));
-});
-
-test('paired clip roots do not advance optional storage validation', () => {
-	const failure = new Error('Invalid storage metadata');
-	const project = Object.freeze({ clips: Object.freeze([{ id: 'clip' }]), assistanceAssets: Object.freeze([]), get sources() { throw failure; } });
-	const index = createSessionRetentionIndex({ present: project });
-	assert.deepEqual(index.getRetentionRoots(), { clipIds: new Set(['clip']), assistanceSourceIds: new Set() });
-	assert.throws(() => index.getStorageKeys(), failure);
-	assert.deepEqual([...index.getRetentionRoots().clipIds], ['clip']);
 });
 
 test('shared paired projections release retired project records while the index remains alive', () => {

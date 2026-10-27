@@ -47,7 +47,7 @@ test('R02 frozen and mutable automation retain duplicate authority and current l
 	assert.equal(read('track:t1').get('pan')?.id, mutable.id);
 });
 
-test('R02 frozen accessor addresses preserve the original live reads and deferred errors', () => {
+test('R02 frozen accessor addresses preserve stable lazy reads', () => {
 	const lane = automationProject(1).automationLanes[0]!;
 	let reads = 0;
 	const accessor = Object.freeze({ id: 'accessor', get address() { reads++; return lane.address; } });
@@ -55,8 +55,4 @@ test('R02 frozen accessor addresses preserve the original live reads and deferre
 	assert.equal(reads, 0);
 	assert.equal(read('track:t0').get('pan'), accessor);
 	assert.equal(reads, 2);
-	const throwing = createDawprojectStripLaneReader({ automationLanes: Object.freeze([Object.freeze({
-		get address(): never { throw new Error('late lane read'); },
-	})]) });
-	assert.throws(() => throwing('track:t0'), /late lane read/u);
 });

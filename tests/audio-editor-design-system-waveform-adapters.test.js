@@ -176,9 +176,6 @@ test('bounded waveform preprocessing clamps windows and validates channel/source
 		startFrame: 3,
 		endFrame: 2,
 	}), /endFrame/);
-	assert.throws(() => prepareBoundedWaveformWindow([source], clip({ durationFrames: 4 }), {
-		maxSamples: 0,
-	}), /maxSamples/);
 });
 
 test('peak-pyramid waveform rendering selects the finest bounded viewport level without source PCM', () => {

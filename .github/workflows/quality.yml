@@ -5,6 +5,15 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      deploy_translations:
+        description: Publish the exact translation-sync commit after all Quality gates
+        type: boolean
+        default: false
+      translation_sync_sha:
+        description: Exact pushed translation-sync commit to publish
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -85,6 +94,12 @@ jobs:
 
       - name: Build and verify the Lightscaper browser site
         run: npm run build:browser:lightscaper
+
+      - name: Prepare and verify the ordinary Soundscaper browser site once
+        run: npm run prepare:browser:products
+        env:
+          SCAPE_BROWSER_COVERAGE: '1'
+
       - name: Record the checked Soundscaper handbook
         run: node scripts/ci-handbook-build.mjs record
 
@@ -104,6 +119,15 @@ jobs:
         with:
           name: verified-site-build
           path: dist/
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload the prepared Soundscaper browser site
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verified-soundscaper-browser-site-build
+          path: .wrangler/browser-products/soundscaper/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
 
@@ -424,11 +448,17 @@ jobs:
         # "The enforcement handshake ended early" before it can complete.
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
+      - name: Resolve the selected test prerequisites
+        id: test-prerequisites
+        run: node scripts/ci-test-prerequisites.mjs --node-shard=${{ matrix.shard }} >> "$GITHUB_OUTPUT"
+
       - name: Resolve the interchange download cache identity
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         id: interchange-cache-key
         run: node scripts/provision-interchange-conformance.mjs --cache-key >> "$GITHUB_OUTPUT"
 
       - name: Restore verified interchange download inputs
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .wrangler/test-download-cache/interchange
@@ -436,6 +466,7 @@ jobs:
             interchange-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.interchange-cache-key.outputs.key }}-${{ hashFiles('scripts/provision-interchange-conformance.mjs', 'scripts/lib/interchange-download-cache.mjs') }}
 
       - name: Provision interchange conformance reference tools
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         run: npm run provision:interchange-conformance
 
       - name: Restore authenticated Boost test headers
@@ -553,6 +584,8 @@ jobs:
       options: --user 1001
     # Keep 720 aggregate minutes per engine after consolidating the runners.
     timeout-minutes: 240
+    env:
+      SCAPE_BROWSER_PRODUCTS_PREPARED: '1'
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -587,16 +620,23 @@ jobs:
         if: steps.dependency-tree.outputs.cache-hit != 'true'
         run: npm ci
 
+      - name: Resolve the selected test prerequisites
+        id: test-prerequisites
+        run: node scripts/ci-test-prerequisites.mjs --project=${{ matrix.project }} --shard=${{ matrix.shard }}/3 >> "$GITHUB_OUTPUT"
+
       - name: Set up the interchange reference Python
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: '3.12'
 
       - name: Resolve the interchange download cache identity
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         id: interchange-cache-key
         run: node scripts/provision-interchange-conformance.mjs --cache-key >> "$GITHUB_OUTPUT"
 
       - name: Restore verified interchange download inputs
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .wrangler/test-download-cache/interchange
@@ -604,6 +644,7 @@ jobs:
             interchange-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.interchange-cache-key.outputs.key }}-${{ hashFiles('scripts/provision-interchange-conformance.mjs', 'scripts/lib/interchange-download-cache.mjs') }}
 
       - name: Provision interchange conformance readers
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         run: npm run provision:interchange-conformance
 
       - name: Provision pinned Lightscaper RAW fixtures
@@ -613,8 +654,8 @@ jobs:
       - name: Download the verified website build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: verified-site-build
-          path: dist
+          name: verified-soundscaper-browser-site-build
+          path: .wrangler/browser-products/soundscaper
 
       - name: Download the verified Framescaper website build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -629,22 +670,25 @@ jobs:
           path: .wrangler/browser-products/lightscaper
 
       # Beside each site rather than inside it: the sites are digest-verified
-      # file by file, so nothing may be added within them. Every browser verifies
-      # the source-map evidence before serving the site; Chromium additionally
-      # consumes the maps for coverage.
+      # file by file, so nothing may be added within them. Every engine authenticates
+      # served bytes; Chromium additionally authenticates and consumes the
+      # sibling maps for coverage.
       - name: Download the website build's source maps
+        if: matrix.project == 'chromium'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: verified-site-source-maps
           path: .wrangler/browser-products/soundscaper-source-maps
 
       - name: Download the Framescaper website build's source maps
+        if: matrix.project == 'chromium'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: verified-framescaper-site-source-maps
           path: .wrangler/browser-products/framescaper-source-maps
 
       - name: Download the Lightscaper website build's source maps
+        if: matrix.project == 'chromium'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: verified-lightscaper-site-source-maps
@@ -764,7 +808,7 @@ jobs:
           node --input-type=module -e
           "import { browserProductSiteForBuild } from './scripts/lib/browser-product-site-plan.mjs';
           import { verifyBrowserProductSite } from './scripts/lib/browser-product-test-sites.mjs';
-          await verifyBrowserProductSite(browserProductSiteForBuild('lightscaper'));"
+          await verifyBrowserProductSite(browserProductSiteForBuild('lightscaper'), { sourceMaps: true });"
 
       - name: Download the verified Framescaper website build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -783,7 +827,7 @@ jobs:
           node --input-type=module -e
           "import { browserProductSiteForBuild } from './scripts/lib/browser-product-site-plan.mjs';
           import { verifyBrowserProductSite } from './scripts/lib/browser-product-test-sites.mjs';
-          await verifyBrowserProductSite(browserProductSiteForBuild('framescaper'));"
+          await verifyBrowserProductSite(browserProductSiteForBuild('framescaper'), { sourceMaps: true });"
 
       - name: Run the native software GPU browser corpus
         run: npx playwright test --config=playwright.lightscaper-gpu.config.mjs --project=lightscaper-software-gpu --workers=1
@@ -827,6 +871,8 @@ jobs:
     # One real-audio worker is intentionally retained; individual Playwright
     # deadlines remain unchanged.
     timeout-minutes: 210
+    env:
+      SCAPE_BROWSER_PRODUCTS_PREPARED: '1'
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -869,16 +915,23 @@ jobs:
       - name: Require a live Firefox AudioContext clock
         run: node scripts/ci-firefox-audio-clock.mjs
 
+      - name: Resolve the selected test prerequisites
+        id: test-prerequisites
+        run: node scripts/ci-test-prerequisites.mjs --project=firefox --shard=${{ matrix.shard }}/4 >> "$GITHUB_OUTPUT"
+
       - name: Set up the interchange reference Python
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: '3.12'
 
       - name: Resolve the interchange download cache identity
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         id: interchange-cache-key
         run: node scripts/provision-interchange-conformance.mjs --cache-key >> "$GITHUB_OUTPUT"
 
       - name: Restore verified interchange download inputs
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .wrangler/test-download-cache/interchange
@@ -886,6 +939,7 @@ jobs:
             interchange-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.interchange-cache-key.outputs.key }}-${{ hashFiles('scripts/provision-interchange-conformance.mjs', 'scripts/lib/interchange-download-cache.mjs') }}
 
       - name: Provision interchange conformance readers
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         run: npm run provision:interchange-conformance
 
       - name: Provision pinned Lightscaper RAW fixtures
@@ -895,8 +949,8 @@ jobs:
       - name: Download the verified website build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: verified-site-build
-          path: dist
+          name: verified-soundscaper-browser-site-build
+          path: .wrangler/browser-products/soundscaper
 
       - name: Download the verified Framescaper website build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -909,24 +963,6 @@ jobs:
         with:
           name: verified-lightscaper-site-build
           path: .wrangler/browser-products/lightscaper
-
-      - name: Download the website build's source maps
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: verified-site-source-maps
-          path: .wrangler/browser-products/soundscaper-source-maps
-
-      - name: Download the Framescaper website build's source maps
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: verified-framescaper-site-source-maps
-          path: .wrangler/browser-products/framescaper-source-maps
-
-      - name: Download the Lightscaper website build's source maps
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: verified-lightscaper-site-source-maps
-          path: .wrangler/browser-products/lightscaper-source-maps
 
       - name: Collect Firefox shard run shape
         id: browser-run-shape
@@ -961,7 +997,13 @@ jobs:
     # Cloudflare's own git integration builds on push with no knowledge of any
     # of this, so it must be turned off in both projects or it will race us.
     needs: [coverage, browser, firefox, native-platform-compile]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Dispatch is authenticated by repository write access; publication additionally
+    # requires explicit opt-in and the exact commit that all of these gates checked.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_translations == true &&
+      inputs.translation_sync_sha == github.sha))
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     # Never cancel a deploy midway, and never run two at once: a cancelled
@@ -974,6 +1016,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0

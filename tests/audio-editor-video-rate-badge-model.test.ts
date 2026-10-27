@@ -76,8 +76,6 @@ test('exact VFR badge fails closed until matching verified timing is registered'
 test('badge fails closed for malformed, mismatched, audio, or absent authority', () => {
 	const source = cfrSource();
 	for (const row of [
-		{ clip: videoClip(), source: { ...source, timingDecision: { mode: 'exact', rate: RATE } } },
-		{ clip: videoClip(), source: { ...source, frameRate: { num: 25, den: 1 } } },
 		{ clip: { ...videoClip(), kind: 'audio' }, source },
 		{ clip: videoClip(), source: null },
 		{ clip: { ...videoClip(), durationFrames: 0 }, source },

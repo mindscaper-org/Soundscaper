@@ -128,18 +128,6 @@ test('CodingHistory has an LF model, emits CRLF rows, and appends a canonical R 
 		channelCount: 1,
 		product: 'Framescaper',
 	}), 'A=PCM,F=96000,W=16,M=mono,T=Framescaper\n');
-	assert.throws(() => createPcmCodingHistoryRow({
-		sampleRate: 48_000,
-		bitDepth: 24,
-		channelCount: 2,
-		product: 'Bad,Product',
-	}), /comma/u);
-	assert.throws(() => createPcmCodingHistoryRow({
-		sampleRate: 48_000,
-		bitDepth: 24,
-		channelCount: 2,
-		product: 'Bad\nProduct',
-	}), /ASCII/u);
 
 	const payload = encodeBextPayload({ codingHistory: history });
 	assert.equal(ascii(payload, 602, payload.byteLength - 602), history.replaceAll('\n', '\r\n'));

@@ -76,7 +76,14 @@ function writeSegment(
 	const length = source.length;
 	const fadeIn = Math.min(segment.fadeInFrames, length);
 	const fadeOut = Math.min(segment.fadeOutFrames, length);
-	for (let frame = 0; frame < length; frame += 1) {
+	const unityEnd = length - fadeOut;
+	const overlapping = fadeIn > unityEnd;
+	for (let frame = 0; frame < (overlapping ? length : fadeIn); frame += 1) {
+		target[segment.outputStartFrame + frame] = source[frame] * fadeGain(frame, length, fadeIn, fadeOut);
+	}
+	if (overlapping) return;
+	target.set(source.subarray(fadeIn, unityEnd), segment.outputStartFrame + fadeIn);
+	for (let frame = unityEnd; frame < length; frame += 1) {
 		target[segment.outputStartFrame + frame] = source[frame] * fadeGain(frame, length, fadeIn, fadeOut);
 	}
 }

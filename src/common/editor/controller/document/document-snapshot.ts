@@ -8,9 +8,7 @@ import type { MacroScriptRecord } from '../../macro-script-library.ts';
 import type { ProjectBinPreview } from '../import/project-bin-types.ts';
 import type { EditorStoreStatus } from '../../storage/status.ts';
 import type { StorageCapacitySnapshot } from '../shared/storage-capacity-service.ts';
-import { createDocumentMasteringSequenceSnapshot } from './document-mastering-sequence-snapshot.ts';
-import { createDocumentTimelineAnnotationSnapshot } from './internal/snapshots/document-timeline-annotation-snapshot.ts';
-import { createDocumentTrackFolderSnapshot } from './document-track-folder-snapshot.ts';
+import { documentProjectViews } from './internal/snapshots/document-project-views.ts';
 import { createDocumentRecordingInputSnapshot } from './internal/snapshots/document-recording-input-snapshot.ts';
 import type { EffectMacroLibraryState } from '../effects/effect-macro-library-service.ts';
 import type { SoundActivationPolicySnapshot } from '../recording/sound-activation-policy-service.ts';
@@ -230,6 +228,7 @@ export function createEditorDocumentSnapshot<Project extends SnapshotProject>(
 		? runtime.getCurrentTabMetadata(currentProject.id)
 		: {};
 	const publishedProject = currentProject ? publishProjectView(currentProject) : null;
+	const derived = documentProjectViews(currentProject, publishedProject);
 	const previewProject = resolveVideoPreviewProject(runtime, currentProject);
 	const videoPreviewProject = previewProject ? publishProjectView(previewProject) : null;
 	const selection = publishedProject?.selection
@@ -273,9 +272,7 @@ export function createEditorDocumentSnapshot<Project extends SnapshotProject>(
 		selectedClipId: state.selectedClipId,
 		selectedAnnotationId: state.selectedAnnotationId,
 		selectedLabels: Object.freeze(selectedLabelsForProject(currentProject, state).map(ref => Object.freeze({ ...ref }))),
-		timelineAnnotations: createDocumentTimelineAnnotationSnapshot(currentProject),
-		masteringSequences: createDocumentMasteringSequenceSnapshot(currentProject),
-		trackFolders: createDocumentTrackFolderSnapshot(currentProject),
+		...derived,
 		selection,
 		transportState: state.transportState,
 		projectBinPreview: state.projectBinPreview

@@ -30,7 +30,7 @@ export class KeyValueRepository {
 	}
 
 	async put(key: string, value: unknown): Promise<unknown> {
-		const record = { key, value: clone(value) };
+		const record = entryRecord(key, value);
 		const database = await this.#port.database();
 		if (!database) this.#port.memory[this.#storeName].set(key, record);
 		else await transact(database, this.#storeName, 'readwrite', (stores) => {
@@ -40,7 +40,7 @@ export class KeyValueRepository {
 	}
 
 	async putIfAbsent(key: string, value: unknown): Promise<boolean> {
-		const record = { key, value: clone(value) };
+		const record = entryRecord(key, value);
 		const database = await this.#port.database();
 		if (!database) {
 			if (this.#port.memory[this.#storeName].has(key)) return false;
@@ -64,7 +64,7 @@ export class KeyValueRepository {
 	): Promise<boolean> {
 		if (fenceKey === key) throw new Error('A conditional key/value creation needs a distinct fence key.');
 		const expectedValue = canonicalKeyValueComparison(expectedFence);
-		const record = { key, value: clone(value) };
+		const record = entryRecord(key, value);
 		const database = await this.#port.database();
 		if (!database) {
 			if (!sameStoredValue(this.#port.memory[this.#storeName].get(fenceKey), expectedValue)
@@ -93,8 +93,8 @@ export class KeyValueRepository {
 		const expectedValue = expectedInventory === undefined
 			? undefined
 			: canonicalKeyValueComparison(expectedInventory);
-		const record = { key, value: clone(value) };
-		const inventoryRecord = { key: inventoryKey, value: clone(nextInventory) };
+		const record = entryRecord(key, value);
+		const inventoryRecord = entryRecord(inventoryKey, nextInventory);
 		const database = await this.#port.database();
 		if (!database) {
 			const inventory = this.#port.memory[this.#storeName].get(inventoryKey);
@@ -133,8 +133,8 @@ export class KeyValueRepository {
 		if (key === intentKey) throw new Error('A conditional replacement needs a distinct intent key.');
 		if (writeAdmission !== undefined && typeof writeAdmission !== 'function') throw new TypeError('Atomic key/value admission must be synchronous callable behavior.');
 		const expectedValue = canonicalKeyValueComparison(expected);
-		const replacementRecord = { key, value: clone(replacement) };
-		const intentRecord = { key: intentKey, value: clone(intent) };
+		const replacementRecord = entryRecord(key, replacement);
+		const intentRecord = entryRecord(intentKey, intent);
 		const database = await this.#port.database();
 		writeAdmission?.(database !== null);
 		if (!database) {
@@ -161,7 +161,7 @@ export class KeyValueRepository {
 
 	async replaceIfCurrent(key: string, expected: unknown, replacement: unknown): Promise<boolean> {
 		const expectedValue = canonicalKeyValueComparison(expected);
-		const record = { key, value: clone(replacement) };
+		const record = entryRecord(key, replacement);
 		const database = await this.#port.database();
 		if (!database) {
 			const current = this.#port.memory[this.#storeName].get(key);
@@ -189,7 +189,7 @@ export class KeyValueRepository {
 		if (fenceKey === key) throw new Error('A conditional key/value replacement needs a distinct fence key.');
 		const expectedFenceValue = canonicalKeyValueComparison(expectedFence);
 		const expectedValue = canonicalKeyValueComparison(expected);
-		const record = { key, value: clone(replacement) };
+		const record = entryRecord(key, replacement);
 		const database = await this.#port.database();
 		if (!database) {
 			if (!sameStoredValue(this.#port.memory[this.#storeName].get(fenceKey), expectedFenceValue)
@@ -235,7 +235,7 @@ export class KeyValueRepository {
 		if (key === inventoryKey) throw new Error('An inventoried key/value deletion needs distinct keys.');
 		const expectedValue = canonicalKeyValueComparison(expected);
 		const expectedInventoryValue = canonicalKeyValueComparison(expectedInventory);
-		const inventoryRecord = { key: inventoryKey, value: clone(nextInventory) };
+		const inventoryRecord = entryRecord(inventoryKey, nextInventory);
 		const database = await this.#port.database();
 		if (!database) {
 			if (!sameStoredValue(this.#port.memory[this.#storeName].get(key), expectedValue)
@@ -269,7 +269,7 @@ export class KeyValueRepository {
 	): Promise<boolean> {
 		const deletionKeys = boundedDistinctKeys(keys, inventoryKey);
 		const expectedInventoryValue = canonicalKeyValueComparison(expectedInventory);
-		const inventoryRecord = { key: inventoryKey, value: clone(nextInventory) };
+		const inventoryRecord = entryRecord(inventoryKey, nextInventory);
 		const database = await this.#port.database();
 		if (!database) {
 			if (!sameStoredValue(
@@ -305,15 +305,23 @@ export class KeyValueRepository {
 		return Object.freeze({ present: true, value: clone(descriptor?.value as unknown) });
 	}
 
-	async get(key: string): Promise<unknown> {
+	async get(key: string): Promise<unknown> { return (await this.captureGeneration(key)).value; }
+
+	/** Capture an admitted value and its private storage-write identity from one snapshot. */
+	async captureGeneration(key: string): Promise<Readonly<{ value: unknown; generation: string | null }>> {
+		const record = await this.#readEntry(key);
+		return Object.freeze({ value: clone(record?.value), generation: entryGeneration(record) });
+	}
+
+	/** Fresh scalar ownership query; a legacy entry has no fast-path identity. */
+	async getGeneration(key: string): Promise<string | null> { return entryGeneration(await this.#readEntry(key)); }
+
+	async #readEntry(key: string): Promise<Readonly<{ value?: unknown; generation?: unknown }> | null> {
 		const database = await this.#port.database();
 		const value = !database
 			? this.#port.memory[this.#storeName].get(key)
-			: await transact(database, this.#storeName, 'readonly', (stores) => (
-				request(stores[this.#storeName].get(key))
-			));
-		const record = value && typeof value === 'object' ? value as { readonly value?: unknown } : null;
-		return record ? clone(record.value) : undefined;
+			: await transact(database, this.#storeName, 'readonly', (stores) => request(stores[this.#storeName].get(key)));
+		return value && typeof value === 'object' ? value as { value?: unknown; generation?: unknown } : null;
 	}
 
 	async listByPrefix(prefix: string): Promise<readonly Readonly<KeyValuePrefixRecord>[]> {
@@ -490,4 +498,12 @@ function sameStoredValue(value: unknown, expected: string): boolean {
 	if (!value || typeof value !== 'object') return false;
 	const record = value as { readonly value?: unknown };
 	return canonicalKeyValueComparison(record.value) === expected;
+}
+
+function entryRecord(key: string, value: unknown) {
+	return { key, value: clone(value), generation: globalThis.crypto?.randomUUID?.() ?? null };
+}
+
+function entryGeneration(record: Readonly<{ generation?: unknown }> | null): string | null {
+	return typeof record?.generation === 'string' && record.generation.length > 0 ? record.generation : null;
 }

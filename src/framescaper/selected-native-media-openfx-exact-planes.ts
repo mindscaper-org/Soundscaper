@@ -20,6 +20,7 @@ import {
 	framescaperOpenFxOutputOrdinalNativeMedia,
 	framescaperOpenFxTransitionProgressNativeMedia,
 } from './editor-openfx-frame-timing-native-media.ts';
+import { prepareFramescaperOwnedOpenFxGraphIndexNativeMedia } from './editor-openfx-owned-graph-index-native-media.ts';
 import { identityVisualPlacement } from './visual-finishing-kernel.ts';
 import { assertFramescaperOpenFxResourcePairV16 } from './selected-native-media-openfx-resource-v16.ts';
 
@@ -59,9 +60,10 @@ export function createFramescaperSelectedOpenFxExactPlanesNativeMedia(options: R
 	readonly fallbackFrozenFrame?: FramescaperSelectedOpenFxExecutionNativeMedia['resolveFrozenFrame'];
 }>): FramescaperSelectedOpenFxExactPlanesNativeMedia {
 	if (options.foundationPlan.version === 16) assertFramescaperOpenFxResourcePairV16(options.openFx, options.foundationPlan);
-	assertPlanParity(options.foundationPlan, options.openFx.plan);
+	const prepared = prepareFramescaperOwnedOpenFxGraphIndexNativeMedia(options.openFx.plan);
+	assertPlanParity(options.foundationPlan, prepared.plan);
 	const graph = createFramescaperOpenFxFrameGraphNativeMedia({
-		plan: options.openFx.plan, assertCurrent: options.assertCurrent,
+		plan: prepared.plan, assertCurrent: options.assertCurrent,
 		execute: options.openFx.execute,
 		...(options.openFx.resolveFrozenFrame ?? options.fallbackFrozenFrame ? {
 			resolveFrozenFrame: options.openFx.resolveFrozenFrame ?? options.fallbackFrozenFrame,
@@ -69,24 +71,16 @@ export function createFramescaperSelectedOpenFxExactPlanesNativeMedia(options: R
 		allowRepeatedFrames: true,
 	});
 	return Object.freeze({
-		has: (context: OfxContext, targetId: string) => options.openFx.plan.nodes.some((node) => (
-			node.kind === 'openfx' && node.state.enabled && node.state.context === context
-				&& node.state.attachment.targetId === targetId
-		)),
-		inputs: (context: OfxContext, targetId: string) => Object.freeze([...new Set(
-			options.openFx.plan.nodes.flatMap((node) => node.kind === 'openfx'
-				&& node.state.enabled && node.state.context === context
-				&& node.state.attachment.targetId === targetId
-				? node.state.inputs.map(({ sourceRef }) => sourceRef) : []),
-		)]),
+		has: prepared.has,
+		inputs: prepared.inputs,
 		ordinal: (position: Readonly<{ readonly num: number; readonly den: number }>) => (
-			framescaperOpenFxOutputOrdinalNativeMedia(options.openFx.plan, position)
+			framescaperOpenFxOutputOrdinalNativeMedia(prepared.plan, position)
 		),
 		transition: (transitionId: string, ordinal: number) => (
-			framescaperOpenFxTransitionProgressNativeMedia(options.openFx.plan, transitionId, ordinal)
+			framescaperOpenFxTransitionProgressNativeMedia(prepared.plan, transitionId, ordinal)
 		),
 		apply: (request: Parameters<FramescaperSelectedOpenFxExactPlanesNativeMedia['apply']>[0]) => (
-			apply(graph, options.openFx.plan, request)
+			apply(graph, prepared.plan, request)
 		),
 	});
 }

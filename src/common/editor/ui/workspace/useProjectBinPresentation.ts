@@ -24,7 +24,8 @@ export function useProjectBinSources(items: ReturnType<typeof projectBinItems>, 
 }
 
 export function useProjectBinWaveformPath(visual: Parameters<typeof projectBinWaveformPath>[0], clip: Parameters<typeof projectBinWaveformPath>[1], project?: unknown) {
-	return useMemo(() => projectBinWaveformPath(visual, clip, 160, 44, project), [visual?.buffer, visual?.peaks, clip, project]);
+	const warpProject = clip.warpMap != null ? project : undefined;
+	return useMemo(() => projectBinWaveformPath(visual, clip, 160, 44, warpProject), [visual?.buffer, visual?.peaks, clip, warpProject]);
 }
 
 export function useProjectBinTransformBadges(clips: readonly BinClip[], sources: readonly Parameters<typeof projectBinTransformBadges>[1][], copy: Parameters<typeof projectBinTransformBadges>[2]) {

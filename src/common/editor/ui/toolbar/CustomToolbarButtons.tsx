@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { formatLocalizedTemplate } from '../localization-template.ts';
+
 import React from 'react';
 import { ToolbarButtonGroup } from '@soundscaper/design-system/Toolbar';
 
@@ -70,13 +72,13 @@ export function CustomToolbarButtonSettings({ buttons, toolbarButtons, copy, onC
 				<span className="kw-audio-editor__toolbar-settings-icon musescore-icon" aria-hidden="true">{iconNameToChar(button.icon)}</span>
 				<span>{button.name}</span>
 			</button>
-			<div role="menu" aria-label={copy.customToolbarButtonEdit.replace('{name}', button.name)}>
+			<div role="menu" aria-label={formatLocalizedTemplate(copy.customToolbarButtonEdit, { name: button.name })}>
 			<button
 				type="button"
 				role="menuitem"
 				className="kw-audio-editor__toolbar-settings-custom-edit"
-				aria-label={copy.customToolbarButtonEdit.replace('{name}', button.name)}
-				title={copy.customToolbarButtonEdit.replace('{name}', button.name)}
+				aria-label={formatLocalizedTemplate(copy.customToolbarButtonEdit, { name: button.name })}
+				title={formatLocalizedTemplate(copy.customToolbarButtonEdit, { name: button.name })}
 				onClick={() => onCustomize(button)}
 			>
 				<span className="musescore-icon" aria-hidden="true">{iconNameToChar('EDIT')}</span>

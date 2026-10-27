@@ -15,6 +15,7 @@ import {
 import { assertFramescaperProjectRuntimeProfile } from './editor-project-runtime-profile.ts';
 import type { FramescaperScapeImageProjectPublication } from './editor-scape-image-project-publication.ts';
 import { compactFramescaperProjectSourceMetadata } from './editor-project-source-compaction.ts';
+import { clipboardImageAttachmentAuthorized } from './editor-session-clipboard-image-attachments.ts';
 
 const REQUIRED_METHODS = Object.freeze([
 	'createIfAbsent', 'createForScapeImportIfAbsent', 'save', 'saveIfCurrent',
@@ -27,13 +28,16 @@ export class FramescaperProjectRepository implements ProjectRepositoryPort {
 	readonly #profile: unknown;
 	readonly #delegate: ProjectRepositoryPort;
 	readonly #scapeImages: FramescaperScapeImageProjectPublication | undefined;
+	readonly #attachmentPort: object | undefined;
 
-	constructor(profile: unknown, delegateValue: ProjectRepositoryPort | unknown, scapeImages?: FramescaperScapeImageProjectPublication) {
+	constructor(profile: unknown, delegateValue: ProjectRepositoryPort | unknown,
+		scapeImages?: FramescaperScapeImageProjectPublication, attachmentPort?: object) {
 		assertFramescaperProjectRuntimeProfile(profile);
 		assertDelegate(delegateValue);
 		this.#profile = profile;
 		this.#delegate = delegateValue;
 		this.#scapeImages = scapeImages;
+		this.#attachmentPort = attachmentPort;
 	}
 
 	async createIfAbsent(projectValue: ProjectDocument): Promise<ProjectDocument | null> {
@@ -60,7 +64,7 @@ export class FramescaperProjectRepository implements ProjectRepositoryPort {
 		const currentValue = await this.#delegate.load(project.id);
 		if (currentValue === null) throw new Error('Ordinary Framescaper save cannot create a project.');
 		const current = this.#exact(currentValue);
-		assertSameBodyAttachments(current, project);
+		assertSameBodyAttachments(current, project, this.#attachmentPort);
 		await this.#prepareSave(project);
 		const saved = await this.#delegate.saveIfCurrent!(current, this.#publication(project), postCommit);
 		if (saved === null) throw new Error('The Framescaper project changed before save.');
@@ -77,7 +81,7 @@ export class FramescaperProjectRepository implements ProjectRepositoryPort {
 		if (expected.id !== project.id) {
 			throw new Error('Framescaper compare-and-swap cannot change project identity.');
 		}
-		assertSameBodyAttachments(expected, project);
+		assertSameBodyAttachments(expected, project, this.#attachmentPort);
 		await this.#prepareSave(project);
 		return this.#optionalExact(await this.#delegate.saveIfCurrent!(expected, this.#publication(project), postCommit));
 	}
@@ -95,7 +99,7 @@ export class FramescaperProjectRepository implements ProjectRepositoryPort {
 		const expected = this.#exact(expectedValue);
 		const project = this.#exact(projectValue);
 		if (expected.id !== project.id) throw new Error('Framescaper compare-and-swap cannot change project identity.');
-		assertSameBodyAttachments(expected, project);
+		assertSameBodyAttachments(expected, project, this.#attachmentPort);
 		await this.#prepareSave(project);
 		return this.#optionalExact(await this.#delegate.saveIfCurrentAndFenced!(
 			expected, this.#publication(project), writeFence, postCommit,
@@ -233,7 +237,7 @@ function assertNoBodyAttachments(project: FramescaperProject, operation: string)
 	}
 }
 
-function assertSameBodyAttachments(expected: FramescaperProject, project: FramescaperProject): void {
+function assertSameBodyAttachments(expected: FramescaperProject, project: FramescaperProject, attachmentPort?: object): void {
 	const before = proxyAuthority(expected);
 	const after = proxyAuthority(project);
 	if (before.size !== after.size || [...before].some(([id, value]) => after.get(id) !== value)) {
@@ -242,6 +246,7 @@ function assertSameBodyAttachments(expected: FramescaperProject, project: Frames
 	const beforeImages = imageAuthority(expected);
 	for (const [id, value] of imageAuthority(project)) {
 		if (!beforeImages.has(id)) {
+			if (clipboardImageAttachmentAuthorized(attachmentPort, project.id, id, value)) continue;
 			throw new Error('A new Framescaper image body requires atomic timeline-image publication.');
 		}
 		if (beforeImages.get(id) !== value) {

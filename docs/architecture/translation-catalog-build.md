@@ -6,6 +6,15 @@ index and runtime staleness checks continue to own locale selection and English
 fallback. A changed English string retires its old translation until an official
 writer updates it.
 
+Recorded English text shared by several catalogs uses one generated text module
+per build. Only a requested lazy catalog imports that module. An oversized locale
+can also load its longer strings from locale-owned modules bounded at 400,000
+source bytes before its entry objects are partitioned. Those locale text modules
+include the catalog path and exact indexed string vector in their content digest,
+so reloading a catalog cannot replace the strings referenced by an older root.
+Catalog tuples, provenance, community attribution and runtime staleness checks
+retain the same data and behavior.
+
 The production build's compact-catalog plugin partitions large generated entry
 objects into modules bounded at 200,000 source bytes. It uses contiguous groups
 of entries, compacts each group through the existing renderer, and imports them

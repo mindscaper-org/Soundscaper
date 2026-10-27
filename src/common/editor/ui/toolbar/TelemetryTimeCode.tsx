@@ -73,6 +73,10 @@ export default function TelemetryTimeCode({
 				ariaLabel={copy.playhead} format={format} value={Math.abs(timeValue)}
 				sampleRate={sampleRate} frameRate={frameRate} showFormatSelector={false}
 				disabled={Boolean(recording)}
+				onTextChange={sequenceView ? (seconds, sign) => {
+					const signed = sign === '-' || (sign === null && negative) ? -seconds : seconds;
+					run(() => controller.actions?.sequences?.seekLabel(sequenceTimeCodeLabelAtDisplaySeconds(signed, sequenceView)));
+				} : undefined}
 				onChange={(seconds) => run(() => sequenceView
 					? controller.actions?.sequences?.seekLabel(sequenceTimeCodeLabelAtDisplaySeconds(
 						negative ? -seconds : seconds, sequenceView,

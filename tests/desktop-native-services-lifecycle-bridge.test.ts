@@ -94,7 +94,7 @@ test('a closed-project watch rule does not fail manual reconcile for the others'
 	}, lease, 0);
 	let reconciliations = 0;
 	const controller = new FramescaperNativeServicesControllerV3({
-		queue: { list: () => [] }, roots, watch,
+		queue: { listStatusProjections: () => [] }, roots, watch,
 		lifecycle: { reconcileWatch: async () => { reconciliations += 1; } },
 		lease: () => lease, now: () => 1_001,
 		runtimeAvailable: () => true, nativeMediaEnabled: () => true,

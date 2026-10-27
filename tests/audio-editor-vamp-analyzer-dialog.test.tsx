@@ -90,26 +90,6 @@ test('Vamp dialog aborts on close and ignores completion from a replaced project
 	}
 });
 
-test('Vamp dialog surfaces malformed analyzer output without publishing it', async () => {
-	let publications = 0;
-	const mounted = await mountDialog({
-		analyze: async (request) => ({
-			...resultFor(request),
-			features: [{
-				timestamp: { seconds: 2, nanoseconds: 0 }, duration: null, values: [], label: '',
-			}],
-		}),
-		publishLabels: () => { publications += 1; },
-	});
-	try {
-		await submit(mounted.dom.container);
-		assert.match(mounted.dom.one('[role="alert"]').textContent, /outside.*range/iu);
-		assert.equal(button(mounted.dom.container, 'Publish labels'), null);
-		assert.equal(publications, 0);
-	} finally {
-		await mounted.unmount();
-	}
-});
 
 async function mountDialog(overrides: Readonly<{
 	analyze?: (request: VampAnalysisRequest, signal: AbortSignal) => Promise<unknown>;

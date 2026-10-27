@@ -26,7 +26,11 @@ for (const format of ['sph', 'wav']) test(`native ${format} retains authored48k 
 		try { const buffer = await new OfflineAudioContext(2, 1, 48_000).decodeAudioData(Uint8Array.from(bytes).buffer);
 			return [0, 1].map(channel => [...buffer.getChannelData(channel)]); } catch { return null; }
 	}, [...new Uint8Array(await file.arrayBuffer())]);
-	if (format === 'wav') expect(native).not.toBeNull();
+	if (format === 'wav') {
+		expect(native).not.toBeNull();
+		expect(native[0]).toHaveLength(4800);
+		expect(native[1]).toHaveLength(4800);
+	}
 	test.skip(format === 'sph' && native === null, 'This native platform does not decode NIST/SPHERE; no decoder is added.');
 	expect(native[0].length).toBeGreaterThanOrEqual(4800); expect(native[0].length).toBeLessThan(5824);
 	let error = 0;

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { annotateFormatFileFailure, withFormatFileParserFailureAsync } from './format-file-parser-failure.ts';
+
 import { awaitScapeOperation, throwIfScapeAborted } from './scape-abort.ts';
 import {
 	readProjectSchemaIdentity,
@@ -96,10 +98,11 @@ export class ScapeArchiveReimportRequiredError extends RangeError {
 		);
 		this.name = 'ScapeArchiveReimportRequiredError';
 		this.formatVersion = formatVersion;
+		annotateFormatFileFailure(this, 'scape', 'REIMPORT_REQUIRED');
 	}
 }
 
-export async function readScapeArchiveEnvelope(
+async function readScapeArchiveEnvelopeInput(
 	entries: readonly ScapeArchiveEntry[],
 	limitOverrides: Partial<ScapeArchiveLimits> = {},
 	signal?: AbortSignal,
@@ -432,4 +435,8 @@ function toBytes(value: unknown): Uint8Array {
 	if (value instanceof Uint8Array) return value;
 	if (value instanceof ArrayBuffer) return new Uint8Array(value);
 	throw new TypeError('A Scape text entry emitted a non-byte chunk.');
+}
+
+export function readScapeArchiveEnvelope(...args: Parameters<typeof readScapeArchiveEnvelopeInput>): Promise<ScapeArchiveEnvelope> {
+	return withFormatFileParserFailureAsync('scape', 'ARCHIVE_ENVELOPE', () => readScapeArchiveEnvelopeInput(...args));
 }

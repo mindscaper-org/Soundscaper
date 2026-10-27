@@ -110,6 +110,9 @@ export interface EditorProjectRuntimeSelection {
 		store: FramescaperImageClipboardBodyStoreV13,
 		options?: Readonly<{ signal?: AbortSignal }>,
 	) => Promise<FramescaperImageClipboardBodyStageV13>;
+	readonly stageEditClipboardPasteCommand: (
+		command: unknown, store: unknown, options?: Readonly<{ signal?: AbortSignal }>,
+	) => Promise<FramescaperImageClipboardBodyStageV13 | null>;
 	readonly prepareEditClipboardDescriptor: (
 		project: unknown,
 		descriptor: AudioEditorClipboard,
@@ -171,6 +174,7 @@ export function createEditorProjectRuntimeSelection(
 		createEditSessionClipboard: clipboardRuntime.createClipboard,
 		prepareEditClipboardPaste: clipboardRuntime.preparePaste,
 		prepareEditClipboardPasteCommand: clipboardRuntime.preparePasteCommand,
+		stageEditClipboardPasteCommand: clipboardRuntime.stagePasteCommand,
 		stageEditClipboardPasteBodies: (prepared, store, options = {}) => (
 			stageFramescaperSessionClipboardImageBodiesV13(prepared.bodyTransfers, store, options)
 		),

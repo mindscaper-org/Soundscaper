@@ -9,10 +9,24 @@ export function translationCatalogPartChunkName(id) {
 	return match ? `locale-${match[1]}-entries-${match[2]}` : null;
 }
 
+/** @param {string} id */
+export function translationCatalogTextPoolChunkName(id) {
+	if (id === '\0scape:translation-source-text.mjs') return 'locale-shared-source-text';
+	const match = /^\0scape:translation-locale-text:([^\\/]+)\.json:[a-f\d]{64}:(\d+)\.mjs$/u.exec(id);
+	return match ? `locale-${match[1]}-text-${match[2]}` : null;
+}
+
 /** @type {import('rolldown').CodeSplittingGroup[]} */
 export const translationCatalogChunkGroups = [{
 	name: translationCatalogPartChunkName,
 	test: /^\0scape:translation-catalog-part:/u,
+	priority: 102,
+	minSize: 0,
+	maxSize: 400_000,
+	includeDependenciesRecursively: false,
+}, {
+	name: translationCatalogTextPoolChunkName,
+	test: /^\0scape:translation-(?:source-text\.mjs$|locale-text:[^\\/]+\.json:[a-f\d]{64}:\d+\.mjs$)/u,
 	priority: 102,
 	minSize: 0,
 	maxSize: 400_000,

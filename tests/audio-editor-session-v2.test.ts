@@ -56,3 +56,33 @@ test('current session2 keeps an explicitly legacy raw descriptor on its legacy w
 	assert.deepEqual([...session.getHistoryStorageKeys()], ['original']);
 	session.dispose();
 });
+
+test('current clipboard ownership fences retire without losing retained source or disabled LUT roots', () => {
+	const session = createAudioEditorSessionControllerV2({ currentSchemaVersion: 1 });
+	session.openProject(project());
+	const empty = session.getClipboardGeneration();
+	session.setClipboard(clipboard());
+	const captured = session.getClipboardGeneration();
+	assert.notEqual(captured, empty);
+	const detached = session.clipboardForProject('origin');
+	assert.ok(detached);
+	Reflect.set(detached, 'originProjectId', 'caller-copy');
+	assert.equal(session.getClipboardGeneration(), captured);
+	assert.equal(session.clipboardForProject('origin')!.originProjectId, 'origin');
+	session.setClipboard(clipboard());
+	const replaced = session.getClipboardGeneration();
+	assert.notEqual(replaced, captured);
+	session.closeProject('origin', { force: true });
+	assert.equal(session.getClipboardGeneration(), replaced);
+	const restored = createAudioEditorSessionControllerV2({ currentSchemaVersion: 1, snapshot: session.serialize() });
+	assert.notEqual(restored.getClipboardGeneration(), replaced);
+	assert.deepEqual([...restored.getHistoryStorageKeys()], ['source', 'original', key]);
+	const beforeClear = restored.getClipboardGeneration();
+	assert.deepEqual(restored.clearClipboard().releasedSourceIds, ['source']);
+	assert.notEqual(restored.getClipboardGeneration(), beforeClear);
+	assert.deepEqual([...restored.getHistoryStorageKeys()], []);
+	const beforeDispose = restored.getClipboardGeneration();
+	restored.dispose();
+	assert.notEqual(restored.getClipboardGeneration(), beforeDispose);
+	session.dispose();
+});

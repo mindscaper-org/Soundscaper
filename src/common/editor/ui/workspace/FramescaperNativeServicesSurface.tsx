@@ -83,6 +83,7 @@ export type FramescaperNativeServicesMenuRuntime = Omit<
 > & Readonly<{ openExternalDisplay(displayId: string | null): unknown }>;
 
 export interface FramescaperNativeServicesSurfaceHost {
+	setPresentation(copy: Readonly<Record<string, string | undefined>> | undefined, locale?: string): void;
 	open(surface: FramescaperNativeServiceSurface, context?: FramescaperNativeServicesDialogContext): void;
 	close(): void;
 	dispose(): void;
@@ -96,6 +97,7 @@ interface FramescaperNativeServicesHostRoot {
 export interface FramescaperNativeServicesSurfaceHostOptions {
 	readonly bridge: FramescaperNativeServicesBridge;
 	readonly copy?: Readonly<Record<string, string | undefined>>;
+	readonly locale?: string;
 	readonly projectActions?: FramescaperNativeProjectActionRuntime | null;
 	readonly openFxAuthoring?: FramescaperNativeOpenFxAuthoringRuntimeNativeMedia | null;
 	readonly documentValue?: Document | null;
@@ -110,8 +112,22 @@ export function createFramescaperNativeServicesSurfaceHost(
 	let container: HTMLElement | null = null;
 	let root: FramescaperNativeServicesHostRoot | null = null;
 	let returnFocus: (() => void) | null = null;
-	const close = (): void => { root?.render(null); returnFocus?.(); returnFocus = null; };
+	let copy = options.copy, locale = options.locale ?? 'en';
+	let current: { surface: FramescaperNativeServiceSurface; context?: FramescaperNativeServicesDialogContext } | null = null;
+	const close = (): void => { current = null; root?.render(null); returnFocus?.(); returnFocus = null; };
+	const render = (): void => {
+		if (!current) return;
+		root?.render(<React.Suspense fallback={null}>
+			<FramescaperNativeServicesDialog bridge={options.bridge} initialSurface={current.surface}
+				copy={copy} locale={locale} context={current.context} projectActions={options.projectActions}
+				openFxAuthoring={options.openFxAuthoring} onClose={close} />
+		</React.Suspense>);
+	};
 	return Object.freeze({
+		setPresentation: (next: Readonly<Record<string, string | undefined>> | undefined, nextLocale = locale): void => {
+			if (copy === next && locale === nextLocale) return;
+			copy = next; locale = nextLocale; render();
+		},
 		open: (surface: FramescaperNativeServiceSurface, context?: FramescaperNativeServicesDialogContext) => {
 			if (!documentValue) return;
 			returnFocus = captureNativeProcessingReturnFocus(documentValue);
@@ -121,17 +137,7 @@ export function createFramescaperNativeServicesSurfaceHost(
 				(documentValue.querySelector('[data-audio-editor]') ?? documentValue.body).append(container);
 			}
 			root ??= (options.createHostRoot ?? ((element: HTMLElement) => createRoot(element)))(container);
-			root.render(<React.Suspense fallback={null}>
-				<FramescaperNativeServicesDialog
-					bridge={options.bridge}
-					initialSurface={surface}
-					copy={options.copy}
-					context={context}
-					projectActions={options.projectActions}
-					openFxAuthoring={options.openFxAuthoring}
-					onClose={close}
-				/>
-			</React.Suspense>);
+			current = { surface, context }; render();
 		},
 		close,
 		dispose: () => {
@@ -174,6 +180,7 @@ export function resolveFramescaperNativeServicesWorkspaceRuntime(input: Readonly
 	productId: string;
 	bridge?: FramescaperNativeServicesBridge | null;
 	copy?: Readonly<Record<string, string | undefined>>;
+	locale?: string;
 	project?: unknown;
 	projectCapabilities?: Readonly<Record<string, unknown>>;
 	editingBlocked?: boolean;
@@ -205,6 +212,7 @@ export function resolveFramescaperNativeServicesWorkspaceRuntime(input: Readonly
 			&& projectActions?.surfaces.includes('proxy-generate') === true
 			&& isNativeMediaCapabilityUsable(proxyEntry),
 	});
+	HOSTS.get(bridge)?.setPresentation(input.copy, input.locale);
 	return Object.freeze({
 		services: snapshot.services,
 		capabilitySnapshot: snapshot.capabilitySnapshot,
@@ -216,11 +224,12 @@ export function resolveFramescaperNativeServicesWorkspaceRuntime(input: Readonly
 			let host = HOSTS.get(bridge);
 			if (!host) {
 				host = createFramescaperNativeServicesSurfaceHost({
-					bridge, copy: input.copy, projectActions,
+					bridge, copy: input.copy, locale: input.locale, projectActions,
 					openFxAuthoring: input.openFxAuthoring,
 				});
 				HOSTS.set(bridge, host);
 			}
+			host.setPresentation(input.copy, input.locale);
 			host.open(surface, context);
 		},
 		openExternalDisplay: (displayId: string | null) => store.setExternalDisplay(displayId),

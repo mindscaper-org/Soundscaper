@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { araFailureInfo, AraOperationError } from '../../ara-failure.ts'
+import { araFailureLabel } from './ara-failure-presentation.ts'
+import { EditorComponentCopyProvider } from '../EditorComponentCopyProvider.tsx'
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { createRoot } from 'react-dom/client'
 import { DialogFooter } from '@soundscaper/design-system/Footer'
@@ -37,6 +40,7 @@ const activeSurfaces = new WeakMap<object, () => void>()
 export function openAraClipEditorSurface(options: Readonly<{
 	controller: unknown
 	copy?: Readonly<Record<string, string | undefined>>
+	locale?: string
 }>): void {
 	const runtime = resolveAraClipEditingRuntime(options.controller)
 	const raw = resolveAudioEditorDesktopBridge() as unknown as Partial<AraDesktopBridge> | null
@@ -61,8 +65,8 @@ export function openAraClipEditorSurface(options: Readonly<{
 		queueMicrotask(() => { root.unmount(); container.remove(); restoreFocus() })
 	}
 	activeSurfaces.set(controller, onClose)
-	root.render(<NativeProcessingTheme><AraClipEditorDialog bridge={raw as AraDesktopBridge}
-		clipEditing={runtime} controller={controller} copy={options.copy} onClose={onClose} /></NativeProcessingTheme>)
+	root.render(<EditorComponentCopyProvider copy={options.copy ?? {}} locale={options.locale ?? 'en'}><NativeProcessingTheme><AraClipEditorDialog bridge={raw as AraDesktopBridge}
+		clipEditing={runtime} controller={controller} copy={options.copy} onClose={onClose} /></NativeProcessingTheme></EditorComponentCopyProvider>)
 }
 
 interface PluginOption { readonly installationId: string; readonly label: string }
@@ -80,7 +84,7 @@ export function AraClipEditorDialog({ bridge, clipEditing, controller, copy: hos
 	const [plugins, setPlugins] = useState<readonly PluginOption[]>([])
 	const [installationId, setInstallationId] = useState('')
 	const [discoveryBusy, setDiscoveryBusy] = useState(false)
-	const [error, setError] = useState('')
+	const [error, setError] = useState<unknown>(null)
 	const [availability, setAvailability] = useState<NativePluginAvailability | null>(null)
 	const refresh = async (): Promise<void> => {
 		const [payload, registry] = await Promise.all([bridge.nativePluginAvailability(), bridge.listNativePlugins()])
@@ -99,7 +103,7 @@ export function AraClipEditorDialog({ bridge, clipEditing, controller, copy: hos
 				.flatMap((entry) => entry.installations.filter((installation) => !installation.quarantined)
 					.map((installation) => ({ installationId: installation.installationId,
 						label: `${entry.name} ${installation.version} — ${entry.vendor}` }))))
-		}).catch((error: unknown) => { if (active) setError(error instanceof Error ? error.message : String(error)) })
+		}).catch((error: unknown) => { if (active) setError(error) })
 		return () => { active = false }
 	}, [bridge])
 	useEffect(() => {
@@ -110,14 +114,14 @@ export function AraClipEditorDialog({ bridge, clipEditing, controller, copy: hos
 	const busy = discoveryBusy || state.phase === 'opening' || state.phase === 'rendering'
 	const editing = state.phase === 'editing'
 	const perform = (operation: () => Promise<void>): void => {
-		setError('')
+		setError(null)
 		setDiscoveryBusy(true)
-		void operation().catch((error: unknown) => setError(error instanceof Error ? error.message : String(error)))
+		void operation().catch((error: unknown) => setError(error))
 			.finally(() => setDiscoveryBusy(false))
 	}
 	const scan = async (custom: boolean): Promise<void> => {
 		if (!bridge.applyNativeTierControl || !bridge.setNativePluginConsent || !bridge.scanNativePlugins) {
-			throw new Error(copy.unavailable)
+			throw new AraOperationError('unavailable', copy.unavailable)
 		}
 		await bridge.applyNativeTierControl({ action: 'set-native-effect-discovery-enabled', enabled: true })
 		await bridge.setNativePluginConsent({ format: 'vst3', action: 'grant' })
@@ -144,9 +148,10 @@ export function AraClipEditorDialog({ bridge, clipEditing, controller, copy: hos
 				<option value="">{copy.choosePlugin}</option>
 				{plugins.map((plugin) => <option key={plugin.installationId} value={plugin.installationId}>{plugin.label}</option>)}
 			</select></label>
-			<p role="status" aria-live="polite">{error || state.message || (state.phase === 'opening' ? copy.opening
+			<p role="status" aria-live="polite">{error ? araFailureLabel(araFailureInfo(error, 'discovery-failed').code, copy) : state.message ? araFailureLabel(state.failureCode, copy) : (state.phase === 'opening' ? copy.opening
 				: state.phase === 'rendering' ? copy.rendering : editing ? copy.editing
 					: plugins.length === 0 ? availability?.payload.status === 'unavailable' ? copy.unavailable : copy.noPlugins : '')}</p>
+			{(Boolean(error) || state.message) && <details><summary>{hostCopy?.reportItemDiagnostic || 'Original diagnostic'}</summary>{error ? araFailureInfo(error).diagnostic : state.message}</details>}
 			{busy && <progress max={1} value={state.progress} aria-label={state.phase === 'rendering' ? copy.rendering : copy.opening} />}
 			<div className="audio-editor-dialog-buttons">
 				<Button disabled={busy || editing} onClick={() => perform(refresh)}>{copy.refresh}</Button>

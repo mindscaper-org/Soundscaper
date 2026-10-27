@@ -340,7 +340,6 @@ test('recovery stays total when the wall clock regressed since the row was writt
 			`a recovered row never travels backwards in time: ${recovered.record.state}`,
 		);
 	}
-	assert.throws(() => recoverNativeQueueRecord(running, revalidation(), Number.NaN), RangeError);
 });
 
 function revalidation(

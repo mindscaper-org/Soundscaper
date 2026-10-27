@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createProjectBinInstanceCountReader } from '../common/editor/project-bin-instance-count-index.ts';
 import { createStableId } from '../common/editor/stable-id.js';
 import { fingerprintNativeMediaPlan } from '../common/editor/native-media-plan-canonical-form.ts';
 import { collectVisualPresetGeneratorSourceIds, normalizeVideoVisualPresetV1 } from '../common/editor/video-visual-preset-v24.ts';
@@ -34,6 +35,7 @@ export function createFramescaperProjectBinVisualActions(
 	owner: FramescaperProjectBinVisualOwner,
 	createId: (prefix: string) => string = createStableId,
 ): ProductProjectBinActions {
+	const readInstanceCount = createProjectBinInstanceCountReader(owned);
 	return Object.freeze({ moveFromTimeline, place, rename, removeFromBin, removeFromProject, selectInstances, instanceCount });
 
 	function binClip(id: string): Data | undefined {
@@ -41,8 +43,8 @@ export function createFramescaperProjectBinVisualActions(
 	}
 
 	function instanceCount(id: string): number | undefined {
-		const clip = binClip(id);
-		return clip ? records(data(owner.project).clips).filter(item => item.sourceId === clip.sourceId).length : undefined;
+		const project = data(owner.project);
+		return readInstanceCount(project.clips, data(project.projectBin).clips, id);
 	}
 
 	function selectInstances(id: string): readonly string[] | null | undefined {
@@ -86,8 +88,9 @@ export function createFramescaperProjectBinVisualActions(
 		const selection = data(project.selection);
 		const commands: Data[] = [{ type: 'selection/set', ...selection,
 			clipIds: (Array.isArray(selection.clipIds) ? selection.clipIds : []).filter(item => !ids.has(String(item))) }];
+		const owners = timeline.length ? timelineOwners(project) : new Map<unknown, Data>();
 		for (const item of timeline) {
-			const track = records(project.tracks).find(candidate => Array.isArray(candidate.clipIds) && candidate.clipIds.includes(item.id));
+			const track = owners.get(item.id);
 			if (!track) throw new ReferenceError('The visual clip has no timeline owner.');
 			commands.push(clipCommand(item, null, { scope: 'timeline', trackId: track.id }, null));
 		}
@@ -121,8 +124,9 @@ export function createFramescaperProjectBinVisualActions(
 			clipIds: selected.filter(id => !ids.has(String(id))) }];
 		const inherited = moved.filter(clip => !owned(clip)).map(clip => String(clip.id));
 		if (inherited.length) commands.push({ type: 'project-bin/move-from-timeline', clipIds: inherited });
+		const owners = timelineOwners(project);
 		for (const clip of moved.filter(owned)) {
-			const track = records(project.tracks).find(track => Array.isArray(track.clipIds) && track.clipIds.includes(clip.id));
+			const track = owners.get(clip.id);
 			if (!track) throw new ReferenceError('The visual clip has no timeline owner.');
 			commands.push(clipCommand(clip, clip, { scope: 'timeline', trackId: track.id }, { scope: 'project-bin' }));
 		}
@@ -163,6 +167,14 @@ export function createFramescaperProjectBinVisualActions(
 		const snapshot = owner.getSnapshot();
 		return snapshot.readOnly === true || snapshot.importing === true;
 	}
+}
+
+function timelineOwners(project: Data): ReadonlyMap<unknown, Data> {
+	const owners = new Map<unknown, Data>();
+	for (const track of records(project.tracks)) if (Array.isArray(track.clipIds)) {
+		for (const id of track.clipIds as unknown[]) if (!owners.has(id)) owners.set(id, track);
+	}
+	return owners;
 }
 
 function clipCommand(expected: Data | null, clip: Data | null, expectedPlacement: Data | null, placement: Data | null): Data {

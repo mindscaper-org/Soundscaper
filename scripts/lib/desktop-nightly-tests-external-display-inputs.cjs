@@ -86,6 +86,7 @@ module.exports = Object.freeze([
 	'desktop/native-services-proxy-output-broker.ts',
 	'desktop/native-services-publication.ts',
 	'desktop/native-services-queue-repository-v3.ts',
+	'desktop/native-services-queue-status-projection.ts',
 	'desktop/native-services-regenerated-queue.ts',
 	'desktop/native-services-render-input-contract.ts',
 	'desktop/native-services-render-input-durable-store.ts',
@@ -125,5 +126,6 @@ module.exports = Object.freeze([
 	'desktop/openfx-unified-render-execution.ts',
 	'desktop/plugin-candidate-authentication.mjs',
 	'desktop/plugin-candidate-snapshot.mjs',
+	'desktop/plugin-scan-results.ts',
 	'tests/helpers/round7-external-display-native-fixture.ts',
 ]);

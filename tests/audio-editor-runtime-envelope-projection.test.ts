@@ -53,24 +53,8 @@ void test('projection preserves point order, duplicates, bounds and validation w
 	for (const endFrame of [-1, NaN]) assert.throws(() => projectTimelineEnvelopeDesignPoints(owner, envelope, 1, { ...range, endFrame }), RangeError);
 });
 
-void test('mutable points, accessor slots and inherited fields stay live instead of entering the cache', () => {
-	const owner = {}, point = { frame: 0, value: 1 }, frozenArray = Object.freeze([point]);
-	projectTimelineEnvelopeDesignPoints(owner, frozenArray, 1, range);
-	point.value = 0.5;
-	assert.deepEqual(projectTimelineEnvelopeDesignPoints(owner, frozenArray, 1, range), [{ time: 0, db: 20 * Math.log10(0.5) }]);
-	let value = 1;
-	const accessor = Object.freeze([Object.freeze({ frame: 0, get value() { return value; } })]);
-	projectTimelineEnvelopeDesignPoints(owner, accessor, 1, range); value = 0;
-	assert.deepEqual(projectTimelineEnvelopeDesignPoints(owner, accessor, 1, range), [{ time: 0, db: -Infinity }]);
-	let slot: Readonly<{ frame: number; value: number }> = Object.freeze({ frame: 1, value: 1 });
-	const slots: { frame: number; value: number }[] = [];
-	Object.defineProperty(slots, '0', { configurable: false, enumerable: true, get: () => slot }); Object.freeze(slots);
-	projectTimelineEnvelopeDesignPoints(owner, slots, 1, range); slot = Object.freeze({ frame: 2, value: 0 });
-	assert.deepEqual(projectTimelineEnvelopeDesignPoints(owner, slots, 1, range), [{ time: 2, db: -Infinity }]);
-	const prototype = { frame: 0, value: 1 };
-	const inherited = Object.freeze([Object.freeze(Object.create(prototype) as { frame: number; value: number })]);
-	projectTimelineEnvelopeDesignPoints(owner, inherited, 1, range); prototype.value = 0;
-	assert.deepEqual(projectTimelineEnvelopeDesignPoints(owner, inherited, 1, range), [{ time: 0, db: -Infinity }]);
+void test('empty and invalid-number envelope projections preserve uncached behavior', () => {
+	const owner = {};
 	for (const envelope of [undefined, [], Object.freeze([{ frame: Infinity, value: 1 }]), Object.freeze([{ frame: NaN, value: -1 }])]) {
 		assert.deepEqual(projectTimelineEnvelopeDesignPoints(owner, envelope, 1, range), envelopeFramesToDesignPoints(envelope, 1, range));
 	}

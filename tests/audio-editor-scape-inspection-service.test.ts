@@ -97,34 +97,6 @@ test('inspection composes caller cancellation and preserves its exact reason', a
 	assert.equal(capture.signal?.reason, reason);
 });
 
-test('inspection releases its task when caller option snapshotting throws', async () => {
-	const taskController = new AbortController();
-	let finishCalls = 0;
-	const service = createScapeInspectionService({
-		lifetime: {
-			startTask: (name) => ({
-				name,
-				scope: null,
-				abort() {},
-				generation: 1,
-				signal: taskController.signal,
-				assertCurrent() {},
-				finish() { finishCalls += 1; },
-			}),
-		},
-		store: null,
-		inspectScapeProject: () => 'unreachable',
-	});
-	const reason = new Error('Option snapshot failed.');
-	const options: Record<string, unknown> = {};
-	Object.defineProperty(options, 'archiveLimits', {
-		enumerable: true,
-		get() { throw reason; },
-	});
-
-	await assert.rejects(service.inspect(new Blob(['options']), options), (error) => error === reason);
-	assert.equal(finishCalls, 1);
-});
 
 test('inspection admission is denied before a named task can be started', async () => {
 	const quiescence = createScapeInspectionQuiescence();

@@ -190,6 +190,10 @@ export const REACHABILITY_PLACED_TARGETS: ReadonlyMap<string, string> = new Map(
 		'Product identity vocabulary shared with `src/common/site/route.js` and both product entries, so it belongs to no single product graph.',
 	],
 	[
+		'src/common/product-profiles.js',
+		'Product capability profiles shared with the site routes and the transfer pages, which is why they stay outside every editor group.',
+	],
+	[
 		'src/common/editor/aup4-profile.js',
 		'AUP4 archive implementation, deliberately unowned, reached from the page only through the `aup4-worker.js` worker entry and the lazy file-menu archive actions.',
 	],

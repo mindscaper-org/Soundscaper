@@ -13,7 +13,9 @@ export function prepareClipboardPasteTrackPlan(project: ClipboardEditProject, se
 	clipboardTracks: readonly AudioEditorClipboardTrack[], sources: readonly ClipboardEditSource[], hasCarrier: boolean,
 	createId: (prefix?: string) => string, copy: Readonly<{ track: string }>) {
 	const trackMap = Object.create(null) as Record<string, string>;
-	const commands: AudioEditorCommand[] = missingClipboardSourcesForPaste(project.sources, sources)
+	const productImageIds = new Set(hasCarrier ? sources.filter(source => source.kind === 'image').map(source => source.id) : []);
+	const commands: AudioEditorCommand[] = missingClipboardSourcesForPaste(
+		project.sources.filter(source => !productImageIds.has(source.id)), sources)
 		.map((source) => hasCarrier && source.kind !== undefined && source.kind !== 'audio' && source.kind !== 'video'
 			? { type: 'source/add', source: structuredClone(source) } as AudioEditorCommand
 			: createAddSourceCommand(source));

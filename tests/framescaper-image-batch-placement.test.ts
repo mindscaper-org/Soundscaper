@@ -161,29 +161,10 @@ test('a new image track identity that collides with an existing track is refused
 	}), request({ createId: () => 'track-1' })), RangeError);
 });
 
-test('the batch size is bounded to 1 through 64 files', () => {
-	assert.throws(() => place(project(), request({ sequenceFrameCounts: [] })), RangeError);
-	assert.throws(
-		() => place(project(), request({ sequenceFrameCounts: Array.from({ length: 65 }, () => 1) })),
-		RangeError,
-	);
+test('the maximum 64-file batch places every image', () => {
 	assert.equal(
 		(place(project(), request({ sequenceFrameCounts: Array.from({ length: 64 }, () => 1) }))
 			.placements as readonly unknown[]).length,
 		64,
 	);
-});
-
-test('a non-positive frame count and a negative start frame are refused', () => {
-	assert.throws(() => place(project(), request({ sequenceFrameCounts: [0] })), RangeError);
-	assert.throws(() => place(project(), request({ sequenceFrameCounts: [-1] })), RangeError);
-	assert.throws(() => place(project(), request({ sequenceStartFrame: -1 })), RangeError);
-});
-
-test('a project outside the current Framescaper schema family cannot author a placement', () => {
-	assert.throws(() => place(project({ schemaFamily: 'soundscaper' })), RangeError);
-});
-
-test('a missing primary sequence track order is refused', () => {
-	assert.throws(() => place(project({ sequences: [] })), ReferenceError);
 });

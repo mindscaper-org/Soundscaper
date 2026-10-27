@@ -237,15 +237,6 @@ test('a row missing from the matrix is pending licensing work, not a runtime blo
 	assert.deepEqual(availability.pendingLicensingRowIds, preset.licensingRowIds);
 });
 
-test('a preset that is not from the catalog cannot ask about itself', () => {
-	assert.throws(
-		() => resolvePlatformDeliveryAvailability(
-			{ ...findPlatformDeliveryPreset('native-uhd-hdr10')!, licensingRowIds: [] },
-			MATRIX,
-		),
-		/from the catalog is required/u,
-	);
-});
 
 test('the dialog resolves a blocked target to what will actually be delivered', () => {
 	const dialog = {

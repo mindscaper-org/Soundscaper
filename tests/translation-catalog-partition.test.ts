@@ -8,16 +8,26 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { chunkGroupForModulePath } from '../scripts/lib/build-chunk-groups.mjs';
-import { translationCatalogPartChunkName, translationCatalogPreloadDependencies } from '../scripts/lib/build-chunk-translation-catalogs.mjs';
+import { translationCatalogPartChunkName, translationCatalogPreloadDependencies, translationCatalogTextPoolChunkName } from '../scripts/lib/build-chunk-translation-catalogs.mjs';
 import { createTranslationCatalogBundlePlugin, renderTranslationCatalogModule } from '../scripts/lib/translation-catalog-bundle.mjs';
 import { assembleTranslationCatalogModule, partitionTranslationCatalog, translationCatalogPartId,
 	TRANSLATION_CATALOG_MODULE_BYTES } from '../scripts/lib/translation-catalog-partition.mjs';
+import { loadBundledTranslationCatalogModule } from './helpers/translation-catalog-module-loader.ts';
 
 function catalog(locale = 'fr'): Record<string, unknown> {
 	return { schemaVersion: 2, locale, provenance: { machine: { model: 'Pinned' } }, entries: Object.fromEntries(
 		Array.from({ length: 600 }, (_, index) => [`key${index}`, ['machine',
 			`English ${index}: ${'Long source message '.repeat(20)}`,
 			`Text ${index}: ${'Long translated message '.repeat(20)}`]])) };
+}
+
+/** Enough authored keys to retain entry partitioning after both text-pool optimizations. */
+function partitionedCatalog(locale = 'fr'): Record<string, unknown> {
+	return { ...catalog(locale), entries: Object.fromEntries(Array.from({ length: 5_000 }, (_, index) => [
+		`key${index}`, ['machine',
+			`English ${index % 100}: ${'Long source message '.repeat(20)}`,
+			`${locale} text ${index}: ${'Long translated message '.repeat(20)}`],
+	])) };
 }
 
 async function evaluate(value: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -71,6 +81,21 @@ test('generated part owners include locale and ordinal and preserve Windows path
 	assert.equal(translationCatalogPartChunkName('\0scape:translation-catalog-part:/fr.json:invalid.mjs'), null);
 });
 
+test('shared English and per-locale text pools retain separate bounded lazy chunk owners', () => {
+	for (const [id, name] of [
+		['\0scape:translation-source-text.mjs', 'locale-shared-source-text'],
+		[`\0scape:translation-locale-text:fr.json:${'a'.repeat(64)}:0.mjs`, 'locale-fr-text-0'],
+		[`\0scape:translation-locale-text:pt-BR.json:${'b'.repeat(64)}:2.mjs`, 'locale-pt-BR-text-2'],
+	] as const) {
+		assert.equal(translationCatalogTextPoolChunkName(id), name);
+		assert.equal(chunkGroupForModulePath(id), name);
+	}
+	assert.equal(translationCatalogTextPoolChunkName('scape:translation-source-text.mjs'), null);
+	assert.equal(translationCatalogTextPoolChunkName('\0scape:translation-locale-text:fr.json:invalid.mjs'), null);
+	assert.equal(translationCatalogTextPoolChunkName('\0scape:translation-locale-text:fr.json:0.mjs'), null);
+	assert.equal(translationCatalogTextPoolChunkName(translationCatalogPartId('/catalog/fr.json', 0)), null);
+});
+
 test('catalog preload filtering preserves unrelated dependencies and the input inventory', () => {
 	const root = 'assets/fr.json-abcd.js', dependencies = [root, 'assets/locale-fr-entries-0-abcd.js',
 		'assets/vendor-react-abcd.js', 'assets/locale-fr-entries-1-efgh.js', 'assets/style-abcd.css',
@@ -92,7 +117,7 @@ test('catalog reloads and build epochs discard obsolete parts and prohibit cross
 	const watched: string[] = [], context = { addWatchFile: (path: string) => watched.push(path) };
 	try {
 		await mkdir(catalogDirectory, { recursive: true });
-		for (const locale of ['fr', 'hi']) await writeFile(join(catalogDirectory, `${locale}.json`), JSON.stringify(catalog(locale)));
+		for (const locale of ['fr', 'hi']) await writeFile(join(catalogDirectory, `${locale}.json`), JSON.stringify(partitionedCatalog(locale)));
 		const french = plugin.resolveId('./fr.json', importer), hindi = plugin.resolveId('./hi.json', importer);
 		assert.ok(french); assert.ok(hindi);
 		await plugin.load.call(context, french); await plugin.load.call(context, hindi);
@@ -119,7 +144,7 @@ async function withHeldRead(run: (context: Readonly<{
 }>) => Promise<void>): Promise<void> {
 	const directory = await mkdtemp(join(tmpdir(), 'scape-translation-catalog-held-read-'));
 	const catalogDirectory = join(directory, 'src/common/i18n/translations'), path = join(catalogDirectory, 'fr.json');
-	await mkdir(catalogDirectory, { recursive: true }); await writeFile(path, JSON.stringify(catalog()));
+	await mkdir(catalogDirectory, { recursive: true }); await writeFile(path, JSON.stringify(partitionedCatalog()));
 	const plugin = createTranslationCatalogBundlePlugin(), root = plugin.resolveId('./fr.json', join(catalogDirectory, 'index.js'));
 	assert.ok(root);
 	const nativeRead = fs.readFile;
@@ -157,13 +182,13 @@ test('a held read cannot republish catalog parts after a new build starts', asyn
 
 test('a held older read cannot replace or clear the newer parts of its own catalog', async () => {
 	await withHeldRead(async ({ plugin, path, root, load, release, outcome }) => {
-		const newer = catalog(), entries = newer.entries as Record<string, unknown>;
+		const newer = partitionedCatalog(), entries = newer.entries as Record<string, unknown>;
 		entries.key0 = ['human', 'New source English', 'New translated text'];
 		await writeFile(path, JSON.stringify(newer)); await load(root);
 		const part = translationCatalogPartId(path, 0), fresh = await load(part); assert.ok(fresh);
 		release(); assertSuperseded(await outcome);
 		assert.equal(plugin.resolveId(part, root), part); assert.equal(await load(part), fresh);
-		const module = await import(`data:text/javascript,${encodeURIComponent(fresh)}`) as { entries: Record<string, unknown> };
+		const module = await loadBundledTranslationCatalogModule(plugin, fresh, part) as { entries: Record<string, unknown> };
 		assert.deepEqual(module.entries.key0, entries.key0);
 	});
 });

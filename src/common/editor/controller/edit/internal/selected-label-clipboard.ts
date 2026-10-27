@@ -6,7 +6,7 @@ import type { CurrentAudioEditorClipboardDescriptor } from '../../../commands/cl
 import type { AudioEditorClipboard, AudioEditorCommand } from '../../../commands/protocol.ts';
 import { isRecord, labelClipboardTarget, selectedLabelsForProject, type SelectedLabelState } from '../../../label-clipboard-selection.ts';
 import { scaleSampleFrame, type HoldTempoMap } from '../../../timeline-time.ts';
-import { sampleFrameToBeat } from '../../../timeline-tempo-inverse.ts';
+import { createSampleFrameBeatProjector } from '../../../timeline-tempo-inverse.ts';
 import { setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
 
 interface State extends SelectedLabelState {
@@ -105,6 +105,7 @@ export function createSelectedLabelClipboardService(d: Dependencies) {
 
 	function pastedLabels(project: Project, descriptor: LabelClipboardDescriptor) {
 		const atFrame = nonNegativeFrame(d.getPositionFrames());
+		let toBeat: ReturnType<typeof createSampleFrameBeatProjector> | undefined;
 		return descriptor.labels.map(label => {
 			const startFrame = nonNegativeFrame(atFrame + scaleSampleFrame(label.startOffsetFrame, descriptor.sampleRate, project.sampleRate, 'point'));
 			const endFrame = nonNegativeFrame(atFrame + scaleSampleFrame(label.endOffsetFrame, descriptor.sampleRate, project.sampleRate, 'point'));
@@ -112,9 +113,10 @@ export function createSelectedLabelClipboardService(d: Dependencies) {
 				opaqueExtensions: structuredClone(label.opaqueExtensions) };
 			if (label.anchor === 'sample') return { ...common, anchor: 'sample' as const, startFrame, endFrame };
 			if (!project.tempoMap) throw new TypeError('Musical label paste requires the destination tempo map.');
+			toBeat ??= createSampleFrameBeatProjector(project.tempoMap, project.sampleRate);
 			return { ...common, anchor: 'musical' as const,
-				startBeat: sampleFrameToBeat(startFrame, project.tempoMap, project.sampleRate),
-				endBeat: sampleFrameToBeat(endFrame, project.tempoMap, project.sampleRate) };
+				startBeat: toBeat(startFrame),
+				endBeat: toBeat(endFrame) };
 		});
 	}
 

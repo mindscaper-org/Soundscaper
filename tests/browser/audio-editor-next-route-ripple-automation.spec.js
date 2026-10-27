@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { TRACK_AUTOMATION_COPY_BY_LOCALE } from '../../src/common/i18n/editor-track-automation-copy.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, chooseCommandAction, clipByName } from './audio-editor-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
@@ -6,6 +7,8 @@ import { persistedProject } from './helpers/complex-editing-workflows.js';
 import { routeRippleProject } from '../helpers/next-route-ripple-project.ts';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 import { createProjectStore } from '../../src/common/editor/storage.js';
+
+const MASTER_ASSIGNMENT = TRACK_AUTOMATION_COPY_BY_LOCALE.en.automationAssignmentTarget.replace('{destination}', 'Master');
 
 test('per-track gap closure keeps its output automation with the edited recording', async ({ page }) => {
 	const { project, source } = routeRippleProject();
@@ -26,7 +29,7 @@ test('per-track gap closure keeps its output automation with the edited recordin
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'read-only');
 	const row = editor.locator('[data-track-row][data-track-id="voice"]');
 	await chooseTrackMenuAction(page, editor, row, 'Add automation');
-	await row.getByRole('combobox', { name: 'Automation parameter', exact: true }).selectOption({ label: 'Master assignment' });
+	await row.getByRole('combobox', { name: 'Automation parameter', exact: true }).selectOption({ label: MASTER_ASSIGNMENT });
 	await expect(row.locator('[data-automation-point-id="voice-later"]')).toHaveCount(1);
 	await clipByName(editor, 'First').locator('.clip-header').click();
 	await chooseNestedCommandAction(page, editor, 'Edit', ['Delete', 'Delete and close gap per track']);

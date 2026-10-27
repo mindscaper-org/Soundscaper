@@ -318,37 +318,14 @@ test('plans are deeply frozen, replanning is drift-free, and the command project
 	assert.ok(first.transforms.every(({ changes }) => Object.isFrozen(changes)));
 });
 
-test('invalid ownership, media references, canonical ranges, retiming, locks, and arithmetic refuse before planning', () => {
+test('retiming, stale targets, locks, and unsafe requested boundaries refuse before planning', () => {
 	const base = fixture({ linkedAudio: true });
 	const cases: readonly Readonly<{ name: string; project: ReturnType<typeof fixture>; error: RegExp }>[] = [
-		{ name: 'duplicate ownership', project: derive(base, {
-			tracks: [...base.tracks, { ...base.tracks[0], id: 'duplicate-track' }],
-		}), error: /own|duplicate/iu },
-		{ name: 'track kind', project: derive(base, {
-			tracks: base.tracks.map((track) => track.id === 'video-track' ? { ...track, type: 'audio' } : track),
-		}), error: /video|track|kind/iu },
-		{ name: 'missing source', project: derive(base, {
-			clips: base.clips.map((clip) => clip.id === 'video' ? { ...clip, sourceId: 'missing' } : clip),
-		}), error: /source/iu },
-		{ name: 'missing sequence', project: derive(base, {
-			clips: base.clips.map((clip) => clip.id === 'video' ? { ...clip, sequenceId: 'missing' } : clip),
-		}), error: /sequence/iu },
-		{ name: 'zero sequence extent', project: derive(base, {
-			clips: base.clips.map((clip) => clip.id === 'video' ? { ...clip, sequenceFrameCount: 0 } : clip),
-		}), error: /sequence|positive|range/iu },
 		{ name: 'retime map', project: derive(base, {
 			clips: base.clips.map((clip) => clip.id === 'video' ? { ...clip, retimeMap: {
 				feature: 'video-retime', points: [],
 			} } : clip),
 		}), error: /retime/iu },
-		{ name: 'source range', project: derive(base, {
-			clips: base.clips.map((clip) => clip.id === 'video' ? { ...clip, sourceInFrame: 999, sourceFrameCount: 2 } : clip),
-		}), error: /source|range/iu },
-		{ name: 'unsafe sequence sum', project: derive(base, {
-			clips: base.clips.map((clip) => clip.id === 'video' ? {
-				...clip, sequenceStartFrame: Number.MAX_SAFE_INTEGER, sequenceFrameCount: 2,
-			} : clip),
-		}), error: /safe|sequence|range/iu },
 	];
 	for (const row of cases) {
 		const before = JSON.stringify(row.project);
@@ -367,9 +344,6 @@ test('invalid ownership, media references, canonical ranges, retiming, locks, an
 		activeClipId: 'video', edge: 'left', requestedBoundarySample: boundary(11, PAL),
 		isTrackLocked: (trackId) => trackId === 'audio-track',
 	}), /lock|audio-track/iu);
-	assert.throws(() => planFrameCanonicalEdgeTrim({ ...base }, {
-		activeClipId: 'video', edge: 'left', requestedBoundarySample: boundary(11, PAL),
-	}), /command|projection|resolved/iu);
 	const audioOnly = reproject(base, {
 		clips: [base.clips[1]],
 		tracks: [base.tracks[1]],

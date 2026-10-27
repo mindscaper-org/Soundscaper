@@ -34,6 +34,8 @@ export interface ReviewedAssistanceEmbeddingMatrixV1 {
 	readonly dimensions: number;
 	/** Returns an isolated row copy; callers cannot mutate reviewed custody. */
 	readonly vector: (row: number) => Float32Array;
+	/** Reads reviewed custody without exposing its mutable storage. */
+	readonly dotProduct: (row: number, query: ArrayLike<number>) => number;
 }
 
 export interface AssistanceFramePackV1DraftFrame {
@@ -153,6 +155,16 @@ export function reviewAssistanceEmbeddingMatrixV1(
 		schemaVersion: ASSISTANCE_EMBEDDING_MATRIX_SCHEMA_VERSION,
 		rowCount,
 		dimensions,
+		dotProduct(rowValue: number, query: ArrayLike<number>): number {
+			const row = integer(rowValue, 0, rowCount - 1, 'embedding row ordinal');
+			if (!query || query.length !== dimensions) throw new RangeError('Embedding query dimensions disagree.');
+			let score = 0;
+			for (let column = 0; column < dimensions; column += 1) {
+				score += query[column]! * values[row * dimensions + column]!;
+			}
+			if (!Number.isFinite(score)) throw new RangeError('Semantic-search similarity is non-finite.');
+			return score;
+		},
 		vector(rowValue: number): Float32Array {
 			const row = integer(rowValue, 0, rowCount - 1, 'embedding row ordinal');
 			return values.slice(row * dimensions, (row + 1) * dimensions);

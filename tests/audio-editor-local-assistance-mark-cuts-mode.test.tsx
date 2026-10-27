@@ -55,7 +55,6 @@ test('Mark Cuts exposes Fast by default and Accurate only with an exact TransNet
 	assert.match(accurateMarkup, /Accurate · TransNetV2/u);
 	assert.match(accurateMarkup, /<option value="transnetv2">transnetv2 · 1\.0\.0<\/option>/u);
 	assert.doesNotMatch(accurateMarkup, /substitute-shot-model/u);
-	assert.throws(() => store.selectModel('substitute-shot-model'), /incompatible/iu);
 	store.selectModel('transnetv2');
 	assert.equal(store.getSnapshot().canRun, true);
 

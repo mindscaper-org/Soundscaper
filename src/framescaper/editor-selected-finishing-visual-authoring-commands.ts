@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { boundedVisualAuthoringValue as bounded } from './editor-selected-visual-validation.ts';
 import { exportSequenceProject } from '../common/editor/export-sequence-project.ts';
 import { derivedVideoVisualSourceName } from '../common/editor/video-visual-source-name.ts';
 import {
@@ -526,13 +527,6 @@ function positiveInteger(value: unknown, name: string): number {
 function nonNegativeInteger(value: unknown, name: string): number {
 	if (!Number.isSafeInteger(value) || Number(value) < 0) throw new RangeError(`${name} must be non-negative.`);
 	return Number(value);
-}
-
-function bounded(value: unknown, minimum: number, maximum: number, name: string): number {
-	if (typeof value !== 'number' || !Number.isFinite(value) || value < minimum || value > maximum) {
-		throw new RangeError(`${name} is outside its finite bound.`);
-	}
-	return Object.is(value, -0) ? 0 : value;
 }
 
 function safeName(value: unknown, name: string): string {

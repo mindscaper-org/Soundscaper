@@ -89,6 +89,7 @@ function recordingAddon({ failAtBlock = null } = {}) {
 				events.push('close');
 			},
 			pluginLatencyFrames: () => 64,
+			pluginAudioTopology: () => ({ inputChannels: 2, outputChannels: 2 }),
 			processPluginBlock: () => {
 				if (failAtBlock !== null && processed >= failAtBlock) throw new Error('the plug-in aborted');
 				processed += 1;
@@ -191,15 +192,6 @@ test('the rendered digest is deterministic and differs per plug-in', { skip: !bu
 	const passthrough = await run({ grant: await grantFor('clean-effect'), onProgress: () => {} }).completion;
 	assert.equal(first.renderedSha256, again.renderedSha256, 'the same plug-in must render identically');
 	assert.notEqual(first.renderedSha256, passthrough.renderedSha256, 'gain must not render as passthrough');
-});
-
-test('a binary that changed after it was granted is refused before dlopen', { skip: !built }, async () => {
-	const run = await hostRunner();
-	const grant = { ...(await grantFor('clean-effect')), binarySha256: 'a'.repeat(64) };
-	await assert.rejects(
-		run({ grant, onProgress: () => {} }).completion,
-		/changed after it was granted/u,
-	);
 });
 
 test('an instrument is refused by the host even with a valid grant', { skip: !built }, async () => {

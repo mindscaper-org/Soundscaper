@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { uploadErrorLabel, uploadFailureLabel } from '../upload-validation-presentation.ts';
 
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { createPortal } from 'react-dom';
@@ -32,7 +33,7 @@ export default function AudiocomUploadArea({
 	const detailsRef = useRef<HTMLDetailsElement | null>(null);
 	const rows = useRef(new Map<string, HTMLLIElement>());
 	const [dragging, setDragging] = useState(false);
-	const [error, setError] = useState('');
+	const [error, setError] = useState<unknown>(null);
 	const [publishItem, setPublishItem] = useState<AudiocomUploadItem | null>(null);
 	const requestedItem = useRef<string | undefined>(undefined);
 	useEffect(() => {
@@ -45,9 +46,9 @@ export default function AudiocomUploadArea({
 	}, [publishItemId, queue.items]);
 	const files = (selected: readonly File[]) => {
 		if (disabled || !selected.length) return;
-		setError('');
+		setError(null);
 		try { onFiles(selected); }
-		catch (reason) { setError(reason instanceof Error ? reason.message : copy.uploadError); }
+		catch (reason) { setError(reason); }
 	};
 	const dragOver = (event: DragEvent<HTMLElement>) => {
 		if (!event.dataTransfer.types.includes('Files')) return;
@@ -85,7 +86,7 @@ export default function AudiocomUploadArea({
 					<small>{copy.uploadFileTypes}</small>
 				</div>
 				<p className="kw-audio-editor__audiocom-note">{copy.unlistedNotice}</p>
-				{error ? <p role="alert">{error}</p> : null}
+				{error ? <p role="alert">{uploadErrorLabel(error, copy, copy.uploadError)}</p> : null}
 				{queue.items.length ? <ol className="kw-audio-editor__audiocom-upload-list" aria-label={copy.uploadQueue}>
 					{queue.items.map((item) => <UploadRow key={item.id} copy={copy} item={item} disabled={disabled}
 						onPublish={() => setPublishItem(item)} onRetry={() => onRetry(item.id)}
@@ -125,7 +126,7 @@ function UploadRow({ copy, item, disabled, onPublish, onRetry, onCancel, onRemov
 				<span className="kw-audio-editor-sr-only">{item.fileName}: </span>{copy[statusKey]}
 			</span>
 		</div>
-		{item.errorMessage ? <p role="alert">{item.errorMessage}</p> : null}
+		{item.errorMessage ? <p role="alert">{uploadFailureLabel(item.uploadFailure, copy, copy.publishError)}</p> : null}
 		<div className="kw-audio-editor__audiocom-upload-actions">
 			{item.status === 'draft' ? <Button size="small" disabled={disabled} onClick={onPublish}>
 				{copy.publish}<span className="kw-audio-editor-sr-only">: {item.fileName}</span>

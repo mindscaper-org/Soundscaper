@@ -9,11 +9,14 @@ import { framescaperProjectTimelineImageFoundationShapeAssistance } from './edit
 import { FRAMESCAPER_TIMELINE_IMAGE_PROJECT_RUNTIME_PROFILE } from './editor-domain-runtime-profile.ts';
 import { createFramescaperSessionClipboardV13, type FramescaperSessionClipboardV13 } from './editor-session-clipboard-v13.ts';
 import { createFramescaperSessionClipboardV14, type FramescaperSessionClipboardV14 } from './editor-session-clipboard-v14.ts';
-import { prepareFramescaperSessionClipboardPasteV13, type FramescaperSessionClipboardPasteV13 } from './editor-session-clipboard-v13-paste.ts';
+import { prepareFramescaperSessionClipboardPasteV13, stageFramescaperSessionClipboardImageBodiesV13, type FramescaperSessionClipboardPasteV13,
+	type FramescaperImageClipboardBodyStageV13, type FramescaperImageClipboardBodyStoreV13 } from './editor-session-clipboard-v13-paste.ts';
 import { prepareFramescaperSessionClipboardPasteV14, type FramescaperSessionClipboardPasteV14 } from './editor-session-clipboard-v14-paste.ts';
 import { normalizeFramescaperImageSourceV1OrV2 } from '../common/editor/timeline-image-model-v2.ts';
 import { readClosedDomainArray } from '../common/editor/closed-domain-value.ts';
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
+import { framescaperProjectStoreAuthority } from './editor-project-store.ts';
+import { authorizeClipboardImageAttachments } from './editor-session-clipboard-image-attachments.ts';
 
 export type CurrentFramescaperSessionClipboard = FramescaperSessionClipboardV13 | FramescaperSessionClipboardV14;
 export type CurrentFramescaperSessionClipboardPaste = FramescaperSessionClipboardPasteV13 | FramescaperSessionClipboardPasteV14;
@@ -21,6 +24,8 @@ export type CurrentFramescaperSessionClipboardPaste = FramescaperSessionClipboar
 /** The selected Frame owner chooses complete descriptor7/Frame14 capture.
  * Explicit legacy descriptors keep the exact V13 admission path. */
 export function createFramescaperCurrentClipboardRuntime(profile: unknown) {
+	const preparedPastes = new WeakMap<object, Readonly<{ prepared: CurrentFramescaperSessionClipboardPaste;
+		projectId: string; existingImages: ReadonlySet<string> }>>();
 	return Object.freeze({
 		captureEditClipboardDescriptor(project: unknown, options: Parameters<typeof createClipboardDescriptorV7>[1]) {
 			const descriptor = createClipboardDescriptorV7(framescaperProjectForEditClipboardConsumers(profile, project), options);
@@ -33,11 +38,29 @@ export function createFramescaperCurrentClipboardRuntime(profile: unknown) {
 			createId: (prefix?: string) => string) {
 			const prepared = preparePaste(project, clipboard, command, createId);
 			const sourceProject = framescaperProjectTimelineImageFoundationShapeAssistance(project);
-			const availableImages = new Set(sourceProject.sources.filter(source => source.kind === 'image').map(source => source.id));
-			// Images whose durable bodies already belong to this destination retain
-			// their rich leaves. New image IO still requires its explicit staging owner.
-			return [...prepared.imageSourceIdMap.values()].every(id => availableImages.has(id))
-				? prepared.command : prepared.foundationCommand;
+			preparedPastes.set(prepared.command, { prepared, projectId: sourceProject.id,
+				existingImages: new Set(sourceProject.sources.filter(source => source.kind === 'image').map(source => source.id)) });
+			return prepared.command;
+		},
+		async stagePasteCommand(command: unknown, store: unknown, options: Readonly<{ signal?: AbortSignal }> = {}): Promise<FramescaperImageClipboardBodyStageV13 | null> {
+			const capture = command && typeof command === 'object' ? preparedPastes.get(command) : null;
+			if (!capture?.prepared.bodyTransfers.length) return null;
+			const bodies = await stageFramescaperSessionClipboardImageBodiesV13(capture.prepared.bodyTransfers,
+				store as FramescaperImageClipboardBodyStoreV13, options);
+			try {
+				const fresh = capture.prepared.bodyTransfers.filter(transfer => !capture.existingImages.has(transfer.source.id))
+					.map(transfer => transfer.source);
+				const authority = framescaperProjectStoreAuthority(profile, store);
+				const grant = authorizeClipboardImageAttachments(authority.port, capture.projectId, fresh);
+				return Object.freeze({ publicationCount: bodies.publicationCount,
+					complete() { grant.complete(); bodies.complete(); },
+					async rollback() { grant.rollback(); await bodies.rollback(); },
+				});
+			} catch (error) {
+				try { await bodies.rollback(); }
+				catch (cleanup) { throw new AggregateError([error, cleanup], 'Clipboard image authorization and rollback both failed.', { cause: cleanup }); }
+				throw error;
+			}
 		},
 	});
 

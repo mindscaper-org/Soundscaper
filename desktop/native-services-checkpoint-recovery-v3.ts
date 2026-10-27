@@ -3,7 +3,7 @@
 /** V3 queue adapter for generation-neutral image-sequence checkpoint recovery. */
 
 import { createNativeMediaPlanEnvelopeV1 } from '../src/common/editor/native-media-plan-envelope.ts';
-import { createNativeMediaPlanEnvelopeV2 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
+import { createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
 import {
 	assertNativeQueueRecordV3,
 	type NativeQueueRecordV3,
@@ -50,7 +50,7 @@ const RECORD_ADAPTER: NativeCheckpointRecordAdapter<NativeQueueRecordV3> = Objec
 	// V3 retains migrated V6-V12 rows for custody while dispatching V14 work.
 	createPlanEnvelope: (plan: unknown, record: NativeQueueRecordV3) => (
 		record.planVersion >= 13
-			? createNativeMediaPlanEnvelopeV2(plan)
+			? createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(plan)
 			: createNativeMediaPlanEnvelopeV1(plan)
 	),
 });

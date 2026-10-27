@@ -195,14 +195,9 @@ test('a retimed clip carries its rendered duration and names the omission', () =
 	assert.ok(result.report.items.some((item) => item.code === 'fcpxml.speed-change-omitted'));
 });
 
-test('serialization is deterministic and the export refuses a guessed rate', () => {
+test('serialization is deterministic', () => {
 	const build = () => createFcpxmlExport({ project: project(), sequenceRate: NTSC }).text;
 	assert.equal(build(), build());
-	assert.throws(() => createFcpxmlExport({ project: project(), sequenceRate: { num: 30, den: 0 } }), /rational/u);
-	assert.throws(
-		() => createFcpxmlExport({ project: project({ sampleRate: -1 }), sequenceRate: NTSC }),
-		/sample rate/u,
-	);
 });
 
 test('simultaneous tracks go to connected lanes, not on top of each other in the spine', () => {

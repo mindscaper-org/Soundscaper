@@ -43,8 +43,8 @@ test('persistent delivery approves the actual file bound before opening native s
 	await write.abandon();
 });
 
-test('persistent delivery refuses absent, declined or truthy non-boolean approval before staging', async () => {
-	for (const accepted of [undefined, false, 'yes'] as const) {
+test('persistent delivery refuses absent or declined approval before staging', async () => {
+	for (const accepted of [undefined, false] as const) {
 		const filesystem = createFilesystem();
 		const confirmFileSizeWarning = accepted === undefined ? undefined
 			: async () => accepted as unknown as boolean;

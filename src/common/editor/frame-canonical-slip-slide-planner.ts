@@ -226,8 +226,10 @@ function preflightParticipants(
 	for (const item of participants) {
 		if (!item.video && item.clip.warpMap != null) throw new RangeError(`Audio clip ${item.clipId} has a warp map.`);
 	}
-	for (const trackId of new Set(participants.map(({ trackId }) => trackId))) {
-		const track = participants.find((item) => item.trackId === trackId)!.track;
+	const checked = new Set<string>();
+	for (const { trackId, track } of participants) {
+		if (checked.has(trackId)) continue;
+		checked.add(trackId);
 		if (isTrackLockProjectSchema(project) && typeof track.locked !== 'boolean') {
 			throw new TypeError(`Track ${trackId}.locked must be boolean in a V15 project.`);
 		}

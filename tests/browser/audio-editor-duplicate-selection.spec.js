@@ -14,7 +14,7 @@ test.describe('Duplicate selection', () => {
 		const original = clipByName(editor, toneA.name);
 		const properties = await openClipProperties(page, editor, original);
 		await showClipTimingFields(properties);
-		await clipField(properties, 'startFrame').fill(String(12_345 / 48_000));
+		await clipField(properties, 'startFrame').fill(String(12_345));
 		await clipField(properties, 'startFrame').press('Tab');
 		await closeClipProperties(properties);
 		const originalId = await original.getAttribute('data-clip-id');
@@ -33,7 +33,7 @@ test.describe('Duplicate selection', () => {
 		const copiedProperties = await openClipProperties(page, editor, copied);
 		await showClipTimingFields(copiedProperties);
 		await clipField(copiedProperties, 'startFrame').focus();
-		await expect(clipField(copiedProperties, 'startFrame')).toHaveValue(String(12_345 / 48_000));
+		await expect(clipField(copiedProperties, 'startFrame')).toHaveValue(String(12_345));
 		await closeClipProperties(copiedProperties);
 		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
 		await expect(editor).toHaveAttribute('data-clip-count', '1');

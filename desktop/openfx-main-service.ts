@@ -315,7 +315,6 @@ export class FramescaperOpenFxMainService {
 			await this.#assertInteractAuthority(plugin, epoch, manager, request);
 			const result = await manager.interact(fingerprint, Object.freeze({
 				kind: 'ofx-host' as const, grant, signal: abort.signal,
-				dataPlaneTransfers: Object.freeze([]),
 			}), (error) => {
 				if (!abort.signal.aborted) this.#recordRuntimeFailure(plugin, error);
 			});

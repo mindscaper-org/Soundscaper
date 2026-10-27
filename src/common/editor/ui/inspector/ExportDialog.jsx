@@ -44,7 +44,7 @@ import {
 } from './inspector-helpers.ts';
 import {
 	createDesktopExportCodecQuery, desktopExportCodecCapabilities,
-	desktopExportFormatAvailable, desktopExportFormatReason,
+	desktopExportFormatAvailable, desktopExportFormatReason, desktopExportCapabilityNotice,
 	desktopExportSelectionReason,
 } from '../desktop-export-codec-model.ts';
 import {
@@ -83,7 +83,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 	currentOperationOwner.current = operationOwner;
 	const desktop = fileService?.isDesktop === true;
 	const projectChannelCount = snapshot.project?.masterChannels || 2;
-	const desktopVideoCapabilities = useDesktopVideoExportCapabilities(fileService, isOpen);
+	const desktopVideoCapabilities = useDesktopVideoExportCapabilities(fileService, isOpen, copy);
 	const desktopCodecQuery = useMemo(() => {
 		if (!desktop) return null;
 		try { return createDesktopExportCodecQuery({
@@ -319,17 +319,15 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 	const sampleFormatOptions = formatDescriptor ? exportDialogSampleFormats(settings.format, desktop) : [];
 	const desktopFormatRefusal = desktop
 		? (videoFormat ? desktopVideoCapabilities.reason(settings.format)
-			: desktopExportSelectionReason(settings, desktopCodecCapabilities, desktopCodecQuery === false)
+			: desktopExportSelectionReason(settings, desktopCodecCapabilities, desktopCodecQuery === false, copy)
 				|| exportDialogBitRateSelectionReason(
-					settings.format, settings[mp3QualityKey] ?? settings.bitRate, formatQualityOptions, desktop,
+					settings.format, settings[mp3QualityKey] ?? settings.bitRate, formatQualityOptions, desktop, copy,
 				))
 		: null;
 	const desktopCodecNotice = desktopFormatRefusal || (desktop && hasTimelineVideo ? desktopVideoCapabilities.notice : null)
 		|| (desktopCodecQuery === false
-		? desktopExportFormatReason('opus', null, true)
-		: Object.values(desktopCodecCapabilities?.formats || {}).find((capability) => (
-			!capability.available && capability.reason?.includes('Preferences > General')
-		))?.reason || null);
+		? desktopExportFormatReason('opus', null, true, copy)
+		: desktopExportCapabilityNotice(desktopCodecCapabilities, copy));
 	const audioFormatDescriptors = Object.values(MEDIA_EXPORT_FORMATS).filter((descriptor) => (
 		desktop
 			? desktopExportFormatAvailable(descriptor.id, desktopCodecCapabilities)

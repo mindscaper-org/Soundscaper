@@ -67,7 +67,9 @@ export default function SoundActivationSettings({
 	const model = createSoundActivationUiModel(soundActivation, readOnly, locale, copy);
 	const actions = controller.actions.recording.soundActivation;
 	const update = (operation: () => unknown) => {
-		if (!model.controlsDisabled) { rememberFocus(); void run(operation); }
+		if (model.controlsDisabled) return false;
+		rememberFocus();
+		return run(operation);
 	};
 	return (
 		<section
@@ -167,7 +169,7 @@ interface SoundActivationRangeProps {
 	readonly disabled: boolean;
 	readonly statusId: string;
 	readonly dataAttribute: 'threshold' | 'hysteresis' | 'hold';
-	onChange(value: number): void;
+	onChange(value: number): unknown;
 }
 
 function SoundActivationRange({
@@ -235,9 +237,9 @@ function SoundActivationTime({
 		</span>
 		<span data-sound-activation-hold>
 			<AudioEditorTimeCodeInput name={name} label={label} value={value}
-				unit="milliseconds" minimum={range.minimum} maximum={range.maximum}
+				unit="milliseconds" quantum={1} minimum={range.minimum} maximum={range.maximum}
 				valueText={valueText} describedBy={`${descriptionId} ${statusId}`}
-				disabled={disabled} onChange={onChange} />
+				disabled={disabled} onCommit={onChange} />
 		</span>
 		<span id={descriptionId} className="kw-audio-editor-sr-only">{description}</span>
 	</label>;

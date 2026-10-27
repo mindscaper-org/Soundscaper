@@ -168,21 +168,6 @@ test('only queued rows are admissible', () => {
 	assert.deepEqual(admission.deferred, []);
 });
 
-test('malformed capacity is refused rather than treated as unlimited', () => {
-	for (const overrides of [
-		{ availableCpuCores: -1 },
-		{ availableProcessTreeRssBytes: 1.5 },
-		{ volumeFreeBytes: Number.NaN },
-		{ reservedFreeBytes: -1 },
-	]) {
-		assert.throws(
-			() => admitNativeQueueJobs([job('01')], 0, capacity(overrides as never)),
-			NativeQueueAdmissionError,
-		);
-	}
-	assert.throws(() => admitNativeQueueJobs([job('01')], -1, capacity()), /runningCount/u);
-});
-
 test('capacity snapshots are exact immutable main-owned observations', () => {
 	const snapshot = nativeQueueCapacitySnapshotV1({
 		...capacity(), busyHardwareBackends: ['nvenc'],

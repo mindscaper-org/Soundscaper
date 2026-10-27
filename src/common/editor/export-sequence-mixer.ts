@@ -2,7 +2,7 @@
 
 import { normalizeAutomationLaneV21 } from './automation-lane-v21.ts';
 import { isMixerGraphV21Surface } from './mixer-graph-surface-v21.ts';
-import { mixerDetectorInputClosure } from './mixer-detector-input-closure.ts';
+import { createMixerRoutingClosureIndex } from './mixer-routing-closure.ts';
 import { mixerEndpointKeyV21, normalizeMixerGraphV21, type MixerEdgeV21 } from './mixer-graph-v21.ts';
 import type { StripRef } from './parameter-address.ts';
 
@@ -34,30 +34,21 @@ function sequenceMixer(project: Data, trackIds: ReadonlySet<string>, strict: boo
 			&& effect.enabled !== false && effect.bypassed !== true);
 	};
 	const active = { ...graph, edges: graph.edges.filter(edge => edge.enabled && activeEffect(edge)) };
-	const programme = new Set(['master', ...[...trackIds].map(id => `track:${id}`)]);
-	const audibleEdges = new Set<string>();
-	let changed = true;
-	while (changed) {
-		changed = false;
-		for (const edge of active.edges) {
-			if (edge.destination.kind === 'effect-sidechain' || !programme.has(mixerEndpointKeyV21(edge.source))) continue;
-			audibleEdges.add(edge.id);
-			if (edge.destination.kind === 'output') continue;
-			const destination = mixerEndpointKeyV21(edge.destination);
-			if (!programme.has(destination)) { programme.add(destination); changed = true; }
-		}
-	}
-	const retained = new Set(programme);
+	const routes = createMixerRoutingClosureIndex(active);
+	const closure = routes.programme(['master', ...[...trackIds].map(id => `track:${id}`)]);
+	const programme = closure.strips, audibleEdges = new Set(closure.edgeIds);
+	const retained = new Set(programme), detectorSources: StripRef[] = [];
 	for (const edge of active.edges) {
 		if (edge.destination.kind !== 'effect-sidechain' || !programme.has(mixerEndpointKeyV21(edge.destination.strip))) continue;
-		const incoming = mixerDetectorInputClosure(active, edge.source);
-		if (strict && [...incoming.strips].some(strip => strip.startsWith('track:') && !trackIds.has(strip.slice(6)))) {
-			throw new RangeError('This sequence uses an audio detector from another timeline. Move its detector recording into the delivered timeline before exporting.');
-		}
+		detectorSources.push(edge.source);
 		audibleEdges.add(edge.id);
-		for (const id of incoming.edgeIds) audibleEdges.add(id);
-		for (const strip of incoming.strips) if (!strip.startsWith('track:') || trackIds.has(strip.slice(6))) retained.add(strip);
 	}
+	const incoming = routes.detector(detectorSources);
+	if (strict && [...incoming.strips].some(strip => strip.startsWith('track:') && !trackIds.has(strip.slice(6)))) {
+		throw new RangeError('This sequence uses an audio detector from another timeline. Move its detector recording into the delivered timeline before exporting.');
+	}
+	for (const id of incoming.edgeIds) audibleEdges.add(id);
+	for (const strip of incoming.strips) if (!strip.startsWith('track:') || trackIds.has(strip.slice(6))) retained.add(strip);
 	const keepStrip = (strip: StripRef): boolean => retained.has(mixerEndpointKeyV21(strip));
 	const edges = graph.edges.filter(edge => keepStrip(edge.source)
 		&& (edge.destination.kind === 'output' || keepStrip(edge.destination.kind === 'effect-sidechain' ? edge.destination.strip : edge.destination)))

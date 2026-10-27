@@ -281,7 +281,7 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(browserJob, /matrix:\n\s+project: \[chromium, webkit\]/u);
 	assert.match(browserJob, /container:\n\s+image: mcr\.microsoft\.com\/playwright:v1\.62\.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e\n\s+options: --user 1001/u);
 	assert.match(browserJob, /npm install --global --prefix "\$HOME\/\.local" npm@12\.0\.1/u);
-	assert.match(browserJob, /name: verified-site-build/u);
+	assert.match(browserJob, /name: verified-soundscaper-browser-site-build/u);
 	assertEngineIsSharded(browserJob, `${label} browser`, 'npm run test:browser:built -- --project=${{ matrix.project }}', browserShardCount);
 	assert.match(browserJob, /--workers=\$\{\{ steps\.browser-run-shape\.outputs\.workers \}\} --retries=\$\{\{ steps\.browser-run-shape\.outputs\.retries \}\}/u,
 		`${label} must execute the collected shard's worker and retry policy`);
@@ -303,7 +303,7 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(firefoxJob, /name: Restore or install verified Playwright Firefox\n\s+timeout-minutes: 15\n\s+uses: \.\/\.github\/actions\/verified-firefox/u);
 	assert.match(firefoxJob, /scripts\/ci-firefox-pulseaudio\.sh/u);
 	assert.match(firefoxJob, /node scripts\/ci-firefox-audio-clock\.mjs/u);
-	assert.match(firefoxJob, /name: verified-site-build/u);
+	assert.match(firefoxJob, /name: verified-soundscaper-browser-site-build/u);
 	assertEngineIsSharded(firefoxJob, `${label} firefox`, 'npm run test:browser:built -- --project=firefox', firefoxShardCount);
 	assert.ok(firefoxJob.includes(`--shard=\${{ matrix.shard }}/${firefoxShardCount} --workers=1 --retries=1 --list --reporter=json`),
 		`${label} must collect Firefox's actual complete shard`);

@@ -472,8 +472,10 @@ function assertUnlocked(
 	participants: readonly Participant[],
 	predicate: FrameCanonicalRollRippleTrimRequest['isTrackLocked'],
 ): void {
-	for (const trackId of new Set(participants.map((item) => item.trackId))) {
-		const track = participants.find((item) => item.trackId === trackId)!.track;
+	const checked = new Set<string>();
+	for (const { trackId, track } of participants) {
+		if (checked.has(trackId)) continue;
+		checked.add(trackId);
 		if (isTrackLockProjectSchema(project) && typeof track.locked !== 'boolean') {
 			throw new TypeError(`Track ${trackId}.locked must be boolean in a V15 project.`);
 		}

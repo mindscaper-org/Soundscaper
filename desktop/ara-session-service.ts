@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { AraOperationError } from '../src/common/editor/ara-failure.ts'
 import { randomBytes } from 'node:crypto'
 import {
 	admitAraPcm, admitAraSource, araId, araInteger, araRecord, ARA_CHUNK_FRAMES,
@@ -55,10 +56,10 @@ export class DesktopAraSessions {
 		let backend: AraBackend | null = null
 		try {
 			backend = await this.#options.open(installationId, source)
-			if (epoch !== this.#epoch) throw new Error('ARA admission was revoked during acquisition.')
+			if (epoch !== this.#epoch) throw new AraOperationError('revoked', 'ARA admission was revoked during acquisition.')
 			this.#assertEnabled(owner)
-			if (!await backend.configure(source)) throw new Error('This VST3 plug-in does not support ARA 2.')
-			if (epoch !== this.#epoch || this.#options.isAdmitted?.(installationId) === false) throw new Error('ARA installation admission was revoked.')
+			if (!await backend.configure(source)) throw new AraOperationError('unsupported-plugin', 'This VST3 plug-in does not support ARA 2.')
+			if (epoch !== this.#epoch || this.#options.isAdmitted?.(installationId) === false) throw new AraOperationError('revoked', 'ARA installation admission was revoked.')
 			this.#assertEnabled(owner)
 			const sessionId = araId((this.#options.mintId ?? (() => randomBytes(20).toString('hex')))())
 			if (this.#sessions.has(sessionId)) throw new Error('ARA session identity collision.')
@@ -149,22 +150,22 @@ export class DesktopAraSessions {
 	async dispose(): Promise<void> { this.#disposed = true; await this.disable() }
 
 	#assertEnabled(owner: object): void {
-		if (this.#revoked.has(owner)) throw new Error('ARA owner has been revoked.')
-		if (this.#disposed || !this.#options.isEnabled()) throw new Error('ARA plug-in discovery is disabled.')
+		if (this.#revoked.has(owner)) throw new AraOperationError('revoked', 'ARA owner has been revoked.')
+		if (this.#disposed || !this.#options.isEnabled()) throw new AraOperationError('unavailable', 'ARA plug-in discovery is disabled.')
 	}
 
 	async #run<T>(owner: object, id: unknown, operation: (session: Session) => Promise<T>): Promise<T> {
 		this.#assertEnabled(owner)
 		const session = this.#sessions.get(araId(id))
-		if (!session || session.owner !== owner) throw new Error('ARA session belongs to another owner or is closed.')
+		if (!session || session.owner !== owner) throw new AraOperationError('closed', 'ARA session belongs to another owner or is closed.')
 		const result = session.tail.then(async () => {
 			this.#assertEnabled(owner)
-			if (this.#options.isAdmitted?.(session.installationId) === false) throw new Error('ARA installation admission was revoked.')
-			if (session.closed) throw new Error('ARA session is closed.')
+			if (this.#options.isAdmitted?.(session.installationId) === false) throw new AraOperationError('revoked', 'ARA installation admission was revoked.')
+			if (session.closed) throw new AraOperationError('closed', 'ARA session is closed.')
 			const answer = await operation(session)
 			this.#assertEnabled(owner)
-			if (this.#options.isAdmitted?.(session.installationId) === false) throw new Error('ARA installation admission was revoked.')
-			if (session.closed) throw new Error('ARA session closed before the operation completed.')
+			if (this.#options.isAdmitted?.(session.installationId) === false) throw new AraOperationError('revoked', 'ARA installation admission was revoked.')
+			if (session.closed) throw new AraOperationError('closed', 'ARA session closed before the operation completed.')
 			return answer
 		})
 		session.tail = result.catch(() => undefined)

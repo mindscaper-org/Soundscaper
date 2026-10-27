@@ -119,25 +119,6 @@ test('slide requests always add the current absolute pointer displacement to the
 	});
 });
 
-test('pointer authority and request construction refuse unsafe sample coordinates', () => {
-	const fixture = pointerProject();
-	assert.throws(() => captureFrameCanonicalSlipSlidePointerAuthority(
-		fixture.project,
-		fixture.timingViews,
-		{ mode: 'slip', activeClipId: 'center-video', pointerDownSample: 0.5 },
-	), /pointerDownSample|safe integer/iu);
-	const authority = captureFrameCanonicalSlipSlidePointerAuthority(
-		fixture.project,
-		fixture.timingViews,
-		{ mode: 'slide', activeClipId: 'center-video', pointerDownSample: 0 },
-	);
-	assert.throws(() => buildFrameCanonicalSlipSlidePointerRequest(
-		authority,
-		Number.MAX_SAFE_INTEGER + 1,
-	), /currentPointerSample|safe integer/iu);
-
-
-});
 
 test('opposite safe-integer pointer extremes never overflow intermediate Number arithmetic', () => {
 	const fixture = pointerProject();

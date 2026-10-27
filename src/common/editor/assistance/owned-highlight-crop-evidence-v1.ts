@@ -2,7 +2,7 @@
 
 /** Deterministic clipping of accepted Reframe paths into exact Highlight ranges. */
 
-import type { AssistanceAcceptedReframeDerivativeV1 } from './reframe-derivative-v1.ts';
+import { reviewAssistanceAcceptedReframeDerivativeV1, type AssistanceAcceptedReframeDerivativeV1 } from './reframe-derivative-v1.ts';
 import type { AssistanceOwnedHighlightCropKeyframeV1 } from
 	'./owned-video-highlight-transform-types-v1.ts';
 import type { ReviewedAssistanceSourceTimeRowsV1 } from './source-time-rows-v1.ts';
@@ -28,40 +28,60 @@ export function createOwnedHighlightCropKeyframesV1(request: Readonly<{
 	readonly sourceEndFrame: number;
 	readonly targetAspect: Readonly<{ width: number; height: number }>;
 }>): readonly AssistanceOwnedHighlightCropKeyframeV1[] {
-	if (request.sourceEndFrame - request.sourceStartFrame < 2) {
-		throw new RangeError('A highlight proposal needs two exact source crop anchors.');
-	}
-	if (request.video.reframeEvidence === null) {
-		const center = planAssistanceReframePathV1({ sourceSize: request.video.sourceSize,
-			targetAspect: request.targetAspect, samples: [
-				{ sourceFrame: request.sourceStartFrame, subjects: [], saliency: null },
-				{ sourceFrame: request.sourceEndFrame - 1, subjects: [], saliency: null },
-			] }).map(({ schemaVersion: _, ...keyframe }) => keyframe);
-		return Object.freeze(center);
-	}
-	const result = request.video.reframeEvidence.result;
-	if (result.path.targetAspect.width !== request.targetAspect.width
-		|| result.path.targetAspect.height !== request.targetAspect.height) {
+	return prepareOwnedHighlightCropKeyframesV1(request.video, request.targetAspect)(
+		request.sourceStartFrame, request.sourceEndFrame);
+}
+
+/** One operation owns the detached reviewed path; each window visits only its interval. */
+export function prepareOwnedHighlightCropKeyframesV1(
+	video: Readonly<{ sourceSize: Readonly<{ width: number; height: number }>;
+		reframeEvidence: AssistanceAcceptedReframeDerivativeV1 | null }>,
+	targetAspectValue: Readonly<{ width: number; height: number }>,
+): (sourceStartFrame: number, sourceEndFrame: number) => readonly AssistanceOwnedHighlightCropKeyframeV1[] {
+	const targetAspect = Object.freeze({ ...targetAspectValue });
+	const sourceSize = Object.freeze({ ...video.sourceSize });
+	const evidence = video.reframeEvidence === null ? null
+		: reviewAssistanceAcceptedReframeDerivativeV1(video.reframeEvidence);
+	if (evidence && (evidence.result.path.targetAspect.width !== targetAspect.width
+		|| evidence.result.path.targetAspect.height !== targetAspect.height)) {
 		throw new RangeError('Accepted Reframe evidence disagrees with Highlight target aspect.');
 	}
-	const path = result.path.keyframes;
-	const endFrame = request.sourceEndFrame - 1;
-	const interpolationPath = path.map((keyframe) => ({ schemaVersion: 1 as const, ...keyframe }));
-	const boundary = (sourceFrame: number): AssistanceOwnedHighlightCropKeyframeV1 => {
-		const exact = path.find((keyframe) => keyframe.sourceFrame === sourceFrame);
-		return exact ?? Object.freeze({ sourceFrame, authority: 'center' as const,
-			trackIds: Object.freeze([]),
-			crop: interpolateAssistanceReframeCropV1(interpolationPath, sourceFrame) });
+	const path = evidence?.result.path.keyframes ?? [];
+	const lower = (target: number): number => {
+		let first = 0, end = path.length;
+		while (first < end) {
+			const middle = first + Math.floor((end - first) / 2);
+			if (path[middle]!.sourceFrame < target) first = middle + 1;
+			else end = middle;
+		}
+		return first;
 	};
-	const cropKeyframes = Object.freeze([
-		boundary(request.sourceStartFrame),
-		...path.filter(({ sourceFrame }) => sourceFrame > request.sourceStartFrame
-			&& sourceFrame < endFrame),
-		boundary(endFrame),
-	]);
-	assertOwnedHighlightCropAspectV1(cropKeyframes, request.video.sourceSize,
-		request.targetAspect);
-	return cropKeyframes;
+	const boundary = (sourceFrame: number): AssistanceOwnedHighlightCropKeyframeV1 => {
+		const index = lower(sourceFrame), exact = path[index];
+		if (exact?.sourceFrame === sourceFrame) return exact;
+		const left = path[Math.max(0, index - 1)]!, right = path[Math.min(index, path.length - 1)]!;
+		const adjacent = left === right ? [left] : [left, right];
+		return Object.freeze({ sourceFrame, authority: 'center' as const, trackIds: Object.freeze([]),
+			crop: interpolateAssistanceReframeCropV1(adjacent.map((key) => ({ schemaVersion: 1, ...key })), sourceFrame) });
+	};
+	return (sourceStartFrame, sourceEndFrame) => {
+		if (!Number.isSafeInteger(sourceStartFrame) || !Number.isSafeInteger(sourceEndFrame)
+			|| sourceEndFrame - sourceStartFrame < 2) {
+			throw new RangeError('A highlight proposal needs two exact source crop anchors.');
+		}
+		if (evidence === null) return Object.freeze(planAssistanceReframePathV1({ sourceSize,
+			targetAspect, samples: [
+				{ sourceFrame: sourceStartFrame, subjects: [], saliency: null },
+				{ sourceFrame: sourceEndFrame - 1, subjects: [], saliency: null },
+			] }).map(({ schemaVersion: _, ...keyframe }) => keyframe));
+		const endFrame = sourceEndFrame - 1;
+		const begin = lower(sourceStartFrame);
+		const first = path[begin]?.sourceFrame === sourceStartFrame ? begin + 1 : begin;
+		const keyframes = Object.freeze([boundary(sourceStartFrame),
+			...path.slice(first, lower(endFrame)), boundary(endFrame)]);
+		assertOwnedHighlightCropAspectV1(keyframes, sourceSize, targetAspect);
+		return keyframes;
+	};
 }
 
 export function assertOwnedHighlightReframeVideoAuthorityV1(

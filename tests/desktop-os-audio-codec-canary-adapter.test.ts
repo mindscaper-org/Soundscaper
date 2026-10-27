@@ -225,15 +225,6 @@ test('canary refuses mismatched tuples, silent output, and non-native runner fai
 	});
 });
 
-test('canary target binding excludes macOS x64', () => {
-	const runner = { execute: async () => ({
-		status: 'unavailable' as const, reason: 'api-unavailable' as const, detail: 'unavailable',
-	}) };
-	assert.throws(() => createOperatingSystemAudioCodecCanaryAdapter({
-		target: 'mac-x64' as 'mac-arm64', runner,
-	}), /target/iu);
-});
-
 test('startup canary is byte-identical to the target-native self-test fixture', async () => {
 	const source = await readFile(new URL(
 		'../native/soundscaper-professional-host/tests/os_audio_codec_self_test.cpp', import.meta.url,

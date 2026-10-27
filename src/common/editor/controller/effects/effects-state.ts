@@ -9,6 +9,8 @@ import {
 	type MacroScriptLibraryState,
 } from './macro-script-library-service.ts';
 import type { EffectsCompositionState } from './effects-composition-types.ts';
+import { createOwnedStateAccess } from '../shared/owned-state.ts';
+import { registerEffectsLibraryAccess, registerEffectsLibraryOwner } from './internal/owned-effect-library-state.ts';
 
 type SharedEffectsCompositionField =
 	| 'selectedTrackId'
@@ -44,7 +46,7 @@ export function createControllerEffectsState<EffectPresets>({
 	effectPresets,
 	initialEffectType,
 }: ControllerEffectsStateOptions<EffectPresets>): ControllerEffectsState<EffectPresets> {
-	return {
+	return registerEffectsLibraryOwner({
 		effectClipboard: null,
 		readSourceSelectionFrames: null,
 		audacityEffectType: initialEffectType,
@@ -70,7 +72,15 @@ export function createControllerEffectsState<EffectPresets>({
 		nyquistAbort: null,
 		nyquistResult: null,
 		spectralWorker: null,
-	};
+	});
+}
+
+/** Issue the effects write view and retain the owner's library replacement contract. */
+export function createControllerEffectsStateAccess<State extends object, EffectPresets>(
+	state: State,
+	owner: ControllerEffectsState<EffectPresets>,
+) {
+	return registerEffectsLibraryAccess(createOwnedStateAccess(state, owner), owner);
 }
 
 /** Capabilities used by the few non-effects coordinators that transition effect state. */

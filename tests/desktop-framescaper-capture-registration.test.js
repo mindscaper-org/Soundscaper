@@ -5,6 +5,8 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
+import { DESKTOP_EXPECTED_RUNTIME_FILES } from '../scripts/lib/desktop-project-library-runtime.mjs';
+
 const ROOT = resolve(import.meta.dirname, '..');
 
 test('main delegates capture security without growing either ceiling-owned entrypoint', async () => {
@@ -53,12 +55,12 @@ test('staging owns compiled capture security and a sandbox-only Framescaper capt
 		readFile(resolve(ROOT, 'scripts/lib/desktop-soundscaper-runtime-files.mjs'), 'utf8'),
 		readFile(resolve(ROOT, 'tsconfig.desktop-runtime.json'), 'utf8'),
 	]);
-	assert.match(runtime, /framescaper-capture-desktop-port\.js/u);
-	assert.match(runtime, /framescaper-capture-session-security\.js/u);
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/framescaper-capture-desktop-port.js'));
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/framescaper-capture-session-security.js'));
 	assert.match(soundscaperRuntime, /soundscaper-capture-session-security\.js/u);
 	assert.match(runtime, /framescaper-capture-sandbox-preload\.cjs/u);
 	assert.match(runtime, /framescaper-web-vcr-sandbox-preload\.cjs/u);
-	assert.match(runtime, /framescaper-web-vcr-registration\.js/u);
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/framescaper-web-vcr-registration.js'));
 	assert.match(configuration, /desktop\/framescaper-capture-desktop-port\.ts/u);
 	assert.match(configuration, /desktop\/framescaper-capture-session-security\.ts/u);
 	assert.match(configuration, /desktop\/soundscaper-capture-session-security\.ts/u);

@@ -103,6 +103,14 @@ function validateVisualModels(project: Record<string, unknown>): void {
 	const sourceById = new Map(sources.map((source) => [String(source.id), source]));
 	const sequenceIds = new Set(records(data(project, 'sequences'), 'sequences').map(({ id }) => String(id)));
 	const trackById = new Map(records(data(project, 'tracks'), 'tracks').map((track) => [String(track.id), track]));
+	const timelineClips = new Set(clips), timelineIds = new Set(clips.map(clip => String(clip.id)));
+	const ownersByClipId = new Map<unknown, { track: Record<string, unknown>; count: number }>();
+	for (const track of trackById.values()) if (Array.isArray(track.clipIds)) {
+		for (const id of new Set(track.clipIds as unknown[])) {
+			const prior = ownersByClipId.get(id);
+			if (prior) prior.count++; else ownersByClipId.set(id, { track, count: 1 });
+		}
+	}
 	const identities = new Set<string>();
 	for (const owner of [...sources, ...clips, ...binClips, ...trackById.values(), ...records(data(project, 'sequences'), 'sequences')]) {
 		const ownerId = String(data(owner, 'id'));
@@ -123,17 +131,17 @@ function validateVisualModels(project: Record<string, unknown>): void {
 			throw new ReferenceError(`${String(clip.kind)} clip references missing matching source ${normalized.sourceId}.`);
 		}
 		if (!sequenceIds.has(normalized.sequenceId)) throw new ReferenceError(`Visual clip sequence ${normalized.sequenceId} is missing.`);
-		if (clips.includes(clip)) timelineVisualIds.add(normalized.id);
+		if (timelineClips.has(clip)) timelineVisualIds.add(normalized.id);
 	}
 	for (const clipId of timelineVisualIds) {
-		const owners = [...trackById.values()].filter((track) => Array.isArray(track.clipIds) && track.clipIds.includes(clipId));
-		if (owners.length !== 1 || owners[0]!.type !== 'video') {
+		const owner = ownersByClipId.get(clipId);
+		if (owner?.count !== 1 || owner.track.type !== 'video') {
 			throw new RangeError(`Timeline visual clip ${clipId} requires exactly one video track owner.`);
 		}
 	}
 	const selection = record(data(project, 'selection'), 'selection');
 	if (Array.isArray(selection.clipIds)) for (const clipId of selection.clipIds.map(String)) {
-		if (!clips.some(({ id }) => String(id) === clipId)) {
+		if (!timelineIds.has(clipId)) {
 			throw new ReferenceError(`visual selection references missing timeline clip ${clipId}.`);
 		}
 	}

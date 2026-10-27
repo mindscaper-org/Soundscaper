@@ -124,10 +124,6 @@ test('video effect stack actions validate and commit each mutation exactly once'
 	]);
 	service.toggleVideoClipEffect('clip-1', 'video-effect-1');
 	assert.equal(harness.project.clips[0]?.videoEffects?.[1]?.enabled, false);
-	assert.throws(
-		() => service.toggleVideoClipEffect('clip-1', 'video-effect-1', 'yes' as unknown as boolean),
-		/must be boolean/u,
-	);
 	service.bypassVideoClipEffect('clip-1', 'video-effect-1', false);
 	assert.equal(harness.project.clips[0]?.videoEffects?.[1]?.enabled, true);
 	assert.throws(

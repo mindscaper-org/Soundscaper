@@ -21,9 +21,13 @@ test('ordinary browser CI authenticates and transfers Lightscaper builds and sib
 			const job = extractJob(source, jobName);
 			assert.match(job,
 				/name: verified-lightscaper-site-build\n\s+path: \.wrangler\/browser-products\/lightscaper/u);
-			assert.match(job,
-				/name: verified-lightscaper-site-source-maps\n\s+path: \.wrangler\/browser-products\/lightscaper-source-maps/u);
-			assert.ok(job.indexOf('name: verified-lightscaper-site-source-maps') < job.indexOf('npm run test:browser:built'));
+			if (jobName === 'browser') {
+				assert.match(job,
+					/name: verified-lightscaper-site-source-maps\n\s+path: \.wrangler\/browser-products\/lightscaper-source-maps/u);
+				assert.match(step(job, "Download the Lightscaper website build's source maps"), /if: matrix\.project == 'chromium'/u);
+				assert.ok(job.indexOf('name: verified-lightscaper-site-source-maps') < job.indexOf('npm run test:browser:built'));
+			} else assert.doesNotMatch(job, /name: verified-lightscaper-site-source-maps/u);
+			assert.match(job, /SCAPE_BROWSER_PRODUCTS_PREPARED: '1'/u);
 		}
 	}
 });
@@ -58,6 +62,8 @@ test('ordinary browser CI executes the exact collected shard with its required r
 		['firefox', 'Collect Firefox shard run shape', 'Run Firefox workflows against the existing build', 'firefox', '${{ matrix.shard }}/4', '1'],
 	]) {
 		const job = extractJob(source, jobName), collect = step(job, collectName), run = step(job, runName);
+		const prerequisites = step(job, 'Resolve the selected test prerequisites');
+		assert.ok(prerequisites.includes(`node scripts/ci-test-prerequisites.mjs --project=${project} --shard=${shard} >> "$GITHUB_OUTPUT"`));
 		assert.ok(job.indexOf(collectName) < job.indexOf(runName), `${jobName} must collect before execution`);
 		assert.ok(collect.includes('id: browser-run-shape'));
 		assert.ok(collect.includes(`node node_modules/@playwright/test/cli.js test --config=playwright.config.mjs --project=${project} --shard=${shard} --workers=${normalWorkers} --retries=1 --list --reporter=json > "$RUNNER_TEMP/browser-shard-collection.json"`));

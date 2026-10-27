@@ -1,3 +1,4 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 /**
  * DialogHeader - Dialog header component with optional logo
  */
@@ -61,7 +62,7 @@ export function DialogHeader({
   os = 'macos',
   className = '',
 }: DialogHeaderProps) {
-  const { theme } = useTheme();
+  const { theme } = useTheme(); const { copy } = useComponentCopy();
 
   const style = {
     '--dialog-header-bg': theme.background.surface.default,
@@ -79,13 +80,13 @@ export function DialogHeader({
             <button
               className="dialog-header__macos-button dialog-header__macos-button--close"
               onClick={onClose}
-              aria-label="Close"
+              aria-label={copy.close}
               type="button"
             />
           )}
           <button
             className="dialog-header__macos-button dialog-header__macos-button--minimize"
-            aria-label="Minimize"
+            aria-label={copy.minimize}
             type="button"
             disabled
           />
@@ -93,7 +94,7 @@ export function DialogHeader({
             <button
               className="dialog-header__macos-button dialog-header__macos-button--maximize"
               onClick={onMaximize}
-              aria-label={isMaximized ? "Restore" : "Maximize"}
+              aria-label={isMaximized ? copy.restore : copy.maximize}
               type="button"
             />
           )}
@@ -130,7 +131,7 @@ export function DialogHeader({
           <button
             className="dialog-header__windows-control dialog-header__windows-control--maximize"
             onClick={onMaximize}
-            aria-label={isMaximized ? "Restore" : "Maximize"}
+            aria-label={isMaximized ? copy.restore : copy.maximize}
             type="button"
           >
             <span className="dialog-header__windows-glyph" data-maximized={isMaximized ? 'true' : 'false'} aria-hidden="true" />
@@ -140,7 +141,7 @@ export function DialogHeader({
           <button
             className="dialog-header__windows-control dialog-header__windows-control--close"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={copy.close}
             type="button"
           >
             <Icon name="close" size={12} />

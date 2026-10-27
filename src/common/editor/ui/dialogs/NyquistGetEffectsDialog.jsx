@@ -10,6 +10,7 @@ import {
 } from '../../nyquist/archive-catalog.js';
 import { nyquistArchiveStore } from '../../nyquist/archive-store.js';
 import { resolveNyquistArchiveCopy } from '../../../i18n/editor-nyquist-archive-copy.ts';
+import { nyquistArchiveErrorLabel } from './nyquist-archive-error-copy.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { useOperationFocusRecovery } from '../useOperationFocusRecovery.ts';
 
@@ -19,7 +20,7 @@ export default function NyquistGetEffectsDialog({ copy, onClose }) {
 	const [query, setQuery] = useState('');
 	const [installed, setInstalled] = useState(() => nyquistArchiveStore.list());
 	const [busy, setBusy] = useState(null);
-	const [error, setError] = useState('');
+	const [error, setError] = useState(null);
 	const captureFocus = useOperationFocusRecovery(busy !== null, nyquistArchiveStore);
 	const requestRef = useRef(null);
 
@@ -35,7 +36,7 @@ export default function NyquistGetEffectsDialog({ copy, onClose }) {
 			setInstalled(nyquistArchiveStore.list());
 			setManifest(catalog);
 		}).catch((reason) => {
-			if (!request.signal.aborted) setError(reason instanceof Error ? reason.message : String(reason));
+			if (!request.signal.aborted) setError({ reason, operation: 'download' });
 		});
 		return () => {
 			requestRef.current?.abort();
@@ -62,12 +63,12 @@ export default function NyquistGetEffectsDialog({ copy, onClose }) {
 		const request = new AbortController();
 		requestRef.current = request;
 		setBusy(artifact.fileName);
-		setError('');
+		setError(null);
 		try {
 			await installNyquistArchivePlugin(nyquistArchiveStore, artifact, { signal: request.signal });
 			if (!request.signal.aborted) setInstalled(nyquistArchiveStore.list());
 		} catch (reason) {
-			if (!request.signal.aborted) setError(reason instanceof Error ? reason.message : String(reason));
+			if (!request.signal.aborted) setError({ reason, operation: 'install' });
 		} finally {
 			if (!request.signal.aborted) setBusy(null);
 		}
@@ -76,9 +77,9 @@ export default function NyquistGetEffectsDialog({ copy, onClose }) {
 		try {
 			nyquistArchiveStore.remove(id);
 			setInstalled(nyquistArchiveStore.list());
-			if (manifest) setError('');
+			if (manifest) setError(null);
 		} catch (reason) {
-			setError(reason instanceof Error ? reason.message : String(reason));
+			setError({ reason, operation: 'remove' });
 		}
 	};
 
@@ -94,7 +95,9 @@ export default function NyquistGetEffectsDialog({ copy, onClose }) {
 			<span>{archiveCopy.searchEffects}</span>
 			<input type="search" value={query} onChange={(event) => setQuery(event.currentTarget.value)} />
 		</label>
-		{error && <p role="alert">{error}</p>}
+		{error && <><p role="alert">{nyquistArchiveErrorLabel(error.reason, error.operation, archiveCopy)}</p>
+			<details><summary>{copy.assistanceTechnicalDetails || 'Technical details'}</summary>
+				<pre>{error.reason instanceof Error ? error.reason.message : String(error.reason)}</pre></details></>}
 		{!manifest && !error && <p role="status">{copy.loading}</p>}
 		{(manifest || error) && <>
 			<p>{archiveCopy.effectCount.replace('{count}', String(filtered.length))}</p>

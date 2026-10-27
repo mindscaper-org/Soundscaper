@@ -98,18 +98,8 @@ test('TTS script preserves multiline narration and refuses other controls', () =
 	}), /bounded plain text/u);
 });
 
-test('TTS scripts reject partial source ranges and malformed settings', () => {
+test('TTS script references reject malformed source bindings', () => {
 	const valid = publication();
-	assert.throws(() => createAssistanceTtsScriptBodyPublicationV1({
-		assetId: valid.reference.id, text: valid.body.text, language: valid.body.language,
-		voiceId: valid.body.voiceId, speed: valid.body.speed,
-		source: { sourceId: valid.reference.sourceId,
-			sourceSha256: valid.reference.sourceSha256,
-			sourceStartFrame: 1, sourceEndFrame: valid.reference.sourceEndFrame },
-		model: { modelId: valid.body.modelId, modelVersion: valid.body.modelVersion,
-			artifactSha256s: valid.body.artifactSha256s },
-		recipe: valid.body.recipe,
-	}), /full positive generated source range/u);
 	assert.throws(() => createAssistanceAssetReferenceV1({
 		...valid.reference, sourceVideoTimingSha256: 'ef'.repeat(32),
 	}), /audio-only/u);

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { formatLocalizedTemplate } from '../localization-template.ts';
+
 import '../audio-editor-design-system/06a-panels-mixer-routing-graph.css';
 
 import React, {
@@ -95,7 +97,7 @@ function RoutingGraphProjectSession({
 	onParameterGesture,
 }: SoundscaperRoutingGraphViewProps) {
 	const layout = useMemo(() => layoutSoundscaperRoutingGraph(project, graph, copy), [copy, graph, project]);
-	const destinations = useMemo(() => routingDestinationOptions(project, graph), [graph, project]);
+	const destinations = useMemo(() => routingDestinationOptions(project, graph, copy), [copy, graph, project]);
 	const [selectionState, setSelectionState] = useState<{ selection: RoutingSelection | null; confirmingDelete: boolean }>({ selection: null, confirmingDelete: false });
 	const { selection, confirmingDelete } = selectionState;
 	const setSelection = useCallback((next: RoutingSelection | null) => setSelectionState({ selection: next, confirmingDelete: false }), []);
@@ -205,10 +207,11 @@ function RoutingGraphProjectSession({
 
 	const selectedKey = selectionKey(selection);
 	const nodeByKey = useMemo(() => indexRoutingNodes(layout.nodes), [layout.nodes]);
+	const edgeHandleStyles = useMemo(() => new Map(layout.edges.map(edge => { const source = nodeByKey.get(edge.sourceKey), destination = nodeByKey.get(edge.destinationKey); return [edge.key, source && destination && edge.kind !== 'vca-membership' ? routingEdgeHandleStyle(source, destination, layout.nodes, edge.parallelOffset) : undefined]; })), [layout, nodeByKey]);
 	const edgeById = useMemo(() => indexRoutingEdges(graph.edges), [graph.edges]);
 	const portsByNode = useMemo(() => indexRoutingPorts(destinations), [destinations]);
 	const countsByNode = useMemo(() => indexRoutingConnections(graph), [graph]);
-	const endpointLabels = useMemo(() => ({ sources: indexRoutingEndpointLabels(routingSourceOptions(project, graph)), destinations: indexRoutingEndpointLabels(destinations) }), [destinations, graph, project]);
+	const endpointLabels = useMemo(() => ({ sources: indexRoutingEndpointLabels(routingSourceOptions(project, graph, copy)), destinations: indexRoutingEndpointLabels(destinations) }), [copy, destinations, graph, project]);
 	const connectingNode = connecting
 		? nodeByKey.get(routingLayoutNodeKeyForEndpoint(connecting)) : undefined;
 	return <section
@@ -286,7 +289,7 @@ function RoutingGraphProjectSession({
 							key={`handle:${edge.key}`}
 							type="button"
 							className={`kw-routing-graph__edge-handle kw-routing-graph__edge-handle--${edge.kind}${edge.enabled ? '' : ' is-disabled'}`}
-							style={routingEdgeHandleStyle(source, destination, layout.nodes, edge.parallelOffset)}
+							style={edgeHandleStyles.get(edge.key)}
 							data-routing-edge={edge.id}
 							aria-pressed={selection?.kind === 'edge' && selection.id === edge.id}
 							aria-label={edgeAriaLabel(copy, model, endpointLabels)}
@@ -536,5 +539,5 @@ function statusKeyForCommit(kind: RoutingCommitKind): string {
 }
 
 function fill(template: string, values: Readonly<Record<string, string>>): string {
-	return Object.entries(values).reduce((result, [key, value]) => result.replace(`{${key}}`, value), template);
+	return formatLocalizedTemplate(template, values);
 }

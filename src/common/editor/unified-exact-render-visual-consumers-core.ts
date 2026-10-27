@@ -8,6 +8,7 @@ import {
 	type RationalInput,
 } from './timeline-time.ts';
 import { fingerprintNativeMediaPlan } from './native-media-plan-canonical-form.ts';
+import { isImmutableDataTree } from './immutable-data-tree.ts';
 import {
 	type UnifiedExactRenderFinishingNode,
 	type UnifiedExactRenderTransitionNode,
@@ -93,6 +94,7 @@ interface ConsumerIndex {
 	readonly orderByTrackId: ReadonlyMap<string, number>;
 	readonly sourceIdByNodeId: ReadonlyMap<string, string>;
 	readonly allowExternalGenerators: boolean;
+	readonly staticFrame: Readonly<{ readonly presetIds: readonly string[]; readonly renderingTracks: ReadonlyMap<string, boolean> }> | null;
 }
 
 export function createExactVisualConsumerCore<Plan extends ExactConsumerPlanCore>(plan: Plan,
@@ -106,6 +108,12 @@ export function createExactVisualConsumerCore<Plan extends ExactConsumerPlanCore
 	);
 	const masks = visuals.filter((node) => node.modelKind === 'mask-matte')
 		.map((node) => [node.modelId, maskState(node)] as const);
+	const anySolo = plan.tracks.some(track => track.solo);
+	const staticFrame = Object.isFrozen(plan) && Object.isFrozen(plan.nodes)
+		&& isImmutableDataTree(plan.tracks) && visuals.every(isImmutableDataTree) ? Object.freeze({
+		presetIds: availablePresetIds({ visuals }),
+		renderingTracks: new Map(plan.tracks.map(track => [track.trackId, anySolo ? track.solo : !track.hidden])),
+	}) : null;
 	const index = Object.freeze({
 		plan,
 		finishing: finishing[0]!,
@@ -116,6 +124,7 @@ export function createExactVisualConsumerCore<Plan extends ExactConsumerPlanCore
 		))),
 		sourceIdByNodeId: new Map(plan.sources.map(({ nodeId, sourceId }) => [nodeId, sourceId] as const)),
 		allowExternalGenerators: options?.allowExternalGenerators === true,
+		staticFrame,
 	});
 	return Object.freeze({
 		plan,
@@ -187,7 +196,7 @@ function resolveFrame(
 		layers: Object.freeze(frameLayers),
 		activeAdjustmentLayers: Object.freeze(adjustments),
 		activeFreezeNodeIds: Object.freeze(activeFreezeNodeIds),
-		availablePresetIds: availablePresetIds(index),
+		availablePresetIds: index.staticFrame?.presetIds ?? availablePresetIds(index),
 		ledger: Object.freeze({
 			requestedNodeIds: Object.freeze(requestedNodeIds),
 			consumedNodeIds: Object.freeze(consumedNodeIds),
@@ -196,7 +205,7 @@ function resolveFrame(
 	});
 }
 
-function availablePresetIds(index: ConsumerIndex): readonly string[] {
+function availablePresetIds(index: Pick<ConsumerIndex, 'visuals'>): readonly string[] {
 	return Object.freeze(index.visuals.filter((node) => node.modelKind === 'preset').flatMap((preset) => {
 		if (!('authoredStateSha256' in preset.authoredState)) return [];
 		const presetState = preset.authoredState;
@@ -283,6 +292,11 @@ function activeVideoSourceIds(index: ConsumerIndex, position: Rational): Set<str
 }
 
 function trackRenders(index: ConsumerIndex, trackId: string): boolean {
+	if (index.staticFrame) {
+		const renders = index.staticFrame.renderingTracks.get(trackId);
+		if (renders === undefined) throw new ReferenceError(`V13 visual track ${trackId} is unavailable.`);
+		return renders;
+	}
 	const track = index.plan.tracks.find((candidate) => candidate.trackId === trackId);
 	if (!track) throw new ReferenceError(`V13 visual track ${trackId} is unavailable.`);
 	const soloed = index.plan.tracks.some((candidate) => candidate.solo);

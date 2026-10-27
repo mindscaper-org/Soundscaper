@@ -33,7 +33,6 @@ export interface SplitIntoNewTrackRuntime {
 	) => Extract<AudioEditorCommand, { type: 'batch' }>;
 	readonly getProject: () => RuntimeValue;
 	readonly supportsTrackFolders?: boolean;
-	readonly findClip: (project: RuntimeValue, clipId: string) => RuntimeValue;
 	readonly createStableId: (prefix?: string) => string;
 	readonly createAddTrackCommand: (track: RuntimeValue) => RuntimeValue;
 	readonly prepareLinkedSplitCommand: (
@@ -65,12 +64,13 @@ export function prepareSplitRangeIntoNewTrackCommand(
 	if (!perTrack.size) return null;
 	const commands: RuntimeValue[] = [];
 	const moves: RuntimeValue[] = [];
+	const trackById = new Map<string, RuntimeValue>(project.tracks.map((track: RuntimeValue) => [track.id, track]));
 	const routingCopies: { sourceTrackId: string; targetTrackId: string }[] = [];
 	let selectTrackId = '';
 	let selectClipId = '';
 	// Insert later siblings first so each captured position still names its source.
 	for (const [trackId, entries] of [...perTrack].reverse()) {
-		const sourceTrack = project.tracks.find((track: RuntimeValue) => track.id === trackId);
+		const sourceTrack = trackById.get(trackId);
 		if (!sourceTrack) continue;
 		const newTrackId = runtime.createStableId('track');
 		routingCopies.push({ sourceTrackId: trackId, targetTrackId: newTrackId });
@@ -123,10 +123,11 @@ function rangeClipsPerTrack(
 ): Map<string, PlannedClip[]> {
 	const perTrack = new Map<string, PlannedClip[]>();
 	const trackIds = new Set(range.trackIds);
+	const clipById = new Map<string, RuntimeValue>(project.clips.map((clip: RuntimeValue) => [clip.id, clip]));
 	for (const track of project.tracks) {
 		if (!trackIds.has(track.id) || !Array.isArray(track.clipIds)) continue;
 		for (const clipId of track.clipIds) {
-			const clip = runtime.findClip(project, clipId);
+			const clip = clipById.get(clipId);
 			if (!liftable(clip, track)) continue;
 			const clipEndFrame = clip.timelineStartFrame + clip.durationFrames;
 			if (clipEndFrame <= range.startFrame || clip.timelineStartFrame >= range.endFrame) continue;

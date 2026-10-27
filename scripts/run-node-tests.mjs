@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 
+import { partitionNodeTestBootstrapBatches } from './lib/node-test-bootstrap.mjs';
+
 import {
 	describeNodeTestSelection,
 	parseNodeTestSelection,
@@ -75,7 +77,8 @@ delete env[NATIVE_TEST_FIXTURE_ENV];
 let executionError = null;
 let exitCode = 0;
 try {
-	for (const batch of partitionNodeTestExecutionBatches(testFiles)) {
+	for (const { files: batch, useLoaders } of partitionNodeTestExecutionBatches(testFiles)
+		.flatMap(files => partitionNodeTestBootstrapBatches(root, files))) {
 		// Authenticate a workflow artifact before starting sibling preparations.
 		if (desktopRuntimeFixtureDirectory === null && desktopFixtureArgument !== undefined && needsDesktopRuntimeTestFixture(batch)) {
 			const fixtureRoot = resolve(root, desktopFixtureArgument.slice('--desktop-runtime-fixture='.length));
@@ -117,7 +120,7 @@ try {
 		if (desktopRuntimeFixtureDirectory !== null) env[DESKTOP_RUNTIME_TEST_FIXTURE_ENV] = desktopRuntimeFixtureDirectory;
 		if (nativeFixtureDirectory !== null) env[NATIVE_TEST_FIXTURE_ENV] = nativeFixtureDirectory;
 		const result = spawnSync(process.execPath, [
-			'--import', 'tsx', '--import', styleAssetLoader,
+			...(useLoaders ? ['--import', 'tsx', '--import', styleAssetLoader] : []),
 			...(requireLinuxNative ? ['--test-reporter', requiredNativeReporter] : []),
 			'--test', ...batch,
 		], {

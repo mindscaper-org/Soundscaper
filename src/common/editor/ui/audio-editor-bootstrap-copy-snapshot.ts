@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { editorCopyStringKeys, transferEditorCopyOrigin } from '../../i18n/editor-copy-origin.ts';
+
 type CopyDataPropertyRequirement = 'own data property' | 'own enumerable data property';
 
 /** Snapshot a validated bootstrap copy without evaluating accessors or retaining mutable fields. */
@@ -9,7 +11,7 @@ export function snapshotBootstrapCopyFields(
 	requirement: CopyDataPropertyRequirement,
 	registeredFields?: ReadonlySet<string>,
 ): Readonly<Record<string, unknown>> {
-	const keys = Reflect.ownKeys(record);
+	const keys = editorCopyStringKeys(record);
 	const registered = registeredFields && keys.every(key => typeof key === 'string' && registeredFields.has(key));
 	if (keys.length > 4_096 && !registered || keys.some((key) => typeof key !== 'string')) {
 		throw new RangeError(`${label} has an invalid field inventory.`);
@@ -22,5 +24,5 @@ export function snapshotBootstrapCopyFields(
 		}
 		output[key] = descriptor.value;
 	}
-	return Object.freeze(output);
+	return Object.freeze(transferEditorCopyOrigin(output, record));
 }

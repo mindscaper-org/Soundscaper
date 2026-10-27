@@ -19,6 +19,7 @@ import {
 	assertUnifiedExactRenderPlanV13,
 	assertUnifiedExactRenderPlanV14,
 	assertUnifiedExactRenderPlanWithTimingSidecars,
+	assertUnifiedExactRenderPlanWithDeferredTimingReferences,
 	type UnifiedExactRenderPlanV13,
 	type UnifiedExactRenderPlanV14,
 	type UnifiedExactRenderTimingSidecars,
@@ -73,6 +74,9 @@ export interface NativeMediaPlanEnvelopeV2 {
 	readonly plan: UnifiedExactRenderPlanV13 | UnifiedExactRenderPlanV14;
 }
 
+const OWNED_PLANS = new WeakMap<object, NativeMediaPlanEnvelopeV2>();
+const VERIFIED_TIMING = new WeakMap<object, UnifiedExactRenderTimingSidecars>();
+
 const FIELDS = Object.freeze([
 	'envelopeVersion', 'planVersion', 'strategy', 'fingerprint', 'canonicalByteLength', 'summary', 'plan',
 ]);
@@ -86,9 +90,28 @@ export function createNativeMediaPlanEnvelopeV2(
 		if (version === 13) assertUnifiedExactRenderPlanV13(value);
 		else assertUnifiedExactRenderPlanV14(value);
 	} else assertUnifiedExactRenderPlanWithTimingSidecars(value, timingSidecars);
+	const result = envelope(value, version);
+	if (timingSidecars !== undefined) VERIFIED_TIMING.set(result, new Map(timingSidecars));
+	return result;
+}
+
+/** Metadata custody only. Execution must re-admit the plan with verified timing bodies. */
+export function createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(value: unknown): NativeMediaPlanEnvelopeV2 {
+	const version = planVersion(value);
+	assertUnifiedExactRenderPlanWithDeferredTimingReferences(value);
+	return envelope(value, version);
+}
+
+/** Reuse only detached immutable snapshots issued by this module; external plans still admit fully. */
+export function prepareNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(value: unknown): NativeMediaPlanEnvelopeV2 {
+	return value !== null && typeof value === 'object' && OWNED_PLANS.get(value)
+		|| createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(value);
+}
+
+function envelope(value: unknown, version: NativeMediaPlanVersionV2): NativeMediaPlanEnvelopeV2 {
 	const fingerprint = fingerprintNativeMediaPlan(value);
 	const plan = deepFreeze(JSON.parse(fingerprint.canonical)) as UnifiedExactRenderPlanV13 | UnifiedExactRenderPlanV14;
-	return Object.freeze({
+	const result = Object.freeze({
 		envelopeVersion: NATIVE_MEDIA_PLAN_ENVELOPE_V2_VERSION,
 		planVersion: version,
 		strategy: NATIVE_MEDIA_PLAN_V2_STRATEGIES[version],
@@ -97,6 +120,8 @@ export function createNativeMediaPlanEnvelopeV2(
 		summary: summarize(plan),
 		plan,
 	});
+	OWNED_PLANS.set(plan, result);
+	return result;
 }
 
 export function assertNativeMediaPlanEnvelopeV2(
@@ -111,7 +136,7 @@ export function assertNativeMediaPlanEnvelopeV2(
 	if (candidate.envelopeVersion !== NATIVE_MEDIA_PLAN_ENVELOPE_V2_VERSION) {
 		nativeMediaPlanViolation('unsupported-version', 'The native media plan envelope V2 version is unsupported.');
 	}
-	const derived = createNativeMediaPlanEnvelopeV2(candidate.plan, timingSidecars);
+	const derived = createNativeMediaPlanEnvelopeV2(candidate.plan, timingSidecars ?? VERIFIED_TIMING.get(candidate));
 	for (const field of ['planVersion', 'strategy', 'fingerprint', 'canonicalByteLength'] as const) {
 		if (candidate[field] !== derived[field]) nativeMediaPlanViolation('malformed', `Envelope V2 ${field} is not derived.`);
 	}

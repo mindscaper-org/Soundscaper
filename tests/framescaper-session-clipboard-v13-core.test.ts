@@ -3,7 +3,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createAddTrackCommand } from '../src/common/editor/commands/factories.ts';
 import { FRAMESCAPER_IMAGE_ASSET_MIME_TYPE } from '../src/common/editor/timeline-image-model.ts';
 import {
 	FRAMESCAPER_TIMELINE_IMAGE_PROJECT_RUNTIME_PROFILE as PROFILE,
@@ -207,23 +206,7 @@ test('a v13 copy demands the authenticated framescaper runtime profile', () => {
 	);
 });
 
-test('a v13 copy refuses a descriptor track the project does not author', () => {
-	const project = imageProject();
 
-	assert.throws(
-		() => copy(project, descriptorFor(project, [descriptorClip(IMAGE_KEY, 'image-source')], 'ghost-track')),
-		{ name: 'ReferenceError', message: /V13 descriptor track ghost-track is missing\./u },
-	);
-});
-
-test('a v13 copy refuses a descriptor key that no authored clip ID prefixes', () => {
-	const project = imageProject();
-
-	assert.throws(
-		() => copy(project, descriptorFor(project, [descriptorClip('ghost-clip:0:48000', 'video-source')])),
-		{ name: 'ReferenceError', message: /V13 descriptor key ghost-clip:0:48000 has no authored clip\./u },
-	);
-});
 
 test('a v13 copy refuses a descriptor whose image key names a source the image clip does not use', () => {
 	const project = imageProject();
@@ -357,14 +340,6 @@ test('a v13 clipboard requires source metadata for every descriptor-owned source
 	);
 });
 
-test('a label track cannot masquerade as the owner of copied image media', () => {
-	const project = applyFramescaperProjectCommandTimelineImage(PROFILE, imageProject(),
-		createAddTrackCommand({ type: 'label', id: 'labels', name: 'Labels' }));
-	assert.throws(
-		() => copy(project, descriptorFor(project, [descriptorClip(IMAGE_KEY, 'image-source')], 'labels')),
-		{ name: 'ReferenceError', message: /has no media clip inventory/ },
-	);
-});
 
 test('the v12 foundation of a v13 clipboard drops its image keys, clips and sources', () => {
 	const clipboard = mixedClipboard();

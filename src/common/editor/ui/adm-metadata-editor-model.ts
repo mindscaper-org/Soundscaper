@@ -21,6 +21,7 @@ export interface AdmEditorSourceChannel {
 	readonly stripId: string;
 	readonly sourceChannel: number;
 	readonly label: string;
+	readonly stripName: string;
 }
 
 export interface AdmEditorAssignmentChange {
@@ -61,12 +62,12 @@ export function listAdmEditorSourceChannels(
 	const mixer = record(project.mixer);
 	const channels: AdmEditorSourceChannel[] = [];
 	const stripsByKind = {
-		track: records(project.tracks),
-		group: records(mixer.groups),
-		send: records(mixer.sends),
+		track: new Map(records(project.tracks).map(strip => [strip.id, strip])),
+		group: new Map(records(mixer.groups).map(strip => [strip.id, strip])),
+		send: new Map(records(mixer.sends).map(strip => [strip.id, strip])),
 	};
 	for (const terminal of listAdmTerminalStrips(project as unknown as RoutingProject)) {
-		const strip = stripsByKind[terminal.kind].find(({ id }) => id === terminal.id);
+		const strip = stripsByKind[terminal.kind].get(terminal.id);
 		appendStripChannels(
 			channels,
 			terminal.kind,
@@ -89,6 +90,7 @@ function appendStripChannels(
 		stripKind,
 		stripId,
 		sourceChannel,
+		stripName: name,
 		label: `${name} — channel ${sourceChannel + 1}`,
 	});
 }

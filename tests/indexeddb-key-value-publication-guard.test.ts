@@ -67,8 +67,22 @@ test('guarded native pair commits atomically and completion failure leaves neith
 				durable => { assert.equal(durable, true); guards++; });
 			if (refuse) await assert.rejects(operation); else assert.equal(await operation, true);
 			assert.equal(guards, 2); assert.equal(f.raw.stats.activeTransactions, 0);
-			assert.deepEqual(f.raw.records(f.name, 'settings'), refuse ? [{ key: 'pointer', value: pointer }]
-				: [{ key: 'commit', value: commit }, { key: 'pointer', value: replacement }]);
+			const rows = f.raw.records(f.name, 'settings');
+			if (refuse) assert.deepEqual(rows, [{ key: 'pointer', value: pointer }]);
+			else {
+				assert.deepEqual(rows.map(({ key, value }) => ({ key, value })),
+					[{ key: 'commit', value: commit }, { key: 'pointer', value: replacement }]);
+				for (const row of rows) {
+					assert.deepEqual(Object.keys(row).sort(), ['generation', 'key', 'value']);
+					assert.ok(typeof row.generation === 'string' && row.generation.length > 0);
+				}
+				assert.notEqual(rows[0]?.generation, rows[1]?.generation);
+				for (const [key, value] of [['commit', commit], ['pointer', replacement]] as const) {
+					assert.deepEqual(await f.values.get(key), value);
+					assert.deepEqual(await f.values.readEntry(key), { present: true, value });
+				}
+				assert.equal(f.raw.stats.activeTransactions, 0);
+			}
 		} finally { f.database.close(); }
 	}
 });

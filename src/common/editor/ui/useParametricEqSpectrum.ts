@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useEffect, useRef, type RefObject } from 'react';
+import { createSpectrumIntervalCache } from './spectrum-bin-intervals.ts';
 
-const MIN_FREQUENCY = 10;
-const MAX_FREQUENCY = 24_000;
 const SPECTRUM_BIN_COUNT = 2_048;
 
 type SpectrumSource = 'input' | 'output';
@@ -35,6 +34,7 @@ export function useParametricEqSpectrum({
 	readerRef.current = readSpectrum;
 
 	useEffect(() => {
+		const drawSpectrumCanvas = createSpectrumCanvasPainter();
 		if (!readerAvailable || (!showInput && !showOutput)) {
 			drawSpectrumCanvas(inputCanvasRef.current, null, sampleRate, 'input');
 			drawSpectrumCanvas(outputCanvasRef.current, null, sampleRate, 'output');
@@ -60,52 +60,56 @@ export function useParametricEqSpectrum({
 	return { inputCanvasRef, outputCanvasRef };
 }
 
-function drawSpectrumCanvas(
-	canvas: HTMLCanvasElement | null,
-	values: Float32Array | null,
-	sampleRate: number,
-	source: SpectrumSource,
-	metadata?: unknown,
-): void {
-	if (!canvas) return;
-	const rect = canvas.getBoundingClientRect();
-	const ratio = Math.min(2, window.devicePixelRatio || 1);
-	const width = Math.max(1, Math.round(rect.width * ratio));
-	const height = Math.max(1, Math.round(rect.height * ratio));
-	if (canvas.width !== width || canvas.height !== height) {
-		canvas.width = width;
-		canvas.height = height;
-	}
-	const context = canvas.getContext('2d');
-	if (!context) return;
-	context.clearRect(0, 0, width, height);
-	if (!values) return;
-	const nativeRate = typeof metadata === 'object' && metadata !== null && 'sampleRate' in metadata
-		&& typeof metadata.sampleRate === 'number' && Number.isFinite(metadata.sampleRate) && metadata.sampleRate > 0
-		? metadata.sampleRate : sampleRate;
-	const maximum = Math.min(MAX_FREQUENCY, sampleRate * 0.49);
-	const binAt = (pixel: number): number => MIN_FREQUENCY * (maximum / MIN_FREQUENCY)
-		** (pixel / Math.max(1, width - 1)) / (nativeRate / 2) * values.length;
-	context.beginPath();
-	context.moveTo(0, height);
-	for (let pixel = 0; pixel < width; pixel += 2) {
-		// Pool the FFT interval covered by each point on the analyser's native clock.
-		const first = Math.max(0, Math.floor(binAt(pixel - 1)));
-		const end = Math.min(values.length, Math.ceil(binAt(pixel + 1)) + 1);
-		let db = -120;
-		for (let bin = first; bin < end; bin++) if (Number.isFinite(values[bin])) db = Math.max(db, values[bin]!);
-		const y = height * (1 - clamp((db + 120) / 120, 0, 1));
-		// Paint the pooled interval at its peak height. A single vertex makes a
-		// narrow triangle whose antialiased pixels can hide that retained level.
-		context.lineTo(Math.max(0, pixel - 1), y);
-		context.lineTo(Math.min(width, pixel + 1), y);
-	}
-	context.lineTo(width, height);
-	context.closePath();
-	context.fillStyle = source === 'input'
-		? 'rgba(82, 155, 255, 0.18)'
-		: 'rgba(76, 222, 154, 0.22)';
-	context.fill();
+function createSpectrumCanvasPainter() {
+	const intervals = createSpectrumIntervalCache();
+	const empty = new WeakSet<HTMLCanvasElement>();
+	return function drawSpectrumCanvas(
+		canvas: HTMLCanvasElement | null,
+		values: Float32Array | null,
+		sampleRate: number,
+		source: SpectrumSource,
+		metadata?: unknown,
+	): void {
+		if (!canvas) return;
+		const rect = canvas.getBoundingClientRect();
+		const ratio = Math.min(2, window.devicePixelRatio || 1);
+		const width = Math.max(1, Math.round(rect.width * ratio));
+		const height = Math.max(1, Math.round(rect.height * ratio));
+		const resized = canvas.width !== width || canvas.height !== height;
+		if (resized) {
+			canvas.width = width;
+			canvas.height = height;
+		}
+		if (!values && empty.has(canvas) && !resized) return;
+		const context = canvas.getContext('2d');
+		if (!context) return;
+		context.clearRect(0, 0, width, height);
+		if (!values) { empty.add(canvas); return; }
+		empty.delete(canvas);
+		const nativeRate = typeof metadata === 'object' && metadata !== null && 'sampleRate' in metadata
+			&& typeof metadata.sampleRate === 'number' && Number.isFinite(metadata.sampleRate) && metadata.sampleRate > 0
+			? metadata.sampleRate : sampleRate;
+		const projection = intervals(width, sampleRate, nativeRate, values.length);
+		context.beginPath();
+		context.moveTo(0, height);
+		for (let pixel = 0; pixel < width; pixel += 2) {
+			// Pool the FFT interval covered by each point on the analyser's native clock.
+			const [first, end] = projection[pixel / 2]!;
+			let db = -120;
+			for (let bin = first; bin < end; bin++) if (Number.isFinite(values[bin])) db = Math.max(db, values[bin]!);
+			const y = height * (1 - clamp((db + 120) / 120, 0, 1));
+			// Paint the pooled interval at its peak height. A single vertex makes a
+			// narrow triangle whose antialiased pixels can hide that retained level.
+			context.lineTo(Math.max(0, pixel - 1), y);
+			context.lineTo(Math.min(width, pixel + 1), y);
+		}
+		context.lineTo(width, height);
+		context.closePath();
+		context.fillStyle = source === 'input'
+			? 'rgba(82, 155, 255, 0.18)'
+			: 'rgba(76, 222, 154, 0.22)';
+		context.fill();
+	};
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

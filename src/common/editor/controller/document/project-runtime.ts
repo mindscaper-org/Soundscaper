@@ -41,7 +41,7 @@ const METHOD_NAMES = [
  * long before a transaction could open — so a runtime without these is complete,
  * and one with them keeps them rather than having them snapshotted away.
  */
-const OPTIONAL_METHOD_NAMES = ['collapseHistory', 'rollbackHistory', 'validateProject', 'compactProjectSourceMetadata', 'prepareEditDuplicateCommand', 'captureEditClipboardDescriptor'] as const;
+const OPTIONAL_METHOD_NAMES = ['collapseHistory', 'rollbackHistory', 'validateProject', 'compactProjectSourceMetadata', 'prepareEditDuplicateCommand', 'captureEditClipboardDescriptor', 'stageEditClipboardPasteCommand'] as const;
 
 export interface ControllerRuntimeProject extends Record<string, unknown> {
 	readonly id: string;
@@ -139,6 +139,12 @@ export interface ControllerProjectRuntime<
 		command: CurrentAudioEditorMutationCommandV2,
 		createId: (prefix?: string) => string,
 	) => unknown;
+	readonly stageEditClipboardPasteCommand?: (
+		command: unknown,
+		store: unknown,
+		options?: Readonly<{ signal?: AbortSignal }>,
+	) => PromiseLike<Readonly<{ complete(): void; rollback(): PromiseLike<void> | void }> | null>
+		| Readonly<{ complete(): void; rollback(): PromiseLike<void> | void }> | null;
 	/** Duplicate within the same document, preserving product leaves without replacing the session clipboard. */
 	readonly prepareEditDuplicateCommand?: (
 		project: unknown,
@@ -193,7 +199,7 @@ export interface ControllerProjectRuntime<
 
 export type ControllerEditClipboardRuntimeBindings = Readonly<Pick<
 	ControllerProjectRuntime,
-	'createEditSessionClipboard' | 'prepareEditClipboardPasteCommand'
+	'createEditSessionClipboard' | 'prepareEditClipboardPasteCommand' | 'stageEditClipboardPasteCommand'
 >>;
 
 const DEFAULT_RUNTIME = Object.freeze({
@@ -354,6 +360,7 @@ export function bindControllerEditClipboardRuntime(
 	const createClipboard = runtime.createEditSessionClipboard;
 	const preparePaste = runtime.prepareEditClipboardPasteCommand;
 	return Object.freeze({
+		...(runtime.stageEditClipboardPasteCommand === undefined ? {} : { stageEditClipboardPasteCommand: runtime.stageEditClipboardPasteCommand }),
 		...(createClipboard === undefined ? {} : {
 			createEditSessionClipboard: (_project: unknown, descriptor: CurrentAudioEditorClipboardDescriptor) => (
 				Reflect.apply(createClipboard, runtime, [getProject(), descriptor]) as ControllerEditSessionClipboardCarrier

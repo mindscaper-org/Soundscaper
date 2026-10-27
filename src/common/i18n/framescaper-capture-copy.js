@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { CAPTURE_FAILURE_COPY } from './capture-failure-copy.ts';
+
 /** Copy for the menu-opted-in Framescaper recording setup and transport control. */
 export const FRAMESCAPER_CAPTURE_COPY_BY_LOCALE = Object.freeze({
 	en: Object.freeze({
+		...CAPTURE_FAILURE_COPY,
 		panelRecordingSetup: 'Recording setup',
 		captureOptions: 'Capture options',
 		captureRuntimeChecking: 'Checking capture support',

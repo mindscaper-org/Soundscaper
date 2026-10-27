@@ -32,11 +32,9 @@ import { resolveExportClips } from './export-clip-boundaries.ts';
 import { resolveMasteringSequenceExport } from './mastering-sequence-export.ts';
 import { cartForMasteringSequence } from './mastering-sequence-cart.ts';
 import {
-	assertSoundscaperEffectChannelSafety,
+	createExportPlanAdmission,
 	deliversMasterMix,
 	resolveExportLoudnessNormalization,
-	selectExportOfflineRenderAdmission,
-	estimateExportPlanSourceWorkingSetBytes,
 } from './export-plan-admission.js';
 import { inheritTrackFolderMediaStateProjectionV12 } from './track-folder-media-runtime.ts';
 import { scaleSampleFrame } from './timeline-time.ts';
@@ -357,11 +355,12 @@ export function createExportPlan(project, options = {}) {
 				includeMaster: false,
 				respectMuteSolo: false,
 			}));
-	assertSoundscaperEffectChannelSafety(runtimeProject, mode, outputs);
+	const admission = createExportPlanAdmission(runtimeProject, mode, outputs);
+	admission.assertChannelSafety();
 	const renderStrategyOptions = {
 		mobile: Boolean(options.mobile),
 		outputBytes,
-		livePcmBytes: options.livePcmBytes ?? estimateExportPlanSourceWorkingSetBytes(runtimeProject, mode, outputs,
+		livePcmBytes: options.livePcmBytes ?? admission.estimateSourceWorkingSetBytes(
 			masteringSequence
 				? masteringSequence.plan.segments.map((segment) => ({ startFrame: segment.sourceStartFrame, endFrame: segment.sourceEndFrame }))
 				: spans || [range])
@@ -373,10 +372,7 @@ export function createExportPlan(project, options = {}) {
 	const render = legacyRender.strategy === 'offline'
 		? chooseRenderStrategy({
 			...renderStrategyOptions,
-			offlineRenderAdmission: selectExportOfflineRenderAdmission({
-				project: runtimeProject,
-				mode,
-				outputs,
+			offlineRenderAdmission: admission.selectOfflineRenderAdmission({
 				range,
 				chapters: spans,
 				renderRanges: masteringSequence?.plan.segments.map((segment) => ({

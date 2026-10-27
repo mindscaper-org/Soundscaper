@@ -213,6 +213,19 @@ export function mapFramescaperImageTimelineFrameV1(
 	return Object.freeze({ sourceTicks, frameIndex: Math.max(0, Math.min(timings.length - 1, low - 1)) });
 }
 
+/** Own the canonical clip phase and clock independently of arbitrary timing-table admission. */
+export function createFramescaperImageTimelineTickMapperV1(clipValue: unknown, sequenceRate: unknown): (frame: number) => bigint {
+	const clip = normalizeFramescaperImageClipV1(clipValue);
+	const rate = normalizedRate(sequenceRate);
+	return frameValue => {
+		const frame = nonNegativeInteger(frameValue, Number.MAX_SAFE_INTEGER, 'Framescaper image sequence frame');
+		if (frame < clip.sequenceStartFrame || frame >= clip.sequenceStartFrame + clip.sequenceFrameCount) {
+			throw new RangeError('The requested sequence frame is outside the Framescaper image clip.');
+		}
+		return timelineImageSourceTickAtFrame(clip, frame - clip.sequenceStartFrame, rate);
+	};
+}
+
 function normalizeOriginal(value: unknown): FramescaperImageOriginalV1 {
 	const record = readClosedDomainRecord(value, 'Framescaper image original', ORIGINAL_FIELDS);
 	const fileName = safeText(field(record, 'fileName', 'Framescaper image original'), 'image original file name');

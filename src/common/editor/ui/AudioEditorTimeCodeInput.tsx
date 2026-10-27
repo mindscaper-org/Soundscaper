@@ -31,6 +31,7 @@ interface AudioEditorTimeCodeInputProps {
 	readonly describedBy?: string;
 	readonly directEntryUnit?: AudioEditorTimeUnit;
 	readonly directEntryPrecision?: number;
+	readonly quantum?: number;
 }
 
 const DEFAULT_SAMPLE_RATE = 48_000;
@@ -60,6 +61,7 @@ export default function AudioEditorTimeCodeInput({
 	describedBy,
 	directEntryUnit = unit,
 	directEntryPrecision,
+	quantum,
 }: AudioEditorTimeCodeInputProps) {
 	const [draft, setDraft] = useState(value);
 	const [displayFormat, setDisplayFormat] = useState(format);
@@ -72,8 +74,9 @@ export default function AudioEditorTimeCodeInput({
 	useEffect(() => setDisplayFormat(format), [format]);
 	const updateDraft = (nextValue: number) => {
 		editRevision.current += 1;
-		setDraft(nextValue);
-		onChange?.(nextValue);
+		const committedValue = quantum && quantum > 0 ? clampAudioEditorTimeValue(Math.round(nextValue / quantum) * quantum, minimum, maximum) : nextValue;
+		setDraft(committedValue);
+		onChange?.(committedValue);
 	};
 	const normalizedRate = editorTimeRate(unit, rate);
 	const normalizedValue = clampAudioEditorTimeValue(draft, minimum, maximum);

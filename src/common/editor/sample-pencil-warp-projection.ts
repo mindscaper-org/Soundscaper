@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { evaluateAudioWarpMapAtSource } from './audio-warp-domain.ts';
 import { createAudioWarpRuntimeEvaluator, type AudioWarpRuntimeProject } from './audio-warp-runtime.ts';
-import { addRationals, beatToSampleFrame } from './timeline-time.ts';
+import { addRationals, beatToSampleFrame, createBreakpointMapEvaluator } from './timeline-time.ts';
 import type { SampleEditClip, SamplePencilEdit, SamplePencilPoint } from './sample-edit-types.ts';
+import type { PencilValueInterpolator } from './sample-pencil-amplitude.ts';
 
 /** Reuse the authored map that supplies the visible waveform's sample position. */
 export function warpedSampleSourceFrame(
@@ -25,10 +25,14 @@ export function createWarpPencilSampleEdits(
 	channel: number,
 	points: readonly SamplePencilPoint[],
 	maximumFrames: number,
+	interpolate?: PencilValueInterpolator,
 ): readonly SamplePencilEdit[] | null {
 	if (clip.warpMap == null) return null;
 	if (!project) throw new TypeError('A warped sample edit requires the clip project.');
 	const evaluator = createAudioWarpRuntimeEvaluator(project, clip);
+	const outerAtSource = createBreakpointMapEvaluator({ feature: 'audio-warp',
+		points: evaluator.map.points.map(point => ({ outer: point.source, source: point.outer, mode: point.mode })),
+	});
 	const normalized = points.map(point => {
 		if (!Number.isSafeInteger(point.timelineFrame) || point.timelineFrame < clip.timelineStartFrame
 			|| point.timelineFrame >= clip.timelineStartFrame + clip.durationFrames) {
@@ -55,13 +59,14 @@ export function createWarpPencilSampleEdits(
 		const direction = Math.sign(current.source - previous.source);
 		for (let step = 1; step <= distance; step += 1) {
 			const frame = previous.source + direction * step;
-			const outer = evaluateAudioWarpMapAtSource(evaluator.map, frame);
+			const outer = outerAtSource(frame);
 			const timelineFrame = clip.anchor === 'musical'
 				? beatToSampleFrame(addRationals(clip.musicalStartBeat!, outer), project.tempoMap, project.sampleRate)
 				: clip.timelineStartFrame + outer.num / outer.den;
 			const amount = Math.max(0, Math.min(1, (timelineFrame - previous.timelineFrame)
 				/ (current.timelineFrame - previous.timelineFrame)));
-			add(frame, previous.value + (current.value - previous.value) * amount);
+			add(frame, interpolate ? interpolate(previous, current, amount, timelineFrame)
+				: previous.value + (current.value - previous.value) * amount);
 		}
 	}
 	return Object.freeze([...edits.values()].sort((left, right) => left.frame - right.frame));

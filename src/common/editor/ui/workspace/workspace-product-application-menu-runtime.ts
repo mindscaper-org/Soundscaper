@@ -36,6 +36,7 @@ interface ProductWorkspaceRuntimeInput {
 	readonly controller: unknown;
 	readonly productId: string;
 	readonly copy: Readonly<Record<string, string>>;
+	readonly locale?: string;
 	readonly project: unknown;
 	readonly projectCapabilities: Readonly<Record<string, unknown>>;
 	readonly editingBlocked: boolean;
@@ -51,7 +52,7 @@ export function useProductNativeServicesMenuRefresh(input: { readonly productId:
 export function createProductWorkspaceApplicationMenuRuntime({
 	controller,
 	productId,
-	copy,
+	copy, locale,
 	project,
 	projectCapabilities,
 	editingBlocked,
@@ -77,7 +78,7 @@ export function createProductWorkspaceApplicationMenuRuntime({
 			]);
 	const nativeServicesRuntime = resolveFramescaperNativeServicesWorkspaceRuntime({
 		productId,
-		copy,
+		copy, locale,
 		project,
 		projectCapabilities,
 		editingBlocked,

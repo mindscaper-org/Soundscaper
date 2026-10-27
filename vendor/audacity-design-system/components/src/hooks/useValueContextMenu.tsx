@@ -1,3 +1,5 @@
+import { componentCopyTemplate } from '../component-copy';
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 /** Shared direct-entry menu, ported from Audacity design system 20ce5547. */
 import React, { useCallback, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -11,7 +13,8 @@ export interface ValueContextMenuOptions {
 	disabled?: boolean;
 }
 
-export function useValueContextMenu({ onEnterValue, onReset, resetLabel = 'default', disabled = false }: ValueContextMenuOptions) {
+export function useValueContextMenu({ onEnterValue, onReset, resetLabel, disabled = false }: ValueContextMenuOptions) {
+	const { copy } = useComponentCopy();
 	const [position, setPosition] = useState<{ x: number; y: number; host: Element } | null>(null);
 	const openerRef = useRef<HTMLElement | null>(null);
 	const close = useCallback(() => {
@@ -30,8 +33,8 @@ export function useValueContextMenu({ onEnterValue, onReset, resetLabel = 'defau
 		onContextMenu, close, open: position !== null,
 		menu: position && createPortal(<div onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()}>
 			<ContextMenu isOpen onClose={close} x={position.x} y={position.y} className="value-context-menu" autoFocus>
-			<ContextMenuItem label="Enter value…" onClick={() => { close(); onEnterValue(); }} />
-			{onReset && <ContextMenuItem label={`Reset to ${resetLabel}`} onClick={() => { close(); onReset(); }} />}
+			<ContextMenuItem label={copy.enterValue} onClick={() => { close(); onEnterValue(); }} />
+			{onReset && <ContextMenuItem label={componentCopyTemplate(copy.resetValue, { value: resetLabel ?? copy.defaultValue })} onClick={() => { close(); onReset(); }} />}
 			</ContextMenu>
 		</div>, position.host),
 	};

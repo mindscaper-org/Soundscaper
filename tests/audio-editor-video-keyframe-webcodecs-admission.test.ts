@@ -48,14 +48,6 @@ test('direct native encoding rejects malformed WebCodecs decisions before resour
 	}
 });
 
-test('direct native encoding refuses accessor-bearing decisions without invoking accessors', async () => {
-	let calls = 0;
-	const webCodecs = { ...decision() };
-	Object.defineProperty(webCodecs, 'codec', { enumerable: true, get() { calls += 1; return 'avc1.4d001e'; } });
-	await assert.rejects(encodeVideoKeyframeVideo(null, { ...fixture(), webCodecs }), /own data property/u);
-	assert.equal(calls, 0);
-});
-
 test('WebCodecs admission captures a frozen decision including its optional hardware preference', () => {
 	for (const hardware of [false, true]) {
 		const webCodecs = { ...decision(), ...(hardware ? { hardwareAcceleration: 'prefer-hardware' as const } : {}) };

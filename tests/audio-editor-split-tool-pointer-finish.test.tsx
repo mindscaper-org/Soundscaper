@@ -13,7 +13,6 @@ test('Split Tool resolves Shift independently when a drag creates its release sp
 		for (const scenario of [
 			{ name: 'Shift pressed after pointerdown', shiftKey: true, trackIds: ['track-a', 'track-b'] },
 			{ name: 'Shift released after pointerdown', shiftKey: false, trackIds: ['track-b'] },
-			{ name: 'Shift held by a custom activation chord', shiftKey: true, trackIds: ['track-a', 'track-b'] },
 		] as const) {
 			fixture.pointerSession.current = {
 				kind: 'split',

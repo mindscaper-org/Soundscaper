@@ -45,6 +45,14 @@ export async function prepareManagedAudioConsolidation(
 	};
 	const commands: AudioEditorCommand[] = [];
 	if (!store.beginSourceWrite || !store.openSourceReadSession || !store.getSourceMetadata) return { commands, discard };
+	const clipsBySource = new Map<unknown, { clipId: string; sourceStartFrame: number }[]>();
+	for (const clip of [...records(project.clips), ...records(record(project.projectBin)?.clips)]) {
+		const sourceId = clip.sourceId;
+		const binding = { clipId: String(clip.id), sourceStartFrame: Number(clip.sourceStartFrame) };
+		const clips = clipsBySource.get(sourceId);
+		if (clips) clips.push(binding);
+		else clipsBySource.set(sourceId, [binding]);
+	}
 	try {
 		for (const source of records(project.sources)) {
 			ready(assertCurrent, signal);
@@ -88,9 +96,7 @@ export async function prepareManagedAudioConsolidation(
 						throw new Error('Consolidation source generation changed before binding.');
 					}
 					ready(assertCurrent, signal);
-					const clips = [...records(project.clips), ...records(record(project.projectBin)?.clips)]
-						.filter((clip) => clip.sourceId === source.id)
-						.map((clip) => ({ clipId: String(clip.id), sourceStartFrame: Number(clip.sourceStartFrame) }));
+					const clips = clipsBySource.get(source.id) ?? [];
 					commands.push({ type: 'source/rewrite-media', sourceId: String(source.id),
 						changes: { storageKey: replacementId }, clips });
 				} catch (error) { await cleanupConsolidation(() => writer.abort(), { error }); throw error; }

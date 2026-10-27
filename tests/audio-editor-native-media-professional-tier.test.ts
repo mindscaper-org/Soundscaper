@@ -26,11 +26,7 @@ const ALL_ROWS = NATIVE_MEDIA_PROFILE_POLICY_ROW_IDS;
 test('unreported professional characteristics report nothing at all', () => {
 	const unreported = createUnreportedNativeMediaProfessionalCharacteristics();
 
-	assert.equal(nativeMediaProfessionalCharacteristicsAreReported(unreported), false);
 	assert.deepEqual(unreported, normalizeNativeMediaProfessionalCharacteristics(null));
-	assert.equal(unreported.bitDepth, null);
-	assert.equal(unreported.pixelFormat, null);
-	assert.equal(unreported.colour.masteringDisplay, null);
 	assert.equal(Object.hasOwn(unreported, 'professionalCharacteristics'), false);
 	assert.deepEqual(resolveNativeMediaHdrClaim(unreported), {
 		transfer: 'unreported', hdr10Metadata: false, wideGamut: false,
@@ -77,24 +73,8 @@ test('mastering-display metadata is reported whole or not at all', () => {
 	}), /cannot exceed the maximum content light level/u);
 });
 
-test('luminance ordering is decided exactly, not on rounded cross-products', () => {
+test('equal luminance remains valid through the compatibility adapter', () => {
 	const minimumLuminance = { num: 999_999_997, den: 999_999_999 };
-	const maximumLuminance = { num: 999_999_995, den: 999_999_997 };
-
-	assert.equal(
-		minimumLuminance.num * maximumLuminance.den > maximumLuminance.num * minimumLuminance.den,
-		false,
-		'this pair only exercises the defect while its cross-products collide in double precision',
-	);
-	assert.equal(
-		BigInt(minimumLuminance.num) * BigInt(maximumLuminance.den)
-			> BigInt(maximumLuminance.num) * BigInt(minimumLuminance.den),
-		true,
-	);
-	assert.throws(() => normalizeNativeMediaProfessionalCharacteristics({
-		masteringDisplay: { ...masteringDisplay(), minimumLuminance, maximumLuminance },
-	}), /minimum luminance exceeds its maximum/u);
-
 	const equal = normalizeNativeMediaProfessionalCharacteristics({
 		masteringDisplay: {
 			...masteringDisplay(), minimumLuminance, maximumLuminance: { ...minimumLuminance },

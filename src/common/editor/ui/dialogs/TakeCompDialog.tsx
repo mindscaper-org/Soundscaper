@@ -1,7 +1,8 @@
+import { useCommittedCallbacks } from '../useCommittedCallbacks.ts';
 import { usePresentationFeedback, feedbackFailure, type PresentationFeedback } from '../presentation-feedback.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 
@@ -109,7 +110,7 @@ export default function TakeCompDialog({
 		draftedProjectId.current = projectId;
 		setGroupId(initialGroupId);
 	}, [initialGroupId, projectId]);
-	const draftIdentity = JSON.stringify([projectId, takeCompDialogDraftIdentity(group)]);
+	const draftIdentity = useMemo(() => JSON.stringify([projectId, takeCompDialogDraftIdentity(group)]), [projectId, group]);
 	const draftedIdentity = useRef(draftIdentity);
 	const draftOwner = JSON.stringify([projectId, group?.id ?? null]);
 	const draftedOwner = useRef(draftOwner);
@@ -301,6 +302,7 @@ interface TakeGroupEditorProps {
 
 function TakeGroupEditor(props: TakeGroupEditorProps) {
 	const { group, copy, disabled } = props;
+	const regionActions = useCommittedCallbacks({ onBoundaryChange: props.onBoundaryChange, onApplyBoundary: props.onApplyBoundary, onSharedBoundaryChange: props.onSharedBoundaryChange, onApplySharedBoundary: props.onApplySharedBoundary });
 	return <div className="audio-editor-take-comp__editor">
 		<section aria-label={copy.takeCompSelectedTake}>
 			<div className="audio-editor-take-comp__lanes" role="list" aria-label={copy.takeCompTitle}>
@@ -333,7 +335,7 @@ function TakeGroupEditor(props: TakeGroupEditorProps) {
 				<button type="button" disabled={!props.rangeValid} onClick={props.onPromoteRange}>{copy.takeCompPromoteRange}</button>
 			</div>
 		</fieldset>
-		<RegionEditor {...props} />
+		<RegionEditor group={group} copy={copy} disabled={disabled} sampleRate={props.sampleRate} boundaries={props.boundaries} sharedBoundaries={props.sharedBoundaries} {...regionActions} />
 		<div className="audio-editor-take-comp__destructive-actions">
 			<button type="button" disabled={disabled} onClick={props.onFlatten}>{copy.takeCompFlatten}</button>
 			<button type="button" disabled={disabled} onClick={props.onRemove}>{copy.takeCompRemoveGroup}</button>
@@ -341,7 +343,7 @@ function TakeGroupEditor(props: TakeGroupEditorProps) {
 	</div>;
 }
 
-function RegionEditor(props: TakeGroupEditorProps) {
+const RegionEditor = memo(function RegionEditor(props: Pick<TakeGroupEditorProps, 'group' | 'copy' | 'disabled' | 'sampleRate' | 'boundaries' | 'sharedBoundaries' | 'onBoundaryChange' | 'onApplyBoundary' | 'onSharedBoundaryChange' | 'onApplySharedBoundary'>) {
 	const { group, copy, disabled } = props;
 	const adjacentBoundaries = useCompBoundaries(group.compRegions);
 	return <section aria-label={copy.takeCompRegions}>
@@ -364,7 +366,7 @@ function RegionEditor(props: TakeGroupEditorProps) {
 			})}
 		</div>
 	</section>;
-}
+});
 
 function BoundaryField(props: Readonly<{
 	label: string; value: number; sampleRate: number; disabled: boolean; applyLabel: string;

@@ -173,9 +173,9 @@ current graph costs from each build's `.startup-graph-report.json`; earlier
 measurements do not describe the current bundle. Optional features enter through
 menus and load with their owning feature.
 
-Run checks appropriate to the affected owners: changed lint, focused numerical
-or ownership regressions, the canonical non-browser gate, and browser workflows
-for interactive changes. Evaluate coverage floors over the required union of
-Node and Chromium evidence. Reassess the manual **Update AI assets** requirement
-when a proposed optimization changes the generated assistance runtime closure
+Use the [testing guide](testing.md) to select changed lint, focused numerical
+or ownership regressions, and browser workflows for interactive changes. Agents
+hand off the full gates with their worktree path. Evaluate coverage floors over
+the required union of Node and Chromium evidence. Reassess the manual
+**Update AI assets** requirement when a proposed optimization changes the generated assistance runtime closure
 or target file inventory.

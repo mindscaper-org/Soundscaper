@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 /** Guided-workflow selection and honest aggregate-request execution, separate from operation-v1. */
-
+import { localAssistanceGuidedAcceptanceReview } from './local-assistance-guided-acceptance-review.ts';
 import {
 	ASSISTANCE_GUIDED_WORKFLOW_IDS,
 	normalizeAssistanceWorkflowId,
@@ -406,7 +406,7 @@ export function createLocalAssistanceGuidedSessionStore(
 		update({ phase: 'accepting', error: null });
 		try {
 			const outcome = await options.preparation.acceptGuidedWorkflowResult({
-				workflow: retained.workflow, reviewedResult: snapshot.review, selectedChoiceIds,
+				workflow: retained.workflow, reviewedResult: localAssistanceGuidedAcceptanceReview(snapshot.review), selectedChoiceIds,
 				...(snapshot.reframeDraft ? { reframeDraft: snapshot.reframeDraft } : {}),
 				...(snapshot.highlightDraft ? { highlightDraft: snapshot.highlightDraft } : {}),
 				...(snapshot.highlightSourceTimeAuthority

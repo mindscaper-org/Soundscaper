@@ -242,6 +242,7 @@ export class FramescaperNativeWatchReconciler {
 		let pending = 0;
 		let skippedSymlinks = 0;
 		const rules = this.#repository.list().filter((rule) => rule.enabled);
+		this.#pruneCandidates(rules);
 		for (const rule of rules) {
 			const root = this.#roots.read(rule.grantId);
 			if (root === null || root.revokedAtMs !== null) {
@@ -249,6 +250,11 @@ export class FramescaperNativeWatchReconciler {
 				continue;
 			}
 			const entries = await this.#scan(rule, root);
+			const currentRoot = this.#roots.read(rule.grantId);
+			if (!this.#repository.read(rule.ruleId)?.enabled || currentRoot === null || currentRoot.revokedAtMs !== null) {
+				this.#candidates.delete(rule.ruleId);
+				continue;
+			}
 			if (entries.length > MAXIMUM_SWEEP_ENTRIES) {
 				throw new RangeError('A native watch reconciliation exceeds its entry ceiling.');
 			}
@@ -315,7 +321,16 @@ export class FramescaperNativeWatchReconciler {
 				if (!seen.has(fileIdentity)) candidates.delete(fileIdentity);
 			}
 		}
+		this.#pruneCandidates(this.#repository.list().filter(rule => rule.enabled));
 		return Object.freeze({ rules: rules.length, imports, duplicates, pending, skippedSymlinks });
+	}
+
+	#pruneCandidates(rules: readonly WatchRuleV1[]): void {
+		const active = new Set(rules.filter(rule => {
+			const root = this.#roots.read(rule.grantId);
+			return root !== null && root.revokedAtMs === null;
+		}).map(rule => rule.ruleId));
+		for (const id of this.#candidates.keys()) if (!active.has(id)) this.#candidates.delete(id);
 	}
 
 	async #probeIfSettled(

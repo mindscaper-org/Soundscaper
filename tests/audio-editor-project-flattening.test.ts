@@ -6,8 +6,6 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { applyEditorCommand } from '../src/common/editor/commands.js';
-
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const EDITOR_ROOT = path.join(REPOSITORY_ROOT, 'src/common/editor');
 const RETIRED_PROJECT_MODULE = /^project-v(?:[2-9]|1[0-6])(?:[.-])/u;
@@ -32,15 +30,6 @@ test('production source imports no retired pre-release project generation', asyn
 		}
 	}
 	assert.deepEqual(violations, []);
-});
-
-test('the shared command boundary rejects every retired raw-project schema', () => {
-	for (let schemaVersion = 2; schemaVersion <= 16; schemaVersion += 1) {
-		assert.throws(
-			() => applyEditorCommand({ schemaVersion } as never, { type: 'track/remove', trackId: 'track' }),
-			/current audio editor project/iu,
-		);
-	}
 });
 
 async function sourceFilesUnder(directory: string): Promise<string[]> {

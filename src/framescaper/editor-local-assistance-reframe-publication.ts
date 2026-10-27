@@ -17,6 +17,7 @@ import {
 	validateAssistanceSelectionFence,
 } from '../common/editor/assistance/proposal-session.ts';
 import { createSetVideoKeyframesCommand } from '../common/editor/commands/factories.ts';
+import { compactReframePublicationCrops } from '../common/editor/assistance/reframe-publication-capacity.ts';
 import {
 	mapLocalAssistanceSelectedVideoSourceBoundary,
 	readLocalAssistanceSelectedVideoSourceFrameTick,
@@ -211,7 +212,7 @@ function publicationCommand(authority: NormalizedAuthority): FramescaperProjectC
 		videoEffects: authority.clip.videoEffects });
 	const current = normalizeVideoKeyframeCurves(authority.clip.videoKeyframes, context,
 		`video clip ${clipId} keyframes`);
-	const crops = mappedCrops(authority, current, duration);
+	const crops = compactReframePublicationCrops(mappedCrops(authority, current, duration));
 	const nextComposition = normalizeVideoClipComposition({
 		...composition,
 		crop: crops[0]!.crop,

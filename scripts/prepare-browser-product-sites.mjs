@@ -13,4 +13,6 @@ import {
 // becomes a browser-test server root.
 void verifyBrowserProductSite;
 
-await prepareOrdinaryBrowserProductSites(ordinaryBrowserProductSitePlan());
+await prepareOrdinaryBrowserProductSites(ordinaryBrowserProductSitePlan(), {
+	reusePrepared: process.env.SCAPE_BROWSER_PRODUCTS_PREPARED === '1',
+});

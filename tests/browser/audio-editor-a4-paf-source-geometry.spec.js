@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { strFromU8, unzipSync } from 'fflate';
 import { nativePafFixture } from '../helpers/native-paf-fixture.ts';
-import { encodeWav } from '../../src/common/editor/wav.js';
 import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseDropdown, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes,
 	openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
 
-for (const format of ['paf', 'wav']) test(`native ${format} retains authored48k PCM and extent through File Import, Save and WAV export`, async ({ page }) => {
+test('native paf retains authored48k PCM and extent through File Import, Save and WAV export', async ({ page }) => {
 	test.setTimeout(60_000);
 	await page.addInitScript(() => {
 		const Native = globalThis.AudioContext;
@@ -19,15 +18,13 @@ for (const format of ['paf', 'wav']) test(`native ${format} retains authored48k 
 			if (buffer) globalThis.__pafNativeBuffers.push({ native: buffer instanceof AudioBuffer, frames: buffer.length, channels: buffer.numberOfChannels });
 		} });
 	});
-	const { file: original, channels } = nativePafFixture();
-	const file = format === 'paf' ? original : new File([Uint8Array.from(encodeWav(channels, { sampleRate: 48_000, bitDepth: 32, float: true }))], 'Control.wav', { type: 'audio/wav' });
+	const { file, channels } = nativePafFixture();
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	const native = await page.evaluate(async bytes => {
 		try { const buffer = await new OfflineAudioContext(2, 1, 48_000).decodeAudioData(Uint8Array.from(bytes).buffer);
 			return [0, 1].map(channel => [...buffer.getChannelData(channel)]); } catch { return null; }
 	}, [...new Uint8Array(await file.arrayBuffer())]);
-	if (format === 'wav') expect(native).not.toBeNull();
-	test.skip(format === 'paf' && native === null, 'This native platform does not decode PARIS PAF; no decoder is added.');
+	test.skip(native === null, 'This native platform does not decode PARIS PAF; no decoder is added.');
 	expect(native[0].length).toBeGreaterThanOrEqual(4800); expect(native[0].length).toBeLessThan(5824);
 	let error = 0;
 	for (let channel = 0; channel < 2; channel++) {

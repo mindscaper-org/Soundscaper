@@ -110,6 +110,15 @@ export function framescaperProjectStoreFoundationAuthority(
 	return STORE_AUTHORITIES.get(store)!;
 }
 
+/** A product-authenticated desktop adapter retains its local media-store authority. */
+export function inheritFramescaperProjectStoreFoundationAuthority(
+	definition: FramescaperProjectStoreFoundationDefinition, store: unknown, adapter: AudioEditorProjectStore,
+): void {
+	const authority = framescaperProjectStoreFoundationAuthority(definition, store);
+	STORE_GENERATIONS.set(adapter, definition.token);
+	STORE_AUTHORITIES.set(adapter, authority);
+}
+
 function foundationRepositoryFactory(
 	definition: FramescaperProjectStoreFoundationDefinition,
 	delegateFactory: StorageRepositoryFactory,

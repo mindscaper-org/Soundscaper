@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { TEXT_TO_SPEECH_COPY_BY_LOCALE } from '../../../i18n/editor-text-to-speech-copy.ts';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 import { useEffect, useRef, useState } from 'react';
@@ -31,11 +32,13 @@ export interface TextToSpeechDialogState {
 	readonly placement: 'new-track' | 'regenerate-selected';
 	readonly reviewed: TextToSpeechReviewed | null;
 	readonly error: string | null;
+	readonly failureCode?: 'scriptInvalid' | 'loadingFailed' | 'generationFailed' | 'acceptanceFailed' | null;
+	readonly diagnostic?: string | null;
 }
 
 const INITIAL_STATE: TextToSpeechDialogState = Object.freeze({
 	phase: 'loading', installed: false, voices: Object.freeze([]), text: '', language: 'a',
-	voiceId: '', speed: 1, placement: 'new-track', reviewed: null, error: null,
+	voiceId: '', speed: 1, placement: 'new-track', reviewed: null, error: null, failureCode: null,
 });
 
 export interface TextToSpeechDialogProps {
@@ -59,7 +62,7 @@ export default function TextToSpeechDialog({
 	useEffect(() => {
 		if (managingModels) return undefined;
 		if (port === null) {
-			setState((current) => ({ ...current, phase: 'error', error: null }));
+			setState((current) => ({ ...current, phase: 'error', error: null, failureCode: null }));
 			return undefined;
 		}
 		let live = true;
@@ -76,10 +79,10 @@ export default function TextToSpeechDialog({
 				return { ...current, phase: 'ready', installed: loaded.installed,
 					voices: loaded.voices, text: draft.text, language, voiceId,
 					speed: draft.speed, placement: loaded.placement,
-					reviewed: null, error: null };
+					reviewed: null, error: null, failureCode: null };
 			});
 		}).catch((failure: unknown) => {
-			if (live) setState((current) => ({ ...current, phase: 'error', error: failureMessage(failure) }));
+			if (live) setState((current) => ({ ...current, phase: 'error', failureCode: 'loadingFailed', error: failureMessage(failure) }));
 		});
 		return () => { live = false; };
 	}, [managingModels, port]);
@@ -95,7 +98,7 @@ export default function TextToSpeechDialog({
 	useEffect(() => () => { generation.current?.abort(); }, []);
 
 	const edit = (change: Partial<TextToSpeechDialogState>): void => {
-		setState((current) => ({ ...current, ...change, phase: 'ready', reviewed: null, error: null }));
+		setState((current) => ({ ...current, ...change, phase: 'ready', reviewed: null, error: null, failureCode: null }));
 	};
 	const close = (): void => {
 		if (state.phase === 'accepting') return;
@@ -104,19 +107,23 @@ export default function TextToSpeechDialog({
 	};
 	const generate = async (): Promise<void> => {
 		if (!port || !canGenerate(state)) return;
+		if (/[\p{Cc}\p{Cf}]/u.test(state.text.replace(/\r\n|\n/gu, ''))) {
+			setState(current => ({ ...current, phase: 'error', reviewed: null, failureCode: 'scriptInvalid', error: 'The speech script contains unsupported control characters.' }));
+			return;
+		}
 		const request: TextToSpeechRequest = {
 			text: state.text, language: state.language, voiceId: state.voiceId, speed: state.speed,
 		};
 		const controller = new AbortController();
 		generation.current = controller;
-		setState((current) => ({ ...current, phase: 'generating', reviewed: null, error: null }));
+		setState((current) => ({ ...current, phase: 'generating', reviewed: null, error: null, failureCode: null }));
 		try {
 			const reviewed = await port.generate(request, controller.signal);
 			if (!controller.signal.aborted) setState((current) => ({ ...current,
-				phase: 'preview', reviewed, error: null }));
+				phase: 'preview', reviewed, error: null, failureCode: null }));
 		} catch (failure) {
 			if (!controller.signal.aborted) setState((current) => ({ ...current,
-				phase: 'error', reviewed: null, error: failureMessage(failure) }));
+				phase: 'error', reviewed: null, failureCode: 'generationFailed', error: failureMessage(failure) }));
 		} finally {
 			if (generation.current === controller) generation.current = null;
 		}
@@ -124,18 +131,18 @@ export default function TextToSpeechDialog({
 	const cancel = (): void => {
 		generation.current?.abort();
 		generation.current = null;
-		setState((current) => ({ ...current, phase: 'ready', reviewed: null, error: null }));
+		setState((current) => ({ ...current, phase: 'ready', reviewed: null, error: null, failureCode: null }));
 	};
 	const accept = async (): Promise<void> => {
 		if (!port || state.phase !== 'preview' || !state.reviewed || acceptancePending.current) return;
 		acceptancePending.current = true;
 		const reviewed = state.reviewed;
-		setState((current) => ({ ...current, phase: 'accepting', error: null }));
+		setState((current) => ({ ...current, phase: 'accepting', error: null, failureCode: null }));
 		try {
 			await port.accept(reviewed);
-			setState((current) => ({ ...current, phase: 'accepted', reviewed: null, error: null }));
+			setState((current) => ({ ...current, phase: 'accepted', reviewed: null, error: null, failureCode: null }));
 		} catch (failure) {
-			setState((current) => ({ ...current, phase: 'preview', error: failureMessage(failure) }));
+			setState((current) => ({ ...current, phase: 'preview', failureCode: 'acceptanceFailed', error: failureMessage(failure) }));
 		} finally {
 			acceptancePending.current = false;
 		}
@@ -146,7 +153,8 @@ export default function TextToSpeechDialog({
 		modelFilter={(model) => model.task === 'text-to-speech'}
 		onClose={() => setManagingModels(false)} />;
 	const presented = port === null ? { ...state, error: text(copy,
-		'unavailable', 'Text to Speech is unavailable in this desktop build.') } : state;
+		'unavailable', 'Text to Speech is unavailable in this desktop build.') } : state.error ? { ...state,
+		error: text(copy, state.failureCode ?? 'generationFailed', TEXT_TO_SPEECH_COPY_BY_LOCALE.en[state.failureCode ?? 'generationFailed']), diagnostic: state.error } : state;
 	return <TextToSpeechDialogView copy={copy} state={presented} previewUrl={previewUrl}
 		onClose={close} onManageModels={() => setManagingModels(true)}
 		onTextChange={(value) => edit({ text: value })}
@@ -243,6 +251,7 @@ export function TextToSpeechDialogView({
 			</label>
 		</div>
 		{state.error && <p role="alert">{state.error}</p>}
+		{state.diagnostic && <details><summary>{copy.reportItemDiagnostic || 'Original diagnostic'}</summary>{state.diagnostic}</details>}
 		{state.phase === 'generating' && <p role="status" aria-live="polite">{text(copy,
 			'generating', 'Generating speech locally.')}</p>}
 		{previewReady && <section className="kw-text-to-speech__preview"

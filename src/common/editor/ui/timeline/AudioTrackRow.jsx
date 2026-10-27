@@ -321,7 +321,7 @@ export function AudioTrackRow({
 						{...clipHeaderActions({ controller, blocked: clipMutationsBlocked, run, onOpenClipProperties, copy })}
 						clips={projectedClips}
 						height={trackHeight}
-						trackIndex={trackIndex}
+						trackIndex={trackIndex} trackName={track.name}
 						isSelected={selectedTrackId === track.id}
 						isMuted={track.mute}
 						envelopeMode={automationToolEnabled && !clipMutationsBlocked}
@@ -417,7 +417,7 @@ export function AudioTrackRow({
 						}} />
 					<ClipLoopOverlays rootRef={trackWindowRef} clips={projection.clips} selectedIds={visualSelectedClipIds} startFrame={projection.overscanStartFrame} endFrame={projection.overscanEndFrame} pixelsPerSecond={pixelsPerSecond} sampleRate={sampleRate} blocked={clipMutationsBlocked} copy={copy} onChange={(id, changes) => run(() => controller.actions.clip.update(id, changes))} />
 					{fadeDialogClip && <Suspense fallback={null}><ClipFadesDialog portalHost={trackWindowRef.current?.closest('[data-audio-editor]')} key={fadeDialogId} clip={fadeDialogClip} sampleRate={sampleRate} copy={copy} blocked={clipMutationsBlocked} onPreview={previewFades} onClose={closeFades} onApply={changes => changeFades(fadeDialogId, changes)} /></Suspense>}
-					<ClipFadeOverlays onEditFades={setFadeDialogId} rootRef={trackWindowRef} clips={projection.clips}
+					<ClipFadeOverlays nativePointerAdmission onEditFades={setFadeDialogId} rootRef={trackWindowRef} clips={projection.clips}
 						showFadeShapeHandles={showFadeShapeHandles}
 						crossfadedFadeEdges={crossfadedFadeEdges}
 						selectedIds={visualSelectedClipIds}

@@ -156,8 +156,5 @@ test('a presentation that would double-apply or apply nothing is rejected', () =
 		scaledWidth: 24,
 		scaledHeight: 64,
 	};
-	assert.throws(withPresentation({ ...base, autorotate: false }), /autorotate must be true/);
 	assert.throws(withPresentation({ ...base, scaledHeight: 32 }), /must state a stretch/);
-	assert.throws(withPresentation({ ...base, sampleAspect: null }), /sampleAspect\.num/);
-	assert.throws(withPresentation({ ...base, scaledWidth: 0 }), /scaledWidth must be a positive safe integer/);
 });

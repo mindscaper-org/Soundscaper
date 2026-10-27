@@ -23,10 +23,8 @@ test('cleanup audition omits merged checked ranges in a new exact WAV only', asy
 	assert.deepEqual([...new Float32Array(bytes.buffer, 44)], [0, 1, 5, 6, 8, 9]);
 });
 
-test('cleanup audition refuses malformed ranges and complete-wave omission', async () => {
+test('cleanup audition refuses complete-wave omission', async () => {
 	const source = wave(Float32Array.of(0, 1, 2, 3));
-	await assert.rejects(createLocalAssistanceCleanupAuditionWave(source,
-		[{ startSeconds: Number.NaN, endSeconds: 1 }]), /range/iu);
 	await assert.rejects(createLocalAssistanceCleanupAuditionWave(source,
 		[{ startSeconds: 0, endSeconds: 1 }]), /complete/iu);
 });

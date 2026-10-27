@@ -6,7 +6,9 @@ import { LOCAL_ASSISTANCE_ADDITIONAL_COPY } from '../../../i18n/editor-local-ass
 
 import { Checkbox } from '@soundscaper/design-system/Checkbox';
 import { ProcessingButton as Button } from './ProcessingButton.tsx';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useComponentCopy } from '@soundscaper/design-system/contexts/ComponentCopyContext';
+import { localizedGuidedReviewChoice, localizedEditorialProposal } from '../guided-review-choice-label.ts';
 import DraggableCropOverlay from './LocalAssistanceCropOverlay.tsx';
 
 import type {
@@ -24,7 +26,7 @@ import { createLocalAssistanceGuidedHighlightPreviewPlanV1,
 import type { LocalAssistanceSelectedVideoSourceTimeDescriptorV1 } from
 	'../../controller/assistance/local-assistance-selected-video-source-time.ts';
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
-import { AudioEditorListeningPreview } from '../audio-editor-listening-preview.tsx';
+import { AudioEditorListeningPreview, useAudioEditorListeningMedia } from '../audio-editor-listening-preview.tsx';
 
 type Copy = Readonly<Record<string, string | undefined>>;
 type ReviewCrop = Readonly<{ left: number; top: number; right: number; bottom: number }>;
@@ -61,6 +63,8 @@ export default function LocalAssistanceGuidedReview({
 	onHighlightTrimChange = () => undefined,
 	onHighlightCropChange = () => undefined,
 }: LocalAssistanceGuidedReviewProps) {
+	const { locale } = useComponentCopy();
+	const number = useMemo(() => new Intl.NumberFormat(locale), [locale]);
 	const selected = new Set(selectedChoiceIds);
 	return <section className="kw-local-assistance__guided-review"
 		aria-label={text(copy, 'localAssistanceGuidedReview', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceGuidedReview)}>
@@ -78,7 +82,7 @@ export default function LocalAssistanceGuidedReview({
 		{review.outputs.filter(({ mediaType }) => mediaType === 'audio/wav').map((output) =>
 			<AudioAudition key={output.claim.claimId} body={output.body} label={copy[`assistanceOutput.${output.slotId}`] || output.slotId.replaceAll('-', ' ')} />)}
 		{review.workflowId === 'generate-editorial-text'
-			? <EditorialProposals review={review} /> : null}
+			? <EditorialProposals review={review} copy={copy} number={number} /> : null}
 		{review.workflowId === 'reframe' && reframeDraft
 			? <ReframePath copy={copy} draft={reframeDraft} onCrop={onReframeCropChange} /> : null}
 		{review.workflowId === 'make-highlights' && highlightDraft && previewVideo !== null
@@ -91,9 +95,9 @@ export default function LocalAssistanceGuidedReview({
 			: <fieldset>
 				<legend>{text(copy, 'localAssistanceChooseProposals', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceChooseProposals)}</legend>
 				{review.choices.map((choice) => <label key={choice.id}>
-					<Checkbox checked={selected.has(choice.id)} disabled={!choice.enabled} aria-label={choice.label}
+					<Checkbox checked={selected.has(choice.id)} disabled={!choice.enabled} aria-label={localizedGuidedReviewChoice(choice, copy, number)}
 						onChange={(checked) => { void onChoiceChange(choice.id, checked); }} />
-					{choice.label}
+					{localizedGuidedReviewChoice(choice, copy, number)}
 				</label>)}
 			</fieldset>}
 	</section>;
@@ -340,11 +344,11 @@ interface EditorialCandidate {
 	readonly explanation: string | null;
 }
 
-function EditorialProposals({ review }: Readonly<{ review: LocalAssistanceGuidedReviewedResult }>) {
+function EditorialProposals({ review, copy, number }: Readonly<{ review: LocalAssistanceGuidedReviewedResult; copy: Copy; number: Intl.NumberFormat }>) {
 	const candidates = editorialCandidates(review);
 	return <div className="kw-local-assistance__editorial-proposals">
 		{candidates.map((candidate, index) => <article key={candidate.candidateId}
-			aria-label={`Editorial proposal ${String(index + 1)}`}>
+			aria-label={localizedEditorialProposal(index + 1, copy, number)}>
 			{candidate.title === null ? null : <h4>{candidate.title}</h4>}
 			{candidate.hook === null ? null : <p>{candidate.hook}</p>}
 			{candidate.chapters.length === 0 ? null : <ol>
@@ -451,6 +455,7 @@ function HighlightVideoTransport({ body, label, cropLabel, plan }: Readonly<{
 }>) {
 	const [source, setSource] = useState<string>();
 	const video = useRef<HTMLVideoElement>(null);
+	const listeningReady = useAudioEditorListeningMedia(video, source);
 	useEffect(() => {
 		const url = URL.createObjectURL(body);
 		setSource(url);
@@ -474,7 +479,7 @@ function HighlightVideoTransport({ body, label, cropLabel, plan }: Readonly<{
 		data-preview-source-end-frame={plan.sourceEndFrame}>
 		<strong>{label}</strong>
 		<div className="kw-local-assistance__highlight-preview-frame">
-			<video ref={video} controls preload="metadata" src={source}
+			<video ref={video} controls={listeningReady} preload="metadata" src={source}
 				onLoadedMetadata={seek}
 				onPlay={(event) => {
 					if (event.currentTarget.currentTime < plan.startSeconds

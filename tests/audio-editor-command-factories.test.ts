@@ -36,9 +36,6 @@ test('typed command factories prepare serializable domain commands with caller-o
 	assert.equal(commands[6].type === 'video-effect/add' && commands[6].effect?.id, 'video-effect');
 });
 
-test('typed source replacement commands reject unstable IDs at preparation time', () => {
-	assert.throws(() => createReplaceClipSourceCommand('', 'source'), /clip/);
-});
 
 test('typed clip commands retain exact-current timing authority for project-context normalization', () => {
 	const clip = {

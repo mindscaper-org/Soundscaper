@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { registerClipFadeGesturePresentation, type CapturedClipFadeGesture } from './clip-fade-gesture-presentation.ts';
 
 interface Drag {
 	readonly pointerId: number;
@@ -10,7 +11,7 @@ interface Drag {
 }
 
 /** Presentation follows the native timeline session; it never commits an edit. */
-export function useClipFadeDragAppearance(blocked: boolean, rootRef: RefObject<HTMLDivElement | null>) {
+export function useClipFadeDragAppearance(blocked: boolean) {
 	const [drag, setDrag] = useState<Drag | null>(null);
 	const current = useRef<Drag | null>(null);
 	const clear = useCallback(() => {
@@ -18,6 +19,18 @@ export function useClipFadeDragAppearance(blocked: boolean, rootRef: RefObject<H
 		current.current = null;
 		setDrag(null);
 	}, []);
+	const bind = useCallback((owner: HTMLDivElement | null) => {
+		if (!owner) return;
+		const unregister = registerClipFadeGesturePresentation(owner, (next: CapturedClipFadeGesture) => {
+			if (blocked || current.current) return;
+			current.current = next;
+			setDrag(next);
+		});
+		return () => {
+			unregister();
+			if (current.current && owner.contains(current.current.target)) clear();
+		};
+	}, [blocked, clear]);
 	useEffect(() => {
 		if (!drag) return;
 		const document = drag.target.ownerDocument;
@@ -35,10 +48,9 @@ export function useClipFadeDragAppearance(blocked: boolean, rootRef: RefObject<H
 			document.removeEventListener('keydown', escape, true);
 		};
 	}, [clear, drag]);
-	const start = useCallback((event: PointerEvent) => {
+	const start = (event: ReactPointerEvent<HTMLDivElement>) => {
 		if (blocked || event.button !== 0 || current.current) return;
-		if (!(event.target instanceof Element) || !rootRef.current?.contains(event.target)) return;
-		const target = event.target.closest<HTMLElement>('[data-clip-fade-handle], [data-clip-fade-shape-handle]');
+		const target = (event.target as Element).closest<HTMLElement>('[data-clip-fade-handle], [data-clip-fade-shape-handle]');
 		const clipId = target?.closest<HTMLElement>('[data-clip-id]')?.dataset.clipId;
 		if (!target || !clipId) return;
 		const shape = target.dataset.clipFadeShapeHandle !== undefined;
@@ -46,14 +58,6 @@ export function useClipFadeDragAppearance(blocked: boolean, rootRef: RefObject<H
 			edge: (shape ? target.dataset.clipFadeShapeHandle : target.dataset.clipFadeHandle)!, shape };
 		current.current = next;
 		setDrag(next);
-	}, [blocked, rootRef]);
-	useEffect(() => {
-		const document = rootRef.current?.ownerDocument;
-		if (!document) return;
-		// The native timeline claims fade presses in ancestor capture and stops
-		// propagation. Observe first without consuming or changing its edit session.
-		document.addEventListener('pointerdown', start, true);
-		return () => document.removeEventListener('pointerdown', start, true);
-	}, [rootRef, start]);
-	return drag;
+	};
+	return { drag, start, bind };
 }

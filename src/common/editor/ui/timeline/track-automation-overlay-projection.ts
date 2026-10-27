@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import {
-	evaluateAutomationLaneAtFrameV21,
+	createAutomationLaneFrameEvaluatorV21,
 	type AutomationLaneV21,
 } from '../../automation-lane-v21.ts';
 import type { ParameterDescriptor } from '../../parameter-address.ts';
@@ -87,6 +87,8 @@ export function projectTrackAutomationOverlayV21(
 	const bodyHeight = Math.max(1, options.height - bodyTop);
 	const pointIndex = options.lane ? automationFrameIndex(options.lane, sampleRate, options.tempoMap) : null;
 	const points = pointIndex?.points ?? [];
+	const evaluate = options.lane ? createAutomationLaneFrameEvaluatorV21(options.lane, { sampleRate, tempoMap: options.tempoMap })
+		: () => options.currentValue;
 	const samplesPerPixel = sampleRate / pixelsPerSecond;
 	const sampleStep = Math.max(1, Math.floor(samplesPerPixel * SAMPLE_SPACING_PIXELS));
 	const spans: TrackAutomationOverlaySpanV21[] = [];
@@ -102,7 +104,7 @@ export function projectTrackAutomationOverlayV21(
 		const sampleFrames = automationSampleFrames({
 			lane: options.lane, descriptor: options.descriptor, start: startFrame, end: endFrame, step: sampleStep,
 			authoredFrames, pixelsPerFrame: pixelsPerSecond / sampleRate,
-			yAtFrame: value => sample(options, value, bodyTop, bodyHeight).y,
+			yAtFrame: value => sample(options, value, bodyTop, bodyHeight, evaluate).y,
 		});
 		const samples = sampleFrames.flatMap((sampleFrame) => {
 			const authoredIndex = pointIndex?.indexByFrame.get(sampleFrame) ?? -1;
@@ -112,15 +114,15 @@ export function projectTrackAutomationOverlayV21(
 				? points[authoredIndex - 1]!.value
 				: null;
 			return heldValue === null
-				? [sample(options, sampleFrame, bodyTop, bodyHeight)]
+				? [sample(options, sampleFrame, bodyTop, bodyHeight, evaluate)]
 				: [
-					sample(options, sampleFrame, bodyTop, bodyHeight, heldValue),
-					sample(options, sampleFrame, bodyTop, bodyHeight),
+					sample(options, sampleFrame, bodyTop, bodyHeight, evaluate, heldValue),
+					sample(options, sampleFrame, bodyTop, bodyHeight, evaluate),
 				];
 		});
 		const projectedPoints = authoredPoints.map((point) => Object.freeze({
 				id: point.id,
-				...sample(options, point.frame, bodyTop, bodyHeight),
+				...sample(options, point.frame, bodyTop, bodyHeight, evaluate),
 			}));
 		spans.push(Object.freeze({
 			clipId: clip.id,
@@ -138,14 +140,10 @@ function sample(
 	frameValue: number,
 	bodyTop: number,
 	bodyHeight: number,
+	evaluate: (frame: number) => number,
 	overrideValue?: number,
 ): TrackAutomationOverlaySampleV21 {
-	const value = overrideValue ?? (options.lane
-		? evaluateAutomationLaneAtFrameV21(options.lane, frameValue, {
-			sampleRate: options.sampleRate,
-			tempoMap: options.tempoMap,
-		})
-		: options.currentValue);
+	const value = overrideValue ?? evaluate(frameValue);
 	const normalized = automationValueToNormalizedV21(options.descriptor, value);
 	return Object.freeze({
 		frame: frameValue,

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { dispatchTimelineAnnotationAppendRuns } from './timeline-annotation-add-batch.ts';
 import { createEnvelopeValueEvaluator } from '../automation.js';
 import { setProjectRecordingNotes } from '../recording-notes.ts';
 import { processSourceAudio } from './source-process-audio-runtime.ts';
@@ -509,7 +510,7 @@ export function createProjectSourceBinRuntimeHandlers(dispatchChild) {
 			if (!Array.isArray(command.commands) || !command.commands.length) {
 				throw new TypeError('A command batch cannot be empty.');
 			}
-			for (const child of command.commands) dispatchChild(project, child);
+			dispatchTimelineAnnotationAppendRuns(project, command.commands, dispatchChild);
 		},
 		'project/rename'(project, command) {
 			project.title = String(command.title || '').trim();

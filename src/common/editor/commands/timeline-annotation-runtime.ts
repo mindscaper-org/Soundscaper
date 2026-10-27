@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { applyPreparedTimelineAnnotationAppend } from './timeline-annotation-add-batch.ts';
 import { AUDIO_EDITOR_COORDINATE_MAXIMUM_DENOMINATOR } from '../timeline-coordinate-limits.ts';
 import { isTimelineAnnotationProjectSchema } from '../project-schema-version.ts';
 import {
@@ -75,6 +76,7 @@ export function applyProjectedTimelineAnnotationCommand(
 	if (!isRuntimeProjectProjection(candidate)) {
 		throw new TypeError('Timeline annotation commands require a trusted runtime projection.');
 	}
+	if (applyPreparedTimelineAnnotationAppend(project, command)) return;
 	const authoritative = restoreTimelineAnnotationsFromRuntimeProjection(
 		candidate as unknown as RuntimeTimelineAnnotationProject,
 	);

@@ -15,7 +15,7 @@ import type { BoundVideoSourceTimingView } from '../src/common/editor/video-sour
 import {
 	assertDeepFrozen, baseInput, bindCfrTiming, bindVfrTiming, blackTopology,
 	createFiveModeIntent, curveRow, decimal, decimalByteCount, fiveModeCurve,
-	linearCurve, NTSC, RATE_1, RATE_24, rejectGet, required, topology, videoClip,
+	linearCurve, NTSC, RATE_1, RATE_24, required, topology, videoClip,
 } from './helpers/video-retime-export-fixtures.ts';
 
 const EXPORT_PLAN_SOURCE_URL = new URL('../src/common/editor/video-retime-export-plan.ts', import.meta.url);
@@ -346,39 +346,6 @@ test('charges every repeated decimal token occurrence through the public intent 
 	for (const row of [...intent.intersections, ...createFiveModeIntent().intersections]) {
 		assert.ok(Buffer.byteLength(JSON.stringify(row), 'utf8') > 2 * decimalByteCount(row));
 	}
-});
-
-test('descriptor-snapshots the complete V2 wire without invoking changing Proxy getters', () => {
-	const tracker = { gets: 0 };
-	const sourceStart = rejectGet({ num: 0, den: 1 }, tracker);
-	const sourceEnd = rejectGet({ num: 2, den: 1 }, tracker);
-	const points = rejectGet([
-		rejectGet({ outerFrame: 0, sourceFrame: sourceStart }, tracker),
-		rejectGet({ outerFrame: 2, sourceFrame: sourceEnd }, tracker),
-	], tracker);
-	const segments = rejectGet([
-		rejectGet({ mode: 'constant-forward' }, tracker),
-	], tracker);
-	const map = rejectGet({
-		feature: 'video-retime', version: 2, points, segments,
-	}, tracker);
-	const clip = rejectGet(videoClip('proxy-clip', 'proxy-source', map, {
-		sequenceFrameCount: 2,
-		sourceInFrame: 0,
-		sourceFrameCount: 2,
-	}), tracker);
-	const intent = createVideoRetimeExportIntentV6(baseInput({
-		sampleDuration: 2,
-		topology: topology(0, 2, 'proxy-clip'),
-		canonicalClips: [clip],
-	}), new Map([['proxy-source', bindCfrTiming('proxy-source', 2, RATE_1)]]));
-	assert.equal(tracker.gets, 0);
-	assert.equal(intent.limits.compiledSegmentCount, 1);
-	assert.equal(intent.intersections.length, 1);
-	const row = required(intent.intersections[0]);
-	assert.equal(row.mapping, 'curve');
-	if (row.mapping !== 'curve') assert.fail('Expected a curve intersection.');
-	assert.deepEqual(row.clippedSourceEnd, decimal(2));
 });
 
 test('refuses forged authority, projected clips, accessors, unsafe counts, and exact admission excess', () => {

@@ -352,14 +352,12 @@ test('controller runs specialized analysis reports and snaps selections to zero 
 		const left = new Float32Array(length);
 		const right = new Float32Array(length);
 		if (renderMode === 'zero') {
-			const localStart = 480;
-			const localEnd = localStart + 1_000;
-			left.fill(-0.5);
-			right.fill(-0.4);
-			left.fill(0.5, localStart + 2);
-			right.fill(0.4, localStart + 2);
-			left.fill(-0.5, localEnd - 2);
-			right.fill(-0.4, localEnd - 2);
+			for (let frame = 0; frame < length; frame += 1) {
+				const absoluteFrame = range.startFrame + frame;
+				const positive = absoluteFrame >= 10_002 && absoluteFrame < 10_998;
+				left[frame] = positive ? 0.5 : -0.5;
+				right[frame] = positive ? 0.4 : -0.4;
+			}
 		} else {
 			const amplitude = range.startFrame >= 2_000 ? 0.025 : 0.5;
 			for (let frame = 0; frame < length; frame += 1) {

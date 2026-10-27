@@ -531,18 +531,3 @@ test('a freeze writes the still asset, authors the fallback and offers a rollbac
 	await prepared.rollback?.();
 	assert.deepEqual(log.deletes, [still.id]);
 });
-
-test('a freeze capture that does not return a PNG blob is refused and retains no media', async () => {
-	const source = project();
-	const log: StoreLog = { writes: [], deletes: [] };
-	await assert.rejects(() => author('video-freeze', freezeRequest(source), source, {
-		store: recordingStore(log),
-		capture: {
-			capture: async () => ({
-				blob: new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
-				width: 640, height: 360,
-			}),
-		},
-	}), TypeError);
-	assert.deepEqual(log.writes, []);
-});

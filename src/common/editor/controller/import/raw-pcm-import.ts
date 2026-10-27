@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { fileValidationFailure as failure } from '../../file-validation-failure.ts';
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from '../shared/file-size-warning.ts';
 import { createImportedSourceProvenance, type SourceProvenanceV1 } from '../../source-provenance.ts';
 import { createStableId } from '../../stable-id.js';
@@ -32,18 +33,18 @@ export function createRawPcmSourceProvenance(file: File): SourceProvenanceV1 {
 /** Wrap admitted raw PCM as WAV, retaining large inputs through bounded slices. */
 export async function prepareRawPcmWaveFile(file: File, options: RawPcmImportOptions,
 	settings: Readonly<FileSizeWarningOptions & { desktop?: boolean }> = {}): Promise<File> {
-	if (!file || typeof file.size !== 'number' || typeof file.name !== 'string') throw new TypeError('A raw PCM file is required.');
-	if (!Number.isSafeInteger(file.size) || file.size < 0) throw new RangeError('Raw PCM input must have a safe non-negative byte length.');
-	if (!Object.hasOwn(FORMAT_BYTES, options?.sampleFormat)) throw new RangeError('Unsupported raw PCM sample format.');
-	if (options.byteOrder !== 'little' && options.byteOrder !== 'big') throw new RangeError('Unsupported raw PCM byte order.');
+	if (!file || typeof file.size !== 'number' || typeof file.name !== 'string') throw failure(new TypeError('A raw PCM file is required.'), 'raw-pcm', 'rawFileRequired', 'rawFileRequired');
+	if (!Number.isSafeInteger(file.size) || file.size < 0) throw failure(new RangeError('Raw PCM input must have a safe non-negative byte length.'), 'raw-pcm', 'rawFileSize', 'rawFileSize');
+	if (!Object.hasOwn(FORMAT_BYTES, options?.sampleFormat)) throw failure(new RangeError('Unsupported raw PCM sample format.'), 'raw-pcm', 'rawSampleFormat', 'rawSampleFormat');
+	if (options.byteOrder !== 'little' && options.byteOrder !== 'big') throw failure(new RangeError('Unsupported raw PCM byte order.'), 'raw-pcm', 'rawByteOrder', 'rawByteOrder');
 	const sampleRate = boundedInteger(options.sampleRate, 1, 384_000, 'sample rate');
 	const channelCount = boundedInteger(options.channelCount, 1, 32, 'channel count');
 	const offsetBytes = boundedInteger(options.offsetBytes, 0, file.size, 'byte offset');
 	const bytesPerSample = FORMAT_BYTES[options.sampleFormat];
 	const dataBytes = file.size - offsetBytes;
 	const blockAlign = bytesPerSample * channelCount;
-	if (!dataBytes || dataBytes % blockAlign !== 0) throw new RangeError('Raw PCM data must contain complete interleaved frames.');
-	if (dataBytes > Number.MAX_SAFE_INTEGER - 81) throw new RangeError('Raw PCM input exceeds the safe WAV byte range.');
+	if (!dataBytes || dataBytes % blockAlign !== 0) throw failure(new RangeError('Raw PCM data must contain complete interleaved frames.'), 'raw-pcm', 'rawIncompleteFrames', 'rawIncompleteFrames');
+	if (dataBytes > Number.MAX_SAFE_INTEGER - 81) throw failure(new RangeError('Raw PCM input exceeds the safe WAV byte range.'), 'raw-pcm', 'rawTooLarge', 'rawTooLarge');
 	if (!settings.desktop) await confirmFileSizeWarning(file.size, MAXIMUM_RAW_PCM_IMPORT_BYTES, file.name, settings);
 	settings.signal?.throwIfAborted(); settings.assertCurrent?.();
 	const name = `${file.name.replace(/\.[^.]*$/, '') || 'raw-audio'}.wav`;
@@ -158,7 +159,7 @@ function relative(value: number, size: number): number {
 
 function boundedInteger(value: unknown, minimum: number, maximum: number, label: string): number {
 	const result = Number(value);
-	if (!Number.isSafeInteger(result) || result < minimum || result > maximum) throw new RangeError(`Invalid raw PCM ${label}.`);
+	if (!Number.isSafeInteger(result) || result < minimum || result > maximum) throw failure(new RangeError(`Invalid raw PCM ${label}.`), 'raw-pcm', 'integer-bounds', 'rawIntegerBounds', { minimum, maximum, field: { key: label === 'sample rate' ? 'sampleRate' : label === 'channel count' ? 'rawPcmChannelCount' : 'rawPcmByteOffset', fallback: label } });
 	return result;
 }
 

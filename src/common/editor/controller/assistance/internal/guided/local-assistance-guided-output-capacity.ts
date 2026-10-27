@@ -14,6 +14,8 @@ import type {
 } from '../../../../assistance/workflow-review-authority-v1.ts';
 import { localAssistanceCanonicalWaveByteLength } from '../audio/local-assistance-audio-geometry.ts';
 
+import { ASSISTANCE_GUIDED_TERMINAL_JSON_MAXIMUM_BYTES } from '../../../../assistance/guided-terminal-output-capacity.ts';
+
 export const LOCAL_ASSISTANCE_STRUCTURED_OUTPUT_MAXIMUM_BYTES = 64 * 1024 * 1024;
 
 export function localAssistanceGuidedOutputMaximumByteLength(
@@ -24,7 +26,8 @@ export function localAssistanceGuidedOutputMaximumByteLength(
 ): number {
 	const slot = assistanceWorkflowCustodySlotSpec(workflowId, stageId, 'output', slotId);
 	if (!slot.mediaTypes.includes('audio/wav')) {
-		return LOCAL_ASSISTANCE_STRUCTURED_OUTPUT_MAXIMUM_BYTES;
+		return workflowId === 'reframe' && stageId === 'plan-crops' && slotId === 'reframe-path'
+			? ASSISTANCE_GUIDED_TERMINAL_JSON_MAXIMUM_BYTES : LOCAL_ASSISTANCE_STRUCTURED_OUTPUT_MAXIMUM_BYTES;
 	}
 	if (authority.audioWave === null) {
 		throw new TypeError('Guided audio output capacity requires exact adapter geometry.');

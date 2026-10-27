@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { uploadErrorLabel } from '../upload-validation-presentation.ts';
 
 import { useId, useState, type FormEvent } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
@@ -36,17 +37,17 @@ export default function AudiocomPublishDialog({ copy, item, onClose, onPublish }
 	const [downloadable, setDownloadable] = useState(item.draft?.downloadable ?? false);
 	const [rightsConfirmed, setRightsConfirmed] = useState(item.draft?.rightsConfirmed ?? false);
 	const [pending, setPending] = useState(false);
-	const [error, setError] = useState('');
+	const [error, setError] = useState<unknown>(null);
 	const submit = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		if (pending || !title.trim() || !rightsConfirmed) return;
 		setPending(true);
-		setError('');
+		setError(null);
 		void Promise.resolve().then(() => onPublish(item.id, {
 			title: title.trim(), description, category, license, visibility, downloadable, rightsConfirmed,
 		})).then(onClose).catch((reason: unknown) => {
 			setPending(false);
-			setError(reason instanceof Error ? reason.message : copy.publishError);
+			setError(reason);
 		});
 	};
 	return <AudioEditorDialogShell title={copy.uploadHeading} width={560} initialFocus={'[name="title"]'}
@@ -58,7 +59,7 @@ export default function AudiocomPublishDialog({ copy, item, onClose, onPublish }
 			</Button>
 		</>} />}>
 		<form id={formId} className="kw-audio-editor__audiocom-publish-form" onSubmit={submit}>
-			{error ? <p role="alert">{error}</p> : null}
+			{error ? <p role="alert">{uploadErrorLabel(error, copy, copy.publishError)}</p> : null}
 			<label><span>{copy.title}</span>
 				<input name="title" value={title} required maxLength={200} disabled={pending}
 					onChange={(event) => setTitle(event.currentTarget.value)} />

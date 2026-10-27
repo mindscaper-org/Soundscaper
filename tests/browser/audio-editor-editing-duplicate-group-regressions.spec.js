@@ -38,7 +38,7 @@ test('Silence preserves disjoint grouped clips and the unselected clip between t
 	for (const [index, frame] of [[1, '48000'], [2, '96000']]) {
 		const properties = await openClipProperties(page, editor, clipAt(index));
 		await showClipTimingFields(properties);
-		await clipField(properties, 'startFrame').fill(String(Number(frame) / 48_000));
+		await clipField(properties, 'startFrame').fill(String(Number(frame)));
 		await clipField(properties, 'startFrame').press('Tab');
 		await closeClipProperties(properties);
 	}

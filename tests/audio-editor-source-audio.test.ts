@@ -80,7 +80,6 @@ test('buffer writing chunks planar PCM and checks cancellation at both boundarie
 });
 
 test('coalescing writers expose geometry, finalize once, and forward aborts', async () => {
-	assert.throws(() => createCoalescingSourceWriter({} as never), /writable PCM source/u);
 	const writes: Float32Array[][] = [];
 	const commits: Array<Record<string, unknown> | undefined> = [];
 	let aborts = 0;

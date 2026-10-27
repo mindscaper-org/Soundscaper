@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { withFormatFileParserFailure, withFormatFileParserFailureAsync } from './format-file-parser-failure.ts';
+
 import {
 	BlobReader,
 	BlobWriter,
@@ -135,7 +137,7 @@ async function writeArchive(
 	return blob;
 }
 
-export async function readDawprojectArchive(
+async function readDawprojectArchiveInput(
 	input: Blob,
 	options: DawprojectArchiveReadOptions = {},
 ): Promise<DawprojectArchive> {
@@ -204,31 +206,33 @@ export async function readDawprojectArchive(
 			projectXml: projectXml ?? '',
 			metadataXml,
 			entryNames: Object.freeze([...byPath.keys()]),
-			entrySize: (path: string) => find(path)?.uncompressedSize ?? null,
+			entrySize: (path: string) => withFormatFileParserFailure('dawproject', 'ARCHIVE', () => find(path)?.uncompressedSize ?? null),
 			async readEntry(path: string): Promise<Blob | null> {
-				throwIfAborted(signal);
-				if (closed) throw new Error('The DAWproject archive is closed.');
-				const entry = find(path);
-				if (!entry?.getData) return null;
-				await confirmFileSizeWarning(entry.uncompressedSize, maximumEntryBytes, path,
-					{ confirmFileSizeWarning: options.confirmFileSizeWarning, signal });
-				if (temporaryDirectory) {
-					const name = crypto.randomUUID();
-					const handle = await temporaryDirectory.getFileHandle(name, { create: true });
-					try {
-						await entry.getData<WritableStream<Uint8Array>>(await handle.createWritable(), { signal, checkSignature: true });
-						const file = await handle.getFile();
-						if (file.size !== entry.uncompressedSize) throw new Error('DAWproject temporary media has an inexact size.');
-						const key = normalizeEntryPath(entry.filename);
-						if (!temporaryNames.has(key)) temporaryNames.set(key, new Set());
-						temporaryNames.get(key)!.add(name);
-						return file;
-					} catch (error) {
-						await temporaryDirectory.removeEntry(name).catch(() => undefined);
-						throw error;
+				return withFormatFileParserFailureAsync('dawproject', 'ARCHIVE', async () => {
+					throwIfAborted(signal);
+					if (closed) throw new Error('The DAWproject archive is closed.');
+					const entry = find(path);
+					if (!entry?.getData) return null;
+					await confirmFileSizeWarning(entry.uncompressedSize, maximumEntryBytes, path,
+						{ confirmFileSizeWarning: options.confirmFileSizeWarning, signal });
+					if (temporaryDirectory) {
+						const name = crypto.randomUUID();
+						const handle = await temporaryDirectory.getFileHandle(name, { create: true });
+						try {
+							await entry.getData<WritableStream<Uint8Array>>(await handle.createWritable(), { signal, checkSignature: true });
+							const file = await handle.getFile();
+							if (file.size !== entry.uncompressedSize) throw new Error('DAWproject temporary media has an inexact size.');
+							const key = normalizeEntryPath(entry.filename);
+							if (!temporaryNames.has(key)) temporaryNames.set(key, new Set());
+							temporaryNames.get(key)!.add(name);
+							return file;
+						} catch (error) {
+							await temporaryDirectory.removeEntry(name).catch(() => undefined);
+							throw error;
+						}
 					}
-				}
-				return entry.getData<Blob>(new BlobWriter(), { signal, checkSignature: true });
+					return entry.getData<Blob>(new BlobWriter(), { signal, checkSignature: true });
+				});
 			},
 			releaseEntry: removeTemporary,
 			async close(): Promise<void> {
@@ -253,4 +257,8 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
 	if (signal?.aborted) {
 		throw signal.reason instanceof Error ? signal.reason : new DOMException('The DAWproject operation was aborted.', 'AbortError');
 	}
+}
+
+export function readDawprojectArchive(...args: Parameters<typeof readDawprojectArchiveInput>): Promise<DawprojectArchive> {
+	return withFormatFileParserFailureAsync('dawproject', 'ARCHIVE', () => readDawprojectArchiveInput(...args));
 }

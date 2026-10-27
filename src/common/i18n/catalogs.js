@@ -1,3 +1,4 @@
+import { withEditorCopyOrigin } from './editor-copy-origin.ts';
 import { CANONICAL_EXTRA_COPY_BY_LOCALE } from './canonical-extras.js';
 import { REPORT_COPY_BY_LOCALE } from './report-copy.js';
 import { EXPORT_MENU_COPY_BY_LOCALE } from './export-menu-copy.js'; import { MP3_EXPORT_COPY_BY_LOCALE } from './mp3-export-copy.js'; import { OPUS_EXPORT_COPY_BY_LOCALE } from './opus-export-copy.js'; import { PLAY_AT_SPEED_COPY_BY_LOCALE } from './play-at-speed-copy.js'; import { DAWPROJECT_COPY_BY_LOCALE } from './dawproject-copy.js'; import { SESX_COPY_BY_LOCALE } from './sesx-copy.js'; import { LABELED_AUDIO_COPY_BY_LOCALE } from './labeled-audio-copy.js';
@@ -37,7 +38,7 @@ import { APPEARANCE_COPY_BY_LOCALE } from './appearance-copy.js';
 // Canonical bundled catalogs. Audacity-sourced overrides are merged at runtime.
 // User-visible copy intentionally omits ellipsis punctuation.
 export const COPY_BY_LOCALE = deepFreeze({
-	en: {
+	en: withEditorCopyOrigin({
 		...CLIP_DRAG_COPY_BY_LOCALE.en,
 		...APPEARANCE_COPY_BY_LOCALE.en,
 		...ANALYSIS_COPY_BY_LOCALE.en,
@@ -267,9 +268,8 @@ export const COPY_BY_LOCALE = deepFreeze({
 		deleteEffectPreset: 'Delete preset',
 		moreOptions: 'More options',
 		keyboardHelp: 'Space: play · R: record · C: split tool · F/T/S: clip handles · Delete: remove · Ctrl/Cmd + Z: undo',
-	},
+	}),
 });
-
 export const ENGLISH_COPY = COPY_BY_LOCALE.en;
 function deepFreeze(value) {
 	if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;

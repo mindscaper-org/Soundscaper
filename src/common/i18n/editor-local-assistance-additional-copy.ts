@@ -1,6 +1,25 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 export const LOCAL_ASSISTANCE_ADDITIONAL_COPY = Object.freeze({
+	localAssistanceChoiceCaptionOne: "{count} caption cue",
+	localAssistanceChoiceCaptionOther: "{count} caption cues",
+	localAssistanceChoiceCleanup: "Cleanup edit {index}",
+	localAssistanceChoiceTranscript: "Attributed transcript",
+	localAssistanceChoiceEnhancedDialogue: "Enhanced Dialogue",
+	localAssistanceChoiceReducedReverb: "Reduced Reverb",
+	localAssistanceChoiceDialogue: "Dialogue",
+	localAssistanceChoiceMusic: "Music",
+	localAssistanceChoiceEffects: "Effects",
+	localAssistanceChoiceReaction: "Reaction range {index}",
+	localAssistanceChoiceTranscriptIndex: "{count} transcript index rows",
+	localAssistanceChoiceBeat: "Beat point {index}",
+	localAssistanceChoiceTempoMap: "Tempo map",
+	localAssistanceChoiceCut: "Cut {index}",
+	localAssistanceChoiceVideoIndex: "{count} video index rows",
+	localAssistanceChoiceReframe: "Reframe crop path",
+	localAssistanceChoiceHighlight: "Highlight {index}",
+	localAssistanceChoiceEditorial: "Editorial text {index}",
+	localAssistanceEditorialProposal: "Editorial proposal {index}",
 	localAssistanceAdvanced: "Advanced",
 	localAssistanceAdvancedFixedSettings: "This primitive recipe has no additional settings.",
 	localAssistanceAlignedWordRange: "{start}–{end} samples · {confidence}",
@@ -97,4 +116,9 @@ export const LOCAL_ASSISTANCE_ADDITIONAL_COPY = Object.freeze({
 	localAssistanceWordAlignment: "Word alignment",
 	localAssistanceWorkflowConsent: "Run locally opens one consent dialog for this exact operation, model, input, and output selection.",
 	localAssistanceWorkflowUnavailable: "This task is unavailable on this device.",
+});
+
+export const LOCAL_ASSISTANCE_REVIEW_COPY_ALIASES: Readonly<Record<string, string>> = Object.freeze({
+	"localAssistanceChoiceMusic": "workspaceMusic",
+	"localAssistanceChoiceEffects": "panelEffects"
 });

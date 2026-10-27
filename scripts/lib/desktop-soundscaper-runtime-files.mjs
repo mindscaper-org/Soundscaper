@@ -2,6 +2,7 @@
 
 /** Complete generation-free Soundscaper 1.0 desktop runtime inventory. */
 export const DESKTOP_SOUNDSCAPER_RUNTIME_FILES = Object.freeze([
+	'desktop/vamp-analyzer-owned-session-data.js',
 	'desktop/audiocom-integration.js',
 	'desktop/audiocom-authorization.js',
 	'desktop/audiocom-links.js',

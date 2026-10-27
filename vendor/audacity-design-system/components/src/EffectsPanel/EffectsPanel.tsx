@@ -1,3 +1,4 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React from 'react';
 import { SidePanel } from '../SidePanel';
 import { useTheme } from '../ThemeProvider';
@@ -154,9 +155,10 @@ const EffectSlotWrapper: React.FC<EffectSlotProps> = ({
   onEffectChange,
   onShowSettings,
 }) => {
+  const { copy } = useComponentCopy();
   return (
     <EffectSlot
-      effectName={effect?.name || (isMaster ? 'Master effect name' : 'Effect name')}
+      effectName={effect?.name || (isMaster ? copy.masterEffectName : copy.effectName)}
       enabled={effect?.enabled ?? true}
       onToggle={onToggle}
       onSelectEffect={onEffectChange ? () => onEffectChange('') : undefined}
@@ -187,6 +189,7 @@ const TrackEffectsSection: React.FC<EffectsTrackSectionProps> = ({
   purchasedEffects,
   disabledPluginIds,
 }) => {
+  const { copy } = useComponentCopy();
   const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
 
   const handleDragStart = (index: number) => (e: React.DragEvent) => {
@@ -214,19 +217,19 @@ const TrackEffectsSection: React.FC<EffectsTrackSectionProps> = ({
         onToggleAll={onToggleAll}
         onContextMenu={onContextMenu}
         onAddEffect={onAddEffect}
-        addButtonLabel="Add effect"
+        addButtonLabel={copy.addEffect}
       />
 
       {/* Effect stack - only show if there are effects */}
       {effects.length > 0 && (
         <div
           className="effects-panel__effect-stack"
-          aria-label="Effect stack"
+          aria-label={copy.effectStack}
         >
           {effects.map((effect, index) => (
             <EffectSlot
               key={effect.id}
-              effectName={effect?.name || 'Effect name'}
+              effectName={effect?.name || copy.effectName}
               enabled={effect?.enabled ?? true}
               isDragging={draggedIndex === index}
               onToggle={(enabled) => onEffectToggle?.(index, enabled)}
@@ -279,6 +282,7 @@ const MasterEffectsSection: React.FC<EffectsMasterSectionProps> = ({
   purchasedEffects,
   disabledPluginIds,
 }) => {
+  const { copy } = useComponentCopy();
   const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
 
   const handleDragStart = (index: number) => (e: React.DragEvent) => {
@@ -301,12 +305,12 @@ const MasterEffectsSection: React.FC<EffectsMasterSectionProps> = ({
     <div className="effects-panel__master-section">
       {/* Header */}
       <EffectsStackHeader
-        name="Master track"
+        name={copy.masterTrack}
         allEnabled={allEnabled}
         onToggleAll={onToggleAll}
         onContextMenu={onContextMenu}
         onAddEffect={onAddEffect}
-        addButtonLabel="Add effect"
+        addButtonLabel={copy.addEffect}
         isMaster
       />
 
@@ -314,7 +318,7 @@ const MasterEffectsSection: React.FC<EffectsMasterSectionProps> = ({
       {effects.length > 0 && (
         <div
           className="effects-panel__effect-stack"
-          aria-label="Master effect stack"
+          aria-label={copy.masterEffectStack}
         >
           {effects.map((effect, index) => (
             <EffectSlot
@@ -386,7 +390,7 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
   height,
   autoFocusOnOpen = true,
 }) => {
-  const { theme } = useTheme();
+  const { theme } = useTheme(); const { copy } = useComponentCopy();
   const [masterSectionHeight, setMasterSectionHeight] = React.useState(230); // Default master section height
   const [isResizingVertical, setIsResizingVertical] = React.useState(false);
   const contentRef = React.useRef<HTMLDivElement>(null);
@@ -398,7 +402,7 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
     groupId: 'effects-panel',
     selector: PANEL_CHILD_SELECTOR,
     filter: panelChildFilter,
-    ariaLabel: 'Effects panel',
+    ariaLabel: copy.effectsPanel,
   });
 
   const style = {
@@ -499,7 +503,7 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
     <>
       {/* Header */}
       <EffectsPanelHeader
-        title="Effects"
+        title={copy.effects}
         onClose={onClose}
       />
 
@@ -551,7 +555,7 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
         onBlur={tabGroup.onBlur}
         onClickCapture={tabGroup.onClickCapture}
         role="region"
-        aria-label="Effects panel"
+        aria-label={copy.effectsPanel}
       >
         {content}
       </div>
@@ -578,7 +582,7 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
         onBlur={tabGroup.onBlur}
         onClickCapture={tabGroup.onClickCapture}
         role="region"
-        aria-label="Effects panel"
+        aria-label={copy.effectsPanel}
         className="effects-panel__focusable-container"
       >
         {content}

@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { araFailureInfo, AraOperationError, type AraFailureCode } from '../../ara-failure.ts'
 import { admitAraPcm, admitAraSource, ARA_CHUNK_FRAMES, type AraBridge } from '../../ara-contract.ts'
 import type { AraClipEditingRuntime, AraPreparedClipEdit } from '../../ara-clip-editing-runtime.ts'
 
 export interface AraEditSnapshot {
 	readonly phase: 'idle' | 'opening' | 'editing' | 'rendering' | 'applied' | 'error' | 'closed'
 	readonly message: string
+	readonly failureCode?: AraFailureCode | null
 	readonly progress: number
 }
 
@@ -18,8 +20,8 @@ export function createAraEditSession(options: Readonly<{ bridge: AraBridge; clip
 	let generation = 0
 	let disposed = false
 	let abort: AbortController | null = null
-	const publish = (phase: AraEditSnapshot['phase'], message = '', progress = 0): void => {
-		snapshot = Object.freeze({ phase, message, progress })
+	const publish = (phase: AraEditSnapshot['phase'], message = '', progress = 0, failureCode: AraFailureCode | null = null): void => {
+		snapshot = Object.freeze({ phase, message, progress, failureCode })
 		for (const listener of listeners) listener()
 	}
 	const release = async (): Promise<void> => {
@@ -33,15 +35,16 @@ export function createAraEditSession(options: Readonly<{ bridge: AraBridge; clip
 		finally { clip?.cancel() }
 	}
 	const current = (token: number): void => {
-		if (disposed || token !== generation) throw new Error('ARA clip editing was cancelled.')
-		prepared?.assertCurrent()
+		if (disposed || token !== generation) throw new AraOperationError('cancelled', 'ARA clip editing was cancelled.')
+		try { prepared?.assertCurrent() } catch (error) { throw new AraOperationError('selection-changed', error instanceof Error ? error.message : String(error)) }
 	}
-	const failure = async (error: unknown, token: number): Promise<void> => {
+	const failure = async (error: unknown, token: number, fallback: AraFailureCode = 'operation-failed'): Promise<void> => {
 		if (disposed || token !== generation) return
 		const failureGeneration = ++generation
 		try { await release() } catch { /* preserve the operation failure */ }
 		if (!disposed && failureGeneration === generation) {
-			publish('error', error instanceof Error ? error.message : String(error))
+			const info = araFailureInfo(error, fallback)
+			publish('error', info.diagnostic, 0, info.code)
 		}
 	}
 	return Object.freeze({
@@ -74,7 +77,7 @@ export function createAraEditSession(options: Readonly<{ bridge: AraBridge; clip
 				await options.bridge.bind({ sessionId })
 				current(token)
 				publish('editing')
-			} catch (error) { await failure(error, token) }
+			} catch (error) { await failure(error, token, 'open-failed') }
 		},
 		async openEditor(): Promise<void> {
 			if (snapshot.phase !== 'editing' || sessionId === null) return
@@ -83,7 +86,7 @@ export function createAraEditSession(options: Readonly<{ bridge: AraBridge; clip
 				current(token)
 				await options.bridge.openEditor({ sessionId })
 				current(token)
-			} catch (error) { await failure(error, token) }
+			} catch (error) { await failure(error, token, 'editor-failed') }
 		},
 		async apply(): Promise<void> {
 			if (snapshot.phase !== 'editing' || sessionId === null || prepared === null) return
@@ -109,11 +112,11 @@ export function createAraEditSession(options: Readonly<{ bridge: AraBridge; clip
 				await clip.apply({ channels, sampleRate: clip.sampleRate, name: `${clip.name} (ARA)` })
 				await release()
 				if (!disposed && token === generation) publish('applied')
-			} catch (error) { await failure(error, token) }
+			} catch (error) { await failure(error, token, 'render-failed') }
 		},
 		async reconcile(): Promise<void> {
 			if (prepared === null || disposed || snapshot.phase === 'rendering') return
-			try { current(generation) } catch (error) { await failure(error, generation) }
+			try { current(generation) } catch (error) { await failure(error, generation, 'selection-changed') }
 		},
 		async dispose(): Promise<void> {
 			if (disposed) return

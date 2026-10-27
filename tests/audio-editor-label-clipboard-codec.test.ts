@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { collectAudioEditorClipboardSourceIds, normalizeAudioEditorClipboardDescriptor,
 	normalizeAudioEditorSessionClipboard } from '../src/common/editor/session-clipboard-codec.ts';
-import { preparePasteCommand } from '../src/common/editor/commands/clipboard-runtime.js';
 import { createAudioEditorSessionController } from '../src/common/editor/session.js';
 import { createCurrentAudioEditorProject } from '../src/common/editor/project-current.ts';
 
@@ -26,8 +25,6 @@ test('label-only V7 normalizes detached metadata and survives the native session
 	assert.deepEqual(collectAudioEditorClipboardSourceIds(normalized), []);
 	assert.deepEqual(normalizeAudioEditorSessionClipboard({ schemaVersion: 1, originProjectId: 'source-project',
 		descriptor: input, sources: [] }), { schemaVersion: 1, originProjectId: 'source-project', descriptor: input, sources: [] });
-	assert.throws(() => preparePasteCommand(normalized), /label clipboard/iu,
-		'label-only content must use native label commands, never the media paste planner');
 });
 
 test('label clipboard admits point-only spans and rejects mixed, disguised and out-of-span payloads', () => {

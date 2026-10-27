@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { annotateFormatFileFailure } from './format-file-parser-failure.ts';
+
 import { decodeBomMarkedUtf16 } from './bom-marked-text.ts';
 import { AUDIO_EDITOR_LABEL_MAX_INPUT_CHARS } from './label-input-limits.ts';
 
@@ -38,6 +40,7 @@ export class AudioEditorCueImportError extends Error {
 		this.name = 'AudioEditorCueImportError';
 		this.code = code;
 		this.details = Object.freeze({ ...details });
+		annotateFormatFileFailure(this, 'cue', code);
 	}
 }
 

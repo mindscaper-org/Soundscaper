@@ -3,7 +3,6 @@
 /** Renderer half of the bounded, pathless baseline OpenFX frame port. */
 
 import {
-	canonicalizeNativeMediaPlan,
 	fingerprintNativeMediaPlan,
 } from '../native-media-plan-canonical-form.ts';
 import type {
@@ -142,8 +141,8 @@ async function portRequest(request: FramescaperOpenFxFrameExecutionRequestNative
 		throw new TypeError('OpenFX renderer frame request is invalid.');
 	}
 	const fingerprint = fingerprintNativeMediaPlan(request.plan);
-	const inputs: Array<Readonly<Record<string, unknown>>> = [];
-	const parts: Uint8Array[] = [];
+	const inputs: Array<Readonly<Record<string, unknown> & { sha256: string }>> = [];
+	const parts: Uint8Array<ArrayBuffer>[] = [];
 	let offset = 0;
 	for (const input of request.inputs) {
 		const pixels = input.rgba.pixels.slice();
@@ -158,10 +157,13 @@ async function portRequest(request: FramescaperOpenFxFrameExecutionRequestNative
 		}));
 		parts.push(pixels); offset += pixels.byteLength;
 	}
-	const bytes = new Uint8Array(offset);
-	let cursor = 0;
-	for (const part of parts) { bytes.set(part, cursor); cursor += part.byteLength; }
-	const streamSha256 = await digest(bytes);
+	const single = parts.length === 1 ? parts[0]! : null;
+	const bytes = single ?? new Uint8Array(offset);
+	if (single === null) {
+		let cursor = 0;
+		for (const part of parts) { bytes.set(part, cursor); cursor += part.byteLength; }
+	}
+	const streamSha256 = single === null ? await digest(bytes) : inputs[0]!.sha256;
 	const inputBinding = bytes.byteLength === 0 ? null : Object.freeze({
 		dataPlaneVersion: 1, transport: 'message-port', streamId: streamSha256.slice(0, 40),
 		direction: 'host-to-helper', byteLength: bytes.byteLength, sha256: streamSha256,
@@ -169,7 +171,7 @@ async function portRequest(request: FramescaperOpenFxFrameExecutionRequestNative
 	});
 	const control = Object.freeze({
 		protocolVersion: 1, schemaFamily: 'framescaper' as const, schemaVersion: 1 as const,
-		planPayload: canonicalizeNativeMediaPlan(request.plan),
+		planPayload: fingerprint.canonical,
 		planFingerprint: fingerprint.sha256, instanceId: request.instanceId,
 		requestNonce,
 		outputOrdinal: request.outputOrdinal, requestedBackend: request.requestedBackend,
@@ -422,8 +424,7 @@ function closed(value: unknown, fields: readonly string[], name: string, prefix 
 	return row;
 }
 
-async function digest(value: Uint8Array): Promise<string> {
-	const exact = Uint8Array.from(value);
-	const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', exact.buffer));
+async function digest(value: Uint8Array<ArrayBuffer>): Promise<string> {
+	const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', value));
 	return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }

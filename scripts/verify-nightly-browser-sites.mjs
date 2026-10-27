@@ -13,7 +13,7 @@ export const NIGHTLY_BROWSER_SITES = Object.freeze([
 ]);
 
 export async function verifyNightlyBrowserSites(sites = NIGHTLY_BROWSER_SITES) {
-	for (const site of sites) await verifyBrowserProductSite(site);
+	for (const site of sites) await verifyBrowserProductSite(site, { sourceMaps: true });
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {

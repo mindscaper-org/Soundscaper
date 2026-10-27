@@ -9,7 +9,8 @@ import {
 	type FramescaperDesktopProjectLibraryRenderer,
 } from './desktop-project-library-renderer.ts';
 import { assertFramescaperProjectRuntimeProfile } from './editor-project-runtime-profile.ts';
-import { framescaperProjectStoreAuthority } from './editor-project-store.ts';
+import { framescaperProjectStoreAuthority, bindFramescaperDesktopProjectStoreAuthority } from './editor-project-store.ts';
+import type { AudioEditorProjectStore } from '../common/editor/storage.js';
 import { cloneFramescaperProject, type FramescaperProject } from './editor-project.ts';
 
 const COMPOSITION_FIELDS = ['localStore', 'desktopProjectLibrary'] as const;
@@ -61,8 +62,9 @@ export function createFramescaperDesktopProjectStoreAdapter<
 	const renderer = composition.desktopProjectLibrary as FramescaperDesktopProjectLibraryRenderer | null;
 	if (renderer === null) return localStore;
 	assertFramescaperDesktopProjectLibraryRendererComposition(profileValue, localStore, renderer);
-	return new Proxy(localStore, proxyHandler(profileValue, localStore, renderer)) as
-		FramescaperDesktopProjectStoreAdapter<Store>;
+	const adapter = new Proxy(localStore, proxyHandler(profileValue, localStore, renderer));
+	bindFramescaperDesktopProjectStoreAuthority(profileValue, localStore, adapter as unknown as AudioEditorProjectStore);
+	return adapter as FramescaperDesktopProjectStoreAdapter<Store>;
 }
 
 function proxyHandler<Store extends FramescaperDesktopProjectStoreLocal>(

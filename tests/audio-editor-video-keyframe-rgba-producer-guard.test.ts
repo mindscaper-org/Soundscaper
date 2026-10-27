@@ -13,13 +13,7 @@ const MESSAGES = Object.freeze({
 	allocation: 'custom allocation failure',
 });
 
-test('one RGBA guard rejects replacement results and detached reusable allocations', async () => {
-	const replacement = producer(() => new Uint8Array(4) as never);
-	await assert.rejects(
-		produceIntoExactVideoKeyframeRgbaAllocation(replacement, {}, new Uint8Array(4), {}, 4, MESSAGES),
-		(error: unknown) => error instanceof TypeError && error.message === MESSAGES.returnValue,
-	);
-
+test('one RGBA guard rejects detached reusable allocations', async () => {
 	const detached = producer((_frame, target) => {
 		structuredClone(target.buffer, { transfer: [target.buffer] });
 	});

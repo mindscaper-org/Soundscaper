@@ -202,7 +202,7 @@ export function buildProjectGraphV21(
 		const scheduledGain = { param: gain.gain, latencyFrames };
 		if (strip.scope === 'track' && strip.id !== null) trackGainParams.set(strip.id, scheduledGain);
 		else if ((strip.scope === 'group' || strip.scope === 'send') && strip.id !== null) {
-			if (graph.groups.some(({ id }) => id === strip.id)) groupGainParams.set(strip.id, scheduledGain);
+			if (edgeGeometry.isGroup(strip.id)) groupGainParams.set(strip.id, scheduledGain);
 			else sendGainParams.set(strip.id, scheduledGain);
 		}
 		let postWidth = strip.width;
@@ -402,21 +402,23 @@ function createStripRuntimes(
 		effects: activeRackEffects(track),
 		suspendedEffects: suspendedRackEffects(track),
 	}));
-	for (const strip of [...graph.groups, ...graph.sends, ...graph.cues]) {
-		result.push({
-			key: `mixer-node:${strip.id}`,
-			ref: { kind: 'mixer-node', id: strip.id },
-			id: strip.id,
-			scope: graph.sends.some(({ id }) => id === strip.id) ? 'send' : 'group',
-			input: mixerInputs.get(strip.id)!,
-			width: strip.channelCount,
-			gain: strip.gain,
-			pan: strip.pan,
-			mute: strip.mute,
-			solo: strip.solo,
-			effects: activeRackEffects(strip as unknown as { effectsActive: boolean; effects: readonly EngineEffect[] }),
-			suspendedEffects: suspendedRackEffects(strip),
-		});
+	for (const [strips, scope] of [[graph.groups, 'group'], [graph.sends, 'send'], [graph.cues, 'group']] as const) {
+		for (const strip of strips) {
+			result.push({
+				key: `mixer-node:${strip.id}`,
+				ref: { kind: 'mixer-node', id: strip.id },
+				id: strip.id,
+				scope,
+				input: mixerInputs.get(strip.id)!,
+				width: strip.channelCount,
+				gain: strip.gain,
+				pan: strip.pan,
+				mute: strip.mute,
+				solo: strip.solo,
+				effects: activeRackEffects(strip as unknown as { effectsActive: boolean; effects: readonly EngineEffect[] }),
+				suspendedEffects: suspendedRackEffects(strip),
+			});
+		}
 	}
 	result.push({
 		key: 'master',

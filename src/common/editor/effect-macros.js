@@ -1,3 +1,5 @@
+import { parseMacroParameters } from './audacity-macro-parameter-parser.ts';
+import { audacityMacroParserFailure, macroSyntaxError } from './audacity-macro-parser-failure.ts';
 import { normalizeCommandParameterName } from './audacity-command-parameters.js';
 import {
 	AUDACITY_EFFECT_MACRO_COMMANDS,
@@ -24,7 +26,6 @@ const MAX_MACRO_CODE_UNITS = 1024 * 1024;
 const MAX_MACRO_LINES = 4_096;
 const MAX_MACRO_LINE_CODE_UNITS = 128 * 1024;
 const MAX_MACRO_EFFECTS = 256;
-const MAX_MACRO_PARAMETERS = 512;
 const MAX_EXTENSION_JSON_CODE_UNITS = 64 * 1024;
 const MAX_DRAFT_NAME_CODE_UNITS = 256;
 const GRAPHIC_EQ_FREQUENCIES = Object.freeze([
@@ -90,11 +91,11 @@ export function serializeAudacityEffectMacro(effects) {
  * import; no partial chain is returned.
  */
 export function parseAudacityEffectMacro(text, options = {}) {
-	if (typeof text !== 'string') throw new TypeError('An Audacity macro must be text.');
-	if (text.length > MAX_MACRO_CODE_UNITS) throw new RangeError('The effect macro is too large.');
+	if (typeof text !== 'string') throw audacityMacroParserFailure(new TypeError('An Audacity macro must be text.'), 'TEXT');
+	if (text.length > MAX_MACRO_CODE_UNITS) throw audacityMacroParserFailure(new RangeError('The effect macro is too large.'), 'SIZE');
 	const source = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 	const lines = source.split(/\r\n?|\n/);
-	if (lines.length > MAX_MACRO_LINES) throw new RangeError('The effect macro has too many lines.');
+	if (lines.length > MAX_MACRO_LINES) throw audacityMacroParserFailure(new RangeError('The effect macro has too many lines.'), 'LINES');
 
 	const parsed = [];
 	const ignoredCommands = [];
@@ -104,7 +105,7 @@ export function parseAudacityEffectMacro(text, options = {}) {
 		const line = lines[index].trim();
 		if (!line) continue;
 		if (line.length > MAX_MACRO_LINE_CODE_UNITS) {
-			throw macroSyntaxError(lineNumber, 'the line is too long');
+			throw macroSyntaxError(lineNumber, 'the line is too long', undefined, 'LINE_LIMIT');
 		}
 		const separator = line.indexOf(':');
 		if (separator < 0) {
@@ -115,7 +116,7 @@ export function parseAudacityEffectMacro(text, options = {}) {
 		}
 		const command = line.slice(0, separator).trim();
 		if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(command)) {
-			throw macroSyntaxError(lineNumber, 'the command ID is malformed');
+			throw macroSyntaxError(lineNumber, 'the command ID is malformed', undefined, 'COMMAND');
 		}
 		const effectType = EFFECT_TYPE_BY_COMMAND.get(command);
 		const commandProfile = effectType ? null : macroCommandStepProfile(command);
@@ -135,7 +136,7 @@ export function parseAudacityEffectMacro(text, options = {}) {
 			const message = error instanceof Error ? error.message : String(error);
 			throw macroSyntaxError(lineNumber, message, error);
 		}
-		if (parsed.length > MAX_MACRO_EFFECTS) throw new RangeError('An effect macro has too many steps.');
+		if (parsed.length > MAX_MACRO_EFFECTS) throw audacityMacroParserFailure(new RangeError('An effect macro has too many steps.'), 'LINES');
 	}
 	if (!parsed.length) throw new RangeError('The macro contains no supported effects.');
 
@@ -453,53 +454,6 @@ export function normalizeNoiseReductionContext(value) {
 	};
 }
 
-function parseMacroParameters(source, lineNumber) {
-	const output = new Map();
-	let offset = 0;
-	let count = 0;
-	while (offset < source.length) {
-		while (/\s/.test(source[offset] || '')) offset += 1;
-		if (offset >= source.length) break;
-		count += 1;
-		if (count > MAX_MACRO_PARAMETERS) throw macroSyntaxError(lineNumber, 'too many parameters');
-		const nameStart = offset;
-		while (offset < source.length && source[offset] !== '=') offset += 1;
-		if (offset >= source.length) throw macroSyntaxError(lineNumber, 'a parameter is missing =');
-		const name = source.slice(nameStart, offset).trim();
-		if (!/^[A-Za-z_][A-Za-z0-9_.-]*$/.test(name)) {
-			throw macroSyntaxError(lineNumber, `the parameter name ${JSON.stringify(name)} is malformed`);
-		}
-		offset += 1;
-		while (/\s/.test(source[offset] || '')) offset += 1;
-		if (source[offset] !== '"') throw macroSyntaxError(lineNumber, `${name} must have a quoted value`);
-		offset += 1;
-		let value = '';
-		let closed = false;
-		while (offset < source.length) {
-			const character = source[offset++];
-			if (character === '"') {
-				closed = true;
-				break;
-			}
-			if (character !== '\\') {
-				value += character;
-				continue;
-			}
-			if (offset >= source.length) throw macroSyntaxError(lineNumber, `${name} has an incomplete escape`);
-			const escaped = source[offset++];
-			if (escaped === '\\' || escaped === '"') value += escaped;
-			else if (escaped === 'n') value += '\n';
-			else throw macroSyntaxError(lineNumber, `${name} has an unsupported \\${escaped} escape`);
-		}
-		if (!closed) throw macroSyntaxError(lineNumber, `${name} has an unterminated quoted value`);
-		if (offset < source.length && !/\s/.test(source[offset])) {
-			throw macroSyntaxError(lineNumber, `unexpected text after ${name}`);
-		}
-		// Audacity's config-backed parser uses the final occurrence.
-		output.set(name, value);
-	}
-	return output;
-}
 
 function formatMacroLine(command, parameters) {
 	const suffix = parameters.map(([name, value]) => `${name}=${quoteMacroValue(value)}`).join(' ');
@@ -527,9 +481,6 @@ function finiteParameterNumber(value) {
 	return Number.isFinite(number) ? number : undefined;
 }
 
-function macroSyntaxError(lineNumber, message, cause) {
-	return new SyntaxError(`Invalid effect macro line ${lineNumber}: ${message}`, cause ? { cause } : undefined);
-}
 
 function nonEmptyBoundedString(value, name, maximum) {
 	const output = String(value ?? '').trim();

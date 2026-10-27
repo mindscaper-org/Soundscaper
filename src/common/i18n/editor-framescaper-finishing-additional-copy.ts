@@ -28,6 +28,8 @@ export const FRAMESCAPER_FINISHING_ADDITIONAL_COPY = Object.freeze({
 	finishingReadOnly: "Finishing changes are unavailable while the project is read-only or busy.",
 	framescaperFinishingApplied: "Finishing state updated.",
 	language: "Language",
+	motionPhaseDecoding: "Decoding", motionPhaseTracking: "Tracking", motionPhasePublishing: "Publishing", motionPhaseComplete: "Complete",
+	motionProgress: "{phase}: {completed}/{total}",
 	motionAnalysisAnalyze: "Analyze motion",
 	motionAnalysisCancelled: "Motion analysis cancelled.",
 	motionAnalysisCurrent: "Analysis current.",

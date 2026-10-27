@@ -35,7 +35,8 @@ for (const width of [1, 2, 6, 32]) test(`zero-crossing preparation retains a nor
 	controller.actions.timeline.setSelection(10_007, 30_007);
 	const before = structuredClone(controller.getSnapshot().project);
 	await controller.actions.timeline.zeroCross();
-	assert.equal(captures.length, 1);
+	assert.equal(captures.length, 2);
+	assert.deepEqual(captures[1], captures[0]);
 	assert.equal(captures[0]!.masterChannels, Math.max(2, width), 'the temporary output must admit every occupied source channel');
 	assert.deepEqual(controller.getSnapshot().project!.sources, before!.sources);
 	assert.equal(controller.getSnapshot().project!.masterChannels, 2, 'analysis does not alter the authored programme output');

@@ -2,6 +2,7 @@
 
 /** Generation-free Framescaper v1 library and the unversioned exact-core helpers it owns. */
 export const DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES = Object.freeze([
+	'src/framescaper/editor-openfx-owned-graph-index-native-media.js',
 	'desktop/project-library-exact-generation-body-configuration.js',
 	'desktop/project-library-exact-generation-database.js',
 	'desktop/project-library-exact-generation-lifecycle.js',

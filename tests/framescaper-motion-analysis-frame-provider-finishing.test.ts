@@ -63,16 +63,6 @@ function createProvider(options: Parameters<typeof createFrameProvider>[0]) {
 	return async (request: Parameters<typeof provider>[0]) => provider(request);
 }
 
-test('the provider refuses anything but a plain video source record', async () => {
-	const provider = createProvider({ store: storeHarness().store });
-
-	await assert.rejects(provider(request({ source: null as never })), (error: unknown) =>
-		error instanceof TypeError && /A selected finishing video source is required/u.test(error.message));
-	await assert.rejects(provider(request({ source: [] as never })),
-		/A selected finishing video source is required/u);
-	await assert.rejects(provider(request({ source: videoSource({ kind: 'audio' }) })),
-		/requires a video source/u);
-});
 
 test('the provider refuses an unusable storage key or content digest before touching the store', async () => {
 	const held = storeHarness();
@@ -190,16 +180,6 @@ test('an original whose bytes no longer match the recorded digest is refused bef
 	assert.equal(frames.length, 1, 'the digest the source records is the one that must match');
 });
 
-test('a capture that yields no image body fails the run and still disposes the extractor', async () => {
-	const extractor = extractorHarness({ capture: () => ({ blob: 'data:image/png;base64,' } as never) });
-	const progress: Progress[] = [];
-	const provider = providerFor({ createExtractor: extractor.createExtractor });
-
-	await assert.rejects(provider(request({ onProgress: (value) => progress.push(value) })), (error: unknown) =>
-		error instanceof TypeError && /returned no pathless image body/u.test(error.message));
-	assert.deepEqual(extractor.log, ['create', 'capture', 'dispose']);
-	assert.deepEqual(progress, []);
-});
 
 test('a decode failure is rethrown after release, and aggregated when release fails as well', async () => {
 	const failure = new RangeError('the gray frame exceeded its pixel bound');

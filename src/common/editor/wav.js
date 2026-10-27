@@ -1,3 +1,4 @@
+import { createPcmStreamSettlement } from './pcm-stream-settlement.ts';
 import { normalizePcmEncoderDither, pcmDitherNoise } from './pcm-dither.js';
 import { createRiffId3Chunk } from './id3-metadata.js';
 import { createRiffBextChunk } from './broadcast-wave.ts';
@@ -63,6 +64,7 @@ export function createWavStreamEncoder(options) {
 	const float = Boolean(options?.float);
 	const bitDepth = float ? 32 : normalizeBitDepth(options?.bitDepth);
 	const bytesPerSample = Math.ceil(bitDepth / 8);
+	const quantizerScale = 2 ** (bitDepth - 1);
 	const collect = options?.collect ?? !options?.onChunk;
 	const onChunk = typeof options?.onChunk === 'function' ? options.onChunk : null;
 	const dither = float ? 'none' : normalizePcmEncoderDither(options?.dither);
@@ -96,8 +98,7 @@ export function createWavStreamEncoder(options) {
 	const totalByteLength = layout.byteLength;
 	/** @type {Uint8Array[]} */
 	const chunks = collect ? [header] : [];
-	/** @type {Promise<void>[]} */
-	const pending = [];
+	const settlement = createPcmStreamSettlement();
 	let writtenFrames = 0;
 	let finalized = false;
 
@@ -111,7 +112,7 @@ export function createWavStreamEncoder(options) {
 		get byteLength() { return header.byteLength + writtenFrames * channelCount * bytesPerSample + (finalized ? dataPadBytes + callerTrailingChunk.byteLength + metadataChunk.byteLength : 0); },
 		write,
 		finalize,
-		async settled() { await Promise.all(pending); },
+		settled: settlement.settled,
 	};
 
 	/** @param {ArrayLike<Float32Array> | AudioBuffer} input */
@@ -137,7 +138,7 @@ export function createWavStreamEncoder(options) {
 			for (let channel = 0; channel < channelCount; channel += 1) {
 				const original = sourceChannels[channel][frame];
 				const sample = float ? finiteSample(original) : clampSample(original);
-				byteOffset = writeSample(view, byteOffset, sample, bitDepth, float, dither, random, channel, ditherState);
+				byteOffset = writeSample(view, byteOffset, sample, bitDepth, quantizerScale, float, dither, random, channel, ditherState);
 			}
 		}
 
@@ -193,7 +194,7 @@ export function createWavStreamEncoder(options) {
 		if (!onChunk) return;
 		const result = onChunk(chunk, info);
 		if (result && typeof result.then === 'function') {
-			pending.push(Promise.resolve(result));
+			settlement.track(result);
 		}
 	}
 }
@@ -415,13 +416,12 @@ function getChannels(input) {
 	return Array.from(input);
 }
 
-function writeSample(view, byteOffset, original, bitDepth, float, dither, random, channel, ditherState) {
+function writeSample(view, byteOffset, original, bitDepth, scale, float, dither, random, channel, ditherState) {
 	if (float) {
 		view.setFloat32(byteOffset, original, true);
 		return byteOffset + 4;
 	}
 
-	const scale = 2 ** (bitDepth - 1);
 	const noise = pcmDitherNoise(dither, random, channel, ditherState);
 	const quantized = Math.max(-scale, Math.min(scale - 1, Math.round(original * scale + noise)));
 	if (bitDepth === 16) {

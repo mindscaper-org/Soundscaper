@@ -4,6 +4,7 @@ import type { AudioEditorProjectStore } from '../common/editor/storage.js';
 import {
 	createFramescaperProjectStoreFoundation,
 	framescaperProjectStoreFoundationAuthority,
+	inheritFramescaperProjectStoreFoundationAuthority,
 	type FramescaperProjectStoreFoundationAuthority,
 	type FramescaperProjectStoreFoundationOptions,
 } from './editor-project-store-foundation.ts';
@@ -31,7 +32,7 @@ const DEFINITION = Object.freeze({
 		authority: Parameters<FramescaperProjectStoreFoundationDefinition['repository']>[2]) => (
 		new FramescaperProjectRepository(profile, delegate, new FramescaperScapeImageProjectPublication({
 			port: authority.port, media: authority.repositories.media, retention: authority.repositories.retention,
-		}))
+		}), authority.port)
 	),
 });
 
@@ -49,6 +50,11 @@ export interface FramescaperProjectStoreAuthority extends FramescaperProjectStor
 }
 
 const AUTHORITIES = new WeakMap<AudioEditorProjectStore, FramescaperProjectStoreAuthority>();
+
+export function bindFramescaperDesktopProjectStoreAuthority(profile: unknown, localStore: unknown, adapter: AudioEditorProjectStore): void {
+	assertFramescaperProjectRuntimeProfile(profile);
+	inheritFramescaperProjectStoreFoundationAuthority({ ...DEFINITION, profile }, localStore, adapter);
+}
 
 export function createFramescaperProjectStore(
 	profile: unknown,

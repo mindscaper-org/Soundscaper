@@ -19,6 +19,7 @@ import { imageExportTextCopy } from '../../src/common/i18n/image-export-text-cop
 import { imageHdrMergeCopy } from '../../src/common/i18n/image-hdr-merge-copy.ts';
 import { photoFramescaperHandoffCopy, photoFramescaperReceiveCopy, photoFramescaperCollectionHandoffCopy } from '../../src/common/i18n/lightscaper-photo-framescaper-handoff-copy.ts';
 import { photoFramescaperHandoffMenuLabel, photoFramescaperReceiveMenuLabel, photoFramescaperCollectionHandoffMenuLabel } from '../../src/common/i18n/lightscaper-photo-framescaper-handoff-menu-copy.ts';
+import { NYQUIST_BUNDLED_CONTROL_COPY } from '../../src/common/editor/ui/dialogs/nyquist-bundled-control-copy.ts';
 import { AUDIOCOM_COPY_BY_LOCALE } from '../../src/common/i18n/audiocom-copy.ts';
 
 const freesoundAttribution = Object.fromEntries(Object.entries(FREESOUND_ATTRIBUTION_ENGLISH_COPY)
@@ -44,6 +45,7 @@ const photoFramescaperCollectionHandoff = Object.fromEntries(Object.entries(phot
  */
 export const EDITOR_COPY_AUDIT_INVENTORY = Object.freeze({
 	...EDITOR_ENGLISH_COPY,
+	...Object.fromEntries(Object.entries(NYQUIST_BUNDLED_CONTROL_COPY).map(([key, value]) => [`ui.nyquistBundled.${key}`, value])),
 	...freesoundAttribution,
 	...photoBatchMenu,
 	...photoBatchExport,

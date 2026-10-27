@@ -18,8 +18,18 @@ export function gradeUnifiedExactLinearSourceFrame(
 ): UnifiedExactLinearSourceFrame {
 	const pixels = new Float32Array(frame.pixels.length);
 	const scale = frame.pixels instanceof Uint8Array ? 255 : 1;
+	const palette = scale === 255 && prepared.grades.length === 0 && frame.pixels.length >= 1024
+		? Float32Array.from({ length: 256 }, (_, byte) => applyPreparedManagedSdrGradeStackLinearChannelsV1(
+			prepared, byte / 255, byte / 255, byte / 255, 1)[0]) : null;
 	for (let offset = 0; offset < pixels.length; offset += 4) {
 		if (offset % (frame.width * 4) === 0 && signal !== undefined) Reflect.apply(CHECK, signal, []);
+		if (palette) {
+			pixels[offset] = palette[frame.pixels[offset]!]!;
+			pixels[offset + 1] = palette[frame.pixels[offset + 1]!]!;
+			pixels[offset + 2] = palette[frame.pixels[offset + 2]!]!;
+			pixels[offset + 3] = frame.pixels[offset + 3]! / 255;
+			continue;
+		}
 		const value = applyPreparedManagedSdrGradeStackLinearChannelsV1(prepared,
 			frame.pixels[offset]! / scale, frame.pixels[offset + 1]! / scale,
 			frame.pixels[offset + 2]! / scale, frame.pixels[offset + 3]! / scale);

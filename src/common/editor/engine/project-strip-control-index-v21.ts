@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { mixerEndpointKeyV21, type MixerGraphV21, type MixerVcaV21 } from '../mixer-graph-v21.ts';
+import { soloRelatedStrips } from '../mixer-programme-reachability.ts';
 import { createMixerSignalTopologyV21 } from '../mixer-signal-topology-v21.ts';
 import type { StripRef } from '../parameter-address.ts';
 
@@ -39,11 +40,13 @@ export function createProjectSoloGainResolverV21(
 	}
 	const soloKeys = [...solos];
 	const topology = createMixerSignalTopologyV21(graph, { includeOutputs: false });
+	const related = soloRelatedStrips(topology, keys, soloKeys);
 	const audible = new Map<string, boolean>();
 	return (key): boolean => {
 		const current = audible.get(key);
 		if (current !== undefined) return current;
-		const value = soloKeys.some(solo => topology.reaches(key, solo) || topology.reaches(solo, key));
+		const value = keys.has(key) ? related.has(key)
+			: soloKeys.some(solo => topology.reaches(key, solo) || topology.reaches(solo, key));
 		if (keys.has(key)) audible.set(key, value);
 		return value;
 	};

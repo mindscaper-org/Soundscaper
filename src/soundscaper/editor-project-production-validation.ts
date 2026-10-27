@@ -4,6 +4,7 @@ import {
 	AUTOMATION_LANE_MAXIMUM_POINTS_V21,
 	assertAutomationLaneIdentitiesUniqueV21,
 	normalizeAutomationLaneV21,
+	prepareAutomationLaneForSchedulingV21,
 	type AutomationLaneV21,
 } from '../common/editor/automation-lane-v21.ts'
 import {
@@ -274,7 +275,7 @@ function validateAutomationLanes(project: Record<string, unknown>, graph: MixerG
 }
 
 function validateLaneDescriptor(lane: AutomationLaneV21, descriptor: ParameterDescriptor): void {
-	normalizeAutomationLaneV21(lane, { descriptor })
+	prepareAutomationLaneForSchedulingV21(lane, { descriptor })
 }
 
 function effectArray(value: unknown, name: string): readonly Readonly<Record<string, unknown>>[] {

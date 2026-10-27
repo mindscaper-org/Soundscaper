@@ -27,9 +27,9 @@ test('clip properties apply the exact entered start frame when Snap is enabled',
 	await editor.getByRole('checkbox', { name: 'Snap', exact: true }).check();
 	const properties = await openClipProperties(page, editor, clipByName(editor, monoTone.name));
 	await showClipTimingFields(properties);
-	await clipField(properties, 'startFrame').fill('0.4');
+	await clipField(properties, 'startFrame').fill('19200');
 	await clipField(properties, 'startFrame').press('Tab');
-	await expect(clipField(properties, 'startFrame')).toHaveValue('0.4');
+	await expect(clipField(properties, 'startFrame')).toHaveValue('19200');
 	await expect(clipByName(editor, monoTone.name)).toHaveAccessibleName(/starts at 0\.4 seconds/u);
 });
 
@@ -55,7 +55,7 @@ test('paste into an existing clip retains repeated pauses from copied looped aud
 	await expect(target).toHaveAccessibleName(/2\.4 seconds long$/u, { timeout: 20_000 });
 	const properties = await openClipProperties(page, editor, target);
 	await showClipTimingFields(properties);
-	await expect(clipField(properties, 'durationFrame')).toHaveValue('2.4');
+	await expect(clipField(properties, 'durationFrame')).toHaveValue('115200');
 	await closeClipProperties(properties);
 	await repeated.locator('xpath=ancestor::div[@data-track-row][1]').getByRole('button', { name: 'Mute', exact: true }).click();
 	const dialog = await openExportDialog(page, editor);

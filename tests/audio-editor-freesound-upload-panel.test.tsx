@@ -22,6 +22,7 @@ import FreesoundPublishDialog from '../src/common/editor/ui/workspace/FreesoundP
 import { useTimelineClipUploadDrag } from '../src/common/editor/ui/timeline/useTimelineClipUploadDrag.ts';
 import { freesoundClipUploadReference } from '../src/common/editor/ui/workspace/freesound-clip-upload-command.ts';
 import { installReactTestDom, reactProps, type ReactTestElement } from './helpers/react-test-dom.ts';
+import { deferred } from './helpers/async-test-control.ts';
 
 const COPY = FREESOUND_ATTRIBUTION_COPY_BY_LOCALE.en;
 const STATE: FreesoundPanelState = {
@@ -266,10 +267,13 @@ test('closing after a publish failure restores focus to the remounted queue acti
 	const { createRoot } = await import('react-dom/client');
 	const root = createRoot(dom.container as unknown as Element);
 	try {
-		await act(async () => root.render(<PublishFailureFocusHarness />));
+		const publish = deferred<void>();
+		await act(async () => root.render(<PublishFailureFocusHarness publish={publish.promise} />));
 		const ready = () => dom.container.querySelectorAll('button')
 			.find((element) => element.textContent?.startsWith('Ready to publish')) as ReactTestElement;
-		await act(async () => reactProps(ready()).onClick());
+		const originalAction = ready();
+		assert.ok(originalAction);
+		await act(async () => reactProps(originalAction).onClick());
 		const publishDialog = (document.body as unknown as ReactTestElement)
 			.querySelector('[data-freesound-publish-dialog="true"]');
 		assert.ok(publishDialog);
@@ -279,7 +283,15 @@ test('closing after a publish failure restores focus to the remounted queue acti
 			reactProps(publishForm).onSubmit({ preventDefault() {} });
 			await new Promise<void>((resolve) => setTimeout(resolve, 0));
 		});
-		assert.ok(publishDialog.textContent.includes('Publish rejected'));
+		assert.equal(ready(), undefined, 'publishing removes the original queue action');
+		await act(async () => {
+			publish.reject(new Error('Publish rejected'));
+			await publish.promise.catch(() => undefined);
+		});
+		assert.ok(publishDialog.textContent.includes(COPY.publishError));
+		assert.ok(!publishDialog.textContent.includes('Publish rejected'));
+		assert.ok(ready());
+		assert.notEqual(ready(), originalAction, 'the retry action is a new mounted element');
 		const cancel = publishDialog.querySelectorAll('button')
 			.find((element) => element.textContent === 'Cancel') as ReactTestElement;
 		await act(async () => {
@@ -294,7 +306,7 @@ test('closing after a publish failure restores focus to the remounted queue acti
 	}
 });
 
-function PublishFailureFocusHarness() {
+function PublishFailureFocusHarness({ publish }: { readonly publish: Promise<void> }) {
 	const [status, setStatus] = React.useState<'ready-to-publish' | 'publishing'>('ready-to-publish');
 	return <FreesoundPanel
 		copy={COPY} state={STATE} disabled={false} {...NOOP_PROPS}
@@ -302,13 +314,11 @@ function PublishFailureFocusHarness() {
 		uploadQueue={{ active: status === 'publishing', items: [{
 			id: 'focus-upload', sourceKind: 'file', fileName: 'focus.wav', byteLength: 200,
 			status, title: 'Focus', description: 'Focus test', tags: ['focus', 'queue', 'audio'],
-			uploadFilename: 'focus.wav',
+			uploadFilename: 'focus.wav', rightsConfirmed: true,
 		}] }}
 		onPublishUpload={async () => {
 			setStatus('publishing');
-			await Promise.resolve();
-			setStatus('ready-to-publish');
-			throw new Error('Publish rejected');
+			try { await publish; } finally { setStatus('ready-to-publish'); }
 		}}
 	/>;
 }

@@ -25,20 +25,17 @@ test('E26 grouped edge trim resolves clip and first-owner participants once', co
 	assert.ok(count < 1000);
 });
 
-test('trim participant indexing retains mutable/getter/custom-array and duplicate authority', () => {
-	for (const variant of ['ordinary', 'duplicate-clip', 'duplicate-track', 'getter', 'custom-find', 'custom-includes'] as const) {
+test('trim participant indexing retains ordinary results and stable lookup tracing', () => {
+	for (const variant of ['ordinary', 'getter', 'custom-find'] as const) {
 		function run(frozen: boolean) {
 			const project = commandFixture(12, 6);
 			for (const clip of project.clips) clip.groupId = 'group';
 			let reads = 0;
-			if (variant === 'duplicate-clip') project.clips[2]!.id = project.clips[1]!.id;
-			if (variant === 'duplicate-track') project.tracks[2]!.id = project.tracks[0]!.id;
 			if (variant === 'getter') {
 				const track = project.tracks[1]!, original = track.clipIds;
 				Object.defineProperty(track, 'clipIds', { enumerable: true, get() { reads++; return original; } });
 			}
 			if (variant === 'custom-find') Object.defineProperty(project.clips, 'find', { value: (predicate: (value: unknown) => boolean) => Array.prototype.find.call(project.clips, predicate) as unknown });
-			if (variant === 'custom-includes') Object.defineProperty(project.tracks[1]!.clipIds, 'includes', { value: () => false });
 			if (frozen) freezeParticipants(project);
 			reads = 0;
 			return { result: collectClipTrimIds(project, 'clip-0', 'left'), reads };

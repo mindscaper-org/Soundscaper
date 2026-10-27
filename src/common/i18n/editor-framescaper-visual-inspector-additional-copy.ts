@@ -2,6 +2,8 @@
 
 export const FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY = Object.freeze({
 	apply: "Apply",
+	visualKindStill: "Still image", visualKindTitle: "Title", visualKindShape: "Shape", visualKindSolid: "Solid color",
+	blendNormal: "Normal", blendMultiply: "Multiply", blendScreen: "Screen", blendOverlay: "Overlay", blendAdd: "Add",
 	blendMode: "Blend mode",
 	externalGeneratorUnavailable: "External generators are unavailable in the current Framescaper project.",
 	fillRgbaColor: "Fill RGBA color",

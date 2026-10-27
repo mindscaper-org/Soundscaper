@@ -31,6 +31,7 @@ import type {
 import { getTrackClips, automaticCrossfadeRanges } from './clip-schedule-geometry.ts';
 import { indexedClipScheduleRange } from './clip-schedule-index.ts';
 import { preferOfflineChunkSource } from './offline-buffer-source.ts';
+import { prepareClipScheduleEnvelopes } from './clip-envelope-preparation.ts';
 
 export { mergeFrameRanges, getTrackClips, automaticCrossfadeRanges };
 export type { ClipCrossfadeRanges, FrameRange };
@@ -286,7 +287,7 @@ export function buildClipSchedulePlans({
 			});
 		}
 	}
-	return plans;
+	return prepareClipScheduleEnvelopes(plans);
 }
 
 function isAudioBuffer(value: unknown): value is AudioBuffer {

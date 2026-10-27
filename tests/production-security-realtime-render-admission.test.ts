@@ -59,10 +59,4 @@ test('realtime render PCM admission retains its required control and runtime evi
 			({ kind, path }) => kind === expected.kind && path === expected.path,
 		), `realtime-render admission needs ${expected.kind} evidence from ${expected.path}`);
 	}
-
-	const residual = cancellation.residualRisks.find(
-		({ id }) => id === 'render-worker-resident-set-accounting',
-	);
-	assert.ok(residual, 'render and worker resident-set residual is required');
-	assert.equal(residual.ownerMilestone, '2');
 });

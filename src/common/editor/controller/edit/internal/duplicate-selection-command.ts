@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { frozenRecordIdIndex, hasOwnDataValue } from '../../../frozen-record-id-index.ts';
+import { firstById } from '../../../commands/editing-work-index.ts';
+import { indexSequenceTrackPlacements, type SequenceTrackPlacement } from '../../../sequence-track-placement-index.ts';
 import { duplicateTrackAdmCommands } from '../../../derived-track-adm.ts';
 import { createAddTrackCommand } from '../../../commands/factories.ts';
 import { preparePasteCommand } from '../../../commands/clipboard-runtime.js';
@@ -81,16 +83,19 @@ export function prepareDuplicateSelectionCommand(
 	range: DuplicateSelectionRange,
 ): DuplicateSelectionPlan | null {
 	const project = runtime.getProject();
+	const trackById = firstById(project.tracks);
 	const clipboard = runtime.createClipboardDescriptor(project, {
 		startFrame: range.startFrame,
 		endFrame: range.endFrame,
-		trackIds: range.trackIds.filter((id) => project.tracks.find((track) => track.id === id)?.type !== 'label'),
+		trackIds: range.trackIds.filter(id => trackById.get(id)?.type !== 'label'),
 		...(range.exactClips ? { clipIds: range.clipIds } : {}),
 	});
 	const requested = new Set([...range.trackIds, ...clipboard.tracks.map((track) => track.sourceTrackId)]);
 	const sourceTracks = project.tracks.filter((track) => requested.has(track.id));
 	if (!sourceTracks.length) return null;
 	const completeLanes = completeLaneGroups(project, requested);
+	const placementSequences = project.sequences;
+	const placements = indexSequenceTrackPlacements(placementSequences ?? []);
 	const commands: AudioEditorCommand[] = [];
 	const trackMap: Record<string, string> = {};
 	const laneGroups = new Map<string, string>();
@@ -115,7 +120,7 @@ export function prepareDuplicateSelectionCommand(
 				...(track.type === 'label' ? { labels } : { armed: false, effects, clipIds: [] }),
 				laneGroupId: laneGroupId ? laneGroups.get(laneGroupId) : null,
 			}),
-			...duplicatePlacement(project, track.id),
+			...duplicatePlacement(project, track.id, hasOwnDataValue(project, 'sequences', placementSequences) ? placements : null),
 			...(track.type === 'audio' ? {
 				productionDuplicate: runtime.prepareTrackDuplicateCarrier?.(project, request) ?? {
 					sourceTrackId: request.sourceTrackId, effectIds: request.effectIds,
@@ -170,8 +175,13 @@ function duplicateLabels(runtime: DuplicateSelectionRuntime, project: DuplicateP
 	});
 }
 
-function duplicatePlacement(project: DuplicateProject, sourceTrackId: string) {
+function duplicatePlacement(project: DuplicateProject, sourceTrackId: string, placements: ReadonlyMap<string, SequenceTrackPlacement> | null) {
 	if (!project.trackFolders?.length && !isSelectedFramescaperProjectSchema(project)) return {};
+	if (placements) {
+		const placement = placements.get(sourceTrackId);
+		return placement ? { sequenceId: placement.sequenceId,
+			...(project.trackFolders?.length ? { parentFolderId: placement.parentFolderId } : {}) } : {};
+	}
 	for (const sequence of project.sequences ?? []) {
 		const node = sequence.trackNodes?.find((candidate) => candidate.id === sourceTrackId);
 		if (node || sequence.trackIds?.includes(sourceTrackId)) return { sequenceId: sequence.id,

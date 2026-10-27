@@ -78,6 +78,8 @@ export function createAnalysisComposition<Project extends AnalysisProject, Buffe
 		captureProject: () => dependencies.projectGeneration.capture(dependencies.getProject()?.id ?? null),
 		assertProject: (token) => dependencies.projectGeneration.assertCurrent(token),
 		getProject: requireProject,
+		captureDocumentGeneration: dependencies.getImmutableProjectGeneration
+			? () => dependencies.getImmutableProjectGeneration?.() ?? null : undefined,
 		getSelectedTrackId: () => state.selectedTrackId,
 		getRange: () => {
 			const selection = currentSelection();

@@ -17,7 +17,7 @@ test('pointer sampling maps the exact lane bottom to the final channel boundary'
 		() => 20,
 	);
 
-	assert.deepEqual(point, { channel: 1, timelineFrame: 9, value: -1 });
+	assert.deepEqual(point, { channel: 1, timelineFrame: 9, renderedValue: -1, value: -1 });
 });
 
 test('pointer sampling follows the rendered asymmetric stereo channel boundary', () => {

@@ -32,7 +32,9 @@ function grownCatalog(): Catalog {
 		audacity: { licenseSpdx: 'GPL-3.0-only' } }, entries: Object.fromEntries([
 		['10', ['machine', 'Ten', 'Dix']], ['2', ['human', 'Two', 'Deux']],
 		['__proto__', ['human', 'Prototype', 'Prototype']], ['constructor', ['human', escaped, escaped]],
-		...Array.from({ length: 900 }, (_, index) => [`future${index}`, ['machine',
+		// Shared/lazy text references now compact the payload before entry partitioning.
+		// Keep enough authored keys to exercise the bounded entry-owner fallback too.
+		...Array.from({ length: 3500 }, (_, index) => [`future${index}`, ['machine',
 			`English ${index}: ${'A long future adjustment description '.repeat(12)}`,
 			`Texte ${index}: ${'Une description étendue pour les réglages futurs '.repeat(12)}`]]),
 		['retired', ['machine', 'Old English', 'Ancien anglais']],

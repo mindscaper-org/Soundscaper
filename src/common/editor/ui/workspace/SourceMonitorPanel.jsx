@@ -10,7 +10,7 @@ import '../audio-editor-design-system/23-source-monitor.css';
  * inside — a conversion, never a second authority — so pausing anywhere leaves
  * the monitor on a frame that can be marked.
  */
-export default function SourceMonitorPanel({ controller, snapshot, copy, run, blocked }) {
+export default function SourceMonitorPanel({ controller, snapshot, copy, run, blocked, panelActive = true }) {
 	const videoRef = useRef(null);
 	const playbackSessionRef = useRef(null);
 	const playingRef = useRef(false);
@@ -30,6 +30,11 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 		setPlaying(false);
 	}, []);
 	useEffect(() => { stop(); }, [stop, view.sourceId, view.openRevision, mediaUrl]);
+	useEffect(() => {
+		if (panelActive) return;
+		if (playingRef.current && videoRef.current) controller.actions.video.sourceMonitor.seekMediaTime(Number(videoRef.current.currentTime) || 0);
+		stop();
+	}, [controller, panelActive, stop]);
 	useEffect(() => {
 		const media = videoRef.current;
 		if (!media || playing || !Number.isFinite(view.mediaSeconds)) return;
@@ -74,7 +79,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 	};
 	const togglePlay = () => {
 		const media = videoRef.current;
-		if (!media) return;
+		if (!media || !panelActive) return;
 		if (playing) {
 			stop();
 			run(() => controller.actions.video.sourceMonitor.seekMediaTime(Number(media.currentTime) || 0));

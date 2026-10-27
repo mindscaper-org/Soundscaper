@@ -22,6 +22,7 @@ export function createAudioEditorSessionControllerCore(options = {}, owner) {
 	let activeProjectId = null;
 	/** @type {Clipboard | null} */
 	let clipboard = null;
+	let clipboardGeneration = Object.freeze({});
 	let disposed = false;
 	let snapshotCache = null;
 	const listeners = new Set();
@@ -289,6 +290,7 @@ export function createAudioEditorSessionControllerCore(options = {}, owner) {
 			next = owner.createClipboard(tab.history.present, { descriptor: value });
 		}
 		clipboard = next;
+		clipboardGeneration = Object.freeze({});
 		return finishMutation(beforeCounts, 'clipboard-set', { clipboard: clone(clipboard) });
 	}
 
@@ -297,6 +299,7 @@ export function createAudioEditorSessionControllerCore(options = {}, owner) {
 		if (!clipboard) return { cleared: false, releasedSourceIds: [] };
 		const beforeCounts = countsFor(tabs, clipboard, owner.collectSources);
 		clipboard = null;
+		clipboardGeneration = Object.freeze({});
 		return finishMutation(beforeCounts, 'clipboard-clear', { cleared: true });
 	}
 
@@ -415,6 +418,7 @@ export function createAudioEditorSessionControllerCore(options = {}, owner) {
 		tabs = restoredTabs;
 		activeProjectId = snapshot.activeProjectId || restoredTabs[0]?.projectId || null;
 		clipboard = snapshot.clipboard ? owner.normalizeClipboard(snapshot.clipboard) : null;
+		clipboardGeneration = Object.freeze({});
 		disposed = Boolean(snapshot.disposed);
 		invalidate();
 	}
@@ -426,6 +430,7 @@ export function createAudioEditorSessionControllerCore(options = {}, owner) {
 		activationReservations.clear();
 		tabs = [];
 		clipboard = null;
+		clipboardGeneration = Object.freeze({});
 		activeProjectId = null;
 		disposed = true;
 		const result = finishMutation(beforeCounts, 'session-dispose', { disposed: true });
@@ -448,6 +453,7 @@ export function createAudioEditorSessionControllerCore(options = {}, owner) {
 		setClipboard,
 		clearClipboard,
 		clipboardForProject,
+		getClipboardGeneration: () => clipboardGeneration,
 		getProject,
 		getProjectHistory,
 		captureProjectHistory,

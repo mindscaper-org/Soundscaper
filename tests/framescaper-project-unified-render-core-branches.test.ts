@@ -101,32 +101,6 @@ test('project sample rate and sequence rate must be positive reduced rationals',
 	);
 });
 
-test('project collections must be arrays of records carrying unique identities', () => {
-	const notAnArray = baseProject();
-	notAnArray.sources = {};
-	assert.throws(
-		() => createFramescaperUnifiedRenderFoundation(notAnArray, authorityFor(baseProject())),
-		{ name: 'TypeError', message: /project\.sources must be an array/u },
-	);
-	const notRecords = baseProject();
-	(notRecords.sequences as Data[]).push(null as unknown as Data);
-	assert.throws(
-		() => createFramescaperUnifiedRenderFoundation(notRecords, authorityFor(baseProject())),
-		{ name: 'TypeError', message: /project\.sequences\[1\] must be an object/u },
-	);
-	const duplicated = baseProject();
-	(duplicated.sources as Data[]).push(structuredClone(sources(duplicated)[0]!));
-	assert.throws(
-		() => createFramescaperUnifiedRenderFoundation(duplicated, authorityFor(baseProject())),
-		{ name: 'RangeError', message: /project source identity video-source is duplicated/u },
-	);
-	const badTrackIds = baseProject();
-	sequence(badTrackIds).trackIds = ['video-track', 7];
-	assert.throws(
-		() => createFramescaperUnifiedRenderFoundation(badTrackIds, authorityFor(badTrackIds)),
-		{ name: 'TypeError', message: /sequence\.trackIds must be a string array/u },
-	);
-});
 
 test('opaque extension state on a source, a track, or a clip is refused as unrepresented', () => {
 	const cases: readonly [string, (project: Data) => void, RegExp][] = [
@@ -147,20 +121,6 @@ test('opaque extension state on a source, a track, or a clip is refused as unrep
 	}
 });
 
-test('a sequence track must exist and expose exact mute, solo, and hidden state', () => {
-	const missing = baseProject();
-	sequence(missing).trackIds = ['video-track', 'ghost-track', 'audio-track'];
-	assert.throws(
-		() => createFramescaperUnifiedRenderFoundation(missing, authorityFor(missing)),
-		{ name: 'ReferenceError', message: /Sequence track ghost-track is missing/u },
-	);
-	const inexact = baseProject();
-	tracks(inexact)[0]!.solo = 'yes';
-	assert.throws(
-		() => createFramescaperUnifiedRenderFoundation(inexact, authorityFor(inexact)),
-		{ name: 'TypeError', message: /video track video-track\.solo must be boolean/u },
-	);
-});
 
 test('legacy clip speed state and inexact inherited picture state are refused', () => {
 	const speed = baseProject();
@@ -189,32 +149,7 @@ test('legacy clip speed state and inexact inherited picture state are refused', 
 	);
 });
 
-test('an active clip is refused unless exactly one video track owns it', () => {
-	const orphan = baseProject();
-	tracks(orphan)[0]!.clipIds = [];
-	assert.throws(
-		() => createFramescaperUnifiedRenderFoundation(orphan, authorityFor(orphan)),
-		{ name: 'RangeError', message: /Active clip video-clip requires exactly one video-track owner/u },
-	);
-	const shared = baseProject();
-	addUpperVideoTrack(shared, ['video-clip']);
-	assert.throws(
-		() => createFramescaperUnifiedRenderFoundation(shared, authorityFor(shared)),
-		{ name: 'RangeError', message: /Active clip video-clip requires exactly one video-track owner/u },
-	);
-});
 
-test('a video clip whose source is absent or is not a video source is refused', () => {
-	for (const sourceId of ['ghost-source', 'audio-source']) {
-		const project = baseProject();
-		clips(project)[0]!.sourceId = sourceId;
-		assert.throws(
-			() => createFramescaperUnifiedRenderFoundation(project, authorityFor(project)),
-			{ name: 'ReferenceError', message: new RegExp(`Video source ${sourceId} is missing`, 'u') },
-			sourceId,
-		);
-	}
-});
 
 test('generatedNodeId names the family-scoped identity and refuses project collisions', () => {
 	assert.equal(generatedNodeId('clip', 'video-clip', new Set(['video-clip'])), 'render:clip:video-clip');

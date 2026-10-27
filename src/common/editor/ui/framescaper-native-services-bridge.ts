@@ -9,6 +9,7 @@
  * this boundary.
  */
 
+import { shareNativeServiceSnapshot } from './native-service-snapshot-sharing.ts';
 import {
 	assertNativeMediaRelativeDestination,
 } from '../native-media-atomic-publication.ts';
@@ -266,10 +267,12 @@ export function createFramescaperNativeServicesStore(
 		// action just replaced — and stamp the refresh time, suppressing the poll
 		// that would have corrected it.
 		if (issued !== generation) return snapshot ?? next;
-		snapshot = next;
+		const shared = shareNativeServiceSnapshot(snapshot, next);
+		const changed = shared !== snapshot;
+		snapshot = shared;
 		refreshedAt = clock();
-		for (const listener of listeners) listener();
-		return next;
+		if (changed) for (const listener of listeners) listener();
+		return shared;
 	};
 	const refreshAfter = async (operation: () => Promise<unknown>) => {
 		await operation();

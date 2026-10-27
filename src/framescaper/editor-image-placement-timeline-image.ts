@@ -55,7 +55,9 @@ export function createFramescaperImageBatchPlacementTimelineImage(
 		Number(selectedTrackIds.includes(String(right.id))) - Number(selectedTrackIds.includes(String(left.id)))
 	));
 	const clips = records(project.clips, 'clips');
-	const selected = candidates.find((track) => rangeIsClear(track, clips, sequenceId, start, end));
+	const byId = candidates.length > 1 ? new Map(clips.map(clip => [String(clip.id), clip])) : null;
+	const indexed = byId?.size === clips.length ? byId : null;
+	const selected = candidates.find((track) => rangeIsClear(track, clips, sequenceId, start, end, indexed));
 	let trackId: string;
 	let trackCommand: Readonly<Record<string, unknown>> | null = null;
 	if (selected) trackId = stableId(selected.id, 'image placement track ID');
@@ -88,10 +90,12 @@ function rangeIsClear(
 	sequenceId: string,
 	start: number,
 	end: number,
+	byId: ReadonlyMap<string, Data> | null,
 ): boolean {
 	if (!Array.isArray(track.clipIds)) throw new TypeError('A video track must contain clip IDs.');
 	const clipIds = new Set(track.clipIds.map(String));
-	return !clips.some((clip) => {
+	const candidates = byId ? [...clipIds].flatMap(id => { const clip = byId.get(id); return clip ? [clip] : []; }) : clips;
+	return !candidates.some((clip) => {
 		if (!clipIds.has(String(clip.id)) || clip.sequenceId !== sequenceId) return false;
 		const clipStart = nonNegative(clip.sequenceStartFrame, `clip ${String(clip.id)} start`);
 		const clipEnd = safeAdd(

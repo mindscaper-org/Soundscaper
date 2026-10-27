@@ -10,7 +10,7 @@ import {
 	isVideoKeyframePreviewFailureCurrent,
 	isVideoKeyframePreviewStateError,
 } from '../../video-keyframe-preview-state.ts';
-import { resolveActiveVideoLayers } from '../../video-timeline.js';
+import { useVideoPreviewTimelineResolution } from './use-video-preview-timeline-resolution.ts';
 import {
 	createVideoPreviewCompositor,
 	createVideoPreviewCompositorFallbackReport,
@@ -139,19 +139,8 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 		afterReplace: afterSessionReplace,
 		failureMessage: copy.videoPreviewUnavailable,
 	});
-	const layerResolution = useMemo(() => {
-		if (!project) return { layers: [], keyframeFailed: false };
-		try {
-			return { layers: resolveActiveVideoLayers(project, positionFrame, {
-				renderCanvas: referenceCanvas,
-				resolveClipRenderState,
-				resolveClipPresentation,
-				resolveTransitionWeight,
-			}), keyframeFailed: false };
-		} catch (error) {
-			return { layers: [], keyframeFailed: isVideoKeyframePreviewStateError(error) };
-		}
-	}, [positionFrame, project, referenceCanvas, resolveClipPresentation, resolveClipRenderState, resolveTransitionWeight]);
+	const { timelineResolver, layerResolution } = useVideoPreviewTimelineResolution({ project, positionFrame,
+		renderCanvas: referenceCanvas, resolveClipRenderState, resolveClipPresentation, resolveTransitionWeight });
 	const layers = layerResolution.layers;
 	const keyframePreviewFailed = retimePreview.failed || layerResolution.keyframeFailed
 		|| isVideoKeyframePreviewFailureCurrent(keyframeFailureProject, project);
@@ -173,10 +162,10 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 				referenceCanvas,
 				keyframeStateProvider,
 				resolveClipPresentation,
-				resolveTransitionWeight,
+				resolveTransitionWeight, timelineResolver,
 			);
 		},
-		[controller, keyframeStateProvider, mediaErrorRevision, missingSourceIds, project, referenceCanvas, resolveClipPresentation, resolveTransitionWeight],
+		[controller, keyframeStateProvider, mediaErrorRevision, missingSourceIds, project, referenceCanvas, resolveClipPresentation, resolveTransitionWeight, timelineResolver],
 	);
 	const resolvedLayers = useMemo(() => {
 		void mediaErrorRevision;

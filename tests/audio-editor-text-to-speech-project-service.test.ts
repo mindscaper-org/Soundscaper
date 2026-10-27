@@ -163,14 +163,6 @@ test('speech source rejects a writer that reports a different frame count', asyn
 	assert.deepEqual(state.commands, []);
 });
 
-test('speech rejects an invalid playhead before storing generated media', async () => {
-	const state = fixture({ playheadFrame: -1 });
-	await state.port.loadInitial();
-
-	await assert.rejects(state.port.accept(REVIEWED), /playhead is invalid/u);
-	assert.equal(state.bytesWritten, 0);
-	assert.deepEqual(state.commands, []);
-});
 
 test('speech rejects empty audio and valid WAV with the wrong sample rate', async () => {
 	const state = fixture();

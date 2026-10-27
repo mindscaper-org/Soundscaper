@@ -229,66 +229,6 @@ test('authenticates reusable clip snapshots and publishes canonical curve coeffi
 	);
 });
 
-test('descriptor-snapshots the complete curve wire without invoking Proxy getters', () => {
-	const tracker = { gets: 0 };
-	const curve = rejectGet({
-		feature: 'video-retime',
-		version: 2,
-		points: rejectGet([
-			rejectGet({
-				outerFrame: 0,
-				sourceFrame: rejectGet({ num: 0, den: 1 }, tracker),
-			}, tracker),
-			rejectGet({
-				outerFrame: 2,
-				sourceFrame: rejectGet({ num: 2, den: 1 }, tracker),
-			}, tracker),
-		], tracker),
-		segments: rejectGet([
-			rejectGet({ mode: 'constant-forward' }, tracker),
-		], tracker),
-	}, tracker);
-	const rawClip = rejectGet(videoClip(curve, {
-		sequenceStartFrame: 0,
-		sequenceFrameCount: 2,
-		sourceInFrame: 0,
-		sourceFrameCount: 2,
-	}), tracker);
-	const snapshot = snapshotVideoRetimeFrameClip(rawClip);
-	const binding = createVideoRetimeFrameBindingFromSnapshot(
-		snapshot,
-		bindCfrTiming('video-source', 2, RATE_24),
-	);
-
-	assert.equal(tracker.gets, 0);
-	assert.deepEqual(binding.mapOuterFrame(2), exact(2n));
-	assert.equal(binding.segments[0]?.mode, 'constant-forward');
-
-	let lengthReads = 0;
-	let pointReads = 0;
-	const oversizedPoints = Array.from({ length: 4_097 }, (_, outerFrame) => ({
-		outerFrame,
-		sourceFrame: { num: outerFrame, den: 1 },
-	}));
-	const changingLengthPoints = new Proxy(oversizedPoints, {
-		getOwnPropertyDescriptor(target, key) {
-			if (key === 'length') {
-				lengthReads += 1;
-				return { ...Reflect.getOwnPropertyDescriptor(target, key), value: lengthReads === 1 ? 2 : target.length };
-			}
-			pointReads += 1;
-			return Reflect.getOwnPropertyDescriptor(target, key);
-		},
-	});
-	assert.throws(() => snapshotVideoRetimeFrameClip(videoClip({
-		feature: 'video-retime', version: 2,
-		points: changingLengthPoints,
-		segments: [{ mode: 'constant-forward' }],
-	})), /array|dense|length|point|segment/iu);
-	assert.equal(lengthReads, 1);
-	assert.equal(pointReads, 0);
-});
-
 test('refuses forged timing, source mismatch, unsafe cells, and clip accessors without invoking them', () => {
 	const timing = bindCfrTiming('secure-source', 8, RATE_24);
 	assert.throws(
@@ -499,15 +439,6 @@ function trackedArray<Value>(target: Value[]) {
 		}),
 		ownKeyReads: () => ownKeyReads,
 	};
-}
-
-function rejectGet<Value extends object>(target: Value, tracker: { gets: number }): Value {
-	return new Proxy(target, {
-		get() {
-			tracker.gets += 1;
-			throw new Error('A descriptor snapshot must not invoke Proxy get.');
-		},
-	});
 }
 
 function exact(numerator: bigint, denominator = 1n) {

@@ -7,8 +7,10 @@
 - Import the narrow implementation module. Do not recreate the removed
   `app.js`/`index.js` cycle or import the external `index.js`/`facade.ts` surface
   from editor implementation code.
-- Add focused `tests/*.test.ts` coverage for new controller code. Run `npm test`
-  and `npm run typecheck`; add the relevant reproducibility audit when touching
-  codecs, WASM, project formats, or storage.
+- Add and run focused `tests/*.test.ts` coverage for new controller code, plus
+  `npm run typecheck`. Follow the root test-handoff rule: never run full suites;
+  give the user the command for your specific worktree. See the
+  [testing guide](../../../docs/development/testing.md). Add the relevant
+  reproducibility audit when touching codecs, WASM, project formats, or storage.
 - Treat files in `native/`, compiled WASM, generated assets, pinned hashes, and
   notices as audited supply-chain material, not ordinary source.

@@ -160,7 +160,7 @@ export function findControllerSource(
 	return source && isControllerPcmSource(source) ? source : null;
 }
 
-function isControllerPcmSource(source: ControllerSourceInventory): source is ControllerSource {
+export function isControllerPcmSource(source: ControllerSourceInventory): source is ControllerSource {
 	return (source.kind === undefined || source.kind === 'audio')
 		&& typeof source.storageKey === 'string' && typeof source.name === 'string'
 		&& typeof source.mimeType === 'string'

@@ -3,7 +3,7 @@
 /** Main-owned pathless admission for one baseline intermediate OpenFX frame. */
 
 import {
-	createNativeMediaPlanEnvelopeV2,
+	createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2,
 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
 import {
 	canonicalizeNativeMediaPlan,
@@ -19,7 +19,9 @@ import { framescaperOpenFxTransitionProgressNativeMedia } from '../src/framescap
 import type { FramescaperOpenFxFrameExecutionResultNativeMedia } from '../src/framescaper/editor-openfx-frame-graph-native-media.ts';
 import { deriveUnifiedExactOfxAbsentFreshnessV26 } from '../src/common/editor/native-ofx-freshness-authority.ts';
 import { resolveOfxEffectStateV26 } from '../src/common/editor/native-ofx-state-v26.ts';
-import type { NativePlanVideoTimingAssetBytes } from './native-services-video-timing-staging.ts';
+import { authenticateNativePlanVideoTimingAssetsV1OrV2, type NativePlanVideoTimingAssetBytes } from './native-services-video-timing-staging.ts';
+import { nativeMediaPlanVideoTimingAssetInputs } from '../src/common/editor/native-media-plan-video-timing.ts';
+import { HELPER_DATA_PLANE_MAXIMUM_BYTES } from './helper-data-plane.ts';
 import type { FramescaperOpenFxExecutionResultV1 } from './openfx-main-service.ts';
 import type { FramescaperOpenFxExecutionRequestV1 } from './openfx-main-execution-request.ts';
 import { createOpenFxMainRetimerSourceTimeV1 } from './openfx-main-retimer-source-time.ts';
@@ -28,6 +30,9 @@ import {
 	PROJECT_SCHEMA_VERSION,
 	readProjectSchemaIdentity,
 } from '../src/common/editor/project-schema-identity.ts';
+
+const ADMITTED_CONTROLS = new WeakSet<object>();
+const PREPARED_REQUESTS = new WeakMap<object, AdmittedFramescaperOpenFxFrameControlV1>();
 
 const SHA256 = /^[a-f\d]{64}$/u;
 const ID = /^[A-Za-z0-9][A-Za-z0-9 ._:-]{0,127}$/u;
@@ -100,8 +105,15 @@ export function createFramescaperOpenFxFrameExecutionService(
 			if (request.transitionProgress !== transitionProgress) {
 				throw new Error('The renderer OpenFX Transition value is stale or forged.');
 			}
-			const timingAssets = effect.state.context === 'retimer'
-				? await ports.timingAssets(request.plan) : Object.freeze([]);
+			const needsTiming = effect.state.context === 'retimer'
+				|| nativeMediaPlanVideoTimingAssetInputs(request.plan).length > 0;
+			const timingAssets = needsTiming ? await ports.timingAssets(request.plan) : Object.freeze([]);
+			request.signal?.throwIfAborted();
+			authenticateNativePlanVideoTimingAssetsV1OrV2({ plan: request.plan, assets: timingAssets,
+				maximumStagedBytes: HELPER_DATA_PLANE_MAXIMUM_BYTES });
+			if (needsTiming && !await ports.currentProject(request.plan, effect.state)) {
+				throw new Error('The OpenFX project changed during timing authentication.');
+			}
 			const retimerSourceTime = effect.state.context === 'retimer'
 				? createOpenFxMainRetimerSourceTimeV1({
 					plan: request.plan, instanceId: request.instanceId,
@@ -152,7 +164,7 @@ export function admitFramescaperOpenFxFrameControlV1(
 	let parsed: unknown;
 	try { parsed = JSON.parse(row.planPayload) as unknown; }
 	catch { throw new TypeError('The pathless OpenFX frame plan is malformed JSON.'); }
-	const envelope = createNativeMediaPlanEnvelopeV2(parsed);
+	const envelope = createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(parsed);
 	if (envelope.planVersion !== 14 || envelope.fingerprint !== row.planFingerprint
 		|| canonicalizeNativeMediaPlan(envelope.plan) !== row.planPayload
 		|| fingerprintNativeMediaPlan(envelope.plan).sha256 !== row.planFingerprint) {
@@ -162,13 +174,31 @@ export function admitFramescaperOpenFxFrameControlV1(
 	if (row.outputOrdinal >= plan.output.frameCount) {
 		throw new RangeError('The OpenFX frame control exceeds its V14 output domain.');
 	}
-	return Object.freeze({
+	const control = Object.freeze({
 		protocolVersion: 1 as const, ...identity, planPayload: row.planPayload,
 		planFingerprint: row.planFingerprint, plan, instanceId: row.instanceId,
 		outputOrdinal: row.outputOrdinal,
 		requestedBackend: row.requestedBackend as OfxRenderBackendV1 | 'supported-preferred',
 		transitionProgress: row.transitionProgress as number | null,
 	});
+	ADMITTED_CONTROLS.add(control);
+	return control;
+}
+
+/** Main-private handoff of the broker's immutable admitted control; pixels still admit in execute. */
+export function executeFramescaperOpenFxPreparedFrame(
+	service: FramescaperOpenFxFrameExecutionService,
+	control: AdmittedFramescaperOpenFxFrameControlV1,
+	inputs: FramescaperOpenFxFrameMainRequestV1['inputs'],
+	signal: AbortSignal,
+): Promise<FramescaperOpenFxFrameExecutionResultNativeMedia> {
+	if (!ADMITTED_CONTROLS.has(control)) throw new TypeError('An OpenFX prepared frame requires main-owned control admission.');
+	const request = Object.freeze({ protocolVersion: control.protocolVersion, schemaFamily: control.schemaFamily,
+		schemaVersion: control.schemaVersion, planPayload: control.planPayload, planFingerprint: control.planFingerprint,
+		instanceId: control.instanceId, outputOrdinal: control.outputOrdinal, requestedBackend: control.requestedBackend,
+		transitionProgress: control.transitionProgress, inputs, signal });
+	PREPARED_REQUESTS.set(request, control);
+	return service.execute(request);
 }
 
 function admitRequest(value: unknown): FramescaperOpenFxFrameMainRequestV1 & Readonly<{
@@ -181,7 +211,7 @@ function admitRequest(value: unknown): FramescaperOpenFxFrameMainRequestV1 & Rea
 		'protocolVersion', 'schemaFamily', 'schemaVersion', 'planPayload', 'planFingerprint', 'instanceId', 'outputOrdinal',
 		'requestedBackend', 'transitionProgress', 'inputs',
 	], 'OpenFX frame execution request');
-	const control = admitFramescaperOpenFxFrameControlV1({
+	const control = PREPARED_REQUESTS.get(value as object) ?? admitFramescaperOpenFxFrameControlV1({
 		protocolVersion: row.protocolVersion, schemaFamily: row.schemaFamily,
 		schemaVersion: row.schemaVersion, planPayload: row.planPayload,
 		planFingerprint: row.planFingerprint, instanceId: row.instanceId,

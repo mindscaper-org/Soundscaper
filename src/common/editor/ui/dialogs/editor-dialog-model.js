@@ -1,3 +1,5 @@
+import { reportItemLabel } from '../report-item-presentation.ts';
+import { formatLocalizedTemplate } from '../localization-template.ts';
 import { parseNativeEffectId } from '../../aup4-browser-effect-payload.js';
 
 export function formatAup4CompatibilitySummary(report, copy) {
@@ -85,12 +87,11 @@ export function aup4CompatibilityItems(report) {
 
 export function formatAup4CompatibilityItem(item, copy) {
 	const name = String(item?.data?.name || item?.name || '').trim();
+	if (item?.code === 'MISSING_LOCAL_AUDIO') return reportItemLabel(item, copy);
 	if (item?.disposition === 'missing' && name) {
-		return copy.missingEffectLabel.replace('{name}', name);
+		return formatLocalizedTemplate(copy.missingEffectLabel, { name });
 	}
-	const message = String(item?.message || '').trim();
-	if (message) return message;
-	return String(item?.code || copy.aup4CompatibilityDetails).replaceAll('_', ' ');
+	return reportItemLabel(item, copy);
 }
 
 export function aup4CompatibilityEffectPath(item) {
@@ -101,7 +102,7 @@ export function aup4CompatibilityEffectPath(item) {
 export function rackEffectLabel(effect, labels, copy) {
 	if (effect?.type === 'missing') {
 		const name = String(effect.missing?.name || copy.missingEffectUnknown).trim() || copy.missingEffectUnknown;
-		return copy.missingEffectLabel.replace('{name}', name);
+		return formatLocalizedTemplate(copy.missingEffectLabel, { name });
 	}
 	return labels.get(effect?.type) || String(effect?.type || '');
 }
@@ -174,11 +175,8 @@ export function formatDeliveryReportSubject(report, copy) {
  * renderer turns `delivery.lossy-encode` into readable text without inventing
  * a per-code translation table it would then have to keep in step.
  */
-export function formatDeliveryReportItem(item) {
-	const message = String(item?.message || '').trim();
-	if (message) return message;
-	const code = String(item?.code || '').replace(/^delivery\./u, '');
-	return code.replaceAll('-', ' ').replace(/^./u, (character) => character.toUpperCase());
+export function formatDeliveryReportItem(item, copy = {}) {
+	return reportItemLabel(item, copy);
 }
 
 export function formatDeliveryReportItemDetail(item) {

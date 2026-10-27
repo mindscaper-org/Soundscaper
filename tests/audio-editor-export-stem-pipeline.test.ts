@@ -50,10 +50,10 @@ test('absent preference, owned progress, retry factory and aggregate capacity re
 	}
 });
 
-test('mutating render inputs during aggregate preflight fences every renderer and aborts the prepared destination', async () => {
-	const fixture = pipelineFixture('speed');
-	Object.assign(fixture.runtime, { preflightStorage: async (bytes: number) => { fixture.preflightBytes.push(bytes); if (bytes > fixture.entryBytes) fixture.plan.range.durationFrames *= 100; } });
-	assert.equal(await createEditorExportService(fixture.runtime).handleExportAction('export'), undefined);
+for (const changed of ['plan', 'settings'] as const) test(`mutating ${changed} during aggregate preflight fences every renderer and aborts the prepared destination`, async () => {
+	const fixture = pipelineFixture('speed'), settings = { metadata: { title: 'Before' } };
+	Object.assign(fixture.runtime, { preflightStorage: async (bytes: number) => { fixture.preflightBytes.push(bytes); if (bytes > fixture.entryBytes) { if (changed === 'plan') fixture.plan.range.durationFrames *= 100; else settings.metadata.title = 'Changed'; } } });
+	assert.equal(await createEditorExportService(fixture.runtime).handleExportAction('export', settings), undefined);
 	assert.deepEqual(fixture.renders, []); assert.match((fixture.errors[0] as Error).message, /admitted stem rendering inputs changed/u); assert.equal(fixture.aborts(), 1);
 });
 

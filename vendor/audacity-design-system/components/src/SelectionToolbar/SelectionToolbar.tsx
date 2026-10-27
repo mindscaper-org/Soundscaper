@@ -1,3 +1,4 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 /**
  * SelectionToolbar - Bottom toolbar displaying audio selection information
  *
@@ -124,7 +125,7 @@ export function SelectionToolbar({
   tabGroupId = 'selection-toolbar',
   className = '',
 }: SelectionToolbarProps) {
-  const { theme } = useTheme();
+  const { theme } = useTheme(); const { copy } = useComponentCopy();
   const musicalMap = useContext(TimeCodeMusicalContext);
   const toolbarRef = useRef<HTMLDivElement>(null);
 
@@ -132,7 +133,7 @@ export function SelectionToolbar({
     containerRef: toolbarRef,
     groupId: tabGroupId,
     selector: '[role="group"]',
-    ariaLabel: 'Selection toolbar',
+    ariaLabel: copy.selectionToolbar,
   });
 
   // Initialize on mount
@@ -186,7 +187,7 @@ export function SelectionToolbar({
             <div className="selection-toolbar__divider" />
           </>
         )}
-        <span className="selection-toolbar__label">Selection</span>
+        <span className="selection-toolbar__label">{copy.selection}</span>
         <div className="selection-toolbar__timecodes">
           <TimeCode
             value={startValue}
@@ -210,7 +211,7 @@ export function SelectionToolbar({
 
         {showDuration && (
           <>
-            <span className="selection-toolbar__label">Duration</span>
+            <span className="selection-toolbar__label">{copy.duration}</span>
             <div className="selection-toolbar__timecodes">
               <TimeCodeMusicalContext.Provider value={durationMusicalMap ?? musicalMap}>
                 <TimeCode

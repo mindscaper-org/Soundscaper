@@ -248,8 +248,13 @@ export function validateAssistanceAssetSourceBindingsV1(
 ): true {
 	if (!Array.isArray(sourcesValue)) throw new TypeError('project.sources must be an array.');
 	const sources = sourcesValue.map((value, index) => dataRecord(value, `project.sources[${String(index)}]`));
+	const sourceById = new Map<unknown, Readonly<Record<string, unknown>>>();
+	for (const source of sources) {
+		const id = data(source, 'id', 'project source');
+		if (!sourceById.has(id)) sourceById.set(id, source);
+	}
 	for (const asset of assets) {
-		const source = sources.find((candidate) => data(candidate, 'id', 'project source') === asset.sourceId);
+		const source = sourceById.get(asset.sourceId);
 		if (!source) throw new ReferenceError(`Assistance asset ${asset.id} references a missing source.`);
 		if (data(source, 'contentSha256', `source ${asset.sourceId}`) !== asset.sourceSha256) {
 			throw new RangeError(`Assistance asset ${asset.id} source digest does not match its source.`);

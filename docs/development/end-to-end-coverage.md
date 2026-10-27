@@ -87,10 +87,37 @@ profile, stale archive or Resources tree, unmanifested file, or foreign script
 invalidates that session. These sessions augment, but never replace, the
 ordinary packaged coverage capture required for both products.
 
+## Node and Chromium coverage floors
+
+The separate Node coverage floors live in `config/coverage-gates.json`;
+`.c8rc.json` selects which files c8 instruments. CI checks those floors once
+over the required union of Node and Chromium shards. Never weaken a floor to
+make an individual shard pass.
+
+After CI has merged the Node and Chromium evidence, run
+`npm run coverage:tighten` to raise floors to coverage gained by a scope.
+Never tighten against an isolated Node or browser shard. Lowering a floor
+requires a deliberate edit with its reason recorded in the register.
+
 ## Capture evidence
 
-Build and run the ordinary Chromium suite with coverage as described in
-`AGENTS.md`. A distributed `nightly-with-tests` application automatically runs
+The owner or CI can build and run the ordinary Chromium suite with coverage:
+
+```sh
+SCAPE_BUILD_SOURCE_MAPS=1 npm run pretest:browser
+SCAPE_BROWSER_COVERAGE=1 npx playwright test --project=chromium
+npm run coverage:compact:browser -- coverage/shards/browser-chromium-local.json
+```
+
+Maps are hidden and emitted into a sibling `<output directory>-source-maps/`
+directory, so the site bundles retain exactly the same bytes. Collection writes
+one raw V8 profile per test under `coverage/v8-browser/`. A spec whose budget
+depends on realtime work opts out with `test.use({ browserCoverage: false })`.
+Agents use a focused spec selection and the
+[test handoff rules](testing.md#agent-execution-and-handoff); they never run the
+full suite themselves.
+
+A distributed `nightly-with-tests` application automatically runs
 the ordinary browser suite and then a dedicated Chromium dual-origin phase.
 The ordinary runner binds both production-shaped Pages sites to the exact,
 distinct loopback origins recorded by their manifests; the dual-origin phase

@@ -1,3 +1,4 @@
+import { useCommittedCallbacks } from '../useCommittedCallbacks.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { formatPresentationMessage } from '../../../i18n/presentation-message.ts'; import { timelineAnnotationNavigationMessage } from './timeline-annotation-presentation.ts'; import React, { useEffect, useRef } from 'react';
@@ -77,6 +78,9 @@ function TimelineAnnotationPanelSession({
 		renameRef.current?.select();
 	}, [editingId]);
 
+	const rowActions = useCommittedCallbacks({ select, beginRename, handleKeyDown, setDraftName, handleRenameBlur, handleRenameKeyDown,
+		focus: (id) => run(() => actions.focus(id)), setColor: (id, color) => run(() => actions.setColor(selectedEditIds(id), color)),
+		convert, moveTo, resizeTo, batchSelected, remove });
 	return (
 		<section className="audio-editor-timeline-annotation-panel" data-timeline-annotation-panel aria-labelledby={titleId}>
 			<header className="audio-editor-timeline-annotation-panel__header">
@@ -103,10 +107,21 @@ function TimelineAnnotationPanelSession({
 			</header>
 
 			{model.rows.length ? <ul className="audio-editor-timeline-annotation-list" aria-label={copy.timelineAnnotationList}>
-				{model.rows.map((row, index) => {
-					const annotation = row.annotation;
-					const expanded = expandedId === annotation.id;
-					return <li key={annotation.id} data-annotation-color={annotation.color} data-selected={row.selected ? 'true' : 'false'}>
+				{model.rows.map((row, index) => <TimelineAnnotationRow key={row.annotation.id} row={row} index={index}
+					expanded={expandedId === row.annotation.id} editingId={editingId === row.annotation.id ? editingId : null}
+					draftName={editingId === row.annotation.id ? draftName : null} selectedCount={model.selectedIds.length}
+					copy={copy} blocked={blocked} sampleRate={sampleRate} itemRefs={itemRefs} renameRef={renameRef} {...rowActions} />)}
+			</ul> : <p className="audio-editor-timeline-annotation-panel__empty">{copy.noTimelineAnnotations}</p>}
+			<p className="audio-editor-timeline-annotation-panel__status" role="status" aria-live="polite">{status}</p>
+		</section>
+	);
+}
+
+const TimelineAnnotationRow = React.memo(function TimelineAnnotationRow({ row, index, expanded, editingId, draftName, selectedCount,
+	copy, blocked, sampleRate, itemRefs, renameRef, select, beginRename, focus, setColor, handleKeyDown,
+	setDraftName, handleRenameBlur, handleRenameKeyDown, convert, moveTo, resizeTo, batchSelected, remove }) {
+	const annotation = row.annotation;
+	return <li key={annotation.id} data-annotation-color={annotation.color} data-selected={row.selected ? 'true' : 'false'}>
 						<button
 							ref={(node) => node ? itemRefs.current.set(annotation.id, node) : itemRefs.current.delete(annotation.id)}
 							type="button"
@@ -121,7 +136,7 @@ function TimelineAnnotationPanelSession({
 							onDoubleClick={() => {
 								if (!blocked) beginRename(annotation);
 							}}
-							onFocus={() => run(() => actions.focus(annotation.id))}
+							onFocus={() => focus(annotation.id)}
 							onKeyDown={(event) => handleKeyDown(event, row, index)}
 						>
 							<span className="audio-editor-timeline-annotation-list__swatch" aria-hidden="true" />
@@ -142,7 +157,7 @@ function TimelineAnnotationPanelSession({
 								onBlur={() => handleRenameBlur(annotation)}
 								onKeyDown={handleRenameKeyDown}
 							/></label>
-							<label>{copy.annotationColor}<select disabled={blocked} value={annotation.color} onChange={(event) => run(() => actions.setColor(selectedEditIds(annotation.id), event.target.value))}>
+							<label>{copy.annotationColor}<select disabled={blocked} value={annotation.color} onChange={(event) => setColor(annotation.id, event.target.value)}>
 								{AUDIO_EDITOR_TIMELINE_ANNOTATION_COLORS.map((color) => <option key={color} value={color}>{colorLabel(copy, color)}</option>)}
 							</select></label>
 							<label>{copy.annotationKind}<select disabled={blocked} value={annotation.kind} onChange={(event) => convert(annotation, { kind: event.target.value, anchor: annotation.anchor })}>
@@ -172,18 +187,13 @@ function TimelineAnnotationPanelSession({
 								onCommit={(frame) => resizeTo(annotation, 'end', frame)}
 							/></label>}
 							<div className="audio-editor-timeline-annotation-list__editor-actions">
-								<button type="button" disabled={blocked || model.selectedIds.length < 2} onClick={() => batchSelected(true)}>{copy.batchTimelineAnnotations}</button>
-								<button type="button" disabled={blocked || !model.selectedIds.length} onClick={() => batchSelected(false)}>{copy.unbatchTimelineAnnotations}</button>
+								<button type="button" disabled={blocked || selectedCount < 2} onClick={() => batchSelected(true)}>{copy.batchTimelineAnnotations}</button>
+								<button type="button" disabled={blocked || !selectedCount} onClick={() => batchSelected(false)}>{copy.unbatchTimelineAnnotations}</button>
 								<button type="button" disabled={blocked} onClick={() => remove(annotation)}>{copy.removeTimelineAnnotations}</button>
 							</div>
 						</div>}
 					</li>;
-				})}
-			</ul> : <p className="audio-editor-timeline-annotation-panel__empty">{copy.noTimelineAnnotations}</p>}
-			<p className="audio-editor-timeline-annotation-panel__status" role="status" aria-live="polite">{status}</p>
-		</section>
-	);
-}
+});
 
 export function completeTimelineAnnotationNavigation(
 	target,

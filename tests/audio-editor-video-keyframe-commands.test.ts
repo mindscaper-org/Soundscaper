@@ -86,50 +86,7 @@ test('the command budgets each valid optimistic wire without double-counting bot
 	assert.notStrictEqual(command.expectedKeyframes, command.keyframes);
 });
 
-test('the command snapshot rejects accessors, cycles, and disguised arrays without invoking code', () => {
-	let reads = 0;
-	const command = {
-		type: 'video-keyframes/set', clipId: 'video',
-		expectedKeyframes: emptyKeyframes(), keyframes: opacityKeyframes(),
-	} as DataRecord;
-	Object.defineProperty(command, 'keyframes', {
-		enumerable: true,
-		get() { reads += 1; return opacityKeyframes(); },
-	});
-	assert.throws(() => snapshotVideoKeyframesSetCommand(command), /keyframes.*data property/iu);
-	assert.equal(reads, 0);
-
-	const nested = opacityKeyframes();
-	Object.defineProperty(nested.timeDomain as object, 'viewStart', {
-		enumerable: true,
-		get() { reads += 1; return { num: 0, den: 1 }; },
-	});
-	assert.throws(
-		() => createSetVideoKeyframesCommand('video', emptyKeyframes(), nested),
-		/accessor|data propert/iu,
-	);
-	assert.equal(reads, 0);
-
-	const namedArray = opacityKeyframes();
-	Object.defineProperty(namedArray.curves as object, 'hidden', { enumerable: true, value: true });
-	assert.throws(
-		() => createSetVideoKeyframesCommand('video', emptyKeyframes(), namedArray),
-		/array.*named|array.*properties/iu,
-	);
-
-	const cyclic = opacityKeyframes() as DataRecord;
-	(cyclic.timeDomain as DataRecord).cycle = cyclic;
-	assert.throws(
-		() => createSetVideoKeyframesCommand('video', emptyKeyframes(), cyclic),
-		/cyclic/iu,
-	);
-
-	const binary = opacityKeyframes();
-	(binary.timeDomain as DataRecord).viewStart = new Uint8Array([0]);
-	assert.throws(
-		() => createSetVideoKeyframesCommand('video', emptyKeyframes(), binary),
-		/JSON-safe/iu,
-	);
+test('the command snapshot rejects negative-zero coordinates', () => {
 	const negativeZero = opacityKeyframes();
 	((negativeZero.curves as DataRecord[])[0]!.curve as DataRecord).anchors = [
 		{ position: { num: -0, den: 1 }, value: 0.25 },

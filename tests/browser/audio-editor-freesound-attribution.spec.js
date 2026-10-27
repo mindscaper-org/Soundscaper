@@ -218,7 +218,7 @@ test.describe('Freesound discovery and attribution', () => {
 		await licenseFilter.selectOption('all');
 		await expect.poll(() => requests.at(-1)?.license).toBe('all');
 
-		const waveformControl = result.getByRole('button', {
+		const waveformControl = result.getByRole('slider', {
 			name: `Seek and play preview: ${SOUND.name}`,
 		});
 		const waveformBounds = await waveformControl.boundingBox();

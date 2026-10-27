@@ -2,6 +2,7 @@
 
 /** Reviewed ONNX Runtime adapters mounted inside the isolated worker. */
 
+import { createAssistanceFramePackOrdinalRangeIndex } from '../src/common/editor/assistance/frame-pack-ordinal-range-index.ts';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
@@ -338,6 +339,7 @@ async function inspectFramePacks(
 	if (timescale === null || sourceFrames.length < 1) {
 		throw new RangeError('TransNetV2 requires at least one reviewed source frame.');
 	}
+	const locatePack = createAssistanceFramePackOrdinalRangeIndex(indexes);
 	const cache = new Map<number, ReviewedAssistanceFramePackV1>();
 	const load = async (pack: TransNetFramePackIndex): Promise<ReviewedAssistanceFramePackV1> => {
 		const cached = cache.get(pack.inputIndex);
@@ -364,8 +366,7 @@ async function inspectFramePacks(
 			if (!Number.isSafeInteger(indexValue) || indexValue < 0 || indexValue >= sourceFrames.length) {
 				throw new RangeError('TransNetV2 requested a frame outside reviewed pack custody.');
 			}
-			const pack = indexes.find((candidate) => indexValue >= candidate.ordinalStart
-				&& indexValue < candidate.ordinalStart + candidate.frameCount)!;
+			const pack = locatePack(indexValue);
 			const reviewed = await load(pack);
 			const localIndex = indexValue - pack.ordinalStart;
 			const frame = reviewed.frame(localIndex);
