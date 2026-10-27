@@ -56,6 +56,48 @@ checks, architecture and file-size guards, audits, documentation checks, the
 production build, and Node coverage. `npm run check:static` runs everything in
 that gate except the Node suite.
 
+Maintainers can run that gate and the complete ordinary Playwright suite
+(Chromium, Firefox and WebKit) together:
+
+```sh
+npm run check-all
+```
+
+`check-all` schedules up to four checks or test shards at once. It splits lint
+using the existing eight lint shards, Node tests using their four named shards,
+and the browser suite into four partitions spanning all three engines. Each
+Node shard uses two test processes and each browser shard uses two workers.
+Browser preparation runs the production build once, builds Framescaper, and
+authenticates the two product sites before browser tests start. Four browser
+shards share one owned preview pair, avoiding port collisions. Node coverage is
+collected separately for each shard and reported over their fresh union after
+all four pass, using the same local coverage policy as `npm run check`.
+
+The command requires Linux with cgroup v2 memory accounting and a working
+systemd user session (`systemd-run --user`). Every check or shard runs in a
+verified scope with `MemoryMax=8G` and `MemorySwapMax=0`: the 8 GiB cap includes
+its native processes and descendants, including detached children. The shared
+preview pair has a separate 8 GiB scope. These are per-scope ceilings, so four
+busy shards can together use up to 32 GiB, plus previews and the coordinator.
+An unavailable memory controller fails the command before checks start;
+there is no uncapped fallback. Other platforms can use the existing individual
+commands. An allocation killed by the scope's memory limit fails its check.
+
+The terminal shows a progress bar for completed checks and the currently
+running tests. Successful test results stay quiet; test failures print as they
+finish, including failed browser attempts that will retry. Piped output prints
+periodic snapshots. Full command output is saved under
+`.wrangler/check-all/logs/`; browser diagnostics have separate directories under
+`test-results/check-all/`. Independent checks continue after a failure, while
+checks that need a failed prerequisite are marked blocked. Any failed or blocked
+check produces a nonzero exit. Ctrl-C terminates all owned scopes and their
+descendants. A worktree lock prevents overlapping `check-all` invocations; after
+a forced kill, remove `.wrangler/check-all.lock` only once that run has stopped.
+
+Use `npm run check-all -- --list` to inspect the plan without running checks.
+Agents must not run `check-all`, just as they must not run the other full-suite
+gates; focused regressions and fixture-only runner tests remain allowed.
+
 `npm test` runs JavaScript and TypeScript Node tests through the repository
 runner. CI splits that suite because it no longer fits a four-core runner.
 A test belongs to `framescaper` or `soundscaper` when it reaches into that

@@ -172,6 +172,7 @@
 		"audit:ci": "npm run audit:staffpad && npm run audit:nyquist && npm run audit:parametric-eq && npm run audit:wavpack && npm run audit:flac && npm run audit:opus && npm run audit:vorbis && npm run audit:mpg123 && npm run audit:lame && npm run audit:twolame && npm run audit:milestone-5-native-sources && npm run audit:native-helper-addon && npm run audit:framescaper-media-host && npm run audit:framescaper-openfx-host && npm run audit:native-payload-producers && npm run audit:local-model-release && npm run audit:kokoro-model-release && npm run audit:ffmpeg-runtime && npm run audit:aup3-interop && npm run audit:aup4-interop && npm run audit:seven-zip && npm run check:notices",
 		"check:static": "npm run lint && npm run typecheck && npm run check:architecture && npm run audit:ci && npm run docs:check && npm run build",
 		"check": "npm run check:static && npm run test:coverage",
+		"check-all": "node --import tsx scripts/check-all.ts",
 		"benchmark:spectrogram": "node scripts/benchmark-spectrogram.mjs",
 		"benchmark:fft": "node scripts/benchmark-spectrogram.mjs",
 		"build:pages": "npm run build && npm run docs:check && node scripts/stage-handbook-build.mjs && node scripts/check-cloudflare-assets.mjs && node scripts/preflight-pages-deploy.mjs",
