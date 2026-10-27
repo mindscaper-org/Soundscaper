@@ -50,7 +50,7 @@ async function installWorker(page) {
 	const script = await mappedBundle('opfs-sync-worker.js', resolve(repositoryRoot, 'src/common/editor/storage/opfs-sync-worker.ts'));
 	register(page, '/opfs-sync-worker.ts', script);
 	await page.route('**/opfs-sync-worker.ts', async route => {
-		const response = await route.fetch(), headers = response.headers();
+		const response = await route.fetch({ maxRetries: 1 }), headers = response.headers();
 		delete headers['content-length']; delete headers['content-encoding']; headers['content-type'] = 'text/javascript';
 		try { await route.fulfill({ status: 200, headers, body: script.source }); }
 		finally { await response.dispose(); }
