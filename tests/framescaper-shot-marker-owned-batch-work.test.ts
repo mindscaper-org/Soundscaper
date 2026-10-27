@@ -9,6 +9,9 @@ import { FRAMESCAPER_NATIVE_MEDIA_PROJECT_RUNTIME_PROFILE as profile } from '../
 import { resolveLocalAssistanceSelectedVideoAuthority } from '../src/common/editor/controller/assistance/local-assistance-selected-video.ts';
 import { createLocalAssistanceShotAcceptance } from '../src/common/editor/controller/assistance/internal/local-assistance-shot-acceptance.ts';
 import { createTimelineAnnotationsV11 } from '../src/common/editor/timeline-annotation.ts';
+import { createCurrentAudioEditorProject } from '../src/common/editor/project-current.ts';
+import { brandRuntimeProjectProjection, resolveRuntimeProjectProjection } from '../src/common/editor/runtime-clip-projection.ts';
+import { dispatchTimelineAnnotationAppendRuns } from '../src/common/editor/commands/timeline-annotation-add-batch.ts';
 
 function fixture(count: number) {
 	const sourceFrames = count + 2, options = framescaperV20Options();
@@ -59,8 +62,48 @@ test('actual500-cut acceptance retains every command and marker while canonicali
 	assert.equal(applied.revision, Number(project.revision) + 1);
 	assert.deepEqual(project.timelineAnnotations, []);
 	assert.ok(rows <= count * 8, `${String(rows)} normalized marker rows`);
+	context.diagnostic(`${String(rows)} normalized marker rows for ${String(count)} accepted cuts.`);
 	const malformed = structuredClone(command) as unknown as { type: 'batch'; commands: { annotation: { id: string } }[] };
 	malformed.commands.at(-1)!.annotation.id = malformed.commands[0]!.annotation.id;
 	assert.throws(() => applyFramescaperProjectCommandNativeMedia(profile, project, malformed as never), /duplicate|unique|repeat/i);
 	assert.deepEqual(project.timelineAnnotations, []);
+});
+
+test('current Frame append runs preserve interleaved and nested edits and refuse later locked children atomically', () => {
+	const { project } = fixture(8);
+	const original = structuredClone(project);
+	const marker = (id: string, positionFrame: number) => ({ type: 'timeline-annotation/add' as const, annotation: {
+		id, sequenceId: String((project.sequences as readonly { id: string }[])[0]!.id), name: '', color: 'auto' as const,
+		batchId: null, opaqueExtensions: {}, kind: 'marker' as const, anchor: 'sample' as const, positionFrame,
+	} });
+	const command: FramescaperProjectCommandNativeMedia = { type: 'batch', commands: [
+		marker('first', 1), marker('second', 2),
+		{ type: 'batch', commands: [
+			{ type: 'timeline-annotation/update-many', annotationIds: ['first'], changes: { name: 'Interleaved' } },
+			marker('third', 3), marker('fourth', 4),
+		] },
+	] };
+	const applied = applyFramescaperProjectCommandNativeMedia(profile, project, command);
+	assert.deepEqual((applied.timelineAnnotations as readonly { id: string; name: string }[]).map(row => [row.id, row.name]),
+		[['first', 'Interleaved'], ['second', ''], ['third', ''], ['fourth', '']]);
+	assert.deepEqual(project, original);
+	const trackId = String((project.tracks as readonly { id: string }[])[0]!.id);
+	const clipId = String((project.clips as readonly { id: string }[])[0]!.id);
+	assert.throws(() => applyFramescaperProjectCommandNativeMedia(profile, project, { type: 'batch', commands: [
+		marker('first', 1), marker('second', 2),
+		{ type: 'track/update', trackId, changes: { locked: true } },
+		{ type: 'batch', commands: [{ type: 'clip/update', clipId, changes: { title: 'Refused' } }] },
+	] }), /locked/iu);
+	assert.deepEqual(project, original);
+	let reads = 0;
+	const hostile = marker('hostile', 3);
+	Object.defineProperty(hostile, 'annotation', { enumerable: true, get() { reads += 1; return marker('accessor', 3).annotation; } });
+	const canonical = createCurrentAudioEditorProject({ id: 'append-run-closed-fields' });
+	const draft = brandRuntimeProjectProjection(structuredClone(resolveRuntimeProjectProjection(canonical)));
+	assert.throws(() => dispatchTimelineAnnotationAppendRuns(draft, [marker('first', 1), hostile], () => {
+		assert.fail('A malformed append run cannot dispatch even its first child.');
+	}), /data|accessor/iu);
+	assert.equal(reads, 0);
+	assert.deepEqual(draft.timelineAnnotations, []);
+	assert.deepEqual(project, original);
 });

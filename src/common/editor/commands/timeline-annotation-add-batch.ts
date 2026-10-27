@@ -2,27 +2,27 @@
 
 import { isTimelineAnnotationProjectSchema } from '../project-schema-version.ts';
 import { isRuntimeProjectProjection } from '../runtime-clip-projection.ts';
-import { createTimelineAnnotationsV11, type TimelineAnnotationV11 } from '../timeline-annotation.ts';
+import { createTimelineAnnotationsV11 } from '../timeline-annotation.ts';
 import { restoreTimelineAnnotationsFromRuntimeProjection, resolveRuntimeTimelineAnnotationsInDocumentOrder,
 	type RuntimeTimelineAnnotationProject, type RuntimeTimelineAnnotationProjection } from '../runtime-timeline-annotation-projection.ts';
 import type { AudioEditorCommand, EditorCommandProject } from './protocol.ts';
 
-type AddCommand = Extract<AudioEditorCommand, { type: 'timeline-annotation/add' }>;
+interface TypedCommand { readonly type: string }
 interface AppendRun { readonly rows: ReadonlyMap<object, RuntimeTimelineAnnotationProjection>;
 	readonly target: RuntimeTimelineAnnotationProjection[]; }
 const ownedRuns = new WeakMap<object, AppendRun>();
 
 /** Each original child still passes the transaction's before/after admissions. */
-export function dispatchTimelineAnnotationAppendRuns(
-	project: EditorCommandProject, commands: readonly AudioEditorCommand[],
-	dispatchChild: (project: EditorCommandProject, command: AudioEditorCommand) => void,
+export function dispatchTimelineAnnotationAppendRuns<Command extends TypedCommand>(
+	project: EditorCommandProject, commands: readonly Command[],
+	dispatchChild: (project: EditorCommandProject, command: Command) => void,
 ): void {
 	let index = 0;
 	while (index < commands.length) {
 		const first = index;
 		while (commands[index]?.type === 'timeline-annotation/add') index += 1;
 		if (index - first > 1 && isTimelineAnnotationProjectSchema(project) && isRuntimeProjectProjection(project)) {
-			const additions = commands.slice(first, index) as readonly AddCommand[];
+			const additions = commands.slice(first, index);
 			const prior = ownedRuns.get(project);
 			ownedRuns.set(project, prepareAppendRun(project, additions));
 			try { for (const child of additions) dispatchChild(project, child); }
@@ -41,17 +41,18 @@ export function applyPreparedTimelineAnnotationAppend(project: EditorCommandProj
 	return true;
 }
 
-function prepareAppendRun(project: EditorCommandProject, commands: readonly AddCommand[]): AppendRun {
+function prepareAppendRun(project: EditorCommandProject, commands: readonly TypedCommand[]): AppendRun {
 	const owner = project as unknown as RuntimeTimelineAnnotationProject;
 	const authoritative = restoreTimelineAnnotationsFromRuntimeProjection(owner);
-	const additions: TimelineAnnotationV11[] = commands.map((command) => {
+	const additions = commands.map((command): unknown => {
 		for (const key of Reflect.ownKeys(command)) {
 			const field = Object.getOwnPropertyDescriptor(command, key);
 			if ((key !== 'type' && key !== 'annotation') || !field?.enumerable || !Object.hasOwn(field, 'value')) {
 				throw new TypeError('Timeline annotation add commands require closed data fields.');
 			}
 		}
-		return command.annotation;
+		const annotation: unknown = Object.getOwnPropertyDescriptor(command, 'annotation')?.value;
+		return annotation;
 	});
 	const canonical = createTimelineAnnotationsV11([...authoritative, ...additions], {
 		sampleRate: owner.sampleRate, tempoMap: owner.tempoMap,

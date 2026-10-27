@@ -26,6 +26,7 @@ import { createVideoRetimePreservationAdmission } from './video-retime-preservat
 import { brandFrameResourceCommandProjectV2 } from './frame-resource-command-carriers-v2.ts';
 import { pasteClipboardV7 } from './clipboard-runtime-v7.ts';
 import { isCurrentClipboardPasteCommandV2, type CurrentAudioEditorMutationCommandV2 } from './clipboard-command-v2.ts';
+import { dispatchTimelineAnnotationAppendRuns } from './timeline-annotation-add-batch.ts';
 
 type DataRecord = Record<PropertyKey, unknown>;
 
@@ -118,7 +119,8 @@ function mutateCommand(
 	resourceV2: boolean,
 ): void {
 	if (resourceV2 && command.type === 'batch') {
-		for (const child of command.commands) mutateCommand(project, child, handlers, admission, true);
+		dispatchTimelineAnnotationAppendRuns(project, command.commands,
+			(draft, child) => mutateCommand(projectRecord(draft, 'command project'), child, handlers, admission, true));
 		return;
 	}
 	const isChild = command.type !== 'batch';
