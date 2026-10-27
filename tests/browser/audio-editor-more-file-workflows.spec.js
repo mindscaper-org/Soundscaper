@@ -3,6 +3,7 @@
 import { expect, test, toneA, readFile } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, disableNativeSavePicker, importFiles, openExportDialog } from './audio-editor-test-helpers.js';
 import { encodeWav } from '../../src/common/editor/wav.js';
+import { FORMAT_FILE_FAILURE_COPY } from '../../src/common/i18n/editor-format-file-failure-copy.ts';
 
 for (const [date, time, displayedDate] of [['2026.02.03', '04_05_06', '2026-02-03'], ['0000-02-29', '04:05:06', '0000-02-29']]) {
 	test(`valid imported BEXT origination ${date} stays visible in its metadata fields`, async ({ page }) => {
@@ -62,5 +63,5 @@ test('a broken label file leaves the other selected label files imported', async
 	]);
 	await expect(editor.getByRole('group', { name: 'Edit labels: First retained', exact: true })).toBeVisible();
 	await expect(editor.getByRole('group', { name: 'Edit labels: Last retained', exact: true })).toBeVisible();
-	await expect(page.getByRole('alert')).toContainText('A TXT label needs a time and title.');
+	await expect(page.getByRole('alert')).toContainText(FORMAT_FILE_FAILURE_COPY.labelTxtRow);
 });

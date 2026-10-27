@@ -15,6 +15,7 @@ import {
 import type { EditorActionFunctions } from '../composition/editor-action-functions.ts';
 import type { EditorActionResources } from '../composition/editor-action-resources.ts';
 import type { RestrictToCapability } from '../composition/action-facade-runtime.ts';
+import { createOwnedEffectPresetCatalog } from './internal/owned-effect-preset-catalog.ts';
 
 export type EffectLibraryActionScope = Pick<EditorActionFunctions,
 	 'createStableId'
@@ -40,6 +41,10 @@ export type EffectLibraryActionScope = Pick<EditorActionFunctions,
 	readonly selection: Pick<MacroCommandServiceRuntime, 'setExactSelection'>;
 };
 
+type EffectPresetActionScope = Pick<EffectLibraryActionScope,
+	'effectLibraryState' | 'listAudioEditorEffectPresets' | 'applyEffectPreset' | 'saveEffectPreset'
+	| 'currentAudacityEffectParams' | 'deleteEffectPreset' | 'importEffectPresets' | 'exportEffectPreset' | 'state'>;
+
 /**
  * The two saved-effect libraries an editor session accumulates: presets, which
  * remember one effect's parameters, and macros, which remember a chain of them.
@@ -48,13 +53,14 @@ export type EffectLibraryActionScope = Pick<EditorActionFunctions,
  * reaches for it.
  */
 export function createEffectPresetActions(
-	scope: EffectLibraryActionScope,
+	scope: EffectPresetActionScope,
 	restricted: RestrictToCapability,
 ) {
 	const { effectLibraryState: state } = scope;
+	const list = createOwnedEffectPresetCatalog(state, scope.listAudioEditorEffectPresets);
 	return Object.freeze({
 		list: (effectType: string = state.audacityEffectType) => (
-			scope.listAudioEditorEffectPresets(state.effectPresets, effectType)
+			list(effectType)
 		),
 		apply: restricted('audioEffects', writableLibraryAction(scope, scope.applyEffectPreset)),
 		save: restricted('audioEffects', writableLibraryAction(scope, scope.saveEffectPreset)),
@@ -222,7 +228,7 @@ function readScriptRequest(
 
 /** A library edit queued before reset admission must not repopulate its deleted settings. */
 function writableLibraryAction<Args extends unknown[], Result>(
-	scope: EffectLibraryActionScope, operation: (...args: Args) => Result,
+	scope: Pick<EffectLibraryActionScope, 'state'>, operation: (...args: Args) => Result,
 ): (...args: Args) => Result {
 	return (...args) => {
 		if (scope.state.projectAdministrationPending) {

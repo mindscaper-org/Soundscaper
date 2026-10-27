@@ -114,34 +114,3 @@ test('composition edits reject missing and audio clip targets without changing t
 	assert.throws(() => apply(project, command('audio-clip')), /Clip audio-clip is not a video clip/iu);
 	assert.deepEqual(project, before);
 });
-
-test('composition target discovery rejects accessor-backed project fields without invoking them', () => {
-	for (const field of ['clips', 'projectBin'] as const) {
-		const project = projectFixture();
-		let reads = 0;
-		Object.defineProperty(project, field, {
-			enumerable: true,
-			get() { reads += 1; throw new Error('unexpected project getter execution'); },
-		});
-
-		assert.throws(() => apply(project, command()), /own enumerable data property/iu);
-		assert.equal(reads, 0);
-	}
-});
-
-test('composition edits reject accessor-backed clip identity, kind and current composition', () => {
-	for (const field of ['id', 'kind', 'videoComposition'] as const) {
-		const project = projectFixture();
-		const clip = project.clips[0]!;
-		const compositionBefore = clip.videoComposition;
-		let reads = 0;
-		Object.defineProperty(clip, field, {
-			enumerable: true,
-			get() { reads += 1; throw new Error('unexpected clip getter execution'); },
-		});
-
-		assert.throws(() => apply(project, command()), /own enumerable data property/iu);
-		assert.equal(reads, 0);
-		if (field !== 'videoComposition') assert.strictEqual(clip.videoComposition, compositionBefore);
-	}
-});

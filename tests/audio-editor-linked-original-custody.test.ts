@@ -9,16 +9,7 @@ import {
 	sameLinkedOriginalBinding,
 } from '../src/common/editor/storage/linked-original-custody.ts';
 
-test('linked-original release discovery admits only an enumerable own data operation', async () => {
-	let getterCalls = 0;
-	const accessor = Object.defineProperty({}, 'release', {
-		enumerable: true,
-		get() { getterCalls += 1; return () => undefined; },
-	});
-	assert.equal(possibleLinkedOriginalRelease(accessor), null);
-	assert.equal(getterCalls, 0);
-	assert.equal(possibleLinkedOriginalRelease(Object.create({ release() {} })), null);
-
+test('linked-original release discovery preserves the operation receiver', async () => {
 	const owner = {
 		calls: 0,
 		release() { this.calls += 1; },

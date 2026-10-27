@@ -1,3 +1,5 @@
+import { useComponentCopy } from '@soundscaper/design-system/contexts/ComponentCopyContext';
+import { componentCopyTemplate } from '@soundscaper/design-system/component-copy';
 import React, {
 	type CSSProperties,
 	type MouseEvent as ReactMouseEvent,
@@ -95,7 +97,7 @@ export default function AudioEditorDialogShell({
 	closeOnEscape = true,
 	closeOnOutside = true,
 	initialFocus = 'first',
-	resizeLabel = `Resize: ${title}`,
+	resizeLabel,
 	ariaDescribedBy,
 	dataAttributes = {},
 	overlayClassName = '',
@@ -106,6 +108,7 @@ export default function AudioEditorDialogShell({
 	bodyClassName = 'kw-audio-editor-dialog__body audio-editor-controlled-dialog__body',
 	style,
 }: AudioEditorDialogShellProps) {
+	const { copy: componentCopy } = useComponentCopy();
 	const panelRef = useRef<HTMLElement | null>(null);
 	const onCloseRef = useRef(onClose);
 	const dragRef = useRef<DragSession | null>(null);
@@ -274,7 +277,7 @@ export default function AudioEditorDialogShell({
 				aria-describedby={ariaDescribedBy}
 				onKeyDownCapture={event => guardModalNativeRangeKey(event, modal)}
 				onKeyUpCapture={event => guardModalNativeRangeKey(event, modal)}
-				resizeLabel={resizeLabel}
+				resizeLabel={resizeLabel ?? componentCopyTemplate(componentCopy.resize, { title })}
 				style={{
 					width: `min(${resolvedWidth}, calc(100vw - 32px))`,
 					transform: draggable ? `translate(${dragOffset.x}px, ${dragOffset.y}px)` : undefined,

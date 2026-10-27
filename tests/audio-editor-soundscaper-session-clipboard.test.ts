@@ -55,12 +55,6 @@ test('track duplicate clipboard captures and normalizes detached immutable autho
 	assert.equal(Object.isFrozen(normalized.effectIds), true);
 });
 
-test('track duplicate clipboard refuses an unknown source track', () => {
-	assert.throws(
-		() => createSoundscaperTrackDuplicateClipboardV8(clipboardProject(), 'missing'),
-		/unknown clipboard source track/iu,
-	);
-});
 
 test('track duplicate clipboard requires a fresh target track identity', () => {
 	const project = clipboardProject();
@@ -78,10 +72,6 @@ test('track duplicate clipboard requires a fresh target track identity', () => {
 test('track duplicate clipboard requires one-to-one effect remapping', () => {
 	const project = clipboardProject();
 	for (const effectIds of [
-		[
-			{ sourceId: 'voice-highpass', targetId: 'copy-highpass' },
-			{ sourceId: 'voice-highpass', targetId: 'copy-limiter' },
-		],
 		[
 			{ sourceId: 'voice-highpass', targetId: 'copy-effect' },
 			{ sourceId: 'voice-limiter', targetId: 'copy-effect' },

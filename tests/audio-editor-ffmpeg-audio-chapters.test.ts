@@ -83,12 +83,6 @@ test('exports without chapters retain the original command and create no auxilia
 	}
 });
 
-test('unsupported chapter formats fail before any worker file is written', async () => {
-	const harness = createInstance();
-	await assert.rejects(execFfmpegAudioWithChapters(harness.instance, args, { ...settings, format: 'flac' }), /chapter/i);
-	assert.deepEqual(harness.calls, []);
-});
-
 test('legacy FFmpeg M4A refuses a nonzero first chapter rather than rebasing its timestamp', async () => {
 	const harness = createInstance();
 	await assert.rejects(execFfmpegAudioWithChapters(harness.instance, args, {

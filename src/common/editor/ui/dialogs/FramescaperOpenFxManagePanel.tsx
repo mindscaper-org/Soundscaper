@@ -1,6 +1,7 @@
 import { usePresentationFeedback, feedbackFailure } from '../presentation-feedback.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { openFxStateLabel } from './framescaper-native-state-labels.ts';
 import { ProcessingButton as Button } from './ProcessingButton.tsx';
 import { ProcessingSearchField } from './ProcessingSearchField.tsx';
 import { Table } from '@soundscaper/design-system/Table/Table';
@@ -100,7 +101,7 @@ export default function FramescaperOpenFxManagePanel({
 			<ProcessingSearchField value={query} onChange={setQuery} label={copy.searchPlugins} />
 			<PreferenceDropdownField label={copy.pluginStatus} value={status} onChange={setStatus}
 				options={[{ value: 'all', label: copy.allPluginStates },
-					...[...new Set(plugins.map((plugin) => plugin.state))].map((value) => ({ value, label: value }))]} />
+					...[...new Set(plugins.map((plugin) => plugin.state))].map((value) => ({ value, label: openFxStateLabel(value, copy) }))]} />
 		</div>
 		<p role="status" aria-live="polite">{message}</p>
 		<Table className="kw-processing-table"><table aria-label={copy.ofxPlugins}>
@@ -108,7 +109,7 @@ export default function FramescaperOpenFxManagePanel({
 			<tbody>{visible.map((plugin) => <tr key={plugin.pluginHandle}
 				data-framescaper-openfx-plugin={plugin.pluginHandle} aria-selected={plugin.pluginHandle === selectedHandle}>
 				<td><Button variant="secondary" onClick={() => setSelectedHandle(plugin.pluginHandle)}>{plugin.pluginId}</Button></td>
-				<td>{plugin.vendor ?? '—'}</td><td>{plugin.state}</td>
+				<td>{plugin.vendor ?? '—'}</td><td>{openFxStateLabel(plugin.state, copy)}</td>
 			</tr>)}</tbody>
 		</table></Table>
 		{visible.length === 0 && <p>{plugins.length ? copy.noMatchingPlugins : copy.ofxNoPlugins}</p>}

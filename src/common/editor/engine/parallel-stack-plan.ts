@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { normalizeMixerGraphV21, mixerEndpointKeyV21 } from '../mixer-graph-v21.ts';
+import { soloRelatedStrips } from '../mixer-programme-reachability.ts';
 import { createMixerSignalTopologyV21 } from '../mixer-signal-topology-v21.ts';
 import { resolveTerminalChannelWidths } from '../terminal-channel-widths.ts';
 import type { StripRef } from '../parameter-address.ts';
@@ -51,11 +52,11 @@ export function compileParallelStackPlan(project: EngineProject, options: Parall
 	for (const track of tracks) if (track.solo) solos.add(`track:${String(track.id)}`);
 	for (const strip of mixerNodes) if (strip.solo) solos.add(`mixer-node:${strip.id}`);
 	const topology = createMixerSignalTopologyV21(graph, { includeOutputs: false });
-	const audible = (key: string): boolean => {
-		if (!solos.size) return true;
-		for (const solo of solos) if (topology.reaches(key, solo) || topology.reaches(solo, key)) return true;
-		return false;
-	};
+	const related = solos.size ? soloRelatedStrips(topology, [
+		...tracks.map(track => `track:${String(track.id)}`),
+		...mixerNodes.map(strip => `mixer-node:${strip.id}`), 'master',
+	], [...solos]) : null;
+	const audible = (key: string): boolean => related === null || related.has(key);
 	const controls = createParallelStackControlIndex(graph);
 	const sidechainEffect = createParallelStackSidechainResolver();
 	let planeCount = 0;

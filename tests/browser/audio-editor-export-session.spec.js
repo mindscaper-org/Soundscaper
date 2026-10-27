@@ -1,3 +1,4 @@
+import { clipDescriptionForLocale } from './audio-editor-clip-locators.js';
 import { Uint8ArrayReader, Uint8ArrayWriter, ZipReader } from '@zip.js/zip.js';
 
 import {
@@ -203,17 +204,18 @@ test.describe('audio editor React/design-system workflows', () => {
 	test('completes an import, effect, and undo workflow in German', async ({ page }) => {
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/de/');
+		const clipDescription = await clipDescriptionForLocale('de');
 		await importFiles(editor, [monoTone]);
 		await chooseNestedCommandAction(page, editor, 'Effekt', ['Spezial', 'Invertieren']);
 		const effectDialog = page.getByRole('dialog', { name: 'Effekt anwenden', exact: true });
 		await expect(effectDialog).toHaveCount(0);
 		await expect(editor.locator('[data-status]')).toHaveAttribute('data-state', 'success', { timeout: 20_000 });
-		await expect(clipByName(editor, 'browser-mono-tone')).toBeVisible();
+		await expect(clipByName(editor, 'browser-mono-tone', clipDescription)).toBeVisible();
 		await expect.poll(async () => (
 			(await effectSourceMetadata(page)).some((source) => source.name.includes('Invertieren'))
 		)).toBe(true);
 		await editor.getByRole('button', { name: 'Rückgängig', exact: true }).click();
-		await expect(clipByName(editor, monoTone.name)).toHaveCount(1);
+		await expect(clipByName(editor, monoTone.name, clipDescription)).toHaveCount(1);
 		expect(errors).toEqual([]);
 	});
 

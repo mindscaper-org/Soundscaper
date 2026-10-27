@@ -1,3 +1,4 @@
+import { withEditorCopyOrigin } from './editor-copy-origin.ts';
 import { EDITOR_ENGLISH_COPY as ENGLISH_COPY } from './editor-copy-inventory.ts';
 import { normalizeBcp47Locale } from './locale.js';
 import { loadTranslationCatalog, sameNamedPlaceholders } from './translation-catalog.js';
@@ -44,10 +45,10 @@ export async function resolveCatalog(locale, options = {}) {
  * @returns {Readonly<Record<string, string>>}
  */
 export function mergeCatalog(_locale, translations = {}) {
-	return Object.freeze({
+	return withEditorCopyOrigin({
 		...ENGLISH_COPY,
 		...validateMessages(translations || {}),
-	});
+	}, ENGLISH_COPY);
 }
 
 function validateMessages(messages) {

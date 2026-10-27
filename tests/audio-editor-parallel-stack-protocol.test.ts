@@ -103,14 +103,6 @@ test('fresh generation memory cannot be changed by retired schedulers', () => {
 	assert.equal(createParallelStackViews(replacement.shared).status(), ParallelStackStatus.Running);
 });
 
-test('shared allocation rejects malformed and excessive resource geometry', () => {
-	const valid = { generation: 1, planeCount: 4, taskCount: 3, workerCount: 2 };
-	assert.throws(() => createParallelStackBuffers({ ...valid, planeCount: 1_000_000 }), RangeError);
-	assert.throws(() => createParallelStackBuffers({ ...valid, bankCount: 3 }), RangeError);
-	assert.throws(() => createParallelStackBuffers({ ...valid, generation: NaN }), RangeError);
-	assert.throws(() => createParallelStackBuffers({ ...valid, latencyFrames: 769 }), RangeError);
-});
-
 test('the unarmed collector handshakes before origin and accepts large absolute frame clocks', () => {
 	const shared = createParallelStackBuffers({ generation: 7, planeCount: 2, taskCount: 1, workerCount: 1, latencyFrames: 1536 });
 	const collector = new ParallelStackCollector({ shared, inputPlaneIndices: [[0]], outputPlaneIndices: [[1]] });

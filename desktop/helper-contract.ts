@@ -64,6 +64,7 @@ export type {
 	HelperPluginScanJobGrant,
 	HelperProbeJobGrant,
 } from './helper-job-grant.ts';
+export { MAXIMUM_PLUGIN_SCAN_ENTRIES } from './plugin-scan-results.ts';
 export * from './helper-data-plane.ts';
 export * from './helper-data-plane-input-reservation.ts';
 export * from './helper-data-plane-output-reservation.ts';

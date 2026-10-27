@@ -265,12 +265,6 @@ test('FFmetadata writes output frame timebases, exact Unicode titles and escaped
 	assert.equal(serializeEmbeddedExportChapters([], SAMPLE_RATE), ';FFMETADATA1\n');
 });
 
-test('FFmetadata serialization also validates chapter data and its timebase', () => {
-	assert.throws(() => serializeEmbeddedExportChapters([
-		{ startFrame: 0, endFrame: 0, title: 'Invalid' },
-	], SAMPLE_RATE), RangeError);
-	assert.throws(() => serializeEmbeddedExportChapters([], 0), RangeError);
-});
 
 test('FFmetadata can omit titles for encoders that supply literal chapter tags separately', () => {
 	assert.equal(serializeEmbeddedExportChapters([

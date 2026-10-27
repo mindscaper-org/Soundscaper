@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { formatLocalizedTemplate } from '../localization-template.ts';
+
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { Checkbox } from '@soundscaper/design-system/Checkbox';
@@ -147,7 +149,7 @@ export default function MacroScriptEditor({
 					<h4>{copy.reviewHeading}</h4>
 					<p className="audio-editor-panel-hint">
 						{script.origin
-							? copy.reviewOrigin.replace('{origin}', script.origin)
+							? formatLocalizedTemplate(copy.reviewOrigin, { origin: script.origin })
 							: copy.reviewUnknownOrigin}
 					</p>
 					<p className="audio-editor-panel-hint">{copy.reviewRisk}</p>

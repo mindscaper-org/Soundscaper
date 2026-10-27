@@ -4,6 +4,10 @@
 export const TEXT_TO_SPEECH_COPY_BY_LOCALE = Object.freeze({
 	en: Object.freeze({
 		title: 'Text to Speech',
+		scriptInvalid: 'Remove unsupported control or formatting characters from the speech script.',
+		loadingFailed: 'Speech voices could not be loaded. Check the installed speech models.',
+		generationFailed: 'Speech could not be generated. Check that the selected model and voice are available.',
+		acceptanceFailed: 'The generated speech could not be added to the project.',
 		modelPurpose: 'Speech synthesis',
 		description: 'Create speech locally, listen to it, then add it on a new track at the playhead.',
 		regenerateDescription: 'Edit the selected generated speech, listen to a preview, then replace that clip’s audio without moving it.',

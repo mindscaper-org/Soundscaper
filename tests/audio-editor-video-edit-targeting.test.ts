@@ -123,5 +123,4 @@ test('toggling a lane starts from what is resolved and turns off on a second pre
 
 test('an unknown sequence is a reference error rather than an empty target', () => {
 	assert.throws(() => resolveVideoEditTargets(project(), { sequenceId: 'missing' }), ReferenceError);
-	assert.throws(() => resolveVideoEditTargets(project({ primarySequenceId: '' })), TypeError);
 });

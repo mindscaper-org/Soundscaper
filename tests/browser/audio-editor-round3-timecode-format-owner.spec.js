@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { COMPONENT_COPY } from '../../vendor/audacity-design-system/components/src/component-copy.ts';
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
@@ -16,7 +17,7 @@ test('opening a time-code format menu ends its preceding digit-key ownership', a
 	await expect(choice).toBeVisible();
 	await page.keyboard.press('ArrowDown');
 	await expect(display).toHaveText(before);
-	await expect(page.getByRole('menuitem', { name: 'Enter value…', exact: true })).toBeFocused();
+	await expect(page.getByRole('menuitem', { name: COMPONENT_COPY.enterValue, exact: true })).toBeFocused();
 	await page.keyboard.press('ArrowDown');
 	await expect(choice).toBeFocused();
 	await page.keyboard.press('Enter');

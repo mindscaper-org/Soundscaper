@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
-import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
+import { usePresentationFeedback } from '../presentation-feedback.ts';
 import { runAwaitedAudioEditorOperation } from '../workspace/audio-editor-workspace-runner.ts';
+import { projectRecoveryChangeLabel } from './project-recovery-reason-label.ts';
 import type { ProjectRecoverySummary } from '../../storage/project-recovery-repository.ts';
 import type { ProjectRecoveryUiActions, ProjectRecoveryUiInspection } from './project-recovery-model.ts';
 
@@ -26,6 +27,10 @@ export default function ProjectRecoveryDialog({ actions, initialProjectId = '', 
 	const [loading, setLoading] = useState(true);
 	const [recovering, setRecovering] = useState(false);
 	const [error, setError] = usePresentationFeedback(copy);
+	const [failureDiagnostic, setFailureDiagnostic] = useState('');
+	const reportFailure = useCallback((failure: unknown, key: string): void => {
+		setError({ key }); setFailureDiagnostic(failure instanceof Error ? failure.message : String(failure));
+	}, [setError]);
 	const admission = useRef(false);
 	const current = useRef(false);
 	useEffect(() => {
@@ -39,23 +44,23 @@ export default function ProjectRecoveryDialog({ actions, initialProjectId = '', 
 			setProjects(rows);
 			setProjectId((id) => id || rows[0]?.id || '');
 			setLoading(false);
-		}).catch((failure: unknown) => { if (current) { setError(feedbackFailure(failure)); setLoading(false); } });
+		}).catch((failure: unknown) => { if (current) { reportFailure(failure, 'projectRecoveryListFailed'); setLoading(false); } });
 		return () => { current = false; };
-	}, [actions, setError]);
+	}, [actions, reportFailure]);
 	useEffect(() => {
 		if (!projectId) return;
 		let current = true;
 		setLoading(true);
-		setInspection(null);
+		setInspection(null); setFailureDiagnostic('');
 		setError('');
 		void actions.inspect(projectId).then((value) => {
 			if (!current) return;
 			setInspection(value);
 			setCandidateIndex(Math.max(0, value.candidates.findIndex((candidate) => candidate.status !== 'unrecoverable')));
-		}).catch((failure: unknown) => { if (current) setError(feedbackFailure(failure)); })
+		}).catch((failure: unknown) => { if (current) reportFailure(failure, 'projectRecoveryInspectFailed'); })
 			.finally(() => { if (current) setLoading(false); });
 		return () => { current = false; };
-	}, [actions, projectId, setError]);
+	}, [actions, projectId, reportFailure, setError]);
 	const candidate = inspection?.candidates[candidateIndex];
 	const recover = (): void => {
 		if (admission.current || loading || !inspection || !candidate || candidate.status === 'unrecoverable') return;
@@ -64,7 +69,7 @@ export default function ProjectRecoveryDialog({ actions, initialProjectId = '', 
 		setError('');
 		void runAwaitedAudioEditorOperation(run, () => actions.recover(inspection, candidateIndex))
 			.then(() => { if (current.current) onClose(); })
-			.catch((failure: unknown) => { if (current.current) setError(feedbackFailure(failure)); })
+			.catch((failure: unknown) => { if (current.current) reportFailure(failure, 'projectRecoveryCreateFailed'); })
 			.finally(() => { admission.current = false; if (current.current) setRecovering(false); });
 	};
 	const candidateLabel = (value: NonNullable<typeof candidate>): string => [
@@ -95,11 +100,12 @@ export default function ProjectRecoveryDialog({ actions, initialProjectId = '', 
 				</label>
 				{candidate?.changes.length ? <>
 					<h3>{copy.projectRecoveryChanges}</h3>
-					<ul>{candidate.changes.map((change, index) => <li key={index}>{change.path}: {change.reason}</li>)}</ul>
+					<ul>{candidate.changes.map((change, index) => <li key={index}>{change.path}: {projectRecoveryChangeLabel(change, copy)}<details><summary>{copy.projectRecoveryDiagnostic}</summary>{change.reason}</details></li>)}</ul>
 				</> : candidate?.status === 'usable' ? <p>{copy.projectRecoveryNoChanges}</p> : null}
-				{candidate?.error && <p role="alert">{candidate.error}</p>}
+				{candidate?.error && <><p role="alert">{candidate.status === 'unrecoverable' ? copy.projectRecoveryCandidateFailed : copy.projectRecoveryDamageDetected}</p><details><summary>{copy.projectRecoveryDiagnostic}</summary>{candidate.error}</details></>}
 			</> : !loading && <p>{copy.projectRecoveryNoVersions}</p>}
 		</> : !loading && <p>{copy.projectRecoveryEmpty}</p>}
+		{failureDiagnostic && <details><summary>{copy.projectRecoveryDiagnostic}</summary>{failureDiagnostic}</details>}
 		<p role="status" aria-live="polite">{error || (loading ? copy.projectRecoveryInspecting : '')}</p>
 	</AudioEditorDialogShell>;
 }

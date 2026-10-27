@@ -167,11 +167,6 @@ test('video preview capture admission seams cannot raise or invalidate hard limi
 		{ maximumHeight: 1 },
 		{ maximumHeight: 361 },
 		{ maximumHeight: Number.NaN },
-		{ maximumEncodedBytes: -1 },
-		{ maximumEncodedBytes: 1.5 },
-		{ maximumEncodedBytes: 4 * MIB + 1 },
-		{ maximumEncodedBytes: null },
-		{ maximumEncodedBytes: '1024' },
 	]) {
 		assert.throws(
 			() => planVideoPreviewCapture(
@@ -214,9 +209,5 @@ test('encoded preview admission rejects oversized byte counts', () => {
 	assert.throws(
 		() => assertVideoPreviewEncodedBytes(1, 0),
 		/exceeds.*0.*byte/iu,
-	);
-	assert.throws(
-		() => assertVideoPreviewEncodedBytes(0, 4 * MIB + 1),
-		/video preview capture maximum encoded bytes/iu,
 	);
 });

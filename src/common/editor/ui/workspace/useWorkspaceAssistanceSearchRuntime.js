@@ -33,12 +33,12 @@ export function useWorkspaceAssistanceSearchRuntime({ project, source }) {
 		retire();
 		setState(Object.freeze({
 			status: 'opening', revision, coordinator: null,
-			message: 'Opening the authenticated disposable index…',
+			message: null, reason: 'opening',
 		}));
 		if (!project || !source || typeof source.open !== 'function') {
 			setState(Object.freeze({
 				status: 'unavailable', revision, coordinator: null,
-				message: 'Indexed search is unavailable until a reviewed disposable index is created.',
+				message: null, reason: 'unavailable',
 			}));
 			return;
 		}
@@ -60,7 +60,7 @@ export function useWorkspaceAssistanceSearchRuntime({ project, source }) {
 			if (openingRef.current !== ownedOpening) return;
 			setState(Object.freeze({
 				status: 'unavailable', revision, coordinator: null,
-				message: semanticSearchMessage(error),
+				message: null, reason: semanticSearchReason(error), cause: error,
 			}));
 		});
 	}, [project, retire, source]);
@@ -76,14 +76,8 @@ export function useWorkspaceAssistanceSearchRuntime({ project, source }) {
 	});
 }
 
-function semanticSearchMessage(error) {
-	if (error?.reason === 'query-models-unavailable') {
-		return 'Indexed search needs the explicitly installed nomic and SigLIP query models.';
-	}
-	if (error?.reason === 'desktop-unavailable') {
-		return 'Indexed search is available only in a supported desktop build.';
-	}
-	return typeof error?.message === 'string' && error.message.length <= 512
-		? error.message
-		: 'Indexed search is unavailable until a reviewed disposable index is created.';
+function semanticSearchReason(error) {
+	if (error?.reason === 'query-models-unavailable') return 'modelsUnavailable';
+	if (error?.reason === 'desktop-unavailable') return 'desktopUnavailable';
+	return 'openFailed';
 }

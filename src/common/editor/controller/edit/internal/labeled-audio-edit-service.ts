@@ -10,7 +10,7 @@
  * silences reuse the primitives their unlabelled counterparts already use.
  */
 
-import { planLabeledAudioJoinRuns } from '../../../labeled-audio-join-plan.ts';
+import { planLabeledAudioJoinRuns, type JoinableClip } from '../../../labeled-audio-join-plan.ts';
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts'; import {
 	labeledAudioSpanRegions,
 	selectLabeledAudioTargets,
@@ -49,7 +49,7 @@ export function isLabeledAudioEditAction(action: string): action is LabeledAudio
 export function createLabeledAudioEditService(runtime: LabeledAudioEditRuntime): LabeledAudioEditor {
 	const {
 		activeSelection, commit, commitSplitAtFrames, compactLiveSourceState, copy,
-		disjoinLabeledRegions, findClip, garbageCollectSources, generateLabeledSilence,
+		disjoinLabeledRegions, garbageCollectSources, generateLabeledSilence,
 		getProject, handleError, labeledClipboard, publishDocumentSnapshot,
 		setSessionClipboard, state,
 	} = runtime;
@@ -152,12 +152,15 @@ export function createLabeledAudioEditService(runtime: LabeledAudioEditRuntime):
 	 */
 	function joinWithinRegions(targets: LabeledAudioTargets): unknown {
 		const project = getProject();
+		const clipById = new Map<string, JoinableClip>(project.clips.map((clip: JoinableClip) => [clip.id, clip]));
+		const trackById = new Map<string, { readonly clipIds?: readonly string[] }>(project.tracks
+			.map((track: { readonly id: string; readonly clipIds?: readonly string[] }) => [track.id, track]));
 		const commands = [];
 		for (const trackId of targets.trackIds) {
-			const track = project.tracks.find((candidate: { id: string }) => candidate.id === trackId);
+			const track = trackById.get(trackId);
 			if (!Array.isArray(track?.clipIds)) continue;
 			commands.push(...planLabeledAudioJoinRuns(track.clipIds, targets.regions,
-				(clipId) => findClip(project, clipId)));
+				(clipId) => clipById.get(clipId)));
 		}
 		if (commands.length === 0) return undefined;
 		return commit(commands.length === 1 ? commands[0] : { type: 'batch', commands });

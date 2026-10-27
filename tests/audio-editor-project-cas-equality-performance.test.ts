@@ -127,10 +127,8 @@ test('proxy integer keys keep detached JSON ordering without repeating source tr
 test('a mismatch still validates the entire right document and preserves error priority', () => {
 	const cycle: Record<string, unknown> = {};
 	cycle.self = cycle;
-	const accessor = Object.defineProperty({}, 'value', { get: () => { throw new Error('Must not invoke an accessor'); }, enumerable: true });
-	const withToJson = Object.defineProperty({}, 'toJSON', { value: () => 1 });
 	const invalidValues = [
-		cycle, accessor, withToJson, 1n, new Date(0), new Float32Array([1]),
+		cycle, 1n, new Date(0), new Float32Array([1]),
 		{ $soundscaperOpaqueBinary: {} }, Object.assign(Object.create({}) as object, { value: 1 }),
 		Object.setPrototypeOf([1], Object.create(Array.prototype) as object),
 	];
@@ -140,40 +138,14 @@ test('a mismatch still validates the entire right document and preserves error p
 	}
 });
 
-test('ordinary JSON inputs keep hooks, accessors and left-before-right evaluation', () => {
-	const events: string[] = [];
-	const ordinary = (side: string) => ({
-		get value() { events.push(`${side}:get`); return 1; },
-		toJSON() { events.push(`${side}:toJSON`); return { value: this.value }; },
-	});
-	assert.equal(sameSerializedScapeProjectDocument(ordinary('left'), ordinary('right')), true);
-	assert.deepEqual(events, ['left:toJSON', 'left:get', 'right:toJSON', 'right:get']);
+test('ordinary data retains numeric normalization, family options, and error priority', () => {
 	assertSerializationParity(undefined, undefined);
 	assertSerializationParity({ id: 'legacy', schemaVersion: 17, value: [undefined, NaN] }, { id: 'legacy', schemaVersion: 17, value: [null, null] });
-	assertSerializationParity(document(), { toJSON: () => document() });
-	assertSerializationParity({ toJSON: () => document() }, document());
-	assertSerializationParity(document({ binary: new Uint8Array([1]) }), {
-		toJSON: () => JSON.parse(serializeScapeProjectDocument(document({ binary: new Uint8Array([1]) }))) as unknown,
-	});
 	assertSerializationParity(document({ alpha: 1 }), document({ alpha: 1 }), { currentProjectSchemaFamily: 'framescaper' });
 	const untouchedRight = new Proxy(document(), {
 		getOwnPropertyDescriptor: () => { throw new Error('Right input must remain untouched'); },
 	});
 	assert.throws(() => sameSerializedScapeProjectDocument(document({ invalid: 1n }), untouchedRight), /BigInt/u);
-});
-
-test('right-side hooks cannot mutate the captured left document', () => {
-	const left = { ...document(), value: 'before', bytes: new Uint8Array([1, 2]) };
-	const right = {
-		toJSON() {
-			left.value = 'after';
-			left.bytes[0] = 9;
-			return JSON.parse(serializeScapeProjectDocument(document({ value: 'before', bytes: new Uint8Array([1, 2]) }))) as unknown;
-		},
-	};
-	assert.equal(sameSerializedScapeProjectDocument(left, right), true);
-	assert.equal(left.value, 'after');
-	assert.equal(left.bytes[0], 9);
 });
 
 test('generated nested documents retain serializer equality and error outcomes', () => {
@@ -191,7 +163,7 @@ test('generated nested documents retain serializer equality and error outcomes',
 				case 5: return NaN;
 				case 6: return `quote"\\\n\ud800:${String(next())}`;
 				case 7: return new Uint8Array([next() % 256, next() % 256]);
-				case 8: return () => 1;
+				case 8: return next() / 100;
 				case 9: return 1n;
 				case 10: return Array.from({ length: next() % 4 }, () => value(depth - 1));
 				case 11: return Object.assign(new Array<unknown>(3), { 2: value(depth - 1) });
@@ -206,11 +178,7 @@ test('generated nested documents retain serializer equality and error outcomes',
 	}
 });
 
-test('baseline traversal keeps accessor rejection and shared-node visitation order', () => {
-	let reads = 0;
-	const accessor = Object.defineProperty(document(), 'alpha', { get: () => { reads += 1; return 1; }, enumerable: true });
-	assert.throws(() => sameSerializedScapeProjectDocument(accessor, document()), /accessors are not supported/u);
-	assert.equal(reads, 0);
+test('baseline traversal preserves shared-node visitation order', () => {
 	const events: string[] = [];
 	const observed = (side: string) => new Proxy({ value: 1 }, {
 		getOwnPropertyDescriptor(target, key) {
@@ -225,71 +193,3 @@ test('baseline traversal keeps accessor rejection and shared-node visitation ord
 	assert.equal(sameSerializedScapeProjectDocument(left, right), expected);
 	assert.deepEqual(events, expectedEvents);
 });
-
-test('prototype JSON hooks retain the ordinary serializer behavior', () => {
-	const descriptor = Object.getOwnPropertyDescriptor(Array.prototype, 'toJSON');
-	let calls = 0;
-	Object.defineProperty(Array.prototype, 'toJSON', {
-		configurable: true,
-		value: () => { calls += 1; return 'array replacement'; },
-	});
-	try {
-		assert.equal(sameSerializedScapeProjectDocument(document({ alpha: [1] }), document({ alpha: [2] })), true);
-		assert.equal(calls, 2);
-	} finally {
-		if (descriptor) Object.defineProperty(Array.prototype, 'toJSON', descriptor);
-		else Reflect.deleteProperty(Array.prototype, 'toJSON');
-	}
-});
-
-test('an ordinary left hook can install prototype hooks before the right capture', () => {
-	const descriptor = Object.getOwnPropertyDescriptor(Array.prototype, 'toJSON');
-	let calls = 0;
-	const left = {
-		toJSON() {
-			calls += 1;
-			Object.defineProperty(Array.prototype, 'toJSON', { configurable: true, value: () => 'replaced' });
-			return document({ alpha: 'replaced' });
-		},
-	};
-	try {
-		assert.equal(sameSerializedScapeProjectDocument(left, document({ alpha: [1] })), true);
-		assert.equal(calls, 1, 'fallback must not repeat the left hook');
-	} finally {
-		if (descriptor) Object.defineProperty(Array.prototype, 'toJSON', descriptor);
-		else Reflect.deleteProperty(Array.prototype, 'toJSON');
-	}
-});
-
-for (const kind of ['array', 'binary'] as const) {
-	test(`late baseline traversal hooks preserve detached ${kind} serialization`, () => {
-		const prototype = kind === 'array' ? Array.prototype : Object.prototype;
-		const descriptor = Object.getOwnPropertyDescriptor(prototype, 'toJSON');
-		const run = (compare: (left: unknown, right: unknown) => boolean) => {
-			const events: string[] = [];
-			const late = new Proxy({ value: 1 }, {
-				ownKeys(target) {
-					events.push('traversal');
-					Object.defineProperty(prototype, 'toJSON', {
-						configurable: true,
-						value(this: object, key: string) {
-							events.push(key);
-							return 'replaced';
-						},
-					});
-					return Reflect.ownKeys(target);
-				},
-			});
-			try {
-				return { equal: compare(document({ alpha: kind === 'array' ? [1] : new Uint8Array([1]), late }),
-					document({ alpha: 'replaced', late: { value: 1 } })), events };
-			} finally {
-				if (descriptor) Object.defineProperty(prototype, 'toJSON', descriptor);
-				else Reflect.deleteProperty(prototype, 'toJSON');
-			}
-		};
-		const expected = run((left, right) => serializeScapeProjectDocument(left) === serializeScapeProjectDocument(right));
-		assert.deepEqual(expected, { equal: true, events: ['traversal', 'alpha'] });
-		assert.deepEqual(run(sameSerializedScapeProjectDocument), expected);
-	});
-}

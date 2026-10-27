@@ -7,6 +7,7 @@ import {
 	brandRuntimeProjectProjection,
 	type RuntimeClipProject,
 } from '../runtime-clip-projection.ts';
+import { commandCanChangeClipTiming } from './clip-timing-impact.ts';
 import { isTrackFolderProjectSchema } from '../project-schema-version.ts';
 import { pruneMissingProjectSelections } from './shared-runtime.js';
 import {
@@ -107,7 +108,7 @@ function mutateCommand(
 		&& !(Array.isArray(project.trackFolders) && project.trackFolders.length > 0)) {
 		project[LEGACY_TRACK_STRUCTURE_EDIT] = true;
 	}
-	if (isFoundationProjectAuthority(project) && isChild) {
+	if (isFoundationProjectAuthority(project) && isChild && commandCanChangeClipTiming(command)) {
 		const clips = recordArray(project.clips, 'project.clips');
 		const before = new Map(clips.map((clip) => [clip.id, commandTimingSignature(clip)]));
 		dispatchEditorCommand(handlers, project, command);

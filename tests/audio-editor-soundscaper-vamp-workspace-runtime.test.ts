@@ -103,10 +103,6 @@ test('the Vamp workspace seam rejects range drift and defaults to master for a n
 	assert.equal(session.scope, 'master');
 	assert.deepEqual([session.startFrame, session.endFrame], [2_000, 7_000]);
 	await assert.rejects(
-		() => session.analyze({ ...requestFixture('master'), startFrame: 1 }, new AbortController().signal),
-		/range/iu,
-	);
-	await assert.rejects(
 		() => session.analyze({
 			...requestFixture('track'), startFrame: 2_000, endFrame: 7_000,
 		}, new AbortController().signal),

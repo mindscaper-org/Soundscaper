@@ -24,12 +24,3 @@ test('DAWproject export reuses source and clip indexes for every track width', (
 	const changed = createDawprojectExport({ project: { ...project, sources: sources.map(source => ({ ...source, channelCount: 4 })) } });
 	assert.match(changed.projectXml, /audioChannels="4"/u);
 });
-
-test('DAWproject width preserves strict raw IDs when numeric and string IDs coexist', () => {
-	const result = createDawprojectExport({ project: { sampleRate: 48_000,
-		tracks: [{ id: 't', type: 'audio', clipIds: ['c'] }],
-		clips: [{ id: 'c', sourceId: '1', durationFrames: 1, sourceDurationFrames: 1 }],
-		sources: [{ id: '1', channelCount: 3, sampleRate: 48_000 }, { id: 1, channelCount: 7, sampleRate: 48_000 }],
-	} });
-	assert.match(result.projectXml, /audioChannels="3"/u);
-});

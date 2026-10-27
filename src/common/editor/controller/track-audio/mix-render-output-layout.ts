@@ -30,8 +30,10 @@ export function predictIndividualMixRenderOutputChannelCount(
 	project: ControllerProject,
 	targetTrack: ControllerTrack,
 	renderEffects = true,
+	preparedPreFaderWidth?: number | null,
 ): number | null {
-	return individualPreFaderPrintWidth(project, targetTrack, renderEffects)
+	return (preparedPreFaderWidth === undefined
+		? individualPreFaderPrintWidth(project, targetTrack, renderEffects) : preparedPreFaderWidth)
 		?? predictOutputChannelCount(project, [targetTrack], renderEffects, false);
 }
 

@@ -12,6 +12,8 @@ export function createWindowedSincChannelSampler(radius: number, cutoff: number)
 	const weights = new Float64Array(radius * 2);
 	let integerWeights: Float64Array | null = null;
 	let integerWeightSum = 0;
+	let halfWeights: Float64Array | null = null;
+	let halfWeightSum = 0;
 	return (channels, bufferStartFrame, inputEndFrame, position, output, outputFrame) => {
 		const center = Math.floor(position);
 		const firstFrame = Math.max(center - radius + 1, 0, bufferStartFrame);
@@ -20,8 +22,11 @@ export function createWindowedSincChannelSampler(radius: number, cutoff: number)
 		const completeIntegerWindow = Number.isSafeInteger(position)
 			&& Number.isSafeInteger(firstFrame) && Number.isSafeInteger(endFrame)
 			&& firstFrame === center - radius + 1 && endFrame === center + radius;
-		let selectedWeights = completeIntegerWindow && integerWeights ? integerWeights : weights;
-		let weightSum = selectedWeights === integerWeights ? integerWeightSum : 0;
+		const completeHalfWindow = position - center === 0.5
+			&& Number.isSafeInteger(firstFrame) && Number.isSafeInteger(endFrame)
+			&& firstFrame === center - radius + 1 && endFrame === center + radius + 1;
+		let selectedWeights = (completeIntegerWindow ? integerWeights : completeHalfWindow ? halfWeights : null) ?? weights;
+		let weightSum = selectedWeights === integerWeights ? integerWeightSum : selectedWeights === halfWeights ? halfWeightSum : 0;
 		for (let frame = firstFrame; selectedWeights === weights && frame < endFrame; frame++) {
 			const distance = position - frame;
 			const normalizedDistance = Math.abs(distance) / radius;
@@ -32,12 +37,17 @@ export function createWindowedSincChannelSampler(radius: number, cutoff: number)
 			weights[frame - firstFrame] = weight;
 			weightSum += weight;
 		}
-		// Integer-rate decimation revisits the identical phase. Cache only a full
-		// window; clipped edges and fractional positions keep their original math.
+		// Integer decimation and twofold upsampling revisit these exact phases.
+		// Cache only complete windows; clipped edges retain their original math.
 		if (completeIntegerWindow && !integerWeights) {
 			integerWeights = weights.slice();
 			integerWeightSum = weightSum;
 			selectedWeights = integerWeights;
+		}
+		if (completeHalfWindow && !halfWeights) {
+			halfWeights = weights.slice();
+			halfWeightSum = weightSum;
+			selectedWeights = halfWeights;
 		}
 		const firstIndex = firstFrame - bufferStartFrame;
 		const taps = Math.max(0, endFrame - firstFrame);

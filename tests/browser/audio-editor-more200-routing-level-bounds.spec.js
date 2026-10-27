@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { TRACK_AUTOMATION_COPY_BY_LOCALE } from '../../src/common/i18n/editor-track-automation-copy.ts';
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
@@ -7,6 +8,8 @@ import { createSoundscaperScapeNativeRuntime } from '../../src/soundscaper/edito
 import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 import { strFromU8, unzipSync } from 'fflate';
+
+const MASTER_ASSIGNMENT = TRACK_AUTOMATION_COPY_BY_LOCALE.en.automationAssignmentTarget.replace('{destination}', 'Master');
 
 for (const draft of ['13', '-61', '1e308']) test(`invalid connection gain ${draft} cannot write clamped automation during playback`, async ({ page, browserName }) => {
 	if (browserName === 'firefox') {
@@ -50,7 +53,7 @@ for (const draft of ['13', '-61', '1e308']) test(`invalid connection gain ${draf
 	const row = editor.locator('[data-track-row][data-track-id="voice"]');
 	await chooseTrackMenuAction(page, editor, row, 'Add automation');
 	const controls = row.locator('[data-track-automation-controls]');
-	await controls.getByRole('combobox', { name: 'Automation parameter', exact: true }).selectOption({ label: 'Master assignment' });
+	await controls.getByRole('combobox', { name: 'Automation parameter', exact: true }).selectOption({ label: MASTER_ASSIGNMENT });
 	const curve = row.locator('[data-automation-insert-point]').first();
 	await curve.focus(); await curve.press('i');
 	await expect(row.locator('[data-automation-point-id]')).not.toHaveCount(0);

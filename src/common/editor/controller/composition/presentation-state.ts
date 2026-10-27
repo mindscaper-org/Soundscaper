@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { errorDiagnosticMessage } from '../../error-diagnostic-message.ts';
+import { formatFileFailureMessage } from '../../format-file-failure.ts';
 import { freezePresentationMessage, localizedErrorMessage, setLocalizedStatus, type LocalizedPresentationMessage } from '../../../i18n/presentation-message.ts';
 
 interface PresentationState {
@@ -34,7 +35,7 @@ export function createControllerPresentationState(dependencies: {
 		},
 		handleError(error: unknown): null {
 			state.localDiagnostics.record(error, 'controller');
-			setLocalizedStatus(setStatus, copy, 'genericError', { message: localizedErrorMessage(error) ?? errorDiagnosticMessage(error, copy.unknownError) }, 'error');
+			setLocalizedStatus(setStatus, copy, 'genericError', { message: localizedErrorMessage(error) ?? formatFileFailureMessage(error) ?? errorDiagnosticMessage(error, copy.unknownError) }, 'error');
 			return null;
 		},
 		showAnalysis(result: unknown, visuals: unknown = null, report: unknown = null): void {

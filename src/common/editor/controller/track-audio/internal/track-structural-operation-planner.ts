@@ -85,6 +85,17 @@ interface TimedStructuralBlock extends StructuralBlock {
 	readonly end: number;
 }
 
+interface StructuralLookups {
+	readonly tracks: ReadonlyMap<string, ControllerTrack>;
+	clips(): ReadonlyMap<string, ControllerClip>;
+}
+
+function structuralLookups(project: ControllerProject): StructuralLookups {
+	const tracks = new Map(project.tracks.map(track => [track.id, track]));
+	let clips: ReadonlyMap<string, ControllerClip> | null = null;
+	return { tracks, clips: () => clips ??= new Map(project.clips.map(clip => [clip.id, clip])) };
+}
+
 /** Plan one atomic multi-clip alignment in resolved sample coordinates. */
 export function planTrackAlignment(
 	project: ControllerProject,
@@ -92,8 +103,9 @@ export function planTrackAlignment(
 	mode: TrackAlignmentMode,
 	targetFrame?: number,
 ): Readonly<TrackAlignmentPlan> {
-	const blocks = selectedTimedBlocks(project, requestedTrackIds);
-	for (const block of blocks) assertBlockUnlocked(project, block);
+	const lookups = structuralLookups(project);
+	const blocks = selectedTimedBlocks(project, requestedTrackIds, lookups);
+	for (const block of blocks) assertBlockUnlocked(lookups, block);
 	if (blocks.length === 0) return Object.freeze({ transforms: Object.freeze([]), trackIds: Object.freeze([]) });
 	const starts = alignedBlockStarts(blocks, mode, targetFrame);
 	const transforms: TrackAlignmentTransform[] = [];
@@ -139,20 +151,21 @@ export function planTrackSort(
 	project: ControllerProject,
 	criterion: TrackSortCriterion,
 ): readonly StructuralCommand[] {
-	const blocks = structuralBlocks(project);
+	const lookups = structuralLookups(project);
+	const blocks = structuralBlocks(project, lookups);
 	const commands: StructuralCommand[] = [];
 	const sequenceIds = [...new Set(blocks.map(({ sequenceId }) => sequenceId))];
 	for (const sequenceId of sequenceIds) {
-		const timed = blocks.filter((block) => block.sequenceId === sequenceId)
-			.map((block) => timedBlock(project, block));
+		const timed = blocks.filter((block) => block.sequenceId === sequenceId);
+		const starts = criterion === 'time' ? new Map(timed.map(block => [block.nodeId, timedBlock(project, block, lookups).start])) : null;
 		const sorted = [...timed].sort((left, right) => {
 			const comparison = criterion === 'time'
-				? compareNumbers(left.start, right.start)
+				? compareNumbers(starts!.get(left.nodeId)!, starts!.get(right.nodeId)!)
 				: compareNames(left.name, right.name);
 			return comparison || left.ordinal - right.ordinal;
 		});
 		if (sorted.every((block, index) => block.nodeId === timed[index]?.nodeId)) continue;
-		for (const block of timed) assertBlockUnlocked(project, block);
+		for (const block of timed) assertBlockUnlocked(lookups, block);
 		// Framescaper owns sequence hierarchy but has no folder commands. Its
 		// existing track reorder keeps sequence boundaries and linked lanes intact.
 		const reorderTracks = isSelectedFramescaperProjectSchema(project);
@@ -161,16 +174,20 @@ export function planTrackSort(
 		// Both index domains count individual entries, not blocks: a track index
 		// for the legacy reorder, a direct root child for a node move. Summing the
 		// widths of the preceding blocks keeps a lane pair or folder intact.
-		commands.push(...sorted.map((block, index): StructuralCommand => {
-			const precedingTracks = sorted.slice(0, index)
-				.reduce((total, preceding) => total + preceding.trackIds.length, 0);
-			const precedingRootChildren = sorted.slice(0, index)
-				.reduce((total, preceding) => total + preceding.rootWidth, 0);
-			return block.sequenceId === null || reorderTracks
-				? { type: 'track/reorder', trackId: block.nodeId, index: trackPositions[precedingTracks] }
-				: { type: 'track-node/move', sequenceId: block.sequenceId, nodeId: block.nodeId,
-					parentFolderId: null, index: precedingRootChildren };
-		}));
+		const current = [...timed];
+		let precedingTracks = 0, precedingRootChildren = 0;
+		for (const [index, block] of sorted.entries()) {
+			if (current[index]?.nodeId !== block.nodeId) {
+				const previous = current.findIndex(candidate => candidate.nodeId === block.nodeId);
+				commands.push(block.sequenceId === null || reorderTracks
+					? { type: 'track/reorder', trackId: block.nodeId, index: trackPositions[precedingTracks] }
+					: { type: 'track-node/move', sequenceId: block.sequenceId, nodeId: block.nodeId,
+						parentFolderId: null, index: precedingRootChildren });
+				current.splice(previous, 1); current.splice(index, 0, block);
+			}
+			precedingTracks += block.trackIds.length;
+			precedingRootChildren += block.rootWidth;
+		}
 	}
 	return Object.freeze(commands);
 }
@@ -178,11 +195,12 @@ export function planTrackSort(
 function selectedTimedBlocks(
 	project: ControllerProject,
 	requestedTrackIds: readonly string[],
+	lookups: StructuralLookups,
 ): readonly TimedStructuralBlock[] {
 	const requested = new Set(requestedTrackIds);
-	return structuralBlocks(project)
+	return structuralBlocks(project, lookups)
 		.filter((block) => block.trackIds.some((trackId) => requested.has(trackId)))
-		.map((block) => timedBlock(project, block))
+		.map((block) => timedBlock(project, block, lookups))
 		.filter(({ clips, labels, takeGroups }) => clips.length > 0 || labels.length > 0 || takeGroups.length > 0);
 }
 
@@ -213,7 +231,7 @@ function alignedBlockStarts(
 	});
 }
 
-function structuralBlocks(project: ControllerProject): readonly StructuralBlock[] {
+function structuralBlocks(project: ControllerProject, lookups: StructuralLookups): readonly StructuralBlock[] {
 	const candidate = project as StructuralProject;
 	const sequences = candidate.sequences;
 	if (!hasSequenceHierarchyProjectAuthority(project) || !sequences || sequences.length === 0) {
@@ -223,7 +241,7 @@ function structuralBlocks(project: ControllerProject): readonly StructuralBlock[
 		throw new TypeError('Structural sorting requires canonical track folders.');
 	}
 	const folders = new Map((candidate.trackFolders ?? []).map((folder) => [folder.id, folder]));
-	const trackById = new Map(project.tracks.map((track) => [track.id, track]));
+	const trackById = lookups.tracks;
 	const laneGroups = trackNodeLaneGroupsV12(project.tracks);
 	const blocks: StructuralBlock[] = [];
 	const seenTrackIds = new Set<string>();
@@ -280,9 +298,8 @@ function legacyStructuralBlocks(tracks: readonly ControllerTrack[]): readonly St
 	return Object.freeze(blocks);
 }
 
-function timedBlock(project: ControllerProject, block: StructuralBlock): TimedStructuralBlock {
-	const clipById = new Map(project.clips.map((clip) => [clip.id, clip]));
-	const trackById = new Map(project.tracks.map((track) => [track.id, track]));
+function timedBlock(project: ControllerProject, block: StructuralBlock, lookups: StructuralLookups): TimedStructuralBlock {
+	const clipById = lookups.clips(), trackById = lookups.tracks;
 	const clips = block.trackIds.flatMap((trackId) => {
 		const track = trackById.get(trackId);
 		const clipIds = Array.isArray(track?.clipIds) ? track.clipIds : [];
@@ -310,8 +327,8 @@ function timedBlock(project: ControllerProject, block: StructuralBlock): TimedSt
 	});
 }
 
-function assertBlockUnlocked(project: ControllerProject, block: StructuralBlock): void {
-	const trackById = new Map(project.tracks.map((track) => [track.id, track]));
+function assertBlockUnlocked(lookups: StructuralLookups, block: StructuralBlock): void {
+	const trackById = lookups.tracks;
 	const locked = block.trackIds.find((trackId) => trackById.get(trackId)?.locked === true);
 	if (locked) throw new RangeError(`Structural operation refused for locked track ${locked}.`);
 }

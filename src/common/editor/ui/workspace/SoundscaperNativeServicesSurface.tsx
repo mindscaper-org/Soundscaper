@@ -75,7 +75,7 @@ export interface SoundscaperNativeServicesSurfaceHost {
 	readonly dialogRuntime: SoundscaperNativeServicesDialogRuntime;
 	restoreProjectNativePlugins(): Promise<readonly unknown[]>;
 	setProcessingBlocked(blocked: boolean): void;
-	setCopy(copy: Readonly<Record<string, string | undefined>> | undefined): void;
+	setCopy(copy: Readonly<Record<string, string | undefined>> | undefined, locale?: string): void;
 	setVampAnalyzerInput(input: Readonly<SoundscaperVampAnalyzerSurfaceInput> | null): void;
 	open(surface: SoundscaperNativeServiceSurface): void;
 	close(): void;
@@ -102,6 +102,7 @@ export interface SoundscaperNativeServicesSurfaceHostOptions {
 	readonly engine?: EnginePublicApi | null;
 	readonly controller?: Parameters<typeof createSoundscaperNativeRendererBridge>[0]['controller'];
 	readonly copy?: Readonly<Record<string, string | undefined>>;
+	readonly locale?: string;
 	readonly documentValue?: Document | null;
 	readonly createHostRoot?: (container: HTMLElement) => SoundscaperNativeServicesHostRoot;
 	readonly createRendererBridge?: typeof createSoundscaperNativeRendererBridge;
@@ -116,6 +117,7 @@ export function createSoundscaperNativeServicesSurfaceHost(
 	let root: SoundscaperNativeServicesHostRoot | null = null;
 	let returnFocus: (() => void) | null = null;
 	let copy = options.copy;
+	let locale = options.locale ?? 'en';
 	let processingBlocked = false;
 	let vampAnalyzerInput: Readonly<SoundscaperVampAnalyzerSurfaceInput> | null = null;
 	let openSurface: SoundscaperNativeServiceSurface | null = null;
@@ -151,7 +153,7 @@ export function createSoundscaperNativeServicesSurfaceHost(
 				runtime={dialogRuntime}
 				initialSurface={surface}
 				processingBlocked={processingBlocked}
-				copy={copy}
+				copy={copy} locale={locale}
 				vampAnalyzerInput={vampAnalyzerInput}
 				onClose={close}
 			/>
@@ -183,9 +185,9 @@ export function createSoundscaperNativeServicesSurfaceHost(
 			processingBlocked = blocked;
 			if (openSurface !== null) renderDialog(openSurface);
 		},
-		setCopy: (next: Readonly<Record<string, string | undefined>> | undefined) => {
-			if (copy === next) return;
-			copy = next;
+		setCopy: (next: Readonly<Record<string, string | undefined>> | undefined, nextLocale = locale) => {
+			if (copy === next && locale === nextLocale) return;
+			copy = next; locale = nextLocale;
 			if (openSurface !== null) renderDialog(openSurface);
 		},
 		setVampAnalyzerInput: (next: Readonly<SoundscaperVampAnalyzerSurfaceInput> | null) => {
@@ -260,6 +262,7 @@ export function useSoundscaperNativeServicesMenuRefresh(input: Readonly<{
 	productId: string;
 	bridge?: SoundscaperNativeServicesBridge | null;
 	copy?: Readonly<Record<string, string | undefined>>;
+	locale?: string;
 	engine?: EnginePublicApi | null;
 	controller?: Parameters<typeof createSoundscaperNativeRendererBridge>[0]['controller'];
 }>): void {
@@ -303,6 +306,7 @@ export function resolveSoundscaperNativeServicesWorkspaceRuntime(input: Readonly
 	processingBlocked?: boolean;
 	bridge?: SoundscaperNativeServicesBridge | null;
 	copy?: Readonly<Record<string, string | undefined>>;
+	locale?: string;
 	engine?: EnginePublicApi | null;
 	controller?: Parameters<typeof createSoundscaperNativeRendererBridge>[0]['controller'];
 	durationFrames?: number;
@@ -318,14 +322,14 @@ export function resolveSoundscaperNativeServicesWorkspaceRuntime(input: Readonly
 	if (!owned || owned.bridge !== bridge || owned.engine !== (input.engine ?? null)) {
 		if (owned) void owned.host.dispose().catch(reportRuntimeReleaseFailure);
 		const host = createSoundscaperNativeServicesSurfaceHost({
-			bridge, copy: input.copy, engine: input.engine, controller: input.controller,
+			bridge, copy: input.copy, locale: input.locale, engine: input.engine, controller: input.controller,
 		});
 		owned = Object.freeze({ bridge, engine: input.engine ?? null, host });
 		HOSTS.set(owner, owned);
 	}
 	const { host } = owned;
 	const vampAnalyzerInput = soundscaperVampAnalyzerInput(input, bridge);
-	host.setCopy(input.copy);
+	host.setCopy(input.copy, input.locale);
 	host.setProcessingBlocked(input.processingBlocked === true);
 	host.setVampAnalyzerInput(vampAnalyzerInput);
 	void host.restoreProjectNativePlugins().catch((error: unknown) => {

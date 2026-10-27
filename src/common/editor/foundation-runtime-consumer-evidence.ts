@@ -230,11 +230,11 @@ const entries: FoundationRuntimeConsumerEvidence[] = [
 		id: 'nyquist-host-properties',
 		surface: 'interchange',
 		file: 'src/common/editor/controller/effects/internal/nyquist/nyquist-host-service.ts',
-		entryPoint: 'nyquistHostProperties',
+		entryPoint: 'prepareNyquistHostProperties',
 		inputIdentifier: 'persistedProject',
 		projectedIdentifier: 'project',
 		boundary: 'projectForRuntimeConsumers',
-		evidence: 'Nyquist host properties project the current document before exposing clip ranges and resolve PROJECT TEMPO from the map event active at evaluation start.',
+		evidence: 'Nyquist host preparation projects the current document once before its captured callbacks expose clip ranges and resolve PROJECT TEMPO from the map event active at evaluation start.',
 	},
 	{
 		id: 'engine-project-load',
@@ -266,6 +266,9 @@ const entries: FoundationRuntimeConsumerEvidence[] = [
 		boundary: 'runtimeProject',
 		evidence: 'Single-picture preview replaces its project argument with the branded projection before resolving active layers.',
 	},
+	{ id: 'prepared-video-timeline', surface: 'composition', file: 'src/common/editor/video-timeline.js', entryPoint: 'createVideoTimelineResolver',
+		inputIdentifier: 'project', projectedIdentifier: 'project', boundary: 'runtimeProject',
+		evidence: 'Reusable video timeline callbacks capture one projected project before preparing clip geometry or reading resolved timing in their active-layer and interval helpers.' },
 	{
 		id: 'video-composition-intervals',
 		surface: 'composition',

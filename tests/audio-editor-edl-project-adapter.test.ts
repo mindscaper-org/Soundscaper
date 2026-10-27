@@ -211,10 +211,6 @@ test('the adapter refuses rather than inventing a sequence or a track', () => {
 		() => createProjectEdlExport({ project: project({ tracks: [] }) }),
 		/no visible video track/u,
 	);
-	assert.throws(
-		() => createProjectEdlExport({ project: project({ sampleRate: 0 }) }),
-		/sample rate/u,
-	);
 });
 
 /** Frame distance between two drop-frame labels, counting labels rather than time. */

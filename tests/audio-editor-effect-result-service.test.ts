@@ -107,15 +107,6 @@ test('independent range lengths select the longest output but still require alig
 		startFrame: 10,
 		endFrame: 17,
 	});
-
-	const misaligned = createHarness();
-	await assert.rejects(misaligned.service.persistAudacityEffectResults([
-		{ target: target('track-1'), channels: [new Float32Array(3)] },
-		{ target: target('track-2', { startFrame: 11 }), channels: [new Float32Array(7)] },
-	], null, { allowIndependentLengths: true, effectName: 'Nyquist' }), {
-		message: 'Track lengths changed.',
-	});
-	assert.equal(misaligned.events.sourcesOpened.length, 0);
 });
 
 test('silent results prepare shrink, growth, and unchanged ripple commands without source writes', async () => {

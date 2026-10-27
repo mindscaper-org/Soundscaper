@@ -19,7 +19,7 @@ import { framescaperBaselineOptions } from './helpers/framescaper-baseline-model
 
 type Data = Record<string, unknown>;
 
-test('ordinary controller paste projects a rich V13 carrier to its body-free foundation', () => {
+test('ordinary controller paste preserves all leaves of a rich V13 carrier', () => {
 	const runtime = createEditorProjectRuntimeSelection(FRAMESCAPER_PROJECT_RUNTIME_PROFILE);
 	const origin = createFramescaperBaselineImageFixture().project;
 	const descriptor = createClipboardDescriptor(runtime.projectForEditClipboardConsumers(origin), {
@@ -56,12 +56,12 @@ test('ordinary controller paste projects a rich V13 carrier to its body-free fou
 	assert.deepEqual(commands.filter(({ type }) => type === 'source/add').map(({ source }) => (
 		(source as Data).kind
 	)), ['audio', 'video']);
-	assert.equal(commands.some(({ type }) => type === 'image-source/set'), false);
-	assert.equal(commands.some(({ type }) => type === 'image-clip/set'), false);
+	assert.equal(commands.some(({ type }) => type === 'image-source/set'), true);
+	assert.equal(commands.some(({ type }) => type === 'image-clip/set'), true);
 
 	const pasted = runtime.applyCommand(destination, command, { now: '2026-09-21T12:00:00.000Z' });
-	assert.deepEqual(pasted.clips.map(({ kind }) => kind).sort(), ['audio', 'video']);
-	assert.equal(pasted.sources.some(({ kind }) => kind === 'image'), false);
+	assert.deepEqual(pasted.clips.map(({ kind }) => kind).sort(), ['audio', 'image', 'video']);
+	assert.equal(pasted.sources.some(({ kind }) => kind === 'image'), true);
 });
 
 function emptyDestination() {

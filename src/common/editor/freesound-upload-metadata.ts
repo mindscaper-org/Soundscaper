@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { withUploadValidationFailure as failure } from './upload-validation-failure.ts';
 
 import {
 	normalizeSourceProvenance,
@@ -176,7 +177,7 @@ export function composeFreesoundUploadDescription(
 	if (!attribution) return description;
 	const suffix = `\n\nRequired attribution:\n${attribution}`;
 	if (description.length + suffix.length > DESCRIPTION_LIMIT) {
-		throw new RangeError('Freesound description and required attribution exceed 65,536 characters.');
+		throw failure(new RangeError('Freesound description and required attribution exceed 65,536 characters.'), 'attributionTooLong', { maximum: 65536 });
 	}
 	return `${description}${suffix}`;
 }
@@ -191,33 +192,33 @@ export function validateFreesoundUploadMetadata(
 	const record = closedMetadataRecord(value);
 	const title = requiredString(record.title, 'title', 512).trim();
 	const analysis = options.licenseAnalysis;
-	if (analysis?.blockedReason) throw new RangeError(analysis.blockedReason);
+	if (analysis?.blockedReason) throw failure(new RangeError(analysis.blockedReason), 'sourceRestricted', {});
 	const description = composeFreesoundUploadDescription(
 		requiredString(record.description, 'description', DESCRIPTION_LIMIT),
 		analysis ?? { attributionText: '' },
 	);
-	if (!Array.isArray(record.tags)) throw new TypeError('Freesound tags must be an array.');
+	if (!Array.isArray(record.tags)) throw failure(new TypeError('Freesound tags must be an array.'), 'tagsArray', {});
 	const tags = record.tags.map((tag, index) => requiredString(tag, `tag ${String(index + 1)}`, 64).trim());
 	if (tags.some((tag) => !/^[\p{L}\p{N}][\p{L}\p{N}_-]*$/u.test(tag))) {
-		throw new RangeError('Freesound tags may contain letters, numbers, underscores, and hyphens.');
+		throw failure(new RangeError('Freesound tags may contain letters, numbers, underscores, and hyphens.'), 'tagsInvalid', {});
 	}
 	const folded = tags.map((tag) => tag.toLocaleLowerCase('en-US'));
-	if (new Set(folded).size !== tags.length) throw new RangeError('Freesound tags must be unique.');
-	if (tags.length < 3) throw new RangeError('Freesound publishing requires at least 3 tags.');
-	if (tags.length > 30) throw new RangeError('Freesound publishing accepts at most 30 tags.');
-	if (tags.join(' ').length > 512) throw new RangeError('Freesound tags exceed the 512-character limit.');
+	if (new Set(folded).size !== tags.length) throw failure(new RangeError('Freesound tags must be unique.'), 'tagsDuplicate', {});
+	if (tags.length < 3) throw failure(new RangeError('Freesound publishing requires at least 3 tags.'), 'tagsTooFew', { minimum: 3 });
+	if (tags.length > 30) throw failure(new RangeError('Freesound publishing accepts at most 30 tags.'), 'tagsTooMany', { maximum: 30 });
+	if (tags.join(' ').length > 512) throw failure(new RangeError('Freesound tags exceed the 512-character limit.'), 'tagsTooLong', { maximum: 512 });
 	const categoryId = requiredString(record.categoryId, 'category', 32).trim();
-	if (!TAXONOMY_IDS.has(categoryId)) throw new RangeError('A valid Freesound category is required.');
+	if (!TAXONOMY_IDS.has(categoryId)) throw failure(new RangeError('A valid Freesound category is required.'), 'categoryInvalid', {});
 	if (!LICENSES.includes(record.license as FreesoundUploadLicense)) {
-		throw new RangeError('A valid Freesound license is required.');
+		throw failure(new RangeError('A valid Freesound license is required.'), 'licenseInvalid', {});
 	}
 	const license = record.license as FreesoundUploadLicense;
 	if (analysis && !analysis.allowedLicenses.includes(license)) {
-		throw new RangeError('The selected Freesound license is incompatible with the source material.');
+		throw failure(new RangeError('The selected Freesound license is incompatible with the source material.'), 'licenseIncompatible', {});
 	}
 	const requiresRights = options.requiresRightsConfirmation ?? analysis?.requiresRightsConfirmation ?? false;
 	if (requiresRights && record.rightsConfirmed !== true) {
-		throw new RangeError('You must confirm that you have the rights to publish this sound.');
+		throw failure(new RangeError('You must confirm that you have the rights to publish this sound.'), 'rightsRequired', {});
 	}
 	return Object.freeze({
 		title,
@@ -399,17 +400,17 @@ function taxonomy(
 }
 
 function closedMetadataRecord(value: FreesoundUploadMetadataInput): Readonly<Record<string, unknown>> {
-	if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Freesound metadata is required.');
+	if (!value || typeof value !== 'object' || Array.isArray(value)) throw failure(new TypeError('Freesound metadata is required.'), 'metadataInvalid', {});
 	const allowed = new Set(['title', 'description', 'tags', 'categoryId', 'license', 'rightsConfirmed']);
 	for (const key of Object.keys(value)) {
-		if (!allowed.has(key)) throw new TypeError(`Freesound metadata field ${key} is not supported.`);
+		if (!allowed.has(key)) throw failure(new TypeError(`Freesound metadata field ${key} is not supported.`), 'fieldUnsupported', { field: key });
 	}
 	return value as unknown as Readonly<Record<string, unknown>>;
 }
 
 function requiredString(value: unknown, name: string, maximum: number): string {
-	if (typeof value !== 'string' || !value.trim()) throw new TypeError(`Freesound ${name} is required.`);
-	if (value.length > maximum) throw new RangeError(`Freesound ${name} exceeds ${String(maximum)} characters.`);
+	if (typeof value !== 'string' || !value.trim()) throw failure(new TypeError(`Freesound ${name} is required.`), 'fieldRequired', fieldParameters(name));
+	if (value.length > maximum) throw failure(new RangeError(`Freesound ${name} exceeds ${String(maximum)} characters.`), 'fieldTooLong', { ...fieldParameters(name), maximum });
 	return value;
 }
 
@@ -441,4 +442,9 @@ function positiveInteger(value: unknown): number | null {
 
 function positiveFinite(value: unknown): number | null {
 	return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function fieldParameters(name: string): Readonly<Record<string, string | number>> {
+	const tag = /^tag (\d+)$/u.exec(name);
+	return tag ? { field: 'tag', index: Number(tag[1]) } : { field: name };
 }

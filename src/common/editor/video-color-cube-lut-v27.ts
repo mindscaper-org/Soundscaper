@@ -132,34 +132,34 @@ export function requireCubeLutBody(
 }
 
 export function sampleCubeLut(lut: ParsedCubeLutV1, input: readonly number[]): number[] {
-	const axis = input.map((channel, index) => {
-		const minimum = lut.domainMin[index]!;
-		const maximum = lut.domainMax[index]!;
-		const position = clampUnit((channel - minimum) / (maximum - minimum)) * (lut.size - 1);
-		const low = Math.floor(position);
-		return Object.freeze({ low, high: Math.min(lut.size - 1, low + 1), mix: position - low });
-	});
+	const red = axisPosition(lut, input[0]!, 0), green = axisPosition(lut, input[1]!, 1), blue = axisPosition(lut, input[2]!, 2);
+	const r0 = Math.floor(red), g0 = Math.floor(green), b0 = Math.floor(blue);
+	const r1 = Math.min(lut.size - 1, r0 + 1), g1 = Math.min(lut.size - 1, g0 + 1), b1 = Math.min(lut.size - 1, b0 + 1);
 	const output = [0, 0, 0];
 	for (let channel = 0; channel < 3; channel += 1) {
-		const c000 = lutValue(lut, axis[0]!.low, axis[1]!.low, axis[2]!.low, channel);
-		const c001 = lutValue(lut, axis[0]!.low, axis[1]!.low, axis[2]!.high, channel);
-		const c010 = lutValue(lut, axis[0]!.low, axis[1]!.high, axis[2]!.low, channel);
-		const c011 = lutValue(lut, axis[0]!.low, axis[1]!.high, axis[2]!.high, channel);
-		const c100 = lutValue(lut, axis[0]!.high, axis[1]!.low, axis[2]!.low, channel);
-		const c101 = lutValue(lut, axis[0]!.high, axis[1]!.low, axis[2]!.high, channel);
-		const c110 = lutValue(lut, axis[0]!.high, axis[1]!.high, axis[2]!.low, channel);
-		const c111 = lutValue(lut, axis[0]!.high, axis[1]!.high, axis[2]!.high, channel);
-		const z00 = mix(c000, c001, axis[2]!.mix);
-		const z01 = mix(c010, c011, axis[2]!.mix);
-		const z10 = mix(c100, c101, axis[2]!.mix);
-		const z11 = mix(c110, c111, axis[2]!.mix);
+		const c000 = lutValue(lut, r0, g0, b0, channel);
+		const c001 = lutValue(lut, r0, g0, b1, channel);
+		const c010 = lutValue(lut, r0, g1, b0, channel);
+		const c011 = lutValue(lut, r0, g1, b1, channel);
+		const c100 = lutValue(lut, r1, g0, b0, channel);
+		const c101 = lutValue(lut, r1, g0, b1, channel);
+		const c110 = lutValue(lut, r1, g1, b0, channel);
+		const c111 = lutValue(lut, r1, g1, b1, channel);
+		const z00 = mix(c000, c001, blue - b0);
+		const z01 = mix(c010, c011, blue - b0);
+		const z10 = mix(c100, c101, blue - b0);
+		const z11 = mix(c110, c111, blue - b0);
 		output[channel] = mix(
-			mix(z00, z01, axis[1]!.mix),
-			mix(z10, z11, axis[1]!.mix),
-			axis[0]!.mix,
+			mix(z00, z01, green - g0),
+			mix(z10, z11, green - g0),
+			red - r0,
 		);
 	}
 	return output;
+}
+
+function axisPosition(lut: ParsedCubeLutV1, channel: number, index: number): number {
+	return clampUnit((channel - lut.domainMin[index]!) / (lut.domainMax[index]! - lut.domainMin[index]!)) * (lut.size - 1);
 }
 
 /**

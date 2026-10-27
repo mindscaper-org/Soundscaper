@@ -5,6 +5,7 @@
 import type { OfxInputBindingV1, OfxPluginAvailability } from '../common/editor/native-ofx-binding.ts';
 import type { OfxContext } from '../common/editor/native-ofx-descriptor.ts';
 import type { OfxRenderBackendV1 } from '../common/editor/native-ofx-host-contract.ts';
+import { framescaperOwnedOpenFxGraphIndexNativeMedia } from './editor-openfx-owned-graph-index-native-media.ts';
 import {
 	assertOfxEffectStateV26,
 	type OfxEffectStateV26,
@@ -118,7 +119,8 @@ export function createFramescaperOpenFxFrameGraphNativeMedia(options: Readonly<{
 	if (options.resolveFrozenFrame !== undefined && typeof options.resolveFrozenFrame !== 'function') {
 		throw new TypeError('Selected nativeMedia OpenFX frozen recovery must be a function.');
 	}
-	const nodes = plan.nodes.filter((node): node is UnifiedExactRenderOpenFxNode => node.kind === 'openfx');
+	const prepared = framescaperOwnedOpenFxGraphIndexNativeMedia(plan);
+	const nodes = prepared === null ? plan.nodes.filter((node): node is UnifiedExactRenderOpenFxNode => node.kind === 'openfx') : [];
 	const tracksReplay = options.allowRepeatedFrames !== true;
 	const consumed = new Set<string>();
 	let active = false;
@@ -135,7 +137,7 @@ export function createFramescaperOpenFxFrameGraphNativeMedia(options: Readonly<{
 			if (tracksReplay && consumed.has(replayKey)) {
 				throw new Error('Selected nativeMedia OpenFX frame ordinal replay is forbidden.');
 			}
-			const effects = nodes.filter(({ state }) => state.context === request.context
+			const effects = prepared?.effects(request.context, request.targetId) ?? nodes.filter(({ state }) => state.context === request.context
 				&& state.attachment.targetId === request.targetId);
 			if (request.primary === null && effects.filter(({ state }) => state.enabled).length > 1) {
 				throw new Error('Selected nativeMedia OpenFX chaining requires a primary plane when a target carries more than one enabled effect.');

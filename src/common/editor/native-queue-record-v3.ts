@@ -6,7 +6,7 @@ import {
 	canonicalizeNativeMediaPlan,
 	fingerprintNativeMediaPlan,
 } from './native-media-plan-canonical-form.ts';
-import { createNativeMediaPlanEnvelopeV2 } from './native-media-plan-envelope-v2.ts';
+import { createNativeMediaPlanEnvelopeV2, createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2, type NativeMediaPlanEnvelopeV2 } from './native-media-plan-envelope-v2.ts';
 import type {
 	NativeQueueInputFingerprintV1,
 	NativeQueueRecordV1,
@@ -69,7 +69,15 @@ export function createNativeQueueRecordV3(input: Readonly<{
 	readonly position: number;
 	readonly createdAtMs: number;
 }>): NativeQueueRecordV3 {
-	const envelope = createNativeMediaPlanEnvelopeV2(input.plan, input.timingSidecars);
+	return createRecord(input, createNativeMediaPlanEnvelopeV2(input.plan, input.timingSidecars));
+}
+
+/** Durable admission only; dispatch must authenticate referenced timing bodies before execution. */
+export function createNativeQueueRecordWithDeferredTimingReferencesV3(input: Parameters<typeof createNativeQueueRecordV3>[0]): NativeQueueRecordV3 {
+	return createRecord(input, createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(input.plan));
+}
+
+function createRecord(input: Parameters<typeof createNativeQueueRecordV3>[0], envelope: NativeMediaPlanEnvelopeV2): NativeQueueRecordV3 {
 	if (envelope.planVersion !== 14) throw new RangeError('New native queue V3 work must use selected plan V14.');
 	const record: NativeQueueRecordV3 = Object.freeze({
 		recordVersion: NATIVE_QUEUE_RECORD_V3_VERSION,

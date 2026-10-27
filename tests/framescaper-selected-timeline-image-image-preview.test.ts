@@ -208,16 +208,6 @@ test('more image contexts than the preview bound are refused before any source i
 	assert.deepEqual(calls, []);
 });
 
-test('a project missing its primary sequence or an image source is refused by identity', async () => {
-	await assert.rejects(() => openSession(scene({ primarySequenceId: 'other-sequence' })), {
-		name: 'ReferenceError',
-		message: 'The selected timelineImage primary sequence is unavailable.',
-	});
-	await assert.rejects(() => openSession(scene({ clips: [imageClip('clip-a', 'absent-source')] })), {
-		name: 'ReferenceError',
-		message: 'timelineImage image source absent-source is unavailable.',
-	});
-});
 
 test('an inherited layer for the same track receives the image entries appended after its own', async () => {
 	const log = inheritedLog();

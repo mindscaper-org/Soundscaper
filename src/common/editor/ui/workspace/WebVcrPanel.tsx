@@ -110,7 +110,7 @@ export default function WebVcrPanel({ controller, snapshot, copy, blocked, run }
 				onClick={() => invoke(actions?.reload)}>↻</button>
 			<label className="kw-web-vcr__address">
 				<span className="kw-audio-editor-sr-only">{copy.webVcrAddress}</span>
-					<input ref={addressRef} type="url" inputMode="url" required pattern="https://.*"
+					<input ref={addressRef} type="url" inputMode="url" required pattern="[hH][tT][tT][pP][sS]://.*"
 					aria-label={copy.webVcrAddress} value={address} disabled={controlsLocked}
 					onChange={(event) => setAddress(event.currentTarget.value)} />
 			</label>

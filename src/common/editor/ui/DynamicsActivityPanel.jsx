@@ -66,6 +66,7 @@ export default function DynamicsActivityPanel({ readAnalysis, copy, audacity = f
 	const [latest, setLatest] = useState(null);
 	const [show, setShow] = useState({ input: true, output: true, compression: true });
 	const drawOptionsRef = useRef(null);
+	const needsDrawRef = useRef(true);
 	drawOptionsRef.current = { audacity, limiter, show };
 	const capacity = Math.round((audacity ? limiter ? 2 : 3 : HISTORY_SECONDS) * 1_000 / FRAME_INTERVAL_MS);
 	const floor = limiter ? -12 : -48;
@@ -74,10 +75,16 @@ export default function DynamicsActivityPanel({ readAnalysis, copy, audacity = f
 	// polling loop reads it through a ref rather than restarting for each one.
 	const readAnalysisRef = useRef(readAnalysis);
 	readAnalysisRef.current = readAnalysis;
+	useEffect(() => { needsDrawRef.current = true; }, [audacity, limiter, show]);
 
 	useEffect(() => {
 		let animationFrame = 0;
 		let previousTime = 0;
+		let previousRatio = 0;
+		const invalidate = () => { needsDrawRef.current = true; };
+		const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(invalidate) : null;
+		if (canvasRef.current) observer?.observe(canvasRef.current);
+		window.addEventListener('resize', invalidate);
 		const draw = (time) => {
 			animationFrame = requestAnimationFrame(draw);
 			if (time - previousTime < FRAME_INTERVAL_MS) return;
@@ -90,11 +97,21 @@ export default function DynamicsActivityPanel({ readAnalysis, copy, audacity = f
 				sequenceRef.current = reading.sequence;
 				trailRef.current = appendActivityReading(trailRef.current, reading, capacity, reductionFloor);
 				setLatest(reading);
+				needsDrawRef.current = true;
 			}
-			drawDynamicsActivityCanvas(canvasRef.current, trailRef.current, capacity, drawOptionsRef.current);
+			const ratio = Math.min(2, globalThis.devicePixelRatio || 1);
+			if (needsDrawRef.current || ratio !== previousRatio) {
+				drawDynamicsActivityCanvas(canvasRef.current, trailRef.current, capacity, drawOptionsRef.current);
+				needsDrawRef.current = false;
+				previousRatio = ratio;
+			}
 		};
 		animationFrame = requestAnimationFrame(draw);
-		return () => cancelAnimationFrame(animationFrame);
+		return () => {
+			cancelAnimationFrame(animationFrame);
+			observer?.disconnect();
+			window.removeEventListener('resize', invalidate);
+		};
 	}, [capacity, reductionFloor]);
 
 	const reductionDb = latest ? Math.max(reductionFloor, Math.min(0, latest.reductionDb)) : null;

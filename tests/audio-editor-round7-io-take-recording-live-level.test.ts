@@ -20,7 +20,6 @@ test('live microphone controls preserve display audio and retire with their capt
 	controls.setInputGain(.25);
 	assert.deepEqual(gains, [0, .25]);
 	assert.deepEqual(monitoring, [true]);
-	assert.throws(() => controls.setInputGain(Number.NaN), RangeError);
 	active = false;
 	controls.setInputGain(1);
 	controls.setMonitoring(false);

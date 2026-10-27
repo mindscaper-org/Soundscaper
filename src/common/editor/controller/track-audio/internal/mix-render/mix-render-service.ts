@@ -32,6 +32,7 @@ import {
 	createNormalizingMixRenderPacketSink,
 	normalizeMixRenderChannels,
 } from './mix-render-channel-normalizer.ts';
+import { prepareMixRenderSnapshotsV21 } from './mix-render-snapshot-v21.ts';
 import { authoredMixRenderAdm } from './mix-render-adm.ts';
 import { assertMixRenderPreflight } from './mix-render-operation-model.ts';
 import {
@@ -177,7 +178,8 @@ export function createMixRenderService(
 		));
 		if (!targetTracks.length) throw createLocalizedError(Error, dependencies.copy, dependencies.copy.mixRenderRequiresAudio ? 'mixRenderRequiresAudio' : dependencies.copy.audacitySelectionHint ? 'audacitySelectionHint' : 'audioTrackRequired');
 		assertMixRenderPreflight(project, targetTracks, options, dependencies.copy);
-		const jobs = prepareJobs(project, targetTracks, options);
+		const preparation = isSoundscaperProductionProject(project) ? prepareMixRenderSnapshotsV21(project) : null;
+		const jobs = prepareJobs(project, targetTracks, options, preparation);
 		const outputBytes = jobs.reduce((total, job) => total + job.plan.outputBytes, 0);
 		if (!Number.isSafeInteger(outputBytes) || outputBytes < 0) {
 			throw new RangeError('Mix and Render storage size exceeds the supported range.');
@@ -232,7 +234,8 @@ export function createMixRenderService(
 				name: job.name,
 			}));
 			let prepared = prepareMixRenderOperationCommit(project, outputs, options, {
-				createId: dependencies.createId,
+				createId: dependencies.createId, individualPreFaderWidth: preparation?.individualPreFaderWidth,
+				individualPrintLaneCommands: preparation?.individualPrintLaneCommands,
 			});
 			if (prepared.routingCopies.length || prepared.directRoutingTrackIds.length) {
 				if (!dependencies.previewCommand) {
@@ -272,13 +275,13 @@ export function createMixRenderService(
 		project: ControllerProject,
 		targetTracks: readonly ControllerTrack[],
 		options: ReturnType<typeof normalizeMixRenderOptions>,
+		preparation: ReturnType<typeof prepareMixRenderSnapshotsV21> | null,
 	): MixRenderJob[] {
 		const groups = options.mixDown ? [targetTracks] : targetTracks.map((track) => [track]);
 		return groups.map((jobTracks) => {
-			const renderProject = createMixRenderSnapshot(project, jobTracks, {
-				mixDown: options.mixDown,
-				renderEffects: options.renderEffects,
-			});
+			const snapshotOptions = { mixDown: options.mixDown, renderEffects: options.renderEffects };
+			const renderProject = preparation ? preparation.createSnapshot(jobTracks, snapshotOptions)
+				: createMixRenderSnapshot(project, jobTracks, snapshotOptions);
 			assertMixRenderEffectChannelSafety(renderProject);
 			const tailFrames = mixRenderTailFrames(
 				jobTracks,
@@ -291,7 +294,8 @@ export function createMixRenderService(
 				? resolveMixRenderOutputChannelCount(
 					project, jobTracks, options.renderEffects, options.mixDownChannelCount,
 				)
-				: predictIndividualMixRenderOutputChannelCount(project, jobTracks[0]!, options.renderEffects);
+				: predictIndividualMixRenderOutputChannelCount(project, jobTracks[0]!, options.renderEffects,
+					preparation?.individualPreFaderWidth(jobTracks[0]!, options.renderEffects));
 			if (outputChannelCount === null) throw createLocalizedError(Error, dependencies.copy, dependencies.copy.mixRenderRequiresAudio ? 'mixRenderRequiresAudio' : dependencies.copy.audacitySelectionHint ? 'audacitySelectionHint' : 'audioTrackRequired');
 			const plan = createMixRenderPlan(
 				project, jobTracks, tailFrames, dependencies.memoryLimitBytes, outputChannelCount,

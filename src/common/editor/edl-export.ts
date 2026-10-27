@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { annotateFormatFileFailure, withFormatFileParserFailure } from './format-file-parser-failure.ts';
+
 import {
 	type SequenceRationalRate,
 	formatSequenceTimecode,
@@ -89,22 +91,22 @@ export interface EdlExportResult {
 	readonly report: DeliveryReport;
 }
 
-export function createEdlExport(request: EdlExportRequest): EdlExportResult {
+function createEdlExportInput(request: EdlExportRequest): EdlExportResult {
 	const title = String(request?.title ?? '').trim() || 'UNTITLED';
 	const rate = request?.rate;
 	if (!rate || !Number.isFinite(rate.num) || !Number.isFinite(rate.den) || rate.den <= 0) {
-		throw new TypeError('An EDL export requires an exact rational sequence rate.');
+		throw annotateFormatFileFailure(new TypeError('An EDL export requires an exact rational sequence rate.'), 'edl', 'RATE');
 	}
 	if (sequenceTimecodeFrameRate(rate) > 100) {
-		throw new RangeError('CMX3600 requires two-digit frame fields. Export OTIO or FCPXML for this sequence frame rate.');
+		throw annotateFormatFileFailure(new RangeError('CMX3600 requires two-digit frame fields. Export OTIO or FCPXML for this sequence frame rate.'), 'edl', 'FRAME_FIELDS');
 	}
 	const events = Array.isArray(request?.events) ? request.events : [];
 	if (events.length > 999) {
-		throw new RangeError('CMX3600 supports at most 999 events. Export OTIO or FCPXML for a longer edit list.');
+		throw annotateFormatFileFailure(new RangeError('CMX3600 supports at most 999 events. Export OTIO or FCPXML for a longer edit list.'), 'edl', 'EVENT_LIMIT');
 	}
 	const dropFrame = Boolean(request?.dropFrame);
 	if (dropFrame && !isSequenceDropFrameRate(rate)) {
-		throw new RangeError(`Drop frame is illegal at ${rate.num}/${rate.den}.`);
+		throw annotateFormatFileFailure(new RangeError(`Drop frame is illegal at ${rate.num}/${rate.den}.`), 'edl', 'DROP_FRAME');
 	}
 	const draft = createDeliveryReport({
 		format: 'edl',
@@ -195,7 +197,7 @@ function timecode(
 	label: string,
 ): string {
 	if (!Number.isSafeInteger(frames) || Number(frames) < 0) {
-		throw new RangeError(`EDL ${label} must be a non-negative frame count.`);
+		throw annotateFormatFileFailure(new RangeError(`EDL ${label} must be a non-negative frame count.`), 'edl', 'TIMECODE');
 	}
 	return formatSequenceTimecode(
 		sequenceTimecodeFromFrameCount(Number(frames), rate, dropFrame),
@@ -227,4 +229,8 @@ function reportReel(
 
 function sanitizeTitle(value: string): string {
 	return value.replaceAll(/[\r\n\v\f\u0085\u2028\u2029]+/gu, ' ').slice(0, 70);
+}
+
+export function createEdlExport(request: EdlExportRequest): EdlExportResult {
+	return withFormatFileParserFailure('edl', 'TIMECODE', () => createEdlExportInput(request));
 }

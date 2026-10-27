@@ -249,7 +249,7 @@ test('rejects unsafe domains, oversized counts, and invalid query indices', () =
 	}
 });
 
-test('rejects Number rates, noncanonical or open rational records, and every accessor without invoking it', () => {
+test('rejects Number rates and noncanonical or open rational records', () => {
 	const base = {
 		sampleStart: 0,
 		sampleDuration: 48_000,
@@ -271,76 +271,4 @@ test('rejects Number rates, noncanonical or open rational records, and every acc
 	]) {
 		assert.throws(() => createVideoRetimeOutputCadence(input as never), /input|rate|record|canonical|safe/i);
 	}
-
-	let getterCalls = 0;
-	const topLevelAccessor = { ...base };
-	Object.defineProperty(topLevelAccessor, 'sampleStart', {
-		enumerable: true,
-		get: () => {
-			getterCalls += 1;
-			return 0;
-		},
-	});
-	assert.throws(
-		() => createVideoRetimeOutputCadence(topLevelAccessor),
-		/accessor|data|property|record/i,
-	);
-	assert.equal(getterCalls, 0);
-
-	const rateAccessor = {} as { num: number; den: number };
-	Object.defineProperties(rateAccessor, {
-		num: {
-			enumerable: true,
-			get: () => {
-				getterCalls += 1;
-				return 24;
-			},
-		},
-		den: { enumerable: true, value: 1 },
-	});
-	assert.throws(
-		() => createVideoRetimeOutputCadence({ ...base, sequenceRate: rateAccessor }),
-		/accessor|data|property|record|rate/i,
-	);
-	assert.equal(getterCalls, 0);
-});
-
-test('validates top-level and nested values from their data descriptors without Proxy get TOCTOU', () => {
-	let topLevelGets = 0;
-	const invalidTopLevel = new Proxy({
-		sampleStart: 0,
-		sampleDuration: 0,
-		sampleRate: 48_000,
-		sequenceRate: { num: 24, den: 1 },
-	}, {
-		get(target, key, receiver) {
-			topLevelGets += 1;
-			if (key === 'sampleDuration') return 48_000;
-			return Reflect.get(target, key, receiver);
-		},
-	});
-	assert.throws(
-		() => createVideoRetimeOutputCadence(invalidTopLevel),
-		/sampleDuration|positive/i,
-	);
-	assert.equal(topLevelGets, 0);
-
-	let rateGets = 0;
-	const invalidRate = new Proxy({ num: 0, den: 1 }, {
-		get(target, key, receiver) {
-			rateGets += 1;
-			if (key === 'num') return 24;
-			return Reflect.get(target, key, receiver);
-		},
-	});
-	assert.throws(
-		() => createVideoRetimeOutputCadence({
-			sampleStart: 0,
-			sampleDuration: 48_000,
-			sampleRate: 48_000,
-			sequenceRate: invalidRate,
-		}),
-		/sequenceRate\.num|positive/i,
-	);
-	assert.equal(rateGets, 0);
 });

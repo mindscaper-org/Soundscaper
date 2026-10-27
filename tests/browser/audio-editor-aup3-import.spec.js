@@ -2,6 +2,8 @@ import initSqlJs from 'sql.js';
 import { createAup3Fixture, expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseFileAction, trackNameText } from './audio-editor-test-helpers.js';
 import { createAup3ProjectData, serializeAup3Xml } from '../aup3-fixture.js';
+import { FORMAT_FILE_FAILURE_COPY } from '../../src/common/i18n/editor-format-file-failure-copy.ts';
+import { OPERATION_STATUS_COPY_BY_LOCALE } from '../../src/common/i18n/operation-status-copy.js';
 
 test('opens a checkpointed Audacity 3 project through the File menu', async ({ page }) => {
 	await page.addInitScript(() => {
@@ -88,7 +90,7 @@ test('keeps shared Audacity blocks in one backing source after opening and reloa
 	await expect(trackNameText(editor).first()).toHaveText('Shared recording');
 });
 
-test('keeps a complete import error readable and permits opening another AUP3', async ({ page }) => {
+test('keeps the public AUP3 refusal readable and permits opening another AUP3', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	const SQL = await initSqlJs();
 	const bytes = await createAup3Fixture({ SQL });
@@ -107,7 +109,8 @@ test('keeps a complete import error readable and permits opening another AUP3', 
 	await expect(errorToast).toBeVisible({ timeout: 30_000 });
 	await expect(errorToast.locator('.toast')).toHaveClass(/toast--error/);
 	const description = errorToast.locator('.toast__description');
-	await expect(description).toContainText(`Unexpected SQLite schema object: table ${table}.`);
+	const publicError = OPERATION_STATUS_COPY_BY_LOCALE.en.genericError.replace('{message}', FORMAT_FILE_FAILURE_COPY.audacityUnsupported);
+	await expect(description).toHaveText(publicError);
 	await expect(editor).toHaveAttribute('data-project-id', originalProject);
 	await expect(description).toHaveCSS('overflow-wrap', 'anywhere');
 	expect(await description.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { annotateFormatFileFailure } from '../../format-file-parser-failure.ts';
 import { isScapeProjectFile } from '../../scape-project-format.ts';
 import { isWorkspaceImportFile, partitionWorkspaceFiles } from './workspace-file-routing.js';
 import { withWebFileLoadLimitContext } from '../../web-file-limit-failure.ts';
@@ -37,8 +38,14 @@ async function routeWorkspaceProjectFile(
 	if (/\.dawproject$/iu.test(file.name)) return controller.actions.project.openDawproject(file);
 	if (/\.sesx?$/iu.test(file.name)) {
 		const format = /\.ses$/iu.test(file.name) ? 'SES' : 'SESX';
-		if (!desktopSesx) throw new Error(`Adobe Audition ${format} import requires the desktop app.`);
-		if (!controller.actions.project.openSesx) throw new Error(`Adobe Audition ${format} import is unavailable.`);
+		if (!desktopSesx) {
+			const error = new Error(`Adobe Audition ${format} import requires the desktop app.`);
+			throw format === 'SESX' ? annotateFormatFileFailure(error, 'sesx', 'DESKTOP_REQUIRED') : error;
+		}
+		if (!controller.actions.project.openSesx) {
+			const error = new Error(`Adobe Audition ${format} import is unavailable.`);
+			throw format === 'SESX' ? annotateFormatFileFailure(error, 'sesx', 'UNAVAILABLE') : error;
+		}
 		return controller.actions.project.openSesx(file);
 	}
 	if (/\.aup[34]$/iu.test(file.name)) return controller.actions.project.openAudacityProject(file);

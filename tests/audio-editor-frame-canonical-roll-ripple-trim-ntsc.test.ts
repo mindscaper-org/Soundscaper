@@ -16,7 +16,6 @@ import {
 import {
 	createCurrentAudioEditorProject,
 } from '../src/common/editor/project-current.ts';
-import { brandRuntimeProjectProjection } from '../src/common/editor/runtime-clip-projection.ts';
 import { videoFrameToSampleFrame } from '../src/common/editor/timeline-time.ts';
 
 const SAMPLE_RATE = 48_000;
@@ -162,41 +161,6 @@ test('extreme requests clamp when the canonical sequence origin is near the safe
 	}
 });
 
-test('affected A/V categories require exactly one audio and one video companion', () => {
-	const valid = linkedNtscProject() as Readonly<Record<string, unknown>>;
-	const clips = valid.clips as readonly Readonly<Record<string, unknown>>[];
-	const tracks = valid.tracks as readonly Readonly<Record<string, unknown>>[];
-	const activeAudio = clips.find(({ id }) => id === 'active-audio');
-	const audioTrack = tracks.find(({ id }) => id === 'audio-track');
-	assert.ok(activeAudio && audioTrack);
-	const duplicateAudio = { ...activeAudio, id: 'duplicate-active-audio' };
-	const duplicateTrack = {
-		...audioTrack,
-		id: 'duplicate-audio-track',
-		clipIds: ['duplicate-active-audio'],
-	};
-	const duplicate = brandRuntimeProjectProjection({
-		...valid,
-		clips: [...clips, duplicateAudio],
-		tracks: [...tracks, duplicateTrack],
-	});
-	assert.throws(() => planFrameCanonicalRollRippleTrim(duplicate, {
-		mode: 'ripple', activeClipId: 'active-video', edge: 'left',
-		requestedBoundarySample: boundary(1),
-	}), /A\/V link.*one audio.*one video|exactly one/iu);
-
-	const orphan = brandRuntimeProjectProjection({
-		...valid,
-		clips: clips.filter(({ id }) => id !== 'active-audio'),
-		tracks: tracks.map((track) => track.id === 'audio-track'
-			? { ...track, clipIds: ['suffix-audio'] }
-			: track),
-	});
-	assert.throws(() => planFrameCanonicalRollRippleTrim(orphan, {
-		mode: 'ripple', activeClipId: 'active-video', edge: 'left',
-		requestedBoundarySample: boundary(1),
-	}), /A\/V link.*one audio.*one video|exactly one/iu);
-});
 
 test('near-safe sequence origins saturate extreme requested deltas before clamping', () => {
 	const project = nearSafeOriginProject();

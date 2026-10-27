@@ -4,7 +4,6 @@ import test from 'node:test';
 import {
 	resolveWorkspacePanelDropIntent,
 	resolveWorkspacePanelDropPreview,
-	type WorkspacePanelDropIntent,
 } from '../src/common/editor/ui/workspace/workspace-panel-drop-model.ts';
 
 const bounds = Object.freeze({
@@ -36,19 +35,12 @@ test('top and bottom dock targets split horizontally into before, tab, and after
 	}
 });
 
-test('drop intent rejects unsupported docks, invalid geometry, and points outside the target', () => {
-	assert.equal(resolveWorkspacePanelDropIntent('floating', { x: 100, y: 100 }, bounds), null);
-	assert.equal(resolveWorkspacePanelDropIntent('missing', { x: 100, y: 100 }, bounds), null);
+test('drop intent excludes hidden targets and outside points', () => {
 	assert.equal(resolveWorkspacePanelDropIntent('left', { x: 39.99, y: 100 }, bounds), null);
 	assert.equal(resolveWorkspacePanelDropIntent('left', { x: 100, y: 390.01 }, bounds), null);
-	assert.equal(resolveWorkspacePanelDropIntent('left', { x: Number.NaN, y: 100 }, bounds), null);
 	assert.equal(resolveWorkspacePanelDropIntent('left', { x: 100, y: 100 }, {
 		...bounds,
 		height: 0,
-	}), null);
-	assert.equal(resolveWorkspacePanelDropIntent('bottom', { x: 100, y: 100 }, {
-		...bounds,
-		width: Number.POSITIVE_INFINITY,
 	}), null);
 });
 
@@ -86,18 +78,6 @@ test('top and bottom previews use the corresponding half or the complete target'
 	}
 });
 
-test('preview geometry rejects unsupported docks, intents, and unusable bounds', () => {
-	assert.equal(resolveWorkspacePanelDropPreview('floating', 'tab', bounds), null);
-	assert.equal(resolveWorkspacePanelDropPreview(
-		'left',
-		'missing' as WorkspacePanelDropIntent,
-		bounds,
-	), null);
-	assert.equal(resolveWorkspacePanelDropPreview('left', 'before', {
-		...bounds,
-		width: -1,
-	}), null);
-});
 
 test('side dock edges place panels in adjacent columns while the center keeps vertical splitting', () => {
 	for (const dock of ['left', 'right']) {

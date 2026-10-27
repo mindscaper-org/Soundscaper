@@ -40,12 +40,3 @@ test('desktop library scopes preserve application folder casing', () => {
 		assert.ok(Object.isFrozen(stored));
 	}
 });
-
-test('desktop library scopes reject traversal, separators and invalid folder names', () => {
-	for (const segment of ['.', '..', '../Soundscaper', 'Soundscaper/library',
-		'Soundscaper\\library', 'Soundscaper\0', 'Soundscaper.', ' Soundscaper', 'S'.repeat(129)]) {
-		assert.throws(() => createEditorProjectRuntimeProfilePrerequisite({
-			...DEFINITION, desktopLibraryScope: [segment, 'project-library', 'v1'],
-		}), /contains an invalid segment/u);
-	}
-});

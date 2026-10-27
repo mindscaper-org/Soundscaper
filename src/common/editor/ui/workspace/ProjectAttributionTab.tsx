@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { useMemo } from 'react';
 import AttributionTab from '../AttributionTab.tsx';
 import { FREESOUND_ATTRIBUTION_ENGLISH_COPY } from '../../../i18n/freesound-attribution-copy.js';
 import { useTranslationScope } from '../use-translation-scope.ts';
 import type {
 	AttributionCsvFileService,
-	AttributionReportPresentation,
 } from '../attribution-presentation-contract.ts';
 import { createProjectAttributionReport } from '../../project-attribution-report.ts';
 import {
@@ -30,16 +30,12 @@ export function ProjectAttributionTab({
 	run,
 }: ProjectAttributionTabProps) {
 	const localizedCopy = { ...copy, ...useTranslationScope('freesoundAttribution', FREESOUND_ATTRIBUTION_ENGLISH_COPY, locale, copy) };
-	let domainReport: ReturnType<typeof createProjectAttributionReport> | null = null;
-	let report: AttributionReportPresentation | null = null;
-	let reportFailed = false;
-	try {
-		domainReport = project ? createProjectAttributionReport(project) : null;
-		report = domainReport ? presentProjectAttributionReport(domainReport) : null;
-	} catch {
-		domainReport = null;
-		reportFailed = true;
-	}
+	const { domainReport, report, reportFailed } = useMemo(() => {
+		try {
+			const domainReport = project ? createProjectAttributionReport(project) : null;
+			return { domainReport, report: domainReport ? presentProjectAttributionReport(domainReport) : null, reportFailed: false };
+		} catch { return { domainReport: null, report: null, reportFailed: true }; }
+	}, [project]);
 	const exportCsv = domainReport && fileService ? () => {
 		const operation = () => saveProjectAttributionCsv(domainReport, project?.title, fileService);
 		if (run) void run(operation);

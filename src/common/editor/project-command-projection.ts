@@ -8,9 +8,9 @@ import {
 	isTrackFolderProjectSchema,
 } from './project-schema-version.ts';
 import { reconcileFolderAwareTrackHierarchy } from './project-hierarchy-reconcile.ts';
-import { sampleFrameToBeat } from './timeline-tempo-inverse.ts';
+import { createCommandTempoProjection, type CommandTempoProjection } from './project-command-tempo-projection.ts';
+import { conformMusicalLabels } from './project-command-musical-labels.ts';
 import {
-	beatToSampleFrame,
 	sampleFrameToVideoFrame,
 	subtractRationals,
 	type HoldTempoMap,
@@ -44,6 +44,7 @@ export { projectForCommand } from './command-project-view.ts';
 export function reconcileProjectCommandResult(draft: DataRecord, persistedBase: DataRecord): void {
 	const sampleRate = positiveSafeInteger(draft.sampleRate, 'project.sampleRate');
 	const tempoMap = draft.tempoMap as HoldTempoMap;
+	const timing = createCommandTempoProjection(persistedBase.tempoMap as HoldTempoMap, tempoMap, sampleRate);
 	const sequences = recordArray(draft.sequences, 'project.sequences');
 	// A command may have changed a sequence rate, so an already conformed
 	// placement is verified against the draft's own grid, never the base grid.
@@ -115,7 +116,7 @@ export function reconcileProjectCommandResult(draft: DataRecord, persistedBase: 
 			clip.timelineStartFrame = linked.timelineStartFrame;
 			clip.durationFrames = linked.durationFrames;
 		}
-		conformAudioClip(clip, baseClips.get(String(clip.id)), persistedBase, tempoMap, sampleRate);
+		conformAudioClip(clip, baseClips.get(String(clip.id)), persistedBase, timing);
 	}
 	draft.clips = clips;
 	const baseBinClips = new Map(projectBinClips(persistedBase).map((clip) => [String(clip.id), clip]));
@@ -132,11 +133,11 @@ export function reconcileProjectCommandResult(draft: DataRecord, persistedBase: 
 			primarySequenceId,
 			sampleRate,
 		);
-		else conformAudioClip(clip, baseBinClips.get(String(clip.id)), persistedBase, tempoMap, sampleRate);
+		else conformAudioClip(clip, baseBinClips.get(String(clip.id)), persistedBase, timing);
 	}
 	bin.clips = binClips;
 	draft.projectBin = bin;
-	conformLabels(draft, persistedBase, tempoMap, sampleRate);
+	conformMusicalLabels(draft, persistedBase, timing);
 	reconcileSequenceTracks(draft, sequences, primarySequenceId);
 	if (isTrackFolderProjectSchema(draft)) {
 		reconcileV12TrackHierarchy(draft, persistedBase, sequences);
@@ -357,19 +358,18 @@ function conformAudioClip(
 	clip: DataRecord,
 	base: DataRecord | undefined,
 	persistedBase: DataRecord,
-	tempoMap: HoldTempoMap,
-	sampleRate: number,
+	timing: CommandTempoProjection,
 ): void {
 	if (clip.anchor === 'musical') {
 		const runtimeStart = nonNegativeSafeInteger(clip.timelineStartFrame, 'clip.timelineStartFrame');
 		const runtimeDuration = positiveSafeInteger(clip.durationFrames, 'clip.durationFrames');
 		const baseProjection = base ? resolveRuntimeClipProjection(persistedBase, base) : null;
 		if (!baseProjection || runtimeStart !== baseProjection.timelineStartFrame) {
-			clip.musicalStartBeat = sampleFrameToBeat(runtimeStart, tempoMap, sampleRate);
+			clip.musicalStartBeat = timing.draftBeat(runtimeStart);
 		}
 		if (clip.musicalExtent === 'beat'
 			&& (!baseProjection || runtimeDuration !== baseProjection.durationFrames || runtimeStart !== baseProjection.timelineStartFrame)) {
-			const endBeat = sampleFrameToBeat(safeAdd(runtimeStart, runtimeDuration, 'clip timeline range'), tempoMap, sampleRate);
+			const endBeat = timing.draftBeat(safeAdd(runtimeStart, runtimeDuration, 'clip timeline range'));
 			clip.musicalDurationBeats = subtractRationals(
 				endBeat,
 				clip.musicalStartBeat as { num: number; den: number },
@@ -382,36 +382,6 @@ function conformAudioClip(
 	stripProjection(clip);
 }
 
-function conformLabels(draft: DataRecord, persistedBase: DataRecord, tempoMap: HoldTempoMap, sampleRate: number): void {
-	const persistedTempoMap = persistedBase.tempoMap as HoldTempoMap;
-	const baseLabels = new Map<string, DataRecord>();
-	for (const track of recordArray(persistedBase.tracks, 'project.tracks')) {
-		for (const label of track.type === 'label' ? recordArray(track.labels, 'track.labels') : []) {
-			baseLabels.set(JSON.stringify([track.id, label.id]), label);
-		}
-	}
-	for (const track of recordArray(draft.tracks, 'project.tracks')) {
-		if (track.type !== 'label') continue;
-		for (const label of recordArray(track.labels, 'track.labels')) {
-			if (label.anchor !== 'musical') continue;
-			const base = baseLabels.get(JSON.stringify([track.id, label.id]));
-			if (!base && label.startFrame === undefined && label.endFrame === undefined) continue;
-			const start = nonNegativeSafeInteger(label.startFrame, 'label.startFrame');
-			const end = nonNegativeSafeInteger(label.endFrame, 'label.endFrame');
-			const baseStart = base?.anchor === 'musical'
-				? beatToSampleFrame(base.startBeat as { num: number; den: number }, persistedTempoMap, sampleRate)
-				: null;
-			const baseEnd = base?.anchor === 'musical'
-				? beatToSampleFrame(base.endBeat as { num: number; den: number }, persistedTempoMap, sampleRate)
-				: null;
-			if (baseStart === null || start !== baseStart) label.startBeat = sampleFrameToBeat(start, tempoMap, sampleRate);
-			if (baseEnd === null || end !== baseEnd) label.endBeat = sampleFrameToBeat(end, tempoMap, sampleRate);
-			delete label.startFrame;
-			delete label.endFrame;
-			delete label.coordinateDomain;
-		}
-	}
-}
 
 function reconcileSequenceTracks(draft: DataRecord, sequences: readonly DataRecord[], primarySequenceId: string): void {
 	const live = new Set(recordArray(draft.tracks, 'project.tracks').map(({ id }) => String(id)));

@@ -1,3 +1,6 @@
+import { useComponentCopy } from '@soundscaper/design-system/contexts/ComponentCopyContext';
+import { useTranslationScope } from '../use-translation-scope.ts';
+import { NYQUIST_BUNDLED_CONTROL_COPY, localizeBundledNyquistControl } from './nyquist-bundled-control-copy.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { publishedCopyFor } from '../../controller/shared/presentation-localization.ts';
 import { Button } from '@soundscaper/design-system/Button';
@@ -19,6 +22,8 @@ export default function NyquistDialog({ controller, snapshot, copy, target, run,
 }
 
 function NyquistRunnerDialog({ controller, snapshot, copy, target, run, onClose }) {
+	const { locale } = useComponentCopy();
+	const controlCopy = useTranslationScope('nyquistBundled', NYQUIST_BUNDLED_CONTROL_COPY, locale, copy);
 	const plugin = target?.pluginId
 		? getNyquistPlugin(target.pluginId) || nyquistArchiveStore.list().find((candidate) => candidate.id === target.pluginId)
 		: null;
@@ -175,7 +180,7 @@ function NyquistRunnerDialog({ controller, snapshot, copy, target, run, onClose 
 						<legend>{copy.nyquistControls}</legend>
 						{plugin.controls.map((control, index) => <NyquistControl
 							key={control.variable || `text-${index}`}
-							control={control}
+							control={localizeBundledNyquistControl(plugin.id, control, index, controlCopy)}
 							value={control.variable ? controls[control.variable] : null}
 							sampleRate={snapshot.project?.sampleRate || 48_000}
 							disabled={processing}
@@ -211,7 +216,7 @@ function NyquistControl({ control, value, sampleRate, disabled, onChange }) {
 		</label>
 	);
 	const integer = control.type === 'int' || control.type === 'int-text';
-	const timeUnit = nyquistTimeUnit(control.unit);
+	const timeUnit = nyquistTimeUnit(control.sourceUnit ?? control.unit);
 	return (
 		<label className="kw-audio-editor-dialog__field">
 			<span>{control.label}{control.unit ? ` — ${control.unit}` : ''}</span>

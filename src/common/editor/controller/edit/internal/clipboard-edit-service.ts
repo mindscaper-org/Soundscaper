@@ -259,7 +259,8 @@ export function createClipboardEditService(
 		const trackMap = Object.create(null) as Record<string, string>;
 		const sessionClipboard = dependencies.session.clipboardForProject(project.id);
 		const preparedCarrier = editSessionClipboard && sameClipboardDescriptor(editSessionClipboard.descriptor, clipboard) && dependencies.prepareEditClipboardPasteCommand ? editSessionClipboard : null;
-		const commands: AudioEditorCommand[] = missingClipboardSourcesForPaste(project.sources, sessionClipboard?.sources ?? [])
+		const productImageIds = new Set(preparedCarrier ? (sessionClipboard?.sources ?? []).filter(source => source.kind === 'image').map(source => source.id) : []);
+		const commands: AudioEditorCommand[] = missingClipboardSourcesForPaste(project.sources.filter(source => !productImageIds.has(source.id)), sessionClipboard?.sources ?? [])
 			.map((source) => preparedCarrier && source.kind !== undefined && source.kind !== 'audio' && source.kind !== 'video'
 				? { type: 'source/add', source: structuredClone(source) } as AudioEditorCommand
 				: createAddSourceCommand(source));

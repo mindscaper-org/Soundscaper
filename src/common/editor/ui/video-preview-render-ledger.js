@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 const DECODABLE_LAYER_OWNER = Symbol('decodableVideoPreviewLayerOwner');
+const OWNED_LEDGER_STATES = new WeakMap();
 
 export function decodableVideoPreviewEntry(entry) {
 	const video = entry?.video;
@@ -26,11 +27,19 @@ export function beginVideoPreviewRenderLedger(layers, supportedEffectTypes) {
 	}
 	const effects = new Map();
 	const composition = new Map();
+	const ownedEffects = new Map();
+	const ownedComposition = new Map();
+	const append = (index, owner, state) => {
+		const states = index.get(owner);
+		if (states) states.push(state); else index.set(owner, [state]);
+	};
 	const addEffect = (effect, owner, usePreviewLedgerId = false) => {
 		if (!effect || effect.enabled === false) return;
 		const id = boundedEffectId(usePreviewLedgerId ? effect.previewLedgerId ?? effect.id : effect.id);
 		if (effects.has(id)) throw new Error(`Video preview effect instance ID ${id} is duplicate.`);
-		effects.set(id, { owner, supported: supportedEffectTypes.has(effect.type), outcome: null });
+		const state = { owner, supported: supportedEffectTypes.has(effect.type), outcome: null };
+		effects.set(id, state);
+		append(ownedEffects, owner, state);
 	};
 	for (const layer of layers || []) {
 		const layerOwner = layer?.[DECODABLE_LAYER_OWNER] ?? layer;
@@ -40,11 +49,13 @@ export function beginVideoPreviewRenderLedger(layers, supportedEffectTypes) {
 				if (composition.has(clipId)) {
 					throw new Error(`Video preview composition clip ID ${clipId} is duplicate.`);
 				}
-				composition.set(clipId, {
+				const state = {
 					entry,
 					blendMode: typeof layer?.blendMode === 'string' ? layer.blendMode : 'normal',
 					outcome: null,
-				});
+				};
+				composition.set(clipId, state);
+				append(ownedComposition, entry, state);
 			}
 			for (const effect of entry?.effects || []) {
 				addEffect(effect, entry);
@@ -54,7 +65,9 @@ export function beginVideoPreviewRenderLedger(layers, supportedEffectTypes) {
 			addEffect(effect, layerOwner, true);
 		}
 	}
-	return { effects, composition };
+	const ledger = { effects, composition };
+	OWNED_LEDGER_STATES.set(ledger, { effects: ownedEffects, composition: ownedComposition });
+	return ledger;
 }
 
 /** Mark every supported effect on one entry as semantically rendered. */
@@ -149,6 +162,12 @@ export function shouldContinueVideoPreviewPlayback(report, transportState) {
 function recordOwnerOutcome(ledger, owner, outcome) {
 	if (!ledger?.effects || !(ledger.effects instanceof Map)) {
 		throw new TypeError('A video preview render ledger is required.');
+	}
+	const owned = OWNED_LEDGER_STATES.get(ledger);
+	if (owned) {
+		for (const state of owned.effects.get(owner) ?? []) if (state.supported) state.outcome = outcome;
+		for (const state of owned.composition.get(owner) ?? []) state.outcome = outcome === 'fallbackRendered' ? 'omitted' : outcome;
+		return;
 	}
 	for (const state of ledger.effects.values()) {
 		if (state.owner === owner && state.supported) state.outcome = outcome;

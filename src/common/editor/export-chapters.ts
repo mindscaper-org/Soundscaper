@@ -61,6 +61,7 @@ export function resolveExportChapters(
 			? 'A chapter delivery needs at least one marker to split on; this project has none.'
 			: 'A chapter delivery needs at least one label to split on; this project has none.');
 	}
+	const regions = boundaries.filter(boundary => boundary.endFrame > boundary.startFrame);
 	const chapters: ExportChapter[] = [];
 	const used = new Set<string>();
 	// Coincident labels are independent named outputs. They share the next
@@ -78,7 +79,7 @@ export function resolveExportChapters(
 			? boundary.endFrame
 			: Math.min(
 				nextStarts.get(boundary.startFrame) ?? range.endFrame,
-				enclosingRegionEnd(boundaries, index) ?? range.endFrame,
+				enclosingRegionEnd(regions, boundary.startFrame) ?? range.endFrame,
 			);
 		const startFrame = Math.max(boundary.startFrame, range.startFrame);
 		const endFrame = Math.min(openEnd, range.endFrame);
@@ -165,12 +166,10 @@ function chapterBoundaries(projectValue: unknown, source: ExportChapterSource): 
  * tail a second time under another name. The region still delivers exactly its
  * own span; the nested chapter is the part of it the marker opens.
  */
-function enclosingRegionEnd(boundaries: readonly ChapterBoundary[], index: number): number | null {
-	const nested = boundaries[index];
+function enclosingRegionEnd(regions: readonly ChapterBoundary[], startFrame: number): number | null {
 	let end: number | null = null;
-	for (const [candidate, region] of boundaries.entries()) {
-		if (candidate === index || region.endFrame <= region.startFrame) continue;
-		if (region.startFrame > nested.startFrame || region.endFrame <= nested.startFrame) continue;
+	for (const region of regions) {
+		if (region.startFrame > startFrame || region.endFrame <= startFrame) continue;
 		if (end === null || region.endFrame < end) end = region.endFrame;
 	}
 	return end;

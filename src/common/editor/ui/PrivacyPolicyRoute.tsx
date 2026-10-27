@@ -13,7 +13,7 @@ export interface PrivacyPolicyRouteProps {
 }
 
 export default function PrivacyPolicyRoute({ locale, copy, onClose }: PrivacyPolicyRouteProps) {
-	return <DesignSystemProviders copy={copy}>
+	return <DesignSystemProviders copy={copy} locale={locale}>
 		<PrivacyPolicyRouteFrame locale={locale} onClose={onClose} />
 	</DesignSystemProviders>;
 }

@@ -12,6 +12,7 @@ import {
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
 } from './closed-domain-value.ts';
+import { applyVideoColorGradeChannels } from './video-color-grade-channels.ts';
 import {
 	requireCubeLutBody,
 	sampleCubeLut,
@@ -410,14 +411,7 @@ function applyGrade(
 	grade: VideoColorGradeV1,
 	lut: ParsedCubeLutV1 | null,
 ): number[] {
-	const exposure = 2 ** grade.exposureStops;
-	let linear = linearValue.map((channel, index) => {
-		const contrasted = (channel * exposure - grade.pivot) * grade.contrast + grade.pivot;
-		const lifted = Math.max(0, contrasted + grade.lift[index]!);
-		return Math.pow(lifted * grade.gain[index]!, 1 / grade.gamma[index]!);
-	});
-	const luminance = linear[0]! * 0.2126 + linear[1]! * 0.7152 + linear[2]! * 0.0722;
-	linear = linear.map((channel) => luminance + (channel - luminance) * grade.saturation);
+	const linear = applyVideoColorGradeChannels(linearValue, grade);
 	return lut ? sampleCubeLut(lut, linear) : linear;
 }
 

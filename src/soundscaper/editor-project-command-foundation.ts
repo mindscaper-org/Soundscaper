@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { groupInheritedCommandChildren, prepareInheritedCommandDraft, shareableInheritedCommand, stripAudioFreezeRequirements } from './editor-inherited-command-preparation.ts';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { reconcileAutoDuckControlRoutes } from './editor-auto-duck-routes.ts';
@@ -14,7 +15,6 @@ import {
 	type EditorCommandMutationTransaction,
 } from '../common/editor/commands/mutation-transaction.ts';
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
-import { PROJECT_FEATURE_CAPABILITY_IDS } from '../common/editor/project-feature-capabilities.ts';
 import {
 	PROJECT_SCHEMA_VERSION, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY,
 } from '../common/editor/project-schema-identity.ts';
@@ -29,9 +29,7 @@ import {
 	mixerEndpointKeyV21,
 	normalizeMixerGraphV21,
 } from '../common/editor/mixer-graph-v21.ts';
-import { cloneProject } from '../common/editor/project.js';
 import {
-	preparePersistedProjectCommandDraft,
 	projectForCommandConsumers,
 } from '../common/editor/project-current-runtime.ts';
 import { reconcileProjectOwnedFeatureRequirements } from '../common/editor/project-owned-feature-requirements.ts';
@@ -105,8 +103,9 @@ function applyCommandTree(
 	validateResult: boolean,
 ): SoundscaperProject {
 	if (command.type === 'batch') {
+		if (shareableInheritedCommand(command)) return applyInheritedCommand(project, command, transaction, validateResult);
 		let result = project;
-		for (const child of command.commands) {
+		for (const child of groupInheritedCommandChildren(command.commands)) {
 			result = applyCommandTree(result, child, options, transaction, false);
 		}
 		if (result === project) return project;
@@ -153,28 +152,17 @@ function applyCommandTree(
 		draft.automationLanes = reconcileLanesAfterInheritedCommand(project.automationLanes, draft);
 		return finalizeIntermediate(draft, validateResult);
 	}
-	assertNoLegacyEnvelopeCommand(command);
-	const projection = projectForCommandConsumers(
-		project as unknown as Record<string, unknown>,
-	) as Record<string, unknown>;
-	const commanded = cloneProject(projection as never) as unknown as Record<string, unknown>;
-	transaction.mutate(commanded, command);
-	stripLegacyMixerCommandTransients(commanded);
-	// The freeze requirement is re-derived from the resulting document below, so drop
-	// the inherited one before the draft is normalized. Otherwise a command that
-	// removes the frozen track is rejected for a fallback target it just deleted, and
-	// the track can never be deleted while it is frozen.
-	stripAudioFreezeRequirements(commanded);
-	preparePersistedProjectCommandDraft(commanded, project as unknown as Record<string, unknown>);
+	return applyInheritedCommand(project, command, transaction, validateResult);
+}
+
+function applyInheritedCommand(project: SoundscaperProject, command: AudioEditorCommand,
+	transaction: Readonly<EditorCommandMutationTransaction>, validateResult: boolean): SoundscaperProject {
+	const commanded = prepareInheritedCommandDraft(project, command, transaction);
 	const elevated = elevateInheritedCommandResult(project, commanded, command, validateResult);
 	const result = command.type === 'track/add' && command.productionDuplicate
 		? duplicateTrackAutomation(project, elevated, command, validateResult)
 		: elevated;
 	return result;
-}
-
-function stripLegacyMixerCommandTransients(project: Record<string, unknown>): void {
-	delete dataRecord(project.mixer, 'project.mixer').routes;
 }
 
 /** Exact V21 authority with only inherited resolved-coordinate transients. */
@@ -185,13 +173,6 @@ export function soundscaperProjectForFoundationCommandConsumers(
 	return projectForCommandConsumers(
 		projectValue as SoundscaperProject & Record<string, unknown>,
 	) as Record<string, unknown>;
-}
-
-function assertNoLegacyEnvelopeCommand(command: AudioEditorCommand): void {
-	if ((command.type === 'track/update' || command.type === 'master/update')
-		&& Object.hasOwn(command.changes, 'envelope')) {
-		throw new RangeError('Legacy strip envelopes are unavailable under Soundscaper baseline automation-lane authority.');
-	}
 }
 
 function elevateInheritedCommandResult(
@@ -548,17 +529,6 @@ function finalizeIntermediate(
 	);
 	if (validateResult) validateSoundscaperProject(value);
 	return value as SoundscaperProject;
-}
-
-function stripAudioFreezeRequirements(project: Record<string, unknown>): void {
-	const manifest = dataRecord(project.featureRequirements, 'project.featureRequirements');
-	project.featureRequirements = {
-		...manifest,
-		requirements: recordArray(
-			manifest.requirements,
-			'project.featureRequirements.requirements',
-		).filter(({ featureId }) => featureId !== PROJECT_FEATURE_CAPABILITY_IDS.audioTrackFreeze),
-	};
 }
 
 function timestamp(value: Date | string | undefined): string {

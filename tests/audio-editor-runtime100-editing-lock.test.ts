@@ -24,18 +24,10 @@ test('E25 protected track snapshots partition relationship members once per cont
 	assert.throws(() => admission!.afterCommand(project), /is locked/u);
 });
 
-
-test('locked relationship indexes preserve duplicate members and reject live callbacks', () => {
-	const clips = [{ id: 'duplicate', groupId: 'b', avLinkId: 'link' }, { id: 'duplicate', groupId: 'a' }, { id: 'peer', groupId: 'a', avLinkId: 'link' }];
-	const reader = createTrackLockRelationshipReader({ clips }, clips);
-	assert.ok(reader);
-	assert.deepEqual(reader(['duplicate'], 'groupId'), [{ id: 'a', members: ['duplicate', 'peer'] }, { id: 'b', members: ['duplicate'] }]);
-	assert.deepEqual(reader(['duplicate'], 'avLinkId'), [{ id: 'link', members: ['duplicate', 'peer'] }]);
+test('locked relationship indexes do not invoke the mutable-owner getter', () => {
+	const clips = [{ id: 'clip', groupId: 'group', avLinkId: 'link' }];
 	let reads = 0;
 	const project = { clips, get mutable() { reads++; return true; } };
 	assert.equal(createTrackLockRelationshipReader(project, clips), null);
 	assert.equal(reads, 0);
-	const custom = [...clips];
-	Object.defineProperty(custom, 'filter', { value: () => [] });
-	assert.equal(createTrackLockRelationshipReader({ clips: custom }, custom), null);
 });

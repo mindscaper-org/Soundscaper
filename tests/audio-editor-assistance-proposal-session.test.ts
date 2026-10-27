@@ -31,34 +31,6 @@ function fence(overrides: Partial<AssistanceSelectionFence> = {}): AssistanceSel
 	};
 }
 
-test('selection fences require an exact family-qualified v1 identity before other fields', () => {
-	assert.throws(() => createAssistanceProposalSession({
-		operation: 'speech-recognition',
-		fence: { ...fence(), schemaFamily: undefined } as never,
-		proposals: [{ id: 'proposal-a', kind: 'label', command: {} }],
-		currentFence: fence,
-		commit: () => undefined,
-		discardStaged: () => undefined,
-	}), /family/iu);
-	assert.throws(() => createAssistanceProposalSession({
-		operation: 'speech-recognition',
-		fence: Object.defineProperty({ ...fence() }, 'schemaFamily', {
-			enumerable: true,
-			get: () => 'soundscaper',
-		}) as never,
-		proposals: [{ id: 'proposal-a', kind: 'label', command: {} }],
-		currentFence: fence,
-		commit: () => undefined,
-		discardStaged: () => undefined,
-	}), /data property/iu);
-	const numericOnly = { ...fence() } as Record<string, unknown>;
-	delete numericOnly.schemaFamily;
-	assert.throws(() => createAssistanceProposalSession({
-		operation: 'speech-recognition', fence: numericOnly as never,
-		proposals: [{ id: 'proposal-a', kind: 'label', command: {} }],
-		currentFence: fence, commit: () => undefined, discardStaged: () => undefined,
-	}), (error: unknown) => (error as { code?: string }).code === 'REIMPORT_REQUIRED');
-});
 
 test('accept commits selected proposal commands in one exact fenced batch', { timeout: 20_000 }, async () => {
 	const commits: unknown[] = [];

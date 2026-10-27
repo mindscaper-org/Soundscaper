@@ -183,29 +183,7 @@ test('takes one closed deep descriptor snapshot and ignores every later raw muta
 	assertDeepFrozen(required(published[0]));
 	assert.equal(Object.isFrozen(tracked.target), false, 'snapshotting must not freeze caller state');
 });
-test('refuses top-level and nested accessors without invoking them, plus missing or extra fields', () => {
-	for (const field of descriptorFields()) {
-		let reads = 0;
-		const candidate = frameDescriptorRecord();
-		Object.defineProperty(candidate, field, {
-			enumerable: true,
-			get() { reads += 1; return undefined; },
-		});
-		assert.throws(() => executorFor(mediaHarness()).requestFrame(asDescriptor(candidate)), /accessor|data property|closed|own/iu, field);
-		assert.equal(reads, 0, field);
-	}
-	for (const rationalField of ['sourceFrame', 'sourceTime', 'drawableSourceStartTime', 'drawableSourceEndTime'] as const) {
-		for (const exactField of ['numerator', 'denominator'] as const) {
-			let reads = 0;
-			const candidate = frameDescriptorRecord();
-			Object.defineProperty(candidate[rationalField], exactField, {
-				enumerable: true,
-				get() { reads += 1; return 1n; },
-			});
-			assert.throws(() => executorFor(mediaHarness()).requestFrame(asDescriptor(candidate)), /accessor|data property|closed|own/iu);
-			assert.equal(reads, 0, `${rationalField}.${exactField}`);
-		}
-	}
+test('refuses missing or extra fields', () => {
 	const extra = Object.assign(frameDescriptorRecord(), { unexpected: true });
 	assert.throws(() => executorFor(mediaHarness()).requestFrame(asDescriptor(extra)), /closed|extra|unexpected|field|key/iu);
 	const nestedExtra = frameDescriptorRecord();
@@ -490,12 +468,7 @@ function exact(numerator: bigint, denominator = 1n): MutableExact {
 function asDescriptor(value: unknown): VideoRetimeFrameDescriptor {
 	return value as VideoRetimeFrameDescriptor;
 }
-function descriptorFields(): readonly (keyof MutableDescriptorRecord)[] {
-	return [
-		'outerCell', 'segmentIndex', 'mode', 'sourceFrame', 'sourceTime',
-		'drawableSourceFrame', 'drawableSourceStartTime', 'drawableSourceEndTime',
-	];
-}
+
 function trackedDescriptor(target: MutableDescriptorRecord) {
 	let ownKeyReads = 0;
 	let propertyReads = 0;

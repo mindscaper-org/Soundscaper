@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { AUDIOCOM_COPY_BY_LOCALE } from '../../src/common/i18n/audiocom-copy.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
 
@@ -28,10 +29,10 @@ for (const status of [401, 500]) test(`audio.com original preview HTTP${status} 
 	await expect.poll(() => previews).toBe(1);
 	if (status === 401) {
 		await expect(panel.getByRole('button', { name: 'Connect to audio.com', exact: true })).toBeVisible();
-		await expect(panel.getByRole('alert')).toContainText('session expired');
+		await expect(panel.getByRole('alert')).toContainText(AUDIOCOM_COPY_BY_LOCALE.en.connectionExpired);
 		await expect(panel.locator('[data-audiocom-uploads]')).toHaveCount(0);
 	} else {
 		await expect(panel.getByText('Connected to audio.com', { exact: true })).toBeVisible();
-		await expect(panel.getByRole('alert')).toContainText('could not be downloaded');
+		await expect(panel.getByRole('alert')).toContainText(AUDIOCOM_COPY_BY_LOCALE.en.previewFailed);
 	}
 });

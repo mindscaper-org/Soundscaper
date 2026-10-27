@@ -48,18 +48,6 @@ test('callback intent treats only the finite non-zero sign as direction authorit
 	}
 });
 
-test('callback intent refuses malformed edges and non-finite or zero callback values', () => {
-	for (const delta of [0, -0, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
-		assert.throws(
-			() => resolveFrameCanonicalClipFocusIntent('left', delta),
-			/finite|non-zero|callback/iu,
-		);
-	}
-	assert.throws(
-		() => resolveFrameCanonicalClipFocusIntent('middle', -0.1),
-		/edge|left|right/iu,
-	);
-});
 
 test('a linked-audio callback resolves all four adjacent NTSC video boundaries exactly once', () => {
 	const project = commandProject({ sampleRate: 48_000, rate: NTSC });

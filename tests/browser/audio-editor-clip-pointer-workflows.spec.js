@@ -18,7 +18,7 @@ test.describe('clip pointer edit workflows', () => {
 		await clip.click({ position: { x: 32, y: 10 } });
 		let clipDialog = await openClipProperties(page, editor);
 		await expect(clipField(clipDialog, 'startFrame')).toHaveValue('0');
-		await expect(clipField(clipDialog, 'durationFrame')).toHaveValue('0.8');
+		await expect(clipField(clipDialog, 'durationFrame')).toHaveValue('38400');
 		await closeClipProperties(clipDialog);
 		await clip.scrollIntoViewIfNeeded();
 

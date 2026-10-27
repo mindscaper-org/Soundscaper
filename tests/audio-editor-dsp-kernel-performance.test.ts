@@ -32,24 +32,32 @@ test('pink running sum retains the channel-major seeded output through counter w
 
 test('mono generators keep their first output allocation and give other channels independent storage', () => {
 	const original = globalThis.Float32Array;
-	let allocations = 0;
+	const allocations: Float32Array[] = [];
 	globalThis.Float32Array = new Proxy(original, {
 		construct(target, argumentsList, newTarget) {
-			allocations += 1;
-			return Reflect.construct(target, argumentsList, newTarget);
+			const allocation = Reflect.construct(target, argumentsList, newTarget) as Float32Array;
+			allocations.push(allocation);
+			return allocation;
 		},
 	});
 	try {
 		for (const type of ['tone', 'chirp', 'morse']) {
-			allocations = 0;
+			allocations.length = 0;
 			const result = generateAudioEditorSignal(type, {
 				sampleRate: 8_000, durationSeconds: 0.04, text: 'SOS', wordsPerMinute: 120, channelCount: 3,
 			});
-			assert.equal(allocations, 3, `${type} must allocate one buffer per output channel`);
+			const outputAllocations = allocations.filter(allocation => allocation.length === result.frameCount);
+			assert.equal(outputAllocations.length, 3, `${type} must allocate one full-size buffer per output channel`);
+			assert.equal(result.channels[0], outputAllocations[0], `${type} must retain its first output buffer`);
 			assert.deepEqual(result.channels[0], result.channels[1]);
+			assert.deepEqual(result.channels[0], result.channels[2]);
+			assert.notEqual(result.channels[1], result.channels[2]);
 			const unchanged = result.channels[1][1];
 			result.channels[0][1] = 0.123;
 			assert.equal(result.channels[1][1], unchanged);
+			assert.equal(result.channels[2][1], unchanged);
+			result.channels[1][1] = 0.456;
+			assert.equal(result.channels[2][1], unchanged);
 		}
 	} finally {
 		globalThis.Float32Array = original;

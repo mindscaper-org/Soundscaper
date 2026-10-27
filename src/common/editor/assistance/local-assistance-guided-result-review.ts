@@ -35,7 +35,8 @@ import {
 	reviewLocalAssistanceOutput,
 } from './local-assistance-result-review.ts';
 
-const MAXIMUM_JSON_BYTES = 8 * 1024 * 1024;
+import { ASSISTANCE_GUIDED_TERMINAL_JSON_MAXIMUM_BYTES as MAXIMUM_JSON_BYTES } from './guided-terminal-output-capacity.ts';
+import { decodeAssistanceReframePathWireV1 } from './reframe-path-wire.ts';
 
 type CompletedWorkflowResult = Readonly<{
 	contractVersion: 1;
@@ -51,6 +52,7 @@ export interface LocalAssistanceGuidedReviewChoice {
 	readonly id: string;
 	readonly kind: string;
 	readonly label: string;
+	readonly presentation?: Readonly<{ kind: string; count?: number; index?: number }>;
 	readonly selected: false;
 	readonly enabled: boolean;
 }
@@ -190,6 +192,7 @@ async function loadOutput(
 			throw new TypeError('A Guided terminal result is not valid UTF-8 JSON.');
 		}
 	}
+	if (workflowId === 'reframe' && claim.slotId === 'reframe-path') json = decodeAssistanceReframePathWireV1(json);
 	return Object.freeze({ claim, body: bodyValue.slice(0, bodyValue.size, bodyValue.type),
 		sha256: digest, json });
 }
@@ -252,14 +255,14 @@ function reviewChoices(
 	workflowId: AssistanceGuidedWorkflowId,
 	semantics: ReadonlyMap<string, unknown>,
 ): readonly LocalAssistanceGuidedReviewChoice[] {
-	const choice = (id: string, kind: string, label: string, enabled = true) => Object.freeze({
-		id, kind, label, selected: false as const, enabled,
+	const choice = (id: string, kind: string, label: string, enabled = true, count?: number) => Object.freeze({
+		id, kind, label, presentation: Object.freeze({ kind: id, ...(count === undefined ? {} : { count }) }), selected: false as const, enabled,
 	});
 	const value = (slotId: string) => record(semantics.get(slotId), `${slotId} semantic result`);
 	switch (workflowId) {
 		case 'transcribe-captions': {
 			const count = array(value('captions').cues).length;
-			return Object.freeze([choice('captions', 'captions', `${String(count)} caption ${plural(count, 'cue')}`)]);
+			return Object.freeze([choice('captions', 'captions', `${String(count)} caption ${plural(count, 'cue')}`, true, count)]);
 		}
 		case 'clean-filler-silence': return itemChoices(value('cleanup-proposals').proposals,
 			'cleanup', 'Cleanup edit');
@@ -279,7 +282,7 @@ function reviewChoices(
 		case 'mark-reactions': return itemChoices(value('reaction-ranges').ranges,
 			'reaction', 'Reaction range');
 		case 'index-transcript': return Object.freeze([choice(
-			'transcript-index', 'index', `${String(array(value('transcript-index').rows).length)} transcript index rows`,
+			'transcript-index', 'index', `${String(array(value('transcript-index').rows).length)} transcript index rows`, true, array(value('transcript-index').rows).length,
 		)]);
 		case 'detect-beats-tempo': {
 			const labels = value('beat-labels');
@@ -292,7 +295,7 @@ function reviewChoices(
 		}
 		case 'mark-cuts': return itemChoices(value('cut-proposals').proposals, 'cut', 'Cut');
 		case 'index-video': return Object.freeze([choice(
-			'video-index', 'index', `${String(array(value('video-index').sampleAuthority).length)} video index rows`,
+			'video-index', 'index', `${String(array(value('video-index').sampleAuthority).length)} video index rows`, true, array(value('video-index').sampleAuthority).length,
 		)]);
 		case 'reframe': return Object.freeze([choice('reframe-path', 'reframe', 'Reframe crop path')]);
 		case 'make-highlights': return itemChoices(value('highlight-proposals').proposals,
@@ -313,6 +316,7 @@ function itemChoices(
 		const id = row[idField];
 		if (typeof id !== 'string') throw new TypeError(`A reviewed ${kind} choice has no identity.`);
 		return Object.freeze({ id, kind, label: `${label} ${String(index + 1)}`,
+			presentation: Object.freeze({ kind, index: index + 1 }),
 			selected: false as const, enabled: true });
 	}));
 }

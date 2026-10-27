@@ -20,6 +20,7 @@ import {
 } from '../../../../video-source-timing-view.ts';
 import { resolveVideoSourceTimingViews } from '../../../../video-source-timing-views.ts';
 import { exactVideoMidpointSeconds } from '../../../../video-exact-time-midpoint.ts';
+import { fitReframeSampleFrames } from '../../../../assistance/reframe-publication-capacity.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
 
@@ -224,6 +225,7 @@ export function createLocalAssistanceSelectedVideoFramePackTiming(
 export function createLocalAssistanceSelectedVideoReframeFramePackTiming(
 	binding: LocalAssistanceSelectedVideoTimingBinding,
 	shotAnchorFramesValue: readonly number[],
+	maximumFrames = LOCAL_ASSISTANCE_REFRAME_MAXIMUM_SAMPLED_FRAMES,
 ): LocalAssistanceSelectedVideoFramePackTiming {
 	const state = BINDING_STATES.get(binding);
 	if (!state) {
@@ -258,7 +260,8 @@ export function createLocalAssistanceSelectedVideoReframeFramePackTiming(
 	}
 	const authority = boundVideoSourceTimingAuthority(state.timing);
 	const timescale = authority.kind === 'cfr' ? authority.rate.num : authority.reference.timescale;
-	const frames = [...selected].sort((left, right) => left - right).map((sourceFrame) => {
+	const sampled = fitReframeSampleFrames([...selected].sort((left, right) => left - right), shotAnchorFramesValue, maximumFrames);
+	const frames = sampled.map((sourceFrame) => {
 		const start = videoSourceFrameTime(state.timing, position(sourceFrame));
 		const end = videoSourceFrameTime(state.timing, position(sourceFrame + 1));
 		return Object.freeze({ sourceFrame, presentationTick: exactTick(start, timescale).toString(),

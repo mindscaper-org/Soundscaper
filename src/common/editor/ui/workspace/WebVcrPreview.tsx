@@ -3,11 +3,15 @@
 import {
 	useEffect,
 	useRef,
+	useState,
 	type CSSProperties,
 	type KeyboardEvent,
 	type PointerEvent,
-	type WheelEvent,
 } from 'react';
+
+import { useElementSize } from '../DesignSystemRuntime.jsx';
+import { useNonPassiveWheel } from '../useNonPassiveWheel.js';
+import { webVcrContainedPicture } from './web-vcr-picture-geometry.ts';
 
 import {
 	adjustWebVcrCropByPixels,
@@ -55,10 +59,22 @@ export default function WebVcrPreview({
 	onReleaseFocus,
 }: WebVcrPreviewProps) {
 	const previewRef = useRef<HTMLDivElement>(null);
+	const interactionRef = useRef<HTMLDivElement>(null);
+	const [sizeRef, size] = useElementSize();
+	const [videoSize, setVideoSize] = useState<{ width: number; height: number } | null>(null);
+	const heldKeys = useRef(new Map<string, { input: WebVcrKeyInput; send: typeof onKeyInput }>());
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const dragRef = useRef<CropDragSession | null>(null);
 	useEffect(() => assignWebVcrPreviewStream(videoRef.current, snapshot.previewStream), [snapshot.previewStream]);
 	const cropStyle = cropPosition(snapshot.crop);
+	const picture = webVcrContainedPicture(size, videoSize ?? snapshot.surface ?? snapshot.intrinsic);
+	const releaseKeys = (): void => {
+		const held = [...heldKeys.current.values()].reverse();
+		heldKeys.current.clear();
+		for (const { input, send } of held) send({ ...input, action: 'up', repeat: false, modifiers: [] });
+	};
+	useEffect(() => setVideoSize(null), [snapshot.previewStream]);
+	useEffect(() => releaseKeys, [disabled, snapshot.previewStream, snapshot.navigation.generation]);
 	const manualCropDisabled = disabled || snapshot.autoCrop || !snapshot.surface;
 	const inputDisabled = disabled || !snapshot.previewStream;
 	const forwardPointer = (
@@ -84,12 +100,13 @@ export default function WebVcrPreview({
 			modifiers: inputModifiers(event),
 		}));
 	};
-	const forwardWheel = (event: WheelEvent<HTMLDivElement>): void => {
-		if (inputDisabled) return;
+	const forwardWheel = (event: WheelEvent): void => {
+		const target = interactionRef.current;
+		if (inputDisabled || !target) return;
 		event.preventDefault();
 		onPointerInput(Object.freeze({
 			action: 'wheel',
-			...normalizeWebVcrPreviewPoint(event.currentTarget.getBoundingClientRect(), {
+			...normalizeWebVcrPreviewPoint(target.getBoundingClientRect(), {
 				x: event.clientX,
 				y: event.clientY,
 			}),
@@ -99,25 +116,30 @@ export default function WebVcrPreview({
 			modifiers: inputModifiers(event),
 		}));
 	};
+	useNonPassiveWheel(interactionRef, forwardWheel);
 	const forwardKey = (event: KeyboardEvent<HTMLDivElement>, action: WebVcrKeyInput['action']): void => {
 		if (inputDisabled || !event.key || !event.code) return;
 		const disposition = webVcrPreviewKeyDisposition(event.key);
-		if (disposition === 'local-navigation') return;
+		if (disposition === 'local-navigation') { if (action === 'down') releaseKeys(); return; }
 		if (disposition === 'release-focus') {
 			event.preventDefault();
 			event.stopPropagation();
-			if (action === 'down') onReleaseFocus();
+			if (action === 'down') { releaseKeys(); onReleaseFocus(); }
 			return;
 		}
 		event.preventDefault();
 		event.stopPropagation();
-		onKeyInput(Object.freeze({
+		if (action === 'up' && !heldKeys.current.has(event.code)) return;
+		const input = Object.freeze({
 			action,
 			key: event.key.slice(0, 64),
 			code: event.code.slice(0, 64),
 			repeat: event.repeat,
 			modifiers: inputModifiers(event),
-		}));
+		});
+		onKeyInput(input);
+		if (action === 'down') heldKeys.current.set(event.code, { input, send: onKeyInput });
+		else heldKeys.current.delete(event.code);
 	};
 	const updateFromKeyboard = (
 		event: KeyboardEvent<HTMLButtonElement>,
@@ -169,19 +191,20 @@ export default function WebVcrPreview({
 
 	return <section className="kw-web-vcr__preview-section" aria-labelledby="web-vcr-preview-title">
 		<h4 id="web-vcr-preview-title" className="kw-audio-editor-sr-only">{copy.webVcrPreview}</h4>
-		<div ref={previewRef} className="kw-web-vcr__preview" data-web-vcr-preview>
+		<div className="kw-web-vcr__preview" data-web-vcr-preview>
+			<div ref={sizeRef} style={{ position: 'absolute', inset: 0 }}>
 			{snapshot.previewStream
-				? <video ref={videoRef} aria-label={copy.webVcrPreview} autoPlay playsInline muted />
+				? <video ref={videoRef} onLoadedMetadata={() => { if (videoRef.current?.videoWidth && videoRef.current.videoHeight) setVideoSize({ width: videoRef.current.videoWidth, height: videoRef.current.videoHeight }); }} aria-label={copy.webVcrPreview} autoPlay playsInline muted />
 				: <div className="kw-web-vcr__preview-empty" role="status">{copy.capturePreviewUnavailable}</div>}
-			<div className="kw-web-vcr__interaction" role="application"
+			<div ref={previewRef} className="kw-web-vcr__picture" style={{ position: 'absolute', ...picture }}>
+			<div ref={interactionRef} className="kw-web-vcr__interaction" role="application"
 				tabIndex={inputDisabled ? -1 : 0} aria-disabled={inputDisabled || undefined}
 				aria-label={copy.webVcrInteract}
 				onPointerDown={(event) => forwardPointer(event, 'down')}
 				onPointerMove={(event) => forwardPointer(event, 'move')}
 				onPointerUp={(event) => forwardPointer(event, 'up')}
 				onPointerCancel={(event) => forwardPointer(event, 'up')}
-				onWheel={forwardWheel}
-				onKeyDown={(event) => forwardKey(event, 'down')}
+				onBlur={releaseKeys} onKeyDown={(event) => forwardKey(event, 'down')}
 				onKeyUp={(event) => forwardKey(event, 'up')} />
 				{snapshot.surface && <>
 					{snapshot.autoCrop
@@ -202,6 +225,8 @@ export default function WebVcrPreview({
 							onPointerMove={continueDrag} onPointerUp={finishDrag} onPointerCancel={finishDrag} />)}
 					</>}
 			</>}
+			</div>
+			</div>
 		</div>
 		<p className="kw-audio-editor-sr-only">{copy.webVcrCropKeyboardHint}</p>
 	</section>;

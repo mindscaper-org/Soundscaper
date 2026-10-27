@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { envelopeValueAtFrame } from '../automation.js';
+import { clipEnvelopeEvaluator } from './clip-envelope-preparation.ts';
 import { evaluateClipEdgeGainAt } from '../audio-clip-transition-gain.ts';
 import type { FrameRange } from '../audio-clip-overlap.ts';
 import { linearRamp, setParam } from './audio-node-utils.ts';
@@ -89,7 +89,8 @@ export function scheduleClipGain(
 	// sign here inverts the clip without disturbing any of them.
 	const baseGain = clip.inverted ? -magnitude : magnitude;
 	const envelope = Array.isArray(clip.envelope) ? clip.envelope : [];
-	setParam(clipGainParam, baseGain * envelopeValueAtFrame(envelope, segmentStart, duration), startTime);
+	const envelopeAt = clipEnvelopeEvaluator(options, clip, duration);
+	setParam(clipGainParam, baseGain * envelopeAt(segmentStart), startTime);
 	if (envelope.length) {
 		for (const point of envelope) {
 			if (point.frame <= segmentStart || point.frame >= segmentEnd) continue;
@@ -102,7 +103,7 @@ export function scheduleClipGain(
 		if (segmentEnd > segmentStart) {
 			linearRamp(
 				clipGainParam,
-				baseGain * envelopeValueAtFrame(envelope, segmentEnd, duration),
+				baseGain * envelopeAt(segmentEnd),
 				startTime + (segmentEnd - segmentStart) / sampleRate,
 			);
 		}

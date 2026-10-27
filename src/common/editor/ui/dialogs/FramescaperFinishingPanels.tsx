@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { motionProgressLabel } from './framescaper-motion-progress-label.ts';
 import { FRAMESCAPER_FINISHING_ADDITIONAL_COPY } from '../../../i18n/editor-framescaper-finishing-additional-copy.ts';
 
 import React from 'react';
@@ -168,7 +169,7 @@ export function MotionAnalysisControls(props: Readonly<{
 			}</button>
 			{props.progress && <div role="status" aria-live="polite"><progress
 				value={props.progress.completed} max={Math.max(1, props.progress.total)} /> {
-					`${props.progress.phase}: ${String(props.progress.completed)}/${String(props.progress.total)}`
+					motionProgressLabel(props.progress, props.copy)
 				}</div>}
 		</>}
 	</fieldset>;

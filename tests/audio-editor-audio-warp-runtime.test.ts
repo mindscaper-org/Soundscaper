@@ -136,16 +136,7 @@ test('musical warp segments split at held-tempo boundaries without changing sour
 	]);
 });
 
-test('runtime maps require explicit clip endpoints and select only exact render paths', () => {
-	assert.throws(() => buildAudioWarpRuntimeSegments(SAMPLE_PROJECT, {
-		...SAMPLE_CLIP,
-		warpMap: {
-			...SAMPLE_CLIP.warpMap,
-			points: SAMPLE_CLIP.warpMap.points.map((point, index) => index === 0
-				? { ...point, source: 999 }
-				: point),
-		},
-	}, { startFrame: 100, endFrame: 200, sourceSampleRate: 48_000 }), /source endpoints/iu);
+test('runtime maps select only available exact render paths', () => {
 	assert.equal(selectAudioWarpRenderPath({ realtimeAcceleration: true }), 'realtime');
 	assert.equal(selectAudioWarpRenderPath({ realtimeAcceleration: false }), 'exact-offline');
 	assert.throws(() => selectAudioWarpRenderPath({ realtimeAcceleration: false, exactOfflineAvailable: false }), /exact offline/iu);

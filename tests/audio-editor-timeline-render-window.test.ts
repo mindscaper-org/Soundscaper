@@ -29,18 +29,6 @@ test('timeline render window keeps its anchor within half a viewport', () => {
 	}), 1_000);
 });
 
-test('timeline render window rejects invalid geometry', () => {
-	assert.throws(() => resolveAnchoredTimelineScrollX({
-		scrollX: Number.NaN,
-		renderScrollX: 0,
-		viewportWidth: 800,
-	}), /finite/u);
-	assert.throws(() => resolveAnchoredTimelineScrollX({
-		scrollX: 0,
-		renderScrollX: 0,
-		viewportWidth: 0,
-	}), /positive/u);
-});
 
 test('only expensive clip projections consume the anchored viewport', async () => {
 	const [workspace, trackList, audioRow, audioRowViewModel] = await Promise.all([

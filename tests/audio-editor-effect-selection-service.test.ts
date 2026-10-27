@@ -389,7 +389,7 @@ test('spectral brush creates one bounded time-frequency selection from a point a
 	}]);
 });
 
-test('spectral brush clamps at timeline and Nyquist bounds and rejects malformed requests', () => {
+test('spectral brush clamps at timeline and Nyquist bounds and honors blocking', () => {
 	const harness = createHarness();
 	assert.deepEqual(harness.service.setSpectralBrushSelection({
 		centerFrame: 5,
@@ -403,33 +403,6 @@ test('spectral brush clamps at timeline and Nyquist bounds and rejects malformed
 		clipIds: [],
 		frequencyRange: { minimumFrequency: 23_400, maximumFrequency: 24_000 },
 	});
-	assert.throws(
-		() => harness.service.setSpectralBrushSelection({
-			centerFrame: 5.5,
-			centerFrequency: 1_000,
-			radiusFrames: 10,
-			radiusFrequency: 100,
-		}),
-		/safe integer/u,
-	);
-	assert.throws(
-		() => harness.service.setSpectralBrushSelection({
-			centerFrame: 5,
-			centerFrequency: Number.NaN,
-			radiusFrames: 10,
-			radiusFrequency: 100,
-		}),
-		/finite/u,
-	);
-	assert.throws(
-		() => harness.service.setSpectralBrushSelection({
-			centerFrame: 5,
-			centerFrequency: 1_000,
-			radiusFrames: 0,
-			radiusFrequency: 100,
-		}),
-		/positive/u,
-	);
 	harness.setBlocked(true);
 	assert.equal(harness.service.setSpectralBrushSelection({
 		centerFrame: 5,

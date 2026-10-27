@@ -28,7 +28,7 @@ import type {
 import {
 	assertOwnedHighlightCropAspectV1,
 	assertOwnedHighlightReframeVideoAuthorityV1,
-	createOwnedHighlightCropKeyframesV1,
+	prepareOwnedHighlightCropKeyframesV1,
 } from './owned-highlight-crop-evidence-v1.ts';
 import {
 	dimensions,
@@ -111,6 +111,8 @@ export function gatherOwnedHighlightSignalsV1(
 ): AssistanceOwnedHighlightSignalsV1 {
 	const inputs = ownedExactRecord(inputsValue, GATHER_FIELDS, 'gather-signals inputs');
 	const video = reviewVideo(inputs.video);
+	const cropForRange = prepareOwnedHighlightCropKeyframesV1(video,
+		{ width: settings.targetAspectWidth, height: settings.targetAspectHeight });
 	const known = new Set(video.windows.map(({ id }) => id));
 	const audio = reviewAudioSignals(inputs.audio, known);
 	const transcript = reviewTranscriptSignals(inputs.transcript, known, video);
@@ -149,9 +151,7 @@ export function gatherOwnedHighlightSignalsV1(
 		const shotStructure = shotAvailable
 			? shotStructureScore(shotEdges, startFrame, endFrame, video.sampleRate) : 0;
 		const visualInterest = visualAvailable ? window.visualInterest : 0;
-		const cropKeyframes = createOwnedHighlightCropKeyframesV1({ video,
-			sourceStartFrame, sourceEndFrame,
-			targetAspect: { width: settings.targetAspectWidth, height: settings.targetAspectHeight } });
+		const cropKeyframes = cropForRange(sourceStartFrame, sourceEndFrame);
 		return [Object.freeze({ id: window.id, startFrame, endFrame,
 			sourceStartFrame, sourceEndFrame, transcriptEvidence, transcriptExcerpt,
 			visualSummary: `Admitted shot-structure score ${shotStructure.toFixed(6)}; authenticated semantic visual-interest score ${visualInterest.toFixed(6)}.`,

@@ -2,8 +2,9 @@
 
 import type { AudioEditorCommand } from './commands/protocol.ts';
 import type { LabeledAudioRegion } from './labeled-audio-regions.ts';
+import { createLabeledClipIntervalIndex } from './labeled-audio-clip-interval-index.ts';
 
-interface JoinableClip {
+export interface JoinableClip {
 	readonly id: string;
 	readonly timelineStartFrame: number;
 	readonly durationFrames: number;
@@ -17,33 +18,49 @@ export function planLabeledAudioJoinRuns(
 ): readonly Extract<AudioEditorCommand, { type: 'clip/join' }>[] {
 	const clips = clipIds.map(findClip).filter((clip): clip is JoinableClip => Boolean(clip))
 		.sort((left, right) => left.timelineStartFrame - right.timelineStartFrame);
-	let groups: Set<string>[] = [];
+	const coveredClips = createLabeledClipIntervalIndex(clips);
+	const parents = new Int32Array(clips.length).fill(-1);
+	const ranks = new Uint8Array(clips.length);
 	for (const region of regions) {
-		const covered = clips.filter(clip => clip.timelineStartFrame <= region.endFrame + 1
-			&& clip.timelineStartFrame + clip.durationFrames >= region.startFrame - 1);
-		for (const run of adjacentRuns(covered)) {
-			const group = new Set(run);
-			const intersecting = groups.filter(previous => run.some(id => previous.has(id)));
-			for (const previous of intersecting) for (const id of previous) group.add(id);
-			groups = groups.filter(previous => !intersecting.includes(previous));
-			groups.push(group);
+		const covered = coveredClips(region.startFrame - 1, region.endFrame + 1);
+		for (const run of adjacentRuns(clips, covered)) {
+			const first = run[0]!;
+			if (parents[first]! < 0) parents[first] = first;
+			for (const index of run.slice(1)) {
+				if (parents[index]! < 0) parents[index] = index;
+				let left = root(first), right = root(index);
+				if (left === right) continue;
+				if (ranks[left]! < ranks[right]!) [left, right] = [right, left];
+				parents[right] = left;
+				if (ranks[left] === ranks[right]) ranks[left] = ranks[left]! + 1;
+			}
 		}
 	}
-	const order = new Map(clips.map((clip, index) => [clip.id, index]));
-	return groups.map(group => ({ type: 'clip/join' as const,
-		clipIds: clips.filter(clip => group.has(clip.id)).map(clip => clip.id),
-	})).sort((left, right) => order.get(left.clipIds[0]!)! - order.get(right.clipIds[0]!)!);
+	const groups = new Map<number, string[]>();
+	for (let index = 0; index < clips.length; index++) {
+		if (parents[index]! < 0) continue;
+		const owner = root(index), ids = groups.get(owner);
+		if (ids) ids.push(clips[index]!.id);
+		else groups.set(owner, [clips[index]!.id]);
+	}
+	return [...groups.values()].map(clipIds => ({ type: 'clip/join' as const, clipIds }));
+
+	function root(index: number): number {
+		if (parents[index] !== index) parents[index] = root(parents[index]!);
+		return parents[index]!;
+	}
 }
 
-function adjacentRuns(clips: readonly JoinableClip[]): readonly (readonly string[])[] {
-	const runs: string[][] = [];
-	let current: string[] = [];
+function adjacentRuns(clips: readonly JoinableClip[], covered: readonly number[]): readonly (readonly number[])[] {
+	const runs: number[][] = [];
+	let current: number[] = [];
 	let previousEndFrame: number | null = null;
-	for (const clip of clips) {
-		if (previousEndFrame !== null && clip.timelineStartFrame === previousEndFrame) current.push(clip.id);
+	for (const index of covered) {
+		const clip = clips[index]!;
+		if (previousEndFrame !== null && clip.timelineStartFrame === previousEndFrame) current.push(index);
 		else {
 			if (current.length > 1) runs.push(current);
-			current = [clip.id];
+			current = [index];
 		}
 		previousEndFrame = clip.timelineStartFrame + clip.durationFrames;
 	}

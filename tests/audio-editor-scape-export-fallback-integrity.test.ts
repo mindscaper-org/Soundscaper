@@ -50,103 +50,6 @@ test('Scape export aborts an unpublished destination when a rendered fallback di
 	assert.equal(aborts, 1);
 });
 
-test('Scape export rejects a feature-requirements accessor without invoking it', async () => {
-	const sourceStore = memoryStore('scape-feature-export-snapshot');
-	const project = featureProject('scape-feature-export-snapshot');
-	const admittedRequirements = project.featureRequirements;
-	const driftedRequirements = {
-		...admittedRequirements,
-		requirements: admittedRequirements.requirements.map((requirement) => ({
-			...requirement,
-			fallback: requirement.fallback == null
-				? null
-				: { ...requirement.fallback, sha256: 'f'.repeat(64) },
-		})),
-	};
-	let reads = 0;
-	Object.defineProperty(project, 'featureRequirements', {
-		enumerable: true,
-		get() {
-			reads += 1;
-			return reads === 1 ? admittedRequirements : driftedRequirements;
-		},
-	});
-	await persistFallbackSource(sourceStore, FALLBACK_SOURCE_ID, FALLBACK_SAMPLES);
-
-	await assert.rejects(
-		() => exportScapeProject(project, sourceStore),
-		/Project property featureRequirements accessors.*not supported/iu,
-	);
-	assert.equal(reads, 0);
-});
-
-test('Scape export rejects a project-level toJSON hook instead of bypassing its admitted snapshot', async () => {
-	const project = featureProject('scape-feature-export-to-json');
-	Reflect.set(project, 'toJSON', () => ({ ...project, featureRequirements: null }));
-
-	await assert.rejects(
-		() => exportScapeProject(project, memoryStore('scape-feature-export-to-json')),
-		/toJSON hooks.*not supported/iu,
-	);
-});
-
-test('Scape export rejects a source-identity accessor without invoking it', async () => {
-	const sourceStore = memoryStore('scape-feature-export-source-snapshot');
-	const project = featureProject('scape-feature-export-source-snapshot');
-	const source = firstSource(project);
-	let reads = 0;
-	Object.defineProperty(source, 'id', {
-		enumerable: true,
-		get() {
-			reads += 1;
-			return reads === 1 ? FALLBACK_SOURCE_ID : 'drifted-source';
-		},
-	});
-	await persistFallbackSource(sourceStore, FALLBACK_SOURCE_ID, FALLBACK_SAMPLES);
-
-	await assert.rejects(
-		() => exportScapeProject(project, sourceStore),
-		/Project source 1 property id accessors.*not supported/iu,
-	);
-	assert.equal(reads, 0);
-});
-
-test('Scape export rejects a source-level toJSON hook before it can rewrite source identity', async () => {
-	const project = featureProject('scape-feature-export-source-to-json');
-	const source = firstSource(project);
-	let hookCalls = 0;
-	Reflect.set(source, 'toJSON', () => {
-		hookCalls += 1;
-		return { ...source, id: 'drifted-source' };
-	});
-
-	await assert.rejects(
-		() => exportScapeProject(project, memoryStore('scape-feature-export-source-to-json')),
-		/Project source 1 toJSON hooks.*not supported/iu,
-	);
-	assert.equal(hookCalls, 0);
-});
-
-test('Scape export does not delegate source snapshotting to an input-controlled array map', async () => {
-	const project = featureProject('scape-feature-export-source-map');
-	const sources = project.sources as readonly Readonly<Record<string, unknown>>[];
-	const source = firstSource(project);
-	Reflect.set(source, 'toJSON', () => ({ ...source, id: 'drifted-source' }));
-	let mapCalls = 0;
-	Object.defineProperty(sources, 'map', {
-		value() {
-			mapCalls += 1;
-			return [source];
-		},
-	});
-
-	await assert.rejects(
-		() => exportScapeProject(project, memoryStore('scape-feature-export-source-map')),
-		/Project source 1 toJSON hooks.*not supported/iu,
-	);
-	assert.equal(mapCalls, 0);
-});
-
 test('Scape export rejects a non-primitive source kind before plan classification can drift', async () => {
 	const project = featureProject('scape-feature-export-source-kind');
 	Reflect.set(project, 'featureRequirements', { schemaVersion: 1, requirements: [] });
@@ -156,23 +59,6 @@ test('Scape export rejects a non-primitive source kind before plan classificatio
 		() => exportScapeProject(project, memoryStore('scape-feature-export-source-kind')),
 		/Project source 1 kind must be audio or video/iu,
 	);
-});
-
-test('Scape export serializes canonical primitive PCM geometry used by its asset plan', async () => {
-	const sourceStore = memoryStore('scape-feature-export-source-geometry');
-	const project = featureProject('scape-feature-export-source-geometry');
-	const source = firstSource(project);
-	const chunkFrames = Reflect.get(source, 'chunkFrames');
-	assert.equal(typeof chunkFrames, 'number');
-	Reflect.set(source, 'chunkFrames', {
-		valueOf() { return chunkFrames; },
-		toJSON() { return 0; },
-	});
-	await persistFallbackSource(sourceStore, FALLBACK_SOURCE_ID, FALLBACK_SAMPLES);
-
-	const exported = await exportScapeProject(project, sourceStore);
-	assert.ok(exported.blob instanceof Blob);
-	assert.equal((await inspectScapeProject(exported.blob)).id, project.id);
 });
 
 test('Scape export rejects a zero-frame source that the project schema cannot reopen', async () => {

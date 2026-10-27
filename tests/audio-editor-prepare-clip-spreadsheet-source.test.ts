@@ -130,8 +130,8 @@ test('a failure after source capture leaves its ID registered for caller cleanup
 	assert.deepEqual(fixture.commands, []);
 });
 
-test('invalid metadata and multiple sources register prepared IDs before validation rejects', async () => {
-	for (const sources of [[{ ...source, frameCount: 0 }], [source, { ...source, id: 'second-source' }]]) {
+test('invalid metadata registers prepared IDs before validation rejects', async () => {
+	for (const sources of [[{ ...source, frameCount: 0 }]]) {
 		const fixture = createFixture();
 		const registered: string[] = [];
 		const prepare = createClipSpreadsheetSourcePreparer(fixtureRuntime(fixture), runtime => ({

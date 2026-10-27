@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { annotateFormatFileFailure } from './format-file-parser-failure.ts';
+
 import { SaxesParser } from 'saxes';
 import { decodeBomMarkedUtf16 } from './bom-marked-text.ts';
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
@@ -40,6 +42,7 @@ export class LegacyAupError extends Error {
 		this.name = 'LegacyAupError';
 		this.code = code;
 		this.details = details;
+		annotateFormatFileFailure(this, 'legacy-aup', code);
 	}
 }
 

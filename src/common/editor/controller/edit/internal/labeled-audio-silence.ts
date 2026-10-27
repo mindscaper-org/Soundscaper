@@ -14,7 +14,6 @@ import { publishGeneratedAudioSource, type GeneratedAudioSource } from './genera
 import type {
 	AudioGeneratorClip,
 	AudioGeneratorEffectTarget,
-	AudioGeneratorProject,
 	AudioGeneratorServiceDependencies,
 	AudioGeneratorTrack,
 	GeneratedSignal,
@@ -66,18 +65,20 @@ export function createLabeledAudioSilence<Context, Target extends AudioGenerator
 			const project = projectForAudioGeneratorCommands(persistedProject, dependencies.getCommandProject);
 			const requested = new Set(trackIds);
 			const targets = project.tracks.filter((track) => requested.has(track.id) && track.type === 'audio');
+			const clipById = new Map(project.clips.map(clip => [clip.id, clip]));
 			// Upstream silences samples, so a labelled region over a track that
 			// holds nothing there silences nothing. Only the stretches that
 			// actually cover audio become silent clips.
 			const plan = targets
-				.map((track) => Object.freeze({ trackId: track.id, spans: coveredSpans(project, track, spans),
+				.map((track) => Object.freeze({ trackId: track.id, spans: coveredSpans(clipById, track, spans),
 					channelCount: Number(dependencies.trackChannelCount(project, track, project.masterChannels || 2)) }))
 				.filter((entry) => entry.spans.length > 0);
 			if (plan.length === 0) return false;
 			const sampleRate = normalizeProjectSampleRate(project.sampleRate);
-			const longestRegionFrames = Math.max(...plan.flatMap((entry) => (
-				entry.spans.map((region) => region.endFrame - region.startFrame)
-			)));
+			let longestRegionFrames = 0;
+			for (const entry of plan) for (const region of entry.spans) {
+				longestRegionFrames = Math.max(longestRegionFrames, region.endFrame - region.startFrame);
+			}
 			// One frame of headroom keeps every clip inside the source bounds
 			// however the requested duration rounds.
 			const widths = [...new Set(plan.map(entry => entry.channelCount))];
@@ -157,24 +158,33 @@ export function createLabeledAudioSilence<Context, Target extends AudioGenerator
  * one piece rather than several.
  */
 function coveredSpans(
-	project: AudioGeneratorProject,
+	clipById: ReadonlyMap<string, AudioGeneratorClip>,
 	track: AudioGeneratorTrack,
 	regions: readonly LabeledAudioRegion[],
 ): readonly LabeledAudioRegion[] {
 	const clips = (track.clipIds ?? [])
-		.map((clipId) => project.clips.find((clip) => clip.id === clipId))
+		.map((clipId) => clipById.get(clipId))
 		.filter((clip): clip is AudioGeneratorClip => Boolean(clip));
+	const occupied = mergeTouching(clips.map(clip => ({ startFrame: clip.timelineStartFrame,
+		endFrame: clip.timelineStartFrame + clip.durationFrames })));
+	const labels = mergeTouching(regions);
 	const overlaps: LabeledAudioRegion[] = [];
-	for (const region of regions) {
-		for (const clip of clips) {
-			const startFrame = Math.max(region.startFrame, clip.timelineStartFrame);
-			const endFrame = Math.min(region.endFrame, clip.timelineStartFrame + clip.durationFrames);
-			if (endFrame > startFrame) overlaps.push({ startFrame, endFrame });
-		}
+	let labelIndex = 0, clipIndex = 0;
+	while (labelIndex < labels.length && clipIndex < occupied.length) {
+		const label = labels[labelIndex]!, clip = occupied[clipIndex]!;
+		const startFrame = Math.max(label.startFrame, clip.startFrame);
+		const endFrame = Math.min(label.endFrame, clip.endFrame);
+		if (endFrame > startFrame) overlaps.push({ startFrame, endFrame });
+		if (label.endFrame <= clip.endFrame) labelIndex++;
+		if (clip.endFrame <= label.endFrame) clipIndex++;
 	}
-	overlaps.sort((left, right) => left.startFrame - right.startFrame || left.endFrame - right.endFrame);
+	return Object.freeze(overlaps);
+}
+
+function mergeTouching(regions: readonly LabeledAudioRegion[]): readonly LabeledAudioRegion[] {
+	const sorted = [...regions].sort((left, right) => left.startFrame - right.startFrame || left.endFrame - right.endFrame);
 	const merged: LabeledAudioRegion[] = [];
-	for (const span of overlaps) {
+	for (const span of sorted) {
 		const previous = merged.at(-1);
 		if (previous && span.startFrame <= previous.endFrame) {
 			merged[merged.length - 1] = {

@@ -7,6 +7,7 @@ import { FOUNDATION_TIME_CONVERSION_ASSISTANCE_SITES } from './foundation-time-c
 import { FOUNDATION_TIME_CONVERSION_COMMAND_SITES } from './foundation-time-conversion-audit-commands.ts';
 import { FOUNDATION_TIME_CONVERSION_VISUAL_EDIT_SITES } from './foundation-time-conversion-audit-visual-edits.ts';
 import { FOUNDATION_TIME_CONVERSION_PRODUCT_SITES } from './foundation-time-conversion-audit-products.ts';
+import { FOUNDATION_TIME_CONVERSION_SOURCE_EDITOR_SITES } from './foundation-time-conversion-audit-source-editor.ts';
 
 export type FoundationTimeConversionPolicy = TimeRoundingPolicy | 'exact';
 
@@ -152,12 +153,7 @@ const FOUNDATION_TIME_CONVERSION_EDITOR_SITES: readonly FoundationTimeConversion
 		behavior: 'Musical warp trims and splits exactly invert their resolved sample boundary to one clip-local beat coordinate before slicing the persisted map.',
 		conversions: [{ helper: 'sampleFrameToBeat', policies: ['exact'] }],
 	},
-	{
-		id: 'clip-source-ruler-musical-origin',
-		file: 'src/common/editor/ui/inspector/clip-source-ruler-model.ts',
-		behavior: 'Source ruler bars reset their label origin at the clip while project tempo and signature changes retain their exact sample positions in local and global views.',
-		conversions: [{ helper: 'sampleFrameToBeat', policies: ['exact'] }, { helper: 'beatToSampleFrame', policies: ['point'] }, { helper: 'roundRational', policies: ['directional'] }],
-	},
+	...FOUNDATION_TIME_CONVERSION_SOURCE_EDITOR_SITES,
 	{
 		id: 'clip-source-preview-musical-markers',
 		file: 'src/common/editor/clip-source-timing.ts',
@@ -350,10 +346,8 @@ const FOUNDATION_TIME_CONVERSION_EDITOR_SITES: readonly FoundationTimeConversion
 	{
 		id: 'command-authority-reconciliation',
 		file: 'src/common/editor/project-command-projection.ts',
-		behavior: 'Command results conform frame-backed endpoints as points and invert resolved sample edits to exact musical coordinates.',
+		behavior: 'Command results conform frame-backed endpoints as points; musical projection and exact inverse work delegate to the separately registered command tempo preparation.',
 		conversions: [
-			{ helper: 'beatToSampleFrame', policies: ['point'] },
-			{ helper: 'sampleFrameToBeat', policies: ['exact'] },
 			{ helper: 'sampleFrameToVideoFrame', policies: ['point'] },
 		],
 	},

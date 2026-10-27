@@ -76,3 +76,8 @@ test('production assets resolve against the verified Soundscaper nightly site', 
 		/SOUNDSCAPER_NIGHTLY_TESTS_PAYLOAD_ROOT must be an absolute path/u,
 	);
 });
+
+test('prepared CI artifacts provide the unchanged production bytes without a second dist copy', () => {
+	assert.equal(resolveSoundscaperProductionAssetsDirectory({ SCAPE_BROWSER_PRODUCTS_PREPARED: '1' }),
+		join(ROOT, '.wrangler/browser-products/soundscaper/assets'));
+});

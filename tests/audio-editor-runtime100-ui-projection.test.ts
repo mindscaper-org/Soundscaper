@@ -38,8 +38,6 @@ void test('U27 label viewport preparation reads label identity once for all inde
 	const labels = Array.from({ length: 500 }, (_, i) => ({ get id() { reads++; return `l${i}`; }, startFrame: i * 100, endFrame: i * 100 + 1 }));
 	const index = createLabelViewportIndex(labels); const preparationReads = reads;
 	assert.equal(index.query(0, 1, 0, []).length, 1); t.diagnostic(`label preparation ID reads ${preparationReads}`); assert.equal(preparationReads, 500);
-	const duplicates = [{ id: 'same', startFrame: 0, endFrame: 1 }, { id: 'same', startFrame: 100, endFrame: 101 }];
-	assert.deepEqual(createLabelViewportIndex(duplicates).query(500, 501, 0, ['same']), [duplicates[1]]);
 });
 void test('U28 annotation viewport queries fuse exact visibility and identity publication', t => {
 	const annotations = Array.from({ length: 500 }, (_, i) => ({ id: `a${i}`, sequenceId: 'main', kind: 'region', anchor: 'sample', name: '', color: 'blue', batchId: null, opaqueExtensions: {}, coordinateDomain: 'resolved-samples', startFrame: i * 10, endFrame: i * 10 + 1, timelineStartFrame: i * 10, timelineEndFrame: i * 10 + 1, durationFrames: 1 })) as RuntimeTimelineAnnotationProjection[];

@@ -1,3 +1,4 @@
+import { parseVideoRetimeRational as parseRational } from './dialog-input-validation.ts';
 import { usePresentationFeedback, feedbackFailure, type PresentationFeedback } from '../presentation-feedback.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
@@ -194,19 +195,6 @@ function RationalField({ label: fieldLabel, value, onChange }: Readonly<{
 }>) {
 	return <label><span>{fieldLabel}</span><input type="text" inputMode="numeric" value={value}
 		onChange={(event) => onChange(event.currentTarget.value)} /></label>;
-}
-
-function parseRational(value: string, name: string): Readonly<{ readonly num: number; readonly den: number }> {
-	const parts = value.trim().split('/');
-	if (parts.length < 1 || parts.length > 2 || parts.some((part) => !part.trim())) {
-		throw new RangeError(`${name} must be a safe-integer fraction with a positive denominator.`);
-	}
-	const num = Number(parts[0]);
-	const den = parts.length === 2 ? Number(parts[1]) : 1;
-	if (!Number.isSafeInteger(num) || !Number.isSafeInteger(den) || den <= 0 || Object.is(num, -0)) {
-		throw new RangeError(`${name} must be a safe-integer fraction with a positive denominator.`);
-	}
-	return Object.freeze({ num, den });
 }
 
 function label(copy: Readonly<Record<string, string>>, key: string, fallback: string): string {

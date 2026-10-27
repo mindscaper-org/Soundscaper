@@ -27,8 +27,8 @@ for (const effect of ['Change tempo', 'Change speed and pitch']) {
 		const properties = await openClipProperties(page, editor, clipByName(editor, recording.name));
 		await showClipTimingFields(properties);
 		const start = clipField(properties, 'startFrame');
-		await commitInput(start, '4');
-		await expect(start).toHaveValue('4');
+		await commitInput(start, '192000');
+		await expect(start).toHaveValue('192000');
 		await closeClipProperties(properties);
 		await page.locator('[data-sidebar] [data-workspace-select]').selectOption({ label: 'Soundscaper' });
 		await editor.getByRole('button', { name: 'Fit project', exact: true }).click();

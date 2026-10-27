@@ -7,8 +7,10 @@ import { bootEditor, chooseCommandAction, clipByName, closeWorkspacePanel, impor
 test('the clip format field keeps native composition as a draft until its conversion button is pressed', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [toneA]);
-	const clip = clipByName(editor, toneA.name);
-	const clipId = await clip.getAttribute('data-clip-id');
+	const imported = clipByName(editor, toneA.name);
+	const clipId = await imported.getAttribute('data-clip-id');
+	expect(clipId).not.toBeNull();
+	const clip = editor.locator(`[data-clip-id="${clipId}"][role="group"]`);
 	const properties = await openClipProperties(page, editor, clip);
 	await resampleClipFormat(properties, 24_000);
 	const rate = properties.getByRole('spinbutton', { name: 'Sample rate (Hz)', exact: true });
@@ -27,6 +29,6 @@ test('the clip format field keeps native composition as a draft until its conver
 	await resampleClipFormat(properties, 48_000);
 	await closeWorkspacePanel(editor, 'clip-properties');
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
-	const restored = await openClipProperties(page, editor, editor.locator(`[data-clip-id="${clipId}"][role="group"]`).first());
+	const restored = await openClipProperties(page, editor, clip);
 	await expectClipSampleRate(restored, 24_000);
 });

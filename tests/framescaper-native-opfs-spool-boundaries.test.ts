@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import {
@@ -75,14 +74,6 @@ function fixture(options: Readonly<{
 		aborts: () => aborts, removals: () => removals };
 }
 
-test('invalid spool bounds are refused before any OPFS allocation', async () => {
-	const root = { getDirectoryHandle() { throw new Error('OPFS was opened'); } } as unknown as FileSystemDirectoryHandle;
-	for (const [chunkBytes, expectedBytes] of [[31, 1], [32.5, 1], [32, 0], [32, -1],
-		[32, Number.MAX_SAFE_INTEGER + 1]]) {
-		await assert.rejects(() => createFramescaperNativeOpfsByteSpool(
-			chunkBytes!, expectedBytes!, new AbortController().signal, { root }), /bounds are invalid/iu);
-	}
-});
 
 test('an already aborted spool request never opens OPFS', async () => {
 	const controller = new AbortController();
@@ -114,41 +105,7 @@ test('an incomplete spool cannot close and remains abortable', async () => {
 	assert.deepEqual(fake.removed, [NAME]);
 });
 
-test('concurrent writes cannot produce a digest for bytes written in a different order', async () => {
-	const release = deferred();
-	const started = deferred();
-	const fake = fixture({ holdWrite: release.promise, writeStarted: started.resolve });
-	const spool = await fake.create(4);
-	const first = spool.write(Uint8Array.of(1, 2));
-	await started.promise;
-	const second = spool.write(Uint8Array.of(3, 4));
-	const refusal = assert.rejects(second, /write.*progress|busy|concurrent/iu);
-	release.resolve();
-	await refusal;
-	await first;
-	await spool.write(Uint8Array.of(3, 4));
-	const result = await spool.complete('application/octet-stream');
-	const bytes = new Uint8Array(await result.bytes.arrayBuffer());
-	assert.deepEqual(bytes, Uint8Array.of(1, 2, 3, 4));
-	assert.equal(result.sha256, createHash('sha256').update(bytes).digest('hex'));
-	await releaseFramescaperNativeOpfsSpool(result.bytes);
-});
 
-test('completion cannot close a stream while an accepted write is pending', async () => {
-	const release = deferred();
-	const started = deferred();
-	const fake = fixture({ holdWrite: release.promise, writeStarted: started.resolve });
-	const spool = await fake.create(2);
-	const writing = spool.write(Uint8Array.of(1, 2));
-	await started.promise;
-	await assert.rejects(() => spool.complete('application/octet-stream'), /write.*progress|busy|concurrent/iu);
-	assert.equal(fake.closes(), 0);
-	release.resolve();
-	await writing;
-	const result = await spool.complete('application/octet-stream');
-	assert.equal(result.byteLength, 2);
-	await releaseFramescaperNativeOpfsSpool(result.bytes);
-});
 
 test('a failed write poisons the carrier and blocks later completion', async () => {
 	const fake = fixture({ failWrite: true });

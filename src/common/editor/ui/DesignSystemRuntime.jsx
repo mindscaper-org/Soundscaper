@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, use
 import { AccessibilityProfileProvider } from '@soundscaper/design-system/contexts/AccessibilityProfileContext';
 import { useTheme } from '@soundscaper/design-system/ThemeProvider';
 
+import { EditorComponentCopyProvider } from './EditorComponentCopyProvider.tsx';
 import { EditorSkinProvider, useEditorSkin } from './skins/EditorSkinProvider.tsx';
 import EditorMusicalTimeCodeProvider from './EditorMusicalTimeCodeProvider.tsx';
 
@@ -15,17 +16,17 @@ let portalObserver = null;
 let portalLayoutFrame = 0;
 let portalOptionsLabel = '';
 
-export function DesignSystemProviders({ children, copy, controller = undefined }) {
+export function DesignSystemProviders({ children, copy, locale = 'en', controller = undefined }) {
 	const theme = useSiteTheme();
 	const accessibilityProfile = useMemo(readAccessibilityProfile, []);
 	usePortalSentinel(copy.options);
 
 	return (
-		<AccessibilityProfileProvider initialProfileId={accessibilityProfile}>
+		<EditorComponentCopyProvider copy={copy} locale={locale}><AccessibilityProfileProvider initialProfileId={accessibilityProfile}>
 			<EditorSkinProvider controller={controller} mode={theme}>
 				<EditorMusicalTimeCodeProvider controller={controller}>{children}</EditorMusicalTimeCodeProvider>
 			</EditorSkinProvider>
-		</AccessibilityProfileProvider>
+		</AccessibilityProfileProvider></EditorComponentCopyProvider>
 	);
 }
 

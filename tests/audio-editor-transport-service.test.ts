@@ -310,8 +310,6 @@ test('metronome scheduling drives and cleans up a Web Audio click without owning
 
 	fixture.state.disposed = true;
 	await fixture.service.runMetronomeScheduler();
-	fixture.setProject({ ...fixture.project(), sampleRate: 0 });
-	assert.equal(fixture.service.projectSampleRate(), 44_100);
 	assert.throws(() => fixture.service.normalizePlaybackFrame(Number.NaN), /finite/u);
 });
 

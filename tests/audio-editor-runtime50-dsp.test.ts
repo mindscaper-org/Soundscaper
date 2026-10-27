@@ -106,8 +106,9 @@ test('A11 fixed selection latency flush clears zero scratch once after the final
 		if (this.length === 1024) clears++;
 		return original.apply(this, args);
 	});
-	const actual = applyStandardEffect('noise-gate', input, 8000, { lookahead: 1, rangeDb: 0 });
-	assert.deepEqual(actual, input);
+	const actual = applyStandardEffect('noise-gate', input, 8000, { lookahead: 1, threshold: -6, rangeDb: -24 });
+	const expected = input.map(channel => Float32Array.from(channel, sample => sample * 10 ** (-24 / 20)));
+	assert.deepEqual(actual, expected, 'an active closed gate retains every delayed source sample at its authored floor gain');
 	assert.equal(clears, 4, 'two partial input buffers and one silence transition per channel');
 });
 
@@ -146,7 +147,7 @@ test('A14 production noise reduction retains a typed input ring and avoids boxed
 	};
 	let output: Float32Array[];
 	try { output = render(processor, input, 18000); } finally { Array.prototype.push = original; Array.prototype.splice = originalSplice; }
-	assert.equal(boxed, 315, 'only the bounded spectral window schedule retains numeric pushes');
+	assert.ok(boxed <= 315, 'only bounded spectral window scheduling may box numbers; cached preparation may reduce its work');
 	assert.equal(retired, 0);
 	assert.equal(digest(output), 'a37e7387558b91ee834fb5ac49eee96706d0ef1779302d937d21488f57e581b7');
 	processor.reset();

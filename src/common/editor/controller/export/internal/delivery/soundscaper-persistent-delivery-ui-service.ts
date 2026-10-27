@@ -112,13 +112,23 @@ export function createSoundscaperPersistentDeliveryUiService(
 	let destinationGrantId: string | null = null;
 	let view = frozenView(false, []);
 	let eventSequence = 0;
-	let refreshChain: Promise<void> = Promise.resolve();
+	let refreshInFlight: Promise<void> | null = null;
+	let mirrorSequence = 0;
+	let mirrorIdentity: string | undefined;
+	let invalidation = 0;
+	let loadedInvalidation = -1;
 
-	async function refresh(): Promise<void> {
+	function refresh(): Promise<void> {
+		if (refreshInFlight) return refreshInFlight;
 		const load = async (): Promise<void> => {
 			const entries: SoundscaperPersistentDeliverySummary[] = [];
 			let currentProjectIdentity: SoundscaperDeliveryProjectIdentityV1 | null = null;
 			try { currentProjectIdentity = await savedProjectIdentity(runtime); } catch { /* no exact open project */ }
+			const identity = JSON.stringify(currentProjectIdentity);
+			const revision = invalidation;
+			const sequence = await latestQueueSequence();
+			if (loadedInvalidation === revision && mirrorIdentity === identity && mirrorSequence === sequence) return;
+			const previous = new Map(view.entries.map(entry => [entry.jobId, entry]));
 			let cursor: string | undefined;
 			let paused = false;
 			do {
@@ -129,21 +139,50 @@ export function createSoundscaperPersistentDeliveryUiService(
 				if (!page || !Array.isArray(page.entries) || typeof page.paused !== 'boolean') {
 					throw new TypeError('The persistent delivery queue returned an invalid page.');
 				}
-				entries.push(...page.entries.map(summary));
+				for (const value of page.entries) {
+					const next = summary(value);
+					const retained = previous.get(next.jobId);
+					entries.push(retained && JSON.stringify(retained) === JSON.stringify(next) ? retained : next);
+				}
 				paused = page.paused;
 				cursor = page.nextCursor === null ? undefined : cursorValue(page.nextCursor);
 			} while (cursor !== undefined);
-			view = frozenView(paused, entries);
-			runtime.publishDocumentSnapshot?.();
+			mirrorIdentity = identity;
+			mirrorSequence = sequence;
+			loadedInvalidation = revision;
+			if (paused !== view.paused || entries.length !== view.entries.length
+				|| entries.some((entry, index) => entry !== view.entries[index])) {
+				view = frozenView(paused, entries);
+				runtime.publishDocumentSnapshot?.();
+			}
 		};
-		const operation = refreshChain.then(load, load);
-		refreshChain = operation.catch(() => undefined);
-		return operation;
+		refreshInFlight = load().finally(() => { refreshInFlight = null; });
+		return refreshInFlight;
+	}
+
+	async function latestQueueSequence(): Promise<number> {
+		let sequence = mirrorSequence;
+		for (;;) {
+			const page = await runtime.bridge.events({ afterSequence: sequence, limit: 250 });
+			if (!page || !Array.isArray(page.events) || !Number.isSafeInteger(page.nextSequence)
+				|| page.nextSequence < sequence || typeof page.hasMore !== 'boolean'
+				|| (page.hasMore && page.nextSequence === sequence)) {
+				throw new TypeError('The persistent delivery event page is invalid.');
+			}
+			sequence = page.nextSequence;
+			if (!page.hasMore) return sequence;
+		}
+	}
+
+	async function refreshAfterMutation(): Promise<void> {
+		invalidation++;
+		if (refreshInFlight) await refreshInFlight.catch(() => undefined);
+		await refresh();
 	}
 
 	async function mutate(operation: () => PromiseLike<unknown>): Promise<void> {
 		await operation();
-		await refresh();
+		await refreshAfterMutation();
 	}
 
 	return Object.freeze({
@@ -179,7 +218,7 @@ export function createSoundscaperPersistentDeliveryUiService(
 				throw new Error('The reauthorized delivery destination changed identity.');
 			}
 			destinationGrantId = grant;
-			await refresh();
+			await refreshAfterMutation();
 			return Object.freeze({ grantId: grant });
 		},
 		async enqueueBatch(batch: DeliveryBatch): Promise<readonly string[]> {
@@ -222,7 +261,7 @@ export function createSoundscaperPersistentDeliveryUiService(
 			const queued = await runtime.bridge.enqueueBatch({ items: Object.freeze(items), admission });
 			const admitted = queued.map(summary);
 			const jobIds = Object.freeze(admitted.map(({ jobId }) => jobId));
-			try { await refresh(); }
+			try { await refreshAfterMutation(); }
 			catch {
 				// Admission already committed in main. Keep its authoritative rows
 				// visible so a failed follow-up read does not invite a duplicate batch.
@@ -241,7 +280,7 @@ export function createSoundscaperPersistentDeliveryUiService(
 				&& entry.batchMember !== null && memberIds.has(entry.batchMember.memberId)
 				&& entry.state === 'failed').map(({ jobId }) => jobId);
 			for (const jobId of retryable) await runtime.bridge.retry({ jobId });
-			await refresh();
+			await refreshAfterMutation();
 			return Object.freeze(retryable);
 		},
 		report(jobId: string): DeliveryReport | null {

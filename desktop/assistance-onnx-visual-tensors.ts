@@ -36,16 +36,8 @@ export function resizeAssistanceRgbaToChwFloatV1(
 		const sourceY = (region.top + (y + 0.5) / targetHeight * cropHeight) * sourceHeight - 0.5;
 		for (let x = 0; x < targetWidth; x += 1) {
 			const sourceX = (region.left + (x + 0.5) / targetWidth * cropWidth) * sourceWidth - 0.5;
-			const rgb = bilinear(rgba, sourceWidth, sourceHeight, sourceX, sourceY);
-			const channels = normalization.channelOrder === 'rgb' ? rgb : [rgb[2], rgb[1], rgb[0]];
-			const offset = y * targetWidth + x;
-			for (let channel = 0; channel < 3; channel += 1) {
-				const scaled = channels[channel]! * normalization.scale;
-				result[channel * targetWidth * targetHeight + offset] = Math.fround(
-					(scaled - normalization.mean[channel]!)
-					/ normalization.standardDeviation[channel]!,
-				);
-			}
+			writeBilinearPixel(rgba, sourceWidth, sourceHeight, sourceX, sourceY, result,
+				targetWidth * targetHeight, y * targetWidth + x, normalization);
 		}
 	}
 	return result;
@@ -152,13 +144,17 @@ function geometry(
 	}
 }
 
-function bilinear(
+function writeBilinearPixel(
 	rgba: Uint8Array,
 	width: number,
 	height: number,
 	xValue: number,
 	yValue: number,
-): readonly [number, number, number] {
+	result: Float32Array,
+	planeLength: number,
+	offset: number,
+	normalization: AssistanceVisualTensorNormalizationV1,
+): void {
 	const x = Math.max(0, Math.min(width - 1, xValue));
 	const y = Math.max(0, Math.min(height - 1, yValue));
 	const x0 = Math.floor(x);
@@ -167,11 +163,13 @@ function bilinear(
 	const y1 = Math.min(height - 1, y0 + 1);
 	const xWeight = x - x0;
 	const yWeight = y - y0;
-	return Object.freeze([0, 1, 2].map((channel) => {
-		const top = rgba[(y0 * width + x0) * 4 + channel]! * (1 - xWeight)
-			+ rgba[(y0 * width + x1) * 4 + channel]! * xWeight;
-		const bottom = rgba[(y1 * width + x0) * 4 + channel]! * (1 - xWeight)
-			+ rgba[(y1 * width + x1) * 4 + channel]! * xWeight;
-		return top * (1 - yWeight) + bottom * yWeight;
-	}) as [number, number, number]);
+	for (let channel = 0; channel < 3; channel += 1) {
+		const component = normalization.channelOrder === 'rgb' ? channel : 2 - channel;
+		const top = rgba[(y0 * width + x0) * 4 + component]! * (1 - xWeight)
+			+ rgba[(y0 * width + x1) * 4 + component]! * xWeight;
+		const bottom = rgba[(y1 * width + x0) * 4 + component]! * (1 - xWeight)
+			+ rgba[(y1 * width + x1) * 4 + component]! * xWeight;
+		const scaled = (top * (1 - yWeight) + bottom * yWeight) * normalization.scale;
+		result[channel * planeLength + offset] = Math.fround((scaled - normalization.mean[channel]!) / normalization.standardDeviation[channel]!);
+	}
 }

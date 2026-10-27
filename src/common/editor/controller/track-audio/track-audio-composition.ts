@@ -5,7 +5,7 @@ import { createAiffStreamEncoder, encodeAiff } from '../../aiff.js';
 import { loadStoredSourceChannels } from '../../clip-time-pitch-cache-channels.js';
 import { collectRelatedClipIds } from '../../commands.js';
 import { isAudacityRackEffectType, rackTailFrames } from '../../effects.js';
-import { createExportPlan } from '../../export.js';
+import { createControllerExportPlan as createExportPlan } from './internal/owned-export-plan.ts';
 import { applyMediaChannelMapping } from '../../media-export.js';
 import { createStableId, findClip, findClipTrack, findSource, findTrack } from '../../project.js';
 import { audioTrackChannelCount } from '../../project-audio-factory.js';
@@ -23,6 +23,7 @@ import { createDocumentCommandPreview } from '../document/document-command-previ
 import { createDerivedAudioComposition } from './derived-audio-composition.ts';
 import { createMixRenderService } from './internal/mix-render/mix-render-service.ts';
 import { createSelectionViewService } from './internal/selection-view-service.ts';
+import { createSelectionOwnershipIndex } from './internal/selection-ownership-index.ts';
 import {
 	type AudioBufferContext,
 	audioBufferChannels,
@@ -279,7 +280,9 @@ export function createTrackAudioComposition(dependencies: TrackAudioCompositionD
 		activateStoredSource: dependencies.activateStoredSource,
 		previewCommand: mixPreview.previewCommand,
 	});
+	const selectionOwners = createSelectionOwnershipIndex(dependencies.getProject, dependencies.updateSelection);
 	const selectionView = createSelectionViewService({
+		getClipOwners: selectionOwners.get,
 		captureProject, assertProject,
 		DEFAULT_PIXELS_PER_SECOND: dependencies.defaultPixelsPerSecond,
 		MAX_PIXELS_PER_SECOND: dependencies.maximumPixelsPerSecond,
@@ -312,7 +315,7 @@ export function createTrackAudioComposition(dependencies: TrackAudioCompositionD
 		synchronizeAutomaticSampleEditMode: dependencies.synchronizeAutomaticSampleEditMode,
 		synchronizeMicrophoneMeterTarget: microphoneMeter.synchronizeTarget,
 		updatePlayhead: dependencies.updatePlayhead,
-		updateSelection: dependencies.updateSelection,
+		updateSelection: selectionOwners.updateSelection,
 	});
 
 	const transform = (label: string | undefined) => label || copy.audacityProcessing;

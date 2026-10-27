@@ -21,6 +21,7 @@ export function createAbsentNyquistHostService(context: AbsentSubsystemContext) 
 	const reject = createAsyncAbsentSubsystemRefusal(context, 'Nyquist host');
 	return Object.freeze({
 		cancelNyquistEvaluation: (): boolean => false,
+		prepareNyquistHostProperties: undefined,
 		nyquistHostProperties: createAbsentSubsystemRefusal(context, 'Nyquist host'),
 		persistNyquistLabels: reject,
 		playNyquistPreview: reject,

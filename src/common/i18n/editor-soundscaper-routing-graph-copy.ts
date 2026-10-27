@@ -1,6 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 export const SOUNDSCAPER_ROUTING_GRAPH_COPY = Object.freeze({
+	endpointLabel: "{kind}: {name}",
+	endpointStrip: "{kind} {name}",
+	sidechainEndpoint: "{kind}: {strip} / {effect}",
+	deleteConnection: "Delete this connection?",
+	deleteOwnedStrip: "This strip is owned by the project and cannot be deleted here.",
+	deleteVca: "Delete this VCA and its {count} memberships?",
+	deleteOutput: "Delete this output and {count} incident connections?",
+	deleteNode: "Delete this node and {count} incident connections?",
 	memberCountOne: '{count} member',
 	memberCountMany: '{count} members',
 	outputDescription: '{role} output',

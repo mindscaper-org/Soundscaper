@@ -1,3 +1,4 @@
+import { formatLocalizedTemplate } from '../localization-template.ts';
 import { Icon } from '@soundscaper/design-system/Icon';
 import React from 'react';
 
@@ -37,9 +38,7 @@ export function TrackFolderRow({
 	onDropNode,
 }) {
 	const controlTabIndex = isFlatNavigation ? 0 : -1;
-	const label = React.useMemo(() => (copy.trackFolderRowLabel || 'Folder {name}, level {level}')
-		.replace('{name}', row.name)
-		.replace('{level}', String(row.level)), [copy.trackFolderRowLabel, row.name, row.level]);
+	const label = React.useMemo(() => formatLocalizedTemplate(copy.trackFolderRowLabel || 'Folder {name}, level {level}', { name: row.name, level: row.level }), [copy.trackFolderRowLabel, row.name, row.level]);
 	return (
 		<div
 			id={row.domId}

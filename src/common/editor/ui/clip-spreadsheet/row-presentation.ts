@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { CLIP_SPREADSHEET_COLUMNS, isClipSpreadsheetCellEditable, type ClipSpreadsheetRow } from '../../clip-spreadsheet.ts';
 import { formatLocalizedTemplate } from '../localization-template.ts';
 
@@ -8,10 +8,21 @@ export function useSpreadsheetRowIdentity(rows: readonly ClipSpreadsheetRow[]): 
 }
 
 export function useSpreadsheetRows(rows: readonly ClipSpreadsheetRow[], labels: Readonly<Record<string, string>>) {
+	const rowIds = useRef(new WeakMap<ClipSpreadsheetRow, string>());
+	const retained = useRef<{ labels: Readonly<Record<string, string>>; rows: Map<string, SpreadsheetRowPresentation> }>({ labels, rows: new Map() });
 	return useMemo(() => {
+		const previous = retained.current.labels === labels ? retained.current.rows : new Map<string, SpreadsheetRowPresentation>();
+		const next = new Map<string, SpreadsheetRowPresentation>();
 		// Three boolean flags produce at most eight column descriptor shapes.
 		const shapes = new Map<number, SpreadsheetCellPresentation[]>();
-		return rows.map((row, rowIndex) => {
+		const presentations = rows.map((row, rowIndex) => {
+			const id = rowIds.current.get(row) ?? row.id;
+			rowIds.current.set(row, id);
+			const label = formatLocalizedTemplate(labels.selectRow, { row: rowIndex + 1 });
+			const prior = previous.get(id);
+			if (prior?.label === label && prior.row.kind === row.kind && prior.row.editable === row.editable
+				&& prior.row.pitchLinked === row.pitchLinked && prior.row.warpMapped === row.warpMapped
+				&& CLIP_SPREADSHEET_COLUMNS.every(column => prior.row.cells[column.id] === row.cells[column.id])) { next.set(id, prior); return prior; }
 			const shape = Number(row.editable) + Number(Boolean(row.pitchLinked)) * 2 + Number(Boolean(row.warpMapped)) * 4;
 			let cells = shapes.get(shape);
 			if (!cells) {
@@ -24,12 +35,12 @@ export function useSpreadsheetRows(rows: readonly ClipSpreadsheetRow[], labels: 
 				});
 				shapes.set(shape, cells);
 			}
-			return {
-				row,
-				label: formatLocalizedTemplate(labels.selectRow, { row: rowIndex + 1 }),
-				cells,
-			};
+			const presentation = { row, label, cells };
+			next.set(id, presentation);
+			return presentation;
 		});
+		retained.current = { labels, rows: next };
+		return presentations;
 	}, [rows, labels]);
 }
 
@@ -41,7 +52,11 @@ interface SpreadsheetCellPresentation {
 	readonly title: string | undefined;
 }
 
-export type SpreadsheetRowPresentation = ReturnType<typeof useSpreadsheetRows>[number];
+export interface SpreadsheetRowPresentation {
+	readonly row: ClipSpreadsheetRow;
+	readonly label: string;
+	readonly cells: readonly SpreadsheetCellPresentation[];
+}
 
 /** Mounted cell ownership avoids a full table selector traversal on navigation. */
 export function createSpreadsheetCellIndex() {

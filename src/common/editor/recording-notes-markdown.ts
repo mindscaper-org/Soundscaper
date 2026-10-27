@@ -76,49 +76,53 @@ function formatMultilineInline(value: string, start: number, end: number, marker
 		offset += text.length + 1;
 		return { from, to: from + text.length, text };
 	});
-	let next = value;
-	let selectionStart = start;
-	let selectionEnd = end;
-	let finalContent = true;
-	// Independent inline spans cannot cross paragraph/list boundaries. Work
-	// backwards so earlier authored offsets remain valid after each replacement.
-	for (const line of lines.reverse()) {
-		if (!line.text.trim()) continue;
+	const firstLine = start === 0 ? 0 : value.lastIndexOf('\n', start - 1) + 1;
+	const parts = [value.slice(0, firstLine)];
+	let outputOffset = firstLine, selectionStart = start, selectionEnd = end;
+	let changed = false, finalLineEnd = firstLine;
+	for (const [index, line] of lines.entries()) {
 		const lineStart = line.from === 0 ? 0 : value.lastIndexOf('\n', line.from - 1) + 1;
-		const prefix = line.from === lineStart ? blockPrefix(line.text) : null;
-		let from = line.from + (prefix ? prefix.indent.length + prefix.prefix.length : 0);
-		let to = line.to;
-		if (from === to) continue;
-		const content = next.slice(from, to);
-		const contentStart = from + (/^\s*/u.exec(content)?.[0].length ?? 0);
-		const contentEnd = to - (/\s*$/u.exec(content)?.[0].length ?? 0);
-		// The restored selection excludes the first opener and last closer.
-		// Include that matching half when toggling the first or final line.
-		if (marker === '`') {
-			let opening = from;
-			while (next[opening - 1] === '`') opening -= 1;
-			if (opening === from && next[from - 1] === ' ') {
-				opening -= 1;
-				while (next[opening - 1] === '`') opening -= 1;
+		const newline = value.indexOf('\n', line.to);
+		const lineEnd = newline < 0 ? value.length : newline;
+		const local = value.slice(lineStart, lineEnd);
+		let from = line.from - lineStart, to = line.to - lineStart;
+		const prefix = from === 0 ? blockPrefix(line.text) : null;
+		if (prefix) from += prefix.indent.length + prefix.prefix.length;
+		let result = { value: local, selectionStart: from, selectionEnd: to };
+		if (line.text.trim() && from !== to) {
+			const content = local.slice(from, to);
+			const contentStart = from + (/^\s*/u.exec(content)?.[0].length ?? 0);
+			const contentEnd = to - (/\s*$/u.exec(content)?.[0].length ?? 0);
+			if (marker === '`') {
+				let opening = from;
+				while (local[opening - 1] === '`') opening -= 1;
+				if (opening === from && local[from - 1] === ' ') {
+					opening -= 1;
+					while (local[opening - 1] === '`') opening -= 1;
+				}
+				const readCode = recordingNotesCodeReader(local);
+				const enclosing = readCode(opening);
+				if (enclosing?.contentStart === from && enclosing.end === to) from = opening;
+				const selected = readCode(from);
+				if (selected?.contentEnd === to) to = selected.end;
+			} else {
+				if (local.slice(contentStart, contentEnd).endsWith(marker)
+					&& local.slice(contentStart - marker.length, contentStart) === marker) from = contentStart - marker.length;
+				if (local.slice(contentStart, contentEnd).startsWith(marker)
+					&& local.slice(contentEnd, contentEnd + marker.length) === marker) to = contentEnd + marker.length;
 			}
-			const readCode = recordingNotesCodeReader(next);
-			const enclosing = readCode(opening);
-			if (enclosing?.contentStart === from && enclosing.end === to) from = opening;
-			const selected = readCode(from);
-			if (selected?.contentEnd === to) to = selected.end;
-		} else {
-			if (next.slice(contentStart, contentEnd).endsWith(marker)
-				&& next.slice(contentStart - marker.length, contentStart) === marker) from = contentStart - marker.length;
-			if (next.slice(contentStart, contentEnd).startsWith(marker)
-				&& next.slice(contentEnd, contentEnd + marker.length) === marker) to = contentEnd + marker.length;
+			result = formatInline(local, from, to, marker, placeholder);
+			if (!changed) selectionStart = outputOffset + result.selectionStart;
+			selectionEnd = outputOffset + result.selectionEnd;
+			changed = true;
 		}
-		const result = formatInline(next, from, to, marker, placeholder);
-		selectionEnd = finalContent ? result.selectionEnd : selectionEnd + result.value.length - next.length;
-		selectionStart = result.selectionStart;
-		finalContent = false;
-		next = result.value;
+		parts.push(result.value);
+		outputOffset += result.value.length;
+		if (index + 1 < lines.length) { parts.push('\n'); outputOffset += 1; }
+		finalLineEnd = lineEnd;
 	}
-	return { value: next, selectionStart, selectionEnd };
+	parts.push(value.slice(finalLineEnd));
+	return { value: parts.join(''), selectionStart, selectionEnd };
 }
 
 function blockPrefix(line: string): { indent: string; prefix: string; content: string } {

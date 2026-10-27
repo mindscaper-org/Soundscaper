@@ -58,8 +58,14 @@ export function createNativePluginHostJobRunner({ loadAddon, addonPath, addonSha
 			);
 			try {
 				const reportedLatency = await addon.pluginLatencyFrames(instance);
-				const channels = [new Float32Array(HOST_PROBE_BLOCK_FRAMES), new Float32Array(HOST_PROBE_BLOCK_FRAMES)];
-				const input = [new Float32Array(HOST_PROBE_BLOCK_FRAMES), new Float32Array(HOST_PROBE_BLOCK_FRAMES)];
+				const topology = typeof addon.pluginAudioTopology === 'function'
+					? await addon.pluginAudioTopology(instance)
+					: grant.format === 'fixture' ? await addon.inspectPluginCandidate(grant.binaryPath) : null;
+				if (!topology || ![topology.inputChannels, topology.outputChannels].every(count => Number.isSafeInteger(count) && count >= 1 && count <= 32)) {
+					throw new RangeError('The opened plug-in must report an admitted input/output topology.');
+				}
+				const channels = Array.from({ length: topology.outputChannels }, () => new Float32Array(HOST_PROBE_BLOCK_FRAMES));
+				const input = Array.from({ length: topology.inputChannels }, () => new Float32Array(HOST_PROBE_BLOCK_FRAMES));
 				const rendered = hash();
 				const latencies = [reportedLatency];
 				let blocks = 0;

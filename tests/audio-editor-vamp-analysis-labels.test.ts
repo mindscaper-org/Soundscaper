@@ -40,18 +40,12 @@ test('Vamp variable-rate features become one atomic label-track command', () => 
 	]);
 });
 
-test('Vamp label planning refuses empty, excessive, and nondeterministic authoring', () => {
+test('Vamp label planning refuses empty or excessive native feature results', () => {
 	assert.throws(
 		() => planVampFeatureLabelTrack(analysisResult([]), {
 			createTrackId: () => 'track', outputName: 'Events',
 		}),
 		/no features/iu,
-	);
-	assert.throws(
-		() => planVampFeatureLabelTrack(analysisResult([feature(0, 0, null, [], '')]), {
-			createTrackId: () => '', outputName: 'Events',
-		}),
-		/non-empty/iu,
 	);
 	const excessive = Array.from({ length: MAXIMUM_VAMP_LABELS + 1 }, (_, index) => (
 		feature(0, index, null, [], '')

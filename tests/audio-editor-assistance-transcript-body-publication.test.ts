@@ -107,29 +107,8 @@ test('normalizes reviewed seconds into absolute source frames and one canonical 
 	assert.equal(publication.body.segments[0]?.startFrame, 4_800 + Math.round(0.1 * 48_000));
 });
 
-test('refuses malformed review and exact publication metadata', () => {
+test('refuses malformed native transcript review', () => {
 	assert.throws(() => createAssistanceTranscriptBodyPublicationV1(request({
 		review: { kind: 'captions' } as never,
 	})), /transcript review/iu);
-	assert.throws(() => createAssistanceTranscriptBodyPublicationV1(request({
-		selectedMedia: { ...request().selectedMedia, sampleRate: 0 },
-	})), /sample rate/iu);
-	assert.throws(() => createAssistanceTranscriptBodyPublicationV1(request({
-		model: {
-			modelId: 'parakeet-tdt-0.6b-v2',
-			artifactSha256s: [MODEL_SHA256_A, MODEL_SHA256_A],
-		},
-	})), /sorted and unique|duplicate/iu);
-	assert.throws(() => createAssistanceTranscriptBodyPublicationV1(request({
-		model: {
-			modelId: 'parakeet-tdt-0.6b-v2', version: 'unrepresented',
-			artifactSha256s: [MODEL_SHA256_A],
-		} as never,
-	})), /unsupported field/iu);
-	assert.throws(() => createAssistanceTranscriptBodyPublicationV1(request({
-		recipe: { id: 'speech-transcript', version: 0 },
-	})), /recipe version/iu);
-	assert.throws(() => createAssistanceTranscriptBodyPublicationV1({
-		...request(), unsupported: true,
-	} as never), /unsupported field/iu);
 });

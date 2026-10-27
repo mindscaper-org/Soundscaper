@@ -2,7 +2,7 @@
 
 import { evaluateAudioWarpMap, evaluateAudioWarpMapAtSource, normalizeAudioWarpMap, type AudioWarpMap } from './audio-warp-domain.ts';
 import { audioWarpOuterAtTimelineFrame, isMusicalAudioWarpClip, type AudioWarpAuthorityRuntimeClip, type AudioWarpAuthorityRuntimeProject } from './audio-warp-runtime-authority.ts';
-import { addRationals, beatToSampleFrame } from './timeline-time.ts';
+import { addRationals, beatToSampleFrame, type RationalInput } from './timeline-time.ts';
 
 export type ClipSourceTimingClip = AudioWarpAuthorityRuntimeClip;
 export type ClipSourceTimingProject = AudioWarpAuthorityRuntimeProject;
@@ -17,14 +17,15 @@ export function clipSourceDisplayRange(clip: ClipSourceTimingClip, source: ClipS
 	return Object.freeze({ startFrame, endFrame, totalFrames: endFrame + Math.round(Math.max(0, source.frameCount - clip.sourceStartFrame - clip.sourceDurationFrames) * ratio) });
 }
 
-export function clipSourceFrameToDisplay(project: ClipSourceTimingProject, clip: ClipSourceTimingClip, source: ClipSourceTimingSource, sourceFrame: number): number {
+export function clipSourceFrameToDisplay(project: ClipSourceTimingProject, clip: ClipSourceTimingClip, source: ClipSourceTimingSource, sourceFrame: RationalInput): number {
 	const range = clipSourceDisplayRange(clip, source, project.sampleRate);
-	const frame = Math.max(0, Math.min(source.frameCount, sourceFrame));
+	const coordinate = typeof sourceFrame === 'number' ? sourceFrame : sourceFrame.num / sourceFrame.den;
+	const frame = Math.max(0, Math.min(source.frameCount, coordinate));
 	const end = clip.sourceStartFrame + clip.sourceDurationFrames;
 	if (frame < clip.sourceStartFrame) return frame * project.sampleRate / source.sampleRate;
 	if (frame > end) return range.endFrame + (frame - end) * project.sampleRate / source.sampleRate;
 	if (clip.warpMap != null) {
-		const outer = evaluateAudioWarpMapAtSource(clip.warpMap, Math.round(frame));
+		const outer = evaluateAudioWarpMapAtSource(clip.warpMap, frame === coordinate ? sourceFrame : frame);
 		const offset = isMusicalAudioWarpClip(clip)
 			? beatToSampleFrame(addRationals(clip.musicalStartBeat!, outer), project.tempoMap, project.sampleRate) - clip.timelineStartFrame
 			: outer.num / outer.den;
@@ -54,7 +55,7 @@ export function clipSourcePreviewWarpMap(project: ClipSourceTimingProject, clip:
 	const map = normalizeAudioWarpMap(clip.warpMap);
 	if (!isMusicalAudioWarpClip(clip)) return map;
 	const { startFrame } = clipSourceDisplayRange(clip, source, project.sampleRate);
-	const points = map.points.map((point) => ({ ...point, outer: { num: Math.round(clipSourceFrameToDisplay(project, clip, source, point.source.num / point.source.den) - startFrame), den: 1 } }));
+	const points = map.points.map((point) => ({ ...point, outer: { num: Math.round(clipSourceFrameToDisplay(project, clip, source, point.source) - startFrame), den: 1 } }));
 	for (const event of project.tempoMap.events) {
 		const frame = beatToSampleFrame(event.beat, project.tempoMap, project.sampleRate) - clip.timelineStartFrame;
 		if (frame <= 0 || frame >= clip.durationFrames || points.some((point) => point.outer.num === frame)) continue;

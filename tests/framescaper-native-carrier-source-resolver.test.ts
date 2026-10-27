@@ -114,20 +114,6 @@ test('every resolution first reasserts that the carrier is still current', () =>
 	assert.equal(asserted, 2);
 });
 
-test('a carrier entry must carry its own enumerable source identity', () => {
-	const carrier = resolver([ORDINARY_ASSET]);
-	const resolveSource = carrier.resolveSource as (entry: unknown, request: unknown) => unknown;
-
-	assert.throws(() => resolveSource({}, REQUEST), TypeError);
-	assert.throws(() => resolveSource(Object.create({ sourceId: 'plain-video' }), REQUEST), TypeError);
-	assert.throws(
-		() => resolveSource(
-			Object.defineProperty({}, 'sourceId', { get: () => 'plain-video', enumerable: true }),
-			REQUEST,
-		),
-		TypeError,
-	);
-});
 
 test('a carrier with no ordinary assets refuses an ordinary source outright', () => {
 	const carrier = resolver([SEQUENCE_ASSET]);

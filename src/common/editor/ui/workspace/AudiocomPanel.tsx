@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { onlineMediaFailureText } from './online-media-failure-presentation.ts';
 import { useEffect, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { Icon } from '@soundscaper/design-system/Icon';
@@ -49,7 +50,7 @@ export default function AudiocomPanel({
 	const loading = state.search.status === 'loading';
 	const connected = state.auth.status === 'connected';
 	const searchDisabled = loading || !connected;
-	const projectError = connected ? archives?.state.errorMessage || projectActionError : undefined;
+	const projectError = connected ? (archives?.state.requestFailure ? onlineMediaFailureText(archives.state.requestFailure, copy) : archives?.state.errorMessage) || projectActionError : undefined;
 	return <section className="kw-audio-editor__audiocom" data-audiocom-panel="true" aria-busy={loading}>
 		<div className="kw-audio-editor__audiocom-body">
 		<form className="kw-audio-editor__audiocom-search" role="search" onSubmit={(event) => {
@@ -65,9 +66,9 @@ export default function AudiocomPanel({
 		</form>
 		<div className="kw-audio-editor__audiocom-status" aria-live="polite">
 			{loading ? <p role="status">{copy.searching}</p> : null}
-			{state.search.errorMessage ? <p role="alert">{state.search.errorMessage}</p> : null}
-			{state.auth.errorMessage ? <p role="alert">{state.auth.errorMessage}</p> : null}
-			{state.previewError ? <p role="alert">{state.previewError}</p> : null}
+			{state.search.errorMessage ? <p role="alert">{state.search.requestFailure ? onlineMediaFailureText(state.search.requestFailure, copy) : state.search.errorMessage}</p> : null}
+			{state.auth.errorMessage ? <p role="alert">{state.auth.requestFailure ? onlineMediaFailureText(state.auth.requestFailure, copy) : state.auth.errorMessage}</p> : null}
+			{state.previewError ? <p role="alert">{state.previewFailure ? onlineMediaFailureText(state.previewFailure, copy) : state.previewError}</p> : null}
 			{linkError ? <p role="alert">{linkError}</p> : null}
 			{projectError ? <p role="alert">{projectError}</p> : null}
 		</div>

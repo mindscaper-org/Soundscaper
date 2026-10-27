@@ -10,6 +10,7 @@ const BROWSER_FIXTURE_ROOT = 'SCAPE_BROWSER_PRODUCT_FIXTURE_ROOT';
 
 /** Locate the verified Soundscaper assets in local and staged nightly layouts. */
 export function resolveSoundscaperProductionAssetsDirectory(environment = process.env) {
+	if (environment.SCAPE_BROWSER_PRODUCTS_PREPARED === '1') return resolveSoundscaperBrowserAssetsDirectory(environment);
 	return resolveSoundscaperAssetsDirectory(
 		resolve(fileURLToPath(new URL('../../../dist/assets/', import.meta.url))),
 		environment,

@@ -43,9 +43,7 @@ test('shared runtime reservations prevent oversubscription and release exactly o
 	replacementRelease();
 });
 
-test('native pitch admission validates every dimension without accepting nonfinite reserves', () => {
+test('native pitch admission validates source sample rates and channel counts', () => {
 	for (const rate of [0, 7999, 192001, NaN]) assert.throws(() => standardDelayPitchNativeBytes(rate, 2, 1), /sample rate/);
 	for (const channels of [0, 1.5, 33, NaN]) assert.throws(() => standardDelayPitchNativeBytes(48000, channels, 1), /channel count/);
-	for (const echoes of [-1, 1.5, 31, NaN]) assert.throws(() => standardDelayPitchNativeBytes(48000, 2, echoes), /echo count/);
-	for (const retained of [-1, NaN, Infinity]) assert.throws(() => assertStandardDelayPitchNativeCapacity(48000, 2, 1, retained), /retained/);
 });

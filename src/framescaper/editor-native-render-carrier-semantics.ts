@@ -14,6 +14,7 @@ import { framescaperNativeRenderCarrierProjectNativeMedia } from './editor-nativ
 import type { FramescaperProjectNativeMedia } from './editor-project-native-media.ts';
 import { FRAMESCAPER_FINISHING_PROJECT_RUNTIME_PROFILE } from './editor-domain-runtime-profile.ts';
 import type { FramescaperVideoExportPictureDispositionFinishing } from './video-export-visual-execution-finishing.ts';
+import { isFramescaperVideoVisualPlanFinishing } from './video-export-visual-plan-finishing.ts';
 
 export function assertFramescaperNativeCarrierFamiliesNativeMedia(
 	plan: UnifiedExactRenderPlanV14,
@@ -153,7 +154,8 @@ export function assertFramescaperNativeCarrierPlanParityNativeMedia(
 	inherited: ProductVideoExportPlan,
 ): void {
 	const canvas = framescaperNativeCarrierPictureCanvasNativeMedia(inherited);
-	const codecs = record(inherited.codecs, 'selected nativeMedia inherited picture codecs');
+	const visual = isFramescaperVideoVisualPlanFinishing(inherited);
+	const codecs = visual ? null : record(inherited.codecs, 'selected nativeMedia inherited picture codecs');
 	const planningRate = framescaperNativeCarrierPlanningRateNativeMedia(v14.output.frameRate);
 	if (inherited.range.startFrame !== v14.timebase.sampleStart
 		|| inherited.range.durationFrames !== v14.timebase.sampleDuration
@@ -163,8 +165,11 @@ export function assertFramescaperNativeCarrierPlanParityNativeMedia(
 		|| canvas.fit !== v14.output.canvas.fit
 		|| canvas.backgroundColor.toLowerCase() !== v14.output.canvas.backgroundColor.toLowerCase()
 		|| inherited.quality !== v14.output.quality || inherited.format !== 'mp4'
-		|| codecs.video !== 'h264' || codecs.videoEncoder !== 'libx264'
-		|| codecs.pixelFormat !== 'yuv420p' || codecs.audio !== null || codecs.audioEncoder !== null) {
+		|| (visual ? (inherited.sampleRate !== v14.timebase.sampleRate
+			|| inherited.range.endFrame !== v14.timebase.sampleStart + v14.timebase.sampleDuration
+			|| inherited.canvas.pixelFormat !== 'yuv420p')
+			: (codecs!.video !== 'h264' || codecs!.videoEncoder !== 'libx264'
+				|| codecs!.pixelFormat !== 'yuv420p' || codecs!.audio !== null || codecs!.audioEncoder !== null))) {
 		throw new Error('Selected nativeMedia inherited Web picture plan diverges from immutable V14 output authority.');
 	}
 	const delivery = framescaperNativeRenderDeliveryRequestFromPlanNativeMedia(v14);

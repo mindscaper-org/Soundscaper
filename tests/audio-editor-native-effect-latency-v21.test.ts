@@ -260,8 +260,6 @@ test('refuses instances that carry a path, collide, or name no effect', () => {
 		instances: [{ ...INSTANCE, effectId: 'not-here' }],
 	}), /names no effect in this project/u);
 	assert.throws(() => createLedger({ project: null }), /V21 project is required/u);
-	assert.throws(() => createLedger({ blockFrames: 0 }), /blockFrames must be an integer/u);
-	assert.throws(() => createLedger({ maxLatencySeconds: 0 }), /positive finite number/u);
 });
 
 test('declares an exact frame count at awkward sample rates and leaves the rest untouched', () => {

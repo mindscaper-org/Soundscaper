@@ -2,6 +2,7 @@
 
 import { EDITOR_ENGLISH_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
 import { FREESOUND_ATTRIBUTION_ENGLISH_COPY } from '../../src/common/i18n/freesound-attribution-copy.js';
+import { NYQUIST_BUNDLED_CONTROL_COPY } from '../../src/common/editor/ui/dialogs/nyquist-bundled-control-copy.ts';
 import { AUDIOCOM_COPY_BY_LOCALE } from '../../src/common/i18n/audiocom-copy.ts';
 
 const freesoundAttribution = Object.fromEntries(Object.entries(FREESOUND_ATTRIBUTION_ENGLISH_COPY)
@@ -10,6 +11,7 @@ const freesoundAttribution = Object.fromEntries(Object.entries(FREESOUND_ATTRIBU
 /** Build-time inventory includes copy owned by lazy surfaces without bundling it eagerly. */
 export const EDITOR_COPY_AUDIT_INVENTORY = Object.freeze({
 	...EDITOR_ENGLISH_COPY,
+	...Object.fromEntries(Object.entries(NYQUIST_BUNDLED_CONTROL_COPY).map(([key, value]) => [`ui.nyquistBundled.${key}`, value])),
 	...freesoundAttribution,
 	...Object.fromEntries(Object.entries(AUDIOCOM_COPY_BY_LOCALE.en).map(([key, value]) => [`ui.audiocom.${key}`, value])),
 });

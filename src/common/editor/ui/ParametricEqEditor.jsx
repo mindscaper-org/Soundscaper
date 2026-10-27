@@ -1,4 +1,5 @@
 import { PARAMETRIC_EQ_BAND_COPY } from '../../i18n/editor-parametric-eq-copy.ts';
+import { parametricEqFrequencyLimit } from './parametric-eq-band-accessibility.ts';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { ParametricEqNumericInput } from './ParametricEqNumericInput.jsx';
@@ -407,7 +408,7 @@ export function ParametricEqEditor({
 							data-nyquist-limited={nyquistLimited ? 'true' : 'false'}
 							style={{ left: `${left}%`, top: `${top}%` }}
 							disabled={disabled}
-							aria-label={`${copy.bandNumber?.replace('{number}', String(index + 1)) || `Band ${index + 1}`}: ${formatFrequency(band.frequency)}, ${band.gain.toFixed(1)} dB, Q ${band.q.toFixed(2)}${nyquistLimited ? ` (${formatFrequency(effectiveFrequency)} effective at ${sampleRate} Hz)` : ''}`}
+							aria-label={`${copy.bandNumber?.replace('{number}', String(index + 1)) || `Band ${index + 1}`}: ${formatFrequency(band.frequency)}, ${band.gain.toFixed(1)} dB, Q ${band.q.toFixed(2)}${nyquistLimited ? ` (${parametricEqFrequencyLimit(copy, band.frequency, effectiveFrequency, sampleRate)})` : ''}`}
 							aria-pressed={band.id === selectedId}
 							onClick={() => setSelectedId(band.id)}
 							onPointerDown={(event) => beginDrag(event, band)}

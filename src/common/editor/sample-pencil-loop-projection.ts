@@ -2,6 +2,7 @@
 
 import { readClipLoop } from './audio-clip-loop.ts';
 import type { SampleEditClip, SamplePencilEdit, SamplePencilPoint } from './sample-edit-types.ts';
+import type { PencilValueInterpolator } from './sample-pencil-amplitude.ts';
 
 /** Interpolate continuously through repeats, then publish source-addressed edits. */
 export function createLoopPencilSampleEdits(
@@ -9,6 +10,7 @@ export function createLoopPencilSampleEdits(
 	channel: number,
 	points: readonly SamplePencilPoint[],
 	maximumFrames: number,
+	interpolate?: PencilValueInterpolator,
 ): readonly SamplePencilEdit[] | null {
 	const loop = readClipLoop(clip);
 	if (!loop) return null;
@@ -20,7 +22,7 @@ export function createLoopPencilSampleEdits(
 		}
 		const value = Number(point.value);
 		if (!Number.isFinite(value) || value < -1 || value > 1) throw new RangeError('A pencil sample must be between -1 and 1.');
-		return { position: Math.floor((frame - clip.timelineStartFrame + loop.offsetFrames)
+		return { ...point, position: Math.floor((frame - clip.timelineStartFrame + loop.offsetFrames)
 			* clip.sourceDurationFrames / loop.periodFrames), value };
 	});
 	const edits = new Map<number, SamplePencilEdit>();
@@ -40,8 +42,11 @@ export function createLoopPencilSampleEdits(
 		// Later points win. Earlier full repetitions will all be overwritten.
 		const firstStep = Math.max(1, distance - clip.sourceDurationFrames + 1);
 		for (let step = firstStep; step <= distance; step += 1) {
+			const amount = step / distance;
 			add(previous.position + direction * step,
-				previous.value + (current.value - previous.value) * step / distance);
+				interpolate ? interpolate(previous, current, amount,
+					previous.timelineFrame + (current.timelineFrame - previous.timelineFrame) * amount)
+					: previous.value + (current.value - previous.value) * amount);
 		}
 	}
 	return Object.freeze([...edits.values()].sort((left, right) => left.frame - right.frame));

@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { COMPONENT_COPY } from '../../vendor/audacity-design-system/components/src/component-copy.ts';
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, importFiles, waitForEditor } from './audio-editor-test-helpers.js';
 
@@ -56,7 +57,7 @@ test('volume and pan offer numeric entry without leaking edits into track select
 	await importFiles(editor, [toneA]);
 	const volume = editor.getByRole('slider', { name: 'Volume', exact: true }).first();
 	await volume.click({ button: 'right' });
-	await page.getByRole('menuitem', { name: 'Enter value…', exact: true }).click();
+	await page.getByRole('menuitem', { name: COMPONENT_COPY.enterValue, exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Volume', exact: true });
 	await expect(dialog).toBeVisible();
 	await dialog.getByRole('textbox', { name: 'Value', exact: true }).fill('37.5');

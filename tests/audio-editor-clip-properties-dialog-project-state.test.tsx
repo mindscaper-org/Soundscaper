@@ -98,7 +98,11 @@ async function mountedClipPropertiesFixture() {
 			/>));
 		},
 		startNormalizePeak: async () => {
-			const button = dom.one('[data-clip-properties-action="normalize-peak"]');
+			const trigger = dom.one('[data-clip-audio-settings]');
+			await act(async () => reactProps(trigger).onClick({ currentTarget: trigger }));
+			const button = (document.body as unknown as typeof dom.container).querySelectorAll('[role="menuitem"]')
+				.find(item => item.textContent === ENGLISH_COPY.normalizePeak);
+			assert.ok(button);
 			await act(async () => reactProps(button).onClick({ currentTarget: button }));
 		},
 		cleanup: async () => {

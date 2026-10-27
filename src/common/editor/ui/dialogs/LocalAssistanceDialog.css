@@ -195,6 +195,7 @@
 }
 
 .kw-local-assistance__crop-overlay {
+	position: relative;
 	background: var(--stage-raised);
 	border: 1px solid var(--line);
 	box-sizing: border-box;
@@ -206,9 +207,10 @@
 }
 
 .kw-local-assistance__crop-overlay span {
+	position: absolute;
+	box-sizing: border-box;
 	border: 2px solid var(--accent);
 	display: block;
-	height: 100%;
 	min-height: 0.25rem;
 	min-width: 0.25rem;
 }

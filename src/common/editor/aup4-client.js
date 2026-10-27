@@ -1,3 +1,4 @@
+import { annotateFormatFileFailure } from './format-file-parser-failure.ts';
 import { effectiveAup4SaveLimit } from './aup4-profile.js';
 import { WorkerRequestBroker } from './worker-request-broker.ts';
 import { createWorkerRequestId } from './worker-protocol.ts';
@@ -9,6 +10,7 @@ export class Aup4ClientError extends Error {
 		this.name = options.name || 'Aup4ClientError';
 		this.code = code;
 		this.details = options.details || null;
+		annotateFormatFileFailure(this, 'audacity-database', code);
 	}
 }
 

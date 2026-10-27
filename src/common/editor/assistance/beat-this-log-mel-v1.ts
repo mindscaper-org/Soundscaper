@@ -21,6 +21,7 @@ const LOG_MULTIPLIER = 1_000;
 const MAXIMUM_RANGE_FRAMES = 1_500;
 const CANCELLATION_FRAME_INTERVAL = 16;
 const HANN_WINDOW = periodicHann();
+const FFT_TWIDDLES = fixedFftTwiddles();
 const MEL_FILTER_BANK = slaneyMelFilterBank();
 const MEL_SUPPORT = Array.from({ length: ASSISTANCE_BEAT_THIS_MEL_BINS }, (_, mel) => {
 	let start = 0;
@@ -200,10 +201,10 @@ function fftInPlace(real: Float32Array, imaginary: Float32Array): void {
 	}
 	for (let length = 2; length <= size; length <<= 1) {
 		const half = length >> 1;
-		const angle = -2 * Math.PI / length;
+		const twiddles = FFT_TWIDDLES.get(length)!;
 		for (let offset = 0; offset < half; offset += 1) {
-			const cosine = Math.cos(angle * offset);
-			const sine = Math.sin(angle * offset);
+			const cosine = twiddles.cosine[offset]!;
+			const sine = twiddles.sine[offset]!;
 			for (let start = 0; start < size; start += length) {
 				const right = start + offset + half;
 				const left = start + offset;
@@ -273,4 +274,19 @@ async function yieldForCancellation(signal?: AbortSignal): Promise<void> {
 	signal?.throwIfAborted();
 	await new Promise<void>((resolve) => setTimeout(resolve, 0));
 	signal?.throwIfAborted();
+}
+
+
+/** The maintained model has one fixed 1024-point FFT: 1023 exact roots per table. */
+function fixedFftTwiddles() {
+	const stages = new Map<number, Readonly<{ cosine: Float64Array; sine: Float64Array }>>();
+	for (let length = 2; length <= ASSISTANCE_BEAT_THIS_FFT_SIZE; length <<= 1) {
+		const angle = -2 * Math.PI / length;
+		const cosine = new Float64Array(length / 2); const sine = new Float64Array(length / 2);
+		for (let offset = 0; offset < length / 2; offset += 1) {
+			cosine[offset] = Math.cos(angle * offset); sine[offset] = Math.sin(angle * offset);
+		}
+		stages.set(length, Object.freeze({ cosine, sine }));
+	}
+	return stages;
 }

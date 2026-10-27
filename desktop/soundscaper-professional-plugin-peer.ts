@@ -192,6 +192,10 @@ export function createSoundscaperProfessionalPluginPeer(options: Readonly<{
 				return instance;
 			} catch (error) { await session.close(); throw error; }
 		},
+		pluginAudioTopology: (value: PeerInstance) => {
+			const { inputChannels, outputChannels } = liveInstance(value).description;
+			return Object.freeze({ inputChannels, outputChannels });
+		},
 		processPluginBlock: async (
 			value: PeerInstance, frames: number, input: readonly Float32Array[] | null,
 			output: readonly Float32Array[],

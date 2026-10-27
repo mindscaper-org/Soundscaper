@@ -154,10 +154,6 @@ export const REACHABILITY_PLACED_TARGETS: ReadonlyMap<string, string> = new Map(
 		'Product capability profiles shared with the site routes and the transfer pages, which is why they stay outside every editor group.',
 	],
 	[
-		'src/common/project-file-extensions.ts',
-		'Dependency-free suffix table shared by the site profiles, the transfer pages, the desktop shell and both editors; any owner adds a chunk to the ten-request initial graph.',
-	],
-	[
 		'src/common/editor/aup4-profile.js',
 		'AUP4 archive implementation, deliberately unowned, reached from the page only through the `aup4-worker.js` worker entry and the lazy file-menu archive actions.',
 	],

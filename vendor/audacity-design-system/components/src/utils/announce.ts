@@ -62,8 +62,20 @@ export function announce(message: string): void {
  *   65     → "1 minute 5 seconds"
  *   3725   → "1 hour 2 minutes 5 seconds"
  */
-export function formatTimeForA11y(seconds: number): string {
-  if (!isFinite(seconds) || seconds < 0) return '0 seconds';
+const spokenFormatters = new Map<string, Intl.NumberFormat>();
+function spokenUnit(value: number, unit: 'hour' | 'minute' | 'second', locale: string): string {
+  const key = `${locale}:${unit}`;
+  let formatter = spokenFormatters.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'long', maximumFractionDigits: 1 });
+    if (spokenFormatters.size >= 48) spokenFormatters.delete(spokenFormatters.keys().next().value!);
+    spokenFormatters.set(key, formatter);
+  }
+  return formatter.format(value);
+}
+
+export function formatTimeForA11y(seconds: number, locale = 'en'): string {
+  if (!isFinite(seconds) || seconds < 0) seconds = 0;
 
   // Round to tenths *first*, then split: rounding the seconds
   // remainder after the split lets it reach 60 with nothing to carry
@@ -72,13 +84,13 @@ export function formatTimeForA11y(seconds: number): string {
   const hours = Math.floor(tenths / 36000);
   const minutes = Math.floor((tenths % 36000) / 600);
   const rounded = (tenths % 600) / 10;
-  const secs = rounded === Math.floor(rounded) ? `${Math.floor(rounded)}` : `${rounded}`;
+  const unit = (value: number, name: 'hour' | 'minute' | 'second') => spokenUnit(value, name, locale);
 
   const parts: string[] = [];
-  if (hours > 0) parts.push(`${hours} ${hours === 1 ? 'hour' : 'hours'}`);
-  if (minutes > 0) parts.push(`${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`);
+  if (hours > 0) parts.push(unit(hours, 'hour'));
+  if (minutes > 0) parts.push(unit(minutes, 'minute'));
   if (rounded > 0 || parts.length === 0) {
-    parts.push(`${secs} ${rounded === 1 ? 'second' : 'seconds'}`);
+    parts.push(unit(rounded, 'second'));
   }
   return parts.join(' ');
 }

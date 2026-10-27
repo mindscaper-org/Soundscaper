@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { restoreGeneratorFailure, type GeneratorWorkerFailure } from './generator-validation-failure.ts';
 import type { OneShotWorkerPort } from './one-shot-worker-task.ts';
 import type { WaveformPeakPyramid } from './waveform-peak-builder.ts';
 
@@ -27,11 +28,11 @@ export async function generateAudioEditorSignalStream(
 	let complete = false;
 	let pending: { id: string; resolve(value: unknown): void; reject(error: unknown): void } | null = null;
 	const onMessage: Parameters<OneShotWorkerPort['addEventListener']>[1] = event => {
-		const data = event.data as Readonly<{ requestId?: string; type?: string; result?: unknown; error?: { name: string; message: string } }> | null;
+		const data = event.data as Readonly<{ requestId?: string; type?: string; result?: unknown; error?: GeneratorWorkerFailure }> | null;
 		if (!pending || data?.requestId !== pending.id) return;
 		const current = pending; pending = null;
 		if (data.type === 'result') current.resolve(data.result);
-		else { const error = new Error(data.error?.message || 'Generator stream failed.'); error.name = data.error?.name || 'Error'; current.reject(error); close(); }
+		else { current.reject(restoreGeneratorFailure(data.error)); close(); }
 	};
 	const onError: Parameters<OneShotWorkerPort['addEventListener']>[1] = event => close(new Error(event.message || 'Generator stream failed.'));
 	const onAbort = (): void => close(client.signal?.reason);

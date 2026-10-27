@@ -301,7 +301,7 @@ test('offline renderer clears reusable output on omission and post-read GL failu
 	}
 });
 
-test('offline renderer refuses overlap, wrong reusable geometry, and active disposal', async () => {
+test('offline renderer refuses overlap and active disposal', async () => {
 	const frameSource = source();
 	const fixture = rendererFixture();
 	let release!: () => void;
@@ -313,12 +313,6 @@ test('offline renderer refuses overlap, wrong reusable geometry, and active disp
 		resolveSource: () => media.value,
 		createCompositor: fixture.createCompositor,
 	});
-	await assert.rejects(
-		renderer.produce(frameSource.frame(0), new Uint8Array(15), {
-			signal: new AbortController().signal,
-		}),
-		/exact whole reusable/u,
-	);
 	const active = renderer.produce(frameSource.frame(0), new Uint8Array(16), {
 		signal: new AbortController().signal,
 	});

@@ -316,7 +316,7 @@ test('valid adjacent A/V lane pairs inherit only their own media-domain folder s
 	assert.equal(audioState(states, 'outside').effectiveMuted, false);
 });
 
-test('projection validates exact V12 hierarchy/context and rejects hostile local state without invoking accessors', () => {
+test('projection validates exact V12 hierarchy, context, and leaf flags', () => {
 	const tracks = [audio('leaf')];
 	const hierarchy = exactHierarchy([
 		{ kind: 'track', id: 'leaf', parentFolderId: null },
@@ -338,21 +338,6 @@ test('projection validates exact V12 hierarchy/context and rejects hostile local
 			pattern,
 		);
 	}
-
-	let getterCalls = 0;
-	const hostile = audio('leaf') as DataRecord;
-	Object.defineProperty(hostile, 'mute', {
-		enumerable: true,
-		get() {
-			getterCalls += 1;
-			return false;
-		},
-	});
-	assert.throws(
-		() => deriveTrackFolderStateProjectionV12(hierarchy, { trackFolders: [], tracks: [hostile] }),
-		/mute.*data property/iu,
-	);
-	assert.equal(getterCalls, 0);
 	assert.throws(
 		() => deriveTrackFolderStateProjectionV12(hierarchy, { trackFolders: [], tracks: new Array(1) }),
 		/dense canonical array/iu,

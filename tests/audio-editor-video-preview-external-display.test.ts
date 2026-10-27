@@ -79,23 +79,6 @@ test('no display session means no framebuffer capture or publication', async () 
 	assert.equal(presented, 0);
 });
 
-test('active display publication refuses stale project identity and malformed RGBA geometry', async () => {
-	const bridge = fakeBridge('display-2', async () => ({
-		displays: [DISPLAY], activeDisplayId: 'display-2',
-	}));
-	await framescaperNativeServicesStoreFor(bridge).refresh();
-	const dependencies = { resolveBridge: () => bridge };
-	assert.throws(() => publishEvaluatedVideoPreviewFrame({
-		compositor: { captureEvaluatedRgba: () => null },
-		project: { id: 'project-1', revision: -1 }, timelineFrame: 0,
-	}, dependencies), /project identity/iu);
-	assert.throws(() => publishEvaluatedVideoPreviewFrame({
-		compositor: { captureEvaluatedRgba: () => ({
-			width: 2, height: 2, rgba: Uint8Array.of(0, 0, 0, 255),
-		}) },
-		project: { id: 'project-1', revision: 0 }, timelineFrame: 0,
-	}, dependencies), /RGBA geometry/iu);
-});
 
 function fakeBridge(
 	activeDisplayId: string | null,

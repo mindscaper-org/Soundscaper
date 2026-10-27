@@ -8,3 +8,7 @@ export const PARAMETRIC_EQ_BAND_COPY = Object.freeze({
 	lowpass: 'High cut',
 	notch: 'Notch',
 });
+
+export const PARAMETRIC_EQ_PRESENTATION_COPY = Object.freeze({
+	frequencyLimit: 'Authored {authoredFrequency} Hz; effective {effectiveFrequency} Hz at {sampleRate} Hz',
+});

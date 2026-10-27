@@ -64,10 +64,12 @@ export function createClipSourceRulerTicks(options: ClipSourceRulerTickOptions):
 
 /** A signature event may end a partial local bar; its real project instant is retained. */
 function signatureSections(origin: Rational, map: SignatureMap): readonly SignatureSection[] {
-	const events = map.events.map((event) => ({
-		beat: subtractRationals(barStartBeat(event.bar, map), origin),
-		measure: { num: event.numerator * 4, den: event.denominator },
-	}));
+	let beat = barStartBeat(0, map);
+	const events = map.events.map((event, index) => {
+		const previous = map.events[index - 1];
+		if (previous) beat = addRationals(beat, multiplyRationals(event.bar - previous.bar, { num: previous.numerator * 4, den: previous.denominator }));
+		return { beat: subtractRationals(beat, origin), measure: { num: event.numerator * 4, den: event.denominator } };
+	});
 	let active = 0;
 	for (let index = 1; index < events.length; index += 1) {
 		if (compareRationals(events[index]!.beat, 0) > 0) break;

@@ -89,11 +89,11 @@ test.describe('audio editor React/design-system workflows', () => {
 		await firstClip.click({ position: { x: 24, y: 10 } });
 		const clipDialog = await openClipProperties(page, editor, firstClip);
 		await expect(clipDialog.getByRole('textbox', { name: 'Clip name', exact: true })).toBeEnabled();
-		await expect(clipField(clipDialog, 'durationFrame')).toHaveValue('0.8');
+		await expect(clipField(clipDialog, 'durationFrame')).toHaveValue('38400');
 		await showClipTimingFields(clipDialog);
-		await commitInput(clipField(clipDialog, 'startFrame'), '0.0025');
+		await commitInput(clipField(clipDialog, 'startFrame'), '120');
 		await clipField(clipDialog, 'startFrame').focus();
-		await expect(clipField(clipDialog, 'startFrame')).toHaveValue('0.0025');
+		await expect(clipField(clipDialog, 'startFrame')).toHaveValue('120');
 		await closeClipProperties(clipDialog);
 
 		await seekOnRuler(page, editor, 48);
@@ -237,7 +237,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		await expect(clipByName(editor, 'Audio 1')).toHaveCount(1);
 		const clipDialog = await openClipProperties(page, editor, clipByName(editor, 'Audio 1'));
 		await clipField(clipDialog, 'durationFrame').focus();
-		await expect.poll(async () => Number(await clipField(clipDialog, 'durationFrame').inputValue())).toBeCloseTo(4 / 48_000, 10);
+		await expect.poll(async () => Number(await clipField(clipDialog, 'durationFrame').inputValue())).toBe(4);
 		await closeClipProperties(clipDialog);
 		expect(errors).toEqual([]);
 	});

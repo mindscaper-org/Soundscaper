@@ -21,7 +21,7 @@ test('multichannel independent speed refuses before mutation and linked speed re
 	await expect(failure).toContainText('mono or stereo');
 	await expect(failure).toContainText('Link pitch and tempo');
 	await expect(speed).toHaveValue('100');
-	await expect(clipField(properties, 'durationFrame')).toHaveValue('0.8');
+	await expect(clipField(properties, 'durationFrame')).toHaveValue('38400');
 	await failure.getByRole('button', { name: 'Close', exact: true }).click();
 	await closeClipProperties(properties);
 	const unchanged = await exportSamples(page, editor);
@@ -31,13 +31,13 @@ test('multichannel independent speed refuses before mutation and linked speed re
 	await chooseClipMediaSetting(recovery, 'Link pitch and tempo');
 	const linkedSpeed = clipField(recovery, 'speedRatio');
 	await linkedSpeed.fill('200'); await linkedSpeed.press('Enter');
-	await expect(clipField(recovery, 'durationFrame')).toHaveValue('0.4');
+	await expect(clipField(recovery, 'durationFrame')).toHaveValue('19200');
 	await expect(recovery.getByRole('alert')).toHaveCount(0);
 	await chooseClipMediaSetting(recovery, 'Link pitch and tempo');
 	await expect(failure).toContainText('mono or stereo');
 	await failure.getByRole('button', { name: 'Close', exact: true }).click();
 	await expectClipMediaSettingChecked(recovery, 'Link pitch and tempo', true);
-	await expect(clipField(recovery, 'durationFrame')).toHaveValue('0.4');
+	await expect(clipField(recovery, 'durationFrame')).toHaveValue('19200');
 	await closeClipProperties(recovery);
 	const linked = await exportSamples(page, editor);
 	expect(linked).toHaveLength(19200);

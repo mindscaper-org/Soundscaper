@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { createDefaultVideoKeyframeCurves } from '../src/common/editor/video-keyframe-curves.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { sha256 } from '@noble/hashes/sha2.js';
@@ -501,7 +501,7 @@ function videoProject() {
 			id: 'video-clip', title: 'Camera A', kind: 'video', sourceId: 'video-source',
 			sequenceId: 'main-sequence', sequenceStartFrame: 10, sequenceFrameCount: 100,
 			sourceInFrame: 20, sourceFrameCount: 100, retimeMap: null,
-			reversed: false, speedRatio: 1, avLinkId: null,
+			reversed: false, speedRatio: 1, avLinkId: null, videoKeyframes: createDefaultVideoKeyframeCurves({ num: 100, den: 1 }),
 		}] as Array<Record<string, unknown>>,
 		tracks: [{ id: 'video-track', name: 'Picture', type: 'video', clipIds: ['video-clip'] }] as
 			Array<Record<string, unknown>>,
@@ -516,9 +516,9 @@ function withClip(
 	project: ReturnType<typeof videoProject>,
 	change: Readonly<Record<string, unknown>>,
 ): ReturnType<typeof videoProject> {
-	return { ...project, clips: [{ ...project.clips[0]!, ...change }] } as ReturnType<typeof videoProject>;
+	const clip = { ...project.clips[0]!, ...change };
+	return { ...project, clips: [{ ...clip, videoKeyframes: createDefaultVideoKeyframeCurves({ num: Number(clip.sequenceFrameCount), den: 1 }) }] } as ReturnType<typeof videoProject>;
 }
-
 function withSource(
 	project: ReturnType<typeof videoProject>,
 	change: Readonly<Record<string, unknown>>,

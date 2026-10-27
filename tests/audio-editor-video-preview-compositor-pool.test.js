@@ -21,6 +21,7 @@ test('preview resolves its reference canvas before opting both timeline views in
 		'../src/common/editor/ui/workspace/VideoPreviewPanel.jsx',
 		import.meta.url,
 	), 'utf8');
+	const resolutionSource = await readFile(new URL('../src/common/editor/ui/workspace/use-video-preview-timeline-resolution.ts', import.meta.url), 'utf8');
 	const timelineSource = await readFile(new URL(
 		'../src/common/editor/ui/workspace/video-preview-timeline-state.js',
 		import.meta.url,
@@ -29,11 +30,13 @@ test('preview resolves its reference canvas before opting both timeline views in
 		'../src/common/editor/ui/workspace/video-preview-panel-state-attributes.js',
 		import.meta.url,
 	), 'utf8');
-	assert.ok(source.indexOf('const referenceCanvas = useMemo') < source.indexOf('const layerResolution = useMemo'));
-	assert.match(source, /resolveActiveVideoLayers\(project, positionFrame, \{[\s\S]*renderCanvas: referenceCanvas,[\s\S]*resolveClipRenderState,[\s\S]*\}\)/u);
-	assert.match(timelineSource, /resolveVideoCompositionIntervals\(project, \{[\s\S]*renderCanvas, resolveClipPresentation, resolveTransitionWeight,[\s\S]*\}\)/u);
+	assert.ok(source.indexOf('const referenceCanvas = useMemo') < source.indexOf('const { timelineResolver, layerResolution }'));
+	assert.match(source, /useVideoPreviewTimelineResolution\(\{ project, positionFrame,[\s\S]*renderCanvas: referenceCanvas, resolveClipRenderState,/u);
+	assert.match(resolutionSource, /timelineResolver\.resolveActiveVideoLayers\(positionFrame, \{[\s\S]*renderCanvas, resolveClipRenderState, resolveClipPresentation, resolveTransitionWeight,/u);
+	assert.match(timelineSource, /timelineResolver\.resolveCompositionIntervals\(options\)/u);
+	assert.match(timelineSource, /const options = \{ renderCanvas, resolveClipPresentation, resolveTransitionWeight \}/u);
 	assert.match(source, /failedVideoSourcesRef\.current,\s*referenceCanvas,\s*keyframeStateProvider,/u);
-	assert.match(source, /isVideoKeyframePreviewStateError\(error\)/u);
+	assert.match(resolutionSource, /isVideoKeyframePreviewStateError\(error\)/u);
 	assert.match(source, /clearVideoPreviewCompositorLayers/u);
 	assert.match(attributeSource, /data-video-preview-keyframe-error/u);
 	assert.match(source, /videoPreviewKeyframesUnavailable/u);

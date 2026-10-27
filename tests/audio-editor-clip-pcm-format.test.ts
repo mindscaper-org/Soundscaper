@@ -6,6 +6,8 @@ import { reinterpretedClipCommands } from '../src/common/editor/controller/track
 import { apply, createFixture } from './helpers/audio-editor-model-harness.js';
 import { createAddClipCommand, createAddSourceCommand } from '../src/common/editor/commands/factories.ts';
 import type { ControllerClip, ControllerSource } from '../src/common/editor/controller/track-audio/track-domain-types.ts';
+import { createCurrentAudioEditorProject } from '../src/common/editor/project-current.ts';
+import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 
 test('PCM conversion changes sample precision without changing the channel/frame layout', () => {
 	const input = [Float32Array.of(-1, -0.1234567, 0, 0.1234567, 1.5)];
@@ -84,4 +86,20 @@ test('reinterpretation rounds its combined PCM-width and sample-rate ratio once 
 	assert.ok(addition?.type === 'clip/add');
 	assert.equal(addition.clip.durationFrames, 5_333_333_333_333_335);
 	assert.equal(addition.clip.sourceDurationFrames, 2);
+});
+
+test('PCM width and rate reinterpretation rounds a half-sample duration exactly once', () => {
+	const original = createAudioSource({ id: 'original', frameCount: 300, channelCount: 1, sampleRate: 11025, sampleFormat: 'float32' });
+	const clip = createAudioClip({ id: 'clip', sourceId: original.id, sourceDurationFrames: 276, durationFrames: 200,
+		fadeInFrames: 100, envelope: [{ frame: 0, value: 1 }, { frame: 100, value: 0.5 }, { frame: 200, value: 0.25 }] });
+	let project = createCurrentAudioEditorProject({ id: 'half-sample-reinterpret', sampleRate: 8000, sources: [original], clips: [clip],
+		tracks: [createAudioTrack({ id: 'track', clipIds: [clip.id] }, 8000)] });
+	const replacement = { ...original, id: 'replacement', frameCount: 400, sampleRate: 8000, sampleFormat: 'int24' as const };
+	project = apply(project, createAddSourceCommand(replacement));
+	for (const command of reinterpretedClipCommands('track', clip as unknown as ControllerClip, original as ControllerSource, replacement)) project = apply(project, command);
+	const result = project.clips.find(value => value.id === clip.id)!;
+	assert.equal(result.durationFrames, 368, '367.5 must not drift below the point-rounding boundary through floating multiplication');
+	assert.equal(result.sourceDurationFrames, 368, 'the PCM byte window remains complete');
+	assert.equal(result.fadeInFrames, 184);
+	assert.deepEqual(result.envelope, [{ frame: 0, value: 1 }, { frame: 184, value: 0.5 }, { frame: 368, value: 0.25 }]);
 });

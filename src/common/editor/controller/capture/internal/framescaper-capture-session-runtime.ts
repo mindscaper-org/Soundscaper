@@ -25,7 +25,8 @@ export function captureSessionFailure(
 	const name = error && typeof error === 'object' ? (error as { readonly name?: unknown }).name : null;
 	const code = name === 'NotAllowedError'
 		? 'permission-denied'
-		: name === 'AbortError' ? 'permission-dismissed' : fallback;
+		: name === 'AbortError' ? 'permission-dismissed'
+			: ['NotFoundError', 'NotReadableError', 'OverconstrainedError'].includes(String(name)) ? 'device-lost' : fallback;
 	const message = error instanceof Error ? error.message : String(error || 'Capture failed.');
 	return Object.freeze({ code, message: message.slice(0, 1_024) || 'Capture failed.' });
 }

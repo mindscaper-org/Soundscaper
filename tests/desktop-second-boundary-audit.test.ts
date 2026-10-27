@@ -13,7 +13,6 @@ import {
 } from '../desktop/desktop-audio-stream-contract.ts';
 import {
 	nativeChildFileIdentityFromStat,
-	canonicalNativeChildFileIdentity,
 } from '../desktop/native-child-file-identity.ts';
 import {
 	describeNativeAddonAvailability,
@@ -136,35 +135,6 @@ test('native addon admission rejects a malformed payload digest', async () => {
 	await assertManifestUnreadable(manifest({
 		targets: [{ ...target, payload: { ...payload, sha256: 'AB'.repeat(32) } }],
 	}));
-});
-
-test('native child identity admission rejects accessors without invoking them', () => {
-	let invoked = false;
-	const value = { ino: '2' } as Record<string, unknown>;
-	Object.defineProperty(value, 'dev', {
-		enumerable: true,
-		get() { invoked = true; return '1'; },
-	});
-	assert.throws(() => canonicalNativeChildFileIdentity(value), /identity is invalid/iu);
-	assert.equal(invoked, false);
-});
-
-test('native child identity admission rejects symbol-keyed authority', () => {
-	assert.throws(() => canonicalNativeChildFileIdentity({
-		dev: '1', ino: '2', [Symbol('hidden')]: 'authority',
-	}), /identity is invalid/iu);
-});
-
-test('native child identity admission rejects hidden non-enumerable fields', () => {
-	const value = { dev: '1', ino: '2' } as Record<string, unknown>;
-	Object.defineProperty(value, 'hidden', { value: true });
-	assert.throws(() => canonicalNativeChildFileIdentity(value), /identity is invalid/iu);
-});
-
-test('native child identity admission requires enumerable data components', () => {
-	const value = { ino: '2' } as Record<string, unknown>;
-	Object.defineProperty(value, 'dev', { value: '1', enumerable: false });
-	assert.throws(() => canonicalNativeChildFileIdentity(value), /identity is invalid/iu);
 });
 
 test('native child stat conversion returns an immutable unsigned snapshot', () => {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { TimeSelection, SpectralSelection } from '@audacity-ui/core';
 import { useTheme } from '../ThemeProvider';
 import { CLIP_CONTENT_OFFSET } from '../constants';
+import { measureLabelInterval as chooseMeasureLabelInterval } from './measure-tick-spacing';
 import './TimelineRuler.css';
 
 export interface TimelineRulerProps {
@@ -658,20 +659,15 @@ function drawBeatsAndMeasures(
   // When zoomed out, skip measure labels to avoid crowding
   // Find the smallest power-of-2-friendly interval where labels are ≥60px apart
   const pixelsPerMeasure = secondsPerMeasure * pixelsPerSecond;
-  let measureLabelInterval = 1;
-  for (const interval of [1, 2, 4, 8, 16, 32, 64, 128, 256]) {
-    if (pixelsPerMeasure * interval >= 60) {
-      measureLabelInterval = interval;
-      break;
-    }
-  }
+  const measureLabelInterval = chooseMeasureLabelInterval(pixelsPerMeasure);
 
   // Also find interval for minor measure ticks (shown between labeled measures)
   // Hide them when they'd be less than ~6px apart
   const showMinorMeasureTicks = pixelsPerMeasure >= 6;
 
   // Calculate visible range
-  const startMeasure = Math.floor((scrollX / pixelsPerSecond) / secondsPerMeasure);
+  const measureStep = showMinorMeasureTicks ? 1 : measureLabelInterval;
+  const startMeasure = Math.floor(scrollX / pixelsPerSecond / secondsPerMeasure / measureStep) * measureStep;
   const endMeasure = Math.ceil(((scrollX + width) / pixelsPerSecond) / secondsPerMeasure);
 
   ctx.font = '11px system-ui, sans-serif';
@@ -680,7 +676,7 @@ function drawBeatsAndMeasures(
 
   const bottomHalf = height - midHeight;
 
-  for (let measure = startMeasure; measure <= endMeasure; measure++) {
+  for (let measure = startMeasure; measure <= endMeasure; measure += measureStep) {
     // When very zoomed out, only process labeled measures
     const isLabeledMeasure = measure % measureLabelInterval === 0;
     if (!showMinorMeasureTicks && !isLabeledMeasure) continue;

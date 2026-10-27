@@ -47,6 +47,8 @@ export interface MixRenderOperationCommit {
 
 interface MixRenderCommitOptions {
 	readonly createId: (prefix: string) => string;
+	readonly individualPreFaderWidth?: (track: ControllerTrack, renderEffects: boolean) => number | null;
+	readonly individualPrintLaneCommands?: (sourceId: string, targetId: string, createId: (prefix: string) => string) => AudioEditorCommand[];
 }
 
 export function prepareMixRenderOperationCommit(
@@ -189,14 +191,17 @@ function prepareIndividualOutput(
 		throw new RangeError('An individual mix render output requires exactly one target track.');
 	}
 	const target = output.targetTracks[0]!;
-	const retainControls = individualPreFaderPrintWidth(project, target, options.renderEffects) !== null;
+	const printLaneCommands = runtime.individualPrintLaneCommands ?? ((sourceId, targetId, createId) => individualPrintLaneCommands(project, sourceId, targetId, createId));
+	const retainControls = (runtime.individualPreFaderWidth
+		? runtime.individualPreFaderWidth(target, options.renderEffects)
+		: individualPreFaderPrintWidth(project, target, options.renderEffects)) !== null;
 	const trackId = options.replaceOriginals ? target.id : runtime.createId('rendered-track');
 	const clipId = runtime.createId('rendered-clip');
 	commands.push(createAddSourceCommand(output.source));
 	if (options.replaceOriginals) {
 		commands.push(
 			...freezeRemovalCommands(project, target),
-			...(retainControls ? individualPrintLaneCommands(project, target.id, target.id, runtime.createId)
+			...(retainControls ? printLaneCommands(target.id, target.id, runtime.createId)
 				: v21StripLaneRemovalCommands(project, target.id)),
 			...renderedOriginalRemovalCommands(project, target),
 			...(target.effects ?? []).map((effect): AudioEditorCommand => ({
@@ -213,7 +218,7 @@ function prepareIndividualOutput(
 		});
 	}
 	commands.push(renderedClipCommand(trackId, clipId, output));
-	if (retainControls && !options.replaceOriginals) commands.push(...individualPrintLaneCommands(project, target.id, trackId, runtime.createId));
+	if (retainControls && !options.replaceOriginals) commands.push(...printLaneCommands(target.id, trackId, runtime.createId));
 	if (!options.replaceOriginals) {
 		if (isSoundscaperProductionProject(project)) {
 			routingCopies.push({ sourceTrackId: target.id, targetTrackId: trackId });

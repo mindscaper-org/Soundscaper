@@ -1,3 +1,4 @@
+import { COMPONENT_COPY, componentCopyTemplate, type ComponentCopy } from '../component-copy';
 export type TimeCodeFormat =
 	| 'dd:hh:mm:ss'
 	| 'hh:mm:ss'
@@ -53,18 +54,20 @@ const FREQUENCY_FORMAT_OPTIONS: readonly TimeCodeFormatOption[] = Object.freeze(
 	{ format: 'Hz', label: 'Hz' },
 ]);
 
+const FORMAT_COPY_KEYS: Partial<Record<TimeCodeFormat, keyof ComponentCopy>> = {"hh:mm:ss+hundredths": "hundredths", "hh:mm:ss+milliseconds": "milliseconds", "mm:ss+milliseconds": "minutesMilliseconds", "hh:mm:ss+samples": "timeSamples", "hh:mm:ss+frames": "timeFrames", "samples": "samples", "seconds": "seconds", "seconds+milliseconds": "secondsMilliseconds", "film-frames": "filmFrames", "hh:mm:ss+ntsc-frames": "timeNtscFrames", "hh:mm:ss+ntsc-drop-frames": "timeNtscDropFrames", "ntsc-frames": "ntscFrames", "hh:mm:ss+pal-frames": "timePalFrames", "pal-frames": "palFrames", "hh:mm:ss+cdda-frames": "timeCdFrames", "cdda-frames": "cdFrameCount", "beats:bars": "beatsBars"};
+
 export function timeCodeFormatOptionsForDomain(
 	domain: TimeCodeFormatDomain,
 	frameRate = 24,
+	copy: ComponentCopy = COMPONENT_COPY,
 ): readonly TimeCodeFormatOption[] {
 	if (domain === 'frequency') return FREQUENCY_FORMAT_OPTIONS;
 	const rateLabel = Number.isInteger(frameRate) ? String(frameRate)
 		: frameRate.toFixed(3).replace(/\.?0+$/u, '');
-	return TIME_FORMAT_OPTIONS.map((option) => ({
-		...option,
-		label: option.label.replace('24fps', `${rateLabel}fps`).replace(
-			'NTSC drop frames (29.97 fps)',
-			`NTSC drop frames (${Math.abs(frameRate - 60_000 / 1_001) < 0.001 ? '59.94' : '29.97'} fps)`,
-		),
-	}));
+	return TIME_FORMAT_OPTIONS.map((option) => {
+		const key = FORMAT_COPY_KEYS[option.format];
+		const rate = option.format === 'hh:mm:ss+ntsc-drop-frames'
+			? (Math.abs(frameRate - 60_000 / 1_001) < 0.001 ? '59.94' : '29.97') : rateLabel;
+		return { ...option, label: key ? componentCopyTemplate(copy[key], { rate }) : option.label };
+	});
 }

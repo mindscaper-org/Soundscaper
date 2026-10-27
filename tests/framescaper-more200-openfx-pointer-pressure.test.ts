@@ -19,20 +19,29 @@ test.after(cleanupOpenFxNativeContractFixture);
 
 const geometry = { left: 0, top: 0, width: 256, height: 256 };
 
+let pressurePluginPath: string | undefined;
+
+function pressurePlugin(directory: string): string {
+	if (pressurePluginPath !== undefined) return pressurePluginPath;
+	const extension = process.platform === 'darwin' ? '.dylib' : process.platform === 'win32' ? '.dll' : '.so';
+	const pluginPath = join(directory, `pressure${extension}`);
+	const compile = spawnSync('c++', [
+		'-std=c++20', '-Wall', '-Wextra', '-Wpedantic', '-Werror',
+		'-DFRAMESCAPER_OPENFX_CONTRACT_ONLY=1', '-DFRAMESCAPER_OPENFX_CONFORMANCE_FIXTURE=1',
+		'-I', resolve('native/framescaper-openfx-host/src'),
+		...(process.platform === 'darwin' ? ['-dynamiclib'] : ['-shared', '-fPIC']),
+		resolve('tests/fixtures/openfx-pointer-pressure-plugin.cpp'), '-o', pluginPath,
+	], { encoding: 'utf8' });
+	assert.equal(compile.status, 0, compile.stderr);
+	pressurePluginPath = pluginPath;
+	return pluginPath;
+}
+
 for (const [name, button, buttons] of [['left mouse and pen contact', 0, 1], ['middle mouse', 1, 4]] as const) {
 	test(`the OpenFX menu's ${name} drag reaches a pressure-sensitive native interact`, context => {
 		const build = buildOpenFxNativeContractFixture(context);
 		if (!build) return;
-		const extension = process.platform === 'darwin' ? '.dylib' : process.platform === 'win32' ? '.dll' : '.so';
-		const pluginPath = join(build.directory, `pressure-${button}${extension}`);
-		const compile = spawnSync('c++', [
-			'-std=c++20', '-Wall', '-Wextra', '-Wpedantic', '-Werror',
-			'-DFRAMESCAPER_OPENFX_CONTRACT_ONLY=1', '-DFRAMESCAPER_OPENFX_CONFORMANCE_FIXTURE=1',
-			'-I', resolve('native/framescaper-openfx-host/src'),
-			...(process.platform === 'darwin' ? ['-dynamiclib'] : ['-shared', '-fPIC']),
-			resolve('tests/fixtures/openfx-pointer-pressure-plugin.cpp'), '-o', pluginPath,
-		], { encoding: 'utf8' });
-		assert.equal(compile.status, 0, compile.stderr);
+		const pluginPath = pressurePlugin(build.directory);
 		const pointer = (phase: 'down' | 'motion' | 'up', sequence: number): OfxInteractEventV1 => ({
 			kind: 'pointer', phase, sequence,
 			...normalizeOpenFxPointer(geometry, { clientX: 64, clientY: 128,

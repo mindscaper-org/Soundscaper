@@ -13,7 +13,7 @@ import {
 	FRAMESCAPER_IMAGE_FRAME_PACK_HEADER_BYTES,
 } from '../common/editor/timeline-image-frame-pack-v1-layout.ts';
 import {
-	mapFramescaperImageTimelineFrameV1,
+	createFramescaperImageTimelineTickMapperV1,
 	normalizeFramescaperImageClipV1,
 	normalizeFramescaperImageSourceV1,
 	type FramescaperImageClipV1,
@@ -109,12 +109,8 @@ export function mapFramescaperImageFrameAtSampleTimelineImage(
 ): Readonly<{ readonly sourceTicks: bigint; readonly frameIndex: number }> {
 	const clip = normalizeFramescaperImageClipV1(clipValue);
 	const sequenceFrame = sequenceFrameAtSample(timelineSample, sequenceRate, sampleRate);
-	return mapFramescaperImageTimelineFrameV1({
-		clip,
-		sequenceFrame,
-		sequenceRate,
-		timings: reader.timings,
-	});
+	const sourceTicks = createFramescaperImageTimelineTickMapperV1(clip, sequenceRate)(sequenceFrame);
+	return Object.freeze({ sourceTicks, frameIndex: reader.frameIndexAtTicks(sourceTicks) });
 }
 
 /** Deterministic nearest-neighbour RGBA resize shared by bin and filmstrip pictures. */

@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { fileValidationFailure as failure } from './file-validation-failure.ts';
+import { normalizeVersion, normalizeFixedText, normalizeDate, normalizeTime, validDate, validTime,
+	normalizeTimeReference, normalizeUmid, normalizeLoudness, loudnessMinimum, roundLoudness, normalizeCodingHistory,
+} from './broadcast-wave-normalization.ts';
 
 export const BEXT_FIXED_BODY_BYTES = 602;
 export const BEXT_MAX_PAYLOAD_BYTES = 64 * 1024;
 
-const UINT64_MAX = 0xffff_ffff_ffff_ffffn;
 const LOUDNESS_SENTINEL = 0x7fff;
 const LOUDNESS_MAXIMUM = 99.99;
 const OFFSETS = Object.freeze({
@@ -140,7 +143,7 @@ export function normalizeBextMetadata(
 	options: BextNormalizationOptions = {},
 ): BextMetadata {
 	if (!input || typeof input !== 'object' || Array.isArray(input)) {
-		throw new TypeError('BEXT metadata must be an object.');
+		throw failure(new TypeError('BEXT metadata must be an object.'), 'bext', 'bextObject', 'bextObject');
 	}
 	const version = normalizeVersion(options.version ?? input.version ?? 2);
 	const umid = normalizeUmid(input.umid ?? '');
@@ -148,9 +151,9 @@ export function normalizeBextMetadata(
 		field,
 		normalizeLoudness(input[field] ?? null, field),
 	])) as Readonly<Record<BextLoudnessField, number | null>>;
-	if (version === 0 && umid) throw new RangeError('BEXT version 0 cannot contain a UMID.');
+	if (version === 0 && umid) throw failure(new RangeError('BEXT version 0 cannot contain a UMID.'), 'bext', 'bextVersionUmid', 'bextVersionUmid');
 	if (version < 2 && LOUDNESS_FIELDS.some((field) => loudness[field] != null)) {
-		throw new RangeError(`BEXT version ${version} cannot contain loudness metadata.`);
+		throw failure(new RangeError(`BEXT version ${version} cannot contain loudness metadata.`), 'bext', 'bextVersionLoudness', 'bextVersionLoudness', { version });
 	}
 	return Object.freeze({
 		description: normalizeFixedText(input.description ?? '', 'description', 256),
@@ -172,7 +175,7 @@ export function encodeBextPayload(input: BextMetadataInput = {}): Uint8Array {
 	const codingHistory = encodeCodingHistory(metadata.codingHistory);
 	const byteLength = BEXT_FIXED_BODY_BYTES + codingHistory.byteLength;
 	if (byteLength > BEXT_MAX_PAYLOAD_BYTES) {
-		throw new RangeError('A BEXT payload cannot exceed 64 KiB.');
+		throw failure(new RangeError('A BEXT payload cannot exceed 64 KiB.'), 'bext', 'bextTooLarge', 'bextTooLarge', { maximum: BEXT_MAX_PAYLOAD_BYTES });
 	}
 	const output = new Uint8Array(byteLength);
 	const view = dataView(output);
@@ -321,115 +324,6 @@ export function appendPcmCodingHistory(
 	options: PcmCodingHistoryOptions,
 ): string {
 	return `${normalizeCodingHistory(codingHistory)}${createPcmCodingHistoryRow(options)}`;
-}
-
-function normalizeVersion(value: BextVersion): BextVersion {
-	if (value !== 0 && value !== 1 && value !== 2) throw new RangeError('BEXT version must be 0, 1, or 2.');
-	return value;
-}
-
-function normalizeFixedText(value: string, field: string, maximum: number): string {
-	if (typeof value !== 'string') throw new TypeError(`BEXT ${field} must be a string.`);
-	if (value.length > maximum) throw new RangeError(`BEXT ${field} must contain at most ${maximum} ASCII characters.`);
-	for (let index = 0; index < value.length; index += 1) {
-		const code = value.charCodeAt(index);
-		if (code < 0x20 || code > 0x7e) throw new RangeError(`BEXT ${field} must contain printable ASCII only.`);
-	}
-	return value;
-}
-
-function normalizeDate(value: string): string {
-	if (typeof value !== 'string') throw new TypeError('BEXT origination date must be a string.');
-	if (!validDate(value)) throw new RangeError('BEXT origination date must be empty or a valid YYYY-MM-DD-style date.');
-	return value;
-}
-
-function normalizeTime(value: string): string {
-	if (typeof value !== 'string') throw new TypeError('BEXT origination time must be a string.');
-	if (!validTime(value)) throw new RangeError('BEXT origination time must be empty or a valid HH:MM:SS-style time.');
-	return value;
-}
-
-function validDate(value: string): boolean {
-	if (!value) return true;
-	const match = /^(\d{4})[\x20-\x7e](\d{2})[\x20-\x7e](\d{2})$/u.exec(value);
-	if (!match) return false;
-	const year = Number(match[1]);
-	const month = Number(match[2]);
-	const day = Number(match[3]);
-	if (month < 1 || month > 12) return false;
-	const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-	const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-	return day >= 1 && day <= (days[month - 1] ?? 0);
-}
-
-function validTime(value: string): boolean {
-	if (!value) return true;
-	const match = /^(\d{2})[\x20-\x7e](\d{2})[\x20-\x7e](\d{2})$/u.exec(value);
-	if (!match) return false;
-	return Number(match[1]) <= 23 && Number(match[2]) <= 59 && Number(match[3]) <= 59;
-}
-
-function normalizeTimeReference(value: string): string {
-	if (typeof value !== 'string' || !/^\d+$/u.test(value)) {
-		throw new RangeError('BEXT timeReference must be an unsigned 64-bit decimal string.');
-	}
-	const parsed = BigInt(value);
-	if (parsed > UINT64_MAX) throw new RangeError('BEXT timeReference must be an unsigned 64-bit decimal string.');
-	return parsed.toString();
-}
-
-function normalizeUmid(value: string): string {
-	if (typeof value !== 'string') throw new TypeError('BEXT umid must be a hexadecimal string.');
-	if (!value) return '';
-	const unprefixed = value.trim().replace(/^0x/iu, '');
-	if (/[^0-9a-f:\s-]/iu.test(unprefixed)) throw new RangeError('BEXT umid must be hexadecimal.');
-	const compact = unprefixed.replace(/[:\s-]/gu, '');
-	if (!/^[0-9a-f]+$/iu.test(compact)) throw new RangeError('BEXT umid must be hexadecimal.');
-	if (compact.length !== 64 && compact.length !== 128) {
-		throw new RangeError('BEXT umid must contain exactly 32 or 64 bytes.');
-	}
-	const normalized = `${compact.toLowerCase()}${compact.length === 64 ? '0'.repeat(64) : ''}`;
-	return /^0+$/u.test(normalized) ? '' : normalized;
-}
-
-function normalizeLoudness(value: number | null, field: BextLoudnessField): number | null {
-	if (value == null) return null;
-	if (typeof value !== 'number' || !Number.isFinite(value)) {
-		throw new RangeError(`BEXT ${field} must be null or a finite number.`);
-	}
-	const minimum = loudnessMinimum(field);
-	if (value < minimum || value > LOUDNESS_MAXIMUM) {
-		throw new RangeError(`BEXT ${field} must be between ${minimum.toFixed(2)} and 99.99.`);
-	}
-	return roundLoudness(value) / 100;
-}
-
-function loudnessMinimum(field: BextLoudnessField): number {
-	return field === 'loudnessRange' ? 0 : -LOUDNESS_MAXIMUM;
-}
-
-function roundLoudness(value: number): number {
-	if (value === 0) return 0;
-	const magnitude = Math.abs(value) * 100;
-	const tolerance = Number.EPSILON * Math.max(1, magnitude) * 4;
-	return Math.sign(value) * Math.floor(magnitude + 0.5 + tolerance);
-}
-
-function normalizeCodingHistory(value: string): string {
-	const normalized = normalizeCodingText(value, 'codingHistory').replace(/\r\n?|\n/gu, '\n');
-	return normalized && !normalized.endsWith('\n') ? `${normalized}\n` : normalized;
-}
-
-function normalizeCodingText(value: string, field: string): string {
-	if (typeof value !== 'string') throw new TypeError(`BEXT ${field} must be a string.`);
-	for (let index = 0; index < value.length; index += 1) {
-		const code = value.charCodeAt(index);
-		if (code !== 0x09 && code !== 0x0a && code !== 0x0d && (code < 0x20 || code > 0x7e)) {
-			throw new RangeError(`BEXT ${field} must contain ASCII text only.`);
-		}
-	}
-	return value;
 }
 
 function encodeCodingHistory(value: string): Uint8Array {

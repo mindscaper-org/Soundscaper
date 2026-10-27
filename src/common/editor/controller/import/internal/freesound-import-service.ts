@@ -264,7 +264,7 @@ export function createFreesoundImportService(runtime: FreesoundImportServiceRunt
 		} catch {
 			// The status remains authoritative when an error body is absent or malformed.
 		}
-		return new Error(`${message} (${String(response.status)}).`);
+		return Object.assign(new Error(`${message} (${String(response.status)}).`), { status: response.status });
 	}
 }
 

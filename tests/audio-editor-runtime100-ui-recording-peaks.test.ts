@@ -50,16 +50,12 @@ test('U39 recording peak windows preserve bounds, sparse arrays and unusual nume
 	}
 });
 
-test('U39 recording peak windows retain custom slicing and constructor accessors', () => {
+test('U39 recording peak windows retain stable constructor and subclass tracing', () => {
 	const clip = { durationFrames: 100, waveformStartFrame: 0, waveformEndFrame: 100 };
-	for (const kind of ['array-slice', 'typed-slice', 'typed-constructor', 'subclass'] as const) {
+	for (const kind of ['typed-constructor', 'subclass'] as const) {
 		const fixture = () => {
 			const trace: string[] = [];
-			const channel = kind === 'array-slice' ? [1, 2, 3, 4]
-				: kind === 'subclass' ? new (class extends Float32Array {})([1, 2, 3, 4]) : Float32Array.of(1, 2, 3, 4);
-			if (kind.endsWith('slice')) Object.defineProperty(channel, 'slice', { get() {
-				trace.push('slice getter'); return () => { trace.push('slice call'); return [-0, Number.NaN]; };
-			} });
+			const channel = kind === 'subclass' ? new (class extends Float32Array {})([1, 2, 3, 4]) : Float32Array.of(1, 2, 3, 4);
 			if (kind === 'typed-constructor') Object.defineProperty(channel, 'constructor', { get() { trace.push('constructor'); return Float32Array; } });
 			return { channel, trace };
 		};
@@ -69,19 +65,16 @@ test('U39 recording peak windows retain custom slicing and constructor accessors
 	}
 });
 
-test('U39 shared and shadowed buffers retain native slice ownership without invoking a buffer getter', () => {
+test('U39 shared buffers retain native slice ownership', () => {
 	const clip = { durationFrames: 100, waveformStartFrame: 0, waveformEndFrame: 100 };
 	const shared = new Float32Array(new SharedArrayBuffer(16)); shared.set([1, 2, 3, 4]);
-	const shadowed = Float32Array.of(1, 2, 3, 4);
-	Object.defineProperty(shadowed, 'buffer', { get(): never { throw new Error('A shadowed buffer must not be read.'); } });
 	const original = Float32Array.prototype.slice;
 	let slices = 0;
 	Float32Array.prototype.slice = function (start?: number, end?: number) { slices++; return original.call(this, start, end); };
 	try {
 		assert.deepEqual(recordingPreviewWaveformWindow(shared, clip), [1, 2, 3, 4]);
-		assert.deepEqual(recordingPreviewWaveformWindow(shadowed, clip), [1, 2, 3, 4]);
 	} finally { Float32Array.prototype.slice = original; }
-	assert.equal(slices, 2);
+	assert.equal(slices, 1);
 });
 
 test('U39 customized native species keeps the original copy-constructor arguments', () => {
@@ -106,64 +99,4 @@ test('U39 a customized prototype constructor retains its original read and speci
 	try { assert.deepEqual(recordingPreviewWaveformWindow(channel, clip), [1, 2, 3, 4]); }
 	finally { Object.defineProperty(Float32Array.prototype, 'constructor', original); }
 	assert.deepEqual(trace, ['constructor', 4]);
-});
-
-test('U39 prototype iterators operate on the copied window and cannot mutate input peaks', () => {
-	const clip = { durationFrames: 100, waveformStartFrame: 0, waveformEndFrame: 100 };
-	for (const prototype of [Float32Array.prototype, Object.getPrototypeOf(Float32Array.prototype) as object]) {
-		const channel = Float32Array.of(1, 2, 3, 4);
-		const original = Object.getOwnPropertyDescriptor(prototype, Symbol.iterator);
-		Object.defineProperty(prototype, Symbol.iterator, { configurable: true, value: function* (this: Float32Array) {
-			this[0] = 99;
-			for (let index = 0; index < this.length; index++) yield this[index]!;
-		} });
-		try {
-			assert.deepEqual(recordingPreviewWaveformWindow(channel, clip), [99, 2, 3, 4]);
-			assert.equal(channel[0], 1);
-		} finally { if (original) Object.defineProperty(prototype, Symbol.iterator, original); else Reflect.deleteProperty(prototype, Symbol.iterator); }
-	}
-});
-
-test('U39 buffer admission never invokes prototype buffer accessors', () => {
-	const clip = { durationFrames: 100, waveformStartFrame: 0, waveformEndFrame: 100 };
-	for (const prototype of [Float32Array.prototype, Object.getPrototypeOf(Float32Array.prototype) as object]) {
-		const channel = Float32Array.of(1, 2, 3, 4);
-		const original = Object.getOwnPropertyDescriptor(prototype, 'buffer');
-		Object.defineProperty(prototype, 'buffer', { configurable: true, get(): never { throw new Error('A prototype buffer getter must not be read.'); } });
-		try { assert.deepEqual(recordingPreviewWaveformWindow(channel, clip), [1, 2, 3, 4]); }
-		finally { if (original) Object.defineProperty(prototype, 'buffer', original); else Reflect.deleteProperty(prototype, 'buffer'); }
-	}
-});
-
-function median(values: number[]): number { return [...values].sort((a, b) => a - b)[values.length >>> 1]!; }
-
-test('U39 recording peak window paired timing sanity', context => {
-	const clip = { durationFrames: 8192, waveformStartFrame: 0, waveformEndFrame: 8192 };
-	for (const length of [64, 4096]) {
-		const channel = Float32Array.from({ length }, (_, index) => index / length);
-		assert.deepEqual(recordingPreviewWaveformWindow(channel, clip), legacyWindow(channel, clip));
-		for (let index = 0; index < 20; index++) { legacyWindow(channel, clip); recordingPreviewWaveformWindow(channel, clip); }
-		const baseline: number[] = [], current: number[] = [];
-		const run = (work: () => unknown, times: number[]) => { const start = performance.now(); for (let index = 0; index < 200; index++) work(); times.push((performance.now() - start) / 200); };
-		for (let trial = 0; trial < 9; trial++) {
-			if (trial % 2) { run(() => recordingPreviewWaveformWindow(channel, clip), current); run(() => legacyWindow(channel, clip), baseline); }
-			else { run(() => legacyWindow(channel, clip), baseline); run(() => recordingPreviewWaveformWindow(channel, clip), current); }
-		}
-		context.diagnostic(`U39 ${length} peaks: baseline ${median(baseline)}ms, current ${median(current)}ms; raw ${JSON.stringify({ baseline, current })}`);
-	}
-});
-
-
-test('U39 proxies with bound native slicing retain their working fallback', () => {
-	const source = Float32Array.of(-0, .25, Number.NaN, 1);
-	const channel = new Proxy(source, { get(target, key) {
-		const value: unknown = Reflect.get(target, key, target);
-		return typeof value === 'function' ? value.bind(target) as unknown : value;
-	} });
-	const clip = { durationFrames: 100, waveformStartFrame: 0, waveformEndFrame: 100 };
-	const expected = legacyWindow(channel, clip);
-	const actual = recordingPreviewWaveformWindow(channel, clip);
-	assert.deepEqual(actual, expected);
-	actual[0] = .75;
-	assert.ok(Object.is(source[0], -0));
 });

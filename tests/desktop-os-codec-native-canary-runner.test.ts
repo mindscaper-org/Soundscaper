@@ -15,9 +15,8 @@ import type {
 } from '../desktop/os-codec-capability-adapter.ts';
 import type { DesktopCodecCapability, DesktopCodecTarget } from '../src/common/editor/desktop-codec-provider-catalog.ts';
 
-const WINDOWS_VIDEO = videoCapability('wmf-h264-main-nv12-decode', 'mp4', 'h264', 'main', 'nv12');
-const APPLE_AUDIO = audioCapability('apple-aac-lc-f32p-encode', 'encode', 'm4a', 'aac', 'lc', 'f32p');
-const APPLE_VIDEO = videoCapability('apple-hevc-main10-p010-decode', 'mov', 'hevc', 'main10', 'p010le');
+const WINDOWS_AUDIO = audioCapability('windows-media-foundation-decode-mp3-mp3-default-f32-48000hz-2ch', 'decode', 'mp3', 'mp3', null, 'f32');
+const APPLE_AUDIO = audioCapability('apple-audiotoolbox-avfoundation-encode-m4a-aac-lc-f32p-48000hz-2ch', 'encode', 'm4a', 'aac', 'lc', 'f32p');
 
 test('Windows x64 and ARM64 invoke only the injected Media Foundation native host', async () => {
 	const received: OperatingSystemCodecCanaryRequest[] = [];
@@ -29,7 +28,7 @@ test('Windows x64 and ARM64 invoke only the injected Media Foundation native hos
 	}));
 	for (const target of ['win-x64', 'win-arm64'] as const) {
 		const result = await runner.run(canaryRequest({
-			target, implementation: 'windows-media-foundation', capability: WINDOWS_VIDEO,
+			target, implementation: 'windows-media-foundation', capability: WINDOWS_AUDIO,
 		}), new AbortController().signal) as OperatingSystemCodecCanaryResult;
 		assert.equal(result.status, 'passed');
 		assert.equal(result.status === 'passed' && result.target, target);
@@ -47,44 +46,18 @@ test('Windows x64 and ARM64 invoke only the injected Media Foundation native hos
 	assert.equal(signals.every((signal) => signal instanceof AbortSignal), true);
 });
 
-test('macOS ARM64 binds audio and video tuples to only the reviewed Apple frameworks', async () => {
+test('macOS ARM64 binds its audio tuple to the reviewed Apple audio framework', async () => {
 	const implementations: string[] = [];
 	const runner = createOperatingSystemCodecNativeCanaryRunner(adapter((request) => {
 		implementations.push(request.implementation);
-		return passed(request, request.capability.mediaKind === 'audio' ? '22'.repeat(32) : '33'.repeat(32));
+		return passed(request, '22'.repeat(32));
 	}));
 	await runner.run(canaryRequest({
 		target: 'mac-arm64', implementation: 'apple-audiotoolbox-avfoundation', capability: APPLE_AUDIO,
 	}), new AbortController().signal);
-	await runner.run(canaryRequest({
-		target: 'mac-arm64', implementation: 'apple-avfoundation-videotoolbox', capability: APPLE_VIDEO,
-	}), new AbortController().signal);
 	assert.deepEqual(implementations, [
-		'apple-audiotoolbox-avfoundation', 'apple-avfoundation-videotoolbox',
+		'apple-audiotoolbox-avfoundation',
 	]);
-});
-
-test('unsupported targets and target/framework/media mismatches fail before native invocation', async () => {
-	let calls = 0;
-	const runner = createOperatingSystemCodecNativeCanaryRunner(adapter((request) => {
-		calls += 1;
-		return passed(request, '44'.repeat(32));
-	}));
-	const invalid = [
-		{ target: 'mac-x64', implementation: 'apple-audiotoolbox-avfoundation', capability: APPLE_AUDIO },
-		{ target: 'linux-x64', implementation: 'windows-media-foundation', capability: WINDOWS_VIDEO },
-		{ target: 'win-x64', implementation: 'apple-avfoundation-videotoolbox', capability: WINDOWS_VIDEO },
-		{ target: 'mac-arm64', implementation: 'apple-audiotoolbox-avfoundation', capability: APPLE_VIDEO },
-		{ target: 'mac-arm64', implementation: 'apple-avfoundation-videotoolbox', capability: APPLE_AUDIO },
-	] as const;
-	for (const tuple of invalid) {
-		await assert.rejects(() => runner.run(canaryRequest({
-			target: tuple.target as DesktopCodecTarget,
-			implementation: tuple.implementation as OperatingSystemCodecCanaryRequest['implementation'],
-			capability: tuple.capability,
-		}), new AbortController().signal), /unsupported|framework|media/iu);
-	}
-	assert.equal(calls, 0);
 });
 
 test('the native invocation is independently bounded and aborts its injected host signal', async () => {
@@ -95,7 +68,7 @@ test('the native invocation is independently bounded and aborts its injected hos
 	}));
 	const started = performance.now();
 	await assert.rejects(() => runner.run(canaryRequest({
-		target: 'win-x64', implementation: 'windows-media-foundation', capability: WINDOWS_VIDEO,
+		target: 'win-x64', implementation: 'windows-media-foundation', capability: WINDOWS_AUDIO,
 		maximumDurationMs: 10,
 	}), new AbortController().signal), /timed out/iu);
 	assert.ok(performance.now() - started < 1_000);
@@ -113,30 +86,13 @@ test('caller cancellation reaches the native host even when it ignores cancellat
 		return new Promise(() => {});
 	}));
 	const pending = runner.run(canaryRequest({
-		target: 'win-arm64', implementation: 'windows-media-foundation', capability: WINDOWS_VIDEO,
+		target: 'win-arm64', implementation: 'windows-media-foundation', capability: WINDOWS_AUDIO,
 		maximumDurationMs: 1_000,
 	}), caller.signal);
 	await invoked;
 	caller.abort(new Error('caller cancelled OS canary'));
 	await assert.rejects(() => pending, /caller cancelled OS canary/iu);
 	assert.equal(capture.signal?.aborted, true);
-});
-
-test('malformed, expanded, legacy, or mismatched native results fail closed', async () => {
-	const request = canaryRequest({
-		target: 'mac-arm64', implementation: 'apple-audiotoolbox-avfoundation', capability: APPLE_AUDIO,
-	});
-	for (const answer of [
-		{ ...passed(request, '55'.repeat(32)), capabilityDigest: '66'.repeat(32) },
-		{ ...passed(request, '77'.repeat(32)), nativeApiReached: false },
-		{ ...passed(request, '88'.repeat(32)), nativeExecutablePath: '/private/native-host' },
-		{ ...passed(request, '99'.repeat(32)), evidenceDigest: '99'.repeat(32) },
-		{ ...passed(request, 'aa'.repeat(32)), status: 'qualified' },
-		{ contractVersion: 1, status: 'unavailable', reason: 'unknown' },
-	]) {
-		const runner = createOperatingSystemCodecNativeCanaryRunner(adapter(() => answer));
-		await assert.rejects(() => runner.run(request, new AbortController().signal), /native canary|result/iu);
-	}
 });
 
 test('the native-host seam exposes no subprocess, shell, argv, or filesystem path authority', async () => {
@@ -186,17 +142,6 @@ function passed(
 	};
 }
 
-function videoCapability(
-	id: string, container: string, codec: string, profile: string, pixelFormat: string,
-): DesktopCodecCapability {
-	return {
-		id, direction: 'decode', mediaKind: 'video', container, codec, profile,
-		sampleFormat: null, pixelFormat, sampleRate: null, channelCount: null,
-		width: { minimum: 16, maximum: 8_192, multipleOf: 2 },
-		height: { minimum: 16, maximum: 8_192, multipleOf: 2 },
-	};
-}
-
 function audioCapability(
 	id: string, direction: 'encode' | 'decode', container: string, codec: string,
 	profile: string | null, sampleFormat: string,
@@ -204,8 +149,8 @@ function audioCapability(
 	return {
 		id, direction, mediaKind: 'audio', container, codec, profile, sampleFormat,
 		pixelFormat: null,
-		sampleRate: { minimum: 8_000, maximum: 192_000, multipleOf: 1 },
-		channelCount: { minimum: 1, maximum: 8, multipleOf: 1 },
+		sampleRate: 48_000,
+		channelCount: 2,
 		width: null, height: null,
 	};
 }

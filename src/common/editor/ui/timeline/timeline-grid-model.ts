@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { CLIP_CONTENT_OFFSET } from '@soundscaper/design-system/constants';
+import { measureLabelInterval as chooseMeasureLabelInterval } from '@soundscaper/design-system/TimelineRuler/measure-tick-spacing';
 
 import type { SignatureMap } from '../../musical-grid.ts';
 import { resolveSequenceTimingView, type SequenceTimingView } from '../../sequence-timing-model.ts';
@@ -73,8 +74,6 @@ const MAJOR_INTERVAL_TABLE: readonly (readonly [number, number])[] = Object.free
 ]);
 const FALLBACK_MAJOR_INTERVAL = 0.01;
 const MINOR_TICKS_PER_MAJOR = 5;
-const MEASURE_LABEL_INTERVALS = Object.freeze([1, 2, 4, 8, 16, 32, 64, 128, 256]);
-const MINIMUM_MEASURE_LABEL_PIXELS = 60;
 const MINIMUM_BEAT_TICK_PIXELS = 8;
 const MINIMUM_MINOR_MEASURE_PIXELS = 6;
 
@@ -184,13 +183,12 @@ function placeBeatsAndMeasures(
 	const subdivisionsPerMeasure = beatsPerMeasure * subdivisionsPerBeat;
 	const showBeatTicks = pixelsPerBeat >= MINIMUM_BEAT_TICK_PIXELS;
 	const pixelsPerMeasure = secondsPerMeasure * pixelsPerSecond;
-	const measureLabelInterval = MEASURE_LABEL_INTERVALS.find(
-		(interval) => pixelsPerMeasure * interval >= MINIMUM_MEASURE_LABEL_PIXELS,
-	) ?? 1;
+	const measureLabelInterval = chooseMeasureLabelInterval(pixelsPerMeasure);
 	const showMinorMeasureTicks = pixelsPerMeasure >= MINIMUM_MINOR_MEASURE_PIXELS;
-	const startMeasure = Math.floor(scrollX / pixelsPerSecond / secondsPerMeasure);
+	const measureStep = showMinorMeasureTicks ? 1 : measureLabelInterval;
+	const startMeasure = Math.floor(scrollX / pixelsPerSecond / secondsPerMeasure / measureStep) * measureStep;
 	const endMeasure = Math.ceil((scrollX + width) / pixelsPerSecond / secondsPerMeasure);
-	for (let measure = startMeasure; measure <= endMeasure; measure += 1) {
+	for (let measure = startMeasure; measure <= endMeasure; measure += measureStep) {
 		const labeledMeasure = measure % measureLabelInterval === 0;
 		if (!showMinorMeasureTicks && !labeledMeasure) continue;
 		for (let sub = 0; sub < subdivisionsPerMeasure; sub += 1) {

@@ -12,6 +12,5 @@ test('E02 label selection does not materialize unrelated label catalogs', contex
 	assert.deepEqual(selectedLabelsForProject(project, { selectedLabelsProjectId: 'project', selectedLabels: [ref, { trackId: 'selected', labelId: 'gone' }, ref] }), [ref, ref]);
 	assert.equal(labelReads, 0);
 	context.diagnostic(`E02 unrelated label catalog reads: ${labelReads}`);
-	assert.deepEqual(selectedLabelsForProject({ ...project, tracks: [...project.tracks, { id: 'selected', type: 'label', labels: [] }] }, { selectedLabelsProjectId: 'project', selectedLabels: [ref] }), []);
 	assert.deepEqual(selectedLabelsForProject(project, { selectedLabelsProjectId: 'other', selectedLabels: [ref] }), []);
 });

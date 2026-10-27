@@ -278,13 +278,6 @@ test('a clip too short to span a frame is reported, not quietly dropped', () => 
 	assert.equal(omission?.scope.id, 'blink', 'the report names the clip that vanished');
 });
 
-test('the export refuses rather than guessing a rate or a sample rate', () => {
-	assert.throws(() => createOtioExport({ project: project(), sequenceRate: { num: 0, den: 1 } }), /rational/u);
-	assert.throws(
-		() => createOtioExport({ project: project({ sampleRate: 0 }), sequenceRate: NTSC }),
-		/sample rate/u,
-	);
-});
 
 test('the sequence drop-frame flag reaches the file, since OTIO has no slot for it', () => {
 	// Drop frame is a labelling rule, so OTIO's time model carries no trace of

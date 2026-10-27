@@ -36,7 +36,7 @@ export function sourceFixture(
 			const value = metadata.get(sourceId);
 			return value ? clone(value) : null;
 		},
-		async getMetadataMany(sourceIds: readonly string[]) {
+		async getGenerationFences(sourceIds: readonly string[]) {
 			metadataBatches.push([...sourceIds]);
 			return sourceIds.map((sourceId) => {
 				const value = metadata.get(sourceId);

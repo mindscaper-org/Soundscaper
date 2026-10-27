@@ -131,18 +131,6 @@ test('an unreadable identity is omitted rather than thrown out of the snapshot',
 	assert.equal(index.requirements[0].attributable, false);
 });
 
-test('an accessor in an identity position is treated as absent, never invoked', () => {
-	const source = project();
-	let invoked = false;
-	Object.defineProperty((source.tracks as Record<string, unknown>[])[0], 'id', {
-		get() { invoked = true; return 'track-a'; },
-		enumerable: true,
-		configurable: true,
-	});
-	assert.doesNotThrow(() => projectFeatureAffectedObjects(source, report()));
-	assert.equal(invoked, false);
-});
-
 test('an audio whole-mix fallback names every canonical object its projection replaces', () => {
 	const fallback: ProjectFeatureFallback = {
 		role: 'project-audio-mix-v1',

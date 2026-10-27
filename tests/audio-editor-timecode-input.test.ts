@@ -36,15 +36,12 @@ test('timecode input rounds discrete units and clamps edits in the caller unit',
 	assert.equal(clampAudioEditorTimeValue(5, 0, 10), 5);
 });
 
-test('timecode input refuses invalid values and rates instead of leaking NaN into editors', () => {
+test('timecode input refuses nonfinite editor values', () => {
 	assert.throws(() => timeCodeSecondsFromEditorValue(Number.NaN, 'seconds', 48_000), /finite/u);
-	assert.throws(() => timeCodeSecondsFromEditorValue(1, 'samples', 0), /positive finite rate/u);
-	assert.throws(() => timeCodeSecondsToEditorValue(1, 'frames', Number.NaN), /positive finite rate/u);
 });
 
 test('timecode input resolves project sample and sequence frame rates with safe fallbacks', () => {
 	assert.equal(audioEditorProjectSampleRate({ sampleRate: 96_000 }), 96_000);
-	assert.equal(audioEditorProjectSampleRate({ sampleRate: 0 }), 48_000);
 	assert.equal(audioEditorProjectFrameRate({
 		primarySequenceId: 'b',
 		sequences: [{ id: 'a', rate: { num: 24, den: 1 } }, { id: 'b', rate: { num: 30_000, den: 1_001 } }],

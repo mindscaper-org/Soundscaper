@@ -1,3 +1,4 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React from 'react';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import { ContextMenuItem } from '../ContextMenuItem/ContextMenuItem';
@@ -144,7 +145,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
   onToggleVerticalRulers,
   autoFocus = false,
 }) => {
-  const { theme } = useTheme();
+  const { theme } = useTheme(); const { copy } = useComponentCopy();
 
   const style = {
     '--timeline-ruler-context-menu-divider-bg': theme.border.divider,
@@ -154,7 +155,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
     <ContextMenu isOpen={isOpen} onClose={onClose} x={x} y={y} className="timeline-ruler-context-menu" autoFocus={autoFocus} style={style}>
       {/* Time format options */}
       <ContextMenuItem
-        label="Minutes & seconds"
+        label={copy.minutesSeconds}
         onClick={() => {
           onTimeFormatChange?.('minutes-seconds');
           onClose();
@@ -164,7 +165,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
       />
 
       <ContextMenuItem
-        label="Beats & measures"
+        label={copy.beatsMeasures}
         onClick={() => {
           onTimeFormatChange?.('beats-measures');
           onClose();
@@ -178,7 +179,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
 
       {/* Display options */}
       <ContextMenuItem
-        label="Scroll view to playhead"
+        label={copy.scrollViewToPlayhead}
         onClick={() => {
           onToggleScrollViewToPlayhead?.();
           onClose();
@@ -188,7 +189,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
       />
 
       <ContextMenuItem
-        label="Pinned play head"
+        label={copy.pinnedPlayhead}
         onClick={() => {
           onTogglePinnedPlayHead?.();
           onClose();
@@ -199,7 +200,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
 
       {/* Click ruler to start playback */}
       <ContextMenuItem
-        label="Click ruler to start playback"
+        label={copy.clickRulerPlayback}
         onClick={() => {
           onToggleClickRulerToStartPlayback?.();
           onClose();
@@ -213,7 +214,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
 
       {/* Loop region with submenu */}
       <ContextMenuItem
-        label="Toggle loop region"
+        label={copy.toggleLoopRegion}
         onClick={() => {
           onToggleLoopRegion?.();
           onClose();
@@ -223,21 +224,21 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
         hasSubmenu
       >
         <ContextMenuItem
-          label="Clear loop region"
+          label={copy.clearLoopRegion}
           onClick={() => {
             onClearLoopRegion?.();
             onClose();
           }}
         />
         <ContextMenuItem
-          label="Set loop region to selection"
+          label={copy.loopToSelection}
           onClick={() => {
             onSetLoopRegionToSelection?.();
             onClose();
           }}
         />
         <ContextMenuItem
-          label="Set selection to loop"
+          label={copy.selectionToLoop}
           onClick={() => {
             onSetSelectionToLoop?.();
             onClose();
@@ -245,7 +246,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
         />
         <div className="timeline-ruler-context-menu-divider" />
         <ContextMenuItem
-          label="Creating a loop also selects audio"
+          label={copy.selectionFollowsLoop}
           onClick={() => {
             onToggleCreatingLoopSelectsAudio?.();
             onClose();
@@ -259,7 +260,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
 
       {/* Show vertical rulers */}
       <ContextMenuItem
-        label="Show vertical rulers"
+        label={copy.showVerticalRulers}
         onClick={() => {
           onToggleVerticalRulers?.();
           onClose();

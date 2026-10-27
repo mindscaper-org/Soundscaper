@@ -34,6 +34,7 @@ import type {
 import type {
 	AssistanceRuntimeFamilyWorkerExecutionContext,
 } from './assistance-runtime-family-worker-entry.ts';
+import { prepareAssistanceWaveChannelGroup } from './assistance-wave-channel-group-reader.ts';
 import {
 	createNodeAssistanceFloat32WaveStorageV1,
 	type AssistanceFloat32WaveSealedOutputV1,
@@ -130,10 +131,11 @@ async function executeDereverbRoom(
 			const workUnits = plan.chunks.length * source.geometry.channelCount;
 			let completedUnits = 0;
 			for (const chunk of plan.chunks) {
+				const chunkSource = prepareAssistanceWaveChannelGroup(source);
 				for (let channel = 0; channel < source.geometry.channelCount; channel += 1) {
 					context.signal?.throwIfAborted();
 					const frames = await readDereverbChunkChannel(
-						source, plan, chunk, channel, context.signal,
+						chunkSource, plan, chunk, channel, context.signal,
 					);
 					const spectrum = dereverbRoomStftV1({ schemaVersion: 1,
 						sampleRate: ASSISTANCE_DEREVERB_ROOM_SAMPLE_RATE, channel: frames });

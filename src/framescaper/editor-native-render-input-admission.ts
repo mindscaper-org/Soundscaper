@@ -2,8 +2,10 @@
 
 import type { ProductNativeRenderInputOperation } from '../common/editor/controller/composition/product-native-render-input-authority.ts';
 import { canonicalizeNativeMediaPlan, fingerprintNativeMediaPlan } from '../common/editor/native-media-plan-canonical-form.ts';
-import { createNativeMediaPlanEnvelopeV2 } from '../common/editor/native-media-plan-envelope-v2.ts';
+import { createNativeMediaPlanEnvelopeV2, createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2 } from '../common/editor/native-media-plan-envelope-v2.ts';
 import type { UnifiedExactRenderPlanV14 } from '../common/editor/unified-exact-render-plan.ts';
+import { resolveVideoSourceTimingViews } from '../common/editor/video-source-timing-views.ts';
+import { framescaperNativePlanTimingAuthority } from './editor-native-plan-timing-authority.ts';
 import { createFramescaperNativeRenderPlanAuthorityNativeMedia } from './editor-native-render-plan-authority.ts';
 import { framescaperNativeRenderDeliveryRequestFromPlanNativeMedia } from './editor-native-project-action-requests.ts';
 import { createFramescaperProjectUnifiedExactRenderPlanNativeMedia } from './editor-project-unified-render-plan-native-media.ts';
@@ -66,7 +68,8 @@ export function currentFramescaperNativeRenderPlanNativeMedia(
 	let parsed: unknown;
 	try { parsed = JSON.parse(request.planPayload) as unknown; }
 	catch (cause) { throw new TypeError('The selected nativeMedia native render plan is not JSON.', { cause }); }
-	const envelope = createNativeMediaPlanEnvelopeV2(parsed);
+	const declaration = createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(parsed);
+	const envelope = createNativeMediaPlanEnvelopeV2(declaration.plan, framescaperNativePlanTimingAuthority(project, resolveVideoSourceTimingViews(project), declaration.summary.videoTimingAssetInputs.map(input => input.sourceId)));
 	if (envelope.planVersion !== 14 || canonicalizeNativeMediaPlan(parsed) !== request.planPayload
 		|| envelope.fingerprint !== request.planFingerprint) {
 		throw new Error('The selected nativeMedia native render plan has no exact V14 identity.');

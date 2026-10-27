@@ -4,12 +4,12 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 
 import {
-	evaluateAudioWarpMap,
 	normalizeAudioWarpMap,
 	type AudioWarpMap,
 } from './audio-warp-domain.ts';
 import {
 	addRationals,
+	createBreakpointMapEvaluator,
 	beatToSampleFrame,
 	roundRational,
 	subtractRationals,
@@ -17,6 +17,7 @@ import {
 	type Rational,
 	type RationalInput,
 } from './timeline-time.ts';
+import { normalizeAudioWarpCoordinate } from './audio-groove-template.ts';
 import {
 	audioWarpOuterAtTimelineFrame,
 	isMusicalAudioWarpClip,
@@ -132,6 +133,7 @@ export function createAudioWarpRuntimeEvaluator(
 	clipValue: AudioWarpRuntimeClip,
 ): Readonly<AudioWarpRuntimeEvaluator> {
 	const { project, clip, map } = normalizeAudioWarpRuntimeInputs(projectValue, clipValue);
+	const sourceAtOuter = createBreakpointMapEvaluator(map);
 	return Object.freeze({
 		map,
 		fingerprint: audioWarpMapFingerprint(map),
@@ -141,7 +143,7 @@ export function createAudioWarpRuntimeEvaluator(
 				|| timelineFrame > clip.timelineStartFrame + clip.durationFrames) {
 				throw new RangeError('Audio warp timeline frame must remain within the clip extent.');
 			}
-			return evaluateAudioWarpMap(map, audioWarpOuterAtTimelineFrame(project, clip, timelineFrame));
+			return sourceAtOuter(normalizeAudioWarpCoordinate(audioWarpOuterAtTimelineFrame(project, clip, timelineFrame), 'audio warp outer position'));
 		},
 	});
 }
@@ -188,6 +190,7 @@ export function buildAudioWarpRuntimeSegments(
 	rangeValue: AudioWarpRuntimeRange,
 ): readonly Readonly<AudioWarpRuntimeSegment>[] {
 	const { project, clip, map } = normalizeAudioWarpRuntimeInputs(projectValue, clipValue);
+	const sourceAtOuter = createBreakpointMapEvaluator(map);
 	const startFrame = safeInteger(rangeValue?.startFrame, 'audio warp range startFrame');
 	const endFrame = safeInteger(rangeValue?.endFrame, 'audio warp range endFrame');
 	const sourceSampleRate = positiveSafeInteger(
@@ -219,14 +222,12 @@ export function buildAudioWarpRuntimeSegments(
 	for (let index = 0; index < ordered.length - 1; index += 1) {
 		const timelineStartFrame = ordered[index]!;
 		const timelineEndFrame = ordered[index + 1]!;
-		const sourceStartFrame = evaluateAudioWarpMap(
-			map,
-			audioWarpOuterAtTimelineFrame(project, clip, timelineStartFrame),
-		);
-		const sourceEndFrame = evaluateAudioWarpMap(
-			map,
-			audioWarpOuterAtTimelineFrame(project, clip, timelineEndFrame),
-		);
+		const sourceStartFrame = sourceAtOuter(normalizeAudioWarpCoordinate(
+			audioWarpOuterAtTimelineFrame(project, clip, timelineStartFrame), 'audio warp outer position',
+		));
+		const sourceEndFrame = sourceAtOuter(normalizeAudioWarpCoordinate(
+			audioWarpOuterAtTimelineFrame(project, clip, timelineEndFrame), 'audio warp outer position',
+		));
 		const sourceSpan = rationalNumber(subtractRationals(sourceEndFrame, sourceStartFrame));
 		const timelineSpan = timelineEndFrame - timelineStartFrame;
 		const playbackRate = sourceSpan * project.sampleRate / (timelineSpan * sourceSampleRate);

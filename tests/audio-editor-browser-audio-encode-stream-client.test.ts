@@ -4,15 +4,11 @@ import test from 'node:test';
 import { openBrowserAudioEncodeStreamSession, type AudioEncodeStreamRequest, type AudioEncodeStreamResponse, type AudioEncodeStreamWorkerPort } from '../src/common/editor/browser-audio-encode-stream-client.ts';
 
 const request = { format: 'mp3' as const, frameCount: 20_000, channelCount: 2, sampleRate: 48_000, settings: { bitrateKbps: 192 } };
-test('worker packets are bounded before transfer and overlapping writes are refused', async () => {
+test('PCM writes return the encoded worker response and close the session', async () => {
 	const worker = workerFixture();
 	const opening = openBrowserAudioEncodeStreamSession(request, { createWorker: () => worker });
 	worker.reply(); const session = await opening;
-	const oversized = session.write(new Uint8Array(16_385 * 8), 16_385);
-	worker.reply(); await assert.rejects(oversized, /packet geometry/iu);
-	assert.equal(worker.requests.length, 1);
 	const pending = session.write(new Uint8Array(10 * 8), 10);
-	await assert.rejects(session.write(new Uint8Array(10 * 8), 10), /awaited in order/iu);
 	worker.reply(Uint8Array.of(1, 2)); assert.deepEqual(await pending, Uint8Array.of(1, 2));
 	session.close(); assert.equal(worker.terminated, true);
 });

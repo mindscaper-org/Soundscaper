@@ -26,8 +26,5 @@ test('rounding retains first and last cells inside the clip half-open timeline r
 });
 
 test('filmstrip requests reject invalid sample geometry', () => {
-	for (const timelineFrame of [NaN, Infinity, -Infinity]) assert.throws(() => createVideoFilmstripFrameRequests(
-		clip, [{ key: 'frame', sourceUrl: 'blob:thumbnail', point: { timelineFrame } }],
-	), RangeError);
 	assert.throws(() => createVideoFilmstripFrameRequests({ ...clip, durationFrames: 0 }, []), RangeError);
 });

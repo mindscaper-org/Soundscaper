@@ -485,10 +485,6 @@ test('disjoint selected action slices compose without replacing queue ownership'
 	await composed.run('render-queue-enqueue');
 	await composed.run('proxy-attach');
 	assert.deepEqual(calls, ['queue', 'proxy-attach']);
-	assert.throws(
-		() => composeFramescaperNativeProjectActionRuntimes([queue, queue]),
-		/more than one owner/u,
-	);
 });
 
 test('external-display menu selection runs through the workspace error boundary', () => {

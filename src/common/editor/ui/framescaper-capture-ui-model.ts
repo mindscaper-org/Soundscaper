@@ -3,6 +3,7 @@
 import { productProfile } from '../../products.js';
 import type {
 	CaptureDestination,
+	CaptureFailure,
 	CaptureMetricConfidence,
 	CaptureMetricObservation,
 	CapturePhase,
@@ -75,7 +76,7 @@ export interface FramescaperCaptureUiSnapshot {
 		readonly countdownMs: number;
 	}>;
 	readonly permissionRequestGeneration?: number | null;
-	readonly failure?: Readonly<{ readonly message: string }> | null;
+	readonly failure?: Readonly<CaptureFailure> | null;
 	readonly elapsedTimeMs?: number;
 	readonly metrics?: readonly FramescaperCaptureUiMetric[];
 	readonly monitoring?: boolean;

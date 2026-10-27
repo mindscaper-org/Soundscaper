@@ -35,8 +35,6 @@ import {
 	type EditorTaskScope,
 } from '../../shared/lifecycle.ts';
 import {
-	findControllerClip,
-	findControllerSource,
 	findControllerTrack,
 	type ControllerClip,
 	type ControllerProject,
@@ -137,6 +135,9 @@ export function createTrackTransformService(
 		const sources = dependencies.derivedSources.uniqueClipSources(clips);
 		const sourcesToResample = sources.filter((source) => source.sampleRate !== sampleRate);
 		if (!sourcesToResample.length) return track.id;
+		const sourceById = new Map(sources.map(source => [source.id, source]));
+		const linkedVideoByLink = new Map(project.clips.filter(clip => clip.kind === 'video' && clip.avLinkId)
+			.map(clip => [clip.avLinkId, clip]));
 		const estimatedBytes = sourcesToResample.reduce((sum, source) => (
 				sum + Math.max(1, scaleSampleFrame(source.frameCount, source.sampleRate, sampleRate, 'point'))
 				* source.channelCount * Float32Array.BYTES_PER_ELEMENT
@@ -165,7 +166,7 @@ export function createTrackTransformService(
 					replacements.set(source.id, record);
 				}
 				const commands: AudioEditorCommand[] = derived.map(({ source }) => createAddSourceCommand(source));
-				for (const clip of clips) addResampledClipCommands(commands, track, clip, replacements, sampleRate);
+				for (const clip of clips) addResampledClipCommands(commands, track, clip, replacements, sampleRate, sourceById, linkedVideoByLink);
 				assertOwned(ownership);
 				commands.push(...resampledClipSelectionCommands(dependencies.getProject().selection, clips.map(clip => clip.id)));
 				dependencies.commit({ type: 'batch', commands }, { selectTrackId: track.id }, { microfadeNewClips: false });
@@ -241,6 +242,7 @@ export function createTrackTransformService(
 		const sources = dependencies.derivedSources.uniqueClipSources(clips);
 		const bytes = sources.reduce((sum, source) => sum
 			+ source.frameCount * 2 * Float32Array.BYTES_PER_ELEMENT, 0);
+		const sourceById = new Map(sources.map(source => [source.id, source]));
 		return runTransform(dependencies.copy.rewritingChannels ? 'rewritingChannels' : 'audacityProcessing', async (ownership) => {
 			await dependencies.preflightStorage(bytes, 'effect');
 			assertOwned(ownership);
@@ -303,7 +305,7 @@ export function createTrackTransformService(
 					...copyDerivedTrackEffectAutomation(project, track.id, rightTrackId, rightEffectIds, dependencies.createId),
 				];
 				for (const clip of clips) {
-					const pair = sourcePairs.get(clip.sourceId), original = findControllerSource(project, clip.sourceId);
+					const pair = sourcePairs.get(clip.sourceId), original = sourceById.get(clip.sourceId);
 					if (pair && original) commands.push(...splitStereoClipCommands(track.id, rightTrackId, clip,
 						original, pair, dependencies.createId, publishedCopyFor(dependencies.copy).rightChannel));
 				}
@@ -339,8 +341,9 @@ export function createTrackTransformService(
 		if (!partner) throw createLocalizedError(Error, dependencies.copy, dependencies.copy.compatibleMonoTrackRequired ? 'compatibleMonoTrackRequired' : dependencies.copy.monoTrackRequired ? 'monoTrackRequired' : 'audioTrackRequired');
 		assertTakeCompChannelRewriteAllowed(project, [track.id, partner.id], dependencies.copy);
 		const partnerIndex = project.tracks.findIndex((candidate) => candidate.id === partner.id);
+		const clipById = new Map(project.clips.map(clip => [clip.id, clip]));
 		const clips = [...(track.clipIds ?? []), ...(partner.clipIds ?? [])]
-			.map((clipId) => findControllerClip(project, clipId))
+			.map((clipId) => clipById.get(clipId))
 			.filter((clip): clip is ControllerClip => Boolean(clip));
 		const { startFrame, endFrame } = stereoTrackRenderRange([track, partner], clips, dependencies.projectSampleRate(),
 			Array.isArray(project.automationLanes) ? project.automationLanes : []);
@@ -486,13 +489,13 @@ export function createTrackTransformService(
 		clip: ControllerClip,
 		replacements: ReadonlyMap<string, DerivedSourceRecord>,
 		sampleRate: number,
+		sourceById: ReadonlyMap<string, ControllerSource>,
+		linkedVideoByLink: ReadonlyMap<unknown, ControllerClip>,
 	): void {
-		const project = dependencies.getProject();
-		const originalSource = findControllerSource(project, clip.sourceId);
+		const originalSource = sourceById.get(clip.sourceId);
 		const replacement = replacements.get(clip.sourceId);
 		if (!originalSource || !replacement) return;
-		const linkedVideo = clip.avLinkId ? project.clips.find(candidate =>
-			candidate.kind === 'video' && candidate.avLinkId === clip.avLinkId) ?? null : null;
+		const linkedVideo = clip.avLinkId ? linkedVideoByLink.get(clip.avLinkId) ?? null : null;
 		commands.push(...resampledClipCommands(
 			track.id, clip, originalSource, replacement.source, sampleRate, linkedVideo,
 		));
@@ -527,6 +530,7 @@ export function createTrackTransformService(
 }
 
 function trackClips(project: ControllerProject, track: ControllerTrack): ControllerClip[] {
-	return (track.clipIds ?? []).map((clipId) => findControllerClip(project, clipId))
+	const clipById = new Map(project.clips.map(clip => [clip.id, clip]));
+	return (track.clipIds ?? []).map((clipId) => clipById.get(clipId))
 		.filter((clip): clip is ControllerClip => Boolean(clip));
 }

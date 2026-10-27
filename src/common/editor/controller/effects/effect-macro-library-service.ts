@@ -5,8 +5,10 @@ import {
 	deleteEffectMacro,
 	listEffectMacros,
 	saveEffectMacro,
+	saveOwnedEffectMacro,
 } from '../../effect-macro-library.js';
 import { createCoalescingSettingPersistence } from './internal/coalescing-setting-persistence.ts';
+import { ownsEffectLibraries } from './internal/owned-effect-library-state.ts';
 
 export const EFFECT_MACRO_LIBRARY_SETTING_KEY = 'audio-editor-effect-macros-v1';
 
@@ -83,7 +85,7 @@ export function createEffectMacroLibraryService(runtime: EffectMacroLibraryServi
 
 	function saveMacro(macro: unknown): EffectMacroLibraryEntry {
 		assertWritable();
-		const result = saveEffectMacro(runtime.state.effectMacros, {
+		const result = (ownsEffectLibraries(runtime.state) ? saveOwnedEffectMacro : saveEffectMacro)(runtime.state.effectMacros, {
 			macro,
 			idFactory: (prefix: string) => runtime.createId(prefix),
 		}) as Readonly<{ state: EffectMacroLibraryState; macro: EffectMacroLibraryEntry }>;

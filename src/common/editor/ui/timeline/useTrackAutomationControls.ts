@@ -39,13 +39,13 @@ export function useTrackAutomationControls(
 	const projectIdentityRef = useRef(projectIdentity);
 	const targetsByTrackId = useMemo(() => {
 		const map = new Map<string, readonly TrackAutomationTargetV21[]>();
-		if (!enabled || !Array.isArray(project?.tracks)) return map;
+		if (!enabled || !Array.isArray(project?.tracks) || Object.keys(selectionByTrackId).length === 0) return map;
 		for (const candidate of project.tracks) {
-			if (!record(candidate) || candidate.type !== 'audio' || typeof candidate.id !== 'string') continue;
+			if (!record(candidate) || candidate.type !== 'audio' || typeof candidate.id !== 'string' || !Object.hasOwn(selectionByTrackId, candidate.id)) continue;
 			map.set(candidate.id, createTrackAutomationTargetInventoryV21(project, candidate.id));
 		}
 		return map;
-	}, [enabled, project]);
+	}, [enabled, project, selectionByTrackId]);
 	useEffect(() => {
 		if (projectIdentityRef.current !== projectIdentity) {
 			projectIdentityRef.current = projectIdentity;
@@ -82,10 +82,11 @@ export function useTrackAutomationControls(
 			const selected = selectedTargetByTrackId.get(trackId);
 			if (selected?.lane?.id === runtime.snapshot.laneId) runtime.setMode('read', null);
 		}
+		const targets = targetsByTrackId.get(trackId) ?? (enabled && project ? createTrackAutomationTargetInventoryV21(project, trackId) : []);
 		setSelectionByTrackId((current) => toggleTrackAutomationControls(
-			current, trackId, targetsByTrackId.get(trackId) ?? [],
+			current, trackId, targets,
 		));
-	}, [runtime, selectedTargetByTrackId, selectionByTrackId, targetsByTrackId]);
+	}, [enabled, project, runtime, selectedTargetByTrackId, selectionByTrackId, targetsByTrackId]);
 	const selectTarget = useCallback((trackId: string, targetKey: string) => {
 		setSelectionByTrackId((current) => selectTrackAutomationTarget(
 			current, trackId, targetKey, targetsByTrackId.get(trackId) ?? [],

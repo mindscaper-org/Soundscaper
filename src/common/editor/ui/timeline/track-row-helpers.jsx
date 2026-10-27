@@ -40,6 +40,7 @@ export function samplePointAtPointer(event, lane, clip, source, frameAtClientX, 
 	return {
 		channel,
 		timelineFrame,
+		renderedValue: value,
 		value: samplePointerSourceAmplitude(clip, timelineFrame, value),
 	};
 }

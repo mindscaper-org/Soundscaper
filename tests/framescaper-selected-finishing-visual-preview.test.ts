@@ -14,6 +14,7 @@ import {
 } from '../src/framescaper/editor-selected-finishing-visual-preview.ts';
 import { framescaperV20Options } from './helpers/framescaper-model-fixture.ts';
 import { transitionProjectOptions } from './helpers/framescaper-unified-render-project-fixture.ts';
+import { nativeOpenFxVisualPreviewFixture } from './helpers/framescaper-native-openfx-preview-fixture.ts';
 
 type Data = Record<string, unknown>;
 
@@ -22,7 +23,7 @@ interface PreviewEntry {
 	readonly available: boolean; readonly opacity: number;
 	readonly displayWidth: number; readonly displayHeight: number;
 	readonly effects: readonly unknown[];
-	readonly video: Readonly<{ videoWidth: number; videoHeight: number; readyState: number }>;
+	readonly video: Readonly<{ videoWidth: number; videoHeight: number; readyState: number; drawable?: Data }>;
 }
 
 interface PreviewFrame {
@@ -55,7 +56,7 @@ function store(asset: Blob | null = null): never {
 function canvasStub(): Data {
 	const canvas: Data = { width: 0, height: 0 };
 	canvas.getContext = () => ({
-		putImageData: () => undefined,
+		putImageData: (image: Readonly<{ data: Uint8ClampedArray }>) => { canvas.pixels = image.data; },
 		clearRect: () => undefined,
 		drawImage: () => undefined,
 		getImageData: (_x: number, _y: number, width: number, height: number) => ({
@@ -384,14 +385,8 @@ test('a placed external generator without an OpenFX host is refused before the s
 
 test('an OpenFX host admits the external generator at full canvas size with a blank plate', async (t) => {
 	useDom(t);
-	const preview = await openSession(t, {
-		project: projectOf(externalGeneratorOptions()),
-		createOpenFxExecution: ({ foundationPlan }: Data) => ({
-			// The host owns a V14 graph; this fixture carries no OpenFX node to execute.
-			plan: { ...(foundationPlan as Data), version: 14 },
-			execute: () => Promise.reject(new Error('never invoked')),
-		}),
-	});
+	const host = nativeOpenFxVisualPreviewFixture(externalGeneratorOptions());
+	const preview = await openSession(t, { project: host.project, createOpenFxExecution: host.createOpenFxExecution });
 
 	const entry = preview.resolve(0).layers[0]!.entries[0]!;
 
@@ -399,6 +394,8 @@ test('an OpenFX host admits the external generator at full canvas size with a bl
 		{ kind: entry.kind, width: entry.displayWidth, height: entry.displayHeight },
 		{ kind: 'external-generator', width: 320, height: 180 },
 	);
+	assert.deepEqual(entry.video.drawable?.pixels, new Uint8ClampedArray(320 * 180 * 4));
+	assert.equal(host.executionCount(), 0);
 });
 
 test('a Project Bin generator thumbnail materializes its solid at the requested size', async () => {

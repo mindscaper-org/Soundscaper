@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import type { DesktopCodecCopy } from '../desktop-codec-presentation.ts';
 import {
+	desktopVideoExportCapabilityNotice,
 	desktopVideoExportCapabilities,
 	desktopVideoExportFormatAvailable,
 	desktopVideoExportFormatReason,
@@ -33,7 +35,7 @@ const BROWSER_CAPABILITIES = Object.freeze({
 /** Query desktop video execution support without treating generic FFmpeg readiness as support. */
 export function useDesktopVideoExportCapabilities(
 	fileService: DesktopVideoExportFileService | null | undefined,
-	isOpen: boolean,
+	isOpen: boolean, copy?: DesktopCodecCopy,
 ): DesktopVideoExportCapabilityModel {
 	const desktop = fileService?.isDesktop === true;
 	const [result, setResult] = useState<CapabilityResult | null>(null);
@@ -56,9 +58,9 @@ export function useDesktopVideoExportCapabilities(
 		const capabilities = resolved ? result.capabilities : FAIL_CLOSED_CAPABILITIES;
 		return {
 			resolved,
-			notice: resolved ? capabilities.notice : null,
+			notice: resolved ? desktopVideoExportCapabilityNotice(capabilities.formats, copy) : null,
 			available: (format: unknown) => desktopVideoExportFormatAvailable(format, capabilities),
-			reason: (format: unknown) => desktopVideoExportFormatReason(format, capabilities),
+			reason: (format: unknown) => desktopVideoExportFormatReason(format, capabilities, copy),
 		};
-	}, [desktop, fileService, result]);
+	}, [copy, desktop, fileService, result]);
 }

@@ -1,6 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 const ENGLISH = Object.freeze({
+	automationGroupRouting: 'Routing',
+	automationAssignmentTarget: 'Assignment to {destination}',
+	automationSendTarget: 'Send to {destination}',
+	automationRoute: 'Route',
+	automationParameterUnavailable: 'Automation is unavailable for this parameter.',
+	automationMultichannelPanUnavailable: 'Pan is unavailable while preserving multichannel or ADM channels.',
+	automationElementParameter: '{element} · {parameter}',
 	automation: 'automation',
 	addAutomation: 'Add automation',
 	automationParameter: 'Automation parameter',

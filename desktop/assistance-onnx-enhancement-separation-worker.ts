@@ -46,6 +46,7 @@ import {
 	applyTigerDnrMaskV1,
 	packTigerDnrSpectrumV1,
 } from './assistance-tiger-dnr-onnx-tensors.ts';
+import { prepareAssistanceWaveChannelGroup } from './assistance-wave-channel-group-reader.ts';
 import {
 	createNodeAssistanceFloat32WaveStorageV1,
 	type AssistanceFloat32WaveSealedOutputV1,
@@ -290,6 +291,7 @@ async function executeTigerDnr(
 			const workUnits = plan.chunks.length * batchCount;
 			let completedUnits = 0;
 			for (const chunk of plan.chunks) {
+				const chunkSource = prepareAssistanceWaveChannelGroup(source);
 				overlap.beginChunk(chunk.chunkIndex);
 				for (let channelStart = 0; channelStart < source.geometry.channelCount;
 					channelStart += ASSISTANCE_TIGER_SESSION_MAXIMUM_CHANNELS) {
@@ -297,7 +299,7 @@ async function executeTigerDnr(
 					const channelCount = Math.min(ASSISTANCE_TIGER_SESSION_MAXIMUM_CHANNELS,
 						source.geometry.channelCount - channelStart);
 					const channels = await readTigerChunkChannels(
-						source, plan, chunk.chunkIndex, channelStart, channelCount, context.signal,
+						chunkSource, plan, chunk.chunkIndex, channelStart, channelCount, context.signal,
 					);
 					const spectrum = tigerDnrStftV1({ schemaVersion: 1,
 						sampleRate: ASSISTANCE_TIGER_DNR_SAMPLE_RATE, channels });

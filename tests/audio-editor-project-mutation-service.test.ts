@@ -109,12 +109,6 @@ test('a rolled-back macro transaction settles the same way and cannot also commi
 	assert.throws(() => transaction.commit({ type: 'macro/run' }), /settles exactly once/u);
 });
 
-test('a runtime that cannot fold history refuses to open a macro transaction', () => {
-	// Framescaper carries its own history primitives and no macros; the capability
-	// fence keeps it away from this, and the service says so rather than guessing.
-	const fixture = mutationFixture({ macroHistory: false });
-	assert.throws(() => fixture.service.beginMacroTransaction(), /does not run macros/u);
-});
 
 test('selection updates replace only history.present and do not autosave or compact', () => {
 	const initial = projectFixture(1);

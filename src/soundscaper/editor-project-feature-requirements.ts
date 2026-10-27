@@ -16,6 +16,7 @@ import {
 	type ProjectFeatureRequirement,
 	type ProjectFeatureRequirementsManifest,
 } from '../common/editor/project-feature-requirements.ts';
+import { exactRecordIdIndex } from '../common/editor/exact-record-id-index.ts';
 import { reconcileSoundscaperNativePluginRequirements } from './editor-native-plugin-playback.ts';
 
 export const SOUNDSCAPER_AUDIO_TRACK_FREEZE_REQUIREMENT_ID_PREFIX =
@@ -120,7 +121,7 @@ export function rebindSoundscaperFreezeSourceIdentities(
 		.filter((requirement) => requirement.disposition === 'rendered-fallback')
 		.map((requirement) => stableId(requirement.id, 'project feature requirement')));
 	const tracks = dataArray(project.tracks, 'project.tracks');
-	const sources = dataArray(project.sources, 'project.sources');
+	const sources = freezeDocumentContext(project);
 	for (const track of tracks) {
 		if (track.type !== 'audio' || !Object.hasOwn(track, 'audioFreeze')) continue;
 		const requirementId = soundscaperAudioTrackFreezeRequirementId(track.id);
@@ -169,7 +170,7 @@ export function rebindSoundscaperProjectSourceIdentities(
 
 function expectedFreezeRequirements(project: DataRecord): readonly ProjectFeatureRequirement[] {
 	const tracks = dataArray(project.tracks, 'project.tracks');
-	const sources = dataArray(project.sources, 'project.sources');
+	const sources = freezeDocumentContext(project);
 	const requirements: ProjectFeatureRequirement[] = [];
 	const derivedSourceIds = new Set<string>();
 	for (const [index, candidate] of tracks.entries()) {
@@ -182,7 +183,7 @@ function expectedFreezeRequirements(project: DataRecord): readonly ProjectFeatur
 			throw new RangeError('Every frozen audio track must own a distinct derived source.');
 		}
 		derivedSourceIds.add(freeze.derivedSourceId);
-		const source = exactRecordById(sources, freeze.derivedSourceId, 'freeze derived source');
+		const source = exactRecordById(sources.sources, freeze.derivedSourceId, 'freeze derived source');
 		const contentSha256 = digest(source.contentSha256, `derived source ${freeze.derivedSourceId}`);
 		const base = Object.freeze({
 			id: soundscaperAudioTrackFreezeRequirementId(trackId),
@@ -213,7 +214,7 @@ function documentFreezeIsFresh(
 	project: DataRecord,
 	track: DataRecord,
 	freeze: ReturnType<typeof normalizeAudioTrackFreezeV1>,
-	sources: readonly DataRecord[],
+	sources: FreezeDocumentContext,
 ): boolean {
 	try {
 		const digests = documentFreezeDigests(project, track, freeze, sources);
@@ -227,17 +228,17 @@ function documentFreezeDigests(
 	project: DataRecord,
 	track: DataRecord,
 	freeze: ReturnType<typeof normalizeAudioTrackFreezeV1>,
-	sources: readonly DataRecord[],
+	sources: FreezeDocumentContext,
 ): ReturnType<typeof computeAudioTrackFreezeDigestsV1> {
-	const clips = dataArray(project.clips, 'project.clips');
+	const { clips, byId } = sources.clips();
 	const clipIds = stringArray(track.clipIds, `audio track ${String(track.id)}.clipIds`);
 	const sourceIds = new Set<string>();
 	for (const clipId of clipIds) {
-		const clip = exactRecordById(clips, clipId, 'freeze input clip');
+		const clip = exactRecordById(byId, clipId, 'freeze input clip');
 		sourceIds.add(stableId(clip.sourceId, `freeze input clip ${clipId} source`));
 	}
 	const sourceContentIdentities = Object.freeze(Array.from(sourceIds, (sourceId) => {
-		const source = exactRecordById(sources, sourceId, 'freeze input source');
+		const source = exactRecordById(sources.sources, sourceId, 'freeze input source');
 		return Object.freeze({
 			sourceId,
 			contentSha256: digest(source.contentSha256, `source ${sourceId}`),
@@ -267,12 +268,27 @@ function projectContext(project: DataRecord): Parameters<typeof normalizeProject
 	};
 }
 
-function exactRecordById(values: readonly unknown[], id: string, name: string): DataRecord {
-	const matches = values.filter((candidate, index) => (
-		dataRecord(candidate, `${name}[${String(index)}]`).id === id
-	));
-	if (matches.length !== 1) throw new ReferenceError(`${name} ${id} must exist exactly once.`);
-	return dataRecord(matches[0], `${name} ${id}`);
+interface FreezeDocumentContext {
+	readonly sources: ReadonlyMap<unknown, DataRecord | null>;
+	readonly clips: () => { readonly clips: readonly DataRecord[]; readonly byId: ReadonlyMap<unknown, DataRecord | null> };
+}
+
+function freezeDocumentContext(project: DataRecord): FreezeDocumentContext {
+	const sources = exactRecordIdIndex(dataArray(project.sources, 'project.sources'));
+	let context: ReturnType<FreezeDocumentContext['clips']> | undefined;
+	return { sources, clips: () => {
+		if (!context) {
+			const clips = dataArray(project.clips, 'project.clips');
+			context = { clips, byId: exactRecordIdIndex(clips) };
+		}
+		return context;
+	} };
+}
+
+function exactRecordById(values: ReadonlyMap<unknown, DataRecord | null>, id: string, name: string): DataRecord {
+	const record = values.get(id);
+	if (!record) throw new ReferenceError(`${name} ${id} must exist exactly once.`);
+	return record;
 }
 
 function sameRequirement(left: ProjectFeatureRequirement, right: ProjectFeatureRequirement): boolean {

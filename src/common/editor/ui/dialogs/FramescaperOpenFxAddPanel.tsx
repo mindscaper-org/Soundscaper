@@ -1,9 +1,10 @@
+import { useCommittedCallbacks } from '../useCommittedCallbacks.ts';
 import { feedbackFailure, presentationFeedbackText, usePresentationFeedback, type PresentationFeedback } from '../presentation-feedback.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 /** Lazy, menu-owned authoring surface for every baseline OpenFX context. */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 
 import type { OfxParameterStateV1 } from '../../native-ofx-binding.ts';
 import type { OfxParameterDescriptorV1 } from '../../native-ofx-descriptor.ts';
@@ -85,7 +86,12 @@ function CompatibleFramescaperOpenFxAddForm({ model, onAuthor, copy }: Required<
 	const [state, setState] = useState(initial);
 	const [status, setStatus] = useState<'ready' | 'working' | 'complete'>('ready');
 	const [error, setError] = usePresentationFeedback(copy);
-	const plugin = pluginFor(model, state.pluginHandle);
+	const plugin = useMemo(() => pluginFor(model, state.pluginHandle), [model, state.pluginHandle]);
+	const parameterActions = useCommittedCallbacks({
+		onValue: (name: string, value: string | boolean) => setState(current => ({ ...current, values: { ...current.values, [name]: value } })),
+		onKeyframes: (name: string, value: string) => setState(current => ({ ...current, keyframes: { ...current.keyframes, [name]: value } })),
+		onCustomEncoding: (name: string, value: string) => setState(current => ({ ...current, customEncodings: { ...current.customEncodings, [name]: value } })),
+	});
 	const contexts = plugin.supportedContexts.filter((context) => (
 		model.targets.some((target) => target.context === context)
 	));
@@ -153,17 +159,7 @@ function CompatibleFramescaperOpenFxAddForm({ model, onAuthor, copy }: Required<
 				keyframes={state.keyframes[parameter.name] ?? '[]'}
 				customEncoding={state.customEncodings[parameter.name] ?? ''}
 				copy={copy}
-				onValue={(value) => setState((current) => ({
-					...current, values: { ...current.values, [parameter.name]: value },
-				}))}
-				onKeyframes={(value) => setState((current) => ({
-					...current, keyframes: { ...current.keyframes, [parameter.name]: value },
-				}))}
-				onCustomEncoding={(value) => setState((current) => ({
-					...current, customEncodings: {
-						...current.customEncodings, [parameter.name]: value,
-					},
-				}))}
+				{...parameterActions}
 			/>)}
 		</fieldset>
 		<p><button type="submit" disabled={status === 'working'}
@@ -184,16 +180,16 @@ function compatibleAuthoringModel(
 	});
 }
 
-function ParameterControl({
+const ParameterControl = memo(function ParameterControl({
 	parameter, value, keyframes, customEncoding, onValue, onKeyframes, onCustomEncoding, copy,
 }: Readonly<{
 	parameter: OfxParameterDescriptorV1;
 	value: string | boolean;
 	keyframes: string;
 	customEncoding: string;
-	onValue: (value: string | boolean) => void;
-	onKeyframes: (value: string) => void;
-	onCustomEncoding: (value: string) => void;
+	onValue: (name: string, value: string | boolean) => void;
+	onKeyframes: (name: string, value: string) => void;
+	onCustomEncoding: (name: string, value: string) => void;
 	copy: FramescaperNativeServicesCopy;
 }>) {
 	const valueless = parameter.type === 'group' || parameter.type === 'page';
@@ -202,25 +198,25 @@ function ParameterControl({
 			: parameter.type === 'pushbutton' ? <button type="button">{parameter.name}</button>
 				: parameter.type === 'boolean' ? <label>
 					<input type="checkbox" checked={value === true}
-						onChange={(event) => onValue(event.currentTarget.checked)} /> {parameter.name}
+						onChange={(event) => onValue(parameter.name, event.currentTarget.checked)} /> {parameter.name}
 				</label>
 					: textParameter(parameter.type) ? <label>{parameter.name}
 						<input type="text" value={String(value)}
-							onChange={(event) => onValue(event.currentTarget.value)} />
+							onChange={(event) => onValue(parameter.name, event.currentTarget.value)} />
 					</label>
 						: <label>{template(copy.ofxParameterJson, parameter)}
 							<textarea value={String(value)}
-								onChange={(event) => onValue(event.currentTarget.value)} />
+								onChange={(event) => onValue(parameter.name, event.currentTarget.value)} />
 						</label>}
 		{parameter.animates && <label>{template(copy.ofxKeyframesJson, parameter)}
-			<textarea value={keyframes} onChange={(event) => onKeyframes(event.currentTarget.value)} />
+			<textarea value={keyframes} onChange={(event) => onKeyframes(parameter.name, event.currentTarget.value)} />
 		</label>}
 		{parameter.type === 'custom' && <label>{template(copy.ofxCustomEncoding, parameter)}
 			<textarea value={customEncoding}
-				onChange={(event) => onCustomEncoding(event.currentTarget.value)} />
+				onChange={(event) => onCustomEncoding(parameter.name, event.currentTarget.value)} />
 		</label>}
 	</div>;
-}
+});
 
 export function createFramescaperOpenFxFormState(
 	model: FramescaperOpenFxAuthoringModelNativeMedia,

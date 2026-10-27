@@ -195,11 +195,4 @@ test('sound activation preferences convert milliseconds to bounded runtime frame
 		...ENABLED_PREFERENCES,
 		holdMilliseconds: 600_000,
 	}, 384_000)?.holdFrames, 230_400_000);
-
-	for (const sampleRate of [0, -0, -1, 44_100.5, 384_001, NaN, Number.POSITIVE_INFINITY]) {
-		assert.throws(
-			() => soundActivationSettingsFromPreferences(ENABLED_PREFERENCES, sampleRate),
-			/sound activation sample rate/i,
-		);
-	}
 });

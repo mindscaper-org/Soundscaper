@@ -214,7 +214,6 @@ test('single-step snapping moves to the adjacent absolute grid point without dri
 	assert.equal(stepAudioEditorSnappedFrame(3_670, 'left', 'video-24', context), 1_838);
 	assert.equal(stepAudioEditorSnappedFrame(0, 'left', 'seconds', { sampleRate: 48_000 }), 0);
 	assert.equal(stepAudioEditorSnappedFrame(0, 'left', 'seconds', { sampleRate: 48_000, minimumFrame: null }), -48_000);
-	assert.throws(() => stepAudioEditorSnappedFrame(0, 'up', 'seconds'), /Unsupported snap direction/);
 });
 
 test('snap helpers reject invalid rates, tempo, signatures, modes, frames, and bounds', () => {

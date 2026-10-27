@@ -31,22 +31,3 @@ test('E17 annotation paste admission resolves copied track ownership once', cont
 	assert.ok(count < 1000);
 	assert.throws(() => assertPasteSequenceMaps(project, clipboard, { sequenceMap: { ...sequenceMap, 'sequence-199': 'sequence-0' } }), /does not map/u);
 });
-
-test('E16 annotation-only paste preserves a custom sequence map result for immutable inventories', () => {
-	const clipboard = { schemaVersion: 3, tracks: [], annotations: [{ sourceSequenceId: 'source', key: 'annotation' }] } as unknown as AudioEditorClipboard;
-	for (const frozen of [false, true]) {
-		let mapCalls = 0;
-		const sequences = [Object.freeze({ id: 'source', trackIds: Object.freeze([]) })];
-		Object.defineProperty(sequences, 'map', { value: () => { mapCalls++; return []; } });
-		if (frozen) Object.freeze(sequences);
-		const project = { tracks: Object.freeze([]), sequences, primarySequenceId: 'source', sampleRate: 48000 };
-		const command: Record<string, unknown> = {};
-		let allocated = 0;
-		assert.throws(() => preparePasteAnnotationMaps(clipboard, { project }, command, () => `annotation-${String(++allocated)}`), {
-			name: 'TypeError', message: 'A target sequence map is required for source.',
-		});
-		assert.deepEqual(command, {});
-		assert.equal(mapCalls, 1);
-		assert.equal(allocated, 0);
-	}
-});

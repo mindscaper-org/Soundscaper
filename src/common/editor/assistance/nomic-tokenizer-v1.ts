@@ -286,15 +286,18 @@ function basicTokens(value: string): readonly string[] {
 }
 
 function appendWordPiece(target: number[], token: string, vocab: ReadonlyMap<string, number>): void {
-	const characters = Array.from(token);
-	if (characters.length > MAXIMUM_WORD_CHARACTERS) { target.push(SPECIAL_IDS.unknown); return; }
+	const boundaries = [0];
+	let offset = 0;
+	for (const character of token) { offset += character.length; boundaries.push(offset); }
+	const characterCount = boundaries.length - 1;
+	if (characterCount > MAXIMUM_WORD_CHARACTERS) { target.push(SPECIAL_IDS.unknown); return; }
 	let start = 0;
 	const pieces: number[] = [];
-	while (start < characters.length) {
-		let end = characters.length;
+	while (start < characterCount) {
+		let end = characterCount;
 		let found: number | undefined;
 		while (start < end) {
-			const candidate = `${start === 0 ? '' : CONTINUING_PREFIX}${characters.slice(start, end).join('')}`;
+			const candidate = `${start === 0 ? '' : CONTINUING_PREFIX}${token.slice(boundaries[start], boundaries[end])}`;
 			found = vocab.get(candidate);
 			if (found !== undefined) break;
 			end -= 1;

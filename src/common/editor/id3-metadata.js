@@ -30,7 +30,7 @@ export function createAudioMetadataId3Tag(metadata = {}) {
 		if (ID3_CONTROL_KEYS.has(normalizedKey)) continue;
 		if (key.startsWith('url.')) {
 			frames.push(createId3Frame('WXXX', concatBytes(Uint8Array.of(3), new TextEncoder().encode(key.slice(4)),
-				Uint8Array.of(0), id3FramePayload('WXXX', value))));
+				Uint8Array.of(0), id3FramePayload('WXXX', value, key.slice(4)))));
 			continue;
 		}
 		const structured = preferredStructured.get(id3StructuredGroup(normalizedKey)) === entry
@@ -43,7 +43,7 @@ export function createAudioMetadataId3Tag(metadata = {}) {
 			? TEXT_FRAME_IDS[normalizedKey]
 			: undefined;
 		if (frameId && preferredTextFrames.get(frameId) === entry) {
-			frames.push(createId3Frame(frameId, id3FramePayload(frameId, positionWithTotal(frameId, value, companionMetadata))));
+			frames.push(createId3Frame(frameId, id3FramePayload(frameId, positionWithTotal(frameId, value, companionMetadata), key)));
 			continue;
 		}
 		frames.push(createId3Frame('TXXX', concatBytes(

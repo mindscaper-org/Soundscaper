@@ -89,7 +89,7 @@ async function exists(path: string): Promise<boolean> {
 	}
 }
 
-async function fixture(context: test.TestContext, mode: 'success' | 'failure' | 'desktop-failure', external: boolean | 'incompatible' | 'corrupt' = false) {
+async function fixture(context: test.TestContext, mode: 'success' | 'failure' | 'desktop-failure', external: boolean | 'incompatible' | 'corrupt' = false, useLoaders = true) {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-fixture-runner-test-'));
 	let runnerChild: ChildProcess | undefined = undefined;
 	let completion: Promise<{ code: number | null; signal: NodeJS.Signals | null }> | undefined = undefined;
@@ -116,6 +116,8 @@ async function fixture(context: test.TestContext, mode: 'success' | 'failure' | 
 		writeFile(join(root, 'node_modules/tsx/package.json'), '{"type":"module","exports":"./index.mjs"}'),
 		writeFile(join(root, 'node_modules/tsx/index.mjs'), 'export {};'),
 		writeFile(join(root, 'scripts/lib/fixture-control.mjs'), CONTROL_SOURCE),
+		writeFile(join(root, 'scripts/lib/node-test-bootstrap.mjs'),
+			`export const partitionNodeTestBootstrapBatches = (_root, files) => [{ files, useLoaders: ${String(useLoaders)} }];`),
 		writeFile(join(root, 'scripts/lib/node-test-shards.mjs'), [
 			"import { join } from 'node:path';",
 			'export const describeNodeTestSelection = () => "fixture tests";',
@@ -170,6 +172,7 @@ async function fixture(context: test.TestContext, mode: 'success' | 'failure' | 
 			"import { join } from 'node:path';",
 			"import test from 'node:test';",
 			'test("both freshly prepared fixtures reach the consumer", () => {',
+			`\twriteFileSync(join(process.env.${CONTROL_ENV}, "consumer-arguments"), JSON.stringify(process.execArgv));`,
 			`\tconst openfx = process.env.${OPENFX_ENV}, desktop = process.env.${DESKTOP_ENV}, native = process.env.${NATIVE_ENV};`,
 			'\tassert.equal(readFileSync(join(openfx, "ready"), "utf8"), "openfx");',
 			'\tassert.equal(readFileSync(join(desktop, "ready"), "utf8"), "desktop");',
@@ -219,6 +222,8 @@ test('the Node runner overlaps fresh preparations and supplies both fixtures onl
 	const [openfx, desktop, native] = await Promise.all(['openfx', 'desktop', 'native'].map(label => record(run.root, label)));
 	const consumer: unknown = JSON.parse(await readFile(join(run.root, 'consumer'), 'utf8'));
 	assert.deepEqual(consumer, { openfx: openfx.directory, desktop: desktop.directory, native: native.directory });
+	const arguments_: unknown = JSON.parse(await readFile(join(run.root, 'consumer-arguments'), 'utf8'));
+	assert.ok(Array.isArray(arguments_) && arguments_.includes('tsx') && arguments_.some(value => String(value).endsWith('node-style-asset-loader.mjs')));
 	for (const prepared of [openfx, desktop, native]) {
 		await assert.rejects(access(prepared.directory), { code: 'ENOENT' });
 	}
@@ -288,4 +293,13 @@ test('corrupt bytes remain fatal despite a different image and never start fallb
 	for (const label of ['openfx', 'desktop', 'native']) assert.equal(await exists(join(run.root, label + '.started')), false);
 	assert.equal(await exists(join(run.root, 'consumer')), false);
 	assert.equal(await readFile(join(run.externalRoot, 'ready'), 'utf8'), 'corrupt');
+});
+
+test('a proven native batch omits both optional loader imports while retaining fixture preparation', { timeout: 15_000 }, async context => {
+	const run = await fixture(context, 'success', false, false);
+	assert.deepEqual(await run.completed, { code: 0, signal: null }, run.output.join(''));
+	const arguments_: unknown = JSON.parse(await readFile(join(run.root, 'consumer-arguments'), 'utf8'));
+	assert.ok(Array.isArray(arguments_));
+	assert.equal(arguments_.includes('--import'), false);
+	assert.equal(await exists(join(run.root, 'consumer')), true);
 });

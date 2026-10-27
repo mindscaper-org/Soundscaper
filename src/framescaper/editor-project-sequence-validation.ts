@@ -137,6 +137,7 @@ function validateAttachmentRelationships(
 			'project.projectBin.clips',
 		),
 	].map((value, index) => dataRecord(value, `project occurrence ${String(index)}`));
+	const occurrenceSourceIds = new Set(clips.map(clip => clip.sourceId));
 	const proxyIdentity = new Map<string, string>();
 	const timingIdentity = new Map<string, string>();
 	for (const source of sourceRecords) {
@@ -160,8 +161,7 @@ function validateAttachmentRelationships(
 			attachment.timingAsset.byteLength, attachment.timingAsset.frameCount,
 			attachment.timingAsset.timescale, attachment.timingAsset.finalFrameDurationTicks,
 		], 'proxy timing body');
-		const occurrences = clips.filter((clip) => clip.sourceId === sourceId);
-		if (occurrences.length === 0) {
+		if (!occurrenceSourceIds.has(sourceId)) {
 			throw new RangeError(`Video source ${sourceId} proxy attachment requires an occurrence.`);
 		}
 	}

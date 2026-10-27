@@ -1,3 +1,4 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React, { useState } from 'react';
 import { EFFECT_REGISTRY } from '@audacity-ui/core';
 import { useTheme } from '../ThemeProvider';
@@ -64,7 +65,7 @@ export const MixerEffect: React.FC<MixerEffectProps> = ({
   onClick,
   className = '',
 }) => {
-  const { theme } = useTheme();
+  const { theme } = useTheme(); const { copy } = useComponentCopy();
   const populated = !!effectName;
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -110,7 +111,7 @@ export const MixerEffect: React.FC<MixerEffectProps> = ({
         <button
           className="mixer-effect__power"
           onClick={onToggle}
-          aria-label={enabled ? 'Disable effect' : 'Enable effect'}
+          aria-label={enabled ? copy.disableEffect : copy.enableEffect}
           aria-pressed={enabled}
         >
           <Icon name="power" size={16} color={iconColor} />
@@ -126,7 +127,7 @@ export const MixerEffect: React.FC<MixerEffectProps> = ({
       <button
         className="mixer-effect__dropdown"
         onClick={handleDropdownClick}
-        aria-label="Select effect"
+        aria-label={copy.selectEffect}
       >
         <Icon name="caret-down" size={16} color={iconColor} />
       </button>
@@ -139,7 +140,7 @@ export const MixerEffect: React.FC<MixerEffectProps> = ({
           y={menuPosition.y}
         >
           <ContextMenuItem
-            label="Remove effect"
+            label={copy.removeEffect}
             onClick={() => {
               onRemoveEffect?.();
               setMenuOpen(false);

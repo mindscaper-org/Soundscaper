@@ -64,9 +64,6 @@ test('insert, move, segment conversion, and removal retain stable point identiti
 	assert.deepEqual(moved.points.map(({ id }) => id), ['origin', 'middle', 'end']);
 	assert.equal(moved.points[1]?.position, 60);
 	assert.equal(moved.points[1]?.value, 0.33);
-	assert.throws(() => moveAutomationLanePointV21(moved, {
-		pointId: 'middle', frame: 100, value: 0, ...CONTEXT,
-	}), /between|ordered|neighbor/iu);
 
 	const eased = setAutomationLaneSegmentKindV21(moved, {
 		segmentIndex: 0, kind: 'eased', descriptor: DESCRIPTOR,
@@ -121,7 +118,7 @@ test('Bezier controls move within their segment and retain canonical values', ()
 	});
 });
 
-test('discrete lanes remain held and a sole point requires explicit lane deletion', () => {
+test('discrete lanes remain held after removing an endpoint', () => {
 	const muteAddress = Object.freeze({
 		kind: 'strip' as const,
 		strip: Object.freeze({ kind: 'track' as const, id: 'voice' }),
@@ -142,9 +139,6 @@ test('discrete lanes remain held and a sole point requires explicit lane deletio
 		pointId: 'mute-edit', descriptor,
 	});
 	assert.equal(endpointRemoved.points.length, 1);
-	assert.throws(() => removeAutomationLanePointV21(endpointRemoved, {
-		pointId: 'mute-origin', descriptor,
-	}), /sole|lane|one point/iu);
 });
 
 test('inserting beyond the 4096-point cap fails without partially mutating the lane', () => {

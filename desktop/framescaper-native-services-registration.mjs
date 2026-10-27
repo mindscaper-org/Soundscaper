@@ -7,7 +7,7 @@ import {
 	imageSequenceImportAuthorityPort,
 	registrationOptions,
 } from './framescaper-native-services-options.mjs';
-import { createFramescaperOpenFxCurrentProjectAuthority, createFramescaperOpenFxFrameRegistration } from './framescaper-openfx-frame-registration.mjs';
+import { createFramescaperOpenFxPlanCurrentProjectAuthority, createFramescaperOpenFxFrameRegistration } from './framescaper-openfx-frame-registration.mjs';
 /** Mount the dormant service database for Framescaper only; payload availability stays explicit. */
 export async function startFramescaperNativeServicesRegistration(value, dependencies = {}) {
 	const options = registrationOptions(value);
@@ -99,7 +99,7 @@ export async function startFramescaperNativeServicesRegistration(value, dependen
 			projectAuthority: () => projectAuthority, renderInputStaging, queueCapacity,
 			runtime: () => runtimeReady, reserveBackend,
 		});
-	const currentOpenFxProject = createFramescaperOpenFxCurrentProjectAuthority(options.projectAuthority); let openFxService, openFxFrames;
+	const currentOpenFxProject = createFramescaperOpenFxPlanCurrentProjectAuthority(options.projectAuthority); let openFxService, openFxFrames;
 	try {
 		openFxService = modules.createOpenFxService({
 			runtime: openFxRuntime,

@@ -17,4 +17,5 @@ module.exports = Object.freeze([
 	'desktop/assistance-keyed-video-preload.ts',
 	'src/common/editor/ara-contract.ts',
 	'src/common/editor/blender-contract.ts',
+	'vendor/audacity-design-system/components/src/component-copy.ts',
 ]);

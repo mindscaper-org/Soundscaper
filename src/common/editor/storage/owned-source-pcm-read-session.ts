@@ -234,7 +234,7 @@ export class OwnedSourcePcmReadSessionRepository {
 		signal?: AbortSignal,
 	): Promise<void> {
 		throwIfAborted(signal);
-		const current = await this.#options.records.getMetadataMany(generation.map((expected) => expected.id as string));
+		const current = await this.#options.records.getGenerationFences(generation.map((expected) => expected.id as string));
 		throwIfAborted(signal);
 		for (let index = 0; index < generation.length; index += 1) {
 			if (!sameStoredSourceIdentity(current[index], generation[index])) throw generationChangedError();

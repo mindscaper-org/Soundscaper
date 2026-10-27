@@ -212,7 +212,8 @@ export function planTransientAnalysisAdmission(
 		checkedProduct(Math.min(sourceFrameCount, sourceChunkFrames), channelCount),
 		Float32Array.BYTES_PER_ELEMENT,
 	);
-	const auxiliaryArrayBytes = checkedProduct(windowCount, 3 * FLOAT64_BYTES);
+	const auxiliaryArrayBytes = checkedAdd(checkedProduct(windowCount, 3 * FLOAT64_BYTES),
+		checkedProduct(parameters.hopFrames < parameters.windowFrames ? Math.min(frameCount, parameters.windowFrames) : 0, FLOAT64_BYTES));
 	// result() freezes a second candidate generation while the detector's
 	// mutable candidate list is still live.
 	const candidateBytes = checkedProduct(
@@ -252,6 +253,19 @@ export function detectPcmTransients(
 	channels: readonly Float32Array[],
 	options: Readonly<DetectPcmTransientsOptions> = {},
 ): Readonly<TransientAnalysisResult> {
+	return detectTransientPcm(channels, options, false);
+}
+
+/** Dedicated-worker planes have exclusive ArrayBuffer custody for this synchronous job. */
+export function detectOwnedPcmTransients(
+	channels: readonly Float32Array[], options: Readonly<DetectPcmTransientsOptions> = {},
+): Readonly<TransientAnalysisResult> {
+	return detectTransientPcm(channels, options, channels.every((channel) => channel.buffer instanceof ArrayBuffer));
+}
+
+function detectTransientPcm(
+	channels: readonly Float32Array[], options: Readonly<DetectPcmTransientsOptions>, owned: boolean,
+): Readonly<TransientAnalysisResult> {
 	const frameCount = validatePcmChannels(channels);
 	const sourceStartFrame = nonNegativeSafeInteger(options.sourceStartFrame ?? 0, 'sourceStartFrame');
 	const sourceEndFrame = safeAdd(sourceStartFrame, frameCount, 'Transient analysis source range');
@@ -263,6 +277,9 @@ export function detectPcmTransients(
 	const { windowCount } = planTransientAnalysisAdmission(frameCount, parameters, {
 		channelCount: channels.length,
 	});
+	const amplitudes = owned && parameters.hopFrames < parameters.windowFrames
+		? new Float64Array(Math.min(frameCount, parameters.windowFrames)) : null;
+	let computedUntil = 0;
 	const levels = new Float64Array(windowCount);
 	const peakFrames = new Float64Array(windowCount);
 	for (let windowIndex = 0; windowIndex < windowCount; windowIndex += 1) {
@@ -272,7 +289,12 @@ export function detectPcmTransients(
 		let peak = -1;
 		let peakFrame = start;
 		for (let frame = start; frame < end; frame += 1) {
-			const amplitude = aggregateAmplitude(channels, frame, channelPolicy);
+			let amplitude: number;
+			if (amplitudes && frame < computedUntil) amplitude = amplitudes[frame % amplitudes.length]!;
+			else {
+				amplitude = aggregateAmplitude(channels, frame, channelPolicy);
+				if (amplitudes) { amplitudes[frame % amplitudes.length] = amplitude; computedUntil = frame + 1; }
+			}
 			squareSum += amplitude * amplitude;
 			if (amplitude > peak) {
 				peak = amplitude;

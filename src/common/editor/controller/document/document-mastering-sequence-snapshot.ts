@@ -2,13 +2,13 @@
 
 import {
 	masteringSequenceEntryTitle,
+	validateMasteringSequenceWithRegionIndexV23,
 	type MasteringSequenceIssue,
 	type MasteringSequenceRegionView,
 	type MasteringSequenceV23,
 } from '../../mastering-sequence.ts';
 import {
 	masteringSequenceRegionViews,
-	validateProjectMasteringSequence,
 } from '../../mastering-sequence-regions.ts';
 import type { RuntimeTimelineAnnotationProject } from '../../runtime-timeline-annotation-projection.ts';
 
@@ -90,7 +90,7 @@ export function createDocumentMasteringSequenceSnapshot(
 	const regions = masteringSequenceRegionViews(document);
 	const byId = new Map(regions.map((region) => [region.id, region]));
 	const sequences = (project.masteringSequences as unknown as readonly MasteringSequenceV23[])
-		.map((sequence) => snapshotSequence(document, sequence, byId));
+		.map((sequence) => snapshotSequence(sequence, byId));
 	return Object.freeze({
 		sequences: Object.freeze(sequences),
 		primarySequenceId: String(document.primarySequenceId ?? ''),
@@ -105,11 +105,10 @@ export function createDocumentMasteringSequenceSnapshot(
 }
 
 function snapshotSequence(
-	project: RuntimeTimelineAnnotationProject,
 	sequence: MasteringSequenceV23,
 	regions: ReadonlyMap<string, MasteringSequenceRegionView>,
 ): DocumentMasteringSequenceSnapshot {
-	const validation = validateProjectMasteringSequence(project, sequence);
+	const validation = validateMasteringSequenceWithRegionIndexV23(sequence, regions);
 	let totalFrames = 0;
 	const entries = sequence.entries.map((entry) => {
 		const region = regions.get(entry.annotationId) ?? null;

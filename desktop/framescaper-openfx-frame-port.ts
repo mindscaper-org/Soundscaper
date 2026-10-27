@@ -15,6 +15,8 @@ import {
 } from './helper-data-plane.ts';
 import {
 	admitFramescaperOpenFxFrameControlV1,
+	executeFramescaperOpenFxPreparedFrame,
+	type AdmittedFramescaperOpenFxFrameControlV1,
 	type FramescaperOpenFxFrameControlV1,
 	type FramescaperOpenFxFrameExecutionService,
 } from './framescaper-openfx-frame-execution.ts';
@@ -25,6 +27,7 @@ export const FRAMESCAPER_OPENFX_FRAME_OFFER_CHANNEL =
 	'framescaper:v1:native-services:openfx:frame-offer';
 
 const ID = /^[a-f\d]{40}$/u;
+const PREPARED_PORT_CONTROLS = new WeakMap<object, AdmittedFramescaperOpenFxFrameControlV1>();
 const SHA256 = /^[a-f\d]{64}$/u;
 const PLANE_ID = /^[A-Za-z0-9][A-Za-z0-9 ._:-]{0,127}$/u;
 const MAXIMUM_FRAME_SET_BYTES = 512 * 1024 * 1024;
@@ -167,13 +170,10 @@ async function runSession(
 			rgba: rgba as Uint8Array<ArrayBuffer>,
 		});
 	});
-	const result = await service.execute(Object.freeze({
-		protocolVersion: request.protocolVersion, schemaFamily: request.schemaFamily,
-		schemaVersion: request.schemaVersion, planPayload: request.planPayload,
-		planFingerprint: request.planFingerprint, instanceId: request.instanceId,
-		outputOrdinal: request.outputOrdinal, requestedBackend: request.requestedBackend,
-		transitionProgress: request.transitionProgress, inputs: Object.freeze(inputs), signal,
-	}));
+	const control = PREPARED_PORT_CONTROLS.get(request);
+	if (!control) throw new TypeError('OpenFX frame-port execution lost its admitted main control.');
+	const result = await executeFramescaperOpenFxPreparedFrame(service, control, Object.freeze(inputs), signal);
+
 	signal.throwIfAborted();
 	if (result.mode !== 'render') {
 		port.postMessage(Object.freeze({
@@ -304,7 +304,7 @@ function admitPortRequest(value: unknown): FramescaperOpenFxFramePortRequestV1 {
 		});
 	});
 	if (offset !== (binding?.byteLength ?? 0)) throw new Error('OpenFX frame-port descriptors do not cover exact input bytes.');
-	return Object.freeze({
+	const admitted = Object.freeze({
 		protocolVersion: control.protocolVersion, schemaFamily: control.schemaFamily,
 		schemaVersion: control.schemaVersion, planPayload: control.planPayload,
 		planFingerprint: control.planFingerprint, instanceId: control.instanceId,
@@ -313,6 +313,8 @@ function admitPortRequest(value: unknown): FramescaperOpenFxFramePortRequestV1 {
 		transitionProgress: control.transitionProgress,
 		inputs: Object.freeze(inputs), inputBinding: binding,
 	});
+	PREPARED_PORT_CONTROLS.set(admitted, control);
+	return admitted;
 }
 
 function closed(value: unknown, fields: readonly string[], name: string): Record<string, unknown> {

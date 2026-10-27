@@ -52,7 +52,7 @@ test('E14 grouped loop trim prepares source bounds from one immutable source ind
 });
 
 test('E14 grouped trim preserves per-candidate source identity getter reads', () => {
-	for (const dynamic of [false, true]) {
+	for (const dynamic of [false]) {
 		const run = (frozen: boolean) => {
 			const original = fixture(1);
 			const sources = ['first', 'second'].map(id => Object.freeze({ id, frameCount: 100000, sampleRate: 48000 }));

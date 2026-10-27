@@ -33,7 +33,7 @@ test('an explicitly placed broadcast recording retains its source timestamp in a
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
 	const properties = await openClipProperties(page, editor, clip);
 	await clipField(properties, 'startFrame').focus();
-	const clipStart = Math.round(Number(await clipField(properties, 'startFrame').inputValue()) * 48_000);
+	const clipStart = Number(await clipField(properties, 'startFrame').inputValue());
 	expect(clipStart).toBeGreaterThan(0);
 	await closeClipProperties(properties);
 	await selectClipRange(page, editor, clip, 0.25, 0.75);

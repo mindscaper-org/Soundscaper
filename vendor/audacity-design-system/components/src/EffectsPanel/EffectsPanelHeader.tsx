@@ -1,3 +1,4 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React from 'react';
 import { GhostButton } from '../GhostButton';
 import { useTheme } from '../ThemeProvider';
@@ -25,11 +26,11 @@ export interface EffectsPanelHeaderProps {
  * Displays the panel title and close button
  */
 export const EffectsPanelHeader: React.FC<EffectsPanelHeaderProps> = ({
-  title = 'Effects',
+  title,
   onClose,
   className = '',
 }) => {
-  const { theme } = useTheme();
+  const { theme } = useTheme(); const { copy } = useComponentCopy();
 
   const style = {
     '--eph-bg': theme.background.surface.default,
@@ -43,14 +44,14 @@ export const EffectsPanelHeader: React.FC<EffectsPanelHeaderProps> = ({
       style={style}
     >
       <div className="effects-panel-header__content">
-        <h2 className="effects-panel-header__title">{title}</h2>
+        <h2 className="effects-panel-header__title">{title ?? copy.effects}</h2>
       </div>
 
       <GhostButton
         icon="close"
         size="small"
         onClick={onClose}
-        ariaLabel="Close effects panel"
+        ariaLabel={copy.closeEffectsPanel}
         className="effects-panel-header__close-button"
       />
     </div>

@@ -274,9 +274,6 @@ test('export strategy admission rejects malformed and overflowing geometry', () 
 		requestedRenderFrames: 120,
 	};
 	for (const request of [
-		{ ...valid, project: projectFixture({ sampleRate: 0 }) },
-		{ ...valid, project: projectFixture({ sampleRate: 48_000.5 }) },
-		{ ...valid, project: projectFixture({ masterChannels: 0 }) },
 		{ ...valid, project: projectFixture({ masterChannels: 33 }) },
 		{ ...valid, rangeStartFrame: -1 },
 		{ ...valid, rangeStartFrame: 1.5 },

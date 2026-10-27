@@ -1,3 +1,4 @@
+import { historyOperationLabel } from './history-operation-label.ts';
 import { METER_PANEL_MIN_WIDTH, isMeterWorkspacePanel } from '../../workspace-layout-defaults.ts';
 
 const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr';
@@ -114,6 +115,5 @@ export function workspaceDockLabel(copy: EditorCopy, dockId: string): string {
 }
 
 export function historyCommandLabel(copy: EditorCopy, entry: HistoryEntry): string {
-	const type = entry.commands?.[0] || entry.type || '';
-	return copy.historyCommand?.replace('{command}', type).replace('{count}', String(entry.commandCount || 1)) || type;
+	return historyOperationLabel(entry, copy);
 }

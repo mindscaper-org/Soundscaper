@@ -1,3 +1,4 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React, { useState } from 'react';
 import { CLIP_HEADER_HEIGHT, clipHandleRows } from '../utils/clipHandleRows';
 import type { MidiNote } from '@audacity-ui/core';
@@ -209,6 +210,7 @@ const ClipComponent: React.FC<ClipProps> = ({
   shakeEdge = null,
   shakeToken = 0,
 }) => {
+  const { copy } = useComponentCopy();
   const [isHovering, setIsHovering] = useState(false);
   const [isHeaderHovering, setIsHeaderHovering] = useState(false);
   const [trimEdge, setTrimEdge] = useState<'left' | 'right' | null>(null);
@@ -486,7 +488,7 @@ const ClipComponent: React.FC<ClipProps> = ({
               type="button"
               tabIndex={-1}
               className="clip-display__handle clip-display__handle--trim-left"
-              aria-label="Trim left edge"
+              aria-label={copy.trimLeftEdge}
               onMouseDown={handleVisibleTrimMouseDown('left')}
             >
               <TrimLeftIcon />
@@ -496,7 +498,7 @@ const ClipComponent: React.FC<ClipProps> = ({
             type="button"
             tabIndex={-1}
             className="clip-display__handle clip-display__handle--stretch-left"
-            aria-label="Stretch left edge"
+            aria-label={copy.stretchLeftEdge}
             onMouseDown={handleStretchMouseDown('left')}
           >
             <StretchIcon />
@@ -506,7 +508,7 @@ const ClipComponent: React.FC<ClipProps> = ({
               type="button"
               tabIndex={-1}
               className="clip-display__handle clip-display__handle--trim-right"
-              aria-label="Trim right edge"
+              aria-label={copy.trimRightEdge}
               onMouseDown={handleVisibleTrimMouseDown('right')}
             >
               <TrimRightIcon />
@@ -516,7 +518,7 @@ const ClipComponent: React.FC<ClipProps> = ({
             type="button"
             tabIndex={-1}
             className="clip-display__handle clip-display__handle--stretch-right"
-            aria-label="Stretch right edge"
+            aria-label={copy.stretchRightEdge}
             onMouseDown={handleStretchMouseDown('right')}
           >
             <StretchIcon />
