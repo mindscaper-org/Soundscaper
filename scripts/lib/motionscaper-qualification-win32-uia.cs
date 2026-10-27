@@ -81,9 +81,15 @@ namespace Soundscaper.Qualification.Win32 {
    if(candidates.Count!=1) throw new InvalidOperationException("A unique UIAutomation filename ValuePattern is required.");return candidates[0];
   }
   private static AutomationElement Button(Grant grant,Dialog dialog,string id) {
-   VerifyWindow(grant,dialog);AutomationElementCollection buttons=dialog.Element.FindAll(TreeScope.Descendants,new AndCondition(new PropertyCondition(AutomationElement.ControlTypeProperty,ControlType.Button),new PropertyCondition(AutomationElement.AutomationIdProperty,id)));
-   if(buttons.Count!=1) throw new InvalidOperationException("A unique standard dialog command button is required.");object invoke;
-   if(!buttons[0].Current.IsEnabled||!buttons[0].TryGetCurrentPattern(InvokePattern.Pattern,out invoke)) throw new InvalidOperationException("The dialog button lacks InvokePattern.");return buttons[0];
+   Stopwatch clock=Stopwatch.StartNew();
+   while(true) {
+    VerifyWindow(grant,dialog);AutomationElementCollection buttons=dialog.Element.FindAll(TreeScope.Descendants,new AndCondition(new PropertyCondition(AutomationElement.ControlTypeProperty,ControlType.Button),new PropertyCondition(AutomationElement.AutomationIdProperty,id)));
+    if(buttons.Count>1) throw new InvalidOperationException("More than one standard dialog command button is present.");
+    object invoke;
+    if(buttons.Count==1&&buttons[0].Current.IsEnabled&&buttons[0].TryGetCurrentPattern(InvokePattern.Pattern,out invoke)) return buttons[0];
+    if(clock.ElapsedMilliseconds>=5000) throw new InvalidOperationException("A unique enabled standard dialog command button with InvokePattern did not become ready.");
+    Thread.Sleep(25);
+   }
   }
   private static bool Retired(Grant grant,Dialog dialog) {
    grant.Verify();

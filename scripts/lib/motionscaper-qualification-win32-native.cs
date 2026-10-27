@@ -136,14 +136,23 @@ namespace Soundscaper.Qualification.Win32 {
    foreach(char c in id) if(!(Char.IsLetterOrDigit(c)||c=='-'||c=='_')) throw new ArgumentException("Invalid custody id.");
    return Path.Combine(full,id+suffix);
   }
+  private static bool IdentityRetired(IntPtr handle) {
+   uint state=WaitForSingleObject(handle,0);if(state==0) return true;if(state==WaitTimeout) return false;throw Error("Wait process identity HANDLE");
+  }
   internal static Identity ReadIdentity(IntPtr handle,uint pid) {
-   uint state=WaitForSingleObject(handle,0);if(state==0) return null;if(state!=WaitTimeout) throw Error("Wait process identity HANDLE");
+   if(IdentityRetired(handle)) return null;
    FileTime creation,exit,kernel,user;
-   if(!GetProcessTimes(handle,out creation,out exit,out kernel,out user)) throw Error("GetProcessTimes");
+   if(!GetProcessTimes(handle,out creation,out exit,out kernel,out user)) {
+    Exception error=Error("GetProcessTimes");if(IdentityRetired(handle)) return null;throw error;
+   }
    StringBuilder image=new StringBuilder(32768);int length=image.Capacity;
-   if(!QueryFullProcessImageName(handle,0,image,ref length)) throw Error("QueryFullProcessImageName");
+   if(!QueryFullProcessImageName(handle,0,image,ref length)) {
+    Exception error=Error("QueryFullProcessImageName");if(IdentityRetired(handle)) return null;throw error;
+   }
    BasicProcessInfo basic=new BasicProcessInfo();int returned;
-   if(NtQueryInformationProcess(handle,0,ref basic,Marshal.SizeOf(typeof(BasicProcessInfo)),out returned)!=0) throw new IOException("Parent identity is unavailable.");
+   if(NtQueryInformationProcess(handle,0,ref basic,Marshal.SizeOf(typeof(BasicProcessInfo)),out returned)!=0) {
+    if(IdentityRetired(handle)) return null;throw new IOException("Parent identity is unavailable.");
+   }
    ulong birth=((ulong)creation.high<<32)|creation.low;
    return new Identity { platform="win32",pid=pid,parent=checked((uint)basic.parent.ToInt64()),birth=birth.ToString(CultureInfo.InvariantCulture),executable=Path.GetFullPath(image.ToString()) };
   }

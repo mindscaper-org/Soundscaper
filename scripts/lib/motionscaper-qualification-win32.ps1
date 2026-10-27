@@ -4,6 +4,7 @@ param([Parameter(Mandatory = $true)][string]$RequestPath)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 
 function Require-Keys($Value, [string[]]$Required, [string[]]$Optional = @()) {
 	if ($null -eq $Value -or $Value -is [string] -or $Value -is [Array]) { throw 'An object is required.' }
@@ -77,6 +78,7 @@ function Open-Grant($OwnerValue, $CustodyValue, [bool]$MayKill) {
 	}
 }
 function Write-Json($Value) {
+	if ($null -eq $Value) { [Console]::Out.WriteLine('null'); return }
 	[Console]::Out.WriteLine((ConvertTo-Json -InputObject $Value -Depth 16 -Compress))
 }
 
