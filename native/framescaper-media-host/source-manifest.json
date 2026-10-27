@@ -137,8 +137,8 @@
 		},
 		{
 			"path": "build/windows-ffmpeg-dependencies.sh",
-			"byteLength": 605,
-			"sha256": "ba4e41d256fc05572956fc2d51e7f1dfc30cf7ebeb9aa63b922c6ebdec4765bd"
+			"byteLength": 1031,
+			"sha256": "986361b37219dd0cb868f968f6efb7866e47fc77dd6667d6b360e208933c8d0d"
 		},
 		{
 			"path": "build/windows-vpx-project.sh",

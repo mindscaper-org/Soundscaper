@@ -43,7 +43,7 @@ const hostRoot = resolve(import.meta.dirname, '../native/framescaper-media-host'
 for (const role of ['CC', 'CXX'] as const) test(`Windows FFmpeg ${role} dependencies survive captured quoting failure and preserve compiler failures atomically`, { skip: !hasTools }, context => {
 	const root = mkdtempSync(join(tmpdir(), 'framescaper-ffmpeg-dependencies-'));
 	context.after(() => rmSync(root, { recursive: true, force: true }));
-	const source = join(root, 'source'), compiler = join(root, 'compiler with spaces.sh'), capturedArguments = join(root, 'dependency-arguments');
+	const source = join(root, 'source'), compiler = join(root, 'compiler with  multiple spaces.sh'), capturedArguments = join(root, 'dependency-arguments');
 	mkdirSync(source); writeFileSync(join(source, 'input with spaces.c'), '/* native compiler input */\n');
 	writeFileSync(compiler, String.raw`#!/bin/bash
 set -eu
@@ -52,31 +52,47 @@ case " $* " in
   *) : > compiled.marker; exit 0;;
 esac
 printf '%s\r\n' 'Note: including file: C:\sdk\header.h' 'Note: including file: D:\headers\deep.h' 'Note: including file: C:\sdk\directory with spaces\omitted.h' 'compiler informational output'
+if [[ -v FFMPEG_DEP_FIXTURE_FAILURE ]]; then
+  printf '%s\n' 'compiler-fixture-failure-sentinel' >&2
+fi
+printf '%017000d\n' 0 >&2
+printf '%s\n' 'compiler-diagnostic-tail-must-not-appear' >&2
+printf '%s\r\n' 'Note: including file: E:\late\after-cap.h'
 if [[ -v FFMPEG_DEP_FIXTURE_FAILURE ]]; then exit 23; fi
-`);
-	writeFileSync(join(source, 'Makefile'), `include ffbuild/config.mak\nall: libavdevice/alldevices.o\ndefine COMPILE\n$(call $(1)DEP,$(1))\n$(SHELL) "${compiler.replaceAll('\\', '/')}" -c "$<"\nendef\nlibavdevice/alldevices.o: $(SRC_PATH)/input\\ with\\ spaces.c\n\t$(call COMPILE,${role})\n`);
+`, { mode: 0o755 });
+	writeFileSync(join(source, 'Makefile'), `include ffbuild/config.mak\nSILENT = DEPCC DEPCXX\n$(foreach VAR,$(SILENT),$(eval override $(VAR) = @$($(VAR))))\nall: libavdevice/alldevices.o\ndefine COMPILE\n$(call $(1)DEP,$(1))\n$(SHELL) "${compiler.replaceAll('\\', '/')}" -c "$<"\nendef\nlibavdevice/alldevices.o: $(SRC_PATH)/input\\ with\\ spaces.c\n\t$(call COMPILE,${role})\n`);
 	const command = commands(root, source, shell, 'win-x64', hostRoot).find(value => value.phase === 'ffmpeg-build')!;
 	mkdirSync(join(command.cwd, 'ffbuild'), { recursive: true }); mkdirSync(join(command.cwd, 'libavdevice'));
 	const dependencyCommand = `$(DEP$(1)) $(DEP$(1)FLAGS) $($(1)DEP_FLAGS) "$<" 2>&1 | awk '${capturedDependencyFilter}' > $(@:.o=.d)`;
-	writeFileSync(join(command.cwd, 'ffbuild/config.mak'), `DEPCC=$(SHELL) "${compiler.replaceAll('\\', '/')}"\nDEPCXX=$(DEPCC)\nDEPCCFLAGS='-Iinclude with spaces' 'C:\\sdk\\compiler-option'\nDEPCXXFLAGS=$(DEPCCFLAGS)\nCCDEP_FLAGS=-showIncludes -Zs\nCXXDEP_FLAGS=$(CCDEP_FLAGS)\nCCDEP=${dependencyCommand}\nCXXDEP=$(CCDEP)\n`);
+	// Upstream config has independent compiler variables before common.mak adds
+	// exactly one silence prefix. A recursive DEPCXX alias would fabricate @@.
+	writeFileSync(join(command.cwd, 'ffbuild/config.mak'), `DEPCC="${compiler.replaceAll('\\', '/')}"\nDEPCXX="${compiler.replaceAll('\\', '/')}"\nDEPCCFLAGS='-Iinclude with spaces' 'C:\\sdk\\compiler-option' '@response with  spaces.rsp' '-DFIXTURE=@literal-flag'\nDEPCXXFLAGS=$(DEPCCFLAGS)\nCCDEP_FLAGS=-showIncludes -Zs\nCXXDEP_FLAGS=$(CCDEP_FLAGS)\nCCDEP=${dependencyCommand}\nCXXDEP=$(CCDEP)\n`);
 	const environment = { ...process.env, FFMPEG_DEP_FIXTURE_ARGUMENTS: capturedArguments };
 	const result = spawnSync('make', [...command.args], { cwd: dirname(command.cwd), encoding: 'utf8', env: environment });
 	assert.equal(result.status, 0, result.stdout + result.stderr);
+	assert.ok(result.stderr.length <= 16_384);
+	assert.doesNotMatch(result.stderr, /compiler-diagnostic-tail-must-not-appear/u);
 	const dependency = join(command.cwd, 'libavdevice/alldevices.d');
-	assert.equal(readFileSync(dependency, 'utf8'), 'libavdevice/alldevices.o: C:/sdk/header.h\nlibavdevice/alldevices.o: D:/headers/deep.h\n');
-	assert.deepEqual(readFileSync(capturedArguments, 'utf8').split('\0').slice(0, -1), ['-Iinclude with spaces', 'C:\\sdk\\compiler-option', '-showIncludes', '-Zs', join(source, 'input with spaces.c').replaceAll('\\', '/')]);
+	assert.equal(readFileSync(dependency, 'utf8'), 'libavdevice/alldevices.o: C:/sdk/header.h\nlibavdevice/alldevices.o: D:/headers/deep.h\nlibavdevice/alldevices.o: E:/late/after-cap.h\n');
+	assert.deepEqual(readFileSync(capturedArguments, 'utf8').split('\0').slice(0, -1), ['-Iinclude with spaces', 'C:\\sdk\\compiler-option', '@response with  spaces.rsp', '-DFIXTURE=@literal-flag', '-showIncludes', '-Zs', join(source, 'input with spaces.c').replaceAll('\\', '/')]);
 	assert.equal(existsSync(join(command.cwd, 'compiled.marker')), true);
 	writeFileSync(dependency, 'previous complete dependencies\n'); rmSync(join(command.cwd, 'compiled.marker'));
 	const failure = spawnSync('make', [...command.args], { cwd: dirname(command.cwd), encoding: 'utf8',
 		env: { ...environment, FFMPEG_DEP_FIXTURE_FAILURE: '1' } });
 	assert.notEqual(failure.status, 0, 'A failing dependency compiler must stop Make before compilation.');
+	assert.match(failure.stderr, /compiler-fixture-failure-sentinel/u);
+	assert.doesNotMatch(failure.stderr, /compiler-diagnostic-tail-must-not-appear/u);
+	assert.ok(failure.stderr.length < 17_408, 'Make receives a bounded compiler diagnostic.');
 	assert.equal(existsSync(join(command.cwd, 'compiled.marker')), false);
 	assert.equal(readFileSync(dependency, 'utf8'), 'previous complete dependencies\n');
 	assert.deepEqual(readdirSync(dirname(dependency)).filter(name => name.includes('.pending.')), []);
 	const direct = spawnSync(shell, [join(hostRoot, 'build/windows-ffmpeg-dependencies.sh'), 'libavdevice/alldevices.o', dependency,
-		shell, compiler, '-showIncludes', '-Zs', join(source, 'input with spaces.c')], { encoding: 'utf8',
+		`@${compiler.replaceAll('\\', '/')}`, '-showIncludes', '-Zs', join(source, 'input with spaces.c')], { encoding: 'utf8',
 		env: { ...environment, FFMPEG_DEP_FIXTURE_FAILURE: '1' } });
 	assert.equal(direct.status, 23, 'The checked helper preserves the real compiler failure status.');
+	assert.match(direct.stderr, /compiler-fixture-failure-sentinel/u);
+	assert.doesNotMatch(direct.stderr, /compiler-diagnostic-tail-must-not-appear/u);
+	assert.ok(direct.stderr.length <= 16_384);
 	assert.equal(readFileSync(dependency, 'utf8'), 'previous complete dependencies\n');
 	assert.deepEqual(readdirSync(dirname(dependency)).filter(name => name.includes('.pending.')), []);
 });
