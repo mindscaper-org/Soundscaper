@@ -87,8 +87,8 @@
 		},
 		{
 			"path": "build/media-build-commands.mjs",
-			"byteLength": 21435,
-			"sha256": "599175a89a513554d0b8d0a86f15ff2e066560ec20d0ccc8f66bc8c668a3294a"
+			"byteLength": 21647,
+			"sha256": "52a7fb371d6209046f0c48798ce8048b1b88493780d58ac7a82ea4e5a319c891"
 		},
 		{
 			"path": "build/recipe-cli.mjs",
@@ -97,8 +97,8 @@
 		},
 		{
 			"path": "build/recipe-driver.mjs",
-			"byteLength": 22279,
-			"sha256": "2afa4a39f71a26dc143543f0c8a899caa130b319103b89d47500f449e54dc738"
+			"byteLength": 22352,
+			"sha256": "7b959e367567e970d5ea7634f34541772ce2393e1e8abc41115e6ec141610171"
 		},
 		{
 			"path": "build/source-authentication.mjs",
@@ -141,9 +141,14 @@
 			"sha256": "986361b37219dd0cb868f968f6efb7866e47fc77dd6667d6b360e208933c8d0d"
 		},
 		{
+			"path": "build/windows-installed-codec-text.ts",
+			"byteLength": 3997,
+			"sha256": "47124aff3903e23d3aa7d81eb74bf3387b1304fd22f87e8ad5e14a2d9897c7c1"
+		},
+		{
 			"path": "build/windows-svt-pkg-config.ts",
-			"byteLength": 4809,
-			"sha256": "2242ecf7435482f8506bbf6d1b445dbe62a3b8b5516147108702c8ac6f4d7d86"
+			"byteLength": 2075,
+			"sha256": "a1d42f1d34d2b0db85c186cd8094a5efadd355c9c74a2a51706baed67ba708ec"
 		},
 		{
 			"path": "build/windows-vpx-project.sh",
@@ -154,6 +159,11 @@
 			"path": "build/windows-vpx.pc",
 			"byteLength": 244,
 			"sha256": "6fee3eb6c3e8b129b19174ca7e3f01222b57690c197183012ba0ce07f443f670"
+		},
+		{
+			"path": "build/windows-zlib-header.ts",
+			"byteLength": 2116,
+			"sha256": "b88cd90dd6945271ee6abe0906d4f36b9faa679b9bacde83fbfec8c4e8eafce9"
 		},
 		{
 			"path": "src/exact_retime_ordinal.hpp",
