@@ -29,7 +29,7 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 		typecheck: 'npm run typecheck:sources && npm run typecheck:tests',
 	} }));
 	const stub = `
-		import {appendFileSync} from 'node:fs';
+		import {appendFileSync, readFileSync} from 'node:fs';
 		import {basename} from 'node:path';
 		import {setTimeout} from 'node:timers/promises';
 		const name = basename(process.argv[1]) + ':' + process.argv.slice(2).join(' ');
@@ -40,7 +40,12 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 		console.log('passing-result-noise');
 		console.log('Error: expected stdout diagnostic');
 		console.error('Error: expected stderr diagnostic');
-		await setTimeout(80);
+		// Hold the first wave until all four jobs start, even on a busy runner.
+		const deadline = Date.now() + 10_000;
+		while (readFileSync('activity.jsonl', 'utf8').trim().split('\\n').length < 4) {
+			if (Date.now() >= deadline) throw new Error('Timed out waiting for four fixture jobs to start.');
+			await setTimeout(10);
+		}
 		const failed = process.env.FIXTURE_FAIL === '1' && process.argv.includes('--shard=common-1');
 		progress({type: 'end', id: name, ...(failed ? {failure: 'fixture assertion failed'} : {})});
 		record('end');
