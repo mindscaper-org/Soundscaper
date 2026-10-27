@@ -68,6 +68,7 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 		transportState: 'stopped',
 	});
 	const animationFrameRef = useRef(0);
+	const renderPreviewFrameRef = useRef(() => {});
 	const renderLifetimeRef = useRef(null);
 	const beforeSessionReplace = useCallback(() => renderLifetimeRef.current?.beforeReplace() ?? Promise.resolve(), []);
 	const afterSessionReplace = useCallback(() => renderLifetimeRef.current?.afterReplace(), []);
@@ -332,7 +333,7 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 			updateCompositorState(report.status === 'fallback'
 				? 'fallback' : report.renderedEntryCount > 0 ? 'ready' : 'webgl');
 			if (shouldContinueVideoPreviewPlayback(report, playhead.transportState)) {
-				animationFrameRef.current = requestAnimationFrame(renderPreviewFrameCallback);
+				requestProductVisualFrameRef.current();
 			}
 		};
 		try {
@@ -357,8 +358,8 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 		videoEffectBypass, visualSessionRef]);
 	const requestPreviewFrame = useCallback(() => {
 		if (animationFrameRef.current) return;
-		animationFrameRef.current = requestAnimationFrame(renderPreviewFrame);
-	}, [renderPreviewFrame]);
+		animationFrameRef.current = requestAnimationFrame(() => { animationFrameRef.current = 0; renderPreviewFrameRef.current(); });
+	}, []);
 	requestProductVisualFrameRef.current = requestPreviewFrame;
 	const registerVideoElement = useCallback((clipId, element) => {
 		const previousElement = videoElementsRef.current.get(clipId);
@@ -440,12 +441,14 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 		renderOptionsRef.current.referenceWidth = referenceCanvas.width;
 		renderOptionsRef.current.referenceHeight = referenceCanvas.height;
 		renderOptionsRef.current.previewResolution = snapshot.preferences?.view?.videoPreviewResolution;
+		renderPreviewFrameRef.current = renderPreviewFrame;
 		requestPreviewFrame();
 	}, [
 		compositorTimeline,
 		positionFrame,
 		referenceCanvas.height,
 		referenceCanvas.width,
+		renderPreviewFrame,
 		requestPreviewFrame,
 		snapshot.preferences?.view?.videoPreviewResolution,
 		transportState,
