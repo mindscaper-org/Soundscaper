@@ -87,8 +87,8 @@
 		},
 		{
 			"path": "build/media-build-commands.mjs",
-			"byteLength": 21186,
-			"sha256": "69ec7472c5dfcafd638e82a0ed7b7dccc2ded6c071f6a8a65b87b5717e4404bc"
+			"byteLength": 21435,
+			"sha256": "599175a89a513554d0b8d0a86f15ff2e066560ec20d0ccc8f66bc8c668a3294a"
 		},
 		{
 			"path": "build/recipe-cli.mjs",
@@ -97,8 +97,8 @@
 		},
 		{
 			"path": "build/recipe-driver.mjs",
-			"byteLength": 22244,
-			"sha256": "7e53f20170ef43da1199b7724484a5c0ac242fbf5427de667097fcb04cb66d52"
+			"byteLength": 22279,
+			"sha256": "2afa4a39f71a26dc143543f0c8a899caa130b319103b89d47500f449e54dc738"
 		},
 		{
 			"path": "build/source-authentication.mjs",
@@ -139,6 +139,11 @@
 			"path": "build/windows-ffmpeg-dependencies.sh",
 			"byteLength": 1031,
 			"sha256": "986361b37219dd0cb868f968f6efb7866e47fc77dd6667d6b360e208933c8d0d"
+		},
+		{
+			"path": "build/windows-svt-pkg-config.ts",
+			"byteLength": 4809,
+			"sha256": "2242ecf7435482f8506bbf6d1b445dbe62a3b8b5516147108702c8ac6f4d7d86"
 		},
 		{
 			"path": "build/windows-vpx-project.sh",

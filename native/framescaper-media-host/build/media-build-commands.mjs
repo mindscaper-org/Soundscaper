@@ -196,7 +196,7 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		`--ranlib=${shellTool(tools.executables.ranlib.path, windows)}`,
 		`--pkg-config=${shellTool(tools.executables.pkgConfig.path, windows)}`,
 		// Static x265 calls the registry API but omits it from Libs.private.
-		...(windows ? ['--extra-cflags=-MT', '--extra-libs=advapi32.lib'] : []),
+		...(windows ? ['--extra-cflags=-MT -UEB_DLL', '--extra-libs=advapi32.lib'] : []),
 	];
 	const hostEnvironment = Object.freeze({
 		...nativeEnvironment, PKG_CONFIG_PATH: pkgConfigPath, PKG_CONFIG_LIBDIR: pkgConfigPath,
@@ -268,6 +268,8 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		command('svt-av1-configure', tools.executables.cmake.path, svtArgs, paths.svtAv1Build, nativeEnvironment),
 		command('svt-av1-build', tools.executables.cmake.path, ['--build', paths.svtAv1Build, '--config', 'Release', '--parallel', '2'], paths.svtAv1Build, nativeEnvironment),
 		command('svt-av1-install', tools.executables.cmake.path, ['--install', paths.svtAv1Build, '--config', 'Release'], paths.svtAv1Build, nativeEnvironment),
+		...(windows ? [command('svt-av1-normalize-pkg-config', process.execPath, [join(hostRoot, 'build/windows-svt-pkg-config.ts'),
+			join(paths.svtAv1Install, 'lib', 'pkgconfig', 'SvtAv1Enc.pc')], paths.svtAv1Build, nativeEnvironment)] : []),
 		command('libopus-configure', tools.executables.cmake.path, opusArgs, paths.libopusBuild, nativeEnvironment),
 		command('libopus-build', tools.executables.cmake.path, ['--build', paths.libopusBuild, '--config', 'Release', '--target', 'opus', '--parallel', '1'], paths.libopusBuild, nativeEnvironment),
 		command('libopus-install', tools.executables.cmake.path, ['--install', paths.libopusBuild, '--config', 'Release', '--prefix', paths.libopusInstall], paths.libopusBuild, nativeEnvironment),

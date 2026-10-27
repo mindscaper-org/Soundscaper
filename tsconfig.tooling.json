@@ -6,6 +6,6 @@
 		"tsBuildInfoFile": "./node_modules/.cache/typescript/tooling.tsbuildinfo",
 		"types": ["node"]
 	},
-	"include": ["vite.config.mjs", "playwright.config.mjs", "electron-builder.config.cjs", "scripts/performance/*.ts", "scripts/lightscaper-desktop-native-qualification-current-v1.ts", "scripts/ci-browser-shard-policy.ts", "scripts/ci-firefox-host-dependencies.ts", "scripts/diagnose-windows-make-arguments.ts", "playwright.check-all.config.ts", "scripts/check-all*.ts", "scripts/lib/check-all*.ts"],
+	"include": ["vite.config.mjs", "playwright.config.mjs", "electron-builder.config.cjs", "scripts/performance/*.ts", "scripts/lightscaper-desktop-native-qualification-current-v1.ts", "scripts/ci-browser-shard-policy.ts", "scripts/ci-firefox-host-dependencies.ts", "scripts/diagnose-windows-make-arguments.ts", "playwright.check-all.config.ts", "scripts/check-all*.ts", "scripts/lib/check-all*.ts", "native/framescaper-media-host/build/windows-svt-pkg-config.ts"],
 	"exclude": ["dist", "node_modules"]
 }
