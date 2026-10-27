@@ -3,9 +3,11 @@
 import { strFromU8, unzipSync } from 'fflate';
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseExportProjectFileAction, disableNativeSavePicker,
-	downloadBytes, importFiles, openClipProperties, showClipTimingFields } from './audio-editor-test-helpers.js';
+	clipField, commitInput, downloadBytes, importFiles, openClipProperties, showClipTimingFields } from './audio-editor-test-helpers.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
+import { createMusicalEndingDurationTimeCodeMap } from '../../src/common/editor/ui/time-code-musical-map.ts';
 
-for (const changing of [true, false]) test(`a musical fade-out counts back from its tail with ${changing ? 'changing' : 'constant'} tempo`, async ({ page }) => {
+for (const changing of [true, false]) test(`a tail-measured musical fade-out survives numeric properties, history and export with ${changing ? 'changing' : 'constant'} tempo`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/en/');
 	await page.locator('[data-sidebar] [data-workspace-select]').selectOption('music');
@@ -22,21 +24,34 @@ for (const changing of [true, false]) test(`a musical fade-out counts back from 
 		await second.getByRole('button', { name: 'Save', exact: true }).click();
 		await page.keyboard.press('Escape');
 	}
+	const projectId = await editor.getAttribute('data-project-id');
+	const expectedTempo = [{ beat: { num: 0, den: 1 }, bpm: { num: 60, den: 1 } },
+		...changing ? [{ beat: { num: 4, den: 1 }, bpm: { num: 120, den: 1 } }] : []];
+	await expect.poll(async () => (await persistedProject(page, projectId))?.tempoMap.events.map(({ beat, bpm }) => ({ beat, bpm })))
+		.toEqual(expectedTempo);
+	const authored = await persistedProject(page, projectId), authoredClip = authored.clips[0];
+	expect(authored.sampleRate).toBe(48_000); expect(authoredClip.durationFrames).toBe(288_000);
+	// Main's audio fields are numeric seconds. Retain the owning tail-clock
+	// conversion against the actual saved tempo map before entering that value.
+	const clock = createMusicalEndingDurationTimeCodeMap(authored, authoredClip.timelineStartFrame + authoredClip.durationFrames);
+	const seconds = clock.toSeconds(1, 1), expectedFrames = changing ? 96_000 : 192_000;
+	expect(Math.round(seconds * authored.sampleRate)).toBe(expectedFrames);
+	expect(clock.fromSeconds(seconds)).toEqual({ bar: 1, beat: 1, beatsPerBar: 4 });
+	const readFadeFrames = async () => {
+		const savedClip = (await persistedProject(page, projectId))?.clips.find(clip => clip.id === authoredClip.id);
+		expect(savedClip).toBeDefined();
+		return savedClip.fadeOutFrames ?? 0;
+	};
 	const properties = await openClipProperties(page, editor);
 	await showClipTimingFields(properties);
-	const fade = properties.locator('[data-clip-field="fadeOutFrame"]');
-	await fade.locator('.timecode__display').dblclick();
-	await fade.getByRole('textbox').fill('00:00:00.000'); await fade.getByRole('textbox').press('Enter');
-	await expect(fade.locator('[data-timecode-direct-entry]')).toHaveValue('0');
-	await fade.getByRole('button', { name: 'Fade out: format', exact: true }).click();
-	await page.getByRole('menuitem', { name: 'beats:bars', exact: true }).click();
-	await fade.locator('.timecode-digit').first().click();
-	await page.keyboard.type('0011'); await page.keyboard.press('Enter');
-	await expect(fade.locator('[data-timecode-direct-entry]')).toHaveValue(String(changing ? 96_000 : 192_000));
+	const fade = clipField(properties, 'fadeOutFrames');
+	await commitInput(fade, '0'); await expect(fade).toHaveValue('0'); await expect.poll(readFadeFrames).toBe(0);
+	await commitInput(fade, String(seconds)); await expect(fade).toHaveValue(String(seconds));
+	await expect.poll(readFadeFrames).toBe(expectedFrames);
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
-	await expect(fade.locator('[data-timecode-direct-entry]')).toHaveValue('0');
+	await expect(fade).toHaveValue('0'); await expect.poll(readFadeFrames).toBe(0);
 	await chooseCommandAction(page, editor, 'Edit', 'Redo');
-	await expect(fade.locator('[data-timecode-direct-entry]')).toHaveValue(String(changing ? 96_000 : 192_000));
+	await expect(fade).toHaveValue(String(seconds)); await expect.poll(readFadeFrames).toBe(expectedFrames);
 	const download = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
 	const files = unzipSync(await downloadBytes(await download));
 	const project = JSON.parse(strFromU8(files['project.json']));

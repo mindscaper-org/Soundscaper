@@ -1,13 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test, monoTone } from './audio-editor-test-fixtures.js';
-import { showClipTimingFields, addRackEffect, bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName,
+import { showClipTimingFields, addRackEffect, bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, clipField,
 	closeEffectsPanel, commitInput, disableNativeSavePicker, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 test('Mix and Render retains the complete tail through two serial group effects', async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
+	const projectId = await editor.getAttribute('data-project-id');
 	await importFiles(editor, [monoTone]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Mixer']);
 	const mixer = editor.locator('[data-mixer-panel]');
@@ -42,7 +44,9 @@ test('Mix and Render retains the complete tail through two serial group effects'
 	await expect(dialog).toBeHidden({ timeout: 30_000 });
 	const properties = await openClipProperties(page, editor, editor.locator('[data-clip-id]').first());
 	await showClipTimingFields(properties);
-	await expect(properties.locator('[data-clip-field="durationFrame"] .timecode__display')).toHaveText('00h00m01.800s');
+	await expect(clipField(properties, 'durationFrame')).toHaveValue('1.8');
+	const clipId = await properties.locator('[data-clip-properties-active-clip]').getAttribute('data-clip-properties-active-clip');
+	await expect.poll(async () => (await persistedProject(page, projectId))?.clips.find(clip => clip.id === clipId)?.durationFrames).toBe(86_400);
 	const samples = await exportSamples(page, editor);
 	expect(samples.length).toBe(86_400);
 	const lastVoice = samples.slice(72_000, 81_600);

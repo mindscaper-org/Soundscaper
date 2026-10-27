@@ -16,6 +16,22 @@ async function selectionSeconds(editor, edge) {
 	return Number(digits[1]) * 3600 + Number(digits[2]) * 60 + Number(digits[3]);
 }
 
+async function nativeSelectionPlayback(editor) {
+	return editor.evaluate(root => {
+		// The same read-only owner walk as native-audio-failure-diagnostics.js.
+		// Playing ARIA is intentionally quarter-second telemetry, not the command clock.
+		const key = Object.keys(root).find(key => key.startsWith('__reactFiber$'));
+		for (let fiber = key ? root[key] : null; fiber; fiber = fiber.return) {
+			const controller = fiber.memoizedProps?.controller;
+			if (!controller?.engine || typeof controller.getSnapshot !== 'function') continue;
+			const selection = controller.getSnapshot().project.selection;
+			return { positionFrame: controller.engine.getPositionFrames(),
+				startFrame: selection.startFrame, endFrame: selection.endFrame };
+		}
+		throw new Error('The running editor controller is unavailable.');
+	});
+}
+
 async function waveform(editor, name = longTone.name) {
 	const clip = clipByName(editor, name);
 	const display = clip.locator('.clip-display');
@@ -211,9 +227,9 @@ for (const state of ['playing', 'paused']) {
 		await editor.getByRole('button', { name: 'Play', exact: true }).click();
 		await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(24_000);
 		if (state === 'paused') await editor.getByRole('button', { name: 'Pause', exact: true }).click();
-		const beforeStart = Number(await playhead.getAttribute('aria-valuenow'));
+		const beforeStart = (await nativeSelectionPlayback(editor)).positionFrame;
 		await wave.clip.press('[');
-		const afterStart = Number(await playhead.getAttribute('aria-valuenow'));
+		const afterStart = (await nativeSelectionPlayback(editor)).positionFrame;
 		await expect(editor.locator('[data-time-selection-overlay]')).toHaveCount(0);
 		if (state === 'paused') {
 			await expect(playhead).toHaveAttribute('aria-valuenow', String(beforeStart));
@@ -221,19 +237,26 @@ for (const state of ['playing', 'paused']) {
 		}
 		await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(beforeStart + 24_000);
 		if (state === 'paused') await editor.getByRole('button', { name: 'Pause', exact: true }).click();
-		const beforeEnd = Number(await playhead.getAttribute('aria-valuenow'));
+		const beforeEnd = (await nativeSelectionPlayback(editor)).positionFrame;
 		await wave.clip.press(']');
-		await expect.poll(() => selectionSeconds(editor, 'start')).toBeGreaterThan(0.2);
-		const start = await selectionSeconds(editor, 'start');
+		await expect.poll(async () => (await nativeSelectionPlayback(editor)).startFrame / 48_000).toBeGreaterThan(0.2);
+		const start = (await nativeSelectionPlayback(editor)).startFrame / 48_000;
 		expect(start).toBeGreaterThanOrEqual(beforeStart / 48_000 - 0.1);
 		expect(start).toBeLessThanOrEqual(afterStart / 48_000 + 0.1);
-		await expect.poll(() => selectionSeconds(editor, 'end')).toBeGreaterThan(start + 0.2);
+		await expect.poll(async () => (await nativeSelectionPlayback(editor)).endFrame / 48_000).toBeGreaterThan(start + 0.2);
+		const selection = await nativeSelectionPlayback(editor);
+		// Millisecond text floors the native sample frame; it does not round its hidden precision.
+		await expect.poll(() => selectionSeconds(editor, 'start')).toBe(Math.floor(selection.startFrame / 48) / 1000);
+		await expect.poll(() => selectionSeconds(editor, 'end')).toBe(Math.floor(selection.endFrame / 48) / 1000);
 		await expect(editor.locator('[data-time-selection-overlay]').first()).toBeVisible();
 		await expect(page.getByRole('dialog')).toHaveCount(0);
 		if (state === 'paused') {
 			await expect(playhead).toHaveAttribute('aria-valuenow', String(beforeEnd));
+			expect(selection.positionFrame).toBe(beforeEnd);
+			expect(selection.startFrame).toBe(beforeStart);
+			expect(selection.endFrame).toBe(beforeEnd);
 			expect(start).toBeCloseTo(beforeStart / 48_000, 3);
-			expect(await selectionSeconds(editor, 'end')).toBeCloseTo(beforeEnd / 48_000, 3);
+			expect(selection.endFrame / 48_000).toBeCloseTo(beforeEnd / 48_000, 3);
 		} else {
 			await expect(editor.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 			await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(beforeEnd);

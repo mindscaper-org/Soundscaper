@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
-import { showClipTimingFields, bootEditor, chooseCommandAction, openClipProperties } from './audio-editor-test-helpers.js';
+import { showClipTimingFields, bootEditor, chooseCommandAction, clipField, openClipProperties } from './audio-editor-test-helpers.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 test('raw PCM sample rate preserves a complete native scientific entry', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
@@ -22,6 +23,12 @@ test('raw PCM sample rate preserves a complete native scientific entry', async (
 	const clip = editor.getByRole('group', { name: /ordinary-short-tone.wav clip/u });
 	const properties = await openClipProperties(page, editor, clip);
 	await showClipTimingFields(properties);
-	const duration = properties.getByRole('group', { name: 'Duration', exact: true }).locator('.timecode-digit');
-	await expect.poll(async () => (await duration.allTextContents()).join('')).toBe('000000002');
+	await expect(clipField(properties, 'durationFrame')).toHaveValue('0.002');
+	const clipId = await clip.getAttribute('data-clip-id'); expect(clipId).not.toBeNull();
+	await expect.poll(async () => {
+		const saved = await persistedProject(page, await editor.getAttribute('data-project-id'));
+		const imported = saved?.clips.find(item => item.id === clipId);
+		const source = saved?.sources.find(item => item.id === imported?.sourceId);
+		return { sampleRate: source?.sampleRate, frameCount: source?.frameCount, durationFrames: imported?.durationFrames };
+	}).toEqual({ sampleRate: 48_000, frameCount: 96, durationFrames: 96 });
 });

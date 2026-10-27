@@ -3,12 +3,20 @@
 import { expect, monoTone, test } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName,
 	closeClipProperties, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
-import { chooseClipMediaSetting, openClipMediaSettings } from './audio-editor-clip-settings-test-helpers.js';
+import { chooseClipMediaSetting, expectClipMediaSettingChecked } from './audio-editor-clip-settings-test-helpers.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 test('Clip properties offers Reverse only when the authored clip supports it', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
+	const projectId = await editor.getAttribute('data-project-id');
 	await importFiles(editor, [monoTone]);
 	const clip = clipByName(editor, monoTone.name);
+	const clipId = await clip.getAttribute('data-clip-id');
+	expect(clipId).not.toBeNull();
+	const savedState = async () => {
+		const current = (await persistedProject(page, projectId))?.clips.find(item => item.id === clipId);
+		return { inverted: current?.inverted, reversed: current?.reversed, hasWarp: Boolean(current?.warpMap) };
+	};
 	await clip.locator('.clip-header').click();
 	const original = await openClipProperties(page, editor, clip);
 	await showClipTimingFields(original);
@@ -28,9 +36,8 @@ test('Clip properties offers Reverse only when the authored clip supports it', a
 	await showClipTimingFields(properties);
 	await expect(properties.getByRole('switch', { name: 'Reverse', exact: true })).toBeDisabled();
 	await chooseClipMediaSetting(properties, 'Invert');
-	const settings = await openClipMediaSettings(properties);
-	await expect(settings.getByRole('menuitemcheckbox', { name: 'Invert', exact: true })).toBeChecked();
-	await settings.press('Escape');
+	await expectClipMediaSettingChecked(properties, 'Invert', true);
+	await expect.poll(savedState).toEqual({ inverted: true, reversed: false, hasWarp: true });
 	await closeClipProperties(properties);
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
@@ -38,6 +45,7 @@ test('Clip properties offers Reverse only when the authored clip supports it', a
 	await showClipTimingFields(recovered);
 	const reverse = recovered.getByRole('switch', { name: 'Reverse', exact: true });
 	await expect(reverse).toBeEnabled();
+	await expect.poll(savedState).toEqual({ inverted: false, reversed: false, hasWarp: false });
 	await reverse.check();
 	await expect(reverse).toBeChecked();
 	await closeClipProperties(recovered);
@@ -46,4 +54,5 @@ test('Clip properties offers Reverse only when the authored clip supports it', a
 	const redone = await openClipProperties(page, editor, clip);
 	await showClipTimingFields(redone);
 	await expect(redone.getByRole('switch', { name: 'Reverse', exact: true })).toBeChecked();
+	await expect.poll(savedState).toEqual({ inverted: false, reversed: true, hasWarp: false });
 });

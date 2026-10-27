@@ -1,13 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
-import { showClipTimingFields, bootEditor, chooseDropdown, chooseNestedCommandAction, clipByName,
-	closeClipProperties, disableNativeSavePicker, importFiles, openClipProperties, openSourceMonitor } from './audio-editor-test-helpers.js';
+import { showClipTimingFields, bootEditor, chooseDropdown, chooseNestedCommandAction, clipByName, clipField,
+	closeClipProperties, commitInput, disableNativeSavePicker, importFiles, openClipProperties, openSourceMonitor } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 test('Auto Duck in a clip source uses its control track at the clip timeline placement', async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
+	const projectId = await editor.getAttribute('data-project-id');
 	const files = ['music', 'voice'].map((name, index) => createWavFixture({
 		name: `${name}.wav`, frequency: index ? 1000 : 330, duration: 2,
 		channelCount: 1, channelAmplitudes: [0.35],
@@ -16,11 +18,11 @@ test('Auto Duck in a clip source uses its control track at the clip timeline pla
 	for (const recording of files) {
 		const properties = await openClipProperties(page, editor, clipByName(editor, recording.name));
 		await showClipTimingFields(properties);
-		const start = properties.getByRole('group', { name: 'Start', exact: true });
-		await start.locator('.timecode-digit').first().click();
-		await page.keyboard.type('000001000');
-		await page.keyboard.press('Enter');
-		await expect(start.locator('.timecode__display')).toHaveText('00h00m01.000s');
+		const start = clipField(properties, 'startFrame');
+		await commitInput(start, '1');
+		await expect(start).toHaveValue('1');
+		const clipId = await properties.locator('[data-clip-properties-active-clip]').getAttribute('data-clip-properties-active-clip');
+		await expect.poll(async () => (await persistedProject(page, projectId))?.clips.find(clip => clip.id === clipId)?.timelineStartFrame).toBe(48_000);
 		await closeClipProperties(properties);
 	}
 	const voice = clipByName(editor, 'voice.wav');

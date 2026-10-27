@@ -155,7 +155,8 @@ export { clipByName, clipNameAccessiblePattern } from './audio-editor-clip-locat
 
 export function clipField(editor, name) {
 	const upstream = { pitchCents: 'pitch', speedRatio: 'speed', name: 'name', startFrame: 'start', durationFrame: 'length',
-		fadeInFrames: 'fade-in', fadeOutFrames: 'fade-out', sourceStartFrame: 'trim-start' }[name];
+		fadeInFrames: 'fade-in', fadeOutFrames: 'fade-out', sourceStartFrame: 'trim-start',
+		fadeInFrame: 'fade-in', fadeOutFrame: 'fade-out', sourceInFrame: 'trim-start' }[name];
 	return editor.locator(`[data-clip-field="${name}"] input${upstream ? `, [data-clip-properties-field="${upstream}"] input` : ''}`).first();
 }
 

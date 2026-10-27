@@ -7,15 +7,12 @@ import {
 	chooseCommandAction,
 	chooseNestedCommandAction,
 	clickClipInterior,
-	clipField,
-	closeClipProperties, closeDialog,
-	commitInput,
-	openClipProperties,
+	closeDialog,
 	openEffectsForTrack,
 } from '../audio-editor-test-helpers.js';
-import { expectClipMediaSettingChecked, openClipMediaSettings, setClipGain } from '../audio-editor-clip-settings-test-helpers.js';
 import { SOUNDSCAPER_DATABASE_NAME } from './editor-databases.js';
 import { chooseTrackMenuAction } from './track-menu.js';
+import { editAuthoredClipProperties, readAuthoredClipDuration } from './authored-clip-properties.ts';
 
 export const selectionEffects = Object.freeze({
 	amplify: { category: 'Volume and compression', name: 'Amplify' },
@@ -92,31 +89,8 @@ export async function installOscillatorMicrophone(page) {
 }
 
 export async function editClipProperties(page, editor, clip, edits) {
-	const dialog = await openClipProperties(page, editor, clip);
-	for (const [field, value] of Object.entries(edits)) {
-		if (value === undefined) continue;
-		if (field === 'stretchToTempo') {
-			const menu = await openClipMediaSettings(dialog);
-			const toggle = menu.getByRole('menuitemcheckbox', { name: 'Stretch with project tempo changes', exact: true });
-			if ((await toggle.getAttribute('aria-checked')) !== String(Boolean(value))) await toggle.click();
-			else await menu.press('Escape');
-			await expectClipMediaSettingChecked(dialog, 'Stretch with project tempo changes', Boolean(value));
-			continue;
-		}
-		if (field === 'gain') {
-			await setClipGain(dialog, value);
-			continue;
-		}
-		const input = clipField(dialog, field);
-		const displayValue = field === 'speedRatio' ? Number(value) * 100 : value;
-		await commitInput(input, String(displayValue));
-		if (Number.isFinite(Number(value))) {
-			await expect.poll(async () => Number(await input.inputValue())).toBeCloseTo(Number(displayValue), 6);
-		} else {
-			await expect(input).toHaveValue(String(value));
-		}
-	}
-	await closeClipProperties(dialog);
+	await selectClipHeader(clip);
+	await editAuthoredClipProperties(page, editor, clip, edits, persistedProject);
 }
 
 export function trackRow(clip) {
@@ -174,10 +148,8 @@ export async function duplicateClip(page, editor, clip) {
 }
 
 export async function clipDurationFrames(page, editor, clip) {
-	const dialog = await openClipProperties(page, editor, clip);
-	const duration = Number(await clipField(dialog, 'durationFrame').inputValue());
-	await closeClipProperties(dialog);
-	return duration;
+	await selectClipHeader(clip);
+	return readAuthoredClipDuration(page, editor, clip, persistedProject);
 }
 
 export async function splitClip(page, editor, clip, position) {
@@ -437,7 +409,7 @@ export async function setTrackMuteSolo(row, { mute = false, solo = false }) {
 	}
 }
 
-export async function persistedProject(page, projectId) {
+export async function persistedProject(page, projectId, databaseName = SOUNDSCAPER_DATABASE_NAME) {
 	return page.evaluate(({ databaseName, id }) => new Promise((resolve, reject) => {
 		const opening = indexedDB.open(databaseName);
 		opening.onerror = () => reject(opening.error);
@@ -453,7 +425,7 @@ export async function persistedProject(page, projectId) {
 				resolve(request.result ?? null);
 			};
 		};
-	}), { databaseName: SOUNDSCAPER_DATABASE_NAME, id: projectId });
+	}), { databaseName, id: projectId });
 }
 
 export async function revealTimelineClip(page, editor, clipId) {

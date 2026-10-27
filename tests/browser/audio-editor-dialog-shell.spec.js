@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import { longTone, test } from './audio-editor-test-fixtures.js';
-import { showClipTimingFields, clipByName, getMenuItem, importFiles, openClipProperties, waitForEditor } from './audio-editor-test-helpers.js';
+import { bootEditor as bootProductEditor, chooseNestedCommandAction, showClipTimingFields, getMenuItem, importFiles, openClipProperties, waitForEditor } from './audio-editor-test-helpers.js';
 import { closeWorkspacePanel } from './helpers/workspace-panel-chrome.js';
 import { darkTheme } from '../../vendor/audacity-design-system/tokens/src/themes/dark.v2.ts';
 import { lightTheme } from '../../vendor/audacity-design-system/tokens/src/themes/light.v2.ts';
@@ -75,10 +75,10 @@ test.describe('shared audio editor dialog behavior', () => {
 		await expect(menu.getByRole('menuitem', { name: 'Hz', exact: true })).toHaveCount(0);
 	});
 
-	test('uses lowercase time units and selectable formats in clip and selection timecodes', async ({ page }) => {
-		const editor = await bootEditor(page);
-		await importFiles(editor, [longTone]);
-		const clip = clipByName(editor, longTone.name);
+	test('uses lowercase time units and selectable formats in generator and selection timecodes', async ({ page }) => {
+		const editor = await bootProductEditor(page, '/framescaper/embed/en/');
+		await chooseNestedCommandAction(page, editor, 'Generate', ['Video Generators', 'Add Title/Text']);
+		const clip = editor.getByRole('group', { name: 'Video clip: Title', exact: true });
 		await clip.focus();
 		await clip.press('Enter');
 		await expect(editor.locator('[data-selection-toolbar] .timecode').first()
