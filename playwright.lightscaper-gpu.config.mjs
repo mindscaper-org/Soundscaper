@@ -35,7 +35,7 @@ export default defineConfig({
 		'lightscaper-chromatic-aberration-current.spec.js', 'lightscaper-defringe-current.spec.js',
 		'lightscaper-lens-distortion-current.spec.js', 'lightscaper-develop-dehaze.spec.js',
 		'lightscaper-develop-grain.spec.js', 'lightscaper-develop-noise.spec.js', 'lightscaper-develop-texture.spec.js',
-		'framescaper-cube-lut.spec.js', 'framescaper-global-develop-parity.spec.js',
+		'framescaper-cube-lut.spec.js', 'framescaper-corridorkey-matte-parity.spec.js', 'framescaper-global-develop-parity.spec.js',
 		'framescaper-global-export-pipeline.spec.js', 'framescaper-image-geometry.spec.js',
 		'framescaper-post-crop-vignette.spec.js', 'framescaper-spatial-develop-native.spec.js'],
 	fullyParallel: false,

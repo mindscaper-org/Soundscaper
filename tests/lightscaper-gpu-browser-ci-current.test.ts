@@ -38,7 +38,7 @@ const SPECS = ['lightscaper-native-gpu-current.spec.js', 'lightscaper-develop-gp
 	'lightscaper-chromatic-aberration-current.spec.js', 'lightscaper-defringe-current.spec.js',
 	'lightscaper-lens-distortion-current.spec.js', 'lightscaper-develop-dehaze.spec.js',
 	'lightscaper-develop-grain.spec.js', 'lightscaper-develop-noise.spec.js', 'lightscaper-develop-texture.spec.js',
-	'framescaper-cube-lut.spec.js', 'framescaper-global-develop-parity.spec.js',
+	'framescaper-cube-lut.spec.js', 'framescaper-corridorkey-matte-parity.spec.js', 'framescaper-global-develop-parity.spec.js',
 	'framescaper-global-export-pipeline.spec.js', 'framescaper-image-geometry.spec.js',
 	'framescaper-post-crop-vignette.spec.js', 'framescaper-spatial-develop-native.spec.js'];
 const CAPABILITY_SPECS = new Set(['mask-blend', 'mask-context', 'mask-overlay', 'masked-context-integration',
@@ -195,6 +195,11 @@ for (const spec of SPECS) test(`${spec} preserves its declared native or capabil
 		assert.equal(guards.length, 0);
 		assert.match(source, /requireNativeGpuCapabilityCurrentV1\(page, (?:test\.info\(\)|info), 'webgl2'\)/u);
 		if (spec === 'framescaper-cube-lut.spec.js') assert.match(source, /resource controls remain behind the existing Clip properties menu/u);
+		if (spec === 'framescaper-corridorkey-matte-parity.spec.js') {
+			assert.match(source, /expect\(metrics\)\.toHaveLength\(4\)/u);
+			assert.match(source, /expect\(maximumError, JSON\.stringify\(metrics\)\)\.toBeLessThanOrEqual\(1\)/u);
+			assert.ok(source.includes('test.use({ browserCoverage: false })'));
+		}
 		return;
 	}
 	if (CAPABILITY_SPECS.has(spec) || NATIVE_UI_SPECS.has(spec)) {
