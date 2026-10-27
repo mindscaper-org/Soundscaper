@@ -20,6 +20,16 @@ verification, smoke qualification, signing configuration, corresponding source,
 notices and checksum inventory remain required. The internal artifact names
 retain `motionscaper-preview-*` for compatibility with the candidate caller.
 
+Every target also requires the four native packaged workflows described in
+the [candidate package route](../development/motionscaper-preview-release.md#packaged-workflow-qualification):
+launch, authored Save/preview/export, independent scene comparison and linked
+Framescaper successor delivery. The successor has its own freshly prepared
+development package. Its two required markers bring the aggregate to five
+source-bound receipts; a shell or synthetic codec smoke alone cannot satisfy
+this workflow gate. Each platform must execute its own native process and file
+dialog automation, including the required host permissions. Contract tests do
+not establish that those permissions or workflows succeeded on a target.
+
 ## Stable ordering
 
 An own stable tag starts `motionscaper-stable.yml`. It first verifies the active
@@ -74,6 +84,13 @@ deployment or publication is part of preparing these changes. The bounded
 [platform qualification](../development/motionscaper-platform-qualification.md)
 and [After Effects bridge](../development/motionscaper-after-effects-bridge.md)
 records remain authoritative, including their unqualified external platforms
-and host behavior. Full Adobe parity is not claimed. The runtime source pins,
-assistance closure and dependency lockfile are unchanged, so this preparation
-does not require a manual **Update AI assets** run.
+and host behavior. Full Adobe parity is not claimed. Native build and reference
+decoder receipts must retain their actual source attribution; public target
+admission requires the current checkout revision rather than relabeling an
+older build. A current-revision build does not supply signing, installation or
+update receipts by itself.
+
+When assistance-engine source or runtime recipes change, complete the manual
+**Update AI assets** handoff and refresh the committed desktop-test runtime
+snapshots before release qualification. Desktop test artifacts reuse those
+snapshots and do not compile or publish AI runtime archives.

@@ -26,6 +26,47 @@ renderer, project-file capability and native ProRes picture/PCM smoke results.
 The smoke uses software rendering and does not establish hardware GPU or
 matching-quality evidence on every target. Its private profile is removed.
 
+## Packaged workflow qualification
+
+Before target artifacts are uploaded, the candidate and nightly routes also
+require four packaged workflows on the actual target architecture: launch and
+project-file opening; authored Save, preview and native export; independent
+2.5D scene delivery comparison; and saved-composition delivery into Framescaper.
+The successor phase requires both its delivery and linked-revision receipts,
+making five required success markers across the four phases. Every marker must
+occur exactly once and name the clean checkout revision. The aggregate retains
+phase logs and pins the Motion stage, successor stage, native result and
+reference-decoder receipt.
+
+The route prepares and packages a separate Framescaper successor using the
+`framescaper-successor-v2` profile and the same verified native result. Its
+development application is an additional qualification input, not a Motion
+installer. The linked workflow uses the real Motion application's File > Save
+to produce the replacement revision, then checks update, corruption refusal,
+Disconnect, offline retention and native successor export.
+
+File dialogs are operated by external automation bound to the launched
+application's process identity. Linux uses a private X11 display with PID/birth
+checks; Windows retains process handles and an owned Job with UI Automation;
+macOS retains an owned native session and uses Accessibility automation.
+Unavailable native tooling or permissions refuse qualification. Native
+controllers retain cleanup authority through process and output closure.
+Linux keeps its inotify observations and root-owned mode-4755 sandbox checks;
+other hosts use observed Save/update behavior rather than claiming Linux
+inotify or memory measurements. macOS bundle custody permits only links whose
+canonical destinations remain inside the captured bundle and rejects escapes.
+
+The native build route also compiles a separate reference decoder for each of
+the five targets. Its prefix authority is produced after the native build and
+verification, and captures all six standard native dependency install roots
+without file exclusions. The compiler receives the producer's separately
+supplied authority digest. It verifies the source revision, native helper,
+dependency recipe, complete prefix contents and native toolchain before and after
+compilation. The transported artifact contains exactly the decoder, notices
+and a bounded receipt binding the compiler audit and decoder bytes. Audited
+builds use receipt schema 2; existing schema-1 Linux artifacts remain readable.
+The production helper is not used as its own independent reference decoder.
+
 Each target artifact contains only its expected packages, the stage and helper
 receipts, native payload manifest, smoke output and a digest-pinned target
 receipt. The aggregate step independently verifies the five downloaded native
@@ -63,15 +104,16 @@ npm run lint:changed
 
 The focused checks cover route isolation, required workflow dependencies, exact
 package inventories, source identity, corrupted inputs and cleanup, and refusal
-of foreign tags or non-native smoke execution. Both workflow files are also
-parsed locally with unique YAML keys and every job dependency resolved. These
-checks do not substitute for executing the five-target workflow.
+of foreign tags or non-native smoke execution. Workflow validation also checks
+unique YAML keys and job dependencies. These checks do not substitute for
+executing the five-target build and packaged workflows on their native hosts.
 
 Public-release readiness still needs current-revision target build/package
 receipts, credentialed Developer ID/notarization and Windows signing receipts,
 installed application/file-association/update workflows, and the remaining
 reference and platform gates. Signing follows the existing explicit repository
 configuration; an unsigned or ad-hoc candidate does not satisfy those gates.
-Nothing was tagged, dispatched, uploaded or published during implementation.
-The assistance runtime closure is unchanged; no manual **Update AI assets** run
-is required.
+When assistance-engine source or runtime recipes change, release preparation
+requires the manual **Update AI assets** workflow and refreshed committed
+desktop-test runtime snapshots. Desktop test artifacts reuse those snapshots;
+they do not compile or publish AI runtime archives.
