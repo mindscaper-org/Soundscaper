@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseCommandAction, chooseDropdown, chooseNestedCommandAction,
-	clipByName, clipField, commitInput, closeClipProperties, collectClientErrors, disableNativeSavePicker,
+	clipByName, closeClipProperties, collectClientErrors, disableNativeSavePicker,
 	importFiles, openClipProperties, openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
 
 test('one-bar warp quantization follows the tempo at the placed drum recording', async ({ page }) => {
@@ -30,9 +31,7 @@ test('one-bar warp quantization follows the tempo at the placed drum recording',
 	const clip = clipByName(editor, recording.name);
 	const properties = await openClipProperties(page, editor, clip);
 	await showClipTimingFields(properties);
-	const start = clipField(properties, 'startFrame');
-	await commitInput(start, '192000');
-	await expect(start).toHaveValue('192000');
+	await setClipTimeFrames(properties, 'startFrame', 192000);
 	await closeClipProperties(properties);
 	await page.locator('[data-sidebar] [data-workspace-select]').selectOption({ label: 'Soundscaper' });
 	await editor.getByRole('button', { name: 'Fit project', exact: true }).click();

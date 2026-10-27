@@ -158,8 +158,8 @@ async function installRoutes(page) {
 }
 
 async function transpileEditorModules() {
-	const sourceRoot = new URL('../../src/common/editor/', import.meta.url);
-	const pending = ENTRY_MODULES.map((name) => new URL(name, sourceRoot));
+	const sourceRoot = new URL('../../src/', import.meta.url);
+	const pending = ENTRY_MODULES.map((name) => new URL(`common/editor/${name}`, sourceRoot));
 	const discovered = new Map();
 	while (pending.length > 0) {
 		const url = pending.pop();
@@ -187,7 +187,7 @@ async function transpileEditorModules() {
 	const routes = new Map();
 	for (const [href, code] of discovered) {
 		const relative = new URL(href).pathname.slice(sourceRoot.pathname.length);
-		const path = `${ROOT}/src/common/editor/${relative}`;
+		const path = `${ROOT}/src/${relative}`;
 		const descriptor = { body: code, contentType: 'text/javascript' };
 		routes.set(path, descriptor);
 		if (path.endsWith('.ts')) routes.set(path.replace(/\.ts$/u, '.js'), descriptor);

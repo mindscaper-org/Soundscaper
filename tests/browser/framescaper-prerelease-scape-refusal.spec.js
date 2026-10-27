@@ -27,13 +27,13 @@ test.describe('Framescaper selected-web Scape preservation boundary', () => {
 		await input.setInputFiles(fixedArchive);
 		const errorToast = page.locator('[data-editor-toast="workspace-error"]');
 		await expect(errorToast).toContainText(
-			'Scape format 2 predates the family-qualified 1.0 baseline; re-import the source media.',
+			'This Scape archive uses an older format. Re-import its source media to create a current project.',
 		);
 		await expect(editor).toHaveAttribute('data-project-id', originalProjectId);
 		// Expanding the error resizes the preview; later viewport reports must
 		// preserve the failure too, rather than act like a new user command.
 		await page.setViewportSize({ width: 1100, height: 800 });
-		await expect(errorToast).toContainText('Scape format 2 predates');
+		await expect(errorToast).toContainText('This Scape archive uses an older format.');
 		await expect(editor.getByRole('tab', { name: expectedArchive.projectTitle, exact: true })).toHaveCount(0);
 		await expect(page.getByRole('dialog', { name: 'Project features unavailable' })).toHaveCount(0);
 		expect(errors).toEqual([]);

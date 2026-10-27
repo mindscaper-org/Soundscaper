@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { readClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { encodeWav } from '../../src/common/editor/wav.js';
 import { parseCartPayload } from '../../src/common/editor/cart-metadata.ts';
 import {
-	bootEditor, chooseDropdown, clipByName, clipField, closeClipProperties, disableNativeSavePicker,
+	bootEditor, chooseDropdown, clipByName, closeClipProperties, disableNativeSavePicker,
 	fileDataTransfer, importFiles, openClipProperties, openExportDialog, readDownloadBytes,
 } from './audio-editor-test-helpers.js';
 
@@ -30,8 +31,7 @@ test('a CART recording dropped later on the timeline retains its cue position in
 	await expect(clip).toBeVisible();
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
 	const properties = await openClipProperties(page, editor, clip);
-	await clipField(properties, 'startFrame').focus();
-	const start = Number(await clipField(properties, 'startFrame').inputValue());
+	const start = await readClipTimeFrames(properties, 'startFrame');
 	expect(start).toBeGreaterThan(0);
 	await closeClipProperties(properties);
 	const dialog = await openExportDialog(page, editor);

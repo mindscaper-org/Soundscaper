@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseCommandAction, chooseNestedCommandAction, clickClipInterior,
-	clipByName, clipField, commitInput, closeClipProperties, disableNativeSavePicker, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
+	clipByName, closeClipProperties, disableNativeSavePicker, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('Nyquist Crossfade Tracks keeps one fade direction across split clips on one track', async ({ page }) => {
@@ -21,9 +22,7 @@ test('Nyquist Crossfade Tracks keeps one fade direction across split clips on on
 	await expect(first).toHaveCount(2);
 	const properties = await openClipProperties(page, editor, clipByName(editor, recordings[1].name));
 	await showClipTimingFields(properties);
-	const start = clipField(properties, 'startFrame');
-	await commitInput(start, '57600');
-	await expect(start).toHaveValue('57600');
+	await setClipTimeFrames(properties, 'startFrame', 57600);
 	await closeClipProperties(properties);
 	await first.nth(0).locator('.clip-header').click();
 	await first.nth(1).locator('.clip-header').click({ modifiers: ['Shift'] });

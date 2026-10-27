@@ -36,7 +36,7 @@ test('an unrepresentable high post-rack fader refuses without replacing the work
 	const editor = await bootEditor(page, '/embed/en/', { defaultWorkspace: true });
 	const originalId = await editor.getAttribute('data-project-id');
 	await openRack(8);
-	await expect(editor.locator('[data-editor-toast="workspace-error"]')).toContainText('fader gain above the native fader range cannot be retained with a realtime rack', { timeout: 30_000 });
+	await expect(editor.locator('[data-editor-toast="workspace-error"]')).toContainText('This Audacity project uses an unsupported or unsafe database format.', { timeout: 30_000 });
 	await expect(editor).toHaveAttribute('data-project-id', originalId);
 	await expect(editor).toHaveAttribute('data-clip-count', '0');
 	await openRack(4);

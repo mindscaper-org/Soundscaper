@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { expectClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseCommandAction, openClipProperties } from './audio-editor-test-helpers.js';
 
@@ -17,5 +18,5 @@ test('DTMF delivers the exact total duration entered in its dialog', async ({ pa
 	await expect(generator).toBeHidden();
 	const properties = await openClipProperties(page, editor);
 	await showClipTimingFields(properties);
-	await expect(properties.locator('[data-clip-field="durationFrame"] [data-timecode-direct-entry]')).toHaveValue('48000');
+	await expectClipTimeFrames(properties, 'durationFrame', 48_000);
 });

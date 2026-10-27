@@ -595,7 +595,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		expect(fullscreenBox).not.toBeNull();
 		expect(tabsBox.x).toBeGreaterThanOrEqual(titleBox.x + titleBox.width);
 		expect(tabsBox.x + tabsBox.width).toBeLessThanOrEqual(fullscreenBox.x);
-		const toolbar = editor.getByRole('toolbar', { name: 'Tool toolbar' });
+		const toolbar = editor.getByRole('toolbar', { name: 'Tools and view' });
 		await expect(toolbar).toBeVisible();
 		expect((await toolbar.boundingBox()).y).toBeGreaterThanOrEqual((await editor.locator('.kw-audio-editor__application-header').boundingBox()).y + (await editor.locator('.kw-audio-editor__application-header').boundingBox()).height);
 		await fullscreen.click();
@@ -604,7 +604,7 @@ test.describe('audio editor React/design-system workflows', () => {
 
 	test('customizes toolbar button visibility from the toolbar gear', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
-		const toolbar = editor.getByRole('toolbar', { name: 'Tool toolbar', exact: true });
+		const toolbar = editor.getByRole('toolbar', { name: 'Tools and view', exact: true });
 		for (const [label, kind] of [['Playback meter settings', 'playback'], ['Record level', 'recording']]) {
 			await editor.getByRole('button', { name: label, exact: true }).click();
 			await editor.getByRole('dialog', { name: label, exact: true }).getByRole('radio', { name: 'Toolbar', exact: true }).click();

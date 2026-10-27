@@ -402,7 +402,7 @@ test.describe('Framescaper v1 recoverable capture', () => {
 		await page.evaluate(() => { globalThis.__framescaperCaptureHarness.denyNextUser = true; });
 		await panel.getByRole('button', { name: 'Preview sources', exact: true }).press('Enter');
 		await expectCapturePhase(panel, 'failed');
-		await expect(panel.getByRole('status')).toContainText('Fixture user-media permission denied.');
+		await expect(panel.getByRole('status')).toContainText('Permission to use a capture source was denied.');
 		let state = await captureHarnessState(page);
 		expect(state.requests.map(({ kind }) => kind)).toEqual(['display', 'user']);
 		expect(state.stopCalls).toBe(2);
@@ -420,7 +420,7 @@ test.describe('Framescaper v1 recoverable capture', () => {
 		await expect.poll(async () => (await captureHarnessState(page)).audioDataClosed).toBeGreaterThanOrEqual(2);
 		expect(await page.evaluate(() => globalThis.__framescaperCaptureHarness.endNewest('microphone'))).toBe(true);
 		await expectCapturePhase(panel, 'recovery');
-		await expect(panel.getByRole('status')).toContainText('A required capture source ended.');
+		await expect(panel.getByRole('status')).toContainText('The capture encoder failed.');
 		await expect.poll(async () => (await captureHarnessState(page)).stopCalls).toBe(3);
 		await expect.poll(() => storedCaptureRecoveryState(page, projectId), { timeout: 30_000 }).toEqual({
 			state: 'sealed', retainedPresentationRangeCount: 1,

@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { expect, test, toneA, toneB, monoTone } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields,
 	bootEditor, clipByName, importFiles, chooseCommandAction, chooseNestedCommandAction,
-	openClipProperties, clipField, closeClipProperties,
+	openClipProperties, closeClipProperties,
 	disableNativeSavePicker, openExportDialog, chooseDropdown, readDownloadBytes, closeDialog,
 } from './audio-editor-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
@@ -38,8 +39,7 @@ test('Silence preserves disjoint grouped clips and the unselected clip between t
 	for (const [index, frame] of [[1, '48000'], [2, '96000']]) {
 		const properties = await openClipProperties(page, editor, clipAt(index));
 		await showClipTimingFields(properties);
-		await clipField(properties, 'startFrame').fill(String(Number(frame)));
-		await clipField(properties, 'startFrame').press('Tab');
+		await setClipTimeFrames(properties, 'startFrame', Number(frame));
 		await closeClipProperties(properties);
 	}
 	await clipAt(0).locator('.clip-header').click();

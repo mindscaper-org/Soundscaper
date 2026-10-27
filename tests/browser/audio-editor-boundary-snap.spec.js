@@ -1,9 +1,9 @@
+import { readClipTimeFrames, setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields,
 	bootEditor,
 	chooseCommandAction,
 	clipByName,
-	clipField,
 	closeClipProperties,
 	collectClientErrors,
 	importFiles,
@@ -25,8 +25,7 @@ async function setupBoundaryClips(page) {
 	const anchor = clipByName(editor, toneA.name);
 	const properties = await openClipProperties(page, editor, anchor);
 	await showClipTimingFields(properties);
-	await clipField(properties, 'startFrame').fill(String(ANCHOR_START_FRAME));
-	await clipField(properties, 'startFrame').press('Tab');
+	await setClipTimeFrames(properties, 'startFrame', ANCHOR_START_FRAME);
 	await closeClipProperties(properties);
 	await expect.poll(async () => (await anchor.boundingBox())?.x ?? 0).toBeGreaterThan(250);
 	return { editor, anchor, moving: clipByName(editor, toneB.name) };
@@ -34,8 +33,7 @@ async function setupBoundaryClips(page) {
 
 async function startFrame(page, editor, clip) {
 	const properties = await openClipProperties(page, editor, clip);
-	await clipField(properties, 'startFrame').focus();
-	const frame = Number(await clipField(properties, 'startFrame').inputValue());
+	const frame = await readClipTimeFrames(properties, 'startFrame');
 	await closeClipProperties(properties);
 	return frame;
 }
@@ -43,8 +41,7 @@ async function startFrame(page, editor, clip) {
 async function resetMovingClip(page, editor, moving) {
 	const properties = await openClipProperties(page, editor, moving);
 	await showClipTimingFields(properties);
-	await clipField(properties, 'startFrame').fill('0');
-	await clipField(properties, 'startFrame').press('Tab');
+	await setClipTimeFrames(properties, 'startFrame', 0);
 	await closeClipProperties(properties);
 }
 

@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { readClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { encodeWav } from '../../src/common/editor/wav.js';
 import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
 import {
-	bootEditor, chooseDropdown, chooseNestedCommandAction, clipByName, clipField, closeClipProperties, disableNativeSavePicker,
+	bootEditor, chooseDropdown, chooseNestedCommandAction, clipByName, closeClipProperties, disableNativeSavePicker,
 	fileDataTransfer, importFiles, openClipProperties, openExportDialog, readDownloadBytes,
 } from './audio-editor-test-helpers.js';
 import { selectClipRange } from './helpers/complex-editing-workflows.js';
@@ -32,8 +33,7 @@ test('an explicitly placed broadcast recording retains its source timestamp in a
 	await expect(clip).toBeVisible();
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
 	const properties = await openClipProperties(page, editor, clip);
-	await clipField(properties, 'startFrame').focus();
-	const clipStart = Number(await clipField(properties, 'startFrame').inputValue());
+	const clipStart = await readClipTimeFrames(properties, 'startFrame');
 	expect(clipStart).toBeGreaterThan(0);
 	await closeClipProperties(properties);
 	await selectClipRange(page, editor, clip, 0.25, 0.75);

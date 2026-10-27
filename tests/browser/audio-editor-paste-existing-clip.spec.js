@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { expectClipTimeFrames, readClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import {
 	bootEditor,
@@ -7,7 +8,6 @@ import {
 	chooseNestedCommandAction,
 	clickClipInterior,
 	clipByName, closeClipProperties,
-	clipField,
 	collectClientErrors,
 	importFiles,
 	openClipProperties,
@@ -57,19 +57,19 @@ test('joins a paste into the containing clip and preserves it through history', 
 	clip = editor.locator(`[data-clip-id="${clipId}"]`);
 	await expect(clip).toBeVisible();
 	let properties = await openClipProperties(page, editor, clip);
-	await expect.poll(async () => Number(await clipField(properties, 'durationFrame').inputValue()), {
+	await expect.poll(() => readClipTimeFrames(properties, 'durationFrame'), {
 		timeout: 15_000,
 	}).toBeGreaterThan(38400);
-	const joinedDuration = await clipField(properties, 'durationFrame').inputValue();
+	const joinedDuration = await readClipTimeFrames(properties, 'durationFrame');
 	await closeClipProperties(properties);
 
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
 	properties = await openClipProperties(page, editor, editor.locator(`[data-clip-id="${clipId}"]`));
-	await expect(clipField(properties, 'durationFrame')).toHaveValue('38400');
+	await expectClipTimeFrames(properties, 'durationFrame', 38400);
 	await closeClipProperties(properties);
 	await chooseCommandAction(page, editor, 'Edit', 'Redo');
 	properties = await openClipProperties(page, editor, editor.locator(`[data-clip-id="${clipId}"]`));
-	await expect(clipField(properties, 'durationFrame')).toHaveValue(joinedDuration);
+	await expectClipTimeFrames(properties, 'durationFrame', joinedDuration);
 	await closeClipProperties(properties);
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 
@@ -79,7 +79,7 @@ test('joins a paste into the containing clip and preserves it through history', 
 	const restoredClip = restoredEditor.locator(`[data-clip-id="${clipId}"]`);
 	await expect(restoredClip).toBeVisible();
 	properties = await openClipProperties(page, restoredEditor, restoredClip);
-	await expect(clipField(properties, 'durationFrame')).toHaveValue(joinedDuration);
+	await expectClipTimeFrames(properties, 'durationFrame', joinedDuration);
 	await closeClipProperties(properties);
 	expect(errors).toEqual([]);
 });

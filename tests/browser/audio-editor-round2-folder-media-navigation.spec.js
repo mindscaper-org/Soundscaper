@@ -14,8 +14,8 @@ test('vertical media-row navigation skips tracks hidden inside collapsed folders
 	await chooseTrackMenuAction(page, editor, middle, 'Move selection into new folder');
 	await editor.getByRole('treeitem').getByRole('button', { name: 'Collapse folder', exact: true }).click();
 	await expect(middle).toHaveCount(0);
-	const firstContainer = first.getByRole('group', { name: 'Track 2, audio track', exact: true });
-	const lastContainer = last.getByRole('group', { name: 'Track 4, audio track', exact: true });
+	const firstContainer = first.getByRole('group', { name: 'browser-tone-a, audio track', exact: true });
+	const lastContainer = last.getByRole('group', { name: 'browser-long-tone, audio track', exact: true });
 	await firstContainer.focus();
 	await page.keyboard.press('ArrowDown');
 	await expect(lastContainer).toBeFocused();
