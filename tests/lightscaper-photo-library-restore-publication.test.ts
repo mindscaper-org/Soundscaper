@@ -118,6 +118,21 @@ test('closed malformed/staging publication refuses before invoking any borrowed 
 	assert.equal(calls, 0);
 });
 
+test('product settings public reads expose restored values without private storage generations', async () => {
+	const store = new PhotoMediaStoreV1({ indexedDB: createInstrumentedIndexedDB() as unknown as IDBFactory, locks: null, preferOpfs: false });
+	try {
+		await store.settingsRepository.put(POINTER_KEY, journal.expectedPointer);
+		const result = await publishPhotoLibraryRestorePointerV1({ settings: store.settingsRepository, journal, admitWrite: () => undefined });
+		assert.equal(result.outcome, 'acknowledged');
+		for (const [storedKey, value] of [[POINTER_KEY, commit.replacementPointer], [key, commit]] as const) {
+			assert.deepEqual(await store.settingsRepository.get(storedKey), value);
+			assert.deepEqual(await store.settingsRepository.readEntry(storedKey), { present: true, value });
+		}
+		assert.equal('captureGeneration' in store.settingsRepository, false);
+		assert.equal('getGeneration' in store.settingsRepository, false);
+	} finally { await store.close(); }
+});
+
 test('product settings atomic facade permits only the fixed anchor and retains native completion custody during close', async () => {
 	const selected = new PhotoMediaStoreV1({ indexedDB: createInstrumentedIndexedDB() as unknown as IDBFactory,
 		databaseName: 'lightscaper-selected-media', locks: null, preferOpfs: false });
@@ -140,6 +155,11 @@ test('product settings atomic facade permits only the fixed anchor and retains n
 		await Promise.race([entered.promise, work]); const closing = store.close();
 		assert.equal(await remainsPending(work), true); assert.equal(await remainsPending(closing), true);
 		release.resolve(); assert.equal((await work).outcome, 'acknowledged'); await closing;
-		assert.deepEqual(backing.records('lightscaper-photo-media-v2', 'settings').filter(row => row.key === key), [{ key, value: commit }]);
+		const rows = backing.records('lightscaper-photo-media-v2', 'settings').filter(row => row.key === key);
+		assert.deepEqual(rows.map(({ key, value }) => ({ key, value })), [{ key, value: commit }]);
+		for (const row of rows) {
+			assert.deepEqual(Object.keys(row).sort(), ['generation', 'key', 'value']);
+			assert.ok(typeof row.generation === 'string' && row.generation.length > 0);
+		}
 	} finally { release.resolve(); await work; database.transaction = transaction; await store.close(); database.close(); }
 });
