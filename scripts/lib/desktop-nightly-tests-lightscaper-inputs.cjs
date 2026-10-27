@@ -198,6 +198,7 @@ module.exports = Object.freeze([
 	'tests/helpers/lightscaper-native-managed-media-integration-fixture-current.ts',
 	'tests/helpers/lightscaper-native-photo-resources-integration-fixture-current.ts',
 	'tests/helpers/lightscaper-photo-fixture.ts',
+	'tests/helpers/lightscaper-raster-export-process-crash-native-current.ts',
 	'tests/helpers/lightscaper-raw-dng-current-fixture.ts',
 	'tests/helpers/lightscaper-raw-recovery-dng-current-fixture.ts',
 ]);

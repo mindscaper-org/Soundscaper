@@ -72,6 +72,7 @@ test('nightly payload production modules have a closed local-import graph', () =
 	assert.ok(result.visited.has('desktop/lightscaper-native-photo-library-scopes-current-v1.ts'));
 	assert.ok(result.visited.has('desktop/lightscaper-native-photo-media-current-v1.ts'));
 	assert.ok(result.visited.has('tests/helpers/lightscaper-hdr-frame-current-fixture.ts'));
+	assert.ok(result.visited.has('tests/helpers/lightscaper-raster-export-process-crash-native-current.ts'));
 	assert.ok(result.visited.has('scripts/quality-budget-evaluator.mjs'));
 	assert.ok(result.visited.has('src/common/editor/closed-domain-value.ts'));
 	assert.ok(result.visited.has('src/lightscaper/quality/large-library-workload-v1.ts'));
@@ -102,6 +103,7 @@ for (const [source, pattern] of [
 	['vendor/audacity-design-system/components/src/TimeCode/time-code-musical-context.ts', /Unstaged local import .*time-code-musical-context/u],
 	['scripts/vite-pffft-browser-shim.mjs', /Unstaged local import .*lightscaper-image-handoff-native-fixture\.js.*vite-pffft-browser-shim\.mjs/u],
 	['desktop/lightscaper-native-photo-library-scopes-current-v1.ts', /Unstaged local import .*lightscaper-native-photo-library-scopes-current-v1\.ts/u],
+	['tests/helpers/lightscaper-raster-export-process-crash-native-current.ts', /Unstaged local import .*lightscaper-photo-raster-export-process-crash-current\.spec\.ts.*lightscaper-raster-export-process-crash-native-current\.ts/u],
 ]) {
 	test(`nightly payload audit rejects omitted current browser support ${source}`, () => {
 		const withoutSupport = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(input => input.source !== source);
