@@ -19,8 +19,7 @@ test('clip properties report the rate of the clip that is selected', async () =>
 	const fixture = await mountedFixture();
 	try {
 		await fixture.render();
-		await fixture.openSettings();
-		assert.ok(fixture.menuItem(`${ENGLISH_COPY.sampleRateHz}: 96000`));
+		assert.equal(reactProps(fixture.sourceRate()).value, '96000');
 		assert.equal(fixture.project.sampleRate, 48_000);
 		assert.equal(fixture.project.sources[0]?.sampleFormat, 'int24');
 		assert.deepEqual(fixture.resampleCalls, []);
@@ -33,13 +32,11 @@ test('a resampling rate draft applies to the selected clip alone', async () => {
 	const fixture = await mountedFixture();
 	try {
 		await fixture.render();
-		await fixture.openSettings();
-		await fixture.openResample();
 		assert.equal(reactProps(fixture.sourceRate()).value, '96000');
 		await fixture.editRate('48000');
 		assert.deepEqual(fixture.resampleCalls, [], 'drafting never rewrites audio');
 		await fixture.submitResample();
-		assert.deepEqual(fixture.resampleCalls, [['shared-clip', { sampleRate: 48_000 }]]);
+		assert.deepEqual(fixture.resampleCalls, [['shared-clip', { sampleRate: 48_000, sampleFormat: 'int24' }]]);
 		assert.equal(fixture.project.sources[0]?.sampleFormat, 'int24', 'the imported format declaration remains intact');
 	} finally {
 		await fixture.cleanup();
@@ -50,10 +47,9 @@ test('a product without audio effects reports the rate but cannot resample', asy
 	const fixture = await mountedFixture({ audioEffects: false });
 	try {
 		await fixture.render();
-		await fixture.openSettings();
-		assert.ok(fixture.menuItem(`${ENGLISH_COPY.sampleRateHz}: 96000`));
-		assert.equal(fixture.menuItem(ENGLISH_COPY.resample).getAttribute('aria-disabled'), 'true');
-		assert.equal(fixture.resampleDialog(), null);
+		assert.equal(reactProps(fixture.sourceRate()).value, '96000');
+		assert.equal(fixture.sourceRate().hasAttribute('disabled'), true);
+		assert.equal(fixture.resampleButton().hasAttribute('disabled'), true);
 		assert.deepEqual(fixture.resampleCalls, []);
 	} finally {
 		await fixture.cleanup();
@@ -92,16 +88,11 @@ async function mountedFixture(capabilities: Readonly<Record<string, boolean>> = 
 	};
 	const { createRoot } = await import('react-dom/client');
 	const root = createRoot(dom.container as unknown as Element);
-	const body = document.body as unknown as typeof dom.container;
-	const menuItem = (label: string) => { const item = body.querySelectorAll('[role="menuitem"]').find(item => item.textContent === label); assert.ok(item, label); return item; };
-	const resampleDialog = () => body.querySelector('[data-clip-resample-dialog]');
-	const sourceRate = () => { const input = resampleDialog()?.querySelector('[data-clip-resample-field="sampleRate"]')?.querySelector('input'); assert.ok(input); return input; };
-	const resampleButton = () => { const button = resampleDialog()?.querySelectorAll('button').find(button => button.textContent === ENGLISH_COPY.resample); assert.ok(button); return button; };
+	const sourceRate = () => { const input = dom.one('[data-clip-properties-field="format-rate"]').querySelector('input'); assert.ok(input); return input; };
+	const resampleButton = () => dom.one('[data-clip-properties-action="resample"]');
 	return {
 		resampleCalls, project: currentProject,
-		sourceRate, menuItem, resampleDialog,
-		openSettings: async () => { const trigger = dom.one('[data-clip-audio-settings]'); await act(async () => reactProps(trigger).onClick({ currentTarget: trigger })); },
-		openResample: async () => { const item = menuItem(ENGLISH_COPY.resample); await act(async () => reactProps(item).onClick({ currentTarget: item })); },
+		sourceRate, resampleButton,
 		render: async () => {
 			await act(async () => root.render(<ClipPropertiesPanel
 				run={operation => operation()}
@@ -111,7 +102,7 @@ async function mountedFixture(capabilities: Readonly<Record<string, boolean>> = 
 			/>));
 		},
 		editRate: async (rate: string) => {
-			await act(async () => reactProps(sourceRate()).onChange({ target: { value: rate } }));
+			await act(async () => reactProps(sourceRate()).onChange({ currentTarget: { value: rate } }));
 		},
 		submitResample: async () => {
 			await act(async () => {
