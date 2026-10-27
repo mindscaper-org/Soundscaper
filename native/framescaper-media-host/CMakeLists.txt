@@ -34,6 +34,7 @@ add_executable(framescaper-media-host
 	src/ffmpeg_selected_v20_render.cpp
 	src/ffmpeg_simple_render.cpp
 	src/image_sequence_pack.cpp
+	src/keyed_webm_verifier.cpp
 	src/legacy_plan_semantics.cpp
 	src/legacy_plan_v8_filter_semantics.cpp
 	src/media_file_grants.cpp
@@ -71,6 +72,19 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+	add_executable(framescaper-webm-encode-test
+		tests/webm_encode_fixture.cpp src/ffmpeg_hardware_encode.cpp src/ffmpeg_decode_session.cpp
+		src/keyed_webm_verifier.cpp src/sha256.cpp ${SCAPE_NATIVE_COMMON_ROOT}/sha256.cpp
+	)
+	target_include_directories(framescaper-webm-encode-test PRIVATE src)
+	target_link_libraries(framescaper-webm-encode-test PRIVATE Boost::headers PkgConfig::FFMPEG_901)
+	if(MSVC)
+		target_compile_options(framescaper-webm-encode-test PRIVATE /W4 /WX /permissive-)
+	else()
+		target_compile_options(framescaper-webm-encode-test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+	endif()
+	add_test(NAME framescaper-webm-encode-test
+		COMMAND framescaper-webm-encode-test ${CMAKE_CURRENT_BINARY_DIR})
 	add_executable(framescaper-exact-retime-ordinal-test
 		tests/exact_retime_ordinal_fixture.cpp
 	)
@@ -190,6 +204,7 @@ if(BUILD_TESTING)
 		COMMAND framescaper-codec-closure-canary
 	)
 	foreach(FRAMESCAPER_ASSERTING_TEST
+		framescaper-webm-encode-test
 		framescaper-exact-retime-ordinal-test
 		framescaper-ffmpeg-packet-drain-test
 		framescaper-selected-v20-frame-executor-test

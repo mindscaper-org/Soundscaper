@@ -419,7 +419,7 @@ void drain_encoder(AVCodecContext* encoder, AVStream* stream, AVFormatContext* o
 }
 
 [[nodiscard]] bool professional_component_set_available() {
-	for (const auto name : {"h264", "hevc", "vp9", "libvpx-vp9", "av1", "prores", "dnxhd", "png", "tiff", "exr"}) {
+	for (const auto name : {"h264", "hevc", "vp8", "vp9", "libvpx-vp9", "av1", "prores", "dnxhd", "png", "tiff", "exr"}) {
 		if (avcodec_find_decoder_by_name(name) == nullptr) return false;
 	}
 	for (const auto name : {"mov", "matroska", "mxf", "image2"}) {
@@ -431,7 +431,7 @@ void drain_encoder(AVCodecContext* encoder, AVStream* stream, AVFormatContext* o
 	for (const auto name : {"scale", "format", "aresample"}) {
 		if (avfilter_get_by_name(name) == nullptr) return false;
 	}
-	for (const auto codec : {AV_CODEC_ID_H264, AV_CODEC_ID_HEVC, AV_CODEC_ID_VP9, AV_CODEC_ID_AV1, AV_CODEC_ID_PNG}) {
+	for (const auto codec : {AV_CODEC_ID_H264, AV_CODEC_ID_HEVC, AV_CODEC_ID_VP8, AV_CODEC_ID_VP9, AV_CODEC_ID_AV1, AV_CODEC_ID_PNG}) {
 		auto* parser = av_parser_init(codec);
 		if (parser == nullptr) return false;
 		av_parser_close(parser);

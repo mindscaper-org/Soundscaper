@@ -18,7 +18,7 @@ import {
 } from '../scripts/lib/soundscaper-professional-native-build-result-contract.mjs';
 
 const TARGETS = ['linux-x64', 'linux-arm64', 'mac-arm64', 'win-x64', 'win-arm64'];
-const FORBIDDEN = ['x264', 'x265', 'libvpx', 'libopus'];
+const FORBIDDEN = ['x264', 'x265', 'libvpx', 'svt-av1', 'libopus'];
 const BASE_NOTICES = '# Third-party licenses\n\nExisting browser notices.\n';
 
 test('Stable assembly embeds authenticated native texts in one third-party license document', async (context) => {
@@ -39,7 +39,7 @@ test('Stable assembly embeds authenticated native texts in one third-party licen
 	assert.equal(outputNames.filter((name) => name.includes('-source-')).length, 10);
 	assert.equal(outputNames.some((name) => name.includes('-native-notice-')), false);
 	assert.equal(outputNames.length, 12);
-	assert.equal(outputNames.some((name) => /x264|x265|libvpx|libopus/iu.test(name)), false);
+	assert.equal(outputNames.some((name) => /x264|x265|libvpx|svt-av1|libopus/iu.test(name)), false);
 	assert.equal(outputNames.includes('Soundscaper-professional-native-compliance.json'), true);
 	for (const name of outputNames) assert.equal((await lstat(join(fixture.outputRoot, name))).isSymbolicLink(), false);
 	const compliance = JSON.parse(await readFile(

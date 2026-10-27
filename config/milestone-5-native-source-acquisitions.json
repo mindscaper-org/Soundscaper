@@ -326,7 +326,34 @@
 			"authenticationStatus": "pinned-metadata",
 			"activationStatus": "accepted",
 			"blockedBy": null,
-			"uses": ["ffmpeg-vp9-encoder"]
+			"uses": ["ffmpeg-vp8-encoder", "ffmpeg-vp9-encoder"]
+		},
+		{
+			"id": "svt-av1",
+			"version": "4.2.0",
+			"git": {
+				"tag": "v4.2.0",
+				"commit": "9292ec8e32bce26f781f277ec8739b53426c4300"
+			},
+			"archive": {
+				"url": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v4.2.0/SVT-AV1-v4.2.0.tar.gz",
+				"fileName": "svt-av1-4.2.0.tar.gz",
+				"byteLength": 11070537,
+				"sha256": "c7b13c4a84bd3751aa35fcc72be13e6875467e7c2216879251a486e5b1e4e740"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 1292,
+				"sha256": "299020b54a54b98796c5035ea02ed7fce726064fe6f984ebe5c9c9399bd21fd7"
+			},
+			"license": "BSD-3-Clause-Clear AND BSD-2-Clause AND LicenseRef-AOM-Patent-License-1.0",
+			"licenseSelection": "BSD-3-Clause-Clear",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"ffmpeg-av1-encoder"
+			]
 		},
 		{
 			"id": "libopus",

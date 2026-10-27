@@ -61,6 +61,8 @@ export const DESKTOP_ASSISTANCE_RUNTIME_FILES = Object.freeze([
 	'desktop/assistance-keyed-video-preload.js',
 	'desktop/assistance-keyed-video-process.js',
 	'desktop/assistance-keyed-video-service.js',
+	'desktop/assistance-native-keyed-video-plan.js',
+	'desktop/assistance-native-keyed-video.js',
 	'desktop/assistance-operation-contract.js',
 	'desktop/assistance-operation-consent.js',
 	'desktop/assistance-operation-family-execution.js',

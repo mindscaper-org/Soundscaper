@@ -14,8 +14,10 @@ jobs:
         include:
           - runner: windows-2025
             arch: x64
+            node_arch: x64
           - runner: windows-11-vs2026-arm
             arch: arm64
+            node_arch: arm64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     env:
@@ -31,7 +33,7 @@ jobs:
       - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
           node-version-file: .nvmrc
-          architecture: ${{ matrix.arch }}
+          architecture: ${{ matrix.node_arch }}
           cache: npm
       - name: Select native Windows tooling
         uses: ./.github/actions/setup-native-tooling

@@ -17,6 +17,7 @@ export async function chooseTrackMenuAction(page, editor, trackRow, path) {
 	const item = await openTrackMenuPath(page, editor, trackRow, path);
 	await expect(item).toBeEnabled();
 	await item.focus();
+	await expect(item).toBeFocused();
 	await item.press('Enter');
 	await expect(page.locator('.audio-editor-track-menu')).toBeHidden();
 }

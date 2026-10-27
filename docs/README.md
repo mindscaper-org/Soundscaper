@@ -99,6 +99,8 @@ qualification plans belong in Git history, not in the maintained documentation s
 - [Native services](architecture/native-services.md) describes helper
   processes, pathless renderer bridges, native audio and plug-ins, media, and
   package admission.
+- [Native WebM encoding](architecture/native-webm-encoding.md) describes the
+  bundled VP8, VP9, and AV1 encoders, speed presets, and transparency checks.
 - [Delivery and interchange](architecture/delivery-and-interchange.md) covers
   export plans, queues, reports, mastering, archives, and interchange formats.
 - [Local assistance](architecture/local-assistance.md) explains the optional

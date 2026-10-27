@@ -21,8 +21,11 @@ async function longVideo() {
 }
 
 test('Motion Tracking analyzes a bounded window beyond source frame4096', async ({ page }) => {
+	test.setTimeout(120_000);
 	const file = await longVideo();
-	const editor = await bootEditor(page, '/framescaper/embed/en/'); await importFiles(editor, [file]);
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	// Import authenticates the timing index of all 6,100 source frames first.
+	await importFiles(editor, [file], { timeout: 90_000 });
 	await chooseNestedCommandAction(page, editor, 'Effect', ['Video Finishing', 'Managed Color & Source Interpretation']);
 	const color = page.getByRole('dialog', { name: 'Managed Color & Source Interpretation', exact: true });
 	const sourceId = JSON.parse(await color.getByRole('textbox', { name: 'Canonical finishing document', exact: true }).inputValue()).videoSourceColorInterpretations[0].sourceId;

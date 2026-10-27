@@ -65,6 +65,11 @@ export const FRAMESCAPER_MEDIA_HOST_SOURCE_IDENTITY = deepFreeze({
 		5_635_379, '7a479a3c66b9f5d5542a4c6a1b7d3768a983b1e5c14c60a9396edc9b649e015c',
 		'459375253b653cc26d057e102b134fb4ac3664a8eab5a01de87176d950a92594',
 		'BSD-3-Clause'),
+	'svt-av1': externalIdentity('4.2.0', '9292ec8e32bce26f781f277ec8739b53426c4300',
+		'https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v4.2.0/SVT-AV1-v4.2.0.tar.gz',
+		11_070_537, 'c7b13c4a84bd3751aa35fcc72be13e6875467e7c2216879251a486e5b1e4e740',
+		'299020b54a54b98796c5035ea02ed7fce726064fe6f984ebe5c9c9399bd21fd7',
+		'BSD-3-Clause-Clear'),
 	libopus: externalIdentity('1.6', 'a8b13e40d751c7b40833b94fc9437c5c3439da89',
 		'https://downloads.xiph.org/releases/opus/opus-1.6.tar.gz',
 		36_317_446, 'b7637334527201fdfd6dd6a02e67aceffb0e5e60155bbd89175647a80301c92c',
@@ -481,7 +486,7 @@ function digestValue(value, label) {
 function noticeText(value) {
 	if (typeof value !== 'string' || value.length < 100 || value.length > 64 * 1024
 		|| value.includes('\0')
-		|| !['FFmpeg', 'Boost', 'x264', 'x265', 'libvpx', 'Opus', 'zlib'].every(
+		|| !['FFmpeg', 'Boost', 'x264', 'x265', 'libvpx', 'SVT-AV1', 'Opus', 'zlib'].every(
 			(name) => value.includes(name),
 		)) throw new TypeError('The media-host third-party notices are incomplete.');
 	return value;

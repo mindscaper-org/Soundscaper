@@ -50,14 +50,14 @@ jobs:
         timeout-minutes: 10
         run: >-
           bash scripts/ci-apt-install.sh
-          build-essential bzip2 cmake ninja-build pkg-config xz-utils
+          build-essential bzip2 cmake nasm ninja-build pkg-config xz-utils
       - name: Install macOS media build tools
         if: runner.os == 'macOS'
         run: brew install ninja pkg-config
       - name: Install Windows media build tools
         if: runner.os == 'Windows' && runner.arch != 'ARM64'
         shell: pwsh
-        run: choco install make pkgconfiglite --yes --no-progress
+        run: choco install make pkgconfiglite nasm --yes --no-progress
       - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
           node-version-file: .nvmrc

@@ -13,75 +13,81 @@ import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 
 const WORKFLOW = { timeout: 120_000 };
 
-test('renders an imported native image sequence through the pathless desktop decode bridge', async ({ page }) => {
-	test.setTimeout(180_000);
-	const clientErrors = collectClientErrors(page);
-	await installNativeImageSequenceFixture(page);
-	const editor = await bootEditor(page, '/framescaper/embed/en/');
-	await expect.poll(() => page.evaluate(() => globalThis.__nativeSequenceJourney.snapshots), {
-		timeout: 20_000,
-	}).toBeGreaterThan(0);
+for (const delivery of ['encoded-mov', 'webm-vp8', 'webm-vp9', 'webm-vp9-alpha', 'webm-av1']) {
+	test(`renders an imported native image sequence through the pathless desktop decode bridge (${delivery})`, async ({ page }) => {
+		test.setTimeout(180_000);
+		const clientErrors = collectClientErrors(page);
+		await installNativeImageSequenceFixture(page);
+		const editor = await bootEditor(page, '/framescaper/embed/en/');
+		await expect.poll(() => page.evaluate(() => globalThis.__nativeSequenceJourney.snapshots), {
+			timeout: 20_000,
+		}).toBeGreaterThan(0);
 
-	await chooseCommandAction(page, editor, 'File', 'Image sequence', WORKFLOW);
-	let dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
-	await expect(dialog).toBeVisible(WORKFLOW);
-	let action = dialog.locator('[data-framescaper-native-project-action="image-sequence-import"]');
-	await action.click();
-	await expect(action.locator('xpath=ancestor::section[1]').getByRole('status'))
-		.toContainText(/complete/iu, WORKFLOW);
-	await dialog.locator('button').filter({ hasText: /^Close$/u }).click();
+		await chooseCommandAction(page, editor, 'File', 'Image sequence', WORKFLOW);
+		let dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
+		await expect(dialog).toBeVisible(WORKFLOW);
+		let action = dialog.locator('[data-framescaper-native-project-action="image-sequence-import"]');
+		await action.click();
+		await expect(action.locator('xpath=ancestor::section[1]').getByRole('status'))
+			.toContainText(/complete/iu, WORKFLOW);
+		await dialog.locator('button').filter({ hasText: /^Close$/u }).click();
 
-	const card = editor.locator('[data-project-bin-item]').first();
-	await expect(card).toBeVisible(WORKFLOW);
-	await expect(card.locator('[data-project-bin-name]')).toHaveValue('Image-Sequence', WORKFLOW);
-	await card.getByRole('button', { name: /Add to timeline:/u }).click();
-	await expect(editor).toHaveAttribute('data-clip-count', '1', WORKFLOW);
-	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', WORKFLOW);
+		const card = editor.locator('[data-project-bin-item]').first();
+		await expect(card).toBeVisible(WORKFLOW);
+		await expect(card.locator('[data-project-bin-name]')).toHaveValue('Image-Sequence', WORKFLOW);
+		await card.getByRole('button', { name: /Add to timeline:/u }).click();
+		await expect(editor).toHaveAttribute('data-clip-count', '1', WORKFLOW);
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', WORKFLOW);
 
-	await chooseNestedCommandAction(
-		page, editor, 'File', ['Export other', 'Add to render queue'], WORKFLOW,
-	);
-	dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
-	await expect(dialog).toBeVisible(WORKFLOW);
-	action = dialog.locator('[data-framescaper-native-project-action="render-queue-enqueue"]');
-	await action.click();
-	const queueStatus = action.locator('xpath=ancestor::section[1]').getByRole('status');
-	await expect(queueStatus).not.toHaveText('Working', WORKFLOW);
-	expect(await queueStatus.textContent()).toMatch(/complete/iu);
+		await chooseNestedCommandAction(
+			page, editor, 'File', ['Export other', 'Add to render queue'], WORKFLOW,
+		);
+		dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
+		await expect(dialog).toBeVisible(WORKFLOW);
+		await dialog.getByRole('combobox', { name: 'Delivery format', exact: true }).selectOption(delivery);
+		action = dialog.locator('[data-framescaper-native-project-action="render-queue-enqueue"]');
+		await action.click();
+		const queueStatus = action.locator('xpath=ancestor::section[1]').getByRole('status');
+		await expect(queueStatus).not.toHaveText('Working', WORKFLOW);
+		expect(await queueStatus.textContent()).toMatch(/complete/iu);
 
-	const journey = await page.evaluate(() => structuredClone(globalThis.__nativeSequenceJourney));
-	expect(journey.importOperations).toEqual(['begin', 'commit:pack', 'commit:inventory', 'admit', 'complete']);
-	expect(journey.selectionReleases).toBe(1);
-	expect(journey.decodes).toHaveLength(1);
-	expect(journey.decodes[0]).toMatchObject({
-		projectId: await editor.getAttribute('data-project-id'),
-		sourceId: journey.sourceId,
+		const journey = await page.evaluate(() => structuredClone(globalThis.__nativeSequenceJourney));
+		expect(journey.importOperations).toEqual(['begin', 'commit:pack', 'commit:inventory', 'admit', 'complete']);
+		expect(journey.selectionReleases).toBe(1);
+		expect(journey.decodes).toHaveLength(1);
+		expect(journey.decodes[0]).toMatchObject({
+			projectId: await editor.getAttribute('data-project-id'),
+			sourceId: journey.sourceId,
+		});
+		expect(journey.decodes[0].projectRevision).toBeGreaterThan(0);
+		expect(journey.decodeReads).toEqual(expect.arrayContaining([
+			expect.objectContaining({ offset: 59, length: 32 }),
+			expect.objectContaining({ offset: 91, length: 16 }),
+		]));
+		expect(journey.decodeReleases).toEqual(['d'.repeat(40)]);
+		expect(journey.stages).toHaveLength(1);
+		expect(journey.stages[0]).toMatchObject({
+			liveRenderVersion: 1,
+			planVersion: 14,
+			projectId: await editor.getAttribute('data-project-id'),
+		});
+		const plan = JSON.parse(journey.stages[0].planPayload);
+		expect(plan.deliveryProfile).toBe(delivery === 'encoded-mov' ? 'encode-mov-prores-422-hq'
+			: `encode-${delivery}`);
+		expect(journey.enqueues).toHaveLength(1);
+		expect(journey.enqueues[0]).toMatchObject({
+			planVersion: 14,
+			derivedInputStageId: 'b'.repeat(40),
+			taskKind: 'encoded-export',
+		});
+		expect(journey.liveBytes).toBe(journey.stages[0].carrierByteLength,
+			'the render bridge receives the complete staged carrier');
+		expect(journey.liveCompletions).toHaveLength(1);
+		expect(journey.liveCompletions[0].byteLength).toBe(journey.liveBytes);
+		expect(journey.cancellations).toEqual([]);
+		expect(clientErrors).toEqual([]);
 	});
-	expect(journey.decodes[0].projectRevision).toBeGreaterThan(0);
-	expect(journey.decodeReads).toEqual(expect.arrayContaining([
-		expect.objectContaining({ offset: 59, length: 32 }),
-		expect.objectContaining({ offset: 91, length: 16 }),
-	]));
-	expect(journey.decodeReleases).toEqual(['d'.repeat(40)]);
-	expect(journey.stages).toHaveLength(1);
-	expect(journey.stages[0]).toMatchObject({
-		liveRenderVersion: 1,
-		planVersion: 14,
-		projectId: await editor.getAttribute('data-project-id'),
-	});
-	expect(journey.enqueues).toHaveLength(1);
-	expect(journey.enqueues[0]).toMatchObject({
-		planVersion: 14,
-		derivedInputStageId: 'b'.repeat(40),
-		taskKind: 'encoded-export',
-	});
-	expect(journey.liveBytes).toBe(journey.stages[0].carrierByteLength,
-		'the render bridge receives the complete staged carrier');
-	expect(journey.liveCompletions).toHaveLength(1);
-	expect(journey.liveCompletions[0].byteLength).toBe(journey.liveBytes);
-	expect(journey.cancellations).toEqual([]);
-	expect(clientErrors).toEqual([]);
-});
+}
 
 test('native image sequence picker cancellation returns to ready without reporting a completed import', async ({ page }) => {
 	await installNativeImageSequenceFixture(page, true);

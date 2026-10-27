@@ -452,6 +452,7 @@ function renderDestination(
 ): string {
 	const prefix = `renders/framescaper-${snapshot.projectId}-r${String(snapshot.projectRevision)}`;
 	return snapshot.delivery.kind === 'encoded-mov' ? `${prefix}.mov`
+		: snapshot.delivery.kind === 'encoded-webm' ? `${prefix}-${snapshot.delivery.codec}.webm`
 		: `${prefix}-${String(snapshot.delivery.frameRate.num)}-${String(
 			snapshot.delivery.frameRate.den)}-${snapshot.delivery.format}`;
 }

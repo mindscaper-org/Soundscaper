@@ -73,7 +73,7 @@ export interface NativeMediaHostSourceInvocation {
 	readonly byteLength: number;
 	readonly role: 'original' | 'evaluated-rgba-frame-pack' | 'staged-audio-mix'
 		| 'image-sequence-pack' | 'image-sequence-inventory';
-	readonly liveInput?: HelperDataPlaneInputReservation;
+	readonly liveInput?: HelperDataPlaneInputReservation | Readonly<{ transport: 'native-pipe'; byteLength: number }>;
 }
 
 export interface NativeMediaHostVideoTimingInvocation {

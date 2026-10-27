@@ -51,11 +51,11 @@ test('other ordinary browser build callers include Lightscaper before site prepa
 
 test('ordinary browser CI executes the exact collected shard with its required run policy', async () => {
 	const source = await workflow('quality.yml');
-	assert.match(extractJob(source, 'browser'), /timeout-minutes: \$\{\{ matrix\.project == 'chromium' && \(matrix\.shard == 3 && 150 \|\| 120\) \|\| 60 \}\}/u,
-		'Chromium shard 3 needs room beyond its observed 120-minute test command for qualification and compaction');
+	assert.match(extractJob(source, 'browser'), /^ {4}timeout-minutes: 240$/mu,
+		'consolidated Chromium and WebKit shards retain four former one-hour allocations');
 	for (const [jobName, collectName, runName, project, shard, normalWorkers] of [
-		['browser', 'Collect browser shard run shape', 'Run browser workflows against the existing build', '${{ matrix.project }}', '${{ matrix.shard }}/12', "${{ matrix.project == 'webkit' && 1 || 2 }}"],
-		['firefox', 'Collect Firefox shard run shape', 'Run Firefox workflows against the existing build', 'firefox', '${{ matrix.shard }}/12', '1'],
+		['browser', 'Collect browser shard run shape', 'Run browser workflows against the existing build', '${{ matrix.project }}', '${{ matrix.shard }}/3', "${{ matrix.project == 'webkit' && 1 || 2 }}"],
+		['firefox', 'Collect Firefox shard run shape', 'Run Firefox workflows against the existing build', 'firefox', '${{ matrix.shard }}/4', '1'],
 	]) {
 		const job = extractJob(source, jobName), collect = step(job, collectName), run = step(job, runName);
 		assert.ok(job.indexOf(collectName) < job.indexOf(runName), `${jobName} must collect before execution`);

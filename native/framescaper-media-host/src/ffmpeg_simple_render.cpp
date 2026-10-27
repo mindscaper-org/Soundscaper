@@ -167,7 +167,10 @@ void require_closed_simple_plan(const admitted_media_plan& plan) {
 		throw render_failure("unsupported-output-format", "The simple CPU adapter requires rational output.", 78);
 	}
 	const bool closed_profile = plan.professional_profile_id == "encode-mp4-h264"
+		|| plan.professional_profile_id == "encode-webm-vp8"
 		|| plan.professional_profile_id == "encode-webm-vp9"
+		|| plan.professional_profile_id == "encode-webm-vp9-alpha"
+		|| plan.professional_profile_id == "encode-webm-av1"
 		|| plan.professional_profile_id == "encode-hevc-main10-sdr"
 		|| plan.professional_profile_id == "encode-hevc-main10-hdr10"
 		|| plan.professional_profile_id == "encode-mov-prores-proxy"

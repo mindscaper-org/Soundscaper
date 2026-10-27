@@ -41,6 +41,7 @@ export async function createFixture(context) {
 			source, await readFile(new URL(`../../${source}`, import.meta.url), 'utf8'),
 		])),
 		['LICENSE', 'AGPL fixture\n'],
+		['tests/helpers/ses-fixture.ts', await readFile(new URL('./ses-fixture.ts', import.meta.url), 'utf8')],
 		['THIRD_PARTY_LICENSES.md', '# Fixture notices\n'],
 		['vendor/interchange-conformance/.provisioned.json', '{"packages":[]}\n'],
 		['vendor/interchange-conformance/python/PYTHON.json', '{"python_exe":"install/bin/python3.12"}\n'],

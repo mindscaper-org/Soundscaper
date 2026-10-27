@@ -41,7 +41,10 @@ test('every advertised V14 professional profile owns one executable native tuple
 
 test('the closed professional encode tuples preserve their distinguishing semantics', () => {
 	assert.deepEqual(tuple('encode-mp4-h264'), ['mp4', 'libx264', 'yuv420p', null, false, false]);
+	assert.deepEqual(tuple('encode-webm-vp8'), ['webm', 'libvpx', 'yuv420p', null, false, false]);
 	assert.deepEqual(tuple('encode-webm-vp9'), ['webm', 'libvpx-vp9', 'yuv420p', null, false, false]);
+	assert.deepEqual(tuple('encode-webm-vp9-alpha'), ['webm', 'libvpx-vp9', 'yuva420p', null, false, true]);
+	assert.deepEqual(tuple('encode-webm-av1'), ['webm', 'libsvtav1', 'yuv420p', null, false, false]);
 	assert.deepEqual(tuple('encode-hevc-main10-sdr'), ['mp4', 'libx265', 'yuv420p10le', 'main10', false, false]);
 	assert.deepEqual(tuple('encode-hevc-main10-hdr10'), ['mp4', 'libx265', 'yuv420p10le', 'main10', true, false]);
 	assert.deepEqual(tuple('encode-mov-prores-proxy'), ['mov', 'prores_ks', 'yuv422p10le', 'proxy', true, false]);

@@ -19,8 +19,8 @@ const SITE_WORKFLOWS = new Map([
 		staticJobs: ['build', 'lint', 'typecheck', 'audits'],
 		buildJob: 'build',
 		gate: 'needs: build',
-		browserShardCount: 12,
-		firefoxShardCount: 12,
+		browserShardCount: 3,
+		firefoxShardCount: 4,
 	}],
 ]);
 
@@ -244,10 +244,10 @@ test('quality verification keeps Chromium and WebKit in the pinned container and
 	);
 	assert.ok(collectionStep, 'the execution policy must use the actual collected shard');
 	assert.match(collectionStep.groups.step,
-		/--shard=\$\{\{ matrix\.shard \}\}\/12 --workers=\$\{\{ matrix\.project == 'webkit' && 1 \|\| 2 \}\} --retries=1 --list --reporter=json/u);
+		/--shard=\$\{\{ matrix\.shard \}\}\/3 --workers=\$\{\{ matrix\.project == 'webkit' && 1 \|\| 2 \}\} --retries=1 --list --reporter=json/u);
 	assert.match(collectionStep.groups.step,
-		/node scripts\/ci-browser-shard-policy\.ts [^\n]+ "\$\{\{ matrix\.shard \}\}\/12"/u,
-		'the collection and policy must agree on the twelve-way partition');
+		/node scripts\/ci-browser-shard-policy\.ts [^\n]+ "\$\{\{ matrix\.shard \}\}\/3"/u,
+		'the collection and policy must agree on the three-way partition');
 	assert.doesNotMatch(extractJob(workflow, 'firefox'), /PWTEST_SHARD_WEIGHTS/u);
 });
 

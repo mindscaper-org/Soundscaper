@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import { longTone, test } from './audio-editor-test-fixtures.js';
-import { bootEditor as bootProductEditor, chooseNestedCommandAction, showClipTimingFields, getMenuItem, importFiles, openClipProperties, waitForEditor } from './audio-editor-test-helpers.js';
+import { bootEditor as bootProductEditor, chooseNestedCommandAction, clipByName, showClipTimingFields, getMenuItem, importFiles, openClipProperties, waitForEditor } from './audio-editor-test-helpers.js';
 import { closeWorkspacePanel } from './helpers/workspace-panel-chrome.js';
 import { darkTheme } from '../../vendor/audacity-design-system/tokens/src/themes/dark.v2.ts';
 import { lightTheme } from '../../vendor/audacity-design-system/tokens/src/themes/light.v2.ts';
@@ -92,6 +92,28 @@ test.describe('shared audio editor dialog behavior', () => {
 		await duration.locator('.timecode__format-button').click();
 		await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
 		await expect(duration.locator('.timecode-unit[data-unit="samples"]')).toBeVisible();
+	});
+
+	test('uses numeric clip seconds and lowercase selectable selection timecodes', async ({ page }) => {
+		const editor = await bootEditor(page);
+		await importFiles(editor, [longTone]);
+		const clip = clipByName(editor, longTone.name);
+		await clip.focus();
+		await clip.press('Enter');
+		await expect(editor.locator('[data-selection-toolbar] .timecode').first()
+			.locator('.timecode__format-button')).toBeVisible();
+
+		const dialog = await openClipProperties(page, editor);
+		await showClipTimingFields(dialog);
+		await expect(dialog.getByRole('textbox', { name: 'Length', exact: true })).toHaveValue('8');
+		await closeWorkspacePanel(editor, 'clip-properties');
+		await chooseCommand(page, editor, 'Select', 'Select all');
+		const selection = editor.locator('[data-selection-toolbar] .timecode').first();
+		await expect(selection.locator('.timecode-unit[data-unit="hours"]')).toHaveText('h');
+		await expect(selection.locator('.timecode-unit[data-unit="hours"]')).toHaveCSS('text-transform', 'none');
+		await selection.locator('.timecode__format-button').click();
+		await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
+		await expect(selection.locator('.timecode-unit[data-unit="samples"]')).toBeVisible();
 	});
 
 	test('switches playback, selection and duration through grouped frame formats', async ({ page }) => {

@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 // Closed adapter identity retained for audit: selected-v20-v7-keyed-rgba.
-
 #include "ffmpeg_selected_v20_adapter.hpp"
+#include "keyed_webm_verifier.hpp"
 #include "ffmpeg_hardware_encode.hpp"
 #include "selected_v20_frame_pack.hpp"
 #include "sha256.hpp"
-
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -17,9 +16,7 @@ extern "C" {
 #include <libavutil/samplefmt.h>
 #include <libswresample/swresample.h>
 }
-
 #include "ffmpeg_encoded_packet_drain.hpp"
-
 #include <algorithm>
 #include <array>
 #include <cerrno>
@@ -37,7 +34,6 @@ extern "C" {
 #include <system_error>
 #include <utility>
 #include <vector>
-
 namespace framescaper::media {
 namespace {
 class adapter_failure final : public std::runtime_error {
@@ -289,6 +285,8 @@ void configure_video(
 	output.video_stream = avformat_new_stream(output.format, nullptr);
 	if (output.video_stream == nullptr) throw adapter_failure("video-allocation", "The video stream cannot be allocated.");
 	output.video_stream->time_base = output.video->time_base;
+	output.video_stream->avg_frame_rate = output.video->framerate;
+	output.video_stream->r_frame_rate = output.video->framerate;
 	require(avcodec_parameters_from_context(output.video_stream->codecpar, output.video), "Copy video stream parameters");
 }
 void configure_audio(
@@ -519,12 +517,13 @@ engine_result execute_selected_v20_keyed_adapter(
 		));
 		bounded_output bytes{job.temporary_output, job.maximum_output_bytes};
 		auto output = open_mux(job, plan, bytes, audio ? &*audio : nullptr);
+		keyed_webm_verifier alpha{job.admitted_plan, job.scratch_root};
 		selected_v20_executor_ports ports;
 		ports.cancelled = [] { return media_cancellation_requested(); };
 		ports.keyed_frame = [&](const selected_v20_keyed_frame_request& request) {
 			return carrier->frame(request.output_ordinal);
 		};
-		ports.write_frame = [&](const selected_v20_output_frame& frame) { write_video_frame(output, frame); };
+		ports.write_frame = [&](const selected_v20_output_frame& frame) { alpha.capture(frame); write_video_frame(output, frame); };
 		static_cast<void>(execute_selected_v20_frames(plan, ports));
 		require(avcodec_send_frame(output.video, nullptr), "Flush the selected-V20 video encoder");
 		drain_encoder(output.video, output.video_stream, output.format);
@@ -536,6 +535,7 @@ engine_result execute_selected_v20_keyed_adapter(
 			throw adapter_failure("output-length", "The selected-V20 output length changed before verification.", 74);
 		}
 		const auto sha256 = sha256_file(bytes.path());
+		alpha.verify(bytes.path(), sha256);
 		std::ostringstream result;
 		result << "{\"contractVersion\":1,\"operation\":\"" << operation_name(job.kind) << "\","
 			<< "\"byteLength\":" << bytes.byte_length() << ",\"sha256\":\"" << sha256 << "\"}";

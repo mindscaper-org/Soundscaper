@@ -83,7 +83,7 @@ test('both recipes own exactly five CI-generated targets and FFmpeg starts from 
 	assert.deepEqual(configuration.configureFlags, FRAMESCAPER_FFMPEG_CONFIGURE_FLAGS);
 	assert.deepEqual(configuration.policy, FRAMESCAPER_FFMPEG_POLICY);
 	assert.deepEqual(configuration.policy.externalLibraries,
-		['x264', 'x265', 'libvpx', 'libopus', 'zlib']);
+		['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib']);
 	assert.equal(configuration.policy.rawFfmpegArguments, false);
 	assert.equal(configuration.policy.network, false);
 	assert.match(configuration.configureFlags.join('\n'), /libx264.*libx265.*libvpx.*libopus.*zlib/isu);
@@ -117,7 +117,7 @@ test('all five media and OpenFX targets emit immutable closed dry-run recipes', 
 			'x265-configure', 'x265-build', 'x265-install', ...(target.id.startsWith('win-') ? ['x265-normalize-library'] : []),
 			'libvpx-configure', 'libvpx-build', 'libvpx-install',
 			...(target.id.startsWith('win-') ? ['libvpx-normalize-library', 'libvpx-normalize-pkg-config'] : []),
-			'libopus-configure', 'libopus-build', 'libopus-install',
+			'svt-av1-configure', 'svt-av1-build', 'svt-av1-install', 'libopus-configure', 'libopus-build', 'libopus-install',
 			'ffmpeg-configure', 'ffmpeg-build', 'ffmpeg-install', 'host-configure', 'host-build',
 			'host-install',
 		], SOURCE_DATE_EPOCH);
@@ -486,7 +486,7 @@ function provisionToolchain(root, kind, target) {
 	const directory = join(root, 'toolchain');
 	mkdirSync(directory);
 	const roles = kind === 'media'
-		? ['ar', 'c', 'cmake', 'cxx', 'make', 'ninja', 'pkgConfig', 'ranlib', 'shell',
+		? ['ar', 'c', 'cmake', 'cxx', 'make', 'ninja', 'pkgConfig', 'ranlib', 'shell', ...(target.id.endsWith('-x64') ? ['nasm'] : []),
 			...(target.id.startsWith('win-') ? ['msbuild', 'rc'] : [])]
 		: ['c', 'cmake', 'cxx', 'ninja'];
 	const executables = {};

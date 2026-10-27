@@ -38,7 +38,7 @@ test('the external-source downloader admits only exact bytes', async (context) =
 	}), /digest authentication/iu);
 });
 
-test('CI exports five individually authenticated media source trees', async (context) => {
+test('CI exports six individually authenticated media source trees', async (context) => {
 	const runnerTemp = await mkdtemp(join(tmpdir(), 'framescaper-media-source-ci-'));
 	context.after(() => rm(runnerTemp, { recursive: true, force: true }));
 	const githubEnvironmentPath = join(runnerTemp, 'github-env');
@@ -68,7 +68,7 @@ test('CI exports five individually authenticated media source trees', async (con
 		},
 	});
 	assert.deepEqual(result.sources.map(({ id }) => id), [
-		'x264', 'x265', 'libvpx', 'libopus', 'zlib',
+		'x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib',
 	]);
 	for (const { id, root } of result.sources) {
 		assert.equal(String(await readFile(join(root, 'source.txt'))), id);
@@ -79,5 +79,5 @@ test('CI exports five individually authenticated media source trees', async (con
 	assert.equal(String(await readFile(githubEnvironmentPath)), [
 		'EXISTING=1', `FRAMESCAPER_MEDIA_EXTERNAL_SOURCE_ROOT=${result.sourceSetRoot}`, '',
 	].join('\n'));
-	assert.equal(calls.length, 15);
+	assert.equal(calls.length, 18);
 });

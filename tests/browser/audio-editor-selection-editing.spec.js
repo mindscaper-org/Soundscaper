@@ -226,7 +226,10 @@ for (const state of ['playing', 'paused']) {
 		await page.mouse.click(xAt(0.2), wave.y);
 		await editor.getByRole('button', { name: 'Play', exact: true }).click();
 		await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(24_000);
-		if (state === 'paused') await editor.getByRole('button', { name: 'Pause', exact: true }).click();
+		if (state === 'paused') {
+			await editor.getByRole('button', { name: 'Pause', exact: true }).click();
+			await expect(editor.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+		}
 		const beforeStart = (await nativeSelectionPlayback(editor)).positionFrame;
 		await wave.clip.press('[');
 		const afterStart = (await nativeSelectionPlayback(editor)).positionFrame;
@@ -236,7 +239,10 @@ for (const state of ['playing', 'paused']) {
 			await editor.getByRole('button', { name: 'Play', exact: true }).click();
 		}
 		await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(beforeStart + 24_000);
-		if (state === 'paused') await editor.getByRole('button', { name: 'Pause', exact: true }).click();
+		if (state === 'paused') {
+			await editor.getByRole('button', { name: 'Pause', exact: true }).click();
+			await expect(editor.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+		}
 		const beforeEnd = (await nativeSelectionPlayback(editor)).positionFrame;
 		await wave.clip.press(']');
 		await expect.poll(async () => (await nativeSelectionPlayback(editor)).startFrame / 48_000).toBeGreaterThan(0.2);
@@ -257,6 +263,12 @@ for (const state of ['playing', 'paused']) {
 			expect(selection.endFrame).toBe(beforeEnd);
 			expect(start).toBeCloseTo(beforeStart / 48_000, 3);
 			expect(selection.endFrame / 48_000).toBeCloseTo(beforeEnd / 48_000, 3);
+			await editor.getByRole('group', { name: 'Selection start', exact: true }).locator('.timecode__format-button').click();
+			await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
+			for (const [edge, frames] of [['start', beforeStart], ['end', beforeEnd]]) {
+				const text = await selectionField(editor, edge).textContent();
+				expect(Number(text.replace(/[^\d]/gu, ''))).toBe(frames);
+			}
 		} else {
 			await expect(editor.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 			await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(beforeEnd);

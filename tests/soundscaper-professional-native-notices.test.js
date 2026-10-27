@@ -29,7 +29,7 @@ test('professional-native notice summaries are exact, target-specific, and recei
 		assert.equal(summary.target, target);
 		assert.deepEqual(summary.sources.map(({ id }) => id),
 			soundscaperProfessionalNativeSourceIdsForTarget(target));
-		assert.equal(summary.sources.some(({ id }) => ['x264', 'x265', 'libvpx', 'libopus'].includes(id)), false);
+		assert.equal(summary.sources.some(({ id }) => ['x264', 'x265', 'libvpx', 'svt-av1', 'libopus'].includes(id)), false);
 		assert.equal(summary.notices.some(({ name }) => name === 'AGPL-3.0.txt'), true);
 		assert.equal(summary.notices.some(({ name }) => name === 'ARA-API-Apache-2.0.txt'), true);
 		assert.equal(summary.notices.some(({ name }) => name === 'ARA-Library-Apache-2.0.txt'), true);

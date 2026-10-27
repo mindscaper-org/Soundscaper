@@ -41,13 +41,14 @@ test('full-raster keying decode reads the presented source ordinal after sequent
 				values.push({ timestamp, bytes: rgba.byteLength, rgba: [...rgba.slice(0, 4)] });
 			}
 		} finally { decoder.dispose(); }
-		return values;
+		return { values, remainingDecoders: document.querySelectorAll('video').length };
 	}, ROOT);
-	expect(samples.every(({ bytes }) => bytes === 1_280 * 720 * 4)).toBe(true);
+	expect(samples.remainingDecoders).toBe(0);
+	expect(samples.values.every(({ bytes }) => bytes === 1_280 * 720 * 4)).toBe(true);
 	// Independent pinned native decode reference (fixture README): RGBA-to-YUV conversion is not RGB-lossless.
 	for (const [index, expected] of [[252, 0, 0], [0, 254, 0], [0, 0, 253], [253, 253, 253], [252, 0, 0], [0, 0, 253]].entries()) {
-		for (let channel = 0; channel < 3; channel += 1) expect(Math.abs(samples[index].rgba[channel] - expected[channel]), JSON.stringify(samples)).toBeLessThanOrEqual(4);
-		expect(samples[index].rgba[3]).toBe(255);
+		for (let channel = 0; channel < 3; channel += 1) expect(Math.abs(samples.values[index].rgba[channel] - expected[channel]), JSON.stringify(samples)).toBeLessThanOrEqual(4);
+		expect(samples.values[index].rgba[3]).toBe(255);
 	}
 });
 

@@ -46,7 +46,20 @@ test('Framescaper v1 exposes native work only through menus and retains its watc
 
 	fileExport = await openNestedCommandMenu(page, editor, 'File', ['Export other']);
 	await expect(getMenuItem(fileExport, 'Add to render queue')).toBeEnabled();
-	await page.keyboard.press('Escape');
+	await getMenuItem(fileExport, 'Add to render queue').click();
+	dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
+	await expect(dialog).toBeVisible();
+	const delivery = dialog.getByRole('combobox', { name: 'Delivery format', exact: true });
+	for (const name of ['VP8 (WebM)', 'VP9 (WebM)', 'VP9 with transparency (WebM)', 'AV1 (WebM)']) {
+		await expect(delivery.getByRole('option', { name, exact: true })).toHaveCount(1);
+	}
+	await delivery.selectOption('webm-av1');
+	const quality = dialog.getByRole('combobox', { name: 'Encoding quality', exact: true });
+	await expect(quality).toHaveValue('draft');
+	await quality.selectOption('high');
+	await delivery.selectOption('webm-vp9-alpha');
+	await expect(quality).toHaveValue('high');
+	await dialog.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: /^Close$/u }).click();
 
 	tools = await openNestedCommandMenu(page, editor, 'Tools', []);
 	const jobs = getMenuItem(tools, 'Background jobs');
