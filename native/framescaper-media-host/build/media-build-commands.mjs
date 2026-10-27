@@ -217,8 +217,11 @@ export function createFramescaperMediaHostBuildCommands(input) {
 			// Separate flags disable Make's direct script execution optimization,
 			// which resolves /bin/bash through Windows instead of Git Bash.
 			'.SHELLFLAGS=-e -c',
-			'GEN_VCPROJ=$(if $(VCPROJ_SRCS),$(file >$@.sources,$(VCPROJ_SRCS)))'
-			+ `${makeShellPath(tools.executables.shell.path)} ${makeShellPath(join(hostRoot, 'build/windows-vpx-project.sh'))} `
+			// Capture the upstream prerequisite list while expanding it to no
+			// arguments. Leaving the list in the recipe still exceeds Windows'
+			// CreateProcess limit before our response-file helper can start.
+			'VCPROJ_SRCS=$(file >$@.sources,$(filter-out $(addprefix %, $(ASM_INCLUDES)), $^))',
+			`GEN_VCPROJ=${makeShellPath(tools.executables.shell.path)} ${makeShellPath(join(hostRoot, 'build/windows-vpx-project.sh'))} `
 			+ `${makeShellPath(join(externalSourceRoots.libvpx, 'build/make/gen_msvs_vcxproj.sh'))} $@.sources`] : [];
 	// Configure records Git Bash's /c aliases, which native Make cannot open.
 	// Read the authenticated upstream Makefile directly and override both aliases.
@@ -301,7 +304,10 @@ function vpxTarget(target) {
 	if (target === 'win-arm64') return 'arm64-win64-vs17';
 	if (target === 'linux-x64') return 'x86_64-linux-gcc';
 	if (target === 'linux-arm64') return 'arm64-linux-gcc';
-	return 'arm64-darwin-gcc';
+	// In pinned libvpx, the unnumbered ARM Darwin target selects iPhoneOS.
+	// Darwin 20 is its first Apple Silicon macOS target; the recipe retains
+	// MACOSX_DEPLOYMENT_TARGET=13.0 for the actual minimum desktop OS.
+	return 'arm64-darwin20-gcc';
 }
 
 function vpxArchitectureDisables(target) {

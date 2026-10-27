@@ -12,7 +12,7 @@ const repository = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const shell = process.platform === 'win32' ? join(process.env.ProgramFiles ?? 'C:/Program Files', 'Git/bin/bash.exe') : '/bin/bash';
 const hasTools = existsSync(shell) && spawnSync('make', ['--version']).status === 0;
 
-test('Windows libvpx generation preserves a complete CRLF response file and vendor script context', { skip: !hasTools }, context => {
+test('Windows libvpx keeps its upstream source list outside the process command and preserves vendor paths and options', { skip: !hasTools }, context => {
 	const root = mkdtempSync(join(tmpdir(), 'framescaper-vpx-response-'));
 	context.after(() => rmSync(root, { recursive: true, force: true }));
 	const source = join(root, 'vendor with spaces');
@@ -27,16 +27,31 @@ test('Windows libvpx generation preserves a complete CRLF response file and vend
 		paths: framescaperMediaHostBuildPaths(root), tools: { executables }, environment: { PATH: process.env.PATH }, configureFlags: [],
 		externalSourceRoots: Object.fromEntries(['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib'].map(role => [role, source])),
 	}) as readonly { phase: string; args: readonly string[] }[];
-	const generator = commands.find(command => command.phase === 'libvpx-build')!.args.find(value => value.startsWith('GEN_VCPROJ='));
+	const buildArgs = commands.find(command => command.phase === 'libvpx-build')!.args;
+	const generator = buildArgs.find(value => value.startsWith('GEN_VCPROJ='));
 	assert.ok(generator, 'The Windows generator must use a response file, rather than a long command line.');
+	const variables = buildArgs.filter(value => /^(?:GEN_VCPROJ|VCPROJ_SRCS)=/u.test(value));
 	const sources = Array.from({ length: 1000 }, (_, index) => `vpx_dsp/source_${String(index)}.c`);
 	const makefile = join(root, 'probe.mk');
-	writeFileSync(makefile, `all: result.vcxproj\nresult.vcxproj: VCPROJ_SRCS = ${sources.join(' ')}\nresult.vcxproj:\n\t$(GEN_VCPROJ) --lib --name=vpx -I. truncated/source.c\n`);
-	const result = spawnSync('make', ['-f', makefile, generator, `SHELL=${shell}`, '.SHELLFLAGS=-e -c'], {
+	writeFileSync(makefile, `ifeq ($(target),)\nall second.vcxproj:\n\t$(MAKE) --no-print-directory -f "$(lastword $(MAKEFILE_LIST))" target=libs $(MAKECMDGOALS)\nelse\nall: result.vcxproj\n.PHONY: ${sources.join(' ')}\nASM_INCLUDES=excluded.asm\nresult.vcxproj: VCPROJ_SRCS = $(filter-out $(addprefix %, $(ASM_INCLUDES)), $^)\nresult.vcxproj: ${sources.join(' ')} excluded.asm\n\t$(GEN_VCPROJ) --lib --name=vpx -I. -I"include with spaces" $(filter vpx_dsp/%.c, $(VCPROJ_SRCS))\n.PHONY: excluded.asm\nsecond.vcxproj: ${sources.at(-1)} ${sources[0]}\n\t$(GEN_VCPROJ) --lib --name=second $(VCPROJ_SRCS)\nendif\n`);
+	const makeArgs = ['-f', makefile, ...variables, `SHELL=${shell}`, '.SHELLFLAGS=-e -c'];
+	const dryRun = spawnSync('make', ['-n', ...makeArgs], { cwd: root, encoding: 'utf8' });
+	assert.equal(dryRun.status, 0, dryRun.stderr);
+	assert.ok(dryRun.stdout.length < 2048, 'The complete project command must fit before the response wrapper starts.');
+	assert.doesNotMatch(dryRun.stdout, /vpx_dsp\/source_/u);
+	const result = spawnSync('make', makeArgs, {
 		cwd: root, encoding: 'utf8', env: { ...process.env, CAPTURE: capture },
 	});
 	assert.equal(result.status, 0, result.stderr);
-	assert.deepEqual(readFileSync(capture, 'utf8').split('\0').slice(0, -1), ['vendor-context', '--lib', '--name=vpx', '-I.', ...sources]);
+	assert.deepEqual(readFileSync(capture, 'utf8').split('\0').slice(0, -1), ['vendor-context', '--lib', '--name=vpx', '-I.', '-Iinclude with spaces', ...sources]);
+	const firstResponse = readFileSync(join(root, 'result.vcxproj.sources'), 'utf8');
+	const second = spawnSync('make', [...makeArgs, 'second.vcxproj'], {
+		cwd: root, encoding: 'utf8', env: { ...process.env, CAPTURE: capture },
+	});
+	assert.equal(second.status, 0, second.stderr);
+	assert.deepEqual(readFileSync(capture, 'utf8').split('\0').slice(0, -1), ['vendor-context', '--lib', '--name=second', sources.at(-1), sources[0]]);
+	assert.equal(readFileSync(join(root, 'result.vcxproj.sources'), 'utf8'), firstResponse,
+		'A later project must not replace the first project response file.');
 	const response = join(root, 'windows.sources');
 	writeFileSync(response, `${sources.join(' ')}\r\n`);
 	const wrapped = spawnSync(shell, [join(repository, 'native/framescaper-media-host/build/windows-vpx-project.sh'),
