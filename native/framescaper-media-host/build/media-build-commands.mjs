@@ -227,9 +227,13 @@ export function createFramescaperMediaHostBuildCommands(input) {
 			+ `${makeShellPath(join(externalSourceRoots.libvpx, 'build/make/gen_msvs_vcxproj.sh'))} $@.sources`] : [];
 	// Configure records Git Bash's /c aliases, which native Make cannot open.
 	// Read the authenticated upstream Makefile directly and override both aliases.
+	const ffmpegDependencies = windows ? `${makeShellPath(tools.executables.shell.path)} `
+		+ `${makeShellPath(join(hostRoot, 'build/windows-ffmpeg-dependencies.sh'))} "$@" "$(@:.o=.d)" `
+		+ '$(DEP$(1)) $(DEP$(1)FLAGS) $($(1)DEP_FLAGS) "$<"' : null;
 	const ffmpegMake = windows ? ['-f', makefilePath(join(ffmpegSourceRoot, 'Makefile'), true),
 		`SRC_PATH=${makefilePath(ffmpegSourceRoot, true)}`, `SRC_LINK=${makefilePath(ffmpegSourceRoot, true)}`,
-		`SHELL=${makefilePath(tools.executables.shell.path, true)}`, '.SHELLFLAGS=-e -c'] : [];
+		`SHELL=${makefilePath(tools.executables.shell.path, true)}`, '.SHELLFLAGS=-e -c',
+		`CCDEP=${ffmpegDependencies}`, `CXXDEP=${ffmpegDependencies}`] : [];
 	const ffmpegBuildEnvironment = windows ? Object.freeze({ ...dependencyEnvironment,
 		PATH: vpxBuildEnvironment.PATH,
 	}) : dependencyEnvironment;
