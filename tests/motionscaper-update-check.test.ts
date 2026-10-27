@@ -6,13 +6,29 @@ import { createMotionscaperUpdateChecker, dispatchMotionscaperUpdateCheck, MOTIO
 const release = (tag_name: string, prerelease = true) => ({ tag_name, prerelease, draft: false, html_url: 'https://untrusted.example/download' });
 const caller = { ownWindow: true, mainFrame: true, url: 'motionscaper-app://bundle/de/' };
 
+test('Motion checks the canonical release feed without following the former repository redirect', async () => {
+	const canonical = 'https://api.github.com/repos/mindscaper-org/Soundscaper/releases?per_page=20';
+	const former = 'https://api.github.com/repos/LeoWattenberg/Soundscaper/releases?per_page=20';
+	const requests: string[] = [];
+	const check = createMotionscaperUpdateChecker('0.1.0-alpha.1', (url, options) => {
+		requests.push(String(url));
+		assert.equal(options?.redirect, 'error'); assert.equal(options?.credentials, 'omit');
+		// The former endpoint returns HTTP 301; fetch with redirect:error rejects it.
+		if (String(url) === former) return Promise.reject(new TypeError('fetch failed', { cause: new Error('unexpected redirect') }));
+		assert.equal(String(url), canonical);
+		return Promise.resolve(Response.json([release('soundscaper-v1.0.0-rc.Oct.25.a')]));
+	});
+	assert.deepEqual(await check(), { status: 'current' });
+	assert.deepEqual(requests, [canonical]);
+});
+
 test('Motion updates select only the newest compatible own release and construct its fixed repository link', async () => {
 	let request: RequestInit | undefined;
 	const check = createMotionscaperUpdateChecker('0.1.0-alpha.1', async (url, options) => {
-		assert.equal(String(url), 'https://api.github.com/repos/LeoWattenberg/Soundscaper/releases?per_page=20'); request = options;
+		assert.equal(String(url), 'https://api.github.com/repos/mindscaper-org/Soundscaper/releases?per_page=20'); request = options;
 		return Response.json([release('framescaper-v9.0.0'), release('v99.0.0'), release('motionscaper-v0.1.0-alpha.2'), release('motionscaper-v0.2.0-beta.1'), { ...release('motionscaper-v9.0.0'), draft: true }]);
 	});
-	assert.deepEqual(await check(), { status: 'available', version: '0.2.0-beta.1', url: 'https://github.com/LeoWattenberg/Soundscaper/releases/tag/motionscaper-v0.2.0-beta.1' });
+	assert.deepEqual(await check(), { status: 'available', version: '0.2.0-beta.1', url: 'https://github.com/mindscaper-org/Soundscaper/releases/tag/motionscaper-v0.2.0-beta.1' });
 	assert.equal(request?.redirect, 'error'); assert.equal(request?.credentials, 'omit'); assert.ok(request?.signal instanceof AbortSignal);
 });
 
@@ -35,7 +51,7 @@ test('Motion checks search bounded repository pages without following a server s
 			: Response.json([release('motionscaper-v0.2.0-beta.1')]));
 	});
 	assert.equal((await check()).status, 'available');
-	assert.deepEqual(urls, ['https://api.github.com/repos/LeoWattenberg/Soundscaper/releases?per_page=20', 'https://api.github.com/repos/LeoWattenberg/Soundscaper/releases?per_page=20&page=2']);
+	assert.deepEqual(urls, ['https://api.github.com/repos/mindscaper-org/Soundscaper/releases?per_page=20', 'https://api.github.com/repos/mindscaper-org/Soundscaper/releases?per_page=20&page=2']);
 	assert.equal(signals[0], signals[1]);
 });
 

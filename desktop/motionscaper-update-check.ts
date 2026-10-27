@@ -2,7 +2,7 @@
 import { selectUpdate } from './update-check.js';
 import { motionscaperDesktopDocumentUrl, MOTIONSCAPER_DESKTOP } from './motionscaper-desktop-contract.ts';
 
-const RELEASES_API = 'https://api.github.com/repos/LeoWattenberg/Soundscaper/releases?per_page=20';
+const RELEASES_API = 'https://api.github.com/repos/mindscaper-org/Soundscaper/releases?per_page=20';
 const RELEASE_PAGES = 10;
 export const MOTION_UPDATE_RESPONSE_BYTES = 2 * 1024 * 1024;
 export type MotionUpdateResult = Readonly<{ status: 'current' | 'error' }> | Readonly<{ status: 'available'; version: string; url: string }>;
@@ -58,7 +58,7 @@ async function checkMotionUpdates(currentVersion: string, fetchImpl: typeof fetc
 		const selected = selectUpdate(rows, currentVersion, MOTIONSCAPER_DESKTOP.updateTagPrefix) as ReleaseRow | null;
 		if (!selected || !rows.includes(selected)) return Object.freeze({ status: 'current' });
 		return Object.freeze({ status: 'available', version: selected.tag_name.slice(MOTIONSCAPER_DESKTOP.updateTagPrefix.length),
-			url: `https://github.com/LeoWattenberg/Soundscaper/releases/tag/${encodeURIComponent(selected.tag_name)}` });
+			url: `https://github.com/mindscaper-org/Soundscaper/releases/tag/${encodeURIComponent(selected.tag_name)}` });
 	} catch { return Object.freeze({ status: 'error' }); }
 }
 
