@@ -89,7 +89,8 @@ async function inspectImportedOriginal(f: Awaited<ReturnType<typeof repairSettin
 
 /** Actual Current selected Session, owned RAW import, native catalog Save and
  * both pinned production workers. Only browser Worker/fetch transport is adapted. */
-export async function recoveryRasterFixture(mode: 'headroom' | 'recovery' = 'recovery') {
+export async function recoveryRasterFixture(mode: 'headroom' | 'recovery' = 'recovery', count = 1) {
+	assert.ok(Number.isSafeInteger(count) && count >= 1 && count <= 2);
 	const f = await repairSettingsFixture(1), canonical = await rawWorkerFixtureV1(), recovery = await rawRecoveryWorkerFixtureV2();
 	const keys = ['Worker', 'fetch'] as const, previous = keys.map(key => Object.getOwnPropertyDescriptor(globalThis, key));
 	const restore = () => { for (const [index, key] of keys.entries()) { const descriptor = previous[index];
@@ -110,18 +111,27 @@ export async function recoveryRasterFixture(mode: 'headroom' | 'recovery' = 'rec
 		if (failures.length) throw new AggregateError(failures, 'Recovery raster fixture retirement failed.');
 	}
 	try {
-		const raw = rawRecoveryDngFixtureV1().bytes, imported = await f.session.importFiles([new File([raw], 'Recovery.dng', { type: 'image/png' })]);
-		assert.equal(imported[0]?.status, 'imported'); const photoId = imported[0]?.photoId; assert.ok(photoId);
-		const initial = await f.session.develop.read({ schemaVersion: 3, photoId });
-		const ack = await f.session.develop.apply({ schemaVersion: 3, photoId, expectedRevision: initial.revision,
-			command: { type: 'record-develop', versionId: initial.versionId, develop: recoveryRecipe(mode), label: 'Recovered export', createdAt: SETTINGS_TIME } });
-		const saved = ack.snapshot, original = f.session.develop.original; assert.ok(original?.withDerivedFrame);
+		const raw = rawRecoveryDngFixtureV1().bytes;
+		const imported = await f.session.importFiles(Array.from({ length: count }, (_, index) =>
+			new File([raw], index ? `Recovery ${String(index + 1)}.dng` : 'Recovery.dng', { type: 'image/png' })));
+		assert.equal(imported.length, count);
+		const savedRows: Awaited<ReturnType<typeof f.session.develop.read>>[] = [];
+		for (const result of imported) {
+			assert.equal(result.status, 'imported'); const photoId = result.photoId; assert.ok(photoId);
+			const initial = await f.session.develop.read({ schemaVersion: 3, photoId });
+			const ack = await f.session.develop.apply({ schemaVersion: 3, photoId, expectedRevision: initial.revision,
+				command: { type: 'record-develop', versionId: initial.versionId, develop: recoveryRecipe(mode), label: 'Recovered export', createdAt: SETTINGS_TIME } });
+			savedRows.push(ack.snapshot);
+		}
+		const saved = savedRows[0]!, photoId = saved.photoId, original = f.session.develop.original; assert.ok(original?.withDerivedFrame);
 		const bound = { schemaVersion: 1 as const, photoId, expectedRevision: saved.revision };
 		const words = await original.withFrame(bound, view => Array.from(view.frame.pixels));
 		const profile = mode === 'headroom' ? 'linear-headroom-v1' as const : 'highlight-recovery-v1' as const;
 		const floats = await original.withDerivedFrame({ ...bound, profile }, view => Array.from(view.frame.pixels));
-		const metadata = await f.session.readMetadata(photoId), custody = await inspectImportedOriginal(f, photoId);
-		assert.deepEqual(custody.bytes, raw);
+		const metadataRows = await Promise.all(savedRows.map(row => f.session.readMetadata(row.photoId)));
+		const custodies = await Promise.all(savedRows.map(row => inspectImportedOriginal(f, row.photoId)));
+		const metadata = metadataRows[0]!;
+		for (const custody of custodies) assert.deepEqual(custody.bytes, raw);
 		const events: string[] = [], deliveries: { name: string; mimeType: string; bytes: Uint8Array }[] = [];
 		const encoded: Uint8Array[] = [], borrowed: ArrayBuffer[] = [];
 		const runtime = createPhotoDevelopRenderRuntimeCurrentV1({ source: f.session.cubeLuts.source, maskSource: f.session.maskRasterSource });
@@ -149,13 +159,16 @@ export async function recoveryRasterFixture(mode: 'headroom' | 'recovery' = 'rec
 		const readSidecar = f.session.readExportSidecarCurrent; assert.ok(readSidecar);
 		const read = (...args: Parameters<typeof readSidecar>) => Reflect.apply(readSidecar, f.session, args) as ReturnType<typeof readSidecar>;
 		const journal = f.session.exportJournalCurrent; assert.ok(journal);
-		return { ...f, raw, canonical, recovery, saved, original, bound, words, floats, metadata, events, deliveries, encoded, borrowed, request,
+		return { ...f, raw, canonical, recovery, saved, savedRows, original, bound, words, floats, metadata, metadataRows, custodies, events, deliveries, encoded, borrowed, request,
 			readSidecar: read, openJournal: (...args: Parameters<typeof journal.open>) => Reflect.apply(journal.open, journal, args) as ReturnType<typeof journal.open>,
+			inspectCurrentCustody: () => inspectImportedOriginal(f, photoId),
 			async assertCustody() {
-				assert.deepEqual(await inspectImportedOriginal(f, photoId), custody);
-				assert.deepEqual(await f.session.develop.read({ schemaVersion: 3, photoId }), saved);
-				assert.deepEqual(await f.session.readMetadata(photoId), metadata);
-				assert.deepEqual(await original.withFrame(bound, view => Array.from(view.frame.pixels)), words);
+				for (const [index, row] of savedRows.entries()) {
+					assert.deepEqual(await inspectImportedOriginal(f, row.photoId), custodies[index]);
+					assert.deepEqual(await f.session.develop.read({ schemaVersion: 3, photoId: row.photoId }), row);
+					assert.deepEqual(await f.session.readMetadata(row.photoId), metadataRows[index]);
+					assert.deepEqual(await original.withFrame({ schemaVersion: 1, photoId: row.photoId, expectedRevision: row.revision }, view => Array.from(view.frame.pixels)), words);
+				}
 				assert.ok(encoded.every(bytes => bytes.every(value => value === 0))); assert.ok(borrowed.every(buffer => new Uint8Array(buffer).every(value => value === 0)));
 				assert.equal(canonical.active(), 0); assert.equal(recovery.active(), 0);
 			}, close };
