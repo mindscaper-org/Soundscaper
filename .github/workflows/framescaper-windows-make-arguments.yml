@@ -33,11 +33,12 @@ jobs:
           node-version-file: .nvmrc
           architecture: ${{ matrix.arch }}
           cache: npm
+      - name: Select native Windows tooling
+        uses: ./.github/actions/setup-native-tooling
+        with:
+          windows-media-tools: 'true'
       - run: npm install --global npm@12.0.1
       - run: npm ci
-      - name: Select native Windows tooling
-        shell: bash
-        run: node scripts/setup-ci-native-tooling.mjs --windows-media-tools
       - name: Measure long argument delivery through each installed Git shell
         run: node scripts/diagnose-windows-make-arguments.ts
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
