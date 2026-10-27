@@ -16,14 +16,16 @@ test('Motion Linux candidate and nightly packages require real launch, scene and
 	assert.match(action, /SCAPE_FRAMESCAPER_DESKTOP_PROFILE: framescaper-successor-v2/u);
 	assert.match(action, /SCAPE_FRAMESCAPER_LINE: successor/u);
 	assert.match(action, /node scripts\/motionscaper-linux-qualification.ts/u);
+	assert.match(action, /export MOTIONSCAPER_QUALIFICATION_PRIVATE_DISPLAY="\$DISPLAY"/u);
 	assert.match(action, /name: motionscaper-linux-qualification-/u);
 	assert.doesNotMatch(action, /continue-on-error|--no-sandbox|--publish always/u);
 });
 
-test('Motion reference decoder is a separate Linux-only test artifact after verified native build', async () => {
+test('Motion reference decoder is a separate target-native test artifact after verified native build', async () => {
 	const workflow = await readFile(new URL('../.github/workflows/motionscaper-media-host-native-build.yml', import.meta.url), 'utf8');
 	assert.ok(workflow.indexOf('scripts/motionscaper-reference-artifact-build.ts') > workflow.indexOf('Reverify committed source and exact artifact closure'));
-	assert.match(workflow, /name: Build separate Linux reference decoder\n\s+if: runner.os == 'Linux'/u);
+	assert.match(workflow, /name: Build separate target-native reference decoder\n\s+shell: bash/u);
+	assert.match(workflow, /--prefix-authority-sha256="\$\{\{ steps\.reference-prefix\.outputs\.sha256 \}\}"/u);
 	assert.match(workflow, /name: motionscaper-reference-decoder-\$\{\{ matrix.target \}\}/u);
 	assert.match(workflow, /motionscaper-media-work\/media-build\/ffmpeg-install/u);
 });

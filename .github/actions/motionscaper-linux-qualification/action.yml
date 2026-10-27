@@ -1,5 +1,5 @@
 name: Qualify complete Linux Motion workflows
-description: Real packaged launch, authored title, 2.5D delivery and offline Frame successor workflows; complete qualification currently requires Linux x64.
+description: Real packaged launch, authored title, 2.5D delivery and offline Frame successor workflows on Linux x64 and arm64.
 inputs:
   target:
     required: true
@@ -54,7 +54,8 @@ runs:
     - name: Require all four real packaged workflows
       shell: bash
       run: >-
-        xvfb-run -a node scripts/motionscaper-linux-qualification.ts
+        xvfb-run -a bash -c
+        'export MOTIONSCAPER_QUALIFICATION_PRIVATE_DISPLAY="$DISPLAY"; exec node scripts/motionscaper-linux-qualification.ts "$@"' --
         --target=${{ inputs.target }} --native-result="${{ inputs.native-result }}"
         --decoder-artifact="${{ runner.temp }}/motionscaper-reference-decoder"
         --motion-stage="${{ github.workspace }}/.desktop-build"
