@@ -296,6 +296,10 @@ export const FOUNDATION_RUNTIME_PROJECTION_IMPORTER_EXCLUSIONS: readonly Foundat
 		file: 'src/common/editor/video-keyframe-export-frame-source.ts',
 		reason: 'The immutable export snapshot preserves an existing runtime-projection brand after inheriting exact folder media state; projection and timing consumption remain owned by the upstream keyed-export inventory.',
 	},
+	{
+		file: 'src/common/editor/ui/workspace/video-preview-focused-project.ts',
+		reason: 'The focused sequence adapter scopes an already resolved preview and preserves its runtime brand and folder media state. It selects authored sequence identity without reading legacy clip timing aliases or creating a new timing projection.',
+	},
 	{ file: 'src/common/editor/controller/composition/controller-options.ts', reason: 'Controller options use type-only projection imports to declare selected product consumer ports; this module executes no timing reads.' },
 	{ file: 'src/common/editor/controller/import/project-bin-types.ts', reason: 'The bin declares authored clip and project input ports through type-only imports; it does not read transient clip coordinates.' },
 	{
