@@ -5,6 +5,7 @@ import { lstat, readdir, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { hashMotionSustainedFile } from '../scripts/performance/motionscaper-sustained-observation.ts';
+import { motionAuthoredBundleIdentity } from './motionscaper-authored-bundle-identity.ts';
 
 /** Retain both content and actual regular-file authority across the qualification. */
 export async function motionAuthoredFileIdentity(path: string) {
@@ -27,6 +28,7 @@ export async function motionAuthoredSourceIdentity(root: string): Promise<string
 }
 /** Full package byte/inode custody supplements the maintained ASAR/stage verification. */
 export async function motionAuthoredPackageIdentity(directory: string) {
+	if (process.platform === 'darwin') return motionAuthoredBundleIdentity(directory);
 	assert.equal(await realpath(directory), directory); const files: string[] = [];
 	const visit = async (relative: string): Promise<void> => {
 		assert.ok((await lstat(join(directory, relative))).isDirectory());
@@ -42,6 +44,6 @@ export async function motionAuthoredPackageIdentity(directory: string) {
 		assert.deepEqual([after.dev, after.ino, after.ctimeMs, after.mode], [before.dev, before.ino, before.ctimeMs, before.mode]);
 		records.push({ ...pin, path, dev: after.dev, ino: after.ino, mode: after.mode, uid: after.uid, gid: after.gid });
 	}
-	const sandbox = records.find(file => file.path === 'chrome-sandbox'); assert.ok(sandbox); assert.equal(sandbox.uid, 0); assert.equal(sandbox.mode & 0o7777, 0o4755);
+	if (process.platform === 'linux') { const sandbox = records.find(file => file.path === 'chrome-sandbox'); assert.ok(sandbox); assert.equal(sandbox.uid, 0); assert.equal(sandbox.mode & 0o7777, 0o4755); }
 	return records;
 }

@@ -7,13 +7,13 @@ import { validateMotionReferenceReceipt } from '../scripts/lib/motionscaper-refe
 import { MOTION_LINUX_QUALIFICATIONS, motionQualificationReceipts } from '../scripts/motionscaper-linux-qualification.ts';
 
 test('Motion qualifiers keep own default stages and explicitly select separate package locations', () => {
-	assert.deepEqual(resolveMotionQualificationPaths('/checkout', 'motionscaper', 'x64', {}), { stage: '/checkout/.desktop-build', package: '/checkout/release/desktop-nightly-products/motionscaper/linux-unpacked', executable: '/checkout/release/desktop-nightly-products/motionscaper/linux-unpacked/motionscaper' });
+	assert.deepEqual(resolveMotionQualificationPaths('/checkout', 'motionscaper', 'x64', {}), { stage: '/checkout/.desktop-build', package: '/checkout/release/desktop-nightly-products/motionscaper/linux-unpacked', executable: '/checkout/release/desktop-nightly-products/motionscaper/linux-unpacked/motionscaper', resources: '/checkout/release/desktop-nightly-products/motionscaper/linux-unpacked/resources' });
 	const custom = resolveMotionQualificationPaths('/checkout', 'motionscaper', 'arm64', { MOTIONSCAPER_QUALIFICATION_STAGE: '/stage', MOTIONSCAPER_QUALIFICATION_PACKAGE: '/candidate/linux-arm64-unpacked' });
 	assert.equal(custom.stage, '/stage'); assert.equal(custom.executable, '/candidate/linux-arm64-unpacked/motionscaper');
 	const successor = resolveMotionQualificationPaths('/checkout', 'framescaper-successor', 'x64', {});
 	assert.equal(successor.stage, '/checkout/.desktop-build/framescaper-successor'); assert.equal(successor.executable, '/checkout/release/framescaper-successor/linux-unpacked/framescaper-successor');
 	for (const path of ['relative', '/tmp/../stage', '/tmp/\0stage', '']) assert.throws(() => resolveMotionQualificationPaths('/checkout', 'motionscaper', 'x64', { MOTIONSCAPER_QUALIFICATION_STAGE: path }), /path/u);
-	assert.throws(() => resolveMotionQualificationPaths('/checkout', 'motionscaper', 'ia32', {}), /architecture/u);
+	assert.throws(() => resolveMotionQualificationPaths('/checkout', 'motionscaper', 'ia32', {}), /Unsupported Motion qualification target linux-ia32/u);
 });
 
 test('Motion CI cannot complete without every unique source-bound native workflow receipt', () => {

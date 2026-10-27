@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
-import { spawn, execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { promisify } from 'node:util';
-import { chromium, expect, type Browser } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { verifyMotionscaperDesktopStage, verifyMotionscaperPackagedResources } from '../scripts/lib/motionscaper-desktop-package.mjs';
 import { exportMotionscaperArchive } from '../src/motionscaper/editor-scape.ts';
 import { createMotionscaperRevision } from '../src/motionscaper/editor-project-revision.ts';
@@ -14,32 +12,28 @@ import { encodeMotionChannel, motionSurfaceToRgba8 } from '../src/common/editor/
 import { createMotionNativeScene, renderMotionNativeSceneReference } from './motionscaper-native-scene-reference.ts';
 import { prepareMotionNativeReferenceDecoder, decodeMotionNativeReference } from './motionscaper-native-reference.ts';
 import { resolveMotionQualificationPaths } from './motionscaper-native-qualification-paths.ts';
+import { motionQualificationTarget, requireMotionQualificationHost } from './motionscaper-qualification-platform.ts';
+import { launchMotionQualificationApplication } from './motionscaper-qualification-session.ts';
 
 /** External qualification only: authenticates the package, then drives its unchanged public menus. */
 export async function qualifyMotionscaperNativeScene(): Promise<void> {
-	if (process.argv.length !== 2 || process.platform !== 'linux' || !process.env.DISPLAY) throw new Error('This packaged native scene qualification requires Linux, X11 and no arguments.');
+	if (process.argv.length !== 2) throw new Error('Packaged scene qualification accepts no arguments.');
+	const target = motionQualificationTarget(); requireMotionQualificationHost(target);
 	const root = resolve(import.meta.dirname, '..'); const paths = resolveMotionQualificationPaths(root, 'motionscaper', process.arch);
 	const executable = paths.executable; await access(executable);
-	const stage = await verifyMotionscaperDesktopStage(paths.stage, `linux-${process.arch}`); await verifyMotionscaperPackagedResources(join(paths.package, 'resources'), stage);
+	const stage = await verifyMotionscaperDesktopStage(paths.stage, target); await verifyMotionscaperPackagedResources(paths.resources, stage);
 	const sourceRevision: unknown = stage.sourceRevision; assert.equal(typeof sourceRevision, 'string'); assert.match(String(sourceRevision), /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u, 'Qualification requires a source-pinned desktop stage.');
 	const temporary = await mkdtemp(join(tmpdir(), 'motionscaper-native-scene-')); const archivePath = join(temporary, 'saved.mscape'), movie = join(temporary, 'output.mov');
 	const project = createMotionNativeScene(); const revision = createMotionscaperRevision(project);
 	const archive = await exportMotionscaperArchive(project, () => { throw new Error('No external scene assets.'); }); assert.ok(archive); await writeFile(archivePath, new Uint8Array(await archive.arrayBuffer()));
 	const references = await Promise.all([1, 2].map(frame => renderMotionNativeSceneReference(project, frame))); const decoder = await prepareMotionNativeReferenceDecoder(temporary);
 	const env: NodeJS.ProcessEnv = { ...process.env, LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', SCAPE_PRODUCT: 'motionscaper' }; delete env.ELECTRON_RUN_AS_NODE; delete env.NODE_OPTIONS;
-	const child = spawn(executable, ['--disable-gpu', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0', `--user-data-dir=${join(temporary, 'profile')}`], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
-	let browser: Browser | undefined, output = ''; const exited = new Promise<void>((done, reject) => { child.once('error', reject); child.once('close', () => done()); });
-	const deadline = setTimeout(() => child.kill('SIGKILL'), 120000);
+	const application = await launchMotionQualificationApplication({ executable, cwd: root, directory: temporary, env, workflow: 'scene', timeoutMs: 120000 });
 	try {
-		const endpoint = await new Promise<string>((done, reject) => {
-			let resolved = false; const receive = (bytes: Buffer) => { output += bytes.toString('utf8'); if (output.length > 1048576) { reject(new Error('Packaged scene output exceeded its budget.')); child.kill('SIGKILL'); return; }
-				const match = /DevTools listening on (ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\/[A-Za-z0-9-]+)/u.exec(output); if (match && !resolved) { resolved = true; done(match[1]!); } };
-			child.stdout.on('data', receive); child.stderr.on('data', receive); child.once('error', reject); child.once('close', () => { if (!resolved) reject(new Error(`Packaged scene closed before endpoint: ${output}`)); });
-		});
-		browser = await chromium.connectOverCDP(endpoint); const context = browser.contexts()[0]!; const page = context.pages()[0] ?? await context.waitForEvent('page');
+		const { page } = application;
 		await expect(page.locator('[data-motion-editor-bound="true"]')).toBeVisible({ timeout: 30000 }); assert.ok(page.url().startsWith('motionscaper-app://bundle/'));
 		const menu = async (top: string, label: string) => { await page.getByRole('menuitem', { name: top, exact: true }).click(); await page.getByRole('menuitem', { name: label, exact: true }).click(); };
-		const select = async (path: string) => { const result = await promisify(execFile)('python3', [join(root, 'scripts/lib/motionscaper-scene-chooser-x11.py'), path], { timeout: 20000 }); assert.match(result.stdout, /MOTIONSCAPER_NATIVE_FILE_CHOOSER_SELECTED/u); };
+		const select = (path: string) => application.chooseFile({ kind: path === archivePath ? 'scene-open' : 'scene-export', path });
 		await menu('File', 'Open'); await select(archivePath); await expect(page.getByRole('menuitem', { name: 'Render', exact: true })).toHaveCount(0);
 		await expect(page.locator('[data-motion-save-status]')).toHaveText('Saved on this device', { timeout: 30000 });
 		await menu('View', 'Composition Preview'); const preview = page.getByRole('dialog', { name: 'Composition Preview', exact: true }); const canvas = preview.locator('canvas'); let maximumPreviewError = 0;
@@ -69,6 +63,5 @@ export async function qualifyMotionscaperNativeScene(): Promise<void> {
 		}
 		assert.ok(maximumColorError <= 8 / 1023, `Native 10-bit RGB boundary exceeded eight code values: ${String(maximumColorError)}`); assert.ok(maximumAlphaError <= 2 / 1023, `Native alpha exceeded two 10-bit input codes: ${String(maximumAlphaError)}`);
 		console.log(`MOTIONSCAPER_NATIVE_SCENE_QUALIFIED ${JSON.stringify({ platform: process.platform, arch: process.arch, sourceRevision, gpuMode: 'software (--disable-gpu)', revisionDigest: revision.digest, frameCount: 2, temporalSamples: 4, lensSamples: 16, actualNativeChoosers: true, ownOrigin: page.url(), maximumPreviewPremultipliedCodeError: maximumPreviewError, maximumRec709ColorError: maximumColorError, maximumAlphaError, maximumAlphaSample, metadata: decoded.metadata, movieSha256: createHash('sha256').update(await readFile(movie)).digest('hex') })}`);
-	} catch (error) { console.error(output); throw error; }
-	finally { try { await browser?.close(); } finally { child.kill('SIGTERM'); await exited; clearTimeout(deadline); await rm(temporary, { recursive: true, force: true, maxRetries: 4, retryDelay: 250 }); } }
+	} finally { await application.cleanup(); await rm(temporary, { recursive: true, force: true, maxRetries: 4, retryDelay: 250 }); }
 }

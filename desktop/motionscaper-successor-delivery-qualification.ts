@@ -1,17 +1,16 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 /** External package qualification through public menus; never imported by a production entry. */
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
 import { expect, type Page } from '@playwright/test';
 import { encodeMotionChannel, decodeMotionChannel } from '../src/common/editor/motion-surface.ts';
 import { motionscaperSuccessorNativeExpectedSample } from '../scripts/lib/motionscaper-successor-qualification-fixture.ts';
 import { prepareMotionNativeReferenceDecoder, decodeMotionNativeReference } from './motionscaper-native-reference.ts';
 import { motionNativePreviewMattePixel } from './motionscaper-preview-reference.ts';
-export async function qualifyFramescaperSuccessorNativeDelivery(page: Page, options: { root: string; temporary: string; sourceRevision: string; acceptedDigest: string; previewBackend: 'software-webgl2' | 'unavailable' }): Promise<void> {
+import type { MotionQualificationChooserKind } from './motionscaper-qualification-policy.ts';
+export async function qualifyFramescaperSuccessorNativeDelivery(page: Page, options: { root: string; temporary: string; sourceRevision: string; acceptedDigest: string; previewBackend: 'software-webgl2' | 'unavailable'; chooseFile: (request: Readonly<{ kind: MotionQualificationChooserKind; path: string }>) => Promise<unknown> }): Promise<void> {
 	const menu = async (item: string) => { await page.getByRole('menuitem', { name: 'File', exact: true }).click(); await page.getByRole('menuitem', { name: item, exact: true }).click(); };
 	const preview = async () => {
 		await expect(page.locator('[data-video-preview]')).toHaveAttribute('data-video-preview-renderer', 'ready');
@@ -40,8 +39,7 @@ export async function qualifyFramescaperSuccessorNativeDelivery(page: Page, opti
 	await expect(dialog.getByRole('button', { name: 'Choose destination and export', exact: true })).toBeEnabled();
 	await dialog.getByRole('button', { name: 'Choose destination and export', exact: true }).click();
 	const movie = join(options.temporary, 'output.mov');
-	const selected = await promisify(execFile)('python3', [join(options.root, 'scripts/lib/motionscaper-successor-delivery-chooser-x11.py'), movie], { timeout: 20000 });
-	assert.match(selected.stdout, /MOTIONSCAPER_NATIVE_FILE_CHOOSER_SELECTED/u);
+	await options.chooseFile({ kind: 'successor-export', path: movie });
 	await expect(dialog.getByRole('status')).toHaveText('Saved output.mov', { timeout: 30000 }); await expect(dialog.getByRole('alert')).toHaveCount(0);
 	const frameDigest = await dialog.locator('[data-frame-native-digest]').textContent(); assert.match(frameDigest ?? '', /^[a-f0-9]{64}$/u);
 	const decoder = await prepareMotionNativeReferenceDecoder(options.temporary); const decoded = await decodeMotionNativeReference(decoder, movie, options.temporary);

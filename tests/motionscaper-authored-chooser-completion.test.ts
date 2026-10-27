@@ -58,8 +58,8 @@ interface Observation {
 	sleeps: readonly number[];
 	refused?: string;
 }
-async function observe(mode: string, popup: boolean, foreign = false): Promise<Observation> {
-	const driver = fileURLToPath(new URL('../scripts/lib/motionscaper-authored-chooser-x11.py', import.meta.url));
+async function observe(mode: string, popup: boolean, foreign = false, portable = false): Promise<Observation> {
+	const driver = fileURLToPath(new URL(portable ? '../scripts/lib/motionscaper-qualification-chooser-x11.py' : '../scripts/lib/motionscaper-authored-chooser-x11.py', import.meta.url));
 	const result = await promisify(execFile)('python3', ['-B', '-E', '-s', '-c', program, driver, mode, String(popup), String(foreign)], { timeout: 5000, maxBuffer: 65536 });
 	return JSON.parse(result.stdout) as Observation;
 }
@@ -87,4 +87,12 @@ test('Motionscaper authored export cancellation keeps its Escape-only path', asy
 	assert.equal(result.cancelled, true); assert.equal(result.saved, false); assert.equal(result.tabs, 0); assert.equal(result.clicks, 0);
 	assert.deepEqual(result.sleeps, []);
 	assert.deepEqual(result.events, [['key', 0xFF1B, true], ['key', 0xFF1B, false], ['flush']]);
+});
+
+for (const mode of ['save-project', 'export', 'cancel-export']) test(`Portable GTK ${mode} preserves the physical authored completion/cancel sequence`, async () => {
+	assert.deepEqual(await observe(mode, true, false, true), await observe(mode, true));
+	if (mode !== 'cancel-export') {
+		const foreign = await observe(mode, true, true, true);
+		assert.equal(foreign.refused, 'Foreign dialog'); assert.equal(foreign.clicks, 0); assert.equal(foreign.saved, false);
+	}
 });

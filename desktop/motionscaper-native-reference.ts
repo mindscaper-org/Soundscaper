@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 /** Test-only libav reference decoder; no production process imports this module. */
 import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { verifyMotionReferenceArtifact } from '../scripts/lib/motionscaper-reference-artifact.ts';
 import { buildAuditedMotionReferenceDecoder } from '../scripts/lib/motionscaper-reference-build.ts';
 import { currentMotionReferenceTarget } from '../scripts/lib/motionscaper-reference-target.ts';
+import { runMotionQualificationCommand } from './motionscaper-qualification-command.ts';
 export interface MotionNativeReference {
 	readonly width: number; readonly height: number; readonly profile: number; readonly colorDepth: number; readonly alphaDepth: number;
 	readonly colorPrimaries: number; readonly colorTransfer: number; readonly colorSpace: number;
@@ -57,7 +59,8 @@ export async function buildLegacyLinuxMotionReferenceDecoder(directory: string, 
 export async function decodeMotionNativeReference(executable: string, movie: string, directory: string): Promise<Readonly<{ metadata: MotionNativeReference; rgba: Float32Array; pcm: Float32Array }>> {
 	const input = await stat(movie); if (!input.isFile() || input.size > 64 * 1024 * 1024) throw new Error('Native reference movie exceeds its admission budget.');
 	const rgbaPath = join(directory, 'reference.rgba'), pcmPath = join(directory, 'reference.pcm');
-	const result = await promisify(execFile)(executable, [movie, rgbaPath, pcmPath], { timeout: 30000, maxBuffer: 65536 });
+	const result = await runMotionQualificationCommand({ command: executable, args: [movie, rgbaPath, pcmPath],
+		cwd: resolve(import.meta.dirname, '..'), directory, id: `reference-decoder-${randomUUID()}`, timeoutMs: 30000 });
 	const [rgbaStat, pcmStat] = await Promise.all([stat(rgbaPath), stat(pcmPath)]); const metadata = inspectMotionNativeReference(JSON.parse(result.stdout) as unknown, rgbaStat.size, pcmStat.size);
 	const [rgba, pcm] = await Promise.all([readFile(rgbaPath), readFile(pcmPath)]);
 	return { metadata, rgba: new Float32Array(rgba.buffer.slice(rgba.byteOffset, rgba.byteOffset + rgba.byteLength)), pcm: new Float32Array(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength)) };

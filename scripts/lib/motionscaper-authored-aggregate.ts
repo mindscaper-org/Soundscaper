@@ -1,20 +1,26 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { motionSustainedCommand } from '../performance/motionscaper-sustained-command.ts';
+import { tmpdir } from 'node:os';
+import { motionQualificationTarget } from '../../desktop/motionscaper-qualification-platform.ts';
+import { runMotionQualificationCommand } from '../../desktop/motionscaper-qualification-command.ts';
+import type { motionSustainedCommand } from '../performance/motionscaper-sustained-command.ts';
+import { MOTION_NATIVE_TARGETS, type MotionNativeTarget } from './motionscaper-native-source.ts';
 
 /** Complete aggregate qualification must not silently omit the authored workflow. */
 export function requireMotionAuthoredAggregateTarget(target: string): void {
-	if (target !== 'linux-x64') throw new Error(`Complete Motion aggregate qualification is unqualified for ${target}: the authored GTK workflow currently supports Linux x64 only.`);
+	if (!(MOTION_NATIVE_TARGETS as readonly string[]).includes(target)) throw new Error(`Unsupported complete Motion qualification target ${target}.`);
 }
 
 /** The aggregate caller owns Xvfb. Runtime overrides apply only to this child;
  * scene qualification keeps its original /tmp path authority and environment. */
 export async function runMotionAuthoredAggregate(root: string, output: string, environment: NodeJS.ProcessEnv,
-	execute: typeof motionSustainedCommand = motionSustainedCommand) {
-	if (!/^:\d+$/u.test(environment.DISPLAY ?? '')) throw new Error('Authored aggregate requires its owned X11 display.');
+	execute: typeof motionSustainedCommand = runMotionQualificationCommand, options: Readonly<{ target?: MotionNativeTarget }> = {}) {
+	const target = options.target ?? motionQualificationTarget(); requireMotionAuthoredAggregateTarget(target);
+	const linux = target.startsWith('linux-');
+	if (linux && !/^:\d+$/u.test(environment.DISPLAY ?? '')) throw new Error('Authored aggregate requires its owned X11 display.');
 	const directory = join(output, 'authored-command'); await mkdir(directory, { mode: 0o700 });
-	const runtime = await mkdtemp('/tmp/motionscaper-authored-aggregate-');
+	const runtime = await mkdtemp(linux ? '/tmp/motionscaper-authored-aggregate-' : join(tmpdir(), 'motionscaper-authored-aggregate-'));
 	await writeFile(join(directory, 'runtime.json'), `${JSON.stringify({ directory: runtime,
 		failurePolicy: 'Runtime is retained on failure for inspection; never remove paths while child cleanup is uncertain.' }, null, 2)}\n`, { flag: 'wx' });
 	const temporary = join(runtime, 'tmp'), xdg = join(runtime, 'xdg');
@@ -22,7 +28,7 @@ export async function runMotionAuthoredAggregate(root: string, output: string, e
 	const result = await execute({ command: process.execPath,
 		args: [join(root, 'scripts/motionscaper-authored-native-smoke.mjs'), `--output=${join(output, 'authored')}`],
 		cwd: root, directory, id: 'authored', timeoutMs: 210000,
-		env: { ...environment, TMPDIR: temporary, XDG_RUNTIME_DIR: xdg, MOTIONSCAPER_QUALIFICATION_PRIVATE_DISPLAY: environment.DISPLAY },
+		env: linux ? { ...environment, TMPDIR: temporary, XDG_RUNTIME_DIR: xdg, MOTIONSCAPER_QUALIFICATION_PRIVATE_DISPLAY: environment.DISPLAY } : { ...environment },
 	});
 	// The maintained owner returns only after successful child/descendant cleanup.
 	await rm(runtime, { recursive: true });

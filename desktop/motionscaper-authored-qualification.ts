@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import { lstat, mkdir, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { expect, type Page } from '@playwright/test';
 import { verifyMotionscaperDesktopStage, verifyMotionscaperPackagedResources } from '../scripts/lib/motionscaper-desktop-package.mjs';
-import { launchMotionSustainedApplication } from '../scripts/performance/motionscaper-sustained-launch.ts';
-import { motionSustainedCommand } from '../scripts/performance/motionscaper-sustained-command.ts';
-import { hashMotionSustainedFile, sampleMotionOwnedProcesses } from '../scripts/performance/motionscaper-sustained-observation.ts';
+import { launchMotionQualificationApplication, runMotionQualificationCommand } from './motionscaper-qualification-session.ts';
+import { motionQualificationTarget, requireMotionQualificationHost } from './motionscaper-qualification-platform.ts';
+import { hashMotionSustainedFile } from '../scripts/performance/motionscaper-sustained-observation.ts';
 import { resolveMotionQualificationPaths } from './motionscaper-native-qualification-paths.ts';
 import { inspectMotionNativeReference, prepareMotionNativeReferenceDecoder } from './motionscaper-native-reference.ts';
 import { motionAuthoredFileIdentity, motionAuthoredPackageIdentity, motionAuthoredSourceIdentity, verifyMotionAuthoredFileIdentity } from './motionscaper-authored-identity.ts';
@@ -27,48 +27,44 @@ async function author(page: Page): Promise<void> {
 	await fill([['Layer name', 'Title'], ['Text', 'Motion'], ['Font size', '24'], ['Width', '120'], ['Height', '40'], ['Position X', '20'], ['Position Y', '20'], ['Opacity (%)', '100'], ['Fill color', '#ffffff']]); await create();
 }
 
-/** Standalone until independently qualified; aggregate registration must not precede its real GTK run. */
+/** The same menu-authored scene and independent oracles run through target-native ownership/choosers. */
 export async function qualifyMotionscaperAuthoredTitle(output: string): Promise<void> {
-	if (process.platform !== 'linux' || process.arch !== 'x64' || !/^:\d+$/u.test(process.env.DISPLAY ?? '')
-		|| process.env.MOTIONSCAPER_QUALIFICATION_PRIVATE_DISPLAY !== process.env.DISPLAY) throw new Error('Authored qualification requires its explicitly owned private Linux x64 X11 display.');
-	for (const name of ['TMPDIR', 'XDG_RUNTIME_DIR']) {
+	const target = motionQualificationTarget(); requireMotionQualificationHost(target);
+	if (process.platform === 'linux') for (const name of ['TMPDIR', 'XDG_RUNTIME_DIR']) {
 		const path = process.env[name]; assert.ok(path && path.length <= 80, 'Use a short private runtime directory for native sockets.');
 		assert.equal(await realpath(path), path); const metadata = await lstat(path);
 		assert.ok(metadata.isDirectory()); assert.equal(metadata.uid, process.getuid!()); assert.equal(metadata.mode & 0o777, 0o700);
 	}
-	assert.equal(resolve(output), output); assert.match(output, /^\/[A-Za-z0-9_./-]+$/u); assert.equal(await realpath(dirname(output)), dirname(output));
+	assert.equal(resolve(output), output); assert.ok(output.length <= 8192 && !output.includes('\0')); assert.equal(await realpath(dirname(output)), dirname(output));
 	const root = resolve(import.meta.dirname, '..'), revision = await motionAuthoredSourceIdentity(root);
 	const paths = resolveMotionQualificationPaths(root, 'motionscaper', process.arch);
 	const verifyStage = async () => {
-		const stage = await verifyMotionscaperDesktopStage(paths.stage, 'linux-x64'); assert.equal(stage.sourceRevision, revision);
-		await verifyMotionscaperPackagedResources(join(paths.package, 'resources'), stage);
+		const stage = await verifyMotionscaperDesktopStage(paths.stage, target); assert.equal(stage.sourceRevision, revision);
+		await verifyMotionscaperPackagedResources(paths.resources, stage);
 	};
 	await verifyStage(); const packageBefore = await motionAuthoredPackageIdentity(paths.package);
 	assert.ok(process.env.MOTIONSCAPER_REFERENCE_ARTIFACT && process.env.MOTIONSCAPER_REFERENCE_NATIVE_RESULT, 'A verified source-bound decoder artifact is mandatory; compilation fallback is not admitted.');
 	for (const input of [root, paths.package, paths.stage, process.env.MOTIONSCAPER_REFERENCE_ARTIFACT, process.env.MOTIONSCAPER_REFERENCE_NATIVE_RESULT]) {
-		assert.ok(output !== input && !output.startsWith(`${input}/`), 'Qualification output must not mutate its source or input artifacts.');
+		const descendant = relative(input, output); assert.ok(descendant !== '' && (descendant.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) || descendant === '..' || isAbsolute(descendant)), 'Qualification output must not mutate its source or input artifacts.');
 	}
 	await mkdir(output, { recursive: false, mode: 0o700 });
 	const write = async (name: string, value: unknown) => { await writeFile(join(output, name), `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx' }); };
 	const decoder = await prepareMotionNativeReferenceDecoder(output);
-	const decoderIdentity = await motionAuthoredFileIdentity(decoder); assert.ok(decoderIdentity.mode & 0o111);
+	const decoderIdentity = await motionAuthoredFileIdentity(decoder); if (process.platform !== 'win32') assert.ok(decoderIdentity.mode & 0o111);
 	const rasterAuthority = await motionAuthoredRasterIdentity(root);
 	const pins = await Promise.all([join(paths.stage, 'stage-manifest.json'), join(process.env.MOTIONSCAPER_REFERENCE_ARTIFACT, 'reference-receipt.json'), join(process.env.MOTIONSCAPER_REFERENCE_NATIVE_RESULT, 'build-result.json')].map(path => hashMotionSustainedFile(path)));
 	await write('input-authority.json', { root, sourceRevision: revision, paths, pins, packageBefore, display: process.env.DISPLAY, decoderIdentity, rasterAuthority });
-	let application: Awaited<ReturnType<typeof launchMotionSustainedApplication>> | undefined;
+	let application: Awaited<ReturnType<typeof launchMotionQualificationApplication>> | undefined;
 	const receipt = await finishMotionAuthoredQualification(async () => {
-		application = await launchMotionSustainedApplication({ executable: paths.executable, cwd: root, directory: output, native: true });
-		await write('chooser-owner.json', { owner: application.owner, display: process.env.DISPLAY });
+		application = await launchMotionQualificationApplication({ executable: paths.executable, cwd: root, directory: output, workflow: 'authored' });
 		const { page } = application; const pageErrors: string[] = []; page.on('pageerror', error => { if (pageErrors.length < 32) pageErrors.push(error.message); });
 		page.setDefaultTimeout(15000); page.setDefaultNavigationTimeout(30000);
 		await expect(page.locator('[data-motion-editor-bound="true"]')).toBeVisible({ timeout: 30000 }); assert.ok(page.url().startsWith('motionscaper-app://bundle/'));
-		const remember = async () => { const owned = await sampleMotionOwnedProcesses(application!.owner, []); application!.retainProcessIdentities(owned.processes.map(value => value.identity)); };
+		const remember = () => application!.rememberProcesses();
 		const menu = async (top: string, item: string) => { await remember(); await page.getByRole('menuitem', { name: top, exact: true }).click(); await page.getByRole('menuitem', { name: item, exact: true }).click(); };
-		let chooserIndex = 0;
-		const choose = async (mode: 'save-project' | 'export' | 'cancel-export', name: 'saved.mscape' | 'output.mov') => {
-			const result = await motionSustainedCommand({ command: '/usr/bin/python3', args: ['-B', '-E', '-s', join(root, 'scripts/lib/motionscaper-authored-chooser-x11.py'), output, mode, name], cwd: root, directory: output, id: `chooser-${++chooserIndex}`, timeoutMs: 25000 });
-			assert.match(result.stdout, /MOTIONSCAPER_NATIVE_FILE_CHOOSER_SELECTED/u);
-		};
+		const choose = (mode: 'save-project' | 'export' | 'cancel-export', name: 'saved.mscape' | 'output.mov') => application!.chooseFile({
+			kind: mode === 'save-project' ? 'authored-save' : mode === 'export' ? 'authored-export' : 'authored-cancel-export', path: join(output, name),
+		});
 		await author(page); await menu('File', 'Save'); await choose('save-project', 'saved.mscape');
 		await expect(page.locator('[data-motion-save-status]')).toHaveText('Saved on this device', { timeout: 30000 });
 		const archivePath = join(output, 'saved.mscape'), moviePath = join(output, 'output.mov');
@@ -94,12 +90,12 @@ export async function qualifyMotionscaperAuthoredTitle(output: string): Promise<
 		assert.ok((await stat(moviePath)).size <= 64 * 1024 * 1024);
 		const rgbaPath = join(output, 'reference.rgba'), pcmPath = join(output, 'reference.pcm');
 		await verifyMotionAuthoredFileIdentity(decoderIdentity);
-		const decoded = await motionSustainedCommand({ command: decoder, args: [moviePath, rgbaPath, pcmPath], cwd: root, directory: output, id: 'reference-decoder', timeoutMs: 30000 });
+		const decoded = await runMotionQualificationCommand({ command: decoder, args: [moviePath, rgbaPath, pcmPath], cwd: root, directory: output, id: 'reference-decoder', timeoutMs: 30000 });
 		const metadata = inspectMotionNativeReference(JSON.parse(decoded.stdout) as unknown, (await stat(rgbaPath)).size, (await stat(pcmPath)).size);
 		const rgba = await readFile(rgbaPath), pcm = await readFile(pcmPath);
 		const metrics = verifyMotionAuthoredNative(reference.references, { metadata, rgba: new Float32Array(rgba.buffer.slice(rgba.byteOffset, rgba.byteOffset + rgba.byteLength)), pcm: new Float32Array(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength)) });
 		assert.equal(motionAuthoredSha(await readFile(archivePath)), reference.archiveSha256); assert.deepEqual(pageErrors, []);
-		return { sourceRevision: revision, scope: 'Linux x64 software authored title: New, shape, text, native Save, preview, destination Cancel/retry, two-frame ProRes',
+		return { sourceRevision: revision, scope: `${target} software authored title: New, shape, text, native Save, preview, destination Cancel/retry, two-frame ProRes`,
 			ownOrigin: page.url(), gpuMode: 'software (--disable-gpu)', frameCount: 2, maximumPreviewPremultipliedCodeError, ...metrics,
 			archiveSha256: reference.archiveSha256, retainedFontSha256: reference.retainedFontSha256, movie: await hashMotionSustainedFile(moviePath), decoderCommand: decoded.receipt, pageErrors };
 	}, async () => { if (application) await application.cleanup(); }, async () => {
