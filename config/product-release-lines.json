@@ -19,7 +19,7 @@
 			"applicationVersionChannel": "candidate",
 			"releaseChannel": "candidate",
 			"candidate": {
-				"version": "1.0.0-rc.14",
+				"version": "1.0.0-rc.Oct.28.a",
 				"tagPrefix": "framescaper-v"
 			},
 			"stable": {
