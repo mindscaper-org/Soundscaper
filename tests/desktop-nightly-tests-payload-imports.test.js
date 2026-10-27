@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { physicalEsbuildInputPaths } from './helpers/esbuild-metafile-inputs.ts';
+import { nightlyKeyingGeneratedEntry } from './helpers/nightly-keying-generated-entry.ts';
 import { execFile } from 'node:child_process';
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { builtinModules } from 'node:module';
@@ -159,8 +160,10 @@ test('the nightly test payload satisfies every import its browser specs reach', 
 	const browserTests = [...await collectTestFiles(BROWSER_TESTS),
 		...await collectTestFiles(join(REPOSITORY_ROOT, 'tests/electron/local-assistance-models'))]
 		.filter((path) => isStagedInput(relative(REPOSITORY_ROOT, path)));
+	assert.ok(browserTests.includes(KEYING_PRORES_SPEC), 'the generated ProRes bundle must belong to the actual staged browser fixture');
 	const entryPoints = [
 		...browserTests,
+		nightlyKeyingGeneratedEntry(await readFile(KEYING_PRORES_SPEC, 'utf8'), KEYING_PRORES_SPEC),
 		join(REPOSITORY_ROOT, 'scripts/lib/desktop-nightly-tests-metrics.mjs'),
 	];
 	assert.ok(browserTests.length > 0, 'the nightly payload must contain Playwright test files');
@@ -184,11 +187,6 @@ test('the nightly test payload satisfies every import its browser specs reach', 
 			setup(api) {
 				// esbuild filters are Go regular expressions, which reject the /u flag.
 				api.onResolve({ filter: /.*/ }, ({ path, importer }) => {
-					// This one browser route serves the real decoder bundle built by
-					// its owning spec. Audit that source and every local dependency.
-					if (importer === KEYING_PRORES_SPEC && path === '/__keying_prores__/entry.js') {
-						return { path: KEYING_PRORES_ENTRY };
-					}
 					if (!importer || path.startsWith('.') || isAbsolute(path)) return null;
 					const specifiers = externals.get(path) ?? new Set();
 					specifiers.add(relative(REPOSITORY_ROOT, importer));

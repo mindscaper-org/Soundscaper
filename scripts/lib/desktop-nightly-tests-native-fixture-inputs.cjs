@@ -20,4 +20,5 @@ module.exports = Object.freeze([
 	'src/common/editor/ara-contract.ts',
 	'src/common/editor/blender-contract.ts',
 	'vendor/audacity-design-system/components/src/component-copy.ts',
+	'vendor/audacity-design-system/components/src/TimeCode/time-code-musical-context.ts',
 ]);
