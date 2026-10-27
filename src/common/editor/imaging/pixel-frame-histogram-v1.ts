@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { yieldPixelFrameTaskV1 } from './pixel-frame-task-yield-v1.ts';
 import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
 import { admitPixelFrameV1 } from './pixel-frame-admission-v1.ts';
 import { readPixelFrameV1 } from './pixel-frame-contract-v1.ts';
@@ -63,7 +64,7 @@ export async function createPixelFrameHistogramV1(value: unknown, optionsValue: 
 			if (lowClipped) lowClippedPixels++;
 			if (highClipped) highClippedPixels++;
 		}
-		if (end < plan.byteLength) { await new Promise<void>(resolve => { setTimeout(resolve, 0); }); checkSource(); }
+		if (end < plan.byteLength) { await yieldPixelFrameTaskV1(); checkSource(); }
 	}
 	checkSource();
 	return Object.freeze({ schemaVersion: 1, sampledPixels, transparentPixels,

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { yieldPixelFrameTaskV1 } from './pixel-frame-task-yield-v1.ts';
 import { readClosedDomainField as field,readClosedDomainRecord as record } from '../closed-domain-value.ts';
 import { prepareDehazeEffectV1,dehazeEffectiveDarkByteV1,dehazeTransmissionQ8V1,dehazeOutputByteV1 } from '../video-dehaze-v1.ts';
 import { admitPixelFrameV1 } from './pixel-frame-admission-v1.ts';
@@ -49,7 +50,7 @@ export async function withDehazePixelFrameV1<Result>(value: unknown,
 						for (let channel = 0; channel < 3; channel++) pixels[offset + channel] = dehazeOutputByteV1(effect,original[offset + channel]!,transmission);
 					}
 					left = center; center = right; processed += 4;
-					if (processed >= 256 * 1024) { await new Promise<void>(resolve => { setTimeout(resolve,0); }); processed = 0; check(); }
+					if (processed >= 256 * 1024) { await yieldPixelFrameTaskV1(); processed = 0; check(); }
 				}
 			}
 		}

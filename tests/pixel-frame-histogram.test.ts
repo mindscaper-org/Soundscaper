@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createPixelFrameHistogramV1 } from '../src/common/editor/imaging/pixel-frame-histogram-v1.ts';
+import { deferred } from './helpers/async-test-control.ts';
 
 const LIMITS = { maximumSidePixels: 1024, maximumPixels: 1024 * 1024, maximumBytes: 4 * 1024 * 1024 };
 function frame(bytes: readonly number[]) {
@@ -110,4 +111,37 @@ test('closed histogram request rejects accessors without invoking them and rejec
 	}), /data property/u);
 	assert.equal(invoked, 0);
 	await assert.rejects(createPixelFrameHistogramV1(frame([1, 2, 3, 255]), { limits: LIMITS, signal: {} }), /native cancellation signal/u);
+});
+
+test('histogram joins native scheduler yield at every unchanged chunk boundary before publishing counts', { concurrency: false, timeout: 10_000 }, async () => {
+	const source = { descriptor: { schemaVersion: 1, width: 512, height: 512,
+		sampleFormat: 'unorm8', primaries: 'srgb', transfer: 'srgb' }, pixels: new Uint8Array(512 * 512 * 4).fill(128) };
+	const held = deferred<void>(), entered = deferred<void>(), descriptor = Object.getOwnPropertyDescriptor(globalThis, 'scheduler');
+	let calls = 0, delivered = false;
+	const scheduler = { yield(this: unknown): Promise<void> {
+		calls++; assert.equal(this, scheduler); entered.resolve(); return held.promise;
+	} };
+	Object.defineProperty(globalThis, 'scheduler', { configurable: true, value: scheduler });
+	const work = createPixelFrameHistogramV1(source, { limits: LIMITS }).then(value => {
+		delivered = true; return { outcome: 'success' as const, value };
+	}, (failure: unknown) => ({ outcome: 'failure' as const, failure }));
+	try {
+		// Old timer-only ownership finishes without entering the supplied native
+		// scheduler, so this regression fails against the existing export itself.
+		await Promise.race([entered.promise, work]);
+		assert.equal(calls, 1, 'The actual histogram must yield through the callable host scheduler.');
+		assert.equal(delivered, false, 'The scoped histogram must join its pending yield before delivery.');
+		held.resolve(); const result = await work;
+		if (result.outcome === 'failure') throw result.failure;
+		assert.equal(calls, 3, 'Four 256KiB chunks retain their three inter-chunk task boundaries.');
+		assert.equal(result.value.sampledPixels, 512 * 512); assert.equal(result.value.transparentPixels, 0);
+		const expected = new Array<number>(256).fill(0); expected[128] = 512 * 512;
+		for (const bins of Object.values(result.value.bins)) assert.deepEqual(bins, expected);
+		assert.deepEqual(result.value.lowClippedChannels, [0, 0, 0]); assert.deepEqual(result.value.highClippedChannels, [0, 0, 0]);
+		assert.equal(source.pixels.every(value => value === 128), true);
+	} finally {
+		held.resolve(); await work;
+		if (descriptor) Object.defineProperty(globalThis, 'scheduler', descriptor);
+		else Reflect.deleteProperty(globalThis, 'scheduler');
+	}
 });

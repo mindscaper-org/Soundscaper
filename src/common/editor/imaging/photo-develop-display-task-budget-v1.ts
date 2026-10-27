@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { yieldPixelFrameTaskV1 } from './pixel-frame-task-yield-v1.ts';
 /** Cheap display copies use the existing byte-kernel/histogram 256 KiB span.
- * The repair solver keeps its own smaller operation budget. Real timer tasks
- * preserve cancellation; avoiding excessive nested timers also avoids their
- * minimum-delay accumulation: https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timers */
+ * The repair solver keeps its own smaller operation budget. Host tasks retain
+ * cancellation; native scheduler continuations avoid nested timer delay.
+ * Unsupported hosts retain the real timer fallback. */
 export class PhotoDevelopDisplayTaskBudgetV1 {
 	#pixels = 0;
 	constructor(readonly check: () => void) {}
@@ -13,6 +14,6 @@ export class PhotoDevelopDisplayTaskBudgetV1 {
 		this.#pixels = 0; return true;
 	}
 	async yield(): Promise<void> {
-		this.check(); await new Promise<void>(resolve => { setTimeout(resolve, 0); }); this.check();
+		this.check(); await yieldPixelFrameTaskV1(); this.check();
 	}
 }
