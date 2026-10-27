@@ -69,4 +69,3 @@ export async function runMotionQualificationCommand(options: MotionQualification
 	if (!accepted) throw new Error(`Native qualification command failed or physical closure is unknown; receipt retained at ${path}.`);
 	return { stdout, stderr, receipt };
 }
-

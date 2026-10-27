@@ -233,6 +233,16 @@ jobs:
           native-result: ${{ runner.temp }}/motionscaper-native-build-result
           motion-package: ${{ github.workspace }}/release/desktop-nightly-products/motionscaper/${{ matrix.target.arch == 'x64' && 'linux-unpacked' || 'linux-arm64-unpacked' }}
 
+      - name: Qualify complete Windows and macOS Motion workflows
+        if: runner.os != 'Linux'
+        uses: ./.github/actions/motionscaper-desktop-qualification
+        with:
+          target: ${{ matrix.target.platform }}-${{ matrix.target.arch }}
+          platform: ${{ matrix.target.platform }}
+          arch: ${{ matrix.target.arch }}
+          native-result: ${{ runner.temp }}/motionscaper-native-build-result
+          motion-package: ${{ github.workspace }}/release/desktop-nightly-products/motionscaper/${{ matrix.target.platform == 'win' && (matrix.target.arch == 'x64' && 'win-unpacked' || 'win-arm64-unpacked') || 'mac-arm64' }}
+
       - name: Stage the nightly-with-tests application
         run: node scripts/desktop-nightly-tests-prepare.mjs
         env:

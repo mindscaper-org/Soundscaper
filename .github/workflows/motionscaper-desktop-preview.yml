@@ -125,6 +125,15 @@ jobs:
           arch: ${{ matrix.target.arch }}
           native-result: ${{ runner.temp }}/motionscaper-native-build-result
           motion-package: ${{ github.workspace }}/release/motionscaper-preview/motionscaper/${{ matrix.target.arch == 'x64' && 'linux-unpacked' || 'linux-arm64-unpacked' }}
+      - name: Qualify complete Windows and macOS Motion workflows
+        if: runner.os != 'Linux'
+        uses: ./.github/actions/motionscaper-desktop-qualification
+        with:
+          target: ${{ matrix.target.id }}
+          platform: ${{ matrix.target.platform }}
+          arch: ${{ matrix.target.arch }}
+          native-result: ${{ runner.temp }}/motionscaper-native-build-result
+          motion-package: ${{ github.workspace }}/release/motionscaper-preview/motionscaper/${{ matrix.target.platform == 'win' && (matrix.target.arch == 'x64' && 'win-unpacked' || 'win-arm64-unpacked') || 'mac-arm64' }}
       - name: Retain only the qualified target packages and exact receipts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

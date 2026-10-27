@@ -189,4 +189,3 @@ export async function launchMotionQualificationApplication(options: Readonly<{
 			watchObservation: process.platform === 'linux' ? 'Linux inotify descriptor count and actual saved-revision behavior' : 'Actual atomic Save/update, Disconnect/offline retention, and complete owned native job/session cleanup' };
 	} catch (error) { try { await cleanup(); } catch (closeError) { throw new AggregateError([error, closeError], 'Application startup and owned cleanup failed.', { cause: closeError }); } throw error; }
 }
-
