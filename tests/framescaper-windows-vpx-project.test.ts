@@ -32,8 +32,11 @@ test('Windows libvpx keeps its upstream source list outside the process command 
 	assert.ok(generator, 'The Windows generator must use a response file, rather than a long command line.');
 	const variables = buildArgs.filter(value => /^(?:GEN_VCPROJ|VCPROJ_SRCS)=/u.test(value));
 	const sources = Array.from({ length: 1000 }, (_, index) => `vpx_dsp/source_${String(index)}.c`);
+	const header = join(root, 'vp8.h');
+	const installedHeader = join(root, 'install/include/vpx/vp8.h').replaceAll('\\', '/');
+	writeFileSync(header, 'the authenticated vendor header\n');
 	const makefile = join(root, 'probe.mk');
-	writeFileSync(makefile, `ifeq ($(target),)\nall second.vcxproj:\n\t$(MAKE) --no-print-directory -f "$(lastword $(MAKEFILE_LIST))" target=libs $(MAKECMDGOALS)\nelse\nall: result.vcxproj\n.PHONY: ${sources.join(' ')}\nASM_INCLUDES=excluded.asm\nresult.vcxproj: VCPROJ_SRCS = $(filter-out $(addprefix %, $(ASM_INCLUDES)), $^)\nresult.vcxproj: ${sources.join(' ')} excluded.asm\n\t$(GEN_VCPROJ) --lib --name=vpx -I. -I"include with spaces" $(filter vpx_dsp/%.c, $(VCPROJ_SRCS))\n.PHONY: excluded.asm\nsecond.vcxproj: ${sources.at(-1)} ${sources[0]}\n\t$(GEN_VCPROJ) --lib --name=second $(VCPROJ_SRCS)\nendif\n`);
+	writeFileSync(makefile, `ifeq ($(target),)\nall second.vcxproj install:\n\t$(MAKE) --no-print-directory -f "$(lastword $(MAKEFILE_LIST))" target=libs $(MAKECMDGOALS)\nelse\nall: result.vcxproj\n.PHONY: ${sources.join(' ')}\nASM_INCLUDES=excluded.asm\nresult.vcxproj: VCPROJ_SRCS = $(filter-out $(addprefix %, $(ASM_INCLUDES)), $^)\nresult.vcxproj: ${sources.join(' ')} excluded.asm\n\t$(GEN_VCPROJ) --lib --name=vpx -I. -I"include with spaces" $(filter vpx_dsp/%.c, $(VCPROJ_SRCS))\n.PHONY: excluded.asm\nsecond.vcxproj: ${sources.at(-1)} ${sources[0]}\n\t$(GEN_VCPROJ) --lib --name=second $(VCPROJ_SRCS)\ninstall: ${installedHeader}\n${installedHeader}: ${header.replaceAll('\\', '/')}\n\tmkdir -p "$(@D)"\n\tcp "$<" "$@"\nendif\n`);
 	const makeArgs = ['-f', makefile, ...variables, `SHELL=${shell}`, '.SHELLFLAGS=-e -c'];
 	const dryRun = spawnSync('make', ['-n', ...makeArgs], { cwd: root, encoding: 'utf8' });
 	assert.equal(dryRun.status, 0, dryRun.stderr);
@@ -52,6 +55,14 @@ test('Windows libvpx keeps its upstream source list outside the process command 
 	assert.deepEqual(readFileSync(capture, 'utf8').split('\0').slice(0, -1), ['vendor-context', '--lib', '--name=second', sources.at(-1), sources[0]]);
 	assert.equal(readFileSync(join(root, 'result.vcxproj.sources'), 'utf8'), firstResponse,
 		'A later project must not replace the first project response file.');
+	assert.equal(existsSync(dirname(installedHeader)), false, 'Installation starts with no nested destination directory.');
+	const install = spawnSync('make', [...makeArgs, 'install'], {
+		cwd: root, encoding: 'utf8', env: { ...process.env, CAPTURE: capture },
+	});
+	assert.equal(install.status, 0, install.stdout + install.stderr);
+	assert.equal(readFileSync(installedHeader, 'utf8'), 'the authenticated vendor header\n');
+	assert.equal(existsSync(`${installedHeader}.sources`), false, 'Header installation must not capture a project response.');
+	assert.equal(existsSync(join(root, 'install.sources')), false, 'The recursive install target must not capture a project response.');
 	const response = join(root, 'windows.sources');
 	writeFileSync(response, `${sources.join(' ')}\r\n`);
 	const wrapped = spawnSync(shell, [join(repository, 'native/framescaper-media-host/build/windows-vpx-project.sh'),

@@ -220,7 +220,9 @@ export function createFramescaperMediaHostBuildCommands(input) {
 			// Capture the upstream prerequisite list while expanding it to no
 			// arguments. Leaving the list in the recipe still exceeds Windows'
 			// CreateProcess limit before our response-file helper can start.
-			'VCPROJ_SRCS=$(file >$@.sources,$(filter-out $(addprefix %, $(ASM_INCLUDES)), $^))',
+			// Command-line variables are also exported for install recipes; only
+			// project targets may create a source response before their command.
+			'VCPROJ_SRCS=$(if $(filter %.vcxproj,$@),$(file >$@.sources,$(filter-out $(addprefix %, $(ASM_INCLUDES)), $^)))',
 			`GEN_VCPROJ=${makeShellPath(tools.executables.shell.path)} ${makeShellPath(join(hostRoot, 'build/windows-vpx-project.sh'))} `
 			+ `${makeShellPath(join(externalSourceRoots.libvpx, 'build/make/gen_msvs_vcxproj.sh'))} $@.sources`] : [];
 	// Configure records Git Bash's /c aliases, which native Make cannot open.
