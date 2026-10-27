@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 /** Test-only libav reference decoder; no production process imports this module. */
 import { execFile } from 'node:child_process';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, realpath, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { verifyMotionReferenceArtifact } from '../scripts/lib/motionscaper-reference-artifact.ts';
-import { MOTION_NATIVE_TARGETS } from '../scripts/lib/motionscaper-native-source.ts';
+import { buildAuditedMotionReferenceDecoder } from '../scripts/lib/motionscaper-reference-build.ts';
+import { currentMotionReferenceTarget } from '../scripts/lib/motionscaper-reference-target.ts';
 export interface MotionNativeReference {
 	readonly width: number; readonly height: number; readonly profile: number; readonly colorDepth: number; readonly alphaDepth: number;
 	readonly colorPrimaries: number; readonly colorTransfer: number; readonly colorSpace: number;
@@ -28,11 +29,24 @@ export async function prepareMotionNativeReferenceDecoder(directory: string): Pr
 	const artifact = process.env.MOTIONSCAPER_REFERENCE_ARTIFACT;
 	if (!artifact) return buildMotionNativeReferenceDecoder(directory);
 	const nativeResult = process.env.MOTIONSCAPER_REFERENCE_NATIVE_RESULT;
-	const target = MOTION_NATIVE_TARGETS.find(value => value === `linux-${process.arch}`);
-	if (!nativeResult || !target) throw new Error('A matching native result is required with the reference artifact.');
+	const target = currentMotionReferenceTarget();
+	if (!nativeResult) throw new Error('A matching native result is required with the reference artifact.');
 	return verifyMotionReferenceArtifact({ repositoryRoot: resolve(import.meta.dirname, '..'), nativeResult, artifact, target });
 }
 export async function buildMotionNativeReferenceDecoder(directory: string, prefix = process.env.MOTIONSCAPER_REFERENCE_FFMPEG_PREFIX): Promise<string> {
+	const target = currentMotionReferenceTarget();
+	const authority = process.env.MOTIONSCAPER_REFERENCE_PREFIX_AUTHORITY, digest = process.env.MOTIONSCAPER_REFERENCE_PREFIX_AUTHORITY_SHA256;
+	if (!target.startsWith('linux-') || authority || digest) {
+		const nativeResult = process.env.MOTIONSCAPER_REFERENCE_NATIVE_RESULT;
+		if (!prefix || !authority || !digest || !nativeResult) throw new Error('Native reference compilation requires the verified native result, FFmpeg prefix and independent prefix authority.');
+		return (await buildAuditedMotionReferenceDecoder({ repositoryRoot: resolve(import.meta.dirname, '..'), target, directory: await realpath(directory),
+			prefix, nativeResult, prefixAuthority: authority, prefixAuthoritySha256: digest })).executable;
+	}
+	return buildLegacyLinuxMotionReferenceDecoder(directory, prefix);
+}
+/** Preserve the original Linux-only local decoder recipe and its existing schema 1 artifacts. */
+export async function buildLegacyLinuxMotionReferenceDecoder(directory: string, prefix: string | undefined): Promise<string> {
+	if (!currentMotionReferenceTarget().startsWith('linux-')) throw new Error('The legacy reference compiler requires a native Linux target.');
 	if (!prefix || !/^[A-Za-z0-9_./-]+$/u.test(prefix)) throw new Error('Set MOTIONSCAPER_REFERENCE_FFMPEG_PREFIX to the existing pinned native FFmpeg install directory.');
 	const execute = promisify(execFile); const output = join(directory, 'motion-reference-decoder');
 	const flags = await execute('pkg-config', ['--cflags', '--libs', '--static', 'libavformat', 'libavcodec', 'libswscale', 'libavutil'], { env: { ...process.env, PKG_CONFIG_LIBDIR: join(prefix, 'lib/pkgconfig') }, timeout: 10000, maxBuffer: 65536 });

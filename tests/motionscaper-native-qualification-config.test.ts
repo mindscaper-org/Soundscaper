@@ -41,7 +41,14 @@ test('Motion reference receipts bind exact source, native helper, target, notice
 	}
 });
 
-test('Motion reference artifact build requires an explicit Linux target and exact build inputs', async () => {
-	await assert.rejects(buildReference([]), /requires Linux/u);
-	await assert.rejects(buildReference(['--target=darwin-arm64', '--native-result=/result', '--ffmpeg-prefix=/prefix', '--output=/output']), /requires Linux/u);
+test('Motion reference artifact build requires an explicit supported native target and exact build inputs', async () => {
+	await assert.rejects(buildReference([]), /supported native/u);
+	await assert.rejects(buildReference(['--target=darwin-arm64', '--native-result=/result', '--ffmpeg-prefix=/prefix', '--output=/output']), /supported native/u);
+});
+
+test('legacy reference receipts cannot claim Windows or macOS without compiler evidence', () => {
+	for (const target of ['win-x64', 'win-arm64', 'mac-arm64']) {
+		const receipt = { schemaVersion: 1, target };
+		assert.throws(() => validateMotionReferenceReceipt(receipt, receipt), /receipt/u);
+	}
 });
