@@ -13,9 +13,12 @@ import {
 	addTrackAutomation,
 	clipDurationFrames,
 	editClipProperties,
+	persistedProject,
+	revealTimelineClip,
 	setProjectTempo,
 	splitClip,
 } from './helpers/complex-editing-workflows.js';
+import { readAuthoredClipDuration } from './helpers/authored-clip-properties.ts';
 import { SOUNDSCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 
 const sessions = [
@@ -63,7 +66,10 @@ test.describe('realistic tempo editing sessions', () => {
 			const row = clip.locator('xpath=ancestor::*[@data-track-row][1]');
 			const clips = await splitClip(page, editor, clip, session.split);
 			await expect(clips).toHaveCount(2);
-			const leftDurationBeforeTempo = await clipDurationFrames(page, editor, clips.first());
+			const leftClipId = await clips.first().getAttribute('data-clip-id');
+			expect(leftClipId).toBeTruthy();
+			const leftClip = editor.locator(`[data-clip-id="${leftClipId}"]`);
+			const leftDurationBeforeTempo = await clipDurationFrames(page, editor, leftClip);
 			const automation = await addTrackAutomation(page, editor, row, {
 				mode: session.mode,
 				nudge: session.nudge,
@@ -77,8 +83,13 @@ test.describe('realistic tempo editing sessions', () => {
 				timeout: 15_000,
 			});
 			const authoredState = await persistedAuthoredState(page, projectId);
+			expect(authoredState.timing).toContainEqual(expect.objectContaining({
+				id: leftClipId, durationFrames: leftDurationBeforeTempo,
+			}));
 			await setProjectTempo(page, editor, session.tempo);
-			const leftDurationAfterTempo = await clipDurationFrames(page, editor, clips.first());
+			await revealTimelineClip(page, editor, leftClipId);
+			await expect(leftClip.locator('.clip-display')).toHaveAttribute('data-selected', 'true');
+			const leftDurationAfterTempo = await readAuthoredClipDuration(page, editor, leftClip, persistedProject);
 			// Imported media remains sample-anchored. Changing the musical map must
 			// leave its destructive trim and split boundaries exactly where they were.
 			expect(leftDurationAfterTempo).toBe(leftDurationBeforeTempo);
@@ -106,6 +117,13 @@ async function persistedAuthoredState(page, projectId) {
 				database.close();
 				const project = request.result;
 				resolve({
+					timing: (project?.clips ?? []).map((clip) => ({
+						id: clip.id,
+						sourceId: clip.sourceId,
+						timelineStartFrame: clip.timelineStartFrame,
+						sourceStartFrame: clip.sourceStartFrame,
+						durationFrames: clip.durationFrames,
+					})),
 					automation: (project?.automationLanes ?? []).map((lane) => ({
 						id: lane.id,
 						points: lane.points,

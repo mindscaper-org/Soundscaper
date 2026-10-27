@@ -175,11 +175,11 @@ export async function addClipGainPoint(page, editor, clip, position, verticalOff
 	const envelope = clip.locator('.envelope-overlay');
 	await expect(envelope).toBeVisible();
 	const before = await clip.locator('.envelope-point').count();
-	const bounds = await envelope.boundingBox();
-	expect(bounds).not.toBeNull();
-	const curvePoint = await envelope.locator('path').evaluateAll((paths, targetX) => {
+	await editor.locator('.audio-editor-timeline-scroll').evaluate(scroll => scroll.scrollTo({ left: 0, behavior: 'instant' }));
+	const inspectTarget = () => envelope.evaluate((svg, { fraction, offset }) => {
+		const bounds = svg.getBoundingClientRect(), targetX = bounds.x + bounds.width * fraction;
 		let closest = null;
-		for (const path of paths) {
+		for (const path of svg.querySelectorAll('path')) {
 			const matrix = path.getScreenCTM();
 			if (!matrix) continue;
 			const length = path.getTotalLength();
@@ -187,15 +187,38 @@ export async function addClipGainPoint(page, editor, clip, position, verticalOff
 				const point = path.getPointAtLength(length * step / 100);
 				const client = new DOMPoint(point.x, point.y).matrixTransform(matrix);
 				const distance = Math.abs(client.x - targetX);
-				if (!closest || distance < closest.distance) {
-					closest = { distance, x: client.x, y: client.y };
-				}
+				if (!closest || distance < closest.distance) closest = { distance, x: client.x, y: client.y };
 			}
 		}
-		return closest && { x: closest.x, y: closest.y };
-	}, bounds.x + bounds.width * position);
-	expect(curvePoint).not.toBeNull();
-	await page.mouse.click(curvePoint.x, curvePoint.y + verticalOffset);
+		const group = svg.closest('[data-clip-id]'), track = group?.closest('.track');
+		const row = group?.closest('[data-track-row]'), lane = group?.closest('[data-track-lane]');
+		const scroll = svg.closest('.audio-editor-timeline-scroll');
+		const laneBox = lane?.getBoundingClientRect(), scrollBox = scroll?.getBoundingClientRect();
+		const headerBox = row?.querySelector('[data-track-header]')?.getBoundingClientRect();
+		// TrackNew rounds the clip wrapper, while its sibling interaction layer keeps exact geometry.
+		const surfaces = [...(track?.children ?? [])].filter(node => node instanceof HTMLElement
+			&& node.style.position === 'absolute' && node.style.zIndex === '3' && node.style.pointerEvents === 'auto'
+			&& Math.round(parseFloat(node.style.left)) === parseFloat(group.style.left)
+			&& Math.round(parseFloat(node.style.width)) === parseFloat(group.style.width));
+		const point = closest && { x: closest.x, y: closest.y + offset };
+		const hit = point && svg.ownerDocument.elementFromPoint(point.x, point.y);
+		const visible = laneBox && scrollBox && headerBox && {
+			left: Math.max(laneBox.left, scrollBox.left, headerBox.right), right: Math.min(laneBox.right, scrollBox.right),
+			top: Math.max(laneBox.top, scrollBox.top), bottom: Math.min(laneBox.bottom, scrollBox.bottom),
+		};
+		const exposed = point && visible && point.x > visible.left && point.x < visible.right
+			&& point.y > visible.top && point.y < visible.bottom;
+		const describe = element => element && { tag: element.tagName, class: element.getAttribute('class'),
+			clipId: element.closest('[data-clip-id]')?.getAttribute('data-clip-id'), style: element.getAttribute('style') };
+		return { ready: Boolean(exposed && surfaces.length === 1 && hit === surfaces[0]),
+			fraction, offset, targetX, point, svg: bounds.toJSON(), visible, scrollLeft: scroll?.scrollLeft,
+			clipId: group?.getAttribute('data-clip-id'), trackId: row?.getAttribute('data-track-id'),
+			surfaceCount: surfaces.length, surface: describe(surfaces[0]), hit: describe(hit) };
+	}, { fraction: position, offset: verticalOffset });
+	await expect.poll(inspectTarget).toMatchObject({ ready: true });
+	const target = await inspectTarget();
+	expect(target.ready, `Clip gain target is not exposed: ${JSON.stringify(target)}`).toBe(true);
+	await page.mouse.click(target.point.x, target.point.y);
 	await expect(clip.locator('.envelope-point')).toHaveCount(before + 1);
 	return clip.locator('.envelope-point');
 }
