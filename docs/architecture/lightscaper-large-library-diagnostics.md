@@ -30,6 +30,21 @@ and runner actually measured, using one attempt and no retry-to-pass. The
 quality register owns thresholds; timings remain observational under the
 existing quality-diagnostics policy. The fixture alone does not close L3.
 
+The browser harness allows 540 seconds for the whole case. Two sequential,
+fully awaited Playwright steps bound application bootstrap and native catalog
+setup to 360 seconds, then the complete measurement and final audit to 180
+seconds. The second step includes all six import, scroll, filter and search
+trials, the final bounded query and Original digest audit, and evaluation of all
+nine measurements. The four timing measurements retain one warm-up and five
+measured trials.
+
+This allocation increases the previous 360-second whole-case deadline. These
+are bounded harness budgets; the increase makes no performance-improvement
+claim. The fixture, custody checks, presentation and candidate bounds,
+statistics, recorded p95 thresholds, one-attempt policy and prohibition on
+retry-to-pass remain unchanged. Results from the former whole-case deadline
+retain that historical protocol.
+
 [Hosted CI run 37763387640](https://github.com/LeoWattenberg/Soundscaper/actions/runs/37763387640)
 measured source revision `39cd7c9b707984425731c96de2a846f7985c0a22` in Chromium
 151.0.7922.34 on the pinned Ubuntu/Playwright 1.62.1 runner, with one attempt
