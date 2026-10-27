@@ -103,11 +103,8 @@ export class CheckAllDisplay {
 	}
 
 	diagnostic(task: string, detail: string): void {
-		if (/\b(?:error|failed|fatal)\b|^not ok/iu.test(detail)) this.failure(task, detail);
-		else {
-			this.clear();
-			this.output.write(`${clean(task)}: ${stripVTControlCharacters(detail)}\n`);
-		}
+		this.clear();
+		this.output.write(`${clean(task)}: ${stripVTControlCharacters(detail)}\n`);
 	}
 
 	render(): void {
