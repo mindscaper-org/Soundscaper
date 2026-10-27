@@ -36,6 +36,19 @@ test('check-all keeps successful results quiet and prints failures before work f
 	display.finish();
 });
 
+test('check-all keeps error diagnostics distinct from failed test results', () => {
+	let output = '';
+	const display = new CheckAllDisplay({ write: text => { output += text; } }, 1);
+	display.diagnostic('node/soundscaper', 'Error: PCM read failed after priming');
+	display.diagnostic('node/common-1', 'Module.instantiateWasm callback failed with error: fixture error');
+	display.event('node/soundscaper', { type: 'end', id: 'passing-error-path' });
+	assert.match(output, /^node\/soundscaper: Error: PCM read failed after priming$/mu);
+	assert.match(output, /^node\/common-1: Module\.instantiateWasm callback failed with error: fixture error$/mu);
+	assert.doesNotMatch(output, /^FAIL /mu);
+	display.event('node/soundscaper', { type: 'end', id: 'broken-test', failure: 'expected 4, got 3' });
+	assert.match(output, /^FAIL node\/soundscaper: expected 4, got 3$/mu);
+});
+
 test('check-all keeps large assertion diffs readable within its bounded progress protocol', () => {
 	const messages: CheckProgress[] = [];
 	const reader = createCheckOutputReader(message => messages.push(message));

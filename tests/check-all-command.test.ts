@@ -38,6 +38,8 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 		record('start');
 		progress({type: 'start', id: name, label: 'fixture running'});
 		console.log('passing-result-noise');
+		console.log('Error: expected stdout diagnostic');
+		console.error('Error: expected stderr diagnostic');
 		await setTimeout(80);
 		const failed = process.env.FIXTURE_FAIL === '1' && process.argv.includes('--shard=common-1');
 		progress({type: 'end', id: name, ...(failed ? {failure: 'fixture assertion failed'} : {})});
@@ -70,6 +72,9 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 	assert.match(output, /coverage \(blocked\)/u);
 	assert.match(output, /29\/29/u);
 	assert.doesNotMatch(output, /passing-result-noise|All checks passed/u);
+	assert.match(output, /^node\/common-1: Error: expected stdout diagnostic$/mu);
+	assert.match(output, /^node\/common-1: Error: expected stderr diagnostic$/mu);
+	assert.doesNotMatch(output, /^FAIL .*expected (?:stdout|stderr) diagnostic/mu);
 	await assert.rejects(readFile(join(fixture, '.wrangler/check-all.lock')), { code: 'ENOENT' });
 	assert.match(await readFile(join(fixture, '.wrangler/check-all/logs/node-common-1.log'), 'utf8'), /passing-result-noise/u);
 	const activity = (await readFile(join(fixture, 'activity.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line) as { type: string; name: string });
@@ -89,7 +94,7 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 	const passed = await run(false);
 	assert.equal(passed.code, 0, passed.output);
 	assert.match(passed.output, /All checks passed/u);
-	assert.doesNotMatch(passed.output, /passing-result-noise/u);
+	assert.doesNotMatch(passed.output, /passing-result-noise|^FAIL /mu);
 	const successful = (await readFile(join(fixture, 'activity.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line) as { type: string; name: string });
 	const reportStart = successful.findIndex(event => event.type === 'start' && event.name.startsWith('report-local'));
 	assert.ok(reportStart >= 0);

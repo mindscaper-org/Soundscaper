@@ -98,7 +98,7 @@ async function checkAll(): Promise<void> {
 			if (event.type === 'end' && event.failure) reported = true;
 			display.event(task.id, event);
 		}, line => {
-			if (/\b(?:error|failed|fatal)\b|^not ok/iu.test(line)) display.failure(task.id, line.trimEnd());
+			if (/\b(?:error|failed|fatal)\b|^not ok/iu.test(line)) display.diagnostic(task.id, line.trimEnd());
 		});
 		const errReader = createCheckOutputReader(event => display.event(task.id, event), line => {
 			if (line.trim()) display.diagnostic(task.id, line.trimEnd());

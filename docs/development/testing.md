@@ -87,7 +87,9 @@ commands. An allocation killed by the scope's memory limit fails its check.
 The terminal shows a progress bar for completed checks and the currently
 running tests. Successful test results stay quiet; test failures print as they
 finish, including failed browser attempts that will retry. Piped output prints
-periodic snapshots. Full command output is saved under
+periodic snapshots. Command diagnostics retain their task prefix, even when
+they contain expected errors; `FAIL` identifies reported test failures or
+failed commands. Full command output is saved under
 `.wrangler/check-all/logs/`; browser diagnostics have separate directories under
 `test-results/check-all/`. Independent checks continue after a failure, while
 checks that need a failed prerequisite are marked blocked. Any failed or blocked
