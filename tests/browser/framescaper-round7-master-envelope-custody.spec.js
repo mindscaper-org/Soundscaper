@@ -25,7 +25,7 @@ test('a normal master envelope survives native playback projection and a followi
 	await editor.getByRole('button', { name: 'Clip gain', exact: true }).click();
 	await chooseCommandAction(page, editor, 'Window', 'History');
 	const history = editor.locator('[data-workspace-panel="history"] [data-history-list] > li:not([data-redo])');
-	const changes = history.filter({ hasText: 'master/update' });
+	const changes = history.filter({ hasText: 'Edit project (1)' });
 	const beforeChanges = await changes.count();
 	const point = row.locator('.envelope-point').first();
 	await expect(point).toBeVisible();

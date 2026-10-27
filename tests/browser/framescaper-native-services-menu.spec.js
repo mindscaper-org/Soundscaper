@@ -72,7 +72,7 @@ test('Framescaper v1 exposes native work only through menus and retains its watc
 	await expect.poll(() => page.evaluate(() => globalThis.__framescaperNativeCalls)).toContainEqual([
 		'control', 'pause',
 	]);
-	await expect(queueRow).toContainText('paused');
+	await expect(queueRow).toContainText('State: Paused');
 	await dialog.locator('button').filter({ hasText: /^Close$/u }).click();
 
 	tools = await openNestedCommandMenu(page, editor, 'Tools', []);

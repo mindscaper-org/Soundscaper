@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { readClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { expect, test, toneA, longTone } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, clipByName, importFiles, chooseNestedCommandAction,
-	openClipProperties, clipField, closeClipProperties } from './audio-editor-test-helpers.js';
+	openClipProperties, closeClipProperties } from './audio-editor-test-helpers.js';
 
 test('Cursor to track end selects from the end when the cursor is beyond the selected track', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
@@ -14,10 +15,8 @@ test('Cursor to track end selects from the end when the cursor is beyond the sel
 	const cursor = await playhead.getAttribute('aria-valuenow');
 	const properties = await openClipProperties(page, editor, clip);
 	await showClipTimingFields(properties);
-	await clipField(properties, 'startFrame').focus();
-	const start = Number(await clipField(properties, 'startFrame').inputValue());
-	await clipField(properties, 'durationFrame').focus();
-	const duration = Number(await clipField(properties, 'durationFrame').inputValue());
+	const start = await readClipTimeFrames(properties, 'startFrame');
+	const duration = await readClipTimeFrames(properties, 'durationFrame');
 	await closeClipProperties(properties);
 	await expect(playhead).toHaveAttribute('aria-valuenow', cursor);
 	await chooseNestedCommandAction(page, editor, 'Select', ['Region', 'Cursor to track end']);

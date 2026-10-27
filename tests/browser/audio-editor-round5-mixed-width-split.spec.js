@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js';
-import { showClipTimingFields, bootEditor, chooseCommandAction, clipByName, clipField, closeClipProperties,
-	commitInput, disableNativeSavePicker, importFiles, openClipProperties,
+import { showClipTimingFields, bootEditor, chooseCommandAction, clipByName, closeClipProperties,
+	disableNativeSavePicker, importFiles, openClipProperties,
 } from './audio-editor-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
@@ -20,7 +21,7 @@ test('splitting a mixed mono and stereo track preserves each recording level', a
 	const destinationId = await destination.getAttribute('data-track-id');
 	const properties = await openClipProperties(page, editor, source);
 	await showClipTimingFields(properties);
-	await commitInput(clipField(properties, 'startFrame'), '48000');
+	await setClipTimeFrames(properties, 'startFrame', 48000);
 	await closeClipProperties(properties);
 	const clipBox = await source.boundingBox(), trackBox = await destination.boundingBox();
 	expect(clipBox).not.toBeNull(); expect(trackBox).not.toBeNull();

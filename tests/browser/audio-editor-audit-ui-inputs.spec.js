@@ -46,7 +46,8 @@ test('mono capture route controls and History respect live recording admission',
 	await expect(history.getByRole('button', { name: 'Undo', exact: true })).toBeEnabled();
 });
 
-test('Web VCR accepts uppercase HTTPS and releases held keys before focus leaves', async ({ page }) => {
+test('Web VCR accepts uppercase HTTPS and releases held keys before focus leaves', async ({ browserName, page }) => {
+	test.skip(browserName !== 'chromium', 'The packaged Web VCR requires Chromium capture processors.');
 	await installWebVcrHost(page);
 	const editor = await bootEditor(page, '/framescaper/en/');
 	await editor.getByRole('button', { name: 'Capture options', exact: true }).click();
@@ -67,7 +68,8 @@ test('Web VCR accepts uppercase HTTPS and releases held keys before focus leaves
 	expect(keys.map(({ action, code }) => [action, code])).toEqual([['down', 'ArrowLeft'], ['up', 'ArrowLeft']]);
 });
 
-test('floating Web VCR targets its contained picture and keeps remote wheel events local to it', async ({ page }) => {
+test('floating Web VCR targets its contained picture and keeps remote wheel events local to it', async ({ browserName, page }) => {
+	test.skip(browserName !== 'chromium', 'The packaged Web VCR requires Chromium capture processors.');
 	await page.setViewportSize({ width: 1280, height: 900 });
 	await installWebVcrHost(page);
 	const editor = await bootEditor(page, '/framescaper/en/');

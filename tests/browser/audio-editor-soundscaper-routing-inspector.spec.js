@@ -42,11 +42,11 @@ test.describe('Soundscaper routing inspector', () => {
 
 		await cue.locator('.kw-routing-graph__node-main').press('Enter');
 		inspector = graph.locator('[data-routing-inspector="node"]');
-		await inspector.getByRole('button', { name: 'Delete node', exact: true }).click();
+		await inspector.getByRole('button', { name: 'Delete Cue', exact: true }).click();
 		await expect(inspector.getByRole('alert')).toContainText('1 incident connections');
 		await inspector.getByRole('alert').getByRole('button', { name: 'Cancel', exact: true }).click();
 		await expect(cue).toBeVisible();
-		await inspector.getByRole('button', { name: 'Delete node', exact: true }).click();
+		await inspector.getByRole('button', { name: 'Delete Cue', exact: true }).click();
 		await inspector.getByRole('alert').getByRole('button', { name: 'Confirm delete', exact: true }).click();
 		await expect(cue).toHaveCount(0);
 		await expect(graph.locator('[data-routing-edge]')).toHaveCount(initialEdgeCount);
@@ -61,7 +61,7 @@ test.describe('Soundscaper routing inspector', () => {
 		await expect(graph.locator('.kw-routing-graph__status')).toContainText('Routing graph updated');
 		await expect(output).toContainText('Studio Cue');
 		await expect(output).toContainText('1 ch');
-		await inspector.getByRole('button', { name: 'Delete output', exact: true }).click();
+		await inspector.getByRole('button', { name: 'Delete Output', exact: true }).click();
 		await expect(inspector.getByRole('alert')).toContainText('1 incident connections');
 		await inspector.getByRole('alert').getByRole('button', { name: 'Confirm delete', exact: true }).click();
 		await expect(output).toHaveCount(0);
@@ -86,7 +86,7 @@ test.describe('Soundscaper routing inspector', () => {
 		await expect(graph.locator('.kw-routing-graph__status')).toContainText('Routing graph updated');
 		await expect(vca).toContainText('Dialogue Control');
 		await expect(graph.locator('[data-routing-vca-relation]')).toHaveCount(1);
-		await inspector.getByRole('button', { name: 'Delete vca', exact: true }).click();
+		await inspector.getByRole('button', { name: 'Delete VCA', exact: true }).click();
 		await expect(inspector.getByRole('alert')).toContainText('1 memberships');
 		await inspector.getByRole('alert').getByRole('button', { name: 'Confirm delete', exact: true }).click();
 		await expect(vca).toHaveCount(0);

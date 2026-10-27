@@ -340,7 +340,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		await expect(editor.getByRole('button', { name: 'Loop selection' })).toBeEnabled();
 		await expect(selectionToolbar.locator('.timecode')).toHaveCount(3);
 		await expect(selectionToolbar).toContainText('Selection');
-		await expect(selectionToolbar).toContainText('Duration');
+		await expect(selectionToolbar).toContainText('Selection duration');
 
 		const playhead = editor.getByRole('slider', { name: 'Playhead' });
 		await playhead.scrollIntoViewIfNeeded();

@@ -1,3 +1,4 @@
+import { expectClipTimeFrames, readClipTimeFrames, setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import {
 	aup4NativeRichFixture,
 	createAup3Fixture,
@@ -14,13 +15,11 @@ import { showClipTimingFields,
 	chooseFileAction,
 	chooseNestedCommandAction,
 	clipByName,
-	clipField,
 	closeAup4CompatibilityReport,
 	closeClipProperties, closeDialog,
 	closeEffectsPanel,
 	closeWorkspacePanel,
 	collectClientErrors,
-	commitInput,
 	importFiles,
 	openAnalysisPanel,
 	openClipProperties,
@@ -89,11 +88,10 @@ test.describe('audio editor React/design-system workflows', () => {
 		await firstClip.click({ position: { x: 24, y: 10 } });
 		const clipDialog = await openClipProperties(page, editor, firstClip);
 		await expect(clipDialog.getByRole('textbox', { name: 'Clip name', exact: true })).toBeEnabled();
-		await expect(clipField(clipDialog, 'durationFrame')).toHaveValue('38400');
+		await expectClipTimeFrames(clipDialog, 'durationFrame', 38400);
 		await showClipTimingFields(clipDialog);
-		await commitInput(clipField(clipDialog, 'startFrame'), '120');
-		await clipField(clipDialog, 'startFrame').focus();
-		await expect(clipField(clipDialog, 'startFrame')).toHaveValue('120');
+		await setClipTimeFrames(clipDialog, 'startFrame', 120);
+		await expectClipTimeFrames(clipDialog, 'startFrame', 120);
 		await closeClipProperties(clipDialog);
 
 		await seekOnRuler(page, editor, 48);
@@ -236,8 +234,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		await expect(trackNameText(editor).nth(0)).toHaveText('Fixture track');
 		await expect(clipByName(editor, 'Audio 1')).toHaveCount(1);
 		const clipDialog = await openClipProperties(page, editor, clipByName(editor, 'Audio 1'));
-		await clipField(clipDialog, 'durationFrame').focus();
-		await expect.poll(async () => Number(await clipField(clipDialog, 'durationFrame').inputValue())).toBe(4);
+		await expect.poll(() => readClipTimeFrames(clipDialog, 'durationFrame')).toBe(4);
 		await closeClipProperties(clipDialog);
 		expect(errors).toEqual([]);
 	});

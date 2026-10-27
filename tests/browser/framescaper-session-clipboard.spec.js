@@ -24,7 +24,7 @@ const PNG = Buffer.from(
 registerAudioEditorHooks();
 
 test.describe('Framescaper rich session clipboard', () => {
-	test('preserves rich AV metadata without publishing an image body cross-project', async ({ browserName, page }) => {
+	test('preserves rich AV metadata and its image body cross-project', async ({ browserName, page }) => {
 		test.skip(browserName !== 'chromium', 'The nightly browser coverage surface is Chromium.');
 		test.setTimeout(120_000);
 		const { editor, projectId: originProjectId } = await authorRichClipboard(page);
@@ -42,10 +42,10 @@ test.describe('Framescaper rich session clipboard', () => {
 		});
 
 		await chooseNestedCommandAction(page, editor, 'Edit', ['Paste', 'Paste']);
-		await expect(editor).toHaveAttribute('data-clip-count', '2', { timeout: 30_000 });
-		await expect(editor.locator('[data-clip-kind="image"]')).toHaveCount(0);
+		await expect(editor).toHaveAttribute('data-clip-count', '3', { timeout: 30_000 });
+		await expect(editor.locator('[data-clip-kind="image"]')).toHaveCount(1);
 		await expect.poll(() => storedClipboardState(page, targetProjectId)).toMatchObject({
-			audioClips: 1, videoClips: 1, imageClips: 0, imageSources: 0,
+			audioClips: 1, videoClips: 1, imageClips: 1, imageSources: 1,
 			videoCropLeft: 0.125, videoPositionX: 0.7, authoredVideoCompositions: 1,
 		});
 		await expect(page.getByText(

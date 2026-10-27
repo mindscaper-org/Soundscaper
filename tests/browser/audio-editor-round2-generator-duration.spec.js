@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { expectClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { showClipTimingFields, bootEditor, chooseCommandAction, clipField, openClipProperties } from './audio-editor-test-helpers.js';
+import { showClipTimingFields, bootEditor, chooseCommandAction, openClipProperties } from './audio-editor-test-helpers.js';
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 test('DTMF delivers the exact total duration entered in its dialog', async ({ page }) => {
@@ -19,7 +20,7 @@ test('DTMF delivers the exact total duration entered in its dialog', async ({ pa
 	await expect(generator).toBeHidden();
 	const properties = await openClipProperties(page, editor);
 	await showClipTimingFields(properties);
-	await expect(clipField(properties, 'durationFrame')).toHaveValue('1');
+	await expectClipTimeFrames(properties, 'durationFrame', 48_000);
 	const clipId = await properties.locator('[data-clip-properties-active-clip]').getAttribute('data-clip-properties-active-clip');
 	await expect.poll(async () => {
 		const saved = await persistedProject(page, projectId), clip = saved?.clips.find(clip => clip.id === clipId);

@@ -73,7 +73,7 @@ test('a refused late Freeze releases only its unpublished saved PNG after ordina
 		await expect(dialog).toHaveCount(0);
 		await seekFramescaperTimecode(page, editor, '00:00:00:11');
 		await page.evaluate(() => window.__round7ReleaseFreeze());
-		await expect(editor.getByRole('alert')).toContainText('playhead is stale');
+		await expect(editor.getByRole('alert')).toContainText('The selected visual operation failed. Reopen the dialog and check its settings and selection.');
 		await expect(editor.getByRole('group', { name: 'Video clip: camera.mp4 Freeze', exact: true })).toHaveCount(0);
 		expect(await storedFreezes(page)).toEqual(healthySaved);
 		expect(errors).toEqual([]);

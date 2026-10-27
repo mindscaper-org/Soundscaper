@@ -8,7 +8,7 @@ test('Shift plus a vertical arrow on a media row extends its track selection', a
 	await importFiles(editor, [toneA, toneB]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	const first = clipByName(editor, toneA.name).locator('xpath=ancestor::div[@data-track-row][1]')
-		.getByRole('group', { name: 'Track 2, audio track', exact: true });
+		.getByRole('group', { name: 'browser-tone-a, audio track', exact: true });
 	await chooseNestedCommandAction(page, editor, 'Select', ['Tracks', 'No tracks']);
 	await first.focus();
 	await page.keyboard.press('Enter');

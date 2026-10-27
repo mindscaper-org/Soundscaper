@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { expect, test, monoTone } from './audio-editor-test-fixtures.js';
-import { showClipTimingFields, bootEditor, clipByName, importFiles, openClipProperties, clipField,
-	closeClipProperties, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
+import { showClipTimingFields, bootEditor, clipByName, importFiles, openClipProperties, closeClipProperties, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
 
 test('track alignment reads the end of selected clips as the selection end', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
@@ -10,8 +10,7 @@ test('track alignment reads the end of selected clips as the selection end', asy
 	const clip = clipByName(editor, monoTone.name);
 	const properties = await openClipProperties(page, editor, clip);
 	await showClipTimingFields(properties);
-	await clipField(properties, 'startFrame').fill('48000');
-	await clipField(properties, 'startFrame').press('Tab');
+	await setClipTimeFrames(properties, 'startFrame', 48000);
 	await closeClipProperties(properties);
 	await clip.locator('.clip-header').click();
 	await chooseNestedCommandAction(page, editor, 'Tracks', ['Align content', 'Align start to selection end']);

@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { expectClipTimeFrames, readClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
 import {
-	bootEditor, clipByName, clipField, closeClipProperties, collectClientErrors,
+	bootEditor, clipByName, closeClipProperties, collectClientErrors,
 	importFiles, openClipProperties, registerAudioEditorHooks,
 } from './audio-editor-test-helpers.js';
 
@@ -17,8 +18,8 @@ test.describe('clip pointer edit workflows', () => {
 		await clip.scrollIntoViewIfNeeded();
 		await clip.click({ position: { x: 32, y: 10 } });
 		let clipDialog = await openClipProperties(page, editor);
-		await expect(clipField(clipDialog, 'startFrame')).toHaveValue('0');
-		await expect(clipField(clipDialog, 'durationFrame')).toHaveValue('38400');
+		await expectClipTimeFrames(clipDialog, 'startFrame', 0);
+		await expectClipTimeFrames(clipDialog, 'durationFrame', 38400);
 		await closeClipProperties(clipDialog);
 		await clip.scrollIntoViewIfNeeded();
 
@@ -31,9 +32,9 @@ test.describe('clip pointer edit workflows', () => {
 		await page.mouse.up();
 		await clip.locator('.clip-header').click();
 		clipDialog = await openClipProperties(page, editor);
-		await expect.poll(async () => Number(await clipField(clipDialog, 'startFrame').inputValue())).toBeGreaterThan(0);
+		await expect.poll(() => readClipTimeFrames(clipDialog, 'startFrame')).toBeGreaterThan(0);
 
-		const movedDuration = Number(await clipField(clipDialog, 'durationFrame').inputValue());
+		const movedDuration = await readClipTimeFrames(clipDialog, 'durationFrame');
 		await closeClipProperties(clipDialog);
 		await clip.scrollIntoViewIfNeeded();
 		await clip.hover();
@@ -46,7 +47,7 @@ test.describe('clip pointer edit workflows', () => {
 		await page.mouse.move(trimX - 24, trimY, { steps: 4 });
 		await page.mouse.up();
 		clipDialog = await openClipProperties(page, editor);
-		await expect.poll(async () => Number(await clipField(clipDialog, 'durationFrame').inputValue())).toBeLessThan(movedDuration);
+		await expect.poll(() => readClipTimeFrames(clipDialog, 'durationFrame')).toBeLessThan(movedDuration);
 		await closeClipProperties(clipDialog);
 		const selectedClipBox = await clip.boundingBox();
 		expect(selectedClipBox).not.toBeNull();
