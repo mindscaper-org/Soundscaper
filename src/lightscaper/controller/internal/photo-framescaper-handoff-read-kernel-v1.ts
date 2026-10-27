@@ -47,14 +47,14 @@ const FILL = Uint8Array.prototype.fill, SET = Uint8Array.prototype.set, RANGE = 
 function check(signal: AbortSignal): void { Reflect.apply(CHECK, signal, []); }
 function wipe(bytes: Uint8Array): void { if (Reflect.apply(LENGTH, bytes, []) !== 0) Reflect.apply(FILL, bytes, [0]); }
 
-/** Read one explicit editable source without any store publication or native
- * decode. This is one selected recipe/provenance, not complete Photo history.
+/** Read one explicit editable source with native Original proof but no store
+ * publication. This is one selected recipe/provenance, not complete Photo history.
  * Ordinary Source1 additionally requires a genuine selected timeline/bin clip;
  * its unchanged pack is authenticated before neutral scalar promotion. Only
  * Frame's stored NFC filename survives ingest; MIME is a derived declaration.
- * ZIP input <=256MiB, unique selected pack+LUT bodies <=128MiB, original <=64MiB.
- * ZIP metadata and inherited LUT parser scratch have separate fixed bounds;
- * these limits do not claim aggregate native/ZIP peak storage. Mutable reads
+ * Legacy/no-Source5 ZIP <=256MiB; other Current ZIP <=512MiB. Raster/RAW selected
+ * bodies <=128MiB and Originals <=64MiB; HDR body/phase and ZIP/parser bounds
+ * remain independent, not aggregate native/ZIP peak estimates. Mutable reads
  * are wiped after their joined consumers; the original is an immutable Blob. */
 export async function withPhotoFramescaperHandoffReadForProfileV1<Result>(profile: HandoffProfile, request: Readonly<PhotoFramescaperHandoffReadRequestV1>,
 	consume: (view: Readonly<PhotoFramescaperHandoffReadViewForProfileV1>) => Result | Promise<Result>): Promise<Result> {
@@ -247,7 +247,7 @@ export interface PhotoFramescaperHandoffInspectionForProfileV1 {
 /** Authenticate current project facts and its declared asset inventory, then
  * close the ZIP before returning scalar choices. No original, LUT or pixel
  * bodies are read or granted here; receive must authenticate the selection.
- * The archive and expanded envelope share the reader's fixed 256MiB bound.
+ * Archive/expanded bounds match receive: legacy/no-Source5 256MiB, Current HDR 512MiB.
  * Eligible ordinary Source1 additionally lists genuine timeline/bin contexts;
  * zero placements and unsupported images are counted, never silently selected
  * or flattened. Clip presence conveys the stored filename limitation. */

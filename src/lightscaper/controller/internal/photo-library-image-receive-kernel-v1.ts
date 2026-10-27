@@ -19,6 +19,7 @@ import { readPhotoDevelopSignalOptionsV2 } from '../../storage/photo-develop-pre
 import { capturePhotoLibrarySessionPorts, capturePhotoLibrarySessionPortsCurrentV1 } from '../photo-library-session-bindings.ts';
 import type { PhotoLibrarySessionPortsV2 } from '../photo-library-session-ports-v2.ts';
 import { resolvePhotoImportKeywordsV1 } from '../photo-library-import-keywords-v1.ts';
+import { PHOTO_HDR_HANDOFF_LIMITS_CURRENT_V1 } from './photo-hdr-handoff-limits.ts';
 
 type Profile = 'legacy2' | 'current3';
 type Photo = ReturnType<typeof normalizePhotoDocumentCurrentV1>;
@@ -49,6 +50,7 @@ function pin<Method extends (...args: never[]) => unknown>(value: unknown, recei
 export function createPhotoLibraryImageReceiveSessionForProfileV1(profile: Profile, host: PhotoLibraryImageReceiveHostForProfileV1,
 	dependencies: Readonly<{ openImage?: OpenFramescaperBrowserNativeImageV1 }> = {}): Readonly<ReceivePort> {
 	if (profile !== 'legacy2' && profile !== 'current3') throw new TypeError('Unsupported fixed image receive profile.');
+	const maximumArchiveBytes = profile === 'current3' ? PHOTO_HDR_HANDOFF_LIMITS_CURRENT_V1.archiveBytes : 256 * 1024 * 1024;
 	const input = record(host, 'image receive host', ['ports', 'managed', 'mutate', 'resetReady']);
 	const portsValue = field(input, 'ports', 'image receive host');
 	const ports = profile === 'legacy2' ? capturePhotoLibrarySessionPorts(portsValue as PhotoLibrarySessionPortsV2) : capturePhotoLibrarySessionPortsCurrentV1(portsValue as PhotoLibrarySessionPortsCurrentV1);
@@ -72,7 +74,7 @@ export function createPhotoLibraryImageReceiveSessionForProfileV1(profile: Profi
 			const sourceId = id(field(request, 'sourceId', 'image receive request'), 'selected image source ID');
 			const imageClipId = Object.hasOwn(request, 'imageClipId') ? id(field(request, 'imageClipId', 'image receive request'), 'selected image clip ID') : undefined;
 			const selected = field(request, 'archive', 'image receive request'), size = Number(Reflect.apply(SIZE, selected, []));
-			if (size < 1 || size > 256 * 1024 * 1024) throw new RangeError('Image receive archive exceeds its fixed byte bound.');
+			if (size < 1 || size > maximumArchiveBytes) throw new RangeError('Image receive archive exceeds its fixed byte bound.');
 			const archive = Reflect.apply(SLICE, selected, [0, size]) as Blob;
 			const { signal } = readPhotoDevelopSignalOptionsV2(options);
 			const state: { ack: Readonly<Receipt> | null } = { ack: null };

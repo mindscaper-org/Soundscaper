@@ -73,8 +73,12 @@ orientation, geometry, alpha, and byte-equal canonical pixel verification before
 any original publication. An archive's MIME declaration, original digest, or
 claimed canonical dimensions alone cannot authorize a destination write.
 
-The fixed archive input and expanded envelope limit is 256 MiB; selected pack
-plus unique LUT bodies are limited to 128 MiB, and the original to 64 MiB.
+Legacy archives and Current archives without a Source5 HDR image retain the
+256 MiB input and expanded envelope limit. Current archives containing Source5
+use a 512 MiB limit consistently for inspection and selected-library receive.
+The selected HDR pack plus resources is limited to 384 MiB, its Original to
+196 MiB, and each admitted working phase to 1 GiB. Selected raster/RAW packs
+plus resources retain their 128 MiB limit and their Originals the 64 MiB limit.
 Raster processing admits one static 8-bit sRGB frame. The explicit Current
 Source4 route verifies native linear sRGB16 against its retained RAW receipt,
 preserving process1/2/3 and publishing Photo3. These are admission and

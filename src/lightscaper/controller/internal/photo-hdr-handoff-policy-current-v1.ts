@@ -4,9 +4,9 @@ import { prepareLinearDevelopMetadataCurrentV1 } from '../../../common/editor/im
 import { prepareImageDevelopAuthoringCurrentV1 } from '../../../common/editor/imaging/image-develop-authoring-current-v1.ts';
 import { PHOTO_DEVELOP_LINEAR_LIMITS_V1 } from '../../../common/editor/photo-library-develop-linear-port-v1.ts';
 import { normalizeImageDevelopStateThroughV4 } from '../../../common/editor/imaging/image-develop-state-v4.ts';
+import { PHOTO_HDR_HANDOFF_LIMITS_CURRENT_V1 } from './photo-hdr-handoff-limits.ts';
 
-export const PHOTO_HDR_HANDOFF_LIMITS_CURRENT_V1 = Object.freeze({ originalBytes: IMAGE_HDR_ORIGINAL_LIMITS_V1.maximumEncodedBytes,
-	bodyBytes: 384 * 1024 * 1024, archiveBytes: 512 * 1024 * 1024, workingBytes: 1024 * 1024 * 1024 });
+export { PHOTO_HDR_HANDOFF_LIMITS_CURRENT_V1 } from './photo-hdr-handoff-limits.ts';
 export function isPhotoHdrHandoffOriginalCurrentV1(original: Readonly<{ mimeType: unknown }>): boolean {
 	const mime = Object.getOwnPropertyDescriptor(original, 'mimeType');
 	if (!mime || !Object.hasOwn(mime, 'value')) throw new TypeError('HDR handoff MIME must be own data.');
