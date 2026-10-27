@@ -18,8 +18,9 @@ test('the real freeze capture binding renders programme dimensions and restores 
 	Object.defineProperty(globalThis, 'ImageData', { configurable: true, value: class {
 		constructor(readonly data: Uint8ClampedArray, readonly width: number, readonly height: number) {}
 	} });
-	const input = { owner, projectRef: { current: { id: 'project', revision: 4 } },
-		evaluatedRef: { current: { projectId: 'project', projectRevision: 4, timelineSample: 0 } },
+	const input = { owner, projectRef: { current: { id: 'project', revision: 4, primarySequenceId: 'cut',
+		clips: [{ id: 'clip', sourceId: 'source', sequenceId: 'cut' }] } },
+		evaluatedRef: { current: { projectId: 'project', projectRevision: 4, sequenceId: 'cut', timelineSample: 0 } },
 		compositorRef: { current: {
 			render(_layers: readonly unknown[], options: Readonly<Record<string, unknown>>) {
 				rendered.push(options); width = Number(options.outputWidth ?? 1); height = Number(options.outputHeight ?? 1);
@@ -43,6 +44,29 @@ test('the real freeze capture binding renders programme dimensions and restores 
 		if (priorImageData) Object.defineProperty(globalThis, 'ImageData', priorImageData); else Reflect.deleteProperty(globalThis, 'ImageData');
 	}
 });
+
+for (const mismatch of ['focus', 'stamp', 'source', 'missing-clip', 'project-id', 'revision', 'sample'] as const) {
+	void test(`freeze capture refuses ${mismatch} mismatch before compositor readback`, async () => {
+		const owner = {};
+		let renders = 0, reads = 0;
+		const project = { id: mismatch === 'project-id' ? 'other-project' : 'project',
+			revision: mismatch === 'revision' ? 5 : 4, primarySequenceId: mismatch === 'focus' ? 'main' : 'cut',
+			clips: mismatch === 'missing-clip' ? [] : [{ id: 'clip', sourceId: 'source', sequenceId: 'cut' }] };
+		const release = await bindFramescaperPreviewFreezeCapture({ owner, projectRef: { current: project },
+			evaluatedRef: { current: { projectId: 'project', projectRevision: 4,
+				sequenceId: mismatch === 'stamp' ? 'main' : 'cut', timelineSample: mismatch === 'sample' ? 1 : 0 } },
+			compositorRef: { current: {
+				render() { renders += 1; return { status: 'ready' }; },
+				captureEvaluatedRgba() { reads += 1; return { width: 1, height: 1, rgba: new Uint8Array(4) }; },
+			} }, layersRef: { current: [] }, renderOptionsRef: { current: { referenceWidth: 1, referenceHeight: 1 } } });
+		try {
+			const capture = framescaperSelectedFreezeCaptureFinishingFor(owner); assert.ok(capture);
+			await assert.rejects(capture.capture({ projectId: 'project', projectRevision: 4, timelineSample: 0,
+				clipId: 'clip', sourceId: mismatch === 'source' ? 'other-source' : 'source', sourceOrdinal: 0 }), /preview is stale/u);
+			assert.equal(renders, 0); assert.equal(reads, 0);
+		} finally { release(); }
+	});
+}
 
 test('a programme freeze reuses its presented video texture rather than uploading a later media frame', () => {
 	const video = {};

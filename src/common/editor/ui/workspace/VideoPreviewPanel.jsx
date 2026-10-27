@@ -48,6 +48,7 @@ import {
 } from './video-preview-openfx-status.jsx';
 import { videoPreviewPanelStateAttributes } from './video-preview-panel-state-attributes.js';
 import { useVideoPreviewTransportState } from './use-video-preview-transport-state.js';
+import { focusedVideoPreviewSequenceId, focusVideoPreviewProjects } from './video-preview-focused-project.ts';
 
 export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 	const canvasRef = useRef(null);
@@ -85,8 +86,10 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 		compositorTimelineRef,
 		compositorStateRef,
 	});
-	const project = snapshot.videoPreviewProject || snapshot.project;
-	const canonicalProject = snapshot.project;
+	const focusedSequenceId = focusedVideoPreviewSequenceId(snapshot.project, snapshot.selectedClipId);
+	const { project, canonicalProject } = useMemo(() => focusVideoPreviewProjects(
+		snapshot.project, snapshot.videoPreviewProject || snapshot.project, focusedSequenceId,
+	), [snapshot.project, snapshot.videoPreviewProject, focusedSequenceId]);
 	freezeCaptureProjectRef.current = canonicalProject;
 	const retimePreview = useMemo(() => resolveRegisteredVideoRetimePreview(
 		project, typeof controller.actions.sequences?.retimeSet === 'function',
@@ -309,13 +312,14 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 			updateRenderIssue(report, renderedEffectIds);
 			updateOpenFxIssue(openFxDispositions, reportsOpenFxDegradation);
 			const freezeProject = freezeCaptureProjectRef.current;
-			if (report.status !== 'fallback'
+			if (report.status !== 'fallback' && freezeProject === canonicalProject
 				&& isCurrentProjectSchemaIdentity(
 					freezeProject, FRAMESCAPER_PROJECT_SCHEMA_FAMILY,
 				)) {
 				freezeEvaluatedFrameRef.current = {
 					projectId: freezeProject.id,
 					projectRevision: freezeProject.revision,
+					sequenceId: freezeProject.primarySequenceId,
 					timelineSample: timelineFrame,
 				};
 			}
@@ -349,7 +353,7 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 				compositorLayersRef.current, productFrame,
 			), Boolean(visualSession));
 		} catch (error) { failProductFrame(error); }
-	}, [copy.videoPreviewUnavailable, controller, project, updateCompositorState, updateOpenFxIssue, updateRenderIssue, updateVisualPreviewFrame,
+	}, [canonicalProject, copy.videoPreviewUnavailable, controller, project, updateCompositorState, updateOpenFxIssue, updateRenderIssue, updateVisualPreviewFrame,
 		videoEffectBypass, visualSessionRef]);
 	const requestPreviewFrame = useCallback(() => {
 		if (animationFrameRef.current) return;

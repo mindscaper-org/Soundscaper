@@ -6,6 +6,7 @@ import { captureVideoPreviewProgramFreezeFrame, type VideoPreviewFreezeComposito
 interface EvaluatedFrame {
 	readonly projectId: string;
 	readonly projectRevision: number;
+	readonly sequenceId: string;
 	readonly timelineSample: number;
 }
 
@@ -48,7 +49,12 @@ function assertCurrent(
 ): void {
 	const project = record(input.projectRef.current, 'freeze preview project');
 	const evaluated = input.evaluatedRef.current;
+	const clip = Array.isArray(project.clips) ? project.clips
+		.map(value => record(value, 'freeze preview clip')).find(candidate => candidate.id === request.clipId) : undefined;
+	const sequenceId = clip?.sequenceId;
 	if (project.id !== request.projectId || project.revision !== request.projectRevision
+		|| clip?.sourceId !== request.sourceId || typeof sequenceId !== 'string' || !sequenceId
+		|| project.primarySequenceId !== sequenceId || evaluated?.sequenceId !== sequenceId
 		|| evaluated?.projectId !== request.projectId
 		|| evaluated.projectRevision !== request.projectRevision
 		|| evaluated.timelineSample !== request.timelineSample) {
