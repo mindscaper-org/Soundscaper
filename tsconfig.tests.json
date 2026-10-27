@@ -51,6 +51,8 @@
 		"tests/helpers/lightscaper-opfs-cross-worker-read-native.ts",
 		"tests/browser/lightscaper-photo-raster-export-matrix-current.spec.ts",
 		"tests/browser/helpers/lightscaper-raster-export-matrix-current.ts",
+		"tests/browser/lightscaper-photo-raster-export-process-crash-current.spec.ts",
+		"tests/helpers/lightscaper-raster-export-process-crash-native-current.ts",
 		"tests/helpers/video-storage-opfs-model-fixture.ts",
 		"tests/helpers/video-storage-native-publication-fixture.ts",
 		"tests/browser/helpers/native-opfs-worker-companion.ts",
