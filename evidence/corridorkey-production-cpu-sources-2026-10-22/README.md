@@ -22,3 +22,10 @@ The retained parity results do not certify the updated conversion dependencies.
 Run the maintained conversion tool again before running a new production CPU
 diagnostic: the diagnostic still requires the current toolchain to match the
 conversion report and rejects a historical report with different dependencies.
+
+`desktop-assistance-onnx-visual-tensors.ts.txt` preserves the tensor processor
+used by both retained production CPU measurements. Its bytes were recovered
+from the parent of `68af5c8bd` and verified against both reports' original byte
+length and SHA-256. Both reports point to this snapshot after the production
+bilinear resize optimization; their measured digests and results are unchanged.
+These measurements do not certify the optimized tensor processor.
