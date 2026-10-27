@@ -72,8 +72,14 @@ static int authenticated_signal(pid_t pid,const char *birth,const char *executab
  int status=token_signal(&token,selected);
  return status==0||status==ESRCH?0:-1; /* Kernel atomically compares the PID version; no PID-only kill fallback. */
 }
+static int process_census(pid_t *pids) {
+ /* libproc returns zero on syscall failure too; a live caller cannot have an empty census. */
+ errno=0;int count=proc_listallpids(pids,LIMIT*(int)sizeof(pid_t));
+ if(count<=0||count>=LIMIT){if(!errno)errno=count>=LIMIT?EOVERFLOW:EIO;return -1;}
+ return count;
+}
 static int session_members(pid_t anchor,pid_t *pids) {
- int count=proc_listallpids(pids,LIMIT*(int)sizeof(pid_t));if(count<0||count>=LIMIT)return -1;
+ int count=process_census(pids);if(count<0)return -1;
  int selected=0;
  for(int n=0;n<count;n++)if(pids[n]>0&&pids[n]!=anchor&&getsid(pids[n])==anchor)pids[selected++]=pids[n];
  return selected;
@@ -103,7 +109,8 @@ static int forward(int fd,int destination,size_t *bytes,int maximum,struct forwa
  while(state->offset<state->size) {
   ssize_t count=write(destination,state->bytes+state->offset,state->size-state->offset);
   if(count<0)return errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR?0:-1;
-  if(count==0)return -1;state->offset+=(size_t)count;
+  if(count==0)return -1;
+  state->offset+=(size_t)count;
  }
  return 0;
 }
@@ -118,7 +125,8 @@ static int run(int argc,char **argv) {
  int timeout=positive(argv[6]),maximum=positive(argv[7]);if(timeout>600000||maximum>2097152)return 125;
  struct stat input;if(fstat(STDIN_FILENO,&input)||(!S_ISFIFO(input.st_mode)&&!S_ISSOCK(input.st_mode)))return 125;
  struct unique_info self_unique;if(!token_signal||proc_pidinfo(getpid(),17,0,&self_unique,sizeof(self_unique))!=(int)sizeof(self_unique))return 125;
- if(setsid()<0)return 125;pid_t anchor=getpid();
+ if(setsid()<0)return 125;
+ pid_t anchor=getpid();
  int output_pipe[2],error_pipe[2];if(pipe(output_pipe)||pipe(error_pipe))return 125;
  if(fcntl(STDIN_FILENO,F_SETFL,O_NONBLOCK)<0||fcntl(STDOUT_FILENO,F_SETFL,fcntl(STDOUT_FILENO,F_GETFL)|O_NONBLOCK)<0||fcntl(STDERR_FILENO,F_SETFL,fcntl(STDERR_FILENO,F_GETFL)|O_NONBLOCK)<0)return 125;
  signal(SIGPIPE,SIG_IGN);
@@ -140,7 +148,8 @@ static int run(int argc,char **argv) {
  for(int n=0;n<1000;n++) {
   int found=info(child,&owner,ownerPath);
   if(found==1&&owner.pbi_pgid==(uint32_t)anchor&&getsid(child)==anchor&&(!strcmp(ownerPath,executable)||owner.pbi_status==ZOMBIE)){admitted=1;break;}
-  if(found<0)break;usleep(1000);
+  if(found<0)break;
+  usleep(1000);
  }
  const char *failure=NULL;int status=0,closed=0,timedOut=0;struct forward_state outputState={0},errorState={0};size_t bytes=0;double failedAt=0,closedAt=0;
  if(!admitted)failure="owned application birth/session admission failed";
@@ -187,7 +196,7 @@ int main(int argc,char **argv) {
  }
  if(!strcmp(argv[1],"snapshot")&&argc==2) {
   pid_t *pids=calloc(LIMIT,sizeof(pid_t));if(!pids)return 125;
-  int count=proc_listallpids(pids,LIMIT*(int)sizeof(pid_t));if(count<0||count>=LIMIT){free(pids);return 125;}
+  int count=process_census(pids);if(count<0){perror("owned process census");free(pids);return 125;}
   int first=1,gaps=0;fputs("{\"processes\":[",stdout);
   for(int n=0;n<count;n++){if(pids[n]<=0)continue;struct proc_bsdinfo value;char path[PROC_PIDPATHINFO_MAXSIZE];int result=info(pids[n],&value,path);
    if(result<0){gaps++;continue;}if(result==1){if(!first)fputc(',',stdout);identity(stdout,&value,path);first=0;}
