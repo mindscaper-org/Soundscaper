@@ -74,14 +74,8 @@ test('retained production CPU evidence binds the exact candidate graphs without 
 test('historical CPU evidence authenticates its retained runtime and measured processor/reference source bytes', async () => {
 	const measured = await report();
 	for (const pin of [measured.runtime.snapshot, measured.provenance.conversionReport, measured.provenance.sourceRegister,
-		measured.provenance.toolchainLock, ...measured.provenance.runnerSources]) {
+		measured.provenance.toolchainLock, ...measured.provenance.processorSources, ...measured.provenance.runnerSources]) {
 		await assertFilePin(pin);
-	}
-	for (const pin of measured.provenance.processorSources) {
-		// Main optimized tensor writes after this measurement; retain the measured bytes.
-		const path = pin.path === 'desktop/assistance-onnx-visual-tensors.ts'
-			? 'evidence/corridorkey-production-cpu-sources-2026-10-26/desktop-assistance-onnx-visual-tensors.ts.txt' : pin.path;
-		await assertFilePin({ ...pin, path });
 	}
 	assert.ok(measured.provenance.processorSources.some(pin => pin.path === 'desktop/assistance-corridorkey-inference.ts'));
 	assert.ok(measured.provenance.processorSources.some(pin => pin.path === 'src/common/editor/assistance/corridorkey-pixels-v1.ts'));

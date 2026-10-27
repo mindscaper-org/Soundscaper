@@ -9,15 +9,14 @@ import { resizeAssistanceRgbaToChwFloatV1, type AssistanceVisualCropV1,
 	type AssistanceVisualTensorNormalizationV1 } from '../desktop/assistance-onnx-visual-tensors.ts';
 
 const ROOT = new URL('../', import.meta.url);
-const ORIGINAL = 'desktop/assistance-onnx-visual-tensors.ts';
-const RETAINED = 'evidence/corridorkey-production-cpu-sources-2026-10-26/desktop-assistance-onnx-visual-tensors.ts.txt';
+const RETAINED = 'evidence/corridorkey-production-cpu-sources-2026-10-22/desktop-assistance-onnx-visual-tensors.ts.txt';
 type Resize = typeof resizeAssistanceRgbaToChwFloatV1;
 
 async function measuredResize(): Promise<Resize> {
 	const report = JSON.parse(await readFile(new URL('evidence/framescaper-corridorkey-production-cpu-candidate.json', ROOT), 'utf8')) as {
 		readonly provenance: { readonly processorSources: readonly { readonly path: string; readonly byteLength: number; readonly sha256: string }[] };
 	};
-	const pin = report.provenance.processorSources.find(source => source.path === ORIGINAL);
+	const pin = report.provenance.processorSources.find(source => source.path === RETAINED);
 	assert.ok(pin, 'the retained implementation must belong to the measured processor inventory');
 	const bytes = await readFile(new URL(RETAINED, ROOT));
 	assert.equal(bytes.length, pin.byteLength);

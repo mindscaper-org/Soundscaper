@@ -45,19 +45,20 @@ test('unselected audio clips expose corner zones and a bare-edge peek without se
 	await act(async () => reactProps(zone).onMouseEnter({ buttons: 0 }));
 	assert.equal(dom.one('[data-fade-peek="in"]').getAttribute('aria-hidden'), 'true');
 	assert.deepEqual(changes, [], 'hover is a preview only');
-	assert.equal(listeners.get('pointerdown')?.size ?? 0, 0, 'idle overlays leave pointer admission to the native timeline');
+	assert.equal(listeners.size, 0, 'idle overlays defer pointer admission to the native timeline');
 	const overlay = dom.one('.audio-editor-clip-fade');
 	assert.equal(reactProps(overlay).onPointerDownCapture, undefined);
+	const owner = overlay as unknown as HTMLElement;
+	const present = (target: typeof zone | HTMLElement, pointerId: number) => presentCapturedClipFadeGesture(owner, {
+		target: target as HTMLElement, pointerId, clipId: 'one', edge: 'in', shape: false,
+	});
 	const foreign = document.createElement('div');
 	foreign.dataset.clipFadeHandle = 'in';
-	assert.equal(presentCapturedClipFadeGesture(overlay as unknown as HTMLElement,
-		{ target: foreign, clipId: 'foreign', edge: 'in', pointerId: 99, shape: false }), false);
+	assert.equal(present(foreign, 99), false);
 	assert.equal(dom.find('[data-fade-length-drag]'), null, 'another row cannot arm this overlay');
-	await act(async () => {
-		Object.defineProperty(zone, 'hasPointerCapture', { value: (pointerId: number) => pointerId === 7 });
-		assert.equal(presentCapturedClipFadeGesture(overlay as unknown as HTMLElement,
-			{ target: zone as unknown as HTMLElement, clipId: 'one', edge: 'in', pointerId: 7, shape: false }), true);
-	});
+	assert.equal(present(zone, 7), false, 'presentation requires native pointer capture');
+	Object.assign(zone, { hasPointerCapture: (id: number) => id === 7 });
+	await act(async () => { assert.equal(present(zone, 7), true); });
 	assert.equal(dom.one('.audio-editor-clip-fade').getAttribute('data-fade-length-drag'), '');
 	assert.equal(dom.find('[data-fade-peek="in"]'), null, 'a press retires the hover preview');
 	await capture('pointerup', { pointerId: 99, pointerType: 'mouse', button: 0 });

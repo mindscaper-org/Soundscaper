@@ -22,3 +22,22 @@ The retained parity results do not certify the updated conversion dependencies.
 Run the maintained conversion tool again before running a new production CPU
 diagnostic: the diagnostic still requires the current toolchain to match the
 conversion report and rejects a historical report with different dependencies.
+
+`desktop-assistance-onnx-visual-tensors.ts.txt` preserves the tensor processor
+used by both retained production CPU measurements. Its bytes were recovered
+from the parent of `68af5c8bd` and verified against both reports' original byte
+length and SHA-256. Both reports point to this snapshot after the production
+bilinear resize optimization; their measured digests and results are unchanged.
+These measurements do not certify the optimized tensor processor.
+
+The retained tensor is Git blob `ec2bc588814e1b0144d2e7d4ace6956a95568b62`,
+introduced at `desktop/assistance-onnx-visual-tensors.ts` by commit
+`7a8440969a1e7c5cb89977def407ec922d515100`. Both reports authenticate these
+6,772 bytes with SHA-256
+`59fc55887fa9da58044b320b4fb87eb49ceb52d4fcc2140d3bce5959ea015f0a`.
+`tests/framescaper-corridorkey-tensor-source-parity.test.ts` compares the current
+direct tensor writer with this report-bound implementation across RGB/BGR
+normalization, cropping, up/downsampling, edge clamping and invalid geometry.
+Those deterministic comparisons support the source migration; they do not rerun
+the recorded model or extend either historical CPU measurement to the current
+runtime, GPU execution or publication readiness.

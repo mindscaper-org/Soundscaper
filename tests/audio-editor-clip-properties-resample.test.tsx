@@ -48,8 +48,8 @@ test('a product without audio effects reports the rate but cannot resample', asy
 	try {
 		await fixture.render();
 		assert.equal(reactProps(fixture.sourceRate()).value, '96000');
-		assert.equal(reactProps(fixture.sourceRate()).disabled, true);
-		assert.equal(reactProps(fixture.resampleButton()).disabled, true);
+		assert.equal(fixture.sourceRate().hasAttribute('disabled'), true);
+		assert.equal(fixture.resampleButton().hasAttribute('disabled'), true);
 		await fixture.submitResample();
 		assert.deepEqual(fixture.resampleCalls, []);
 	} finally {

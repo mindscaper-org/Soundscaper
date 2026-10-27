@@ -34,6 +34,15 @@ npm run test:browser
 npm run test:browser:built
 ```
 
+On Linux with cgroup v2 and a systemd user session, `npm run check-all` runs
+the non-browser gate and the full ordinary browser suite in one four-slot queue.
+Each shard's entire process tree has an 8 GiB RAM cap with swap disabled. The
+terminal shows progress and running tests, prints failures immediately, and
+keeps full output in `.wrangler/check-all/logs/`. See the
+[testing guide](docs/development/testing.md#full-gates-and-ci-shards) for
+resource requirements and details. Use `npm run check-all -- --list` to preview
+the plan without running it.
+
 Prefer small, typed modules with narrow imports. Existing oversized files are
 recorded as ratchets, not precedents:
 do not raise an allowlist merely to make a check pass. The same applies to

@@ -44,6 +44,9 @@ if (testFiles.length === 0) {
 }
 
 const env = { ...process.env };
+const checkAllProgress = env.SCAPE_CHECK_ALL_PROGRESS === '1';
+// A fixture may invoke its own runner in a temporary checkout.
+delete env.SCAPE_CHECK_ALL_PROGRESS;
 let requiredNativeReportDirectory = null;
 let requiredNativeReportPath = null;
 if (requireLinuxNative) {
@@ -63,6 +66,7 @@ if (coverageArgument !== undefined) {
 
 const styleAssetLoader = resolve(root, 'scripts/node-style-asset-loader.mjs');
 const requiredNativeReporter = resolve(root, 'scripts/require-linux-native-tests-reporter.mjs');
+const checkAllReporter = resolve(root, 'scripts/check-all-node-reporter.ts');
 const desktopRuntimeFixtureScript = resolve(root, 'scripts/lib/node-test-desktop-runtime-fixture.ts');
 const openFxFixtureScript = resolve(root, 'scripts/prepare-node-openfx-test-fixture.mjs');
 const nativeFixtureScript = resolve(root, 'scripts/prepare-node-native-test-fixtures.mjs');
@@ -121,7 +125,8 @@ try {
 		if (nativeFixtureDirectory !== null) env[NATIVE_TEST_FIXTURE_ENV] = nativeFixtureDirectory;
 		const result = spawnSync(process.execPath, [
 			...(useLoaders ? ['--import', 'tsx', '--import', styleAssetLoader] : []),
-			...(requireLinuxNative ? ['--test-reporter', requiredNativeReporter] : []),
+			...(checkAllProgress ? ['--test-concurrency=2', '--test-reporter', checkAllReporter]
+				: requireLinuxNative ? ['--test-reporter', requiredNativeReporter] : []),
 			'--test', ...batch,
 		], {
 			cwd: root,
