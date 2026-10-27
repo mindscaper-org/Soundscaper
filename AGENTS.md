@@ -127,5 +127,5 @@
 - Use tabs in existing JavaScript/JSX sources and keep changes narrowly scoped.
 - Before declaring an implementation task complete, commit your changes in atomic commits.
 - When committing, explicitly select your own files to avoid sweeping up someone else's changes.
-- Clean up your worktrees and branches after a merge.
+- Clean up your worktrees, branches and caches after a merge.
 - Write work logs (eg progress logs of bug sweeps) in private/, don't commit them in docs/. Keep docs for meaningful architectural info.
