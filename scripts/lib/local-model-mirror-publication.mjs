@@ -111,7 +111,8 @@ async function verifyRange({ url, artifact, fetchImpl, signal }) {
 	}
 	if (response.status !== 206) await response.body?.cancel();
 	assert(response.status === 206,
-		`${url} ranged GET returned HTTP ${String(response.status)}, not 206`);
+		`${url} ranged GET returned HTTP ${String(response.status)}, not 206`
+		+ ` (cache=${response.headers.get('cf-cache-status') ?? 'unknown'}, edge=${response.headers.get('cf-ray') ?? 'unknown'})`);
 	assertCors(response, url, PUBLIC_CORS_ORIGIN, 'ranged GET');
 	// RFC 9110 section 14.3 makes Accept-Ranges advisory. R2 can omit it on
 	// partial responses; the exact 206, Content-Range and body prove support.
@@ -178,9 +179,13 @@ export async function verifyMirroredArtifactDelivery({ url, artifact, fetchImpl 
 
 /**
  * Proves the public object contract that must precede catalog publication:
- * browser-readable HEAD, a one-byte Range response, then a streamed full hash.
+ * browser-readable HEAD, a streamed full hash, then a one-byte Range response.
+ * Completing the body lets an uncached CDN object finish before its range probe.
  */
 export async function verifyMirroredArtifact({ url, artifact, fetchImpl = fetch, signal }) {
-	await verifyMirroredArtifactDelivery({ url, artifact, fetchImpl, signal });
-	return retryMirrorTransfer(() => verifyFullBody({ url, artifact, fetchImpl, signal }), signal);
+	assertVerificationInput({ url, artifact, fetchImpl });
+	await retryMirrorTransfer(() => verifyHead({ url, artifact, fetchImpl, signal }), signal);
+	const verified = await retryMirrorTransfer(() => verifyFullBody({ url, artifact, fetchImpl, signal }), signal);
+	await retryMirrorTransfer(() => verifyRange({ url, artifact, fetchImpl, signal }), signal);
+	return verified;
 }

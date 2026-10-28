@@ -104,6 +104,11 @@ exact `206`, `Content-Range`, CORS headers, byte length, and complete-file
 digest. The desktop downloader already restarts a
 resumed transfer safely when the server returns a full response.
 
+Complete verification finishes the streamed archive hash before probing range
+support, allowing an uncached CDN transfer to finish. Build-time downloads keep
+those authenticated bytes in a temporary file until HEAD, CORS, and range
+verification also pass; a failed delivery check removes the temporary file.
+
 Publication readback and build-time archive downloads retry transient HTTP and
 connection failures at most twice. A broken response restarts its complete
 transfer with a fresh hash and temporary file; failed partial files are removed.

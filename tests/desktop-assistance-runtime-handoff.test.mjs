@@ -144,6 +144,9 @@ test('publisher handoff imports the exact five target archives without rebuildin
 		assert.equal(imported.distribution.manifest.bundles.length, 5);
 		assert.equal(imported.speech.summary.status, 'built');
 		assert.equal(fetchCalls.length, 15, 'each archive receives one HEAD, Range and full GET');
+		assert.deepEqual(fetchCalls.slice(0, 3).map(([, method, range]) => [method, range]),
+			[['GET', null], ['HEAD', null], ['GET', 'bytes=0-0']],
+			'finish the authenticated archive download before probing cold CDN range metadata');
 		for (const bundle of bundles) {
 			const path = join(packageRoot, bundle.familyId, bundle.runtimeVersion, TARGET_ID,
 				`${bundle.archive.sha256}.tar.gz`);
@@ -184,7 +187,7 @@ test('unpublished archives seed both product imports offline and corrupted local
 	});
 });
 
-test('handoff accepts a full GET without Content-Length after exact HEAD and Range checks', async () => {
+test('handoff accepts a full GET without Content-Length and still requires exact HEAD and Range checks', async () => {
 	await fixture(async ({ buildRoot, handoffRoot, native, archiveRoot, bundles }) => {
 		const options = { buildRoot, handoffRoot, sourceRevision: SOURCE_REVISION,
 			targetId: TARGET_ID, sourceNativeManifest: native };
@@ -211,6 +214,26 @@ test('handoff refuses a publicly served archive with altered bytes', async () =>
 			cacheRoot: join(handoffRoot, '..', 'download-cache'),
 			fetchImpl: publicFetch({ archiveRoot, bundles, corruptFullBody: true }),
 		}), /digest or length/u);
+	});
+});
+
+test('handoff removes authenticated temporary bytes when the later range proof fails', async () => {
+	await fixture(async ({ buildRoot, handoffRoot, native, archiveRoot, bundles }) => {
+		const options = { buildRoot, handoffRoot, sourceRevision: SOURCE_REVISION,
+			targetId: TARGET_ID, sourceNativeManifest: native };
+		await exportDesktopAssistanceRuntimeHandoff(options);
+		const cacheRoot = join(handoffRoot, '..', 'download-cache');
+		const packageRoot = join(handoffRoot, '..', 'package-archives');
+		const validFetch = publicFetch({ archiveRoot, bundles });
+		await assert.rejects(stageDesktopAssistanceRuntimeHandoff({ ...options,
+			archiveRoot: packageRoot, cacheRoot, fetchImpl: async (url, init) => {
+				const response = await validFetch(url, init);
+				return init.headers?.Range
+					? new Response(response.body, { status: 200, headers: response.headers }) : response;
+			} }), /not 206/u);
+		const first = bundles[0];
+		assert.deepEqual(await readdir(join(cacheRoot, first.familyId, first.runtimeVersion, TARGET_ID)), []);
+		await assert.rejects(readdir(packageRoot), { code: 'ENOENT' });
 	});
 });
 

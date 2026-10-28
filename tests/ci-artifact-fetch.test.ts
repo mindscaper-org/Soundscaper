@@ -120,7 +120,7 @@ test('CI mirror reads negotiate HTTP/1.1 when the TLS server offers a failing HT
 	assert.deepEqual(observations, [
 		{ protocol: '2.0', method: 'GET', range: undefined },
 		{ protocol: '1.1', method: 'HEAD', range: undefined },
-		{ protocol: '1.1', method: 'GET', range: 'bytes=0-0' },
 		{ protocol: '1.1', method: 'GET', range: undefined },
+		{ protocol: '1.1', method: 'GET', range: 'bytes=0-0' },
 	]);
 });
