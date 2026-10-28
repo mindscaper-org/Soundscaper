@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js/index-native.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { withScapeProjectInput, type ScapeProjectInput } from '../common/editor/scape-project-input.ts';
@@ -60,6 +59,8 @@ export async function exportFramescaperSuccessorArchive(record: FramescaperMigra
 		const projectText = JSON.stringify(project);
 		const bytes = new TextEncoder().encode(projectText);
 		const manifest = { ...envelope.manifest, project: { ...envelope.manifest.project, schemaVersion: 2, size: bytes.length, sha256: bytesToHex(sha256(bytes)) } };
+		const { BlobWriter, TextReader, ZipWriter } = await import('@zip.js/zip.js/index-native.js');
+		signal?.throwIfAborted();
 		const writer = new ZipWriter(new BlobWriter('application/vnd.framescaper.scape+zip'), { level: 0, useWebWorkers: false, zip64: true });
 		try {
 			await writer.add('project.json', new TextReader(projectText), { signal });
