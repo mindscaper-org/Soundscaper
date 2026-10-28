@@ -16,7 +16,11 @@ import { validateDesktopAssistanceRuntimeDistribution } from './desktop-assistan
 import { validateDesktopKokoroG2pManifest } from './desktop-kokoro-g2p-runtime.mjs';
 import { desktopAssistanceNativeManifest } from './desktop-assistance-speech-runtime.mjs';
 import { signedAssistanceFamilySummary } from './desktop-signed-assistance-family-summary.mjs';
-import { verifyMirroredArtifactDelivery } from './local-model-mirror-publication.mjs';
+import {
+	fetchMirrorResponse,
+	retryMirrorTransfer,
+	verifyMirroredArtifactDelivery,
+} from './local-model-mirror-publication.mjs';
 
 const MANIFESTS = Object.freeze({
 	manifestBytes: 'assistance-runtime-distribution.json',
@@ -72,7 +76,11 @@ function archivePaths(distribution) {
 async function downloadPublishedArchive({ file, archive, fetchImpl }) {
 	await mkdir(dirname(file), { recursive: true });
 	await verifyMirroredArtifactDelivery({ url: archive.url, artifact: archive, fetchImpl });
-	const response = await fetchImpl(archive.url, {
+	return retryMirrorTransfer(() => downloadPublishedArchiveAttempt({ file, archive, fetchImpl }));
+}
+
+async function downloadPublishedArchiveAttempt({ file, archive, fetchImpl }) {
+	const response = await fetchMirrorResponse(fetchImpl, archive.url, {
 		method: 'GET', cache: 'no-store', credentials: 'omit', redirect: 'error',
 		headers: { Origin: 'https://soundscaper.org' },
 	});

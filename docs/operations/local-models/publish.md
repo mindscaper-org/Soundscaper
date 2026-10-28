@@ -103,6 +103,13 @@ once, then still requires the exact `206`, `Content-Range`, CORS headers, byte
 length, and complete-file digest. The desktop downloader already restarts a
 resumed transfer safely when the server returns a full response.
 
+Publication readback and build-time archive downloads retry transient HTTP and
+connection failures at most twice. A broken response restarts its complete
+transfer with a fresh hash and temporary file; failed partial files are removed.
+Every successful attempt must still satisfy the pinned length and SHA-256.
+Cancellation, incorrect bytes, invalid delivery headers, and permanent HTTP
+failures are not retried.
+
 ## Verification limits and performance
 
 Actual production-worker probes use Linux x64 under WSL2 and real model files.

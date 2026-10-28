@@ -14,7 +14,11 @@ const SHA256_PATTERN = /^[a-f\d]{64}$/u;
 const PUBLIC_CORS_ORIGIN = 'https://soundscaper.org';
 const TRANSIENT_CONNECTION_ERRORS = new Set([
 	'UND_ERR_CONNECT_TIMEOUT', 'ETIMEDOUT', 'ECONNRESET', 'EAI_AGAIN',
+	'UND_ERR_SOCKET', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT', 'ERR_HTTP2_STREAM_ERROR',
 ]);
+const TRANSIENT_HTTP_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
+
+class TransientMirrorResponseError extends Error {}
 
 function assert(condition, message) {
 	if (!condition) throw new Error(message);
@@ -52,23 +56,37 @@ function requestOptions(method, signal, headers = {}) {
 	};
 }
 
-async function fetchWithTransientRetry(fetchImpl, url, options, signal) {
+/** Retry the entire streamed transfer, never an integrity or cancellation failure. */
+export async function retryMirrorTransfer(transfer, signal) {
 	for (let attempt = 0; ; attempt += 1) {
 		throwIfAborted(signal);
 		try {
-			return await fetchImpl(url, options);
+			return await transfer();
 		} catch (error) {
-			const code = error instanceof TypeError ? error.cause?.code : undefined;
-			if (attempt >= 2 || !TRANSIENT_CONNECTION_ERRORS.has(code)) throw error;
+			throwIfAborted(signal);
+			const transient = error instanceof TransientMirrorResponseError
+				|| TRANSIENT_CONNECTION_ERRORS.has(error?.cause?.code ?? error?.code);
+			if (attempt >= 2 || !transient) throw error;
 			await delay(250 * 2 ** attempt, undefined, { signal });
 		}
 	}
 }
 
+/** Cancel an unavailable response before a whole-transfer retry can start. */
+export async function fetchMirrorResponse(fetchImpl, url, options) {
+	const response = await fetchImpl(url, options);
+	assertResponse(response, url);
+	if (TRANSIENT_HTTP_STATUSES.has(response.status)) {
+		await response.body?.cancel().catch(() => undefined);
+		throw new TransientMirrorResponseError(`${url} returned HTTP ${String(response.status)}`);
+	}
+	return response;
+}
+
 async function verifyHead({ url, artifact, fetchImpl, signal }) {
 	throwIfAborted(signal);
-	const response = await fetchWithTransientRetry(fetchImpl, url,
-		requestOptions('HEAD', signal, { 'Accept-Encoding': 'identity' }), signal);
+	const response = await fetchMirrorResponse(fetchImpl, url,
+		requestOptions('HEAD', signal, { 'Accept-Encoding': 'identity' }));
 	assertResponse(response, `${url} HEAD`);
 	assert(response.status === 200, `${url} HEAD returned HTTP ${String(response.status)}`);
 	assertCors(response, url, PUBLIC_CORS_ORIGIN, 'HEAD');
@@ -77,16 +95,16 @@ async function verifyHead({ url, artifact, fetchImpl, signal }) {
 
 async function verifyRange({ url, artifact, fetchImpl, signal }) {
 	throwIfAborted(signal);
-	let response = await fetchWithTransientRetry(fetchImpl, url,
-		requestOptions('GET', signal, { Range: 'bytes=0-0' }), signal);
+	let response = await fetchMirrorResponse(fetchImpl, url,
+		requestOptions('GET', signal, { Range: 'bytes=0-0' }));
 	assertResponse(response, `${url} ranged GET`);
 	if (response.status === 200) {
 		// A cold R2 custom-domain edge can ignore its first range request for a
 		// large object. Cancel that full body; only a proved 206 may pass below.
 		await response.body?.cancel();
 		throwIfAborted(signal);
-		response = await fetchWithTransientRetry(fetchImpl, url,
-			requestOptions('GET', signal, { Range: 'bytes=0-0' }), signal);
+		response = await fetchMirrorResponse(fetchImpl, url,
+			requestOptions('GET', signal, { Range: 'bytes=0-0' }));
 		assertResponse(response, `${url} retried ranged GET`);
 	}
 	if (response.status !== 206) await response.body?.cancel();
@@ -114,8 +132,8 @@ async function verifyRange({ url, artifact, fetchImpl, signal }) {
 
 async function verifyFullBody({ url, artifact, fetchImpl, signal }) {
 	throwIfAborted(signal);
-	const response = await fetchWithTransientRetry(fetchImpl, url,
-		requestOptions('GET', signal), signal);
+	const response = await fetchMirrorResponse(fetchImpl, url,
+		requestOptions('GET', signal));
 	assertResponse(response, `${url} GET`);
 	assert(response.status === 200, `${url} returned HTTP ${String(response.status)}`);
 	assertCors(response, url, PUBLIC_CORS_ORIGIN, 'GET');
@@ -151,8 +169,8 @@ function assertVerificationInput({ url, artifact, fetchImpl }) {
  */
 export async function verifyMirroredArtifactDelivery({ url, artifact, fetchImpl = fetch, signal }) {
 	assertVerificationInput({ url, artifact, fetchImpl });
-	await verifyHead({ url, artifact, fetchImpl, signal });
-	await verifyRange({ url, artifact, fetchImpl, signal });
+	await retryMirrorTransfer(() => verifyHead({ url, artifact, fetchImpl, signal }), signal);
+	await retryMirrorTransfer(() => verifyRange({ url, artifact, fetchImpl, signal }), signal);
 	return Object.freeze({ url, byteLength: artifact.byteLength, sha256: artifact.sha256 });
 }
 
@@ -162,5 +180,5 @@ export async function verifyMirroredArtifactDelivery({ url, artifact, fetchImpl 
  */
 export async function verifyMirroredArtifact({ url, artifact, fetchImpl = fetch, signal }) {
 	await verifyMirroredArtifactDelivery({ url, artifact, fetchImpl, signal });
-	return verifyFullBody({ url, artifact, fetchImpl, signal });
+	return retryMirrorTransfer(() => verifyFullBody({ url, artifact, fetchImpl, signal }), signal);
 }
