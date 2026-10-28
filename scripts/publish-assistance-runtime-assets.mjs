@@ -10,6 +10,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { uploadImmutableR2File } from './lib/local-model-mirror.mjs';
+import { configureCiArtifactFetch } from './lib/ci-artifact-fetch.ts';
 import { verifyMirroredArtifact } from './lib/local-model-mirror-publication.mjs';
 import { validateDesktopAssistanceRuntimeDistribution } from './lib/desktop-assistance-runtime-distribution-verification.mjs';
 import { isR2JurisdictionHost, R2Client } from './lib/r2-client.mjs';
@@ -108,6 +109,7 @@ export async function verifyAssistanceRuntimeBundles({
 }
 
 async function main() {
+	configureCiArtifactFetch();
 	assert(process.argv.length === 3 && ['--publish', '--verify'].includes(process.argv[2]),
 		'Use --publish to upload and verify, or --verify to read back the staged assistance archives.');
 	const root = resolve(import.meta.dirname, '..');

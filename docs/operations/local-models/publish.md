@@ -110,6 +110,11 @@ Every successful attempt must still satisfy the pinned length and SHA-256.
 Cancellation, incorrect bytes, invalid delivery headers, and permanent HTTP
 failures are not retried.
 
+In CI, desktop preparation and runtime publication use HTTP/1.1 for these
+transfers to avoid interrupted HTTP/2 streams. The transport retains environment
+proxy settings, TLS certificate verification, cancellation, and all archive
+integrity checks. Local commands keep their existing transport.
+
 ## Verification limits and performance
 
 Actual production-worker probes use Linux x64 under WSL2 and real model files.
