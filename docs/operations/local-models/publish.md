@@ -98,9 +98,10 @@ preparation and Electron packaging. The installer contains the pinned manifest,
 while users download only the engines their selected models require.
 
 For large R2 objects, a cold CDN edge can return a full `200` response to its
-first range request. Publication verification cancels that body and retries
-once, then still requires the exact `206`, `Content-Range`, CORS headers, byte
-length, and complete-file digest. The desktop downloader already restarts a
+first range request. Publication verification cancels that body, waits one
+second for edge metadata to settle, and retries once. It still requires the
+exact `206`, `Content-Range`, CORS headers, byte length, and complete-file
+digest. The desktop downloader already restarts a
 resumed transfer safely when the server returns a full response.
 
 Publication readback and build-time archive downloads retry transient HTTP and

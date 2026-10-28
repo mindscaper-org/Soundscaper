@@ -100,9 +100,11 @@ async function verifyRange({ url, artifact, fetchImpl, signal }) {
 	assertResponse(response, `${url} ranged GET`);
 	if (response.status === 200) {
 		// A cold R2 custom-domain edge can ignore its first range request for a
-		// large object. Cancel that full body; only a proved 206 may pass below.
+		// large object. Let its metadata settle after cancelling the full body;
+		// only a proved 206 may pass below.
 		await response.body?.cancel();
 		throwIfAborted(signal);
+		await delay(1_000, undefined, { signal });
 		response = await fetchMirrorResponse(fetchImpl, url,
 			requestOptions('GET', signal, { Range: 'bytes=0-0' }));
 		assertResponse(response, `${url} retried ranged GET`);
