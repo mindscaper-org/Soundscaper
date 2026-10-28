@@ -11,6 +11,7 @@ import { createMotionQualificationNative, type MotionQualificationCustody, type 
 import { motionQualificationApplicationExitAccepted, motionQualificationChooserRequest, motionQualificationProcessIdentity, verifyMotionQualificationOwner, type MotionQualificationChooserKind, type MotionQualificationOwner } from './motionscaper-qualification-policy.ts';
 import { runMotionQualificationCommand } from './motionscaper-qualification-command.ts';
 import { MotionQualificationApplicationOutput } from './motionscaper-qualification-output.ts';
+import { prepareMotionQualificationLocale } from './motionscaper-qualification-locale.ts';
 export { runMotionQualificationCommand } from './motionscaper-qualification-command.ts';
 
 const key = (value: MotionQualificationOwner) => `${value.pid}:${value.birth}`;
@@ -26,6 +27,7 @@ export async function launchMotionQualificationApplication(options: Readonly<{
 	env?: NodeJS.ProcessEnv; timeoutMs?: number; workflow?: 'authored' | 'scene' | 'launch' | 'successor';
 }>) {
 	const target = motionQualificationTarget(); requireMotionQualificationHost(target);
+	await prepareMotionQualificationLocale(options.directory);
 	const root = options.cwd, native = await createMotionQualificationNative(root, options.directory); native.requireInteractive();
 	let chooserIndex = 0;
 	const choose = async (owner: MotionQualificationOwner, custody: MotionQualificationCustody, kind: MotionQualificationChooserKind, path: string) => {
