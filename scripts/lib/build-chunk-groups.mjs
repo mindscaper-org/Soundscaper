@@ -494,6 +494,16 @@ export { workerChunkGroups, WORKER_EFFECT_CONTRACT_CHUNK_TEST, WORKER_XML_VENDOR
 	from './build-worker-chunk-groups.mjs';
 
 /**
+ * A separate bridge entry needs its own copy owner. Single-entry editors read
+ * only the shared inventory, so its table stays in the existing editor-copy owner.
+ * @param {{ compositionLinkEntry: boolean }} composition
+ * @returns {import('rolldown').CodeSplittingGroup[]}
+ */
+export function chunkGroupsForBuild({ compositionLinkEntry }) {
+	return compositionLinkEntry ? chunkGroups : chunkGroups.filter(group => group.name !== 'motion-link-copy');
+}
+
+/**
  * The group that claims one repository-relative module path, or null.
  *
  * `$initial`-tagged groups match by build role rather than by path, so they

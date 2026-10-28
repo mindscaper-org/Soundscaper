@@ -3,7 +3,47 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { rolldown, type OutputChunk } from 'rolldown';
-import { chunkGroups } from '../scripts/lib/build-chunk-groups.mjs';
+import { chunkGroupsForBuild } from '../scripts/lib/build-chunk-groups.mjs';
+
+test('single-entry editors retain bridge copy in the shared catalog without another startup request', async () => {
+	const main = '/fixture/src/main.jsx';
+	const bootstrap = '/fixture/src/framescaper/ui/FramescaperAudioEditorBootstrap.tsx';
+	const inventory = '/fixture/src/common/i18n/editor-copy-inventory.ts';
+	const copy = '/fixture/src/common/i18n/editor-motion-link-bridge-copy.ts';
+	const modules: Readonly<Record<string, string>> = {
+		[main]: `globalThis.loadEditor = () => import('${bootstrap}'); globalThis.site = ${JSON.stringify('main '.repeat(5_000))};`,
+		[bootstrap]: `import { english } from '${inventory}'; globalThis.editor = english + ${JSON.stringify('editor '.repeat(4_000))};`,
+		[inventory]: `import { copy } from '${copy}'; export const english = copy + ${JSON.stringify('catalog '.repeat(4_000))};`,
+		[copy]: 'export const copy = "composition-link-instructions";',
+	};
+	const bundle = await rolldown({
+		input: main,
+		preserveEntrySignatures: 'allow-extension',
+		plugins: [{
+			name: 'bounded-single-entry-catalog-fixture',
+			resolveId: id => Object.hasOwn(modules, id) ? id : null,
+			load: id => modules[id] ?? null,
+		}],
+	});
+	try {
+		const result = await bundle.generate({
+			format: 'es', minify: true, strictExecutionOrder: true,
+			codeSplitting: { groups: chunkGroupsForBuild({ compositionLinkEntry: false }), minSize: 20_000 },
+		});
+		const chunks = result.output.filter((chunk): chunk is OutputChunk => chunk.type === 'chunk');
+		const catalog = chunks.find(chunk => Object.hasOwn(chunk.modules, inventory));
+		assert.ok(catalog);
+		assert.ok(catalog.fileName.startsWith('editor-copy'));
+		assert.ok(Object.hasOwn(catalog.modules, copy), 'the table must share its actual catalog chunk');
+		const entry = chunks.find(chunk => chunk.isEntry && chunk.facadeModuleId === main);
+		const editor = chunks.find(chunk => chunk.facadeModuleId === bootstrap);
+		assert.ok(entry && editor);
+		assert.deepEqual(entry.imports, []);
+		assert.deepEqual(entry.dynamicImports, [editor.fileName]);
+		assert.ok(editor.imports.includes(catalog.fileName));
+		assert.equal(chunks.length, 3, 'product-ready startup needs only its entry, bootstrap and catalog requests');
+	} finally { await bundle.close(); }
+});
 
 test('Motion and successor main pages do not eagerly load the separate composition-link entry', async () => {
 	const main = '/fixture/src/main.jsx';
@@ -32,7 +72,7 @@ test('Motion and successor main pages do not eagerly load the separate compositi
 	try {
 		const result = await bundle.generate({
 			format: 'es', minify: true, strictExecutionOrder: true,
-			codeSplitting: { groups: chunkGroups, minSize: 20_000 },
+			codeSplitting: { groups: chunkGroupsForBuild({ compositionLinkEntry: true }), minSize: 20_000 },
 		});
 		const chunks = result.output.filter((chunk): chunk is OutputChunk => chunk.type === 'chunk');
 		const reached = (entry: string): Set<string> => {

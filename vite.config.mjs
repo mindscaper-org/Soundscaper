@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 import { MOTION_LINK_BRIDGE_ENTRY } from './scripts/lib/motion-link-web-routing.mjs';
-import { chunkGroups, workerChunkGroups } from './scripts/lib/build-chunk-groups.mjs';
+import { chunkGroupsForBuild, workerChunkGroups } from './scripts/lib/build-chunk-groups.mjs';
 import {
 	buildSourceMapsRequested,
 	relocateBuildSourceMaps,
@@ -35,6 +35,7 @@ const framescaperLine = resolveFramescaperBuildLine(productId, process.env.SCAPE
 const applicationVersion = framescaperBuildApplicationVersion(import.meta.dirname, framescaperLine,
 	resolveProductApplicationVersion(productId, readProductReleaseLinesSync(import.meta.dirname)));
 const desktopCodecComposition = process.env.SCAPE_DESKTOP_CODEC_RUNTIME === 'main-process';
+const compositionLinkEntry = !desktopCodecComposition && (productId === 'motionscaper' || framescaperLine === 'successor');
 // Off by default, and `hidden` when asked for: the emitted JavaScript never gains
 // a `sourceMappingURL` comment, and the plugin below moves the maps out of the
 // output directory, so a build with SCAPE_BUILD_SOURCE_MAPS=1 ships the same
@@ -158,11 +159,11 @@ export default defineConfig({
 		assetsInlineLimit: 0,
 		sourcemap: buildSourceMaps ? 'hidden' : false,
 		rolldownOptions: {
-			...((!desktopCodecComposition && (productId === 'motionscaper' || framescaperLine === 'successor'))
+			...(compositionLinkEntry
 				? { input: { index: 'index.html', 'composition-link-bridge': MOTION_LINK_BRIDGE_ENTRY } } : {}),
 			output: {
 				codeSplitting: {
-					groups: chunkGroups,
+					groups: chunkGroupsForBuild({ compositionLinkEntry }),
 					minSize: 20_000,
 				},
 				strictExecutionOrder: true,
