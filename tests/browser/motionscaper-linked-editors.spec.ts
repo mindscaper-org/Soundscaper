@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { Page } from '@playwright/test';
 import { expect, test, withBrowserCoverageContext, inspectLinkedOfflineReadiness } from './helpers/motionscaper-linked-fixture.js';
+import { waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { observeLinkedVideoPixels, verifyLinkedVideoPixels } from './helpers/motion-linked-video-pixels.js';
@@ -65,7 +66,11 @@ test('actual editor menus connect saved compositions, update automatically, and 
 	await expect(motion.getByRole('dialog').getByRole('status')).toContainText('saved revisions update automatically'); await close(motion);
 	await solid(motion, '#00ff00'); const downloaded = motion.waitForEvent('download'); await menu(motion, 'File', 'Save Copy'); await downloaded;
 	await expect(links.locator('code')).toHaveText(first!); await save(motion); await expect(links.locator('code')).not.toHaveText(first!); const second = await links.locator('code').textContent();
-	await close(frame); await menu(frame, 'Edit', /^Undo/u); await menu(frame, 'File', 'Linked compositions…');
+	await close(frame); await expect.poll(() => previewColor(frame)).toEqual([0, 255, 0, 255]);
+	await menu(frame, 'Edit', /^Undo/u); await expect.poll(() => previewColor(frame)).toEqual([255, 0, 0, 255]);
+	await waitForProjectActivation(frame.locator('[data-project-id]'), { timeout: 15_000 });
+	await expect(frame.locator('[data-project-id]')).not.toHaveAttribute('data-edit-block-reason', /.+/u);
+	await menu(frame, 'File', 'Linked compositions…');
 	await expect(links.locator('code')).toHaveText(first!); await expect(links.getByText('Updates pinned by history', { exact: true })).toBeVisible();
 	await solid(motion, '#0000ff'); await save(motion); await expect(links.getByText('Pending output change', { exact: true })).toBeVisible(); await expect(links.locator('code')).toHaveText(first!);
 	await links.getByRole('button', { name: 'Resume automatic updates', exact: true }).click(); await expect(links.locator('code')).not.toHaveText(first!); await expect(links.locator('code')).not.toHaveText(second!);
