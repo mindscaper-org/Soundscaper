@@ -13,6 +13,7 @@ interface Upload {
 	readonly file: FileHandle; readonly digest: Hash; readonly maximumBytes: number; bytes: number; closed: boolean;
 }
 interface AudioUpload extends Upload { readonly source: string; readonly plan: MotionNativePcmPlan }
+interface OpeningUpload { readonly directory: string; readonly files: Map<FileHandle, boolean> }
 interface Job extends Upload {
 	readonly token: string; readonly plan: MotionRenderPlan; readonly directory: string; readonly source: string;
 	readonly output: string; readonly destination: string; readonly fingerprint: Fingerprint | null;
@@ -24,6 +25,14 @@ export function createMotionscaperDeliveryAuthority(options: {
 	readonly encoder: MotionNativeEncoder | null; readonly chooseOutput: (suggestedName: string) => Promise<string | null>;
 }): MotionDeliveryAuthority {
 	let current: Job | null = null; let opening = false; let disposed = false; let releasedToken: string | null = null;
+	const admitted = new Set<Promise<unknown>>(), openingUploads = new Set<OpeningUpload>();
+	let disposing: Promise<void> | null = null;
+	function track<Value>(action: () => Promise<Value>): Promise<Value> {
+		let resolve!: (value: Value | PromiseLike<Value>) => void, reject!: (reason: unknown) => void;
+		const promise = new Promise<Value>((complete, fail) => { resolve = complete; reject = fail; }); admitted.add(promise);
+		void promise.then(() => { admitted.delete(promise); }, () => { admitted.delete(promise); });
+		try { void action().then(resolve, reject); } catch (error) { reject(error); } return promise;
+	}
 	const active = () => { if (disposed) throw new Error('Motionscaper delivery authority is closed.'); };
 	const getJob = (token: string) => { active(); if (!current || token !== current.token) throw new Error('Unknown Motionscaper delivery capability.'); return current; };
 	async function clean(job: Job) {
@@ -32,6 +41,15 @@ export function createMotionscaperDeliveryAuthority(options: {
 		try { await rm(job.directory, { recursive: true, force: true }); } catch (error) { failures.push(error); }
 		if (failures.length) throw new AggregateError(failures, 'Motionscaper native temporary custody cleanup failed.');
 		if (current === job) current = null; releasedToken = job.token;
+	}
+	async function cleanOpening(value: OpeningUpload): Promise<void> {
+		const results = await Promise.allSettled([...value.files].map(async ([file, closed]) => {
+			if (!closed) { await file.close(); value.files.set(file, true); }
+		}));
+		const failures = results.flatMap(result => result.status === 'rejected' ? [result.reason as unknown] : []);
+		try { await rm(value.directory, { recursive: true, force: true }); } catch (error) { failures.push(error); }
+		if (failures.length) throw new AggregateError(failures, 'Motionscaper delivery admission cleanup failed.');
+		openingUploads.delete(value);
 	}
 	async function conclude<T>(job: Job, action: () => Promise<T>): Promise<T> {
 		let result: T;
@@ -49,11 +67,11 @@ export function createMotionscaperDeliveryAuthority(options: {
 		catch (error) { job.failed = true; throw error; }
 		finally { job.pending = null; done(); }
 	}
-	return {
+	const authority: MotionDeliveryAuthority = {
 		getProfile() { active(); return Promise.resolve(options.encoder ? MOTION_PRORES_DELIVERY_PROFILE : null); },
 		async begin(request) {
 			active(); if (!options.encoder) throw new Error('Motionscaper native ProRes export is unavailable.');
-			if (current || opening) throw new Error('A Motionscaper native render is already active.');
+			if (current || opening || openingUploads.size) throw new Error('A Motionscaper native render is already active.');
 			const plan = normalizeMotionRenderPlan(request.plan);
 			const audioPlan = request.audio ? motionNativePcmPlan(plan, request.audio) : null;
 			const maximumBytes = 65_600 + plan.frameCount * (48 + plan.width * plan.height * 16);
@@ -68,14 +86,18 @@ export function createMotionscaperDeliveryAuthority(options: {
 				const fingerprint = await optionalFile(destination);
 				const directory = await mkdtemp(join(dirname(destination), '.motionscaper-export-'));
 				const source = join(directory, 'frames.mfc'); const output = join(directory, 'output.mov');
+				const held: OpeningUpload = { directory, files: new Map() }; openingUploads.add(held);
 				try {
-					await chmod(directory, 0o700); const file = await open(source, 'wx+', 0o600);
+					await chmod(directory, 0o700); const file = await open(source, 'wx+', 0o600); held.files.set(file, false);
 					let audio: AudioUpload | null = null;
-					try { if (audioPlan) { const source = join(directory, 'audio.mpc'); audio = { source, plan: audioPlan, file: await open(source, 'wx+', 0o600), digest: createHash('sha256'), maximumBytes: 65600 + audioPlan.sampleCount * audioPlan.channels * 4, bytes: 0, closed: false }; } } catch (error) { await file.close(); throw error; }
+					if (audioPlan) { const source = join(directory, 'audio.mpc'), audioFile = await open(source, 'wx+', 0o600); held.files.set(audioFile, false); audio = { source, plan: audioPlan, file: audioFile, digest: createHash('sha256'), maximumBytes: 65600 + audioPlan.sampleCount * audioPlan.channels * 4, bytes: 0, closed: false }; }
 					const job: Job = { token: randomUUID(), plan, directory, source, output, destination, fingerprint, file,
 						audio, digest: createHash('sha256'), signal: new AbortController(), maximumBytes, bytes: 0, closed: false, failed: false, pending: null };
-					current = job; if (disposed) { await clean(job); active(); } return { token: job.token };
-				} catch (error) { await rm(directory, { recursive: true, force: true }); throw error; }
+					current = job; openingUploads.delete(held); if (disposed) { await clean(job); active(); } return { token: job.token };
+				} catch (error) {
+					if (openingUploads.has(held)) try { await cleanOpening(held); } catch (cleanup) { throw new AggregateError([error, cleanup], 'Motionscaper delivery admission failed.', { cause: cleanup }); }
+					throw error;
+				}
 			} finally { opening = false; }
 		},
 		async write({ token, offset, bytes, stream }) {
@@ -128,7 +150,25 @@ export function createMotionscaperDeliveryAuthority(options: {
 		},
 		async cancel({ token }) { active(); if (token === releasedToken) return; const job = getJob(token); job.signal.abort(); await job.pending; await clean(job); },
 		async abortActive() { const job = current; if (job) { job.signal.abort(); await job.pending; await clean(job); } },
-		async dispose() { disposed = true; const job = current; if (job) { job.signal.abort(); await job.pending; await clean(job); } },
+		dispose() {
+			if (disposing) return disposing; disposed = true; current?.signal.abort();
+			const operation = Promise.resolve().then(async () => {
+				while (admitted.size) await Promise.allSettled([...admitted]);
+				const results = await Promise.allSettled([
+					...[...openingUploads].map(cleanOpening),
+					...(current ? [clean(current)] : []),
+				]);
+				const failures = results.flatMap(result => result.status === 'rejected' ? [result.reason as unknown] : []);
+				if (failures.length) throw new AggregateError(failures, 'Motionscaper delivery cleanup failed.');
+			});
+			disposing = operation;
+			void operation.catch(() => { if (disposing === operation) disposing = null; }); return operation;
+		},
+	};
+	return { ...authority,
+		begin: request => track(() => authority.begin(request)), write: request => track(() => authority.write(request)),
+		commit: request => track(() => authority.commit(request)), cancel: request => track(() => authority.cancel(request)),
+		abortActive: () => track(() => authority.abortActive()),
 	};
 }
 async function optionalFile(path: string): Promise<Fingerprint | null> {

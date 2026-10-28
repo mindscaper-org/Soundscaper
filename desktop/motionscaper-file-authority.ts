@@ -14,6 +14,7 @@ interface Binding { readonly path: string; readonly fingerprint: Fingerprint | n
 interface ReadCapability extends Binding { readonly file: FileHandle; readonly fingerprint: Fingerprint; readonly parent: MotionSaveDirectoryIdentity; readonly recoveredPublication?: MotionRecoveredPublication; busy: boolean }
 interface WriteCapability extends Binding { readonly projectId: string; readonly saveCopy: boolean; readonly transactionId: string; readonly parent: MotionSaveDirectoryIdentity; readonly temporary: string; readonly file: FileHandle; readonly digest: Hash; publication?: MotionSavePublication; flight?: Promise<void>; bytes: number; busy: boolean; failed: boolean; closed: boolean }
 interface RecoveryCapability { readonly path: string; readonly parent: MotionSaveDirectoryIdentity; readonly projectId: string; readonly recoveredPublication: MotionRecoveredPublication; busy: boolean }
+interface OpeningFile { readonly file: FileHandle; readonly save?: Readonly<{ path: string; parent: MotionSaveDirectoryIdentity; temporary: string }>; closed: boolean; failed?: boolean }
 export interface MotionFileDialogs {
 	chooseOpen(): Promise<string | null>;
 	chooseSave(options: { readonly suggestedName: string; readonly defaultPath?: string }): Promise<string | null>;
@@ -34,7 +35,20 @@ export function createMotionscaperFileAuthority(dialogs: MotionFileDialogs, opti
 	const saving = new Set<string>();
 	const completed = new Map<string, MotionSaveFileReceipt | null>();
 	const released = new Set<string>();
+	const admitted = new Set<Promise<unknown>>(), openingFiles = new Set<OpeningFile>();
+	let disposing: Promise<void> | null = null;
 	let disposed = false; let opening = 0;
+	function track<Value>(action: () => Promise<Value>): Promise<Value> {
+		let resolve!: (value: Value | PromiseLike<Value>) => void, reject!: (reason: unknown) => void;
+		const promise = new Promise<Value>((complete, fail) => { resolve = complete; reject = fail; }); admitted.add(promise);
+		void promise.then(() => { admitted.delete(promise); }, () => { admitted.delete(promise); });
+		try { void action().then(resolve, reject); } catch (error) { reject(error); } return promise;
+	}
+	async function closeOpening(value: OpeningFile): Promise<void> {
+		if (!value.closed) { await value.file.close(); value.closed = true; }
+		if (value.save) { await assertMotionSaveDirectory(value.save.path, value.save.parent); await rm(value.save.temporary, { force: true }); }
+		openingFiles.delete(value);
+	}
 	const active = () => { if (disposed) throw new Error('Motionscaper file authority is closed.'); };
 	function reader(token: string): ReadCapability { active(); const value = readers.get(token); if (!value) throw new Error('Unknown Motionscaper read capability.'); return value; }
 	function writer(token: string): WriteCapability { active(); const value = writers.get(token); if (!value) throw new Error('Unknown Motionscaper write capability.'); return value; }
@@ -65,7 +79,7 @@ export function createMotionscaperFileAuthority(dialogs: MotionFileDialogs, opti
 		return { name: basename(value.path), ...expected };
 	}
 	async function acquireRead(choosePath: () => Promise<string | null>): Promise<MotionOpenFileCapability | null> {
-		active(); if (readers.size + opening >= 16) throw new RangeError('Too many open Motionscaper file capabilities.');
+		active(); if (readers.size + opening + [...openingFiles].filter(value => !value.save && value.failed).length >= 16) throw new RangeError('Too many open Motionscaper file capabilities.');
 		opening += 1;
 		try {
 			const path = await choosePath(); if (path === null) return null; active();
@@ -81,11 +95,13 @@ export function createMotionscaperFileAuthority(dialogs: MotionFileDialogs, opti
 			if (idleWriter && recoveredPublication?.publication === 'rolled-back' && bound?.path === path &&
 				(sameMotionSaveFile(priorJournal?.journal.backup, fingerprint) || sameMotionSaveFile(priorJournal?.journal.previous, fingerprint))) bindings.set(idleWriter.projectId, { path, fingerprint });
 			const file = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+			const held: OpeningFile = { file, closed: false }; openingFiles.add(held);
 			try {
 				assertFingerprint(fingerprint, fingerprintOf(await file.stat())); active();
 				const token = randomUUID(); readers.set(token, { path, parent, fingerprint, file, busy: false, ...(recoveredPublication ? { recoveredPublication } : {}) });
+				openingFiles.delete(held);
 				return { token, name: basename(path), byteLength: fingerprint.size, ...(recoveredPublication ? { recoveredPublication } : {}) };
-			} catch (error) { await file.close(); throw error; }
+			} catch (error) { try { await closeOpening(held); } catch (cleanup) { held.failed = true; throw new AggregateError([error, cleanup], 'Motionscaper read admission cleanup failed.', { cause: cleanup }); } throw error; }
 		} finally { opening -= 1; }
 	}
 	const authority: MotionFileAuthority = {
@@ -157,6 +173,7 @@ export function createMotionscaperFileAuthority(dialogs: MotionFileDialogs, opti
 				else {
 					const chosen = await dialogs.chooseSave({ suggestedName: safeName(suggestedName), ...(bound && !saveCopy ? { defaultPath: withProjectFileExtension(bound.path, '.mscape') } : {}) });
 					if (chosen === null) { if (!wasSaving) saving.delete(projectId); return null; }
+					active();
 					if (!isAbsolute(chosen) || extname(chosen).toLowerCase() !== '.mscape') throw new TypeError('Choose a Motionscaper .mscape destination.');
 					path = chosen;
 				}
@@ -193,11 +210,12 @@ export function createMotionscaperFileAuthority(dialogs: MotionFileDialogs, opti
 				active();
 				const transactionId = randomUUID(), temporary = motionSaveTemporaryPath(path, transactionId);
 				const file = await open(temporary, 'wx', 0o600);
-				try { await assertMotionSaveDirectory(path, parent); } catch (error) { await file.close(); throw error; }
-				if (disposed) { await file.close(); await rm(temporary, { force: true }); active(); }
-				const token = randomUUID(); writers.set(token, { path, parent, fingerprint, projectId, saveCopy, transactionId, temporary, file, digest: createHash('sha256'), bytes: 0, busy: false, failed: false, closed: false });
-				retained = true;
-				return { token };
+				const held: OpeningFile = { file, save: { path, parent, temporary }, closed: false }; openingFiles.add(held);
+				try {
+					await assertMotionSaveDirectory(path, parent); active();
+					const token = randomUUID(); writers.set(token, { path, parent, fingerprint, projectId, saveCopy, transactionId, temporary, file, digest: createHash('sha256'), bytes: 0, busy: false, failed: false, closed: false });
+					openingFiles.delete(held); retained = true; return { token };
+				} catch (error) { try { await closeOpening(held); } catch (cleanup) { retained = true; throw new AggregateError([error, cleanup], 'Motionscaper Save admission cleanup failed.', { cause: cleanup }); } throw error; }
 			} catch (error) { if (!retained) saving.delete(projectId); throw error; }
 		},
 		async write({ token, offset, bytes }) {
@@ -294,19 +312,39 @@ export function createMotionscaperFileAuthority(dialogs: MotionFileDialogs, opti
 				writers.delete(token); saving.delete(value.projectId);
 			} finally { finish(); }
 		},
-		async dispose() {
-			if (disposed) return;
-			disposed = true;
-			await Promise.allSettled([...readers.values()].map((value) => value.file.close()));
-			await Promise.allSettled([...writers.values()].map(async (value) => {
-				await value.flight;
-				if (value.publication) await value.publication.abort();
-				else { if (!value.closed) await value.file.close(); await rm(value.temporary, { force: true }); }
-			}));
-			readers.clear(); writers.clear(); recoveries.clear(); bindings.clear(); saving.clear();
+		dispose() {
+			if (disposing) return disposing; disposed = true;
+			const operation = Promise.resolve().then(async () => {
+				while (admitted.size) await Promise.allSettled([...admitted]);
+				const results = await Promise.allSettled([
+					...[...openingFiles].map(closeOpening),
+					...[...readers].map(async ([token, value]) => { await value.file.close(); readers.delete(token); }),
+					...[...writers].map(async ([token, value]) => {
+						await value.flight;
+						if (value.publication) await value.publication.abort();
+						else { if (!value.closed) { await value.file.close(); value.closed = true; } await assertMotionSaveDirectory(value.path, value.parent); await rm(value.temporary, { force: true }); }
+						writers.delete(token); saving.delete(value.projectId);
+					}),
+				]);
+				const failures = results.flatMap(result => result.status === 'rejected' ? [result.reason as unknown] : []);
+				if (failures.length) throw new AggregateError(failures, 'Motionscaper file cleanup failed.');
+				recoveries.clear(); bindings.clear(); saving.clear();
+			});
+			disposing = operation;
+			void operation.catch(() => { if (disposing === operation) disposing = null; }); return operation;
 		},
 	};
-	return Object.freeze(authority);
+	return Object.freeze({ ...authority,
+		selectOpen: () => track(() => authority.selectOpen()), openTrustedPath: (path: string) => track(() => authority.openTrustedPath(path)),
+		revokeRead: (token: string) => track(() => authority.revokeRead(token)),
+		read: (request: Parameters<MotionFileAuthority['read']>[0]) => track(() => authority.read(request)),
+		release: (request: Parameters<MotionFileAuthority['release']>[0]) => track(() => authority.release(request)),
+		bindOpened: (request: Parameters<MotionFileAuthority['bindOpened']>[0]) => track(() => authority.bindOpened(request)),
+		beginSave: (request: Parameters<MotionFileAuthority['beginSave']>[0]) => track(() => authority.beginSave(request)),
+		write: (request: Parameters<MotionFileAuthority['write']>[0]) => track(() => authority.write(request)),
+		commit: (request: Parameters<MotionFileAuthority['commit']>[0]) => track(() => authority.commit(request)),
+		cancel: (request: Parameters<MotionFileAuthority['cancel']>[0]) => track(() => authority.cancel(request)),
+	});
 }
 function integer(value: number, label: string): void { if (!Number.isSafeInteger(value) || value < 0) throw new RangeError(`Invalid Motionscaper ${label}.`); }
 function identity(value: string): void { if (typeof value !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(value)) throw new TypeError('Invalid Motionscaper project identity.'); }
