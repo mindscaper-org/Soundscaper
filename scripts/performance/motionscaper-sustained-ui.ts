@@ -49,10 +49,20 @@ export async function openMotionSustainedRender(page: Page, format: 'png' | 'web
 	await dialog.getByLabel('End frame (exclusive)', { exact: true }).fill(String(frames)); return dialog;
 }
 export async function motionSustainedRenderProgress(dialog: Locator, frames: number): Promise<number> {
-	const alert = dialog.getByRole('alert'); if (await alert.count()) throw new Error(await alert.innerText());
-	if (await dialog.getByRole('status').textContent() === 'Render complete') return frames;
-	const progress = dialog.getByRole('progressbar', { name: 'Rendered frames', exact: true });
-	const value = await progress.count() ? Number(await progress.getAttribute('value')) : 0;
+	// Completion replaces the bar. Read one DOM turn so a counted bar cannot retire before its value read.
+	const observed = await dialog.evaluate(element => ({
+		alerts: Array.from(element.querySelectorAll('[role="alert"]'), node => node.textContent ?? ''),
+		statuses: Array.from(element.querySelectorAll('[role="status"]'), node => node.textContent ?? ''),
+		progress: Array.from(element.querySelectorAll('progress, [role="progressbar"]'))
+			.filter(node => node.getAttribute('aria-label') === 'Rendered frames').map(node => node.getAttribute('value')),
+	}));
+	if (observed.alerts.length) throw new Error(observed.alerts.join('\n'));
+	assert.equal(observed.statuses.length, 1, 'Render status ownership is ambiguous.');
+	assert.ok(observed.progress.length <= 1, 'Rendered frames ownership is ambiguous.');
+	if (observed.statuses[0] === 'Render complete') return frames;
+	const raw = observed.progress[0];
+	if (observed.progress.length) assert.ok(raw !== null && raw !== undefined && raw.trim() !== '', 'Rendered frames value is missing.');
+	const value = observed.progress.length ? Number(raw) : 0;
 	assert.ok(Number.isSafeInteger(value) && value >= 0 && value <= frames); return value;
 }
 export async function finishMotionSustainedRender(dialog: Locator): Promise<void> {
