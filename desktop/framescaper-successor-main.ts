@@ -10,11 +10,12 @@ import { FRAMESCAPER_SUCCESSOR_DESKTOP as identity, normalizeFramescaperSuccesso
 import { createIsolatedRendererProtocolHandler } from './isolated-renderer-protocol.ts';
 import { createTrustedDesktopIpc } from './main-trusted-ipc.ts';
 import { registerMotionSavedFileIpc } from './motion-saved-file-ipc.ts';
+import { MotionDesktopQuitOwner } from './motionscaper-quit.ts';
 app.setName(identity.name);
 if (!app.commandLine.getSwitchValue('user-data-dir')) app.setPath('userData', join(app.getPath('appData'), identity.userDataDirectory));
 app.setAppUserModelId(identity.appId);
 protocol.registerSchemesAsPrivileged([{ scheme: identity.scheme, privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true, codeCache: true } }]);
-let window: BrowserWindow | null = null, owner: object = {}, quitting = false;
+let window: BrowserWindow | null = null, owner: object = {};
 let delivery: ReturnType<typeof createMotionscaperDeliveryAuthority> | null = null;
 let files: ReturnType<typeof registerMotionSavedFileIpc> | null = null;
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -22,10 +23,9 @@ else {
 	app.on('second-instance', () => { window?.show(); window?.focus(); });
 	app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 	app.on('activate', () => { if (!window && files) void createWindow().catch(failStartup); });
-	app.on('before-quit', event => {
-		if (quitting) return; event.preventDefault(); quitting = true;
-		void (async () => { try { await disposeAuthorities(); app.quit(); } catch (error) { failStartup(error); } })();
-	});
+	const quit = new MotionDesktopQuitOwner({ disposeFiles: () => files?.dispose(), disposeDelivery: () => delivery?.dispose(),
+		quit: () => { app.quit(); }, reportFailure: reportCleanupFailure });
+	app.on('before-quit', event => { void quit.beforeQuit(event); });
 	void start().catch(failStartup);
 }
 async function start(): Promise<void> {
@@ -74,15 +74,20 @@ async function createWindow(): Promise<void> {
 	target.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 	target.webContents.on('will-navigate', (event, url) => { if (!framescaperSuccessorDesktopDocumentUrl(url)) event.preventDefault(); });
 	target.webContents.on('will-attach-webview', event => { event.preventDefault(); });
-	target.webContents.on('did-start-navigation', details => { if (details.isMainFrame && !details.isSameDocument) void revokeOwner().catch(failStartup); });
-	target.webContents.on('render-process-gone', () => { void revokeOwner().catch(failStartup); });
-	target.on('closed', () => { if (window === target) window = null; void revokeOwner().catch(failStartup); });
+	target.webContents.on('did-start-navigation', details => { if (details.isMainFrame && !details.isSameDocument) void revokeOwner().catch(reportCleanupFailure); });
+	target.webContents.on('render-process-gone', () => { void revokeOwner().catch(reportCleanupFailure); });
+	target.on('closed', () => { if (window === target) window = null; void revokeOwner().catch(reportCleanupFailure); });
 	await target.loadURL(`${identity.origin}/`);
 	if (process.argv.includes('--framescaper-successor-shell-smoke')) {
 		const { smokeFramescaperSuccessorShell } = await import('./framescaper-successor-smoke.ts');
 		const evidence = await smokeFramescaperSuccessorShell(target); await disposeAuthorities();
 		console.log(`FRAMESCAPER_SUCCESSOR_SHELL_SMOKE ${JSON.stringify({ ...evidence, arch: process.arch })}`); app.exit(0);
 	}
+}
+function reportCleanupFailure(error: unknown): void {
+	console.error(error);
+	try { dialog.showErrorBox(`${identity.name} cleanup failed`, error instanceof Error ? error.message : String(error)); }
+	catch (reportingError) { console.error(reportingError); }
 }
 function failStartup(error: unknown): void {
 	if (process.argv.includes('--framescaper-successor-shell-smoke')) console.error(error);

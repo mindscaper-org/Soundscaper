@@ -58,3 +58,11 @@ test('Motion native menu and chooser/error copy follow the selected language ind
 	assert.equal(copy.motionscaperNativeLaunchErrorTitle, 'Motionscaper konnte das Projekt nicht öffnen');
 	assert.equal(copy.motionscaperNativeStartupErrorTitle, 'Motionscaper konnte nicht starten');
 });
+
+test('Motion native close failure explains the held application in the current interface language', () => {
+	const english = resolveMotionscaperLocaleCopy('en-US'), german = resolveMotionscaperLocaleCopy('de-DE');
+	assert.equal(english.motionscaperNativeCloseErrorTitle, 'Motionscaper could not finish closing');
+	assert.equal(english.motionscaperNativeCloseError, 'Native work or temporary file cleanup failed. Motionscaper will stay open.');
+	assert.equal(german.motionscaperNativeCloseErrorTitle, 'Motionscaper konnte nicht vollständig geschlossen werden');
+	assert.equal(german.motionscaperNativeCloseError, 'Die native Verarbeitung oder die Bereinigung temporärer Dateien ist fehlgeschlagen. Motionscaper bleibt geöffnet.');
+});

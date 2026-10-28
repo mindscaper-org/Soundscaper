@@ -10,6 +10,8 @@ const ENTRIES = [
 	['motionscaperNativeLaunchError', 'The native file launch failed.', 'Das Öffnen der Datei ist fehlgeschlagen.'],
 	['motionscaperNativeStartupErrorTitle', 'Motionscaper could not start', 'Motionscaper konnte nicht starten'],
 	['motionscaperNativeStartupError', 'Desktop startup failed.', 'Der Start der Desktop-Anwendung ist fehlgeschlagen.'],
+	['motionscaperNativeCloseErrorTitle', 'Motionscaper could not finish closing', 'Motionscaper konnte nicht vollständig geschlossen werden'],
+	['motionscaperNativeCloseError', 'Native work or temporary file cleanup failed. Motionscaper will stay open.', 'Die native Verarbeitung oder die Bereinigung temporärer Dateien ist fehlgeschlagen. Motionscaper bleibt geöffnet.'],
 	['motionscaperLanguage', 'Language', 'Sprache'],
 	['motionscaperLanguageHint', 'Change the interface language. Your open project and edits stay in this window.', 'Ändere die Sprache der Oberfläche. Dein geöffnetes Projekt und deine Änderungen bleiben in diesem Fenster.'],
 	['motionscaperLanguageFailed', 'The language preference could not be saved. Your current language and project are unchanged.', 'Die Spracheinstellung konnte nicht gespeichert werden. Deine aktuelle Sprache und dein Projekt bleiben unverändert.'],

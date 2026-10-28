@@ -24,6 +24,7 @@ import { createMotionscaperProtocolHandler } from './motionscaper-protocol.ts';
 import { dispatchMotionscaperDocumentation } from './motionscaper-documentation.ts';
 import { createMotionscaperUpdateChecker, dispatchMotionscaperUpdateCheck } from './motionscaper-update-check.ts';
 import { MOTIONSCAPER_UPDATES_COPY_BY_LOCALE } from '../src/common/i18n/editor-motionscaper-updates-copy.ts';
+import { MotionDesktopQuitOwner } from './motionscaper-quit.ts';
 
 interface ProductMetadata {
 	readonly schemaVersion: 1;
@@ -157,7 +158,12 @@ async function start(): Promise<void> {
 			|| !motionscaperDesktopDocumentUrl(event.senderFrame.url)) throw new Error('Untrusted Motionscaper delivery caller.');
 		return dispatchMotionscaperDeliveryCall(delivery, method, request);
 	});
-	app.on('before-quit', () => { void Promise.all([launches.dispose().then(() => files.dispose()), delivery.dispose()]).catch((error: unknown) => { console.error(error); }); });
+	const quit = new MotionDesktopQuitOwner({ disposeLaunches: () => launches.dispose(), disposeFiles: () => files.dispose(),
+		disposeDelivery: () => delivery.dispose(), quit: () => { app.quit(); }, reportFailure: error => {
+			console.error(error); const copy = nativeCopy();
+			dialog.showErrorBox(copy.motionscaperNativeCloseErrorTitle, copy.motionscaperNativeCloseError);
+		} });
+	app.on('before-quit', event => { void quit.beforeQuit(event); });
 	installNativeMenu();
 	desktopReady = true; await createWindow();
 }
