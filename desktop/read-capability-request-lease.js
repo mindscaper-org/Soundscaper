@@ -5,6 +5,54 @@ import {
 	readCapabilityRequestRetiredError,
 } from './read-capability-support.js';
 
+/**
+ * Wait for an existing request to settle, then revalidate and compete for its slot.
+ * @template Lease
+ * @param {() => Lease | null} acquire
+ * @param {() => boolean} isLive
+ * @param {ReadonlySet<Promise<unknown>>} operations
+ * @param {AbortSignal} signal
+ * @returns {Promise<Lease | null>}
+ */
+export async function acquireQueuedReadCapabilityRequest(acquire, isLive, operations, signal) {
+	signal.throwIfAborted();
+	let onAbort = () => {};
+	const aborted = new Promise((_, reject) => {
+		onAbort = () => { reject(signal.reason); };
+	});
+	signal.addEventListener('abort', onAbort, { once: true });
+	try {
+		while (isLive()) {
+			signal.throwIfAborted();
+			const lease = acquire();
+			if (lease) return lease;
+			// The store tracks leases through body completion and cancellation.
+			// Queued callers hold neither a handle lease nor a concurrency slot.
+			if (!operations.size) return null;
+			await Promise.race([...operations, aborted]);
+		}
+		return null;
+	} finally {
+		signal.removeEventListener('abort', onAbort);
+	}
+}
+
+export function acquireReadCapabilityRequestLease(entry, expectedProfile, { operations, retire, renew }) {
+	if (!entry || entry.request
+		|| (expectedProfile !== undefined && entry.readProfile !== expectedProfile)) return null;
+	const rangeRequest = entry.rangeTicket
+		? entry.rangeAdmission.acquireRequest(entry.rangeTicket)
+		: null;
+	if (entry.rangeTicket && !rangeRequest) return null;
+	renew();
+	try {
+		return createReadCapabilityRequestLease(entry, rangeRequest, { operations, retire });
+	} catch (error) {
+		rangeRequest?.release();
+		throw error;
+	}
+}
+
 export function createReadCapabilityRequestLease(entry, rangeRequest, { operations, retire }) {
 	const requestBarrier = Promise.withResolvers();
 	let completePromise = null;

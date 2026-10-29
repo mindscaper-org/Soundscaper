@@ -30,7 +30,7 @@ import {
 	requireReadCapabilityOwner,
 	safeReadCapabilityTimestamp,
 } from './read-capability-support.js';
-import { createReadCapabilityRequestLease } from './read-capability-request-lease.js';
+import { acquireQueuedReadCapabilityRequest, acquireReadCapabilityRequestLease } from './read-capability-request-lease.js';
 import { acceptsFile, mimeTypeForPath } from './validation.js';
 
 export { throwAfterReadCapabilityRollback } from './read-capability-support.js';
@@ -204,22 +204,19 @@ export class ReadCapabilityStore {
 
 	acquireRequest(id, expectedProfile) {
 		const entry = this.#liveEntry(id);
-		if (!entry || entry.request
-			|| (expectedProfile !== undefined && entry.readProfile !== expectedProfile)) return null;
-		const rangeRequest = entry.rangeTicket
-			? entry.rangeAdmission.acquireRequest(entry.rangeTicket)
-			: null;
-		if (entry.rangeTicket && !rangeRequest) return null;
-		this.#renewExpiry(entry);
-		try {
-			return createReadCapabilityRequestLease(entry, rangeRequest, {
-				operations: this.#operations,
-				retire: () => this.#releaseEntry(entry),
-			});
-		} catch (error) {
-			rangeRequest?.release();
-			throw error;
-		}
+		return acquireReadCapabilityRequestLease(entry, expectedProfile, {
+			operations: this.#operations,
+			retire: () => this.#releaseEntry(entry),
+			renew: () => this.#renewExpiry(entry),
+		});
+	}
+
+	acquireQueuedRequest(id, expectedProfile, signal) {
+		return acquireQueuedReadCapabilityRequest(
+			() => this.acquireRequest(id, expectedProfile),
+			() => this.#liveEntry(id)?.readProfile === expectedProfile,
+			this.#operations, signal,
+		);
 	}
 
 	release(id, { owner } = {}) {
