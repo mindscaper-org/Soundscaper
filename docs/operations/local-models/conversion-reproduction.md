@@ -84,6 +84,17 @@ lazy framework imports. The lock makes the repository runner reproducible; it
 does not establish that an external environment was installed or that any model
 ran, so fabricated command output still cannot pass verification.
 
+The frozen environment retains `msgpack` 1.2.1 through `librosa` 0.10.2.post1.
+This Python environment is conversion tooling and is not shipped with either
+application. Librosa reads its bundled interval table with `strict_map_key=False`;
+its online example-data version-index helpers are outside the conversion protocol.
+The converter accepts authenticated source artifacts and owned fixtures, not
+untrusted MessagePack input, and does not use the streaming `Unpacker` API.
+The msgpack advisory `GHSA-j586-36cw-2gc2` is accepted risk within this offline
+boundary. Reassess that decision before adding MessagePack inputs or online
+example-data access. Updating this historical lock requires new conversion and
+parity evidence; existing records must retain the environment that produced them.
+
 The module authenticates the fixture, source archive/artifacts, converted
 graphs, and toolchain lock before importing PyTorch, TensorFlow, ONNX, or
 exporter packages. It accepts no URL or command fragment,
