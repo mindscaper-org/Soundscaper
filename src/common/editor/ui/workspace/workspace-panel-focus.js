@@ -16,7 +16,10 @@ export const FOCUS_ATTEMPTS = 30;
  */
 function focusWhenMounted(ownerDocument, selector, previous = null) {
 	let attempts = FOCUS_ATTEMPTS;
+	const openingFocus = ownerDocument.activeElement;
 	const restore = () => {
+		const active = ownerDocument.activeElement;
+		if (active && active !== openingFocus && active !== ownerDocument.body && active !== ownerDocument.documentElement) return;
 		const candidates = ownerDocument.querySelectorAll
 			? [...ownerDocument.querySelectorAll(selector)]
 			: [ownerDocument.querySelector(selector)];
