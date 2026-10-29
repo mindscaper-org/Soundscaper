@@ -35,6 +35,13 @@ llama.cpp also requires CMake, Python 3, and a C/C++ compiler:
   to CMake explicitly, so x64 build-time Node.js can prepare an ARM64 package
   on the Windows ARM runner.
 
+Windows ARM64 Whisper and llama.cpp builds enable MSBuild MultiToolTask with
+at most four compiler processes across projects. Their Vulkan shader generators
+embed the original SPIR-V bytes as escaped string literals instead of individual
+integer initializers to reduce Clang compilation time and memory use. Shader
+lengths exclude the added string terminator; GPU code and CPU fallback remain
+enabled. The authenticated build provenance records the generator patch.
+
 The first preparation downloads pinned upstream inputs. Verified inputs are
 cached under `.native-build/assistance-runtimes/`, outside the disposable
 `.desktop-build/` staging directory. Subsequent product builds reuse downloads;

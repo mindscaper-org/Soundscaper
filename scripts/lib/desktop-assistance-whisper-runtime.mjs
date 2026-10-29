@@ -183,7 +183,8 @@ export function desktopWhisperCppBuildPlan({ targetId, platform, architecture })
 		'-DCMAKE_POLICY_DEFAULT_CMP0091=NEW', '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded', '-DCMAKE_EXE_LINKER_FLAGS=/Brepro',
 		'-DCMAKE_C_FLAGS=/Brepro', '-DCMAKE_CXX_FLAGS=/Brepro /EHsc');
 	// ggml rejects MSVC on ARM; ClangCL uses the same Windows SDK and static CRT.
-	if (targetId === 'win-arm64') configureArgs.push('-T', 'ClangCL');
+	if (targetId === 'win-arm64') configureArgs.push('-T', 'ClangCL',
+		'-DCMAKE_VS_GLOBALS=UseMultiToolTask=true;EnforceProcessCountAcrossBuilds=true;MultiProcMaxCount=4;CL_MPCount=4');
 	// Embed ggml's Metal shader source in the authenticated executable; no writable
 	// adjacent shader library or external GPU runtime is needed. The CPU backend stays linked.
 	if (platform === 'darwin') configureArgs.push('-DCMAKE_OSX_ARCHITECTURES=arm64',
