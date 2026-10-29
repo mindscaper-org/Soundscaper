@@ -67,7 +67,7 @@ export function createNightlyTestsConfig(environment = process.env, platform = p
 		forbidOnly: true,
 		failOnFlakyTests: false,
 		retries: 1,
-		workers: 2,
+		workers: 4,
 		updateSnapshots: 'none',
 		reporter: [
 			['list'],

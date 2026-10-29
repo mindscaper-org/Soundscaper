@@ -50,7 +50,7 @@ test('nightly dual-origin coverage runs only the reciprocal Chromium workflow', 
 	assert.equal(config.fullyParallel, false);
 	assert.equal(config.failOnFlakyTests, true);
 	assert.equal(config.retries, 0);
-	assert.equal(config.workers, 1);
+	assert.equal(config.workers, 4);
 	assert.equal(config.webServer, undefined);
 	assert.equal(config.use.baseURL, origins.soundscaper);
 	assert.equal(config.use.serviceWorkers, 'block');

@@ -8,6 +8,9 @@ These expensive checks use `playwright.nightly-local-assistance.config.mjs` and
 in the normal Node suite validate the case manifest, output checks, package
 integration, and generated documentation without downloading models.
 
+Each of the five non-model phases uses up to four Playwright workers. Existing
+serial test groups stay serial; the real-model phase uses one worker.
+
 In the attended nightly runner, open **Test suite** and choose **Pause** to stop
 starting tests and cancel active workers in any of its six phases. The window
 shows **Pausing tests…** while workers shut down, then **Tests paused**. Choose

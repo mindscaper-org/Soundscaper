@@ -29,7 +29,7 @@ test('packaged coverage has a dedicated deterministic Playwright workload', asyn
 		assert.equal(config.fullyParallel, false);
 		assert.equal(config.failOnFlakyTests, true);
 		assert.equal(config.retries, 0);
-		assert.equal(config.workers, 1);
+		assert.equal(config.workers, 4);
 		assert.deepEqual(Object.keys(projects), [
 			'packaged-coverage-soundscaper',
 			'packaged-coverage-soundscaper-audio-devices',

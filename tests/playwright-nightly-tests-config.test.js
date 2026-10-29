@@ -31,7 +31,7 @@ test('bundled Playwright config uses only absolute launcher-provided paths', asy
 		assert.equal(config.outputDir, resolve(runRoot, 'test-results'));
 		assert.equal(config.use.baseURL, 'http://127.0.0.1:41000');
 		assert.equal(config.webServer, undefined);
-		assert.equal(config.workers, 2);
+		assert.equal(config.workers, 4);
 		assert.equal(config.retries, 1);
 		assert.equal(config.failOnFlakyTests, false);
 		assert.equal(config.updateSnapshots, 'none');
@@ -104,7 +104,7 @@ test('bundled metrics config isolates registered collectors from the functional 
 			'../playwright.nightly-metrics.config.mjs?absolute-launcher-paths'
 		);
 
-		assert.equal(config.workers, 1);
+		assert.equal(config.workers, 4);
 		assert.equal(config.retries, 0);
 		assert.equal(config.fullyParallel, false);
 		assert.deepEqual(config.projects.map(({ name }) => name), ['chromium']);
@@ -147,6 +147,8 @@ test('packaged metrics run each formal workload in its owning product', async ()
 		const config = createNightlyPackagedMetricsConfig(process.env);
 		const projects = Object.fromEntries(config.projects.map((project) => [project.name, project.testMatch]));
 
+		assert.equal(config.workers, 4);
+		assert.equal(config.fullyParallel, false);
 		assert.deepEqual(projects['packaged-soundscaper'], [
 			'desktop-packaged-runtime-smoke.spec.js',
 			'desktop-packaged-display-audio.spec.js',
