@@ -258,15 +258,6 @@ jobs:
         timeout-minutes: 10
         run: bash scripts/ci-apt-install.sh build-essential cmake pkg-config python3
 
-      - name: Build the authenticated target-native OS audio codec host
-        if: matrix.target.platform != 'linux'
-        run: >-
-          node scripts/ci-build-os-audio-codec-host.mjs
-          --desktop-platform=${{ matrix.target.platform }}
-          --desktop-arch=${{ matrix.target.arch }}
-          --runner-os=${{ runner.os }}
-          --runner-arch=${{ runner.arch }}
-
       - name: Set up the locked Kokoro G2P builder
         uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
         with:
@@ -278,7 +269,7 @@ jobs:
           target: ${{ matrix.target.platform }}-${{ matrix.target.arch }}
 
       - name: Stage the authenticated AI runtime archives
-        run: node scripts/desktop-prepare.mjs
+        run: node scripts/prepare-assistance-runtimes.mjs
         env:
           SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ matrix.target.platform }}
           SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.target.arch }}

@@ -17,6 +17,16 @@ the engine files from the installer staging tree. The same preparation is used
 for both Soundscaper and Framescaper release packages and nightly-with-tests.
 Preparation fails when an engine cannot be built or authenticated.
 
+The CI runtime producers use `node scripts/prepare-assistance-runtimes.mjs` to
+build the same five authenticated archives and source-bound handoff metadata.
+This entry point requires the target platform, architecture, and source revision
+in the existing `SOUNDSCAPER_DESKTOP_TARGET_PLATFORM`,
+`SOUNDSCAPER_DESKTOP_TARGET_ARCH`, and `SOUNDSCAPER_SOURCE_REVISION` variables.
+It does not compile desktop application code, build a renderer, or prepare OS
+audio hosts. Full desktop preparation calls the same neural runtime coordinator
+or imports an already verified handoff. CI logs the elapsed time of each neural
+preparation phase separately.
+
 ## Build prerequisites
 
 Use the repository's Node.js 26.5.0 and npm 12.0.1. Install dependencies with
