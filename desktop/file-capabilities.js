@@ -30,7 +30,7 @@ import {
 	requireReadCapabilityOwner,
 	safeReadCapabilityTimestamp,
 } from './read-capability-support.js';
-import { acquireQueuedReadCapabilityRequest, acquireReadCapabilityRequestLease } from './read-capability-request-lease.js';
+import { createReadCapabilityRequestQueue, acquireReadCapabilityRequestLease } from './read-capability-request-lease.js';
 import { acceptsFile, mimeTypeForPath } from './validation.js';
 
 export { throwAfterReadCapabilityRollback } from './read-capability-support.js';
@@ -48,6 +48,7 @@ export class ReadCapabilityStore {
 	#open;
 	#operations = new Set();
 	#ownerStates = new WeakMap();
+	#requestQueue = createReadCapabilityRequestQueue();
 	#linkedRangeAdmission;
 	#randomBytes;
 	#revocations = new Set();
@@ -208,14 +209,15 @@ export class ReadCapabilityStore {
 			operations: this.#operations,
 			retire: () => this.#releaseEntry(entry),
 			renew: () => this.#renewExpiry(entry),
+			onComplete: () => this.#requestQueue.notify(),
 		});
 	}
 
 	acquireQueuedRequest(id, expectedProfile, signal) {
-		return acquireQueuedReadCapabilityRequest(
+		return this.#requestQueue.acquire(
 			() => this.acquireRequest(id, expectedProfile),
 			() => this.#liveEntry(id)?.readProfile === expectedProfile,
-			this.#operations, signal,
+			signal,
 		);
 	}
 
@@ -380,6 +382,7 @@ export class ReadCapabilityStore {
 			return this.#retirements.get(entry.id)?.promise ?? Promise.resolve(false);
 		}
 		this.#entries.delete(entry.id);
+		this.#requestQueue.notify();
 		clearTimeout(entry.timer);
 		const retirementBarrier = Promise.withResolvers();
 		entry.retirement = Object.freeze({
@@ -458,7 +461,7 @@ export class ReadCapabilityStore {
 
 	#liveEntry(id) {
 		const entry = this.#entries.get(String(id || ''));
-		if (!entry) return null;
+		if (!entry || this.#disposed || entry.state.revoked) return null;
 		if (entry.expiresAt !== null && entry.expiresAt <= this.#now()) {
 			void this.#releaseEntry(entry).catch(() => undefined);
 			return null;

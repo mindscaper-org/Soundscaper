@@ -253,7 +253,7 @@ async function serveCapability(request, url, store) {
 		throw new ProtocolError(404, 'Capability not found');
 	}
 	const range = requestRange(request, readProfile, descriptor.size);
-	const lease = readProfile === READ_PROFILE_SELECTED_RANGE_V1
+	const lease = readProfile !== READ_PROFILE_MATERIALIZED_V1
 		? await store.acquireQueuedRequest(id, readProfile, request.signal)
 		: store.acquireRequest(id, readProfile);
 	if (!lease) throw new ProtocolError(404, 'Capability not found');
