@@ -1368,6 +1368,8 @@
 		,
 		{ "path": "src/common/editor/imaging/pixel-frame-sharpen-v1.ts", "kind": "helper-contract", "justification": "Version 1 scoped detail sharpening snapshots bounded straight encoded-sRGB pixels, evaluates alpha-weighted replicated-edge three-by-three binomial neighborhoods with exact Q8 gain, joins cancellation and wipes both owned backings after consumer settlement or failed allocation." }
 		,
+		{ "path": "src/common/editor/imaging/pixel-frame-task-yield-v1.ts", "kind": "helper-contract", "justification": "Version 1 shared pixel-task continuation captures callable native scheduler yield with its receiver, awaits its settlement and preserves failures, with an awaited timer fallback when unavailable; it publishes no persisted format or process authority." }
+		,
 		{"path": "src/common/editor/imaging/pixel-frame-texture-v1.ts", "kind": "helper-contract", "justification": "Version 1 scoped Texture owns one immutable encoded-sRGB source snapshot and one output, evaluates separately rounded alpha-weighted three/five binomial luma means with a protected coarse-edge gate, joins processing yields and consumer settlement, and wipes both captured backings on success or refusal."}
 		,
 		{ "path": "src/common/editor/imaging/pixel-frame-webgl2-chroma-glsl-current-v1.ts", "kind": "helper-contract", "justification": "pixel-frame-webgl2-chroma-glsl-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
