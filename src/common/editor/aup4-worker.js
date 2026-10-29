@@ -1,6 +1,7 @@
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 import sqliteWasmUrl from '@sqlite.org/sqlite-wasm/sqlite3.wasm?url';
 
+import { finalizeAup3PortableImage } from './aup3-portable-image.ts';
 import {
 	commitAup3Autosave,
 	initializeAup3Database,
@@ -363,6 +364,7 @@ async function exportProject(args, context) {
 		const sqlite = await initializeSqlite();
 		bytes = sqlite.capi.sqlite3_js_db_export(entry.database.pointer);
 	}
+	if (entry.targetGeneration === 'aup3') finalizeAup3PortableImage(bytes);
 	context.checkCancelled();
 	const limit = portableLimit(args, Boolean(entry.pool));
 	const label = entry.targetGeneration.toUpperCase();

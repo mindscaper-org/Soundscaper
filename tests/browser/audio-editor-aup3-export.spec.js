@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { writeFile } from 'node:fs/promises';
+import { DatabaseSync } from 'node:sqlite';
+
 import {
 	expect,
 	monoTone,
@@ -17,7 +20,7 @@ import {
 	trackNameText,
 } from './audio-editor-test-helpers.js';
 
-test('exports an AUP3 through the File menu and reopens its audio', async ({ page }) => {
+test('exports an AUP3 through the File menu and reopens its audio', async ({ page }, testInfo) => {
 	test.setTimeout(90_000);
 	await disableNativeSavePicker(page);
 	const errors = collectClientErrors(page);
@@ -34,7 +37,31 @@ test('exports an AUP3 through the File menu and reopens its audio', async ({ pag
 	expect(download.suggestedFilename()).toMatch(/\.aup3$/iu);
 	const bytes = await downloadBytes(download);
 	expect(new TextDecoder().decode(bytes.subarray(0, 16))).toBe('SQLite format 3\0');
+	expect([...bytes.subarray(18, 20)]).toEqual([2, 2]);
 	expect(new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(60)).toBe(0x03070000);
+	const nativePath = testInfo.outputPath('Audacity project (export).aup3');
+	await writeFile(nativePath, bytes);
+	const reader = new DatabaseSync(nativePath, { readOnly: true });
+	const primary = new DatabaseSync(nativePath);
+	let checkpoint;
+	try {
+		// A pre-existing reader must not block Audacity's native journal setup.
+		reader.exec('BEGIN');
+		expect(reader.prepare('SELECT count(*) AS count FROM project').get().count).toBe(1);
+		// Audacity 3.7 configures both connections this way in DBConnection::OpenStepByStep.
+		expect(primary.prepare("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'project') AS present").get().present).toBe(1);
+		const safeConfig = 'PRAGMA busy_timeout = 5000; PRAGMA locking_mode = SHARED;'
+			+ 'PRAGMA synchronous = NORMAL; PRAGMA journal_mode = WAL; PRAGMA wal_autocheckpoint = 0;';
+		primary.exec(safeConfig);
+		checkpoint = new DatabaseSync(nativePath);
+		checkpoint.exec(safeConfig);
+		expect(primary.prepare('PRAGMA journal_mode').get().journal_mode).toBe('wal');
+		expect(checkpoint.prepare('SELECT count(*) AS count FROM project').get().count).toBe(1);
+	} finally {
+		checkpoint?.close();
+		primary.close();
+		reader.close();
+	}
 
 	const chooser = page.waitForEvent('filechooser');
 	await chooseFileAction(page, editor, 'Open');
