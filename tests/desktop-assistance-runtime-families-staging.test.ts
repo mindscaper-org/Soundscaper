@@ -47,13 +47,16 @@ async function fixture() {
 
 test('desktop packaging binds all real-engine inventories to the packaged target and exact bytes', async () => {
 	const f = await fixture();
+	const preparers: unknown[] = [];
 	try {
 		const result = await stageDesktopAssistanceRuntimeFamilies({
 			targetId: 'linux-x64', runtimeRoot: f.root,
 			stageOnnx: () => f.stage('onnxruntime-node'),
-			stageWhisper: () => f.stage('whisper-cpp'),
-			stageLlama: () => f.stage('llama-cpp'),
+			stageWhisper: options => { preparers.push(options.prepareVulkan); return f.stage('whisper-cpp'); },
+			stageLlama: options => { preparers.push(options.prepareVulkan); return f.stage('llama-cpp'); },
 		});
+		assert.equal(typeof preparers[0], 'function');
+		assert.equal(preparers[1], preparers[0], 'both engine builders must receive the same shared toolchain');
 		const packaged = JSON.parse(result.manifestBytes.toString()) as {
 			manifests: Record<AssistanceRuntimeFamilyId, unknown>;
 		};

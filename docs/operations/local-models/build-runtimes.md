@@ -98,6 +98,9 @@ package architecture, including Windows ARM64. Packaging requires this toolchain
 to build successfully and never substitutes a host SDK or silently omits the GPU
 executable. Embedded shaders need no separate download. Build provenance retains
 the source/toolchain identities, and `VULKAN_NOTICES.txt` accompanies the runtime.
+Whisper and llama.cpp share one source-built toolchain during each preparation.
+Its temporary directory remains alive through both engine builds and is removed
+afterward; each new preparation rebuilds it from the pinned inputs.
 
 A small source-checked Whisper patch routes JSON
 through inherited stdout without reopening `CON` or `/dev/stdout`, which do not

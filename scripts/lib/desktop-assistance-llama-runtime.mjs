@@ -7,6 +7,7 @@ import { extract, list } from 'tar';
 import { runDesktopAssistanceBuildCommand, withDesktopAssistanceBuildWork } from './desktop-assistance-build-process.mjs';
 import { desktopLlamaCppNotices } from './desktop-assistance-llama-notices.mjs';
 import { buildDesktopVulkanCompanion } from './desktop-assistance-vulkan-companion.mjs';
+import { prepareDesktopVulkanBuild } from './desktop-assistance-vulkan-toolchain.mjs';
 import { patchDesktopAssistanceGgmlGpuReceipt } from './desktop-assistance-ggml-gpu-receipts.mjs';
 
 export const LLAMA_RUNTIME_VERSION = 'b10509';
@@ -88,6 +89,7 @@ export function llamaCompilerProvenance(compiler, platform) {
 /** Compile authenticated source with target backends, then bind the executable and notices. */
 export async function stageDesktopLlamaCppRuntime({
 	targetId, runtimeRoot, cacheRoot, platform = process.platform, architecture = process.arch,
+	prepareVulkan = prepareDesktopVulkanBuild,
 }) {
 	const plan = desktopLlamaCppBuildPlan({ targetId, platform, architecture });
 	if (!isAbsolute(runtimeRoot) || !isAbsolute(cacheRoot)) throw new TypeError('llama.cpp staging requires absolute runtime and cache roots.');
@@ -117,7 +119,7 @@ export async function stageDesktopLlamaCppRuntime({
 		const compiler = await compilerIdentity(build);
 		const { archived: archivedCompiler, buildReceipt: buildCompiler } = llamaCompilerProvenance(compiler, platform);
 		const vulkan = plan.vulkanConfigureArgs ? await buildDesktopVulkanCompanion({ plan, source, work,
-			cacheRoot, platform, architecture, environment, run: command,
+			cacheRoot, platform, architecture, environment, run: command, prepare: prepareVulkan,
 			reproducibleFlags: `-ffile-prefix-map=${work}=/usr/src/llama-build -fno-ident` }) : undefined;
 		const notices = [...await desktopLlamaCppNotices({ sourceRoot: source, platform, compiler }),
 			...(vulkan?.notices ?? [])];
