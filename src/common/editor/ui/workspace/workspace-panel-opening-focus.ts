@@ -7,7 +7,12 @@ export function focusOpenedWorkspacePanel(
 ): void {
 	if (!panel) return;
 	const document = panel.ownerDocument, active = document.activeElement;
-	if (panel.contains(active) || active !== openingFocus && active !== document.body && active !== document.documentElement) return;
+	// Closing the compact menu drawer returns focus to its toggle before this frame.
+	const drawerId = openingFocus?.closest('.kw-audio-editor__chrome-drawer-panel')?.getAttribute('id');
+	const returnedToDrawerToggle = drawerId && active?.hasAttribute('data-chrome-drawer-toggle')
+		&& active.getAttribute('aria-controls') === drawerId;
+	if (panel.contains(active) || active !== openingFocus && !returnedToDrawerToggle
+		&& active !== document.body && active !== document.documentElement) return;
 	panel.tabIndex = -1;
 	panel.focus({ preventScroll: false });
 }
