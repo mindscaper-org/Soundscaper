@@ -47,6 +47,10 @@ cached under `.native-build/assistance-runtimes/`, outside the disposable
 `.desktop-build/` staging directory. Subsequent product builds reuse downloads;
 the source-built executable is built again and its actual output is inventoried.
 No model weights are bundled or downloaded during ordinary application builds.
+CI also persists the frozen Kokoro helper for an exact recipe, dependency lock,
+helper source, GPU inputs, notices, target, and runner/toolchain identity. Every
+restored bundle is verified against its complete file inventory before use;
+missing, stale, or damaged bundles are rebuilt from the pinned inputs.
 
 ## Engines and model coverage
 

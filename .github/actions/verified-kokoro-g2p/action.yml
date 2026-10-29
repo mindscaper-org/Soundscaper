@@ -1,0 +1,37 @@
+name: Verified frozen Kokoro G2P bundle
+description: Restore and verify the exact target helper, or rebuild it from pinned inputs.
+inputs:
+  target:
+    description: Native desktop runtime target.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Resolve the Kokoro builder identity
+      id: identity
+      shell: bash
+      env:
+        SCAPE_KOKORO_CACHE_TARGET: ${{ inputs.target }}
+      run: node scripts/ci-kokoro-g2p-cache.mjs key >> "$GITHUB_OUTPUT"
+    - name: Restore the exact frozen helper
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          .native-build/assistance-runtimes/kokoro-g2p/${{ inputs.target }}
+          .native-build/assistance-runtimes/kokoro-g2p/${{ inputs.target }}.manifest.json
+        key: verified-kokoro-g2p-v1-${{ steps.identity.outputs.key }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: verified-kokoro-g2p-v1-${{ steps.identity.outputs.key }}-
+    - name: Verify every helper byte or rebuild damaged inputs
+      id: bundle
+      shell: bash
+      env:
+        SCAPE_KOKORO_CACHE_TARGET: ${{ inputs.target }}
+      run: node scripts/ci-kokoro-g2p-cache.mjs prepare
+    - name: Save the fresh authenticated bundle
+      if: steps.bundle.outputs.reused != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          .native-build/assistance-runtimes/kokoro-g2p/${{ inputs.target }}
+          .native-build/assistance-runtimes/kokoro-g2p/${{ inputs.target }}.manifest.json
+        key: verified-kokoro-g2p-v1-${{ steps.identity.outputs.key }}-${{ github.run_id }}-${{ github.run_attempt }}

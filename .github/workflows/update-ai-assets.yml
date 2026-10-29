@@ -104,6 +104,11 @@ jobs:
         with:
           version: 0.12.5
 
+      - name: Prepare the verified Kokoro G2P bundle
+        uses: ./.github/actions/verified-kokoro-g2p
+        with:
+          target: ${{ matrix.target.platform }}-${{ matrix.target.arch }}
+
       - name: Stage the authenticated AI runtime archives
         run: node scripts/desktop-prepare.mjs
         env:
