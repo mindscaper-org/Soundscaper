@@ -277,7 +277,9 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		command('libopus-install', tools.executables.cmake.path, ['--install', paths.libopusBuild, '--config', 'Release', '--prefix', paths.libopusInstall], paths.libopusBuild, nativeEnvironment),
 		command('ffmpeg-configure', tools.executables.shell.path, ffmpegArgs, paths.ffmpegBuild, dependencyEnvironment),
 		command('ffmpeg-build', tools.executables.make.path, ['-C', paths.ffmpegBuild, '-j1', ...ffmpegMake], paths.ffmpegBuild, ffmpegBuildEnvironment),
-		command('ffmpeg-install', tools.executables.make.path, ['-C', paths.ffmpegBuild, 'install', ...ffmpegMake], paths.ffmpegBuild, ffmpegBuildEnvironment),
+		// Quiet-mode INSTALL duplicates $^ in one shell command, exceeding Windows' 8191-byte limit.
+		// Use upstream verbosity only for installation so the complete header list appears once.
+		command('ffmpeg-install', tools.executables.make.path, ['-C', paths.ffmpegBuild, 'install', ...ffmpegMake, ...(windows ? ['V=1'] : [])], paths.ffmpegBuild, ffmpegBuildEnvironment),
 		command('host-configure', tools.executables.cmake.path, hostArgs, hostRoot, hostEnvironment),
 		command('host-build', tools.executables.cmake.path, ['--build', paths.hostBuild, '--config', 'Release', '--parallel', '1'], hostRoot, hostEnvironment),
 		command('host-install', tools.executables.cmake.path, ['--install', paths.hostBuild, '--config', 'Release', '--prefix', paths.hostInstall], hostRoot, hostEnvironment),
