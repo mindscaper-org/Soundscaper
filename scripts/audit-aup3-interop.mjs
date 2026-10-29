@@ -3,15 +3,12 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import { pathToFileURL } from 'node:url';
 
 import initSqlJs from 'sql.js';
 
-import { finalizeAup3PortableImage } from '../src/common/editor/aup3-portable-image.ts';
+import { finalizeAudacityPortableImage } from '../src/common/editor/audacity-portable-image.ts';
+import { auditAudacityNativeSqlite } from './lib/audacity-interop-native-sqlite.mjs';
 import { prepareAudacitySerializedDatabase } from '../src/common/editor/aup4-database.js';
 import {
 	audacityXmlAttribute,
@@ -64,7 +61,10 @@ export async function auditAup3ProfileInterop() {
 	assert.deepEqual(second.bytes, first.bytes, 'The AUP3 profile must serialize deterministically.');
 	assert.deepEqual(second.omissions, first.omissions);
 
-	const nativeSqlite = await verifyNativeStartup(first.bytes);
+	const nativeSqlite = await auditAudacityNativeSqlite(first.bytes, 'aup3', (database) => {
+		const samples = database.prepare('SELECT samples FROM sampleblocks WHERE blockid = 1').get().samples;
+		assert.deepEqual(decodeAup3Float32Samples(samples), FIXTURE_SAMPLES);
+	});
 	const database = new SQL.Database(prepareAudacitySerializedDatabase(first.bytes));
 	try {
 		const validation = prepareAup3PortableExport(database);
@@ -165,43 +165,9 @@ function createAuditDatabase(SQL) {
 		writeAup3Document(database, encodeAudacityBinaryXml(result.document));
 		assert.equal(commitAup3Autosave(database), true);
 		prepareAup3PortableExport(database);
-		return { bytes: finalizeAup3PortableImage(database.export()), omissions: result.omissions };
+		return { bytes: finalizeAudacityPortableImage(database.export()), omissions: result.omissions };
 	} finally {
 		database.close();
-	}
-}
-
-async function verifyNativeStartup(bytes) {
-	const directory = await mkdtemp(join(tmpdir(), 'soundscaper-aup3-'));
-	try {
-		const path = join(directory, 'Audacity project (export).aup3');
-		await writeFile(path, bytes);
-		const reader = new DatabaseSync(path, { readOnly: true });
-		let primary;
-		let checkpoint;
-		try {
-			reader.exec('BEGIN');
-			assert.equal(reader.prepare('SELECT count(*) AS count FROM project').get().count, 1);
-			// Audacity 3.7 DBConnection::OpenStepByStep configures both native connections.
-			const safeConfig = 'PRAGMA busy_timeout = 5000; PRAGMA locking_mode = SHARED;'
-				+ 'PRAGMA synchronous = NORMAL; PRAGMA journal_mode = WAL; PRAGMA wal_autocheckpoint = 0;';
-			primary = new DatabaseSync(path);
-			primary.exec(safeConfig);
-			checkpoint = new DatabaseSync(path);
-			checkpoint.exec(safeConfig);
-			assert.equal(primary.prepare('PRAGMA integrity_check').get().integrity_check, 'ok');
-			assert.equal(primary.prepare('PRAGMA journal_mode').get().journal_mode, 'wal');
-			assert.equal(checkpoint.prepare('SELECT count(*) AS count FROM autosave').get().count, 0);
-			const samples = primary.prepare('SELECT samples FROM sampleblocks WHERE blockid = 1').get().samples;
-			assert.deepEqual(decodeAup3Float32Samples(samples), FIXTURE_SAMPLES);
-			return Object.freeze({ journalMode: 'wal', concurrentReader: true });
-		} finally {
-			checkpoint?.close();
-			primary?.close();
-			reader.close();
-		}
-	} finally {
-		await rm(directory, { recursive: true, force: true });
 	}
 }
 
