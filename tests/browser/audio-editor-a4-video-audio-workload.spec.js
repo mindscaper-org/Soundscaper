@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { strFromU8, unzipSync } from 'fflate';
+import { writeFile } from 'node:fs/promises';
 import { oversizedVideoAudioFixture } from '../helpers/oversized-video-audio-fixture.ts';
 import { unequalAvPreviewFixture } from '../helpers/unequal-av-preview-fixture.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes } from './audio-editor-test-helpers.js';
 
 test.afterEach(async ({ page }, testInfo) => {
-	await testInfo.attach('native-workload.json', { body: JSON.stringify(await page.evaluate(() => ({
+	const path = testInfo.outputPath('native-workload.json');
+	await writeFile(path, JSON.stringify(await page.evaluate(() => ({
 		native: globalThis.__workloadNative, metadata: globalThis.__workloadMetadata,
 		pictureCapability: globalThis.__workloadPictureCapability,
 		editor: document.querySelector('[data-audio-editor]')?.dataset,
@@ -15,7 +17,8 @@ test.afterEach(async ({ page }, testInfo) => {
 			currentTime: video.currentTime, readyState: video.readyState, seeking: video.seeking,
 			width: video.videoWidth, height: video.videoHeight, duration: video.duration,
 		})),
-	}))), contentType: 'application/json' });
+	}))));
+	await testInfo.attach('native-workload.json', { path, contentType: 'application/json' });
 });
 
 for (const oversized of [false, true]) test(`video import bounds native decoded audio before allocation: oversized=${oversized}`, async ({ page }) => {
@@ -75,7 +78,10 @@ for (const oversized of [false, true]) test(`video import bounds native decoded 
 	}
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: original });
 	if (pictureCapability?.width === 0 && pictureCapability.height === 0) {
-		await expect.poll(() => page.evaluate(() => globalThis.__workloadMetadata.some(value => value.event === 'loadedmetadata' && value.width === 0 && value.height === 0))).toBe(true);
+		// An unsupported picture stream can emit zero-dimension metadata or a native
+		// media error in separate decoder sessions. Both must stop before audio decode.
+		await expect.poll(() => page.evaluate(() => globalThis.__workloadMetadata.some(value =>
+			(value.event === 'loadedmetadata' || value.event === 'error') && value.width === 0 && value.height === 0))).toBe(true);
 		await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
 		await expect(editor).toHaveAttribute('data-clip-count', '0');
 		expect(await page.evaluate(() => globalThis.__workloadNative.length)).toBe(0); expect(ffmpegRequests).toHaveLength(0);
