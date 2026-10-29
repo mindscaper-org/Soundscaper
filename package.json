@@ -129,6 +129,7 @@
 		"desktop:release-assets:soundscaper": "node scripts/desktop-release-assets.mjs --product soundscaper",
 		"desktop:release-assets:suite": "node scripts/desktop-release-assets.mjs --suite",
 		"release:soundscaper:prepare": "node scripts/prepare-soundscaper-release.mjs",
+		"release:soundscaper:rc": "node scripts/create-soundscaper-rc.mjs",
 		"milestone5:package-audit": "node scripts/audit-milestone-5-package.mjs",
 		"milestone5:package-audit-summary": "node scripts/audit-milestone-5-packages.mjs",
 		"milestone5a:native-build-plan": "node scripts/plan-m5a-professional-native-build.mjs",
