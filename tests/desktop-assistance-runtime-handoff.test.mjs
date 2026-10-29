@@ -9,6 +9,7 @@ import { test } from 'node:test';
 
 import { assistanceNativeRuntimeStageSummary } from '../desktop/assistance-native-runtime-payload.mjs';
 import { createAssistanceRuntimeArchive } from '../scripts/lib/desktop-assistance-runtime-archive.mjs';
+import { writeDesktopAssistanceRuntimeStage } from '../scripts/lib/desktop-assistance-runtime-preparation.mjs';
 import {
 	exportDesktopAssistanceRuntimeHandoff,
 	readDesktopAssistanceRuntimeHandoff,
@@ -89,19 +90,14 @@ async function fixture(run) {
 			manifest: descriptor('config/assistance-runtime-family-supply-candidates.json', familyBytes),
 			families: FAMILIES.slice(1, 4).map((familyId) => ({ familyId, runtimeVersion: '1.0.0',
 				targetId: TARGET_ID, files: 1, byteLength: engine.length, provenance: null })) };
-		const kokoroSummary = { targetId: TARGET_ID, fileCount: 1, byteLength: engine.length,
-			manifest: descriptor('config/assistance-kokoro-g2p-runtime-manifest.json',
-				manifests['assistance-kokoro-g2p-runtime-manifest.json']) };
-		await mkdir(join(buildRoot, 'app/config'), { recursive: true });
-		for (const [name, bytes] of Object.entries(manifests)) {
-			await writeFile(join(buildRoot, 'app/config', name), bytes);
-		}
-		await writeFile(join(buildRoot, 'stage-manifest.json'), jsonBytes({
-			sourceRevision: SOURCE_REVISION, target: { platform: 'linux', arch: 'x64' },
-			assistanceNativeRuntime: assistanceNativeRuntimeStageSummary(native, TARGET_ID),
-			assistanceNativeBuild: null, assistanceRuntimeFamilies: familySummary,
-			assistanceRuntimeDistribution: receipt, kokoroG2pRuntime: kokoroSummary,
-		}));
+		await writeDesktopAssistanceRuntimeStage({ buildRoot, sourceRevision: SOURCE_REVISION, targetId: TARGET_ID,
+			prepared: {
+				speech: { manifest: native, summary: assistanceNativeRuntimeStageSummary(native, TARGET_ID), buildReceipt: null },
+				families: { manifestBytes: familyBytes, summary: familySummary },
+				kokoro: { manifestBytes: manifests['assistance-kokoro-g2p-runtime-manifest.json'],
+					summary: { targetId: TARGET_ID, fileCount: 1, byteLength: engine.length } },
+				distribution: { manifestBytes: distributionBytes, summary: receipt },
+			} });
 		return await run({ buildRoot, handoffRoot, native, archiveRoot, bundles });
 	} finally {
 		await rm(root, { recursive: true, force: true });

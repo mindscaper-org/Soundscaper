@@ -10,6 +10,8 @@ import {
 import { stageDesktopAssistanceOnnxRuntime } from './desktop-assistance-onnx-runtime.mjs';
 import { stageDesktopWhisperCppRuntime } from './desktop-assistance-whisper-runtime.mjs';
 import { stageDesktopLlamaCppRuntime } from './desktop-assistance-llama-runtime.mjs';
+import { prepareDesktopVulkanBuild } from './desktop-assistance-vulkan-toolchain.mjs';
+import { withSharedDesktopVulkanToolchain } from './desktop-assistance-shared-vulkan.ts';
 
 /**
  * Build-time inventory is sealed inside app.asar; executable bytes remain outside
@@ -19,8 +21,10 @@ import { stageDesktopLlamaCppRuntime } from './desktop-assistance-llama-runtime.
  * @param {{
  *   targetId: string, runtimeRoot: string, cacheRoot?: string,
  *   stageOnnx?: (options: {targetId: string, outputRoot: string, cacheRoot: string | undefined}) => Promise<{manifest: unknown, summary?: unknown}>,
- *   stageWhisper?: (options: {targetId: string, runtimeRoot: string, cacheRoot: string | undefined, platform: string, architecture: string}) => Promise<{manifest: unknown, summary?: unknown, provenance?: unknown}>,
- *   stageLlama?: (options: {targetId: string, runtimeRoot: string, cacheRoot: string | undefined, platform: string, architecture: string}) => Promise<{manifest: unknown, summary?: unknown, provenance?: unknown}>
+ *   stageWhisper?: (options: {targetId: string, runtimeRoot: string, cacheRoot: string | undefined,
+ *     platform: string, architecture: string, prepareVulkan: (request: import('./desktop-assistance-shared-vulkan.ts').VulkanToolchainRequest) => Promise<unknown>}) => Promise<{manifest: unknown, summary?: unknown, provenance?: unknown}>,
+ *   stageLlama?: (options: {targetId: string, runtimeRoot: string, cacheRoot: string | undefined,
+ *     platform: string, architecture: string, prepareVulkan: (request: import('./desktop-assistance-shared-vulkan.ts').VulkanToolchainRequest) => Promise<unknown>}) => Promise<{manifest: unknown, summary?: unknown, provenance?: unknown}>
  * }} options
  */
 export async function stageDesktopAssistanceRuntimeFamilies({
@@ -29,6 +33,12 @@ export async function stageDesktopAssistanceRuntimeFamilies({
 	stageWhisper = stageDesktopWhisperCppRuntime,
 	stageLlama = stageDesktopLlamaCppRuntime,
 }) {
+	return withSharedDesktopVulkanToolchain(prepareVulkan => stageRuntimeFamilies({
+		targetId, runtimeRoot, cacheRoot, stageOnnx, stageWhisper, stageLlama, prepareVulkan,
+	}), { prepare: prepareDesktopVulkanBuild });
+}
+
+async function stageRuntimeFamilies({ targetId, runtimeRoot, cacheRoot, stageOnnx, stageWhisper, stageLlama, prepareVulkan }) {
 	const match = /^(mac|linux|win)-(x64|arm64)$/u.exec(targetId);
 	if (!match) throw new TypeError('The Local Assistance desktop target is invalid.');
 	const platform = { mac: 'darwin', linux: 'linux', win: 'win32' }[match[1]];
@@ -38,10 +48,10 @@ export async function stageDesktopAssistanceRuntimeFamilies({
 	for (const [familyId, stage] of [
 		['onnxruntime-node', () => stageOnnx({ targetId, outputRoot: runtimeRoot, cacheRoot })],
 		['whisper-cpp', () => stageWhisper({
-			targetId, runtimeRoot, cacheRoot, platform: process.platform, architecture: process.arch,
+			targetId, runtimeRoot, cacheRoot, platform: process.platform, architecture: process.arch, prepareVulkan,
 		})],
 		['llama-cpp', () => stageLlama({
-			targetId, runtimeRoot, cacheRoot, platform: process.platform, architecture: process.arch,
+			targetId, runtimeRoot, cacheRoot, platform: process.platform, architecture: process.arch, prepareVulkan,
 		})],
 	]) {
 		const result = await stage();

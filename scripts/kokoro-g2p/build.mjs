@@ -55,6 +55,35 @@ export function kokoroG2pBuildPlan({ targetId, platform = process.platform, arch
 	};
 }
 
+/**
+ * One input identity serves both local bundle verification and CI cache selection.
+ * @returns {Promise<{files: string[], recipeSha256: string, dependencyLockSha256: string, entrypointSha256: string}>}
+ */
+export async function describeKokoroG2pBuildInputs({ repositoryRoot = ROOT } = {}) {
+	const project = join(repositoryRoot, 'scripts/kokoro-g2p');
+	const noticeRegister = JSON.parse(await readFile(join(project, 'notices/sources.json'), 'utf8'));
+	const recipeFiles = [
+		'scripts/kokoro-g2p/build.mjs', 'scripts/kokoro-g2p/collect_notices.py',
+		'scripts/kokoro-g2p/hooks/hook-curated_transformers.py', 'scripts/kokoro-g2p/notices/sources.json',
+		'scripts/kokoro-g2p/pyproject.toml',
+		'scripts/lib/desktop-kokoro-g2p-gpu.mjs', 'scripts/lib/desktop-assistance-onnx-native-closure.mjs',
+		'config/assistance-kokoro-g2p-gpu-build.json', 'config/assistance-onnx-runtime-payloads.json',
+		'config/assistance-onnx-webgpu-plugin.json',
+		...Object.keys(gpuRecipe.recipeFiles),
+		...noticeRegister.notices.map(({ path }) => `scripts/kokoro-g2p/notices/${path}`),
+	];
+	const files = ['scripts/kokoro-g2p/uv.lock', 'desktop/assistance-kokoro-g2p-helper.py', ...recipeFiles];
+	const [lockBytes, helperBytes, ...recipeBytes] = await Promise.all(files.map(path => readFile(join(repositoryRoot, path))));
+	return { files, recipeSha256: sha256(Buffer.concat(recipeBytes)),
+		dependencyLockSha256: sha256(lockBytes), entrypointSha256: sha256(helperBytes) };
+}
+
+export function kokoroG2pCacheIdentity({ inputs, targetId, platform, architecture, nodeVersion, uvVersion, scope }) {
+	return sha256(Buffer.from(JSON.stringify({ schemaVersion: 1, targetId, platform, architecture,
+		nodeVersion, uvVersion, scope, recipeSha256: inputs.recipeSha256,
+		dependencyLockSha256: inputs.dependencyLockSha256, entrypointSha256: inputs.entrypointSha256 })));
+}
+
 export async function buildKokoroG2pBundle({
 	targetId,
 	outputRoot = resolve(ROOT, '.native-build/assistance-runtimes/kokoro-g2p'),
@@ -65,22 +94,7 @@ export async function buildKokoroG2pBundle({
 }) {
 	const plan = kokoroG2pBuildPlan({ targetId, platform, arch });
 	if (typeof fetchImpl !== 'function') throw new TypeError('Kokoro G2P dictionary fetcher is invalid.');
-	const lockBytes = await readFile(join(PROJECT, 'uv.lock'));
-	const helperBytes = await readFile(HELPER);
-	const noticeRegister = JSON.parse(await readFile(join(PROJECT, 'notices/sources.json'), 'utf8'));
-	const recipeBytes = await Promise.all([
-		fileURLToPath(import.meta.url), join(PROJECT, 'collect_notices.py'),
-		join(PROJECT, 'hooks/hook-curated_transformers.py'), join(PROJECT, 'notices/sources.json'),
-		join(PROJECT, 'pyproject.toml'),
-		join(ROOT, 'scripts/lib/desktop-kokoro-g2p-gpu.mjs'),
-		join(ROOT, 'scripts/lib/desktop-assistance-onnx-native-closure.mjs'),
-		join(ROOT, 'config/assistance-kokoro-g2p-gpu-build.json'),
-		join(ROOT, 'config/assistance-onnx-runtime-payloads.json'),
-		join(ROOT, 'config/assistance-onnx-webgpu-plugin.json'),
-		...Object.keys(gpuRecipe.recipeFiles).map((path) => join(ROOT, path)),
-		...noticeRegister.notices.map((notice) => join(PROJECT, 'notices', notice.path)),
-	].map((path) => readFile(path)));
-	const recipeSha256 = sha256(Buffer.concat(recipeBytes));
+	const { recipeSha256, dependencyLockSha256, entrypointSha256 } = await describeKokoroG2pBuildInputs();
 	await mkdir(cacheRoot, { recursive: true });
 	await mkdir(outputRoot, { recursive: true });
 	const destination = join(outputRoot, targetId);
@@ -91,8 +105,8 @@ export async function buildKokoroG2pBundle({
 		if (provenance.targetId === targetId
 			&& provenance.recipeSha256 === recipeSha256
 			&& provenance.gpu?.recipeId === gpuRecipe.recipeId
-			&& provenance.dependencyLock?.sha256 === sha256(lockBytes)
-			&& provenance.entrypoint?.sha256 === sha256(helperBytes)
+			&& provenance.dependencyLock?.sha256 === dependencyLockSha256
+			&& provenance.entrypoint?.sha256 === entrypointSha256
 			&& provenance.dictionary?.sha256 === DICTIONARY_SHA256) {
 			await verifyDesktopKokoroG2pRuntime({ manifest, targetId,
 				runtimeRoot: outputRoot, targetRoot: destination });
@@ -161,8 +175,8 @@ export async function buildKokoroG2pBundle({
 			gpu: gpu.provenance,
 			recipeSha256,
 			pythonArchitecture: plan.pythonArchitecture,
-			dependencyLock: { path: 'scripts/kokoro-g2p/uv.lock', sha256: sha256(lockBytes) },
-			entrypoint: { path: 'desktop/assistance-kokoro-g2p-helper.py', sha256: sha256(helperBytes) },
+			dependencyLock: { path: 'scripts/kokoro-g2p/uv.lock', sha256: dependencyLockSha256 },
+			entrypoint: { path: 'desktop/assistance-kokoro-g2p-helper.py', sha256: entrypointSha256 },
 			dictionary: { url: DICTIONARY_URL, sha256: DICTIONARY_SHA256 },
 			pythonLicenseInventory: { path: 'python-license-inventory.json', sha256: sha256(noticeBytes) },
 			upstreamNotices: { path: 'licenses/upstream/sources.json', sha256: upstreamNotices.sha256,

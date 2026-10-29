@@ -51,6 +51,12 @@ Use `--test-name-pattern='test name'` before the file to narrow a run further.
 
 ## Full gates and CI shards
 
+Desktop build jobs restore installed npm trees using the shared verified-input
+action. Cache identities bind the runner image, architecture, Node/npm versions,
+lockfile, package patches, and installation policy. A restored tree is checked
+before use; Windows admits absolute workspace junctions only to the exact
+checkout workspace. Missing or damaged trees fall back to `npm ci`.
+
 `npm run check` is the canonical non-browser gate. It runs lint, strict type
 checks, architecture and file-size guards, audits, documentation checks, the
 production build, and Node coverage. `npm run check:static` runs everything in

@@ -6,7 +6,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { ciInputCacheIdentity } from '../scripts/lib/ci-input-cache-identity.ts';
+import { ciInputCacheIdentity, npmVersionCommand } from '../scripts/lib/ci-input-cache-identity.ts';
+
+test('Windows cache identity invokes the npm batch shim through cmd with a constant command', () => {
+	assert.deepEqual(npmVersionCommand('win32', { ComSpec: 'C:\\Windows\\System32\\cmd.exe' }), {
+		executable: 'C:\\Windows\\System32\\cmd.exe', args: ['/d', '/s', '/c', 'npm --version'],
+	});
+	assert.deepEqual(npmVersionCommand('win32', {}), {
+		executable: 'cmd.exe', args: ['/d', '/s', '/c', 'npm --version'],
+	});
+	assert.deepEqual(npmVersionCommand('linux', {}), { executable: 'npm', args: ['--version'] });
+});
 
 test('installed dependency identities bind manifests, patches, toolchain, host and installation policy', t => {
 	const root = mkdtempSync(join(tmpdir(), 'ci-input-identity-'));

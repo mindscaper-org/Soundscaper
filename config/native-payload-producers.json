@@ -95,6 +95,7 @@
 			"pipelinePaths": [
 				"scripts/desktop-nightly-tests-products.mjs",
 				"scripts/desktop-prepare.mjs",
+				"scripts/lib/desktop-assistance-runtime-preparation.mjs",
 				"scripts/lib/desktop-assistance-speech-runtime.mjs",
 				"scripts/lib/desktop-assistance-sherpa-gpu-runtime.mjs",
 				"scripts/lib/desktop-assistance-sherpa-gpu-sources.mjs",
@@ -119,6 +120,7 @@
 			"pipelinePaths": [
 				"scripts/desktop-nightly-tests-products.mjs",
 				"scripts/desktop-prepare.mjs",
+				"scripts/lib/desktop-assistance-runtime-preparation.mjs",
 				"scripts/lib/desktop-assistance-runtime-families.mjs",
 				"scripts/lib/desktop-assistance-onnx-runtime.mjs",
 				"scripts/lib/desktop-assistance-onnx-webgpu-binding.mjs",
@@ -147,8 +149,10 @@
 			"pipelinePaths": [
 				"scripts/desktop-nightly-tests-products.mjs",
 				"scripts/desktop-prepare.mjs",
+				"scripts/lib/desktop-assistance-runtime-preparation.mjs",
 				"scripts/lib/desktop-assistance-runtime-families.mjs",
 				"scripts/lib/desktop-assistance-whisper-runtime.mjs",
+				"scripts/lib/desktop-assistance-shared-vulkan.ts",
 				"scripts/lib/desktop-assistance-ggml-gpu-receipts.mjs",
 				"scripts/lib/desktop-assistance-build-process.mjs",
 				"scripts/lib/desktop-assistance-vulkan-companion.mjs",
@@ -166,8 +170,10 @@
 			"pipelinePaths": [
 				"scripts/desktop-nightly-tests-products.mjs",
 				"scripts/desktop-prepare.mjs",
+				"scripts/lib/desktop-assistance-runtime-preparation.mjs",
 				"scripts/lib/desktop-assistance-runtime-families.mjs",
 				"scripts/lib/desktop-assistance-llama-runtime.mjs",
+				"scripts/lib/desktop-assistance-shared-vulkan.ts",
 				"scripts/lib/desktop-assistance-ggml-gpu-receipts.mjs",
 				"scripts/lib/desktop-assistance-build-process.mjs",
 				"scripts/lib/desktop-assistance-vulkan-companion.mjs",
