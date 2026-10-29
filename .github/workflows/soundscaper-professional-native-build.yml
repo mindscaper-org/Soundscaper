@@ -86,7 +86,10 @@ jobs:
       - name: Set up native tooling
         uses: ./.github/actions/setup-native-tooling
       - run: npm install --global npm@12.0.1
-      - run: npm ci
+      - name: Restore or install verified dependencies
+        uses: ./.github/actions/verified-node-dependencies
+        with:
+          scope: desktop-native
       - name: Verify Windows GPU CMake recipes
         if: runner.os == 'Windows'
         timeout-minutes: 5

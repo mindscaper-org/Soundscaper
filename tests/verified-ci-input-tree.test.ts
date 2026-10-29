@@ -67,3 +67,21 @@ test('bad or missing receipts fall back without admitting a stale tree; receipts
 	recordVerifiedInputTree({ ...options, receipt });
 	assert.equal(verifyInputTree({ ...options, receipt }), true);
 });
+
+test('Windows workspace junction admission remains bound to the exact checkout workspace', t => {
+	const root = mkdtempSync(join(tmpdir(), 'verified-workspace-junction-'));
+	t.after(() => rmSync(root, { recursive: true, force: true }));
+	const tree = join(root, 'node_modules');
+	const workspace = join(root, 'handbook');
+	mkdirSync(tree); mkdirSync(workspace);
+	symlinkSync(workspace, join(tree, 'workspace'), process.platform === 'win32' ? 'junction' : 'dir');
+	const options = { root: tree, receipt: join(root, 'receipt.json'), identity: 'windows-native',
+		allowedLinkRoots: [workspace], allowAbsoluteWorkspaceLinks: true };
+	recordVerifiedInputTree(options);
+	assert.equal(verifyInputTree(options), true);
+	assert.equal(verifyInputTree({ ...options, allowAbsoluteWorkspaceLinks: false }), false);
+	rmSync(join(tree, 'workspace'));
+	symlinkSync(root, join(tree, 'workspace'), process.platform === 'win32' ? 'junction' : 'dir');
+	assert.equal(verifyInputTree(options), false);
+	assert.throws(() => recordVerifiedInputTree(options), /escapes/u);
+});
