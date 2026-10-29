@@ -9,7 +9,7 @@ import {
 	type DesktopAudioCodecMainIpcService,
 } from '../desktop/desktop-audio-codec-main-ipc.ts';
 import type { DesktopAudioCodecCapabilityQuery } from '../desktop/desktop-audio-codec-capability-contract.ts';
-import { deferred, waitFor } from './helpers/async-test-control.ts';
+import { deferred, remainsPending, waitFor } from './helpers/async-test-control.ts';
 
 const CHANNELS = Object.freeze({
 	desktopAudioCodecExecute: 'soundscaper:v1:codecs:audio:execute',
@@ -96,7 +96,7 @@ test('owner revocation aborts and drains every owned operation', async () => {
 	await fixture.registration.dispose();
 });
 
-test('execute admits bounded per-owner and global operation counts before cloning', async () => {
+test('execute queues work behind per-owner and global operation slots', async () => {
 	const fixture = registrationFixture({
 		execute: (_request, { signal }) => new Promise((resolve) => {
 			signal.addEventListener('abort', () => resolve({ status: 'cancelled' }), { once: true });
@@ -111,10 +111,12 @@ test('execute admits bounded per-owner and global operation counts before clonin
 		encodeRequest(new Uint8Array(8), 'owner-one'),
 	);
 	await until(() => fixture.executions.length === 1);
-	await assert.rejects(fixture.invoke(
+	const ownerQueued = fixture.invoke(
 		CHANNELS.desktopAudioCodecExecute, fixture.event,
 		encodeRequest(new Uint8Array(8), 'owner-one-second'),
-	), /per-owner.*limit/iu);
+	);
+	const ownerCancelled = assert.rejects(ownerQueued, { name: 'AbortError' });
+	assert.equal(await remainsPending(ownerQueued), true);
 	assert.equal(fixture.executions.length, 1);
 	const secondOwner = {};
 	const second = fixture.invoke(
@@ -122,13 +124,42 @@ test('execute admits bounded per-owner and global operation counts before clonin
 		encodeRequest(new Uint8Array(8), 'owner-two'),
 	);
 	await until(() => fixture.executions.length === 2);
-	await assert.rejects(fixture.invoke(
-		CHANNELS.desktopAudioCodecExecute, { owner: {} },
+	const thirdEvent = { owner: {} };
+	const globalQueued = fixture.invoke(
+		CHANNELS.desktopAudioCodecExecute, thirdEvent,
 		encodeRequest(new Uint8Array(8), 'owner-three'),
-	), /global.*limit/iu);
+	);
+	assert.equal(await remainsPending(globalQueued), true);
 	assert.equal(fixture.executions.length, 2);
+	assert.equal(await fixture.invoke(CHANNELS.desktopAudioCodecCancel, fixture.event, 'owner-one-second'), true);
+	await ownerCancelled;
+	await fixture.invoke(CHANNELS.desktopAudioCodecCancel, fixture.event, 'owner-one');
+	await first;
+	await until(() => fixture.executions.length === 3);
+	assert.equal(fixture.executions[2]?.request.requestId, 'owner-three');
 	await fixture.registration.dispose();
-	await Promise.all([first, second]);
+	await Promise.all([second, globalQueued]);
+});
+
+test('queued codec inputs share the byte budget and owner revocation cancels them before execution', async () => {
+	const fixture = registrationFixture({ execute: (_request, { signal }) => new Promise((resolve) => {
+		signal.addEventListener('abort', () => resolve({ status: 'revoked' }), { once: true });
+	}) }, { maximumActiveOperationsPerOwner: 1, maximumActiveOperations: 1, maximumActiveInputBytes: 16 });
+	const first = fixture.invoke(CHANNELS.desktopAudioCodecExecute, fixture.event, encodeRequest(new Uint8Array(8), 'running'));
+	await until(() => fixture.executions.length === 1);
+	const second = fixture.invoke(CHANNELS.desktopAudioCodecExecute, fixture.event, encodeRequest(new Uint8Array(8), 'waiting'));
+	const cancelled = assert.rejects(second, { name: 'AbortError' });
+	assert.equal(await remainsPending(second), true);
+	await assert.rejects(fixture.invoke(CHANNELS.desktopAudioCodecExecute, fixture.event,
+		encodeRequest(new Uint8Array(8), 'excess-bytes')), /aggregate.*byte.*limit/iu);
+	await assert.rejects(fixture.invoke(CHANNELS.desktopAudioCodecExecute, fixture.event,
+		encodeRequest(new Uint8Array(8), 'waiting')), /already active/iu);
+	assert.equal(await fixture.invoke(CHANNELS.desktopAudioCodecCancel, { owner: {} }, 'waiting'), false);
+	await fixture.registration.revokeOwner(fixture.owner);
+	await cancelled;
+	await first;
+	assert.equal(fixture.executions.length, 1);
+	await fixture.registration.dispose();
 });
 
 test('execute admits aggregate active input bytes before cloning', async () => {
@@ -155,6 +186,23 @@ test('execute admits aggregate active input bytes before cloning', async () => {
 	await first;
 });
 
+test('codec waiters retain owned input bytes before their turn starts', async () => {
+	const release = deferred<unknown>();
+	const fixture = registrationFixture({ execute: (request) => request.requestId === 'hold'
+		? release.promise : Promise.resolve({ status: 'executed' }) },
+	{ maximumActiveOperations: 1, maximumActiveOperationsPerOwner: 1 });
+	const first = fixture.invoke(CHANNELS.desktopAudioCodecExecute, fixture.event, encodeRequest(new Uint8Array(8), 'hold'));
+	await until(() => fixture.executions.length === 1);
+	const input = new Uint8Array(8);
+	const second = fixture.invoke(CHANNELS.desktopAudioCodecExecute, fixture.event, encodeRequest(input, 'owned-waiter'));
+	assert.equal(await remainsPending(second), true);
+	input[0] = 255;
+	release.resolve({ status: 'executed' });
+	await Promise.all([first, second]);
+	assert.equal(fixture.executions[1]?.request.input[0], 0);
+	await fixture.registration.dispose();
+});
+
 test('dispose removes every handler, aborts jobs, and returns one drain barrier', async () => {
 	const release = deferred<unknown>();
 	const fixture = registrationFixture({
@@ -163,14 +211,17 @@ test('dispose removes every handler, aborts jobs, and returns one drain barrier'
 				void release.promise.then(() => resolve({ status: 'disposed' }));
 			}, { once: true });
 		}),
-	});
+	}, { maximumActiveOperations: 1, maximumActiveOperationsPerOwner: 1 });
 	const running = fixture.invoke(CHANNELS.desktopAudioCodecExecute, fixture.event, encodeRequest(new Uint8Array(8)));
 	await until(() => fixture.executions.length === 1);
+	const queued = fixture.invoke(CHANNELS.desktopAudioCodecExecute, fixture.event, encodeRequest(new Uint8Array(8), 'queued-at-disposal'));
+	const queuedCancelled = assert.rejects(queued, { name: 'AbortError' });
 	const first = fixture.registration.dispose();
 	const second = fixture.registration.dispose();
 	assert.equal(first, second);
 	assert.equal(first, fixture.registration.dispose());
 	assert.deepEqual(fixture.removed, Object.values(CHANNELS));
+	await queuedCancelled;
 	let disposed = false;
 	void first.then(() => { disposed = true; });
 	await new Promise((resolve) => setImmediate(resolve));
@@ -179,6 +230,28 @@ test('dispose removes every handler, aborts jobs, and returns one drain barrier'
 	await first;
 	assert.equal(disposed, true);
 	assert.deepEqual(await running, { status: 'disposed' });
+});
+
+test('the codec IPC queue rejects overflow before cloning and cancellation returns queue places', async () => {
+	const fixture = registrationFixture({ execute: (_request, { signal }) => new Promise((resolve) => {
+		signal.addEventListener('abort', () => resolve({ status: 'cancelled' }), { once: true });
+	}) }, { maximumActiveOperations: 1, maximumActiveOperationsPerOwner: 1 });
+	const first = fixture.invoke(CHANNELS.desktopAudioCodecExecute, fixture.event, encodeRequest(new Uint8Array(8), 'active'));
+	await until(() => fixture.executions.length === 1);
+	const queued = Array.from({ length: 8 }, (_, index) => fixture.invoke(CHANNELS.desktopAudioCodecExecute,
+		fixture.event, encodeRequest(new Uint8Array(8), `queued-${index}`)));
+	const settled = Promise.allSettled([first, ...queued]);
+	await assert.rejects(fixture.invoke(CHANNELS.desktopAudioCodecExecute, fixture.event,
+		encodeRequest(new Uint8Array(8), 'overflow')), /queue.*full/iu);
+	await fixture.invoke(CHANNELS.desktopAudioCodecCancel, fixture.event, 'queued-0');
+	const replacement = fixture.invoke(CHANNELS.desktopAudioCodecExecute, fixture.event,
+		encodeRequest(new Uint8Array(8), 'replacement'));
+	const rejected = assert.rejects(replacement, { name: 'AbortError' });
+	assert.equal(await remainsPending(replacement), true);
+	await fixture.registration.dispose();
+	await rejected;
+	await settled;
+	assert.equal(fixture.executions.length, 1);
 });
 
 test('registration rolls back partial bindings', () => {

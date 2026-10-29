@@ -3,6 +3,7 @@
 /** Main-process-only, resource-bounded execution for admitted external FFmpeg audio operations. */
 
 import { isAbsolute, join } from 'node:path';
+import { DesktopCodecOperationQueue } from './desktop-codec-operation-queue.ts';
 
 import { readBoundedRegularFile } from './bounded-regular-file.ts';
 import {
@@ -193,26 +194,22 @@ export function createExternalFfmpegAudioOperationRunner<Operation>(
 	const digestExecutable = options.digestExecutable ?? sha256File;
 	const launch = options.spawn ?? DEFAULT_EXTERNAL_FFMPEG_AUDIO_SPAWN;
 	const environment = curatedExternalFfmpegEnvironment(options.environment ?? process.env);
-	let active = false;
+	const jobs = new DesktopCodecOperationQueue(1);
 
 	return Object.freeze({
 		async execute(request: ExternalFfmpegAudioOperationRequest): Promise<ExternalFfmpegAudioOperationResult> {
 			const requestReason = validateRequest(request, limits.input);
 			if (requestReason !== null) return unavailable(requestReason);
-			if (active) return unavailable('busy');
 			let admission: ExternalFfmpegAudioOperationAdmission<Operation>;
 			try { admission = contract.admitOperation(request.operation); }
 			catch { return unavailable('request-rejected'); }
 			if (!validAdmission(admission)) return unavailable('request-rejected');
 			if (request.signal?.aborted) return unavailable('cancelled');
 
-			active = true;
-			try {
-				return await executeActive({
-					request, operation: admission.operation, contract, scratchRoot: options.scratchRoot,
-					limits, getExecutable, digestExecutable, launch, environment,
-				});
-			} finally { active = false; }
+			return jobs.run(() => executeActive({
+				request, operation: admission.operation, contract, scratchRoot: options.scratchRoot,
+				limits, getExecutable, digestExecutable, launch, environment,
+			}), { signal: request.signal, refused: unavailable });
 		},
 	});
 }

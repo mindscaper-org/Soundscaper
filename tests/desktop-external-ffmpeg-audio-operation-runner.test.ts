@@ -28,6 +28,25 @@ interface FakeChild extends ExternalFfmpegAudioChildProcess {
 	emit(event: string, ...arguments_: unknown[]): boolean;
 }
 
+test('external FFmpeg jobs queue and each stages its own authenticated input and output', async (context) => {
+	const root = await temporaryRoot(context);
+	let spawns = 0;
+	const runner = createExternalFfmpegAudioOperationRunner({
+		scratchRoot: root, contract: contract(),
+		getAdmittedExecutable: admittedExecutable, digestExecutable: admittedDigest,
+		spawn(_executable, argv) {
+			spawns += 1;
+			const child = fakeChild();
+			void complete(child, argv.at(-1), Uint8Array.of(4, 5, 6));
+			return child;
+		},
+	});
+	const request = { operation: { codec: 'opus' as const }, input: Uint8Array.of(1, 2, 3) };
+	const results = await Promise.all([runner.execute(request), runner.execute(request)]);
+	assert.deepEqual(results.map(({ status }) => status), ['executed', 'executed']);
+	assert.equal(spawns, 2);
+});
+
 test('an admitted operation launches only main-built argv in a private scratch directory', async (context) => {
 	const root = await temporaryRoot(context);
 	const child = fakeChild();

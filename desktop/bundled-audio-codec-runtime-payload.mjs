@@ -75,6 +75,7 @@ const CONTROL_ENTRY_FILES = Object.freeze([
 	'project-library-runtime/desktop/bundled-audio-codec-helper-process.js',
 	'project-library-runtime/desktop/bundled-audio-codec-isolated-runtime.js',
 	'project-library-runtime/desktop/bundled-audio-codec-operation-runner.js',
+	'project-library-runtime/desktop/desktop-codec-operation-queue.js',
 	'project-library-runtime/desktop/one-shot-message-child-supervision.js',
 	'project-library-runtime/desktop/bundled-audio-codec-provider-catalog.js',
 	'project-library-runtime/desktop/private-scratch-directory.js',

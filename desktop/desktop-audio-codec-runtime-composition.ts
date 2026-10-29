@@ -3,6 +3,8 @@
 /** One-target main-process composition for bundled, OS, then external audio codecs. */
 
 import { createHash } from 'node:crypto';
+import { snapshotDesktopAudioCodecAdmission as snapshotAdmission } from './desktop-audio-codec-admission-snapshot.ts';
+import { DesktopCodecOperationQueue } from './desktop-codec-operation-queue.ts';
 import { posix, win32 } from 'node:path';
 import { maximumDesktopAudioChannelCount } from './desktop-audio-decode-formats.ts';
 import {
@@ -109,15 +111,9 @@ export interface DesktopAudioCodecRuntimeCompositionOptions {
 	readonly onReceipt?: (observation: DesktopAudioCodecReceiptObservation) => void;
 }
 
-interface ExternalExecutionGate {
-	active: boolean;
-}
-
 type AdmissionSnapshot = Readonly<ExternalFfmpegRuntimeAdmission>;
 
 const TARGETS = new Set<string>(DESKTOP_CODEC_TARGETS);
-const SHA256 = /^[0-9a-f]{64}$/u;
-const CAPABILITY_TOKEN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/u;
 const PLAN_PREFIX = Object.freeze([
 	'-nostdin', '-hide_banner', '-loglevel', 'error', '-nostats', '-xerror', '-y',
 ] as const);
@@ -161,7 +157,7 @@ export function createDesktopAudioCodecRuntimeComposition(
 		'operating-system',
 	);
 	const createRunner = options.createExternalRunner ?? createExternalFfmpegAudioOperationRunner;
-	const externalGate: ExternalExecutionGate = { active: false };
+	const externalGate = new DesktopCodecOperationQueue(1);
 
 	return Object.freeze({
 		async capabilities(
@@ -267,8 +263,8 @@ function externalRuntime(options: Readonly<{
 	admission: AdmissionSnapshot | null;
 	scratchRoot: string;
 	createRunner: ExternalFfmpegAudioRunnerFactory;
-	gate: ExternalExecutionGate;
-	preferences: Pick<ExternalFfmpegPreferenceService, 'invalidateAdmission'>;
+	gate: DesktopCodecOperationQueue;
+	preferences: Pick<ExternalFfmpegPreferenceService, 'admission' | 'invalidateAdmission'>;
 }>): DesktopAudioCodecProviderRuntime {
 	const provider = externalProvider(options.target, options.request, options.admission);
 	return Object.freeze({
@@ -280,13 +276,17 @@ function externalRuntime(options: Readonly<{
 				readonly signal?: AbortSignal;
 			}>,
 		): Promise<DesktopAudioCodecProviderExecutionResult> {
-			if (options.gate.active) return failed('unavailable',
-				'Another external FFmpeg audio operation is already active.');
-			if (options.admission === null) return failed('unavailable',
+			const snapshot = options.admission;
+			if (snapshot === null) return failed('unavailable',
 				'No admitted external FFmpeg executable is available.');
-			options.gate.active = true;
-			try {
-				const snapshot = options.admission;
+			return options.gate.run(async (queued) => {
+				if (queued) {
+					const current = snapshotAdmission(options.preferences);
+					if (!current || current.executablePath !== snapshot.executablePath || current.version !== snapshot.version
+						|| externalProvider(options.target, request, current).capabilityGeneration !== provider.capabilityGeneration) {
+						return failed('security-failed', 'The configured FFmpeg admission changed while the operation was queued.');
+					}
+				}
 				const runner = options.createRunner({
 					scratchRoot: options.scratchRoot,
 					contract: fixedFfmpegContract(request),
@@ -324,7 +324,9 @@ function externalRuntime(options: Readonly<{
 					return failed('result-failed',
 						'The external FFmpeg decoder returned invalid float WAV geometry.');
 				}
-			} finally { options.gate.active = false; }
+			}, { signal: executionOptions.signal, refused: (reason) => failed(
+				reason === 'cancelled' ? 'cancelled' : 'unavailable', `The external FFmpeg audio queue is ${reason}.`,
+			) });
 		},
 	});
 }
@@ -478,39 +480,6 @@ function adaptedArguments(
 
 function sameArguments(left: readonly string[], right: readonly string[]): boolean {
 	return left.length === right.length && left.every((entry, index) => entry === right[index]);
-}
-
-function snapshotAdmission(
-	preferences: Pick<ExternalFfmpegPreferenceService, 'admission'>,
-): AdmissionSnapshot | null {
-	let value: ExternalFfmpegRuntimeAdmission | null;
-	try { value = preferences.admission(); }
-	catch { return null; }
-	if (!value || typeof value !== 'object' || typeof value.executablePath !== 'string'
-		|| typeof value.version !== 'string' || typeof value.capabilityGeneration !== 'string'
-		|| !value.identity || !SHA256.test(value.identity.ffmpegSha256)
-		|| typeof value.identity.ffprobePath !== 'string'
-		|| !SHA256.test(value.identity.ffprobeSha256)
-		|| !SHA256.test(value.identity.executablePairClosureSha256)) return null;
-	const capabilities = cloneCapabilities(value.capabilities);
-	if (capabilities === null) return null;
-	return Object.freeze({
-		executablePath: value.executablePath, version: value.version,
-		capabilityGeneration: value.capabilityGeneration,
-		identity: Object.freeze({ ...value.identity }), capabilities,
-	});
-}
-
-function cloneCapabilities(value: unknown): DesktopAudioFfmpegCapabilitySets | null {
-	if (!value || typeof value !== 'object') return null;
-	const source = value as DesktopAudioFfmpegCapabilitySets;
-	const result = {} as Record<keyof DesktopAudioFfmpegCapabilitySets, readonly string[]>;
-	for (const kind of ['encoders', 'decoders', 'muxers', 'demuxers', 'filters'] as const) {
-		if (!Array.isArray(source[kind]) || source[kind].length > 16_384
-			|| source[kind].some((entry) => typeof entry !== 'string' || !CAPABILITY_TOKEN.test(entry))) return null;
-		result[kind] = Object.freeze([...new Set(source[kind])]);
-	}
-	return Object.freeze(result);
 }
 
 function unavailableRuntime(

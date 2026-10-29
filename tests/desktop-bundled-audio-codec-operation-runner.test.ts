@@ -6,6 +6,7 @@ import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
+import { deferred, remainsPending } from './helpers/async-test-control.ts';
 
 import {
 	createBundledAudioCodecOperationRunner,
@@ -77,6 +78,38 @@ const operation = Object.freeze({
 	container: 'flac', codec: 'flac', profile: null,
 	sampleFormat: 'f32', pixelFormat: null,
 	sampleRate: null, channelCount: null, width: null, height: null,
+});
+
+test('bundled canaries wait for helper capacity before verifying or spawning another job', async (context) => {
+	const scratchRoot = await scratch(context);
+	const started = deferred<void>();
+	const children: FakeChild[] = [];
+	let verifications = 0;
+	const finish = (child: FakeChild): void => {
+		child.emitMessage({ contractVersion: 1, type: 'result', result: { contractVersion: 1, status: 'canary' } });
+		child.emitExit(0);
+	};
+	const runner = createBundledAudioCodecOperationRunner({
+		target: 'linux-x64', scratchRoot, maximumActiveJobs: 1,
+		verifyPayload: async () => { verifications += 1; return configuration; },
+		spawn: () => {
+			const child = new FakeChild(() => {
+				if (children.length === 1) started.resolve();
+				else finish(child);
+			});
+			children.push(child);
+			queueMicrotask(() => child.emitMessage({ contractVersion: 1, type: 'ready', target: 'linux-x64', codec: 'flac' }));
+			return child;
+		},
+	});
+	const first = runner.canary('flac');
+	await started.promise;
+	const second = runner.canary('flac');
+	assert.equal(await remainsPending(second), true);
+	assert.equal(verifications, 1);
+	finish(children[0]!);
+	assert.deepEqual(await Promise.all([first, second]), [true, true]);
+	assert.equal(verifications, 2);
 });
 
 test('startup canary verifies, forks once, and drains the terminal helper', async (context) => {
