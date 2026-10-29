@@ -66,7 +66,10 @@ npm run check-all
 `check-all` schedules up to four checks or test shards at once. It splits lint
 using the existing eight lint shards, Node tests using their four named shards,
 and the browser suite into four partitions spanning all three engines. Each
-Node shard uses two test processes and each browser shard uses two workers.
+Node shard uses two test processes and each browser shard admits up to two
+workers. Firefox and WebKit projects allow one worker per shard, matching their
+native audio/video CI limits; this project limit also applies to ordinary local
+runs. Browser shards still run concurrently.
 Browser preparation runs the production build once, builds Framescaper, and
 authenticates the two product sites before browser tests start. Four browser
 shards share one owned preview pair, avoiding port collisions. Node coverage is

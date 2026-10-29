@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js';
 import {
 	bootEditor, chooseFileAction, collectClientErrors,
-	registerAudioEditorHooks, trackNameText, waitForEditor,
+	registerAudioEditorHooks, trackNameText, waitForEditor, waitForProjectActivation,
 } from './audio-editor-test-helpers.js';
 import { writeDawprojectArchive } from '../../src/common/editor/dawproject-archive.ts';
 
@@ -73,13 +73,17 @@ test.describe('project import formats', () => {
 		<wavetrack name="Legacy voice" channel="2" rate="48000"><waveclip offset="0">
 		<sequence numsamples="48000"><waveblock start="0"><simpleblockfile filename="e0000.au" len="48000"/></waveblock></sequence>
 		</waveclip></wavetrack></project>`;
+		const projectPath = testInfo.outputPath('Legacy.aup');
+		await writeFile(projectPath, xml);
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/');
 		const projectChooser = page.waitForEvent('filechooser');
 		await chooseFileAction(page, editor, 'Open');
 		const dataChooser = page.waitForEvent('filechooser');
-		await (await projectChooser).setFiles({ name: 'Legacy.aup', mimeType: 'application/xml', buffer: Buffer.from(xml) });
+		await (await projectChooser).setFiles(projectPath);
 		await (await dataChooser).setFiles(folder);
+		await expect(editor.locator('[data-status]')).toHaveText('Imported the legacy AUP tracks, clips, and labels.');
+		await waitForProjectActivation(editor);
 		await assertRestoredAudio(page, editor, 'Legacy voice');
 		expect(errors).toEqual([]);
 	});
