@@ -568,6 +568,19 @@ jobs:
         # checks the repository out at the same path on the same runner image.
         run: npm run coverage:check
 
+      - name: Preserve the failed coverage report
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-failure-report
+          path: |
+            coverage/coverage-summary.json
+            coverage/coverage-final.json
+            coverage/lcov.info
+          if-no-files-found: ignore
+          retention-days: 7
+
   browser:
     name: Browser / ${{ matrix.project }} ${{ matrix.shard }}/3
     needs: build
