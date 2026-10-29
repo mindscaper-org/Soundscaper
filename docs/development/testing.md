@@ -92,7 +92,7 @@ finish, including failed browser attempts that will retry. Piped output prints
 periodic snapshots. Command diagnostics retain their task prefix, even when
 they contain expected errors; `FAIL` identifies reported test failures or
 failed commands. Full command output is saved under
-`.wrangler/check-all/logs/`; browser diagnostics have separate directories under
+`test-results/check-all/logs/`; browser diagnostics have separate directories under
 `test-results/check-all/`. Independent checks continue after a failure, while
 checks that need a failed prerequisite are marked blocked. Any failed or blocked
 check produces a nonzero exit. Ctrl-C terminates all owned scopes and their
