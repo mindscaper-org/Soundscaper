@@ -53,6 +53,11 @@ test('bundled Playwright config uses only absolute launcher-provided paths', asy
 		assert.equal(chromium.use.channel, 'chromium');
 		assert.equal(chromium.use.headless, true);
 		assert.deepEqual(chromium.use.launchOptions?.args, ['--enable-gpu']);
+		const covered = createNightlyTestsConfig({ ...process.env, SCAPE_BROWSER_COVERAGE: '1' });
+		const coveredChromium = covered.projects.find(({ name }) => name === 'chromium');
+		assert.equal(coveredChromium.timeout, 90_000);
+		assert.deepEqual(coveredChromium.expect, { timeout: 15_000 });
+		assert.equal(covered.projects.find(({ name }) => name === 'firefox').timeout, undefined);
 		const firefox = config.projects.find(({ name }) => name === 'firefox');
 		assert.equal(firefox.use.launchOptions?.firefoxUserPrefs, undefined);
 		for (const project of config.projects) {

@@ -45,6 +45,8 @@ export function createNightlyTestsConfig(environment = process.env, platform = p
 	const projects = [
 		{
 			name: 'chromium',
+			// Match ordinary coverage runs: precise V8 instrumentation slows imports and previews.
+			...(environment.SCAPE_BROWSER_COVERAGE === '1' ? { timeout: 90_000, expect: { timeout: 15_000 } } : {}),
 			use: {
 				...devices['Desktop Chrome'],
 				browserName: 'chromium',
