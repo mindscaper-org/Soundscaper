@@ -21,7 +21,7 @@ test('ordinary FDK-AAC files preserve core declarations and independent reconstr
 	}
 });
 
-function fixture(options: { coreRate?: number; coreChannels?: number; rate?: number; channels?: number; implicit?: boolean; changedSecond?: boolean; signal?: AbortSignal; packetCount?: number; heldOutputs?: boolean } = {}) {
+function fixture(options: { coreRate?: number; coreChannels?: number; rate?: number; channels?: number; implicit?: boolean; changedSecond?: boolean; signal?: AbortSignal; packetCount?: number; heldOutputs?: boolean; timestampOffset?: number } = {}) {
 	const coreRate = options.coreRate ?? 24_000, coreChannels = options.coreChannels ?? 2;
 	const rate = options.rate ?? 48_000, channels = options.channels ?? 2, closed = new Set<number>();
 	let output: AudioDecoderInit['output']; let decoded = 0; let decoderClosed = 0; let read = 0;
@@ -39,7 +39,7 @@ function fixture(options: { coreRate?: number; coreChannels?: number; rate?: num
 		wrapSample(data): BrowserContainerAudioSample {
 			const index = data.timestamp, actualRate = options.changedSecond && index === 1 ? rate / 2 : rate;
 			const numberOfFrames = 1024 * actualRate / coreRate;
-			return { timestamp: index * 1024 / coreRate, sampleRate: actualRate, numberOfChannels: channels,
+			return { timestamp: index * 1024 / coreRate + (options.timestampOffset ?? 0), sampleRate: actualRate, numberOfChannels: channels,
 				numberOfFrames, duration: numberOfFrames / actualRate,
 				copyTo(destination, settings) { destination.fill((settings.planeIndex + 1) / 10); }, close() { closed.add(index); } };
 		},
@@ -92,6 +92,27 @@ test('primed reconstructed geometry precedes canonical storage without dropping 
 	} });
 	assert.equal(frames, 4096); assert.equal(current.closed.size, 2); assert.equal(current.decoderClosed, 1);
 });
+
+for (const encodedOrigin of [0, 3, -1024 / 48_000]) {
+	test(`dense AAC retains all PCM when native timestamps arrive late at encoded origin ${String(encodedOrigin)}`, async () => {
+		const coreRate = encodedOrigin < 0 ? 48_000 : 24_000;
+		const current = fixture({ coreRate, packetCount: 5, timestampOffset: Math.max(0, encodedOrigin) + 8192 / 48_000 });
+		const primed = await primeNativeStreamedAacImport(current.session);
+		const sourceFrames = 5 * 1024 * 48_000 / coreRate + Math.min(0, Math.round(encodedOrigin * 48_000));
+		const prepared = await prepareStreamedAudioImport(new Blob(['aac']), { openSession: async () => ({ ...primed,
+			timelineOrigin: Math.max(0, encodedOrigin), encodedTimelineOrigin: encodedOrigin,
+			durationSeconds: sourceFrames / 48_000, continuousTimeline: true,
+		}) });
+		let frames = 0;
+		await prepared.stream({ chunkFrames: 1024, onChunk(channels) {
+			frames += channels[0]!.length;
+			assert.ok(channels[0]!.every(value => Math.abs(value - .1) < 1e-7), 'decoder latency must not become source silence');
+			assert.ok(channels[1]!.every(value => Math.abs(value - .2) < 1e-7));
+		} });
+		assert.equal(frames, sourceFrames);
+		assert.equal(current.closed.size, 5);
+	});
+}
 
 test('abandoning the primed first frame closes it and retires the decoder before streaming', async () => {
 	const current = fixture(); const primed = await primeNativeStreamedAacImport(current.session);
