@@ -49,6 +49,63 @@ Use `--test-name-pattern='test name'` before the file to narrow a run further.
 | User interaction | Build, then run the affected Playwright spec or named test |
 | Patch, WASM, codec, or notice metadata | Matching `audit:*` command |
 
+## Module and affected checks
+
+The semantic test targets live in `config/module-policy.json`. They are
+independent of the execution shards used to spread the complete suite across
+CI runners. Existing test paths remain discoverable by the ordinary runner.
+
+Inspect a complete owner target before executing it:
+
+```sh
+npm run check:module -- imaging --list
+npm run check:module -- imaging --json
+```
+
+An explicit module target runs its declared Node tests and browser workflows;
+it does not infer additional consumer suites. Use the affected command to test
+a change's dependency impact:
+
+```sh
+npm run check:affected -- --base=origin/main --list
+npm run check:affected -- --base=origin/main --json
+```
+
+`--list` and `--json` only inspect the plan. Without either flag, the command
+executes it. The comparison defaults to the merge base with `main`; `--base`
+selects another branch or revision. Local changes include staged, unstaged and
+untracked inputs. Both comparison and current dependency graphs participate so
+removed files, renamed files and removed import edges still select consumers.
+
+An affected plan includes the changed modules' complete owner targets and Node
+tests reached through their actual imports and test helpers. The graph retains
+type-only imports, literal dynamic imports, worker entrypoints and declared
+runtime inputs. Browser target metadata declares the exercised modules and
+required product origins; a shared module dependency can select that workflow
+without pulling in every browser suite owned by a reverse timeline consumer.
+
+Unknown changed paths, unavailable comparison revisions, shared toolchain or
+policy inputs, unresolved dependencies in an affected closure, and owners
+without independent coverage require the complete gate. Unrelated unresolved
+code does not expand an otherwise closed target. Legacy graphs can still force
+a full fallback even when the changed module itself has independent coverage.
+Read the reasons in the plan; agents must not execute its full fallback.
+
+Focused execution retains repository-wide lint, type checks, architecture and
+audits. It runs heavy phases sequentially, requests one Node test process and
+one browser worker, and builds only the products required by the selected
+browser workflows. Keep development RAM usage within 12 GB. Prepared sites
+retain their exact build evidence, source-map authentication and separate
+origins. `SCAPE_BROWSER_PRODUCTS=soundscaper` or `framescaper` selects one ordinary
+browser product; leaving it unset preserves the two-product preparation.
+
+PR CI records the affected plan in the existing Build job and passes it to the
+existing Node, browser and Coverage jobs. It does not allocate a job per module.
+Full main, manual full and release runs retain the complete gates. The Coverage
+aggregate verifies the planned results and checks independent module coverage
+for a partial plan; legacy owners continue to require the complete coverage
+union. See [coverage floors](end-to-end-coverage.md#node-and-chromium-coverage-floors).
+
 ## Full gates and CI shards
 
 Desktop build jobs restore installed npm trees using the shared verified-input
@@ -121,7 +178,8 @@ belong to `common`, which is divided into execution shards `common-1` and
 npm test -- --shard=framescaper
 ```
 
-Coverage floors are evaluated over the required union, never per shard; see
+Complete coverage floors are evaluated over the required union, never per
+execution shard; see
 [coverage collection](end-to-end-coverage.md#node-and-chromium-coverage-floors).
 
 ## Browser workflows

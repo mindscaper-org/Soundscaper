@@ -4,8 +4,27 @@
 		"checkJs": false,
 		"incremental": true,
 		"tsBuildInfoFile": "./node_modules/.cache/typescript/tooling.tsbuildinfo",
-		"types": ["node"]
+		"types": [
+			"node"
+		]
 	},
-	"include": ["vite.config.mjs", "playwright.config.mjs", "playwright.check-all.config.ts", "electron-builder.config.cjs", "scripts/performance/*.ts", "scripts/diagnose-windows-make-arguments.ts", "scripts/check-all*.ts", "scripts/lib/check-all*.ts", "scripts/lib/ci-artifact-fetch.ts"],
-	"exclude": ["dist", "node_modules"]
+	"include": [
+		"vite.config.mjs",
+		"playwright.config.mjs",
+		"playwright.check-all.config.ts",
+		"electron-builder.config.cjs",
+		"scripts/performance/*.ts",
+		"scripts/diagnose-windows-make-arguments.ts",
+		"scripts/check-all*.ts",
+		"scripts/check-module*.ts",
+		"scripts/lib/check-all*.ts",
+		"scripts/lib/check-module*.ts",
+		"scripts/lib/module-*.ts",
+		"scripts/lib/ci-artifact-fetch.ts",
+		"scripts/run-module-browser-tests.ts"
+	],
+	"exclude": [
+		"dist",
+		"node_modules"
+	]
 }

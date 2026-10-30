@@ -90,9 +90,37 @@ ordinary packaged coverage capture required for both products.
 ## Node and Chromium coverage floors
 
 The separate Node coverage floors live in `config/coverage-gates.json`;
-`.c8rc.json` selects which files c8 instruments. CI checks those floors once
-over the required union of Node and Chromium shards. Never weaken a floor to
-make an individual shard pass.
+`.c8rc.json` selects which files c8 instruments. Complete Quality runs check
+those floors once over the required union of Node and Chromium shards. Main and
+release gates retain that complete union. Never weaken a floor to make an
+individual execution shard pass.
+
+Source extracted into the neutral foundation, imaging, media and Scape modules
+continues to count toward its inherited `editor` cohort in a complete report.
+Moving a source file does not remove it from the denominator or create a lower
+coverage budget.
+
+`config/module-policy.json` declares which modules have independently complete
+coverage and their inherited cohort. Imaging can use a partial PR gate; owners
+without independent coverage still require the full union. A partial gate
+inventories every production source owned by the selected module and includes
+unexecuted files with `c8 --all`. It scores the complete module denominator at
+the existing cohort's line, branch and function floors, keeping distinct
+inherited cohorts separate. Missing sources, unexpected sources, empty or
+malformed profiles and missing budgets fail admission.
+
+Complete CI reports also enforce the independent module floors, so a full
+fallback or a main run cannot conceal a module regression inside the wider
+editor cohort.
+
+Module gates use fresh evidence from the checked source revision. They do not
+borrow coverage from another revision or treat the selected lines as the
+module's entire denominator. The affected planner may still require full
+coverage when it reaches unresolved legacy dependency paths. Explicit local
+module checks remain useful owner targets; they are not a substitute for an
+affected-change plan or the full integration gate. See
+[module checks](testing.md#module-and-affected-checks) for commands and fallback
+behavior.
 
 After CI has merged the Node and Chromium evidence, run
 `npm run coverage:tighten` to raise floors to coverage gained by a scope.

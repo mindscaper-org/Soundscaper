@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { runCoverageGate } from './lib/coverage-gate-runner.mjs';
@@ -27,4 +27,23 @@ if (missing.length > 0) {
 	process.exit(1);
 }
 
-process.exitCode = runCoverageGate(root, shardDirectory) ? 0 : 1;
+const { parseModulePolicy } = await import('./lib/module-policy.ts');
+const { runModuleCoverageGate } = await import('./lib/check-module-coverage.ts');
+const policy = parseModulePolicy(JSON.parse(readFileSync(resolve(root, 'config/module-policy.json'), 'utf8')));
+
+function completeCoverageGate() {
+	if (!runCoverageGate(root, shardDirectory)) return false;
+	const independent = policy.modules.filter(module => module.independent).map(module => module.id);
+	return independent.length === 0 || runModuleCoverageGate(root, shardDirectory, independent, policy);
+}
+
+if (process.env.SCAPE_MODULE_PLAN) {
+	const { readModuleExecutionPlan } = await import('./lib/check-module-repository.ts');
+	const plan = readModuleExecutionPlan(root, process.env.SCAPE_MODULE_PLAN);
+	if (plan.mode === 'focused') {
+		for (const id of plan.modules) {
+			if (!policy.modules.find(module => module.id === id)?.independent) throw new Error(`Module ${id} requires the complete coverage union.`);
+		}
+		process.exitCode = plan.modules.length === 0 || runModuleCoverageGate(root, shardDirectory, plan.modules, policy) ? 0 : 1;
+	} else process.exitCode = completeCoverageGate() ? 0 : 1;
+} else process.exitCode = completeCoverageGate() ? 0 : 1;
