@@ -22,9 +22,9 @@ test('Stable 1 stages the checked site and handbook before running fresh Pages p
 	assert.match(source, /node scripts\/preflight-pages-deploy\.mjs/u);
 });
 
-test('nightly target jobs explicitly preserve npm download caching and fresh native installation', async () => {
+test('nightly target jobs preserve npm download caching and verified native installation', async () => {
 	const job = extractJob(await readWorkflow('desktop-nightly-tests.yml'), 'package-with-tests');
 	assert.match(job, /architecture: \$\{\{ matrix\.target\.node_arch \}\}[\s\S]*?cache: npm/u);
 	assert.match(job, /cache-dependency-path: package-lock\.json/u);
-	assert.match(job, /run: npm ci/u);
+	assert.match(job, /uses: \.\/\.github\/actions\/verified-node-dependencies\n\s+with:\n\s+scope: desktop-native/u);
 });
