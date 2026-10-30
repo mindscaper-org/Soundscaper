@@ -9,7 +9,8 @@ import { createFramescaperBaselineImageFixture } from './helpers/framescaper-bas
 import { applyFramescaperProjectCommand } from '../src/framescaper/editor-project-commands.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import { withScapeArchiveReader } from '../src/common/editor/scape-archive-reader.ts';
-import { readScapeArchiveEnvelope, type ScapeAssetDescriptor } from '../src/common/editor/scape-archive-envelope.ts';
+import { readScapeArchiveEnvelope } from '../src/common/editor/scape-archive-envelope.ts';
+import { type ScapeAssetDescriptor } from '../src/common/scape/archive-envelope.ts';
 import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
 import { createMotionscaperProject } from '../src/motionscaper/editor-project.ts';
 import { createMotionscaperRevision } from '../src/motionscaper/editor-project-revision.ts';
@@ -19,7 +20,7 @@ import { openFramescaperSuccessorRepository } from '../src/framescaper/editor-pr
 import { inspectFramescaperMigrationArchive, exportFramescaperSuccessorArchive } from '../src/framescaper/editor-project-successor-archive.ts';
 import { openFramescaperCompositionLinkOwnerRepository } from '../src/framescaper/editor-composition-link-owner-repository.ts';
 import { openFramescaperSuccessorDatabase } from '../src/framescaper/editor-project-successor-database.ts';
-import { request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { migrateFramescaperSuccessorProject } from '../src/framescaper/editor-project-successor.ts';
 
 async function archive(value: unknown, assets: readonly { descriptor: ScapeAssetDescriptor; body: Uint8Array }[] = []): Promise<Blob> {

@@ -62,7 +62,6 @@ test('nightly-with-tests packaging is isolated, portable, and keeps its payload 
 	assert.ok(config.files.includes('scripts/lib/desktop-nightly-tests-runtime.mjs'));
 	assert.ok(config.files.includes('scripts/lib/desktop-nightly-tests-playwright-child.mjs'));
 	assert.ok(config.files.includes('scripts/lib/desktop-nightly-tests-progress-reporter.mjs'));
-	assert.ok(config.files.includes('scripts/lib/desktop-nightly-tests-dual-origin.mjs'));
 	assert.ok(config.files.includes('scripts/lib/pages-site-static-server.mjs'));
 	assert.ok(config.files.includes('scripts/lib/product-web-routing.mjs'));
 	assert.ok(config.files.includes('scripts/lib/desktop-nightly-tests-static-response.mjs'));
@@ -81,7 +80,6 @@ test('nightly-with-tests packaging is isolated, portable, and keeps its payload 
 	assert.ok(payload.filter.includes('sites/**/*'));
 	assert.equal(payload.filter.includes('dist/**/*'), false);
 	assert.ok(payload.filter.includes('playwright.nightly-metrics.config.mjs'));
-	assert.ok(payload.filter.includes('playwright.nightly-dual-origin.config.mjs'));
 	assert.ok(payload.filter.includes('playwright.nightly-packaged-coverage.config.mjs'));
 	assert.ok(payload.filter.includes('playwright.nightly-tests.config.mjs'));
 	assert.ok(payload.filter.includes('desktop/soak-debug-*.mjs'));
@@ -292,8 +290,8 @@ test('desktop test artifacts validate packaged runtimes without rerunning the sh
 		'product runtimes must be packaged before the test runner stages them',
 	);
 	assert.doesNotMatch(testJob, /Run packaged Soundscaper audio-device browser gate|packaged-audio-device-browser-diagnostics/u);
-	assert.match(testJob, /npx playwright install --no-shell chromium firefox webkit/u);
-	assert.doesNotMatch(testJob, /playwright install --only-shell/u);
+	assert.match(testJob, /npx playwright install --no-shell chromium/u);
+	assert.doesNotMatch(testJob, /playwright install[^\n]*(?:firefox|webkit|--only-shell)/u);
 	assert.doesNotMatch(testJob, /admission|readiness signature/iu);
 	assert.deepEqual([...testJob.matchAll(/^\s+run: (.*motionscaper-desktop-smoke\.mjs.*)$/gmu)].map((match) => match[1]), [
 		'xvfb-run -a node scripts/motionscaper-desktop-smoke.mjs --require-native-prores',

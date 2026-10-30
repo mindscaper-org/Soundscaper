@@ -3,7 +3,7 @@
 import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
 import { validateAudioEditorProjectV17 } from '../../../../project-v17-validation.ts';
 import { applyDefaultTakeCycleProjectCommand, type TakeCycleProjectDocument } from './take-cycle-project-document.ts';
-import { createScapeDigest, digestScapeBytes, scapeHex } from '../../../../scape-archive-media.ts';
+import { createDigest as createScapeDigest, digestBytes as digestScapeBytes, hex as scapeHex } from '../../../../../media/bytes.ts';
 import { parseScapeProjectDocument, serializeScapeProjectDocument } from '../../../../scape-project-document.ts';
 import type {
 	TakeCycleProjectPublicationEvidence,

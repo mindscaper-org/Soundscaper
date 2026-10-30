@@ -6,7 +6,7 @@ import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
 import { applyFramescaperProjectCommand } from '../src/framescaper/editor-project-commands.ts';
 import { createFramescaperFinishingCommand } from '../src/common/editor/ui/framescaper-finishing-dialog-model.ts';
 import { createFramescaperCubeLutActionsFinishing } from '../src/framescaper/editor-cube-lut-actions-finishing.ts';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import { createMemoryProjectStore } from './helpers/memory-project-store.ts';
 

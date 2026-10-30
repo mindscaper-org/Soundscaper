@@ -7,7 +7,7 @@ import { normalizeMotionCompositionOffer, type MotionCompositionOffer } from '..
 import { transferMotionCompositionOffer } from '../common/editor/motion-link-transfer.ts';
 import { createMotionCompositionLinkState, receiveMotionCompositionUpdate, conformMotionCompositionLink, resumeMotionCompositionLink, restoreMotionCompositionLink, type MotionCompositionLinkState } from '../common/editor/motion-link-state.ts';
 import { freezeMotionValue, motionArray, motionDigest, motionId, motionRecord } from '../common/editor/motion-values.ts';
-import { readCursorPage, request, transact } from '../common/editor/storage/indexeddb-backend.ts';
+import { readCursorPage, request, transact } from '../common/media/indexeddb.ts';
 import { MotionAssetRepository, type MotionAssetStaging } from '../common/editor/storage/motion-asset-repository.ts';
 import { reclaimExpiredMotionStaging } from '../common/editor/storage/motion-asset-staging.ts';
 import { openFramescaperSuccessorDatabase } from './editor-project-successor-database.ts';

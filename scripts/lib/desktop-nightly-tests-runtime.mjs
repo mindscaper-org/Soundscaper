@@ -7,7 +7,7 @@ import { extname, isAbsolute, join, posix, win32 } from 'node:path';
 import { startDesktopNightlyTestsProductSites } from './desktop-nightly-tests-product-sites.mjs';
 import { resolveDesktopNightlyTestsStaticRequestFile, StaticRequestError } from './desktop-nightly-tests-static-route.mjs';
 import { pipeDesktopNightlyTestsStaticResponse } from './desktop-nightly-tests-static-response.mjs';
-import { DUAL_ORIGIN_ARTIFACT_PATHS, runDesktopNightlyTestsDiagnosticPhases } from './desktop-nightly-tests-phases.mjs';
+import { runDesktopNightlyTestsDiagnosticPhases } from './desktop-nightly-tests-phases.mjs';
 import { staticSiteContentType } from './static-site-content-types.mjs';
 import { PACKAGED_RUNTIME_ARTIFACT_PATHS } from './desktop-nightly-tests-packaged-runtime.mjs';
 import { LOCAL_ASSISTANCE_ARTIFACT_PATHS } from './desktop-nightly-tests-local-assistance.mjs';
@@ -213,7 +213,7 @@ export function createDesktopNightlyTestsResultEnvelope({
 		signal,
 		failure,
 		artifacts: Object.freeze({
-			browserCoverageRaw: 'coverage/v8-browser', ...DUAL_ORIGIN_ARTIFACT_PATHS,
+			browserCoverageRaw: 'coverage/v8-browser',
 			consoleLog: 'console.log',
 			htmlReport: 'playwright-report/index.html',
 			jsonReport: 'results.json',
@@ -265,7 +265,7 @@ export async function runDesktopNightlyTests(options, dependencies = {}) {
 	let signal = null, failure = null;
 	const failedPhases = [];
 	try {
-		options.onProgress?.(Object.freeze({ completed: 0, total: 6, label: 'Browser tests' }));
+		options.onProgress?.(Object.freeze({ completed: 0, total: 5, label: 'GPU graphics tests' }));
 		sites = await startProductSites({ payloadRoot: options.payloadRoot, environment, startStaticServer });
 		const resolveEsbuildBinary = dependencies.resolveEsbuildBinary ?? resolveDesktopNightlyTestsEsbuildBinary;
 		const esbuildBinaryPath = await resolveEsbuildBinary({ payloadRoot: options.payloadRoot });
@@ -278,11 +278,11 @@ export async function runDesktopNightlyTests(options, dependencies = {}) {
 			environment: sites.browserEnvironment,
 		});
 		const child = await runPlaywright(plan, (items) => {
-			options.onProgress?.(Object.freeze({ completed: 0, total: 6, label: 'Browser tests', items }));
+			options.onProgress?.(Object.freeze({ completed: 0, total: 5, label: 'GPU graphics tests', items }));
 		});
 		signal = child.signal ?? null;
 		outcome = mapDesktopNightlyTestsExit({ code: child.code, signal });
-		if (outcome.status === 'failed') failedPhases.push('Browser tests');
+		if (outcome.status === 'failed') failedPhases.push('GPU graphics tests');
 		if (outcome.status === 'passed' || outcome.status === 'failed') {
 			for await (const phase of runDesktopNightlyTestsDiagnosticPhases({
 				executablePath: options.executablePath, payloadRoot: options.payloadRoot, runRoot,

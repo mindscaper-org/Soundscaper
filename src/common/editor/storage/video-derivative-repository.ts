@@ -18,8 +18,8 @@ import {
 	type DerivativeCacheRecord,
 	type NormalizedDerivativeCacheLimits,
 } from './derivative-cache-policy.ts';
-import { request, transact } from './indexeddb-backend.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from './media-content-digest.ts';
+import { request, transact } from '../../media/indexeddb.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../../media/content-digest.ts';
 import { prepareVideoDerivativePayload } from './video-derivative-payload.ts';
 import { isMediaContentSha256, isMediaContentToken } from './media-content-provenance.ts';
 import {

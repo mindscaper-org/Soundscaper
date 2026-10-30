@@ -37,7 +37,7 @@ test('native selected-file controls keep the controller connection after dialog 
 
 for (const unavailablePreview of [false, true]) test(`native successor File export streams real retained partial-alpha picture and mixed PCM without encoded proxy assets (preview unavailable=${String(unavailablePreview)})`, async ({ page }) => {
 	const { motionscaperSuccessorNativeFixture, motionscaperSuccessorNativeExpectedSample } = await import('../helpers/motionscaper-successor-native-fixture.ts');
-	const { createBlobScapeArchiveByteSource } = await import('../../src/common/editor/scape-archive-byte-source.ts');
+	const { createBlobScapeArchiveByteSource } = await import('../../src/common/scape/archive-byte-source.ts');
 	const { openMotionNativeFrameReader } = await import('../../src/common/editor/motion-native-frame-carrier-v1.ts');
 	const { openMotionNativePcmReader, motionNativePcmPlan } = await import('../../src/common/editor/motion-native-pcm-carrier-v1.ts');
 	const { FRAMESCAPER_SUCCESSOR_DELIVERY_PROFILE } = await import('../../src/framescaper/editor-successor-native-delivery-contract.ts');
@@ -103,7 +103,7 @@ test('M10 native export pins picture PCM and originals while a compatible saved 
 	const { installMotionConcurrentExportBridge, motionConcurrentExportState, motionConcurrentOwner } = await import('./helpers/motionscaper-concurrent-export-bridge.ts');
 	const { openMotionNativeFrameReader } = await import('../../src/common/editor/motion-native-frame-carrier-v1.ts');
 	const { openMotionNativePcmReader, motionNativePcmPlan } = await import('../../src/common/editor/motion-native-pcm-carrier-v1.ts');
-	const { createBlobScapeArchiveByteSource } = await import('../../src/common/editor/scape-archive-byte-source.ts');
+	const { createBlobScapeArchiveByteSource } = await import('../../src/common/scape/archive-byte-source.ts');
 	const fixtures = await motionscaperConcurrentExportFixtures();
 	await installMotionConcurrentExportBridge(page, fixtures.map(value => value.archive));
 	await page.goto('/embed/en/'); await expect(page.locator('[data-audio-editor-bound="true"]')).toBeVisible();

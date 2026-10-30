@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
 import { createMotionSurface } from '../src/common/editor/motion-surface.ts';
-import { createScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { createMotionNativeFrameWriter, openMotionNativeFrameReader, MOTION_NATIVE_FRAME_CHUNK_BYTES } from '../src/common/editor/motion-native-frame-carrier-v1.ts';
 
 const plan = { identity: { projectId: 'p', compositionId: 'c', revisionDigest: 'a'.repeat(64) }, width: 2, height: 1,

@@ -28,7 +28,7 @@ import {
 	readClosedDomainArray,
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 
 export const MAXIMUM_AUDIO_WARP_POINTS = 4_096;
 export const MAXIMUM_AUDIO_WARP_TRANSIENTS = MAXIMUM_AUDIO_WARP_POINTS - 2;

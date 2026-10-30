@@ -13,7 +13,7 @@ import {
 	type VideoProxyClaimRecord,
 	VIDEO_PROXY_CLAIM_KIND,
 } from '../common/editor/storage/video-proxy-claim-repository.ts';
-import { request, transact } from '../common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../common/media/indexeddb.ts';
 import {
 	MEDIA_ASSET_CHUNK_STORE_NAME,
 } from '../common/editor/storage/media-asset-chunk-schema.ts';

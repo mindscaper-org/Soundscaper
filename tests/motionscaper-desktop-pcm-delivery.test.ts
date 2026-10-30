@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { createMotionscaperDeliveryAuthority } from '../desktop/motionscaper-delivery-authority.ts';
 import { createMotionscaperDesktopProresSink } from '../src/motionscaper/desktop-delivery-adapter.ts';
 import { openMotionNativePcmReader, motionNativePcmPlan } from '../src/common/editor/motion-native-pcm-carrier-v1.ts';
-import { createScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { createMotionSurface } from '../src/common/editor/motion-surface.ts';
 import { MOTION_PRORES_DELIVERY_PROFILE, type MotionDesktopDelivery } from '../src/motionscaper/desktop-delivery-contract.ts';
 import { dispatchMotionscaperDeliveryCall } from '../desktop/motionscaper-delivery-ipc.ts';

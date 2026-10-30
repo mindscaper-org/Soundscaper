@@ -3,7 +3,7 @@
 import { createMotionOutputDestination, type MotionOutputDestinationOptions } from '../../motion-output-destination.ts';
 import { motionTarFileHeader, motionTarPadding } from '../../motion-tar.ts';
 import type { MotionSurface } from '../../motion-surface.ts';
-import { throwIfScapeAborted } from '../../scape-abort.ts';
+import { throwIfScapeAborted } from '../../../scape/abort.ts';
 import { compareRationals, divideRationals } from '../../timeline-time.ts';
 import { normalizeMotionRenderPlan, type MotionRenderFrame, type MotionRenderPlan, type MotionRenderSink } from './motion-render-pipeline.ts';
 

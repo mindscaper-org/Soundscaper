@@ -179,10 +179,10 @@ jobs:
 
       - name: Install Linux browser dependencies
         if: runner.os == 'Linux'
-        run: npx playwright install-deps chromium firefox webkit
+        run: npx playwright install-deps chromium
 
       - name: Install the hermetic browser-engine matrix
-        run: npx playwright install --no-shell chromium firefox webkit
+        run: npx playwright install --no-shell chromium
         env:
           PLAYWRIGHT_BROWSERS_PATH: '0'
 

@@ -6,7 +6,7 @@ import {
 	type VideoMaskMatteGraphV1,
 	type VideoMaskMatteNodeV1,
 } from './video-mask-matte-v24.ts';
-import { rasterizeVideoMaskPaths } from './video-mask-path-raster.ts';
+import { rasterizeCubicMaskPaths } from '../imaging/mask-path-raster.ts';
 
 export interface VideoMaskMatteRgbaInputV13 {
 	readonly width: number;
@@ -103,7 +103,7 @@ function vectorPath(
 	width: number,
 	height: number,
 ): Uint8Array<ArrayBuffer> {
-	return rasterizeVideoMaskPaths(node.paths, node.fillRule, width, height);
+	return rasterizeCubicMaskPaths(node.paths, node.fillRule, width, height);
 }
 
 function rasterInput(

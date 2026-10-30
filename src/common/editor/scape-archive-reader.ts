@@ -6,17 +6,15 @@ import {
 	ZipReader,
 } from '@zip.js/zip.js/index-native.js';
 
-import {
-	SCAPE_ARCHIVE_LIMITS,
-	type ScapeArchiveEntry,
-} from './scape-archive-envelope.ts';
-import { aggregateScapeErrors, throwIfScapeAborted } from './scape-abort.ts';
+import { SCAPE_ARCHIVE_LIMITS } from '../scape/archive-limits.ts';
+import { type ScapeArchiveEntry } from '../scape/archive-envelope.ts';
+import { aggregateScapeErrors, throwIfScapeAborted } from '../scape/abort.ts';
 import {
 	assertScapeArchiveByteSource,
 	createBlobScapeArchiveByteSource,
 	readScapeArchiveByteRange,
 	type ScapeArchiveByteSource,
-} from './scape-archive-byte-source.ts';
+} from '../scape/archive-byte-source.ts';
 import { bindScapeArchiveByteSourceLayout } from './scape-archive-layout.ts';
 import { MEDIA_ASSET_STREAM_CHUNK_BYTES as SCAPE_VIDEO_MAXIMUM_CHUNK_BYTES } from './storage/media-asset-chunk-schema.ts';
 

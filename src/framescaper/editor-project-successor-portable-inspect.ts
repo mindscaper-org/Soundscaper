@@ -2,7 +2,8 @@
 import { withScapeProjectInput, type ScapeProjectInput } from '../common/editor/scape-project-input.ts';
 import { isDesktopScapeArchiveByteSource } from '../common/editor/desktop-scape-archive-byte-source.ts';
 import { readScapeArchiveEnvelope, type ScapeArchiveEnvelope } from '../common/editor/scape-archive-envelope.ts';
-import { createScapeDigest, scapeHex, verifyScapeAssetBytes } from '../common/editor/scape-archive-media.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../common/media/bytes.ts';
+import { verifyScapeAssetBytes } from '../common/scape/asset-bytes.ts';
 import { indexScapeProjectAssets, indexScapeProjectTimingAssets } from '../common/editor/scape-project-assets.ts';
 import { framescaperSuccessorPortableAssets } from './editor-project-successor-portable-assets.ts';
 import { createFramescaperLinkedAssetDescriptor, MOTION_LINKED_ARCHIVE_ASSET_KIND } from './editor-project-successor-link-assets.ts';

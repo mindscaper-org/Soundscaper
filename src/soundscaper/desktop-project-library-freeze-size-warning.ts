@@ -2,7 +2,7 @@
 
 import { FileSizeWarningRequiredError, type FileSizeWarning, type FileSizeWarningConfirmation, type FileSizeWarningOptions, type FileSizeWarningRequestOptions } from
 	'../common/editor/controller/shared/file-size-warning.ts';
-import { SCAPE_ARCHIVE_LIMITS } from '../common/editor/scape-archive-envelope.ts';
+import { SCAPE_ARCHIVE_LIMITS } from '../common/scape/archive-limits.ts';
 
 /** Retain media-size consent only for one renderer owner and project. */
 export class SoundscaperDesktopFreezeSizeAdmission {

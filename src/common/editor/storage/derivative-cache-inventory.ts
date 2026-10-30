@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import {
-	MAX_INDEXEDDB_CURSOR_PAGE_SIZE,
-	readCursorPage,
-	transact,
-} from './indexeddb-backend.ts';
+import { MAX_INDEXEDDB_CURSOR_PAGE_SIZE, readCursorPage, transact } from '../../media/indexeddb.ts';
 import {
 	DERIVATIVE_CACHE_ENTRY_STORE_NAME,
 	projectDerivativeCacheInventoryRecord,

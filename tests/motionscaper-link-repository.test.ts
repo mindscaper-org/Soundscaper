@@ -2,14 +2,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { createMotionscaperProject } from '../src/motionscaper/editor-project.ts';
 import { createMotionscaperRevision } from '../src/common/editor/motion-project-revision.ts';
 import { createMotionCompositionOffer } from '../src/common/editor/motion-link-protocol.ts';
 import { openFramescaperCompositionLinkRepository } from '../src/framescaper/editor-composition-link-repository.ts';
 import { openFramescaperSuccessorRepository } from '../src/framescaper/editor-project-successor-repository.ts';
 import { openFramescaperSuccessorDatabase } from '../src/framescaper/editor-project-successor-database.ts';
-import { request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import type { MotionAsset } from '../src/common/editor/motion-asset.ts';
 
 const bytes = new Uint8Array([1, 2, 3, 4]); const digest = digestScapeBytes(bytes);

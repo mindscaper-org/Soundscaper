@@ -34,7 +34,7 @@ test('nightly Test suite menu pauses, waits for cancellation, and offers Resume'
 	await expect(pause).toBeDisabled();
 	const render = async (label) => {
 		await page.evaluate((value) => {
-			globalThis.renderNightlyTestsProgress({ completed: 2, total: 6, label: value,
+			globalThis.renderNightlyTestsProgress({ completed: 1, total: 5, label: value,
 				items: { completed: 3, total: 8, label: 'Current test' } });
 		}, label);
 	};
@@ -48,7 +48,7 @@ test('nightly Test suite menu pauses, waits for cancellation, and offers Resume'
 	await render('Tests paused');
 	const resume = page.getByRole('menuitem', { name: 'Resume', exact: true });
 	await expect(resume).toBeEnabled();
-	await expect(page.locator('#phase-count-2')).toHaveText('3 of 8 tests complete');
+	await expect(page.locator('#phase-count-1')).toHaveText('3 of 8 tests complete');
 	await resume.click();
 	await expect.poll(() => requests).toEqual(['__control__/pause', '__control__/resume']);
 	await render('Performance diagnostics');

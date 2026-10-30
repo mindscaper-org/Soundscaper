@@ -2,7 +2,7 @@
 import { createMotionscaperProject, createMotionLayer } from '../../src/motionscaper/editor-project.ts';
 import { motionColor, motionScalar, motionVector } from '../../src/common/editor/motion-property.ts';
 import { createMotionscaperRevision } from '../../src/common/editor/motion-project-revision.ts';
-import { digestScapeBytes } from '../../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../../src/common/media/bytes.ts';
 import { motionWavFixture } from './motionscaper-qualification-media.ts';
 export function motionscaperSuccessorNativeFixture(revision = 0) {
 	const bytes = motionWavFixture(2), sha256 = digestScapeBytes(bytes);

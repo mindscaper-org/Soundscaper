@@ -3,13 +3,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-	SCAPE_FORMAT,
-	SCAPE_FORMAT_VERSION,
-	type ScapeArchiveEntry,
-	type ScapeManifest,
-} from '../src/common/editor/scape-archive-envelope.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { SCAPE_FORMAT, SCAPE_FORMAT_VERSION, type ScapeArchiveEntry } from '../src/common/scape/archive-envelope.ts';
+import { type ScapeManifest } from '../src/common/editor/scape-archive-envelope.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import {
 	PROJECT_SCHEMA_VERSION,
 	SOUNDSCAPER_PROJECT_SCHEMA_FAMILY,

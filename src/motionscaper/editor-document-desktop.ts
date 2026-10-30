@@ -6,7 +6,7 @@ import type { MotionscaperDocumentSession } from './editor-document-session.ts';
 import type { MotionscaperProjectStore } from './editor-project-store.ts';
 import type { MotionscaperProject } from './editor-project-types.ts';
 import { motionDocumentFileName } from './editor-document-file-name.ts';
-import { aggregateScapeErrors } from '../common/editor/scape-abort.ts';
+import { aggregateScapeErrors } from '../common/scape/abort.ts';
 import { MotionProjectConflictError } from './editor-project-store.ts';
 import { prepareMotionscaperDocumentOpen, type MotionscaperDocumentOpen } from './editor-document-open.ts';
 import { exportMotionscaperArchive } from './editor-scape.ts';

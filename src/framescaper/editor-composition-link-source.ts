@@ -2,7 +2,7 @@
 import { createVideoSource, createAudioSource } from '../common/editor/project-media-factory.ts';
 import { createVideoTimingAssetPublication, validateVideoTimingAssetBytes, VIDEO_TIMING_ASSET_MAXIMUM_FRAMES, VIDEO_TIMING_ASSET_MAXIMUM_TIMESCALE } from '../common/editor/video-timing-asset.ts';
 import { normalizeMotionCompositionOffer, createMotionCompositionOffer } from '../common/editor/motion-link-protocol.ts';
-import { digestScapeBytes } from '../common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../common/media/bytes.ts';
 import { motionCompositionHasAudio } from '../common/editor/motion-composition-audio.ts';
 import { secondsToSampleFrame, divideRationals } from '../common/editor/timeline-time.ts';
 import { normalizeFramescaperSuccessorProject } from './editor-project-successor.ts';

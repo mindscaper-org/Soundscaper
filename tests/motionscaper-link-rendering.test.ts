@@ -8,7 +8,7 @@ import { createMotionCompositionOffer } from '../src/common/editor/motion-link-p
 import { compileMotionCompositionLink, renderMotionCompositionLink } from '../src/common/editor/motion-link-rendering.ts';
 import { createCanvasKitMotionRasterizer } from '../src/common/editor/motion-canvaskit-rasterizer.ts';
 import { motionColor, motionVector } from '../src/common/editor/motion-property.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { openFramescaperCompositionLinkRepository } from '../src/framescaper/editor-composition-link-repository.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import type { MotionAsset } from '../src/common/editor/motion-asset.ts';

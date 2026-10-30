@@ -5,7 +5,8 @@ import { bytesToHex } from '@noble/hashes/utils.js';
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
 
-import { openDatabase, request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import {
 	MEDIA_ASSET_CHUNK_STORAGE_TYPE,
 	MEDIA_ASSET_CHUNK_STORE_NAME,

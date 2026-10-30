@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { withScapeProjectInput, type ScapeProjectInput } from '../common/editor/scape-project-input.ts';
 import { readScapeArchiveEnvelope } from '../common/editor/scape-archive-envelope.ts';
-import { verifyScapeAssetBytes } from '../common/editor/scape-archive-media.ts';
+import { verifyScapeAssetBytes } from '../common/scape/asset-bytes.ts';
 import { parseOpaqueScapeProjectDocument } from '../common/editor/scape-project-document.ts';
 import { classifyProjectSchemaIdentity } from '../common/editor/project-schema-identity.ts';
 import { isDesktopScapeArchiveByteSource } from '../common/editor/desktop-scape-archive-byte-source.ts';

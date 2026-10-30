@@ -5,7 +5,7 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 import type { RationalRate } from './timeline-time.ts';
 import type { UnifiedExactRenderTimingIndex } from './unified-exact-render-timing-authority.ts';
 import {

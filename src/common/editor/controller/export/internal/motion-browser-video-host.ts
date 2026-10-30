@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { MotionVideoHost } from '../motion-browser-video.ts';
 import { initializeBrowserMediaPlatform } from '../../../browser-media-initialization.ts';
-import { aggregateScapeErrors } from '../../../scape-abort.ts';
+import { aggregateScapeErrors } from '../../../../scape/abort.ts';
 import { assertMotionBrowserVideoProbeSafe } from './motion-browser-video-admission.ts';
 
 /** Use only browser-admitted codecs; the pinned muxer writes sequential fragmented containers. */

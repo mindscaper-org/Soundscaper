@@ -13,7 +13,7 @@ import {
 	type ProductVideoExportPlan,
 	type ProductVideoExportStrategyEncodeRequest,
 } from '../common/editor/controller/export/product-video-export-strategy.ts';
-import { canonicalMediaContentBlob } from '../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../common/media/content-digest.ts';
 import type { BlobLike } from '../common/editor/storage/media-records.ts';
 import {
 	isVideoExportTimingMap,

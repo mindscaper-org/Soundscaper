@@ -9,7 +9,7 @@ import { COPY } from './helpers/audio-editor-controller-harness.js';
 import { createMotionSavedFileAuthority } from '../desktop/motion-saved-file-authority.ts';
 import { createMotionSavedFileConnection } from '../src/common/editor/motion-saved-file-connection.ts';
 import { createMotionscaperRevision } from '../src/common/editor/motion-project-revision.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { createMotionscaperProject } from '../src/motionscaper/editor-project.ts';
 import { exportMotionscaperArchive } from '../src/motionscaper/editor-scape.ts';
 import { createFramescaperSuccessorEnvironment } from '../src/framescaper/editor-project-successor-environment.ts';

@@ -5,13 +5,13 @@ import type {
 	DesktopReadMaterializationDescriptor,
 	DesktopReadResponse,
 } from './desktop-read-materialization.ts';
-import { scapeAbortReason } from './scape-abort.ts';
+import { scapeAbortReason } from '../scape/abort.ts';
 import {
 	createScapeArchiveByteSource,
 	createBlobScapeArchiveByteSource,
 	type ScapeArchiveByteReadRequest,
 	type ScapeArchiveByteSource,
-} from './scape-archive-byte-source.ts';
+} from '../scape/archive-byte-source.ts';
 import { PLATFORM_TRANSFER_HARD_LIMITS } from './platform/bounded-transfer.ts';
 
 const UINT8_ARRAY = Uint8Array;

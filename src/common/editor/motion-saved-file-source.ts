@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { createScapeArchiveByteSource } from './scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource } from '../scape/archive-byte-source.ts';
 import { createMotionCompositionOffer, type MotionCompositionOffer } from './motion-link-protocol.ts';
 import type { MotionAsset } from './motion-asset.ts';
 import type { MotionAssetBody } from './motion-asset-body.ts';
 import { MOTION_SAVED_FILE_CHUNK_BYTES, normalizeMotionSavedFileSnapshot, type MotionSavedFileCapabilities } from './motion-saved-file-contract.ts';
 import { withMotionSavedArchiveSource } from './motion-saved-archive-source.ts';
-import { aggregateScapeErrors, throwIfScapeAborted } from './scape-abort.ts';
+import { aggregateScapeErrors, throwIfScapeAborted } from '../scape/abort.ts';
 export interface MotionSavedFileReceiverOptions {
 	readonly compositionId?: string; readonly signal?: AbortSignal;
 	/** Receiver retains the complete digest-verified closure through its owner CAS before resolving. */

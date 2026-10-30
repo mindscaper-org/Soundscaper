@@ -2,11 +2,12 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { withScapeProjectInput, type ScapeProjectInput } from '../common/editor/scape-project-input.ts';
-import { createBlobScapeArchiveByteSource, assertScapeArchiveByteSource, readScapeArchiveByteRange } from '../common/editor/scape-archive-byte-source.ts';
+import { createBlobScapeArchiveByteSource, assertScapeArchiveByteSource, readScapeArchiveByteRange } from '../common/scape/archive-byte-source.ts';
 import { copyScapeArchiveEntry } from '../common/editor/scape-archive-entry-copy.ts';
-import { readScapeArchiveEnvelope, type ScapeArchiveEntry, type ScapeDescriptor } from '../common/editor/scape-archive-envelope.ts';
+import { readScapeArchiveEnvelope } from '../common/editor/scape-archive-envelope.ts';
+import { type ScapeArchiveEntry, type ScapeDescriptor } from '../common/scape/archive-envelope.ts';
 import { EXTERNAL_MEDIA_ENCODING } from '../common/editor/desktop-external-media.ts';
-import { verifyScapeAssetBytes } from '../common/editor/scape-archive-media.ts';
+import { verifyScapeAssetBytes } from '../common/scape/asset-bytes.ts';
 import { indexScapeProjectAssets, indexScapeProjectTimingAssets } from '../common/editor/scape-project-assets.ts';
 import { cloneFramescaperProject, type FramescaperProject } from './editor-project.ts';
 import { createFramescaperScapeProjectAssetExtension } from './editor-scape-assets.ts';

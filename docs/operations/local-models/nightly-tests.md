@@ -1,18 +1,25 @@
 # Real local-model tests
 
 The nightly-with-tests desktop package runs real model downloads and inference
-after its functional browser tests, browser metrics, and runtime metrics.
+after focused GPU graphics tests, browser and desktop performance diagnostics,
+and packaged desktop workflow coverage. Ordinary cross-browser and dual-origin
+tests run in CI; the nightly package targets native-machine behavior that CI
+or WSL cannot reliably validate.
 These expensive checks use `playwright.nightly-local-assistance.config.mjs` and
 `tests/electron/local-assistance-models/`. They are excluded from `npm test`,
 `npm run test:browser`, and the normal Playwright configuration. Lightweight tests
 in the normal Node suite validate the case manifest, output checks, package
 integration, and generated documentation without downloading models.
 
-Each of the five non-model phases uses up to four Playwright workers. Existing
-serial test groups stay serial; the real-model phase uses one worker.
+The five phases are GPU graphics tests, browser performance diagnostics,
+packaged app diagnostics, packaged app coverage, and real-model tests. Graphics
+and packaged coverage use up to four Playwright workers; both performance
+phases and the real-model phase use one worker. Existing serial groups stay
+serial. The graphics phase requires hardware WebGL2 and records the renderer;
+a software renderer fails its hardware probe. Only Chromium is bundled.
 
 In the attended nightly runner, open **Test suite** and choose **Pause** to stop
-starting tests and cancel active workers in any of its six phases. The window
+starting tests and cancel active workers in any of its five phases. The window
 shows **Pausing tests…** while workers shut down, then **Tests paused**. Choose
 **Resume** in the same menu to rerun canceled and pending tests and continue the
 suite. Completed tests keep their results, including failures. Partly completed
@@ -79,7 +86,7 @@ committed runtime handoff snapshots in
 engines.
 Its package jobs receive no upload credentials and download the pinned public
 archives. CI uploads the test packages without running their suites; launch a
-package on a real machine for the browser and local-model results.
+package on a real machine for the GPU, performance, desktop, and local-model results.
 The resulting packages include the URLs and digests in the app ASAR; an
 unpublished or mismatched archive stops packaging. When runtime inputs change,
 run **Update AI assets**, download its handoff artifacts, and refresh the

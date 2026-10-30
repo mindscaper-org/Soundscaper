@@ -1,0 +1,451 @@
+{
+	"schemaVersion": 1,
+	"modules": [
+		{
+			"id": "foundation",
+			"sourcePrefixes": [
+				"src/common/foundation/"
+			],
+			"nodeTests": [
+				"tests/foundation-closed-domain-value.test.ts",
+				"tests/audio-editor-abort-error.test.ts",
+				"tests/audio-editor-abort-race.test.ts"
+			],
+			"products": [
+				"soundscaper",
+				"framescaper"
+			],
+			"independent": false,
+			"dependencies": [],
+			"publicFiles": [
+				"src/common/foundation/abort-error.ts",
+				"src/common/foundation/abort-race.ts",
+				"src/common/foundation/closed-domain-value.ts"
+			],
+			"coverageScope": "editor"
+		},
+		{
+			"id": "imaging",
+			"sourcePrefixes": [
+				"src/common/imaging/"
+			],
+			"nodeTests": [
+				"tests/imaging-primitives.test.ts",
+				"tests/imaging-resource-admission.test.ts",
+				"tests/imaging-chunk-ownership.test.ts",
+				"tests/audio-editor-image-format-signature.test.ts",
+				"tests/audio-editor-image-import-admission.test.ts",
+				"tests/audio-editor-image-decoder-routing.test.ts",
+				"tests/audio-editor-image-import-size-warnings.test.ts",
+				"tests/audio-editor-timeline-image-native-decode-v1.test.ts",
+				"tests/audio-editor-timeline-image-browser-native-port.test.ts",
+				"tests/audio-editor-round6-io-image-animation-fallback.test.ts",
+				"tests/audio-editor-round6-io-image-precision-admission.test.ts",
+				"tests/audio-editor-video-color-management-v27.test.ts",
+				"tests/audio-editor-video-color-byte-encoding.test.ts",
+				"tests/audio-editor-video-cube-lut-axis-order.test.ts",
+				"tests/audio-editor-video-mask-matte-v24.test.ts",
+				"tests/framescaper-more200-raster-sample-centres.test.ts",
+				"tests/framescaper-more200-cube-header-admission.test.ts",
+				"tests/framescaper-more200-cube-numeric-admission.test.tsx",
+				"tests/framescaper-next-image-alpha-resampling.test.ts"
+			],
+			"products": [
+				"framescaper"
+			],
+			"independent": true,
+			"dependencies": [],
+			"publicFiles": [
+				"src/common/imaging/cube-lut-v1.ts",
+				"src/common/imaging/image-animation-topology.ts",
+				"src/common/imaging/image-format-signature.ts",
+				"src/common/imaging/image-import-admission.ts",
+				"src/common/imaging/linear-color-grade.ts",
+				"src/common/imaging/mask-path-raster.ts"
+			],
+			"coverageScope": "editor"
+		},
+		{
+			"id": "media",
+			"sourcePrefixes": [
+				"src/common/media/"
+			],
+			"nodeTests": [
+				"tests/media-primitives.test.ts",
+				"tests/audio-editor-media-content-digest.test.ts",
+				"tests/audio-editor-storage-indexeddb.test.js"
+			],
+			"products": [
+				"soundscaper",
+				"framescaper"
+			],
+			"independent": false,
+			"dependencies": [
+				"foundation"
+			],
+			"publicFiles": [
+				"src/common/media/bytes.ts",
+				"src/common/media/content-digest.ts",
+				"src/common/media/indexeddb.ts"
+			],
+			"coverageScope": "editor"
+		},
+		{
+			"id": "scape",
+			"sourcePrefixes": [
+				"src/common/scape/"
+			],
+			"nodeTests": [
+				"tests/scape-container-codec.test.ts",
+				"tests/audio-editor-scape-archive-byte-source.test.ts",
+				"tests/audio-editor-scape-archive-envelope.test.ts",
+				"tests/audio-editor-scape-expansion.test.ts",
+				"tests/audio-editor-scape-archive-utf8.test.ts"
+			],
+			"products": [
+				"soundscaper",
+				"framescaper"
+			],
+			"independent": false,
+			"dependencies": [
+				"foundation",
+				"media"
+			],
+			"publicFiles": [
+				"src/common/scape/abort.ts",
+				"src/common/scape/archive-byte-source.ts",
+				"src/common/scape/archive-envelope.ts",
+				"src/common/scape/archive-limits.ts",
+				"src/common/scape/archive-zip-profile.ts",
+				"src/common/scape/asset-bytes.ts",
+				"src/common/scape/expanded-byte-budget.ts"
+			],
+			"coverageScope": "editor"
+		},
+		{
+			"id": "timeline-audio",
+			"sourcePrefixes": [
+				"src/common/editor/engine/",
+				"src/common/editor/production-audio/"
+			],
+			"nodeTests": [
+				"tests/audio-editor-engine*.test.*",
+				"tests/audio-editor-production-*.test.*"
+			],
+			"products": [
+				"soundscaper",
+				"framescaper"
+			],
+			"independent": false
+		},
+		{
+			"id": "timeline-visual",
+			"sourcePrefixes": [
+				"src/common/editor/video-",
+				"src/common/editor/timeline-image-",
+				"src/common/editor/image-"
+			],
+			"nodeTests": [
+				"tests/audio-editor-video-*.test.*",
+				"tests/audio-editor-timeline-image-*.test.*"
+			],
+			"products": [
+				"framescaper"
+			],
+			"independent": false
+		},
+		{
+			"id": "timeline",
+			"sourcePrefixes": [
+				"src/common/editor/"
+			],
+			"nodeTests": [
+				"tests/audio-editor-*.test.*"
+			],
+			"products": [
+				"soundscaper",
+				"framescaper"
+			],
+			"independent": false
+		},
+		{
+			"id": "soundscaper",
+			"sourcePrefixes": [
+				"src/soundscaper/",
+				"desktop/soundscaper-",
+				"native/soundscaper-"
+			],
+			"nodeTests": [
+				"tests/soundscaper-*.test.*"
+			],
+			"products": [
+				"soundscaper"
+			],
+			"independent": false
+		},
+		{
+			"id": "framescaper",
+			"sourcePrefixes": [
+				"src/framescaper/",
+				"desktop/framescaper-",
+				"native/framescaper-"
+			],
+			"nodeTests": [
+				"tests/framescaper-*.test.*"
+			],
+			"products": [
+				"framescaper"
+			],
+			"independent": false
+		},
+		{
+			"id": "motionscaper",
+			"sourcePrefixes": [
+				"src/motionscaper/",
+				"desktop/motionscaper-",
+				"native/motionscaper-"
+			],
+			"nodeTests": [
+				"tests/motionscaper-*.test.*"
+			],
+			"products": [
+				"motionscaper"
+			],
+			"independent": false
+		},
+		{
+			"id": "platform",
+			"sourcePrefixes": [
+				"src/",
+				"desktop/",
+				"native/",
+				"functions/"
+			],
+			"nodeTests": [],
+			"products": [
+				"soundscaper",
+				"framescaper"
+			],
+			"independent": false
+		},
+		{
+			"id": "tooling",
+			"sourcePrefixes": [
+				"scripts/",
+				"config/",
+				".github/"
+			],
+			"nodeTests": [],
+			"products": [],
+			"independent": false
+		},
+		{
+			"id": "handbook",
+			"sourcePrefixes": [
+				"handbook/",
+				"docs/"
+			],
+			"nodeTests": [],
+			"products": [
+				"soundscaper",
+				"framescaper"
+			],
+			"independent": false
+		}
+	],
+	"globalInputs": [
+		"package.json",
+		"package-lock.json",
+		".nvmrc",
+		".npmrc",
+		"tsconfig*.json",
+		"eslint.config.mjs",
+		"eslint-suppressions.json",
+		".dependency-cruiser.cjs",
+		".c8rc.json",
+		"vite.config.mjs",
+		"playwright*.config.*",
+		"config/",
+		"scripts/",
+		".github/",
+		"vendor/",
+		"patches/",
+		"AGENTS.md"
+	],
+	"runtimeInputs": [
+		{
+			"files": [
+				"src/common/imaging/cube-lut-v1.ts"
+			],
+			"dependencies": [
+				"tests/fixtures/cube*"
+			]
+		}
+	],
+	"browserTests": [
+		{
+			"files": [
+				"tests/browser/framescaper-images.spec.js",
+				"tests/browser/framescaper-next-image-*.spec.js",
+				"tests/browser/framescaper-next-jpeg-image-aliases.spec.js",
+				"tests/browser/framescaper-a4-image-import-queue.spec.js",
+				"tests/browser/framescaper-more200-image-held-phase.spec.js",
+				"tests/browser/framescaper-more200-cube-numeric-admission.spec.js",
+				"tests/browser/framescaper-next-empty-lut-title.spec.js",
+				"tests/browser/framescaper-more200-curved-mask.spec.js",
+				"tests/browser/framescaper-more200-video-mask-source.spec.js",
+				"tests/browser/framescaper-next-compound-mask-editing.spec.js",
+				"tests/browser/framescaper-motion-webgl2.spec.js",
+				"tests/browser/audio-editor-round6-video-color-composition.spec.js",
+				"tests/browser/audio-editor-round6-visual-color-canonical-input.spec.js",
+				"tests/browser/audio-editor-round7-io-lut-import-lifetime.spec.js",
+				"tests/browser/audio-editor-round6-io-image-animation-fallback.spec.js",
+				"tests/browser/audio-editor-round6-io-image-precision-admission.spec.js"
+			],
+			"modules": [
+				"imaging"
+			],
+			"products": [
+				"soundscaper",
+				"framescaper"
+			]
+		},
+		{
+			"files": [
+				"tests/browser/framescaper-*.spec.js",
+				"tests/browser/audio-editor-*video*.spec.js"
+			],
+			"modules": [
+				"timeline-visual"
+			],
+			"products": [
+				"framescaper",
+				"soundscaper"
+			]
+		},
+		{
+			"files": [
+				"tests/browser/*scape*.spec.js",
+				"tests/browser/*storage*.spec.js",
+				"tests/browser/*recovery*.spec.js",
+				"tests/browser/*transfer*.spec.js"
+			],
+			"modules": [
+				"media",
+				"scape"
+			],
+			"products": [
+				"soundscaper",
+				"framescaper"
+			]
+		},
+		{
+			"files": [
+				"tests/browser/soundscaper-*.spec.js"
+			],
+			"modules": [
+				"soundscaper"
+			],
+			"products": [
+				"soundscaper"
+			]
+		},
+		{
+			"files": [
+				"tests/browser/framescaper-*.spec.js"
+			],
+			"modules": [
+				"framescaper"
+			],
+			"products": [
+				"framescaper"
+			]
+		},
+		{
+			"files": [
+				"tests/browser/audio-editor-*.spec.js"
+			],
+			"modules": [
+				"timeline",
+				"timeline-audio",
+				"foundation",
+				"platform"
+			],
+			"products": [
+				"soundscaper",
+				"framescaper"
+			]
+		},
+		{
+			"files": [
+				"tests/browser/motionscaper-ae-blends.spec.ts",
+				"tests/browser/motionscaper-ae-bridge.spec.ts",
+				"tests/browser/motionscaper-ae-editable-masks.spec.ts",
+				"tests/browser/motionscaper-ae-editable-shapes.spec.ts",
+				"tests/browser/motionscaper-ae-editable-text.spec.ts",
+				"tests/browser/motionscaper-ae-expressions.spec.ts",
+				"tests/browser/motionscaper-ae-gaussian.spec.ts",
+				"tests/browser/motionscaper-ae-render-package.spec.ts",
+				"tests/browser/motionscaper-ae-scenes.spec.ts",
+				"tests/browser/motionscaper-ae-shape-profile.spec.ts",
+				"tests/browser/motionscaper-appearance.spec.ts",
+				"tests/browser/motionscaper-archive-conflicts.spec.ts",
+				"tests/browser/motionscaper-audio-preview.spec.ts",
+				"tests/browser/motionscaper-authoring-workflow.spec.ts",
+				"tests/browser/motionscaper-authoring.spec.ts",
+				"tests/browser/motionscaper-canvas.spec.ts",
+				"tests/browser/motionscaper-clipboard-timing.spec.ts",
+				"tests/browser/motionscaper-compositing-delivery.spec.ts",
+				"tests/browser/motionscaper-compositing.spec.ts",
+				"tests/browser/motionscaper-compositions.spec.ts",
+				"tests/browser/motionscaper-desktop-ae-routing.spec.ts",
+				"tests/browser/motionscaper-desktop-launch.spec.ts",
+				"tests/browser/motionscaper-desktop-locale.spec.ts",
+				"tests/browser/motionscaper-documents.spec.js",
+				"tests/browser/motionscaper-expressions.spec.ts",
+				"tests/browser/motionscaper-file-launch.spec.ts",
+				"tests/browser/motionscaper-graph-keyboard.spec.ts",
+				"tests/browser/motionscaper-layer-lifecycle.spec.ts",
+				"tests/browser/motionscaper-linear-webgl.spec.ts",
+				"tests/browser/motionscaper-link-bridge.spec.ts",
+				"tests/browser/motionscaper-link-picture.spec.ts",
+				"tests/browser/motionscaper-link-storage.spec.ts",
+				"tests/browser/motionscaper-media-dialog.spec.ts",
+				"tests/browser/motionscaper-media-provider.spec.ts",
+				"tests/browser/motionscaper-native-render-dialog.spec.ts",
+				"tests/browser/motionscaper-opaque-archive.spec.ts",
+				"tests/browser/motionscaper-operators.spec.ts",
+				"tests/browser/motionscaper-paths.spec.ts",
+				"tests/browser/motionscaper-platform.spec.ts",
+				"tests/browser/motionscaper-preview-dialog.spec.ts",
+				"tests/browser/motionscaper-preview-worker.spec.ts",
+				"tests/browser/motionscaper-project-lock.spec.ts",
+				"tests/browser/motionscaper-project-release.spec.ts",
+				"tests/browser/motionscaper-properties.spec.ts",
+				"tests/browser/motionscaper-render-dialog.spec.ts",
+				"tests/browser/motionscaper-render-queue.spec.ts",
+				"tests/browser/motionscaper-scene.spec.ts",
+				"tests/browser/motionscaper-script-fonts.spec.ts",
+				"tests/browser/motionscaper-shell.spec.js",
+				"tests/browser/motionscaper-successor-archive-download.spec.ts",
+				"tests/browser/motionscaper-successor-migration.spec.ts",
+				"tests/browser/motionscaper-successor-portable.spec.ts",
+				"tests/browser/motionscaper-successor-thumbnails.spec.ts",
+				"tests/browser/motionscaper-sustained-reference.spec.ts",
+				"tests/browser/motionscaper-timeline.spec.ts",
+				"tests/browser/motionscaper-tracking.spec.ts",
+				"tests/browser/motionscaper-updates.spec.ts",
+				"tests/browser/motionscaper-video-delivery.spec.ts",
+				"tests/browser/motionscaper-work-area.spec.ts"
+			],
+			"modules": [
+				"motionscaper"
+			],
+			"products": [
+				"soundscaper",
+				"framescaper",
+				"motionscaper"
+			]
+		}
+	]
+}

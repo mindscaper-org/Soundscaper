@@ -6,7 +6,7 @@ import { createMotionscaperProjectStore } from '../src/motionscaper/editor-proje
 import { MotionscaperDocumentSession } from '../src/motionscaper/editor-document-session.ts';
 import { createMotionLayer } from '../src/motionscaper/editor-project.ts';
 import { copyMotionscaperLayers, pasteMotionscaperLayers } from '../src/motionscaper/editor-layer-clipboard.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 const settings = { title: 'Source', width: 64, height: 64, durationFrames: 60, frameRate: { num: 30, den: 1 } };
 const bytes = new Uint8Array([1, 2, 3]); const sha256 = digestScapeBytes(bytes);
 const asset = { id: 'image', name: 'Image', kind: 'image' as const, mimeType: 'image/png', sha256, storageKey: `motion-sha256:${sha256}`, byteLength: bytes.byteLength, width: 1, height: 1, hasAlpha: true };

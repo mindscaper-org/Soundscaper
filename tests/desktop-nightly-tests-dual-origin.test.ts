@@ -12,7 +12,6 @@ import {
 } from '../scripts/lib/desktop-nightly-tests-dual-origin.mjs';
 import { runDesktopNightlyTests } from '../scripts/lib/desktop-nightly-tests-runtime.mjs';
 import type { DesktopNightlyTestsPlaywrightPlan } from '../scripts/lib/desktop-nightly-tests-runtime.mjs';
-import { runDualOriginPhaseFixture } from './helpers/nightly-tests-dual-origin-phase.ts';
 import { nightlyProductSitesFixture } from './helpers/nightly-tests-product-sites.ts';
 
 const SOUNDSCAPER_ORIGIN = 'http://127.0.0.1:4332';
@@ -228,7 +227,7 @@ test('dual-origin coverage preserves a primary failure when server shutdown also
 	});
 });
 
-test('the nightly runtime schedules dual-origin coverage before diagnostics', async (context) => {
+test('the nightly runtime runs only GPU, performance, packaged desktop, and real-model phases', async (context) => {
 	const outputRoot = await mkdtemp(join(tmpdir(), 'soundscaper-nightly-runner-'));
 	context.after(() => rm(outputRoot, { recursive: true, force: true }));
 	const plans: DesktopNightlyTestsPlaywrightPlan[] = [];
@@ -243,13 +242,6 @@ test('the nightly runtime schedules dual-origin coverage before diagnostics', as
 		environment: { PATH: '/usr/bin' },
 		sourceRevision: 'b'.repeat(40),
 	}, {
-		runDualOriginPhase: async (options, dependencies) => {
-			assert.deepEqual(options.activeProductOrigins, {
-				soundscaper: 'http://127.0.0.1:47777',
-				framescaper: 'http://127.0.0.1:47778', motionscaper: 'http://127.0.0.1:47779',
-			});
-			return runDualOriginPhaseFixture(options, dependencies);
-		},
 		startProductSites: nightlyProductSitesFixture(47777, () => { closeCalls += 1; }),
 		runPlaywright: async (plan) => {
 			plans.push(plan);
@@ -262,12 +254,12 @@ test('the nightly runtime schedules dual-origin coverage before diagnostics', as
 
 	assert.equal(completed.exitCode, 1);
 	assert.equal(closeCalls, 1);
-	assert.equal(plans.length, 6);
-	assert.match(plans[1]?.args.at(-1) ?? '', /playwright\.nightly-dual-origin\.config\.mjs$/u);
-	assert.match(plans[2]?.args.at(-1) ?? '', /playwright\.nightly-metrics\.config\.mjs$/u);
-	assert.match(plans[3]?.args.at(-1) ?? '', /playwright\.nightly-packaged-metrics\.config\.mjs$/u);
-	assert.match(plans[4]?.args.at(-1) ?? '', /playwright\.nightly-packaged-coverage\.config\.mjs$/u);
-	assert.match(plans[5]?.args.at(-1) ?? '', /playwright\.nightly-local-assistance\.config\.mjs$/u);
+	assert.equal(plans.length, 5);
+	assert.match(plans[0]?.args.at(-1) ?? '', /playwright\.nightly-tests\.config\.mjs$/u);
+	assert.match(plans[1]?.args.at(-1) ?? '', /playwright\.nightly-metrics\.config\.mjs$/u);
+	assert.match(plans[2]?.args.at(-1) ?? '', /playwright\.nightly-packaged-metrics\.config\.mjs$/u);
+	assert.match(plans[3]?.args.at(-1) ?? '', /playwright\.nightly-packaged-coverage\.config\.mjs$/u);
+	assert.match(plans[4]?.args.at(-1) ?? '', /playwright\.nightly-local-assistance\.config\.mjs$/u);
 	assert.equal(
 		JSON.parse(await readFile(join(completed.runRoot, 'run.json'), 'utf8')).status,
 		'failed',

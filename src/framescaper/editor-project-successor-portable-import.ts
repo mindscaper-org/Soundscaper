@@ -3,15 +3,15 @@ import { assertEditorProjectStoreProfile } from '../common/editor/storage/projec
 import { FRAMESCAPER_SUCCESSOR_MEDIA_STORAGE_PROFILE } from './editor-project-successor-runtime-profile.ts';
 import type { AudioEditorProjectStore } from '../common/editor/storage.js';
 import { MotionAssetRepository, type MotionAssetStaging } from '../common/editor/storage/motion-asset-repository.ts';
-import { request, transact } from '../common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../common/media/indexeddb.ts';
 import { createMotionCompositionOffer } from '../common/editor/motion-link-protocol.ts';
 import { createMotionCompositionLinkState } from '../common/editor/motion-link-state.ts';
 import { motionDigest, motionId, motionRecord } from '../common/editor/motion-values.ts';
 import type { ScapeArchiveEnvelope } from '../common/editor/scape-archive-envelope.ts';
 import type { admitFramescaperSuccessorPortableEnvelope } from './editor-project-successor-portable-inspect.ts';
 import type { ScapeProjectInput } from '../common/editor/scape-project-input.ts';
-import { assertScapeArchiveByteSource } from '../common/editor/scape-archive-byte-source.ts';
-import { canonicalMediaContentBlob } from '../common/editor/storage/media-content-digest.ts';
+import { assertScapeArchiveByteSource } from '../common/scape/archive-byte-source.ts';
+import { canonicalMediaContentBlob } from '../common/media/content-digest.ts';
 import { resolveScapeBlobMaximumBytes } from '../common/editor/scape-export-estimate.ts';
 import { digestFramescaperMigrationArchive } from './editor-project-successor-archive.ts';
 import { readFramescaperArchiveCustody, stageFramescaperArchiveCustody, type FramescaperArchiveStage } from './editor-project-successor-archive-custody.ts';

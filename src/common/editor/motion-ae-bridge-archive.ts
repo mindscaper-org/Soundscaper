@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { TextReader, ZipWriter } from '@zip.js/zip.js/index-native.js';
 import { createScapeExportDestination } from './scape-export-destination.ts';
-import { throwIfScapeAborted } from './scape-abort.ts';
+import { throwIfScapeAborted } from '../scape/abort.ts';
 
 /** A bounded script download, containing only the explicit readable source inventory. */
 export async function createMotionAeBridgeArchive(files: Readonly<Record<string, string>>, signal?: AbortSignal): Promise<Blob> {

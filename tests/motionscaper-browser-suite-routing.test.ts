@@ -12,6 +12,16 @@ test('ordinary Motion UI files navigate their own product without changing other
 	assert.equal(resolveBrowserProductBaseURL({ file: 'motionscaper-shell.spec.js', baseURL: 'http://127.0.0.1:4500', environment: { PLAYWRIGHT_PORT: '4500', PLAYWRIGHT_MOTIONSCAPER_PORT: '4508' } }), 'http://127.0.0.1:4508');
 });
 
+test('focused Motion navigation accepts its selected origin and routes from a selected Framescaper default', () => {
+	const file = 'motionscaper-opaque-archive.spec.ts';
+	assert.equal(resolveBrowserProductBaseURL({ file, baseURL: 'http://127.0.0.1:4324',
+		environment: { SCAPE_BROWSER_PRODUCTS: 'motionscaper' } }), 'http://127.0.0.1:4324');
+	assert.equal(resolveBrowserProductBaseURL({ file, baseURL: 'http://127.0.0.1:4323',
+		environment: { SCAPE_BROWSER_PRODUCTS: 'framescaper,motionscaper' } }), 'http://127.0.0.1:4324');
+	assert.throws(() => resolveBrowserProductBaseURL({ file, baseURL: 'http://127.0.0.1:4323',
+		environment: { SCAPE_BROWSER_PRODUCTS: 'framescaper' } }), /Motionscaper.*not selected/u);
+});
+
 test('explicit custom sites and independently configured base URLs retain route authority', () => {
 	for (const baseURL of ['http://127.0.0.1:4345', 'http://127.0.0.1:4335', 'https://example.invalid/editor/', undefined]) {
 		assert.equal(resolveBrowserProductBaseURL({ file: 'motionscaper-successor-shell.spec.ts', baseURL, environment: {} }), baseURL);

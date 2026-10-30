@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { acquireProjectLock } from '../common/editor/project-lock.js';
 import { motionId, motionInteger, motionRecord } from '../common/editor/motion-values.ts';
-import { request, transact } from '../common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../common/media/indexeddb.ts';
 import { MOTIONSCAPER_PROJECT_STORAGE_PROFILE } from './editor-project-storage-profile.ts';
 
 export class MotionProjectConflictError extends Error {

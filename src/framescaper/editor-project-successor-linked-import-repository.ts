@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { createMotionCompositionOffer } from '../common/editor/motion-link-protocol.ts';
 import { createMotionCompositionLinkState } from '../common/editor/motion-link-state.ts';
-import { request, transact } from '../common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../common/media/indexeddb.ts';
 import type { MotionAssetRepository, MotionAssetStaging } from '../common/editor/storage/motion-asset-repository.ts';
 import { importFramescaperLinkedSuccessorArchive, type FramescaperLinkedArchiveImportOptions } from './editor-project-successor-linked-import.ts';
 import { stageFramescaperArchiveCustody, type FramescaperArchiveStage } from './editor-project-successor-archive-custody.ts';

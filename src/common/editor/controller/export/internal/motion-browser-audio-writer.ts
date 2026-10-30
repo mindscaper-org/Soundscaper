@@ -3,7 +3,7 @@ import type { MotionAudioMixBlock } from '../../../motion-audio-contract.ts';
 import { validateMotionAudioWindow } from '../../../motion-audio-contract.ts';
 import { motionVideoAudioBoundary, type MotionVideoAudioDelivery } from '../../../motion-video-delivery.ts';
 import { addRationals, compareRationals, divideRationals, multiplyRationals } from '../../../timeline-time.ts';
-import { throwIfScapeAborted } from '../../../scape-abort.ts';
+import { throwIfScapeAborted } from '../../../../scape/abort.ts';
 import type { MotionRenderPlan } from '../motion-render-pipeline.ts';
 
 /** Authenticate each PCM block and permit at most the upcoming video frame's audio ahead. */

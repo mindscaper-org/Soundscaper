@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { raceAbortableRead } from '../../../abort-race.ts';
+import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 import { inspectMp3GaplessGeometry } from '../../../mp3-gapless-import.ts';
 
 interface Geometry { readonly sampleRate: number; readonly channelCount: number; readonly frameCount: number; readonly decodeSampleRate: number }

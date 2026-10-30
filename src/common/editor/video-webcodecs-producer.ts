@@ -20,7 +20,7 @@
  */
 
 import { normalizeVideoRgbaOutput, videoI420ByteLength, videoRgbaI420Pixels, VIDEO_I420_COLOR_SPACE, type VideoRgbaOutput } from './video-planar-pixels.ts';
-import { raceAbortablePromise } from './abort-race.ts';
+import { raceAbortablePromise } from '../foundation/abort-race.ts';
 import { createVideoElementaryStreamWriter } from './video-elementary-stream.ts';
 import { createVideoAvcColorNormalizer } from './video-avc-color-description.ts';
 

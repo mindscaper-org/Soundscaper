@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, type ClosedDomainRecord } from './closed-domain-value.ts';
+import { readClosedDomainField, type ClosedDomainRecord } from '../foundation/closed-domain-value.ts';
 import { nearlyEqualVideoFfmpegScalar } from './video-ffmpeg-scale-admission.ts';
 
 export type DataRecord = Record<string, unknown>;

@@ -5,7 +5,7 @@ import { basename, dirname, extname, isAbsolute, join } from 'node:path';
 import { normalizeMotionRenderPlan, type MotionRenderPlan } from '../src/common/editor/controller/export/motion-render-pipeline.ts';
 import { motionNativePcmPlan, openMotionNativePcmReader, type MotionNativePcmPlan } from '../src/common/editor/motion-native-pcm-carrier-v1.ts';
 import { openMotionNativeFrameReader } from '../src/common/editor/motion-native-frame-carrier-v1.ts';
-import { createScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { MOTION_DELIVERY_CHUNK_BYTES, MOTION_PRORES_DELIVERY_PROFILE, type MotionDesktopDelivery } from '../src/motionscaper/desktop-delivery-contract.ts';
 import { hashMotionscaperNativeOutput, type MotionNativeEncoder } from './motionscaper-native-executor.ts';
 interface Fingerprint { readonly dev: number; readonly ino: number; readonly size: number; readonly mtimeMs: number; readonly ctimeMs: number }

@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { createMotionscaperDeliveryAuthority } from '../desktop/motionscaper-delivery-authority.ts';
 import { createMotionscaperDesktopProresSink } from '../src/motionscaper/desktop-delivery-adapter.ts';
 import { createMotionSurface } from '../src/common/editor/motion-surface.ts';
-import { createScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { openMotionNativeFrameReader } from '../src/common/editor/motion-native-frame-carrier-v1.ts';
 
 test('native v1 carrier projects rendered picture fields while shutter and lens quality stay pinned in job intent', async () => {

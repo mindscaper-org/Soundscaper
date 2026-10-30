@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { digestScapeBytes } from '../common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../common/media/bytes.ts';
 import { freezeMotionValue, motionDigest, motionId, motionRecord } from '../common/editor/motion-values.ts';
 import { normalizeFramescaperSuccessorProject, type FramescaperSuccessorProject } from './editor-project-successor.ts';
 import { createFramescaperSuccessorHistory, normalizeFramescaperSuccessorHistory, type FramescaperSuccessorHistory } from './editor-project-successor-history.ts';

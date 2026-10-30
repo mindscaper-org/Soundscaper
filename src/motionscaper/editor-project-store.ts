@@ -6,7 +6,7 @@ import { motionDigest, motionId, motionInteger, motionRecord, motionString } fro
 import { openMotionProjectDatabase } from '../common/editor/storage/motion-project-database.ts';
 import { reclaimExpiredMotionStaging } from '../common/editor/storage/motion-asset-staging.ts';
 import { MotionAssetRepository, type MotionAssetStaging } from '../common/editor/storage/motion-asset-repository.ts';
-import { request, transact } from '../common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../common/media/indexeddb.ts';
 import { editorProjectStorageProfileNames } from '../common/editor/storage/project-storage-profile.ts';
 import { bindEditorProjectStoreProfile } from '../common/editor/storage/project-store-profile-binding.ts';
 import { MOTIONSCAPER_PROJECT_STORAGE_PROFILE } from './editor-project-storage-profile.ts';

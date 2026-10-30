@@ -1,16 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { throwIfScapeAborted } from './scape-abort.ts';
+import { throwIfScapeAborted } from '../scape/abort.ts';
 import {
 	assertScapeArchiveByteSource,
 	createBlobScapeArchiveByteSource,
 	type ScapeArchiveByteSource,
-} from './scape-archive-byte-source.ts';
-import {
-	readScapeArchiveEnvelope,
-	type ScapeArchiveLimits,
-} from './scape-archive-envelope.ts';
-import { verifyScapeAssetBytes } from './scape-archive-media.ts';
+} from '../scape/archive-byte-source.ts';
+import { readScapeArchiveEnvelope } from './scape-archive-envelope.ts';
+import { type ScapeArchiveLimits } from '../scape/archive-limits.ts';
+import { verifyScapeAssetBytes } from '../scape/asset-bytes.ts';
 import {
 	classifyProjectSchemaIdentity,
 	type ProjectSchemaFamily,

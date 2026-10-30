@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { createFramescaperBaselineImageFixture } from './helpers/framescaper-baseline-image-fixture.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { createMotionCompositionOffer } from '../src/common/editor/motion-link-protocol.ts';
 import { createMotionscaperRevision } from '../src/common/editor/motion-project-revision.ts';
 import { createMotionscaperProject } from '../src/motionscaper/editor-project.ts';

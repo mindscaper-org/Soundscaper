@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { normalizeMotionAudioFormat, validateMotionAudioWindow } from '../../../motion-audio-contract.ts';
 import { addRationals, compareRationals, divideRationals, multiplyRationals } from '../../../timeline-time.ts';
-import { throwIfScapeAborted } from '../../../scape-abort.ts';
+import { throwIfScapeAborted } from '../../../../scape/abort.ts';
 import type { MotionRenderLease, MotionRenderPlan, MotionRenderSink } from '../motion-render-pipeline.ts';
 
 /** One bounded PCM block at a time. Cumulative ceilings cannot accumulate frame rounding drift. */

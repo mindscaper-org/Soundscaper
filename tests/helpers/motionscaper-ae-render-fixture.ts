@@ -2,7 +2,7 @@
 import { createMotionLayer, createMotionscaperProject } from '../../src/motionscaper/editor-project.ts';
 import { motionColor, motionScalar, motionVector } from '../../src/common/editor/motion-property.ts';
 import { normalizeMotionscaperProject } from '../../src/motionscaper/editor-project-validation.ts';
-import { digestScapeBytes } from '../../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../../src/common/media/bytes.ts';
 export function motionAeRenderFixture(durationFrames = 3) {
 	const base = createMotionscaperProject({ id: `render-source-${durationFrames}`, title: 'Full rendered source', compositionId: 'main', width: 64, height: 32, frameRate: { num: 30000, den: 1001 }, durationFrames });
 	const card = createMotionLayer({ id: 'card', name: 'Animated depth card', durationFrames, content: { kind: 'solid', color: motionColor([1, 0.1, 0, 0.5]), size: motionVector([8, 8]) } });

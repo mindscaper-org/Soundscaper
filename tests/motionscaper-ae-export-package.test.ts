@@ -6,7 +6,7 @@ import { createMotionscaperProject } from '../src/motionscaper/editor-project.ts
 import { prepareMotionscaperAeExport } from '../src/motionscaper/editor-ae-export-conversion.ts';
 import { createMotionscaperAeExportPackage } from '../src/motionscaper/editor-ae-export-package.ts';
 import { importMotionscaperArchive } from '../src/motionscaper/editor-scape.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import type { MotionAsset } from '../src/common/editor/motion-asset.ts';
 const body = new Uint8Array([1, 2, 3, 4]), digest = digestScapeBytes(body);
 const base = { byteLength: 4, sha256: digest, storageKey: `motion-sha256:${digest}` };

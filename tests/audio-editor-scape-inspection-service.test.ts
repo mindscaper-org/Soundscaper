@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { EditorControllerLifetime } from '../src/common/editor/controller/shared/lifecycle.ts';
-import { throwIfScapeAborted } from '../src/common/editor/scape-abort.ts';
+import { throwIfScapeAborted } from '../src/common/scape/abort.ts';
 import {
 	SCAPE_INSPECTION_TASK,
 	createScapeInspectionService,

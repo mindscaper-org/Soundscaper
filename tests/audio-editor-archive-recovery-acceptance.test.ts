@@ -16,7 +16,7 @@ import { createConsolidatePlan } from '../src/common/editor/consolidate-plan.ts'
 import { runConsolidate } from '../src/common/editor/consolidate-operation.ts';
 import { createTrimMediaPlan } from '../src/common/editor/trim-media-plan.ts';
 import { runTrimMedia } from '../src/common/editor/trim-media-operation.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 
 const ORIGINAL = Uint8Array.from({ length: 256 }, (_value, index) => index);
 const DIGEST = digestScapeBytes(ORIGINAL);

@@ -12,13 +12,14 @@ import test from 'node:test';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 
-import type { ScapeArchiveEntry, ScapeAssetDescriptor, ScapeManifest } from '../src/common/editor/scape-archive-envelope.ts';
+import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../src/common/scape/archive-envelope.ts';
+import type { ScapeManifest } from '../src/common/editor/scape-archive-envelope.ts';
 import { SCAPE_VIDEO_MAXIMUM_CHUNK_BYTES } from '../src/common/editor/scape-archive-video.ts';
-import { ScapeExpandedByteBudget } from '../src/common/editor/scape-expanded-byte-budget.ts';
+import { ScapeExpandedByteBudget } from '../src/common/scape/expanded-byte-budget.ts';
 import type { ScapeImportStore, ScapeImportTransaction } from '../src/common/editor/scape-import-transaction.ts';
 import type { ScapeProjectAssetExtensionImportRequest } from '../src/common/editor/scape-project-asset-extension.ts';
 import type { OwnedMediaAssetPublication } from '../src/common/editor/storage/media-asset-write-contract.ts';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { videoMotionSettingsSha256V1 } from '../src/common/editor/video-motion-analysis-v27.ts';
 import type { VideoMotionAnalysisReferenceV1, VideoProcessorStackV1 } from '../src/common/editor/video-motion-model-v27.ts';
 import { createVideoTimingAssetPublication } from '../src/common/editor/video-timing-asset.ts';

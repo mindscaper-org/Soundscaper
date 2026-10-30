@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { ReviewedImageFormat } from './image-format-signature.ts';
-import { admitImageDecodeWorkload } from './image-import-admission.ts';
+import type { ReviewedImageFormat } from '../imaging/image-format-signature.ts';
+import { admitImageDecodeWorkload } from '../imaging/image-import-admission.ts';
 
 interface EncodedCanvas {
 	readonly width: number;

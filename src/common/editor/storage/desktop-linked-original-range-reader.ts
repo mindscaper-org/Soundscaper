@@ -4,8 +4,8 @@ import type {
 	DesktopReadFetch,
 	DesktopReadResponse,
 } from '../desktop-read-materialization.ts';
-import { throwIfAborted } from '../abort-error.ts';
-import { MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from './media-content-digest.ts';
+import { throwIfAborted } from '../../foundation/abort-error.ts';
+import { MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../../media/content-digest.ts';
 
 export const DESKTOP_LINKED_ORIGINAL_RANGE_MAXIMUM_BYTES = MEDIA_CONTENT_DIGEST_CHUNK_BYTES;
 

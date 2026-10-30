@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { compareCodeUnits } from '../../../../code-unit-order.ts';
-import { digestScapeBytes } from '../../../../scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../../../../../media/bytes.ts';
 import type { TakeCycleRecoveryEnvelope } from '../../../../take-cycle-recovery-envelope.ts';
 import type { TakeCycleCaptureDraft } from './take-cycle-capture-spool.ts';
 import type { TakeCycleCapturingSpoolEvidence } from './take-cycle-live-capture-spool.ts';

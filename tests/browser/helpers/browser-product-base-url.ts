@@ -28,10 +28,9 @@ export function resolveBrowserProductBaseURL({
 	}
 	if (environment.SCAPE_BROWSER_COVERAGE_SITES) return baseURL;
 	const plan = ordinaryBrowserProductSitePlan(environment);
-	const soundscaper = plan.sites.find(site => site.productId === 'soundscaper');
 	const motionscaper = plan.sites.find(site => site.productId === 'motionscaper');
-	if (!soundscaper || !motionscaper) throw new Error('Ordinary browser sites must include Soundscaper and Motionscaper.');
-	return baseURL === soundscaper.origin ? motionscaper.origin : baseURL;
+	if (!motionscaper) throw new Error('Motionscaper browser product is not selected.');
+	return baseURL === plan.sites[0]?.origin ? motionscaper.origin : baseURL;
 }
 
 /** A rehosted fixture replaces only the portable collector's site authority. */

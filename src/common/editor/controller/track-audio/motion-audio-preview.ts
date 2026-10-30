@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { raceAbortableRead } from '../../abort-race.ts';
+import { raceAbortableRead } from '../../../foundation/abort-race.ts';
 import type { MotionAudioMixBlock, MotionAudioMixer } from '../../motion-audio-contract.ts';
 import { addRationals, compareRationals, divideRationals, multiplyRationals, normalizeRational, roundRational, subtractRationals, type Rational, type RationalInput } from '../../timeline-time.ts';
 import { motionInteger } from '../../motion-values.ts';

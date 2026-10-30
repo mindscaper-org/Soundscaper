@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { inspectMotionscaperOpaqueArchive, saveMotionscaperOpaqueCopy } from '../src/motionscaper/editor-opaque-archive.ts';
 import { openMotionscaperDesktopProject } from '../src/motionscaper/editor-document-desktop.ts';
 import { createMotionscaperFileAuthority } from '../desktop/motionscaper-file-authority.ts';
-import { createScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { MotionscaperDocumentSession } from '../src/motionscaper/editor-document-session.ts';
 import { createMotionscaperProjectStore } from '../src/motionscaper/editor-project-store.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';

@@ -4,7 +4,7 @@ import test from 'node:test';
 import { createMotionscaperDesktopProresSink, motionscaperDesktopDelivery } from '../src/motionscaper/desktop-delivery-adapter.ts';
 import { MOTION_PRORES_DELIVERY_PROFILE, type MotionDesktopDelivery } from '../src/motionscaper/desktop-delivery-contract.ts';
 import { createMotionSurface } from '../src/common/editor/motion-surface.ts';
-import { createScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { openMotionNativeFrameReader } from '../src/common/editor/motion-native-frame-carrier-v1.ts';
 import { dispatchMotionscaperDeliveryCall } from '../desktop/motionscaper-delivery-ipc.ts';
 const plan = { identity: { projectId: 'p', revisionDigest: 'a'.repeat(64), compositionId: 'c' }, width: 2, height: 1,

@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createMotionscaperFileAuthority } from '../desktop/motionscaper-file-authority.ts';
 import { motionLaunchPaths } from '../desktop/motionscaper-launch-authority.ts';
-import { createScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { ACCEPTED_PROJECT_FILE_EXTENSIONS } from '../src/common/project-file-extensions.ts';
 import { selectMotionscaperDesktopArchive, type MotionDesktopArchiveInput } from '../src/motionscaper/desktop-file-adapter.ts';
 import { takeMotionscaperDesktopLaunch } from '../src/motionscaper/desktop-launch-adapter.ts';

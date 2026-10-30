@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { createBlobScapeArchiveByteSource, createScapeArchiveByteSource, assertScapeArchiveByteSource, readScapeArchiveByteRange, type ScapeArchiveByteSource } from '../common/editor/scape-archive-byte-source.ts';
+import { createBlobScapeArchiveByteSource, createScapeArchiveByteSource, assertScapeArchiveByteSource, readScapeArchiveByteRange, type ScapeArchiveByteSource } from '../common/scape/archive-byte-source.ts';
 import type { ScapeProjectInput } from '../common/editor/scape-project-input.ts';
-import { createScapeDigest, digestScapeBytes, scapeHex } from '../common/editor/scape-archive-media.ts';
-import { deleteByIndex, readCursorPage, request, transact } from '../common/editor/storage/indexeddb-backend.ts';
+import { createDigest as createScapeDigest, digestBytes as digestScapeBytes, hex as scapeHex } from '../common/media/bytes.ts';
+import { deleteByIndex, readCursorPage, request, transact } from '../common/media/indexeddb.ts';
 import { motionDigest, motionInteger, motionRecord } from '../common/editor/motion-values.ts';
 import { openFramescaperSuccessorDatabase } from './editor-project-successor-database.ts';
 import { FRAMESCAPER_ARCHIVE_CHUNK_BYTES, FRAMESCAPER_ARCHIVE_STORES, framescaperArchiveToken, normalizeFramescaperArchiveReference, type FramescaperArchiveReference } from './editor-project-successor-archive-record.ts';

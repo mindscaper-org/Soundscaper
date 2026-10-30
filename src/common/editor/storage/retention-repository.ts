@@ -7,7 +7,7 @@ import {
 	DERIVATIVE_CACHE_ENTRY_STORE_NAME,
 	VIDEO_DERIVATIVE_STORE_NAME,
 } from './derivative-cache-entry.ts';
-import { deleteByIndex, request, transact } from './indexeddb-backend.ts';
+import { deleteByIndex, request, transact } from '../../media/indexeddb.ts';
 import {
 	MEDIA_ASSET_CHUNK_STORE_NAME,
 } from './media-asset-chunk-schema.ts';

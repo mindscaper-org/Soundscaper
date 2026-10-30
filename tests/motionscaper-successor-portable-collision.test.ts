@@ -10,11 +10,11 @@ import { createFramescaperSuccessorRuntime } from '../src/framescaper/editor-pro
 import { exportFramescaperSuccessorPortableArchive } from '../src/framescaper/editor-project-successor-portable-export.ts';
 import { importFramescaperSuccessorPortableArchive, loadFramescaperSuccessorPortableCustody } from '../src/framescaper/editor-project-successor-portable-import.ts';
 import type { FramescaperSuccessorEnvironment } from '../src/framescaper/editor-project-successor-environment.ts';
-import { request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { openFramescaperSuccessorDatabase } from '../src/framescaper/editor-project-successor-database.ts';
 import { framescaperSuccessorBaselineProject } from '../src/framescaper/editor-project-successor-commands.ts';
 import { BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js/index-native.js';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 
 async function fixture(originalText = 'first original') {
 	const image = createFramescaperBaselineImageFixture({ originalText });

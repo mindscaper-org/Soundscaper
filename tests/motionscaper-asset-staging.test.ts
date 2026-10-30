@@ -3,10 +3,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { MotionAssetRepository } from '../src/common/editor/storage/motion-asset-repository.ts';
 import { openMotionProjectDatabase } from '../src/common/editor/storage/motion-project-database.ts';
-import { request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { createMotionscaperProjectStore } from '../src/motionscaper/editor-project-store.ts';
 
 const databaseName = 'kw-media-motionscaper-editor-v1';

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createScapeDigest, digestScapeBytes, scapeHex } from './scape-archive-media.ts';
+import { createDigest as createScapeDigest, digestBytes as digestScapeBytes, hex as scapeHex } from '../media/bytes.ts';
 import { portableFileStem } from './portable-file-stem.ts';
 
 /**

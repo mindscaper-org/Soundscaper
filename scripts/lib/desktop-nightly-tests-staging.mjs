@@ -63,7 +63,6 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	{ source: 'scripts/lib/desktop-nightly-tests-child-bootstrap.mjs', destination: 'scripts/lib/desktop-nightly-tests-child-bootstrap.mjs', kind: 'file', label: 'nightly Playwright cancellation transport' },
 	{ source: 'scripts/lib/desktop-nightly-tests-progress-reporter.mjs', destination: 'scripts/lib/desktop-nightly-tests-progress-reporter.mjs', kind: 'file', label: 'nightly Playwright item progress reporter' },
 	{ source: 'scripts/lib/desktop-nightly-tests-phases.mjs', destination: 'scripts/lib/desktop-nightly-tests-phases.mjs', kind: 'file', label: 'serial nightly test phases' },
-	{ source: 'scripts/lib/desktop-nightly-tests-dual-origin.mjs', destination: 'scripts/lib/desktop-nightly-tests-dual-origin.mjs', kind: 'file', label: 'nightly dual-origin browser coverage phase' },
 	{ source: 'scripts/lib/pages-site-static-server.mjs', destination: 'scripts/lib/pages-site-static-server.mjs', kind: 'file', label: 'Pages-compatible nightly product server' },
 	{ source: 'scripts/lib/product-web-routing.mjs', destination: 'scripts/lib/product-web-routing.mjs', kind: 'file', label: 'Pages routing policy reader' },
 	{ source: 'scripts/lib/build-worker-chunk-groups.mjs', destination: 'scripts/lib/build-worker-chunk-groups.mjs', kind: 'file', label: 'production worker chunk ownership for browser fixtures' },
@@ -133,7 +132,6 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	{ source: 'config/accessibility-wcag-baseline.json', destination: 'config/accessibility-wcag-baseline.json', kind: 'file', label: 'WCAG 2.2 AA baseline' },
 	{ source: 'config/quality-budgets.json', destination: 'config/quality-budgets.json', kind: 'file', label: 'quality budget register' },
 	{ source: 'playwright.nightly-metrics.config.mjs', destination: 'playwright.nightly-metrics.config.mjs', kind: 'file', label: 'nightly metrics Playwright config' },
-	{ source: 'playwright.nightly-dual-origin.config.mjs', destination: 'playwright.nightly-dual-origin.config.mjs', kind: 'file', label: 'nightly dual-origin coverage Playwright config' },
 	{ source: 'playwright.nightly-packaged-coverage.config.mjs', destination: 'playwright.nightly-packaged-coverage.config.mjs', kind: 'file', label: 'nightly packaged-runtime coverage Playwright config' },
 	{ source: 'playwright.nightly-packaged-metrics.config.mjs', destination: 'playwright.nightly-packaged-metrics.config.mjs', kind: 'file', label: 'nightly packaged-runtime Playwright config' },
 	{ source: 'playwright.nightly-local-assistance.config.mjs', destination: 'playwright.nightly-local-assistance.config.mjs', kind: 'file', label: 'real model Electron test config' },
@@ -239,7 +237,6 @@ export async function stageDesktopNightlyTests({
 			'node_modules',
 			'package.json',
 			'playwright.nightly-metrics.config.mjs',
-			'playwright.nightly-dual-origin.config.mjs',
 			'playwright.nightly-packaged-coverage.config.mjs',
 			'playwright.nightly-packaged-metrics.config.mjs',
 			'playwright.nightly-local-assistance.config.mjs',
@@ -335,8 +332,6 @@ async function validateBrowserCache(root, browserRoot) {
 	const records = new Map(registry.browsers.map((browser) => [browser.name, browser]));
 	const requirements = [
 		['chromium', 'chromium'],
-		['firefox', 'firefox'],
-		['webkit', 'webkit'],
 		['ffmpeg', 'ffmpeg'],
 	];
 	const entries = (await readdir(browserRoot, { withFileTypes: true }))

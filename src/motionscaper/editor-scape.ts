@@ -6,15 +6,12 @@ import type { MotionAsset } from '../common/editor/motion-asset.ts';
 import type { MotionAssetBody } from '../common/editor/motion-asset-body.ts';
 import {
 	aggregateScapeErrors, throwIfScapeAborted,
-} from '../common/editor/scape-abort.ts';
-import {
-	readScapeArchiveEnvelope, SCAPE_ARCHIVE_LIMITS, SCAPE_FORMAT, SCAPE_FORMAT_VERSION,
-	SCAPE_MANIFEST_ENTRY, SCAPE_PROJECT_ENTRY, type ScapeManifest,
-} from '../common/editor/scape-archive-envelope.ts';
-import {
-	createScapeDigest, digestScapeBytes, scapeBytesStream,
-	scapeHashingStream, scapeHex, verifyScapeAssetBytes,
-} from '../common/editor/scape-archive-media.ts';
+} from '../common/scape/abort.ts';
+import { readScapeArchiveEnvelope, type ScapeManifest } from '../common/editor/scape-archive-envelope.ts';
+import { SCAPE_ARCHIVE_LIMITS } from '../common/scape/archive-limits.ts';
+import { SCAPE_FORMAT, SCAPE_FORMAT_VERSION, SCAPE_MANIFEST_ENTRY, SCAPE_PROJECT_ENTRY } from '../common/scape/archive-envelope.ts';
+import { createDigest as createScapeDigest, digestBytes as digestScapeBytes, bytesStream as scapeBytesStream, hex as scapeHex } from '../common/media/bytes.ts';
+import { scapeHashingStream, verifyScapeAssetBytes } from '../common/scape/asset-bytes.ts';
 import { createScapeExportDestination } from '../common/editor/scape-export-destination.ts';
 import { maximumScapeStoreArchiveBytes, resolveScapeBlobMaximumBytes } from '../common/editor/scape-export-estimate.ts';
 import { SCAPE_MIME_TYPE } from '../common/editor/scape-project-format.ts';

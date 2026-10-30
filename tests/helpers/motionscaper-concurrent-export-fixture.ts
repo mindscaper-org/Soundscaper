@@ -3,7 +3,7 @@ import CanvasKitInit from 'canvaskit-wasm';
 import { createMotionscaperProject, createMotionLayer } from '../../src/motionscaper/editor-project.ts';
 import { createMotionscaperRevision } from '../../src/common/editor/motion-project-revision.ts';
 import { motionScalar } from '../../src/common/editor/motion-property.ts';
-import { digestScapeBytes } from '../../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../../src/common/media/bytes.ts';
 import { exportMotionscaperArchive } from '../../src/motionscaper/editor-scape.ts';
 import { motionWavFixture } from '../../scripts/lib/motionscaper-qualification-media.ts';
 

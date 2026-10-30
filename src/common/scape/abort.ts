@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { raceAbortableRead } from './abort-race.ts';
+import { raceAbortableRead } from '../foundation/abort-race.ts';
 
 const NORMALIZED_ABORT_REASONS = new WeakMap<DOMException, unknown>();
 const NORMALIZED_ABORT_ERRORS = new WeakMap<AbortSignal, DOMException>();

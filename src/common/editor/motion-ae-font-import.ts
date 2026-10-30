@@ -3,7 +3,7 @@ import type { MotionAeExchange } from './motion-ae-exchange-types.ts';
 import type { prepareMotionFont } from './motion-font-import.ts';
 import { motionAeTextFontNames } from './motion-ae-text-font-references.ts';
 import { motionString } from './motion-values.ts';
-import { throwIfScapeAborted } from './scape-abort.ts';
+import { throwIfScapeAborted } from '../scape/abort.ts';
 export interface MotionAeSelectedFont { readonly postScriptName: string; readonly file: Blob; readonly name: string; readonly style: string }
 export type MotionAeFontDecoder = (file: Blob, options: Readonly<{ id: string; name: string; style: string }>, signal?: AbortSignal) => ReturnType<typeof prepareMotionFont>;
 /** Admission precedes any decoding; caller adds these bytes to the shared transfer budget. */

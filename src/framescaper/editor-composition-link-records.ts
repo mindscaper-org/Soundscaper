@@ -3,7 +3,7 @@ import { normalizeMotionCompositionLinkState, type MotionCompositionLinkState } 
 import { verifyMotionscaperRevision, type MotionscaperRevision } from '../common/editor/motion-project-revision.ts';
 import type { MotionCompositionOffer } from '../common/editor/motion-link-protocol.ts';
 import { motionDigest, motionId, motionRecord } from '../common/editor/motion-values.ts';
-import { request } from '../common/editor/storage/indexeddb-backend.ts';
+import { request } from '../common/media/indexeddb.ts';
 import type { MotionAssetRepository } from '../common/editor/storage/motion-asset-repository.ts';
 
 export type FramescaperLinkStores = Readonly<Record<string, IDBObjectStore>>;

@@ -2,9 +2,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
-import { request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
-import { createScapeArchiveByteSource, createBlobScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
+import { createScapeArchiveByteSource, createBlobScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { openFramescaperSuccessorDatabase } from '../src/framescaper/editor-project-successor-database.ts';
 import { stageFramescaperArchiveCustody, readFramescaperArchiveCustody, reclaimFramescaperArchiveStaging } from '../src/framescaper/editor-project-successor-archive-custody.ts';
 import { FRAMESCAPER_ARCHIVE_STORES, FRAMESCAPER_ARCHIVE_CHUNK_BYTES } from '../src/framescaper/editor-project-successor-archive-record.ts';

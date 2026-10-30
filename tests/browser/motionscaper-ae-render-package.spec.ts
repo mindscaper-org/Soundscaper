@@ -8,7 +8,7 @@ import { motionAeRenderFixture } from '../helpers/motionscaper-ae-render-fixture
 import { exportMotionscaperArchive, importMotionscaperArchive } from '../../src/motionscaper/editor-scape.ts';
 import { prepareMotionAeHostImport } from '../../src/common/editor/motion-ae-host-import-plan.ts';
 import { createMotionscaperRevision } from '../../src/motionscaper/editor-project-revision.ts';
-import { digestScapeBytes } from '../../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../../src/common/media/bytes.ts';
 import type { MotionAeExchange } from '../../src/common/editor/motion-ae-exchange-types.ts';
 test.use({ baseURL: ordinaryBrowserProductSitePlan().sites[2]!.origin });
 async function menu(page: Page, command: string): Promise<void> { await page.getByRole('menuitem', { name: 'File', exact: true }).click(); await page.getByRole('menuitem', { name: command, exact: true }).click(); }

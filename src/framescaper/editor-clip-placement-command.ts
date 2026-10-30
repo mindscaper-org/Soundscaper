@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainRecord } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainRecord } from '../common/foundation/closed-domain-value.ts';
 
 export type FramescaperClipCommandPlacement =
 	| Readonly<{ readonly scope: 'timeline'; readonly trackId: string }>

@@ -4,7 +4,7 @@ import { createMotionFontProviderOwner } from '../../motion-canvaskit-font-owner
 import type { MotionRasterRuntime } from '../../motion-canvaskit-browser.ts';
 import type { MotionRasterResources, CanvasKitMotionRasterizer } from '../../motion-canvaskit-rasterizer.ts';
 import { createCanvasKitMotionRasterizer } from '../../motion-canvaskit-rasterizer.ts';
-import { raceAbortableRead } from '../../abort-race.ts';
+import { raceAbortableRead } from '../../../foundation/abort-race.ts';
 
 /** A failed load may be retried; one cancelled consumer does not terminate another consumer's WASM. */
 export function createMotionRasterRuntimeLoader(initialize: () => Promise<MotionRasterRuntime>): (signal?: AbortSignal) => Promise<MotionRasterRuntime> {

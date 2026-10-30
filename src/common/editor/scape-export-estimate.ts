@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { SCAPE_ARCHIVE_LIMITS } from './scape-archive-envelope.ts';
-import { maximumScapeStoreCentralDirectoryBytes } from './scape-archive-zip-profile.ts';
+import { SCAPE_ARCHIVE_LIMITS } from '../scape/archive-limits.ts';
+import { maximumScapeStoreCentralDirectoryBytes } from '../scape/archive-zip-profile.ts';
 
 const TEXT_ENCODER = new TextEncoder();
 const MAXIMUM_SAFE_BYTES = BigInt(Number.MAX_SAFE_INTEGER);

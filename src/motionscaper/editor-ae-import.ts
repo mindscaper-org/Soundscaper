@@ -9,8 +9,8 @@ import type { MotionAeGaussianReview } from '../common/editor/motion-ae-gaussian
 import type { MotionAeExpressionReview } from '../common/editor/motion-ae-expression-conversion.ts';
 import type { MotionAeFontBinding } from '../common/editor/motion-ae-text-fonts.ts';
 import type { MotionImportedMedia, prepareMotionMedia } from '../common/editor/motion-media-import.ts';
-import { createScapeDigest, scapeHex } from '../common/editor/scape-archive-media.ts';
-import { aggregateScapeErrors, throwIfScapeAborted } from '../common/editor/scape-abort.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../common/media/bytes.ts';
+import { aggregateScapeErrors, throwIfScapeAborted } from '../common/scape/abort.ts';
 import { freezeMotionValue } from '../common/editor/motion-values.ts';
 import { convertMotionscaperAeExchange, type MotionscaperAeConversion } from './editor-ae-conversion.ts';
 import type { MotionArchiveImportTransaction } from './editor-scape.ts';

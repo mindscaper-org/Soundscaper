@@ -9,6 +9,7 @@ const sharedFramescaperRuntimeModules = [
 	'editor-project-repository',
 	'editor-project-store',
 	'editor-project-runtime-selection',
+	'editor-session-clipboard-image-attachments',
 	'editor-project-playback-projection',
 	'editor-project-playback-retime',
 	'editor-project-playback-admission',

@@ -4,7 +4,7 @@ import { openFramescaperSuccessorDatabase } from './editor-project-successor-dat
 import { inspectFramescaperMigrationArchive, type FramescaperMigrationRecord } from './editor-project-successor-archive.ts';
 import { readFramescaperArchiveCustody, reclaimFramescaperArchiveStaging, stageFramescaperArchiveCustody, type FramescaperArchiveStage } from './editor-project-successor-archive-custody.ts';
 import { FRAMESCAPER_ARCHIVE_STORES, assertFramescaperArchiveCustody, type FramescaperArchiveReference } from './editor-project-successor-archive-record.ts';
-import { request, transact } from '../common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../common/media/indexeddb.ts';
 import { motionDigest, motionId, motionRecord } from '../common/editor/motion-values.ts';
 
 export interface FramescaperSuccessorRepository {

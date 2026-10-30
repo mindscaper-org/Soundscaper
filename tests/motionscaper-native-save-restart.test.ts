@@ -13,7 +13,7 @@ import { openMotionscaperDesktopProject, writeMotionscaperDesktopProject } from 
 import { exportMotionscaperArchive } from '../src/motionscaper/editor-scape.ts';
 import type { MotionscaperDocumentOpen } from '../src/motionscaper/editor-document-open.ts';
 import { openMotionProjectDatabase } from '../src/common/editor/storage/motion-project-database.ts';
-import { request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { beginMotionscaperDesktopSave } from '../src/motionscaper/desktop-file-adapter.ts';
 import { readMotionSaveJournal } from '../desktop/motion-save-publication-journal.ts';
 import { createMotionscaperOpaqueArchive } from './helpers/motionscaper-opaque-archive.ts';

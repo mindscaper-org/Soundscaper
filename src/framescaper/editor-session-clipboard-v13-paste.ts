@@ -2,7 +2,7 @@
 
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
 import { normalizeAudioEditorClipboardDescriptor } from '../common/editor/commands/clipboard-codec.ts';
-import { canonicalMediaContentBlob } from '../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../common/media/content-digest.ts';
 import {
 	MEDIA_ASSET_STREAM_CHUNK_BYTES,
 	type OwnedMediaAssetPublication,

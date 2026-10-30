@@ -3,7 +3,7 @@ import { MOTION_ARCHIVE_ASSET_KINDS } from '../common/editor/motion-archive-cont
 import { classifyProjectSchemaIdentity, type ProjectSchemaIdentity } from '../common/editor/project-schema-identity.ts';
 import { copyFutureScapeArchive, type ScapeArchiveCopyResult } from '../common/editor/scape-archive-copy.ts';
 import { readScapeArchiveEnvelope } from '../common/editor/scape-archive-envelope.ts';
-import { verifyScapeAssetBytes } from '../common/editor/scape-archive-media.ts';
+import { verifyScapeAssetBytes } from '../common/scape/asset-bytes.ts';
 import { parseOpaqueScapeProjectDocument } from '../common/editor/scape-project-document.ts';
 import { withScapeProjectInput, type ScapeProjectInput } from '../common/editor/scape-project-input.ts';
 import { beginMotionscaperDesktopSave, motionscaperDesktopFiles } from './desktop-file-adapter.ts';

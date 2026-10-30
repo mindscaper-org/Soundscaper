@@ -11,22 +11,22 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from './closed-domain-value.ts';
-import { applyVideoColorGradeChannels } from './video-color-grade-channels.ts';
+} from '../foundation/closed-domain-value.ts';
+import { applyLinearColorGradeChannels } from '../imaging/linear-color-grade.ts';
 import {
 	requireCubeLutBody,
 	sampleCubeLut,
 	VIDEO_COLOR_LIMITS_V1,
 	type ParsedCubeLutV1,
 	type VideoCubeLutReferenceV1,
-} from './video-color-cube-lut-v27.ts';
+} from '../imaging/cube-lut-v1.ts';
 
 export {
 	parseCubeLutV1,
 	VIDEO_COLOR_LIMITS_V1,
 	type ParsedCubeLutV1,
 	type VideoCubeLutReferenceV1,
-} from './video-color-cube-lut-v27.ts';
+} from '../imaging/cube-lut-v1.ts';
 
 export type VideoSourceColorPrimariesV1 = 'srgb' | 'bt709' | 'display-p3' | 'bt2020' | 'unknown';
 export type VideoSourceColorTransferV1 = 'srgb' | 'bt709' | 'pq' | 'hlg' | 'unknown';
@@ -411,7 +411,7 @@ function applyGrade(
 	grade: VideoColorGradeV1,
 	lut: ParsedCubeLutV1 | null,
 ): number[] {
-	const linear = applyVideoColorGradeChannels(linearValue, grade);
+	const linear = applyLinearColorGradeChannels(linearValue, grade);
 	return lut ? sampleCubeLut(lut, linear) : linear;
 }
 

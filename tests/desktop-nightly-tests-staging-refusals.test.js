@@ -38,7 +38,7 @@ test('nightly test staging rejects symlinked repository content and escaping bro
 		await rm(entry);
 		await writeFile(entry, '<p>inside</p>');
 	}
-	await symlink(outside, join(fixture.browserSourceRoot, 'firefox-102/escape'));
+	await symlink(outside, join(fixture.browserSourceRoot, 'chromium-101/escape'));
 	await assert.rejects(
 		() => stageDesktopNightlyTests({
 			repositoryRoot: fixture.repositoryRoot,
@@ -90,12 +90,12 @@ test('read-only browser packaging checks share one staged default payload', asyn
 	});
 
 	await context.test('nightly test staging drops browser links that packaging cannot materialize', async () => {
-		const framework = join(fixture.outputRoot, '.local-browsers/webkit-103/WebKit.framework');
+		const framework = join(fixture.outputRoot, '.local-browsers/chromium-101/WebKit.framework');
 		for (const kept of ['WebKit', 'Resources', 'Versions/Current']) {
 			assert.equal((await lstat(join(framework, kept))).isSymbolicLink(), true, kept);
 		}
 		assert.equal(
-			(await lstat(join(fixture.outputRoot, '.local-browsers/webkit-103/libalias'))).isSymbolicLink(),
+			(await lstat(join(fixture.outputRoot, '.local-browsers/chromium-101/libalias'))).isSymbolicLink(),
 			true,
 		);
 		for (const dropped of ['Frameworks', 'Modules']) {
@@ -107,7 +107,7 @@ test('read-only browser packaging checks share one staged default payload', asyn
 
 	await context.test('nightly test staging drops framework headers no packaged browser reads', async () => {
 		const browsers = join(fixture.outputRoot, '.local-browsers');
-		const framework = join(browsers, 'webkit-103/WebKit.framework');
+		const framework = join(browsers, 'chromium-101/WebKit.framework');
 		for (const dropped of ['Versions/A/Headers', 'Versions/A/PrivateHeaders', 'Headers', 'PrivateHeaders']) {
 			await assert.rejects(() => lstat(join(framework, dropped)), /ENOENT/u, dropped);
 		}
@@ -117,7 +117,7 @@ test('read-only browser packaging checks share one staged default payload', asyn
 			true,
 		);
 		assert.equal(
-			(await lstat(join(browsers, 'webkit-103/Headers/keep.h'))).isFile(),
+			(await lstat(join(browsers, 'chromium-101/Headers/keep.h'))).isFile(),
 			true,
 			'headers outside a framework bundle stay',
 		);
@@ -126,16 +126,16 @@ test('read-only browser packaging checks share one staged default payload', asyn
 	await context.test('nightly test staging drops the framework linker stubs macOS signing refuses', async () => {
 		const browsers = join(fixture.outputRoot, '.local-browsers');
 		await assert.rejects(
-			() => lstat(join(browsers, 'webkit-103/WebKit.framework/Versions/A/WebKit.tbd')),
+			() => lstat(join(browsers, 'chromium-101/WebKit.framework/Versions/A/WebKit.tbd')),
 			/ENOENT/u,
 		);
 		assert.equal(
-			(await lstat(join(browsers, 'webkit-103/WebKit.framework/Versions/A/WebKit'))).isFile(),
+			(await lstat(join(browsers, 'chromium-101/WebKit.framework/Versions/A/WebKit'))).isFile(),
 			true,
 			'the framework binary itself stays',
 		);
 		assert.equal(
-			(await lstat(join(browsers, 'webkit-103/keep.tbd'))).isFile(),
+			(await lstat(join(browsers, 'chromium-101/keep.tbd'))).isFile(),
 			true,
 			'a stub outside a framework bundle is never walked as a subcomponent',
 		);

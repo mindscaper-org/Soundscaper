@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from '../closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from '../../foundation/closed-domain-value.ts';
 import { createEbuR128Meter } from '../ebu-r128.js';
 import { METER_SESSION_POLICY } from './strip-meter-session.ts';
 

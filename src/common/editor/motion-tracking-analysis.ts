@@ -4,7 +4,7 @@ import type { MotionSurface } from './motion-surface.ts';
 import type { MotionMediaProvider } from './motion-media-provider.ts';
 import type { Rational } from './timeline-time.ts';
 import { compareRationals } from './timeline-time.ts';
-import { awaitScapeReadOperation } from './scape-abort.ts';
+import { awaitScapeReadOperation } from '../scape/abort.ts';
 import { createMotionTrackingBinding, motionTrackingSourceTime, resolveMotionTrackingSource } from './motion-tracking-authority.ts';
 import { createMotionTrackingResult, normalizeMotionTrackingSettings, type MotionTrackingResult, type MotionTrackingSample, type MotionTrackingSettings } from './motion-tracking-contract.ts';
 import { estimateMotionTrackingHomography, mapMotionTrackingPoint, motionTrackingQuad } from './motion-tracking-homography.ts';

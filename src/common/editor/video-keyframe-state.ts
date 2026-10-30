@@ -3,7 +3,7 @@
 import {
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 import {
 	AUDIO_EDITOR_PROJECT_VALIDATION_HARD_LIMITS,
 	admitAudioEditorProjectValidationStructure,

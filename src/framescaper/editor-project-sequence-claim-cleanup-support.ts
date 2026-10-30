@@ -8,7 +8,7 @@ import {
 	MAX_VIDEO_PROXY_CLAIMS,
 	type VideoProxyClaimRecord,
 } from '../common/editor/storage/video-proxy-claim-repository.ts';
-import { request } from '../common/editor/storage/indexeddb-backend.ts';
+import { request } from '../common/media/indexeddb.ts';
 import { mediaAssetChunkKey, mediaAssetChunkRecord } from '../common/editor/storage/media-asset-chunk-records.ts';
 import { MEDIA_ASSET_CHUNK_TOKEN_INDEX_NAME } from '../common/editor/storage/media-asset-chunk-schema.ts';
 

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { AudioEditorProjectStore } from '../common/editor/storage.js';
-import { digestMediaContent } from '../common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../common/media/content-digest.ts';
 import type { UnifiedExactRenderPlanV13 } from '../common/editor/unified-exact-render-plan.ts';
 import type { createUnifiedExactRenderVisualPreviewConsumerV13 } from '../common/editor/unified-exact-render-visual-consumers-v13.ts';
 import { materializeUnifiedExactRenderVisualEntryV13, type UnifiedExactRenderVisualRgbaV13 } from '../common/editor/unified-exact-render-visual-materializer-v13.ts';

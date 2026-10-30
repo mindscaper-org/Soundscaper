@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { SCAPE_FORMAT_VERSION } from './scape-archive-envelope.ts';
+import { SCAPE_FORMAT_VERSION } from '../scape/archive-envelope.ts';
 import { LOCAL_DIAGNOSTICS_ERROR_LIMIT } from './local-diagnostics-error-journal.ts';
 import {
 	ARCHITECTURES, BROWSER_NAMES, ERROR_SOURCES, EVICTION_PROTECTIONS,

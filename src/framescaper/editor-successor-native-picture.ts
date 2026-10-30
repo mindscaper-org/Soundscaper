@@ -2,7 +2,7 @@
 import { acquireVideoExportTimingIndexes } from '../common/editor/controller/export/video-export-timing.ts';
 import { captureProductVideoExportTimingSourceIds } from '../common/editor/controller/export/product-video-export-strategy.ts';
 import { loadVideoExportOriginal } from '../common/editor/controller/export/video-export-original-loader.ts';
-import { canonicalMediaContentBlob } from '../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../common/media/content-digest.ts';
 import { findClip, findSource } from '../common/editor/project.js';
 import { createFramescaperVideoExportStrategySuccessor } from './video-export-strategy-successor.ts';
 import { framescaperSuccessorBaselineProject } from './editor-project-successor-commands.ts';

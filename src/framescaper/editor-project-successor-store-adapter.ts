@@ -2,7 +2,7 @@
 import type { AudioEditorProjectStore } from '../common/editor/storage.js';
 import type { ProjectDocument, ProjectRepositoryPort, ProjectLoadOptions, ProjectPostCommitMaintenance } from '../common/editor/storage/project-repository.ts';
 import { admitProjectPublication, projectPublicationWarningOptions } from '../common/editor/storage/project-publication-options.ts';
-import { digestScapeBytes } from '../common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../common/media/bytes.ts';
 import { ProjectCommittedMaintenanceError } from '../common/editor/storage/project-committed-maintenance-error.ts';
 import { FramescaperCompositionLinkOwnerConflictError, type FramescaperCompositionLinkOwnerRepository, type FramescaperCompositionLinkOwnerReceipt } from './editor-composition-link-owner-repository.ts';
 import { normalizeFramescaperSuccessorProject, type FramescaperSuccessorProject } from './editor-project-successor.ts';

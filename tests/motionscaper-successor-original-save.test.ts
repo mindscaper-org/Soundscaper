@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { createScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { saveFramescaperRetainedOriginal } from '../src/framescaper/editor-project-successor-original-save.ts';
 import type { NativeProjectFileService } from '../src/common/editor/controller/document/native-project-types.ts';
 

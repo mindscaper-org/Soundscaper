@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { canonicalJsonSha256 } from '../common/canonical-json-sha256.ts';
-import { request } from '../common/editor/storage/indexeddb-backend.ts';
+import { request } from '../common/media/indexeddb.ts';
 import { motionRecord } from '../common/editor/motion-values.ts';
 import type { ScapeReplaceWriteAuthority } from '../common/editor/scape-import-transaction.ts';
 import { assertFramescaperArchiveCustody } from './editor-project-successor-archive-record.ts';

@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createScapeDigest, scapeHex } from '../scape-archive-media.ts';
-import { throwIfScapeAborted } from '../scape-abort.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../../media/bytes.ts';
+import { throwIfScapeAborted } from '../../scape/abort.ts';
 import { normalizeMotionAsset, type MotionAsset } from '../motion-asset.ts';
 import type { MotionAssetBody } from '../motion-asset-body.ts';
 import { SCAPE_WEB_CORE_BLOB_MAXIMUM_BYTES } from '../scape-export-estimate.ts';
-import { aggregateScapeErrors } from '../scape-abort.ts';
-import { deleteByIndex, request, transact } from './indexeddb-backend.ts';
+import { aggregateScapeErrors } from '../../scape/abort.ts';
+import { deleteByIndex, request, transact } from '../../media/indexeddb.ts';
 import { discardMotionAssetStage, motionAssetStageRecord, renewMotionAssetStage } from './motion-asset-staging.ts';
 
 export const MOTION_ASSET_CHUNK_BYTES = 4 * 1024 * 1024;

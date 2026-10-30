@@ -26,6 +26,10 @@ export const COVERAGE_GATE_CONFIGURATION_URL = new URL(
  * own branch floor instead of averaging into the tree it steers.
  */
 const COVERAGE_SCOPE_PREFIXES = Object.freeze([
+	Object.freeze(['src/common/foundation/', 'editor']),
+	Object.freeze(['src/common/imaging/', 'editor']),
+	Object.freeze(['src/common/media/', 'editor']),
+	Object.freeze(['src/common/scape/', 'editor']),
 	Object.freeze(['src/common/editor/controller/', 'editor-core']),
 	Object.freeze(['src/common/editor/commands/', 'editor-core']),
 	Object.freeze(['src/common/editor/engine/', 'editor-core']),

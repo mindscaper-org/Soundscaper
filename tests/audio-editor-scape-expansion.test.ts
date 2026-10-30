@@ -13,13 +13,9 @@ import {
 } from '@zip.js/zip.js';
 
 import { ScapeAudioChunkBudget } from '../src/common/editor/scape-expanded-byte-budget.ts';
-import type { ScapeArchiveEntry } from '../src/common/editor/scape-archive-envelope.ts';
-import {
-	digestScapeBytes,
-	extractScapeAudio,
-	SCAPE_MAXIMUM_AUDIO_CHUNKS,
-	SCAPE_MAXIMUM_PENDING_AUDIO_BYTES,
-} from '../src/common/editor/scape-archive-media.ts';
+import type { ScapeArchiveEntry } from '../src/common/scape/archive-envelope.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
+import { extractScapeAudio, SCAPE_MAXIMUM_AUDIO_CHUNKS, SCAPE_MAXIMUM_PENDING_AUDIO_BYTES } from '../src/common/editor/scape-archive-media.ts';
 import {
 	exportScapeProject,
 } from '../src/common/editor/scape-project.js';

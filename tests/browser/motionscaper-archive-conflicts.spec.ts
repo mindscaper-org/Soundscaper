@@ -4,7 +4,7 @@ import { expect, test } from './helpers/browser-coverage-fixture.js';
 import type { Page } from '@playwright/test';
 import { createMotionscaperProject } from '../../src/motionscaper/editor-project.ts';
 import { exportMotionscaperArchive, importMotionscaperArchive } from '../../src/motionscaper/editor-scape.ts';
-import { digestScapeBytes } from '../../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../../src/common/media/bytes.ts';
 const original = createMotionscaperProject({ id: 'menu-archive-collision', compositionId: 'composition', title: 'Original local project', width: 64, height: 32, durationFrames: 4 });
 const body = Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLttAAAAABJRU5ErkJggg==', 'base64'));
 const digest = digestScapeBytes(body), asset = { kind: 'image' as const, id: 'original-unused', name: 'Unused original.png', mimeType: 'image/png', width: 1, height: 1, hasAlpha: true, byteLength: body.length, sha256: digest, storageKey: `motion-sha256:${digest}` };

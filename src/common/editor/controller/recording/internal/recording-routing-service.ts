@@ -12,7 +12,7 @@ import { normalizeRecordingSampleRate } from '../recording-model.ts';
 import { recordingTrackRoute } from '../../../recording-routing.js';
 import { preferredRecordingRoutes } from './preferred-recording-routes.ts';
 import { supportsDisplayAudioCapture } from '../../../recording-display-input.ts';
-import { raceAbortableRead } from '../../../abort-race.ts';
+import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 
 export type {
 	PersistedRecordingRouting,

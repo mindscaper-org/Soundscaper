@@ -5,7 +5,7 @@ import { addRationals, compareRationals, divideRationals, multiplyRationals } fr
 import { motionDigest, motionId, motionInteger, motionRational, motionRecord } from './motion-values.ts';
 import type { MotionNativeFramePlan, MotionNativeFrameIdentity } from './motion-native-frame-carrier-v1.ts';
 import type { MotionAudioMixBlock } from './motion-audio-contract.ts';
-import { readScapeArchiveByteRange, type ScapeArchiveByteSource } from './scape-archive-byte-source.ts';
+import { readScapeArchiveByteRange, type ScapeArchiveByteSource } from '../scape/archive-byte-source.ts';
 import type { Rational } from './timeline-time.ts';
 
 const MAGIC = new TextEncoder().encode('motionscaper-interleaved-pcm-pack-v1\n');

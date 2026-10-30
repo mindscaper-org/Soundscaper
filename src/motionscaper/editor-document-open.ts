@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { ScapeProjectInput } from '../common/editor/scape-project-input.ts';
-import { aggregateScapeErrors } from '../common/editor/scape-abort.ts';
+import { aggregateScapeErrors } from '../common/scape/abort.ts';
 import type { MotionscaperDocumentSession } from './editor-document-session.ts';
 import type { MotionRecoveredPublication } from './desktop-file-contract.ts';
 import type { MotionArchiveOpenAction, MotionArchiveOpenReceipt, MotionArchiveReview } from './editor-document-import.ts';

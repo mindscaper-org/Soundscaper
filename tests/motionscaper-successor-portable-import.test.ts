@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { createScapeArchiveByteSource, createBlobScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource, createBlobScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { smallMotionscaperArchiveBytes } from './helpers/motionscaper-small-archive-bytes.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -15,7 +15,7 @@ import { normalizeFramescaperSuccessorProject } from '../src/framescaper/editor-
 import { withScapeProjectInput } from '../src/common/editor/scape-project-input.ts';
 import { readScapeArchiveEnvelope } from '../src/common/editor/scape-archive-envelope.ts';
 import { scapeImportCapacityRequirement } from '../src/common/editor/scape-import-capacity.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { createAudioSource } from '../src/common/editor/project-media-factory.ts';
 import { exportFramescaperSuccessorPortableArchive } from '../src/framescaper/editor-project-successor-portable-export.ts';
 import { importFramescaperSuccessorPortableArchive, loadFramescaperSuccessorPortableCustody } from '../src/framescaper/editor-project-successor-portable-import.ts';

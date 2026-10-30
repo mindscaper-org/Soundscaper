@@ -38,31 +38,17 @@ function requireLoopbackURL(environment) {
 	return url.href.replace(/\/$/u, '');
 }
 
-export function createNightlyTestsConfig(environment = process.env, platform = process.platform) {
+export function createNightlyTestsConfig(environment = process.env) {
 	const payloadRoot = requireAbsolutePath(environment, 'SOUNDSCAPER_NIGHTLY_TESTS_PAYLOAD_ROOT');
 	const runRoot = requireAbsolutePath(environment, 'SOUNDSCAPER_NIGHTLY_TESTS_RUN_ROOT');
 	const baseURL = requireLoopbackURL(environment);
-	const projects = [
-		{
-			name: 'chromium',
-			// Match ordinary coverage runs: precise V8 instrumentation slows imports and previews.
-			...(environment.SCAPE_BROWSER_COVERAGE === '1' ? { timeout: 90_000, expect: { timeout: 15_000 } } : {}),
-			use: {
-				...devices['Desktop Chrome'],
-				browserName: 'chromium',
-				channel: 'chromium',
-				headless: true,
-				launchOptions: { args: ['--enable-gpu'] },
-			},
-		},
-		{ name: 'firefox', use: { ...devices['Desktop Firefox'], browserName: 'firefox' } },
-		{ name: 'webkit', use: { ...devices['Desktop Safari'], browserName: 'webkit' } },
-	];
 
 	return defineConfig({
 		testDir: resolve(payloadRoot, 'tests/browser'),
-		// Audiocity has a dedicated validation server and OAuth provider fixture.
-		testIgnore: ['handbook/**', 'dual-origin/**', 'audiocity/**', '**/motionscaper-linked-editors.spec.ts', '**/motionscaper-linked-native-menu.spec.ts', '**/motionscaper-linked-mixed-preview.spec.ts', '**/motionscaper-successor-native-cleanup.spec.ts', '**/motionscaper-successor-shell.spec.ts', '**/motionscaper-successor-opaque-archive.spec.ts'],
+		// Cross-browser functional and dual-origin coverage belongs to ordinary CI.
+		testMatch: ['audio-editor-waveform-gpu.spec.js', 'framescaper-visual-preview.spec.js'],
+		grepInvert: /Canvas fallback does not|unavailable GPU keeps|Framescaper v1 visual state without WebGL2/u,
+		metadata: { requireHardwareGpu: true },
 		timeout: 30000,
 		expect: { timeout: 5000 },
 		fullyParallel: true,
@@ -94,9 +80,17 @@ export function createNightlyTestsConfig(environment = process.env, platform = p
 				}],
 			},
 		},
-		// Playwright's Windows WebKit build disables Web Audio at compile time,
-		// while Soundscaper requires it to boot and decode its fixture projects.
-		projects: platform === 'win32' ? projects.slice(0, 2) : projects,
+		projects: [{
+			name: 'chromium',
+			...(environment.SCAPE_BROWSER_COVERAGE === '1' ? { timeout: 90_000, expect: { timeout: 15_000 } } : {}),
+			use: {
+				...devices['Desktop Chrome'],
+				browserName: 'chromium',
+				channel: 'chromium',
+				headless: true,
+				launchOptions: { args: ['--enable-gpu'] },
+			},
+		}],
 	});
 }
 

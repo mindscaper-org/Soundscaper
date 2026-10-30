@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { createMotionLayer, createMotionscaperProject } from '../../src/motionscaper/editor-project.ts';
 import { normalizeMotionscaperProject } from '../../src/motionscaper/editor-project-validation.ts';
-import { digestScapeBytes } from '../../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../../src/common/media/bytes.ts';
 import { motionColor, motionScalar, motionVector, type MotionPathProperty } from '../../src/common/editor/motion-property.ts';
 import type { MotionAsset } from '../../src/common/editor/motion-asset.ts';
 import type { MotionLayerContent } from '../../src/common/editor/motion-composition.ts';

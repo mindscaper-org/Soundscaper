@@ -3,7 +3,7 @@ import { createMotionOutputDestination, type MotionOutputDestinationOptions } fr
 import { motionVideoFrameTimestamp, normalizeMotionVideoAudio, normalizeMotionVideoDelivery, type MotionVideoAudioDelivery, type MotionVideoAudioOptions, type MotionVideoBackground, type MotionVideoFormat } from '../../motion-video-delivery.ts';
 import { motionVideoI420Pixels } from '../../motion-video-planar.ts';
 import type { MotionAudioMixBlock } from '../../motion-audio-contract.ts';
-import { aggregateScapeErrors, throwIfScapeAborted } from '../../scape-abort.ts';
+import { aggregateScapeErrors, throwIfScapeAborted } from '../../../scape/abort.ts';
 import { compareRationals, divideRationals } from '../../timeline-time.ts';
 import type { VideoWebCodecsEncodedChunk } from '../../video-webcodecs-producer.ts';
 import { normalizeMotionRenderPlan, type MotionRenderPlan, type MotionRenderSink } from './motion-render-pipeline.ts';

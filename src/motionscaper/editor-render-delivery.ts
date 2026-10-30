@@ -11,7 +11,7 @@ import { createMotionMediaProvider } from '../common/editor/motion-media-provide
 import { createMotionExpressionAudioPreparation, motionProjectUsesAudioAmplitude } from '../common/editor/motion-expression-audio-preparation.ts';
 import { createMotionAudioMixer } from '../common/editor/motion-audio-mixer.ts';
 import type { MotionAudioMixerOptions } from '../common/editor/motion-audio-contract.ts';
-import { aggregateScapeErrors } from '../common/editor/scape-abort.ts';
+import { aggregateScapeErrors } from '../common/scape/abort.ts';
 import { MotionDeliveryCleanupFailure, pendingMotionDeliveryCleanup } from '../common/editor/motion-delivery-cleanup.ts';
 import type { MotionDesktopDeliveryReceipt } from './desktop-delivery-contract.ts';
 import type { MotionVideoBackground } from '../common/editor/motion-video-delivery.ts';

@@ -2,7 +2,7 @@
 
 import { BlobWriter } from '@zip.js/zip.js/index-native.js';
 
-import { aggregateScapeErrors, throwIfScapeAborted } from './scape-abort.ts';
+import { aggregateScapeErrors, throwIfScapeAborted } from '../scape/abort.ts';
 
 interface ScapeZipWriter {
 	close(comment?: Uint8Array, options?: Readonly<{ zip64?: boolean; preventClose?: boolean }>): Promise<unknown>;

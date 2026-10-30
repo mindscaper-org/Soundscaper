@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { ScapeAssetDescriptor, ScapeManifest } from '../common/editor/scape-archive-envelope.ts'
-import {
-	digestScapeBytes,
-	verifyScapeExtractedAsset,
-} from '../common/editor/scape-archive-media.ts'
+import type { ScapeAssetDescriptor } from '../common/scape/archive-envelope.ts';
+import type { ScapeManifest } from '../common/editor/scape-archive-envelope.ts';
+import { digestBytes as digestScapeBytes } from '../common/media/bytes.ts';
+import { verifyScapeExtractedAsset } from '../common/scape/asset-bytes.ts';
 import { extractScapeVideo, SCAPE_VIDEO_MAXIMUM_CHUNK_BYTES } from '../common/editor/scape-archive-video.ts'
-import { throwIfScapeAborted } from '../common/editor/scape-abort.ts'
+import { throwIfScapeAborted } from '../common/scape/abort.ts'
 import type {
 	ScapeProjectAssetExtension,
 	ScapeProjectAssetExtensionExportRequest,

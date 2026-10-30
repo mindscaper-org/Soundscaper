@@ -10,7 +10,7 @@ import {
 import { canonicalizeNativeMediaPlan } from '../common/editor/native-media-plan-canonical-form.ts';
 import { createNativeMediaPlanEnvelopeV2 } from '../common/editor/native-media-plan-envelope-v2.ts';
 import type { NativeQueueInputFingerprintV1 } from '../common/editor/native-queue-record.ts';
-import { digestMediaContent } from '../common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../common/media/content-digest.ts';
 import {
 	createVideoProxyCandidateObserver,
 	type VideoProxyCandidateGeneratorPort,

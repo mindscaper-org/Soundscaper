@@ -3,16 +3,16 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 
-import { aggregateScapeErrors, throwIfScapeAborted } from '../common/editor/scape-abort.ts';
-import type { ScapeAssetDescriptor } from '../common/editor/scape-archive-envelope.ts';
-import { verifyScapeExtractedAsset } from '../common/editor/scape-archive-media.ts';
+import { aggregateScapeErrors, throwIfScapeAborted } from '../common/scape/abort.ts';
+import type { ScapeAssetDescriptor } from '../common/scape/archive-envelope.ts';
+import { verifyScapeExtractedAsset } from '../common/scape/asset-bytes.ts';
 import {
 	extractScapeVideo,
 	SCAPE_VIDEO_MAXIMUM_CHUNK_BYTES,
 	type ScapeVideoWriter,
 } from '../common/editor/scape-archive-video.ts';
 import type { ScapeProjectAssetExtensionImportRequest } from '../common/editor/scape-project-asset-extension.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from '../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../common/media/content-digest.ts';
 import type {
 	OwnedMediaAssetPublication,
 	OwnedMediaAssetWriter,

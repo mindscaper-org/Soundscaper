@@ -6,7 +6,7 @@ import type { MotionExpressionAudioPreparation } from './motion-expression-audio
 import { requireMotionTrackingReady } from './motion-tracking-admission.ts';
 import { motionInteger } from './motion-values.ts';
 import { divideRationals, multiplyRationals, normalizeRational, type Rational, type RationalInput } from './timeline-time.ts';
-import { aggregateScapeErrors } from './scape-abort.ts';
+import { aggregateScapeErrors } from '../scape/abort.ts';
 export interface MotionCompositionLinkAudioLease {
 	readonly provider: MotionAudioSampleProvider; readonly expressionAudio?: MotionExpressionAudioPreparation;
 	/** Release retained original bytes and provider handles after the final in-flight block is cancelled or finished. */

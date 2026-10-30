@@ -3,11 +3,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-	readScapeArchiveEnvelope,
-	SCAPE_ARCHIVE_LIMITS,
-	type ScapeArchiveEntry,
-} from '../src/common/editor/scape-archive-envelope.ts';
+import { readScapeArchiveEnvelope } from '../src/common/editor/scape-archive-envelope.ts';
+import { SCAPE_ARCHIVE_LIMITS } from '../src/common/scape/archive-limits.ts';
+import { type ScapeArchiveEntry } from '../src/common/scape/archive-envelope.ts';
 
 test('desktop Scape envelope admits STORE media beyond the browser expansion ceiling', async () => {
 	const encode = (value: string): Uint8Array => new TextEncoder().encode(value);

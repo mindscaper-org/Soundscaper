@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { BlobReader, BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js/index-native.js';
 
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { createMotionscaperProject } from '../src/motionscaper/editor-project.ts';
 import {
 	exportMotionscaperArchive, importMotionscaperArchive, type MotionArchiveImportTransaction,

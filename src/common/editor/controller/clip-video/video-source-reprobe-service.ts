@@ -7,7 +7,7 @@ import {
 } from '../../video-source-upgrade.ts';
 import { createFfmpegVideoTimingProbe, probeVideoTiming, type VideoTimingProbePort } from '../../video-timing-probe.ts';
 import { createContainerVideoTimingProbe } from '../../video-timing-demux.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from '../../storage/media-content-digest.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../../../media/content-digest.ts';
 import { publishVideoTimingAsset, type VideoTimingMediaStore } from '../../video-timing-storage.ts';
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import type { EditorControllerLifetime } from '../shared/lifecycle.ts';

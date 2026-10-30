@@ -2,8 +2,8 @@
 import { BlobReader, TextReader, ZipWriter } from '@zip.js/zip.js/index-native.js';
 import type { MotionAsset } from '../common/editor/motion-asset.ts';
 import type { MotionAssetBody } from '../common/editor/motion-asset-body.ts';
-import { createScapeDigest, scapeHex } from '../common/editor/scape-archive-media.ts';
-import { throwIfScapeAborted } from '../common/editor/scape-abort.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../common/media/bytes.ts';
+import { throwIfScapeAborted } from '../common/scape/abort.ts';
 import { createScapeExportDestination } from '../common/editor/scape-export-destination.ts';
 import { maximumScapeStoreArchiveBytes } from '../common/editor/scape-export-estimate.ts';
 import { exportMotionscaperArchive } from './editor-scape.ts';

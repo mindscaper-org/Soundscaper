@@ -7,7 +7,7 @@ import { renderMotionTemporalSamples } from '../../motion-temporal-rendering.ts'
 import { renderMotionCompositionFrame, type MotionCompositor, type MotionRasterizer, type MotionRenderResult } from '../../motion-composition-renderer.ts';
 import { motionSurfaceLength } from '../../motion-surface.ts';
 import { freezeMotionValue, motionDigest, motionId, motionInteger, motionRational, motionRecord } from '../../motion-values.ts';
-import { aggregateScapeErrors, throwIfScapeAborted } from '../../scape-abort.ts';
+import { aggregateScapeErrors, throwIfScapeAborted } from '../../../scape/abort.ts';
 import { divideRationals, type Rational } from '../../timeline-time.ts';
 import type { MotionAudioMixBlock, MotionAudioMixer } from '../../motion-audio-contract.ts';
 import type { MotionExpressionAudioPreparation } from '../../motion-expression-audio-preparation.ts';

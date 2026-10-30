@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAudioSource } from '../src/common/editor/project-media-factory.ts';
 import { BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js/index-native.js';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { AudioEditorProjectStore } from '../src/common/editor/storage.js';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { createFramescaperBaselineImageFixture } from './helpers/framescaper-baseline-image-fixture.ts';

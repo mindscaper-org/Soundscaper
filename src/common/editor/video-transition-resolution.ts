@@ -3,7 +3,7 @@
 import {
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 import { evaluateInterpolationCurveAtExactPosition } from './interpolation-curve.ts';
 import {
 	compareRationals,

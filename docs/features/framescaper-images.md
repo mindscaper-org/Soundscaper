@@ -101,7 +101,7 @@ current hard ceilings are:
 | Decode time per file | 60 seconds |
 
 The source of truth for these values is
-[`image-import-admission.ts`](../../src/common/editor/image-import-admission.ts).
+[`image-import-admission.ts`](../../src/common/imaging/image-import-admission.ts).
 A change to a ceiling must update that authority and its adversarial tests; this
 document is descriptive.
 

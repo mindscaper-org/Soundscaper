@@ -2,7 +2,7 @@
 
 import { normalizeMotionAsset, type MotionAsset } from '../motion-asset.ts';
 import { motionInteger, motionRecord } from '../motion-values.ts';
-import { deleteByIndex, readCursorPage, request, transact } from './indexeddb-backend.ts';
+import { deleteByIndex, readCursorPage, request, transact } from '../../media/indexeddb.ts';
 
 const LEASE_MILLISECONDS = 86_400_000;
 const PAGE_SIZE = 64;

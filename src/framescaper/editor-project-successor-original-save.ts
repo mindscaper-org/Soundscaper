@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { NativeProjectFileService } from '../common/editor/controller/document/native-project-types.ts';
-import { createBlobScapeArchiveByteSource, assertScapeArchiveByteSource, readScapeArchiveByteRange } from '../common/editor/scape-archive-byte-source.ts';
+import { createBlobScapeArchiveByteSource, assertScapeArchiveByteSource, readScapeArchiveByteRange } from '../common/scape/archive-byte-source.ts';
 import type { ScapeProjectInput } from '../common/editor/scape-project-input.ts';
-import { createScapeDigest, scapeHex } from '../common/editor/scape-archive-media.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../common/media/bytes.ts';
 import type { TemporaryFileSink } from '../common/editor/controller/export/temporary-export.ts';
 import { OBJECT_URL_REVOKE_DELAY_MS } from '../common/editor/object-url-revoke.ts';
 import { motionDigest } from '../common/editor/motion-values.ts';

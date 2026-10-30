@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createScapeDigest, scapeHex } from '../../../../scape-archive-media.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../../../../../media/bytes.ts';
 import type { OwnedAudioSourceWriter } from '../../../../storage/source-write-repository.ts';
 import { packPlanarFloat32 } from '../../../../wavpack/pcm.js';
 

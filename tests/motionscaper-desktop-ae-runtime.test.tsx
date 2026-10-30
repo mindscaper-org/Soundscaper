@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { motionscaperCopy } from '../src/common/editor/ui/motionscaper/motionscaper-copy.ts';
-import { createScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { installMotionscaperDesktopLaunch } from '../src/motionscaper/editor-desktop-launch.ts';
 import type { MotionDesktopFiles } from '../src/motionscaper/desktop-file-contract.ts';
 import type { MotionscaperDocumentSnapshot } from '../src/motionscaper/editor-document-session.ts';

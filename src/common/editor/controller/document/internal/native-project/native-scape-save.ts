@@ -2,7 +2,7 @@
 
 import { SCAPE_MIME_TYPE } from '../../../../scape-project-format.ts'; import { setLocalizedStatus } from '../../../../../i18n/presentation-message.ts';
 import type { ProjectFileExtension } from '../../../../../project-file-extensions.ts';
-import type { ScapeArchiveByteSource } from '../../../../scape-archive-byte-source.ts';
+import type { ScapeArchiveByteSource } from '../../../../../scape/archive-byte-source.ts';
 import { recordScapeArchiveManifest } from '../scape/scape-archive-manifest-action.ts';
 import type {
 	NativePreparedSave,

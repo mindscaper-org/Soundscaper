@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { canonicalMediaContentBlob, digestMediaContent } from './storage/media-content-digest.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../media/content-digest.ts';
 
 export async function executeMediaContentDigestRequest(value: unknown) {
 	let requestId: string | null = null;

@@ -9,7 +9,7 @@ import {
 	type VideoTimingAssetReference,
 	type VideoTimingIndex,
 } from './video-timing-asset.ts';
-import { canonicalMediaContentBlob } from './storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../media/content-digest.ts';
 import type {
 	OwnedMediaAssetPublication,
 	OwnedMediaAssetWriter,

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { MotionAsset } from './motion-asset.ts';
 import type { MotionscaperProject } from './motion-project-types.ts';
-import type { ScapeAssetDescriptor } from './scape-archive-envelope.ts';
+import type { ScapeAssetDescriptor } from '../scape/archive-envelope.ts';
 import { safeScapeEntryId } from './scape-archive-media.ts';
 export const MOTION_ARCHIVE_ASSET_KINDS = ['motion-image', 'motion-footage', 'motion-audio', 'motion-font'] as const;
 

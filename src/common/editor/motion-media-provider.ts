@@ -6,7 +6,7 @@ import { normalizeMotionAudioFormat, MOTION_AUDIO_WINDOW_SAMPLES, type MotionAud
 import { createMotionSurface, motionSurfaceFromRgba8, motionSurfaceLength, type MotionSurface } from './motion-surface.ts';
 import { compareRationals, normalizeRational, type Rational } from './timeline-time.ts';
 import { motionInteger } from './motion-values.ts';
-import { awaitScapeReadOperation } from './scape-abort.ts';
+import { awaitScapeReadOperation } from '../scape/abort.ts';
 import { MOTION_MEDIA_IMPORT_MAXIMUM_BYTES } from './motion-media-limits.ts';
 
 interface MediaInput {

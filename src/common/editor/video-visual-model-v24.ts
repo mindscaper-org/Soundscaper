@@ -5,7 +5,7 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 import type { Rational } from './timeline-time.ts';
 
 export const VIDEO_VISUAL_MODEL_LIMITS_V1 = Object.freeze({

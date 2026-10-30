@@ -4,7 +4,7 @@ import {
 	readClosedDomainArray,
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from '../closed-domain-value.ts';
+} from '../../foundation/closed-domain-value.ts';
 
 export const ASSISTANCE_TRANSCRIPT_BODY_MIME_TYPE_V1 =
 	'application/vnd.soundscaper.assistance-transcript+json' as const;

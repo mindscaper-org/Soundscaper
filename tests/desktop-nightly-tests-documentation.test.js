@@ -8,7 +8,7 @@ test('desktop documentation explains how to run and find nightly-with-tests resu
 	const documentation = await readFile(new URL('../Technical_README.md', import.meta.url), 'utf8');
 
 	assert.match(documentation, /Desktop test artifacts \(internal\).*push to `main`.*manual run.*`nightly-with-tests`/isu);
-	assert.match(documentation, /browser tests.*on the test machine.*report/isu);
+	assert.match(documentation, /GPU.*performance.*desktop.*real-model tests.*report.*on the test machine/isu);
 	assert.match(documentation, /`all`, `windows`, or `win-x64`/iu);
 	assert.match(documentation, /nightly-with-tests-(?:win|mac|linux)-<architecture>/iu);
 	assert.match(documentation, /visible progress window.*active phase/isu);
@@ -23,8 +23,6 @@ test('desktop documentation explains how to run and find nightly-with-tests resu
 		'playwright-report/index.html',
 		'test-results/',
 		'console.log',
-		'e2e-coverage/dual-origin/results.json',
-		'e2e-coverage/dual-origin/console.log',
 		'metrics/summary.json',
 		'metrics/raw.json',
 		'metrics/results.json',
@@ -36,8 +34,10 @@ test('desktop documentation explains how to run and find nightly-with-tests resu
 	]) assert.ok(documentation.includes(`\`${resultPath}\``), `${resultPath} is not documented`);
 	assert.match(documentation, /one worker.*zero retries/isu);
 	assert.match(documentation, /full Chromium.*`--enable-gpu`.*hardware\s+renderer/isu);
-	assert.match(documentation, /playwright install --no-shell chromium firefox webkit/u);
-	assert.doesNotMatch(documentation, /playwright install --only-shell/u);
+	assert.match(documentation, /playwright install --no-shell chromium/u);
+	assert.doesNotMatch(documentation, /playwright install[^\n]*(?:firefox|webkit|--only-shell)/u);
+	assert.match(documentation, /nightly suite.*CI or WSL cannot reliably validate/isu);
+	assert.match(documentation, /hardware probe fails.*software renderer/isu);
 	assert.doesNotMatch(documentation, /packaged-runtime\/qualification\.json/iu);
 	assert.match(documentation, /any\s+subset of these optional environment variables/iu);
 	assert.match(documentation, /deterministic correctness and parity failures.*fail the run/isu);

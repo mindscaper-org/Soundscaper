@@ -4,10 +4,12 @@ import type { MotionAssetBody } from './motion-asset-body.ts';
 import { createMotionscaperRevision, type MotionscaperRevision } from './motion-project-revision.ts';
 import { MOTION_LINK_MAXIMUM_OFFER_BYTES } from './motion-link-protocol.ts';
 import { MOTION_ARCHIVE_ASSET_KINDS, motionArchiveAssetEntry, validateMotionArchiveAssetClosure } from './motion-archive-contract.ts';
-import { readScapeArchiveEnvelope, type ScapeArchiveEntry } from './scape-archive-envelope.ts';
-import { createScapeDigest, scapeHex, verifyScapeAssetBytes } from './scape-archive-media.ts';
+import { readScapeArchiveEnvelope } from './scape-archive-envelope.ts';
+import { type ScapeArchiveEntry } from '../scape/archive-envelope.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../media/bytes.ts';
+import { verifyScapeAssetBytes } from '../scape/asset-bytes.ts';
 import { withScapeProjectInput, type ScapeProjectInput } from './scape-project-input.ts';
-import { aggregateScapeErrors, throwIfScapeAborted } from './scape-abort.ts';
+import { aggregateScapeErrors, throwIfScapeAborted } from '../scape/abort.ts';
 import { MOTION_SAVED_FILE_CHUNK_BYTES } from './motion-saved-file-contract.ts';
 export interface MotionSavedArchiveSource {
 	readonly revision: MotionscaperRevision;

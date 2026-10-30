@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { MotionAsset } from '../common/editor/motion-asset.ts';
-import type { ScapeAssetDescriptor } from '../common/editor/scape-archive-envelope.ts';
+import type { ScapeAssetDescriptor } from '../common/scape/archive-envelope.ts';
 import type { FramescaperSuccessorProject } from './editor-project-successor.ts';
 
 export const MOTION_LINKED_ARCHIVE_ASSET_KIND = 'motion-linked-original';

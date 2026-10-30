@@ -2,7 +2,7 @@
 
 /** Closed output-shape normalization shared by every unified exact render generation. */
 
-import { readClosedDomainRecord } from './closed-domain-value.ts';
+import { readClosedDomainRecord } from '../foundation/closed-domain-value.ts';
 import { isVideoCanvasFit } from './video-canvas-fit.ts';
 import { isVideoDeliveryAudioLayout, type VideoDeliveryAudioLayout } from './video-delivery-audio-layout.ts';
 import { isVideoDeliveryQuality } from './video-delivery-quality.ts';

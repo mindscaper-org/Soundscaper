@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { normalizeMotionRenderPlan, type MotionRenderPlan } from '../common/editor/controller/export/motion-render-pipeline.ts';
 import { motionTarFileHeader } from '../common/editor/motion-tar.ts';
-import { throwIfScapeAborted } from '../common/editor/scape-abort.ts';
+import { throwIfScapeAborted } from '../common/scape/abort.ts';
 
 /** Accept only the maintained PNG renderer's canonical forward-only sequence, never general TAR input.
  * At most one bounded PNG is retained; awaiting onFrame propagates ZIP backpressure to rendering.

@@ -6,12 +6,9 @@ import test from 'node:test';
 
 import { BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js';
 
-import {
-	readScapeArchiveEnvelope,
-	SCAPE_ARCHIVE_LIMITS,
-	type ScapeArchiveEntry,
-	type ScapeManifest,
-} from '../src/common/editor/scape-archive-envelope.ts';
+import { readScapeArchiveEnvelope, type ScapeManifest } from '../src/common/editor/scape-archive-envelope.ts';
+import { SCAPE_ARCHIVE_LIMITS } from '../src/common/scape/archive-limits.ts';
+import { type ScapeArchiveEntry } from '../src/common/scape/archive-envelope.ts';
 import { createCurrentAudioEditorProject } from '../src/common/editor/project-current.ts';
 import { importScapeProject, inspectScapeProject } from '../src/common/editor/scape-project.js';
 

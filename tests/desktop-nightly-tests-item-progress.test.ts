@@ -17,7 +17,6 @@ import type {
 	DesktopNightlyTestsItemProgress,
 	DesktopNightlyTestsProgress,
 } from '../scripts/lib/desktop-nightly-tests-runtime.mjs';
-import { runDualOriginPhaseFixture } from './helpers/nightly-tests-dual-origin-phase.ts';
 import { nightlyProductSitesFixture } from './helpers/nightly-tests-product-sites.ts';
 
 function encoded(progress: DesktopNightlyTestsItemProgress): string {
@@ -212,7 +211,7 @@ test.describe.serial('serial group', () => {
 	}
 });
 
-test('the runtime attributes streamed item progress to each of its six phases', async (context) => {
+test('the runtime attributes streamed item progress to each of its five phases', async (context) => {
 	const outputRoot = await mkdtemp(join(tmpdir(), 'nightly-phase-item-progress-'));
 	context.after(() => rm(outputRoot, { recursive: true, force: true }));
 	const updates: DesktopNightlyTestsProgress[] = [];
@@ -223,7 +222,6 @@ test('the runtime attributes streamed item progress to each of its six phases', 
 		environment: {}, onProgress: (value) => { updates.push(value); },
 	}, {
 		startProductSites: nightlyProductSitesFixture(50100),
-		runDualOriginPhase: runDualOriginPhaseFixture,
 		runPlaywright: async (_plan, onItems) => {
 			invocation += 1;
 			onItems?.({ completed: 0, total: invocation, label: 'Preparing tests' });
@@ -235,9 +233,9 @@ test('the runtime attributes streamed item progress to each of its six phases', 
 		preserveCoverageEvidence: async () => '/tmp/coverage-evidence',
 	});
 	assert.equal(result.exitCode, 0);
-	assert.equal(invocation, 6);
-	assert.equal(updates.length, 18);
-	for (let phase = 0; phase < 6; phase += 1) {
+	assert.equal(invocation, 5);
+	assert.equal(updates.length, 15);
+	for (let phase = 0; phase < 5; phase += 1) {
 		const [started, preparing, finished] = updates.slice(phase * 3, phase * 3 + 3);
 		assert.equal(started!.completed, phase);
 		assert.equal(started!.items, undefined);

@@ -4,7 +4,7 @@ import test from 'node:test';
 import { createFramescaperSuccessorNativeSink, framescaperSuccessorNativeDelivery } from '../src/framescaper/editor-successor-native-delivery-adapter.ts';
 import { dispatchFramescaperSuccessorDeliveryCall } from '../desktop/framescaper-successor-delivery-ipc.ts';
 import { MOTION_PRORES_DELIVERY_PROFILE, type MotionDesktopDelivery } from '../src/common/editor/motion-desktop-delivery-contract.ts';
-import { createBlobScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createBlobScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { openMotionNativeFrameReader } from '../src/common/editor/motion-native-frame-carrier-v1.ts';
 import type { FramescaperSuccessorNativeDelivery, FramescaperSuccessorNativePlan } from '../src/framescaper/editor-successor-native-delivery-contract.ts';
 const plan: FramescaperSuccessorNativePlan = { identity: { projectId: 'frame-project', revisionDigest: 'a'.repeat(64), sequenceId: 'edit-sequence' }, width: 2, height: 1, frameRate: { num: 30, den: 1 }, firstFrame: 0, frameCount: 1 };

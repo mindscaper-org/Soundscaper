@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createMotionscaperProject } from '../src/motionscaper/editor-project.ts';
 import { exportMotionscaperArchive } from '../src/motionscaper/editor-scape.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { withMotionSavedArchiveSource } from '../src/common/editor/motion-saved-archive-source.ts';
 import { createMotionCompositionOffer } from '../src/common/editor/motion-link-protocol.ts';
 import type { MotionAssetBody } from '../src/common/editor/motion-asset-body.ts';

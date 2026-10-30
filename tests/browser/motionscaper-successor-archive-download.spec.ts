@@ -15,7 +15,7 @@ test('large successor original download verifies temporary storage support, exac
 		import { FRAMESCAPER_ARCHIVE_STORES } from './src/framescaper/editor-project-successor-archive-record.ts';
 		import { transact } from './src/common/editor/storage/indexeddb-backend.ts';
 		import { createAudioEditorFileService } from './src/common/editor/file-service.js';
-		import { createScapeArchiveByteSource } from './src/common/editor/scape-archive-byte-source.ts';
+		import { createScapeArchiveByteSource } from './src/common/scape/archive-byte-source.ts';
 		import { saveFramescaperRetainedOriginal } from './src/framescaper/editor-project-successor-original-save.ts';
 		export async function mount() {
 			const bytes = new Uint8Array(17*1024*1024); bytes[0]=27; bytes[bytes.length-1]=43;

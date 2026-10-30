@@ -6,7 +6,7 @@ import { createLocalAssistanceVideoKeyingPublication, createLocalAssistanceVideo
 import { publishImportedVideo } from '../common/editor/controller/import/import-video-publication.ts';
 import { loadVideoExportOriginal } from '../common/editor/controller/export/video-export-original-loader.ts';
 import { createStorageCapacityService } from '../common/editor/controller/shared/storage-capacity-service.ts';
-import { digestMediaContent } from '../common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../common/media/content-digest.ts';
 import { createStableId } from '../common/editor/stable-id.js';
 import type { FramescaperCorridorKeyRequest } from '../common/editor/ui/framescaper-corridorkey-runtime.ts';
 import type { VideoTimingMediaStore } from '../common/editor/video-timing-storage.ts';

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { motionSurfaceLength, validateMotionSurface, type MotionSurface } from './motion-surface.ts';
 import { freezeMotionValue, motionDigest, motionId, motionInteger, motionRational, motionRecord } from './motion-values.ts';
-import { readScapeArchiveByteRange, type ScapeArchiveByteSource } from './scape-archive-byte-source.ts';
+import { readScapeArchiveByteRange, type ScapeArchiveByteSource } from '../scape/archive-byte-source.ts';
 import type { Rational } from './timeline-time.ts';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';

@@ -9,7 +9,7 @@ import { createMotionscaperProject } from '../src/motionscaper/editor-project.ts
 import { createMotionscaperRevision } from '../src/common/editor/motion-project-revision.ts';
 import { createMotionCompositionOffer } from '../src/common/editor/motion-link-protocol.ts';
 import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { createFramescaperSuccessorScapeNativeRuntime } from '../src/framescaper/editor-scape-successor-native.ts';
 import { normalizeFramescaperSuccessorProject } from '../src/framescaper/editor-project-successor.ts';
 import type { ScapeManifest } from '../src/common/editor/scape-archive-envelope.ts';

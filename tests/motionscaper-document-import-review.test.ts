@@ -7,7 +7,7 @@ import { createMotionscaperProjectStore, MotionProjectConflictError } from '../s
 import { createMotionscaperProject } from '../src/motionscaper/editor-project.ts';
 import { createMotionscaperRevision } from '../src/motionscaper/editor-project-revision.ts';
 import { exportMotionscaperArchive } from '../src/motionscaper/editor-scape.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 const settings = { title: 'Local original', width: 64, height: 32, frameRate: { num: 30, den: 1 }, durationFrames: 6 };
 function fixture() {
 	const database = createInstrumentedIndexedDB(); const store = createMotionscaperProjectStore({ indexedDB: database as unknown as IDBFactory }); let next = 0;

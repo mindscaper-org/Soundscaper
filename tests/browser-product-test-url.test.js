@@ -34,6 +34,16 @@ test('non-ordinary Playwright configurations retain their own relative paths', (
 	assert.equal(resolveBrowserProductTestUrl('/framescaper/de/', {}), '/framescaper/de/');
 	assert.throws(
 		() => resolveBrowserProductTestUrl('/en/', { [BROWSER_PRODUCT_ORIGINS_VARIABLE]: '{}' }),
-		/must name both loopback product origins/u,
+		/must name.*loopback product origin/u,
 	);
+});
+
+test('a single-product run routes its own paths and rejects an unselected peer', () => {
+	const frames = { [BROWSER_PRODUCT_ORIGINS_VARIABLE]: JSON.stringify({ framescaper: 'http://127.0.0.1:4323' }) };
+	assert.equal(resolveBrowserProductTestUrl('/framescaper/en/', frames), 'http://127.0.0.1:4323/en/');
+	assert.throws(() => resolveBrowserProductTestUrl('/en/', frames), /soundscaper.*not selected/u);
+	const sound = { [BROWSER_PRODUCT_ORIGINS_VARIABLE]: JSON.stringify({ soundscaper: 'http://127.0.0.1:4322' }) };
+	assert.equal(resolveBrowserProductTestUrl('/en/', sound), 'http://127.0.0.1:4322/en/');
+	assert.throws(() => resolveBrowserProductTestUrl('/framescaper/en/', sound), /framescaper.*not selected/u);
+	assert.throws(() => resolveBrowserProductTestUrl('/en/', { [BROWSER_PRODUCT_ORIGINS_VARIABLE]: '{"other":"http://127.0.0.1:4322"}' }), /unknown product/u);
 });

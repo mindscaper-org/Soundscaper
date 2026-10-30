@@ -5,7 +5,7 @@ import { prepareMotionscaperAeImport, commitMotionscaperAeImport } from '../src/
 import { createMotionscaperProjectStore } from '../src/motionscaper/editor-project-store.ts';
 import { normalizeMotionscaperProject } from '../src/motionscaper/editor-project-validation.ts';
 import { exportMotionscaperArchive, importMotionscaperArchive } from '../src/motionscaper/editor-scape.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { motionAeTextFixture, motionAeTextFont, motionAeTextOptions } from './helpers/motionscaper-ae-text-fixture.ts';
 const bytes = new Uint8Array([1, 2, 3, 4]), sha256 = digestScapeBytes(bytes);

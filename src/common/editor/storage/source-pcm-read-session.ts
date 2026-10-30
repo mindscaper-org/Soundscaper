@@ -5,7 +5,7 @@ import type {
 	SourcePcmReadSession,
 	SourceReadOptions,
 } from './source-read-repository.ts';
-import { createAbortGuard } from '../abort-error.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
 
 const NO_PRIMARY_FAILURE = Symbol('no source PCM read failure');
 const throwIfAborted = createAbortGuard('Source PCM reading was cancelled.');

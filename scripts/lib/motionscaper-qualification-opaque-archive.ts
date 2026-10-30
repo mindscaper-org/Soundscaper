@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js/index-native.js';
-import { digestScapeBytes } from '../../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../../src/common/media/bytes.ts';
 import type { ProjectSchemaFamily } from '../../src/common/editor/project-schema-identity.ts';
 
 export async function createMotionscaperOpaqueArchive(schemaFamily: ProjectSchemaFamily, schemaVersion: number, id = 'opaque-original', assetKind = 'future-unrecognized-asset') {

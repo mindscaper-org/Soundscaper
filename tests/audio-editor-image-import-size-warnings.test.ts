@@ -6,7 +6,7 @@ import {
 	confirmImageImportGesture,
 	confirmImageCanonicalBody,
 } from '../src/common/editor/image-import-size-warnings.ts';
-import { admitImageDecodeWorkload, IMAGE_IMPORT_LIMITS } from '../src/common/editor/image-import-admission.ts';
+import { admitImageDecodeWorkload, IMAGE_IMPORT_LIMITS } from '../src/common/imaging/image-import-admission.ts';
 import { FileSizeWarningRequiredError } from '../src/common/editor/controller/shared/file-size-warning.ts';
 import { normalizeFramescaperImageSourceV1 } from '../src/common/editor/timeline-image-model.ts';
 import {

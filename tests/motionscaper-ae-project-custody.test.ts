@@ -8,7 +8,7 @@ import { createMotionscaperProject } from '../src/motionscaper/editor-project.ts
 import { createMotionscaperRevision } from '../src/motionscaper/editor-project-revision.ts';
 import { exportMotionscaperArchive, importMotionscaperArchive } from '../src/motionscaper/editor-scape.ts';
 import { prepareMotionscaperAeImport, commitMotionscaperAeImport } from '../src/motionscaper/editor-ae-import.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import type { MotionImportedMedia } from '../src/common/editor/motion-media-import.ts';
 const bytes = new Uint8Array([12, 34, 56, 78]), digest = digestScapeBytes(bytes);
 async function preparation() {

@@ -3,10 +3,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type {
-	ScapeArchiveEntry,
-} from '../src/common/editor/scape-archive-envelope.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import type { ScapeArchiveEntry } from '../src/common/scape/archive-envelope.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { SCAPE_VIDEO_MAXIMUM_CHUNK_BYTES } from '../src/common/editor/scape-archive-video.ts';
 import {
 	PROJECT_SCHEMA_VERSION,

@@ -5,7 +5,7 @@ import test from 'node:test';
 import { createSoundscaperDesktopProjectLibraryHandshake } from '../desktop/soundscaper-project-library-contract.ts';
 import { FileSizeWarningRequiredError } from '../src/common/editor/controller/shared/file-size-warning.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
-import { SCAPE_ARCHIVE_LIMITS } from '../src/common/editor/scape-archive-envelope.ts';
+import { SCAPE_ARCHIVE_LIMITS } from '../src/common/scape/archive-limits.ts';
 import { scapeAudioSourceLayout } from '../src/common/editor/scape-archive-media.ts';
 import { acquireSoundscaperDesktopFreezeBodies, type SoundscaperDesktopFreezeStore } from '../src/soundscaper/desktop-project-library-freeze-media.ts';
 import { SoundscaperDesktopFreezeSizeAdmission } from '../src/soundscaper/desktop-project-library-freeze-size-warning.ts';

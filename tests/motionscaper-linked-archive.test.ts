@@ -14,7 +14,7 @@ import { importFramescaperLinkedSuccessorArchive } from '../src/framescaper/edit
 import { inspectFramescaperMigrationArchive } from '../src/framescaper/editor-project-successor-archive.ts';
 import { createMotionscaperProject } from '../src/motionscaper/editor-project.ts';
 import { createMotionscaperRevision } from '../src/common/editor/motion-project-revision.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { withScapeArchiveReader } from '../src/common/editor/scape-archive-reader.ts';
 import { readScapeArchiveEnvelope } from '../src/common/editor/scape-archive-envelope.ts';
 import type { MotionAsset } from '../src/common/editor/motion-asset.ts';

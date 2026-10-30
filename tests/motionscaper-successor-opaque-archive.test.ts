@@ -8,7 +8,7 @@ import { createFramescaperSuccessorController } from '../src/framescaper/editor-
 import { createFramescaperSuccessorScapeNativeRuntime } from '../src/framescaper/editor-scape-successor-native.ts';
 import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
 import { createMotionscaperOpaqueArchive as archive } from './helpers/motionscaper-opaque-archive.ts';
-import { createScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { createFramescaperSuccessorRuntime } from '../src/framescaper/editor-project-successor-runtime.ts';
 
 

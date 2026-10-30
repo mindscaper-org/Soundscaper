@@ -7,7 +7,7 @@ import { MotionscaperDocumentSession } from '../src/motionscaper/editor-document
 import { createMotionscaperProject } from '../src/motionscaper/editor-project.ts';
 import { createMotionscaperRevision } from '../src/motionscaper/editor-project-revision.ts';
 import { openMotionProjectDatabase } from '../src/common/editor/storage/motion-project-database.ts';
-import { request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 const settings = { title: 'Saved', width: 64, height: 64, frameRate: { num: 24, den: 1 }, durationFrames: 48 };
 
 test('M02 another Motion editor cannot replace a recovery draft before either editor saves', async () => {

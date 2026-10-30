@@ -1,13 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { TextReader, ZipWriter } from '@zip.js/zip.js/index-native.js';
 import type { MotionAsset } from '../common/editor/motion-asset.ts';
-import { createScapeDigest, digestScapeBytes, scapeHex, verifyScapeAssetBytes } from '../common/editor/scape-archive-media.ts';
-import { readScapeArchiveEnvelope, type ScapeArchiveEnvelope, type ScapeAssetDescriptor } from '../common/editor/scape-archive-envelope.ts';
+import { createDigest as createScapeDigest, digestBytes as digestScapeBytes, hex as scapeHex } from '../common/media/bytes.ts';
+import { verifyScapeAssetBytes } from '../common/scape/asset-bytes.ts';
+import { readScapeArchiveEnvelope, type ScapeArchiveEnvelope } from '../common/editor/scape-archive-envelope.ts';
+import { type ScapeAssetDescriptor } from '../common/scape/archive-envelope.ts';
 import { withScapeArchiveReader } from '../common/editor/scape-archive-reader.ts';
 import { copyScapeArchiveEntry } from '../common/editor/scape-archive-entry-copy.ts';
 import { createScapeExportDestination } from '../common/editor/scape-export-destination.ts';
 import { maximumScapeStoreArchiveBytes, resolveScapeBlobMaximumBytes } from '../common/editor/scape-export-estimate.ts';
-import { aggregateScapeErrors, throwIfScapeAborted } from '../common/editor/scape-abort.ts';
+import { aggregateScapeErrors, throwIfScapeAborted } from '../common/scape/abort.ts';
 import { normalizeFramescaperSuccessorProject, type FramescaperSuccessorProject } from './editor-project-successor.ts';
 import { inspectFramescaperMigrationArchive, type FramescaperMigrationRecord } from './editor-project-successor-archive.ts';
 import { createFramescaperScapeProjectAssetExtension } from './editor-scape-assets.ts';

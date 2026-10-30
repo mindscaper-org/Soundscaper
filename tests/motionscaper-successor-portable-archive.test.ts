@@ -10,7 +10,7 @@ import { createFramescaperCompositionLink } from '../src/framescaper/editor-proj
 import { VIDEO_TIMING_ASSET_MAXIMUM_FRAMES } from '../src/common/editor/video-timing-asset-reference.ts';
 import { createFramescaperSuccessorRuntime } from '../src/framescaper/editor-project-successor-runtime.ts';
 import { normalizeFramescaperSuccessorProject } from '../src/framescaper/editor-project-successor.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { withScapeArchiveReader } from '../src/common/editor/scape-archive-reader.ts';
 import { readScapeArchiveEnvelope } from '../src/common/editor/scape-archive-envelope.ts';
 import { exportFramescaperSuccessorPortableArchive, type FramescaperSuccessorPortableExportStore } from '../src/framescaper/editor-project-successor-portable-export.ts';

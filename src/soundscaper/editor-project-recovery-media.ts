@@ -4,7 +4,7 @@ import { serializeScapeProjectDocument } from '../common/editor/scape-project-do
 import { PcmStorageCorruptionError } from '../common/editor/wavpack/pcm.js';
 import { isSoundscaperRecoveryBlockedFailure } from './editor-project-recovery-evidence.ts';
 import type { SoundscaperProjectRecoveryStore } from './editor-project-recovery-types.ts';
-import { createScapeDigest, scapeHex } from '../common/editor/scape-archive-media.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../common/media/bytes.ts';
 import type { SourcePcmChunk } from '../common/editor/storage/source-read-repository.ts';
 import { LinkedOriginalContentUnavailableError } from '../common/editor/storage/linked-original-content-unavailable-error.ts';
 

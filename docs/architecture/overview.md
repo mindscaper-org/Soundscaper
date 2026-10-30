@@ -1,8 +1,43 @@
 # Architecture and maintainability
 
-The Vite entry selects a product from `src/soundscaper/` or `src/framescaper/`.
-Both products depend on shared code in `src/common/`; the editor domain lives in
+The Vite entry selects a product from `src/soundscaper/`, `src/framescaper/`, or
+`src/motionscaper/`. These products depend on shared code in `src/common/`; the editor domain lives in
 `src/common/editor/`, while React presentation belongs in its `ui/` directory.
+
+## Shared module ownership
+
+The shared source modules have independent ownership within the existing npm
+project and lockfile:
+
+| Module | Owner and boundary |
+| --- | --- |
+| `src/common/foundation/` | Cancellation and closed-value validation leaves, with no application dependencies. |
+| `src/common/imaging/` | Image signatures, admission and animation topology, LUT parsing, linear color grading and mask rasterization. Timeline orchestration remains in the editor. |
+| `src/common/media/` | Byte streams, content integrity and IndexedDB request/transaction/cursor primitives. Database schemas, project publication and PCM interpretation remain with their owners. |
+| `src/common/scape/` | Archive byte access, ZIP admission, bounded envelopes, integrity and cancellation. The caller supplies family identity and document parsing through `ScapeFamilyCodec`. |
+| `src/common/editor/` | Shared timeline editing and its existing presentation and composition layers. `timeline-audio` and `timeline-visual` are separate test owners within this retained source tree. |
+
+[`config/module-policy.json`](../../config/module-policy.json) is the authority
+for source ownership, public files, allowed module dependencies, owner test
+targets, browser/product requirements and runtime inputs. The most specific
+source prefix or explicit source file owns a path. Semantic owners are separate
+from the Node runner's execution shards. Existing product applications remain
+under `src/soundscaper/`, `src/framescaper/`, and `src/motionscaper/`.
+
+Extracted neutral modules may depend only on their declared neutral owners.
+They must not import editor implementation, product applications, React UI or
+Electron, including through types. Import a public owning file directly; do not
+introduce broad barrels. Product state, family-specific codecs, presentation
+decisions and platform services enter through narrow adapters. The timeline
+Scape adapter supplies its existing document codec and file-size confirmation
+port without making the generic container depend on the controller.
+
+`npm run check:modules` validates these boundaries and is part of
+`npm run check:architecture`. Legacy timeline and platform owners retain their
+existing architecture rules while extraction continues. Declaring an owner does
+not certify it for partial coverage: the manifest's `independent` flag requires
+complete owned-source coverage at its inherited floors. Source moves retain
+their original coverage cohort and chunk/startup budgets.
 
 ## Controller ownership
 

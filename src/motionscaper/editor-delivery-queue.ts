@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { aggregateScapeErrors } from '../common/editor/scape-abort.ts';
+import { aggregateScapeErrors } from '../common/scape/abort.ts';
 import { motionExpressionErrorMessage } from '../common/editor/motion-expression-error-message.ts';
 import { pendingMotionDeliveryCleanup, type MotionDeliveryCleanupFailure } from '../common/editor/motion-delivery-cleanup.ts';
 import { createMotionRenderQueue } from '../common/editor/controller/export/motion-render-pipeline.ts';

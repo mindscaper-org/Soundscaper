@@ -9,7 +9,7 @@ import {
 	ZipWriter,
 } from '@zip.js/zip.js';
 
-import { digestScapeBytes } from '../../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../../src/common/media/bytes.ts';
 
 /** Rewrite the archive's project document (and its manifest digest binding) in place. */
 export async function rewriteScapeProjectDocument(blob, mutate) {

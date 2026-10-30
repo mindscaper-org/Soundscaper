@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { ZipWriter } from '@zip.js/zip.js/index-native.js';
-import type { ScapeArchiveEntry } from './scape-archive-envelope.ts';
+import type { ScapeArchiveEntry } from '../scape/archive-envelope.ts';
 
 /** Both sides of a bounded ZIP copy settle before failure releases archive custody. */
 export async function copyScapeArchiveEntry(writer: ZipWriter<unknown>, entry: ScapeArchiveEntry, signal?: AbortSignal): Promise<void> {

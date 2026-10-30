@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
 import { createMotionNativePcmWriter, openMotionNativePcmReader, motionNativePcmPlan } from '../src/common/editor/motion-native-pcm-carrier-v1.ts';
-import { createScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { addRationals, divideRationals, multiplyRationals } from '../src/common/editor/timeline-time.ts';
 const frames = { identity: { projectId: 'p', compositionId: 'c', revisionDigest: 'a'.repeat(64) }, width: 32, height: 16,
 	frameRate: { num: 30000, den: 1001 }, firstFrame: 123, frameCount: 3 };

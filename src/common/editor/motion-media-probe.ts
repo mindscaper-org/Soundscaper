@@ -2,8 +2,8 @@
 
 import type { MotionAsset } from './motion-asset.ts';
 import { normalizeRational, type Rational } from './timeline-time.ts';
-import { classifyImageFormatSignature } from './image-format-signature.ts';
-import { encodedImageIsAnimated } from './image-animation-topology.ts';
+import { classifyImageFormatSignature } from '../imaging/image-format-signature.ts';
+import { encodedImageIsAnimated } from '../imaging/image-animation-topology.ts';
 import { motionSurfaceLength } from './motion-surface.ts';
 import { normalizeMotionAudioFormat } from './motion-audio-contract.ts';
 

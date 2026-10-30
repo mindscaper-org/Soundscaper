@@ -8,7 +8,7 @@ import { normalizeAudioWarpRational } from '../../../../audio-groove-template.ts
 import {
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from '../../../../closed-domain-value.ts';
+} from '../../../../../foundation/closed-domain-value.ts';
 import { compareRationals, type RationalInput } from '../../../../timeline-time.ts';
 
 export interface AudioWarpMarkerInput {

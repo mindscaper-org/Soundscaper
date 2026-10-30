@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { createScapeArchiveByteSource, type ScapeArchiveByteSource } from '../common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource, type ScapeArchiveByteSource } from '../common/scape/archive-byte-source.ts';
 import { MOTIONSCAPER_FILE_CHUNK_BYTES, MOTIONSCAPER_FILE_METHODS, type MotionDesktopFiles, type MotionSaveFileReceipt, type MotionRecoveredPublication } from './desktop-file-contract.ts';
 
 export interface MotionDesktopArchiveInput {

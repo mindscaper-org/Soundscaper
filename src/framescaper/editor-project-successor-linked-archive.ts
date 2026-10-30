@@ -2,13 +2,14 @@
 import { TextReader, ZipWriter } from '@zip.js/zip.js/index-native.js';
 import type { MotionAsset } from '../common/editor/motion-asset.ts';
 import type { MotionAssetBody } from '../common/editor/motion-asset-body.ts';
-import { createScapeDigest, digestScapeBytes, scapeHex } from '../common/editor/scape-archive-media.ts';
-import { readScapeArchiveEnvelope, SCAPE_ARCHIVE_LIMITS } from '../common/editor/scape-archive-envelope.ts';
+import { createDigest as createScapeDigest, digestBytes as digestScapeBytes, hex as scapeHex } from '../common/media/bytes.ts';
+import { readScapeArchiveEnvelope } from '../common/editor/scape-archive-envelope.ts';
+import { SCAPE_ARCHIVE_LIMITS } from '../common/scape/archive-limits.ts';
 import { withScapeProjectInput } from '../common/editor/scape-project-input.ts';
 import { copyScapeArchiveEntry } from '../common/editor/scape-archive-entry-copy.ts';
 import { createScapeExportDestination } from '../common/editor/scape-export-destination.ts';
 import { maximumScapeStoreArchiveBytes, resolveScapeBlobMaximumBytes } from '../common/editor/scape-export-estimate.ts';
-import { throwIfScapeAborted } from '../common/editor/scape-abort.ts';
+import { throwIfScapeAborted } from '../common/scape/abort.ts';
 import { normalizeFramescaperSuccessorProject } from './editor-project-successor.ts';
 import { inspectFramescaperMigrationArchive, type FramescaperMigrationRecord } from './editor-project-successor-archive.ts';
 import { createFramescaperScapeProjectAssetExtension } from './editor-scape-assets.ts';

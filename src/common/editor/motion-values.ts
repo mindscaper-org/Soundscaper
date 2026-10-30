@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray, readClosedDomainRecord } from './closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainRecord } from '../foundation/closed-domain-value.ts';
 import { normalizeRational, type Rational } from './timeline-time.ts';
 
 export function motionRecord(value: unknown, fields: readonly string[], name: string, required: readonly string[] = fields): Readonly<Record<string, unknown>> {

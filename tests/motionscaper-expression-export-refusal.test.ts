@@ -15,7 +15,7 @@ import { MotionExpressionError } from '../src/common/editor/motion-expression-as
 import { motionExpressionErrorMessage } from '../src/common/editor/motion-expression-error-message.ts';
 import { motionColor, motionVector } from '../src/common/editor/motion-property.ts';
 import { MotionDeliveryCleanupFailure, pendingMotionDeliveryCleanup } from '../src/common/editor/motion-delivery-cleanup.ts';
-import { aggregateScapeErrors } from '../src/common/editor/scape-abort.ts';
+import { aggregateScapeErrors } from '../src/common/scape/abort.ts';
 
 const runtime = CanvasKitInit();
 for (const source of ['window.fetch("/")', '1 / 0']) test(`M08 final rendering refuses retained ${source} without publication and succeeds after correction`, async () => {

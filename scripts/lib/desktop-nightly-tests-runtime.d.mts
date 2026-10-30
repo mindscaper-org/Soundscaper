@@ -67,11 +67,6 @@ export interface DesktopNightlyTestsResultEnvelope {
 	readonly failure: string | null;
 	readonly artifacts: {
 		readonly browserCoverageRaw: 'coverage/v8-browser';
-		readonly dualOriginConsoleLog: 'e2e-coverage/dual-origin/console.log';
-		readonly dualOriginHtmlReport: 'e2e-coverage/dual-origin/playwright-report/index.html';
-		readonly dualOriginJsonReport: 'e2e-coverage/dual-origin/results.json';
-		readonly dualOriginJunitReport: 'e2e-coverage/dual-origin/junit.xml';
-		readonly dualOriginTestResults: 'e2e-coverage/dual-origin/test-results';
 		readonly consoleLog: 'console.log';
 		readonly htmlReport: 'playwright-report/index.html';
 		readonly jsonReport: 'results.json';
@@ -186,20 +181,6 @@ export interface DesktopNightlyTestsDependencies {
 	readonly createRunDirectory?: typeof createDesktopNightlyTestsRunDirectory;
 	readonly startProductSites?: typeof import('./desktop-nightly-tests-product-sites.mjs').startDesktopNightlyTestsProductSites;
 	readonly startStaticServer?: typeof startDesktopNightlyTestsStaticServer;
-	readonly startPagesSiteServer?: (options: {
-		readonly root: string;
-		readonly host: string;
-		readonly port: number;
-	}) => Promise<DesktopNightlyTestsStaticServer>;
-	readonly runDualOriginPhase?: (
-		options: import('./desktop-nightly-tests-dual-origin.mjs').DesktopNightlyTestsDualOriginOptions,
-		dependencies: {
-			readonly runPlaywright: NonNullable<DesktopNightlyTestsDependencies['runPlaywright']>;
-		},
-	) => Promise<{
-		readonly child: { readonly code: number | null; readonly signal: string | null };
-		readonly diagnostics: Readonly<{ readonly passed: boolean }>;
-	}>;
 	readonly resolveEsbuildBinary?: typeof resolveDesktopNightlyTestsEsbuildBinary;
 	readonly runPlaywright?: (
 		plan: DesktopNightlyTestsPlaywrightPlan,

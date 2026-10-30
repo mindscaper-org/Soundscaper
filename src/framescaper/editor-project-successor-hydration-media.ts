@@ -2,13 +2,14 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { extractScapeVideo } from '../common/editor/scape-archive-video.ts';
-import { extractScapeAudio, scapeAudioSourceStream, verifyScapeExtractedAsset, type ScapeAudioSource } from '../common/editor/scape-archive-media.ts';
-import type { ScapeAssetDescriptor } from '../common/editor/scape-archive-envelope.ts';
+import { extractScapeAudio, scapeAudioSourceStream, type ScapeAudioSource } from '../common/editor/scape-archive-media.ts';
+import { verifyScapeExtractedAsset } from '../common/scape/asset-bytes.ts';
+import type { ScapeAssetDescriptor } from '../common/scape/archive-envelope.ts';
 import type { ScapeProjectAssetExtensionImportRequest } from '../common/editor/scape-project-asset-extension.ts';
 import type { ScapeAudioChunkBudget } from '../common/editor/scape-expanded-byte-budget.ts';
 import type { AudioEditorProjectStore } from '../common/editor/storage.js';
-import { digestMediaContent, canonicalMediaContentBlob } from '../common/editor/storage/media-content-digest.ts';
-import { aggregateScapeErrors } from '../common/editor/scape-abort.ts';
+import { digestMediaContent, canonicalMediaContentBlob } from '../common/media/content-digest.ts';
+import { aggregateScapeErrors } from '../common/scape/abort.ts';
 
 export type SuccessorHydrationStore = Omit<AudioEditorProjectStore, 'loadMediaAsset'> & { loadMediaAsset(id: string, options?: { signal?: AbortSignal }): Promise<Blob | null> };
 type Request = Omit<ScapeProjectAssetExtensionImportRequest, 'store'> & { readonly store: SuccessorHydrationStore };

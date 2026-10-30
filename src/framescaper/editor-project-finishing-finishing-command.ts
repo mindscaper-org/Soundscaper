@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { normalizeAutomationLaneV21, type AutomationLaneV21 } from '../common/editor/automation-lane-v21.ts';
-import { readClosedDomainField, readClosedDomainRecord } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../common/foundation/closed-domain-value.ts';
 import { normalizeMixerGraphV21, type MixerGraphV21 } from '../common/editor/mixer-graph-v21.ts';
 import { normalizeVideoCaptionTrackV1, type VideoCaptionTrackV1 } from '../common/editor/video-caption-track-v27.ts';
 import {

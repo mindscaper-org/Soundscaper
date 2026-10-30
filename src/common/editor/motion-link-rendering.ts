@@ -8,7 +8,7 @@ import { renderMotionTemporalSamples } from './motion-temporal-rendering.ts';
 import type { MotionExpressionAudioPreparation } from './motion-expression-audio-preparation.ts';
 import { motionSurfaceLength } from './motion-surface.ts';
 import { assertMotionWorkingBudget, MOTION_DEFAULT_WORKING_BYTES } from './motion-render-budget.ts';
-import { aggregateScapeErrors } from './scape-abort.ts';
+import { aggregateScapeErrors } from '../scape/abort.ts';
 import { compareRationals, divideRationals, normalizeRational, type Rational, type RationalInput } from './timeline-time.ts';
 
 export interface MotionCompositionLinkRenderPlan { readonly offer: MotionCompositionOffer }

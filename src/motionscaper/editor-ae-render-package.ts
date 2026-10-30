@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { BlobReader, TextReader, Uint8ArrayReader, ZipWriter } from '@zip.js/zip.js/index-native.js';
-import { digestScapeBytes } from '../common/editor/scape-archive-media.ts';
-import { throwIfScapeAborted } from '../common/editor/scape-abort.ts';
+import { digestBytes as digestScapeBytes } from '../common/media/bytes.ts';
+import { throwIfScapeAborted } from '../common/scape/abort.ts';
 import { createScapeExportDestination } from '../common/editor/scape-export-destination.ts';
 import type { MotionAssetReader } from '../common/editor/motion-render-resources.ts';
 import { exportMotionscaperArchive } from './editor-scape.ts';

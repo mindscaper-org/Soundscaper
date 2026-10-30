@@ -21,7 +21,7 @@ import type {
 	VideoProxyCandidateObserver,
 	VideoProxyCandidateObserverDependencies,
 } from '../../video-proxy-candidate-observation.ts';
-import { canonicalMediaContentBlob } from '../../storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../../../media/content-digest.ts';
 import { createVideoProxyCandidateObserver } from '../../video-proxy-candidate-observation.ts';
 import { createFfmpegVideoProxyGenerator } from '../../video-proxy-ffmpeg-generator.ts';
 import { createContainerVideoTimingProbe } from '../../video-timing-demux.ts';

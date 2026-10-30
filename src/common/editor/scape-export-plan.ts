@@ -1,24 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
-import { awaitScapeOperation, throwIfScapeAborted } from './scape-abort.ts';
-import {
-	SCAPE_ARCHIVE_LIMITS,
-	SCAPE_FORMAT,
-	SCAPE_FORMAT_VERSION,
-	SCAPE_MANIFEST_ENTRY,
-	SCAPE_PROJECT_ENTRY,
-	type ScapeAssetDescriptor,
-	type ScapeManifest,
-	type ScapeProjectDescriptor,
-} from './scape-archive-envelope.ts';
-import {
-	createScapeAudioExportChunkBudget,
-	digestScapeBytes,
-	safeScapeEntryId,
-	scapeAudioSourceLayout,
-	type ScapeAudioSource,
-} from './scape-archive-media.ts';
+import { awaitScapeOperation, throwIfScapeAborted } from '../scape/abort.ts';
+import { SCAPE_ARCHIVE_LIMITS } from '../scape/archive-limits.ts';
+import { SCAPE_FORMAT, SCAPE_FORMAT_VERSION, SCAPE_MANIFEST_ENTRY, SCAPE_PROJECT_ENTRY, type ScapeAssetDescriptor } from '../scape/archive-envelope.ts';
+import { type ScapeManifest, type ScapeProjectDescriptor } from './scape-archive-envelope.ts';
+import { createScapeAudioExportChunkBudget, safeScapeEntryId, scapeAudioSourceLayout, type ScapeAudioSource } from './scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../media/bytes.ts';
 import { type ScapeAudioChunkBudget } from './scape-expanded-byte-budget.ts';
 import {
 	maximumScapeStoreArchiveBytes,

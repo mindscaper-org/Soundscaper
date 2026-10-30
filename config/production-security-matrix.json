@@ -40,6 +40,14 @@
 			{
 				"kind": "test",
 				"path": "tests/audio-editor-scape-v1-baseline.test.ts"
+			},
+			{
+				"kind": "implementation",
+				"path": "src/common/scape/archive-envelope.ts"
+			},
+			{
+				"kind": "implementation",
+				"path": "src/common/scape/archive-limits.ts"
 			}
 		]
 	},
@@ -1529,6 +1537,14 @@
 				{
 					"kind": "test",
 					"path": "tests/audio-editor-project-schema-identity.test.ts"
+				},
+				{
+					"kind": "implementation",
+					"path": "src/common/scape/archive-envelope.ts"
+				},
+				{
+					"kind": "implementation",
+					"path": "src/common/scape/archive-limits.ts"
 				}
 			]
 		},
@@ -1610,6 +1626,14 @@
 				{
 					"kind": "test",
 					"path": "tests/audio-editor-storage-lifecycle.test.js"
+				},
+				{
+					"kind": "implementation",
+					"path": "src/common/scape/archive-envelope.ts"
+				},
+				{
+					"kind": "implementation",
+					"path": "src/common/scape/archive-limits.ts"
 				}
 			]
 		},
@@ -2872,6 +2896,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-v1-baseline.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
 						}
 					],
 					"historicalPreFreezeNarrative": {
@@ -3188,6 +3220,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-v1-baseline.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active",
@@ -3330,7 +3370,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/common/editor/storage/media-content-digest.ts"
+							"path": "src/common/media/content-digest.ts"
 						},
 						{
 							"kind": "implementation",
@@ -3431,6 +3471,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-session-project-activation.test.js"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/asset-bytes.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/media/bytes.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active",
@@ -3997,7 +4045,7 @@
 				},
 				{
 					"id": "legacy-aup-xml-structural-budget",
-					"summary": "A format-specific legacy `.aup` XML admission asks for explicit user confirmation above 16 MiB of authoritative declared `File.size`, before reading text. It independently measures the returned text’s UTF-8 byte length and asks before parsing if that exceeds the admitted warning threshold. Cancellation and caller currentness are rechecked around confirmation. Structural limits stay enforced: at most 100,000 retained elements, 400,000 attributes, and maximum depth 128 through lower-only test seams. A declined warning or structural refusal precedes legacy `_data` block reads, conversion, project/source persistence, or imported-project publication. This narrow control does not qualify elapsed time, other project families, selected `_data` bytes or decoded PCM amplification, or the total import working set.",
+					"summary": "A format-specific legacy `.aup` XML admission asks for explicit user confirmation above 16 MiB of authoritative declared `File.size`, before reading text. It independently measures the returned text\u2019s UTF-8 byte length and asks before parsing if that exceeds the admitted warning threshold. Cancellation and caller currentness are rechecked around confirmation. Structural limits stay enforced: at most 100,000 retained elements, 400,000 attributes, and maximum depth 128 through lower-only test seams. A declined warning or structural refusal precedes legacy `_data` block reads, conversion, project/source persistence, or imported-project publication. This narrow control does not qualify elapsed time, other project families, selected `_data` bytes or decoded PCM amplification, or the total import working set.",
 					"evidence": [
 						{
 							"kind": "implementation",
@@ -4416,6 +4464,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-archive-envelope.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -4499,6 +4555,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-video-clip-fallback-roundtrip.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/asset-bytes.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/media/bytes.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active",
@@ -4575,6 +4639,14 @@
 						{
 							"kind": "test",
 							"path": "tests/linked-wav-managed-handoff-policy.test.js"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/asset-bytes.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/media/bytes.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active",
@@ -4653,6 +4725,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-import-size-warning.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -4676,6 +4756,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-project.test.js"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -4691,6 +4779,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-archive-envelope.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -4706,6 +4802,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-archive-envelope.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -4721,6 +4825,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-archive-envelope.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -4731,7 +4843,7 @@
 					"evidence": [
 						{
 							"kind": "implementation",
-							"path": "src/common/editor/scape-expanded-byte-budget.ts"
+							"path": "src/common/scape/expanded-byte-budget.ts"
 						},
 						{
 							"kind": "implementation",
@@ -4748,6 +4860,22 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-expansion.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/asset-bytes.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/media/bytes.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -4830,6 +4958,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-expansion.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/asset-bytes.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/media/bytes.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -4845,6 +4981,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-expansion.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -4863,7 +5007,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/common/editor/scape-archive-zip-profile.ts"
+							"path": "src/common/scape/archive-zip-profile.ts"
 						},
 						{
 							"kind": "implementation",
@@ -4886,7 +5030,7 @@
 				},
 				{
 					"id": "bounded-random-access-archive-reading",
-					"summary": "Archive validation and zip.js share a branded random-access byte source: providers declare a lower-only maximum beneath the non-raiseable 33 MiB logical read ceiling, and returned ranges are measured and copied through captured native `Uint8Array` slots. One exact 69,271,649-byte canonical-profile witness retains admitted end records, central headers, names, extras, comments, local structures, and descriptors; it rejects conflicting overlaps, serves witnessed bytes unchanged, and fetches only payload gaps. Blob behavior remains covered by parity tests. A zero-high-water-mark ZIP payload stream makes overlap-only checks lazy instead of prefetching the start of a large entry. Main assigns every terminal canonical project suffix — `.sscape`, `.fscape`, the reserved `.liscape`, and legacy `.scape` — the immutable `scape-range-v1` profile, while Audacity and other desktop inputs remain `materialized-v1`. The strict renderer adapter snapshots the descriptor URL/declared size and fetch implementation, splits reads into exact at-most-16-MiB `206` responses, serializes through stream done, and terminally fences the first admitted abort or transport failure without exposing release authority. Project-dialog and OS-association project-archive descriptors, under any accepted suffix, share one explicit router and awaited scope spanning inspection, any open decision, import, and exact-once release. The inspection refusal witness stamps the retired numeric-only pre-release project and proves a legacy archive fails with the typed re-import error before any collision lookup or open decision; it transfers less than 8 MiB, touches the huge body only through the at-most-65,557-byte suffix overlapped by the ZIP end-record search, and does not hash that body. Its authentic exact 8 GiB sparse Zip64 fixture binds the 8,589,930,860-byte all-zero asset to SHA-256 29fe8d0dc2c84f17f76b0a8a896c33042d832681351f0798a523dcbf72c49942 and CRC-32 1,816,305,334; the payload is pinned and the project title pads the layout, so schema evolution never changes the recorded identity. A separate witness uses the family-v1 arm of the same fixture and takes the full payload through the real read-capability store, Node protocol shim, renderer adapter, file service, project service, and full import into an independent counting-SHA-256 transactional sink with zero payload retention and no Blob materialization; its point-in-time import-capacity estimate precedes the media writer and admits the exact 9,448,923,946-byte free-space requirement, capability release occurs exactly once, and the pinned handle close occurs exactly once. That full-import witness remains verified reference evidence and is exposed as the opt-in portable reference-scale gate `npm run test:reference:scape-8gib`. Routine Node and coverage runs fast-skip it because a measured all-files coverage run passed but took 525 seconds. This scheduling does not demote or narrow the verified result; refusal inspection and the corrupted-CRC negative rollback remain in routine coverage. Both witnesses require sparse-file support and use a Node protocol shim, not packaged UI. The counting sink does not qualify OPFS or IndexedDB durable 8 GiB persistence, real browser or filesystem quota accuracy or reservation, write-time success under concurrent writers, browser heap or process RSS, whole-storage atomicity, or publisher authentication.",
+					"summary": "Archive validation and zip.js share a branded random-access byte source: providers declare a lower-only maximum beneath the non-raiseable 33 MiB logical read ceiling, and returned ranges are measured and copied through captured native `Uint8Array` slots. One exact 69,271,649-byte canonical-profile witness retains admitted end records, central headers, names, extras, comments, local structures, and descriptors; it rejects conflicting overlaps, serves witnessed bytes unchanged, and fetches only payload gaps. Blob behavior remains covered by parity tests. A zero-high-water-mark ZIP payload stream makes overlap-only checks lazy instead of prefetching the start of a large entry. Main assigns every terminal canonical project suffix \u2014 `.sscape`, `.fscape`, the reserved `.liscape`, and legacy `.scape` \u2014 the immutable `scape-range-v1` profile, while Audacity and other desktop inputs remain `materialized-v1`. The strict renderer adapter snapshots the descriptor URL/declared size and fetch implementation, splits reads into exact at-most-16-MiB `206` responses, serializes through stream done, and terminally fences the first admitted abort or transport failure without exposing release authority. Project-dialog and OS-association project-archive descriptors, under any accepted suffix, share one explicit router and awaited scope spanning inspection, any open decision, import, and exact-once release. The inspection refusal witness stamps the retired numeric-only pre-release project and proves a legacy archive fails with the typed re-import error before any collision lookup or open decision; it transfers less than 8 MiB, touches the huge body only through the at-most-65,557-byte suffix overlapped by the ZIP end-record search, and does not hash that body. Its authentic exact 8 GiB sparse Zip64 fixture binds the 8,589,930,860-byte all-zero asset to SHA-256 29fe8d0dc2c84f17f76b0a8a896c33042d832681351f0798a523dcbf72c49942 and CRC-32 1,816,305,334; the payload is pinned and the project title pads the layout, so schema evolution never changes the recorded identity. A separate witness uses the family-v1 arm of the same fixture and takes the full payload through the real read-capability store, Node protocol shim, renderer adapter, file service, project service, and full import into an independent counting-SHA-256 transactional sink with zero payload retention and no Blob materialization; its point-in-time import-capacity estimate precedes the media writer and admits the exact 9,448,923,946-byte free-space requirement, capability release occurs exactly once, and the pinned handle close occurs exactly once. That full-import witness remains verified reference evidence and is exposed as the opt-in portable reference-scale gate `npm run test:reference:scape-8gib`. Routine Node and coverage runs fast-skip it because a measured all-files coverage run passed but took 525 seconds. This scheduling does not demote or narrow the verified result; refusal inspection and the corrupted-CRC negative rollback remain in routine coverage. Both witnesses require sparse-file support and use a Node protocol shim, not packaged UI. The counting sink does not qualify OPFS or IndexedDB durable 8 GiB persistence, real browser or filesystem quota accuracy or reservation, write-time success under concurrent writers, browser heap or process RSS, whole-storage atomicity, or publisher authentication.",
 					"evidence": [
 						{
 							"kind": "implementation",
@@ -4922,11 +5066,11 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/common/editor/scape-abort.ts"
+							"path": "src/common/scape/abort.ts"
 						},
 						{
 							"kind": "implementation",
-							"path": "src/common/editor/scape-archive-byte-source.ts"
+							"path": "src/common/scape/archive-byte-source.ts"
 						},
 						{
 							"kind": "implementation",
@@ -5138,6 +5282,22 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-expansion.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/asset-bytes.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/media/bytes.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -5153,6 +5313,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-archive-envelope.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -5168,6 +5336,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-archive-envelope.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -5183,6 +5359,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-archive-envelope.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -5202,6 +5386,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-archive-envelope.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -5229,6 +5421,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-scape-project.test.js"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -5329,7 +5529,7 @@
 					"evidence": [
 						{
 							"kind": "implementation",
-							"path": "src/common/editor/scape-abort.ts"
+							"path": "src/common/scape/abort.ts"
 						},
 						{
 							"kind": "implementation",
@@ -5394,6 +5594,14 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-file-service.test.js"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/asset-bytes.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/media/bytes.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -7359,11 +7567,11 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/common/editor/scape-abort.ts"
+							"path": "src/common/scape/abort.ts"
 						},
 						{
 							"kind": "implementation",
-							"path": "src/common/editor/scape-archive-byte-source.ts"
+							"path": "src/common/scape/archive-byte-source.ts"
 						},
 						{
 							"kind": "implementation",
@@ -7990,7 +8198,7 @@
 				},
 				{
 					"id": "exact-direct-pcm-mix-save",
-					"summary": "A dedicated `audio-pcm-mix` purpose permits only WAV, AIFF, BWF, and BW64 target names without granting generic audio targets maximum-bounded streaming authority. The maintained direct PCM route admits one mix only when its plan has one output and `realtime-stream`. WAV requires `audio/wav`, `.wav`, and one positive safe-integer planned file byte count, with explicit user confirmation above the 65 GiB warning threshold. Classic WAV admission requires an explicit valid sample rate, 1–32 channels, a nonnegative safe-integer frame count, non-array object metadata, a marker array, null-or-object iXML, CART exactly null, and one canonical (`sampleFormat`, `bitDepth`, `floatingPoint`) tuple: (`int16`, 16, false), (`int20`, 20, false), (`int24`, 24, false), or (`float32`, 32, true). It recomputes automatic RIFF/RF64 geometry with `inspectWavLayout` from the same sample rate, channel count, frame count, integer precision or float flag, metadata, markers, and iXML used by streaming, and requires the exact planned byte count to agree. Malformed or stale fields and layouts reject before target selection. An explicit container, BEXT, ADM, `preDataChunks`, `trailingChunks`, or non-null CART rejects, keeping broadcast and opaque-chunk variants on their own routes. Classic RIFF word-aligns odd PCM with a pad byte before trailing metadata. The largest constructible RIFF layout under the 32-bit RIFF-size field is 4,294,967,302 bytes; its next mono int16 frame selects RF64 at 4,294,967,340 bytes. Layout-only witnesses allocate no PCM or output bytes while admitting that transition and the exact 69,793,218,560-byte (65 GiB) RF64 ceiling and rejecting the next frame. This is an admission ceiling, not a classic WAV scale, package, heap, or RSS qualification. AIFF requires `audio/aiff`, `.aiff`, and an exact count at or below 4,294,967,303 bytes, its theoretical 32-bit FORM limit. Direct admission requires an explicit valid sample rate, 1–32 channels, from zero through 4,294,967,295 output frames, non-array object metadata, and one canonical (`sampleFormat`, `bitDepth`, `floatingPoint`) tuple: (`int16`, 16, false), (`int24`, 24, false), (`int32`, 32, false), or (`float32`, 32, true). It recomputes `inspectAiffLayout` from those same layout-affecting encoder options, requires AIFF for integer PCM or AIFF-C for float32, and requires its exact byte count to equal the plan. Malformed or stale fields and layouts reject before target selection. The 4,294,967,303-byte theoretical maximum is odd and unconstructible under the current aligned layout; a layout-only witness allocates no PCM or output bytes while admitting the largest current constructible 4,294,967,302-byte layout and rejecting its next mono int16 frame. Exact integer AIFF, AIFF-C float, odd PCM padding, and trailing ID3 metadata use that same encoder geometry. BWF requires `audio/wav`, `.wav`, and one positive safe-integer planned file byte count, with explicit user confirmation above the 65 GiB warning threshold. Admission requires an explicit valid sample rate, 1–32 channels, a nonnegative safe-integer frame count, object metadata, a marker array, and null-or-object iXML and CART. It recomputes the automatic RIFF/RF64 layout with `inspectWavLayout` from the same encoder options used by streaming: sample rate, channel count, frame count, integer precision, BEXT, metadata, markers, iXML, and CART. It rejects malformed fields or a planned-byte mismatch before target selection. Its plan and encoding must carry the same canonical normalized version-2 BEXT, and only integer int16, int20, or int24 PCM is admitted. It rejects a plan container, ADM, `preDataChunks`, and `trailingChunks`, keeping BW64 and opaque chunks outside the direct BWF variant; rich standard BWF metadata, markers, iXML, and CART remain eligible when their exact geometry agrees. A layout-only witness allocates no PCM or output bytes while admitting the exact constructible 69,793,218,560-byte (65 GiB) RF64 boundary and rejecting the next frame. This remains an admission ceiling, not BWF scale, heap, or RSS qualification. Authored BW64 requires format and container `bw64`, `audio/wav`, `.wav`, and an exact positive safe-integer layout recomputed by `inspectWavLayout`, with explicit user confirmation above 69,793,218,560 bytes (65 GiB). This is a 65 GiB warning threshold, not an exercised scale claim. Only int16, int20, or int24 PCM with the same canonical normalized version-2 BEXT in the plan and encoding is admitted. ADM must be authored normalized ADM for mono, stereo, or 5.1, with exact bed channel order and an identity preserve mapping. Canonical CHNA before PCM and AXML after PCM must be byte-identical in `plan.adm` and the top-level plan. Standard RIFF metadata, markers, iXML, and CART remain inside exact geometry. The separately admitted pristine-passthrough BW64 route is qualified only for metadata produced by the current BW64 importer and still accepted by the pristine planner: valid warning-free ADM, one unchanged neutral full-range source path at the import revision, and a nonempty complete `riffChunkSequence` whose aggregate complete nonstructural RIFF bytes, including headers and alignment bytes, do not exceed 16 MiB. Direct admission rechecks 1–32 channels of int16, int20, or int24 non-float PCM; exact rate, channel, frame, and precision geometry; zero tail and dither; full range; identity preserve mappings in plan and encoding; CHNA-derived channel order; exact compacted pre/post bytes, order, and placement in `plan.adm` and the top-level plan; and exact `inspectWavLayout` geometry under the same 65 GiB admission ceiling. A preserved BEXT is emitted only from the sequence; without one, plan and encoding must carry the same canonical normalized version-2 BEXT. Preserved cue/adtl, iXML, CART, ID3, or LIST/INFO chunks suppress their modeled plan fields, and collisions reject. Legacy `opaqueRiffChunks`-only metadata, incomplete capture, invalid or warning-bearing metadata, stale or edited projects, sequence drift, mapping or geometry drift, and loudness measurement reject before target selection. The byte-exact claim covers preserved nonstructural chunks only; structural BW64 and PCM bytes are rebuilt, so this is not whole-file bit identity or broad third-party BW64 qualification. A direct-eligible realtime BWF or BW64 request with `measureLoudness: true` fails closed before target, preflight, or render because bounded two-pass measurement is unimplemented; there is no measured-loudness claim. Desktop save-choice policy permits `.wav`, `.aif`, and `.aiff`, while direct controller admission remains canonical `.wav` or `.aiff`. An exact-size, not maximum-bounded File System Access or Electron session receives the planned count; desktop receives `size` rather than `maximumSize` and rejects an underwrite before publication. The shared PCM adapter is fed by 16,384-frame chunks with a channel-aware pending count that bounds queued planar Float32 PCM to 32 MiB. Direct PCM adapters keep the realtime AudioContext running between chunks because suspension can skip captured frames; worklet producer credits and the admitted 32 MiB sink queue each fail closed on overflow before commit. Realtime publication waits for every streamed clip to settle and fails closed with the first stable source-underrun identity before commit; interactive playback retains silence-on-underrun behavior. The route propagates realtime progress into the owned task UI and resamples a selection-only upmix before duplicating its selected channels. It has bounded encoder-emission retention, coalesces PCM into at-most-4-MiB destination writes, and serially awaits each write. Exact desktop `audio-pcm-mix` sessions negotiate four-MiB chunks while generic exact-size and project sessions remain at one MiB. Planned, encoder-finalized, destination-written, and committed-result byte counts must form a four-way agreement, and explicit commit occurs with no final renderer `Blob`. BW64 passthrough outside the exact current-import contract, including legacy opaque-only metadata, plus other PCM containers, compressed or custom audio, video, stems, non-realtime plans, and browser-download Blob fallback remain outside this route. Focused Node AIFF evidence has four cases covering exact FORM and metadata geometry, closed admission across all four canonical encoding tuples, malformed and stale layout refusal before target selection, the exact 4,294,967,302-byte constructible boundary and next-frame refusal without PCM or output allocation, realtime direct publication, picker cancellation, and mid-stream rollback. Focused Node BWF evidence has five cases covering admission, exact layout and publication, loudness fail-closed behavior, four-way diagnostics, and mid-stream cancellation. Focused Node authored BW64 evidence has six cases covering closed admission, exact standard-metadata preparation, canonical ds64/BEXT/fmt/CHNA/data/AXML streaming, loudness fail-closed behavior, four-way diagnostics, and mid-stream cancellation. Seven focused pristine-passthrough BW64 cases cover the real current-import-to-planner route, preserved and generated BEXT branches, exact nonstructural chunk bytes/order/placement and publication, closed admission, modeled-metadata collision refusal, stale or edited planning refusal, and loudness fail-closed behavior; the full maintained Node suite is green at 398 test files. Focused Node WAV evidence has twelve cases covering exact RIFF/RF64 and rich-metadata geometry across all four canonical encoding tuples, malformed and stale layout refusal before target selection, required odd-PCM RIFF padding, the exact 4,294,967,302-byte constructible RIFF boundary and 4,294,967,340-byte RF64 transition, the exact 65 GiB boundary and next-frame refusal without PCM or output allocation, realtime publication and Blob fallback, shared write bounds, cancellation, four-way byte agreement, cleanup, and commit ownership. An opt-in Node desktop-threshold witness streams an exact 385 MiB silent float payload into a 403,701,804-byte RIFF with pinned SHA-256 through the production planner, controller, real 16-packet queue at its 32-channel, 32 MiB cap, passthrough resampler, WAV encoder, and counting target. It requests 193 16,384-frame packets with a half-sized final packet, observes at most 16 pending packets, and makes 98 destination writes including the header with a 4,194,304-byte maximum. Its conservative 41,943,384-byte path-owned binary maximum is below the planned 64 MiB buffered-binary budget with zero PCM payload retention; a second run cancels after the first coalesced 4 MiB PCM destination write without close, commit, or partial publication. Maintained Chromium and Firefox WAV, AIFF, BWF, and BW64 coverage comprises ten aggregate format/engine cases through an injected File System Access target and simulated mobile planner profile. The BWF case retains a 2 KiB prefix and validates RIFF, bext, fmt, and data geometry, an authored description, a 64-bit TimeReference, and two-row CodingHistory. The authored BW64 case uses a 33.1-second stereo source and 384 kHz 16-bit output; its 101,683,200-byte float-plan geometry exceeds 96 MiB but is not a final-file or scale qualification. A bounded 2 KiB prefix and 8 KiB suffix validate BW64, ds64, BEXT, fmt, canonical stereo CHNA, data, and trailing AXML. The pristine-passthrough case imports a synthetic 5.1, 48 kHz, 16-bit BW64 with 4,210,688 frames; its 101,056,512-byte float-plan geometry also exceeds 96 MiB without qualifying final-file scale. Bounded 2 KiB prefix and 4 KiB suffix retention proves exact source JUNK padding, BEXT v2, and CHNA bytes/order before PCM plus PEAK padding and AXML bytes/order after PCM. Visible realtime progress precedes completed close, commit, and publication without Object URL or browser-download fallback. A second export cancels after nonzero PCM reaches the target and observes one abort without close, commit, or publication. All destination writes are at most 4 MiB and serial. The authored BW64 case passed focused Chromium and Firefox runs in 42.2 and 45.8 seconds; the pristine-passthrough case passed in 1.7 and 1.8 minutes respectively. The six earlier cases were not freshly rerun together. This qualifies current-import application-path browser plumbing, selected preserved nonstructural chunk bytes/order/placement, publication, and pre-commit rollback, not arbitrary third-party or legacy opaque-only BW64, edited projects, whole-file bit identity, native-picker availability, the 65 GiB ceiling at scale, packaged behavior, heap or RSS, crash, power loss, or durability. WebKit runs the automated workflow and skips only when a concrete API or runtime capability is unavailable. Packaged Soundscaper Linux x64 WAV, integer AIFF, BWF, and first-party authored BW64 completion acceptance drives Electron 43 UI, controller, preload IPC, and `AtomicSaveManager`: a 48-kHz two-channel 792,000-frame encoded input was observed as a 791,999-frame project range and produced 6,335,992 signed-16-bit frames at 384 kHz and 16 channels. The 405,503,488-byte float plan exceeds 384 MiB. The completed classic RIFF is 202,751,788 bytes. WAV EOF and diagnostic SHA-256 verification uses at-most-one-MiB reads and at-most-31-byte carry, compares 95,039,880 channel samples with zero mismatches, and applies tolerant signal bounds. The same sequence selects the exact AIFF option, reselects 16-bit PCM after the format default, and validates the canonical `.aiff` suggestion and the combined `WAV and AIFF audio mix` filter with `wav`, `aif`, and `aiff` extensions before completing a 202,751,798-byte classic AIFF. Its regular non-symbolic file verifier requires stable identity and size, then validates exact FORM/AIFF geometry: an 18-byte COMM with 16 channels, 6,335,992 frames, 16-bit PCM, and the 384 kHz 80-bit rate; and a 202,751,752-byte SSND with zero offset and block size. Exactly 202,751,744 bytes of big-endian PCM start at byte 54 with no padding or trailing bytes. At-most-one-MiB reads and at-most-10-byte carry compare 95,039,880 channel samples with zero mismatches and apply the same tolerant signal bounds. The same sequence selects the exact BWF option, reselects 16-bit PCM after the format default, restores its custom 16-channel mapping after the BWF stereo default, and retains 384 kHz. It validates the canonical `.wav` suggestion and the same combined `WAV and AIFF audio mix` filter with `wav`, `aif`, and `aiff` extensions; Electron does not receive BWF-specific File System Access `types`. It completes a 202,752,510-byte classic RIFF BWF. Its regular non-symbolic file verifier requires stable identity and size and uses at-most-one-MiB reads. It validates RIFF/WAVE with a bext chunk carrying a 689-byte payload at byte 12, one-byte pad, and 698-byte total chunk; a 40-byte extensible fmt at byte 710 with 16 channels, 384 kHz, signed 16-bit PCM, and the PCM GUID; and a 202,751,744-byte data payload whose PCM starts at byte 766 with no data pad or trailing bytes. At-most-31-byte carry compares all 95,039,880 channel samples with zero mismatches and applies the same tolerant signal bounds. The deterministic BEXT carries description `Soundscaper packaged BWF smoke`, originator `Soundscaper`, reference `PACKAGED-BWF-0001`, date 2026-07-30, time 12:34:56, input TimeReference 6,000 scaled to 48,000, version 2, a deterministic nonempty 64-byte UMID whose normalized 128 lowercase hexadecimal digits are pinned and whose 64 payload bytes are compared exactly, loudness sentinels, and two-row CodingHistory naming 48,000-Hz input and 384,000-Hz output. A separate first-party authored BW64 fixture uses a 44-second, six-channel, 2,112,000-frame source at 48 kHz and produces 16,896,000 frames at 384 kHz, six channels, and signed 16-bit PCM. Its 405,504,000-byte Float32 render geometry exceeds the 402,653,184-byte direct threshold, and the completed BW64 is exactly 202,755,508 bytes. The bounded verifier uses reads no larger than one MiB and validates exact BW64/ds64/BEXT/fmt/CHNA/data/AXML structure and placement, a 202,752,000-byte PCM payload, and canonical 5.1 CHNA and ADM metadata. It performs 84,480,000 channel comparisons with zero mismatches and observes at most 8 carry bytes, 16,894,241 nonzero frames, 8,447,121 positive frames, 8,447,120 negative frames, 19,359 crossings, peak 9,830, and RMS 6,950.862. All four whole-file SHA-256 values remain diagnostic and are not pinned; the exact BW64 BEXT, CHNA, and AXML payload hashes are pinned by the verifier. WAV cancellation independently observed a 33,554,476-byte staging file through an at-most-65,536-byte valid-RIFF prefix with nonzero payload, then verified destination and staging cleanup. No browser download was visible after the packaged sequence. CI is scoped to Soundscaper Linux x64. The smoke validates application save choices and purpose, then supplies isolated targets before `dialog.showSaveDialog` and bypasses the native picker. The 385 MiB witness remains WAV-only; packaged completion covers WAV, integer AIFF, BWF, and first-party authored BW64 at these fixture scales, while packaged cancellation and staging-cleanup evidence remains WAV-only. BWF completion has no packaged progress, cancellation, rollback, staging-cleanup, or commit-race qualification and does not qualify loudness, int20 or int24 PCM, rich metadata variants, RF64 or the 65 GiB boundary at scale, or third-party interoperability. Authored BW64 completion has no packaged progress, cancellation, rollback, staging-cleanup, or commit-race qualification and does not qualify loudness, int20 or int24 PCM, other ADM layouts or metadata variants, passthrough or third-party interoperability, or the 65 GiB boundary at scale. AIFF has no packaged progress, cancellation, rollback, staging-cleanup, or commit-race qualification and does not qualify AIFF-C float, other integer precisions, metadata or padding variants, or its 4,294,967,302-byte boundary at scale. Native-picker behavior, exact-size session negotiation, and the four-MiB destination-write limit are not directly observed. This package smoke does not qualify heap, RSS, quota, durability, crash or power loss, Windows, macOS, ARM, installers, Framescaper, or other formats. Exact frame geometry is Electron-runtime-specific and must be revisited on upgrade; whole-file hashes are not pinned. The injected-File-System-Access direct-WAV case stalls the selected writer's non-cancellable close after commit admission. Maintained Chromium and Firefox each return the cancelled task to Start export while close is held, then release exactly one complete committed publication with zero aborts and no stale status or output-link mutation, Object URL, or browser download. This qualifies only that application-path classic-WAV commit race; AIFF, BWF, BW64, WebKit, native-picker, actual-device, reference-scale, packaged, crash, power-loss, and durability commit races remain unqualified.",
+					"summary": "A dedicated `audio-pcm-mix` purpose permits only WAV, AIFF, BWF, and BW64 target names without granting generic audio targets maximum-bounded streaming authority. The maintained direct PCM route admits one mix only when its plan has one output and `realtime-stream`. WAV requires `audio/wav`, `.wav`, and one positive safe-integer planned file byte count, with explicit user confirmation above the 65 GiB warning threshold. Classic WAV admission requires an explicit valid sample rate, 1\u201332 channels, a nonnegative safe-integer frame count, non-array object metadata, a marker array, null-or-object iXML, CART exactly null, and one canonical (`sampleFormat`, `bitDepth`, `floatingPoint`) tuple: (`int16`, 16, false), (`int20`, 20, false), (`int24`, 24, false), or (`float32`, 32, true). It recomputes automatic RIFF/RF64 geometry with `inspectWavLayout` from the same sample rate, channel count, frame count, integer precision or float flag, metadata, markers, and iXML used by streaming, and requires the exact planned byte count to agree. Malformed or stale fields and layouts reject before target selection. An explicit container, BEXT, ADM, `preDataChunks`, `trailingChunks`, or non-null CART rejects, keeping broadcast and opaque-chunk variants on their own routes. Classic RIFF word-aligns odd PCM with a pad byte before trailing metadata. The largest constructible RIFF layout under the 32-bit RIFF-size field is 4,294,967,302 bytes; its next mono int16 frame selects RF64 at 4,294,967,340 bytes. Layout-only witnesses allocate no PCM or output bytes while admitting that transition and the exact 69,793,218,560-byte (65 GiB) RF64 ceiling and rejecting the next frame. This is an admission ceiling, not a classic WAV scale, package, heap, or RSS qualification. AIFF requires `audio/aiff`, `.aiff`, and an exact count at or below 4,294,967,303 bytes, its theoretical 32-bit FORM limit. Direct admission requires an explicit valid sample rate, 1\u201332 channels, from zero through 4,294,967,295 output frames, non-array object metadata, and one canonical (`sampleFormat`, `bitDepth`, `floatingPoint`) tuple: (`int16`, 16, false), (`int24`, 24, false), (`int32`, 32, false), or (`float32`, 32, true). It recomputes `inspectAiffLayout` from those same layout-affecting encoder options, requires AIFF for integer PCM or AIFF-C for float32, and requires its exact byte count to equal the plan. Malformed or stale fields and layouts reject before target selection. The 4,294,967,303-byte theoretical maximum is odd and unconstructible under the current aligned layout; a layout-only witness allocates no PCM or output bytes while admitting the largest current constructible 4,294,967,302-byte layout and rejecting its next mono int16 frame. Exact integer AIFF, AIFF-C float, odd PCM padding, and trailing ID3 metadata use that same encoder geometry. BWF requires `audio/wav`, `.wav`, and one positive safe-integer planned file byte count, with explicit user confirmation above the 65 GiB warning threshold. Admission requires an explicit valid sample rate, 1\u201332 channels, a nonnegative safe-integer frame count, object metadata, a marker array, and null-or-object iXML and CART. It recomputes the automatic RIFF/RF64 layout with `inspectWavLayout` from the same encoder options used by streaming: sample rate, channel count, frame count, integer precision, BEXT, metadata, markers, iXML, and CART. It rejects malformed fields or a planned-byte mismatch before target selection. Its plan and encoding must carry the same canonical normalized version-2 BEXT, and only integer int16, int20, or int24 PCM is admitted. It rejects a plan container, ADM, `preDataChunks`, and `trailingChunks`, keeping BW64 and opaque chunks outside the direct BWF variant; rich standard BWF metadata, markers, iXML, and CART remain eligible when their exact geometry agrees. A layout-only witness allocates no PCM or output bytes while admitting the exact constructible 69,793,218,560-byte (65 GiB) RF64 boundary and rejecting the next frame. This remains an admission ceiling, not BWF scale, heap, or RSS qualification. Authored BW64 requires format and container `bw64`, `audio/wav`, `.wav`, and an exact positive safe-integer layout recomputed by `inspectWavLayout`, with explicit user confirmation above 69,793,218,560 bytes (65 GiB). This is a 65 GiB warning threshold, not an exercised scale claim. Only int16, int20, or int24 PCM with the same canonical normalized version-2 BEXT in the plan and encoding is admitted. ADM must be authored normalized ADM for mono, stereo, or 5.1, with exact bed channel order and an identity preserve mapping. Canonical CHNA before PCM and AXML after PCM must be byte-identical in `plan.adm` and the top-level plan. Standard RIFF metadata, markers, iXML, and CART remain inside exact geometry. The separately admitted pristine-passthrough BW64 route is qualified only for metadata produced by the current BW64 importer and still accepted by the pristine planner: valid warning-free ADM, one unchanged neutral full-range source path at the import revision, and a nonempty complete `riffChunkSequence` whose aggregate complete nonstructural RIFF bytes, including headers and alignment bytes, do not exceed 16 MiB. Direct admission rechecks 1\u201332 channels of int16, int20, or int24 non-float PCM; exact rate, channel, frame, and precision geometry; zero tail and dither; full range; identity preserve mappings in plan and encoding; CHNA-derived channel order; exact compacted pre/post bytes, order, and placement in `plan.adm` and the top-level plan; and exact `inspectWavLayout` geometry under the same 65 GiB admission ceiling. A preserved BEXT is emitted only from the sequence; without one, plan and encoding must carry the same canonical normalized version-2 BEXT. Preserved cue/adtl, iXML, CART, ID3, or LIST/INFO chunks suppress their modeled plan fields, and collisions reject. Legacy `opaqueRiffChunks`-only metadata, incomplete capture, invalid or warning-bearing metadata, stale or edited projects, sequence drift, mapping or geometry drift, and loudness measurement reject before target selection. The byte-exact claim covers preserved nonstructural chunks only; structural BW64 and PCM bytes are rebuilt, so this is not whole-file bit identity or broad third-party BW64 qualification. A direct-eligible realtime BWF or BW64 request with `measureLoudness: true` fails closed before target, preflight, or render because bounded two-pass measurement is unimplemented; there is no measured-loudness claim. Desktop save-choice policy permits `.wav`, `.aif`, and `.aiff`, while direct controller admission remains canonical `.wav` or `.aiff`. An exact-size, not maximum-bounded File System Access or Electron session receives the planned count; desktop receives `size` rather than `maximumSize` and rejects an underwrite before publication. The shared PCM adapter is fed by 16,384-frame chunks with a channel-aware pending count that bounds queued planar Float32 PCM to 32 MiB. Direct PCM adapters keep the realtime AudioContext running between chunks because suspension can skip captured frames; worklet producer credits and the admitted 32 MiB sink queue each fail closed on overflow before commit. Realtime publication waits for every streamed clip to settle and fails closed with the first stable source-underrun identity before commit; interactive playback retains silence-on-underrun behavior. The route propagates realtime progress into the owned task UI and resamples a selection-only upmix before duplicating its selected channels. It has bounded encoder-emission retention, coalesces PCM into at-most-4-MiB destination writes, and serially awaits each write. Exact desktop `audio-pcm-mix` sessions negotiate four-MiB chunks while generic exact-size and project sessions remain at one MiB. Planned, encoder-finalized, destination-written, and committed-result byte counts must form a four-way agreement, and explicit commit occurs with no final renderer `Blob`. BW64 passthrough outside the exact current-import contract, including legacy opaque-only metadata, plus other PCM containers, compressed or custom audio, video, stems, non-realtime plans, and browser-download Blob fallback remain outside this route. Focused Node AIFF evidence has four cases covering exact FORM and metadata geometry, closed admission across all four canonical encoding tuples, malformed and stale layout refusal before target selection, the exact 4,294,967,302-byte constructible boundary and next-frame refusal without PCM or output allocation, realtime direct publication, picker cancellation, and mid-stream rollback. Focused Node BWF evidence has five cases covering admission, exact layout and publication, loudness fail-closed behavior, four-way diagnostics, and mid-stream cancellation. Focused Node authored BW64 evidence has six cases covering closed admission, exact standard-metadata preparation, canonical ds64/BEXT/fmt/CHNA/data/AXML streaming, loudness fail-closed behavior, four-way diagnostics, and mid-stream cancellation. Seven focused pristine-passthrough BW64 cases cover the real current-import-to-planner route, preserved and generated BEXT branches, exact nonstructural chunk bytes/order/placement and publication, closed admission, modeled-metadata collision refusal, stale or edited planning refusal, and loudness fail-closed behavior; the full maintained Node suite is green at 398 test files. Focused Node WAV evidence has twelve cases covering exact RIFF/RF64 and rich-metadata geometry across all four canonical encoding tuples, malformed and stale layout refusal before target selection, required odd-PCM RIFF padding, the exact 4,294,967,302-byte constructible RIFF boundary and 4,294,967,340-byte RF64 transition, the exact 65 GiB boundary and next-frame refusal without PCM or output allocation, realtime publication and Blob fallback, shared write bounds, cancellation, four-way byte agreement, cleanup, and commit ownership. An opt-in Node desktop-threshold witness streams an exact 385 MiB silent float payload into a 403,701,804-byte RIFF with pinned SHA-256 through the production planner, controller, real 16-packet queue at its 32-channel, 32 MiB cap, passthrough resampler, WAV encoder, and counting target. It requests 193 16,384-frame packets with a half-sized final packet, observes at most 16 pending packets, and makes 98 destination writes including the header with a 4,194,304-byte maximum. Its conservative 41,943,384-byte path-owned binary maximum is below the planned 64 MiB buffered-binary budget with zero PCM payload retention; a second run cancels after the first coalesced 4 MiB PCM destination write without close, commit, or partial publication. Maintained Chromium and Firefox WAV, AIFF, BWF, and BW64 coverage comprises ten aggregate format/engine cases through an injected File System Access target and simulated mobile planner profile. The BWF case retains a 2 KiB prefix and validates RIFF, bext, fmt, and data geometry, an authored description, a 64-bit TimeReference, and two-row CodingHistory. The authored BW64 case uses a 33.1-second stereo source and 384 kHz 16-bit output; its 101,683,200-byte float-plan geometry exceeds 96 MiB but is not a final-file or scale qualification. A bounded 2 KiB prefix and 8 KiB suffix validate BW64, ds64, BEXT, fmt, canonical stereo CHNA, data, and trailing AXML. The pristine-passthrough case imports a synthetic 5.1, 48 kHz, 16-bit BW64 with 4,210,688 frames; its 101,056,512-byte float-plan geometry also exceeds 96 MiB without qualifying final-file scale. Bounded 2 KiB prefix and 4 KiB suffix retention proves exact source JUNK padding, BEXT v2, and CHNA bytes/order before PCM plus PEAK padding and AXML bytes/order after PCM. Visible realtime progress precedes completed close, commit, and publication without Object URL or browser-download fallback. A second export cancels after nonzero PCM reaches the target and observes one abort without close, commit, or publication. All destination writes are at most 4 MiB and serial. The authored BW64 case passed focused Chromium and Firefox runs in 42.2 and 45.8 seconds; the pristine-passthrough case passed in 1.7 and 1.8 minutes respectively. The six earlier cases were not freshly rerun together. This qualifies current-import application-path browser plumbing, selected preserved nonstructural chunk bytes/order/placement, publication, and pre-commit rollback, not arbitrary third-party or legacy opaque-only BW64, edited projects, whole-file bit identity, native-picker availability, the 65 GiB ceiling at scale, packaged behavior, heap or RSS, crash, power loss, or durability. WebKit runs the automated workflow and skips only when a concrete API or runtime capability is unavailable. Packaged Soundscaper Linux x64 WAV, integer AIFF, BWF, and first-party authored BW64 completion acceptance drives Electron 43 UI, controller, preload IPC, and `AtomicSaveManager`: a 48-kHz two-channel 792,000-frame encoded input was observed as a 791,999-frame project range and produced 6,335,992 signed-16-bit frames at 384 kHz and 16 channels. The 405,503,488-byte float plan exceeds 384 MiB. The completed classic RIFF is 202,751,788 bytes. WAV EOF and diagnostic SHA-256 verification uses at-most-one-MiB reads and at-most-31-byte carry, compares 95,039,880 channel samples with zero mismatches, and applies tolerant signal bounds. The same sequence selects the exact AIFF option, reselects 16-bit PCM after the format default, and validates the canonical `.aiff` suggestion and the combined `WAV and AIFF audio mix` filter with `wav`, `aif`, and `aiff` extensions before completing a 202,751,798-byte classic AIFF. Its regular non-symbolic file verifier requires stable identity and size, then validates exact FORM/AIFF geometry: an 18-byte COMM with 16 channels, 6,335,992 frames, 16-bit PCM, and the 384 kHz 80-bit rate; and a 202,751,752-byte SSND with zero offset and block size. Exactly 202,751,744 bytes of big-endian PCM start at byte 54 with no padding or trailing bytes. At-most-one-MiB reads and at-most-10-byte carry compare 95,039,880 channel samples with zero mismatches and apply the same tolerant signal bounds. The same sequence selects the exact BWF option, reselects 16-bit PCM after the format default, restores its custom 16-channel mapping after the BWF stereo default, and retains 384 kHz. It validates the canonical `.wav` suggestion and the same combined `WAV and AIFF audio mix` filter with `wav`, `aif`, and `aiff` extensions; Electron does not receive BWF-specific File System Access `types`. It completes a 202,752,510-byte classic RIFF BWF. Its regular non-symbolic file verifier requires stable identity and size and uses at-most-one-MiB reads. It validates RIFF/WAVE with a bext chunk carrying a 689-byte payload at byte 12, one-byte pad, and 698-byte total chunk; a 40-byte extensible fmt at byte 710 with 16 channels, 384 kHz, signed 16-bit PCM, and the PCM GUID; and a 202,751,744-byte data payload whose PCM starts at byte 766 with no data pad or trailing bytes. At-most-31-byte carry compares all 95,039,880 channel samples with zero mismatches and applies the same tolerant signal bounds. The deterministic BEXT carries description `Soundscaper packaged BWF smoke`, originator `Soundscaper`, reference `PACKAGED-BWF-0001`, date 2026-07-30, time 12:34:56, input TimeReference 6,000 scaled to 48,000, version 2, a deterministic nonempty 64-byte UMID whose normalized 128 lowercase hexadecimal digits are pinned and whose 64 payload bytes are compared exactly, loudness sentinels, and two-row CodingHistory naming 48,000-Hz input and 384,000-Hz output. A separate first-party authored BW64 fixture uses a 44-second, six-channel, 2,112,000-frame source at 48 kHz and produces 16,896,000 frames at 384 kHz, six channels, and signed 16-bit PCM. Its 405,504,000-byte Float32 render geometry exceeds the 402,653,184-byte direct threshold, and the completed BW64 is exactly 202,755,508 bytes. The bounded verifier uses reads no larger than one MiB and validates exact BW64/ds64/BEXT/fmt/CHNA/data/AXML structure and placement, a 202,752,000-byte PCM payload, and canonical 5.1 CHNA and ADM metadata. It performs 84,480,000 channel comparisons with zero mismatches and observes at most 8 carry bytes, 16,894,241 nonzero frames, 8,447,121 positive frames, 8,447,120 negative frames, 19,359 crossings, peak 9,830, and RMS 6,950.862. All four whole-file SHA-256 values remain diagnostic and are not pinned; the exact BW64 BEXT, CHNA, and AXML payload hashes are pinned by the verifier. WAV cancellation independently observed a 33,554,476-byte staging file through an at-most-65,536-byte valid-RIFF prefix with nonzero payload, then verified destination and staging cleanup. No browser download was visible after the packaged sequence. CI is scoped to Soundscaper Linux x64. The smoke validates application save choices and purpose, then supplies isolated targets before `dialog.showSaveDialog` and bypasses the native picker. The 385 MiB witness remains WAV-only; packaged completion covers WAV, integer AIFF, BWF, and first-party authored BW64 at these fixture scales, while packaged cancellation and staging-cleanup evidence remains WAV-only. BWF completion has no packaged progress, cancellation, rollback, staging-cleanup, or commit-race qualification and does not qualify loudness, int20 or int24 PCM, rich metadata variants, RF64 or the 65 GiB boundary at scale, or third-party interoperability. Authored BW64 completion has no packaged progress, cancellation, rollback, staging-cleanup, or commit-race qualification and does not qualify loudness, int20 or int24 PCM, other ADM layouts or metadata variants, passthrough or third-party interoperability, or the 65 GiB boundary at scale. AIFF has no packaged progress, cancellation, rollback, staging-cleanup, or commit-race qualification and does not qualify AIFF-C float, other integer precisions, metadata or padding variants, or its 4,294,967,302-byte boundary at scale. Native-picker behavior, exact-size session negotiation, and the four-MiB destination-write limit are not directly observed. This package smoke does not qualify heap, RSS, quota, durability, crash or power loss, Windows, macOS, ARM, installers, Framescaper, or other formats. Exact frame geometry is Electron-runtime-specific and must be revisited on upgrade; whole-file hashes are not pinned. The injected-File-System-Access direct-WAV case stalls the selected writer's non-cancellable close after commit admission. Maintained Chromium and Firefox each return the cancelled task to Start export while close is held, then release exactly one complete committed publication with zero aborts and no stale status or output-link mutation, Object URL, or browser download. This qualifies only that application-path classic-WAV commit race; AIFF, BWF, BW64, WebKit, native-picker, actual-device, reference-scale, packaged, crash, power-loss, and durability commit races remain unqualified.",
 					"evidence": [
 						{
 							"kind": "implementation",
@@ -9221,7 +9429,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/common/editor/storage/media-content-digest.ts"
+							"path": "src/common/media/content-digest.ts"
 						},
 						{
 							"kind": "implementation",
@@ -9766,7 +9974,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/common/editor/scape-abort.ts"
+							"path": "src/common/scape/abort.ts"
 						},
 						{
 							"kind": "implementation",
@@ -9778,7 +9986,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/common/editor/scape-expanded-byte-budget.ts"
+							"path": "src/common/scape/expanded-byte-budget.ts"
 						},
 						{
 							"kind": "implementation",
@@ -9786,7 +9994,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/common/editor/storage/media-content-digest.ts"
+							"path": "src/common/media/content-digest.ts"
 						},
 						{
 							"kind": "implementation",
@@ -9951,6 +10159,22 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-soundscaper-desktop-freeze-size-warning.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-envelope.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/archive-limits.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/scape/asset-bytes.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/media/bytes.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active",
@@ -10110,7 +10334,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/common/editor/storage/media-content-digest.ts"
+							"path": "src/common/media/content-digest.ts"
 						},
 						{
 							"kind": "implementation",
@@ -10295,6 +10519,10 @@
 						{
 							"kind": "implementation",
 							"path": "src/framescaper/desktop-project-library-core-body-transfer.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/media/indexeddb.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -12668,7 +12896,7 @@
 				},
 				{
 					"id": "out-of-process-plugin-host-execution",
-					"summary": "Helper contract v1 carries a plugin-host job kind whose grant is exactly one absolute traversal-free binary path, its byte length, its lowercase SHA-256, its format, and its captured device/inode identity, and grant admission rejects any other key. The native audio helper is the only implementer: it re-hashes the granted file, treats a changed digest or byte length as a different installation and fails the job closed, and dlopens the bytes with RTLD_NOW | RTLD_LOCAL inside its own utility process. No native plug-in code loads in main, the preload, the renderer, or an AudioWorklet, and the scan service does not import the hosting surface at all, so discovery is structurally unable to instantiate a plug-in. The addon-side open refuses a module with no fixture entry point, a descriptor whose ABI version is not the expected one, an instrument classification, a missing create/destroy/process member, and an output channel count outside 1 through 64; block processing refuses a frame count above the maximum the instance was opened for, and a save-state answer that changes between the sizing call and the write is rejected rather than honoured. The host job is offline only — a deterministic ramp block set, a rendered SHA-256 digest, and a reported-latency stability check — because a job that returns one result cannot carry a live stream.",
+					"summary": "Helper contract v1 carries a plugin-host job kind whose grant is exactly one absolute traversal-free binary path, its byte length, its lowercase SHA-256, its format, and its captured device/inode identity, and grant admission rejects any other key. The native audio helper is the only implementer: it re-hashes the granted file, treats a changed digest or byte length as a different installation and fails the job closed, and dlopens the bytes with RTLD_NOW | RTLD_LOCAL inside its own utility process. No native plug-in code loads in main, the preload, the renderer, or an AudioWorklet, and the scan service does not import the hosting surface at all, so discovery is structurally unable to instantiate a plug-in. The addon-side open refuses a module with no fixture entry point, a descriptor whose ABI version is not the expected one, an instrument classification, a missing create/destroy/process member, and an output channel count outside 1 through 64; block processing refuses a frame count above the maximum the instance was opened for, and a save-state answer that changes between the sizing call and the write is rejected rather than honoured. The host job is offline only \u2014 a deterministic ramp block set, a rendered SHA-256 digest, and a reported-latency stability check \u2014 because a job that returns one result cannot carry a live stream.",
 					"evidence": [
 						{
 							"kind": "implementation",
@@ -13242,7 +13470,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/common/editor/scape-abort.ts"
+							"path": "src/common/scape/abort.ts"
 						},
 						{
 							"kind": "implementation",
@@ -13313,7 +13541,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/common/editor/scape-abort.ts"
+							"path": "src/common/scape/abort.ts"
 						},
 						{
 							"kind": "implementation",
@@ -14803,7 +15031,7 @@
 				},
 				{
 					"id": "bounded-spectral-edit-useful-binary",
-					"summary": "The maintained spectral gain/delete controller applies checked safe-integer arithmetic and a non-raiseable 256 MiB ceiling with a lower-only test seam to the sequential useful-binary upper bound before storage preflight, dry rendering, worker dispatch, result retention, or persistence. Each target charges all earlier completed outputs plus its complete dry-render Float32 input, one equal transfer copy, one equal-shape output, two selection-sized Float64 accumulation and normalization arrays, the Hann, real, and imaginary Float64 arrays, and PFFFT input, output, and work interleaved-complex Float32 regions. The worker boundary independently validates and admits actual input before FFT initialization, copying, or worker creation. Input inspection accepts 1–32 nonempty equally sized Float32 channels with tight, distinct, non-shared, non-resizable ArrayBuffer backing, and dry-render plus worker/fallback results must preserve exact admitted channel and frame geometry before retention. The controller passes its task-and-project currentness assertion into persistence, which rechecks it around awaited buffer, source, and analysis work and immediately before the synchronous project commit.",
+					"summary": "The maintained spectral gain/delete controller applies checked safe-integer arithmetic and a non-raiseable 256 MiB ceiling with a lower-only test seam to the sequential useful-binary upper bound before storage preflight, dry rendering, worker dispatch, result retention, or persistence. Each target charges all earlier completed outputs plus its complete dry-render Float32 input, one equal transfer copy, one equal-shape output, two selection-sized Float64 accumulation and normalization arrays, the Hann, real, and imaginary Float64 arrays, and PFFFT input, output, and work interleaved-complex Float32 regions. The worker boundary independently validates and admits actual input before FFT initialization, copying, or worker creation. Input inspection accepts 1\u201332 nonempty equally sized Float32 channels with tight, distinct, non-shared, non-resizable ArrayBuffer backing, and dry-render plus worker/fallback results must preserve exact admitted channel and frame geometry before retention. The controller passes its task-and-project currentness assertion into persistence, which rechecks it around awaited buffer, source, and analysis work and immediately before the synchronous project commit.",
 					"evidence": [
 						{
 							"kind": "implementation",
@@ -14889,7 +15117,7 @@
 				},
 				{
 					"id": "bounded-realtime-render-pcm",
-					"summary": "Before AudioContext construction, the maintained realtime worklet-to-sink path admits only 1–32 channels and 128–16,384 frames per packet, caps a packet at 2 MiB, and derives a non-raiseable window of at most 512 packets, 8,388,608 pending frame positions, and 32 MiB of pending planar Float32 PCM. Its default is the smaller of 64 packets and the exact byte-bound count. An explicit packet count may replace that default only within all count, frame, and byte ceilings; the derived half-window backpressure threshold is lower-only. The worklet consumes one admitted producer credit before transfer and fails closed without posting PCM when a complete packet has no credit. Main returns one credit only after the sink promise settles, pending count/frame/byte accounting is released, and queue-owned channel references are dropped. Full packets transfer their filled buffers directly and only a final partial packet is copied, bounding one render's enumerated useful binary to the 32 MiB outstanding window plus one maximum 2 MiB staging or replacement packet. Main validates exact channel width, tight distinct non-shared fixed ArrayBuffer backing, declared frame counts, contiguous offsets, output geometry, and completion geometry. Total streamed output remains uncapped by this working-set control.",
+					"summary": "Before AudioContext construction, the maintained realtime worklet-to-sink path admits only 1\u201332 channels and 128\u201316,384 frames per packet, caps a packet at 2 MiB, and derives a non-raiseable window of at most 512 packets, 8,388,608 pending frame positions, and 32 MiB of pending planar Float32 PCM. Its default is the smaller of 64 packets and the exact byte-bound count. An explicit packet count may replace that default only within all count, frame, and byte ceilings; the derived half-window backpressure threshold is lower-only. The worklet consumes one admitted producer credit before transfer and fails closed without posting PCM when a complete packet has no credit. Main returns one credit only after the sink promise settles, pending count/frame/byte accounting is released, and queue-owned channel references are dropped. Full packets transfer their filled buffers directly and only a final partial packet is copied, bounding one render's enumerated useful binary to the 32 MiB outstanding window plus one maximum 2 MiB staging or replacement packet. Main validates exact channel width, tight distinct non-shared fixed ArrayBuffer backing, declared frame counts, contiguous offsets, output geometry, and completion geometry. Total streamed output remains uncapped by this working-set control.",
 					"evidence": [
 						{
 							"kind": "implementation",
@@ -14968,7 +15196,7 @@
 				},
 				{
 					"id": "render-worker-resident-set-accounting",
-					"exposure": "StaffPad clip-cache, maintained spectral gain/delete selection, central OfflineAudioContext output/crop, maintained realtime worklet-to-sink, audio-warp transient analysis, and exact audio-warp playback/export useful-binary accounting are not bounds on browser heap, process RSS, or GC headroom. The StaffPad queue and realtime credit window are job-local, and the spectral, offline-render, transient-detector, and exact-warp-window controls have no product-wide reservation, so other coordinators and concurrent calls on the same or separate engines and renderers can overlap them. Transient analysis excludes JavaScript candidate-object overhead, codec state, structured-clone and message objects, cache serialization and persistence clones, runtime overhead, and unrelated jobs. Exact warp windows enumerate at most about 64 MiB across the current and one prefetched playback window but exclude AudioContext and graph objects, scheduler objects, software or injected renderer internals, source/cache residency outside returned window PCM, runtime overhead, and unrelated jobs; a missed render deadline stops rather than proving gapless playback. The maintained spectral useful-binary upper bound covers only its enumerated ownership model and is not a browser heap, process RSS, or GC-headroom bound. The spectral control does not account for persistence buffers, AudioBuffer and channel copies, generic selection effects and spectral replacement, software or injected renderers, worker and structured-clone message objects, the PFFFT module heap and setup or retained transform plans beyond the current charged regions, runtime overhead, or other concurrent spectral, effect, or render jobs. The realtime control enumerates at most 32 MiB of outstanding transferred, queued, or active-sink planar PCM plus one maximum 2 MiB worklet staging or replacement packet, but it does not account browser structured-clone/message objects, AudioContext, graph, source/cache, resampler, encoder, persistence, or WASM state; a sink can also retain channels after its promise settles outside the queue contract. Source/cache residency, permanent AudioBuffer and channel snapshots, reverse-cache copies, streamed-source chunks, graph nodes, worklets, WASM or codec state, message objects, persistence buffers, and runtime overhead can be additive. An OfflineAudioContext factory can allocate before returned geometry is checked, and caller cancellation does not prove that native startRendering() has stopped. Other render paths—including realtime capture outside the maintained worklet-to-sink stream, generic selection effects and spectral replacement, software or injected renderers, dedicated audio-codec WebAssembly, WebCodecs encoders, Mediabunny complete-file/container generation, and native hosts—remain outside these controls. The maintained export strategy now consults the central admission before offline render or context work, but that per-plan decision is not a heap, RSS, GC, or product-wide reservation; direct engine callers retain the central software-renderer fallback, and other engines and renderers can overlap. Disposable imported-video poster and thumbnail capture has separate geometry, serialization, cancellation-fence, and post-encode Blob controls, but it is not a decoder/RSS qualification or an editorial proxy. Milestone 8A capture-derived and selected V27 editorial video proxies have exact job-local body-capacity admission, and V27 owns menu-reached generation, attach/detach, relink/regenerate, adaptive selection, offline editing, and original-authoritative delivery refusal. These controls still provide no pre-encode end-to-end working-set, decoder, browser-heap, process-RSS, GC-headroom, or product-wide qualification.",
+					"exposure": "StaffPad clip-cache, maintained spectral gain/delete selection, central OfflineAudioContext output/crop, maintained realtime worklet-to-sink, audio-warp transient analysis, and exact audio-warp playback/export useful-binary accounting are not bounds on browser heap, process RSS, or GC headroom. The StaffPad queue and realtime credit window are job-local, and the spectral, offline-render, transient-detector, and exact-warp-window controls have no product-wide reservation, so other coordinators and concurrent calls on the same or separate engines and renderers can overlap them. Transient analysis excludes JavaScript candidate-object overhead, codec state, structured-clone and message objects, cache serialization and persistence clones, runtime overhead, and unrelated jobs. Exact warp windows enumerate at most about 64 MiB across the current and one prefetched playback window but exclude AudioContext and graph objects, scheduler objects, software or injected renderer internals, source/cache residency outside returned window PCM, runtime overhead, and unrelated jobs; a missed render deadline stops rather than proving gapless playback. The maintained spectral useful-binary upper bound covers only its enumerated ownership model and is not a browser heap, process RSS, or GC-headroom bound. The spectral control does not account for persistence buffers, AudioBuffer and channel copies, generic selection effects and spectral replacement, software or injected renderers, worker and structured-clone message objects, the PFFFT module heap and setup or retained transform plans beyond the current charged regions, runtime overhead, or other concurrent spectral, effect, or render jobs. The realtime control enumerates at most 32 MiB of outstanding transferred, queued, or active-sink planar PCM plus one maximum 2 MiB worklet staging or replacement packet, but it does not account browser structured-clone/message objects, AudioContext, graph, source/cache, resampler, encoder, persistence, or WASM state; a sink can also retain channels after its promise settles outside the queue contract. Source/cache residency, permanent AudioBuffer and channel snapshots, reverse-cache copies, streamed-source chunks, graph nodes, worklets, WASM or codec state, message objects, persistence buffers, and runtime overhead can be additive. An OfflineAudioContext factory can allocate before returned geometry is checked, and caller cancellation does not prove that native startRendering() has stopped. Other render paths\u2014including realtime capture outside the maintained worklet-to-sink stream, generic selection effects and spectral replacement, software or injected renderers, dedicated audio-codec WebAssembly, WebCodecs encoders, Mediabunny complete-file/container generation, and native hosts\u2014remain outside these controls. The maintained export strategy now consults the central admission before offline render or context work, but that per-plan decision is not a heap, RSS, GC, or product-wide reservation; direct engine callers retain the central software-renderer fallback, and other engines and renderers can overlap. Disposable imported-video poster and thumbnail capture has separate geometry, serialization, cancellation-fence, and post-encode Blob controls, but it is not a decoder/RSS qualification or an editorial proxy. Milestone 8A capture-derived and selected V27 editorial video proxies have exact job-local body-capacity admission, and V27 owns menu-reached generation, attach/detach, relink/regenerate, adaptive selection, offline editing, and original-authoritative delivery refusal. These controls still provide no pre-encode end-to-end working-set, decoder, browser-heap, process-RSS, GC-headroom, or product-wide qualification.",
 					"requiredControl": "Establish end-to-end per-job and aggregate browser, worker, and renderer RSS limits with measured heap and GC headroom across maintained render paths, plus a format-aware pre-encode maximum for genuine editorial video proxies.",
 					"ownerMilestone": "2",
 					"acceptanceCriteria": [
@@ -15190,7 +15418,7 @@
 				},
 				{
 					"id": "desktop-fuse-and-package-integrity",
-					"summary": "Desktop preparation records the application-codec policy and audits the renderer composition; beforePack and afterPack reject unmanaged FFmpeg programs, loose libav, FFmpeg WebAssembly, archives, and unverified WebM/AV1 payloads. They admit the exact Framescaper media-host subtree only when its target manifest, payload, runtime closure, isolation launcher, and package inventory authenticate; distribution still requires corresponding source, notices, and applicable licensing checks; those checks never activate a payload. Preparation stages exactly seven reviewed compressed-audio WASM files—libFLAC, libopus/libogg, libvorbis/libogg, WavPack, mpg123, LAME, and TwoLAME—plus their complete authenticated isolation runtime closure after regular-file, exact-length, and SHA-256 verification; the compiled graph and package inventory reject undeclared codec WASM or runtime code. Release assets include a deterministic seven-codec corresponding-source ZIP and checksum and the exact component notice/source-manifest/toolchain-license set. A target-native OS audio codec build is required only for mac-arm64, win-x64, and win-arm64; its canaries, macOS identity-free ad-hoc execution seal, build result, target, manifest, payload, length, and SHA-256 are bound through package and startup checks. Linux has no OS codec subtree and no mac-x64 target exists. Electron's separately verified alternate Chromium libffmpeg remains a framework exception on the five supported targets. The external-video runner code ships, but the selected user-installed ffmpeg/ffprobe bytes stay outside the renderer, runtime, package, release, and source-archive closure and execute in place only after user selection or explicit WinGet/Homebrew installation. Exact provider and framework identity establishes neither patent clearance nor non-infringement.",
+					"summary": "Desktop preparation records the application-codec policy and audits the renderer composition; beforePack and afterPack reject unmanaged FFmpeg programs, loose libav, FFmpeg WebAssembly, archives, and unverified WebM/AV1 payloads. They admit the exact Framescaper media-host subtree only when its target manifest, payload, runtime closure, isolation launcher, and package inventory authenticate; distribution still requires corresponding source, notices, and applicable licensing checks; those checks never activate a payload. Preparation stages exactly seven reviewed compressed-audio WASM files\u2014libFLAC, libopus/libogg, libvorbis/libogg, WavPack, mpg123, LAME, and TwoLAME\u2014plus their complete authenticated isolation runtime closure after regular-file, exact-length, and SHA-256 verification; the compiled graph and package inventory reject undeclared codec WASM or runtime code. Release assets include a deterministic seven-codec corresponding-source ZIP and checksum and the exact component notice/source-manifest/toolchain-license set. A target-native OS audio codec build is required only for mac-arm64, win-x64, and win-arm64; its canaries, macOS identity-free ad-hoc execution seal, build result, target, manifest, payload, length, and SHA-256 are bound through package and startup checks. Linux has no OS codec subtree and no mac-x64 target exists. Electron's separately verified alternate Chromium libffmpeg remains a framework exception on the five supported targets. The external-video runner code ships, but the selected user-installed ffmpeg/ffprobe bytes stay outside the renderer, runtime, package, release, and source-archive closure and execute in place only after user selection or explicit WinGet/Homebrew installation. Exact provider and framework identity establishes neither patent clearance nor non-infringement.",
 					"evidence": [
 						{
 							"kind": "implementation",

@@ -3,7 +3,7 @@
 import type { Page } from '@playwright/test';
 import { MOTION_PRORES_DELIVERY_PROFILE } from '../../src/motionscaper/desktop-delivery-contract.ts';
 import { motionNativePcmPlan, openMotionNativePcmReader, type MotionNativePcmOptions, type MotionNativePcmReceipt } from '../../src/common/editor/motion-native-pcm-carrier-v1.ts';
-import { createScapeArchiveByteSource } from '../../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource } from '../../src/common/scape/archive-byte-source.ts';
 import type { MotionRenderPlan } from '../../src/common/editor/controller/export/motion-render-pipeline.ts';
 import { motionWavFixture } from '../helpers/motion-media-fixture.ts';
 import { expect, test } from './helpers/browser-coverage-fixture.js';

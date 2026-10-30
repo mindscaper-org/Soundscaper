@@ -21,7 +21,7 @@ import {
 	type VideoProxyRelationshipAuthority,
 	type VideoProxyRelationshipAuthorityDependencies,
 } from '../src/common/editor/video-proxy-relationship.ts';
-import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../src/common/media/content-digest.ts';
 import {
 	ORIGINAL_SHA256,
 	ORIGINAL_SOURCE_ID,
