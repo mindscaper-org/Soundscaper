@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 // Read-only native observer for the actual selected archive restore namespace.
-import { digestMediaContent } from '../../src/common/editor/storage/media-content-digest.ts';
-import { aggregateScapeErrors } from '../../src/common/editor/scape-abort.ts';
+import { digestMediaContent } from '../../src/common/media/content-digest.ts';
+import { aggregateScapeErrors } from '../../src/common/scape/abort.ts';
 import { PhotoCatalogRepositoryV2 } from '../../src/lightscaper/catalog/photo-catalog-repository-v2.ts';
 import { PhotoMediaStoreV1 } from '../../src/lightscaper/storage/photo-media-store.ts';
 import { readPhotoLibrarySessionLocationV2 } from '../../src/lightscaper/storage/photo-library-location-reader-v2.ts';

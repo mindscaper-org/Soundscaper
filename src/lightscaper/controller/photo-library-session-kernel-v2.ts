@@ -69,7 +69,7 @@ import type { PhotoLibraryCollectionHandoffPortV1, PhotoLibraryCollectionHandoff
 import type { CubeLutSourcePortV1 } from '../../common/editor/imaging/cube-lut-source-port-v1.ts';
 import type { MaskRasterSourcePortV1 } from '../../common/editor/imaging/mask-raster-source-port-v1.ts';
 import { normalizeVideoColorGradeV1 } from '../../common/editor/video-color-management-v27.ts';
-import type { VideoCubeLutReferenceV1 } from '../../common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../../common/imaging/cube-lut-reference-contract.ts';
 import { readPhotoDevelopSignalOptionsV2 } from '../storage/photo-develop-preset-read-v2.ts';
 import { PhotoLibrarySessionLifetime } from './photo-library-session-lifetime.ts';
 import { createPhotoLibraryImageReceiveSessionV1 } from './photo-library-image-receive-session.ts';

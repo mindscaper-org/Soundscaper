@@ -9,7 +9,7 @@ import { normalizePhotoDocumentCurrentV1 } from '../src/lightscaper/catalog/phot
 import { PhotoCatalogRevisionConflictError } from '../src/lightscaper/catalog/repository-types.ts';
 import { PhotoMediaStoreV1 } from '../src/lightscaper/storage/photo-media-store.ts';
 import { PhotoCatalogRepositoryV2 } from '../src/lightscaper/catalog/photo-catalog-repository-v2.ts';
-import { request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import type { PhotoCatalogRootV1, PhotoOriginalV1 } from '../src/lightscaper/catalog/types.ts';
 import { photoArchiveFixture } from './helpers/lightscaper-photo-fixture.ts';
 import { mediaRestoreFixture } from './helpers/lightscaper-media-restore-fixture.ts';

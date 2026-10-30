@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { lstat, realpath } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
 import { isAbsolute, resolve } from 'node:path';
-import { readClosedDomainField, readClosedDomainRecord } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
 import type { PhotoOriginalV1 } from '../src/lightscaper/catalog/types.ts';
 import type { CatalogOriginalInspectionOutcomeV1 } from '../src/common/editor/storage/media-catalog-original-inspection-repository.ts';
 import { LIGHTSCAPER_NATIVE_ORIGINAL_CHUNK_BYTES_CURRENT_V1 as CHUNK, readLightscaperNativeOriginalCurrentV1 } from './lightscaper-native-original-contract-current-v1.ts';

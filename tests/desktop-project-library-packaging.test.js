@@ -29,6 +29,10 @@ test('desktop runtime compilation emits importable JavaScript with rewritten ext
 	// reported set to the shipped manifest and keep the checks below, which say
 	// something the manifest cannot: that the output actually imports.
 	assert.deepEqual(result.files, [...DESKTOP_EXPECTED_RUNTIME_FILES]);
+	assert.ok(result.files.includes('src/common/media/indexeddb.js'));
+	assert.ok(result.files.includes('src/common/media/bytes.js'));
+	assert.equal(result.files.includes('src/common/editor/storage/indexeddb-backend.js'), false,
+		'generic database operations must not pull the browser editor schema into the desktop runtime');
 	for (const name of result.files) {
 		const source = await readFile(join(outputRoot, name), 'utf8');
 		assert.doesNotMatch(source, /from ['"].*\.ts['"]/u);

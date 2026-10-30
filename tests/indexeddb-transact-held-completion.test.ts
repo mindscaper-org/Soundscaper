@@ -2,7 +2,8 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { openDatabase, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { transact } from '../src/common/media/indexeddb.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { deferred, remainsPending, settle } from './helpers/async-test-control.ts';
 

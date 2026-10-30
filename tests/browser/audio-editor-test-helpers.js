@@ -1,9 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
-import {
-	AxeBuilder,
-	expect,
-} from './audio-editor-test-fixtures.js';
+import { AxeBuilder, expect } from './audio-editor-test-fixtures.js';
 import { projectFileExtensionForProduct } from '../../src/common/project-file-extensions.ts';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 import { settleFiniteAnimations } from './helpers/settle-finite-animations.js';

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainArray } from '../../common/foundation/closed-domain-value.ts';
 import type { PhotoLibraryAttributePatchV1, PhotoLibraryImportItemV1, PhotoLibraryMetadataPatchV1, PhotoLibraryMetadataSnapshotV1, PhotoLibraryDefinitionPageRequestV1, PhotoLibraryDefinitionPageV1, PhotoLibraryQueryBuildProgressV1, PhotoLibraryQueryStepV1, PhotoLibraryQueryV1, PhotoLibraryPreviewOutcomeV1, PhotoLibraryPreviewTierV1, PhotoLibraryPageV1, PhotoLibraryRowV1, PhotoLibrarySessionPortV1 } from '../../common/editor/photo-library-session-port-v1.ts';
 import type { PhotoLibraryDefinitionAcknowledgementV1, PhotoLibraryDefinitionCommandV1, PhotoLibraryDefinitionReadRequestV1, PhotoLibraryDefinitionSnapshotV1,
 	PhotoLibraryMembershipAcknowledgementV1, PhotoLibraryMembershipPatchV1, PhotoLibraryMembershipSnapshotV1 } from '../../common/editor/photo-library-organization-port-v1.ts';
@@ -11,7 +11,7 @@ import type { PhotoLibraryOriginalRecoveryPortV1, PhotoLibraryOriginalInspection
 	PhotoLibraryOriginalRestoreTargetV1, PhotoLibraryOriginalRestorationOptionsV1, PhotoLibraryOriginalRestorationReceiptV1 } from '../../common/editor/photo-library-original-recovery-port-v1.ts';
 import type { PhotoLibraryBatchRenamePortV1, PhotoLibraryBatchRenameRequestV1, PhotoLibraryBatchRenamePlanV1,
 	PhotoLibraryBatchRenameUndoV1, PhotoLibraryBatchRenameReceiptV1, PhotoLibraryBatchRenameSnapshotV1 } from '../../common/editor/photo-library-batch-rename-port-v1.ts';
-import { IMAGE_IMPORT_LIMITS } from '../../common/editor/image-import-admission.ts';
+import { IMAGE_IMPORT_LIMITS } from '../../common/imaging/image-import-admission.ts';
 import { normalizePhotoCatalogRootV1 } from '../catalog/catalog-root.ts';
 import { normalizePhotoDocumentV1 } from '../catalog/photo-document.ts';
 import { PhotoCatalogRevisionConflictError, type PhotoCatalogContinuationV1 } from '../catalog/repository-types.ts';

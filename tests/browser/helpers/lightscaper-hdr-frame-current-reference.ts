@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { request, transact } from '../../../src/common/editor/storage/indexeddb-backend.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from '../../../src/common/editor/storage/media-content-digest.ts';
+import { request, transact } from '../../../src/common/media/indexeddb.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../../../src/common/media/content-digest.ts';
 import { openFramescaperImageFramePackV1 } from '../../../src/common/editor/timeline-image-frame-pack-v1.ts';
 import { framescaperImagePackSourceCurrentV1 } from '../../../src/common/editor/timeline-image-pack-source-current-v1.ts';
 import { normalizeFramescaperHdrImageSourceCurrentV1 } from '../../../src/common/editor/timeline-image-model-hdr-current-v1.ts';

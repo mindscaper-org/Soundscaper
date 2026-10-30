@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import { BRUSH_MASK_RESOURCE_LIMITS_V1, normalizeBrushMaskResourceReferenceV1, withBrushMaskResourceV1,
 	type BrushMaskResourceReferenceV1 } from '../../common/editor/imaging/brush-mask-resource-v1.ts';
-import { request, transact } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../common/media/indexeddb.ts';
 import type { StorageRepositoryPort } from '../../common/editor/storage/repository-port.ts';
 
 export interface PhotoMaskRasterReceiptV1 { readonly reference: Readonly<BrushMaskResourceReferenceV1>; readonly created: boolean; }

@@ -10,7 +10,7 @@ import { bindFramescaperUnifiedRenderTimingSidecarsFinishing } from '../src/fram
 import { createFramescaperSelectedExactPreviewV16 } from '../src/framescaper/editor-selected-finishing-exact-preview-v16.ts';
 import { createFramescaperSelectedVisualPreviewSessionFinishing } from '../src/framescaper/editor-selected-finishing-visual-preview.ts';
 import { shouldRenderExactProductVideoPreview } from '../src/common/editor/ui/workspace/video-preview-exact-render-policy.ts';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { deferred, remainsPending } from './helpers/async-test-control.ts';
 import { liveFixture } from './helpers/framescaper-native-live-openfx-fixture.ts';
 import { cloneFramescaperProjectNativeMedia } from '../src/framescaper/editor-project-native-media.ts';

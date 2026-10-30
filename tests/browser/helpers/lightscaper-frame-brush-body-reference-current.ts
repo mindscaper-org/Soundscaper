@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../src/common/foundation/closed-domain-value.ts';
 import { normalizeBrushMaskResourceReferenceV1, type BrushMaskResourceReferenceV1 } from '../../../src/common/editor/imaging/brush-mask-resource-v1.ts';
-import { request, transact } from '../../../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../../src/common/media/indexeddb.ts';
 import { editorProjectStorageProfileNames } from '../../../src/common/editor/storage/project-storage-profile.ts';
 import { createFramescaperProjectStore } from '../../../src/framescaper/editor-project-store.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE } from '../../../src/framescaper/editor-project-runtime-profile.ts';

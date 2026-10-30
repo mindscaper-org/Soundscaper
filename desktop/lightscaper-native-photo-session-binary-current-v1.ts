@@ -7,7 +7,7 @@ import { copyLightscaperNativePhotoSessionBytesCurrentV1 as copy, lightscaperNat
 import { captureDesktopPhotoCloneCurrentV1 as encode, readDesktopPhotoCloneCurrentV1 as decode, retireDesktopPhotoCloneCurrentV1 as retire, measureDesktopPhotoCloneCurrentV1 as measure } from '../src/lightscaper/desktop-photo-clone-current-v1.ts';
 import type { BinaryDerivativeCacheProfileV1 as Profile, BinaryDerivativeCacheIdentityV1 as Identity } from '../src/common/editor/storage/binary-derivative-cache-records.ts';
 import type { CatalogOriginalRepairBindingV1 } from '../src/common/editor/storage/media-catalog-original-repair-contract.ts';
-import type { VideoCubeLutReferenceV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../src/common/imaging/cube-lut-reference-contract.ts';
 import type { BrushMaskResourceReferenceV1 } from '../src/common/editor/imaging/brush-mask-resource-v1.ts';
 import { PHOTO_PREVIEW_CACHE_PROFILE_V1 } from '../src/lightscaper/preview/photo-preview-cache-v1.ts';
 import { preflightLightscaperNativePhotoSessionMetadataCurrentV1 as preflightMetadata } from './lightscaper-native-photo-session-metadata-current-v1.ts';

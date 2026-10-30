@@ -5,7 +5,7 @@ import { lstat, open, realpath, unlink, type FileHandle } from 'node:fs/promises
 import { dirname, join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import { types } from 'node:util';
-import { readClosedDomainRecord as record, readClosedDomainField as field } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainRecord as record, readClosedDomainField as field } from '../src/common/foundation/closed-domain-value.ts';
 import { LIGHTSCAPER_NATIVE_ORIGINAL_CHUNK_BYTES_CURRENT_V1 as CHUNK,
 	LIGHTSCAPER_NATIVE_ORIGINAL_MAXIMUM_BYTES_CURRENT_V1 as MAXIMUM } from './lightscaper-native-original-contract-current-v1.ts';
 import { lightscaperNativePhotoUploadNamespaceCurrentV1 as namespace } from './lightscaper-native-photo-upload-namespace-current-v1.ts';

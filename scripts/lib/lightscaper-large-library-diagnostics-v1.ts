@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../src/common/foundation/closed-domain-value.ts';
 import { PHOTO_LARGE_LIBRARY_SPECIFICATION_V1 as SPEC } from '../../src/lightscaper/quality/large-library-workload-v1.ts';
 import { evaluateQualityWorkload, qualityFixture, qualityWorkloadBudget } from './quality-budget-config.mjs';
 

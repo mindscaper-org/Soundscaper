@@ -2,7 +2,7 @@
 
 import type { VideoEffectParameterV2 } from '../../../video-effect-parameter-v2.ts';
 import { normalizeVideoEffectsV2, createVideoEffectV2 } from '../../../video-effects-v2.ts';
-import { readClosedDomainArray } from '../../../closed-domain-value.ts';
+import { readClosedDomainArray } from '../../../../foundation/closed-domain-value.ts';
 import { IMAGE_DEVELOP_LIMITS_V1 } from '../../../imaging/image-develop-contract-v1.ts';
 import { CUBE_LUT_PROFILE_EFFECT_TYPE_V1 } from '../../../video-cube-lut-profile-v1.ts';
 import type { VideoEffectLeafV2 } from '../../../video-effect-leaf-v2.ts';

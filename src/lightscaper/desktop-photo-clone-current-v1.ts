@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 import { DESKTOP_PHOTO_CLONE_LIMITS_CURRENT_V1 as LIMITS, transformDesktopPhotoCloneGraphCurrentV1 as transform } from './desktop-photo-clone-graph-current-v1.ts';
 
 const CLONE = globalThis.structuredClone, READ = Blob.prototype.arrayBuffer;

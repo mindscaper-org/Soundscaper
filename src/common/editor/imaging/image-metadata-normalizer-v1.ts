@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord, type ClosedDomainRecord } from '../closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord, type ClosedDomainRecord } from '../../foundation/closed-domain-value.ts';
 import { readExifCaptureTimeV1 } from './exif-capture-time-v1.ts';
 import { MetadataReadError } from './image-metadata-binary.ts';
 import { validateIptcDateTextV1, validateIptcTimeTextV1 } from './iptc-capture-fields.ts';

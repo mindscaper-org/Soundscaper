@@ -7,7 +7,7 @@ import { createLocalAssistanceVideoKeyingFramePreparation } from '../src/common/
 import { reviewAssistanceVisualFramePackV2 } from '../src/common/editor/assistance/visual-frame-pack-v2.ts';
 import type { LocalAssistanceVideoKeyingRun } from '../src/common/editor/controller/assistance/internal/video/local-assistance-video-keying-publication.ts';
 import type { LocalAssistanceBridge } from '../src/common/editor/assistance/local-assistance-bridge.ts';
-import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../src/common/media/content-digest.ts';
 
 const body = new Blob(['immutable-ProRes-original'], { type: 'video/quicktime' });
 async function fixture() {

@@ -5,7 +5,7 @@ import { PhotoMediaStoreV1 } from '../../../src/lightscaper/storage/photo-media-
 import { readPhotoLibrarySessionLocationV2 } from '../../../src/lightscaper/storage/photo-library-location-reader-v2.ts';
 import { withPhotoLibraryInitializationLockV1 } from '../../../src/lightscaper/storage/photo-library-namespace-lock-v1.ts';
 import { createPhotoResourceReachabilityCurrentV1 } from '../../../src/lightscaper/catalog/photo-resource-reachability-current-v1.ts';
-import { request, transact } from '../../../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../../src/common/media/indexeddb.ts';
 import { photoStorageKey } from '../../../src/lightscaper/catalog/repository-records.ts';
 import { readStoredPhotoCurrentV1 } from '../../../src/lightscaper/catalog/photo-catalog-records-current-v1.ts';
 

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { request, transact } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../common/media/indexeddb.ts';
 import type { DebugOutputStageCurrentV1 } from './photo-library-debug-output-current-v1.ts';
 import { debugCleanupFailureCurrentV1 as cleanupFailure } from './photo-library-debug-soak-contract-current-v1.ts';
 

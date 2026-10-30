@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createAbortGuard } from '../abort-error.ts';
-import { readCursorPage, request, transact } from './indexeddb-backend.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
+import { readCursorPage, request, transact } from '../../media/indexeddb.ts';
 import { MEDIA_ASSET_CHUNK_STORAGE_TYPE, MEDIA_ASSET_STREAM_CHUNK_BYTES } from './media-asset-chunk-schema.ts';
 import type { PreparedMediaAssetStaging } from './media-asset-staged-sink.ts';
 import { MEDIA_ASSET_STAGING_STORE_NAME } from './media-asset-staging-schema.ts';

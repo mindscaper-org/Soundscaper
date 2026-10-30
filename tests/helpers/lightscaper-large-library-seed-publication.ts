@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray } from '../../src/common/editor/closed-domain-value.ts';
-import { request } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { readClosedDomainArray } from '../../src/common/foundation/closed-domain-value.ts';
+import { request } from '../../src/common/media/indexeddb.ts';
 import { catalogTransaction } from '../../src/lightscaper/catalog/catalog-transaction.ts';
 import { readValidatedPhotoCatalogRootV1 } from '../../src/lightscaper/catalog/documents.ts';
 import { photoCatalogRestorePhotoRecordsV1 } from '../../src/lightscaper/catalog/photo-catalog-restore-records-v1.ts';

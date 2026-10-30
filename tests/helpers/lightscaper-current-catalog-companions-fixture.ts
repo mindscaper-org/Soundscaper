@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray } from '../../src/common/editor/closed-domain-value.ts';
-import { openDatabase, readCursorPage, request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { readClosedDomainArray } from '../../src/common/foundation/closed-domain-value.ts';
+import { openDatabase } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { readCursorPage, request, transact } from '../../src/common/media/indexeddb.ts';
 import { normalizeCatalogOriginalRoot } from '../../src/common/editor/storage/media-catalog-original-schema.ts';
 import type { StorageRecord } from '../../src/common/editor/storage/media-records.ts';
 import { readBinaryDerivativeCacheRecordV1 } from '../../src/common/editor/storage/binary-derivative-cache-records.ts';

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { sha256 } from '@noble/hashes/sha2.js';
-import { readClosedDomainRecord as record, readClosedDomainField as field } from '../closed-domain-value.ts';
+import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../foundation/closed-domain-value.ts';
 import { readPixelFrameWebGl2MaskCheckpointPlanCurrentV1,
 	type PixelFrameWebGl2MaskCheckpointCurrentV1 as Checkpoint } from './pixel-frame-webgl2-mask-plan-current-v1.ts';
 import { captureRepairSignalV1, checkRepairSignalV1 } from './pixel-frame-repair-lifetime-v1.ts';

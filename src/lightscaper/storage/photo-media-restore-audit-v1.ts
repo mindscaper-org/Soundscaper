@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { request } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request } from '../../common/media/indexeddb.ts';
 import { normalizeCatalogOriginalRoot } from '../../common/editor/storage/media-catalog-original-schema.ts';
 import { makeCatalogOriginalRoot, putCatalogOriginalRoot, deleteCatalogOriginalRoot } from '../../common/editor/storage/media-catalog-original-records.ts';
 import { catalogTransaction } from '../catalog/catalog-transaction.ts';

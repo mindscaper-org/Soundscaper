@@ -3,8 +3,8 @@
 import type { PhotoLibraryImageHandoffPortV1, PhotoLibraryImageHandoffRequestV1, PhotoLibraryImageHandoffViewV1 } from '../../../common/editor/photo-library-image-handoff-port-v1.ts';
 import type { OpenFramescaperBrowserNativeImageV1 } from '../../../common/editor/timeline-image-native-decode-v1.ts';
 import type { CubeLutSourcePortV1 } from '../../../common/editor/imaging/cube-lut-source-port-v1.ts';
-import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/editor/closed-domain-value.ts';
-import { normalizeVideoCubeLutReferenceV1 } from '../../../common/editor/cube-lut-reference-contract.ts';
+import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/foundation/closed-domain-value.ts';
+import { normalizeVideoCubeLutReferenceV1 } from '../../../common/imaging/cube-lut-reference-contract.ts';
 import { FRAMESCAPER_IMAGE_ASSET_MIME_TYPE } from '../../../common/editor/timeline-image-model.ts';
 import { sanitizeSuggestedSaveName } from '../../../common/editor/browser-file-save-service.ts';
 import { createFramescaperScapeNativeRuntime } from '../../../framescaper/editor-scape-native.ts';

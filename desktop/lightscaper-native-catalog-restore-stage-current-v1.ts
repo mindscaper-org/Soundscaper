@@ -3,7 +3,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { types } from 'node:util';
 import { setImmediate as nextTurn } from 'node:timers/promises';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import { PhotoCatalogRestoreDeliveryForProfileV1 } from '../src/lightscaper/catalog/internal/photo-catalog-restore-records-kernel-v1.ts';
 import { assertPhotoSmartCollectionArchiveQueryV1 } from '../src/lightscaper/catalog/photo-smart-collection-contract-v1.ts';
 import { readPhotoSmartCollectionSignalOptionsV1 } from '../src/lightscaper/catalog/photo-smart-collection-repository-types-v1.ts';

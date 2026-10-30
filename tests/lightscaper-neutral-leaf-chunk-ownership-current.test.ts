@@ -8,21 +8,21 @@ import { transformSync } from 'esbuild';
 import { chunkGroupForModulePath, chunkGroups } from '../scripts/lib/build-chunk-groups.mjs';
 import { resolveRelativeModule, staticRelativeDependencies } from './helpers/eager-chunk-group-crossings.ts';
 
-const EDITOR = fileURLToPath(new URL('../src/common/editor/', import.meta.url));
+const modulePath = (name: string) => fileURLToPath(new URL(name, new URL('../src/common/editor/', import.meta.url)));
 const LEAVES = [
 	['unicode-scalar-text.ts', 'editor-neutral-foundations', []],
-	['closed-domain-value.ts', 'editor-neutral-foundations', []],
+	['../foundation/closed-domain-value.ts', 'editor-neutral-foundations', []],
 	['ui/modal-native-range-keys.ts', 'editor-dialog-foundations', []],
 	['controller/shared/photo-library-cull-advance-v1.ts', 'editor-photo-library-scalars',
-		['../../closed-domain-value.ts', './photo-library-selection-v1.ts']],
+		['../../../foundation/closed-domain-value.ts', './photo-library-selection-v1.ts']],
 	['storage/opfs-blob-write-plan.ts', 'editor-media-custody-storage',
-		['../abort-error.ts', './opfs-sync-worker-protocol.ts']],
+		['../../foundation/abort-error.ts', './opfs-sync-worker-protocol.ts']],
 ] as const;
 const FORBIDDEN_OWNERS = new Set(['editor-domain', 'editor-shell', 'editor-controller-core', 'editor-storage-model']);
 
 for (const [name, owner, expectedDependencies] of LEAVES) {
 	test(`Current Lightscaper neutral leaf has exact ownership and imports: ${name}`, () => {
-		const module = EDITOR + name;
+		const module = modulePath(name);
 		for (const path of [module, module.replaceAll('/', '\\')]) {
 			assert.equal(chunkGroupForModulePath(path), owner, path);
 			assert.notEqual(chunkGroupForModulePath(path + '.foreign'), owner);
@@ -41,10 +41,10 @@ for (const [name, owner, expectedDependencies] of LEAVES) {
 			}
 		}
 		const expected = name === 'controller/shared/photo-library-cull-advance-v1.ts'
-			? [name, 'closed-domain-value.ts', 'controller/shared/photo-library-selection-v1.ts']
+			? [name, '../foundation/closed-domain-value.ts', 'controller/shared/photo-library-selection-v1.ts']
 			: name === 'storage/opfs-blob-write-plan.ts'
-				? [name, 'abort-error.ts', 'storage/opfs-sync-worker-protocol.ts'] : [name];
-		assert.deepEqual([...visited].map(path => path.slice(EDITOR.length)).sort(), expected.sort());
+				? [name, '../foundation/abort-error.ts', 'storage/opfs-sync-worker-protocol.ts'] : [name];
+		assert.deepEqual([...visited].sort(), expected.map(modulePath).sort());
 	});
 }
 

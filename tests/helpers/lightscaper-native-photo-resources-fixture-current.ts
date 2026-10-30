@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { PhotoMediaCubeLutResourcesV1 } from '../../src/lightscaper/storage/photo-media-cube-lut-resources-v1.ts';
 import type { PhotoMediaMaskRasterResourcesV1 } from '../../src/lightscaper/storage/photo-media-mask-raster-resources-v1.ts';
-import { parseCubeLutV1 } from '../../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../../src/common/imaging/cube-lut-v1.ts';
 
 export async function nativeResourceFixtureCurrentV1(run: (appDataPath: string) => Promise<void>): Promise<void> {
 	const path = await mkdtemp(join(tmpdir(), 'lightscaper-native-resources-'));

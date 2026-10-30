@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { CLARITY_BINOMIAL_V1, clarityLumaByteV1, clarityAdjustmentV1, prepareClarityEffectV1 } from '../video-clarity-v1.ts';
 import { admitPixelFrameV1 } from './pixel-frame-admission-v1.ts';
 import { readPixelFrameV1, type PixelFrameDescriptorV1, type PixelFrameLimitsV1 } from './pixel-frame-contract-v1.ts';

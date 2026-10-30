@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
-import { raceAbortablePromise } from './abort-race.ts';
+import { raceAbortablePromise } from '../foundation/abort-race.ts';
 import {
 	assertVideoKeyframeAudioInputSource,
 	type VideoKeyframeAudioInputSource,

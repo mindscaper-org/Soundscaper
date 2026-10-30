@@ -5,7 +5,7 @@ import test, { type TestContext } from 'node:test';
 import { createVideoTrack } from '../src/common/editor/project-media-factory.ts';
 import { createFramescaperImageFramePackV1 } from '../src/common/editor/timeline-image-frame-pack-v1.ts';
 import { FRAMESCAPER_IMAGE_ASSET_MIME_TYPE } from '../src/common/editor/timeline-image-model.ts';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { shouldRenderExactProductVideoPreview } from '../src/common/editor/ui/workspace/video-preview-exact-render-policy.ts';
 import { createFramescaperProjectTimelineImage } from '../src/framescaper/editor-project-timeline-image.ts';
 import { applyFramescaperProjectCommandTimelineImage } from '../src/framescaper/editor-project-timeline-image-commands.ts';

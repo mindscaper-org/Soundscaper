@@ -8,7 +8,7 @@ import { photoArchiveFixture } from './lightscaper-photo-fixture.ts';
 import { savedArchiveRootV3 } from './lightscaper-saved-collection-archive-fixture.ts';
 import { photoLibraryRestoreNamespacesV1 } from '../../src/lightscaper/storage/photo-library-restore-ownership-v1.ts';
 import type { PhotoDocumentV1 } from '../../src/lightscaper/catalog/types.ts';
-import { request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../src/common/media/indexeddb.ts';
 
 export const mediaRestoreAllocation = () => ({ schemaVersion: 1 as const, kind: 'photo-library-restore-allocation' as const,
 	operationId: 'a'.repeat(32), namespaceToken: 'a'.repeat(32), ownerToken: 'b'.repeat(32), catalogId: 'catalog-1' });

@@ -10,7 +10,7 @@ import { captureLightscaperNativePhotoResourceBodyCurrentV1 as capture, authenti
 	wipeLightscaperNativePhotoResourceBodyCurrentV1 as wipe } from '../desktop/lightscaper-native-photo-resource-body-current-v1.ts';
 import { installLightscaperNativePhotoResourceBodyCurrentV1 as install, readLightscaperNativePhotoResourceBodyCurrentV1 as read } from '../desktop/lightscaper-native-photo-resource-records-current-v1.ts';
 import { initializeLightscaperNativePhotoResourceDatabaseCurrentV1 as initialize } from '../desktop/lightscaper-native-photo-resources-database-current-v1.ts';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 
 test('Lightscaper native immutable LUT reuse rejects an authentic prefix with appended stored bytes and never repairs the body', async () => {
 	const text = 'LUT_3D_SIZE 2\n0 0 0\n1 0 0\n0 1 0\n1 1 0\n0 0 1\n1 0 1\n0 1 1\n1 1 1', parsed = parseCubeLutV1(text);

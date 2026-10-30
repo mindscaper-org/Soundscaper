@@ -7,7 +7,7 @@ import { createFramescaperProjectUnifiedExactRenderPlanFinishing } from '../../s
 import { bindFramescaperUnifiedRenderTimingSidecarsFinishing } from '../../src/framescaper/editor-project-unified-render-timing-finishing.ts';
 import { createFramescaperSelectedExactFrameExecutionFinishing, type CaptureFrameFinishing } from '../../src/framescaper/selected-finishing-exact-frame-execution.ts';
 import { createVideoEffect, normalizeVideoEffect } from '../../src/common/editor/video-effects.js';
-import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from '../../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from '../../src/common/foundation/closed-domain-value.ts';
 import { applyVideoExactBrowserEffectsFinishing } from '../../src/framescaper/editor-video-exact-browser-effects-finishing.ts';
 import { renderVideoPreviewStraightRgba } from '../../src/common/editor/ui/video-preview-straight-rgba.ts';
 

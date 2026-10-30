@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { DatabaseSync } from 'node:sqlite';
-import { VIDEO_COLOR_LIMITS_V1 } from '../src/common/editor/cube-lut-reference-contract.ts';
+import { VIDEO_COLOR_LIMITS_V1 } from '../src/common/imaging/cube-lut-reference-contract.ts';
 import { BRUSH_MASK_RESOURCE_LIMITS_V1 } from '../src/common/editor/imaging/brush-mask-resource-v1.ts';
 import { admitLightscaperNativePhotoResourceReferenceCurrentV1 as admit, captureLightscaperNativePhotoResourceBodyCurrentV1 as capture,
 	assertAuthenticatedLightscaperNativePhotoResourceBodyCurrentV1 as assertAuthenticated, wipeLightscaperNativePhotoResourceBodyCurrentV1 as wipe,

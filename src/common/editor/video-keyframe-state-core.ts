@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, readClosedDomainRecord } from './closed-domain-value.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../foundation/closed-domain-value.ts';
 import { AUDIO_EDITOR_PROJECT_VALIDATION_HARD_LIMITS, admitAudioEditorProjectValidationStructure } from './project-validation-budget.ts';
 import { normalizeVideoClipComposition, type VideoClipComposition } from './video-clip-composition.ts';
 import type { RationalInput } from './timeline-time.ts';

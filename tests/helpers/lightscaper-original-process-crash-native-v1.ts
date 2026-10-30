@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, readClosedDomainRecord } from '../../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../src/common/foundation/closed-domain-value.ts';
 import type { PhotoLibraryImportItemV1 } from '../../src/common/editor/photo-library-session-port-v1.ts';
 import { MediaRepository } from '../../src/common/editor/storage/media-repository.ts';
 import { OpfsSyncRepositoryBridge } from '../../src/common/editor/storage/opfs-sync-repository-bridge.ts';

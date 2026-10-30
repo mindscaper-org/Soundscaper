@@ -4,7 +4,7 @@ import { constants } from 'node:fs';
 import { chmod, lstat, mkdir, open, realpath, type FileHandle } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 
 export interface LightscaperNativePhotoLibraryDatabaseProfileCurrentV1 {
 	readonly fileName: 'native-photo-library-writer.sqlite3' | 'native-photo-library-scopes.sqlite3' | 'native-photo-catalogs.sqlite3' | 'native-photo-preview-cache.sqlite3';

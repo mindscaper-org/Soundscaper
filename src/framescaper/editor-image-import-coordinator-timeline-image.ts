@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { IMAGE_IMPORT_LIMITS } from '../common/editor/image-import-admission.ts';
+import { IMAGE_IMPORT_LIMITS } from '../common/imaging/image-import-admission.ts';
 import { confirmImageImportGesture } from '../common/editor/image-import-size-warnings.ts';
 import type { FileSizeWarningOptions } from '../common/editor/controller/shared/file-size-warning.ts';
 import type { FramescaperBrowserNativeImageDecodeResultV1 } from '../common/editor/timeline-image-native-decode-v1.ts';

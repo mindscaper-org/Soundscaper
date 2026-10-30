@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test, { type TestContext } from 'node:test';
 
-import { openDatabase, request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { getMemoryDatabase } from '../src/common/editor/storage/memory-backend.ts';
 import { MediaRepository } from '../src/common/editor/storage/media-repository.ts';
 import { OpfsRepository } from '../src/common/editor/storage/opfs-repository.ts';

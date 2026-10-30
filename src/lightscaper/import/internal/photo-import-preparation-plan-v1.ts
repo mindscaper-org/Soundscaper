@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { PhotoDocumentV1 } from '../../catalog/types.ts';
-import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from '../../../common/editor/closed-domain-value.ts';
-import { admitImageImportGesture, IMAGE_IMPORT_LIMITS } from '../../../common/editor/image-import-admission.ts';
+import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from '../../../common/foundation/closed-domain-value.ts';
+import { admitImageImportGesture, IMAGE_IMPORT_LIMITS } from '../../../common/imaging/image-import-admission.ts';
 import { validateLightscaperDocumentV1 } from '../../catalog/documents.ts';
 import { validatePhotoCatalogReferencesV1 } from '../../catalog/photo-document.ts';
 import { defaultPhotoDevelopV1 } from '../../catalog/develop-state.ts';

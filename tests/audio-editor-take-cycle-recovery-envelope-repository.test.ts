@@ -5,7 +5,7 @@ import test from 'node:test';
 
 import { createProjectStore } from '../src/common/editor/storage.js';
 import { serializeScapeProjectDocument } from '../src/common/editor/scape-project-document.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import {
 	createTakeCycleRecoveryEnvelope,
 	transitionTakeCycleRecoveryEnvelopeMedia,

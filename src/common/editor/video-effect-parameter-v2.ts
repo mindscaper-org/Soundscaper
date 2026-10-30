@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { VideoEffectParameterV1 } from './video-curve-types-v1.ts';
-import type { VideoCubeLutReferenceV1 } from './video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../imaging/cube-lut-reference-contract.ts';
 
 /** Explicit successor vocabulary, not generic record admission. The owning
  * LUT profile alone may admit ref/null; legacy numeric/curve families and

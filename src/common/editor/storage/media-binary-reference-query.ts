@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readCursorPage, transact } from './indexeddb-backend.ts';
+import { readCursorPage, transact } from '../../media/indexeddb.ts';
 import { BINARY_PATH_REFERENCE_INDEX_NAME } from './media-asset-chunk-schema.ts';
 import { MEDIA_ASSET_STAGING_PATH_INDEX_NAME, MEDIA_ASSET_STAGING_STORE_NAME } from './media-asset-staging-schema.ts';
 import { DERIVATIVE_CACHE_ENTRY_STORE_NAME, VIDEO_DERIVATIVE_STORE_NAME } from './derivative-cache-entry.ts';

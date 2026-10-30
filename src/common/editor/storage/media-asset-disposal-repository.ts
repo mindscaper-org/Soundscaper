@@ -4,7 +4,7 @@ import {
 	DERIVATIVE_CACHE_ENTRY_STORE_NAME,
 	VIDEO_DERIVATIVE_STORE_NAME,
 } from './derivative-cache-entry.ts';
-import { request, transact } from './indexeddb-backend.ts';
+import { request, transact } from '../../media/indexeddb.ts';
 import type { MediaAssetChunkRecords } from './media-asset-chunk-records.ts';
 import {
 	BINARY_PATH_REFERENCE_INDEX_NAME,

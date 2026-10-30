@@ -2,7 +2,7 @@
 
 import {
 	readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord as record,
-} from '../closed-domain-value.ts';
+} from '../../foundation/closed-domain-value.ts';
 import { applyPreparedManagedSdrByteFrameV1 } from '../video-color-byte-encoding.ts';
 import {
 	normalizeVideoColorGradeV1, normalizeVideoSourceColorInterpretationV1,

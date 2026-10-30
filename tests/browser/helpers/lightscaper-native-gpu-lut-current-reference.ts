@@ -4,7 +4,8 @@ import { withImageDevelopGpuCurrentV1 } from '../../../src/common/editor/imaging
 import { defaultImageDevelopStateV2 } from '../../../src/common/editor/imaging/image-develop-state-v2.ts';
 import { normalizeImageDevelopStateCurrentV1 } from '../../../src/common/editor/imaging/image-develop-state-current-v1.ts';
 import { PHOTO_DEVELOP_LINEAR_LIMITS_V1 } from '../../../src/common/editor/photo-library-develop-linear-port-v1.ts';
-import { parseCubeLutV1, type VideoCubeLutReferenceV1 } from '../../../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../../../src/common/imaging/cube-lut-v1.ts';
+import { type VideoCubeLutReferenceV1 } from '../../../src/common/imaging/cube-lut-reference-contract.ts';
 import type { CubeLutSourcePortV1 } from '../../../src/common/editor/imaging/cube-lut-source-port-v1.ts';
 import { startGpuPreviewObservationCurrentV1, readGpuPreviewObservationCurrentV1,
 	stopGpuPreviewObservationCurrentV1 } from './lightscaper-develop-gpu-preview-current-reference.ts';

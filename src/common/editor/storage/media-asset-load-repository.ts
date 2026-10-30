@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { request, transact } from './indexeddb-backend.ts';
-import { createAbortGuard } from '../abort-error.ts';
+import { request, transact } from '../../media/indexeddb.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
 import { hasMalformedMediaContentProvenance } from './media-content-provenance.ts';
 import type { MediaAssetLifecycleCoordinator } from './media-asset-lifecycle-coordinator.ts';
 import type { BlobLike, StorageRecord } from './media-records.ts';

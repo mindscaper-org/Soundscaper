@@ -2,7 +2,7 @@
 import { normalizeFramescaperImageSourceCurrentV1 } from './timeline-image-model-current-v1.ts';
 import { prepareFramescaperRawImageOriginalCurrentV1 } from './timeline-image-raw-original-plan-current-v1.ts';
 import { prepareFramescaperHdrImageOriginalCurrentV1 } from './timeline-image-model-hdr-current-v1.ts';
-import { canonicalMediaContentBlob } from './storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../media/content-digest.ts';
 import { captureRepairSignalV1, checkRepairSignalV1 } from './imaging/pixel-frame-repair-lifetime-v1.ts';
 
 export const FRAMESCAPER_NATIVE_IMAGE_WORKING_BYTES_CURRENT_V1 = 1024 * 1024 * 1024;

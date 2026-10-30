@@ -283,12 +283,12 @@ export async function createFixture(context) {
 		{ name: 'winldd', revision: '105', installByDefault: false },
 	] })}\n`);
 	const browserSourceRoot = join(repositoryRoot, 'node_modules/playwright-core/.local-browsers');
-	for (const directory of ['chromium-101', 'firefox-102', 'webkit-103', 'ffmpeg-104', 'winldd-105']) {
+	for (const directory of ['chromium-101', 'ffmpeg-104', 'winldd-105']) {
 		await writeFixtureFile(browserSourceRoot, `${directory}/INSTALLATION_COMPLETE`, '');
 		await writeFixtureFile(browserSourceRoot, `${directory}/bin/runtime`, directory);
 	}
-	await symlink('bin/runtime', join(browserSourceRoot, 'webkit-103/libalias'));
-	const framework = join(browserSourceRoot, 'webkit-103/WebKit.framework');
+	await symlink('bin/runtime', join(browserSourceRoot, 'chromium-101/libalias'));
+	const framework = join(browserSourceRoot, 'chromium-101/WebKit.framework');
 	await writeFixtureFile(framework, 'Versions/A/WebKit', 'fixture');
 	await writeFixtureFile(framework, 'Versions/A/Resources/Info.plist', 'fixture');
 	await writeFixtureFile(framework, 'Versions/A/Headers/WebKit.h', 'fixture');
@@ -301,8 +301,8 @@ export async function createFixture(context) {
 	for (const name of ['WebKit', 'Resources', 'Frameworks', 'Modules', 'Headers', 'PrivateHeaders']) {
 		await symlink(`Versions/Current/${name}`, join(framework, name));
 	}
-	await writeFixtureFile(browserSourceRoot, 'webkit-103/Headers/keep.h', 'fixture');
-	await writeFixtureFile(browserSourceRoot, 'webkit-103/keep.tbd', 'fixture');
+	await writeFixtureFile(browserSourceRoot, 'chromium-101/Headers/keep.h', 'fixture');
+	await writeFixtureFile(browserSourceRoot, 'chromium-101/keep.tbd', 'fixture');
 	return { temporaryRoot, repositoryRoot, outputRoot, browserSourceRoot };
 }
 

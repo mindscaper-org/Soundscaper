@@ -4,7 +4,7 @@ import type { AudioBufferLike } from '../../source/source-audio.ts';
 import type { EffectSelectionProject, EffectTarget } from '../effect-selection-service.ts';
 import type { SourceEditorAudioWindow, SourceEditorAudioWindowRequest } from './source-editor-audio-window.ts';
 import { SOURCE_CHUNK_FRAMES } from '../../../source-pcm-contract.ts';
-import { raceAbortableRead } from '../../../abort-race.ts';
+import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 
 const SOURCE_TRACK_PREFIX = 'source-editor:';
 

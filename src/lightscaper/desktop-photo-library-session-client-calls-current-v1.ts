@@ -4,7 +4,7 @@ import { DESKTOP_PHOTO_LIBRARY_SESSION_CHANNELS_CURRENT_V1 as CHANNELS,
 	type DesktopPhotoLibrarySessionDescriptorCurrentV1 as Descriptor } from './desktop-photo-library-session-protocol-current-v1.ts';
 import { readDesktopPhotoLibrarySessionPacketCurrentV1 } from './desktop-photo-library-session-packets-current-v1.ts';
 import { readPhotoStackSignalOptionsV1 } from './catalog/photo-stack-repository-contract-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 
 export type Channel = keyof typeof CHANNELS;
 export type Invoke = (channel: string, payload: unknown) => Promise<unknown>;

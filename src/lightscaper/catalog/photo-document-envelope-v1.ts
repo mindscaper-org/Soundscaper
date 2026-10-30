@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { ClosedDomainRecord } from '../../common/editor/closed-domain-value.ts';
+import type { ClosedDomainRecord } from '../../common/foundation/closed-domain-value.ts';
 import { normalizeVideoStillSourceV1 } from '../../common/editor/video-visual-model-v24.ts';
 import { readExactSafeVisualText } from '../../common/editor/safe-visual-text.ts';
 import { normalizeImageMetadataV1 } from '../../common/editor/imaging/image-metadata-normalizer-v1.ts';

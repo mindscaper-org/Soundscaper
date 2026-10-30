@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import { readDesktopPhotoLibrarySessionHandleCurrentV1 as handleOf } from '../src/lightscaper/desktop-photo-library-session-protocol-current-v1.ts';
 import { captureLightscaperNativePhotoMediaRawInputsCurrentV1 as captureMedia,
  lightscaperNativePhotoMediaRawInputCleanupFailureCurrentV1 as cleanupFailure } from './lightscaper-native-photo-media-current-v1.ts';

@@ -2,7 +2,7 @@
 
 import type { EditableSource as Source } from './internal/photo-image-handoff-model-kernel-v1.ts';
 import type { CubeLutSourcePortV1 } from '../../common/editor/imaging/cube-lut-source-port-v1.ts';
-import type { VideoCubeLutReferenceV1 } from '../../common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../../common/imaging/cube-lut-reference-contract.ts';
 import type { BrushMaskResourceReferenceV1 } from '../../common/editor/imaging/brush-mask-resource-v1.ts';
 import type { MaskRasterSourcePortV1 } from '../../common/editor/imaging/mask-raster-source-port-v1.ts';
 import { withPhotoFramescaperHandoffReadForProfileV1, type PhotoFramescaperHandoffReadRequestV1 } from './internal/photo-framescaper-handoff-read-kernel-v1.ts';

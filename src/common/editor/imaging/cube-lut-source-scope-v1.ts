@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { CubeLutSourcePortV1 } from './cube-lut-source-port-v1.ts';
-import type { VideoCubeLutReferenceV1 } from '../cube-lut-reference-contract.ts';
+import type { VideoCubeLutReferenceV1 } from '../../imaging/cube-lut-reference-contract.ts';
 
 /** Preserve the caller's actual source receiver while pinning its own method before awaits. */
 export function captureCubeLutSourceV1(value: unknown): Readonly<CubeLutSourcePortV1> {

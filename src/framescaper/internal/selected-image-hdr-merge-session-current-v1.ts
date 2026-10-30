@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import type { ImageHdrMergeAuthoringPortCurrentV1, ImageHdrMergeAuthoringSelectionCurrentV1 } from '../../common/editor/image-hdr-merge-authoring-port-current-v1.ts';
 import type { PixelFrameV1 } from '../../common/editor/imaging/pixel-frame-contract-v1.ts';
 import { prepareImageHdrMergeV1 } from '../../common/editor/imaging/image-hdr-merge-contract-v1.ts';

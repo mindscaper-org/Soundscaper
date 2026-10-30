@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 import type { VideoColorGradeV1 } from './video-color-management-v27.ts';
 import { COLOR_WHEELS_SCALAR_PROCESS_V1, normalizeScalarColorWheelsGradeV1, prepareScalarColorWheelsGradeV1, scalarColorWheelsByteV1, type ScalarColorWheelsGradeV1 } from './video-color-wheels-scalar-v1.ts';
 

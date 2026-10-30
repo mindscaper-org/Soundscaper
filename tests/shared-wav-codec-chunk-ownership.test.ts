@@ -26,7 +26,7 @@ const CODEC_LEAVES = [
 ] as const;
 // Main's BEXT/ID3 validation and sink settlement have no UI or timeline imports.
 const SUPPORT_MODULES: ReadonlyMap<string, string> = new Map([
-	['abort-race.ts', 'editor-neutral-foundations'],
+	['../foundation/abort-race.ts', 'editor-neutral-foundations'],
 	['file-validation-failure.ts', 'editor-neutral-foundations'],
 	['format-file-failure.ts', 'editor-neutral-foundations'],
 	['pcm-stream-settlement.ts', 'editor-neutral-foundations'],
@@ -92,7 +92,7 @@ test('paid neutral and presentation co-owners cannot turn codec failure support 
 	const protocols = new Map([
 		['src/common/project-file-extensions.ts', 'product-profiles'],
 		['src/common/editor/import-file-extensions.ts', 'project-interchange-foundations'],
-		['src/common/editor/image-import-admission.ts', 'editor-imaging'],
+		['src/common/imaging/image-import-admission.ts', 'editor-imaging'],
 	]);
 	const pending = [...SUPPORT_MODULES.keys()].map(leaf => resolve(EDITOR_DIRECTORY, leaf));
 	const reached = new Set<string>(), charged = new Set<string>(), packages = new Set<string>();

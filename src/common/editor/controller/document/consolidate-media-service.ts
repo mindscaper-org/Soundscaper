@@ -33,7 +33,7 @@ import {
 } from '../../consolidate-operation.ts';
 import { consolidateLinkedAudioCache, type ConsolidateAudioCacheStore } from './internal/native-project/consolidate-linked-audio-cache.ts';
 import type { ConsolidateManagedAudioStore } from './internal/native-project/consolidate-managed-audio.ts';
-import { createScapeDigest, scapeHex } from '../../scape-archive-media.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../../../media/bytes.ts';
 import { reuseConsolidatedAudioCache } from './internal/native-project/consolidate-existing-audio-cache.ts';
 
 /** The narrow slice of the project store this needs, named rather than assumed. */

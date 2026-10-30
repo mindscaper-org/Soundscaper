@@ -6,7 +6,7 @@ import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { createProjectStore } from '../src/common/editor/storage.js';
 import { createBaselineAudioEditorProject, importBaselineScapeProject } from './helpers/baseline-scape-runtime.ts';
 import { attachExternalMedia, externalMediaForSource, consolidateExternalMediaCommands, type ExternalMedia } from '../src/common/editor/desktop-external-media.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { prepareExternalMediaConsolidation } from '../src/common/editor/controller/document/internal/native-project/consolidate-external-media.ts';
 import { packPlanarFloat32 } from '../src/common/editor/wavpack/index.js';
 import { prepareScapeExport } from '../src/common/editor/scape-export-plan.ts';

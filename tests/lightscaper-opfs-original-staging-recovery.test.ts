@@ -5,7 +5,8 @@ import test from 'node:test';
 import { PhotoMediaStoreV1, PHOTO_MEDIA_NAMESPACES_V1 as MEDIA } from '../src/lightscaper/storage/photo-media-store.ts';
 import { mediaRestoreFixture } from './helpers/lightscaper-media-restore-fixture.ts';
 import { controlledLocks, installAcquisitionPlatform, observed, WriterAcquisitionFixture } from './helpers/lightscaper-opfs-writer-acquisition-fixture.ts';
-import { openDatabase, request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { assertPriorUnchanged, captureOriginalPrefix, digest, enteredOrOutcome, enumerableFactory, installDirectoryModel,
 	ORIGINAL_BYTES, pathLeases, replayOriginalPrefix, taskTurns } from './helpers/lightscaper-opfs-original-staging-fixture.ts';
 import { deferred } from './helpers/async-test-control.ts';

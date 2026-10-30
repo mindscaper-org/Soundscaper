@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
-import { readClosedDomainArray } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
+import { readClosedDomainArray } from '../../foundation/closed-domain-value.ts';
 import { COLOR_WHEELS_EFFECT_TYPE_V1, normalizeColorWheelsEffectV1, prepareColorWheelsEffectV1,
 	colorWheelsByteChannelV1, releaseColorWheelsEffectV1 } from '../video-color-wheels-v1.ts';
 import { isCurvesEffectTypeV1, prepareCurvesEffectV1, createCurvesTransferV1 } from '../video-curves-v1.ts';

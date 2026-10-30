@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { request } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request } from '../../common/media/indexeddb.ts';
 import { boolean, integer, oneOf } from './value-validation.ts';
 import { readPhotoQueryBuildStateV2 } from './photo-query-build-contract-v2.ts';
 import type { PhotoQueryRowV2 } from './photo-query-index-v2.ts';

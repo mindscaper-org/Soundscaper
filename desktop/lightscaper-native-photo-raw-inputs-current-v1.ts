@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import { types } from 'node:util';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import { assertPhotoStackQuerySignalV1 } from '../src/lightscaper/catalog/photo-stack-query-signal-v1.ts';
 import { readPhotoLibraryRawImportFrameCurrentV1 as readFrame,
  type PhotoLibraryRawResultCurrentV1 as Result } from '../src/lightscaper/controller/photo-library-raw-source-current-v1.ts';

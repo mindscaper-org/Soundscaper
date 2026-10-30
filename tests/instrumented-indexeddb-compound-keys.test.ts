@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { compareInstrumentedKeys, InstrumentedKeyRange } from './helpers/instrumented-indexeddb-keys.ts';
-import { request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 
 test('instrumented compound keys use lexicographic components and respect open range endpoints', () => {
 	assert.equal(compareInstrumentedKeys(['scope', 2, 'z'], ['scope', 10, 'a']), -1);

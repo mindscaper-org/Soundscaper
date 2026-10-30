@@ -2,7 +2,7 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { readCanonicalSafeVisualText, readExactSafeVisualText } from '../safe-visual-text.ts';
 import { IMAGE_DEVELOP_LIMITS_V1 } from '../imaging/image-develop-contract-v1.ts';
 import { normalizeImageDevelopStateThroughV3 } from '../imaging/image-develop-state-through-v3.ts';

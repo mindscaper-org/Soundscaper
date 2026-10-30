@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray, readClosedDomainRecord, readClosedDomainField } from '../../common/editor/closed-domain-value.ts';
-import { canonicalMediaContentBlob } from '../../common/editor/storage/media-content-digest.ts';
+import { readClosedDomainArray, readClosedDomainRecord, readClosedDomainField } from '../../common/foundation/closed-domain-value.ts';
+import { canonicalMediaContentBlob } from '../../common/media/content-digest.ts';
 import { readPhotoLibraryOriginalGroupCurrentV1 } from './photo-library-original-group-contract-current-v1.ts';
 import type { PhotoLibraryOriginalSourceCurrentV1 as Source, PhotoLibraryOriginalRequestCurrentV1 as Request,
 	PhotoLibraryOriginalGroupLeaseCurrentV1 as Lease } from './photo-library-original-source-current-v1.ts';

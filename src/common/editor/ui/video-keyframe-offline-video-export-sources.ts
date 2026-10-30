@@ -4,7 +4,7 @@ import {
 	offlineVideoExportRecord as record, offlineVideoExportData as data,
 	offlineVideoExportDenseArray as denseArray, offlineVideoExportBoundedId as boundedId,
 } from './video-keyframe-offline-video-export-admission.ts';
-import { digestMediaContent } from '../storage/media-content-digest.ts';
+import { digestMediaContent } from '../../media/content-digest.ts';
 import {
 	createVideoKeyframeExportInventory,
 } from '../video-keyframe-export-inventory.ts';

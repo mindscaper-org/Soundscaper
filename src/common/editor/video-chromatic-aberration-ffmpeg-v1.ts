@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { prepareChromaticAberrationEffectV1 } from './video-chromatic-aberration-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 import type { VideoEffectGraphContext } from './video-effect-ffmpeg.ts';
 
 /** Exact original alpha supplies the weighted-channel divisor and the final

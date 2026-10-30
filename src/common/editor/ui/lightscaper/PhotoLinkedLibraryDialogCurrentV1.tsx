@@ -14,7 +14,7 @@ import {bundledLightscaperEditorCopyForLocale} from '../../../i18n/lightscaper-e
 import {photoDevelopSettingsCopy} from '../../../i18n/lightscaper-develop-settings-copy.ts';
 import {lightscaperPhotoLinkedCopyCurrentV1 as copyFor} from '../../../i18n/lightscaper-photo-linked-copy-current-v1.ts';
 import {message} from './photo-library-workflow-diagnostics.ts';
-import {IMAGE_IMPORT_LIMITS} from '../../image-import-admission.ts';
+import {IMAGE_IMPORT_LIMITS} from '../../../imaging/image-import-admission.ts';
 type Props=Readonly<{locale:string;commands:Commands;onClose(grantId?:string):void}>;
 type Job=Readonly<{stop:AbortController;joined:Promise<void>}>;
 const PLAIN:Settings=Object.freeze({rename:null,metadata:Object.freeze({}),keywordIds:Object.freeze([])});

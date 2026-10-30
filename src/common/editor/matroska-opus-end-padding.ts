@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { raceAbortableRead } from './abort-race.ts';
+import { raceAbortableRead } from '../foundation/abort-race.ts';
 import { createVideoTimingDemuxReader } from './video-timing-demux-reader.ts';
 
 const SEGMENT = 0x18538067, CLUSTER = 0x1f43b675, BLOCK_GROUP = 0xa0;

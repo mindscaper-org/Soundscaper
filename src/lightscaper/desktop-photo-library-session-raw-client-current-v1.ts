@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 import { DesktopPhotoRawSourceCurrentV1 as Source } from './desktop-photo-raw-source-current-v1.ts';
 import { readDesktopPhotoRawRetirementCurrentV1 as retired, type DesktopPhotoRawOpenCurrentV1 as Open } from './desktop-photo-raw-contract-current-v1.ts';
 import { readPhotoLibraryRawImportRequestCurrentV1 as request, type PhotoLibraryRawImportSourceCurrentV1 as ImportSource } from './controller/photo-library-raw-import-current-v1.ts';

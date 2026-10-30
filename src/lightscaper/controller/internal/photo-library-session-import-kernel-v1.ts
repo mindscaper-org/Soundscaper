@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray } from '../../../common/editor/closed-domain-value.ts';
-import { IMAGE_IMPORT_LIMITS } from '../../../common/editor/image-import-admission.ts';
+import { readClosedDomainArray } from '../../../common/foundation/closed-domain-value.ts';
+import { IMAGE_IMPORT_LIMITS } from '../../../common/imaging/image-import-admission.ts';
 import type { PhotoLibraryImportItemV1 } from '../../../common/editor/photo-library-session-port-v1.ts';
 import type { PhotoLibraryImportRequestOptionsV1 } from '../../../common/editor/photo-library-import-settings-port-v1.ts';
 import type { PhotoLibraryDevelopImportRequestV2 } from '../../../common/editor/photo-library-develop-import-port-v2.ts';

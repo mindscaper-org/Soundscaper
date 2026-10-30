@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import type { ScapeProjectInputReaderFactories } from '../src/common/editor/scape-project-input.ts';
 
 /** Capture the main-private test/host reader seam before lazy import or input

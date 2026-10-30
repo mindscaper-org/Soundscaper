@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createAbortGuard } from '../abort-error.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
 import { DESKTOP_READ_HARD_LIMIT_BYTES } from '../desktop-read-materialization.ts';
 import { selectedRangeDescriptorForBlob } from '../desktop-selected-range-blob.ts';
-import { MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../storage/media-content-digest.ts';
+import { MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../../media/content-digest.ts';
 import { withFramescaperSidecarFile, type FramescaperSidecarFileReader } from './framescaper-sidecar-file.ts';
 
 const throwIfAborted = createAbortGuard('Native proxy selection was cancelled.');

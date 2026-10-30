@@ -2,7 +2,7 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 
 export const BRUSH_MASK_RESOURCE_LIMITS_V1 = Object.freeze({ maximumSide: 1024, maximumPixels: 1_048_576,
 	headerBytes: 16, maximumBodyBytes: 1_048_592 });

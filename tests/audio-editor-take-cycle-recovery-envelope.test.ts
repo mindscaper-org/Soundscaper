@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { serializeScapeProjectDocument } from '../src/common/editor/scape-project-document.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import {
 	createTakeCycleRecoveryEnvelope,
 	normalizeTakeCycleRecoveryEnvelope,

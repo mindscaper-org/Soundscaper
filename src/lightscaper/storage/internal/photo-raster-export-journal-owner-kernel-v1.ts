@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { normalizePhotoRasterExportJournalV1, normalizePhotoRasterExportDownloadAckV1, normalizePhotoRasterExportSidecarAckV1, isPhotoRasterExportMemberCompleteV1, photoRasterExportJournalKeyV1,
 	type PhotoRasterExportJournalV1, type PhotoRasterExportDownloadAckV1, type PhotoRasterExportSidecarAckV1 } from '../photo-raster-export-journal-v1.ts';
-import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../../common/editor/closed-domain-value.ts';
+import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../../common/foundation/closed-domain-value.ts';
 import { normalizePhotoRasterExportJournalCurrentV1 } from '../photo-raster-export-journal-current-v1.ts';
 
 export interface PhotoRasterExportJournalSettingsV1 {

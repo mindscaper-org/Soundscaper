@@ -1,17 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { raceAbortableRead } from '../abort-race.ts';
+import { raceAbortableRead } from '../../foundation/abort-race.ts';
 import {
 	collectProjectStorageKeys,
 	compactProjectSourceMetadata,
 } from '../retention.js';
 import { deleteExactProject } from './project-exact-delete.ts';
-import {
-	deleteByIndex,
-	request,
-	transact,
-	transactionCompletion,
-} from './indexeddb-backend.ts';
+import { deleteByIndex, request, transact, transactionCompletion } from '../../media/indexeddb.ts';
 import {
 	LINKED_VIDEO_ORIGINAL_PROJECT_INDEX_NAME,
 	LINKED_VIDEO_ORIGINAL_STORE_NAME,

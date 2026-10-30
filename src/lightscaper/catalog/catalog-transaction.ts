@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { transact } from '../../common/editor/storage/indexeddb-backend.ts';
+import { transact } from '../../common/media/indexeddb.ts';
 const nativeThrowIfAborted = AbortSignal.prototype.throwIfAborted;
 
 export function assertNotAborted(signal?: AbortSignal): void {

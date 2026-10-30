@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainRecord, readClosedDomainField } from '../../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainRecord, readClosedDomainField } from '../../src/common/foundation/closed-domain-value.ts';
 import { PHOTO_LARGE_LIBRARY_SPECIFICATION_V1 as SPEC } from '../../src/lightscaper/quality/large-library-workload-v1.ts';
 
 export const PHOTO_LIBRARY_SEED_DIAGNOSTIC_KIND_V1 = 'lightscaper-library-seed-phase-v1';

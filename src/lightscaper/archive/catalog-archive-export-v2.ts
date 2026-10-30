@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { aggregateScapeErrors } from '../../common/editor/scape-abort.ts';
+import { aggregateScapeErrors } from '../../common/scape/abort.ts';
 import { PHOTO_STACK_PACK_ASSET_KIND, PHOTO_STACK_PACK_ENCODING } from '../../common/editor/scape-photo-stack-pack.ts';
 import { validateLightscaperDocumentV1 } from '../catalog/documents.ts';
 import type { PhotoStackV1 } from '../catalog/photo-stack-v1.ts';

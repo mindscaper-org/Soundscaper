@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createAbortGuard } from '../abort-error.ts';
-import { readCursorPage, request, transact } from './indexeddb-backend.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
+import { readCursorPage, request, transact } from '../../media/indexeddb.ts';
 import { trustedMediaContentSha256 } from './media-content-provenance.ts';
 import type { StorageRecord } from './media-records.ts';
 import {

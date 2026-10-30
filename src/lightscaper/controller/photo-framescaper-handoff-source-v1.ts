@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import { createImageDevelopHandoffProvenanceV1 } from '../../common/editor/image-develop-handoff-provenance-v1.ts';
 import { defaultImageDevelopStateV1 } from '../../common/editor/imaging/image-develop-state-v1.ts';
 import { normalizeFramescaperImageSourceV1 } from '../../common/editor/timeline-image-model.ts';

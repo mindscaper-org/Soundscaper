@@ -19,7 +19,7 @@ import { photoCatalogRestorePhotoRecordsV1 } from '../src/lightscaper/catalog/ph
 import { PHOTO_CATALOG_STORES } from '../src/lightscaper/catalog/repository-types.ts';
 import { PHOTO_QUERY_INDEXES_V1 } from '../src/lightscaper/catalog/photo-query-index-v1.ts';
 import { PHOTO_QUERY_INDEXES_V2 } from '../src/lightscaper/catalog/photo-query-index-v2.ts';
-import { transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { transact } from '../src/common/media/indexeddb.ts';
 import { createLargeLibraryPhotoBatchV1, PHOTO_LARGE_LIBRARY_SPECIFICATION_V1 as SPEC } from '../src/lightscaper/quality/large-library-workload-v1.ts';
 import type { PhotoDocumentV1 } from '../src/lightscaper/catalog/types.ts';
 

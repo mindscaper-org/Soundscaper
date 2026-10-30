@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { digestScapeBytes } from '../../../../scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../../../../../media/bytes.ts';
 import type { TakeCycleCaptureSpan } from '../../../../take-cycle-capture-domain.ts';
 import type {
 	RawPcmSpoolRecord,

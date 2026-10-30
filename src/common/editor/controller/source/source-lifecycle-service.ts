@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { raceAbortableRead } from '../../abort-race.ts';
+import { raceAbortableRead } from '../../../foundation/abort-race.ts';
 import { loadOptionalWaveformPeaks, saveOptionalWaveformPeaks } from './internal/optional-waveform-cache.ts';
 import { isUnsupportedNativeAudioBuffer } from '../../source-pcm-contract.ts';
 import { localizedErrorMessage, publishLocalizedStatus } from '../../../i18n/presentation-message.ts';

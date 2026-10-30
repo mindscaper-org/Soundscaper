@@ -13,7 +13,7 @@ export const DESKTOP_PROJECT_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/commands/take-comp-clipboard.js',
 	'src/common/editor/commands/video-keyframe-carrier-core.js',
 	'src/common/editor/commands/video-keyframe-carrier-v2.js',
-	'src/common/editor/cube-lut-reference-contract.js',
+	'src/common/imaging/cube-lut-reference-contract.js',
 	'src/common/editor/exact-record-id-index.js',
 	'src/common/editor/frozen-record-id-index.js',
 	'src/common/editor/image-develop-handoff-provenance-current-v1.js',

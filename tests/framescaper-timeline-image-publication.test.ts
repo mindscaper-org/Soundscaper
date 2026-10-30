@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { openDatabase, request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { applyFramescaperProjectCommandTimelineImage as applyCommand } from '../src/framescaper/editor-project-timeline-image-commands.ts';
 import { createFramescaperProjectTimelineImage } from '../src/framescaper/editor-project-timeline-image.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';

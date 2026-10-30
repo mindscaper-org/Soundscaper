@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { aggregateScapeErrors, throwIfScapeAborted } from '../../common/editor/scape-abort.ts';
+import { aggregateScapeErrors, throwIfScapeAborted } from '../../common/scape/abort.ts';
 import { readScapeArchiveEnvelope } from '../../common/editor/scape-archive-envelope.ts';
-import { verifyScapeAssetBytes } from '../../common/editor/scape-archive-media.ts';
+import { verifyScapeAssetBytes } from '../../common/scape/asset-bytes.ts';
 import { withScapeProjectInput, type ScapeProjectInput, type ScapeProjectInputReaderFactories } from '../../common/editor/scape-project-input.ts';
 import { parseOpaqueScapeProjectDocument } from '../../common/editor/scape-project-document.ts';
 import type { PhotoCatalogRootV1, PhotoDocumentV1 } from '../catalog/types.ts';

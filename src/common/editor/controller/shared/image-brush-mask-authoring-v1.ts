@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../foundation/closed-domain-value.ts';
 import { appendBrushMaskStrokeV1, createBrushMaskHistoryV1, undoBrushMaskHistoryV1, redoBrushMaskHistoryV1, withBrushMaskPlaneV1,
 	type BrushMaskHistoryV1, type BrushMaskStrokeV1 } from '../../imaging/brush-mask-plane-v1.ts';
 import { BRUSH_MASK_RESOURCE_LIMITS_V1, normalizeBrushMaskResourceReferenceV1, withBrushMaskResourceV1, withPreparedBrushMaskResourceV1,

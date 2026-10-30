@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { digestMediaContent } from '../common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../common/media/content-digest.ts';
 import { readPhotoLibraryRawImportRequestCurrentV1 as importOf, type PhotoLibraryRawImportSourceCurrentV1 as ImportSource, type PhotoLibraryRawImportFrameCurrentV1 as InputFrame } from './controller/photo-library-raw-import-current-v1.ts';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 import { captureRepairSignalV1, checkRepairSignalV1 as check } from '../common/editor/imaging/pixel-frame-repair-lifetime-v1.ts';
 import { readDesktopPhotoRawTicketIdCurrentV1 as idOf, readDesktopPhotoRawRequestCurrentV1 as requestOf, readDesktopPhotoRawOpenCurrentV1 as openOf, readDesktopPhotoRawRetirementCurrentV1 as retiredOf, DESKTOP_PHOTO_RAW_LIMITS_CURRENT_V1 as LIMITS,
 	type DesktopPhotoRawTransportCurrentV1 as Transport, type DesktopPhotoRawRequestCurrentV1 as Request } from './desktop-photo-raw-contract-current-v1.ts';

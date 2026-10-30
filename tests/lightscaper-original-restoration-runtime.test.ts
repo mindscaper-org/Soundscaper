@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { MediaRepository } from '../src/common/editor/storage/media-repository.ts';
-import { openDatabase, request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { PhotoCatalogRepositoryV1 } from '../src/lightscaper/catalog/repository.ts';
 import { normalizePhotoCatalogRootV1 } from '../src/lightscaper/catalog/catalog-root.ts';
 import { createPhotoLibrarySessionV1 } from '../src/lightscaper/photo-library-session-runtime.ts';

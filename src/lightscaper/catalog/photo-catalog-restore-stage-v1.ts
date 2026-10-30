@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { aggregateScapeErrors } from '../../common/editor/scape-abort.ts';
-import { request } from '../../common/editor/storage/indexeddb-backend.ts';
+import { aggregateScapeErrors } from '../../common/scape/abort.ts';
+import { request } from '../../common/media/indexeddb.ts';
 import { createPhotoCatalogStoresV1 } from './catalog-database-schema.ts';
 import { assertNotAborted, catalogTransaction } from './catalog-transaction.ts';
 import { assertPhotoStackQuerySignalV1 } from './photo-stack-query-signal-v1.ts';

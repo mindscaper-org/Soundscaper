@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
-import { openDatabase, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { transact } from '../src/common/media/indexeddb.ts';
 import { getMemoryDatabase } from '../src/common/editor/storage/memory-backend.ts';
 import { MediaAssetStagingRepository, revokeSourceStageInStore } from '../src/common/editor/storage/media-asset-staging-repository.ts';
 import { MEDIA_ASSET_STAGING_STORE_NAME as STORE } from '../src/common/editor/storage/media-asset-staging-schema.ts';

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { DERIVATIVE_CACHE_ENTRY_STORE_NAME, DERIVATIVE_CACHE_SOURCE_ID_INDEX_NAME, projectDerivativeCacheInventoryRecord, VIDEO_DERIVATIVE_STORE_NAME } from './derivative-cache-entry.ts';
-import { request } from './indexeddb-backend.ts';
+import { request } from '../../media/indexeddb.ts';
 import type { StorageRecord } from './media-records.ts';
 import { readBinaryDerivativeCacheRecordV1 } from './binary-derivative-cache-records.ts';
 

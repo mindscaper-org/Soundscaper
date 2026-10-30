@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { capturePhotoLibraryRawSourceCurrentV1, type PhotoLibraryRawSourceCurrentV1 } from './photo-library-raw-source-current-v1.ts';
-import { canonicalMediaContentBlob } from '../../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../../common/media/content-digest.ts';
 import { normalizePhotoOriginalV1 } from '../catalog/photo-document-envelope-v1.ts';
 import type { PhotoOriginalV1 } from '../catalog/types.ts';
 import { field, id, record } from '../catalog/value-validation.ts';

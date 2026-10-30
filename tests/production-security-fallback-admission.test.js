@@ -21,7 +21,7 @@ test('controller fallback admission keeps its byte-integrity claim narrow and ev
 		'src/common/editor/project-fallback-integrity-audio.ts',
 		'src/common/editor/project-fallback-integrity-snapshot.ts',
 		'src/common/editor/scape-archive-media.ts',
-		'src/common/editor/storage/media-content-digest.ts',
+		'src/common/media/content-digest.ts',
 		'src/common/editor/storage.js',
 		'src/common/editor/storage/source-read-repository.ts',
 		'src/common/editor/storage/source-repository.ts',

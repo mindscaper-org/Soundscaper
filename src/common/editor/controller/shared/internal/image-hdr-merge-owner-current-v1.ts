@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../../foundation/closed-domain-value.ts';
 import { withImageHdrAlignmentGuideV1, alignImageHdrGuidesV1, type ImageHdrAlignmentGuideV1 } from '../../../imaging/image-hdr-alignment-v1.ts';
 import { finalizeImageHdrMergeV1, type ImageHdrAlignedMergePlanV1, type ImageHdrAlignmentV1 } from '../../../imaging/image-hdr-merge-contract-v1.ts';
 import { normalizeImageHdrOriginalProvenanceV1 } from '../../../imaging/image-hdr-original-contract-v1.ts';

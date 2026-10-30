@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord } from './closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord } from '../foundation/closed-domain-value.ts';
 import { normalizeVideoEffects, videoEffectDefinition } from './video-effects.js';
 import type { VideoEffectParameterV1 } from './video-curve-types-v1.ts';
 

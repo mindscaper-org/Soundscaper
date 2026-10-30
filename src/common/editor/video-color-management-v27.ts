@@ -6,27 +6,18 @@
  * pixels, LUT bodies, histograms, and scopes remain transient.
  */
 
-import { normalizeVideoCubeLutReferenceV1 } from './cube-lut-reference-contract.ts';
+import { normalizeVideoCubeLutReferenceV1, type VideoCubeLutReferenceV1 } from '../imaging/cube-lut-reference-contract.ts';
 import {
 	readClosedDomainArray,
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from './closed-domain-value.ts';
-import { applyVideoColorGradeChannels } from './video-color-grade-channels.ts';
-import {
-	requireCubeLutBody,
-	sampleCubeLut,
-	type ParsedCubeLutV1,
-	type VideoCubeLutReferenceV1,
-} from './video-color-cube-lut-v27.ts';
+} from '../foundation/closed-domain-value.ts';
+import { applyLinearColorGradeChannels } from '../imaging/linear-color-grade.ts';
+import { requireCubeLutBody, sampleCubeLut, type ParsedCubeLutV1 } from '../imaging/cube-lut-v1.ts';
 
-export {
-	parseCubeLutV1,
-	VIDEO_COLOR_LIMITS_V1,
-	type ParsedCubeLutV1,
-	type VideoCubeLutReferenceV1,
-} from './video-color-cube-lut-v27.ts';
+export { parseCubeLutV1, type ParsedCubeLutV1 } from '../imaging/cube-lut-v1.ts';
+export { VIDEO_COLOR_LIMITS_V1, type VideoCubeLutReferenceV1 } from '../imaging/cube-lut-reference-contract.ts';
 
 export type VideoSourceColorPrimariesV1 = 'srgb' | 'bt709' | 'display-p3' | 'bt2020' | 'unknown';
 export type VideoSourceColorTransferV1 = 'srgb' | 'bt709' | 'pq' | 'hlg' | 'unknown';
@@ -407,7 +398,7 @@ function applyGrade(
 	grade: VideoColorGradeV1,
 	lut: ParsedCubeLutV1 | null,
 ): number[] {
-	const linear = applyVideoColorGradeChannels(linearValue, grade);
+	const linear = applyLinearColorGradeChannels(linearValue, grade);
 	return lut ? sampleCubeLut(lut, linear) : linear;
 }
 

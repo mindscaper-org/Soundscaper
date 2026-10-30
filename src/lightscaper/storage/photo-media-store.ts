@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createAbortGuard } from '../../common/editor/abort-error.ts';
-import { readClosedDomainField, readClosedDomainRecord } from '../../common/editor/closed-domain-value.ts';
+import { createAbortGuard } from '../../common/foundation/abort-error.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../common/foundation/closed-domain-value.ts';
 import { openDatabase } from '../../common/editor/storage/indexeddb-backend.ts';
 import { KeyValueRepository } from '../../common/editor/storage/key-value-repository.ts';
 import type { MediaAssetMaintenance } from '../../common/editor/storage/media-asset-lifecycle-coordinator.ts';

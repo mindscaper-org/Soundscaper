@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, readClosedDomainRecord } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../common/foundation/closed-domain-value.ts';
 import { normalizePhotoStackV1, serializePhotoStackV1, type PhotoStackV1 } from '../catalog/photo-stack-v1.ts';
 import { PhotoPackCursor } from './pack-cursor.ts';
 

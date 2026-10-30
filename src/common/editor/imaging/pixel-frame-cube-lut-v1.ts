@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { applyPreparedManagedSdrByteFrameV1 } from '../video-color-byte-encoding.ts';
 import { defaultVideoSourceColorInterpretationV1, normalizeVideoColorGradeV1,
 	prepareManagedSdrGradeStackV1 } from '../video-color-management-v27.ts';

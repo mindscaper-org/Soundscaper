@@ -2,9 +2,9 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainArray } from '../../../src/common/editor/closed-domain-value.ts';
-import { request, transact } from '../../../src/common/editor/storage/indexeddb-backend.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from '../../../src/common/editor/storage/media-content-digest.ts';
+import { readClosedDomainArray } from '../../../src/common/foundation/closed-domain-value.ts';
+import { request, transact } from '../../../src/common/media/indexeddb.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../../../src/common/media/content-digest.ts';
 import { normalizeCatalogOriginalRoot } from '../../../src/common/editor/storage/media-catalog-original-schema.ts';
 import { openFramescaperImageFramePackV1 } from '../../../src/common/editor/timeline-image-frame-pack-v1.ts';
 import { normalizeFramescaperImageSourceCurrentV1, framescaperImageSourceResourceReferencesCurrentV1 } from '../../../src/common/editor/timeline-image-model-current-v1.ts';

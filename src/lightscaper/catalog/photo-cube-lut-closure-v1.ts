@@ -2,7 +2,7 @@
 
 import { normalizeImageDevelopStateV1OrV2 } from '../../common/editor/imaging/image-develop-state-v2.ts';
 import { CUBE_LUT_PROFILE_EFFECT_TYPE_V1, normalizeCubeLutProfileEffectV1 } from '../../common/editor/video-cube-lut-profile-v1.ts';
-import type { VideoCubeLutReferenceV1 } from '../../common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../../common/imaging/cube-lut-reference-contract.ts';
 import { SCAPE_ARCHIVE_LIMITS } from '../../common/editor/scape-archive-limits.ts';
 
 export const PHOTO_CUBE_LUT_CLOSURE_LIMITS_V1 = Object.freeze({ maximumReferences: SCAPE_ARCHIVE_LIMITS.maximumEntryCount - 2,

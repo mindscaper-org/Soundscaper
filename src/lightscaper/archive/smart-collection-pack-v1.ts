@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, readClosedDomainRecord } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../common/foundation/closed-domain-value.ts';
 import { normalizePhotoSmartCollectionV1, PHOTO_SMART_COLLECTION_LIMITS_V1,
 	type PhotoSmartCollectionV1 } from '../catalog/photo-smart-collection-v1.ts';
 import { assertPhotoStackQuerySignalV1 } from '../catalog/photo-stack-query-signal-v1.ts';

@@ -1,5 +1,6 @@
 // @ts-check
 import { defineConfig, devices } from '@playwright/test';
+import { resolve } from 'node:path';
 
 import {
 	ordinaryBrowserProductSitePlan,
@@ -7,16 +8,17 @@ import {
 } from './scripts/lib/browser-product-test-sites.mjs';
 
 const sitePlan = ordinaryBrowserProductSitePlan();
-const [soundscaper] = sitePlan.sites;
-const baseURL = soundscaper.origin;
+const baseURL = sitePlan.sites[0].origin;
+const modulePlan = process.env.SCAPE_MODULE_PLAN
+	? (await import('./scripts/lib/check-module-repository.ts')).readModuleExecutionPlan(import.meta.dirname, process.env.SCAPE_MODULE_PLAN)
+	: null;
 const browserCoverage = process.env.SCAPE_BROWSER_COVERAGE === '1';
-process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS = JSON.stringify(Object.fromEntries(
-	sitePlan.sites.map(({ productId, origin }) => [productId, origin]),
-));
+process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS = JSON.stringify(Object.fromEntries(sitePlan.sites.map(site => [site.productId, site.origin])));
 
 export default defineConfig({
 	testDir: './tests/browser',
 	testIgnore: ['handbook/**', 'dual-origin/**', 'audiocity/**'],
+	...(modulePlan?.mode === 'focused' ? { testMatch: modulePlan.browserTests.map(file => resolve(import.meta.dirname, file).replaceAll('\\', '/')) } : {}),
 	timeout: 30000,
 	expect: { timeout: 5000 },
 	fullyParallel: true,
@@ -32,7 +34,7 @@ export default defineConfig({
 		? [['github'], ['html', { outputFolder: 'playwright-report', open: 'never' }]]
 		: 'list',
 	outputDir: 'test-results',
-	webServer: sitePlan.sites.map((site) => vitePreviewServer(site)),
+	webServer: sitePlan.sites.map(site => vitePreviewServer(site)),
 	use: {
 		baseURL,
 		serviceWorkers: 'block',

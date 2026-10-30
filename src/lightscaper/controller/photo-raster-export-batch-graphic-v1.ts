@@ -2,10 +2,10 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import { captureImageExportGraphicRequest, type ImageExportGraphicRequest } from '../../common/editor/image-export-graphic-request.ts';
-import { IMAGE_IMPORT_LIMITS } from '../../common/editor/image-import-admission.ts';
-import { canonicalMediaContentBlob, MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../../common/editor/storage/media-content-digest.ts';
+import { IMAGE_IMPORT_LIMITS } from '../../common/imaging/image-import-admission.ts';
+import { canonicalMediaContentBlob, MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../../common/media/content-digest.ts';
 
 /** Persisted placement and content identity confer no file or decoder authority. */
 export interface PhotoRasterBatchGraphicIntentV1 {

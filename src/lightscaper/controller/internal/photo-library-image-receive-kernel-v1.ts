@@ -2,7 +2,7 @@
 
 import type { PhotoLibraryImageReceiveReceiptV2 } from '../../../common/editor/photo-library-image-receive-port-v2.ts';
 import type { PhotoLibraryImageReceiveRequestV1, PhotoLibraryImageReceiveOptionsV1, PhotoLibraryImageReceiveReceiptV1 } from '../../../common/editor/photo-library-image-receive-port-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/foundation/closed-domain-value.ts';
 import type { OpenFramescaperBrowserNativeImageV1 } from '../../../common/editor/timeline-image-native-decode-v1.ts';
 import { normalizePhotoDocumentCurrentV1, serializePhotoDocumentCurrentV1 } from '../../catalog/photo-document-current-v1.ts';
 import type { PhotoLibrarySessionPortsCurrentV1 } from '../photo-library-session-ports-current-v1.ts';

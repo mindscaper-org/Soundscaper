@@ -4,7 +4,7 @@ import test from 'node:test';
 import { createLocalAssistanceVideoKeyingFramePreparation } from '../src/common/editor/controller/assistance/internal/video/local-assistance-video-keying-frames.ts';
 import { reviewAssistanceVisualFramePackV2 } from '../src/common/editor/assistance/visual-frame-pack-v2.ts';
 import type { LocalAssistanceVideoKeyingRun } from '../src/common/editor/controller/assistance/internal/video/local-assistance-video-keying-publication.ts';
-import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../src/common/media/content-digest.ts';
 
 async function captured(): Promise<LocalAssistanceVideoKeyingRun> {
 	return { projectId: 'project', clipId: 'clip', source: { id: 'source', contentSha256: await digestMediaContent(new Blob(['original'])) },

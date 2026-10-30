@@ -7,7 +7,7 @@ import ts from 'typescript';
 
 import type { VideoEffectParameterV2 } from '../src/common/editor/video-effect-parameter-v2.ts';
 import type { VideoEffectParameterV1, VideoCurvePointsV1 } from '../src/common/editor/video-curve-types-v1.ts';
-import type { VideoCubeLutReferenceV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../src/common/imaging/cube-lut-reference-contract.ts';
 import { createVideoEffect, normalizeVideoEffect } from '../src/common/editor/video-effects.js';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;

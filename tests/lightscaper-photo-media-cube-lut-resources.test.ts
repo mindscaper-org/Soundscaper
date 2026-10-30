@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { createImageDevelopPresetV2 } from '../src/common/editor/imaging/image-develop-preset-v2.ts';
 import { PhotoMediaStoreV1 } from '../src/lightscaper/storage/photo-media-store.ts';
 import { PhotoCatalogRepositoryV2 } from '../src/lightscaper/catalog/photo-catalog-repository-v2.ts';

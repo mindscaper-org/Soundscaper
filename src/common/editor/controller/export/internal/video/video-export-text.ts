@@ -2,7 +2,7 @@
 
 import { captureImageExportTextV1, type ImageExportTextV1 } from '../../../../image-export-text-v1.ts';
 import { imageExportGraphicPlacement } from '../../../../image-export-graphic-request.ts';
-import { readClosedDomainField as field } from '../../../../closed-domain-value.ts';
+import { readClosedDomainField as field } from '../../../../../foundation/closed-domain-value.ts';
 import { normalizeVideoColorContextV1 } from '../../../../video-color-management-v27.ts';
 import { PIXEL_FRAME_HARD_LIMITS_V1 } from '../../../../imaging/pixel-frame-contract-v1.ts';
 import type { withImageExportTextFrameV1 } from '../../../../imaging/image-export-text-frame-v1.ts';

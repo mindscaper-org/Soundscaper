@@ -3,7 +3,7 @@
 import {
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from '../closed-domain-value.ts';
+} from '../../foundation/closed-domain-value.ts';
 
 export const PIXEL_SAMPLE_FORMATS_V1 = Object.freeze(['unorm8', 'unorm16', 'float32'] as const);
 export const PIXEL_COLOR_PRIMARIES_V1 = Object.freeze(['srgb', 'bt709', 'display-p3', 'bt2020'] as const);

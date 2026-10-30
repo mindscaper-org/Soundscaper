@@ -12,7 +12,8 @@ import {
 	LINKED_ORIGINAL_BINDING_SCHEMA_VERSION,
 	type LinkedOriginalBindingInput,
 } from '../src/common/editor/storage/linked-original-binding.ts';
-import { openDatabase, request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { LINKED_ORIGINAL_PROVISIONAL_ROOT_STORE_NAME } from '../src/common/editor/storage/linked-original-provisional-root.ts';
 import { linkedOriginalBindingKey } from '../src/common/editor/storage/linked-original-schema.ts';
 import type { LinkedOriginalLocatorReference } from '../src/common/editor/storage/linked-original-repository.ts';

@@ -18,7 +18,7 @@ import type { PhotoRasterExportBatchV1 } from '../photo-raster-export-batch-v1.t
 import { createPhotoRasterBatchDownloadDestinations } from '../photo-raster-export-batch-download-destinations.ts';
 import { assertPhotoRasterJournalPlanForProfileV1, createPhotoRasterJournalDestinationsForProfileV1, PhotoRasterJournalDestinationErrorV1 } from './photo-raster-export-journal-destinations-kernel-v1.ts';
 import { reconcilePhotoRasterExportBatchRecoveryForProfileV1, type PhotoRasterExportRecoveryEntryV1 } from './photo-raster-export-batch-recovery-kernel-v1.ts';
-import { readClosedDomainRecord as record, readClosedDomainField as field, readClosedDomainArray as array } from '../../../common/editor/closed-domain-value.ts';
+import { readClosedDomainRecord as record, readClosedDomainField as field, readClosedDomainArray as array } from '../../../common/foundation/closed-domain-value.ts';
 
 /** Scalar provenance from a complete admitted saved Photo, not a body lease. */
 export async function readPhotoRasterExportBindingForProfileV1(profile: PhotoRasterExportProfileV1, request: Readonly<PhotoLibraryExportSidecarRequest>, read: ReadPhotoExportSidecar, signal: AbortSignal, sidecarEnabled = false): Promise<Readonly<PhotoRasterExportBindingV1>> {

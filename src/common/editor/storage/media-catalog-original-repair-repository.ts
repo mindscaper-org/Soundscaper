@@ -8,7 +8,7 @@ import { MediaAssetWriteAdmission } from './media-asset-write-admission.ts';
 import { MediaPublicationReconciliationError } from './media-asset-owned-publication.ts';
 import { abortPreparedMediaAssetStaging, prepareMediaAssetStaging, type PreparedMediaAssetStaging } from './media-asset-staged-sink.ts';
 import { MediaAssetStagingRepository } from './media-asset-staging-repository.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from './media-content-digest.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../../media/content-digest.ts';
 import { normalizeCatalogOriginalRepairBindingV1, readCatalogOriginalRepairSignalV1, type CatalogOriginalRepairBindingV1,
 	type CatalogOriginalRepairOptionsV1, type CatalogOriginalRepairReceiptV1 } from './media-catalog-original-repair-contract.ts';
 import { publishCatalogOriginalRepair, readCatalogOriginalRepairCapture } from './media-catalog-original-repair-publication.ts';

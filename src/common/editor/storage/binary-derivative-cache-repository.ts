@@ -1,17 +1,17 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField } from '../closed-domain-value.ts';
+import { readClosedDomainField } from '../../foundation/closed-domain-value.ts';
 import { BINARY_DERIVATIVE_CACHE_TYPE_V1, binaryDerivativeManifestV1, normalizeBinaryDerivativeCacheIdentityV1, normalizeBinaryDerivativeCacheProfileV1,
 	readBinaryDerivativeCacheRecordV1, type BinaryDerivativeCacheIdentityV1, type BinaryDerivativeCacheProfileV1,
 	type BinaryDerivativeCacheRecordV1 } from './binary-derivative-cache-records.ts';
 import { cacheStore, sameDerivativeCacheRecord } from './binary-derivative-cache-pairs.ts';
 import { DERIVATIVE_CACHE_ENTRY_STORE_NAME as INVENTORY, VIDEO_DERIVATIVE_STORE_NAME as PAYLOAD } from './derivative-cache-entry.ts';
 import { planDerivativeCacheEviction } from './derivative-cache-policy.ts';
-import { readCursorPage, request, transact } from './indexeddb-backend.ts';
+import { readCursorPage, request, transact } from '../../media/indexeddb.ts';
 import { MediaAssetWriteAdmission } from './media-asset-write-admission.ts';
 import type { MediaAssetLifecycleCoordinator } from './media-asset-lifecycle-coordinator.ts';
 import { hasStoredBinaryPathReference } from './media-binary-reference-query.ts';
-import { canonicalMediaContentBlob, digestMediaContent, MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from './media-content-digest.ts';
+import { canonicalMediaContentBlob, digestMediaContent, MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../../media/content-digest.ts';
 import { isMediaContentSha256, isMediaContentToken } from './media-content-provenance.ts';
 import type { OpfsRepository, OpfsBinaryWriter } from './opfs-repository.ts';
 import type { StorageRecord } from './media-records.ts';

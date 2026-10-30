@@ -8,7 +8,7 @@ import type { PhotoLibraryImageHandoffViewV2 } from '../../src/common/editor/pho
 import type { MaskRasterSourcePortV1 } from '../../src/common/editor/imaging/mask-raster-source-port-v1.ts';
 import type { CubeLutSourcePortV1 } from '../../src/common/editor/imaging/cube-lut-source-port-v1.ts';
 import type { BrushMaskResourceReferenceV1 } from '../../src/common/editor/imaging/brush-mask-resource-v1.ts';
-import type { VideoCubeLutReferenceV1 } from '../../src/common/editor/cube-lut-reference-contract.ts';
+import type { VideoCubeLutReferenceV1 } from '../../src/common/imaging/cube-lut-reference-contract.ts';
 import type { OpenFramescaperBrowserNativeImageV1 } from '../../src/common/editor/timeline-image-native-decode-v1.ts';
 import { withPreparedBrushMaskResourceV1 } from '../../src/common/editor/imaging/brush-mask-resource-v1.ts';
 import { normalizeImageDevelopStateCurrentV1 } from '../../src/common/editor/imaging/image-develop-state-current-v1.ts';
@@ -25,7 +25,7 @@ import { photoSmartCollectionSummaryRecordV1 } from '../../src/lightscaper/catal
 import { applyPhotoCommandCurrentV1 } from '../../src/lightscaper/controller/photo-commands-current-v1.ts';
 import { PhotoMediaStoreV1 } from '../../src/lightscaper/storage/photo-media-store.ts';
 import { verifyPhotoResourceReferencesCurrentV1, verifyPhotoResourcesCurrentV1 } from '../../src/lightscaper/storage/photo-media-resource-verification-current-v1.ts';
-import { request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../src/common/media/indexeddb.ts';
 import { photoArchiveFixture } from './lightscaper-photo-fixture.ts';
 import { mediaRestoreFixture } from './lightscaper-media-restore-fixture.ts';
 import { InstrumentedKeyRange } from './instrumented-indexeddb-keys.ts';

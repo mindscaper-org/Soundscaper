@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 
 /** New encoded straight-sRGB grain in CURRENT natural-output pixel centers.
  * Fixed seeded triangular lattice noise, two bilinear octaves at Size and

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import type { ImageDevelopSettingsPacketV3 } from '../../common/editor/imaging/image-develop-settings-contract-v3.ts';
 import type { ImageDevelopSettingsPacketV4 } from '../../common/editor/imaging/image-develop-settings-contract-v4.ts';
 import type { ImageDevelopSettingsPacketCurrentV1, ImageDevelopSettingsPacketThroughV3 } from '../../common/editor/imaging/image-develop-settings-current-v1.ts';

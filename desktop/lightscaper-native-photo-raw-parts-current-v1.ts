@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import { assertPhotoStackQuerySignalV1 } from '../src/lightscaper/catalog/photo-stack-query-signal-v1.ts';
 import { LightscaperNativePhotoRawOriginalsCurrentV1 as Originals, type LightscaperNativePhotoRawOriginalsOptionsCurrentV1 as Options } from './lightscaper-native-photo-raw-originals-current-v1.ts';
 import { LightscaperNativePhotoRawTicketsCurrentV1 as Tickets } from './lightscaper-native-photo-raw-tickets-current-v1.ts';

@@ -6,7 +6,7 @@ import { createLightscaperNativePhotoSessionClaimCurrentV1 as sessionClaim } fro
 import { createLightscaperNativePhotoSessionLeaseCurrentV1 as sessionLease, type LightscaperNativePhotoSessionLeaseCurrentV1 as SessionLease } from './lightscaper-native-photo-session-lease-current-v1.ts';
 import { captureLightscaperNativePhotoLibraryArchiveReadersCurrentV1 as captureReaders } from './lightscaper-native-photo-library-archive-readers-current-v1.ts';
 import { registerLightscaperNativePhotoLibraryArchiveOwnerCurrentV1 as registerArchive } from './lightscaper-native-photo-library-archive-owner-current-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import type { ScapeProjectInput, ScapeProjectInputReaderFactories } from '../src/common/editor/scape-project-input.ts';
 import type { PhotoLibraryRestoreReceiptV1 } from '../src/common/editor/photo-library-restore-port-v1.ts';
 import { LightscaperNativePhotoLibrarySelectionCurrentV1 as SelectionOwner, type LightscaperNativePhotoLibrarySelectionSnapshotCurrentV1 as SelectionSnapshot, type LightscaperNativePhotoLibraryPublicationCurrentV1 as Publication } from './lightscaper-native-photo-library-selection-current-v1.ts';

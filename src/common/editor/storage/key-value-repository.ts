@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { decodeProjectIdKey } from '../project-validation-primitives.ts';
-import { readCursorPage, request, transact } from './indexeddb-backend.ts';
+import { readCursorPage, request, transact } from '../../media/indexeddb.ts';
 import { canonicalKeyValueComparison } from './key-value-canonical-comparison.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';
 import { cloneStorageValue as clone } from './storage-clone.ts';

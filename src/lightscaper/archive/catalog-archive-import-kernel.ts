@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { aggregateScapeErrors } from '../../common/editor/scape-abort.ts';
+import { aggregateScapeErrors } from '../../common/scape/abort.ts';
 import { readScapeArchiveEnvelope, type ScapeManifest } from '../../common/editor/scape-archive-envelope.ts';
-import { verifyScapeAssetBytes } from '../../common/editor/scape-archive-media.ts';
+import { verifyScapeAssetBytes } from '../../common/scape/asset-bytes.ts';
 import { withScapeProjectInput, type ScapeProjectInput, type ScapeProjectInputReaderFactories } from '../../common/editor/scape-project-input.ts';
 import { parseOpaqueScapeProjectDocument } from '../../common/editor/scape-project-document.ts';
-import { readClosedDomainField, readClosedDomainRecord } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../common/foundation/closed-domain-value.ts';
 import type { PhotoCatalogRootV1 } from '../catalog/types.ts';
 import type { PhotoSmartCollectionV1 } from '../catalog/photo-smart-collection-v1.ts';
 import type { PhotoSmartCollectionsStateV1 } from '../catalog/photo-smart-collection-state-v1.ts';
@@ -34,7 +34,7 @@ import { normalizePhotoCatalogArchiveV7, assertPhotoCatalogPackManifestV7,
 import { normalizePhotoCatalogArchiveV8, assertPhotoCatalogPackManifestV8, type PhotoCatalogArchiveDevelopPresetPackV8 } from './catalog-archive-contract-v8.ts';
 import type { PhotoDevelopPresetRowV3 } from '../storage/photo-develop-preset-row-v3.ts';
 import type { PhotoDevelopPresetRowV2 } from '../storage/photo-develop-preset-row-v2.ts';
-import type { VideoCubeLutReferenceV1 } from '../../common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../../common/imaging/cube-lut-reference-contract.ts';
 import { createPhotoCubeLutReachabilityV1 } from '../catalog/photo-cube-lut-reachability-v1.ts';
 import { readPhotoCatalogPackEntryV2 } from './catalog-pack-entry-v2.ts';
 import { readPhotoDevelopPresetPackEntryV2 } from './develop-preset-pack-entry-v2.ts';

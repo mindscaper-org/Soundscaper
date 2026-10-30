@@ -4,7 +4,7 @@ import { capturePhotoLibraryRawSourceCurrentV1 } from '../controller/photo-libra
 import { withPhotoLibraryRawPreviewCurrentV1 } from '../controller/photo-library-raw-frame-current-v1.ts';
 import type { PhotoLibraryOriginalSourceCurrentV1 } from '../controller/photo-library-original-source-current-v1.ts';
 import { planPhotoNativeRawPreviewCurrentV1, preparePhotoNativeRawPreviewCurrentV1, type PhotoNativeRawPreviewPlanCurrentV1, type PreparedPhotoNativeRawPreviewCurrentV1 } from './photo-native-raw-preview-current-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import { oneOf } from '../catalog/value-validation.ts';
 import { PHOTO_PREVIEW_PROTOCOL_V1 } from './photo-preview-protocol-v1.ts';
 import { planPhotoCullingPreviewCurrentV1, type PhotoCullingPreviewPlanCurrentV1 } from './photo-culling-preview-plan-current-v1.ts';

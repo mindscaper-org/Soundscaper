@@ -8,7 +8,7 @@ import { photoImportPresetsKeyV1 } from './storage/photo-import-presets-v1.ts';
 import { photoDevelopPresetsKeyV1 } from './storage/photo-develop-presets-v1.ts';
 import { photoExportPresetsKeyV1 } from './storage/photo-raster-export-presets-v1.ts';
 import { photoRasterExportJournalKeyV1 } from './storage/photo-raster-export-journal-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 
 const ACK = (value: boolean): boolean => value === true;
 export function createDesktopPhotoSessionSettingsCurrentV1(c: Calls): Storage['components']['settings'] {

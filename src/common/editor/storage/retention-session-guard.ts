@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, readClosedDomainRecord } from '../closed-domain-value.ts';
-import { readCursorPage, request, transact } from './indexeddb-backend.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../foundation/closed-domain-value.ts';
+import { readCursorPage, request, transact } from '../../media/indexeddb.ts';
 import type { EditorMemoryDatabase } from './memory-backend.ts';
 import { createProjectStoreId } from './project-store-defaults.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';

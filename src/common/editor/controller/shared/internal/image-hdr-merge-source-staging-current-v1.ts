@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../../foundation/closed-domain-value.ts';
 import { readPixelFrameDescriptorV1, readPixelFrameV1, type PixelFrameDescriptorV1, type PixelFrameV1 } from '../../../imaging/pixel-frame-contract-v1.ts';
 import { IMAGE_HDR_INPUT_LIMITS_V1 } from '../../../imaging/image-hdr-merge-contract-v1.ts';
 import { LinearDevelopOwnerV1 } from '../../../imaging/image-develop-linear-owner-v1.ts';

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/editor/closed-domain-value.ts';
+import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/foundation/closed-domain-value.ts';
 import { framescaperImageSourceResourceReferencesCurrentV1 } from '../../../common/editor/timeline-image-model-current-v1.ts';
 import { assertHandoffProfile, normalizeEditableSourceForProfileV1, type HandoffProfile } from './photo-image-handoff-model-kernel-v1.ts';
 import { FRAMESCAPER_IMAGE_TICKS_PER_SECOND } from '../../../common/editor/timeline-image-model.ts';

@@ -46,7 +46,7 @@ const SOURCE_MODULES = new Map([
 	['common/editor/controller/clip-video/video-preview-effect-result-cache.ts', '../../src/common/editor/controller/clip-video/video-preview-effect-result-cache.ts'],
 	['common/editor/controller/clip-video/video-preview-frame-identity.ts', '../../src/common/editor/controller/clip-video/video-preview-frame-identity.ts'],
 	['common/editor/controller/clip-video/video-preview-target-pool.ts', '../../src/common/editor/controller/clip-video/video-preview-target-pool.ts'],
-	['common/editor/closed-domain-value.ts', '../../src/common/editor/closed-domain-value.ts'],
+	['common/foundation/closed-domain-value.ts', '../../src/common/foundation/closed-domain-value.ts'],
 	['common/editor/native-external-display.ts', '../../src/common/editor/native-external-display.ts'],
 	['common/editor/native-validation.ts', '../../src/common/editor/native-validation.ts'],
 	['common/editor/video-chroma-key.ts', '../../src/common/editor/video-chroma-key.ts'],

@@ -4,7 +4,7 @@ import { DesktopPhotoOriginalSourceCurrentV1 } from '../../../src/lightscaper/de
 import { withPhotoLibraryOriginalCurrentV1, type PhotoLibraryOriginalRequestCurrentV1, type PhotoLibraryOriginalSourceCurrentV1 } from '../../../src/lightscaper/controller/photo-library-original-source-current-v1.ts';
 import { withPhotoOriginalFrameCurrentV1 } from '../../../src/lightscaper/preview/photo-original-frame-current-v1.ts';
 import { capturePhotoOriginalBindingCurrentV1 } from '../../../src/lightscaper/preview/photo-original-binding-current-v1.ts';
-import { digestMediaContent } from '../../../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../../../src/common/media/content-digest.ts';
 import { withDecodedRawOriginalV1, type LibRawRuntimeOptionsV1, type LibRawWorkerPortV1 } from '../../../src/common/editor/raw/libraw-runtime-v1.ts';
 import { compilePinnedLibRawModuleV1 } from '../../../src/common/editor/raw/libraw-runtime-asset-v1.ts';
 import type { PixelFrameV1 } from '../../../src/common/editor/imaging/pixel-frame-contract-v1.ts';

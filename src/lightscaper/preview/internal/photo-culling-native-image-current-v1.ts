@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/foundation/closed-domain-value.ts';
 import { readImageMetadataV1 } from '../../../common/editor/imaging/image-metadata-reader-v1.ts';
 import { planPixelFrameV1, readPixelFrameV1, type PixelFrameV1 } from '../../../common/editor/imaging/pixel-frame-contract-v1.ts';
 import { admitStaticImageSourceV1 } from '../../../common/editor/imaging/static-image-source-admission-v1.ts';

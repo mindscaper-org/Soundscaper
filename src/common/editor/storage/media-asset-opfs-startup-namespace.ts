@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from '../closed-domain-value.ts';
-import { EDITOR_STORAGE_DATABASE_VERSION, request, transact } from './indexeddb-backend.ts';
+import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from '../../foundation/closed-domain-value.ts';
+import { EDITOR_STORAGE_DATABASE_VERSION } from './indexeddb-backend.ts';
+import { request, transact } from '../../media/indexeddb.ts';
 import type { MediaAssetStagingLeaseRecord } from './media-asset-staging-schema.ts';
 
 export interface MediaAssetNonBinaryDatabaseProfile {

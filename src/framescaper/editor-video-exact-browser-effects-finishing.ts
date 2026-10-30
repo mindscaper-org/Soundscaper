@@ -22,7 +22,7 @@ import { isGlobalDevelopEffectTypeV1, normalizeGlobalDevelopEffectV1 } from '../
 import { CHROMA_DEVELOP_EFFECT_TYPE_V1, normalizeChromaDevelopEffectV1 } from '../common/editor/video-chroma-develop-v1.ts';
 import { BLACK_WHITE_MIX_EFFECT_TYPE_V1, normalizeBlackWhiteMixEffectV1 } from '../common/editor/video-black-white-mix-v1.ts';
 import { HSL_MIXER_EFFECT_TYPE_V1, normalizeHslMixerEffectV1 } from '../common/editor/video-hsl-mixer-v1.ts';
-import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from '../common/foundation/closed-domain-value.ts';
 import { IMAGE_GEOMETRY_VIDEO_EFFECT_TYPE_V1, imageGeometryForVideoEffectV1, normalizeImageGeometryVideoEffectV1 } from '../common/editor/video-image-geometry-v1.ts';
 import { withGeometryPixelFrameV1 } from '../common/editor/imaging/pixel-frame-geometry-v1.ts';
 import { admitPixelFrameV1 } from '../common/editor/imaging/pixel-frame-admission-v1.ts';

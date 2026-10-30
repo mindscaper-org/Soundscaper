@@ -2,7 +2,7 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { createAbortGuard } from '../abort-error.ts';
+import { createAbortGuard } from '../foundation/abort-error.ts';
 
 const nativeBlobSlice = Blob.prototype.slice;
 const nativeBlobSize = Object.getOwnPropertyDescriptor(Blob.prototype, 'size')?.get;

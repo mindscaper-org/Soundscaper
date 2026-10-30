@@ -4,7 +4,7 @@ import {
 	readClosedDomainArray,
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from '../closed-domain-value.ts';
+} from '../../foundation/closed-domain-value.ts';
 import {
 	planPixelFrameV1,
 	readPixelFrameDescriptorV1,

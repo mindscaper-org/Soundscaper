@@ -5,7 +5,7 @@ import test from 'node:test';
 
 import { withCubeLutPixelFrameV1 } from '../src/common/editor/imaging/pixel-frame-cube-lut-v1.ts';
 import { normalizeVideoColorGradeV1 } from '../src/common/editor/video-color-management-v27.ts';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import type { PixelFrameV1 } from '../src/common/editor/imaging/pixel-frame-contract-v1.ts';
 
 const LIMITS = { maximumSidePixels: 2048, maximumPixels: 4_194_304, maximumBytes: 16 * 1024 * 1024 };

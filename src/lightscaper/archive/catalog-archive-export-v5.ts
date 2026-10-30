@@ -4,10 +4,10 @@ import { PHOTO_DEVELOP_PRESET_PACK_ASSET_KIND } from '../../common/editor/scape-
 import { PHOTO_DEVELOP_PRESET_PACK_ENCODING_V2 } from '../../common/editor/scape-photo-catalog-pack-v2.ts';
 import { PHOTO_CUBE_LUT_ASSET_KIND, PHOTO_CUBE_LUT_ENCODING } from '../../common/editor/scape-photo-cube-lut.ts';
 import { readValidatedPhotoCatalogRootV1 } from '../catalog/documents.ts';
-import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../common/foundation/closed-domain-value.ts';
 import { normalizePhotoDocumentV1OrV2 } from '../catalog/photo-document-v2.ts';
 import { assertPhotoMaskRasterPortableV1 } from '../catalog/photo-mask-raster-portability-v1.ts';
-import { canonicalMediaContentBlob } from '../../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../../common/media/content-digest.ts';
 import { createPhotoCubeLutReachabilityV1 } from '../catalog/photo-cube-lut-reachability-v1.ts';
 import { normalizePhotoSmartCollectionsStateV1 } from '../catalog/photo-smart-collection-state-v1.ts';
 import type { PhotoSmartCollectionV1 } from '../catalog/photo-smart-collection-v1.ts';

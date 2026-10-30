@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import { id, oneOf } from '../catalog/value-validation.ts';
 import { planPhotoPreviewV1, type PhotoPreviewPlanV1 } from './photo-preview-plan-v1.ts';
 import { preparePhotoPreviewV1, type PreparedPhotoPreviewV1 } from './photo-preview-preparation-v1.ts';

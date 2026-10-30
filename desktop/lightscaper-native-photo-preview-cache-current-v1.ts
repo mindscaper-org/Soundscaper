@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { DatabaseSync } from 'node:sqlite';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
-import { canonicalMediaContentBlob } from '../src/common/editor/storage/media-content-digest.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
+import { canonicalMediaContentBlob } from '../src/common/media/content-digest.ts';
 import { normalizeBinaryDerivativeCacheIdentityV1, normalizeBinaryDerivativeCacheProfileV1,
 	type BinaryDerivativeCacheProfileV1 as Profile } from '../src/common/editor/storage/binary-derivative-cache-records.ts';
 import type { BinaryDerivativeCachePortV1 as Port } from '../src/common/editor/storage/binary-derivative-cache-repository.ts';

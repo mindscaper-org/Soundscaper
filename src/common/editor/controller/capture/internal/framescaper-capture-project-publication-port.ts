@@ -7,7 +7,7 @@ import {
 	PROJECT_SCHEMA_VERSION,
 	readProjectSchemaIdentity,
 } from '../../../project-schema-identity.ts';
-import { digestScapeBytes } from '../../../scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../../../../media/bytes.ts';
 import { serializeScapeProjectDocument } from '../../../scape-project-document.ts';
 import type {
 	FramescaperCaptureAtomicCommitResult,

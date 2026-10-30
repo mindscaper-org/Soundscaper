@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 
 /** Straight UNORM8 sRGB. Enabled zero controls deliberately produces Rec709 gray;
  * disabled retains all bytes. Hue controls adjust gray by chroma, so grays remain

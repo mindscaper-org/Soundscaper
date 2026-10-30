@@ -2,7 +2,7 @@
 
 import type { PhotoLibraryDevelopOriginalPortV1, PhotoLibraryDevelopOriginalReadV1 } from './photo-library-develop-original-port-v1.ts';
 import type { RawRecoveryFrameV2, RawRecoveryProfileV2 } from './raw/libraw-wasm-instance-v2.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 
 /** Canonical Original requests keep their permanent V1 meaning. This named
  * child explicitly borrows a derived fixed-profile native frame instead. */

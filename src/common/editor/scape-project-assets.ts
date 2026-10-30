@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { ScapeAssetDescriptor } from './scape-archive-envelope.ts';
+import type { ScapeAssetDescriptor } from '../scape/archive-envelope.ts';
 import { EXTERNAL_MEDIA_ENCODING, externalMediaForSource } from './desktop-external-media.ts';
 import {
 	normalizeProjectFeatureRequirements,

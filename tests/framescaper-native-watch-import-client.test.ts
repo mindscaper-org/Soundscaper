@@ -6,7 +6,7 @@ import test from 'node:test';
 import {
 	createFramescaperNativeWatchImportClient,
 } from '../src/framescaper/editor-native-watch-import-client.ts';
-import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../src/common/media/content-digest.ts';
 import {
 	enabledNativeWatchAdmission,
 	nativeServicesSnapshot,

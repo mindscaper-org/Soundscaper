@@ -11,7 +11,8 @@ import { openPhotoCatalogDatabaseV1 } from '../../src/lightscaper/catalog/catalo
 import { PHOTO_CATALOG_DATABASE_VERSION, PHOTO_CATALOG_STORES } from '../../src/lightscaper/catalog/repository-types.ts';
 import { PHOTO_QUERY_INDEXES_V1 } from '../../src/lightscaper/catalog/photo-query-index-v1.ts';
 import { PHOTO_QUERY_INDEXES_V2 } from '../../src/lightscaper/catalog/photo-query-index-v2.ts';
-import { openDatabase, request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../src/common/media/indexeddb.ts';
 import { isMediaContentToken, trustedMediaContentSha256 } from '../../src/common/editor/storage/media-content-provenance.ts';
 import type { StorageRecord } from '../../src/common/editor/storage/media-records.ts';
 import { publishLargePhotoLibrarySeedBatchV1 } from './lightscaper-large-library-seed-publication.ts';

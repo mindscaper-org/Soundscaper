@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import type { TestContext } from 'node:test';
 import { compilePinnedLibRawModuleV1 } from '../../src/common/editor/raw/libraw-runtime-asset-v1.ts';
-import { canonicalMediaContentBlob } from '../../src/common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../../src/common/media/content-digest.ts';
 import { withDecodedRawOriginalV1, withRawEmbeddedPreviewV1 } from '../../src/common/editor/raw/libraw-runtime-v1.ts';
 import { normalizePhotoDocumentCurrentV1 } from '../../src/lightscaper/catalog/photo-document-current-v1.ts';
 import { PhotoPreviewSchedulerCurrentV1 } from '../../src/lightscaper/preview/photo-preview-scheduler-current-v1.ts';

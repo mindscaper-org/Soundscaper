@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { normalizeFramescaperImageSourceV1, FRAMESCAPER_IMAGE_MODEL_LIMITS_V1 as LIMITS, type FramescaperImageSourceV1 } from '../timeline-image-model.ts';
 import { imageDevelopHandoffRecipeSha256V1, normalizeImageDevelopHandoffProvenanceV1, type ImageDevelopHandoffProvenanceV1 } from '../image-develop-handoff-provenance-v1.ts';
 import { imageDevelopHandoffRecipeSha256V2, normalizeImageDevelopHandoffProvenanceV2, type ImageDevelopHandoffProvenanceV2 } from '../image-develop-handoff-provenance-v2.ts';

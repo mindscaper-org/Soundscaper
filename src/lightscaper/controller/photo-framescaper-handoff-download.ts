@@ -3,7 +3,7 @@
 import type { BrowserFileSaveRequest, BrowserSavedFile, PreparedBrowserSave } from '../../common/editor/browser-file-save-service.ts';
 import { sanitizeSuggestedSaveName } from '../../common/editor/browser-file-save-service.ts';
 import type { PreparedDirectSave } from '../../common/editor/file-save-stream.ts';
-import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../common/foundation/closed-domain-value.ts';
 import type { PhotoLibraryImageHandoffPortV1, PhotoLibraryImageHandoffRequestV1 } from '../../common/editor/photo-library-image-handoff-port-v1.ts';
 import type { PhotoLibraryCollectionHandoffPortV1, PhotoLibraryCollectionHandoffRequestV1 } from '../../common/editor/photo-library-collection-handoff-port-v1.ts';
 import { SCAPE_MIME_TYPE } from '../../common/editor/scape-project-format.ts';

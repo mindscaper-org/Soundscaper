@@ -5,7 +5,7 @@ import { normalizeBrushMaskResourceReferenceV1, type BrushMaskResourceReferenceV
 import { IMAGE_DEVELOP_MASK_WORKING_LIMIT_V1, planAdmittedImageDevelopMasksV1, type ImageDevelopMaskPlanV1 } from './image-develop-mask-plan-v1.ts';
 import { planImageGeometryV1 } from './image-geometry-plan-v1.ts';
 import type { ImageDevelopMaskOverlaySelectionV1 } from './image-develop-mask-overlay-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import type { PixelFrameLimitsV1 } from './pixel-frame-contract-v1.ts';
 import { IMAGE_GEOMETRY_VIDEO_EFFECT_TYPE_V1 } from '../video-image-geometry-v1.ts';
 import { normalizeVideoMaskMatteGraphV1, videoMaskMatteWorkingBytesV1, type VideoMaskMatteGraphV1 } from '../video-mask-matte-v24.ts';

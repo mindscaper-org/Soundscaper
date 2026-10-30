@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField } from './closed-domain-value.ts';
+import { readClosedDomainField } from '../foundation/closed-domain-value.ts';
 import { normalizeImageDevelopHandoffProvenanceV1, type ImageDevelopHandoffProvenanceV1 } from './image-develop-handoff-provenance-v1.ts';
 import type { ImageDevelopHandoffProvenanceV2 } from './image-develop-handoff-provenance-v2.ts';
 import { createImageDevelopHandoffProvenanceForProfileV1, normalizeImageDevelopHandoffProvenanceForProfileV1,

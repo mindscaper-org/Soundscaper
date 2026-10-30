@@ -2,7 +2,7 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { canonicalMediaContentBlob } from '../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../common/media/content-digest.ts';
 import { measureDesktopPhotoCloneCurrentV1 } from './desktop-photo-clone-current-v1.ts';
 import { DesktopPhotoSessionClientCallsCurrentV1 as Calls, desktopPhotoSignalCurrentV1 as signalOf,
 	desktopPhotoVoidCurrentV1 as empty } from './desktop-photo-library-session-client-calls-current-v1.ts';

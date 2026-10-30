@@ -2,7 +2,7 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import { admitPixelFrameV1 } from '../../common/editor/imaging/pixel-frame-admission-v1.ts';
 import { readPixelFrameDescriptorV1, type PixelFrameDescriptorV1 } from '../../common/editor/imaging/pixel-frame-contract-v1.ts';
 import { fitPixelSizeV1 } from '../../common/editor/imaging/pixel-frame-resize-v1.ts';

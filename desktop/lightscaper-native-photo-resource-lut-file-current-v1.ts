@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { parseCubeLutV1, VIDEO_COLOR_LIMITS_V1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
+import { VIDEO_COLOR_LIMITS_V1 } from '../src/common/imaging/cube-lut-reference-contract.ts';
 import { captureLightscaperNativePhotoResourceBodyCurrentV1, type LightscaperNativePhotoResourceBodyCurrentV1 } from './lightscaper-native-photo-resource-body-current-v1.ts';
 
 const BLOB_SIZE = Object.getOwnPropertyDescriptor(Blob.prototype, 'size')!.get!, BLOB_READ = Blob.prototype.arrayBuffer;

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { raceAbortableRead } from '../../../abort-race.ts';
+import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 import { inspectOggGaplessGeometry } from '../../../ogg-gapless-import.ts';
 import type { NativeContainerAudioAdmission } from './native-container-audio-admission.ts';
 import { admitsNativeSurroundVorbisBackend } from '../../../browser-vorbis-decoder.ts';

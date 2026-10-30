@@ -2,7 +2,7 @@
 
 import { LIGHTSCAPER_NATIVE_PHOTO_MEDIA_IDENTITY_JOIN_CURRENT_V1 as IDENTITY_JOIN, LIGHTSCAPER_NATIVE_PHOTO_MEDIA_IDENTITY_COLUMNS_CURRENT_V1 as IDENTITY_COLUMNS } from './lightscaper-native-photo-media-identity-current-v1.ts';
 import type { DatabaseSync } from 'node:sqlite';
-import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import { assertPhotoStackQuerySignalV1 } from '../src/lightscaper/catalog/photo-stack-query-signal-v1.ts';
 import { CATALOG_ORIGINAL_PAGE_SIZE, CATALOG_ORIGINAL_ROOT_MAX_BYTES, catalogOriginalId, catalogOriginalKey,
 	catalogOriginalPhotoIds, catalogOriginalReferences, catalogOriginalScope, normalizeCatalogOriginalRoot,

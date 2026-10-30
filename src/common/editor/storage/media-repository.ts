@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { collectProjectStorageKeys } from '../retention.js';
-import { createAbortGuard } from '../abort-error.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
 import type { FileSizeWarningConfirmation } from '../controller/shared/file-size-warning.ts';
-import { request, transact } from './indexeddb-backend.ts';
+import { request, transact } from '../../media/indexeddb.ts';
 import {
 	DERIVATIVE_CACHE_ENTRY_STORE_NAME,
 	VIDEO_DERIVATIVE_STORE_NAME,
@@ -20,7 +20,7 @@ import { MEDIA_ASSET_STAGING_STORE_NAME } from './media-asset-staging-schema.ts'
 import { reconcileMediaAssetOpfsStartup } from './media-asset-opfs-startup-reconciliation.ts';
 import type { MediaAssetNonBinaryDatabaseProfile } from './media-asset-opfs-startup-namespace.ts';
 import { MediaPublicationReconciliationError, sameMediaPayload } from './media-asset-owned-publication.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from './media-content-digest.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../../media/content-digest.ts';
 import { writeMediaAssetBlobChunks } from './media-asset-blob-stream.ts';
 import { freshVerifiedMediaContentDigest } from './media-content-provenance.ts';
 import { BrowserFileStorageError } from '../web-file-limit-failure.ts';

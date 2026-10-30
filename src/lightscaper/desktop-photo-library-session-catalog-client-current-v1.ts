@@ -4,7 +4,7 @@ import type { DesktopPhotoLibrarySessionStorageCurrentV1 as Storage } from './de
 import { DesktopPhotoSessionClientCallsCurrentV1 as Calls, desktopPhotoSignalCurrentV1 as signalOf } from './desktop-photo-library-session-client-calls-current-v1.ts';
 import { readDesktopPhotoSessionCatalogReplyCurrentV1 as reply } from './desktop-photo-library-session-client-replies-current-v1.ts';
 import { createDesktopPhotoSessionArchiveCurrentV1 } from './desktop-photo-library-session-owned-client-current-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 
 type Catalog = Storage['components']['catalog'];
 type Family = 'catalog' | 'query' | 'stacks' | 'saved';

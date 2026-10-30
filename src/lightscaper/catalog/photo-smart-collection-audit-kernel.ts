@@ -2,7 +2,7 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { request } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request } from '../../common/media/indexeddb.ts';
 import { assertNotAborted, catalogTransaction } from './catalog-transaction.ts';
 import { PHOTO_SMART_COLLECTION_RECORD_LIMITS_V1, photoSmartCollectionKeyV1, readPhotoSmartCollectionRecordV1 } from './photo-smart-collection-record-v1.ts';
 import { PHOTO_SMART_COLLECTION_CONTEXT_STORES_V1, readPhotoSmartCollectionStorageContextV1,

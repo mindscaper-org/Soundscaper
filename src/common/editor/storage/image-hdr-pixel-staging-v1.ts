@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { OpfsRepository, type OpfsBinaryWriter, type OpfsBinaryWriterPlan } from './opfs-repository.ts';
 import { acquireTemporaryExportLease } from './temporary-export-sink.ts';
 import { normalizeOpfsWorkerPath } from './opfs-sync-worker-protocol.ts';

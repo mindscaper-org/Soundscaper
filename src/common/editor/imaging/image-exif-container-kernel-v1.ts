@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { encodeImageExifTiffV1, type ImageExifWriteOptionsV1 } from './exif-metadata-writer-v1.ts';
 import { encodeImageExifTiffProfileCurrentV1 } from './exif-metadata-writer-profile-current-v1.ts';
 import { matchesBytes, MetadataBudget, metadataCrc32 } from './image-metadata-binary.ts';

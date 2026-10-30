@@ -12,9 +12,9 @@ import { photoDevelopPresetsKeyV1 } from '../../../src/lightscaper/storage/photo
 import { photoDevelopPresetEntryValue } from '../../../src/lightscaper/storage/photo-develop-preset-read-v2.ts';
 import { normalizePhotoDevelopPresetRowCurrentV1 } from '../../../src/lightscaper/storage/photo-develop-preset-row-current-v1.ts';
 import { verifyPhotoResourcesCurrentV1, verifyPhotoResourceReferencesCurrentV1 } from '../../../src/lightscaper/storage/photo-media-resource-verification-current-v1.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from '../../../src/common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../../../src/common/media/content-digest.ts';
 import { normalizeCatalogOriginalRoot } from '../../../src/common/editor/storage/media-catalog-original-schema.ts';
-import { request, transact } from '../../../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../../src/common/media/indexeddb.ts';
 import { MEDIA_ASSET_CHUNK_STORAGE_TYPE, MEDIA_ASSET_STREAM_CHUNK_BYTES } from '../../../src/common/editor/storage/media-asset-chunk-schema.ts';
 export { readRepairPresetRowNativeV1 } from './lightscaper-repair-presets-reference.ts';
 

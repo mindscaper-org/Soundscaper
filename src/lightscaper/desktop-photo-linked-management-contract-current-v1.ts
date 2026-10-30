@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import {readClosedDomainRecord as record,readClosedDomainField as field,readClosedDomainArray as array} from '../common/editor/closed-domain-value.ts';
+import {readClosedDomainRecord as record,readClosedDomainField as field,readClosedDomainArray as array} from '../common/foundation/closed-domain-value.ts';
 import {normalizeCatalogOriginalRepairBindingV1,type CatalogOriginalRepairBindingV1 as Binding} from '../common/editor/storage/media-catalog-original-repair-contract.ts';
 import {id,integer,name} from './catalog/value-validation.ts';
 import {desktopPhotoLinkedIdCurrentV1 as token} from './desktop-photo-linked-contract-current-v1.ts';

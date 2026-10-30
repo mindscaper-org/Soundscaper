@@ -2,7 +2,7 @@
 
 import { collectProjectStorageKeys, compactProjectSourceMetadata } from '../retention.js';
 import { sameSerializedScapeProjectDocument } from '../scape-project-document.ts';
-import { request, transact } from './indexeddb-backend.ts';
+import { request, transact } from '../../media/indexeddb.ts';
 import { publishSource } from './media-records.ts';
 import { ProjectCommittedMaintenanceError } from './project-committed-maintenance-error.ts';
 import { pruneProjectRevisions } from './project-revision-pruning.ts';

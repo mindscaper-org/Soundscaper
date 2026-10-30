@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 import { admitPixelFrameV1 } from '../common/editor/imaging/pixel-frame-admission-v1.ts';
 import { readPixelFrameV1 } from '../common/editor/imaging/pixel-frame-contract-v1.ts';
 import type { UnifiedExactRenderRgbaFrameV13 as Frame } from '../common/editor/unified-exact-render-finishing-consumers-v13.ts';

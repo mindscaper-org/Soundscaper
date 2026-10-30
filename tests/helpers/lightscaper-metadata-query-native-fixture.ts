@@ -2,7 +2,7 @@
 
 import type { PhotoMetadataQueryByteFixtureV1, PhotoMetadataQueryByteCaseV1 } from './lightscaper-metadata-query-byte-fixture.ts';
 import { encodePhotoOrientationGridJpegFixtureV1 } from './lightscaper-photo-orientation-native-fixture.ts';
-import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord } from '../../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord } from '../../src/common/foundation/closed-domain-value.ts';
 import { readImageMetadataV1 } from '../../src/common/editor/imaging/image-metadata-reader-v1.ts';
 import { normalizeCatalogOriginalRoot } from '../../src/common/editor/storage/media-catalog-original-schema.ts';
 import { validateLightscaperDocumentV1 } from '../../src/lightscaper/catalog/documents.ts';

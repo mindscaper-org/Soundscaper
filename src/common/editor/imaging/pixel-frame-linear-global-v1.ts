@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray } from '../closed-domain-value.ts';
+import { readClosedDomainArray } from '../../foundation/closed-domain-value.ts';
 import { normalizeGlobalDevelopEffectV1, prepareGlobalDevelopEffectV1,
 	type PreparedGlobalDevelopEffectV1 } from '../video-global-develop-v1.ts';
 

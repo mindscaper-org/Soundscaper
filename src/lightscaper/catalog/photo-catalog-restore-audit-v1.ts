@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { request } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request } from '../../common/media/indexeddb.ts';
 import { photoStorageKey } from './repository-records.ts';
 import { readPhotoStackRecordV1 } from './photo-stack-record-v1.ts';
 import { readAuditedPhotoSmartCollectionV1, readPhotoSmartCollectionAuditKeyV1 } from './photo-smart-collection-audit-kernel.ts';

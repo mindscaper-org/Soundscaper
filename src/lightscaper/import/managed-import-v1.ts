@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, readClosedDomainRecord } from '../../common/editor/closed-domain-value.ts';
-import { IMAGE_IMPORT_LIMITS } from '../../common/editor/image-import-admission.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from '../../common/editor/storage/media-content-digest.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../common/foundation/closed-domain-value.ts';
+import { IMAGE_IMPORT_LIMITS } from '../../common/imaging/image-import-admission.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../../common/media/content-digest.ts';
 import type { CatalogOriginalReferenceV1 } from '../../common/editor/storage/media-catalog-original-schema.ts';
 import type { PhotoCatalogPackInput } from '../archive/catalog-pack.ts';
 import { validateLightscaperDocumentV1 } from '../catalog/documents.ts';

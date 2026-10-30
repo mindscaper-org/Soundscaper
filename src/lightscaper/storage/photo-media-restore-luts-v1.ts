@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { withCubeLutResourceV1 } from '../../common/editor/imaging/cube-lut-resource-v1.ts';
-import { request } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request } from '../../common/media/indexeddb.ts';
 import { normalizeCubeLutProfileEffectV1 } from '../../common/editor/video-cube-lut-profile-v1.ts';
 import { createPhotoCubeLutReachabilityV1 } from '../catalog/photo-cube-lut-reachability-v1.ts';
 import { catalogTransaction } from '../catalog/catalog-transaction.ts';

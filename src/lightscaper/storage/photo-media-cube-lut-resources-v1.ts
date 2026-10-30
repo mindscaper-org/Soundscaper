@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from '../../common/editor/closed-domain-value.ts';
-import { normalizeVideoCubeLutReferenceV1, type VideoCubeLutReferenceV1 } from '../../common/editor/cube-lut-reference-contract.ts';
+import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from '../../common/foundation/closed-domain-value.ts';
+import { normalizeVideoCubeLutReferenceV1, type VideoCubeLutReferenceV1, VIDEO_COLOR_LIMITS_V1 } from '../../common/imaging/cube-lut-reference-contract.ts';
 import type { CubeLutSourcePortV1 } from '../../common/editor/imaging/cube-lut-source-port-v1.ts';
 import type { StorageRepositoryPort } from '../../common/editor/storage/repository-port.ts';
-import { parseCubeLutV1, VIDEO_COLOR_LIMITS_V1 } from '../../common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../../common/imaging/cube-lut-v1.ts';
+
 import { createPhotoCubeLutReachabilityV1 } from '../catalog/photo-cube-lut-reachability-v1.ts';
 import { PhotoCubeLutRepositoryV1, type PhotoCubeLutOptionsV1, type PhotoCubeLutReceiptV1 } from './photo-cube-lut-repository-v1.ts';
 

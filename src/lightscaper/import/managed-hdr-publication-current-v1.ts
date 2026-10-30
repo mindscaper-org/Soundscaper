@@ -2,12 +2,12 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import { IMAGE_HDR_ORIGINAL_LIMITS_V1 as LIMITS, IMAGE_HDR_ORIGINAL_MIME_TYPE_V1 } from '../../common/editor/imaging/image-hdr-original-profile-v1.ts';
 import { readImageHdrOriginalV1 } from '../../common/editor/imaging/image-hdr-original-v1.ts';
 import { planPixelFrameV1 } from '../../common/editor/imaging/pixel-frame-contract-v1.ts';
 import { captureRepairSignalV1, checkRepairSignalV1 } from '../../common/editor/imaging/pixel-frame-repair-lifetime-v1.ts';
-import { canonicalMediaContentBlob } from '../../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../../common/media/content-digest.ts';
 import { defaultPhotoDevelopV1 } from '../catalog/develop-state.ts';
 import { capturePhotoDerivedPublicationGuardCurrentV1, type PhotoDerivedPublicationSelectionCurrentV1 } from '../catalog/photo-derived-publication-current-v1.ts';
 import { normalizePhotoDocumentCurrentV1, type PhotoDocumentCurrentV1 } from '../catalog/photo-document-current-v1.ts';

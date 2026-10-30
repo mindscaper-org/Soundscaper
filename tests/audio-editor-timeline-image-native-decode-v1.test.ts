@@ -9,7 +9,7 @@ import {
 } from '../src/common/editor/timeline-image-native-decode-v1.ts';
 import { openFramescaperImageFramePackV1 } from '../src/common/editor/timeline-image-frame-pack-v1.ts';
 import { FRAMESCAPER_IMAGE_ASSET_MIME_TYPE } from '../src/common/editor/timeline-image-model.ts';
-import { IMAGE_IMPORT_LIMITS } from '../src/common/editor/image-import-admission.ts';
+import { IMAGE_IMPORT_LIMITS } from '../src/common/imaging/image-import-admission.ts';
 
 const PNG = Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1);
 

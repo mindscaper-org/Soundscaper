@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import {readClosedDomainRecord as record,readClosedDomainField as field} from '../common/editor/closed-domain-value.ts';
+import {readClosedDomainRecord as record,readClosedDomainField as field} from '../common/foundation/closed-domain-value.ts';
 import {normalizePhotoDocumentCurrentV1} from './catalog/photo-document-current-v1.ts';
 import {id,integer,name} from './catalog/value-validation.ts';
 import {normalizeCatalogOriginalRepairBindingV1} from '../common/editor/storage/media-catalog-original-repair-contract.ts';
-import {IMAGE_IMPORT_LIMITS} from '../common/editor/image-import-admission.ts';
+import {IMAGE_IMPORT_LIMITS} from '../common/imaging/image-import-admission.ts';
 import {readDesktopPhotoLibrarySessionHandleCurrentV1 as handle,type DesktopPhotoLibrarySessionHandleCurrentV1 as Handle} from './desktop-photo-library-session-protocol-current-v1.ts';
 export type DesktopPhotoLinkedInputHandleCurrentV1=Readonly<Handle<'linked-input'>>;
 export interface DesktopPhotoLinkedInputFactsCurrentV1{readonly sourceId:string;readonly displayName:string;readonly byteLength:number;readonly contentSha256:string;readonly modifiedTime:null}

@@ -5,7 +5,7 @@ import test from 'node:test';
 import { selectAudioEditorBusyBlock } from '../src/common/editor/edit-blocking.ts';
 import { createVideoSource } from '../src/common/editor/project-media-factory.ts';
 import { registeredVideoTimingIndex } from '../src/common/editor/video-source-time.ts';
-import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../src/common/media/content-digest.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';

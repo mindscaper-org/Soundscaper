@@ -3,10 +3,10 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
-import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../src/common/editor/scape-archive-envelope.ts';
+import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../src/common/scape/archive-envelope.ts';
 import type { MaskRasterSourcePortV1 } from '../src/common/editor/imaging/mask-raster-source-port-v1.ts';
 import type { BrushMaskResourceReferenceV1 } from '../src/common/editor/imaging/brush-mask-resource-v1.ts';
-import { ScapeExpandedByteBudget } from '../src/common/editor/scape-expanded-byte-budget.ts';
+import { ScapeExpandedByteBudget } from '../src/common/scape/expanded-byte-budget.ts';
 import { borrowPhotoMaskRasterArchiveSourceV1 } from '../src/lightscaper/archive/mask-raster-archive-source-v1.ts';
 import { readPhotoMaskRasterArchiveEntryV1 } from '../src/lightscaper/archive/mask-raster-archive-entry-v1.ts';
 import { deferred, remainsPending } from './helpers/async-test-control.ts';

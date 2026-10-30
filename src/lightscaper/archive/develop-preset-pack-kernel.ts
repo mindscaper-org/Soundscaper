@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { aggregateScapeErrors } from '../../common/editor/scape-abort.ts';
+import { aggregateScapeErrors } from '../../common/scape/abort.ts';
 import { id } from '../catalog/value-validation.ts';
 import { readPhotoStackSignalOptionsV1 } from '../catalog/photo-stack-repository-v1.ts';
 import { PHOTO_DEVELOP_PRESETS_LIMITS_V1, type PhotoDevelopPresetRowV1 } from '../storage/photo-develop-presets-v1.ts';

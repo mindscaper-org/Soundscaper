@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { collectProjectStorageKeys, compactProjectSourceMetadata } from '../common/editor/retention.js';
-import { deleteByIndex, request, transact } from '../common/editor/storage/indexeddb-backend.ts';
+import { deleteByIndex, request, transact } from '../common/media/indexeddb.ts';
 import { trustedMediaContentSha256 } from '../common/editor/storage/media-content-provenance.ts';
-import { canonicalMediaContentBlob } from '../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../common/media/content-digest.ts';
 import { publishSource, type StorageRecord } from '../common/editor/storage/media-records.ts';
 import { applyMemoryMutations, asRecord, createProjectCreationFence, deleteMemoryMutation,
 	memoryHasProjectRevision, revisionKey, setMemoryMutation, storedCreationFence, storedProjectId } from '../common/editor/storage/project-repository-support.ts';

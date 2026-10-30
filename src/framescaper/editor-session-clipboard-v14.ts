@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainRecord as record, readClosedDomainField as field, readClosedDomainArray as array } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainRecord as record, readClosedDomainField as field, readClosedDomainArray as array } from '../common/foundation/closed-domain-value.ts';
 import { normalizeAudioEditorClipboardDescriptorV7, type AudioEditorClipboardV7 } from '../common/editor/commands/clipboard-codec-v7.ts';
 import { admitAudioEditorProjectValidationStructure, AUDIO_EDITOR_PROJECT_VALIDATION_HARD_LIMITS } from '../common/editor/project-validation-budget.ts';
 import { normalizeCubeLutProfileParamsV1 } from '../common/editor/video-cube-lut-profile-v1.ts';
 import { collectCubeLutProfileProjectReferencesV1 } from '../common/editor/video-cube-lut-project-references-v1.ts';
-import type { VideoCubeLutReferenceV1 } from '../common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../common/imaging/cube-lut-reference-contract.ts';
 import { FRAMESCAPER_TIMELINE_IMAGE_PROJECT_RUNTIME_PROFILE } from './editor-domain-runtime-profile.ts';
 import { createFramescaperSessionClipboardV13, normalizeFramescaperSessionClipboardV13, type FramescaperSessionClipboardV13 } from './editor-session-clipboard-v13.ts';
 import { framescaperClipboardDescriptorMetadataProjectionV14, framescaperClipboardProjectMetadataProjectionV14 } from './editor-session-clipboard-resource-projection-v14.ts';

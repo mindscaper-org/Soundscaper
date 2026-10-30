@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { classifyImageFormatSignature } from '../image-format-signature.ts';
-import { admitImageDecodeWorkload } from '../image-import-admission.ts';
+import { classifyImageFormatSignature } from '../../imaging/image-format-signature.ts';
+import { admitImageDecodeWorkload } from '../../imaging/image-import-admission.ts';
 import { MetadataBudget, metadataCrc32, readMetadataInput } from './image-metadata-binary.ts';
 import { admitExifSrgbDeclarationsV1 } from './exif-color-admission-v1.ts';
 

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { PhotoLibraryImportSettingsV1 } from '../../common/editor/photo-library-import-settings-port-v1.ts';
-import { IMAGE_IMPORT_LIMITS } from '../../common/editor/image-import-admission.ts';
+import { IMAGE_IMPORT_LIMITS } from '../../common/imaging/image-import-admission.ts';
 import { validateLightscaperDocumentV1 } from '../catalog/documents.ts';
 import { emptyPhotoMetadataV1, normalizePhotoMetadataV1 } from '../catalog/photo-metadata.ts';
 import { LIGHTSCAPER_CATALOG_LIMITS, type PhotoDocumentV1 } from '../catalog/types.ts';

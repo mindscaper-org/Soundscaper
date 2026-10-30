@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainRecord as record, readClosedDomainField as field } from '../closed-domain-value.ts';
+import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../foundation/closed-domain-value.ts';
 import { isMediaContentSha256, isMediaContentToken } from './media-content-provenance.ts';
 import type { StorageRecord } from './media-records.ts';
 

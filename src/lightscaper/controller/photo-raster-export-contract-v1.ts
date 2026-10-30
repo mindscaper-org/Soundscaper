@@ -3,7 +3,7 @@
 import type { PhotoRasterSidecarReceipt } from './photo-raster-export-sidecar.ts';
 import type { ReadPhotoExportSidecar } from '../../common/editor/photo-library-session-port-v2.ts';
 import type { BrowserFileSaveRequest, BrowserSavedFile, PreparedBrowserSave } from '../../common/editor/browser-file-save-service.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import type { ExecutePhotoDevelopV2 } from '../../common/editor/controller/shared/photo-library-develop-workflow-v2.ts';
 import type { ExecutePhotoDevelopCurrentV1 } from '../../common/editor/controller/shared/photo-library-develop-workflow-current-v1.ts';
 import type { PixelFrameLimitsV1, PixelFrameV1 } from '../../common/editor/imaging/pixel-frame-contract-v1.ts';

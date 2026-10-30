@@ -2,12 +2,12 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
-import { IMAGE_IMPORT_LIMITS } from '../../common/editor/image-import-admission.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
+import { IMAGE_IMPORT_LIMITS } from '../../common/imaging/image-import-admission.ts';
 import type { PixelFrameV1 } from '../../common/editor/imaging/pixel-frame-contract-v1.ts';
 import { withRawEmbeddedPreviewV1 } from '../../common/editor/raw/libraw-runtime-v1.ts';
 import { probeRawSourceV1 } from '../../common/editor/raw/raw-source-v1.ts';
-import { canonicalMediaContentBlob } from '../../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../../common/media/content-digest.ts';
 import { openFramescaperBrowserNativeImageV1 } from '../../common/editor/timeline-image-browser-native-port.ts';
 import type { OpenFramescaperBrowserNativeImageV1 } from '../../common/editor/timeline-image-native-decode-v1.ts';
 import { admitPhotoOriginalFrameBindingCurrentV1, withPhotoPreviewOriginalFrameCurrentV1 } from './photo-original-frame-current-v1.ts';

@@ -4,13 +4,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { crc32, PCM_ENCODING_RAW_F32LE } from '../src/common/editor/wavpack/index.js';
-import {
-	deleteByIndex,
-	openDatabase,
-	readCursorPage,
-	request,
-	transactionCompletion,
-} from '../src/common/editor/storage/indexeddb-backend.ts';
+import { deleteByIndex, readCursorPage, request, transactionCompletion } from '../src/common/media/indexeddb.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
 import { getMemoryDatabase } from '../src/common/editor/storage/memory-backend.ts';
 import { OpfsRepository } from '../src/common/editor/storage/opfs-repository.ts';
 import { PcmRepository } from '../src/common/editor/storage/pcm-repository.ts';

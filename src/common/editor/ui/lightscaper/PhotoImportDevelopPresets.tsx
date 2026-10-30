@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PhotoLibraryDevelopPresetReadV1, PhotoLibraryDevelopPresetSnapshotV1 } from '../../photo-library-develop-presets-port-v1.ts';
 import type { PhotoDevelopSettingsCopyV1 } from '../../../i18n/lightscaper-develop-settings-copy.ts';
-import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../closed-domain-value.ts';
+import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../foundation/closed-domain-value.ts';
 
 export interface PhotoImportDevelopPresetsPropsV1 {
 	readonly readPresets: (options?: Readonly<{ signal?: AbortSignal }>) => Promise<PhotoLibraryDevelopPresetSnapshotV1>;

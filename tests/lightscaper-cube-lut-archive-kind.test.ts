@@ -2,7 +2,8 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readScapeArchiveEnvelope, type ScapeArchiveEntry, type ScapeManifest } from '../src/common/editor/scape-archive-envelope.ts';
+import { readScapeArchiveEnvelope, type ScapeManifest } from '../src/common/editor/scape-archive-envelope.ts';
+import { type ScapeArchiveEntry } from '../src/common/scape/archive-envelope.ts';
 import { PHOTO_CUBE_LUT_ASSET_KIND, PHOTO_CUBE_LUT_ENCODING } from '../src/common/editor/scape-photo-cube-lut.ts';
 
 function fixture(family: 'lightscaper' | 'framescaper' | 'soundscaper') {

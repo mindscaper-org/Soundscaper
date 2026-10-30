@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import test, { after } from 'node:test';
 import { createHash } from 'node:crypto';
-import { openDatabase, request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { mediaAssetChunkKey } from '../src/common/editor/storage/media-asset-chunk-records.ts';
 import { PhotoCatalogRepositoryV2 } from '../src/lightscaper/catalog/photo-catalog-repository-v2.ts';
 import type { PhotoStackV1 } from '../src/lightscaper/catalog/photo-stack-v1.ts';

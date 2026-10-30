@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createHash } from 'node:crypto';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
-import { normalizeVideoCubeLutReferenceV1, VIDEO_COLOR_LIMITS_V1, type VideoCubeLutReferenceV1 } from '../src/common/editor/cube-lut-reference-contract.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
+import { normalizeVideoCubeLutReferenceV1, VIDEO_COLOR_LIMITS_V1, type VideoCubeLutReferenceV1 } from '../src/common/imaging/cube-lut-reference-contract.ts';
 import { withCubeLutResourceV1 } from '../src/common/editor/imaging/cube-lut-resource-v1.ts';
 import { BRUSH_MASK_RESOURCE_LIMITS_V1, normalizeBrushMaskResourceReferenceV1, withBrushMaskResourceV1,
 	type BrushMaskResourceReferenceV1 } from '../src/common/editor/imaging/brush-mask-resource-v1.ts';

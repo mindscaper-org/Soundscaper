@@ -16,13 +16,11 @@ import {
 } from '../src/common/editor/storage/linked-original-provisional-root.ts';
 import { LinkedOriginalRepository } from '../src/common/editor/storage/linked-original-repository.ts';
 import type { LinkedOriginalSource } from '../src/common/editor/storage/linked-original-resolver.ts';
-import {
-	LINKED_ORIGINAL_STORE_NAME,
-	linkedOriginalBindingKey,
-} from '../src/common/editor/storage/linked-original-schema.ts';
+import { LINKED_ORIGINAL_STORE_NAME, linkedOriginalBindingKey } from '../src/common/editor/storage/linked-original-schema.ts';
 import { LinkedVideoOriginalRepository } from '../src/common/editor/storage/linked-video-original-repository.ts';
 import { LinkedVideoOriginalProjectAliasRepository } from '../src/common/editor/storage/linked-video-original-project-alias-repository.ts';
-import { openDatabase, request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { getMemoryDatabase, type EditorMemoryDatabase } from '../src/common/editor/storage/memory-backend.ts';
 import type { StorageRepositoryPort } from '../src/common/editor/storage/repository-port.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';

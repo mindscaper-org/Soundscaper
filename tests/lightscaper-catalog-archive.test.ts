@@ -12,7 +12,7 @@ import { createVideoEffect } from '../src/common/editor/video-effects.js';
 import type { PhotoDocumentV1 } from '../src/lightscaper/catalog/types.ts';
 import { importScapeProject, inspectScapeProject } from '../src/common/editor/scape-project.js';
 import { copyFutureScapeArchive } from '../src/common/editor/scape-archive-copy.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { readScapeArchiveEnvelope } from '../src/common/editor/scape-archive-envelope.ts';
 import { withScapeProjectInput } from '../src/common/editor/scape-project-input.ts';
 import type { PhotoCatalogPackInput } from '../src/lightscaper/archive/catalog-pack.ts';

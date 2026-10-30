@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, readClosedDomainRecord } from './closed-domain-value.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../foundation/closed-domain-value.ts';
 import { isProjectFileName } from '../project-file-extensions.ts';
 import { DESKTOP_READ_PROFILE_SCAPE_RANGE, DESKTOP_SCAPE_MIME_TYPE, DESKTOP_SCAPE_READ_HARD_LIMIT_BYTES } from './desktop-read-profile.ts';
 

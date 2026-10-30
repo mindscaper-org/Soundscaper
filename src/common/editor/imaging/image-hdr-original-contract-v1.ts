@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { readExactSafeVisualText } from '../safe-visual-text.ts';
 
 import { IMAGE_HDR_ORIGINAL_LIMITS_V1 } from './image-hdr-original-profile-v1.ts';

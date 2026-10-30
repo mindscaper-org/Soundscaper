@@ -13,7 +13,7 @@ import { prepareFramescaperSessionClipboardPasteV13, stageFramescaperSessionClip
 	type FramescaperImageClipboardBodyStageV13, type FramescaperImageClipboardBodyStoreV13 } from './editor-session-clipboard-v13-paste.ts';
 import { prepareFramescaperSessionClipboardPasteV14, type FramescaperSessionClipboardPasteV14 } from './editor-session-clipboard-v14-paste.ts';
 import { normalizeFramescaperImageSourceV1OrV2 } from '../common/editor/timeline-image-model-v2.ts';
-import { readClosedDomainArray } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainArray } from '../common/foundation/closed-domain-value.ts';
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
 import { framescaperProjectStoreAuthority } from './editor-project-store.ts';
 import { authorizeClipboardImageAttachments } from './editor-session-clipboard-image-attachments.ts';

@@ -2,7 +2,7 @@
 
 import { randomBytes } from 'node:crypto';
 import { types } from 'node:util';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import { assertPhotoStackQuerySignalV1 } from '../src/lightscaper/catalog/photo-stack-query-signal-v1.ts';
 import { DESKTOP_PHOTO_ORIGINAL_LIMITS_CURRENT_V1 as LIMITS,
 	readDesktopPhotoOriginalRequestCurrentV1 as request, readDesktopPhotoOriginalTicketCurrentV1 as ticket,

@@ -2,8 +2,8 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../src/common/editor/scape-archive-envelope.ts';
-import { ScapeExpandedByteBudget } from '../src/common/editor/scape-expanded-byte-budget.ts';
+import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../src/common/scape/archive-envelope.ts';
+import { ScapeExpandedByteBudget } from '../src/common/scape/expanded-byte-budget.ts';
 import { digestScapeBytes } from '../src/common/editor/scape-byte-stream.ts';
 import { encodePhotoStackPackV1 } from '../src/lightscaper/archive/stack-pack.ts';
 import { readPhotoStackPackEntryV1 } from '../src/lightscaper/archive/stack-pack-entry.ts';

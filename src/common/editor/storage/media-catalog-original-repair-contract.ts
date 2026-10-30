@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, readClosedDomainRecord } from '../closed-domain-value.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../foundation/closed-domain-value.ts';
 import { readExactSafeVisualText } from '../safe-visual-text.ts';
 import { catalogOriginalId, catalogOriginalReferences, type CatalogOriginalReferenceV1 } from './media-catalog-original-schema.ts';
 

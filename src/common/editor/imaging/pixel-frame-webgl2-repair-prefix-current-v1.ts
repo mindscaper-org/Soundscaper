@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainRecord as record, readClosedDomainField as field, readClosedDomainArray as array } from '../closed-domain-value.ts';
+import { readClosedDomainRecord as record, readClosedDomainField as field, readClosedDomainArray as array } from '../../foundation/closed-domain-value.ts';
 import type { ImageDevelopRepairSpotPlanV1 } from './image-develop-repair-plan-v1.ts';
 import { readPixelFrameWebGl2RepairCurrentV1 } from './pixel-frame-webgl2-repair-current-v1.ts';
 import { captureRepairSignalV1, checkRepairSignalV1 } from './pixel-frame-repair-lifetime-v1.ts';

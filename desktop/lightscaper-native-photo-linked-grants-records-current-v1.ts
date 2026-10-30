@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import { captureNativePath, captureIdentity } from './lightscaper-native-photo-granted-filesystem-codec-current-v1.ts';
 import type { NativePath, NativeFileIdentity } from './lightscaper-native-photo-granted-filesystem-current-v1.ts';
 import { createLinkedGrantCleanupFailureCurrentV1 as cleanup } from './lightscaper-native-photo-linked-grants-failures-current-v1.ts';

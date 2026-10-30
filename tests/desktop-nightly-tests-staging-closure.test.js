@@ -74,7 +74,7 @@ test('nightly payload production modules have a closed local-import graph', () =
 	assert.ok(result.visited.has('tests/helpers/lightscaper-hdr-frame-current-fixture.ts'));
 	assert.ok(result.visited.has('tests/helpers/lightscaper-raster-export-process-crash-native-current.ts'));
 	assert.ok(result.visited.has('scripts/quality-budget-evaluator.mjs'));
-	assert.ok(result.visited.has('src/common/editor/closed-domain-value.ts'));
+	assert.ok(result.visited.has('src/common/foundation/closed-domain-value.ts'));
 	assert.ok(result.visited.has('src/lightscaper/quality/large-library-workload-v1.ts'));
 	assert.ok(result.visited.has('src/common/editor/macro-script/dynamic-source-contract.js'));
 	assert.ok(result.visited.has('src/common/editor/native-plugin-realtime-worklet.js'));

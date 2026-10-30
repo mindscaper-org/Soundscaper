@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { prepareLensDistortionEffectV1 } from '../video-lens-distortion-v1.ts';
 import { prepareChromaticAberrationEffectV1 } from '../video-chromatic-aberration-v1.ts';
 import { prepareDefringeEffectV1 } from '../video-defringe-v1.ts';

@@ -13,7 +13,7 @@ import {
 	readClosedDomainArray,
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 import { AUDIO_EDITOR_COORDINATE_MAXIMUM_DENOMINATOR } from './timeline-coordinate-limits.ts';
 
 export const MAXIMUM_AUDIO_GROOVE_STEPS = 128;

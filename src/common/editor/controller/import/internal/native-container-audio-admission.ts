@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { nativeOggFlacAdmission } from './native-ogg-flac-admission.ts';
 import { isDesktopMainAudioCodecRuntime } from '../../../desktop-main-audio-codec-runtime-marker.ts';
-import { raceAbortableRead } from '../../../abort-race.ts';
+import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 import { canonicalNativeVorbisBuffer } from '../../../browser-vorbis-decoder.ts';
 import { inspectWave64PcmSourceGeometry } from '../../../wave64-pcm-source-geometry.ts';
 import { inspectNistPcmSourceGeometry } from '../../../nist-pcm-source-geometry.ts';

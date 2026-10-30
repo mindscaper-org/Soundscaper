@@ -7,7 +7,7 @@ import { EditorControllerLifetime } from '../src/common/editor/controller/shared
 import { VideoSourceUpgradeRefusedError } from '../src/common/editor/video-source-upgrade.ts';
 import { createVideoSourceReprobeService } from '../src/common/editor/controller/clip-video/video-source-reprobe-service.ts';
 import { createUnreportedVideoSourceCharacteristics } from '../src/common/editor/video-source-characteristics.ts';
-import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../src/common/media/content-digest.ts';
 import type { AudioEditorCommand } from '../src/common/editor/commands/protocol.ts';
 
 const MEDIA_BYTES = new Uint8Array(Array.from({ length: 512 }, (_, index) => index % 251));

@@ -58,3 +58,16 @@ test('browser origin maps reject duplicate origins and unregistered products', (
 		[BROWSER_PRODUCT_ORIGINS_VARIABLE]: JSON.stringify(origins),
 	}), /distinct|registered/u);
 });
+
+test('a single-product run routes its selected photo application and rejects absent peers', () => {
+	for (const [productId, path, origin] of [
+		['soundscaper', '/en/', 'http://127.0.0.1:4322'],
+		['framescaper', '/framescaper/en/', 'http://127.0.0.1:4323'],
+		['lightscaper', '/lightscaper/en/', 'http://127.0.0.1:4324'],
+	]) {
+		const environment = { [BROWSER_PRODUCT_ORIGINS_VARIABLE]: JSON.stringify({ [productId]: origin }) };
+		assert.equal(resolveBrowserProductTestUrl(path, environment), `${origin}/en/`);
+		const absent = productId === 'soundscaper' ? '/lightscaper/en/' : '/en/';
+		assert.throws(() => resolveBrowserProductTestUrl(absent, environment), /omits/u);
+	}
+});

@@ -18,7 +18,7 @@ import type { PhotoLibraryBatchRenamePlanV1, PhotoLibraryBatchRenameReceiptV1, P
 	PhotoLibraryBatchRenameSnapshotV1, PhotoLibraryBatchRenameUndoV1 } from '../../photo-library-batch-rename-port-v1.ts';
 import { readPhotoLibrarySelectionIdsV1 } from '../../controller/shared/photo-library-selection-v1.ts';
 import { createPhotoLibraryImportCollectorV1, detachPhotoLibraryImportSettingsV1, detachPhotoLibraryImportDevelopPresetV1 } from '../../controller/shared/photo-library-import-gesture-v1.ts';
-import { readClosedDomainRecord, readClosedDomainField } from '../../closed-domain-value.ts';
+import { readClosedDomainRecord, readClosedDomainField } from '../../../foundation/closed-domain-value.ts';
 import type { PhotoLibraryImportGestureOptionsV2 } from '../../photo-library-develop-import-port-v1.ts';
 import type { PhotoLibraryQueryV2, PhotoLibraryQueryBuildProgressV2 } from '../../photo-library-query-port-v2.ts';
 import type { PhotoLibraryImportGestureReceiptV1, PhotoLibraryImportPresetCommandV1, PhotoLibraryImportPresetSnapshotV1 } from '../../photo-library-import-settings-port-v1.ts';

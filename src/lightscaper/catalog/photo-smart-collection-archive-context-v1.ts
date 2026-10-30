@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { request } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request } from '../../common/media/indexeddb.ts';
 import { assertNotAborted, catalogTransaction } from './catalog-transaction.ts';
 import type { PhotoSmartCollectionSignalOptionsV1 } from './photo-smart-collection-repository-types-v1.ts';
 import { PHOTO_SMART_COLLECTION_CONTEXT_STORES_V1, readPhotoSmartCollectionStorageContextV1 } from './photo-smart-collection-storage-v1.ts';

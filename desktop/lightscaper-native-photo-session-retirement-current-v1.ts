@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { randomBytes } from 'node:crypto';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import { readDesktopPhotoSessionFailureCurrentV1 as failure, type DesktopPhotoSessionControlCurrentV1 as Control } from '../src/lightscaper/desktop-photo-session-response-current-v1.ts';
 
 interface Entry {

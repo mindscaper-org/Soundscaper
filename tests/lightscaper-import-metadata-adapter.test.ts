@@ -12,7 +12,7 @@ import { normalizePhotoDocumentV1 } from '../src/lightscaper/catalog/photo-docum
 import { normalizePhotoCatalogRootV1 } from '../src/lightscaper/catalog/catalog-root.ts';
 import { PhotoCatalogRepositoryV1 } from '../src/lightscaper/catalog/repository.ts';
 import { encodePhotoCatalogPackV1, readPhotoCatalogPackV1 } from '../src/lightscaper/archive/catalog-pack.ts';
-import { IMAGE_IMPORT_LIMITS } from '../src/common/editor/image-import-admission.ts';
+import { IMAGE_IMPORT_LIMITS } from '../src/common/imaging/image-import-admission.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { photoArchiveFixture } from './helpers/lightscaper-photo-fixture.ts';
 import { iptcDataSet, iptcText, joinBytes, jpegExif, jpegFixture, numberEntry, photoshopIptc, rationalEntry, textEntry, tiffFixture } from './helpers/image-metadata-fixtures.ts';

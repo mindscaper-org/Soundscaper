@@ -2,7 +2,7 @@
 
 import type { PhotoLibraryImageHandoffRequestV1, PhotoLibraryImageHandoffViewV1 } from './photo-library-image-handoff-port-v1.ts';
 import type { CubeLutSourcePortV1 } from './imaging/cube-lut-source-port-v1.ts';
-import type { VideoCubeLutReferenceV1 } from './video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../imaging/cube-lut-reference-contract.ts';
 
 export interface PhotoLibraryCollectionHandoffRequestV1 {
 	readonly catalogId: string; readonly collectionId: string; readonly scope: 'catalog' | 'saved-query';

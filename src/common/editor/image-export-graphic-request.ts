@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 import type { GraphicWatermarkPlacementV1 } from './imaging/pixel-frame-graphic-watermark-v1.ts';
-import { IMAGE_IMPORT_LIMITS } from './image-import-admission.ts';
+import { IMAGE_IMPORT_LIMITS } from '../imaging/image-import-admission.ts';
 
 export interface ImageExportGraphicRequest {
 	readonly body: Blob;

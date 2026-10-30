@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 import { centeredImageGeometryAspectCropV1, normalizeImageGeometryV1, type ImageGeometryAspectPresetV1 } from './imaging/image-geometry-v1.ts';
 import { containImageGeometryPlanV1, planImageGeometryV1 } from './imaging/image-geometry-plan-v1.ts';
 

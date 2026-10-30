@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useCallback } from 'react';
-import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../closed-domain-value.ts';
+import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../foundation/closed-domain-value.ts';
 import { captureRepairSignalV1, checkRepairSignalV1 } from '../../imaging/pixel-frame-repair-lifetime-v1.ts';
 import type { ImageHdrMergeAuthoringPortCurrentV1, ImageHdrMergeAuthoringOptionsCurrentV1, ImageHdrMergeAuthoringPreviewCurrentV1 } from '../../image-hdr-merge-authoring-port-current-v1.ts';
 import type { PhotoLibrarySessionPortCurrentV1 } from '../../photo-library-session-port-current-v1.ts';

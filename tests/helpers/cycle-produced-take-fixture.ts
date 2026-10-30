@@ -14,7 +14,7 @@ import {
 	createAudioTrack,
 } from '../../src/common/editor/project-media-factory.ts';
 import { createAudioEditorProjectV17, type AudioEditorProjectV17 } from '../../src/common/editor/project-v17.ts';
-import { createScapeDigest, scapeHex } from '../../src/common/editor/scape-archive-media.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../../src/common/media/bytes.ts';
 import { serializeScapeProjectDocument } from '../../src/common/editor/scape-project-document.ts';
 import { createProjectStore, type AudioEditorProjectStore } from '../../src/common/editor/storage.js';
 import type { ProjectRepositoryPort } from '../../src/common/editor/storage/project-repository.ts';

@@ -11,7 +11,7 @@ import {
 	parsePcmContainerIndex,
 	readPcmContainerPayload,
 } from '../wavpack/index.js';
-import { createAbortGuard } from '../abort-error.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
 import {
 	blobWithMimeType,
 	type BlobLike,

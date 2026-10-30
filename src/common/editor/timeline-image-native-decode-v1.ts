@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { classifyImageFormatSignature, type ReviewedImageFormat } from './image-format-signature.ts';
-import { admitImageDecodeWorkload, IMAGE_IMPORT_LIMITS } from './image-import-admission.ts';
+import { classifyImageFormatSignature, type ReviewedImageFormat } from '../imaging/image-format-signature.ts';
+import { admitImageDecodeWorkload, IMAGE_IMPORT_LIMITS } from '../imaging/image-import-admission.ts';
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
 import { routeImageDecoder } from './image-decoder-routing.ts';
 import { snapshotCanonicalRgba8V1 } from './imaging/pixel-frame-canonical-rgba8-v1.ts';

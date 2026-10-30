@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../closed-domain-value.ts';
+import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../../foundation/closed-domain-value.ts';
 import { prepareImageHdrMergeV1, type ImageHdrMergePlanV1 } from '../../../imaging/image-hdr-merge-contract-v1.ts';
 import { normalizeImageHdrOriginalProvenanceV1, type ImageHdrOriginalProvenanceV1 } from '../../../imaging/image-hdr-original-contract-v1.ts';
 import { captureRepairSignalV1, checkRepairSignalV1 } from '../../../imaging/pixel-frame-repair-lifetime-v1.ts';

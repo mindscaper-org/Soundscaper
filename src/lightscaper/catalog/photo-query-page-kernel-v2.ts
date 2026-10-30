@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { request } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request } from '../../common/media/indexeddb.ts';
 import { assertNotAborted } from './catalog-transaction.ts';
 import { PhotoQueryIndexNotReadyError } from './photo-query-index-v1.ts';
 import { photoQueryRowKeyV2, photoQuerySummaryV2, readPhotoQueryRowV2, type PhotoQueryRowV2 } from './photo-query-index-v2.ts';

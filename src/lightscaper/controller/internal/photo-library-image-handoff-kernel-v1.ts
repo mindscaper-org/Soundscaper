@@ -2,15 +2,15 @@
 
 import type { PhotoLibraryImageHandoffRequestV1, PhotoLibraryImageHandoffViewV1 } from '../../../common/editor/photo-library-image-handoff-port-v1.ts';
 import type { PhotoLibraryImageHandoffViewV2 } from '../../../common/editor/photo-library-image-handoff-port-v2.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/foundation/closed-domain-value.ts';
 import type { CubeLutSourcePortV1 } from '../../../common/editor/imaging/cube-lut-source-port-v1.ts';
 import type { MaskRasterSourcePortV1 } from '../../../common/editor/imaging/mask-raster-source-port-v1.ts';
 import { withCubeLutResourceV1 } from '../../../common/editor/imaging/cube-lut-resource-v1.ts';
 import { normalizeBrushMaskResourceReferenceV1, withBrushMaskResourceV1, type BrushMaskResourceReferenceV1 } from '../../../common/editor/imaging/brush-mask-resource-v1.ts';
-import { normalizeVideoCubeLutReferenceV1 } from '../../../common/editor/cube-lut-reference-contract.ts';
-import type { VideoCubeLutReferenceV1 } from '../../../common/editor/video-color-cube-lut-v27.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from '../../../common/editor/storage/media-content-digest.ts';
-import { IMAGE_IMPORT_LIMITS } from '../../../common/editor/image-import-admission.ts';
+import { normalizeVideoCubeLutReferenceV1, type VideoCubeLutReferenceV1 } from '../../../common/imaging/cube-lut-reference-contract.ts';
+
+import { canonicalMediaContentBlob, digestMediaContent } from '../../../common/media/content-digest.ts';
+import { IMAGE_IMPORT_LIMITS } from '../../../common/imaging/image-import-admission.ts';
 import { SCAPE_ARCHIVE_LIMITS } from '../../../common/editor/scape-archive-limits.ts';
 import { createPhotoCubeLutClosureV1 } from '../../catalog/photo-cube-lut-closure-v1.ts';
 import { createPhotoResourceReachabilityCurrentV1 } from '../../catalog/photo-resource-reachability-current-v1.ts';

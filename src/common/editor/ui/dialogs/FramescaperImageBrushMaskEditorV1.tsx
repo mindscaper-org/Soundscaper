@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useMemo } from 'react';
-import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../closed-domain-value.ts';
+import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../foundation/closed-domain-value.ts';
 import { captureImageBrushMaskResourcePortV1, type ImageBrushMaskResourceAcknowledgementV1,
 	type ImageBrushMaskResourcePortV1, type WithImageBrushMaskDraftFrameV1 } from '../../image-brush-mask-resource-port-v1.ts';
 import { normalizeBrushMaskResourceReferenceV1, type BrushMaskResourceReferenceV1 } from '../../imaging/brush-mask-resource-v1.ts';

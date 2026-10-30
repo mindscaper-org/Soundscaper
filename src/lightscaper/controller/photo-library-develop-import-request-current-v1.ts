@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { PhotoLibraryDevelopImportRequestCurrentV1 } from '../../common/editor/photo-library-develop-import-port-current-v1.ts';
-import { readClosedDomainArray } from '../../common/editor/closed-domain-value.ts';
-import { IMAGE_IMPORT_LIMITS } from '../../common/editor/image-import-admission.ts';
+import { readClosedDomainArray } from '../../common/foundation/closed-domain-value.ts';
+import { IMAGE_IMPORT_LIMITS } from '../../common/imaging/image-import-admission.ts';
 import { field, id, integer, record } from '../catalog/value-validation.ts';
 import { assertPhotoStackQuerySignalV1 } from '../catalog/photo-stack-query-signal-v1.ts';
 import { admitPhotoLibraryImportRequestV1 } from './photo-library-import-request.ts';

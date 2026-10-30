@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { decodeLibRawOriginalWasmV1, decodeLibRawWasmV1, readLibRawEmbeddedPreviewWasmV1 } from './libraw-wasm-instance-v1.ts';
 
 const scope = globalThis as unknown as {

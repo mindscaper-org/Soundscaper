@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readClosedDomainArray } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainArray } from '../src/common/foundation/closed-domain-value.ts';
 
 test('dense plain arrays keep their shallow frozen snapshot and exact inclusive bounds', () => {
 	const payload = { id: 'retained' }, input = [payload, 'second'];

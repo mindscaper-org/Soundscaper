@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 import { filterScope } from './catalog/repository-records.ts';
 import { normalizeImageDevelopPresetCurrentForProfileV1 } from '../common/editor/imaging/internal/image-develop-preset-kernel-v1.ts';
-import { IMAGE_IMPORT_LIMITS } from '../common/editor/image-import-admission.ts';
+import { IMAGE_IMPORT_LIMITS } from '../common/imaging/image-import-admission.ts';
 import { IMAGE_HDR_ORIGINAL_LIMITS_V1 } from '../common/editor/imaging/image-hdr-original-profile-v1.ts';
 import { normalizePhotoOriginalV1 } from './catalog/photo-document-envelope-v1.ts';
 import { array, id, integer, text } from './catalog/value-validation.ts';
@@ -21,7 +21,7 @@ import { admitPhotoCullingNavigationV1 } from './catalog/photo-culling-navigatio
 import { catalogOriginalId, catalogOriginalReferences, catalogOriginalPhotoIds } from '../common/editor/storage/media-catalog-original-schema.ts';
 import { normalizeCatalogOriginalRepairBindingV1 } from '../common/editor/storage/media-catalog-original-repair-contract.ts';
 import { normalizeBinaryDerivativeCacheProfileV1, normalizeBinaryDerivativeCacheIdentityV1 } from '../common/editor/storage/binary-derivative-cache-records.ts';
-import { normalizeVideoCubeLutReferenceV1 } from '../common/editor/cube-lut-reference-contract.ts';
+import { normalizeVideoCubeLutReferenceV1 } from '../common/imaging/cube-lut-reference-contract.ts';
 import { normalizeBrushMaskResourceReferenceV1 } from '../common/editor/imaging/brush-mask-resource-v1.ts';
 import { readDesktopPhotoOriginalRequestCurrentV1, readDesktopPhotoOriginalTicketIdCurrentV1 } from './desktop-photo-original-contract-current-v1.ts';
 import { readPhotoLibraryOriginalGroupCurrentV1 } from './controller/photo-library-original-group-contract-current-v1.ts';

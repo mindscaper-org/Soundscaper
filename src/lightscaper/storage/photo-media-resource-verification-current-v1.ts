@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField } from '../../common/foundation/closed-domain-value.ts';
 import { assertPhotoStackQuerySignalV1 } from '../catalog/photo-stack-query-signal-v1.ts';
 import { createPhotoResourceReachabilityCurrentV1 } from '../catalog/photo-resource-reachability-current-v1.ts';
 import type { PhotoMediaCubeLutResourcesV1 } from './photo-media-cube-lut-resources-v1.ts';

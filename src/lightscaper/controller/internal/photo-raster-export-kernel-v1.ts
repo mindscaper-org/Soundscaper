@@ -6,7 +6,7 @@ import { capturePhotoRasterExportOutput, PhotoRasterExportMetadataRefusal, isPho
 import type { ReadPhotoExportSidecar } from '../../../common/editor/photo-library-session-port-v2.ts';
 import type { BrowserSavedFile, PreparedBrowserSave } from '../../../common/editor/browser-file-save-service.ts';
 import { sanitizeSuggestedSaveName } from '../../../common/editor/browser-file-save-service.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/foundation/closed-domain-value.ts';
 import { capturePhotoDevelopExecutionContextV2, capturePhotoLibraryDevelopPortV2, detachPhotoLibraryDevelopSettingsV2 } from '../../../common/editor/controller/shared/photo-library-develop-command-v2.ts';
 import type { PreparedDirectSave, DirectSavedFile } from '../../../common/editor/file-save-stream.ts';
 import type { PixelFrameV1 } from '../../../common/editor/imaging/pixel-frame-contract-v1.ts';

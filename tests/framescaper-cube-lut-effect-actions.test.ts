@@ -7,7 +7,7 @@ import { applyFramescaperProjectCommandFinishing } from '../src/framescaper/edit
 import { FRAMESCAPER_FINISHING_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-domain-runtime-profile.ts';
 import { framescaperV20Options } from './helpers/framescaper-model-fixture.ts';
 import { deferred, remainsPending } from './helpers/async-test-control.ts';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import type { VideoEffectProject } from '../src/common/editor/controller/clip-video/video-effect-service.ts';
 
 const TEXT = 'LUT_3D_SIZE 2\n0 0 0\n0 0 1\n0 1 0\n0 1 1\n1 0 0\n1 0 1\n1 1 0\n1 1 1';

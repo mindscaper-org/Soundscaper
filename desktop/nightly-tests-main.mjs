@@ -48,7 +48,7 @@ async function startNightlyTests() {
 	let progress = null;
 	let progressWindow = null;
 	let control = null;
-	let latestProgress = { completed: 0, total: 6, label: 'Application launched' };
+	let latestProgress = { completed: 0, total: 5, label: 'Application launched' };
 	let reportingFailure = false;
 	const updateWindow = (operation) => {
 		try { operation(progressWindow); }
@@ -166,8 +166,8 @@ async function startNightlyTests() {
 				type: run.exitCode === 0 ? 'info' : 'error',
 				title: 'Soundscaper Nightly Tests',
 				message: run.exitCode === 0
-					? 'Browser tests, diagnostic metrics, and real model tests passed.'
-					: 'Browser tests, diagnostic metrics, or real model tests did not pass.',
+					? 'GPU, performance, desktop, and real model tests passed.'
+					: 'GPU, performance, desktop, or real model tests did not pass.',
 				detail: `${run.result?.failure ? `${run.result.failure}\n\n` : ''}`
 					+ `Results:\n${run.runRoot}\n\nStartup diagnostics:\n${startupLog ?? 'Could not create a startup log.'}`,
 			});

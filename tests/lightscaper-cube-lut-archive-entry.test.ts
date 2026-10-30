@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { readPhotoCubeLutArchiveEntryV1 } from '../src/lightscaper/archive/cube-lut-archive-entry-v1.ts';
-import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../src/common/editor/scape-archive-envelope.ts';
-import { ScapeExpandedByteBudget } from '../src/common/editor/scape-expanded-byte-budget.ts';
+import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../src/common/scape/archive-envelope.ts';
+import { ScapeExpandedByteBudget } from '../src/common/scape/expanded-byte-budget.ts';
 import { deferred, remainsPending } from './helpers/async-test-control.ts';
 
 const BODY = new TextEncoder().encode('LUT_3D_SIZE 2\n0 0 0\n1 0 0\n0 1 0\n1 1 0\n0 0 1\n1 0 1\n0 1 1\n1 1 1\n');

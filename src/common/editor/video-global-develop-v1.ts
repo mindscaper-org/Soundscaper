@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 
 /** Fixed process: straight alpha, Rec.709 primaries, sRGB byte encoding, per-operation quantization. */
 export const GLOBAL_DEVELOP_PROCESS_V1 = 'linear-srgb-global-v1';

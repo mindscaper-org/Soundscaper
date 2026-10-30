@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { request } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request } from '../../common/media/indexeddb.ts';
 import { normalizePhotoLibraryRestoreAllocationV1, photoLibraryRestoreNamespacesV1, assertPhotoLibraryRestoreOwnerMarkerV1,
 	PHOTO_CATALOG_RESTORE_OWNER_STORE_V1, PHOTO_LIBRARY_RESTORE_OWNER_KEY_V1, type PhotoLibraryRestoreAllocationV1 } from '../storage/photo-library-restore-ownership-v1.ts';
 import { assertNotAborted, catalogTransaction } from './catalog-transaction.ts';

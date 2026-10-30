@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createAbortGuard } from '../abort-error.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
 import { mediaAssetChunkKey, mediaAssetChunkRecord, type MediaAssetChunkRecords } from './media-asset-chunk-records.ts';
 import { MEDIA_ASSET_CHUNK_STORAGE_TYPE, MEDIA_ASSET_STREAM_CHUNK_BYTES } from './media-asset-chunk-schema.ts';
 import type { OpfsBinaryInspection } from './opfs-binary-inspection.ts';

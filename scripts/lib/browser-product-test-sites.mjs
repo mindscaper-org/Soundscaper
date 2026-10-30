@@ -11,7 +11,6 @@ import {
 	assertPlan,
 	assertSite,
 	ordinaryBrowserProductSitePlan,
-	siteFor,
 } from './browser-product-site-plan.mjs';
 import { checkBuildChunks } from '../check-build-chunks.mjs';
 
@@ -64,6 +63,7 @@ export async function buildBrowserProductSite(site) {
 /**
  * Authenticate prepared consumer artifacts, or create the Soundscaper copy once
  * in the build producer without changing either production artifact.
+ * @param {{ sites: readonly import('./browser-product-site-plan.mjs').BrowserProductSite[] }} [plan]
  */
 export async function prepareOrdinaryBrowserProductSites(
 	plan = ordinaryBrowserProductSitePlan(),
@@ -71,10 +71,11 @@ export async function prepareOrdinaryBrowserProductSites(
 		sourceMaps = process.env.SCAPE_BROWSER_COVERAGE === '1' } = {},
 ) {
 	assertPlan(plan);
-	const soundscaper = siteFor(plan, 'soundscaper');
-	for (const site of plan.sites.filter((site) => site.productId !== 'soundscaper')) {
+	const soundscaper = plan.sites.find(site => site.productId === 'soundscaper');
+	for (const site of plan.sites.filter(site => site.productId !== 'soundscaper')) {
 		await verifyBrowserProductSite(site, { sourceMaps });
 	}
+	if (!soundscaper) return;
 	if (reusePrepared) {
 		await verifyBrowserProductSite(soundscaper, { sourceMaps });
 		return;

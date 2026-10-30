@@ -2,8 +2,9 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { normalizeVideoCubeLutReferenceV1, VIDEO_COLOR_LIMITS_V1 } from '../src/common/editor/cube-lut-reference-contract.ts';
-import { VIDEO_COLOR_LIMITS_V1 as bodyLimits } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
+import { normalizeVideoCubeLutReferenceV1, VIDEO_COLOR_LIMITS_V1 } from '../src/common/imaging/cube-lut-reference-contract.ts';
+
 import { normalizeVideoColorGradeV1, VIDEO_COLOR_LIMITS_V1 as gradeLimits } from '../src/common/editor/video-color-management-v27.ts';
 
 function reference() {
@@ -13,7 +14,7 @@ function reference() {
 
 test('the scalar owner retains public V27 limits and the exact canonical detached custody record', () => {
 	assert.deepEqual(VIDEO_COLOR_LIMITS_V1, { maximumCubeLutBytes: 16 * 1024 * 1024, maximumCubeLutSize: 65 });
-	assert.equal(bodyLimits, VIDEO_COLOR_LIMITS_V1); assert.equal(gradeLimits, VIDEO_COLOR_LIMITS_V1);
+	assert.throws(() => parseCubeLutV1('LUT_3D_SIZE 66\n'), /cube LUT size/u); assert.equal(gradeLimits, VIDEO_COLOR_LIMITS_V1);
 	const input = reference(), normalized = normalizeVideoCubeLutReferenceV1(input);
 	assert.deepEqual(normalized, { storageKey: `lut-sha256:${'ab'.repeat(32)}`, sha256: 'ab'.repeat(32), byteLength: 73, size: 2,
 		domainMin: [-65_536, 0, -Number.MIN_VALUE], domainMax: [65_536, Number.MIN_VALUE, 0] });
@@ -48,6 +49,6 @@ test('reflection failures retain opaque identity and the scalar API donates no p
 	let actual: unknown;
 	try { normalizeVideoCubeLutReferenceV1(input); assert.fail('Expected refusal'); } catch (error) { actual = error; }
 	assert.equal(actual, reason); assert.equal(inspected, 0);
-	assert.deepEqual(Object.keys(await import('../src/common/editor/cube-lut-reference-contract.ts')).sort(),
+	assert.deepEqual(Object.keys(await import('../src/common/imaging/cube-lut-reference-contract.ts')).sort(),
 		['VIDEO_COLOR_LIMITS_V1', 'normalizeVideoCubeLutReferenceV1']);
 });

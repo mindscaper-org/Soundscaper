@@ -2,7 +2,7 @@
 
 import { collectRecoverableProjectStorageKeys, compactRecoverableProjectMetadata, collectRecordingRecoveryRoots } from './recovery-retention-roots.ts';
 import { DERIVATIVE_CACHE_ENTRY_STORE_NAME, VIDEO_DERIVATIVE_STORE_NAME } from './derivative-cache-entry.ts';
-import { deleteByIndex, readCursorPage, request, transact } from './indexeddb-backend.ts';
+import { deleteByIndex, readCursorPage, request, transact } from '../../media/indexeddb.ts';
 import { candidateEligibleAt, protectSourceDependencies, sourceStorageCandidates, type StorageRecord } from './media-records.ts';
 import { CATALOG_ORIGINAL_PAGE_SIZE, CATALOG_ORIGINAL_ROOT_STORE_NAME } from './media-catalog-original-schema.ts';
 import { catalogOriginalCount, hasCatalogOriginalRoot } from './media-catalog-original-records.ts';

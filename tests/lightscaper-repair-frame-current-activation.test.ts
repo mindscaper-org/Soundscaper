@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../src/common/media/content-digest.ts';
 import { repairBackupCurrentFixture } from './helpers/lightscaper-repair-backup-current-fixture.ts';
 
 for (const placement of ['active', 'redo'] as const) {

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readCursorPage, request } from '../../common/editor/storage/indexeddb-backend.ts';
+import { readCursorPage, request } from '../../common/media/indexeddb.ts';
 import { catalogTransaction } from './catalog-transaction.ts';
 import { filterScope, readIndexState, readPhotoSummary, photoStorageKey } from './repository-records.ts';
 import {

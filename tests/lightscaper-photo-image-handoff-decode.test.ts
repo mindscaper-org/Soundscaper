@@ -5,7 +5,7 @@ import test from 'node:test';
 import { createHash } from 'node:crypto';
 import { decodePhotoImageHandoffSourceV1 } from '../src/lightscaper/controller/photo-image-handoff-decode-v1.ts';
 import type { OpenFramescaperBrowserNativeImageV1 } from '../src/common/editor/timeline-image-native-decode-v1.ts';
-import { IMAGE_IMPORT_LIMITS } from '../src/common/editor/image-import-admission.ts';
+import { IMAGE_IMPORT_LIMITS } from '../src/common/imaging/image-import-admission.ts';
 import { openFramescaperImageFramePackV1 } from '../src/common/editor/timeline-image-frame-pack-v1.ts';
 import { readImageMetadataV1 } from '../src/common/editor/imaging/image-metadata-reader-v1.ts';
 import { createPhotoExportSidecarV1, serializePhotoExportSidecarV1 } from '../src/lightscaper/catalog/photo-export-sidecar-v1.ts';

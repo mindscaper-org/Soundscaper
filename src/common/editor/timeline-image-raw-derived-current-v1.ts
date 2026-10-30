@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 import { RepairTaskBudgetV1, captureRepairSignalV1, checkRepairSignalV1 } from './imaging/pixel-frame-repair-lifetime-v1.ts';
 import { readPixelFrameDescriptorV1, readPixelFrameV1 } from './imaging/pixel-frame-contract-v1.ts';
 import { withDecodedRawOriginalV1, type RawDecodedOriginalV1 } from './raw/libraw-runtime-v1.ts';

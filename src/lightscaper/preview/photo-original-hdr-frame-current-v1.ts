@@ -2,12 +2,12 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
-import { IMAGE_IMPORT_LIMITS } from '../../common/editor/image-import-admission.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
+import { IMAGE_IMPORT_LIMITS } from '../../common/imaging/image-import-admission.ts';
 import { withDecodedImageHdrOriginalV1 } from '../../common/editor/imaging/image-hdr-original-v1.ts';
 import { planPixelFrameV1, readPixelFrameV1, type PixelFrameV1 } from '../../common/editor/imaging/pixel-frame-contract-v1.ts';
 import { captureRepairSignalV1, checkRepairSignalV1 } from '../../common/editor/imaging/pixel-frame-repair-lifetime-v1.ts';
-import { canonicalMediaContentBlob } from '../../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../../common/media/content-digest.ts';
 import type { PhotoOriginalFrameProvenanceV1 } from './photo-original-frame-v1.ts';
 import { isPhotoHdrOriginalBindingCurrentV1, normalizePhotoOriginalBindingCurrentV1,
 	PHOTO_HDR_ORIGINAL_SOURCE_LIMITS_CURRENT_V1, type PhotoHdrOriginalBindingCurrentV1 } from './photo-original-binding-current-v1.ts';

@@ -7,25 +7,24 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
-import * as limits from '../src/common/editor/scape-archive-limits.ts';
-import * as legacyEnvelope from '../src/common/editor/scape-archive-envelope.ts';
-import * as bytes from '../src/common/editor/scape-byte-stream.ts';
-import * as legacyMedia from '../src/common/editor/scape-archive-media.ts';
+import * as limits from '../src/common/scape/archive-limits.ts';
+import { SCAPE_FORMAT, SCAPE_FORMAT_VERSION, SCAPE_MANIFEST_ENTRY, SCAPE_PROJECT_ENTRY } from '../src/common/scape/archive-envelope.ts';
+import * as bytes from '../src/common/media/bytes.ts';
 import { maximumScapeStoreArchiveBytes } from '../src/common/editor/scape-export-estimate.ts';
-import { maximumScapeStoreCentralDirectoryBytes } from '../src/common/editor/scape-archive-zip-profile.ts';
+import { maximumScapeStoreCentralDirectoryBytes } from '../src/common/scape/archive-zip-profile.ts';
 import { DESKTOP_EXPECTED_RUNTIME_FILES } from '../scripts/lib/desktop-project-library-runtime.mjs';
 import { DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES } from '../scripts/lib/desktop-project-library-baseline-runtime-files.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const EDITOR = 'src/common/editor/';
-const FOUNDATIONS = ['scape-archive-limits.ts', 'scape-byte-stream.ts', 'scape-export-estimate.ts',
-	'scape-archive-zip-profile.ts', 'scape-blob-budget.ts', 'project-validation-primitives.ts'];
+const FOUNDATIONS = ['src/common/scape/archive-limits.ts', 'src/common/media/bytes.ts',
+	'src/common/editor/scape-export-estimate.ts', 'src/common/scape/archive-zip-profile.ts', 'src/common/editor/scape-blob-budget.ts'];
 
 test('neutral archive limits preserve the exact frozen format-1 public contract', () => {
-	assert.equal(limits.SCAPE_FORMAT, 'scape-project');
-	assert.equal(limits.SCAPE_FORMAT_VERSION, 1);
-	assert.equal(limits.SCAPE_MANIFEST_ENTRY, 'manifest.json');
-	assert.equal(limits.SCAPE_PROJECT_ENTRY, 'project.json');
+	assert.equal(SCAPE_FORMAT, 'scape-project');
+	assert.equal(SCAPE_FORMAT_VERSION, 1);
+	assert.equal(SCAPE_MANIFEST_ENTRY, 'manifest.json');
+	assert.equal(SCAPE_PROJECT_ENTRY, 'project.json');
 	const expected: Readonly<limits.ScapeArchiveLimits> = {
 		maximumEntryCount: 4_096,
 		maximumManifestBytes: 32 * 1024 * 1024,
@@ -34,33 +33,27 @@ test('neutral archive limits preserve the exact frozen format-1 public contract'
 	};
 	assert.deepEqual(limits.SCAPE_ARCHIVE_LIMITS, expected);
 	assert.equal(Object.isFrozen(limits.SCAPE_ARCHIVE_LIMITS), true);
-	for (const key of Object.keys(limits) as (keyof typeof limits)[]) {
-		assert.equal(legacyEnvelope[key], limits[key], key);
-	}
 });
 
-test('byte and digest exports share their implementation with the existing media API', () => {
-	for (const key of Object.keys(bytes) as (keyof typeof bytes)[]) {
-		assert.equal(legacyMedia[key], bytes[key], key);
-	}
-	assert.equal(bytes.scapeHex(Uint8Array.of(0, 1, 15, 16, 255)), '00010f10ff');
-	assert.equal(bytes.digestScapeBytes(new Uint8Array()),
+test('neutral byte and digest primitives preserve the format-1 byte outputs', () => {
+	assert.equal(bytes.hex(Uint8Array.of(0, 1, 15, 16, 255)), '00010f10ff');
+	assert.equal(bytes.digestBytes(new Uint8Array()),
 		'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
 	const input = new TextEncoder().encode('abc');
-	assert.equal(bytes.digestScapeBytes(input),
+	assert.equal(bytes.digestBytes(input),
 		'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
-	const digest = bytes.createScapeDigest();
+	const digest = bytes.createDigest();
 	digest.update(input.subarray(0, 1));
 	digest.update(input.subarray(1));
-	assert.equal(bytes.scapeHex(digest.digest()), bytes.digestScapeBytes(input));
+	assert.equal(bytes.hex(digest.digest()), bytes.digestBytes(input));
 });
 
 test('byte streams snapshot exactly the supplied view before later source mutation', async () => {
 	const backing = Uint8Array.of(99, 0, 17, 255, 88);
-	const stream = bytes.scapeBytesStream(backing.subarray(1, 4));
+	const stream = bytes.bytesStream(backing.subarray(1, 4));
 	backing.fill(42);
 	assert.deepEqual(new Uint8Array(await new Response(stream).arrayBuffer()), Uint8Array.of(0, 17, 255));
-	assert.equal((await new Response(bytes.scapeBytesStream(new Uint8Array())).arrayBuffer()).byteLength, 0);
+	assert.equal((await new Response(bytes.bytesStream(new Uint8Array())).arrayBuffer()).byteLength, 0);
 });
 
 test('archive estimates retain the UTF-8 profile and entry-count ceilings', () => {
@@ -75,7 +68,7 @@ test('archive estimates retain the UTF-8 profile and entry-count ceilings', () =
 });
 
 test('the actual emitted export foundation graph contains only neutral leaves and SHA-256', () => {
-	const pending = FOUNDATIONS.map(name => EDITOR + name), seen = new Set<string>(), packages = new Set<string>();
+	const pending = [...FOUNDATIONS], seen = new Set<string>(), packages = new Set<string>();
 	while (pending.length) {
 		const member = pending.pop()!;
 		if (seen.has(member)) continue;
@@ -86,14 +79,18 @@ test('the actual emitted export foundation graph contains only neutral leaves an
 			} else packages.add(specifier);
 		}
 	}
-	assert.deepEqual([...seen].sort(), FOUNDATIONS.map(name => EDITOR + name).sort());
+	assert.deepEqual([...seen].sort(), [...FOUNDATIONS].sort());
 	assert.deepEqual([...packages], ['@noble/hashes/sha2.js']);
 });
 
 test('existing desktop archive modules emit references to staged neutral leaf files', () => {
-	for (const [owner, leaf] of [['scape-archive-envelope.ts', 'scape-archive-limits'],
-		['scape-archive-media.ts', 'scape-byte-stream']] as const) {
-		assert.ok(emittedDependencies(EDITOR + owner).includes(`./${leaf}.js`));
+	for (const [owner, leaf] of [['scape-archive-envelope.ts', 'scape/archive-envelope'],
+		['scape-archive-media.ts', 'media/bytes'], ['scape-export-estimate.ts', 'scape/archive-zip-profile']] as const) {
+		assert.ok(emittedDependencies(EDITOR + owner).includes(`../${leaf}.js`));
+		const output = `src/common/${leaf}.js`;
+		assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes(output), output);
+	}
+	for (const leaf of ['scape-export-estimate', 'scape-blob-budget']) {
 		const output = EDITOR + leaf + '.js';
 		assert.ok(DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES.includes(output), output);
 		assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes(output), output);

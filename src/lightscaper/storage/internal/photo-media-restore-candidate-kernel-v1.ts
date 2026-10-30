@@ -2,9 +2,9 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField, readClosedDomainRecord } from '../../../common/editor/closed-domain-value.ts';
-import { aggregateScapeErrors } from '../../../common/editor/scape-abort.ts';
-import { request } from '../../../common/editor/storage/indexeddb-backend.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../../common/foundation/closed-domain-value.ts';
+import { aggregateScapeErrors } from '../../../common/scape/abort.ts';
+import { request } from '../../../common/media/indexeddb.ts';
 import { catalogOriginalKey } from '../../../common/editor/storage/media-catalog-original-schema.ts';
 import { makeCatalogOriginalRoot, putCatalogOriginalRoot } from '../../../common/editor/storage/media-catalog-original-records.ts';
 import type { MediaAssetWriter } from '../../../common/editor/storage/media-asset-write-contract.ts';

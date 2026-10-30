@@ -5,7 +5,7 @@ import test from 'node:test';
 import { importPhotoCatalogArchiveV3 } from '../src/lightscaper/archive/catalog-archive-import-v3.ts';
 import { exportPhotoCatalogArchiveV1 } from '../src/lightscaper/archive/catalog-archive-export.ts';
 import { exportPhotoCatalogArchiveV2 } from '../src/lightscaper/archive/catalog-archive-export-v2.ts';
-import { createBlobScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createBlobScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { photoArchiveFixture } from './helpers/lightscaper-photo-fixture.ts';
 import { stackArchiveRoot, stackArchiveDestination } from './helpers/lightscaper-stack-archive-fixture.ts';
 import { editStackArchiveDocument as editDocument, rewriteStackArchive as rewrite, stackArchiveFailure as hasFailure,

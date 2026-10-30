@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { raceAbortableRead } from '../common/editor/abort-race.ts';
+import { raceAbortableRead } from '../common/foundation/abort-race.ts';
 import { createStableId } from '../common/editor/stable-id.js';
 import { sampleFrameToVideoFrame } from '../common/editor/timeline-time.ts';
 import {

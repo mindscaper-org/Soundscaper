@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../common/foundation/closed-domain-value.ts';
 import { normalizeImageDevelopStateThroughV4, type ImageDevelopStateThroughV4 } from '../../common/editor/imaging/image-develop-state-v4.ts';
 import { prepareImageDevelopMaskOverlaySelectionV1, type ImageDevelopMaskOverlaySelectionV1 } from '../../common/editor/imaging/image-develop-mask-overlay-v1.ts';
 import { withBrushMaskResourceV1 } from '../../common/editor/imaging/brush-mask-resource-v1.ts';

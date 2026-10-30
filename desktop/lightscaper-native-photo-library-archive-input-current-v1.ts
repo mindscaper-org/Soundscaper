@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { assertScapeArchiveByteSource, createScapeArchiveByteSource, createBlobScapeArchiveByteSource,
-	type ScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+	type ScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import type { ScapeProjectInput } from '../src/common/editor/scape-project-input.ts';
 import { checkLightscaperNativePhotoMediaSignalCurrentV1 as check } from './lightscaper-native-photo-media-lifetime-current-v1.ts';
 

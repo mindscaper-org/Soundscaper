@@ -4,7 +4,7 @@ import fc from 'fast-check';
 import { normalizeImageDevelopStateV3 } from '../../src/common/editor/imaging/image-develop-state-v3.ts';
 import type { ImageDevelopStateThroughV4 } from '../../src/common/editor/imaging/image-develop-state-v4.ts';
 import type { BrushMaskResourceReferenceV1 } from '../../src/common/editor/imaging/brush-mask-resource-v1.ts';
-import type { VideoCubeLutReferenceV1 } from '../../src/common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../../src/common/imaging/cube-lut-reference-contract.ts';
 import { createVideoEffectV2 } from '../../src/common/editor/video-effects-v2.ts';
 import { createPhotoLibrarySessionCurrentV1 } from '../../src/lightscaper/photo-library-session-runtime-current-v1.ts';
 import { PhotoCommandOwnerCurrentV1 } from '../../src/lightscaper/controller/photo-command-owner-current-v1.ts';

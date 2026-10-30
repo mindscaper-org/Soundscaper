@@ -1,14 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/editor/closed-domain-value.ts';
-import { normalizeVideoCubeLutReferenceV1, type VideoCubeLutReferenceV1 } from '../../../common/editor/cube-lut-reference-contract.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/foundation/closed-domain-value.ts';
+import { normalizeVideoCubeLutReferenceV1, type VideoCubeLutReferenceV1 } from '../../../common/imaging/cube-lut-reference-contract.ts';
 import { type BrushMaskResourceReferenceV1, withBrushMaskResourceV1 } from '../../../common/editor/imaging/brush-mask-resource-v1.ts';
 import { withCubeLutResourceV1 } from '../../../common/editor/imaging/cube-lut-resource-v1.ts';
 import type { CubeLutSourcePortV1 } from '../../../common/editor/imaging/cube-lut-source-port-v1.ts';
 import type { MaskRasterSourcePortV1 } from '../../../common/editor/imaging/mask-raster-source-port-v1.ts';
-import { restoreNormalizedScapeAbortReason } from '../../../common/editor/scape-abort.ts';
-import { readScapeArchiveEnvelope, type ScapeArchiveEnvelope, type ScapeAssetDescriptor } from '../../../common/editor/scape-archive-envelope.ts';
-import { verifyScapeAssetBytes } from '../../../common/editor/scape-archive-media.ts';
+import { restoreNormalizedScapeAbortReason } from '../../../common/scape/abort.ts';
+import { readScapeArchiveEnvelope, type ScapeArchiveEnvelope } from '../../../common/editor/scape-archive-envelope.ts';
+import { type ScapeAssetDescriptor } from '../../../common/scape/archive-envelope.ts';
+import { verifyScapeAssetBytes } from '../../../common/scape/asset-bytes.ts';
 import { loadScapeProjectDocument } from '../../../common/editor/scape-project-admission.ts';
 import { withScapeProjectInput } from '../../../common/editor/scape-project-input.ts';
 import { openFramescaperImageFramePackV1 } from '../../../common/editor/timeline-image-frame-pack-v1.ts';

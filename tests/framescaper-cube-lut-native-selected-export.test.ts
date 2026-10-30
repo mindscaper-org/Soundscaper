@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { liveFixture } from './helpers/framescaper-native-live-openfx-fixture.ts';
 import { createPinnedExportEncoderV1 } from './helpers/framescaper-pinned-export-encoder.ts';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { createVideoExactPictureExportFrameSource } from '../src/common/editor/video-keyframe-export-frame-source.ts';
 import { encodeVideoKeyframeVideo } from '../src/common/editor/video-keyframe-video-encoder.ts';
 import { cloneFramescaperProjectNativeMedia } from '../src/framescaper/editor-project-native-media.ts';

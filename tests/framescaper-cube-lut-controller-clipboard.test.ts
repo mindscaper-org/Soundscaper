@@ -15,7 +15,7 @@ import { prepareDuplicateSelectionCommand } from '../src/common/editor/controlle
 import { createFramescaperProjectStore } from '../src/framescaper/editor-project-store.ts';
 import { createVideoSource } from '../src/common/editor/project-media-factory.ts';
 import { createVideoTimingAssetPublication, validateVideoTimingAssetBytes } from '../src/common/editor/video-timing-asset.ts';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { COPY, createAudioEditorController, createMemoryEngine, createMemoryRenderEngine } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 

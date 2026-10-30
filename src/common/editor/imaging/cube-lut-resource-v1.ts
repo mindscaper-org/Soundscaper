@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
-import {
-	parseCubeLutV1, requireCubeLutBody, VIDEO_COLOR_LIMITS_V1,
-	type ParsedCubeLutV1, type VideoCubeLutReferenceV1,
-} from '../video-color-cube-lut-v27.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
+import { parseCubeLutV1, requireCubeLutBody, type ParsedCubeLutV1 } from '../../imaging/cube-lut-v1.ts';
+import { VIDEO_COLOR_LIMITS_V1, type VideoCubeLutReferenceV1 } from '../../imaging/cube-lut-reference-contract.ts';
 import { normalizeVideoColorGradeV1 } from '../video-color-management-v27.ts';
 
 export interface CubeLutResourceRequestV1 {

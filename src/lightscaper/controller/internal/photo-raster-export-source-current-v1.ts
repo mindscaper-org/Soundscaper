@@ -3,7 +3,7 @@
 import type { ImageDevelopStateThroughV4 } from '../../../common/editor/imaging/image-develop-state-v4.ts';
 import type { PhotoLibraryDevelopOriginalPortV1 } from '../../../common/editor/photo-library-develop-original-port-v1.ts';
 import type { PhotoLibraryDevelopOriginalPortCurrentV1 } from '../../../common/editor/photo-library-develop-original-current-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/foundation/closed-domain-value.ts';
 import { prepareImageDevelopRawSourceCurrentV1 } from '../../../common/editor/imaging/image-develop-raw-source-current-v1.ts';
 import type { PixelFrameV1 } from '../../../common/editor/imaging/pixel-frame-contract-v1.ts';
 

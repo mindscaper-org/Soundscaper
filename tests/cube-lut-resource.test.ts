@@ -4,10 +4,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { withCubeLutResourceV1 } from '../src/common/editor/imaging/cube-lut-resource-v1.ts';
-import {
-	parseCubeLutV1, requireCubeLutBody, sampleCubeLut, VIDEO_COLOR_LIMITS_V1,
-	type VideoCubeLutReferenceV1,
-} from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1, requireCubeLutBody, sampleCubeLut } from '../src/common/imaging/cube-lut-v1.ts';
+import { VIDEO_COLOR_LIMITS_V1, type VideoCubeLutReferenceV1 } from '../src/common/imaging/cube-lut-reference-contract.ts';
 
 const TEXT = ['TITLE "Borrowed # cube"', 'LUT_3D_SIZE 2',
 	'0 0 0', '1 0 0', '0 1 0', '1 1 0', '0 0 1', '1 0 1', '0 1 1', '1 1 1'].join('\n');

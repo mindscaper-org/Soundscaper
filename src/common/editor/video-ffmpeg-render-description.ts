@@ -3,7 +3,7 @@
 import {
 	readClosedDomainArray,
 	readClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 import {
 	assertNearly,
 	boundedSafeInteger,

@@ -5,7 +5,7 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from '../../common/editor/closed-domain-value.ts';
+} from '../../common/foundation/closed-domain-value.ts';
 
 export { readClosedDomainRecord as record, array };
 

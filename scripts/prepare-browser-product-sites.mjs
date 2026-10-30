@@ -13,6 +13,8 @@ import {
 // becomes a browser-test server root.
 void verifyBrowserProductSite;
 
+// Module checks may request one product; the default plan still authenticates
+// both ordinary CI products before either preview starts.
 await prepareOrdinaryBrowserProductSites(ordinaryBrowserProductSitePlan(), {
 	reusePrepared: process.env.SCAPE_BROWSER_PRODUCTS_PREPARED === '1',
 });

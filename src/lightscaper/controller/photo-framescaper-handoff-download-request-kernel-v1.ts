@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../common/foundation/closed-domain-value.ts';
 import type { PhotoLibraryImageHandoffPortV1 } from '../../common/editor/photo-library-image-handoff-port-v1.ts';
 import type { PhotoLibraryImageHandoffPortV2 } from '../../common/editor/photo-library-image-handoff-port-v2.ts';
 import type { PhotoFramescaperHandoffDownloadRequest, PhotoFramescaperHandoffTarget, BuildPhotoFramescaperHandoffArchive } from './photo-framescaper-handoff-download.ts';

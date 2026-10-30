@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { defaultImageDevelopStateV2 } from '../../src/common/editor/imaging/image-develop-state-v2.ts';
-import type { VideoCubeLutReferenceV1 } from '../../src/common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../../src/common/imaging/cube-lut-reference-contract.ts';
 import type { StorageRecord } from '../../src/common/editor/storage/media-records.ts';
 import { defaultPhotoDevelopV1 } from '../../src/lightscaper/catalog/develop-state.ts';
 import { emptyPhotoMetadataV1 } from '../../src/lightscaper/catalog/photo-metadata.ts';

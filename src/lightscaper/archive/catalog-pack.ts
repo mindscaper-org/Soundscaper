@@ -2,8 +2,8 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField, readClosedDomainRecord } from '../../common/editor/closed-domain-value.ts';
-import { canonicalMediaContentBlob } from '../../common/editor/storage/media-content-digest.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../common/foundation/closed-domain-value.ts';
+import { canonicalMediaContentBlob } from '../../common/media/content-digest.ts';
 import { parseLightscaperDocumentV1, serializeLightscaperDocumentV1 } from '../catalog/documents.ts';
 import { normalizePhotoDocumentV1 } from '../catalog/photo-document.ts';
 import { LIGHTSCAPER_CATALOG_LIMITS, type PhotoDocumentV1 } from '../catalog/types.ts';

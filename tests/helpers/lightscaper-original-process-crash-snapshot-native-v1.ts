@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../src/common/media/indexeddb.ts';
 import { mediaAssetMetadata, type StorageRecord } from '../../src/common/editor/storage/media-records.ts';
 import { normalizeCatalogOriginalRoot } from '../../src/common/editor/storage/media-catalog-original-schema.ts';
 import { normalizePhotoDocumentV1OrV2 } from '../../src/lightscaper/catalog/photo-document-v2.ts';

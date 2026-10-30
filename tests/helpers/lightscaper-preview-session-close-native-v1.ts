@@ -2,7 +2,8 @@
 
 import { binaryDerivativeManifestV1, normalizeBinaryDerivativeCacheIdentityV1, readBinaryDerivativeCacheRecordV1,
 	type BinaryDerivativeCacheRecordV1 } from '../../src/common/editor/storage/binary-derivative-cache-records.ts';
-import { openDatabase, request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../src/common/media/indexeddb.ts';
 import { OpfsRepository, type OpfsBinaryWriter } from '../../src/common/editor/storage/opfs-repository.ts';
 import { OpfsSyncRepositoryBridge } from '../../src/common/editor/storage/opfs-sync-repository-bridge.ts';
 import { PhotoCatalogRepositoryV2 } from '../../src/lightscaper/catalog/photo-catalog-repository-v2.ts';

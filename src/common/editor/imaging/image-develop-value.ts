@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, type ClosedDomainRecord } from '../closed-domain-value.ts';
-export { readClosedDomainRecord as record, readClosedDomainArray as array } from '../closed-domain-value.ts';
+import { readClosedDomainField, type ClosedDomainRecord } from '../../foundation/closed-domain-value.ts';
+export { readClosedDomainRecord as record, readClosedDomainArray as array } from '../../foundation/closed-domain-value.ts';
 
 export function field(value: ClosedDomainRecord, key: string): unknown {
 	return readClosedDomainField(value, key, 'image Develop');

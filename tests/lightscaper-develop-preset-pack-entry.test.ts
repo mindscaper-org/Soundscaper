@@ -3,8 +3,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { digestScapeBytes } from '../src/common/editor/scape-byte-stream.ts';
-import { ScapeExpandedByteBudget } from '../src/common/editor/scape-expanded-byte-budget.ts';
-import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../src/common/editor/scape-archive-envelope.ts';
+import { ScapeExpandedByteBudget } from '../src/common/scape/expanded-byte-budget.ts';
+import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../src/common/scape/archive-envelope.ts';
 import { readPhotoDevelopPresetPackEntryV1 } from '../src/lightscaper/archive/develop-preset-pack-entry-v1.ts';
 
 const row = { schemaVersion: 1, kind: 'photo-develop-presets', catalogId: 'catalog', revision: 91, presets: [] };

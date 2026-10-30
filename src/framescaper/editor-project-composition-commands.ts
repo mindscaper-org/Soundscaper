@@ -16,7 +16,7 @@ import {
 	readClosedDomainArray,
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from '../common/editor/closed-domain-value.ts';
+} from '../common/foundation/closed-domain-value.ts';
 import { AUDIO_EDITOR_PROJECT_VALIDATION_HARD_LIMITS } from '../common/editor/project-validation-budget.ts';
 import type { EditorProjectRuntimeProfile } from '../common/editor/project-runtime-profile.ts';
 import {

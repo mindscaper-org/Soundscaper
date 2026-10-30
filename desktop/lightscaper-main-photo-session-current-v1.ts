@@ -12,7 +12,7 @@ import type { PhotoLibraryRestoreReceiptV1 } from '../src/common/editor/photo-li
 import { LightscaperNativePhotoSessionRetirementCurrentV1 as Retirement } from './lightscaper-native-photo-session-retirement-current-v1.ts';
 import { DESKTOP_PHOTO_LIBRARY_SESSION_CHANNELS_CURRENT_V1 as CHANNELS } from '../src/lightscaper/desktop-photo-library-session-protocol-current-v1.ts';
 import { DESKTOP_PHOTO_SESSION_CONTROL_CHANNELS_CURRENT_V1 as CONTROL, captureDesktopPhotoSessionFailureCurrentV1 as failure } from '../src/lightscaper/desktop-photo-session-response-current-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import { name } from '../src/lightscaper/catalog/value-validation.ts';
 
 interface Contents {

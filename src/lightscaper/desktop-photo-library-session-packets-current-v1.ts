@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 import { id } from './catalog/value-validation.ts';
 import { DESKTOP_PHOTO_LIBRARY_SESSION_CHANNELS_CURRENT_V1 as channels } from './desktop-photo-library-session-protocol-current-v1.ts';
 import { admitDesktopPhotoSessionDomainsCurrentV1 } from './desktop-photo-library-session-packet-domains-current-v1.ts';

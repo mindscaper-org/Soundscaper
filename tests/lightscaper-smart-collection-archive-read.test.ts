@@ -9,7 +9,7 @@ import { photoSmartCollectionRecordV1 } from '../src/lightscaper/catalog/photo-s
 import { photoSmartCollectionSummaryRecordV1 } from '../src/lightscaper/catalog/photo-smart-collection-storage-v1.ts';
 import { indexState } from '../src/lightscaper/catalog/repository-records.ts';
 import { catalogTransaction } from '../src/lightscaper/catalog/catalog-transaction.ts';
-import { request } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request } from '../src/common/media/indexeddb.ts';
 import { AUDIT_DATABASE as DB, auditDefinitionV1 as definition, auditMaximumRootV1, auditStateV1 as state,
 	smartCollectionAuditFixtureV1 as fixture } from './helpers/lightscaper-smart-collection-audit-fixture.ts';
 

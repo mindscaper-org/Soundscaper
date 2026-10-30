@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord as record } from '../../closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../foundation/closed-domain-value.ts';
 import { errorDiagnosticMessage } from '../../error-diagnostic-message.ts';
 import type { PhotoLibraryOriginalBodyInspectionV1, PhotoLibraryOriginalInspectionPageV1,
 	PhotoLibraryOriginalRecoveryPortV1, PhotoLibraryOriginalRestoreTargetV1,

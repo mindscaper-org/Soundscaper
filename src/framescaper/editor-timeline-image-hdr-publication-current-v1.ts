@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 import { captureRepairSignalV1, checkRepairSignalV1, withRepairPixelFrameLifetimeV1 } from '../common/editor/imaging/pixel-frame-repair-lifetime-v1.ts';
 import { prepareFramescaperHdrImageOriginalCurrentV1 } from '../common/editor/timeline-image-model-hdr-current-v1.ts';
 import type { OwnedMediaAssetWriter, OwnedMediaAssetPublication, MediaAssetWriteOptions } from '../common/editor/storage/media-asset-write-contract.ts';

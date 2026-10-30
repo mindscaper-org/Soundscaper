@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import {DesktopPhotoSessionClientCallsCurrentV1 as Calls,desktopPhotoSignalCurrentV1 as signal,desktopPhotoVoidCurrentV1 as empty,desktopPhotoBooleanCurrentV1 as boolean} from './desktop-photo-library-session-client-calls-current-v1.ts';
-import {readClosedDomainRecord as record,readClosedDomainField as field} from '../common/editor/closed-domain-value.ts';
+import {readClosedDomainRecord as record,readClosedDomainField as field} from '../common/foundation/closed-domain-value.ts';
 import {id,integer} from './catalog/value-validation.ts';
 import {readDesktopPhotoLibrarySessionHandleCurrentV1 as handle} from './desktop-photo-library-session-protocol-current-v1.ts';
 import {readDesktopPhotoLinkedGrantCurrentV1 as grant,readDesktopPhotoLinkedGrantsCurrentV1 as grants,readDesktopPhotoLinkedPageCurrentV1 as page} from './desktop-photo-linked-replies-current-v1.ts';

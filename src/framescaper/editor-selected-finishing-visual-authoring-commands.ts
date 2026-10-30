@@ -12,7 +12,7 @@ import {
 import { fingerprintNativeMediaPlan } from '../common/editor/native-media-plan-canonical-form.ts';
 import { createStableId } from '../common/editor/stable-id.js';
 import { createSelectedGeneratorSourceCommands } from '../common/editor/selected-generator-source-command.ts';
-import { digestMediaContent } from '../common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../common/media/content-digest.ts';
 import type { AudioEditorProjectStore } from '../common/editor/storage.js';
 import { videoFrameToSampleFrame } from '../common/editor/timeline-time.ts';
 import { sequenceFrameAtSample } from '../common/editor/sequence-frame-navigation.ts';

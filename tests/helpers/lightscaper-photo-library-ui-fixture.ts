@@ -2,7 +2,7 @@
 
 import { PhotoMediaStoreV1 } from '../../src/lightscaper/storage/photo-media-store.ts';
 import { PhotoCatalogRepositoryV1 } from '../../src/lightscaper/catalog/repository.ts';
-import { readClosedDomainField, readClosedDomainRecord } from '../../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../src/common/foundation/closed-domain-value.ts';
 import { PHOTO_LIBRARY_CATALOG_POINTER_KEY_V1 } from '../../src/lightscaper/storage/photo-library-catalog-pointer.ts';
 
 /** Read a bounded selection through the same production owners after a UI action. */

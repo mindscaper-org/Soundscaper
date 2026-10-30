@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { request } from './indexeddb-backend.ts';
+import { request } from '../../media/indexeddb.ts';
 import { MEDIA_ASSET_CHUNK_STORAGE_TYPE } from './media-asset-chunk-schema.ts';
-import { MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from './media-content-digest.ts';
+import { MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../../media/content-digest.ts';
 import { trustedMediaContentSha256 } from './media-content-provenance.ts';
 import type { StorageRecord } from './media-records.ts';
 import {

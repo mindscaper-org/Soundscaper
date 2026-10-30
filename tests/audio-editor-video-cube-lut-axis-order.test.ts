@@ -6,7 +6,7 @@ import test from 'node:test';
 import {
 	parseCubeLutV1,
 	sampleCubeLut,
-} from '../src/common/editor/video-color-cube-lut-v27.ts';
+} from '../src/common/imaging/cube-lut-v1.ts';
 import {
 	applyManagedSdrGradePixelV1,
 	defaultVideoSourceColorInterpretationV1,

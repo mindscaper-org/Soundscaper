@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 import { normalizeFramescaperImageSourceV1, FRAMESCAPER_IMAGE_MODEL_LIMITS_V1 as LIMITS, type FramescaperImageSourceV1 } from './timeline-image-model.ts';
 import { normalizeFramescaperHdrOriginalReceiptV1, type FramescaperHdrOriginalReceiptV1 } from './timeline-image-hdr-receipt-v1.ts';
 import { normalizeImageDevelopStateThroughV4, type ImageDevelopStateThroughV4 } from './imaging/image-develop-state-v4.ts';

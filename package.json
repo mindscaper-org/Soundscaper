@@ -56,7 +56,7 @@
 		"typecheck:products": "node scripts/check-product-compositions.mjs",
 		"typecheck:tests": "tsc -p tsconfig.tests.json && tsc -p tsconfig.tooling.json",
 		"typecheck:javascript": "node scripts/check-checked-javascript.mjs && tsc -p tsconfig.javascript.json",
-		"check:architecture": "dependency-cruiser src desktop native && node scripts/check-controller-domains.mjs && node scripts/check-file-size.mjs",
+		"check:architecture": "dependency-cruiser src desktop native && node scripts/check-controller-domains.mjs && node scripts/check-file-size.mjs && npm run check:modules",
 		"check:controller-domains:tighten": "node scripts/check-controller-domains.mjs --tighten",
 		"check:size:tighten": "node scripts/check-file-size.mjs --tighten",
 		"check:startup-graph:tighten": "node scripts/tighten-startup-graph.mjs",
@@ -101,9 +101,9 @@
 		"build:browser:lightscaper": "node scripts/build-browser-product-site.mjs lightscaper",
 		"prepare:browser:products": "node scripts/prepare-browser-product-sites.mjs",
 		"pretest:browser": "npm run build && npm run build:browser:framescaper && npm run build:browser:lightscaper && npm run prepare:browser:products",
-		"test:browser": "playwright test",
+		"test:browser": "node --import tsx scripts/run-module-browser-tests.ts",
 		"pretest:browser:built": "npm run prepare:browser:products",
-		"test:browser:built": "playwright test",
+		"test:browser:built": "node --import tsx scripts/run-module-browser-tests.ts",
 		"pretest:browser:dual-origin": "node scripts/build-dual-origin-browser-sites.mjs",
 		"test:browser:dual-origin": "playwright test --config playwright.dual-origin.config.mjs",
 		"test:desktop": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test tests/desktop-*.test.js tests/desktop-*.test.ts tests/audio-editor-file-service.test.js",
@@ -180,7 +180,10 @@
 		"build:pages": "npm run build && npm run docs:check && node scripts/stage-handbook-build.mjs && node scripts/check-cloudflare-assets.mjs && node scripts/preflight-pages-deploy.mjs",
 		"verify:pages": "node scripts/verify-pages-deploy.mjs",
 		"deploy": "npm run build:pages && wrangler pages deploy dist --project-name soundscaper",
-		"deploy:runtime": "node scripts/configure-ffmpeg-runtime-cache.mjs && node scripts/publish-runtime-assets.mjs"
+		"deploy:runtime": "node scripts/configure-ffmpeg-runtime-cache.mjs && node scripts/publish-runtime-assets.mjs",
+		"check:modules": "node --import tsx scripts/check-module-boundaries.ts",
+		"check:module": "node --import tsx scripts/check-modules.ts --module",
+		"check:affected": "node --import tsx scripts/check-modules.ts"
 	},
 	"dependencies": {
 		"@echogarden/pffft-wasm": "0.4.2",

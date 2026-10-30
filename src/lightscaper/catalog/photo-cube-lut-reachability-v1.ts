@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { normalizeImageDevelopPresetV1OrV2 } from '../../common/editor/imaging/image-develop-preset-v2.ts';
-import type { VideoCubeLutReferenceV1 } from '../../common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../../common/imaging/cube-lut-reference-contract.ts';
 import { normalizePhotoDocumentV1OrV2 } from './photo-document-v2.ts';
 import { createPhotoCubeLutClosureV1, PHOTO_CUBE_LUT_CLOSURE_LIMITS_V1, type PhotoCubeLutClosureV1 } from './photo-cube-lut-closure-v1.ts';
 

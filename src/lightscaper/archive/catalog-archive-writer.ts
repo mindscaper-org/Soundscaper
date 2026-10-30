@@ -2,9 +2,10 @@
 
 import { ZipWriter } from '@zip.js/zip.js/index-native.js';
 import { ownPhotoCatalogArchiveByteStreamCurrentV1 } from './catalog-archive-byte-stream-current-v1.ts';
-import { aggregateScapeErrors } from '../../common/editor/scape-abort.ts';
+import { aggregateScapeErrors } from '../../common/scape/abort.ts';
 import { SCAPE_ARCHIVE_LIMITS, SCAPE_FORMAT, SCAPE_FORMAT_VERSION } from '../../common/editor/scape-archive-limits.ts';
-import type { ScapeAssetDescriptor, ScapeManifest } from '../../common/editor/scape-archive-envelope.ts';
+import type { ScapeAssetDescriptor } from '../../common/scape/archive-envelope.ts';
+import type { ScapeManifest } from '../../common/editor/scape-archive-envelope.ts';
 import { createScapeDigest, digestScapeBytes, scapeBytesStream, scapeHex } from '../../common/editor/scape-byte-stream.ts';
 import { createScapeExportDestination } from '../../common/editor/scape-export-destination.ts';
 import { SCAPE_WEB_CORE_BLOB_MAXIMUM_BYTES } from '../../common/editor/scape-blob-budget.ts';

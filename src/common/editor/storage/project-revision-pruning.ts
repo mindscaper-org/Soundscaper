@@ -2,7 +2,7 @@
 
 /** Shared bounded revision-history maintenance for every project publication path. */
 
-import { request, transact } from './indexeddb-backend.ts';
+import { request, transact } from '../../media/indexeddb.ts';
 import {
 	asRecord,
 	asRevision,

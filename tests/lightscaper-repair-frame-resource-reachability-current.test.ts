@@ -7,7 +7,7 @@ import { normalizeImageDevelopStateCurrentV1 } from '../src/common/editor/imagin
 import { replaceImageDevelopRepairSpotsV1 } from '../src/common/editor/imaging/image-develop-repair-commands-v1.ts';
 import { createImageDevelopResourceReachabilityCurrentV1 } from '../src/common/editor/imaging/image-develop-resource-reachability-current-v1.ts';
 import type { BrushMaskResourceReferenceV1 } from '../src/common/editor/imaging/brush-mask-resource-v1.ts';
-import type { VideoCubeLutReferenceV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../src/common/imaging/cube-lut-reference-contract.ts';
 
 // Root qualified these scalar controls through the actual product collector
 // before the shared successor supplied genuine finished-packet merge.

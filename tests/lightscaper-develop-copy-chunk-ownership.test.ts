@@ -27,8 +27,8 @@ const VISUAL = 'src/common/i18n/video-effect-copy.js';
 const GERMAN_VISUAL = 'src/common/i18n/lightscaper-develop-shared-effect-copy.ts';
 const COPY_MODULES = [...sourceModules(resolve(ROOT, 'src/common/i18n')), resolve(ROOT, HOOK)];
 const TRANSFER = 'src/common/editor/platform/bounded-transfer.ts';
-const CURRENT_IMAGE_LEAVES = ['video-effects-v2.ts', 'video-color-cube-lut-v27.ts',
-	'video-color-management-v27.ts', 'video-color-byte-encoding.ts', 'video-color-grade-channels.ts'].map(name => `src/common/editor/${name}`);
+const CURRENT_IMAGE_LEAVES = ['src/common/editor/video-effects-v2.ts', 'src/common/imaging/cube-lut-v1.ts',
+	'src/common/editor/video-color-management-v27.ts', 'src/common/editor/video-color-byte-encoding.ts', 'src/common/imaging/linear-color-grade.ts'];
 const CURRENT_PACK_TAGS = ['scape-photo-catalog-pack-v2.ts', 'scape-photo-catalog-pack-v3.ts', 'scape-photo-catalog-pack-v4.ts', 'scape-photo-cube-lut.ts'].map(name => `src/common/editor/${name}`);
 const PHOTO_OWNERS = new Set(['editor-neutral-foundations', 'editor-photo-library-scalars', 'editor-imaging',
 	'editor-media-storage-contracts', 'editor-media-custody-storage',
@@ -155,7 +155,7 @@ test('shared current transfer and image leaves have neutral owners without timel
 			assert.ok(PHOTO_OWNERS.has(chunkGroupForModulePath(target) ?? ''), `${path} imports ${specifier}`);
 		}
 	}
-	const channels = runtimeSource(resolve(ROOT, 'src/common/editor/video-color-grade-channels.ts'));
+	const channels = runtimeSource(resolve(ROOT, 'src/common/imaging/linear-color-grade.ts'));
 	assert.deepEqual(staticRelativeDependencies(channels), [], 'Channel arithmetic retains no runtime timeline or grade-model dependency.');
 	for (const name of ['video-effects-v3.ts', 'video-color-management-v28.ts', 'video-color-cube-lut-v28.ts',
 		'video-color-grade-channels-future.ts', 'internal/video-color-grade-channels.ts', 'video-clip-composition.ts']) {
@@ -165,11 +165,11 @@ test('shared current transfer and image leaves have neutral owners without timel
 
 // These are generic pixel/frame mask evaluators, not project/timeline owners.
 const MASK_PROCESSING_DEPENDENCIES = {
-	'video-mask-luminance-range-v1.ts': ['./closed-domain-value.ts', './imaging/pixel-frame-contract-v1.ts'],
+	'video-mask-luminance-range-v1.ts': ['../foundation/closed-domain-value.ts', './imaging/pixel-frame-contract-v1.ts'],
 	'video-mask-color-range-v1.ts': [],
-	'video-mask-matte-graph-work-v1.ts': ['./video-mask-matte-v24.ts', './video-mask-path-raster.ts'],
-	'video-mask-path-raster.ts': [],
-	'video-mask-matte-rgba-v13.ts': ['./closed-domain-value.ts', './video-mask-matte-v24.ts', './video-mask-luminance-range-v1.ts',
+	'video-mask-matte-graph-work-v1.ts': ['./video-mask-matte-v24.ts', '../imaging/mask-path-raster.ts'],
+	'../imaging/mask-path-raster.ts': [],
+	'video-mask-matte-rgba-v13.ts': ['../foundation/closed-domain-value.ts', './video-mask-matte-v24.ts', './video-mask-luminance-range-v1.ts',
 		'./video-mask-color-range-v1.ts', './video-mask-matte-graph-work-v1.ts', './imaging/image-develop-brush-mask-v1.ts', './imaging/mask-raster-source-scope-v1.ts'],
 } as const;
 void test('the finite generic mask pixel closure keeps exact imaging ownership and closed runtime dependencies', () => {
@@ -177,10 +177,10 @@ void test('the finite generic mask pixel closure keeps exact imaging ownership a
 	assert.equal(group.priority, 66); assert.equal(group.minSize, 0); assert.equal(group.maxSize, 400_000);
 	assert.equal(group.includeDependenciesRecursively, false);
 	for (const [leaf, dependencies] of Object.entries(MASK_PROCESSING_DEPENDENCIES)) {
-		const path = `src/common/editor/${leaf}`;
+		const path = relative(ROOT, resolve(ROOT, 'src/common/editor', leaf)).split(sep).join('/');
 		for (const separator of ['/', '\\']) {
 			assert.equal(chunkGroupForModulePath(path.replaceAll('/', separator)), 'editor-imaging', path);
-			for (const impostor of [path + '.foreign', path.replace(/(?:-v[0-9]+)?\.ts$/u, '-v999.ts'), path.replace('editor/', 'editor/internal/')]) {
+			for (const impostor of [path + '.foreign', path.replace(/(?:-v[0-9]+)?\.ts$/u, '-v999.ts'), path.replace(/\/([^/]+)$/u, '/internal/$1')]) {
 				assert.notEqual(chunkGroupForModulePath(impostor.replaceAll('/', separator)), 'editor-imaging', impostor);
 			}
 		}
@@ -189,7 +189,7 @@ void test('the finite generic mask pixel closure keeps exact imaging ownership a
 		assert.deepEqual(dynamicRelativeImports(source), [], path);
 		for (const specifier of dependencies) {
 			const target = resolveRelativeModule(resolve(ROOT, path), specifier); assert.ok(target, specifier);
-			assert.equal(chunkGroupForModulePath(target), specifier === './closed-domain-value.ts' ? 'editor-neutral-foundations' : 'editor-imaging', specifier);
+			assert.equal(chunkGroupForModulePath(target), specifier === '../foundation/closed-domain-value.ts' ? 'editor-neutral-foundations' : 'editor-imaging', specifier);
 		}
 	}
 	for (const leaf of ['video-mask-matte-ffmpeg-v1.ts', 'video-mask-luminance-range-v2.ts', 'video-mask-color-range-v2.ts', 'video-mask-project-v1.ts', 'video-mask-path-raster-v2.ts']) {
@@ -283,7 +283,7 @@ void test('Photo cold byte planning pays only exact scalar ports and archive val
 	}
 	const core = runtimeSource(resolve(ROOT, 'src/common/editor/scape-durable-asset-plan-core-v1.ts'));
 	assert.deepEqual([...staticRelativeDependencies(core)].sort(), [
-		'./controller/shared/file-size-warning.ts', './scape-abort.ts', './scape-byte-stream.ts', './storage/media-content-digest.ts',
+		'./controller/shared/file-size-warning.ts', '../scape/abort.ts', './scape-byte-stream.ts', '../media/content-digest.ts',
 		'./video-color-management-v27.ts', './video-motion-analysis-body-v1.ts', './video-motion-model-v27.ts', './video-timing-asset-reference.ts',
 	].sort());
 	const body = runtimeSource(resolve(ROOT, 'src/common/editor/video-motion-analysis-body-v1.ts'));

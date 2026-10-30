@@ -2,7 +2,7 @@
 
 import { isAbsolute, join, resolve } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
-import { readClosedDomainField, readClosedDomainRecord } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
 import { initializeLightscaperNativePhotoMediaDatabaseCurrentV1 } from './lightscaper-native-photo-media-schema-current-v1.ts';
 import { LIGHTSCAPER_NATIVE_ORIGINAL_MAXIMUM_BYTES_CURRENT_V1,
 	readLightscaperNativeOriginalCurrentV1, readLightscaperNativeOriginalStorageKeyCurrentV1,

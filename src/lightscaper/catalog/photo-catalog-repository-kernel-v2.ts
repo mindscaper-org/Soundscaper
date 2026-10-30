@@ -6,7 +6,7 @@ import { admitPhotoSmartCollectionSnapshotRequestV1, readPhotoSmartCollectionSna
 import { admitPhotoSmartCollectionArchiveContextRequestV1, readPhotoSmartCollectionArchiveContextV1 } from './photo-smart-collection-archive-context-v1.ts';
 import { capturePhotoSmartCollectionArchiveV1 } from './photo-smart-collection-archive-capture-v1.ts';
 import { capturePhotoDerivedPublicationGuardCurrentV1, type PhotoDerivedPublicationSelectionCurrentV1 } from './photo-derived-publication-current-v1.ts';
-import { request } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request } from '../../common/media/indexeddb.ts';
 import { openPhotoCatalogDatabaseV1 } from './catalog-database.ts';
 import { assertNotAborted, catalogTransaction } from './catalog-transaction.ts';
 import { validateLightscaperDocumentV1 } from './documents.ts';

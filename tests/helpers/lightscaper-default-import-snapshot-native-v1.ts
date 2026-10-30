@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { openDatabase, request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../src/common/media/indexeddb.ts';
 import { normalizeCatalogOriginalRoot, type CatalogOriginalReferenceV1 } from '../../src/common/editor/storage/media-catalog-original-schema.ts';
 import type { StorageRecord } from '../../src/common/editor/storage/media-records.ts';
-import type { VideoCubeLutReferenceV1 } from '../../src/common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../../src/common/imaging/cube-lut-reference-contract.ts';
 import { openPhotoCatalogDatabaseV1 } from '../../src/lightscaper/catalog/catalog-database.ts';
 import { normalizePhotoDocumentV1OrV2 } from '../../src/lightscaper/catalog/photo-document-v2.ts';
 import { readStoredPhotoV1OrV2 } from '../../src/lightscaper/catalog/photo-catalog-records-v2.ts';

@@ -3,7 +3,7 @@
 import type { PhotoLibraryDevelopProxyRuntimeV3 } from '../common/editor/photo-library-develop-proxy-port-v3.ts';
 import { PHOTO_DEVELOP_LINEAR_LIMITS_V1, type PhotoLibraryDevelopLinearRuntimeV1 } from '../common/editor/photo-library-develop-linear-port-v1.ts';
 import { withImageDevelopLinearFrameV1 } from '../common/editor/imaging/image-develop-linear-frame-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 import { PHOTO_DEVELOP_FULL_RESOLUTION_LIMITS_V1 } from '../common/editor/photo-library-develop-full-resolution-port-v1.ts';
 import { readPixelFrameV1 } from '../common/editor/imaging/pixel-frame-contract-v1.ts';
 import { withPhotoDevelopFullResolutionFrameV3, withPhotoDevelopProxyFrameV3, type PhotoDevelopFrameOptionsV3 } from './controller/photo-develop-frame-v3.ts';

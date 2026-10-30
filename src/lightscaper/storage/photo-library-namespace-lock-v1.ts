@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainArray } from '../../common/foundation/closed-domain-value.ts';
 import { id } from '../catalog/value-validation.ts';
 
 export interface PhotoLibraryWriteAuthorityV1 {

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import {randomBytes} from 'node:crypto';
-import {readClosedDomainRecord as record,readClosedDomainField as field} from '../src/common/editor/closed-domain-value.ts';
+import {readClosedDomainRecord as record,readClosedDomainField as field} from '../src/common/foundation/closed-domain-value.ts';
 import {id,name} from '../src/lightscaper/catalog/value-validation.ts';
 import {normalizePhotoDocumentCurrentV1 as photo,type PhotoDocumentCurrentV1} from '../src/lightscaper/catalog/photo-document-current-v1.ts';
 import {readDesktopPhotoLinkedPacketCurrentV1 as packet} from '../src/lightscaper/desktop-photo-linked-contract-current-v1.ts';

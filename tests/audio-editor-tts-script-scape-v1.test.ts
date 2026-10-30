@@ -10,7 +10,7 @@ import { ASSISTANCE_TTS_SCRIPT_SCAPE_ENCODING_V1, ASSISTANCE_TTS_SCRIPT_SCAPE_KI
 import { createAudioSource } from '../src/common/editor/project-media-factory.ts';
 import { collectProjectSourceIds, collectProjectStorageKeys } from
 	'../src/common/editor/retention.js';
-import { canonicalMediaContentBlob } from '../src/common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../src/common/media/content-digest.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE } from
 	'../src/framescaper/editor-project-runtime-profile.ts';
 import { createFramescaperProject } from '../src/framescaper/editor-project.ts';

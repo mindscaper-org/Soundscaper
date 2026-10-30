@@ -2,9 +2,9 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ScapeExpandedByteBudget } from '../src/common/editor/scape-expanded-byte-budget.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
-import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../src/common/editor/scape-archive-envelope.ts';
+import { ScapeExpandedByteBudget } from '../src/common/scape/expanded-byte-budget.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
+import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../src/common/scape/archive-envelope.ts';
 import { encodePhotoCatalogPackV1, PHOTO_CATALOG_PACK_LIMITS_V1 } from '../src/lightscaper/archive/catalog-pack.ts';
 import { readPhotoCatalogPackEntryV1 } from '../src/lightscaper/archive/catalog-pack-entry.ts';
 import { photoArchiveFixture } from './helpers/lightscaper-photo-fixture.ts';

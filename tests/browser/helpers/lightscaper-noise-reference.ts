@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../src/common/foundation/closed-domain-value.ts';
 import type { VideoEffectProject } from '../../../src/common/editor/controller/clip-video/video-effect-service.ts';
 import { normalizeNoiseReductionEffectV1 } from '../../../src/common/editor/video-noise-reduction-v1.ts';
 import { createVideoEffect } from '../../../src/common/editor/video-effects.js';

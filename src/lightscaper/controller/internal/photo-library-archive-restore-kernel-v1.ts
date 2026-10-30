@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { PhotoLibraryRestoreReceiptV1 } from '../../../common/editor/photo-library-restore-port-v1.ts';
-import { readClosedDomainField, readClosedDomainRecord } from '../../../common/editor/closed-domain-value.ts';
-import { aggregateScapeErrors } from '../../../common/editor/scape-abort.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../../common/foundation/closed-domain-value.ts';
+import { aggregateScapeErrors } from '../../../common/scape/abort.ts';
 import type { ScapeProjectInput, ScapeProjectInputReaderFactories } from '../../../common/editor/scape-project-input.ts';
 import { importPhotoCatalogArchiveV7 } from '../../archive/catalog-archive-import-v7.ts';
 import { importPhotoCatalogArchiveV8 } from '../../archive/catalog-archive-import-v8.ts';

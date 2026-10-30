@@ -4,7 +4,7 @@ import type { ImageDevelopStateV1 } from './image-develop-contract-v1.ts';
 import { normalizeImageDevelopStateV1 } from './image-develop-state-v1.ts';
 import { normalizeImageDevelopStateV2, type ImageDevelopStateV2 } from './image-develop-state-v2.ts';
 import { normalizeImageDevelopStateV3, type ImageDevelopStateV3 } from './image-develop-state-v3.ts';
-import { readClosedDomainField, type ClosedDomainRecord } from '../closed-domain-value.ts';
+import { readClosedDomainField, type ClosedDomainRecord } from '../../foundation/closed-domain-value.ts';
 
 export type ImageDevelopStateCurrentV1 = ImageDevelopStateV1 | ImageDevelopStateV2 | ImageDevelopStateV3;
 

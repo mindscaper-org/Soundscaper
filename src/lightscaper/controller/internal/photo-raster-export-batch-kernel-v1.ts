@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/editor/closed-domain-value.ts';
+import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/foundation/closed-domain-value.ts';
 import { formatImageExportFilenameV1 } from '../../../common/editor/image-export-filename-v1.ts';
 import { capturePhotoRasterExportOutput, type PhotoRasterExportProfileV1 } from '../photo-raster-export-contract-v1.ts';
 import { capturePhotoRasterExportOutputCurrentV1 } from '../photo-raster-export-output-current-v1.ts';

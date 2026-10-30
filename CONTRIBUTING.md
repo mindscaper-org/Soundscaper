@@ -14,16 +14,34 @@ guardrails, reproducibility/notice audits, unit coverage, and the production
 build. The external EBU R128 conformance corpus is intentionally separate; run
 `npm run audit:ebu-r128 -- --test-set /path/to/test-set` when changing metering.
 
-CI runs the same work as several parallel jobs: `npm run check:static` covers
-everything except the Node suite, and the suite is split by product into a
-`common` owner (execution shards `common-1` and `common-2`), a `framescaper`
-shard and a `soundscaper` shard. To run just the shard your change touches, use
-`npm test -- --shard=framescaper`. The coverage thresholds
-are checked once over the required coverage union, never per shard.
+For development, inspect an explicit module target or the checks affected by
+your changes:
 
-These full-suite commands are for maintainers and CI. Agents use focused tests
-and hand off an exact command anchored to their worktree's absolute path; see
-the [development testing guide](docs/development/testing.md).
+```sh
+npm run check:module -- imaging --list
+npm run check:affected -- --base=origin/main --list
+```
+
+Remove `--list` to execute the plan; `--json` prints the complete plan without
+executing it. A module target runs its declared owner suites. An affected plan
+also follows changed dependencies into consumer tests and selects the relevant
+browser workflows. Missing dependency evidence or a module without independent
+coverage keeps the complete gate. Agents inspect the plan first and never
+execute a plan that requires full suites.
+
+The module manifest, dependency rules and inherited coverage requirements are
+described in [architecture](docs/architecture/overview.md#shared-module-ownership)
+and [testing](docs/development/testing.md#module-and-affected-checks).
+PR CI consumes the same affected plan within its existing job slots. Main and
+release checks retain the complete gate. Node execution still uses `common-1`,
+`common-2`, `framescaper`, `soundscaper` and `lightscaper` shards, separately from semantic
+module ownership; `npm test -- --shard=framescaper` remains available.
+Complete coverage is checked over the required union, never per execution shard.
+
+Complete gates such as `npm run check` and the unfiltered browser commands below
+are for maintainers and CI. Agents use focused tests and hand off an exact
+command anchored to their worktree's absolute path; see the
+[development testing guide](docs/development/testing.md).
 
 Browser workflows are a separate gate because they install Chromium and bind a
 loopback preview server:

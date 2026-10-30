@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createAbortGuard } from '../abort-error.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
 import type { BlobLike } from './media-records.ts';
 import type { OpfsSyncRepositoryBridge } from './opfs-sync-repository-bridge.ts';
 import { normalizeOpfsWorkerPath, type OpfsSyncOperationId } from './opfs-sync-worker-protocol.ts';

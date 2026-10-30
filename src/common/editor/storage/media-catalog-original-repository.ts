@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readCursorPage, request, transact } from './indexeddb-backend.ts';
+import { readCursorPage, request, transact } from '../../media/indexeddb.ts';
 import { trustedMediaContentSha256 } from './media-content-provenance.ts';
 import type { StorageRecord } from './media-records.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';

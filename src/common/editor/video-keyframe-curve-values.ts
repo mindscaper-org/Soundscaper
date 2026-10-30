@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray, readClosedDomainRecord, readClosedDomainField as field } from './closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainRecord, readClosedDomainField as field } from '../foundation/closed-domain-value.ts';
 import { compileInterpolationCurve, type CompiledInterpolationCurve } from './interpolation-curve.ts';
 import { normalizeRational, compareRationals, type Rational, type RationalInput } from './timeline-time.ts';
 import { MAXIMUM_VIDEO_KEYFRAME_ANCHORS } from './video-keyframe-curves-types.ts';

@@ -5,7 +5,7 @@ import test from 'node:test';
 
 import { verifyLocalAssistanceGuidedReviewMediaAuthority } from
 	'../src/common/editor/controller/assistance/local-assistance-guided-review-media-verification.ts';
-import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../src/common/media/content-digest.ts';
 import { assistanceWorkflowFixture } from './helpers/assistance-workflow-fixture.ts';
 
 test('review media with its own valid digest cannot substitute for another staged input claim', async () => {

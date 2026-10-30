@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray } from '../closed-domain-value.ts';
+import { readClosedDomainArray } from '../../foundation/closed-domain-value.ts';
 import { CUBE_LUT_PROFILE_EFFECT_TYPE_V1, normalizeCubeLutProfileEffectV1 } from '../video-cube-lut-profile-v1.ts';
-import type { VideoCubeLutReferenceV1 } from '../video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../../imaging/cube-lut-reference-contract.ts';
 import { normalizeFramescaperImageSourceV1OrV2, framescaperImageSourceResourceReferencesV2 } from '../timeline-image-model-v2.ts';
 import { normalizeFramescaperImageSourceCurrentV1, framescaperImageSourceResourceReferencesCurrentV1 } from '../timeline-image-model-current-v1.ts';
 import type { BrushMaskResourceReferenceV1 } from '../imaging/brush-mask-resource-v1.ts';

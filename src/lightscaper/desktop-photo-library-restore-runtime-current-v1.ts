@@ -2,7 +2,7 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import type { PhotoLibraryRestoreRuntimeV1,PhotoLibraryRestoreReceiptV1 as Receipt } from '../common/editor/photo-library-restore-port-v1.ts';
-import { readClosedDomainRecord as record,readClosedDomainField as field } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainRecord as record,readClosedDomainField as field } from '../common/foundation/closed-domain-value.ts';
 import { DESKTOP_SCAPE_READ_HARD_LIMIT_BYTES } from '../common/editor/desktop-read-profile.ts';
 import { name } from './catalog/value-validation.ts';
 import { assertMediaRestoreSignalV1 as signal,checkMediaRestoreSignalV1 as check,forwardMediaRestoreSignalV1 as forward } from './storage/photo-media-restore-signal-v1.ts';

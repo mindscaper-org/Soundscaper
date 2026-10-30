@@ -2,16 +2,16 @@
 
 import { externalMediaForSource, normalizeExternalMedia,
 	type ExternalMedia } from './desktop-external-media.ts';
-import { verifyScapeAssetBytes } from './scape-archive-media.ts';
-import { digestMediaContent } from './storage/media-content-digest.ts';
-import type { ScapeArchiveEntry, ScapeAssetDescriptor } from './scape-archive-envelope.ts';
+import { verifyScapeAssetBytes } from '../scape/asset-bytes.ts';
+import { digestMediaContent } from '../media/content-digest.ts';
+import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../scape/archive-envelope.ts';
 import type { ScapeImportTransaction } from './scape-import-transaction.ts';
 import type { OwnedMediaAssetPublication } from './storage/media-asset-write-contract.ts';
 import type { StorageRecord } from './storage/media-records.ts';
-import { createScapeDigest, scapeHex } from './scape-archive-media.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../media/bytes.ts';
 import { packPlanarFloat32 } from './wavpack/index.js';
 import { openExternalMediaPcm } from './external-media-pcm-reader.ts';
-import { aggregateScapeErrors } from './scape-abort.ts';
+import { aggregateScapeErrors } from '../scape/abort.ts';
 
 export type ExternalAudioDecoder = (file: Blob, source: Readonly<Record<string, unknown>>,
 	signal?: AbortSignal) => Promise<readonly Float32Array[]>;

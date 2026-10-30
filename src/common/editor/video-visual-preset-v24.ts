@@ -3,7 +3,7 @@
 import {
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 import { fingerprintNativeMediaPlan } from './native-media-plan-canonical-form.ts';
 
 export interface VideoVisualPresetV1 {

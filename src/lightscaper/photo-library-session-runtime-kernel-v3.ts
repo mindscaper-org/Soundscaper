@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, readClosedDomainRecord } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../common/foundation/closed-domain-value.ts';
 import { assertNotAborted } from './catalog/catalog-transaction.ts';
 import { PhotoCatalogRepositoryCurrentV1 } from './catalog/photo-catalog-repository-current-v1.ts';
 import { PhotoLibrarySessionCurrentV1 } from './controller/photo-library-session-current-v1.ts';

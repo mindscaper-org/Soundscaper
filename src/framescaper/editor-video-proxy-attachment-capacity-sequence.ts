@@ -2,7 +2,7 @@
 
 import { checkedPublicationByteSum } from '../common/editor/publication-byte-estimates.ts';
 import { estimateProjectRevisionPublication } from '../common/editor/project-publication-admission.ts';
-import { MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../common/editor/storage/media-content-digest.ts';
+import { MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../common/media/content-digest.ts';
 import type { VideoProxyRelationshipPreparationMaterial } from '../common/editor/video-proxy-relationship.ts';
 import type { FramescaperProjectSequence } from './editor-project-sequence.ts';
 

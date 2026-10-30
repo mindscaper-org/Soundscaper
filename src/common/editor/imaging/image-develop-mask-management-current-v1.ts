@@ -2,7 +2,7 @@
 
 import { normalizeImageDevelopStateCurrentV1, type ImageDevelopStateCurrentV1 } from './image-develop-state-current-v1.ts';
 import { manageImageDevelopMasksV3 } from './image-develop-mask-management-v3.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { LENS_DISTORTION_EFFECT_TYPE_V1 } from '../video-lens-distortion-v1.ts';
 
 export interface ImageDevelopLocalMasksReplacementCurrentV1 {

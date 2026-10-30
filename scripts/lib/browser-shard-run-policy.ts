@@ -7,6 +7,7 @@ interface BrowserShardOptions {
 	readonly shard: string;
 	readonly workers: 1 | 2;
 	readonly testRoot: string;
+	readonly allowEmpty?: boolean;
 }
 interface BrowserShardRunPolicy {
 	readonly workers: 1 | 2;
@@ -68,7 +69,7 @@ export function browserShardRunPolicy(report: unknown, options: BrowserShardOpti
 		}
 	};
 	visit(value.suites, 0);
-	requireValue(collectedTests > 0, 'The browser shard collected no tests.');
+	requireValue(collectedTests > 0 || options.allowEmpty === true, 'The browser shard collected no tests.');
 	return { workers: lightscaperTests ? 1 : options.workers, retries: lightscaperTests ? 0 : 1,
 		collectedTests, lightscaperTests };
 }

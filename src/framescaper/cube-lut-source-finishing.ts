@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 import { normalizeCubeLutProfileParamsV1 } from '../common/editor/video-cube-lut-profile-v1.ts';
 import { withCubeLutResourceV1 } from '../common/editor/imaging/cube-lut-resource-v1.ts';
 import type { CubeLutSourcePortV1 } from '../common/editor/imaging/cube-lut-source-port-v1.ts';
-import type { VideoCubeLutReferenceV1 } from '../common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../common/imaging/cube-lut-reference-contract.ts';
 import type { BlobLike } from '../common/editor/storage/media-records.ts';
 
 export interface FramescaperCubeLutSourceFinishing extends CubeLutSourcePortV1 {

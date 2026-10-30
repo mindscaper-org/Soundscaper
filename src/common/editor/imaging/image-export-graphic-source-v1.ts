@@ -2,9 +2,9 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
-import { IMAGE_IMPORT_LIMITS as LIMITS } from '../image-import-admission.ts';
-import { canonicalMediaContentBlob } from '../storage/media-content-digest.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
+import { IMAGE_IMPORT_LIMITS as LIMITS } from '../../imaging/image-import-admission.ts';
+import { canonicalMediaContentBlob } from '../../media/content-digest.ts';
 import { openFramescaperBrowserNativeImageV1 } from '../timeline-image-browser-native-port.ts';
 import type { FramescaperBrowserNativeImageDecodeSessionV1, OpenFramescaperBrowserNativeImageV1 } from '../timeline-image-native-decode-v1.ts';
 import { admitStaticImageSourceV1 } from './static-image-source-admission-v1.ts';

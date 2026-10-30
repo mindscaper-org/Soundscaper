@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { compactProjectSourceMetadata } from '../retention.js';
-import { deleteByIndex, request, transact } from './indexeddb-backend.ts';
+import { deleteByIndex, request, transact } from '../../media/indexeddb.ts';
 import {
 	LINKED_ORIGINAL_PROVISIONAL_ROOT_PROJECT_INDEX_NAME,
 	LINKED_ORIGINAL_PROVISIONAL_ROOT_STORE_NAME,

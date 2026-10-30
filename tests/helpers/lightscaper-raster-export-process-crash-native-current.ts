@@ -16,7 +16,7 @@ import { PHOTO_LIBRARY_DEFAULT_CATALOG_DATABASE_NAME_V2 as CATALOG } from '../..
 import { PHOTO_MEDIA_NAMESPACES_V1 as MEDIA } from '../../src/lightscaper/storage/photo-media-store.ts';
 import { normalizePhotoRasterExportJournalCurrentV1, type PhotoRasterExportJournalCurrentV1 } from '../../src/lightscaper/storage/photo-raster-export-journal-current-v1.ts';
 import { photoRasterExportJournalKeyV1 } from '../../src/lightscaper/storage/photo-raster-export-journal-v1.ts';
-import { request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../src/common/media/indexeddb.ts';
 import type { StorageRecord } from '../../src/common/editor/storage/media-records.ts';
 
 type Session = Awaited<ReturnType<typeof createPhotoLibrarySessionCurrentV1>>;

@@ -13,7 +13,7 @@ import { indexState, photoSummary } from '../src/lightscaper/catalog/repository-
 import { photoSmartCollectionRecordV1, photoSmartCollectionReferenceKeyV1 } from '../src/lightscaper/catalog/photo-smart-collection-record-v1.ts';
 import { PHOTO_SMART_COLLECTION_CONTEXT_STORES_V1, photoSmartCollectionSummaryRecordV1,
 	readPhotoSmartCollectionStorageContextV1, readPhotoSmartCollectionSummaryRecordV1 } from '../src/lightscaper/catalog/photo-smart-collection-storage-v1.ts';
-import { request } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request } from '../src/common/media/indexeddb.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { queryCatalogRootV1, queryPhotoV1 } from './helpers/lightscaper-catalog-query-fixture.ts';
 

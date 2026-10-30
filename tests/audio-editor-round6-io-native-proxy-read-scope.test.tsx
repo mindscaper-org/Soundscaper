@@ -8,7 +8,7 @@ import { createRoot } from 'react-dom/client';
 
 import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
 import { createVideoSource } from '../src/common/editor/project-media-factory.ts';
-import { canonicalMediaContentBlob } from '../src/common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../src/common/media/content-digest.ts';
 import FramescaperVideoProxyDialog from '../src/common/editor/ui/dialogs/FramescaperVideoProxyDialog.tsx';
 import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';

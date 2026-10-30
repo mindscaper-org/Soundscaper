@@ -20,6 +20,25 @@ async function installGpuHarness(page) {
 	await page.addScriptTag({ content: bundled.outputFiles[0].text });
 }
 
+test('nightly GPU validation requires a hardware WebGL2 renderer', async ({ page }, testInfo) => {
+	test.skip(testInfo.config.metadata.requireHardwareGpu !== true, 'Requires the native nightly GPU environment.');
+	const renderer = await page.evaluate(() => {
+		const gl = document.createElement('canvas').getContext('webgl2', { failIfMajorPerformanceCaveat: true });
+		if (!gl) return null;
+		const debug = gl.getExtension('WEBGL_debug_renderer_info');
+		const result = debug ? {
+			vendor: String(gl.getParameter(debug.UNMASKED_VENDOR_WEBGL)),
+			renderer: String(gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)),
+		} : null;
+		gl.getExtension('WEBGL_lose_context')?.loseContext();
+		return result;
+	});
+	await testInfo.attach('nightly-gpu-renderer.json', { body: JSON.stringify(renderer), contentType: 'application/json' });
+	expect(renderer, 'Run the nightly suite on a native host with a working GPU driver.').not.toBeNull();
+	expect(renderer?.renderer).toBeTruthy();
+	expect(`${renderer?.vendor} ${renderer?.renderer}`).not.toMatch(/swiftshader|llvmpipe|softpipe|software|offscreen/iu);
+});
+
 test('GPU summaries preserve waveform geometry and reuse uploads while selection moves', async ({ page }, testInfo) => {
 	await installGpuHarness(page);
 	const result = await page.evaluate(() => {

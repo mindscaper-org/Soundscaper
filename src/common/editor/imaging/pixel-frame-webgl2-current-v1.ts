@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { admitPixelFrameV1 } from './pixel-frame-admission-v1.ts';
 import { readPixelFrameV1 } from './pixel-frame-contract-v1.ts';
 import { captureLinearKernelDescriptorV1, LINEAR_KERNEL_LIMITS_V1 } from './linear-kernel-descriptor-v1.ts';

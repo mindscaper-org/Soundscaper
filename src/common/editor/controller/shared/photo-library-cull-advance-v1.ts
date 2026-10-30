@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../foundation/closed-domain-value.ts';
 import { readPhotoLibrarySelectionIdsV1 } from './photo-library-selection-v1.ts';
 
 /** Ephemeral scalar navigation, never a stored cursor or durable edit receipt. */

@@ -5,7 +5,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { digestScapeBytes } from '../../src/common/editor/scape-byte-stream.ts';
 import type { ScapeManifest } from '../../src/common/editor/scape-archive-envelope.ts';
-import { readCursorPage, request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { readCursorPage, request, transact } from '../../src/common/media/indexeddb.ts';
 import { trustedMediaContentSha256 } from '../../src/common/editor/storage/media-content-provenance.ts';
 import { mediaAssetChunkKey } from '../../src/common/editor/storage/media-asset-chunk-records.ts';
 import { catalogOriginalKey, normalizeCatalogOriginalRoot } from '../../src/common/editor/storage/media-catalog-original-schema.ts';

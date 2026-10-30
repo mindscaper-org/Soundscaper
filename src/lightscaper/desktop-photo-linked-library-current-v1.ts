@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import {readClosedDomainRecord as record,readClosedDomainField as field,readClosedDomainArray as array} from '../common/editor/closed-domain-value.ts';
+import {readClosedDomainRecord as record,readClosedDomainField as field,readClosedDomainArray as array} from '../common/foundation/closed-domain-value.ts';
 import type {PhotoLibraryImportRequestOptionsV1 as ImportOptions} from '../common/editor/photo-library-import-settings-port-v1.ts';
 import type {PhotoLibraryImportItemV1 as Item} from '../common/editor/photo-library-session-port-v1.ts';
 import type {PhotoLibraryDevelopImportRequestCurrentV1 as DevelopRequest} from '../common/editor/photo-library-develop-import-port-current-v1.ts';
@@ -15,7 +15,7 @@ import type {PhotoDocumentCurrentV1} from './catalog/photo-document-current-v1.t
 import {preparePhotoImportGestureCurrentV1 as preparing} from './import/photo-import-preparation-current-v1.ts';
 import type {PhotoImportOutcomeCurrentV1 as Outcome} from './import/photo-import-preparation-current-v1.ts';
 import {normalizePhotoImportSettingsV1} from './import/photo-import-settings-v1.ts';
-import {IMAGE_IMPORT_LIMITS} from '../common/editor/image-import-admission.ts';
+import {IMAGE_IMPORT_LIMITS} from '../common/imaging/image-import-admission.ts';
 import {DesktopPhotoLinkedInputSourceCurrentV1 as Source} from './desktop-photo-linked-input-stage-current-v1.ts';
 import {readDesktopPhotoLibrarySessionHandleCurrentV1 as handle} from './desktop-photo-library-session-protocol-current-v1.ts';
 import {desktopPhotoLinkedIdCurrentV1 as token,type DesktopPhotoLinkedInputReceiptCurrentV1 as Receipt} from './desktop-photo-linked-contract-current-v1.ts';

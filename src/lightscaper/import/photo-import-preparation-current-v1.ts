@@ -4,8 +4,8 @@ import { capturePhotoLibraryRawImportSourceCurrentV1, type PhotoLibraryRawImport
 import { withPhotoLibraryRawImportCurrentV1 } from '../controller/photo-library-raw-frame-current-v1.ts';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
-import { IMAGE_IMPORT_LIMITS } from '../../common/editor/image-import-admission.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
+import { IMAGE_IMPORT_LIMITS } from '../../common/imaging/image-import-admission.ts';
 import { readPixelFrameV1 } from '../../common/editor/imaging/pixel-frame-contract-v1.ts';
 import { readImageMetadataV1 } from '../../common/editor/imaging/image-metadata-reader-v1.ts';
 import { openFramescaperBrowserNativeImageV1 } from '../../common/editor/timeline-image-browser-native-port.ts';

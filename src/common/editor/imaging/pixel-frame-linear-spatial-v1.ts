@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { prepareDetailSharpenEffectV1 } from '../video-sharpen-v1.ts';
 import { prepareClarityEffectV1 } from '../video-clarity-v1.ts';
 import { prepareNoiseReductionEffectV1 } from '../video-noise-reduction-v1.ts';

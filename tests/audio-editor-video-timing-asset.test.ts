@@ -24,7 +24,7 @@ import {
 } from '../src/common/editor/scape-export-plan.ts';
 import { indexScapeProjectTimingAssets } from '../src/common/editor/scape-project-assets.ts';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import {
 	PROJECT_SCHEMA_VERSION,
 	SOUNDSCAPER_PROJECT_SCHEMA_FAMILY,

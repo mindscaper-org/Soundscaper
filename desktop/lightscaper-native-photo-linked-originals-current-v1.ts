@@ -2,10 +2,10 @@
 import {createHash,randomBytes} from 'node:crypto';
 import {realpathSync} from 'node:fs';
 import type {DatabaseSync} from 'node:sqlite';
-import {readClosedDomainRecord as record,readClosedDomainField as field} from '../src/common/editor/closed-domain-value.ts';
+import {readClosedDomainRecord as record,readClosedDomainField as field} from '../src/common/foundation/closed-domain-value.ts';
 import {catalogOriginalId} from '../src/common/editor/storage/media-catalog-original-schema.ts';
 import {normalizeCatalogOriginalRepairBindingV1,type CatalogOriginalRepairBindingV1} from '../src/common/editor/storage/media-catalog-original-repair-contract.ts';
-import {IMAGE_IMPORT_LIMITS} from '../src/common/editor/image-import-admission.ts';
+import {IMAGE_IMPORT_LIMITS} from '../src/common/imaging/image-import-admission.ts';
 import type {PhotoOriginalV1} from '../src/lightscaper/catalog/types.ts';
 import {deriveLightscaperNativePhotoOriginalPathsCurrentV1} from './lightscaper-native-original-index-current-v1.ts';
 import {readLightscaperNativePhotoOriginalEnvelopeCurrentV1 as original} from './lightscaper-native-photo-original-envelope-current-v1.ts';

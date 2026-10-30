@@ -6,7 +6,7 @@ import {
 import type {
 	FramescaperImageSourceV1,
 } from '../common/editor/timeline-image-model.ts';
-import { request, transact } from '../common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../common/media/indexeddb.ts';
 import { trustedMediaContentSha256 } from '../common/editor/storage/media-content-provenance.ts';
 import { publishSource, type StorageRecord } from '../common/editor/storage/media-records.ts';
 import {

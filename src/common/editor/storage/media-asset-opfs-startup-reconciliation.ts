@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readCursorPage, request, transact } from './indexeddb-backend.ts';
+import { readCursorPage, request, transact } from '../../media/indexeddb.ts';
 import type { MediaAssetLifecycleCoordinator } from './media-asset-lifecycle-coordinator.ts';
 import { captureMediaAssetOpfsDirectoryBinding, consumeMediaAssetOpfsDirectoryBinding,
 	matchesMediaAssetOpfsDirectoryBinding, readMediaAssetOpfsDirectoryBinding, withMediaAssetOpfsStartupNamespace,

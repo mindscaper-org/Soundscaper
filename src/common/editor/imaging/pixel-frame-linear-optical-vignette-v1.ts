@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { prepareOpticalVignetteEffectV1 } from '../video-optical-vignette-v1.ts';
 import { prepareImageOpticalVignetteKernelV1, imageOpticalVignetteGainV1 } from './image-optical-vignette-kernel-v1.ts';
 import { captureLinearKernelDescriptorV1, captureLinearKernelPlanesV1, writeLinearKernelPixelV1, type LinearKernelDescriptorV1 } from './linear-kernel-planes-v1.ts';

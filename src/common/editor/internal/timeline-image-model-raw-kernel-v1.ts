@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { normalizeFramescaperImageSourceV1, FRAMESCAPER_IMAGE_MODEL_LIMITS_V1 as LIMITS, type FramescaperImageSourceV1 } from '../timeline-image-model.ts';
 import { normalizeFramescaperRawOriginalReceiptV1, type FramescaperRawOriginalReceiptV1 } from '../timeline-image-raw-receipt-v1.ts';
 import { normalizeImageDevelopStateThroughV3, type ImageDevelopStateThroughV3 } from '../imaging/image-develop-state-through-v3.ts';

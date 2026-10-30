@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainRecord, readClosedDomainField } from '../../common/editor/closed-domain-value.ts';
-import { aggregateScapeErrors } from '../../common/editor/scape-abort.ts';
+import { readClosedDomainRecord, readClosedDomainField } from '../../common/foundation/closed-domain-value.ts';
+import { aggregateScapeErrors } from '../../common/scape/abort.ts';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { request, readCursorPage } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request, readCursorPage } from '../../common/media/indexeddb.ts';
 import { trustedMediaContentSha256 } from '../../common/editor/storage/media-content-provenance.ts';
 import { MEDIA_ASSET_CHUNK_STORAGE_TYPE, MEDIA_ASSET_STREAM_CHUNK_BYTES } from '../../common/editor/storage/media-asset-chunk-schema.ts';
 import { mediaAssetChunkKey } from '../../common/editor/storage/media-asset-chunk-records.ts';

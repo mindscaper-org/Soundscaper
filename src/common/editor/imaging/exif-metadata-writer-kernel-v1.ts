@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { IMAGE_METADATA_LIMITS_V1 as LIMITS, type ImageExifMetadataV1 } from './image-metadata-model-v1.ts';
 import { normalizeImageMetadataV1 } from './image-metadata-normalizer-v1.ts';
 

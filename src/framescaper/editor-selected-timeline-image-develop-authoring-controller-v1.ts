@@ -16,7 +16,7 @@ import { assertFramescaperNativeImageSignalCurrentV1, retireFramescaperNativeIma
 import type { WithImageRepairSpotsOriginalFrameV1 } from '../common/editor/controller/shared/image-repair-spots-authoring-v1.ts';
 import { suspendVideoPreviewForAuthoringV1 } from '../common/editor/controller/clip-video/video-preview-authoring-suspension-v1.ts';
 import { sameProjectSnapshot } from '../common/editor/storage/project-snapshot-equality.ts';
-import { readClosedDomainRecord, readClosedDomainField } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainRecord, readClosedDomainField } from '../common/foundation/closed-domain-value.ts';
 import { prepareFramescaperRawImageWorkingCurrentV1, FRAMESCAPER_RAW_IMAGE_AUTHORING_BYTES_CURRENT_V1 } from './internal/timeline-image-raw-working-plan-current-v1.ts';
 import { prepareFramescaperHdrImageWorkingCurrentV1 } from './internal/timeline-image-hdr-working-plan-current-v1.ts';
 

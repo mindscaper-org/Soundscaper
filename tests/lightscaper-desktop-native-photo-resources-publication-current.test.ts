@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
-import { normalizeVideoCubeLutReferenceV1 } from '../src/common/editor/cube-lut-reference-contract.ts';
+import { normalizeVideoCubeLutReferenceV1 } from '../src/common/imaging/cube-lut-reference-contract.ts';
 import { normalizeBrushMaskResourceReferenceV1 } from '../src/common/editor/imaging/brush-mask-resource-v1.ts';
 import { LightscaperNativePhotoResourcesCurrentV1 as Resources } from '../desktop/lightscaper-native-photo-resources-current-v1.ts';
 import { nativeResourceIntegrationFixtureCurrentV1 as fixture,

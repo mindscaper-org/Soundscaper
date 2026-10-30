@@ -13,7 +13,7 @@ import {
 } from '../desktop/nightly-tests-progress-window.mjs';
 
 const progress = {
-	completed: 0, total: 6, label: 'Browser tests',
+	completed: 0, total: 5, label: 'GPU graphics tests',
 	items: { completed: 3, total: 10, label: '[chromium] editor opens <project>\u2028' },
 };
 
@@ -51,9 +51,9 @@ test('nightly terminal progress advances within a phase and names its test', () 
 		output: { write: (value: string) => { writes.push(value); } },
 	});
 	bar.update({ ...progress, items: { ...progress.items, label: '[chromium] editor opens' } });
-	bar.finish({ completed: 6, total: 6, label: 'Tests passed', items: progress.items });
+	bar.finish({ completed: 5, total: 5, label: 'Tests passed', items: progress.items });
 	assert.deepEqual(writes, [
-		'[#-------------------] 0/6 5% Browser tests — 3/10 tests: [chromium] editor opens\n',
-		'[####################] 6/6 100% Tests passed\n',
+		'[#-------------------] 0/5 6% GPU graphics tests — 3/10 tests: [chromium] editor opens\n',
+		'[####################] 5/5 100% Tests passed\n',
 	]);
 });

@@ -2,8 +2,8 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField, readClosedDomainRecord } from '../../common/editor/closed-domain-value.ts';
-import { canonicalMediaContentBlob } from '../../common/editor/storage/media-content-digest.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../common/foundation/closed-domain-value.ts';
+import { canonicalMediaContentBlob } from '../../common/media/content-digest.ts';
 import { parsePhotoDocumentV1OrV2, serializePhotoDocumentV1OrV2, normalizePhotoDocumentV1OrV2, type PhotoDocumentV2 } from '../catalog/photo-document-v2.ts';
 import { parsePhotoDocumentCurrentV1, serializePhotoDocumentCurrentV1, normalizePhotoDocumentCurrentV1, type PhotoDocumentCurrentV1 } from '../catalog/photo-document-current-v1.ts';
 import { normalizePhotoDocumentThroughV3, type PhotoDocumentThroughV3 } from '../catalog/photo-document-through-v3.ts';

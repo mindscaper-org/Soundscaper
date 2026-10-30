@@ -6,7 +6,7 @@ import { createFramescaperMaskRasterSourceTimelineImageV1 } from '../timeline-im
 import type { FramescaperStoredImageAssetStoreTimelineImage } from '../editor-selected-timeline-image-image-frame-source.ts';
 import { collectFramescaperImageProjectResourcesCurrentV1 } from '../../common/editor/video-cube-lut-project-references-current-v1.ts';
 import { normalizeFramescaperImageSourceCurrentV1 } from '../../common/editor/timeline-image-model-current-v1.ts';
-import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../common/foundation/closed-domain-value.ts';
 import { normalizeBrushMaskResourceReferenceV1, withBrushMaskResourceV1, type BrushMaskResourceReferenceV1 } from '../../common/editor/imaging/brush-mask-resource-v1.ts';
 import type { ImageBrushMaskResourceAcknowledgementV1, ImageBrushMaskResourcePortV1 } from '../../common/editor/image-brush-mask-resource-port-v1.ts';
 import type { MediaAssetWriteOptions, OwnedMediaAssetWriter, OwnedMediaAssetPublication } from '../../common/editor/storage/media-asset-write-contract.ts';

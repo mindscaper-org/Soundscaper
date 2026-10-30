@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useCallback, type RefObject } from 'react';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../foundation/closed-domain-value.ts';
 import type { PhotoLibraryImageReceivePortV1, PhotoLibraryImageReceiveReceiptV1, PhotoLibraryImageReceiveRequestV1 } from '../../photo-library-image-receive-port-v1.ts';
 import type { PhotoLibraryImageReceivePortV2, PhotoLibraryImageReceiveReceiptV2 } from '../../photo-library-image-receive-port-v2.ts';
 import type { CreatePhotoLibrarySessionV3, PhotoLibrarySessionPortV2 } from '../../photo-library-session-port-v2.ts';

@@ -12,7 +12,7 @@ import { createFixture } from './helpers/native-project-service-fixture.ts';
 import { nativeSidecarFixture } from './helpers/framescaper-native-sidecar-fixture.ts';
 import { retainNativeScapeArchive } from '../src/common/editor/controller/document/internal/native-project/native-scape-retention.ts';
 import { copyFutureScapeArchive } from '../src/common/editor/scape-archive-copy.ts';
-import { createScapeArchiveByteSource, type ScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource, type ScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { SCAPE_WEB_CORE_BLOB_MAXIMUM_BYTES } from '../src/common/editor/scape-export-estimate.ts';
 import { isDesktopScapeArchiveByteSource, createRetainedDesktopScapeArchiveByteSource } from '../src/common/editor/desktop-scape-archive-byte-source.ts';
 import type { ScapeProjectInput } from '../src/common/editor/scape-project-input.ts';

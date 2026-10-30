@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../../common/editor/scape-archive-envelope.ts';
-import type { ScapeExpandedByteBudget } from '../../common/editor/scape-expanded-byte-budget.ts';
+import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../../common/scape/archive-envelope.ts';
+import type { ScapeExpandedByteBudget } from '../../common/scape/expanded-byte-budget.ts';
 import type { PhotoSmartCollectionV1 } from '../catalog/photo-smart-collection-v1.ts';
 import { withPhotoStackQuerySignalV1 } from '../catalog/photo-stack-query-signal-v1.ts';
 import { readCatalogArchivePackEntry } from './archive-pack-entry.ts';

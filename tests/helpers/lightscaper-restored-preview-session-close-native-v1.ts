@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { readBinaryDerivativeCacheRecordV1, type BinaryDerivativeCacheRecordV1 } from '../../src/common/editor/storage/binary-derivative-cache-records.ts';
-import { openDatabase, request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../src/common/media/indexeddb.ts';
 import { normalizeCatalogOriginalRoot } from '../../src/common/editor/storage/media-catalog-original-schema.ts';
 import { MediaAssetLoadRepository } from '../../src/common/editor/storage/media-asset-load-repository.ts';
 import { OpfsRepository } from '../../src/common/editor/storage/opfs-repository.ts';

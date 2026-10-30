@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { types } from 'node:util';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 export const LIGHTSCAPER_NATIVE_PHOTO_RAW_CHUNK_CURRENT_V1 = 1024 * 1024;
 export const LIGHTSCAPER_NATIVE_PHOTO_RAW_INPUT_CURRENT_V1 = 64 * 1024 * 1024;
 export const LIGHTSCAPER_NATIVE_PHOTO_RAW_OUTPUT_CURRENT_V1 = 256 * 1024 * 1024;

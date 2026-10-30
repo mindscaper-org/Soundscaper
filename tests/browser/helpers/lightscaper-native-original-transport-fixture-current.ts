@@ -13,7 +13,7 @@ import { readDesktopPhotoOriginalRequestCurrentV1, readDesktopPhotoOriginalTicke
 	type DesktopPhotoOriginalTicketCurrentV1 } from '../../../src/lightscaper/desktop-photo-original-contract-current-v1.ts';
 import { readDesktopPhotoOriginalGroupTicketIdCurrentV1 } from '../../../src/lightscaper/desktop-photo-original-group-contract-current-v1.ts';
 import { readPhotoLibraryOriginalGroupCurrentV1 } from '../../../src/lightscaper/controller/photo-library-original-group-contract-current-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../src/common/foundation/closed-domain-value.ts';
 import { photoArchiveFixture } from '../../helpers/lightscaper-photo-fixture.ts';
 import { rawDngFixtureV1 } from '../../helpers/lightscaper-raw-dng-current-fixture.ts';
 import { pngChunk } from '../../helpers/image-metadata-fixtures.ts';

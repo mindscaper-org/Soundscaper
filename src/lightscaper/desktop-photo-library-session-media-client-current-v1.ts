@@ -3,7 +3,7 @@
 import type { DesktopPhotoLibrarySessionStorageCurrentV1 as Storage } from './desktop-photo-library-session-storage-current-v1.ts';
 import { DesktopPhotoSessionClientCallsCurrentV1 as Calls, desktopPhotoSignalCurrentV1 as signalOf, desktopPhotoVoidCurrentV1 as empty } from './desktop-photo-library-session-client-calls-current-v1.ts';
 import { captureDesktopPhotoCloneCurrentV1, readDesktopPhotoCloneCurrentV1, retireDesktopPhotoCloneCurrentV1, measureDesktopPhotoCloneCurrentV1 } from './desktop-photo-clone-current-v1.ts';
-import { canonicalMediaContentBlob } from '../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../common/media/content-digest.ts';
 import { normalizeBinaryDerivativeCacheProfileV1, normalizeBinaryDerivativeCacheIdentityV1 } from '../common/editor/storage/binary-derivative-cache-records.ts';
 import { normalizeCatalogOriginalRoot } from '../common/editor/storage/media-catalog-original-schema.ts';
 import { normalizeCatalogOriginalRepairBindingV1 } from '../common/editor/storage/media-catalog-original-repair-contract.ts';

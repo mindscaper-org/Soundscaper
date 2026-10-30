@@ -14,7 +14,7 @@ import {
 	SCAPE_ARCHIVE_BYTE_SOURCE_MAXIMUM_READ_BYTES,
 	createBlobScapeArchiveByteSource,
 	createScapeArchiveByteSource,
-} from '../src/common/editor/scape-archive-byte-source.ts';
+} from '../src/common/scape/archive-byte-source.ts';
 import {
 	validateScapeArchiveByteSourceLayout,
 	validateScapeArchiveLayout,
@@ -350,12 +350,12 @@ type EntrySnapshot = Readonly<{
 	body: readonly number[];
 }>;
 
-type ScapeArchiveEntryWithComment = import('../src/common/editor/scape-archive-envelope.ts').ScapeArchiveEntry
+type ScapeArchiveEntryWithComment = import('../src/common/scape/archive-envelope.ts').ScapeArchiveEntry
 	& Readonly<{ comment: string }>;
 
 async function readEntries(
 	read: (
-		action: (entries: readonly import('../src/common/editor/scape-archive-envelope.ts').ScapeArchiveEntry[]) => Promise<EntrySnapshot[]>,
+		action: (entries: readonly import('../src/common/scape/archive-envelope.ts').ScapeArchiveEntry[]) => Promise<EntrySnapshot[]>,
 	) => Promise<EntrySnapshot[]>,
 ): Promise<EntrySnapshot[]> {
 	return read(async (entries) => Promise.all(entries.map(async (entry) => {

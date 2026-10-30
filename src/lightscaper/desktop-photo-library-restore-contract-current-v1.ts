@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 import type { PhotoLibraryRestoreReceiptV1 } from '../common/editor/photo-library-restore-port-v1.ts';
 import { DESKTOP_SCAPE_READ_HARD_LIMIT_BYTES } from '../common/editor/desktop-read-profile.ts';
 import { array, id, name } from './catalog/value-validation.ts';

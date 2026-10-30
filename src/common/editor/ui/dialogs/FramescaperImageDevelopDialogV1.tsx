@@ -4,7 +4,7 @@ import { useMemo, useRef } from 'react';
 import { normalizeImageDevelopStateCurrentV1, type ImageDevelopStateCurrentV1 } from '../../imaging/image-develop-state-current-v1.ts';
 import { normalizeImageDevelopStateThroughV4, type ImageDevelopStateThroughV4 } from '../../imaging/image-develop-state-v4.ts';
 import { prepareImageDevelopAuthoringCurrentV1, retainImageDevelopRawDevelopmentCurrentV1 } from '../../imaging/image-develop-authoring-current-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../foundation/closed-domain-value.ts';
 import type { WithFramescaperImageDevelopDraftFrameCurrentV1, WithFramescaperImageBrushDraftFrameCurrentV1 } from '../../../../framescaper/editor-selected-timeline-image-develop-authoring-controller-v1.ts';
 import type { WithImageRepairSpotsOriginalFrameV1 } from '../../controller/shared/image-repair-spots-authoring-v1.ts';
 import ImageRepairSpotsEditorV1 from './ImageRepairSpotsEditorV1.tsx';

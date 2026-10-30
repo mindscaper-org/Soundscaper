@@ -9,6 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import test from 'node:test';
 import { browserShardRunPolicy } from '../scripts/lib/browser-shard-run-policy.ts';
+import { currentModuleSourceFingerprint } from '../scripts/lib/check-module-repository.ts';
 
 const root = resolve('tests/browser');
 function collection(file = 'audio-editor-fixture.spec.js') {
@@ -37,6 +38,14 @@ test('collection errors, an empty shard and already-executed reports refuse a ru
 	assert.throws(() => browserShardRunPolicy(empty, options), /no tests/u);
 	const ran = collection(); ran.suites[0]!.specs[0]!.tests[0]!.results.push({ status: 'passed' });
 	assert.throws(() => browserShardRunPolicy(ran, options), /unexecuted/u);
+});
+
+test('an explicitly admitted focused module shard may be empty while malformed reports still refuse', () => {
+	const empty = collection(); empty.suites = [];
+	assert.deepEqual(browserShardRunPolicy(empty, { ...options, allowEmpty: true }),
+		{ workers: 2, retries: 1, collectedTests: 0, lightscaperTests: 0 });
+	empty.errors.push({ message: 'actual load failure' });
+	assert.throws(() => browserShardRunPolicy(empty, { ...options, allowEmpty: true }), /load errors/u);
 });
 
 test('a wrong project, shard, ordinary worker count or CI retry policy cannot select a different workload', () => {
@@ -81,4 +90,37 @@ test('actual Playwright list JSON selects the collected Lightscaper shard withou
 	assert.deepEqual(observed, [{ workers: 2, retries: 1, collectedTests: 1, lightscaperTests: 0 },
 		{ workers: 1, retries: 0, collectedTests: 1, lightscaperTests: 1 }]);
 	safeToRemove = true;
+});
+
+test('CI empty-shard admission requires a valid focused plan for the current checkout', async context => {
+	const repository = fileURLToPath(new URL('../', import.meta.url));
+	const directory = await realpath(await mkdtemp(join(tmpdir(), 'lightscaper-module-shard-')));
+	context.after(() => rm(directory, { recursive: true, force: true }));
+	const run = promisify(execFile);
+	await run('git', ['init', '--quiet', directory]);
+	await run('git', ['-C', directory, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+		'commit', '--allow-empty', '--quiet', '-m', 'Fixture']);
+	await mkdir(join(directory, 'config'));
+	await mkdir(join(directory, 'tests/browser'), { recursive: true });
+	await writeFile(join(directory, '.gitignore'), 'plan.json\ncollection.json\n');
+	await writeFile(join(directory, 'config/module-policy.json'), JSON.stringify({ schemaVersion: 1,
+		modules: [{ id: 'imaging', sourcePrefixes: ['src/common/imaging/'] }], globalInputs: [] }));
+	const revision = (await run('git', ['-C', directory, 'rev-parse', 'HEAD'])).stdout.trim();
+	const report = collection(); report.suites = []; report.config.rootDir = join(directory, 'tests/browser');
+	await writeFile(join(directory, 'collection.json'), JSON.stringify(report));
+	const plan = { schemaVersion: 1, revision, comparisonRevision: null,
+		sourceFingerprint: currentModuleSourceFingerprint(directory), mode: 'focused', modules: ['imaging'],
+		nodeTests: [], browserTests: [], products: ['lightscaper'], reasons: [] };
+	const invoke = (selected: boolean) => run(process.execPath, [join(repository, 'scripts/ci-browser-shard-policy.ts'),
+		'collection.json', 'chromium', '1/4', '2'], { cwd: directory, timeout: 30_000,
+		env: { ...process.env, SCAPE_MODULE_PLAN: selected ? 'plan.json' : '' } });
+	await writeFile(join(directory, 'plan.json'), JSON.stringify({ ...plan, mode: 'full' }));
+	await assert.rejects(() => invoke(false), /collected no tests/u);
+	await assert.rejects(() => invoke(true), /collected no tests/u);
+	await writeFile(join(directory, 'plan.json'), JSON.stringify(plan));
+	assert.equal((await invoke(true)).stdout, 'workers=2\nretries=1\n');
+	await writeFile(join(directory, 'plan.json'), JSON.stringify({ ...plan, revision: '0'.repeat(40) }));
+	await assert.rejects(() => invoke(true), /wrong source revision/u);
+	await writeFile(join(directory, 'plan.json'), JSON.stringify({ ...plan, sourceFingerprint: '0'.repeat(64) }));
+	await assert.rejects(() => invoke(true), /fingerprint/u);
 });

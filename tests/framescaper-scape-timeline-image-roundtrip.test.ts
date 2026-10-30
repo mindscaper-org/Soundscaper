@@ -10,7 +10,7 @@ import {
 	ZipWriter,
 } from '@zip.js/zip.js';
 
-import { canonicalMediaContentBlob } from '../src/common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../src/common/media/content-digest.ts';
 import { createProjectStore } from '../src/common/editor/storage.js';
 import { openFramescaperImageFramePackV1 } from
 	'../src/common/editor/timeline-image-frame-pack-v1.ts';

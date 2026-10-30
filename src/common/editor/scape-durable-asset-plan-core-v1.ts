@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
-import { awaitScapeOperation, throwIfScapeAborted } from './scape-abort.ts';
-import type { ScapeAssetDescriptor, ScapeManifest } from './scape-archive-envelope.ts';
+import { awaitScapeOperation, throwIfScapeAborted } from '../scape/abort.ts';
+import type { ScapeAssetDescriptor } from '../scape/archive-envelope.ts';
+import type { ScapeManifest } from './scape-archive-envelope.ts';
 import { safeScapeEntryId } from './scape-byte-stream.ts';
 import type { PlannedScapeExportAsset } from './scape-export-plan.ts';
-import { digestMediaContent } from './storage/media-content-digest.ts';
+import { digestMediaContent } from '../media/content-digest.ts';
 import {
 	parseCubeLutV1,
 	VIDEO_COLOR_LIMITS_V1,

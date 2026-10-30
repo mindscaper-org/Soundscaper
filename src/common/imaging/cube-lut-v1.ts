@@ -11,8 +11,6 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { VIDEO_COLOR_LIMITS_V1, type VideoCubeLutReferenceV1 } from './cube-lut-reference-contract.ts';
 
-export { VIDEO_COLOR_LIMITS_V1, type VideoCubeLutReferenceV1 } from './cube-lut-reference-contract.ts';
-
 type RgbTripletV1 = readonly [number, number, number];
 
 export interface ParsedCubeLutV1 {

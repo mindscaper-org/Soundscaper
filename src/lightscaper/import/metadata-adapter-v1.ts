@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord, type ClosedDomainRecord } from '../../common/editor/closed-domain-value.ts';
-import { admitImageImportGesture, IMAGE_IMPORT_LIMITS } from '../../common/editor/image-import-admission.ts';
+import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord, type ClosedDomainRecord } from '../../common/foundation/closed-domain-value.ts';
+import { admitImageImportGesture, IMAGE_IMPORT_LIMITS } from '../../common/imaging/image-import-admission.ts';
 import { normalizeImageMetadataV1 } from '../../common/editor/imaging/image-metadata-normalizer-v1.ts';
 import type { ImageMetadataV1 } from '../../common/editor/imaging/image-metadata-model-v1.ts';
 import { emptyPhotoMetadataV1, normalizePhotoMetadataV1 } from '../catalog/photo-metadata.ts';

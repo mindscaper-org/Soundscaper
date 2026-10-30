@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, readClosedDomainRecord } from '../../src/common/editor/closed-domain-value.ts';
-import { openDatabase, readCursorPage, request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../src/common/foundation/closed-domain-value.ts';
+import { openDatabase } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { readCursorPage, request, transact } from '../../src/common/media/indexeddb.ts';
 import { catalogOriginalKey, catalogOriginalScope, normalizeCatalogOriginalRoot,
 	type CatalogOriginalRootV1 } from '../../src/common/editor/storage/media-catalog-original-schema.ts';
 import { MEDIA_ASSET_STAGING_KIND_INDEX_NAME } from '../../src/common/editor/storage/media-asset-staging-schema.ts';

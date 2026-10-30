@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 
 /** Encoded straight UNORM8 sRGB, reversible integer YCoCg-R, replicated edges.
  * Alpha-weighted bilateral 3x3 luma and blended 3x3/5x5 chroma neighborhoods

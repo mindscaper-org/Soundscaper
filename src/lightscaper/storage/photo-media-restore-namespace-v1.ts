@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, readClosedDomainRecord } from '../../common/editor/closed-domain-value.ts';
-import { aggregateScapeErrors } from '../../common/editor/scape-abort.ts';
-import { request, transact } from '../../common/editor/storage/indexeddb-backend.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../common/foundation/closed-domain-value.ts';
+import { aggregateScapeErrors } from '../../common/scape/abort.ts';
+import { request, transact } from '../../common/media/indexeddb.ts';
 import { applyEditorStorageMigrations, EDITOR_STORAGE_DATABASE_VERSION } from '../../common/editor/storage/indexeddb-schema.ts';
 import { normalizePhotoLibraryRestoreAllocationV1, photoLibraryRestoreNamespacesV1, photoLibraryRestoreOwnerMarkerV1,
 	assertPhotoLibraryRestoreOwnerMarkerV1, PHOTO_LIBRARY_RESTORE_OWNER_KEY_V1,

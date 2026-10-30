@@ -2,7 +2,7 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import { readPixelFrameDescriptorV1, readPixelFrameV1, type PixelFrameDescriptorV1 } from '../../common/editor/imaging/pixel-frame-contract-v1.ts';
 import { captureRepairSignalV1, checkRepairSignalV1, RepairTaskBudgetV1, withRepairPixelFrameLifetimeV1 } from '../../common/editor/imaging/pixel-frame-repair-lifetime-v1.ts';
 import { normalizePhotoHdrPreviewPlanCurrentV1, type PhotoHdrPreviewPlanCurrentV1 } from './photo-hdr-preview-plan-current-v1.ts';

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../src/common/foundation/closed-domain-value.ts';
 import { createVideoEffect } from '../../../src/common/editor/video-effects.js';
 import { VideoPreviewCompositor } from '../../../src/common/editor/ui/video-preview-compositor.js';
 import { applyVideoPreviewEntryEffects } from '../../../src/common/editor/ui/video-preview-entry-effects.js';

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { normalizeBrushMaskResourceReferenceV1, withBrushMaskResourceV1,
 	type BrushMaskResourceReferenceV1, type BrushMaskResourceV1 } from './brush-mask-resource-v1.ts';
 import type { MaskRasterSourcePortV1 } from './mask-raster-source-port-v1.ts';

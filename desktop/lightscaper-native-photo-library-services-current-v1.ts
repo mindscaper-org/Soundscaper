@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type {ChildProcessWithoutNullStreams} from 'node:child_process';
-import {readClosedDomainRecord as record,readClosedDomainField as field} from '../src/common/editor/closed-domain-value.ts';
+import {readClosedDomainRecord as record,readClosedDomainField as field} from '../src/common/foundation/closed-domain-value.ts';
 import type {NativePath} from './lightscaper-native-photo-granted-filesystem-current-v1.ts';
 import type {LightscaperNativePhotoPreparedChildCurrentV1 as Prepared} from './lightscaper-native-photo-prepared-child-current-v1.ts';
 import type {LightscaperNativePhotoRawPreparedCurrentV1 as RawPrepared} from './lightscaper-native-photo-raw-originals-current-v1.ts';

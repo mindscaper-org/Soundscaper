@@ -29,7 +29,7 @@ import {
 	sealDeliveryReport,
 } from './delivery-report.ts';
 import type { ConsolidatePlan, ConsolidateSourcePlan } from './consolidate-plan.ts';
-import { createScapeDigest, scapeHex } from './scape-archive-media.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../media/bytes.ts';
 
 export type ConsolidateOutcome =
 	| 'copied'

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { withDecodedRawOriginalV1 } from '../../../common/editor/raw/libraw-runtime-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/foundation/closed-domain-value.ts';
 import { probeRawSourceV1 } from '../../../common/editor/raw/raw-source-v1.ts';
 import { withLinearPixelFrameDisplayV1 } from '../../../common/editor/imaging/pixel-frame-linear-display-v1.ts';
 import { createFramescaperImageFramePackV1, type FramescaperImageFramePackPublicationV1 } from '../../../common/editor/timeline-image-frame-pack-v1.ts';

@@ -24,7 +24,7 @@
  * can always tell the visitor which projects landed.
  */
 
-import { throwIfScapeAborted } from '../editor/scape-abort.ts';
+import { throwIfScapeAborted } from '../scape/abort.ts';
 import {
 	isAcceptedProjectFileExtension,
 	withProjectFileExtension,

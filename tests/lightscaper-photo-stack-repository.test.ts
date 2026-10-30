@@ -13,7 +13,7 @@ import { PHOTO_CATALOG_STORES } from '../src/lightscaper/catalog/repository-type
 import { indexState, photoStorageKey } from '../src/lightscaper/catalog/repository-records.ts';
 import { savePhotoStackV1 } from '../src/lightscaper/catalog/photo-stack-repository-v1.ts';
 import { photoStackRecordV1 } from '../src/lightscaper/catalog/photo-stack-record-v1.ts';
-import { request } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request } from '../src/common/media/indexeddb.ts';
 import { catalogTransaction } from '../src/lightscaper/catalog/catalog-transaction.ts';
 
 type Harness = Omit<ReturnType<typeof createInstrumentedIndexedDB>, 'stats'> & { readonly stats: {

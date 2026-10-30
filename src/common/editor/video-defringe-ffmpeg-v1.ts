@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { prepareDefringeEffectV1 } from './video-defringe-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 import type { VideoEffectGraphContext } from './video-effect-ffmpeg.ts';
 
 /** Preserve original alpha outside RGB planar negotiation. Control alpha is

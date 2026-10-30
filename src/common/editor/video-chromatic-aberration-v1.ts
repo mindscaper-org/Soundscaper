@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 
 export const CHROMATIC_ABERRATION_EFFECT_TYPE_V1 = 'chromatic-aberration-v1';
 export const CHROMATIC_ABERRATION_EFFECT_CODE_V1 = 35;

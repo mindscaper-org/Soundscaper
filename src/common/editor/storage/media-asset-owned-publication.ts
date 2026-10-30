@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { collectProjectStorageKeys } from '../retention.js';
-import { request, transact } from './indexeddb-backend.ts';
+import { request, transact } from '../../media/indexeddb.ts';
 import type { MediaAssetDisposalRepository } from './media-asset-disposal-repository.ts';
 import type { OwnedMediaAssetPublication } from './media-asset-write-contract.ts';
 import { mediaAssetMetadata, type StorageRecord } from './media-records.ts';

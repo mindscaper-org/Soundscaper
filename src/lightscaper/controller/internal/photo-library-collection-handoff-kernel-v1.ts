@@ -2,8 +2,8 @@
 
 import type { PhotoLibraryCollectionHandoffRequestV1, PhotoLibraryCollectionHandoffPhotoV1, PhotoLibraryCollectionHandoffViewV1 } from '../../../common/editor/photo-library-collection-handoff-port-v1.ts';
 import type { PhotoLibraryCollectionHandoffViewV2 } from '../../../common/editor/photo-library-collection-handoff-port-v2.ts';
-import { IMAGE_IMPORT_LIMITS } from '../../../common/editor/image-import-admission.ts';
-import { digestMediaContent } from '../../../common/editor/storage/media-content-digest.ts';
+import { IMAGE_IMPORT_LIMITS } from '../../../common/imaging/image-import-admission.ts';
+import { digestMediaContent } from '../../../common/media/content-digest.ts';
 import { normalizePhotoCatalogRootV1 } from '../../catalog/catalog-root.ts';
 import { createPhotoCubeLutClosureV1 } from '../../catalog/photo-cube-lut-closure-v1.ts';
 import { normalizePhotoDocumentV1OrV2 } from '../../catalog/photo-document-v2.ts';

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 import { readCanonicalSafeVisualText } from './safe-visual-text.ts';
 import { hasOnlyUnicodeScalars } from './unicode-scalar-text.ts';
 import type { GraphicWatermarkPlacementV1 } from './imaging/pixel-frame-graphic-watermark-v1.ts';

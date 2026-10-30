@@ -3,7 +3,7 @@
 import { normalizeFramescaperImageSourceV1, type FramescaperImageSourceV1 } from './timeline-image-model.ts';
 import { normalizeFramescaperEditableImageSourceForProfileV1, type FramescaperEditableImageSourceForProfileV1 } from './internal/timeline-image-model-editable-kernel-v1.ts';
 import { CUBE_LUT_PROFILE_EFFECT_TYPE_V1, prepareCubeLutProfileResourcePlanV1 } from './video-cube-lut-profile-v1.ts';
-import type { VideoCubeLutReferenceV1 } from './cube-lut-reference-contract.ts';
+import type { VideoCubeLutReferenceV1 } from '../imaging/cube-lut-reference-contract.ts';
 export type FramescaperImageSourceV2 = FramescaperEditableImageSourceForProfileV1<'legacy2'>;
 /** Permanently strict Source2 admission. */
 export function normalizeFramescaperImageSourceV2(value: unknown): Readonly<FramescaperImageSourceV2> {

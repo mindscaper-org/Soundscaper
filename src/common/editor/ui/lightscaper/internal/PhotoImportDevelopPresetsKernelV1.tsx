@@ -5,7 +5,7 @@ import type { PhotoLibraryDevelopPresetSnapshotV2 } from '../../../photo-library
 import type { PhotoLibraryDevelopPresetSnapshotV3 } from '../../../photo-library-develop-presets-port-v3.ts';
 import type { PhotoImportDevelopPresetsPropsV2 } from '../PhotoImportDevelopPresetsV2.tsx';
 import type { PhotoImportDevelopPresetsPropsCurrentV1 } from '../PhotoImportDevelopPresetsCurrentV1.tsx';
-import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../closed-domain-value.ts';
+import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../../foundation/closed-domain-value.ts';
 
 type Profile = 'legacy2' | 'current3';
 type Snapshot = PhotoLibraryDevelopPresetSnapshotV2 | PhotoLibraryDevelopPresetSnapshotV3;

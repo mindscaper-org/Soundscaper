@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, readClosedDomainRecord } from '../../../common/editor/closed-domain-value.ts';
-import { IMAGE_IMPORT_LIMITS } from '../../../common/editor/image-import-admission.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../../common/foundation/closed-domain-value.ts';
+import { IMAGE_IMPORT_LIMITS } from '../../../common/imaging/image-import-admission.ts';
 import { IMAGE_HDR_ORIGINAL_LIMITS_V1, IMAGE_HDR_ORIGINAL_MIME_TYPE_V1 } from '../../../common/editor/imaging/image-hdr-original-profile-v1.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from '../../../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../../../common/media/content-digest.ts';
 import { normalizePhotoDocumentCurrentV1 } from '../../catalog/photo-document-current-v1.ts';
 import { capturePhotoManagedImportPortsCurrentV1, type PhotoManagedImportPortsCurrentV1 } from '../managed-import-ports-current-v1.ts';
 import type { CatalogOriginalReferenceV1 } from '../../../common/editor/storage/media-catalog-original-schema.ts';

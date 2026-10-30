@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createAbortGuard } from '../abort-error.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
 import { MEDIA_ASSET_STREAM_CHUNK_BYTES } from './media-asset-chunk-schema.ts';
 import type { MediaAssetWriteOptions } from './media-asset-write-contract.ts';
 import type { MediaAssetWriteRepository } from './media-asset-write-repository.ts';

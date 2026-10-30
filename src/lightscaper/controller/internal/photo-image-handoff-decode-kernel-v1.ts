@@ -3,12 +3,12 @@
 import type { PhotoLibraryImageHandoffViewV1 } from '../../../common/editor/photo-library-image-handoff-port-v1.ts';
 import { decodeFramescaperBrowserNativeImageV1, type OpenFramescaperBrowserNativeImageV1 } from '../../../common/editor/timeline-image-native-decode-v1.ts';
 import { openFramescaperBrowserNativeImageV1 } from '../../../common/editor/timeline-image-browser-native-port.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/foundation/closed-domain-value.ts';
 import { readImageMetadataV1 } from '../../../common/editor/imaging/image-metadata-reader-v1.ts';
-import { canonicalMediaContentBlob } from '../../../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../../../common/media/content-digest.ts';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { IMAGE_IMPORT_LIMITS } from '../../../common/editor/image-import-admission.ts';
+import { IMAGE_IMPORT_LIMITS } from '../../../common/imaging/image-import-admission.ts';
 import { admitPhotoSourceV1 } from '../../import/photo-source-admission-v1.ts';
 import { createPhotoNativeImagePortV1 } from '../../import/photo-native-image-port-v1.ts';
 import { parsePhotoExportSidecarV1, serializePhotoExportSidecarV1 } from '../../catalog/photo-export-sidecar-v1.ts';

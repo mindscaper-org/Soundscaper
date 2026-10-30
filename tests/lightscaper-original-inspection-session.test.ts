@@ -2,7 +2,8 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { openDatabase, request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { catalogOriginalKey, catalogOriginalScope, normalizeCatalogOriginalRoot, type CatalogOriginalRootV1 } from '../src/common/editor/storage/media-catalog-original-schema.ts';
 import { MediaCatalogOriginalInspectionRepositoryV1 } from '../src/common/editor/storage/media-catalog-original-inspection-repository.ts';
 import { MediaAssetLifecycleCoordinator } from '../src/common/editor/storage/media-asset-lifecycle-coordinator.ts';

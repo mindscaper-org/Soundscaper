@@ -2,7 +2,7 @@
 
 import { withBrushMaskResourceV1, normalizeBrushMaskResourceReferenceV1,
 	type BrushMaskResourceReferenceV1 } from '../../common/editor/imaging/brush-mask-resource-v1.ts';
-import { request } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request } from '../../common/media/indexeddb.ts';
 import { createPhotoMaskRasterReachabilityV1 } from '../catalog/photo-mask-raster-reachability-v1.ts';
 import { catalogTransaction } from '../catalog/catalog-transaction.ts';
 import { array, field, record, unique } from '../catalog/value-validation.ts';

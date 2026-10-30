@@ -12,7 +12,7 @@ import { smartCollectionDefinitionV1 } from './helpers/lightscaper-smart-collect
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { InstrumentedKeyRange } from './helpers/instrumented-indexeddb-keys.ts';
 import { catalogTransaction } from '../src/lightscaper/catalog/catalog-transaction.ts';
-import { request } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request } from '../src/common/media/indexeddb.ts';
 import { photoSmartCollectionRecordV1 } from '../src/lightscaper/catalog/photo-smart-collection-record-v1.ts';
 import { photoSmartCollectionSummaryRecordV1 } from '../src/lightscaper/catalog/photo-smart-collection-storage-v1.ts';
 import { auditPhotoCatalogRestoreStoreV1 } from '../src/lightscaper/catalog/photo-catalog-restore-audit-pages-v1.ts';

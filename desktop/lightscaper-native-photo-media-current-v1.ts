@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { DatabaseSync } from 'node:sqlite';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import type { MediaCatalogOriginalRepositoryV1 } from '../src/common/editor/storage/media-catalog-original-repository.ts';
 import type { MediaAssetWriter, MediaAssetWriteOptions } from '../src/common/editor/storage/media-asset-write-contract.ts';
 import type { PhotoOriginalV1 } from '../src/lightscaper/catalog/types.ts';

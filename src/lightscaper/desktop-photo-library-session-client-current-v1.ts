@@ -13,7 +13,7 @@ import { createDesktopPhotoLinkedLibraryPortCurrentV1 as linkedClient } from './
 import { desktopPhotoBooleanCurrentV1 as boolean } from './desktop-photo-library-session-client-calls-current-v1.ts';
 import { createDesktopPhotoSessionRawClientCurrentV1 as rawClient } from './desktop-photo-library-session-raw-client-current-v1.ts';
 import { name } from './catalog/value-validation.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 
 export interface DesktopPhotoLibrarySessionClientTransportCurrentV1 {
 	invoke(channel: string, payload: unknown): Promise<unknown>;

@@ -12,12 +12,16 @@ export const BROWSER_PRODUCT_FIXTURE_ROOT = '.wrangler/browser-products';
 
 export { PRODUCT_IDS } from '../../src/common/product-identities.js';
 
+/** @typedef {{ productId: string, origin: string, peerOrigin: string, outputDirectory: string }} BrowserProductSite */
+
 /**
  * The production-shaped origins used by the ordinary browser suite.
  *
  * Soundscaper keeps PLAYWRIGHT_PORT for compatibility with focused local runs.
  * Framescaper defaults to the following port, but can be moved independently
  * when two neighboring ports are not available.
+ * @param {Record<string, string | undefined>} [environment]
+ * @returns {Readonly<{ fixtureRoot: string, sites: readonly BrowserProductSite[] }>}
  */
 export function ordinaryBrowserProductSitePlan(environment = process.env) {
 	const soundscaperPort = browserPort(environment.PLAYWRIGHT_PORT, 4322, 'PLAYWRIGHT_PORT');
@@ -39,15 +43,25 @@ export function ordinaryBrowserProductSitePlan(environment = process.env) {
 		soundscaperOrigin: `http://127.0.0.1:${String(soundscaperPort)}`,
 		framescaperOrigin: `http://127.0.0.1:${String(framescaperPort)}`,
 		lightscaperOrigin: `http://127.0.0.1:${String(lightscaperPort)}`,
+		products: browserProducts(environment.SCAPE_BROWSER_PRODUCTS),
 	});
 }
 
-/** A single-product build descriptor, including the independently staged photo shell. */
+/** A build descriptor retains its product identity independently of run selection. */
 export function browserProductSiteForBuild(productId, environment = process.env) {
 	if (!PRODUCT_IDS.includes(productId)) {
 		throw new Error(`Unsupported browser build product: ${String(productId)}.`);
 	}
-	return siteFor(ordinaryBrowserProductSitePlan(environment), productId);
+	return siteFor(ordinaryBrowserProductSitePlan({ ...environment, SCAPE_BROWSER_PRODUCTS: productId }), productId);
+}
+
+function browserProducts(value) {
+	if (value === undefined || value === '') return PRODUCT_IDS;
+	const selected = value.split(',').map(product => product.trim());
+	if (selected.some(product => !PRODUCT_IDS.includes(product)) || new Set(selected).size !== selected.length) {
+		throw new TypeError('SCAPE_BROWSER_PRODUCTS must select unique known browser products separated by commas.');
+	}
+	return PRODUCT_IDS.filter(product => selected.includes(product));
 }
 
 /** A Vite production-preview descriptor safe to put directly in Playwright config. */
@@ -67,13 +81,13 @@ export function vitePreviewServer(site, readinessPath = '/en/') {
 	};
 }
 
-function productSitePlan({ fixtureRoot, soundscaperOrigin, framescaperOrigin, lightscaperOrigin }) {
+function productSitePlan({ fixtureRoot, soundscaperOrigin, framescaperOrigin, lightscaperOrigin, products }) {
 	const origins = Object.freeze({
 		soundscaper: browserOrigin(soundscaperOrigin, 'Soundscaper browser origin'),
 		framescaper: browserOrigin(framescaperOrigin, 'Framescaper browser origin'),
 		lightscaper: browserOrigin(lightscaperOrigin, 'Lightscaper browser origin'),
 	});
-	const sites = PRODUCT_IDS.map((productId) => Object.freeze({
+	const sites = products.map((productId) => Object.freeze({
 		productId,
 		origin: origins[productId],
 		peerOrigin: origins[productId === 'soundscaper' ? 'framescaper' : 'soundscaper'],
@@ -99,16 +113,20 @@ function browserOrigin(value, label) {
 	return url.origin;
 }
 
-/** Reject anything that is not a complete independent-product plan. */
+/** Authenticate a nonempty subset while retaining each product's peer identity. */
 export function assertPlan(plan) {
-	if (!plan || !Array.isArray(plan.sites) || plan.sites.length !== PRODUCT_IDS.length) {
-		throw new TypeError('A browser-product site plan must contain every registered product.');
+	if (!plan || !Array.isArray(plan.sites) || plan.sites.length === 0 || plan.sites.length > PRODUCT_IDS.length) {
+		throw new TypeError('A browser-product site plan must contain a nonempty subset of products.');
 	}
 	for (const site of plan.sites) assertSite(site);
 	for (const field of ['productId', 'origin', 'outputDirectory']) {
-		if (new Set(plan.sites.map((site) => site[field])).size !== PRODUCT_IDS.length) {
-			throw new TypeError(`A browser-product site plan must contain distinct ${field} values.`);
+		if (new Set(plan.sites.map(site => site[field])).size !== plan.sites.length) {
+			throw new TypeError(`Browser-product plans require unique ${field} values.`);
 		}
+	}
+	for (const site of plan.sites) {
+		const peer = plan.sites.find(candidate => candidate.productId === (site.productId === 'soundscaper' ? 'framescaper' : 'soundscaper'));
+		if (peer && site.peerOrigin !== peer.origin) throw new TypeError('Browser-product peer origins must match the selected peer.');
 	}
 }
 
@@ -119,6 +137,7 @@ export function assertSite(site) {
 	}
 	browserOrigin(site.origin, `${site.productId} browser origin`);
 	browserOrigin(site.peerOrigin, `${site.productId} peer browser origin`);
+	if (site.origin === site.peerOrigin) throw new TypeError('Browser-product and peer origins must be different.');
 	for (const value of [site.outputDirectory]) {
 		if (typeof value !== 'string'
 			|| !/^\.wrangler\/[A-Za-z0-9_./-]+$/u.test(value)

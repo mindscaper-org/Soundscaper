@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 
 /** A new encoded straight-sRGB byte process; legacy vignette remains unchanged.
  * Pixel centers belong to the CURRENT natural stage output. Signed Amount

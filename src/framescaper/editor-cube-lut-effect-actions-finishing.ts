@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 import { normalizeVideoEffectsV2 } from '../common/editor/video-effects-v2.ts';
 import { normalizeCubeLutProfileEffectV1 } from '../common/editor/video-cube-lut-profile-v1.ts';
-import { parseCubeLutV1, VIDEO_COLOR_LIMITS_V1, type VideoCubeLutReferenceV1 } from '../common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../common/imaging/cube-lut-v1.ts';
+import { VIDEO_COLOR_LIMITS_V1, type VideoCubeLutReferenceV1 } from '../common/imaging/cube-lut-reference-contract.ts';
 import { withCubeLutResourceV1 } from '../common/editor/imaging/cube-lut-resource-v1.ts';
 import { createFramescaperCubeLutSourceFinishing } from './cube-lut-source-finishing.ts';
 import type { MediaAssetWriter, MediaAssetWriteOptions } from '../common/editor/storage/media-asset-write-contract.ts';

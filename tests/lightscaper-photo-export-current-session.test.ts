@@ -18,7 +18,7 @@ import { withPreparedBrushMaskResourceV1 } from '../src/common/editor/imaging/br
 import { capturePhotoRasterExportBatchV1 } from '../src/lightscaper/controller/photo-raster-export-batch-v1.ts';
 import { createPhotoRasterExportJournalV1, photoRasterExportJournalKeyV1 } from '../src/lightscaper/storage/photo-raster-export-journal-v1.ts';
 import { PhotoRasterExportJournalOwnerV1 } from '../src/lightscaper/storage/photo-raster-export-journal-owner-v1.ts';
-import { request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { InstrumentedKeyRange } from './helpers/instrumented-indexeddb-keys.ts';
 import { mediaRestoreFixture } from './helpers/lightscaper-media-restore-fixture.ts';
 import { photoArchiveFixture } from './helpers/lightscaper-photo-fixture.ts';

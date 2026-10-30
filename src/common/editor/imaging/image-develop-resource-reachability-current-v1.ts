@@ -2,7 +2,7 @@
 
 import { SCAPE_ARCHIVE_LIMITS } from '../scape-archive-limits.ts';
 import { normalizeCubeLutProfileEffectV1, CUBE_LUT_PROFILE_EFFECT_TYPE_V1 } from '../video-cube-lut-profile-v1.ts';
-import type { VideoCubeLutReferenceV1 } from '../cube-lut-reference-contract.ts';
+import type { VideoCubeLutReferenceV1 } from '../../imaging/cube-lut-reference-contract.ts';
 import { normalizeBrushMaskResourceReferenceV1, type BrushMaskResourceReferenceV1 } from './brush-mask-resource-v1.ts';
 import { normalizeImageDevelopStateThroughV4 } from './image-develop-state-v4.ts';
 

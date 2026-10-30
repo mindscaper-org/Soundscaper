@@ -5,7 +5,7 @@ import test from 'node:test';
 import {
 	raceAbortablePromise,
 	raceAbortableRead,
-} from '../src/common/editor/abort-race.ts';
+} from '../src/common/foundation/abort-race.ts';
 
 test('an already-aborted lazy read rejects without starting the provider', async () => {
 	const controller = new AbortController();

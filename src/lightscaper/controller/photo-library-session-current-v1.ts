@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { PhotoLibrarySessionPortCurrentV1 } from '../../common/editor/photo-library-session-port-current-v1.ts';
-import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../common/foundation/closed-domain-value.ts';
 import { integer } from '../catalog/value-validation.ts';
 import { PhotoCatalogRevisionConflictError } from '../catalog/repository-types.ts';
 import { preparePhotoLibraryPreviewReadKernelV2 } from './internal/photo-library-preview-read-kernel-v2.ts';

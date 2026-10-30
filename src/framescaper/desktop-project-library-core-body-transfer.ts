@@ -3,11 +3,11 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 
-import { throwIfScapeAborted } from '../common/editor/scape-abort.ts';
+import { throwIfScapeAborted } from '../common/scape/abort.ts';
 import {
 	canonicalMediaContentBlob,
 	digestMediaContent,
-} from '../common/editor/storage/media-content-digest.ts';
+} from '../common/media/content-digest.ts';
 import type {
 	OwnedMediaAssetPublication,
 	OwnedMediaAssetWriter,

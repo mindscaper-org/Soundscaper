@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import type { TestContext } from 'node:test';
 import type { PhotoLibraryOriginalRecoveryPortV1, PhotoLibraryOriginalRestoreTargetV1 } from '../../src/common/editor/photo-library-original-recovery-port-v1.ts';
-import { openDatabase, request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../src/common/media/indexeddb.ts';
 import { PhotoCatalogRepositoryV1 } from '../../src/lightscaper/catalog/repository.ts';
 import { normalizePhotoCatalogRootV1 } from '../../src/lightscaper/catalog/catalog-root.ts';
 import { PhotoLibrarySessionV1 } from '../../src/lightscaper/controller/photo-library-session.ts';

@@ -3,8 +3,8 @@
 import { confirmFileSizeWarning, type FileSizeWarningConfirmation, type FileSizeWarningOptions } from '../common/editor/controller/shared/file-size-warning.ts'
 import { admitSoundscaperDesktopPublication, rendererPublicationRequest, soundscaperDesktopMediaWarningOptions, soundscaperDesktopPublicationWarningOptions, type SoundscaperDesktopRendererPublication as RendererPublication } from './desktop-project-library-publication-warning.ts'
 import { SoundscaperDesktopFreezeSizeAdmission, assertSoundscaperDesktopMediaPublicationCurrent } from './desktop-project-library-freeze-size-warning.ts'
-import { SCAPE_ARCHIVE_LIMITS } from '../common/editor/scape-archive-envelope.ts'
-import { throwIfScapeAborted } from '../common/editor/scape-abort.ts'
+import { SCAPE_ARCHIVE_LIMITS } from '../common/scape/archive-limits.ts';
+import { throwIfScapeAborted } from '../common/scape/abort.ts'
 import { isStrictlyHigherProjectRevision } from '../common/editor/project-revision-cas.ts'
 import type { EditorProjectRuntimeProfile } from '../common/editor/project-runtime-profile.ts'
 import {

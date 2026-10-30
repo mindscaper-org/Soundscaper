@@ -4,7 +4,7 @@ import { framescaperImagePackSourceCurrentV1 } from '../../common/editor/timelin
 import { prepareFramescaperRawImageOriginalCurrentV1 } from '../../common/editor/timeline-image-raw-original-plan-current-v1.ts';
 import type { PixelFrameDescriptorV1, PixelFrameV1 } from '../../common/editor/imaging/pixel-frame-contract-v1.ts';
 import { readCanonicalSafeVisualText } from '../../common/editor/safe-visual-text.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import { captureRepairSignalV1, checkRepairSignalV1 } from '../../common/editor/imaging/pixel-frame-repair-lifetime-v1.ts';
 import type { FramescaperStoredImageAssetStoreTimelineImage } from '../editor-selected-timeline-image-image-frame-source.ts';
 import { openFramescaperNativePackOwnerCurrentV1, retireFramescaperNativeImageCurrentV1 } from './timeline-image-native-pack-owner-current-v1.ts';

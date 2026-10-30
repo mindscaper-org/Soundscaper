@@ -21,7 +21,7 @@ import { createPhotoDevelopRenderRuntimeCurrentV1 } from '../src/lightscaper/pho
 import { normalizePhotoCatalogArchiveV7 } from '../src/lightscaper/archive/catalog-archive-contract-v7.ts';
 import { exportPhotoCatalogArchiveV7 } from '../src/lightscaper/archive/catalog-archive-export-v7.ts';
 import type { BrushMaskResourceReferenceV1 } from '../src/common/editor/imaging/brush-mask-resource-v1.ts';
-import type { VideoCubeLutReferenceV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../src/common/imaging/cube-lut-reference-contract.ts';
 import type { PhotoOriginalV1 } from '../src/lightscaper/catalog/types.ts';
 import { MEDIA_ASSET_CHUNK_STORAGE_TYPE, MEDIA_ASSET_STREAM_CHUNK_BYTES } from '../src/common/editor/storage/media-asset-chunk-schema.ts';
 

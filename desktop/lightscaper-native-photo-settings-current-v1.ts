@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { DatabaseSync } from 'node:sqlite';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import type { KeyValueEntry, KeyValueWriteAdmission } from '../src/common/editor/storage/key-value-repository.ts';
 import { readLightscaperNativePhotoLibraryAnchorKeyCurrentV1 as anchorKey, readLightscaperNativePhotoLibraryAnchorEntryCurrentV1 as anchorRead, captureLightscaperNativePhotoLibraryAnchorPairCurrentV1 as anchorCapture, publishLightscaperNativePhotoLibraryAnchorPairCurrentV1 as anchorPublish } from './lightscaper-native-photo-library-anchor-current-v1.ts';
 import type { PhotoMediaSettingsRepositoryV1 as Settings } from '../src/lightscaper/storage/photo-media-store.ts';

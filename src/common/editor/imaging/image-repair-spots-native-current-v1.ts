@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { PHOTO_DEVELOP_FULL_RESOLUTION_LIMITS_V1 } from '../photo-library-develop-full-resolution-port-v1.ts';
 import { PHOTO_DEVELOP_LINEAR_LIMITS_V1 } from '../photo-library-develop-linear-port-v1.ts';
 import { defaultImageDevelopStateV2 } from './image-develop-state-v2.ts';

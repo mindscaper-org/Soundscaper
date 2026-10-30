@@ -4,7 +4,7 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 
 export const VIDEO_CLIP_COMPOSITION_SCHEMA_VERSION = 1 as const;
 

@@ -2,9 +2,9 @@
 
 import type { DesktopPhotoLibrarySessionStorageCurrentV1 as Storage } from './desktop-photo-library-session-storage-current-v1.ts';
 import { DesktopPhotoSessionClientCallsCurrentV1 as Calls, desktopPhotoSignalCurrentV1 as signalOf, desktopPhotoVoidCurrentV1 as empty } from './desktop-photo-library-session-client-calls-current-v1.ts';
-import { normalizeVideoCubeLutReferenceV1 } from '../common/editor/cube-lut-reference-contract.ts';
+import { normalizeVideoCubeLutReferenceV1 } from '../common/imaging/cube-lut-reference-contract.ts';
 import { normalizeBrushMaskResourceReferenceV1 } from '../common/editor/imaging/brush-mask-resource-v1.ts';
-import { canonicalMediaContentBlob } from '../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../common/media/content-digest.ts';
 import { readDesktopPhotoLibrarySessionHandleCurrentV1 as handle } from './desktop-photo-library-session-protocol-current-v1.ts';
 import { copyDesktopPhotoBytesCurrentV1 as copy, desktopPhotoDigestCurrentV1, digestDesktopPhotoBlobCurrentV1,
 	uploadDesktopPhotoBlobCurrentV1, readDesktopPhotoDownloadCurrentV1, wipeDesktopPhotoBytesCurrentV1 as wipe } from './desktop-photo-library-session-transfer-client-current-v1.ts';

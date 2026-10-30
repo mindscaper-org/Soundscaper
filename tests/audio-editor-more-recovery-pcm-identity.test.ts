@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
-import { createScapeDigest, scapeAudioSourceStream, scapeHex } from '../src/common/editor/scape-archive-media.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../src/common/media/bytes.ts';
+import { scapeAudioSourceStream } from '../src/common/editor/scape-archive-media.ts';
 import { bindSoundscaperProjectRecovery } from '../src/soundscaper/editor-project-recovery-binding.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project-store.ts';

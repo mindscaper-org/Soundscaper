@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { transact } from '../src/common/media/indexeddb.ts';
 import { MediaPublicationReconciliationError } from '../src/common/editor/storage/media-asset-owned-publication.ts';
 import { MediaAssetCleanupError } from '../src/common/editor/storage/media-asset-cleanup-error.ts';
 import { MediaRepository } from '../src/common/editor/storage/media-repository.ts';

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { withCubeLutResourceV1 } from '../../common/editor/imaging/cube-lut-resource-v1.ts';
-import type { VideoCubeLutReferenceV1 } from '../../common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../../common/imaging/cube-lut-reference-contract.ts';
 import { photoPackByteView } from './pack-byte-chunk.ts';
 
 export interface PhotoCubeLutArchiveSourceV1 {

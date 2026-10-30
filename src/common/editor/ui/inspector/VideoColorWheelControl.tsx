@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useCallback, useEffect, useId, useRef, useState, type PointerEvent } from 'react';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../foundation/closed-domain-value.ts';
 import VideoEffectNumberInput from './VideoEffectNumberInput.tsx';
 
 export interface VideoColorWheelValueV1 { readonly hue: number; readonly saturation: number; readonly luminance: number }

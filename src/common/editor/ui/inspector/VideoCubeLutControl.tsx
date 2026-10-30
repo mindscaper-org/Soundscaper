@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
-import type { VideoCubeLutReferenceV1 } from '../../video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../../../imaging/cube-lut-reference-contract.ts';
 import { takeSelectedFile } from '../file-input-selection.ts';
 
 export interface VideoCubeLutControlProps {

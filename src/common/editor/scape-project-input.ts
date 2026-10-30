@@ -3,12 +3,12 @@
 import {
 	assertScapeArchiveByteSource,
 	type ScapeArchiveByteSource,
-} from './scape-archive-byte-source.ts';
+} from '../scape/archive-byte-source.ts';
 import type {
 	ScapeArchiveByteSourceReaderFactory,
 	ScapeArchiveReaderFactory,
 } from './scape-archive-reader.ts';
-import type { ScapeArchiveEntry } from './scape-archive-envelope.ts';
+import type { ScapeArchiveEntry } from '../scape/archive-envelope.ts';
 
 export type ScapeProjectInput = Blob | ScapeArchiveByteSource;
 

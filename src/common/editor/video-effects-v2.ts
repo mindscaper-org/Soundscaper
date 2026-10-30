@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 import { createStableId } from './stable-id.js';
 import { VIDEO_EFFECT_DEFINITIONS, createVideoEffect, normalizeVideoEffect, updateVideoEffect } from './video-effects.js';
 import { CUBE_LUT_PROFILE_EFFECT_TYPE_V1, normalizeCubeLutProfileEffectV1, normalizeCubeLutProfileParamsV1 } from './video-cube-lut-profile-v1.ts';

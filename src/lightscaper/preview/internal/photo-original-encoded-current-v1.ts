@@ -2,12 +2,12 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/editor/closed-domain-value.ts';
-import { IMAGE_IMPORT_LIMITS } from '../../../common/editor/image-import-admission.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/foundation/closed-domain-value.ts';
+import { IMAGE_IMPORT_LIMITS } from '../../../common/imaging/image-import-admission.ts';
 import { planPixelFrameV1 } from '../../../common/editor/imaging/pixel-frame-contract-v1.ts';
 import { captureRepairSignalV1, checkRepairSignalV1 } from '../../../common/editor/imaging/pixel-frame-repair-lifetime-v1.ts';
 import { probeRawSourceV1, type RawSourceAdmissionV1 } from '../../../common/editor/raw/raw-source-v1.ts';
-import { canonicalMediaContentBlob } from '../../../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../../../common/media/content-digest.ts';
 import { normalizePhotoPreviewOriginalBindingV1, type PhotoPreviewOriginalBindingV1 } from '../photo-preview-plan-v1.ts';
 
 export const PHOTO_ORIGINAL_DERIVED_LIMITS_CURRENT_V1 = Object.freeze({ maximumSidePixels: 8192,

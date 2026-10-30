@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { AUDIO_EDITOR_PCM_CHUNK_FRAMES } from './pcm-chunks.js';
-import { raceAbortableRead } from './abort-race.ts';
+import { raceAbortableRead } from '../foundation/abort-race.ts';
 import { parseAiffMarkChunk } from './aiff-markers.ts';
 import { aiffIntegerSampleFormat, parseAiffCommLayout, validateAiffCommByteLength, type AiffCommLayout, type AiffPcmSampleFormat } from './aiff-comm-layout.ts';
 export type { AiffPcmSampleFormat } from './aiff-comm-layout.ts';

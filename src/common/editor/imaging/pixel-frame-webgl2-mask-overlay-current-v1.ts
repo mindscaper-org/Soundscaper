@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainRecord as record, readClosedDomainField as field } from '../closed-domain-value.ts';
+import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../foundation/closed-domain-value.ts';
 import { readPixelFrameWebGl2MaskOverlayCurrentV1, type PixelFrameWebGl2MaskOverlayStepCurrentV1 as Step } from './pixel-frame-webgl2-mask-overlay-plan-current-v1.ts';
 import { PIXEL_FRAME_WEBGL2_MASK_OVERLAY_FRAGMENT_CURRENT_V1 as FRAGMENT } from './pixel-frame-webgl2-mask-overlay-glsl-current-v1.ts';
 import { withMaskNativeCurrentV1, type MaskTextureCurrentV1 } from './pixel-frame-webgl2-mask-context-native-current-v1.ts';

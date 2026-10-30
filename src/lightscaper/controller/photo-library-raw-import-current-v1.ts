@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
-import { canonicalMediaContentBlob } from '../../common/editor/storage/media-content-digest.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
+import { canonicalMediaContentBlob } from '../../common/media/content-digest.ts';
 import type { PhotoLibraryRawFrameCurrentV1, PhotoLibraryRawResultCurrentV1 } from './photo-library-raw-source-current-v1.ts';
 export interface PhotoLibraryRawImportRequestCurrentV1 {
  readonly body: Blob; readonly contentSha256: string; readonly profile: 'canonical';

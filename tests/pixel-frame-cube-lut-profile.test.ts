@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { withCubeLutProfilePixelFrameV1 } from '../src/common/editor/imaging/pixel-frame-cube-lut-profile-v1.ts';
 import type { CubeLutSourcePortV1 } from '../src/common/editor/imaging/cube-lut-source-port-v1.ts';
 import type { PixelFrameV1 } from '../src/common/editor/imaging/pixel-frame-contract-v1.ts';

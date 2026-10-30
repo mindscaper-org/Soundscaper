@@ -3,7 +3,7 @@ import type { PhotoLibrarySessionPortCurrentV1 as Session } from '../../common/e
 import type { PhotoLibraryDevelopSnapshotCurrentV1 as Snapshot } from '../../common/editor/photo-library-develop-port-current-v1.ts';
 import { normalizeImageDevelopStateThroughV4 } from '../../common/editor/imaging/image-develop-state-v4.ts';
 import { createVideoEffect } from '../../common/editor/video-effects.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import { exportDebugPhotoCurrentV1 } from './photo-library-debug-export-current-v1.ts';
 import { bindDebugMethodCurrentV1 as bind, captureDebugFilesCurrentV1 as captureFiles, debugCheckCurrentV1 as check, debugCleanupFailureCurrentV1 as cleanupFailure,
 	debugMemoryCurrentV1, type DebugSoakOptionsCurrentV1, type DebugSoakReportCurrentV1,

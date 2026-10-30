@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../closed-domain-value.ts';
+import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../foundation/closed-domain-value.ts';
 import type { PhotoLibraryPageV1 } from '../../photo-library-session-port-v1.ts';
 import { PHOTO_LIBRARY_SAVED_COLLECTION_LIMITS_V1 as CURSOR_LIMITS } from '../../photo-library-saved-collection-port-v1.ts';
 import { PhotoLibrarySelectionV1, readPhotoLibrarySelectionIdV1, readPhotoLibrarySelectionIdsV1 } from './photo-library-selection-v1.ts';

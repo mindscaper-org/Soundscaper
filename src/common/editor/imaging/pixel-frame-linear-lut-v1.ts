@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { normalizeVideoColorGradeV1, type VideoColorGradeV1 } from '../video-color-management-v27.ts';
-import type { ParsedCubeLutV1 } from '../video-color-cube-lut-v27.ts';
+import type { ParsedCubeLutV1 } from '../../imaging/cube-lut-v1.ts';
 import { withCubeLutResourceV1 } from './cube-lut-resource-v1.ts';
 import { captureRepairSignalV1, checkRepairSignalV1 } from './pixel-frame-repair-lifetime-v1.ts';
 import { captureLinearKernelDescriptorV1, captureLinearKernelPlanesV1, writeLinearKernelPixelV1 } from './linear-kernel-planes-v1.ts';

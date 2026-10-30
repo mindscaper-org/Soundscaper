@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { request, transact } from './indexeddb-backend.ts';
+import { request, transact } from '../../media/indexeddb.ts';
 import {
 	MEDIA_ASSET_STAGING_LEASE_MS, MEDIA_ASSET_STAGING_KIND_INDEX_NAME,
 	MEDIA_ASSET_STAGING_PATH_INDEX_NAME, MEDIA_ASSET_STAGING_STATE_KEY, MEDIA_ASSET_STAGING_STORE_NAME,

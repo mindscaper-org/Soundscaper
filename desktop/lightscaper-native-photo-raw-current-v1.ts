@@ -2,8 +2,8 @@
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { setImmediate } from 'node:timers/promises';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
-import { IMAGE_IMPORT_LIMITS } from '../src/common/editor/image-import-admission.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
+import { IMAGE_IMPORT_LIMITS } from '../src/common/imaging/image-import-admission.ts';
 import { assertPhotoStackQuerySignalV1 } from '../src/lightscaper/catalog/photo-stack-query-signal-v1.ts';
 import { linkLightscaperNativePhotoMediaSignalsCurrentV1 as link, checkLightscaperNativePhotoMediaSignalCurrentV1 as check } from './lightscaper-native-photo-media-lifetime-current-v1.ts';
 import { reserveLightscaperNativePhotoRawCurrentV1 as reserve, quarantineLightscaperNativePhotoRawCurrentV1 as quarantine } from './lightscaper-native-photo-raw-budget-current-v1.ts';

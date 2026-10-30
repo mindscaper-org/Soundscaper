@@ -4,7 +4,7 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 import {
 	normalizeNativeMediaImageSequenceSourceV25,
 	type NativeMediaImageSequenceSourceV25,

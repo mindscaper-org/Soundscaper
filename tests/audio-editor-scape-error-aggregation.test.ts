@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { aggregateScapeErrors } from '../src/common/editor/scape-abort.ts';
+import { aggregateScapeErrors } from '../src/common/scape/abort.ts';
 
 test('known cancellation classification preserves opaque primary and cleanup without inspecting the reason', () => {
 	let traps = 0;

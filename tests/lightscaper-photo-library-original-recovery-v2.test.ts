@@ -9,7 +9,8 @@ import { restorePhotoLibraryOriginalBodyV1 } from '../src/lightscaper/controller
 import { PhotoCatalogRepositoryV2 } from '../src/lightscaper/catalog/photo-catalog-repository-v2.ts';
 import { normalizePhotoDocumentV2 } from '../src/lightscaper/catalog/photo-document-v2.ts';
 import { PhotoMediaStoreV1 } from '../src/lightscaper/storage/photo-media-store.ts';
-import { request, transact, openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
 import { photoArchiveFixture } from './helpers/lightscaper-photo-fixture.ts';
 import { currentRecipe } from './helpers/lightscaper-current-develop-session-fixture.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';

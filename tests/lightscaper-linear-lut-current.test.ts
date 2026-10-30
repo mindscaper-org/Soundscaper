@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { writeLinearManagedGradeV1, LINEAR_LUT_TRANSIENT_RESERVE_BYTES_V1 } from '../src/common/editor/imaging/pixel-frame-linear-lut-v1.ts';
 import { normalizeVideoColorGradeV1 } from '../src/common/editor/video-color-management-v27.ts';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { withCubeLutPixelFrameV1 } from '../src/common/editor/imaging/pixel-frame-cube-lut-v1.ts';
 const IDENTITY = 'LUT_3D_SIZE 2\n0 0 0\n1 0 0\n0 1 0\n1 1 0\n0 0 1\n1 0 1\n0 1 1\n1 1 1';
 const SWAP = 'LUT_3D_SIZE 2\n0 0 0\n0 0 1\n0 1 0\n0 1 1\n1 0 0\n1 0 1\n1 1 0\n1 1 1';

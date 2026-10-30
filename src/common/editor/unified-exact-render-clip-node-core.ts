@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainRecord, readClosedDomainField as field } from './closed-domain-value.ts';
+import { readClosedDomainRecord, readClosedDomainField as field } from '../foundation/closed-domain-value.ts';
 import { projectString } from './project-validation-primitives.ts';
 import { assertUnifiedExactRetimeAuthority, assertUnifiedExactRetimeStructureWithDeferredVfr } from './unified-exact-retime-authority.ts';
 import { normalizeVideoRetimeExportIntentV6Wire } from './video-retime-exact-ordinal-oracle.ts';

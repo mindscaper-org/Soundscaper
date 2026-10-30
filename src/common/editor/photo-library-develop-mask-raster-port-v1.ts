@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 import type { BrushMaskResourceReferenceV1 } from './imaging/brush-mask-resource-v1.ts';
 import type { MaskRasterSourcePortV1 } from './imaging/mask-raster-source-port-v1.ts';
 

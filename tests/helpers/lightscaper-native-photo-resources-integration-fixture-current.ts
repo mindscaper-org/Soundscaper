@@ -16,7 +16,8 @@ import { createPhotoResourceReachabilityCurrentV1 } from '../../src/lightscaper/
 import { defaultImageDevelopStateV1 } from '../../src/common/editor/imaging/image-develop-state-v1.ts';
 import { normalizeImageDevelopStateV4 } from '../../src/common/editor/imaging/image-develop-state-v4.ts';
 import { withPreparedBrushMaskResourceV1, type BrushMaskResourceReferenceV1 } from '../../src/common/editor/imaging/brush-mask-resource-v1.ts';
-import { parseCubeLutV1, type VideoCubeLutReferenceV1 } from '../../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../../src/common/imaging/cube-lut-v1.ts';
+import { type VideoCubeLutReferenceV1 } from '../../src/common/imaging/cube-lut-reference-contract.ts';
 import { photoArchiveFixture } from './lightscaper-photo-fixture.ts';
 
 export interface NativeResourceBodyCurrentV1<Reference = VideoCubeLutReferenceV1 | BrushMaskResourceReferenceV1> {

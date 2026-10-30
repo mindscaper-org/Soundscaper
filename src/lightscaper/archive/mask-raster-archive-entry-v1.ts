@@ -2,8 +2,8 @@
 
 import { withBrushMaskResourceV1, type BrushMaskResourceReferenceV1 } from '../../common/editor/imaging/brush-mask-resource-v1.ts';
 import { normalizePhotoMaskRasterArchiveReferenceV1 } from './mask-raster-archive-source-v1.ts';
-import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../../common/editor/scape-archive-envelope.ts';
-import type { ScapeExpandedByteBudget } from '../../common/editor/scape-expanded-byte-budget.ts';
+import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../../common/scape/archive-envelope.ts';
+import type { ScapeExpandedByteBudget } from '../../common/scape/expanded-byte-budget.ts';
 import { PHOTO_MASK_RASTER_ASSET_KIND_V1, PHOTO_MASK_RASTER_ENCODING_V1 } from '../../common/editor/scape-photo-mask-raster-v1.ts';
 import { photoPackByteView } from './pack-byte-chunk.ts';
 

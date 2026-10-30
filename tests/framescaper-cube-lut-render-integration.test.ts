@@ -5,7 +5,7 @@ import test from 'node:test';
 import { applyVideoExactBrowserEffectsFinishingV2 as render } from '../src/framescaper/editor-video-exact-browser-effects-finishing-v2.ts';
 import { applyVideoExactBrowserEffectsFinishing as renderV1 } from '../src/framescaper/editor-video-exact-browser-effects-finishing.ts';
 import { createVideoEffect } from '../src/common/editor/video-effects.js';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import type { CubeLutSourcePortV1 } from '../src/common/editor/imaging/cube-lut-source-port-v1.ts';
 
 const TEXT = ['LUT_3D_SIZE 2', '0 0 0', '0 0 1', '0 1 0', '0 1 1', '1 0 0', '1 0 1', '1 1 0', '1 1 1'].join('\n');

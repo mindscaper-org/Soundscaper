@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { encodeImageExifTiffForColorSpaceV1, type ImageExifWriteOptionsV1 } from './exif-metadata-writer-kernel-v1.ts';
 
 export interface ImageExifWriteProfileOptionsCurrentV1 extends ImageExifWriteOptionsV1 {

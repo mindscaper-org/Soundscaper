@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { readBinaryDerivativeCacheRecordV1 } from '../src/common/editor/storage/binary-derivative-cache-records.ts';
-import { transact, transactionCompletion } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { transact, transactionCompletion } from '../src/common/media/indexeddb.ts';
 import { OpfsRepository } from '../src/common/editor/storage/opfs-repository.ts';
 import { exportPhotoCatalogArchiveV5 } from '../src/lightscaper/archive/catalog-archive-export-v5.ts';
 import { PhotoCatalogRepositoryV2 } from '../src/lightscaper/catalog/photo-catalog-repository-v2.ts';

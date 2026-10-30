@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { digestMediaContent } from '../common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../common/media/content-digest.ts';
 import type { BlobLike } from '../common/editor/storage/media-records.ts';
 import type { GrayVideoFrameV1 } from '../common/editor/video-motion-processing-v27.ts';
 import { videoBoundaryTime, type VideoSourceTimingView } from '../common/editor/video-source-timing-view.ts';

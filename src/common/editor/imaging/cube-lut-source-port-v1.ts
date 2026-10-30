@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { VideoCubeLutReferenceV1 } from '../video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../../imaging/cube-lut-reference-contract.ts';
 
 /** A runtime resource capability, never a recipe parameter. Bytes are borrowed
  * through the joined consumer and source cleanup; the shared renderer still

@@ -6,7 +6,7 @@ import {
 	audacityXmlChildren,
 	createAudacityXmlNode,
 } from '../common/editor/audacity-binary-xml.js'
-import { digestScapeBytes } from '../common/editor/scape-archive-media.ts'
+import { digestBytes as digestScapeBytes } from '../common/media/bytes.ts';
 import {
 	normalizeSoundscaperNativePluginStates,
 	SOUNDSCAPER_NATIVE_PLUGIN_STATE_LIMITS,

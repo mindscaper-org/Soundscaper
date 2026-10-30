@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 import { normalizeVideoMaskMatteGraphV1, VIDEO_MASK_MATTE_WORKING_LIMIT_V1, videoMaskMatteWorkingBytesV1 } from './video-mask-matte-v24.ts';
 import { captureVideoMaskLuminanceFrameV1, videoMaskLuminanceRangeCoverageV1, videoMaskMatteUsesCurrentFrameV1,
 	type CapturedVideoMaskLuminanceFrameV1 } from './video-mask-luminance-range-v1.ts';

@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { aggregateScapeErrors } from '../../common/editor/scape-abort.ts';
-import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../../common/editor/scape-archive-envelope.ts';
-import { createScapeDigest, scapeHex, verifyScapeExtractedAsset } from '../../common/editor/scape-archive-media.ts';
-import type { ScapeExpandedByteBudget } from '../../common/editor/scape-expanded-byte-budget.ts';
+import { aggregateScapeErrors } from '../../common/scape/abort.ts';
+import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../../common/scape/archive-envelope.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../../common/media/bytes.ts';
+import { verifyScapeExtractedAsset } from '../../common/scape/asset-bytes.ts';
+import type { ScapeExpandedByteBudget } from '../../common/scape/expanded-byte-budget.ts';
 import { photoPackByteView } from './pack-byte-chunk.ts';
 
 const nativeAborted = Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'aborted')!.get!;

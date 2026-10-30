@@ -9,7 +9,7 @@ import { createFramescaperProjectUnifiedExactRenderPlanV16 } from '../src/frames
 import { bindFramescaperUnifiedRenderTimingSidecarsFinishing } from '../src/framescaper/editor-project-unified-render-timing-finishing.ts';
 import { createFramescaperSelectedExactFrameExecutionV16 } from '../src/framescaper/selected-finishing-exact-frame-execution-v16.ts';
 import { createFramescaperSelectedExactFrameExecutionFinishing } from '../src/framescaper/selected-finishing-exact-frame-execution.ts';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { createPinnedExportEncoderV1 } from './helpers/framescaper-pinned-export-encoder.ts';
 import { createVideoExactPictureExportFrameSource } from '../src/common/editor/video-keyframe-export-frame-source.ts';
 import { encodeVideoKeyframeVideo } from '../src/common/editor/video-keyframe-video-encoder.ts';

@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import ts from 'typescript';
@@ -10,7 +10,7 @@ import { workerChunkGroups } from '../scripts/lib/build-chunk-groups.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const CONTRACTS = [
-	'closed-domain-value.ts', 'stable-id.js', 'video-effects.js', 'video-effect-closed-creation.ts',
+	'../foundation/closed-domain-value.ts', 'stable-id.js', 'video-effects.js', 'video-effect-closed-creation.ts',
 	'video-global-develop-v1.ts', 'video-image-geometry-v1.ts', 'video-image-geometry-ffmpeg-v1.ts',
 	'video-chroma-develop-v1.ts', 'video-black-white-mix-v1.ts', 'video-hsl-mixer-v1.ts',
 	'video-curves-v1.ts', 'video-curve-types-v1.ts', 'video-curve-transfer-v1.ts',
@@ -24,6 +24,7 @@ const CONTRACTS = [
 	'video-texture-v1.ts', 'video-texture-ffmpeg-v1.ts', 'video-dehaze-v1.ts', 'video-dehaze-ffmpeg-v1.ts',
 	'imaging/image-geometry-v1.ts', 'imaging/image-geometry-plan-v1.ts', 'imaging/pixel-frame-contract-v1.ts',
 ];
+const contractPath = (name: string) => relative(ROOT, resolve(ROOT, 'src/common/editor', name)).split(sep).join('/');
 function owner(path: string): string | null {
 	const matching = workerChunkGroups.filter(group => group.test instanceof RegExp && group.test.test(path))
 		.sort((first, second) => Number(second.priority) - Number(first.priority));
@@ -32,7 +33,7 @@ function owner(path: string): string | null {
 
 test('worker video contracts have one explicit owner across native path separators', () => {
 	for (const name of CONTRACTS) for (const prefix of ['', '/checkout/', 'C:\\checkout\\']) {
-		const path = `${prefix}src/common/editor/${name}`;
+		const path = `${prefix}${contractPath(name)}`;
 		assert.equal(owner(path), 'editor-video-contracts-worker', path);
 		assert.equal(owner(path.replaceAll('/', '\\')), 'editor-video-contracts-worker', path);
 	}
@@ -40,14 +41,14 @@ test('worker video contracts have one explicit owner across native path separato
 
 test('closed-family extraction and owning serializers keep exact static worker ownership', () => {
 	for (const name of ['video-effect-closed-families-v1.ts', ...CONTRACTS.filter(name => name.includes('ffmpeg'))]) {
-		assert.equal(owner(`src/common/editor/${name}`), 'editor-video-contracts-worker', name);
+		assert.equal(owner(contractPath(name)), 'editor-video-contracts-worker', name);
 	}
 });
 
 test('worker video ownership refuses neighboring processing, UI and filename suffixes', () => {
 	for (const name of [...CONTRACTS, 'video-effect-closed-families-v1.ts']) {
-		assert.notEqual(owner(`src/common/editor/${name}.extra`), 'editor-video-contracts-worker', name);
-		assert.notEqual(owner(`src/common/editor/foreign-${name}`), 'editor-video-contracts-worker', name);
+		assert.notEqual(owner(contractPath(name) + '.extra'), 'editor-video-contracts-worker', name);
+		assert.notEqual(owner(contractPath(name).replace(/\/([^/]+)$/u, '/foreign-$1')), 'editor-video-contracts-worker', name);
 	}
 	for (const path of ['src/common/editor/imaging/pixel-frame-global-develop-v1.ts',
 		'src/common/editor/imaging/pixel-frame-noise-reduction-v1.ts', 'src/common/editor/ui/video-preview-effects-shader.js',
@@ -71,7 +72,7 @@ void test('the four closed optics contracts import only their exact scalar admis
 			if (!ts.isImportDeclaration(statement) || statement.importClause?.isTypeOnly) return [];
 			assert.ok(ts.isStringLiteral(statement.moduleSpecifier)); return [statement.moduleSpecifier.text];
 		});
-		assert.deepEqual(imports, ['./closed-domain-value.ts'], name);
+		assert.deepEqual(imports, ['../foundation/closed-domain-value.ts'], name);
 	}
 });
 

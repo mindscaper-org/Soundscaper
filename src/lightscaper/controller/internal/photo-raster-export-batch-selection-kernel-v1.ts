@@ -4,7 +4,7 @@ import type { ExecutePhotoDevelopV2, PhotoDevelopExecutionContextV2 } from '../.
 import type { ExecutePhotoDevelopCurrentV1, PhotoDevelopExecutionContextCurrentV1 } from '../../../common/editor/controller/shared/photo-library-develop-workflow-current-v1.ts';
 import type { PhotoRasterExportProfileV1 } from '../photo-raster-export-contract-v1.ts';
 import type { PhotoRasterBatchSelection, PreparedPhotoRasterBatchSelection } from '../photo-raster-export-batch-selection.ts';
-import { readClosedDomainArray as array, readClosedDomainRecord as record, readClosedDomainField as field } from '../../../common/editor/closed-domain-value.ts';
+import { readClosedDomainArray as array, readClosedDomainRecord as record, readClosedDomainField as field } from '../../../common/foundation/closed-domain-value.ts';
 
 /** One visible page, detached synchronously in the menu gesture. */
 export function capturePhotoRasterBatchSelection(value: unknown): readonly Readonly<PhotoRasterBatchSelection>[] {

@@ -2,7 +2,7 @@
 
 import type { PhotoLibraryCullingNavigationContextV1, PhotoLibraryCullingNavigationRequestV1 } from '../../common/editor/photo-library-culling-navigation-port-v1.ts';
 import type { PhotoLibraryPageV1 } from '../../common/editor/photo-library-session-port-v1.ts';
-import { readCursorPage, request } from '../../common/editor/storage/indexeddb-backend.ts';
+import { readCursorPage, request } from '../../common/media/indexeddb.ts';
 import { catalogTransaction } from './catalog-transaction.ts';
 import { id } from './value-validation.ts';
 import { photoStorageKey, photoSummary, readPhotoSummary } from './repository-records.ts';

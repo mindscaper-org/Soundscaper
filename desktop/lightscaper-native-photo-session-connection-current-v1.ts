@@ -5,7 +5,7 @@ import type { LightscaperNativePhotoLinkedSessionCurrentV1 as Linked } from './l
 import { LightscaperNativePhotoSessionRawCurrentV1 as Raw } from './lightscaper-native-photo-session-raw-current-v1.ts';
 import type { DesktopPhotoRawRequestCurrentV1 as RawRequest } from '../src/lightscaper/desktop-photo-raw-contract-current-v1.ts';
 import { randomBytes } from 'node:crypto';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import { DESKTOP_PHOTO_LIBRARY_SESSION_CHANNELS_CURRENT_V1 as channels, readDesktopPhotoLibrarySessionRequestIdentityCurrentV1 as identityReader,
 	type DesktopPhotoLibrarySessionDescriptorCurrentV1 as Descriptor } from '../src/lightscaper/desktop-photo-library-session-protocol-current-v1.ts';
 import { readDesktopPhotoLibrarySessionPacketCurrentV1 as packetReader, desktopPhotoSessionOperationCurrentV1 as operation } from '../src/lightscaper/desktop-photo-library-session-packets-current-v1.ts';

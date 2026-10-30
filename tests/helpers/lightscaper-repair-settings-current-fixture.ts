@@ -15,7 +15,7 @@ import { normalizeImageDevelopStateThroughV4, type ImageDevelopStateThroughV4 } 
 import { withPreparedBrushMaskResourceV1, type BrushMaskResourceReferenceV1 } from '../../src/common/editor/imaging/brush-mask-resource-v1.ts';
 import type { PhotoDocumentCurrentV1 } from '../../src/lightscaper/catalog/photo-document-current-v1.ts';
 import type { ExecutePhotoDevelopCurrentV1 } from '../../src/common/editor/controller/shared/photo-library-develop-workflow-current-v1.ts';
-import { request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../src/common/media/indexeddb.ts';
 import { photoArchiveFixture } from './lightscaper-photo-fixture.ts';
 import { mediaRestoreFixture } from './lightscaper-media-restore-fixture.ts';
 import { currentAppLocks } from './lightscaper-current-app-fixture.tsx';

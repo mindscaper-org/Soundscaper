@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { ReviewedImageFormat } from './image-format-signature.ts';
+import type { ReviewedImageFormat } from '../imaging/image-format-signature.ts';
 
 /** The active browser route has no verified high-precision normalization recipe. */
 export function assertBrowserNativeImagePrecision(bytes: Uint8Array, format: ReviewedImageFormat): void {

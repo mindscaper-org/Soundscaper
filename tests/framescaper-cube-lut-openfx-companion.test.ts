@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { deferred, remainsPending } from './helpers/async-test-control.ts';
 import { liveFixture } from './helpers/framescaper-native-live-openfx-fixture.ts';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { createUnifiedExactRenderPlanV16 } from '../src/common/editor/unified-exact-render-plan-v16.ts';
 import { createFramescaperProjectUnifiedExactRenderPlanV16 } from '../src/framescaper/editor-project-unified-render-plan-v16.ts';
 import { framescaperProjectFinishingFoundationShapeNativeMedia } from '../src/framescaper/editor-project-native-media-foundation.ts';

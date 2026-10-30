@@ -7,7 +7,7 @@ import { restoreLightscaperNativePhotoLibraryArchiveCurrentV1 as restore } from 
 import { verifyPhotoResourcesCurrentV1 } from '../src/lightscaper/storage/photo-media-resource-verification-current-v1.ts';
 import { normalizePhotoDocumentCurrentV1 } from '../src/lightscaper/catalog/photo-document-current-v1.ts';
 import { photoDevelopPresetsKeyV1 } from '../src/lightscaper/storage/photo-develop-presets-v1.ts';
-import { createScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { nativeRestoreArchiveCurrentV1 as archive, nativeArchiveRestoreTargetCurrentV1 as target,
 	nativeRestoreJsonShaCurrentV1 as jsonSha } from './helpers/lightscaper-native-library-archive-restore-fixture-current.ts';
 

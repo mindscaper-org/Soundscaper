@@ -3,7 +3,7 @@
 import { fingerprintNativeMediaPlan } from '../../src/common/editor/native-media-plan-canonical-form.ts';
 import { normalizeVideoVisualPresetV1 } from '../../src/common/editor/video-visual-preset-v24.ts';
 import { KeyValueRepository } from '../../src/common/editor/storage/key-value-repository.ts';
-import { request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../src/common/media/indexeddb.ts';
 import { PhotoMediaStoreV1 } from '../../src/lightscaper/storage/photo-media-store.ts';
 import { PhotoCatalogRepositoryCurrentV1 } from '../../src/lightscaper/catalog/photo-catalog-repository-current-v1.ts';
 import { readPhotoLibrarySessionLocationV2 } from '../../src/lightscaper/storage/photo-library-location-reader-v2.ts';

@@ -4,11 +4,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { MediaCatalogOriginalInspectionRepositoryV1 } from '../src/common/editor/storage/media-catalog-original-inspection-repository.ts';
 import { MediaAssetLifecycleCoordinator } from '../src/common/editor/storage/media-asset-lifecycle-coordinator.ts';
-import { MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../src/common/editor/storage/media-content-digest.ts';
-import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+import { MEDIA_CONTENT_DIGEST_CHUNK_BYTES, digestMediaContent } from '../src/common/media/content-digest.ts';
 import { MEDIA_ASSET_STREAM_CHUNK_BYTES } from '../src/common/editor/storage/media-asset-chunk-schema.ts';
 import { mediaAssetChunkKey } from '../src/common/editor/storage/media-asset-chunk-records.ts';
-import { request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { createRepairFixture, deferred, type RepairFixture } from './helpers/media-catalog-original-repair-fixture.ts';
 
 function inspector(fixture: RepairFixture, lifecycle = new MediaAssetLifecycleCoordinator()) {

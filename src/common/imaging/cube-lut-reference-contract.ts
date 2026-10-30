@@ -2,7 +2,7 @@
 
 /** Exact scalar custody identity shared by retained media and managed color.
  * Body parsing, hashing and pixel sampling stay with their render owner. */
-import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord, type ClosedDomainRecord } from './closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord, type ClosedDomainRecord } from '../foundation/closed-domain-value.ts';
 
 type RgbTripletV1 = readonly [number, number, number];
 

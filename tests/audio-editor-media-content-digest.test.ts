@@ -8,7 +8,7 @@ import {
 	MEDIA_CONTENT_DIGEST_CHUNK_BYTES,
 	canonicalMediaContentBlob,
 	digestMediaContent,
-} from '../src/common/editor/storage/media-content-digest.ts';
+} from '../src/common/media/content-digest.ts';
 
 class ObservedBlob extends Blob {
 	readonly slices: Array<Readonly<{ start: number; end: number }>> = [];

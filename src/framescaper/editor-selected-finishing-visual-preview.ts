@@ -7,7 +7,7 @@ import { createSelectedPreviewPlan } from './selected-preview-plan.ts';
 import { hasSelectedCubeLutPictureV2, requiresSelectedExactPlaying } from './selected-preview-resource-policy.ts';
 import { createSelectedPreviewRetirement } from './selected-preview-retirement.ts';
 import type { AudioEditorProjectStore } from '../common/editor/storage.js';
-import { digestMediaContent } from '../common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../common/media/content-digest.ts';
 import { multiplyDivideRationals } from '../common/editor/timeline-time.ts';
 import {
 	createUnifiedExactRenderVisualPreviewConsumerV13,

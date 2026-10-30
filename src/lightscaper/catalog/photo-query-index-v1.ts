@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { request } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request } from '../../common/media/indexeddb.ts';
 import { readPhotoQueryBuildStateV1, type PhotoQueryRowV1 } from './photo-query-contract-v1.ts';
 
 export { PHOTO_QUERY_INDEXES_V1, projectPhotoQueryRowV1, readPhotoQueryRowV1, photoQueryRowKeyV1,

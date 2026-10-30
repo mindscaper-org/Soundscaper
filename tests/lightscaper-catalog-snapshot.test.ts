@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
-import { request } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request } from '../src/common/media/indexeddb.ts';
 import { openPhotoCatalogDatabaseV1 } from '../src/lightscaper/catalog/catalog-database.ts';
 import { catalogTransaction } from '../src/lightscaper/catalog/catalog-transaction.ts';
 import { normalizePhotoCatalogRootV1 } from '../src/lightscaper/catalog/catalog-root.ts';

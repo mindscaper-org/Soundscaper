@@ -1,18 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { ScapeArchiveEntry, ScapeDescriptor } from './scape-archive-envelope.ts';
-import { aggregateScapeErrors, awaitScapeOperation, throwIfScapeAborted } from './scape-abort.ts';
-import {
-	createScapeDigest,
-	digestScapeBytes,
-	scapeHex,
-	type ScapeDigestWriter as DigestWriter,
-} from './scape-byte-stream.ts';
-import {
-	ScapeAudioChunkBudget,
-	SCAPE_MAXIMUM_AUDIO_CHUNKS,
-	type ScapeExpandedByteBudget,
-} from './scape-expanded-byte-budget.ts';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { hex as scapeHex, type DigestWriter } from '../media/bytes.ts';
+import type { ScapeExtractedAsset } from '../scape/asset-bytes.ts';
+import { encodeProjectIdKey } from './project-validation-primitives.ts';
+
+import type { ScapeArchiveEntry } from '../scape/archive-envelope.ts';
+import { aggregateScapeErrors, awaitScapeOperation, throwIfScapeAborted } from '../scape/abort.ts';
+import { ScapeAudioChunkBudget, SCAPE_MAXIMUM_AUDIO_CHUNKS } from './scape-expanded-byte-budget.ts';
+import { type ScapeExpandedByteBudget } from '../scape/expanded-byte-budget.ts';
 import {
 	pcmRawByteLength,
 	validatePcmGeometry,
@@ -21,7 +17,6 @@ import {
 
 export const SCAPE_MAXIMUM_PENDING_AUDIO_BYTES = 4 + WAVPACK_PCM_MAXIMUM_RAW_BYTES;
 export { SCAPE_MAXIMUM_AUDIO_CHUNKS };
-export { createScapeDigest, digestScapeBytes, safeScapeEntryId, scapeHex, scapeBytesStream } from './scape-byte-stream.ts';
 
 export interface ScapeAudioSource {
 	readonly kind?: string;
@@ -68,24 +63,11 @@ export interface ScapeSourceWriter {
 	): PromiseLike<unknown>;
 }
 
-export interface ScapeExtractedAsset {
-	readonly digest: string;
-	readonly size: number;
-}
-
-export function scapeHashingStream(
-	stream: ReadableStream<Uint8Array>,
-	digest: DigestWriter,
-	signal?: AbortSignal,
-): ReadableStream<Uint8Array> {
-	return stream.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
-		transform(chunk, controller) {
-			throwIfScapeAborted(signal);
-			const bytes = toBytes(chunk);
-			digest.update(bytes);
-			controller.enqueue(bytes);
-		},
-	}), signal ? { signal } : undefined);
+export function safeScapeEntryId(value: unknown): string {
+	const encoded = encodeProjectIdKey(String(value || '')).replaceAll('_', '_5F').replaceAll('%', '_');
+	if (encoded === '.') return '_2E';
+	if (encoded === '..') return '_2E_2E';
+	return encoded;
 }
 
 export function scapeAudioSourceStream(
@@ -223,7 +205,7 @@ export async function extractScapeAudio(
 ): Promise<ScapeExtractedAsset> {
 	if (typeof entry.getData !== 'function') throw new Error(`The Scape archive is missing ${entry.filename}.`);
 	const sourceGeometry = scapeAudioSourceLayout(source);
-	const digest = createScapeDigest();
+	const digest = sha256.create();
 	let size = 0;
 	const header = new Uint8Array(4);
 	let headerBytes = 0;
@@ -294,20 +276,6 @@ export async function extractScapeAudio(
 	if (headerBytes || pendingChunk) throw new Error(`Audio source ${source.id} ends with an incomplete chunk.`);
 	if (writtenFrames !== source.frameCount) throw new Error(`Audio source ${source.id} has an unexpected frame count.`);
 	return { digest: scapeHex(digest.digest()), size };
-}
-
-export function verifyScapeAssetBytes(bytes: Uint8Array, descriptor: ScapeDescriptor, label: string): void {
-	verifyScapeExtractedAsset(descriptor, digestScapeBytes(bytes), bytes.byteLength, label);
-}
-
-export function verifyScapeExtractedAsset(
-	descriptor: ScapeDescriptor,
-	digest: string,
-	size: number,
-	label: string,
-): void {
-	if (size !== descriptor.size) throw new Error(`${label} has an unexpected size.`);
-	if (digest !== descriptor.sha256) throw new Error(`${label} failed SHA-256 verification.`);
 }
 
 function toBytes(value: unknown): Uint8Array {

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createAbortGuard } from '../abort-error.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
 import { inspectMediaAssetBinaryRecord, type MediaAssetBinaryInspection } from './media-asset-binary-inspection.ts';
 import { MediaAssetChunkRecords } from './media-asset-chunk-records.ts';
 import type { MediaAssetLifecycleCoordinator } from './media-asset-lifecycle-coordinator.ts';
@@ -8,7 +8,7 @@ import { MediaAssetWriteAdmission } from './media-asset-write-admission.ts';
 import { normalizeCatalogOriginalRepairBindingV1, readCatalogOriginalRepairSignalV1,
 	type CatalogOriginalRepairOptionsV1 } from './media-catalog-original-repair-contract.ts';
 import { readCatalogOriginalRepairCapture } from './media-catalog-original-repair-publication.ts';
-import { digestMediaContent } from './media-content-digest.ts';
+import { digestMediaContent } from '../../media/content-digest.ts';
 import type { OpfsRepository } from './opfs-repository.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';
 

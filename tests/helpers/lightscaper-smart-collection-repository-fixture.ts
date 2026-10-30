@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { request } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { request } from '../../src/common/media/indexeddb.ts';
 import { catalogTransaction } from '../../src/lightscaper/catalog/catalog-transaction.ts';
 import { openPhotoCatalogDatabaseV1 } from '../../src/lightscaper/catalog/catalog-database.ts';
 import { PhotoCatalogRepositoryV1 } from '../../src/lightscaper/catalog/repository.ts';

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 
 /** Encoded straight UNORM8 sRGB. A dense7×7 alpha-weighted binomial luma
  * mean defines local midtone structure. One common signed RGB offset changes

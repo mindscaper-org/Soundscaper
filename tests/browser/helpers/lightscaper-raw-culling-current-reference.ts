@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { request, transact } from '../../../src/common/editor/storage/indexeddb-backend.ts';
-import { digestMediaContent } from '../../../src/common/editor/storage/media-content-digest.ts';
+import { request, transact } from '../../../src/common/media/indexeddb.ts';
+import { digestMediaContent } from '../../../src/common/media/content-digest.ts';
 import { readBinaryDerivativeCacheRecordV1 } from '../../../src/common/editor/storage/binary-derivative-cache-records.ts';
 import { PhotoCatalogRepositoryCurrentV1 } from '../../../src/lightscaper/catalog/photo-catalog-repository-current-v1.ts';
 import { PhotoMediaStoreV1, PHOTO_MEDIA_NAMESPACES_V1 } from '../../../src/lightscaper/storage/photo-media-store.ts';

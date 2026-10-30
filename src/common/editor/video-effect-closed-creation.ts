@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 import { createStableId } from './stable-id.js';
 
 interface Effect { readonly id: string; readonly type: string; readonly enabled: boolean; readonly params: Readonly<Record<string, number>> }

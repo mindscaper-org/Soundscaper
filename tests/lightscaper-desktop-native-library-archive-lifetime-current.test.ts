@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { BlobReader, ZipReader } from '@zip.js/zip.js/index-native.js';
-import { createScapeArchiveByteSource, createBlobScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource, createBlobScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import type { ScapeArchiveReader, ScapeArchiveReaderFactory } from '../src/common/editor/scape-archive-reader.ts';
 import { LightscaperNativePhotoLibraryScopesCurrentV1 as Scopes } from '../desktop/lightscaper-native-photo-library-scopes-current-v1.ts';
 import { LightscaperNativePhotoSettingsCurrentV1 as Settings } from '../desktop/lightscaper-native-photo-settings-current-v1.ts';

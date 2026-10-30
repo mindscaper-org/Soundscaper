@@ -20,7 +20,7 @@ test('every nightly phase loads its item progress reporter from the staged paylo
 	try {
 		Object.assign(process.env, environment);
 		for (const phase of [
-			'tests', 'dual-origin', 'metrics', 'packaged-metrics', 'packaged-coverage', 'local-assistance',
+			'tests', 'metrics', 'packaged-metrics', 'packaged-coverage', 'local-assistance',
 		]) {
 			const { default: config } = await import(`../playwright.nightly-${phase}.config.mjs?item-progress`);
 			assert.deepEqual(config.reporter.map(([reporter]) => reporter), [

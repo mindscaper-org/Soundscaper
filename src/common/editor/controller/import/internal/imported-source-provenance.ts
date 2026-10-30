@@ -16,8 +16,8 @@ import {
 	type NormalizedProjectImportOptions,
 } from './project-import-options.ts';
 import { externalMediaFileReference } from '../../../desktop-external-media.ts';
-import { digestMediaContent } from '../../../storage/media-content-digest.ts';
-import { raceAbortableRead } from '../../../abort-race.ts';
+import { digestMediaContent } from '../../../../media/content-digest.ts';
+import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 
 export type ImportedMediaMetadataInspector = (
 	file: Blob,

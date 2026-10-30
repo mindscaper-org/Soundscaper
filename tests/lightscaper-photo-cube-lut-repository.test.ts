@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
 import { getMemoryDatabase } from '../src/common/editor/storage/memory-backend.ts';
 import { createProjectStore } from '../src/common/editor/storage.js';

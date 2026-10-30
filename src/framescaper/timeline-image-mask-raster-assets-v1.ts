@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 import type { FramescaperProjectTimelineImage } from './editor-project-timeline-image.ts';
 import { collectFramescaperImageProjectResourcesCurrentV1 } from '../common/editor/video-cube-lut-project-references-current-v1.ts';
 import { normalizeBrushMaskResourceReferenceV1, withBrushMaskResourceV1, type BrushMaskResourceReferenceV1 } from '../common/editor/imaging/brush-mask-resource-v1.ts';
-import type { ScapeManifest, ScapeAssetDescriptor } from '../common/editor/scape-archive-envelope.ts';
+import type { ScapeManifest } from '../common/editor/scape-archive-envelope.ts';
+import type { ScapeAssetDescriptor } from '../common/scape/archive-envelope.ts';
 import type { PlannedScapeExportAsset } from '../common/editor/scape-export-plan.ts';
 import type { ScapeProjectAssetExtensionImportRequest } from '../common/editor/scape-project-asset-extension.ts';
 import type { OwnedMediaAssetPublication, OwnedMediaAssetWriter } from '../common/editor/storage/media-asset-write-contract.ts';

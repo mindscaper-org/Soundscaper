@@ -13,7 +13,7 @@ import { withPreparedBrushMaskResourceV1, type PreparedBrushMaskResourceV1 } fro
 import type { MaskRasterSourcePortV1 } from '../src/common/editor/imaging/mask-raster-source-port-v1.ts';
 import type { CubeLutSourcePortV1 } from '../src/common/editor/imaging/cube-lut-source-port-v1.ts';
 import { PixelFrameWebGl2UnavailableCurrentV1 } from '../src/common/editor/imaging/pixel-frame-webgl2-context-current-v1.ts';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { createVideoEffect } from '../src/common/editor/video-effects.js';
 import { createVideoEffectV2 } from '../src/common/editor/video-effects-v2.ts';
 import { deferred, remainsPending } from './helpers/async-test-control.ts';

@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import { withCubeLutResourceV1 } from '../../common/editor/imaging/cube-lut-resource-v1.ts';
-import { request, transact } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../common/media/indexeddb.ts';
 import type { StorageRepositoryPort } from '../../common/editor/storage/repository-port.ts';
 import { normalizeVideoColorGradeV1 } from '../../common/editor/video-color-management-v27.ts';
-import { VIDEO_COLOR_LIMITS_V1, type VideoCubeLutReferenceV1 } from '../../common/editor/video-color-cube-lut-v27.ts';
+import { VIDEO_COLOR_LIMITS_V1, type VideoCubeLutReferenceV1 } from '../../common/imaging/cube-lut-reference-contract.ts';
 
 export interface PhotoCubeLutReceiptV1 { readonly reference: Readonly<VideoCubeLutReferenceV1>; readonly created: boolean; }
 export interface PhotoCubeLutOptionsV1 { readonly signal?: AbortSignal; }

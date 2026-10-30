@@ -5,7 +5,7 @@ import test from 'node:test';
 import { captureLightscaperNativePhotoResourceBodyCurrentV1 as capture, authenticateLightscaperNativePhotoResourceBodyCurrentV1 as authenticate,
 	assertAuthenticatedLightscaperNativePhotoResourceBodyCurrentV1 as assertAuthenticated, wipeLightscaperNativePhotoResourceBodyCurrentV1 as wipe } from '../desktop/lightscaper-native-photo-resource-body-current-v1.ts';
 import { readLightscaperNativePhotoLutFileCurrentV1 as readFile } from '../desktop/lightscaper-native-photo-resource-lut-file-current-v1.ts';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { withPreparedBrushMaskResourceV1 } from '../src/common/editor/imaging/brush-mask-resource-v1.ts';
 
 const TEXT = 'TITLE "Größe"\r\nLUT_3D_SIZE 2\r\n0 0 0\r\n1 0 0\r\n0 1 0\r\n1 1 0\r\n0 0 1\r\n1 0 1\r\n0 1 1\r\n1 1 1';

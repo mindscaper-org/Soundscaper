@@ -6,7 +6,7 @@ import { framescaperImageDevelopAuthoringForCurrentV1,
 import { normalizeImageDevelopStateThroughV4, type ImageDevelopStateThroughV4 } from '../../imaging/image-develop-state-v4.ts';
 import type { WithImageRepairSpotsOriginalFrameV1 } from '../../controller/shared/image-repair-spots-authoring-v1.ts';
 import { captureImageBrushMaskResourcePortV1 } from '../../image-brush-mask-resource-port-v1.ts';
-import { readClosedDomainRecord, readClosedDomainField } from '../../closed-domain-value.ts';
+import { readClosedDomainRecord, readClosedDomainField } from '../../../foundation/closed-domain-value.ts';
 import type { PixelFrameV1 } from '../../imaging/pixel-frame-contract-v1.ts';
 import { photoDevelopRepairSpotsCopy } from '../../../i18n/lightscaper-develop-repair-spots-copy.ts';
 import { photoDevelopMaskManagementCopy } from '../../../i18n/lightscaper-develop-mask-management-copy.ts';

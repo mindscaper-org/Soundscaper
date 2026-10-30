@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { encodeImageHdrOriginalV1 } from '../src/common/editor/imaging/image-hdr-original-v1.ts';
-import { IMAGE_IMPORT_LIMITS } from '../src/common/editor/image-import-admission.ts';
+import { IMAGE_IMPORT_LIMITS } from '../src/common/imaging/image-import-admission.ts';
 import { importManagedPhotosCurrentV1 } from '../src/lightscaper/import/managed-import-current-v1.ts';
 import { recoverManagedPhotoImportCurrentV1 } from '../src/lightscaper/import/photo-import-recovery-current-v1.ts';
 import { photoImportIntentKeyV1 } from '../src/lightscaper/import/import-intent-v1.ts';

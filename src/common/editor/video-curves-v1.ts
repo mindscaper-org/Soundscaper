@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
+import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
 import { pointCurvesTransferV1, parametricCurvesTransferV1, curveTransferExpressionV1 } from './video-curve-transfer-v1.ts';
 import type { CurveChannelV1, ParametricCurvesParamsV1, PointCurvesParamsV1, PreparedCurvesEffectV1, VideoCurvePointsV1 } from './video-curve-types-v1.ts';
 

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { ScapeAssetDescriptor, ScapeManifest } from '../../common/editor/scape-archive-envelope.ts';
+import type { ScapeAssetDescriptor } from '../../common/scape/archive-envelope.ts';
+import type { ScapeManifest } from '../../common/editor/scape-archive-envelope.ts';
 import { serializeScapeProjectDocument } from '../../common/editor/scape-project-document.ts';
 import { PHOTO_CATALOG_PACK_ASSET_KIND } from '../../common/editor/scape-photo-catalog-pack.ts';
 import { PHOTO_DEVELOP_PRESET_PACK_ENCODING_V2 } from '../../common/editor/scape-photo-catalog-pack-v2.ts';
@@ -16,7 +17,7 @@ import { PHOTO_DEVELOP_PRESET_PACK_ASSET_KIND } from '../../common/editor/scape-
 import { PHOTO_STACK_PACK_ASSET_KIND, PHOTO_STACK_PACK_ENCODING } from '../../common/editor/scape-photo-stack-pack.ts';
 import { PHOTO_SMART_COLLECTION_PACK_ASSET_KIND, PHOTO_SMART_COLLECTION_PACK_ENCODING } from '../../common/editor/scape-photo-smart-collection-pack.ts';
 import { normalizeCubeLutProfileEffectV1 } from '../../common/editor/video-cube-lut-profile-v1.ts';
-import type { VideoCubeLutReferenceV1 } from '../../common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../../common/imaging/cube-lut-reference-contract.ts';
 import { array, field, id, integer, record, unique } from '../catalog/value-validation.ts';
 import { PHOTO_DEVELOP_PRESETS_LIMITS_V1 } from '../storage/photo-develop-presets-v1.ts';
 import { PHOTO_CATALOG_ARCHIVE_LIMITS_V1 as LIMITS } from './catalog-archive-contract.ts';

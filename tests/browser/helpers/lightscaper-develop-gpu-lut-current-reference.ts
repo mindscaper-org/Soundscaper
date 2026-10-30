@@ -3,8 +3,8 @@
 import { PhotoMediaStoreV1 } from '../../../src/lightscaper/storage/photo-media-store.ts';
 import { readPhotoLibrarySessionLocationV2 } from '../../../src/lightscaper/storage/photo-library-location-reader-v2.ts';
 import { withPhotoLibraryInitializationLockV1 } from '../../../src/lightscaper/storage/photo-library-namespace-lock-v1.ts';
-import { request, transact } from '../../../src/common/editor/storage/indexeddb-backend.ts';
-import { normalizeVideoCubeLutReferenceV1 } from '../../../src/common/editor/cube-lut-reference-contract.ts';
+import { request, transact } from '../../../src/common/media/indexeddb.ts';
+import { normalizeVideoCubeLutReferenceV1 } from '../../../src/common/imaging/cube-lut-reference-contract.ts';
 import type { CubeLutSourcePortV1 } from '../../../src/common/editor/imaging/cube-lut-source-port-v1.ts';
 import { withImageDevelopGpuCurrentV1 } from '../../../src/common/editor/imaging/image-develop-gpu-current-v1.ts';
 import { defaultImageDevelopStateV2 } from '../../../src/common/editor/imaging/image-develop-state-v2.ts';

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { randomBytes } from 'node:crypto';
 import { types } from 'node:util';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import { captureLightscaperNativePhotoRawOriginalsCurrentV1 as capture } from './lightscaper-native-photo-raw-originals-current-v1.ts';
 import { captureLightscaperNativePhotoRawInputsCurrentV1 as captureInputs } from './lightscaper-native-photo-raw-inputs-current-v1.ts';
 import type { PhotoLibraryRawImportFrameCurrentV1 as InputFrame } from '../src/lightscaper/controller/photo-library-raw-import-current-v1.ts';

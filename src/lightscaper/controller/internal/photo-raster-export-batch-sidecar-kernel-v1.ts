@@ -2,7 +2,7 @@
 import type { BrowserFileSaveRequest, BrowserSavedFile } from '../../../common/editor/browser-file-save-service.ts';
 import type { ExecutePhotoDevelopV2 } from '../../../common/editor/controller/shared/photo-library-develop-workflow-v2.ts';
 import type { ReadPhotoExportSidecar } from '../../../common/editor/photo-library-session-port-v2.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/foundation/closed-domain-value.ts';
 import { canonicalJsonSha256 } from '../../../common/canonical-json-sha256.ts';
 import { parsePhotoExportSidecarV1 } from '../../catalog/photo-export-sidecar-v1.ts';
 import { normalizePhotoRasterExportDownloadAckV1, normalizePhotoRasterExportBindingV1, type PhotoRasterExportJournalMemberV1 } from '../../storage/photo-raster-export-journal-v1.ts';

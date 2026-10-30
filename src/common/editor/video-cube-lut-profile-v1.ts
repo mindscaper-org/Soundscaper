@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
-import { normalizeVideoCubeLutReferenceV1, type VideoCubeLutReferenceV1 } from './cube-lut-reference-contract.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../foundation/closed-domain-value.ts';
+import { normalizeVideoCubeLutReferenceV1, type VideoCubeLutReferenceV1 } from '../imaging/cube-lut-reference-contract.ts';
 
 export const CUBE_LUT_PROFILE_EFFECT_TYPE_V1 = 'cube-lut-profile-v1';
 /** The existing V27 table samples AFTER an identity linear Rec709 grade;

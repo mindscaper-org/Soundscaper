@@ -3,7 +3,7 @@
 import { MEDIA_EXPORT_FORMATS } from './media-export.js';
 import { VIDEO_EXPORT_FORMATS } from './video-export.js';
 import { captureImageExportTextV1 } from './image-export-text-v1.ts';
-import { readClosedDomainField } from './closed-domain-value.ts';
+import { readClosedDomainField } from '../foundation/closed-domain-value.ts';
 
 /**
  * Delivery presets: validated data that resolves to export-plan options.

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import type { PhotoNativeRawPreviewCachePortCurrentV1 } from './photo-native-raw-preview-cache-current-v1.ts';
 import type { PhotoPreviewCachePortV1 } from './photo-preview-cache-v1.ts';
 import type { PhotoCullingPreviewCachePortCurrentV1 } from './photo-culling-preview-cache-current-v1.ts';

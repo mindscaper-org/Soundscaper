@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { awaitScapeOperation, throwIfScapeAborted } from '../common/editor/scape-abort.ts';
-import type { ScapeAssetDescriptor, ScapeManifest } from '../common/editor/scape-archive-envelope.ts';
+import { awaitScapeOperation, throwIfScapeAborted } from '../common/scape/abort.ts';
+import type { ScapeAssetDescriptor } from '../common/scape/archive-envelope.ts';
+import type { ScapeManifest } from '../common/editor/scape-archive-envelope.ts';
 import { safeScapeEntryId } from '../common/editor/scape-archive-media.ts';
 import type { PlannedScapeExportAsset } from '../common/editor/scape-export-plan.ts';
-import { canonicalMediaContentBlob } from '../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../common/media/content-digest.ts';
 import { openFramescaperImageFramePackV1 } from '../common/editor/timeline-image-frame-pack-v1.ts';
 import {
 	FRAMESCAPER_IMAGE_ASSET_MIME_TYPE,

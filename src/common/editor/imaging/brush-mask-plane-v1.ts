@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { BRUSH_MASK_RESOURCE_LIMITS_V1 } from './brush-mask-resource-v1.ts';
 
 export const BRUSH_MASK_PLANE_LIMITS_V1 = Object.freeze({ maximumStrokes: 64, maximumPoints: 4096,

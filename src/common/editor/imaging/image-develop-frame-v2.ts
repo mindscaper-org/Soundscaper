@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { normalizeImageDevelopStateV1OrV2 } from './image-develop-state-v2.ts';
 import { withCubeLutProfilePixelFrameV1 } from './pixel-frame-cube-lut-profile-v1.ts';
 import type { CubeLutSourcePortV1 } from './cube-lut-source-port-v1.ts';

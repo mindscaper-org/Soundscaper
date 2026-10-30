@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { digestMediaContent } from '../common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../common/media/content-digest.ts';
 import type { LinkedVideoOriginalPort } from '../common/editor/storage/linked-video-original-resolver.ts';
 import {
 	NATIVE_MEDIA_CAPABILITY_IDS,

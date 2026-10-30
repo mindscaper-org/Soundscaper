@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { EXTERNAL_MEDIA_ENCODING, externalMediaForSource } from './desktop-external-media.ts';
-import { digestScapeBytes, safeScapeEntryId } from './scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../media/bytes.ts';
+import { safeScapeEntryId } from './scape-archive-media.ts';
 import type { PlannedScapeExportAsset } from './scape-export-plan.ts';
 
 export function planExternalScapeAsset(source: Readonly<Record<string, unknown>>): PlannedScapeExportAsset | null {

@@ -2,7 +2,7 @@
 
 import { withProjectFileExtension } from '../../../project-file-extensions.ts';
 import type { BrowserFileSaveRequest, BrowserSavedFile, PreparedBrowserSave } from '../../browser-file-save-service.ts';
-import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord } from '../../closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord } from '../../../foundation/closed-domain-value.ts';
 import type { DirectSavedFile, PreparedDirectSave } from '../../file-save-stream.ts';
 import type { PhotoLibraryBackupOptionsV1, PhotoLibraryBackupResultV1 } from '../../photo-library-backup-port-v1.ts';
 import { SCAPE_WEB_CORE_BLOB_MAXIMUM_BYTES } from '../../scape-blob-budget.ts';

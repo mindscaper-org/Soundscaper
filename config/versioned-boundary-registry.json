@@ -1892,8 +1892,6 @@
 		,
 		{"path": "src/common/editor/video-clarity-v1.ts", "kind": "persisted-contract", "justification": "Version 1 shared Clarity retains closed fractional amount under the encoded-sRGB alpha-weighted seven-bin luma process. Replicated edges, positive nearest blur ties, signed Q8 common RGB midtone offsets, clipping, unchanged alpha and hidden RGB at transparent centers define ordered CPU, integer native shader and original-alpha-preserving GEQ evaluation; Texture, Dehaze and legacy unsharp remain separate processes."}
 		,
-		{ "path": "src/common/editor/video-color-cube-lut-v27.ts", "kind": "persisted-contract", "justification": "video-color-cube-lut-v27.ts is a persisted domain-component or render-contract revision independent of product schema." }
-		,
 		{ "path": "src/common/editor/video-color-management-v27.ts", "kind": "persisted-contract", "justification": "video-color-management-v27.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/video-color-wheels-scalar-v1.ts", "kind": "helper-contract", "justification": "Version 1 scalar LGG wheel evaluation owns closed admitted lift/gamma/gain triples, independently decodes each straight sRGB byte to linear Rec.709 and encodes with positive half-up quantization. Its explicit new process preserves legacy GradeV1 bytes without claiming multichannel Float64 recombination equivalence." }
@@ -3164,6 +3162,8 @@
 		,
 		{"path": "src/lightscaper/storage/photo-library-default-initializer-v2.ts", "kind": "helper-contract", "justification": "Version 2 temporary default initializer borrows the initialization lease and creates a cold library root without requiring an existing Session."}
 		,
+		{ "path": "src/common/editor/video-color-management-v27.ts", "kind": "persisted-contract", "justification": "video-color-management-v27.ts is a persisted domain-component or render-contract revision independent of product schema." }
+		,
 		{"path": "src/lightscaper/storage/photo-library-location-reader-v2.ts", "kind": "helper-contract", "justification": "Version 2 fixed-anchor reader authenticates the selected location against permanent restore history before selected resource allocation."}
 		,
 		{"path": "src/lightscaper/storage/photo-library-location-v2.ts", "kind": "persisted-contract", "justification": "Version 2 bounded persisted library location distinguishes restored physical namespaces while preserving legacy pointer field order for native CAS."}
@@ -3201,6 +3201,10 @@
 		{"path": "src/lightscaper/storage/photo-media-restore-candidate-v2.ts", "kind": "helper-contract", "justification": "Version 2 fresh media candidate preserves archived originals and complete schema1/2 preset rows, appends authenticated immutable LUT bodies to existing analysis storage and joins serial operations and rollback through native acknowledgement."}
 		,
 		{"path": "src/lightscaper/storage/photo-media-restore-luts-v1.ts", "kind": "helper-contract", "justification": "Version 1 restore LUT inventory admits exact immutable declarations, walks all owning Photo/preset versions, redo and snapshots, authenticates one bounded body at a time and audits only the exact LUT namespace while wiping every owned native read clone."}
+		,
+		{ "path": "src/common/imaging/cube-lut-v1.ts", "kind": "persisted-contract", "justification": "cube-lut-v1.ts preserves the versioned digest and geometry contract for shared cube LUT resources." }
+		,
+		{ "path": "src/framescaper/delivery-native-report-closure-v1.ts", "kind": "persisted-contract", "justification": "delivery-native-report-closure-v1.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/lightscaper/storage/photo-media-restore-mask-rasters-v1.ts", "kind": "helper-contract", "justification": "photo-media-restore-mask-rasters-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
 		,

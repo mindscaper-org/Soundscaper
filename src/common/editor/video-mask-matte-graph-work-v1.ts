@@ -4,7 +4,7 @@ import { VIDEO_MASK_MATTE_LIMITS_V1, type VideoMaskMatteGraphV1, type VideoMaskM
 	type VideoLuminanceRangeMaskNodeV1, type VideoColorRangeMaskNodeV1 } from './video-mask-matte-v24.ts';
 import type { VideoMaskMatteRgbaInputV13 } from './video-mask-matte-rgba-v13.ts';
 import type { BrushMaskResourceV1 } from './imaging/brush-mask-resource-v1.ts';
-import { rasterizeVideoMaskPathsWork } from './video-mask-path-raster.ts';
+import { rasterizeCubicMaskPathsWork } from '../imaging/mask-path-raster.ts';
 
 /** Owning wrappers admit graph/body/frame authority and own every allocation.
  * Range sampling is separate from the unchanged byte coverage graph arithmetic. */
@@ -33,7 +33,7 @@ function* evaluateNode(node: VideoMaskMatteNodeV1, graph: VideoMaskMatteGraphV1,
 	inputs: ReadonlyMap<string, VideoMaskMatteRgbaInputV13>, evaluate: (id: string) => Work, allocate: (length: number) => Plane, ranges?: Readonly<VideoMaskMatteRangeSamplerV1>,
 	brushInputs?: ReadonlyMap<string, Readonly<BrushMaskResourceV1>>): Work {
 	if (node.kind === 'feather') return yield* feather(yield* evaluate(node.inputNodeId), width, height, node.radius, allocate);
-	if (node.kind === 'vector-path') return yield* rasterizeVideoMaskPathsWork(node.paths, node.fillRule, width, height, allocate(width * height));
+	if (node.kind === 'vector-path') return yield* rasterizeCubicMaskPathsWork(node.paths, node.fillRule, width, height, allocate(width * height));
 	const operands: Plane[] = [];
 	if (node.kind === 'invert') operands.push(yield* evaluate(node.inputNodeId));
 	if (node.kind === 'boolean') for (const id of node.inputNodeIds) operands.push(yield* evaluate(id));

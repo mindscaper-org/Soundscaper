@@ -9,7 +9,7 @@ import { restorePhotoLibraryArchiveV2 } from '../src/lightscaper/controller/phot
 import { createPhotoLibrarySessionV3 } from '../src/lightscaper/photo-library-session-runtime-v3.ts';
 import type { PhotoLibrarySessionV2 } from '../src/lightscaper/controller/photo-library-session-v2.ts';
 import type { PhotoLibraryDevelopCommandV2 } from '../src/common/editor/photo-library-develop-port-v2.ts';
-import type { VideoCubeLutReferenceV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../src/common/imaging/cube-lut-reference-contract.ts';
 import type { PhotoDocumentV2 } from '../src/lightscaper/catalog/photo-document-v2.ts';
 import type { PhotoDocumentV1, PhotoCatalogRootV1 } from '../src/lightscaper/catalog/types.ts';
 import type { PhotoStackV1 } from '../src/lightscaper/catalog/photo-stack-v1.ts';

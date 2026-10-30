@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainArray } from '../../common/foundation/closed-domain-value.ts';
 import { normalizePhotoOriginalV1 } from '../catalog/photo-document-envelope-v1.ts';
 import { field, id, record } from '../catalog/value-validation.ts';
 import type { PhotoLibraryOriginalRequestCurrentV1 as Request } from './photo-library-original-source-current-v1.ts';

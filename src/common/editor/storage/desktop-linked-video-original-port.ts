@@ -7,7 +7,7 @@ import type {
 } from './linked-video-original-resolver.ts';
 import type { LinkedVideoOriginalLocatorReference } from './linked-video-original-repository.ts';
 import type { DesktopReadFetch } from '../desktop-read-materialization.ts';
-import { createAbortGuard } from '../abort-error.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
 import {
 	DESKTOP_READ_PROFILE_LINKED_VIDEO_RANGE,
 	assertDesktopLinkedVideoReadProfile,

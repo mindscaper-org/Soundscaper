@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 
 export const IMAGE_OUTPUT_COLOR_PROFILES_V1 = Object.freeze(['srgb', 'display-p3'] as const);
 export type ImageOutputColorProfileV1 = (typeof IMAGE_OUTPUT_COLOR_PROFILES_V1)[number];

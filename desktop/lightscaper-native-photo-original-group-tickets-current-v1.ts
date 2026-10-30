@@ -2,7 +2,7 @@
 
 import { randomBytes } from 'node:crypto';
 import { types } from 'node:util';
-import { readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import { readPhotoLibraryOriginalGroupCurrentV1 as plan } from '../src/lightscaper/controller/photo-library-original-group-contract-current-v1.ts';
 import { DESKTOP_PHOTO_ORIGINAL_LIMITS_CURRENT_V1 as LIMITS, readDesktopPhotoOriginalRequestCurrentV1 as request } from '../src/lightscaper/desktop-photo-original-contract-current-v1.ts';
 import { readDesktopPhotoOriginalGroupTicketCurrentV1 as ticket, readDesktopPhotoOriginalGroupTicketIdCurrentV1 as ticketId,

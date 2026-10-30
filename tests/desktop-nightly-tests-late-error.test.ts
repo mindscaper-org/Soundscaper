@@ -7,7 +7,6 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import { runDesktopNightlyTests } from '../scripts/lib/desktop-nightly-tests-runtime.mjs';
-import { runDualOriginPhaseFixture } from './helpers/nightly-tests-dual-origin-phase.ts';
 import { nightlyProductSitesFixture } from './helpers/nightly-tests-product-sites.ts';
 
 test('partial packaged-runtime metadata does not abort diagnostics', async (context) => {
@@ -24,7 +23,6 @@ test('partial packaged-runtime metadata does not abort diagnostics', async (cont
 		sourceRevision: '1'.repeat(40),
 		environment: { SOUNDSCAPER_PACKAGED_RUNTIME_GPU_DRIVER_VERSION: '555.42.02' },
 	}, {
-		runDualOriginPhase: runDualOriginPhaseFixture,
 		startProductSites: nightlyProductSitesFixture(49996),
 		runPlaywright: async () => {
 			childCalls += 1;
@@ -35,7 +33,7 @@ test('partial packaged-runtime metadata does not abort diagnostics', async (cont
 		preserveCoverageEvidence: async () => '/tmp/nightly-build-evidence',
 	});
 
-	assert.equal(childCalls, 6);
+	assert.equal(childCalls, 5);
 	assert.equal(completed.exitCode, 0);
 	assert.equal(completed.result.status, 'passed');
 	assert.equal(completed.result.failure, null);

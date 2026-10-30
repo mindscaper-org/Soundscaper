@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import { assertPhotoStackQuerySignalV1 } from '../src/lightscaper/catalog/photo-stack-query-signal-v1.ts';
 import { createLinkedGrantCleanupFailureCurrentV1 as cleanup, linkedGrantCleanupIsUnprovedCurrentV1 as unproved,
 	rememberLinkedGrantFailureCurrentV1 as remember, combineLinkedGrantFailuresCurrentV1 as combine } from './lightscaper-native-photo-linked-grants-failures-current-v1.ts';

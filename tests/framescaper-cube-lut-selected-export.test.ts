@@ -6,7 +6,7 @@ import { createVideoSource, createVideoTrack } from '../src/common/editor/projec
 import type { ProductVideoExportStrategyEncodeRequest } from '../src/common/editor/controller/export/product-video-export-strategy.ts';
 import { createVideoExactPictureExportFrameSource } from '../src/common/editor/video-keyframe-export-frame-source.ts';
 import { encodeVideoKeyframeVideo } from '../src/common/editor/video-keyframe-video-encoder.ts';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { FRAMESCAPER_FINISHING_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-domain-runtime-profile.ts';
 import { createFramescaperProjectFinishing, cloneFramescaperProjectFinishing } from '../src/framescaper/editor-project-finishing.ts';
 import { applyFramescaperProjectCommandFinishing } from '../src/framescaper/editor-project-finishing-commands.ts';

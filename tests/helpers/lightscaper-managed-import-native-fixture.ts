@@ -9,7 +9,7 @@ import type { PhotoCatalogPackInput } from '../../src/lightscaper/archive/catalo
 import { importManagedPhotosV1, photoImportIntentKeyV1, recoverManagedPhotoImportV1 } from '../../src/lightscaper/import/managed-import-v1.ts';
 import type { PhotoManagedImportPortsV1 } from '../../src/lightscaper/import/managed-import-ports-v1.ts';
 import { PhotoMediaStoreV1 } from '../../src/lightscaper/storage/photo-media-store.ts';
-import { canonicalMediaContentBlob, digestMediaContent, MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../../src/common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob, digestMediaContent, MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../../src/common/media/content-digest.ts';
 
 type Mode = 'dedupe' | 'staged-abort' | 'published-abort' | 'acknowledgement' | 'direct-writer';
 type Stage = PhotoManagedImportPortsV1['media']['custody']['stage'];

@@ -5,7 +5,7 @@ import { openLightscaperNativeCatalogDatabaseCurrentV1 as openCatalogDatabase } 
 import { initializeLightscaperNativeDefaultCatalogCurrentV1 as initializeDefault } from './lightscaper-native-catalog-transactions-current-v1.ts';
 import { randomBytes } from 'node:crypto';
 import { canonicalKeyValueComparison as canonical } from '../src/common/editor/storage/key-value-canonical-comparison.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import { normalizePhotoCatalogRootV1 } from '../src/lightscaper/catalog/catalog-root.ts';
 import { normalizePhotoLibraryRestoreAllocationV1, type PhotoLibraryRestoreAllocationV1 as Allocation } from '../src/lightscaper/storage/photo-library-restore-ownership-v1.ts';
 import { LightscaperNativeCatalogStoreCurrentV1 as Catalog } from './lightscaper-native-catalog-store-current-v1.ts';

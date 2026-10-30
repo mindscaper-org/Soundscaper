@@ -2,10 +2,10 @@
 
 import { createHash } from 'node:crypto';
 import { array, field, integer, record, unique } from '../src/lightscaper/catalog/value-validation.ts';
-import { normalizeVideoCubeLutReferenceV1 } from '../src/common/editor/cube-lut-reference-contract.ts';
+import { normalizeVideoCubeLutReferenceV1, type VideoCubeLutReferenceV1 } from '../src/common/imaging/cube-lut-reference-contract.ts';
 import { normalizeBrushMaskResourceReferenceV1 } from '../src/common/editor/imaging/brush-mask-resource-v1.ts';
 import { normalizePhotoDevelopPresetRowCurrentV1, type PhotoDevelopPresetRowCurrentV1 } from '../src/lightscaper/storage/photo-develop-preset-row-current-v1.ts';
-import type { VideoCubeLutReferenceV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+
 import type { BrushMaskResourceReferenceV1 } from '../src/common/editor/imaging/brush-mask-resource-v1.ts';
 
 export type LightscaperNativePhotoMediaRestorePresetHeaderCurrentV1 = Readonly<{ rowSchemaVersion: 1 | 2 | 3 | 4; revision: number; presetCount: number }>;

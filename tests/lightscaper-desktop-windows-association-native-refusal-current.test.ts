@@ -6,8 +6,8 @@ import { lstat, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promi
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
-import type { ClosedDomainRecord } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
+import type { ClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
 import { admitLightscaperWindowsJobHelperCurrentV1, launchLightscaperWindowsJobProcessCurrentV1 } from '../scripts/lib/lightscaper-windows-job-driver-current-v1.ts';
 import { inspectLightscaperWindowsJobHelperCurrentV1 } from '../scripts/lib/lightscaper-windows-job-helper-current-v1.ts';
 import type { LightscaperWindowsManagedProcessReceiptCurrentV1 } from '../scripts/lib/lightscaper-windows-job-contract-current-v1.ts';

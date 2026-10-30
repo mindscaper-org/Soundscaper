@@ -8,7 +8,7 @@ import type {
 import type { FramescaperProjectCommandTimelineImage } from './editor-project-timeline-image-commands.ts';
 import type { FramescaperProjectHistoryTimelineImage } from './editor-project-timeline-image-history.ts';
 import type { FramescaperProjectTimelineImage } from './editor-project-timeline-image.ts';
-import { readClosedDomainField as hdrField, readClosedDomainRecord as hdrRecord } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as hdrField, readClosedDomainRecord as hdrRecord } from '../common/foundation/closed-domain-value.ts';
 import { captureRepairSignalV1, checkRepairSignalV1 } from '../common/editor/imaging/pixel-frame-repair-lifetime-v1.ts';
 
 interface ProjectHistoryCaptureTimelineImage {

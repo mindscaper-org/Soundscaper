@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/foundation/closed-domain-value.ts';
 import type { PhotoLibraryDevelopProxyViewV3 } from '../common/editor/photo-library-develop-proxy-port-v3.ts';
 import { captureImageDevelopRawRequestCurrentV1 } from '../common/editor/imaging/image-develop-raw-request-current-v1.ts';
 import { prepareDevelopProxyMetadataCurrentV1 } from '../common/editor/imaging/image-develop-linear-metadata-current-v1.ts';

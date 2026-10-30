@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import {readClosedDomainRecord as record,readClosedDomainField as field} from '../common/editor/closed-domain-value.ts';
+import {readClosedDomainRecord as record,readClosedDomainField as field} from '../common/foundation/closed-domain-value.ts';
 import {assertPhotoStackQuerySignalV1} from './catalog/photo-stack-query-signal-v1.ts';
 import {readDesktopPhotoLibrarySessionHandleCurrentV1 as handle} from './desktop-photo-library-session-protocol-current-v1.ts';
 import {readDesktopPhotoLinkedInputCurrentV1 as receipt,type DesktopPhotoLinkedInputHandleCurrentV1 as Handle,type DesktopPhotoLinkedInputFactsCurrentV1 as Facts} from './desktop-photo-linked-contract-current-v1.ts';

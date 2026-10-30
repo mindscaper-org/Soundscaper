@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { defaultImageDevelopStateV2 } from '../../../src/common/editor/imaging/image-develop-state-v2.ts';
 import { normalizeImageDevelopStateV4, type ImageDevelopStateV4 } from '../../../src/common/editor/imaging/image-develop-state-v4.ts';
-import { parseCubeLutV1 } from '../../../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../../../src/common/imaging/cube-lut-v1.ts';
 import { withPreparedBrushMaskResourceV1 } from '../../../src/common/editor/imaging/brush-mask-resource-v1.ts';
 import type { CubeLutSourcePortV1 } from '../../../src/common/editor/imaging/cube-lut-source-port-v1.ts';
 import type { MaskRasterSourcePortV1 } from '../../../src/common/editor/imaging/mask-raster-source-port-v1.ts';

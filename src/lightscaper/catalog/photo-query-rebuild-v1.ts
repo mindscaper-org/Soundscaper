@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { request } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request } from '../../common/media/indexeddb.ts';
 import { assertNotAborted, catalogTransaction } from './catalog-transaction.ts';
 import { serializeLightscaperDocumentV1, validateLightscaperDocumentV1 } from './documents.ts';
 import { readIndexState, readStoredPhoto } from './repository-records.ts';

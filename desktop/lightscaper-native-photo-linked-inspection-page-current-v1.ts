@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import {createHash} from 'node:crypto';
-import {readClosedDomainRecord as record,readClosedDomainField as field} from '../src/common/editor/closed-domain-value.ts';
+import {readClosedDomainRecord as record,readClosedDomainField as field} from '../src/common/foundation/closed-domain-value.ts';
 import {normalizePhotoDocumentCurrentV1 as photo} from '../src/lightscaper/catalog/photo-document-current-v1.ts';
 import {normalizeCatalogOriginalRepairBindingV1 as binding} from '../src/common/editor/storage/media-catalog-original-repair-contract.ts';
 import {readDesktopPhotoLinkedOriginalPageCurrentV1 as admit} from '../src/lightscaper/desktop-photo-linked-management-contract-current-v1.ts';

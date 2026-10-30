@@ -2,7 +2,8 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { openDatabase, readCursorPage, request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { readCursorPage, request, transact } from '../../src/common/media/indexeddb.ts';
 import { createPhotoCatalogRestoreStageV1, type PhotoCatalogRestoreStageV1 } from '../../src/lightscaper/catalog/photo-catalog-restore-stage-v1.ts';
 import { inspectPhotoCatalogRestoreNamespaceV1 } from '../../src/lightscaper/catalog/photo-catalog-restore-owner-v1.ts';
 import { createPhotoMediaRestoreNamespaceV1, inspectPhotoMediaRestoreNamespaceV1,

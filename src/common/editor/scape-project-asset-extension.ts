@@ -2,9 +2,10 @@
 
 import type { FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
 import { createStableId } from './project.js';
-import { awaitScapeOperation, throwIfScapeAborted } from './scape-abort.ts';
-import type { ScapeArchiveEntry, ScapeManifest } from './scape-archive-envelope.ts';
-import type { ScapeExpandedByteBudget } from './scape-expanded-byte-budget.ts';
+import { awaitScapeOperation, throwIfScapeAborted } from '../scape/abort.ts';
+import type { ScapeArchiveEntry } from '../scape/archive-envelope.ts';
+import type { ScapeManifest } from './scape-archive-envelope.ts';
+import type { ScapeExpandedByteBudget } from '../scape/expanded-byte-budget.ts';
 import type { PlannedScapeExportAsset } from './scape-export-plan.ts';
 import type { ScapeImportStore, ScapeImportTransaction } from './scape-import-transaction.ts';
 import { SourceAlreadyExistsError } from './storage/source-write-repository.ts';

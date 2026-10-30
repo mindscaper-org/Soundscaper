@@ -5,7 +5,7 @@ import { bytesToHex } from '@noble/hashes/utils.js';
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
 
-import { request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { MEDIA_ASSET_STAGING_STORE_NAME } from '../src/common/editor/storage/media-asset-staging-schema.ts';
 import { createVideoTimingAssetPublication } from '../src/common/editor/video-timing-asset.ts';
 import { createVideoProxyCandidateObserver } from '../src/common/editor/video-proxy-candidate-observation.ts';

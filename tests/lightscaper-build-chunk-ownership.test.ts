@@ -10,6 +10,7 @@ import { chunkGroupForModulePath, chunkGroups } from '../scripts/lib/build-chunk
 import { EAGER_CHUNK_GROUPS, resolveRelativeModule, staticRelativeDependencies } from './helpers/eager-chunk-group-crossings.ts';
 
 const directory = fileURLToPath(new URL('../src/common/editor/', import.meta.url));
+const modulePath = (name: string) => fileURLToPath(new URL(name, new URL('../src/common/editor/', import.meta.url)));
 const scalarModules = ['controller/shared/photo-library-definition-reader.ts', 'controller/shared/photo-library-selection-v1.ts',
 	'controller/shared/photo-library-culling-v1.ts', 'controller/shared/photo-library-import-gesture-v1.ts',
 	'controller/shared/photo-library-compare-v1.ts', 'controller/shared/photo-library-survey-v1.ts'];
@@ -26,7 +27,7 @@ const currentPhotoOwners = [
 
 for (const [module, owner] of currentPhotoOwners) test(`current Photo exact chunk owner: ${module}`, () => {
 	for (const separator of ['/', '\\']) {
-		const path = (directory + module).replaceAll('/', separator);
+		const path = (modulePath(module)).replaceAll('/', separator);
 		assert.equal(chunkGroupForModulePath(path), owner, path);
 		for (const impostor of [path + '.foreign', path.replace('-v2.ts', '-future-v2.ts'), path.replace('-v2.ts', '-v999.ts')]) {
 			assert.notEqual(chunkGroupForModulePath(impostor), owner, impostor);
@@ -54,7 +55,7 @@ test('current Photo aliases retain every original workflow, presentation and typ
 });
 
 test('fixed closed effect families own one exact imaging leaf without foreign registrations', () => {
-	const path = directory + 'video-effect-closed-families-v1.ts';
+	const path = modulePath('video-effect-closed-families-v1.ts');
 	for (const candidate of [path, path.replaceAll('/', '\\')]) assert.equal(chunkGroupForModulePath(candidate), 'editor-imaging');
 	for (const candidate of [path + '.foreign', path.replace('-v1.ts', '-future-v1.ts')]) assert.notEqual(chunkGroupForModulePath(candidate), 'editor-imaging');
 	const dependencies = staticRelativeDependencies(transformSync(readFileSync(path, 'utf8'), { loader: 'ts', format: 'esm' }).code);
@@ -65,8 +66,8 @@ test('fixed closed effect families own one exact imaging leaf without foreign re
 
 test('scalar color wheels own exact imaging contracts without foreign suffix or timeline passengers', () => {
 	for (const path of ['video-color-wheels-v1.ts', 'video-color-wheels-scalar-v1.ts']) {
-		for (const candidate of [directory + path, (directory + path).replaceAll('/', '\\')]) assert.equal(chunkGroupForModulePath(candidate), 'editor-imaging');
-		assert.notEqual(chunkGroupForModulePath(directory + path + '.foreign'), 'editor-imaging');
+		for (const candidate of [modulePath(path), (modulePath(path)).replaceAll('/', '\\')]) assert.equal(chunkGroupForModulePath(candidate), 'editor-imaging');
+		assert.notEqual(chunkGroupForModulePath(modulePath(path) + '.foreign'), 'editor-imaging');
 	}
 });
 
@@ -86,13 +87,13 @@ test('metadata query controls and their product registry are lazy at the actual 
 	const productSource = transformSync(readFileSync(bootstrap, 'utf8'), { loader: 'tsx', format: 'esm' }).code;
 	assert.ok(!staticRelativeDependencies(productSource).includes('../photo-metadata-query-ui-runtime.ts'));
 	assert.match(productSource, /import\(["']\.\.\/photo-metadata-query-ui-runtime\.ts["']\)/u);
-	const appSource = transformSync(readFileSync(directory + 'ui/lightscaper/LightscaperApp.tsx', 'utf8'), { loader: 'tsx', format: 'esm' }).code;
+	const appSource = transformSync(readFileSync(modulePath('ui/lightscaper/LightscaperApp.tsx'), 'utf8'), { loader: 'tsx', format: 'esm' }).code;
 	assert.ok(!staticRelativeDependencies(appSource).includes('./PhotoQuerySurface.tsx'));
 	assert.match(appSource, /import\(["']\.\/PhotoQuerySurface\.tsx["']\)/u);
 });
 
 test('the actual stack archive leaf shares the neutral Scape byte owner without timeline copy passengers', () => {
-	const path = directory + 'scape-photo-stack-pack.ts', owner = 'editor-scape-archive-bytes';
+	const path = modulePath('scape-photo-stack-pack.ts'), owner = 'editor-scape-archive-bytes';
 	for (const candidate of [path, path.replaceAll('/', '\\')]) assert.equal(chunkGroupForModulePath(candidate), owner);
 	assert.notEqual(chunkGroupForModulePath(path + '.foreign'), owner);
 	assert.deepEqual(staticRelativeDependencies(readFileSync(path, 'utf8')), []);
@@ -133,12 +134,12 @@ test('photo shell isolation preserves the shared audio/video shell owner', () =>
 
 test('the actual photo scalar controller closure has no timeline, storage, effects or copy passengers', () => {
 	const owners = new Map<string, string>([
-		...scalarModules.map((path): [string, string] => [directory + path, 'editor-photo-library-scalars']),
-		[directory + 'controller/shared/photo-library-cull-advance-v1.ts', 'editor-photo-library-scalars'],
-		[directory + 'photo-library-saved-collection-port-v1.ts', 'editor-neutral-foundations'],
-		[directory + 'closed-domain-value.ts', 'editor-neutral-foundations'],
+		...scalarModules.map((path): [string, string] => [modulePath(path), 'editor-photo-library-scalars']),
+		[modulePath('controller/shared/photo-library-cull-advance-v1.ts'), 'editor-photo-library-scalars'],
+		[modulePath('photo-library-saved-collection-port-v1.ts'), 'editor-neutral-foundations'],
+		[modulePath('../foundation/closed-domain-value.ts'), 'editor-neutral-foundations'],
 	]);
-	const seen = new Set<string>(), pending = scalarModules.map(path => directory + path);
+	const seen = new Set<string>(), pending = scalarModules.map(path => modulePath(path));
 	while (pending.length) {
 		const module = pending.pop()!;
 		if (seen.has(module)) continue;
@@ -154,15 +155,15 @@ test('the actual photo scalar controller closure has no timeline, storage, effec
 });
 
 test('the eager Survey hook uses the photo scalar owner while its dialog remains a lazy surface', () => {
-	const hook = directory + 'ui/lightscaper/use-photo-survey.ts';
+	const hook = modulePath('ui/lightscaper/use-photo-survey.ts');
 	const source = transformSync(readFileSync(hook, 'utf8'), { loader: 'ts', format: 'esm' }).code;
 	const dependencies = staticRelativeDependencies(source).map(specifier => {
 		const target = resolveRelativeModule(hook, specifier); assert.ok(target, specifier); return target;
 	});
-	assert.deepEqual(dependencies, [directory + 'controller/shared/photo-library-survey-v1.ts']);
+	assert.deepEqual(dependencies, [modulePath('controller/shared/photo-library-survey-v1.ts')]);
 	assert.equal(chunkGroupForModulePath(dependencies[0]!), 'editor-photo-library-scalars');
-	assert.equal(chunkGroupForModulePath(directory + 'ui/lightscaper/PhotoSurveyDialog.tsx'), null);
-	const app = directory + 'ui/lightscaper/LightscaperApp.tsx';
+	assert.equal(chunkGroupForModulePath(modulePath('ui/lightscaper/PhotoSurveyDialog.tsx')), null);
+	const app = modulePath('ui/lightscaper/LightscaperApp.tsx');
 	const appSource = transformSync(readFileSync(app, 'utf8'), { loader: 'tsx', format: 'esm' }).code;
 	assert.ok(!staticRelativeDependencies(appSource).includes('./PhotoSurveyDialog.tsx'));
 	assert.match(appSource, /import\(["']\.\/PhotoSurveyDialog\.tsx["']\)/u);
@@ -171,26 +172,26 @@ test('the eager Survey hook uses the photo scalar owner while its dialog remains
 test('scalar and closed-value owners are exact nonrecursive groups with their actual eager classification', () => {
 	for (const [paths, owner] of [
 		[scalarModules, 'editor-photo-library-scalars'],
-		[['closed-domain-value.ts'], 'editor-neutral-foundations'],
+		[['../foundation/closed-domain-value.ts'], 'editor-neutral-foundations'],
 	] as const) {
 		for (const path of paths) {
-			assert.equal(chunkGroupForModulePath(directory + path), owner);
-			assert.equal(chunkGroupForModulePath((directory + path).replaceAll('/', '\\')), owner);
-			assert.notEqual(chunkGroupForModulePath(directory + path + '.foreign'), owner);
+			assert.equal(chunkGroupForModulePath(modulePath(path)), owner);
+			assert.equal(chunkGroupForModulePath((modulePath(path)).replaceAll('/', '\\')), owner);
+			assert.notEqual(chunkGroupForModulePath(modulePath(path) + '.foreign'), owner);
 		}
 		const group = chunkGroups.find(candidate => candidate.name === owner); assert.ok(group);
 		assert.equal(group.minSize, 0); assert.equal(group.maxSize, 400_000); assert.equal(group.includeDependenciesRecursively, false);
 		assert.equal(EAGER_CHUNK_GROUPS.has(owner), true);
 	}
-	assert.equal(chunkGroupForModulePath(directory + 'controller/shared/deferred-module-facade.ts'), 'editor-controller-core');
-	assert.equal(chunkGroupForModulePath(directory + 'commands/video-keyframe-carrier.ts'), 'editor-controller-core');
-	assert.equal(chunkGroupForModulePath(directory + 'controller/shared/photo-library-future.ts'), 'editor-controller-core');
-	assert.equal(chunkGroupForModulePath(directory + 'closed-domain-value-validation.ts'), 'editor-domain');
-	assert.deepEqual(staticRelativeDependencies(readFileSync(directory + 'closed-domain-value.ts', 'utf8')), []);
+	assert.equal(chunkGroupForModulePath(modulePath('controller/shared/deferred-module-facade.ts')), 'editor-controller-core');
+	assert.equal(chunkGroupForModulePath(modulePath('commands/video-keyframe-carrier.ts')), 'editor-controller-core');
+	assert.equal(chunkGroupForModulePath(modulePath('controller/shared/photo-library-future.ts')), 'editor-controller-core');
+	assert.equal(chunkGroupForModulePath(modulePath('closed-domain-value-validation.ts')), 'editor-domain');
+	assert.deepEqual(staticRelativeDependencies(readFileSync(modulePath('../foundation/closed-domain-value.ts'), 'utf8')), []);
 });
 
 test('opt-in pixel presentation has a separate lazy controller owner and uses only common image and closed-value contracts', () => {
-	const path = directory + 'controller/shared/pixel-preview-presentation-v1.ts', owner = 'editor-pixel-preview-presentation';
+	const path = modulePath('controller/shared/pixel-preview-presentation-v1.ts'), owner = 'editor-pixel-preview-presentation';
 	assert.equal(chunkGroupForModulePath(path), owner);
 	assert.equal(chunkGroupForModulePath(path.replaceAll('/', '\\')), owner);
 	assert.notEqual(chunkGroupForModulePath(path + '.foreign'), owner);
@@ -204,7 +205,7 @@ test('opt-in pixel presentation has a separate lazy controller owner and uses on
 });
 
 test('the shared Scape Blob bound has an inert exact owner apart from timeline archive estimation', async () => {
-	const path = directory + 'scape-blob-budget.ts', owner = 'editor-neutral-foundations';
+	const path = modulePath('scape-blob-budget.ts'), owner = 'editor-neutral-foundations';
 	for (const candidate of [path, path.replaceAll('/', '\\')]) assert.equal(chunkGroupForModulePath(candidate), owner);
 	assert.notEqual(chunkGroupForModulePath(path + '.foreign'), owner);
 	const group = chunkGroups.find(candidate => candidate.name === owner); assert.ok(group);
@@ -223,14 +224,14 @@ test('photo backup option admission imports the shared scalar budget without eag
 	const dependencies = staticRelativeDependencies(readFileSync(path, 'utf8'));
 	assert.ok(dependencies.includes('../../common/editor/scape-blob-budget.ts'));
 	assert.ok(dependencies.every(specifier => !/scape-(?:export-estimate|archive)/u.test(specifier)));
-	assert.ok(staticRelativeDependencies(readFileSync(directory + 'scape-export-estimate.ts', 'utf8')).includes('./scape-blob-budget.ts'));
+	assert.ok(staticRelativeDependencies(readFileSync(modulePath('scape-export-estimate.ts'), 'utf8')).includes('./scape-blob-budget.ts'));
 });
 
 test('shared cancellation, ordering, IDs and worker lifetimes have an exact neutral owner without timeline passengers', () => {
 	const owner = 'editor-neutral-foundations';
-	for (const module of ['abort-error.ts', 'abort-race.ts', 'code-unit-order.ts', 'error-diagnostic-message.ts', 'stable-id.js',
+	for (const module of ['../foundation/abort-error.ts', '../foundation/abort-race.ts', 'code-unit-order.ts', 'error-diagnostic-message.ts', 'stable-id.js',
 		'worker-error-transport.ts', 'worker-protocol.ts', 'worker-request-broker.ts']) {
-		const path = directory + module;
+		const path = modulePath(module);
 		assert.equal(chunkGroupForModulePath(path), owner);
 		assert.equal(chunkGroupForModulePath(path.replaceAll('/', '\\')), owner);
 		assert.notEqual(chunkGroupForModulePath(path + '.foreign'), owner);
@@ -240,12 +241,12 @@ test('shared cancellation, ordering, IDs and worker lifetimes have an exact neut
 	const group = chunkGroups.find(candidate => candidate.name === owner); assert.ok(group);
 	assert.equal(group.minSize, 0); assert.equal(group.maxSize, 400_000); assert.equal(group.includeDependenciesRecursively, false);
 	assert.equal(EAGER_CHUNK_GROUPS.has(owner), true);
-	assert.equal(chunkGroupForModulePath(directory + 'abort-error-future.ts'), 'editor-domain');
-	assert.equal(chunkGroupForModulePath(directory + 'effect-contract.ts'), 'editor-domain');
+	assert.equal(chunkGroupForModulePath(modulePath('abort-error-future.ts')), 'editor-domain');
+	assert.equal(chunkGroupForModulePath(modulePath('effect-contract.ts')), 'editor-domain');
 });
 
 test('original recovery composes only scalar, neutral and original-contract owners', () => {
-	const root = directory + 'controller/shared/photo-library-original-recovery-v1.ts';
+	const root = modulePath('controller/shared/photo-library-original-recovery-v1.ts');
 	assert.equal(chunkGroupForModulePath(root), 'editor-photo-library-scalars');
 	assert.equal(chunkGroupForModulePath(root.replaceAll('/', '\\')), 'editor-photo-library-scalars');
 	assert.notEqual(chunkGroupForModulePath(root + '.foreign'), 'editor-photo-library-scalars');
@@ -261,24 +262,24 @@ test('original recovery composes only scalar, neutral and original-contract owne
 			const path = resolveRelativeModule(module, specifier); assert.ok(path, specifier); pending.push(path);
 		}
 	}
-	assert.deepEqual([...seen].map(path => path.slice(directory.length)).sort(), [
-		'closed-domain-value.ts', 'controller/shared/photo-library-original-recovery-v1.ts', 'error-diagnostic-message.ts',
+	assert.deepEqual([...seen].sort(), [
+		'../foundation/closed-domain-value.ts', 'controller/shared/photo-library-original-recovery-v1.ts', 'error-diagnostic-message.ts',
 		'safe-visual-text.ts', 'storage/media-catalog-original-repair-contract.ts', 'storage/media-catalog-original-schema.ts',
-	].sort());
+	].map(modulePath).sort());
 });
 
 test('shared still admission, effect and mask contracts retain only imaging and inert foundation imports', () => {
-	const modules = ['image-import-admission.ts', 'image-format-signature.ts', 'image-decoder-routing.ts',
+	const modules = ['../imaging/image-import-admission.ts', '../imaging/image-format-signature.ts', 'image-decoder-routing.ts',
 		'video-effects.js', 'video-global-develop-v1.ts', 'video-chroma-develop-v1.ts', 'video-black-white-mix-v1.ts', 'video-hsl-mixer-v1.ts',
 		'video-curves-v1.ts', 'video-curve-transfer-v1.ts', 'video-curve-types-v1.ts', 'video-sharpen-v1.ts', 'video-sharpen-ffmpeg-v1.ts',
 		'video-grain-v1.ts', 'video-grain-ffmpeg-v1.ts', 'video-texture-v1.ts', 'video-texture-ffmpeg-v1.ts', 'video-dehaze-v1.ts', 'video-dehaze-ffmpeg-v1.ts',
 		'video-post-crop-vignette-v1.ts', 'video-post-crop-vignette-ffmpeg-v1.ts', 'video-clarity-v1.ts', 'video-clarity-ffmpeg-v1.ts', 'video-noise-reduction-v1.ts', 'video-noise-reduction-ffmpeg-v1.ts', 'video-original-alpha-ffmpeg-v1.ts', 'video-effect-closed-creation.ts', 'video-mask-matte-v24.ts', 'video-visual-model-v24.ts',
 		'timeline-image-model.ts', 'timeline-image-frame-pack-v1.ts', 'timeline-image-frame-pack-v1-layout.ts',
 		'timeline-image-native-decode-v1.ts', 'timeline-image-browser-native-port.ts', 'timeline-image-conversion-receipt-v1.ts',
-		'browser-image-resource-admission.ts', 'browser-image-precision-admission.ts', 'image-animation-topology.ts'];
+		'browser-image-resource-admission.ts', 'browser-image-precision-admission.ts', '../imaging/image-animation-topology.ts'];
 	const nativePorts = new Map<string, readonly (readonly [string, string])[]>([
 		['timeline-image-native-decode-v1.ts', [
-			['./image-format-signature.ts', 'editor-imaging'], ['./image-import-admission.ts', 'editor-imaging'],
+			['../imaging/image-format-signature.ts', 'editor-imaging'], ['../imaging/image-import-admission.ts', 'editor-imaging'],
 			['./controller/shared/file-size-warning.ts', 'project-interchange-foundations'], ['./image-decoder-routing.ts', 'editor-imaging'],
 			['./imaging/pixel-frame-canonical-rgba8-v1.ts', 'editor-imaging'],
 			['./browser-image-resource-admission.ts', 'editor-image-file-admission'],
@@ -286,13 +287,13 @@ test('shared still admission, effect and mask contracts retain only imaging and 
 		]],
 		['timeline-image-browser-native-port.ts', [
 			['./browser-image-resource-admission.ts', 'editor-image-file-admission'],
-			['./image-animation-topology.ts', 'editor-image-file-admission'],
+			['../imaging/image-animation-topology.ts', 'editor-image-file-admission'],
 		]],
-		['browser-image-resource-admission.ts', [['./image-import-admission.ts', 'editor-imaging']]],
-		['browser-image-precision-admission.ts', []], ['image-animation-topology.ts', []],
+		['browser-image-resource-admission.ts', [['../imaging/image-import-admission.ts', 'editor-imaging']]],
+		['browser-image-precision-admission.ts', []], ['../imaging/image-animation-topology.ts', []],
 	]);
 	for (const module of modules) {
-		const path = directory + module;
+		const path = modulePath(module);
 		const exact = nativePorts.get(module), expectedOwner = exact ? 'editor-image-file-admission' : 'editor-imaging';
 		assert.equal(chunkGroupForModulePath(path), expectedOwner);
 		assert.equal(chunkGroupForModulePath(path.replaceAll('/', '\\')), expectedOwner);
@@ -309,21 +310,21 @@ test('shared still admission, effect and mask contracts retain only imaging and 
 				.some(owner => owner === chunkGroupForModulePath(target)), target);
 		}
 	}
-	assert.equal(chunkGroupForModulePath(directory + 'safe-visual-text.ts'), 'editor-neutral-foundations');
-	assert.deepEqual(staticRelativeDependencies(readFileSync(directory + 'safe-visual-text.ts', 'utf8')), []);
-	assert.equal(chunkGroupForModulePath(directory + 'controller/shared/file-size-warning.ts'), 'project-interchange-foundations');
-	assert.deepEqual(staticRelativeDependencies(readFileSync(directory + 'controller/shared/file-size-warning.ts', 'utf8')), []);
-	assert.equal(chunkGroupForModulePath(directory + 'video-timeline.js'), 'editor-domain');
-	assert.equal(chunkGroupForModulePath(directory + 'video-motion-model-v27.ts'), 'editor-imaging');
+	assert.equal(chunkGroupForModulePath(modulePath('safe-visual-text.ts')), 'editor-neutral-foundations');
+	assert.deepEqual(staticRelativeDependencies(readFileSync(modulePath('safe-visual-text.ts'), 'utf8')), []);
+	assert.equal(chunkGroupForModulePath(modulePath('controller/shared/file-size-warning.ts')), 'project-interchange-foundations');
+	assert.deepEqual(staticRelativeDependencies(readFileSync(modulePath('controller/shared/file-size-warning.ts'), 'utf8')), []);
+	assert.equal(chunkGroupForModulePath(modulePath('video-timeline.js')), 'editor-domain');
+	assert.equal(chunkGroupForModulePath(modulePath('video-motion-model-v27.ts')), 'editor-imaging');
 	for (const leaf of ['video-motion-analysis-v27.ts', 'video-motion-processing-v27.ts', 'gray-video-frame-sampling-v1.ts']) {
-		assert.equal(chunkGroupForModulePath(directory + leaf), 'editor-domain', leaf);
+		assert.equal(chunkGroupForModulePath(modulePath(leaf)), 'editor-domain', leaf);
 	}
-	assert.equal(chunkGroupForModulePath(directory + 'timeline-image-trim.ts'), 'editor-domain');
+	assert.equal(chunkGroupForModulePath(modulePath('timeline-image-trim.ts')), 'editor-domain');
 });
 
 test('global develop and histogram production imports stay within the image processing closure', () => {
 	const pending = ['video-global-develop-v1.ts', 'imaging/pixel-frame-global-develop-v1.ts', 'imaging/pixel-frame-histogram-v1.ts']
-		.map(module => directory + module);
+		.map(module => modulePath(module));
 	const seen = new Set<string>();
 	while (pending.length) {
 		const path = pending.pop()!;
@@ -338,8 +339,8 @@ test('global develop and histogram production imports stay within the image proc
 			const target = resolveRelativeModule(path, specifier); assert.ok(target, specifier); pending.push(target);
 		}
 	}
-	assert.ok(seen.has(directory + 'closed-domain-value.ts'));
-	assert.ok(seen.has(directory + 'imaging/pixel-frame-admission-v1.ts'));
+	assert.ok(seen.has(modulePath('../foundation/closed-domain-value.ts')));
+	assert.ok(seen.has(modulePath('imaging/pixel-frame-admission-v1.ts')));
 });
 
 test('shared media storage pins exact source-reference and custody dependencies apart from project construction', () => {
@@ -359,7 +360,7 @@ test('shared media storage pins exact source-reference and custody dependencies 
 		['video-source-characteristics.ts', [['./sequence-timecode.ts', owner]]], ['sequence-timecode.ts', []],
 	] as const;
 	for (const [module, dependencies] of modules) {
-		const path = directory + module;
+		const path = modulePath(module);
 		assert.equal(chunkGroupForModulePath(path), owner);
 		assert.equal(chunkGroupForModulePath(path.replaceAll('/', '\\')), owner);
 		assert.notEqual(chunkGroupForModulePath(path + '.foreign'), owner);
@@ -372,13 +373,13 @@ test('shared media storage pins exact source-reference and custody dependencies 
 	const group = chunkGroups.find(candidate => candidate.name === owner); assert.ok(group);
 	assert.equal(group.minSize, 0); assert.equal(group.maxSize, 400_000); assert.equal(group.includeDependenciesRecursively, false);
 	assert.equal(EAGER_CHUNK_GROUPS.has(owner), true);
-	assert.equal(chunkGroupForModulePath(directory + 'project.js'), 'editor-storage-model');
-	assert.equal(chunkGroupForModulePath(directory + 'project-audio-factory.js'), 'editor-storage-model');
+	assert.equal(chunkGroupForModulePath(modulePath('project.js')), 'editor-storage-model');
+	assert.equal(chunkGroupForModulePath(modulePath('project-audio-factory.js')), 'editor-storage-model');
 });
 
 test('shared byte publication budgets and writer leases keep their codec and custody semantics', () => {
 	for (const module of ['publication-byte-estimates.ts', 'waveform-peak-contract.ts', 'project-lock.js']) {
-		const path = directory + module;
+		const path = modulePath(module);
 		assert.equal(chunkGroupForModulePath(path), 'editor-media-storage-contracts');
 		for (const dependency of staticRelativeDependencies(readFileSync(path, 'utf8'))) {
 			const target = resolveRelativeModule(path, dependency); assert.ok(target, dependency);
@@ -390,8 +391,8 @@ test('shared byte publication budgets and writer leases keep their codec and cus
 
 test('Cube custody owns only exact scalar references and plans without parsing or rendering passengers', () => {
 	// Reference/effect contracts are scalar; project collectors own the separately checked closed source/resource grammar.
-	const modules = ['cube-lut-reference-contract.ts', 'video-cube-lut-profile-v1.ts'];
-	const pending = modules.map(module => directory + module), seen = new Set<string>();
+	const modules = ['../imaging/cube-lut-reference-contract.ts', 'video-cube-lut-profile-v1.ts'];
+	const pending = modules.map(module => fileURLToPath(new URL(module, new URL('../src/common/editor/', import.meta.url)))), seen = new Set<string>();
 	for (const path of pending) {
 		assert.equal(chunkGroupForModulePath(path), 'editor-media-storage-contracts', path);
 		assert.equal(chunkGroupForModulePath(path.replaceAll('/', '\\')), 'editor-media-storage-contracts', path);
@@ -406,25 +407,26 @@ test('Cube custody owns only exact scalar references and plans without parsing o
 			const target = resolveRelativeModule(path, dependency); assert.ok(target); pending.push(target);
 		}
 	}
-	assert.deepEqual([...seen].sort(), [...modules, 'closed-domain-value.ts'].map(module => directory + module).sort());
+	assert.deepEqual([...seen].sort(), [...modules, '../foundation/closed-domain-value.ts']
+		.map(module => fileURLToPath(new URL(module, new URL('../src/common/editor/', import.meta.url)))).sort());
 });
 
 
 void test('project-resource collectors pin their fixed-profile kernel and exact closed admission dependencies', () => {
 	const kernel = 'internal/video-cube-lut-project-references-kernel-v1.ts';
 	for (const module of ['video-cube-lut-project-references-v1.ts', 'video-cube-lut-project-references-current-v1.ts']) {
-		const path = directory + module;
+		const path = modulePath(module);
 		assert.equal(chunkGroupForModulePath(path), 'editor-media-storage-contracts', path);
 		assert.deepEqual(staticRelativeDependencies(readFileSync(path, 'utf8')), ['./' + kernel], module);
 	}
 	const dependencies = [
-		['../closed-domain-value.ts', 'editor-neutral-foundations'],
+		['../../foundation/closed-domain-value.ts', 'editor-neutral-foundations'],
 		['../video-cube-lut-profile-v1.ts', 'editor-media-storage-contracts'],
 		['../timeline-image-model-v2.ts', 'editor-imaging'], ['../timeline-image-model-current-v1.ts', 'editor-imaging'],
 		['../imaging/image-develop-resource-reachability-current-v1.ts', 'editor-imaging'],
 		['../imaging/image-develop-state-v2.ts', 'editor-imaging'],
 	] as const;
-	const path = directory + kernel;
+	const path = modulePath(kernel);
 	assert.equal(chunkGroupForModulePath(path), 'editor-media-storage-contracts', path);
 	const executable = transformSync(readFileSync(path, 'utf8'), { loader: 'ts', format: 'esm' }).code;
 	assert.deepEqual(staticRelativeDependencies(executable), dependencies.map(([specifier]) => specifier));
@@ -435,7 +437,7 @@ void test('project-resource collectors pin their fixed-profile kernel and exact 
 });
 
 test('shared file-storage failure classification uses neutral message metadata without WAV or effect ownership', () => {
-	const path = directory + 'web-file-limit-failure.ts', owner = 'editor-neutral-foundations';
+	const path = modulePath('web-file-limit-failure.ts'), owner = 'editor-neutral-foundations';
 	assert.equal(chunkGroupForModulePath(path), owner);
 	assert.equal(chunkGroupForModulePath(path.replaceAll('/', '\\')), owner);
 	assert.notEqual(chunkGroupForModulePath(path + '.foreign'), owner);
@@ -444,20 +446,20 @@ test('shared file-storage failure classification uses neutral message metadata w
 	const target = resolveRelativeModule(path, dependencies[0]); assert.ok(target);
 	assert.equal(chunkGroupForModulePath(target), 'editor-presentation');
 	assert.deepEqual(staticRelativeDependencies(readFileSync(target, 'utf8')), []);
-	assert.equal(chunkGroupForModulePath(directory + 'wav-import.js'), 'editor-codec-foundations');
+	assert.equal(chunkGroupForModulePath(modulePath('wav-import.js')), 'editor-codec-foundations');
 });
 
 test('the actual photo session borrows shared media repositories without linked readers or timeline storage passengers', () => {
 	const root = fileURLToPath(new URL('../src/lightscaper/photo-library-session-runtime.ts', import.meta.url));
 	const pending = [root], seen = new Set<string>(), storage = new Set<string>();
 	const fileAdmission = new Set(['timeline-image-browser-native-port.ts', 'timeline-image-native-decode-v1.ts',
-		'browser-image-resource-admission.ts', 'browser-image-precision-admission.ts', 'image-animation-topology.ts'].map(leaf => directory + leaf));
+		'browser-image-resource-admission.ts', 'browser-image-precision-admission.ts', '../imaging/image-animation-topology.ts'].map(leaf => modulePath(leaf)));
 	const unexpectedOwners: string[] = [];
 	while (pending.length) {
 		const path = pending.pop()!;
 		if (seen.has(path)) continue;
 		seen.add(path);
-		if (path.startsWith(directory + 'storage/')) {
+		if (path.startsWith(modulePath('storage/'))) {
 			storage.add(path);
 			assert.equal(chunkGroupForModulePath(path), 'editor-media-custody-storage', path);
 			assert.equal(chunkGroupForModulePath(path.replaceAll('/', '\\')), 'editor-media-custody-storage', path);
@@ -480,27 +482,31 @@ test('the actual photo session borrows shared media repositories without linked 
 	assert.deepEqual([...seen].filter(path => fileAdmission.has(path)).sort(), [...fileAdmission].sort());
 	assert.ok(seen.has(fileURLToPath(new URL('../config/lightscaper-libraw-runtime-manifest.json', import.meta.url))));
 	// The native schema registry and byte-stream writer are explicit shared custody leaves.
-	assert.equal(storage.size, 68);
-	assert.ok(storage.has(directory + 'storage/indexeddb-schema.ts'));
-	const payload = directory + 'storage/video-derivative-payload.ts';
+	assert.equal(storage.size, 67);
+	for (const leaf of ['content-digest.ts', 'indexeddb.ts']) {
+		const path = modulePath('../media/' + leaf); assert.ok(seen.has(path));
+		assert.equal(chunkGroupForModulePath(path), 'editor-media-custody-storage');
+	}
+	assert.ok(storage.has(modulePath('storage/indexeddb-schema.ts')));
+	const payload = modulePath('storage/video-derivative-payload.ts');
 	assert.ok(storage.has(payload));
 	assert.deepEqual(staticRelativeDependencies(transformSync(readFileSync(payload, 'utf8'), { loader: 'ts', format: 'esm' }).code),
 		['../video-preview-capture-admission.ts']);
-	const projection = directory + 'storage/storage-record-projection.ts';
+	const projection = modulePath('storage/storage-record-projection.ts');
 	assert.ok(storage.has(projection));
 	assert.deepEqual(staticRelativeDependencies(transformSync(readFileSync(projection, 'utf8'), { loader: 'ts', format: 'esm' }).code),
 		['./storage-clone.ts']);
 	for (const leaf of ['media-asset-blob-stream.ts', 'media-asset-path-staging.ts', 'media-asset-opfs-startup-namespace.ts', 'media-asset-opfs-startup-reconciliation.ts', 'opfs-blob-write-plan.ts']) {
-		assert.ok(storage.has(directory + 'storage/' + leaf));
+		assert.ok(storage.has(modulePath('storage/') + leaf));
 	}
 	for (const module of ['media-repository.ts', 'media-catalog-original-repository.ts', 'opfs-repository.ts', 'opfs-binary-inspection.ts',
 		'media-asset-binary-inspection.ts', 'media-catalog-original-inspection-repository.ts',
 		'media-catalog-original-repair-contract.ts', 'media-catalog-original-repair-publication.ts', 'media-catalog-original-repair-repository.ts']) {
-		assert.ok(storage.has(directory + 'storage/' + module));
+		assert.ok(storage.has(modulePath('storage/') + module));
 	}
 	for (const module of ['linked-audio-original-source-reader.ts', 'linked-video-original-source-reader.ts', 'project-repository.ts']) {
-		assert.ok(!storage.has(directory + 'storage/' + module));
-		assert.equal(chunkGroupForModulePath(directory + 'storage/' + module), 'editor-storage-model');
+		assert.ok(!storage.has(modulePath('storage/') + module));
+		assert.equal(chunkGroupForModulePath(modulePath('storage/') + module), 'editor-storage-model');
 	}
 	const group = chunkGroups.find(candidate => candidate.name === 'editor-media-custody-storage'); assert.ok(group);
 	assert.equal(group.minSize, 0); assert.equal(group.maxSize, 400_000); assert.equal(group.includeDependenciesRecursively, false);

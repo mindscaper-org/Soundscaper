@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { createFramescaperCubeLutSourceFinishing } from '../src/framescaper/cube-lut-source-finishing.ts';
 import { deferred, remainsPending } from './helpers/async-test-control.ts';
 

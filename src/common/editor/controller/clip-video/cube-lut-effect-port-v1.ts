@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import type { VideoCubeLutReferenceV1 } from '../../video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../../../imaging/cube-lut-reference-contract.ts';
 
 /** Scalar UI binding. The product owner privately authenticates its identity;
  * bodies remain in immutable resource storage and never enter effect params. */

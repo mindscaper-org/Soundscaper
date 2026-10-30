@@ -4,7 +4,7 @@ import {
 	readClosedDomainArray,
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from '../common/editor/closed-domain-value.ts';
+} from '../common/foundation/closed-domain-value.ts';
 import {
 	normalizeCanonicalTransitionClipEdgesV1,
 	videoTransitionGeometryV1,

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, readClosedDomainRecord } from '../closed-domain-value.ts';
-import { IMAGE_IMPORT_LIMITS } from '../image-import-admission.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../foundation/closed-domain-value.ts';
+import { IMAGE_IMPORT_LIMITS } from '../../imaging/image-import-admission.ts';
 import { readPixelFrameV1 } from './pixel-frame-contract-v1.ts';
 import { snapshotCanonicalRgba8V1 } from './pixel-frame-canonical-rgba8-v1.ts';
 import type { FramescaperBrowserNativeImageDecodeSessionV1, OpenFramescaperBrowserNativeImageV1 } from '../timeline-image-native-decode-v1.ts';

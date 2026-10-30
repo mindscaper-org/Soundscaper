@@ -15,8 +15,8 @@ import { prepareImageDevelopBrushMasksV1 } from '../../../common/editor/imaging/
 import { planImageGeometryV1 } from '../../../common/editor/imaging/image-geometry-plan-v1.ts';
 import { IMAGE_GEOMETRY_VIDEO_EFFECT_TYPE_V1, imageGeometryForVideoEffectV1 } from '../../../common/editor/video-image-geometry-v1.ts';
 import type { ImageDevelopStateThroughV4 } from '../../../common/editor/imaging/image-develop-state-v4.ts';
-import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/editor/closed-domain-value.ts';
-import { normalizeVideoCubeLutReferenceV1 } from '../../../common/editor/cube-lut-reference-contract.ts';
+import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/foundation/closed-domain-value.ts';
+import { normalizeVideoCubeLutReferenceV1 } from '../../../common/imaging/cube-lut-reference-contract.ts';
 import { FRAMESCAPER_IMAGE_ASSET_MIME_TYPE } from '../../../common/editor/timeline-image-model.ts';
 import { sanitizeSuggestedSaveName } from '../../../common/editor/browser-file-save-service.ts';
 import { createFramescaperScapeNativeRuntime } from '../../../framescaper/editor-scape-native.ts';

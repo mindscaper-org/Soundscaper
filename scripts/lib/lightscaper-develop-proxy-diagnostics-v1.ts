@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../src/common/foundation/closed-domain-value.ts';
 import { evaluateQualityWorkload, qualityFixture, qualityWorkloadBudget } from './quality-budget-config.mjs';
 
 export const LIGHTSCAPER_DEVELOP_PROXY_DIAGNOSTIC_MARKER_V1 = 'LIGHTSCAPER_DEVELOP_PROXY_DIAGNOSTIC ';

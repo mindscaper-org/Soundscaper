@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, readClosedDomainRecord } from '../../common/editor/closed-domain-value.ts';
-import { canonicalMediaContentBlob } from '../../common/editor/storage/media-content-digest.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../common/foundation/closed-domain-value.ts';
+import { canonicalMediaContentBlob } from '../../common/media/content-digest.ts';
 import { normalizePhotoDocumentV1 } from '../catalog/photo-document.ts';
 import { measurePhotoCatalogPackRecordV1, PHOTO_CATALOG_PACK_LIMITS_V1 as LIMITS, type PhotoCatalogPackInput } from './catalog-pack.ts';
 import { PhotoCatalogArchiveIdentityGuard } from './catalog-archive-contract.ts';

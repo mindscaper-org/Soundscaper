@@ -2,8 +2,8 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { request, transact } from '../../../src/common/editor/storage/indexeddb-backend.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from '../../../src/common/editor/storage/media-content-digest.ts';
+import { request, transact } from '../../../src/common/media/indexeddb.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../../../src/common/media/content-digest.ts';
 import { PhotoMediaStoreV1 } from '../../../src/lightscaper/storage/photo-media-store.ts';
 import { PhotoCatalogRepositoryCurrentV1 } from '../../../src/lightscaper/catalog/photo-catalog-repository-current-v1.ts';
 import { verifyPhotoResourcesCurrentV1 } from '../../../src/lightscaper/storage/photo-media-resource-verification-current-v1.ts';

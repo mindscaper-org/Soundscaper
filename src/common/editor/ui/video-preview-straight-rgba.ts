@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { UnifiedExactRenderRgbaFrameV13 } from '../unified-exact-render-finishing-consumers-v13.ts';
-import { aggregateScapeErrors } from '../scape-abort.ts';
+import { aggregateScapeErrors } from '../../scape/abort.ts';
 
 const CHECK_ABORT = AbortSignal.prototype.throwIfAborted;
 const ABORTED = Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'aborted')!.get!;

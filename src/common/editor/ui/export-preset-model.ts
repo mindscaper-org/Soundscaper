@@ -16,7 +16,7 @@ import {
 import { DEFAULT_VIDEO_DELIVERY_QUALITY } from '../video-delivery-quality.ts';
 import { DEFAULT_VIDEO_DELIVERY_AUDIO_LAYOUT } from '../video-delivery-audio-layout.ts';
 import { captureImageExportTextV1 } from '../image-export-text-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../foundation/closed-domain-value.ts';
 import { getMediaExportFormat } from '../media-export.js';
 import { exportDialogDefaultSampleFormat } from './export-dialog-audio-codec-options.ts';
 import {

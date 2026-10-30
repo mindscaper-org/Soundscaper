@@ -15,7 +15,7 @@ import { createAudioEditorFileService } from '../src/common/editor/file-service.
 import {
 	assertScapeArchiveByteSource,
 	type ScapeArchiveByteSource,
-} from '../src/common/editor/scape-archive-byte-source.ts';
+} from '../src/common/scape/archive-byte-source.ts';
 
 const SCAPE_MIME_TYPE = 'application/vnd.soundscaper.scape+zip';
 

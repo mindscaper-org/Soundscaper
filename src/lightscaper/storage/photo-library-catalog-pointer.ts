@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { KeyValueRepository } from '../../common/editor/storage/key-value-repository.ts';
-import { readClosedDomainField, readClosedDomainRecord } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../../common/foundation/closed-domain-value.ts';
 import { validateLightscaperDocumentV1 } from '../catalog/documents.ts';
 import type { PhotoCatalogRepositoryV1 } from '../catalog/repository.ts';
 import type { PhotoCatalogRootV1 } from '../catalog/types.ts';

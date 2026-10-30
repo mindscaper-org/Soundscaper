@@ -16,7 +16,7 @@
 import {
 	readClosedDomainArray,
 	readClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 import {
 	canonicalizeNativeMediaPlan,
 } from './native-media-plan-canonical-form.ts';

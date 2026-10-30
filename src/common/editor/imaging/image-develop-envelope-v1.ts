@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { ClosedDomainRecord } from '../closed-domain-value.ts';
+import type { ClosedDomainRecord } from '../../foundation/closed-domain-value.ts';
 import { normalizeVideoMaskMatteGraphV1 } from '../video-mask-matte-v24.ts';
 import { IMAGE_DEVELOP_LIMITS_V1, type ImageDevelopGeometryV1, type ImageDevelopStateV1 } from './image-develop-contract-v1.ts';
 import { array, boolean, compareText, field, id, number, record, unique } from './image-develop-value.ts';

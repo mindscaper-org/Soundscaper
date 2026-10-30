@@ -24,7 +24,7 @@ import {
 } from '../src/common/editor/project-media-factory.ts';
 import { createAudioEditorProjectV17, type AudioEditorProjectV17 } from '../src/common/editor/project-v17.ts';
 import { validateAudioEditorProjectV17 } from '../src/common/editor/project-v17-validation.ts';
-import { createScapeDigest, scapeHex } from '../src/common/editor/scape-archive-media.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../src/common/media/bytes.ts';
 import { serializeScapeProjectDocument } from '../src/common/editor/scape-project-document.ts';
 import type { TakeCycleRecoveryEnvelope } from '../src/common/editor/take-cycle-recovery-envelope.ts';
 import { createProjectStore } from '../src/common/editor/storage.js';

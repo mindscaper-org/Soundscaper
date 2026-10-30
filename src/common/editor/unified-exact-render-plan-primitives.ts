@@ -4,7 +4,7 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 
 const RATE_FIELDS = Object.freeze(['num', 'den']);
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,4095}$/u;

@@ -2,7 +2,7 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { request } from '../../common/editor/storage/indexeddb-backend.ts';
+import { request } from '../../common/media/indexeddb.ts';
 import { field, integer, record } from '../catalog/value-validation.ts';
 import { normalizePhotoDevelopPresetRowV1, photoDevelopPresetsKeyV1, type PhotoDevelopPresetRowV1 } from './photo-develop-presets-v1.ts';
 

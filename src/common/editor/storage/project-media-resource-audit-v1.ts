@@ -2,9 +2,9 @@
 
 import { compactProjectSourceMetadata } from '../retention.js';
 import { serializeScapeProjectDocument } from '../scape-project-document.ts';
-import { canonicalMediaContentBlob } from './media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../../media/content-digest.ts';
 import { trustedMediaContentSha256 } from './media-content-provenance.ts';
-import { request, transact } from './indexeddb-backend.ts';
+import { request, transact } from '../../media/indexeddb.ts';
 import { asRecord } from './project-repository-support.ts';
 import { sameProjectSnapshot } from './project-snapshot-equality.ts';
 import type { ProjectDocument } from './project-repository.ts';

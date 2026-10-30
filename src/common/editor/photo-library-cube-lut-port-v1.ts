@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { CubeLutSourcePortV1 } from './imaging/cube-lut-source-port-v1.ts';
-import type { VideoCubeLutReferenceV1 } from './video-color-cube-lut-v27.ts';
+import type { VideoCubeLutReferenceV1 } from '../imaging/cube-lut-reference-contract.ts';
 
 /** Selected runtime capability; recipe parameters retain scalar references only. */
 export interface PhotoLibraryCubeLutPortV1 {

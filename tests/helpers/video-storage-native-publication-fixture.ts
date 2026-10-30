@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { createProjectStore } from '../../src/common/editor/storage.js';
-import { request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../../src/common/media/indexeddb.ts';
 import { MediaAssetStagingLeaseError } from '../../src/common/editor/storage/media-asset-path-staging.ts';
 import type { OpfsBlobWritePlan } from '../../src/common/editor/storage/opfs-blob-write-plan.ts';
 import { LyingBlob } from './video-storage-opfs-model-fixture.ts';

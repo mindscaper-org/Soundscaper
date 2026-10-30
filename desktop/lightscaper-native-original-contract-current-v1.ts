@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { IMAGE_IMPORT_LIMITS } from '../src/common/editor/image-import-admission.ts';
+import { IMAGE_IMPORT_LIMITS } from '../src/common/imaging/image-import-admission.ts';
 import { IMAGE_HDR_ORIGINAL_LIMITS_V1 } from '../src/common/editor/imaging/image-hdr-original-profile-v1.ts';
 import { normalizePhotoOriginalV1 } from '../src/lightscaper/catalog/photo-document-envelope-v1.ts';
 import type { PhotoOriginalV1 } from '../src/lightscaper/catalog/types.ts';

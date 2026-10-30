@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import { normalizeFramescaperImageSourceV2, framescaperImageSourceResourceReferencesV2 } from '../../common/editor/timeline-image-model-v2.ts';
 import { normalizeFramescaperImageSourceV3, framescaperImageSourceResourceReferencesV3 } from '../../common/editor/timeline-image-model-v3.ts';
 import { normalizeFramescaperImageSourceCurrentV1, framescaperImageSourceResourceReferencesCurrentV1 } from '../../common/editor/timeline-image-model-current-v1.ts';

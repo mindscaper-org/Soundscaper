@@ -3,7 +3,7 @@
 import { DESKTOP_PHOTO_LIBRARY_SESSION_CHANNELS_CURRENT_V1 as CHANNELS } from '../src/lightscaper/desktop-photo-library-session-protocol-current-v1.ts';
 import { DESKTOP_PHOTO_SESSION_CONTROL_CHANNELS_CURRENT_V1 as CONTROL, readDesktopPhotoSessionControlCurrentV1 as control,
 	readDesktopPhotoSessionResponseCurrentV1 as response, captureDesktopPhotoSessionFailureCurrentV1 as failure } from '../src/lightscaper/desktop-photo-session-response-current-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/foundation/closed-domain-value.ts';
 import type { LightscaperPreloadIpcCurrentV1 as Ipc } from './lightscaper-preload-bridge-current-v1.ts';
 
 export interface LightscaperPreloadSessionCurrentV1 {

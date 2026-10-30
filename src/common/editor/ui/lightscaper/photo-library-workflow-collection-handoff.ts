@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useCallback, type RefObject } from 'react';
-import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../closed-domain-value.ts';
+import { readClosedDomainRecord as record, readClosedDomainField as field } from '../../../foundation/closed-domain-value.ts';
 import { acquirePhotoLibraryWorkflowSlotV2, type PhotoLibraryWorkflowSlotV2 } from '../../controller/shared/photo-library-workflow-slot-v2.ts';
 import type { LoadPhotoLibraryBackupSaveRuntimeV1 } from '../../controller/shared/photo-library-workflow-slot.ts';
 import type { CreatePhotoLibrarySessionV3, PhotoLibrarySessionPortV2 } from '../../photo-library-session-port-v2.ts';

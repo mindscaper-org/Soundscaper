@@ -4,7 +4,7 @@ import {
 	readClosedDomainArray,
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from '../closed-domain-value.ts';
+} from '../../foundation/closed-domain-value.ts';
 import { snapshotInertEditorCommand } from '../commands/editor-command-snapshot.ts';
 import {
 	isAudioEditorCommandType,

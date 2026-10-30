@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readClosedDomainArray as array } from '../closed-domain-value.ts';
+import { readClosedDomainArray as array } from '../../foundation/closed-domain-value.ts';
 import { captureLinearKernelDescriptorV1 } from './linear-kernel-descriptor-v1.ts';
 import { readPixelFrameWebGl2PassCurrentV1 } from './pixel-frame-webgl2-pass-current-v1.ts';
 

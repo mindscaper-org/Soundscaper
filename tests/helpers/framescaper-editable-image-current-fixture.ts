@@ -5,7 +5,7 @@ import { FRAMESCAPER_IMAGE_ASSET_MIME_TYPE } from '../../src/common/editor/timel
 import { normalizeFramescaperImageSourceV2 } from '../../src/common/editor/timeline-image-model-v2.ts';
 import { createImageDevelopHandoffProvenanceV1 } from '../../src/common/editor/image-develop-handoff-provenance-v1.ts';
 import { defaultImageDevelopStateV2 } from '../../src/common/editor/imaging/image-develop-state-v2.ts';
-import { parseCubeLutV1 } from '../../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../../src/common/imaging/cube-lut-v1.ts';
 import { createVideoTrack } from '../../src/common/editor/project-media-factory.ts';
 import { createFramescaperProject, cloneFramescaperProject } from '../../src/framescaper/editor-project.ts';
 import { createProjectStore, type AudioEditorProjectStore } from '../../src/common/editor/storage.js';

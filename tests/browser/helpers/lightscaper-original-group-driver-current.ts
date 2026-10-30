@@ -4,7 +4,7 @@ import { DesktopPhotoOriginalSourceCurrentV1 } from '../../../src/lightscaper/de
 import { withPhotoLibraryOriginalGroupCurrentV1 } from '../../../src/lightscaper/controller/photo-library-original-group-current-v1.ts';
 import type { PhotoLibraryOriginalSourceCurrentV1 as Source, PhotoLibraryOriginalRequestCurrentV1 as Request } from '../../../src/lightscaper/controller/photo-library-original-source-current-v1.ts';
 import { withPhotoOriginalFrameCurrentV1 } from '../../../src/lightscaper/preview/photo-original-frame-current-v1.ts';
-import { digestMediaContent } from '../../../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../../../src/common/media/content-digest.ts';
 import type { PixelFrameV1 } from '../../../src/common/editor/imaging/pixel-frame-contract-v1.ts';
 
 interface State {

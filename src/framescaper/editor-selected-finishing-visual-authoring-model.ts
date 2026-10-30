@@ -5,7 +5,7 @@ import { boundedVisualAuthoringValue } from './editor-selected-visual-validation
 
 import { normalizeVideoVisualPresetV1 } from '../common/editor/video-visual-preset-v24.ts';
 import { normalizeVideoMaskMatteGraphV1, type VideoLinearGradientMaskNodeV1, type VideoMaskMatteNodeV1 } from '../common/editor/video-mask-matte-v24.ts';
-import { readClosedDomainField } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField } from '../common/foundation/closed-domain-value.ts';
 import {
 	normalizeVideoFinishingPresetV1,
 	normalizeVideoVisualPresentationV1,

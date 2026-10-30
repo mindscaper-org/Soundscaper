@@ -2,10 +2,10 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../src/common/foundation/closed-domain-value.ts';
 import { admitStaticImageSourceV1 } from '../../src/common/editor/imaging/static-image-source-admission-v1.ts';
 import { normalizeFramescaperImageSourceV2 } from '../../src/common/editor/timeline-image-model-v2.ts';
-import { canonicalMediaContentBlob } from '../../src/common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../../src/common/media/content-digest.ts';
 import { createFramescaperScapeNativeRuntime } from '../../src/framescaper/editor-scape-native.ts';
 import { createFramescaperProjectStore } from '../../src/framescaper/editor-project-store.ts';
 import { cloneFramescaperProject } from '../../src/framescaper/editor-project.ts';

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { raceAbortableRead } from './abort-race.ts';
+import { raceAbortableRead } from '../foundation/abort-race.ts';
 import { oggPageCrc } from './ogg-page-crc.ts';
 
 const MAXIMUM_ENCODED_BYTES = 32 * 1024 ** 2;

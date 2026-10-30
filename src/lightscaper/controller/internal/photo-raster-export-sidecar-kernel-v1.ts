@@ -4,7 +4,7 @@ import type { BrowserFileSaveRequest, BrowserSavedFile } from '../../../common/e
 import type { PhotoLibraryExportSidecarRequest, ReadPhotoExportSidecar } from '../../../common/editor/photo-library-session-port-v2.ts';
 import type { ImageDevelopStateThroughV4 } from '../../../common/editor/imaging/image-develop-state-v4.ts';
 import type { PhotoRasterExportProfileV1 } from '../photo-raster-export-contract-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../common/foundation/closed-domain-value.ts';
 import { parsePhotoExportSidecarV1, serializePhotoExportSidecarV1, PHOTO_EXPORT_SIDECAR_SUFFIX_V1, PHOTO_EXPORT_SIDECAR_MIME_TYPE_V1 } from '../../catalog/photo-export-sidecar-v1.ts';
 import { parsePhotoExportSidecarCurrentV1, serializePhotoExportSidecarCurrentV1 } from '../../catalog/photo-export-sidecar-current-v1.ts';
 import { canonicalPhotoDocumentJsonV1 } from '../../catalog/photo-document-json-v1.ts';

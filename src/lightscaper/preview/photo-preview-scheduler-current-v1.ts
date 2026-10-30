@@ -4,7 +4,7 @@ import { capturePhotoLibraryOriginalSourceCurrentV1, type PhotoLibraryOriginalSo
 import type { PhotoNativeRawPreviewCachePortCurrentV1 } from './photo-native-raw-preview-cache-current-v1.ts';
 import { PhotoPreviewSchedulerCore, type PhotoPreviewSchedulerOptionsCore } from './photo-preview-scheduler-core.ts';
 import { normalizePhotoDocumentCurrentV1 } from '../catalog/photo-document-current-v1.ts';
-import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
+import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/foundation/closed-domain-value.ts';
 import { createPhotoPreviewProtocolCurrentV1, type PreparedPhotoPreviewCurrentV1, type PhotoPreviewPlanCurrentV1 } from './photo-preview-protocol-current-v1.ts';
 import { createPhotoPreviewCacheRouteCurrentV1 } from './photo-preview-cache-route-current-v1.ts';
 import type { PhotoCullingPreviewCachePortCurrentV1 } from './photo-culling-preview-cache-current-v1.ts';
