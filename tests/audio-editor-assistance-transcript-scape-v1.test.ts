@@ -20,10 +20,10 @@ import {
 	createAssistanceTranscriptBodyPublicationV1,
 } from '../src/common/editor/assistance/transcript-body-publication-v1.ts';
 import { createAssistanceTranscript } from '../src/common/editor/assistance/transcript.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { createAudioSource } from '../src/common/editor/project-media-factory.ts';
 import type { AudioEditorProjectStore } from '../src/common/editor/storage.js';
-import { canonicalMediaContentBlob } from '../src/common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../src/common/media/content-digest.ts';
 import {
 	FRAMESCAPER_PROJECT_RUNTIME_PROFILE,
 } from '../src/framescaper/editor-project-runtime-profile.ts';

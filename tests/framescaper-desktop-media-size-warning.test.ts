@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import test, { type TestContext } from 'node:test';
 
 import type { FileSizeWarningOptions } from '../src/common/editor/controller/shared/file-size-warning.ts';
-import { SCAPE_ARCHIVE_LIMITS } from '../src/common/editor/scape-archive-envelope.ts';
+import { SCAPE_ARCHIVE_LIMITS } from '../src/common/scape/archive-limits.ts';
 import { FRAMESCAPER_DESKTOP_PROJECT_LIBRARY_HANDSHAKE } from '../src/framescaper/desktop-project-library-renderer-contract.ts';
 import { connectFramescaperDesktopProjectLibraryRenderer } from '../src/framescaper/desktop-project-library-renderer.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';

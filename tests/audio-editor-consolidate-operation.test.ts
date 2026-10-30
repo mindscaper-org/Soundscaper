@@ -8,7 +8,7 @@ import {
 	runConsolidate,
 	type ConsolidatePorts,
 } from '../src/common/editor/consolidate-operation.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 
 const ORIGINAL = Uint8Array.from({ length: 96 }, (_value, index) => index % 251);
 const DIGEST = digestScapeBytes(ORIGINAL);

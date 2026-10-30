@@ -11,7 +11,7 @@ import { acceptsFile } from '../desktop/validation.js';
 import { IPC } from '../desktop/constants.js';
 import { attachExternalMedia } from '../src/common/editor/desktop-external-media.ts';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { createBaselineAudioEditorProject } from './helpers/baseline-scape-runtime.ts';
 
 test('external originals reopen through a freshly selected project after a native restart', async (context) => {

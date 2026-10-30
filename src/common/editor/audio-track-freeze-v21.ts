@@ -7,7 +7,7 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 import { normalizeAutomationLaneV21, type AutomationLaneV21 } from './automation-lane-v21.ts';
 import { canonicalParameterAddressKey } from './parameter-address.ts';
 

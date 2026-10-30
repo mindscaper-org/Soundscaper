@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from './media-content-digest.ts';
-import { createAbortGuard } from '../abort-error.ts';
+import { MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../../media/content-digest.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
 
 export const LINKED_ORIGINAL_RANGE_MAXIMUM_BYTES = MEDIA_CONTENT_DIGEST_CHUNK_BYTES;
 const throwIfAborted = createAbortGuard('Linked original range access was cancelled.');

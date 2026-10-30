@@ -7,7 +7,7 @@ import {
 	createNativeMediaCapabilitySnapshotV1,
 	type NativeMediaCapabilityEntryInputV1,
 } from '../src/common/editor/native-media-capability-snapshot.ts';
-import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../src/common/media/content-digest.ts';
 import type {
 	FramescaperNativeServicesBridge,
 } from '../src/common/editor/ui/framescaper-native-services-bridge.ts';

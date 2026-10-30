@@ -7,7 +7,7 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 import {
 	nativeMediaV14EncodeDispatch,
 	type NativeMediaV14EncodeProfileId,

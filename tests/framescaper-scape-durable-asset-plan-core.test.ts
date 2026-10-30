@@ -3,7 +3,8 @@
 // Both product adapters use this core; run its refusal matrices once here.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { ScapeAssetDescriptor, ScapeManifest } from '../src/common/editor/scape-archive-envelope.ts';
+import type { ScapeAssetDescriptor } from '../src/common/scape/archive-envelope.ts';
+import type { ScapeManifest } from '../src/common/editor/scape-archive-envelope.ts';
 import type { PlannedScapeExportAsset } from '../src/common/editor/scape-export-plan.ts';
 import type { VideoCubeLutReferenceV1 } from '../src/common/editor/video-color-management-v27.ts';
 import { VIDEO_TIMING_ASSET_MAXIMUM_BYTES } from '../src/common/editor/video-timing-asset.ts';

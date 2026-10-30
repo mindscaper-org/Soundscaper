@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
-import type { ScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import type { ScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { createProjectStore } from '../src/common/editor/storage.js';
 import { createFramescaperProject } from '../src/framescaper/editor-project.ts';

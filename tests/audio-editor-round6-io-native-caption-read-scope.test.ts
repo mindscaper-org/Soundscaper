@@ -6,7 +6,7 @@ import test from 'node:test';
 import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
 import { openFramescaperCaptionSidecarFile } from '../src/common/editor/ui/framescaper-caption-file-interchange.ts';
 import { withFramescaperSidecarFile } from '../src/common/editor/ui/framescaper-sidecar-file.ts';
-import { parseCubeLutV1 } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
 import { nativeSidecarFixture } from './helpers/framescaper-native-sidecar-fixture.ts';
 
 const SUBRIP = '1\n00:00:00,100 --> 00:00:00,500\nA normal caption\n\n';

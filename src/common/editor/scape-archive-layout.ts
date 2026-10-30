@@ -1,19 +1,19 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { withFormatFileParserFailureAsync } from './format-file-parser-failure.ts';
-import { throwIfScapeAborted } from './scape-abort.ts';
+import { throwIfScapeAborted } from '../scape/abort.ts';
 import {
 	assertScapeArchiveByteSource,
 	createBlobScapeArchiveByteSource,
 	readScapeArchiveByteRange,
 	type ScapeArchiveByteSource,
-} from './scape-archive-byte-source.ts';
+} from '../scape/archive-byte-source.ts';
 import {
 	createScapeArchiveLayoutWitness,
 	type ScapeArchiveLayoutWitness,
 } from './scape-archive-layout-witness.ts';
-import { SCAPE_ARCHIVE_LIMITS } from './scape-archive-envelope.ts';
-import { SCAPE_MAXIMUM_CENTRAL_DIRECTORY_BYTES } from './scape-archive-zip-profile.ts';
+import { SCAPE_ARCHIVE_LIMITS } from '../scape/archive-limits.ts';
+import { SCAPE_MAXIMUM_CENTRAL_DIRECTORY_BYTES } from '../scape/archive-zip-profile.ts';
 
 const LOCAL_SIGNATURE = 0x04034b50;
 const CENTRAL_SIGNATURE = 0x02014b50;

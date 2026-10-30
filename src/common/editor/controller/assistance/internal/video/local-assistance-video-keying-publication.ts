@@ -12,7 +12,7 @@ import { FRAMESCAPER_PROJECT_SCHEMA_FAMILY, PROJECT_SCHEMA_VERSION,
 	readProjectSchemaIdentity } from '../../../../project-schema-identity.ts';
 import { loadSourceProvenanceDerivation } from '../../../../source-provenance-derivation-loader.ts';
 import type { SourceProvenanceCarrier } from '../../../../source-provenance-derivation.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from '../../../../storage/media-content-digest.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../../../../../media/content-digest.ts';
 import type { OwnedMediaAssetPublication } from '../../../../storage/media-asset-write-contract.ts';
 import { decodeVideoTimingAsset, encodeVideoTimingAsset,
 	type VideoTimingAssetInput, type VideoTimingIndex } from '../../../../video-timing-asset.ts';

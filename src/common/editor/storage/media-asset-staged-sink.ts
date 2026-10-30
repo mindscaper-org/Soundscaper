@@ -7,7 +7,7 @@ import {
 import { MediaAssetCleanupError } from './media-asset-cleanup-error.ts';
 import { MEDIA_ASSET_CHUNK_STORAGE_TYPE } from './media-asset-chunk-schema.ts';
 import { browserFileStorageFailure } from '../web-file-limit-failure.ts';
-import { createAbortGuard } from '../abort-error.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
 import { confirmFileSizeWarning as admitFileSizeWarning, type FileSizeWarningConfirmation } from '../controller/shared/file-size-warning.ts';
 import {
 	MediaAssetStagingLease,

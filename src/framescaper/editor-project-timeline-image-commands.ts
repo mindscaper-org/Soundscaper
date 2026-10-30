@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from '../common/foundation/closed-domain-value.ts';
 import { AUDIO_EDITOR_PROJECT_VALIDATION_HARD_LIMITS } from '../common/editor/project-validation-budget.ts';
 import {
 	applyFramescaperProjectCommandNativeMedia,

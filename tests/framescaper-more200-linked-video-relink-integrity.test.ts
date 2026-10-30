@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createVideoSource } from '../src/common/editor/project-media-factory.ts';
 import { createProjectStore } from '../src/common/editor/storage.js';
-import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../src/common/media/content-digest.ts';
 import { createProjectBinLinkedVideoRelinkService } from '../src/common/editor/controller/import/project-bin-linked-video-relink-service.ts';
 import { EditorControllerLifetime, EditorProjectGeneration } from '../src/common/editor/controller/shared/lifecycle.ts';
 import { createFramescaperProject } from '../src/framescaper/editor-project.ts';

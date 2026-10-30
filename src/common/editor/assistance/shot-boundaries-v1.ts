@@ -3,7 +3,7 @@
 /** Strict renderer-independent semantic review for Fast and Accurate shot results. */
 
 import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from
-	'../closed-domain-value.ts';
+	'../../foundation/closed-domain-value.ts';
 import {
 	normalizeLocalAssistanceShotDetector,
 	type LocalAssistanceShotDetector,

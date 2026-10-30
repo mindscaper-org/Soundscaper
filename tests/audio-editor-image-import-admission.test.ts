@@ -9,7 +9,7 @@ import {
 	admitImageCanonicalBody,
 	admitImageDecodeWorkload,
 	admitImageImportGesture,
-} from '../src/common/editor/image-import-admission.ts';
+} from '../src/common/imaging/image-import-admission.ts';
 
 const MIB = 1024 * 1024;
 

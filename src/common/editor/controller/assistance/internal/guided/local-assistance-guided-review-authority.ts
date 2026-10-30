@@ -14,7 +14,7 @@ import {
 import type { AssistanceGuidedWorkflowId } from '../../../../assistance/workflow.ts';
 import type { AssistanceWorkflowReviewMediaAssetV1 } from
 	'../../../../assistance/workflow-review-authority-v1.ts';
-import { digestMediaContent } from '../../../../storage/media-content-digest.ts';
+import { digestMediaContent } from '../../../../../media/content-digest.ts';
 import { inspectWavBlobPcm } from '../../../../wav-import.js';
 
 interface PreparedExternalInput {

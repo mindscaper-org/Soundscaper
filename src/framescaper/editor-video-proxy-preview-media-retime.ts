@@ -5,7 +5,7 @@ import type {
 	ProjectVideoPreviewMediaRequest,
 } from '../common/editor/controller/document/project-visual-service.ts';
 import type { ProjectVisualSource } from '../common/editor/controller/document/project-visual-types.ts';
-import { digestMediaContent } from '../common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../common/media/content-digest.ts';
 import {
 	VIDEO_TIMING_ASSET_ENCODING,
 	VIDEO_TIMING_ASSET_MIME_TYPE,

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray } from './closed-domain-value.ts'
+import { readClosedDomainArray } from '../foundation/closed-domain-value.ts'
 
 export interface InertJsonSnapshotOptions {
 	readonly maximumArrayLength: number

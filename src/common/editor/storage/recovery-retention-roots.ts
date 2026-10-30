@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { collectProjectStorageKeys, compactProjectSourceMetadata } from '../retention.js';
 import { RECORDING_RECOVERY_KEY_PREFIX } from './recording-recovery-journal-repository.ts';
-import { request } from './indexeddb-backend.ts';
+import { request } from '../../media/indexeddb.ts';
 
 /** Malformed snapshots remain byte-for-byte candidates and retain every identifiable source. */
 export function collectRecoverableProjectStorageKeys(project: unknown, target: Set<string>, validate?: (project: unknown) => boolean): void {

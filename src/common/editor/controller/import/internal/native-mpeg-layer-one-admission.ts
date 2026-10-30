@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { raceAbortableRead } from '../../../abort-race.ts';
+import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 
 const BITRATES = [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448];
 const SAMPLE_RATES = [44_100, 48_000, 32_000];

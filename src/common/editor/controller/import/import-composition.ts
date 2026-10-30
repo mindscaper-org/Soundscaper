@@ -6,7 +6,7 @@ import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-comma
 import { createAddClipCommand, createAddSourceCommand, createAddTrackCommand } from '../../commands.js';
 import { isAudioEditorEngineSupported } from '../../engine.js';
 import { createStableId, findTrack } from '../../project.js';
-import { digestMediaContent } from '../../storage/media-content-digest.ts';
+import { digestMediaContent } from '../../../media/content-digest.ts';
 import {
 	audioEditorVideoThumbnailTimes,
 	createAudioEditorVideoFrameExtractor,

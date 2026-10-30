@@ -6,7 +6,7 @@ import test from 'node:test';
 import {
 	createAbortGuard,
 	throwIfAborted,
-} from '../src/common/editor/abort-error.ts';
+} from '../src/common/foundation/abort-error.ts';
 
 test('shared abort checks preserve AbortSignal cancellation reasons', () => {
 	assert.doesNotThrow(() => throwIfAborted(undefined, 'Unused cancellation message.'));

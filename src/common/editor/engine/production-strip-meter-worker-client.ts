@@ -4,7 +4,7 @@ import {
 	readClosedDomainArray,
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from '../closed-domain-value.ts';
+} from '../../foundation/closed-domain-value.ts';
 import { canonicalStripRefKey, normalizeStripRef } from '../parameter-address.ts';
 import type { StripMeterSnapshot } from '../production-audio/strip-meter-session.ts';
 import {

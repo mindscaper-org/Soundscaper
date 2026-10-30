@@ -2,7 +2,7 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { createAbortGuard } from '../abort-error.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
 import { LinkedOriginalContentUnavailableError } from './linked-original-content-unavailable-error.ts';
 import { normalizeLinkedOriginalLocatorRevision } from './linked-original-binding.ts';
 import {
@@ -30,7 +30,7 @@ import {
 	canonicalMediaContentBlob,
 	digestMediaContent,
 	MEDIA_CONTENT_DIGEST_CHUNK_BYTES,
-} from './media-content-digest.ts';
+} from '../../media/content-digest.ts';
 
 export const LINKED_VIDEO_ORIGINAL_STORAGE_TYPE = 'linked-video-original-v1' as const;
 export const LINKED_VIDEO_PLAYBACK_VERIFY_CHUNK_BYTES = MEDIA_CONTENT_DIGEST_CHUNK_BYTES;

@@ -5,7 +5,7 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 import { normalizeAutomationLaneV21 } from './automation-lane-v21.ts';
 import { normalizeMixerGraphV21 } from './mixer-graph-v21.ts';
 import { resolveTerminalChannelWidths } from './terminal-channel-widths.ts';

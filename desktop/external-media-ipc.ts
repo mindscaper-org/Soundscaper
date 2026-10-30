@@ -3,10 +3,10 @@
 import { open } from 'node:fs/promises';
 import { basename, extname, isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
-import { createScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { withScapeProjectInput } from '../src/common/editor/scape-project-input.ts';
 import { normalizeExternalMedia } from '../src/common/editor/desktop-external-media.ts';
-import type { ScapeArchiveEntry } from '../src/common/editor/scape-archive-envelope.ts';
+import type { ScapeArchiveEntry } from '../src/common/scape/archive-envelope.ts';
 
 interface ReadCapabilities {
 	resolveHelperGrant(id: string, options: { owner: object }): Promise<{

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { raceAbortableRead } from './abort-race.ts';
+import { raceAbortableRead } from '../foundation/abort-race.ts';
 import { isStreamedAudioImportFile } from './streamed-audio-import-file.ts';
 import { hasNativeOggSpeexIdentity } from './ogg-speex-source-identity.ts';
 

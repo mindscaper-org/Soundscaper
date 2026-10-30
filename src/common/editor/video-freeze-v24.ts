@@ -6,7 +6,7 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 
 export interface VideoFreezeFreshnessInputV1 {
 	readonly authoredStateSha256: string;

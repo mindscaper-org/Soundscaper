@@ -20,7 +20,7 @@ import type { MediaAssetWriter, OwnedMediaAssetPublication } from
 	'../../storage/media-asset-write-contract.ts';
 import { inspectWavBlobPcm, streamWavBlobPcm } from '../../wav-import.js';
 import type { TextToSpeechProjectPort, TextToSpeechRequest, TextToSpeechReviewed } from '../../assistance/text-to-speech-port-contract.ts';
-import { canonicalMediaContentBlob } from '../../storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../../../media/content-digest.ts';
 import { digestMediaContentInWorker } from '../../media-content-digest-worker-client.ts';
 
 type RecordValue = Readonly<Record<string, unknown>>;

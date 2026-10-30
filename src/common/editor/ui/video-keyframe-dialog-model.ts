@@ -5,7 +5,7 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from '../closed-domain-value.ts';
+} from '../../foundation/closed-domain-value.ts';
 import { selectAudioEditorEditBlock, type AudioEditorEditBlockingSnapshot } from '../edit-blocking.ts';
 import type { InterpolationShape } from '../interpolation-curve.ts';
 import {

@@ -25,7 +25,7 @@ import {
 import {
 	canonicalMediaContentBlob,
 	digestMediaContent,
-} from '../../storage/media-content-digest.ts';
+} from '../../../media/content-digest.ts';
 import {
 	createLocalAssistanceSelectionFence,
 } from './internal/local-assistance-selected-media.ts';

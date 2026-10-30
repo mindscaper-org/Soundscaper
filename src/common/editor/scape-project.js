@@ -6,25 +6,13 @@ import {
 import { createStableId } from './project.js';
 import { isCurrentProjectSchemaIdentity } from './project-schema-identity.ts';
 import { remapProjectFeatureRequirementSourceIds } from './project-feature-requirements.ts';
-import { aggregateScapeErrors, awaitScapeOperation, awaitScapeReadOperation, throwIfScapeAborted } from './scape-abort.ts';
-import {
-	readScapeArchiveEnvelope,
-	SCAPE_FORMAT,
-	SCAPE_FORMAT_VERSION,
-	SCAPE_MANIFEST_ENTRY,
-	SCAPE_PROJECT_ENTRY,
-} from './scape-archive-envelope.ts';
+import { aggregateScapeErrors, awaitScapeOperation, awaitScapeReadOperation, throwIfScapeAborted } from '../scape/abort.ts';
+import { readScapeArchiveEnvelope } from './scape-archive-envelope.ts';
+import { SCAPE_FORMAT, SCAPE_FORMAT_VERSION, SCAPE_MANIFEST_ENTRY, SCAPE_PROJECT_ENTRY } from '../scape/archive-envelope.ts';
 import { ScapeAudioChunkBudget } from './scape-expanded-byte-budget.ts';
-import {
-	createScapeDigest,
-	extractScapeAudio,
-	scapeAudioSourceStream,
-	scapeBytesStream,
-	scapeHashingStream,
-	scapeHex,
-	verifyScapeAssetBytes,
-	verifyScapeExtractedAsset,
-} from './scape-archive-media.ts';
+import { createDigest as createScapeDigest, bytesStream as scapeBytesStream, hex as scapeHex } from '../media/bytes.ts';
+import { extractScapeAudio, scapeAudioSourceStream } from './scape-archive-media.ts';
+import { scapeHashingStream, verifyScapeAssetBytes, verifyScapeExtractedAsset } from '../scape/asset-bytes.ts';
 import { extractScapeVideo } from './scape-archive-video.ts'; import { confirmScapeProxyImportSizes } from './scape-proxy-import-size-warning.ts';
 import { createScapeExportDestination } from './scape-export-destination.ts';
 import {
@@ -47,7 +35,7 @@ import { SCAPE_MIME_TYPE } from './scape-project-format.ts';
 import { remapScapeProjectSourceReferences } from './scape-project-source-remap.ts';
 import { prepareScapeImportSourceIdentities, resolveScapeProjectAssetExtension, retryScapeImportSourceIdentityCollision } from './scape-project-asset-extension.ts';
 import { inspectScapeCanonicalEvidence } from './scape-project-canonical-inspection.ts';
-import { canonicalMediaContentBlob } from './storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../media/content-digest.ts';
 import { createProjectCopyDocument } from './storage/project-copy-document.ts';
 import {
 	validateVideoTimingAssetBytes,

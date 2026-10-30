@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { ScapeAssetDescriptor } from '../src/common/editor/scape-archive-envelope.ts';
+import type { ScapeAssetDescriptor } from '../src/common/scape/archive-envelope.ts';
 import { indexScapeProjectAssets } from '../src/common/editor/scape-project-assets.ts';
 import { createCurrentAudioEditorProject } from '../src/common/editor/project-current.ts';
 import {

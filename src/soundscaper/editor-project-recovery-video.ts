@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { canonicalMediaContentBlob, digestMediaContent } from '../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../common/media/content-digest.ts';
 import { loadVideoTimingAsset } from '../common/editor/video-timing-storage.ts';
 
 export interface SoundscaperRecoveryVideoStore {

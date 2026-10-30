@@ -2,7 +2,7 @@
 
 import { sequenceFrameBoundarySample } from '../common/editor/sequence-frame-navigation.ts';
 import type { AudioEditorProjectStore } from '../common/editor/storage.js';
-import { digestMediaContent } from '../common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../common/media/content-digest.ts';
 import { multiplyDivideRationals } from '../common/editor/timeline-time.ts';
 import {
 	createUnifiedExactRenderVisualPreviewConsumerV13,

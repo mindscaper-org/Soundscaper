@@ -12,12 +12,8 @@ import {
 	projectDerivativeCacheInventoryRecord,
 	readDerivativeCacheInventory,
 } from '../src/common/editor/storage/derivative-cache-inventory.ts';
-import {
-	MAX_INDEXEDDB_CURSOR_PAGE_SIZE,
-	openDatabase,
-	readCursorPage,
-	transact,
-} from '../src/common/editor/storage/indexeddb-backend.ts';
+import { MAX_INDEXEDDB_CURSOR_PAGE_SIZE, readCursorPage, transact } from '../src/common/media/indexeddb.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
 interface CursorStats {

@@ -4,15 +4,9 @@ import {
 	aggregateScapeErrors,
 	awaitScapeOperation,
 	awaitScapeReadOperation,
-} from './scape-abort.ts';
-import {
-	createScapeAudioExportChunkBudget,
-	createScapeDigest,
-	scapeAudioSourceLayout,
-	scapeAudioSourceStream,
-	scapeHex,
-	type ScapeAudioSource,
-} from './scape-archive-media.ts';
+} from '../scape/abort.ts';
+import { createScapeAudioExportChunkBudget, scapeAudioSourceLayout, scapeAudioSourceStream, type ScapeAudioSource } from './scape-archive-media.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../media/bytes.ts';
 import type { ScapeProjectFallbackClaim } from './scape-project-assets.ts';
 import {
 	PROJECT_FEATURE_REQUIREMENTS_LIMITS,

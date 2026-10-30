@@ -7,7 +7,7 @@ import {
 	validateAssistanceWorkflowReviewAuthorityV1,
 	type AssistanceWorkflowReviewAuthorityV1,
 } from '../../assistance/workflow-review-authority-v1.ts';
-import { digestMediaContent } from '../../storage/media-content-digest.ts';
+import { digestMediaContent } from '../../../media/content-digest.ts';
 
 export async function verifyLocalAssistanceGuidedReviewMediaAuthority(
 	workflow: AssistanceWorkflowV1,

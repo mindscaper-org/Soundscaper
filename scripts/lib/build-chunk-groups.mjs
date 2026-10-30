@@ -425,7 +425,7 @@ export const chunkGroups = [
 	},
 	{
 		name: 'editor-storage-model',
-		test: new RegExp(`${editorPath}(?:storage(?:\\.js|[\\\\/])|project(?:-[^\\\\/]+)?\\.js|migration\\.js|retention\\.js|history\\.js|session\\.js|stable-id\\.js|preferences\\.js)`),
+		test: new RegExp(`(?:src[\\\\/]common[\\\\/]media[\\\\/](?:content-digest|indexeddb)\\.ts$)|${editorPath}(?:storage(?:\\.js|[\\\\/])|project(?:-[^\\\\/]+)?\\.js|migration\\.js|retention\\.js|history\\.js|session\\.js|stable-id\\.js|preferences\\.js)`),
 		priority: 85,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,

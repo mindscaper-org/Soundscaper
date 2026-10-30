@@ -6,7 +6,7 @@ import test from 'node:test';
 import {
 	classifyImageFormatSignature,
 	type ReviewedImageFormat,
-} from '../src/common/editor/image-format-signature.ts';
+} from '../src/common/imaging/image-format-signature.ts';
 
 const ASCII = new TextEncoder();
 

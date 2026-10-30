@@ -6,7 +6,7 @@ import {
 	IMAGE_IMPORT_LIMITS,
 	type AdmittedImageImportGesture,
 	type ImageImportGestureRequest,
-} from './image-import-admission.ts';
+} from '../imaging/image-import-admission.ts';
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
 
 export interface ConfirmedImageImportGesture extends AdmittedImageImportGesture {

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createScapeDigest, scapeHex } from '../../../../scape-archive-media.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../../../../../media/bytes.ts';
 import { packPlanarFloat32 } from '../../../../wavpack/pcm.js';
 
 export const TAKE_CYCLE_CAPTURE_MAXIMUM_CHUNK_BYTES = 8 * 1024 * 1024;

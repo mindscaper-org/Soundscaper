@@ -19,7 +19,7 @@
  * back the chunks it happened to get.
  */
 
-import { raceAbortablePromise } from './abort-race.ts';
+import { raceAbortablePromise } from '../foundation/abort-race.ts';
 import { createVideoElementaryStreamWriter } from './video-elementary-stream.ts';
 
 const MICROSECONDS_PER_SECOND = 1_000_000;

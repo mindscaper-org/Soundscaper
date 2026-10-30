@@ -1,14 +1,24 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { VideoMaskCoordinateV1, VideoMaskPathV1 } from './video-mask-matte-v24.ts';
+export interface MaskCoordinate { readonly x: number; readonly y: number }
+export interface CubicMaskPoint {
+	readonly position: MaskCoordinate;
+	readonly inHandle: MaskCoordinate | null;
+	readonly outHandle: MaskCoordinate | null;
+}
+/** Admitted contour geometry without timeline or product identity. */
+export interface CubicMaskPath {
+	readonly closed: boolean;
+	readonly points: readonly CubicMaskPoint[];
+}
 
-type Point = VideoMaskCoordinateV1;
+type Point = MaskCoordinate;
 interface Edge { readonly points: readonly [Point, Point, Point, Point]; readonly cuts: readonly number[] }
 interface Crossing { readonly x: number; readonly winding: number }
 
 /** Rasterize admitted cubic contours at pixel centres, with one bounded crossing walk per row. */
-export function rasterizeVideoMaskPaths(
-	paths: readonly VideoMaskPathV1[], fillRule: 'nonzero' | 'even-odd', width: number, height: number,
+export function rasterizeCubicMaskPaths(
+	paths: readonly CubicMaskPath[], fillRule: 'nonzero' | 'even-odd', width: number, height: number,
 ): Uint8Array<ArrayBuffer> {
 	const edges = paths.flatMap(path => path.points.map((start, index) => {
 		const end = path.points[(index + 1) % path.points.length]!;

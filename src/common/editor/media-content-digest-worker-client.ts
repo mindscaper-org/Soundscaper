@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { runOneShotWorkerTask, type OneShotWorkerPort } from './one-shot-worker-task.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from './storage/media-content-digest.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../media/content-digest.ts';
 
 /** Hash immutable media off the renderer without materializing its complete bytes. */
 export function digestMediaContentInWorker(

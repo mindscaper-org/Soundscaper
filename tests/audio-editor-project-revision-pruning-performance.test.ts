@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { openDatabase, request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { getMemoryDatabase } from '../src/common/editor/storage/memory-backend.ts';
 import { pruneProjectRevisions } from '../src/common/editor/storage/project-revision-pruning.ts';
 import { revisionKey } from '../src/common/editor/storage/project-repository-support.ts';

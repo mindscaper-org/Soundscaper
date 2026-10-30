@@ -5,7 +5,7 @@ import test from 'node:test';
 
 import { EditorControllerLifetime } from '../src/common/editor/controller/shared/lifecycle.ts';
 import { createScapeProjectFileService } from '../src/common/editor/controller/document/scape-project-file-service.ts';
-import { createScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
+import { createScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 
 test('Scape initial inspection receives its warning port and a current-task assertion', async () => {
 	const lifetime = new EditorControllerLifetime();

@@ -8,7 +8,7 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 import {
 	exportCaptionInterchangeV1,
 	importCaptionInterchangeV1,

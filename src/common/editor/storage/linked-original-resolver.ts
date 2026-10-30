@@ -11,7 +11,7 @@ import {
 	type LinkedOriginalKind,
 	type LinkedVideoOriginalSourceShape,
 } from './linked-original-binding.ts';
-import { createAbortGuard } from '../abort-error.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
 import type {
 	LinkedOriginalLocatorReference,
 	LinkedOriginalRepository,
@@ -27,7 +27,7 @@ import {
 import {
 	canonicalMediaContentBlob,
 	digestMediaContent,
-} from './media-content-digest.ts';
+} from '../../media/content-digest.ts';
 
 export const LINKED_ORIGINAL_STORAGE_TYPE = 'linked-original-v2' as const;
 const throwIfAborted = createAbortGuard('Linked original access was cancelled.');

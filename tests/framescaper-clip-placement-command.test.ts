@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { readClosedDomainField } from '../src/common/editor/closed-domain-value.ts';
+import { readClosedDomainField } from '../src/common/foundation/closed-domain-value.ts';
 import { snapshotOptionalClipPlacement } from '../src/framescaper/editor-clip-placement-command.ts';
 
 const labels = {

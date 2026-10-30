@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { PCM_CONTAINER_STORAGE_TYPE } from '../wavpack/index.js';
-import { createAbortGuard } from '../abort-error.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
 import {
 	sameStoredSourceIdentity,
 	type StorageRecord,

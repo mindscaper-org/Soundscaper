@@ -10,7 +10,7 @@ import {
 	Mp4OutputFormat,
 	Output,
 } from 'mediabunny';
-import { raceAbortablePromise } from './abort-race.ts';
+import { raceAbortablePromise } from '../foundation/abort-race.ts';
 import { browserAacMetadataFormat, browserAacMetadataTags } from './browser-aac-metadata.ts';
 import {
 	BROWSER_AAC_WEB_CODECS_CODEC,

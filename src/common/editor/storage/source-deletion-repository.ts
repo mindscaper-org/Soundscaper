@@ -5,7 +5,7 @@ import {
 	DERIVATIVE_CACHE_ENTRY_STORE_NAME,
 	VIDEO_DERIVATIVE_STORE_NAME,
 } from './derivative-cache-entry.ts';
-import { deleteByIndex, request, transact } from './indexeddb-backend.ts';
+import { deleteByIndex, request, transact } from '../../media/indexeddb.ts';
 import { sameStoredSourceIdentity, type StorageRecord } from './media-records.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';
 import type { RetentionSessionGuard } from './retention-session-guard.ts';

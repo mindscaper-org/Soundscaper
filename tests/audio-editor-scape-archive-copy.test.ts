@@ -16,8 +16,8 @@ import {
 } from '../src/common/editor/assistance/transcript-scape-asset-extension-v1.ts';
 import { SOUNDSCAPER_PROJECT_SCHEMA_FAMILY } from '../src/common/editor/project-schema-identity.ts';
 import { copyFutureScapeArchive } from '../src/common/editor/scape-archive-copy.ts';
-import { createScapeArchiveByteSource } from '../src/common/editor/scape-archive-byte-source.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { createScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { createProjectStore } from '../src/common/editor/storage.js';
 import {

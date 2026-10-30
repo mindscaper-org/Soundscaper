@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { restoreNormalizedScapeAbortReason } from '../../../../scape-abort.ts';
+import { restoreNormalizedScapeAbortReason } from '../../../../../scape/abort.ts';
 import type { ScapeProjectInput } from '../../../../scape-project-input.ts';
 import { deferredArchiveRuntime } from '../../deferred-archive-runtime.ts';
 import type { EditorControllerLifetime, EditorTaskScope } from '../../../shared/lifecycle.ts';

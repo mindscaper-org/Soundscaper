@@ -8,8 +8,8 @@ import {
 	awaitScapeOperation,
 	awaitScapeReadOperation,
 	throwIfScapeAborted,
-} from './scape-abort.ts';
-import { SCAPE_ARCHIVE_LIMITS } from './scape-archive-envelope.ts';
+} from '../scape/abort.ts';
+import { SCAPE_ARCHIVE_LIMITS } from '../scape/archive-limits.ts';
 import { confirmFileSizeWarning, type FileSizeWarningConfirmation } from './controller/shared/file-size-warning.ts';
 import type { ScapeProjectFallbackClaim } from './scape-project-assets.ts';
 import {
@@ -53,7 +53,7 @@ import {
 import {
 	canonicalMediaContentBlob,
 	digestMediaContent,
-} from './storage/media-content-digest.ts';
+} from '../media/content-digest.ts';
 
 type ProjectFallbackSource = ProjectFallbackIntegritySource;
 

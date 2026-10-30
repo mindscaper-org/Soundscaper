@@ -3,10 +3,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-	readScapeArchiveEnvelope,
-	type ScapeArchiveEntry,
-} from '../src/common/editor/scape-archive-envelope.ts';
+import { readScapeArchiveEnvelope } from '../src/common/editor/scape-archive-envelope.ts';
+import { type ScapeArchiveEntry } from '../src/common/scape/archive-envelope.ts';
 
 const encoder = new TextEncoder();
 

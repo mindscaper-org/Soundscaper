@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { raceAbortableRead } from '../../../abort-race.ts';
+import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 import { secondsToSampleFrame } from '../../../timeline-time.ts';
 import { readIsoAudioPresentationEnd } from '../../../iso-audio-presentation-edit.ts';
 import type { ImportedVideoDecodedAudio } from './video-import-audio-decode.ts';

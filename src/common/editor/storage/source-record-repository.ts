@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { collectRecoverableProjectStorageKeys as collectProjectStorageKeys, assertSourceNotRecoveryRetained, assertStoredSourceNotRecoveryRetained } from './recovery-retention-roots.ts';
-import {
-	deleteByIndex,
-	readCursorPage,
-	request,
-	transact,
-} from './indexeddb-backend.ts';
+import { deleteByIndex, readCursorPage, request, transact } from '../../media/indexeddb.ts';
 import {
 	cloneChunk,
 	sameStoredSourceIdentity,

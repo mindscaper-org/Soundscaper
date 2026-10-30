@@ -24,7 +24,8 @@ import {
 	LINKED_ORIGINAL_STORE_NAME,
 	linkedOriginalBindingKey,
 } from '../src/common/editor/storage/linked-original-schema.ts';
-import { openDatabase, request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { getMemoryDatabase } from '../src/common/editor/storage/memory-backend.ts';
 import { ProjectRepository } from '../src/common/editor/storage/project-repository.ts';
 import type { StorageRepositoryPort } from '../src/common/editor/storage/repository-port.ts';

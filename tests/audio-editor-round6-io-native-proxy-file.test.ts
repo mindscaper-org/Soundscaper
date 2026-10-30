@@ -6,7 +6,7 @@ import test from 'node:test';
 import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
 import { DESKTOP_READ_HARD_LIMIT_BYTES } from '../src/common/editor/desktop-read-materialization.ts';
 import { createDesktopSelectedRangeBlob } from '../src/common/editor/desktop-selected-range-blob.ts';
-import { canonicalMediaContentBlob, MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../src/common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob, MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../src/common/media/content-digest.ts';
 import { withFramescaperVideoProxyFile } from '../src/common/editor/ui/framescaper-video-proxy-file.ts';
 import { nativeSidecarFixture } from './helpers/framescaper-native-sidecar-fixture.ts';
 

@@ -5,7 +5,7 @@ import {
 	validateAssistanceAssetSourceBindingsV1,
 	type AssistanceAssetReferenceV1,
 } from '../common/editor/assistance/assistance-asset-reference-v1.ts';
-import { readClosedDomainField } from '../common/editor/closed-domain-value.ts';
+import { readClosedDomainField } from '../common/foundation/closed-domain-value.ts';
 import {
 	FRAMESCAPER_PROJECT_SCHEMA_FAMILY,
 	PROJECT_SCHEMA_VERSION,

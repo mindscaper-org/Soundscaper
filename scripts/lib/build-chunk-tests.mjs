@@ -421,8 +421,9 @@ export const PROJECT_INTERCHANGE_FOUNDATION_CHUNK_TEST = new RegExp(
 );
 
 /** Flat editor modules and `assistance/` domain modules shared by the shell and dialogs. */
-export const EDITOR_DOMAIN_CHUNK_TEST = new RegExp(
+export const EDITOR_DOMAIN_CHUNK_TEST = new RegExp([
 	`${editorPath}(?!${editorOptionalArchiveModule}\\.(?:[cm]?[jt]s)$)(?!${editorOptionalExecutionModule}\\.(?:[cm]?[jt]s)$)(?!${editorOptionalCaptureFlatModule}\\.ts$)(?:[^\\\\/]+|assistance[\\\\/](?:internal[\\\\/]radix-two-fft-v1|[^\\\\/]+)|(?:design-system-adapters|platform)[\\\\/][^\\\\/]+)\\.(?:[cm]?[jt]s)$`,
-);
+	String.raw`src[\\/]common[\\/](?:(?:imaging|foundation|scape)[\\/][^\\/]+|media[\\/]bytes)\.(?:[cm]?[jt]s)$`,
+].join('|'));
 
 export const EDITOR_VARISPEED_CONTROL_CHUNK_TEST = /(?:^|[\\/])(?:src[\\/]common[\\/]editor[\\/]ui[\\/]toolbar[\\/]PlaybackSpeedToolbarControl\.tsx|vendor[\\/]audacity-design-system[\\/]components[\\/]src[\\/]VarispeedControl[\\/])/;

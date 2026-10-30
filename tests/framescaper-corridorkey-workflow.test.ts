@@ -5,7 +5,7 @@ import { createLocalAssistanceVideoKeyingWorkflow } from '../src/common/editor/c
 import { createAssistanceVisualFramePackV2 } from '../src/common/editor/assistance/visual-frame-pack-v2.ts';
 import type { LocalAssistanceBridge, LocalAssistanceOutputClaim, LocalAssistanceRunRequest } from '../src/common/editor/assistance/local-assistance-bridge.ts';
 import type { LocalAssistanceVideoKeyingRun } from '../src/common/editor/controller/assistance/internal/video/local-assistance-video-keying-publication.ts';
-import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../src/common/media/content-digest.ts';
 
 import { CORRIDORKEY_CHROMA_HINT_DEFAULTS } from '../src/common/editor/assistance/corridorkey-hint-settings.ts';
 

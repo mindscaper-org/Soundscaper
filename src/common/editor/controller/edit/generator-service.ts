@@ -25,7 +25,7 @@ import { createLabeledAudioSilence } from './internal/labeled-audio-silence.ts';
 import { prepareGeneratorRangeReplacement } from './internal/generator-range-replacement.ts';
 import { generatorChannelGroups } from './internal/generator-channel-groups.ts';
 import type { GeneratedSignalStream } from '../../signal-generator-stream-client.ts';
-import { raceAbortableRead } from '../../abort-race.ts';
+import { raceAbortableRead } from '../../../foundation/abort-race.ts';
 
 export type AudioGeneratorType = 'silence' | 'tone' | 'chirp' | 'noise' | 'dtmf' | 'morse';
 

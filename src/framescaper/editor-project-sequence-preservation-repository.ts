@@ -5,7 +5,7 @@ import { bytesToHex } from '@noble/hashes/utils.js';
 
 import type { EditorProjectRuntimeProfile } from '../common/editor/project-runtime-profile.ts';
 import { serializeScapeProjectDocument } from '../common/editor/scape-project-document.ts';
-import { request, transact } from '../common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../common/media/indexeddb.ts';
 import { MEDIA_ASSET_STAGING_STORE_NAME } from '../common/editor/storage/media-asset-staging-schema.ts';
 import { publishSource, type StorageRecord } from '../common/editor/storage/media-records.ts';
 import type { StorageRepositoryPort } from '../common/editor/storage/repository-port.ts';
