@@ -71,7 +71,7 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2 } =
 				window.postMessage({ type: 'soundscaper-native-realtime-port-v1', offer: {
 					sessionId, protocolVersion: 1, generation: 1, sampleFormat: 'f32-planar', sampleRate: request.sampleRate,
 					channelCount: request.channelCount, frameCount: request.periodFrames, queueCapacity: 8, startFrame: 0,
-				} }, '*', [pair.port2]);
+				} }, window.location.origin, [pair.port2]);
 				return { status: 'bound' };
 			},
 			reportNativeAudioSessionTransfer: async () => {},

@@ -3,6 +3,9 @@
 import { readFile } from 'node:fs/promises';
 import { test, expect } from './helpers/browser-coverage-fixture.js';
 
+// This route serves the diagnostic launcher's renderer, outside the product sites.
+test.use({ browserCoverage: false });
+
 test('nightly Test suite menu pauses, waits for cancellation, and offers Resume', async ({ page, browserName }) => {
 	test.skip(browserName !== 'chromium', 'The nightly progress window runs in Electron Chromium.');
 	const requests = [];

@@ -17,6 +17,12 @@ function record(value: unknown): Record<string, unknown> {
 	return value as Record<string, unknown>;
 }
 
+function dependencyInstallation(step: Record<string, unknown>): boolean {
+	return step.uses === './.github/actions/verified-node-dependencies'
+		|| (typeof step.run === 'string'
+			&& step.run.split(/\r?\n/u).some((line) => line.trim() === 'npm ci'));
+}
+
 test('every ARM runner installs native Node before installing dependencies', () => {
 	let checked = 0;
 	for (const name of readdirSync(resolve(root, '.github/workflows'))) {
@@ -55,7 +61,7 @@ test('helper-backed nightly and AI asset jobs use native Node and tools', () => 
 			record(value)['runs-on'] === '${{ matrix.target.runner }}'));
 		const steps = job.steps as Record<string, unknown>[];
 		const setup = steps.findIndex((step) => step.uses === './.github/actions/setup-native-tooling');
-		assert.ok(setup >= 0 && setup < steps.findIndex((step) => step.run === 'npm ci'));
+		assert.ok(setup >= 0 && setup < steps.findIndex(dependencyInstallation));
 	}
 });
 
@@ -90,10 +96,9 @@ function assertNativeArmSetup(
 	const node = steps.findIndex((step) => typeof step.uses === 'string'
 		&& step.uses.startsWith('actions/setup-node@'));
 	const setup = steps.findIndex((step) => step.uses === './.github/actions/setup-native-tooling');
-	const install = steps.findIndex((step) => typeof step.run === 'string'
-		&& step.run.split(/\r?\n/u).some((line) => line.trim() === 'npm ci'));
+	const install = steps.findIndex(dependencyInstallation);
 	assert.ok(node >= 0 && node < setup && setup < install,
-		`${label} native Node/tools before npm ci`);
+		`${label} native Node/tools before npm ci or verified dependency reuse`);
 	const architecture = record(steps[node].with).architecture;
 	const field = (['node_arch', 'arch'] as const).find((key) => (
 		architecture === '${{ ' + matrixBinding + '.' + key + ' }}'
@@ -129,6 +134,15 @@ void test('native ARM guard rejects comment and echo text as dependency installa
 			{ steps: nativeArmSteps('${{ matrix.arch }}', text) }, { arch: 'arm64' }, 'matrix', text,
 		), /native Node\/tools before npm ci/u);
 	}
+});
+
+void test('native ARM guard checks setup order before verified dependency reuse', () => {
+	const steps = nativeArmSteps('${{ matrix.arch }}');
+	steps[2] = { uses: './.github/actions/verified-node-dependencies' };
+	assertNativeArmSetup({ steps }, { arch: 'arm64' }, 'matrix', 'verified dependency reuse');
+	assert.throws(() => assertNativeArmSetup(
+		{ steps: [steps[0], steps[2], steps[1]] }, { arch: 'arm64' }, 'matrix', 'late tools',
+	), /native Node\/tools before npm ci/u);
 });
 
 void test('native ARM guard rejects wrong, missing and foreign architecture bindings', () => {

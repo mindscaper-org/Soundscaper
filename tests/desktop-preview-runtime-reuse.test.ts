@@ -81,9 +81,11 @@ test('preview builds each target AI closure once before the quality gates and re
 	assert.ok(targets);
 	assert.deepEqual(targets.map(target => `${target.platform}-${target.arch}`).sort(),
 		['linux-arm64', 'linux-x64', 'mac-arm64', 'win-arm64', 'win-x64']);
-	const preparers = producer.steps?.filter(step => /scripts\/desktop-prepare\.mjs/u.test(step.run ?? ''));
+	const preparers = producer.steps?.filter(step => /scripts\/prepare-assistance-runtimes\.mjs/u.test(step.run ?? ''));
 	assert.ok(preparers);
 	assert.equal(preparers.length, 1);
+	assert.ok(producer.steps?.every(step => !/scripts\/desktop-prepare\.mjs|ci-build-os-audio-codec-host/u.test(step.run ?? '')),
+		'the AI producer must not compile or stage unrelated application components');
 	assert.equal(preparers[0]?.env?.SOUNDSCAPER_SOURCE_REVISION, '${{ github.sha }}');
 	const metadata = artifactStep(producer, 'upload', 'assistance-runtime-handoff');
 	const archives = artifactStep(producer, 'upload', 'assistance-runtime-archives');

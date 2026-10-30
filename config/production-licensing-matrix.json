@@ -143,12 +143,12 @@
 		{
 			"lockPath": "node_modules/@modelcontextprotocol/node",
 			"name": "@modelcontextprotocol/node",
-			"version": "2.0.0",
+			"version": "2.1.0",
 			"license": "MIT",
 			"direct": true,
 			"role": "desktop-mcp-server-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "`@modelcontextprotocol/node` 2.0.0",
+			"noticeMarker": "`@modelcontextprotocol/node` 2.1.0",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		},
 		{

@@ -17,6 +17,16 @@ the engine files from the installer staging tree. The same preparation is used
 for both Soundscaper and Framescaper release packages and nightly-with-tests.
 Preparation fails when an engine cannot be built or authenticated.
 
+The CI runtime producers use `node scripts/prepare-assistance-runtimes.mjs` to
+build the same five authenticated archives and source-bound handoff metadata.
+This entry point requires the target platform, architecture, and source revision
+in the existing `SOUNDSCAPER_DESKTOP_TARGET_PLATFORM`,
+`SOUNDSCAPER_DESKTOP_TARGET_ARCH`, and `SOUNDSCAPER_SOURCE_REVISION` variables.
+It does not compile desktop application code, build a renderer, or prepare OS
+audio hosts. Full desktop preparation calls the same neural runtime coordinator
+or imports an already verified handoff. CI logs the elapsed time of each neural
+preparation phase separately.
+
 ## Build prerequisites
 
 Use the repository's Node.js 26.5.0 and npm 12.0.1. Install dependencies with
@@ -35,11 +45,22 @@ llama.cpp also requires CMake, Python 3, and a C/C++ compiler:
   to CMake explicitly, so x64 build-time Node.js can prepare an ARM64 package
   on the Windows ARM runner.
 
+Windows ARM64 Whisper and llama.cpp builds enable MSBuild MultiToolTask with
+at most four compiler processes across projects. Their Vulkan shader generators
+embed the original SPIR-V bytes as escaped string literals instead of individual
+integer initializers to reduce Clang compilation time and memory use. Shader
+lengths exclude the added string terminator; GPU code and CPU fallback remain
+enabled. The authenticated build provenance records the generator patch.
+
 The first preparation downloads pinned upstream inputs. Verified inputs are
 cached under `.native-build/assistance-runtimes/`, outside the disposable
 `.desktop-build/` staging directory. Subsequent product builds reuse downloads;
 the source-built executable is built again and its actual output is inventoried.
 No model weights are bundled or downloaded during ordinary application builds.
+CI also persists the frozen Kokoro helper for an exact recipe, dependency lock,
+helper source, GPU inputs, notices, target, and runner/toolchain identity. Every
+restored bundle is verified against its complete file inventory before use;
+missing, stale, or damaged bundles are rebuilt from the pinned inputs.
 
 ## Engines and model coverage
 
@@ -91,6 +112,9 @@ package architecture, including Windows ARM64. Packaging requires this toolchain
 to build successfully and never substitutes a host SDK or silently omits the GPU
 executable. Embedded shaders need no separate download. Build provenance retains
 the source/toolchain identities, and `VULKAN_NOTICES.txt` accompanies the runtime.
+Whisper and llama.cpp share one source-built toolchain during each preparation.
+Its temporary directory remains alive through both engine builds and is removed
+afterward; each new preparation rebuilds it from the pinned inputs.
 
 A small source-checked Whisper patch routes JSON
 through inherited stdout without reopening `CON` or `/dev/stdout`, which do not

@@ -40,8 +40,12 @@ export default function EffectPicker({
 	}, [flyout]);
 	const runAndRestoreFocus = (action) => {
 		const trigger = triggerRef.current;
+		const ownerDocument = trigger?.ownerDocument ?? document;
+		const openingFocus = ownerDocument.activeElement;
 		const fallbackRoot = trigger?.closest('.effects-panel__track-section, .effects-panel__master-section');
 		const restore = () => requestAnimationFrame(() => {
+			const active = ownerDocument.activeElement;
+			if (active && active !== openingFocus && active !== ownerDocument.body && active !== ownerDocument.documentElement) return;
 			const fallback = fallbackRoot?.querySelector('.effect-slot__settings-button')
 				?? fallbackRoot?.querySelector('.effects-stack-header__add-button');
 			(trigger?.isConnected ? trigger : fallback)?.focus({ preventScroll: true });

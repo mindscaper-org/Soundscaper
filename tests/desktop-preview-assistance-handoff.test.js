@@ -15,9 +15,9 @@ test('preview publishes all target AI archives once and packages the authenticat
 	for (const runner of ['windows-2025', 'windows-11-arm', 'macos-15', 'ubuntu-22.04', 'ubuntu-24.04-arm']) {
 		assert.ok(producer.includes(`runner: ${runner}`), `${runner} must build its exact runtime archives`);
 	}
-	assert.match(producer, /if: matrix\.target\.platform != 'linux'[\s\S]*ci-build-os-audio-codec-host/u);
+	assert.doesNotMatch(producer, /ci-build-os-audio-codec-host/u);
 	assert.match(producer, /if: runner\.os == 'Linux'[\s\S]*ci-apt-install\.sh build-essential cmake/u);
-	assert.match(producer, /node scripts\/desktop-prepare\.mjs/u);
+	assert.match(producer, /node scripts\/prepare-assistance-runtimes\.mjs/u);
 	assert.match(publisher, /node scripts\/publish-assistance-runtime-handoff\.ts/u);
 	assert.match(producer, /node scripts\/export-assistance-runtime-handoff\.mjs/u);
 	assert.match(producer, /name: assistance-runtime-handoff-\$\{\{ matrix\.target\.platform \}\}-\$\{\{ matrix\.target\.arch \}\}/u);

@@ -181,17 +181,10 @@ test('all OS-capable desktop staging paths build the codec host while Linux rece
 		readFile(join(ROOT, '.github/workflows/desktop-nightly-tests.yml'), 'utf8'),
 		readFile(join(ROOT, 'scripts/ci-build-os-audio-codec-host.mjs'), 'utf8'),
 	]);
-	assert.equal(workflow.match(/node scripts\/ci-build-os-audio-codec-host\.mjs/gu)?.length, 3);
-	assert.equal(testedWorkflow.match(/node scripts\/ci-build-os-audio-codec-host\.mjs/gu)?.length, 1);
-	for (const argument of [
-		'--desktop-platform=${{ matrix.target.platform }}',
-		'--desktop-arch=${{ matrix.target.arch }}',
-		'--runner-os=${{ runner.os }}',
-		'--runner-arch=${{ runner.arch }}',
-	]) assert.equal((workflow + testedWorkflow).match(new RegExp(escapeRegExp(argument), 'gu'))?.length, 4, argument);
 	const previewProducerJob = jobSource(workflow, 'prepare-assistance-runtime-handoff', 'publish-assistance-runtime-handoff');
 	assert.match(previewProducerJob, /windows-2025[\s\S]*windows-11-arm/u);
-	assert.match(previewProducerJob, /node scripts\/ci-build-os-audio-codec-host\.mjs/u);
+	assert.match(previewProducerJob, /run: node scripts\/prepare-assistance-runtimes\.mjs/u);
+	assert.doesNotMatch(previewProducerJob, /scripts\/(?:ci-build-os-audio-codec-host|desktop-prepare)\.mjs/u);
 	const packageJob = jobSource(workflow, 'package', 'milestone-5-package-audit-summary');
 	assert.match(packageJob,
 		/if: matrix\.product == 'soundscaper' && matrix\.target\.platform != 'linux'[\s\S]*ci-build-os-audio-codec-host/u);
@@ -201,6 +194,15 @@ test('all OS-capable desktop staging paths build the codec host while Linux rece
 	const leaseJob = jobSource(workflow, 'soundscaper-project-library-lease-matrix', null);
 	assert.match(leaseJob,
 		/if: matrix\.target\.platform != 'linux'[\s\S]*ci-build-os-audio-codec-host/u);
+	for (const job of [packageJob, testsJob, leaseJob]) {
+		assert.equal(job.match(/node scripts\/ci-build-os-audio-codec-host\.mjs/gu)?.length, 1);
+		for (const argument of [
+			'--desktop-platform=${{ matrix.target.platform }}',
+			'--desktop-arch=${{ matrix.target.arch }}',
+			'--runner-os=${{ runner.os }}',
+			'--runner-arch=${{ runner.arch }}',
+		]) assert.equal(job.match(new RegExp(escapeRegExp(argument), 'gu'))?.length, 1, argument);
+	}
 	assert.doesNotMatch(workflow + testedWorkflow, /mac-x64|SOUNDSCAPER_OS_AUDIO_CODEC_BUILD_RESULT:\s*[^$\n]/u);
 	assert.doesNotMatch(ciEntry, /SIGNING_IDENTITY|certificate|notari/iu);
 });

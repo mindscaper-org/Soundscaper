@@ -31,7 +31,7 @@ async function checkAll(): Promise<void> {
 	const display = new CheckAllDisplay(process.stdout, tasks.length);
 	let servers: Promise<void> | undefined;
 	let timer: ReturnType<typeof setInterval> | undefined;
-	const logs = resolve(root, '.wrangler/check-all/logs');
+	const logs = resolve(root, 'test-results/check-all/logs');
 	let exitCode = 0;
 	const cancel = (code: number): void => {
 		exitCode = code;

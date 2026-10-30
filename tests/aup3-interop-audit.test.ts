@@ -14,6 +14,7 @@ test('AUP3 audit reproduces and reopens the pinned Audacity 3 export profile', a
 
 	assert.deepEqual(second, first);
 	assert.equal(first.schemaVersion, 1);
+	assert.deepEqual(first.nativeSqlite, { journalMode: 'wal', concurrentReader: true });
 	assert.deepEqual(first.audacity, {
 		version: '3.7.9',
 		commit: UPSTREAM_COMMIT,

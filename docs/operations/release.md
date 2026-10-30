@@ -31,6 +31,31 @@ bounded issue is acceptable—is an explicit owner decision.
 
 ## Version metadata
 
+To create the next Soundscaper RC locally, run:
+
+```sh
+npm run release:soundscaper:rc
+```
+
+The command keeps the active version's major, minor, and patch numbers and uses
+the machine's local date with an English month abbreviation. A new day starts
+at `1.0.0-rc.Oct.29.a`; another run that day advances to `.b`, then `.c`
+(after `.z`, `.aa`). It also advances past matching local Soundscaper tags.
+It synchronizes the version metadata, stages all nonignored changes in the
+repository (including new files and deletions), commits them, and creates an
+annotated `soundscaper-v<version>` tag on that commit. Framescaper's release
+line is preserved. Finish any merge, rebase, or other Git operation first.
+
+The command prints the exact push command and leaves pushing to you:
+
+```sh
+git push --atomic origin HEAD refs/tags/soundscaper-v1.0.0-rc.Oct.29.b
+```
+
+If a commit hook fails, the files and staged changes remain for correction and
+no tag is created. If tagging fails after the commit succeeds, the command
+prints how to tag that existing commit without creating another RC.
+
 `config/product-release-lines.json` is the version authority for both products.
 For Soundscaper, run `npm run release:soundscaper:prepare -- <version>` with a
 plain stable version or a full `-rc.*` or `-beta.*` version. The command selects

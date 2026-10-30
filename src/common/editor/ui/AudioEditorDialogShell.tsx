@@ -199,7 +199,8 @@ export default function AudioEditorDialogShell({
 
 	useLayoutEffect(() => {
 		if (!isOpen) return undefined;
-		const previouslyFocused = resolveEditorReturnFocus(document, document.activeElement);
+		const openingFocus = document.activeElement;
+		const previouslyFocused = resolveEditorReturnFocus(document, openingFocus);
 		const panel = panelRef.current;
 		const editor = panel?.closest<HTMLElement>('[data-audio-editor]') ?? null;
 		const focusOwnership = modal ? retainAudioEditorDialogFocusOwner(document) : null;
@@ -207,6 +208,8 @@ export default function AudioEditorDialogShell({
 			.filter(isAvailableFocusTarget);
 		const frame = requestAnimationFrame(() => {
 			if (modal && !focusOwnership?.isCurrent()) return;
+			const active = document.activeElement;
+			if (!modal && active !== openingFocus && active !== document.body && active !== document.documentElement) return;
 			if (panel?.contains(document.activeElement)) return;
 			(resolveInitialFocus(panel, initialFocus, focusableElements) || panel)?.focus({ preventScroll: true });
 		});

@@ -7,6 +7,7 @@ import { extract, list } from 'tar';
 import { runDesktopAssistanceBuildCommand, withDesktopAssistanceBuildWork } from './desktop-assistance-build-process.mjs';
 import { desktopLlamaCppNotices } from './desktop-assistance-llama-notices.mjs';
 import { buildDesktopVulkanCompanion } from './desktop-assistance-vulkan-companion.mjs';
+import { prepareDesktopVulkanBuild } from './desktop-assistance-vulkan-toolchain.mjs';
 import { patchDesktopAssistanceGgmlGpuReceipt } from './desktop-assistance-ggml-gpu-receipts.mjs';
 
 export const LLAMA_RUNTIME_VERSION = 'b10509';
@@ -48,7 +49,9 @@ export function desktopLlamaCppBuildPlan({ targetId, platform, architecture }) {
 	if (platform === 'win32') configureArgs.push('-A', targetId === 'win-arm64' ? 'ARM64' : 'x64',
 		'-DCMAKE_POLICY_DEFAULT_CMP0091=NEW', '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded',
 		'-DCMAKE_EXE_LINKER_FLAGS=/Brepro', '-DCMAKE_C_FLAGS=/Brepro', '-DCMAKE_CXX_FLAGS=/Brepro /EHsc');
-	if (targetId === 'win-arm64') configureArgs.push('-T', 'ClangCL');
+	// Bound file-level parallelism across all MSBuild projects, including Vulkan shader data.
+	if (targetId === 'win-arm64') configureArgs.push('-T', 'ClangCL',
+		'-DCMAKE_VS_GLOBALS=UseMultiToolTask=true;EnforceProcessCountAcrossBuilds=true;MultiProcMaxCount=4;CL_MPCount=4');
 	// Embed ggml's Metal shader source in the authenticated executable; no writable
 	// adjacent shader library or external GPU runtime is needed. The CPU backend stays linked.
 	if (platform === 'darwin') configureArgs.push('-DCMAKE_OSX_ARCHITECTURES=arm64',
@@ -86,6 +89,7 @@ export function llamaCompilerProvenance(compiler, platform) {
 /** Compile authenticated source with target backends, then bind the executable and notices. */
 export async function stageDesktopLlamaCppRuntime({
 	targetId, runtimeRoot, cacheRoot, platform = process.platform, architecture = process.arch,
+	prepareVulkan = prepareDesktopVulkanBuild,
 }) {
 	const plan = desktopLlamaCppBuildPlan({ targetId, platform, architecture });
 	if (!isAbsolute(runtimeRoot) || !isAbsolute(cacheRoot)) throw new TypeError('llama.cpp staging requires absolute runtime and cache roots.');
@@ -115,7 +119,7 @@ export async function stageDesktopLlamaCppRuntime({
 		const compiler = await compilerIdentity(build);
 		const { archived: archivedCompiler, buildReceipt: buildCompiler } = llamaCompilerProvenance(compiler, platform);
 		const vulkan = plan.vulkanConfigureArgs ? await buildDesktopVulkanCompanion({ plan, source, work,
-			cacheRoot, platform, architecture, environment, run: command,
+			cacheRoot, platform, architecture, environment, run: command, prepare: prepareVulkan,
 			reproducibleFlags: `-ffile-prefix-map=${work}=/usr/src/llama-build -fno-ident` }) : undefined;
 		const notices = [...await desktopLlamaCppNotices({ sourceRoot: source, platform, compiler }),
 			...(vulkan?.notices ?? [])];

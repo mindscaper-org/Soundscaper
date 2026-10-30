@@ -11,6 +11,8 @@ test('owner commands expose QA, release preparation, and soak debugging', () => 
 	assert.equal(packageManifest.scripts['qa:new'], 'node scripts/create-qa-run.mjs');
 	assert.equal(packageManifest.scripts['release:soundscaper:prepare'],
 		'node scripts/prepare-soundscaper-release.mjs');
+	assert.equal(packageManifest.scripts['release:soundscaper:rc'],
+		'node scripts/create-soundscaper-rc.mjs');
 	assert.equal(packageManifest.scripts['debug:soak'], 'node scripts/run-soundscaper-soak.mjs');
 	assert.doesNotMatch(
 		JSON.stringify(packageManifest.scripts),

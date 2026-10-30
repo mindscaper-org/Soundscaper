@@ -8,6 +8,7 @@
 
 import assert from 'node:assert/strict';
 
+import { finalizeAudacityPortableImage } from '../../src/common/editor/audacity-portable-image.ts';
 import {
 	audacityXmlAttribute,
 	audacityXmlChildren,
@@ -17,6 +18,7 @@ import {
 import {
 	initializeAup4Database,
 	insertAup4SampleBlock,
+	prepareAup4PortableExport,
 	prepareAup4SerializedDatabase,
 	readAup4SampleBlock,
 	validateAup4Database,
@@ -188,7 +190,8 @@ export function createSoundscaperNativeGateSnapshot(SQL) {
 			encodeAudacityBinaryXml(createAup4ProjectTree(project, channelBlocks)),
 			{ autosave: false, now: 0 },
 		);
-		return database.export();
+		prepareAup4PortableExport(database);
+		return finalizeAudacityPortableImage(database.export());
 	} finally {
 		database.close();
 	}

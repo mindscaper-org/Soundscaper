@@ -294,12 +294,13 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		setActiveSurface(null);
 	}, [controller, setActiveSurface]);
 	const openWorkspacePanel = useCallback((panelId) => {
+		const openingFocus = editorRef.current?.ownerDocument.activeElement ?? null;
 		if (panelId === 'project-bin') setProjectBinSessionOpened(true);
 		if (panelId === 'playback-meter') setPlaybackMeterSettings((settings) => ({ ...settings, position: 'panel' }));
 		if (panelId === 'recording-meter') setRecordingMeterSettings((settings) => ({ ...settings, position: 'panel' }));
 		run(() => controller.actions.preferences.setPanelVisibility(panelId, true));
 		requestAnimationFrame(() => {
-			focusOpenedWorkspacePanel(editorRef.current?.querySelector(`[data-workspace-panel="${panelId}"]`) ?? null);
+			focusOpenedWorkspacePanel(editorRef.current?.querySelector(`[data-workspace-panel="${panelId}"]`) ?? null, openingFocus);
 		});
 	}, [controller, run]);
 	const toggleWorkspacePanel = useCallback((panelId) => {

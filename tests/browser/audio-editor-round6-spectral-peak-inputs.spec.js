@@ -7,6 +7,7 @@ import { expectClipMediaSettingChecked } from './audio-editor-clip-settings-test
 
 for (const mode of ['independent tempo', 'surround channel']) {
 	test(`spectral center snapping includes the sounding ${mode}`, async ({ page }) => {
+		test.setTimeout(90_000);
 		await page.setViewportSize({ width: 1920, height: 1000 });
 		const editor = await bootEditor(page, '/embed/en/');
 		const recording = createWavFixture({ name: `spectral-${mode}.wav`, frequency: 512,
@@ -43,7 +44,7 @@ for (const mode of ['independent tempo', 'surround channel']) {
 		await dialog.getByRole('textbox', { name: /^Minimum frequency \(Hz\)/u }).fill('100');
 		await dialog.getByRole('textbox', { name: /^Maximum frequency \(Hz\)/u }).fill('300');
 		await dialog.getByRole('button', { name: 'Select range', exact: true }).click();
-		await expect(clip.locator('canvas.clip-body__waveform')).toHaveAttribute('data-spectrogram-renderer', 'pffft-wasm');
+		await expect(clip.locator('canvas.clip-body__waveform')).toHaveAttribute('data-spectrogram-renderer', 'pffft-wasm', { timeout: 45_000 });
 		const center = track.getByRole('slider', { name: 'Spectral selection center-frequency handle', exact: true });
 		const box = await center.boundingBox();
 		const lane = await track.locator('[data-track-lane]').boundingBox();

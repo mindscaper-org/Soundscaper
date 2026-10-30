@@ -9,6 +9,7 @@ export interface VerifiedTreeOptions {
 	readonly receipt: string;
 	readonly identity: string;
 	readonly allowedLinkRoots?: readonly string[];
+	readonly allowAbsoluteWorkspaceLinks?: boolean;
 	readonly preserveModes?: boolean;
 }
 type TreeEntry = readonly [path: string, kind: 'directory' | 'file' | 'link', mode: number, content: string];
@@ -62,7 +63,9 @@ function inventory(options: VerifiedTreeOptions): readonly TreeEntry[] {
 			} else if (metadata.isSymbolicLink()) {
 				const target = readlinkSync(path);
 				const resolved = resolve(directory, target);
-				if (isAbsolute(target) || !inside(root, resolved) && !roots.includes(resolved)) throw new Error(`Input link escapes its authenticated roots: ${relativePath}`);
+				const workspace = roots.some(allowed => relative(allowed, resolved) === '');
+				if (isAbsolute(target) && !(options.allowAbsoluteWorkspaceLinks && workspace)
+					|| !inside(root, resolved) && !workspace) throw new Error(`Input link escapes its authenticated roots: ${relativePath}`);
 				const actual = realpathSync(path);
 				if (!inside(root, actual) && !roots.some(allowed => inside(allowed, actual))) throw new Error(`Input link escapes its authenticated roots: ${relativePath}`);
 				entries.push([relativePath, 'link', mode, target]);

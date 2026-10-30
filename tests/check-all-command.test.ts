@@ -101,7 +101,7 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 	assert.match(output, /^node\/common-1: Error: expected stderr diagnostic$/mu);
 	assert.doesNotMatch(output, /^FAIL .*expected (?:stdout|stderr) diagnostic/mu);
 	await assert.rejects(readFile(join(fixture, '.wrangler/check-all.lock')), { code: 'ENOENT' });
-	assert.match(await readFile(join(fixture, '.wrangler/check-all/logs/node-common-1.log'), 'utf8'), /passing-result-noise/u);
+	assert.match(await readFile(join(fixture, 'test-results/check-all/logs/node-common-1.log'), 'utf8'), /passing-result-noise/u);
 	const activity = (await readFile(join(fixture, 'activity.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line) as { type: string; name: string });
 	assert.ok(activity.some(event => event.type === 'start' && event.name.includes('--shard=lightscaper')), 'Lightscaper remains an independently executed fixture shard');
 	const active = new Set<string>();

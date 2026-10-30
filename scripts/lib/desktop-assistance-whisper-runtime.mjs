@@ -7,6 +7,7 @@ import { extract, list } from 'tar';
 import { runDesktopAssistanceBuildCommand, withDesktopAssistanceBuildWork } from './desktop-assistance-build-process.mjs';
 import { desktopWhisperCppNotices } from './desktop-assistance-whisper-notices.mjs';
 import { buildDesktopVulkanCompanion } from './desktop-assistance-vulkan-companion.mjs';
+import { prepareDesktopVulkanBuild } from './desktop-assistance-vulkan-toolchain.mjs';
 import { patchDesktopAssistanceGgmlGpuReceipt } from './desktop-assistance-ggml-gpu-receipts.mjs';
 
 export const WHISPER_RUNTIME_VERSION = 'v1.9.3';
@@ -62,6 +63,7 @@ export function whisperCompilerProvenance(compiler, platform) {
 /** Build pinned source on the package runner, then bind the actual shipped bytes. */
 export async function stageDesktopWhisperCppRuntime({
 	targetId, runtimeRoot, cacheRoot, platform = process.platform, architecture = process.arch,
+	prepareVulkan = prepareDesktopVulkanBuild,
 }) {
 	const plan = desktopWhisperCppBuildPlan({ targetId, platform, architecture });
 	if (!isAbsolute(runtimeRoot) || !isAbsolute(cacheRoot)) {
@@ -95,7 +97,7 @@ export async function stageDesktopWhisperCppRuntime({
 		const compiler = await compilerIdentity(build);
 		const { archived: archivedCompiler, buildReceipt: buildCompiler } = whisperCompilerProvenance(compiler, platform);
 		const vulkan = plan.vulkanConfigureArgs ? await buildDesktopVulkanCompanion({ plan, source, work,
-			cacheRoot, platform, architecture, environment, run: command,
+			cacheRoot, platform, architecture, environment, run: command, prepare: prepareVulkan,
 			reproducibleFlags: `-ffile-prefix-map=${work}=/usr/src/whisper-build -fno-ident` }) : undefined;
 		const notices = [...await desktopWhisperCppNotices({ sourceRoot: source, platform, compiler }),
 			...(vulkan?.notices ?? [])];
@@ -183,7 +185,8 @@ export function desktopWhisperCppBuildPlan({ targetId, platform, architecture })
 		'-DCMAKE_POLICY_DEFAULT_CMP0091=NEW', '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded', '-DCMAKE_EXE_LINKER_FLAGS=/Brepro',
 		'-DCMAKE_C_FLAGS=/Brepro', '-DCMAKE_CXX_FLAGS=/Brepro /EHsc');
 	// ggml rejects MSVC on ARM; ClangCL uses the same Windows SDK and static CRT.
-	if (targetId === 'win-arm64') configureArgs.push('-T', 'ClangCL');
+	if (targetId === 'win-arm64') configureArgs.push('-T', 'ClangCL',
+		'-DCMAKE_VS_GLOBALS=UseMultiToolTask=true;EnforceProcessCountAcrossBuilds=true;MultiProcMaxCount=4;CL_MPCount=4');
 	// Embed ggml's Metal shader source in the authenticated executable; no writable
 	// adjacent shader library or external GPU runtime is needed. The CPU backend stays linked.
 	if (platform === 'darwin') configureArgs.push('-DCMAKE_OSX_ARCHITECTURES=arm64',

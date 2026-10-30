@@ -51,17 +51,13 @@ test('File Open frozen PNG samples source pixel centres while reducing resolutio
 	await expect(editor.locator('[data-video-preview]')).toHaveAttribute('data-video-preview-renderer', 'ready', { timeout: 30_000 });
 	await expect.poll(() => page.evaluate(() => globalThis.__stillSampleFrames.length)).toBeGreaterThan(0);
 	const frame = await page.evaluate(() => globalThis.__stillSampleFrames.at(-1));
-	const oracle = await page.evaluate(async ({ png, width, height }) => {
-		const bytes = Uint8Array.from(atob(png), character => character.charCodeAt(0));
-		const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
-		try {
-			const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
-			const context = canvas.getContext('2d'); context.imageSmoothingEnabled = false;
-			context.drawImage(bitmap, 0, 0, width, height); return Array.from(context.getImageData(0, 0, 64, 1).data);
-		} finally { bitmap.close(); }
-	}, { png, width: frame.width, height: frame.height });
-	// Browser image decoders choose the nearest-neighbour tie consistently with
-	// the product even when the platform resolves its half-pixel tie differently.
+	// Independently address the known stripe plate at destination pixel centres.
+	// Canvas nearest-neighbour downscaling resolves these ties differently on Windows.
+	const oracle = Array.from({ length: 64 }, (_, pixel) => {
+		const sourceX = Number(BigInt(2 * pixel + 1) * 3840n / BigInt(2 * frame.width));
+		const channel = sourceX % 3 === 1 ? 255 : 0;
+		return [channel, channel, channel, 255];
+	}).flat();
 	expect(oracle).toHaveLength(256);
 	expect(Array.from({ length: 64 }, (_, pixel) => oracle[pixel * 4 + 3])).toEqual(new Array(64).fill(255));
 	expect(frame.pixels).toEqual(oracle);
