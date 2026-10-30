@@ -117,18 +117,20 @@ Agents use a focused spec selection and the
 [test handoff rules](testing.md#agent-execution-and-handoff); they never run the
 full suite themselves.
 
-A distributed `nightly-with-tests` application automatically runs
-the ordinary browser suite and then a dedicated Chromium dual-origin phase.
-The ordinary runner binds both production-shaped Pages sites to the exact,
-distinct loopback origins recorded by their manifests; the dual-origin phase
-validates and reuses that pair. Both therefore use the same authenticated
-reciprocal browser builds, Pages headers and redirects, and exact
-build-evidence denominator. Both phases append profiles to the same `coverage/v8-browser/`
-directory. The runner later executes packaged coverage
-after the non-instrumented performance phases. Each nightly run directory
+A distributed `nightly-with-tests` application runs focused GPU waveform and
+visual-preview tests in Chromium. Ordinary cross-browser and dual-origin
+workflow coverage is collected separately in CI or a checkout. The nightly
+runner binds both production-shaped Pages sites to the exact, distinct
+loopback origins recorded by their manifests, retaining their authenticated
+build-evidence denominator. Its graphics phase appends profiles to
+`coverage/v8-browser/`; these are supplemental graphics evidence, not a full
+browser coverage run. The runner executes packaged desktop coverage after the
+non-instrumented browser and desktop performance phases, then real-model tests.
+Combine that native evidence with the ordinary Chromium and dual-origin
+coverage when evaluating the full gate. Each nightly run directory
 preserves:
 
-- `coverage/v8-browser/` for raw Chromium profiles;
+- `coverage/v8-browser/` for focused GPU graphics profiles;
 - `coverage/v8-packaged/` for packaged Electron main, preload, renderer, worker,
   worklet, and service-worker profiles;
 - `coverage/v8-local-assistance/` for product-bound real-model Electron main,

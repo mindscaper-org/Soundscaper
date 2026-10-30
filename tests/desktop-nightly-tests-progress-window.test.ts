@@ -47,10 +47,10 @@ test('the attended nightly runner opens a locked-down visible progress window', 
 		BrowserWindow: FakeWindow,
 		protocol,
 		icon: '/opt/app/resources/nightly-tests/sites/soundscaper/offline-icons/soundscaper-512.png',
-		initialProgress: { completed: 0, total: 6, label: 'Application launched' },
+		initialProgress: { completed: 0, total: 5, label: 'Application launched' },
 	});
-	window.update({ completed: 2, total: 6, label: 'Performance diagnostics' });
-	window.finish({ completed: 6, total: 6, label: 'Tests passed' }, 'passed');
+	window.update({ completed: 1, total: 5, label: 'Performance diagnostics' });
+	window.finish({ completed: 5, total: 5, label: 'Tests passed' }, 'passed');
 
 	assert.equal(observed.url, NIGHTLY_TESTS_PROGRESS_DOCUMENT_URL);
 	assert.equal(protocol.scheme, NIGHTLY_TESTS_PROGRESS_SCHEME);
@@ -67,14 +67,14 @@ test('the attended nightly runner opens a locked-down visible progress window', 
 		devTools: false,
 	});
 	assert.equal(observed.shown, 1);
-	assert.deepEqual(observed.bars, [[0, undefined], [1 / 3, undefined], [1, { mode: 'normal' }]]);
+	assert.deepEqual(observed.bars, [[0, undefined], [1 / 5, undefined], [1, { mode: 'normal' }]]);
 	assert.equal(observed.titles.at(-1), 'Soundscaper Nightly Tests — Tests passed');
 	const lastSource = observed.scripts.at(-1) ?? '';
 	assert.match(lastSource, /"label":"Tests passed"/u);
 	assert.match(lastSource,
 		/\/\/# sourceURL=soundscaper-nightly-progress:\/\/runner\/__e2e-excluded__\/nightly-progress-update-v1-[a-f\d]{64}\.js$/u);
 	assert.deepEqual(validateDesktopNightlyTestsProgressUpdateSource(lastSource), {
-		completed: 6, total: 6, label: 'Tests passed',
+		completed: 5, total: 5, label: 'Tests passed',
 	});
 	let prevented = 0;
 	const event = { preventDefault: () => { prevented += 1; } };
@@ -121,7 +121,7 @@ test('only the two exact control navigations invoke runner actions, and terminal
 	}
 	const window = await createDesktopNightlyTestsProgressWindow({
 		BrowserWindow: Window, protocol: protocolFixture(),
-		initialProgress: { completed: 0, total: 6, label: 'Browser tests' },
+		initialProgress: { completed: 0, total: 5, label: 'GPU graphics tests' },
 		onControl: (action) => { actions.push(action); },
 	});
 	let prevented = 0;
@@ -132,7 +132,7 @@ test('only the two exact control navigations invoke runner actions, and terminal
 	navigate(event, 'https://example.org/__control__/pause');
 	assert.deepEqual(actions, ['pause', 'resume']);
 	assert.equal(prevented, 5);
-	window.finish({ completed: 6, total: 6, label: 'Tests passed' }, 'passed');
+	window.finish({ completed: 5, total: 5, label: 'Tests passed' }, 'passed');
 	navigate(event, `${NIGHTLY_TESTS_PROGRESS_DOCUMENT_URL}__control__/pause`);
 	assert.deepEqual(actions, ['pause', 'resume']);
 });
@@ -146,10 +146,9 @@ test('the progress document is self-contained, script-restricted, and visibly ex
 	]);
 
 	assert.match(html, /Content-Security-Policy[^>]+script-src 'self'/u);
-	assert.match(html, /<progress[^>]+max="6"/u);
+	assert.match(html, /<progress[^>]+max="5"/u);
 	for (const label of [
-		'Browser tests',
-		'Dual-origin browser coverage',
+		'GPU graphics tests',
 		'Performance diagnostics',
 		'Packaged app diagnostics',
 		'Packaged app coverage',
@@ -164,18 +163,17 @@ test('the progress document is self-contained, script-restricted, and visibly ex
 
 test('the progress renderer keeps every phase determinate while preparing tests', async () => {
 	const { render, elements, bar } = await rendererFixture();
-	render({ completed: 2, total: 6, label: 'Performance diagnostics' });
+	render({ completed: 1, total: 5, label: 'Performance diagnostics' });
 
 	assert.equal(bar('phase-progress-0').value, 1);
-	assert.equal(bar('phase-progress-1').value, 1);
+	assert.equal(bar('phase-progress-1').value, 0);
+	assert.equal(bar('phase-progress-1').hasAttribute('value'), true);
 	assert.equal(bar('phase-progress-2').value, 0);
-	assert.equal(bar('phase-progress-2').hasAttribute('value'), true);
-	assert.equal(bar('phase-progress-3').value, 0);
-	assert.equal(elements.get('phase-count-2')?.textContent, 'Preparing tests…');
+	assert.equal(elements.get('phase-count-1')?.textContent, 'Preparing tests…');
 	assert.equal(elements.get('current-item')?.textContent, 'Preparing tests…');
 
-	render({ completed: 6, total: 6, label: 'Tests passed' });
-	for (let index = 0; index < 6; index += 1) {
+	render({ completed: 5, total: 5, label: 'Tests passed' });
+	for (let index = 0; index < 5; index += 1) {
 		assert.equal(bar(`phase-progress-${String(index)}`).value, 1);
 	}
 	assert.equal(elements.get('current-item')?.textContent, '');
@@ -184,24 +182,24 @@ test('the progress renderer keeps every phase determinate while preparing tests'
 test('the progress renderer shows per-test counts, current test text, and overall advancement', async () => {
 	const { render, elements, bar } = await rendererFixture();
 	const label = 'soundscaper > export <script>alert("test")</script>';
-	render({ completed: 2, total: 6, label: 'Performance diagnostics',
+	render({ completed: 1, total: 5, label: 'Performance diagnostics',
 		items: { completed: 4, total: 10, label } });
 
 	assert.equal(elements.get('status')?.textContent, 'Performance diagnostics');
 	assert.equal(elements.get('current-item')?.textContent, label);
-	assert.equal(elements.get('phase-count-2')?.textContent, '4 of 10 tests complete');
-	assert.equal(bar('phase-progress-2').max, 10);
-	assert.equal(bar('phase-progress-2').value, 4);
-	assert.equal(bar('phase-progress-2').hasAttribute('value'), true);
-	assert.equal(bar('progress').value, 2.4);
-	assert.equal(elements.get('count')?.textContent, '2 of 6 phases complete');
+	assert.equal(elements.get('phase-count-1')?.textContent, '4 of 10 tests complete');
+	assert.equal(bar('phase-progress-1').max, 10);
+	assert.equal(bar('phase-progress-1').value, 4);
+	assert.equal(bar('phase-progress-1').hasAttribute('value'), true);
+	assert.equal(bar('progress').value, 1.4);
+	assert.equal(elements.get('count')?.textContent, '1 of 5 phases complete');
 });
 
 test('completed phases retain their item counts while the next phase prepares', async () => {
 	const { render, elements, bar } = await rendererFixture();
-	render({ completed: 0, total: 6, label: 'Browser tests',
+	render({ completed: 0, total: 5, label: 'GPU graphics tests',
 		items: { completed: 8, total: 8, label: 'Tests finished' } });
-	render({ completed: 1, total: 6, label: 'Dual-origin browser coverage' });
+	render({ completed: 1, total: 5, label: 'Performance diagnostics' });
 
 	assert.equal(elements.get('phase-count-0')?.textContent, '8 of 8 tests complete');
 	assert.equal(bar('phase-progress-0').max, 8);
@@ -212,27 +210,27 @@ test('completed phases retain their item counts while the next phase prepares', 
 
 test('empty test phases and terminal item payloads keep progress bounded', async () => {
 	const { render, elements, bar } = await rendererFixture();
-	render({ completed: 0, total: 6, label: 'Browser tests',
+	render({ completed: 0, total: 5, label: 'GPU graphics tests',
 		items: { completed: 0, total: 0, label: 'Tests finished' } });
 	assert.equal(elements.get('phase-count-0')?.textContent, '0 of 0 tests complete');
 	assert.equal(bar('phase-progress-0').max, 1);
 	assert.equal(bar('phase-progress-0').value, 0);
 	assert.equal(bar('progress').value, 0);
 
-	render({ completed: 6, total: 6, label: 'Tests passed',
+	render({ completed: 5, total: 5, label: 'Tests passed',
 		items: { completed: 3, total: 3, label: 'Tests finished' } });
-	assert.equal(bar('progress').value, 6);
+	assert.equal(bar('progress').value, 5);
 	assert.equal(elements.get('current-item')?.textContent, '');
 });
 
 test('an interrupted run retains its fractional progress and completed test counts', async () => {
 	const { render, elements, bar } = await rendererFixture();
 	const items = { completed: 3, total: 4, label: 'third test' };
-	render({ completed: 2, total: 6, label: 'Performance diagnostics', items });
-	render({ completed: 2, total: 6, label: 'Tests interrupted', items });
+	render({ completed: 1, total: 5, label: 'Performance diagnostics', items });
+	render({ completed: 1, total: 5, label: 'Tests interrupted', items });
 
-	assert.equal(bar('progress').value, 2.75);
-	assert.equal(elements.get('phase-count-2')?.textContent, '3 of 4 tests complete');
+	assert.equal(bar('progress').value, 1.75);
+	assert.equal(elements.get('phase-count-1')?.textContent, '3 of 4 tests complete');
 	assert.equal(elements.get('current-item')?.textContent, '');
 });
 
@@ -256,10 +254,10 @@ test('a native taskbar error cannot prevent the window from showing its current 
 	const window = await createDesktopNightlyTestsProgressWindow({
 		BrowserWindow: TaskbarFailureWindow,
 		protocol: protocolFixture(),
-		initialProgress: { completed: 0, total: 6, label: 'Application launched' },
+		initialProgress: { completed: 0, total: 5, label: 'Application launched' },
 		onError: (error) => { errors.push(error); },
 	});
-	window.update({ completed: 2, total: 6, label: 'Performance diagnostics' });
+	window.update({ completed: 1, total: 5, label: 'Performance diagnostics' });
 	assert.equal(shown, true);
 	assert.equal(errors.length, 2);
 	assert.match(scripts.at(-1) ?? '', /Performance diagnostics/u);
@@ -282,7 +280,7 @@ test('the progress protocol serves only its three bundled assets with restricted
 	}
 	await createDesktopNightlyTestsProgressWindow({
 		BrowserWindow: Window, protocol,
-		initialProgress: { completed: 0, total: 6, label: 'Application launched' },
+		initialProgress: { completed: 0, total: 5, label: 'Application launched' },
 	});
 	for (const [path, filename, contentType] of [
 		['', 'nightly-tests-progress.html', 'text/html'],
@@ -325,7 +323,7 @@ test('a progress navigation failure destroys the window and removes its protocol
 	}
 	await assert.rejects(createDesktopNightlyTestsProgressWindow({
 		BrowserWindow: Window, protocol,
-		initialProgress: { completed: 0, total: 6, label: 'Application launched' },
+		initialProgress: { completed: 0, total: 5, label: 'Application launched' },
 	}), /Navigation failed/u);
 	assert.equal(destroyed, true);
 	assert.deepEqual(protocol.removed, [NIGHTLY_TESTS_PROGRESS_SCHEME]);
@@ -357,7 +355,7 @@ async function rendererFixture() {
 		['status', new Element()], ['count', new Element()],
 		['current-item', new Element()], ['progress', new ProgressElement()],
 	]);
-	for (let index = 0; index < 6; index += 1) {
+	for (let index = 0; index < 5; index += 1) {
 		elements.set(`phase-progress-${String(index)}`, new ProgressElement());
 		elements.set(`phase-count-${String(index)}`, new Element());
 	}

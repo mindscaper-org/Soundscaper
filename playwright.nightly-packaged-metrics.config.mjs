@@ -29,7 +29,7 @@ export function createNightlyPackagedMetricsConfig(environment = process.env) {
 		forbidOnly: true,
 		failOnFlakyTests: true,
 		retries: 0,
-		workers: 4,
+		workers: 1,
 		updateSnapshots: 'none',
 		reporter: [
 			['list'],

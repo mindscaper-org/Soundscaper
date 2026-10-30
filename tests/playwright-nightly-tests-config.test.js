@@ -27,7 +27,10 @@ test('bundled Playwright config uses only absolute launcher-provided paths', asy
 		);
 
 		assert.equal(config.testDir, resolve(payloadRoot, 'tests/browser'));
-		assert.deepEqual(config.testIgnore, ['handbook/**', 'dual-origin/**', 'audiocity/**']);
+		assert.deepEqual(config.testMatch, ['audio-editor-waveform-gpu.spec.js', 'framescaper-visual-preview.spec.js']);
+		assert.equal(config.metadata.requireHardwareGpu, true);
+		for (const title of ['Canvas fallback does not accumulate', 'unavailable GPU keeps',
+			'Framescaper v1 visual state without WebGL2']) assert.match(title, config.grepInvert);
 		assert.equal(config.outputDir, resolve(runRoot, 'test-results'));
 		assert.equal(config.use.baseURL, 'http://127.0.0.1:41000');
 		assert.equal(config.webServer, undefined);
@@ -35,34 +38,16 @@ test('bundled Playwright config uses only absolute launcher-provided paths', asy
 		assert.equal(config.retries, 1);
 		assert.equal(config.failOnFlakyTests, false);
 		assert.equal(config.updateSnapshots, 'none');
-		assert.deepEqual(
-			createNightlyTestsConfig(process.env, 'win32').projects.map(({ name }) => name),
-			['chromium', 'firefox'],
-		);
-		for (const platform of ['linux', 'darwin']) {
+		for (const platform of ['win32', 'linux', 'darwin']) {
 			assert.deepEqual(
 				createNightlyTestsConfig(process.env, platform).projects.map(({ name }) => name),
-				['chromium', 'firefox', 'webkit'],
+				['chromium'],
 			);
 		}
-		assert.deepEqual(
-			config.projects.map(({ name }) => name),
-			process.platform === 'win32' ? ['chromium', 'firefox'] : ['chromium', 'firefox', 'webkit'],
-		);
-		const chromium = config.projects.find(({ name }) => name === 'chromium');
+		const [chromium] = config.projects;
 		assert.equal(chromium.use.channel, 'chromium');
 		assert.equal(chromium.use.headless, true);
 		assert.deepEqual(chromium.use.launchOptions?.args, ['--enable-gpu']);
-		const covered = createNightlyTestsConfig({ ...process.env, SCAPE_BROWSER_COVERAGE: '1' });
-		const coveredChromium = covered.projects.find(({ name }) => name === 'chromium');
-		assert.equal(coveredChromium.timeout, 90_000);
-		assert.deepEqual(coveredChromium.expect, { timeout: 15_000 });
-		assert.equal(covered.projects.find(({ name }) => name === 'firefox').timeout, undefined);
-		const firefox = config.projects.find(({ name }) => name === 'firefox');
-		assert.equal(firefox.use.launchOptions?.firefoxUserPrefs, undefined);
-		for (const project of config.projects) {
-			assert.equal(project.use.launchOptions?.firefoxUserPrefs, undefined);
-		}
 		assert.deepEqual(config.reporter, [
 			['list'],
 			[resolve(payloadRoot, 'scripts/lib/desktop-nightly-tests-progress-reporter.mjs')],
@@ -109,7 +94,7 @@ test('bundled metrics config isolates registered collectors from the functional 
 			'../playwright.nightly-metrics.config.mjs?absolute-launcher-paths'
 		);
 
-		assert.equal(config.workers, 4);
+		assert.equal(config.workers, 1);
 		assert.equal(config.retries, 0);
 		assert.equal(config.fullyParallel, false);
 		assert.deepEqual(config.projects.map(({ name }) => name), ['chromium']);
@@ -152,7 +137,7 @@ test('packaged metrics run each formal workload in its owning product', async ()
 		const config = createNightlyPackagedMetricsConfig(process.env);
 		const projects = Object.fromEntries(config.projects.map((project) => [project.name, project.testMatch]));
 
-		assert.equal(config.workers, 4);
+		assert.equal(config.workers, 1);
 		assert.equal(config.fullyParallel, false);
 		assert.deepEqual(projects['packaged-soundscaper'], [
 			'desktop-packaged-runtime-smoke.spec.js',

@@ -14,8 +14,7 @@ pauseResume?.addEventListener('click', () => {
 	globalThis.location.href = new URL(`__control__/${controlAction}`, globalThis.location.href).href;
 });
 const phaseLabels = Object.freeze([
-	'Browser tests',
-	'Dual-origin browser coverage',
+	'GPU graphics tests',
 	'Performance diagnostics',
 	'Packaged app diagnostics',
 	'Packaged app coverage',

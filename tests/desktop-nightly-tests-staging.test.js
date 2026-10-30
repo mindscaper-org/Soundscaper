@@ -160,7 +160,6 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'scripts/lib/desktop-nightly-tests-child-bootstrap.mjs',
 		'scripts/lib/desktop-nightly-tests-progress-reporter.mjs',
 		'scripts/lib/desktop-nightly-tests-phases.mjs',
-		'scripts/lib/desktop-nightly-tests-dual-origin.mjs',
 		'scripts/lib/pages-site-static-server.mjs',
 		'scripts/lib/product-web-routing.mjs',
 		'scripts/lib/desktop-nightly-tests-local-assistance.mjs',
@@ -206,7 +205,6 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'config/quality-budgets.json',
 		'evidence/nyquist-plugin-publication/catalog-metadata-ed168a19631ec48d0029dfb5c17d16c339a174c1.json',
 		'playwright.nightly-metrics.config.mjs',
-		'playwright.nightly-dual-origin.config.mjs',
 		'playwright.nightly-packaged-coverage.config.mjs',
 		'playwright.nightly-packaged-metrics.config.mjs',
 		'playwright.nightly-local-assistance.config.mjs',
@@ -243,9 +241,7 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'vendor/audacity-design-system/tokens/src/themes/light.v2.ts',
 		'vendor/audacity-design-system/components/src/utils/roseus-colormap.ts',
 		'.local-browsers/chromium-101/INSTALLATION_COMPLETE',
-		'.local-browsers/firefox-102/INSTALLATION_COMPLETE',
-		'.local-browsers/webkit-103/INSTALLATION_COMPLETE',
-		'.local-browsers/webkit-103/libalias',
+		'.local-browsers/chromium-101/libalias',
 		'.local-browsers/ffmpeg-104/INSTALLATION_COMPLETE',
 		'.local-browsers/winldd-105/INSTALLATION_COMPLETE',
 		'licenses/Soundscaper-AGPL-3.0.txt',
@@ -271,7 +267,7 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		() => access(join(fixture.outputRoot, 'node_modules/playwright-core/.local-browsers')),
 		/ENOENT/u,
 	);
-	assert.equal((await lstat(join(fixture.outputRoot, '.local-browsers/webkit-103/libalias'))).isSymbolicLink(), true);
+	assert.equal((await lstat(join(fixture.outputRoot, '.local-browsers/chromium-101/libalias'))).isSymbolicLink(), true);
 
 	const stagedPackages = await listStagedPackages(join(fixture.outputRoot, 'node_modules'));
 	assert.deepEqual(stagedPackages, EXPECTED_RUNTIME_PACKAGES);
@@ -283,8 +279,6 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 	assert.deepEqual(manifest.target, { platform: 'linux', arch: 'x64' });
 	assert.deepEqual(manifest.browserRevisions, {
 		chromium: '101',
-		firefox: '102',
-		webkit: '103',
 		ffmpeg: '104',
 		winldd: '105',
 	});
@@ -299,7 +293,6 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'node_modules',
 		'package.json',
 		'playwright.nightly-metrics.config.mjs',
-		'playwright.nightly-dual-origin.config.mjs',
 		'playwright.nightly-packaged-coverage.config.mjs',
 		'playwright.nightly-packaged-metrics.config.mjs',
 		'playwright.nightly-local-assistance.config.mjs',

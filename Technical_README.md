@@ -254,13 +254,15 @@ not relabel a software fallback as hardware evidence.
 
 ### Nightly test runner artifacts
 
-For a self-contained browser test run, see
-[end-to-end coverage](docs/development/end-to-end-coverage.md). Start the separate
+For native diagnostics and coverage collection, see
+[end-to-end coverage](docs/development/end-to-end-coverage.md). The separate
 **Desktop test artifacts (internal)** workflow runs on every push to `main`.
 A manual run on `main` can package `nightly-with-tests` for selected targets:
 `all`, `windows`, or `win-x64`. CI builds and uploads the packages without
-running their tests. Launch an artifact on a real machine to run the full
-browser tests and write a report. The build reuses pinned, already published
+running their tests. Launch an artifact on a real machine to run GPU,
+performance, desktop, and real-model tests and write a report. Ordinary
+cross-browser workflows and dual-origin tests stay in CI; the nightly suite
+focuses on work CI or WSL cannot reliably validate. The build reuses pinned, already published
 AI runtimes without compiling them. Publish changed archives through **Update
 AI assets** and refresh the committed test runtime snapshots first.
 Its platform jobs upload artifacts named
@@ -268,7 +270,7 @@ Its platform jobs upload artifacts named
 `nightly-with-tests-linux-<architecture>` for Windows x64/ARM64, macOS Apple
 silicon, and Linux x64/ARM64. This flavor contains the built site, the
 Playwright suite and runtime, the real packaged Soundscaper and Framescaper
-executables, and the platform's pinned Chromium, Firefox, and WebKit engines.
+executables, and the platform's pinned Chromium engine.
 It does not need npm or a checkout on the test machine.
 
 Unpack the Actions artifact to a writable directory. Run the portable `.exe` on
@@ -291,18 +293,14 @@ as the executable (or beside the macOS `.app`), a unique
 - `run.json` — launcher status, exit code, source revision, platform, and paths;
 - `console.log` — the Playwright console stream.
 
-The next Chromium phase serves the two staged reciprocal Pages sites at the exact
-reciprocal loopback origins authenticated by their build manifests and runs the
-editable-copy handoff in both directions. Its raw V8 profiles join the ordinary
-browser profiles in `coverage/v8-browser/`; its isolated reports are
-`e2e-coverage/dual-origin/results.json`,
-`e2e-coverage/dual-origin/junit.xml`,
-`e2e-coverage/dual-origin/console.log`,
-`e2e-coverage/dual-origin/playwright-report/index.html`, and
-`e2e-coverage/dual-origin/test-results/`.
+The first phase selects only GPU waveform rendering and Framescaper visual
+preview tests in Chromium. Its hardware probe fails when WebGL2 is unavailable
+or reports a software renderer, and attaches the observed vendor and renderer
+to the report. Run on a native host with a working GPU driver. Profiles from
+these focused graphics tests are saved in `coverage/v8-browser/`.
 
-After the functional suite, the binary runs the registered M1 720p preview,
-M4 production-parity, and M4B2 keyframe collectors in a separate Chromium
+After the graphics checks, the binary runs the registered M1 720p preview,
+M3 long-form editorial, M4 production-parity, and M4B2 keyframe collectors in a separate Chromium
 process with one worker and zero retries. Its `metrics/`
 directory contains `metrics/summary.json` with evaluated metric gates,
 `metrics/raw.json` with the parsed diagnostics, `metrics/results.json` and
@@ -326,9 +324,9 @@ the run's exit status or turn the host into a representative hardware profile.
 
 The runner then launches the bundled hardened Soundscaper and Framescaper
 executables and attaches Playwright over an ephemeral loopback-only Chromium
-debugging endpoint. It repeats M1 in Framescaper, M4 in Soundscaper, and M4B2
-in Framescaper, and checks that both packaged apps boot with the reviewed
-isolated bridge. The separate `packaged-runtime/`
+debugging endpoint. With one worker and zero retries, it repeats M1 and M4B2 in Framescaper,
+M3 and M4 in Soundscaper, and checks that both packaged apps boot with the reviewed
+isolated bridge, including native audio-device and display-audio workflows. The separate `packaged-runtime/`
 directory contains `packaged-runtime/summary.json`,
 `packaged-runtime/raw.json`, `packaged-runtime/results.json`,
 `packaged-runtime/junit.xml`, `packaged-runtime/console.log`,
@@ -338,7 +336,7 @@ still fail the run. Timing, heap, renderer, and host observations remain
 diagnostic measurements tied to that run; the runner emits no accepted-evidence
 artifact, hardware lower-bound claim, or qualified-workload status.
 
-The browser phase carries full Chromium rather than Chromium Headless Shell and
+The graphics phase carries full Chromium rather than Chromium Headless Shell and
 launches it headlessly with `--enable-gpu` for normal hardware renderer
 selection. The packaged-runtime phase uses the
 Chromium embedded in each real Electron application. Every diagnostic records
@@ -354,6 +352,12 @@ actually presents decoded video frames. Its profile describes reset-document
 sampling, not an incognito-context observation. The ordinary Chromium collector
 uses that same profile so its raw observations remain comparable with the
 packaged phase.
+
+A separate instrumented desktop phase exercises packaged startup, audio I/O,
+display capture, and persistent delivery recovery. It retains reports under
+`e2e-coverage/packaged-runtime/` and V8 profiles under `coverage/v8-packaged/`.
+The final phase downloads and runs the real local models; see the
+[real-model guide](docs/operations/local-models/nightly-tests.md).
 
 Those two launcher files are attempted even for infrastructure failures. Once
 Playwright starts, the directory also contains `results.json` and `junit.xml`
@@ -374,7 +378,7 @@ To build the current platform's equivalent artifact locally after installing
 the hermetic engines, use:
 
 ```sh
-PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --no-shell chromium firefox webkit
+PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --no-shell chromium
 npm run desktop:nightly-tests:dist
 ```
 

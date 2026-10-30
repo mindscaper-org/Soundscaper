@@ -149,3 +149,14 @@ that permission flow. Otherwise report the limitation and hand off the command.
 Inspect failed-run diagnostics under `test-results/`; never edit or commit them.
 Chromium coverage preparation and collection are documented in
 [end-to-end coverage](end-to-end-coverage.md#capture-evidence).
+
+## Native nightly diagnostics
+
+The distributed `nightly-with-tests` runner complements CI with focused hardware
+WebGL2 checks, browser and packaged-app performance measurements, packaged
+desktop workflows, and real local-model inference. It bundles only Chromium;
+ordinary cross-browser and dual-origin workflows remain CI gates. Run the
+package on a native target machine with a working GPU driver. Its graphics
+probe fails on software rendering. Performance phases use one worker to avoid
+competing measurements. See the [runner instructions](../../Technical_README.md#nightly-test-runner-artifacts)
+and [real-model guide](../operations/local-models/nightly-tests.md).
