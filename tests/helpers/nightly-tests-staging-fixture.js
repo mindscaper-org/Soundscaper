@@ -87,7 +87,7 @@ export async function createFixture(context) {
 			'audiocom-authorization.ts', 'audiocom-links.ts', 'constants.js', 'desktop-video-h264-encoder.ts', 'file-associations.js', 'file-capabilities.js', 'freesound-integration.js',
 			'main-file-capability-ipc.mjs', 'product.json', 'protocol.js', 'read-capability-admission.js',
 			'read-capability-range-stream.js', 'read-capability-request-lease.js', 'read-capability-support.js',
-			'read-selection-service.js', 'save-publication-mode.js', 'save-space.js', 'save-targets.js', 'validation.js', 'original-file-overwrite.ts', 'read-capability-helper-grant.ts',
+			'read-selection-service.js', 'save-publication-mode.js', 'save-space.js', 'save-targets.js', 'validation.js', 'original-file-identity.ts', 'original-file-overwrite.ts', 'read-capability-helper-grant.ts',
 		].map(async (file) => [`desktop/${file}`, await readFile(new URL(`../../desktop/${file}`, import.meta.url), 'utf8')])),
 		['desktop/desktop-audio-codec-capability-contract.ts', 'export const capability = true;\n'],
 		['desktop/desktop-audio-codec-operation-contract.ts', 'export const operation = true;\n'],

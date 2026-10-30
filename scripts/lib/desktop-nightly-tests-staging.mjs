@@ -179,7 +179,7 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	{ source: 'tests/helpers/libsndfile-rifx-fixture.ts', destination: 'tests/helpers/libsndfile-rifx-fixture.ts', kind: 'file', label: 'normal RIFX browser import fixture' },
 	{ source: 'tests/fixtures/aup4-native-rich.js', destination: 'tests/fixtures/aup4-native-rich.js', kind: 'file', label: 'AUP4 browser support fixture' },
 	...NIGHTLY_BROWSER_MEDIA_INPUTS,
-	...['original-file-overwrite', 'read-capability-helper-grant'].map(name => ({ source: `desktop/${name}.ts`, destination: `desktop/${name}.ts`, kind: 'file', label: 'ordinary native original media browser workflow support' })),
+	...['original-file-identity', 'original-file-overwrite', 'read-capability-helper-grant'].map(name => ({ source: `desktop/${name}.ts`, destination: `desktop/${name}.ts`, kind: 'file', label: 'ordinary native original media browser workflow support' })),
 	{ source: 'tests/fixtures/nyquist-archive', destination: 'tests/fixtures/nyquist-archive', kind: 'directory', label: 'Nyquist browser archive and notices' },
 	{ source: 'evidence/nyquist-plugin-publication/catalog-metadata-ed168a19631ec48d0029dfb5c17d16c339a174c1.json', destination: 'evidence/nyquist-plugin-publication/catalog-metadata-ed168a19631ec48d0029dfb5c17d16c339a174c1.json', kind: 'file', label: 'Nyquist browser catalog metadata' },
 ]);

@@ -14,7 +14,7 @@ import {
 	desktopProductSourceIncluded,
 } from './desktop-product-package-files.mjs';
 import {
-	collectApplicationDesktopRuntimeReferences, bundleDesktopMainPreload, retainDesktopRuntimeClosureAfterBundling,
+	collectApplicationDesktopRuntimeReferences, bundleDesktopMainPreload, bundleDesktopFileCapabilities, retainDesktopRuntimeClosureAfterBundling,
 	collectDesktopProductRuntimeClosure,
 	desktopProductRuntimeTransform,
 	stageSoundscaperDesktopEntrySources,
@@ -125,6 +125,7 @@ export async function stageDesktopApplicationSources({
 		else await cp(join(compiledRoot, name), output, { errorOnExist: true });
 	}
 	await stageBundledAudioCodecRuntimeManifest({ desktopRoot: applicationRoot });
+	await bundleDesktopFileCapabilities(sourceRoot, applicationRoot);
 	await bundleDesktopMainPreload(applicationRoot);
 	packagedRuntimeFiles = await retainDesktopRuntimeClosureAfterBundling({ applicationRoot, applicationFiles: stagedSourceFiles, compiledRoot, completeFiles: runtimeFiles, stagedFiles: packagedRuntimeFiles, productId, runtimePackageImports: desktopProductRuntimePackageImports(productId, DESKTOP_RUNTIME_PACKAGE_IMPORTS) });
 	await assertStagedDesktopImportsResolve(applicationRoot);

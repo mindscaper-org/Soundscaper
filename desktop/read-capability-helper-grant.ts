@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { BigIntStats, Stats } from 'node:fs';
+import type { Stats } from 'node:fs';
 import type { FileHandle } from 'node:fs/promises';
 
+import { exactOriginalFileIdentity } from './original-file-identity.ts';
 import { safeReadFileSize } from './read-capability-admission.js';
 import { assertReadCapabilityFileIdentity, requireReadCapabilityOwner } from './read-capability-support.js';
 
 type FileIdentity = Readonly<Pick<Stats, 'dev' | 'ino' | 'size' | 'mtimeMs' | 'ctimeMs'>>;
-export type ExactOriginalFileIdentity = Readonly<Pick<BigIntStats, 'dev' | 'ino' | 'size' | 'mtimeNs' | 'ctimeNs'>>;
 
 interface Entry {
 	readonly id: string;
@@ -41,9 +41,4 @@ export async function resolveReadCapabilityOriginalFileGrant(entry: Entry | null
 	assertReadCapabilityFileIdentity(await entry.handle.stat(), entry.fileIdentity);
 	if (!confirmCurrent(entry)) return null;
 	return Object.freeze({ path: entry.path, identity: exactOriginalFileIdentity(exact) });
-}
-
-export function exactOriginalFileIdentity(details: BigIntStats): ExactOriginalFileIdentity {
-	return Object.freeze({ dev: details.dev, ino: details.ino, size: details.size,
-		mtimeNs: details.mtimeNs, ctimeNs: details.ctimeNs });
 }

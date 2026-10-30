@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { constants, type BigIntStats } from 'node:fs';
 import { access, lstat } from 'node:fs/promises';
 import { basename, dirname } from 'node:path';
-import { exactOriginalFileIdentity as identity, type ExactOriginalFileIdentity as Identity } from './read-capability-helper-grant.ts';
+import { exactOriginalFileIdentity as identity, type ExactOriginalFileIdentity as Identity } from './original-file-identity.ts';
 
 type Owner = object;
 type OriginalFile = Readonly<{ id: string; name: string }>;
