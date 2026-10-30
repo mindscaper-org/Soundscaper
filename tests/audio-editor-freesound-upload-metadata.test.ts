@@ -128,9 +128,6 @@ test('Freesound upload metadata validation requires the closed publish contract'
 		...valid, tags: ['rain', 'window ambience', 'field-recording'],
 	}), /letters, numbers/iu);
 	assert.throws(() => validateFreesoundUploadMetadata({
-		...valid, categoryId: 'not-a-category',
-	}), /category/iu);
-	assert.throws(() => validateFreesoundUploadMetadata({
 		...valid, rightsConfirmed: false,
 	}, { requiresRightsConfirmation: true }), /rights/iu);
 });

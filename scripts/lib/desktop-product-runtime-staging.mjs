@@ -252,6 +252,20 @@ async function bundleSoundscaperDesktopSmoke(sourceRoot, applicationRoot) {
 	});
 }
 
+/** Inline TypeScript grant helpers while retaining the application's product-specific JavaScript imports. */
+export async function bundleDesktopFileCapabilities(sourceRoot, applicationRoot) {
+	await build({
+		entryPoints: [join(sourceRoot, 'file-capabilities.js')],
+		outfile: join(applicationRoot, 'file-capabilities.js'),
+		bundle: true,
+		platform: 'node',
+		format: 'esm',
+		target: 'node26',
+		external: ['./*.js'],
+		logLevel: 'silent',
+	});
+}
+
 /** Bundle after the compiled runtime is staged, so sandbox preloads can import shared validation. */
 export async function bundleDesktopMainPreload(applicationRoot) {
 	await build({

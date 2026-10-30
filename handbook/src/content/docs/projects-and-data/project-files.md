@@ -89,6 +89,25 @@ loops, stretching, linked crossfades, and exact fade curves do not transfer.
 Open **File → Delivery Report** after import to review missing media and other
 omitted content. Keep the original SESX file and media for future work in Audition.
 
+## Legacy Cool Edit / Audition SES
+
+In the desktop edition, use **File → Open** to import a legacy Cool Edit or
+Adobe Audition `.ses` session. The reader supports recognized binary session
+layouts and creates a new local project from their referenced audio files.
+Keep the media beside the session, or choose its folder when prompted.
+
+The import preserves supported track names, static gain, mute settings, clip
+positions, and source trims. Legacy effects, envelopes, routing, looping,
+stretching, fades, and other unsupported settings do not transfer completely.
+Open **File → Delivery Report** to review the limitations and any missing audio.
+Compatibility varies between legacy versions; an unrecognized layout is rejected
+without replacing the current project. Overlapping clips on the same track are
+also rejected because their playback order is not yet decoded. Audition 3
+compatibility has not been verified against original session files and reference mixes.
+
+SES import is one-way. Save the imported project as a Scape project and keep
+the original `.ses` file and media for work in Cool Edit or Audition.
+
 ## Rendered backup
 
 For important work, keep both:

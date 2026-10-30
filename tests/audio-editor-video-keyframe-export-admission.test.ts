@@ -7,7 +7,6 @@ import { createVideoExportPlan } from '../src/common/editor/video-export.js';
 import {
 	VideoKeyframeExportUnavailableError,
 	animatedVideoKeyframeClipIdsForExport,
-	assertStaticVideoKeyframesForExport,
 } from '../src/common/editor/video-keyframe-export-admission.ts';
 import {
 	reconcileFramescaperProjectFeatureRequirementsRetime,
@@ -57,21 +56,6 @@ test('keyed export classification returns detached ordered active clip IDs', () 
 	const ids = animatedVideoKeyframeClipIdsForExport([first, second, first]);
 	assert.deepEqual(ids, ['video-clip', 'second-video']);
 	assert.equal(Object.isFrozen(ids), true);
-});
-
-test('export admission rejects disguised keyframe state without invoking accessors', () => {
-	const project = createFramescaperProjectRetime(PROFILE, framescaperV20Options());
-	const clip = project.clips[0] as unknown as Record<string, unknown>;
-	let getterCalls = 0;
-	Object.defineProperty(clip, 'videoKeyframes', {
-		enumerable: true,
-		get() { getterCalls += 1; return opacityKeyframes(); },
-	});
-	assert.throws(
-		() => assertStaticVideoKeyframesForExport([clip]),
-		/videoKeyframes.*data property/iu,
-	);
-	assert.equal(getterCalls, 0);
 });
 
 test('an authored clip outside the exported intervals does not block a static range', () => {

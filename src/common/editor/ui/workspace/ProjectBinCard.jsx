@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { projectBinThumbnailInputs } from './project-bin-thumbnail-inputs.ts';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '@soundscaper/design-system/Icon';
 
 import {
@@ -50,8 +51,10 @@ export default function ProjectBinCard({
 		itemClip.kind === 'still' || itemClip.kind === 'generator' || itemClip.kind === 'image'
 	)) || null;
 	const generatedVideo = Boolean(videoClip && productVideoVisualPreviewRuntimeFor(controller)?.generatedSources?.ownsSource(project, videoClip.sourceId));
+	const thumbnailClip = visualClip || (generatedVideo ? videoClip : null);
 	const visualThumbnail = useProductVisualThumbnail({
-		controller, project, clipId: visualClip?.id || (generatedVideo ? videoClip.id : null),
+		controller, project, clip: thumbnailClip,
+		source: thumbnailClip ? sources[itemClips.indexOf(thumbnailClip)] ?? null : null,
 	});
 	const posterUrl = visual?.posterUrl || visual?.thumbnails?.[0]?.url || null;
 	const previewActive = preview?.clipId === clip.id;
@@ -314,7 +317,14 @@ export default function ProjectBinCard({
 	);
 }
 
-function useProductVisualThumbnail({ controller, project, clipId }) {
+function useProductVisualThumbnail({ controller, project, clip, source }) {
+	const clipId = clip?.id ?? null;
+	const latestProject = useRef(project);
+	useLayoutEffect(() => { latestProject.current = project; }, [project]);
+	const inputs = projectBinThumbnailInputs(project, clip, source);
+	const retained = useRef(inputs);
+	if (inputs.length !== retained.current.length || inputs.some((value, index) => value !== retained.current[index])) retained.current = inputs;
+	const thumbnailInputs = retained.current;
 	const runtime = productVideoVisualPreviewRuntimeFor(controller);
 	const [state, setState] = useState(() => ({ pending: false, value: null, error: null }));
 	useEffect(() => {
@@ -325,7 +335,7 @@ function useProductVisualThumbnail({ controller, project, clipId }) {
 		}
 		const abort = new AbortController();
 		setState({ pending: true, value: null, error: null });
-		void create({ project, clipId, width: 320, height: 180, signal: abort.signal })
+		void create({ project: latestProject.current, clipId, width: 320, height: 180, signal: abort.signal })
 			.then((value) => {
 				if (!abort.signal.aborted) setState({ pending: false, value, error: null });
 			})
@@ -334,7 +344,7 @@ function useProductVisualThumbnail({ controller, project, clipId }) {
 					error: cause instanceof Error ? cause.message : String(cause) });
 			});
 		return () => { abort.abort(new DOMException('Project Bin thumbnail was replaced.', 'AbortError')); };
-	}, [clipId, project, runtime]);
+	}, [clipId, thumbnailInputs, runtime]);
 	return state;
 }
 

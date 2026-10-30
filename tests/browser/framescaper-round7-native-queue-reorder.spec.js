@@ -28,7 +28,7 @@ test('Background jobs reorders pending work after cancelling an earlier job', as
 	await row(IDS[1]).getByRole('button', { name: 'Move later', exact: true }).click();
 	await expect.poll(order).toEqual(IDS);
 	await row(IDS[0]).getByRole('button', { name: 'Cancel', exact: true }).click();
-	await expect(row(IDS[0])).toContainText('cancelled');
+	await expect(row(IDS[0])).toContainText('State: Cancelled');
 	await row(IDS[2]).getByRole('button', { name: 'Move earlier', exact: true }).click();
 	await expect.poll(order).toEqual([IDS[0], IDS[2], IDS[1]]);
 	await expect(row(IDS[2]).getByRole('button', { name: 'Move earlier', exact: true })).toBeDisabled();

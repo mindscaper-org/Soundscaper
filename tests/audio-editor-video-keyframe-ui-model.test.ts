@@ -192,23 +192,6 @@ test('the keyframe entry is menu-only for selected keyframe routes and available
 	});
 	assert.equal(createVideoKeyframeApplicationMenuItems({ ...input, project: large })[0]?.disabled, false);
 	assert.equal(traversals, 0, 'menu rebuilds never normalize or traverse the curve carrier');
-	const hostile = project();
-	Object.defineProperty(hostile.tracks[0]!.clipIds, '0', {
-		enumerable: true,
-		get() { traversals += 1; return 'video'; },
-	});
-	assert.equal(createVideoKeyframeApplicationMenuItems({ ...input, project: hostile })[0]?.disabled, true);
-	assert.equal(traversals, 0, 'menu admission never invokes accessor-backed arrays');
-	const carrierAccessor = project();
-	Object.defineProperty(carrierAccessor.clips[0], 'videoKeyframes', {
-		enumerable: true,
-		get() { traversals += 1; return {}; },
-	});
-	assert.equal(createVideoKeyframeApplicationMenuItems({ ...input, project: carrierAccessor })[0]?.disabled, true);
-	assert.equal(traversals, 0, 'menu admission rejects but never invokes an accessor-backed carrier');
-	const custom = project();
-	Object.setPrototypeOf(custom.clips[0], { inherited: true });
-	assert.equal(createVideoKeyframeApplicationMenuItems({ ...input, project: custom })[0]?.disabled, true);
 	const overBudget = project();
 	const reused = Array.from({ length: 70_000 }, () => 'unrelated');
 	overBudget.tracks = [

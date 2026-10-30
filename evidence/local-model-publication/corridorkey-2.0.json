@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "modelId": "corridorkey-2.0",
+  "version": "2.0.0",
+  "status": "assets-published-and-public-readback-verified",
+  "measuredAt": "2026-10-26T18:42:43.233Z",
+  "catalogActivationReady": false,
+  "gpuValidated": false,
+  "checks": [
+    "public-head",
+    "byte-range",
+    "cors",
+    "full-sha256"
+  ],
+  "origins": [
+    "https://soundscaper.org",
+    "https://framescaper.org"
+  ],
+  "publicationDecision": {
+    "path": "config/framescaper-corridorkey-asset-publication.json",
+    "byteLength": 1673,
+    "sha256": "bfc6c1f8e92591f57074b3d5b0260e5149edaa7c5bb48bb6f3c6c280903e0418"
+  },
+  "conversionEvidence": {
+    "path": "evidence/framescaper-corridorkey-conversion-candidate.json",
+    "byteLength": 18626,
+    "sha256": "b1a946e78aa9418a19a7b4a736bd683a4448352386ecaaaca6fb7025b7749faa"
+  },
+  "artifacts": [
+    {
+      "fileName": "cradio.onnx",
+      "url": "https://assets.soundscaper.org/models/corridorkey-2.0/2.0.0/cradio.onnx",
+      "byteLength": 1725128268,
+      "sha256": "5e9f2068f80e63ae81efaa16c00f77c7b26a2dac42f0efd06cea1a4b7ab3345f"
+    },
+    {
+      "fileName": "moge.onnx",
+      "url": "https://assets.soundscaper.org/models/corridorkey-2.0/2.0.0/moge.onnx",
+      "byteLength": 351133937,
+      "sha256": "4a0fdf370a20e8138929ae1e82dc3c7267681de9e75179408bc97809163d1baa"
+    },
+    {
+      "fileName": "rvm.onnx",
+      "url": "https://assets.soundscaper.org/models/corridorkey-2.0/2.0.0/rvm.onnx",
+      "byteLength": 133421377,
+      "sha256": "a74756a230e84c891d4f40c1cd26705ee99399211120fa22deaf8d1d00846230"
+    },
+    {
+      "fileName": "stage1.onnx",
+      "url": "https://assets.soundscaper.org/models/corridorkey-2.0/2.0.0/stage1.onnx",
+      "byteLength": 1849637713,
+      "sha256": "9f54dcf8fe0634142a45011aba2d441a55426412aa346171cd2e8c19bf7b6b07"
+    },
+    {
+      "fileName": "stage2.onnx",
+      "url": "https://assets.soundscaper.org/models/corridorkey-2.0/2.0.0/stage2.onnx",
+      "byteLength": 807908972,
+      "sha256": "137517e2c5f00411c9e86252c19d6ffb1e44a874ed070cf29475cc257e0b32ff"
+    },
+    {
+      "fileName": "README.md",
+      "url": "https://assets.soundscaper.org/models/corridorkey-2.0/2.0.0/README.md",
+      "byteLength": 22018,
+      "sha256": "18aad180cacab855fa40fdf18730e1d37daae8edc105d1bb5e1b75f4279a497d"
+    },
+    {
+      "fileName": "LICENSE",
+      "url": "https://assets.soundscaper.org/models/corridorkey-2.0/2.0.0/LICENSE",
+      "byteLength": 26650,
+      "sha256": "c92ce56f64162b231c7ce08ce3ed7d8cae15f01a560ca05a8e8db67878eb0065"
+    },
+    {
+      "fileName": "THIRD_PARTY_NOTICES.md",
+      "url": "https://assets.soundscaper.org/models/corridorkey-2.0/2.0.0/THIRD_PARTY_NOTICES.md",
+      "byteLength": 1706,
+      "sha256": "76acc5707e92ef6b274d54bb4bda99b16ebddf46d31eb5fc5803592b274a7370"
+    }
+  ]
+}

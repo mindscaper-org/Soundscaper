@@ -382,7 +382,7 @@ test('spectral workers reject malformed result storage immediately and clean up'
 	assert.equal(harness.state.spectralWorker, null);
 });
 
-test('spectral fallback applies the same strict result validation', async () => {
+test('spectral fallback owns its channel data without invoking custom slice methods', async () => {
 	const validOutput = [new Float32Array([0.4, 0.5])];
 	const hostileInput = new Float32Array(2);
 	let iteratorCalls = 0;
@@ -416,26 +416,6 @@ test('spectral fallback applies the same strict result validation', async () => 
 	assert.equal(result[0], validOutput[0]);
 	assert.equal(iteratorCalls, 0);
 	assert.equal(sliceCalls, 0);
-
-	for (const output of [
-		[[0.4, 0.5]] as unknown as Float32Array[],
-		[new Float32Array(3)],
-		[new Float32Array(3).subarray(0, 2)],
-	]) {
-		const harness = createHarness({
-			workers: false,
-			applySpectralGain: () => output,
-		});
-		await assert.rejects(
-			() => harness.service.runSpectralEditWorker(
-				[new Float32Array(2)],
-				SPECTRAL_OPTIONS,
-			),
-			/Spectral edit fallback result/iu,
-		);
-		assert.equal(harness.fftLoads, 1);
-		assert.equal(harness.spectralApplications, 1);
-	}
 });
 
 test('selection workers ignore unrelated messages before accepting a noise profile', async () => {

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { withFormatFileParserFailure } from './format-file-parser-failure.ts';
+
 import {
 	DAWPROJECT_XML_LIMITS,
 	attribute,
@@ -111,7 +113,7 @@ export interface DawprojectDocument {
 	readonly metadata: DawprojectMetadata;
 }
 
-export function parseDawprojectDocument(projectXml: string, metadataXml?: string | null,
+function parseDawprojectDocumentInput(projectXml: string, metadataXml?: string | null,
 	options: Readonly<{ maximumBytes?: number }> = {}): DawprojectDocument {
 	const limits = { ...DAWPROJECT_XML_LIMITS, maximumBytes: options.maximumBytes ?? DAWPROJECT_XML_LIMITS.maximumBytes };
 	const root = parseXmlDocument(projectXml, limits);
@@ -267,4 +269,8 @@ function parseMetadata(root: XmlElement | null): DawprojectMetadata {
 
 function positiveInteger(value: number | null, fallback: number): number {
 	return value !== null && value > 0 ? value : fallback;
+}
+
+export function parseDawprojectDocument(...args: Parameters<typeof parseDawprojectDocumentInput>): DawprojectDocument {
+	return withFormatFileParserFailure('dawproject', 'XML', () => parseDawprojectDocumentInput(...args));
 }

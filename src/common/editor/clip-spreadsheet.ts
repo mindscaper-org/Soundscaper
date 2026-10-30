@@ -150,6 +150,7 @@ function planEdits(projectValue: unknown, edits: readonly ClipSpreadsheetEdit[],
 	const project = runtimeProject(projectValue);
 	const sources = new Map([...project.sources, ...options.additionalSources ?? []].map(source => [source.id, source]));
 	const sourceForReference = createSourceReferenceReader(sources);
+	const tracks = new Map(project.tracks.map(track => [track.id, track]));
 	const rows = new Map(rowsForProject(project, sources).map(row => [row.id, row]));
 	const values = new Map<string, Map<ClipSpreadsheetColumnId, string>>();
 	for (const edit of edits) {
@@ -198,7 +199,7 @@ function planEdits(projectValue: unknown, edits: readonly ClipSpreadsheetEdit[],
 		validateSource(source);
 		const trackId = fields.get('track')?.trim();
 		if (fields.has('track')) {
-			const track = project.tracks.find(candidate => candidate.id === trackId);
+			const track = trackId === undefined ? undefined : tracks.get(trackId);
 			if (!track) throw new RangeError(`Unknown destination track ID: ${trackId ?? ''}.`);
 			if (track.locked) throw new RangeError('The destination track is locked.');
 			if (!Array.isArray(track.clipIds) || track.type !== undefined && track.type !== 'audio') throw new RangeError('Audio clips require an audio destination track.');

@@ -59,6 +59,7 @@ const EXPECTED = Object.freeze([
 	], [['video'], ['frame-pack']], [['video']]),
 	row('subject-detection', ['frame-pack'], [['frame-pack']], ['subject-tracks']),
 	row('saliency-detection', ['frame-pack'], [['frame-pack']], ['saliency-map']),
+	row('video-keying', ['frame-pack'], [['frame-pack']], ['keyed-frames']),
 	row('editorial-generation', ['editorial-context'], [['editorial-context']], ['editorial-proposal']),
 	row('text-to-speech', ['text'], [['text']], ['synthesized-audio'],
 		[['text']], [], [['text']]),
@@ -193,7 +194,7 @@ function desktopRequest(
 			jobId: JOB_ID,
 			role,
 			mediaType: LOCAL_ASSISTANCE_OUTPUT_MEDIA_TYPES[role][0],
-			maximumByteLength: 1_024,
+			maximumByteLength: entry.operation === 'video-keying' ? 1 : 1_024,
 		})),
 	};
 }
@@ -262,7 +263,7 @@ function rendererRequest(
 			jobId: JOB_ID,
 			role,
 			mediaType: LOCAL_ASSISTANCE_OUTPUT_MEDIA_TYPES[role][0]!,
-			maximumByteLength: 1_024,
+			maximumByteLength: entry.operation === 'video-keying' ? 1 : 1_024,
 		})),
 	};
 }

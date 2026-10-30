@@ -49,8 +49,7 @@ export interface AssistanceCtcAlignmentRequestV1 {
 
 interface NormalizedCtcRequest extends AssistanceCtcAlignmentRequestV1 {
 	readonly tokenIds: readonly number[];
-	readonly tokenWords: readonly number[];
-}
+	}
 
 /**
  * Align an already-tokenized transcript to normalized CTC emissions. Tokenizer
@@ -74,8 +73,8 @@ export function alignAssistanceCtcWordsV1(value: unknown): AssistanceWordAlignme
 		prior[1] = emission(request, 0, request.tokenIds[0]!);
 		backpointers[1] = 0;
 	}
+	let current = new Float64Array(stateCount);
 	for (let frame = 1; frame < request.frameCount; frame += 1) {
-		const current = new Float64Array(stateCount);
 		current.fill(UNREACHABLE);
 		for (let state = 0; state < stateCount; state += 1) {
 			let best = prior[state]!;
@@ -93,7 +92,9 @@ export function alignAssistanceCtcWordsV1(value: unknown): AssistanceWordAlignme
 			current[state] = best + emission(request, frame, tokenId);
 			backpointers[frame * stateCount + state] = step;
 		}
+		const previous = prior;
 		prior = current;
+		current = previous;
 	}
 	const finalTokenState = stateCount - 2;
 	const finalBlankState = stateCount - 1;
@@ -160,7 +161,6 @@ function normalizeRequest(value: unknown): NormalizedCtcRequest {
 		emissionLogProbabilities: row.emissionLogProbabilities,
 		words: normalized.words,
 		tokenIds: normalized.tokenIds,
-		tokenWords: normalized.tokenWords,
 	});
 }
 
@@ -171,7 +171,6 @@ function normalizeWords(
 ): Readonly<{
 	words: readonly AssistanceCtcWordV1[];
 	tokenIds: readonly number[];
-	tokenWords: readonly number[];
 }> {
 	if (!Array.isArray(value) || value.length < 1 || value.length > MAXIMUM_WORDS) {
 		throw new RangeError('The CTC transcript word inventory exceeds its bound.');
@@ -179,7 +178,6 @@ function normalizeWords(
 	let priorSegment = -1;
 	let priorWord = -1;
 	const tokenIds: number[] = [];
-	const tokenWords: number[] = [];
 	const words = value.map((candidate, wordOffset): AssistanceCtcWordV1 => {
 		const row = exactRecord(candidate, WORD_FIELDS, `CTC word ${String(wordOffset)}`);
 		const segmentIndex = integer(row.segmentIndex, 0, Number.MAX_SAFE_INTEGER,
@@ -199,15 +197,13 @@ function normalizeWords(
 				throw new TypeError('CTC transcript tokens cannot contain the blank token.');
 			}
 			tokenIds.push(normalized);
-			tokenWords.push(wordOffset);
 			return normalized;
 		});
 		priorSegment = segmentIndex;
 		priorWord = wordIndex;
 		return Object.freeze({ segmentIndex, wordIndex, text, tokenIds: Object.freeze(wordTokens) });
 	});
-	return Object.freeze({ words: Object.freeze(words), tokenIds: Object.freeze(tokenIds),
-		tokenWords: Object.freeze(tokenWords) });
+	return Object.freeze({ words: Object.freeze(words), tokenIds: Object.freeze(tokenIds) });
 }
 
 function alignedWords(request: NormalizedCtcRequest, path: Uint32Array): AssistanceWordAlignmentV1 {
@@ -232,13 +228,11 @@ function alignedWords(request: NormalizedCtcRequest, path: Uint32Array): Assista
 		confidenceSums[tokenIndex] = confidenceSums[tokenIndex] + Math.exp(emission(request, frame, tokenId));
 		confidenceCounts[tokenIndex] = confidenceCounts[tokenIndex] + 1;
 	}
-	const words = request.words.map((word, wordOffset) => {
-		const ownedTokens: number[] = [];
-		for (let index = 0; index < request.tokenWords.length; index += 1) {
-			if (request.tokenWords[index] === wordOffset) ownedTokens.push(index);
-		}
-		const firstToken = ownedTokens[0];
-		const lastToken = ownedTokens.at(-1);
+	let tokenCursor = 0;
+	const words = request.words.map((word) => {
+		const firstToken = tokenCursor;
+		const lastToken = firstToken + word.tokenIds.length - 1;
+		tokenCursor = lastToken + 1;
 		const firstFrame = firstToken === undefined ? undefined : firstFrames[firstToken];
 		const lastFrame = lastToken === undefined ? undefined : lastFrames[lastToken];
 		if (firstToken === undefined || lastToken === undefined
@@ -246,7 +240,7 @@ function alignedWords(request: NormalizedCtcRequest, path: Uint32Array): Assista
 			throw new RangeError('The CTC transcript has an unaligned token.');
 		}
 		let confidence = 0;
-		for (const tokenIndex of ownedTokens) {
+		for (let tokenIndex = firstToken; tokenIndex <= lastToken; tokenIndex += 1) {
 			if (confidenceCounts[tokenIndex] === 0) {
 				throw new RangeError('The CTC transcript has an unaligned token.');
 			}
@@ -260,7 +254,7 @@ function alignedWords(request: NormalizedCtcRequest, path: Uint32Array): Assista
 				'CTC word start sample'),
 			endSample: safeProduct(lastFrame + 1, request.frameStrideSamples,
 				'CTC word end sample'),
-			confidence: quantize(confidence / ownedTokens.length),
+			confidence: quantize(confidence / word.tokenIds.length),
 		});
 	});
 	return reviewAssistanceWordAlignmentV1(Object.freeze({

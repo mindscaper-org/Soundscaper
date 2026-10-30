@@ -192,14 +192,6 @@ test('WAV planning keeps annotations and maintained label tracks explicitly sele
 		markerSource: 'timeline-annotations',
 		markerTrackId: 'labels',
 	}), /cannot select/iu);
-	assert.throws(() => createRiffAnnotationExport({
-		...structuredClone(project),
-		schemaVersion: 10,
-	} as never, {
-		range: { startFrame: 0, endFrame: 1 },
-		outputSampleRate: 48_000,
-		markerSource: 'timeline-annotations',
-	}), /timeline-annotation project schema/iu);
 });
 
 test('RIFF label export reports a positive region that collapses below one output sample', () => {

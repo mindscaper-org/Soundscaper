@@ -1,3 +1,4 @@
+import { createVideoTimelineIndex } from './video-timeline-index.ts';
 import {
 	inheritTrackFolderMediaStateProjectionV12,
 	projectTrackFolderMediaStateV12,
@@ -120,17 +121,37 @@ export function validateVideoTrackComposition(track, clipById) {
 	return true;
 }
 
+/** Capture static geometry for an owned project generation; frame callbacks stay live. */
+export function createVideoTimelineResolver(project) {
+	project = runtimeProject(project);
+	const prepared = prepareTimeline(project);
+	return Object.freeze({
+		resolveActiveVideoLayers: (frame, options = {}) => resolvePreparedVideoLayers(project, frame, options, prepared),
+		resolveCompositionIntervals: (options = {}) => resolvePreparedCompositionIntervals(project, options, prepared),
+	});
+}
+
+function prepareTimeline(project) {
+	return createVideoTimelineIndex(project, (track, clips) => {
+		validateVideoTrackComposition(track, clips);
+		return orderedVideoTrackClips(track, clips);
+	});
+}
+
 /**
  * Resolve every visible video track at a timeline frame. Project track order is
  * foreground-first, while the returned array is bottom-to-top painter order.
  */
 export function resolveActiveVideoLayers(project, timelineFrame, options = {}) {
 	project = runtimeProject(project);
+	return resolvePreparedVideoLayers(project, timelineFrame, options);
+}
+
+function resolvePreparedVideoLayers(project, timelineFrame, options, prepared) {
 	const frame = nonNegativeFiniteNumber(timelineFrame, 'timelineFrame');
 	const sampleRate = positiveFiniteNumber(project?.sampleRate, 'project.sampleRate');
-	const clipById = new Map((project?.clips || []).map((clip) => [clip.id, clip]));
-	const sourceById = new Map((project?.sources || []).map((source) => [source.id, source]));
-	const tracks = Array.isArray(project?.tracks) ? project.tracks : [];
+	prepared ??= prepareTimeline(project);
+	const { sourceById, tracks } = prepared;
 	const visible = videoTrackVisibility(project, options.isTrackVisible);
 	const orderedTrackIndexes = tracks.map((_, index) => index).reverse();
 	const layers = [];
@@ -138,9 +159,7 @@ export function resolveActiveVideoLayers(project, timelineFrame, options = {}) {
 	for (const trackIndex of orderedTrackIndexes) {
 		const track = tracks[trackIndex];
 		if (track?.type !== 'video' || !visible(track)) continue;
-		validateVideoTrackComposition(track, clipById);
-		const activeClips = orderedVideoTrackClips(track, clipById)
-			.filter((clip) => frame >= clip.timelineStartFrame && frame < videoClipEndFrame(clip));
+		const activeClips = prepared.active(track, frame);
 		if (!activeClips.length) continue;
 
 		const transition = activeClips.length === 2
@@ -225,6 +244,10 @@ export function resolveActiveVideoLayers(project, timelineFrame, options = {}) {
  */
 export function resolveVideoCompositionIntervals(project, options = {}) {
 	project = runtimeProject(project);
+	return resolvePreparedCompositionIntervals(project, options);
+}
+
+function resolvePreparedCompositionIntervals(project, options, prepared) {
 	positiveFiniteNumber(project?.sampleRate, 'project.sampleRate');
 	const startFrame = nonNegativeSafeInteger(options.startFrame ?? 0, 'startFrame');
 	const endFrame = nonNegativeSafeInteger(
@@ -234,13 +257,12 @@ export function resolveVideoCompositionIntervals(project, options = {}) {
 	if (endFrame < startFrame) throw new RangeError('endFrame cannot precede startFrame.');
 	if (endFrame === startFrame) return Object.freeze([]);
 
-	const clipById = new Map((project?.clips || []).map((clip) => [clip.id, clip]));
+	prepared ??= prepareTimeline(project);
 	const visible = videoTrackVisibility(project, options.isTrackVisible);
 	const boundaries = new Set([startFrame, endFrame]);
 	for (const track of project?.tracks || []) {
 		if (track?.type !== 'video' || !visible(track)) continue;
-		validateVideoTrackComposition(track, clipById);
-		for (const clip of orderedVideoTrackClips(track, clipById)) {
+		for (const clip of prepared.ordered(track)) {
 			const clipStart = clip.timelineStartFrame;
 			const clipEnd = videoClipEndFrame(clip);
 			if (clipEnd <= startFrame || clipStart >= endFrame) continue;
@@ -257,7 +279,7 @@ export function resolveVideoCompositionIntervals(project, options = {}) {
 		const intervalEnd = sortedBoundaries[index + 1];
 		if (intervalEnd <= intervalStart) continue;
 		const midpoint = intervalStart + (intervalEnd - intervalStart) / 2;
-		const activeLayers = resolveActiveVideoLayers(project, midpoint, options);
+		const activeLayers = resolvePreparedVideoLayers(project, midpoint, options, prepared);
 		const layers = activeLayers.map((layer) => Object.freeze({
 			kind: 'video-track',
 			track: layer.track,

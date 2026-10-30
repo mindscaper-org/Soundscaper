@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { nativeQueueStateLabel } from './framescaper-native-state-labels.ts';
+import { EditorComponentCopyProvider } from '../EditorComponentCopyProvider.tsx';
 
 import NativeProcessingTheme from './NativeProcessingTheme.tsx';
 import { ProcessingButton as Button } from './ProcessingButton.tsx';
@@ -57,6 +59,7 @@ export interface FramescaperNativeServicesDialogProps {
 	readonly initialSurface: FramescaperNativeServiceSurface;
 	readonly initialSnapshot?: FramescaperNativeServicesRendererSnapshot | null;
 	readonly copy?: Readonly<Record<string, string | undefined>>;
+	readonly locale?: string;
 	readonly context?: FramescaperNativeServicesDialogContext;
 	readonly projectActions?: FramescaperNativeProjectActionRuntime | null;
 	readonly openFxAuthoring?: FramescaperNativeOpenFxAuthoringRuntimeNativeMedia | null;
@@ -70,7 +73,7 @@ export interface FramescaperNativeServicesDialogContext {
 }
 
 export default function FramescaperNativeServicesDialog(props: FramescaperNativeServicesDialogProps) {
-	return <NativeProcessingTheme><NativeServicesDialog {...props} /></NativeProcessingTheme>;
+	return <EditorComponentCopyProvider copy={props.copy ?? {}} locale={props.locale ?? 'en'}><NativeProcessingTheme><NativeServicesDialog {...props} /></NativeProcessingTheme></EditorComponentCopyProvider>;
 }
 
 function NativeServicesDialog({
@@ -211,12 +214,13 @@ function QueuePanel({ copy, snapshot, busy, perform, projectActions }: Readonly<
 	const queue = snapshot.services.queue;
 	if (queue.length === 0) return <p>{copy.noQueueJobs}</p>;
 	const pending = queue.filter(reorderable);
-	const pendingIndex = (job: FramescaperNativeQueueProjection) => pending.indexOf(job);
+	const pendingIndices = new Map(pending.map((job, index) => [job, index]));
+	const pendingIndex = (job: FramescaperNativeQueueProjection) => pendingIndices.get(job) ?? -1;
 	const runtimeUsable = snapshot.services.runtimeAvailable && snapshot.services.nativeMediaEnabled;
 	return <ol aria-label={copy.backgroundJobs}>
 		{queue.map((job) => <li key={job.jobId} data-native-queue-job={job.jobId}>
 			<p><strong>{job.relativeDestination}</strong></p>
-			<p>{`${copy.queueState}: ${job.state}`}</p>
+			<p>{`${copy.queueState}: ${nativeQueueStateLabel(job.state, copy)}`}</p>
 			{job.progress !== null && <p>{`${copy.queueProgress}: ${String(Math.round(job.progress * 100))}%`}</p>}
 			{job.lastFailureCode !== null && <p>{job.lastFailureCode === 'web-core-required'
 				? copy.queueWebCoreRequired : job.lastFailureCode}</p>}

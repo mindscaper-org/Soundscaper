@@ -24,7 +24,8 @@ export const NATIVE_MEDIA_V14_VIDEO_DECODE_PROFILE_IDS = Object.freeze([
 
 export const NATIVE_MEDIA_V14_VIDEO_ENCODE_PROFILE_IDS = Object.freeze([
 	'encode-mp4-h264', 'encode-hevc-main10-hdr10', 'encode-hevc-main10-sdr',
-	'encode-webm-vp9', 'encode-mov-prores-proxy', 'encode-mov-prores-422-hq',
+	'encode-webm-vp8', 'encode-webm-vp9', 'encode-webm-vp9-alpha', 'encode-webm-av1',
+	'encode-mov-prores-proxy', 'encode-mov-prores-422-hq',
 	'encode-mov-prores-4444', 'encode-mxf-dnxhr-hqx', 'encode-matroska-ffv1',
 	'encode-png-sequence', 'encode-tiff-sequence', 'encode-openexr-sequence',
 ] as const);

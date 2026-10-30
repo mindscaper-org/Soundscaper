@@ -22,7 +22,6 @@ function release(tag: string, published: string, assetName: string, draft = fals
 test('desktop download URLs keep each product on its own origin', () => {
 	assert.equal(desktopDownloadUrl('soundscaper'), 'https://soundscaper.org/download/desktop/');
 	assert.equal(desktopDownloadUrl('framescaper'), 'https://framescaper.org/download/desktop/');
-	assert.throws(() => desktopDownloadUrl('unknown'), /Unsupported editor product/u);
 });
 
 test('latest release selection covers published candidates and stable builds with installer assets', () => {

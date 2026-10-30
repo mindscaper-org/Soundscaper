@@ -2,6 +2,7 @@
 
 /** Strict renderer-owned projection of the pathless desktop inference bridge. */
 
+import { normalizeCorridorKeyHintSettings, type CorridorKeyHintSettings } from './corridorkey-hint-settings.ts';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 
@@ -18,6 +19,7 @@ import type { AssistanceSemanticSearchSessionPortV1 } from
 import { releaseLocalAssistancePreparedAudioWave } from
 	'../controller/assistance/local-assistance-audio-spool-release.ts';
 import { lazyAssistanceWorkflowBridge } from './local-assistance-lazy-workflow-bridge.ts';
+import { lazyLocalAssistanceVideoKeyingBridge, type LocalAssistanceVideoKeyingBridge } from './local-assistance-video-keying-bridge.ts';
 import { lazyLocalAssistanceSemanticSearchBridge } from
 	'./local-assistance-lazy-semantic-search-bridge.ts';
 import type { LocalAssistanceWorkflowBridge } from './local-assistance-workflow-bridge.ts'; import { normalizeTextToSpeechBridgeFields, type TextToSpeechBridgeSettings } from './text-to-speech-bridge-request.ts';
@@ -87,7 +89,7 @@ export interface LocalAssistanceRunRequest {
 	readonly jobId: string;
 	readonly operation: AssistanceOperation;
 	readonly selectionFence: AssistanceSelectionFence | null;
-	readonly settings?: TextToSpeechBridgeSettings;
+	readonly settings?: TextToSpeechBridgeSettings | CorridorKeyHintSettings;
 	readonly models: readonly Readonly<Pick<LocalAssistanceModel,
 		'modelId' | 'version' | 'artifactSha256s'>>[];
 	readonly inputs: readonly LocalAssistanceInputClaim[];
@@ -131,6 +133,7 @@ export type LocalAssistanceRunOutcome = Readonly<{
 export interface LocalAssistanceBridge {
 	readonly workflow?: LocalAssistanceWorkflowBridge;
 	readonly semanticSearch?: AssistanceSemanticSearchSessionPortV1;
+	readonly videoKeying?: LocalAssistanceVideoKeyingBridge;
 	models(): Promise<readonly LocalAssistanceModel[]>;
 	createJob(): Promise<Readonly<{ contractVersion: 1; jobId: string }>>;
 	stageInput(value: Readonly<{ jobId: string; role: LocalAssistanceInputRole;
@@ -159,8 +162,8 @@ export function resolveLocalAssistanceBridge(value: unknown): LocalAssistanceBri
 	if (!isRecord(value) || !isRecord(value.localAssistance)) return null;
 	const candidate = value.localAssistance;
 	const keys = Object.keys(candidate);
-	if (keys.length < API_METHODS.length || keys.length > API_METHODS.length + 2
-		|| keys.some((key) => !['workflow', 'semanticSearch'].includes(key) && !API_METHODS.includes(
+	if (keys.length < API_METHODS.length || keys.length > API_METHODS.length + 3
+		|| keys.some((key) => !['workflow', 'semanticSearch', 'videoKeying'].includes(key) && !API_METHODS.includes(
 			key as typeof API_METHODS[number],
 		)) || API_METHODS.some((method) => typeof candidate[method] !== 'function')) return null;
 	const workflow = candidate.workflow === undefined
@@ -171,12 +174,15 @@ export function resolveLocalAssistanceBridge(value: unknown): LocalAssistanceBri
 		? undefined
 		: lazyLocalAssistanceSemanticSearchBridge(candidate.semanticSearch);
 	if (candidate.semanticSearch !== undefined && semanticSearch === null) return null;
+	const videoKeying = candidate.videoKeying === undefined ? undefined : lazyLocalAssistanceVideoKeyingBridge(candidate.videoKeying);
+	if (candidate.videoKeying !== undefined && !videoKeying) return null;
 
 	const invoke = (method: typeof API_METHODS[number], ...args: readonly unknown[]) =>
 		(candidate[method] as (...values: readonly unknown[]) => unknown).apply(candidate, [...args]);
 	const bridge: LocalAssistanceBridge = Object.freeze({
 		...(workflow ? { workflow } : {}),
 		...(semanticSearch ? { semanticSearch } : {}),
+		...(videoKeying ? { videoKeying } : {}),
 		async models() {
 			return normalizeModels(await invoke('models'));
 		},
@@ -315,9 +321,11 @@ function normalizeRunRequest(value: unknown): LocalAssistanceRunRequest {
 		throw new TypeError('An assistance operation needs exact job-bound input and output claims.');
 	}
 	assertOperationRoles(operation, inputs, outputs);
-	const speech = operation === 'text-to-speech' ? normalizeTextToSpeechBridgeFields(record) : null; if (!speech && Object.hasOwn(record, 'settings')) throw new TypeError('This operation does not admit speech settings.');
+	const speech = operation === 'text-to-speech' ? normalizeTextToSpeechBridgeFields(record) : null;
+	const settings = speech?.settings ?? (operation === 'video-keying' && Object.hasOwn(record, 'settings') ? normalizeCorridorKeyHintSettings(record.settings) : undefined);
+	if (!settings && Object.hasOwn(record, 'settings')) throw new TypeError('This operation does not admit settings.');
 	return Object.freeze({ contractVersion: 1, jobId: expectedJobId, operation,
-		selectionFence: speech ? speech.selectionFence : validateAssistanceSelectionFence(record.selectionFence), ...(speech ? { settings: speech.settings } : {}), models,
+		selectionFence: speech ? speech.selectionFence : validateAssistanceSelectionFence(record.selectionFence), ...(settings ? { settings } : {}), models,
 		inputs: Object.freeze(inputs), outputs: Object.freeze(outputs) });
 }
 

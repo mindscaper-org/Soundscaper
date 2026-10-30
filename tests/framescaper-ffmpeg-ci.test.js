@@ -93,4 +93,19 @@ test('CI writes the authenticated source receipt before publishing its handoff',
 	].join('\n'));
 });
 
+test('FFmpeg source downloads retry transient connection failures before exact authentication', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'framescaper-ffmpeg-retry-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const bytes = Buffer.from('authenticated archive');
+	const admission = { url: 'https://example.test/source.tar.xz', archive: { byteLength: bytes.length, sha256: digest(bytes) } };
+	let calls = 0;
+	const destination = join(root, 'source.tar.xz');
+	await downloadPinnedFramescaperFfmpeg({ destination, admission, fetchImpl: async url => {
+		assert.equal(url, admission.url); calls += 1;
+		if (calls < 3) throw new TypeError('fetch failed', { cause: Object.assign(new Error('timeout'), { code: 'UND_ERR_CONNECT_TIMEOUT' }) });
+		return { ok: true, status: 200, url, body: [bytes] };
+	} });
+	assert.equal(calls, 3); assert.deepEqual(await readFile(destination), bytes);
+});
+
 function digest(value) { return createHash('sha256').update(value).digest('hex'); }

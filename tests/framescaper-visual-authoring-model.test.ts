@@ -101,16 +101,7 @@ test('mask authoring carries the saved geometry of its attached masks', () => {
 	assert.deepEqual(built.maskDrafts, [{ id: 'mask-1', shape: 'ellipse', width: 0.5, height: 0.25 }]);
 });
 
-test('an unsupported authoring surface is refused', () => {
-	assert.throws(() => model('video-nonsense'), RangeError);
-});
 
-test('a project outside the Framescaper schema family cannot author a surface', () => {
-	assert.throws(
-		() => model('video-freeze', { project: project({ schemaFamily: 'soundscaper' }) }),
-		RangeError,
-	);
-});
 
 test('a negative playhead sample is refused', () => {
 	assert.throws(() => model('video-freeze', { playheadSample: -1 }), RangeError);

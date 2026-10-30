@@ -148,6 +148,8 @@
 		,
 		{ "path": "src/common/editor/assistance/binary-formats-v1.ts", "kind": "persisted-contract", "justification": "binary-formats-v1.ts is a persisted assistance asset, workflow, model-adapter, or result format revision." }
 		,
+		{ "path": "src/common/editor/assistance/corridorkey-pixels-v1.ts", "kind": "upstream-contract", "justification": "The v1 pixel adapter binds native-raster preprocessing and straight RGBA decoding to the pinned CorridorKey 2.0 ONNX tensor contract." }
+		,
 		{ "path": "src/common/editor/assistance/ctc-forced-alignment-v1.ts", "kind": "persisted-contract", "justification": "ctc-forced-alignment-v1.ts is a persisted assistance asset, workflow, model-adapter, or result format revision." }
 		,
 		{ "path": "src/common/editor/assistance/deepfilternet3-signal-v1.ts", "kind": "persisted-contract", "justification": "deepfilternet3-signal-v1.ts is a persisted assistance asset, workflow, model-adapter, or result format revision." }

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { audacityMacroParserFailure } from './audacity-macro-parser-failure.ts';
+
 import {
 	AUDACITY_EFFECT_MACRO_COMMANDS,
 	parseAudacityEffectMacro,
@@ -31,23 +33,23 @@ export function parseAudacityEffectPreset(
 	text: string,
 	expectedEffectType: string | null = null,
 ): AudacityEffectPresetImport {
-	if (typeof text !== 'string') throw new TypeError('An Audacity effect preset must be text.');
+	if (typeof text !== 'string') throw audacityMacroParserFailure(new TypeError('An Audacity effect preset must be text.'), 'TEXT');
 	const source = (text.charCodeAt(0) === 0xfeff ? text.slice(1) : text).trim();
-	if (!source) throw new RangeError('The Audacity effect preset is empty.');
-	if (/\r|\n/u.test(source)) throw new SyntaxError('An Audacity effect preset must contain exactly one effect line.');
+	if (!source) throw audacityMacroParserFailure(new RangeError('The Audacity effect preset is empty.'), 'PRESET_LINE');
+	if (/\r|\n/u.test(source)) throw audacityMacroParserFailure(new SyntaxError('An Audacity effect preset must contain exactly one effect line.'), 'PRESET_LINE');
 
 	const parsed = parseAudacityEffectMacro(source, {
 		idFactory: () => 'audacity-preset-import',
 	}) as ParsedMacro;
 	if (parsed.effects.length !== 1 || parsed.ignoredCommands.length) {
-		throw new SyntaxError('An Audacity effect preset must contain exactly one supported effect.');
+		throw audacityMacroParserFailure(new SyntaxError('An Audacity effect preset must contain exactly one supported effect.'), 'PRESET_LINE');
 	}
 	const effect = parsed.effects[0];
 	if (!effect || !Object.hasOwn(AUDACITY_EFFECT_MACRO_COMMANDS, effect.type)) {
-		throw new RangeError('The Audacity preset does not describe a ported effect.');
+		throw audacityMacroParserFailure(new RangeError('The Audacity preset does not describe a ported effect.'), 'PRESET_EFFECT');
 	}
 	if (expectedEffectType && effect.type !== expectedEffectType) {
-		throw new RangeError(`The Audacity preset is for a different effect (${effect.type}).`);
+		throw audacityMacroParserFailure(new RangeError(`The Audacity preset is for a different effect (${effect.type}).`), 'PRESET_EFFECT');
 	}
 	return Object.freeze({ effectType: effect.type, params: effect.params });
 }

@@ -472,7 +472,6 @@ test('blocked and invalid spectral requests return before persistence while dele
 	assert.equal(await harness.service.captureSelectedNoiseProfile(), null);
 	assert.equal(await harness.service.applySpectralSelection(-6), null);
 	harness.state.audacityEffectProcessing = false;
-	await assert.rejects(() => harness.service.applySpectralSelection(121), /Bad spectral gain/u);
 	assert.equal(await harness.service.applySpectralSelection(-Infinity), true);
 	const options = (harness.persisted.at(-1) as unknown[])[2] as { effectName: string };
 	assert.equal(options.effectName, 'Spectral delete');

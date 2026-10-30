@@ -18,6 +18,7 @@ import type {
 	ClipTransformClip,
 	ClipTransformProject,
 	ClipTransformTrack,
+	ClipTransformSource,
 } from './clip-domain-types.ts';
 import type {
 	EditorControllerLifetime,
@@ -67,6 +68,13 @@ interface TimePitchClip extends ClipTransformClip {
 	readonly preserveFormants: boolean;
 	readonly stretchToTempo: boolean;
 	readonly renderCacheRevision: number;
+}
+
+interface TimePitchPreparationIndex {
+	readonly clips: ReadonlyMap<string, TimePitchClip>;
+	readonly owners: ReadonlyMap<string, ClipTransformTrack>;
+	readonly sources: ReadonlyMap<string, ClipTransformSource>;
+	readonly videoLinks: ReadonlySet<string>;
 }
 
 interface PreparedTransform {
@@ -197,24 +205,33 @@ export function createClipPropertyService(
 	function setClipsTimePitch(clipIds: readonly string[], changes: ClipTimePitchChanges): unknown {
 		dependencies.lifetime.assertActive();
 		if (dependencies.editingBlocked()) return null;
-		const commands: AudioEditorCommand[] = [];
-		for (const clipId of new Set(clipIds)) {
-			setClipTimePitch(clipId, changes, command => { commands.push(command); });
-		}
-		return commands.length ? dependencies.commit({ type: 'batch', commands }) : null;
+		const selected = new Set(clipIds);
+		if (!selected.size) return null;
+		const project = dependencies.getProject(), index = timePitchPreparationIndex(project);
+		const transforms = [...selected].map(clipId => {
+			const clip = index.clips.get(clipId), track = index.owners.get(clipId);
+			if (!clip || !track) throw createLocalizedError(Error, dependencies.copy, 'audioClipNotFound');
+			return prepareTimePitchTransform(project, clip, track, changes, index);
+		});
+		return dependencies.commit(prepareTransformClipsCommand(project, transforms, dependencies.createId));
 	}
 
 	function setClipTimePitch(
 		clipId: string | null = dependencies.getSelectedClipId(),
 		changes: ClipTimePitchChanges = {},
-		publish: ClipPropertyServiceDependencies['commit'] = dependencies.commit,
 	): unknown {
 		dependencies.lifetime.assertActive();
 		if (dependencies.editingBlocked()) return null;
-		const project = dependencies.getProject();
-		const clip = findTimePitchClip(project, clipId);
+		const project = dependencies.getProject(), clip = findTimePitchClip(project, clipId);
 		const track = clip ? findClipTrack(project, clip.id) : null;
 		if (!clip || !track) throw createLocalizedError(Error, dependencies.copy, 'audioClipNotFound');
+		return dependencies.commit(prepareTransformClipsCommand(project,
+			[prepareTimePitchTransform(project, clip, track, changes)], dependencies.createId),
+		{ selectTrackId: track.id, selectClipId: clip.id });
+	}
+
+	function prepareTimePitchTransform(project: ClipTransformProject, clip: TimePitchClip, track: ClipTransformTrack,
+		changes: ClipTimePitchChanges, index?: TimePitchPreparationIndex): PreparedTransform {
 		const linked = changes.linkPitchAndTempo == null ? Boolean(clip.linkPitchAndTempo) : Boolean(changes.linkPitchAndTempo);
 		const requestedPitch = changes.pitchCents == null ? clip.pitchCents : Number(changes.pitchCents);
 		const pitchCents = linked && changes.speedRatio == null ? clip.pitchCents : requestedPitch;
@@ -228,10 +245,10 @@ export function createClipPropertyService(
 		}
 		const durationFrames = changes.speedRatio == null && !(linked && changes.pitchCents != null)
 			? clip.durationFrames
-			: Math.max(1, Math.round(sourceTimelineFrames(project, clip) / speedRatio));
-		assertCameraAudioDurationChange(project, clip, durationFrames, dependencies.copy);
-		assertScalarTimePitchChange(project, clip, linked, pitchCents, speedRatio, dependencies.copy);
-		const command = prepareTransformClipsCommand(project, [{
+			: Math.max(1, Math.round(sourceTimelineFrames(project, clip, index?.sources) / speedRatio));
+		assertCameraAudioDurationChange(project, clip, durationFrames, dependencies.copy, index?.videoLinks);
+		assertScalarTimePitchChange(project, clip, linked, pitchCents, speedRatio, dependencies.copy, index?.sources);
+		return {
 			clipId: clip.id,
 			trackId: track.id,
 			changes: {
@@ -247,8 +264,7 @@ export function createClipPropertyService(
 				envelope: scaleEnvelope(clip, durationFrames),
 				renderCacheRevision: clip.renderCacheRevision + 1,
 			},
-		}], dependencies.createId);
-		return publish(command, { selectTrackId: track.id, selectClipId: clip.id });
+		};
 	}
 
 	function stretchClip(
@@ -390,6 +406,20 @@ function normalizationProcessing(clip: TimePitchClip): string {
 		clip.speedRatio, clip.linkPitchAndTempo, clip.preserveFormants, clip.warpMap, readClipLoop(clip)]);
 }
 
+function timePitchPreparationIndex(project: ClipTransformProject): TimePitchPreparationIndex {
+	const clips = new Map<string, TimePitchClip>(), owners = new Map<string, ClipTransformTrack>();
+	const sources = new Map<string, ClipTransformSource>(), videoLinks = new Set<string>();
+	for (const clip of project.clips) {
+		if (isAudioMediaKind(clip.kind) && !clips.has(clip.id)) clips.set(clip.id, clip as TimePitchClip);
+		if (clip.kind === 'video' && clip.avLinkId) videoLinks.add(clip.avLinkId);
+	}
+	for (const track of project.tracks) if (track.type !== 'label') {
+		for (const id of track.clipIds ?? []) if (!owners.has(id)) owners.set(id, track);
+	}
+	for (const source of project.sources) if (!sources.has(source.id)) sources.set(source.id, source);
+	return { clips, owners, sources, videoLinks };
+}
+
 function findTimePitchClip(
 	project: ClipTransformProject,
 	clipId: string | null | undefined,
@@ -401,8 +431,8 @@ function findTimePitchClip(
 // and its timeline span are counted in different rates. Speed ratio and timeline
 // duration both relate the two spans in seconds, matching the playback rate the
 // engine derives, so the source span has to reach the project rate first.
-function sourceTimelineFrames(project: ClipTransformProject, clip: TimePitchClip): number {
-	const source = project.sources.find((item) => item.id === clip.sourceId);
+function sourceTimelineFrames(project: ClipTransformProject, clip: TimePitchClip, sources?: ReadonlyMap<string, ClipTransformSource>): number {
+	const source = sources ? sources.get(clip.sourceId) : project.sources.find((item) => item.id === clip.sourceId);
 	const sourceSampleRate = Number(source?.sampleRate);
 	const projectSampleRate = Number(project.sampleRate);
 	const loop = readClipLoop(clip);

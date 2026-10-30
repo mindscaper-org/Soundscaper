@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { useState, type PointerEvent } from 'react';
+import { useMemo, useState, type PointerEvent } from 'react';
 import { ContextMenu } from '@soundscaper/design-system/ContextMenu';
 import { ContextMenuItem } from '@soundscaper/design-system/ContextMenuItem';
 import { Icon } from '@soundscaper/design-system/Icon';
@@ -52,7 +52,7 @@ export default function ClipSourceRuler(props: Props) {
 	const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 	const close = () => setMenu(null);
 	const set = (changes: Partial<SourceRulerOptions>) => onOptions({ ...options, ...changes });
-	const ticks = createClipSourceRulerTicks({ ...props, global: options.global, beats: options.beats });
+	const ticks = useMemo(() => createClipSourceRulerTicks({ tempoMap: props.tempoMap, signatureMap: props.signatureMap, sampleRate: props.sampleRate, startFrame, endFrame, clipStartFrame: props.clipStartFrame, projectStartFrame: props.projectStartFrame, width, global: options.global, beats: options.beats }), [props.tempoMap, props.signatureMap, props.sampleRate, startFrame, endFrame, props.clipStartFrame, props.projectStartFrame, width, options.global, options.beats]);
 	const x = (frame: number) => (frame - startFrame) / (endFrame - startFrame) * width;
 	const loopRange = props.loopRange ?? props.selection ?? { startFrame, endFrame };
 	const item = (label: string, checked: boolean, action: () => void, disabled = false) => <ContextMenuItem

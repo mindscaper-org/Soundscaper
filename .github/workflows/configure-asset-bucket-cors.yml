@@ -1,0 +1,114 @@
+name: Configure public asset bucket CORS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: configure-public-asset-bucket-cors
+  cancel-in-progress: false
+
+jobs:
+  configure:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      NODE_OPTIONS: --max-old-space-size=2048
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm install --global npm@12.0.1
+      - run: npm ci
+      - name: Authenticate the committed CORS policy
+        run: |
+          node --input-type=module - <<'JS'
+          import assert from 'node:assert/strict';
+          import { createHash } from 'node:crypto';
+          import { readFile } from 'node:fs/promises';
+          const { publication } = JSON.parse(await readFile('config/ffmpeg-runtime-manifest.json', 'utf8'));
+          assert.equal(publication.bucket, 'soundscaper-assets');
+          assert.equal(publication.jurisdiction, 'eu');
+          const bytes = await readFile(publication.cors.path);
+          assert.equal(bytes.length, publication.cors.byteLength);
+          assert.equal(createHash('sha256').update(bytes).digest('hex'), publication.cors.sha256);
+          const { rules } = JSON.parse(bytes);
+          assert.deepEqual(rules[0].allowed.origins, publication.corsOrigins);
+          assert.deepEqual(rules[0].allowed.methods, ['GET', 'HEAD']);
+          assert.ok(rules[0].allowed.origins.includes('https://framescaper.org'));
+          JS
+      - name: Inspect account and current bucket policy
+        id: inspect
+        continue-on-error: true
+        run: |
+          npx wrangler whoami
+          npx wrangler r2 bucket cors list soundscaper-assets --jurisdiction eu
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Apply the authenticated read-only origin policy
+        if: steps.inspect.outcome == 'success'
+        run: npx wrangler r2 bucket cors set soundscaper-assets --jurisdiction eu --file r2-cors.json --force
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Apply policy using bucket administration credentials
+        if: steps.inspect.outcome == 'failure'
+        run: |
+          aws --version
+          aws s3api get-bucket-cors --bucket soundscaper-assets --region auto --endpoint-url "$R2_MODELS_ENDPOINT" > asset-bucket-cors-before.json
+          node --input-type=module - <<'JS'
+          import { readFile, writeFile } from 'node:fs/promises';
+          const { rules } = JSON.parse(await readFile('r2-cors.json', 'utf8'));
+          const CORSRules = rules.map(rule => ({ AllowedOrigins: rule.allowed.origins,
+            AllowedMethods: rule.allowed.methods, AllowedHeaders: rule.allowed.headers,
+            ExposeHeaders: rule.exposeHeaders, MaxAgeSeconds: rule.maxAgeSeconds }));
+          await writeFile('asset-bucket-cors-s3.json', JSON.stringify({ CORSRules }));
+          JS
+          aws s3api put-bucket-cors --bucket soundscaper-assets --region auto --endpoint-url "$R2_MODELS_ENDPOINT" --cors-configuration file://asset-bucket-cors-s3.json
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_MODELS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_MODELS_SECRET_ACCESS_KEY }}
+          AWS_EC2_METADATA_DISABLED: 'true'
+          R2_MODELS_ENDPOINT: ${{ vars.R2_MODELS_ENDPOINT || secrets.R2_MODELS_ENDPOINT }}
+      - name: Verify both product origins against a published model
+        run: |
+          node --input-type=module - <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFile, writeFile } from 'node:fs/promises';
+          const report = JSON.parse(await readFile('evidence/framescaper-corridorkey-conversion-candidate.json', 'utf8'));
+          const artifact = report.graphs.find(graph => graph.role === 'cradio').artifacts[0];
+          const url = `https://assets.soundscaper.org/models/corridorkey-2.0/2.0.0/${artifact.fileName}`;
+          const checks = [];
+          for (const origin of ['https://framescaper.org', 'https://soundscaper.org']) {
+            for (const method of ['HEAD', 'GET']) {
+              const response = await fetch(url, { method, redirect: 'error', signal: AbortSignal.timeout(30000),
+                headers: { Origin: origin, 'Accept-Encoding': 'identity', ...(method === 'GET' ? { Range: 'bytes=0-0' } : {}) } });
+              assert.equal(response.status, method === 'HEAD' ? 200 : 206);
+              assert.ok([origin, '*'].includes(response.headers.get('access-control-allow-origin')));
+              assert.equal(response.headers.get('content-length'), String(method === 'HEAD' ? artifact.byteLength : 1));
+              if (method === 'GET') {
+                assert.equal(response.headers.get('content-range'), `bytes 0-0/${artifact.byteLength}`);
+                assert.ok(response.headers.get('access-control-expose-headers').toLowerCase().includes('content-range'));
+                assert.equal((await response.arrayBuffer()).byteLength, 1);
+              }
+              checks.push({ origin, method, status: response.status });
+            }
+          }
+          await writeFile('asset-bucket-cors-delivery.json', JSON.stringify({ schemaVersion: 1,
+            status: 'both-product-origins-verified', measuredAt: new Date().toISOString(),
+            sourceRevision: process.env.GITHUB_SHA, bucket: 'soundscaper-assets', jurisdiction: 'eu', url, artifact, checks }, null, 2) + '\n');
+          JS
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: asset-bucket-cors-delivery
+          path: asset-bucket-cors-delivery.json
+          if-no-files-found: error
+          retention-days: 30

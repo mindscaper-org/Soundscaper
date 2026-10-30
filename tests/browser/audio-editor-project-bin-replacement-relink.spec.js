@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { expectClipTimeFrames, setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { installDesktopSpeedWarmupManifest } from './helpers/desktop-speed-warmup-fixture.js';
 import { Buffer } from 'node:buffer';
 
@@ -7,7 +8,6 @@ import { expect, test, toneA, toneB, createWavFixture } from './audio-editor-tes
 import { showClipTimingFields,
 	bootEditor,
 	clipByName,
-	clipField,
 	closeClipProperties,
 	collectClientErrors,
 	openClipProperties,
@@ -236,8 +236,7 @@ async function setupShortReplacement(page) {
 	]);
 	const later = await openClipProperties(page, editor, instances.nth(1));
 	await showClipTimingFields(later);
-	await clipField(later, 'startFrame').fill(String(laterStartFrame));
-	await clipField(later, 'startFrame').press('Tab');
+	await setClipTimeFrames(later, 'startFrame', laterStartFrame);
 	await closeClipProperties(later);
 	await expectClipFrames(page, editor, laterId, { start: laterStartFrame, duration: originalFrameCount });
 	return { editor, card, firstId, laterId };
@@ -253,8 +252,8 @@ async function stageShortReplacement(page, card) {
 async function expectClipFrames(page, editor, clipId, expected) {
 	const clip = editor.locator(`[data-clip-id="${clipId}"][role="group"]`);
 	const dialog = await openClipProperties(page, editor, clip);
-	await expect(clipField(dialog, 'startFrame')).toHaveValue(String(expected.start));
-	await expect(clipField(dialog, 'durationFrame')).toHaveValue(String(expected.duration));
+	await expectClipTimeFrames(dialog, 'startFrame', expected.start);
+	await expectClipTimeFrames(dialog, 'durationFrame', expected.duration);
 	await closeClipProperties(dialog);
 }
 

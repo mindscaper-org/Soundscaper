@@ -224,7 +224,7 @@ export function TimelineWorkspaceView({
 			/>
 			<div
 				className="audio-editor-timeline-scroll"
-				data-timeline
+				data-timeline data-track-height-available={geometry.availableTrackHeight}
 				data-timeline-scroll-scale={scrollSpace.scale}
 				ref={setTimelineScrollNode}
 				onScroll={handleTimelineScroll}

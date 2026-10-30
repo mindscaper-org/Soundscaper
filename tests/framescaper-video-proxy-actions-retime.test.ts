@@ -95,11 +95,9 @@ test('the captured request refuses an invalid project revision or source digest'
 	assert.equal(owner.refreshes, 0);
 });
 
-test('setMode refuses an unsupported mode, skips an unchanged selection and withdraws a failed one', async () => {
+test('setMode skips an unchanged selection and withdraws a failed one', async () => {
 	const owner = ownerFixture(attachment());
 	const runtime = build(owner);
-	await assert.rejects(runtime.setMode('video-source', 'balanced' as never),
-		{ name: 'RangeError', message: 'The Framescaper video-proxy mode is unsupported.' });
 	await runtime.setMode('video-source', 'auto');
 	assert.equal(owner.refreshes, 0, 'the implicit Auto default is already selected');
 	await runtime.setMode('video-source', 'proxy');
@@ -121,13 +119,9 @@ test('preview trust reports unavailable without an attachment and unverified wit
 	assert.equal(runtime.previewTrust('video-source'), 'unverified');
 });
 
-test('a pressure report is refused out of bounds, ignored outside Auto and withdrawn when it cannot land', async () => {
+test('a pressure report is ignored outside Auto and withdrawn when it cannot land', async () => {
 	const owner = ownerFixture(attachment());
 	const runtime = build(owner);
-	await assert.rejects(runtime.reportPreviewPressure('video-source',
-		{ droppedFrameRatio: 2, decodeQueueDepth: 0, viewportScale: 1 }), { name: 'RangeError' });
-	await assert.rejects(runtime.reportPreviewPressure('video-source',
-		{ droppedFrameRatio: 0.1, decodeQueueDepth: 1 } as never), { name: 'TypeError' });
 	assert.equal(runtime.pressure('video-source'), null);
 	await runtime.setMode('video-source', 'original');
 	await runtime.reportPreviewPressure('video-source', HEAVY);

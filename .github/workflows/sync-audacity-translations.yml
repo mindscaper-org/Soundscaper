@@ -92,4 +92,7 @@ jobs:
         if: steps.commit.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run quality.yml --ref main
+        run: >-
+          gh workflow run quality.yml --ref main
+          -f deploy_translations=true
+          -f translation_sync_sha="$(git rev-parse HEAD)"

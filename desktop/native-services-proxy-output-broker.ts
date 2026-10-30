@@ -8,7 +8,7 @@ import { isAbsolute, relative, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 
 import { assertNativeMediaRelativeDestination } from '../src/common/editor/native-media-atomic-publication.ts';
-import { createNativeMediaPlanEnvelopeV2 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
+import { createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
 import type { NativeQueueRecordV3 } from '../src/common/editor/native-queue-record-v3.ts';
 import { HELPER_DATA_PLANE_MAXIMUM_BYTES } from './helper-data-plane.ts';
 import { framescaperNativeMediaV14ProxyOutputCeiling } from './native-media-v14-helper-adapter.ts';
@@ -18,6 +18,8 @@ const JOB_ID = /^[a-f0-9]{40}$/u;
 const CLAIM_ID = /^[a-f0-9]{40}$/u;
 const SHA256 = /^[a-f0-9]{64}$/u;
 const MAXIMUM_PROXY_BYTES = HELPER_DATA_PLANE_MAXIMUM_BYTES;
+const MAXIMUM_PUBLISHED_RECEIPTS = 100_000;
+const MAXIMUM_PUBLICATION_PRUNE_READS = 8;
 const MAXIMUM_READ_BYTES = 1024 * 1024;
 export const FRAMESCAPER_NATIVE_PROXY_OUTPUT_MAXIMUM_OPEN_CLAIMS = 8;
 
@@ -59,6 +61,7 @@ export class FramescaperNativeProxyOutputBroker {
 	readonly #active = new Set<ActiveProxyOutputClaim>();
 	readonly #revokedOwners = new WeakSet<object>();
 	#disposed = false;
+	#pruneCursor: MapIterator<[string, PublishedProxyOutput]> | null = null;
 
 	constructor(options: FramescaperNativeProxyOutputBrokerOptions) {
 		if (typeof options?.queueRecord !== 'function' || typeof options.rootGrant !== 'function'
@@ -75,6 +78,13 @@ export class FramescaperNativeProxyOutputBroker {
 	): void {
 		this.#assertOpen();
 		this.#prunePublished();
+		if (!this.#published.has(record.jobId) && this.#published.size >= MAXIMUM_PUBLISHED_RECEIPTS) {
+			// The queue has the same hard row ceiling. Reclaim deleted rows at the
+			// capacity boundary without evicting a valid completed receipt.
+			this.#pruneCursor = null;
+			this.#prunePublished(MAXIMUM_PUBLISHED_RECEIPTS);
+			if (this.#published.size >= MAXIMUM_PUBLISHED_RECEIPTS) throw new RangeError('Native proxy receipt capacity is exhausted.');
+		}
 		if (record.taskKind !== 'proxy-generation' || record.state !== 'running'
 			|| root.grantId !== record.rootGrantId || root.revokedAtMs !== null
 			|| receipt.planFingerprint !== record.planFingerprint
@@ -210,6 +220,7 @@ export class FramescaperNativeProxyOutputBroker {
 		const claims = [...this.#claims.values()];
 		this.#claims.clear();
 		this.#published.clear();
+		this.#pruneCursor = null;
 		await Promise.all(claims.map(({ handle }) => handle.close().catch(() => undefined)));
 		return true;
 	}
@@ -218,8 +229,12 @@ export class FramescaperNativeProxyOutputBroker {
 		if (this.#disposed) throw new Error('The native proxy output broker is disposed.');
 	}
 
-	#prunePublished(): void {
-		for (const [jobId, published] of this.#published) {
+	#prunePublished(maximum = MAXIMUM_PUBLICATION_PRUNE_READS): void {
+		this.#pruneCursor ??= this.#published.entries();
+		for (let index = 0; index < maximum; index += 1) {
+			const item = this.#pruneCursor.next();
+			if (item.done) { this.#pruneCursor = null; break; }
+			const [jobId, published] = item.value;
 			const record = this.#options.queueRecord(jobId);
 			if (!record || record.taskKind !== 'proxy-generation'
 				|| (record.state !== 'running' && record.state !== 'completed')
@@ -236,7 +251,7 @@ function proxyOutputCeiling(record: NativeQueueRecordV3): number {
 	let plan: unknown;
 	try { plan = JSON.parse(record.planPayload) as unknown; }
 	catch { throw new Error('A native proxy queue plan is not JSON.'); }
-	return framescaperNativeMediaV14ProxyOutputCeiling(createNativeMediaPlanEnvelopeV2(plan));
+	return framescaperNativeMediaV14ProxyOutputCeiling(createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(plan));
 }
 
 async function digestHandle(handle: FileHandle, byteLength: number): Promise<string> {

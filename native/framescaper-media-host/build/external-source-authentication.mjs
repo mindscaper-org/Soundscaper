@@ -10,7 +10,7 @@ const FIELDS = Object.freeze([
 const TREE_FIELDS = Object.freeze(['algorithm', 'fileCount', 'sha256']);
 
 export const FRAMESCAPER_MEDIA_HOST_EXTERNAL_SOURCE_IDS = Object.freeze([
-	'x264', 'x265', 'libvpx', 'libopus', 'zlib',
+	'x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib',
 ]);
 
 const EXPECTED = Object.freeze({
@@ -28,6 +28,11 @@ const EXPECTED = Object.freeze({
 		version: '1.16.0', revision: '1024874c5919305883187e2953de8fcb4c3d7fa6',
 		tag: 'v1.16.0', byteLength: 5_635_379,
 		configureFlag: '--enable-libvpx',
+	}),
+	'svt-av1': Object.freeze({
+		version: '4.2.0', revision: '9292ec8e32bce26f781f277ec8739b53426c4300',
+		tag: 'v4.2.0', byteLength: 11_070_537,
+		configureFlag: '--enable-libsvtav1',
 	}),
 	libopus: Object.freeze({
 		version: '1.6', revision: 'a8b13e40d751c7b40833b94fc9437c5c3439da89',

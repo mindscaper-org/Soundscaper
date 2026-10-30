@@ -5,7 +5,7 @@ import { resolveVideoPreviewVisual } from './video-preview-visual.ts';
 
 export function createVideoPreviewTimelineState(
 	project, controller, missingSourceIds, failedVideoSources, renderCanvas,
-	keyframeStateProvider, resolveClipPresentation, resolveTransitionWeight,
+	keyframeStateProvider, resolveClipPresentation, resolveTransitionWeight, timelineResolver,
 ) {
 	const empty = {
 		intervals: [], clipStateById: new Map(), maxLayerCount: 0, renderCanvas,
@@ -13,9 +13,9 @@ export function createVideoPreviewTimelineState(
 	};
 	if (!project) return empty;
 	try {
-		const intervals = resolveVideoCompositionIntervals(project, {
-			renderCanvas, resolveClipPresentation, resolveTransitionWeight,
-		});
+		const options = { renderCanvas, resolveClipPresentation, resolveTransitionWeight };
+		const intervals = timelineResolver ? timelineResolver.resolveCompositionIntervals(options)
+			: resolveVideoCompositionIntervals(project, options);
 		const clipStateById = new Map();
 		for (const clip of project.clips || []) {
 			if (clip?.kind !== 'video') continue;

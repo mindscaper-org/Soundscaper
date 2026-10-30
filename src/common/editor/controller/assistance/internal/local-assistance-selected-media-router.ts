@@ -21,6 +21,7 @@ export interface LocalAssistancePreparationRequest {
 	readonly operation: AssistanceOperation;
 	readonly shotDetectionMode?: LocalAssistanceShotDetectionMode;
 	readonly inputRole?: 'video' | 'frame-pack';
+	readonly publicationTarget?: 'reframe';
 	readonly signal?: AbortSignal;
 }
 

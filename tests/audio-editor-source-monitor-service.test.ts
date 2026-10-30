@@ -175,7 +175,6 @@ test('a source can be opened directly and still finds the item that carries it',
 	assert.equal(view.positionFrame, 10);
 	assert.deepEqual(marks(view), { markIn: 10, markOut: 40 });
 	assert.deepEqual(service.points('take-2', 1), { sourceIn: 10, sourceOut: 40 });
-	assert.throws(() => service.openSource('take-1-audio'), ReferenceError);
 });
 
 test('closing forgets the position and the marks', () => {

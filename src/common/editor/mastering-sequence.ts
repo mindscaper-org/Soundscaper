@@ -188,6 +188,14 @@ export function validateMasteringSequenceV23(
 ): MasteringSequenceValidation {
 	const byId = new Map<string, MasteringSequenceRegionView>();
 	for (const region of regions) byId.set(region.id, region);
+	return validateMasteringSequenceWithRegionIndexV23(sequence, byId);
+}
+
+/** Relational checks may share one owned region index across a document's orders. */
+export function validateMasteringSequenceWithRegionIndexV23(
+	sequence: MasteringSequenceV23,
+	byId: ReadonlyMap<string, MasteringSequenceRegionView>,
+): MasteringSequenceValidation {
 	const issues: MasteringSequenceIssue[] = [];
 	const resolvedStarts: Array<{ entryId: string; startFrame: number }> = [];
 

@@ -1,3 +1,4 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React, { useRef, useEffect } from 'react';
 import { useTheme } from '../ThemeProvider';
 import { useContainerTabGroup } from '../hooks/useContainerTabGroup';
@@ -73,7 +74,7 @@ export function Toolbar({
   showGripper = false,
   onGripperMouseDown,
 }: ToolbarProps) {
-  const { theme } = useTheme();
+  const { theme } = useTheme(); const { copy } = useComponentCopy();
   const toolbarRef = useRef<HTMLDivElement>(null);
 
   const handleGripperMouseDown = (e: React.MouseEvent) => {
@@ -103,7 +104,7 @@ export function Toolbar({
     // arrow-key navigation and don't escape into the document Tab order.
     selector: 'button, select, input, [role="group"], [role="checkbox"], [role="combobox"], [role="spinbutton"], [role="slider"]',
     filter: toolbarFilter,
-    ariaLabel: 'Tool toolbar',
+    ariaLabel: copy.toolToolbar,
   });
 
   // Re-init when children change

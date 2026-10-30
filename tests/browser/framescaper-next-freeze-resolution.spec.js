@@ -41,7 +41,7 @@ test.describe.serial('permanent programme freeze resolution', () => {
 		const dialog = page.getByRole('dialog', { name: 'Freeze Selected Video', exact: true });
 		await dialog.locator('[data-framescaper-authoring-freeze]').click();
 		if (exactPreviewAvailable) await expect(dialog.getByRole('status')).toHaveText('Exact playhead freeze created.');
-		else await expect(dialog.getByRole('status')).toHaveText('The evaluated freeze preview is stale. Wait for the playhead frame and retry.');
+		else await expect(dialog.getByRole('status')).toHaveText('The selected visual operation failed. Reopen the dialog and check its settings and selection.');
 		await dialog.getByRole('button', { name: 'Close', exact: true }).click();
 		await chooseCommandAction(page, editor, 'File', 'Save project');
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');

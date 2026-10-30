@@ -37,3 +37,35 @@ test('opening a panel preserves focus already handed to its upload summary', () 
 		dom.restore();
 	}
 });
+
+for (const target of ['drawer-toggle', 'other-toggle', 'panel-field', 'workspace-control'] as const) {
+	test(`opening a panel after closing its menu drawer respects ${target} focus`, () => {
+		const dom = installReactTestDom();
+		try {
+			const owner = dom.container.ownerDocument;
+			const drawer = owner.createElement('div');
+			drawer.setAttribute('class', 'kw-audio-editor__chrome-drawer-panel');
+			drawer.setAttribute('id', 'menu-drawer');
+			const opener = owner.createElement('button');
+			drawer.appendChild(opener);
+			const panel = owner.createElement('section');
+			const field = owner.createElement('input');
+			panel.appendChild(field);
+			const toggle = owner.createElement('button');
+			toggle.setAttribute('data-chrome-drawer-toggle', '');
+			toggle.setAttribute('aria-controls', target === 'other-toggle' ? 'other-drawer' : 'menu-drawer');
+			const control = owner.createElement('button');
+			for (const element of [drawer, panel, toggle, control]) dom.container.appendChild(element);
+			opener.focus();
+			const openingFocus = document.activeElement;
+			const next = target === 'panel-field' ? field : target === 'workspace-control' ? control : toggle;
+			next.focus();
+
+			focusOpenedWorkspacePanel(panel as unknown as HTMLElement, openingFocus);
+
+			assert.equal(owner.activeElement === (target === 'drawer-toggle' ? panel : next), true);
+		} finally {
+			dom.restore();
+		}
+	});
+}

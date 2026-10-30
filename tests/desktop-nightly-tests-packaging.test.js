@@ -325,7 +325,8 @@ test('AI asset updates publish verified target archives only from manual main di
 	assert.match(workflow, /github\.ref == 'refs\/heads\/main'/u);
 	assert.match(workflow, /selectDesktopNightlyTestTargets\(process\.env\.AI_ASSET_TARGETS\)/u);
 	assert.match(workflow, /target: \$\{\{ fromJSON\(needs\.asset-targets\.outputs\.targets\) \}\}/u);
-	assert.match(workflow, /node scripts\/desktop-prepare\.mjs/u);
+	assert.match(workflow, /node scripts\/prepare-assistance-runtimes\.mjs/u);
+	assert.doesNotMatch(workflow, /node scripts\/desktop-prepare\.mjs|ci-build-os-audio-codec-host/u);
 	assert.match(workflow, /npm run desktop:publish:assistance-runtimes/u);
 	assert.match(workflow, /R2_MODELS_ACCESS_KEY_ID: \$\{\{ secrets\.R2_MODELS_ACCESS_KEY_ID \}\}/u);
 	assert.match(workflow, /R2_MODELS_SECRET_ACCESS_KEY: \$\{\{ secrets\.R2_MODELS_SECRET_ACCESS_KEY \}\}/u);

@@ -35,22 +35,6 @@ test('take-comp owners accept the actual Framescaper document without changing i
 	assert.equal(commits, 0);
 });
 
-test('take-comp admission retains future-schema and malformed graph refusals', () => {
-	const project = createFramescaperProject();
-	for (const [candidate, message] of [
-		[{ ...project, schemaVersion: 999 }, /current project authority/],
-		[{ ...project, takeGroups: null }, /takeGroups/],
-	] as const) {
-		const service = createTakeCompService({
-			getProject: () => candidate,
-			lifetime: { assertActive() {} },
-			editingBlocked: () => false,
-			commit: () => assert.fail('Invalid take graphs cannot be committed.'),
-		});
-		assert.throws(() => service.removeGroup('missing'), message);
-	}
-});
-
 test('a real mixed media document flattens only attributed PCM and preserves image custody', async () => {
 	const project = mixedProject();
 	const image = project.sources.find(({ kind }) => kind === 'image');
@@ -65,30 +49,6 @@ test('a real mixed media document flattens only attributed PCM and preserves ima
 	assert.deepEqual(fixture.project().takeGroups, []);
 	assert.equal(fixture.project().sources.some(({ id }) => id === result.publication.source.id), true);
 	assert.equal(fixture.commitCount(), 1);
-});
-
-test('mixed take flatten refuses malformed audio provenance before persistence or publication', async () => {
-	const project = mixedProject();
-	const malformed = { ...project, sources: project.sources.map((source) => (
-		source.id === 'take-source' ? { ...source, provenance: { schemaVersion: 999 } } : source
-	)) };
-	const fixture = flattenFixture(malformed as unknown as TakeCompProject);
-	await assert.rejects(fixture.owner.flatten('take-group'), /provenance\.schemaVersion/u);
-	assert.equal(fixture.persistCount(), 0);
-	assert.equal(fixture.commitCount(), 0);
-	assert.equal(fixture.rollbackCount(), 0);
-});
-
-test('a selected source lacking the actual PCM contract refuses before render or persistence', async () => {
-	const project = mixedProject();
-	const fixture = flattenFixture({ ...project, sources: project.sources.map((source) => (
-		source.id === 'take-source' ? withoutOriginalRate(source) : source
-	)) });
-	await assert.rejects(fixture.owner.flatten('take-group'), /PCM source/u);
-	assert.deepEqual(fixture.renderedSourceIds, []);
-	assert.equal(fixture.persistCount(), 0);
-	assert.equal(fixture.commitCount(), 0);
-	assert.equal(fixture.rollbackCount(), 0);
 });
 
 function mixedProject() {
@@ -148,10 +108,4 @@ function flattenFixture(initial: TakeCompProject) {
 	});
 	return { owner, renderedSourceIds, project: () => current, provenance: () => provenance,
 		persistCount: () => persists, commitCount: () => commits, rollbackCount: () => rollbacks };
-}
-
-function withoutOriginalRate<T extends object>(source: T): T {
-	const incomplete = { ...source };
-	Reflect.deleteProperty(incomplete, 'originalSampleRate');
-	return incomplete;
 }

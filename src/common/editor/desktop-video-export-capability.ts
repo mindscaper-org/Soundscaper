@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { desktopCodecMessage, type DesktopCodecCopy } from './desktop-codec-presentation.ts';
 import { videoExportPlanFormat } from './video-export-request-format.ts';
 
 export type DesktopVideoExportFormat = 'mp4' | 'webm';
@@ -58,11 +59,12 @@ function normalizeFormatCapability(
 }
 
 export function desktopVideoExportCapabilityNotice(
-	formats: Readonly<Record<DesktopVideoExportFormat, DesktopVideoExportFormatCapability>>,
+	formats: Readonly<Record<DesktopVideoExportFormat, DesktopVideoExportFormatCapability>>, copy?: DesktopCodecCopy,
 ): string | null {
 	const unavailable = FORMATS.filter((format) => !formats[format].available)
 		.map((format) => format === 'mp4' ? 'MP4' : 'WebM');
 	if (unavailable.length === 0) return null;
+	if (copy) return desktopCodecMessage('codecVideoUnavailable', copy, { formats: unavailable.join(' / ') });
 	return `Desktop ${unavailable.join(' and ')} export ${unavailable.length === 1 ? 'is' : 'are'} unavailable. Manage or rescan external FFmpeg in Edit > Preferences > General.`;
 }
 
@@ -98,12 +100,12 @@ export function desktopVideoExportFormatAvailable(
 
 export function desktopVideoExportFormatReason(
 	formatValue: unknown,
-	capabilities: DesktopVideoExportCapabilities | null | undefined,
+	capabilities: DesktopVideoExportCapabilities | null | undefined, copy?: DesktopCodecCopy,
 ): string | null {
 	const format = normalizeFormat(formatValue);
 	if (format === null) return null;
 	const capability = capabilities?.formats[format] ?? unavailableCapability(format);
-	return capability.available ? null : capability.reason;
+	return capability.available ? null : copy ? desktopCodecMessage('codecVideoUnavailable', copy, { formats: format === 'mp4' ? 'MP4' : 'WebM' }) : capability.reason;
 }
 
 export async function resolveDesktopVideoExportCapabilities(

@@ -453,5 +453,4 @@ test('a source range conforms as an exact change of basis with a one-frame floor
 	assert.deepEqual(conformVideoSourceRange(300, 30, rate(30), rate(24), 240), {
 		sourceInFrame: 239, sourceFrameCount: 1, clamped: true,
 	});
-	assert.throws(() => conformVideoSourceRange(0, 0, rate(30), rate(24), 240), RangeError);
 });

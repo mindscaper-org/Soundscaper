@@ -4,6 +4,7 @@
 
 import { createHash } from 'node:crypto';
 import { isAbsolute, join } from 'node:path';
+import { DesktopCodecOperationQueue } from './desktop-codec-operation-queue.ts';
 
 import {
 	BUNDLED_AUDIO_CODEC_IDS,
@@ -131,7 +132,7 @@ export function createBundledAudioCodecOperationRunner(options: Readonly<{
 	const maximumActiveJobs = integer(
 		options.maximumActiveJobs ?? DEFAULT_ACTIVE_JOBS, 1, MAXIMUM_ACTIVE_JOBS, 'active job count',
 	);
-	let activeJobs = 0;
+	const jobs = new DesktopCodecOperationQueue(maximumActiveJobs);
 
 	async function run(
 		phase: JobPhase,
@@ -146,27 +147,20 @@ export function createBundledAudioCodecOperationRunner(options: Readonly<{
 		catch { return failure(phase, 'security-failed', 'The isolated bundled codec request is invalid.'); }
 		const signal = executionSignal(executionOptions?.signal);
 		if (signal?.aborted) return failure(phase, 'cancelled', DETAILS.cancelled);
-		if (activeJobs >= maximumActiveJobs) return failure(phase, 'unavailable', DETAILS.busy);
-		activeJobs += 1;
-		try {
-			return await runActive({
-				phase, codec, request, operation, signal, target: options.target,
-				scratchRoot: options.scratchRoot, verifyPayload: options.verifyPayload,
-				spawn: options.spawn, maximumDurationMs, killWaitMs,
-			});
-		} finally { activeJobs -= 1; }
+		return jobs.run(() => runActive({
+			phase, codec, request, operation, signal, target: options.target,
+			scratchRoot: options.scratchRoot, verifyPayload: options.verifyPayload,
+			spawn: options.spawn, maximumDurationMs, killWaitMs,
+		}), { signal, refused: (reason) => failure(phase,
+			reason === 'cancelled' ? 'cancelled' : 'unavailable', DETAILS[reason]) });
 	}
 
 	async function canary(codecValue: BundledAudioCodecId): Promise<boolean> {
 		const codec = codecId(codecValue);
-		if (activeJobs >= maximumActiveJobs) return false;
-		activeJobs += 1;
-		try {
-			return await runCanary({
-				codec, target: options.target, verifyPayload: options.verifyPayload, spawn: options.spawn,
-				maximumDurationMs: canaryDurationMs, killWaitMs,
-			});
-		} finally { activeJobs -= 1; }
+		return jobs.run(() => runCanary({
+			codec, target: options.target, verifyPayload: options.verifyPayload, spawn: options.spawn,
+			maximumDurationMs: canaryDurationMs, killWaitMs,
+		}), { refused: () => false });
 	}
 
 	return Object.freeze({

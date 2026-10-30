@@ -123,7 +123,7 @@ async function createCandidate(root: string, resultRoot: string, sourceRevision:
 		buildResultRoot: resultRoot, sourceRevision, buildPlanSha256: 'a'.repeat(64),
 		toolchainReceipt, toolchainIdentity: soundscaperProfessionalNativeToolchainIdentity(toolchainReceipt),
 		sourceAuthentication: { schemaVersion: 1, status: 'authenticated', sources: sourceRegister.sources
-			.filter(({ id }) => !['asio-sdk', 'x264', 'x265', 'libvpx', 'libopus', 'zlib'].includes(id))
+			.filter(({ id }) => !['asio-sdk', 'x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib'].includes(id))
 			.map((source) => ({ id: source.id, authenticationStatus: 'authenticated',
 				archiveEvidence: { byteLength: source.archive.byteLength, sha256: source.archive.sha256 },
 				extractedTreeEvidence: source.extractedTree })) },

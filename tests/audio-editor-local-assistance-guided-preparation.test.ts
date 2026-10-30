@@ -403,7 +403,7 @@ test('Guided Reframe prepares both visual model stages through selected-video fr
 		sources: [{ id: 'video-source', kind: 'video', contentSha256: SOURCE_SHA256 }],
 		clips: [{ id: 'video-clip', kind: 'video', sourceId: 'video-source',
 			sequenceId: 'main-sequence', avLinkId: null, reversed: false, speedRatio: 1 }] };
-	const operations: string[] = [];
+	const operations: { operation: string; publicationTarget: unknown }[] = [];
 	const preparation = createLocalAssistanceGuidedWorkflowPreparation({
 		getProject: () => videoProject, getSelectedClipId: () => 'video-clip',
 		captureProject: () => ({ revision: 4 }), assertProject: () => undefined,
@@ -411,8 +411,8 @@ test('Guided Reframe prepares both visual model stages through selected-video fr
 		selected: {
 			listSelectedMedia: async () => ({ sources: [{ sourceId: 'video-source', label: 'Video',
 				mediaKind: 'video', operations: ['subject-detection', 'saliency-detection'] }] }),
-			prepareSelectedMedia: async ({ operation }) => {
-				operations.push(operation);
+			prepareSelectedMedia: async ({ operation, publicationTarget }) => {
+				operations.push({ operation, publicationTarget });
 				return { sourceId: 'video-source', operation, selectionFence: videoFence,
 					inputs: [1, 2].map((ordinal) => ({ role: 'frame-pack',
 						mediaType: 'application/vnd.soundscaper.frame-pack',
@@ -429,7 +429,7 @@ test('Guided Reframe prepares both visual model stages through selected-video fr
 		], custody: fixture.custody, signal: new AbortController().signal });
 	assert.equal(result.outcome, 'prepared');
 	if (result.outcome !== 'prepared') return;
-	assert.deepEqual(operations, ['subject-detection', 'saliency-detection']);
+	assert.deepEqual(operations, ['subject-detection', 'saliency-detection'].map(operation => ({ operation, publicationTarget: 'reframe' })));
 	assert.deepEqual(result.workflow.inputs.filter(({ slotId }) => slotId === 'frame-pack')
 		.map(({ stageId }) => stageId), [
 			'detect-subjects', 'detect-subjects', 'detect-saliency', 'detect-saliency',

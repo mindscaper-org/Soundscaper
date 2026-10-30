@@ -46,6 +46,9 @@ Choose **Cancel** beside the bar to stop an import or audio export.
 - Adobe Audition SESX (`.sesx`) can be opened in the desktop edition to create
   a local project from its referenced audio files. Keep the original session
   and media; SESX export is not available.
+- Legacy Cool Edit / Audition SES (`.ses`) can also be opened in the desktop
+  edition for supported audio arrangements. Review **File → Delivery Report**
+  for unsupported settings and missing media. SES export is not available.
 
 See [Project files](/projects-and-data/project-files/) for the consequences of
 each choice.

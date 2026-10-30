@@ -10,9 +10,10 @@ export function assertCameraAudioDurationChange(
 	clip: ClipTransformClip,
 	durationFrames: number,
 	copy: object,
+	videoLinks?: ReadonlySet<string>,
 ): void {
 	if (durationFrames === clip.durationFrames || !clip.avLinkId) return;
-	if (project.clips.some(peer => peer.kind === 'video' && peer.avLinkId === clip.avLinkId)) {
+	if (videoLinks ? videoLinks.has(clip.avLinkId) : project.clips.some(peer => peer.kind === 'video' && peer.avLinkId === clip.avLinkId)) {
 		throw createLocalizedError(RangeError, copy, 'clipLinkedAudioDurationRequiresUnlink');
 	}
 }

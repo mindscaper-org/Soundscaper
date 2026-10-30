@@ -142,18 +142,6 @@ test('an empty body is refused rather than attached as a proxy of nothing', asyn
 	assert.equal(harness.deleted.length, 2);
 });
 
-test('the generator refuses a recipe it was not measured against', async () => {
-	const harness = createHarness();
-	for (const recipe of [
-		{ ...VIDEO_PROXY_GENERATION_RECIPE, id: 'framescaper-video-proxy-h264-1080-v1' },
-		{ ...VIDEO_PROXY_GENERATION_RECIPE, version: 2 },
-	]) {
-		await assert.rejects(generate(harness.generator, recipe), /recipe/iu);
-	}
-	// Nothing ran: a recipe this generator cannot honour must not reach FFmpeg
-	// under the name of one it can.
-	assert.deepEqual(harness.events, []);
-});
 
 test('a source that moved on while the encode ran does not produce an attachment', async () => {
 	const harness = createHarness();

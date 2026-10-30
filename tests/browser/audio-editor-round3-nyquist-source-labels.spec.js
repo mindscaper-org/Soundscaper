@@ -2,17 +2,14 @@
 
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseCommandAction, clipByName, importFiles, openClipProperties, openSourceMonitor } from './audio-editor-test-helpers.js';
+import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
 test('Nyquist labels from a source selection retain its clip placement', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [toneA]);
 	const panel = await openClipProperties(page, editor, clipByName(editor, toneA.name));
 	await showClipTimingFields(panel);
-	const start = panel.locator('[data-clip-field="startFrame"]');
-	await start.locator('.timecode-digit').first().click();
-	await page.keyboard.type('000001000');
-	await page.keyboard.press('Enter');
-	await expect(start.locator('.timecode__display')).toHaveText('00h00m01.000s');
+	await setClipTimeFrames(panel, 'startFrame', 48_000);
 	const sourceMonitor = await openSourceMonitor(page, editor);
 	const waveform = sourceMonitor.getByRole('region', { name: 'Source waveform', exact: true });
 	await waveform.focus();

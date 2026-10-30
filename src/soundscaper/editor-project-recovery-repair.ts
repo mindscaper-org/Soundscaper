@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { ProjectRecoveryReasonCode } from '../common/editor/project-recovery-reason.ts';
 import { validatePersistedAudioEffects } from '../common/editor/persisted-audio-effect-validation.ts';
 import { serializeScapeProjectDocument } from '../common/editor/scape-project-document.ts';
 import { sameProjectSnapshot } from '../common/editor/storage/project-snapshot-equality.ts';
@@ -29,7 +30,7 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 	const raw = structuredClone(original);
 	if (typeof raw.id !== 'string' || !raw.id.trim()) throw new Error('The damaged project has no recoverable identity.');
 	const changes: SoundscaperProjectRecoveryChange[] = [];
-	const note = (path: string, reason: string): void => { changes.push({ path, reason }); };
+	const note = (path: string, reason: string, reasonCode: ProjectRecoveryReasonCode = 'data-reset'): void => { changes.push({ path, reason, reasonCode }); };
 	const available = new Set<string>();
 	raw.sources = values(raw.sources).filter((source, index) => {
 		const candidate = record(source);
@@ -37,22 +38,22 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 		if (typeof sourceId === 'string' && availableSourceIds.has(sourceId)) {
 			if (candidate?.kind === 'audio' && (typeof candidate.name !== 'string' || !candidate.name.trim())) {
 				candidate.name = sourceId;
-				note(`sources[${String(index)}].name`, 'Reset an invalid media name; verified audio remains available.');
+				note(`sources[${String(index)}].name`, 'Reset an invalid media name; verified audio remains available.', 'media-name-reset');
 			}
 			available.add(sourceId); return true;
 		}
-		note(`sources[${String(index)}]`, 'Removed media that is missing or unreadable.');
+		note(`sources[${String(index)}]`, 'Removed media that is missing or unreadable.', 'media-unavailable');
 		return false;
 	});
 	raw.clips = values(raw.clips).filter((clip, index) => {
 		if (available.has(String(record(clip)?.sourceId))) return true;
-		note(`clips[${String(index)}]`, 'Removed a clip whose media is unavailable.');
+		note(`clips[${String(index)}]`, 'Removed a clip whose media is unavailable.', 'clip-media-unavailable');
 		return false;
 	});
 	const bin = record(raw.projectBin);
 	if (bin) raw.projectBin = { ...bin, clips: values(bin.clips).filter((clip, index) => {
 		if (available.has(String(record(clip)?.sourceId))) return true;
-		note(`projectBin.clips[${String(index)}]`, 'Removed a bin clip whose media is unavailable.');
+		note(`projectBin.clips[${String(index)}]`, 'Removed a bin clip whose media is unavailable.', 'bin-media-unavailable');
 		return false;
 	}) };
 	raw.takeGroups = repairTakeMedia(raw.takeGroups, available, note);
@@ -117,7 +118,7 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 	attempt('sequences', (draft) => { draft.sequences = sequences; draft.primarySequenceId = raw.primarySequenceId; });
 	for (const [index, value] of values(raw.tracks).entries()) {
 		const track = record(value);
-		if (!track) { note(`tracks[${String(index)}]`, 'Removed an invalid track.'); continue; }
+		if (!track) { note(`tracks[${String(index)}]`, 'Removed an invalid track.', 'track-removed'); continue; }
 		const candidate = { ...track };
 		if (Object.hasOwn(candidate, 'clipIds')) candidate.clipIds = [];
 		delete candidate.audioFreeze;
@@ -242,15 +243,15 @@ function reconcileRequirements(draft: RecordValue): void {
 	draft.featureRequirements = reconcileSoundscaperProjectFeatureRequirements(draft,
 		reconcileProjectOwnedFeatureRequirements(draft, normalizeProjectFeatureRequirements(draft.featureRequirements ?? empty, { ...draft, sources: values(draft.sources) as RecordValue[], clips: values(draft.clips) as RecordValue[], tracks: values(draft.tracks) as RecordValue[] })));
 }
-function repairEffects(value: unknown, path: string, note: (path: string, reason: string) => void): unknown[] {
+function repairEffects(value: unknown, path: string, note: (path: string, reason: string, reasonCode?: ProjectRecoveryReasonCode) => void): unknown[] {
 	const result: unknown[] = [];
 	for (const [index, effect] of values(value).entries()) {
 		try { validatePersistedAudioEffects([...result, effect], path); result.push(effect); }
-		catch (error) { note(`${path}[${String(index)}]`, `Removed an invalid effect: ${error instanceof Error ? error.message : String(error)}`); }
+		catch (error) { note(`${path}[${String(index)}]`, `Removed an invalid effect: ${error instanceof Error ? error.message : String(error)}`, 'effect-removed'); }
 	}
 	return result;
 }
-function repairTakeMedia(value: unknown, available: ReadonlySet<string>, note: (path: string, reason: string) => void): unknown[] {
+function repairTakeMedia(value: unknown, available: ReadonlySet<string>, note: (path: string, reason: string, reasonCode?: ProjectRecoveryReasonCode) => void): unknown[] {
 	return values(value).flatMap((value, groupIndex) => {
 		const group = record(value);
 		if (!group || !Array.isArray(group.takes)) return [value];
@@ -262,7 +263,7 @@ function repairTakeMedia(value: unknown, available: ReadonlySet<string>, note: (
 			if (typeof take?.sourceId !== 'string' || available.has(take.sourceId)) return true;
 			if (typeof take.id === 'string') removedIds.add(take.id);
 			if (typeof take.laneId === 'string') removedLanes.add(take.laneId);
-			note(`takeGroups[${String(groupIndex)}].takes[${String(index)}]`, 'Removed a take whose media is unavailable.');
+			note(`takeGroups[${String(groupIndex)}].takes[${String(index)}]`, 'Removed a take whose media is unavailable.', 'take-media-unavailable');
 			return false;
 		});
 		if (takes.length === originalTakes.length) return [value];
@@ -278,7 +279,7 @@ function repairTakeMedia(value: unknown, available: ReadonlySet<string>, note: (
 function report(original: RecordValue, project: SoundscaperProject, changes: SoundscaperProjectRecoveryChange[]): SoundscaperProjectRepair {
 	for (const key of Object.keys(original)) {
 		if (!sameProjectSnapshot(original[key], project[key]) && !changes.some(({ path }) => path === key || path.startsWith(`${key}[`))) {
-			changes.push({ path: key, reason: 'Rebuilt or reset damaged data and references.' });
+			changes.push({ path: key, reason: 'Rebuilt or reset damaged data and references.', reasonCode: 'references-reset' });
 		}
 	}
 	return { project, changes: Object.freeze(changes.map((change) => Object.freeze(change))) };

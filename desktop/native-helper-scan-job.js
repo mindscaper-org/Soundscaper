@@ -16,6 +16,8 @@
  * containment authority; distribution metadata does not grant execution.
  */
 
+import { HELPER_CONTRACT_VERSION, HELPER_JOB_ID_LENGTH, MAXIMUM_HELPER_WIRE_MESSAGE_BYTES, MAXIMUM_PLUGIN_SCAN_ENTRIES } from '#desktop-runtime/helper-contract';
+
 /** Closed format-to-candidate mapping; the verified payload declares its subset. */
 export const SCANNABLE_PLUGIN_FORMATS = Object.freeze({
 	fixture: Object.freeze({ darwin: ['.scapefx'], linux: ['.scapefx'], win32: ['.scapefx'] }),
@@ -28,7 +30,13 @@ export const SCANNABLE_PLUGIN_FORMATS = Object.freeze({
 });
 
 export const MAXIMUM_SCAN_ENTRIES = 512;
-const MAXIMUM_VAMP_RESULT_BYTES = 15 * 1_024 * 1_024;
+function fitsResultEnvelope(result) {
+	// Reserve the complete terminal wrapper and the admitted detail field, not
+	// just the variable descriptor payload. The real job ID has this fixed size.
+	return Buffer.byteLength(JSON.stringify({ contractVersion: HELPER_CONTRACT_VERSION,
+		type: 'result', jobId: '0'.repeat(HELPER_JOB_ID_LENGTH), result: { ...result, detail: 'x'.repeat(1_024) },
+	})) <= MAXIMUM_HELPER_WIRE_MESSAGE_BYTES;
+}
 
 export function createNativePluginScanJobRunner({
 	loadAddon, addonPath, addonSha256, hashFile, platform = process.platform, architecture = process.arch,
@@ -84,8 +92,12 @@ export function createNativePluginScanJobRunner({
 					identity: digest.identity, byteLength: digest.byteLength, sha256: digest.sha256, resourcePolicy,
 				}), digest);
 				for (const inspection of inspections) {
-					if (entries.length >= MAXIMUM_SCAN_ENTRIES) { entryBudgetExhausted = true; break; }
-					entries.push(describeEntry(path, digest, inspection));
+					const entry = describeEntry(path, digest, inspection);
+					if (entries.length >= MAXIMUM_PLUGIN_SCAN_ENTRIES
+						|| !fitsResultEnvelope({ format, status: 'root-oversized', entries: [...entries, entry] })) {
+						entryBudgetExhausted = true; break;
+					}
+					entries.push(entry);
 				}
 				if (entryBudgetExhausted) break;
 				await new Promise((resolve) => { setTimeout(resolve, 0); });
@@ -95,7 +107,7 @@ export function createNativePluginScanJobRunner({
 				format,
 				status: oversized ? 'root-oversized' : 'scanned',
 				detail: oversized
-					? `Only the first ${String(MAXIMUM_SCAN_ENTRIES)} descriptors were inspected.`
+					? `Only the first ${String(entries.length)} descriptors fit one scan result.`
 					: '',
 				entries: Object.freeze(entries),
 			});
@@ -120,7 +132,6 @@ async function scanVampLibraries({
 	}
 	const libraries = [];
 	let skipped = 0;
-	let resultBytes = 0;
 	let oversized = candidates.length > MAXIMUM_SCAN_ENTRIES;
 	const inspected = candidates.slice(0, MAXIMUM_SCAN_ENTRIES);
 	for (const [index, path] of inspected.entries()) {
@@ -145,12 +156,12 @@ async function scanVampLibraries({
 			platform, architecture, compatibility: 'compatible',
 			descriptors: Object.freeze([...descriptors]),
 		});
-		const observationBytes = Buffer.byteLength(JSON.stringify(observation));
-		if (observationBytes > MAXIMUM_VAMP_RESULT_BYTES - resultBytes) {
+		// A digest authenticates the complete library catalog; splitting its
+		// descriptors would look like an identity change on the next scan.
+		if (!fitsResultEnvelope({ format: 'vamp', status: 'root-oversized', libraries: [...libraries, observation] })) {
 			oversized = true;
 			break;
 		}
-		resultBytes += observationBytes;
 		libraries.push(observation);
 		await new Promise((resolve) => { setTimeout(resolve, 0); });
 	}

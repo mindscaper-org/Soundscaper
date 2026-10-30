@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { EditorComponentCopyProvider } from '../EditorComponentCopyProvider.tsx';
 
 /**
  * The one surface behind every milestone-5A native menu entry.
@@ -51,16 +52,18 @@ export interface SoundscaperNativeServicesDialogProps {
 	readonly initialState?: SoundscaperNativeServicesDialogState;
 	readonly runtime?: SoundscaperNativeServicesDialogRuntime;
 	readonly copy?: Readonly<Record<string, string | undefined>>;
+	readonly locale?: string;
 	readonly vampAnalyzerInput?: Readonly<SoundscaperVampAnalyzerSurfaceInput> | null;
 	readonly onClose: () => void;
 }
 
 export default function SoundscaperNativeServicesDialog(props: SoundscaperNativeServicesDialogProps) {
-	if (props.initialSurface === 'native-analyzer-use') return props.vampAnalyzerInput === null
-		|| props.vampAnalyzerInput === undefined ? null : <React.Suspense fallback={null}>
-			<SoundscaperVampAnalyzerSurface input={props.vampAnalyzerInput} onClose={props.onClose} />
-		</React.Suspense>;
-	return <NativeProcessingTheme><NativeServicesDialog {...props} /></NativeProcessingTheme>;
+	const content = props.initialSurface === 'native-analyzer-use'
+		? (props.vampAnalyzerInput == null ? null : <React.Suspense fallback={null}>
+			<SoundscaperVampAnalyzerSurface input={props.vampAnalyzerInput} copy={props.copy} onClose={props.onClose} />
+		</React.Suspense>)
+		: <NativeProcessingTheme><NativeServicesDialog {...props} /></NativeProcessingTheme>;
+	return <EditorComponentCopyProvider copy={props.copy ?? {}} locale={props.locale ?? 'en'}>{content}</EditorComponentCopyProvider>;
 }
 
 function NativeServicesDialog({

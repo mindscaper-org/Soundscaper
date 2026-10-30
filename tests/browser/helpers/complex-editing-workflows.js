@@ -11,10 +11,12 @@ import {
 	closeClipProperties, closeDialog,
 	commitInput,
 	openClipProperties,
+	showClipTimingFields,
 	openEffectsForTrack,
 } from '../audio-editor-test-helpers.js';
-import { expectClipMediaSettingChecked, openClipMediaSettings, setClipGain } from '../audio-editor-clip-settings-test-helpers.js';
+import { chooseClipMediaSetting, expectClipMediaSettingChecked, setClipGain } from '../audio-editor-clip-settings-test-helpers.js';
 import { SOUNDSCAPER_DATABASE_NAME } from './editor-databases.js';
+import { readClipTimeFrames, setClipTimeFrames } from '../audio-editor-clip-timing-test-helpers.js';
 import { chooseTrackMenuAction } from './track-menu.js';
 
 export const selectionEffects = Object.freeze({
@@ -93,13 +95,16 @@ export async function installOscillatorMicrophone(page) {
 
 export async function editClipProperties(page, editor, clip, edits) {
 	const dialog = await openClipProperties(page, editor, clip);
+	await showClipTimingFields(dialog);
 	for (const [field, value] of Object.entries(edits)) {
 		if (value === undefined) continue;
+		if (['startFrame', 'durationFrame', 'sourceInFrame', 'fadeInFrame', 'fadeOutFrame'].includes(field)) {
+			await setClipTimeFrames(dialog, field, value);
+			continue;
+		}
 		if (field === 'stretchToTempo') {
-			const menu = await openClipMediaSettings(dialog);
-			const toggle = menu.getByRole('menuitemcheckbox', { name: 'Stretch with project tempo changes', exact: true });
-			if ((await toggle.getAttribute('aria-checked')) !== String(Boolean(value))) await toggle.click();
-			else await menu.press('Escape');
+			const toggle = dialog.getByRole('switch', { name: 'Stretch with project tempo changes', exact: true });
+			if ((await toggle.getAttribute('aria-checked')) !== String(Boolean(value))) await chooseClipMediaSetting(dialog, 'Stretch with project tempo changes');
 			await expectClipMediaSettingChecked(dialog, 'Stretch with project tempo changes', Boolean(value));
 			continue;
 		}
@@ -175,7 +180,7 @@ export async function duplicateClip(page, editor, clip) {
 
 export async function clipDurationFrames(page, editor, clip) {
 	const dialog = await openClipProperties(page, editor, clip);
-	const duration = Number(await clipField(dialog, 'durationFrame').inputValue());
+	const duration = await readClipTimeFrames(dialog, 'durationFrame');
 	await closeClipProperties(dialog);
 	return duration;
 }

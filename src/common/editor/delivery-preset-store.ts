@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { fileValidationFailure as failure } from './file-validation-failure.ts';
 import { type DeliveryPreset, DeliveryPresetError, validateDeliveryPreset } from './delivery-preset.ts';
 
 /**
@@ -113,12 +114,16 @@ export function importDeliveryPresets(state: unknown, input: unknown, options: {
 	try {
 		parsed = typeof input === 'string' ? JSON.parse(input) : input;
 	} catch (cause) {
-		throw new SyntaxError(
+		throw failure(new SyntaxError(
 			`Invalid delivery preset JSON: ${cause instanceof Error ? cause.message : String(cause)}`,
-		);
+		), 'export-preset', 'json', 'exportPresetJson');
 	}
-	const imported = createDeliveryPresetState(parsed).presets;
-	if (!imported.length) throw new RangeError('The delivery preset file is empty.');
+	let imported: readonly DeliveryPreset[];
+	try { imported = createDeliveryPresetState(parsed).presets; } catch (error) {
+		if (!(error instanceof Error)) throw error;
+		throw failure(error, 'export-preset', 'schema-settings', 'exportPresetInvalid');
+	}
+	if (!imported.length) throw failure(new RangeError('The delivery preset file is empty.'), 'export-preset', 'empty', 'exportPresetEmpty');
 	const byId = new Map(current.presets.map((preset) => [preset.id, preset]));
 	for (const preset of imported) {
 		let id = preset.id;

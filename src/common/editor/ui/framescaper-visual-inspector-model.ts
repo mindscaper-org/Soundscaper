@@ -86,6 +86,7 @@ export function createFramescaperVisualInspectorModel(input: Readonly<{
 	if (presentations.length > 1) throw new RangeError('The selected visual has ambiguous clip presentations.');
 	const presentation = presentations[0] ?? null;
 	const masks = supportedMasks(project);
+	const maskWidths = new Map(masks.map(graph => [graph.id, maskWidth(graph)]));
 	const maskId = presentation?.maskMatteIds[0] ?? null;
 	return Object.freeze({
 		clipId: clip.id,
@@ -97,8 +98,8 @@ export function createFramescaperVisualInspectorModel(input: Readonly<{
 		opacity: presentation?.opacity ?? 1,
 		blendMode: presentation?.blendMode ?? 'normal',
 		maskId,
-		maskWidth: maskId === null ? 1 : maskWidth(project, maskId),
-		masks: Object.freeze(masks.map(({ id }) => Object.freeze({ id, name: id, width: maskWidth(project, id) }))),
+		maskWidth: maskId === null ? 1 : maskWidths.get(maskId) ?? 1,
+		masks: Object.freeze(masks.map(({ id }) => Object.freeze({ id, name: id, width: maskWidths.get(id) ?? 1 }))),
 		presets: boundGeneratorPresets(project),
 	});
 }
@@ -162,11 +163,12 @@ export function createFramescaperVisualInspectorCommand(
 }
 
 function emptyModel(project: Data): FramescaperVisualInspectorModel {
+	const masks = supportedMasks(project);
 	return Object.freeze({
 		clipId: null, sourceId: null, kind: null, generator: null, generatorEditable: false,
 		audioSources: Object.freeze([]),
 		opacity: 1, blendMode: 'normal', maskId: null, maskWidth: 1,
-		masks: Object.freeze(supportedMasks(project).map(({ id }) => Object.freeze({ id, name: id, width: maskWidth(project, id) }))),
+		masks: Object.freeze(masks.map(graph => Object.freeze({ id: graph.id, name: graph.id, width: maskWidth(graph) }))),
 		presets: boundGeneratorPresets(project),
 	});
 }
@@ -182,14 +184,15 @@ function projectRecord(value: unknown): Data {
 }
 
 function boundGeneratorPresets(project: Data): readonly FramescaperVisualInspectorPreset[] {
+	const presets = records(project.videoVisualPresets, 'visual presets').map(normalizeVideoVisualPresetV1)
+		.filter(preset => preset.modelKind === 'generator');
+	if (!presets.length) return Object.freeze([]);
 	const sources = records(project.sources, 'project sources').filter(({ kind }) => kind === 'generator')
 		.map(normalizeVideoGeneratorSourceV1);
-	return Object.freeze(records(project.videoVisualPresets, 'visual presets').flatMap((value) => {
-		const preset = normalizeVideoVisualPresetV1(value);
-		if (preset.modelKind !== 'generator') return [];
-		const source = sources.find((candidate) => (
-			fingerprintNativeMediaPlan(candidate).sha256 === preset.authoredStateSha256
-		));
+	const sourcesByHash = new Map<string, (typeof sources)[number]>();
+	for (const source of sources) { const hash = fingerprintNativeMediaPlan(source).sha256; if (!sourcesByHash.has(hash)) sourcesByHash.set(hash, source); }
+	return Object.freeze(presets.flatMap(preset => {
+		const source = sourcesByHash.get(preset.authoredStateSha256);
 		return source ? [Object.freeze({ id: preset.id, name: preset.name, generator: source.generator })] : [];
 	}));
 }
@@ -221,8 +224,7 @@ function resizeMask(graph: ReturnType<typeof normalizeVideoMaskMatteGraphV1>, wi
 	});
 }
 
-function maskWidth(project: Data, maskId: string): number {
-	const graph = supportedMasks(project).find(({ id }) => id === maskId);
+function maskWidth(graph: ReturnType<typeof normalizeVideoMaskMatteGraphV1> | undefined): number {
 	const output = graph?.nodes.find(({ id }) => id === graph.outputNodeId);
 	return output?.kind === 'vector-shape' ? output.width : 1;
 }

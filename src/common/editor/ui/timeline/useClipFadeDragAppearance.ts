@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { registerClipFadeGesturePresentation, type CapturedClipFadeGesture } from './clip-fade-gesture-presentation.ts';
 
 interface Drag {
 	readonly pointerId: number;
@@ -18,6 +19,18 @@ export function useClipFadeDragAppearance(blocked: boolean) {
 		current.current = null;
 		setDrag(null);
 	}, []);
+	const bind = useCallback((owner: HTMLDivElement | null) => {
+		if (!owner) return;
+		const unregister = registerClipFadeGesturePresentation(owner, (next: CapturedClipFadeGesture) => {
+			if (blocked || current.current) return;
+			current.current = next;
+			setDrag(next);
+		});
+		return () => {
+			unregister();
+			if (current.current && owner.contains(current.current.target)) clear();
+		};
+	}, [blocked, clear]);
 	useEffect(() => {
 		if (!drag) return;
 		const document = drag.target.ownerDocument;
@@ -46,5 +59,5 @@ export function useClipFadeDragAppearance(blocked: boolean) {
 		current.current = next;
 		setDrag(next);
 	};
-	return { drag, start };
+	return { drag, start, bind };
 }

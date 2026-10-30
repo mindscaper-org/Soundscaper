@@ -11,6 +11,8 @@ import type { TextToSpeechProjectPort } from '../dialogs/text-to-speech-port-run
 
 const LocalModelManagerDialog = lazyEditorModule(() => import('../dialogs/LocalModelManagerDialog.tsx'));
 const LocalAssistanceDialog = lazyEditorModule(() => import('../dialogs/LocalAssistanceDialogSurface.tsx'));
+const CorridorKeyDialog = typeof __SCAPE_PRODUCT__ === 'undefined' || __SCAPE_PRODUCT__ === 'framescaper'
+	? lazyEditorModule(() => import('../dialogs/CorridorKeyDialog.tsx')) : null;
 const TextToSpeechDialog = lazyEditorModule(() => import('../dialogs/TextToSpeechDialogSurface.tsx'));
 
 export default function LocalProcessingOverlays({ activeSurface, fileService, capabilities, snapshot, controller,
@@ -38,6 +40,9 @@ export default function LocalProcessingOverlays({ activeSurface, fileService, ca
 	return <AudioEditorListeningGainContext.Provider value={snapshot.audioDevices?.playbackGain ?? 1}>
 		<AudioEditorListeningOutputDeviceContext.Provider value={snapshot.audioDevices?.preferredOutputDeviceId ?? ''}>
 		<Suspense fallback={<AssistanceLoadingDialog title={title} copy={copy} onClose={close} />}>
+		{activeSurface === 'corridorkey-2.0' && capabilities.assistanceAssets && CorridorKeyDialog &&
+			<div data-editor-surface="corridorkey-2.0"><CorridorKeyDialog bridgeScope={fileService.bridge}
+				controller={controller} copy={copy} locale={locale} onClose={close} /></div>}
 		{activeSurface === 'local-models' && <div data-editor-surface="local-models">
 			<LocalModelManagerDialog bridge={resolveLocalModelManagerBridge(fileService.bridge)}
 				copy={copy} locale={locale} onClose={close} />

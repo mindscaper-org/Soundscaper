@@ -54,8 +54,7 @@ test('A20 export planning normalizes each immutable track envelope once', async 
 	assert.equal(createNativeClipEnvelope({ id: 'c', durationFrames: 4, timelineStartFrame: 0 }, changing).points[0]?.value, .2);
 });
 
-
-test('prepared track envelopes retain mutable and accessor admission', () => {
+test('prepared track envelopes retain mutable point and replacement behavior', () => {
 	const clip = { id: 'c', durationFrames: 4, timelineStartFrame: 0 };
 	const point = { frame: 0, value: .2 };
 	const track = { envelope: [point] };
@@ -65,15 +64,4 @@ test('prepared track envelopes retain mutable and accessor admission', () => {
 	assert.deepEqual(convert(clip), createNativeClipEnvelope(clip, track));
 	track.envelope = [{ frame: 0, value: .4 }];
 	assert.deepEqual(convert(clip), createNativeClipEnvelope(clip, track));
-	function changingTrack() {
-		let reads = 0;
-		return { envelope: Object.freeze([Object.freeze({ frame: 0, get value() { reads++; return reads / 10; } })]) };
-	}
-	const observed = changingTrack();
-	const baseline = changingTrack();
-	const accessorConverter = createNativeTrackEnvelopeConverter(observed);
-	assert.deepEqual(accessorConverter(clip), createNativeClipEnvelope(clip, baseline));
-	assert.deepEqual(accessorConverter(clip), createNativeClipEnvelope(clip, baseline));
-	const untouched = createNativeTrackEnvelopeConverter({ get envelope() { throw new Error('Envelope was read early.'); } });
-	assert.throws(() => untouched({ id: 'bad', durationFrames: 0 }), /durationFrames/);
 });

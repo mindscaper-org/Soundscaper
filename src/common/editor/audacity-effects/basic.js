@@ -40,6 +40,7 @@ import {
 } from './basic-channel-math.js';
 import { integratedLoudnessPower, normalizeRms } from './basic-loudness.js';
 import { ebuChannelWeights } from '../ebu-r128.js';
+import { renderDisjointTruncateSilence } from './truncate-silence-cuts.ts';
 
 const TRUNCATE_BLEND_FRAMES = 100;
 
@@ -381,6 +382,8 @@ export function applyAudacityTruncateSilence(
 
 function truncateSilenceChannels(channels, sampleRate, settings, threshold, minimumFrames) {
 	const regions = findLinkedSilentRegions(channels, threshold, minimumFrames);
+	const disjoint = renderDisjointTruncateSilence(channels, regions, sampleRate, settings, minimumFrames, TRUNCATE_BLEND_FRAMES);
+	if (disjoint) return disjoint;
 	let output = cloneChannels(channels);
 
 	for (let regionIndex = regions.length - 1; regionIndex >= 0; regionIndex -= 1) {

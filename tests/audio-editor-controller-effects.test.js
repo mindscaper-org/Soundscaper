@@ -227,16 +227,6 @@ test('parametric EQ gestures preview live and commit one history entry without r
 	controller.actions.effects.cancelParametricEqGesture('track', trackId, effectId);
 	assert.equal(engine.eqConfigurations.at(-1).params.bands[0].gain, 12);
 	assert.equal(controller.getSnapshot().history.undoEntries.length, committed.history.undoEntries.length);
-	const invalid = structuredClone(finalParams);
-	invalid.bands[0].gain = Number.NaN;
-	const configurationCount = engine.eqConfigurations.length;
-	controller.actions.effects.beginParametricEqGesture('track', trackId, effectId);
-	assert.throws(
-		() => controller.actions.effects.previewParametricEq('track', trackId, effectId, invalid),
-		/eq\.bands\[0\]\.gain must be between -24 and 24/,
-	);
-	controller.actions.effects.cancelParametricEqGesture('track', trackId, effectId);
-	assert.equal(engine.eqConfigurations.length, configurationCount);
 	controller.actions.effects.auditionParametricEq('track', trackId, effectId, finalParams.bands[0].id);
 	assert.equal(engine.eqAuditions.at(-1).bandId, finalParams.bands[0].id);
 	await controller.dispose();

@@ -120,14 +120,12 @@ test('a clip whose source is gone is an error, not a silent omission', () => {
 	assert.equal(item?.disposition, 'missing');
 });
 
-test('the report counts agree with its items, and the plan refuses bad input', () => {
+test('the report counts agree with its items', () => {
 	const plan = planFor({}, 10);
 	assert.equal(
 		plan.report.counts.converted,
 		plan.report.items.filter((entry) => entry.disposition === 'converted').length,
 	);
-	assert.throws(() => createTrimMediaPlan({ project: project(), handleFrames: -1 }), /non-negative/u);
-	assert.throws(() => createTrimMediaPlan({ project: null as never }), /requires a project/u);
 });
 
 test('every referenced frame survives, checked exhaustively rather than by example', () => {

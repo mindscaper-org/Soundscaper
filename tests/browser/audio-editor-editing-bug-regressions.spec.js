@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { expectClipTimeFrames, setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { expect, test, toneA, toneB, monoTone, createWavFixture } from './audio-editor-test-fixtures.js';
 import { chooseClipMediaSetting, expectClipGain } from './audio-editor-clip-settings-test-helpers.js';
 import { showClipTimingFields,
 	bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, importFiles, registerAudioEditorHooks, showToolbarButton,
-	openClipProperties, clipField, closeClipProperties,
+	openClipProperties, closeClipProperties,
 } from './audio-editor-test-helpers.js';
 
 test.describe('ordinary editing regression workflows', () => {
@@ -45,8 +46,7 @@ test.describe('ordinary editing regression workflows', () => {
 		for (const [index, frame] of [[1, '24000'], [2, '96000']]) {
 			const properties = await openClipProperties(page, editor, clipAt(index));
 			await showClipTimingFields(properties);
-			await clipField(properties, 'startFrame').fill(frame);
-			await clipField(properties, 'startFrame').press('Tab');
+			await setClipTimeFrames(properties, 'startFrame', Number(frame));
 			await closeClipProperties(properties);
 		}
 		await clipAt(0).press('Enter');
@@ -55,7 +55,7 @@ test.describe('ordinary editing regression workflows', () => {
 		await expect(clips).toHaveCount(1);
 		const properties = await openClipProperties(page, editor, clips);
 		await showClipTimingFields(properties);
-		await expect(clipField(properties, 'startFrame')).toHaveValue('33600');
+		await expectClipTimeFrames(properties, 'startFrame', 33600);
 	});
 
 	test('copy and paste retain loop repetitions', async ({ page }) => {
@@ -133,8 +133,7 @@ test.describe('ordinary editing regression workflows', () => {
 		for (const clip of [copies.nth(1), clipByName(editor, toneB.name)]) {
 			const properties = await openClipProperties(page, editor, clip);
 			await showClipTimingFields(properties);
-			await clipField(properties, 'startFrame').fill('96000');
-			await clipField(properties, 'startFrame').press('Tab');
+			await setClipTimeFrames(properties, 'startFrame', 96000);
 			await closeClipProperties(properties);
 		}
 		await copies.first().locator('.clip-header').click();

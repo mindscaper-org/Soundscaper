@@ -11,6 +11,10 @@ import {
 	type NativeMediaV14EncodeProfileId,
 } from '../common/editor/native-media-v14-native-dispatch.ts';
 import type { UnifiedExactRenderPlanV14 } from '../common/editor/unified-exact-render-plan.ts';
+import type { VideoDeliveryQuality } from '../common/editor/video-delivery-quality.ts';
+
+export const FRAMESCAPER_NATIVE_WEBM_CODECS = Object.freeze(['vp8', 'vp9', 'vp9-alpha', 'av1'] as const);
+export type FramescaperNativeWebmCodec = (typeof FRAMESCAPER_NATIVE_WEBM_CODECS)[number];
 
 export interface FramescaperNativeImageSequenceImportRequestNativeMedia {
 	readonly frameRate: NativeMediaImageSequenceRateV1;
@@ -28,6 +32,8 @@ export type FramescaperNativeMediaImageSequenceEncodeProfile =
 
 export type FramescaperNativeRenderDeliveryRequestNativeMedia =
 	| Readonly<{ readonly kind: 'encoded-mov' }>
+	| Readonly<{ readonly kind: 'encoded-webm'; readonly codec: FramescaperNativeWebmCodec;
+		readonly quality: VideoDeliveryQuality }>
 	| Readonly<{
 		readonly kind: 'image-sequence';
 		readonly format: FramescaperNativeMediaImageSequenceExportFormat;
@@ -71,6 +77,15 @@ export function snapshotFramescaperNativeRenderDeliveryRequestNativeMedia(
 		exactFields(candidate, ['kind'], 'selected nativeMedia MOV delivery request');
 		return Object.freeze({ kind: 'encoded-mov' as const });
 	}
+	if (kind === 'encoded-webm') {
+		exactFields(candidate, ['kind', 'codec', 'quality'], 'native WebM delivery request');
+		const codec = FRAMESCAPER_NATIVE_WEBM_CODECS.find((value) => value === candidate.codec);
+		const quality = candidate.quality;
+		if (!codec || (quality !== 'draft' && quality !== 'balanced' && quality !== 'high')) {
+			throw new RangeError('The native WebM codec or quality is unsupported.');
+		}
+		return Object.freeze({ kind, codec, quality });
+	}
 	if (kind !== 'image-sequence') {
 		throw new RangeError('The selected nativeMedia native delivery format is unsupported.');
 	}
@@ -107,9 +122,9 @@ function ownData(
 export function framescaperNativeMediaNativeDeliveryProfile(
 	delivery: FramescaperNativeRenderDeliveryRequestNativeMedia,
 ): NativeMediaV14EncodeProfileId {
-	return delivery.kind === 'encoded-mov'
-		? 'encode-mov-prores-422-hq'
-		: framescaperNativeMediaImageSequenceDeliveryDescriptor(delivery.format).profile;
+	if (delivery.kind === 'encoded-mov') return 'encode-mov-prores-422-hq';
+	if (delivery.kind === 'encoded-webm') return `encode-webm-${delivery.codec}`;
+	return framescaperNativeMediaImageSequenceDeliveryDescriptor(delivery.format).profile;
 }
 
 export function framescaperNativeMediaImageSequenceDeliveryDescriptor(
@@ -127,6 +142,8 @@ export function framescaperNativeRenderDeliveryRequestFromPlanNativeMedia(
 	if (plan.deliveryProfile === 'encode-mov-prores-422-hq') {
 		return Object.freeze({ kind: 'encoded-mov' as const });
 	}
+	const codec = FRAMESCAPER_NATIVE_WEBM_CODECS.find((value) => `encode-webm-${value}` === plan.deliveryProfile);
+	if (codec) return Object.freeze({ kind: 'encoded-webm', codec, quality: plan.output.quality });
 	const descriptor = Object.values(IMAGE_SEQUENCE_DESCRIPTORS)
 		.find(({ profile }) => profile === plan.deliveryProfile);
 	if (!descriptor) throw new RangeError('The V14 plan is not a selected nativeMedia native delivery.');

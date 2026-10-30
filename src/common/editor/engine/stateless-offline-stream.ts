@@ -9,6 +9,22 @@ import type { EngineRuntimeHost } from './runtime-types.ts';
 import type { EngineProject } from './types.ts';
 import type { EngineRealtimeRenderOptions, EngineRenderResult } from './public-api.ts';
 
+const ownedProjects = new WeakSet<EngineProject>();
+
+/** The private export engine transfers its detached JSON capture to this lifetime. */
+export function ownStatelessOfflineProject(project: EngineProject | null): void {
+	if (!project || !canStreamStatelessOffline(project)) return;
+	const seen = new WeakSet<object>();
+	const freeze = (value: unknown): void => {
+		if (!value || typeof value !== 'object' || seen.has(value)) return;
+		seen.add(value);
+		for (const child of Object.values(value)) freeze(child);
+		Object.freeze(value);
+	};
+	freeze(project);
+	ownedProjects.add(project);
+}
+
 /** Range-independent schedules can restart offline windows without processor history. */
 export function canStreamStatelessOffline(project: EngineProject | null): boolean {
 	if (!project || nonempty(project.automationLanes) || project.metadata?.adm
@@ -57,16 +73,17 @@ export async function renderStatelessOfflineToSink(
 	if (tailFrames !== 0) throw new TypeError('Bounded stateless streaming requires a tail-free graph.');
 	const totalFrames = endFrame - startFrame + tailFrames;
 	if (options.outputFrames != null && options.outputFrames !== totalFrames) throw new RangeError('Offline stream output geometry changed.');
-	const authority = JSON.stringify(project);
+	const owned = ownedProjects.has(project);
+	const authority = owned ? null : JSON.stringify(project);
 	const assertCurrent = (): void => {
 		options.signal?.throwIfAborted();
-		if (engine.project !== project || JSON.stringify(project) !== authority) throw new Error('The project changed during offline streaming.');
+		if (engine.project !== project || (!owned && JSON.stringify(project) !== authority)) throw new Error('The project changed during offline streaming.');
 	};
 	let cursor = startFrame; let frameOffset = 0; let chunkCount = 0; let channelCount = 0;
 	while (cursor < endFrame) {
 		assertCurrent();
 		const range = planExactAudioWarpWindow({ startFrame: cursor, endFrame, sampleRate: engine.sampleRate,
-			channelCount: 32, tailFrames });
+			channelCount: Number(project.masterChannels), tailFrames });
 		const final = range.endFrame === endFrame;
 		const rendered = await engine.renderMix({ ...options, startFrame: cursor, endFrame: range.endFrame,
 			preRollFrames: 0, outputFrames: range.frameCount + (final ? tailFrames : 0),

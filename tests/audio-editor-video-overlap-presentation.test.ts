@@ -82,7 +82,7 @@ test('dense offscreen image overlaps retain bounded preparation and project ever
 	assert.equal(dense.overlays.length, images.length * (images.length - 1) / 2);
 	assert.deepEqual(dense.overlays[0], {
 		id: 'image-000:image-001:10000:10100', left: 12, width: 10, valid: false,
-		label: 'Invalid video overlap between IMAGE-000 and IMAGE-001',
+		label: 'Invalid video overlap between IMAGE-000 and IMAGE-001', outgoingName: 'IMAGE-000', incomingName: 'IMAGE-001',
 	});
 	assert.equal(dense.overlays.at(-1)?.id, 'image-248:image-249:10000:10100');
 });

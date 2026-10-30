@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, commitInput, registerAudioEditorHooks } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, chooseNestedCommandAction, commitInput, registerAudioEditorHooks } from './audio-editor-test-helpers.js';
 
 registerAudioEditorHooks();
 
@@ -15,8 +15,7 @@ test('spectral amplification requires a gain inside its displayed bounds', async
 	await expect(tone).toBeHidden();
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
-	await editor.getByRole('button', { name: 'Spectrogram options', exact: true }).click();
-	await page.getByRole('menuitem', { name: 'Select spectral frequency range', exact: true }).click();
+	await chooseNestedCommandAction(page, editor, 'Effect', ['Spectral editing', 'Spectral box select']);
 	const dialog = page.getByRole('dialog', { name: 'Spectral selection', exact: true });
 	const gain = dialog.getByRole('textbox', { name: /^Gain \(dB\)/u });
 	const apply = dialog.getByRole('button', { name: 'Spectral Amplify', exact: true });

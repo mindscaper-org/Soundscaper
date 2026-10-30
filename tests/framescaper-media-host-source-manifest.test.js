@@ -78,6 +78,9 @@ test('the target-native recipe closes the full professional codec and image-sequ
 	assert.deepEqual(recipe.policy, FRAMESCAPER_FFMPEG_POLICY);
 	assert.ok(recipe.configureFlags.includes('--enable-libx265'));
 	assert.ok(recipe.configureFlags.includes('--enable-encoder=libvpx_vp9'));
+	assert.ok(recipe.configureFlags.includes('--enable-encoder=libvpx_vp8'));
+	assert.ok(recipe.configureFlags.includes('--enable-libsvtav1'));
+	assert.ok(recipe.configureFlags.includes('--enable-encoder=libsvtav1'));
 	const targets = JSON.parse(readFileSync(join(hostRoot, 'build/targets.json'), 'utf8'));
 	assert.deepEqual(targets.targets.map(({ cmakePreset }) => cmakePreset), [
 		'linux-x64', 'linux-arm64', 'mac-arm64', 'win-x64', 'win-arm64',

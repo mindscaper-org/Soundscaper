@@ -137,6 +137,7 @@ export interface DesktopVampAnalyzerRegistryOptions {
 export class DesktopVampAnalyzerRegistry {
 	readonly #isQuarantined: (digest: string) => boolean;
 	readonly #entries = new Map<string, Entry>();
+	readonly #installations = new Map<string, readonly [Entry, Installation]>();
 	readonly #digestClaims = new Map<string, string>();
 
 	constructor(options: DesktopVampAnalyzerRegistryOptions) {
@@ -190,6 +191,7 @@ export class DesktopVampAnalyzerRegistry {
 				installationId, observation, descriptor, allowed: existing?.allowed === true,
 			});
 			this.#entries.set(analyzerId, entry);
+			this.#installations.set(installationId, [entry, entry.installations.get(installationId)!]);
 			return Object.freeze({
 				analyzerId, installationId,
 				allowanceRequired: existing?.allowed !== true,
@@ -220,18 +222,17 @@ export class DesktopVampAnalyzerRegistry {
 
 	forget(installationId: unknown): boolean {
 		const admitted = opaqueId(installationId, 'installation ID');
-		for (const entry of this.#entries.values()) {
-			const installation = entry.installations.get(admitted);
-			if (!installation) continue;
-			entry.installations.delete(admitted);
-			if (entry.selected === admitted) entry.selected = null;
-			if (entry.installations.size === 0) this.#entries.delete(entry.analyzerId);
-			const digest = installation.observation.librarySha256;
-			if (![...this.#entries.values()].some((candidate) => [...candidate.installations.values()]
-				.some((item) => item.observation.librarySha256 === digest))) this.#digestClaims.delete(digest);
-			return true;
-		}
-		return false;
+		const located = this.#installations.get(admitted);
+		if (!located) return false;
+		const [entry, installation] = located;
+		this.#installations.delete(admitted);
+		entry.installations.delete(admitted);
+		if (entry.selected === admitted) entry.selected = null;
+		if (entry.installations.size === 0) this.#entries.delete(entry.analyzerId);
+		const digest = installation.observation.librarySha256;
+		if (![...this.#entries.values()].some((candidate) => [...candidate.installations.values()]
+			.some((item) => item.observation.librarySha256 === digest))) this.#digestClaims.delete(digest);
+		return true;
 	}
 
 	executionGrantFor(installationId: unknown): Readonly<VampAnalyzerExecutionGrant> {
@@ -284,10 +285,8 @@ export class DesktopVampAnalyzerRegistry {
 	}
 
 	#locate(installationId: string): readonly [Entry, Installation] {
-		for (const entry of this.#entries.values()) {
-			const installation = entry.installations.get(installationId);
-			if (installation) return [entry, installation];
-		}
+		const located = this.#installations.get(installationId);
+		if (located) return located;
 		throw new VampAnalyzerRegistryError('unknown-installation', 'Unknown Vamp analyzer installation.');
 	}
 

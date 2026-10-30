@@ -1,3 +1,4 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 /** Manual numeric entry, ported from Audacity design system 20ce5547. */
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -23,7 +24,9 @@ export interface ManualValueDialogProps {
 	os?: 'macos' | 'windows';
 }
 
-export function ManualValueDialog({ isOpen, title, label = 'Value', value, unit, min, max, step = 1, decimals = 2, hint, onApply, onClose, os = 'windows' }: ManualValueDialogProps) {
+export function ManualValueDialog({ isOpen, title, label, value, unit, min, max, step = 1, decimals = 2, hint, onApply, onClose, os = 'windows' }: ManualValueDialogProps) {
+	const { copy } = useComponentCopy();
+	const fieldLabel = label ?? copy.value;
 	const [text, setText] = useState('');
 	const inputRef = useRef<HTMLInputElement>(null);
 	const portalRef = useRef<HTMLDivElement>(null);
@@ -50,12 +53,12 @@ export function ManualValueDialog({ isOpen, title, label = 'Value', value, unit,
 	const portalHost = openerRef.current?.closest('[data-audio-editor]') ?? document.activeElement?.closest('[data-audio-editor]') ?? document.body;
 	return createPortal(<div ref={portalRef} onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()}>
 		<Dialog isOpen={isOpen} title={title} onClose={onClose} os={os} width={320} minHeight={0} className="manual-value-dialog"
-		footer={<DialogFooter primaryText="Apply" secondaryText="Cancel" primaryDisabled={parsed === null} onPrimaryClick={apply} onSecondaryClick={onClose} />}>
+		footer={<DialogFooter primaryText={copy.apply} secondaryText={copy.cancel} primaryDisabled={parsed === null} onPrimaryClick={apply} onSecondaryClick={onClose} />}>
 		<div data-manual-value-dialog onKeyDown={event => {
 			if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); apply(); }
 			if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); }
 		}}>
-			<label>{label}<NumberStepper ref={inputRef} ariaLabel={label} value={text} onChange={setText} min={min} max={max} step={step} width="100%" /></label>
+			<label>{fieldLabel}<NumberStepper ref={inputRef} ariaLabel={fieldLabel} value={text} onChange={setText} min={min} max={max} step={step} width="100%" /></label>
 			{hint && <p>{hint}</p>}
 		</div>
 		</Dialog>

@@ -6,7 +6,7 @@ import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/
 import { clipSourceTrimFields } from '../../src/common/editor/clip-source-trim.ts';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 import { createProjectStore } from '../../src/common/editor/storage.js';
-import { expectClipSampleRate } from './audio-editor-clip-settings-test-helpers.js';
+import { expectClipSampleRate, resampleClipFormat } from './audio-editor-clip-settings-test-helpers.js';
 
 test('resampling retains a hidden stretch marker when its source edge is extended', async ({ page }) => {
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` });
@@ -32,12 +32,7 @@ test('resampling retains a hidden stretch marker when its source edge is extende
 	await waitForProjectActivation(editor);
 	const clip = editor.locator('[data-clip-id="clip"]').first();
 	const properties = await openClipProperties(page, editor, clip);
-	await properties.getByRole('button', { name: 'Media settings', exact: true }).click();
-	await page.getByRole('menuitem', { name: 'Resample', exact: true }).click();
-	const resample = page.getByRole('dialog', { name: 'Resample clip', exact: true });
-	await resample.locator('[data-clip-resample-field="sampleRate"] input').fill('24000');
-	await resample.getByRole('button', { name: 'Resample', exact: true }).click();
-	await expect(resample).toHaveCount(0);
+	await resampleClipFormat(properties, 24_000);
 	await expectClipSampleRate(properties, 24_000);
 	const monitor = await openSourceMonitor(page, editor);
 	await expect(monitor.locator('[data-source-frame-count]')).toHaveAttribute('data-source-frame-count', '24000');

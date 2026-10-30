@@ -13,7 +13,7 @@
  */
 
 export const editorPath = String.raw`src[\\/]common[\\/]editor[\\/]`;
-const editorOptionalArchiveModule = String.raw`(?:archive-media-reader|aup-legacy(?:-block-budget|-conversion|-file-custody|-xml)?|aup3-(?:database|effect-profile|profile)|aup4-(?:client|opaque-merge|opaque-persistence|profile-values|profile|sanitization|time-signature|track-nodes|worker-snapshot)|audacity-(?:annotation-interchange|shortcut-import(?:-commands)?|tempo-import)|dawproject-(?:archive|arrangement-media|export(?:-automation|-channel-width|-clip-omissions|-context|-lanes|-routing-index|-routing-omissions)?|format|import(?:-fades|-maps|-points|-project|-structure|-timeline|-volume-curve|-warps)?|xml)|sesx-import(?:-project)?|scape-(?:archive-(?:copy|layout(?:-witness)?|manifest|reader)|export-(?:destination|plan)|import-capacity|import-transaction|project-admission|project-source-remap)|scape-project(?:-canonical-inspection|-timing-assets)?)`;
+const editorOptionalArchiveModule = String.raw`(?:archive-media-reader|aup-legacy(?:-block-budget|-conversion|-file-custody|-xml)?|aup3-(?:database|effect-profile|profile)|aup4-(?:client|opaque-merge|opaque-persistence|profile-values|profile|sanitization|time-signature|track-nodes|worker-snapshot)|audacity-(?:annotation-interchange|shortcut-import(?:-commands)?|tempo-import)|dawproject-(?:archive|arrangement-media|export(?:-automation|-channel-width|-clip-omissions|-context|-lanes|-routing-index|-routing-omissions)?|format|import(?:-fades|-maps|-points|-project|-structure|-timeline|-volume-curve|-warps)?|xml)|sesx?-import(?:-project)?|scape-(?:archive-(?:copy|layout(?:-witness)?|manifest|reader)|export-(?:destination|plan)|import-capacity|import-transaction|project-admission|project-source-remap)|scape-project(?:-canonical-inspection|-timing-assets)?)`;
 const editorOptionalExecutionModule = String.raw`(?:audacity-effects[\\/](?:reverb-live-processor|rate-converted-noise-reduction)|controller[\\/]import[\\/]internal[\\/]streamed-audio-import-service|analysis|specialized-audio-analysis|audio-analysis-report-worker-(?:entry|runtime)|media-content-digest-worker-(?:client|entry|runtime)|timeline-spectrogram-worker-(?:entry|runtime)|browser-(?:native-aac-encoder|native-streamed-aac-import|audio-encode-stream-client|audio-streamed-encode|dedicated-audio-(?:codec|output-validation|profiles|worker-client)|reviewed-streamed-audio-decoders|vorbis-decoder|streamed-audio-(?:import|output-validation)|streamed-wavpack-import|webcodecs-aac(?:-stream)?)|dedicated-audio-encode-session|wavpack-import-group-geometry|desktop-audio-(?:range-blob|pcm-stream(?:-write)?|stream-encoder|stream-request)|desktop-mpeg-layer-ii-import|aac-source-geometry|(?:mp3|ogg)-gapless-import|vorbis-initial-granule|loudness-measurement-report|pffft|selection-effects-runtime|selection-effect-spectral-context|selection-effect-chain|spectral-edit(?:-admission)?|video-(?:keyframe-mediabunny-execution|mediabunny-muxer|motion-webgl2-v27))`;
 const controllerInternalPath = String.raw`internal[\\/](?:[^\\/]+[\\/])*`;
 const editorOptionalExportControllerBasename = String.raw`(?:audio-export-delivery-admission|audio-export-progress|audio-export-render-orchestration|audio-realtime-encoded-export|audio-rendered-fallback-export|bw64-render-project|delivery-conformance-action|desktop-audio-export-capability|direct-(?:aiff-export|audio-render-plan|broadcast-wave-export|bw64-export|bwf-export|compressed-export|compressed-plan|compressed-stem-archive-plan|export-dispatch|mp3-export|native-stem-archive-plan|offline-compressed-export|offline-pcm-export|pcm-export|stem-archive-export|stem-(?:pipeline-admission|render-execution)|video-export|video-plan-contract|wav-export)|export-service|freesound-clip-upload-materializer|mastering-sequence-export-render|persistent-audio-delivery-execution|persistent-export-progress|realtime-desktop-pcm-export|realtime-export-pcm-transform|direct-stem-entry-stream|one-next-stem-pipeline|owned-stem-(?:progress|renderer)|render-conformed-stem|rendered-audio-encoding|streaming-stem-archive-export|video-export-captions|video-export-original-loader|video-export-service|video-export-staged-audio|video-rendered-fallback-export)`;
@@ -43,7 +43,7 @@ const editorOptionalExportControllerModule = String.raw`(?:export[\\/](?:${contr
  * and otherwise read only by the same deferred video export service.
  */
 const editorOptionalExportFlatModule = String.raw`(?:ape-file-metadata|audio-container-metadata|audio-export-output|binaural-render|delivery-conformance|delivery-conversion-inventory|delivery-video-conversion-inventory|file-backed-audio-export|flac-file-metadata|ogg-comment-metadata|loudness-normalization-render|platform-delivery-(?:licensing|presets)|platform-video-delivery-encoder|video-burn-in-font|video-delivery-encoder-tier|video-webcodecs-capability)`;
-export const editorOptionalControllerModule = String.raw`(?:analysis[\\/](?:analysis-service|internal[\\/]vamp-analysis-action)|document[\\/]internal[\\/]cross-product-handoff-action|import[\\/]internal[\\/](?:dawproject[\\/]dawproject|sesx[\\/]sesx)-service|recording[\\/]internal[\\/]recording-checkpoint-writer|${editorOptionalExportControllerModule})`;
+export const editorOptionalControllerModule = String.raw`(?:analysis[\\/](?:analysis-service|internal[\\/](?:vamp-analysis-action|analysis-document-fingerprint))|document[\\/]internal[\\/]cross-product-handoff-(?:action|save-target)|import[\\/]internal[\\/](?:dawproject[\\/]dawproject|sesx[\\/]sesx)-service|recording[\\/]internal[\\/]recording-checkpoint-writer|${editorOptionalExportControllerModule})`;
 /**
  * The Framescaper capture and Web VCR implementation, loaded when a capture
  * gesture, a desktop bridge or durable recovery state asks for it.
@@ -77,7 +77,7 @@ export const EDITOR_ASSISTANCE_MODEL_PREFLIGHT_CHUNK_TEST = new RegExp(
 	`${editorPath}(?:assistance[\\\\/](?:workflow-recipes|workflow-settings-v1)|controller[\\\\/]assistance[\\\\/](?:local-assistance-task-models|internal[\\\\/]guided[\\\\/]local-assistance-guided-(?:model-selection|stage-selection))|ui[\\\\/](?:local-model-manager-(?:bridge|store)|local-model-bytes))\\.ts$`,
 );
 export const EDITOR_COPY_CHUNK_TEST =
-	/(?!.*[\\/]audiocom-copy\.ts$)(?:src[\\/]common[\\/]i18n[\\/](?:(?:catalogs|runtime|canonical-extras(?:-(?:standard-effects|audacity-effects|audacity-presets))?|(?!(?:freesound-attribution|site|site-sidebar)-copy\.js$)[^\\/]+-copy)\.js|(?:editor-copy-(?:inventory|scope)|[^\\/]+-copy)\.ts)|src[\\/]soundscaper[\\/]framescaper-capture-copy\.js)$/;
+	/(?!.*[\\/]audiocom-copy\.ts$)(?:src[\\/]common[\\/]i18n[\\/](?:(?:catalogs|runtime|canonical-extras(?:-(?:standard-effects|audacity-effects|audacity-presets))?|(?!(?:freesound-attribution|site|site-sidebar)-copy\.js$)[^\\/]+-copy)\.js|(?:editor-copy-(?:inventory|scope|origin)|[^\\/]+-copy)\.ts)|src[\\/]soundscaper[\\/]framescaper-capture-copy\.js)$/;
 
 /** Dependency-free message descriptors shared by project models and controllers. */
 export const EDITOR_PRESENTATION_CHUNK_TEST = /src[\\/]common[\\/]i18n[\\/](?:presentation-(?:message|progress)|translation-scope)\.ts$/;
@@ -88,7 +88,7 @@ export const EDITOR_WEB_BOOTSTRAP_CHUNK_TEST =
 
 /** Source analysis and presentation loaded only after a frequency waveform is selected. */
 export const EDITOR_FREQUENCY_WAVEFORM_CHUNK_TEST =
-	/src[\\/]common[\\/]editor[\\/](?:frequency-waveform-(?:analysis|band-peaks|contract|worker-client|worker-protocol)|controller[\\/]source[\\/]frequency-waveform-(?:runtime-composition|source-service|window-service)|ui[\\/]timeline[\\/]frequency-waveform-(?:continuity|palette|projection|renderer))\.ts$/;
+	/src[\\/]common[\\/]editor[\\/](?:frequency-waveform-(?:analysis|band-peaks|centroid-stream|contract|worker-client|worker-protocol)|controller[\\/]source[\\/]frequency-waveform-(?:runtime-composition|source-service|window-service)|ui[\\/]timeline[\\/]frequency-waveform-(?:continuity|palette|projection|renderer))\.ts$/;
 
 /** Drafts and file interchange run only after the translation menu opens its surface. */
 export const EDITOR_COMMUNITY_TRANSLATIONS_CHUNK_TEST = /src[\\/]common[\\/](?:i18n[\\/]community-translations(?:-po)?\.ts|editor[\\/](?:controller[\\/]preferences[\\/]translation-drafts\.ts|ui[\\/]community-translations[\\/](?!(?:CommunityTranslationMount\.tsx|community-translation-(?:menu|presentation)\.ts)$)[^\\/]+))$/;
@@ -142,7 +142,7 @@ export const EDITOR_MACRO_DEFAULTS_CHUNK_TEST =
 
 /** Effect and Analyze implementations reached only after their eager action facade runs. */
 export const EDITOR_OPTIONAL_EXECUTION_CHUNK_TEST = new RegExp(
-	`(?:${editorPath}(?:${editorOptionalExecutionModule}\\.(?:[cm]?[jt]s)|(?:flac|mpg123|opus|vorbis)[\\\\/]source-manifest\\.json|controller[\\\\/]analysis[\\\\/](?:analysis-service|internal[\\\\/]vamp-analysis-action)\\.ts)|(?:^|[\\\\/])desktop[\\\\/](?:bundled-(?:mpeg-audio|opus|wavpack)-stream|desktop-audio-stream-contract)\\.ts)$`,
+	`(?:${editorPath}(?:${editorOptionalExecutionModule}\\.(?:[cm]?[jt]s)|(?:flac|mpg123|opus|vorbis)[\\\\/]source-manifest\\.json|controller[\\\\/]analysis[\\\\/](?:analysis-service|internal[\\\\/](?:vamp-analysis-action|analysis-document-fingerprint))\\.ts)|(?:^|[\\\\/])desktop[\\\\/](?:bundled-(?:mpeg-audio|opus|wavpack)-stream|desktop-audio-stream-contract)\\.ts)$`,
 );
 
 /** Audio/video delivery and Freesound clip materialization isolated from the eager controller graph. */
@@ -240,7 +240,9 @@ const framescaperProjectFoundationModules = Object.freeze([
 	'editor-domain-runtime-profile',
 	// Eager controller bindings and deferred native actions share these pure guards.
 	'editor-native-action-bridge-availability',
+	'editor-native-plan-timing-authority',
 	'editor-native-project-action-requests',
+	'editor-native-render-plan-authority',
 	'editor-project-assistance-foundation',
 	'editor-project-assistance-validation',
 	'editor-project-assistance',
@@ -305,6 +307,14 @@ const framescaperProjectFoundationModules = Object.freeze([
 	'editor-project-timeline-image-foundation',
 	'editor-project-timeline-image-validation',
 	'editor-project-timeline-image',
+	'editor-project-unified-render-core',
+	'editor-project-unified-render-authority',
+	'editor-project-unified-render-visual',
+	'editor-render-node-identity',
+	'video-export-visual-freshness-finishing',
+	'editor-project-unified-render-professional',
+	'editor-project-unified-render-openfx',
+	'editor-project-unified-render-plan-native-media',
 	'editor-project-transitions-validation',
 	'editor-project-transitions',
 	'editor-project-visual-validation',

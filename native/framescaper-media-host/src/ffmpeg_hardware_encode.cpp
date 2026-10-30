@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "ffmpeg_hardware_encode.hpp"
+#include "webm_encode_settings.hpp"
 
 extern "C" {
 #include <libavutil/error.h>
@@ -12,6 +13,7 @@ extern "C" {
 
 #include <array>
 #include <string_view>
+#include <thread>
 #include <utility>
 
 namespace framescaper::media {
@@ -82,7 +84,7 @@ void require(const int status, const bool hardware, const std::string_view actio
 	return plan.video_codec == "prores" && plan.container == "mov";
 }
 
-[[nodiscard]] std::string long_gop_encoder(
+[[maybe_unused, nodiscard]] std::string long_gop_encoder(
 	const admitted_media_plan& plan,
 	const std::string_view suffix
 ) {
@@ -183,11 +185,31 @@ void configure_cpu_options(
 		exact_option(context, false, "preset", plan.quality == "draft" ? "fast" : plan.quality == "high" ? "slow" : "medium");
 		exact_option(context, false, "crf", plan.quality == "draft" ? "26" : plan.quality == "high" ? "16" : "20");
 		exact_option(context, false, "profile", "main10");
-	} else if (plan.video_encoder == "libvpx-vp9") {
-		exact_option(context, false, "deadline", "good");
-		exact_option(context, false, "cpu-used", plan.quality == "draft" ? "6" : plan.quality == "high" ? "2" : "4");
-		exact_option(context, false, "crf", plan.quality == "draft" ? "36" : plan.quality == "high" ? "24" : "31");
-		context->bit_rate = 0;
+	} else if (plan.video_encoder == "libvpx" || plan.video_encoder == "libvpx-vp9"
+		|| plan.video_encoder == "libsvtav1") {
+		const auto settings = webm_settings(plan.video_encoder, plan.quality,
+			context->width, plan.pixel_format == "yuva420p", std::thread::hardware_concurrency());
+		context->thread_count = static_cast<int>(settings.threads);
+		exact_option(context, false, "crf", std::to_string(settings.crf));
+		if (plan.video_encoder == "libsvtav1") {
+			exact_option(context, false, "preset", std::to_string(settings.speed));
+			exact_option(context, false, "svtav1-params", "lp=2");
+		} else {
+			exact_option(context, false, "deadline", settings.realtime ? "realtime" : "good");
+			exact_option(context, false, "cpu-used", std::to_string(settings.speed));
+			if (plan.video_encoder == "libvpx-vp9") {
+				exact_option(context, false, "row-mt", "1");
+				exact_option(context, false, "tile-columns", std::to_string(settings.tile_columns));
+			}
+			if (settings.lossless_alpha) {
+				exact_option(context, false, "lossless", "1");
+				exact_option(context, false, "auto-alt-ref", "0");
+			}
+		}
+		context->bit_rate = plan.video_encoder == "libvpx"
+			? std::max<std::int64_t>(64'000, static_cast<std::int64_t>(context->width) * context->height
+				* context->framerate.num * (plan.quality == "draft" ? 8 : plan.quality == "high" ? 24 : 14)
+				/ (static_cast<std::int64_t>(context->framerate.den) * 100)) : 0;
 	} else if (plan.video_encoder == "prores_ks") {
 		const auto profile = plan.pixel_format.find("444") != std::string::npos
 			? "4444" : plan.quality == "draft" ? "proxy" : "hq";
@@ -355,7 +377,8 @@ std::unique_ptr<ffmpeg_video_encode_session> ffmpeg_video_encode_session::open(
 	state.software_frame->width = state.context->width;
 	state.software_frame->height = state.context->height;
 	const auto* upload_descriptor = av_pix_fmt_desc_get(state.upload_format);
-	const bool alpha_profile = request.plan.professional_profile_id == "encode-mov-prores-4444"
+	const bool alpha_profile = request.plan.professional_profile_id == "encode-webm-vp9-alpha"
+		|| request.plan.professional_profile_id == "encode-mov-prores-4444"
 		|| request.plan.professional_profile_id == "encode-matroska-ffv1"
 		|| request.plan.professional_profile_id == "encode-png-sequence"
 		|| request.plan.professional_profile_id == "encode-tiff-sequence"
@@ -398,6 +421,15 @@ AVFrame* ffmpeg_video_encode_session::prepare(
 		state.software_frame->data, state.software_frame->linesize
 	);
 	if (scaled != state.context->height) fail(state.hardware, "Convert one exact encoder frame", AVERROR(EINVAL));
+	// RGB-to-YUV conversion may round alpha. Keep the authored matte byte-exact
+	// when the evaluated RGBA carrier already has the output geometry.
+	if (state.upload_format == AV_PIX_FMT_YUVA420P && source_format == AV_PIX_FMT_RGBA
+		&& source_width == state.context->width && source_height == state.context->height) {
+		for (int row = 0; row < source_height; ++row) for (int column = 0; column < source_width; ++column) {
+			state.software_frame->data[3][row * state.software_frame->linesize[3] + column]
+				= source_data[0][row * source_linesize[0] + column * 4 + 3];
+		}
+	}
 	av_frame_remove_side_data(state.software_frame, AV_FRAME_DATA_MASTERING_DISPLAY_METADATA);
 	av_frame_remove_side_data(state.software_frame, AV_FRAME_DATA_CONTENT_LIGHT_LEVEL);
 	if (source_properties != nullptr) {
@@ -421,7 +453,7 @@ AVFrame* ffmpeg_video_encode_session::prepare(
 
 bool ffmpeg_professional_cpu_encoder_set_available() noexcept {
 	for (const auto name : {
-		"libx264", "libx265", "libvpx-vp9", "prores_ks", "dnxhd", "ffv1", "png", "tiff", "exr",
+		"libx264", "libx265", "libvpx", "libvpx-vp9", "libsvtav1", "prores_ks", "dnxhd", "ffv1", "png", "tiff", "exr",
 	}) if (avcodec_find_encoder_by_name(name) == nullptr) return false;
 	return true;
 }

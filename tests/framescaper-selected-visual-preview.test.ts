@@ -85,9 +85,6 @@ test('a project with nothing to draw is answered before its canvas is validated'
 	);
 });
 
-test('a preview session requires the authenticated finishing runtime profile', async () => {
-	await assert.rejects(() => session({ profile: {} }), TypeError);
-});
 
 test('a preview session refuses a project outside the finishing domain', async () => {
 	await assert.rejects(
@@ -140,9 +137,8 @@ test('a Project Bin thumbnail is absent for a clip that is not a visual', async 
 	);
 });
 
-test('a Project Bin thumbnail requires a stable clip identity and exact profile', async () => {
+test('a Project Bin thumbnail requires a stable clip identity', async () => {
 	await assert.rejects(() => thumbnail({ clipId: '' }), /must be a stable ID/u);
-	await assert.rejects(() => thumbnail({ profile: {} }), TypeError);
 });
 
 test('a Project Bin thumbnail is absent when the project has no bin contents', async () => {

@@ -107,8 +107,20 @@ const ENCODERS: readonly NativeMediaV14EncodeDispatchV1[] = Object.freeze([
 		muxer: 'mp4', encoder: 'libx265', pixelFormat: 'yuv420p10le', codecProfile: 'main10',
 		audioEncoder: 'aac', preservesHdrMetadata: false, supportsAlpha: false, imageSequence: false,
 	}),
+	encode('encode-webm-vp8', {
+		muxer: 'webm', encoder: 'libvpx', pixelFormat: 'yuv420p', codecProfile: null,
+		audioEncoder: 'libopus', preservesHdrMetadata: false, supportsAlpha: false, imageSequence: false,
+	}),
 	encode('encode-webm-vp9', {
 		muxer: 'webm', encoder: 'libvpx-vp9', pixelFormat: 'yuv420p', codecProfile: null,
+		audioEncoder: 'libopus', preservesHdrMetadata: false, supportsAlpha: false, imageSequence: false,
+	}),
+	encode('encode-webm-vp9-alpha', {
+		muxer: 'webm', encoder: 'libvpx-vp9', pixelFormat: 'yuva420p', codecProfile: null,
+		audioEncoder: 'libopus', preservesHdrMetadata: false, supportsAlpha: true, imageSequence: false,
+	}),
+	encode('encode-webm-av1', {
+		muxer: 'webm', encoder: 'libsvtav1', pixelFormat: 'yuv420p', codecProfile: null,
 		audioEncoder: 'libopus', preservesHdrMetadata: false, supportsAlpha: false, imageSequence: false,
 	}),
 	encode('encode-mov-prores-proxy', {

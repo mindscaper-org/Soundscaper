@@ -241,12 +241,13 @@ export async function analyzeChannelsInWorker(
 	copy: WorkerCopy,
 	chunkFrames = 65_536,
 	signal: AbortSignal | null = null,
-	options: Readonly<{ channelWeights?: readonly number[] }> = {},
+	options: Readonly<{ channelWeights?: readonly number[]; samplePeakOnly?: boolean }> = {},
 ): Promise<unknown> {
 	throwIfAborted(signal);
 	if (typeof Worker !== 'function') {
-		const { analyzeAudioChannels } = await import('../../analysis.js');
-		const result = analyzeAudioChannels(channels, sampleRate, options);
+		const result = options.samplePeakOnly
+			? (await import('../../sample-peak-analysis.ts')).analyzeSamplePeakChannels(channels, sampleRate)
+			: (await import('../../analysis.js')).analyzeAudioChannels(channels, sampleRate, options);
 		throwIfAborted(signal);
 		return result;
 	}

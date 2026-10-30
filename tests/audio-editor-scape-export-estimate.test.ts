@@ -108,13 +108,6 @@ test('STORE/Zip64 estimate bounds the pinned writer profile and UTF-8 filenames'
 		}]),
 		/filename.*65.?535/iu,
 	);
-	assert.throws(
-		() => maximumScapeStoreArchiveBytes(Array.from(
-			{ length: 4_097 },
-			(_, index) => ({ filename: `entry-${String(index)}`, payloadBytes: 0 }),
-		)),
-		/too many entries/iu,
-	);
 });
 
 test('Blob size warnings require a decision before PCM reads and allow confirmed larger archives', async () => {

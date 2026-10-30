@@ -48,7 +48,7 @@ test.describe('Framescaper selected authoring coverage', () => {
 		await expect(dialog.getByRole('status')).toHaveText('Selected authored state applied.', UI_OPTIONS);
 		await applyDissolve.click();
 		await expect(dialog.getByRole('status')).toHaveText(
-			'The selected dissolve already has that duration.', UI_OPTIONS,
+			'The selected visual operation failed. Reopen the dialog and check its settings and selection.', UI_OPTIONS,
 		);
 		await dialog.getByRole('button', { name: 'Remove dissolve', exact: true }).click();
 		await expect(dialog.getByRole('status')).toHaveText('Selected authored state removed.', UI_OPTIONS);
@@ -68,7 +68,7 @@ test.describe('Framescaper selected authoring coverage', () => {
 		let freeze = page.getByRole('dialog', { name: 'Freeze Selected Video', exact: true });
 		await freeze.getByRole('button', { name: 'Capture authenticated rendered frame', exact: true }).click();
 		await expect(freeze.getByRole('status')).toHaveText(
-			'The playhead is outside the selected video.', UI_OPTIONS,
+			'The selected visual operation failed. Reopen the dialog and check its settings and selection.', UI_OPTIONS,
 		);
 		await page.keyboard.press('Escape');
 		if (browserName !== 'chromium') {

@@ -21,12 +21,10 @@ import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { upstreamClipPropertiesLabels } from './upstream-clip-properties-copy.ts';
 import ClipPropertiesColorPicker from './ClipPropertiesColorPicker.tsx';
 import ClipAudioSettingsMenu from './ClipAudioSettingsMenu.tsx';
-import { clipPropertiesTimeFields } from './ClipPropertiesTimeFields.tsx';
-import { clipPropertiesFrameRate } from './clip-time-code-clock.ts';
 import { NumberField } from '@soundscaper/design-system/ClipPropertiesPanel/clip-properties-controls';
-import { PitchGlyph } from '@soundscaper/design-system/ClipPropertiesPanel/clip-properties-glyphs';
 import { clipLinkedPitchSpeed } from './clip-properties-linked-pitch.ts';
 import { clipPitchInUnit, clipPitchUnitToCents } from './inspector-helpers.ts';
+import { ClipPitchUnitToggle, clipAudioPropertyControls, type ClipMediaActions } from './ClipAudioPropertyControls.tsx';
 
 export type { ClipPropertiesFocusRequest } from '../../controller/composition/clip-properties-panel-opening.ts';
 interface Props {
@@ -42,7 +40,7 @@ interface Editor {
 	readonly project?: { readonly id: string } | null;
 	readonly actions: {
 		readonly edit: { commit(command: AudioEditorCommand): unknown };
-		readonly clip: {
+		readonly clip: ClipMediaActions & {
 			update(id: string, changes: Readonly<Record<string, unknown>>): unknown;
 			move(id: string, track: string, frame: number, options: { exactFrame: true }): unknown;
 			trim(id: string, changes: Readonly<Record<string, number>>): unknown;
@@ -71,7 +69,6 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 	const mounted = useRef(true);
 	const handledFocus = useRef<ClipPropertiesFocusRequest | null>(null);
 	const root = useRef<HTMLDivElement>(null);
-	const [nativeTimeFields, setNativeTimeFields] = useState(false);
 	const [pitchUnit, setPitchUnit] = useState<'semitones' | 'percent'>('semitones');
 	useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 	useEffect(() => {
@@ -120,23 +117,21 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 	});
 	const setStart = (frames: number) => run(() => clip && editor.actions.clip.move(clip.id, presentation.tracks[0]!.id, frames, { exactFrame: true }));
 	const setFade = (side: 'in' | 'out', frames: number) => update(clip => ({ [side === 'in' ? 'fadeInFrames' : 'fadeOutFrames']: Math.min(clip.durationFrames, Math.max(0, frames)) }));
-	const timingFields = nativeTimeFields && clip && source && project && !presentation.selection ? clipPropertiesTimeFields({
-		controller: controller as Parameters<typeof clipPropertiesTimeFields>[0]['controller'], clip, source, sampleRate: project.sampleRate, copy, disabled: blocked,
-		frameRate: clipPropertiesFrameRate(snapshot.project, clip.id),
-		onStart: setStart, onDuration: setDuration, onFade: setFade,
-		onTrimStart: readClipLoop(clip) ? undefined : frames => trimSourceFrame('start', frames),
-		onTrimEnd: readClipLoop(clip) ? undefined : frames => trimSourceFrame('end', (source.frameCount ?? 0) - frames),
-	}) : undefined;
 	const reportFailure = (cause: unknown) => { runCommand(() => { throw cause; }); };
 	const enabled = !blocked;
 	const capabilities = snapshot.capabilities as { readonly audioEffects?: boolean } | undefined;
 	const timePitchEnabled = enabled && capabilities?.audioEffects !== false;
+	const mediaControls = clipAudioPropertyControls({ clips: presentation.clips, source, copy, actions: editor.actions.clip,
+		disabled: !timePitchEnabled, run, update, setTimePitch });
 	const shapeLabels: Record<string, string> = { linear: copy.fadeShapeLinear, logarithmic: copy.fadeShapeLogarithmic,
 		exponential: copy.fadeShapeExponential, 's-curve': copy.fadeShapeSCurve, 'constant-power': copy.fadeShapeConstantPower };
-	return <div ref={root} className="audio-editor-upstream-clip-properties" data-upstream-clip-properties data-native-time-fields={nativeTimeFields || undefined} tabIndex={-1}>
+	return <div ref={root} className="audio-editor-upstream-clip-properties" data-upstream-clip-properties tabIndex={-1}>
 		{audio ? <><fieldset>
 			<UpstreamClipPropertiesPanel key={targetKey} clip={presentation.clip} selection={presentation.selection}
-				labels={upstreamClipPropertiesLabels(copy)} timingFields={timingFields}
+				labels={upstreamClipPropertiesLabels(copy)} showFadeShapes={false} minimumDuration={project ? 1 / project.sampleRate : undefined}
+				pitchSpeedHeadingControl={mediaControls.heading} pitchSpeedAction={mediaControls.action}
+				pitchSpeedFooter={mediaControls.footer} invertControl={mediaControls.invert} mediaSections={mediaControls.sections}
+				trackDetail={project ? `${project.sampleRate / 1000} kHz` : undefined}
 				colors={[]}
 				colorControl={<ClipPropertiesColorPicker key={targetKey} copy={copy} color={presentation.selection?.color ?? presentation.clip?.color}
 					disabled={blocked} onChange={color => update(() => ({ color }))} />}
@@ -153,7 +148,8 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 				onTrimEndChange={enabled && !readClipLoop(clip ?? {}) ? seconds => trim('end', seconds) : undefined}
 				onFadeChange={enabled && project ? (side, seconds) => setFade(side, Math.round(seconds * project.sampleRate)) : undefined}
 				onFadeShapeChange={enabled ? (side, id) => { const preset = END_FADE_SHAPE_PRESETS.find(preset => preset.id === id); if (preset) update(() => ({ [side === 'in' ? 'fadeInShape' : 'fadeOutShape']: preset.shape })); } : undefined}
-				pitchControl={<NumberField testId="pitch" label={pitchUnit === 'percent' ? copy.clipPitchPercent : copy.clipPitchField} glyph={<PitchGlyph />}
+				pitchControl={<NumberField testId="pitch" label={pitchUnit === 'percent' ? copy.clipPitchPercent : copy.clipPitchField}
+					glyph={<ClipPitchUnitToggle unit={pitchUnit} onChange={setPitchUnit} copy={copy} />}
 					value={presentation.selection?.pitchSemitones === 'mixed' ? 'mixed' : Number(clipPitchInUnit((presentation.selection?.pitchSemitones ?? presentation.clip?.pitchSemitones ?? 0) * 100, pitchUnit))}
 					step={pitchUnit === 'percent' ? 0.1 : 1} digits={pitchUnit === 'percent' ? 3 : 2}
 					onCommit={timePitchEnabled ? value => { run(() => {
@@ -165,10 +161,8 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 				resetPitchSpeedDisabled={presentation.clips.every(clip => (clip.pitchCents ?? 0) === 0 && (clip.speedRatio ?? 1) === 1 && !clip.preserveFormants)}
 				onResetPitchSpeed={timePitchEnabled ? () => setTimePitch({ pitchCents: 0, speedRatio: 1, preserveFormants: false }) : undefined} />
 		</fieldset>
-			{clip && source && !presentation.selection && <ClipAudioSettingsMenu key={`settings:${targetKey}`} controller={controller} clip={clip} source={source}
-				copy={copy} disabled={blocked} effectsEnabled={capabilities?.audioEffects !== false} run={run}
-				nativeTimeFields={nativeTimeFields} onNativeTimeFields={() => setNativeTimeFields(value => !value)}
-				pitchUnit={pitchUnit} onPitchUnit={setPitchUnit} />}
+			{clip && source && !presentation.selection && <ClipAudioSettingsMenu key={`settings:${targetKey}`} controller={controller} clip={clip}
+				copy={copy} disabled={blocked} effectsEnabled={capabilities?.audioEffects !== false} run={run} />}
 		</> : clip?.kind === 'image' ? <ImageClipPropertiesBody controller={controller} project={snapshot.project} clipId={clip.id} copy={copy} disabled={blocked} onError={reportFailure} />
 			: (clip?.kind === 'generator' || clip?.kind === 'still') ? <GeneratorClipPropertiesBody controller={controller} project={project} clipId={clip.id} copy={copy} disabled={blocked} onError={reportFailure} />
 				: <ClipPropertiesBody key={targetKey} controller={controller} snapshot={{ ...snapshot, project }} copy={copy} clipId={clip?.id} onError={reportFailure} />}

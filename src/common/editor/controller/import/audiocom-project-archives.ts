@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import type { OnlineMediaFailure } from '../../online-media-failure.ts';
 import { createProjectArchives } from './internal/audiocom-project-archives.ts';
 
 export interface AudiocomProjectArchive {
@@ -27,6 +28,7 @@ export interface AudiocomArchiveSnapshot extends AudiocomArchivePage, AudiocomAr
 	readonly supported: boolean;
 	readonly status: 'idle' | 'loading' | 'ready' | 'uploading' | 'error';
 	readonly errorMessage?: string;
+	readonly requestFailure?: OnlineMediaFailure;
 	readonly completedFileName?: string;
 }
 export interface AudiocomProjectArchives {

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useLayoutEffect, useRef, type RefObject } from 'react';
+import { useCallback, useLayoutEffect, useRef, type RefObject } from 'react';
 import type { LocalModelManagerModel } from '../local-model-manager-bridge.ts';
 
 /** Keep keyboard removal on a surviving row action, or the model search. */
@@ -19,7 +19,7 @@ export function useLocalModelRemovalFocus(container: RefObject<HTMLDivElement | 
 		(row?.querySelector<HTMLElement>('button:not([disabled])')
 			?? container.current?.querySelector<HTMLElement>('.search-field__input'))?.focus({ preventScroll: true });
 	}, [busyIds, container, models]);
-	return (modelId: string, control: HTMLButtonElement): void => {
+	return useCallback((modelId: string, control: HTMLButtonElement): void => {
 		request.current = control.ownerDocument.activeElement === control ? { control, modelId } : null;
-	};
+	}, []);
 }

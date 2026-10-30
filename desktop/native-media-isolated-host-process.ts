@@ -21,6 +21,7 @@ import type {
 	NativeMediaHostProcessResult,
 } from './native-media-helper-job.ts';
 import { nativeMediaHostArguments } from './native-media-host-process.ts';
+import { prepareNativeWebmOutputVerification } from './native-media-webm-output-verification.ts';
 
 const MAXIMUM_DURATION_MS = 3 * 60 * 60_000;
 const MAXIMUM_RSS_BYTES = 1024 ** 3;
@@ -102,10 +103,14 @@ function isolatedInvocation(
 	if (live.length > 2) throw new TypeError('The isolated media host admits at most two live inputs.');
 	let active: NativeChildIsolationLaunch | null = null;
 	let cancelled = false;
-	const launched = prepareLaunchAuthority(invocation).then(async ({ readOnly, writeOnly }) => {
+	let verification: Awaited<ReturnType<typeof prepareNativeWebmOutputVerification>> | null = null;
+	const launched = prepareNativeWebmOutputVerification(invocation).then(async (prepared) => {
+		verification = prepared;
+		const effectiveInvocation = prepared.invocation;
+		const { readOnly, writeOnly } = await prepareLaunchAuthority(effectiveInvocation, prepared.directory, invocation.destinationRoot);
 		const entry = mediaEntryExecutable(descriptor);
 		const runtimeClosure = mediaRuntimeClosure(descriptor, entry);
-		const hostArguments = nativeMediaHostArguments(invocation);
+		const hostArguments = nativeMediaHostArguments(effectiveInvocation);
 		const arguments_ = entry === descriptor
 			? hostArguments
 			: ['--library-path', dirname(entry.path), descriptor.path, ...hostArguments];
@@ -135,14 +140,15 @@ function isolatedInvocation(
 		if (cancelled) launch.kill('SIGKILL');
 		return launch;
 	});
-	const completion = launched.then(({ completion }) => completion).then((result) => {
+	const completion = launched.then(({ completion }) => completion).then(async (result) => {
 		if (result.signal !== null) {
 			throw new Error(`The isolated media host terminated by ${result.signal}.`);
 		}
+		if (result.exitCode === 0 && !cancelled) await verification?.publish();
 		return Object.freeze({
 			exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr,
 		}) satisfies NativeMediaHostProcessResult;
-	});
+	}).finally(async () => verification?.close());
 	const streams = [
 		launched.then((launch) => requiredInput(launch.stdin, 'stdin')),
 		launched.then((launch) => requiredInput(launch.extraInput?.sink ?? null, 'fd3')),
@@ -163,7 +169,8 @@ function isolatedInvocation(
 	});
 }
 
-async function prepareLaunchAuthority(invocation: NativeMediaHostInvocation): Promise<Readonly<{
+async function prepareLaunchAuthority(invocation: NativeMediaHostInvocation, verificationDirectory: string | null,
+	outputWriteRoot: string | null): Promise<Readonly<{
 	readonly readOnly: readonly NativeChildIsolationPathGrant[];
 	readonly writeOnly: readonly NativeChildIsolationPathGrant[];
 }>> {
@@ -172,10 +179,11 @@ async function prepareLaunchAuthority(invocation: NativeMediaHostInvocation): Pr
 		...invocation.sources.flatMap(({ path, liveInput }) => liveInput === undefined ? [path] : []),
 		...invocation.videoTimingAssets.map(({ path }) => path),
 	].filter((path): path is string => path !== null && path !== undefined);
-	const writePaths = [invocation.scratchPath, invocation.destinationRoot]
+	const writePaths = [invocation.scratchPath, outputWriteRoot]
 		.filter((path): path is string => path !== null);
 	return Object.freeze({
-		readOnly: await uniqueGrants(readPaths, 'file'),
+		readOnly: [...await uniqueGrants(readPaths, 'file'),
+			...await uniqueGrants(verificationDirectory ? [verificationDirectory] : [], 'directory')],
 		writeOnly: await uniqueGrants(writePaths, 'directory'),
 	});
 }

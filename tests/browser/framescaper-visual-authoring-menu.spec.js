@@ -4,6 +4,7 @@ import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 
 import { EDITOR_ENGLISH_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
+import { formatPresentationMessage } from '../../src/common/i18n/presentation-message.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { clipByName } from './audio-editor-clip-locators.js';
 import {
@@ -25,6 +26,11 @@ const PNG = Buffer.from(
 );
 const UI_TIMEOUT = 60_000;
 const UI_OPTIONS = { timeout: UI_TIMEOUT };
+
+function visualBounds(field, minimum, maximum) {
+	return formatPresentationMessage(EDITOR_ENGLISH_COPY, { key: 'ui.fileValidation.visualBounds',
+		parameters: { field: { key: `ui.selectedVisualAuthoring.${field}` }, minimum, maximum } });
+}
 
 test.describe('Framescaper visual authoring menus', () => {
 	test.describe.configure({ timeout: 180_000 });
@@ -326,7 +332,7 @@ test.describe('Framescaper visual authoring menus', () => {
 		const width = dialog.getByRole('spinbutton', { name: 'Width', exact: true });
 		await width.fill('0');
 		await dialog.getByRole('button', { name: 'Create and attach mask', exact: true }).click();
-		await expect(status).toHaveText('mask width is outside its finite bound.', UI_OPTIONS);
+		await expect(status).toHaveText(visualBounds('width', 0.01, 1), UI_OPTIONS);
 
 		await width.fill('0.5');
 		await dialog.getByRole('combobox', { name: 'Shape', exact: true }).selectOption('ellipse');
@@ -339,7 +345,7 @@ test.describe('Framescaper visual authoring menus', () => {
 			.toHaveText(['Rectangle', 'Ellipse']);
 		await dialog.getByRole('spinbutton', { name: 'Height', exact: true }).fill('0');
 		await dialog.getByRole('button', { name: 'Update attached mask', exact: true }).click();
-		await expect(status).toHaveText('mask height is outside its finite bound.', UI_OPTIONS);
+		await expect(status).toHaveText(visualBounds('height', 0.01, 1), UI_OPTIONS);
 		await dialog.getByRole('spinbutton', { name: 'Height', exact: true }).fill('0.25');
 		await dialog.getByRole('combobox', { name: 'Shape', exact: true }).selectOption('rectangle');
 		await dialog.getByRole('button', { name: 'Update attached mask', exact: true }).click();
@@ -363,7 +369,7 @@ test.describe('Framescaper visual authoring menus', () => {
 		await presetName.fill('');
 		await dialog.getByRole('button', { name: 'Save selected generator preset', exact: true }).click();
 		await expect(dialog.getByRole('status')).toHaveText(
-			'visual preset name must be canonical safe text.', UI_OPTIONS,
+			EDITOR_ENGLISH_COPY['ui.fileValidation.visualAuthoringOperation'], UI_OPTIONS,
 		);
 		await presetName.fill('Browser visual preset');
 		await dialog.getByRole('button', { name: 'Save selected generator preset', exact: true }).click();
@@ -425,7 +431,7 @@ test.describe('Framescaper visual authoring menus', () => {
 		await brightness.fill('2');
 		await dialog.getByRole('button', { name: 'Apply adjustment', exact: true }).click();
 		await expect(dialog.getByRole('status')).toHaveText(
-			'adjustment brightness is outside its finite bound.', UI_OPTIONS,
+			visualBounds('brightness', -1, 1), UI_OPTIONS,
 		);
 		await brightness.fill('0.25');
 		await dialog.getByRole('button', { name: 'Apply adjustment', exact: true }).click();

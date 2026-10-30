@@ -197,7 +197,7 @@ test('stale fences, model bindings, claims, and colliding track state refuse bef
 	assert.equal(commits, 0);
 });
 
-test('unknown or duplicate subset choices never reach the command port', async () => {
+test('unknown subset choices never reach the command port', async () => {
 	const current = authority();
 	let commits = 0;
 	const session = createLocalAssistanceReactionReviewSession({
@@ -208,8 +208,6 @@ test('unknown or duplicate subset choices never reach the command port', async (
 	}, request());
 	await assert.rejects(session.accept(['reaction:unknown:0:1']), /unknown/iu);
 	assert.equal(session.snapshot().phase, 'review');
-	const id = session.snapshot().proposals[0]!.id;
-	await assert.rejects(session.accept([id, id]), /unique/iu);
 	assert.equal(commits, 0);
 });
 

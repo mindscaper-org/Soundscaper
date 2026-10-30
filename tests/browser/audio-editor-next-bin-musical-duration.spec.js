@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseNestedCommandAction, disableNativeSavePicker } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseNestedCommandAction, disableNativeSavePicker, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
 import { createProjectStore } from '../../src/common/editor/storage.js';
@@ -22,6 +22,7 @@ for (const anchor of ['musical', 'sample']) test(`Project Bin shows the resolved
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Musical.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-project-id', project.id);
+	await waitForProjectActivation(editor);
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'read-only');
 	await editor.locator('[data-clip-id="music"] .clip-header').click({ button: 'right' });
 	await page.getByRole('menuitem', { name: 'Move to Project bin', exact: true }).click();

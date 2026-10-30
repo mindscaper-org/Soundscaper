@@ -212,11 +212,11 @@ export function videoBurnInFontSubsetIds(stage: VideoBurnInStage | null): readon
 
 /** Every character a burned delivery could not draw, deduplicated across its cues. */
 export function videoBurnInUndrawableCharacters(stage: VideoBurnInStage | null): readonly string[] {
-	const characters: string[] = [];
+	const characters = new Set<string>();
 	for (const cue of stage?.cues ?? []) {
 		for (const character of cue.undrawable) {
-			if (!characters.includes(character)) characters.push(character);
+			characters.add(character);
 		}
 	}
-	return Object.freeze(characters);
+	return Object.freeze([...characters]);
 }

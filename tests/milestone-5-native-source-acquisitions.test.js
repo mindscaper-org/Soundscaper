@@ -50,6 +50,8 @@ const EXPECTED_PINS = {
 		'40b1ea0453e0309f0eba934e0ddf533f8f6295966679e8894e8f1c1c8d5e1210'],
 	libvpx: ['1.16.0', '1024874c5919305883187e2953de8fcb4c3d7fa6', 5635379,
 		'7a479a3c66b9f5d5542a4c6a1b7d3768a983b1e5c14c60a9396edc9b649e015c'],
+	'svt-av1': ['4.2.0', '9292ec8e32bce26f781f277ec8739b53426c4300', 11070537,
+		'c7b13c4a84bd3751aa35fcc72be13e6875467e7c2216879251a486e5b1e4e740'],
 	libopus: ['1.6', 'a8b13e40d751c7b40833b94fc9437c5c3439da89', 36317446,
 		'b7637334527201fdfd6dd6a02e67aceffb0e5e60155bbd89175647a80301c92c'],
 	zlib: ['1.3.1', '51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf', 1512791,
@@ -67,7 +69,7 @@ const EXPECTED_LICENSE_SELECTIONS = {
 	lv2: 'ISC',
 	x264: 'GPL-2.0-or-later',
 	x265: 'GPL-2.0-or-later',
-	libvpx: 'BSD-3-Clause',
+	libvpx: 'BSD-3-Clause', 'svt-av1': 'BSD-3-Clause-Clear',
 	libopus: 'BSD-3-Clause',
 	zlib: 'Zlib',
 };
@@ -147,7 +149,7 @@ test('Soundscaper source audit excludes every deferred Framescaper native input'
 		'config/milestone-5-native-source-acquisitions.json',
 	]);
 	assert.ok(!audit.sources.some(({ id }) => [
-		'x264', 'x265', 'libvpx', 'libopus', 'zlib',
+		'x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib',
 	].includes(id)));
 });
 

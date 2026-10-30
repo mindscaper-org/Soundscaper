@@ -31,6 +31,8 @@ import { createExternalFfmpegAssistanceVideoMaterializer } from './project-libra
 import { ASSISTANCE_OPERATION_IPC_CHANNELS, registerAssistanceOperationIpc } from './project-library-runtime/desktop/assistance-operation-main-ipc.js';
 import { assistanceOperationConsentOptions } from './project-library-runtime/desktop/assistance-operation-consent.js';
 import { createAssistanceOperationService } from './project-library-runtime/desktop/assistance-operation-service.js';
+import { createAssistanceKeyedVideoService } from './project-library-runtime/desktop/assistance-keyed-video-service.js';
+import { createAssistanceNativeKeyedVideoEncoder } from './project-library-runtime/desktop/assistance-native-keyed-video.js';
 import { applyAssistanceBackgroundPriority, normalizeAssistanceThermalState } from './project-library-runtime/desktop/assistance-power-etiquette-v1.js';
 import { createAssistanceRuntimeFamilyDesktopStartup } from './project-library-runtime/desktop/assistance-runtime-family-startup.js';
 import { createAssistanceRuntimeInstaller } from './project-library-runtime/desktop/assistance-runtime-installer.js';
@@ -297,6 +299,12 @@ export function registerAssistance({
 		on,
 		sendToRenderer,
 		createOperations: (onProgress) => resolveOperations(onProgress),
+		createKeyedVideo: (ownedOperations) => createAssistanceKeyedVideoService({ operations: ownedOperations, registry: staging,
+			preferences: externalFfmpegPreferences, nativeEncoder: createAssistanceNativeKeyedVideoEncoder({
+				operations: ownedOperations, registry: staging,
+				location: { applicationRoot: resolve(import.meta.dirname, '..'), resourcesPath: process.resourcesPath,
+					packaged: app.isPackaged },
+			}) }),
 		confirmOperation: (request) => confirmOperation(dialog, windowFor(), request),
 		onError: onOperationError,
 	});

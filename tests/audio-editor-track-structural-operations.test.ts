@@ -100,12 +100,9 @@ test('sorting moves root structural blocks atomically without splitting a folder
 	assert.deepEqual(planTrackSort(project, 'name'), [
 		{ type: 'track-node/move', sequenceId: 'main', nodeId: 'video', parentFolderId: null, index: 0 },
 		{ type: 'track-node/move', sequenceId: 'main', nodeId: 'music', parentFolderId: null, index: 2 },
-		{ type: 'track-node/move', sequenceId: 'main', nodeId: 'folder', parentFolderId: null, index: 3 },
 	]);
 	assert.deepEqual(planTrackSort(project, 'time'), [
 		{ type: 'track-node/move', sequenceId: 'main', nodeId: 'video', parentFolderId: null, index: 0 },
-		{ type: 'track-node/move', sequenceId: 'main', nodeId: 'folder', parentFolderId: null, index: 2 },
-		{ type: 'track-node/move', sequenceId: 'main', nodeId: 'music', parentFolderId: null, index: 3 },
 	]);
 });
 

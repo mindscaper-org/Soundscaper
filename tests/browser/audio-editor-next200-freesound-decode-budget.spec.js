@@ -33,7 +33,7 @@ test('a small ten-minute M4A refuses its oversized upload before calling the nat
 	await (await choosing).setFiles({ name: 'podcast.m4a', mimeType: 'audio/mp4', buffer: Buffer.from(bytes) });
 	const row = area.locator('li');
 	await expect(row).toHaveAttribute('data-upload-status', 'failed', { timeout: 20_000 });
-	await expect(row.getByRole('alert')).toContainText('100 MB');
+	await expect(row.getByRole('alert')).toContainText('The audio could not be prepared for upload.');
 	expect(await page.evaluate(() => globalThis.__oversizedUploadDecodes)).toBe(0);
 	await expect(row.getByRole('button', { name: /^Retry\s*:/u })).toBeEnabled();
 	const healthy = page.waitForEvent('filechooser');

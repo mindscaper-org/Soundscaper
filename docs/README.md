@@ -24,6 +24,8 @@ qualification plans belong in Git history, not in the maintained documentation s
 - [Native services](architecture/native-services.md) describes helper
   processes, pathless renderer bridges, native audio and plug-ins, media, and
   package admission.
+- [Native WebM encoding](architecture/native-webm-encoding.md) describes the
+  bundled VP8, VP9, and AV1 encoders, speed presets, and transparency checks.
 - [Delivery and interchange](architecture/delivery-and-interchange.md) covers
   export plans, queues, reports, mastering, archives, and interchange formats.
 - [Local assistance](architecture/local-assistance.md) explains the optional
@@ -35,6 +37,10 @@ qualification plans belong in Git history, not in the maintained documentation s
 
 ## Develop and test
 
+- [Development testing](development/testing.md) covers focused checks, CI
+  shards, browser setup, and worktree-specific test handoff from agents.
+- [Editor and handbook localization](development/localization.md) explains
+  translation ownership, regeneration, and language publication.
 - [Source graphs](development/source-graphs.md) generates focused dependency
   views for local development.
 - [End-to-end coverage](development/end-to-end-coverage.md) explains how Node
@@ -80,6 +86,8 @@ qualification plans belong in Git history, not in the maintained documentation s
 
 ## Work on product features
 
+- [Legacy Cool Edit / Audition SES import](features/legacy-ses-import.md) covers
+  binary layouts, media access, and compatibility limits.
 - [Desktop Blender integration](development/desktop-blender.md) covers track-list
   export, add-on installation, and live audio updates in Blender.
 - [Framescaper capture](features/framescaper-capture.md) covers permission,
@@ -134,6 +142,8 @@ qualification plans belong in Git history, not in the maintained documentation s
 
 ## Consult durable decisions
 
+- [CorridorKey license](<decisions/CorridorKey License.md>) contains the retained
+  model license text.
 - [Family-v1 project baseline](decisions/project-family-v1.md) records the
   independent Soundscaper and Framescaper baseline freeze.
 - [Product origins and handoff](decisions/product-origins.md) records the
@@ -150,7 +160,17 @@ audits, batch inventories, measurements, and validation logs belong in Git
 history; keep reusable profiling tools and regression tests with their owners.
 Preserve release, provenance, and compliance evidence in its established registers.
 Before removing a record, move any open work or durable design constraint into
-the relevant guide or roadmap. When a policy paragraph is
-bounded by `policy-narrative` comments, edit its owning register and run the
-documented synchronization command; never edit the generated paragraph by
-hand.
+the relevant guide or roadmap.
+
+Policy paragraphs bounded by `policy-narrative` comments are generated; never
+edit them by hand. Bindings live in `scripts/lib/policy-narratives.mjs`. Edit
+the owning register field, then run `node scripts/sync-policy-narratives.mjs`.
+When register prose duplicates a narrative document, add a binding rather than
+maintaining a second hand-written paragraph.
+
+After changing a file digest-pinned by `config/ffmpeg-runtime-manifest.json`,
+including `config/production-security-matrix.json` or `docs/policies/security.md`,
+run `node scripts/repin-runtime-evidence.mjs`. Commit the refreshed byte lengths,
+SHA-256 pins, and review payload digest with the source edit; never hand-edit
+those pins. Use `node scripts/repin-runtime-evidence.mjs --check` to verify them
+without writing.

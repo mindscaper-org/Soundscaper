@@ -165,6 +165,7 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['framescaper-save-video-visual-preset', 'Save Visual Preset', 'Generate > Video Generators', FRAMESCAPER],
 	['assistance-task-generate-editorial-text', 'Generate Editorial Text', 'Generate', BOTH],
 	['text-to-speech', 'Text to Speech', 'Generate', BOTH],
+	['corridorkey-2.0', 'CorridorKey 2.0', 'Effect > Video effects', FRAMESCAPER],
 
 	// Soundscaper native effects and destructive selection effects.
 	['native-effect-manage', 'Plugin Manager', 'Effect', SOUNDSCAPER],

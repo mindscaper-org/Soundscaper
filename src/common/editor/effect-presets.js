@@ -1,3 +1,4 @@
+import { effectPresetImportFailure } from './label-and-preset-parser-failure.ts';
 import {
 	AUDIO_SELECTION_EFFECT_DEFINITIONS,
 	normalizeAudioSelectionEffectParams,
@@ -10,12 +11,16 @@ import {
 import { parseAudacityEffectPreset } from './audacity-effect-preset-import.ts';
 
 export const AUDIO_EDITOR_EFFECT_PRESETS_SCHEMA_VERSION = 1;
+const CANONICAL_PRESET_STATES = new WeakSet();
+
+/** Factory identity alone grants no mutation authority; only an owned library reuses it. */
+export function isCanonicalAudioEditorEffectPresets(value) { return CANONICAL_PRESET_STATES.has(value); }
 
 /** @param {unknown} [value] */
 export function createAudioEditorEffectPresets(value = {}) {
 	const source = value && typeof value === 'object' ? value : {};
 	if (source.schemaVersion != null && source.schemaVersion !== AUDIO_EDITOR_EFFECT_PRESETS_SCHEMA_VERSION) {
-		throw new RangeError(`Unsupported effect preset schema: ${source.schemaVersion}.`);
+		throw effectPresetImportFailure(new RangeError(`Unsupported effect preset schema: ${source.schemaVersion}.`), 'SCHEMA');
 	}
 	const presets = Array.isArray(source.presets) ? source.presets.map(normalizePreset) : [];
 	assertUniquePresetIds(presets);
@@ -103,7 +108,7 @@ export function importAudioEditorEffectPresets(state, input, options = {}) {
 			parsed = JSON.parse(input);
 		} catch (cause) {
 			if (!looksLikeAudacityEffectPreset(input)) {
-				throw new SyntaxError(`Invalid effect preset JSON: ${cause instanceof Error ? cause.message : String(cause)}`);
+				throw effectPresetImportFailure(new SyntaxError(`Invalid effect preset JSON: ${cause instanceof Error ? cause.message : String(cause)}`), 'JSON');
 			}
 			const converted = parseAudacityEffectPreset(input, options.effectType || null);
 			const now = timestamp(options.now);
@@ -120,8 +125,10 @@ export function importAudioEditorEffectPresets(state, input, options = {}) {
 			};
 		}
 	}
-	const imported = createAudioEditorEffectPresets(parsed).presets;
-	if (!imported.length) throw new RangeError('The effect preset file is empty.');
+	let imported;
+	try { imported = createAudioEditorEffectPresets(parsed).presets; }
+	catch (error) { throw effectPresetImportFailure(error, 'RECORD'); }
+	if (!imported.length) throw effectPresetImportFailure(new RangeError('The effect preset file is empty.'), 'EMPTY');
 	const byId = new Map(current.presets.map((preset) => [preset.id, preset]));
 	for (const preset of imported) {
 		let id = preset.id;
@@ -191,8 +198,10 @@ function assertUniquePresetIds(presets) {
 }
 
 function freezeState(presets) {
-	return Object.freeze({
+	const state = Object.freeze({
 		schemaVersion: AUDIO_EDITOR_EFFECT_PRESETS_SCHEMA_VERSION,
 		presets: Object.freeze([...presets]),
 	});
+	CANONICAL_PRESET_STATES.add(state);
+	return state;
 }

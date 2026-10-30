@@ -11,7 +11,7 @@ import {
 import {
 	createNativeMediaPlanEnvelopeV1,
 } from '../src/common/editor/native-media-plan-envelope.ts';
-import { createNativeMediaPlanEnvelopeV2 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
+import { createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
 import type { FramescaperMediaHostDescriptor } from './framescaper-media-host-payload.ts';
 import type { HelperDataPlaneBinding } from './helper-data-plane.ts';
 import type { HelperDataPlaneInputReservation } from './helper-data-plane-input-reservation.ts';
@@ -73,7 +73,7 @@ export interface NativeMediaHostSourceInvocation {
 	readonly byteLength: number;
 	readonly role: 'original' | 'evaluated-rgba-frame-pack' | 'staged-audio-mix'
 		| 'image-sequence-pack' | 'image-sequence-inventory';
-	readonly liveInput?: HelperDataPlaneInputReservation;
+	readonly liveInput?: HelperDataPlaneInputReservation | Readonly<{ transport: 'native-pipe'; byteLength: number }>;
 }
 
 export interface NativeMediaHostVideoTimingInvocation {
@@ -549,7 +549,7 @@ async function assertCanonicalPlan(path: string, fingerprint: string): Promise<v
 	catch { throw new Error('The helper-spooled native media plan is not JSON.'); }
 	const version = (plan as Readonly<{ version?: unknown }> | null)?.version;
 	const envelope = version === 13 || version === 14
-		? createNativeMediaPlanEnvelopeV2(plan)
+		? createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(plan)
 		: createNativeMediaPlanEnvelopeV1(plan);
 	if (Buffer.from(canonicalizeNativeMediaPlan(envelope.plan)).compare(bytes) !== 0
 		|| envelope.fingerprint !== fingerprint) {

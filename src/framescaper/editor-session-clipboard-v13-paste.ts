@@ -103,8 +103,10 @@ export function prepareFramescaperSessionClipboardPasteV13(
 	const targetSources = project.sources.filter((source): source is typeof source & FramescaperImageSourceV1 => (
 		source.kind === 'image'
 	)).map(normalizeFramescaperImageSourceV1);
+	const targetSourceById = new Map(targetSources.map(source => [source.id, source]));
 	const sourceCommands: FramescaperProjectCommandTimelineImage[] = [];
 	const bodyTransfers: FramescaperImageClipboardBodyTransferV13[] = [];
+	const transferTargets = new Set<string>();
 	const sourceIdMap = new Map<string, string>();
 	const clipboardSourceById = new Map(clipboard.sources.filter((source): source is FramescaperImageSourceV1 => (
 		(source as Readonly<Record<string, unknown>>).kind === 'image'
@@ -112,12 +114,11 @@ export function prepareFramescaperSessionClipboardPasteV13(
 	for (const sourceId of clipboard.images.sourceIds) {
 		const source = clipboardSourceById.get(sourceId);
 		if (!source) throw new ReferenceError(`V13 image source ${sourceId} is missing from its clipboard.`);
-		const reusable = targetSources.find((candidate) => (
-			candidate.id === source.id && sameBodyAuthority(candidate, source)
-		));
+		const candidate = targetSourceById.get(source.id);
+		const reusable = candidate && sameBodyAuthority(candidate, source) ? candidate : null;
 		if (reusable) {
 			sourceIdMap.set(sourceId, reusable.id);
-			addTransfer(bodyTransfers, {
+			addTransfer(bodyTransfers, transferTargets, {
 				mode: 'reuse', fromStorageKey: reusable.storageKey,
 				toStorageKey: reusable.storageKey, source: reusable,
 			});
@@ -130,20 +131,20 @@ export function prepareFramescaperSessionClipboardPasteV13(
 		sourceCommands.push(Object.freeze({
 			type: 'image-source/set', sourceId: targetId, expectedSource: null, source: target,
 		}));
-		addTransfer(bodyTransfers, Object.freeze({
+		addTransfer(bodyTransfers, transferTargets, Object.freeze({
 			mode: targetId === source.storageKey ? 'reuse' : 'copy',
 			fromStorageKey: source.storageKey,
 			toStorageKey: target.storageKey,
 			source: target,
 		}));
 	}
+	const bindingByClip = new Map(clipboard.clipBindings.map(binding => [binding.clipId, binding]));
+	const geometryByKey = new Map(clipboard.descriptor.tracks.flatMap(track => track.clips.map(fragment =>
+		[fragment.key, { sourceTrack: track, descriptorClip: fragment }] as const)));
 	const clipCommands = clipboard.images.clips.map((clip) => {
-		const binding = clipboard.clipBindings.find(({ clipId }) => clipId === clip.id);
+		const binding = bindingByClip.get(clip.id);
 		if (!binding) throw new ReferenceError(`V13 image clip ${clip.id} has no descriptor binding.`);
-		const sourceTrack = clipboard.descriptor.tracks.find((track) => track.clips.some(
-			({ key }) => key === binding.descriptorKey,
-		));
-		const descriptorClip = sourceTrack?.clips.find(({ key }) => key === binding.descriptorKey);
+		const { sourceTrack, descriptorClip } = geometryByKey.get(binding.descriptorKey) ?? {};
 		if (!sourceTrack || !descriptorClip) throw new ReferenceError(`V13 image clip ${clip.id} has no geometry.`);
 		const trackMap = record(paste.trackMap, 'V13 paste track map');
 		const targetTrackId = stableId(
@@ -390,9 +391,12 @@ function normalizeTransfers(
 
 function addTransfer(
 	transfers: FramescaperImageClipboardBodyTransferV13[],
+	targets: Set<string>,
 	transfer: FramescaperImageClipboardBodyTransferV13,
 ): void {
-	if (!transfers.some(({ toStorageKey }) => toStorageKey === transfer.toStorageKey)) transfers.push(transfer);
+	if (targets.has(transfer.toStorageKey)) return;
+	targets.add(transfer.toStorageKey);
+	transfers.push(transfer);
 }
 
 function sameBodyAuthority(left: FramescaperImageSourceV1, right: FramescaperImageSourceV1): boolean {

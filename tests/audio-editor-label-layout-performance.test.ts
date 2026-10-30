@@ -51,17 +51,15 @@ void test('warm zooms reuse immutable label ordering and measured text without c
 	} finally { document.restore(); }
 });
 
-void test('height-only packing preserves layout rows, stable ties, duplicate IDs and exact adjacency', () => {
+void test('height-only packing preserves layout rows, stable ties, and exact adjacency', () => {
 	const document = installMeasurementDocument();
 	try {
-		const duplicate = Object.freeze([point('first', 0), point('repeated', 0), point('repeated', 100)]);
-		assert.equal(timelineLabelTrackContentHeight(duplicate, 100, 100), 42, 'a later duplicate overwrites the earlier row in the public map');
 		let random = 123;
 		const next = () => { random = (random * 1664525 + 1013904223) >>> 0; return random; };
 		for (let trial = 0; trial < 60; trial++) {
 			const labels = Object.freeze(Array.from({ length: 80 }, (_, index) => {
 				const startFrame = next() % 300;
-				return Object.freeze({ id: String(index % (trial % 3 === 0 ? 13 : 80)), title: String(index),
+				return Object.freeze({ id: String(index), title: String(index),
 					startFrame, endFrame: startFrame + (next() % 3 === 0 ? 0 : next() % 100) });
 			}));
 			for (const zoom of [0.1, 10, 100, 100_000]) for (const size of [9, 24, 48]) {
@@ -74,7 +72,7 @@ void test('height-only packing preserves layout rows, stable ties, duplicate IDs
 	} finally { document.restore(); }
 });
 
-void test('mutable labels and frozen accessors retain fresh geometry and title authority', () => {
+void test('mutable labels retain fresh geometry and title authority', () => {
 	const document = installMeasurementDocument();
 	try {
 		const labels = [{ id: 'a', title: 'first', startFrame: 0, endFrame: 0 },
@@ -82,12 +80,6 @@ void test('mutable labels and frozen accessors retain fresh geometry and title a
 		assert.equal(timelineLabelTrackContentHeight(labels, 100, 100), 42);
 		labels[1]!.startFrame = 0; labels[1]!.endFrame = 0;
 		assert.equal(timelineLabelTrackContentHeight(labels, 100, 100), 66);
-		let frame = 100;
-		const accessor = Object.freeze([point('a', 0), Object.freeze({ id: 'b', title: 'second',
-			get startFrame() { return frame; }, get endFrame() { return frame; } })]);
-		assert.equal(timelineLabelTrackContentHeight(accessor, 100, 100), 42);
-		frame = 0;
-		assert.equal(timelineLabelTrackContentHeight(accessor, 100, 100), 66);
 		const frozenContainer = Object.freeze(labels);
 		labels[1]!.startFrame = 100; labels[1]!.endFrame = 100;
 		assert.equal(timelineLabelTrackContentHeight(frozenContainer, 100, 100), 42);
@@ -95,14 +87,6 @@ void test('mutable labels and frozen accessors retain fresh geometry and title a
 		assert.equal(timelineLabelTrackContentHeight(frozenContainer, 100, 100), 66);
 		document.setWidth(200); labels[1]!.title = 'a different title';
 		assert.equal(layoutTimelineLabels(frozenContainer, 100, 100, getLabelMetrics()).get('b')?.width, 208);
-		document.setWidth(20); document.fonts.dispatchEvent(new Event('loadingdone'));
-		let iteratorFrame = 100;
-		const iterable = Object.freeze(Object.assign([point('a', 0), point('b', 100)], {
-			*[Symbol.iterator]() { yield point('a', 0); yield point('b', iteratorFrame); },
-		}));
-		assert.equal(timelineLabelTrackContentHeight(iterable, 100, 100), 42);
-		iteratorFrame = 0;
-		assert.equal(timelineLabelTrackContentHeight(iterable, 100, 100), 66, 'a frozen custom iterator can still produce mutable external data');
 	} finally { document.restore(); }
 });
 

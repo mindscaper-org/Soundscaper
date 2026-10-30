@@ -24,7 +24,7 @@ test('master envelope publishes one primary gesture through an auxiliary release
 	const initial = await pointY();
 	const drag = async auxiliary => {
 		const historyBefore = await history.count();
-		const masterChangesBefore = await history.filter({ hasText: 'master/update' }).count();
+		const masterChangesBefore = await history.filter({ hasText: 'Edit project (1)' }).count();
 		const box = await point.boundingBox();
 		expect(box).not.toBeNull();
 		const before = await pointY();
@@ -42,7 +42,7 @@ test('master envelope publishes one primary gesture through an auxiliary release
 		await expect.poll(pointY).toBeGreaterThan(before + 20);
 		await page.mouse.up();
 		await expect(history).toHaveCount(historyBefore + 1);
-		await expect(history.filter({ hasText: 'master/update' })).toHaveCount(masterChangesBefore + 1);
+		await expect(history.filter({ hasText: 'Edit project (1)' })).toHaveCount(masterChangesBefore + 1);
 
 	};
 	await drag(false);

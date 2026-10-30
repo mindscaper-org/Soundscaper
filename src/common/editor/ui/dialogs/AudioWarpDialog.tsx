@@ -1,7 +1,9 @@
+import { parseAudioWarpRational as parseRationalInput, parseAudioWarpGrooveOffsets as parseGrooveOffsets } from './dialog-input-validation.ts';
+import { useCommittedCallbacks } from '../useCommittedCallbacks.ts';
 import { usePresentationFeedback, feedbackFailure, type PresentationFeedback } from '../presentation-feedback.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 
 import '../audio-editor-design-system/27-audio-warp.css';
 
@@ -280,14 +282,28 @@ function WarpMapEditor({
 	onMove(pointIndex: number, outer: string, source: string): void;
 	onDelete(pointIndex: number): void;
 }>) {
+	const actions = useCommittedCallbacks({ onMove, onDelete });
 	if (!model.hasWarpMap) return <p>{copy.audioWarpNoMap}</p>;
 	return <fieldset ref={markerEditorRef} className="audio-editor-audio-warp__markers" disabled={disabled}>
 		<legend>{copy.audioWarpMarkers}</legend>
-		<table className="audio-editor-audio-warp__map" aria-label={copy.audioWarpMapPoints}>
+		<WarpMarkerTable points={model.warpPoints} copy={copy} {...actions} />
+		<div className="audio-editor-audio-warp__marker-add">
+			<label><span>{copy.audioWarpOuter}</span><input type="text" value={markerOuter} onChange={(event) => onMarkerOuter(event.currentTarget.value)} /></label>
+			<label><span>{copy.audioWarpSource}</span><input type="text" value={markerSource} onChange={(event) => onMarkerSource(event.currentTarget.value)} /></label>
+			<button type="button" data-audio-warp-add-marker onClick={onAdd}>{copy.audioWarpAddMarker}</button>
+		</div>
+	</fieldset>;
+}
+
+const WarpMarkerTable = memo(function WarpMarkerTable({ points, copy, onMove, onDelete }: Readonly<{
+	points: ReturnType<typeof createAudioWarpDialogModel>['warpPoints']; copy: Readonly<Record<string, string>>;
+	onMove(pointIndex: number, outer: string, source: string): void; onDelete(pointIndex: number): void;
+}>) {
+	return <table className="audio-editor-audio-warp__map" aria-label={copy.audioWarpMapPoints}>
 		<caption>{copy.audioWarpMapPoints}</caption>
 		<thead><tr><th scope="col">{copy.audioWarpOuter}</th><th scope="col">{copy.audioWarpSource}</th><th scope="col">{copy.audioWarpMarkerActions}</th></tr></thead>
-		<tbody>{model.warpPoints.map((point, index) => <tr key={index}>
-			{index === 0 || index === model.warpPoints.length - 1 ? <>
+		<tbody>{points.map((point, index) => <tr key={index}>
+			{index === 0 || index === points.length - 1 ? <>
 				<td>{point.outer}</td><td>{point.source}</td><td>{copy.audioWarpEndpoint}</td>
 			</> : <MarkerRow
 				point={point}
@@ -296,14 +312,8 @@ function WarpMapEditor({
 				onDelete={onDelete}
 			/>}
 		</tr>)}</tbody>
-		</table>
-		<div className="audio-editor-audio-warp__marker-add">
-			<label><span>{copy.audioWarpOuter}</span><input type="text" value={markerOuter} onChange={(event) => onMarkerOuter(event.currentTarget.value)} /></label>
-			<label><span>{copy.audioWarpSource}</span><input type="text" value={markerSource} onChange={(event) => onMarkerSource(event.currentTarget.value)} /></label>
-			<button type="button" data-audio-warp-add-marker onClick={onAdd}>{copy.audioWarpAddMarker}</button>
-		</div>
-	</fieldset>;
-}
+		</table>;
+});
 
 function MarkerRow({ point, copy, onMove, onDelete }: Readonly<{
 	point: ReturnType<typeof createAudioWarpDialogModel>['warpPoints'][number];
@@ -397,26 +407,6 @@ function transientCountFromOutcome(value: unknown): number {
 	const outcome = dataRecord(value);
 	const analysis = dataRecord(outcome?.analysis);
 	return Array.isArray(analysis?.transients) ? analysis.transients.length : 0;
-}
-
-function parseGrooveOffsets(value: string): readonly RationalInput[] {
-	const tokens = value.split(',').map((token) => token.trim()).filter(Boolean);
-	if (tokens.length < 1 || tokens.length > 128) {
-		throw new RangeError('A groove template requires 1 to 128 offsets.');
-	}
-	return Object.freeze(tokens.map((token) => parseRationalInput(token, 'groove offset')));
-}
-
-function parseRationalInput(value: string, name: string): RationalInput {
-	const token = value.trim();
-	const match = /^(-?\d+)(?:\/(\d+))?$/u.exec(token);
-	if (!match) throw new TypeError(`Invalid ${name}: ${token}.`);
-	const num = Number(match[1]);
-	const den = Number(match[2] ?? 1);
-	if (!Number.isSafeInteger(num) || !Number.isSafeInteger(den) || den < 1) {
-		throw new RangeError(`Invalid ${name}: ${token}.`);
-	}
-	return Object.freeze({ num, den });
 }
 
 function dataRecord(value: unknown): Readonly<Record<string, unknown>> | null {

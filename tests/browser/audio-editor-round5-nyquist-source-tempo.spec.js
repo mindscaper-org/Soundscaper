@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { expect, test, monoTone } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseCommandAction, clipByName, importFiles, openClipProperties, openSourceMonitor } from './audio-editor-test-helpers.js';
 
@@ -19,11 +20,7 @@ test('Nyquist source processing receives the tempo at its placed clip', async ({
 	await expect(musical).toBeHidden();
 	const properties = await openClipProperties(page, editor, clipByName(editor, monoTone.name));
 	await showClipTimingFields(properties);
-	const start = properties.locator('[data-clip-field="startFrame"]');
-	await start.locator('.timecode-digit').first().click();
-	await page.keyboard.type('000005000');
-	await page.keyboard.press('Enter');
-	await expect(start.locator('.timecode__display')).toHaveText('00h00m05.000s');
+	await setClipTimeFrames(properties, 'startFrame', 240000);
 	const sourceMonitor = await openSourceMonitor(page, editor);
 	const waveform = sourceMonitor.getByRole('region', { name: 'Source waveform', exact: true });
 	await waveform.focus();

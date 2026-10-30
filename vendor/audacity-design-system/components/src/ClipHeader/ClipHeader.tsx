@@ -1,3 +1,4 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React from 'react';
 import type { ClipColor } from '../types/clip';
 import { Icon } from '../Icon';
@@ -107,6 +108,7 @@ export const ClipHeader: React.FC<ClipHeaderProps> = ({
   renameRequestId,
   onRenameFinished,
 }) => {
+  const { copy } = useComponentCopy();
   const [isRenaming, setIsRenaming] = React.useState(false);
   const [renameDraft, setRenameDraft] = React.useState(name);
   const renameInputRef = React.useRef<HTMLInputElement | HTMLTextAreaElement>(null);
@@ -265,7 +267,7 @@ export const ClipHeader: React.FC<ClipHeaderProps> = ({
             onBlur={(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => commitRename(e.currentTarget.value)}
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
-            aria-label="Clip name"
+            aria-label={copy.clipName}
           />
         ) : (
           <span
@@ -325,7 +327,7 @@ export const ClipHeader: React.FC<ClipHeaderProps> = ({
             <button
               className="clip-header__menu-button"
               onClick={handleMenuClick}
-              aria-label="Clip menu"
+              aria-label={copy.clipMenu}
               type="button"
               tabIndex={-1}
             >

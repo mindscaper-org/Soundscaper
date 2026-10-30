@@ -1,3 +1,4 @@
+import { createProjectBinInstanceCountReader } from '../../../../project-bin-instance-count-index.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { publishedCopyFor } from '../../../shared/presentation-localization.ts'; import { createLocalizedError } from '../../../../../i18n/presentation-message.ts'; import { hasProjectBinMediaAuthority } from '../../../../project-schema-version.ts';
@@ -124,6 +125,7 @@ export interface ProjectBinService extends ProjectBinReplacementService,
 export function createProjectBinService(
 	dependencies: ProjectBinServiceDependencies,
 ): Readonly<ProjectBinService> {
+	const readInstanceCount = createProjectBinInstanceCountReader();
 	const replacement = createProjectBinReplacementService(dependencies);
 	const preview = createProjectBinPreviewService(previewDependencies(dependencies));
 	const audioRelink = createProjectBinLinkedAudioRelinkService(audioRelinkDependencies(dependencies, preview));
@@ -329,7 +331,10 @@ export function createProjectBinService(
 
 	function projectBinInstanceCount(clipId: string): number {
 		dependencies.lifetime.assertActive();
-		return projectBinInstanceIds(clipId).length;
+		const project = dependencies.getProject();
+		const count = readInstanceCount(project.clips, projectBinClips(project), clipId, hasProjectBinMediaAuthority(project));
+		if (count === undefined) throw createLocalizedError(Error, dependencies.copy, 'audioClipNotFound');
+		return count;
 	}
 
 	function selectProjectBinInstances(clipId: string): readonly string[] {

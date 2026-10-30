@@ -12,12 +12,13 @@ for (const mode of ['all', 'track', 'long', 'extend', 'right'] as const) test(`N
 	const startSample = mode === 'long' ? 2_000_000 : 9600, endSample = startSample + 4800;
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const runtime = createSoundscaperProjectRuntimeSelection();
+	const engine = createMemoryEngine();
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
 	const source = createAudioSource({ id: 'recorded', frameCount: 4800, sampleRate: 48_000, channelCount: 1 });
 	const writer = await store.beginSourceWrite(source.storageKey, source); await writer.write([new Float32Array(4800).fill(.25)]); await writer.commit();
 	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY,
 		projectRuntime: runtime, sessionController: runtime.createSessionController(), store,
-		engine: createMemoryEngine() as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'] });
+		engine: engine as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'] });
 	context.after(async () => { await controller.dispose(); }); await controller.ready;
 	await controller.actions.project.open(createSoundscaperProject({ id: 'recording', sources: [source], tracks: [createAudioTrack({ id: 'voice', clipIds: [] })],
 		sequences: [{ id: 'main', trackIds: ['voice'] }], primarySequenceId: 'main',
@@ -27,7 +28,10 @@ for (const mode of ['all', 'track', 'long', 'extend', 'right'] as const) test(`N
 	controller.actions.timeline.selectTrack('voice');
 	if (mode === 'track') controller.actions.timeline.selectTrackStartToEnd();
 	else if (mode === 'extend') controller.actions.timeline.extendSelectionToProjectEnd();
-	else if (mode === 'right') controller.actions.timeline.selectRightOfPlayback();
+	else if (mode === 'right') {
+		engine.seek(endSample);
+		controller.actions.timeline.selectRightOfPlayback();
+	}
 	else controller.actions.timeline.selectAll();
 	assert.deepEqual([controller.project?.selection.startFrame, controller.project?.selection.endFrame], [mode === 'track' ? startSample : 0, endSample],
 		'Select All must reach recorded take content even before it has ordinary clips');

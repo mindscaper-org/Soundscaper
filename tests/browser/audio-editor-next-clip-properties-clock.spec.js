@@ -5,8 +5,9 @@ import { bootEditor, chooseCommandAction, chooseFileAction, chooseNestedCommandA
 	importFiles, openClipProperties, showClipTimingFields } from './audio-editor-test-helpers.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
+import { expectClipTimeFrames, setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
-for (const kind of ['audio', 'generator']) test(`${kind} Properties frame format retains its selected sixty-fps clock`, async ({ page }) => {
+for (const kind of ['audio', 'generator']) test(`${kind} Properties retains sample-exact timing in its sixty-fps sequence`, async ({ page }) => {
 	const editor = await bootEditor(page, kind === 'audio' ? '/embed/en/' : '/framescaper/embed/en/');
 	if (kind === 'audio') {
 		const project = createSoundscaperProject({ id: 'audio-sixty-fps', sequences: [{ id: 'main', trackIds: [],
@@ -28,6 +29,14 @@ for (const kind of ['audio', 'generator']) test(`${kind} Properties frame format
 	const clip = kind === 'audio' ? clipByName(editor, 'Clock.wav')
 		: editor.getByRole('group', { name: 'Video clip: Title', exact: true });
 	const properties = await openClipProperties(page, editor, clip); await showClipTimingFields(properties);
+	if (kind === 'audio') {
+		await setClipTimeFrames(properties, 'durationFrame', 96_800);
+		await closeWorkspacePanel(editor, 'clip-properties');
+		await chooseCommandAction(page, editor, 'Edit', 'Undo');
+		await openClipProperties(page, editor, clip);
+		await expectClipTimeFrames(properties, 'durationFrame', 144_000);
+		return;
+	}
 	const duration = properties.getByRole('group', { name: 'Duration', exact: true });
 	await duration.getByRole('button', { name: 'Duration: format', exact: true }).click();
 	await page.getByRole('menuitem', { name: /^Video frames/u }).click();

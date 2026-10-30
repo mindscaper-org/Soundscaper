@@ -5,9 +5,11 @@ import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
 
 import { encodeAudacityBinaryXml } from '../src/common/editor/audacity-binary-xml.js';
+import { finalizeAudacityPortableImage } from '../src/common/editor/audacity-portable-image.ts';
 import {
 	initializeAup4Database,
 	insertAup4SampleBlock,
+	prepareAup4PortableExport,
 	prepareAup4SerializedDatabase,
 	readAup4SampleBlock,
 	validateAup4Database,
@@ -24,6 +26,7 @@ import {
 	aup4NativeRichFixture,
 } from '../tests/fixtures/aup4-native-rich.js';
 import { auditCompiledNativeRunner, resolveConfiguredNativeRunner } from './lib/aup4-interop-native-runner.mjs';
+import { auditAudacityNativeSqlite } from './lib/audacity-interop-native-sqlite.mjs';
 import { portableClipState } from './lib/aup4-interop-snapshot.mjs';
 import {
 	assertGateStatus,
@@ -117,12 +120,20 @@ export async function auditAup4FixtureInterop(options = {}) {
 			encodeAudacityBinaryXml(createAup4ProjectTree(decodedFixture.project, channelBlocks)),
 			{ autosave: false, now: 0 },
 		);
-		browserSnapshot = browserDatabase.export();
+		prepareAup4PortableExport(browserDatabase);
+		browserSnapshot = finalizeAudacityPortableImage(browserDatabase.export());
 	} finally {
 		browserDatabase.close();
 	}
 
-	const reopenedBrowserDatabase = new SQL.Database(browserSnapshot);
+	const nativeSqlite = await auditAudacityNativeSqlite(browserSnapshot, 'aup4', (database) => {
+		const block = database.prepare('SELECT samples, summary256, summary64k FROM sampleblocks WHERE blockid = 1').get();
+		assert.ok(block);
+		for (const field of ['samples', 'summary256', 'summary64k']) {
+			assert.deepEqual(block[field], nativeBlock[field]);
+		}
+	});
+	const reopenedBrowserDatabase = new SQL.Database(prepareAup4SerializedDatabase(browserSnapshot));
 	try {
 		browserReport = validateAup4Database(reopenedBrowserDatabase);
 		assert.equal(browserReport.compatible, true);
@@ -180,6 +191,7 @@ export async function auditAup4FixtureInterop(options = {}) {
 		audacityCommit: gateStatus.audacityCommit,
 		fixtureCodecInterop: {
 			status: 'passed',
+			nativeSqlite,
 			compiledNativeCodeExecuted: false,
 			pipeline: [...gateStatus.fixtureCodecInterop.pipeline],
 			fixture: {

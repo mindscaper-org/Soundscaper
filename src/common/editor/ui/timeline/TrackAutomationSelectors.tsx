@@ -9,6 +9,7 @@ import {
 	trackAutomationModeForLane,
 	type TrackAutomationRuntime,
 } from '../../track-automation-runtime.ts';
+import { localizeTrackAutomationTargets } from './track-automation-target-presentation.ts';
 import type { TrackAutomationTargetV21 } from '../../track-automation-targets-v21.ts';
 
 export interface TrackAutomationSelectorsProps {
@@ -34,7 +35,9 @@ export function TrackAutomationSelectors({
 	const mode = trackAutomationModeForLane(runtime, laneId);
 	const activeGesture = runtime?.snapshot.gestureActive === true
 		&& runtime.snapshot.laneId === laneId;
-	const groups = useMemo(() => groupTargets(targets), [targets]);
+	const needsLocalization = useMemo(() => targets.some(target => target.presentation), [targets]);
+	const presentationCopy = needsLocalization ? copy : null;
+	const groups = useMemo(() => groupTargets(presentationCopy ? localizeTrackAutomationTargets(targets, presentationCopy) : targets), [presentationCopy, targets]);
 	const targetLabel = copy.automationParameter || 'Automation parameter';
 	const modeLabel = copy.automationMode || 'Automation mode';
 	const selectTarget = (event: ChangeEvent<HTMLSelectElement>) => {

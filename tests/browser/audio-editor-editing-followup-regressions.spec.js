@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { expectClipTimeFrames, setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { expect, test, monoTone, createWavFixture } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, clipByName, importFiles, openClipProperties, clipField, closeClipProperties,
 	chooseCommandAction, chooseNestedCommandAction, clickClipInterior, openExportDialog,
@@ -27,9 +28,7 @@ test('clip properties apply the exact entered start frame when Snap is enabled',
 	await editor.getByRole('checkbox', { name: 'Snap', exact: true }).check();
 	const properties = await openClipProperties(page, editor, clipByName(editor, monoTone.name));
 	await showClipTimingFields(properties);
-	await clipField(properties, 'startFrame').fill('19200');
-	await clipField(properties, 'startFrame').press('Tab');
-	await expect(clipField(properties, 'startFrame')).toHaveValue('19200');
+	await setClipTimeFrames(properties, 'startFrame', 19200);
 	await expect(clipByName(editor, monoTone.name)).toHaveAccessibleName(/starts at 0\.4 seconds/u);
 });
 
@@ -55,7 +54,7 @@ test('paste into an existing clip retains repeated pauses from copied looped aud
 	await expect(target).toHaveAccessibleName(/2\.4 seconds long$/u, { timeout: 20_000 });
 	const properties = await openClipProperties(page, editor, target);
 	await showClipTimingFields(properties);
-	await expect(clipField(properties, 'durationFrame')).toHaveValue('115200');
+	await expectClipTimeFrames(properties, 'durationFrame', 115200);
 	await closeClipProperties(properties);
 	await repeated.locator('xpath=ancestor::div[@data-track-row][1]').getByRole('button', { name: 'Mute', exact: true }).click();
 	const dialog = await openExportDialog(page, editor);

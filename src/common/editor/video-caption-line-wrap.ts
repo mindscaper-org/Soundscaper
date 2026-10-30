@@ -12,15 +12,59 @@ const ASCII_ADVANCES = Object.freeze([
 
 /** Wrap whole graphemes by their staged font advance, rather than average character counts. */
 export function wrapBurnInText(text: string, maximumWidth: number, fontSize: number): string {
+	return wrapPreparedText(prepareTexts([text])[0]!, maximumWidth, fontSize, new Map());
+}
+
+interface PreparedGrapheme { readonly text: string; readonly advances: readonly number[] }
+interface PreparedParagraph { readonly emptyText: string; readonly words: readonly (readonly PreparedGrapheme[])[] }
+type PreparedText = readonly PreparedParagraph[];
+
+function prepareTexts(texts: readonly string[]): readonly PreparedText[] {
 	const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-	const width = (part: string) => glyphWidth(part, fontSize);
-	const space = width(' ');
-	return text.split('\n').map(paragraph => {
+	const words = new Map<string, readonly PreparedGrapheme[]>();
+	const graphemes = new Map<string, PreparedGrapheme>();
+	const prepareGrapheme = (text: string): PreparedGrapheme => {
+		let retained = graphemes.get(text);
+		if (!retained) {
+			const characters = Array.from(text.normalize('NFD')).filter(character => !/\p{M}/u.test(character));
+			retained = { text, advances: characters.map(character => {
+				const point = character.codePointAt(0)!;
+				// Preserve conservative non-ASCII metrics and per-character ceil rounding.
+				return point >= 0x20 && point <= 0x7e ? ASCII_ADVANCES[point - 0x20]! / 2048 : 2.75;
+			}) };
+			graphemes.set(text, retained);
+		}
+		return retained;
+	};
+	return texts.map(text => text.split('\n').map(paragraph => ({ emptyText: paragraph.trim(),
+		words: paragraph.split(/\s+/u).filter(Boolean).map(word => {
+			let retained = words.get(word);
+			if (!retained) {
+				retained = Array.from(segmenter.segment(word), part => prepareGrapheme(part.segment));
+				words.set(word, retained);
+			}
+			return retained;
+		}),
+	})));
+}
+
+function wrapPreparedText(
+	text: PreparedText, maximumWidth: number, fontSize: number, widths: Map<PreparedGrapheme, number>,
+): string {
+	const width = (part: PreparedGrapheme) => {
+		let retained = widths.get(part);
+		if (retained === undefined) {
+			retained = part.advances.reduce((total, advance) => total + Math.ceil(advance * fontSize), 0);
+			widths.set(part, retained);
+		}
+		return retained;
+	};
+	const space = Math.ceil(ASCII_ADVANCES[0]! / 2048 * fontSize);
+	return text.map(paragraph => {
 		const lines: string[] = [];
 		let line = '';
 		let lineWidth = 0;
-		for (const word of paragraph.split(/\s+/u).filter(Boolean)) {
-			const parts = Array.from(segmenter.segment(word), part => part.segment);
+		for (const parts of paragraph.words) {
 			const wordWidth = parts.reduce((sum, part) => sum + width(part), 0);
 			if (line && lineWidth + space + wordWidth > maximumWidth) {
 				lines.push(line); line = ''; lineWidth = 0;
@@ -32,25 +76,12 @@ export function wrapBurnInText(text: string, maximumWidth: number, fontSize: num
 				if (lineWidth + advance > maximumWidth) {
 					lines.push(line); line = ''; lineWidth = 0;
 				}
-				line += part; lineWidth += advance;
+				line += part.text; lineWidth += advance;
 			}
 		}
 		if (line) lines.push(line);
-		return lines.length ? lines.join('\n') : paragraph.trim();
+		return lines.length ? lines.join('\n') : paragraph.emptyText;
 	}).join('\n');
-}
-
-function glyphWidth(grapheme: string, fontSize: number): number {
-	const normalized = grapheme.normalize('NFD');
-	const characters = Array.from(normalized).filter(character => !/\p{M}/u.test(character));
-	if (characters.length === 0) return 0;
-	return characters.reduce((total, character) => {
-		const point = character.codePointAt(0)!;
-		// Non-ASCII glyphs use a conservative advance above every maintained
-		// Inter subset's maximum (2.682 em), retaining combining marks intact.
-		const advance = point >= 0x20 && point <= 0x7e ? ASCII_ADVANCES[point - 0x20]! / 2048 : 2.75;
-		return total + Math.ceil(advance * fontSize);
-	}, 0);
 }
 
 /** Keep every wrapped line inside the title-safe height while retaining the readable floor. */
@@ -58,9 +89,11 @@ export function fitBurnInTexts(
 	texts: readonly string[], maximumWidth: number, maximumHeight: number,
 	minimumFontSize: number, preferredFontSize: number,
 ): Readonly<{ fontSizePx: number; lineSpacingPx: number; texts: readonly string[] }> {
+	const prepared = prepareTexts(texts);
 	const layout = (fontSizePx: number) => {
 		const lineSpacingPx = Math.round(fontSizePx * 0.25);
-		const wrapped = texts.map(text => wrapBurnInText(text, maximumWidth, fontSizePx));
+		const widths = new Map<PreparedGrapheme, number>();
+		const wrapped = prepared.map(text => wrapPreparedText(text, maximumWidth, fontSizePx, widths));
 		// Every maintained Inter subset has a 1.442 em maximum ink bounding
 		// box. Round above it to include accent/descender rasterization.
 		const lineHeight = Math.ceil(fontSizePx * 1.5);

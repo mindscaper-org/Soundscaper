@@ -33,6 +33,7 @@ export interface PropertySource {
 	readonly sampleRate?: number;
 	readonly frameCount?: number;
 	readonly channelCount?: number;
+	readonly sampleFormat?: string;
 }
 export interface PropertyTrack {
 	readonly id: string;

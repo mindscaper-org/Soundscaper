@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseDropdown, clipByName, clipField, closeClipProperties, closeDialog, commitInput, openClipProperties, openExportDialog, showClipTimingFields, waitForEditor } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseDropdown, clipByName, closeClipProperties, closeDialog, openClipProperties, openExportDialog, showClipTimingFields, waitForEditor } from './audio-editor-test-helpers.js';
+import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { installLinkedAudioBridge } from './helpers/linked-audio-relink-fixture.js';
 import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
 
@@ -16,7 +17,7 @@ for (const unavailable of [false, true]) test(`selection before a ${unavailable 
 	await expect(editor).toHaveAttribute('data-clip-count', '2');
 	const timing = await openClipProperties(page, editor, clipByName(editor, toneA.name));
 	await showClipTimingFields(timing);
-	await commitInput(clipField(timing, 'startFrame'), '48000');
+	await setClipTimeFrames(timing, 'startFrame', 48_000);
 	await closeClipProperties(timing);
 	const healthy = clipByName(editor, toneB.name); await healthy.focus(); await healthy.press('Enter');
 	const originalDialog = await startSelectionExport(page, editor);

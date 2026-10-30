@@ -13,7 +13,7 @@ function validateIdentity({ outputDirectory, productId, origin, sourceRevision }
 }
 
 /** Verify the product identity and every digest recorded by the build step. */
-export async function verifyBrowserProductBuildEvidence(site) {
+export async function verifyBrowserProductBuildEvidence(site, { sourceMaps = false } = {}) {
 	validateIdentity(site);
 	const { outputDirectory } = site;
 	const evidencePath = resolve(outputDirectory, BROWSER_PRODUCT_EVIDENCE);
@@ -45,15 +45,20 @@ export async function verifyBrowserProductBuildEvidence(site) {
 			throw new Error(`The verified ${site.productId} browser file changed: ${relativePath}.`);
 		}
 	}
-	const actualMaps = await browserSourceMapFiles(outputDirectory);
-	if (JSON.stringify(Object.keys(evidence.sourceMaps ?? {}).sort()) !== JSON.stringify(actualMaps)) {
-		throw new Error(`The ${site.productId} browser-site source-map evidence has an incomplete inventory.`);
-	}
-	for (const relativePath of actualMaps) {
-		const bytes = await readFile(resolve(sourceMapDirectoryFor(outputDirectory), relativePath));
-		const record = evidence.sourceMaps[relativePath];
-		if (record?.byteLength !== bytes.byteLength || record.sha256 !== sha256(bytes)) {
-			throw new Error(`The verified ${site.productId} browser source map changed: ${relativePath}.`);
+	if (sourceMaps) {
+		if (Object.keys(evidence.sourceMaps ?? {}).length === 0) {
+			throw new Error(`The ${site.productId} browser site requires recorded source maps for coverage.`);
+		}
+		const actualMaps = await browserSourceMapFiles(outputDirectory);
+		if (JSON.stringify(Object.keys(evidence.sourceMaps ?? {}).sort()) !== JSON.stringify(actualMaps)) {
+			throw new Error(`The ${site.productId} browser-site source-map evidence has an incomplete inventory.`);
+		}
+		for (const relativePath of actualMaps) {
+			const bytes = await readFile(resolve(sourceMapDirectoryFor(outputDirectory), relativePath));
+			const record = evidence.sourceMaps[relativePath];
+			if (record?.byteLength !== bytes.byteLength || record.sha256 !== sha256(bytes)) {
+				throw new Error(`The verified ${site.productId} browser source map changed: ${relativePath}.`);
+			}
 		}
 	}
 	const document = await readFile(resolve(outputDirectory, 'en/index.html'), 'utf8');

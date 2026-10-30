@@ -18,6 +18,7 @@ import {
 	type FramescaperCaptureUiSnapshot,
 } from '../framescaper-capture-ui-model.ts';
 import type { WebVcrUiSnapshot } from '../web-vcr-ui-model.ts';
+import { captureFailureLabel, captureUnavailableLabel } from './capture-failure-presentation.ts';
 import { FramescaperCaptureSources } from './FramescaperCaptureSources.tsx';
 import type { FramescaperCaptureSetupOptions } from '../../framescaper-capture-setup-actions.ts';
 
@@ -141,6 +142,7 @@ export default function RecordingSetupPanel({
 			: Object.freeze(current.filter((candidate) => candidate !== role)));
 	};
 	const statusText = captureStatusText(capture, copy);
+	const diagnostic = capture?.failure?.message || (availability.status === 'unavailable' ? availability.detail : '');
 	const recordingBlocked = Boolean(blocked || snapshot.readOnly || !snapshot.project);
 	const recoveryBlocked = Boolean(blocked);
 	const updateSetupDefaults = (next: Readonly<{
@@ -163,11 +165,13 @@ export default function RecordingSetupPanel({
 		</h3>
 		<div className="kw-framescaper-capture__status" role="status" aria-live="polite">
 			<strong>{statusText}</strong>
-			{availability.status === 'unavailable' && availability.detail
-				? <span>{availability.detail}</span>
+			{availability.status === 'unavailable'
+				? <span>{captureUnavailableLabel(availability.reason, copy)}</span>
 				: null}
-			{capture?.failure?.message ? <span>{capture.failure.message}</span> : null}
+			{capture?.failure ? <span>{captureFailureLabel(capture.failure.code, copy)}</span> : null}
 		</div>
+
+		{diagnostic && <details><summary>{copy.assistanceTechnicalDetails}</summary><pre>{diagnostic}</pre></details>}
 
 		{availability.status === 'available' && capture && <>
 			<FramescaperCaptureSources

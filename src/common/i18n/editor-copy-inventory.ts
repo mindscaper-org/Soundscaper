@@ -1,5 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { FILE_VALIDATION_COPY } from './editor-file-validation-copy.ts';
+import { FORMAT_FILE_FAILURE_COPY } from './editor-format-file-failure-copy.ts';
+import { INDEXED_SEARCH_COPY } from './editor-indexed-search-copy.ts';
+import { ADM_COPY } from './editor-adm-copy.ts';
+import { VAMP_COPY, VAMP_COPY_ALIASES } from './editor-vamp-copy.ts';
 
+import { DESIGN_SYSTEM_COPY } from './editor-design-system-copy.ts';
 import { ENGLISH_COPY } from './catalogs.js';
 import { ARA_COPY_BY_LOCALE } from './editor-ara-copy.ts';
 import { acceptableTranslation } from './translation-catalog.js';
@@ -11,7 +17,7 @@ import { FRAMESCAPER_NATIVE_SERVICES_COPY } from './editor-framescaper-native-se
 import { SOUNDSCAPER_MASTERING_SEQUENCE_COPY } from './editor-soundscaper-mastering-sequence-copy.ts';
 import { SOUNDSCAPER_ROUTING_GRAPH_COPY } from './editor-soundscaper-routing-graph-copy.ts';
 import { COMMUNITY_TRANSLATIONS_COPY_BY_LOCALE } from './community-translations-copy.ts';
-import { LOCAL_ASSISTANCE_ADDITIONAL_COPY } from './editor-local-assistance-additional-copy.ts';
+import { LOCAL_ASSISTANCE_ADDITIONAL_COPY, LOCAL_ASSISTANCE_REVIEW_COPY_ALIASES } from './editor-local-assistance-additional-copy.ts';
 import { FRAMESCAPER_FINISHING_ADDITIONAL_COPY } from './editor-framescaper-finishing-additional-copy.ts';
 import { FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY } from './editor-framescaper-visual-inspector-additional-copy.ts';
 import { VIDEO_PROXY_ADDITIONAL_COPY } from './editor-video-proxy-additional-copy.ts';
@@ -24,7 +30,8 @@ import { DESKTOP_FFMPEG_COPY } from './editor-desktop-ffmpeg-copy.ts';
 import { FRAMESCAPER_FINISHING_SURFACE_COPY } from './editor-framescaper-finishing-surface-copy.ts';
 import { PROCESSING_DIALOG_COPY_BY_LOCALE } from './processing-dialog-copy.js';
 import { LOCAL_MODEL_NAMES_COPY } from './editor-local-model-names-copy.ts';
-import { PARAMETRIC_EQ_BAND_COPY } from './editor-parametric-eq-copy.ts';
+import { CORRIDORKEY_COPY } from './editor-corridorkey-copy.ts';
+import { PARAMETRIC_EQ_BAND_COPY, PARAMETRIC_EQ_PRESENTATION_COPY } from './editor-parametric-eq-copy.ts';
 import { VIDEO_FILMSTRIP_COPY } from './editor-video-filmstrip-copy.ts';
 import { FRAMESCAPER_INPUTS_COPY } from './editor-framescaper-inputs-copy.ts';
 import { SOUNDSCAPER_WORKFLOW_COPY } from './editor-soundscaper-workflow-copy.ts';
@@ -59,6 +66,7 @@ import { MOTIONSCAPER_QUEUE_COPY_BY_LOCALE } from './editor-motionscaper-queue-c
 import { MOTIONSCAPER_LINK_COPY_BY_LOCALE } from './editor-motionscaper-link-copy.ts';
 import { MOTIONSCAPER_AE_COPY_BY_LOCALE } from './editor-motionscaper-ae-copy.ts';
 import { MOTIONSCAPER_TRACKING_COPY_BY_LOCALE } from './editor-motionscaper-tracking-copy.ts';
+import { TRACK_HEIGHT_COPY_BY_LOCALE } from './editor-track-height-copy.ts';
 
 export interface EditorCopyOwner {
 	readonly owner: string;
@@ -122,6 +130,8 @@ const processingAliases = Object.freeze(Object.fromEntries(
 const { pressure: pressureEnglish, preflightStatus: preflightEnglish, operation: operationEnglish,
 	...storageEnglish } = STORAGE_CAPACITY_COPY_BY_LOCALE.en;
 const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
+	{ owner: 'formatFileFailure', en: FORMAT_FILE_FAILURE_COPY },
+	{ owner: 'fileValidation', en: FILE_VALIDATION_COPY },
 	{ owner: 'ara', ...ARA_COPY_BY_LOCALE },
 	{ owner: 'originalFileOverwrite', ...ORIGINAL_FILE_OVERWRITE_COPY_BY_LOCALE },
 	{ owner: 'blender', ...BLENDER_COPY_BY_LOCALE },
@@ -139,7 +149,7 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'communityTranslations', ...COMMUNITY_TRANSLATIONS_COPY_BY_LOCALE },
 	...((typeof __SCAPE_DESKTOP_RENDERER__ === 'undefined' || __SCAPE_DESKTOP_RENDERER__)
 		? [{ owner: 'desktopMcp', ...DESKTOP_MCP_COPY_BY_LOCALE! }] : []),
-	{ owner: 'localAssistance', en: LOCAL_ASSISTANCE_ADDITIONAL_COPY },
+	{ owner: 'localAssistance', en: LOCAL_ASSISTANCE_ADDITIONAL_COPY, aliases: LOCAL_ASSISTANCE_REVIEW_COPY_ALIASES },
 	{ owner: 'textToSpeech', ...TEXT_TO_SPEECH_COPY_BY_LOCALE },
 	{ owner: 'framescaperFinishing', en: FRAMESCAPER_FINISHING_ADDITIONAL_COPY },
 	{ owner: 'framescaperVisualInspector', en: FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY },
@@ -154,7 +164,9 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'storageCapacity.operation', en: operationEnglish },
 	{ owner: 'desktopFfmpeg', en: DESKTOP_FFMPEG_COPY },
 	{ owner: 'localModelNames', en: LOCAL_MODEL_NAMES_COPY },
+	{ owner: 'corridorKey', en: CORRIDORKEY_COPY },
 	{ owner: 'parametricEq.band', en: PARAMETRIC_EQ_BAND_COPY },
+	{ owner: 'parametricEq', en: PARAMETRIC_EQ_PRESENTATION_COPY },
 	{ owner: 'videoFilmstrip', en: VIDEO_FILMSTRIP_COPY },
 	{ owner: 'soundscaperWorkflow', en: SOUNDSCAPER_WORKFLOW_COPY },
 	{ owner: 'takeComp', en: TAKE_COMP_COPY },
@@ -168,6 +180,7 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'freesoundAttribution', ...FREESOUND_ATTRIBUTION_INVENTORY_COPY_BY_LOCALE },
 	{ owner: 'audiocom', ...AUDIOCOM_INVENTORY_COPY_BY_LOCALE },
 	{ owner: 'clipInteractions', ...CLIP_INTERACTIONS_COPY_BY_LOCALE },
+	{ owner: 'trackHeight', ...TRACK_HEIGHT_COPY_BY_LOCALE },
 	{ owner: 'keyboardMap', ...KEYBOARD_MAP_COPY_BY_LOCALE },
 	{ owner: 'id3Metadata', ...ID3_METADATA_COPY_BY_LOCALE },
 	{ owner: 'motionscaper', ...MOTIONSCAPER_COPY_BY_LOCALE },
@@ -182,6 +195,10 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'motionscaper-link', ...MOTIONSCAPER_LINK_COPY_BY_LOCALE },
 	{ owner: 'motionscaper-ae', ...MOTIONSCAPER_AE_COPY_BY_LOCALE },
 	{ owner: 'motionscaper-tracking', ...MOTIONSCAPER_TRACKING_COPY_BY_LOCALE },
+	{ owner: 'designSystem', ...DESIGN_SYSTEM_COPY },
+	{ owner: 'indexedSearch', en: INDEXED_SEARCH_COPY },
+	{ owner: 'adm', en: ADM_COPY },
+	{ owner: 'vamp', en: VAMP_COPY, aliases: VAMP_COPY_ALIASES },
 	{ owner: 'selectedVisualAuthoring', en: SELECTED_VISUAL_AUTHORING_COPY },
 	...Object.entries(SELECTED_VISUAL_AUTHORING_SURFACE_COPY).map(([surface, en]) => ({
 		owner: `selectedVisualAuthoring.surfaces.${surface}`, en,

@@ -56,7 +56,7 @@ for (const mode of ['multiple', 'all-empty']) test(`Freesound refuses ${mode} ed
 	const uploads = await openUploadArea(page);
 	await uploads.locator('input[type="file"]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
 	await expect(uploads.locator('li')).toHaveAttribute('data-upload-status', 'failed', { timeout: 30_000 });
-	await expect(uploads.locator('li')).toContainText(/Flatten or render/iu);
+	await expect(uploads.locator('li')).toContainText('The audio could not be prepared for upload.');
 	expect(await page.evaluate(() => globalThis.__presentationUploadBodies)).toEqual([]);
 });
 

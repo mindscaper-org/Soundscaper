@@ -64,11 +64,8 @@ export default function EditorHelpTooltip({
 		if (!bounds) return;
 		const viewportHeight = Number(window.innerHeight) || 768;
 		const direction = bounds.top >= viewportHeight - bounds.bottom ? 'up' : 'down';
-		setTooltip({
-			direction,
-			x: bounds.left + bounds.width / 2,
-			y: direction === 'up' ? bounds.top : bounds.bottom,
-		});
+		const next: TooltipAnchor = { direction, x: bounds.left + bounds.width / 2, y: direction === 'up' ? bounds.top : bounds.bottom };
+		setTooltip(current => current?.direction === next.direction && current.x === next.x && current.y === next.y ? current : next);
 	}, []);
 	const showTooltip = useCallback((reason: TooltipVisibilityReason): void => {
 		visibilityReasonsRef.current.add(reason);
@@ -99,14 +96,14 @@ export default function EditorHelpTooltip({
 		return () => owner?.removeEventListener('pointermove', move);
 	}, [hideTooltip, pointerWithinPath, tooltipOpen]);
 	useEffect(() => {
-		if (!tooltip) return undefined;
+		if (!tooltipOpen) return undefined;
 		window.addEventListener('resize', positionTooltip);
 		window.addEventListener('scroll', positionTooltip, true);
 		return () => {
 			window.removeEventListener('resize', positionTooltip);
 			window.removeEventListener('scroll', positionTooltip, true);
 		};
-	}, [positionTooltip, tooltip]);
+	}, [positionTooltip, tooltipOpen]);
 	useLayoutEffect(() => {
 		if (!tooltipOpen) return undefined;
 		return retainAudioEditorDialogEscapeOwner(document, dismissTooltip);

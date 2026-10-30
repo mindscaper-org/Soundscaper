@@ -36,10 +36,14 @@ import {
 	positiveRate,
 } from './aup4-profile-values.js';
 import { sampleFrameToSeconds as framesToSeconds } from './timeline-time.ts';
+import { createAup4TrackMediaIndex } from './aup4-track-media-index.ts';
 
-export function createWaveTrackNode(project, track, channel, channelBlocks, projectRate, projectTempo, selectedTrackIds, selectedClipIds, groupNumbers) {
-	const channelCount = trackChannelCount(project, track);
-	const trackRate = trackSampleRate(project, track, projectRate);
+export function prepareAup4Track(project, track, projectRate, media = createAup4TrackMediaIndex(project)) {
+	return { ...media, channelCount: trackChannelCount(project, track, media), trackRate: trackSampleRate(project, track, projectRate, media) };
+}
+
+export function createWaveTrackNode(project, track, channel, channelBlocks, projectRate, projectTempo, selectedTrackIds, selectedClipIds, groupNumbers, prepared = prepareAup4Track(project, track, projectRate)) {
+	const { channelCount, trackRate } = prepared;
 	const opaqueTrack = track.opaqueExtensions?.aup4WaveTracks?.[channel]?.node;
 	const importedColor = track.opaqueExtensions?.aup4TrackColor;
 	const nativeColorIndex = Number.isSafeInteger(importedColor?.value)
@@ -95,10 +99,10 @@ export function createWaveTrackNode(project, track, channel, channelBlocks, proj
 		generatedChildren.push({ key: 'effects', entry: cloneXmlEntry(opaqueEffects) });
 	}
 	for (const clipId of track.clipIds || []) {
-		const clip = project.clips.find((candidate) => candidate.id === clipId);
+		const clip = prepared.clipById.get(clipId);
 		if (clip) generatedChildren.push({
 			key: 'waveclip',
-			entry: { kind: 'node', node: createWaveClipNode(project, clip, channel, channelBlocks, trackRate, projectRate, projectTempo, selectedClipIds, groupNumbers) },
+			entry: { kind: 'node', node: createWaveClipNode(project, clip, channel, channelBlocks, trackRate, projectRate, projectTempo, selectedClipIds, groupNumbers, prepared) },
 		});
 	}
 	let matchedEffects = false;
@@ -113,7 +117,7 @@ export function createWaveTrackNode(project, track, channel, channelBlocks, proj
 	return createAudacityXmlNode('wavetrack', [], content);
 }
 
-function createWaveClipNode(project, clip, channel, channelBlocks, rate, projectRate, projectTempo, selectedClipIds, groupNumbers) {
+function createWaveClipNode(project, clip, channel, channelBlocks, rate, projectRate, projectTempo, selectedClipIds, groupNumbers, prepared) {
 	const blocks = channelBlocks.get(`${clip.id}:${channel}`)
 		|| channelBlocks.get(`${clip.sourceId}:${channel}`)
 		|| channelBlocks.get(clip.id)
@@ -123,7 +127,7 @@ function createWaveClipNode(project, clip, channel, channelBlocks, rate, project
 	const opaqueClip = Array.isArray(opaqueChannelClips)
 		? opaqueChannelClips[channel]?.node
 		: clip.opaqueExtensions?.aup4WaveClip?.node;
-	const source = project.sources?.find((candidate) => candidate.id === clip.sourceId);
+	const source = prepared.sourceById.get(clip.sourceId);
 	const duration = Math.max(0, Number(clip.durationFrames || 0));
 	const sourceDuration = Math.max(0, Number(clip.sourceDurationFrames || duration));
 	const sequenceSamples = blocks.reduce((total, block) => total + Number(block.sampleCount || 0), 0) || Number(source?.frameCount || duration);
@@ -348,11 +352,11 @@ function nativeSpectrogramWindowType(spectrogram = {}) {
 	]).get(String(spectrogram.windowType || '').toLowerCase()) ?? 3;
 }
 
-export function trackChannelCount(project, track) {
+export function trackChannelCount(project, track, media = createAup4TrackMediaIndex(project)) {
 	let resolvedSource = false;
 	for (const clipId of track.clipIds || []) {
-		const clip = project.clips?.find((candidate) => candidate.id === clipId);
-		const source = project.sources?.find((candidate) => candidate.id === clip?.sourceId);
+		const clip = media.clipById.get(clipId);
+		const source = media.sourceById.get(clip?.sourceId);
 		if (!source) continue;
 		resolvedSource = true;
 		if (Number(source.channelCount) > 1) return 2;
@@ -367,11 +371,11 @@ export function trackChannelCount(project, track) {
 	return 1;
 }
 
-function trackSampleRate(project, track, projectRate) {
+function trackSampleRate(project, track, projectRate, media) {
 	const rates = new Set();
 	for (const clipId of track.clipIds || []) {
-		const clip = project.clips?.find((candidate) => candidate.id === clipId);
-		const source = project.sources?.find((candidate) => candidate.id === clip?.sourceId);
+		const clip = media.clipById.get(clipId);
+		const source = media.sourceById.get(clip?.sourceId);
 		if (source?.sampleRate != null) rates.add(positiveRate(source.sampleRate));
 	}
 	if (rates.size === 1) return rates.values().next().value;

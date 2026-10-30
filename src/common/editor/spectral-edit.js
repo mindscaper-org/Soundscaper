@@ -34,6 +34,11 @@ export function applySpectralGain(channels, options = {}) {
 	const gain = gainDb === -Infinity ? 0 : 10 ** (gainDb / 20);
 	if (!Number.isFinite(gain) || gain < 0 || gain > 1_000_000) throw new RangeError('gainDb produces an unsafe gain.');
 	if (gain === 1) return input.map((channel) => channel.slice());
+	if (gain === 0 && startFrame === 0 && endFrame === frameCount
+		&& minimumFrequency === 0 && maximumFrequency === sampleRate / 2
+		&& hopSize === windowSize / DEFAULT_HOP_DIVISOR) {
+		return input.map((channel) => new Float32Array(channel.length));
+	}
 
 	const window = createHannWindow(windowSize);
 	const [firstBin, endBin] = spectralBinInterval(sampleRate, windowSize, minimumFrequency, maximumFrequency);

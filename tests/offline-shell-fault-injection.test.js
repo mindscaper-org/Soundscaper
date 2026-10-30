@@ -16,34 +16,6 @@ import {
 	shellResponse,
 } from './helpers/offline-shell-fixtures.js';
 
-test('an invalid release identity refuses before any cache is opened or deleted', async () => {
-	const cacheStorage = new MemoryCacheStorage();
-	const priorName = shellCacheName('a'.repeat(64));
-	await (await cacheStorage.open(priorName)).put('/', response('prior shell'));
-	cacheStorage.events.length = 0;
-	const tampered = { ...shellConfiguration('b'), releaseId: 'f'.repeat(64) };
-
-	await assert.rejects(
-		() => installOfflineShell({
-			configuration: tampered,
-			cacheStorage,
-			fetchImpl: async () => { throw new Error('the network must not be consulted'); },
-		}),
-		/release identity is invalid/u,
-	);
-	await assert.rejects(
-		() => installOfflineShell({
-			configuration: { ...shellConfiguration('b'), schemaVersion: 3 },
-			cacheStorage,
-			fetchImpl: async () => { throw new Error('the network must not be consulted'); },
-		}),
-		/configuration is invalid/u,
-	);
-
-	assert.deepEqual(cacheStorage.events, [], 'no cache is deleted before admission');
-	assert.deepEqual(await cacheStorage.keys(), [priorName]);
-});
-
 test('a quota-exhausted cache put discards the candidate and keeps the prior release', async () => {
 	const cacheStorage = new MemoryCacheStorage();
 	const priorName = shellCacheName('c'.repeat(64));

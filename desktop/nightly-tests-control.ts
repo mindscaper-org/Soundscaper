@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { runDesktopNightlyTestsPlaywrightChild } from '../scripts/lib/desktop-nightly-tests-playwright-child.mjs';
@@ -39,8 +39,9 @@ export function createNightlyTestsControl({ onState = (_state: NightlyTestsContr
 			const root = `${plan.logFile}.attempts`;
 			const reports = join(root, 'reports');
 			await mkdir(reports, { recursive: true });
+			await writeFile(plan.logFile, '');
 			const completed = new Map<string, string>();
-			let total = 0, failed = false, output = '';
+			let total = 0, failed = false;
 			for (let attempt = 0; ; attempt += 1) {
 				await wait();
 				const attemptRoot = join(root, String(attempt));
@@ -70,12 +71,13 @@ export function createNightlyTestsControl({ onState = (_state: NightlyTestsContr
 				if (checkpoint) {
 					const retained = checkpoint.tests.filter((test) => test.complete);
 					failed ||= retained.some((test) => test.failed);
-					output += await retainNightlyTestsBlob({ source: blob, destination: join(reports, `${String(attempt).padStart(6, '0')}.zip`),
+					await retainNightlyTestsBlob({ source: blob, destination: join(reports, `${String(attempt).padStart(6, '0')}.zip`),
+						consoleLog: plan.logFile,
 						completed: new Set(retained.map((test) => test.id)),
 						status: abort.signal.aborted ? failed ? 'failed' : 'passed' : checkpoint.status, payloadRoot: plan.cwd });
 					for (const test of retained) completed.set(test.id, test.description);
 				} else if (!abort.signal.aborted) {
-					await writeFile(plan.logFile, await readFile(join(attemptRoot, 'console.log')));
+					await copyFile(join(attemptRoot, 'console.log'), plan.logFile);
 					return result;
 				}
 				await wait();
@@ -88,8 +90,6 @@ export function createNightlyTestsControl({ onState = (_state: NightlyTestsContr
 					logFile: join(root, 'merge.log'),
 				});
 				if (merged.code !== 0 || merged.signal) throw new Error(`Nightly test report merge failed. See ${join(root, 'merge.log')}`);
-				await mkdir(dirname(plan.logFile), { recursive: true });
-				await writeFile(plan.logFile, output);
 				return abort.signal.aborted || result.code === 0 || result.code === 1
 					? { code: failed || result.code === 1 && !abort.signal.aborted ? 1 : 0, signal: null } : result;
 			}

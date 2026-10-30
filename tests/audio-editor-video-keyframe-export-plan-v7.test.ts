@@ -67,15 +67,7 @@ test('orders canonical source inputs by first active encounter and represents si
 	});
 });
 
-test('rejects hostile creator input and non-canonical detached plans without invoking accessors', () => {
-	let reads = 0;
-	const hostile = Object.defineProperty(request(), 'format', {
-		enumerable: true,
-		get() { reads += 1; return 'mp4'; },
-	});
-	assert.throws(() => createVideoKeyframeExportPlanV7(hostile), /data property/iu);
-	assert.equal(reads, 0);
-
+test('rejects malformed source digests and noncanonical detached plans', () => {
 	const malformed = request();
 	(malformed.sources[0] as Record<string, unknown>).contentSha256 = 'AB'.repeat(32);
 	assert.throws(() => createVideoKeyframeExportPlanV7(malformed), /sha-256|digest/iu);

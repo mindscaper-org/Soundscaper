@@ -16,7 +16,11 @@ import {
 } from '../../mixer-graph-v21.ts';
 import type { ParameterAddress, StripRef } from '../../parameter-address.ts';
 import { resolveTerminalChannelWidths } from '../../terminal-channel-widths.ts';
-import { effectSupportsExplicitSidechain } from '../../effect-explicit-sidechain-capability.ts';
+import { routingEndpointValue, type RoutingEndpointOption } from './routing-endpoint-options.ts';
+export { routingSourceOptions, routingDestinationOptions, routingVcaMemberOptions, routingEndpointValue } from './routing-endpoint-options.ts';
+export type { RoutingEndpointOption } from './routing-endpoint-options.ts';
+import { SOUNDSCAPER_ROUTING_GRAPH_COPY, type SoundscaperRoutingGraphCopy } from './soundscaper-routing-graph-copy.ts';
+import { formatLocalizedTemplate as fill } from '../localization-template.ts';
 import { assertSoundscaperRoutingEdgeEditable, assertSoundscaperRoutingNodeEditable, validateSoundscaperRoutingFolderAuthority } from './soundscaper-routing-folder-authority.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
@@ -34,12 +38,6 @@ export interface RoutingGraphCandidate {
 	readonly graph: MixerGraphV21;
 	readonly selection: RoutingSelection;
 	readonly addresses: readonly ParameterAddress[];
-}
-
-export interface RoutingEndpointOption<Endpoint> {
-	readonly value: string;
-	readonly label: string;
-	readonly endpoint: Endpoint;
 }
 
 export interface RoutingNodeUpdate {
@@ -273,55 +271,6 @@ export function removeSoundscaperRoutingItem(
 	}, selection, [...stripAddresses(strip), ...incidentEdgeAddresses(graph, strip)]);
 }
 
-export function routingSourceOptions(
-	projectValue: unknown,
-	graph: MixerGraphV21,
-): readonly RoutingEndpointOption<MixerEdgeV21['source']>[] {
-	const options: RoutingEndpointOption<MixerEdgeV21['source']>[] = [];
-	for (const track of audioTracks(projectValue)) options.push(endpointOption(
-		{ kind: 'track', id: track.id }, `Track: ${track.name}`,
-	));
-	for (const [collection, label] of NODE_COLLECTIONS) for (const node of graph[collection]) {
-		options.push(endpointOption({ kind: 'mixer-node', id: node.id }, `${label}: ${node.name || node.id}`));
-	}
-	options.push(endpointOption({ kind: 'master' }, 'Master'));
-	return options;
-}
-
-export function routingDestinationOptions(
-	projectValue: unknown,
-	graph: MixerGraphV21,
-): readonly RoutingEndpointOption<MixerEdgeV21['destination']>[] {
-	const options: RoutingEndpointOption<MixerEdgeV21['destination']>[] = [];
-	for (const [collection, label] of NODE_COLLECTIONS) for (const node of graph[collection]) {
-		options.push(endpointOption({ kind: 'mixer-node' as const, id: node.id }, `${label}: ${node.name || node.id}`));
-	}
-	options.push(endpointOption({ kind: 'master' as const }, 'Master'));
-	for (const output of graph.outputs) options.push(endpointOption(
-		{ kind: 'output' as const, id: output.id }, `Output: ${output.name || output.id}`,
-	));
-	for (const track of audioTracks(projectValue)) pushSidechains(options, { kind: 'track', id: track.id }, `Track ${track.name}`, track.effects);
-	const master = record(record(projectValue)?.master);
-	pushSidechains(options, { kind: 'master' }, 'Master', records(master?.effects));
-	for (const [collection, label] of NODE_COLLECTIONS) for (const node of graph[collection]) {
-		pushSidechains(options, { kind: 'mixer-node', id: node.id }, `${label} ${node.name || node.id}`, node.effects);
-	}
-	return options;
-}
-
-export function routingVcaMemberOptions(
-	projectValue: unknown,
-	graph: MixerGraphV21,
-): readonly RoutingEndpointOption<StripRef>[] {
-	return routingSourceOptions(projectValue, graph).map(({ value, label, endpoint }) => ({
-		value, label, endpoint,
-	}));
-}
-
-export function routingEndpointValue(endpoint: MixerEdgeV21['source'] | MixerEdgeV21['destination'] | StripRef): string {
-	return JSON.stringify(endpoint);
-}
-
 export function routingEndpointLabel(
 	options: readonly RoutingEndpointOption<unknown>[],
 	endpoint: unknown,
@@ -340,15 +289,15 @@ export function routingSelectionAddresses(
 	return [];
 }
 
-export function routingDeleteSummary(graph: MixerGraphV21, selection: RoutingSelection): string {
-	if (selection.kind === 'edge') return 'Delete this connection?';
-	if (selection.kind === 'track' || selection.kind === 'master') return 'This strip is owned by the project and cannot be deleted here.';
-	if (selection.kind === 'vca') return `Delete this VCA and its ${requiredEntry(graph.vcas, selection.id, 'VCA').members.length} memberships?`;
+export function routingDeleteSummary(graph: MixerGraphV21, selection: RoutingSelection, copy: SoundscaperRoutingGraphCopy = SOUNDSCAPER_ROUTING_GRAPH_COPY): string {
+	if (selection.kind === 'edge') return copy.deleteConnection;
+	if (selection.kind === 'track' || selection.kind === 'master') return copy.deleteOwnedStrip;
+	if (selection.kind === 'vca') return fill(copy.deleteVca, { count: requiredEntry(graph.vcas, selection.id, 'VCA').members.length });
 	const strip = selection.kind === 'node' ? { kind: 'mixer-node' as const, id: selection.id } : null;
 	const incident = selection.kind === 'output'
 		? graph.edges.filter((edge) => edge.destination.kind === 'output' && edge.destination.id === selection.id).length
 		: graph.edges.filter((edge) => strip && edgeTouchesStrip(edge, strip)).length;
-	return `Delete this ${selection.kind === 'output' ? 'output' : 'node'} and ${incident} incident connections?`;
+	return fill(selection.kind === 'output' ? copy.deleteOutput : copy.deleteNode, { count: incident });
 }
 
 function candidate(
@@ -502,36 +451,6 @@ function allIds(graph: MixerGraphV21): ReadonlySet<string> {
 	].map(({ id }) => id));
 }
 
-function endpointOption<Endpoint extends Readonly<Record<string, unknown>>>(
-	endpoint: Endpoint,
-	label: string,
-): RoutingEndpointOption<Endpoint> {
-	return Object.freeze({ endpoint: Object.freeze(endpoint), value: routingEndpointValue(endpoint as never), label });
-}
-
-function pushSidechains(
-	options: RoutingEndpointOption<MixerEdgeV21['destination']>[],
-	strip: StripRef,
-	stripLabel: string,
-	effects: readonly DataRecord[],
-): void {
-	for (const effect of effects) if (typeof effect.id === 'string' && effect.id.length > 0
-		&& effectSupportsExplicitSidechain(effect)) {
-		options.push(endpointOption(
-			{ kind: 'effect-sidechain' as const, strip, effectId: effect.id },
-			`Sidechain: ${stripLabel} / ${String(effect.name ?? effect.type ?? effect.id)}`,
-		));
-	}
-}
-
-function audioTracks(projectValue: unknown): readonly { id: string; name: string; effects: readonly DataRecord[] }[] {
-	return records(record(projectValue)?.tracks).flatMap((track) => (
-		track.type === 'audio' && typeof track.id === 'string' && track.id.length > 0
-			? [{ id: track.id, name: typeof track.name === 'string' && track.name ? track.name : track.id, effects: records(track.effects) }]
-			: []
-	));
-}
-
 function stripAddresses(strip: StripRef): readonly ParameterAddress[] {
 	return ['gain', 'pan', 'mute'].map((parameterId) => ({
 		kind: 'strip' as const, strip, parameterId: parameterId as 'gain' | 'pan' | 'mute',
@@ -587,7 +506,3 @@ function records(value: unknown): DataRecord[] {
 function positiveInteger(value: unknown, fallback: number): number {
 	return Number.isSafeInteger(value) && Number(value) >= 1 && Number(value) <= 32 ? Number(value) : fallback;
 }
-
-const NODE_COLLECTIONS = [
-	['groups', 'Group'], ['sends', 'Send'], ['cues', 'Cue'],
-] as const satisfies readonly (readonly [RoutingNodeCollection, string])[];

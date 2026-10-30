@@ -75,7 +75,7 @@ export function createWorkspaceApplicationMenus({
 		zoomProject,
 }) {
 	const soundscaperNativeServices = resolveSoundscaperNativeServicesWorkspaceRuntime({
-		productId, copy, engine: controller?.engine, controller, durationFrames,
+		productId, copy, locale, engine: controller?.engine, controller, durationFrames,
 		selectedTrackId: snapshot.selectedTrackId ?? null,
 		selectedClipId: snapshot.selectedClipId ?? null,
 		processingBlocked: editBlocked || snapshot.readOnly === true,
@@ -83,7 +83,7 @@ export function createWorkspaceApplicationMenus({
 	const framescaperRuntime = createProductWorkspaceApplicationMenuRuntime({
 		controller,
 		productId,
-		copy,
+		copy, locale,
 		project,
 		projectCapabilities: capabilities,
 		editingBlocked: editBlocked,
@@ -150,6 +150,7 @@ export function createWorkspaceApplicationMenus({
 				openLocalModels: fileService.isDesktop ? () => openSurface('local-models') : undefined,
 				openLocalAssistance: fileService.isDesktop ? (request = { mode: 'advanced' }) => openSurface(assistanceDialogSurface(request)) : undefined,
 				openTextToSpeech: fileService.isDesktop ? () => openSurface('text-to-speech') : undefined,
+				openCorridorKey: fileService.isDesktop ? () => openSurface('corridorkey-2.0') : undefined,
 				openLocalAssistanceIndexedSearch: fileService.isDesktop && project
 					? openAssistanceSearch : undefined,
 				framescaperCandidateAuthoring: framescaperRuntime.framescaperCandidateAuthoring,
@@ -160,7 +161,7 @@ export function createWorkspaceApplicationMenus({
 				soundscaperNativeServices,
 				araClipEditing: fileService.isDesktop === true && controller?.araClipEditing ? {
 					open: () => run(() => import('./AraClipEditorSurface.tsx').then(({ openAraClipEditorSurface }) =>
-						openAraClipEditorSurface({ controller, copy }))),
+						openAraClipEditorSurface({ controller, copy, locale }))),
 				} : null,
 				parallelStackProcessing: createParallelStackMenuRuntime({
 					productId, controller, run,

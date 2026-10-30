@@ -53,7 +53,8 @@ test.describe('take lane and comp workflow', () => {
 		await expectCompRegion(secondRegion, 5_000, 10_000);
 		await assertAccessibleBasics(dialog);
 		await assertNoSeriousAxeViolations(page, '[data-take-comp-dialog]');
-
+		await page.mouse.move(1, 1);
+		await expect(page.getByRole('tooltip')).toHaveCount(0);
 		await page.keyboard.press('Escape');
 		await expect(dialog).toBeHidden();
 		// Focus returns to the control that opened the dialog, which is the track
@@ -119,6 +120,8 @@ test.describe('take lane and comp workflow', () => {
 		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
 		dialog = await openTakeCompDialog(page, editor);
 		await expect(dialog.locator('[data-take-comp-group]')).toBeVisible();
+		await page.mouse.move(1, 1);
+		await expect(page.getByRole('tooltip')).toHaveCount(0);
 		await page.keyboard.press('Escape');
 		await expect(dialog).toBeHidden();
 		expect(errors).toEqual([]);

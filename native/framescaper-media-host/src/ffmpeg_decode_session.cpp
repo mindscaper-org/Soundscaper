@@ -9,6 +9,7 @@ extern "C" {
 
 #include <algorithm>
 #include <array>
+#include <string_view>
 #include <utility>
 
 namespace framescaper::media {
@@ -111,6 +112,21 @@ ffmpeg_decode_session ffmpeg_decode_session::open(
 		throw ffmpeg_decode_failure(
 			"video-stream-missing", "The authenticated source has no supported video stream.", 65
 		);
+	}
+	const auto* stream = session.format->streams[session.stream_index];
+	const auto* alpha = av_dict_get(stream->metadata, "alpha_mode", nullptr, 0);
+	if (stream->codecpar->codec_id == AV_CODEC_ID_VP9 && alpha != nullptr
+		&& std::string_view{alpha->value} == "1") {
+		// The built-in/hardware VP9 decoders discard Matroska BlockAdditional alpha.
+		if (backend != "native-cpu") {
+			throw ffmpeg_decode_failure("hardware-backend-unavailable",
+				"WebM alpha requires the authenticated libvpx CPU decoder.", 78);
+		}
+		decoder = avcodec_find_decoder_by_name("libvpx-vp9");
+		if (decoder == nullptr) {
+			throw ffmpeg_decode_failure("alpha-decoder-missing",
+				"The authenticated media runtime has no alpha-capable VP9 decoder.", 78);
+		}
 	}
 	session.codec = avcodec_alloc_context3(decoder);
 	if (session.codec == nullptr) {

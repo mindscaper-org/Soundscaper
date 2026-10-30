@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { ProjectRecoveryChange } from '../../project-recovery-reason.ts';
 import type { ProjectRecoverySummary } from '../../storage/project-recovery-repository.ts';
 
 export interface ProjectRecoveryUiInspection {
@@ -10,7 +11,7 @@ export interface ProjectRecoveryUiInspection {
 		readonly revision: number | null;
 		readonly kind: 'current' | 'revision';
 		readonly status: 'usable' | 'repairable' | 'unrecoverable';
-		readonly changes: readonly { readonly path: string; readonly reason: string }[];
+		readonly changes: readonly ProjectRecoveryChange[];
 		readonly error: string | null;
 	}[];
 }

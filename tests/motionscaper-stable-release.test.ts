@@ -22,7 +22,9 @@ test('Motion stable reuses the complete quality workflow including all browser e
 	assert.match(extractJob(quality, 'browser'), /playwright test --config playwright\.docs\.config\.mjs/u);
 	assert.match(extractJob(quality, 'firefox'), /--project=firefox/u);
 	assert.match(extractJob(quality, 'coverage'), /coverage:check/u);
-	assert.match(extractJob(quality, 'deploy'), /github.event_name == 'push' && github.ref == 'refs\/heads\/main'/u);
+	const deploy = extractJob(quality, 'deploy');
+	assert.match(deploy, /github.ref == 'refs\/heads\/main' &&/u);
+	assert.match(deploy, /github.event_name == 'push'/u);
 	assert.match(extractJob(workflow, 'package'), /motionscaper-desktop-preview.yml[\s\S]*expected-channel: stable/u);
 	assert.match(extractJob(workflow, 'draft-release'), /needs: \[admit, quality, package, web\]/u);
 	assert.match(extractJob(workflow, 'deploy-web'), /needs: \[admit, web, draft-release\]/u);

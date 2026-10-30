@@ -1,6 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 export const SOUNDSCAPER_MASTERING_SEQUENCE_COPY = Object.freeze({
+	issueRegionMissing: "The region for this entry no longer exists. Choose another region before delivery.",
+	issueRegionNotARegion: "This entry must reference a region annotation.",
+	issueRegionOtherSequence: "The region belongs to a different timeline sequence.",
+	issueFadesExceedRegion: "The fades exceed the region length.",
+	issueOrderDiverges: "This entry starts before the previous entry on the timeline. Delivery order is unchanged.",
 	masteringSequences: 'Mastering sequences',
 	masteringSequencesTitle: 'Mastering sequences',
 	masteringSequenceEditor: 'Mastering sequence editor',

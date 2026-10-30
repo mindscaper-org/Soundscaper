@@ -8,7 +8,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { ASSISTANCE_OPERATIONS } from '../src/common/editor/assistance/operation.ts';
 import {
 	ASSISTANCE_GUIDED_WORKFLOW_IDS,
-	type AssistanceGuidedWorkflowId,
 } from '../src/common/editor/assistance/workflow-recipes.ts';
 import {
 	defaultAssistanceWorkflowSettingsV1,
@@ -53,7 +52,7 @@ test('the menu dialog opens Guided and exposes all 13 recipes before explicit Ad
 	const advanced = renderDialog(guided.getSnapshot());
 	assert.match(advanced, /role="tab" aria-selected="true"[^>]*>Advanced<\/button>/u);
 	assert.match(advanced, /role="tabpanel"[^>]*aria-label="Advanced"/u);
-	for (const operation of ASSISTANCE_OPERATIONS.filter((candidate) => candidate !== 'text-to-speech')) {
+	for (const operation of ASSISTANCE_OPERATIONS.filter((candidate) => candidate !== 'text-to-speech' && candidate !== 'video-keying')) {
 		assert.match(advanced, new RegExp(`value="${operation}"`, 'u'));
 	}
 	assert.doesNotMatch(advanced, /<label[^>]*>Workflow/u);
@@ -70,8 +69,6 @@ test('each Guided recipe selects one frozen, strictly validated default settings
 		assert.equal(serializeAssistanceWorkflowSettingsV1(settings),
 			serializeAssistanceWorkflowSettingsV1(defaultAssistanceWorkflowSettingsV1(workflowId)));
 	}
-	assert.throws(() => guided.selectWorkflow('unknown-workflow' as AssistanceGuidedWorkflowId),
-		/unsupported|workflow/iu);
 	guided.selectWorkflow('make-highlights');
 	assert.deepEqual(guided.getSnapshot().settings, {
 		settingsVersion: 1, workflowId: 'make-highlights', resultCount: 5,

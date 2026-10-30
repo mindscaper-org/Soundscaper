@@ -95,8 +95,23 @@ export const NATIVE_MEDIA_PROFESSIONAL_PROFILES: readonly NativeMediaProfileV1[]
 		preservesHdrMetadata: false, longGop: true,
 	}),
 	encode({
+		id: 'encode-webm-vp8', codec: 'libvpx', container: 'webm',
+		policyRowIds: rows('codec-encode-vp8-webm'),
+		maximumBitDepth: 8, chromaFormats: UPTO_420, longGop: true,
+	}),
+	encode({
 		id: 'encode-webm-vp9', codec: 'libvpx-vp9', container: 'webm',
 		policyRowIds: rows('codec-encode-vp9-webm'),
+		maximumBitDepth: 8, chromaFormats: UPTO_420, longGop: true,
+	}),
+	encode({
+		id: 'encode-webm-vp9-alpha', codec: 'libvpx-vp9', container: 'webm',
+		policyRowIds: rows('codec-encode-vp9-webm'),
+		maximumBitDepth: 8, chromaFormats: UPTO_420, longGop: true, supportsAlpha: true,
+	}),
+	encode({
+		id: 'encode-webm-av1', codec: 'libsvtav1', container: 'webm',
+		policyRowIds: rows('codec-encode-av1-webm'),
 		maximumBitDepth: 8, chromaFormats: UPTO_420, longGop: true,
 	}),
 	encode({

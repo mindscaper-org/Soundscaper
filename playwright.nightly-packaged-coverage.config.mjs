@@ -21,7 +21,7 @@ export function createNightlyPackagedCoverageConfig(environment = process.env) {
 		forbidOnly: true,
 		failOnFlakyTests: true,
 		retries: 0,
-		workers: 1,
+		workers: 4,
 		updateSnapshots: 'none',
 		reporter: [
 			['list'],

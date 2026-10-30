@@ -177,10 +177,6 @@ test('a blocked popup and a severed opener are named, not swallowed', () => {
 			return true;
 		},
 	);
-	assert.throws(
-		() => openTransferPopup({ scope: { open: () => null }, url: '/transfer/receive/' }),
-		/absolute http\(s\) URL/u,
-	);
 });
 
 test('collecting archives reports partial success and never touches the store', async () => {

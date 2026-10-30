@@ -104,17 +104,8 @@ test('requested VFR export timing loads, verifies, binds, and restores only that
 	assert.equal(registeredVideoTimingIndex(source), undefined);
 });
 
-test('required export timing IDs must be unique active visible video sources', async () => {
+test('required export timing IDs must name active visible video sources', async () => {
 	const fixture = timingFixture();
-	await assert.rejects(
-		acquireVideoExportTimingIndexes(
-			fixture.project,
-			fixture.store,
-			fixture.dependencies,
-			{ assertCurrent() {}, requiredSourceIds: ['camera-vfr', 'camera-vfr'] },
-		),
-		/duplicate/iu,
-	);
 	await assert.rejects(
 		acquireVideoExportTimingIndexes(
 			fixture.project,

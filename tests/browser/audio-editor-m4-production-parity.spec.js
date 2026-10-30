@@ -36,17 +36,18 @@ const LOCAL_ENVIRONMENT_ID = 'local-runtime-diagnostics';
 const HOSTED_ENVIRONMENT_ID = 'github-ubuntu-playwright-1.62.1';
 const ENVIRONMENT_ID = process.env.SOUNDSCAPER_M4_OBSERVED_ENVIRONMENT_ID
 	|| (process.env.GITHUB_ACTIONS === 'true' ? HOSTED_ENVIRONMENT_ID : LOCAL_ENVIRONMENT_ID);
-const AUDIO_ENGINE_HARNESS_SOURCE = bundleAudioEngineHarness(productionDynamicsWorkletPath());
-const RUNTIME_ROUTES = new Map([
-	[`${ROUTE_ROOT}/engine/harness.js`, { body: AUDIO_ENGINE_HARNESS_SOURCE, contentType: 'text/javascript' }],
-	[`${ROUTE_ROOT}/ffmpeg/classes.js`, route('../../node_modules/@ffmpeg/ffmpeg/dist/esm/classes.js', 'text/javascript')],
-	[`${ROUTE_ROOT}/ffmpeg/const.js`, route('../../node_modules/@ffmpeg/ffmpeg/dist/esm/const.js', 'text/javascript')],
-	[`${ROUTE_ROOT}/ffmpeg/errors.js`, route('../../node_modules/@ffmpeg/ffmpeg/dist/esm/errors.js', 'text/javascript')],
-	[`${ROUTE_ROOT}/ffmpeg/utils.js`, route('../../node_modules/@ffmpeg/ffmpeg/dist/esm/utils.js', 'text/javascript')],
-	[`${ROUTE_ROOT}/ffmpeg/worker.js`, route('../../node_modules/@ffmpeg/ffmpeg/dist/esm/worker.js', 'text/javascript')],
-	[`${ROUTE_ROOT}/core/ffmpeg-core.js`, route('../../node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.js', 'text/javascript')],
-	[`${ROUTE_ROOT}/core/ffmpeg-core.wasm`, route('../../node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.wasm', 'application/wasm')],
-]);
+function runtimeRoutes() {
+	return new Map([
+		[`${ROUTE_ROOT}/engine/harness.js`, { body: bundleAudioEngineHarness(productionDynamicsWorkletPath()), contentType: 'text/javascript' }],
+		[`${ROUTE_ROOT}/ffmpeg/classes.js`, route('../../node_modules/@ffmpeg/ffmpeg/dist/esm/classes.js', 'text/javascript')],
+		[`${ROUTE_ROOT}/ffmpeg/const.js`, route('../../node_modules/@ffmpeg/ffmpeg/dist/esm/const.js', 'text/javascript')],
+		[`${ROUTE_ROOT}/ffmpeg/errors.js`, route('../../node_modules/@ffmpeg/ffmpeg/dist/esm/errors.js', 'text/javascript')],
+		[`${ROUTE_ROOT}/ffmpeg/utils.js`, route('../../node_modules/@ffmpeg/ffmpeg/dist/esm/utils.js', 'text/javascript')],
+		[`${ROUTE_ROOT}/ffmpeg/worker.js`, route('../../node_modules/@ffmpeg/ffmpeg/dist/esm/worker.js', 'text/javascript')],
+		[`${ROUTE_ROOT}/core/ffmpeg-core.js`, route('../../node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.js', 'text/javascript')],
+		[`${ROUTE_ROOT}/core/ffmpeg-core.wasm`, route('../../node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.wasm', 'application/wasm')],
+	]);
+}
 const VIDEO_CASES = Object.freeze([
 	videoCase('gradient-color-adjust', 'gradient', effect('m4-gradient-color-adjust', 'color-adjust')),
 	videoCase('edge-gaussian-blur', 'edge', effect('m4-edge-gaussian-blur', 'gaussian-blur')),
@@ -291,6 +292,7 @@ function compositionDescription(changes, width, height) {
 }
 
 async function installRuntimeRoutes(page) {
+	const routes = runtimeRoutes();
 	await page.route(`**${ROUTE_ROOT}/**`, async (requestRoute) => {
 		const pathname = new URL(requestRoute.request().url()).pathname;
 		if (pathname === `${ROUTE_ROOT}/index.html`) {
@@ -306,7 +308,7 @@ async function installRuntimeRoutes(page) {
 			await requestRoute.fulfill({ status: 200, ...source });
 			return;
 		}
-		const descriptor = RUNTIME_ROUTES.get(pathname);
+		const descriptor = routes.get(pathname);
 		if (!descriptor) {
 			await requestRoute.fulfill({ status: 404, body: 'Not found' });
 			return;

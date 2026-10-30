@@ -2,6 +2,7 @@
 import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, importFiles, waitForEditor } from './audio-editor-test-helpers.js';
 import { openSourceMonitor } from './audio-editor-inspector-test-helpers.js';
+import { clipDescriptionForLocale } from './audio-editor-clip-locators.js';
 
 for (const locale of ['en', 'ar']) test(`Source monitor arrows follow visible recording tabs in ${locale}`, async ({ page }) => {
 	let editor = await bootEditor(page, '/embed/en/');
@@ -21,8 +22,9 @@ for (const locale of ['en', 'ar']) test(`Source monitor arrows follow visible re
 		editor = await waitForEditor(page);
 		await page.keyboard.press('Escape');
 		await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+		const clipDescription = await clipDescriptionForLocale('ar');
 		for (const [index, file] of [toneA, toneB, third].entries()) {
-			await clipByName(editor, file.name).locator('.clip-header').click(index ? { modifiers: ['Shift'] } : {});
+			await clipByName(editor, file.name, clipDescription).locator('.clip-header').click(index ? { modifiers: ['Shift'] } : {});
 		}
 	}
 	const panel = editor.locator('[data-audio-source-monitor-panel]');

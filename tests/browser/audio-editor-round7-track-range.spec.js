@@ -33,7 +33,7 @@ for (const selectedClip of [false, true]) {
 		await playhead.press('Shift+ArrowRight');
 		const position = await playhead.getAttribute('aria-valuenow');
 		const row = clip.locator('xpath=ancestor::div[@data-track-row][1]')
-			.getByRole('group', { name: 'Track 2, audio track', exact: true });
+			.getByRole('group', { name: 'browser-long-tone, audio track', exact: true });
 		await row.press('Shift+ArrowDown');
 		await expect(field(editor, 'start')).toHaveText(selectedClip ? '00h00m00.000s' : '00h00m00.200s');
 		await expect(field(editor, 'end')).toHaveText(selectedClip ? '00h00m08.000s' : '00h00m00.600s');

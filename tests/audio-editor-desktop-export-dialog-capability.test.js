@@ -18,7 +18,7 @@ test('desktop export dialog queries main status, filters formats, and refuses st
 	assert.match(dialog, /exportDialogCompressionLevels\(settings\.format, desktop\)/u);
 	assert.deepEqual(exportDialogCompressionLevels('wavpack', true), [0, 1, 2, 3, 4, 5]);
 	assert.match(dialog, /desktopExportSelectionReason\(settings, desktopCodecCapabilities/u);
-	assert.match(dialog, /useDesktopVideoExportCapabilities\(fileService, isOpen\)/u);
+	assert.match(dialog, /useDesktopVideoExportCapabilities\(fileService, isOpen, copy\)/u);
 	assert.match(dialog, /desktopVideoCapabilities\.reason\(settings\.format\)/u);
 	assert.match(dialog, /VIDEO_EXPORT_DIALOG_FORMATS\.filter\(\(descriptor\) => \(\s*!desktop \|\| desktopVideoCapabilities\.available\(descriptor\.id\)\s*\)\)/u);
 	assert.match(dialog, /desktopVideoCapabilities\.resolved[\s\S]{0,300}setPresetId\(''\); setPresetName\(''\);[\s\S]{0,200}format: 'wav', deliveryTarget: ''/u);

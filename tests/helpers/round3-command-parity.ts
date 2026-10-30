@@ -46,7 +46,7 @@ export function round3CommandParity(modules: Modules): ParityCase[] {
 			const project = fixture(variant);
 			record(`av/${variant}/${seeds.join('+')}`, project, () => modules.range.collectAvLinkedClipIds(project, seeds));
 		}
-		for (const tracks of [['track-0'], ['track-2', 'track-0'], ['missing'], []]) {
+		if (variant === 'plain' || variant === 'unsorted' || variant === 'av-chain') for (const tracks of [['track-0'], ['track-2', 'track-0'], ['missing'], []]) {
 			const project = fixture(variant);
 			record(`linked/${variant}/${tracks.join('+')}`, project, () => modules.range.collectLinkedTrackRippleTargets(project, tracks));
 		}

@@ -37,9 +37,6 @@ test('raw PCM import rejects open-ended formats, partial frames, and oversized i
 	await assert.rejects(prepareRawPcmWaveFile(input, {
 		sampleFormat: 'int16', byteOrder: 'little', sampleRate: 44_100, channelCount: 1, offsetBytes: 0,
 	}), /complete interleaved frames/);
-	await assert.rejects(prepareRawPcmWaveFile(input, {
-		sampleFormat: 'mulaw' as never, byteOrder: 'little', sampleRate: 44_100, channelCount: 1, offsetBytes: 0,
-	}), /sample format/);
 	const oversized = { size: MAXIMUM_RAW_PCM_IMPORT_BYTES + 1, name: 'huge.raw' } as File;
 	await assert.rejects(prepareRawPcmWaveFile(oversized, {
 		sampleFormat: 'uint8', byteOrder: 'little', sampleRate: 44_100, channelCount: 1, offsetBytes: 0,

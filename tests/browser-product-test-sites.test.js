@@ -152,3 +152,45 @@ async function writeBrowserProductFixture(directory, productId, redirects = '# n
 		[`manifest-${productId}.webmanifest`, '{}\n'],
 	]) await writeFile(resolve(directory, path), contents, 'utf8');
 }
+
+test('prepared consumer sites authenticate served bytes without requiring absent coverage maps', async context => {
+	const directory = await browserFixtureDirectory();
+	context.after(() => rm(directory, { recursive: true, force: true }));
+	const outputRoot = relative(resolve('.'), directory).split('\\').join('/');
+	const plan = { sites: [browserSite('soundscaper', '4540', `${outputRoot}/soundscaper`),
+		browserSite('framescaper', '4541', `${outputRoot}/framescaper`),
+		browserSite('motionscaper', '4542', `${outputRoot}/motionscaper`)] };
+	for (const site of plan.sites) {
+		await writeBrowserProductFixture(resolve(site.outputDirectory), site.productId);
+		await mkdir(`${site.outputDirectory}-source-maps`);
+		await writeFile(resolve(`${site.outputDirectory}-source-maps`, 'editor.js.map'), 'original map');
+		await recordBrowserProductSiteEvidence(site);
+		await rm(`${site.outputDirectory}-source-maps`, { recursive: true });
+	}
+	const before = await readFile(resolve(plan.sites[0].outputDirectory, '.browser-product-build.json'), 'utf8');
+	await prepareOrdinaryBrowserProductSites(plan, {
+		reusePrepared: true, soundscaperBuildDirectory: `${outputRoot}/absent-producer`, sourceMaps: false,
+	});
+	assert.equal(await readFile(resolve(plan.sites[0].outputDirectory, '.browser-product-build.json'), 'utf8'), before);
+	await assert.rejects(() => prepareOrdinaryBrowserProductSites(plan, { reusePrepared: true, sourceMaps: true }), /source.map.*inventory/u);
+	await writeFile(resolve(plan.sites[0].outputDirectory, '_headers'), 'tampered');
+	await assert.rejects(() => prepareOrdinaryBrowserProductSites(plan, { reusePrepared: true, sourceMaps: false }), /browser file changed/u);
+});
+
+test('coverage consumers require every recorded source map and authenticate its bytes', async context => {
+	const directory = await browserFixtureDirectory();
+	context.after(() => rm(directory, { recursive: true, force: true }));
+	const site = browserSite('soundscaper', '4540', relative(resolve('.'), directory).split('\\').join('/'));
+	await writeBrowserProductFixture(directory, 'soundscaper');
+	await recordBrowserProductSiteEvidence(site);
+	await assert.rejects(() => verifyBrowserProductSite(site, { sourceMaps: true }), /requires.*source maps/u);
+	await mkdir(`${directory}-source-maps`);
+	context.after(() => rm(`${directory}-source-maps`, { recursive: true, force: true }));
+	const map = resolve(`${directory}-source-maps`, 'editor.js.map');
+	await writeFile(map, 'original map');
+	await recordBrowserProductSiteEvidence(site);
+	await assert.doesNotReject(() => verifyBrowserProductSite(site, { sourceMaps: true }));
+	await writeFile(map, 'changed map');
+	await assert.doesNotReject(() => verifyBrowserProductSite(site, { sourceMaps: false }));
+	await assert.rejects(() => verifyBrowserProductSite(site, { sourceMaps: true }), /source map changed/u);
+});

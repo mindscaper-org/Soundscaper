@@ -30,7 +30,7 @@ test('Web VCR manual crop retains its first native touch gesture', async ({ page
 	await page.mouse.down();
 	await page.mouse.move(start.x + 10, start.y, { steps: 3 });
 	await page.mouse.up();
-	await expect.poll(() => crop.evaluate(element => parseFloat(element.style.left))).toBeCloseTo(initial + 1000 / bounds.width, 2);
+	await expect.poll(async () => (await crop.evaluate(element => parseFloat(element.style.left)) - initial) * bounds.width / 100).toBeCloseTo(10, 0);
 	const baseline = await crop.evaluate(element => parseFloat(element.style.left));
 	const now = await move.boundingBox();
 	const first = { x: now.x + now.width / 2, y: now.y + now.height / 2, id: 1 };
@@ -43,5 +43,5 @@ test('Web VCR manual crop retains its first native touch gesture', async ({ page
 	await native.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [middle, secondary] });
 	await native.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [final, secondary] });
 	await native.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-	await expect.poll(() => crop.evaluate(element => parseFloat(element.style.left))).toBeCloseTo(baseline + 2000 / bounds.width, 2);
+	await expect.poll(async () => (await crop.evaluate(element => parseFloat(element.style.left)) - baseline) * bounds.width / 100).toBeCloseTo(20, 0);
 });

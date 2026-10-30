@@ -6,6 +6,6 @@
 		"tsBuildInfoFile": "./node_modules/.cache/typescript/tooling.tsbuildinfo",
 		"types": ["node"]
 	},
-	"include": ["vite.config.mjs", "playwright.config.mjs", "electron-builder.config.cjs", "scripts/performance/*.ts"],
+	"include": ["vite.config.mjs", "playwright.config.mjs", "playwright.check-all.config.ts", "electron-builder.config.cjs", "scripts/performance/*.ts", "scripts/diagnose-windows-make-arguments.ts", "scripts/check-all*.ts", "scripts/lib/check-all*.ts", "scripts/lib/ci-artifact-fetch.ts"],
 	"exclude": ["dist", "node_modules"]
 }

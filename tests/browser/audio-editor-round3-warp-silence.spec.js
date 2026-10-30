@@ -2,6 +2,7 @@
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseNestedCommandAction, clipByName, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
+import { expectClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
 test('Split clips at silences removes the pause at its authored warped timeline position', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
@@ -23,8 +24,5 @@ test('Split clips at silences removes the pause at its authored warped timeline 
 	await expect(editor).toHaveAttribute('data-clip-count', '2');
 	const properties = await openClipProperties(page, editor, clipByName(editor, recording.name).first());
 	await showClipTimingFields(properties);
-	const duration = properties.locator('[data-clip-field="durationFrame"]');
-	await duration.locator('.timecode__format-button').click();
-	await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
-	await expect(duration.locator('.timecode__display')).toHaveText('000,000,008,000samples');
+	await expectClipTimeFrames(properties, 'durationFrame', 8_000);
 });

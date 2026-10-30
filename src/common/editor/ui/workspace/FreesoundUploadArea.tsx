@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { uploadErrorLabel, uploadFailureLabel } from '../upload-validation-presentation.ts';
 
 import { Button } from '@soundscaper/design-system/Button';
 import { createPortal } from 'react-dom';
@@ -55,7 +56,7 @@ export default function FreesoundUploadArea({
 	const detailsRef = useRef<HTMLDetailsElement | null>(null);
 	const rowRefs = useRef(new Map<string, HTMLLIElement>());
 	const [dragging, setDragging] = useState(false);
-	const [error, setError] = useState('');
+	const [error, setError] = useState<unknown>(null);
 	const [publishItem, setPublishItem] = useState<FreesoundUploadItem | null>(null);
 	const closePublishDialog = () => {
 		const itemId = publishItem?.id;
@@ -75,9 +76,9 @@ export default function FreesoundUploadArea({
 
 	const submitFiles = (files: readonly File[]) => {
 		if (!files.length || disabled) return;
-		setError('');
+		setError(null);
 		try { onFiles?.(files); }
-		catch (reason) { setError(errorMessage(reason, copy.uploadError)); }
+		catch (reason) { setError(reason); }
 	};
 	const fileChange = (event: ChangeEvent<HTMLInputElement>) => {
 		submitFiles(Array.from(event.currentTarget.files ?? []));
@@ -106,9 +107,9 @@ export default function FreesoundUploadArea({
 			?? parseProjectBinDragPayload(serialized)
 			?? getActiveProjectBinDragPayload();
 		if (!payload) return;
-		setError('');
+		setError(null);
 		try { onProjectClip?.(payload); }
-		catch (reason) { setError(errorMessage(reason, copy.uploadError)); }
+		catch (reason) { setError(reason); }
 	};
 
 	return <>
@@ -133,7 +134,7 @@ export default function FreesoundUploadArea({
 						{copy.chooseAudioFiles}
 					</Button>
 				</div>
-				{error ? <p className="kw-audio-editor__freesound-inline-error" role="alert">{error}</p> : null}
+				{error ? <p className="kw-audio-editor__freesound-inline-error" role="alert">{uploadErrorLabel(error, copy, copy.uploadError)}</p> : null}
 				{queue.items.length ? <ol className="kw-audio-editor__freesound-upload-list">
 					{queue.items.map((item) => <UploadRow
 						key={item.id}
@@ -189,7 +190,7 @@ function UploadRow({
 				<span className="kw-audio-editor-sr-only">{item.fileName}: </span>{statusLabel(copy, item)}
 			</span>
 		</div>
-		{item.errorMessage ? <p role="alert">{item.errorMessage}</p> : null}
+		{item.errorMessage ? <p role="alert">{uploadFailureLabel(item.uploadFailure, copy, copy.publishError)}</p> : null}
 		<div className="kw-audio-editor__freesound-upload-actions">
 			{item.status === 'ready-to-publish' ? <Button size="small" disabled={disabled} onClick={onPublish}>
 				{copy.readyToPublish}<span className="kw-audio-editor-sr-only">: {item.fileName}</span>
@@ -226,8 +227,4 @@ function statusLabel(copy: Readonly<Record<string, string>>, item: FreesoundUplo
 		failed: copy.uploadFailed,
 		cancelled: copy.uploadCancelled,
 	}[item.status];
-}
-
-function errorMessage(error: unknown, fallback: string): string {
-	return error instanceof Error && error.message ? error.message : fallback;
 }

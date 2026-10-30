@@ -18,11 +18,10 @@ import {
 	chooseFileAction,
 	closeClipProperties, closeDialog,
 	closeEffectsPanel,
-	commitInput,
 	openClipProperties,
 	openEffectsForTrack,
 } from '../audio-editor-test-helpers.js';
-import { chooseClipMediaSetting, expectClipSampleRate } from '../audio-editor-clip-settings-test-helpers.js';
+import { resampleClipFormat, expectClipSampleRate } from '../audio-editor-clip-settings-test-helpers.js';
 import { GUIDE_FIXTURES } from '../../../handbook/guides/fixtures.mjs';
 
 const OPEN_TIMEOUT = 30_000;
@@ -98,12 +97,7 @@ export async function runOpenProjectFile(page, state) {
 
 export async function runResample(page, state, entry, clip) {
 	const properties = await openClipProperties(page, state.editor, clip);
-	await chooseClipMediaSetting(properties, 'Resample');
-	const dialog = page.locator('[data-clip-resample-dialog]');
-	await expect(dialog).toBeVisible();
-	await commitInput(dialog.locator('[data-clip-resample-field="sampleRate"] input'), String(entry.rate));
-	await dialog.getByRole('button', { name: 'Resample', exact: true }).click();
-	await expect(dialog).toBeHidden({ timeout: OPEN_TIMEOUT });
+	await resampleClipFormat(properties, entry.rate);
 	await expectClipSampleRate(properties, entry.rate);
 	await closeClipProperties(properties);
 }

@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 import { longTone, test } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, clipByName, getMenuItem, importFiles, openClipProperties, waitForEditor } from './audio-editor-test-helpers.js';
-import { closeWorkspacePanel } from './helpers/workspace-panel-chrome.js';
+import { closeWorkspacePanel, workspacePanelMenuButton } from './helpers/workspace-panel-chrome.js';
 import { darkTheme } from '../../vendor/audacity-design-system/tokens/src/themes/dark.v2.ts';
 import { lightTheme } from '../../vendor/audacity-design-system/tokens/src/themes/light.v2.ts';
 
@@ -75,7 +75,7 @@ test.describe('shared audio editor dialog behavior', () => {
 		await expect(menu.getByRole('menuitem', { name: 'Hz', exact: true })).toHaveCount(0);
 	});
 
-	test('uses lowercase time units and selectable formats in clip and selection timecodes', async ({ page }) => {
+	test('uses numeric clip seconds and lowercase selectable selection timecodes', async ({ page }) => {
 		const editor = await bootEditor(page);
 		await importFiles(editor, [longTone]);
 		const clip = clipByName(editor, longTone.name);
@@ -86,12 +86,15 @@ test.describe('shared audio editor dialog behavior', () => {
 
 		const dialog = await openClipProperties(page, editor);
 		await showClipTimingFields(dialog);
-		const duration = dialog.locator('[data-clip-field="durationFrame"]');
-		await expect(duration.locator('.timecode-unit[data-unit="hours"]')).toHaveText('h');
-		await expect(duration.locator('.timecode-unit[data-unit="hours"]')).toHaveCSS('text-transform', 'none');
-		await duration.locator('.timecode__format-button').click();
+		await expect(dialog.getByRole('textbox', { name: 'Length', exact: true })).toHaveValue('8');
+		await closeWorkspacePanel(editor, 'clip-properties');
+		await chooseCommand(page, editor, 'Select', 'Select all');
+		const selection = editor.locator('[data-selection-toolbar] .timecode').first();
+		await expect(selection.locator('.timecode-unit[data-unit="hours"]')).toHaveText('h');
+		await expect(selection.locator('.timecode-unit[data-unit="hours"]')).toHaveCSS('text-transform', 'none');
+		await selection.locator('.timecode__format-button').click();
 		await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
-		await expect(duration.locator('.timecode-unit[data-unit="samples"]')).toBeVisible();
+		await expect(selection.locator('.timecode-unit[data-unit="samples"]')).toBeVisible();
 	});
 
 	test('switches playback, selection and duration through grouped frame formats', async ({ page }) => {
@@ -252,9 +255,16 @@ test.describe('shared audio editor dialog behavior', () => {
 			.first()
 			.click();
 		const picker = page.getByRole('menu', { name: 'Choose an effect', exact: true });
-		await picker.getByRole('menuitem', { name: 'Reverb', exact: true }).click();
 		const dialog = page.getByRole('dialog', { name: 'Reverb', exact: true });
-		await expect(dialog).toBeVisible();
+		const panelMenu = workspacePanelMenuButton(effectsPanel);
+		await holdDialogFrames(page);
+		try {
+			await picker.getByRole('menuitem', { name: 'Reverb', exact: true }).evaluate(element => element.click());
+			await expect(dialog).toBeVisible();
+			await panelMenu.focus();
+			await page.evaluate(() => window.__releaseHeldDialogFrames());
+			await expect(panelMenu).toBeFocused();
+		} finally { await page.evaluate(() => window.__releaseHeldDialogFrames?.()); }
 
 		await closeWorkspacePanel(editor, 'effects');
 		await expect(dialog).toBeVisible();
@@ -337,6 +347,23 @@ async function chooseCommandWithHeldInitialFocus(page, editor, menuName, command
 	await expect(menu).toBeVisible();
 	const command = menu.getByRole('menuitem', { name: new RegExp(`^${commandName}(?:\\s|$)`) }).first();
 	await restoreTarget.focus();
+	await holdDialogFrames(page);
+	try {
+		// A native click preserves a connected focus target for the restoration assertion.
+		await command.evaluate((element) => element.click());
+		const resize = page.locator('[role="dialog"] [data-resize-handle]').last();
+		await expect(resize).toBeVisible();
+		await resize.focus();
+		const queuedFrames = await page.evaluate(() => window.__releaseHeldDialogFrames());
+		await expect(resize).toBeFocused();
+		return { restoreTarget, queuedFrames };
+	} catch (error) {
+		await page.evaluate(() => window.__releaseHeldDialogFrames?.());
+		throw error;
+	}
+}
+
+async function holdDialogFrames(page) {
 	await page.evaluate(() => {
 		const nativeRequestAnimationFrame = window.requestAnimationFrame;
 		const nativeCancelAnimationFrame = window.cancelAnimationFrame;
@@ -361,19 +388,6 @@ async function chooseCommandWithHeldInitialFocus(page, editor, menuName, command
 			return frames.length;
 		};
 	});
-	try {
-		// A native click preserves a connected focus target for the restoration assertion.
-		await command.evaluate((element) => element.click());
-		const resize = page.locator('[role="dialog"] [data-resize-handle]').last();
-		await expect(resize).toBeVisible();
-		await resize.focus();
-		const queuedFrames = await page.evaluate(() => window.__releaseHeldDialogFrames());
-		await expect(resize).toBeFocused();
-		return { restoreTarget, queuedFrames };
-	} catch (error) {
-		await page.evaluate(() => window.__releaseHeldDialogFrames?.());
-		throw error;
-	}
 }
 
 async function chooseTimeCodeFormat(page, timer, group, label, keyboard = false) {

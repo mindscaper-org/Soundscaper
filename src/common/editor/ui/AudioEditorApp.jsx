@@ -21,7 +21,7 @@ export function BoundAudioEditorApp(props) {
 	const presentation = useCommunityTranslationPresentation(props.controller, props.locale, props.copy);
 	const copy = presentation.copy;
 	const locale = presentation.locale;
-	return <AudioEditorFrame copy={copy} controller={props.controller}>
+	return <AudioEditorFrame copy={copy} locale={locale} controller={props.controller}>
 		<DesktopSpeedWarmupGate controller={props.controller} desktop={props.fileService.isDesktop}
 			productId={props.productId} locale={locale} copy={copy}>
 			<div dir={getLocaleDescriptor(locale)?.direction || 'ltr'} style={{ display: 'contents' }}>
@@ -57,10 +57,10 @@ function ConfirmationDialogMount({ Component, confirmation, copy, cancelDecision
 	</Suspense>;
 }
 
-function AudioEditorFrame({ copy, children, controller }) {
+function AudioEditorFrame({ copy, locale, children, controller }) {
 	return (
 		<AudioEditorErrorBoundary copy={copy}>
-			<DesignSystemProviders copy={copy} controller={controller}>
+			<DesignSystemProviders copy={copy} locale={locale} controller={controller}>
 				{children}
 			</DesignSystemProviders>
 		</AudioEditorErrorBoundary>

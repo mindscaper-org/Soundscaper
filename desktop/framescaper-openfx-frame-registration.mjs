@@ -53,6 +53,20 @@ export function createFramescaperOpenFxCurrentProjectAuthority(authority) {
 	};
 }
 
+/** Canonical native plans carry exactly id/revision; schema tags remain main-owned. */
+export function createFramescaperOpenFxPlanCurrentProjectAuthority(authority) {
+	const current = createFramescaperOpenFxCurrentProjectAuthority(authority);
+	return (project, effect) => {
+		if (project && typeof project === 'object' && !Array.isArray(project)
+			&& Reflect.ownKeys(project).length === 2
+			&& ['id', 'revision'].every(key => {
+				const field = Object.getOwnPropertyDescriptor(project, key);
+				return field?.enumerable && Object.hasOwn(field, 'value');
+			})) return current({ schemaFamily: 'framescaper', schemaVersion: 1, ...project }, effect);
+		return current(project, effect);
+	};
+}
+
 function currentFramescaperIdentity(value) {
 	try { assertFramescaperIdentity(value, 'OpenFX project'); return true; }
 	catch { return false; }

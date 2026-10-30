@@ -2,6 +2,7 @@
 
 /** Pure desktop export-dialog model for exact main-process codec status. */
 
+import { desktopCodecMessage, type DesktopCodecCopy } from '../desktop-codec-presentation.ts';
 import type {
 	DesktopAudioCodecCapabilityQuery,
 	DesktopAudioCodecCapabilityResult,
@@ -73,14 +74,15 @@ export function desktopExportFormatAvailable(
 export function desktopExportFormatReason(
 	format: unknown,
 	capabilities: DesktopAudioCodecCapabilities | null,
-	invalidSettings = false,
+	invalidSettings = false, copy?: DesktopCodecCopy,
 ): string | null {
 	const canonical = String(format);
 	if (canonical === 'custom-ffmpeg') {
-		return 'Custom FFmpeg arguments are not available in the desktop codec broker.';
+		return copy ? desktopCodecMessage('codecCustomUnsupported', copy) : 'Custom FFmpeg arguments are not available in the desktop codec broker.';
 	}
 	if (!COMPRESSED.has(canonical)) return null;
-	if (invalidSettings) return desktopAudioCodecCapabilityReason('unsupported-settings');
+	if (invalidSettings) return desktopAudioCodecCapabilityReason('unsupported-settings', copy);
+	if (copy) return desktopAudioCodecCapabilityReason(capabilities?.formats[canonical]?.reasonCode ?? 'configure-external-ffmpeg', copy);
 	return capabilities?.formats[canonical]?.reason
 		?? desktopAudioCodecCapabilityReason('configure-external-ffmpeg');
 }
@@ -130,10 +132,10 @@ export function desktopExportSampleRates(format: unknown): readonly number[] {
 export function desktopExportSelectionReason(
 	settings: DesktopExportCodecSelection,
 	capabilities: DesktopAudioCodecCapabilities | null,
-	invalidQuery = false,
+	invalidQuery = false, copy?: DesktopCodecCopy,
 ): string | null {
 	if (!desktopExportFormatAvailable(settings.format, capabilities)) {
-		return desktopExportFormatReason(settings.format, capabilities, invalidQuery);
+		return desktopExportFormatReason(settings.format, capabilities, invalidQuery, copy);
 	}
 	return null;
 }
@@ -181,4 +183,9 @@ function integer(value: unknown, minimum: number, maximum: number, label: string
 		throw new RangeError(`The desktop export ${label} is unsupported.`);
 	}
 	return number;
+}
+
+export function desktopExportCapabilityNotice(capabilities: DesktopAudioCodecCapabilities | null, copy: DesktopCodecCopy): string | null {
+	const unavailable = Object.values(capabilities?.formats ?? {}).find(capability => !capability.available && capability.reasonCode);
+	return unavailable ? desktopAudioCodecCapabilityReason(unavailable.reasonCode ?? null, copy) : null;
 }

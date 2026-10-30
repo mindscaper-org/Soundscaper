@@ -3,6 +3,7 @@
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseCommandAction, closeClipProperties,
 	importFiles, openClipProperties } from './audio-editor-test-helpers.js';
+import { expectClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
 test('Nyquist refuses an overlong selection without silently shortening the recording', async ({ page }) => {
 	test.setTimeout(120_000);
@@ -20,6 +21,6 @@ test('Nyquist refuses an overlong selection without silently shortening the reco
 	await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 	const properties = await openClipProperties(page, editor, editor.locator('[data-clip-id]').first());
 	await showClipTimingFields(properties);
-	await expect(properties.locator('[data-clip-field="durationFrame"] .timecode__display')).toHaveText('00h05m01.000s');
+	await expectClipTimeFrames(properties, 'durationFrame', 301 * 48_000);
 	await closeClipProperties(properties);
 });

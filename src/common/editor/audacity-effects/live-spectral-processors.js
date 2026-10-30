@@ -10,10 +10,10 @@
 import {
 	applyAudacityFilterCurveEq,
 	applyAudacityGraphicEq,
-	applyAudacityNoiseReduction,
 } from './spectral.js';
 import { fft } from '../pffft.js';
-import { removeAudacityClicksFromWindowInPlace } from './audacity-click-removal-kernel.ts';
+import { createPreparedLiveNoiseReduction } from './prepared-live-noise-reduction.ts';
+import { createAudacityClickRemovalWorkspace, removeAudacityClicksFromWindowInPlace } from './audacity-click-removal-kernel.ts';
 import {
 	CLICK_WINDOW_SIZE,
 	EQ_PARTITION_SIZE,
@@ -78,6 +78,7 @@ export class ClickRemovalLiveProcessor extends LiveProcessor {
 			const window = this.incoming[channel];
 			this.separation = removeAudacityClicksFromWindowInPlace(
 				window, this.params.threshold, this.params.maximumWidth, this.separation,
+				this.clickWorkspace ??= createAudacityClickRemovalWorkspace(CLICK_WINDOW_SIZE, CLICK_HOP_SIZE),
 			);
 			this.outputQueues[channel].push(window.subarray(0, CLICK_HOP_SIZE));
 			window.copyWithin(0, CLICK_HOP_SIZE);
@@ -225,6 +226,7 @@ export class NoiseReductionLiveProcessor extends LiveProcessor {
 			...profile,
 			meanPowers,
 		};
+		this.preparedNoise = null;
 		this.reset();
 	}
 	reset() {
@@ -265,9 +267,10 @@ export class NoiseReductionLiveProcessor extends LiveProcessor {
 			}
 			return channel;
 		});
-		const reduced = applyAudacityNoiseReduction(channels, this.sampleRate, this.params, this.profile);
+		this.preparedNoise ??= createPreparedLiveNoiseReduction(this.profile, this.sampleRate, contextLength);
+		const reduced = this.preparedNoise.process(channels, this.params, this.leftContext, this.leftContext + NOISE_CHUNK_SIZE);
 		for (let channel = 0; channel < reduced.length; channel += 1) {
-			this.outputQueues[channel].push(reduced[channel].subarray(this.leftContext, this.leftContext + NOISE_CHUNK_SIZE));
+			this.outputQueues[channel].push(reduced[channel]);
 		}
 		this.nextChunkStart += NOISE_CHUNK_SIZE;
 	}

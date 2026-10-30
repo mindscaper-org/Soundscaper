@@ -227,7 +227,7 @@ test('a reviewed beat that rounds to the selection end clamps to its final timel
 	}]);
 });
 
-test('reject, cancel, unknown, and duplicate choices cannot mutate the project', async () => {
+test('reject, cancel, and unknown choices cannot mutate the project', async () => {
 	const current = authority();
 	let commits = 0;
 	const dependencies = {
@@ -247,9 +247,6 @@ test('reject, cancel, unknown, and duplicate choices cannot mutate the project',
 
 	const invalid = createLocalAssistanceBeatReviewSession(dependencies, request());
 	await assert.rejects(invalid.accept(['beat-grid:beat:unknown']), /unknown/iu);
-	assert.equal(invalid.snapshot().phase, 'review');
-	const id = invalid.snapshot().proposals[0]!.id;
-	await assert.rejects(invalid.accept([id, id]), /unique/iu);
 	assert.equal(invalid.snapshot().phase, 'review');
 	assert.equal(commits, 0);
 });

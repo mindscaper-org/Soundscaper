@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { strFromU8, unzipSync } from 'fflate';
+import { writeFile } from 'node:fs/promises';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes } from './audio-editor-test-helpers.js';
 import { encodeWav } from '../../src/common/editor/wav.js';
 import { surroundAvWebmFixture } from '../helpers/ordinary-ogg-opus-fixture.ts';
 
-test('File Import and native Save retain all six channels extracted from an ordinary video', async ({ page }) => {
+test('File Import and native Save retain all six channels extracted from an ordinary video', async ({ page }, testInfo) => {
 	const file = await surroundAvWebmFixture(); const bytes = new Uint8Array(await file.arrayBuffer());
 	await page.addInitScript(() => {
 		// Observe the import's own native decode. A second context can have a
@@ -21,7 +22,10 @@ test('File Import and native Save retain all six channels extracted from an ordi
 		};
 	});
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
-	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(bytes) });
+	// Keep native media reads backed by a real file after the editor clears the input.
+	const filePath = testInfo.outputPath(file.name);
+	await writeFile(filePath, bytes);
+	await editor.locator('[data-import-input]').setInputFiles(filePath);
 	await expect.poll(() => page.evaluate(() => Boolean(globalThis.__surroundNativeDecode)), { timeout: 30_000 }).toBe(true);
 	const expected = await page.evaluate(() => globalThis.__surroundNativeDecode);
 	if (expected.supported) { expect(expected).toMatchObject({ sampleRate: 48_000, frames: 3840 }); expect(expected.channels).toHaveLength(6); }

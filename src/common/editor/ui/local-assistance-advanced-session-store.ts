@@ -451,7 +451,7 @@ function selectedSource(value: Pick<LocalAssistanceSnapshot, 'sources' | 'select
 }
 
 function advancedId(operation: AssistanceOperation | null): AssistanceAdvancedWorkflowId | null {
-	return operation === null || operation === 'text-to-speech' ? null : `advanced:${operation}`;
+	return operation === null || (operation === 'text-to-speech' || operation === 'video-keying') ? null : `advanced:${operation}`;
 }
 
 class AdvancedCancelledError extends Error {}

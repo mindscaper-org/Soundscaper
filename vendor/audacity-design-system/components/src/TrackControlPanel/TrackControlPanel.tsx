@@ -1,3 +1,5 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
+import { componentCopyTemplate } from '../component-copy';
 import React, { useState } from 'react';
 import { useTheme } from '../ThemeProvider';
 import { useAccessibilityProfile } from '../contexts/AccessibilityProfileContext';
@@ -484,7 +486,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
       // Trigger menu click with a synthetic event
       if (onMenuClick) {
         const syntheticEvent = {
-          currentTarget: panelElement.querySelector('[aria-label="Track menu"]') || panelElement,
+          currentTarget: panelElement.querySelector('.track-control-panel__menu-button') || panelElement,
           preventDefault: () => {},
           stopPropagation: () => {},
         } as unknown as React.MouseEvent<HTMLButtonElement>;
@@ -636,7 +638,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
     }
   };
 
-  const { theme } = useTheme();
+  const { theme } = useTheme(); const { copy } = useComponentCopy();
 
   const style = {
     '--tcp-bg-idle': theme.background.trackHeader.idle,
@@ -689,7 +691,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
       onClick={handleClick}
       tabIndex={tabIndex}
       role={tabIndex !== undefined ? "group" : undefined}
-      aria-label={tabIndex !== undefined ? `${trackName} track controls` : undefined}
+      aria-label={tabIndex !== undefined ? componentCopyTemplate(copy.trackControls, { name: trackName }) : undefined}
       onFocus={handleFocus}
       onBlur={handleBlur}
       onKeyDown={handleKeyDown}
@@ -702,7 +704,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
             <button
               ref={iconButtonRef}
               className="track-control-panel__icon-button"
-              aria-label={onIconChange ? `Change ${trackName} icon` : `${trackName} track type`}
+              aria-label={onIconChange ? componentCopyTemplate(copy.changeTrackIcon, { name: trackName }) : componentCopyTemplate(copy.trackType, { name: trackName })}
               aria-haspopup={onIconChange ? 'menu' : undefined}
               aria-expanded={onIconChange ? iconPickerOpen : undefined}
               tabIndex={childTabIndex}
@@ -718,7 +720,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
               <div
                 ref={iconPickerRef}
                 role="menu"
-                aria-label="Choose track icon"
+                aria-label={copy.chooseTrackIcon}
                 onMouseDown={(e) => e.stopPropagation()}
                 style={{
                   position: 'absolute',
@@ -849,7 +851,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
                   }
                 }}
                 onBlur={() => commitRename(false)}
-                aria-label="Track name"
+                aria-label={copy.trackName}
               />
             ) : (
               <span
@@ -857,7 +859,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
                 className="track-control-panel__track-name-text"
                 tabIndex={childTabIndex}
                 role="button"
-                aria-label={`Rename track: ${trackName}`}
+                aria-label={componentCopyTemplate(copy.renameTrack, { name: trackName })}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === 'F2') {
                     e.preventDefault();
@@ -878,7 +880,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
               <ToggleButton
                 active={false}
                 onClick={onAddLabelClick}
-                ariaLabel="Add label"
+                ariaLabel={copy.addLabel}
                 tabIndex={childTabIndex}
               >
                 <Icon name="plus" size={16} />
@@ -894,7 +896,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
                 <ToggleButton
                   active={isMuted}
                   onClick={onMuteToggle}
-                  ariaLabel="Mute"
+                  ariaLabel={copy.mute}
                   tabIndex={childTabIndex}
                   size={20}
                 >
@@ -903,7 +905,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
                 <ToggleButton
                   active={isSolo}
                   onClick={onSoloToggle}
-                  ariaLabel="Solo"
+                  ariaLabel={copy.solo}
                   tabIndex={childTabIndex}
                   size={20}
                 >
@@ -915,7 +917,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
             <GhostButton
               onClick={onMenuClick}
               active={isMenuOpen}
-              ariaLabel="Track menu"
+              className="track-control-panel__menu-button" ariaLabel={copy.trackMenu}
               tabIndex={childTabIndex}
             />
           </div>
@@ -930,7 +932,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
               data-tcp-slot="pan"
               tabIndex={-1}
               role="group"
-              aria-label="Pan"
+              aria-label={copy.pan}
             >
               <PanKnob
                 value={pan}
@@ -949,7 +951,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
               data-tcp-slot="volume"
               tabIndex={-1}
               role="group"
-              aria-label="Volume"
+              aria-label={copy.volume}
             >
               <Slider
                 value={volume}
@@ -958,7 +960,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
                 onGestureStart={onVolumeGestureStart}
                 onGestureEnd={onVolumeGestureEnd}
                 onGestureCancel={onVolumeGestureCancel}
-                ariaLabel="Volume"
+                ariaLabel={copy.volume}
                 tabIndex={childTabIndex}
               />
             </div>
@@ -971,7 +973,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
               <ToggleButton
                 active={isMuted}
                 onClick={onMuteToggle}
-                ariaLabel="Mute"
+                ariaLabel={copy.mute}
                 tabIndex={childTabIndex}
                 size={20}
               >
@@ -980,7 +982,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
               <ToggleButton
                 active={isSolo}
                 onClick={onSoloToggle}
-                ariaLabel="Solo"
+                ariaLabel={copy.solo}
                 tabIndex={childTabIndex}
                 size={20}
               >
@@ -1024,7 +1026,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
               showIcon={false}
               tabIndex={childTabIndex}
             >
-              {isLabelTrack ? 'Add label' : 'Effects'}
+              {isLabelTrack ? copy.addLabel : copy.effects}
             </Button>
           );
         })()}

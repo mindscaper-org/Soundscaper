@@ -19,10 +19,16 @@ export const FOUNDATION_TIME_CONVERSION_COMMAND_SITES: readonly FoundationTimeCo
 		conversions: [{ helper: 'roundRational', policies: ['point'] }],
 	},
 	{
+		id: 'command-tempo-reconciliation-inverse',
+		file: 'src/common/editor/project-command-tempo-projection.ts',
+		behavior: 'Command reconciliation prepares one exact inverse of the draft tempo map while keeping persisted forward timing separate; sample positions become exact authored beats before edit reconciliation.',
+		conversions: [{ helper: 'createSampleFrameBeatProjector', policies: ['exact'] }],
+	},
+	{
 		id: 'selected-label-clipboard-placement',
 		file: 'src/common/editor/controller/edit/internal/selected-label-clipboard.ts',
-		behavior: 'Label-only paste independently scales resolved offsets to nearest destination samples, then recovers exact destination beat coordinates for musical labels while retaining their anchor kind.',
-		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }, { helper: 'sampleFrameToBeat', policies: ['exact'] }],
+		behavior: 'Label-only paste independently scales resolved offsets to nearest destination samples, then prepares one exact beat inverse for musical labels while retaining their anchor kind.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }, { helper: 'createSampleFrameBeatProjector', policies: ['exact'] }],
 	},
 	{
 		id: 'shared-source-effect-musical-warp-duration',
@@ -209,6 +215,12 @@ export const FOUNDATION_TIME_CONVERSION_COMMAND_SITES: readonly FoundationTimeCo
 		file: 'src/common/editor/controller/track-audio/internal/clip-resample-service.ts',
 		behavior: 'Resampling point-rounds the source frame count once into the requested rate so the rendered extent and its storage preflight agree on one output length.',
 		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'clip-reinterpret-pcm-clock',
+		file: 'src/common/editor/controller/track-audio/internal/clip-reinterpret-commands.ts',
+		behavior: 'PCM reinterpretation preserves exact byte-aligned source boundaries and rounds the combined sample-width and sample-rate duration ratio once to the nearest project frame; fades and envelope positions follow that same resolved extent.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
 	},
 	{
 		id: 'clip-time-pitch-render-extent',

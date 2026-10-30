@@ -17,6 +17,8 @@ export interface StreamedAudioImportSession {
 	readonly timelineOrigin: number;
 	/** Encoded packet metadata proved there are no internal gaps. */
 	readonly continuousTimeline?: boolean;
+	/** First encoded timestamp, independent of native decoder startup latency. */
+	readonly encodedTimelineOrigin?: number;
 	/** Native failures interrupt blocked storage; ordinary EOF leaves this signal clear. */
 	readonly failureSignal?: AbortSignal;
 	samples(): AsyncIterable<BrowserContainerAudioSample>;
@@ -139,7 +141,8 @@ async function streamSession(
 	let used = 0;
 	let position = 0;
 	let decodedSamples = 0;
-	let continuousStart: number | null = null;
+	let continuousStart = session.continuousTimeline && session.encodedTimelineOrigin !== undefined
+		? Math.round((session.encodedTimelineOrigin - session.timelineOrigin) * descriptor.sampleRate) : null;
 	let decodedPosition = 0;
 	const emit = async (): Promise<void> => {
 		assertCurrent();
@@ -355,7 +358,7 @@ async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, r
 			const primed = implicitSbr ? await primeNativeStreamedAacImport(native, signal) : null;
 			signal?.throwIfAborted();
 			return Object.freeze({ sampleRate: primed?.sampleRate ?? sampleRate, channelCount: primed?.channelCount ?? channelCount,
-				timelineOrigin: origin, durationSeconds, continuousTimeline,
+				timelineOrigin: origin, encodedTimelineOrigin: timelineOrigin, durationSeconds, continuousTimeline,
 				samples: (primed ?? native).samples, failureSignal: native.failureSignal, dispose() { (primed ?? native).dispose(); input.dispose(); },
 			});
 		}

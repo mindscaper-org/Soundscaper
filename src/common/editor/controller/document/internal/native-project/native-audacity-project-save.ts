@@ -133,9 +133,10 @@ export function createNativeAudacityProjectSave(
 			client = await dependencies.getClient();
 			dependencies.assertOwnership(operation.task, operation.projectToken);
 			nativeId = sanitizeNativeId(runtime.createStableId(target.idPrefix));
+			const referencedSourceIds = new Set(exportSnapshot.clips.filter(clip => isAudioMediaKind(clip.kind)).map(clip => clip.sourceId));
 			const referencedSources = exportSnapshot.sources.filter((source): source is NativeProjectAudioSource => (
 				isAudioMediaKind(source.kind)
-					&& exportSnapshot.clips.some((clip) => isAudioMediaKind(clip.kind) && clip.sourceId === source.id)
+					&& referencedSourceIds.has(source.id)
 			));
 			const sourceBytes = referencedSources.reduce(
 				(total, source) => total + runtime.sourcePcmBytes(source), 0,

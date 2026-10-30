@@ -7,6 +7,7 @@ import { createMonotonicStemPresentation, type StemPresentationPorts } from '../
 import { renderConformedStem } from '../archive/render-conformed-stem.ts';
 import { conformDeliveredExport } from '../delivery/delivery-conformance-action.ts';
 import type { DeliveryConformanceFinding, DeliveryConformancePlan } from '../../../../delivery-conformance.ts';
+import { ownsImmutableExportRenderInputs } from '../../../../export-render-input-capture.ts';
 
 interface StemOutput extends DirectStemArchiveOutput { readonly includeMaster?: boolean; readonly respectMuteSolo?: boolean }
 interface StemSnapshot { readonly sampleRate: number; readonly masterChannels: number }
@@ -25,7 +26,15 @@ export async function executeDirectStemRenderArchive(options: Readonly<{
 	conformSequential(plan: StemPlan, encoded: ExportEncodedOutput, start: number, end: number): Promise<readonly DeliveryConformanceFinding[]>;
 }>) {
 	const { plan } = options; const presentation = createMonotonicStemPresentation(options.presentation);
-	const renderInputs = (): string => JSON.stringify([plan, options.settings, options.snapshot.sampleRate, options.snapshot.masterChannels]);
+	const ownedSettings = options.settings, rate = options.snapshot.sampleRate, width = options.snapshot.masterChannels;
+	const immutable = ownsImmutableExportRenderInputs(plan, ownedSettings);
+	let retainedInputs: string | null = null;
+	const renderInputs = (): string => {
+		if (immutable && options.settings === ownedSettings && options.snapshot.sampleRate === rate && options.snapshot.masterChannels === width) {
+			return retainedInputs ??= JSON.stringify([plan, ownedSettings, rate, width]);
+		}
+		return JSON.stringify([plan, options.settings, options.snapshot.sampleRate, options.snapshot.masterChannels]);
+	};
 	let capturedInputs: string | null = null;
 	const assertOwnedCurrent = (): void => {
 		options.signal.throwIfAborted(); options.assertCurrent();

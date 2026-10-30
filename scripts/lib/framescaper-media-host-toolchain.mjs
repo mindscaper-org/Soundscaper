@@ -18,6 +18,7 @@ const OVERRIDES = Object.freeze({
 	cxx: 'FRAMESCAPER_MEDIA_CXX',
 	make: 'FRAMESCAPER_MEDIA_MAKE',
 	msbuild: 'FRAMESCAPER_MEDIA_MSBUILD',
+	nasm: 'FRAMESCAPER_MEDIA_NASM',
 	ninja: 'FRAMESCAPER_MEDIA_NINJA',
 	pkgConfig: 'FRAMESCAPER_MEDIA_PKG_CONFIG',
 	ranlib: 'FRAMESCAPER_MEDIA_RANLIB',
@@ -26,11 +27,11 @@ const OVERRIDES = Object.freeze({
 });
 const DEFAULTS = Object.freeze({
 	linux: Object.freeze({ ar: 'ar', c: 'cc', cmake: 'cmake', cxx: 'c++', make: 'make',
-		ninja: 'ninja', pkgConfig: 'pkg-config', ranlib: 'ranlib', shell: 'bash' }),
+		nasm: 'nasm', ninja: 'ninja', pkgConfig: 'pkg-config', ranlib: 'ranlib', shell: 'bash' }),
 	darwin: Object.freeze({ ar: 'ar', c: 'clang', cmake: 'cmake', cxx: 'clang++', make: 'make',
-		ninja: 'ninja', pkgConfig: 'pkg-config', ranlib: 'ranlib', shell: 'bash' }),
+		nasm: 'nasm', ninja: 'ninja', pkgConfig: 'pkg-config', ranlib: 'ranlib', shell: 'bash' }),
 	win32: Object.freeze({ ar: 'lib', c: 'cl', cmake: 'cmake', cxx: 'cl', make: 'make',
-		msbuild: 'msbuild', ninja: 'ninja', pkgConfig: 'pkg-config', ranlib: 'lib', rc: 'rc',
+		msbuild: 'msbuild', nasm: 'nasm', ninja: 'ninja', pkgConfig: 'pkg-config', ranlib: 'lib', rc: 'rc',
 		shell: 'bash' }),
 });
 const ENVIRONMENT_NAMES = Object.freeze([
@@ -66,7 +67,8 @@ export function createFramescaperMediaHostToolchainReceipt(options = {}) {
 }
 
 function roles(targetId) {
-	return targetId.startsWith('win-') ? [...BASE_ROLES, 'msbuild', 'rc'] : BASE_ROLES;
+	return [...BASE_ROLES, ...(targetId.endsWith('-x64') ? ['nasm'] : []),
+		...(targetId.startsWith('win-') ? ['msbuild', 'rc'] : [])];
 }
 
 export function writeFramescaperMediaHostToolchainReceipt(options) {

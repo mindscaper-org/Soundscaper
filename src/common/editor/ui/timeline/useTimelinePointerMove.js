@@ -317,7 +317,7 @@ export function useTimelinePointerMove({
 			const previous = session.points.at(-1);
 			if (previous?.timelineFrame === point.timelineFrame && previous.value === point.value) return;
 			if (session.points.length >= 4_096) session.points.splice(1, 1);
-			session.points.push({ timelineFrame: point.timelineFrame, value: point.value });
+			session.points.push({ timelineFrame: point.timelineFrame, value: point.value, renderedValue: point.renderedValue });
 			event.preventDefault();
 		} else if (session?.kind === 'selection-resize' || session?.kind === 'selection') {
 			if (session.kind === 'selection' && !session.dragStarted) {

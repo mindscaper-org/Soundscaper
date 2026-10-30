@@ -364,7 +364,7 @@ export class AtomicSaveManager {
 		try {
 			await session.handle.sync();
 			await restorePublishedFileMode(session.handle, session.targetPath);
-			const published = session.afterCommit ? await session.handle.stat() : null;
+			const published = session.afterCommit ? await session.handle.stat({ bigint: true }) : null;
 			await session.handle.close();
 			handleClosed = true;
 			await session.beforeCommit?.();

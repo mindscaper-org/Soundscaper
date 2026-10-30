@@ -5,6 +5,7 @@ import { normalizeEffectMacroDraft } from './effect-macros.js';
 export const AUDIO_EDITOR_EFFECT_MACRO_LIBRARY_SCHEMA_VERSION = 1;
 
 const MAX_LIBRARY_MACROS = 256;
+const CANONICAL_LIBRARIES = new WeakSet();
 
 /**
  * The saved macros a user keeps between sessions. A macro is stored as the same
@@ -50,7 +51,15 @@ export function listEffectMacros(state) {
  * rename or an edited step does not reshuffle the list under the pointer.
  */
 export function saveEffectMacro(state, options = {}) {
-	const current = createEffectMacroLibrary(state);
+	return saveInLibrary(createEffectMacroLibrary(state), options);
+}
+
+/** The controller's private owner can reuse an unchanged factory-admitted library. */
+export function saveOwnedEffectMacro(state, options = {}) {
+	return saveInLibrary(CANONICAL_LIBRARIES.has(state) ? state : createEffectMacroLibrary(state), options);
+}
+
+function saveInLibrary(current, options) {
 	const macro = normalizeEffectMacroDraft(options.macro ?? options, {
 		...(typeof options.idFactory === 'function' ? { idFactory: options.idFactory } : {}),
 	});
@@ -78,9 +87,11 @@ function freezeLibrary(macros, defaultsInitialized = false) {
 		throw new RangeError('Effect macro IDs must be unique.');
 	}
 	if (macros.length > MAX_LIBRARY_MACROS) throw new RangeError('The macro library is full.');
-	return Object.freeze({
+	const state = Object.freeze({
 		schemaVersion: AUDIO_EDITOR_EFFECT_MACRO_LIBRARY_SCHEMA_VERSION,
 		macros: Object.freeze(macros),
 		...(defaultsInitialized ? { defaultsInitialized: true } : {}),
 	});
+	CANONICAL_LIBRARIES.add(state);
+	return state;
 }

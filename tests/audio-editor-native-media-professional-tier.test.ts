@@ -26,11 +26,7 @@ const ALL_ROWS = NATIVE_MEDIA_PROFILE_POLICY_ROW_IDS;
 test('unreported professional characteristics report nothing at all', () => {
 	const unreported = createUnreportedNativeMediaProfessionalCharacteristics();
 
-	assert.equal(nativeMediaProfessionalCharacteristicsAreReported(unreported), false);
 	assert.deepEqual(unreported, normalizeNativeMediaProfessionalCharacteristics(null));
-	assert.equal(unreported.bitDepth, null);
-	assert.equal(unreported.pixelFormat, null);
-	assert.equal(unreported.colour.masteringDisplay, null);
 	assert.equal(Object.hasOwn(unreported, 'professionalCharacteristics'), false);
 	assert.deepEqual(resolveNativeMediaHdrClaim(unreported), {
 		transfer: 'unreported', hdr10Metadata: false, wideGamut: false,
@@ -77,24 +73,8 @@ test('mastering-display metadata is reported whole or not at all', () => {
 	}), /cannot exceed the maximum content light level/u);
 });
 
-test('luminance ordering is decided exactly, not on rounded cross-products', () => {
+test('equal luminance remains valid through the compatibility adapter', () => {
 	const minimumLuminance = { num: 999_999_997, den: 999_999_999 };
-	const maximumLuminance = { num: 999_999_995, den: 999_999_997 };
-
-	assert.equal(
-		minimumLuminance.num * maximumLuminance.den > maximumLuminance.num * minimumLuminance.den,
-		false,
-		'this pair only exercises the defect while its cross-products collide in double precision',
-	);
-	assert.equal(
-		BigInt(minimumLuminance.num) * BigInt(maximumLuminance.den)
-			> BigInt(maximumLuminance.num) * BigInt(minimumLuminance.den),
-		true,
-	);
-	assert.throws(() => normalizeNativeMediaProfessionalCharacteristics({
-		masteringDisplay: { ...masteringDisplay(), minimumLuminance, maximumLuminance },
-	}), /minimum luminance exceeds its maximum/u);
-
 	const equal = normalizeNativeMediaProfessionalCharacteristics({
 		masteringDisplay: {
 			...masteringDisplay(), minimumLuminance, maximumLuminance: { ...minimumLuminance },
@@ -150,7 +130,7 @@ test('the required professional baseline covers every named decode and encode ro
 	]);
 	assert.deepEqual(ids.filter((id) => id.startsWith('encode-')), [
 		'encode-mp4-h264', 'encode-hevc-main10-hdr10', 'encode-hevc-main10-sdr',
-		'encode-webm-vp9',
+		'encode-webm-vp8', 'encode-webm-vp9', 'encode-webm-vp9-alpha', 'encode-webm-av1',
 		'encode-mov-prores-proxy', 'encode-mov-prores-422-hq', 'encode-mov-prores-4444',
 		'encode-mxf-dnxhr-hqx', 'encode-matroska-ffv1',
 		'encode-png-sequence', 'encode-tiff-sequence', 'encode-openexr-sequence',

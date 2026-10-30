@@ -65,7 +65,7 @@ test('switching audio hosts replaces devices and refresh preserves the chosen in
 	await expect(speakers).toContainText('PipeWire interface');
 	await setup.getByRole('button', { name: 'Refresh devices', exact: true }).click();
 	await expect(microphone).toContainText('PipeWire interface');
-	await expect(setup.getByRole('alert')).toContainText('Fixture audio device is unavailable');
+	await expect(setup.getByRole('alert')).toContainText('The selected audio device could not be opened. Refresh audio devices or choose another device.');
 	await host.selectOption('electron');
 	await expect(microphone).not.toContainText('PipeWire interface');
 	await expect(speakers).not.toContainText('PipeWire interface');

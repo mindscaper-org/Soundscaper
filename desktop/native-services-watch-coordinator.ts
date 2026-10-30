@@ -8,6 +8,7 @@ import type { FramescaperNativeWatchRepository } from './native-services-watch-r
 
 export interface FramescaperNativeWatchHandle {
 	readonly close: () => void;
+	readonly isActive?: () => boolean;
 }
 
 export type FramescaperNativeWatchFactory = (
@@ -38,7 +39,7 @@ export class FramescaperNativeWatchCoordinator {
 	readonly #schedule: (callback: () => void, delayMs: number) => unknown;
 	readonly #cancelSchedule: (handle: unknown) => void;
 	readonly #onError: (error: unknown) => void;
-	readonly #watchers = new Map<string, FramescaperNativeWatchHandle>();
+	readonly #watchers = new Map<string, Readonly<{ rootIdentity: string; handle: FramescaperNativeWatchHandle }>>();
 	#timer: unknown = null;
 	#started = false;
 	#activeSweep: Promise<void> | null = null;
@@ -87,8 +88,7 @@ export class FramescaperNativeWatchCoordinator {
 
 	refreshHints(): void {
 		if (!this.#started) return;
-		for (const watcher of this.#watchers.values()) watcher.close();
-		this.#watchers.clear();
+		const retained = new Set<string>();
 		for (const rule of this.#repository.list()) {
 			if (!rule.enabled) continue;
 			// Hints are latency only; the scheduled sweep stays authoritative. A
@@ -97,23 +97,32 @@ export class FramescaperNativeWatchCoordinator {
 			// throwing here aborted application startup over an unplugged drive.
 			try {
 				const root = this.#roots.requireActive(rule.grantId);
-				this.#watchers.set(rule.ruleId, this.#watch(
-					root.rootPath,
-					Object.freeze({ recursive: false }),
-					() => this.hint(),
-				));
+				const rootIdentity = JSON.stringify([root.grantId, root.rootPath, root.volumeIdentity, root.directoryIdentity]);
+				const existing = this.#watchers.get(rule.ruleId);
+				if (existing?.rootIdentity !== rootIdentity || existing.handle.isActive?.() === false) {
+					this.#closeWatcher(rule.ruleId);
+					const handle = this.#watch(root.rootPath, Object.freeze({ recursive: false }), () => this.hint());
+					this.#watchers.set(rule.ruleId, Object.freeze({ rootIdentity, handle }));
+				}
+				retained.add(rule.ruleId);
 			} catch (error) {
 				this.#onError(error);
 			}
 		}
+		for (const ruleId of this.#watchers.keys()) if (!retained.has(ruleId)) this.#closeWatcher(ruleId);
+	}
+
+	#closeWatcher(ruleId: string): void {
+		const watcher = this.#watchers.get(ruleId);
+		this.#watchers.delete(ruleId);
+		try { watcher?.handle.close(); } catch (error) { this.#onError(error); }
 	}
 
 	stop(): void {
 		this.#started = false;
 		this.#hinted = false;
 		this.#cancelTimer();
-		for (const watcher of this.#watchers.values()) watcher.close();
-		this.#watchers.clear();
+		for (const ruleId of this.#watchers.keys()) this.#closeWatcher(ruleId);
 	}
 
 	async drain(): Promise<void> {
@@ -158,14 +167,16 @@ function defaultWatch(
 	hint: () => void,
 ): FramescaperNativeWatchHandle {
 	const watcher = watchFileSystem(path, { recursive: false }, () => hint());
+	let active = true;
 	// A watcher whose folder vanishes emits 'error' (EPERM on Windows is
 	// routine); without a listener that is an uncaught exception in main. The
 	// dying hint closes itself and pulls the authoritative sweep forward.
 	watcher.on('error', () => {
+		active = false;
 		try {
 			watcher.close();
 		} catch { /* already closed */ }
 		hint();
 	});
-	return Object.freeze({ close: () => watcher.close() });
+	return Object.freeze({ close: () => { active = false; watcher.close(); }, isActive: () => active });
 }

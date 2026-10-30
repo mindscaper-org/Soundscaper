@@ -3,7 +3,7 @@
 /** Menu-only selected-baseline admission of one exact V14 render queue job. */
 
 import { canonicalizeNativeMediaPlan } from '../common/editor/native-media-plan-canonical-form.ts';
-import { createNativeMediaPlanEnvelopeV2 } from '../common/editor/native-media-plan-envelope-v2.ts';
+import { createNativeMediaPlanEnvelopeV2, createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2 } from '../common/editor/native-media-plan-envelope-v2.ts';
 import { nativeMediaV14RequiresEvaluatedCarrier } from '../common/editor/native-media-v14-render-family.ts';
 import {
 	NATIVE_MEDIA_CAPABILITY_IDS,
@@ -35,6 +35,7 @@ import {
 	FRAMESCAPER_PROJECT_SCHEMA_FAMILY,
 	PROJECT_SCHEMA_VERSION,
 } from '../common/editor/project-schema-identity.ts';
+import { framescaperNativePlanTimingAuthority } from './editor-native-plan-timing-authority.ts';
 import { createFramescaperNativeRenderPlanAuthorityNativeMedia } from './editor-native-render-plan-authority.ts';
 import {
 	snapshotFramescaperNativeRenderDeliveryRequestNativeMedia,
@@ -174,7 +175,7 @@ async function prepareSelectedNativeMediaLiveCarrier(
 	snapshot: QueueSnapshotNativeMedia,
 	restartJobId: string | null,
 ): Promise<PreparedSelectedNativeMediaLiveCarrier | null> {
-	const envelope = createNativeMediaPlanEnvelopeV2(JSON.parse(snapshot.planPayload) as unknown);
+	const envelope = createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(JSON.parse(snapshot.planPayload) as unknown);
 	if (envelope.planVersion !== 14) throw new Error('The selected nativeMedia carrier route lost plan V14.');
 	if (!nativeMediaV14RequiresEvaluatedCarrier(envelope.plan)) return null;
 	if (typeof owner.prepareNativeRenderInputStreamNativeMedia !== 'function'
@@ -334,7 +335,7 @@ function queueSnapshot(
 	const plan = createFramescaperProjectUnifiedExactRenderPlanNativeMedia(
 		profile, project, authority, delivery,
 	);
-	const envelope = createNativeMediaPlanEnvelopeV2(plan);
+	const envelope = createNativeMediaPlanEnvelopeV2(plan, framescaperNativePlanTimingAuthority(project, authority.timingViews, plan.sources.map(source => source.sourceId)));
 	if (envelope.planVersion !== 14 || !SHA256.test(envelope.fingerprint)) {
 		throw new Error('Selected nativeMedia queue admission did not create exact plan V14.');
 	}
@@ -452,6 +453,7 @@ function renderDestination(
 ): string {
 	const prefix = `renders/framescaper-${snapshot.projectId}-r${String(snapshot.projectRevision)}`;
 	return snapshot.delivery.kind === 'encoded-mov' ? `${prefix}.mov`
+		: snapshot.delivery.kind === 'encoded-webm' ? `${prefix}-${snapshot.delivery.codec}.webm`
 		: `${prefix}-${String(snapshot.delivery.frameRate.num)}-${String(
 			snapshot.delivery.frameRate.den)}-${snapshot.delivery.format}`;
 }

@@ -72,6 +72,17 @@ export function calculateEbuLoudnessRange(shortTermEnergies) {
  * chunks and emits exact 10 Hz snapshots without depending on chunk boundaries.
  */
 export function createEbuR128Meter(options = {}) {
+	return createMeter(options, false);
+}
+
+/** One-shot measurements own stable channel weights and need no unused filter history. */
+export function createFixedWeightEbuR128Meter(options = {}) {
+	return createMeter({ ...options, channelWeights: Object.freeze([
+		...(options.channelWeights || ebuChannelWeights(Number(options.channelCount ?? 2))),
+	]) }, true);
+}
+
+function createMeter(options, fixedWeights) {
 	const sampleRate = Number(options.sampleRate);
 	const channelCount = Number(options.channelCount ?? 2);
 	if (!Number.isInteger(sampleRate) || sampleRate < 8_000) {
@@ -136,8 +147,10 @@ export function createEbuR128Meter(options = {}) {
 				if (!Number.isFinite(sample)) throw new RangeError('PCM samples must be finite.');
 				framePeak = Math.max(framePeak, Math.abs(sample));
 				frameSquares += sample * sample;
-				const weighted = filters[channel].process(sample);
-				weightedEnergy += weighted * weighted * weights[channel];
+				if (!fixedWeights || weights[channel] !== 0) {
+					const weighted = filters[channel].process(sample);
+					weightedEnergy += weighted * weighted * weights[channel];
+				}
 				const truePeak = pushTruePeak(liveTruePeak[channel], sample);
 				if (running) maximumTruePeak = Math.max(maximumTruePeak, truePeak);
 			}

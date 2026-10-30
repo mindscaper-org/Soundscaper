@@ -23,7 +23,7 @@ const AUDIO_VIDEO_IMPORT_EXTENSIONS = Object.freeze(MEDIA_IMPORT_EXTENSIONS.filt
 	(extension) => !['cue', 'srt', 'txt', 'vtt'].includes(extension),
 ));
 const PROJECT_OPEN_EXTENSIONS = Object.freeze([
-	...new Set([...PROJECT_EXTENSIONS, 'aup', 'aup3', 'aup4', 'dawproject', 'sesx', ...MEDIA_IMPORT_EXTENSIONS]),
+	...new Set([...PROJECT_EXTENSIONS, 'aup', 'aup3', 'aup4', 'dawproject', 'ses', 'sesx', ...MEDIA_IMPORT_EXTENSIONS]),
 ]);
 
 const FILE_PURPOSES = Object.freeze({
@@ -167,6 +167,7 @@ const MIME_TYPES = Object.freeze({
 	'.png': 'image/png',
 	'.otio': 'application/json',
 	'.rf64': 'audio/rf64',
+	'.ses': 'application/octet-stream',
 	'.sesx': 'application/xml',
 	'.srt': 'application/x-subrip',
 	'.txt': 'text/plain',

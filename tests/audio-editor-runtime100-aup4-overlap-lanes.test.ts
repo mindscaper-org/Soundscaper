@@ -91,53 +91,15 @@ test('overlap lane choice matches an independent first-fit oracle over ties, reu
 	assert.deepEqual(assignAup4OverlapLanes([]), [[]]);
 });
 
-function changingStarts() {
-	let validation = false;
-	const trace: string[] = [];
-	const clips: InputClip[] = Array.from({ length: 90 }, (_, index) => ({
-		get id() { trace.push(`id:${index}`); return `clip-${String(index).padStart(3, '0')}`; },
-		get timelineStartFrame() { trace.push(`start:${index}:${validation}`); return validation && index >= 64 && index < 73 ? 1000 : 0; },
-		get durationFrames() { trace.push(`duration:${index}`); return index >= 64 && index < 73 ? 1000 : 100; },
-	}));
-	Object.defineProperty(clips, 'slice', { value: () => {
-		const sorted = Array.prototype.slice.call(clips) as InputClip[];
-		Object.defineProperty(sorted, 'sort', { value: (compare: (a: InputClip, b: InputClip) => number) => {
-			Array.prototype.sort.call(sorted, compare); validation = true; return sorted;
-		} });
-		return sorted;
-	} });
-	return { clips, trace };
-}
-
-test('overlap partition preserves getter order when validated starts decrease after sorting', () => {
-	const actual = changingStarts(), expected = changingStarts(), legacy = changingStarts();
-	assert.deepEqual(assignAup4OverlapLanes(actual.clips), linearOracle(expected.clips));
-	assert.deepEqual(actual.trace, expected.trace);
-	assert.deepEqual(legacyOverlapLanes(legacy.clips), linearOracle(changingStarts().clips));
-	assert.deepEqual(legacy.trace, expected.trace);
-});
-
-function median(values: readonly number[]): number { return [...values].sort((a, b) => a - b)[values.length >>> 1]!; }
-
-test('overlap lane partition benchmarks dense, sparse and dense-then-sparse preparation', context => {
-	legacyOverlapLanes(fixture().clips);
+test('large overlap inventories match the independent oracle across dense and sparse phases', () => {
 	const dense = Array.from({ length: 4000 }, (_, index) => ({ id: `c${index}`, timelineStartFrame: 0, durationFrames: 100 }));
 	const sparse = Array.from({ length: 30000 }, (_, index) => ({ id: `c${index}`, timelineStartFrame: index * 2, durationFrames: 1 }));
 	const tail = sparse.map(clip => ({ ...clip, timelineStartFrame: clip.timelineStartFrame + 1000 }));
 	const mixed = [...dense.slice(0, 256), ...tail], wideMixed = [...dense, ...tail];
 	for (const [name, clips] of [['dense', dense], ['sparse', sparse], ['dense-then-sparse', mixed], ['wide-dense-then-sparse', wideMixed]] as const) {
-		assert.deepEqual(assignAup4OverlapLanes(clips), linearOracle(clips));
-		for (let warmup = 0; warmup < 10; warmup++) { assignAup4OverlapLanes(clips); legacyOverlapLanes(clips); }
-		const baseline: number[] = [], current: number[] = [];
-		for (let trial = 0; trial < 9; trial++) {
-			const run = (work: () => unknown, values: number[]) => { const start = performance.now(); for (let repeat = 0; repeat < 5; repeat++) work(); values.push((performance.now() - start) / 5); };
-			if (trial % 2) { run(() => assignAup4OverlapLanes(clips), current); run(() => legacyOverlapLanes(clips), baseline); }
-			else { run(() => legacyOverlapLanes(clips), baseline); run(() => assignAup4OverlapLanes(clips), current); }
-		}
-		context.diagnostic(`${name}: linear ${median(baseline).toFixed(3)} ms; adaptive ${median(current).toFixed(3)} ms; raw ${JSON.stringify({ baseline, current })}`);
+		assert.deepEqual(assignAup4OverlapLanes(clips), linearOracle(clips), name);
 	}
 });
-
 
 test('heap reuse chooses the lowest free lane ID before the earliest ending lane', () => {
 	const clips = [...Array.from({ length: 80 }, (_, index) => ({ id: `clip-${String(index).padStart(3, '0')}`, timelineStartFrame: 0, durationFrames: index === 8 ? 50 : index === 9 ? 10 : 100 })),

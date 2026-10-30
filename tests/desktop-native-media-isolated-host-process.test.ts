@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
-	access, chmod, copyFile, mkdir, mkdtemp, readFile, realpath, readdir, rm, stat, writeFile,
+	access, chmod, copyFile, mkdir, mkdtemp, readFile, realpath, readdir, rm, stat, symlink, writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
@@ -20,6 +20,8 @@ import {
 } from '../desktop/native-media-isolated-host-process.ts';
 import type { HelperDataPlaneByteSink } from '../desktop/helper-data-plane-io.ts';
 import type { NativeMediaHostInvocation } from '../desktop/native-media-helper-job.ts';
+import { assistanceNativeKeyedPlan } from '../desktop/assistance-native-keyed-video-plan.ts';
+import { prepareNativeWebmOutputVerification } from '../desktop/native-media-webm-output-verification.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const LAUNCHER_ROOT = join(ROOT, 'native/milestone-5-native-isolation-launcher');
@@ -72,7 +74,111 @@ test('machine containment refuses changed media bytes before the isolated payloa
 	await assert.rejects(access(outputPath), /ENOENT/u);
 });
 
-async function isolatedMediaFixture(context: test.TestContext) {
+test('WebM verification reads only its private output directory and preserves no-clobber publication', {
+	skip: process.platform !== 'linux' || process.arch !== 'x64',
+}, async (context) => {
+	const fixture = await isolatedMediaFixture(context);
+	const plan = Buffer.from(JSON.stringify({ deliveryProfile: 'encode-webm-vp9-alpha' }));
+	await writeFile(fixture.planPath, plan);
+	await writeFile(join(fixture.outputRoot, 'private.txt'), 'unrelated user bytes');
+	const outputPath = join(fixture.outputRoot, 'verified.webm');
+	const invocation = { ...mediaInvocation(fixture.descriptor, fixture, outputPath),
+		plan: { path: fixture.planPath, sha256: digest(plan) } };
+	const invoke = createIsolatedNativeMediaHostProcessInvoker(fixture.descriptor);
+	for (const duplicate of [false, true]) {
+		const handle = invoke(invocation);
+		await Promise.all([
+			writeInput(handle.inputs![0]!.sink, Buffer.from(duplicate ? 'changed' : 'video-body')),
+			writeInput(handle.inputs![1]!.sink, Buffer.from('audio-body')),
+		]);
+		if (duplicate) await assert.rejects(handle.completion, /EEXIST/u);
+		else {
+			const result = await handle.completion;
+			assert.equal(result.exitCode, 0, result.stderr);
+			assert.equal(JSON.parse(result.stdout).readBackDenied, false);
+		}
+		assert.equal(String(await readFile(outputPath)), 'video-body|audio-body');
+		assert.deepEqual(await readdir(fixture.outputRoot), ['private.txt', 'verified.webm']);
+		assert.equal(String(await readFile(join(fixture.outputRoot, 'private.txt'))), 'unrelated user bytes');
+	}
+});
+
+test('WebM publication refuses links and oversized files before copying output bytes', {
+	skip: process.platform !== 'linux' || process.arch !== 'x64',
+}, async (context) => {
+	const fixture = await isolatedMediaFixture(context);
+	const plan = Buffer.from(JSON.stringify({ deliveryProfile: 'encode-webm-vp8' }));
+	await writeFile(fixture.planPath, plan);
+	const output = join(fixture.outputRoot, 'invalid.webm');
+	for (const link of [true, false]) {
+		const prepared = await prepareNativeWebmOutputVerification({
+			...mediaInvocation(fixture.descriptor, fixture, output), maximumOutputBytes: 1,
+			plan: { path: fixture.planPath, sha256: digest(plan) },
+		});
+		try {
+			if (link) await symlink(fixture.planPath, prepared.invocation.temporaryOutputPath!);
+			else await writeFile(prepared.invocation.temporaryOutputPath!, 'too large');
+			await assert.rejects(prepared.publish(), /invalid.*output/iu);
+			await assert.rejects(access(output), /ENOENT/u);
+		} finally { await prepared.close(); }
+	}
+});
+
+test('the linked WebM encoders verify their output under machine isolation', {
+	skip: process.platform !== 'linux' || process.arch !== 'x64' || !process.env.FRAMESCAPER_MEDIA_HOST_TEST_BINARY,
+}, async (context) => {
+	const fixture = await isolatedMediaFixture(context, process.env.FRAMESCAPER_MEDIA_HOST_TEST_BINARY);
+	const foundation = assistanceNativeKeyedPlan('ab'.repeat(20), {
+		width: 64, height: 64, frameCount: 4, frameRate: { num: 25, den: 1 },
+		timescale: 25, presentationTicks: ['0', '1', '2', '3'],
+	});
+	const magic = Buffer.from('framescaper-rgba-frame-pack-v1\n');
+	const header = Buffer.alloc(magic.length + 28); magic.copy(header);
+	header.writeUInt32LE(1, magic.length); header.writeUInt32LE(64, magic.length + 4);
+	header.writeUInt32LE(64, magic.length + 8); header.writeBigUInt64LE(4n, magic.length + 12);
+	header.writeUInt32LE(1, magic.length + 20); header.writeUInt32LE(25, magic.length + 24);
+	const parts = [header];
+	for (let ordinal = 0; ordinal < 4; ++ordinal) {
+		const record = Buffer.alloc(32);
+		record.writeBigUInt64LE(BigInt(ordinal)); record.writeBigInt64LE(BigInt(ordinal), 8);
+		record.writeBigInt64LE(1n, 16); record.writeBigUInt64LE(64n * 64n * 4n, 24);
+		const rgba = Buffer.alloc(64 * 64 * 4);
+		for (let pixel = 0; pixel < 64 * 64; ++pixel) {
+			rgba[pixel * 4] = 160; rgba[pixel * 4 + 3] = (pixel + ordinal) % 256;
+		}
+		parts.push(record, rgba);
+	}
+	const carrier = Buffer.concat(parts);
+	for (const [codec, encoder] of [['vp8', 'libvpx'], ['vp9', 'libvpx-vp9'], ['av1', 'libsvtav1'], ['vp9-alpha', 'libvpx-vp9']]) {
+		const pixelFormat = codec === 'vp9-alpha' ? 'yuva420p' : 'yuv420p';
+		const plan = Buffer.from(JSON.stringify({ ...foundation, deliveryProfile: `encode-webm-${codec}`,
+			codecs: { ...foundation.codecs, video: codec === 'vp9-alpha' ? 'vp9' : codec, videoEncoder: encoder, pixelFormat },
+			output: { ...foundation.output, canvas: { ...foundation.output.canvas, pixelFormat } },
+		}));
+		await writeFile(fixture.planPath, plan);
+		const output = join(fixture.outputRoot, `${codec}.webm`);
+		const invocation = { ...mediaInvocation(fixture.descriptor, fixture, output),
+			operation: 'media-encode' as const, maximumOutputBytes: 1024 * 1024,
+			plan: { path: fixture.planPath, sha256: digest(plan) },
+			sources: [{ path: null, sha256: null, byteLength: carrier.length,
+				role: 'evaluated-rgba-frame-pack' as const,
+				liveInput: { transport: 'native-pipe' as const, byteLength: carrier.length } }],
+		};
+		const handle = createIsolatedNativeMediaHostProcessInvoker(fixture.descriptor)(invocation);
+		await writeInput(handle.inputs![0]!.sink, carrier);
+		const result = await handle.completion;
+		assert.equal(result.exitCode, 0, result.stdout + result.stderr);
+		const identity = JSON.parse(result.stdout) as { sha256: string };
+		assert.equal(digest(await readFile(output)), identity.sha256);
+		if (codec === 'vp9-alpha') {
+			const report = JSON.parse(String(await readFile(join(fixture.scratchPath, 'keyed-video-inspection.json')))) as { outputSha256: string };
+			assert.equal(report.outputSha256, identity.sha256);
+		}
+	}
+	assert.deepEqual((await readdir(fixture.outputRoot)).sort(), ['av1.webm', 'vp8.webm', 'vp9-alpha.webm', 'vp9.webm']);
+});
+
+async function isolatedMediaFixture(context: test.TestContext, hostBinary?: string) {
 	const root = await mkdtemp(join(tmpdir(), 'framescaper-isolated-media-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
 	const runtime = join(root, 'runtime');
@@ -87,7 +193,7 @@ async function isolatedMediaFixture(context: test.TestContext) {
 		writeFile(sourcePath, MEDIA_HOST_SOURCE), writeFile(planPath, '{}'),
 	]);
 	await Promise.all([
-		execute('cc', ['-std=c17', '-O2', '-Wall', '-Wextra', '-Wpedantic', '-Werror',
+		hostBinary ? copyFile(hostBinary, hostPath) : execute('cc', ['-std=c17', '-O2', '-Wall', '-Wextra', '-Wpedantic', '-Werror',
 			sourcePath, '-o', hostPath]),
 		execute('cc', ['-std=c17', '-O2', '-Wall', '-Wextra', '-Wpedantic', '-Werror',
 			join(LAUNCHER_ROOT, 'src/linux_launcher.c'), '-o', launcherPath]),
@@ -198,6 +304,14 @@ int main(int argc, char **argv) {
 		|| write(file, audio, (size_t)audio_bytes) != audio_bytes || close(file) != 0) return 67;
 	int read_back = open(output, O_RDONLY | O_CLOEXEC);
 	int read_back_denied = read_back < 0 && (errno == EACCES || errno == EPERM);
+	char neighbor[4096];
+	if (strlen(output) >= sizeof(neighbor) - 20u) return 68;
+	strcpy(neighbor, output);
+	char *separator = strrchr(neighbor, '/'); if (separator == NULL) return 68; *separator = '\0';
+	separator = strrchr(neighbor, '/'); if (separator == NULL) return 68; *separator = '\0';
+	strcat(neighbor, "/private.txt");
+	int unrelated = open(neighbor, O_RDONLY | O_CLOEXEC);
+	if (unrelated >= 0) { close(unrelated); return 68; }
 	int inherited_closed = 1;
 	for (int fd = 4; fd < 64; ++fd) if (fcntl(fd, F_GETFD) >= 0) inherited_closed = 0;
 	printf("{\"readBackDenied\":%s,\"inheritedArtifactsClosed\":%s}\n",

@@ -46,9 +46,10 @@ export function integratedLoudnessPower(channels, sampleRate) {
 	const ring = new Float64Array(blockSize);
 	const histogram = createLoudnessPowerHistogram();
 	const template = weightingFilters(sampleRate);
-	const filters = channels.map(() => template.map(filter => ({ ...filter })));
 	// Native 5.0/5.1 source processing follows the analyzer's programme roles.
 	const channelWeights = ebuChannelWeights(channels.length);
+	if (channels.every((channel, index) => channelWeights[index] === 0 || channel.every(sample => sample === 0))) return 0;
+	const filters = channels.map(() => template.map(filter => ({ ...filter })));
 	let ringPosition = 0;
 	let ringSize = 0;
 	let framesUntilBlock = blockSize;
@@ -57,6 +58,7 @@ export function integratedLoudnessPower(channels, sampleRate) {
 	for (let index = 0; index < channels[0].length; index += 1) {
 		let power = 0;
 		for (let channelIndex = 0; channelIndex < channels.length; channelIndex += 1) {
+			if (channelWeights[channelIndex] === 0) continue;
 			const [shelf, highPass] = filters[channelIndex];
 			const weighted = processBiquad(
 				processBiquad(channels[channelIndex][index], shelf),

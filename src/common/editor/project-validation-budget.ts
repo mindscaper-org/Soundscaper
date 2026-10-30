@@ -74,6 +74,12 @@ export function admitAudioEditorProjectValidationStructure(
 	value: unknown,
 	limits: Readonly<AudioEditorProjectValidationLimits>,
 ): void {
+	countAudioEditorProjectValidationStructure(value, limits);
+}
+
+export function countAudioEditorProjectValidationStructure(
+	value: unknown, limits: Readonly<AudioEditorProjectValidationLimits>,
+): number {
 	const budget: ValidationStructureBudget = { active: new Set(), limits, nodes: 0 };
 	const stack: StructureWork[] = [];
 	scheduleVisit(stack, value, 0, budget);
@@ -103,6 +109,7 @@ export function admitAudioEditorProjectValidationStructure(
 		}
 		admitObject(stack, candidate, work.depth, budget);
 	}
+	return budget.nodes;
 }
 
 function admitSupportedBinary(value: object): boolean {

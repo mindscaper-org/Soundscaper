@@ -18,6 +18,15 @@ export interface CiInputCacheIdentityOptions {
 	readonly environment: NodeJS.ProcessEnv;
 }
 
+/** Batch shims require cmd.exe on Windows; the shell receives only this fixed command. */
+export function npmVersionCommand(platform: NodeJS.Platform, environment: NodeJS.ProcessEnv): {
+	readonly executable: string; readonly args: string[];
+} {
+	return platform === 'win32'
+		? { executable: environment.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', 'npm --version'] }
+		: { executable: 'npm', args: ['--version'] };
+}
+
 export function dependencyWorkspaceRoots(repositoryRoot: string): readonly string[] {
 	const manifest: unknown = JSON.parse(readFileSync(join(repositoryRoot, 'package.json'), 'utf8'));
 	if (typeof manifest !== 'object' || manifest === null || !('workspaces' in manifest) || !Array.isArray(manifest.workspaces)

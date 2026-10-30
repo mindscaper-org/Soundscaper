@@ -69,13 +69,16 @@ itself. `desktop/` and `native/` are held to the no-React and no-`tests/` rules
 alongside `src/`.
 
 Maintained sources are growth-frozen as soon as they reach the 550-line warning
-band. `config/maintainability-allowlist.json` records those reviewed baselines
+band; browser specs enter their warning band at 750 lines.
+`config/maintainability-allowlist.json` records those reviewed baselines
 alongside the ratchets for legacy modules already over their hard ceiling. A
 new file may not enter the warning band, and an existing file may not exceed its
-recorded size. CI compares each warning-band file with its source at the
-explicit base revision; local checks compare the working tree with `HEAD`, and
+recorded size. CI compares each warning-band file with its source at the revision
+selected by `MAINTAINABILITY_BASE_REVISION`; local checks compare with `HEAD`, and
 both follow Git renames. `npm run check:size:tighten` claims reductions and removes a
-warning-band row after its file falls below 550 lines. The editor shell and
+warning-band row after its file falls below its warning threshold.
+`node scripts/check-file-size.mjs --warnings` lists the ratchets, and the
+PostToolUse hook reports the applicable boundary during edits. The editor shell and
 design-system stylesheet are already decomposed into focused modules; do not
 rebuild either monolith.
 `npm run check:architecture` enforces both dependency rules and
@@ -86,27 +89,27 @@ TypeScript linting resolves the strict projects and rejects floating or
 misused promises; Node's test-registration function is the sole known-safe
 promise-returning call.
 
-Use the narrowest useful feedback loop:
+Use the [development testing guide](../development/testing.md) to choose focused
+checks and prepare the owner's full-suite command. Agents run focused checks
+and hand off full suites with the absolute path of their worktree. Browser
+tests remain a separate CI job so their diagnostics can be retained without
+obscuring fast structural failures.
 
-| Change | Minimum check |
-| --- | --- |
-| Domain/helper/controller | `npm test` and `npm run typecheck` |
-| Vite or React UI | `npm run build` |
-| User interaction | `npm run test:browser` |
-| Patch, WASM, codec, or notice metadata | Matching `audit:*` command |
-| Before review | `npm run check` |
-
-`npm run test` runs both JavaScript and TypeScript Node tests through `tsx`.
-Browser tests deliberately remain a separate CI job so their diagnostics can be
-retained without obscuring fast structural failures.
-
-The production Vite build uses ordered semantic chunk groups for React and the
-design system, editor engine, storage/model, controller/core, timeline, shell,
-and remaining vendor code. Keep a module in the narrowest owning group and
+The production Vite build in `vite.config.mjs` uses ordered semantic chunk groups
+for React and the design system, editor engine, storage/model, controller/core,
+timeline, shell, and remaining vendor code. Keep a module in the narrowest owning group and
 verify the resulting dependency DAG before changing those priorities. The build
 fails when any emitted JavaScript chunk exceeds 500,000 bytes; split ownership
 instead of raising that ceiling. Its startup check also rejects a static import
 path from either product's bootstrap chunk back to itself after chunks are emitted.
+
+Startup graph ceilings live in `config/startup-graph-budgets.json`. Each build
+prints observed requests and bytes per graph and writes
+`.startup-graph-report.json` beside the bundle. Run
+`npm run check:startup-graph:tighten` after a build to claim a smaller
+initial-page graph. Product byte and request ceilings remain stable maxima,
+paired with measured editor-loading progress. Raising a ceiling requires a
+deliberate edit with its reason recorded in that register.
 
 Product module substitutions are checked by `npm run typecheck:products`, which
 runs TypeScript over Soundscaper and Framescaper in both browser and desktop

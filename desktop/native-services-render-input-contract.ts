@@ -12,7 +12,7 @@ import {
 	type NativeMediaPlanEnvelopeV1,
 } from '../src/common/editor/native-media-plan-envelope.ts';
 import {
-	createNativeMediaPlanEnvelopeV2,
+	createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2,
 	type NativeMediaPlanEnvelopeV2,
 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
 import { nativeMediaV14RequiresEvaluatedCarrier } from '../src/common/editor/native-media-v14-render-family.ts';
@@ -203,7 +203,7 @@ export function nativeRenderInputExactEnvelope(
 	catch { throw new TypeError('A native render-input plan payload must be JSON.'); }
 	const version = (plan as Readonly<{ readonly version?: unknown }> | null)?.version;
 	const envelope = version === 14
-		? createNativeMediaPlanEnvelopeV2(plan)
+		? createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(plan)
 		: createNativeMediaPlanEnvelopeV1(plan);
 	if ((envelope.planVersion !== 7 && envelope.planVersion !== 8 && envelope.planVersion !== 14)
 		|| (expectedVersion !== undefined && envelope.planVersion !== expectedVersion)

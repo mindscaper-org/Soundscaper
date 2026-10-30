@@ -1,3 +1,4 @@
+import { annotateLabelParserFailure } from './label-and-preset-parser-failure.ts';
 import { decodeSubRipLabelText, decodeWebVttLabelText, encodeWebVttLabelText } from './label-cue-text.ts';
 import { decodeLabelInputText } from './label-input-text.ts';
 import { labelTimeFrame } from './label-time-frame.ts';
@@ -22,6 +23,7 @@ export class AudioEditorLabelIoError extends Error {
 		this.name = 'AudioEditorLabelIoError';
 		this.code = code;
 		this.details = Object.freeze({ ...details });
+		annotateLabelParserFailure(this, code, this.details);
 	}
 }
 
@@ -366,7 +368,9 @@ function serializeTimed(labels, context, format) {
 		// caption exporter does, which keeps an unnamed label visually empty.
 		const titleLines = label.title.replace(/\r\n?/g, '\n').split('\n')
 			.filter((line) => line.trim().length > 0);
-		lines.push(...(titleLines.length ? titleLines.map((line) => format === 'vtt' ? encodeWebVttLabelText(line) : line) : [' ']), '');
+		if (titleLines.length === 0) lines.push(' ');
+		for (const line of titleLines) lines.push(format === 'vtt' ? encodeWebVttLabelText(line) : line);
+		lines.push('');
 	});
 	let text = lines.join(context.lineEnding);
 	if (format === 'vtt' && labels.length === 0) text += context.lineEnding;

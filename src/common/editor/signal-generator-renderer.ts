@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { generatorValidationFailure as failure, generatorFieldMessage } from './generator-validation-failure.ts';
 import { encodeMorseCode, morseCodeDotSeconds, morseCodeKeying } from './morse-code.ts';
 import { createNoiseBlockRenderer } from './signal-generator-noise.ts';
 
@@ -27,6 +28,7 @@ const MAX_SECONDS = 24 * 60 * 60;
 // Repeated long DTMF tones must not turn a bounded job into a whole-signal cache.
 const MAX_DTMF_CACHE_FRAMES = 16_384;
 const MAX_DTMF_CACHED_TONES = 16;
+const MAX_MORSE_CACHED_TONES = 8;
 const DTMF: Readonly<Record<string, readonly [number, number]>> = Object.freeze({
 	'1': [697, 1209], '2': [697, 1336], '3': [697, 1477], A: [697, 1633],
 	'4': [770, 1209], '5': [770, 1336], '6': [770, 1477], B: [770, 1633],
@@ -136,7 +138,7 @@ function prepareConstantChirp(frameCount: number, channelCount: number, step: nu
 
 function prepareDtmf(options: Options, sampleRate: number, channelCount: number): PreparedSignal {
 	const sequence = String(options.sequence ?? '123').toUpperCase().replace(/[\s,-]+/g, '');
-	if (!sequence.length || [...sequence].some((symbol) => !DTMF[symbol])) throw new RangeError('DTMF sequence contains an unsupported symbol.');
+	if (!sequence.length || [...sequence].some((symbol) => !DTMF[symbol])) throw failure(new RangeError('DTMF sequence contains an unsupported symbol.'), sequence.length ? 'generatorDtmfSymbol' : 'generatorDtmfEmpty');
 	const toneSeconds = finiteInRange(options.toneSeconds ?? 0.1, 1 / sampleRate, MAX_SECONDS, 'toneSeconds');
 	const silenceSeconds = finiteInRange(options.silenceSeconds ?? 0.05, 0, MAX_SECONDS, 'silenceSeconds');
 	const amplitude = finiteInRange(options.amplitude ?? 0.8, 0, 1, 'amplitude');
@@ -147,7 +149,7 @@ function prepareDtmf(options: Options, sampleRate: number, channelCount: number)
 	const scaledDuration = options.durationSeconds !== undefined;
 	const frameCount = !scaledDuration ? naturalFrames
 		: boundedFrameCount(finiteInRange(options.durationSeconds, 1 / sampleRate, MAX_SECONDS, 'durationSeconds'), sampleRate);
-	if (!Number.isSafeInteger(frameCount) || frameCount <= 0 || frameCount > 0x7fff_ffff) throw new RangeError('DTMF output is too large.');
+	if (!Number.isSafeInteger(frameCount) || frameCount <= 0 || frameCount > 0x7fff_ffff) throw failure(new RangeError('DTMF output is too large.'), 'generatorOutputTooLarge');
 	const tones = new Map<string, Float32Array>();
 	let symbolIndex = 0;
 	let activeToneStart = 0;
@@ -206,7 +208,11 @@ function prepareDtmf(options: Options, sampleRate: number, channelCount: number)
 }
 
 function prepareMorse(options: Options, sampleRate: number, channelCount: number): PreparedSignal {
-	const words = encodeMorseCode(options.text ?? 'SOS');
+	let words: ReturnType<typeof encodeMorseCode>;
+	try { words = encodeMorseCode(options.text ?? 'SOS'); } catch (error) {
+		if (!(error instanceof Error)) throw error;
+		throw failure(error, 'generatorMorseMessage');
+	}
 	const wordsPerMinute = finiteInRange(options.wordsPerMinute ?? 20, 1, 120, 'wordsPerMinute');
 	const frequency = finiteInRange(options.frequency ?? 700, 0.01, sampleRate / 2, 'frequency');
 	const angularFrequency = 2 * Math.PI * frequency;
@@ -214,7 +220,7 @@ function prepareMorse(options: Options, sampleRate: number, channelCount: number
 	const segments = morseCodeKeying(words);
 	const dotSeconds = morseCodeDotSeconds(wordsPerMinute);
 	const totalUnits = segments.reduce((total, segment) => total + segment.units, 0);
-	if (totalUnits * dotSeconds > MAX_SECONDS) throw new RangeError('Morse output is too long.');
+	if (totalUnits * dotSeconds > MAX_SECONDS) throw failure(new RangeError('Morse output is too long.'), 'generatorMorseLong', { maximum: MAX_SECONDS });
 	const framesPerUnit = dotSeconds * sampleRate;
 	const frameCount = boundedFrameCount(totalUnits * dotSeconds, sampleRate);
 	const rampFrames = Math.round(Math.min(0.005, dotSeconds / 4) * sampleRate);
@@ -226,17 +232,36 @@ function prepareMorse(options: Options, sampleRate: number, channelCount: number
 		return { ...segment, start, end, edgeFrames: Math.min(rampFrames, Math.floor((end - start) / 2)) };
 	});
 	let segmentIndex = 0;
+	const tones = new Map<string, Float32Array>();
+	function fillTone(output: Float32Array, destination: number, localStart: number, frames: number,
+		length: number, edgeFrames: number): void {
+		for (let index = 0; index < frames; index += 1) {
+			const frame = localStart + index;
+			const ramp = edgeFrames ? Math.min(1, (frame + 1) / edgeFrames, (length - frame) / edgeFrames) : 1;
+			output[destination + index] = amplitude * (ramp === 1 ? 1 : 0.5 - 0.5 * Math.cos(Math.PI * ramp))
+				* Math.sin(angularFrequency * frame / sampleRate);
+		}
+	}
 	return monoSignal(frameCount, channelCount, (frames, start) => {
 		const output = new Float32Array(frames);
 		const end = start + frames;
 		while (segmentIndex < schedule.length) {
 			const segment = schedule[segmentIndex]!;
 			if (segment.start >= end) break;
-			if (segment.tone) for (let frame = Math.max(start, segment.start); frame < Math.min(end, segment.end); frame += 1) {
-				const ramp = segment.edgeFrames
-					? Math.min(1, (frame - segment.start + 1) / segment.edgeFrames, (segment.end - frame) / segment.edgeFrames) : 1;
-				output[frame - start] = amplitude * (ramp === 1 ? 1 : 0.5 - 0.5 * Math.cos(Math.PI * ramp))
-					* Math.sin(angularFrequency * (frame - segment.start) / sampleRate);
+			if (segment.tone) {
+				const length = segment.end - segment.start;
+				const key = `${length}:${segment.edgeFrames}`;
+				let cached = tones.get(key);
+				if (!cached && length <= MAX_DTMF_CACHE_FRAMES && tones.size < MAX_MORSE_CACHED_TONES) {
+					cached = new Float32Array(length);
+					fillTone(cached, 0, 0, length, length, segment.edgeFrames);
+					tones.set(key, cached);
+				}
+				const from = Math.max(start, segment.start);
+				const count = Math.min(end, segment.end) - from;
+				const localStart = from - segment.start;
+				if (cached) output.set(cached.subarray(localStart, localStart + count), from - start);
+				else fillTone(output, from - start, localStart, count, length, segment.edgeFrames);
 			}
 			if (segment.end > end) break;
 			segmentIndex += 1;
@@ -260,29 +285,29 @@ function waveformOscillator(waveform: Waveform): (phase: number) => number {
 
 function boundedFrameCount(seconds: number, sampleRate: number): number {
 	const frames = Math.round(seconds * sampleRate);
-	if (!Number.isSafeInteger(frames) || frames <= 0 || frames > 0x7fff_ffff) throw new RangeError('Generator output is too large.');
+	if (!Number.isSafeInteger(frames) || frames <= 0 || frames > 0x7fff_ffff) throw failure(new RangeError('Generator output is too large.'), 'generatorOutputTooLarge');
 	return frames;
 }
 
 function finiteInRange(value: unknown, minimum: number, maximum: number, name: string): number {
 	const number = Number(value);
-	if (!Number.isFinite(number) || number < minimum || number > maximum) throw new RangeError(`${name} must be between ${minimum} and ${maximum}.`);
+	if (!Number.isFinite(number) || number < minimum || number > maximum) throw failure(new RangeError(`${name} must be between ${minimum} and ${maximum}.`), 'generatorBounds', { field: generatorFieldMessage(name), minimum, maximum });
 	return number;
 }
 
 function positiveInteger(value: unknown, name: string): number {
 	const number = Number(value);
-	if (!Number.isSafeInteger(number) || number <= 0) throw new RangeError(`${name} must be a positive safe integer.`);
+	if (!Number.isSafeInteger(number) || number <= 0) throw failure(new RangeError(`${name} must be a positive safe integer.`), 'generatorPositive', { field: generatorFieldMessage(name) });
 	return number;
 }
 
 function integerInRange(value: unknown, minimum: number, maximum: number, name: string): number {
 	const number = Number(value);
-	if (!Number.isSafeInteger(number) || number < minimum || number > maximum) throw new RangeError(`${name} must be between ${minimum} and ${maximum}.`);
+	if (!Number.isSafeInteger(number) || number < minimum || number > maximum) throw failure(new RangeError(`${name} must be between ${minimum} and ${maximum}.`), 'generatorBounds', { field: generatorFieldMessage(name), minimum, maximum });
 	return number;
 }
 
 function enumValue<T extends string>(value: unknown, allowed: readonly T[], name: string): T {
-	if (typeof value !== 'string' || !allowed.includes(value as T)) throw new RangeError(`${name} must be one of: ${allowed.join(', ')}.`);
+	if (typeof value !== 'string' || !allowed.includes(value as T)) throw failure(new RangeError(`${name} must be one of: ${allowed.join(', ')}.`), 'generatorChoice', { field: generatorFieldMessage(name) });
 	return value as T;
 }

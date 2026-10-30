@@ -199,7 +199,7 @@ test('workflow IDs close every guided recipe and one advanced recipe per workflo
 		'make-highlights',
 		'generate-editorial-text',
 	]);
-	const workflowOperations = ASSISTANCE_OPERATIONS.filter((operation) => operation !== 'text-to-speech');
+	const workflowOperations = ASSISTANCE_OPERATIONS.filter((operation) => operation !== 'text-to-speech' && operation !== 'video-keying');
 	assert.deepEqual(
 		ADVANCED_ASSISTANCE_WORKFLOW_IDS,
 		workflowOperations.map((operation) => `advanced:${operation}`),

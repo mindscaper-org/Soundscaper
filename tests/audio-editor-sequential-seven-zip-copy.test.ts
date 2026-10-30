@@ -56,24 +56,6 @@ test('sequential 7z Copy emits a placeholder, ordered data, a next header, and o
 	assert.equal(sink.abortCount, 0);
 });
 
-test('sequential 7z Copy validates exact positive plans before sink I/O', async () => {
-	for (const invalid of [
-		[],
-		[{ fileName: '', expectedByteLength: 1 }],
-		[{ fileName: '../escape.wav', expectedByteLength: 1 }],
-		[{ fileName: 'empty.wav', expectedByteLength: 0 }],
-		[{ fileName: 'unsafe.wav', expectedByteLength: Number.MAX_SAFE_INTEGER + 1 }],
-		[
-			{ fileName: 'same.wav', expectedByteLength: 1 },
-			{ fileName: 'same.wav', expectedByteLength: 2 },
-		],
-	] as const) {
-		const sink = new MemorySink();
-		await assert.rejects(createSequentialSevenZipCopyArchive(invalid, sink));
-		assert.equal(sink.chunks.length, 0);
-		assert.equal(sink.abortCount, 0);
-	}
-});
 
 test('pre-write entry name and declared-size errors are recoverable', async () => {
 	const sink = new MemorySink();

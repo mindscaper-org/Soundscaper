@@ -291,8 +291,8 @@ test('publishing performs a full public digest readback before reporting success
 	assert.deepEqual(events, [
 		'upload:models/silero-vad-v6/6.2.1/silero_vad.onnx',
 		'readback:HEAD:full:https://assets.soundscaper.org/models/silero-vad-v6/6.2.1/silero_vad.onnx',
-		'readback:GET:bytes=0-0:https://assets.soundscaper.org/models/silero-vad-v6/6.2.1/silero_vad.onnx',
 		'readback:GET:full:https://assets.soundscaper.org/models/silero-vad-v6/6.2.1/silero_vad.onnx',
+		'readback:GET:bytes=0-0:https://assets.soundscaper.org/models/silero-vad-v6/6.2.1/silero_vad.onnx',
 	]);
 
 	await assert.rejects(
@@ -322,8 +322,8 @@ test('public mirror verification proves HEAD, Range and browser CORS before succ
 	}), { url, byteLength: artifact.byteLength, sha256: artifact.sha256 });
 	assert.deepEqual(requests.map(({ method, range }) => [method, range]), [
 		['HEAD', null],
-		['GET', 'bytes=0-0'],
 		['GET', null],
+		['GET', 'bytes=0-0'],
 	]);
 
 	await assert.rejects(

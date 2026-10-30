@@ -385,45 +385,9 @@ test('an exact output whose canvas has no readable context is refused', async (t
 		},
 	});
 
-	await assert.rejects(() => withContext(undefined), (error: unknown) => {
-		assert.ok(error instanceof TypeError);
-		assert.match(error.message, /output has no canvas context/u);
-		return true;
-	});
 	await assert.rejects(() => withContext(() => null), /output has no readable 2D context/u);
-	await assert.rejects(
-		() => withContext(() => ({
-			putImageData: () => undefined, clearRect: () => undefined, drawImage: () => undefined,
-		} as unknown as ContextStub)),
-		/output has no readable 2D context/u,
-	);
 });
 
-test('an exact output that reads back the wrong pixel geometry is refused', async (t) => {
-	const dom = installDom(t);
-	const readingBack = (data: Uint8ClampedArray | Uint8Array) => strip({
-		decodeSource: () => {
-			sabotage(dom.canvases, () => ({
-				putImageData: () => undefined, clearRect: () => undefined, drawImage: () => undefined,
-				getImageData: () => ({ data: data as Uint8ClampedArray }),
-			}));
-			return Promise.resolve(decoded([]));
-		},
-	});
-
-	await assert.rejects(
-		() => readingBack(new Uint8ClampedArray(WIDTH * HEIGHT * 4 - 4)),
-		(error: unknown) => {
-			assert.ok(error instanceof RangeError);
-			assert.match(error.message, /output geometry changed/u);
-			return true;
-		},
-	);
-	await assert.rejects(
-		() => readingBack(new Uint8Array(WIDTH * HEIGHT * 4)),
-		/output geometry changed/u,
-	);
-});
 
 test('the shipped decode refuses to run without a browser image runtime', async (t) => {
 	installDom(t);

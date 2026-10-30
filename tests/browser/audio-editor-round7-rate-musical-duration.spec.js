@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
+import { readWavePcm } from '../helpers/read-wave-pcm.ts';
 import { showClipTimingFields, bootEditor, chooseCommandAction, chooseDropdown, chooseNestedCommandAction,
 	clipByName, closeClipProperties, collectClientErrors, disableNativeSavePicker,
 	importFiles, openClipProperties, openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
@@ -26,10 +28,7 @@ for (const effect of ['Change tempo', 'Change speed and pitch']) {
 		await page.keyboard.press('Escape');
 		const properties = await openClipProperties(page, editor, clipByName(editor, recording.name));
 		await showClipTimingFields(properties);
-		const start = properties.locator('[data-clip-field="startFrame"]');
-		await start.locator('.timecode-digit').first().click();
-		await page.keyboard.type('000004000'); await page.keyboard.press('Enter');
-		await expect(start.locator('.timecode__display')).toHaveText('00h00m04.000s');
+		await setClipTimeFrames(properties, 'startFrame', 192000);
 		await closeClipProperties(properties);
 		await page.locator('[data-sidebar] [data-workspace-select]').selectOption({ label: 'Soundscaper' });
 		await editor.getByRole('button', { name: 'Fit project', exact: true }).click();
@@ -79,14 +78,12 @@ async function exportedRecording(page, editor) {
 	await expect(link).toBeVisible({ timeout: 20000 });
 	await expect(link).not.toHaveAttribute('href', previous ?? '');
 	const bytes = await readDownloadBytes(page, link);
-	const result = await page.evaluate(async bytes => {
-		const context = new OfflineAudioContext(2, 1, 48000);
-		const decoded = await context.decodeAudioData(Uint8Array.from(bytes).buffer);
-		const pcm = decoded.getChannelData(0);
-		let energy = 0;
-		for (let frame = 200000; frame < 240000; frame++) energy += pcm[frame] ** 2;
-		return { frames: decoded.length, rms: Math.sqrt(energy / 40000) };
-	}, Array.from(bytes));
 	await dialog.getByRole('button', { name: 'Close', exact: true }).click();
-	return result;
+	await expect(dialog).toBeHidden();
+	const decoded = readWavePcm(bytes);
+	expect(decoded.sampleRate).toBe(48_000);
+	const pcm = decoded.channels[0];
+	let energy = 0;
+	for (let frame = 200000; frame < 240000; frame++) energy += pcm[frame] ** 2;
+	return { frames: pcm.length, rms: Math.sqrt(energy / 40000) };
 }

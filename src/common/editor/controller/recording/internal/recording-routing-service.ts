@@ -144,16 +144,16 @@ export function createRecordingRoutingService<
 			state.recordingEnumeratedDeviceIds = new Set(discoveredInputs.map((device) => device.deviceId));
 			if (discoveredInputs.some((device) => device.label)) state.audioInputAccess = true;
 			updateRecordingDeviceRows(discoveredInputs);
-			state.audioInputDevices = Object.freeze(state.recordingDevices.filter((device) => state.recordingEnumeratedDeviceIds.has(device.deviceId)).map((device, index) => Object.freeze({
+			state.audioInputDevices = Object.freeze(state.recordingDevices.filter((device) => state.recordingEnumeratedDeviceIds.has(device.deviceId)).map((device) => Object.freeze({
 				deviceId: device.deviceId,
 				isDefault: device.isDefault === true, groupId: device.groupId ?? '',
-				label: device.label || `Audio input ${index + 1}`,
+				label: device.label || '',
 				channelCount: device.channelCount,
 				status: device.status,
 			})));
-			state.audioOutputDevices = Object.freeze(discoveredOutputs.map((device, index) => Object.freeze({
+			state.audioOutputDevices = Object.freeze(discoveredOutputs.map((device) => Object.freeze({
 				deviceId: device.deviceId,
-				label: device.label || `Audio output ${index + 1}`,
+				label: device.label || '',
 				groupId: device.groupId || '',
 				isDefault: device.isDefault === true,
 			})));
@@ -417,7 +417,7 @@ export function createRecordingRoutingService<
 			if (route.kind !== 'device' || rows.has(route.deviceId)) continue;
 			rows.set(route.deviceId, {
 				deviceId: route.deviceId,
-				label: route.deviceLabel || (route.deviceId === RECORDING_DEFAULT_DEVICE_ID ? 'Default audio input' : 'Missing audio input'),
+				label: route.deviceLabel || '',
 			});
 		}
 		for (const source of state.recordingPoolSources) {
@@ -427,7 +427,7 @@ export function createRecordingRoutingService<
 		}
 		state.recordingDevices = Object.freeze([...rows.values()].map((device) => Object.freeze({
 			deviceId: device.deviceId,
-			label: device.label || (device.deviceId === RECORDING_DEFAULT_DEVICE_ID ? 'Default audio input' : 'Audio input'),
+			label: device.label || '',
 			groupId: device.groupId || '',
 			isDefault: device.isDefault === true,
 			channels: Object.freeze([...(device.channels || [])]),

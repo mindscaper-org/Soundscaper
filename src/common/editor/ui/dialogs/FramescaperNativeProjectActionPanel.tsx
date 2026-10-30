@@ -78,17 +78,20 @@ function ImageSequenceImportPanel({
 function RenderQueueDeliveryPanel({
 	copy, title, status, statusLine, run,
 }: SpecializedPanelProps) {
-	const [delivery, setDelivery] = useState<'encoded-mov' | 'png' | 'tiff' | 'openexr'>('encoded-mov');
+	const [delivery, setDelivery] = useState<'encoded-mov' | 'png' | 'tiff' | 'openexr'
+		| 'webm-vp8' | 'webm-vp9' | 'webm-vp9-alpha' | 'webm-av1'>('encoded-mov');
+	const [quality, setQuality] = useState<'draft' | 'balanced' | 'high'>('draft');
 	const [num, setNum] = useState('24');
 	const [den, setDen] = useState('1');
 	const [preserveAlpha, setPreserveAlpha] = useState(true);
-	const sequence = delivery !== 'encoded-mov';
+	const sequence = delivery === 'png' || delivery === 'tiff' || delivery === 'openexr';
+	const webm = delivery.startsWith('webm-');
 	const submit = (event: FormEvent<HTMLFormElement>): void => {
 		event.preventDefault();
 		run(sequence ? {
 			kind: 'image-sequence', format: delivery,
 			frameRate: frameRateFromInputs(num, den), preserveAlpha,
-		} : { kind: 'encoded-mov' });
+		} : webm ? { kind: 'encoded-webm', codec: delivery.slice(5), quality } : { kind: 'encoded-mov' });
 	};
 	return <section aria-label={title}>
 		{statusLine}
@@ -98,11 +101,22 @@ function RenderQueueDeliveryPanel({
 					data-framescaper-render-delivery="true"
 					onChange={(event) => setDelivery(event.currentTarget.value as typeof delivery)}>
 					<option value="encoded-mov">{copy.renderDeliveryMov}</option>
+					<option value="webm-vp8">{copy.renderDeliveryVp8}</option>
+					<option value="webm-vp9">{copy.renderDeliveryVp9}</option>
+					<option value="webm-vp9-alpha">{copy.renderDeliveryVp9Alpha}</option>
+					<option value="webm-av1">{copy.renderDeliveryAv1}</option>
 					<option value="png">{copy.renderDeliveryPng}</option>
 					<option value="tiff">{copy.renderDeliveryTiff}</option>
 					<option value="openexr">{copy.renderDeliveryOpenExr}</option>
 				</select>
 			</label></p>
+			{webm && <p><label>{copy.renderQuality}<br />
+				<select value={quality} onChange={(event) => setQuality(event.currentTarget.value as typeof quality)}>
+					<option value="draft">{copy.renderQualityDraft}</option>
+					<option value="balanced">{copy.renderQualityBalanced}</option>
+					<option value="high">{copy.renderQualityHigh}</option>
+				</select>
+			</label></p>}
 			<fieldset disabled={!sequence}>
 				<legend>{copy.renderImageSequenceSettings}</legend>
 				<RationalRateFields {...{ copy, num, den, setNum, setDen }} prefix="render" />

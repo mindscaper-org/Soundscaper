@@ -147,11 +147,17 @@ jobs:
         # "The enforcement handshake ended early" before it can complete.
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
+      - name: Resolve the selected test prerequisites
+        id: test-prerequisites
+        run: node scripts/ci-test-prerequisites.mjs --node-shard=${{ matrix.shard }} >> "$GITHUB_OUTPUT"
+
       - name: Resolve the interchange download cache identity
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         id: interchange-cache-key
         run: node scripts/provision-interchange-conformance.mjs --cache-key >> "$GITHUB_OUTPUT"
 
       - name: Restore verified interchange download inputs
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .wrangler/test-download-cache/interchange
@@ -159,6 +165,7 @@ jobs:
             interchange-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.interchange-cache-key.outputs.key }}-${{ hashFiles('scripts/provision-interchange-conformance.mjs', 'scripts/lib/interchange-download-cache.mjs') }}
 
       - name: Provision interchange conformance reference tools
+        if: steps.test-prerequisites.outputs.interchange == 'true'
         run: npm run provision:interchange-conformance
 
       - name: Restore authenticated Boost test headers
@@ -245,30 +252,28 @@ jobs:
       - name: Pin npm
         run: npm install --global npm@12.0.1
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Restore or install verified dependencies
+        uses: ./.github/actions/verified-node-dependencies
+        with:
+          scope: desktop-native
 
       - name: Install local-model build tools
         if: runner.os == 'Linux'
         timeout-minutes: 10
         run: bash scripts/ci-apt-install.sh build-essential cmake pkg-config python3
 
-      - name: Build the authenticated target-native OS audio codec host
-        if: matrix.target.platform != 'linux'
-        run: >-
-          node scripts/ci-build-os-audio-codec-host.mjs
-          --desktop-platform=${{ matrix.target.platform }}
-          --desktop-arch=${{ matrix.target.arch }}
-          --runner-os=${{ runner.os }}
-          --runner-arch=${{ runner.arch }}
-
       - name: Set up the locked Kokoro G2P builder
         uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
         with:
           version: 0.12.5
 
+      - name: Prepare the verified Kokoro G2P bundle
+        uses: ./.github/actions/verified-kokoro-g2p
+        with:
+          target: ${{ matrix.target.platform }}-${{ matrix.target.arch }}
+
       - name: Stage the authenticated AI runtime archives
-        run: node scripts/desktop-prepare.mjs
+        run: node scripts/prepare-assistance-runtimes.mjs
         env:
           SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ matrix.target.platform }}
           SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.target.arch }}
@@ -525,8 +530,10 @@ jobs:
       - name: Pin npm
         run: npm install --global npm@12.0.1
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Restore or install verified dependencies
+        uses: ./.github/actions/verified-node-dependencies
+        with:
+          scope: desktop-native
 
       - name: Bind the runner-local native audit roots
         shell: bash
@@ -1031,8 +1038,10 @@ jobs:
       - name: Pin npm
         run: npm install --global npm@12.0.1
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Restore or install verified dependencies
+        uses: ./.github/actions/verified-node-dependencies
+        with:
+          scope: desktop-native
 
       - name: Install local-model build tools
         if: runner.os == 'Linux'

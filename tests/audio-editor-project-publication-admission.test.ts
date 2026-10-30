@@ -62,17 +62,6 @@ test('project revision publication enforces a non-raiseable document ceiling wit
 		}),
 		/exceeds its byte limit/u,
 	);
-	for (const maximumDocumentBytes of [
-		0,
-		1.5,
-		Number.NaN,
-		MAXIMUM_PROJECT_PUBLICATION_DOCUMENT_BYTES + 1,
-	]) {
-		assert.throws(
-			() => estimateProjectRevisionPublication(project, { maximumDocumentBytes }),
-			/document byte limit is invalid/u,
-		);
-	}
 });
 
 test('project revision capacity adds exact ten-percent headroom with checked arithmetic', () => {

@@ -42,10 +42,9 @@ export default function DraggableCropOverlay({ crop, label, onCrop }: Readonly<{
 		onLostPointerCapture={(event) => {
 			if (activePointer.current === event.pointerId) activePointer.current = null;
 		}}
-		style={{ paddingLeft: `${String(crop.left * 100)}%`,
-			paddingRight: `${String(crop.right * 100)}%`,
-			paddingTop: `${String(crop.top * 100)}%`,
-			paddingBottom: `${String(crop.bottom * 100)}%` }}><span /></div>;
+		><span style={{ left: `${String(crop.left * 100)}%`, top: `${String(crop.top * 100)}%`,
+			width: `${String((1 - crop.left - crop.right) * 100)}%`,
+			height: `${String((1 - crop.top - crop.bottom) * 100)}%` }} /></div>;
 }
 
 function boundedPosition(value: number, extent: number): number {

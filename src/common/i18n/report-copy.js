@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { REPORT_ITEM_COPY } from './editor-report-item-copy.ts';
 
 /**
  * Copy for the two report surfaces.
@@ -45,5 +46,5 @@ const REPORT_COPY_ENTRIES = Object.freeze([
 ]);
 
 export const REPORT_COPY_BY_LOCALE = Object.freeze({
-	en: Object.freeze(Object.fromEntries(REPORT_COPY_ENTRIES.map(([key, en]) => [key, en]))),
+	en: Object.freeze({ ...REPORT_ITEM_COPY, ...Object.fromEntries(REPORT_COPY_ENTRIES.map(([key, en]) => [key, en])) }),
 });

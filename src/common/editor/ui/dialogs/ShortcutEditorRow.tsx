@@ -4,6 +4,7 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 're
 import type { MouseEvent } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 
+import { formatLocalizedTemplate } from '../localization-template.ts';
 import { mouseShortcutBinding, mouseShortcutKey } from '../../mouse-shortcut.ts';
 import { recognizedShortcutKey } from '../shortcut-key-validation.ts';
 import { isReservedVideoNavigationShortcut } from './shortcut-editor-reservations.ts';
@@ -47,6 +48,7 @@ export interface ShortcutEditorCommand {
 export interface ShortcutEditorRowProps {
 	readonly productId?: string;
 	readonly command: ShortcutEditorCommand;
+	readonly commands?: readonly ShortcutEditorCommand[];
 	readonly preferences: { readonly shortcuts: ShortcutMap };
 	readonly controller: { actions: { preferences: { setShortcut: (id: string, bindings: string[]) => unknown } } };
 	readonly copy: Readonly<Record<string, string>>;
@@ -123,7 +125,7 @@ export function shortcutFocusTargetAfterRemove(index: number, remaining: number)
 	return `[data-shortcut-remove="${Math.min(index, remaining - 1)}"]`;
 }
 
-export function ShortcutEditorRow({ productId = 'soundscaper', command, preferences, controller, copy, run, conflictFor }: ShortcutEditorRowProps) {
+export function ShortcutEditorRow({ productId = 'soundscaper', command, commands = [], preferences, controller, copy, run, conflictFor }: ShortcutEditorRowProps) {
 	const preferenceId = command.id;
 	// A normalized binding never contains a space, so the joined list doubles as
 	// a stable change signature and as the value the fields reset to.
@@ -159,9 +161,7 @@ export function ShortcutEditorRow({ productId = 'soundscaper', command, preferen
 	const error = draft.invalid || (draft.conflict && !conflictAction)
 		? copy.shortcutInvalid
 		: draft.conflict
-			? copy.shortcutConflict
-				.replace('{binding}', draft.conflict.binding)
-				.replace('{action}', conflictAction === 'video-navigation' ? copy.videoNavigation || 'Video navigation' : conflictAction || '')
+			? formatLocalizedTemplate(copy.shortcutConflict, { binding: draft.conflict.binding, action: conflictAction === 'video-navigation' ? copy.videoNavigation || 'Video navigation' : commands.find((candidate) => candidate.id === conflictAction || candidate.preferenceId === conflictAction)?.label || conflictAction || '' })
 			: '';
 	const unchanged = draft.bindings.length === persisted.length
 		&& draft.bindings.every((binding, index) => binding === persisted[index]);

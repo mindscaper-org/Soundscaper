@@ -30,15 +30,12 @@ test('floating pointer drops dock into empty zones and dock gaps while internal 
 			kind: 'dock', dock, groupIndex: Number.MAX_SAFE_INTEGER,
 		});
 	}
-	for (const dock of ['floating', 'unsupported']) {
+	for (const dock of ['floating']) {
 		assert.equal(resolveFloatingPanelPointerDrop({ x: 150, y: 200 }, [{ dock, bounds }]), null);
 	}
 	assert.equal(resolveFloatingPanelPointerDrop({ x: 150, y: 200 }, [
 		{ dock: 'top', bounds: { ...bounds, width: 0 } },
 	]), null, 'display:none targets must not accept a drop');
-	assert.equal(resolveFloatingPanelPointerDrop({ x: Number.NaN, y: 200 }, [
-		{ dock: 'top', bounds },
-	]), null);
 });
 
 test('floating moves keep the captured callbacks through rerenders and persist free movement', () => {

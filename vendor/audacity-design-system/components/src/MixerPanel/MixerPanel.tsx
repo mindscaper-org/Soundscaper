@@ -1,3 +1,4 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React from 'react';
 import { useTheme } from '../ThemeProvider';
 import { MixerChannel, type MixerChannelProps } from '../MixerChannel';
@@ -68,7 +69,7 @@ function effectStackHeight(slotCount: number): number {
  * horizontally scrollable area with right-aligned row labels on the left side.
  */
 export const MixerPanel: React.FC<MixerPanelProps> = ({
-  tabs = [{ id: 'mixer', label: 'Mixer' }],
+  tabs,
   activeTabId = 'mixer',
   onTabChange,
   onMenuClick,
@@ -78,7 +79,7 @@ export const MixerPanel: React.FC<MixerPanelProps> = ({
   hideHeader = false,
   className = '',
 }) => {
-  const { theme } = useTheme();
+  const { theme } = useTheme(); const { copy } = useComponentCopy();
 
   // Compute max effect slot count across all channels (at least 1 empty slot per channel)
   const masterEffectCount = (masterChannel?.effects?.length ?? 0) + 1; // +1 for empty add slot
@@ -98,7 +99,7 @@ export const MixerPanel: React.FC<MixerPanelProps> = ({
       {/* Reuse existing PanelHeader component */}
       {!hideHeader && (
         <PanelHeader
-          tabs={tabs}
+          tabs={tabs ?? [{ id: 'mixer', label: copy.mixer }]}
           activeTabId={activeTabId}
           onTabChange={onTabChange}
           onMenuClick={onMenuClick}
@@ -113,7 +114,7 @@ export const MixerPanel: React.FC<MixerPanelProps> = ({
           <div className="mixer-panel__row-labels">
             <div style={{ marginTop: 'auto', paddingRight: 8 }}>
               <div className="mixer-panel__row-label" style={{ height: effectRowHeight, alignItems: 'flex-start', paddingTop: 10 }}>
-                <span>Audio FX</span>
+                <span>{copy.audioFx}</span>
               </div>
               {effectFooterLabel && (
                 <div className="mixer-panel__row-label" style={{ height: 40 }}>
@@ -121,17 +122,17 @@ export const MixerPanel: React.FC<MixerPanelProps> = ({
                 </div>
               )}
               <div className="mixer-panel__row-label" style={{ height: 40 }}>
-                <span>Pan</span>
+                <span>{copy.pan}</span>
               </div>
               <div className="mixer-panel__row-label" style={{ height: 40 }}>
-                <span>Volume</span>
+                <span>{copy.volume}</span>
               </div>
               <div style={{ height: 160 }} />
               <div className="mixer-panel__row-label" style={{ height: 40 }}>
-                <span>Mute/Solo</span>
+                <span>{copy.muteSolo}</span>
               </div>
               <div className="mixer-panel__row-label" style={{ height: 24 }}>
-                <span>Name</span>
+                <span>{copy.name}</span>
               </div>
             </div>
           </div>

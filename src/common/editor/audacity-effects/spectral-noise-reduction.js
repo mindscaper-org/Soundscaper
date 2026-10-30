@@ -50,7 +50,8 @@ export function prepareNoiseReductionGeometry(params, meanPowers) {
 
 export function reduceNoiseChannel(channel, sampleRate, params, meanPowers, window, attenuation,
 	normalization = noiseReductionNormalization(channel.length, window),
-	geometry = prepareNoiseReductionGeometry(params, meanPowers)) {
+	geometry = prepareNoiseReductionGeometry(params, meanPowers),
+	outputRange = { startFrame: 0, endFrame: channel.length }) {
 	const starts = paddedFrameStarts(channel.length, NOISE_WINDOW_SIZE, NOISE_HOP_SIZE);
 	const binCount = meanPowers.length;
 	const workspace = createPowerSpectrumWorkspace(window);
@@ -105,10 +106,12 @@ export function reduceNoiseChannel(channel, sampleRate, params, meanPowers, wind
 		for (let frame = 0; frame < starts.length; frame++) applyGeometricFrequencySmoothing(gains, frame * binCount, binCount, geometry, prefix);
 	}
 
-	const accumulated = new Float64Array(channel.length);
+	const { startFrame: outputStart, endFrame: outputEnd } = outputRange;
+	const accumulated = new Float64Array(outputEnd - outputStart);
 	const { real, imaginary } = workspace;
 	for (let frame = 0; frame < starts.length; frame += 1) {
 		const start = starts[frame];
+		if (start + NOISE_WINDOW_SIZE <= outputStart || start >= outputEnd) continue;
 		workspace.load(channel, start);
 		fft(real, imaginary, false);
 		for (let bin = 0; bin <= NOISE_WINDOW_SIZE / 2; bin += 1) {
@@ -121,22 +124,22 @@ export function reduceNoiseChannel(channel, sampleRate, params, meanPowers, wind
 			}
 		}
 		fft(real, imaginary, true);
-		const firstOutput = Math.max(0, -start);
-		const endOutput = Math.min(NOISE_WINDOW_SIZE, channel.length - start);
+		const firstOutput = Math.max(0, outputStart - start);
+		const endOutput = Math.min(NOISE_WINDOW_SIZE, outputEnd - start);
 		for (let index = firstOutput; index < endOutput; index += 1) {
 			const outputIndex = start + index;
-			accumulated[outputIndex] += real[index] * window[index];
+			accumulated[outputIndex - outputStart] += real[index] * window[index];
 		}
 	}
 
-	const reduced = new Float32Array(channel.length);
+	const reduced = new Float32Array(outputEnd - outputStart);
 	for (let frame = 0; frame < reduced.length; frame += 1) {
-		reduced[frame] = normalization[frame] > 1e-12 ? accumulated[frame] / normalization[frame] : channel[frame];
+		reduced[frame] = normalization[frame + outputStart] > 1e-12 ? accumulated[frame] / normalization[frame + outputStart] : channel[frame + outputStart];
 	}
 	if (params.output === 'reduce') return reduced;
 	// Audacity's NRC_LEAVE_RESIDUE multiplies by gain - 1, so its residue
 	// has inverted polarity: reduced - original.
-	for (let frame = 0; frame < reduced.length; frame += 1) reduced[frame] = reduced[frame] - channel[frame];
+	for (let frame = 0; frame < reduced.length; frame += 1) reduced[frame] = reduced[frame] - channel[frame + outputStart];
 	return reduced;
 }
 

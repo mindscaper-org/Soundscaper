@@ -3,6 +3,7 @@
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { formatPresentationMessage, localizedErrorMessage, type LocalizedPresentationMessage } from '../../i18n/presentation-message.ts';
 import { resolveEditorCopyScope } from '../../i18n/editor-copy-scope.ts';
+import { formatFileFailureMessage } from '../format-file-failure.ts';
 import { errorDiagnosticMessage } from '../error-diagnostic-message.ts';
 
 export type PresentationFeedback = string | LocalizedPresentationMessage | Readonly<{ failure: unknown }>;
@@ -12,15 +13,15 @@ export function feedbackFailure(failure: unknown): PresentationFeedback { return
 
 export function feedbackErrorParameter(failure: unknown): string | LocalizedPresentationMessage {
 	const diagnostic = errorDiagnosticMessage(failure, '');
-	const identity = localizedErrorMessage(failure);
-	return identity ? { ...identity, fallback: diagnostic } : diagnostic || { key: 'unknownError' };
+	const identity = localizedErrorMessage(failure) ?? formatFileFailureMessage(failure);
+	return identity ? { ...identity, fallback: identity.fallback ?? diagnostic } : diagnostic || { key: 'unknownError' };
 }
 
 export function presentationFeedbackText(value: PresentationFeedback, copy: object): string {
 	if (typeof value === 'string') return value;
 	if ('failure' in value) {
-		const identity = localizedErrorMessage(value.failure);
-		return identity ? formatPresentationMessage(copy, { ...identity, fallback: errorDiagnosticMessage(value.failure, '') }) : errorDiagnosticMessage(value.failure,
+		const identity = localizedErrorMessage(value.failure) ?? formatFileFailureMessage(value.failure);
+		return identity ? formatPresentationMessage(copy, { ...identity, fallback: identity.fallback ?? errorDiagnosticMessage(value.failure, '') }) : errorDiagnosticMessage(value.failure,
 			formatPresentationMessage(copy, { key: 'unknownError', fallback: '' }));
 	}
 	return formatPresentationMessage(copy, value);

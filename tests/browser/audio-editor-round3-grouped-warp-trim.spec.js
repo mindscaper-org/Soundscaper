@@ -2,6 +2,7 @@
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, importFiles, openClipProperties, showClipTimingFields } from './audio-editor-test-helpers.js';
+import { expectClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
 test('a grouped keyboard trim resolves an editable boundary on every participating recording', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
@@ -33,9 +34,6 @@ test('a grouped keyboard trim resolves an editable boundary on every participati
 		const properties = await openClipProperties(page, editor, clipByName(editor, fixture.name));
 		await expect(editor.locator('.clip-display[data-selected="true"]')).toHaveCount(1);
 		await showClipTimingFields(properties);
-		const duration = properties.locator('[data-clip-field="durationFrame"]');
-		await duration.locator('.timecode__format-button').click();
-		await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
-		await expect(duration.locator('.timecode__display')).toHaveText('000,000,043,201samples');
+		await expectClipTimeFrames(properties, 'durationFrame', 43_201);
 	}
 });

@@ -4,7 +4,7 @@ import { bootEditor, chooseCommandAction, disableNativeSavePicker, openClipPrope
 	openExportDialog, readDownloadBytes, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 import { persistedProject } from './helpers/complex-editing-workflows.js';
-import { expectClipSampleRate } from './audio-editor-clip-settings-test-helpers.js';
+import { expectClipSampleRate, resampleClipFormat } from './audio-editor-clip-settings-test-helpers.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
 import { createProjectStore } from '../../src/common/editor/storage.js';
@@ -40,12 +40,7 @@ for (const operation of ['merge', 'split', 'track-resample', 'clip-resample', 'r
 			await expect.poll(async () => (await persistedProject(page, project.id)).clips[0].speedRatio).toBe(1);
 		} else {
 			const properties = await openClipProperties(page, editor, editor.locator('[data-clip-id="left-clip"]').first());
-			await properties.getByRole('button', { name: 'Media settings', exact: true }).click();
-			await page.getByRole('menuitem', { name: 'Resample', exact: true }).click();
-			const dialog = page.getByRole('dialog', { name: 'Resample clip', exact: true });
-			await dialog.locator('[data-clip-resample-field="sampleRate"] input').fill('24000');
-			await dialog.getByRole('button', { name: 'Resample', exact: true }).click(); await expect(dialog).toBeHidden();
-			// The chooser closes before its asynchronous source rewrite completes.
+			await resampleClipFormat(properties, 24_000);
 			await expectClipSampleRate(properties, 24_000);
 		}
 		await expect(editor).toHaveAttribute('data-clip-count', operation === 'split' ? '2' : '1');

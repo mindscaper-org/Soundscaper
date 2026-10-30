@@ -110,7 +110,7 @@ test('native policy rows separate distribution requirements from test activation
 		'codec-decode-tiff-image-sequence',
 		'codec-decode-openexr-image-sequence',
 		'codec-encode-h264-mp4',
-		'codec-encode-vp9-webm',
+		'codec-encode-vp8-webm', 'codec-encode-vp9-webm', 'codec-encode-av1-webm',
 		'codec-encode-hevc-mp4-main10-hdr10',
 		'codec-encode-hevc-mp4-main10-sdr',
 		'codec-encode-prores-mov-proxy',
@@ -181,7 +181,7 @@ test('native policy rows separate distribution requirements from test activation
 		assert.match(row.blocker, /enabled.*test/iu, id);
 	}
 	const exactCodecRows = matrix.nativeFormatPolicies.filter(({ id }) => /^codec-(?:decode|encode)-/u.test(id));
-	assert.equal(exactCodecRows.length, 24);
+	assert.equal(exactCodecRows.length, 26);
 	assert.equal(new Set(exactCodecRows.map((row) => [
 		row.operation, row.codec, row.container, row.profile, row.execution,
 	].join(':'))).size, exactCodecRows.length, 'every operation tuple must be unique');

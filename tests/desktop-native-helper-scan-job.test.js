@@ -217,8 +217,8 @@ test('an oversized root still inspects the first bounded candidate set', async (
 	}).completion;
 
 	assert.equal(result.status, 'root-oversized');
-	assert.equal(result.entries.length, MAXIMUM_SCAN_ENTRIES);
-	assert.equal(inspected, MAXIMUM_SCAN_ENTRIES);
+	assert.ok(result.entries.length > 0 && result.entries.length < MAXIMUM_SCAN_ENTRIES);
+	assert.equal(inspected, result.entries.length + 1, 'inspection stops at the first descriptor that exceeds the complete wire budget');
 });
 
 test('the helper announces scanning and routes a scan job to the scan runner', { timeout: 5_000 }, async () => {

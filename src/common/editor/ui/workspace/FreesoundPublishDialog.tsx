@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { UPLOAD_VALIDATION_COPY } from './upload-validation-copy.ts';
+import { uploadErrorLabel } from '../upload-validation-presentation.ts';
 
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
@@ -66,7 +68,7 @@ export default function FreesoundPublishDialog({
 	const [license, setLicense] = useState<FreesoundPublishLicense>(item.license ?? 'cc-by');
 	const [rightsConfirmed, setRightsConfirmed] = useState(item.rightsConfirmed === true);
 	const [pending, setPending] = useState(false);
-	const [error, setError] = useState('');
+	const [error, setError] = useState<unknown>(null);
 
 	useEffect(() => {
 		setTitle(item.title);
@@ -76,13 +78,13 @@ export default function FreesoundPublishDialog({
 		setLicense(item.license ?? 'cc-by');
 		setRightsConfirmed(item.rightsConfirmed === true);
 		setPending(false);
-		setError('');
+		setError(null);
 	}, [item]);
 
 	const submit = (event: FormEvent<HTMLFormElement>): void => {
 		event.preventDefault();
 		setPending(true);
-		setError('');
+		setError(null);
 		void Promise.resolve(onPublish(item.id, {
 			title,
 			description,
@@ -92,7 +94,7 @@ export default function FreesoundPublishDialog({
 			rightsConfirmed,
 		})).then(onClose).catch((reason: unknown) => {
 			setPending(false);
-			setError(reason instanceof Error && reason.message ? reason.message : copy.publishError);
+			setError(reason);
 		});
 	};
 
@@ -113,9 +115,9 @@ export default function FreesoundPublishDialog({
 		<form id={formId} className="kw-audio-editor__freesound-publish-form" onSubmit={submit}>
 			<p id={descriptionId}>{copy.publishDescription}</p>
 			{item.blockedReason ? <p className="kw-audio-editor__freesound-inline-error" role="alert">
-				{item.blockedReason}
+				{copy.uploadValidationSourceRestricted ?? UPLOAD_VALIDATION_COPY.uploadValidationSourceRestricted}
 			</p> : null}
-			{error ? <p className="kw-audio-editor__freesound-inline-error" role="alert">{error}</p> : null}
+			{error ? <p className="kw-audio-editor__freesound-inline-error" role="alert">{uploadErrorLabel(error, copy, copy.publishError)}</p> : null}
 			<label>
 				<span>{copy.uploadTitle}</span>
 				<input name="title" required maxLength={512} value={title}

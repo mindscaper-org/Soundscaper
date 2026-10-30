@@ -35,7 +35,7 @@ export function createFramescaperNativeRenderPlanAuthorityNativeMedia(
 	), 0);
 	if (endFrame < 1) throw new Error('The selected nativeMedia sequence has no renderable picture duration.');
 	const sampleDuration = sequenceFrameBoundarySample(endFrame, rate, sampleRate);
-	const includeAudio = delivery.kind === 'encoded-mov' && sequenceHasAudio(project, sequence);
+	const includeAudio = delivery.kind !== 'image-sequence' && sequenceHasAudio(project, sequence);
 	const masterChannels = integer(project.masterChannels, 'project master channels', 1);
 	const audioLayout = includeAudio
 		? masterChannels === 1 ? 'mono' as const : masterChannels === 2 ? 'stereo' as const : 'preserve' as const
@@ -43,17 +43,20 @@ export function createFramescaperNativeRenderPlanAuthorityNativeMedia(
 	const foundation = framescaperProjectFinishingFoundationShapeNativeMedia(project);
 	const sequenceDescriptor = delivery.kind === 'image-sequence'
 		? framescaperNativeMediaImageSequenceDeliveryDescriptor(delivery.format) : null;
+	const webm = delivery.kind === 'encoded-webm';
+	const alpha = dispatch.supportsAlpha;
 	return Object.freeze({
 		sequenceId, sampleStart: 0, sampleDuration,
 		outputRate: delivery.kind === 'image-sequence' ? delivery.frameRate : rate,
-		format: sequenceDescriptor === null
+		format: webm ? Object.freeze({ container: 'webm', extension: 'webm', mimeType: 'video/webm' }) : sequenceDescriptor === null
 			? Object.freeze({ container: 'mov', extension: 'mov', mimeType: 'video/quicktime' })
 			: Object.freeze({
 				container: 'image2', extension: sequenceDescriptor.extension,
 				mimeType: sequenceDescriptor.mimeType,
 			}),
 		codecs: Object.freeze({
-			video: delivery.kind === 'encoded-mov' ? 'prores' : dispatch.encoder,
+			video: webm ? delivery.codec === 'vp9-alpha' ? 'vp9' : delivery.codec
+				: delivery.kind === 'encoded-mov' ? 'prores' : dispatch.encoder,
 			videoEncoder: dispatch.encoder,
 			audio: includeAudio ? dispatch.audioEncoder : null,
 			audioEncoder: includeAudio ? dispatch.audioEncoder : null,
@@ -61,9 +64,9 @@ export function createFramescaperNativeRenderPlanAuthorityNativeMedia(
 		}),
 		canvas: Object.freeze({
 			width: 1_920, height: 1_080, fit: 'contain', pixelFormat: dispatch.pixelFormat,
-			backgroundColor: delivery.kind === 'image-sequence' ? '#00000000' : '#000000',
+			backgroundColor: alpha ? '#00000000' : '#000000',
 		}),
-		quality: 'balanced' as const, includeAudio, audioLayout,
+		quality: webm ? delivery.quality : 'balanced' as const, includeAudio, audioLayout,
 		timingViews: resolveVideoSourceTimingViews(project),
 		visualFreshnessByModelId: createFramescaperVideoExportVisualFreshnessFinishing(
 			foundation, Object.freeze({ startFrame: 0, durationFrames: sampleDuration }),

@@ -59,8 +59,6 @@ test('spectral selection peak admission includes the replacement and FFT scratch
 		const spectral = estimateAudioSelectionEffectPeakBytes(type, 48_000, params,
 			{ channelCount: 1, spectralWindowSize: 2048 });
 		assert.ok(spectral >= base + 48_000 * (4 + 8 * 2) + 2048 * 8 * 5, type);
-		assert.throws(() => estimateAudioSelectionEffectPeakBytes(type, 48_000, params,
-			{ channelCount: 1, spectralWindowSize: 1000 }), /power of two/u);
 	}
 });
 

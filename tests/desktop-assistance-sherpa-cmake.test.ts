@@ -56,8 +56,8 @@ void scape_fixture_export() {}
 		await write(join(upstream, 'harmony-os/SherpaOnnxHar/sherpa_onnx/src/main/cpp', name), '');
 	}
 	const plan = desktopSherpaGpuBuildPlan({ targetId: `${process.platform === 'win32' ? 'win' : 'linux'}-${process.arch}` });
-	// MSVC compiler and thread probes can exceed thirty seconds on either hosted Windows architecture.
-	const timeout = process.platform === 'win32' ? 120_000 : 30_000;
+	// Compiler probes and linking compete with sibling native tests on hosted runners.
+	const timeout = 120_000;
 	await runFile('cmake', ['-S', native, '-B', build, ...plan.generatorArgs,
 		`-DSHERPA_SOURCE=${upstream}`, `-DORT_INCLUDE=${root}`, `-DORT_LIBRARY=${join(upstream, 'empty.cc')}`,
 		`-DNODE_HEADERS=${root}`, `-DNODE_ADDON_API=${root}`, `-DSCAPE_WORK_ROOT=${root}`,

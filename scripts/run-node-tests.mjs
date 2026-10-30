@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 
+import { partitionNodeTestBootstrapBatches } from './lib/node-test-bootstrap.mjs';
+
 import {
 	describeNodeTestSelection,
 	parseNodeTestSelection,
@@ -42,6 +44,9 @@ if (testFiles.length === 0) {
 }
 
 const env = { ...process.env };
+const checkAllProgress = env.SCAPE_CHECK_ALL_PROGRESS === '1';
+// A fixture may invoke its own runner in a temporary checkout.
+delete env.SCAPE_CHECK_ALL_PROGRESS;
 let requiredNativeReportDirectory = null;
 let requiredNativeReportPath = null;
 if (requireLinuxNative) {
@@ -61,6 +66,7 @@ if (coverageArgument !== undefined) {
 
 const styleAssetLoader = resolve(root, 'scripts/node-style-asset-loader.mjs');
 const requiredNativeReporter = resolve(root, 'scripts/require-linux-native-tests-reporter.mjs');
+const checkAllReporter = resolve(root, 'scripts/check-all-node-reporter.ts');
 const desktopRuntimeFixtureScript = resolve(root, 'scripts/lib/node-test-desktop-runtime-fixture.ts');
 const openFxFixtureScript = resolve(root, 'scripts/prepare-node-openfx-test-fixture.mjs');
 const nativeFixtureScript = resolve(root, 'scripts/prepare-node-native-test-fixtures.mjs');
@@ -75,7 +81,8 @@ delete env[NATIVE_TEST_FIXTURE_ENV];
 let executionError = null;
 let exitCode = 0;
 try {
-	for (const batch of partitionNodeTestExecutionBatches(testFiles)) {
+	for (const { files: batch, useLoaders } of partitionNodeTestExecutionBatches(testFiles)
+		.flatMap(files => partitionNodeTestBootstrapBatches(root, files))) {
 		// Authenticate a workflow artifact before starting sibling preparations.
 		if (desktopRuntimeFixtureDirectory === null && desktopFixtureArgument !== undefined && needsDesktopRuntimeTestFixture(batch)) {
 			const fixtureRoot = resolve(root, desktopFixtureArgument.slice('--desktop-runtime-fixture='.length));
@@ -117,8 +124,9 @@ try {
 		if (desktopRuntimeFixtureDirectory !== null) env[DESKTOP_RUNTIME_TEST_FIXTURE_ENV] = desktopRuntimeFixtureDirectory;
 		if (nativeFixtureDirectory !== null) env[NATIVE_TEST_FIXTURE_ENV] = nativeFixtureDirectory;
 		const result = spawnSync(process.execPath, [
-			'--import', 'tsx', '--import', styleAssetLoader,
-			...(requireLinuxNative ? ['--test-reporter', requiredNativeReporter] : []),
+			...(useLoaders ? ['--import', 'tsx', '--import', styleAssetLoader] : []),
+			...(checkAllProgress ? ['--test-concurrency=2', '--test-reporter', checkAllReporter]
+				: requireLinuxNative ? ['--test-reporter', requiredNativeReporter] : []),
 			'--test', ...batch,
 		], {
 			cwd: root,

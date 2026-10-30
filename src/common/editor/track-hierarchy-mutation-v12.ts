@@ -80,7 +80,17 @@ export function resolveTrackNodeSpanV12(
 	nodeId: string,
 	laneGroups?: TrackNodeLaneGroupsV12,
 ): TrackNodeSpanV12 {
-	const index = nodes.findIndex((node) => node.id === nodeId);
+	return trackNodeSpanAt(nodes, nodeId, nodes.findIndex((node) => node.id === nodeId), laneGroups);
+}
+
+/** Resolve many blocks against one invocation-owned hierarchy position index. */
+export function createTrackNodeSpanResolverV12(nodes: readonly TrackNodeV12[], laneGroups?: TrackNodeLaneGroupsV12): (nodeId: string) => TrackNodeSpanV12 {
+	const positions = new Map<string, number>();
+	for (const [index, node] of nodes.entries()) if (!positions.has(node.id)) positions.set(node.id, index);
+	return nodeId => trackNodeSpanAt(nodes, nodeId, positions.get(nodeId) ?? -1, laneGroups);
+}
+
+function trackNodeSpanAt(nodes: readonly TrackNodeV12[], nodeId: string, index: number, laneGroups?: TrackNodeLaneGroupsV12): TrackNodeSpanV12 {
 	if (index < 0) {
 		throw new TrackFolderEditError(
 			TRACK_FOLDER_EDIT_CODES.unknownNode,

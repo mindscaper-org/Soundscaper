@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { audioHostFailureLabel } from '../audio-host-failure-presentation.ts';
+import { formatLocalizedTemplate } from '../localization-template.ts';
 import { useSyncExternalStore } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { displayAudioCaptureUnsupportedReason } from '../../recording-display-input.ts';
@@ -69,7 +71,8 @@ export function AudioDevicesFlyout({
 					))}
 				</select>
 			</label>}
-			{hostState?.error && <p className="kw-audio-editor__audio-devices-note" role="alert">{hostState.error}</p>}
+			{hostState?.error && <p className="kw-audio-editor__audio-devices-note" role="alert">{audioHostFailureLabel(hostState.failureCode, copy)}</p>}
+			{hostState?.error && <details><summary>{copy.reportItemDiagnostic}</summary>{hostState.error}</details>}
 			<label>
 				<span className="audio-editor-help-label">{copy.audioInputDevice}
 					{firefoxDisplayUnsupported && <EditorHelpTooltip subject={copy.recordingDesktopAudio}
@@ -86,7 +89,7 @@ export function AudioDevicesFlyout({
 					{missingInput && !(displayInputSelected && firefoxDisplayUnsupported) && <option value={preferredInput}>{copy.audioDevicePreferredUnavailable}</option>}
 					{inputs
 						.filter((device) => device.deviceId !== 'default')
-						.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label}</option>)}
+						.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || formatLocalizedTemplate(copy.recordingInputUnnamedDevice, { number: index + 1 })}</option>)}
 					{(displayInputSupported || firefoxDisplayUnsupported) && <option value="display"
 						disabled={!displayInputSupported} title={displayAudioTooltip}>{copy.recordingDesktopAudio}</option>}
 				</select>
@@ -152,7 +155,7 @@ export function AudioDevicesFlyout({
 				>
 					<option value="">{copy.audioDeviceSystemDefault}</option>
 					{missingOutput && <option value={preferredOutput}>{copy.audioDevicePreferredUnavailable}</option>}
-					{outputs.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label}</option>)}
+					{outputs.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || formatLocalizedTemplate(copy.recordingInputUnnamedDevice, { number: index + 1 })}</option>)}
 				</select>
 			</label>
 			{outputMessage && <p className="kw-audio-editor__audio-devices-note" role="status">{outputMessage}</p>}

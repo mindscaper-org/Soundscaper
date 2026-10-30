@@ -9,7 +9,7 @@ import * as link from '../src/common/editor/commands/clip-link-runtime.js';
 import * as bin from '../src/common/editor/commands/project-source-bin-runtime.js';
 import { round3CommandParity, type ParityCase } from './helpers/round3-command-parity.ts';
 
-void test('520 editing scenarios retain frozen-base complete draft, result and refusal hashes', () => {
+void test('500 editing scenarios retain frozen-base complete draft, result and refusal hashes', () => {
 	const expected = JSON.parse(readFileSync(new URL('./fixtures/command-round3-parity.json', import.meta.url), 'utf8')) as { base: string; scenarios: ParityCase[] };
 	const actual = round3CommandParity({ range, clipboard, link, bin });
 	assert.deepEqual(actual, expected.scenarios);

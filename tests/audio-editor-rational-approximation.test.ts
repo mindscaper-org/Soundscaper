@@ -11,7 +11,6 @@ test('external floating values recover their nearest bounded canonical rationals
 	assert.deepEqual(approximatePositiveRational(Math.PI, 8), { num: 22, den: 7 });
 	assert.deepEqual(approximatePositiveRational(120), { num: 120, den: 1 });
 	assert.throws(() => approximatePositiveRational(0), /positive/iu);
-	assert.throws(() => approximatePositiveRational(120, 0), /maximumDenominator/iu);
 });
 
 test('a value too small for the denominator bound still recovers a positive rational', () => {

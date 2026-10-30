@@ -168,7 +168,7 @@ export function executeFramescaperMediaHostBuildRecipe(
 	EXECUTED.add(recipe);
 	for (const path of [
 		'x264-build', 'x264-install', 'x265-build', 'x265-install',
-		'libvpx-build', 'libvpx-install', 'libopus-build', 'libopus-install',
+		'libvpx-build', 'libvpx-install', 'svt-av1-build', 'svt-av1-install', 'libopus-build', 'libopus-install',
 		'zlib-build', 'zlib-install', 'ffmpeg-build', 'ffmpeg-install',
 		'host-build', 'host-install',
 	]) {
@@ -351,7 +351,7 @@ function verifyPinnedSourceClosure(repositoryRoot, root, manifest, witnesses) {
 		'CMakeLists.txt', 'CMakePresets.json', 'build/ffmpeg-9.0.1-configure.json',
 		'build/external-source-authentication.mjs', 'build/ffmpeg-9.0.1-external-sources.json',
 		'build/media-build-commands.mjs', 'build/recipe-driver.mjs',
-		'build/source-authentication.mjs', 'build/targets.json', 'build/windows-vpx.pc',
+		'build/source-authentication.mjs', 'build/targets.json', 'build/windows-vpx.pc', 'build/windows-vpx-project.sh',
 		...TARGETS.map(({ toolchainFile }) => toolchainFile),
 	]) if (!paths.includes(required)) throw new Error(`Required build input ${required} is not pinned.`);
 	verifySharedSourceClosure(repositoryRoot, manifest.sharedSourceFiles, witnesses);
@@ -449,9 +449,10 @@ function verifyToolchain(pathValue, identityValue, target, witnesses) {
 }
 
 function toolRoles(targetId) {
+	const assembler = targetId.endsWith('-x64') ? ['nasm'] : [];
 	return targetId.startsWith('win-')
-		? Object.freeze([...BASE_TOOL_ROLES, 'msbuild', 'rc'])
-		: BASE_TOOL_ROLES;
+		? Object.freeze([...BASE_TOOL_ROLES, ...assembler, 'msbuild', 'rc'])
+		: Object.freeze([...BASE_TOOL_ROLES, ...assembler]);
 }
 
 function exactEnvironment(toolchain, sourceDateEpoch, ffmpeg) {

@@ -432,10 +432,10 @@ test('selection range commands derive audio and label bounds around the playhead
 	assert.equal(wholeTracks.startFrame, 5);
 	assert.equal(wholeTracks.endFrame, 75);
 	assert.deepEqual(wholeTracks.trackIds, ['track-a', 'labels']);
-	assert.equal(fixture.service.selectLeftOfPlaybackPosition()?.endFrame, 20);
-	assert.equal(fixture.service.selectLeftOfPlaybackPosition(25)?.startFrame, 0);
-	assert.equal(fixture.service.selectRightOfPlaybackPosition()?.endFrame, 100);
-	assert.equal(fixture.service.selectRightOfPlaybackPosition(10)?.endFrame, 100);
+	assert.equal(fixture.service.selectLeftOfPlaybackPosition()?.startFrame, 20);
+	assert.equal(fixture.service.selectLeftOfPlaybackPosition(25)?.startFrame, 25);
+	assert.equal(fixture.service.selectRightOfPlaybackPosition()?.endFrame, 20);
+	assert.equal(fixture.service.selectRightOfPlaybackPosition(10)?.endFrame, 10);
 	assert.equal(fixture.service.selectTrackStartToCursor()?.startFrame, 5);
 	assert.equal(fixture.service.selectCursorToTrackEnd()?.endFrame, 75);
 

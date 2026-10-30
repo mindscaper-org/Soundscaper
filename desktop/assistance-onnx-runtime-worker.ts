@@ -2,6 +2,7 @@
 
 /** Reviewed ONNX Runtime adapters mounted inside the isolated worker. */
 
+import { createAssistanceFramePackOrdinalRangeIndex } from '../src/common/editor/assistance/frame-pack-ordinal-range-index.ts';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
@@ -66,6 +67,7 @@ import {
 import {
 	createAssistanceOnnxSubjectWorkerAdapterV1,
 } from './assistance-onnx-subject-worker.ts';
+import { createAssistanceOnnxCorridorKeyWorkerAdapterV1 } from './assistance-onnx-corridorkey-worker.ts';
 
 export interface AssistanceOnnxTensorV1 {
 	readonly type: string;
@@ -162,6 +164,7 @@ export function createAssistanceOnnxRuntimeWorkerAdapterV1(
 		const executeOcr = createAssistanceOnnxOcrWorkerAdapterV1(loadRuntime);
 		const executeSubjects = createAssistanceOnnxSubjectWorkerAdapterV1(loadRuntime);
 		const executeSaliency = createAssistanceOnnxSaliencyWorkerAdapterV1(loadRuntime);
+		const executeKeying = createAssistanceOnnxCorridorKeyWorkerAdapterV1(loadRuntime);
 		if (context.grant.task === 'word-alignment') return executeWordAlignment(context);
 		if (context.grant.task === 'speech-enhancement'
 			|| context.grant.task === 'source-separation') {
@@ -178,6 +181,7 @@ export function createAssistanceOnnxRuntimeWorkerAdapterV1(
 		if (context.grant.task === 'optical-character-recognition') return executeOcr(context);
 		if (context.grant.task === 'subject-detection') return executeSubjects(context);
 		if (context.grant.task === 'saliency-detection') return executeSaliency(context);
+		if (context.grant.task === 'video-keying') return executeKeying(context);
 		throw new AssistanceRuntimeFamilyAdapterUnavailableError();
 	};
 	return (context) => options.sessionCache === undefined ? execute(context)
@@ -335,6 +339,7 @@ async function inspectFramePacks(
 	if (timescale === null || sourceFrames.length < 1) {
 		throw new RangeError('TransNetV2 requires at least one reviewed source frame.');
 	}
+	const locatePack = createAssistanceFramePackOrdinalRangeIndex(indexes);
 	const cache = new Map<number, ReviewedAssistanceFramePackV1>();
 	const load = async (pack: TransNetFramePackIndex): Promise<ReviewedAssistanceFramePackV1> => {
 		const cached = cache.get(pack.inputIndex);
@@ -361,8 +366,7 @@ async function inspectFramePacks(
 			if (!Number.isSafeInteger(indexValue) || indexValue < 0 || indexValue >= sourceFrames.length) {
 				throw new RangeError('TransNetV2 requested a frame outside reviewed pack custody.');
 			}
-			const pack = indexes.find((candidate) => indexValue >= candidate.ordinalStart
-				&& indexValue < candidate.ordinalStart + candidate.frameCount)!;
+			const pack = locatePack(indexValue);
 			const reviewed = await load(pack);
 			const localIndex = indexValue - pack.ordinalStart;
 			const frame = reviewed.frame(localIndex);

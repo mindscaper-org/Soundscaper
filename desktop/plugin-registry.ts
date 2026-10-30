@@ -154,6 +154,7 @@ export interface DesktopPluginRegistryOptions {
 export class DesktopPluginRegistry {
 	readonly #isQuarantined: (digest: string) => boolean;
 	readonly #entries = new Map<string, Entry>();
+	readonly #installations = new Map<string, [Entry, Installation]>();
 	/** Digest → exact format-native descriptor set. */
 	readonly #identities = new Map<string, string>();
 
@@ -204,6 +205,7 @@ export class DesktopPluginRegistry {
 		// Registered only now that it holds an installation, so no rejection above
 		// can leave an identity in the projection with nothing behind it.
 		this.#entries.set(entryId, entry);
+		this.#installations.set(installationId, [entry, entry.installations.get(installationId)!]);
 		this.#identities.set(admitted.binarySha256, identityClaim);
 		return Object.freeze({
 			status: 'recorded' as const,
@@ -216,23 +218,22 @@ export class DesktopPluginRegistry {
 
 	/** Removes one installation, and the entry once its last one is gone. */
 	forget(installationId: string): boolean {
-		for (const entry of this.#entries.values()) {
-			const installation = entry.installations.get(installationId);
-			if (!installation) continue;
-			entry.installations.delete(installationId);
-			// The binding is a projection of the live installations, not a history:
-			// keeping it would leave the one collection here that has no ceiling
-			// growing across every record-and-forget cycle. The durable quarantine
-			// remembers a binary that lied, and survives because this does not.
-			if (entry.selected === installationId) entry.selected = null;
-			if (entry.installations.size === 0) this.#entries.delete(entry.entryId);
-			if (![...this.#entries.values()].some(({ installations }) => [...installations.values()]
-				.some(({ observation }) => observation.binarySha256 === installation.observation.binarySha256))) {
-				this.#identities.delete(installation.observation.binarySha256);
-			}
-			return true;
+		const located = this.#installations.get(installationId);
+		if (!located) return false;
+		const [entry, installation] = located;
+		this.#installations.delete(installationId);
+		entry.installations.delete(installationId);
+		// The binding is a projection of the live installations, not a history:
+		// keeping it would leave the one collection here that has no ceiling
+		// growing across every record-and-forget cycle. The durable quarantine
+		// remembers a binary that lied, and survives because this does not.
+		if (entry.selected === installationId) entry.selected = null;
+		if (entry.installations.size === 0) this.#entries.delete(entry.entryId);
+		if (![...this.#entries.values()].some(({ installations }) => [...installations.values()]
+			.some(({ observation }) => observation.binarySha256 === installation.observation.binarySha256))) {
+			this.#identities.delete(installation.observation.binarySha256);
 		}
-		return false;
+		return true;
 	}
 
 	/** The user resolving a stable-id collision; nothing else may choose. */
@@ -333,10 +334,8 @@ export class DesktopPluginRegistry {
 	}
 
 	#locate(installationId: string): [Entry, Installation] {
-		for (const entry of this.#entries.values()) {
-			const installation = entry.installations.get(installationId);
-			if (installation) return [entry, installation];
-		}
+		const located = this.#installations.get(installationId);
+		if (located) return located;
 		throw new PluginRegistryError('unknown-installation', 'That plug-in installation is not registered.');
 	}
 

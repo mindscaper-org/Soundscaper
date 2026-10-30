@@ -17,7 +17,6 @@ import {
 	v21TrackAutomationRemovalCommands,
 } from './internal/mix-render/mix-render-snapshot-v21.ts';
 import {
-	findControllerClip,
 	findControllerClipTrack,
 	findControllerTrack,
 	type ControllerEffect,
@@ -55,11 +54,13 @@ export function selectAudioTracksForMix(
 	selectedTrackId: string | null,
 	selectedClipId: string | null,
 ): ControllerTrack[] {
+	const tracksById = new Map<string, ControllerTrack>();
+	for (const track of project.tracks) if (!tracksById.has(track.id)) tracksById.set(track.id, track);
 	const selectionIds = new Set((project.selection?.trackIds || []).filter((trackId) => (
-		findControllerTrack(project, trackId)?.type === 'audio'
+		tracksById.get(trackId)?.type === 'audio'
 	)));
 	if (!selectionIds.size) {
-		const focusedTrack = findControllerTrack(project, selectedTrackId);
+		const focusedTrack = selectedTrackId === null ? undefined : tracksById.get(selectedTrackId);
 		if (focusedTrack?.type === 'audio') selectionIds.add(focusedTrack.id);
 	}
 	if (!selectionIds.size && selectedClipId) {
@@ -76,8 +77,10 @@ export function createMixRenderPlan(
 	memoryLimitBytes: number,
 	requestedOutputChannelCount?: number,
 ): MixRenderPlan | null {
+	const clipsById = new Map<string, ControllerProject['clips'][number]>();
+	for (const clip of project.clips) if (!clipsById.has(clip.id)) clipsById.set(clip.id, clip);
 	const clips = targetTracks.flatMap((track) => (track.clipIds ?? [])
-		.map((clipId) => findControllerClip(project, clipId))
+		.map((clipId) => clipsById.get(clipId))
 		.filter((clip): clip is NonNullable<typeof clip> => Boolean(clip)));
 	if (!targetTracks.length || !clips.length) return null;
 	const startFrame = Math.min(...clips.map((clip) => clip.timelineStartFrame));

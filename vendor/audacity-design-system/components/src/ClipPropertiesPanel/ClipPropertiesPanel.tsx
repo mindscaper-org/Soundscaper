@@ -22,17 +22,25 @@ function ClipPropertiesPanelBody({
   clip,
   colorControl,
   pitchControl,
+  pitchSpeedHeadingControl,
+  pitchSpeedAction,
+  pitchSpeedFooter,
+  invertControl,
+  mediaSections,
+  showFadeShapes = true,
   timingFields = {},
   onOpenSource,
   selection = null,
   colors,
   tracks = [],
+  trackDetail,
   onTrackChange,
   fadeShapes,
   onRename,
   onColorChange,
   onStartChange,
   onDurationChange,
+  minimumDuration = 0.02,
   onTrimStartChange,
   onTrimEndChange,
   onFadeChange,
@@ -179,6 +187,7 @@ function ClipPropertiesPanelBody({
                   disabled={!onTrackChange}
                   width="100%"
                 />
+                {trackDetail && <span className="clip-properties__detail" data-clip-properties-detail="track">{trackDetail}</span>}
                 <span className="clip-properties__sr">{t('Track')}</span>
               </div>
             </Row>
@@ -224,7 +233,7 @@ function ClipPropertiesPanelBody({
                   end): one row, always */}
               <Row three>
                 {timingFields['start'] ?? <NumberField testId="start" label={t('Start')} glyph={<StartGlyph />} value={clip.start} onCommit={onStartChange} step={0.1} min={0} />}
-                {timingFields['length'] ?? <NumberField testId="length" label={t('Length')} glyph={<LengthGlyph />} value={clip.duration} onCommit={onDurationChange} step={0.1} min={0.02} />}
+                {timingFields['length'] ?? <NumberField testId="length" label={t('Length')} glyph={<LengthGlyph />} value={clip.duration} onCommit={onDurationChange} step={0.1} min={minimumDuration} />}
                 {timingFields.end ?? <ReadField testId="end" label={t('End')} glyph={<EndGlyph />}>{fmt(clip.start + clip.duration)} s</ReadField>}
               </Row>
               <ClipStrip clip={clip} onTrimStartChange={onTrimStartChange} onTrimEndChange={onTrimEndChange} onOpenSource={onOpenSource} />
@@ -245,33 +254,26 @@ function ClipPropertiesPanelBody({
             {timingFields['fade-out'] ?? <NumberField testId="fade-out" label={t('Fade out')} glyph={<FadeGlyph side="out" shape={outCurve} title="Fade out" />}
               value={fadeOut} onCommit={onFadeChange && ((n) => onFadeChange('out', n))} step={0.1} min={0} />}
           </Row>
-          <Row>
+          {showFadeShapes && <Row>
             <ShapePicker side="in" shapes={fadeShapes} current={fadeInShapeId} own={clip?.fadeInShape} onPick={onFadeShapeChange && ((id) => onFadeShapeChange('in', id))} disabled={fadeIn === 0} />
             <ShapePicker side="out" shapes={fadeShapes} current={fadeOutShapeId} own={clip?.fadeOutShape} onPick={onFadeShapeChange && ((id) => onFadeShapeChange('out', id))} disabled={fadeOut === 0} />
-          </Row>
+          </Row>}
           </div>
 
           <div className="clip-properties__group" data-group="speed">
-          <SectionHeader
-            action={t('Reset')}
-            actionId="reset-pitch-speed"
-            actionTip={t('Reset pitch and speed')}
-            onAction={onResetPitchSpeed}
-            actionDisabled={resetPitchSpeedDisabled ?? (pitch === 0 && speed === 100)}
-          >
-            {t('Pitch & speed')}
-          </SectionHeader>
+          <h3 className="clip-properties__section"><span>{t('Pitch & speed')}</span>{pitchSpeedHeadingControl}</h3>
           <Row>
             {pitchControl ?? <NumberField testId="pitch" label={t('Pitch')} glyph={<PitchGlyph />} value={pitch} onCommit={onPitchChange}
               step={1} min={-PITCH_LIMIT_SEMITONES} max={PITCH_LIMIT_SEMITONES} digits={2} />}
             <NumberField testId="speed" label={t('Speed')} glyph={<SpeedGlyph />} value={speed} onCommit={onSpeedChange} step={5} min={0.1} digits={2} />
           </Row>
+          {pitchSpeedFooter}
           {/* Reverse (2026-10-07): a switch in the field look; mixed
               reads as neither, and a press sets every clip the same way */}
           <Row>
             <button
               type="button"
-              className="clip-properties__field clip-properties__field--toggle clip-properties__field--wide"
+              className={`clip-properties__field clip-properties__field--toggle${invertControl ? '' : ' clip-properties__field--wide'}`}
               data-clip-properties-field="reverse"
               data-mixed={reversed === MIXED ? 'true' : undefined}
               data-tooltip={t('Reverse')}
@@ -284,8 +286,15 @@ function ClipPropertiesPanelBody({
               <span className="clip-properties__value">{t('Reverse')}</span>
               <span className="clip-properties__switch" aria-hidden="true" />
             </button>
+            {invertControl}
           </Row>
+          <div className="clip-properties__processing-actions">
+            <Button variant="secondary" data-clip-properties-action="reset-pitch-speed" title={t('Reset pitch and speed')}
+              disabled={!onResetPitchSpeed || (resetPitchSpeedDisabled ?? (pitch === 0 && speed === 100))} onClick={onResetPitchSpeed}>{t('Reset')}</Button>
+            {pitchSpeedAction}
           </div>
+          </div>
+          {mediaSections}
 
           {exportFormats.length > 0 && (
             <div className="clip-properties__group" data-group="export">

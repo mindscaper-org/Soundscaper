@@ -12,14 +12,14 @@ import { ReadCapabilityStore } from '../desktop/file-capabilities.js';
 const SESSION_ID = 'a'.repeat(64);
 const OTHER_SESSION_ID = 'b'.repeat(64);
 
-async function fixture(context, { maxScanEntries } = {}) {
+async function fixture(context, { maxScanEntries, extension = 'sesx' } = {}) {
 	const temporary = await mkdtemp(join(tmpdir(), 'sesx-media-'));
 	context.after(async () => { const { rm } = await import('node:fs/promises'); await rm(temporary, { recursive: true, force: true }); });
 	const sessionFolder = join(temporary, 'session');
 	const selectedFolder = join(temporary, 'selected');
 	await mkdir(sessionFolder);
 	await mkdir(selectedFolder);
-	const sessionPath = join(sessionFolder, 'song.sesx');
+	const sessionPath = join(sessionFolder, `song.${extension}`);
 	await writeFile(sessionPath, '<session/>');
 	const owner = {};
 	const granted = [];
@@ -47,8 +47,8 @@ async function fixture(context, { maxScanEntries } = {}) {
 	return { temporary, sessionFolder, selectedFolder, store, owner, granted, chooseFolder: (path) => { folderChoice = path; } };
 }
 
-test('SESX direct relative media resolves inside the selected session folder', async (context) => {
-	const { sessionFolder, store, owner, granted } = await fixture(context);
+for (const extension of ['sesx', 'SES']) test(`${extension.toUpperCase()} direct relative media resolves inside the selected session folder`, async (context) => {
+	const { sessionFolder, store, owner, granted } = await fixture(context, { extension });
 	await mkdir(join(sessionFolder, 'Audio Files'));
 	await writeFile(join(sessionFolder, 'Audio Files', 'take.wav'), 'media');
 	const result = await store.resolve({ sessionReadId: SESSION_ID, relativePath: 'Audio Files\\take.wav', owner });
@@ -107,7 +107,7 @@ test('SESX selected-folder scan has a bounded entry budget and owner revocation'
 	await assert.rejects(() => store.resolve({ sessionReadId: SESSION_ID, relativePath: 'unfound.wav', owner }), /session/i);
 });
 
-test('SESX session selection admits only SESX paths', async (context) => {
+test('Audition session selection rejects unrelated project paths', async (context) => {
 	const { sessionFolder, store, owner } = await fixture(context);
 	await assert.rejects(() => store.registerSelection(OTHER_SESSION_ID, join(sessionFolder, 'song.scape'), { owner }), /SESX/i);
 });

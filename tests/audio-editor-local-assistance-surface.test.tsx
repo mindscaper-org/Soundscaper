@@ -11,6 +11,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { ASSISTANCE_OPERATIONS } from '../src/common/editor/assistance/operation.ts';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
+import { EDITOR_ENGLISH_COPY } from '../src/common/i18n/editor-copy-inventory.ts';
 import { createLocalAssistanceMenuItems } from '../src/common/editor/ui/local-assistance-menu.ts';
 import AudioEditorSearch from '../src/common/editor/ui/AudioEditorSearch.jsx';
 import { createLocalAssistanceAdvancedWorkflowSessionStore } from
@@ -80,7 +81,7 @@ test('menu-opened indexed search reports missing disposable custody inside the e
 				status: 'unavailable', revision: 1, coordinator: null,
 				message: 'Indexed search is unavailable until a reviewed disposable index is created.',
 			}}
-			copy={ENGLISH_COPY}
+			copy={EDITOR_ENGLISH_COPY}
 			entries={[]}
 			locale="en"
 			onActivate={() => undefined}
@@ -113,7 +114,7 @@ test('the focused EN/DE catalog and dialog expose all operations without an impl
 		onRun={() => undefined} onCancel={() => undefined}
 		onReview={() => undefined} onAccept={() => undefined}
 	/>);
-	for (const operation of ASSISTANCE_OPERATIONS.filter((candidate) => candidate !== 'text-to-speech')) {
+	for (const operation of ASSISTANCE_OPERATIONS.filter((candidate) => candidate !== 'text-to-speech' && candidate !== 'video-keying')) {
 		assert.match(markup, new RegExp(operation, 'u'));
 	}
 	assert.doesNotMatch(markup, /<option value="text-to-speech"/u);

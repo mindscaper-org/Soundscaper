@@ -214,22 +214,6 @@
 			"hash": "1d604962c1d18e7d14fe54947a01f3ad36641188a477a6bb5704830397c9f632"
 		},
 		{
-			"name": "linked/duplicate-clip/track-0",
-			"hash": "83a85d8711156fcda26a84c65345ffe769281bd46c0d93328415b0a8e21d441c"
-		},
-		{
-			"name": "linked/duplicate-clip/track-2+track-0",
-			"hash": "90fd9053ba60d66c6dffc3275759cc91e14de09443bec782a6f1f5f03bf054ac"
-		},
-		{
-			"name": "linked/duplicate-clip/missing",
-			"hash": "526f2fe38302735baa1bf1fc7decc343507b92156972fb229eb0f2730a987ae3"
-		},
-		{
-			"name": "linked/duplicate-clip/",
-			"hash": "526f2fe38302735baa1bf1fc7decc343507b92156972fb229eb0f2730a987ae3"
-		},
-		{
 			"name": "process/duplicate-clip/0-20/none",
 			"hash": "2e9238a3f051546e719c0868dd6af1896dca31e4e0ba34ccc29d0a77936f5c95"
 		},
@@ -408,22 +392,6 @@
 		{
 			"name": "av/duplicate-track/",
 			"hash": "f6706812cd1198756aaa2b5380643345a17f55ab3d03a6889692821470994ee3"
-		},
-		{
-			"name": "linked/duplicate-track/track-0",
-			"hash": "63a26e1d697b09382e53d6c4fc96de2a309f1a4d84d1b807c980ae295197ea17"
-		},
-		{
-			"name": "linked/duplicate-track/track-2+track-0",
-			"hash": "63a26e1d697b09382e53d6c4fc96de2a309f1a4d84d1b807c980ae295197ea17"
-		},
-		{
-			"name": "linked/duplicate-track/missing",
-			"hash": "f87a17bd7e2ec2ba6c1b670d9856a1e2942e60797297a10991d4a2792c29d628"
-		},
-		{
-			"name": "linked/duplicate-track/",
-			"hash": "f87a17bd7e2ec2ba6c1b670d9856a1e2942e60797297a10991d4a2792c29d628"
 		},
 		{
 			"name": "process/duplicate-track/0-20/none",
@@ -606,22 +574,6 @@
 			"hash": "fc78430e3c838fba44d1c6c5169609945b813437de9ea6a2c111acf77cbb7df6"
 		},
 		{
-			"name": "linked/duplicate-owner/track-0",
-			"hash": "7458d43c77371f2024715bc94426963a75151fa631e307c6821147151387d5f1"
-		},
-		{
-			"name": "linked/duplicate-owner/track-2+track-0",
-			"hash": "e790c82e72b53dd6cab36053311afb657f4d69a27f171e2a2e5d4e706873e472"
-		},
-		{
-			"name": "linked/duplicate-owner/missing",
-			"hash": "8c57fe0c3b941dc95c0cc6b6ff78647bf04d215c94b2c58a7c3dd15a75e003a1"
-		},
-		{
-			"name": "linked/duplicate-owner/",
-			"hash": "8c57fe0c3b941dc95c0cc6b6ff78647bf04d215c94b2c58a7c3dd15a75e003a1"
-		},
-		{
 			"name": "process/duplicate-owner/0-20/none",
 			"hash": "05d28ea2b2d39240a92a8cfca71c02359f973fc277128f9b12ebecebf21fb90e"
 		},
@@ -802,22 +754,6 @@
 			"hash": "9a9ba443030e4f95497736b20fcc22062ecd4ff1b8e64131529aea3608fb84e4"
 		},
 		{
-			"name": "linked/missing/track-0",
-			"hash": "2377073fde46998c10a2b0800aa78037da15d1106a7bc2b551e1aa903990ffff"
-		},
-		{
-			"name": "linked/missing/track-2+track-0",
-			"hash": "170eec67fa4d1784e4001b7d097d85298f2511a8f0fb32f67704204e4ebcf268"
-		},
-		{
-			"name": "linked/missing/missing",
-			"hash": "58a9df25a061e947087f30e4126ac1d7a0cee02a96ec1e7cd68d7cccbe62d87e"
-		},
-		{
-			"name": "linked/missing/",
-			"hash": "58a9df25a061e947087f30e4126ac1d7a0cee02a96ec1e7cd68d7cccbe62d87e"
-		},
-		{
 			"name": "process/missing/0-20/none",
 			"hash": "d70fd2acbe8166c935eccaf51d10479c95b0fdd6979038388c1c641d636b3c37"
 		},
@@ -996,22 +932,6 @@
 		{
 			"name": "av/unowned/",
 			"hash": "d660ea209252d8d4e5e672355a2aa13d47fc7d94a1d2799feb7d47ae0be7a458"
-		},
-		{
-			"name": "linked/unowned/track-0",
-			"hash": "f58dce28444428687333a3cd1cd701194d18b3c6cf4c6d593c1bfd46cbd273f2"
-		},
-		{
-			"name": "linked/unowned/track-2+track-0",
-			"hash": "298748836c9ede42d5d804ffd82a29ec34b9534112e1315c81e53a7ad48b82e3"
-		},
-		{
-			"name": "linked/unowned/missing",
-			"hash": "a63b8b50d8a70b8a84ba135dae820456568641833b49185948a9ffe3c764cfd0"
-		},
-		{
-			"name": "linked/unowned/",
-			"hash": "a63b8b50d8a70b8a84ba135dae820456568641833b49185948a9ffe3c764cfd0"
 		},
 		{
 			"name": "process/unowned/0-20/none",

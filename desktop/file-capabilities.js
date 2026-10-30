@@ -30,7 +30,8 @@ import {
 	requireReadCapabilityOwner,
 	safeReadCapabilityTimestamp,
 } from './read-capability-support.js';
-import { createReadCapabilityRequestLease } from './read-capability-request-lease.js';
+import { createReadCapabilityRequestQueue, acquireReadCapabilityRequestLease } from './read-capability-request-lease.js';
+import { resolveReadCapabilityHelperGrant, resolveReadCapabilityOriginalFileGrant } from './read-capability-helper-grant.ts';
 import { acceptsFile, mimeTypeForPath } from './validation.js';
 
 export { throwAfterReadCapabilityRollback } from './read-capability-support.js';
@@ -48,6 +49,7 @@ export class ReadCapabilityStore {
 	#open;
 	#operations = new Set();
 	#ownerStates = new WeakMap();
+	#requestQueue = createReadCapabilityRequestQueue();
 	#linkedRangeAdmission;
 	#randomBytes;
 	#revocations = new Set();
@@ -182,44 +184,40 @@ export class ReadCapabilityStore {
 		return entry ? readCapabilityDescriptor(entry) : null;
 	}
 
-	/**
-	 * Main-process-only: resolves the granted path, current size, and file
-	 * identity of a live, owner-matched capability so main can mint a narrower
-	 * helper-process grant. Neither this method nor its result may ever cross
-	 * IPC — the renderer keeps addressing media by opaque capability id only.
-	 */
 	async resolveHelperGrant(id, { owner = /** @type {object | undefined} */ (undefined), fullIdentity = false } = {}) {
 		requireReadCapabilityOwner(owner);
-		const entry = this.#liveEntry(String(id || ''));
-		if (!entry || entry.owner !== owner) return null;
-		const details = await entry.handle.stat();
-		if (this.#entries.get(entry.id) !== entry) return null;
+		return resolveReadCapabilityHelperGrant(this.#liveEntry(String(id || '')), owner, fullIdentity,
+			(entry) => this.#confirmGrantEntry(entry));
+	}
+
+	async resolveOriginalFileGrant(id, { owner = /** @type {object | undefined} */ (undefined) } = {}) {
+		requireReadCapabilityOwner(owner);
+		return resolveReadCapabilityOriginalFileGrant(this.#liveEntry(String(id || '')), owner,
+			(entry) => this.#confirmGrantEntry(entry));
+	}
+
+	#confirmGrantEntry(entry) {
+		if (this.#entries.get(entry.id) !== entry) return false;
 		this.#renewExpiry(entry);
-		return Object.freeze({
-			path: entry.path,
-			size: safeReadFileSize(details.size),
-			identity: fullIdentity ? entry.fileIdentity : Object.freeze({ dev: details.dev, ino: details.ino }),
-		});
+		return true;
 	}
 
 	acquireRequest(id, expectedProfile) {
 		const entry = this.#liveEntry(id);
-		if (!entry || entry.request
-			|| (expectedProfile !== undefined && entry.readProfile !== expectedProfile)) return null;
-		const rangeRequest = entry.rangeTicket
-			? entry.rangeAdmission.acquireRequest(entry.rangeTicket)
-			: null;
-		if (entry.rangeTicket && !rangeRequest) return null;
-		this.#renewExpiry(entry);
-		try {
-			return createReadCapabilityRequestLease(entry, rangeRequest, {
-				operations: this.#operations,
-				retire: () => this.#releaseEntry(entry),
-			});
-		} catch (error) {
-			rangeRequest?.release();
-			throw error;
-		}
+		return acquireReadCapabilityRequestLease(entry, expectedProfile, {
+			operations: this.#operations,
+			retire: () => this.#releaseEntry(entry),
+			renew: () => this.#renewExpiry(entry),
+			onComplete: () => this.#requestQueue.notify(),
+		});
+	}
+
+	acquireQueuedRequest(id, expectedProfile, signal) {
+		return this.#requestQueue.acquire(
+			() => this.acquireRequest(id, expectedProfile),
+			() => this.#liveEntry(id)?.readProfile === expectedProfile,
+			signal,
+		);
 	}
 
 	release(id, { owner } = {}) {
@@ -383,6 +381,7 @@ export class ReadCapabilityStore {
 			return this.#retirements.get(entry.id)?.promise ?? Promise.resolve(false);
 		}
 		this.#entries.delete(entry.id);
+		this.#requestQueue.notify();
 		clearTimeout(entry.timer);
 		const retirementBarrier = Promise.withResolvers();
 		entry.retirement = Object.freeze({
@@ -461,7 +460,7 @@ export class ReadCapabilityStore {
 
 	#liveEntry(id) {
 		const entry = this.#entries.get(String(id || ''));
-		if (!entry) return null;
+		if (!entry || this.#disposed || entry.state.revoked) return null;
 		if (entry.expiresAt !== null && entry.expiresAt <= this.#now()) {
 			void this.#releaseEntry(entry).catch(() => undefined);
 			return null;

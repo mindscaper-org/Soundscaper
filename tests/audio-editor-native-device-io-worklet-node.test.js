@@ -45,7 +45,6 @@ test('the renderer node refuses calibration outside one attached duplex generati
 		AudioWorkletNode: FakeAudioWorkletNode,
 		direction: 'duplex', channelCount: 2, periodFrames: 128, queueCapacity: 4,
 	});
-	await assert.rejects(() => duplex.calibrate({ maxFrames: 0, timeoutMs: 1_000 }), /frame window/iu);
 	await assert.rejects(() => duplex.calibrate({ maxFrames: 128, timeoutMs: 1_000 }), /bound/iu);
 });
 

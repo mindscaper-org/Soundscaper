@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { formatLocalizedTemplate } from '../localization-template.ts';
+
 import { useEffect, useMemo, useRef } from 'react';
 import RoutingInspectorForm from './RoutingInspectorForm.tsx';
 import RoutingEdgeLevelInput, { routingLevelDraftValue, routingLevelDisplayDb as linearToDb } from './RoutingEdgeLevelInput.tsx';
@@ -83,10 +85,10 @@ export default function SoundscaperRoutingGraphInspector(props: SoundscaperRouti
 	>
 		{inspector}
 		{removable && !confirmingDelete && <button type="button" disabled={disabled} onClick={() => onConfirmingDelete(true)}>
-			{fill(copy.deleteRoutingItem, { item: selection.kind === 'edge' ? copy.connection : selection.kind })}
+			{fill(copy.deleteRoutingItem, { item: selection.kind === 'edge' ? copy.connection : selection.kind === 'node' ? copy[selection.collection === 'groups' ? 'group' : selection.collection === 'sends' ? 'send' : 'cue'] : copy[selection.kind] })}
 		</button>}
 		{removable && confirmingDelete && <div className="kw-routing-graph__delete-confirm" role="alert">
-			<p>{routingDeleteSummary(graph, selection)}</p>
+			<p>{routingDeleteSummary(graph, selection, copy)}</p>
 			<button type="button" disabled={disabled} onClick={remove}>{copy.confirmDelete}</button>
 			<button type="button" onClick={() => onConfirmingDelete(false)}>{copy.cancel}</button>
 		</div>}
@@ -176,7 +178,7 @@ function OutputInspector(props: SoundscaperRoutingGraphInspectorProps & Readonly
 function VcaInspector(props: SoundscaperRoutingGraphInspectorProps & Readonly<{ vcaId: string }>) {
 	const { project, graph, copy, vcaId, disabled } = props;
 	const vca = graph.vcas.find(({ id }) => id === vcaId);
-	const memberOptions = routingVcaMemberOptions(project, graph);
+	const memberOptions = routingVcaMemberOptions(project, graph, copy);
 	if (!vca) return <p>{copy.selectedVcaMissing}</p>;
 	const members = new Set(vca.members.map(routingEndpointValue));
 	return <>
@@ -208,8 +210,8 @@ function EdgeInspector(props: SoundscaperRoutingGraphInspectorProps & Readonly<{
 	const edge = graph.edges.find(({ id }) => id === edgeId);
 	const managed = edge ? isSoundscaperFolderOwnedRoutingEdge(project, edge) : false;
 	const controlDisabled = disabled || managed;
-	const sources = routingSourceOptions(project, graph);
-	const destinations = routingDestinationOptions(project, graph);
+	const sources = routingSourceOptions(project, graph, copy);
+	const destinations = routingDestinationOptions(project, graph, copy);
 	const levelGesture = useRef<EdgeLevelGestureState>({
 		request: 0, pending: false, active: false, captured: false,
 		dirty: false, terminal: null, value: edge?.level ?? 0,
@@ -295,7 +297,7 @@ function EdgeInspector(props: SoundscaperRoutingGraphInspectorProps & Readonly<{
 	const destinationLabel = destinations.find(({ value }) => value === routingEndpointValue(edge.destination))?.label ?? edge.id;
 	return <>
 		<h3>{sourceLabel} → {destinationLabel}</h3>
-		<p>{edge.kind} · {edge.position} · {dbLabel(edge.level)} · {edge.enabled ? copy.enabled : copy.disabled}</p>
+		<p>{copy[edge.kind]} · {edge.position === 'pre-fader' ? copy.preFader : copy.postFader} · {dbLabel(edge.level)} · {edge.enabled ? copy.enabled : copy.disabled}</p>
 		{managed && <p>{copy.managedByFolder}</p>}
 		<form key={edgeFormKey(edge)} onSubmit={(event) => {
 			event.preventDefault();
@@ -377,7 +379,7 @@ function ConnectionForm({ project, graph, copy, source, disabled, onCandidate, o
 	onCandidate: (candidate: RoutingGraphCandidate) => void;
 	onError: (reason: unknown) => void;
 }>) {
-	const destinations = useMemo(() => routingDestinationOptions(project, graph), [graph, project]);
+	const destinations = useMemo(() => routingDestinationOptions(project, graph, copy), [copy, graph, project]);
 	return <form className="kw-routing-graph__connection-form" onSubmit={(event) => {
 		event.preventDefault();
 		if (disabled) return;
@@ -512,5 +514,5 @@ function records(value: unknown): DataRecord[] {
 }
 
 function fill(template: string, values: Readonly<Record<string, string>>): string {
-	return Object.entries(values).reduce((result, [key, value]) => result.replace(`{${key}}`, value), template);
+	return formatLocalizedTemplate(template, values);
 }

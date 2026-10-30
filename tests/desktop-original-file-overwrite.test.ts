@@ -134,6 +134,7 @@ test('a same-size external edit immediately after publication retires repeat ove
 		await writeFile(to, 'changed elsewhere');
 		await utimes(to, new Date('2000-01-01T00:00:00Z'), new Date('2000-01-01T00:00:00Z'));
 	} });
+	await entry.reads.release(entry.descriptor.id, { owner: OWNER });
 	const session = await entry.stage('replacement bytes');
 	await entry.saves.finish(session.writeId, { owner: OWNER });
 	assert.equal(await readFile(entry.path, 'utf8'), 'changed elsewhere');

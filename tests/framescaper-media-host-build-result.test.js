@@ -26,7 +26,7 @@ const SOURCE_IDENTITY = FRAMESCAPER_MEDIA_HOST_SOURCE_IDENTITY;
 const NOTICES = [
 	'# Media host notices', 'FFmpeg GPL-2.0-or-later', 'Boost BSL-1.0',
 	'x264 GPL-2.0-or-later', 'x265 GPL-2.0-or-later', 'libvpx BSD-3-Clause',
-	'Opus BSD-3-Clause', 'zlib Zlib',
+	'SVT-AV1 BSD-3-Clause-Clear', 'Opus BSD-3-Clause', 'zlib Zlib',
 ].join('\n');
 
 test('the result identity matches every source actually compiled and linked', async () => {
@@ -54,7 +54,7 @@ test('the result identity matches every source actually compiled and linked', as
 		archiveByteLength: source.byteLength, archiveSha256: source.sha256,
 		extractedTreeSha256: source.extractedTree.sha256,
 		license: { x264: 'GPL-2.0-or-later', x265: 'GPL-2.0-or-later', libvpx: 'BSD-3-Clause',
-			libopus: 'BSD-3-Clause', zlib: 'Zlib' }[source.id],
+			'svt-av1': 'BSD-3-Clause-Clear', libopus: 'BSD-3-Clause', zlib: 'Zlib' }[source.id],
 	});
 });
 
@@ -73,7 +73,7 @@ test('a target-native result authenticates its exact files, tests, sources, and 
 	]);
 	assert.equal(verified.receipt.dependencyInspections.length, 2);
 	assert.equal(verified.receipt.compliance.thirdPartyNotices, NOTICES);
-	assert.equal(Object.keys(verified.receipt.sourceIdentity).length, 7);
+	assert.equal(Object.keys(verified.receipt.sourceIdentity).length, 8);
 	assert.equal(Object.isFrozen(fixture.result.receipt), true);
 
 	await writeFile(join(fixture.result.buildResultRoot, 'payload/framescaper-media-host'), 'drift');

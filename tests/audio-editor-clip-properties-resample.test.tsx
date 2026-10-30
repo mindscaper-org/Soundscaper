@@ -19,29 +19,25 @@ test('clip properties report the rate of the clip that is selected', async () =>
 	const fixture = await mountedFixture();
 	try {
 		await fixture.render();
-		await fixture.openSettings();
-		assert.match(fixture.sourceRate().textContent, /96000/u);
-		// The committed menu exposes resampling by rate; precision conversion is
-		// covered at its controller boundary rather than reported as a source fact.
-		assert.equal(fixture.declaredFormatShown(), false);
-		assert.equal(Boolean(fixture.resampleDialog()), false);
+		assert.equal(reactProps(fixture.sourceRate()).value, '96000');
+		assert.equal(fixture.project.sampleRate, 48_000);
+		assert.equal(fixture.project.sources[0]?.sampleFormat, 'int24');
+		assert.deepEqual(fixture.resampleCalls, []);
 	} finally {
 		await fixture.cleanup();
 	}
 });
 
-test('the resample dialog opens seeded from the clip and applies to that clip alone', async () => {
+test('a resampling rate draft applies to the selected clip alone', async () => {
 	const fixture = await mountedFixture();
 	try {
 		await fixture.render();
-		await fixture.openResample();
-
-		const dialog = fixture.resampleDialog();
-		assert.ok(dialog, 'the resample button opens its dialog');
+		assert.equal(reactProps(fixture.sourceRate()).value, '96000');
+		await fixture.editRate('48000');
+		assert.deepEqual(fixture.resampleCalls, [], 'drafting never rewrites audio');
 		await fixture.submitResample();
-
-		assert.deepEqual(fixture.resampleCalls, [['shared-clip', { sampleRate: 96_000 }]]);
-		assert.equal(Boolean(fixture.resampleDialog()), false, 'applying closes the dialog');
+		assert.deepEqual(fixture.resampleCalls, [['shared-clip', { sampleRate: 48_000, sampleFormat: 'int24' }]]);
+		assert.equal(fixture.project.sources[0]?.sampleFormat, 'int24', 'the imported format declaration remains intact');
 	} finally {
 		await fixture.cleanup();
 	}
@@ -51,9 +47,9 @@ test('a product without audio effects reports the rate but cannot resample', asy
 	const fixture = await mountedFixture({ audioEffects: false });
 	try {
 		await fixture.render();
-		await fixture.openSettings();
-		assert.match(fixture.sourceRate().textContent, /96000/u);
-		assert.equal(fixture.resampleItem().getAttribute('aria-disabled'), 'true');
+		assert.equal(reactProps(fixture.sourceRate()).value, '96000');
+		assert.equal(fixture.sourceRate().hasAttribute('disabled'), true);
+		assert.equal(fixture.resampleButton().hasAttribute('disabled'), true);
 		assert.deepEqual(fixture.resampleCalls, []);
 	} finally {
 		await fixture.cleanup();
@@ -92,19 +88,11 @@ async function mountedFixture(capabilities: Readonly<Record<string, boolean>> = 
 	};
 	const { createRoot } = await import('react-dom/client');
 	const root = createRoot(dom.container as unknown as Element);
-	const openSettings = async () => {
-		const trigger = dom.one('[data-clip-audio-settings]');
-		await act(async () => reactProps(trigger).onClick({ currentTarget: trigger }));
-	};
-	const resampleItem = () => {
-		const item = dom.container.querySelectorAll('[role="menuitem"]').find(node =>
-			node.querySelector('.context-menu-item-label')?.textContent === ENGLISH_COPY.resample);
-		assert.ok(item);
-		return item;
-	};
+	const sourceRate = () => { const input = dom.one('[data-clip-properties-field="format-rate"]').querySelector('input'); assert.ok(input); return input; };
+	const resampleButton = () => dom.one('[data-clip-properties-action="resample"]');
 	return {
-		resampleCalls,
-		openSettings, resampleItem,
+		resampleCalls, project: currentProject,
+		sourceRate, resampleButton,
 		render: async () => {
 			await act(async () => root.render(<ClipPropertiesPanel
 				run={operation => operation()}
@@ -113,24 +101,12 @@ async function mountedFixture(capabilities: Readonly<Record<string, boolean>> = 
 				copy={ENGLISH_COPY}
 			/>));
 		},
-		sourceRate: () => {
-			const item = dom.container.querySelectorAll('[role="menuitem"]').find(node =>
-				node.textContent.includes(`${ENGLISH_COPY.sampleRateHz}:`));
-			assert.ok(item);
-			return item;
-		},
-		declaredFormatShown: () => Boolean(dom.find('[data-clip-source-fact="sampleFormat"]'))
-			|| dom.container.textContent.includes(ENGLISH_COPY.sampleFormat),
-		resampleDialog: () => dom.find('[data-clip-resample-dialog]'),
-		openResample: async () => {
-			await openSettings();
-			await act(async () => reactProps(resampleItem()).onClick({ stopPropagation() {} }));
+		editRate: async (rate: string) => {
+			await act(async () => reactProps(sourceRate()).onChange({ currentTarget: { value: rate } }));
 		},
 		submitResample: async () => {
-			const form = dom.one('[data-clip-resample-dialog]').querySelector('form');
-			assert.ok(form, 'the resample dialog carries a form.');
 			await act(async () => {
-				reactProps(form).onSubmit({ preventDefault: () => undefined });
+				reactProps(resampleButton()).onClick({ currentTarget: resampleButton() });
 				await Promise.resolve();
 			});
 		},

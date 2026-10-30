@@ -25,7 +25,7 @@ const JOB_ID = '9a'.repeat(20);
 const SOURCE_SHA256 = '7b'.repeat(32);
 const MAXIMUM_OUTPUT_BYTES = 64 * 1024 * 1024;
 const ADVANCED_OPERATIONS = ASSISTANCE_OPERATIONS.filter(
-	(operation): operation is Exclude<AssistanceOperation, 'text-to-speech'> => operation !== 'text-to-speech');
+	(operation): operation is Exclude<AssistanceOperation, 'text-to-speech' | 'video-keying'> => operation !== 'text-to-speech' && operation !== 'video-keying');
 
 test('every one of the 16 Advanced primitives stages one closed valid workflow recipe', async () => {
 	assert.equal(OPERATION_FIXTURES.size, ADVANCED_OPERATIONS.length);

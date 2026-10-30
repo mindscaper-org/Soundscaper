@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
 #include "vamp_analyzer_adapter.h"
 #include "vamp_exact_library.h"
-
 #include <vamp-hostsdk/PluginHostAdapter.h>
 #include <vamp-hostsdk/PluginInputDomainAdapter.h>
 #include <vamp/vamp.h>
-
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -15,10 +12,8 @@
 #include <memory>
 #include <set>
 #include <utility>
-
 namespace soundscaper::vamp {
 namespace {
-
 constexpr std::size_t maximumTextLength = 512u;
 constexpr std::size_t maximumLabelLength = 4096u;
 constexpr std::size_t maximumDescriptors = 256u;
@@ -32,12 +27,10 @@ constexpr std::size_t maximumChunkFrames = 65536u;
 constexpr std::size_t maximumBatchFeatures = 65536u;
 constexpr std::size_t maximumBatchValues = 1048576u;
 constexpr std::uint64_t maximumSessionSeconds = 12u * 60u * 60u;
-
 struct LoadedLibrary {
 	detail::ExactDynamicLibrary library;
 	VampGetPluginDescriptorFunction descriptors = nullptr;
 };
-
 Status loadExact(
 	const std::filesystem::path &path, LoadedLibrary &loaded, std::string &detail)
 {
@@ -481,16 +474,21 @@ Status ExactVampAnalyzer::processPcm(
 				channels[channel], channels[channel] + frameCount);
 		}
 		impl_->receivedFrames += frameCount;
-		while (!impl_->buffers.empty() && impl_->buffers[0].size() >= impl_->blockSize) {
+		std::size_t consumed = 0u;
+		while (!impl_->buffers.empty() && impl_->buffers[0].size() - consumed >= impl_->blockSize) {
 			std::vector<const float *> pointers;
 			pointers.reserve(impl_->channelCount);
-			for (const auto &buffer : impl_->buffers) pointers.push_back(buffer.data());
+			for (const auto &buffer : impl_->buffers) pointers.push_back(buffer.data() + consumed);
 			const auto native = impl_->plugin->process(pointers.data(),
 				frameTime(impl_->windowStart, impl_->sampleRate));
-			if (!appendFeatures(native, impl_->outputs, features, detail)) return Status::limitExceeded;
-			for (auto &buffer : impl_->buffers) buffer.erase(buffer.begin(), buffer.begin() + impl_->stepSize);
+			if (!appendFeatures(native, impl_->outputs, features, detail)) {
+				for (auto &buffer : impl_->buffers) buffer.erase(buffer.begin(), buffer.begin() + consumed);
+				return Status::limitExceeded;
+			}
+			consumed += impl_->stepSize;
 			impl_->windowStart += impl_->stepSize;
 		}
+		for (auto &buffer : impl_->buffers) buffer.erase(buffer.begin(), buffer.begin() + consumed);
 		return Status::ok;
 	} catch (...) {
 		cancel();
@@ -509,24 +507,26 @@ Status ExactVampAnalyzer::finish(std::vector<Feature> &features, std::string &de
 		return Status::invalidArgument;
 	}
 	try {
+		std::size_t consumed = 0u;
 		while (impl_->windowStart < impl_->frameCount) {
 			std::vector<std::vector<float>> block(impl_->channelCount,
 				std::vector<float>(impl_->blockSize, 0.0F));
 			std::vector<const float *> pointers;
 			for (std::size_t channel = 0u; channel < impl_->channelCount; ++channel) {
-				const std::size_t copied = std::min(impl_->blockSize, impl_->buffers[channel].size());
-				std::copy_n(impl_->buffers[channel].begin(), copied, block[channel].begin());
+				const std::size_t copied = std::min(impl_->blockSize, impl_->buffers[channel].size() - consumed);
+				std::copy_n(impl_->buffers[channel].begin() + consumed, copied, block[channel].begin());
 				pointers.push_back(block[channel].data());
 			}
 			const auto native = impl_->plugin->process(pointers.data(),
 				frameTime(impl_->windowStart, impl_->sampleRate));
-			if (!appendFeatures(native, impl_->outputs, features, detail)) return Status::limitExceeded;
-			for (auto &buffer : impl_->buffers) {
-				const std::size_t erased = std::min(impl_->stepSize, buffer.size());
-				buffer.erase(buffer.begin(), buffer.begin() + erased);
+			if (!appendFeatures(native, impl_->outputs, features, detail)) {
+				for (auto &buffer : impl_->buffers) buffer.erase(buffer.begin(), buffer.begin() + consumed);
+				return Status::limitExceeded;
 			}
+			consumed += std::min(impl_->stepSize, impl_->buffers[0].size() - consumed);
 			impl_->windowStart += impl_->stepSize;
 		}
+		for (auto &buffer : impl_->buffers) buffer.erase(buffer.begin(), buffer.begin() + consumed);
 		if (!appendFeatures(impl_->plugin->getRemainingFeatures(), impl_->outputs, features, detail)) {
 			return Status::limitExceeded;
 		}

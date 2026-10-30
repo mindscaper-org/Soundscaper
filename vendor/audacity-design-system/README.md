@@ -661,3 +661,31 @@ are the places where the two keyboard models meet, so a future sync should re-ch
     upstream displayed-pitch/speed default; the action callback still controls
     mutation admission. Covered by the merged and linked reset inspector tests.
     Upstream-PR candidate.
+
+83. A further selective port follows
+    `2d007878aa7d2a4605fb7c25205c6b541d662246` (2026-10-26). Fade length handles
+    retain upstream's black-and-white glyph, adaptive hit targets, selected-clip
+    visibility, unselected boundary zones, curve preview and 60 ms transitions.
+    The host continues to own sample-frame gestures, history and keyboard edits.
+    The four upstream cursor images are kept verbatim and inlined for delivery.
+    Track menus group visual settings and expose height stepping and fitting;
+    the optional toolbar uses the host's Increase/Decrease actions in place of
+    upstream Collapse/Expand. All three toolbar controls start hidden.
+
+84. The upstream Clip properties track-rate detail is retained, with host slots
+    for inline voice optimization, phase inversion, pitch units, tempo stretch,
+    rendering, normalization and PCM format conversion. The host hides the fade
+    shape selectors and removes the optional Timecode fields presentation switch;
+    numeric timing fields retain full precision while editing. Reinterpret keeps
+    the declared PCM bytes and changes their interpretation; Resample converts
+    samples to the requested rate and precision. Both publish private sources
+    through native project history. These additions do not change the overall
+    vendor pin or discard the earlier host adaptations.
+
+85. Shared editor controls consume an explicit `ComponentCopyProvider` supplied
+    by the application with its active locale and inventoried messages. Track,
+    clip, ruler, effects, mixer, dialog and numeric chrome retain standalone
+    English defaults and localized copy follows React portals. Format IDs and
+    authored names stay stable; spoken durations use the active locale's units.
+    Covered by the shared-surface and component-chrome localization regressions.
+    Upstream-PR candidate.

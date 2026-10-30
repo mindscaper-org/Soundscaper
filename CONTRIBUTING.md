@@ -16,9 +16,14 @@ build. The external EBU R128 conformance corpus is intentionally separate; run
 
 CI runs the same work as several parallel jobs: `npm run check:static` covers
 everything except the Node suite, and the suite is split by product into a
-`common`, a `framescaper` and a `soundscaper` shard. To run just the shard your
-change touches, use `npm test -- --shard=framescaper`. The coverage thresholds
-are checked once over the union of all three shards, never per shard.
+`common` owner (execution shards `common-1` and `common-2`), a `framescaper`
+shard and a `soundscaper` shard. To run just the shard your change touches, use
+`npm test -- --shard=framescaper`. The coverage thresholds
+are checked once over the required coverage union, never per shard.
+
+These full-suite commands are for maintainers and CI. Agents use focused tests
+and hand off an exact command anchored to their worktree's absolute path; see
+the [development testing guide](docs/development/testing.md).
 
 Browser workflows are a separate gate because they install Chromium and bind a
 loopback preview server:
@@ -28,6 +33,15 @@ npm run test:browser
 # When a current production build already exists:
 npm run test:browser:built
 ```
+
+On Linux with cgroup v2 and a systemd user session, `npm run check-all` runs
+the non-browser gate and the full ordinary browser suite in one four-slot queue.
+Each shard's entire process tree has an 8 GiB RAM cap with swap disabled. The
+terminal shows progress and running tests, prints failures immediately, and
+keeps full output in `test-results/check-all/logs/`. See the
+[testing guide](docs/development/testing.md#full-gates-and-ci-shards) for
+resource requirements and details. Use `npm run check-all -- --list` to preview
+the plan without running it.
 
 Prefer small, typed modules with narrow imports. Existing oversized files are
 recorded as ratchets, not precedents:

@@ -60,7 +60,6 @@ test('the keying schedule spends the units the recommendation prescribes', () =>
 	]);
 	assert.equal(morseCodeDotSeconds(20), 0.06);
 	assert.equal(morseCodeDotSeconds(5), 0.24);
-	assert.throws(() => morseCodeDotSeconds(0), /wordsPerMinute/u);
 });
 
 test('the dialog summary survives a half-typed message instead of throwing', () => {

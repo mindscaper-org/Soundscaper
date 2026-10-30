@@ -15,16 +15,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { resolveFramescaperBuildLine } from './lib/product-build-line.mjs';
 import { generateDesktopIcon } from './desktop-icons.mjs';
+import { configureCiArtifactFetch } from './lib/ci-artifact-fetch.ts';
+import { prepareDesktopAssistanceRuntimeSet } from './lib/desktop-assistance-runtime-preparation.mjs';
 import { generateProductWindowIcon } from './lib/offline-application-shell.mjs';
 import { listTranslationCatalogLocales, readTranslationCatalog } from './i18n-ai/catalog.mjs';
 import { buildSourceMapsRequested } from './lib/build-source-map-relocation.mjs';
 import { stageDesktopBundledCodecNotices } from './lib/desktop-bundled-codec-notices.mjs';
-import { stageDesktopAssistanceRuntimeFamilies } from './lib/desktop-assistance-runtime-families.mjs';
-import { stageDesktopAssistanceRuntimeDistribution } from './lib/desktop-assistance-runtime-distribution.mjs';
-import { stageDesktopAssistanceRuntimeHandoff } from './lib/desktop-assistance-runtime-handoff.mjs';
-import { stageDesktopKokoroG2pRuntime } from './lib/desktop-kokoro-g2p-runtime.mjs';
-import { buildKokoroG2pBundle } from './kokoro-g2p/build.mjs';
-import { stageDesktopAssistanceSpeechRuntime } from './lib/desktop-assistance-speech-runtime.mjs';
 import {
 	prepareDesktopOsAudioCodecNativeRelease,
 	resolveDesktopOsAudioCodecNativeRequirement,
@@ -102,6 +98,7 @@ export function resolveDesktopProductId(value) {
 }
 
 async function main() {
+	configureCiArtifactFetch();
 	if (resolveFramescaperBuildLine(PRODUCT_ID, process.env.SCAPE_FRAMESCAPER_LINE) === 'successor') {
 		if (process.env.SCAPE_FRAMESCAPER_DESKTOP_PROFILE !== 'framescaper-successor-v2') throw new Error('The baseline desktop runtime cannot load Framescaper successor projects; explicitly select framescaper-successor-v2.');
 		const { prepareFramescaperSuccessorDesktop } = await import('./lib/framescaper-successor-desktop-staging.ts');
@@ -167,51 +164,12 @@ async function main() {
 		repositoryRoot: ROOT,
 		outputRoot: DESKTOP_RUNTIME_ROOT,
 	});
-	let assistanceSpeechRuntime, assistanceRuntimeFamilies, kokoroG2pRuntime, assistanceDistribution;
 	const handoffRoot = process.env.SOUNDSCAPER_ASSISTANCE_RUNTIME_HANDOFF_ROOT;
-	if (handoffRoot) {
-		const imported = await stageDesktopAssistanceRuntimeHandoff({
-			handoffRoot: resolve(handoffRoot),
-			sourceRevision: resolveDesktopAssistanceHandoffRevision(sourceRevision),
-			targetId: nativeTarget.id,
-			archiveRoot: resolve(BUILD_ROOT, 'assistance-distribution'),
-			cacheRoot: resolve(ROOT, '.native-build/assistance-runtime-handoff-cache'),
-		});
-		assistanceSpeechRuntime = imported.speech;
-		assistanceRuntimeFamilies = imported.families;
-		kokoroG2pRuntime = imported.kokoro;
-		assistanceDistribution = imported.distribution;
-	} else {
-		assistanceSpeechRuntime = await stageDesktopAssistanceSpeechRuntime({
-			repositoryRoot: ROOT,
-			targetId: nativeTarget.id,
-			nodeModulesRoot: resolve(ROOT, 'node_modules'),
-			runtimeRoot: RUNTIME_ROOT,
-			cacheRoot: resolve(ROOT, '.native-build/assistance-runtimes'),
-		});
-		assistanceRuntimeFamilies = await stageDesktopAssistanceRuntimeFamilies({
-			targetId: nativeTarget.id,
-			runtimeRoot: RUNTIME_ROOT,
-			cacheRoot: resolve(ROOT, '.native-build/assistance-runtimes'),
-		});
-		const kokoroG2pBuild = await buildKokoroG2pBundle({ targetId: nativeTarget.id });
-		kokoroG2pRuntime = await stageDesktopKokoroG2pRuntime({
-			targetId: nativeTarget.id,
-			bundleRoot: kokoroG2pBuild.bundleRoot,
-			runtimeRoot: RUNTIME_ROOT,
-		});
-		assistanceDistribution = await stageDesktopAssistanceRuntimeDistribution({
-			targetId: nativeTarget.id,
-			runtimeRoot: RUNTIME_ROOT,
-			archiveRoot: resolve(BUILD_ROOT, 'assistance-distribution'),
-			assistanceSpeechRuntime,
-			assistanceRuntimeFamilies,
-			kokoroG2pRuntime,
-		});
-		assistanceSpeechRuntime = assistanceDistribution.speech;
-		assistanceRuntimeFamilies = assistanceDistribution.families;
-		kokoroG2pRuntime = assistanceDistribution.kokoro;
-	}
+	const { speech: assistanceSpeechRuntime, families: assistanceRuntimeFamilies,
+		kokoro: kokoroG2pRuntime, distribution: assistanceDistribution } = await prepareDesktopAssistanceRuntimeSet({
+		repositoryRoot: ROOT, buildRoot: BUILD_ROOT, targetId: nativeTarget.id, handoffRoot,
+		sourceRevision: handoffRoot ? resolveDesktopAssistanceHandoffRevision(sourceRevision) : sourceRevision,
+	});
 	const nativeAddons = nativeAddonRelease === null ? null : await stageNativeAddons(nativeAddonRelease);
 	const osAudioCodecNative = osAudioCodecNativeRelease === null
 		? null
@@ -540,7 +498,7 @@ function isMainModule() {
 
 if (isMainModule()) {
 	main().catch((error) => {
-		console.error(`Desktop preparation failed: ${error.message}`);
+		console.error('Desktop preparation failed:', error);
 		process.exitCode = 1;
 	});
 }

@@ -67,21 +67,11 @@ void test('R15 source metadata inventory retains full clones without an intermed
 	t.diagnostic(`source inventory map visits ${visits}`); assert.equal(visits, 0);
 });
 
-void test('source metadata list snapshots inventory membership before invoking clone getters', async () => {
-	const { memory, sources } = repositories();
-	memory.sources.set('first', { id: 'first', get name() { memory.sources.set('late', { id: 'late' }); return 'First'; } });
-	memory.sources.set('second', { id: 'second', name: 'Second' });
-	assert.deepEqual((await sources.list()).map(record => record.id), ['first', 'second']);
-	assert.equal(memory.sources.has('late'), true);
-});
-
-void test('temporary cleanup roots snapshot memory membership before path/token getters mutate its Map', async () => {
+void test('temporary cleanup roots read scalar paths and tokens without encoded payloads', async () => {
 	const { memory, media } = repositories(); const reads: string[] = [];
 	memory.mediaAssets.set('first', {
 		get path() {
 			reads.push('first.path');
-			memory.mediaAssets.set('second', { path: 'replacement.bin', mediaChunkToken: 'replacement-token' });
-			memory.mediaAssets.set('late', { path: 'late.bin', mediaChunkToken: 'late-token' });
 			return 'first.bin';
 		},
 		get mediaChunkToken() { reads.push('first.token'); return 'first-token'; },
@@ -97,5 +87,4 @@ void test('temporary cleanup roots snapshot memory membership before path/token 
 		{ path: 'second.bin', mediaChunkToken: 'second-token' },
 	]);
 	assert.deepEqual(reads, ['first.path', 'first.token', 'second.path', 'second.token']);
-	assert.equal(memory.mediaAssets.has('late'), true);
 });

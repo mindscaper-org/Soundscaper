@@ -2,36 +2,61 @@
 
 import { normalizeAutomationLaneV21, type AutomationLaneV21 } from '../../../../automation-lane-v21.ts';
 import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
-import { defaultMixerChannelMapV21, normalizeMixerGraphV21 } from '../../../../mixer-graph-v21.ts';
+import { defaultMixerChannelMapV21, normalizeMixerGraphV21, type MixerGraphV21 } from '../../../../mixer-graph-v21.ts';
 import { mixerEdgeCarriesSignalV21 } from '../../../../mixer-signal-edge-v21.ts';
 import { isSoundscaperProductionProject } from '../../../../project-schema-version.ts';
 import { resolveTerminalChannelWidths } from '../../../../terminal-channel-widths.ts';
-import { findControllerClip, findControllerSource, type ControllerProject, type ControllerTrack, type MutableControllerProject } from '../../track-domain-types.ts';
+import { isControllerPcmSource, type ControllerProject, type ControllerTrack, type MutableControllerProject } from '../../track-domain-types.ts';
 
 /** A retained pre-fader tap needs a print before the controls that distinguish both taps. */
 export function individualPreFaderPrintWidth(project: ControllerProject, track: ControllerTrack, renderEffects = true): number | null {
-	if (!isSoundscaperProductionProject(project)) return null;
-	const graph = normalizeMixerGraphV21(project.mixer);
+	return prepareIndividualPreFaderPrint(project).width(track, renderEffects);
+}
+
+/** This detached routing/automation index belongs to one owned Mix and Render operation. */
+export function prepareIndividualPreFaderPrint(project: ControllerProject, preparedGraph?: MixerGraphV21): Readonly<{
+	width(track: ControllerTrack, renderEffects?: boolean): number | null;
+	laneCommands(sourceId: string, targetId: string, createId: (prefix: string) => string): AudioEditorCommand[];
+}> {
+	if (!isSoundscaperProductionProject(project)) return { width: () => null,
+		laneCommands: (sourceId, targetId, createId) => individualPrintLaneCommands(project, sourceId, targetId, createId) };
+	const graph = preparedGraph ?? normalizeMixerGraphV21(project.mixer);
 	const lanes = automationLanes(project);
-	const carriesPre = graph.edges.some(edge => edge.source.kind === 'track' && edge.source.id === track.id
+	const trackLanes = new Map<string, AutomationLaneV21[]>();
+	for (const lane of lanes) if ((lane.address.kind === 'strip' || lane.address.kind === 'effect') && lane.address.strip.kind === 'track') {
+		const key = lane.address.strip.id, current = trackLanes.get(key);
+		if (current) current.push(lane); else trackLanes.set(key, [lane]);
+	}
+	const positiveEdges = new Set(lanes.flatMap(lane => lane.address.kind === 'edge'
+		&& lane.points.some(point => point.value > 0) ? [lane.address.edgeId] : []));
+	const preTracks = new Set(graph.edges.flatMap(edge => edge.source.kind === 'track'
 		&& edge.position === 'pre-fader' && mixerEdgeCarriesSignalV21(edge)
-		&& (edge.level > 0 || lanes.some(lane => lane.address.kind === 'edge' && lane.address.edgeId === edge.id
-			&& lane.points.some(point => point.value > 0))));
-	if (!carriesPre) return null;
-	const width = resolveTerminalChannelWidths(project, Number(project.masterChannels)).tracks.get(track.id)!;
-	const sourceWidths = new Set((track.clipIds ?? []).flatMap(id => {
-		const clip = findControllerClip(project, id);
-		const source = clip && findControllerSource(project, clip.sourceId);
-		return source ? [source.channelCount] : [];
-	}));
-	if (sourceWidths.size > 1) throw new RangeError('Individual Mix & Render cannot preserve pre-fader routing on a track with changing channel widths. Choose Mix down instead.');
-	if (width === 1 && renderEffects && track.effectsActive !== false && (track.effects ?? []).some(effect => {
-		if (effect.type !== 'reverb' || effect.enabled === false || effect.bypassed === true) return false;
-		const params = effect.params && typeof effect.params === 'object' && !Array.isArray(effect.params)
-			? effect.params as Readonly<Record<string, unknown>> : {};
-		return Number(params.mix ?? .2) > 0;
-	})) throw new RangeError('Individual Mix & Render cannot preserve pre-fader routing on a mono track with stereo reverb. Choose Mix down instead.');
-	return width;
+		&& (edge.level > 0 || positiveEdges.has(edge.id)) ? [edge.source.id] : []));
+	const widths = preTracks.size ? resolveTerminalChannelWidths(project, Number(project.masterChannels)).tracks : new Map<string, number>();
+	const clips = new Map(project.clips.map(clip => [clip.id, clip]));
+	const sources = new Map(project.sources.map(source => [source.id, source]));
+	const results = new Map<string, Map<boolean, number>>();
+	return { width, laneCommands: (sourceId, targetId, createId) => printLaneCommands(trackLanes.get(sourceId) ?? [], sourceId, targetId, createId) };
+	function width(track: ControllerTrack, renderEffects = true): number | null {
+		if (!preTracks.has(track.id)) return null;
+		const cached = results.get(track.id)?.get(renderEffects);
+		if (cached !== undefined) return cached;
+		const width = widths.get(track.id)!;
+		const sourceWidths = new Set((track.clipIds ?? []).flatMap(id => {
+			const clip = clips.get(id), source = clip && sources.get(clip.sourceId);
+			return source && isControllerPcmSource(source) ? [source.channelCount] : [];
+		}));
+		if (sourceWidths.size > 1) throw new RangeError('Individual Mix & Render cannot preserve pre-fader routing on a track with changing channel widths. Choose Mix down instead.');
+		if (width === 1 && renderEffects && track.effectsActive !== false && (track.effects ?? []).some(effect => {
+			if (effect.type !== 'reverb' || effect.enabled === false || effect.bypassed === true) return false;
+			const params = effect.params && typeof effect.params === 'object' && !Array.isArray(effect.params)
+				? effect.params as Readonly<Record<string, unknown>> : {};
+			return Number(params.mix ?? .2) > 0;
+		})) throw new RangeError('Individual Mix & Render cannot preserve pre-fader routing on a mono track with stereo reverb. Choose Mix down instead.');
+		const byEffects = results.get(track.id) ?? new Map<boolean, number>();
+		byEffects.set(renderEffects, width); results.set(track.id, byEffects);
+		return width;
+	}
 }
 
 /** Change only the private capture: bake clips/rack, leaving authored strip controls live. */
@@ -63,7 +88,12 @@ export function retainIndividualStripControls(track: ControllerTrack): Record<st
 
 export function individualPrintLaneCommands(project: ControllerProject, sourceId: string, targetId: string,
 	createId: (prefix: string) => string): AudioEditorCommand[] {
-	return automationLanes(project).flatMap((lane): AudioEditorCommand[] => {
+	return printLaneCommands(automationLanes(project), sourceId, targetId, createId);
+}
+
+function printLaneCommands(lanes: readonly AutomationLaneV21[], sourceId: string, targetId: string,
+	createId: (prefix: string) => string): AudioEditorCommand[] {
+	return lanes.flatMap((lane): AudioEditorCommand[] => {
 		if (sourceId === targetId) {
 			if (lane.address.kind !== 'effect' || lane.address.strip.kind !== 'track' || lane.address.strip.id !== sourceId) return [];
 			return [{ type: 'automation-lane/set', laneId: lane.id, expected: { ...lane }, lane: null }];

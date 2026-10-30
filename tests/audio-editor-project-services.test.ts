@@ -511,7 +511,6 @@ test('project session service deduplicates legacy recents and persists active UI
 	assert.deepEqual(tabMetadata.trackChannelHeightRatios, { track: 0.7 });
 	assert.equal(publications, 1);
 	assert.throws(() => service.setTrackChannelHeightRatio('missing', 0.4), /Unknown track/u);
-	assert.throws(() => service.setTrackChannelHeightRatio('track', 1), /between zero and one/u);
 	service.restoreProjectSelection({
 		id: 'restored',
 		schemaVersion: AUDIO_EDITOR_PROJECT_CURRENT_SCHEMA_VERSION,

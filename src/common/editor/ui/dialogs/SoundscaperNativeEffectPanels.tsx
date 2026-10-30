@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { useComponentCopy } from '@soundscaper/design-system/contexts/ComponentCopyContext';
+import { formatLocalizedTemplate } from '../localization-template.ts';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ProcessingButton as Button } from './ProcessingButton.tsx';
 import { ProcessingSearchField } from './ProcessingSearchField.tsx';
 import { Table } from '@soundscaper/design-system/Table/Table';
@@ -97,6 +99,8 @@ export function SoundscaperNativeEffectManagePanel({
 }
 
 function PluginInstanceControls({ copy, state, disabled, perform }: SoundscaperNativeEffectPanelProps) {
+	const { locale } = useComponentCopy();
+	const number = useMemo(() => new Intl.NumberFormat(locale), [locale]);
 	const instance = state.pluginInstance;
 	if (instance === null) return null;
 	const nextGeneration = state.pluginStateGeneration + 1;
@@ -111,7 +115,7 @@ function PluginInstanceControls({ copy, state, disabled, perform }: SoundscaperN
 			unavailable: copy.pluginParametersUnavailable,
 		}} />
 		<details className="kw-processing-details"><summary>{copy.pluginOfflineDetails}</summary>
-		<p>{`${instance.latencySamples} latency frames`}</p>
+		<p>{formatLocalizedTemplate(copy.latencyFrames, { count: number.format(instance.latencySamples) })}</p>
 		<Button variant="secondary" disabled={disabled} data-native-plugin-run-offline="true"
 			onClick={() => perform({ type: 'run-plugin-offline', instanceId: instance.instanceId })}
 		>{copy.runPluginOffline}</Button></details>
@@ -146,7 +150,7 @@ function PluginInstanceControls({ copy, state, disabled, perform }: SoundscaperN
 		<Button variant="secondary" disabled={disabled} data-native-plugin-close="true"
 			onClick={() => perform({ type: 'close-plugin', instanceId: instance.instanceId })}
 		>{copy.closePlugin}</Button>
-		{state.pluginOffline !== null && <p>{`${state.pluginOffline.blocksRendered} blocks rendered`}</p>}
+		{state.pluginOffline !== null && <p>{formatLocalizedTemplate(copy.blocksRendered, { count: number.format(state.pluginOffline.blocksRendered) })}</p>}
 	</section>;
 }
 

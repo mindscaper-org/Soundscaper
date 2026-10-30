@@ -10,6 +10,7 @@ import {
 import { createControllerTransportState } from '../transport/transport-state.ts';
 import {
 	createControllerEffectsState,
+	createControllerEffectsStateAccess,
 	createControllerEffectsStatePorts,
 	type ControllerEffectsState,
 } from '../effects/effects-state.ts';
@@ -64,7 +65,7 @@ export function createControllerOwnedStateComposition<Preferences, EffectPresets
 	});
 	return Object.freeze({
 		state,
-		effectsAccess: createOwnedStateAccess(state, effectsState),
+		effectsAccess: createControllerEffectsStateAccess(state, effectsState),
 		effectsStatePorts: createControllerEffectsStatePorts(effectsState),
 		recordingAccess: createOwnedStateAccess(state, recordingState),
 		transportAccess: createOwnedStateAccess(state, transportState),

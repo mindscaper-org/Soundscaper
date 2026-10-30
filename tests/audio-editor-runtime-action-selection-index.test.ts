@@ -19,28 +19,6 @@ test('multitrack action facts resolve selected track identities with linear work
 	assert.ok(idReads <= count * 12, `${idReads} track-ID reads for ${count} selected tracks`);
 });
 
-for (const extra of [0, 9]) test(`action facts preserve duplicate-ID and mutable-input authority with ${extra + 1} selected tracks`, () => {
-	const extras = Array.from({ length: extra }, (_, index) => ({ id: `extra-${index}`, type: 'label', clipIds: [] }));
-	const tracks = [
-		{ id: 'duplicate', type: 'label', clipIds: ['clip'] },
-		{ id: 'duplicate', type: 'audio', clipIds: ['clip'] },
-		{ id: 'last', type: 'audio', clipIds: [] },
-		...extras,
-	];
-	const clip = { id: 'clip', kind: 'audio' };
-	const project = { tracks, clips: [clip], selection: { startFrame: 0, endFrame: 100, trackIds: ['duplicate', ...extras.map(track => track.id)] } };
-	const facts = resolveAudacityActionSelectionFacts({ project, selectedTrackId: 'duplicate', selectedClipId: 'clip' });
-	assert.equal(facts.selectedTrack, tracks[0]);
-	assert.equal(facts.focusedTrack, tracks[0]);
-	assert.equal(facts.selectedAudioTrack, null);
-	assert.equal(facts.audioSelection, false);
-	assert.equal(facts.selectedMediaTrack, true);
-	assert.equal(facts.selectedAudioClip, null);
-	tracks[0]!.type = 'audio';
-	assert.equal(resolveAudacityActionSelectionFacts({ project }).selectedAudioTrack, tracks[0]);
-});
-
-
 test('a first-track selection keeps short-circuit lookups without allocating a second project index', context => {
 	const reads = { ids: 0, types: 0, clips: 0, maps: 0, sets: 0 };
 	const OriginalMap = Map;

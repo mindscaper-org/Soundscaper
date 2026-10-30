@@ -1,3 +1,4 @@
+import { expectClipTimeFrames, setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import {
 	captionLabels,
 	expect,
@@ -14,7 +15,6 @@ import { showClipTimingFields,
 	chooseFileAction,
 	chooseNestedCommandAction,
 	clipByName,
-	clipField,
 	closeClipProperties, closeDialog,
 	closeWorkspacePanel,
 	collectClientErrors,
@@ -252,7 +252,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		await importFiles(editor, [toneA, toneB]);
 		const clipDialog = await openClipProperties(page, editor, clipByName(editor, toneB.name));
 		await showClipTimingFields(clipDialog);
-		await commitInput(clipField(clipDialog, 'startFrame'), '4800000');
+		await setClipTimeFrames(clipDialog, 'startFrame', 4800000);
 		await closeClipProperties(clipDialog);
 
 		const timelineScroll = editor.locator('.audio-editor-timeline-scroll');
@@ -467,7 +467,7 @@ test.describe('audio editor React/design-system workflows', () => {
 			await expect(editor).toHaveAttribute('data-clip-count', '1');
 			await expect(clipByName(editor, 'Tone')).toHaveCount(1);
 			const clipDialog = await openClipProperties(page, editor, clipByName(editor, 'Tone'));
-			await expect(clipField(clipDialog, 'durationFrame')).toHaveValue('12000');
+			await expectClipTimeFrames(clipDialog, 'durationFrame', 12000);
 			await closeClipProperties(clipDialog);
 		});
 
@@ -477,7 +477,7 @@ test.describe('audio editor React/design-system workflows', () => {
 			editor = await waitForEditor(page);
 			await expect(editor).toHaveAttribute('data-clip-count', '1');
 			const clipDialog = await openClipProperties(page, editor, clipByName(editor, 'Tone'));
-			await expect(clipField(clipDialog, 'durationFrame')).toHaveValue('12000');
+			await expectClipTimeFrames(clipDialog, 'durationFrame', 12000);
 			await closeClipProperties(clipDialog);
 		});
 

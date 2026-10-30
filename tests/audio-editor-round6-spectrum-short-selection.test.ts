@@ -79,7 +79,7 @@ test('one full Plot Spectrum window keeps its exact calibration and repeat', asy
 	assert.deepEqual(f.errors, []);
 	assert.deepEqual(f.state.lastAnalysisRequest, { type: 'spectrum', scope: 'master', options: {} });
 	assert.deepEqual(await f.service.repeatLast(), report);
-	assert.equal(f.analyses(), 1, 'successful repeat retains its existing cache');
+	assert.equal(f.analyses(), 0, 'specialized repeat retains its report cache without unused levels');
 });
 
 test('short levels and clipping reports retain their ordinary valid analysis paths', async () => {
@@ -87,7 +87,7 @@ test('short levels and clipping reports retain their ordinary valid analysis pat
 	assert.ok(await f.service.run());
 	assert.ok(await f.service.findClipping());
 	assert.deepEqual(f.errors, []);
-	assert.equal(f.analyses(), 2);
+	assert.equal(f.analyses(), 1);
 	assert.equal(f.reportJobs(), 1);
 	assert.deepEqual(f.state.lastAnalysisRequest, { type: 'clipping', scope: 'master', options: {} });
 });

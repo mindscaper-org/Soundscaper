@@ -408,12 +408,12 @@ test('TIGER streams sparse four-channel chunks through bounded tensors and rolli
 				return tigerMasks(feeds.spectrum_ri!, [0, 0, 0]);
 			}), { waveStorage: storage },
 		)(workerContext(jobValue));
-
 		assert.deepEqual(result.outputs.map(({ byteLength }) => byteLength),
 			[storage.geometry.byteLength, storage.geometry.byteLength, storage.geometry.byteLength]);
 		assert.ok(storage.reads.length > 1);
 		assert.ok(storage.reads.every(({ frameCount: frames, channelCount }) =>
-			frames <= ASSISTANCE_TIGER_DNR_CHUNK_FRAMES && channelCount <= 2));
+			frames <= ASSISTANCE_TIGER_DNR_CHUNK_FRAMES && channelCount === storage.geometry.channelCount
+			&& frames * channelCount * Float32Array.BYTES_PER_ELEMENT <= 192 * 1024 ** 2));
 		assert.ok(tensors.length > 1);
 		assert.ok(tensors.every((dims) => dims[0]! <= 2
 			&& JSON.stringify(dims.slice(1)) === JSON.stringify([2, 1_025, 1_034])));

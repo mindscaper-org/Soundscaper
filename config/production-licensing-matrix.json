@@ -143,12 +143,12 @@
 		{
 			"lockPath": "node_modules/@modelcontextprotocol/node",
 			"name": "@modelcontextprotocol/node",
-			"version": "2.0.0",
+			"version": "2.1.0",
 			"license": "MIT",
 			"direct": true,
 			"role": "desktop-mcp-server-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "`@modelcontextprotocol/node` 2.0.0",
+			"noticeMarker": "`@modelcontextprotocol/node` 2.1.0",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		},
 		{
@@ -1447,6 +1447,22 @@
 			"evidence": ["docs/policies/licensing.md", "docs/architecture/native-services.md", "native/framescaper-media-host/build/ffmpeg-9.0.1-configure.json", "native/framescaper-media-host/tests/codec_closure_canary.cpp", ".github/workflows/framescaper-media-host-native-build.yml", "config/framescaper-media-host-payload-manifest.json"]
 		},
 		{
+			"id": "codec-encode-vp8-webm",
+			"kind": "codec-capability",
+			"operation": "encode",
+			"codec": "vp8",
+			"container": "webm",
+			"profile": "encode-webm-vp8",
+			"execution": "software",
+			"upstreamLicensing": "The native profile uses authenticated libvpx VP8 under BSD-3-Clause through the pinned FFmpeg GPL build.",
+			"agplCompatibilityDirection": "Permissive libvpx code combines into the FFmpeg GPL build and this AGPL-3.0-only work compatibly.",
+			"redistribution": "No native VP8-in-WebM encoder ships until libvpx source/notices, patent review, and payload evidence are recorded.",
+			"status": "blocked",
+			"blocker": "libvpx VP8 encode and WebM mux are enabled for authenticated build and testing, and the five-target producer owns source, notice, and binary verification; stable redistribution remains disabled by the recorded patent-distribution posture.",
+			"testActivation": "enabled",
+			"evidence": ["docs/policies/licensing.md", "docs/architecture/native-services.md", "native/framescaper-media-host/build/ffmpeg-9.0.1-configure.json", "native/framescaper-media-host/tests/codec_closure_canary.cpp", ".github/workflows/framescaper-media-host-native-build.yml", "config/framescaper-media-host-payload-manifest.json"]
+		},
+		{
 			"id": "codec-encode-vp9-webm",
 			"kind": "codec-capability",
 			"operation": "encode",
@@ -1459,6 +1475,22 @@
 			"redistribution": "No native VP9-in-WebM encoder ships until libvpx source/notices, patent review, and payload evidence are recorded.",
 			"status": "blocked",
 			"blocker": "libvpx-vp9 encode and WebM mux are enabled for authenticated build and testing, and the five-target producer owns source, notice, and binary verification; stable redistribution remains disabled by the recorded patent-distribution posture.",
+			"testActivation": "enabled",
+			"evidence": ["docs/policies/licensing.md", "docs/architecture/native-services.md", "native/framescaper-media-host/build/ffmpeg-9.0.1-configure.json", "native/framescaper-media-host/tests/codec_closure_canary.cpp", ".github/workflows/framescaper-media-host-native-build.yml", "config/framescaper-media-host-payload-manifest.json"]
+		},
+		{
+			"id": "codec-encode-av1-webm",
+			"kind": "codec-capability",
+			"operation": "encode",
+			"codec": "av1",
+			"container": "webm",
+			"profile": "encode-webm-av1",
+			"execution": "software",
+			"upstreamLicensing": "The native profile uses authenticated SVT-AV1 4.2.0 under BSD-3-Clause-Clear and the Alliance for Open Media Patent License 1.0 through the pinned FFmpeg GPL build.",
+			"agplCompatibilityDirection": "The SVT-AV1 BSD-3-Clause-Clear code combines into the FFmpeg GPL build and this AGPL-3.0-only work compatibly.",
+			"redistribution": "No native AV1-in-WebM encoder ships until SVT-AV1 source/notices, patent review, and payload evidence are recorded.",
+			"status": "blocked",
+			"blocker": "libsvtav1 encode and WebM mux are enabled for authenticated build and testing, and the five-target producer owns source, notice, and binary verification; stable redistribution remains disabled by the recorded patent-distribution posture.",
 			"testActivation": "enabled",
 			"evidence": ["docs/policies/licensing.md", "docs/architecture/native-services.md", "native/framescaper-media-host/build/ffmpeg-9.0.1-configure.json", "native/framescaper-media-host/tests/codec_closure_canary.cpp", ".github/workflows/framescaper-media-host-native-build.yml", "config/framescaper-media-host-payload-manifest.json"]
 		},

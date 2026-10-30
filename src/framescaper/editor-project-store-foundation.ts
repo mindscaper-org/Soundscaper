@@ -38,6 +38,7 @@ export interface FramescaperProjectStoreFoundationDefinition {
 	readonly repository: (
 		profile: unknown,
 		delegate: ProjectRepositoryPort,
+		port: StorageRepositoryPort,
 	) => ProjectRepositoryPort;
 }
 
@@ -109,6 +110,15 @@ export function framescaperProjectStoreFoundationAuthority(
 	return STORE_AUTHORITIES.get(store)!;
 }
 
+/** A product-authenticated desktop adapter retains its local media-store authority. */
+export function inheritFramescaperProjectStoreFoundationAuthority(
+	definition: FramescaperProjectStoreFoundationDefinition, store: unknown, adapter: AudioEditorProjectStore,
+): void {
+	const authority = framescaperProjectStoreFoundationAuthority(definition, store);
+	STORE_GENERATIONS.set(adapter, definition.token);
+	STORE_AUTHORITIES.set(adapter, authority);
+}
+
 function foundationRepositoryFactory(
 	definition: FramescaperProjectStoreFoundationDefinition,
 	delegateFactory: StorageRepositoryFactory,
@@ -124,7 +134,7 @@ function foundationRepositoryFactory(
 		}
 		const composed = Object.freeze({
 			...repositories,
-			projects: definition.repository(definition.profile, repositories.projects),
+			projects: definition.repository(definition.profile, repositories.projects, port),
 		}) as StorageRepositories;
 		recordAuthority(Object.freeze({ port, opfs: repositories.opfs ?? null }));
 		return composed;

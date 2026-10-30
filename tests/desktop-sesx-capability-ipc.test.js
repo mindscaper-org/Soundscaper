@@ -4,18 +4,23 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { registerFileCapabilityIpc } from '../desktop/main-file-capability-ipc.mjs';
-import { acceptsFile, validateFileChoice } from '../desktop/validation.js';
+import { acceptsFile, mimeTypeForPath, validateFileChoice } from '../desktop/validation.js';
 
 const SESSION_ID = 'a'.repeat(64);
 const ROOT_ID = 'b'.repeat(48);
 
-test('the desktop project picker admits SESX without changing project associations', async () => {
+test('the desktop project picker admits SES and SESX without changing project associations', async () => {
 	const choice = validateFileChoice({ purpose: 'project' });
 	assert.equal(choice.extensions.includes('sesx'), true);
+	assert.equal(choice.extensions.includes('ses'), true);
 	assert.equal(acceptsFile('project', '/session/song.sesx'), true);
+	assert.equal(acceptsFile('project', '/session/song.SES'), true);
 	assert.equal(acceptsFile('media', '/session/song.sesx'), false);
+	assert.equal(acceptsFile('media', '/session/song.ses'), false);
+	assert.equal(mimeTypeForPath('/session/song.SES'), 'application/octet-stream');
 	const { OPENABLE_PROJECT_EXTENSIONS } = await import('../desktop/file-associations.js');
 	assert.equal(OPENABLE_PROJECT_EXTENSIONS.includes('.sesx'), false);
+	assert.equal(OPENABLE_PROJECT_EXTENSIONS.includes('.ses'), false);
 });
 
 test('File Open titles the desktop chooser for projects and imported files', async () => {
@@ -37,20 +42,22 @@ test('File Open titles the desktop chooser for projects and imported files', asy
 	assert.equal(dialogOptions.title, 'Open file');
 	assert.ok(dialogOptions.filters[0].extensions.includes('wav'));
 	assert.ok(dialogOptions.filters[0].extensions.includes('sesx'));
+	assert.ok(dialogOptions.filters[0].extensions.includes('ses'));
 });
 
-test('selected SESX file creates a separate owner-scoped session grant', async () => {
+for (const extension of ['sesx', 'ses']) test(`selected ${extension.toUpperCase()} file creates a separate owner-scoped session grant`, async () => {
 	const calls = [];
 	const handlers = new Map();
 	const owner = {};
-	const descriptor = { id: SESSION_ID, name: 'song.sesx' };
+	const sessionPath = `/session/song.${extension}`;
+	const descriptor = { id: SESSION_ID, name: `song.${extension}` };
 	registerFileCapabilityIpc({
 		channels: {
 			chooseFiles: 'choose', releaseRead: 'read-release', sesxResolveMedia: 'sesx-resolve',
 			sesxChooseFolder: 'sesx-folder', sesxReleaseSession: 'sesx-release',
 			chooseSaveTarget: 'save', beginWrite: 'begin', writeChunk: 'chunk', patchFinalPrefix: 'prefix', finishWrite: 'finish', abortWrite: 'abort',
 		},
-		desktopSmokeProbe: { resolveOpenPaths: () => ['/session/song.sesx'], resolveSavePath: async () => null },
+		desktopSmokeProbe: { resolveOpenPaths: () => [sessionPath], resolveSavePath: async () => null },
 		dialog: { showOpenDialog: async () => ({ canceled: true, filePaths: [] }) },
 		handle: (channel, listener) => handlers.set(channel, listener),
 		opaqueId: (value, length) => {
@@ -72,7 +79,7 @@ test('selected SESX file creates a separate owner-scoped session grant', async (
 		saves: {}, saveTargets: {}, windowFor: () => null,
 	});
 	assert.deepEqual(await handlers.get('choose')({}, { purpose: 'project' }), [descriptor]);
-	assert.deepEqual(calls[1], ['session-register', SESSION_ID, '/session/song.sesx', { owner }]);
+	assert.deepEqual(calls[1], ['session-register', SESSION_ID, sessionPath, { owner }]);
 	assert.deepEqual(await handlers.get('sesx-folder')({}, { sessionReadId: SESSION_ID }), { status: 'selected', mediaRootId: ROOT_ID });
 	assert.deepEqual(await handlers.get('sesx-resolve')({}, { sessionReadId: SESSION_ID, relativePath: 'Audio/take.wav', mediaRootId: ROOT_ID }), { status: 'missing' });
 	assert.deepEqual(calls.at(-1), ['resolve', { owner, sessionReadId: SESSION_ID, relativePath: 'Audio/take.wav', mediaRootId: ROOT_ID }]);

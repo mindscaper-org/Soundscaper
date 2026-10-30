@@ -15,7 +15,17 @@ import { projectStripPanAvailable } from './terminal-channel-widths.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
 
+export interface TrackAutomationTargetPresentationV21 {
+	readonly group: 'track' | 'routing' | 'effect';
+	readonly effectType?: string;
+	readonly authoredGroup?: boolean;
+	readonly routeKind?: 'assignment' | 'send';
+	readonly destinationKind?: string;
+	readonly destinationName?: string;
+}
+
 export interface TrackAutomationTargetV21 {
+	readonly presentation?: TrackAutomationTargetPresentationV21;
 	readonly key: string;
 	readonly address: ParameterAddress;
 	readonly descriptor: ParameterDescriptor;
@@ -61,7 +71,7 @@ export function createTrackAutomationTargetInventoryV21(
 		result.push(target({
 			descriptor,
 			label,
-			groupLabel: 'Track',
+			groupLabel: 'Track', presentation: { group: 'track' },
 			effectId: null,
 			edgeId: null,
 			currentValue: nativeValue(own(track, parameterId), descriptor),
@@ -77,10 +87,12 @@ export function createTrackAutomationTargetInventoryV21(
 		if (!edgeId || (kind !== 'assignment' && kind !== 'send')
 			|| own(source, 'kind') !== 'track' || own(source, 'id') !== trackId) continue;
 		const descriptor = stripParameterDescriptor({ kind: 'edge', edgeId, parameterId: 'level' });
+		const destination = record(own(edge, 'destination'));
+		const destinationName = edgeDestinationLabel(mixer, destination);
 		result.push(target({
 			descriptor,
-			label: `${edgeDestinationLabel(mixer, record(own(edge, 'destination')))} ${kind}`,
-			groupLabel: 'Routing',
+			label: `${destinationName} ${kind}`,
+			groupLabel: 'Routing', presentation: { group: 'routing', routeKind: kind, destinationKind: String(own(destination, 'kind') ?? ''), destinationName },
 			effectId: null,
 			edgeId,
 			currentValue: nativeValue(own(edge, 'level'), descriptor),
@@ -103,7 +115,7 @@ export function createTrackAutomationTargetInventoryV21(
 		for (const descriptor of inventory.descriptors) result.push(target({
 			descriptor,
 			label: effectParameterLabel(descriptor.address),
-			groupLabel,
+			groupLabel, presentation: { group: 'effect', effectType: text(own(effect, 'type')) ?? '', authoredGroup: Boolean(text(own(effect, 'name')) ?? text(own(effect, 'title'))) },
 			effectId,
 			edgeId: null,
 			currentValue: effectValueForDescriptor(effect, descriptor),
@@ -116,7 +128,7 @@ export function createTrackAutomationTargetInventoryV21(
 			result.push(target({
 				descriptor,
 				label: effectParameterLabel(descriptor.address),
-				groupLabel,
+				groupLabel, presentation: { group: 'effect', effectType: text(own(effect, 'type')) ?? '', authoredGroup: Boolean(text(own(effect, 'name')) ?? text(own(effect, 'title'))) },
 				effectId,
 				edgeId: null,
 				currentValue: descriptor.defaultValue,
@@ -208,6 +220,7 @@ export function automationNormalizedToValueV21(
 
 function target(input: Readonly<{
 	descriptor: ParameterDescriptor;
+	presentation?: TrackAutomationTargetPresentationV21;
 	label: string;
 	groupLabel: string;
 	effectId: string | null;
@@ -223,6 +236,7 @@ function target(input: Readonly<{
 	}
 	return Object.freeze({
 		key,
+		...(input.presentation ? { presentation: Object.freeze(input.presentation) } : {}),
 		address: input.descriptor.address,
 		descriptor: input.descriptor,
 		label: input.label,

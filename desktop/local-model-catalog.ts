@@ -31,6 +31,7 @@ export const LOCAL_MODEL_TASKS = Object.freeze([
 	'face-detection',
 	'object-detection',
 	'saliency-detection',
+	'video-keying',
 	'optical-character-recognition',
 	'image-text-embedding',
 	'text-embedding',

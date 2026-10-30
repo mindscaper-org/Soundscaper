@@ -3,7 +3,7 @@
 import { randomUUID } from 'node:crypto';
 import { rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { ordinaryBrowserProductSitePlan } from '../../scripts/lib/browser-product-site-plan.mjs';
+import { resolveSoundscaperBrowserAssetsDirectory } from './helpers/production-build-paths.js';
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { addRackEffect, bootEditor, commitInput, importFiles, openEffectsForTrack, waitForEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
 
@@ -26,9 +26,8 @@ const OUTPUT_PROBE = `class DynamicsOutputProbe extends AudioWorkletProcessor {
 registerProcessor('dynamics-output-probe', DynamicsOutputProbe);`;
 
 test('a live Compressor release edit preserves the already audible recording at unchanged lookahead geometry', async ({ page }) => {
-	const [soundscaperSite] = ordinaryBrowserProductSitePlan().sites;
 	const probeName = `test-dynamics-output-${randomUUID()}.js`;
-	const probePath = resolve(soundscaperSite.outputDirectory, probeName);
+	const probePath = resolve(resolveSoundscaperBrowserAssetsDirectory(), probeName);
 	// Chromium worklet fetches bypass Playwright routing. Serve the owned probe
 	// from the disposable test site with Vite's normal origin/security headers.
 	await writeFile(probePath, OUTPUT_PROBE);
@@ -61,7 +60,7 @@ test('a live Compressor release edit preserves the already audible recording at 
 				}
 				return result;
 			};
-		}, `/${probeName}`);
+		}, `/assets/${probeName}`);
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [createWavFixture({ name: 'continuous Compressor recording.wav',
 			frequency: 1000, duration: 16, sampleRate: 48_000, channelCount: 1, channelAmplitudes: [.6] })]);

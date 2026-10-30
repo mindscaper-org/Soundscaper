@@ -19,8 +19,8 @@ const SITE_WORKFLOWS = new Map([
 		staticJobs: ['build', 'lint', 'typecheck', 'audits'],
 		buildJob: 'build',
 		gate: 'needs: build',
-		browserShardCount: 12,
-		firefoxShardCount: 12,
+		browserShardCount: 4,
+		firefoxShardCount: 3,
 	}],
 ]);
 
@@ -74,6 +74,16 @@ test('Playwright runs the maintained evergreen browser-engine matrix', async () 
 	assert.equal(config.use.serviceWorkers, 'block', 'ordinary browser tests must not install the offline shell');
 	assert.ok(config.testIgnore.includes('dual-origin/**'),
 		'the ordinary suite must not accidentally run the separately served dual-origin workflow');
+});
+
+test('native audio and video browser projects retain their single-worker admission bound outside CI', async () => {
+	delete process.env.CI;
+	const { default: config } = await import('../playwright.config.mjs?native-media-workers');
+	for (const name of ['firefox', 'webkit']) {
+		assert.equal(config.projects.find(project => project.name === name).workers, 1,
+			`${name} native audio clocks and decoder processes must not compete within a shard`);
+	}
+	assert.equal(config.projects.find(project => project.name === 'chromium').workers, undefined);
 });
 
 test('ordinary Playwright previews separately built Soundscaper, Framescaper and Motionscaper origins', async () => {
@@ -277,7 +287,7 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(browserJob, /matrix:\n\s+project: \[chromium, webkit\]/u);
 	assert.match(browserJob, /container:\n\s+image: mcr\.microsoft\.com\/playwright:v1\.62\.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e\n\s+options: --user 1001/u);
 	assert.match(browserJob, /npm install --global --prefix "\$HOME\/\.local" npm@12\.0\.1/u);
-	assert.match(browserJob, /name: verified-site-build/u);
+	assert.match(browserJob, /name: verified-soundscaper-browser-site-build/u);
 	assertEngineIsSharded(browserJob, `${label} browser`, 'npm run test:browser:built -- --project=${{ matrix.project }}', browserShardCount);
 	assert.match(browserJob, /--workers=\$\{\{ matrix\.project == 'webkit' && 1 \|\| 2 \}\}/u,
 		`${label} must give WebKit real-time audio one worker per shard`);
@@ -299,7 +309,7 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(firefoxJob, /ci-apt-install\.sh pulseaudio pulseaudio-utils/u);
 	assert.match(firefoxJob, /scripts\/ci-firefox-pulseaudio\.sh/u);
 	assert.match(firefoxJob, /node scripts\/ci-firefox-audio-clock\.mjs/u);
-	assert.match(firefoxJob, /name: verified-site-build/u);
+	assert.match(firefoxJob, /name: verified-soundscaper-browser-site-build/u);
 	assertEngineIsSharded(firefoxJob, `${label} firefox`, 'npm run test:browser:built -- --project=firefox', firefoxShardCount);
 	assert.ok(
 		firefoxJob.includes(`--shard=\${{ matrix.shard }}/${firefoxShardCount} --workers=1`),

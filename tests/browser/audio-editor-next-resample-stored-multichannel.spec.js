@@ -5,7 +5,7 @@ import { createSoundscaperProject } from '../../src/soundscaper/editor-project.t
 import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 import { createProjectStore } from '../../src/common/editor/storage.js';
-import { expectClipSampleRate } from './audio-editor-clip-settings-test-helpers.js';
+import { expectClipSampleRate, resampleClipFormat } from './audio-editor-clip-settings-test-helpers.js';
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 test('Clip Resample reads a long stored surround recording without dropping channels', async ({ page }) => {
@@ -23,18 +23,12 @@ test('Clip Resample reads a long stored surround recording without dropping chan
 	} finally { await store.close(); }
 	const editor = await bootEditor(page, '/embed/en/');
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Surround.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
-	await expect(editor).toHaveAttribute('data-project-id', project.id);
+	await expect(editor).toHaveAttribute('data-project-id', project.id, { timeout: 60_000 });
 	await expect(editor).not.toHaveAttribute('data-project-activation-pending', 'true');
-	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'import');
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
 	const properties = await openClipProperties(page, editor, editor.locator('[data-clip-id="clip"]').first());
-	await properties.getByRole('button', { name: 'Media settings', exact: true }).click();
-	await page.getByRole('menuitem', { name: 'Resample', exact: true }).click();
-	const dialog = page.getByRole('dialog', { name: 'Resample clip', exact: true });
-	await dialog.locator('[data-clip-resample-field="sampleRate"] input').fill('24000');
-	await dialog.getByRole('button', { name: 'Resample', exact: true }).click();
-	await expect(dialog).toHaveCount(0, { timeout: 60_000 });
-	// Applying closes the dialog before the stored six-channel resample finishes.
-	// Wait for its publication before opening a menu that processing can dismiss.
+	await resampleClipFormat(properties, 24_000);
+	// Wait for the stored six-channel replacement to be saved before Undo.
 	await expect.poll(async () => {
 		const current = await persistedProject(page, project.id);
 		const sourceId = current?.clips[0]?.sourceId;

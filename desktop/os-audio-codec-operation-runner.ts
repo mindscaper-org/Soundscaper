@@ -3,6 +3,7 @@
 /** Main-owned staging and one-shot utility-process supervision for reviewed OS audio codecs. */
 
 import { createHash } from 'node:crypto';
+import { DesktopCodecOperationQueue } from './desktop-codec-operation-queue.ts';
 import { isAbsolute, join } from 'node:path';
 
 import { readBoundedRegularFile } from './bounded-regular-file.ts';
@@ -178,7 +179,7 @@ export function createOperatingSystemAudioCodecOperationRunner(
 		options.killWaitMs ?? DEFAULT_KILL_WAIT_MS,
 		1, MAXIMUM_KILL_WAIT_MS, 'OS audio codec kill wait',
 	);
-	let active = false;
+	const jobs = new DesktopCodecOperationQueue(1);
 
 	return Object.freeze({
 		async execute(
@@ -193,15 +194,11 @@ export function createOperatingSystemAudioCodecOperationRunner(
 			}
 			const signal = executionSignal(executionOptions?.signal);
 			if (signal?.aborted) return unavailable('cancelled');
-			if (active) return unavailable('busy');
-			active = true;
-			try {
-				return await executeActive({
-					request, signal, scratchRoot: options.scratchRoot,
-					verifyAddon: options.verifyAddon, spawn: options.spawn,
-					maximumDurationMs, killWaitMs,
-				});
-			} finally { active = false; }
+			return jobs.run(() => executeActive({
+				request, signal, scratchRoot: options.scratchRoot,
+				verifyAddon: options.verifyAddon, spawn: options.spawn,
+				maximumDurationMs, killWaitMs,
+			}), { signal, refused: unavailable });
 		},
 	});
 }

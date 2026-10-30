@@ -8,6 +8,8 @@ import { createTremoloProcessor } from './tremolo-dsp.ts';
 import { createVocoderProcessor } from './vocoder-dsp.ts';
 import { createNoiseGateProcessor, createOfflineNoiseGateProcessor } from './noise-gate-dsp.ts';
 import { createStandardDelayProcessor } from './delay-dsp.ts';
+import { normalizeStandardModulationParams } from './modulation-definition.ts';
+import { normalizeNoiseGateParams } from './noise-gate-definition.ts';
 import type { StaffPadWasmRuntime } from '../../staffpad/runtime.js';
 import type { SelectionInputValidation } from '../../audacity-effects/pcm-channel-validation.ts';
 
@@ -43,9 +45,15 @@ export function applyStandardEffect(type: StandardEffectType, channels: readonly
 	params: Readonly<Record<string, unknown>> = {}, staffPadRuntime?: StaffPadWasmRuntime,
 	validation?: SelectionInputValidation): Float32Array[] {
 	const frames = validateChannels(channels, sampleRate, validation);
-	const options = { type, sampleRate, channelCount: channels.length, params, staffPadRuntime };
+	const admitted = type === 'tremolo' ? { ...normalizeStandardModulationParams(type, params) }
+		: type === 'noise-gate' ? normalizeNoiseGateParams(params) : params;
+	const options = { type, sampleRate, channelCount: channels.length, params: admitted, staffPadRuntime };
 	const processor: StandardEffectProcessor = type === 'noise-gate'
 		? createOfflineNoiseGateProcessor(options) : createStandardEffectProcessor(options);
+	if ((type === 'tremolo' && admitted.depth === 0) || (type === 'noise-gate' && admitted.rangeDb === 0)) {
+		processor.dispose?.();
+		return channels.map(channel => new Float32Array(channel));
+	}
 	const output = channels.map(() => new Float32Array(frames));
 	const latency = processor.latencyFrames ?? 0;
 	const blockSize = 1024;

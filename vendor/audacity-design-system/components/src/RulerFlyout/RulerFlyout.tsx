@@ -1,3 +1,4 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React from 'react';
 import { Icon } from '../Icon';
 import { LabeledRadio } from '../LabeledRadio';
@@ -154,7 +155,7 @@ export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
   triggerRef,
   className = '',
 }) => {
-  const { theme } = useTheme();
+  const { theme } = useTheme(); const { copy } = useComponentCopy();
   const flyoutRef = React.useRef<HTMLDivElement>(null);
   const zoomGroupRef = React.useRef<HTMLDivElement>(null);
   const radioGroupRef = React.useRef<HTMLDivElement>(null);
@@ -333,11 +334,11 @@ export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
 
       <div className="ruler-flyout__content">
         {/* Group 1: Zoom controls */}
-        <div ref={zoomGroupRef} className="ruler-flyout__toolbar" role="toolbar" aria-label="Zoom controls">
+        <div ref={zoomGroupRef} className="ruler-flyout__toolbar" role="toolbar" aria-label={copy.zoomControls}>
           <div className="ruler-flyout__toolbar-zoom">
             <button
               className="ruler-flyout__btn"
-              aria-label="Zoom in"
+              aria-label={copy.zoomIn}
               onClick={onZoomIn}
               tabIndex={-1}
             >
@@ -345,7 +346,7 @@ export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
             </button>
             <button
               className="ruler-flyout__btn"
-              aria-label="Zoom out"
+              aria-label={copy.zoomOut}
               onClick={onZoomOut}
               tabIndex={-1}
             >
@@ -354,23 +355,23 @@ export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
           </div>
           <button
             className="ruler-flyout__btn ruler-flyout__btn--reset"
-            aria-label="Reset zoom"
+            aria-label={copy.resetZoom}
             onClick={onReset}
             tabIndex={-1}
           >
             <Icon name="refresh" size={16} />
-            <span className="ruler-flyout__btn-label">Reset</span>
+            <span className="ruler-flyout__btn-label">{copy.reset}</span>
           </button>
         </div>
 
         {/* Group 2: Ruler format radio group */}
         <div className="ruler-flyout__format-section">
-          <div className="ruler-flyout__section-label">Ruler format</div>
-          <div ref={radioGroupRef} className="ruler-flyout__radio-group" role="radiogroup" aria-label="Ruler format">
+          <div className="ruler-flyout__section-label">{copy.rulerFormat}</div>
+          <div ref={radioGroupRef} className="ruler-flyout__radio-group" role="radiogroup" aria-label={copy.rulerFormat}>
             {radioOptions.map((opt) => (
               <LabeledRadio
                 key={opt.value}
-                label={opt.label}
+                label={(({ 'linear-amp': copy.linearAmplitude, 'linear-db': copy.linearDb, 'logarithmic-db': copy.logarithmicDb, linear: copy.linear, logarithmic: copy.logarithmic, period: copy.period } as Record<string, string>)[opt.value]) ?? opt.label}
                 name="ruler-format"
                 value={opt.value}
                 checked={checkedValue === opt.value}
@@ -388,9 +389,9 @@ export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
         {/* Group 3: Mode-specific options */}
         {mode === 'spectrogram' ? (
           <div ref={lastGroupRef} className="ruler-flyout__freq-section">
-            <div className="ruler-flyout__section-label">Frequency range</div>
+            <div className="ruler-flyout__section-label">{copy.frequencyRange}</div>
             <div className="ruler-flyout__freq-row">
-              <label className="ruler-flyout__freq-label">Min</label>
+              <label className="ruler-flyout__freq-label">{copy.minimum}</label>
               <FreqStepper
                 value={minFreq}
                 onCommit={(n) => onMinFreqChange?.(n)}
@@ -403,7 +404,7 @@ export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
               <span className="ruler-flyout__freq-unit">Hz</span>
             </div>
             <div className="ruler-flyout__freq-row">
-              <label className="ruler-flyout__freq-label">Max</label>
+              <label className="ruler-flyout__freq-label">{copy.maximum}</label>
               <FreqStepper
                 value={maxFreq}
                 onCommit={(n) => onMaxFreqChange?.(n)}
@@ -419,7 +420,7 @@ export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
         ) : (
           <div ref={lastGroupRef} className="ruler-flyout__checkbox-section">
             <LabeledCheckbox
-              label="Half wave"
+              label={copy.halfWave}
               checked={halfWave}
               onChange={onHalfWaveChange}
               tabIndex={-1}

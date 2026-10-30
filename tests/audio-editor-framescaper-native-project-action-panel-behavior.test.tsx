@@ -62,6 +62,12 @@ test('mounted delivery form submits exact 60000/1001 intent and reports alpha re
 			frameRate: { num: 60_000, den: 1_001 }, preserveAlpha: false,
 		});
 		assert.match(dom.one('[role="status"]').textContent, /alpha delivery was refused/iu);
+		await change(select, 'webm-av1');
+		await submit(form);
+		assert.deepEqual(calls[2], { kind: 'encoded-webm', codec: 'av1', quality: 'draft' });
+		await change(select, 'webm-vp9-alpha');
+		await submit(form);
+		assert.deepEqual(calls[3], { kind: 'encoded-webm', codec: 'vp9-alpha', quality: 'draft' });
 	} finally {
 		await act(async () => root.unmount());
 		actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;

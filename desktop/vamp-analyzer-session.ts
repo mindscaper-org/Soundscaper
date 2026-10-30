@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { captureVampAnalyzerSessionPcm, reviewVampAnalyzerBackendFeatures } from './vamp-analyzer-owned-session-data.ts';
+
 import { randomUUID } from 'node:crypto';
 
 import {
 	VAMP_ANALYZER_LIMITS,
 	admitVampAnalyzerConfiguration,
-	admitVampAnalyzerFeatures,
 	admitVampAnalyzerOutputs,
-	admitVampAnalyzerPcmChunk,
 	type VampAnalyzerConfiguration,
 	type VampAnalyzerFeature,
 	type VampAnalyzerOutputDescriptor,
@@ -173,13 +173,13 @@ export class DesktopVampAnalyzerSessions {
 		this.#available(session, 'configured');
 		const configuration = session.configuration;
 		if (configuration === null) throw new Error('The Vamp analyzer session is not configured.');
-		const chunk = admitVampAnalyzerPcmChunk({
+		const chunk = captureVampAnalyzerSessionPcm({
 			startFrame: request.startFrame, channels: request.channels,
 		}, configuration, session.nextFrame);
 		session.operation = 'process';
 		try {
 			const result = await session.backend.process(chunk);
-			const features = admitVampAnalyzerFeatures(result, session.outputs);
+			const features = reviewVampAnalyzerBackendFeatures(result, session.outputs);
 			this.#assertCurrent(session);
 			this.#admitFeatureCount(session, features.length);
 			session.nextFrame += chunk.frameCount;
@@ -201,7 +201,7 @@ export class DesktopVampAnalyzerSessions {
 		session.operation = 'finish';
 		try {
 			const result = await session.backend.finish();
-			const features = admitVampAnalyzerFeatures(result, session.outputs);
+			const features = reviewVampAnalyzerBackendFeatures(result, session.outputs);
 			this.#assertCurrent(session);
 			this.#admitFeatureCount(session, features.length);
 			session.state = 'finished';

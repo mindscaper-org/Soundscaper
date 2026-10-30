@@ -17,6 +17,10 @@ function record(value: unknown): Record<string, unknown> {
 	return value as Record<string, unknown>;
 }
 
+function dependencyInstallation(step: Record<string, unknown>): boolean {
+	return step.run === 'npm ci' || step.uses === './.github/actions/verified-node-dependencies';
+}
+
 test('every ARM runner installs native Node before installing dependencies', () => {
 	let checked = 0;
 	for (const name of readdirSync(resolve(root, '.github/workflows'))) {
@@ -41,8 +45,8 @@ test('every ARM runner installs native Node before installing dependencies', () 
 				}
 				const steps = job.steps as Record<string, unknown>[];
 				const setup = steps.findIndex((step) => step.uses === './.github/actions/setup-native-tooling');
-				const install = steps.findIndex((step) => step.run === 'npm ci');
-				assert.ok(setup >= 0 && setup < install, `${name}/${id} native tools before npm ci`);
+				const install = steps.findIndex(dependencyInstallation);
+				assert.ok(setup >= 0 && setup < install, `${name}/${id} native tools before installed dependency reuse or npm ci`);
 				checked += 1;
 			}
 		}
@@ -61,7 +65,7 @@ test('helper-backed nightly and AI asset jobs use native Node and tools', () => 
 			record(value)['runs-on'] === '${{ matrix.target.runner }}'));
 		const steps = job.steps as Record<string, unknown>[];
 		const setup = steps.findIndex((step) => step.uses === './.github/actions/setup-native-tooling');
-		assert.ok(setup >= 0 && setup < steps.findIndex((step) => step.run === 'npm ci'));
+		assert.ok(setup >= 0 && setup < steps.findIndex(dependencyInstallation));
 	}
 });
 

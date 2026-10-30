@@ -10,6 +10,7 @@ import {
 	type CrossProductHandoffLaunchIntentV1,
 } from '../../../../cross-product-handoff-intent.ts';
 import type { TransferRuntime } from '../../../../transfer/transfer-session.ts';
+import { saveHandoffArtifact, type HandoffSavePort } from './cross-product-handoff-save-target.ts';
 import {
 	boundCrossProductHandoffArchiveFileName,
 	CROSS_PRODUCT_HANDOFF_REPORT_SIDECAR_MIME_TYPE,
@@ -25,12 +26,7 @@ export interface CrossProductHandoffActionScope {
 	readonly assertProjectHandoffAllowed: () => unknown;
 	readonly flushProject: () => PromiseLike<unknown> | unknown;
 	readonly store: unknown;
-	readonly fileService: Readonly<{
-		saveFile(request: Readonly<{
-			purpose: 'project-copy' | 'report'; blob: Blob; suggestedName: string; mimeType: string;
-			signal: AbortSignal; useFileSystemAccess: boolean;
-		}>): PromiseLike<unknown> | unknown;
-	}>;
+	readonly fileService: Readonly<HandoffSavePort>;
 }
 
 export interface CrossProductHandoffActionDependencies {
@@ -105,7 +101,7 @@ export async function saveCrossProductEditableCopy(
 		report: exported.conversionReport,
 	});
 	const reportBytes = encodeCrossProductHandoffReportSidecar(sidecar);
-	const saved = await scope.fileService.saveFile({
+	const saved = await saveHandoffArtifact(scope.fileService, {
 		purpose: 'project-copy',
 		blob: exported.blob,
 		suggestedName: suggestedFileName,
@@ -124,7 +120,7 @@ export async function saveCrossProductEditableCopy(
 	try {
 		signal.throwIfAborted();
 		reportFileName = crossProductHandoffReportSidecarFileName(fileName);
-		const reportSaved = await scope.fileService.saveFile({
+		const reportSaved = await saveHandoffArtifact(scope.fileService, {
 			purpose: 'report',
 			blob: new Blob([reportBytes], { type: CROSS_PRODUCT_HANDOFF_REPORT_SIDECAR_MIME_TYPE }),
 			suggestedName: reportFileName,

@@ -3,6 +3,7 @@
 /** Bounded, VFR-preserving access to authenticated assistance RGBA frame packs. */
 
 import { readFile } from 'node:fs/promises';
+import { createAssistanceFramePackOrdinalRangeIndex } from '../src/common/editor/assistance/frame-pack-ordinal-range-index.ts';
 
 import {
 	type AssistanceVisualFramePackFrame,
@@ -104,6 +105,7 @@ export async function openAssistanceOnnxVisualFrameSourceV1(
 		|| timescale === null) {
 		throw new RangeError('Visual ONNX execution requires at least one reviewed frame.');
 	}
+	const locatePack = createAssistanceFramePackOrdinalRangeIndex(packs);
 	let cachedInputIndex = -1;
 	let cachedPackIndex = -1;
 	let cached: ReviewedAssistanceVisualFramePack | null = null;
@@ -116,8 +118,7 @@ export async function openAssistanceOnnxVisualFrameSourceV1(
 			if (!Number.isSafeInteger(ordinalValue) || ordinalValue < 0 || ordinalValue >= frames.length) {
 				throw new RangeError('A visual adapter requested a frame outside reviewed custody.');
 			}
-			const pack = packs.find(({ ordinalStart, frameCount }) => ordinalValue >= ordinalStart
-				&& ordinalValue < ordinalStart + frameCount)!;
+			const pack = locatePack(ordinalValue);
 			if (cachedInputIndex !== pack.inputIndex || cachedPackIndex !== pack.packIndex
 				|| cached === null) {
 				signal?.throwIfAborted();

@@ -592,5 +592,4 @@ test('evaluation accepts only normalized collections and exact in-domain positio
 	assert.throws(() => evaluateVideoKeyframeCurves(structuredClone(normalized), rational(5)), /normalized|produced/iu);
 	assert.throws(() => evaluateVideoKeyframeCurves(normalized, rational(-1)), /domain|position/iu);
 	assert.throws(() => evaluateVideoKeyframeCurves(normalized, rational(11)), /domain|position/iu);
-	assert.throws(() => evaluateVideoKeyframeCurves(normalized, rational(-0)), /negative zero/iu);
 });

@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { rebaseEditorCopyOrigin } from '../../common/i18n/editor-copy-origin.ts';
 
 import { Suspense } from 'react';
 
@@ -181,7 +182,7 @@ function snapshotPresentation(value: unknown): FramescaperWebEditorRuntimePresen
 }
 
 function framescaperCopy(value: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
-	return Object.freeze({
+	return rebaseEditorCopyOrigin({
 		...value,
 		title: copyText(value, 'framescaperTitle', copyText(value, 'title', 'Framescaper')),
 		eyebrow: copyText(value, 'framescaperEyebrow', copyText(value, 'eyebrow', 'Framescaper')),

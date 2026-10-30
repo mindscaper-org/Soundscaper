@@ -2,10 +2,9 @@
 /** Authenticated, frame-exact selected-video custody for explicit shot modes. */
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import {
-	normalizeAssistanceOperation,
-	type AssistanceOperation,
-} from '../../assistance/operation.ts';
+import { localAssistanceSelectedVideoPreparationRequest, type LocalAssistanceSelectedVideoPreparationRequest } from './internal/selected-video/local-assistance-selected-video-request.ts';
+export type { LocalAssistanceSelectedVideoPreparationRequest } from './internal/selected-video/local-assistance-selected-video-request.ts';
+import { reframePublicationSampleBudget } from '../../assistance/reframe-publication-capacity.ts';
 import {
 	isLocalAssistanceMediaType,
 	LOCAL_ASSISTANCE_INPUT_MEDIA_TYPES,
@@ -16,7 +15,6 @@ import {
 	type AssistanceSelectionFence,
 } from '../../assistance/proposal-session.ts';
 import {
-	normalizeLocalAssistanceShotDetectionMode,
 	type LocalAssistanceShotDetectionMode,
 } from '../../assistance/shot-detection-mode.ts';
 import {
@@ -72,8 +70,7 @@ const SELECTED_VIDEO_MODEL_OPERATIONS = new Set<LocalAssistanceSelectedVideoMode
 	'image-text-embedding', 'optical-character-recognition', 'subject-detection', 'saliency-detection',
 ]);
 const SELECTED_VIDEO_OPERATIONS = Object.freeze(
-	['shot-detection', ...SELECTED_VIDEO_MODEL_OPERATIONS] as const);
-type DataRecord = Readonly<Record<string, unknown>>;
+	['shot-detection', ...SELECTED_VIDEO_MODEL_OPERATIONS] as const);type DataRecord = Readonly<Record<string, unknown>>;
 
 interface SelectedVideoProject extends DataRecord {
 	readonly id: string;
@@ -157,12 +154,6 @@ export type LocalAssistanceSelectedVideoPrepared = LocalAssistanceSelectedVideoS
 		readonly selectionFence: AssistanceSelectionFence;
 	}> & LocalAssistanceSelectedVideoModelFramePackPrepared);
 
-export interface LocalAssistanceSelectedVideoPreparationRequest {
-	readonly sourceId: string; readonly operation: AssistanceOperation;
-	readonly shotDetectionMode?: LocalAssistanceShotDetectionMode;
-	readonly inputRole?: 'video' | 'frame-pack'; readonly signal?: AbortSignal;
-}
-
 export interface LocalAssistanceSelectedVideoPreparation {
 	listSelectedMedia(): Promise<Readonly<{ readonly sources: readonly Readonly<{
 		readonly sourceId: string;
@@ -194,7 +185,7 @@ export function createLocalAssistanceSelectedVideoPreparation(
 
 	async function prepareSelectedMedia(value: LocalAssistanceSelectedVideoPreparationRequest):
 	Promise<LocalAssistanceSelectedVideoPrepared> {
-		const request = preparationRequest(value);
+		const request = localAssistanceSelectedVideoPreparationRequest(value);
 		request.signal?.throwIfAborted();
 		if (request.operation !== 'shot-detection'
 			&& !SELECTED_VIDEO_MODEL_OPERATIONS.has(request.operation as LocalAssistanceSelectedVideoModelOperation)) {
@@ -251,7 +242,8 @@ export function createLocalAssistanceSelectedVideoPreparation(
 					? { createFramePack: dependencies.createVisualFramePack } : {}),
 			}, { operation: modelOperation, body: bytes,
 				timing: createLocalAssistanceSelectedVideoReframeFramePackTiming(
-					state.binding, shotAnchors,
+					state.binding, shotAnchors, request.publicationTarget === 'reframe'
+						? reframePublicationSampleBudget(selected.project, selected.clip) : undefined,
 				),
 				sourceWidth: integer(selected.source.width, 1, 'source width'),
 				sourceHeight: integer(selected.source.height, 1, 'source height'),
@@ -507,44 +499,6 @@ function timingSelectionFence(
 
 function digestValue(value: unknown): string {
 	return bytesToHex(sha256(UTF8.encode(JSON.stringify(value))));
-}
-
-function preparationRequest(value: unknown): Readonly<{
-	sourceId: string;
-	operation: AssistanceOperation;
-	shotDetectionMode: LocalAssistanceShotDetectionMode;
-	inputRole?: 'video' | 'frame-pack';
-	signal?: AbortSignal;
-}> {
-	const fields = ['sourceId', 'operation', 'shotDetectionMode', 'inputRole', 'signal'];
-	if (!value || typeof value !== 'object' || Array.isArray(value)
-		|| !Object.hasOwn(value, 'sourceId') || !Object.hasOwn(value, 'operation')
-		|| Reflect.ownKeys(value).some((key) => typeof key !== 'string' || !fields.includes(key))) {
-		throw new TypeError('Selected-video preparation requires its exact request.');
-	}
-	const record = value as DataRecord;
-	if (record.signal !== undefined && !(record.signal instanceof AbortSignal)) {
-		throw new TypeError('Selected-video preparation requires a valid cancellation signal.');
-	}
-	const operation = normalizeAssistanceOperation(record.operation);
-	if (operation !== 'shot-detection' && Object.hasOwn(record, 'shotDetectionMode')) {
-		throw new TypeError('Visual model preparation cannot carry a shot-detection mode.');
-	}
-	const inputRole = record.inputRole;
-	if (inputRole !== undefined && (operation !== 'shot-detection'
-		|| inputRole !== 'video' && inputRole !== 'frame-pack')) {
-		throw new TypeError('Selected-video input-role preparation is unsupported.');
-	}
-	const shotDetectionMode = Object.hasOwn(record, 'shotDetectionMode')
-		? normalizeLocalAssistanceShotDetectionMode(record.shotDetectionMode) : 'fast';
-	if (inputRole === 'frame-pack' && shotDetectionMode !== 'accurate') {
-		throw new TypeError('Frame-pack shot preparation requires Accurate mode.');
-	}
-	return Object.freeze({
-		sourceId: identifier(record.sourceId, 'requested source ID'),
-		operation, shotDetectionMode, ...(inputRole ? { inputRole } : {}),
-		...(record.signal ? { signal: record.signal } : {}),
-	});
 }
 
 function inputBound(value: unknown): number {

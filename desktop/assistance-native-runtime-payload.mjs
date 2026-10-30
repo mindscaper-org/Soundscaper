@@ -10,6 +10,7 @@ import {
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import retainedBuilds from '../config/assistance-sherpa-retained-builds.json' with { type: 'json' };
 import sherpaGpuRecipe from '../config/assistance-sherpa-gpu-build.json' with { type: 'json' };
 
 const TARGET_IDS = Object.freeze([
@@ -225,7 +226,9 @@ function validPackageSource(value, common) {
 		return plainRecord(source) && JSON.stringify(Object.keys(source).sort()) === JSON.stringify([
 			'recipeId', 'recipeSha256', 'sourceRevision', 'sourceSha256',
 		]) && source.sourceRevision === sherpaGpuRecipe.sourceRevision && source.sourceSha256 === pinned.sha256
-			&& source.recipeSha256 === digest(Buffer.from(JSON.stringify(sherpaGpuRecipe)))
+			&& (source.recipeSha256 === digest(Buffer.from(JSON.stringify(sherpaGpuRecipe)))
+				|| Object.values(retainedBuilds.targets).some(({ packageSha256 }) =>
+					packageSha256.includes(digest(Buffer.from(JSON.stringify(value))))))
 			&& value.sourceUrl === pinned.url && value.integrity === pinned.integrity
 			&& value.version === sherpaGpuRecipe.version;
 	}

@@ -1,3 +1,4 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 /**
  * NumberStepper - Number input with up/down arrows
  */
@@ -80,10 +81,10 @@ export const NumberStepper = React.forwardRef<HTMLInputElement, NumberStepperPro
   step = 1,
   min,
   max,
-  incrementLabel = 'Increase value',
-  decrementLabel = 'Decrease value',
+  incrementLabel,
+  decrementLabel,
 }, ref) => {
-  const { theme } = useTheme();
+  const { theme } = useTheme(); const { copy } = useComponentCopy();
   const [internalValue, setInternalValue] = useState(defaultValue);
   const [isFocused, setIsFocused] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -188,7 +189,7 @@ export const NumberStepper = React.forwardRef<HTMLInputElement, NumberStepperPro
           className="number-stepper__arrow number-stepper__arrow--up"
           // The glyph is a private-use codepoint in the icon font, so it is the
           // whole accessible name unless one is given, as BpmStepper's arrows do.
-          aria-label={incrementLabel}
+          aria-label={incrementLabel ?? copy.increaseValue}
           onClick={handleIncrement}
           disabled={disabled}
           tabIndex={-1}
@@ -198,7 +199,7 @@ export const NumberStepper = React.forwardRef<HTMLInputElement, NumberStepperPro
         <button
           type="button"
           className="number-stepper__arrow number-stepper__arrow--down"
-          aria-label={decrementLabel}
+          aria-label={decrementLabel ?? copy.decreaseValue}
           onClick={handleDecrement}
           disabled={disabled}
           tabIndex={-1}

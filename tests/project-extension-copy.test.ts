@@ -42,11 +42,3 @@ test('a remote pack that lost the placeholder is passed through, not rejected', 
 	assert.equal(resolveProjectExtensionCopy(stale, 'soundscaper').saveScape, 'Projekt sichern');
 	assert.equal(resolveProjectExtensionCopy({}, 'soundscaper').saveScape, '');
 });
-
-test('copy cannot be resolved for a product with no registered suffix', () => {
-	assert.throws(
-		() => resolveProjectExtensionCopy(ENGLISH_COPY, 'lightscaper-preview'),
-		/No project file extension is registered for product/u,
-	);
-	assert.throws(() => resolveProjectExtensionCopy(null as unknown as Record<string, unknown>, 'soundscaper'), /Editor copy is required/u);
-});

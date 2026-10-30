@@ -42,7 +42,7 @@ const MEDIA_INPUTS = Object.freeze([
 	'CMakeLists.txt', 'CMakePresets.json', 'build/external-source-authentication.mjs',
 	'build/ffmpeg-9.0.1-configure.json', 'build/ffmpeg-9.0.1-external-sources.json',
 	'build/media-build-commands.mjs', 'build/recipe-cli.mjs', 'build/recipe-driver.mjs',
-	'build/source-authentication.mjs', 'build/targets.json', 'build/windows-ffmpeg-pkg-config.cmake', 'build/windows-msvc-dependencies.awk', 'build/windows-vpx.pc', 'build/windows-x265.pc', 'build/windows-zlib-config.cmake',
+	'build/source-authentication.mjs', 'build/targets.json', 'build/windows-ffmpeg-pkg-config.cmake', 'build/windows-msvc-dependencies.awk', 'build/windows-vpx.pc', 'build/windows-vpx-project.sh', 'build/windows-x265.pc', 'build/windows-zlib-config.cmake',
 	...FRAMESCAPER_MEDIA_HOST_BUILD_TARGETS.map(({ toolchainFile }) => toolchainFile),
 ].sort());
 const OPENFX_INPUTS = Object.freeze([
@@ -83,7 +83,7 @@ test('both recipes own exactly five CI-generated targets and FFmpeg starts from 
 	assert.deepEqual(configuration.configureFlags, FRAMESCAPER_FFMPEG_CONFIGURE_FLAGS);
 	assert.deepEqual(configuration.policy, FRAMESCAPER_FFMPEG_POLICY);
 	assert.deepEqual(configuration.policy.externalLibraries,
-		['x264', 'x265', 'libvpx', 'libopus', 'zlib']);
+		['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib']);
 	assert.equal(configuration.policy.rawFfmpegArguments, false);
 	assert.equal(configuration.policy.network, false);
 	assert.match(configuration.configureFlags.join('\n'), /libx264.*libx265.*libvpx.*libopus.*zlib/isu);
@@ -117,7 +117,7 @@ test('all five media and OpenFX targets emit immutable closed dry-run recipes', 
 			'x265-configure', 'x265-build', 'x265-install', ...(target.id.startsWith('win-') ? ['x265-normalize-library', 'x265-normalize-pkg-config'] : []),
 			'libvpx-configure', 'libvpx-build', 'libvpx-install',
 			...(target.id.startsWith('win-') ? ['libvpx-normalize-library', 'libvpx-normalize-pkg-config'] : []),
-			'libopus-configure', 'libopus-build', 'libopus-install',
+			'svt-av1-configure', 'svt-av1-build', 'svt-av1-install', 'libopus-configure', 'libopus-build', 'libopus-install',
 			'ffmpeg-configure', ...(target.id.startsWith('win-') ? ['ffmpeg-prepare-dependencies'] : []), 'ffmpeg-build', 'ffmpeg-install', ...(target.id.startsWith('win-') ? ['ffmpeg-normalize-pkg-config'] : []), 'host-configure', 'host-build',
 			'host-install',
 		], SOURCE_DATE_EPOCH);
@@ -486,7 +486,7 @@ function provisionToolchain(root, kind, target) {
 	const directory = join(root, 'toolchain');
 	mkdirSync(directory);
 	const roles = kind === 'media'
-		? ['ar', 'c', 'cmake', 'cxx', 'make', 'ninja', 'pkgConfig', 'ranlib', 'shell',
+		? ['ar', 'c', 'cmake', 'cxx', 'make', 'ninja', 'pkgConfig', 'ranlib', 'shell', ...(target.id.endsWith('-x64') ? ['nasm'] : []),
 			...(target.id.startsWith('win-') ? ['msbuild', 'rc'] : [])]
 		: ['c', 'cmake', 'cxx', 'ninja'];
 	const executables = {};

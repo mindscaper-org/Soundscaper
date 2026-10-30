@@ -15,6 +15,7 @@ import {
 	classifyNodeTestFiles,
 	listNodeTestFiles,
 	partitionNodeTestExecutionBatches,
+	partitionNodeTestFiles,
 	parseNodeTestSelection,
 	selectNodeTestFiles,
 } from '../scripts/lib/node-test-shards.mjs';
@@ -22,6 +23,21 @@ import { extractJob, readWorkflow } from './helpers/workflow-jobs.js';
 
 const ROOT = new URL('../', import.meta.url).pathname.replace(/\/$/u, '');
 const SHARDED_WORKFLOWS = ['quality.yml', 'desktop-preview.yml'];
+const rootTestFiles = Object.freeze(listNodeTestFiles(ROOT));
+let rootPartitions;
+function selectedRootTests(shard) {
+	rootPartitions ??= new Map([...partitionNodeTestFiles(ROOT, rootTestFiles)]
+		.map(([id, files]) => [id, Object.freeze(files)]));
+	return [...(rootPartitions.get(shard) ?? [])];
+}
+function rootOwners() {
+	return new Map([
+		['common', [...selectedRootTests('common-1'), ...selectedRootTests('common-2')].sort()],
+		['framescaper', selectedRootTests('framescaper')],
+		['soundscaper', selectedRootTests('soundscaper')],
+	]);
+}
+
 const workspaces = [];
 
 after(() => {
@@ -29,10 +45,10 @@ after(() => {
 });
 
 test('every Node test file belongs to exactly one shard', () => {
-	const everyTestFile = listNodeTestFiles(ROOT);
+	const everyTestFile = rootTestFiles;
 	assert.ok(everyTestFile.length > 0, 'expected the suite to discover test files');
 
-	const sharded = NODE_TEST_SHARD_IDS.flatMap((shard) => selectNodeTestFiles(ROOT, { shard }));
+	const sharded = NODE_TEST_SHARD_IDS.flatMap((shard) => selectedRootTests(shard));
 	assert.deepEqual(
 		[...sharded].sort(),
 		everyTestFile,
@@ -42,9 +58,9 @@ test('every Node test file belongs to exactly one shard', () => {
 });
 
 test('the common execution shards partition every shared test without changing ownership', () => {
-	const common = classifyNodeTestFiles(ROOT).get('common');
-	const first = selectNodeTestFiles(ROOT, { shard: 'common-1' });
-	const second = selectNodeTestFiles(ROOT, { shard: 'common-2' });
+	const common = rootOwners().get('common');
+	const first = selectedRootTests('common-1');
+	const second = selectedRootTests('common-2');
 	assert.deepEqual([...first, ...second].sort(), common);
 	assert.equal(new Set([...first, ...second]).size, common.length);
 	assert.ok(first.length > common.length * 0.4, 'the first shard must carry a meaningful share');
@@ -68,7 +84,7 @@ test('no Node test hides in a subdirectory where no shard would find it', async 
 });
 
 test('a test is shelved with the product whose own tree it reaches into', () => {
-	const shards = classifyNodeTestFiles(ROOT);
+	const shards = rootOwners();
 	const named = (shard, name) => shards.get(shard).some((file) => basename(file) === name);
 
 	assert.ok(
@@ -93,7 +109,7 @@ test('shard classification does not follow the shared tree into either product',
 	// src/common/editor imports from both products (the lazy product bootstraps in
 	// src/common/site/App.jsx, the Framescaper dialog models, the Soundscaper
 	// longform workload). Following those would put every test in one shard.
-	const sharedOnly = listNodeTestFiles(ROOT).filter(
+	const sharedOnly = rootTestFiles.filter(
 		(file) => basename(file) === 'audio-editor-clip-property-service.test.ts',
 	);
 	assert.equal(sharedOnly.length, 1, 'expected the shared clip-property test to exist');
@@ -117,6 +133,9 @@ test('a product reference reached only through a helper still shelves the test',
 		writeFileSync(join(root, 'tests', name), source);
 		assert.equal(classifyNodeTestFile(root, join(root, 'tests', name)), 'framescaper', name);
 	}
+	const expected = ['imports.test.ts', 'requires.test.js'].map(name => join(root, 'tests', name));
+	assert.deepEqual(selectNodeTestFiles(root, { shard: 'framescaper' }), expected);
+	assert.deepEqual(selectNodeTestFiles(root), expected);
 });
 
 test('one classification reads shared cyclic helpers once and keeps each product closure separate', (context) => {
@@ -174,13 +193,13 @@ test('the real-time desktop protocol probe runs outside the parallel Node batch'
 	);
 	assert.deepEqual(partitionNodeTestExecutionBatches([realTime]), [[realTime]]);
 
-	const discovered = listNodeTestFiles(ROOT).filter(
+	const discovered = rootTestFiles.filter(
 		(file) => basename(file) === 'desktop-parallel-stack-protocol.test.ts',
 	);
 	assert.equal(discovered.length, 1, 'the real-time protocol probe must remain discoverable');
-	const shard = NODE_TEST_SHARD_IDS.find((id) => selectNodeTestFiles(ROOT, { shard: id }).includes(discovered[0]));
+	const shard = NODE_TEST_SHARD_IDS.find((id) => selectedRootTests(id).includes(discovered[0]));
 	assert.ok(shard, 'the real-time protocol probe must belong to a shard');
-	const selected = selectNodeTestFiles(ROOT, { shard });
+	const selected = selectedRootTests(shard);
 	const batches = partitionNodeTestExecutionBatches(selected);
 	assert.deepEqual(batches.flat().sort(), [...selected].sort(), 'batching must retain every selected test exactly once');
 	assert.deepEqual(batches[0], discovered, 'the discovered real-time protocol probe must be the first singleton');
@@ -190,7 +209,7 @@ test('the archived Electron progress test runs alone before the parallel Node ba
 	const progress = '/repository/tests/desktop-nightly-tests-progress-archive.test.ts';
 	const ordinary = '/repository/tests/ordinary.test.js';
 	assert.deepEqual(partitionNodeTestExecutionBatches([ordinary, progress]), [[progress], [ordinary]]);
-	const selected = selectNodeTestFiles(ROOT, { shard: 'common-1' });
+	const selected = selectedRootTests('common-1');
 	const batches = partitionNodeTestExecutionBatches(selected);
 	const discovered = selected.find((file) => basename(file) === basename(progress));
 	assert.ok(discovered);
@@ -228,7 +247,7 @@ for (const workflowName of SHARDED_WORKFLOWS) {
 
 test('the Electron protocol test shard restores its native binary before running', async () => {
 	const testFile = 'desktop-parallel-stack-protocol.test.ts';
-	const shard = NODE_TEST_SHARD_IDS.find((id) => selectNodeTestFiles(ROOT, { shard: id })
+	const shard = NODE_TEST_SHARD_IDS.find((id) => selectedRootTests(id)
 		.some((file) => basename(file) === testFile));
 	assert.ok(shard, `${testFile} must belong to a Node test shard`);
 	const job = extractJob(await readWorkflow('quality.yml'), 'tests');

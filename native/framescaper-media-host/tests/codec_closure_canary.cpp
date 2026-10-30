@@ -18,12 +18,12 @@ namespace {
 [[nodiscard]] bool closed_component_set_is_present() {
 	bool present = true;
 	for (const auto* name : {
-		"h264", "hevc", "vp9", "av1", "prores", "dnxhd", "png", "tiff", "exr",
+		"h264", "hevc", "vp8", "vp9", "libvpx-vp9", "av1", "prores", "dnxhd", "png", "tiff", "exr",
 	}) if (avcodec_find_decoder_by_name(name) == nullptr) {
 		std::cerr << "missing decoder " << name << '\n'; present = false;
 	}
 	for (const auto* name : {
-		"libx264", "libx265", "libvpx-vp9", "prores_ks", "dnxhd", "ffv1", "png",
+		"libx264", "libx265", "libvpx", "libvpx-vp9", "libsvtav1", "prores_ks", "dnxhd", "ffv1", "png",
 		"tiff", "exr", "aac", "libopus", "pcm_s16le", "flac",
 	}) if (avcodec_find_encoder_by_name(name) == nullptr) {
 		std::cerr << "missing encoder " << name << '\n'; present = false;
@@ -44,7 +44,7 @@ namespace {
 		}
 	}
 	for (const auto codec : {
-		AV_CODEC_ID_H264, AV_CODEC_ID_HEVC, AV_CODEC_ID_VP9, AV_CODEC_ID_AV1, AV_CODEC_ID_PNG,
+		AV_CODEC_ID_H264, AV_CODEC_ID_HEVC, AV_CODEC_ID_VP8, AV_CODEC_ID_VP9, AV_CODEC_ID_AV1, AV_CODEC_ID_PNG,
 	}) {
 		auto* parser = av_parser_init(codec);
 		if (parser == nullptr) {

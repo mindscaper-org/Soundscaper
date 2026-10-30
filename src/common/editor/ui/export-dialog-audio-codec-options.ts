@@ -2,6 +2,7 @@
 
 /** Pure option projection shared by the browser and desktop export dialog. */
 
+import { desktopCodecMessage, type DesktopCodecCopy } from '../desktop-codec-presentation.ts';
 import {
 	desktopExportBitRates,
 	desktopExportFlacSampleFormats,
@@ -155,11 +156,11 @@ export function exportDialogBitRateSelectionReason(
 	format: unknown,
 	bitRate: unknown,
 	options: readonly DialogOption[],
-	desktop: boolean,
+	desktop: boolean, copy?: DesktopCodecCopy,
 ): string | null {
 	if (!desktop || !['mp3', 'opus', 'mp2', 'aac-m4a'].includes(String(format))
 		|| options.some(({ value }) => value === String(bitRate))) return null;
-	return 'The selected bitrate would be changed by this codec at the current sample rate and channel count.';
+	return copy ? desktopCodecMessage('codecBitrate', copy) : 'The selected bitrate would be changed by this codec at the current sample rate and channel count.';
 }
 
 export function exportDialogVorbisQualityOptions(desktop: boolean): readonly DialogOption[] {

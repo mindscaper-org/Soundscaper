@@ -9,6 +9,7 @@ const SOURCE_MODULES = new Map([
 	['common/editor/closed-domain-value.ts', '../../src/common/editor/closed-domain-value.ts'],
 	['common/editor/native-external-display.ts', '../../src/common/editor/native-external-display.ts'],
 	['common/editor/native-validation.ts', '../../src/common/editor/native-validation.ts'],
+	['common/editor/video-chroma-key.ts', '../../src/common/editor/video-chroma-key.ts'],
 	['common/editor/video-clip-composition.ts', '../../src/common/editor/video-clip-composition.ts'],
 	['common/editor/video-delivery-color.ts', '../../src/common/editor/video-delivery-color.ts'],
 	['common/editor/video-preview-render-description.ts', '../../src/common/editor/video-preview-render-description.ts'],

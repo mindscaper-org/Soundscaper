@@ -30,7 +30,7 @@ export const MILESTONE_5_NATIVE_SOURCE_IDS = Object.freeze([
 	'ladspa-sdk', 'lv2',
 	'x264',
 	'x265',
-	'libvpx',
+	'libvpx', 'svt-av1',
 	'libopus', 'zlib',
 ]);
 
@@ -509,7 +509,7 @@ function validateFramescaperExternalSourceClosure(register, delegatedBytes) {
 	assert(manifest.schemaVersion === 1, 'The FFmpeg external-source schemaVersion must be 1.');
 	assert(manifest.activation === 'test-enabled',
 		'FFmpeg external-source activation must stay enabled for authenticated build/test use.');
-	const expectedIds = ['x264', 'x265', 'libvpx', 'libopus', 'zlib'];
+	const expectedIds = ['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib'];
 	assertExactIds(manifest.libraries, expectedIds, 'FFmpeg external library');
 	for (const library of manifest.libraries) {
 		const source = requireMilestone5NativeSource(register, library.id);

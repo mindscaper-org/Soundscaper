@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { annotateFormatFileFailure } from './format-file-parser-failure.ts';
+
 // The Audacity 4 database and document profile constants, the error the AUP4
 // surfaces raise, and the scalar guards every AUP4 value is validated through.
 // Split out of aup4-profile.js so the profile itself shows the document it
@@ -19,6 +21,7 @@ export class Aup4Error extends Error {
 		super(message, options);
 		this.name = 'Aup4Error';
 		this.code = code;
+		annotateFormatFileFailure(this, 'audacity-database', code);
 	}
 }
 

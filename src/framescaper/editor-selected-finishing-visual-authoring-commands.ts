@@ -1,3 +1,4 @@
+import { visualAuthoringBoundFailure } from './editor-selected-visual-validation.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { exportSequenceProject } from '../common/editor/export-sequence-project.ts';
@@ -529,7 +530,7 @@ function nonNegativeInteger(value: unknown, name: string): number {
 
 function bounded(value: unknown, minimum: number, maximum: number, name: string): number {
 	if (typeof value !== 'number' || !Number.isFinite(value) || value < minimum || value > maximum) {
-		throw new RangeError(`${name} is outside its finite bound.`);
+		throw visualAuthoringBoundFailure(new RangeError(`${name} is outside its finite bound.`), name, minimum, maximum);
 	}
 	return Object.is(value, -0) ? 0 : value;
 }

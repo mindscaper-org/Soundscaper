@@ -5,6 +5,9 @@ import { confirmFileSizeWarning } from '../../../shared/file-size-warning.ts';
 import { desktopReadCapabilityIdFor } from '../../../../desktop-read-capability-registry.ts';
 import { decodeBomMarkedUtf16 } from '../../../../bom-marked-text.ts';
 import { SESX_XML_MAXIMUM_BYTES } from '../../../../sesx-format.ts';
+import { SES_BINARY_MAXIMUM_BYTES } from '../../../../ses-format.ts';
+import { parseSesDocument } from '../../../../ses-import.ts';
+import { buildSesProject } from '../../../../ses-import-project.ts';
 import { sesxAudioReferences, parseSesxDocument, type SesxAudioReference } from '../../../../sesx-import.ts';
 import { buildSesxProject, type SesxDecodedMediaInfo } from '../../../../sesx-import-project.ts';
 import { dawprojectImportedAudioMimeType } from '../../../../dawproject-import-project.ts';
@@ -30,18 +33,19 @@ export interface SesxOpenResult extends Readonly<Record<string, unknown>> {
 	readonly report: unknown;
 }
 
-/** Desktop-only SESX open with a session-scoped media capability and staged PCM. */
+/** Desktop Audition XML or legacy binary open with scoped media access and staged PCM. */
 export function createSesxService(runtime: NativeProjectServiceRuntime, helpers: SesxServiceHelpers) {
 	return Object.freeze({ openSesx });
 
 	async function openSesx(file: NativeProjectFile): Promise<SesxOpenResult | undefined> {
-		if (!file || !/\.sesx$/iu.test(String(file.name || ''))) {
-			throw new TypeError('Choose an Adobe Audition session (.sesx).');
+		if (!file || !/\.sesx?$/iu.test(String(file.name || ''))) {
+			throw new TypeError('Choose a Cool Edit or Adobe Audition session (.ses or .sesx).');
 		}
+		const legacy = /\.ses$/iu.test(file.name);
 		const files = runtime.fileService;
-		if (!files.isDesktop) throw new Error('Adobe Audition SESX import requires the desktop app.');
+		if (!files.isDesktop) throw new Error(`Adobe Audition ${legacy ? 'SES' : 'SESX'} import requires the desktop app.`);
 		const sessionReadId = desktopReadCapabilityIdFor(file);
-		if (!sessionReadId) throw new Error('Open the SESX session through desktop File > Open to grant media access.');
+		if (!sessionReadId) throw new Error(`Open the ${legacy ? 'SES' : 'SESX'} session through desktop File > Open to grant media access.`);
 		try {
 			const resolveMedia = files.resolveSesxMedia;
 			const chooseFolder = files.chooseSesxMediaFolder;
@@ -59,9 +63,10 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 			helpers.beginImport(operation.task);
 			setLocalizedStatus(runtime.setStatus, runtime.copy, 'importing');
 			try {
-				const maximumBytes = await confirmFileSizeWarning(file.size, SESX_XML_MAXIMUM_BYTES, file.name, {
+				const maximumBytes = await confirmFileSizeWarning(file.size, legacy ? SES_BINARY_MAXIMUM_BYTES : SESX_XML_MAXIMUM_BYTES, file.name, {
 					confirmFileSizeWarning: runtime.confirmFileSizeWarning, signal, assertCurrent: assertReady });
-				const document = parseSesxDocument(await readSesxText(file), { maximumBytes });
+				const ses = legacy ? parseSesDocument(new Uint8Array(await file.arrayBuffer()), { maximumBytes }) : null;
+				const document = ses?.document ?? parseSesxDocument(await readSesxText(file), { maximumBytes });
 				assertReady();
 				const references = sesxAudioReferences(document);
 				const media = new Map<string, SesxDecodedMediaInfo | null>();
@@ -128,9 +133,10 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 				}, (reference, status) => {
 					if (status === 'ambiguous' || status === 'scan-limited') resolutionIssues.set(reference.id, status);
 				});
-				const plan = buildSesxProject(document, {
+				const importOptions = {
 					fileName: String(file.name), media, resolutionIssues, stagedSourceIds, sourceProvenance, createStableId: runtime.createStableId,
-				});
+				};
+				const plan = ses ? buildSesProject(ses, importOptions) : buildSesxProject(document, importOptions);
 				const created = createCurrentAudioEditorProject(plan.project as never);
 				importedProject = runtime.adaptAudacityProject
 					? await runtime.adaptAudacityProject(created)
@@ -145,7 +151,11 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 				operation.task.assertCurrent();
 				runtime.projectGeneration.capture(importedProject.id);
 				runtime.state.deliveryReport = plan.report;
-				setLocalizedStatus(runtime.setStatus, runtime.copy, 'sesxOpened', undefined, 'success', { fallback: 'Adobe Audition session imported.' });
+				setLocalizedStatus(runtime.setStatus, runtime.copy, 'sesxOpened', undefined, 'success', {
+					fallback: 'Adobe Audition session imported.',
+					...(legacy ? { append: [' ', { key: 'fileMenu', fallback: 'File' },
+						' > ', { key: 'deliveryReport', fallback: 'Delivery Report' }] } : {}),
+				});
 				runtime.publishDocumentSnapshot();
 				return Object.freeze({ project: importedProject, report: plan.report });
 			} catch (error) {

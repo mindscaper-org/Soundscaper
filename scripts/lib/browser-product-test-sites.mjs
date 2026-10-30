@@ -51,22 +51,27 @@ export async function buildBrowserProductSite(site) {
 	], environment, `generate the ${site.productId} offline shell`);
 	checkBuildChunks(outputDirectory);
 	await recordBrowserProductSiteEvidence(site);
-	await verifyBrowserProductSite(site);
+	await verifyBrowserProductSite(site, { sourceMaps: true });
 }
 
 /**
- * Authenticate the downloaded Framescaper artifact, then make a verified,
- * disposable Soundscaper copy without changing either production artifact.
+ * Authenticate prepared consumer artifacts, or create the Soundscaper copy once
+ * in the build producer without changing either production artifact.
  */
 export async function prepareOrdinaryBrowserProductSites(
 	plan = ordinaryBrowserProductSitePlan(),
-	{ soundscaperBuildDirectory = 'dist' } = {},
+	{ soundscaperBuildDirectory = 'dist', reusePrepared = false,
+		sourceMaps = process.env.SCAPE_BROWSER_COVERAGE === '1' } = {},
 ) {
 	assertPlan(plan);
 	const soundscaper = siteFor(plan, 'soundscaper');
 	const framescaper = siteFor(plan, 'framescaper');
-	await verifyBrowserProductSite(framescaper);
-	await verifyBrowserProductSite(siteFor(plan, 'motionscaper'));
+	await verifyBrowserProductSite(framescaper, { sourceMaps });
+	await verifyBrowserProductSite(siteFor(plan, 'motionscaper'), { sourceMaps });
+	if (reusePrepared) {
+		await verifyBrowserProductSite(soundscaper, { sourceMaps });
+		return;
+	}
 
 	const source = resolve(repositoryRoot, soundscaperBuildDirectory);
 	const destination = resolve(repositoryRoot, soundscaper.outputDirectory);
@@ -75,13 +80,13 @@ export async function prepareOrdinaryBrowserProductSites(
 	await cp(source, destination, { recursive: true, force: true, errorOnExist: false });
 	await copyBuildSourceMaps(source, destination);
 	await recordBrowserProductSiteEvidence(soundscaper);
-	await verifyBrowserProductSite(soundscaper);
+	await verifyBrowserProductSite(soundscaper, { sourceMaps });
 }
 
 /** Verify build bytes against the current checkout without coupling readers to Vite. */
-export function verifyBrowserProductSite(site) {
+export function verifyBrowserProductSite(site, { sourceMaps = process.env.SCAPE_BROWSER_COVERAGE === '1' } = {}) {
 	assertSite(site);
-	return verifyBrowserProductBuildEvidence({ ...site, outputDirectory: resolve(repositoryRoot, site.outputDirectory), sourceRevision: repositoryRevision(repositoryRoot) });
+	return verifyBrowserProductBuildEvidence({ ...site, outputDirectory: resolve(repositoryRoot, site.outputDirectory), sourceRevision: repositoryRevision(repositoryRoot) }, { sourceMaps });
 }
 
 function cleanBuildEnvironment(site) {

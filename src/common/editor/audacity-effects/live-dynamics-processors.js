@@ -37,6 +37,7 @@ export class DynamicsLiveProcessor extends LiveProcessor {
 			envelopeState: this.envelopeState,
 			envelopeHistory: this.envelopeHistory,
 			audioHistory: this.audioHistory,
+			audioCursor: this.audioCursor,
 			scratchFrames: this.scratchFrames,
 			combinedEnvelope: this.combinedEnvelope,
 			transformedEnvelope: this.transformedEnvelope,
@@ -70,6 +71,7 @@ export class DynamicsLiveProcessor extends LiveProcessor {
 		this.envelopeState = 0;
 		this.envelopeHistory = new Float64Array(this.lookaheadFrames);
 		this.audioHistory = [];
+		this.audioCursor = 0;
 		this.scratchFrames = 0;
 		this.combinedEnvelope = new Float64Array(this.lookaheadFrames);
 		this.transformedEnvelope = new Float64Array(this.lookaheadFrames);
@@ -109,6 +111,7 @@ export class DynamicsLiveProcessor extends LiveProcessor {
 		const frames = validateBlock(input, output);
 		if (this.audioHistory.length !== output.length) {
 			this.audioHistory = Array.from({ length: output.length }, () => new Float32Array(this.lookaheadFrames));
+			this.audioCursor = 0;
 			this.envelopeHistory.fill(0);
 			this.envelopeState = 0;
 			this.framesSeen = 0;
@@ -118,20 +121,19 @@ export class DynamicsLiveProcessor extends LiveProcessor {
 			this.combinedEnvelope = new Float64Array(this.lookaheadFrames + frames);
 			this.transformedEnvelope = new Float64Array(this.lookaheadFrames + frames);
 			this.combinedAudio = Array.from({ length: output.length }, () =>
-				new Float32Array(this.lookaheadFrames + frames));
+				new Float32Array(frames));
 		} else {
 			ensureArrayLength(this.combinedAudio, output.length, () =>
-				new Float32Array(this.lookaheadFrames + this.scratchFrames));
+				new Float32Array(this.scratchFrames));
 		}
 		const combinedEnvelope = this.combinedEnvelope;
 		combinedEnvelope.set(this.envelopeHistory);
 		const combinedAudio = this.combinedAudio;
 		for (let channel = 0; channel < output.length; channel += 1) {
 			const values = combinedAudio[channel];
-			values.set(this.audioHistory[channel]);
-			values.fill(0, this.lookaheadFrames, this.lookaheadFrames + frames);
+			values.fill(0, 0, frames);
 			const source = channelAt(input, channel);
-			if (source) values.set(source, this.lookaheadFrames);
+			if (source) values.set(source);
 		}
 		for (let frame = 0; frame < frames; frame += 1) {
 			let sidechain = 0;
@@ -161,7 +163,10 @@ export class DynamicsLiveProcessor extends LiveProcessor {
 			const initialSilence = this.framesSeen + frame < this.lookaheadFrames;
 			const gain = initialSilence ? 0 : dbToLinear(reduction + this.makeupGainDb);
 			for (let channel = 0; channel < output.length; channel += 1) {
-				const source = combinedAudio[channel][frame];
+				const ring = this.audioHistory[channel];
+				const index = this.lookaheadFrames > 0 ? (this.audioCursor + frame) % this.lookaheadFrames : 0;
+				const source = this.lookaheadFrames > 0 ? ring[index] : combinedAudio[channel][frame];
+				if (this.lookaheadFrames > 0) ring[index] = combinedAudio[channel][frame];
 				const value = initialSilence ? 0 : source * gain;
 				output[channel][frame] = value;
 				const sourceMagnitude = source < 0 ? -source : source;
@@ -170,13 +175,7 @@ export class DynamicsLiveProcessor extends LiveProcessor {
 				if (magnitude > outputPeak) outputPeak = magnitude;
 			}
 		}
-		for (let channel = 0; channel < output.length; channel += 1) {
-			if (this.lookaheadFrames > 0) {
-				this.audioHistory[channel].set(combinedAudio[channel].subarray(
-					frames, frames + this.lookaheadFrames,
-				));
-			}
-		}
+		if (this.lookaheadFrames > 0) this.audioCursor = (this.audioCursor + frames) % this.lookaheadFrames;
 		if (this.lookaheadFrames > 0) {
 			this.envelopeHistory.set(combinedEnvelope.subarray(
 				frames, frames + this.lookaheadFrames,

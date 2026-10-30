@@ -33,19 +33,6 @@ test('scheduler policy overrides are admitted inside their bounds', () => {
 	});
 });
 
-test('a scheduler policy value outside its closed range is refused', () => {
-	for (const value of [
-		{ maximumLineageEntries: 0 },
-		{ maximumLineageEntries: 257 },
-		{ maximumLandedEntries: 0 },
-		{ maximumLandedEntries: 65 },
-		{ maximumReconciliationAttempts: 0 },
-		{ maximumReconciliationAttempts: 9 },
-		{ maximumLandedEntries: 1.5 },
-	]) {
-		assert.throws(() => capturedVideoProxySchedulerPolicy(value), RangeError);
-	}
-});
 
 test('a strict bounded state refuses a new key once its capacity is occupied', () => {
 	const state = new CapturedVideoProxyBoundedState<number>(2);

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { Buffer } from 'node:buffer';
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseCommandAction, chooseDropdown, chooseNestedCommandAction,
@@ -27,10 +28,7 @@ test('Truncate Silence measures its musical threshold from the selected recordin
 	await page.keyboard.press('Escape');
 	const properties = await openClipProperties(page, editor, clipByName(editor, recording.name));
 	await showClipTimingFields(properties);
-	const start = properties.locator('[data-clip-field="startFrame"]');
-	await start.locator('.timecode-digit').first().click();
-	await page.keyboard.type('000004000'); await page.keyboard.press('Enter');
-	await expect(start.locator('.timecode__display')).toHaveText('00h00m04.000s');
+	await setClipTimeFrames(properties, 'startFrame', 192000);
 	await closeClipProperties(properties);
 	await page.locator('[data-sidebar] [data-workspace-select]').selectOption({ label: 'Soundscaper' });
 	await editor.getByRole('button', { name: 'Fit project', exact: true }).click();

@@ -309,7 +309,7 @@ export default function WorkspacePreferencesDialog({
 										<Fragment key={group.id}>
 											{group.label && <h5 className="kw-audio-editor-preferences__shortcut-group" data-shortcut-group={group.id}
 												data-translation-key={group.id.startsWith('location:') ? shortcutCategoryMessageKey(group.id.slice('location:'.length)) : undefined}>{group.label}</h5>}
-										{group.commands.map((command) => <ShortcutEditorRow key={command.id} productId={productId} command={command} preferences={preferences} controller={controller} copy={copy} run={run} conflictFor={conflictFor} />)}
+										{group.commands.map((command) => <ShortcutEditorRow key={command.id} productId={productId} command={command} commands={commands} preferences={preferences} controller={controller} copy={copy} run={run} conflictFor={conflictFor} />)}
 										</Fragment>
 									))}
 								</div>
