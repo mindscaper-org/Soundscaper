@@ -5,13 +5,13 @@ import { openFramescaperSourcePropertiesFromBin } from './helpers/framescaper-so
 import { primaryVideoTrackFixture } from './fixtures/primary-video-track-fixture.ts';
 
 for (const variant of ['first', 'second', 'single']) {
-	test(`source facts disclose ${variant === 'single' ? 'exact single-video facts' : `ambiguous ${variant}-default video`}`, async ({ page }, testInfo) => {
+	test(`source facts disclose ${variant === 'single' ? 'exact single-video facts' : `ambiguous ${variant}-default video`}`, async ({ page, browserName }, testInfo) => {
 		const file = primaryVideoTrackFixture(variant);
 		const buffer = Buffer.from(await file.arrayBuffer());
 		const editor = await bootEditor(page, '/framescaper/embed/en/');
 		const errors = collectClientErrors(page);
-		// Native decoders select different video tracks. Observe the actual presented
-		// picture independently before inspecting the application's source facts.
+		// Independently observe native track selection and frame availability before
+		// inspecting the application's source facts.
 		const native = await page.evaluate(async base64 => {
 			const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
 			const url = URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
@@ -27,16 +27,19 @@ for (const variant of ['first', 'second', 'single']) {
 				});
 				video.src = url;
 				await ready;
-				const presented = new Promise(resolve => video.requestVideoFrameCallback(resolve));
+				// Playback can end without presenting any frame on Windows Firefox.
+				const ended = new Promise(resolve => video.addEventListener('ended', resolve, { once: true }));
 				await video.play();
-				await presented;
+				await ended;
 				video.pause();
 				const canvas = document.createElement('canvas');
 				canvas.width = video.videoWidth;
 				canvas.height = video.videoHeight;
 				const context = canvas.getContext('2d');
+				const presentedFrames = video.getVideoPlaybackQuality().totalVideoFrames;
 				context.drawImage(video, 0, 0);
-				return { width: video.videoWidth, height: video.videoHeight, pixel: [...context.getImageData(0, 0, 1, 1).data] };
+				return { width: video.videoWidth, height: video.videoHeight, presentedFrames,
+					pixel: [...context.getImageData(0, 0, 1, 1).data] };
 			} finally {
 				video.pause();
 				video.removeAttribute('src');
@@ -51,9 +54,17 @@ for (const variant of ['first', 'second', 'single']) {
 		await testInfo.attach('native-video-track', { body: JSON.stringify(native), contentType: 'application/json' });
 		// Untagged H264 colour conversion differs by decoder. Retain the original
 		// decisive blue/red pixel bounds without claiming lossless RGB encoding.
-		expect(native.pixel[blue ? 2 : 0]).toBeGreaterThan(180);
-		expect(native.pixel[blue ? 0 : 2]).toBeLessThan(40);
-		expect(native.pixel[3]).toBe(255);
+		if (native.presentedFrames === 0) {
+			// This platform reports the alternate track's geometry but cannot render
+			// its 32-pixel-wide H264 frames. Keep checking the source-fact disclosure.
+			expect({ platform: process.platform, browserName, variant }).toEqual({ platform: 'win32', browserName: 'firefox', variant: 'second' });
+			expect(native.pixel).toEqual([0, 0, 0, 0]);
+			testInfo.annotations.push({ type: 'native-video-decode', description: 'Windows Firefox reports alternate-track metadata without producing video frames.' });
+		} else {
+			expect(native.pixel[blue ? 2 : 0]).toBeGreaterThan(180);
+			expect(native.pixel[blue ? 0 : 2]).toBeLessThan(40);
+			expect(native.pixel[3]).toBe(255);
+		}
 		await editor.locator('[data-project-bin-input]').setInputFiles({ name: `Video ${variant}.mp4`, mimeType: 'video/mp4', buffer });
 		await expect(editor.getByRole('listitem', { name: `Project bin: Video ${variant}`, exact: true })).toBeVisible({ timeout: 30_000 });
 		const properties = await openFramescaperSourcePropertiesFromBin(page, editor, `Video ${variant}`);
