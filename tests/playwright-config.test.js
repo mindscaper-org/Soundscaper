@@ -76,6 +76,16 @@ test('Playwright runs the maintained evergreen browser-engine matrix', async () 
 		'the ordinary suite must not accidentally run the separately served dual-origin workflow');
 });
 
+test('native audio and video browser projects retain their single-worker admission bound outside CI', async () => {
+	delete process.env.CI;
+	const { default: config } = await import('../playwright.config.mjs?native-media-workers');
+	for (const name of ['firefox', 'webkit']) {
+		assert.equal(config.projects.find(project => project.name === name).workers, 1,
+			`${name} native audio clocks and decoder processes must not compete within a shard`);
+	}
+	assert.equal(config.projects.find(project => project.name === 'chromium').workers, undefined);
+});
+
 test('ordinary Playwright previews separately built product origins', async () => {
 	delete process.env.CI;
 	process.env.PLAYWRIGHT_PORT = '4372';

@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { readDesktopAssistanceRuntimeHandoff } from './lib/desktop-assistance-runtime-handoff.mjs';
+import { configureCiArtifactFetch } from './lib/ci-artifact-fetch.ts';
 import { R2Client } from './lib/r2-client.mjs';
 import { publishAssistanceRuntimeBundles, whisperArchiveIdentityLine } from './publish-assistance-runtime-assets.mjs';
 
@@ -48,6 +49,7 @@ export async function publishDesktopAssistanceRuntimeHandoff(
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+	configureCiArtifactFetch();
 	if (process.argv.length !== 2) throw new Error('AI runtime handoff publication accepts environment inputs only.');
 	const result = await publishDesktopAssistanceRuntimeHandoff();
 	if (result.whisperIdentity) process.stdout.write(`${result.whisperIdentity}\n`);

@@ -73,7 +73,7 @@ async function installParallelStackProbe(page) {
 			}
 			return latest;
 		};
-		probe.captureTrackBlocks = (durationMs) => new Promise((resolve) => {
+		probe.captureTrackBlocks = (minimumBlocks) => new Promise((resolve, reject) => {
 			const generation = probe.generations.at(-1);
 			if (!generation) { resolve({ sampleRate: 0, blocks: [] }); return; }
 			const { shared, plan } = generation;
@@ -84,7 +84,15 @@ async function installParallelStackProbe(page) {
 			const words = new Int32Array(shared.control);
 			const pcm = new Float32Array(shared.pcm);
 			const captured = new Map();
+			const finish = (error) => {
+				clearInterval(interval); clearTimeout(timeout);
+				if (error) reject(error);
+				else resolve({ sampleRate: plan.sampleRate, blocks: [...captured.values()].sort((a, b) => a.sequence - b.sequence) });
+			};
 			const sample = () => {
+				if (Atomics.load(words, 0) === 3) {
+					finish(new Error(`Parallel processing faulted while observing PCM: ${String(Atomics.load(words, 1))}`)); return;
+				}
 				for (let bank = 0; bank < geometry.bankCount; bank += 1) {
 					const offset = 4 + geometry.workerCount * 2 + bank * (5 + geometry.taskCount);
 					const sequence = (Atomics.load(words, offset + 1) >>> 0)
@@ -100,10 +108,13 @@ async function installParallelStackProbe(page) {
 					const finalState = Atomics.load(words, offset);
 					if (stillSame && (finalState === 3 || finalState === 4)) captured.set(sequence, block);
 				}
+				if (captured.size >= minimumBlocks) finish();
 			};
 			const interval = setInterval(sample, 1);
-			setTimeout(() => { clearInterval(interval); sample(); resolve({ sampleRate: plan.sampleRate,
-				blocks: [...captured.values()].sort((a, b) => a.sequence - b.sequence) }); }, durationMs);
+			// Observe completed blocks, rather than assuming that a 450ms UI timer
+			// receives enough turns while other browser processes are busy.
+			const timeout = setTimeout(() => finish(new Error(`Only ${String(captured.size)} completed PCM blocks were observed.`)), 20_000);
+			sample();
 		});
 		probe.signal = () => {
 			const generation = probe.generations.at(-1);
@@ -302,7 +313,7 @@ test('completed chunks keep both effect tracks sample aligned and in order', asy
 		const probe = globalThis.__parallelStackProbe;
 		return probe.workers.filter((worker) => worker.ready && worker.started).length === 2 && probe.signal().peak > 0.05;
 	}), { timeout: 20_000 }).toBe(true);
-	const { sampleRate, blocks } = await page.evaluate(() => globalThis.__parallelStackProbe.captureTrackBlocks(450));
+	const { sampleRate, blocks } = await page.evaluate(() => globalThis.__parallelStackProbe.captureTrackBlocks(16));
 	const phase = (samples, frequency) => {
 		const radians = 2 * Math.PI * frequency / sampleRate;
 		return Math.atan2(samples[0], (samples[1] - samples[0] * Math.cos(radians)) / Math.sin(radians));

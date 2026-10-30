@@ -64,6 +64,9 @@ function capabilityStore({
 			calls.acquire.push([candidate, expectedProfile]);
 			return candidate === id && expectedProfile === profile ? lease : null;
 		},
+		async acquireQueuedRequest(candidate, expectedProfile) {
+			return this.acquireRequest(candidate, expectedProfile);
+		},
 	};
 	return { calls, descriptor, id, store };
 }

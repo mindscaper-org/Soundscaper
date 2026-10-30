@@ -14,6 +14,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { generateDesktopIcon } from './desktop-icons.mjs';
+import { configureCiArtifactFetch } from './lib/ci-artifact-fetch.ts';
 import { generateProductWindowIcon } from './lib/offline-application-shell.mjs';
 import { listTranslationCatalogLocales, readTranslationCatalog } from './i18n-ai/catalog.mjs';
 import { buildSourceMapsRequested } from './lib/build-source-map-relocation.mjs';
@@ -106,6 +107,7 @@ async function main() {
 		await prepareLightscaperDesktopCurrentV1(ROOT);
 		return;
 	}
+	configureCiArtifactFetch();
 	const projectPackage = parseJson(await readFile(resolve(ROOT, 'package.json')), 'package.json');
 	assert(projectPackage.name === 'soundscaper', 'Run desktop preparation from the Soundscaper checkout.');
 	const releaseLines = await readProductReleaseLines(ROOT);
@@ -535,7 +537,7 @@ function isMainModule() {
 
 if (isMainModule()) {
 	main().catch((error) => {
-		console.error(`Desktop preparation failed: ${error.message}`);
+		console.error('Desktop preparation failed:', error);
 		process.exitCode = 1;
 	});
 }

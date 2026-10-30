@@ -2,6 +2,7 @@
 
 import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
+import { readWavePcm } from '../helpers/read-wave-pcm.ts';
 import { showClipTimingFields, bootEditor, chooseCommandAction, chooseDropdown, chooseNestedCommandAction,
 	clipByName, closeClipProperties, collectClientErrors, disableNativeSavePicker,
 	importFiles, openClipProperties, openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
@@ -77,14 +78,12 @@ async function exportedRecording(page, editor) {
 	await expect(link).toBeVisible({ timeout: 20000 });
 	await expect(link).not.toHaveAttribute('href', previous ?? '');
 	const bytes = await readDownloadBytes(page, link);
-	const result = await page.evaluate(async bytes => {
-		const context = new OfflineAudioContext(2, 1, 48000);
-		const decoded = await context.decodeAudioData(Uint8Array.from(bytes).buffer);
-		const pcm = decoded.getChannelData(0);
-		let energy = 0;
-		for (let frame = 200000; frame < 240000; frame++) energy += pcm[frame] ** 2;
-		return { frames: decoded.length, rms: Math.sqrt(energy / 40000) };
-	}, Array.from(bytes));
 	await dialog.getByRole('button', { name: 'Close', exact: true }).click();
-	return result;
+	await expect(dialog).toBeHidden();
+	const decoded = readWavePcm(bytes);
+	expect(decoded.sampleRate).toBe(48_000);
+	const pcm = decoded.channels[0];
+	let energy = 0;
+	for (let frame = 200000; frame < 240000; frame++) energy += pcm[frame] ** 2;
+	return { frames: pcm.length, rms: Math.sqrt(energy / 40000) };
 }

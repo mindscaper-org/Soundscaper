@@ -204,6 +204,17 @@ territory, or distribution method.
 
 ## Provider boundary
 
+Desktop audio jobs wait in bounded queues when execution slots are occupied.
+Codec IPC retains at most eight waiting jobs, with the existing two running
+jobs per renderer and four globally. Its 64 MiB aggregate input budget includes
+both running jobs and owned copies retained by waiting jobs; byte exhaustion,
+duplicate request IDs, and invalid requests still reject before cloning.
+Bundled, OS, and external runners each retain at most eight waiters and preserve
+their existing execution concurrency. Cancellation removes queued work before
+native staging, while active slots remain held through helper and scratch cleanup.
+Queued external operations revalidate their configured executable admission when
+they start. Renderer revocation and shutdown cancel and drain their pending work.
+
 - The strict-TypeScript coordinator and main broker own audio decode and encode.
   Renderer WebCodecs is preferred for exact keyed video. A separate closed
   session bridge owns fallback keyed-RGBA H.264/AAC MP4 and VP9/Opus WebM

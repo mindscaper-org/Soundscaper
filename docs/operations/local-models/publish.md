@@ -98,10 +98,28 @@ preparation and Electron packaging. The installer contains the pinned manifest,
 while users download only the engines their selected models require.
 
 For large R2 objects, a cold CDN edge can return a full `200` response to its
-first range request. Publication verification cancels that body and retries
-once, then still requires the exact `206`, `Content-Range`, CORS headers, byte
-length, and complete-file digest. The desktop downloader already restarts a
+first range request. Publication verification cancels that body, waits one
+second for edge metadata to settle, and retries once. It still requires the
+exact `206`, `Content-Range`, CORS headers, byte length, and complete-file
+digest. The desktop downloader already restarts a
 resumed transfer safely when the server returns a full response.
+
+Complete verification finishes the streamed archive hash before probing range
+support, allowing an uncached CDN transfer to finish. Build-time downloads keep
+those authenticated bytes in a temporary file until HEAD, CORS, and range
+verification also pass; a failed delivery check removes the temporary file.
+
+Publication readback and build-time archive downloads retry transient HTTP and
+connection failures at most twice. A broken response restarts its complete
+transfer with a fresh hash and temporary file; failed partial files are removed.
+Every successful attempt must still satisfy the pinned length and SHA-256.
+Cancellation, incorrect bytes, invalid delivery headers, and permanent HTTP
+failures are not retried.
+
+In CI, desktop preparation and runtime publication use HTTP/1.1 for these
+transfers to avoid interrupted HTTP/2 streams. The transport retains environment
+proxy settings, TLS certificate verification, cancellation, and all archive
+integrity checks. Local commands keep their existing transport.
 
 ## Verification limits and performance
 

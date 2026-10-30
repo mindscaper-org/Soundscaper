@@ -6,6 +6,7 @@ import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
+import { remainsPending } from './helpers/async-test-control.ts';
 
 import {
 	createOperatingSystemAudioCodecOperationRunner,
@@ -79,7 +80,7 @@ const descriptor = Object.freeze({
 	sha256: 'a'.repeat(64),
 });
 
-test('runner stages one MP3 job, supervises the helper, and returns authoritative geometry', async (context) => {
+test('runner queues MP3 jobs, supervises each helper, and returns authoritative geometry', async (context) => {
 	const scratchRoot = await scratch(context);
 	const output = new Uint8Array(new Float32Array([0.25, -0.25, 0.5, -0.5]).buffer);
 	let spawnedConfiguration: OperatingSystemAudioCodecChildConfiguration | null = null;
@@ -114,15 +115,16 @@ test('runner stages one MP3 job, supervises the helper, and returns authoritativ
 			return child;
 		},
 	});
-	const result = await runner.execute(request);
+	const results = await Promise.all([runner.execute(request), runner.execute(request)]);
 	assert.deepEqual(spawnedConfiguration, {
 		contractVersion: 1, target: 'mac-arm64',
 		addonPath: descriptor.path, addonSha256: descriptor.sha256,
 	});
-	assert.deepEqual(result, {
+	const expected = {
 		status: 'executed', output,
 		decodedGeometry: { sampleRate: 48_000, channelCount: 2, frameCount: 2 },
-	});
+	};
+	assert.deepEqual(results, [expected, expected]);
 	assert.deepEqual(await readdir(scratchRoot), []);
 });
 
@@ -368,10 +370,11 @@ test('runner kills a hung helper on cancellation and enforces one active job', a
 	const controller = new AbortController();
 	const active = runner.execute(request, { signal: controller.signal });
 	await spawned;
-	assert.deepEqual(await runner.execute(request), {
-		status: 'unavailable', reason: 'busy',
-		detail: 'Another OS audio codec operation is already active.',
-	});
+	const queuedController = new AbortController();
+	const queued = runner.execute(request, { signal: queuedController.signal });
+	assert.equal(await remainsPending(queued), true);
+	queuedController.abort();
+	assert.equal((await queued).status, 'unavailable');
 	controller.abort();
 	assert.deepEqual(await active, {
 		status: 'unavailable', reason: 'cancelled',

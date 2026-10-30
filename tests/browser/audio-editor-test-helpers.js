@@ -60,7 +60,9 @@ export function registerAudioEditorHooks() {}
 
 export async function bootEditor(page, path, { defaultWorkspace = false } = {}) {
 	await seedWorkspaceOnboardingComplete(page);
-	await page.goto(resolveBrowserProductTestUrl(path));
+	// Editor readiness below owns startup completion; unrelated page resources
+	// must not hold navigation open after the application can already be used.
+	await page.goto(resolveBrowserProductTestUrl(path), { waitUntil: 'domcontentloaded' });
 	const editor = await waitForEditor(page);
 	await expect(editor).toHaveAttribute('data-project-id', /.+/u, { timeout: 20_000 });
 	await waitForProjectActivation(editor);

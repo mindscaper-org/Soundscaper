@@ -9,9 +9,9 @@ import {
 } from './desktop-audio-codec-capability-contract.ts';
 import {
 	assertDesktopAudioCodecRequest,
-	normalizeDesktopAudioCodecRequest,
 	type DesktopAudioCodecRequest,
 } from './desktop-audio-codec-operation-contract.ts';
+import { DesktopAudioCodecIpcQueue } from './desktop-audio-codec-ipc-queue.ts';
 
 export interface DesktopAudioCodecMainIpcChannels {
 	readonly desktopAudioCodecExecute: string;
@@ -47,12 +47,6 @@ export interface DesktopAudioCodecMainIpcRegistration<Owner extends object> {
 	dispose(): Promise<void>;
 }
 
-interface ActiveOperation<Owner extends object> {
-	readonly owner: Owner;
-	readonly controller: AbortController;
-	readonly settled: Promise<unknown>;
-}
-
 const CHANNEL_FIELDS = Object.freeze([
 	'desktopAudioCodecExecute', 'desktopAudioCodecCancel', 'desktopAudioCodecCapabilities',
 ] as const);
@@ -66,9 +60,8 @@ export function registerDesktopAudioCodecMainIpc<Owner extends object>(
 ): DesktopAudioCodecMainIpcRegistration<Owner> {
 	validateOptions(options);
 	const limits = ipcLimits(options);
-	const active = new Map<string, ActiveOperation<Owner>>();
-	const activeByOwner = new WeakMap<Owner, number>();
-	let activeInputBytes = 0;
+	const queue = new DesktopAudioCodecIpcQueue<Owner>(limits,
+		(request, signal) => options.service.execute(request, Object.freeze({ signal })));
 	let disposed = false;
 	let disposal: Promise<void> | null = null;
 	const registered: string[] = [];
@@ -83,45 +76,13 @@ export function registerDesktopAudioCodecMainIpc<Owner extends object>(
 			assertDesktopAudioCodecRequest(arguments_[0]);
 			const candidate = arguments_[0];
 			const requestId = requiredRequestId(candidate.requestId);
-			if (active.has(requestId)) throw new Error('The desktop audio codec request ID is already active.');
 			const owner = owned(options.ownerFor(event));
-			const ownerCount = activeByOwner.get(owner) ?? 0;
-			if (ownerCount >= limits.perOwner) {
-				throw new Error('The desktop audio codec IPC per-owner operation limit was reached.');
-			}
-			if (active.size >= limits.total) {
-				throw new Error('The desktop audio codec IPC global operation limit was reached.');
-			}
-			if (candidate.input.byteLength > limits.inputBytes - activeInputBytes) {
-				throw new Error('The desktop audio codec IPC aggregate input byte limit was reached.');
-			}
-			const request = normalizeDesktopAudioCodecRequest(candidate);
-			const controller = new AbortController();
-			const settled = Promise.resolve().then(() => options.service.execute(
-				request, Object.freeze({ signal: controller.signal }),
-			));
-			active.set(requestId, Object.freeze({ owner, controller, settled }));
-			activeByOwner.set(owner, ownerCount + 1);
-			activeInputBytes += request.input.byteLength;
-			try { return await settled; }
-			finally {
-				const current = active.get(requestId);
-				if (current?.controller === controller) {
-					active.delete(requestId);
-					const remaining = (activeByOwner.get(owner) ?? 1) - 1;
-					if (remaining === 0) activeByOwner.delete(owner);
-					else activeByOwner.set(owner, remaining);
-					activeInputBytes -= request.input.byteLength;
-				}
-			}
+			return queue.enqueue(owner, requestId, candidate);
 		});
 		bind(options.channels.desktopAudioCodecCancel, (event, ...arguments_) => {
 			if (arguments_.length !== 1) throw new TypeError('Desktop audio codec cancel IPC requires one request ID.');
 			const requestId = requiredRequestId(arguments_[0]);
-			const operation = active.get(requestId);
-			if (!operation || operation.owner !== owned(options.ownerFor(event))) return false;
-			operation.controller.abort(abortReason('The renderer cancelled the desktop audio codec operation.'));
-			return true;
+			return queue.cancel(owned(options.ownerFor(event)), requestId);
 		});
 		bind(options.channels.desktopAudioCodecCapabilities, async (event, ...arguments_) => {
 			if (disposed) throw new Error('The desktop audio codec IPC service is disposed.');
@@ -140,22 +101,13 @@ export function registerDesktopAudioCodecMainIpc<Owner extends object>(
 	return Object.freeze({
 		async revokeOwner(ownerValue: Owner): Promise<boolean> {
 			const owner = owned(ownerValue);
-			const revoked = [...active.values()].filter((operation) => operation.owner === owner);
-			for (const operation of revoked) operation.controller.abort(abortReason(
-				'The owning renderer was revoked during a desktop audio codec operation.',
-			));
-			await Promise.allSettled(revoked.map(({ settled }) => settled));
-			return revoked.length > 0;
+			return queue.revokeOwner(owner);
 		},
 		dispose(): Promise<void> {
 			if (disposal !== null) return disposal;
 			disposed = true;
 			for (const channel of registered) options.removeHandler(channel);
-			const pending = [...active.values()];
-			for (const operation of pending) operation.controller.abort(abortReason(
-				'The desktop audio codec IPC service stopped.',
-			));
-			disposal = Promise.allSettled(pending.map(({ settled }) => settled)).then(() => undefined);
+			disposal = queue.dispose();
 			return disposal;
 		},
 	});
@@ -213,10 +165,4 @@ function requiredRequestId(value: unknown): string {
 function owned<Owner extends object>(value: Owner): Owner {
 	if (!value || typeof value !== 'object') throw new TypeError('A desktop renderer owner is required.');
 	return value;
-}
-
-function abortReason(message: string): Error {
-	return typeof DOMException === 'function'
-		? new DOMException(message, 'AbortError')
-		: Object.assign(new Error(message), { name: 'AbortError' });
 }
