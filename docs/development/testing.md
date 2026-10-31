@@ -132,10 +132,10 @@ npm run check-all
 `check-all` schedules up to four checks or test shards at once. It splits lint
 using the existing eight lint shards, Node tests using their five named shards,
 and the browser suite into four partitions spanning all three engines. Each
-Node shard uses two test processes and each browser shard admits up to two
-workers. Firefox and WebKit projects allow one worker per shard, matching their
-native audio/video CI limits; this project limit also applies to ordinary local
-runs. Browser shards still run concurrently.
+Node shard uses two test processes. Each browser shard uses one worker and zero
+retries, preserving the native Lightscaper qualification requirements. Firefox
+and WebKit projects also allow one worker per shard in ordinary local runs,
+matching their native audio/video CI limits. Browser shards still run concurrently.
 Browser preparation runs the production build once, builds the separate
 Framescaper and Lightscaper sites, and authenticates all three product sites
 before browser tests start. Four browser shards share owned Soundscaper,
@@ -155,10 +155,9 @@ commands. An allocation killed by the scope's memory limit fails its check.
 
 The terminal shows a progress bar for completed checks and the currently
 running tests. Successful test results stay quiet; test failures print as they
-finish, including failed browser attempts that will retry. Piped output prints
-periodic snapshots. Command diagnostics retain their task prefix, even when
-they contain expected errors; `FAIL` identifies reported test failures or
-failed commands. Full command output is saved under
+finish. Piped output prints periodic snapshots. Command diagnostics retain their
+task prefix, even when they contain expected errors; `FAIL` identifies reported
+test failures or failed commands. Full command output is saved under
 `test-results/check-all/logs/`; browser diagnostics have separate directories under
 `test-results/check-all/`. Independent checks continue after a failure, while
 checks that need a failed prerequisite are marked blocked. Any failed or blocked

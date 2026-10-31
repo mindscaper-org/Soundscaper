@@ -37,3 +37,12 @@ test('check-all includes every static gate, all Node shards, fresh coverage and 
 test('check-all refuses to silently omit a newly added unsupported static command', () => {
 	assert.throws(() => createCheckAllPlan(root, '/npm-cli.js', { ...scripts, 'check:static': `${scripts['check:static']} && echo omitted` }), /check:static/u);
 });
+
+test('check-all browser shards retain native qualification with one worker and no retries', () => {
+	const browser = createCheckAllPlan(root, '/npm-cli.js', scripts).filter(job => job.browser);
+	assert.equal(browser.length, 4);
+	for (const job of browser) {
+		assert.deepEqual(job.args.filter(arg => arg.startsWith('--workers=')), ['--workers=1'], job.id);
+		assert.deepEqual(job.args.filter(arg => arg.startsWith('--retries=')), ['--retries=0'], job.id);
+	}
+});
