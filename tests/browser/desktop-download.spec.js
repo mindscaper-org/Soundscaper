@@ -4,6 +4,18 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { readFile } from 'node:fs/promises';
 import AxeBuilder from '@axe-core/playwright';
 import { handleDownloadPageRequest } from '../../functions/download/index.ts';
+import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
+
+for (const [name, path] of [['Soundscaper', '/download/'], ['Framescaper', '/framescaper/download/']]) {
+	test(`local preview serves the ${name} download page without a route mock`, async ({ page }) => {
+		const response = await page.goto(resolveBrowserProductTestUrl(path));
+		// GitHub may be unavailable; the page must still render its retry state.
+		expect([200, 503]).toContain(response.status());
+		await expect(page.getByRole('heading', { name: `Download ${name}`, exact: true })).toBeVisible();
+		await expect(page.getByRole('link', { name: `Open ${name}`, exact: true })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Handbook', exact: true })).toHaveAttribute('href', '/docs/');
+	});
+}
 
 test('the sidebar opens the download page in a separate tab', async ({ page, context }) => {
 	let requests = 0;
@@ -72,8 +84,8 @@ async function mockDownloadPage(context, product) {
 	const assets = ['win-x64.exe', 'mac-arm64.dmg', 'linux-arm64.AppImage'].map(target => ({
 		name: `${product}-${version}-${target}`, state: 'uploaded',
 	}));
-	// The preview serves static files; render the actual Function with a
-	// fixed feed so browser checks remain independent of GitHub availability.
+	// Use fixed release data for layout checks. The tests above exercise local
+	// preview routing without intercepting the download page.
 	await context.route(`${origin}/download/`, async route => {
 		const response = await handleDownloadPageRequest(new Request(route.request().url()), async () => Response.json([{
 			tag_name: `${id}-v${version}`, published_at: '2026-10-30T12:00:00Z', draft: false, assets,

@@ -19,6 +19,7 @@ import {
 import { authoredWildcardResponseHeaders } from './scripts/lib/static-response-headers.mjs';
 import { enforceStartupGraphBudgets } from './scripts/lib/startup-graph-budget.mjs';
 import { createTranslationCatalogBundlePlugin } from './scripts/lib/translation-catalog-bundle.mjs';
+import { localDownloadPagePlugin } from './scripts/lib/vite-download-page.ts';
 import layerAudacityDesignSystemCss, {
 	getLayeredDesignSystemFiles,
 	isDesignSystemCssFile,
@@ -103,6 +104,7 @@ export default defineConfig({
 	preview: { headers: authoredWildcardResponseHeaders() },
 	publicDir: productId === 'soundscaper' && desktopCodecComposition ? false : 'public',
 	plugins: [
+		...(!desktopCodecComposition ? [localDownloadPagePlugin(productId)] : []),
 		productSubstitutionPlugin({
 			productId, desktopCodecComposition, repositoryRoot: import.meta.dirname,
 		}),

@@ -28,6 +28,7 @@ test('ordinary browser product sites use separate validated loopback origins', (
 	assert.match(server.command, /--host 127\.0\.0\.1/u);
 	assert.match(server.command, /--port 4517/u);
 	assert.match(server.command, /--strictPort/u);
+	assert.deepEqual(server.env, { SCAPE_PRODUCT: 'framescaper' });
 	assert.equal(server.ignoreHTTPSErrors, undefined);
 
 	assert.throws(

@@ -113,6 +113,14 @@ surfaces share a bounded GitHub lookup with a five-minute metadata edge cache.
 This route is independent of the Astro handbook's `/docs` base and loads no
 editor JavaScript.
 
+Vite development and preview servers run the same download-page handler through
+`scripts/lib/vite-download-page.ts`, before the editor's SPA fallback. Local
+requests use the selected `SCAPE_PRODUCT` (Soundscaper by default), so
+`npm run preview` serves `/download/` at `http://localhost:4321/download/` and
+`SCAPE_PRODUCT=framescaper npm run preview` selects Framescaper. Restart a
+preview server after changing its server configuration; rebuilding editor
+assets alone does not reload that configuration.
+
 The existing `/download/desktop/` route remains available for direct downloads.
 Its Pages Function selects the newest published release with an installer for the
 request's desktop platform and architecture, including RCs and betas. Windows
