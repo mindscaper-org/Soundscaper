@@ -10,6 +10,7 @@ import {
 	resolveAudacityActionId,
 } from '../src/common/editor/audacity-action-parity.js';
 import { audioSelectionEffectLabel, audioSelectionEffectTypes, createEffect } from '../src/common/editor/effects.js';
+import { createMidiClip, createMidiTrack } from '../src/common/editor/midi-factory.ts';
 import {
 	createNativeMediaCapabilitySnapshotV1,
 	NATIVE_MEDIA_CAPABILITY_IDS,
@@ -251,6 +252,9 @@ function richApplicationMenuMatrix(product: ProductId): readonly (readonly MenuI
 			applicationMenusForState(product, {
 				project: richSoundscaperVideoProject(true), selectedTrackId: 'audio-track', selectedClipId: 'audio-clip',
 			}),
+			applicationMenusForState(product, {
+				project: richSoundscaperProject(true), selectedTrackId: 'voice-track', selectedClipId: 'voice-clip',
+			}),
 		];
 	}
 	const ungrouped = richFramescaperProject(false, 'video');
@@ -346,20 +350,23 @@ function applicationMenusForState(product: ProductId, state: ApplicationMenuStat
 	}) as readonly MenuItem[];
 }
 
-function richSoundscaperProject() {
+function richSoundscaperProject(midi = false) {
+	const createClip = midi ? createMidiClip : createAudioClip;
+	const createTrack = midi ? createMidiTrack : createAudioTrack;
 	const source = createAudioSource({
 		id: 'voice-source', name: 'Voice', storageKey: 'voice-source', mimeType: 'audio/wav',
 		frameCount: 48_000, channelCount: 1, sampleRate: 48_000, originalSampleRate: 48_000,
 	});
-	const clip = createAudioClip({
+	const clip = createClip({
 		id: 'voice-clip', sourceId: source.id, title: 'Voice', timelineStartFrame: 0,
 		durationFrames: 48_000, sourceStartFrame: 0, sourceDurationFrames: 48_000,
+		...(midi ? { notes: [{ id: 'midi-note', pitch: 60, startFrame: 0, durationFrames: 24_000, velocity: 100, channel: 0 }] } : {}),
 	});
 	return createSoundscaperProject({
 		id: 'menu-reference-soundscaper', title: 'Menu reference', now: '2026-09-20T00:00:00.000Z',
 		sources: [source], clips: [clip],
 		tracks: [
-			createAudioTrack({
+			createTrack({
 				id: 'voice-track', name: 'Voice', clipIds: [clip.id], displayMode: 'spectrogram',
 				effects: [createEffect('delay', { id: 'voice-delay' })],
 			}),
