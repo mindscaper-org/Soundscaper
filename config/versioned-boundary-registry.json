@@ -126,6 +126,10 @@
 		,
 		{ "path": "scripts/lib/e2e-v8-function-topology.mjs", "kind": "upstream-contract", "justification": "e2e-v8-function-topology.mjs validates the upstream V8 function coverage topology and does not identify project schema." }
 		,
+		{ "path": "scripts/lib/e2e-v8-materialization-spool.ts", "kind": "upstream-contract", "justification": "e2e-v8-materialization-spool.ts stages and authenticates upstream V8 coverage profiles during bounded-memory coverage materialization and does not identify project schema." }
+		,
+		{ "path": "scripts/lib/e2e-v8-profile-observations.ts", "kind": "upstream-contract", "justification": "e2e-v8-profile-observations.ts collects and validates upstream V8 coverage observations and source-map cache entries and does not identify project schema." }
+		,
 		{ "path": "scripts/lib/e2e-v8-topology.mjs", "kind": "upstream-contract", "justification": "e2e-v8-topology.mjs validates the upstream V8 coverage topology and does not identify project schema." }
 		,
 		{ "path": "scripts/lib/m5b-quality-observations-v2.mjs", "kind": "external-contract", "justification": "m5b-quality-observations-v2.mjs names the retained quality-evidence pipeline revision consumed by repository automation." }
@@ -339,6 +343,10 @@
 		{ "path": "src/common/editor/mixer-signal-edge-v21.ts", "kind": "persisted-contract", "justification": "mixer-signal-edge-v21.ts is a persisted mixer routing contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/mixer-signal-topology-v21.ts", "kind": "persisted-contract", "justification": "mixer-signal-topology-v21.ts is a persisted mixer routing topology revision independent of product schema." }
+		,
+		{ "path": "src/common/editor/motion-native-frame-carrier-v1.ts", "kind": "native-contract", "justification": "motion-native-frame-carrier-v1.ts defines the independently versioned float32 frame carrier with pinned revision identity, exact cadence and explicit linear color and premultiplied alpha across the native delivery boundary." }
+		,
+		{ "path": "src/common/editor/motion-native-pcm-carrier-v1.ts", "kind": "native-contract", "justification": "motion-native-pcm-carrier-v1.ts defines the independently versioned interleaved float32 PCM carrier with pinned revision identity, exact frame cadence, sample count and sequential bounded packets across the native delivery boundary." }
 		,
 		{ "path": "src/common/editor/native-audio-session-request-v1.ts", "kind": "ipc-contract", "justification": "native-audio-session-request-v1.ts is the session a renderer asks the milestone-5A native audio tier to open, named on both sides of the preload bridge, so it is an independently versioned cross-process carrier contract." }
 		,

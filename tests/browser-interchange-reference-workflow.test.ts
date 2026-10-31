@@ -13,7 +13,7 @@ for (const jobName of ['browser', 'firefox']) {
 		const provision = job.indexOf('run: npm run provision:interchange-conformance');
 		assert.ok(selection >= 0 && provision > selection);
 		assert.ok(job.includes(jobName === 'browser' ? '--project=${{ matrix.project }}' : '--project=firefox'));
-		assert.ok(job.includes('--shard=${{ matrix.shard }}/4'));
+		assert.ok(job.includes('--shard=${{ matrix.shard }}/' + (jobName === 'firefox' ? '3' : '4')));
 		for (const step of job.split(/\n {6}- /u).filter((step: string) => (
 			step.includes('uses: actions/setup-python@') || step.includes('id: interchange-cache-key')
 			|| step.includes('path: .wrangler/test-download-cache/interchange')

@@ -50,8 +50,11 @@ export default function ProjectBinCard({
 	const visualClip = itemClips.find((itemClip) => (
 		itemClip.kind === 'still' || itemClip.kind === 'generator' || itemClip.kind === 'image'
 	)) || null;
+	const generatedVideo = Boolean(videoClip && productVideoVisualPreviewRuntimeFor(controller)?.generatedSources?.ownsSource(project, videoClip.sourceId));
+	const thumbnailClip = visualClip || (generatedVideo ? videoClip : null);
 	const visualThumbnail = useProductVisualThumbnail({
-		controller, project, clip: visualClip, source: visualClip ? sources[itemClips.indexOf(visualClip)] ?? null : null,
+		controller, project, clip: thumbnailClip,
+		source: thumbnailClip ? sources[itemClips.indexOf(thumbnailClip)] ?? null : null,
 	});
 	const posterUrl = visual?.posterUrl || visual?.thumbnails?.[0]?.url || null;
 	const previewActive = preview?.clipId === clip.id;
@@ -177,7 +180,7 @@ export default function ProjectBinCard({
 					aria-label={`${copy.videoClip}: ${name}`}
 					role="img"
 				>
-					{previewActive && visual?.mediaUrl ? (
+					{generatedVideo ? <ProjectBinVisualThumbnail state={visualThumbnail} /> : previewActive && visual?.mediaUrl ? (
 						<video
 							ref={videoRef}
 							src={visual.mediaUrl}

@@ -80,6 +80,7 @@ export interface ScapeFamilyCodec<Family extends string> {
 	readonly assetKinds?: readonly string[];
 	readIdentity(value: unknown): Readonly<{ schemaFamily: Family; schemaVersion: number }>;
 	parseProjectDocument(text: string): unknown;
+	preserveUnknownAssetKinds?(identity: Readonly<{ schemaFamily: Family; schemaVersion: number }>): boolean;
 }
 
 export interface ScapeArchiveAdmission {
@@ -282,7 +283,8 @@ function parseScapeManifest<Family extends string>(text: string, additionalAsset
 		throw new TypeError('The Scape manifest is incomplete.');
 	}
 	validateDescriptor(value.project);
-	codec.readIdentity(value.project);
+	const identity = codec.readIdentity(value.project);
+	const preserveUnknown = codec.preserveUnknownAssetKinds?.(identity) === true;
 	const assetKinds = allowedAssetKinds(additionalAssetKinds, codec.assetKinds ?? []);
 	for (const asset of value.assets) {
 		if (!isRecord(asset)) throw new TypeError('A Scape asset descriptor is invalid.');
@@ -290,7 +292,8 @@ function parseScapeManifest<Family extends string>(text: string, additionalAsset
 		if (typeof asset.sourceId !== 'string' || !asset.sourceId) {
 			throw new TypeError('A Scape asset has an invalid source ID.');
 		}
-		if (typeof asset.kind !== 'string' || !assetKinds.has(asset.kind)) {
+		if (typeof asset.kind !== 'string' || !(assetKinds.has(asset.kind)
+			|| preserveUnknown && /^[a-z][a-z0-9-]{0,63}$/u.test(asset.kind))) {
 			throw new TypeError(`A Scape asset has an invalid kind: ${String(asset.kind)}.`);
 		}
 		if (typeof asset.encoding !== 'string' || !asset.encoding) {

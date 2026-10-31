@@ -54,6 +54,10 @@ jobs:
             `targets=${JSON.stringify(selectDesktopNightlyTestTargets(process.env.NIGHTLY_TEST_TARGETS))}\n`);
           NODE
 
+  motionscaper-native-build:
+    needs: nightly-test-targets
+    uses: ./.github/workflows/motionscaper-media-host-native-build.yml
+
   browser-sites:
     name: Build verified nightly browser sites
     if: >-
@@ -84,11 +88,13 @@ jobs:
           SCAPE_BUILD_SOURCE_MAPS: '1'
       - name: Build the Framescaper browser application
         run: npm run build:browser:framescaper
+      - name: Build the Motionscaper browser application
+        run: npm run build:browser:motionscaper
       - name: Prepare the verified browser product sites
         run: npm run prepare:browser:products
       - name: Build the verified reciprocal browser product sites
         run: npm run pretest:browser:dual-origin
-      - name: Verify all four browser configurations and their source maps
+      - name: Verify all browser configurations and their source maps
         run: node scripts/verify-nightly-browser-sites.mjs
       - name: Upload the verified browser product sites
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -106,8 +112,9 @@ jobs:
     if: >-
       !cancelled()
       && needs.nightly-test-targets.result == 'success'
+      && needs.motionscaper-native-build.result == 'success'
       && needs.browser-sites.result == 'success'
-    needs: [nightly-test-targets, browser-sites]
+    needs: [nightly-test-targets, motionscaper-native-build, browser-sites]
     timeout-minutes: 150
     strategy:
       fail-fast: false
@@ -139,6 +146,12 @@ jobs:
         uses: ./.github/actions/verified-node-dependencies
         with:
           scope: desktop-native
+
+      - name: Download the independently qualified Motionscaper native helper
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: motionscaper-media-host-build-result-${{ matrix.target.platform }}-${{ matrix.target.arch }}
+          path: ${{ runner.temp }}/motionscaper-native-build-result
 
       - name: Stage the pinned AI runtime handoff
         run: node scripts/stage-desktop-test-runtime-snapshot.mjs
@@ -176,6 +189,7 @@ jobs:
       - name: Package the product runtimes exercised by nightly-with-tests
         run: node scripts/desktop-nightly-tests-products.mjs
         env:
+          MOTIONSCAPER_NATIVE_BUILD_RESULT: ${{ runner.temp }}/motionscaper-native-build-result
           SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ matrix.target.platform }}
           SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.target.arch }}
           SOUNDSCAPER_SOURCE_REVISION: ${{ github.sha }}
@@ -187,8 +201,8 @@ jobs:
         shell: bash
         run: |
           mapfile -t sandboxes < <(find release/desktop-nightly-products -type f -name chrome-sandbox -print)
-          if [[ "${#sandboxes[@]}" -ne 2 ]]; then
-            echo "Expected two packaged Chromium sandboxes; found ${#sandboxes[@]}" >&2
+          if [[ "${#sandboxes[@]}" -ne 3 ]]; then
+            echo "Expected three packaged Chromium sandboxes; found ${#sandboxes[@]}" >&2
             exit 1
           fi
           sudo chown root:root -- "${sandboxes[@]}"
@@ -199,6 +213,37 @@ jobs:
         env:
           SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ matrix.target.platform }}
           SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.target.arch }}
+
+      - name: Qualify the packaged Motionscaper launch on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node scripts/motionscaper-desktop-smoke.mjs --require-native-prores
+        env:
+          SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.target.arch }}
+
+      - name: Qualify the packaged Motionscaper launch on Windows and macOS
+        if: runner.os != 'Linux'
+        run: node scripts/motionscaper-desktop-smoke.mjs --require-native-prores
+        env:
+          SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.target.arch }}
+
+      - name: Qualify complete Linux Motion workflows
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/motionscaper-linux-qualification
+        with:
+          target: ${{ matrix.target.platform }}-${{ matrix.target.arch }}
+          arch: ${{ matrix.target.arch }}
+          native-result: ${{ runner.temp }}/motionscaper-native-build-result
+          motion-package: ${{ github.workspace }}/release/desktop-nightly-products/motionscaper/${{ matrix.target.arch == 'x64' && 'linux-unpacked' || 'linux-arm64-unpacked' }}
+
+      - name: Qualify complete Windows and macOS Motion workflows
+        if: runner.os != 'Linux'
+        uses: ./.github/actions/motionscaper-desktop-qualification
+        with:
+          target: ${{ matrix.target.platform }}-${{ matrix.target.arch }}
+          platform: ${{ matrix.target.platform }}
+          arch: ${{ matrix.target.arch }}
+          native-result: ${{ runner.temp }}/motionscaper-native-build-result
+          motion-package: ${{ github.workspace }}/release/desktop-nightly-products/motionscaper/${{ matrix.target.platform == 'win' && (matrix.target.arch == 'x64' && 'win-unpacked' || 'win-arm64-unpacked') || 'mac-arm64' }}
 
       - name: Stage the nightly-with-tests application
         run: node scripts/desktop-nightly-tests-prepare.mjs

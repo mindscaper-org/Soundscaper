@@ -46,6 +46,27 @@ test('preflight helpers never statically import processing implementation owners
 	assert.deepEqual(processingDependencies(PREFLIGHT_MODULES), []);
 });
 
+test('loading dialog styles share the shell owner without making model gates or processing eager', () => {
+	for (const path of [
+		'src/common/editor/ui/dialogs/AssistanceLoadingDialog.tsx',
+		'src/common/editor/ui/dialogs/AssistanceModelGate.css',
+	]) {
+		assert.equal(chunkGroupForModulePath(path), 'editor-shell', path);
+		assert.equal(chunkGroupForModulePath(path.replaceAll('/', '\\')), 'editor-shell', path);
+	}
+	for (const path of [
+		'src/common/editor/ui/dialogs/AssistanceModelGate.tsx',
+		'src/common/editor/ui/dialogs/LocalAssistanceDialogSurface.tsx',
+	]) assert.equal(chunkGroupForModulePath(path), null, path);
+	const shell = chunkGroups.find(({ name }) => name === 'editor-shell');
+	assert.ok(shell);
+	assert.equal(shell.includeDependenciesRecursively, false);
+	assert.equal(shell.maxSize, 400_000);
+	assert.deepEqual(processingDependencies([
+		'src/common/editor/ui/dialogs/AssistanceLoadingDialog.tsx',
+	]), []);
+});
+
 test('the menu-requested model preflight surface never statically imports processing owners', () => {
 	assert.deepEqual(processingDependencies([
 		'src/common/editor/ui/dialogs/LocalAssistanceDialogSurface.tsx',

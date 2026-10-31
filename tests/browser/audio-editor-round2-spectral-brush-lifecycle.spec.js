@@ -15,7 +15,7 @@ test('Escape cancels a spectral-brush gesture before its pointer release', async
 	const box = await brush.boundingBox();
 	expect(box).not.toBeNull();
 	// Stay inside the first channel, clear of its draggable stereo divider.
-	await page.mouse.move(box.x + 200, box.y + box.height / 4);
+	await brush.hover({ position: { x: 200, y: box.height / 4 } });
 	await page.mouse.down();
 	await page.mouse.move(box.x + 215, box.y + box.height / 4 + 15, { steps: 4 });
 	await expect(brush.locator('.audio-editor-spectral-brush__preview')).toBeVisible();

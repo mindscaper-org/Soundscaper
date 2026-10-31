@@ -5,14 +5,18 @@ import { BoundedTextInput } from './BoundedTextInput.tsx';
 
 import PreferenceCheckbox from '../EditorPreferenceCheckbox.tsx';
 import { cancelDraftEditOnEscape, createDraftBlurCommitGuard, draftBlurShouldCommit } from '../draft-blur-commit.ts';
+import { observeNativeDraftSelection } from './native-draft-selection.ts';
 
-export function CommitField({ label, name, value, type = 'text', min = undefined, max = undefined, step = undefined, disabled, readOnly, multiline, multilineCommitOnEnter = false, hookName = 'clip-field', visuallyHiddenLabel = false, preserveEditedDraft = false, onCommit }) {
+export function CommitField({ label, name, value, type = 'text', min = undefined, max = undefined, step = undefined, disabled, readOnly, multiline, multilineCommitOnEnter = false, hookName = 'clip-field', visuallyHiddenLabel = false, preserveEditedDraft = false, onCommit, onDraftChange = undefined }) {
 	const [draft, setDraft] = useState(String(value ?? ''));
 	const [error, setError] = useState(false);
 	const editRevision = useRef(0);
 	const editedDraft = useRef(false);
 	const draftName = useRef(name);
 	const blurCommitGuard = useRef(createDraftBlurCommitGuard()).current;
+	const fieldOwner = useRef(null);
+	useEffect(() => observeNativeDraftSelection(fieldOwner.current?.querySelector('input, textarea') ?? null,
+		disabled || readOnly ? undefined : onDraftChange), [disabled, readOnly, multiline, onDraftChange]);
 	useEffect(() => {
 		editRevision.current++;
 		if (preserveEditedDraft && draftName.current === name && editedDraft.current) return;
@@ -40,8 +44,13 @@ export function CommitField({ label, name, value, type = 'text', min = undefined
 	const hook = { [`data-${hookName}`]: name };
 	const Input = type === 'number' ? BoundedTextInput : TextInput;
 	return (
-		<label className="audio-editor-field" {...hook} onKeyDown={(event) => {
+		<label ref={fieldOwner} className="audio-editor-field" {...hook} onKeyDown={(event) => {
 			if (disabled || readOnly || event.nativeEvent?.isComposing) return;
+			if ((event.key === 'a' || event.key === 'A') && (event.ctrlKey || event.metaKey)
+				&& !(event.ctrlKey && event.metaKey) && !event.altKey && !event.shiftKey && !event.defaultPrevented) {
+				// Reserve replacement intent before an asynchronous default can collapse the native selection.
+				onDraftChange?.();
+			}
 			if (event.key === 'Enter' && (!multiline || multilineCommitOnEnter && !event.shiftKey)) {
 				event.preventDefault();
 				event.stopPropagation();
@@ -66,7 +75,14 @@ export function CommitField({ label, name, value, type = 'text', min = undefined
 				multiline={multiline}
 				disabled={disabled || readOnly}
 				error={error}
-				onChange={(next) => { editRevision.current++; editedDraft.current = true; setDraft(next); setError(false); }}
+				onChange={(next) => {
+					if (disabled || readOnly) return;
+					onDraftChange?.();
+					editRevision.current++;
+					editedDraft.current = true;
+					setDraft(next);
+					setError(false);
+				}}
 				onBlur={commit}
 				width="100%"
 			/>

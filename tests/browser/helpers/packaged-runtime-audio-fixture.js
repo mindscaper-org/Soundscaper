@@ -3,11 +3,16 @@
 import { isAbsolute } from 'node:path';
 
 const SAMPLE_RATE = 48_000;
-const SAMPLE_COUNT = SAMPLE_RATE;
 const SAMPLE_BYTES = 2;
+const MAXIMUM_DURATION_SECONDS = 180;
 
-export function createPackagedRuntimeAudioWave() {
-	const dataLength = SAMPLE_COUNT * SAMPLE_BYTES;
+export function createPackagedRuntimeAudioWave({ durationSeconds = 1 } = {}) {
+	const sampleCount = Math.round(SAMPLE_RATE * durationSeconds);
+	if (!Number.isFinite(durationSeconds) || durationSeconds <= 0
+		|| durationSeconds > MAXIMUM_DURATION_SECONDS || sampleCount < 1) {
+		throw new RangeError('Audio fixture duration must contain at least one sample and be at most 180 seconds.');
+	}
+	const dataLength = sampleCount * SAMPLE_BYTES;
 	const wave = Buffer.alloc(44 + dataLength);
 	wave.write('RIFF', 0, 'ascii');
 	wave.writeUInt32LE(36 + dataLength, 4);
@@ -22,7 +27,7 @@ export function createPackagedRuntimeAudioWave() {
 	wave.writeUInt16LE(16, 34);
 	wave.write('data', 36, 'ascii');
 	wave.writeUInt32LE(dataLength, 40);
-	for (let index = 0; index < SAMPLE_COUNT; index += 1) {
+	for (let index = 0; index < sampleCount; index += 1) {
 		const sample = Math.sin(2 * Math.PI * 440 * index / SAMPLE_RATE) * 0.25;
 		wave.writeInt16LE(Math.round(sample * 32_767), 44 + index * SAMPLE_BYTES);
 	}

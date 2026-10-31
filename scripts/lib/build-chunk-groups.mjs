@@ -63,6 +63,7 @@ import {
 	editorOptionalSurfaceModule,
 	editorPath,
 } from './build-chunk-tests.mjs';
+import { motionChunkGroups } from './build-motion-chunks.mjs';
 import { withUiPreparationChunkTest } from './build-chunk-ui-preparation.mjs';
 
 // The membership patterns keep their long-standing import site.
@@ -93,6 +94,7 @@ export {
 
 /** @type {import('rolldown').CodeSplittingGroup[]} */
 export const chunkGroups = [
+	...motionChunkGroups,
 	{ name: 'editor-assistance-model-preflight', test: EDITOR_ASSISTANCE_MODEL_PREFLIGHT_CHUNK_TEST,
 		priority: 100, minSize: 0, maxSize: 400_000,
 		includeDependenciesRecursively: false },
@@ -374,7 +376,7 @@ export const chunkGroups = [
 		includeDependenciesRecursively: false,
 	},
 	{
-		name: 'editor-codec-foundations',
+		name: 'editor-codec-foundations', minSize: 0,
 		test: EDITOR_CODEC_FOUNDATION_CHUNK_TEST,
 		priority: 98,
 		maxSize: 490_000,
@@ -447,15 +449,14 @@ export const chunkGroups = [
 	{
 		name: 'editor-shell',
 		// The workspace reads timed-recording values before its dialog is opened.
-		test: new RegExp(`(?:${editorPath}(?!${editorOptionalSurfaceModule}$)ui[\\\\/](?!(?:dialogs[\\\\/](?!(?:editor-dialog-model\\.js|AssistanceLoadingDialog\\.tsx|timed-recording-dialog-model\\.ts)$)|inspector[\\\\/]))|src[\\\\/]common[\\\\/](?:products\\.js|url\\.ts)$|src[\\\\/]common[\\\\/]offline[\\\\/](?:file-handler-launch|install-prompt|share-target-launch)\\.ts$|src[\\\\/]soundscaper[\\\\/](?:editor-capture-toolbar-control|editor-framescaper-overlay-model|editor-video-preview-product-runtime|editor-application-menu-product-runtime|editor-workspace-application-menu-runtime|editor-workspace-panel-runtime)\\.(?:js|tsx?)$|src[\\\\/]framescaper[\\\\/]editor-soundscaper-workflow-product-runtime\\.tsx$)`),
+		// The loading placeholder and its styles are shared before model dialogs open.
+		test: new RegExp(`(?:src[\\\\/]motionscaper[\\\\/]desktop-locale-contract\\.ts$|${editorPath}documentation-links\\.ts$|${editorPath}(?!${editorOptionalSurfaceModule}$)ui[\\\\/](?!(?:dialogs[\\\\/](?!(?:editor-dialog-model\\.js|AssistanceLoadingDialog\\.tsx|AssistanceModelGate\\.css|timed-recording-dialog-model\\.ts)$)|inspector[\\\\/]|motionscaper[\\\\/](?!(?:MotionscaperShell\\.tsx|shell-menu\\.ts|motionscaper-copy\\.ts|motionscaper-documentation\\.ts|motionscaper-locale\\.ts|motionscaper-updates\\.ts|motionscaper-shell\\.css)$)))|src[\\\\/]common[\\\\/](?:products\\.js|url\\.ts)$|src[\\\\/]common[\\\\/]offline[\\\\/](?:file-handler-launch|install-prompt|share-target-launch)\\.ts$|src[\\\\/]soundscaper[\\\\/](?:editor-capture-toolbar-control|editor-framescaper-overlay-model|editor-video-preview-product-runtime|editor-application-menu-product-runtime|editor-workspace-application-menu-runtime|editor-workspace-panel-runtime)\\.(?:js|tsx?)$|src[\\\\/]framescaper[\\\\/]editor-soundscaper-workflow-product-runtime\\.tsx$)`),
 		priority: 70,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,
 	},
 	{
 		// The schema, planners, assistance domain, and value tables the shell and dialogs share.
-		// They are owned here rather than placed by reachability; see the module
-		// comment for what an unowned shared leaf does to the boot path.
 		name: 'editor-domain',
 		test: EDITOR_DOMAIN_CHUNK_TEST,
 		priority: 65,
@@ -479,11 +480,11 @@ export const chunkGroups = [
 		maxSize: 400_000,
 	},
 	{
-		// Own only the HTML/main/site entry role. Editor and product modules retain
-		// their semantic owners even when they sit in the selected startup graph.
+		// $initial marks every input; keep the separate composition-link entry in its explicit semantic owners.
 		name: 'site-entry',
 		tags: ['$initial'],
-		priority: 110,
+		test: (id) => !motionChunkGroups.some((group) => group.test.test(id)),
+		priority: 120,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,
 	},
@@ -491,6 +492,16 @@ export const chunkGroups = [
 
 export { workerChunkGroups, WORKER_EFFECT_CONTRACT_CHUNK_TEST, WORKER_XML_VENDOR_CHUNK_TEST }
 	from './build-worker-chunk-groups.mjs';
+
+/**
+ * A separate bridge entry needs its own copy owner. Single-entry editors read
+ * only the shared inventory, so its table stays in the existing editor-copy owner.
+ * @param {{ compositionLinkEntry: boolean }} composition
+ * @returns {import('rolldown').CodeSplittingGroup[]}
+ */
+export function chunkGroupsForBuild({ compositionLinkEntry }) {
+	return compositionLinkEntry ? chunkGroups : chunkGroups.filter(group => group.name !== 'motion-link-copy');
+}
 
 /**
  * The group that claims one repository-relative module path, or null.

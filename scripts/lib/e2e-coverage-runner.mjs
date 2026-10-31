@@ -3,6 +3,7 @@
 import { diagnosticErrorMessage as errorMessage } from './diagnostic-error-message.ts';
 
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
 	existsSync,
 	mkdirSync,
@@ -23,10 +24,11 @@ import {
 	parseE2ESurfaceManifest,
 	validateE2EExecutableObservation,
 	validateE2EInventoryFiles,
-	validateRawV8Surface,
 } from './e2e-coverage-contract.mjs';
 import { validateCoverageFileRecords } from './e2e-coverage-integrity.mjs';
-import { validateE2ERawV8Topology } from './e2e-v8-topology.mjs';
+import { validateE2ERawV8TopologyGroups } from './e2e-v8-topology.mjs';
+import { createRawV8SurfaceValidation } from './e2e-v8-profile-observations.ts';
+import { withV8MaterializationSpool } from './e2e-v8-materialization-spool.ts';
 
 export function runE2ECoverageGate({
 	repositoryRoot,
@@ -134,47 +136,35 @@ export function materializeV8CoverageUnion({
 	if (!Array.isArray(surfaces) || surfaces.length === 0) {
 		throw new TypeError('The raw V8 union needs at least one coverage surface.');
 	}
-	const collected = [];
 	const failures = [];
 	const observedCoverageUrls = [];
-	for (const { surfaceDirectory, manifest } of surfaces) {
-		const rawDirectory = resolveInside(surfaceDirectory, manifest.coverage.path);
-		const fileFailures = validateCoverageFileRecords(
-			rawDirectory,
-			manifest.coverage.files,
-			manifest.surface,
-		);
-		if (fileFailures.length > 0) throw new Error(fileFailures.join('\n'));
-		const profiles = readV8Profiles(rawDirectory);
-		observedCoverageUrls.push(...profiles.flatMap(({ profile }) => (
-			Array.isArray(profile.result)
-				? profile.result.map(({ url }) => url).filter((url) => typeof url === 'string')
-				: []
-		)));
-		const surfaceFailures = validateRawV8Surface(
-			profiles.map(({ profile }) => profile),
-			manifest.surface,
-			inventory,
-		);
-		failures.push(...surfaceFailures);
-		if (surfaceFailures.length > 0) continue;
-		collected.push(...profiles.map((profile) => ({ ...profile, surface: manifest.surface })));
-	}
-	if (collected.length === 0) return { coverage: {}, failures, observedCoverageUrls };
-	failures.push(...validateE2ERawV8Topology({
-		artifactRoot,
-		profiles: collected.map(({ profile }) => profile),
-		scripts: inventory.scripts,
-	}));
 	const rebasedDirectory = join(reportDirectory, 'v8-rebased');
-	rmSync(rebasedDirectory, { recursive: true, force: true });
-	mkdirSync(rebasedDirectory, { recursive: true });
-	for (const [index, { name, profile, surface }] of collected.entries()) {
-		writeFileSync(
-			join(rebasedDirectory, `coverage-${surface}-${String(index).padStart(6, '0')}-${name}`),
-			JSON.stringify(rebasePortableV8Profile(profile, inventory, repositoryRoot, artifactRoot)),
-		);
-	}
+	const hasProfiles = withV8MaterializationSpool(reportDirectory, inventory.scripts, (spool) => {
+		for (const { surfaceDirectory, manifest } of surfaces) {
+			const rawDirectory = resolveInside(surfaceDirectory, manifest.coverage.path);
+			const fileFailures = validateCoverageFileRecords(rawDirectory, manifest.coverage.files, manifest.surface);
+			if (fileFailures.length > 0) throw new Error(fileFailures.join('\n'));
+			const validation = createRawV8SurfaceValidation(manifest.surface, inventory.scripts);
+			const staged = spool.beginSurface(manifest.surface, (profile) => (
+				rebasePortableV8Profile(profile, inventory, repositoryRoot, artifactRoot)
+			));
+			for (const { name, profile } of readV8Profiles(rawDirectory, manifest.coverage.files, manifest.surface)) {
+				observedCoverageUrls.push(...(Array.isArray(profile.result)
+					? profile.result.map(({ url }) => url).filter((url) => typeof url === 'string') : []));
+				validation.observe(profile);
+				staged.write(name, profile);
+			}
+			const surfaceFailures = validation.finish();
+			failures.push(...surfaceFailures);
+			if (surfaceFailures.length === 0) staged.accept();
+		}
+		if (spool.count === 0) return false;
+		failures.push(...validateE2ERawV8TopologyGroups({ artifactRoot, scripts: inventory.scripts,
+			observationsForGroup: spool.observationsForGroup }));
+		spool.publish(rebasedDirectory);
+		return true;
+	});
+	if (!hasProfiles) return { coverage: {}, failures, observedCoverageUrls };
 	const istanbulDirectory = join(reportDirectory, 'istanbul');
 	rmSync(istanbulDirectory, { recursive: true, force: true });
 	mkdirSync(istanbulDirectory, { recursive: true });
@@ -252,12 +242,21 @@ export function normalizeCoveragePaths(coverage, inventory, repositoryRoot, arti
 	return normalized;
 }
 
-function readV8Profiles(directory) {
-	if (!existsSync(directory)) return [];
-	return readdirSync(directory, { withFileTypes: true })
+function* readV8Profiles(directory, records, surface) {
+	if (!existsSync(directory)) return;
+	const expected = new Map(records.map(record => [record.path, record]));
+	const names = readdirSync(directory, { withFileTypes: true })
 		.filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
-		.sort((left, right) => left.name.localeCompare(right.name))
-		.map(({ name }) => ({ name, profile: readJson(join(directory, name)) }));
+		.sort((left, right) => left.name.localeCompare(right.name));
+	for (const { name } of names) {
+		const bytes = readFileSync(join(directory, name));
+		const record = expected.get(name);
+		if (!record || record.byteLength !== bytes.byteLength
+			|| record.sha256 !== `sha256:${createHash('sha256').update(bytes).digest('hex')}`) {
+			throw new Error(`${surface} coverage-file inventory or bytes do not match its manifest.`);
+		}
+		yield { name, profile: JSON.parse(bytes.toString('utf8')) };
+	}
 }
 
 function rebaseSourceUrl(source, urlMap, repositoryRoot) {

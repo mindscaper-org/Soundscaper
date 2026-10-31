@@ -116,6 +116,10 @@ test('every committed desktop test target has a valid pinned runtime handoff', a
 			assert.doesNotThrow(() => desktopAssistanceNativeManifest(handoff, targetId));
 			const changedNative = structuredClone(native);
 			changedNative.targets[targetId].package.files['build-provenance.json'].sha256 = '0'.repeat(64);
+			assert.notDeepEqual(assistanceNativeRuntimeStageSummary(changedNative, targetId), handoff.assistanceNativeRuntime);
+			const changedReceipt = structuredClone(handoff);
+			changedReceipt.assistanceNativeBuild.manifest.targets[targetId].package.files['build-provenance.json'].sha256 = '0'.repeat(64);
+			assert.throws(() => desktopAssistanceNativeManifest(changedReceipt, targetId), /provenance file digest/u);
 			const configuration = join(output, targetId, 'config');
 			const authority = {
 				targetId, receipt: handoff.assistanceRuntimeDistribution,
@@ -129,6 +133,8 @@ test('every committed desktop test target has a valid pinned runtime handoff', a
 			assert.throws(() => validateDesktopAssistanceRuntimeDistribution({
 				...authority, nativeManifestBytes: Buffer.from(JSON.stringify(changedNative)),
 			}), /distribution files differ/u);
+			changedNative.targets[targetId].package.files['build-provenance.json'].sha256 = 'invalid';
+			assert.throws(() => assistanceNativeRuntimeStageSummary(changedNative, targetId), /descriptor/u);
 			const changedHandoff = structuredClone(handoff);
 			changedHandoff.assistanceNativeBuild.provenance.sourceDateEpoch += 1;
 			assert.throws(() => desktopAssistanceNativeManifest(changedHandoff, targetId));

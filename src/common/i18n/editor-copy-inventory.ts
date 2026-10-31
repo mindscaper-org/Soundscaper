@@ -54,6 +54,18 @@ import { BLENDER_COPY_BY_LOCALE } from './editor-blender-copy.ts';
 import { CLIP_INTERACTIONS_COPY_BY_LOCALE } from './editor-clip-interactions-copy.ts';
 import { KEYBOARD_MAP_COPY_BY_LOCALE } from './editor-keyboard-map-copy.ts';
 import { ID3_METADATA_COPY_BY_LOCALE } from './editor-id3-metadata-copy.ts';
+import { MOTIONSCAPER_COPY_BY_LOCALE } from './editor-motionscaper-copy.ts';
+import { MOTION_LINK_BRIDGE_COPY_BY_LOCALE } from './editor-motion-link-bridge-copy.ts';
+import { MOTIONSCAPER_SCENE_COPY_BY_LOCALE } from './editor-motionscaper-scene-copy.ts';
+import { MOTIONSCAPER_APPEARANCE_COPY_BY_LOCALE } from './editor-motionscaper-appearance-copy.ts';
+import { MOTIONSCAPER_CANVAS_COPY_BY_LOCALE } from './editor-motionscaper-canvas-copy.ts';
+import { MOTIONSCAPER_IMPORT_COPY_BY_LOCALE } from './editor-motionscaper-import-copy.ts';
+import { MOTIONSCAPER_LOCALE_COPY_BY_LOCALE } from './editor-motionscaper-locale-copy.ts';
+import { MOTIONSCAPER_UPDATES_COPY_BY_LOCALE } from './editor-motionscaper-updates-copy.ts';
+import { MOTIONSCAPER_QUEUE_COPY_BY_LOCALE } from './editor-motionscaper-queue-copy.ts';
+import { MOTIONSCAPER_LINK_COPY_BY_LOCALE } from './editor-motionscaper-link-copy.ts';
+import { MOTIONSCAPER_AE_COPY_BY_LOCALE } from './editor-motionscaper-ae-copy.ts';
+import { MOTIONSCAPER_TRACKING_COPY_BY_LOCALE } from './editor-motionscaper-tracking-copy.ts';
 import { TRACK_HEIGHT_COPY_BY_LOCALE } from './editor-track-height-copy.ts';
 
 export interface EditorCopyOwner {
@@ -171,6 +183,18 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'trackHeight', ...TRACK_HEIGHT_COPY_BY_LOCALE },
 	{ owner: 'keyboardMap', ...KEYBOARD_MAP_COPY_BY_LOCALE },
 	{ owner: 'id3Metadata', ...ID3_METADATA_COPY_BY_LOCALE },
+	{ owner: 'motionscaper', ...MOTIONSCAPER_COPY_BY_LOCALE },
+	{ owner: 'motion-link-bridge', ...MOTION_LINK_BRIDGE_COPY_BY_LOCALE },
+	{ owner: 'motionscaper-scene', ...MOTIONSCAPER_SCENE_COPY_BY_LOCALE },
+	{ owner: 'motionscaper-appearance', ...MOTIONSCAPER_APPEARANCE_COPY_BY_LOCALE },
+	{ owner: 'motionscaper-canvas', ...MOTIONSCAPER_CANVAS_COPY_BY_LOCALE },
+	{ owner: 'motionscaper-queue', ...MOTIONSCAPER_QUEUE_COPY_BY_LOCALE },
+	{ owner: 'motionscaper-import', ...MOTIONSCAPER_IMPORT_COPY_BY_LOCALE },
+	{ owner: 'motionscaper-updates', ...MOTIONSCAPER_UPDATES_COPY_BY_LOCALE },
+	{ owner: 'motionscaper-locale', ...MOTIONSCAPER_LOCALE_COPY_BY_LOCALE },
+	{ owner: 'motionscaper-link', ...MOTIONSCAPER_LINK_COPY_BY_LOCALE },
+	{ owner: 'motionscaper-ae', ...MOTIONSCAPER_AE_COPY_BY_LOCALE },
+	{ owner: 'motionscaper-tracking', ...MOTIONSCAPER_TRACKING_COPY_BY_LOCALE },
 	{ owner: 'designSystem', ...DESIGN_SYSTEM_COPY },
 	{ owner: 'indexedSearch', en: INDEXED_SEARCH_COPY },
 	{ owner: 'adm', en: ADM_COPY },

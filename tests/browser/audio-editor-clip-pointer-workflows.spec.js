@@ -6,6 +6,7 @@ import {
 	bootEditor, clipByName, closeClipProperties, collectClientErrors,
 	importFiles, openClipProperties, registerAudioEditorHooks,
 } from './audio-editor-test-helpers.js';
+import { expectWaveformTrimPaint } from './helpers/audio-editor-waveform-trim-paint.ts';
 
 test.describe('clip pointer edit workflows', () => {
 	registerAudioEditorHooks();
@@ -106,14 +107,7 @@ test.describe('clip pointer edit workflows', () => {
 		await page.mouse.down();
 		await page.mouse.move(trimX - 24, trimBox.y + trimBox.height / 2, { steps: 4 });
 		await expect.poll(async () => (await secondClip.boundingBox())?.width || 0).toBeLessThan(secondBeforeTrim.width - 10);
-		const waveformDuringTrim = await trimWaveform.evaluate((canvas) => ({
-			reusedPlan: canvas.__kwWaveformPlan === globalThis.__trimPreviewWaveformPlan,
-			pixelsPerSample: canvas.__kwWaveformPlan.pixelsPerSample,
-			drawScale: canvas.getBoundingClientRect().width / canvas.__kwWaveformPlan.pixelWidth,
-		}));
-		expect(waveformDuringTrim.reusedPlan).toBe(false);
-		expect(waveformDuringTrim.pixelsPerSample).toBeCloseTo(waveformBeforeTrim.pixelsPerSample, 4);
-		expect(waveformDuringTrim.drawScale).toBeCloseTo(waveformBeforeTrim.drawScale, 2);
+		await expectWaveformTrimPaint(trimWaveform, waveformBeforeTrim);
 		await page.mouse.up();
 		await expect.poll(async () => (await firstClip.boundingBox())?.width || 0).toBeLessThan(firstBeforeTrim.width - 10);
 		await expect.poll(async () => (await secondClip.boundingBox())?.width || 0).toBeLessThan(secondBeforeTrim.width - 10);

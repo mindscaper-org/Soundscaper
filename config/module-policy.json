@@ -199,6 +199,21 @@
 			"independent": false
 		},
 		{
+			"id": "motionscaper",
+			"sourcePrefixes": [
+				"src/motionscaper/",
+				"desktop/motionscaper-",
+				"native/motionscaper-"
+			],
+			"nodeTests": [
+				"tests/motionscaper-*.test.*"
+			],
+			"products": [
+				"motionscaper"
+			],
+			"independent": false
+		},
+		{
 			"id": "platform",
 			"sourcePrefixes": [
 				"src/",
@@ -359,6 +374,77 @@
 			"products": [
 				"soundscaper",
 				"framescaper"
+			]
+		},
+		{
+			"files": [
+				"tests/browser/motionscaper-ae-blends.spec.ts",
+				"tests/browser/motionscaper-ae-bridge.spec.ts",
+				"tests/browser/motionscaper-ae-editable-masks.spec.ts",
+				"tests/browser/motionscaper-ae-editable-shapes.spec.ts",
+				"tests/browser/motionscaper-ae-editable-text.spec.ts",
+				"tests/browser/motionscaper-ae-expressions.spec.ts",
+				"tests/browser/motionscaper-ae-gaussian.spec.ts",
+				"tests/browser/motionscaper-ae-render-package.spec.ts",
+				"tests/browser/motionscaper-ae-scenes.spec.ts",
+				"tests/browser/motionscaper-ae-shape-profile.spec.ts",
+				"tests/browser/motionscaper-appearance.spec.ts",
+				"tests/browser/motionscaper-archive-conflicts.spec.ts",
+				"tests/browser/motionscaper-audio-preview.spec.ts",
+				"tests/browser/motionscaper-authoring-workflow.spec.ts",
+				"tests/browser/motionscaper-authoring.spec.ts",
+				"tests/browser/motionscaper-canvas.spec.ts",
+				"tests/browser/motionscaper-clipboard-timing.spec.ts",
+				"tests/browser/motionscaper-compositing-delivery.spec.ts",
+				"tests/browser/motionscaper-compositing.spec.ts",
+				"tests/browser/motionscaper-compositions.spec.ts",
+				"tests/browser/motionscaper-desktop-ae-routing.spec.ts",
+				"tests/browser/motionscaper-desktop-launch.spec.ts",
+				"tests/browser/motionscaper-desktop-locale.spec.ts",
+				"tests/browser/motionscaper-documents.spec.js",
+				"tests/browser/motionscaper-expressions.spec.ts",
+				"tests/browser/motionscaper-file-launch.spec.ts",
+				"tests/browser/motionscaper-graph-keyboard.spec.ts",
+				"tests/browser/motionscaper-layer-lifecycle.spec.ts",
+				"tests/browser/motionscaper-linear-webgl.spec.ts",
+				"tests/browser/motionscaper-link-bridge.spec.ts",
+				"tests/browser/motionscaper-link-picture.spec.ts",
+				"tests/browser/motionscaper-link-storage.spec.ts",
+				"tests/browser/motionscaper-media-dialog.spec.ts",
+				"tests/browser/motionscaper-media-provider.spec.ts",
+				"tests/browser/motionscaper-native-render-dialog.spec.ts",
+				"tests/browser/motionscaper-opaque-archive.spec.ts",
+				"tests/browser/motionscaper-operators.spec.ts",
+				"tests/browser/motionscaper-paths.spec.ts",
+				"tests/browser/motionscaper-platform.spec.ts",
+				"tests/browser/motionscaper-preview-dialog.spec.ts",
+				"tests/browser/motionscaper-preview-worker.spec.ts",
+				"tests/browser/motionscaper-project-lock.spec.ts",
+				"tests/browser/motionscaper-project-release.spec.ts",
+				"tests/browser/motionscaper-properties.spec.ts",
+				"tests/browser/motionscaper-render-dialog.spec.ts",
+				"tests/browser/motionscaper-render-queue.spec.ts",
+				"tests/browser/motionscaper-scene.spec.ts",
+				"tests/browser/motionscaper-script-fonts.spec.ts",
+				"tests/browser/motionscaper-shell.spec.js",
+				"tests/browser/motionscaper-successor-archive-download.spec.ts",
+				"tests/browser/motionscaper-successor-migration.spec.ts",
+				"tests/browser/motionscaper-successor-portable.spec.ts",
+				"tests/browser/motionscaper-successor-thumbnails.spec.ts",
+				"tests/browser/motionscaper-sustained-reference.spec.ts",
+				"tests/browser/motionscaper-timeline.spec.ts",
+				"tests/browser/motionscaper-tracking.spec.ts",
+				"tests/browser/motionscaper-updates.spec.ts",
+				"tests/browser/motionscaper-video-delivery.spec.ts",
+				"tests/browser/motionscaper-work-area.spec.ts"
+			],
+			"modules": [
+				"motionscaper"
+			],
+			"products": [
+				"soundscaper",
+				"framescaper",
+				"motionscaper"
 			]
 		}
 	]

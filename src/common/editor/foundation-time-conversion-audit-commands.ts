@@ -13,6 +13,12 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
  */
 export const FOUNDATION_TIME_CONVERSION_COMMAND_SITES: readonly FoundationTimeConversionSite[] = deepFreezeAuditSites([
 	{
+		id: 'clip-pcm-reinterpret-duration',
+		file: 'src/common/editor/controller/track-audio/internal/clip-reinterpret-commands.ts',
+		behavior: 'PCM reinterpretation preserves complete source byte boundaries and resolves the exact frame-packing and playback-clock ratio once to the nearest authored timeline sample.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
 		id: 'command-tempo-reconciliation-inverse',
 		file: 'src/common/editor/project-command-tempo-projection.ts',
 		behavior: 'Command reconciliation prepares one exact inverse of the draft tempo map while keeping persisted forward timing separate; sample positions become exact authored beats before edit reconciliation.',

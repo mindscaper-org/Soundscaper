@@ -3,6 +3,10 @@
 import { SITE_SIDEBAR_COPY_BY_LOCALE } from './site-sidebar-copy.js';
 
 const SITE_COPY_ENTRIES = Object.freeze([
+	['motionscaperTitle', 'Motionscaper'],
+	['motionscaperMetaDescription', 'Motion graphics and compositing.'],
+	['workspaceMotion', 'Motion Workspace'],
+	['otherEditors', 'Other editors'],
 	['framescaperEyebrow', 'Local video editing'],
 	['framescaperTitle', 'Framescaper'],
 	['framescaperIntro', 'Edit video and sound nondestructively, combine layers and effects, and export the finished video.'],

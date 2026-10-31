@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { basename, isAbsolute, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { cleanupCoverage, createCoverageWorkSettlement, drainCoverageWork, releasePageCoverage, withCoverageCleanup } from './browser-coverage-cleanup.ts';
 import { sourceMapDirectoryFor } from './build-source-map-relocation.mjs';
 import {
 	browserFfmpegCoverageContract,
@@ -218,7 +219,7 @@ export function withoutRepeatedSourceMaps(profile, alreadyWritten) {
  * @param {{
  *   browserName: string,
  *   environment?: Record<string, string | undefined>,
- *   sites?: Array<{ origin: string, outputDirectory: string, productId: 'framescaper' | 'soundscaper' }>,
+ *   sites?: Array<{ origin: string, outputDirectory: string, productId: 'framescaper' | 'soundscaper' | 'motionscaper' }>,
  *   repositoryRoot?: string,
  *   coverageDirectory?: string,
  *   scripts?: Map<string, { path: string, coverageUrl?: string, sourceMap?: object, source?: string } | null>,
@@ -254,9 +255,11 @@ export function createBrowserCoverageCollector({
 	const pending = [];
 	let workerCollector = null;
 	let workerCollectorStart = null;
+	let attachedContext = null, finished = false, workerCollected = false;
+	const settle = createCoverageWorkSettlement(pending);
 
 	function start(page) {
-		if (started.has(page) || typeof page.context !== 'function') return;
+		if (finished || started.has(page) || typeof page.context !== 'function') return;
 		started.add(page);
 		// The page event fires while Playwright is still building the fixture, so
 		// the promise is banked rather than awaited: `settle` is what the test
@@ -270,6 +273,7 @@ export function createBrowserCoverageCollector({
 	async function startRecording(page) {
 		const session = await page.context().newCDPSession(page);
 		const recorder = {
+			active: true, page,
 			cdpState: createCdpJavaScriptCoverageState({ authenticateWebAssembly }),
 			navigationCheckpoints: null,
 			pageOperationCheckpoints: null,
@@ -283,6 +287,7 @@ export function createBrowserCoverageCollector({
 			state: recorder.cdpState,
 		});
 		session.on('Debugger.scriptParsed', (event) => {
+			if (!recorder.active) return;
 			const { scriptId, url } = event;
 			const webAssembly = observeCdpScript({ event, session, state: recorder.cdpState });
 			if (webAssembly !== null) {
@@ -295,9 +300,9 @@ export function createBrowserCoverageCollector({
 			}
 			if (!needsCapturedBrowserSource(url, directoriesByOrigin)) return;
 			const work = readCdpScriptSourceUntilTeardown({
-				isActive: () => !page.isClosed(), scriptId, session,
+				isActive: () => recorder.active && !page.isClosed(), scriptId, session,
 			}).then((response) => {
-				if (response !== null) retainCapturedBrowserSource(recorder.sources, url, response.scriptSource);
+				if (recorder.active && response !== null) retainCapturedBrowserSource(recorder.sources, url, response.scriptSource);
 			});
 			pending.push(work);
 		});
@@ -322,13 +327,14 @@ export function createBrowserCoverageCollector({
 	}
 
 	async function checkpointRecorder(recorder, reason) {
-		const [result] = await Promise.all([
-			takeCdpJavaScriptCoverage(recorder.session, recorder.cdpState),
+		const coverage = takeCdpJavaScriptCoverage(recorder.session, recorder.cdpState);
+		await drainCoverageWork([
+			coverage,
 			workerCollectorStart?.then(() => workerCollector?.checkpoint({
 				releaseWorklets: reason === 'audio-context-close',
-			})),
+			})) ?? Promise.resolve(),
 		]);
-		recorder.taken.push(...result);
+		recorder.taken.push(...await coverage);
 	}
 
 	async function resolveScript(url, source) {
@@ -354,14 +360,11 @@ export function createBrowserCoverageCollector({
 		return resolved;
 	}
 
-	async function settle() {
-		while (pending.length > 0) await Promise.all(pending.splice(0, pending.length));
-	}
-
 	return {
 		/** Start coverage on every page this context has or will open. */
 		attach(context) {
 			if (workerCollectorStart !== null) throw new Error('Browser coverage was already attached.');
+			attachedContext = context;
 			workerCollectorStart = createPlaywrightBrowserServiceWorkerCoverageCollector({
 				authenticateWebAssembly,
 				browser: context.browser?.(),
@@ -386,34 +389,46 @@ export function createBrowserCoverageCollector({
 		 * @returns {Promise<string | null>} the profile written, if any
 		 */
 		async collect(label, alreadyWritten) {
-			await settle();
+			finished = true;
+			attachedContext?.off?.('page', start);
+			attachedContext = null;
 			const entries = [];
 			const capturedSources = new Map();
-			for (const page of started) {
-				const recorder = recorders.get(page);
-				recorders.delete(page);
-				if (!recorder) continue;
-				await recorder.navigationCheckpoints?.settle();
-				recorder.pageOperationCheckpoints?.dispose();
-				entries.push(...recorder.taken);
-				mergeCapturedBrowserSources(capturedSources, recorder.sources);
-				const pageClosed = page.isClosed();
-				if (pageClosed) continue;
-				try {
-					entries.push(...await stopRecording(recorder));
-				} catch (error) {
-					// A page the test closed on its way out has nothing left to
-					// report; anything else is a real failure to record.
-					if (!page.isClosed()) throw error;
+			await withCoverageCleanup(async () => {
+				await settle();
+				for (const page of started) {
+					const recorder = recorders.get(page);
+					if (!recorder) continue;
+					await recorder.navigationCheckpoints?.settle();
+					recorder.pageOperationCheckpoints?.dispose();
+					entries.push(...recorder.taken);
+					mergeCapturedBrowserSources(capturedSources, recorder.sources);
+					const pageClosed = page.isClosed();
+					if (pageClosed) continue;
+					try {
+						entries.push(...await stopRecording(recorder));
+					} catch (error) {
+						// A page the test closed on its way out has nothing left to
+						// report; anything else is a real failure to record.
+						if (!page.isClosed()) throw error;
+					}
 				}
-			}
-			if (workerCollector !== null) {
-				const capture = await workerCollector.collect();
-				entries.push(...capture.entries);
-				mergeCapturedBrowserSources(capturedSources, capture.sources);
-			}
-			await settle();
-			started.clear();
+				if (workerCollector !== null) {
+					workerCollected = true;
+					const capture = await workerCollector.collect();
+					entries.push(...capture.entries);
+					mergeCapturedBrowserSources(capturedSources, capture.sources);
+				}
+				await settle();
+			}, async () => {
+				try {
+					await cleanupCoverage([
+						...[...recorders.values()].map(recorder => () => releasePageCoverage(recorder)),
+						() => workerCollector !== null && !workerCollected ? workerCollector.collect() : undefined,
+						() => drainCoverageWork(pending),
+					]);
+				} finally { started.clear(); recorders.clear(); }
+			});
 
 			for (const entry of entries) {
 				const captured = capturedSources.get(entry.url);
@@ -475,13 +490,10 @@ function parseCoverageSites(serialized) {
 }
 
 async function stopRecording(recorder) {
-	const result = await takeCdpJavaScriptCoverage(recorder.session, recorder.cdpState);
-	await recorder.navigationCheckpoints?.dispose();
-	await recorder.session.send('Profiler.stopPreciseCoverage');
-	await recorder.session.send('Profiler.disable');
-	await recorder.session.send('Debugger.disable');
-	await recorder.session.detach();
-	return result;
+	return withCoverageCleanup(
+		() => takeCdpJavaScriptCoverage(recorder.session, recorder.cdpState),
+		() => releasePageCoverage(recorder),
+	);
 }
 
 async function readSourceMap(chunk, { repositoryRoot, productId }) {

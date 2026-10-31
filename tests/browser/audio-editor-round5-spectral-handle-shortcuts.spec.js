@@ -19,9 +19,10 @@ for (const kind of ['maximum-frequency', 'start-time']) {
 		await clipByName(editor, toneA.name).locator('.clip-header').click();
 		await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 		await chooseNestedCommandAction(page, editor, 'Select', ['Spectral', 'Spectral brush']);
-		const brush = await editor.getByRole('button', { name: 'Spectral brush', exact: true }).boundingBox();
+		const brushSurface = editor.getByRole('button', { name: 'Spectral brush', exact: true });
+		const brush = await brushSurface.boundingBox();
 		expect(brush).not.toBeNull();
-		await page.mouse.move(brush.x + 200, brush.y + brush.height / 3);
+		await brushSurface.hover({ position: { x: 200, y: brush.height / 3 } });
 		await page.mouse.down();
 		await page.mouse.move(brush.x + 235, brush.y + brush.height / 3 + 30);
 		await page.mouse.up();

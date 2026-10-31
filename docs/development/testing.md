@@ -96,8 +96,8 @@ audits. It runs heavy phases sequentially, requests one Node test process and
 one browser worker, and builds only the products required by the selected
 browser workflows. Keep development RAM usage within 12 GB. Prepared sites
 retain their exact build evidence, source-map authentication and separate
-origins. `SCAPE_BROWSER_PRODUCTS=soundscaper` or `framescaper` selects one ordinary
-browser product; leaving it unset preserves the two-product preparation.
+origins. `SCAPE_BROWSER_PRODUCTS=soundscaper`, `framescaper`, or `motionscaper`
+selects one ordinary browser product; leaving it unset prepares all three.
 
 PR CI records the affected plan in the existing Build job and passes it to the
 existing Node, browser and Coverage jobs. It does not allocate a job per module.

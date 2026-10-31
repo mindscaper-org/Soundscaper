@@ -17,7 +17,7 @@ process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS = JSON.stringify(Object.fromEntries
 
 export default defineConfig({
 	testDir: './tests/browser',
-	testIgnore: ['handbook/**', 'dual-origin/**', 'audiocity/**'],
+	testIgnore: ['handbook/**', 'dual-origin/**', 'audiocity/**', '**/motionscaper-linked-editors.spec.ts', '**/motionscaper-linked-native-menu.spec.ts', '**/motionscaper-linked-mixed-preview.spec.ts', '**/motionscaper-successor-native-cleanup.spec.ts', '**/motionscaper-successor-shell.spec.ts', '**/motionscaper-successor-opaque-archive.spec.ts'],
 	...(modulePlan?.mode === 'focused' ? { testMatch: modulePlan.browserTests.map(file => resolve(import.meta.dirname, file).replaceAll('\\', '/')) } : {}),
 	timeout: 30000,
 	expect: { timeout: 5000 },

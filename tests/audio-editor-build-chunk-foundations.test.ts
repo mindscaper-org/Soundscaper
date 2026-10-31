@@ -129,6 +129,7 @@ test('small product-ready foundations have non-recursive semantic owners', () =>
 		['src/framescaper/editor-project-feature-requirements-assistance.ts', 'framescaper-project-foundations'],
 		['src/framescaper/editor-project-storage-profile.ts', 'framescaper-project-foundations'],
 		['src/framescaper/editor-project-runtime-profile.ts', 'framescaper-project-foundations'],
+		['src/framescaper/editor-project-runtime-selection.ts', 'framescaper-shared-runtime'],
 		['src/framescaper/editor-project-companion-audio-scope.ts', 'framescaper-project-foundations'],
 		['src/framescaper/editor-project-professional-media-source-command.ts', 'framescaper-project-foundations'],
 		['src/framescaper/editor-project-finishing-finishing-command.ts', 'framescaper-project-foundations'],
@@ -141,7 +142,6 @@ test('small product-ready foundations have non-recursive semantic owners', () =>
 		assert.equal(chunkGroupForModulePath(path), owner, path);
 	}
 	for (const path of [
-		'src/framescaper/editor-project-runtime-selection.ts',
 		'src/framescaper/editor-selected-finishing-authoring-controller.ts',
 	]) {
 		assert.equal(chunkGroupForModulePath(path), null, `${path} must stay with its composition consumer`);
@@ -152,6 +152,7 @@ test('small product-ready foundations have non-recursive semantic owners', () =>
 	);
 	for (const name of [
 		'project-interchange-foundations',
+		'framescaper-shared-runtime',
 		'editor-codec-foundations',
 		'editor-effect-contracts',
 		'soundscaper-project-foundations',

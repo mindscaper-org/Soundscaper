@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { onlineMediaFailure } from '../../online-media-failure.ts';
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { bindListeningMediaReadiness } from '../listening-media-readiness.ts';
 import { isCurrentAssertion, type EditorProjectToken } from '../../controller/shared/lifecycle.ts';
 
 import { FREESOUND_ATTRIBUTION_ENGLISH_COPY } from '../../../i18n/freesound-attribution-copy.js';
 import { useTranslationScope } from '../use-translation-scope.ts';
-import { restoreMediaListeningGainOnMetadata } from '../media-listening-gain-readiness.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import FreesoundPanel, {
 	type FreesoundPanelState,
@@ -56,12 +56,12 @@ interface FreesoundPanelController extends FreesoundWorkspaceController {
 interface ActiveFreesoundPreview {
 	readonly soundId: number;
 	readonly audio: HTMLAudioElement;
-	readonly releaseListeningGain: () => void;
 	playing: boolean;
 	playRequest: number;
 	metadataLoaded: boolean;
 	pendingSeekSeconds: number | null;
 	outputReady: Promise<void>;
+	readonly disposeListeningGain: () => void;
 }
 
 interface FreesoundPanelContainerProps {
@@ -145,9 +145,9 @@ export function FreesoundPanelContainer({
 	const outputDeviceId = typeof preferredOutput === 'string' && !preferredOutput.startsWith('native:') ? preferredOutput : '';
 	const playbackGain = Math.max(0, Math.min(1, Number(dataRecord(snapshot.audioDevices)?.playbackGain ?? 1)));
 	const currentPlaybackGain = useRef(playbackGain);
-	currentPlaybackGain.current = playbackGain;
 
-	useEffect(() => {
+	useLayoutEffect(() => {
+		currentPlaybackGain.current = playbackGain;
 		if (preview.current) preview.current.audio.volume = playbackGain;
 	}, [playbackGain]);
 
@@ -157,7 +157,7 @@ export function FreesoundPanelContainer({
 		const active = preview.current;
 		preview.current = null;
 		if (active) {
-			active.releaseListeningGain();
+			active.disposeListeningGain();
 			active.audio.pause();
 			active.audio.src = '';
 			active.audio.load();
@@ -193,7 +193,7 @@ export function FreesoundPanelContainer({
 		const active = preview.current;
 		preview.current = null;
 		if (active) {
-			active.releaseListeningGain();
+			active.disposeListeningGain();
 			active.audio.pause();
 			active.audio.src = '';
 		}
@@ -241,7 +241,7 @@ export function FreesoundPanelContainer({
 		const active: ActiveFreesoundPreview = {
 			soundId, audio, playing: true, playRequest: 0, metadataLoaded: false, pendingSeekSeconds: null,
 			outputReady: Promise.resolve(),
-			releaseListeningGain: restoreMediaListeningGainOnMetadata(audio, () => currentPlaybackGain.current),
+			disposeListeningGain: bindListeningMediaReadiness(audio, () => currentPlaybackGain.current, () => preview.current?.audio === audio),
 		};
 		preview.current = active;
 		routePreviewOutput(active, outputDeviceId);
