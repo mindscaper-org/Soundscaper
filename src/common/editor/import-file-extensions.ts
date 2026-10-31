@@ -5,7 +5,7 @@ export const IMPORT_FILE_EXTENSIONS = Object.freeze([
 	'.aac', '.ac3', '.aif', '.aifc', '.aiff', '.amr', '.ape', '.au', '.bw64', '.bwf', '.dts', '.eac3', '.flac', '.iff',
 	'.m4a', '.m4v', '.mka', '.mov', '.mp1', '.mp2', '.mp3', '.mp4', '.oga', '.ogg', '.opus', '.paf', '.rf64',
 	'.sbc', '.sds', '.sf', '.snd', '.sph', '.spx', '.tta', '.voc', '.w64', '.wav', '.wave', '.wavpack', '.webm', '.wma', '.wv',
-	'.cue', '.txt', '.srt', '.vtt',
+	'.cue', '.txt', '.srt', '.vtt', '.mid', '.midi', '.gro',
 ] as const);
 
 export const IMPORT_FILE_EXTENSION_LIST = IMPORT_FILE_EXTENSIONS.join(',');

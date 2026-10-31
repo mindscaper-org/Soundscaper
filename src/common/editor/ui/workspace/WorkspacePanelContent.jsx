@@ -21,6 +21,7 @@ import { audioEditorTrackFrameRate } from '../AudioEditorTimeCodeInput.tsx';
 const RealtimeAnalysisPanel = lazyEditorModule(() => import('../inspector/RealtimeAnalysisPanel.jsx'));
 const AudioSourceMonitorPanel = lazyEditorModule(() => import('../inspector/ClipSourceMonitorPanel.tsx'));
 const RecordingNotesPanel = lazyEditorModule(() => import('./RecordingNotesPanel.tsx'));
+const PianoRollWorkspacePanel = lazyEditorModule(() => import('./PianoRollWorkspacePanel.tsx'));
 
 // The docked effects rack claims keyboard focus when it opens. Moving the
 // panel to another dock unmounts that rack and mounts a fresh one, which would
@@ -104,6 +105,11 @@ export default function WorkspacePanelContent({
 	projectBinVisible = false,
 }) {
 	const project = snapshot.project;
+	if (panelId === 'piano-roll') {
+		return <React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
+			<PianoRollWorkspacePanel controller={controller} snapshot={snapshot} copy={copy} blocked={blocked} run={run} />
+		</React.Suspense>;
+	}
 	if (panelId === 'recording-notes') {
 		return <React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
 			<RecordingNotesPanel

@@ -1,5 +1,6 @@
 import { historyOperationLabel } from './history-operation-label.ts';
 import { METER_PANEL_MIN_WIDTH, isMeterWorkspacePanel } from '../../workspace-layout-defaults.ts';
+import { resolveMidiCopy } from '../../../i18n/editor-midi-copy.ts';
 
 const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr';
 
@@ -26,6 +27,7 @@ export const WORKSPACE_PANEL_IDS = Object.freeze([
 	'clock',
 	'clip-properties',
 	'clip-spreadsheet',
+	'piano-roll',
 	DEFERRED_WEB_VCR_PANEL_ID,
 ]);
 export const WORKSPACE_DISCOVERABLE_PANEL_IDS = Object.freeze(
@@ -103,6 +105,7 @@ export function workspacePanelLabel(copy: EditorCopy, panelId: string): string {
 		'recording-meter': copy.panelRecordingMeter,
 		'clip-properties': copy.clipPropertiesCommand,
 		'clip-spreadsheet': copy['ui.clipSpreadsheet.title'] || 'Clip spreadsheet',
+		'piano-roll': resolveMidiCopy(copy).pianoRoll,
 		[DEFERRED_WEB_VCR_PANEL_ID]: copy.webVcrTitle,
 		analysis: copy.analysisCommand,
 	};

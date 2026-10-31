@@ -16,11 +16,11 @@ const PROJECT_EXTENSIONS = Object.freeze(
 );
 const NATIVE_PROJECT_EXTENSION = PROJECT_FILE_EXTENSION.slice(1);
 const MEDIA_IMPORT_EXTENSIONS = Object.freeze([
-	'aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'cue', 'flac', 'm4a', 'm4v', 'mka', 'mov', 'mp2', 'mp3', 'mp4',
+	'aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'cue', 'flac', 'gro', 'm4a', 'm4v', 'mid', 'midi', 'mka', 'mov', 'mp2', 'mp3', 'mp4',
 	'oga', 'ogg', 'opus', 'rf64', 'srt', 'txt', 'vtt', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv',
 ]);
 const AUDIO_VIDEO_IMPORT_EXTENSIONS = Object.freeze(MEDIA_IMPORT_EXTENSIONS.filter(
-	(extension) => !['cue', 'srt', 'txt', 'vtt'].includes(extension),
+	(extension) => !['cue', 'gro', 'mid', 'midi', 'srt', 'txt', 'vtt'].includes(extension),
 ));
 const PROJECT_OPEN_EXTENSIONS = Object.freeze([
 	...new Set([...PROJECT_EXTENSIONS, 'aup', 'aup3', 'aup4', 'dawproject', 'ses', 'sesx', ...MEDIA_IMPORT_EXTENSIONS]),
@@ -31,7 +31,7 @@ const FILE_PURPOSES = Object.freeze({
 		// Every product opens every product's projects; only saving is native.
 		extensions: PROJECT_OPEN_EXTENSIONS,
 		filters: Object.freeze([{
-			name: 'Projects, audio, video, CUE sheets, and labels',
+			name: 'Projects, audio, MIDI, video, CUE sheets, and labels',
 			extensions: [...PROJECT_OPEN_EXTENSIONS],
 		}]),
 	}),
@@ -45,7 +45,7 @@ const FILE_PURPOSES = Object.freeze({
 	}),
 	media: Object.freeze({
 		extensions: MEDIA_IMPORT_EXTENSIONS,
-		filters: Object.freeze([{ name: 'Audio, video, CUE sheets, and labels', extensions: [...MEDIA_IMPORT_EXTENSIONS] }]),
+		filters: Object.freeze([{ name: 'Audio, MIDI, video, CUE sheets, and labels', extensions: [...MEDIA_IMPORT_EXTENSIONS] }]),
 	}),
 	'audio-video': Object.freeze({
 		extensions: AUDIO_VIDEO_IMPORT_EXTENSIONS,
@@ -120,7 +120,7 @@ const SAVE_PURPOSES = Object.freeze({
 	// here rather than each adding a purpose of its own.
 	interchange: Object.freeze({
 		defaultExtension: 'edl',
-		filters: [{ name: 'Edit interchange', extensions: ['edl', 'otio', 'fcpxml', 'xml', 'dawproject'] }],
+		filters: [{ name: 'Edit interchange', extensions: ['edl', 'otio', 'fcpxml', 'xml', 'dawproject', 'mid', 'midi', 'gro'] }],
 	}),
 	translation: Object.freeze({
 		defaultExtension: 'json',
@@ -150,12 +150,15 @@ const MIME_TYPES = Object.freeze({
 	'.fcpxml': 'application/xml',
 	'.flac': 'audio/flac',
 	'.gif': 'image/gif',
+	'.gro': 'text/plain',
 	'.jpeg': 'image/jpeg',
 	'.jpg': 'image/jpeg',
 	'.jpe': 'image/jpeg',
 	'.jfif': 'image/jpeg',
 	'.m4a': 'audio/mp4',
 	'.m4v': 'video/mp4',
+	'.mid': 'audio/midi',
+	'.midi': 'audio/midi',
 	'.mka': 'audio/x-matroska',
 	'.mov': 'video/quicktime',
 	'.mp2': 'audio/mpeg',

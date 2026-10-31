@@ -41,6 +41,8 @@ import { resolveSelectionRange } from '../selection-range.ts';
 import { createOriginalFileOverwriteMenuItems } from './original-file-overwrite-menu.ts';
 import { repairSelectionAvailable } from './repair-menu-admission.ts';
 import { selectedTrackRemovalAvailable } from '../selected-track-removal.ts';
+import { createMidiExportMenuItems, createMidiTrackMenuItems } from './midi-application-menu.ts';
+import { isMidiClip } from '../midi-model.ts';
 
 /**
  * The video tracks an edit list would describe.
@@ -244,6 +246,7 @@ export default function createApplicationMenus({
 					parityLabel: copy.audacityParityMatchExportOther,
 					items: [
 						...blenderItems.file,
+						...createMidiExportMenuItems({ copy, productId, blocked, midiAvailable: Boolean(project?.clips.some(isMidiClip)) }, { midi: actions.exportMidi, allegro: actions.exportAllegro }),
 						...(productId === 'soundscaper' ? [{ id: 'save-aup3', label: copy.saveAsAup3, preserveLabel: true, disabled: blocked, onClick: actions.saveAup3 }] : []),
 						...(productId === 'soundscaper' ? [{ id: 'save-aup4', label: copy.saveAsAup4, preserveLabel: true, disabled: blocked, onClick: actions.saveAup4 }] : []),
 						{
@@ -387,6 +390,7 @@ export default function createApplicationMenus({
 					label: copy.addNewTrack,
 					items: [
 						{ id: 'new-audio-track', label: copy.audioTrack, disabled: editBlocked, onClick: actions.addAudioTrack },
+						...createMidiTrackMenuItems({ copy, productId, blocked: editBlocked }, actions.addMidiTrack),
 						{ id: 'new-label-track', label: copy.labelTrack, disabled: editBlocked, onClick: actions.addLabelTrack },
 					],
 				},
