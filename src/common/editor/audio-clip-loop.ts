@@ -21,6 +21,8 @@ export interface LoopAudioClip extends ClipLoopCarrier {
 	readonly durationFrames: number;
 	readonly sourceStartFrame: number;
 	readonly sourceDurationFrames: number;
+	readonly trimStartFrames?: number;
+	readonly trimEndFrames?: number;
 	readonly reversed?: boolean;
 }
 
@@ -75,6 +77,7 @@ function frame(value: unknown, minimum: number, name: string): number {
 export function clipLoopUpdateFields(clip: LoopAudioClip, change: unknown): {
 	durationFrames: number; sourceStartFrame: number; sourceDurationFrames: number;
 	opaqueExtensions: Record<string, unknown>; fadeInFrames?: number; fadeOutFrames?: number;
+	trimStartFrames?: number; trimEndFrames?: number;
 } {
 	if (!clipCanLoop(clip)) throw new RangeError('Looping requires an unwarped sample-anchored audio clip without a video link.');
 	const opaqueExtensions = { ...record(clip.opaqueExtensions) };
@@ -109,6 +112,11 @@ export function clipLoopUpdateFields(clip: LoopAudioClip, change: unknown): {
 	}
 	const fades = record(clip);
 	return { durationFrames, sourceStartFrame, sourceDurationFrames, opaqueExtensions,
+		// Period edits use source samples for hidden media, including reversed loops.
+		...(sourceStartFrame !== clip.sourceStartFrame || sourceDurationFrames !== clip.sourceDurationFrames ? {
+			trimStartFrames: Math.max(0, (clip.trimStartFrames ?? 0) + (sourceStartFrame - clip.sourceStartFrame)),
+			trimEndFrames: Math.max(0, (clip.trimEndFrames ?? 0) + (clip.sourceStartFrame + clip.sourceDurationFrames - (sourceStartFrame + sourceDurationFrames))),
+		} : {}),
 		...(typeof fades.fadeInFrames === 'number' ? { fadeInFrames: Math.min(fades.fadeInFrames, durationFrames) } : {}),
 		...(typeof fades.fadeOutFrames === 'number' ? { fadeOutFrames: Math.min(fades.fadeOutFrames, durationFrames) } : {}),
 	};
