@@ -103,7 +103,8 @@ test.describe('non-destructive clip fade handles', () => {
 			await expect(clip.locator('.clip-display')).toHaveAttribute('data-selected', 'false');
 			await expect(clip.locator('button[data-clip-fade-handle]')).toHaveCount(2);
 			await expect(clip.locator('[data-fade-zone]')).toHaveCount(2);
-			await expect(fadeIn).toHaveCSS('opacity', '0');
+			// Existing fades remain editable while the deselected clip is hovered.
+			await expect(fadeIn).toHaveCSS('opacity', '1');
 			await editor.getByRole('menuitem', { name: 'File', exact: true }).focus();
 			await page.mouse.move(0, 0);
 			await expect(fadeIn).toHaveCSS('opacity', '0');
@@ -341,7 +342,8 @@ test.describe('non-destructive clip fade handles', () => {
 		let clip = clipByName(editor, toneA.name);
 		await selectClip(clip);
 		const fadeIn = clip.getByRole('slider', { name: 'Fade in', exact: true });
-		await fadeIn.press('Home'); await fadeIn.press('0');
+		// Resetting the shape creates a default fade on a bare edge; clear its length afterwards.
+		await fadeIn.press('0'); await fadeIn.press('Home');
 		for (let step = 0; step < 4; step++) await fadeIn.press('ArrowRight');
 		let shape = clip.getByRole('slider', { name: 'Fade in shape', exact: true });
 		const curve = clip.locator('path[data-fade-curve="in"]');
