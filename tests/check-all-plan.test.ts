@@ -16,10 +16,12 @@ test('check-all includes every static gate, all Node shards, fresh coverage and 
 	}
 	assert.equal(plan.filter(job => job.id.startsWith('lint/')).length, 8);
 	const node = plan.filter(job => job.id.startsWith('node/'));
-	assert.equal(node.length, 4);
-	assert.equal(new Set(node.map(job => job.args.find(arg => arg.startsWith('--coverage-directory=')))).size, 4);
+	assert.deepEqual(node.map(job => job.id), [
+		'node/common-1', 'node/common-2', 'node/framescaper', 'node/soundscaper', 'node/motionscaper',
+	]);
+	assert.equal(new Set(node.map(job => job.args.find(arg => arg.startsWith('--coverage-directory=')))).size, 5);
 	const coverage = plan.find(job => job.id === 'coverage');
-	assert.equal(coverage?.dependsOn.length, 4);
+	assert.equal(coverage?.dependsOn.length, 5);
 	for (const dependency of coverage?.dependsOn ?? []) {
 		const compact = plan.find(job => job.id === dependency);
 		assert.equal(compact?.dependsOn.length, 1);
