@@ -159,12 +159,23 @@ test('picking offers ambiguous labels and accessible attributes while keeping an
 test('PO kits retain their baseline and notices, and stale JSON imports remain reviewable', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	const surface = await openTranslator(page, editor);
+	const optionalCopy = [
+		['ui.framescaperSuccessor.menu', 'Upgrade archive for Framescaper 1.1 development…'],
+		['ui.framescaperNativeDelivery.title', 'Export Frame sequence as ProRes 4444'],
+	];
+	for (const [key, source] of optionalCopy) {
+		await selectMessage(surface, key);
+		await expect(surface.getByRole('textbox', { name: en.source, exact: true })).toHaveValue(source);
+	}
 	const download = page.waitForEvent('download');
 	await surface.getByRole('button', { name: en.po, exact: true }).click();
 	const files = unzipSync(await downloadBytes(await download));
 	expect(Object.keys(files)).toEqual(expect.arrayContaining(['messages.pot', 'messages.po', 'manifest.json', 'NOTICE.md', 'LICENSE.txt']));
 	expect(strFromU8(files['messages.pot'])).toContain('msgctxt "play"\nmsgid "Play"\nmsgstr ""');
 	expect(strFromU8(files['messages.po'])).toContain('msgctxt "play"');
+	for (const [key, source] of optionalCopy) {
+		expect(strFromU8(files['messages.pot'])).toContain(`msgctxt "${key}"\nmsgid "${source}"\nmsgstr ""`);
+	}
 	const manifest = JSON.parse(strFromU8(files['manifest.json']));
 	const contribution = { version: 1, locale: 'de', snapshotId: manifest.snapshotId, entries: [{
 		...manifest.entries.play, source: 'Old play wording', translation: 'Alte Wiedergabe',
