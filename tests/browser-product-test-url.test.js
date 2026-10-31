@@ -11,6 +11,7 @@ import {
 const PRODUCT_ORIGINS = JSON.stringify({
 	soundscaper: 'http://127.0.0.1:4322',
 	framescaper: 'http://127.0.0.1:4323',
+	motionscaper: 'http://127.0.0.1:4324',
 });
 
 test('ordinary browser helpers route each legacy product path to its real origin', () => {
@@ -23,6 +24,9 @@ test('ordinary browser helpers route each legacy product path to its real origin
 		resolveBrowserProductTestUrl('/embed/en/', environment),
 		'http://127.0.0.1:4322/embed/en/',
 	);
+	assert.equal(resolveBrowserProductTestUrl('/motionscaper/en/?project=motion-1', environment),
+		'http://127.0.0.1:4324/en/?project=motion-1');
+	assert.equal(resolveBrowserProductTestUrl('/motionscaper', environment), 'http://127.0.0.1:4324/');
 	assert.equal(
 		resolveBrowserProductTestUrl('https://127.0.0.1:4999/embed/en/', environment),
 		'https://127.0.0.1:4999/embed/en/',
@@ -46,4 +50,17 @@ test('a single-product run routes its own paths and rejects an unselected peer',
 	assert.equal(resolveBrowserProductTestUrl('/en/', sound), 'http://127.0.0.1:4322/en/');
 	assert.throws(() => resolveBrowserProductTestUrl('/framescaper/en/', sound), /framescaper.*not selected/u);
 	assert.throws(() => resolveBrowserProductTestUrl('/en/', { [BROWSER_PRODUCT_ORIGINS_VARIABLE]: '{"other":"http://127.0.0.1:4322"}' }), /unknown product/u);
+	const motion = { [BROWSER_PRODUCT_ORIGINS_VARIABLE]: JSON.stringify({ motionscaper: 'http://127.0.0.1:4324' }) };
+	assert.equal(resolveBrowserProductTestUrl('/motionscaper/de/', motion), 'http://127.0.0.1:4324/de/');
+	assert.throws(() => resolveBrowserProductTestUrl('/en/', motion), /soundscaper.*not selected/u);
+	assert.throws(() => resolveBrowserProductTestUrl('/motionscaper/en/', sound), /motionscaper.*not selected/u);
+});
+
+test('every selected product requires its own loopback origin', () => {
+	for (const peer of ['soundscaper', 'framescaper']) {
+		const environment = { [BROWSER_PRODUCT_ORIGINS_VARIABLE]: JSON.stringify({
+			[peer]: 'http://127.0.0.1:4324', motionscaper: 'http://127.0.0.1:4324',
+		}) };
+		assert.throws(() => resolveBrowserProductTestUrl('/motionscaper/en/', environment), /distinct product origins/u);
+	}
 });

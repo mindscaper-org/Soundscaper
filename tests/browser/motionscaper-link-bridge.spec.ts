@@ -44,7 +44,7 @@ import { openFramescaperCompositionLinkRepository } from ${source('src/framescap
 import { createMotionscaperProject } from ${source('src/motionscaper/editor-project.ts')};
 import { createMotionscaperRevision } from ${source('src/common/editor/motion-project-revision.ts')};
 import { createMotionCompositionOffer } from ${source('src/common/editor/motion-link-protocol.ts')};
-import { digestScapeBytes } from ${source('src/common/editor/scape-archive-media.ts')};
+import { digestBytes as digestScapeBytes } from ${source('src/common/media/bytes.ts')};
 if (location.pathname.startsWith('/composition-link/')) await import(${source('src/common/editor/ui/composition-link/bridge-page-entry.tsx')});
 const origins = {senderOrigin:${JSON.stringify(motion)},receiverOrigin:${JSON.stringify(frame)}};
 const bytes = Uint8Array.from({length:128},(_,i)=>i); const sha256 = digestScapeBytes(bytes);
