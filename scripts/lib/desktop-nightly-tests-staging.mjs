@@ -158,6 +158,7 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	{ source: '.wrangler/dual-origin-browser/soundscaper-source-maps', destination: 'sites/soundscaper-source-maps', kind: 'directory', label: 'reciprocal Soundscaper browser source maps' },
 	{ source: '.wrangler/dual-origin-browser/framescaper-source-maps', destination: 'sites/framescaper-source-maps', kind: 'directory', label: 'reciprocal Framescaper browser source maps' },
 	{ source: 'src', destination: 'src', kind: 'directory', label: 'browser-test source tree' },
+	{ source: 'functions/download/index.ts', destination: 'functions/download/index.ts', kind: 'file', label: 'download-page browser fixture handler' },
 	{ source: 'vendor/audacity-design-system/tokens', destination: 'vendor/audacity-design-system/tokens', kind: 'directory', label: 'design-system tokens used by browser assertions' },
 	{ source: 'vendor/audacity-design-system/components/src/utils/roseus-colormap.ts', destination: 'vendor/audacity-design-system/components/src/utils/roseus-colormap.ts', kind: 'file', label: 'spectrogram painter browser harness colormap' },
 	{ source: 'handbook/guides', destination: 'handbook/guides', kind: 'directory', label: 'handbook guide step data the browser suite replays' },
