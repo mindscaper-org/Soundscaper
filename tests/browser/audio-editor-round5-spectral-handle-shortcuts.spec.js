@@ -19,12 +19,10 @@ for (const kind of ['maximum-frequency', 'start-time']) {
 		await clipByName(editor, toneA.name).locator('.clip-header').click();
 		await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 		await chooseNestedCommandAction(page, editor, 'Select', ['Spectral', 'Spectral brush']);
-		const brush = await editor.getByRole('button', { name: 'Spectral brush', exact: true }).boundingBox();
-		expect(brush).not.toBeNull();
-		await page.mouse.move(brush.x + 200, brush.y + brush.height / 3);
-		await page.mouse.down();
-		await page.mouse.move(brush.x + 235, brush.y + brush.height / 3 + 30);
-		await page.mouse.up();
+		const brush = editor.getByRole('button', { name: 'Spectral brush', exact: true });
+		// Seed a band within the selected clip independently of viewport and zoom.
+		await brush.focus();
+		await brush.press('Enter');
 		const handle = editor.locator(`.audio-editor-spectral-selection__handle--${kind === 'start-time' ? 'time-start' : 'frequency-maximum'}`);
 		await expect(handle).toBeVisible();
 		const before = await handle.getAttribute('aria-valuenow');

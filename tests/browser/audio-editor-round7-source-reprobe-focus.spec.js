@@ -10,6 +10,7 @@ test('keyboard Re-read source keeps its Source properties action focused after t
 	const editor = await bootEditor(page, '/framescaper/en/');
 	const video = videoTimingProbeMedia.find(({ id }) => id === 'cfr-25fps-mp4-v1');
 	await editor.locator('[data-project-bin-input]').setInputFiles([video.file]);
+	await expect(editor.locator('[data-status]')).toHaveAttribute('data-state', 'success', { timeout: 60_000 });
 	const name = video.file.name.replace(/\.[^.]+$/u, '');
 	await expect(editor.getByRole('button', { name: `More file actions: ${name}`, exact: true })).toBeVisible();
 	const properties = await openFramescaperSourcePropertiesFromBin(page, editor, name);
