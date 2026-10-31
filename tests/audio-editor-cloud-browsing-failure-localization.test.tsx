@@ -14,6 +14,8 @@ import { FREESOUND_ATTRIBUTION_ENGLISH_COPY } from '../src/common/i18n/freesound
 import { createFreesoundImportService } from '../src/common/editor/controller/import/freesound-import-service.ts';
 import { AudiocomApiError } from '../src/common/editor/controller/import/internal/audiocom-api-client.ts';
 import { onlineMediaFailure } from '../src/common/editor/online-media-failure.ts';
+import { createFreesoundClientTransport } from '../src/common/editor/ui/workspace/freesound-auth-upload-client.ts';
+import { settle, waitFor } from './helpers/async-test-control.ts';
 const noop = () => {};
 const copy = { ...AUDIOCOM_COPY_BY_LOCALE.en, projectUploadCancelled: 'Abgebrochen. Cloud-Liste vor erneutem Speichern aktualisieren.',
 	projectArchiveInvalid: 'Ungültige Projektdatei.', previewFailed: 'Vorschau konnte nicht abgespielt werden.' };
@@ -82,17 +84,26 @@ test('actual mounted Freesound search publishes typed503 feedback and re-renders
 	const dom = installReactTestDom(), previousFetch = globalThis.fetch;
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT; actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
-	globalThis.fetch = async (input) => String(input).includes('/search') ? new Response(null, { status: 503 }) : Response.json({ data: { connected: false } });
+	let searchRequests = 0;
+	globalThis.fetch = async (input) => {
+		if (String(input).includes('/search')) { searchRequests += 1; return new Response(null, { status: 503 }); }
+		return Response.json({ data: { connected: false } });
+	};
 	const { createRoot } = await import('react-dom/client'), root = createRoot(dom.container as unknown as Element);
 	const controller = { actions: { project: { importFiles: async () => undefined } },
 		getSnapshot: () => ({ productId: 'soundscaper', project: { id: 'project' } }),
 		captureProjectGeneration: () => ({ projectId: 'project', generation: 1 }), assertProjectGeneration: noop };
 	const props = { controller, snapshot: { locale: 'de', project: { tracks: [] } },
+		freesoundTransport: createFreesoundClientTransport({ location: { origin: 'https://soundscaper.org', protocol: 'https:' } }),
 		copy: { 'ui.freesoundAttribution.searchRequestHttpFailed': 'Dienst meldet HTTP {status}. Später erneut suchen.' } };
 	try {
 		await act(async () => root.render(<FreesoundPanelContainer {...props} />));
 		await act(async () => { reactProps(dom.one('input')).onChange({ currentTarget: { value: 'rain' } }); });
-		await act(async () => { reactProps(dom.one('form')).onSubmit({ preventDefault() {} }); await Promise.resolve(); });
+		await act(async () => {
+			reactProps(dom.one('form')).onSubmit({ preventDefault() {} });
+			await waitFor(() => searchRequests === 3, 'the Freesound HTTP retry limit', { turns: 200, delayMs: 10 });
+			await settle();
+		});
 		assert.match(dom.container.textContent, /Dienst meldet HTTP 503/);
 		assert.doesNotMatch(dom.container.textContent, /Freesound request failed/);
 		await act(async () => root.render(<FreesoundPanelContainer {...props} copy={{ 'ui.freesoundAttribution.searchRequestHttpFailed': 'Service indisponible, HTTP {status}.' }} />));

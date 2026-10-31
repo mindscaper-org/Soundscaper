@@ -7,6 +7,8 @@ import { createRoot } from 'react-dom/client';
 import { FreesoundPanelContainer } from '../src/common/editor/ui/workspace/FreesoundPanelContainer.tsx';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import { settle } from './helpers/async-test-control.ts';
+import { createFreesoundClientTransport } from '../src/common/editor/ui/workspace/freesound-auth-upload-client.ts';
 
 const RESULT = Object.freeze({
 	id: 42,
@@ -84,12 +86,13 @@ async function withPreview(run: (fixture: Readonly<{
 		getSnapshot: () => ({ productId: 'soundscaper', project: { id: 'project-a' } }),
 		captureProjectGeneration: () => ({ projectId: 'project-a', generation: 1 }),
 		assertProjectGeneration: () => undefined };
-	const props = { controller, snapshot: { locale: 'en', project: { tracks: [] } }, copy: ENGLISH_COPY };
+	const props = { controller, snapshot: { locale: 'en', project: { tracks: [] } }, copy: ENGLISH_COPY,
+		freesoundTransport: createFreesoundClientTransport({ location: { origin: 'https://soundscaper.org', protocol: 'https:' } }) };
 	const root = createRoot(dom.container as unknown as Element);
 	try {
 		await act(async () => root.render(<FreesoundPanelContainer {...props} panelActive />));
 		await act(async () => reactProps(dom.one('input')).onChange({ currentTarget: { value: 'rain' } }));
-		await act(async () => { reactProps(dom.one('form')).onSubmit({ preventDefault() {} }); await Promise.resolve(); });
+		await act(async () => { reactProps(dom.one('form')).onSubmit({ preventDefault() {} }); await settle(); });
 		const press = async (): Promise<void> => {
 			await act(async () => reactProps(dom.one('.kw-audio-editor__freesound-preview-button')).onClick());
 		};
