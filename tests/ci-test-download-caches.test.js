@@ -26,7 +26,9 @@ for (const workflow of ['quality.yml', 'desktop-preview.yml', 'soundscaper-stabl
 				boostJobs += 1;
 				const cache = job.indexOf('path: .wrangler/test-download-cache/boost');
 				assert.ok(cache >= 0 && boost > cache);
-				assert.match(job.slice(0, cache).split(/\n {6}- /u).at(-1), /if: matrix\.shard == 'framescaper'/u);
+				assert.match(job, /node scripts\/ci-test-prerequisites\.mjs --node-module-shard=\$\{\{ matrix\.shard \}\}/u);
+				assert.match(job.slice(0, cache).split(/\n {6}- /u).at(-1), /if: steps\.test-prerequisites\.outputs\.boost == 'true'/u);
+				assert.match(job.slice(0, boost).split(/\n {6}- /u).at(-1), /if: steps\.test-prerequisites\.outputs\.boost == 'true'/u);
 				assert.match(job, /config\/boost-multiprecision-source-manifest\.json/u);
 				assert.match(job, /scripts\/lib\/framescaper-boost-ci-cache\.mjs/u);
 			}

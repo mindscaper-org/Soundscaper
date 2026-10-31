@@ -282,7 +282,7 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(browserJob, /--workers=\$\{\{ matrix\.project == 'webkit' && 1 \|\| 2 \}\}/u,
 		`${label} must give WebKit real-time audio one worker per shard`);
 
-	// The handbook suite has its own Playwright config, so `--shard` cannot
+	// The handbook suite has its own Playwright config, so `--suite-shard` cannot
 	// divide it alongside the site suite. It has to be pinned to one leg of the
 	// matrix or the shards would each run the whole of it.
 	const handbookLegs = [...browserJob.matchAll(
@@ -302,7 +302,7 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(firefoxJob, /name: verified-soundscaper-browser-site-build/u);
 	assertEngineIsSharded(firefoxJob, `${label} firefox`, 'npm run test:browser:built -- --project=firefox', firefoxShardCount);
 	assert.ok(
-		firefoxJob.includes(`--shard=\${{ matrix.shard }}/${firefoxShardCount} --workers=1`),
+		firefoxJob.includes(`--suite-shard=\${{ matrix.shard }}/${firefoxShardCount} --workers=1`),
 		`${label} must keep Firefox media workflows on one worker per shard`,
 	);
 	assert.ok(
@@ -314,7 +314,7 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 
 /**
  * Playwright is the pipeline's long pole, so every engine is split across
- * runners with `--shard`. Three things have to agree for that gate to be meaningful:
+ * runners with `--suite-shard`. Three things have to agree for that gate to be meaningful:
  * same tests the unsharded job did, and each is silent when it does not: the
  * `/N` denominator has to equal the number of matrix legs, or the shards the
  * matrix never runs take their tests with them; the job name has to say which
@@ -330,8 +330,8 @@ function assertEngineIsSharded(job, label, runCommand, expectedShardCount, denom
 
 	const total = denominator;
 	assert.ok(
-		job.includes(`${runCommand} --shard=\${{ matrix.shard }}/${total}`),
-		`${label} must run \`${runCommand}\` under --shard=\${{ matrix.shard }}/${total}`,
+		job.includes(`${runCommand} --suite-shard=\${{ matrix.shard }}/${total}`),
+		`${label} must run \`${runCommand}\` under --suite-shard=\${{ matrix.shard }}/${total}`,
 	);
 	assert.match(
 		job,
