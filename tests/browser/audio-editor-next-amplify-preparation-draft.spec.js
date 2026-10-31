@@ -6,17 +6,21 @@ import { bootEditor, chooseNestedCommandAction, closeClipProperties, importFiles
 test('Amplify keeps an edited gain draft while the current audio default is still being prepared', async ({ page }) => {
 	await page.addInitScript(() => {
 		globalThis.__amplifyPreparedPcmReads = 0;
-		const rendered = new WeakSet();
+		const rendered = new WeakMap();
 		const startRendering = OfflineAudioContext.prototype.startRendering;
 		OfflineAudioContext.prototype.startRendering = async function (...args) {
 			const buffer = await Reflect.apply(startRendering, this, args);
-			rendered.add(buffer);
+			// Geometry validation reads each channel before asynchronous worklet
+			// checks settle. Count only the later PCM consumer's readback.
+			rendered.set(buffer, buffer.numberOfChannels);
 			return buffer;
 		};
 		const getChannelData = AudioBuffer.prototype.getChannelData;
 		AudioBuffer.prototype.getChannelData = function (...args) {
 			const channel = Reflect.apply(getChannelData, this, args);
-			if (rendered.has(this)) globalThis.__amplifyPreparedPcmReads++;
+			const validationReads = rendered.get(this);
+			if (validationReads > 0) rendered.set(this, validationReads - 1);
+			else if (validationReads === 0) globalThis.__amplifyPreparedPcmReads++;
 			return channel;
 		};
 	});
