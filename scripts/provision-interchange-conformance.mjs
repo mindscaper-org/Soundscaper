@@ -216,6 +216,11 @@ async function provision() {
 }
 
 function verify() {
+	// OTIO adapters and the DAWproject validator share this preparation gate.
+	// Check the latter here too, before any dependent suite starts.
+	if (config.packages.some(entry => entry.name === 'xmlschema')) {
+		runPython(['-c', 'import xmlschema, elementpath'], target);
+	}
 	const adapters = runPython([
 		'-c',
 		'import opentimelineio as otio, json;'
