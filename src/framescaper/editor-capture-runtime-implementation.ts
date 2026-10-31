@@ -4,6 +4,7 @@ import { createFramescaperCaptureAppBinding } from
 	'../common/editor/controller/capture/framescaper-capture-app-binding.ts';
 import { createFramescaperCaptureDerivativeScheduler } from
 	'../common/editor/controller/capture/framescaper-capture-derivative-scheduler.ts';
+import { observeMediaInputInterruption } from '../common/editor/controller/shared/media-input-interruption.ts';
 
 /**
  * The capture implementation the deferred runtime loads.
@@ -14,7 +15,8 @@ import { createFramescaperCaptureDerivativeScheduler } from
  * stays in `editor-capture-runtime.ts` and is never behind this import.
  */
 export const FRAMESCAPER_EDITOR_CAPTURE_IMPLEMENTATION = Object.freeze({
-	createAppBinding: createFramescaperCaptureAppBinding,
+	createAppBinding: (options: Parameters<typeof createFramescaperCaptureAppBinding>[0]) =>
+		createFramescaperCaptureAppBinding({ ...options, observeInput: observeMediaInputInterruption }),
 	createDerivativeScheduler: createFramescaperCaptureDerivativeScheduler,
 });
 

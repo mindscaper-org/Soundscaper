@@ -1,6 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-export interface FramescaperOwnedCaptureAudioContext {
+interface CaptureAudioContextLifecycle {
+	readonly state?: string;
+	resume?(): PromiseLike<void> | void;
+	addEventListener?(type: 'statechange', listener: () => void): void;
+	removeEventListener?(type: 'statechange', listener: () => void): void;
+}
+
+export interface FramescaperOwnedCaptureAudioContext extends CaptureAudioContextLifecycle {
 	readonly sampleRate: number;
 	setSinkId?(sinkId: string): PromiseLike<void> | void;
 	resume(): PromiseLike<void> | void;
@@ -15,7 +22,7 @@ export async function acquireFramescaperCaptureAudioContext(
 	sampleRate: number,
 	createContext: FramescaperCaptureAudioContextFactory = createRuntimeContext,
 ): Promise<Readonly<{
-	context: Readonly<{ sampleRate: number }>;
+	context: Readonly<{ sampleRate: number }> & CaptureAudioContextLifecycle;
 	dispose(): Promise<void>;
 }>> {
 	if (shared.sampleRate === sampleRate) return { context: shared, dispose: async () => undefined };

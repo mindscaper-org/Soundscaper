@@ -10,13 +10,20 @@ import {
 import type { TakeCycleLiveCaptureSession } from '../src/common/editor/controller/recording/internal/take-cycle/take-cycle-live-capture-session.ts';
 import type { RecordingControllerFactoryOptions } from '../src/common/editor/controller/recording/recording-transaction-types.ts';
 import { waitFor } from './helpers/async-test-control.ts';
+import { RecordingInputLossError } from '../src/common/editor/recording-input-events.ts';
 
-test('take-cycle input and recorder lifetime loss discards the captured prefix without publication', async (context) => {
+test('take-cycle physical input loss preserves valid captured PCM while recorder failure rejects it', async (context) => {
 	const scenarios = [
-		{ name: 'media track ended', interrupt: (fixture: ReturnType<typeof captureFixture>) => fixture.endInput() },
-		{ name: 'audio context suspended', interrupt: (fixture: ReturnType<typeof captureFixture>) => fixture.suspendContext() },
-		{ name: 'recorder began stopping unexpectedly', interrupt: (fixture: ReturnType<typeof captureFixture>) => {
+		{ name: 'media track ended', preservesPrefix: true, interrupt: (fixture: ReturnType<typeof captureFixture>) => fixture.endInput() },
+		{ name: 'audio context closed', preservesPrefix: true, interrupt: (fixture: ReturnType<typeof captureFixture>) => fixture.closeContext() },
+		{ name: 'native recorder began stopping after device loss', preservesPrefix: true, interrupt: (fixture: ReturnType<typeof captureFixture>) => {
 			fixture.recorderOptions()[0]!.onState('stopping');
+		} },
+		{ name: 'worklet input channels stopped arriving', preservesPrefix: true, interrupt: (fixture: ReturnType<typeof captureFixture>) => {
+			fixture.recorderOptions()[0]!.onError(new RecordingInputLossError());
+		} },
+		{ name: 'recorder processor failed', preservesPrefix: false, interrupt: (fixture: ReturnType<typeof captureFixture>) => {
+			fixture.recorderOptions()[0]!.onState('failed');
 		} },
 	] as const;
 	for (const scenario of scenarios) await context.test(scenario.name, async () => {
@@ -35,11 +42,11 @@ test('take-cycle input and recorder lifetime loss discards the captured prefix w
 			assert.equal(service.active, false);
 			const result = await service.stop();
 
-			assert.equal(result.finalization, null);
-			assert.deepEqual(result.lanes.map(({ status }) => status), ['failed']);
-			assert.equal(fixture.discardCalls(), 1);
-			assert.equal(fixture.sealCalls(), 0);
-			assert.equal(fixture.finalizeCalls(), 0);
+			assert.equal(Boolean(result.finalization), scenario.preservesPrefix);
+			assert.deepEqual(result.lanes.map(({ status }) => status), [scenario.preservesPrefix ? 'committed' : 'failed']);
+			assert.equal(fixture.discardCalls(), scenario.preservesPrefix ? 0 : 1);
+			assert.equal(fixture.sealCalls(), scenario.preservesPrefix ? 1 : 0);
+			assert.equal(fixture.finalizeCalls(), scenario.preservesPrefix ? 1 : 0);
 			assert.deepEqual(fixture.listenerCounts(), { input: 0, context: 0 });
 			assert.equal(fixture.stopCalls(), 1);
 			assert.equal(fixture.disposeCalls(), 1);
@@ -48,6 +55,41 @@ test('take-cycle input and recorder lifetime loss discards the captured prefix w
 			if (service.active) await service.stop();
 		}
 	});
+});
+
+test('take-cycle recording recovers a suspended context and continues the same durable lane', async () => {
+	const fixture = captureFixture();
+	const service = createTakeCycleRoutedCaptureService(fixture.runtime);
+	await service.start({ kind: 'take-cycle-routed-capture' }, fixture.scope);
+	fixture.suspendContext();
+	await new Promise<void>(resolve => setImmediate(resolve));
+	assert.equal(service.active, true);
+	assert.equal(fixture.stopCalls(), 0);
+	assert.equal(fixture.discardCalls(), 0);
+	await fixture.recorderOptions()[0]!.onChunk({ frameStart: 0, frames: 2, channels: [Float32Array.of(0.25, 0.5)] });
+	const result = await service.stop();
+	assert.equal(result.lanes[0]?.status, 'committed');
+	assert.deepEqual(fixture.errors(), []);
+});
+
+test('take-cycle input loss while recorder construction is pending rolls back without starting stale capture', async () => {
+	const fixture = captureFixture();
+	const createRecorder = fixture.runtime.createRecorder;
+	let constructed!: () => void, finishConstruction!: () => void;
+	const ready = new Promise<void>(resolve => { constructed = resolve; });
+	const gate = new Promise<void>(resolve => { finishConstruction = resolve; });
+	fixture.runtime.createRecorder = async options => {
+		const recorder = await createRecorder(options);
+		constructed(); await gate; return recorder;
+	};
+	const service = createTakeCycleRoutedCaptureService(fixture.runtime);
+	const starting = service.start({ kind: 'take-cycle-routed-capture' }, fixture.scope);
+	await ready; fixture.endInput(); finishConstruction();
+	await assert.rejects(starting, { name: 'MediaInputLostError' });
+	assert.equal(service.active, false);
+	assert.equal(fixture.discardCalls(), 1);
+	assert.equal(fixture.finalizeCalls(), 0);
+	assert.deepEqual(fixture.listenerCounts(), { input: 0, context: 0 });
 });
 
 function captureFixture() {
@@ -157,7 +199,7 @@ function captureFixture() {
 		async beginPlaybackCachePreparation() {},
 		handleError(error) { errors.push(error); },
 		stopRecording() { sessionStops += 1; },
-		createResampler: () => ({ push: (channels) => channels, finish: () => [] }),
+		createResampler: () => ({ push: (channels) => channels, finish: () => [new Float32Array()] }),
 		releaseInputs() { releases += 1; },
 	};
 	const scope = Object.freeze({
@@ -183,6 +225,10 @@ function captureFixture() {
 		},
 		suspendContext() {
 			contextState = 'suspended';
+			for (const listener of [...contextListeners]) listener();
+		},
+		closeContext() {
+			contextState = 'closed';
 			for (const listener of [...contextListeners]) listener();
 		},
 	};

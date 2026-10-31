@@ -4,6 +4,7 @@ import {
 	createFramescaperBrowserAudioRecorder,
 	type FramescaperAudioTrackProcessorConstructor,
 	type FramescaperWorkletRecordingControllerFactory,
+	type FramescaperBrowserAudioRecorderOptions,
 } from './framescaper-browser-audio-recorder.ts';
 import type {
 	BrowserCaptureStream,
@@ -32,6 +33,7 @@ export interface FramescaperBrowserRecorderFactoryOptions<
 	readonly MediaRecorder?: MediaRecorderConstructor<Recorder> | null;
 	readonly MediaStreamTrackProcessor?: FramescaperAudioTrackProcessorConstructor | null;
 	readonly recordingControllerFactory?: FramescaperWorkletRecordingControllerFactory;
+	readonly observeInput?: FramescaperBrowserAudioRecorderOptions['observeInput'];
 	getAudioContext(): PromiseLike<Readonly<{
 		readonly sampleRate: number;
 		readonly audioWorklet?: Readonly<{ readonly addModule?: unknown }>;
@@ -110,6 +112,7 @@ async function createAudioRecorder<Recorder extends FramescaperMediaRecorderLike
 	const context = await options.getAudioContext();
 	const recorder = await createFramescaperBrowserAudioRecorder({
 		role: request.source.role,
+		observeInput: options.observeInput,
 		track: request.source.track,
 		stream: request.source.stream,
 		context,

@@ -1,4 +1,5 @@
 import { soundscaperNativeAudioCaptureSource, subscribeSoundscaperNativeAudioCaptureLoss } from './soundscaper-native-audio-capture.ts';
+import { handleRecordingInputEvent } from './recording-input-events.ts';
 import {
 	RECORDING_INPUT_GAIN_DEFAULT,
 	normalizeRecordingChannelCount,
@@ -100,7 +101,7 @@ export async function createRecordingController({
 	node.port.start?.();
 	const unsubscribeNativeLoss = nativeSource
 		? subscribeSoundscaperNativeAudioCaptureLoss(stream, () => {
-			if (state === 'recording' || state === 'paused') void beginStop().catch(() => undefined);
+			if (state === 'recording' || state === 'paused') { handleMessage({ type: 'input-lost' }); void beginStop().catch(() => undefined); }
 		})
 		: () => undefined;
 
@@ -363,6 +364,10 @@ export async function createRecordingController({
 
 	function handleMessage(message) {
 		if (disposed) return;
+		if (handleRecordingInputEvent(message, error => {
+			writeError ||= error;
+			try { onError?.(error); } catch { /* Observers cannot prevent draining accepted PCM. */ }
+		})) return;
 		if (message.type === 'start-missed' && startRequest?.requestId === message.requestId) {
 			if (!Number.isSafeInteger(message.firstAvailableFrame) || message.firstAvailableFrame < 0) {
 				failRecording(new Error('The recording worklet reported an invalid available frame.'));

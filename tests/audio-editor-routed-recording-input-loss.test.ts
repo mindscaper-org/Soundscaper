@@ -7,12 +7,13 @@ import { createRoutedRecordingCaptureService } from '../src/common/editor/contro
 import { createRoutedRecordingFinalization } from '../src/common/editor/controller/recording/internal/routed-recording-finalization.ts';
 import { createRecordingSessionService } from '../src/common/editor/controller/recording/internal/recording-session-service.ts';
 import type { RecordingMediaStream } from '../src/common/editor/controller/recording/recording-transaction-types.ts';
+import { MediaInputLostError } from '../src/common/editor/controller/shared/media-input-interruption.ts';
 import {
 	createEndingRecordingStream,
 	createRecordingCaptureFixture,
 } from './fixtures/recording-capture-fixture.ts';
 
-test('routed capture preserves a surviving input and finalizes once after both live inputs end', async () => {
+test('routed capture reports input loss, preserves its surviving input, and finalizes once', async () => {
 	const [firstDisplay, firstDevice] = [createEndingRecordingStream(), createEndingRecordingStream()];
 	const [secondDisplay, secondDevice] = [createEndingRecordingStream(), createEndingRecordingStream()];
 	const displayStreams = [firstDisplay.stream, secondDisplay.stream];
@@ -112,7 +113,7 @@ test('routed capture preserves a surviving input and finalizes once after both l
 	firstDevice.end();
 	const finishing = fixture.state.recordingFinalizePromise;
 	assert.ok(finishing);
-	await finishing;
+	await assert.rejects(finishing, MediaInputLostError);
 
 	assert.equal(finalizations, 1);
 	assert.equal(committedBatches.length, 1);
@@ -124,6 +125,7 @@ test('routed capture preserves a surviving input and finalizes once after both l
 	assert.equal(fixture.state.recorder, null);
 	assert.equal(fixture.state.recordingEntries, null);
 	assert.equal(fixture.state.recordingFinalizePromise, null);
+	assert.ok(fixture.errors.some(error => error instanceof MediaInputLostError));
 
 	const secondStart = session.startRecording();
 	assert.ok(secondStart);
