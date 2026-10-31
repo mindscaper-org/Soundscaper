@@ -15,6 +15,7 @@ import { createDesktopScapeArchiveByteSource } from './desktop-scape-archive-byt
 import { createDesktopHelperVideoTimingProbe } from './desktop-helper-video-timing-probe.ts';
 import { createDesktopLinkedOriginalAccess } from './desktop-linked-original-port.ts';
 import { registerDesktopReadCapability } from './desktop-read-capability-registry.ts';
+import { readSourceWithRecovery } from './storage/source-read-recovery.ts';
 import { releaseDownloadObjectUrl } from './object-url-revoke.ts';
 import { createDesktopLinkedVideoOriginalAccess } from './storage/desktop-linked-video-original-port.ts';
 import { bindSoundscaperPersistentDeliverySave } from './soundscaper-persistent-delivery-save-target.ts';
@@ -215,7 +216,7 @@ export function createAudioEditorFileService(options = {}) {
 
 	async function releaseRead(id) {
 		if (id == null || !bridge?.releaseRead) return;
-		await bridge.releaseRead(String(id));
+		await readSourceWithRecovery(() => bridge.releaseRead(String(id)), { maximumAttempts: 1 });
 	}
 
 	async function chooseSaveTarget(request = {}) {

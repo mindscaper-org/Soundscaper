@@ -110,6 +110,8 @@ export interface EngineChunkSource {
 	readonly frameCount: number;
 	readonly chunkFrames: number;
 	readonly sampleRate: number;
+	/** True when the provider bounds each underlying read, including long initial verification. */
+	readonly boundedReads?: boolean;
 	readStorageChunk(chunkIndex: number, context?: EngineChunkReadContext): Promise<EngineChunkReadValue> | EngineChunkReadValue;
 }
 

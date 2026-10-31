@@ -6,9 +6,8 @@ import {
 	AUDIO_EDITOR_TRANSFER_CHUNK_FRAMES,
 	createChunkStreamAbortError,
 	deserializeChunkStreamError,
-	serializeChunkStreamError,
-	transferListForAudioChannels,
 } from './chunk-stream.js';
+import { provideChunkStreamStorageChunk } from './chunk-stream-source-read.ts';
 
 let nextStreamId = 1;
 
@@ -19,6 +18,8 @@ export class ChunkStreamClient {
 		this.worker = null;
 		this.streams = new Map();
 		this.disposed = false;
+		this.readTimeoutMs = positiveInteger(options.readTimeoutMs ?? 20_000, 'readTimeoutMs');
+		this.openingTimeoutMs = positiveInteger(options.openingTimeoutMs ?? 20_000, 'openingTimeoutMs');
 	}
 
 	/**
@@ -99,6 +100,7 @@ export class ChunkStreamClient {
 			playContextStartFrame: null,
 			playing: false,
 			settled: false,
+			openingTimer: null,
 			onProgress: typeof options.onProgress === 'function' ? options.onProgress : null,
 			onUnderrun: typeof options.onUnderrun === 'function' ? options.onUnderrun : null,
 			onPlayhead: typeof options.onPlayhead === 'function' ? options.onPlayhead : null,
@@ -109,6 +111,8 @@ export class ChunkStreamClient {
 			stream.externalSignal.addEventListener('abort', stream.externalAbort, { once: true });
 		}
 		this.streams.set(streamId, stream);
+		stream.openingTimer = setTimeout(() => this.#rejectAndCancelStream(stream,
+			Object.assign(new Error('The audio source did not finish buffering in time.'), { name: 'TimeoutError' })), this.openingTimeoutMs);
 		let outputConfigured = false;
 		try {
 			outputPort.postMessage({
@@ -246,7 +250,9 @@ export class ChunkStreamClient {
 				stream.workerReady = true;
 				this.#startIfReady(stream);
 			} else if (message.type === 'need-storage-chunk') {
-				this.#provideStorageChunk(stream, message);
+				void provideChunkStreamStorageChunk(stream, message, () => this.worker,
+					(error) => this.#rejectAndCancelStream(stream, error), this.readTimeoutMs)
+					.catch((error) => this.#rejectAndCancelStream(stream, error));
 			} else if (message.type === 'stream-progress') {
 				stream.onProgress?.({
 					frames: Number(message.frames) || 0,
@@ -284,6 +290,7 @@ export class ChunkStreamClient {
 				);
 				this.#startIfReady(stream);
 			} else if (message.type === 'stream-primed') {
+				clearTimeout(stream.openingTimer);
 				stream.primed.resolve({ packets: message.packets, frames: message.frames });
 				if (stream.playRequested && !stream.playing) {
 					stream.playing = true;
@@ -318,6 +325,7 @@ export class ChunkStreamClient {
 	#startIfReady(stream) {
 		if (stream.settled || stream.workerStarted || !stream.workerReady || !stream.workletReady) return;
 		stream.workerStarted = true;
+		if (stream.source.boundedReads) clearTimeout(stream.openingTimer);
 		stream.ready.resolve({
 			streamId: stream.id,
 			startFrame: stream.startFrame,
@@ -332,45 +340,6 @@ export class ChunkStreamClient {
 			});
 		} catch (error) {
 			this.#rejectAndCancelStream(stream, error);
-		}
-	}
-
-	async #provideStorageChunk(stream, message) {
-		if (stream.settled || stream.abortController.signal.aborted) return;
-		try {
-			const result = await stream.source.readStorageChunk(message.chunkIndex, {
-				signal: stream.abortController.signal,
-				streamId: stream.id,
-				frameStart: message.frameStart,
-				frames: message.frames,
-			});
-			if (stream.settled || stream.abortController.signal.aborted) return;
-			const channels = normalizeStorageChannels(
-				result?.channels || result,
-				stream.source.channelCount,
-				message.frames,
-			);
-			this.worker.postMessage({
-				type: 'storage-chunk',
-				streamId: stream.id,
-				requestId: message.requestId,
-				chunkIndex: message.chunkIndex,
-				channels,
-			}, transferListForAudioChannels(channels));
-		} catch (error) {
-			if (stream.settled || stream.abortController.signal.aborted) return;
-			try {
-				this.worker?.postMessage({
-					type: 'storage-error',
-					streamId: stream.id,
-					requestId: message.requestId,
-					chunkIndex: message.chunkIndex,
-					message: error instanceof Error ? error.message : String(error),
-					error: serializeChunkStreamError(error),
-				});
-			} catch (postError) {
-				this.#rejectAndCancelStream(stream, postError);
-			}
 		}
 	}
 
@@ -401,6 +370,7 @@ export class ChunkStreamClient {
 	#detachStream(stream) {
 		if (stream.settled) return;
 		stream.settled = true;
+		clearTimeout(stream.openingTimer);
 		stream.playing = false;
 		stream.abortController.abort();
 		stream.removePortListener?.();
@@ -445,20 +415,7 @@ function normalizeSourceProvider(source) {
 		if (typeof readStorageChunk !== 'function') throw new TypeError('source.readStorageChunk must be a function.');
 		readStorageChunk = readStorageChunk.bind(source);
 	}
-	return Object.freeze({ channelCount, frameCount, chunkFrames, readStorageChunk });
-}
-
-function normalizeStorageChannels(value, channelCount, frames) {
-	if (!Array.isArray(value) || value.length !== channelCount) {
-		throw new TypeError(`A storage chunk must contain ${channelCount} planar channels.`);
-	}
-	return value.map((channel, index) => {
-		if (!(channel instanceof Float32Array) || channel.length !== frames) {
-			throw new RangeError(`Storage channel ${index} must contain ${frames} Float32 frames.`);
-		}
-		transferListForAudioChannels([channel]);
-		return channel.slice();
-	});
+	return Object.freeze({ channelCount, frameCount, chunkFrames, readStorageChunk, boundedReads: source.boundedReads === true });
 }
 
 function normalizeMessagePort(value) {
@@ -508,6 +465,7 @@ function createDeferred() {
 			rejectPromise(error);
 		},
 	};
+	void deferred.promise.catch(() => undefined);
 	return deferred;
 }
 

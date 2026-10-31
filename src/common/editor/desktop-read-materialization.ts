@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { PLATFORM_TRANSFER_HARD_LIMITS } from './platform/bounded-transfer.ts';
+import { readSourceWithRecovery, SourceReadConnectionError } from './storage/source-read-recovery.ts';
 
 /** Compatibility name for the default threshold; main-approved reads supply their exact larger bound. */
 export const DESKTOP_READ_HARD_LIMIT_BYTES = 512 * 1024 * 1024;
@@ -26,6 +27,7 @@ export interface DesktopReadMaterializationOptions {
 	readonly fetch: DesktopReadFetch;
 	readonly signal: AbortSignal;
 	readonly maximumBytes?: number;
+	readonly idleTimeoutMs?: number;
 }
 
 export async function materializeDesktopReadBlob(
@@ -42,14 +44,11 @@ export async function materializeDesktopReadBlob(
 	}
 
 	throwIfAborted(options.signal);
-	const response = await awaitWithAbort(
-		options.fetch(descriptor.url, {
-			cache: 'no-store',
-			credentials: 'omit',
-			signal: options.signal,
-		}),
-		options.signal,
-	);
+	const recovery = { signal: options.signal, attemptTimeoutMs: options.idleTimeoutMs ?? 5_000 };
+	const response = await readSourceWithRecovery(async () => {
+		try { return await options.fetch(descriptor.url, { cache: 'no-store', credentials: 'omit', signal: options.signal }); }
+		catch (error) { options.signal.throwIfAborted(); throw new SourceReadConnectionError(error); }
+	}, { ...recovery, discardLateValue: value => { if (value.body) cancelBody(value.body, new DOMException('Media read expired.', 'TimeoutError')); } });
 	let body: ReadableStream<Uint8Array> | null = null;
 	let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 	try {
@@ -73,7 +72,8 @@ export async function materializeDesktopReadBlob(
 		let receivedBytes = 0;
 		while (true) {
 			throwIfAborted(options.signal);
-			const result = await awaitWithAbort(reader.read(), options.signal);
+			const currentReader = reader;
+			const result = await readSourceWithRecovery(() => currentReader.read(), { ...recovery, maximumAttempts: 1 });
 			throwIfAborted(options.signal);
 			if (result.done) break;
 			const chunk = result.value;
@@ -165,43 +165,6 @@ function retainBoundedCopies(
 
 function throwIfAborted(signal: AbortSignal): void {
 	if (signal.aborted) throw signal.reason;
-}
-
-function awaitWithAbort<Value>(
-	operation: PromiseLike<Value>,
-	signal: AbortSignal,
-): Promise<Value> {
-	return new Promise<Value>((resolvePromise, rejectPromise) => {
-		if (signal.aborted) {
-			rejectPromise(signal.reason);
-			return;
-		}
-		let settled = false;
-		const cleanup = (): void => {
-			signal.removeEventListener('abort', handleAbort);
-		};
-		const handleAbort = (): void => {
-			if (settled) return;
-			settled = true;
-			cleanup();
-			rejectPromise(signal.reason);
-		};
-		signal.addEventListener('abort', handleAbort, { once: true });
-		void Promise.resolve(operation).then(
-			(value) => {
-				if (settled) return;
-				settled = true;
-				cleanup();
-				resolvePromise(value);
-			},
-			(error: unknown) => {
-				if (settled) return;
-				settled = true;
-				cleanup();
-				rejectPromise(error);
-			},
-		);
-	});
 }
 
 function cancelReader(reader: ReadableStreamDefaultReader<Uint8Array>, reason: unknown): void {

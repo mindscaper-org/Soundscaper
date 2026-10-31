@@ -13,6 +13,7 @@ import {
 	assertDesktopLinkedVideoReadProfile,
 } from '../desktop-read-profile.ts';
 import { readDesktopLinkedVideoRange } from './desktop-linked-video-range-reader.ts';
+import { readSourceWithRecovery } from './source-read-recovery.ts';
 
 const throwIfAborted = createAbortGuard('Linked-video access was cancelled.');
 
@@ -136,9 +137,11 @@ export function createDesktopLinkedVideoOriginalAccess(
 			'expected locator revision',
 		);
 		throwIfAborted(request.signal);
-		const raw = await bridge.loadLinkedVideoOriginal?.({
+		const raw = await readSourceWithRecovery(() => bridge.loadLinkedVideoOriginal?.({
 			locatorId, expectedRevision, playback: true,
-		});
+		}), { signal: request.signal, discardLateValue: raw => {
+			const id = possibleReadId(raw); return id ? releaseRead(id) : undefined;
+		} });
 		if (raw === null) {
 			throwIfAborted(request.signal);
 			return null;
@@ -174,9 +177,11 @@ export function createDesktopLinkedVideoOriginalAccess(
 			? null
 			: locatorToken(expectedRevisionValue, 'expected locator revision');
 		throwIfAborted(signal);
-		const raw = await bridge.loadLinkedVideoOriginal?.({
+		const raw = await readSourceWithRecovery(() => bridge.loadLinkedVideoOriginal?.({
 			locatorId, expectedRevision, playback: false,
-		});
+		}), { signal, discardLateValue: raw => {
+			const id = possibleReadId(raw); return id ? releaseRead?.(id) : undefined;
+		} });
 		if (raw === null) {
 			throwIfAborted(signal);
 			return null;
@@ -224,7 +229,7 @@ function ownedReleaseRead(
 ): NonNullable<DesktopLinkedVideoOriginalBridge['releaseRead']> | null {
 	const operation = bridge.releaseRead;
 	return typeof operation === 'function'
-		? (id: string): unknown => Reflect.apply(operation, bridge, [id]) as unknown
+		? (id: string): Promise<unknown> => readSourceWithRecovery(() => Reflect.apply(operation, bridge, [id]) as unknown, { maximumAttempts: 1 })
 		: null;
 }
 
