@@ -138,12 +138,14 @@ run_as_user() {
  case "$*" in
   *'/brew install ffmpeg') if [[ "$2" == install && "$FAILURE" == brew ]]; then return 42; fi;;
   *'/ffprobe -version') if [[ "$FAILURE" == ffprobe ]]; then return 43; fi;;
+  *'/tee '*) local marker; marker="$(/bin/cat)"; printf 'consent-marker:%s\\n' "$marker" >&2;;
  esac
 }
 install_ffmpeg
 `, '--', script], { encoding: 'utf8', env: { ...process.env, FAILURE: failure } });
 		assert.equal(result.status, failure === 'brew' ? 42 : failure === 'ffprobe' ? 43 : 0, result.stderr);
 		assert.equal(result.stderr.includes('ffmpeg-installer-consent'), failure === '', result.stderr);
+		assert.equal(result.stderr.includes('consent-marker:1\n'), failure === '', result.stderr);
 		assert.equal(result.stderr.includes('user-command:/opt/homebrew/bin/brew install ffmpeg'), true);
 		if (failure === '') {
 			assert.match(result.stderr, /user-command:\/usr\/bin\/tee \/Users\/Test User\/Library\/Application Support\/Soundscaper\/ffmpeg-installer-consent/u);
