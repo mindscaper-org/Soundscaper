@@ -89,7 +89,8 @@ test('an already open overwrite item cannot replace a different original with th
 	assert.equal(calls, 2, 'the same imported original permits repeated overwrites');
 });
 
-function workspaceMenus(productId: string, isDesktop: boolean, overwrite: () => unknown): MenuItem[] {
+function workspaceMenus(productId: string, isDesktop: boolean, overwrite: () => unknown,
+	openSurface: (surface: string) => unknown = () => undefined): MenuItem[] {
 	const original = Object.freeze({ name: 'Voice.wav' });
 	const source = createAudioSource({ id: 'source', name: 'Voice', storageKey: 'source', mimeType: 'audio/wav',
 		frameCount: 48_000, channelCount: 1, sampleRate: 48_000 });
@@ -111,7 +112,7 @@ function workspaceMenus(productId: string, isDesktop: boolean, overwrite: () => 
 		projectBinEffectivelyOpen: false, uiFlags: {}, desktopHostRuntime: null,
 		controller: { engine: null, actions: { export: { originalFile: () => original,
 			overwriteOriginalAvailable: () => true, overwriteOriginal: overwrite } } },
-		fileService: { isDesktop }, parityRuntime: { actions: null },
+		fileService: { isDesktop }, parityRuntime: { actions: null }, openSurface,
 		run: (operation: () => unknown) => operation() };
 	return createWorkspaceApplicationMenus(new Proxy(input, {
 		get: (target, property, receiver) => Reflect.has(target, property)
@@ -119,10 +120,18 @@ function workspaceMenus(productId: string, isDesktop: boolean, overwrite: () => 
 	}) as unknown as Parameters<typeof createWorkspaceApplicationMenus>[0]) as MenuItem[];
 }
 
-test('both products wire original overwrite into the desktop File menu only', () => {
+test('both products wire original overwrite on desktop and offer it with a monitor icon on the web', () => {
 	for (const productId of ['soundscaper', 'framescaper']) {
 		let calls = 0;
-		assert.equal(findMenuItem(workspaceMenus(productId, false, () => undefined), 'overwrite-original-file'), null);
+		const surfaces: string[] = [];
+		const web = findMenuItem(workspaceMenus(productId, false, () => { calls += 1; },
+			(surface) => surfaces.push(surface)), 'overwrite-original-file');
+		assert.ok(web);
+		assert.equal(web.icon, '\uF35E');
+		assert.equal(web.disabled, false);
+		(web.onClick as () => void)();
+		assert.equal(calls, 0);
+		assert.deepEqual(surfaces, ['web-desktop-feature']);
 		const file = findMenuItem(workspaceMenus(productId, true, () => { calls += 1; }), 'file');
 		assert.ok(file);
 		const overwrite = findMenuItem(file.items ?? [], 'overwrite-original-file');

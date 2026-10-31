@@ -56,6 +56,7 @@ const RegularIntervalAnnotationDialog = lazyEditorModule(() => import('../dialog
 const LocalDiagnosticsDialog = lazyEditorModule(() => import('../dialogs/LocalDiagnosticsDialog.tsx'));
 const PrivacyPolicyDialog = lazyEditorModule(() => import('../dialogs/PrivacyPolicyDialog.tsx'));
 const AboutDialog = lazyEditorModule(() => import('../dialogs/AboutDialog.tsx'));
+const WebDesktopFeatureDialog = lazyEditorModule(() => import('./WebDesktopFeatureDialog.tsx'));
 
 function LazyInspectorFallback({ copy }) {
 	return <span className="kw-audio-editor-sr-only" role="status" aria-live="polite">{copy.loading}</span>;
@@ -159,6 +160,9 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 					</React.Suspense>
 				</div>
 			)}
+			{!fileService.isDesktop && activeSurface === 'web-desktop-feature' && <React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
+				<WebDesktopFeatureDialog copy={copy} productId={productId} onClose={() => setActiveSurface(null)} />
+			</React.Suspense>}
 			{activeSurface === 'privacy-policy' && (
 				<div data-editor-surface="privacy-policy">
 					<React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>

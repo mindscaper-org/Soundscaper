@@ -5,6 +5,7 @@ import { applicationInstallPromptCapture } from '../../../offline/install-prompt
 import { documentationUrl } from '../../documentation-links.ts';
 import { desktopDownloadUrl } from '../../desktop-download-links.ts';
 import { INSTALL_APPLICATION_MENU_ITEM_ID } from '../install-application-menu.ts';
+import { exposeWebDesktopCommands } from '../web-desktop-command-menus.ts';
 import { moveAudioEditorTrackBlock, trackSourceRate } from '../application-menu-model.js';
 import createApplicationMenus from '../application-menus.js';
 import { createDesktopHostMenuItems } from '../desktop-host-menu.ts';
@@ -394,7 +395,10 @@ export function createWorkspaceApplicationMenus({
 					about: () => setDialog('about'),
 				},
 		});
-	return fileService.isDesktop ? withoutInstallApplicationEntry(menus) : menus;
+	return fileService.isDesktop ? withoutInstallApplicationEntry(menus) : exposeWebDesktopCommands(menus, {
+		productId, copy, locale, organization: snapshot.preferences?.effects?.menuOrganization,
+		onUnavailable: () => openSurface('web-desktop-feature'),
+	});
 }
 
 /**
