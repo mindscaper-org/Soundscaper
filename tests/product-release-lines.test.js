@@ -91,7 +91,8 @@ test('date-named candidates retain their exact version in tags, packages, and up
 	assert.deepEqual(resolveProductReleaseTag(tag, validated), {
 		productId: 'soundscaper', channel: 'candidate', version,
 	});
-	const packagePattern = desktopReleaseTargetPackageInventory('soundscaper', 'mac-arm64', version)[0].pattern;
+	const packagePattern = desktopReleaseTargetPackageInventory('soundscaper', 'mac-arm64', version)
+		.find(({ label }) => label === 'macOS Apple silicon DMG').pattern;
 	assert.equal(packagePattern.test('Soundscaper-1.0.0-rc.Oct.1-mac-arm64.dmg'), true);
 	assert.equal(packagePattern.test('Soundscaper-1.0.0-rcXOctX1-mac-arm64.dmg'), false);
 	const release = { tag_name: tag, prerelease: true, draft: false };
@@ -158,7 +159,7 @@ test('browser and desktop builds resolve the selected product version from relea
 	'soundscaper-v1.0.0-rc.8');
 	const packagePattern = desktopReleaseTargetPackageInventory(
 		'soundscaper', 'mac-arm64', metadata.applicationVersion,
-	)[0].pattern;
+	).find(({ label }) => label === 'macOS Apple silicon DMG').pattern;
 	assert.equal(packagePattern.test('Soundscaper-1.0.0-rc.7-mac-arm64.dmg'), true);
 	assert.equal(packagePattern.test('Soundscaper-1.0.0-rc.1-mac-arm64.dmg'), false);
 });
