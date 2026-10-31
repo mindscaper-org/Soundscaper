@@ -20,7 +20,9 @@ class OfflineWaitExpired extends Error {
 }
 
 class OnlineReadFailure extends Error {
-	constructor(cause: unknown, readonly retryDelayMs?: number) { super('The online response was interrupted.', { cause }); this.name = 'OnlineReadFailure'; }
+	constructor(cause: unknown, readonly retryDelayMs?: number, readonly responseFailure?: Error) {
+		super('The online response was interrupted.', { cause }); this.name = 'OnlineReadFailure';
+	}
 }
 
 /** A sent mutation can have committed even when its acknowledgement was lost. */
@@ -56,7 +58,9 @@ export async function recoverOnlineRead<Value>(
 		try { const value = await read(); if (attempt > 0) log(options, 'Online read recovered.'); return value; }
 		catch (error) {
 			signal?.throwIfAborted();
-			if (attempt + 1 >= attempts || !retryable(error)) throw error;
+			if (attempt + 1 >= attempts || !retryable(error)) {
+				throw error instanceof OnlineReadFailure && error.responseFailure ? error.responseFailure : error;
+			}
 			log(options, 'Online read interrupted; retrying.');
 			await (options.wait ?? wait)(error instanceof OnlineReadFailure && error.retryDelayMs !== undefined
 				? error.retryDelayMs : (options.retryDelayMs ?? 250) * 2 ** attempt, signal);
@@ -67,7 +71,7 @@ export async function recoverOnlineRead<Value>(
 /** Classify an authoritative HTTP response without retrying validation or authentication errors. */
 export function onlineReadResponseError(response: Response, failure: Error): Error {
 	if (![408, 429, 500, 502, 503, 504].includes(response.status)) return failure;
-	const error = new OnlineReadFailure(failure, retryAfter(response));
+	const error = new OnlineReadFailure(failure, retryAfter(response), failure);
 	error.message = failure.message;
 	return error;
 }

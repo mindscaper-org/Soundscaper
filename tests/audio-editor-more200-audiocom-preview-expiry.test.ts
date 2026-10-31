@@ -43,6 +43,8 @@ for (const status of [401, 500]) test(`the actual account session settles origin
 
 test('a retired original401 cannot disconnect the replacement preview', async context => {
 	let release!: (response: Response) => void;
+	let started!: () => void;
+	const downloading = new Promise<void>(resolve => { started = resolve; });
 	const other = { ...result, id: '124', previewMime: 'audio/mpeg', previewUrl: 'https://soundscaper.org/api/audiocom/preview?url=next' };
 	const client = createAudiocomApiClient({ location: { origin: 'https://soundscaper.org', protocol: 'https:' },
 		fetch: async input => Response.json({ data: String(input).includes('/oauth/session') ? { connected: true }
@@ -50,11 +52,11 @@ test('a retired original401 cannot disconnect the replacement preview', async co
 	const audio = { src: '', volume: 1, pause() {}, load() {}, play: async () => undefined, addEventListener() {}, removeEventListener() {} };
 	const session = createAudiocomPanelSession({ client, createAudio: () => audio,
 		preparePreview: async (selected, signal) => await prepareAudiocomPreview(selected, signal, {
-			fetch: async () => await new Promise<Response>(resolve => { release = resolve; }),
+			fetch: async () => await new Promise<Response>(resolve => { release = resolve; started(); }),
 		}) });
 	context.after(() => session.dispose());
 	await session.initialize(); await session.search({ query: 'recording', page: 1 });
-	const pending = session.preview(result.id); await session.preview(other.id);
+	const pending = session.preview(result.id); await downloading; await session.preview(other.id);
 	release(new Response('expired', { status: 401 })); await pending;
 	assert.equal(session.getSnapshot().auth.status, 'connected');
 	assert.equal(session.getSnapshot().previewingId, other.id);

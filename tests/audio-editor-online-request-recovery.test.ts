@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createRecoveringOnlineFetch, OnlineMutationOutcomeUnknownError } from '../src/common/editor/online-request-recovery.ts';
+import { createRecoveringOnlineFetch, onlineReadResponseError, recoverOnlineRead, OnlineMutationOutcomeUnknownError } from '../src/common/editor/online-request-recovery.ts';
 
 test('safe online reads retry interrupted bodies before returning their response', async () => {
 	let calls = 0;
@@ -108,4 +108,26 @@ test('download response errors retry only transient HTTP status codes', async ()
 	assert.equal(calls, 2);
 	const denied = new Error('Authentication expired');
 	assert.equal(onlineReadResponseError(new Response(null, { status: 401 }), denied), denied);
+});
+
+test('exhausted HTTP read retries preserve the final typed provider failure', async () => {
+	class ProviderError extends Error {
+		readonly status = 503;
+	}
+	let calls = 0;
+	const failures: ProviderError[] = [];
+	const delays: number[] = [];
+	await assert.rejects(recoverOnlineRead(async () => {
+		calls += 1;
+		const failure = new ProviderError(`Provider unavailable on attempt ${calls}`);
+		failures.push(failure);
+		throw onlineReadResponseError(new Response(null, { status: 503, headers: { 'Retry-After': '1' } }), failure);
+	}, undefined, { wait: async milliseconds => { delays.push(milliseconds); }, log: () => undefined }), error => {
+		assert.equal(error, failures[2]);
+		assert.ok(error instanceof ProviderError);
+		assert.equal(error.status, 503);
+		return true;
+	});
+	assert.equal(calls, 3);
+	assert.deepEqual(delays, [1_000, 1_000]);
 });
