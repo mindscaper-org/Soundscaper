@@ -95,6 +95,13 @@ export const PRODUCT_STAND_IN_ALIASES = Object.freeze([
 		desktopCodecRuntime: null,
 	},
 	{
+		find: /^\.\.\/web-desktop-command-menus\.ts$/u,
+		sourcePaths: ['src/common/editor/ui/web-desktop-command-menus.ts'],
+		standIn: 'src/soundscaper/editor-web-desktop-command-menus.ts',
+		product: 'soundscaper',
+		desktopCodecRuntime: true,
+	},
+	{
 		find: /^\.\.\/\.\.\/local-assistance-guided-framescaper-acceptance\.ts$/u,
 		sourcePaths: ['src/common/editor/controller/assistance/local-assistance-guided-framescaper-acceptance.ts'],
 		standIn: 'src/soundscaper/local-assistance-deferred-publication.ts',
