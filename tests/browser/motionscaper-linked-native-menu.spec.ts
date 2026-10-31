@@ -59,6 +59,9 @@ for (const unavailablePreview of [false, true]) test(`native successor File expo
 	test.info().annotations.push({ type: 'host-gpu-qualification', description: hostPreview.reason });
 	await test.info().attach('native-preview-host.json', { body: JSON.stringify(hostPreview), contentType: 'application/json' });
 	const cpuPreview = unavailablePreview || !hostPreview.available;
+	// The retained quantized Rec.709 colors matte over black in linear light
+	// before conversion to the preview's sRGB display bytes.
+	const expectedPreviewPixel = [90, 44, 149, 255];
 	await expect(page.locator('[data-frame-native-delivery]')).toHaveCount(0); await menu(page, 'File', 'Linked compositions…');
 	await page.getByRole('button', { name: 'Choose saved .mscape file', exact: true }).click(); await expect(page.getByText('Native revision 0', { exact: true }).first()).toBeVisible();
 	await page.getByRole('button', { name: 'Disconnect', exact: true }).click(); await close(page);
@@ -67,7 +70,7 @@ for (const unavailablePreview of [false, true]) test(`native successor File expo
 		await expect(page.locator('[data-video-preview-renderer-warning]')).toHaveCount(0);
 		await expect(page.locator('[data-video-preview]')).toHaveAttribute('data-video-preview-omitted-composition-clip-ids', '');
 		const color = await page.locator('[data-video-preview-cpu-canvas]').evaluate((canvas: HTMLCanvasElement) => [...canvas.getContext('2d')!.getImageData(16, 16, 1, 1).data]);
-		expect(color).toEqual([89, 45, 149, 255]);
+		expect(color).toEqual(expectedPreviewPixel);
 	} else {
 		await expect(page.locator('[data-video-preview]')).toHaveAttribute('data-video-preview-renderer', 'ready');
 		await page.locator('[data-video-preview-gpu-canvas]').evaluate((canvas: HTMLCanvasElement) => {
@@ -75,7 +78,7 @@ for (const unavailablePreview of [false, true]) test(`native successor File expo
 		});
 		await expect(page.locator('[data-video-preview]')).toHaveAttribute('data-video-preview-renderer', 'cpu');
 		await expect(page.locator('[data-video-preview-renderer-warning]')).toHaveCount(0);
-		const color = await page.locator('[data-video-preview-cpu-canvas]').evaluate((canvas: HTMLCanvasElement) => [...canvas.getContext('2d')!.getImageData(16, 16, 1, 1).data]); expect(color).toEqual([89, 45, 149, 255]);
+		const color = await page.locator('[data-video-preview-cpu-canvas]').evaluate((canvas: HTMLCanvasElement) => [...canvas.getContext('2d')!.getImageData(16, 16, 1, 1).data]); expect(color).toEqual(expectedPreviewPixel);
 		await page.evaluate(() => (globalThis as unknown as { motionPreviewContextLossFixture: WEBGL_lose_context }).motionPreviewContextLossFixture.restoreContext());
 		await expect(page.locator('[data-video-preview]')).toHaveAttribute('data-video-preview-renderer', 'ready');
 	}
@@ -92,7 +95,7 @@ for (const unavailablePreview of [false, true]) test(`native successor File expo
 	if (cpuPreview) {
 		await close(page); await page.reload(); await expect(page.locator('[data-audio-editor-bound="true"]')).toBeVisible();
 		await expect(page.locator('[data-video-preview]')).toHaveAttribute('data-video-preview-renderer', 'cpu');
-		const color = await page.locator('[data-video-preview-cpu-canvas]').evaluate((canvas: HTMLCanvasElement) => [...canvas.getContext('2d')!.getImageData(16, 16, 1, 1).data]); expect(color).toEqual([89, 45, 149, 255]);
+		const color = await page.locator('[data-video-preview-cpu-canvas]').evaluate((canvas: HTMLCanvasElement) => [...canvas.getContext('2d')!.getImageData(16, 16, 1, 1).data]); expect(color).toEqual(expectedPreviewPixel);
 		await menu(page, 'File', /^New\s+Ctrl\+N$/u); await expect(page.locator('[data-video-preview]')).toHaveAttribute('data-video-preview-renderer', 'fallback');
 		await expect(page.locator('[data-video-preview-cpu-canvas]')).toHaveJSProperty('width', 0);
 	}

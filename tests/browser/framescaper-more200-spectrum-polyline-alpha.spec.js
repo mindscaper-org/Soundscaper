@@ -38,8 +38,8 @@ test('menu-authored translucent spectrum retains the Canvas single-path alpha at
 	});
 	expect(oracle).toEqual([255, 255, 255, 128]);
 	// The exact programme composites the Canvas coverage over black in its
-	// linear working space and encodes the standard Rec.709 output transfer.
-	const encoded = Math.round(255 * (1.099 * (oracle[3] / 255) ** .45 - .099));
+	// linear working space and encodes the display's sRGB transfer.
+	const encoded = Math.round(255 * (1.055 * (oracle[3] / 255) ** (1 / 2.4) - .055));
 	await expect.poll(() => page.evaluate(() => globalThis.__spectrumPolyline.at(-1)))
 		.toEqual([[encoded, encoded, encoded, 255], [encoded, encoded, encoded, 255]]);
 });
