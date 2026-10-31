@@ -64,6 +64,7 @@ export function ClipLoopOverlays({ rootRef, clips, startFrame, endFrame, pixelsP
 				className="clip-display__handle clip-display__handle--loop-right" disabled={blocked}
 				aria-label={handleLabel} title={handleLabel} aria-valuenow={clip.durationFrames / sampleRate}
 				role="slider" aria-valuemin={1 / sampleRate} aria-valuemax={Number.MAX_SAFE_INTEGER / sampleRate}
+				onMouseDown={event => { event.preventDefault(); event.stopPropagation(); }}
 				onClick={event => { event.stopPropagation(); }} onDoubleClick={event => { event.stopPropagation(); }}
 				onKeyDown={event => {
 					if (event.ctrlKey || event.metaKey || event.altKey) return;

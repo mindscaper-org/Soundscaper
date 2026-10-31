@@ -91,6 +91,8 @@ export function createAudioTrackRowPropReader() {
 				selectedTrackId: props.selectedTrackId === props.track.id ? props.track.id : null,
 				selectedClipId: props.selectedClipId && belongs(props.selectedClipId) ? props.selectedClipId : null,
 				selectedClipIdSet: selectedIds, draggingClipIds: draggedIds.size ? draggedIds : null,
+				singleClipSelection: selectedIds.size === 1 && props.selectedClipIdSet.size === 1
+					|| props.selectedClipIdSet.size === 0 && Boolean(props.selectedClipId && belongs(props.selectedClipId)),
 				clipDragPreview, projectBinDragPreview, viewModelRevision: revision,
 				spectralSelection: props.selectedTrackId === props.track.id ? props.spectralSelection : null,
 				automationTargets: props.automationTargets?.length ? props.automationTargets : EMPTY_TARGETS,

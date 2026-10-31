@@ -316,11 +316,15 @@ const ClipComponent: React.FC<ClipProps> = ({
 
   // Pointer and keyboard handle lifecycles stay under the host's authority.
   const handleVisibleTrimMouseDown = (edge: 'left' | 'right') => (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (e.button !== 0) return;
     if (!onTrimEdge) return;
     e.stopPropagation();
     setTrimEdge(edge);
   };
   const handleStretchMouseDown = (edge: 'left' | 'right') => (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (e.button !== 0) return;
     e.stopPropagation();
     setStretchEdge(edge);
   };

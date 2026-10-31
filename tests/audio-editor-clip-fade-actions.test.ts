@@ -8,6 +8,27 @@ const second = { ...first, id: 'two', timelineStartFrame: 2000, durationFrames: 
 const project = { clips: [first, second], tracks: [{ id: 'a', clipIds: ['one'] }, { id: 'b', clipIds: ['two'] }], selection: { clipIds: ['one', 'two'] } };
 const session = { clipId: first.id, original: first, fadeTargets: [first, second] };
 
+void test('curve presets create a bounded fade on each selected bare edge in one native batch', () => {
+	const command = clipFadeChangeCommand(project, 'one', 1000, { fadeInShape: 3 });
+	assert.deepEqual(command?.commands, [
+		{ type: 'clip/update', clipId: 'one', changes: { fadeInFrames: 250, fadeOutFrames: 750, fadeInShape: 3 } },
+		{ type: 'clip/update', clipId: 'two', changes: { fadeInFrames: 125, fadeInShape: 3 } },
+	]);
+	const linear = clipFadeChangeCommand(project, 'one', 1000, { fadeInShape: undefined });
+	assert.equal(linear?.commands[0]?.type === 'clip/update' && linear.commands[0].changes.fadeInFrames, 250);
+	assert.equal(linear?.commands[0]?.type === 'clip/update' && Object.hasOwn(linear.commands[0].changes, 'fadeInShape'), true);
+	const existing = clipFadeChangeCommand(project, 'one', 1000, { fadeOutShape: 1 });
+	assert.deepEqual(existing?.commands[0], { type: 'clip/update', clipId: 'one', changes: { fadeOutShape: 1 } });
+});
+
+void test('preset creation retains one-sample fades and caps long clips at half a second', () => {
+	for (const [durationFrames, expected] of [[1, 1], [10_000, 500]] as const) {
+		const clip = { ...first, durationFrames, fadeOutFrames: 0 };
+		const command = clipFadeChangeCommand({ ...project, clips: [clip] }, 'one', 1000, { fadeOutShape: 2 });
+		assert.deepEqual(command?.commands, [{ type: 'clip/update', clipId: 'one', changes: { fadeOutFrames: expected, fadeOutShape: 2 } }]);
+	}
+});
+
 test('captured fade previews use each owning track and the same per-clip changes as commit', () => {
 	const edit = { kind: 'length', edge: 'in', frames: 300 } as const;
 	const draft = clipFadeSessionPreviews(session, project, 1000, edit);

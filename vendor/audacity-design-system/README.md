@@ -689,3 +689,14 @@ are the places where the two keyboard models meet, so a future sync should re-ch
     authored names stay stable; spoken durations use the active locale's units.
     Covered by the shared-surface and component-chrome localization regressions.
     Upstream-PR candidate.
+
+86. Selective ports through `779bb74ec82b4e69ac09dcd90f4a05573c7b54f9`
+    (2026-10-29) restore drawn curve presets to fade menus, create a bounded
+    fade when a preset is chosen on a bare edge, remove the hover preview fade,
+    and keep all handles visible on a single selected clip while multiple
+    selections reveal theirs on hover. The host applies that visibility rule
+    to its loop handle too, using the selection across tracks. Pointer presses
+    on fade, trim, stretch and loop handles do not take keyboard focus; keyboard
+    access remains available. Native frame-based edits, selected-target batches,
+    localization and Undo remain host-owned. Covered by the focused fade-menu,
+    selected-fade, native pointer and clip-handle visibility regressions.

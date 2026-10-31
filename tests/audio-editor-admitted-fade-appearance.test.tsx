@@ -11,19 +11,19 @@ import { useTimelinePointerStart } from '../src/common/editor/ui/timeline/useTim
 import { presentCapturedClipFadeGesture } from '../src/common/editor/ui/timeline/clip-fade-gesture-presentation.ts';
 import { installReactTestDom, reactProps, type ReactTestElement } from './helpers/react-test-dom.ts';
 
-test('admitted native fades remove the corner peek and present only the owning captured pointer', async () => {
+test('admitted native fades present only the owning captured pointer without a corner peek', async () => {
 	const fixture = await mount();
 	try {
 		assert.equal(fixture.listenerCount(), 0, 'idle overlays install no pointer or keyboard listeners');
-		await fixture.hover();
-		assert.equal(fixture.peekCount(), 1);
+		assert.equal(fixture.peekCount(), 0);
 		await fixture.press();
 		const session = fixture.session.current;
 		assert.equal(session?.kind, 'fade');
 		assert.deepEqual(fixture.captures, [7]);
-		assert.equal(fixture.peekCount(), 0, 'native admission removes the preview before movement');
+		assert.equal(fixture.peekCount(), 0, 'hover and drag never draw a preview fade');
 		assert.equal(fixture.editing(), true);
 		assert.equal(fixture.pressed(), 'true');
+		assert.equal(fixture.focused(), false, 'pointer admission does not enter keyboard handle mode');
 		await fixture.press({ pointerId: 8 });
 		assert.equal(fixture.session.current, session);
 		await fixture.end('pointerup', { pointerId: 8 });
@@ -43,6 +43,7 @@ test('admitted native shape fades present the shape grip and Escape clears their
 		assert.equal(fixture.session.current?.kind, 'fade-shape');
 		assert.equal(fixture.editing(), true);
 		assert.deepEqual(fixture.captures, [7]);
+		assert.equal(fixture.focused(), false);
 		assert.equal(fixture.lengthDrag(), false);
 		await fixture.end('keydown', { key: 'Escape' });
 		assert.equal(fixture.editing(), false);
@@ -175,13 +176,13 @@ async function mount(options: Options = {}) {
 		session, captures,
 		listenerCount: () => ['pointerup', 'pointercancel', 'lostpointercapture', 'pointermove', 'keydown'].reduce((sum, type) => sum + (listeners.get(type)?.size ?? 0), 0),
 		peekCount: () => dom.container.querySelectorAll('[data-fade-peek="in"]').length,
+		focused: () => document.activeElement === (handle as unknown as HTMLElement),
 		editing: () => overlay().getAttribute('data-fade-editing') === 'true',
 		lengthDrag: () => overlay().hasAttribute('data-fade-length-drag'),
 		pressed: () => dom.container.querySelectorAll(options.shape ? '[data-clip-fade-shape-handle="in"]' : '[data-clip-fade-handle="in"]')[0]?.getAttribute('data-pressed'),
 		setBlocked: (next: boolean) => act(async () => { blocked = next; root.render(<Harness />); }),
 		unmountOverlay: () => act(async () => { showOverlay = false; root.render(<Harness />); }),
 		presentRetired: () => presentCapturedClipFadeGesture(originalOwner, { target: handle as unknown as HTMLElement, pointerId: 7, clipId: 'clip', edge: 'in', shape: false }),
-		hover: () => act(async () => { const enter = reactProps(handle).onMouseEnter; assert.ok(enter); enter({ buttons: 0 }); }),
 		press: (fields: EventOptions = {}) => act(async () => {
 			let stopped = false;
 			const event = { target: handle, currentTarget: dom.one('[data-native-fade-parent]'), pointerId: 7, pointerType: 'mouse', button: 0, buttons: 1,

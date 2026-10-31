@@ -4,6 +4,20 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAudioTrackRowPropReader, type AudioTrackRowMemoProps } from '../src/common/editor/ui/timeline/audio-track-row-props.ts';
 
+void test('handle visibility keeps the project selection count when row props narrow to one local clip', () => {
+	const reader = createAudioTrackRowPropReader();
+	const controller = { getClipVisualData: () => ({ available: true }) };
+	const clip = { id: 'own', timelineStartFrame: 0, durationFrames: 100 };
+	const props: AudioTrackRowMemoProps = { controller, track: { id: 'row', type: 'audio' }, trackClips: [clip],
+		clipLookup: new Map([['own', clip]]), renderViewportStartFrame: 0, viewportDurationFrames: 100,
+		selectedClipIdSet: new Set(['own']), selectedClipId: 'own' };
+	const single = reader.read(props);
+	assert.equal(single.singleClipSelection, true);
+	const multiple = reader.read({ ...props, selectedClipIdSet: new Set(['own', 'elsewhere']) });
+	assert.equal(multiple.selectedClipIdSet, single.selectedClipIdSet, 'local selection remains stable');
+	assert.equal(multiple.singleClipSelection, false, 'the second track still changes handle visibility');
+});
+
 void test('unrelated selection, drag, snapshot and callback updates retain the row inputs', () => {
 	let visualReads = 0;
 	const source = { id: 'source', sampleRate: 48_000 };
