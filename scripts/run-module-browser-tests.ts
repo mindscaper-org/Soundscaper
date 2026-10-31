@@ -68,7 +68,7 @@ export function moduleBrowserListArguments(args: readonly string[], unsharded: b
 	return [...result, '--list', '--reporter=json'];
 }
 
-function collect(root: string, args: readonly string[], environment: NodeJS.ProcessEnv): BrowserCollection {
+function collect(root: string, args: readonly string[], environment: NodeJS.ProcessEnv): BrowserCollection & { report: Record<string, unknown> } {
 	const result = spawnSync(process.execPath, [resolve(root, 'node_modules/@playwright/test/cli.js'), ...args], {
 		cwd: root, env: environment, encoding: 'utf8', maxBuffer: 32 * 1024 ** 2, timeout: 60_000,
 	});
@@ -77,7 +77,24 @@ function collect(root: string, args: readonly string[], environment: NodeJS.Proc
 	let report: unknown;
 	try { report = JSON.parse(result.stdout); }
 	catch (error) { throw new Error('Playwright collection returned invalid JSON.', { cause: error }); }
-	return analyzeModuleBrowserCollection(report);
+	return { ...analyzeModuleBrowserCollection(report), report: record(report, 'report') };
+}
+
+/** Reuse the project listing for prerequisite discovery instead of loading every spec twice. */
+function selectedCollectionReport(report: Record<string, unknown>, root: string, files: readonly string[]): Record<string, unknown> {
+	const selected = new Set(files.map(file => resolve(root, file)));
+	const testRoot = record(report.config, 'configuration').rootDir as string;
+	const visit = (value: unknown): Record<string, unknown> | null => {
+		const suite = record(value, 'suite');
+		const specs = rows(suite.specs ?? [], 'specs').filter(value => {
+			const spec = record(value, 'spec');
+			return rows(spec.tests, 'tests').length > 0 && selected.has(resolve(testRoot, (spec.file ?? suite.file) as string));
+		});
+		const suites = rows(suite.suites ?? [], 'suites').map(visit).filter(value => value !== null);
+		return specs.length || suites.length ? { ...suite,
+			...(suite.specs !== undefined ? { specs } : {}), ...(suite.suites !== undefined ? { suites } : {}) } : null;
+	};
+	return { ...report, suites: rows(report.suites, 'suites').map(visit).filter(value => value !== null) };
 }
 
 function skip(root: string, environment: NodeJS.ProcessEnv, list = false): number {
@@ -111,6 +128,10 @@ export function runModuleBrowserTests(root: string, args: readonly string[], env
 		}
 		const selected = browserSuiteFiles(root, repositoryModuleTestSuites(root), all.files, suiteShard.index, suiteShard.total);
 		if (selected.length === 0) return skip(root, environment, args.includes('--list'));
+		if (suiteShard.args.includes('--list') && suiteShard.args.includes('--reporter=json')) {
+			process.stdout.write(JSON.stringify(selectedCollectionReport(all.report, root, selected)) + '\n');
+			return 0;
+		}
 		return runModuleBrowserTests(root, suiteShard.args, { ...unscoped, SCAPE_BROWSER_SUITE_FILES: JSON.stringify(selected) });
 	}
 	if (args.includes('--list')) {

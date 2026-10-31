@@ -29,7 +29,7 @@ if (args.includes('--list')) {
 	if (process.env.FIXTURE_COLLECTION === 'failure') process.exit(2);
 	if (process.env.FIXTURE_COLLECTION === 'invalid') { console.log('invalid JSON'); process.exit(0); }
 	const empty = process.env.FIXTURE_COLLECTION === 'empty-all' || (process.env.FIXTURE_COLLECTION === 'empty-shard' && args.some(arg => arg.startsWith('--shard')));
-	console.log(JSON.stringify({ config: { rootDir: path.resolve('tests/browser') }, suites: empty ? [] : [{ specs: [{ file: 'image.spec.js', tests: [{}] }] }] }));
+	console.log(process.env.FIXTURE_REPORT || JSON.stringify({ config: { rootDir: path.resolve('tests/browser') }, suites: empty ? [] : [{ specs: [{ file: 'image.spec.js', tests: [{}] }] }] }));
 } else { fs.writeFileSync('scope.json', process.env.SCAPE_BROWSER_SUITE_FILES || 'null'); process.exit(Number(process.env.FIXTURE_EXIT || 0)); }
 `);
 	return {
@@ -74,6 +74,32 @@ void test('suite scheduling selects exact collected files without forwarding nat
 		assert.ok(calls[0]?.includes('--list'));
 		assert.deepEqual(calls[1], ['test', '--project=chromium']);
 		assert.deepEqual(JSON.parse(readFileSync(join(setup.root, 'scope.json'), 'utf8')), ['tests/browser/image.spec.js']);
+	} finally { setup.close(); }
+});
+
+void test('suite prerequisite listing filters the first collection without starting Playwright again', context => {
+	const setup = fixture('full');
+	let output = '';
+	context.mock.method(process.stdout, 'write', (value: string) => { output += value; return true; });
+	try {
+		const files = ['image.spec.js', 'other-1.spec.js', 'other-2.spec.js', 'other-3.spec.js', 'other-4.spec.js'];
+		for (const file of files) writeFileSync(join(setup.root, 'tests/browser', file), '');
+		const planFile = join(setup.root, 'plan.json');
+		writeFileSync(planFile, JSON.stringify({ ...JSON.parse(readFileSync(planFile, 'utf8')) as Record<string, unknown>,
+			sourceFingerprint: currentModuleSourceFingerprint(setup.root) }));
+		const report = { config: { rootDir: join(setup.root, 'tests/browser') }, errors: [], stats: { duration: 123 }, suites: [
+			{ title: 'nested', suites: files.map(file => ({ file, specs: [{ file, title: file, tests: [{ projectName: 'webkit' }] }] })) },
+			{ title: 'empty', specs: [{ file: 'unselected.spec.js', tests: [] }] },
+		] };
+		assert.equal(runModuleBrowserTests(setup.root, ['--project=webkit', '--suite-shard=1/4', '--list', '--reporter=json'],
+			{ ...setup.env, FIXTURE_REPORT: JSON.stringify(report) }), 0);
+		assert.equal(setup.calls().length, 1, 'prerequisite discovery must collect the project only once');
+		const selected = JSON.parse(output) as typeof report;
+		assert.deepEqual(analyzeModuleBrowserCollection(selected).files, files.slice(0, 4).map(file => join(setup.root, 'tests/browser', file)));
+		assert.deepEqual(selected.config, report.config);
+		assert.deepEqual(selected.stats, report.stats);
+		assert.deepEqual(selected.errors, []);
+		assert.deepEqual(selected.suites, [{ ...report.suites[0], suites: report.suites[0]!.suites!.slice(0, 4) }]);
 	} finally { setup.close(); }
 });
 
