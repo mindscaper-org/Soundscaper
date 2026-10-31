@@ -30,6 +30,8 @@ export async function createMotionscaperOfflineSite(source?: MotionSite, options
 	const sourceRevision: string = await expectedBrowserCoverageRevision(repositoryRoot, { requireStage: portable });
 	const identity = { ...original, outputDirectory: resolve(repositoryRoot, original.outputDirectory), sourceRevision };
 	const evidence = await verifyBrowserProductBuildEvidence(identity);
+	const sourceMaps = Object.keys(evidence.sourceMaps).length > 0;
+	if (sourceMaps) await verifyBrowserProductBuildEvidence(identity, { sourceMaps });
 	const prefix = portable ? join(environment.SOUNDSCAPER_NIGHTLY_TESTS_RUN_ROOT!, 'motion-offline-')
 		: `${dirname(identity.outputDirectory)}-motion-offline-`;
 	const parent = await mkdtemp(prefix);
@@ -37,16 +39,16 @@ export async function createMotionscaperOfflineSite(source?: MotionSite, options
 	let server: Awaited<ReturnType<typeof startPagesSiteStaticServer>> | undefined;
 	try {
 		await cp(identity.outputDirectory, directory, { recursive: true });
-		if (Object.keys(evidence.sourceMaps).length > 0) {
+		if (sourceMaps) {
 			await cp(sourceMapDirectoryFor(identity.outputDirectory), sourceMapDirectoryFor(directory), { recursive: true });
 		}
 		const copied = { ...identity, outputDirectory: directory };
 		// Authenticate the copy before re-recording the ephemeral origin.
-		await verifyBrowserProductBuildEvidence(copied);
+		await verifyBrowserProductBuildEvidence(copied, { sourceMaps });
 		server = await startPagesSiteStaticServer({ root: directory });
 		const relocated = { ...copied, origin: server.baseURL };
 		await recordBrowserProductBuildEvidence(relocated);
-		await verifyBrowserProductBuildEvidence(relocated);
+		await verifyBrowserProductBuildEvidence(relocated, { sourceMaps });
 		const descriptor = Object.freeze({ ...original, origin: server.baseURL,
 			outputDirectory: portable ? directory : relative(repositoryRoot, directory).replaceAll('\\', '/') });
 		const active = server;

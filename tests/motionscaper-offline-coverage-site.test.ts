@@ -62,7 +62,7 @@ test('offline Motion rehosting preserves exact closure and maps while authentica
 	} finally { await rm(workspace, { recursive: true, force: true }); }
 });
 
-test('portable offline Motion site requires independent launcher stage identity and retains exact source-map custody without Git', async () => {
+test('portable offline Motion site requires independent launcher stage identity and retains exact source-map custody without Git', async context => {
 	const { tmpdir } = await import('node:os');
 	const { recordBrowserProductBuildEvidence } = await import('../scripts/lib/browser-product-site-evidence.mjs');
 	const root = await mkdtemp(join(tmpdir(), 'motion-offline-portable-'));
@@ -86,7 +86,11 @@ test('portable offline Motion site requires independent launcher stage identity 
 			x_soundscaper_source_sha256: [createHash('sha256').update(productionSource).digest('hex')] });
 		await writeFile(`${directory}-source-maps/app.js.map`, map);
 		await recordBrowserProductBuildEvidence({ ...descriptor, sourceRevision });
-		const open = () => createMotionscaperOfflineSite(undefined, { repositoryRoot: root, environment });
+		const open = async () => {
+			const site = await createMotionscaperOfflineSite(undefined, { repositoryRoot: root, environment });
+			context.after(() => site.dispose());
+			return site;
+		};
 		await assert.rejects(open(), /ENOENT/u, 'site self-declared revision cannot replace missing launcher stage authority');
 		await writeFile(join(root, 'stage-manifest.json'), JSON.stringify({ kind: 'soundscaper-desktop-nightly-tests', sourceRevision: 'a'.repeat(40) }));
 		await assert.rejects(open(), /wrong build/u);
