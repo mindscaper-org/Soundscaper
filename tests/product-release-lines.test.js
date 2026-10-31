@@ -91,9 +91,11 @@ test('date-named candidates retain their exact version in tags, packages, and up
 	assert.deepEqual(resolveProductReleaseTag(tag, validated), {
 		productId: 'soundscaper', channel: 'candidate', version,
 	});
-	const packagePattern = desktopReleaseTargetPackageInventory('soundscaper', 'mac-arm64', version)[0].pattern;
-	assert.equal(packagePattern.test('Soundscaper-1.0.0-rc.Oct.1-mac-arm64.dmg'), true);
-	assert.equal(packagePattern.test('Soundscaper-1.0.0-rcXOctX1-mac-arm64.dmg'), false);
+	const packagePatterns = desktopReleaseTargetPackageInventory('soundscaper', 'mac-arm64', version).map(({ pattern }) => pattern);
+	for (const extension of ['pkg', 'dmg']) {
+		assert.equal(packagePatterns.filter(pattern => pattern.test(`Soundscaper-1.0.0-rc.Oct.1-mac-arm64.${extension}`)).length, 1);
+		assert.equal(packagePatterns.some(pattern => pattern.test(`Soundscaper-1.0.0-rcXOctX1-mac-arm64.${extension}`)), false);
+	}
 	const release = { tag_name: tag, prerelease: true, draft: false };
 	assert.equal(selectUpdate([release], '1.0.0-rc.11', 'soundscaper-v'), release);
 	assert.equal(selectUpdate([release], version, 'soundscaper-v'), null);
@@ -156,9 +158,11 @@ test('browser and desktop builds resolve the selected product version from relea
 		{ tag_name: 'soundscaper-v1.0.0-rc.8', prerelease: true, draft: false },
 	], metadata.applicationVersion, metadata.updateTagPrefix).tag_name,
 	'soundscaper-v1.0.0-rc.8');
-	const packagePattern = desktopReleaseTargetPackageInventory(
+	const packagePatterns = desktopReleaseTargetPackageInventory(
 		'soundscaper', 'mac-arm64', metadata.applicationVersion,
-	)[0].pattern;
-	assert.equal(packagePattern.test('Soundscaper-1.0.0-rc.7-mac-arm64.dmg'), true);
-	assert.equal(packagePattern.test('Soundscaper-1.0.0-rc.1-mac-arm64.dmg'), false);
+	).map(({ pattern }) => pattern);
+	for (const extension of ['pkg', 'dmg']) {
+		assert.equal(packagePatterns.filter(pattern => pattern.test(`Soundscaper-1.0.0-rc.7-mac-arm64.${extension}`)).length, 1);
+		assert.equal(packagePatterns.some(pattern => pattern.test(`Soundscaper-1.0.0-rc.1-mac-arm64.${extension}`)), false);
+	}
 });

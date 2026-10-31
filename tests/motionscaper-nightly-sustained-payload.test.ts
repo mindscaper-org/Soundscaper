@@ -11,8 +11,8 @@ import { NIGHTLY_TEST_PAYLOAD_INPUTS, NIGHTLY_TEST_RUNTIME_PACKAGE_ROOTS } from 
 
 const root = resolve(import.meta.dirname, '..');
 const prefix = 'scripts/performance/motionscaper-sustained-';
-const reference = `${prefix}browser-reference.ts`, decoder = `${prefix}webm.ts`;
-const expected = ['browser-reference', 'opus', 'plan', 'webm'].map(name => `${prefix}${name}.ts`);
+const reference = `${prefix}browser-reference.ts`, decoder = `${prefix}webm.ts`, ui = `${prefix}ui.ts`;
+const expected = ['browser-reference', 'opus', 'plan', 'ui', 'webm'].map(name => `${prefix}${name}.ts`);
 const builtins = new Set(builtinModules.flatMap(name => [name, `node:${name}`]));
 
 function packagedInputs() {
@@ -43,11 +43,13 @@ test('Motion nightly ships the actual browser reference and dynamic decoder clos
 	const actualDecoder = /entryPoints: \[resolve\('([^']+)'\)\]/u.exec(spec)?.[1];
 	assert.equal(actualDecoder, decoder, 'The runtime esbuild entry is part of the packaged source closure.');
 	const node = await bundle(root, actualReference, 'node'), browser = await bundle(root, actualDecoder, 'browser');
-	const reached = [...new Set([...Object.keys(node.metafile!.inputs), ...Object.keys(browser.metafile!.inputs)])].sort();
+	const interaction = await bundle(root, ui, 'node');
+	const bundles = [node, browser, interaction];
+	const reached = [...new Set(bundles.flatMap(result => Object.keys(result.metafile!.inputs)))].sort();
 	assert.deepEqual(packagedInputs(), reached, 'Every actual graph input must survive staging and the package filter.');
 	assert.deepEqual(reached, expected, 'The portable browser regression must not ship the native/process workload harness.');
 	assert.equal(actualReference, reference);
-	for (const output of [...Object.values(node.metafile!.outputs), ...Object.values(browser.metafile!.outputs)]) {
+	for (const output of bundles.flatMap(result => Object.values(result.metafile!.outputs))) {
 		for (const dependency of output.imports.filter(value => value.external)) {
 			if (builtins.has(dependency.path)) continue;
 			assert.equal(isAbsolute(dependency.path), false);
@@ -71,7 +73,9 @@ async function withPayload(run: (directory: string) => Promise<void>) {
 test('Motion nightly reference and strict decoder rebuild from only the packaged local source bytes', async () => {
 	await withPayload(async directory => {
 		const node = await bundle(directory, reference, 'node'), browser = await bundle(directory, decoder, 'browser');
+		const interaction = await bundle(directory, ui, 'node');
 		assert.match(node.outputFiles[0]!.text, /verifyMotionSustainedBrowserVideo/u);
+		assert.match(interaction.outputFiles[0]!.text, /motionSustainedRenderProgress/u);
 		assert.match(browser.outputFiles[0]!.text, /^"use strict";\s+var MotionSustainedVerification =/u);
 		assert.match(browser.outputFiles[0]!.text, /verifyMotionSustainedWebm/u);
 	});
