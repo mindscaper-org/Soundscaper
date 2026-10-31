@@ -14,6 +14,7 @@ interface MidiExportProject extends Readonly<Record<string, unknown>> {
 /** Export the audible placement of MIDI clips; trimmed portions stay in the project. */
 export function midiDocumentFromProject(project: MidiExportProject): MidiFileDocument {
 	const timing = midiProjectTiming(project);
+	const projectionProject = { sampleRate: project.sampleRate, tempoMap: timing.tempoMap };
 	const tempos = [...timing.tempos];
 	const signatures = [...timing.signatures];
 	const clipsById = new Map(project.clips.map(clip => [String(clip.id), clip]));
@@ -26,7 +27,7 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 			const persistedClip = clipsById.get(String(id));
 			const data = readMidiClip(persistedClip);
 			if (!persistedClip || !data) continue;
-			const clip = resolveRuntimeClipProjection({ sampleRate: project.sampleRate, tempoMap: timing.tempoMap }, persistedClip);
+			const clip = resolveRuntimeClipProjection(projectionProject, persistedClip);
 			const start = Number(clip.sourceStartFrame ?? 0);
 			const sourceFrames = Number(clip.sourceDurationFrames);
 			if (sourceFrames <= 0 || clip.durationFrames <= 0) throw new RangeError('MIDI export clip duration must be positive.');

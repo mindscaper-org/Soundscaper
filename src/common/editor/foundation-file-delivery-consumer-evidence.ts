@@ -4,6 +4,11 @@ import type { FoundationRuntimeConsumerEvidence } from './foundation-runtime-con
 
 export const FOUNDATION_FILE_DELIVERY_RUNTIME_CONSUMERS: readonly FoundationRuntimeConsumerEvidence[] = Object.freeze([
 	{
+		id: 'midi-file-export-geometry', surface: 'interchange', file: 'src/common/editor/midi-project-interchange.ts',
+		entryPoint: 'midiDocumentFromProject', inputIdentifier: 'projectionProject', projectedIdentifier: 'clip', boundary: 'resolveRuntimeClipProjection',
+		evidence: 'MIDI and Allegro export resolve each authored clip through the normalized current tempo map before clipping, stretching or reversing source-relative notes and events into delivered sample positions.',
+	},
+	{
 		id: 'audio-source-readiness', surface: 'audio-export', file: 'src/common/editor/controller/export/audio-export-source-inventory.ts',
 		entryPoint: 'audioExportSourceInventory', inputIdentifier: 'project', projectedIdentifier: 'resolved', boundary: 'projectForRuntimeConsumers',
 		evidence: 'Audio source readiness resolves authored clip timing before excluding strictly future inputs from a selected output span; earlier inputs and full-project scalar cache dependencies remain available without changing the delivered render project.',
