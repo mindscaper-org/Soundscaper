@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { canonicalMediaContentBlob } from '../../../storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../../../../media/content-digest.ts';
 
 /** Re-open committed media as native bytes before a capture probe consumes it. */
 export async function loadRetainedCaptureVideoBody(

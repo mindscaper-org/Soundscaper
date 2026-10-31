@@ -4,7 +4,7 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from '../closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainField, readClosedDomainRecord } from '../../foundation/closed-domain-value.ts';
 import {
 	ASSISTANCE_ASSET_REFERENCE_LIMITS_V1,
 	ASSISTANCE_TTS_SCRIPT_BODY_MIME_TYPE_V1,

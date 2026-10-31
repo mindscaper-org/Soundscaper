@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { ScapeArchiveByteSource } from '../../scape-archive-byte-source.ts';
+import type { ScapeArchiveByteSource } from '../../../scape/archive-byte-source.ts';
 import { SESX_XML_MAXIMUM_BYTES } from '../../sesx-format.ts';
 import { SES_BINARY_MAXIMUM_BYTES } from '../../ses-format.ts';
 import {

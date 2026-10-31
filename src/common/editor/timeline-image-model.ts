@@ -4,7 +4,7 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 import type { Rational } from './timeline-time.ts';
 import { timelineImageSourceTickAtFrame, normalizeTimelineImageSourceFraction,
 	type TimelineImageSourceFraction } from './timeline-image-phase.ts';

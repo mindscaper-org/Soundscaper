@@ -6,7 +6,7 @@ import test from 'node:test';
 import { gradeUnifiedExactLinearSourceFrame } from '../src/common/editor/unified-exact-linear-source-frame.ts';
 import { prepareManagedSdrGradeStackV1, applyPreparedManagedSdrGradeStackLinearChannelsV1,
 	defaultVideoSourceColorInterpretationV1 } from '../src/common/editor/video-color-management-v27.ts';
-import { parseCubeLutV1, sampleCubeLut } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1, sampleCubeLut } from '../src/common/imaging/cube-lut-v1.ts';
 
 test('ungraded byte frames reuse the finite transfer palette with exact Float32 output', () => {
 	const pixels = Uint8Array.from({ length: 4_096 }, (_, index) => (index * 23 + Math.floor(index / 4)) % 256);

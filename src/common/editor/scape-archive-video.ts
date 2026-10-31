@@ -2,9 +2,9 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 
-import type { ScapeArchiveEntry } from './scape-archive-envelope.ts';
-import { awaitScapeOperation, throwIfScapeAborted } from './scape-abort.ts';
-import type { ScapeExpandedByteBudget } from './scape-expanded-byte-budget.ts';
+import type { ScapeArchiveEntry } from '../scape/archive-envelope.ts';
+import { awaitScapeOperation, throwIfScapeAborted } from '../scape/abort.ts';
+import type { ScapeExpandedByteBudget } from '../scape/expanded-byte-budget.ts';
 import {
 	MEDIA_ASSET_STREAM_CHUNK_BYTES,
 	type MediaAssetWriter,

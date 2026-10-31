@@ -4,7 +4,7 @@ import { isDesktopMainAudioCodecRuntime } from '../../../desktop-main-audio-code
 import type { WavPackImportGroupDecoder } from '../../../browser-streamed-wavpack-import.ts';
 import type { createIncrementalPcmImporter } from './incremental-wav-import-service.ts';
 import type { FileSizeWarningConfirmation } from '../../shared/file-size-warning.ts';
-import { raceAbortableRead } from '../../../abort-race.ts';
+import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 import { InitialAacSbrError } from '../../../aac-initial-profile-error.ts';
 import { isStreamedAudioImportFile } from '../../../streamed-audio-import-file.ts';
 import { scanEncodedAudioMarkers } from '../../../encoded-audio-marker-scan.ts';

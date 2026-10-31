@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import {
-	createScapeDigest,
-	scapeAudioSourceStream,
-	scapeHex,
-	type ScapeAudioSource,
-} from '../../scape-archive-media.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../../../media/bytes.ts';
+import { scapeAudioSourceStream, type ScapeAudioSource } from '../../scape-archive-media.ts';
 import {
 	isMediaContentSha256,
 } from '../../storage/media-content-provenance.ts';

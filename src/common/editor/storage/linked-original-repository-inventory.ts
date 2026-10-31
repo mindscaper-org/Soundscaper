@@ -8,7 +8,7 @@ import {
 } from './linked-original-binding.ts';
 import { readStoredLinkedOriginalProvisionalRootInventory } from './linked-original-provisional-root.ts';
 import { linkedOriginalBindingKey } from './linked-original-schema.ts';
-import { request } from './indexeddb-backend.ts';
+import { request } from '../../media/indexeddb.ts';
 
 export interface LinkedOriginalLocatorReference {
 	readonly kind: LinkedOriginalBinding['kind'];

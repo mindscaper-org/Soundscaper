@@ -8,7 +8,7 @@ import {
 	type ScapeVideoProxyArchiveAssetDescriptor,
 	type ScapeVideoProxyArchiveReference,
 } from '../src/common/editor/scape-video-proxy-archive-plan.ts';
-import { SCAPE_FORMAT_VERSION } from '../src/common/editor/scape-archive-envelope.ts';
+import { SCAPE_FORMAT_VERSION } from '../src/common/scape/archive-envelope.ts';
 import {
 	VIDEO_TIMING_ASSET_ENCODING,
 	VIDEO_TIMING_ASSET_HEADER_BYTES,

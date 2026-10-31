@@ -24,7 +24,7 @@
  * original-or-unavailable — never a proxy shown on trust.
  */
 
-import { canonicalMediaContentBlob } from '../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../common/media/content-digest.ts';
 import type {
 	FramescaperVideoProxyBodyLeaseSequence,
 	FramescaperVideoProxyBodyRequestSequence,

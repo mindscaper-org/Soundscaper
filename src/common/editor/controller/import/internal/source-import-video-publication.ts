@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { digestMediaContent } from '../../../storage/media-content-digest.ts';
+import { digestMediaContent } from '../../../../media/content-digest.ts';
 import type {
 	OwnedMediaAssetPublication,
 	OwnedMediaAssetWriter,

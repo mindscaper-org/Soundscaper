@@ -26,7 +26,7 @@ const IMPLEMENTED_ARCHIVE_PREFLIGHT_CONTROLS = [
 ];
 const IMPLEMENTED_ARCHIVE_EXPANSION_CONTROLS = {
 	'cumulative-actual-expanded-byte-limit': [
-		'src/common/editor/scape-expanded-byte-budget.ts',
+		'src/common/scape/expanded-byte-budget.ts',
 		'src/common/editor/scape-archive-envelope.ts',
 		'src/common/editor/scape-archive-media.ts',
 		'src/common/editor/scape-project.js',
@@ -60,7 +60,7 @@ const IMPLEMENTED_ARCHIVE_EXPANSION_CONTROLS = {
 	'local-header-and-overlap-validation': [
 		'src/common/editor/scape-archive-layout.ts',
 		'src/common/editor/scape-archive-reader.ts',
-		'src/common/editor/scape-archive-zip-profile.ts',
+		'src/common/scape/archive-zip-profile.ts',
 		'src/common/editor/scape-export-estimate.ts',
 		'tests/audio-editor-scape-archive-layout.test.ts',
 		'tests/audio-editor-scape-export-estimate.test.ts',
@@ -294,7 +294,7 @@ test('native plug-in surfaces are conditional for testing and portable archive c
 		'src/common/editor/controller/document/internal/scape/scape-inspection-service.ts',
 		'src/common/editor/controller/composition/action-facade.ts',
 		'src/common/editor/controller/document/project-switch-service.ts',
-		'src/common/editor/scape-abort.ts',
+		'src/common/scape/abort.ts',
 		'src/common/editor/scape-project.js',
 		'src/common/editor/storage.js',
 		'src/common/editor/storage/project-repository.ts',
@@ -316,7 +316,7 @@ test('native plug-in surfaces are conditional for testing and portable archive c
 		'src/common/editor/controller/document/internal/scape/scape-inspection-service.ts',
 		'src/common/editor/controller/document/scape-project-file-service.ts',
 		'src/common/editor/controller/document/project-switch-service.ts',
-		'src/common/editor/scape-abort.ts',
+		'src/common/scape/abort.ts',
 		'src/common/editor/scape-archive-reader.ts',
 		'src/common/editor/app.js',
 		'tests/audio-editor-scape-inspection-quiescence.test.ts',

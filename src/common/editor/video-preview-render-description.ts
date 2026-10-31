@@ -4,7 +4,7 @@ import {
 	readClosedDomainArray,
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 import {
 	VIDEO_CLIP_COMPOSITION_BLEND_MODES,
 	type VideoClipCompositionBlendMode,

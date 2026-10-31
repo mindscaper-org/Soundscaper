@@ -3,13 +3,13 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 
-import { request, transact } from './indexeddb-backend.ts';
+import { request, transact } from '../../media/indexeddb.ts';
 import {
 	MediaAssetChunkRecords,
 	mediaAssetChunkKey,
 	mediaAssetChunkRecord,
 } from './media-asset-chunk-records.ts';
-import { MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from './media-content-digest.ts';
+import { MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../../media/content-digest.ts';
 import { MEDIA_ASSET_STAGING_STORE_NAME } from './media-asset-staging-schema.ts';
 import type { OpfsRepository } from './opfs-repository.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';

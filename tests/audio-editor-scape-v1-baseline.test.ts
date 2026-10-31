@@ -11,7 +11,7 @@ import {
 } from '../src/common/editor/project-schema-identity.ts';
 import { copyFutureScapeArchive } from '../src/common/editor/scape-archive-copy.ts';
 import type { ScapeProjectInspection } from '../src/common/editor/controller/document/scape-project-file-service.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import {
 	prepareScapeExport,
 	serializeScapeExportManifest,

@@ -4,7 +4,7 @@ import type { LocalAssistanceBridge, LocalAssistanceModel, LocalAssistanceOutput
 	LocalAssistanceOutputReservation } from '../../../../assistance/local-assistance-bridge.ts';
 import { normalizeCorridorKeyHintSettings, type CorridorKeyHintSettings } from '../../../../assistance/corridorkey-hint-settings.ts';
 import { reviewAssistanceVisualFramePackV2 } from '../../../../assistance/visual-frame-pack-v2.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from '../../../../storage/media-content-digest.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../../../../../media/content-digest.ts';
 import type { LocalAssistanceKeyedVideoResult, LocalAssistanceVideoKeyingPublication,
 	LocalAssistanceVideoKeyingRun } from './local-assistance-video-keying-publication.ts';
 import { assertKeyingStagedBudget, keyingEncodedReservationBytes } from './local-assistance-video-keying-budget.ts';

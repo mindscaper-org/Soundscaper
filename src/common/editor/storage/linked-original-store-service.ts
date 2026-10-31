@@ -30,7 +30,7 @@ import type { MediaRepository } from './media-repository.ts';
 import {
 	canonicalMediaContentBlob,
 	digestMediaContent,
-} from './media-content-digest.ts';
+} from '../../media/content-digest.ts';
 import {
 	duplicateProjectWithLinkedOriginals,
 	duplicateProjectWithLinkedVideoOriginals,

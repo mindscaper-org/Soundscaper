@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createAssistanceVisualFramePackV2, type AssistanceVisualFramePackV2FrameDraft } from '../../../../assistance/visual-frame-pack-v2.ts';
-import { digestMediaContent } from '../../../../storage/media-content-digest.ts';
+import { digestMediaContent } from '../../../../../media/content-digest.ts';
 import type { LocalAssistanceVideoKeyingRun } from './local-assistance-video-keying-publication.ts';
 import { KEYING_FRAME_PACK_TYPE, KEYING_MAXIMUM_PACK_BYTES, type VideoKeyingProgress } from './local-assistance-video-keying-workflow.ts';
 import { createFullRasterKeyingVideoDecoder } from './local-assistance-video-keying-decoder.ts';

@@ -15,7 +15,7 @@ import {
 	type FreesoundUploadSourceMetadata,
 } from '../../freesound-upload-metadata.ts';
 import { sanitizeSuggestedFileName } from '../../portable-save-file-name.ts';
-import { raceAbortablePromise } from '../../abort-race.ts';
+import { raceAbortablePromise } from '../../../foundation/abort-race.ts';
 
 export type { FreesoundDescribeUploadRequest } from './freesound-auth-upload-client.ts';
 

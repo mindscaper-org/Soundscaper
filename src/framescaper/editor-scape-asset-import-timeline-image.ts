@@ -1,14 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { aggregateScapeErrors, throwIfScapeAborted } from '../common/editor/scape-abort.ts';
-import { verifyScapeExtractedAsset } from '../common/editor/scape-archive-media.ts';
+import { aggregateScapeErrors, throwIfScapeAborted } from '../common/scape/abort.ts';
+import { verifyScapeExtractedAsset } from '../common/scape/asset-bytes.ts';
 import {
 	extractScapeVideo,
 	SCAPE_VIDEO_MAXIMUM_CHUNK_BYTES,
 	type ScapeVideoWriter,
 } from '../common/editor/scape-archive-video.ts';
 import type { ScapeProjectAssetExtensionImportRequest } from '../common/editor/scape-project-asset-extension.ts';
-import { canonicalMediaContentBlob } from '../common/editor/storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../common/media/content-digest.ts';
 import type {
 	OwnedMediaAssetPublication,
 	OwnedMediaAssetWriter,

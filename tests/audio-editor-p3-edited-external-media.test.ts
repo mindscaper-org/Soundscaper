@@ -8,7 +8,7 @@ import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-s
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { attachExternalMedia, externalMediaForSource } from '../src/common/editor/desktop-external-media.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { encodeWav } from '../src/common/editor/wav.js';
 import { createAudioEditorFileService } from '../src/common/editor/file-service.js';

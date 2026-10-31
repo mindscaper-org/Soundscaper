@@ -26,7 +26,7 @@ import {
 	type ArchiveManifest,
 	type ArchiveManifestContext,
 } from './archive-manifest.ts';
-import type { ScapeArchiveEntry } from './scape-archive-envelope.ts';
+import type { ScapeArchiveEntry } from '../scape/archive-envelope.ts';
 import { withScapeArchiveReader } from './scape-archive-reader.ts';
 
 export interface ScapeArchiveManifestOptions {

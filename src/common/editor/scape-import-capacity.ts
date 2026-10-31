@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { awaitScapeReadOperation, throwIfScapeAborted } from './scape-abort.ts';
+import { awaitScapeReadOperation, throwIfScapeAborted } from '../scape/abort.ts';
 
 export const SCAPE_IMPORT_QUOTA_ERROR_CODE = 'QUOTA_EXCEEDED' as const;
 

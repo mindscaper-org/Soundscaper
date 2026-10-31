@@ -10,7 +10,7 @@ import {
 } from '@zip.js/zip.js';
 
 import { createScapeArchiveManifest } from '../src/common/editor/scape-archive-manifest.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 
 const PROJECT = new TextEncoder().encode('{"schemaVersion":9}');
 const MEDIA = Uint8Array.from({ length: 5_000 }, (_value, index) => index % 253);

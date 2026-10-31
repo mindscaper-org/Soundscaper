@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { FileSizeWarningRequiredError } from '../src/common/editor/controller/shared/file-size-warning.ts';
 
-import type { ScapeArchiveEntry } from '../src/common/editor/scape-archive-envelope.ts';
-import { ScapeExpandedByteBudget } from '../src/common/editor/scape-expanded-byte-budget.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import type { ScapeArchiveEntry } from '../src/common/scape/archive-envelope.ts';
+import { ScapeExpandedByteBudget } from '../src/common/scape/expanded-byte-budget.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import {
 	PROJECT_SCHEMA_VERSION,
 	SOUNDSCAPER_PROJECT_SCHEMA_FAMILY,

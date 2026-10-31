@@ -11,7 +11,7 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 
 export const VIDEO_MOTION_LIMITS_V1 = Object.freeze({
 	maximumProcessors: 64,

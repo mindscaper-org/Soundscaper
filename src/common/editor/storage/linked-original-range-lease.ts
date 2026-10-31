@@ -2,7 +2,7 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { createAbortGuard } from '../abort-error.ts';
+import { createAbortGuard } from '../../foundation/abort-error.ts';
 import { LinkedOriginalContentUnavailableError } from './linked-original-content-unavailable-error.ts';
 import {
 	oneShotLinkedOriginalRelease,

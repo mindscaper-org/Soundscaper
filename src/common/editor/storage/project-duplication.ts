@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { collectProjectSourceIds } from '../retention.js';
-import { SCAPE_ARCHIVE_LIMITS } from '../scape-archive-envelope.ts';
+import { SCAPE_ARCHIVE_LIMITS } from '../../scape/archive-limits.ts';
 import type { LinkedOriginalBinding } from './linked-original-binding.ts';
 import type { LinkedVideoOriginalProjectAliasRepository } from './linked-video-original-project-alias-repository.ts';
 import type { LinkedOriginalSource } from './linked-original-resolver.ts';

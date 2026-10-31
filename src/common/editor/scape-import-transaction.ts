@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { aggregateScapeErrors, awaitScapeOperation, throwIfScapeAborted } from './scape-abort.ts';
+import { aggregateScapeErrors, awaitScapeOperation, throwIfScapeAborted } from '../scape/abort.ts';
 import type { ScapeVideoWriter } from './scape-archive-video.ts';
 import type { OwnedMediaAssetPublication } from './storage/media-asset-write-contract.ts';
 import type { StorageRecord } from './storage/media-records.ts';

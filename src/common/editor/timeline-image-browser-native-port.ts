@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { ReviewedImageFormat } from './image-format-signature.ts';
+import type { ReviewedImageFormat } from '../imaging/image-format-signature.ts';
 import { assertBrowserNativeImageResources } from './browser-image-resource-admission.ts';
-import { encodedImageIsAnimated, encodedImageAnimationInfo } from './image-animation-topology.ts';
+import { encodedImageIsAnimated, encodedImageAnimationInfo } from '../imaging/image-animation-topology.ts';
 import type {
 	FramescaperBrowserNativeImageDecodeSessionV1,
 	OpenFramescaperBrowserNativeImageV1,

@@ -3,8 +3,7 @@
 import { expect } from '@playwright/test';
 import { test } from './audio-editor-test-fixtures.js';
 import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-import { transform } from 'esbuild';
+import { transpileSourceModuleRoutes } from './helpers/source-module-routes.ts';
 test.use({ browserCoverage: false });
 const ROOT = '/__video-keyframe-video-encoder__';
 const ENTRY_MODULES = [
@@ -326,7 +325,9 @@ function isFfmpegRuntimeRequest(value) {
 }
 
 async function installRoutes(page) {
-	const routes = await transpileEditorModules();
+	const sourceRoot = new URL('../../src/common/', import.meta.url);
+	const routes = await transpileSourceModuleRoutes(sourceRoot, `${ROOT}/src/common`,
+		ENTRY_MODULES.map(name => new URL(`editor/${name}`, sourceRoot)));
 	const nobleRoot = new URL('../../node_modules/@noble/hashes/', import.meta.url);
 	for (const name of NOBLE_HASH_FILES) {
 		routes.set(`${ROOT}/noble/${name}`, {
@@ -357,42 +358,4 @@ async function installRoutes(page) {
 			? { status: 404, body: `Unknown fixture path ${pathname}` }
 			: { status: 200, ...descriptor });
 	});
-}
-
-async function transpileEditorModules() {
-	const sourceRoot = new URL('../../src/common/editor/', import.meta.url);
-	const pending = ENTRY_MODULES.map((name) => new URL(name, sourceRoot));
-	const discovered = new Map();
-	while (pending.length > 0) {
-		const url = pending.pop();
-		if (discovered.has(url.href)) continue;
-		const filename = fileURLToPath(url);
-		const source = await readFile(url, 'utf8');
-		const transformed = await transform(source, {
-			sourcefile: filename,
-			loader: filename.endsWith('.ts') ? 'ts' : 'js',
-			format: 'esm',
-			target: 'es2022',
-			sourcemap: 'inline',
-		});
-		discovered.set(url.href, transformed.code);
-		for (const match of source.matchAll(/(?:from\s+|import\s*\()(['"])(\.\.?\/[^'"]+)\1/gu)) {
-			const dependency = new URL(match[2], url);
-			if (!dependency.pathname.startsWith(sourceRoot.pathname)) continue;
-			if (dependency.pathname.endsWith('.js')) {
-				const typed = new URL(dependency.href.replace(/\.js$/u, '.ts'));
-				try { await readFile(typed, 'utf8'); pending.push(typed); continue; } catch { /* JavaScript owns it. */ }
-			}
-			pending.push(dependency);
-		}
-	}
-	const routes = new Map();
-	for (const [href, code] of discovered) {
-		const relative = new URL(href).pathname.slice(sourceRoot.pathname.length);
-		const path = `${ROOT}/src/common/editor/${relative}`;
-		const descriptor = { body: code, contentType: 'text/javascript' };
-		routes.set(path, descriptor);
-		if (path.endsWith('.ts')) routes.set(path.replace(/\.ts$/u, '.js'), descriptor);
-	}
-	return routes;
 }

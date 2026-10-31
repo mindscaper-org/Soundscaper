@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainArray, readClosedDomainRecord } from './closed-domain-value.ts';
+import { readClosedDomainArray, readClosedDomainRecord } from '../foundation/closed-domain-value.ts';
 import type {
 	EditorHistoryCommandOptions,
 	EditorProjectHistoryEntry,

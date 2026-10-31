@@ -6,7 +6,7 @@ import {
 	planExactTakeCycleCapture,
 	type TakeCycleCaptureSpan,
 } from '../../../../take-cycle-capture-domain.ts';
-import { digestScapeBytes } from '../../../../scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../../../../../media/bytes.ts';
 import type { RawPcmSpoolRecord, RawPcmSpoolRepository } from '../../../../storage/raw-pcm-spool-repository.ts';
 import { TAKE_CYCLE_CAPTURE_MAXIMUM_CHUNK_BYTES } from './take-cycle-capture-pcm-evidence.ts';
 import {

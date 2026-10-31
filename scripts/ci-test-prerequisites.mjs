@@ -7,7 +7,11 @@ import { pathToFileURL } from 'node:url';
 import { collectTestDependencies } from './lib/node-test-bootstrap.mjs';
 import { parseNodeTestSelection, selectNodeTestFiles } from './lib/node-test-shards.mjs';
 
-const INTERCHANGE_READERS = ['tests/helpers/interchange-reference.ts', 'tests/helpers/interchange-top-clip.ts'];
+const INTERCHANGE_READERS = [
+	'tests/helpers/interchange-reference.ts',
+	'tests/helpers/interchange-top-clip.ts',
+	'tests/audio-editor-dawproject-reference-conformance.test.ts',
+];
 
 export function interchangeRequiredForTests(repositoryRoot, files) {
 	const dependencies = collectTestDependencies(repositoryRoot, files, { testHelpersOnly: true });

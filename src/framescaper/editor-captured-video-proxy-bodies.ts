@@ -4,7 +4,7 @@ import {
 	canonicalMediaContentBlob,
 	digestMediaContent,
 	MEDIA_CONTENT_DIGEST_CHUNK_BYTES,
-} from '../common/editor/storage/media-content-digest.ts';
+} from '../common/media/content-digest.ts';
 import type { VideoProxyClaimedMediaAssetWriter } from '../common/editor/storage/media-asset-write-contract.ts';
 import { MediaPublicationReconciliationError } from '../common/editor/storage/media-asset-owned-publication.ts';
 import type { VideoProxyClaimRecord } from '../common/editor/storage/video-proxy-claim-repository.ts';

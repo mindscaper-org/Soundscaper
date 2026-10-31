@@ -34,7 +34,7 @@ import {
 	LINKED_ORIGINAL_STORE_NAME,
 	linkedOriginalBindingKey,
 } from './linked-original-schema.ts';
-import { request, transact } from './indexeddb-backend.ts';
+import { request, transact } from '../../media/indexeddb.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';
 
 export interface LinkedOriginalProjectAliasRepositoryOptions {

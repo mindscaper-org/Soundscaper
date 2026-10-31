@@ -8,7 +8,7 @@ import {
 	type LocalAssistanceKeyedVideoInspection,
 } from '../src/common/editor/controller/assistance/internal/video/local-assistance-video-keying-publication.ts';
 import { publishImportedVideo } from '../src/common/editor/controller/import/internal/source-import-video-publication.ts';
-import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../src/common/media/content-digest.ts';
 import type { OwnedMediaAssetWriter } from '../src/common/editor/storage/media-asset-write-contract.ts';
 import { createVideoTimingAssetPublication } from '../src/common/editor/video-timing-asset.ts';
 import { createUnreportedVideoSourceCharacteristicsV25 } from '../src/common/editor/video-source-professional-characteristics-v25.ts';

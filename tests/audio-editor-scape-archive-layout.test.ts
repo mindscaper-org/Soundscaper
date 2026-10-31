@@ -20,8 +20,8 @@ import {
 	SCAPE_MAXIMUM_CENTRAL_DIRECTORY_BYTES,
 	SCAPE_STORE_CENTRAL_RECORD_OVERHEAD_BYTES,
 	maximumScapeStoreCentralDirectoryBytes,
-} from '../src/common/editor/scape-archive-zip-profile.ts';
-import { SCAPE_ARCHIVE_LIMITS } from '../src/common/editor/scape-archive-envelope.ts';
+} from '../src/common/scape/archive-zip-profile.ts';
+import { SCAPE_ARCHIVE_LIMITS } from '../src/common/scape/archive-limits.ts';
 import { maximumScapeStoreArchiveBytes } from '../src/common/editor/scape-export-estimate.ts';
 import { withScapeArchiveReader } from '../src/common/editor/scape-archive-reader.ts';
 

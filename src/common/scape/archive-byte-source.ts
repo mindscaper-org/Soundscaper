@@ -3,8 +3,8 @@
 import {
 	awaitScapeReadOperation,
 	throwIfScapeAborted,
-} from './scape-abort.ts';
-import { SCAPE_MAXIMUM_CENTRAL_DIRECTORY_BYTES } from './scape-archive-zip-profile.ts';
+} from './abort.ts';
+import { SCAPE_MAXIMUM_CENTRAL_DIRECTORY_BYTES } from './archive-zip-profile.ts';
 
 const BLOB_SIZE_GETTER = Object.getOwnPropertyDescriptor(Blob.prototype, 'size')?.get;
 const BLOB_SLICE = Blob.prototype.slice;

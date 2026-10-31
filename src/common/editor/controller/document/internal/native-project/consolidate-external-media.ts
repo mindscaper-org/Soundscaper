@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { consolidateExternalMediaCommands, externalMediaForSource } from '../../../../desktop-external-media.ts';
-import { scapeAudioSourceStream, createScapeDigest, scapeHex, type ScapeAudioSource } from '../../../../scape-archive-media.ts';
+import { scapeAudioSourceStream, type ScapeAudioSource } from '../../../../scape-archive-media.ts';
+import { createDigest as createScapeDigest, hex as scapeHex } from '../../../../../media/bytes.ts';
 
 interface ExternalMediaCacheStore {
 	readSourceChunks?: Parameters<typeof scapeAudioSourceStream>[0]['readSourceChunks'];

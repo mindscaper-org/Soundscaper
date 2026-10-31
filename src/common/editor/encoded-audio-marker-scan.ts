@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { raceAbortableRead } from './abort-race.ts';
+import { raceAbortableRead } from '../foundation/abort-race.ts';
 import { consumeDs64TableSize, readDs64Directory } from './wav-ds64.js';
 import { riffMetadataCodePage } from './riff-metadata-text.ts';
 import { parseAiffMarkChunk } from './aiff-markers.ts';

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readClosedDomainField, readClosedDomainRecord } from './closed-domain-value.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../foundation/closed-domain-value.ts';
 import type { Rational } from './timeline-time.ts';
 
 /** A reduced proper fraction of one canonical microsecond, omitted when zero. */

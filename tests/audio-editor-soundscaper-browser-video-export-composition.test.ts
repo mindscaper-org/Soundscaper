@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../src/common/media/content-digest.ts';
 import {
 	encodeVideoKeyframeOfflineVideo,
 	type VideoKeyframeOfflineVideoExportRequest,

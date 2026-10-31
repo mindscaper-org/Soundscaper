@@ -12,7 +12,7 @@ import {
 import {
 	createFramescaperProjectTimelineImage,
 } from '../src/framescaper/editor-project-timeline-image.ts';
-import { IMAGE_IMPORT_LIMITS } from '../src/common/editor/image-import-admission.ts';
+import { IMAGE_IMPORT_LIMITS } from '../src/common/imaging/image-import-admission.ts';
 
 type Data = Record<string, unknown>;
 

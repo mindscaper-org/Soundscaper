@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import {
-	deleteByIndex,
-	readCursorPage,
-	request,
-	transact,
-} from './indexeddb-backend.ts';
-import { canonicalMediaContentBlob } from './media-content-digest.ts';
+import { deleteByIndex, readCursorPage, request, transact } from '../../media/indexeddb.ts';
+import { canonicalMediaContentBlob } from '../../media/content-digest.ts';
 import {
 	MEDIA_ASSET_CHUNK_STORE_NAME,
 	MEDIA_ASSET_CHUNK_TOKEN_INDEX_NAME,

@@ -19,7 +19,7 @@ import {
 	readClosedDomainArray,
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from '../common/editor/closed-domain-value.ts'
+} from '../common/foundation/closed-domain-value.ts'
 import { validateFolderMixerGraphV21 } from '../common/editor/folder-mixer-graph-v21.ts'
 import {
 	normalizeMixerGraphV21,

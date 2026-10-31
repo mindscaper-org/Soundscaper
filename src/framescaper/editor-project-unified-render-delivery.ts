@@ -5,7 +5,7 @@
 import {
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from '../common/editor/closed-domain-value.ts';
+} from '../common/foundation/closed-domain-value.ts';
 import {
 	createNativeMediaPlanEnvelopeV3,
 	type NativeMediaPlanEnvelopeV3,

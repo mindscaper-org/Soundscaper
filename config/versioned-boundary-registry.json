@@ -449,8 +449,6 @@
 		,
 		{ "path": "src/common/editor/video-caption-track-v27.ts", "kind": "persisted-contract", "justification": "video-caption-track-v27.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
-		{ "path": "src/common/editor/video-color-cube-lut-v27.ts", "kind": "persisted-contract", "justification": "video-color-cube-lut-v27.ts is a persisted domain-component or render-contract revision independent of product schema." }
-		,
 		{ "path": "src/common/editor/video-color-management-v27.ts", "kind": "persisted-contract", "justification": "video-color-management-v27.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/video-freeze-v24.ts", "kind": "persisted-contract", "justification": "video-freeze-v24.ts is a persisted domain-component or render-contract revision independent of product schema." }
@@ -488,6 +486,8 @@
 		{ "path": "src/common/editor/video-visual-presentation-v27.ts", "kind": "persisted-contract", "justification": "video-visual-presentation-v27.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/video-visual-preset-v24.ts", "kind": "persisted-contract", "justification": "video-visual-preset-v24.ts is a persisted domain-component or render-contract revision independent of product schema." }
+		,
+		{ "path": "src/common/imaging/cube-lut-v1.ts", "kind": "persisted-contract", "justification": "cube-lut-v1.ts preserves the versioned digest and geometry contract for shared cube LUT resources." }
 		,
 		{ "path": "src/framescaper/delivery-native-report-closure-v1.ts", "kind": "persisted-contract", "justification": "delivery-native-report-closure-v1.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,

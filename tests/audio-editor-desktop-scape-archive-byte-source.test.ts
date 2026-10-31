@@ -12,8 +12,8 @@ import type {
 	DesktopReadFetch,
 	DesktopReadResponse,
 } from '../src/common/editor/desktop-read-materialization.ts';
-import { restoreNormalizedScapeAbortReason } from '../src/common/editor/scape-abort.ts';
-import { createScapeArchiveByteSource, readScapeArchiveByteRange } from '../src/common/editor/scape-archive-byte-source.ts';
+import { restoreNormalizedScapeAbortReason } from '../src/common/scape/abort.ts';
+import { createScapeArchiveByteSource, readScapeArchiveByteRange } from '../src/common/scape/archive-byte-source.ts';
 
 const DESCRIPTOR = Object.freeze({
 	url: 'soundscaper-app://bundle/_desktop/read/range/session.scape',

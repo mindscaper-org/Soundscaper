@@ -8,7 +8,7 @@ import { normalizeAudioWarpRuntimeInputs } from './audio-warp-runtime-authority.
 import {
 	readClosedDomainField,
 	readClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 import {
 	resolveRuntimeClipProjection,
 	type RuntimeClipProject,

@@ -3,7 +3,7 @@
 import { compareCodeUnits } from '../code-unit-order.ts';
 import { validateCurrentAudioEditorProject, type AudioEditorProjectCurrent } from '../project-current.ts';
 import { collectProjectSourceIds } from '../retention.js';
-import { request, transact } from './indexeddb-backend.ts';
+import { request, transact } from '../../media/indexeddb.ts';
 import type { LinkedOriginalBinding, LinkedOriginalKind } from './linked-original-binding.ts';
 import {
 	readBoundedLinkedOriginalBindingRows,

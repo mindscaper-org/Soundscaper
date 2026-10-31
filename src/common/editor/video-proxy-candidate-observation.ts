@@ -3,7 +3,7 @@
 import {
 	canonicalMediaContentBlob,
 	digestMediaContent,
-} from './storage/media-content-digest.ts';
+} from '../media/content-digest.ts';
 import {
 	bindVideoSourceTimingView,
 	type BoundVideoSourceTimingView,

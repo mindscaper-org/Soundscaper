@@ -2,7 +2,8 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import type { ScapeAssetDescriptor, ScapeManifest } from '../../src/common/editor/scape-archive-envelope.ts';
+import type { ScapeAssetDescriptor } from '../../src/common/scape/archive-envelope.ts';
+import type { ScapeManifest } from '../../src/common/editor/scape-archive-envelope.ts';
 import { parseCubeLutV1, type VideoCubeLutReferenceV1 } from '../../src/common/editor/video-color-management-v27.ts';
 import { videoMotionSettingsSha256V1 } from '../../src/common/editor/video-motion-analysis-v27.ts';
 import type { VideoMotionAnalysisReferenceV1, VideoProcessorStackV1 } from '../../src/common/editor/video-motion-model-v27.ts';

@@ -5,7 +5,7 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from './closed-domain-value.ts';
+} from '../foundation/closed-domain-value.ts';
 
 export const VIDEO_MASK_MATTE_LIMITS_V1 = Object.freeze({
 	maximumDepth: 32,

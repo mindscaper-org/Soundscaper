@@ -1,20 +1,18 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { aggregateScapeErrors, awaitScapeOperation, throwIfScapeAborted } from '../scape-abort.ts';
-import type { ScapeAssetDescriptor, ScapeManifest } from '../scape-archive-envelope.ts';
-import { digestScapeBytes, verifyScapeExtractedAsset } from '../scape-archive-media.ts';
-import {
-	extractScapeVideo,
-	SCAPE_VIDEO_MAXIMUM_CHUNK_BYTES,
-	type ScapeVideoWriter,
-} from '../scape-archive-video.ts';
+import { aggregateScapeErrors, awaitScapeOperation, throwIfScapeAborted } from '../../scape/abort.ts';
+import type { ScapeAssetDescriptor } from '../../scape/archive-envelope.ts';
+import type { ScapeManifest } from '../scape-archive-envelope.ts';
+import { digestBytes as digestScapeBytes } from '../../media/bytes.ts';
+import { verifyScapeExtractedAsset } from '../../scape/asset-bytes.ts';
+import { extractScapeVideo, SCAPE_VIDEO_MAXIMUM_CHUNK_BYTES, type ScapeVideoWriter } from '../scape-archive-video.ts';
 import type { PlannedScapeExportAsset } from '../scape-export-plan.ts';
 import type {
 	ScapeProjectAssetExtension,
 	ScapeProjectAssetExtensionExportRequest,
 	ScapeProjectAssetExtensionImportRequest,
 } from '../scape-project-asset-extension.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from '../storage/media-content-digest.ts';
+import { canonicalMediaContentBlob, digestMediaContent } from '../../media/content-digest.ts';
 import type {
 	OwnedMediaAssetPublication,
 	OwnedMediaAssetWriter,

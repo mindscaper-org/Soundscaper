@@ -8,7 +8,7 @@
  * renderer and encoder, and building it twice would let the two drift.
  */
 
-import { digestMediaContent } from '../../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../../src/common/media/content-digest.ts';
 import { projectTrackFolderMediaStateV12 } from '../../src/common/editor/track-folder-media-runtime.ts';
 import type {
 	VideoKeyframeOfflineVideoExportDependencies,

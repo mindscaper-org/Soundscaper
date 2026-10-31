@@ -11,7 +11,7 @@ import { applyFramescaperProjectCommand } from '../src/framescaper/editor-projec
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import { createFramescaperCubeLutActionsFinishing, bindFramescaperCubeLutActionsFinishing } from '../src/framescaper/editor-cube-lut-actions-finishing.ts';
 import { normalizeVideoFinishingPresetV1 } from '../src/common/editor/video-visual-presentation-v27.ts';
-import { parseCubeLutV1, sampleCubeLut } from '../src/common/editor/video-color-cube-lut-v27.ts';
+import { parseCubeLutV1, sampleCubeLut } from '../src/common/imaging/cube-lut-v1.ts';
 import { createMemoryProjectStore } from './helpers/memory-project-store.ts';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 

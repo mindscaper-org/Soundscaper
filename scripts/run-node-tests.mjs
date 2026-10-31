@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
@@ -35,15 +35,34 @@ const requireLinuxNative = argv.includes('--require-linux-native');
 const selection = parseNodeTestSelection(argv.filter((argument) => (
 	argument !== coverageArgument && argument !== desktopFixtureArgument && argument !== '--require-linux-native'
 )));
-const testFiles = selectNodeTestFiles(root, selection);
+let testFiles = selectNodeTestFiles(root, selection);
+let modulePlan = null;
+if (process.env.SCAPE_MODULE_PLAN) {
+	const { readModuleExecutionPlan } = await import('./lib/check-module-repository.ts');
+	modulePlan = readModuleExecutionPlan(root, process.env.SCAPE_MODULE_PLAN);
+	const selected = new Set(modulePlan.nodeTests);
+	testFiles = testFiles.filter(file => selected.has(file.slice(root.length + 1).replaceAll('\\', '/')));
+}
 
 if (requireLinuxNative) assertRequiredLinuxNativeTestHost(process.platform, process.arch);
 
 if (testFiles.length === 0) {
+	if (modulePlan?.mode === 'focused') {
+		if (coverageArgument !== undefined) {
+			const coverageDirectory = resolve(root, coverageArgument.slice('--coverage-directory='.length));
+			rmSync(coverageDirectory, { recursive: true, force: true });
+			mkdirSync(coverageDirectory, { recursive: true });
+			writeFileSync(join(coverageDirectory, 'empty-module-selection.json'), JSON.stringify({ result: [] }));
+		}
+		console.log(`The module plan selects no tests for ${describeNodeTestSelection(selection)}.`);
+		process.exit(0);
+	}
 	throw new Error(`No Node test files were found for ${describeNodeTestSelection(selection)}.`);
 }
 
 const env = { ...process.env };
+// A test may start a runner in a fixture checkout with a different inventory.
+delete env.SCAPE_MODULE_PLAN;
 const checkAllProgress = env.SCAPE_CHECK_ALL_PROGRESS === '1';
 // A fixture may invoke its own runner in a temporary checkout.
 delete env.SCAPE_CHECK_ALL_PROGRESS;
@@ -125,6 +144,7 @@ try {
 		if (nativeFixtureDirectory !== null) env[NATIVE_TEST_FIXTURE_ENV] = nativeFixtureDirectory;
 		const result = spawnSync(process.execPath, [
 			...(useLoaders ? ['--import', 'tsx', '--import', styleAssetLoader] : []),
+			...(env.SCAPE_NODE_TEST_CONCURRENCY ? [`--test-concurrency=${env.SCAPE_NODE_TEST_CONCURRENCY}`] : []),
 			...(checkAllProgress ? ['--test-concurrency=2', '--test-reporter', checkAllReporter]
 				: requireLinuxNative ? ['--test-reporter', requiredNativeReporter] : []),
 			'--test', ...batch,

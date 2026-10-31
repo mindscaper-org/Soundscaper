@@ -25,7 +25,8 @@ import {
 	LINKED_ORIGINAL_STORE_NAME,
 	linkedOriginalBindingKey,
 } from '../src/common/editor/storage/linked-original-schema.ts';
-import { openDatabase, request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { getMemoryDatabase, type EditorMemoryDatabase } from '../src/common/editor/storage/memory-backend.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 

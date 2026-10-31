@@ -9,7 +9,7 @@ import {
 	proveVideoProxyRelationship,
 	videoProxyRelationshipInfo,
 } from '../src/common/editor/video-proxy-relationship.ts';
-import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../src/common/media/content-digest.ts';
 import {
 	createVideoTimingAssetPublication,
 	validateVideoTimingAssetBytes,

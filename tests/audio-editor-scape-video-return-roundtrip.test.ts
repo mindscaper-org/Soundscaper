@@ -12,7 +12,7 @@ import {
 	createVideoSource,
 	createVideoTrack,
 } from '../src/common/editor/project-media-factory.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { VIDEO_DERIVATIVE_RECIPES } from '../src/common/editor/storage/video-derivative-relationship.ts';
 import { PRODUCT_PROFILES } from '../src/common/products.js';

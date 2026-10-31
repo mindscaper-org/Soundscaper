@@ -1,22 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { ScapeArchiveEntry } from '../common/editor/scape-archive-envelope.ts'
-import { SCAPE_ARCHIVE_LIMITS } from '../common/editor/scape-archive-envelope.ts'
+import type { ScapeArchiveEntry } from '../common/scape/archive-envelope.ts';
+import { SCAPE_ARCHIVE_LIMITS } from '../common/scape/archive-limits.ts';
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from '../common/editor/controller/shared/file-size-warning.ts'
-import { throwIfScapeAborted } from '../common/editor/scape-abort.ts'
-import {
-	createScapeDigest,
-	extractScapeAudio,
-	scapeAudioSourceLayout,
-	scapeAudioSourceStream,
-	scapeHex,
-	verifyScapeExtractedAsset,
-	type ScapeAudioSource,
-} from '../common/editor/scape-archive-media.ts'
-import {
-	ScapeAudioChunkBudget,
-	ScapeExpandedByteBudget,
-} from '../common/editor/scape-expanded-byte-budget.ts'
+import { throwIfScapeAborted } from '../common/scape/abort.ts'
+import { createDigest as createScapeDigest, hex as scapeHex } from '../common/media/bytes.ts';
+import { extractScapeAudio, scapeAudioSourceLayout, scapeAudioSourceStream, type ScapeAudioSource } from '../common/editor/scape-archive-media.ts';
+import { verifyScapeExtractedAsset } from '../common/scape/asset-bytes.ts';
+import { ScapeAudioChunkBudget } from '../common/editor/scape-expanded-byte-budget.ts';
+import { ScapeExpandedByteBudget } from '../common/scape/expanded-byte-budget.ts';
 import type { StorageRecord } from '../common/editor/storage/media-records.ts'
 import type { AudioSourceWriter } from '../common/editor/storage/source-write-repository.ts'
 import type { SoundscaperProject } from './editor-project-validation.ts'

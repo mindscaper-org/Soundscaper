@@ -3,7 +3,7 @@
 import {
 	REVIEWED_IMAGE_FORMATS,
 	type ReviewedImageFormat,
-} from './image-format-signature.ts';
+} from '../imaging/image-format-signature.ts';
 
 /** A candidate is not usable until its exact runtime/format route is verified. */
 export const IMAGE_DECODER_IDS = Object.freeze([

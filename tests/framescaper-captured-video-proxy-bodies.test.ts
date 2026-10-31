@@ -11,7 +11,7 @@ import {
 } from '../src/framescaper/editor-captured-video-proxy-bodies.ts';
 import { MediaPublicationReconciliationError } from '../src/common/editor/storage/media-asset-owned-publication.ts';
 import type { VideoProxyClaimedMediaAssetWriter } from '../src/common/editor/storage/media-asset-write-contract.ts';
-import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../src/common/media/content-digest.ts';
 import type { VideoProxyClaimRecord } from '../src/common/editor/storage/video-proxy-claim-repository.ts';
 import type { VideoProxyClaimStagingInput } from '../src/common/editor/storage/video-proxy-claim-staging-record.ts';
 import type { VideoProxyClaimStagingRepository } from '../src/common/editor/storage/video-proxy-claim-staging-repository.ts';

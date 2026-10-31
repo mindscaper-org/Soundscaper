@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { projectString } from './project-validation-primitives.ts';
-import { digestScapeBytes } from './scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../media/bytes.ts';
 import {
 	parseScapeProjectDocument,
 	serializeScapeProjectDocument,

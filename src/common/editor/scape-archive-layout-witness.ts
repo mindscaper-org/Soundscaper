@@ -4,8 +4,8 @@ import {
 	assertScapeArchiveByteSource,
 	createScapeArchiveByteSource,
 	type ScapeArchiveByteSource,
-} from './scape-archive-byte-source.ts';
-import { SCAPE_MAXIMUM_CENTRAL_DIRECTORY_BYTES } from './scape-archive-zip-profile.ts';
+} from '../scape/archive-byte-source.ts';
+import { SCAPE_MAXIMUM_CENTRAL_DIRECTORY_BYTES } from '../scape/archive-zip-profile.ts';
 
 const END_MAXIMUM_BYTES = 22 + 0xffff;
 const ZIP64_END_BYTES = 56;

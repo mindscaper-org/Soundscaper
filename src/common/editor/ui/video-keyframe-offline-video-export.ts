@@ -5,7 +5,7 @@ import {
 	offlineVideoExportRecord as record, offlineVideoExportData as data,
 	offlineVideoExportDenseArray as denseArray, offlineVideoExportBoundedId as boundedId,
 } from './video-keyframe-offline-video-export-admission.ts';
-import { canonicalMediaContentBlob } from '../storage/media-content-digest.ts';
+import { canonicalMediaContentBlob } from '../../media/content-digest.ts';
 import { projectForRuntimeConsumers } from '../project-current-runtime.ts';
 import { inheritTrackFolderMediaStateProjectionV12 } from '../track-folder-media-runtime.ts';
 import { cloneFrozenVideoExportProject } from '../video-export-project-snapshot.ts';

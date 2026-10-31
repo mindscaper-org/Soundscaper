@@ -5,7 +5,7 @@ import {
 	readClosedDomainField,
 	readClosedDomainRecord,
 	type ClosedDomainRecord,
-} from '../common/editor/closed-domain-value.ts';
+} from '../common/foundation/closed-domain-value.ts';
 import { normalizeNoiseReductionContext } from '../common/editor/effect-macros.js';
 import { normalizeEffect } from '../common/editor/effects.js';
 import { snapshotInertJsonValue } from '../common/editor/inert-json-snapshot.ts';

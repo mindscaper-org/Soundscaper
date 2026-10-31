@@ -12,7 +12,7 @@ import { EXPORT_MENU_COPY_BY_LOCALE } from '../src/common/i18n/export-menu-copy.
 import {
 	createProjectMediaActionGroup,
 } from '../src/common/editor/controller/document/project-media-action-group.ts';
-import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
+import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 
 interface MenuItem {
 	readonly id: string;
