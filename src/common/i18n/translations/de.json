@@ -234,7 +234,7 @@
 		"audacityParityReasonDeveloper": ["machine","Hidden Extra, diagnostic, benchmark, and developer scaffolding is intentionally omitted.","Verborgene Extra-, Diagnose-, Benchmark- und Entwicklerfunktionen werden bewusst nicht übernommen."],
 		"audacityParityReasonLocal": ["machine","This existing editor command remains available as a disabled placeholder.","Dieser bestehende Editor-Befehl bleibt als deaktivierter Platzhalter erhalten."],
 		"audacityParityReasonMenu": ["machine","This command is disabled in the pinned Audacity 4 menu.","Dieser Befehl ist im festgelegten Audacity-4-Menü deaktiviert."],
-		"audacityParityReasonMidi": ["machine","MIDI is not implemented and remains post-1.0 scope.","MIDI ist noch nicht implementiert und bleibt für einen Zeitpunkt nach Version 1.0 vorgesehen."],
+		"audacityParityReasonMidi": ["human","Full Audacity MIDI integration remains post-1.0 scope; beta MIDI uses separate menu commands.","Die vollständige MIDI-Integration wie in Audacity bleibt für die Zeit nach Version 1.0 vorgesehen; die MIDI-Beta nutzt eigene Menübefehle."],
 		"audacityParityReasonOs": ["machine","Operating-system audio, device, and application-lifecycle settings are intentionally omitted.","Betriebssystem-, Audio-Geräte- und Anwendungsoptionen werden bewusst nicht übernommen."],
 		"audacityParityReasonPending": ["machine","This Audacity 4 parity command is not connected in this build yet.","Dieser Audacity-4-Paritätsbefehl ist in diesem Build noch nicht angebunden."],
 		"audacityParityReasonPlugins": ["machine","External plugin and Nyquist support is intentionally omitted.","Externe Plugins und Nyquist-Unterstützung werden bewusst nicht übernommen."],
