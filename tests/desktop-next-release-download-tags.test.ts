@@ -24,7 +24,7 @@ test('desktop downloads retain the repository identity after its owner URL redir
 	const requested: string[] = [];
 	const fetchImpl: typeof fetch = async (input, init) => {
 		requested.push(String(input));
-		assert.equal(init?.redirect, 'error');
+		assert.equal(init?.redirect, 'manual');
 		if (String(input) !== canonicalApi) return new Response(null, { status: 301, headers: { Location: canonicalApi } });
 		return Response.json([{
 			tag_name: 'v1.0.0', published_at: '2026-10-20T00:00:00Z', draft: false,

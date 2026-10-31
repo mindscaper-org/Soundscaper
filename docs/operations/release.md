@@ -110,6 +110,10 @@ borrow packages from an older RC. Drafts, betas, stable releases, and releases
 without a recognized installer are excluded. A failed lookup leaves a GitHub
 release link and a retry action. No site rebuild is needed: both download
 surfaces share a bounded GitHub lookup with a five-minute metadata edge cache.
+The lookup uses Workers-compatible manual redirect handling and rejects all
+non-success responses. The repository-ID API URL avoids owner-transfer redirects;
+the runtime regression exercises both download handlers inside workerd, including
+an upstream redirect, without contacting GitHub.
 This route is independent of the Astro handbook's `/docs` base and loads no
 editor JavaScript.
 
