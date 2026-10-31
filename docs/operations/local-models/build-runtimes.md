@@ -180,7 +180,8 @@ verify staged archives against their published immutable URLs before packaging.
 Changes to these GPU recipes require a manual **Update AI assets** run before
 release. Download that run's `assistance-runtime-handoff-*` artifacts, run
 `node scripts/refresh-desktop-test-runtime-snapshots.mjs <downloaded-artifacts-directory>`,
-and commit the refreshed snapshot register and compressed files. Desktop test
+and commit the refreshed snapshot register, compressed files, and
+`config/assistance-sherpa-retained-builds.json` together. Desktop test
 artifacts continue to use the committed snapshots until that refresh; building
 or testing source changes does not publish new runtimes.
 

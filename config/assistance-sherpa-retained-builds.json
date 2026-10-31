@@ -3,38 +3,38 @@
 	"description": "Exact published Sherpa GPU builds retained by the desktop test snapshots. Recipe edits authenticate new builds without revoking these immutable packages or their receipts.",
 	"targets": {
 		"linux-x64": {
-			"sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b",
-			"receiptSha256": "8b39713a02d58e96c14d9f94b52c048061c01d0a6a164a7a4558f64c476b284c",
+			"sourceRevision": "ad93b9b714bf25da8d115ade79f5c2a12fd3242a",
+			"receiptSha256": "022aa70b27a0965c4be1b7c5570ba19cbfd968e80aec26b122895d324625327a",
 			"packageSha256": [
-				"663d5f5a4856e0278368c64a8f029907d0f059446c7f9b0f64f1845a6a532f86"
+				"048404013144498fd55c2ef5dc7abb1e54e7fbfdfcc04f60a66020d9a831c3fb"
 			]
 		},
 		"linux-arm64": {
-			"sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b",
-			"receiptSha256": "5ec329738e368785805371d9762121ca874ad4a3d36eb75bcf61ec7e79e8dc7b",
+			"sourceRevision": "ad93b9b714bf25da8d115ade79f5c2a12fd3242a",
+			"receiptSha256": "5b2a2dd1ae950295ad548c829f81fdfd6ca5028020339944146563cc3776a0e0",
 			"packageSha256": [
-				"0ba7189c276e21101974fe1ea83b8f0aff07b5f9b41e8133453961fc1e77d7b5"
+				"905396e681bd07b64e2d298044d7beebce1322c1f5ea7708d190c2217b76dcba"
 			]
 		},
 		"mac-arm64": {
-			"sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b",
-			"receiptSha256": "63b3dd21fe4243fa59af8a1e43832c7c82967b41c46b077e370f15adb65ba069",
+			"sourceRevision": "ad93b9b714bf25da8d115ade79f5c2a12fd3242a",
+			"receiptSha256": "19206304da0ba2d9cee9bf1e3d6377debf09524d74de4bd9a69bdacec75e46fc",
 			"packageSha256": [
-				"0c1c648a7e2ea017983ca074f1d4ef592b821df61d5c76e13a5050e1bdd6586d"
+				"30c590107cd1fa675d566ccb45f9454df59120a2524e61334737c43b701fb3df"
 			]
 		},
 		"win-x64": {
-			"sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b",
-			"receiptSha256": "bfc51c016be70375f536f2acbde8dbacda3ad2c944dabec19e217b4e0a2beb99",
+			"sourceRevision": "ad93b9b714bf25da8d115ade79f5c2a12fd3242a",
+			"receiptSha256": "0ac71a01f7ce8e20b9d1c4e8310e023759fb41c1f84a6f748c62dd3c76809e69",
 			"packageSha256": [
-				"9e57f97fc32bbf7cdb7f6a6cc69aca99e2ad9fe55be69153bc0837043703b8b9"
+				"411a7679c88c222edfb2af789099d4b4e6b409120137160956ac6f594beb7d7d"
 			]
 		},
 		"win-arm64": {
-			"sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b",
-			"receiptSha256": "c763db1bb299ffa2365a571ca959ea4e96b57c905522a139abcc7d4bd8d10a3f",
+			"sourceRevision": "ad93b9b714bf25da8d115ade79f5c2a12fd3242a",
+			"receiptSha256": "5a11004712c520c9d3081b2fc3c3f5e8dbd6c6c9188d14f7280ee631f7f4479a",
 			"packageSha256": [
-				"e7fd5c61b48851288fdbdd6e48180daefc6b029ec2b51ead52dd9a780a6267e0"
+				"60cab295fc9dc96c70f00f116383d6e1ed8f0775726f642092f32c200498b0cd"
 			]
 		}
 	}
