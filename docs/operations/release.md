@@ -113,6 +113,17 @@ surfaces share a bounded GitHub lookup with a five-minute metadata edge cache.
 This route is independent of the Astro handbook's `/docs` base and loads no
 editor JavaScript.
 
+The version and publication date appear above the download heading. Packages
+matching the request's desktop operating system and, when known, architecture
+appear first; remaining packages stay in the native **Other downloads**
+disclosure. A known operating system with an unknown processor shows that
+platform's available architectures with a reminder to check the package name.
+Unknown or unsupported devices can choose from **Other downloads**. Release
+notes sit beside the checksums and source links. The page requests architecture
+and bitness client hints, uses the user agent when those hints are unavailable,
+and varies its uncached HTML on that request information. Detection and the
+disclosure work without JavaScript.
+
 Vite development and preview servers run the same download-page handler through
 `scripts/lib/vite-download-page.ts`, before the editor's SPA fallback. Local
 requests use the selected `SCAPE_PRODUCT` (Soundscaper by default), so

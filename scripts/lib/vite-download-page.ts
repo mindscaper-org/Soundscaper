@@ -16,7 +16,11 @@ export function localDownloadPagePlugin(productId: DesktopDownloadProductId, fet
 		}
 		// Local builds take their product from SCAPE_PRODUCT, rather than a public hostname.
 		const productUrl = `https://${productId}.org${url.pathname}${url.search}`;
-		void respond(new Request(productUrl, { method: request.method }), response, fetchImpl).catch(next);
+		const headers = new Headers();
+		for (const [name, value] of Object.entries(request.headers)) {
+			if (value !== undefined) headers.set(name, Array.isArray(value) ? value.join(', ') : value);
+		}
+		void respond(new Request(productUrl, { method: request.method, headers }), response, fetchImpl).catch(next);
 	};
 	return {
 		name: 'scape-local-download-page',

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { desktopReleaseSearchUrl, type DesktopDownloadProductId } from '../editor/desktop-download-links.ts';
-import type { DesktopDownloadTarget } from '../editor/desktop-download-target.ts';
+import type { DesktopDownloadEnvironment, DesktopDownloadTarget } from '../editor/desktop-download-target.ts';
 import type { DesktopReleaseCandidate } from './desktop-releases.ts';
 
 const PACKAGE_LABELS: Readonly<Record<DesktopDownloadTarget, string>> = {
@@ -22,6 +22,7 @@ export function renderDownloadPage(
 	productId: DesktopDownloadProductId,
 	release: DesktopReleaseCandidate | null,
 	unavailable = false,
+	environment: DesktopDownloadEnvironment = { platform: null, architecture: null },
 ): string {
 	const name = productId === 'soundscaper' ? 'Soundscaper' : 'Framescaper';
 	const peer = productId === 'soundscaper' ? 'Framescaper' : 'Soundscaper';
@@ -45,14 +46,14 @@ export function renderDownloadPage(
 		<nav aria-label="Main navigation"><a href="/en/">Open in browser</a><a href="/docs/">Handbook</a></nav>
 	</header>
 	<main id="main">
-		<div class="intro"><p class="eyebrow">${name} for desktop</p>
+		<div class="intro"><p class="eyebrow">${release === null ? `${name} for desktop` : releaseEyebrow(release)}</p>
 		<h1>Download ${name}</h1><p class="lead">${description}</p></div>
 		${release === null ? `<section class="release-status" aria-labelledby="release-title">
 			<h2 id="release-title">${unavailable ? 'Downloads are temporarily unavailable' : 'No release candidate is available yet'}</h2>
 			<p>${unavailable ? 'We could not load the latest release candidate. Please try again, or browse the releases on GitHub.' : 'Published desktop packages will appear here automatically. You can use the browser editor in the meantime.'}</p>
 			<a href="${escapeHtml(desktopReleaseSearchUrl(productId))}">Browse ${name} releases</a>
 			${unavailable ? `<a href="${canonical}">Try again</a>` : ''}
-		</section>` : renderRelease(release)}
+		</section>` : renderRelease(release, environment)}
 		<section class="browser-option" aria-labelledby="browser-title">
 			<div><h2 id="browser-title">Prefer your browser?</h2><p>Open ${name} without installing anything.</p></div>
 			<a class="button secondary" href="/en/">Open ${name}</a>
@@ -63,29 +64,47 @@ export function renderDownloadPage(
 </html>`;
 }
 
-function renderRelease(release: DesktopReleaseCandidate): string {
+function releaseEyebrow(release: DesktopReleaseCandidate): string {
 	const published = new Intl.DateTimeFormat('en', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })
 		.format(new Date(release.publishedAt));
-	return `<section class="release-summary" aria-labelledby="release-title">
-		<div><p class="eyebrow">Latest release candidate</p><h2 id="release-title">${escapeHtml(release.version)}</h2>
-		<p>Published <time datetime="${escapeHtml(release.publishedAt)}">${escapeHtml(published)}</time></p></div>
-		<a href="${escapeHtml(release.url)}">Release notes &amp; all files <span aria-hidden="true">↗</span></a>
-	</section>
-	<p class="candidate-note">This is a preview release for testing. Choose the package for your operating system and processor.</p>
-	<div class="platforms">${[
-		{ name: 'Windows', prefix: 'win-', detail: 'Install or run the portable version.' },
-		{ name: 'macOS', prefix: 'mac-', detail: 'For Macs with Apple silicon.' },
-		{ name: 'Linux', prefix: 'linux-', detail: 'AppImage, Debian, and Flatpak packages.' },
+	return `${escapeHtml(release.version)} · <time datetime="${escapeHtml(release.publishedAt)}">${escapeHtml(published)}</time>`;
+}
+
+type Installer = DesktopReleaseCandidate['installers'][number];
+
+function renderRelease(release: DesktopReleaseCandidate, environment: DesktopDownloadEnvironment): string {
+	const matches = (installer: Installer): boolean => environment.platform !== null
+		&& installer.target.startsWith(`${environment.platform}-`)
+		&& (environment.architecture === null || installer.target.startsWith(`${environment.platform}-${environment.architecture}.`));
+	const matching = release.installers.filter(matches);
+	const others = release.installers.filter(installer => !matches(installer));
+	const detectionNote = matching.length === 0
+		? '<p class="detection-note">No matching desktop download was identified. Open Other downloads to choose a package, or use the browser editor.</p>'
+		: environment.architecture === null
+			? '<p class="detection-note">Your processor could not be identified. Check the architecture in the package name before downloading.</p>' : '';
+	return `<p class="candidate-note">This is a preview release for testing.</p>
+	${detectionNote}
+	${matching.length ? `<div class="platforms matching-downloads">${renderPlatforms(matching, 'matching')}</div>` : ''}
+	${others.length ? `<details class="other-downloads"><summary>Other downloads</summary>
+		<div class="platforms">${renderPlatforms(others, 'other')}</div></details>` : ''}
+	<nav class="release-resources" aria-label="Release resources"><a href="${escapeHtml(release.url)}">Release notes</a>${release.resources.map(resource =>
+		`<a href="${escapeHtml(resource.url)}">${escapeHtml(RESOURCE_LABELS[resource.name] ?? resource.name)}</a>`).join('')}</nav>`;
+}
+
+function renderPlatforms(installers: readonly Installer[], group: string): string {
+	return [
+		{ name: 'Windows', id: 'win', detail: 'Install or run the portable version.' },
+		{ name: 'macOS', id: 'mac', detail: 'For Macs with Apple silicon.' },
+		{ name: 'Linux', id: 'linux', detail: 'AppImage, Debian, and Flatpak packages.' },
 	].map(platform => {
-		const installers = release.installers.filter(installer => installer.target.startsWith(platform.prefix));
-		return `<section class="platform" aria-labelledby="${platform.prefix}title">
-			<h2 id="${platform.prefix}title">${platform.name}</h2><p>${platform.detail}</p>
-			${installers.length ? `<ul>${installers.map(installer => `<li><a class="package" href="${escapeHtml(installer.url)}">${PACKAGE_LABELS[installer.target]} <span aria-hidden="true">↓</span></a></li>`).join('')}</ul>`
-				: '<p class="missing">No package has been published for this release candidate.</p>'}
+		const packages = installers.filter(installer => installer.target.startsWith(`${platform.id}-`));
+		if (packages.length === 0) return '';
+		const headingId = `${group}-${platform.id}-title`;
+		return `<section class="platform" aria-labelledby="${headingId}">
+			<h2 id="${headingId}">${platform.name}</h2><p>${platform.detail}</p>
+			<ul>${packages.map(installer => `<li><a class="package" href="${escapeHtml(installer.url)}">${PACKAGE_LABELS[installer.target]} <span aria-hidden="true">↓</span></a></li>`).join('')}</ul>
 		</section>`;
-	}).join('')}</div>
-	${release.resources.length ? `<nav class="release-resources" aria-label="Release resources">${release.resources.map(resource =>
-		`<a href="${escapeHtml(resource.url)}">${escapeHtml(RESOURCE_LABELS[resource.name] ?? resource.name)}</a>`).join('')}</nav>` : ''}`;
+	}).join('');
 }
 
 function escapeHtml(value: string): string {

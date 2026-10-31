@@ -20,7 +20,7 @@ for (const mode of ['dev', 'preview'] as const) {
 				lookups += 1;
 				return upstreamAvailable ? Response.json([{
 					tag_name: `${product}-v1.0.0-rc.1`, draft: false, published_at: '2026-10-31T00:00:00Z',
-					assets: [{ name: `${name}-1.0.0-rc.1-win-x64.exe`, state: 'uploaded' }],
+					assets: ['win-x64.exe', 'linux-arm64.AppImage'].map(target => ({ name: `${name}-1.0.0-rc.1-${target}`, state: 'uploaded' })),
 				}]) : new Response(null, { status: 503 });
 			};
 			const config: InlineConfig = {
@@ -50,6 +50,11 @@ for (const mode of ['dev', 'preview'] as const) {
 					const head = await fetch(`${origin}/download/`, { method: 'HEAD' });
 					assert.equal(head.status, 200);
 					assert.equal(await head.text(), '');
+					const detected = await fetch(`${origin}/download/`, { headers: { 'User-Agent': 'Mozilla/5.0 (X11; Linux aarch64)' } });
+					const detectedHtml = await detected.text();
+					assert.ok(detectedHtml.includes('-linux-arm64.AppImage'));
+					assert.ok(detectedHtml.indexOf('-linux-arm64.AppImage') < detectedHtml.indexOf('<details'));
+					assert.ok(detectedHtml.indexOf('-win-x64.exe') > detectedHtml.indexOf('<details'));
 					const before = lookups;
 					const post = await fetch(`${origin}/download/`, { method: 'POST' });
 					assert.equal(post.status, 405);
