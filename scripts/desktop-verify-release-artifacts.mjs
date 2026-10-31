@@ -10,11 +10,22 @@ export default async function verifyReleaseArtifacts(context, dependencies = {})
 	const platform = dependencies.platform ?? process.platform;
 	const executeFile = dependencies.executeFile ?? execute;
 	if (platform === 'darwin' && env.SCAPE_MAC_SIGNING === 'true') {
-		const images = context.artifactPaths.filter(path => path.endsWith('.dmg'));
-		if (images.length === 0) throw new Error('Signed Mac release produced no disk image.');
-		for (const artifact of images) {
-			await executeFile('codesign', ['--verify', '--strict', '--test-requirement',
-				`anchor apple generic and certificate leaf[subject.OU] = "${env.APPLE_TEAM_ID}"`, artifact]);
+		const packages = context.artifactPaths.filter(path => /\.(?:dmg|pkg)$/u.test(path));
+		if (packages.length === 0) throw new Error('Signed Mac release produced no disk image or installer package.');
+		for (const artifact of packages) {
+			const installer = artifact.endsWith('.pkg');
+			if (installer) {
+				const result = await executeFile('pkgutil', ['--check-signature', artifact]);
+				if (!env.CSC_INSTALLER_NAME?.startsWith('Developer ID Installer: ')
+					|| !env.CSC_INSTALLER_NAME.endsWith(`(${env.APPLE_TEAM_ID})`)
+					|| !result.stdout.includes('Status: signed by a developer certificate issued by Apple')
+					|| !result.stdout.split(/\r?\n/u).some(line => (
+						line.trim() === `1. ${env.CSC_INSTALLER_NAME}`
+					))) throw new Error('The release PKG does not have the expected Developer ID Installer signature.');
+			} else {
+				await executeFile('codesign', ['--verify', '--strict', '--test-requirement',
+					`anchor apple generic and certificate leaf[subject.OU] = "${env.APPLE_TEAM_ID}"`, artifact]);
+			}
 			try {
 				const result = await executeFile('xcrun', ['notarytool', 'submit', artifact, '--wait', '--output-format', 'json',
 					'--apple-id', env.APPLE_ID, '--password', env.APPLE_APP_SPECIFIC_PASSWORD,
@@ -28,10 +39,11 @@ export default async function verifyReleaseArtifacts(context, dependencies = {})
 				}
 			} catch {
 				// Child-process errors contain argv, including the app-specific password.
-				throw new Error('Apple did not accept the release disk image for notarization.');
+				throw new Error('Apple did not accept the release package for notarization.');
 			}
 			await executeFile('xcrun', ['stapler', 'staple', artifact]);
 			await executeFile('xcrun', ['stapler', 'validate', artifact]);
+			if (installer) await executeFile('spctl', ['--assess', '--type', 'install', '--verbose=2', artifact]);
 		}
 	}
 	if (platform === 'win32' && ['azure', 'certificate'].includes(env.SCAPE_WIN_SIGNING)) {

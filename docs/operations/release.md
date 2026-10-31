@@ -100,23 +100,55 @@ authority to the other.
 
 ## Desktop download links
 
-The existing Download link and application menu use
-`https://soundscaper.org/download/desktop/` (or the Framescaper origin). The
-Pages Function selects the newest published release with an installer for the
+The existing Download link and application menu open
+`https://soundscaper.org/download/` (or `https://framescaper.org/download/`).
+The server-rendered Pages Function lists the latest published RC for that
+product, selected by publication date, with its version, date, release notes,
+uploaded platform packages, checksums, source archive, and notices. Only
+resources actually uploaded to that RC appear; unavailable platforms never
+borrow packages from an older RC. Drafts, betas, stable releases, and releases
+without a recognized installer are excluded. A failed lookup leaves a GitHub
+release link and a retry action. No site rebuild is needed: both download
+surfaces share a bounded GitHub lookup with a five-minute metadata edge cache.
+This route is independent of the Astro handbook's `/docs` base and loads no
+editor JavaScript.
+
+The version and publication date appear above the download heading. Packages
+matching the request's desktop operating system and, when known, architecture
+appear first; remaining packages stay in the native **Other downloads**
+disclosure. A known operating system with an unknown processor shows that
+platform's available architectures with a reminder to check the package name.
+Unknown or unsupported devices can choose from **Other downloads**. Release
+notes sit beside the checksums and source links. The page requests architecture
+and bitness client hints, uses the user agent when those hints are unavailable,
+and varies its uncached HTML on that request information. Detection and the
+disclosure work without JavaScript.
+
+Vite development and preview servers run the same download-page handler through
+`scripts/lib/vite-download-page.ts`, before the editor's SPA fallback. Local
+requests use the selected `SCAPE_PRODUCT` (Soundscaper by default), so
+`npm run preview` serves `/download/` at `http://localhost:4321/download/` and
+`SCAPE_PRODUCT=framescaper npm run preview` selects Framescaper. Restart a
+preview server after changing its server configuration; rebuilding editor
+assets alone does not reload that configuration.
+
+The existing `/download/desktop/` route remains available for direct downloads.
+Its Pages Function selects the newest published release with an installer for the
 request's desktop platform and architecture, including RCs and betas. Windows
-downloads use the EXE installer, and Linux downloads use the AppImage. Explicit
-links override browser detection and can be shared or bookmarked:
+downloads use the EXE installer, macOS downloads use the PKG installer, and Linux
+downloads use the AppImage. Explicit links override browser detection and can
+be shared or bookmarked:
 
 | Package | Stable Soundscaper URL |
 | --- | --- |
 | Windows x64 installer | `https://soundscaper.org/download/desktop/soundscaper-windows-x64.exe` |
 | Windows ARM64 installer | `https://soundscaper.org/download/desktop/soundscaper-windows-arm64.exe` |
-| macOS Apple silicon | `https://soundscaper.org/download/desktop/soundscaper-mac-arm64.dmg` |
+| macOS Apple silicon installer | `https://soundscaper.org/download/desktop/soundscaper-mac-arm64.pkg` |
 | Linux x64 AppImage | `https://soundscaper.org/download/desktop/soundscaper-linux-x64.AppImage` |
 | Linux ARM64 AppImage | `https://soundscaper.org/download/desktop/soundscaper-linux-arm64.AppImage` |
 
-Windows ZIPs and Linux `.deb` and `.flatpak` packages use the same URLs with the
-matching extension. Framescaper uses `framescaper.org` and the `framescaper-`
+macOS DMGs, Windows ZIPs and Linux `.deb` and `.flatpak` packages use the same
+URLs with the matching extension. Framescaper uses `framescaper.org` and the `framescaper-`
 filename prefix. Redirects resolve on each visit, with a five-minute edge cache
 on GitHub release metadata, and preserve the versioned package filenames.
 

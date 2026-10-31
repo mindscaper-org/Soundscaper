@@ -6,6 +6,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
+import { interchangePythonExecutable } from '../scripts/lib/interchange-python.mjs';
 
 import { createDawprojectExport } from '../src/common/editor/dawproject-export.ts';
 
@@ -42,7 +43,7 @@ sys.exit(1 if errors else 0)
 `;
 
 function pythonExecutable(): string {
-	return process.env.SOUNDSCAPER_PYTHON || 'python3';
+	return interchangePythonExecutable({ referenceRoot: REFERENCE_ROOT });
 }
 
 let provisionChecked = false;
@@ -52,7 +53,7 @@ function ensureProvisioned(): void {
 	try {
 		execFileSync(pythonExecutable(), ['-c', 'import xmlschema'], {
 			stdio: 'ignore',
-			env: { ...process.env, PYTHONPATH: REFERENCE_ROOT },
+			env: { ...process.env, PYTHONPATH: REFERENCE_ROOT, PYTHONDONTWRITEBYTECODE: '1' },
 		});
 	} catch {
 		throw new Error(
@@ -74,7 +75,7 @@ function validate(schema: 'Project' | 'MetaData', xml: string): void {
 		writeFileSync(file, xml);
 		execFileSync(pythonExecutable(), ['-c', VALIDATOR, resolve(SCHEMA_ROOT, `${schema}.xsd`), file], {
 			encoding: 'utf8',
-			env: { ...process.env, PYTHONPATH: REFERENCE_ROOT },
+			env: { ...process.env, PYTHONPATH: REFERENCE_ROOT, PYTHONDONTWRITEBYTECODE: '1' },
 			stdio: ['ignore', 'pipe', 'pipe'],
 		});
 	} catch (error) {

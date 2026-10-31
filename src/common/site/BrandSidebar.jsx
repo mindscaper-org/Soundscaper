@@ -107,7 +107,7 @@ export default function BrandSidebar({ locale, productId = 'soundscaper' }) {
 							</a>)}
 						</details>
 						<a className={SIDEBAR_LINK_CLASS} href={parentSite}><img src="/logo/mindscaper.svg" alt="" width="24" height="24" />{copy.joinUs}</a>
-						<a className={SIDEBAR_LINK_CLASS} href={`${productWebOrigin(productId)}/download/desktop/`} target="_blank" rel="noreferrer"><SidebarIcon icon="download" />{copy.download}</a>
+						<a className={SIDEBAR_LINK_CLASS} href={`${productWebOrigin(productId)}/download/`} target="_blank" rel="noreferrer"><SidebarIcon icon="download" />{copy.download}</a>
 						<a className={SIDEBAR_LINK_CLASS} href={privacyPolicyUrl(productId, locale)} onClick={openPrivacyPolicy}><SidebarIcon icon="document" />{copy.legal}</a>
 						<a className={SIDEBAR_LINK_CLASS} href="https://github.com/LeoWattenberg/Soundscaper/issues/new" target="_blank" rel="noreferrer"><SidebarIcon icon="bug" />{copy.reportIssue}</a>
 						<a className={SIDEBAR_LINK_CLASS} href="https://github.com/LeoWattenberg/Soundscaper" target="_blank" rel="noreferrer"><SidebarIcon icon="github" />{copy.github}</a>

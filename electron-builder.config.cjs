@@ -43,7 +43,7 @@ if (process.env.SCAPE_PRODUCT === 'lightscaper') {
 		beforePack: './scripts/desktop-before-pack.mjs',
 		afterPack: './scripts/desktop-after-pack.mjs',
 		afterSign: './scripts/desktop-after-sign.mjs',
-		afterAllArtifactBuild: './scripts/desktop-verify-release-artifacts.mjs',
+		afterAllArtifactBuild: './scripts/desktop-after-all-artifact-build.mjs',
 		directories: {
 			app: '.desktop-build/app',
 			buildResources: '.desktop-build/icons',
@@ -91,10 +91,12 @@ if (process.env.SCAPE_PRODUCT === 'lightscaper') {
 		],
 		win: {
 			...signing.win,
+			extraResources: [{ from: 'desktop/installer/windows-ffmpeg-install.ps1', to: 'installer/windows-ffmpeg-install.ps1' }],
 			icon: '.desktop-build/icons/icon.ico',
 			target: ['nsis', 'zip'],
 		},
 		nsis: {
+			include: 'desktop/installer/windows-ffmpeg.nsh',
 			oneClick: false,
 			perMachine: true,
 			allowElevation: true,
@@ -115,6 +117,7 @@ if (process.env.SCAPE_PRODUCT === 'lightscaper') {
 			signIgnore: signing.mac.notarize ? '/Contents/Resources/runtime/' : macPreAuthenticatedRuntimePayload,
 			gatekeeperAssess: false,
 			category: framescaper ? 'public.app-category.video' : 'public.app-category.music',
+			// The after-all hook builds the PKG with optional components from this same sealed app.
 			target: ['dmg'],
 			extendInfo: framescaper ? {
 				NSCameraUsageDescription: 'Framescaper accesses the camera only when you choose a camera capture source.',
@@ -145,6 +148,7 @@ if (process.env.SCAPE_PRODUCT === 'lightscaper') {
 		},
 		deb: {
 			artifactName: '${productName}-${version}-linux-${arch}.${ext}',
+			recommends: ['ffmpeg'],
 		},
 		publish: null,
 	};

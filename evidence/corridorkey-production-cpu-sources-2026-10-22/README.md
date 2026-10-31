@@ -41,3 +41,14 @@ normalization, cropping, up/downsampling, edge clamping and invalid geometry.
 Those deterministic comparisons support the source migration; they do not rerun
 the recorded model or extend either historical CPU measurement to the current
 runtime, GPU execution or publication readiness.
+
+`linux-x64-runtime-snapshot.json.gz` and
+`desktop-test-assistance-runtime-snapshots.json` preserve the runtime snapshot
+and lock used by both measurements. They were recovered from the parent of
+`50d5d179049cd7070fb237f7c9e11cded2d51d17` and checked against the reports'
+original byte length, SHA-256, and source revision. Both reports point to the
+retained snapshot; their measured digests and results are unchanged. Evidence
+checks use the retained lock so refreshing desktop test runtimes does not
+rebind historical measurements to unmeasured runtime bytes. The retained lock
+also records the other targets; only the measured Linux x64 snapshot is copied
+here. These measurements do not certify the refreshed desktop test runtimes.

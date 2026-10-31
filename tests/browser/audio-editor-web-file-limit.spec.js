@@ -56,7 +56,7 @@ test.describe('browser file limit download prompt', () => {
 			await expect(prompt).toContainText('The desktop version can handle larger files.');
 			await prompt.getByRole('button', { name: 'Download desktop version' }).click();
 			await expect.poll(() => page.evaluate(() => globalThis.__desktopDownloadUrl))
-				.toBe(`https://${productId}.org/download/desktop/`);
+				.toBe(`https://${productId}.org/download/`);
 		});
 	}
 });

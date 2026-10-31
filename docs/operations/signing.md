@@ -15,9 +15,9 @@ The examples below are commands to run privately on your computer.
 ## macOS: accounts and certificate
 
 You need an Apple Developer Program membership, an Apple Account with two-factor
-authentication, and a **Developer ID Application** certificate. You do not need
-to buy a Mac: GitHub's macOS runner builds, signs, submits, and staples the app.
-The DMG target does not require a Developer ID Installer certificate.
+authentication, a **Developer ID Application** certificate, and a **Developer ID
+Installer** certificate for the PKG. You do not need to buy a Mac: GitHub's macOS
+runner builds, signs, submits, and staples the app and distribution containers.
 
 You can create the private key and certificate signing request in WSL using
 OpenSSL. These commands prompt for passwords and identity information:
@@ -45,6 +45,11 @@ base64 -w 0 developer-id.p12 > developer-id.p12.base64
 Keep the private key and export password in your password manager or another
 private backup. The certificate alone cannot recreate its private key.
 
+Repeat the certificate request and export procedure for **Developer ID
+Installer**, keeping its own `.p12` and export password. Both certificates must
+belong to the same Apple team. The PKG uses the Installer identity; the app
+and DMG continue to use the Application identity.
+
 Create an app-specific password at **account.apple.com → Sign-In and Security →
 App-Specific Passwords**. This workflow uses Apple ID authentication for
 notarization; an App Store Connect API key is not required.
@@ -53,13 +58,16 @@ notarization; an App Store Connect API key is not required.
 | --- | --- | --- |
 | Secret | `MAC_CERTIFICATE_P12` | Contents of `developer-id.p12.base64`, one line |
 | Secret | `MAC_CERTIFICATE_PASSWORD` | Password chosen for the `.p12` export |
+| Secret | `MAC_INSTALLER_CERTIFICATE_P12` | Base64 of the Developer ID Installer `.p12`, one line |
+| Secret | `MAC_INSTALLER_CERTIFICATE_PASSWORD` | Password chosen for the Installer `.p12` export |
 | Secret | `APPLE_ID` | Apple account email authorized to notarize for the team |
 | Secret | `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password, not the account login password |
 | Variable | `APPLE_TEAM_ID` | Ten-character team identifier from Apple Membership details |
 | Variable | `MAC_SIGNING_IDENTITY` | Exact certificate identity, such as `Developer ID Application: Example Name (ABCDEFGHIJ)` |
+| Variable | `MAC_INSTALLER_SIGNING_IDENTITY` | Exact certificate identity, such as `Developer ID Installer: Example Name (ABCDEFGHIJ)` |
 | Variable | `MAC_SIGNING_ENABLED` | `true`, after all the above are configured |
 
-The runner imports the identity into a temporary keychain, exports its path as
+The runner imports both identities into a temporary keychain, exports its path as
 `CSC_KEYCHAIN`, and removes the keychain in an `always()` cleanup step. Do not
 also configure `CSC_LINK`: the workflow already imports the certificate.
 
@@ -74,9 +82,11 @@ manifest retains original and signed native file hashes.
 electron-builder signs the enclosing app with hardened runtime, submits it to
 Apple, and staples its ticket before constructing the DMG. The post-sign hook
 requires `codesign` verification, `stapler validate`, and a successful Gatekeeper
-assessment. The final DMG is also signed, submitted, and stapled before the
-release inventory calculates checksums. A failed or rejected submission cannot
-silently produce a release.
+assessment. The final DMG and PKG are also signed, submitted, and stapled before
+the release inventory calculates checksums. The PKG's trusted Installer
+certificate and installation Gatekeeper assessment are checked separately
+from the app signature. A failed or rejected submission cannot silently
+produce a release.
 
 ## Windows: Microsoft Artifact Signing
 

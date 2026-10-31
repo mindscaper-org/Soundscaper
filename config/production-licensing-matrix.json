@@ -768,7 +768,8 @@
 			"versionRange": ">=4.4.0 <10.0.0",
 			"pairing": "matching-ffmpeg-ffprobe-version-and-fingerprint-required",
 			"preferences": "edit-preferences-general-location-status-browse-clear-rescan-install",
-			"installers": ["winget-exact-BtbN.FFmpeg.GPL.8.1", "existing-homebrew-brew-install-ffmpeg"],
+			"installers": ["winget-exact-BtbN.FFmpeg.GPL.8.1", "existing-homebrew-brew-install-ffmpeg", "nsis-unchecked-opt-in-winget-bootstrap", "pkg-unchecked-opt-in-homebrew-bootstrap", "deb-recommends-ffmpeg"],
+			"installerConsent": "per-user-per-product-one-time-marker-consumed-before-first-launch-probe",
 			"redistributed": false,
 			"audioRequestLimits": { "inputBytes": 33554432, "outputBytes": 134217728 },
 			"video": {

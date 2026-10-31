@@ -40,3 +40,40 @@ for (const input of ['keyboard', 'pointer']) test(`a grouped loop trim shares th
 	await editor.getByRole('button', { name: 'Undo', exact: true }).click();
 	for (const file of files) await expect(clipByName(editor, file.name).locator('[data-loop-boundary-frame]').first()).toHaveAttribute('data-loop-boundary-frame', '38400');
 });
+
+test('extending grouped loops restores previously trimmed source audio and survives reload', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	const files = ['trimmed-lead.wav', 'trimmed-rhythm.wav'].map(name => createWavFixture({ name, duration: 0.8, frequency: 440, channelCount: 1 }));
+	await importFiles(editor, files);
+	for (const file of files) {
+		const clip = clipByName(editor, file.name);
+		await clip.locator('.clip-header').click();
+		await focusRightTrim(page, clip);
+		await clip.getByRole('button', { name: 'Trim right edge', exact: true }).press('ArrowLeft');
+		await expect(clip.getByRole('slider', { name: 'Looped clip length', exact: true })).toHaveAttribute('aria-valuenow', '0.7');
+		await clip.getByRole('slider', { name: 'Looped clip length', exact: true }).press('ArrowRight');
+		await expect(clip.locator('[data-loop-boundary-frame]').first()).toHaveAttribute('data-loop-boundary-frame', '33600');
+	}
+	const first = clipByName(editor, files[0].name);
+	await first.locator('.clip-header').click({ modifiers: ['Shift'] });
+	await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Group clips']);
+	await expect(editor.locator('.clip-display[data-selected="true"]')).toHaveCount(2);
+	await focusRightTrim(page, first);
+	await first.getByRole('button', { name: 'Trim right edge', exact: true }).press('ArrowRight');
+	for (const file of files) await expect(clipByName(editor, file.name).locator('[data-loop-boundary-frame]').first()).toHaveAttribute('data-loop-boundary-frame', '38400');
+	await expect(editor.locator('[data-status]')).not.toHaveAttribute('data-state', 'error');
+	await editor.getByRole('button', { name: 'Undo', exact: true }).click();
+	for (const file of files) await expect(clipByName(editor, file.name).locator('[data-loop-boundary-frame]').first()).toHaveAttribute('data-loop-boundary-frame', '33600');
+	await editor.getByRole('button', { name: 'Redo', exact: true }).click();
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+	await page.reload();
+	for (const file of files) await expect(clipByName(editor, file.name).locator('[data-loop-boundary-frame]').first()).toHaveAttribute('data-loop-boundary-frame', '38400');
+});
+
+async function focusRightTrim(page, clip) {
+	await clip.focus();
+	await clip.press('t');
+	const handle = clip.getByRole('button', { name: 'Trim right edge', exact: true });
+	if (!await handle.evaluate(node => node === node.ownerDocument.activeElement)) await page.keyboard.press('t');
+	await expect(handle).toBeFocused();
+}

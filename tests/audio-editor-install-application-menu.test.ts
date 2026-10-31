@@ -110,7 +110,7 @@ test('Help opens the product desktop release route only in the browser editor', 
 		assert.ok(download, `${productId} browser Help offers the desktop version`);
 		assert.equal(download.label, 'Download desktop version');
 		(download.onClick as () => void)();
-		assert.deepEqual(opened, [`https://${productId}.org/download/desktop/`]);
+		assert.deepEqual(opened, [`https://${productId}.org/download/`]);
 		const desktop = workspaceHelpMenu({ isDesktop: true, productId });
 		assert.equal(desktop.items?.some((entry) => entry.id === DESKTOP_DOWNLOAD_MENU_ITEM_ID), false);
 	}

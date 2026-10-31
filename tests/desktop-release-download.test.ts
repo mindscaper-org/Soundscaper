@@ -5,10 +5,8 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { desktopDownloadUrl } from '../src/common/editor/desktop-download-links.ts';
-import {
-	handleDesktopDownloadRequest,
-	selectLatestDesktopRelease,
-} from '../functions/download/desktop/index.ts';
+import { handleDesktopDownloadRequest } from '../functions/download/desktop/index.ts';
+import { selectLatestDesktopRelease } from '../src/common/site/desktop-releases.ts';
 
 const RELEASE_ROOT = 'https://github.com/LeoWattenberg/Soundscaper/releases';
 
@@ -20,8 +18,8 @@ function release(tag: string, published: string, assetName: string, draft = fals
 }
 
 test('desktop download URLs keep each product on its own origin', () => {
-	assert.equal(desktopDownloadUrl('soundscaper'), 'https://soundscaper.org/download/desktop/');
-	assert.equal(desktopDownloadUrl('framescaper'), 'https://framescaper.org/download/desktop/');
+	assert.equal(desktopDownloadUrl('soundscaper'), 'https://soundscaper.org/download/');
+	assert.equal(desktopDownloadUrl('framescaper'), 'https://framescaper.org/download/');
 });
 
 test('latest release selection covers published candidates and stable builds with installer assets', () => {
@@ -118,7 +116,7 @@ test('Pages Functions route the download paths and both audio provider APIs', ()
 	const routes = JSON.parse(readFileSync(new URL('../public/_routes.json', import.meta.url), 'utf8')) as unknown;
 	assert.deepEqual(routes, {
 		version: 1,
-		include: ['/api/freesound/*', '/api/audiocom/*', '/download/desktop', '/download/desktop/*'],
+		include: ['/api/freesound/*', '/api/audiocom/*', '/download', '/download/', '/download/desktop', '/download/desktop/*'],
 		exclude: [],
 	});
 });

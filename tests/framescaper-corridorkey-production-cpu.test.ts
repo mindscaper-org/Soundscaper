@@ -36,6 +36,7 @@ interface CpuReport {
 }
 
 const root = new URL('../', import.meta.url);
+const retainedRuntimeRoot = 'evidence/corridorkey-production-cpu-sources-2026-10-22';
 const digest = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
 const readJson = async <T>(path: string): Promise<T> => JSON.parse(await readFile(new URL(path, root), 'utf8')) as T;
 const report = (): Promise<CpuReport> => readJson('evidence/framescaper-corridorkey-production-cpu-candidate.json');
@@ -81,10 +82,12 @@ test('historical CPU evidence authenticates its retained runtime and measured pr
 	assert.ok(measured.provenance.processorSources.some(pin => pin.path === 'src/common/editor/assistance/corridorkey-pixels-v1.ts'));
 	assert.ok(measured.provenance.runnerSources.some(pin => pin.path === 'scripts/models/corridorkey-production-cpu-reference.py'));
 	const lock = await readJson<{ readonly targets: Readonly<Record<string, {
-		readonly sourceRevision: string; readonly byteLength: number; readonly sha256: string }>> }>('config/desktop-test-assistance-runtime-snapshots.json');
-	assert.deepEqual(measured.runtime.snapshot, { path: 'config/desktop-test-assistance-runtime-snapshots/linux-x64.json.gz', ...lock.targets['linux-x64'] });
+		readonly sourceRevision: string; readonly byteLength: number; readonly sha256: string }>> }>(`${retainedRuntimeRoot}/desktop-test-assistance-runtime-snapshots.json`);
+	assert.deepEqual(measured.runtime.snapshot, { path: `${retainedRuntimeRoot}/linux-x64-runtime-snapshot.json.gz`, ...lock.targets['linux-x64'] });
 	const snapshot = JSON.parse(gunzipSync(await readFile(new URL(measured.runtime.snapshot.path, root))).toString('utf8')) as {
-		readonly sourceRevision: string; readonly files: Readonly<Record<string, string>> };
+		readonly schemaVersion: number; readonly targetId: string; readonly sourceRevision: string; readonly files: Readonly<Record<string, string>> };
+	assert.equal(snapshot.schemaVersion, 1);
+	assert.equal(snapshot.targetId, measured.environment.target);
 	const distribution = validateAssistanceRuntimeDistribution(JSON.parse(snapshot.files['config/assistance-runtime-distribution.json']!), 'linux-x64');
 	const bundle = distribution.bundles.find(row => row.familyId === 'onnxruntime-node');
 	assert.ok(bundle);
@@ -92,6 +95,13 @@ test('historical CPU evidence authenticates its retained runtime and measured pr
 	assert.equal(measured.runtime.snapshot.sourceRevision, snapshot.sourceRevision);
 	assert.deepEqual(measured.runtime.archive, bundle.archive);
 	assert.equal(measured.runtime.fileCount, bundle.files.length);
+});
+
+test('both retained CPU measurements bind the same historical runtime bytes', async () => {
+	const original = await readJson<CpuReport>(`${retainedRuntimeRoot}/production-cpu-report.json`);
+	assert.deepEqual(original.runtime, (await report()).runtime);
+	assert.equal(original.runtime.snapshot.path, `${retainedRuntimeRoot}/linux-x64-runtime-snapshot.json.gz`);
+	await assertFilePin(original.runtime.snapshot);
 });
 
 test('measured source reference records two recurrent frames with soft alpha and at most one RGBA byte of error', async () => {

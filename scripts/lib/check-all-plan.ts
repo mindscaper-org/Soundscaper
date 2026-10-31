@@ -11,7 +11,10 @@ export const CHECK_ALL_NODE_DIRECTORY = 'coverage/check-all/node';
 /** Derive static membership from the canonical gate so future checks cannot disappear. */
 export function createCheckAllPlan(root: string, npmCli: string, scripts: Record<string, string>): CheckTask[] {
 	const npm = (id: string, script = id): CheckTask => ({ id, args: [npmCli, 'run', script], dependsOn: [] });
-	const tasks: CheckTask[] = [];
+	// The complete selection includes OTIO/EDL/FCPXML readers and DAWproject
+	// schema validation. Verify their pinned packages before test shards start.
+	const interchangePreparation = 'prepare/interchange';
+	const tasks: CheckTask[] = [npm(interchangePreparation, 'provision:interchange-conformance')];
 	for (const script of npmSteps(scripts['check:static'], 'check:static')) {
 		if (script === 'lint') {
 			tasks.push(...LINT_SHARD_IDS.map((shard: string) => ({
@@ -26,7 +29,7 @@ export function createCheckAllPlan(root: string, npmCli: string, scripts: Record
 	if (!tasks.some(task => task.id === 'build')) throw new Error('check:static must include the browser prerequisite build.');
 	for (const shard of NODE_TEST_SHARD_IDS) {
 		tasks.push({
-			id: `node/${shard}`, dependsOn: [],
+			id: `node/${shard}`, dependsOn: [interchangePreparation],
 			args: [resolve(root, 'scripts/run-node-tests.mjs'), `--shard=${shard}`, `--coverage-directory=${CHECK_ALL_NODE_DIRECTORY}/raw/${shard}`],
 			env: { SCAPE_CHECK_ALL_PROGRESS: '1' },
 		}, {
@@ -40,7 +43,7 @@ export function createCheckAllPlan(root: string, npmCli: string, scripts: Record
 	});
 	for (let shard = 1; shard <= 4; shard++) {
 		tasks.push({
-			id: `browser/${shard}`, dependsOn: ['build'], browser: true,
+			id: `browser/${shard}`, dependsOn: ['build', interchangePreparation], browser: true,
 			args: [resolve(root, 'node_modules/@playwright/test/cli.js'), 'test',
 				'--config=playwright.check-all.config.ts', `--shard=${shard}/4`, '--workers=1', '--retries=0',
 				`--output=test-results/check-all/browser-${shard}`],

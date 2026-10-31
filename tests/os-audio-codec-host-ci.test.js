@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
 	mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile,
 } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -18,6 +19,7 @@ import {
 } from '../scripts/lib/os-audio-codec-host-ci.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
+const { load: loadYaml } = createRequire(import.meta.url)('js-yaml');
 const REDIRECT_URL =
 	'https://artifacts.electronjs.org/headers/dist/v43.8.3/node-v43.8.3-headers.tar.gz';
 
@@ -209,9 +211,9 @@ test('all OS-capable desktop staging paths build the codec host while Linux rece
 
 test('pull-request quality compiles every supported Windows and macOS native target', async () => {
 	const workflow = await readFile(join(ROOT, '.github/workflows/quality.yml'), 'utf8');
+	const { jobs } = loadYaml(workflow);
 	const compileJob = jobSource(workflow, 'native-platform-compile', 'tests');
-	assert.match(compileJob, /needs: \[build, lint, typecheck, audits\]/u,
-		'the native compiles wait on the whole sharded static gate');
+	assertJobDependencies(jobs['native-platform-compile'], ['build', 'lint', 'typecheck', 'audits']);
 	assert.match(compileJob,
 		/- runner: windows-2025\n\s+platform: win\n\s+arch: x64\n\s+node_arch: x64\n\s+cmake_arch: x64\n\s+native_target: win-x64/u);
 	assert.match(compileJob,
@@ -238,10 +240,11 @@ test('pull-request quality compiles every supported Windows and macOS native tar
 	assert.match(macosConfigure,
 		/-DSOUNDSCAPER_NATIVE_TARGET=\$\{\{ matrix\.target\.native_target \}\}/u);
 
-	const coverageJob = jobSource(workflow, 'coverage', 'browser');
-	assert.match(coverageJob, /needs: \[tests, native-platform-compile, browser, browser-lightscaper-gpu, lint, typecheck, audits\]/u);
-	const deployJob = jobSource(workflow, 'deploy', null);
-	assert.match(deployJob, /needs: \[[^\]]*native-platform-compile[^\]]*\]/u);
+	assertJobDependencies(jobs.coverage, ['build', 'tests', 'native-platform-compile', 'browser', 'firefox', 'browser-lightscaper-gpu', 'lint', 'typecheck', 'audits']);
+	assert.equal(jobs.coverage.if, 'always()', 'the aggregate must observe native failures even after dependencies fail');
+	assert.ok(jobs.coverage.steps.some(({ run }) => run === 'node scripts/check-module-ci-results.mjs'),
+		'the always-running aggregate must reject failed native prerequisites');
+	assertJobDependencies(jobs.deploy, ['native-platform-compile']);
 });
 
 test('the macOS SDK alias resolves to the versioned directory it names', async (context) => {
@@ -280,6 +283,13 @@ function jobSource(workflow, name, next) {
 	const end = next === null ? workflow.length : workflow.indexOf(`  ${next}:\n`, start + 1);
 	assert.notEqual(end, -1, next);
 	return workflow.slice(start, end);
+}
+
+function assertJobDependencies(job, required) {
+	const dependencies = new Set(typeof job?.needs === 'string' ? [job.needs] : job?.needs);
+	for (const dependency of required) {
+		assert.ok(dependencies.has(dependency), `the native compile/deployment gate must depend on ${dependency}`);
+	}
 }
 
 function stepSource(job, name, next) {

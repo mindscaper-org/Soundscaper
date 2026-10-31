@@ -70,7 +70,12 @@ export async function readChunkSourceRange(
 		const channels = chunkChannels(value);
 		const chunkStart = chunkIndex * source.chunkFrames;
 		const from = Math.max(startFrame, chunkStart) - chunkStart;
-		const to = Math.min(endFrame, chunkStart + (channels[0]?.length || 0)) - chunkStart;
+		const to = Math.min(endFrame, chunkStart + source.chunkFrames) - chunkStart;
+		const frames = channels[0]?.length ?? 0;
+		if (channels.length !== source.channelCount || frames < to
+			|| channels.some(channel => !(channel instanceof Float32Array) || channel.length !== frames)) {
+			throw new Error('A long-source storage chunk has invalid channel geometry.');
+		}
 		for (let channel = 0; channel < source.channelCount; channel += 1) {
 			const values = channels[channel];
 			if (!values) throw new Error('A long-source storage chunk has missing channels.');
