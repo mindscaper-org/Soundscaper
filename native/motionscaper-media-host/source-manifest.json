@@ -14,8 +14,8 @@
 	],
 	"dependencySource": {
 		"path": "native/framescaper-media-host/source-manifest.json",
-		"byteLength": 16594,
-		"sha256": "e355d843f19cad596a6e66863c8541f31d2041e2f8bedbd5bafe52553752d2e3"
+		"byteLength": 18174,
+		"sha256": "f62a272355f0124586a8b3c43f338211b781c7d86bd8a48af2dcf97c561f0c47"
 	},
 	"sourceFiles": [
 		{
@@ -130,8 +130,8 @@
 		},
 		{
 			"path": "scripts/lib/framescaper-media-host-toolchain.mjs",
-			"byteLength": 5467,
-			"sha256": "be417a8ce149457ac08a9aeb828eb337f7ca82481dabeca31fe826492dee4437"
+			"byteLength": 5591,
+			"sha256": "4b13393d55e3ec239480fb479e7964dd01ae15de6966125de807edad1f8a33e5"
 		},
 		{
 			"path": "scripts/lib/motionscaper-native-build.ts",
@@ -165,13 +165,13 @@
 		},
 		{
 			"path": "src/common/editor/motion-native-frame-carrier-v1.ts",
-			"byteLength": 11275,
-			"sha256": "7d1c1473f0d99d25f343c79b79100ded277f2931d823aab62498508ab44d42d3"
+			"byteLength": 11276,
+			"sha256": "8e10f87823d9c234a866ec353aef2ed9bde0d9d9f77b83579e7fa0b842337ed4"
 		},
 		{
 			"path": "src/common/editor/motion-native-pcm-carrier-v1.ts",
-			"byteLength": 9882,
-			"sha256": "e42e39df5c95a60b3f29924bcfc41cca731059ac3db76ac5b7c3c768ca5798ee"
+			"byteLength": 9883,
+			"sha256": "acfed0b8eb7e9075a2877989fe5acab55acfdb5d85bf0984d085c4c38eadd780"
 		}
 	]
 }
