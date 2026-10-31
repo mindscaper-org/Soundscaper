@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig, devices } from '@playwright/test';
 import { resolve } from 'node:path';
+import { browserSuiteTestMatch } from './scripts/lib/module-browser-suites.ts';
 
 import {
 	ordinaryBrowserProductSitePlan,
@@ -13,12 +14,15 @@ const modulePlan = process.env.SCAPE_MODULE_PLAN
 	? (await import('./scripts/lib/check-module-repository.ts')).readModuleExecutionPlan(import.meta.dirname, process.env.SCAPE_MODULE_PLAN)
 	: null;
 const browserCoverage = process.env.SCAPE_BROWSER_COVERAGE === '1';
+const suiteTestMatch = browserSuiteTestMatch(import.meta.dirname, process.env.SCAPE_BROWSER_SUITE_FILES,
+	modulePlan?.mode === 'focused' ? modulePlan.browserTests : undefined);
 process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS = JSON.stringify(Object.fromEntries(sitePlan.sites.map(site => [site.productId, site.origin])));
 
 export default defineConfig({
 	testDir: './tests/browser',
 	testIgnore: ['handbook/**', 'dual-origin/**', 'audiocity/**'],
-	...(modulePlan?.mode === 'focused' ? { testMatch: modulePlan.browserTests.map(file => resolve(import.meta.dirname, file).replaceAll('\\', '/')) } : {}),
+	...(suiteTestMatch ? { testMatch: suiteTestMatch } : {}),
+	...(!suiteTestMatch && modulePlan?.mode === 'focused' ? { testMatch: modulePlan.browserTests.map(file => resolve(import.meta.dirname, file).replaceAll('\\', '/')) } : {}),
 	timeout: 30000,
 	expect: { timeout: 5000 },
 	fullyParallel: true,

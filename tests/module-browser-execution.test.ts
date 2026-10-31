@@ -30,7 +30,7 @@ if (args.includes('--list')) {
 	if (process.env.FIXTURE_COLLECTION === 'invalid') { console.log('invalid JSON'); process.exit(0); }
 	const empty = process.env.FIXTURE_COLLECTION === 'empty-all' || (process.env.FIXTURE_COLLECTION === 'empty-shard' && args.some(arg => arg.startsWith('--shard')));
 	console.log(JSON.stringify({ config: { rootDir: path.resolve('tests/browser') }, suites: empty ? [] : [{ specs: [{ file: 'image.spec.js', tests: [{}] }] }] }));
-} else process.exit(Number(process.env.FIXTURE_EXIT || 0));
+} else { fs.writeFileSync('scope.json', process.env.SCAPE_BROWSER_SUITE_FILES || 'null'); process.exit(Number(process.env.FIXTURE_EXIT || 0)); }
 `);
 	return {
 		root,
@@ -65,6 +65,18 @@ void test('ordinary and full-plan browser runs preserve the exact Playwright arg
 	}
 });
 
+void test('suite scheduling selects exact collected files without forwarding native sharding', () => {
+	const setup = fixture('full');
+	try {
+		assert.equal(runModuleBrowserTests(setup.root, ['--project=chromium', '--suite-shard=1/4'], setup.env), 0);
+		const calls = setup.calls();
+		assert.equal(calls.length, 2);
+		assert.ok(calls[0]?.includes('--list'));
+		assert.deepEqual(calls[1], ['test', '--project=chromium']);
+		assert.deepEqual(JSON.parse(readFileSync(join(setup.root, 'scope.json'), 'utf8')), ['tests/browser/image.spec.js']);
+	} finally { setup.close(); }
+});
+
 void test('focused browser runs collect the full selection and requested shard before executing', () => {
 	const setup = fixture();
 	try {
@@ -91,6 +103,20 @@ void test('a plan with no browser workflows skips collection and execution inten
 	const setup = fixture('focused', []);
 	try {
 		assert.equal(runModuleBrowserTests(setup.root, [], setup.env), 0);
+		assert.throws(() => setup.calls(), /ENOENT/u);
+	} finally { setup.close(); }
+});
+
+void test('listing an empty focused browser selection returns a machine-readable empty collection', context => {
+	const setup = fixture('focused', []);
+	let output = '';
+	context.mock.method(process.stdout, 'write', (value: string) => { output += value; return true; });
+	try {
+		for (const args of [['--suite-shard=1/4', '--list', '--reporter=json'], ['--list', '--reporter=json']]) {
+			output = '';
+			assert.equal(runModuleBrowserTests(setup.root, args, setup.env), 0);
+			assert.equal(analyzeModuleBrowserCollection(JSON.parse(output)).testCount, 0);
+		}
 		assert.throws(() => setup.calls(), /ENOENT/u);
 	} finally { setup.close(); }
 });

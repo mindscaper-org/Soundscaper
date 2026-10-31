@@ -17,7 +17,7 @@ test('desktop distribution job environments do not reference an unassigned runne
 
 test('desktop preview restores Electron before the native protocol test shard', async () => {
 	const tests = extractJob(await readWorkflow('desktop-preview.yml'), 'tests');
-	assert.match(tests, /if: matrix\.shard == 'common-2'\s+run: \|\s+if \[ ! -x node_modules\/electron\/dist\/electron \]; then\s+node node_modules\/electron\/install\.js\s+fi\s+test -x node_modules\/electron\/dist\/electron/u);
+	assert.match(tests, /if: steps\.test-prerequisites\.outputs\.electron == 'true'\s+run: \|\s+if \[ ! -x node_modules\/electron\/dist\/electron \]; then\s+node node_modules\/electron\/install\.js\s+fi\s+test -x node_modules\/electron\/dist\/electron/u);
 	assert.ok(tests.indexOf('node node_modules/electron/install.js')
 		< tests.indexOf('run: xvfb-run --auto-servernum npm run test --'));
 });
@@ -32,7 +32,7 @@ test('desktop preview leaves browser testing and combined coverage to Quality', 
 	}
 	assert.doesNotMatch(preview, /test:browser|playwright|verified-firefox|SCAPE_BUILD_SOURCE_MAPS/u);
 	assert.doesNotMatch(preview, /coverage:|coverage-shard-|test:shard|verified-(?:framescaper-)?site-|checked-soundscaper-handbook/u);
-	assert.match(extractJob(preview, 'tests'), /npm run test -- --shard=\$\{\{ matrix\.shard \}\} --require-linux-native/u);
+	assert.match(extractJob(preview, 'tests'), /npm run test -- --module-shard=\$\{\{ matrix\.shard \}\} --require-linux-native/u);
 	assert.match(extractJob(quality, 'coverage'), /npm run coverage:check/u);
 
 	const jobs = new Set([...preview.matchAll(/^ {2}([a-z][a-z0-9-]*):$/gmu)].map(match => match[1]));

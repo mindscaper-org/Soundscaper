@@ -2,10 +2,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { collectTestDependencies } from './lib/node-test-bootstrap.mjs';
-import { parseNodeTestSelection, selectNodeTestFiles } from './lib/node-test-shards.mjs';
+import { classifyNodeTestFiles, NODE_TEST_SHARD_IDS, parseNodeTestSelection, selectNodeTestFiles } from './lib/node-test-shards.mjs';
+import { needsDesktopRuntimeTestFixture } from './lib/node-test-desktop-runtime-fixture.ts';
 
 const INTERCHANGE_READERS = [
 	'tests/helpers/interchange-reference.ts',
@@ -32,7 +34,32 @@ export function selectedBrowserTestFiles(report) {
 	return [...files].sort();
 }
 
-function selectedFiles(repositoryRoot, argv) {
+export function nativePrerequisitesForTests(repositoryRoot, files) {
+	// Retain the existing native target admission, but apply it to the actual
+	// scheduled files rather than assuming a physical slot owns that product.
+	const dependencies = collectTestDependencies(repositoryRoot, files, { testHelpersOnly: true });
+	return {
+		boost: classifyNodeTestFiles(repositoryRoot, files).get('framescaper').length > 0,
+		electron: [...dependencies].some(file => /electron/iu.test(readFileSync(file, 'utf8'))),
+		desktop_runtime: needsDesktopRuntimeTestFixture(files),
+	};
+}
+
+async function selectedFiles(repositoryRoot, argv) {
+	const moduleShard = argv.find(argument => argument.startsWith('--node-module-shard='));
+	if (moduleShard !== undefined) {
+		if (argv.length !== 1) throw new Error('Module prerequisite selection accepts only --node-module-shard.');
+		const { parseModuleNodeSelection, selectModuleNodeFiles } = await import('./lib/module-test-selection.ts');
+		const options = parseModuleNodeSelection([moduleShard.replace('--node-module-shard=', '--module-shard=')], NODE_TEST_SHARD_IDS);
+		let { files } = selectModuleNodeFiles(repositoryRoot, options, NODE_TEST_SHARD_IDS);
+		if (process.env.SCAPE_MODULE_PLAN) {
+			const { readModuleExecutionPlan } = await import('./lib/check-module-repository.ts');
+			const plan = readModuleExecutionPlan(repositoryRoot, process.env.SCAPE_MODULE_PLAN);
+			const selected = new Set(plan.nodeTests.map(file => resolve(repositoryRoot, file)));
+			files = files.filter(file => selected.has(file));
+		}
+		return files;
+	}
 	const node = argv.find(argument => argument.startsWith('--node-shard='));
 	if (node !== undefined) {
 		if (argv.length !== 1) throw new Error('Node prerequisite selection accepts only --node-shard.');
@@ -46,8 +73,8 @@ function selectedFiles(repositoryRoot, argv) {
 		throw new Error('Browser prerequisite selection requires --project and a valid --shard=index/total.');
 	}
 	const result = spawnSync(process.execPath, [
-		resolve(repositoryRoot, 'node_modules/@playwright/test/cli.js'), 'test', '--list', '--reporter=json',
-		`--project=${project}`, `--shard=${shard}`,
+		resolve(repositoryRoot, 'scripts/run-module-browser-tests.ts'), '--list', '--reporter=json',
+		`--project=${project}`, `--suite-shard=${shard}`,
 	], { cwd: repositoryRoot, encoding: 'utf8', maxBuffer: 32 * 1024 ** 2, timeout: 60_000 });
 	if (result.error) throw result.error;
 	if (result.status !== 0) throw new Error(`Playwright prerequisite collection failed: ${result.stderr || result.stdout}`);
@@ -56,5 +83,7 @@ function selectedFiles(repositoryRoot, argv) {
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
 	const repositoryRoot = resolve(import.meta.dirname, '..');
-	console.log(`interchange=${String(interchangeRequiredForTests(repositoryRoot, selectedFiles(repositoryRoot, process.argv.slice(2))))}`);
+	const files = await selectedFiles(repositoryRoot, process.argv.slice(2));
+	const values = { interchange: interchangeRequiredForTests(repositoryRoot, files), ...nativePrerequisitesForTests(repositoryRoot, files) };
+	for (const [key, value] of Object.entries(values)) console.log(`${key}=${String(value)}`);
 }

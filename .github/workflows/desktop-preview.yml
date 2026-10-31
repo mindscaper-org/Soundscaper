@@ -95,7 +95,7 @@ jobs:
         env:
           SOUNDSCAPER_TRANSFER_BUILD_REQUIRED: '1'
 
-      - name: Prepare one fresh desktop test runtime for the common shards
+      - name: Prepare one fresh desktop test runtime for consuming suites
         uses: ./.github/actions/prepare-desktop-runtime-test-fixture
 
   tests:
@@ -103,9 +103,8 @@ jobs:
     needs: quality
     strategy:
       fail-fast: false
-      # Product ownership separates Framescaper and Soundscaper tests; the
-      # shared tests run in two stable filename-hash partitions. Wait for lint
-      # and typecheck so a static-check failure does not burn the test runners.
+      # Balance module and integration suites across four stable artifact slots.
+      # Wait for static checks before starting the test runners.
       matrix:
         shard: [common-1, common-2, framescaper, soundscaper]
     runs-on: ubuntu-24.04
@@ -146,7 +145,7 @@ jobs:
 
       - name: Resolve the selected test prerequisites
         id: test-prerequisites
-        run: node scripts/ci-test-prerequisites.mjs --node-shard=${{ matrix.shard }} >> "$GITHUB_OUTPUT"
+        run: node scripts/ci-test-prerequisites.mjs --node-module-shard=${{ matrix.shard }} >> "$GITHUB_OUTPUT"
 
       - name: Resolve the interchange download cache identity
         if: steps.test-prerequisites.outputs.interchange == 'true'
@@ -166,7 +165,7 @@ jobs:
         run: npm run provision:interchange-conformance
 
       - name: Restore authenticated Boost test headers
-        if: matrix.shard == 'framescaper'
+        if: steps.test-prerequisites.outputs.boost == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .wrangler/test-download-cache/boost
@@ -174,11 +173,11 @@ jobs:
             boost-test-headers-v1-${{ hashFiles('config/boost-multiprecision-source-manifest.json', 'native/framescaper-media-host/source-manifest.json', 'scripts/lib/framescaper-boost-ci.mjs', 'scripts/lib/framescaper-boost-ci-cache.mjs') }}
 
       - name: Provision pinned Boost closure for Framescaper native tests
-        if: matrix.shard == 'framescaper'
+        if: steps.test-prerequisites.outputs.boost == 'true'
         run: node scripts/ci-provision-framescaper-boost.mjs
 
       - name: Restore Electron binary for the desktop protocol test
-        if: matrix.shard == 'common-2'
+        if: steps.test-prerequisites.outputs.electron == 'true'
         run: |
           if [ ! -x node_modules/electron/dist/electron ]; then
             node node_modules/electron/install.js
@@ -186,14 +185,14 @@ jobs:
           test -x node_modules/electron/dist/electron
 
       - name: Download the fresh desktop test runtime
-        if: matrix.shard == 'common-1' || matrix.shard == 'common-2'
+        if: steps.test-prerequisites.outputs.desktop_runtime == 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: node-desktop-runtime-fixture-${{ github.sha }}
           path: .wrangler/node-desktop-runtime-fixture
 
       - name: Run the ${{ matrix.shard }} Node test shard
-        run: xvfb-run --auto-servernum npm run test -- --shard=${{ matrix.shard }} --require-linux-native --desktop-runtime-fixture=.wrangler/node-desktop-runtime-fixture
+        run: xvfb-run --auto-servernum npm run test -- --module-shard=${{ matrix.shard }} --require-linux-native --desktop-runtime-fixture=.wrangler/node-desktop-runtime-fixture
         env:
           # A few tests stage large buffers. Keep their existing heap headroom;
           # the ubuntu-24.04 runner has 16 GiB, leaving room for Electron and xvfb.

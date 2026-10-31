@@ -24,6 +24,16 @@ source prefix or explicit source file owns a path. Semantic owners are separate
 from the Node runner's execution shards. Existing product applications remain
 under `src/soundscaper/` and `src/framescaper/`.
 
+`scripts/lib/module-test-suites.ts` derives a complete test inventory from those
+owners, declared test rules and helper dependencies. One-owner Node suites and
+cross-module integration suites retain their fixture inventories. Module checks,
+CI prerequisite discovery and balanced execution consume the same inventory;
+execution slots never change source ownership or coverage cohorts. Browser
+workflows remain integration suites and are partitioned only after their project
+has collected them. The four neutral modules have independent coverage at their
+inherited editor floors. Legacy product and platform owners retain the complete
+coverage fallback until independently qualified.
+
 Extracted neutral modules may depend only on their declared neutral owners.
 They must not import editor implementation, product applications, React UI or
 Electron, including through types. Import a public owning file directly; do not

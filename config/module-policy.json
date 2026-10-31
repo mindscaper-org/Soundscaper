@@ -9,13 +9,14 @@
 			"nodeTests": [
 				"tests/foundation-closed-domain-value.test.ts",
 				"tests/audio-editor-abort-error.test.ts",
-				"tests/audio-editor-abort-race.test.ts"
+				"tests/audio-editor-abort-race.test.ts",
+				"tests/foundation-abort-contracts.test.ts"
 			],
 			"products": [
 				"soundscaper",
 				"framescaper"
 			],
-			"independent": false,
+			"independent": true,
 			"dependencies": [],
 			"publicFiles": [
 				"src/common/foundation/abort-error.ts",
@@ -73,13 +74,14 @@
 			"nodeTests": [
 				"tests/media-primitives.test.ts",
 				"tests/audio-editor-media-content-digest.test.ts",
-				"tests/audio-editor-storage-indexeddb.test.js"
+				"tests/audio-editor-storage-indexeddb.test.js",
+				"tests/media-admission-contracts.test.ts"
 			],
 			"products": [
 				"soundscaper",
 				"framescaper"
 			],
-			"independent": false,
+			"independent": true,
 			"dependencies": [
 				"foundation"
 			],
@@ -100,13 +102,14 @@
 				"tests/audio-editor-scape-archive-byte-source.test.ts",
 				"tests/audio-editor-scape-archive-envelope.test.ts",
 				"tests/audio-editor-scape-expansion.test.ts",
-				"tests/audio-editor-scape-archive-utf8.test.ts"
+				"tests/audio-editor-scape-archive-utf8.test.ts",
+				"tests/scape-admission-contracts.test.ts"
 			],
 			"products": [
 				"soundscaper",
 				"framescaper"
 			],
-			"independent": false,
+			"independent": true,
 			"dependencies": [
 				"foundation",
 				"media"
@@ -351,10 +354,33 @@
 				"tests/browser/audio-editor-*.spec.js"
 			],
 			"modules": [
-				"timeline",
-				"timeline-audio",
-				"foundation",
+				"timeline"
+			],
+			"products": [
+				"soundscaper",
+				"framescaper"
+			]
+		},
+		{
+			"files": [
+				"tests/browser/desktop-*.spec.js",
+				"tests/browser/project-transfer-*.spec.js",
+				"tests/browser/site-*.spec.js"
+			],
+			"modules": [
 				"platform"
+			],
+			"products": [
+				"soundscaper",
+				"framescaper"
+			]
+		},
+		{
+			"files": [
+				"tests/browser/browser-coverage-*.spec.js"
+			],
+			"modules": [
+				"tooling"
 			],
 			"products": [
 				"soundscaper",

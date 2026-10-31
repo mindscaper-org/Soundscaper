@@ -142,7 +142,7 @@ for (const [workflowName, { staticJobs, buildJob, historyJobs, coverageGate }] o
 		}
 	});
 
-	test(`${workflowName} shards the Node suite by owner with coverage collected only for its union gate`, async () => {
+	test(`${workflowName} balances module suites across Node execution slots with coverage collected only for its union gate`, async () => {
 		const workflow = await readWorkflow(workflowName);
 		const tests = extractJob(workflow, 'tests');
 
@@ -155,7 +155,7 @@ for (const [workflowName, { staticJobs, buildJob, historyJobs, coverageGate }] o
 			assert.match(extractJob(workflow, 'coverage'), /^\s+needs: (?:tests|\[[^\]\n]*\btests\b[^\]\n]*\])$/mu,
 				'the thresholds may only be checked once every shard has reported');
 		} else {
-			assert.match(tests, /npm run test -- --shard=/u);
+			assert.match(tests, /npm run test -- --module-shard=/u);
 			assert.doesNotMatch(tests, /coverage:|test:shard/u);
 		}
 	});

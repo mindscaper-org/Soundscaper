@@ -33,10 +33,23 @@ The module manifest, dependency rules and inherited coverage requirements are
 described in [architecture](docs/architecture/overview.md#shared-module-ownership)
 and [testing](docs/development/testing.md#module-and-affected-checks).
 PR CI consumes the same affected plan within its existing job slots. Main and
-release checks retain the complete gate. Node execution still uses `common-1`,
-`common-2`, `framescaper` and `soundscaper` shards, separately from semantic
-module ownership; `npm test -- --shard=framescaper` remains available.
-Complete coverage is checked over the required union, never per execution shard.
+release checks retain the complete gate. Module unit suites and explicit
+integration suites are balanced across four execution slots. The artifact IDs
+`common-1`, `common-2`, `framescaper` and `soundscaper` remain stable; slot names
+do not determine test ownership. Complete coverage is checked over the required
+union, never per execution slot.
+
+Inspect or run the Node portion of a module, including its integration consumers:
+
+```sh
+npm test -- --module=media --list
+npm test -- --module=media
+npm test -- --suite=unit/foundation
+```
+
+These Node selections do not replace the module coverage and browser gate.
+The older `--shard=framescaper` product selection remains available for
+compatibility; CI uses `--module-shard` for balanced suite scheduling.
 
 Complete gates such as `npm run check` and the unfiltered browser commands below
 are for maintainers and CI. Agents use focused tests and hand off an exact

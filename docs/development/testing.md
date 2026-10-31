@@ -55,6 +55,31 @@ The semantic test targets live in `config/module-policy.json`. They are
 independent of the execution shards used to spread the complete suite across
 CI runners. Existing test paths remain discoverable by the ordinary runner.
 
+The suite inventory follows each test's direct source imports and its local
+test helpers, stopping at production module boundaries. Single-owner Node
+tests form `unit/<module>` suites; cross-module tests form explicit
+`integration/<owners>` suites. Browser workflows are integration suites. The
+most specific declared test rule retains its module membership, including
+tests that inspect sources or launch another runtime. Literal filesystem
+source-path references also contribute ownership evidence. Common browser
+drivers are recorded as fixtures rather than attributing every workflow to their
+implementation dependencies. Unknown repository tests remain visible in
+`integration/repository` and retain the complete fallback when changed.
+
+Fixture dependencies are part of the inventory. Changing a shared fixture
+selects all its consumers even when they previously ran in different product
+shards. Module selection includes both unit tests and integration consumers:
+
+```sh
+npm test -- --module=media --list
+npm test -- --module=media --json
+npm test -- --suite=unit/foundation
+```
+
+`--list` and `--json` do not execute tests or prepare native fixtures. A Node
+module or suite selection is useful for development but does not itself
+enforce coverage; use `check:module` for the complete module gate.
+
 Inspect a complete owner target before executing it:
 
 ```sh
@@ -94,7 +119,11 @@ Read the reasons in the plan; agents must not execute its full fallback.
 Focused execution retains repository-wide lint, type checks, architecture and
 audits. It runs heavy phases sequentially, requests one Node test process and
 one browser worker, and builds only the products required by the selected
-browser workflows. Keep development RAM usage within 12 GB. Prepared sites
+browser workflows. Coverage is checked after combining fresh Node and Chromium
+profiles; browser-only execution cannot be lost by scoring the Node phase
+early. Tooling and handbook suites have no shipped JavaScript in the canonical
+coverage denominator and keep their structural tests without inventing a new
+coverage budget. Keep development RAM usage within 12 GB. Prepared sites
 retain their exact build evidence, source-map authentication and separate
 origins. `SCAPE_BROWSER_PRODUCTS=soundscaper` or `framescaper` selects one ordinary
 browser product; leaving it unset preserves the two-product preparation.
@@ -127,8 +156,8 @@ npm run check-all
 ```
 
 `check-all` schedules up to four checks or test shards at once. It splits lint
-using the existing eight lint shards, Node tests using their four named shards,
-and the browser suite into four partitions spanning all three engines. Each
+using the existing eight lint shards, Node suites across four execution slots,
+and browser suites into four partitions spanning all three engines. Each
 Node shard uses two test processes and each browser shard admits up to two
 workers. Firefox and WebKit projects allow one worker per shard, matching their
 native audio/video CI limits; this project limit also applies to ordinary local
@@ -178,16 +207,23 @@ Agents must not run `check-all`, just as they must not run the other full-suite
 gates; focused regressions and fixture-only runner tests remain allowed.
 
 `npm test` runs JavaScript and TypeScript Node tests through the repository
-runner. CI splits that suite because it no longer fits a four-core runner.
-A test belongs to `framescaper` or `soundscaper` when it reaches into that
-product's own `src/`, `desktop/`, or `native/` tree, including through test
-helpers, or carries that product in its filename. Shared and cross-product tests
-belong to `common`, which is divided into execution shards `common-1` and
-`common-2`. Product shards retain their product names. To select one shard:
+runner. CI balances batches of up to 16 files from the same semantic suite
+across four slots, using registered test calls and source size as deterministic
+cost estimates. Browser batches contain up to four files from the same suite.
+The same inventory drives browser assignment, which partitions only files
+actually collected by the requested Playwright project.
+Every file runs in exactly one slot. The four legacy artifact names remain
+stable, but no longer constrain module placement. Inspect one assigned slot:
 
 ```sh
-npm test -- --shard=framescaper
+npm test -- --module-shard=common-1 --list
 ```
+
+Boost, Electron, interchange readers and desktop runtime fixtures are selected
+from the slot's actual test dependencies, including focused PR selections.
+Realtime and Electron-startup probes retain their isolated execution batches.
+The older `--shard=<name>` option retains product-based selection for existing
+local commands; it is separate from CI's `--module-shard` scheduling.
 
 Complete coverage floors are evaluated over the required union, never per
 execution shard; see
