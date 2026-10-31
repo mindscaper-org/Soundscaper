@@ -106,6 +106,39 @@ jobs:
             --external-source-root="$FRAMESCAPER_MEDIA_EXTERNAL_SOURCE_ROOT" \
             --work-root="$RUNNER_TEMP/framescaper-media-work" \
             --output="$RUNNER_TEMP/framescaper-media-build-result"
+      - name: Verify linked WebM carrier timing and alpha
+        shell: bash
+        timeout-minutes: 3
+        env:
+          FRAMESCAPER_MEDIA_HOST_BUILD_RESULT_ROOT: ${{ runner.temp }}/framescaper-media-build-result
+          FRAMESCAPER_MEDIA_HOST_EXPECTED_TARGET: ${{ matrix.target }}
+          FRAMESCAPER_MEDIA_HOST_EXPECTED_SOURCE_REVISION: ${{ github.sha }}
+        run: |
+          node --import tsx --input-type=module <<'NODE'
+          import { spawnSync } from 'node:child_process';
+          import { createHash } from 'node:crypto';
+          import { readFileSync } from 'node:fs';
+          import { resolve } from 'node:path';
+          import { verifyFramescaperMediaHostBuildResult } from './scripts/lib/framescaper-media-host-build-result.mjs';
+          const root = process.env.FRAMESCAPER_MEDIA_HOST_BUILD_RESULT_ROOT;
+          if (!root) throw new Error('The linked WebM carrier proof requires its native build result.');
+          const verified = await verifyFramescaperMediaHostBuildResult({ buildResultRoot: resolve(root) });
+          if (verified.receipt.target !== process.env.FRAMESCAPER_MEDIA_HOST_EXPECTED_TARGET
+            || verified.receipt.sourceRevision !== process.env.FRAMESCAPER_MEDIA_HOST_EXPECTED_SOURCE_REVISION) {
+            throw new Error('The linked WebM carrier build result differs from this target or source revision.');
+          }
+          const manifest = readFileSync('native/framescaper-media-host/source-manifest.json');
+          if (createHash('sha256').update(manifest).digest('hex') !== verified.receipt.sourceManifestSha256) {
+            throw new Error('The linked WebM carrier build result differs from this source manifest.');
+          }
+          const result = spawnSync(process.execPath, ['--import', 'tsx', '--test-concurrency=1', '--test',
+            'tests/framescaper-native-webm-encoder.test.ts'], {
+            stdio: 'inherit', timeout: 120_000,
+            env: { ...process.env, FRAMESCAPER_MEDIA_HOST_TEST_BINARY: resolve(verified.buildResultRoot, verified.receipt.payload.path) },
+          });
+          if (result.error) throw result.error;
+          if (result.signal !== null || result.status !== 0) throw new Error('The linked WebM carrier proof failed.');
+          NODE
       - name: Retain configure failure diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

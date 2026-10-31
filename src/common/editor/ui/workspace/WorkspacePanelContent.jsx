@@ -220,7 +220,7 @@ export default function WorkspacePanelContent({
 		);
 	}
 	if (panelId === 'labels') {
-		if (!project) return null;
+		if (!project) return <LazyInspectorFallback copy={copy} />;
 		const labelInput = { sampleRate: project.sampleRate, tempoMap: project.tempoMap, tracks: project.tracks || [], clips: [] };
 		const labelProject = runtimeProject || resolveRuntimeProjectProjection(labelInput);
 		const labelTracks = (labelProject.tracks || []).filter((track) => track.type === 'label');

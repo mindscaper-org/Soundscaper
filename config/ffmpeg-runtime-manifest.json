@@ -37,13 +37,14 @@
 			"http://127.0.0.1:4321",
 			"http://localhost:4321",
 			"https://framescaper.org",
+			"https://lightscaper.org",
 			"https://mindscaper.org",
 			"https://soundscaper.org"
 		],
 		"cors": {
 			"path": "r2-cors.json",
-			"byteLength": 375,
-			"sha256": "7906490624ed4de39e8bb403001512afebaca6f3d2d897c28540664084a93504"
+			"byteLength": 407,
+			"sha256": "007329bf4c43ce79f93fe0a590052662a727f345b8b6fc408c8bb906844d4db7"
 		},
 		"policy": {
 			"path": "config/ffmpeg-runtime-publication-policy.json",
@@ -54,8 +55,8 @@
 	"evidence": {
 		"lineEndings": {
 			"path": ".gitattributes",
-			"byteLength": 4085,
-			"sha256": "6f24de3e2795936e97438dbe41799c322c6fa731eb82f451a0738a9a7ea049a2"
+			"byteLength": 5491,
+			"sha256": "050215136dc0cdf62c513c6ca424744ce40aaf5fb2003d5d99b5a20809c3ad6d"
 		},
 		"correspondingSource": {
 			"path": "desktop/ffmpeg-corresponding-source.json",
@@ -64,8 +65,8 @@
 		},
 		"notices": {
 			"path": "THIRD_PARTY_LICENSES.md",
-			"byteLength": 94951,
-			"sha256": "575dde6272ed20c40081dc009021adcc6a38c042100334091777175e0d85611e"
+			"byteLength": 96164,
+			"sha256": "1cfe5cd63dcc473a6ffcca1b2d239c3f2d7b813058dff119ddde2b22814f3a9e"
 		},
 		"licensingPolicy": {
 			"path": "docs/policies/licensing.md",
@@ -115,6 +116,6 @@
 		}
 	},
 	"integrity": {
-		"payloadSha256": "09025826ef2bf6354d6bed4b5c9a3fad28367b5e73b049e0e27b63f740a0b870"
+		"payloadSha256": "f13d3d6a6d312f4a7a49d960a2c08a4c7da617b342995150097b3f1488fea8bf"
 	}
 }

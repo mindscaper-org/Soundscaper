@@ -28,7 +28,8 @@ test('Firefox shards reuse verified engine bytes while preserving host dependenc
 		assert.match(job, /--project=firefox --shard=\$\{\{ matrix\.shard \}\}\/\d+ --workers=1/u);
 	}
 	const action = await readFile(new URL('../.github/actions/verified-firefox/action.yml', import.meta.url), 'utf8');
-	assert.match(action, /run: npx playwright install-deps firefox/u);
+	assert.match(action, /run: node scripts\/ci-firefox-host-dependencies\.ts/u);
+	assert.doesNotMatch(action, /run: npx playwright install-deps/u);
 	assert.match(action, /verify firefox >> "\$GITHUB_OUTPUT"/u);
 	assert.match(action, /run: node scripts\/ci-input-cache\.mjs reset firefox/u);
 	assert.match(action, /if: steps\.verification\.outputs\.valid != 'true'[\s\S]*?run: npx playwright install firefox/u);

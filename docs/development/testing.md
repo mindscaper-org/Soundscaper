@@ -96,8 +96,11 @@ audits. It runs heavy phases sequentially, requests one Node test process and
 one browser worker, and builds only the products required by the selected
 browser workflows. Keep development RAM usage within 12 GB. Prepared sites
 retain their exact build evidence, source-map authentication and separate
-origins. `SCAPE_BROWSER_PRODUCTS=soundscaper` or `framescaper` selects one ordinary
-browser product; leaving it unset preserves the two-product preparation.
+origins. `SCAPE_BROWSER_PRODUCTS=soundscaper`, `framescaper` or `lightscaper`
+selects one ordinary browser product; comma-separated IDs select a subset.
+Leaving it unset preserves preparation of all three products. Lightscaper
+workflows declare the additional product origins needed for editable handoff
+and product switching.
 
 PR CI records the affected plan in the existing Build job and passes it to the
 existing Node, browser and Coverage jobs. It does not allocate a job per module.
@@ -127,17 +130,18 @@ npm run check-all
 ```
 
 `check-all` schedules up to four checks or test shards at once. It splits lint
-using the existing eight lint shards, Node tests using their four named shards,
+using the existing eight lint shards, Node tests using their five named shards,
 and the browser suite into four partitions spanning all three engines. Each
-Node shard uses two test processes and each browser shard admits up to two
-workers. Firefox and WebKit projects allow one worker per shard, matching their
-native audio/video CI limits; this project limit also applies to ordinary local
-runs. Browser shards still run concurrently.
-Browser preparation runs the production build once, builds Framescaper, and
-authenticates the two product sites before browser tests start. Four browser
-shards share one owned preview pair, avoiding port collisions. Node coverage is
+Node shard uses two test processes. Each browser shard uses one worker and zero
+retries, preserving the native Lightscaper qualification requirements. Firefox
+and WebKit projects also allow one worker per shard in ordinary local runs,
+matching their native audio/video CI limits. Browser shards still run concurrently.
+Browser preparation runs the production build once, builds the separate
+Framescaper and Lightscaper sites, and authenticates all three product sites
+before browser tests start. Four browser shards share owned Soundscaper,
+Framescaper and Lightscaper previews, avoiding port collisions. Node coverage is
 collected separately for each shard and reported over their fresh union after
-all four pass, using the same local coverage policy as `npm run check`.
+all five pass, using the same local coverage policy as `npm run check`.
 
 Before any Node or browser shard starts, `check-all` provisions and verifies the
 pinned interchange readers and DAWproject schema validator through
@@ -154,7 +158,7 @@ The command requires Linux with cgroup v2 memory accounting and a working
 systemd user session (`systemd-run --user`). Every check or shard runs in a
 verified scope with `MemoryMax=8G` and `MemorySwapMax=0`: the 8 GiB cap includes
 its native processes and descendants, including detached children. The shared
-preview pair has a separate 8 GiB scope. These are per-scope ceilings, so four
+preview servers have a separate 8 GiB scope. These are per-scope ceilings, so four
 busy shards can together use up to 32 GiB, plus previews and the coordinator.
 An unavailable memory controller fails the command before checks start;
 there is no uncapped fallback. Other platforms can use the existing individual
@@ -162,10 +166,9 @@ commands. An allocation killed by the scope's memory limit fails its check.
 
 The terminal shows a progress bar for completed checks and the currently
 running tests. Successful test results stay quiet; test failures print as they
-finish, including failed browser attempts that will retry. Piped output prints
-periodic snapshots. Command diagnostics retain their task prefix, even when
-they contain expected errors; `FAIL` identifies reported test failures or
-failed commands. Full command output is saved under
+finish. Piped output prints periodic snapshots. Command diagnostics retain their
+task prefix, even when they contain expected errors; `FAIL` identifies reported
+test failures or failed commands. Full command output is saved under
 `test-results/check-all/logs/`; browser diagnostics have separate directories under
 `test-results/check-all/`. Independent checks continue after a failure, while
 checks that need a failed prerequisite are marked blocked. Any failed or blocked

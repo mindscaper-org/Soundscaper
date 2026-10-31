@@ -47,7 +47,7 @@
 			"thresholds": {
 				"lines": 98,
 				"branches": 75,
-				"functions": 92
+				"functions": 93
 			},
 			"reason": "Soundscaper's own tree: thin product wiring over the shared editor, so its floor is set by what that wiring actually exercises."
 		},
@@ -100,6 +100,16 @@
 				"functions": 99
 			},
 			"reason": "The small shared modules at the root of src/ and src/common/ are depended on by both products, so every branch of them is cheap to cover and expensive to break. After removing unreachable test cases in the test necessity cleanup, the branch floor was rebased from 93% to 91% against the complete Node and Chromium union in Quality run 39572852657 (92.74%, 217/234), retaining the ratchet's one-point headroom."
+		},
+		{
+			"id": "lightscaper",
+			"label": "Lightscaper",
+			"thresholds": {
+				"lines": 98,
+				"branches": 88,
+				"functions": 93
+			},
+			"reason": "Lightscaper owns photo-catalog validation, persistence and product composition. New deterministic domain code must meet these initial floors; the union ratchet may raise them without weakening another scope."
 		}
 	]
 }

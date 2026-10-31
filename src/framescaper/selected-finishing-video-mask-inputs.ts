@@ -7,7 +7,7 @@ import { checkedFrame, mediaPresentation } from './selected-finishing-exact-fram
 
 type Data = Readonly<Record<string, unknown>>;
 interface MediaIndex {
-	readonly clips: ReadonlyMap<string, UnifiedExactRenderClipNode>;
+	readonly clips: ReadonlyMap<string, Pick<UnifiedExactRenderClipNode, 'clipId' | 'sourceNodeId' | 'sequenceStartFrame'>>;
 	readonly sourceIdByNodeId: ReadonlyMap<string, string>;
 }
 
@@ -35,6 +35,7 @@ export async function captureSelectedFinishingVideoMaskInputs(options: MediaInde
 	readonly finishing: UnifiedExactRenderFinishingNode;
 	readonly inputs: Map<string, UnifiedExactRenderRgbaFrameV13>;
 	readonly capture: (entry: Data, signal: AbortSignal) => UnifiedExactRenderRgbaFrameV13 | PromiseLike<UnifiedExactRenderRgbaFrameV13>;
+	readonly retainFrame?: (frame: UnifiedExactRenderRgbaFrameV13) => void;
 	readonly signal: AbortSignal;
 }>): Promise<ReadonlyMap<Data, UnifiedExactRenderRgbaFrameV13>> {
 	const required = new Set(options.visualMasks.flatMap(requiredMaskSources));
@@ -63,6 +64,7 @@ export async function captureSelectedFinishingVideoMaskInputs(options: MediaInde
 		}
 		if (!binding) {
 			const pixels = checkedFrame(await options.capture(value.entry, options.signal), 'Selected finishing mask input frame');
+			options.retainFrame?.(pixels);
 			throwIfAborted(options.signal);
 			binding = { sourceFrame: value.sourceFrame, pixels };
 			bound.set(value.sourceId, binding);

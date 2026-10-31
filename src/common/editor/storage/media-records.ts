@@ -92,6 +92,7 @@ export function binaryMetadata(metadata: unknown): Record<string, unknown> {
 		'mediaChunkCount',
 		'mediaContentDigestVersion',
 		'mediaContentToken',
+		'catalogRootCount',
 	]) delete value[key];
 	return value;
 }
@@ -109,6 +110,7 @@ export function mediaAssetMetadata(record: StorageRecord): Record<string, unknow
 	delete value.mediaChunkCount;
 	delete value.mediaContentDigestVersion;
 	delete value.mediaContentToken;
+	delete value.catalogRootCount;
 	delete value.originalMediaContentToken;
 	if (!trustedSha256) delete value.sha256;
 	return value;

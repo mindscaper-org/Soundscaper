@@ -6,15 +6,27 @@ import { bootEditor, chooseNestedCommandAction, clipByName, importFiles } from '
 test('Escape cancels adjustment of an existing spectral band', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [toneA]);
-	await clipByName(editor, toneA.name).locator('.clip-header').click();
+	const clip = clipByName(editor, toneA.name);
+	await clip.locator('.clip-header').click();
 	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 	await chooseNestedCommandAction(page, editor, 'Select', ['Spectral', 'Spectral brush']);
 	const brush = editor.getByRole('button', { name: 'Spectral brush', exact: true });
 	const box = await brush.boundingBox();
 	expect(box).not.toBeNull();
-	await page.mouse.move(box.x + 200, box.y + box.height / 3);
+	// Keep the initial band's time range inside the actual audio clip.
+	const clipBox = await clip.boundingBox();
+	expect(clipBox).not.toBeNull();
+	const start = { x: clipBox.x + clipBox.width / 2, y: box.y + box.height / 3 };
+	await expect(brush).toBeEnabled();
+	await brush.hover({ position: { x: start.x - box.x, y: start.y - box.y } });
+	expect(await brush.evaluate((element, point) => (
+		element.ownerDocument.elementFromPoint(point.x, point.y) === element
+	), start)).toBe(true);
 	await page.mouse.down();
-	await page.mouse.move(box.x + 235, box.y + box.height / 3 + 30);
+	const draft = brush.locator('.audio-editor-spectral-brush__preview');
+	await expect(draft).toBeVisible();
+	await page.mouse.move(clipBox.x + clipBox.width * 3 / 4, start.y + 30);
+	await expect(draft).toBeVisible();
 	await page.mouse.up();
 	const maximum = editor.getByRole('slider', { name: 'Spectral selection maximum-frequency handle', exact: true });
 	await expect(maximum).toBeVisible();

@@ -66,10 +66,23 @@ test('nightly payload production modules have a closed local-import graph', () =
 	assert.ok(result.visited.has('scripts/lib/browser-coverage-profile.mjs'));
 	assert.ok(result.visited.has('scripts/lib/browser-dynamic-coverage-sources.mjs'));
 	assert.ok(result.visited.has('scripts/lib/browser-target-coverage-state.mjs'));
+	assert.ok(result.visited.has('scripts/lib/lightscaper-large-library-diagnostics-v1.ts'));
+	assert.ok(result.visited.has('scripts/lib/quality-budget-config.mjs'));
+	assert.ok(result.visited.has('scripts/vite-pffft-browser-shim.mjs'));
+	assert.ok(result.visited.has('desktop/lightscaper-native-photo-library-scopes-current-v1.ts'));
+	assert.ok(result.visited.has('desktop/lightscaper-native-photo-media-current-v1.ts'));
+	assert.ok(result.visited.has('tests/helpers/lightscaper-hdr-frame-current-fixture.ts'));
+	assert.ok(result.visited.has('tests/helpers/lightscaper-raster-export-process-crash-native-current.ts'));
+	assert.ok(result.visited.has('scripts/quality-budget-evaluator.mjs'));
+	assert.ok(result.visited.has('src/common/foundation/closed-domain-value.ts'));
+	assert.ok(result.visited.has('src/lightscaper/quality/large-library-workload-v1.ts'));
 	assert.ok(result.visited.has('src/common/editor/macro-script/dynamic-source-contract.js'));
 	assert.ok(result.visited.has('src/common/editor/native-plugin-realtime-worklet.js'));
 	assert.ok(result.visited.has('tests/helpers/aup4-database-harness.js'));
+	assert.ok(result.visited.has('tests/helpers/translation-catalogs.ts'));
+	assert.ok(result.visited.has('scripts/lib/editor-copy-audit-inventory.mjs'));
 	assert.ok(result.visited.has('vendor/audacity-design-system/components/src/utils/roseus-colormap.ts'));
+	assert.ok(result.visited.has('vendor/audacity-design-system/components/src/TimeCode/time-code-musical-context.ts'));
 	assert.ok(result.visited.has('tests/helpers/framescaper-native-sidecar-fixture.ts'));
 	assert.ok(result.visited.has('tests/helpers/framescaper-ordinary-animation-fixture.ts'));
 	assert.ok(result.visited.has('tests/helpers/framescaper-ordinary-high-precision-image-fixture.ts'));
@@ -83,6 +96,69 @@ test('nightly payload production modules have a closed local-import graph', () =
 	assert.ok(result.queryImports.some(({ specifier }) => specifier.endsWith('?worker&url')));
 });
 
+for (const [source, pattern] of [
+	['tests/helpers/translation-catalogs.ts', /Unstaged local import .*translation-catalogs\.ts/u],
+	['scripts/lib/editor-copy-audit-inventory.mjs', /Unstaged local import .*translation-catalogs\.ts.*editor-copy-audit-inventory\.mjs/u],
+	['config/lightscaper-libraw-runtime-manifest.json', /Unstaged local import .*lightscaper-libraw-runtime-manifest\.json/u],
+	['vendor/audacity-design-system/components/src/TimeCode/time-code-musical-context.ts', /Unstaged local import .*time-code-musical-context/u],
+	['scripts/vite-pffft-browser-shim.mjs', /Unstaged local import .*lightscaper-image-handoff-native-fixture\.js.*vite-pffft-browser-shim\.mjs/u],
+	['desktop/lightscaper-native-photo-library-scopes-current-v1.ts', /Unstaged local import .*lightscaper-native-photo-library-scopes-current-v1\.ts/u],
+	['tests/helpers/lightscaper-raster-export-process-crash-native-current.ts', /Unstaged local import .*lightscaper-photo-raster-export-process-crash-current\.spec\.ts.*lightscaper-raster-export-process-crash-native-current\.ts/u],
+]) {
+	test(`nightly payload audit rejects omitted current browser support ${source}`, () => {
+		const withoutSupport = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(input => input.source !== source);
+		assert.throws(() => inspectLocalImportClosure(withoutSupport), pattern);
+	});
+}
+
+test('nightly payload audit rejects an omitted photo-library diagnostic helper', () => {
+	const withoutPhotoDiagnostic = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(({ source }) => (
+		source !== 'scripts/lib/lightscaper-large-library-diagnostics-v1.ts'
+	));
+	assert.throws(
+		() => inspectLocalImportClosure(withoutPhotoDiagnostic),
+		/Unstaged local import .*lightscaper-large-library-native\.spec\.js.*lightscaper-large-library-diagnostics-v1\.ts/u,
+	);
+});
+
+for (const owner of ['ara', 'blender']) {
+	test(`nightly preload fixture audit rejects an omitted ${owner} runtime source`, () => {
+		const withoutOwner = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(({ source }) => (
+			source !== `desktop/${owner}-preload.ts`
+		));
+		assert.throws(() => inspectLocalImportClosure(withoutOwner),
+			new RegExp(`Unstaged local import desktop/preload\\.mjs.*${owner}-preload\\.ts`, 'u'));
+	});
+}
+
+test('nightly video fixture audit rejects an omitted H264 encoder source', () => {
+	const withoutEncoder = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(({ source }) => (
+		source !== 'desktop/desktop-video-h264-encoder.ts'
+	));
+	assert.throws(() => inspectLocalImportClosure(withoutEncoder),
+		/Unstaged local import desktop\/desktop-video-codec-operation-contract\.ts.*desktop-video-h264-encoder\.js/u);
+});
+
+test('nightly payload audit rejects an omitted native sidecar fixture dependency', () => {
+	const withoutReadLease = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(({ source }) => (
+		source !== 'desktop/read-capability-request-lease.js'
+	));
+	assert.throws(
+		() => inspectLocalImportClosure(withoutReadLease),
+		/Unstaged local import .*file-capabilities\.js.*read-capability-request-lease\.js/u,
+	);
+});
+
+test('nightly payload audit rejects an omitted spectrogram painter dependency', () => {
+	const withoutColormap = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(({ source }) => (
+		source !== 'vendor/audacity-design-system/components/src/utils/roseus-colormap.ts'
+	));
+	assert.throws(
+		() => inspectLocalImportClosure(withoutColormap),
+		/Unstaged local import .*pffft-spectrogram\.js.*roseus-colormap\.ts/u,
+	);
+});
+
 test('nightly payload production-module audit rejects an unstaged local dependency', () => {
 	const withoutCoveragePrefixes = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(({ source }) => (
 		source !== 'scripts/lib/e2e-coverage-prefixes.mjs'
@@ -90,7 +166,7 @@ test('nightly payload production-module audit rejects an unstaged local dependen
 
 	assert.throws(
 		() => inspectLocalImportClosure(withoutCoveragePrefixes),
-		/Unstaged local import .*e2e-coverage-source-maps\.mjs.*e2e-coverage-prefixes\.mjs/u,
+		/Unstaged local import .*browser-gpu-production-coverage\.mjs.*e2e-coverage-prefixes\.mjs/u,
 	);
 });
 

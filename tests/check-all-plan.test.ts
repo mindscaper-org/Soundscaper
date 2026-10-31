@@ -17,10 +17,10 @@ test('check-all includes every static gate, all Node shards, fresh coverage and 
 	}
 	assert.equal(plan.filter(job => job.id.startsWith('lint/')).length, 8);
 	const node = plan.filter(job => job.id.startsWith('node/'));
-	assert.equal(node.length, 4);
-	assert.equal(new Set(node.map(job => job.args.find(arg => arg.startsWith('--coverage-directory=')))).size, 4);
+	assert.deepEqual(node.map(job => job.id), ['node/common-1', 'node/common-2', 'node/framescaper', 'node/soundscaper', 'node/lightscaper']);
+	assert.equal(new Set(node.map(job => job.args.find(arg => arg.startsWith('--coverage-directory=')))).size, 5);
 	const coverage = plan.find(job => job.id === 'coverage');
-	assert.equal(coverage?.dependsOn.length, 4);
+	assert.equal(coverage?.dependsOn.length, 5);
 	for (const dependency of coverage?.dependsOn ?? []) {
 		const compact = plan.find(job => job.id === dependency);
 		assert.equal(compact?.dependsOn.length, 1);
@@ -37,6 +37,15 @@ test('check-all includes every static gate, all Node shards, fresh coverage and 
 
 test('check-all refuses to silently omit a newly added unsupported static command', () => {
 	assert.throws(() => createCheckAllPlan(root, '/npm-cli.js', { ...scripts, 'check:static': `${scripts['check:static']} && echo omitted` }), /check:static/u);
+});
+
+test('check-all browser shards retain native qualification with one worker and no retries', () => {
+	const browser = createCheckAllPlan(root, '/npm-cli.js', scripts).filter(job => job.browser);
+	assert.equal(browser.length, 4);
+	for (const job of browser) {
+		assert.deepEqual(job.args.filter(arg => arg.startsWith('--workers=')), ['--workers=1'], job.id);
+		assert.deepEqual(job.args.filter(arg => arg.startsWith('--retries=')), ['--retries=0'], job.id);
+	}
 });
 
 test('check-all provisions independent readers before any Node or browser test shard starts', () => {

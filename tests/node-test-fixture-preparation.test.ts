@@ -2,9 +2,10 @@
 
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 
 import { waitFor } from './helpers/async-test-control.ts';
@@ -89,7 +90,7 @@ async function exists(path: string): Promise<boolean> {
 	}
 }
 
-async function fixture(context: test.TestContext, mode: 'success' | 'failure' | 'desktop-failure', external: boolean | 'incompatible' | 'corrupt' = false, useLoaders = true) {
+async function fixture(context: test.TestContext, mode: 'success' | 'failure' | 'desktop-failure', external: boolean | 'incompatible' | 'corrupt' = false, privateCoverage = false, useLoaders = true) {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-fixture-runner-test-'));
 	let runnerChild: ChildProcess | undefined = undefined;
 	let completion: Promise<{ code: number | null; signal: NodeJS.Signals | null }> | undefined = undefined;
@@ -113,6 +114,7 @@ async function fixture(context: test.TestContext, mode: 'success' | 'failure' | 
 		writeFile(join(root, 'package.json'), '{"type":"module"}'),
 		writeFile(join(root, 'scripts/run-node-tests.mjs'), runner),
 		writeFile(join(root, 'scripts/node-style-asset-loader.mjs'), 'export {};'),
+		writeFile(join(root, 'scripts/coverage-umask-control.mjs'), 'process.umask(0o002);'),
 		writeFile(join(root, 'node_modules/tsx/package.json'), '{"type":"module","exports":"./index.mjs"}'),
 		writeFile(join(root, 'node_modules/tsx/index.mjs'), 'export {};'),
 		writeFile(join(root, 'scripts/lib/fixture-control.mjs'), CONTROL_SOURCE),
@@ -168,7 +170,7 @@ async function fixture(context: test.TestContext, mode: 'success' | 'failure' | 
 		].join('\n')),
 		writeFile(join(root, 'tests/consumer.test.mjs'), [
 			"import assert from 'node:assert/strict';",
-			"import { readFileSync, writeFileSync } from 'node:fs';",
+			"import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';",
 			"import { join } from 'node:path';",
 			"import test from 'node:test';",
 			'test("both freshly prepared fixtures reach the consumer", () => {',
@@ -177,6 +179,11 @@ async function fixture(context: test.TestContext, mode: 'success' | 'failure' | 
 			'\tassert.equal(readFileSync(join(openfx, "ready"), "utf8"), "openfx");',
 			'\tassert.equal(readFileSync(join(desktop, "ready"), "utf8"), "desktop");',
 			'\tassert.equal(readFileSync(join(native, "ready"), "utf8"), "native");',
+			`\tif (${String(privateCoverage)}) {`,
+			'\t\tassert.equal(process.umask(), 0o002, "the runner must not change the consumer umask");',
+			'\t\tassert.equal(statSync(process.env.NODE_V8_COVERAGE).mode & 0o777, 0o700);',
+			'\t\tassert.equal(existsSync(join(process.env.NODE_V8_COVERAGE, "stale-profile")), false);',
+			'\t}',
 			`\twriteFileSync(join(process.env.${CONTROL_ENV}, "consumer"), JSON.stringify({ openfx, desktop, native }));`,
 			'});',
 		].join('\n')),
@@ -195,7 +202,17 @@ async function fixture(context: test.TestContext, mode: 'success' | 'failure' | 
 		await writeFile(join(externalRoot, 'producer-image'), '20261012.334.1');
 		if (external === true) await writeFile(join(root, 'desktop.started'), JSON.stringify({ pid: process.pid, directory: externalRoot }));
 	}
-	const child = spawn(process.execPath, [join(root, 'scripts/run-node-tests.mjs'), ...external ? [`--desktop-runtime-fixture=${externalRoot}`] : []], {
+	const coverageDirectory = join(root, 'coverage-raw');
+	if (privateCoverage) {
+		await mkdir(coverageDirectory, { mode: 0o700 });
+		await writeFile(join(coverageDirectory, 'stale-profile'), 'previous owned allocation');
+	}
+	const child = spawn(process.execPath, [
+		...privateCoverage ? ['--import', join(root, 'scripts/coverage-umask-control.mjs')] : [],
+		join(root, 'scripts/run-node-tests.mjs'),
+		...external ? [`--desktop-runtime-fixture=${externalRoot}`] : [],
+		...privateCoverage ? [`--coverage-directory=${coverageDirectory}`] : [],
+	], {
 		cwd: root, env: environment, stdio: ['ignore', 'pipe', 'pipe'],
 	});
 	runnerChild = child;
@@ -295,8 +312,28 @@ test('corrupt bytes remain fatal despite a different image and never start fallb
 	assert.equal(await readFile(join(run.externalRoot, 'ready'), 'utf8'), 'corrupt');
 });
 
+test('coverage raw replacement stays private under a permissive inherited umask', {
+	timeout: 15_000, skip: process.platform === 'win32' ? 'POSIX directory modes are required for this control' : false,
+}, async context => {
+	const run = await fixture(context, 'success', false, true);
+	assert.deepEqual(await run.completed, { code: 0, signal: null }, run.output.join(''));
+	const coverageDirectory = join(run.root, 'coverage-raw');
+	assert.equal((await stat(coverageDirectory)).mode & 0o777, 0o700);
+	await assert.rejects(access(join(coverageDirectory, 'stale-profile')), { code: 'ENOENT' });
+	const profiles = (await readdir(coverageDirectory)).filter(name => /^coverage-.+\.json$/u.test(name));
+	assert.ok(profiles.length > 0, 'actual consumers must finish writing native V8 profiles');
+	let recordedConsumer = false;
+	for (const name of profiles) {
+		const profile: unknown = JSON.parse(await readFile(join(coverageDirectory, name), 'utf8'));
+		assert.ok(profile && typeof profile === 'object' && 'result' in profile && Array.isArray(profile.result));
+		recordedConsumer ||= profile.result.some((script: unknown) => script && typeof script === 'object'
+			&& 'url' in script && script.url === pathToFileURL(join(run.root, 'tests/consumer.test.mjs')).href);
+	}
+	assert.equal(recordedConsumer, true, 'the real test consumer must occur in completed coverage');
+});
+
 test('a proven native batch omits both optional loader imports while retaining fixture preparation', { timeout: 15_000 }, async context => {
-	const run = await fixture(context, 'success', false, false);
+	const run = await fixture(context, 'success', false, false, false);
 	assert.deepEqual(await run.completed, { code: 0, signal: null }, run.output.join(''));
 	const arguments_: unknown = JSON.parse(await readFile(join(run.root, 'consumer-arguments'), 'utf8'));
 	assert.ok(Array.isArray(arguments_));

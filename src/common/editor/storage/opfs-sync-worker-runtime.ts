@@ -32,8 +32,17 @@ interface WorkerWriter {
 	offset: number;
 }
 
+interface OpfsReadLockPort {
+	request<Result>(
+		name: string,
+		options: { readonly mode: 'exclusive' },
+		consume: () => Promise<Result>,
+	): Promise<Result>;
+}
+
 interface OpfsSyncWorkerRuntimeOptions {
 	readonly supportsSyncAccessHandles?: () => boolean;
+	readonly locks?: OpfsReadLockPort | null;
 }
 
 interface WorkerRequest extends Record<string, unknown> {
@@ -46,15 +55,18 @@ let nextWriterId = 1;
 /** Worker-owned synchronous OPFS sessions with one closed operation vocabulary. */
 export class OpfsSyncWorkerRuntime {
 	readonly #supportsSyncAccessHandles: () => boolean;
+	readonly #locks: OpfsReadLockPort | null;
 	readonly #writers = new Map<string, WorkerWriter>();
 	readonly #active = new Set<string>();
 	readonly #cancelled = new Set<string>();
+	readonly #readOwners = new Map<string, Promise<void>>();
 	#directory: FileSystemDirectoryHandle | null = null;
 	#initialized = false;
 
 	constructor(options: OpfsSyncWorkerRuntimeOptions = {}) {
 		this.#supportsSyncAccessHandles = options.supportsSyncAccessHandles
 			?? defaultSupportsSyncAccessHandles;
+		this.#locks = options.locks === undefined ? globalThis.navigator?.locks ?? null : options.locks;
 	}
 
 	async handle(value: unknown): Promise<Record<string, unknown>> {
@@ -87,24 +99,26 @@ export class OpfsSyncWorkerRuntime {
 	async #snapshot(request: WorkerRequest, requestIdValue: string): Promise<Record<string, unknown>> {
 		const operationId = readOperation(request.operationId);
 		const path = normalizeOpfsWorkerPath(request.path);
-		const fileHandle = await this.#fileHandle(path, false);
-		this.#throwIfCancelled(requestIdValue);
-		const access = await createSyncAccess(fileHandle, true);
-		let size: number;
-		try {
-			size = access.getSize();
-			if (!Number.isSafeInteger(size) || size < 0) {
-				throw new Error('OPFS synchronous access returned an invalid file size.');
+		return this.#withReadOwner(path, requestIdValue, async () => {
+			const fileHandle = await this.#fileHandle(path, false);
+			this.#throwIfCancelled(requestIdValue);
+			const access = await createSyncAccess(fileHandle, true);
+			let size: number;
+			try {
+				size = access.getSize();
+				if (!Number.isSafeInteger(size) || size < 0) {
+					throw new Error('OPFS synchronous access returned an invalid file size.');
+				}
+			} finally {
+				access.close();
 			}
-		} finally {
-			access.close();
-		}
-		this.#throwIfCancelled(requestIdValue);
-		const file = await fileHandle.getFile();
-		if (!(file instanceof Blob) || file.size !== size) {
-			throw new Error('The OPFS file changed during snapshot acquisition.');
-		}
-		return Object.freeze({ operationId, size, file });
+			this.#throwIfCancelled(requestIdValue);
+			const file = await fileHandle.getFile();
+			if (!(file instanceof Blob) || file.size !== size) {
+				throw new Error('The OPFS file changed during snapshot acquisition.');
+			}
+			return Object.freeze({ operationId, size, file });
+		});
 	}
 
 	#initialize(request: WorkerRequest): Record<string, unknown> {
@@ -120,32 +134,60 @@ export class OpfsSyncWorkerRuntime {
 		const operationId = readOperation(request.operationId);
 		const path = normalizeOpfsWorkerPath(request.path);
 		const { offset, length } = normalizeOpfsReadRange(request.offset, request.length);
-		const fileHandle = await this.#fileHandle(path, false);
-		this.#throwIfCancelled(requestIdValue);
-		const access = await createSyncAccess(fileHandle, true);
-		try {
-			const size = access.getSize();
-			if (!Number.isSafeInteger(size) || size < 0) {
-				throw new Error('OPFS synchronous access returned an invalid file size.');
-			}
-			if (offset + length > size) throw new RangeError('The requested range exceeds the OPFS file.');
+		return this.#withReadOwner(path, requestIdValue, async () => {
+			const fileHandle = await this.#fileHandle(path, false);
 			this.#throwIfCancelled(requestIdValue);
-			const bytes = new Uint8Array(length);
-			const read = access.read(bytes, { at: offset });
-			if (read !== length) throw new Error('OPFS synchronous access returned a short read.');
-			return Object.freeze({ operationId, size, bytes: bytes.buffer });
+			const access = await createSyncAccess(fileHandle, true);
+			try {
+				const size = access.getSize();
+				if (!Number.isSafeInteger(size) || size < 0) {
+					throw new Error('OPFS synchronous access returned an invalid file size.');
+				}
+				if (offset + length > size) throw new RangeError('The requested range exceeds the OPFS file.');
+				this.#throwIfCancelled(requestIdValue);
+				const bytes = new Uint8Array(length);
+				const read = access.read(bytes, { at: offset });
+				if (read !== length) throw new Error('OPFS synchronous access returned a short read.');
+				return Object.freeze({ operationId, size, bytes: bytes.buffer });
+			} finally {
+				access.close();
+			}
+		});
+	}
+
+	/** Native access and getFile must finish under the same path owner. A
+	 * queued read never delays cancellation or a writer's close request. */
+	async #withReadOwner<Result>(path: string, id: string, consume: () => Promise<Result>): Promise<Result> {
+		const previous = this.#readOwners.get(path);
+		let release!: () => void;
+		const terminal = new Promise<void>(resolve => { release = resolve; });
+		this.#readOwners.set(path, terminal);
+		await previous;
+		try {
+			const owned = async () => {
+				this.#throwIfCancelled(id);
+				return consume();
+			};
+			// Read-only native handles can still exclude another worker's reader.
+			// Coordinate by physical directory and path through getFile completion.
+			if (this.#locks) {
+				const name = `scape:opfs-read:${JSON.stringify([this.#directory!.name, path])}`;
+				return await this.#locks.request(name, { mode: 'exclusive' }, owned);
+			}
+			return await owned();
 		} finally {
-			access.close();
+			release();
+			if (this.#readOwners.get(path) === terminal) this.#readOwners.delete(path);
 		}
 	}
 
 	async #openWriter(request: WorkerRequest, requestIdValue: string): Promise<Record<string, unknown>> {
 		const operationId = writeOperation(request.operationId);
 		const path = normalizeOpfsWorkerPath(request.path);
-		const fileHandle = await this.#fileHandle(path, true);
-		this.#throwIfCancelled(requestIdValue);
 		let access: SyncAccessHandleLike | null = null;
 		try {
+			const fileHandle = await this.#fileHandle(path, true);
+			this.#throwIfCancelled(requestIdValue);
 			access = await createSyncAccess(fileHandle, false);
 			this.#throwIfCancelled(requestIdValue);
 			access.truncate(0);
@@ -153,8 +195,12 @@ export class OpfsSyncWorkerRuntime {
 			this.#writers.set(id, { id, path, operationId, access, offset: 0 });
 			return Object.freeze({ writerId: id });
 		} catch (error) {
-			try { access?.close(); } catch { /* The failed handle may already be closed. */ }
-			try { await this.#directory?.removeEntry(path); } catch { /* Creation may not have reached disk. */ }
+			const failures: unknown[] = [];
+			try { access?.close(); } catch (failure) { failures.push(failure); }
+			try { await this.#directory?.removeEntry(path); } catch (failure) {
+				if (!isNativeNotFoundError(failure)) failures.push(failure);
+			}
+			if (failures.length) throw new AggregateError([error, ...failures], 'OPFS writer acquisition and cleanup failed.', { cause: error });
 			throw error;
 		}
 	}
@@ -311,4 +357,9 @@ function defaultSupportsSyncAccessHandles(): boolean {
 function isNotFoundError(error: unknown): boolean {
 	return Boolean(error && typeof error === 'object'
 		&& (error as { readonly name?: unknown }).name === 'NotFoundError');
+}
+
+const DOM_EXCEPTION_NAME = Object.getOwnPropertyDescriptor(DOMException.prototype, 'name')!.get!;
+function isNativeNotFoundError(error: unknown): boolean {
+	try { return Reflect.apply(DOM_EXCEPTION_NAME, error, []) === 'NotFoundError'; } catch { return false; }
 }

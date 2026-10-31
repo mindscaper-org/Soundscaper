@@ -3,12 +3,22 @@
 import { useTheme } from '@soundscaper/design-system/ThemeProvider';
 import { useEditorSkin } from '../skins/EditorSkinProvider.tsx';
 import { TimelineRuler } from '@soundscaper/design-system/TimelineRuler';
+import { CLIP_CONTENT_OFFSET } from '@soundscaper/design-system/constants';
 
 import { framesToSeconds } from '../../design-system-adapters.js';
 import { MusicalTimelineRuler } from './MusicalTimelineRuler.jsx';
 import { SequenceTimecodeRuler } from './SequenceTimecodeRuler.jsx';
 
 const TIMELINE_RULER_HEIGHT_WITH_ANNOTATIONS = 33;
+
+/** The live ruler projection, independent of a clipped clip display.
+ * @param {number} pixelsPerSecond */
+export function rulerGeometryData(pixelsPerSecond) {
+	return {
+		'data-ruler-pixels-per-second': pixelsPerSecond,
+		'data-ruler-content-offset': CLIP_CONTENT_OFFSET,
+	};
+}
 
 /**
  * The ruler canvas for the resolved timeline scale: a sequence timecode

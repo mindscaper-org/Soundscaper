@@ -87,46 +87,113 @@ async function currentClip(state) {
 	return { clip, box };
 }
 
+async function selectionSeconds(editor, edge) {
+	const text = await editor.getByRole('group', { name: `Selection ${edge}`, exact: true })
+		.locator('.timecode__display').textContent();
+	const digits = text.replace(/\s/gu, '').match(/(\d+)h(\d+)m(\d+(?:\.\d+)?)s/u);
+	expect(digits).not.toBeNull();
+	return Number(digits[1]) * 3600 + Number(digits[2]) * 60 + Number(digits[3]);
+}
+
+async function revealRulerBehindContrast(page, viewport) {
+	const dialog = page.getByRole('dialog', { name: 'Contrast', exact: true });
+	if (!await dialog.isVisible()) return;
+	const [panel, header, ruler] = await Promise.all([
+		dialog.boundingBox(), dialog.locator('.dialog-header').boundingBox(), viewport.boundingBox(),
+	]);
+	expect(panel).not.toBeNull(); expect(header).not.toBeNull(); expect(ruler).not.toBeNull();
+	if (panel.x >= ruler.x + ruler.width || panel.x + panel.width <= ruler.x
+		|| panel.y >= ruler.y + ruler.height || panel.y + panel.height <= ruler.y) return;
+	// Contrast stays open while its next passage is selected. Move its modeless
+	// window through the real title bar instead of pressing through the window.
+	const x = header.x + header.width / 2, y = header.y + header.height / 2;
+	await page.mouse.move(x, y);
+	await page.mouse.down();
+	await page.mouse.move(x, y + ruler.y + ruler.height + 8 - panel.y, { steps: 5 });
+	await page.mouse.up();
+}
+
 // A drag in the ruler above the tracks makes a time selection; the ruler is
 // also where the playhead handle sits, and pressing on the handle drags the
 // playhead instead. The playhead rests at the clip start, so a selection that
 // begins there is dragged from its far end back to the start.
 async function dragSelection(page, state, from, to) {
 	const { clip } = await currentClip(state);
-	// The upper half of the ruler canvas is the loop band, so press below it.
-	const ruler = state.editor.locator('[data-ruler-interaction] canvas.timeline-ruler').first();
+	const interior = from > 0 && from < 1 && to > 0 && to < 1;
+	// Accessible timing describes the logical clip even when its painted projection is clipped.
+	const timing = (await clip.getAttribute('aria-label'))
+		.match(/ clip, starts at ([\d.]+) seconds?, ([\d.]+) seconds? long$/u);
+	expect(timing).not.toBeNull();
+	const start = Number(timing[1]);
+	const duration = Number(timing[2]);
+	const viewport = state.editor.locator('[data-ruler-interaction]').first();
+	const ruler = viewport.locator('canvas.timeline-ruler');
 	await expect(ruler).toBeVisible();
+	await revealRulerBehindContrast(page, viewport);
 	let rulerBox;
-	let clipBox;
+	let viewportBox;
+	let coordinate;
+	let y;
 	let previousGeometry;
-	const x = (fraction) => clipBox.x + 2 + (clipBox.width - 4) * fraction;
-	// Scrolling updates the viewport's clipped clip projection asynchronously.
-	// Recenter from fresh bounds until both drag endpoints settle in the ruler.
+	const x = (fraction) => viewportBox.x + coordinate.contentOffset
+		+ (start + duration * fraction) * coordinate.pixelsPerSecond - coordinate.contentScrollX
+		+ (fraction === 0 ? 2 : fraction === 1 ? -2 : 0);
+	// Use the ruler's actual scale and live scroll, independently of clip projection.
+	// Recenter until both logical endpoints settle in the visible ruler.
 	await expect.poll(async () => {
-		[clipBox, rulerBox] = await Promise.all([clip.boundingBox(), ruler.boundingBox()]);
-		expect(clipBox).not.toBeNull();
+		[rulerBox, viewportBox, coordinate] = await Promise.all([
+			ruler.boundingBox(), viewport.boundingBox(), viewport.evaluate((element) => {
+				const timeline = element.closest('[data-timeline]');
+				const scrollScale = Number(timeline.dataset.timelineScrollScale);
+				return { pixelsPerSecond: Number(element.dataset.rulerPixelsPerSecond),
+					contentOffset: Number(element.dataset.rulerContentOffset), scrollScale,
+					contentScrollX: timeline.scrollLeft * scrollScale };
+			}),
+		]);
 		expect(rulerBox).not.toBeNull();
-		if (Math.min(x(from), x(to)) < rulerBox.x || Math.max(x(from), x(to)) > rulerBox.x + rulerBox.width) {
+		expect(viewportBox).not.toBeNull();
+		expect(Number.isFinite(coordinate.pixelsPerSecond) && coordinate.pixelsPerSecond > 0).toBe(true);
+		expect(Number.isFinite(coordinate.contentOffset)).toBe(true);
+		expect(Number.isFinite(coordinate.scrollScale) && coordinate.scrollScale > 0).toBe(true);
+		const left = Math.max(rulerBox.x, viewportBox.x);
+		const right = Math.min(rulerBox.x + rulerBox.width, viewportBox.x + viewportBox.width);
+		// The 40 px canvas can be clipped by its 33 px owner. Stay inside the
+		// visible lower half; the upper half belongs to loop-region gestures.
+		const top = Math.max(rulerBox.y + rulerBox.height / 2, viewportBox.y);
+		const bottom = Math.min(rulerBox.y + rulerBox.height, viewportBox.y + viewportBox.height);
+		if (right - left < 4 || bottom - top < 4) return false;
+		y = (top + bottom) / 2;
+		if (Math.min(x(from), x(to)) < left + 1 || Math.max(x(from), x(to)) > right - 1) {
 			const rangeCenter = (x(from) + x(to)) / 2;
-			const rulerCenter = rulerBox.x + rulerBox.width / 2;
+			const rulerCenter = (left + right) / 2;
 			await state.editor.locator('.audio-editor-timeline-scroll').evaluate((element, delta) => {
 				element.scrollLeft += delta;
-			}, rangeCenter - rulerCenter);
+			}, (rangeCenter - rulerCenter) / coordinate.scrollScale);
 			previousGeometry = undefined;
 			return false;
 		}
-		const geometry = JSON.stringify([clipBox, rulerBox]);
+		// A reversed drag can finish on the playhead; only its press needs to hit the ruler.
+		const receivesPointer = await viewport.evaluate((element, point) => (
+			element.ownerDocument.elementFromPoint(point.x, point.y)?.closest('[data-ruler-interaction]') === element
+		), { x: x(from === 0 ? to : from), y });
+		if (!receivesPointer) { previousGeometry = undefined; return false; }
+		const geometry = JSON.stringify([rulerBox, viewportBox, coordinate]);
 		const settled = geometry === previousGeometry;
 		previousGeometry = geometry;
 		return settled;
 	}, { message: 'Selection drag endpoints settle inside the visible ruler.' }).toBe(true);
-	const y = rulerBox.y + rulerBox.height * 0.8;
 	const [startX, endX] = from === 0 ? [x(to), x(from)] : [x(from), x(to)];
 	await page.mouse.move(startX, y);
 	await page.mouse.down();
 	await page.mouse.move(endX, y, { steps: 8 });
 	await page.mouse.up();
 	await expect(state.editor.locator('[data-time-selection-overlay]').first()).toBeVisible();
+	if (interior) {
+		// Observe committed controls, not the pointer preview. A clipped projection
+		// must not silently redefine the guide's requested logical passage.
+		await expect.poll(() => selectionSeconds(state.editor, 'start')).toBeCloseTo(start + duration * Math.min(from, to), 2);
+		await expect.poll(() => selectionSeconds(state.editor, 'end')).toBeCloseTo(start + duration * Math.max(from, to), 2);
+	}
 }
 
 async function openEffectDialog(page, state, group, name) {

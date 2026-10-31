@@ -14,8 +14,8 @@ for (const parent of ['body', 'documentElement'] as const) test(`browser keying 
 	assert.equal(f.video.loadedWhileMounted, true);
 	assert.equal(f.video.attributes.get('aria-hidden'), 'true');
 	assert.equal(f.video.tabIndex, -1);
-	assert.match(f.video.style.cssText, /opacity:0/u);
-	assert.match(f.video.style.cssText, /pointer-events:none/u);
+	assert.deepEqual(f.video.style, { position: 'fixed', left: '0px', top: '0px',
+		width: '1px', height: '1px', opacity: '0', pointerEvents: 'none' });
 	assert.deepEqual(await decoder.capture(0, signal), Uint8Array.from(f.pixels));
 	await decoder.dispose(); await decoder.dispose();
 	assert.equal(f.video.mounted, false);
@@ -41,7 +41,7 @@ for (const failure of ['codec', 'geometry', 'abort'] as const) test(`browser key
 
 function fixture(context: TestContext, options: { parent?: 'body' | 'documentElement'; codecError?: boolean; onSource?: () => void } = {}) {
 	class Video extends EventTarget {
-		readonly style = { cssText: '' };
+		readonly style: Record<string, string> = {};
 		readonly attributes = new Map<string, string>();
 		videoWidth = 2; videoHeight = 2; tabIndex = 0; currentTime = 0;
 		preload = ''; muted = false; playsInline = false;

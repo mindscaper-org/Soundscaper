@@ -38,6 +38,7 @@ import {
 } from './transport-scheduler.ts';
 import { soundscaperNativeAudioDestination } from '../soundscaper-native-audio-renderer.ts';
 import { clockedPlaybackStartLeadSeconds } from '../recording-start-lead.ts';
+import { invalidateEnginePlayhead } from './playhead-discontinuity.ts';
 import {
 	recordWebCoreStreamPlayback,
 	recordWebCoreStreamUnderrun,
@@ -259,6 +260,7 @@ pause() {
 
 seek(frame) {
 		this[ENGINE_ASSERT_ACTIVE]();
+		invalidateEnginePlayhead(this);
 		let nextFrame = clampFrame(frame, 0, this.playbackDurationFrames);
 		const wasPlaying = this.state === 'playing';
 		if (!wasPlaying) resetPlaybackSession(this);
@@ -311,6 +313,7 @@ async scrub(frame, { durationMs = DEFAULT_SCRUB_FRAME_MS } = {}) {
 		this[ENGINE_ASSERT_ACTIVE]();
 		resetPlaybackFrequencyRange(this);
 		if (!this.project) throw new Error('Load an audio editor project before scrubbing.');
+		invalidateEnginePlayhead(this);
 		const nextFrame = clampFrame(frame, 0, this.playbackDurationFrames);
 		const frameMs = clamp(Number(durationMs) || DEFAULT_SCRUB_FRAME_MS, 16, 250);
 		if (!this.scrubbing) {

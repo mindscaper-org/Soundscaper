@@ -242,7 +242,7 @@ function generatedRepositorySource(path, content) {
 	};
 }
 
-function repositorySourcePath(source) {
+export function repositorySourcePath(source) {
 	if (typeof source !== 'string') return null;
 	const parsed = parsedSourceUrl(source);
 	if (parsed === null || parsed.pathname.includes('/node_modules/')

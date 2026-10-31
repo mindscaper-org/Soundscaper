@@ -34,7 +34,7 @@ described in [architecture](docs/architecture/overview.md#shared-module-ownershi
 and [testing](docs/development/testing.md#module-and-affected-checks).
 PR CI consumes the same affected plan within its existing job slots. Main and
 release checks retain the complete gate. Node execution still uses `common-1`,
-`common-2`, `framescaper` and `soundscaper` shards, separately from semantic
+`common-2`, `framescaper`, `soundscaper` and `lightscaper` shards, separately from semantic
 module ownership; `npm test -- --shard=framescaper` remains available.
 Complete coverage is checked over the required union, never per execution shard.
 

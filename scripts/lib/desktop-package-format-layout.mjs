@@ -132,7 +132,7 @@ export async function validateDesktopPackageSpecificResources({
 	if (!targetId.startsWith('linux-')) {
 		throw new Error('Only Linux Debian packages may carry AppArmor package metadata.');
 	}
-	const productName = desktopProductName(productId);
+	const productName = productId === 'lightscaper' ? 'Lightscaper' : desktopProductName(productId);
 	const expected = Buffer.from([
 		'abi <abi/4.0>,',
 		'include <tunables/global>',

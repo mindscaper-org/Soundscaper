@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
-import { showClipTimingFields, bootEditor, chooseCommandAction, closeClipProperties,
+import { showClipTimingFields, bootEditor, chooseCommandAction, clipField, closeClipProperties,
 	importFiles, openClipProperties } from './audio-editor-test-helpers.js';
-import { expectClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 test('Nyquist refuses an overlong selection without silently shortening the recording', async ({ page }) => {
 	test.setTimeout(120_000);
 	const editor = await bootEditor(page, '/embed/en/');
+	const projectId = await editor.getAttribute('data-project-id');
 	const recording = createWavFixture({ name: 'interview.wav', duration: 301, channelCount: 1 });
 	await importFiles(editor, [recording]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
@@ -21,6 +22,8 @@ test('Nyquist refuses an overlong selection without silently shortening the reco
 	await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 	const properties = await openClipProperties(page, editor, editor.locator('[data-clip-id]').first());
 	await showClipTimingFields(properties);
-	await expectClipTimeFrames(properties, 'durationFrame', 301 * 48_000);
+	await expect(clipField(properties, 'durationFrame')).toHaveValue('301');
+	const clipId = await properties.locator('[data-clip-properties-active-clip]').getAttribute('data-clip-properties-active-clip');
+	await expect.poll(async () => (await persistedProject(page, projectId))?.clips.find(clip => clip.id === clipId)?.durationFrames).toBe(14_448_000);
 	await closeClipProperties(properties);
 });

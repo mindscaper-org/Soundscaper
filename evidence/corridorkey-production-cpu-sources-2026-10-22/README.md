@@ -30,6 +30,18 @@ length and SHA-256. Both reports point to this snapshot after the production
 bilinear resize optimization; their measured digests and results are unchanged.
 These measurements do not certify the optimized tensor processor.
 
+The retained tensor is Git blob `ec2bc588814e1b0144d2e7d4ace6956a95568b62`,
+introduced at `desktop/assistance-onnx-visual-tensors.ts` by commit
+`7a8440969a1e7c5cb89977def407ec922d515100`. Both reports authenticate these
+6,772 bytes with SHA-256
+`59fc55887fa9da58044b320b4fb87eb49ceb52d4fcc2140d3bce5959ea015f0a`.
+`tests/framescaper-corridorkey-tensor-source-parity.test.ts` compares the current
+direct tensor writer with this report-bound implementation across RGB/BGR
+normalization, cropping, up/downsampling, edge clamping and invalid geometry.
+Those deterministic comparisons support the source migration; they do not rerun
+the recorded model or extend either historical CPU measurement to the current
+runtime, GPU execution or publication readiness.
+
 `linux-x64-runtime-snapshot.json.gz` and
 `desktop-test-assistance-runtime-snapshots.json` preserve the runtime snapshot
 and lock used by both measurements. They were recovered from the parent of

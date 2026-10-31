@@ -22,6 +22,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  lightscaper-internal-desktop:
+    if: github.ref_type != 'tag'
+    needs: quality
+    uses: ./.github/workflows/lightscaper-desktop-native-internal.yml
+
   quality:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -107,7 +112,7 @@ jobs:
       # shared tests run in two stable filename-hash partitions. Wait for lint
       # and typecheck so a static-check failure does not burn the test runners.
       matrix:
-        shard: [common-1, common-2, framescaper, soundscaper]
+        shard: [common-1, common-2, framescaper, soundscaper, lightscaper]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -136,6 +141,11 @@ jobs:
       - name: Install virtual display for the native-helper Electron proof
         timeout-minutes: 10
         run: bash scripts/ci-apt-install.sh xvfb
+
+      - name: Install Lightscaper native association test prerequisites
+        if: matrix.shard == 'lightscaper' || startsWith(matrix.shard, 'common-')
+        timeout-minutes: 10
+        run: bash scripts/ci-apt-install.sh libglib2.0-dev pkg-config shared-mime-info
 
       - name: Allow unprivileged user namespaces for the native isolation launcher
         # ubuntu-24.04 images restrict unprivileged user namespaces through
@@ -176,6 +186,10 @@ jobs:
       - name: Provision pinned Boost closure for Framescaper native tests
         if: matrix.shard == 'framescaper'
         run: node scripts/ci-provision-framescaper-boost.mjs
+
+      - name: Provision pinned Lightscaper RAW fixtures
+        if: matrix.shard == 'lightscaper'
+        run: node scripts/provision-lightscaper-raw-fixtures.mjs
 
       - name: Restore Electron binary for the desktop protocol test
         if: matrix.shard == 'common-2'

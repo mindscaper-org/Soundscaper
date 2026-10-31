@@ -17,6 +17,7 @@ test('spectral amplification requires a gain inside its displayed bounds', async
 	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 	await chooseNestedCommandAction(page, editor, 'Effect', ['Spectral editing', 'Spectral box select']);
 	const dialog = page.getByRole('dialog', { name: 'Spectral selection', exact: true });
+	await expect(dialog).toBeVisible();
 	const gain = dialog.getByRole('textbox', { name: /^Gain \(dB\)/u });
 	const apply = dialog.getByRole('button', { name: 'Spectral Amplify', exact: true });
 	await gain.fill('100');

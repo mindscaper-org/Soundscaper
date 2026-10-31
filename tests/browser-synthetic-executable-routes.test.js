@@ -3,7 +3,15 @@
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import test from 'node:test';
-import ts from 'typescript';
+import {
+	createSourceFile,
+	isExportDeclaration,
+	isImportDeclaration,
+	isStringLiteral,
+	ScriptKind,
+	ScriptTarget,
+} from 'typescript';
+import { assertBrowserCoverageObserverSpec } from '../scripts/lib/browser-coverage-observer-policy.mjs';
 
 const BROWSER_SPECS = new URL('browser/', import.meta.url);
 const COVERAGE_FIXTURE = /from\s+['"]\.\/(?:audio-editor-test-fixtures|helpers\/browser-coverage-fixture)\.js['"]/u;
@@ -23,6 +31,7 @@ test('coverage-bearing browser specs opt out when they serve test-only executabl
 		const url = new URL(name, BROWSER_SPECS);
 		const source = await readSource(url);
 		if (!COVERAGE_FIXTURE.test(source)) continue;
+		if (assertBrowserCoverageObserverSpec(name, source)) continue;
 		assertDirectSyntheticTestsAreExcluded(name, source);
 		assertStrictHarnessCallsAreExcluded(name, source);
 		const executableSources = await sourceWithLocalBrowserHelpers(url, source, readSource);
@@ -75,14 +84,41 @@ test('browser helper traversal keeps independent entry closures while sharing so
 	assert.deepEqual(reads.sort(), [shared.href, cycle.href, exclusive.href].sort());
 });
 
-test('browser helper traversal ignores import declarations inside bundled source strings', async () => {
-	const helper = new URL('helpers/real.js', BROWSER_SPECS);
-	const source = 'import "./helpers/real.js";\nconst bundle = `export { Painter } from "./src/painter.js";`;';
-	const result = await sourceWithLocalBrowserHelpers(new URL('entry.spec.js', BROWSER_SPECS), source, async url => {
-		assert.equal(url.href, helper.href);
-		return '<script>synthetic()</script>';
-	});
-	assert.match(result, EXECUTABLE_SCRIPT_TAG);
+test('browser helper traversal follows static imports and exports without parsing embedded source', async () => {
+	const imported = new URL('helpers/synthetic-imported.js', BROWSER_SPECS);
+	const exported = new URL('helpers/synthetic-exported.js', BROWSER_SPECS);
+	const contents = new Map([
+		[imported.href, 'export const imported = "<script>imported()</script>";'],
+		[exported.href, 'export const exported = "<button onclick=exported()>Open</button>";'],
+	]);
+	const reads = [];
+	const source = await sourceWithLocalBrowserHelpers(
+		new URL('synthetic-static-imports.spec.js', BROWSER_SPECS),
+		[
+			'import { imported } from "./helpers/synthetic-imported.js";',
+			'export { exported } from "./helpers/synthetic-exported.js";',
+			'const bundled = `export { embedded } from "./helpers/template-only.js";`;',
+			'// import "./helpers/line-comment-only.js";',
+			'/* export { commented } from "./helpers/block-comment-only.js"; */',
+		].join('\n'),
+		browserSourceReader(async (url) => {
+			reads.push(url.href);
+			assert.ok(contents.has(url.href), `Unexpected helper ${url.href}`);
+			return contents.get(url.href);
+		}),
+	);
+	assert.match(source, EXECUTABLE_SCRIPT_TAG);
+	assert.match(source, EXECUTABLE_HTML_ATTRIBUTE);
+	assert.deepEqual(reads.sort(), [imported.href, exported.href].sort());
+});
+
+test('browser helper traversal preserves read failures for actual imports', async () => {
+	const missing = Object.assign(new Error('Missing browser helper'), { code: 'ENOENT' });
+	await assert.rejects(sourceWithLocalBrowserHelpers(
+		new URL('synthetic-missing-helper.spec.js', BROWSER_SPECS),
+		'import "./helpers/synthetic-missing.js";',
+		browserSourceReader(async () => { throw missing; }),
+	), (error) => error === missing);
 });
 
 function browserSourceReader(readSource = (url) => readFile(url, 'utf8')) {
@@ -104,11 +140,11 @@ async function sourceWithLocalBrowserHelpers(entryUrl, entrySource, readSource) 
 		if (visited.has(url.href)) continue;
 		visited.add(url.href);
 		sources.push(source);
-		const parsed = ts.createSourceFile(url.pathname, source, ts.ScriptTarget.Latest, false, ts.ScriptKind.JS);
-		for (const statement of parsed.statements) {
-			if (!ts.isImportDeclaration(statement) && !ts.isExportDeclaration(statement)) continue;
+		const module = createSourceFile(url.pathname, source, ScriptTarget.ES2022, true, ScriptKind.JS);
+		for (const statement of module.statements) {
+			if (!isImportDeclaration(statement) && !isExportDeclaration(statement)) continue;
 			const specifier = statement.moduleSpecifier;
-			if (!specifier || !ts.isStringLiteral(specifier) || !specifier.text.startsWith('.')) continue;
+			if (!specifier || !isStringLiteral(specifier) || !specifier.text.startsWith('.')) continue;
 			const dependency = new URL(specifier.text, url);
 			if (!dependency.href.startsWith(BROWSER_SPECS.href)
 				|| !dependency.pathname.endsWith('.js')) continue;

@@ -86,7 +86,7 @@ async function execute(root: string, plan: RepositoryModulePlan): Promise<void> 
 		const browserEnvironment = { ...environment, SCAPE_BROWSER_PRODUCTS: plan.products.join(',') };
 		const sites = ordinaryBrowserProductSitePlan(browserEnvironment);
 		for (const site of sites.sites) await buildBrowserProductSite(site);
-		command(root, ['--import', 'tsx', resolve(root, 'scripts/run-module-browser-tests.ts'), '--workers=1'], browserEnvironment);
+		command(root, ['--import', 'tsx', resolve(root, 'scripts/run-module-browser-tests.ts'), '--workers=1', '--retries=0'], browserEnvironment);
 	}
 }
 

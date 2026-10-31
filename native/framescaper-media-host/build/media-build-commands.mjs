@@ -196,7 +196,7 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		`--ranlib=${shellTool(tools.executables.ranlib.path, windows)}`,
 		`--pkg-config=${shellTool(tools.executables.pkgConfig.path, windows)}`,
 		// Static x265 calls the registry API but omits it from Libs.private.
-		...(windows ? ['--extra-cflags=-MT', '--extra-libs=advapi32.lib'] : []),
+		...(windows ? ['--extra-cflags=-MT -UEB_DLL', '--extra-libs=advapi32.lib'] : []),
 	];
 	const hostEnvironment = Object.freeze({
 		...nativeEnvironment, PKG_CONFIG_PATH: pkgConfigPath, PKG_CONFIG_LIBDIR: pkgConfigPath,
@@ -217,14 +217,23 @@ export function createFramescaperMediaHostBuildCommands(input) {
 			// Separate flags disable Make's direct script execution optimization,
 			// which resolves /bin/bash through Windows instead of Git Bash.
 			'.SHELLFLAGS=-e -c',
-			'GEN_VCPROJ=$(if $(VCPROJ_SRCS),$(file >$@.sources,$(VCPROJ_SRCS)))'
-			+ `${makeShellPath(tools.executables.shell.path)} ${makeShellPath(join(hostRoot, 'build/windows-vpx-project.sh'))} `
+			// Capture the upstream prerequisite list while expanding it to no
+			// arguments. Leaving the list in the recipe still exceeds Windows'
+			// CreateProcess limit before our response-file helper can start.
+			// Command-line variables are also exported for install recipes; only
+			// project targets may create a source response before their command.
+			'VCPROJ_SRCS=$(if $(filter %.vcxproj,$@),$(file >$@.sources,$(filter-out $(addprefix %, $(ASM_INCLUDES)), $^)))',
+			`GEN_VCPROJ=${makeShellPath(tools.executables.shell.path)} ${makeShellPath(join(hostRoot, 'build/windows-vpx-project.sh'))} `
 			+ `${makeShellPath(join(externalSourceRoots.libvpx, 'build/make/gen_msvs_vcxproj.sh'))} $@.sources`] : [];
 	// Configure records Git Bash's /c aliases, which native Make cannot open.
 	// Read the authenticated upstream Makefile directly and override both aliases.
+	const ffmpegDependencies = windows ? `${makeShellPath(tools.executables.shell.path)} `
+		+ `${makeShellPath(join(hostRoot, 'build/windows-ffmpeg-dependencies.sh'))} "$@" "$(@:.o=.d)" `
+		+ '$(DEP$(1)) $(DEP$(1)FLAGS) $($(1)DEP_FLAGS) "$<"' : null;
 	const ffmpegMake = windows ? ['-f', makefilePath(join(ffmpegSourceRoot, 'Makefile'), true),
 		`SRC_PATH=${makefilePath(ffmpegSourceRoot, true)}`, `SRC_LINK=${makefilePath(ffmpegSourceRoot, true)}`,
-		`SHELL=${makefilePath(tools.executables.shell.path, true)}`, '.SHELLFLAGS=-e -c'] : [];
+		`SHELL=${makefilePath(tools.executables.shell.path, true)}`, '.SHELLFLAGS=-e -c',
+		`CCDEP=${ffmpegDependencies}`, `CXXDEP=${ffmpegDependencies}`] : [];
 	const ffmpegBuildEnvironment = windows ? Object.freeze({ ...dependencyEnvironment,
 		PATH: vpxBuildEnvironment.PATH,
 	}) : dependencyEnvironment;
@@ -234,6 +243,8 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		command('zlib-configure', tools.executables.cmake.path, zlibArgs, paths.zlibSource, nativeEnvironment),
 		command('zlib-build', tools.executables.cmake.path, ['--build', paths.zlibBuild, '--config', 'Release', '--target', 'zlibstatic', '--parallel', '1'], paths.zlibBuild, nativeEnvironment),
 		command('zlib-install-metadata', tools.executables.cmake.path, ['--install', paths.zlibBuild, '--config', 'Release', '--prefix', paths.zlibInstall], paths.zlibBuild, nativeEnvironment),
+		...(windows ? [command('zlib-normalize-header', process.execPath, [join(hostRoot, 'build/windows-zlib-header.ts'),
+			join(paths.zlibInstall, 'include', 'zconf.h')], paths.zlibBuild, nativeEnvironment)] : []),
 		command('zlib-install-library-directory', tools.executables.cmake.path, ['-E', 'make_directory', join(paths.zlibInstall, 'lib')], paths.zlibBuild, nativeEnvironment),
 		command('zlib-install-static-library', tools.executables.cmake.path, ['-E', 'copy', join(paths.zlibBuild, zlibLibrary), join(paths.zlibInstall, 'lib', installedZlibLibrary)], paths.zlibBuild, nativeEnvironment),
 		command('x264-configure', tools.executables.shell.path, x264Args, paths.x264Build, makeEnvironment),
@@ -259,12 +270,16 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		command('svt-av1-configure', tools.executables.cmake.path, svtArgs, paths.svtAv1Build, nativeEnvironment),
 		command('svt-av1-build', tools.executables.cmake.path, ['--build', paths.svtAv1Build, '--config', 'Release', '--parallel', '2'], paths.svtAv1Build, nativeEnvironment),
 		command('svt-av1-install', tools.executables.cmake.path, ['--install', paths.svtAv1Build, '--config', 'Release'], paths.svtAv1Build, nativeEnvironment),
+		...(windows ? [command('svt-av1-normalize-pkg-config', process.execPath, [join(hostRoot, 'build/windows-svt-pkg-config.ts'),
+			join(paths.svtAv1Install, 'lib', 'pkgconfig', 'SvtAv1Enc.pc')], paths.svtAv1Build, nativeEnvironment)] : []),
 		command('libopus-configure', tools.executables.cmake.path, opusArgs, paths.libopusBuild, nativeEnvironment),
 		command('libopus-build', tools.executables.cmake.path, ['--build', paths.libopusBuild, '--config', 'Release', '--target', 'opus', '--parallel', '1'], paths.libopusBuild, nativeEnvironment),
 		command('libopus-install', tools.executables.cmake.path, ['--install', paths.libopusBuild, '--config', 'Release', '--prefix', paths.libopusInstall], paths.libopusBuild, nativeEnvironment),
 		command('ffmpeg-configure', tools.executables.shell.path, ffmpegArgs, paths.ffmpegBuild, dependencyEnvironment),
 		command('ffmpeg-build', tools.executables.make.path, ['-C', paths.ffmpegBuild, '-j1', ...ffmpegMake], paths.ffmpegBuild, ffmpegBuildEnvironment),
-		command('ffmpeg-install', tools.executables.make.path, ['-C', paths.ffmpegBuild, 'install', ...ffmpegMake], paths.ffmpegBuild, ffmpegBuildEnvironment),
+		// Quiet-mode INSTALL duplicates $^ in one shell command, exceeding Windows' 8191-byte limit.
+		// Use upstream verbosity only for installation so the complete header list appears once.
+		command('ffmpeg-install', tools.executables.make.path, ['-C', paths.ffmpegBuild, 'install', ...ffmpegMake, ...(windows ? ['V=1'] : [])], paths.ffmpegBuild, ffmpegBuildEnvironment),
 		command('host-configure', tools.executables.cmake.path, hostArgs, hostRoot, hostEnvironment),
 		command('host-build', tools.executables.cmake.path, ['--build', paths.hostBuild, '--config', 'Release', '--parallel', '1'], hostRoot, hostEnvironment),
 		command('host-install', tools.executables.cmake.path, ['--install', paths.hostBuild, '--config', 'Release', '--prefix', paths.hostInstall], hostRoot, hostEnvironment),
@@ -301,7 +316,10 @@ function vpxTarget(target) {
 	if (target === 'win-arm64') return 'arm64-win64-vs17';
 	if (target === 'linux-x64') return 'x86_64-linux-gcc';
 	if (target === 'linux-arm64') return 'arm64-linux-gcc';
-	return 'arm64-darwin-gcc';
+	// In pinned libvpx, the unnumbered ARM Darwin target selects iPhoneOS.
+	// Darwin 20 is its first Apple Silicon macOS target; the recipe retains
+	// MACOSX_DEPLOYMENT_TARGET=13.0 for the actual minimum desktop OS.
+	return 'arm64-darwin20-gcc';
 }
 
 function vpxArchitectureDisables(target) {

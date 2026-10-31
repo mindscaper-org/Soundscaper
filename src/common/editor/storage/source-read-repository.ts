@@ -361,6 +361,8 @@ export class SourceReadRepository {
 
 function throwIfAborted(signal?: AbortSignal): void {
 	if (!signal?.aborted) return;
+	const reason = signal.reason;
+	if (reason !== undefined) throw reason;
 	const error = new Error('Audio source loading was cancelled.');
 	error.name = 'AbortError';
 	throw error;

@@ -4,10 +4,12 @@ import { strFromU8, unzipSync } from 'fflate';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, collectClientErrors, disableNativeSavePicker, importFiles, chooseExportProjectFileAction, downloadBytes, chooseNestedCommandAction, chooseCommandAction, openClipProperties, showClipTimingFields, clipField, closeClipProperties, waitForEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 for (const picture of [1, 2]) test(`video import retains its longer audio programme: ${picture}s picture, 2s audio`, async ({ page }, testInfo) => {
 	test.setTimeout(60_000); const errors = collectClientErrors(page);
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
+	const projectId = await editor.getAttribute('data-project-id');
 	const original = nativeVideoAudioTailFixture(picture);
 	await importFiles(editor, [{ name: 'Programme.mp4', mimeType: 'video/mp4', buffer: original }]);
 	await expect(editor).toHaveAttribute('data-clip-count', '2');
@@ -22,6 +24,7 @@ for (const picture of [1, 2]) test(`video import retains its longer audio progra
 	const savedOriginal = Buffer.from(entries[`media/${video.id}/original`]);
 	expect(savedOriginal.byteLength).toBe(original.byteLength); expect(savedOriginal.equals(original)).toBe(true);
 	expect(audio.frameCount).toBe(96_000);
+	expect(project.clips.find(clip => clip.sourceId === audio.id)).toMatchObject({ kind: 'audio' });
 	const pcm = Buffer.from(entries[`audio/${audio.id}.f32c`]); let energy = 0;
 	for (let frame = 72_000; frame < 84_000; frame++) energy += pcm.readFloatLE(4 + frame * 4) ** 2;
 	expect(Math.sqrt(energy / 12_000)).toBeGreaterThan(.05);
@@ -30,7 +33,14 @@ for (const picture of [1, 2]) test(`video import retains its longer audio progra
 		const clip = editor.getByRole('group', { name: /^Programme Audio clip,/u }); await clip.press('Enter');
 		await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Unlink audio']);
 		const properties = await openClipProperties(page, editor, clip); await showClipTimingFields(properties);
+		// Unlink retains the mixed selection, whose native inspector still edits sample frames.
 		await clipField(properties, 'durationFrame').fill('96000'); await clipField(properties, 'durationFrame').press('Tab');
+		await expect(properties.locator('[data-clip-field="durationFrame"] [data-timecode-direct-entry]')).toHaveValue('96000');
+		const clipId = await properties.locator('[data-clip-properties-active-clip]').getAttribute('data-clip-properties-active-clip');
+		await expect.poll(async () => {
+			const saved = await persistedProject(page, projectId), clip = saved?.clips.find(clip => clip.id === clipId);
+			return { sampleRate: saved?.sampleRate, kind: clip?.kind, duration: clip?.durationFrames };
+		}).toEqual({ sampleRate: 48_000, kind: 'audio', duration: 96_000 });
 		await closeClipProperties(properties); await expect(clip).toHaveAccessibleName(/2 seconds long$/u);
 	}
 	const output = await exportSamples(page, editor); expect(output.length).toBe(96_000);

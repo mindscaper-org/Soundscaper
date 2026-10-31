@@ -97,10 +97,10 @@ async function fixture(t: TestContext) {
 		pageHide: (persisted = false) => events.dispatchEvent(Object.assign(new Event('pagehide'), { persisted })),
 		async replace() { project = { ...project }; await render(); },
 		rebind: () => bindProductVideoVisualPreviewRuntime(controller, runtime),
-		async remount(freshController = false) {
+		async remount(freshController = false, container = dom.container) {
 			await unmount();
 			if (freshController) controller = createController('blob:incoming-thumbnail');
-			root = createRoot(dom.container as unknown as Element);
+			root = createRoot(container as unknown as Element);
 			mounted = true;
 			await render();
 		},
@@ -159,19 +159,21 @@ test('a late remount cannot give an outgoing controller ownership of the incomin
 	const f = await fixture(t);
 	f.pageHide();
 	await f.unmount();
-	const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
-	assert.ok(original);
-	Object.defineProperty(globalThis, 'document', { configurable: true, value: {} });
+	const incoming = installReactTestDom();
 	try {
 		f.rebind();
 		await f.remount();
 		assert.equal(f.requests.length, 1, 'remounting the outgoing controller cannot admit its old URL');
 		await f.remount(true);
+		assert.equal(f.requests.length, 1, 'a new controller still cannot lend incoming ownership to the old React root');
+		await f.remount(true, incoming.container);
+		assert.equal(incoming.one('[data-clip-id="video-clip"]').ownerDocument, incoming.container.ownerDocument);
 		assert.equal(f.requests.length, 2, 'a fresh controller bound to the incoming document may decode its own URL');
 		assert.equal(f.requests[1]?.signal?.aborted, false);
 		assert.equal(f.requests[1]?.frames[0]?.sourceUrl, 'blob:incoming-thumbnail');
 	} finally {
-		Object.defineProperty(globalThis, 'document', original);
+		try { await f.unmount(); }
+		finally { incoming.restore(); }
 	}
 });
 

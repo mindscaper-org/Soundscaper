@@ -17,10 +17,12 @@ test('ordinary browser product sites use separate validated loopback origins', (
 	const plan = ordinaryBrowserProductSitePlan({
 		PLAYWRIGHT_PORT: '4510',
 		PLAYWRIGHT_FRAMESCAPER_PORT: '4517',
+		PLAYWRIGHT_LIGHTSCAPER_PORT: '4518',
 	});
 	assert.deepEqual(plan.sites.map(({ productId, origin }) => ({ productId, origin })), [
 		{ productId: 'soundscaper', origin: 'http://127.0.0.1:4510' },
 		{ productId: 'framescaper', origin: 'http://127.0.0.1:4517' },
+		{ productId: 'lightscaper', origin: 'http://127.0.0.1:4518' },
 	]);
 	const server = vitePreviewServer(plan.sites[1]);
 	assert.equal(server.url, 'http://127.0.0.1:4517/en/');
@@ -42,6 +44,9 @@ test('ordinary browser product sites use separate validated loopback origins', (
 		() => ordinaryBrowserProductSitePlan({ PLAYWRIGHT_PORT: 'not-a-port' }),
 		/integer port/u,
 	);
+	assert.throws(() => ordinaryBrowserProductSitePlan({
+		PLAYWRIGHT_LIGHTSCAPER_PORT: '4323',
+	}), /different ports/u);
 });
 
 test('ordinary site preparation authenticates Framescaper before copying Soundscaper unchanged', async () => {
@@ -51,6 +56,7 @@ test('ordinary site preparation authenticates Framescaper before copying Soundsc
 		sites: [
 			browserSite('soundscaper', '4540', `${relativeDirectory}/soundscaper`),
 			browserSite('framescaper', '4541', `${relativeDirectory}/framescaper`),
+			browserSite('lightscaper', '4542', `${relativeDirectory}/lightscaper`),
 		],
 	};
 	const soundscaperSource = `${relativeDirectory}/soundscaper-source`;
@@ -59,6 +65,8 @@ test('ordinary site preparation authenticates Framescaper before copying Soundsc
 		await writeBrowserProductFixture(resolve(soundscaperSource), 'soundscaper', productionRedirect);
 		await writeBrowserProductFixture(resolve(plan.sites[1].outputDirectory), 'framescaper');
 		await recordBrowserProductSiteEvidence(plan.sites[1]);
+		await writeBrowserProductFixture(resolve(plan.sites[2].outputDirectory), 'lightscaper');
+		await recordBrowserProductSiteEvidence(plan.sites[2]);
 		await writeFile(resolve(plan.sites[1].outputDirectory, '_headers'), 'corrupted\n', 'utf8');
 
 		await assert.rejects(
@@ -72,6 +80,17 @@ test('ordinary site preparation authenticates Framescaper before copying Soundsc
 		);
 
 		await writeFile(resolve(plan.sites[1].outputDirectory, '_headers'), 'headers\n', 'utf8');
+		await writeFile(resolve(plan.sites[2].outputDirectory, '_headers'), 'corrupted\n', 'utf8');
+		await assert.rejects(
+			() => prepareOrdinaryBrowserProductSites(plan, { soundscaperBuildDirectory: soundscaperSource }),
+			/verified lightscaper browser file changed/u,
+		);
+		await assert.rejects(
+			() => readFile(resolve(plan.sites[0].outputDirectory, '_redirects'), 'utf8'),
+			/ENOENT/u,
+			'the Soundscaper copy must wait for every other product artifact to authenticate',
+		);
+		await writeFile(resolve(plan.sites[2].outputDirectory, '_headers'), 'headers\n', 'utf8');
 		await prepareOrdinaryBrowserProductSites(plan, { soundscaperBuildDirectory: soundscaperSource });
 		assert.equal(
 			await readFile(resolve(plan.sites[0].outputDirectory, '_redirects'), 'utf8'),
@@ -146,7 +165,8 @@ test('prepared consumer sites authenticate served bytes without requiring absent
 	context.after(() => rm(directory, { recursive: true, force: true }));
 	const outputRoot = relative(resolve('.'), directory).split('\\').join('/');
 	const plan = { sites: [browserSite('soundscaper', '4540', `${outputRoot}/soundscaper`),
-		browserSite('framescaper', '4541', `${outputRoot}/framescaper`)] };
+		browserSite('framescaper', '4541', `${outputRoot}/framescaper`),
+		browserSite('lightscaper', '4542', `${outputRoot}/lightscaper`)] };
 	for (const site of plan.sites) {
 		await writeBrowserProductFixture(resolve(site.outputDirectory), site.productId);
 		await mkdir(`${site.outputDirectory}-source-maps`);
@@ -160,8 +180,13 @@ test('prepared consumer sites authenticate served bytes without requiring absent
 	});
 	assert.equal(await readFile(resolve(plan.sites[0].outputDirectory, '.browser-product-build.json'), 'utf8'), before);
 	await assert.rejects(() => prepareOrdinaryBrowserProductSites(plan, { reusePrepared: true, sourceMaps: true }), /source.map.*inventory/u);
-	await writeFile(resolve(plan.sites[0].outputDirectory, '_headers'), 'tampered');
-	await assert.rejects(() => prepareOrdinaryBrowserProductSites(plan, { reusePrepared: true, sourceMaps: false }), /browser file changed/u);
+	for (const site of plan.sites) {
+		const headers = resolve(site.outputDirectory, '_headers'), before = await readFile(headers);
+		await writeFile(headers, 'tampered');
+		await assert.rejects(() => prepareOrdinaryBrowserProductSites(plan, { reusePrepared: true, sourceMaps: false }),
+			new RegExp(`verified ${site.productId} browser file changed`, 'u'));
+		await writeFile(headers, before);
+	}
 });
 
 test('coverage consumers require every recorded source map and authenticate its bytes', async context => {

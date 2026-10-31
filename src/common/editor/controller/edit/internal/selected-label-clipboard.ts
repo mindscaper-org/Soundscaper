@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { normalizeLabelClipboardDescriptor, type LabelClipboardDescriptor } from '../../../commands/label-clipboard-codec.ts';
+import { isAudioEditorLabelClipboardDescriptor } from '../../../commands/clipboard-codec.ts';
+import type { CurrentAudioEditorClipboardDescriptor } from '../../../commands/clipboard-command-v2.ts';
 import type { AudioEditorClipboard, AudioEditorCommand } from '../../../commands/protocol.ts';
 import { isRecord, labelClipboardTarget, selectedLabelsForProject, type SelectedLabelState } from '../../../label-clipboard-selection.ts';
 import { scaleSampleFrame, type HoldTempoMap } from '../../../timeline-time.ts';
@@ -8,7 +10,7 @@ import { createSampleFrameBeatProjector } from '../../../timeline-tempo-inverse.
 import { setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
 
 interface State extends SelectedLabelState {
-	clipboard: AudioEditorClipboard | null;
+	clipboard: CurrentAudioEditorClipboardDescriptor | null;
 	selectedTrackId: string | null;
 	selectedClipId: string | null;
 	selectedAnnotationId?: string | null;
@@ -61,7 +63,9 @@ export function createSelectedLabelClipboardService(d: Dependencies) {
 	function handle(action: string): boolean {
 		const paste = PASTE_ACTIONS.has(action);
 		if (action !== 'copy' && !CUT_ACTIONS.has(action) && !paste) return false;
-		if (paste ? d.state.clipboard?.schemaVersion !== 7 : !d.state.selectedLabels?.length) return false;
+		const descriptor = paste && isAudioEditorLabelClipboardDescriptor(d.state.clipboard)
+			? normalizeLabelClipboardDescriptor(d.state.clipboard) : null;
+		if (paste ? descriptor === null : !d.state.selectedLabels?.length) return false;
 		const project = requireProject();
 		const refs = paste ? [] : selectedLabelsForProject(project, d.state);
 		if (refs.length && (action === 'copy' || CUT_ACTIONS.has(action))) {
@@ -84,8 +88,7 @@ export function createSelectedLabelClipboardService(d: Dependencies) {
 			d.publish();
 			return true;
 		}
-		if (!PASTE_ACTIONS.has(action) || d.state.clipboard?.schemaVersion !== 7) return false;
-		const descriptor = normalizeLabelClipboardDescriptor(d.state.clipboard);
+		if (!PASTE_ACTIONS.has(action) || !descriptor) return false;
 		const target = labelClipboardTarget(project, d.state.selectedTrackId);
 		if (!target) {
 			setLocalizedStatus(d.setStatus, d.copy, 'labelTrackMissing', undefined, 'info');

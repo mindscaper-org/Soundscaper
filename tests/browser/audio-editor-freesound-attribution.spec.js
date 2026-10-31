@@ -78,7 +78,7 @@ let previewFixturePromise;
 test.describe('Freesound discovery and attribution', () => {
 	registerAudioEditorHooks();
 
-	test('previews and drops a result, preserves local metadata, and round-trips attribution', async ({ browser, page }) => {
+	test('previews and drops a result, preserves local metadata, and round-trips attribution', async ({ createBrowserContext, page }) => {
 		test.setTimeout(90_000);
 		await disableNativeSavePicker(page);
 		await page.addInitScript(() => {
@@ -324,10 +324,10 @@ test.describe('Freesound discovery and attribution', () => {
 		const archiveDownload = await archivePromise;
 		const archive = await downloadBytes(archiveDownload);
 		await archiveDownload.delete();
-		const reopenedPage = await browser.newPage({
-			baseURL: new URL(page.url()).origin,
-			serviceWorkers: 'block',
-		});
+		const baseURL = new URL(page.url()).origin;
+		await page.context().close();
+		const reopenedContext = await createBrowserContext({ baseURL, serviceWorkers: 'block' });
+		const reopenedPage = reopenedContext.pages()[0] ?? await reopenedContext.newPage();
 		try {
 			const reopenedEditor = await bootEditor(reopenedPage, '/embed/en/');
 			await reopenedEditor.locator('[data-aup4-input]').setInputFiles({
@@ -352,7 +352,7 @@ test.describe('Freesound discovery and attribution', () => {
 			await expect(metadataField(reopenedPage, reopenedLocal, 'raw.TXXX.location'))
 				.toContainText(LOCAL_SOUND.location);
 		} finally {
-			await reopenedPage.close({ runBeforeUnload: false });
+			await reopenedContext.close();
 		}
 	});
 

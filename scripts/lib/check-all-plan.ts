@@ -45,7 +45,7 @@ export function createCheckAllPlan(root: string, npmCli: string, scripts: Record
 		tasks.push({
 			id: `browser/${shard}`, dependsOn: ['build', interchangePreparation], browser: true,
 			args: [resolve(root, 'node_modules/@playwright/test/cli.js'), 'test',
-				'--config=playwright.check-all.config.ts', `--shard=${shard}/4`, '--workers=2',
+				'--config=playwright.check-all.config.ts', `--shard=${shard}/4`, '--workers=1', '--retries=0',
 				`--output=test-results/check-all/browser-${shard}`],
 			env: { SCAPE_CHECK_ALL_SERVERS: '1', SCAPE_BROWSER_COVERAGE: '' },
 		});

@@ -78,6 +78,10 @@ export class ScapeArchiveReimportRequiredError extends RangeError {
 
 export interface ScapeFamilyCodec<Family extends string> {
 	readonly assetKinds?: readonly string[];
+	resolveAssetKinds?(
+		identity: Readonly<{ schemaFamily: Family; schemaVersion: number }>,
+		additional: readonly string[],
+	): ReadonlySet<string>;
 	readIdentity(value: unknown): Readonly<{ schemaFamily: Family; schemaVersion: number }>;
 	parseProjectDocument(text: string): unknown;
 }
@@ -282,8 +286,10 @@ function parseScapeManifest<Family extends string>(text: string, additionalAsset
 		throw new TypeError('The Scape manifest is incomplete.');
 	}
 	validateDescriptor(value.project);
-	codec.readIdentity(value.project);
-	const assetKinds = allowedAssetKinds(additionalAssetKinds, codec.assetKinds ?? []);
+	const identity = codec.readIdentity(value.project);
+	const assetKinds = codec.resolveAssetKinds
+		? codec.resolveAssetKinds(identity, additionalAssetKinds)
+		: allowedAssetKinds(additionalAssetKinds, codec.assetKinds ?? []);
 	for (const asset of value.assets) {
 		if (!isRecord(asset)) throw new TypeError('A Scape asset descriptor is invalid.');
 		validateDescriptor(asset);

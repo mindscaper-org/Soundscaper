@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { EDITOR_ENGLISH_COPY } from '../src/common/i18n/editor-copy-inventory.ts';
+import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
 
 import {
 	bindFramescaperCandidateAuthoringActionRuntime,
@@ -186,11 +187,9 @@ test('candidate visual entries fail closed for read-only, missing actions, and m
 	items.generate[0]?.onClick?.();
 });
 
-test('the product menu seam places baseline authoring in Tracks, Generate, and Effect only', () => {
+test('the product menu seam retains baseline authoring and opt-in image entries in existing product menus', () => {
 	const items = createApplicationMenuProductItems({
-		productId: 'framescaper', project: {
-			schemaFamily: 'framescaper', schemaVersion: 1, sequences: [], subsequences: [],
-		},
+		productId: 'framescaper', project: createFramescaperProject(),
 		capabilities: {
 			videoTransitions: true, videoTransitionDissolve: true, videoStills: true,
 			videoGenerators: true, videoAdjustmentLayers: true, videoMasksMattes: true,
@@ -228,5 +227,11 @@ test('the product menu seam places baseline authoring in Tracks, Generate, and E
 	assert.deepEqual(filtered[1]?.items.map(({ id }: { id: string }) => id), [
 		'framescaper-video-transitions', 'framescaper-edit-video-mask-matte',
 		'framescaper-freeze-video', 'framescaper-video-finishing',
+		'image-develop-repairs', 'image-develop-masks', 'image-develop-brush', 'image-hdr-merge',
 	]);
+	for (const id of ['image-develop-repairs', 'image-develop-masks', 'image-develop-brush', 'image-hdr-merge']) {
+		const entry = items.effect.find((item: { id: string }) => item.id === id); assert.ok(entry, id);
+		assert.equal(entry.disabled, true, `${id} cannot open without a selected image/bracket and owning action`);
+		entry.onClick?.();
+	}
 });

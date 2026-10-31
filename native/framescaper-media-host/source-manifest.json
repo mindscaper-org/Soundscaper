@@ -87,8 +87,8 @@
 		},
 		{
 			"path": "build/media-build-commands.mjs",
-			"byteLength": 20244,
-			"sha256": "5f41e94394b717f7571325d92a6d7e7125a2513c33ab2c2a67a1199db09d90ff"
+			"byteLength": 21864,
+			"sha256": "f44a025845fd86e721b59c0e6cb35a8082d1fefffe87df12dd8b9ee765a9a962"
 		},
 		{
 			"path": "build/recipe-cli.mjs",
@@ -97,8 +97,8 @@
 		},
 		{
 			"path": "build/recipe-driver.mjs",
-			"byteLength": 22204,
-			"sha256": "85d22a909b79f342c96299ccf836c75c84c29a7360bab6a9bd5ea03b8aeefe05"
+			"byteLength": 22352,
+			"sha256": "7b959e367567e970d5ea7634f34541772ce2393e1e8abc41115e6ec141610171"
 		},
 		{
 			"path": "build/source-authentication.mjs",
@@ -136,6 +136,21 @@
 			"sha256": "9c4970be569da491d10dcc73d86c731e1c90bdd55ef517c7699fbb7fba2c7879"
 		},
 		{
+			"path": "build/windows-ffmpeg-dependencies.sh",
+			"byteLength": 1031,
+			"sha256": "986361b37219dd0cb868f968f6efb7866e47fc77dd6667d6b360e208933c8d0d"
+		},
+		{
+			"path": "build/windows-installed-codec-text.ts",
+			"byteLength": 3997,
+			"sha256": "47124aff3903e23d3aa7d81eb74bf3387b1304fd22f87e8ad5e14a2d9897c7c1"
+		},
+		{
+			"path": "build/windows-svt-pkg-config.ts",
+			"byteLength": 2075,
+			"sha256": "a1d42f1d34d2b0db85c186cd8094a5efadd355c9c74a2a51706baed67ba708ec"
+		},
+		{
 			"path": "build/windows-vpx-project.sh",
 			"byteLength": 949,
 			"sha256": "452a5f803f3f1b60d9d483de8ebfb32a357e3d59788db45a7c27a5e7cef8418f"
@@ -144,6 +159,11 @@
 			"path": "build/windows-vpx.pc",
 			"byteLength": 244,
 			"sha256": "6fee3eb6c3e8b129b19174ca7e3f01222b57690c197183012ba0ce07f443f670"
+		},
+		{
+			"path": "build/windows-zlib-header.ts",
+			"byteLength": 2116,
+			"sha256": "b88cd90dd6945271ee6abe0906d4f36b9faa679b9bacde83fbfec8c4e8eafce9"
 		},
 		{
 			"path": "src/exact_retime_ordinal.hpp",

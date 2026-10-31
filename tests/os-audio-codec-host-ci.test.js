@@ -240,7 +240,7 @@ test('pull-request quality compiles every supported Windows and macOS native tar
 	assert.match(macosConfigure,
 		/-DSOUNDSCAPER_NATIVE_TARGET=\$\{\{ matrix\.target\.native_target \}\}/u);
 
-	assertJobDependencies(jobs.coverage, ['build', 'tests', 'native-platform-compile', 'browser', 'firefox', 'lint', 'typecheck', 'audits']);
+	assertJobDependencies(jobs.coverage, ['build', 'tests', 'native-platform-compile', 'browser', 'firefox', 'browser-lightscaper-gpu', 'lint', 'typecheck', 'audits']);
 	assert.equal(jobs.coverage.if, 'always()', 'the aggregate must observe native failures even after dependencies fail');
 	assert.ok(jobs.coverage.steps.some(({ run }) => run === 'node scripts/check-module-ci-results.mjs'),
 		'the always-running aggregate must reject failed native prerequisites');

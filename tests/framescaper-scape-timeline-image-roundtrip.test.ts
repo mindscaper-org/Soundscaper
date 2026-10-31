@@ -66,6 +66,7 @@ test('timeline-image .scape export and import preserve two authenticated bodies 
 	for (const image of fixture.images) {
 		const source = imageSources(importedProject).find(({ id }) => id === image.source.id);
 		assert.ok(source);
+		assert.ok(source.schemaVersion === 1, 'Historical FramePack1 requires the actual imported Source1.');
 		const metadata = await recipient.getMediaAssetMetadata(source.storageKey);
 		assert.ok(metadata);
 		assert.equal(metadata.sha256, source.contentSha256);

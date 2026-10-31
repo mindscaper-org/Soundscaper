@@ -8,8 +8,8 @@ import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 
 test('Delete and close gap per track works for clips anchored to beats', async ({ page }) => {
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` });
-	let blob;
+	const store = createProjectStore({ databaseName: `browser-musical-clip-ripple-${crypto.randomUUID()}`, indexedDB: null, preferOpfs: false });
+	let archiveBytes;
 	try {
 		const source = createAudioSource({ id: 'tone', frameCount: 48_000, sampleRate: 48_000, channelCount: 1 });
 		const writer = await store.beginSourceWrite(source.storageKey, source);
@@ -21,10 +21,14 @@ test('Delete and close gap per track works for clips anchored to beats', async (
 				createAudioClip({ id: 'later', title: 'Later', sourceId: source.id, anchor: 'musical', musicalStartBeat: 8,
 					musicalExtent: 'beat', musicalDurationBeats: 2, sourceDurationFrames: 48_000 }),
 			] });
-		blob = (await exportScapeProject(project, store)).blob;
-	} finally { await store.close(); }
+		const archive = await exportScapeProject(project, store);
+		archiveBytes = Buffer.from(await archive.blob.arrayBuffer());
+	} finally {
+		try { await store.clear(); }
+		finally { await store.close(); }
+	}
 	const editor = await bootEditor(page, '/embed/en/');
-	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Musical clips.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
+	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Musical clips.sscape', mimeType: 'application/zip', buffer: archiveBytes });
 	await expect(editor).toHaveAttribute('data-project-id', 'musical-ripple');
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'read-only');
 	await clipByName(editor, 'First').locator('.clip-header').click();

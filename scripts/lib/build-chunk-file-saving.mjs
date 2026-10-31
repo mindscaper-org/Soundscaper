@@ -1,0 +1,20 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+/** @type {import('rolldown').CodeSplittingGroup[]} */
+export const fileSavingChunkGroups = [
+	{
+		// Portable names, picker preparation, staged native writes and delayed
+		// downloads are independent of read, codec and editor services.
+		name: 'editor-file-saving',
+		test: /src[\\/]common[\\/]editor[\\/](?:browser-file-save-service|export-name-byte-budget|file-save-stream|object-url-revoke|portable-save-file-name)\.ts$/,
+		priority: 99, minSize: 0, maxSize: 400_000, includeDependenciesRecursively: false,
+	},
+	{
+		// Portable ZIP framing, byte digests, bounded document serialization,
+		// durable asset plans and body checks share the archive byte owner.
+		// The bounded binary/JSON encoder consumes shared neutral literal-key contracts.
+		name: 'editor-scape-archive-bytes',
+		test: new RegExp([/src[\\/]common[\\/]editor[\\/](?:scape-(?:abort|byte-stream|export-estimate|export-destination|archive-zip-profile|photo-catalog-pack(?:-v[234])?|photo-cube-lut|photo-mask-raster-v1|photo-develop-preset-pack(?:-v4)?|photo-stack-pack|photo-smart-collection-pack|project-document(?:-encode)?|project-json-preflight|durable-asset-plan-core-v1)|video-motion-analysis-body-v1)\.ts$/.source, /src[\\/]common[\\/](?:scape[\\/](?:abort|archive-zip-profile)|media[\\/]bytes)\.ts$/.source].join('|')),
+		priority: 99, minSize: 0, maxSize: 400_000, includeDependenciesRecursively: false,
+	},
+];

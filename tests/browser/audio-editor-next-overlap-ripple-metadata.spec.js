@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseNestedCommandAction, chooseCommandAction, clipByName } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseNestedCommandAction, chooseCommandAction, clipByName, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 import { overlapRippleProject } from '../helpers/next-overlap-ripple-project.ts';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
@@ -8,7 +8,7 @@ import { createProjectStore } from '../../src/common/editor/storage.js';
 
 for (const kind of ['takes', 'automation']) test(`overlapping clip ripple keeps ${kind} aligned with the remaining audio`, async ({ page }) => {
 	const { project, source } = overlapRippleProject(kind);
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` });
+	const store = createProjectStore({ databaseName: `overlap-ripple-${kind}-${crypto.randomUUID()}`, indexedDB: null, preferOpfs: false });
 	let blob;
 	try {
 		const writer = await store.beginSourceWrite(source.storageKey, source);
@@ -18,7 +18,7 @@ for (const kind of ['takes', 'automation']) test(`overlapping clip ripple keeps 
 	const editor = await bootEditor(page, '/embed/en/');
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Overlap ripple.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-project-id', project.id);
-	await expect(editor).not.toHaveAttribute('data-project-activation-pending', 'true');
+	await waitForProjectActivation(editor);
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
 	await clipByName(editor, 'First').press('Enter');
 	await expect(clipByName(editor, 'First').locator('.clip-display')).toHaveAttribute('data-selected', 'true');

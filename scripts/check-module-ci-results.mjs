@@ -9,7 +9,7 @@ export function assertModuleCIResults(results) {
 	if (!results || typeof results !== 'object' || Array.isArray(results) || Object.keys(results).length === 0) {
 		throw new Error('The Quality aggregate requires explicit prerequisite results.');
 	}
-	for (const id of ['build', 'tests', 'native-platform-compile', 'browser', 'firefox', 'lint', 'typecheck', 'audits']) {
+	for (const id of ['build', 'tests', 'native-platform-compile', 'browser', 'firefox', 'browser-lightscaper-gpu', 'lint', 'typecheck', 'audits']) {
 		if (results[id]?.result !== 'success') throw new Error(`Required Quality job ${id} did not succeed (${results[id]?.result ?? 'missing'}).`);
 	}
 }

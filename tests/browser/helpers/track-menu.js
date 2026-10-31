@@ -15,9 +15,11 @@ export const TRACK_MENU_TRIGGER = /^(?:Track menu|Track options|Spuroptionen|Spu
  */
 export async function chooseTrackMenuAction(page, editor, trackRow, path) {
 	const item = await openTrackMenuPath(page, editor, trackRow, path);
+	await expect(item).toBeEnabled();
 	await item.focus();
 	await expect(item).toBeFocused();
 	await item.press('Enter');
+	await expect(page.locator('.audio-editor-track-menu')).toBeHidden();
 }
 
 async function openTrackMenuPath(page, editor, trackRow, path) {

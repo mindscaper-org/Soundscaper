@@ -29,7 +29,7 @@ import { ClipPitchUnitToggle, clipAudioPropertyControls, type ClipMediaActions }
 export type { ClipPropertiesFocusRequest } from '../../controller/composition/clip-properties-panel-opening.ts';
 interface Props {
 	readonly controller: object;
-	readonly run: (operation: () => unknown) => unknown;
+	readonly run?: (operation: () => unknown) => unknown;
 	readonly snapshot: ClipPropertiesSelectionSnapshot & Readonly<Record<string, unknown>>;
 	readonly copy: Readonly<Record<string, string>>;
 	readonly focusRequest?: ClipPropertiesFocusRequest | null;
@@ -53,8 +53,9 @@ interface Editor {
 }
 
 /** Upstream glyph fields and merged selections, with the editor's native commands. */
-export default function ClipPropertiesPanel({ controller, snapshot, copy, focusRequest = null, panelActive = true, runtimeProject = null, run: runCommand }: Props) {
+export default function ClipPropertiesPanel({ controller, snapshot, copy, focusRequest = null, panelActive = true, runtimeProject = null, run: runCommand = operation => operation() }: Props) {
 	const selected = useClipPropertiesSelection(snapshot, copy.clip);
+	const activationPending = snapshot.ready === false || Boolean(snapshot.projectActivationPending);
 	const editor = controller as Editor;
 	const project = useMemo(() => {
 		const owner = runtimeProject ?? snapshot.project;
@@ -72,16 +73,19 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 	const [pitchUnit, setPitchUnit] = useState<'semitones' | 'percent'>('semitones');
 	useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 	useEffect(() => {
-		if (!panelActive || !focusRequest || handledFocus.current === focusRequest) return;
+		if (!panelActive || activationPending || !focusRequest || handledFocus.current === focusRequest) return;
 		const ownsProject = focusRequest.projectId === undefined || focusRequest.projectId === project?.id;
 		const hasClip = selected.clips.some(clip => clip.id === focusRequest.clipId);
 		if (ownsProject && hasClip) {
 			const field = focusRequest.field === 'pitchCents' ? 'pitch' : focusRequest.field === 'speedRatio' ? 'speed' : 'name';
-			const input = root.current?.querySelector(`[data-clip-properties-field="${field}"]`)?.querySelector<HTMLInputElement | HTMLTextAreaElement>('input,textarea');
+			const input = focusRequest.field ? (root.current?.querySelector(`[data-clip-properties-field="${field}"]`)
+				?? root.current?.querySelector(`[data-clip-field="${focusRequest.field}"]`))?.querySelector<HTMLInputElement | HTMLTextAreaElement>('input,textarea') : null;
+			const drawer = input?.closest('details');
+			if (input && !input.disabled && drawer) drawer.open = true;
 			if (input && !input.disabled) input.focus(); else root.current?.focus();
 		}
 		handledFocus.current = focusRequest; focusRequest.onHandled?.();
-	}, [focusRequest, panelActive, project?.id, selected.clips]);
+	}, [focusRequest, panelActive, activationPending, project?.id, selected.clips]);
 	const ownsTarget = () => mounted.current && liveTarget.current === targetKey
 		&& !('project' in editor && editor.project?.id !== project?.id);
 	const run = (operation: () => unknown) => {
@@ -125,8 +129,9 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 		disabled: !timePitchEnabled, run, update, setTimePitch });
 	const shapeLabels: Record<string, string> = { linear: copy.fadeShapeLinear, logarithmic: copy.fadeShapeLogarithmic,
 		exponential: copy.fadeShapeExponential, 's-curve': copy.fadeShapeSCurve, 'constant-power': copy.fadeShapeConstantPower };
-	return <div ref={root} className="audio-editor-upstream-clip-properties" data-upstream-clip-properties tabIndex={-1}>
-		{audio ? <><fieldset>
+	return <div ref={root} className="audio-editor-upstream-clip-properties" data-upstream-clip-properties
+		data-clip-properties-active-clip={selected.preferredClipId ?? undefined} tabIndex={-1}>
+		{activationPending ? <p className="audio-editor-panel-hint" role="status">{copy.loading}</p> : audio ? <><fieldset>
 			<UpstreamClipPropertiesPanel key={targetKey} clip={presentation.clip} selection={presentation.selection}
 				labels={upstreamClipPropertiesLabels(copy)} showFadeShapes={false} minimumDuration={project ? 1 / project.sampleRate : undefined}
 				pitchSpeedHeadingControl={mediaControls.heading} pitchSpeedAction={mediaControls.action}

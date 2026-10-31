@@ -25,7 +25,8 @@ export const FRAMESCAPER_BASELINE_ENTRY_MODULES = Object.freeze([
 
 /**
  * Closed boundary inventory for the product tree. Every surviving version token
- * denotes an independently serialized clipboard, delivery, or native carrier.
+ * denotes an independently serialized carrier or an explicitly internal
+ * version-scoped helper. Neither is a product project-schema generation.
  */
 export const FRAMESCAPER_BASELINE_VERSIONED_BOUNDARIES = Object.freeze([
 	boundary('./delivery-native-report-closure-v1.ts', 'contract',
@@ -54,11 +55,17 @@ export const FRAMESCAPER_BASELINE_VERSIONED_BOUNDARIES = Object.freeze([
 		'Clipboard document version 13 remains an independently persisted contract.'),
 	boundary('./native-render-frame-pack-v1.ts', 'contract',
 		'Native evaluated RGBA frame pack uses persisted carrier protocol version 1.'),
+	boundary('./editor-timeline-image-hdr-publication-current-v1.ts', 'helper',
+		'Internal Current Source5 publisher; the existing project CAS and owned media transition retain persistence authority.'),
+	boundary('./editor-selected-timeline-image-develop-authoring-controller-v1.ts', 'helper',
+		'Internal Current selected-image authoring facade; a versioned local capability, not a serialized project generation.'),
+	boundary('./editor-selected-image-hdr-merge-current-v1.ts', 'helper',
+		'Internal Current selected-bracket merge facade; Original checks and publication remain with their owning implementations.'),
 ] as const);
 
 function boundary(
 	module: `./${string}.ts`,
-	kind: 'contract',
+	kind: 'contract' | 'helper',
 	reason: string,
 ) {
 	return Object.freeze({ module, kind, reason });

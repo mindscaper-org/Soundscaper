@@ -12,7 +12,19 @@ import onnxRecipe from '../config/assistance-onnx-node-api-build.json' with { ty
 import { desktopOnnxWebGpuBindingBuildPlan } from '../scripts/lib/desktop-assistance-onnx-webgpu-binding.mjs';
 import { desktopKokoroG2pGpuBuildPlan } from '../scripts/lib/desktop-kokoro-g2p-gpu.mjs';
 
+import { runDesktopAssistanceBuildCommand } from '../scripts/lib/desktop-assistance-build-process.mjs';
+
 const runFile = promisify(execFile);
+// The hosted Windows configure commands hit the former 30s fixture bound; use
+// Sherpa's existing finite allowance without changing build or probe budgets.
+const configure = (args: string[]) => runDesktopAssistanceBuildCommand('cmake', args, {
+	label: 'ONNX/Kokoro fixture configure', timeout: process.platform === 'win32' ? 120_000 : 30_000, maxBuffer: 1024 * 1024,
+});
+// Cold hosted linking exceeded 30s after successful compilation. Keep a finite
+// fixture allowance and join the entire compiler tree before removing its cwd.
+const buildFixture = (args: string[]) => runDesktopAssistanceBuildCommand('cmake', args, {
+	label: 'ONNX/Kokoro fixture build', timeout: 120_000, maxBuffer: 1024 * 1024,
+});
 
 async function write(path: string, text: string): Promise<void> {
 	await mkdir(dirname(path), { recursive: true });
@@ -48,8 +60,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 add_library(ort_fixture STATIC fixture.cc)
 `);
 	await write(join(librarySource, 'fixture.cc'), 'int scape_fixture() { return 0; }\n');
-	await runFile('cmake', ['-S', librarySource, '-B', libraryBuild, ...plan.generatorArgs, '-DCMAKE_BUILD_TYPE=Release'], { timeout: 30_000 });
-	await runFile('cmake', ['--build', libraryBuild, '--config', 'Release'], { timeout: 30_000 });
+	await configure(['-S', librarySource, '-B', libraryBuild, ...plan.generatorArgs, '-DCMAKE_BUILD_TYPE=Release']);
+	await buildFixture(['--build', libraryBuild, '--config', 'Release']);
 	const library = await find(libraryBuild, process.platform === 'win32' ? 'ort_fixture.lib' : 'libort_fixture.a');
 	assert.ok(library);
 	const directory = engine === 'onnx' ? 'assistance-onnx-webgpu-node-api' : 'assistance-kokoro-g2p-gpu';
@@ -71,13 +83,13 @@ add_library(ort_fixture STATIC fixture.cc)
 	const hook = join(root, 'win_delay_load_hook.cc');
 	await write(hook, '');
 	const build = join(root, 'build');
-	await runFile('cmake', ['-S', native, '-B', build, ...plan.generatorArgs, ...plan.configureArgs,
+	await configure(['-S', native, '-B', build, ...plan.generatorArgs, ...plan.configureArgs,
 		`-DORT_HEADERS=${root}`, `-DORT_LIBRARY=${library}`, `-DSCAPE_WORK_ROOT=${root}`,
 		...(engine === 'onnx' ? [`-DORT_NODE_SOURCE=${upstream}`, `-DNODE_HEADERS=${root}`,
 			`-DNODE_ADDON_API=${root}`, `-DNODE_LIBRARY=${library}`, `-DNODE_DELAY_HOOK=${hook}`]
 			: [`-DPROBE_SOURCE=${probe}`]),
-	], { timeout: 30_000 });
-	const built = await runFile('cmake', ['--build', build, ...plan.buildArgs], { timeout: 30_000 });
+	]);
+	const built = await buildFixture(['--build', build, ...plan.buildArgs]);
 	assert.doesNotMatch(`${built.stdout}\n${built.stderr}`, /D900[27]/u, 'MSVC must honor every reproducibility flag');
 	await assert.rejects(access(join(build, 'CMakeFiles/VerifyGlobs.cmake')), { code: 'ENOENT' });
 	const extension = process.platform === 'win32' ? '.exe' : '';

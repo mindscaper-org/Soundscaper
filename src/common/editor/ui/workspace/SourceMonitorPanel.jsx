@@ -12,6 +12,7 @@ import '../audio-editor-design-system/23-source-monitor.css';
  */
 export default function SourceMonitorPanel({ controller, snapshot, copy, run, blocked, panelActive = true }) {
 	const videoRef = useRef(null);
+	const playbackSessionRef = useRef(null);
 	const playingRef = useRef(false);
 	const [playing, setPlaying] = useState(false);
 	const view = controller.actions.video.sourceMonitor.view();
@@ -22,6 +23,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 	// Playing a source is a viewing action; stopping it is what makes the
 	// controller's frame authoritative again.
 	const stop = useCallback(() => {
+		playbackSessionRef.current = null;
 		// pause() can dispatch a final timeupdate before React commits the state.
 		playingRef.current = false;
 		videoRef.current?.pause?.();
@@ -56,7 +58,11 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 
 	const publish = (frame) => run(() => controller.actions.video.sourceMonitor.seek(frame));
 	const capturePlayback = () => {
-		if (playingRef.current && videoRef.current) {
+		const playbackSession = playbackSessionRef.current;
+		if (playingRef.current && videoRef.current && playbackSession) {
+			const current = controller.actions.video.sourceMonitor.view();
+			// A new render cannot lend a reopened session's identity to an old clock.
+			if (current.sourceId !== playbackSession.sourceId || current.openRevision !== playbackSession.openRevision) return;
 			controller.actions.video.sourceMonitor.seekMediaTime(Number(videoRef.current.currentTime) || 0);
 		}
 	};
@@ -79,6 +85,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 			run(() => controller.actions.video.sourceMonitor.seekMediaTime(Number(media.currentTime) || 0));
 			return;
 		}
+		playbackSessionRef.current = { sourceId: view.sourceId, openRevision: view.openRevision };
 		playingRef.current = true;
 		setPlaying(true);
 		void media.play?.().catch(() => stop());

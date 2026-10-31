@@ -20,10 +20,7 @@ import { audibleRecordingStartTime, planRecordingStartTiming } from './recording
 import { recordingSourceAlignment } from './recording-source-alignment.ts';
 import { assertRecordingTargetsUnlocked } from '../../../recording-target-admission.ts';
 import { probeCaptureAudioInputChannelCount } from '../../../capture-audio-input-channel-probe.ts';
-
-function errorName(error: unknown): string | undefined {
-	return (error as Readonly<{ name?: string }> | null)?.name;
-}
+import { recordingCaptureFailure, type RecordingCaptureOutcome } from './recording-start-ownership.ts';
 
 /**
  * Perform the browser-facing default-input capture transaction. Promise
@@ -36,8 +33,8 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 	async function capture(
 		options: RecordingStartOptions = {},
 		scope: RecordingStartScope,
-	): Promise<void> {
-		if (state.readOnly || state.recordingStarting || state.recorder) return;
+	): Promise<RecordingCaptureOutcome> {
+		if (state.readOnly || state.recordingStarting || state.recorder) return 'cancelled';
 		const project = runtime.getProject();
 		const timedStartTimeMs = Number(options.timedStartTimeMs);
 		const timedStart = Number.isFinite(timedStartTimeMs);
@@ -286,7 +283,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 				runtime.updateTransportState('recording');
 			}
 		} catch (error) {
-			const handedOff = Boolean(!ownsGeneration() && recorder && state.recorder === recorder);
+			const handedOff = Boolean(recorder && (scope.isHandedOff?.(recorder) || !ownsGeneration() && state.recorder === recorder));
 			if (playbackStarted && ownsStart()) {
 				try { runtime.engine.pause(); } catch { /* Preserve the recording failure. */ }
 			}
@@ -312,14 +309,14 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 				state.recordingPreviewLastPublishedAt = 0;
 				state.recordingPaused = false;
 			}
-			if (errorName(error) === 'AbortError') return;
-			throw error;
+			return recordingCaptureFailure(error, handedOff, scope);
 		} finally {
 			if (ownsStart()) {
 				state.recordingStarting = false;
 				runtime.publishDocumentSnapshot();
 			}
 		}
+		return 'recording';
 	}
 
 	return Object.freeze({ capture });

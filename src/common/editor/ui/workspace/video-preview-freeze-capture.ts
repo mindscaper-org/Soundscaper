@@ -6,6 +6,7 @@ import { captureVideoPreviewProgramFreezeFrame, type VideoPreviewFreezeComposito
 interface EvaluatedFrame {
 	readonly projectId: string;
 	readonly projectRevision: number;
+	readonly sequenceId: string;
 	readonly timelineSample: number;
 }
 
@@ -23,15 +24,18 @@ export async function bindFramescaperPreviewFreezeCapture(input: Readonly<{
 	readonly layersRef: Readonly<{ readonly current: readonly unknown[] }>;
 	readonly renderOptionsRef: Readonly<{ readonly current: Readonly<Record<string, unknown>> }>;
 }>): Promise<() => void> {
-	const binding = await import('../../../../framescaper/editor-selected-finishing-freeze-capture.ts');
+	const [binding, { resolveFramescaperSelectedFreezeSourceIdFinishing: resolveSource }] = await Promise.all([
+		import('../../../../framescaper/editor-selected-finishing-freeze-capture.ts'),
+		import('../../../../framescaper/editor-selected-finishing-freeze-source.ts'),
+	]);
 	return binding.bindFramescaperSelectedFreezeCapture(input.owner, Object.freeze({
 		async capture(request: FramescaperSelectedFreezeCaptureRequest) {
-			assertCurrent(input, request);
+			assertCurrent(input, request, resolveSource);
 			const compositor = input.compositorRef.current;
 			if (!compositor) throw new Error('The exact evaluated preview frame is unavailable.');
 			const evaluated = captureVideoPreviewProgramFreezeFrame({ compositor,
 				layers: input.layersRef.current, options: input.renderOptionsRef.current });
-			assertCurrent(input, request);
+			assertCurrent(input, request, resolveSource);
 			return Object.freeze({
 				blob: await encodePng(evaluated),
 				width: evaluated.width,
@@ -45,13 +49,20 @@ function assertCurrent(
 	input: Readonly<{ readonly projectRef: Readonly<{ readonly current: unknown }>;
 		readonly evaluatedRef: Readonly<{ readonly current: EvaluatedFrame | null }> }>,
 	request: FramescaperSelectedFreezeCaptureRequest,
+	resolveSource: (project: Readonly<Record<string, unknown>>, clipId: string) => unknown,
 ): void {
 	const project = record(input.projectRef.current, 'freeze preview project');
 	const evaluated = input.evaluatedRef.current;
+	const clip = Array.isArray(project.clips) ? project.clips
+		.map(value => record(value, 'freeze preview clip')).find(candidate => candidate.id === request.clipId) : undefined;
+	const sequenceId = clip?.sequenceId;
 	if (project.id !== request.projectId || project.revision !== request.projectRevision
+		|| typeof sequenceId !== 'string' || !sequenceId
+		|| project.primarySequenceId !== sequenceId || evaluated?.sequenceId !== sequenceId
 		|| evaluated?.projectId !== request.projectId
 		|| evaluated.projectRevision !== request.projectRevision
-		|| evaluated.timelineSample !== request.timelineSample) {
+		|| evaluated.timelineSample !== request.timelineSample
+		|| resolveSource(project, request.clipId) !== request.sourceId) {
 		throw new Error('The evaluated freeze preview is stale. Wait for the playhead frame and retry.');
 	}
 }

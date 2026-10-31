@@ -100,12 +100,14 @@ export function VideoFilmstripClip({
 			? `product-image:${String(clip.sourceId)}`
 			: videoThumbnailUrl(thumbnailData, point, index, timestampLookup),
 	})), [clip.kind, clip.sourceId, thumbnailPoints, thumbnailData, timestampLookup]);
+	const hostRef = useRef(null);
 	const presentationThumbnails = useProductTimelineFilmstrip({
-		controller, project, clip, thumbnailModels,
+		controller, project, clip, thumbnailModels, hostRef,
 	});
 	const cells = useVideoFilmstripCells(thumbnailPoints, visibleStartFrame, visibleEndFrame, sampleRate, pixelsPerSecond);
 	return (
 		<div
+			ref={hostRef}
 			className="audio-editor-video-clip"
 			data-clip-id={clip.id}
 			data-clip-kind={clip.kind === 'image' ? 'image' : 'video'}
@@ -216,10 +218,9 @@ export function VideoFilmstripClip({
 	);
 }
 
-function useProductTimelineFilmstrip({ controller, project, clip, thumbnailModels }) {
+function useProductTimelineFilmstrip({ controller, project, clip, thumbnailModels, hostRef }) {
 	const ownerDocument = useMemo(() => productVideoVisualPreviewDocumentFor(controller)
 		?? globalThis.document, [controller]);
-	const pageRetired = useRef(false);
 	const runtime = useMemo(() => productVideoVisualPreviewRuntimeFor(controller), [controller]);
 	const createTimelineFilmstrip = runtime?.createTimelineFilmstrip;
 	const supported = Boolean(
@@ -234,19 +235,28 @@ function useProductTimelineFilmstrip({ controller, project, clip, thumbnailModel
 		clip.durationFrames, clip.id, clip.sourceId, clip.timelineStartFrame, supported, thumbnailModels,
 	]);
 	const [state, setState] = useState(() => ({ pending: false, error: null, values: new Map() }));
+	const documentRetired = useRef(false);
+	const activeBatch = useRef(null);
 	useEffect(() => {
-		if (pageRetired.current || ownerDocument !== globalThis.document || !supported || frames.length === 0) {
+		const owner = hostRef.current?.ownerDocument;
+		const target = owner?.defaultView;
+		if (!target || owner !== ownerDocument || ownerDocument !== globalThis.document) return undefined;
+		const onPageHide = (event) => {
+			if (event.persisted) return;
+			documentRetired.current = true;
+			activeBatch.current?.abort(new DOMException('Timeline filmstrip document was retired.', 'AbortError'));
+		};
+		target.addEventListener('pagehide', onPageHide);
+		return () => { target.removeEventListener('pagehide', onPageHide); };
+	}, [hostRef, ownerDocument]);
+	useEffect(() => {
+		if (documentRetired.current || ownerDocument !== globalThis.document
+			|| hostRef.current?.ownerDocument !== ownerDocument || !supported || frames.length === 0) {
 			setState({ pending: false, error: null, values: new Map() });
 			return undefined;
 		}
 		const abort = new AbortController();
-		const ownerWindow = ownerDocument?.defaultView;
-		const retirePage = (event) => {
-			if (event.persisted) return;
-			pageRetired.current = true;
-			abort.abort(new DOMException('Timeline filmstrip page was retired.', 'AbortError'));
-		};
-		ownerWindow?.addEventListener('pagehide', retirePage);
+		activeBatch.current = abort;
 		setState({ pending: true, error: null, values: new Map() });
 		void createTimelineFilmstrip({
 			project, width: 160, height: 90, frames, signal: abort.signal,
@@ -268,10 +278,10 @@ function useProductTimelineFilmstrip({ controller, project, clip, thumbnailModel
 			});
 		});
 		return () => {
-			ownerWindow?.removeEventListener('pagehide', retirePage);
+			if (activeBatch.current === abort) activeBatch.current = null;
 			abort.abort(new DOMException('Timeline filmstrip was replaced.', 'AbortError'));
 		};
-	}, [createTimelineFilmstrip, frames, ownerDocument, project, supported]);
+	}, [createTimelineFilmstrip, frames, hostRef, ownerDocument, project, supported]);
 	return { supported, ...state };
 }
 

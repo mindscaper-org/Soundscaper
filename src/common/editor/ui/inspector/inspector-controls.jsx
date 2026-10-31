@@ -11,17 +11,21 @@ export function CommitField({ label, name, value, type = 'text', min = undefined
 	const [error, setError] = useState(false);
 	const editRevision = useRef(0);
 	const editedDraft = useRef(false);
-	const draftName = useRef(name);
 	const blurCommitGuard = useRef(createDraftBlurCommitGuard()).current;
+	const draftOwner = useRef({ name, focused: false, dirty: false });
 	useEffect(() => {
 		editRevision.current++;
-		if (preserveEditedDraft && draftName.current === name && editedDraft.current) return;
-		draftName.current = name;
+		const owner = draftOwner.current;
+		if (owner.name === name && (owner.focused && owner.dirty || preserveEditedDraft && editedDraft.current)) return;
+		owner.name = name;
+		owner.dirty = false;
 		editedDraft.current = false;
 		setDraft(String(value ?? ''));
 		setError(false);
 	}, [name, value, preserveEditedDraft]);
 	const commit = () => {
+		draftOwner.current.focused = false;
+		draftOwner.current.dirty = false;
 		if (disabled || readOnly || !draftBlurShouldCommit(blurCommitGuard)) return;
 		editedDraft.current = false;
 		const revision = editRevision.current;
@@ -49,6 +53,7 @@ export function CommitField({ label, name, value, type = 'text', min = undefined
 			} else if (event.key === 'Escape') {
 				cancelDraftEditOnEscape(blurCommitGuard, { currentTarget: event.target,
 					preventDefault: () => event.preventDefault(), stopPropagation: () => event.stopPropagation() }, () => {
+					draftOwner.current.dirty = false;
 					editRevision.current++;
 					editedDraft.current = false;
 					setDraft(String(value ?? ''));
@@ -66,7 +71,14 @@ export function CommitField({ label, name, value, type = 'text', min = undefined
 				multiline={multiline}
 				disabled={disabled || readOnly}
 				error={error}
-				onChange={(next) => { editRevision.current++; editedDraft.current = true; setDraft(next); setError(false); }}
+				onFocus={() => { draftOwner.current.focused = true; }}
+				onChange={(next) => {
+					editRevision.current++;
+					editedDraft.current = true;
+					draftOwner.current.dirty = next !== String(value ?? '');
+					setDraft(next);
+					setError(false);
+				}}
 				onBlur={commit}
 				width="100%"
 			/>

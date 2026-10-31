@@ -72,8 +72,9 @@ export async function prepareOrdinaryBrowserProductSites(
 ) {
 	assertPlan(plan);
 	const soundscaper = plan.sites.find(site => site.productId === 'soundscaper');
-	const framescaper = plan.sites.find(site => site.productId === 'framescaper');
-	if (framescaper) await verifyBrowserProductSite(framescaper, { sourceMaps });
+	for (const site of plan.sites.filter(site => site.productId !== 'soundscaper')) {
+		await verifyBrowserProductSite(site, { sourceMaps });
+	}
 	if (!soundscaper) return;
 	if (reusePrepared) {
 		await verifyBrowserProductSite(soundscaper, { sourceMaps });
@@ -154,6 +155,7 @@ function cleanBuildEnvironment(site) {
 		'SCAPE_PRODUCT',
 		'SOUNDSCAPER_SITE',
 		'FRAMESCAPER_SITE',
+		'LIGHTSCAPER_SITE',
 		'PUBLIC_TRANSFER_PEER_ORIGIN',
 	]) delete environment[key];
 	return {
@@ -164,8 +166,8 @@ function cleanBuildEnvironment(site) {
 		// the test sites always carry them.
 		SCAPE_BUILD_SOURCE_MAPS: '1',
 		SCAPE_PRODUCT: site.productId,
-		[site.productId === 'soundscaper' ? 'SOUNDSCAPER_SITE' : 'FRAMESCAPER_SITE']: site.origin,
-		PUBLIC_TRANSFER_PEER_ORIGIN: site.peerOrigin,
+		[`${site.productId.toUpperCase()}_SITE`]: site.origin,
+		...(site.productId === 'lightscaper' ? {} : { PUBLIC_TRANSFER_PEER_ORIGIN: site.peerOrigin }),
 	};
 }
 

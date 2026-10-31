@@ -81,4 +81,3 @@ test('I24: FCPXML retains sample-accurate audio positions and sub-video-frame cl
 	assert.match(result.text, /<asset-clip[^>]*offset="1\/48000s"[^>]*duration="1\/24000s"/u);
 	assert.ok(!result.report.items.some(({ code }) => code === 'fcpxml.sub-frame-clip-omitted'));
 });
-

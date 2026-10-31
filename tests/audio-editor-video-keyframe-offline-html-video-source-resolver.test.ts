@@ -87,6 +87,53 @@ test('resolver accepts a browser drawable that already applied the admitted disp
 	assert.deepEqual(harness.revoked, ['blob:offline-1']);
 });
 
+test('resolver accepts only the exact additional persisted browser geometry and retains its display target', async () => {
+	const asset = sourceAsset({
+		decodedWidth: 144, decodedHeight: 192, displayWidth: 144, displayHeight: 384,
+		presentedWidth: 288, presentedHeight: 192,
+	});
+	const harness = runtimeHarness({ decodedWidth: 288, decodedHeight: 192 });
+	const resolver = createVideoKeyframeOfflineHtmlVideoSourceResolver(options(harness, [asset]));
+	try {
+		const presentation = await resolver.resolveSource(entry(), { signal: new AbortController().signal });
+		assert.deepEqual([
+			presentation.decodedWidth, presentation.decodedHeight,
+			presentation.displayWidth, presentation.displayHeight,
+		], [288, 192, 144, 384]);
+		await presentation.present(entry(), { signal: new AbortController().signal });
+		assert.equal(harness.seekRequests.length, 1);
+	} finally { resolver.dispose(); }
+	assert.deepEqual(harness.revoked, ['blob:offline-1']);
+
+	const foreign = runtimeHarness({ decodedWidth: 63, decodedHeight: 192 });
+	const refused = createVideoKeyframeOfflineHtmlVideoSourceResolver(options(foreign, [asset]));
+	try {
+		await assert.rejects(Promise.resolve(refused.resolveSource(entry(), {
+			signal: new AbortController().signal,
+		})), /geometry|dimensions/iu);
+	} finally { refused.dispose(); }
+	assert.deepEqual(foreign.revoked, ['blob:offline-1']);
+});
+
+test('persisted browser dimensions are an optional bounded own-data pair admitted before media allocation', () => {
+	let getterCalls = 0;
+	const accessor = sourceAsset({ presentedHeight: 192 });
+	Object.defineProperty(accessor, 'presentedWidth', { enumerable: true, get() { getterCalls += 1; return 288; } });
+	for (const asset of [
+		sourceAsset({ presentedWidth: 288 }), sourceAsset({ presentedHeight: 192 }),
+		sourceAsset({ presentedWidth: 0, presentedHeight: 192 }),
+		sourceAsset({ presentedWidth: 288, presentedHeight: Number.NaN }),
+		sourceAsset({ presentedWidth: 2 ** 32, presentedHeight: 192 }), accessor,
+	]) {
+		const harness = runtimeHarness();
+		assert.throws(() => createVideoKeyframeOfflineHtmlVideoSourceResolver(options(harness, [asset])),
+			/presented|dimension|bound|limit|record|data property|capture/iu);
+		assert.equal(harness.videos.length, 0);
+		assert.deepEqual(harness.revoked, []);
+	}
+	assert.equal(getterCalls, 0);
+});
+
 test('resolver waits for current frame data after metadata before exposing a presentation', async () => {
 	const harness = runtimeHarness({ frameData: 'pending' });
 	const resolver = createVideoKeyframeOfflineHtmlVideoSourceResolver(options(harness));
@@ -244,6 +291,7 @@ interface RuntimeHarness {
 
 function runtimeHarness(options: Readonly<{
 	decodedWidth?: number;
+	decodedHeight?: number;
 	frameData?: 'loaded' | 'pending';
 	metadata?: 'loaded' | 'pending';
 	revokeFailures?: number;
@@ -262,7 +310,7 @@ function runtimeHarness(options: Readonly<{
 			assert.equal(name, 'video');
 			const video = new FakeVideo(
 				options.decodedWidth ?? 64,
-				32,
+				options.decodedHeight ?? 32,
 				options.metadata ?? 'loaded',
 				options.frameData ?? 'loaded',
 			);

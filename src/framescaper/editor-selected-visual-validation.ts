@@ -9,3 +9,10 @@ export function visualAuthoringBoundFailure(error: RangeError, name: string, min
 	const [key, fallback] = Object.hasOwn(FIELDS, name) ? FIELDS[name]! : ['ui.fileValidation.visualParameter', FILE_VALIDATION_COPY.visualParameter];
 	return fileValidationFailure(error, 'editor-input', 'visual-numeric-bounds', 'visualBounds', { field: { key: key!, fallback: fallback! }, minimum, maximum });
 }
+
+export function boundedVisualAuthoringValue(value: unknown, minimum: number, maximum: number, name: string): number {
+	if (typeof value !== 'number' || !Number.isFinite(value) || value < minimum || value > maximum) {
+		throw visualAuthoringBoundFailure(new RangeError(`${name} is outside its finite bound.`), name, minimum, maximum);
+	}
+	return Object.is(value, -0) ? 0 : value;
+}

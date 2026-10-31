@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseDropdown, clipByName, closeClipProperties, closeDialog, openClipProperties, openExportDialog, showClipTimingFields, waitForEditor } from './audio-editor-test-helpers.js';
-import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
+import { bootEditor, chooseDropdown, clipByName, clipField, closeClipProperties, closeDialog, commitInput, openClipProperties, openExportDialog, showClipTimingFields, waitForEditor } from './audio-editor-test-helpers.js';
 import { installLinkedAudioBridge } from './helpers/linked-audio-relink-fixture.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
 import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
 
 for (const unavailable of [false, true]) test(`selection before a ${unavailable ? 'missing' : 'healthy'} linked original exports its healthy audio`, async ({ page, context }) => {
@@ -15,9 +15,12 @@ for (const unavailable of [false, true]) test(`selection before a ${unavailable 
 	await editor.getByRole('button', { name: 'Link WAV', exact: true }).click();
 	await editor.locator('[data-project-bin-item]').nth(1).getByRole('button', { name: /Add to timeline/u }).click();
 	await expect(editor).toHaveAttribute('data-clip-count', '2');
-	const timing = await openClipProperties(page, editor, clipByName(editor, toneA.name));
+	const linked = clipByName(editor, toneA.name), linkedClipId = await linked.getAttribute('data-clip-id');
+	expect(linkedClipId).not.toBeNull();
+	const timing = await openClipProperties(page, editor, linked);
 	await showClipTimingFields(timing);
-	await setClipTimeFrames(timing, 'startFrame', 48_000);
+	// Upstream audio Properties expresses Start in seconds, not project samples.
+	await commitInput(clipField(timing, 'startFrame'), '1');
 	await closeClipProperties(timing);
 	const healthy = clipByName(editor, toneB.name); await healthy.focus(); await healthy.press('Enter');
 	const originalDialog = await startSelectionExport(page, editor);
@@ -26,8 +29,9 @@ for (const unavailable of [false, true]) test(`selection before a ${unavailable 
 	await closeDialog(originalDialog);
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 	const id = await editor.getAttribute('data-project-id'), url = page.url();
-	await page.close();
+	expect((await persistedProject(page, id)).clips.find(clip => clip.id === linkedClipId).timelineStartFrame).toBe(48_000);
 	const reopened = await context.newPage();
+	await page.close();
 	await installLinkedAudioBridge(reopened, { original: toneA, changed: toneB }, { unavailable });
 	await reopened.goto(url);
 	const active = await waitForEditor(reopened);
@@ -52,7 +56,7 @@ for (const unavailable of [false, true]) test(`selection before a ${unavailable 
 	expect(error).toBe(0);
 	if (unavailable) {
 		await closeDialog(dialog);
-		const missing = clipByName(active, toneA.name); await missing.focus(); await missing.press('Enter');
+		const missing = active.locator(`[data-clip-id="${linkedClipId}"]`); await missing.focus(); await missing.press('Enter');
 		const refused = await startSelectionExport(reopened, active);
 		await expect(refused.getByRole('alert')).toContainText('Local audio sources are missing.');
 		expect(await reopened.evaluate(() => globalThis.__projectBinLinkedAudioFixture.exports.length)).toBe(1);

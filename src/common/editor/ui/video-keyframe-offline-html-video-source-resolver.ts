@@ -209,7 +209,9 @@ export function createVideoKeyframeOfflineHtmlVideoSourceResolver(
 				&& decodedHeight === asset.decodedHeight;
 			const matchesDisplay = decodedWidth === asset.displayWidth
 				&& decodedHeight === asset.displayHeight;
-			if (!matchesDecoded && !matchesDisplay) {
+			const matchesPresented = decodedWidth === asset.presentedWidth
+				&& decodedHeight === asset.presentedHeight;
+			if (!matchesDecoded && !matchesDisplay && !matchesPresented) {
 				throw new RangeError(
 					`Offline video decoded geometry ${String(decodedWidth)}x${String(decodedHeight)} `
 					+ `does not match admitted decoded ${String(asset.decodedWidth)}x${String(asset.decodedHeight)} `

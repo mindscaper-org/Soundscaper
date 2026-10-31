@@ -19,11 +19,20 @@ for (const kind of ['maximum-frequency', 'start-time']) {
 		await clipByName(editor, toneA.name).locator('.clip-header').click();
 		await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 		await chooseNestedCommandAction(page, editor, 'Select', ['Spectral', 'Spectral brush']);
-		const brush = await editor.getByRole('button', { name: 'Spectral brush', exact: true }).boundingBox();
+		const surface = editor.getByRole('button', { name: 'Spectral brush', exact: true });
+		const brush = await surface.boundingBox();
 		expect(brush).not.toBeNull();
-		await page.mouse.move(brush.x + 200, brush.y + brush.height / 3);
+		const start = { x: brush.x + 200, y: brush.y + brush.height / 3 };
+		await expect(surface).toBeEnabled();
+		await surface.hover({ position: { x: 200, y: brush.height / 3 } });
+		expect(await surface.evaluate((element, point) => (
+			element.ownerDocument.elementFromPoint(point.x, point.y) === element
+		), start)).toBe(true);
 		await page.mouse.down();
+		const draft = surface.locator('.audio-editor-spectral-brush__preview');
+		await expect(draft).toBeVisible();
 		await page.mouse.move(brush.x + 235, brush.y + brush.height / 3 + 30);
+		await expect(draft).toBeVisible();
 		await page.mouse.up();
 		const handle = editor.locator(`.audio-editor-spectral-selection__handle--${kind === 'start-time' ? 'time-start' : 'frequency-maximum'}`);
 		await expect(handle).toBeVisible();

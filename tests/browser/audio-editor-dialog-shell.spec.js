@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import { longTone, test } from './audio-editor-test-fixtures.js';
-import { showClipTimingFields, clipByName, getMenuItem, importFiles, openClipProperties, waitForEditor } from './audio-editor-test-helpers.js';
+import { bootEditor as bootProductEditor, chooseNestedCommandAction, clipByName, showClipTimingFields, getMenuItem, importFiles, openClipProperties, waitForEditor } from './audio-editor-test-helpers.js';
 import { closeWorkspacePanel, workspacePanelMenuButton } from './helpers/workspace-panel-chrome.js';
 import { darkTheme } from '../../vendor/audacity-design-system/tokens/src/themes/dark.v2.ts';
 import { lightTheme } from '../../vendor/audacity-design-system/tokens/src/themes/light.v2.ts';
@@ -73,6 +73,25 @@ test.describe('shared audio editor dialog behavior', () => {
 		});
 		await expect(menu).toBeVisible();
 		await expect(menu.getByRole('menuitem', { name: 'Hz', exact: true })).toHaveCount(0);
+	});
+
+	test('uses lowercase time units and selectable formats in generator and selection timecodes', async ({ page }) => {
+		const editor = await bootProductEditor(page, '/framescaper/embed/en/');
+		await chooseNestedCommandAction(page, editor, 'Generate', ['Video Generators', 'Add Title/Text']);
+		const clip = editor.getByRole('group', { name: 'Video clip: Title', exact: true });
+		await clip.focus();
+		await clip.press('Enter');
+		await expect(editor.locator('[data-selection-toolbar] .timecode').first()
+			.locator('.timecode__format-button')).toBeVisible();
+
+		const dialog = await openClipProperties(page, editor);
+		await showClipTimingFields(dialog);
+		const duration = dialog.locator('[data-clip-field="durationFrame"]');
+		await expect(duration.locator('.timecode-unit[data-unit="hours"]')).toHaveText('h');
+		await expect(duration.locator('.timecode-unit[data-unit="hours"]')).toHaveCSS('text-transform', 'none');
+		await duration.locator('.timecode__format-button').click();
+		await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
+		await expect(duration.locator('.timecode-unit[data-unit="samples"]')).toBeVisible();
 	});
 
 	test('uses numeric clip seconds and lowercase selectable selection timecodes', async ({ page }) => {

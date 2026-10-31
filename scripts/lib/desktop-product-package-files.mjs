@@ -318,7 +318,7 @@ export function soundscaperConstantsSource(sourceValue) {
 			'export const SETTINGS_SCHEMA_VERSION = 1;',
 		].join('\n'), 'desktop product constants');
 	source = replaceOnce(source,
-		"export const PROJECT_FILE_EXTENSION = PRODUCT_ID === 'framescaper' ? '.fscape' : '.sscape';",
+		"export const PROJECT_FILE_EXTENSION = PRODUCT_ID === 'lightscaper' ? '.liscape' : PRODUCT_ID === 'framescaper' ? '.fscape' : '.sscape';",
 		"export const PROJECT_FILE_EXTENSION = '.sscape';", 'desktop project extension');
 	source = replaceRange(source, '\n\tchooseLinkedVideoOriginal:', '\n\tchooseLinkedAudioOriginal:',
 		'\n\tchooseLinkedAudioOriginal:', 'linked-video IPC constants');
@@ -354,7 +354,7 @@ export function soundscaperProtocolSource(sourceValue) {
 		"const FRAMESCAPER_CAPTURE_POLICY =\n\t'microphone=(self), speaker-selection=(self), display-capture=(self), camera=(self), geolocation=()';\n",
 		'', 'Framescaper protocol capture policy');
 	source = replaceOnce(source,
-		"\tif (productId !== 'soundscaper' && productId !== 'framescaper') {",
+		"\tif (productId !== 'soundscaper' && productId !== 'framescaper' && productId !== 'lightscaper') {",
 		"\tif (productId !== 'soundscaper') {", 'desktop protocol product validation');
 	source = replaceOnce(source,
 		"\tif (productId === 'framescaper') return FRAMESCAPER_CAPTURE_POLICY;\n",

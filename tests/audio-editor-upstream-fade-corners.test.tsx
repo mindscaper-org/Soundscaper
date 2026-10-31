@@ -46,7 +46,9 @@ test('unselected audio clips expose corner zones and a bare-edge peek without se
 	assert.equal(dom.one('[data-fade-peek="in"]').getAttribute('aria-hidden'), 'true');
 	assert.deepEqual(changes, [], 'hover is a preview only');
 	assert.equal(listeners.size, 0, 'idle overlays defer pointer admission to the native timeline');
-	const owner = dom.one('.audio-editor-clip-fade') as unknown as HTMLElement;
+	const overlay = dom.one('.audio-editor-clip-fade');
+	assert.equal(reactProps(overlay).onPointerDownCapture, undefined);
+	const owner = overlay as unknown as HTMLElement;
 	const present = (target: typeof zone | HTMLElement, pointerId: number) => presentCapturedClipFadeGesture(owner, {
 		target: target as HTMLElement, pointerId, clipId: 'one', edge: 'in', shape: false,
 	});

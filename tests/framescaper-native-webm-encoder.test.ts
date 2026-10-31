@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -59,7 +59,7 @@ test('keying prefers the bundled encoder and never retries an execution failure 
 const binary = process.env.FRAMESCAPER_MEDIA_HOST_TEST_BINARY;
 test('the linked host preserves every alpha byte and exact fractional timing in the keying carrier',
 	{ skip: !binary, timeout: 60_000 }, async t => {
-		const directory = await mkdtemp(join(tmpdir(), 'native-keyed-webm-'));
+		const directory = await realpath(await mkdtemp(join(tmpdir(), 'native-keyed-webm-')));
 		t.after(() => rm(directory, { recursive: true, force: true }));
 		for (const rate of [{ num: 25, den: 1 }, { num: 24_000, den: 1_001 }, { num: 30_000, den: 1_001 }]) {
 			const scratch = await mkdtemp(join(directory, 'encode-'));

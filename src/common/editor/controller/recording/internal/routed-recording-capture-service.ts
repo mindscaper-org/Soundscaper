@@ -19,6 +19,7 @@ import { timedRecordingStopFrame } from '../recording-model.ts';
 import { audibleRecordingStartTime, planRecordingStartTiming } from './recording-start-timing.ts';
 import { recordingSourceAlignment } from './recording-source-alignment.ts';
 import { assertRecordingTargetsUnlocked } from '../../../recording-target-admission.ts';
+import { recordingCaptureFailure, type RecordingCaptureOutcome } from './recording-start-ownership.ts';
 import type {
 	RecordingMediaStream,
 	RecordingStartOptions,
@@ -44,7 +45,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 	async function capture(
 		options: RecordingStartOptions = {},
 		scope: RecordingStartScope,
-	): Promise<void> {
+	): Promise<RecordingCaptureOutcome> {
 		const project = runtime.getProject();
 		const timedStartTimeMs = Number(options.timedStartTimeMs);
 		const timedStart = Number.isFinite(timedStartTimeMs);
@@ -506,7 +507,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 				runtime.updateTransportState('recording');
 			}
 		} catch (error) {
-			const handedOff = Boolean(!ownsGeneration() && routedRecorder && state.recorder === routedRecorder);
+			const handedOff = Boolean(routedRecorder && (scope.isHandedOff?.(routedRecorder) || !ownsGeneration() && state.recorder === routedRecorder));
 			if (isCurrent()) {
 				runtime.engine.pause();
 				state.recordingCleanup?.();
@@ -534,14 +535,14 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 				runtime.releaseUnretainedRecordingInputs();
 				runtime.syncRecordingPoolSnapshot();
 			} else runtime.releaseUnretainedRecordingInputs();
-			if (errorName(error) === 'AbortError') return;
-			throw error;
+			return recordingCaptureFailure(error, handedOff, scope);
 		} finally {
 			if (isCurrent()) {
 				state.recordingStarting = false;
 				runtime.publishDocumentSnapshot();
 			}
 		}
+		return 'recording';
 	}
 
 	return Object.freeze({ capture });

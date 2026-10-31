@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { analyzeCoverageSummary, formatCoverageScopes } from './coverage-gates.mjs';
@@ -18,34 +19,47 @@ import { normalizeDuplicateFunctionCoverage } from './coverage-function-normaliz
  */
 export function reportCoverageSummary(repositoryRoot, temporaryDirectory) {
 	const reportDirectory = resolve(repositoryRoot, 'coverage');
-	// The synchronous merge is deterministic for the pre-compacted CI shards.
-	// `--merge-async` has shifted branch counts with directory listing order.
-	const result = spawnSync(resolve(repositoryRoot, 'node_modules/.bin/c8'), [
-		'report',
-		// The Node shards address a script by the source file it was loaded from,
-		// but a browser shard addresses a bundled chunk in a build directory that
-		// no `.c8rc.json` include pattern names — and that a container job checked
-		// out at a path of its own. Excluding after the remap applies the include
-		// patterns to the sources a script maps back to instead of the file it was
-		// served as, which is the only address both kinds of shard share. It is a
-		// no-op for the Node shards: the union's summary is byte-identical with
-		// and without it.
-		'--exclude-after-remap',
-		`--temp-directory=${resolve(repositoryRoot, temporaryDirectory)}`,
-		`--reports-dir=${reportDirectory}`,
-		'--reporter=text-summary',
-		'--reporter=lcov',
-		'--reporter=json-summary',
-		'--reporter=json',
-	], { cwd: repositoryRoot, env: process.env, stdio: 'inherit' });
+	const preparedDirectory = mkdtempSync(join(tmpdir(), 'soundscaper-coverage-shards-'));
+	try {
+		// Complete source rebasing in a separate, sequential bounded process so
+		// its parsed compacts are gone before c8 loads the complete union.
+		const preparation = spawnSync(process.execPath, [
+			'--max-old-space-size=3072',
+			resolve(import.meta.dirname, '../prepare-coverage-shards.mjs'),
+			repositoryRoot,
+			resolve(repositoryRoot, temporaryDirectory),
+			preparedDirectory,
+		], { cwd: repositoryRoot, env: process.env, stdio: 'inherit' });
+		assertProcessSucceeded(preparation, 'Coverage source preparation');
+		// The synchronous merge is deterministic for the pre-compacted CI shards.
+		// `--merge-async` has shifted branch counts with directory listing order.
+		const result = spawnSync(resolve(repositoryRoot, 'node_modules/.bin/c8'), [
+			'report',
+			// Input addresses include source files and generated browser chunks.
+			// Apply the unchanged include rules to their authenticated source owners.
+			'--exclude-after-remap',
+			`--temp-directory=${preparedDirectory}`,
+			`--reports-dir=${reportDirectory}`,
+			'--reporter=text-summary',
+			'--reporter=lcov',
+			'--reporter=json-summary',
+			'--reporter=json',
+		], { cwd: repositoryRoot, env: process.env, stdio: 'inherit' });
 
+		assertProcessSucceeded(result, 'The coverage report');
+
+		const summary = JSON.parse(readFileSync(resolve(reportDirectory, 'coverage-summary.json'), 'utf8'));
+		const detailed = JSON.parse(readFileSync(resolve(reportDirectory, 'coverage-final.json'), 'utf8'));
+		return normalizeDuplicateFunctionCoverage(summary, detailed);
+	} finally {
+		rmSync(preparedDirectory, { recursive: true, force: true });
+	}
+}
+
+function assertProcessSucceeded(result, label) {
 	if (result.error) throw result.error;
-	if (result.signal) throw new Error(`The coverage report terminated with ${result.signal}.`);
-	if (result.status !== 0) throw new Error(`The coverage report exited with status ${result.status ?? 1}.`);
-
-	const summary = JSON.parse(readFileSync(resolve(reportDirectory, 'coverage-summary.json'), 'utf8'));
-	const detailed = JSON.parse(readFileSync(resolve(reportDirectory, 'coverage-final.json'), 'utf8'));
-	return normalizeDuplicateFunctionCoverage(summary, detailed);
+	if (result.signal) throw new Error(`${label} terminated with ${result.signal}.`);
+	if (result.status !== 0) throw new Error(`${label} exited with status ${result.status ?? 1}.`);
 }
 
 export function runCoverageGate(repositoryRoot, temporaryDirectory) {

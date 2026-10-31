@@ -22,6 +22,9 @@ export async function transact<Result>(
 	const transaction = database.transaction(names, mode);
 	const stores = Object.fromEntries(names.map((name) => [name, transaction.objectStore(name)]));
 	const completion = transactionCompletion(transaction);
+	// Native completion can fail while the admitted operation still owns a held await.
+	// Observe it now, then join and propagate the original completion below.
+	void completion.catch(() => undefined);
 	let result: Result;
 	try {
 		result = await operation(stores, transaction);
@@ -124,9 +127,10 @@ export function readCursorPage<RecordValue = unknown>(
 
 export function transactionCompletion(transaction: IDBTransaction): Promise<void> {
 	return new Promise((resolve, reject) => {
+		// Request errors can bubble before abort or be handled; only the native
+		// complete/abort events settle this transaction's ownership join.
 		transaction.oncomplete = () => resolve();
 		transaction.onabort = () => reject(transaction.error || new Error('The IndexedDB transaction was aborted.'));
-		transaction.onerror = () => reject(transaction.error || new Error('The IndexedDB transaction failed.'));
 	});
 }
 
