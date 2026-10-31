@@ -13,6 +13,9 @@ import {
 import { SOUNDSCAPER_DATABASE_NAME } from './editor-databases.js';
 import { chooseTrackMenuAction } from './track-menu.js';
 import { editAuthoredClipProperties, readAuthoredClipDuration } from './authored-clip-properties.ts';
+import { selectClipRange } from './clip-range-selection.ts';
+
+export { selectClipRange } from './clip-range-selection.ts';
 
 export const selectionEffects = Object.freeze({
 	amplify: { category: 'Volume and compression', name: 'Amplify' },
@@ -265,26 +268,6 @@ export async function setProjectTempo(page, editor, bpm) {
 	await tempo.fill(String(bpm));
 	await tempo.blur();
 	await expect(tempo).toHaveValue(String(bpm));
-}
-
-export async function selectClipRange(page, editor, clip, start, end) {
-	for (const label of ['Clip gain', 'Split tool']) {
-		const tool = editor.getByRole('button', { name: label, exact: true });
-		if (await tool.getAttribute('aria-pressed') === 'true') await tool.click();
-	}
-	const row = clip.locator('xpath=ancestor::*[@data-track-row][1]');
-	if (await row.locator('[data-track-automation-controls]').isVisible()) {
-		await chooseTrackMenuAction(page, editor, row, 'Add automation');
-		await expect(row.locator('[data-track-automation-controls]')).toHaveCount(0);
-	}
-	const bounds = await clip.boundingBox();
-	expect(bounds).not.toBeNull();
-	const y = bounds.y + bounds.height * 0.58;
-	await page.mouse.move(bounds.x + bounds.width * start, y);
-	await page.mouse.down();
-	await page.mouse.move(bounds.x + bounds.width * end, y, { steps: 5 });
-	await page.mouse.up();
-	await expect(editor.locator('[data-time-selection-overlay]')).not.toHaveCount(0);
 }
 
 export async function deleteClipRange(page, editor, clip, {
