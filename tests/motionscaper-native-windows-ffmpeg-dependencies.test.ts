@@ -29,7 +29,7 @@ type Target = 'win-x64' | 'win-arm64' | 'linux-x64' | 'linux-arm64' | 'mac-arm64
 const helperName = 'windows-msvc-dependencies.awk';
 const helper = resolve(import.meta.dirname, '../native/framescaper-media-host/build', helperName);
 const macros = ['CCDEP', 'CXXDEP', 'ASDEP', 'HOSTCCDEP'] as const;
-const roles = ['ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell'];
+const roles = ['ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'nasm', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell'];
 const dependencyCommand = '$(DEP$(1)) $(DEP$(1)FLAGS) $($(1)DEP_FLAGS) $< 2>&1 | '
 	+ `awk -v target="$@" -f ${helperName} > $(@:.o=.d)`;
 const input = 'Note: including file: C:\\SDK\\alpha.h\n'
@@ -39,12 +39,12 @@ const expected = (target: string) => `${target}: C:/SDK/alpha.h\n${target}: D:/p
 
 function commands(target: Target, root: string, tools?: Toolchain, work = join(root, 'work with spaces')): readonly NativeCommand[] {
 	const executables = tools?.executables ?? Object.fromEntries(roles.map(role => [role, {
-		path: role === 'shell' ? String.raw`C:\Program Files\Git\bin\bash.exe` : join(root, 'tools', `${role}.exe`),
+		path: role === 'shell' ? 'C:/Program Files/Git/bin/bash.exe' : join(root, 'tools', `${role}.exe`),
 	}]));
 	return createFramescaperMediaHostBuildCommands({
 		target: { id: target, cmakePreset: target }, hostRoot: join(root, 'host with spaces'),
 		ffmpegSourceRoot: join(root, 'raw ffmpeg'), boostSourceRoot: join(root, 'boost'),
-		externalSourceRoots: Object.fromEntries(['x264', 'x265', 'libvpx', 'libopus', 'zlib'].map(id => [id, join(root, id)])),
+		externalSourceRoots: Object.fromEntries(['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib'].map(id => [id, join(root, id)])),
 		paths: framescaperMediaHostBuildPaths(work), tools: { executables },
 		environment: tools?.environment ?? { PATH: join(root, 'tools') }, configureFlags: [],
 	}) as unknown as readonly NativeCommand[];
@@ -71,11 +71,15 @@ for (const target of ['win-x64', 'win-arm64'] as const) {
 		assert.equal(plan.indexOf(phase(plan, 'ffmpeg-build')), plan.indexOf(prepare) + 1);
 		for (const [name, operation] of [['ffmpeg-build', '-j1'], ['ffmpeg-install', 'install']] as const) {
 			const command = phase(plan, name);
+			const ffmpegSource = join(root, 'raw ffmpeg').replaceAll('\\', '/');
 			assert.deepEqual(command.args, ['-C', paths.ffmpegBuild, operation,
-				'SHELL=C:/Program Files/Git/bin/bash.exe', '.SHELLFLAGS=--noprofile --norc -c',
+				'-f', `${ffmpegSource}/Makefile`, `SRC_PATH=${ffmpegSource}`, `SRC_LINK=${ffmpegSource}`,
+				'SHELL=C:/Program Files/Git/bin/bash.exe', '.SHELLFLAGS=-e -c',
 				...macros.map(macro => `${macro}=${dependencyCommand}`)]);
 			assert.ok(!('SHELL' in command.environment));
-			assert.deepEqual(command.environment, phase(plan, 'ffmpeg-configure').environment);
+			const configureEnvironment = phase(plan, 'ffmpeg-configure').environment;
+			assert.deepEqual(command.environment, { ...configureEnvironment,
+				PATH: `C:/Program Files/Git/bin;${configureEnvironment.PATH}` });
 		}
 		for (const name of ['x264-build', 'x264-install', 'libvpx-build', 'libvpx-install']) {
 			assert.ok(!phase(plan, name).args.some(argument => macros.some(macro => argument.startsWith(`${macro}=`))));
@@ -140,7 +144,11 @@ test('Motion Windows executes both planned make transports with all four depende
 		'intentional-failure:', '\t@printf "reached\\n" > failure-reached.txt', '\t@exit 7',
 		'\t@printf "unexpected\\n" > later-marker.txt',
 	].join('\n') + '\n';
-	writeFileSync(join(paths.ffmpegBuild, 'Makefile'), fixture);
+	const makefileIndex = phase(plan, 'ffmpeg-build').args.indexOf('-f');
+	const makefile = phase(plan, 'ffmpeg-build').args[makefileIndex + 1];
+	assert.ok(makefileIndex >= 0 && makefile);
+	mkdirSync(dirname(makefile), { recursive: true });
+	writeFileSync(makefile, fixture);
 	writeFileSync(join(paths.ffmpegBuild, 'include-lines.txt'), input);
 	const run = (command: NativeCommand, args: readonly string[] = command.args) => {
 		const result = spawnSync(command.executable, [...args], {

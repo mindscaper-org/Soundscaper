@@ -82,7 +82,7 @@ function fixture(context: TestContext) {
 	writeJson(manifestPath, manifest);
 	const toolRoot = join(root, 'tools');
 	mkdirSync(toolRoot);
-	const executables = Object.fromEntries(['ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell'].map(role => {
+	const executables = Object.fromEntries(['ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'nasm', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell'].map(role => {
 		const path = join(toolRoot, `${role}.tool`);
 		writeFileSync(path, `authenticated-${role}\n`);
 		return [role, { path, sha256: sha256(readFileSync(path)) }];
@@ -220,7 +220,7 @@ test('Motion Windows driver normalizes the installed x265 archive for its pkg-co
 			}
 			if (args[0] === './src/configure') {
 				assert.ok(args.includes('--pkg-config-flags=--static'));
-				assert.ok(!args.some(argument => argument.startsWith('--extra-libs=')));
+				assert.ok(args.includes('--extra-libs=advapi32.lib'));
 				assert.match(readFileSync(metadata, 'utf8'), /^Libs\.private: -ladvapi32$/mu);
 				assert.deepEqual(readFileSync(metadata), readFileSync(template));
 				const name = / -l(\w+)/u.exec(readFileSync(metadata, 'utf8'))?.[1];

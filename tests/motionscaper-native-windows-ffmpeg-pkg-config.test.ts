@@ -27,11 +27,11 @@ function normalize(directory: string) {
 }
 
 function commands(target: string): readonly Command[] {
-	const roles = ['ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell'];
+	const roles = ['ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'nasm', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell'];
 	return createFramescaperMediaHostBuildCommands({
 		target: { id: target, cmakePreset: target }, hostRoot: join(root, 'host'),
 		ffmpegSourceRoot: join(root, 'ffmpeg'), boostSourceRoot: join(root, 'boost'),
-		externalSourceRoots: Object.fromEntries(['x264', 'x265', 'libvpx', 'libopus', 'zlib'].map(id => [id, join(root, id)])),
+		externalSourceRoots: Object.fromEntries(['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib'].map(id => [id, join(root, id)])),
 		paths: framescaperMediaHostBuildPaths(join(root, 'work')),
 		tools: { executables: Object.fromEntries(roles.map(role => [role, { path: join(root, 'tools', role) }])) },
 		environment: { PATH: join(root, 'tools'), SOURCE_DATE_EPOCH: '1786492800' }, configureFlags: [],

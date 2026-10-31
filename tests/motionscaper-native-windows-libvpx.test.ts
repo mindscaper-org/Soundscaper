@@ -22,20 +22,20 @@ interface NativeCommand {
 const targets = ['win-x64', 'win-arm64', 'linux-x64', 'linux-arm64', 'mac-arm64'] as const;
 const root = join(tmpdir(), 'motionscaper-libvpx-command-plan');
 const paths = framescaperMediaHostBuildPaths(join(root, 'work'));
-const roles = ['ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell'];
+const roles = ['ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'nasm', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell'];
 
 function commandPlan(target: typeof targets[number], planRoot = root, workRoot = join(planRoot, 'work')): readonly NativeCommand[] {
 	const windows = target.startsWith('win-');
 	const planPaths = framescaperMediaHostBuildPaths(workRoot);
 	const executables = Object.fromEntries(roles.map(role => [role, {
-		path: windows && role === 'shell' ? String.raw`C:\Program Files\Git\bin\bash.exe`
+		path: windows && role === 'shell' ? 'C:/Program Files/Git/bin/bash.exe'
 			: join(planRoot, 'authenticated-tools', windows && (role === 'c' || role === 'cxx') ? 'cl.exe' : `${role}${windows ? '.exe' : ''}`),
 	}]));
 	return createFramescaperMediaHostBuildCommands({
 		target: { id: target, cmakePreset: target }, hostRoot: join(planRoot, 'host'),
 		ffmpegSourceRoot: join(planRoot, 'ffmpeg'), boostSourceRoot: join(planRoot, 'boost'), paths: planPaths,
 		externalSourceRoots: Object.fromEntries(
-			['x264', 'x265', 'libvpx', 'libopus', 'zlib'].map(id => [id, join(planRoot, 'sources', id)]),
+			['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib'].map(id => [id, join(planRoot, 'sources', id)]),
 		),
 		tools: { executables },
 		environment: { PATH: join(planRoot, 'authenticated-tools'), CC: 'ambient-cc', CXX: 'ambient-cxx', SOURCE_DATE_EPOCH: '1786492800', MSBUILDDISABLENODEREUSE: '0' },
@@ -55,10 +55,14 @@ for (const target of targets) {
 		const configure = phase(commands, 'libvpx-configure');
 		const windows = target.startsWith('win-');
 		const codecEnvironment = phase(commands, 'x264-configure').environment;
-		const expectedEnvironment = windows ? { ...codecEnvironment, CC: '', CXX: '' } : codecEnvironment;
+		const expectedEnvironment = {
+			...codecEnvironment, ...(windows ? { CC: '', CXX: '' } : {}),
+			...(target.endsWith('-x64') ? { AS: windows ? 'nasm.exe' : join(root, 'authenticated-tools', 'nasm') } : {}),
+		};
 		for (const name of ['libvpx-configure', 'libvpx-build', 'libvpx-install']) {
 			const expected = windows && name !== 'libvpx-configure'
-				? { ...expectedEnvironment, MSBUILDDISABLENODEREUSE: '1' } : expectedEnvironment;
+				? { ...expectedEnvironment, MSBUILDDISABLENODEREUSE: '1',
+					PATH: `C:/Program Files/Git/bin;${codecEnvironment.PATH}` } : expectedEnvironment;
 			assert.deepEqual(phase(commands, name).environment, expected,
 				`${target}: libvpx must select native compilers and retire Windows build nodes after completion`);
 		}
@@ -82,12 +86,12 @@ for (const target of targets) {
 		if (windows) {
 			assert.ok(configure.args.includes(`--target=${target === 'win-x64' ? 'x86_64' : 'arm64'}-win64-vs17`));
 			assert.ok(configure.args.includes('--enable-static-msvcrt'));
-			assert.equal(configure.executable, String.raw`C:\Program Files\Git\bin\bash.exe`);
+			assert.equal(configure.executable, 'C:/Program Files/Git/bin/bash.exe');
 			for (const name of ['libvpx-build', 'libvpx-install']) {
 				const command = phase(commands, name);
 				assert.ok(command.args.includes('MSBUILD_TOOL=msbuild.exe'), 'generated VS projects must compile with the authenticated MSBuild tool');
 				assert.deepEqual(command.args.filter(argument => /^(?:SHELL|\.SHELLFLAGS)=/u.test(argument)), [
-					'SHELL=C:/Program Files/Git/bin/bash.exe', '.SHELLFLAGS=--noprofile --norc -c',
+					'SHELL=C:/Program Files/Git/bin/bash.exe', '.SHELLFLAGS=-e -c',
 				], 'native make must run absolute scripts through the full authenticated shell and bypass direct script parsing');
 				assert.ok(!('SHELL' in command.environment), 'the shell binding must survive recursive make as command arguments');
 			}
@@ -98,7 +102,8 @@ for (const target of targets) {
 			assert.deepEqual([configure.args[0], configure.args.find(argument => argument.startsWith('--prefix='))], [
 				join(root, 'sources', 'libvpx', 'configure'), `--prefix=${paths.libvpxInstall}`,
 			]);
-			assert.ok(configure.args.includes('--target=generic-gnu'));
+			const nativeTarget = { 'linux-x64': 'x86_64-linux-gcc', 'linux-arm64': 'arm64-linux-gcc', 'mac-arm64': 'arm64-darwin-gcc' };
+			assert.ok(configure.args.includes(`--target=${nativeTarget[target as keyof typeof nativeTarget]}`));
 			assert.ok(!configure.args.includes('--enable-static-msvcrt'));
 			assert.deepEqual(phase(commands, 'libvpx-build').args, ['-C', paths.libvpxBuild, '-j1']);
 			assert.deepEqual(phase(commands, 'libvpx-install').args, ['-C', paths.libvpxBuild, 'install']);
@@ -151,7 +156,10 @@ for (const target of targets) {
 			for (const [name, operation] of [['ffmpeg-build', '-j1'], ['ffmpeg-install', 'install']] as const) {
 				const command = phase(commands, name);
 				assert.deepEqual(command.args, ['-C', framescaperMediaHostBuildPaths(workRoot).ffmpegBuild, operation,
-					...(windows ? ['SHELL=C:/Program Files/Git/bin/bash.exe', '.SHELLFLAGS=--noprofile --norc -c',
+					...(windows ? ['-f', `${join(sourceRoot, 'ffmpeg', 'Makefile').replaceAll('\\', '/')}`,
+						`SRC_PATH=${join(sourceRoot, 'ffmpeg').replaceAll('\\', '/')}`,
+						`SRC_LINK=${join(sourceRoot, 'ffmpeg').replaceAll('\\', '/')}`,
+						'SHELL=C:/Program Files/Git/bin/bash.exe', '.SHELLFLAGS=-e -c',
 						...['CCDEP', 'CXXDEP', 'ASDEP', 'HOSTCCDEP'].map(macro => `${macro}=`
 							+ '$(DEP$(1)) $(DEP$(1)FLAGS) $($(1)DEP_FLAGS) $< 2>&1 | '
 							+ 'awk -v target="$@" -f windows-msvc-dependencies.awk > $(@:.o=.d)')] : [])]);
