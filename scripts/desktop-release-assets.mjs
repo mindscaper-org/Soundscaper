@@ -45,6 +45,7 @@ const RELEASE_TARGET_PACKAGE_ROWS = Object.freeze({
 		['Linux x64 Debian package', 'linux-x64\\.deb'],
 	]),
 	'mac-arm64': Object.freeze([
+		['macOS Apple silicon PKG installer', 'mac-arm64\\.pkg'],
 		['macOS Apple silicon DMG', 'mac-arm64\\.dmg'],
 	]),
 	'win-arm64': Object.freeze([
@@ -222,7 +223,7 @@ export function validateDesktopReleasePackageInventory(
 				pattern,
 			])
 	)));
-	const releasePackages = packageFiles.filter((name) => /\.(?:AppImage|deb|dmg|exe|zip)$/u.test(name));
+	const releasePackages = packageFiles.filter((name) => /\.(?:AppImage|deb|dmg|pkg|exe|zip)$/u.test(name));
 	for (const [label, pattern] of requiredPackages) {
 		assert(releasePackages.filter((name) => pattern.test(name)).length === 1, `Expected exactly one ${label}.`);
 	}

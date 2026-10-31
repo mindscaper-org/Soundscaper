@@ -60,6 +60,8 @@ qualification plans belong in Git history, not in the maintained documentation s
   optional owner QA, and the owner's release decision.
 - [Desktop signing and notarization](operations/signing.md) covers the external
   credentials and first-candidate workflow.
+- [Desktop installers](operations/desktop-installers.md) describes the optional
+  FFmpeg components, package-manager setup, and Debian recommendations.
 - [Build local-model runtimes](operations/local-models/build-runtimes.md),
   [publish local models](operations/local-models/publish.md), and
   [run real-model tests](operations/local-models/nightly-tests.md) cover the

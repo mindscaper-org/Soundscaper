@@ -5,7 +5,7 @@ import type { DesktopDownloadProductId } from './desktop-download-links.ts';
 const PACKAGES = [
 	['windows-x64.exe', 'win-x64.exe'], ['windows-arm64.exe', 'win-arm64.exe'],
 	['windows-x64.zip', 'win-x64.zip'], ['windows-arm64.zip', 'win-arm64.zip'],
-	['mac-arm64.dmg', 'mac-arm64.dmg'],
+	['mac-arm64.pkg', 'mac-arm64.pkg'], ['mac-arm64.dmg', 'mac-arm64.dmg'],
 	['linux-x64.AppImage', 'linux-x64.AppImage'], ['linux-arm64.AppImage', 'linux-arm64.AppImage'],
 	['linux-x64.deb', 'linux-x64.deb'], ['linux-arm64.deb', 'linux-arm64.deb'],
 	['linux-x64.flatpak', 'linux-x64.flatpak'], ['linux-arm64.flatpak', 'linux-arm64.flatpak'],
@@ -30,7 +30,7 @@ export function desktopDownloadTargetForHeaders(headers: Headers): DesktopDownlo
 	if (architecture !== 'x64' && architecture !== 'arm64') return null;
 	if (platform === 'win') return `win-${architecture}.exe`;
 	if (platform === 'linux') return `linux-${architecture}.AppImage`;
-	if (platform === 'mac' && architecture === 'arm64') return 'mac-arm64.dmg';
+	if (platform === 'mac' && architecture === 'arm64') return 'mac-arm64.pkg';
 	return null;
 }
 

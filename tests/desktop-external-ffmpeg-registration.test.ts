@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import { registerExternalFfmpegPreferences } from '../desktop/external-ffmpeg-registration.mjs';
 import { createExternalFfmpegInstallerBroker, planExternalFfmpegInstall } from '../desktop/external-ffmpeg-installer.ts';
 import { registerExternalFfmpegPreferenceMainIpc } from '../desktop/external-ffmpeg-preference-main-ipc.ts';
 import { createExternalFfmpegPreferenceService } from '../desktop/external-ffmpeg-preference-service.ts';
+import { consumeExternalFfmpegInstallerConsent } from '../desktop/external-ffmpeg-installer-consent.ts';
 
 import { externalFfmpegExecutablePairClosureSha256 } from '../desktop/external-ffmpeg-node-runtime.ts';
 
@@ -46,6 +50,7 @@ test('registration composes Browse, probe, confirmation, install, and exact IPC 
 		packageManagerExecutableAvailable: async (path: string) => path === '/opt/homebrew/bin/brew',
 		mkdir: async (...arguments_: unknown[]) => { directories.push(arguments_); },
 		loadModules: async () => ({
+			consumeExternalFfmpegInstallerConsent,
 			createExternalFfmpegInstallerBroker,
 			createExternalFfmpegInstallerNodeRunner: () => async (request: unknown) => {
 				installs.push(request);
@@ -94,6 +99,7 @@ for (const detected of [true, false]) {
 			windowFor: () => null, platform: 'linux', architecture: 'x64',
 			userDataPath: '/data', environment: {}, mkdir: () => Promise.resolve(),
 			loadModules: async () => ({
+				consumeExternalFfmpegInstallerConsent,
 				createExternalFfmpegInstallerBroker,
 				createExternalFfmpegInstallerNodeRunner: () => async () => { throw new Error('must not install'); },
 				createExternalFfmpegPreferenceNodeProbe: () => async (selectedPath: string | null) => {
@@ -134,6 +140,7 @@ test('registration reprobes an explicitly persisted selection before exposing th
 		userDataPath: '/data', environment: {}, mkdir: () => Promise.resolve(),
 		packageManagerExecutableAvailable: async () => true,
 		loadModules: async () => ({
+			consumeExternalFfmpegInstallerConsent,
 			createExternalFfmpegInstallerBroker,
 			createExternalFfmpegInstallerNodeRunner: () => async () => {
 				throw new Error('must not install');
@@ -175,6 +182,7 @@ test('a persisted selection that fails startup reprobe remains unavailable and u
 		userDataPath: '/data', environment: {}, mkdir: () => Promise.resolve(),
 		packageManagerExecutableAvailable: async () => true,
 		loadModules: async () => ({
+			consumeExternalFfmpegInstallerConsent,
 			createExternalFfmpegInstallerBroker,
 			createExternalFfmpegInstallerNodeRunner: () => async () => {
 				throw new Error('must not install');
@@ -210,6 +218,7 @@ test('cancelled file and install dialogs cause no mutation or package-manager pr
 		userDataPath: '/data', environment: {}, mkdir: () => Promise.resolve(),
 		packageManagerExecutableAvailable: async () => true,
 		loadModules: async () => ({
+			consumeExternalFfmpegInstallerConsent,
 			createExternalFfmpegInstallerBroker,
 			createExternalFfmpegInstallerNodeRunner: () => async () => {
 				installCalls += 1;
@@ -247,6 +256,7 @@ test('Windows registration resolves WinGet from LOCALAPPDATA instead of inherite
 		),
 		mkdir: () => Promise.resolve(),
 		loadModules: async () => ({
+			consumeExternalFfmpegInstallerConsent,
 			createExternalFfmpegInstallerBroker,
 			createExternalFfmpegInstallerNodeRunner: () => async () => ({
 				status: 'exited', exitCode: 0, signal: null, stdout: '', stderr: '',
@@ -281,6 +291,7 @@ test('registration hides Install when the existing package manager is unavailabl
 		userDataPath: '/data', environment: {}, mkdir: () => Promise.resolve(),
 		packageManagerExecutableAvailable: async (path: string) => { checked.push(path); return false; },
 		loadModules: async () => ({
+			consumeExternalFfmpegInstallerConsent,
 			createExternalFfmpegInstallerBroker,
 			createExternalFfmpegInstallerNodeRunner: () => async () => {
 				throw new Error('must not install');
@@ -297,6 +308,41 @@ test('registration hides Install when the existing package manager is unavailabl
 	assert.equal(confirmations, 0);
 	registration.dispose();
 });
+
+for (const platform of ['darwin', 'win32']) {
+	test(`${platform} installer opt-in discovers FFmpeg once and respects later Clear`, async (context) => {
+		const userDataPath = await mkdtemp(join(tmpdir(), 'installer-registration-'));
+		context.after(() => rm(userDataPath, { recursive: true, force: true }));
+		await writeFile(join(userDataPath, 'ffmpeg-installer-consent'), '1\n');
+		const settings = settingsFixture();
+		let probes = 0;
+		const options = {
+			channels: CHANNELS, handle() {}, removeHandler() {}, settings,
+			dialog: {
+				showOpenDialog: () => Promise.reject(new Error('must not browse')),
+				showMessageBox: () => Promise.reject(new Error('must not install')),
+			},
+			windowFor: () => null, platform, architecture: 'arm64', userDataPath, environment: {},
+			packageManagerExecutableAvailable: async () => true,
+			loadModules: async () => ({
+				consumeExternalFfmpegInstallerConsent,
+				createExternalFfmpegInstallerBroker,
+				createExternalFfmpegInstallerNodeRunner: () => async () => { throw new Error('must not install'); },
+				createExternalFfmpegPreferenceNodeProbe: () => async () => { probes += 1; return available(); },
+				createExternalFfmpegPreferenceService, planExternalFfmpegInstall, registerExternalFfmpegPreferenceMainIpc,
+			}),
+		};
+		const first = await registerExternalFfmpegPreferences(options);
+		assert.equal((await first.service.status()).state, 'ready');
+		assert.equal(probes, 1);
+		await first.service.clear();
+		first.dispose();
+		const second = await registerExternalFfmpegPreferences(options);
+		assert.equal((await second.service.status()).state, 'unconfigured');
+		assert.equal(probes, 1);
+		second.dispose();
+	});
+}
 
 function settingsFixture(initial: Selection | null = null) {
 	let selection: Selection | null = initial;

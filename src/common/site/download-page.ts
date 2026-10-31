@@ -7,7 +7,7 @@ import type { DesktopReleaseCandidate } from './desktop-releases.ts';
 const PACKAGE_LABELS: Readonly<Record<DesktopDownloadTarget, string>> = {
 	'win-x64.exe': 'Windows x64 installer', 'win-arm64.exe': 'Windows ARM64 installer',
 	'win-x64.zip': 'Windows x64 portable ZIP', 'win-arm64.zip': 'Windows ARM64 portable ZIP',
-	'mac-arm64.dmg': 'macOS Apple silicon DMG',
+	'mac-arm64.pkg': 'macOS Apple silicon PKG installer', 'mac-arm64.dmg': 'macOS Apple silicon DMG',
 	'linux-x64.AppImage': 'Linux x64 AppImage', 'linux-arm64.AppImage': 'Linux ARM64 AppImage',
 	'linux-x64.deb': 'Linux x64 Debian package', 'linux-arm64.deb': 'Linux ARM64 Debian package',
 	'linux-x64.flatpak': 'Linux x64 Flatpak', 'linux-arm64.flatpak': 'Linux ARM64 Flatpak',

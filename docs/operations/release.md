@@ -135,19 +135,20 @@ assets alone does not reload that configuration.
 The existing `/download/desktop/` route remains available for direct downloads.
 Its Pages Function selects the newest published release with an installer for the
 request's desktop platform and architecture, including RCs and betas. Windows
-downloads use the EXE installer, and Linux downloads use the AppImage. Explicit
-links override browser detection and can be shared or bookmarked:
+downloads use the EXE installer, macOS downloads use the PKG installer, and Linux
+downloads use the AppImage. Explicit links override browser detection and can
+be shared or bookmarked:
 
 | Package | Stable Soundscaper URL |
 | --- | --- |
 | Windows x64 installer | `https://soundscaper.org/download/desktop/soundscaper-windows-x64.exe` |
 | Windows ARM64 installer | `https://soundscaper.org/download/desktop/soundscaper-windows-arm64.exe` |
-| macOS Apple silicon | `https://soundscaper.org/download/desktop/soundscaper-mac-arm64.dmg` |
+| macOS Apple silicon installer | `https://soundscaper.org/download/desktop/soundscaper-mac-arm64.pkg` |
 | Linux x64 AppImage | `https://soundscaper.org/download/desktop/soundscaper-linux-x64.AppImage` |
 | Linux ARM64 AppImage | `https://soundscaper.org/download/desktop/soundscaper-linux-arm64.AppImage` |
 
-Windows ZIPs and Linux `.deb` and `.flatpak` packages use the same URLs with the
-matching extension. Framescaper uses `framescaper.org` and the `framescaper-`
+macOS DMGs, Windows ZIPs and Linux `.deb` and `.flatpak` packages use the same
+URLs with the matching extension. Framescaper uses `framescaper.org` and the `framescaper-`
 filename prefix. Redirects resolve on each visit, with a five-minute edge cache
 on GitHub release metadata, and preserve the versioned package filenames.
 

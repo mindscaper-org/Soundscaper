@@ -66,6 +66,7 @@ async function loadConfiguration(productId, signed = false) {
 		env: {
 			...process.env, SCAPE_PRODUCT: productId, SCAPE_MAC_SIGNING: String(signed),
 			CSC_NAME: 'Developer ID Application: Example (TEAM)', CSC_KEYCHAIN: '/tmp/keychain',
+			CSC_INSTALLER_NAME: 'Developer ID Installer: Example (TEAM)',
 			APPLE_ID: 'account', APPLE_APP_SPECIFIC_PASSWORD: 'test-password', APPLE_TEAM_ID: 'TEAM',
 		},
 	});

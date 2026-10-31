@@ -375,8 +375,15 @@ framework library. Edit > Preferences > General displays the canonical
 location and probe status and provides Browse, Clear, Rescan, and Install. The
 Windows plan is the exact WinGet id `BtbN.FFmpeg.GPL.8.1`; the macOS and Linux
 plan invokes `brew install ffmpeg` only through an already installed trusted
-Homebrew executable. Neither plan bootstraps a package manager, invokes `sudo`,
-runs at startup, or silently accepts changed package agreements.
+Homebrew executable. These in-app plans do not bootstrap a package manager,
+invoke `sudo`, or silently accept changed package agreements. Separately, the
+Windows installer and macOS PKG offer an unchecked optional FFmpeg component.
+Selecting it authorizes the disclosed WinGet or Homebrew bootstrap and FFmpeg
+installation for the desktop user. Debian packaging recommends the system
+`ffmpeg` package without requiring it. Successful installer setup authorizes
+one first-launch discovery through a consumed per-user consent marker; the
+normal executable-pair probe and identity checks still apply. These installers
+contain installation scripts, not an FFmpeg program or codec-library payload.
 
 The CLI adapter admits a matching `ffmpeg`/`ffprobe` pair with a normalized
 released version `>=4.4.0` and `<10.0.0`, fingerprints both programs and their

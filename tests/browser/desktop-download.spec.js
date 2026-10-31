@@ -76,16 +76,16 @@ for (const [label, platform, architecture, matching] of [
 	['Windows x64', 'Windows', 'x86', ['Windows x64 installer', 'Windows x64 portable ZIP']],
 	['Windows ARM64', 'Windows', 'arm', ['Windows ARM64 installer']],
 	['Linux ARM64', 'Linux', 'arm', ['Linux ARM64 AppImage']],
-	['Apple silicon', 'macOS', 'arm', ['macOS Apple silicon DMG']],
+	['Apple silicon', 'macOS', 'arm', ['macOS Apple silicon PKG installer', 'macOS Apple silicon DMG']],
 ]) {
 	test(`${label} detection puts only matching packages above Other downloads`, async ({ page, context }) => {
 		await context.setExtraHTTPHeaders({
 			'Sec-CH-UA-Platform': `"${platform}"`, 'Sec-CH-UA-Arch': `"${architecture}"`, 'Sec-CH-UA-Bitness': '"64"',
 		});
 		const labels = ['Windows x64 installer', 'Windows ARM64 installer', 'Windows x64 portable ZIP',
-			'macOS Apple silicon DMG', 'Linux x64 AppImage', 'Linux ARM64 AppImage'];
+			'macOS Apple silicon PKG installer', 'macOS Apple silicon DMG', 'Linux x64 AppImage', 'Linux ARM64 AppImage'];
 		await mockDownloadPage(context, 'Soundscaper',
-			['win-x64.exe', 'win-arm64.exe', 'win-x64.zip', 'mac-arm64.dmg', 'linux-x64.AppImage', 'linux-arm64.AppImage']);
+			['win-x64.exe', 'win-arm64.exe', 'win-x64.zip', 'mac-arm64.pkg', 'mac-arm64.dmg', 'linux-x64.AppImage', 'linux-arm64.AppImage']);
 		await page.goto('https://soundscaper.org/download/');
 		for (const name of labels) {
 			const link = page.getByRole('link', { name, exact: true });
@@ -122,7 +122,7 @@ test('download pages are accessible in light and dark mode', async ({ page, cont
 	}
 });
 
-async function mockDownloadPage(context, product, targets = ['win-x64.exe', 'mac-arm64.dmg', 'linux-arm64.AppImage']) {
+async function mockDownloadPage(context, product, targets = ['win-x64.exe', 'mac-arm64.pkg', 'mac-arm64.dmg', 'linux-arm64.AppImage']) {
 	const id = product.toLowerCase();
 	const origin = `https://${id}.org`;
 	const version = '1.0.0-rc.Oct.29.b';

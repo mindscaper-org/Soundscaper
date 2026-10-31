@@ -31,7 +31,7 @@ const AUDITED_PACKAGES = new WeakSet();
 const OPTION_FIELDS = Object.freeze([
 	'repositoryRoot', 'packageRoot', 'productId', 'targetId',
 ]);
-const PACKAGE_FILE_PATTERN = /\.(?:appimage|deb|dmg|exe|zip)$/iu;
+const PACKAGE_FILE_PATTERN = /\.(?:appimage|deb|dmg|pkg|exe|zip)$/iu;
 const RUNTIME_MANIFEST_PATTERN = /^runtime-manifest-.+\.json$/iu;
 const SOURCE_REVISION = /^(?:[a-f\d]{40}|[a-f\d]{64})$/u;
 const MAXIMUM_RUNTIME_MANIFEST_BYTES = 16 * 1024 * 1024;

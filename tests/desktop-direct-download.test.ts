@@ -24,7 +24,7 @@ async function download(path: string, releases: unknown, headers: HeadersInit = 
 const PACKAGES = [
 	['windows-x64.exe', 'win-x64.exe'], ['windows-arm64.exe', 'win-arm64.exe'],
 	['windows-x64.zip', 'win-x64.zip'], ['windows-arm64.zip', 'win-arm64.zip'],
-	['mac-arm64.dmg', 'mac-arm64.dmg'],
+	['mac-arm64.pkg', 'mac-arm64.pkg'], ['mac-arm64.dmg', 'mac-arm64.dmg'],
 	['linux-x64.AppImage', 'linux-x64.AppImage'], ['linux-arm64.AppImage', 'linux-arm64.AppImage'],
 	['linux-x64.deb', 'linux-x64.deb'], ['linux-arm64.deb', 'linux-arm64.deb'],
 	['linux-x64.flatpak', 'linux-x64.flatpak'], ['linux-arm64.flatpak', 'linux-arm64.flatpak'],
@@ -59,7 +59,7 @@ test('desktop platform selection honors architecture hints and avoids mobile or 
 		[{ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; ARM64)' }, 'win-arm64.exe'],
 		[{ 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64)' }, 'linux-x64.AppImage'],
 		[{ 'User-Agent': 'Mozilla/5.0 (X11; Linux aarch64)' }, 'linux-arm64.AppImage'],
-		[{ 'Sec-CH-UA-Platform': '"macOS"', 'Sec-CH-UA-Arch': '"arm"', 'Sec-CH-UA-Bitness': '"64"' }, 'mac-arm64.dmg'],
+		[{ 'Sec-CH-UA-Platform': '"macOS"', 'Sec-CH-UA-Arch': '"arm"', 'Sec-CH-UA-Bitness': '"64"' }, 'mac-arm64.pkg'],
 		[{ 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' }, null],
 		[{ 'User-Agent': 'Mozilla/5.0 (Linux; Android 14; arm64) Mobile' }, null],
 		[{ 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' }, null],

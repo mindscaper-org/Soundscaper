@@ -180,7 +180,7 @@ function desktopInstallerName(
 		if (target !== null) {
 			if (asset.name === `${prefix}${version}-${target}`) return asset.name;
 		} else if (asset.name.startsWith(prefix) && !/source/iu.test(asset.name)
-			&& /\.(?:AppImage|deb|dmg|exe|zip|flatpak)$/iu.test(asset.name)) return asset.name;
+			&& /\.(?:AppImage|deb|dmg|pkg|exe|zip|flatpak)$/iu.test(asset.name)) return asset.name;
 	}
 	return null;
 }

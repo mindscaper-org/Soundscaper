@@ -31,6 +31,7 @@ const PACKAGES = [
 	`Soundscaper-${VERSION}-linux-arm64.AppImage`,
 	`Soundscaper-${VERSION}-linux-arm64.deb`,
 	`Soundscaper-${VERSION}-mac-arm64.dmg`,
+	`Soundscaper-${VERSION}-mac-arm64.pkg`,
 	`Soundscaper-${VERSION}-win-x64.exe`,
 	`Soundscaper-${VERSION}-win-x64.zip`,
 	`Soundscaper-${VERSION}-win-arm64.exe`,
@@ -113,12 +114,12 @@ test('release inventories accept exactly both Flatpak architectures per selected
 	}
 });
 
-test('stable Soundscaper assembly selects exactly nine packages and five runtime manifests', () => {
+test('stable Soundscaper assembly selects exactly ten packages and five runtime manifests', () => {
 	const selected = [...PACKAGES, ...SOUNDSCAPER_RUNTIME_MANIFESTS];
 	assert.doesNotThrow(() => validateDesktopReleaseInputInventory(
 		selected, VERSION, ['soundscaper'],
 	));
-	assert.equal(PACKAGES.length, 9);
+	assert.equal(PACKAGES.length, 10);
 	assert.equal(SOUNDSCAPER_RUNTIME_MANIFESTS.length, 5);
 	assert.throws(
 		() => validateDesktopReleaseInputInventory(
