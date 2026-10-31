@@ -7,9 +7,11 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { test } from 'node:test';
 
+import sherpaGpuRecipe from '../config/assistance-sherpa-gpu-build.json' with { type: 'json' };
 import { assistanceNativeRuntimeStageSummary } from '../desktop/assistance-native-runtime-payload.mjs';
 import { desktopAssistanceNativeManifest } from '../scripts/lib/desktop-assistance-speech-runtime.mjs';
 import { resolveDesktopAssistanceHandoffRevision } from '../scripts/desktop-prepare.mjs';
+import { validateDesktopAssistanceRuntimeDistribution } from '../scripts/lib/desktop-assistance-runtime-distribution-verification.mjs';
 import {
 	KOKORO_G2P_MAXIMUM_PATH_SEGMENTS,
 	validateDesktopKokoroG2pManifest,
@@ -98,6 +100,11 @@ test('every committed desktop test target has a valid pinned runtime handoff', a
 			});
 			assert.equal(staged.sourceRevision, lock.targets[targetId].sourceRevision);
 			const handoff = JSON.parse(await readFile(join(output, targetId, 'handoff.json'), 'utf8'));
+			for (const path of ['owned-handles.h', 'owned-external.h', 'node-disposal.cc', 'webgpu-provider.cc']) {
+				const source = `native/assistance-sherpa-gpu/${path}`;
+				assert.equal(handoff.assistanceNativeBuild.provenance.nativeRecipeFiles[source],
+					sherpaGpuRecipe.nativeRecipeFiles[source], `${targetId} must retain explicit GPU teardown: ${path}`);
+			}
 			const native = JSON.parse(await readFile(join(output, targetId, 'config',
 				'assistance-native-runtime-manifest.json'), 'utf8'));
 			assert.equal(retained.targets[targetId].sourceRevision, staged.sourceRevision);
@@ -109,7 +116,19 @@ test('every committed desktop test target has a valid pinned runtime handoff', a
 			assert.doesNotThrow(() => desktopAssistanceNativeManifest(handoff, targetId));
 			const changedNative = structuredClone(native);
 			changedNative.targets[targetId].package.files['build-provenance.json'].sha256 = '0'.repeat(64);
-			assert.throws(() => assistanceNativeRuntimeStageSummary(changedNative, targetId), /descriptor/u);
+			const configuration = join(output, targetId, 'config');
+			const authority = {
+				targetId, receipt: handoff.assistanceRuntimeDistribution,
+				manifestBytes: await readFile(join(configuration, 'assistance-runtime-distribution.json')),
+				familyManifestBytes: await readFile(join(configuration, 'assistance-runtime-family-supply-candidates.json')),
+				kokoroManifestBytes: await readFile(join(configuration, 'assistance-kokoro-g2p-runtime-manifest.json')),
+			};
+			assert.doesNotThrow(() => validateDesktopAssistanceRuntimeDistribution({
+				...authority, nativeManifestBytes: Buffer.from(JSON.stringify(native)),
+			}));
+			assert.throws(() => validateDesktopAssistanceRuntimeDistribution({
+				...authority, nativeManifestBytes: Buffer.from(JSON.stringify(changedNative)),
+			}), /distribution files differ/u);
 			const changedHandoff = structuredClone(handoff);
 			changedHandoff.assistanceNativeBuild.provenance.sourceDateEpoch += 1;
 			assert.throws(() => desktopAssistanceNativeManifest(changedHandoff, targetId));
