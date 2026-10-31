@@ -174,7 +174,9 @@ test('re-looping a legacy single pass preserves its cropped phase and source spe
 	assert.deepEqual(readClipLoop(preview), { periodFrames: 50, offsetFrames: 0 });
 	assert.equal(preview.sourceStartFrame, 70);
 	assert.equal(preview.sourceDurationFrames, 100);
-	assert.deepEqual(clipLoopUpdateFields(legacy, preview.loopChange), clipLoopUpdateFields({ ...original, durationFrames: 50, sourceStartFrame: 70, sourceDurationFrames: 100 }, preview.loopChange));
+	const canonical = { ...original, durationFrames: 50, sourceStartFrame: 70, sourceDurationFrames: 100, trimStartFrames: 50, trimEndFrames: 50 };
+	assert.deepEqual({ ...legacy, ...clipLoopUpdateFields(legacy, preview.loopChange) },
+		{ ...canonical, ...clipLoopUpdateFields(canonical, preview.loopChange) });
 	assert.equal(sameLoopPointerClip(legacy, { ...legacy, ...clipLoopUpdateFields(legacy, false) }), true);
 });
 
