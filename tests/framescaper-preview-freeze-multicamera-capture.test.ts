@@ -74,6 +74,7 @@ for (const change of ['camera', 'revision'] as const) {
 
 void test('Freeze refuses a missing active camera member before compositor rendering', async context => {
 	const project = fixture('switched');
+	assert.ok(Array.isArray(project.multicameraGroups));
 	const group = project.multicameraGroups[0];
 	assert.ok(group && typeof group === 'object' && !Array.isArray(group));
 	const { capture, renders } = await boundCapture({ ...project,
