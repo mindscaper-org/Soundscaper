@@ -110,7 +110,7 @@ test('ambiguous files use only a bounded four-byte read to detect MIDI signature
 	const f = fixture();
 	const bytes = await new File([writeMidiFile(document)], 'score.mid').arrayBuffer();
 	const ranges: number[][] = [];
-	await f.route([{ name: 'score.bin', arrayBuffer: async () => bytes, slice: (start, end) => {
+	await f.route([{ name: 'score.bin', arrayBuffer: async () => bytes, slice: (start: number, end: number) => {
 		ranges.push([start, end]); return { arrayBuffer: async () => bytes.slice(start, end) };
 	} }]);
 	assert.deepEqual(ranges, [[0, 4]]);
