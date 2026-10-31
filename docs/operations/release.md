@@ -100,9 +100,21 @@ authority to the other.
 
 ## Desktop download links
 
-The existing Download link and application menu use
-`https://soundscaper.org/download/desktop/` (or the Framescaper origin). The
-Pages Function selects the newest published release with an installer for the
+The existing Download link and application menu open
+`https://soundscaper.org/download/` (or `https://framescaper.org/download/`).
+The server-rendered Pages Function lists the latest published RC for that
+product, selected by publication date, with its version, date, release notes,
+uploaded platform packages, checksums, source archive, and notices. Only
+resources actually uploaded to that RC appear; unavailable platforms never
+borrow packages from an older RC. Drafts, betas, stable releases, and releases
+without a recognized installer are excluded. A failed lookup leaves a GitHub
+release link and a retry action. No site rebuild is needed: both download
+surfaces share a bounded GitHub lookup with a five-minute metadata edge cache.
+This route is independent of the Astro handbook's `/docs` base and loads no
+editor JavaScript.
+
+The existing `/download/desktop/` route remains available for direct downloads.
+Its Pages Function selects the newest published release with an installer for the
 request's desktop platform and architecture, including RCs and betas. Windows
 downloads use the EXE installer, and Linux downloads use the AppImage. Explicit
 links override browser detection and can be shared or bookmarked:

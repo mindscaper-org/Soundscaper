@@ -44,7 +44,7 @@ for (const product of ['soundscaper', 'framescaper']) {
 	});
 }
 
-test('the existing Download button resolves the Windows installer instead of a release page', async () => {
+test('the generic direct-download endpoint resolves the Windows installer', async () => {
 	const response = await download('', [release('soundscaper', '1.0.0-rc.1', ['win-x64.zip', 'win-x64.exe'])],
 		{ 'User-Agent': WINDOWS });
 	assert.equal(response.headers.get('location'),

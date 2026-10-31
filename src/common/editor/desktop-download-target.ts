@@ -13,6 +13,8 @@ const PACKAGES = [
 
 export type DesktopDownloadTarget = typeof PACKAGES[number][1];
 
+export const DESKTOP_DOWNLOAD_TARGETS: readonly DesktopDownloadTarget[] = Object.freeze(PACKAGES.map(([, target]) => target));
+
 export function desktopDownloadTargetForAsset(asset: string, productId: DesktopDownloadProductId): DesktopDownloadTarget | null {
 	return PACKAGES.find(([alias]) => asset === `${productId}-${alias}`)?.[1] ?? null;
 }
