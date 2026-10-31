@@ -19,6 +19,8 @@ import { timedRecordingStopFrame } from '../recording-model.ts';
 import { audibleRecordingStartTime, planRecordingStartTiming } from './recording-start-timing.ts';
 import { recordingSourceAlignment } from './recording-source-alignment.ts';
 import { assertRecordingTargetsUnlocked } from '../../../recording-target-admission.ts';
+import { observeMediaInputInterruption } from '../../shared/media-input-interruption.ts';
+import { RecordingInputLossError } from '../../../recording-input-events.ts';
 import type {
 	RecordingMediaStream,
 	RecordingStartOptions,
@@ -75,6 +77,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 			SoundActivatedRecordingCaptureSession
 		>();
 		let routedRecorder: ReturnType<RoutedRecordingCaptureRuntime['createRoutedController']> | null = null;
+		let finalizationRequested = false;
 		const ownsGeneration = () => scope.generation === state.recordingStartGeneration;
 		const isCurrent = () => {
 			if (!ownsGeneration()) return false;
@@ -85,7 +88,8 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 				&& routedRecorder?.state !== 'ready'
 				&& sourceSessions.length
 				&& sourceSessions.every((source) => source.stopped)
-				&& !state.recordingFinishing) {
+				&& !state.recordingFinishing && !finalizationRequested) {
+				finalizationRequested = true;
 				void runtime.finalizeRecording().catch(runtime.handleError);
 			}
 		};
@@ -182,11 +186,10 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 					listeners: [],
 				};
 				sourceSessions.push(session);
-				for (const mediaTrack of stream.getTracks?.() || []) {
-					const disconnect = () => disconnectSession(session);
-					mediaTrack.addEventListener?.('ended', disconnect, { once: true });
-					session.listeners.push(() => mediaTrack.removeEventListener?.('ended', disconnect));
-				}
+				session.listeners.push(observeMediaInputInterruption({
+					tracks: stream.getTracks?.() ?? stream.getAudioTracks(),
+					onInterrupted: error => { if (isCurrent()) { state.recordingFatalError = error; disconnectSession(session); } },
+				}));
 				if (!runtime.recordingStreamIsLive(stream, session.kind)) disconnectSession(session);
 			}
 			await dropFailedSourceSessions();
@@ -388,16 +391,12 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 							runtime.updatePlayhead();
 							runtime.publishRecordingPreview();
 						},
-						onError: handleFatalRecordingError,
+						onError: error => { if (!isCurrent()) return; if (error instanceof RecordingInputLossError) { state.recordingFatalError = error; disconnectSession(session); } else handleFatalRecordingError(error); },
 						onState: (recordingState) => {
 							if (recordingState !== 'stopped' || !isCurrent()) return;
 							soundActivation.cancel();
 							session.stopped = true;
-							if (state.recorder === routedRecorder
-								&& sourceSessions.every((source) => source.stopped)
-								&& !state.recordingFinishing) {
-								void runtime.finalizeRecording().catch(runtime.handleError);
-							}
+							maybeFinalizeDisconnectedSession();
 						},
 					});
 					session.controller = soundActivation.wrapController(createdController);
@@ -457,15 +456,15 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 					}
 				}
 			};
-			const contextStateChange = () => {
-				if (context.state === 'suspended' && isCurrent() && state.recorder) {
-					void runtime.stopRecording().catch(runtime.handleError);
+			const cleanupContext = observeMediaInputInterruption({ context, onInterrupted: async error => {
+				if (isCurrent() && state.recorder && !state.recordingFinishing) {
+					state.recordingFatalError = error;
+					await runtime.stopRecording().catch(runtime.handleError);
 				}
-			};
-			context.addEventListener?.('statechange', contextStateChange);
+			} });
 			state.recordingCleanup = () => {
 				for (const session of sourceSessions) for (const remove of session.listeners) remove();
-				context.removeEventListener?.('statechange', contextStateChange);
+				cleanupContext();
 			};
 			runtime.engine.setLoop(false);
 			runtime.engine.seek(timing.seekFrame);

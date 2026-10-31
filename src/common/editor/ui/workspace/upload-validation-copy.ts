@@ -9,6 +9,7 @@ export const UPLOAD_VALIDATION_COPY = Object.freeze({
 	uploadValidationNotReady: 'This upload is not ready to publish.',
 	uploadValidationPreparationFailed: 'The audio could not be prepared for upload.',
 	uploadValidationTransferFailed: 'The audio upload failed.',
+	uploadValidationOutcomeUnknown: 'The server may have received the operation. Refresh the online upload list before retrying to avoid publishing a duplicate.',
 	uploadValidationUnsupportedFile: '{fileName} is not a supported audio file.',
 	uploadValidationEmptyFile: '{fileName} is empty.',
 	uploadValidationFileTooLarge: '{fileName} exceeds the {maximum} MB upload limit.',

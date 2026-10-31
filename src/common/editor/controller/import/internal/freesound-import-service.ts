@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { createRecoveringOnlineFetch } from '../../../online-request-recovery.ts';
 
 import { createImportedSourceProvenance } from '../../../source-provenance.ts';
 import type { EditorProjectToken } from '../../shared/lifecycle.ts';
@@ -123,6 +124,7 @@ export function createFreesoundImportService(runtime: FreesoundImportServiceRunt
 			? locationOrigin : 'https://soundscaper.org'
 	));
 	const fetchRequest = runtime.fetch ?? globalThis.fetch.bind(globalThis);
+	const fetchJsonRequest = createRecoveringOnlineFetch(fetchRequest, { maximumBufferedBytes: MAXIMUM_JSON_BYTES });
 	const fetchOriginal = runtime.fetchOriginal ?? fetchRequest;
 
 	const requireEnabled = (): void => {
@@ -232,7 +234,7 @@ export function createFreesoundImportService(runtime: FreesoundImportServiceRunt
 	}
 
 	async function fetchJson(url: URL, signal?: AbortSignal): Promise<unknown> {
-		const response = await fetchRequest(url, {
+		const response = await fetchJsonRequest(url, {
 			method: 'GET', credentials: 'omit', redirect: 'error', signal,
 			headers: { Accept: 'application/json' },
 		});

@@ -213,6 +213,7 @@
 		"shared/import-busy-state.ts",
 		"shared/isolated-track-render-project-v21.ts",
 		"shared/lifecycle.ts",
+		"shared/media-input-interruption.ts",
 		"shared/owned-state.ts",
 		"shared/presentation-localization.ts",
 		"shared/serial-project-operation-queue.ts",

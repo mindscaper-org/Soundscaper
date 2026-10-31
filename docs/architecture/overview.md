@@ -194,6 +194,33 @@ transport control. Live playback prepares streamed clips within a five-second
 lookahead, with at most eight preparations in flight; realtime rendering keeps
 its eager preparation and completion barrier.
 
+Connection recovery stays with the operation that owns its publication boundary.
+Immutable linked-media ranges retry transient transport and filesystem errors
+within cancellable deadlines; changed source identities, malformed ranges and
+digest failures remain terminal. Whole-file verification can continue while
+individual ranges make progress. Interactive playback preserves synchronization
+by advancing through silence during underruns; a terminal source failure stops
+the graph and reports its cause. Realtime rendering rejects missing source audio
+before publishing output.
+
+Online reads retry only while their response or complete downloaded media has
+not been exposed to a consumer. Offline requests wait for a bounded reconnection
+window before sending. Sent uploads and other mutations are never replayed
+automatically after a lost acknowledgment: the server may have committed them,
+so the existing error/retry flow requires refreshing remote state. Connection
+and stream-idle deadlines release stalled requests, and cancellation observes
+late replies without publishing stale results. Recovery diagnostics omit private
+paths, media, credentials and request URLs.
+
+Recording and capture share a lifecycle observer for transient track muting and
+AudioContext interruption. A live track can recover without selecting another
+device; an interrupted context attempts a bounded resume. Recording also bounds
+missing input-channel delivery; ordinary digital silence never triggers loss.
+Permanent loss ends the affected source and preserves valid captured prefixes,
+including take-cycle PCM. Remaining routed inputs may continue. No recovery
+opens a permission picker or changes the ten-second ordinary recording checkpoint
+interval.
+
 The opt-in [realtime stack worker backend](realtime-effect-workers.md)
 defines a shared block pipeline and a bounded DSP worker pool for independent
 effect stacks, including latency, automation, and buffer ownership requirements.

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { RecordingInputLossError } from '../src/common/editor/recording-input-events.ts';
 import test from 'node:test';
 
 import { createRecordingController, requestHardwareInput } from '../src/common/editor/recording.js';
@@ -94,6 +95,7 @@ test('bound native input is pulled silently and records exact channels through t
 	} as never);
 	const recorder = workletNode(events);
 	const chunks: unknown[] = [];
+	const losses: unknown[] = [];
 	const controller = await createRecordingController({
 		context,
 		stream: leased,
@@ -101,6 +103,7 @@ test('bound native input is pulled silently and records exact channels through t
 		chunkFrames: 128,
 		nodeFactory: () => recorder,
 		onChunk: async (chunk: unknown) => { chunks.push(chunk); },
+		onError: (error: unknown) => { losses.push(error); },
 	} as never);
 	controller.start();
 	recorder.port.onmessage?.({ data: {
@@ -112,7 +115,9 @@ test('bound native input is pulled silently and records exact channels through t
 	const stopped = controller.stop();
 	assert.equal(recorder.posted.some((value) => value.type === 'stop'), true);
 	recorder.port.onmessage?.({ data: { type: 'stopped', frame: 2 } });
-	await stopped;
+	await assert.rejects(stopped, RecordingInputLossError);
+	assert.equal(losses.length, 1);
+	assert.ok(losses[0] instanceof RecordingInputLossError);
 	assert.equal(chunks.length, 1, 'the canonical queued prefix settles before device-loss stop');
 	await controller.dispose();
 	assert.equal(events.some((value) => Array.isArray(value)

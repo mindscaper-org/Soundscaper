@@ -104,7 +104,9 @@ test('Audiocity transfers signed raw audio and previews on one origin without fo
 		assert.equal(new Headers(init?.headers).has('Authorization'), false);
 		assert.equal(url.search, `?${transferQuery}`);
 		if (init?.method === 'PUT') {
-			assert.equal(init.signal, uploaded.signal);
+			assert.ok(init.signal instanceof AbortSignal);
+			assert.notEqual(init.signal, uploaded.signal);
+			assert.equal(init.signal.aborted, false);
 			assert.ok(init.body instanceof ReadableStream);
 			assert.deepEqual(new Uint8Array(await new Response(init.body).arrayBuffer()), new Uint8Array([1, 2, 3, 4]));
 		}
@@ -119,7 +121,9 @@ test('Audiocity transfers signed raw audio and previews on one origin without fo
 	const preview = request(`preview?url=${encodeURIComponent(media)}`, token, { headers: { Range: 'bytes=0-3' } });
 	const played = await handleAudiocomPreviewRequest(context(preview), { repository, now: () => NOW, fetchImpl: (input, init) => {
 		assert.equal(String(input), media);
-		assert.equal(init?.signal, preview.signal);
+		assert.ok(init?.signal instanceof AbortSignal);
+		assert.notEqual(init.signal, preview.signal);
+		assert.equal(init.signal.aborted, false);
 		assert.equal(new Headers(init?.headers).has('Authorization'), false);
 		assert.equal(new Headers(init?.headers).get('Range'), 'bytes=0-3');
 		return Promise.resolve(new Response(new Uint8Array([1, 2, 3, 4]), { status: 206, headers: { 'Content-Type': 'audio/wav', 'Content-Range': 'bytes 0-3/4' } }));

@@ -46,9 +46,10 @@ export type { RecordingRoute };
 
 export interface RecordingMediaTrack {
 	readonly readyState?: string;
+	readonly muted?: boolean;
 	getSettings?(): Readonly<{ readonly channelCount?: number; readonly latency?: number }>;
-	addEventListener?(type: 'ended', listener: () => void, options?: AddEventListenerOptions): void;
-	removeEventListener?(type: 'ended', listener: () => void): void;
+	addEventListener?(type: 'ended' | 'mute' | 'unmute', listener: () => void, options?: AddEventListenerOptions): void;
+	removeEventListener?(type: 'ended' | 'mute' | 'unmute', listener: () => void): void;
 }
 
 export interface RecordingMediaStream {

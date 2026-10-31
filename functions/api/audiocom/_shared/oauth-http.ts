@@ -111,16 +111,18 @@ export async function readJsonBody(request: Request): Promise<unknown> {
 }
 
 export async function readUpstreamJson(response: Response, maximumBytes = MAX_JSON_BYTES): Promise<unknown> {
-	const type = response.headers.get('content-type')?.split(';', 1)[0]?.trim().toLocaleLowerCase('en-US');
-	if (type !== 'application/json') {
-		throw new OAuthHttpError(502, 'invalid_upstream_response', 'Audiocom returned an invalid response.');
-	}
-	const bytes = await boundedBody(response.body, response.headers.get('content-length'), maximumBytes, 502);
 	try {
-		return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as unknown;
-	} catch {
-		throw new OAuthHttpError(502, 'invalid_upstream_response', 'Audiocom returned an invalid response.');
-	}
+		const type = response.headers.get('content-type')?.split(';', 1)[0]?.trim().toLocaleLowerCase('en-US');
+		if (type !== 'application/json') {
+			throw new OAuthHttpError(502, 'invalid_upstream_response', 'Audiocom returned an invalid response.');
+		}
+		const bytes = await boundedBody(response.body, response.headers.get('content-length'), maximumBytes, 502);
+		try {
+			return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as unknown;
+		} catch {
+			throw new OAuthHttpError(502, 'invalid_upstream_response', 'Audiocom returned an invalid response.');
+		}
+	} catch (error) { await response.body?.cancel(error).catch(() => undefined); throw error; }
 }
 
 export function oauthJson(
@@ -188,6 +190,7 @@ export function requestSessionToken(request: Request): Readonly<{ token: string;
 
 export function publicOAuthError(error: unknown): OAuthHttpError {
 	if (error instanceof OAuthHttpError) return error;
+	if (error instanceof Error && error.name === 'TimeoutError') return new OAuthHttpError(504, 'upstream_timeout', 'The audio provider did not respond in time.');
 	if (error instanceof AudiocomOAuthContractError) {
 		return new OAuthHttpError(400, 'invalid_request', error.message);
 	}
@@ -213,25 +216,27 @@ async function boundedBody(
 	}
 	if (body === null) return new Uint8Array();
 	const reader = body.getReader();
-	const chunks: Uint8Array[] = [];
-	let length = 0;
-	while (true) {
-		const next = await reader.read();
-		if (next.done) break;
-		length += next.value.byteLength;
-		if (length > maximumBytes) {
-			await reader.cancel('Body exceeded its byte limit.');
-			throw new OAuthHttpError(overflowStatus, 'payload_too_large', 'The response or request is too large.');
+	try {
+		const chunks: Uint8Array[] = [];
+		let length = 0;
+		while (true) {
+			const next = await reader.read();
+			if (next.done) break;
+			length += next.value.byteLength;
+			if (length > maximumBytes) {
+				await reader.cancel('Body exceeded its byte limit.');
+				throw new OAuthHttpError(overflowStatus, 'payload_too_large', 'The response or request is too large.');
+			}
+			chunks.push(next.value);
 		}
-		chunks.push(next.value);
-	}
-	const result = new Uint8Array(length);
-	let offset = 0;
-	for (const chunk of chunks) {
-		result.set(chunk, offset);
-		offset += chunk.byteLength;
-	}
-	return result;
+		const result = new Uint8Array(length);
+		let offset = 0;
+		for (const chunk of chunks) {
+			result.set(chunk, offset);
+			offset += chunk.byteLength;
+		}
+		return result;
+	} finally { reader.releaseLock(); }
 }
 
 function preflight(corsOrigin: string | null, methods: readonly string[]): Response {

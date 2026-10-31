@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { createRecoveringOnlineFetch, onlineReadResponseError, recoverOnlineRead } from '../../../online-request-recovery.ts';
 
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from '../../shared/file-size-warning.ts';
 import { sanitizeSuggestedFileName } from '../../../portable-save-file-name.ts';
@@ -58,7 +59,13 @@ export async function downloadFreesoundImport(options: Readonly<FileSizeWarningO
 	);
 	const url = new URL(options.url);
 	if (options.confirmFileSizeWarning) url.searchParams.set('sizeWarning', 'client');
-	const response = await options.fetch(url, {
+	return recoverOnlineRead(() => downloadAdmitted(options, url, approvedBytes, thresholdBytes), signal);
+}
+
+async function downloadAdmitted(options: Parameters<typeof downloadFreesoundImport>[0], url: URL, approvedBytes: number, thresholdBytes: number): Promise<FreesoundImportDownload> {
+	const { sound, variant, signal } = options;
+	const fetchRequest = createRecoveringOnlineFetch(options.fetch, { bufferResponses: false, maximumAttempts: 1 });
+	const response = await fetchRequest(url, {
 		method: 'GET',
 		credentials: variant === 'original' ? 'include' : 'omit',
 		redirect: 'error',
@@ -219,5 +226,5 @@ async function responseError(response: Response, fallback: string): Promise<Erro
 	} catch {
 		// The status remains authoritative when an error body is absent or malformed.
 	}
-	return new Error(`${message} (${String(response.status)}).`);
+	return onlineReadResponseError(response, new Error(`${message} (${String(response.status)}).`));
 }

@@ -87,6 +87,7 @@ export function normalizeChunkSource(value: unknown): EngineChunkSource {
 		frameCount,
 		chunkFrames,
 		sampleRate,
+		boundedReads: source.boundedReads === true,
 		readStorageChunk: (chunkIndex: number, context?: EngineChunkReadContext) => (
 			read.call(source, chunkIndex, context)
 		),

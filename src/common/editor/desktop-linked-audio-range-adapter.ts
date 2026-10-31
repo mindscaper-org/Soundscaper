@@ -14,6 +14,7 @@ export interface DesktopLinkedAudioRangeLease {
 	readonly locatorRevision: string;
 	readonly byteLength: number;
 	readonly mimeType: 'audio/aiff' | 'audio/rf64' | 'audio/wav';
+	readonly boundedReads: true;
 	readRange(request: DesktopLinkedOriginalRangeRequest): Promise<Uint8Array>;
 	release(): Promise<void>;
 }
@@ -102,6 +103,7 @@ function audioRangeLease(
 		locatorRevision,
 		byteLength: descriptor.size,
 		mimeType: descriptor.mimeType,
+		boundedReads: true,
 		readRange(request: DesktopLinkedOriginalRangeRequest) {
 			if (releasePromise) {
 				return Promise.reject(new Error('The linked-audio range lease was released.'));

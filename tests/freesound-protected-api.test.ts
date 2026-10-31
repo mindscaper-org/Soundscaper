@@ -251,6 +251,7 @@ test('partial original downloads enforce the total-file ceiling from strict Cont
 	});
 	assert.equal(valid.status, 206);
 	assert.equal(valid.headers.get('x-freesound-original-bytes'), String(MAX_FREESOUND_ORIGINAL_BYTES));
+	await valid.body?.cancel();
 });
 
 test('original downloads reject nonsensical byte ranges before contacting Freesound', async () => {
