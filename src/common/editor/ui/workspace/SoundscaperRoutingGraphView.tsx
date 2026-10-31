@@ -7,6 +7,7 @@ import '../audio-editor-design-system/06a-panels-mixer-routing-graph.css';
 import React, {
 	useCallback,
 	useEffect,
+	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -22,6 +23,7 @@ import { indexRoutingNodes, indexRoutingEdges, indexRoutingPorts, indexRoutingCo
 import { useRoutingHoverFrame } from './useRoutingHoverFrame.ts';
 import { routingGraphOwnsKeyboardEvent } from './routing-keyboard-event-ownership.ts';
 import { routingEdgeHandleStyle } from './routing-edge-handle-position.ts';
+import { scheduleRequestedRoutingNodeFocus } from './routing-requested-node-focus.ts';
 import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts'; import type { MixerEdgeV21, MixerGraphV21 } from '../../mixer-graph-v21.ts';
 import type { ParameterAddress } from '../../parameter-address.ts';
 import SoundscaperRoutingGraphInspector, {
@@ -122,7 +124,7 @@ function RoutingGraphProjectSession({
 		if (layout.nodes.some(({ key }) => key === focusKey)) return;
 		setFocusKey(layout.nodes.find(({ rail }) => rail === 'audio')?.key ?? layout.nodes[0]?.key ?? '');
 	}, [focusKey, layout.nodes]);
-	useEffect(() => {
+	useLayoutEffect(() => {
 		const key = selectionKey(requestedSelection);
 		if (!requestedSelection) {
 			consumedRequestKeyRef.current = null;
@@ -133,7 +135,7 @@ function RoutingGraphProjectSession({
 		setSelection(requestedSelection);
 		setFocusKey(key);
 		setStatus({ key: 'newNodeSelected' });
-		requestAnimationFrame(() => nodeRefs.current.get(key)?.focus());
+		scheduleRequestedRoutingNodeFocus(nodeRefs.current.get(key));
 		onRequestedSelectionConsumed?.();
 	}, [layout.nodes, onRequestedSelectionConsumed, requestedSelection, setSelection, setStatus]);
 

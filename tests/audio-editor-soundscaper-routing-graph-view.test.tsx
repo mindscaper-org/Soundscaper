@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import React, { act } from 'react';
+import React, { act, useLayoutEffect } from 'react';
 
 import type { MixerGraphV21 } from '../src/common/editor/mixer-graph-v21.ts';
 import SoundscaperRoutingGraphView, {
@@ -282,6 +282,71 @@ test('supported effect sidechain ports are filtered and remain spatially distinc
 		assert.equal(new Set(positions).size, 3);
 	} finally {
 		await act(async () => root.unmount());
+		actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
+		dom.restore();
+	}
+});
+
+test('a new-node focus frame preserves a source port chosen by a later keyboard interaction', async () => {
+	const dom = installReactTestDom();
+	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const priorAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+	const priorAnimationFrame = globalThis.requestAnimationFrame;
+	const frames: FrameRequestCallback[] = [];
+	globalThis.requestAnimationFrame = callback => { frames.push(callback); return frames.length; };
+	const { createRoot } = await import('react-dom/client');
+	const root = createRoot(dom.container as unknown as Element);
+	let framesAtCommit = 0;
+	function CommitInteraction() {
+		useLayoutEffect(() => {
+			framesAtCommit = frames.length;
+			dom.one('[data-routing-source="master"]').focus();
+		}, []);
+		return null;
+	}
+	try {
+		await act(async () => root.render(<><SoundscaperRoutingGraphView project={PROJECT} graph={PROJECT.mixer}
+			disabled={false} copy={SOUNDSCAPER_ROUTING_GRAPH_COPY} dismissLabel="Close"
+			requestedSelection={{ kind: 'node', collection: 'sends', id: 'reverb' }} onCommit={() => undefined}
+		/><CommitInteraction /></>));
+		assert.equal(framesAtCommit, 1, 'node selection and its focus request must settle before the next interaction');
+		const source = dom.one('[data-routing-source="master"]');
+		await act(async () => { for (const frame of frames.splice(0)) frame(0); });
+		assert.equal(document.activeElement, source, 'the node opening frame must not replace a newer source-port focus');
+		await act(async () => reactProps(source).onKeyDown?.({ key: 'Enter', preventDefault() {} }));
+		assert.match(dom.one('[role="status"]').textContent, /Choose a destination/u);
+	} finally {
+		await act(async () => root.unmount());
+		globalThis.requestAnimationFrame = priorAnimationFrame;
+		actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
+		dom.restore();
+	}
+});
+
+test('a newer requested routing node supersedes an earlier unpainted focus frame', async () => {
+	const dom = installReactTestDom();
+	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const priorAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+	const priorAnimationFrame = globalThis.requestAnimationFrame;
+	const frames: FrameRequestCallback[] = [];
+	globalThis.requestAnimationFrame = callback => { frames.push(callback); return frames.length; };
+	const { createRoot } = await import('react-dom/client');
+	const root = createRoot(dom.container as unknown as Element);
+	try {
+		for (const requestedSelection of [{ kind: 'node' as const, collection: 'sends' as const, id: 'reverb' },
+			{ kind: 'master' as const, id: 'master' as const }]) {
+			await act(async () => root.render(<SoundscaperRoutingGraphView project={PROJECT} graph={PROJECT.mixer}
+				disabled={false} copy={SOUNDSCAPER_ROUTING_GRAPH_COPY} dismissLabel="Close"
+				requestedSelection={requestedSelection} onCommit={() => undefined}
+			/>));
+		}
+		await act(async () => { for (const frame of frames.splice(0)) frame(0); });
+		assert.equal(document.activeElement, dom.one('[data-routing-node="master"]').querySelector('button'));
+	} finally {
+		await act(async () => root.unmount());
+		globalThis.requestAnimationFrame = priorAnimationFrame;
 		actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
 		dom.restore();
 	}
