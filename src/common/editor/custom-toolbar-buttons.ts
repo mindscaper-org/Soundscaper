@@ -7,6 +7,7 @@ export interface CustomToolbarButton {
 	readonly id: string;
 	readonly name: string;
 	readonly icon: string;
+	readonly iconColor?: string;
 	readonly actionId: string;
 }
 
@@ -28,6 +29,11 @@ export function normalizeCustomToolbarButtons(value: unknown = []): CustomToolba
 		const actionId = buttonString(button, 'actionId', path);
 		if (!Object.hasOwn(MUSESCORE_ICON_CODES, icon) && !isCustomToolbarButtonImage(icon)) {
 			throw new RangeError(`${path}.icon must be a font symbol or an embedded PNG/SVG image.`);
+		}
+		if (Object.hasOwn(button, 'iconColor')) {
+			const iconColor = buttonString(button, 'iconColor', path).toLowerCase();
+			if (!/^#[0-9a-f]{6}$/u.test(iconColor)) throw new RangeError(`${path}.iconColor must be a six-digit hex color.`);
+			return { id, name, icon, actionId, iconColor };
 		}
 		return { id, name, icon, actionId };
 	});

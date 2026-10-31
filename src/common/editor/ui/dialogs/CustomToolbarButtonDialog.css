@@ -31,6 +31,19 @@
 	justify-content: space-between;
 }
 
+.kw-audio-editor-custom-button-dialog__symbol-color {
+	display: flex;
+	align-items: end;
+	gap: 8px;
+}
+
+.kw-audio-editor-custom-button-dialog__symbol-color input[type="color"] {
+	width: 48px;
+	height: 32px;
+	padding: 2px;
+	cursor: pointer;
+}
+
 .kw-audio-editor-custom-button-dialog__symbols {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));

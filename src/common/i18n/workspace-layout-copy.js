@@ -78,6 +78,8 @@ export const WORKSPACE_LAYOUT_COPY_BY_LOCALE = Object.freeze({
 			customToolbarButtonShowActions: 'Show actions',
 			customToolbarButtonSymbol: 'Symbol',
 			customToolbarButtonSymbolSearch: 'Search symbols',
+			customToolbarButtonSymbolColor: 'Symbol color',
+			customToolbarButtonThemeColor: 'Use theme color',
 			customToolbarButtonUploadSymbol: 'Choose PNG/SVG symbol',
 			customToolbarButtonUploadedSymbol: 'Uploaded symbol',
 			customToolbarButtonSymbolTooLarge: 'Choose a symbol smaller than 256 KB.',

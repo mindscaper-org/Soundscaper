@@ -38,7 +38,7 @@ export function CustomToolbarButtonGroup({ buttons, actions, copy, run }: GroupP
 				disabled={disabled}
 				onClick={() => { if (!disabled && action.onClick) run(action.onClick); }}
 			>
-				<CustomToolbarButtonSymbol icon={button.icon} />
+				<CustomToolbarButtonSymbol icon={button.icon} color={button.iconColor} />
 			</button>;
 		})}
 	</ToolbarButtonGroup>;
@@ -64,7 +64,7 @@ export function CustomToolbarButtonSettings({ buttons, toolbarButtons, copy, onC
 				onClick={() => onToggle(button.id, toolbarButtons[button.id] === false)}
 			>
 				<span className="musescore-icon" aria-hidden="true">{iconNameToChar(toolbarButtons[button.id] === false ? 'EYE_CLOSED' : 'EYE_OPEN')}</span>
-				<span className="kw-audio-editor__toolbar-settings-icon" aria-hidden="true"><CustomToolbarButtonSymbol icon={button.icon} /></span>
+				<span className="kw-audio-editor__toolbar-settings-icon" aria-hidden="true"><CustomToolbarButtonSymbol icon={button.icon} color={button.iconColor} /></span>
 				<span>{button.name}</span>
 			</button>
 			<div role="menu" aria-label={formatLocalizedTemplate(copy.customToolbarButtonEdit, { name: button.name })}>

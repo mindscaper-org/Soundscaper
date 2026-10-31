@@ -3,6 +3,7 @@
 import React, { useId, useMemo, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
+import { useTheme } from '@soundscaper/design-system/ThemeProvider';
 
 import { MUSESCORE_ICON_CODES } from '../../audacity-iconcodes.js';
 import type { CustomToolbarButton } from '../../custom-toolbar-buttons.ts';
@@ -26,11 +27,13 @@ interface Props {
 const SYMBOLS = Object.freeze(Object.keys(MUSESCORE_ICON_CODES));
 
 export default function CustomToolbarButtonDialog({ button, copy, actions, onSave, onRemove, onClose }: Props) {
+	const { theme } = useTheme();
 	const formId = useId();
 	const descriptionId = useId();
 	const [name, setName] = useState(button?.name ?? '');
 	const [actionId, setActionId] = useState(button?.actionId ?? '');
 	const [icon, setIcon] = useState(button?.icon ?? 'PLUS');
+	const [iconColor, setIconColor] = useState(button?.iconColor);
 	const [uploadedIcon, setUploadedIcon] = useState(button?.icon.startsWith('data:image/') ? button.icon : '');
 	const [loadingIcon, setLoadingIcon] = useState(false);
 	const [imageFailure, setImageFailure] = useState('');
@@ -70,7 +73,9 @@ export default function CustomToolbarButtonDialog({ button, copy, actions, onSav
 	>
 		<form id={formId} onSubmit={(event) => {
 			event.preventDefault();
-			if (canSave) persist(() => onSave({ id: button?.id ?? `custom-${globalThis.crypto.randomUUID()}`, name: name.trim(), icon, actionId }));
+			if (canSave) persist(() => onSave({ id: button?.id ?? `custom-${globalThis.crypto.randomUUID()}`, name: name.trim(), icon, actionId,
+				...(iconColor ? { iconColor } : {}),
+			}));
 		}}>
 			<p id={descriptionId}>{copy.customToolbarButtonHelp}</p>
 			<label className="kw-audio-editor-custom-button-dialog__field">
@@ -85,7 +90,15 @@ export default function CustomToolbarButtonDialog({ button, copy, actions, onSav
 			</label>
 			<div className="kw-audio-editor-custom-button-dialog__symbol-heading">
 				<span>{copy.customToolbarButtonSymbol}: {icon === uploadedIcon ? copy.customToolbarButtonUploadedSymbol : icon.replaceAll('_', ' ')}</span>
-				<CustomToolbarButtonSymbol icon={icon} />
+				<CustomToolbarButtonSymbol icon={icon} color={iconColor} />
+			</div>
+			<div className="kw-audio-editor-custom-button-dialog__symbol-color">
+				<label className="kw-audio-editor-custom-button-dialog__field">
+					<span>{copy.customToolbarButtonSymbolColor}</span>
+					<input type="color" aria-label={copy.customToolbarButtonSymbolColor} value={iconColor ?? theme.foreground.text.primary}
+						disabled={saving || loadingIcon || icon === uploadedIcon} onChange={(event) => setIconColor(event.currentTarget.value)} />
+				</label>
+				<Button type="button" variant="secondary" disabled={saving || loadingIcon || icon === uploadedIcon || !iconColor} onClick={() => setIconColor(undefined)}>{copy.customToolbarButtonThemeColor}</Button>
 			</div>
 			<label className="kw-audio-editor-custom-button-dialog__field">
 				<span>{copy.customToolbarButtonUploadSymbol}</span>
@@ -112,7 +125,7 @@ export default function CustomToolbarButtonDialog({ button, copy, actions, onSav
 					<CustomToolbarButtonSymbol icon={uploadedIcon} />
 				</button>}
 				{matchingSymbols.map((symbol) => <button key={symbol} type="button" aria-label={symbol} aria-pressed={icon === symbol} title={symbol.replaceAll('_', ' ')} disabled={saving || loadingIcon} onClick={() => setIcon(symbol)}>
-					<CustomToolbarButtonSymbol icon={symbol} />
+					<CustomToolbarButtonSymbol icon={symbol} color={iconColor} />
 				</button>)}
 				{matchingSymbols.length === 0 && <p role="status">{copy.customToolbarButtonNoSymbols}</p>}
 			</div>

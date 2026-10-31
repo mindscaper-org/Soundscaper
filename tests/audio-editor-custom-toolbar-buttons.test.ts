@@ -19,6 +19,32 @@ import {
 const BUTTON = { id: 'custom-split', name: 'Split selection', icon: 'CUT', actionId: 'split' };
 const SVG_ICON = `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M0 0h16v16H0z"/></svg>')}`;
 
+test('font symbol colors normalize and survive persistence and workspace changes', () => {
+	const colored = { ...BUTTON, iconColor: '#aa12ff' };
+	assert.deepEqual(normalizeCustomToolbarButtons([{ ...BUTTON, iconColor: ' #Aa12Ff ' }]), [colored]);
+	const preferences = createAudioEditorPreferencesV1({ workspace: { customButtons: [colored] } });
+	const restored = loadAudioEditorPreferencesV1(JSON.parse(JSON.stringify(preferences)) as unknown);
+	assert.equal(restored.readOnly, false);
+	assert.deepEqual(restored.preferences.workspace.customButtons, [colored]);
+	assert.deepEqual(applyAudioEditorWorkspace(restored.preferences, 'classic').workspace.customButtons, [colored]);
+	const reset = updateAudioEditorPreferencesV1(preferences, { workspace: { customButtons: [BUTTON] } });
+	assert.deepEqual(reset.workspace.customButtons, [BUTTON]);
+});
+
+test('font symbol colors require an optional plain six-digit hex value', () => {
+	assert.deepEqual(normalizeCustomToolbarButtons([BUTTON]), [BUTTON], 'older buttons keep the theme color');
+	for (const iconColor of [undefined, null, false, 1, '', '  ']) {
+		assert.throws(() => normalizeCustomToolbarButtons([{ ...BUTTON, iconColor }]), TypeError);
+	}
+	for (const iconColor of ['red', '#fff', '#12345678', '#gggggg', 'var(--text)', 'url(icon.svg)']) {
+		assert.throws(() => normalizeCustomToolbarButtons([{ ...BUTTON, iconColor }]), RangeError);
+	}
+	const accessor = Object.defineProperty({ ...BUTTON }, 'iconColor', {
+		enumerable: true, get() { assert.fail('Normalization must not invoke accessors.'); },
+	});
+	assert.throws(() => normalizeCustomToolbarButtons([accessor]), TypeError);
+});
+
 test('image symbols detect PNG and UTF-8 SVG content and bound persisted bytes', () => {
 	const svg = new TextEncoder().encode('<?xml version="1.0"?>\n<!-- Symbol -->\n<svg xmlns="http://www.w3.org/2000/svg"><title>音</title></svg>');
 	assert.equal(isCustomToolbarButtonImage(createCustomToolbarButtonImage(svg)), true);

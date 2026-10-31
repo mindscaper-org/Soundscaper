@@ -10,6 +10,7 @@ import {
 	getMenuItem,
 	importFiles,
 	openNestedCommandMenu,
+	setDocumentTheme,
 	waitForEditor,
 } from './audio-editor-test-helpers.js';
 import { TRACK_MENU_TRIGGER } from './helpers/track-menu.js';
@@ -86,6 +87,46 @@ async function expectTrackLockAction(page, row, label) {
 }
 
 test.describe('custom toolbar buttons', () => {
+	for (const theme of ['light', 'dark']) test(`saves, cancels, and resets font symbol colors in ${theme} mode`, async ({ page }) => {
+		const errors = collectClientErrors(page);
+		let editor = await bootEditor(page, '/embed/en/');
+		await setDocumentTheme(page, theme);
+		let dialog = await openCustomButtonDialog(page, editor);
+		await configureButton(dialog, { name: 'Colored undo', action: UNDO_ACTION });
+		const color = dialog.getByLabel('Symbol color', { exact: true });
+		await expect(color).toBeEnabled();
+		await expect(dialog.getByRole('button', { name: 'Use theme color', exact: true })).toBeDisabled();
+		await color.fill('#e63946');
+		await expect(dialog.getByRole('button', { name: 'CUT', exact: true }).getByText('\uF39A', { exact: true })).toHaveCSS('color', 'rgb(230, 57, 70)');
+		await saveButton(dialog);
+		let button = editor.getByRole('button', { name: 'Colored undo', exact: true });
+		await expect(button.getByText('\uF39A', { exact: true })).toHaveCSS('color', 'rgb(230, 57, 70)');
+		const customization = await openCustomization(page, editor);
+		await expect(customization.getByRole('checkbox', { name: 'Colored undo', exact: true }).getByText('\uF39A', { exact: true })).toHaveCSS('color', 'rgb(230, 57, 70)');
+		await page.keyboard.press('Escape');
+		await page.reload();
+		editor = await waitForEditor(page);
+		button = editor.getByRole('button', { name: 'Colored undo', exact: true });
+		await expect(button.getByText('\uF39A', { exact: true })).toHaveCSS('color', 'rgb(230, 57, 70)');
+		dialog = await openCustomButtonDialog(page, editor, 'Colored undo');
+		await expect(dialog.getByLabel('Symbol color', { exact: true })).toHaveValue('#e63946');
+		await dialog.getByLabel('Symbol color', { exact: true }).fill('#123abc');
+		await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await expect(button.getByText('\uF39A', { exact: true })).toHaveCSS('color', 'rgb(230, 57, 70)');
+		dialog = await openCustomButtonDialog(page, editor, 'Colored undo');
+		await expect(dialog.getByLabel('Symbol color', { exact: true })).toHaveValue('#e63946');
+		await dialog.getByRole('button', { name: 'Use theme color', exact: true }).click();
+		await expect(dialog.getByRole('button', { name: 'Use theme color', exact: true })).toBeDisabled();
+		await saveButton(dialog);
+		await page.reload();
+		editor = await waitForEditor(page);
+		button = editor.getByRole('button', { name: 'Colored undo', exact: true });
+		await expect(button.getByText('\uF39A', { exact: true })).not.toHaveAttribute('style');
+		const themeColor = await button.evaluate((element) => getComputedStyle(element).color);
+		await expect(button.getByText('\uF39A', { exact: true })).toHaveCSS('color', themeColor);
+		expect(errors).toEqual([]);
+	});
+
 	test('opens action results on demand or after three characters and keeps keyboard selection in the dialog', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
 		const customization = await openCustomization(page, editor);
@@ -136,6 +177,7 @@ test.describe('custom toolbar buttons', () => {
 		await expect(dialog.getByRole('alert')).toHaveText('Choose a symbol smaller than 256 KB.');
 		await picker.setInputFiles({ name: `symbol.${extension}`, mimeType, buffer });
 		await expect(dialog.getByRole('button', { name: 'Uploaded symbol', exact: true })).toHaveAttribute('aria-pressed', 'true');
+		await expect(dialog.getByLabel('Symbol color', { exact: true })).toBeDisabled();
 		await expect(dialog.getByRole('alert')).toHaveCount(0);
 		await saveButton(dialog);
 		const image = editor.getByRole('button', { name: `My ${extension} action`, exact: true }).locator('img');
@@ -147,6 +189,7 @@ test.describe('custom toolbar buttons', () => {
 		dialog = await openCustomButtonDialog(page, editor, `My ${extension} action`);
 		await expect(dialog.getByRole('button', { name: 'Uploaded symbol', exact: true })).toHaveAttribute('aria-pressed', 'true');
 		await dialog.getByRole('button', { name: 'CUT', exact: true }).click();
+		await expect(dialog.getByLabel('Symbol color', { exact: true })).toBeEnabled();
 		await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 		await expect(image).toBeVisible();
 		dialog = await openCustomButtonDialog(page, editor, `My ${extension} action`);
