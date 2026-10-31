@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { createRecoveringOnlineFetch, readOnlineMutationAcknowledgment } from '../../online-request-recovery.ts';
 
 export type FreesoundPublishLicense = 'cc0' | 'cc-by' | 'cc-by-nc';
 export type FreesoundOAuthPlatform = 'web' | 'desktop';
@@ -116,8 +117,9 @@ const DESKTOP_PREFIX = 'soundscaper-app://bundle/_desktop/freesound';
 export function createFreesoundClientTransport(
 	options: FreesoundClientTransportOptions = {},
 ): FreesoundClientTransport {
-	const fetchRequest = options.fetch ?? globalThis.fetch?.bind(globalThis);
-	if (!fetchRequest) throw new Error('Freesound requires the Fetch API.');
+	const suppliedFetch = options.fetch ?? globalThis.fetch?.bind(globalThis);
+	if (!suppliedFetch) throw new Error('Freesound requires the Fetch API.');
+	const fetchRequest = createRecoveringOnlineFetch(suppliedFetch, { maximumBufferedBytes: 2 * 1024 * 1024 });
 	const location = options.location ?? globalThis.location;
 	const desktop = location?.protocol === 'soundscaper-app:';
 	const scope = options.scope ?? globalThis;
@@ -199,16 +201,18 @@ export function createFreesoundApiClient(
 				'X-Freesound-Content-Length': String(file.size),
 				'X-Freesound-Filename': encodeHeaderFilename(file.name),
 			});
-			const value = record(await responseData(await transport.request(`${API_PREFIX}uploads`, {
+			const response = await transport.request(`${API_PREFIX}uploads`, {
 				method: 'POST', headers, body: file, signal,
-			})));
-			return Object.freeze({ uploadFilename: requiredText(value.uploadFilename, 'upload filename', 1024) });
+			});
+			return readOnlineMutationAcknowledgment(response, async () => {
+				const value = record(await responseData(response));
+				return Object.freeze({ uploadFilename: requiredText(value.uploadFilename, 'upload filename', 1024) });
+			});
 		},
-		describe: async (request: FreesoundDescribeUploadRequest, signal?: AbortSignal) => normalizeSubmittedUpload(
-			await responseData(await transport.request(`${API_PREFIX}uploads/describe`, jsonRequest(
-				'POST', request, signal,
-			))),
-		),
+		describe: async (request: FreesoundDescribeUploadRequest, signal?: AbortSignal) => {
+			const response = await transport.request(`${API_PREFIX}uploads/describe`, jsonRequest('POST', request, signal));
+			return readOnlineMutationAcknowledgment(response, async () => normalizeSubmittedUpload(await responseData(response)));
+		},
 		pending: async (signal?: AbortSignal) => {
 			const value = record(await responseData(await transport.request(`${API_PREFIX}uploads/pending`, { signal })));
 			return normalizePendingUploads(value);

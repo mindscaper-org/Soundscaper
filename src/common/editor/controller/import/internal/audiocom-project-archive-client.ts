@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { createRecoveringOnlineFetch, OnlineMutationOutcomeUnknownError } from '../../../online-request-recovery.ts';
 import type { AudiocomProjectArchive, AudiocomProjectArchiveClient } from '../audiocom-project-archives.ts';
 import { AudiocomApiError } from './audiocom-api-client.ts';
 import { audiocomProvider, selectedAudiocomApiOrigin } from './audiocom-provider.ts';
@@ -14,7 +15,7 @@ interface ClientOptions {
 export function createAudiocomProjectArchiveClient(options: ClientOptions = {}): AudiocomProjectArchiveClient {
 	const location = options.location ?? globalThis.location;
 	const apiOrigin = selectedAudiocomApiOrigin(options.apiOrigin);
-	const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
+	const fetchImpl = createRecoveringOnlineFetch(options.fetch ?? globalThis.fetch.bind(globalThis));
 	const request = (path: string, init: RequestInit = {}): Promise<Response> => {
 		const headers = new Headers(init.headers); headers.set('X-Audiocom-Api-Origin', apiOrigin);
 		return fetchImpl(location?.protocol === 'soundscaper-app:'
@@ -39,7 +40,9 @@ export function createAudiocomProjectArchiveClient(options: ClientOptions = {}):
 		},
 		async upload(file, name, signal, revision) {
 			const { uploadNativeCloudProject } = await import('./audiocom-native-project-client.ts');
-			return normalizeProject(await uploadNativeCloudProject({ request, data: dataResponse }, file, name, signal, revision));
+			const uploaded = await uploadNativeCloudProject({ request, data: dataResponse }, file, name, signal, revision);
+			try { return normalizeProject(uploaded); }
+			catch (error) { throw new OnlineMutationOutcomeUnknownError(error); }
 		},
 	};
 }

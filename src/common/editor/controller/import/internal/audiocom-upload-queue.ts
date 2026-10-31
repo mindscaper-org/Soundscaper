@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { raceAbortablePromise } from '../../../../foundation/abort-race.ts';
 
 import { withUploadValidationFailure as failure, uploadValidationFailure } from '../../../upload-validation-failure.ts';
 import type { AudiocomApiClient, AudiocomUploadDraft, AudiocomUploadItem } from '../audiocom-panel-session.ts';
@@ -15,7 +16,7 @@ interface QueueEntry {
 
 /** One bounded queue retains Files, never full decoded audio or copied upload bodies. */
 export function createAudiocomUploadQueue(
-	client: AudiocomApiClient,
+	client: Pick<AudiocomApiClient, 'upload'>,
 	connected: () => boolean,
 	changed: () => void,
 	authenticationFailed: (error: unknown) => void,
@@ -48,7 +49,7 @@ export function createAudiocomUploadQueue(
 				changed();
 				try {
 					if (!entry.item.draft) throw failure(new Error('Review the audio.com upload settings first.'), 'settingsRequired');
-					const result = await client.upload(entry.file, entry.item.draft, abort.signal);
+					const result = await raceAbortablePromise(client.upload(entry.file, entry.item.draft, abort.signal), abort.signal);
 					if (!abort.signal.aborted && entry.abort === abort && entries.get(entry.item.id) === entry && !disposed) {
 						entry.item = Object.freeze({ ...entry.item, status: result.processing ? 'processing' : 'complete', url: result.audio.url });
 					}
@@ -72,7 +73,7 @@ export function createAudiocomUploadQueue(
 		const valid = validateDraft(draft);
 		entry.item = Object.freeze({ ...entry.item, title: valid.title, draft: valid, status: 'queued', errorMessage: undefined, uploadFailure: undefined });
 		changed();
-		void pump();
+		await pump();
 	};
 	const reset = (): void => {
 		for (const entry of entries.values()) entry.abort?.abort();
