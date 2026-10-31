@@ -1263,7 +1263,9 @@
 				"tests/audio-editor-scape-export-fallback-integrity.test.ts",
 				"tests/audio-editor-scape-project.test.js",
 				"tests/audio-editor-scape-streaming-video.test.ts",
-				"tests/audio-editor-scape-video-clip-fallback-roundtrip.test.ts"
+				"tests/audio-editor-scape-video-clip-fallback-roundtrip.test.ts",
+				"src/common/scape/asset-bytes.ts",
+				"src/common/media/bytes.ts"
 			],
 			"policyAuthority": "family-v1-active",
 			"historicalPreFreezeNarrative": {
