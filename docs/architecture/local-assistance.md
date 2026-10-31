@@ -170,6 +170,15 @@ atomic publication. Downloads are cancellable and an interrupted partial does
 not become an installed model. An authenticated offline preseed is supported;
 there is no fallback to an unpinned upstream URL.
 
+Explicit model and required-runtime downloads automatically retry transient
+connection failures with bounded backoff. Connection and read-idle deadlines
+also cover transports that ignore cancellation. Each attempt resumes the exact
+retained partial file; a completed partial is verified before publication even
+when its connection ended without a clean end-of-stream. Permanent HTTP rejection,
+disk errors, and integrity failures remain terminal. Cancellation promptly ends
+recovery without installing an incomplete artifact. Diagnostic logs describe
+interruption and recovery without exposing the download URL or private path.
+
 The first-party publisher records upstream identity separately from the
 distributed artifact. It uses scoped credentials and requires public HEAD,
 Range, CORS, and full SHA-256 read-back before catalog output is accepted.
