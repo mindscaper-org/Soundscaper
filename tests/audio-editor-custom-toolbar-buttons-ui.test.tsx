@@ -11,9 +11,19 @@ import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { CustomToolbarButtonGroup, CustomToolbarButtonSettings } from '../src/common/editor/ui/toolbar/CustomToolbarButtons.tsx';
 import CustomToolbarButtonDialog from '../src/common/editor/ui/dialogs/CustomToolbarButtonDialog.tsx';
 import CustomToolbarButtonSymbol from '../src/common/editor/ui/toolbar/CustomToolbarButtonSymbol.tsx';
+import { MUSESCORE_ICON_CODES } from '../src/common/editor/audacity-iconcodes.js';
 
 const button = { id: 'custom-cut', name: 'My cut', icon: 'CUT', actionId: 'cut' };
 const actions = [{ actionId: 'cut', label: 'Cut', path: ['Edit', 'Cut'], disabled: true }];
+
+test('the symbol picker offers supported named glyphs and omits unavailable compatibility entries', () => {
+	const markup = renderToStaticMarkup(<CustomToolbarButtonDialog copy={ENGLISH_COPY} actions={actions} onSave={async () => undefined} onClose={() => undefined} />);
+	for (const symbol of Object.keys(MUSESCORE_ICON_CODES)) {
+		assert.equal(markup.includes(`aria-label="${symbol}"`), symbol !== 'NONE', symbol);
+	}
+	assert.match(markup, /aria-label="DESKTOP_MONITOR"/u);
+	assert.ok(renderToStaticMarkup(<CustomToolbarButtonSymbol icon="GRADUATION_CAP" />).includes('\uEF74'));
+});
 
 test('custom buttons use the full font glyph and retain the user name when unavailable', () => {
 	const markup = renderToStaticMarkup(<CustomToolbarButtonGroup buttons={[button]} actions={actions} copy={ENGLISH_COPY} run={(operation) => operation()} />);

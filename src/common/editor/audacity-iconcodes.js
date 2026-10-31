@@ -6,9 +6,13 @@
  * editor. The enum values are UTF-16 code points in MusescoreIcon.ttf.
  *
  * Upstream source:
- * https://github.com/musescore/muse_framework/blob/3e6bfd62701992303dc22f1bae6f81bde1670ef9/framework/ui/view/iconcodes.h
- * Source SHA-256: 44d929462738ebf3e3956ec648aa8fcc2f1783084651df0dd33f5dbfd9ddb042
- * Pinned font SHA-256: c180ad4202ed4cc5fda4469c671263743bf3a427b771a582e6bc95401ff37b0a
+ * https://github.com/musescore/muse_framework/blob/7a278749964388ba774fe972bc1a9824260fa2ed/framework/ui/view/iconcodes.h
+ * Source SHA-256: 90a6542bd9c48adf3ac0d16778636f69c86fe023f60cb9abf2ce81f432ed82d2
+ * Pinned font SHA-256: 716257e539614bc0aaeb5896a2139fb53000bcc9508b33d5f293470094c37f8f
+ * Font source, derivative and license pins: config/musescore-icon-font.json.
+ *
+ * Local adaptations: GRADUATION_CAP aliases the bundled MORTAR_BOARD glyph;
+ * DESKTOP_MONITOR names its otherwise unlisted U+F35E glyph.
  *
  * Copyright (C) 2021 MuseScore Limited and others
  *
@@ -154,7 +158,7 @@ export const MUSESCORE_ICON_CODES = Object.freeze({
 	LINE_WITH_ANGLED_START_HOOK: 0xEF9F,
 	LINE_WITH_INVERTED_START_HOOK: 0xEFA0,
 	IMAGE_MOUNTAINS: 0xEFA1,
-	GRADUATION_CAP: 0xF19D,
+	GRADUATION_CAP: 0xEF74,
 	SCORE: 0xF319,
 	CLEF_TREBLE: 0xF31A,
 	AUTO_TEXT: 0xF329,
@@ -182,6 +186,7 @@ export const MUSESCORE_ICON_CODES = Object.freeze({
 	OPEN_LINK: 0xF359,
 	GUITAR_TREMOLO_BAR: 0xF35C,
 	SHORTCUTS: 0xF35D,
+	DESKTOP_MONITOR: 0xF35E,
 	TREMOLO_TWO_NOTES: 0xF35F,
 	TREMOLO_STYLE_DEFAULT: 0xF35F,
 	TREMOLO_STYLE_TRADITIONAL: 0xF360,
@@ -261,9 +266,12 @@ export const MUSESCORE_ICON_CODES = Object.freeze({
 	PRINT: 0xF3B7,
 	DOWN: 0xF3C1,
 	UP: 0xF3C2,
+	LIKE: 0xF3C5,
+	DISLIKE: 0xF3C6,
 	LOOP_IN: 0xF3C7,
 	LOOP_OUT: 0xF3C8,
 	PAUSE: 0xF3C9,
+	ERASER: 0xF3CC,
 	WARNING: 0xF3CE,
 	INFO: 0xF3CF,
 	ERROR: 0xF3D0,
@@ -418,8 +426,21 @@ export const MUSESCORE_ICON_CODES = Object.freeze({
 	WAVEFORM_MULTIVIEW: 0xF4C0,
 	WAVEFORM_HALFWAVE: 0xF4C1,
 	VIDEO: 0xF4C2,
+	PAGE_LOCK: 0xF4C3,
+	TICK_FILLED: 0xF4C4,
+	ERROR_FILLED: 0xF4C6,
+	WARNING_FILLED: 0xF4C8,
+	INFO_FILLED: 0xF4CC,
+	FADE_HANDLE_IN: 0xF4CD,
+	FADE_HANDLE_OUT: 0xF4CE,
 	NONE: 0xFFFF,
 });
+
+// Retain upstream NONE for saved preferences, but do not offer a blank symbol.
+// The font cmap regression checks every other registered name against the TTF.
+export const MUSESCORE_ICON_SYMBOLS = Object.freeze(
+	Object.keys(MUSESCORE_ICON_CODES).filter((name) => name !== 'NONE'),
+);
 
 export const iconCodeToChar = (code) => String.fromCodePoint(code);
 

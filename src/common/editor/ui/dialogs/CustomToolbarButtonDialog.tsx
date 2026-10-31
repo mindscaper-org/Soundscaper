@@ -5,7 +5,7 @@ import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 import { useTheme } from '@soundscaper/design-system/ThemeProvider';
 
-import { MUSESCORE_ICON_CODES } from '../../audacity-iconcodes.js';
+import { MUSESCORE_ICON_SYMBOLS } from '../../audacity-iconcodes.js';
 import type { CustomToolbarButton } from '../../custom-toolbar-buttons.ts';
 import { createCustomToolbarButtonImage, MAX_CUSTOM_TOOLBAR_IMAGE_BYTES } from '../../custom-toolbar-button-image.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
@@ -24,8 +24,6 @@ interface Props {
 	readonly onClose: () => void;
 }
 
-const SYMBOLS = Object.freeze(Object.keys(MUSESCORE_ICON_CODES));
-
 export default function CustomToolbarButtonDialog({ button, copy, actions, onSave, onRemove, onClose }: Props) {
 	const { theme } = useTheme();
 	const formId = useId();
@@ -42,7 +40,7 @@ export default function CustomToolbarButtonDialog({ button, copy, actions, onSav
 	const savingRef = useRef(false);
 	const [failure, setFailure] = useState('');
 	const selectedAction = actions.find((action) => action.actionId === actionId);
-	const findSymbols = useMemo(() => prepareCustomToolbarSymbolSearch(SYMBOLS), []);
+	const findSymbols = useMemo(() => prepareCustomToolbarSymbolSearch(MUSESCORE_ICON_SYMBOLS), []);
 	const matchingSymbols = findSymbols(symbolSearch);
 	const canSave = name.trim().length > 0 && Boolean(selectedAction) && !saving && !loadingIcon;
 	const persist = (operation: () => Promise<unknown>) => {

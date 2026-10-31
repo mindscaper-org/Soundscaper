@@ -87,6 +87,30 @@ async function expectTrackLockAction(page, row, label) {
 }
 
 test.describe('custom toolbar buttons', () => {
+	test('finds and persists the monitor and graduation cap from the bundled font', async ({ page }) => {
+		const errors = collectClientErrors(page);
+		let editor = await bootEditor(page, '/embed/en/');
+		let dialog = await openCustomButtonDialog(page, editor);
+		await expect(dialog.getByRole('button', { name: 'VIDEO', exact: true })).toHaveText('\uF4C2');
+		await expect(dialog.getByRole('button', { name: 'PAGE_LOCK', exact: true })).toHaveText('\uF4C3');
+		await expect(dialog.getByRole('button', { name: 'NONE', exact: true })).toHaveCount(0);
+		await configureButton(dialog, { name: 'Monitor undo', action: UNDO_ACTION, icon: 'DESKTOP_MONITOR' });
+		await expect(dialog.getByRole('button', { name: 'DESKTOP_MONITOR', exact: true })).toHaveText('\uF35E');
+		await saveButton(dialog);
+		await expect(editor.getByRole('button', { name: 'Monitor undo', exact: true })).toHaveText('\uF35E');
+		await page.reload();
+		editor = await waitForEditor(page);
+		await expect(editor.getByRole('button', { name: 'Monitor undo', exact: true })).toHaveText('\uF35E');
+		dialog = await openCustomButtonDialog(page, editor, 'Monitor undo');
+		await expect(dialog.getByRole('button', { name: 'DESKTOP_MONITOR', exact: true })).toHaveAttribute('aria-pressed', 'true');
+		await dialog.getByLabel('Search symbols', { exact: true }).fill('graduation cap');
+		await dialog.getByRole('button', { name: 'GRADUATION_CAP', exact: true }).click();
+		await expect(dialog.getByRole('button', { name: 'GRADUATION_CAP', exact: true })).toHaveText('\uEF74');
+		await saveButton(dialog);
+		await expect(editor.getByRole('button', { name: 'Monitor undo', exact: true })).toHaveText('\uEF74');
+		expect(errors).toEqual([]);
+	});
+
 	for (const theme of ['light', 'dark']) test(`saves, cancels, and resets font symbol colors in ${theme} mode`, async ({ page }) => {
 		const errors = collectClientErrors(page);
 		let editor = await bootEditor(page, '/embed/en/');
