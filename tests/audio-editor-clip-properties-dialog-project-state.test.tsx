@@ -98,12 +98,9 @@ async function mountedClipPropertiesFixture() {
 			/>));
 		},
 		startNormalizePeak: async () => {
-			const trigger = dom.one('[data-clip-audio-settings]');
-			await act(async () => reactProps(trigger).onClick({ currentTarget: trigger }));
-			const item = dom.container.querySelectorAll('[role="menuitem"]').find(node =>
-				node.querySelector('.context-menu-item-label')?.textContent === ENGLISH_COPY.normalizePeak);
-			assert.ok(item);
-			await act(async () => reactProps(item).onClick({ stopPropagation() {} }));
+			const button = dom.one('[data-clip-properties-action="normalize-peak"]');
+			assert.equal(button.getAttribute('title'), ENGLISH_COPY.normalizePeak);
+			await act(async () => reactProps(button).onClick());
 		},
 		cleanup: async () => {
 			for (const call of normalizeCalls) call.completion.resolve();
