@@ -13,6 +13,7 @@ const INTERCHANGE_READERS = [
 	'tests/helpers/interchange-reference.ts',
 	'tests/helpers/interchange-top-clip.ts',
 	'tests/audio-editor-dawproject-reference-conformance.test.ts',
+	'tests/desktop-payload-manifests-exist.test.ts',
 ];
 
 export function interchangeRequiredForTests(repositoryRoot, files) {
