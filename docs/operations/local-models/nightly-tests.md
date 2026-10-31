@@ -89,9 +89,13 @@ archives. CI uploads the test packages without running their suites; launch a
 package on a real machine for the GPU, performance, desktop, and local-model results.
 The resulting packages include the URLs and digests in the app ASAR; an
 unpublished or mismatched archive stops packaging. When runtime inputs change,
-run **Update AI assets**, download its handoff artifacts, and refresh the
-committed snapshots with
+run **Update AI assets**, or use the handoffs from a successful **Desktop preview
+and nightly** run whose runtime publication jobs passed. Download all five
+target handoffs and refresh the committed snapshots with
 `node scripts/refresh-desktop-test-runtime-snapshots.mjs <downloaded-artifacts-directory>`.
+Rebuilding a diagnostic package alone retains the previously pinned engines;
+native runtime fixes take effect only after this snapshot refresh. Snapshot
+checks require the explicit Sherpa GPU teardown sources in every target receipt.
 The regular release workflows continue to build or verify their own runtimes.
 The tests download these engines without substituting development dependencies
 or simulated output. Build support is separate from a successful test result on

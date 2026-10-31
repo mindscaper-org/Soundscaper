@@ -14,7 +14,7 @@
   "runtime": {
     "provider": "cpu",
     "snapshot": {
-      "path": "config/desktop-test-assistance-runtime-snapshots/linux-x64.json.gz",
+      "path": "evidence/corridorkey-production-cpu-sources-2026-10-22/linux-x64-runtime-snapshot.json.gz",
       "byteLength": 845830,
       "sha256": "2725a50f479d24252b6819a53f34bcf27f21856d685f7119ee7adf05f1012305",
       "sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b"

@@ -17,6 +17,7 @@ function fixture(context) {
 		['tests/browser/ordinary.spec.js', "import '../../src/ordinary.ts';"],
 		['tests/helpers/nested-reader.ts', "export { read } from './interchange-reference.ts';"],
 		['tests/helpers/interchange-reference.ts', 'export const read = true;'],
+		['tests/audio-editor-dawproject-reference-conformance.test.ts', 'export const validatesPublishedSchemas = true;'],
 		['src/ordinary.ts', 'export const ordinary = true;'],
 	]) {
 		mkdirSync(dirname(join(root, file)), { recursive: true });
@@ -29,6 +30,7 @@ test('selected dependency closures require interchange readers only on their act
 	const root = fixture(context);
 	assert.equal(interchangeRequiredForTests(root, [join(root, 'tests/browser/ordinary.spec.js')]), false);
 	assert.equal(interchangeRequiredForTests(root, [join(root, 'tests/browser/reader.spec.js')]), true);
+	assert.equal(interchangeRequiredForTests(root, [join(root, 'tests/audio-editor-dawproject-reference-conformance.test.ts')]), true);
 	assert.equal(interchangeRequiredForTests(root, []), false);
 });
 

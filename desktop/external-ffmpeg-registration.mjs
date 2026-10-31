@@ -41,8 +41,10 @@ export async function registerExternalFfmpegPreferences(options) {
 			plan: candidate, confirmed: true, signal: abort.signal,
 		}),
 	});
-	// Linux packages use the system FFmpeg, including on the first launch.
-	if (options.platform === 'linux' || options.settings.snapshot().externalFfmpegSelection !== null) {
+	const installerConsent = await modules.consumeExternalFfmpegInstallerConsent(options.userDataPath);
+	// A selected installer component authorizes first-launch discovery. Consuming
+	// its marker keeps a later Preferences > Clear effective across restarts.
+	if (installerConsent || options.platform === 'linux' || options.settings.snapshot().externalFfmpegSelection !== null) {
 		await service.rescan();
 	}
 	const ipc = modules.registerExternalFfmpegPreferenceMainIpc({
@@ -114,14 +116,16 @@ async function confirmInstall(options, plan) {
 }
 
 async function loadRuntimeModules() {
-	const [installer, installerNode, ipc, nodeProbe, preference] = await Promise.all([
+	const [installer, installerNode, ipc, nodeProbe, preference, consent] = await Promise.all([
 		import('./project-library-runtime/desktop/external-ffmpeg-installer.js'),
 		import('./project-library-runtime/desktop/external-ffmpeg-installer-node-runtime.js'),
 		import('./project-library-runtime/desktop/external-ffmpeg-preference-main-ipc.js'),
 		import('./project-library-runtime/desktop/external-ffmpeg-preference-node-probe.js'),
 		import('./project-library-runtime/desktop/external-ffmpeg-preference-service.js'),
+		import('./project-library-runtime/desktop/external-ffmpeg-installer-consent.js'),
 	]);
 	return Object.freeze({
+		consumeExternalFfmpegInstallerConsent: consent.consumeExternalFfmpegInstallerConsent,
 		createExternalFfmpegInstallerBroker: installer.createExternalFfmpegInstallerBroker,
 		createExternalFfmpegInstallerNodeRunner: installerNode.createExternalFfmpegInstallerNodeRunner,
 		createExternalFfmpegPreferenceNodeProbe: nodeProbe.createExternalFfmpegPreferenceNodeProbe,
@@ -132,6 +136,7 @@ async function loadRuntimeModules() {
 }
 
 const MODULE_METHODS = Object.freeze([
+	'consumeExternalFfmpegInstallerConsent',
 	'createExternalFfmpegInstallerBroker', 'createExternalFfmpegInstallerNodeRunner',
 	'createExternalFfmpegPreferenceNodeProbe', 'createExternalFfmpegPreferenceService',
 	'planExternalFfmpegInstall', 'registerExternalFfmpegPreferenceMainIpc',

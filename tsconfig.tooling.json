@@ -21,6 +21,7 @@
 		"scripts/lib/check-module*.ts",
 		"scripts/lib/module-*.ts",
 		"scripts/lib/ci-artifact-fetch.ts",
+		"scripts/lib/vite-download-page.ts",
 		"scripts/run-module-browser-tests.ts"
 	],
 	"exclude": [

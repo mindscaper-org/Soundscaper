@@ -75,7 +75,7 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 	assert.equal(code, 1, output);
 	assert.match(output, /fixture assertion failed/u);
 	assert.match(output, /coverage \(blocked\)/u);
-	assert.match(output, /29\/29/u);
+	assert.match(output, /30\/30/u);
 	assert.doesNotMatch(output, /passing-result-noise|All checks passed/u);
 	assert.match(output, /^node\/common-1: Error: expected stdout diagnostic$/mu);
 	assert.match(output, /^node\/common-1: Error: expected stderr diagnostic$/mu);

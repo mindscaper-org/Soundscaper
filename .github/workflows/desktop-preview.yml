@@ -497,6 +497,7 @@ jobs:
       SCAPE_MAC_SIGNING: ${{ vars.MAC_SIGNING_ENABLED == 'true' && github.ref_type == 'tag' && 'true' || 'false' }}
       SCAPE_WIN_SIGNING: ${{ github.ref_type == 'tag' && vars.WINDOWS_SIGNING_MODE || 'none' }}
       CSC_NAME: ${{ vars.MAC_SIGNING_IDENTITY }}
+      CSC_INSTALLER_NAME: ${{ vars.MAC_INSTALLER_SIGNING_IDENTITY }}
       APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
       APPLE_ID: ${{ github.ref_type == 'tag' && matrix.target.platform == 'mac' && vars.MAC_SIGNING_ENABLED == 'true' && secrets.APPLE_ID || '' }}
       APPLE_APP_SPECIFIC_PASSWORD: ${{ github.ref_type == 'tag' && matrix.target.platform == 'mac' && vars.MAC_SIGNING_ENABLED == 'true' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
@@ -573,6 +574,8 @@ jobs:
         env:
           MAC_CERTIFICATE_P12: ${{ secrets.MAC_CERTIFICATE_P12 }}
           MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          MAC_INSTALLER_CERTIFICATE_P12: ${{ secrets.MAC_INSTALLER_CERTIFICATE_P12 }}
+          MAC_INSTALLER_CERTIFICATE_PASSWORD: ${{ secrets.MAC_INSTALLER_CERTIFICATE_PASSWORD }}
 
       - name: Set up the locked Kokoro G2P builder
         uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
@@ -724,6 +727,7 @@ jobs:
             release/desktop/*.AppImage
             release/desktop/*.deb
             release/desktop/*.dmg
+            release/desktop/*.pkg
             release/desktop/*.exe
             release/desktop/*.zip
             release/desktop/*.json
@@ -822,7 +826,7 @@ jobs:
 
   release-inventory:
     name: Assemble the release inventory
-    # The selected release scope is exact: a product tag assembles nine packages
+    # The selected release scope is exact: a product tag assembles ten packages
     # and five runtime manifests for that product only, plus its Flatpaks.
     # Nightlies retain the independent full-suite rehearsal.
     if: always() && needs.package.result == 'success' && needs.flatpak.result == 'success'

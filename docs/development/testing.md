@@ -139,6 +139,17 @@ shards share one owned preview pair, avoiding port collisions. Node coverage is
 collected separately for each shard and reported over their fresh union after
 all four pass, using the same local coverage policy as `npm run check`.
 
+Before any Node or browser shard starts, `check-all` provisions and verifies the
+pinned interchange readers and DAWproject schema validator through
+`npm run provision:interchange-conformance`. This needs Python 3.9 or newer and
+Python wheel-tag support from `packaging` or pip; set `SOUNDSCAPER_PYTHON` to
+select an interpreter. Packages remain under the ignored
+`vendor/interchange-conformance/` tree, with verified downloads cached under
+`.wrangler/test-download-cache/interchange/`. A preparation failure blocks the
+test shards and coverage report while independent static checks can finish;
+its diagnostics appear in `test-results/check-all/logs/prepare-interchange.log`.
+Direct focused conformance runs still need the provisioning command first.
+
 The command requires Linux with cgroup v2 memory accounting and a working
 systemd user session (`systemd-run --user`). Every check or shard runs in a
 verified scope with `MemoryMax=8G` and `MemorySwapMax=0`: the 8 GiB cap includes

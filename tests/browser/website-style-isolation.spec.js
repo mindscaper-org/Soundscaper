@@ -9,7 +9,7 @@ test('website chrome and global design-system styles remain independent in both 
 	await expect(sidebar).toBeVisible();
 	const download = sidebar.getByRole('link', { name: 'Download', exact: true });
 	await expect(download).toBeVisible();
-	await expect(download).toHaveAttribute('href', 'https://soundscaper.org/download/desktop/');
+	await expect(download).toHaveAttribute('href', 'https://soundscaper.org/download/');
 
 	for (const theme of ['light', 'dark']) {
 		await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);

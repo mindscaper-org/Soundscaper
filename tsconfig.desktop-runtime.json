@@ -253,6 +253,7 @@
 		"desktop/private-scratch-directory.ts",
 		"desktop/external-ffmpeg-executable-pair-admission.ts",
 		"desktop/external-ffmpeg-installer-node-runtime.ts",
+		"desktop/external-ffmpeg-installer-consent.ts",
 		"desktop/external-ffmpeg-installer.ts",
 		"desktop/external-ffmpeg-node-runtime.ts",
 		"desktop/external-ffmpeg-preference-main-ipc.ts",

@@ -69,6 +69,7 @@ export function vitePreviewServer(site, readinessPath = '/en/') {
 			+ `--outDir ${site.outputDirectory} --host 127.0.0.1 --port ${port} `
 			+ '--strictPort --logLevel error',
 		url: `${site.origin}${readinessPath}`,
+		env: { SCAPE_PRODUCT: site.productId },
 		reuseExistingServer: false,
 		timeout: 120_000,
 	};

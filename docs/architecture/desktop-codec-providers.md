@@ -155,8 +155,17 @@ and browser publication keeps its existing limits.
 Edit > Preferences > General shows the canonical location and status and owns
 Browse, Clear, Rescan, and explicit Install actions. Installation uses the
 exact WinGet package id `BtbN.FFmpeg.GPL.8.1` or an already installed Homebrew
-binary with `brew install ffmpeg`; Soundscaper never bootstraps a package
-manager, invokes `sudo`, or fetches/copies FFmpeg into its packages.
+binary with `brew install ffmpeg`. These in-app actions require an existing
+package manager and do not bootstrap it or invoke `sudo`.
+
+The Windows setup and macOS PKG also offer an unchecked optional FFmpeg
+component. Selecting it authorizes installation of WinGet or Homebrew when
+missing, followed by FFmpeg under the desktop user's account. A successful
+installer writes a per-user, per-product consent marker; first launch consumes
+it and probes the installed executable pair. Clearing FFmpeg in Preferences
+therefore remains effective across later launches. The Debian package lists
+FFmpeg in `Recommends`, not `Depends`. FFmpeg executables remain outside the
+application package. See [desktop installers](../operations/desktop-installers.md).
 
 The desktop keyed-video renderer probes the exact video geometry and quality
 plus the optional AAC/Opus audio tuple before encoding. It requests

@@ -95,6 +95,7 @@ const DESKTOP_EXTERNAL_FFMPEG_CONTROL_RUNTIME_FILES = Object.freeze([
 	'desktop/desktop-video-h264-encoder.js',
 	'desktop/desktop-video-codec-main-ipc.js',
 	'desktop/external-ffmpeg-executable-pair-admission.js',
+	'desktop/external-ffmpeg-installer-consent.js',
 	'desktop/external-ffmpeg-installer-node-runtime.js',
 	'desktop/external-ffmpeg-installer.js',
 	'desktop/external-ffmpeg-node-runtime.js',

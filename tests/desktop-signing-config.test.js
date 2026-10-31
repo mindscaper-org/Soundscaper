@@ -13,6 +13,7 @@ test('requested signing fails closed on missing credentials and wrong teams', ()
 	assert.throws(() => desktopSigningConfig({ SCAPE_WIN_SIGNING: 'certificate' }, 'win32'), /WIN_CSC_LINK/);
 	assert.throws(() => desktopSigningConfig({ SCAPE_WIN_SIGNING: 'typo' }, 'win32'), /Invalid/);
 	const env = { SCAPE_MAC_SIGNING: 'true', CSC_NAME: 'Developer ID Application: Example (TEAM)',
+		CSC_INSTALLER_NAME: 'Developer ID Installer: Example (TEAM)',
 		CSC_KEYCHAIN: '/tmp/keychain', APPLE_ID: 'account', APPLE_APP_SPECIFIC_PASSWORD: 'secret', APPLE_TEAM_ID: 'TEAM' };
 	assert.equal(desktopSigningConfig(env, 'darwin').forceCodeSigning, true);
 	assert.equal(desktopSigningConfig(env, 'darwin').mac.identity, 'Example (TEAM)');

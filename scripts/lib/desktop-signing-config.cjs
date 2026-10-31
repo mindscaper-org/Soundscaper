@@ -15,6 +15,7 @@ function desktopSigningConfig(env = process.env, platform = process.platform) {
 		requireValues(['CSC_NAME', 'CSC_KEYCHAIN', 'APPLE_ID', 'APPLE_APP_SPECIFIC_PASSWORD', 'APPLE_TEAM_ID']);
 		if (!env.CSC_NAME.startsWith('Developer ID Application: ')
 			|| !env.CSC_NAME.endsWith(`(${env.APPLE_TEAM_ID})`)) throw new Error('Developer ID identity must belong to APPLE_TEAM_ID.');
+		desktopInstallerSigningIdentity(env, platform);
 	}
 	if (windows === 'certificate') requireValues(['WIN_CSC_LINK', 'WIN_CSC_KEY_PASSWORD']);
 	if (windows === 'azure') requireValues(['AZURE_TENANT_ID', 'AZURE_CLIENT_ID', 'AZURE_CLIENT_SECRET',
@@ -35,4 +36,15 @@ function desktopSigningConfig(env = process.env, platform = process.platform) {
 	};
 }
 
-module.exports = { desktopSigningConfig };
+function desktopInstallerSigningIdentity(env = process.env, platform = process.platform) {
+	if (platform !== 'darwin' || env.SCAPE_MAC_SIGNING !== 'true') return null;
+	const identity = env.CSC_INSTALLER_NAME;
+	if (!identity?.trim()) throw new Error('Signed PKG release requires CSC_INSTALLER_NAME.');
+	if (!env.APPLE_TEAM_ID?.trim() || !identity.startsWith('Developer ID Installer: ')
+		|| !identity.endsWith(`(${env.APPLE_TEAM_ID})`)) {
+		throw new Error('Developer ID Installer identity must belong to APPLE_TEAM_ID.');
+	}
+	return identity;
+}
+
+module.exports = { desktopSigningConfig, desktopInstallerSigningIdentity };

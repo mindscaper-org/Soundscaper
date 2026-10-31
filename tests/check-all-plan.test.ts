@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { createCheckAllPlan } from '../scripts/lib/check-all-plan.ts';
+import { runCheckTasks } from '../scripts/lib/check-all-scheduler.ts';
 
 const root = new URL('../', import.meta.url).pathname.replace(/\/$/u, '');
 const { scripts } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { scripts: Record<string, string> };
@@ -38,4 +39,30 @@ test('check-all includes every static gate, all Node shards, fresh coverage and 
 
 test('check-all refuses to silently omit a newly added unsupported static command', () => {
 	assert.throws(() => createCheckAllPlan(root, '/npm-cli.js', { ...scripts, 'check:static': `${scripts['check:static']} && echo omitted` }), /check:static/u);
+});
+
+test('check-all provisions independent readers before any Node or browser test shard starts', () => {
+	const plan = createCheckAllPlan(root, '/npm-cli.js', scripts);
+	const preparation = plan.find(task => task.id === 'prepare/interchange');
+	assert.ok(preparation, 'the full selection needs its independent OTIO and DAWproject readers');
+	assert.deepEqual(preparation.args, ['/npm-cli.js', 'run', 'provision:interchange-conformance']);
+	for (const task of plan.filter(task => task.id.startsWith('node/') || task.browser)) {
+		assert.ok(task.dependsOn.includes(preparation.id), `${task.id} must wait for verified reference readers`);
+	}
+});
+
+test('reader preparation failure blocks dependent suites without executing their test commands', async () => {
+	const plan = createCheckAllPlan(root, '/npm-cli.js', scripts);
+	const started: string[] = [];
+	const states = await runCheckTasks(plan, task => {
+		started.push(task.id);
+		return Promise.resolve(task.id === 'prepare/interchange' ? 1 : 0);
+	});
+	assert.equal(states.get('prepare/interchange'), 'failed');
+	for (const task of plan.filter(task => task.id.startsWith('node/') || task.browser)) {
+		assert.equal(states.get(task.id), 'blocked');
+		assert.equal(started.includes(task.id), false);
+	}
+	assert.equal(states.get('coverage'), 'blocked');
+	assert.equal(states.get('check:architecture'), 'passed', 'independent static diagnostics can still finish');
 });

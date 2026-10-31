@@ -17,6 +17,16 @@ test('SCAPE_PRODUCT names the product the web build emits', async () => {
 	assert.equal(config.define.__SCAPE_PRODUCT__, JSON.stringify('framescaper'));
 });
 
+test('local download pages are limited to supported product websites', async () => {
+	for (const product of ['soundscaper', 'framescaper', 'motionscaper']) {
+		for (const desktop of [false, true]) {
+			const config = await loadViteConfig(product, `download-${product}-${desktop}`, desktop);
+			assert.equal(config.plugins.some((plugin) => plugin?.name === 'scape-local-download-page'),
+				!desktop && product !== 'motionscaper', `${product}, desktop=${desktop}`);
+		}
+	}
+});
+
 test('MCP renderer modules belong only to Soundscaper desktop builds', async () => {
 	assert.equal((await loadViteConfig(undefined, 'mcp-web')).define.__SCAPE_DESKTOP_RENDERER__, 'false');
 	assert.equal((await loadViteConfig(undefined, 'mcp-soundscaper-desktop', true)).define.__SCAPE_DESKTOP_RENDERER__, 'true');

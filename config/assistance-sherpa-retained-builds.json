@@ -3,35 +3,35 @@
 	"description": "Exact published Sherpa GPU builds retained by the desktop test snapshots. Recipe edits authenticate new builds without revoking these immutable packages or their receipts.",
 	"targets": {
 		"linux-x64": {
-			"sourceRevision": "ad93b9b714bf25da8d115ade79f5c2a12fd3242a",
+			"sourceRevision": "6c02de619e999491daeac90dc920cd4f267f865a",
 			"receiptSha256": "022aa70b27a0965c4be1b7c5570ba19cbfd968e80aec26b122895d324625327a",
 			"packageSha256": [
 				"048404013144498fd55c2ef5dc7abb1e54e7fbfdfcc04f60a66020d9a831c3fb"
 			]
 		},
 		"linux-arm64": {
-			"sourceRevision": "ad93b9b714bf25da8d115ade79f5c2a12fd3242a",
+			"sourceRevision": "6c02de619e999491daeac90dc920cd4f267f865a",
 			"receiptSha256": "5b2a2dd1ae950295ad548c829f81fdfd6ca5028020339944146563cc3776a0e0",
 			"packageSha256": [
 				"905396e681bd07b64e2d298044d7beebce1322c1f5ea7708d190c2217b76dcba"
 			]
 		},
 		"mac-arm64": {
-			"sourceRevision": "ad93b9b714bf25da8d115ade79f5c2a12fd3242a",
-			"receiptSha256": "19206304da0ba2d9cee9bf1e3d6377debf09524d74de4bd9a69bdacec75e46fc",
+			"sourceRevision": "6c02de619e999491daeac90dc920cd4f267f865a",
+			"receiptSha256": "896518ddf0c4c82c83189981b85fcd131285ef277c8514615da1ba3120283aa4",
 			"packageSha256": [
-				"30c590107cd1fa675d566ccb45f9454df59120a2524e61334737c43b701fb3df"
+				"54f9a3562e7483f1e7adbe56998f0a6e18f219459f1c6f9a10e3d74632eb1cfb"
 			]
 		},
 		"win-x64": {
-			"sourceRevision": "ad93b9b714bf25da8d115ade79f5c2a12fd3242a",
-			"receiptSha256": "0ac71a01f7ce8e20b9d1c4e8310e023759fb41c1f84a6f748c62dd3c76809e69",
+			"sourceRevision": "6c02de619e999491daeac90dc920cd4f267f865a",
+			"receiptSha256": "97b50d478a72af174a44bbb75d26afc143e35d9b053da7b4979f2292726eba05",
 			"packageSha256": [
-				"411a7679c88c222edfb2af789099d4b4e6b409120137160956ac6f594beb7d7d"
+				"427b8f6d9099969c1091216b27186a6da8107acde5a7487f56a0e86d72ae4d59"
 			]
 		},
 		"win-arm64": {
-			"sourceRevision": "ad93b9b714bf25da8d115ade79f5c2a12fd3242a",
+			"sourceRevision": "6c02de619e999491daeac90dc920cd4f267f865a",
 			"receiptSha256": "5a11004712c520c9d3081b2fc3c3f5e8dbd6c6c9188d14f7280ee631f7f4479a",
 			"packageSha256": [
 				"60cab295fc9dc96c70f00f116383d6e1ed8f0775726f642092f32c200498b0cd"

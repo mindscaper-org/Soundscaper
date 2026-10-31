@@ -39,7 +39,7 @@ module.exports = {
 	beforePack: motionscaper ? './scripts/motionscaper-desktop-before-pack.mjs' : './scripts/desktop-before-pack.mjs',
 	afterPack: motionscaper ? './scripts/motionscaper-desktop-after-pack.mjs' : './scripts/desktop-after-pack.mjs',
 	afterSign: './scripts/desktop-after-sign.mjs',
-	afterAllArtifactBuild: './scripts/desktop-verify-release-artifacts.mjs',
+	afterAllArtifactBuild: './scripts/desktop-after-all-artifact-build.mjs',
 	directories: {
 		app: '.desktop-build/app',
 		buildResources: '.desktop-build/icons',
@@ -88,10 +88,12 @@ module.exports = {
 	win: {
 		...signing.win,
 		...(motionscaper ? { signExts: ['!motionscaper-media-host.exe'] } : {}),
+		extraResources: [{ from: 'desktop/installer/windows-ffmpeg-install.ps1', to: 'installer/windows-ffmpeg-install.ps1' }],
 		icon: '.desktop-build/icons/icon.ico',
 		target: ['nsis', 'zip'],
 	},
 	nsis: {
+		include: 'desktop/installer/windows-ffmpeg.nsh',
 		oneClick: false,
 		perMachine: true,
 		allowElevation: true,
@@ -113,6 +115,7 @@ module.exports = {
 			? '/Contents/Resources/runtime/motionscaper-media-host/motionscaper-media-host$' : macPreAuthenticatedRuntimePayload,
 		gatekeeperAssess: false,
 		category: productId === 'soundscaper' ? 'public.app-category.music' : 'public.app-category.video',
+		// The after-all hook builds the PKG with optional components from this same sealed app.
 		target: ['dmg'],
 		extendInfo: motionscaper ? {} : framescaper ? {
 			NSCameraUsageDescription: 'Framescaper accesses the camera only when you choose a camera capture source.',
@@ -143,6 +146,7 @@ module.exports = {
 	},
 	deb: {
 		artifactName: '${productName}-${version}-linux-${arch}.${ext}',
+		recommends: ['ffmpeg'],
 	},
 	publish: null,
 };

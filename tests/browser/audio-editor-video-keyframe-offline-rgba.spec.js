@@ -2,9 +2,7 @@
 
 import { expect } from '@playwright/test';
 import { test } from './audio-editor-test-fixtures.js';
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-import { transform } from 'esbuild';
+import { transpileSourceModuleRoutes } from './helpers/source-module-routes.ts';
 test.use({ browserCoverage: false });
 const ROUTE_ROOT = '/__video-keyframe-offline-rgba__';
 
@@ -166,59 +164,18 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function installModuleRoutes(page) {
-	const modules = await transpileEditorModules();
-	await page.route(`**${ROUTE_ROOT}/src/common/editor/**`, async (route) => {
+	const sourceRoot = new URL('../../src/common/', import.meta.url);
+	const entries = [
+		'editor/runtime-clip-projection.ts',
+		'editor/video-keyframe-export-frame-source.ts',
+		'editor/ui/video-keyframe-offline-rgba-renderer.ts',
+	].map(name => new URL(name, sourceRoot));
+	const modules = await transpileSourceModuleRoutes(sourceRoot, `${ROUTE_ROOT}/src/common`, entries);
+	await page.route(`**${ROUTE_ROOT}/src/common/**`, async (route) => {
 		const pathname = new URL(route.request().url()).pathname;
-		const body = modules.get(pathname);
-		if (body === undefined) {
-			await route.fulfill({ status: 404, body: `Unknown module ${pathname}` });
-			return;
-		}
-		await route.fulfill({ status: 200, contentType: 'text/javascript', body });
+		const descriptor = modules.get(pathname);
+		await route.fulfill(descriptor === undefined
+			? { status: 404, body: `Unknown module ${pathname}` }
+			: { status: 200, ...descriptor });
 	});
-}
-
-async function transpileEditorModules() {
-	const sourceRoot = new URL('../../src/common/editor/', import.meta.url);
-	const entryPoints = [
-		new URL('runtime-clip-projection.ts', sourceRoot),
-		new URL('video-keyframe-export-frame-source.ts', sourceRoot),
-		new URL('ui/video-keyframe-offline-rgba-renderer.ts', sourceRoot),
-	];
-	const discovered = new Map();
-	const pending = [...entryPoints];
-	while (pending.length > 0) {
-		const url = pending.pop();
-		if (discovered.has(url.href)) continue;
-		const filename = fileURLToPath(url);
-		const source = await readFile(url, 'utf8');
-		const transformed = await transform(source, {
-			sourcefile: filename,
-			loader: filename.endsWith('.ts') ? 'ts' : 'js',
-			format: 'esm',
-			target: 'es2022',
-			sourcemap: 'inline',
-		});
-		discovered.set(url.href, transformed.code);
-		for (const match of source.matchAll(/(?:from\s+|import\s*\()(['"])(\.\.?\/[^'"]+)\1/gu)) {
-			const dependency = new URL(match[2], url);
-			if (dependency.pathname.endsWith('.js')) {
-				const typed = new URL(dependency.href.replace(/\.js$/u, '.ts'));
-				try {
-					await readFile(typed, 'utf8');
-					pending.push(typed);
-					continue;
-				} catch { /* The JavaScript source owns this import. */ }
-			}
-			pending.push(dependency);
-		}
-	}
-	const routes = new Map();
-	for (const [href, code] of discovered) {
-		const relative = new URL(href).pathname.slice(sourceRoot.pathname.length);
-		const route = `${ROUTE_ROOT}/src/common/editor/${relative}`;
-		routes.set(route, code);
-		if (route.endsWith('.ts')) routes.set(route.replace(/\.ts$/u, '.js'), code);
-	}
-	return routes;
 }
