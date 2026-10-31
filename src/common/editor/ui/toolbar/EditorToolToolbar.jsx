@@ -30,6 +30,7 @@ import {
 } from './FramescaperCaptureRecordControl.tsx';
 import TransportToolbarGroup, { TRANSPORT_BUTTON_IDS, transportToolbarButtonsVisible } from './TransportToolbarGroup.jsx';
 import { WORKSPACE_TOOLBAR_IDS } from '../workspace/workspace-panel-model.ts';
+import { WorkspacePanelOverlayPortal } from '../workspace/WorkspacePanelOverlayPortal.tsx';
 import {
 	handleEditorToolbarBlur,
 	handleEditorToolbarFocus,
@@ -157,6 +158,7 @@ export default function EditorToolToolbar({
 		toolbarId,
 		order: toolbars[toolbarId]?.order ?? WORKSPACE_TOOLBAR_IDS.indexOf(toolbarId),
 	});
+	const overlayTarget = toolbarSettingsTriggerRef.current?.closest('[data-audio-editor]')?.querySelector('[data-editor-overlay-layer]');
 	return (
 		<div
 			data-editor-tool-toolbar
@@ -313,6 +315,7 @@ export default function EditorToolToolbar({
 				</WorkspaceToolbarSection>,
 				].filter(Boolean).sort((left, right) => left.props.order - right.props.order)}
 			</Toolbar>
+			<WorkspacePanelOverlayPortal target={overlayTarget}>
 			<Flyout
 				isOpen={Boolean(toolbarSettingsPosition)}
 				onClose={() => setToolbarSettingsPosition(null)}
@@ -325,10 +328,8 @@ export default function EditorToolToolbar({
 				className="kw-audio-editor__toolbar-settings"
 			>
 				<div className="kw-audio-editor__toolbar-settings-content">
-					{onToolbarDock && <ToolbarDockingMenu copy={copy} dock={toolbarDock} onDock={onToolbarDock} onClose={() => setToolbarSettingsPosition(null)} />}
 					<strong>{copy.toolbarButtons}</strong>
 					<div className="kw-audio-editor__toolbar-settings-list">
-						<CustomToolbarButtonSettings buttons={customButtons} toolbarButtons={toolbarButtons ?? {}} copy={copy} onCustomize={customizeButton} onToggle={(id, visible) => run(() => controller.actions.preferences.setToolbarButton(id, visible))} />
 						{toolbarButtonOptions.map((button) => <button
 							key={button.id}
 							type="button"
@@ -347,7 +348,9 @@ export default function EditorToolToolbar({
 							</span>
 							<span>{button.label}</span>
 						</button>)}
+						<CustomToolbarButtonSettings buttons={customButtons} toolbarButtons={toolbarButtons ?? {}} copy={copy} onCustomize={customizeButton} onToggle={(id, visible) => run(() => controller.actions.preferences.setToolbarButton(id, visible))} />
 					</div>
+					{onToolbarDock && <ToolbarDockingMenu copy={copy} dock={toolbarDock} onDock={onToolbarDock} onClose={() => setToolbarSettingsPosition(null)} />}
 				</div>
 			</Flyout>
 			{customButtonDraft !== undefined && <Suspense fallback={null}>
@@ -362,6 +365,7 @@ export default function EditorToolToolbar({
 					onRemove={customButtonDraft ? () => persistCustomButtons(customButtons.filter((button) => button.id !== customButtonDraft.id)) : undefined}
 				/>
 			</Suspense>}
+			</WorkspacePanelOverlayPortal>
 		</div>
 	);
 }

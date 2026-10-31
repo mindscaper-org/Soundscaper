@@ -40,9 +40,14 @@ async function openCustomButtonDialog(page, editor, name = null) {
 
 async function configureButton(dialog, { name, action, icon = 'CUT' }) {
 	await dialog.getByLabel('Name', { exact: true }).fill(name);
-	await dialog.getByRole('combobox', { name: 'Action', exact: true }).selectOption(action);
+	await selectAction(dialog, action);
 	await dialog.getByLabel('Search symbols', { exact: true }).fill(icon);
 	await dialog.getByRole('button', { name: icon, exact: true }).click();
+}
+
+async function selectAction(dialog, action) {
+	await dialog.getByRole('combobox', { name: 'Search actions', exact: true }).fill(action);
+	await dialog.getByRole('option').click();
 }
 
 async function saveButton(dialog) {
@@ -81,6 +86,76 @@ async function expectTrackLockAction(page, row, label) {
 }
 
 test.describe('custom toolbar buttons', () => {
+	test('opens action results on demand or after three characters and keeps keyboard selection in the dialog', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		const customization = await openCustomization(page, editor);
+		const entries = customization.getByRole('checkbox').or(customization.getByRole('menuitem'));
+		await expect(entries.nth(-2)).toHaveAccessibleName('Custom button');
+		await expect(entries.nth(-1)).toHaveAccessibleName(/^Dock toolbar/u);
+		await page.keyboard.press('Escape');
+		const dialog = await openCustomButtonDialog(page, editor);
+		const search = dialog.getByRole('combobox', { name: 'Search actions' });
+		await expect(search).toHaveAttribute('aria-expanded', 'false');
+		await dialog.getByRole('button', { name: 'Show actions' }).click();
+		await expect(dialog.getByRole('option').first()).toBeVisible();
+		await dialog.getByRole('button', { name: 'Show actions' }).press('Enter');
+		await expect(search).toHaveAttribute('aria-expanded', 'false');
+		await dialog.getByRole('button', { name: 'Show actions' }).press('Enter');
+		await expect(search).toHaveAttribute('aria-expanded', 'true');
+		await search.press('Escape');
+		await expect(search).toHaveAttribute('aria-expanded', 'false');
+		await expect(dialog).toBeVisible();
+		await search.fill('a');
+		await expect(search).toHaveAttribute('aria-expanded', 'false');
+		await search.fill('tra');
+		await expect(search).toHaveAttribute('aria-expanded', 'true');
+		await search.fill('delete-leave-gap');
+		await search.press('ArrowDown');
+		await search.press('Enter');
+		await expect(search).toHaveValue(/Delete and leave gap/u);
+		await expect(search).toHaveAttribute('aria-expanded', 'false');
+		await expect(dialog).toBeVisible();
+		await search.fill('no-such-custom-action');
+		await expect(dialog.getByRole('status')).toHaveText('No matching actions.');
+		await search.press('Enter');
+		await expect(dialog).toBeVisible();
+	});
+
+	for (const [extension, mimeType, buffer] of [
+		['svg', 'image/svg+xml', Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="red" d="M0 0h16v16H0z"/></svg>')],
+		['png', 'image/png', Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==', 'base64')],
+	]) test(`uploads a ${extension.toUpperCase()} symbol and preserves it through editing and reload`, async ({ page }) => {
+		const errors = collectClientErrors(page);
+		let editor = await bootEditor(page, '/embed/en/');
+		let dialog = await openCustomButtonDialog(page, editor);
+		await configureButton(dialog, { name: `My ${extension} action`, action: UNDO_ACTION });
+		const picker = dialog.getByLabel('Choose PNG/SVG symbol');
+		await picker.setInputFiles({ name: 'invalid.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<html/>') });
+		await expect(dialog.getByRole('alert')).toHaveText('Choose a valid PNG or SVG image.');
+		await picker.setInputFiles({ name: 'large.png', mimeType: 'image/png', buffer: Buffer.alloc(256 * 1024 + 1) });
+		await expect(dialog.getByRole('alert')).toHaveText('Choose a symbol smaller than 256 KB.');
+		await picker.setInputFiles({ name: `symbol.${extension}`, mimeType, buffer });
+		await expect(dialog.getByRole('button', { name: 'Uploaded symbol', exact: true })).toHaveAttribute('aria-pressed', 'true');
+		await expect(dialog.getByRole('alert')).toHaveCount(0);
+		await saveButton(dialog);
+		const image = editor.getByRole('button', { name: `My ${extension} action`, exact: true }).locator('img');
+		await expect(image).toHaveAttribute('src', `data:${mimeType};base64,${buffer.toString('base64')}`);
+		await expect.poll(() => image.evaluate((element) => element.complete && element.naturalWidth > 0)).toBe(true);
+		await page.reload();
+		editor = await waitForEditor(page);
+		await expect(image).toBeVisible();
+		dialog = await openCustomButtonDialog(page, editor, `My ${extension} action`);
+		await expect(dialog.getByRole('button', { name: 'Uploaded symbol', exact: true })).toHaveAttribute('aria-pressed', 'true');
+		await dialog.getByRole('button', { name: 'CUT', exact: true }).click();
+		await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await expect(image).toBeVisible();
+		dialog = await openCustomButtonDialog(page, editor, `My ${extension} action`);
+		await dialog.getByRole('button', { name: 'CUT', exact: true }).click();
+		await saveButton(dialog);
+		await expect(image).toHaveCount(0);
+		expect(errors).toEqual([]);
+	});
+
 	test('chooses symbols from the full font and cancels without adding a button', async ({ page }) => {
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/');
@@ -110,9 +185,7 @@ test.describe('custom toolbar buttons', () => {
 		let editor = await bootEditor(page, '/embed/en/');
 		const dialog = await openCustomButtonDialog(page, editor);
 		await dialog.getByLabel('Search actions', { exact: true }).fill('leave gap');
-		const action = dialog.getByRole('combobox', { name: 'Action', exact: true });
-		await expect(action.locator('option[value="delete-leave-gap"]')).toContainText('Edit');
-		await expect(action.locator('option[value="delete-leave-gap"]')).toContainText('Delete and leave gap');
+		await expect(dialog.getByRole('option', { name: 'Edit › Delete › Delete and leave gap', exact: true })).toBeVisible();
 		await configureButton(dialog, { name: 'Lift selected audio', action: 'delete-leave-gap' });
 		await saveButton(dialog);
 		let button = editor.getByRole('button', { name: 'Lift selected audio', exact: true });
@@ -185,7 +258,7 @@ test.describe('custom toolbar buttons', () => {
 		await saveButton(dialog);
 		dialog = await openCustomButtonDialog(page, editor, 'My undo');
 		await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue('My undo');
-		await expect(dialog.getByRole('combobox', { name: 'Action', exact: true })).toHaveValue(UNDO_ACTION);
+		await expect(dialog.getByRole('combobox', { name: 'Search actions', exact: true })).toHaveValue(/Undo/u);
 		await configureButton(dialog, { name: 'My redo', action: REDO_ACTION, icon: 'ACCIACCATURA' });
 		await saveButton(dialog);
 		await expect(editor.getByRole('button', { name: 'My undo', exact: true })).toHaveCount(0);
@@ -210,7 +283,7 @@ test.describe('custom toolbar buttons', () => {
 		await expect(editor.getByRole('button', { name: 'My redo', exact: true })).toContainText('\uF427');
 
 		dialog = await openCustomButtonDialog(page, editor, 'My redo');
-		await expect(dialog.getByRole('combobox', { name: 'Action', exact: true })).toHaveValue(REDO_ACTION);
+		await expect(dialog.getByRole('combobox', { name: 'Search actions', exact: true })).toHaveValue(/Redo/u);
 		await dialog.getByRole('button', { name: 'Remove button', exact: true }).click();
 		await expect(dialog).toBeHidden();
 		await expect(editor.getByRole('button', { name: 'My redo', exact: true })).toHaveCount(0);

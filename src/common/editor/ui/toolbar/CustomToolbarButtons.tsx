@@ -9,6 +9,7 @@ import { iconNameToChar } from '../../audacity-iconcodes.js';
 import type { CustomToolbarButton } from '../../custom-toolbar-buttons.ts';
 import type { AudioEditorWorkspaceRunner } from '../workspace/audio-editor-workspace-runner.ts';
 import type { CustomToolbarButtonAction } from './custom-toolbar-button-actions.ts';
+import CustomToolbarButtonSymbol from './CustomToolbarButtonSymbol.tsx';
 
 interface GroupProps {
 	readonly buttons: readonly CustomToolbarButton[];
@@ -37,7 +38,7 @@ export function CustomToolbarButtonGroup({ buttons, actions, copy, run }: GroupP
 				disabled={disabled}
 				onClick={() => { if (!disabled && action.onClick) run(action.onClick); }}
 			>
-				<span className="musescore-icon" aria-hidden="true">{iconNameToChar(button.icon)}</span>
+				<CustomToolbarButtonSymbol icon={button.icon} />
 			</button>;
 		})}
 	</ToolbarButtonGroup>;
@@ -53,12 +54,6 @@ interface SettingsProps {
 
 export function CustomToolbarButtonSettings({ buttons, toolbarButtons, copy, onCustomize, onToggle }: SettingsProps) {
 	return <>
-		<div role="menu" aria-label={copy.customToolbarButton} className="kw-audio-editor__toolbar-settings-custom-menu">
-			<button type="button" role="menuitem" className="kw-audio-editor__toolbar-settings-option" onClick={() => onCustomize(null)}>
-				<span className="musescore-icon" aria-hidden="true">{iconNameToChar('PLUS')}</span>
-				<span className="kw-audio-editor__toolbar-settings-custom-label">{copy.customToolbarButton}</span>
-			</button>
-		</div>
 		{buttons.map((button) => <div key={button.id} className="kw-audio-editor__toolbar-settings-custom-row">
 			<button
 				type="button"
@@ -69,7 +64,7 @@ export function CustomToolbarButtonSettings({ buttons, toolbarButtons, copy, onC
 				onClick={() => onToggle(button.id, toolbarButtons[button.id] === false)}
 			>
 				<span className="musescore-icon" aria-hidden="true">{iconNameToChar(toolbarButtons[button.id] === false ? 'EYE_CLOSED' : 'EYE_OPEN')}</span>
-				<span className="kw-audio-editor__toolbar-settings-icon musescore-icon" aria-hidden="true">{iconNameToChar(button.icon)}</span>
+				<span className="kw-audio-editor__toolbar-settings-icon" aria-hidden="true"><CustomToolbarButtonSymbol icon={button.icon} /></span>
 				<span>{button.name}</span>
 			</button>
 			<div role="menu" aria-label={formatLocalizedTemplate(copy.customToolbarButtonEdit, { name: button.name })}>
@@ -85,5 +80,11 @@ export function CustomToolbarButtonSettings({ buttons, toolbarButtons, copy, onC
 			</button>
 			</div>
 		</div>)}
+		<div role="menu" aria-label={copy.customToolbarButton} className="kw-audio-editor__toolbar-settings-custom-menu">
+			<button type="button" role="menuitem" className="kw-audio-editor__toolbar-settings-option" onClick={() => onCustomize(null)}>
+				<span className="musescore-icon" aria-hidden="true">{iconNameToChar('PLUS')}</span>
+				<span className="kw-audio-editor__toolbar-settings-custom-label">{copy.customToolbarButton}</span>
+			</button>
+		</div>
 	</>;
 }

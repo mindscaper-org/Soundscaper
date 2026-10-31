@@ -4,11 +4,14 @@ import React, { useId, useMemo, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 
-import { MUSESCORE_ICON_CODES, iconNameToChar } from '../../audacity-iconcodes.js';
+import { MUSESCORE_ICON_CODES } from '../../audacity-iconcodes.js';
 import type { CustomToolbarButton } from '../../custom-toolbar-buttons.ts';
+import { createCustomToolbarButtonImage, MAX_CUSTOM_TOOLBAR_IMAGE_BYTES } from '../../custom-toolbar-button-image.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import type { CustomToolbarButtonAction } from '../toolbar/custom-toolbar-button-actions.ts';
-import { prepareCustomToolbarActionSearch, prepareCustomToolbarSymbolSearch } from './custom-toolbar-button-search.ts';
+import CustomToolbarButtonSymbol from '../toolbar/CustomToolbarButtonSymbol.tsx';
+import CustomToolbarActionPicker from './CustomToolbarActionPicker.tsx';
+import { prepareCustomToolbarSymbolSearch } from './custom-toolbar-button-search.ts';
 import './CustomToolbarButtonDialog.css';
 
 interface Props {
@@ -28,17 +31,17 @@ export default function CustomToolbarButtonDialog({ button, copy, actions, onSav
 	const [name, setName] = useState(button?.name ?? '');
 	const [actionId, setActionId] = useState(button?.actionId ?? '');
 	const [icon, setIcon] = useState(button?.icon ?? 'PLUS');
-	const [actionSearch, setActionSearch] = useState('');
+	const [uploadedIcon, setUploadedIcon] = useState(button?.icon.startsWith('data:image/') ? button.icon : '');
+	const [loadingIcon, setLoadingIcon] = useState(false);
+	const [imageFailure, setImageFailure] = useState('');
 	const [symbolSearch, setSymbolSearch] = useState('');
 	const [saving, setSaving] = useState(false);
 	const savingRef = useRef(false);
 	const [failure, setFailure] = useState('');
-	const findActions = useMemo(() => prepareCustomToolbarActionSearch(actions), [actions]);
-	const matchingActions = findActions(actionSearch);
 	const selectedAction = actions.find((action) => action.actionId === actionId);
 	const findSymbols = useMemo(() => prepareCustomToolbarSymbolSearch(SYMBOLS), []);
 	const matchingSymbols = findSymbols(symbolSearch);
-	const canSave = name.trim().length > 0 && Boolean(selectedAction) && !saving;
+	const canSave = name.trim().length > 0 && Boolean(selectedAction) && !saving && !loadingIcon;
 	const persist = (operation: () => Promise<unknown>) => {
 		if (savingRef.current) return;
 		savingRef.current = true;
@@ -74,32 +77,42 @@ export default function CustomToolbarButtonDialog({ button, copy, actions, onSav
 				<span>{copy.customToolbarButtonName}</span>
 				<input name="custom-button-name" aria-label={copy.customToolbarButtonName} value={name} onChange={(event) => setName(event.currentTarget.value)} required disabled={saving} />
 			</label>
-			<label className="kw-audio-editor-custom-button-dialog__field">
-				<span>{copy.customToolbarButtonActionSearch}</span>
-				<input type="search" aria-label={copy.customToolbarButtonActionSearch} value={actionSearch} onChange={(event) => setActionSearch(event.currentTarget.value)} disabled={saving} />
-			</label>
-			<label className="kw-audio-editor-custom-button-dialog__field">
-				<span>{copy.customToolbarButtonAction}</span>
-				<select aria-label={copy.customToolbarButtonAction} value={actionId} onChange={(event) => setActionId(event.currentTarget.value)} required disabled={saving}>
-					<option value="">{copy.customToolbarButtonAction}</option>
-					{actionId && !selectedAction && <option value={actionId}>{actionId}</option>}
-					{selectedAction && !matchingActions.includes(selectedAction) && <option value={selectedAction.actionId}>{selectedAction.path.join(' › ')}</option>}
-					{matchingActions.map((action) => <option key={action.actionId} value={action.actionId}>{action.path.join(' › ')}</option>)}
-				</select>
-				{matchingActions.length === 0 && <span role="status">{copy.customToolbarButtonNoActions}</span>}
-			</label>
+			<CustomToolbarActionPicker actions={actions} actionId={actionId} copy={copy} disabled={saving} onSelect={setActionId} />
 			{actionId && (!selectedAction || selectedAction.disabled) && <p>{selectedAction?.disabledReason || copy.customToolbarButtonUnavailable}</p>}
 			<label className="kw-audio-editor-custom-button-dialog__field">
 				<span>{copy.customToolbarButtonSymbolSearch}</span>
 				<input type="search" aria-label={copy.customToolbarButtonSymbolSearch} value={symbolSearch} onChange={(event) => setSymbolSearch(event.currentTarget.value)} disabled={saving} />
 			</label>
 			<div className="kw-audio-editor-custom-button-dialog__symbol-heading">
-				<span>{copy.customToolbarButtonSymbol}: {icon.replaceAll('_', ' ')}</span>
-				<span className="musescore-icon" aria-hidden="true">{iconNameToChar(icon)}</span>
+				<span>{copy.customToolbarButtonSymbol}: {icon === uploadedIcon ? copy.customToolbarButtonUploadedSymbol : icon.replaceAll('_', ' ')}</span>
+				<CustomToolbarButtonSymbol icon={icon} />
 			</div>
+			<label className="kw-audio-editor-custom-button-dialog__field">
+				<span>{copy.customToolbarButtonUploadSymbol}</span>
+				<input type="file" accept=".png,.svg,image/png,image/svg+xml" aria-label={copy.customToolbarButtonUploadSymbol}
+					disabled={saving || loadingIcon} onChange={(event) => {
+						const file = event.currentTarget.files?.[0];
+						event.currentTarget.value = '';
+						if (!file) return;
+						setImageFailure('');
+						if (file.size > MAX_CUSTOM_TOOLBAR_IMAGE_BYTES) { setImageFailure(copy.customToolbarButtonSymbolTooLarge); return; }
+						setLoadingIcon(true);
+						void file.arrayBuffer().then(async (buffer) => {
+							const imageIcon = createCustomToolbarButtonImage(new Uint8Array(buffer));
+							const image = new Image();
+							image.src = imageIcon;
+							await image.decode();
+							setUploadedIcon(imageIcon); setIcon(imageIcon);
+						}).catch(() => setImageFailure(copy.customToolbarButtonSymbolInvalid)).finally(() => setLoadingIcon(false));
+					}} />
+			</label>
+			{imageFailure && <p role="alert">{imageFailure}</p>}
 			<div className="kw-audio-editor-custom-button-dialog__symbols" role="group" aria-label={copy.customToolbarButtonSymbol}>
-				{matchingSymbols.map((symbol) => <button key={symbol} type="button" aria-label={symbol} aria-pressed={icon === symbol} title={symbol.replaceAll('_', ' ')} disabled={saving} onClick={() => setIcon(symbol)}>
-					<span className="musescore-icon" aria-hidden="true">{iconNameToChar(symbol)}</span>
+				{uploadedIcon && <button type="button" aria-label={copy.customToolbarButtonUploadedSymbol} aria-pressed={icon === uploadedIcon} disabled={saving || loadingIcon} onClick={() => setIcon(uploadedIcon)}>
+					<CustomToolbarButtonSymbol icon={uploadedIcon} />
+				</button>}
+				{matchingSymbols.map((symbol) => <button key={symbol} type="button" aria-label={symbol} aria-pressed={icon === symbol} title={symbol.replaceAll('_', ' ')} disabled={saving || loadingIcon} onClick={() => setIcon(symbol)}>
+					<CustomToolbarButtonSymbol icon={symbol} />
 				</button>)}
 				{matchingSymbols.length === 0 && <p role="status">{copy.customToolbarButtonNoSymbols}</p>}
 			</div>

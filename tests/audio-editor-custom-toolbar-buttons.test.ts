@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import { MUSESCORE_ICON_CODES } from '../src/common/editor/audacity-iconcodes.js';
 import { normalizeCustomToolbarButtons } from '../src/common/editor/custom-toolbar-buttons.ts';
+import { createCustomToolbarButtonImage, isCustomToolbarButtonImage, MAX_CUSTOM_TOOLBAR_IMAGE_BYTES } from '../src/common/editor/custom-toolbar-button-image.ts';
 import {
 	applyAudioEditorWorkspace,
 	createAudioEditorPreferencesV1,
@@ -16,6 +17,34 @@ import {
 } from '../src/common/editor/preferences.js';
 
 const BUTTON = { id: 'custom-split', name: 'Split selection', icon: 'CUT', actionId: 'split' };
+const SVG_ICON = `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M0 0h16v16H0z"/></svg>')}`;
+
+test('image symbols detect PNG and UTF-8 SVG content and bound persisted bytes', () => {
+	const svg = new TextEncoder().encode('<?xml version="1.0"?>\n<!-- Symbol -->\n<svg xmlns="http://www.w3.org/2000/svg"><title>音</title></svg>');
+	assert.equal(isCustomToolbarButtonImage(createCustomToolbarButtonImage(svg)), true);
+	const png = new Uint8Array(MAX_CUSTOM_TOOLBAR_IMAGE_BYTES);
+	png.set([137, 80, 78, 71, 13, 10, 26, 10]);
+	assert.equal(isCustomToolbarButtonImage(createCustomToolbarButtonImage(png)), true);
+	assert.throws(() => createCustomToolbarButtonImage(new Uint8Array(MAX_CUSTOM_TOOLBAR_IMAGE_BYTES + 1)), RangeError);
+	assert.throws(() => createCustomToolbarButtonImage(new Uint8Array()), RangeError);
+	assert.throws(() => createCustomToolbarButtonImage(new TextEncoder().encode('GIF89a')), RangeError);
+});
+
+test('uploaded symbols survive preference persistence and workspace changes', () => {
+	const button = { ...BUTTON, icon: SVG_ICON };
+	const preferences = createAudioEditorPreferencesV1({ workspace: { customButtons: [button] } });
+	const restored = loadAudioEditorPreferencesV1(JSON.parse(JSON.stringify(preferences)) as unknown);
+	assert.deepEqual(restored.preferences.workspace.customButtons, [button]);
+	assert.deepEqual(applyAudioEditorWorkspace(restored.preferences, 'classic').workspace.customButtons, [button]);
+});
+
+test('uploaded symbols reject remote URLs, unsupported types, malformed data and oversized payloads', () => {
+	for (const icon of ['https://example.com/icon.svg', 'data:text/html;base64,PHN2Zz4=',
+		'data:image/svg+xml;base64,???', `data:image/svg+xml;base64,${btoa('<html/>')}`,
+		`data:image/png;base64,${btoa('not a PNG')}`, `data:image/svg+xml;base64,${'A'.repeat(400_000)}`]) {
+		assert.throws(() => normalizeCustomToolbarButtons([{ ...BUTTON, icon }]), RangeError);
+	}
+});
 
 test('custom toolbar buttons normalize copied records while preserving stable IDs', () => {
 	assert.deepEqual(normalizeCustomToolbarButtons(), []);

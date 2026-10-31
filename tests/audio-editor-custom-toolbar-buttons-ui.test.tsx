@@ -37,8 +37,10 @@ test('hidden custom buttons remain editable and discoverable in customization', 
 test('a new dialog requires a name and action but lists unavailable actions for future use', () => {
 	const markup = renderToStaticMarkup(<CustomToolbarButtonDialog copy={ENGLISH_COPY} actions={actions} onSave={async () => undefined} onClose={() => undefined} />);
 	assert.match(markup, /aria-label="Name"/u);
-	assert.match(markup, /aria-label="Action"/u);
-	assert.match(markup, /value="cut">Edit › Cut/u);
+	assert.match(markup, /role="combobox"[^>]*aria-label="Search actions"/u);
+	assert.match(markup, /aria-expanded="false"/u);
+	assert.doesNotMatch(markup, /<select/u);
+	assert.match(markup, /type="file"[^>]*accept="[^"]*\.png[^"]*\.svg/u);
 	assert.match(markup, /type="submit"[^>]*disabled=""/u);
 	assert.match(markup, /aria-label="ACCIACCATURA"/u);
 });
@@ -46,9 +48,17 @@ test('a new dialog requires a name and action but lists unavailable actions for 
 test('editing preserves the assigned action and symbol and offers removal', () => {
 	const markup = renderToStaticMarkup(<CustomToolbarButtonDialog button={button} copy={ENGLISH_COPY} actions={actions} onSave={async () => undefined} onRemove={async () => undefined} onClose={() => undefined} />);
 	assert.match(markup, /value="My cut"/u);
-	assert.match(markup, /value="cut" selected=""/u);
+	assert.match(markup, /value="Edit › Cut"/u);
 	assert.match(markup, /aria-label="CUT" aria-pressed="true"/u);
 	assert.match(markup, /Remove button/u);
+});
+
+test('uploaded symbols render as images in toolbar buttons and customization', () => {
+	const image = { ...button, icon: `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg"/>')}` };
+	const group = renderToStaticMarkup(<CustomToolbarButtonGroup buttons={[image]} actions={actions} copy={ENGLISH_COPY} run={(operation) => operation()} />);
+	const settings = renderToStaticMarkup(<CustomToolbarButtonSettings buttons={[image]} toolbarButtons={{}} copy={ENGLISH_COPY} onCustomize={() => undefined} onToggle={() => undefined} />);
+	for (const markup of [group, settings]) assert.match(markup, /<img[^>]*src="data:image\/svg\+xml;base64,/u);
+	assert.ok(settings.indexOf('aria-label="My cut"') < settings.indexOf('>Custom button<'));
 });
 
 test('custom button copy is available in English and German', () => {
