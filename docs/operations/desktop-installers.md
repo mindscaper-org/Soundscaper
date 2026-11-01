@@ -5,6 +5,28 @@ an NSIS setup program and macOS offers a PKG installer alongside the DMG.
 The download page prefers the PKG for Apple silicon Macs; explicit DMG links
 remain available.
 
+## Portable settings
+
+Before launching, create a folder named exactly `Portable Settings` in the same
+directory as the executable. Startup uses that existing folder as the Electron
+user-data directory, including desktop settings, browser storage, project
+libraries, default local models and runtimes, application caches, logs, and crash data.
+The folder must be writable. An absent folder or a regular file with that name
+leaves the normal per-user storage layout in effect; startup never creates the
+folder automatically.
+
+For an AppImage, put the folder beside the `.AppImage` file. Windows
+self-extracting portable builds look beside the outer `.exe`, rather than in
+the temporary extraction directory. On macOS, the executable is inside
+`Soundscaper.app/Contents/MacOS/` or `Framescaper.app/Contents/MacOS/`.
+
+Portable startup does not import or move the installed profile's settings or
+projects. User-selected external model directories and other external paths
+remain explicit selections. An explicit `--user-data-dir` and diagnostic test
+launches take precedence over automatic portable-folder detection.
+System components can still maintain shared font and GPU-driver caches and
+certificate databases in their normal operating-system locations.
+
 ## Optional FFmpeg support
 
 The Windows setup and macOS PKG show this unchecked option:
