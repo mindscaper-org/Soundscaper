@@ -10,6 +10,7 @@ export function createFfmpegRuntimeEvidenceRepinner({
 	manifestPath: defaultManifestPath,
 	parseJson,
 	readRegularFile,
+	readEvidence,
 	sha256,
 	validateManifestShape,
 }) {
@@ -43,7 +44,7 @@ export function createFfmpegRuntimeEvidenceRepinner({
 	};
 
 	async function repinDescriptor(root, descriptor, label) {
-		const bytes = await readRegularFile(root, descriptor.path, label);
+		const bytes = await readEvidence(root, descriptor, label);
 		descriptor.byteLength = bytes.byteLength;
 		descriptor.sha256 = sha256(bytes);
 		return Object.freeze({ path: descriptor.path, byteLength: descriptor.byteLength, sha256: descriptor.sha256 });

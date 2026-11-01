@@ -153,8 +153,10 @@ A row may move from `blocked` only when the missing material is checked in and
 its automated check passes.
 
 The checked-in FFmpeg runtime policy manifest is an engineering integrity gate,
-not a license or patent approval. It binds installed runtime bytes to the
-current notice, source descriptor, licensing matrix, and release policy. Its
+not a license or patent approval. It binds installed runtime bytes to the FFmpeg
+notice section, source descriptor, CORS configuration, and publication policy.
+General policy documents and matrices are not digest-pinned; the audit checks
+the relevant FFmpeg licensing and security entries directly. Its
 distribution checks mirror the matrix for reporting; they are not an approval
 ceremony or a publication switch. The payload digest is an internal consistency
 check, not a human or release approval. Public build and test publication depend

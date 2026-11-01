@@ -12,10 +12,10 @@ try {
 	if (stale.length === 0) {
 		console.log(`Policy narratives are in sync (${narrativeCount} bound blocks).`);
 	} else if (checkOnly) {
-		console.error(`Stale policy narratives: ${stale.join(', ')}; run \`node scripts/sync-policy-narratives.mjs\`, then repin the runtime evidence.`);
+		console.error(`Stale policy narratives: ${stale.join(', ')}; run \`node scripts/sync-policy-narratives.mjs\`.`);
 		process.exitCode = 1;
 	} else {
-		console.log(`Rewrote ${stale.length} policy narrative block(s): ${stale.join(', ')}. Run \`node scripts/repin-runtime-evidence.mjs\` before committing.`);
+		console.log(`Rewrote ${stale.length} policy narrative block(s): ${stale.join(', ')}.`);
 	}
 } catch (error) {
 	console.error(`Policy narrative sync failed: ${error.message}`);
