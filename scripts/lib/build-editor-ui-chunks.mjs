@@ -9,7 +9,7 @@ export const EDITOR_UI_CHUNK_GROUPS = [
 		// Letting the shell claim the host while its widgets follow the lazy entry
 		// creates an emitted initialization cycle before the editor can mount.
 		name: 'editor-midi-piano-roll',
-		test: /(?:src[\\/]common[\\/]editor[\\/]ui[\\/]workspace[\\/](?:PianoRollWorkspacePanel\.tsx|midi-panel-projection\.ts)|vendor[\\/]audacity-design-system[\\/]components[\\/]src[\\/](?:PianoRoll|NoteRect)[\\/])/,
+		test: /(?:src[\\/]common[\\/]editor[\\/]ui[\\/]workspace[\\/](?:PianoRollWorkspacePanel\.(?:tsx|css)|midi-panel-projection\.ts)|vendor[\\/]audacity-design-system[\\/]components[\\/]src[\\/](?:PianoRoll|NoteRect)[\\/])/,
 		priority: 99,
 		minSize: 0,
 		maxSize: 400_000,

@@ -7,6 +7,7 @@ import { chunkGroupForModulePath } from '../scripts/lib/build-chunk-groups.mjs';
 test('the opt-in piano roll and its design-system components initialize in one lazy owner', () => {
 	for (const path of [
 		'src/common/editor/ui/workspace/PianoRollWorkspacePanel.tsx',
+		'src/common/editor/ui/workspace/PianoRollWorkspacePanel.css',
 		'src/common/editor/ui/workspace/midi-panel-projection.ts',
 		'vendor/audacity-design-system/components/src/PianoRoll/NoteGrid.tsx',
 		'vendor/audacity-design-system/components/src/PianoRoll/PianoKeyboard.tsx',
