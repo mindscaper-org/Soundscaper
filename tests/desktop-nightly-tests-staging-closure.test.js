@@ -47,6 +47,7 @@ const SOURCE_EXTENSION_SUBSTITUTIONS = Object.freeze({
 // readDesktopPreloadSource bundles these runtime imports from
 // their maintained TypeScript owners. Audit their staged destinations too.
 const PRELOAD_FIXTURE_ALIASES = Object.freeze({
+	'./project-library-runtime/desktop/project-saving-preload.js': './project-saving-preload.ts',
 	'./project-library-runtime/desktop/audiocom-authorization.js': './audiocom-authorization.ts',
 	'./project-library-runtime/desktop/audiocom-links.js': './audiocom-links.ts',
 	'./project-library-runtime/desktop/ara-preload.js': './ara-preload.ts',

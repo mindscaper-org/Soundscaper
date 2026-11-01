@@ -120,6 +120,7 @@ test('sandbox preload exposes only the versioned narrow bridge', async () => {
 	assert.notEqual(exposed.get('scapeDesktop'), exposed.get('framescaperDesktop'));
 	const bridge = exposed.get('scapeDesktop');
 	const baseFields = [
+		'rememberProjectFile', 'restoreProjectFile', 'temporaryDataStatus', 'chooseTemporaryDataFolder', 'confirmProjectSave',
 		'captureExternalMedia', 'resolveExternalMedia', 'prepareOriginalOverwrite', 'releaseOriginalFile',
 		'abortWrite', 'applyNativeTierControl', 'ara', 'awaitVideoSourceProbe', 'beginDesktopVideoCodecOperation', 'beginVideoSourceProbe', 'beginWrite', 'bindNativeAudioSession', 'calibrateNativeAudioSession',
 			'cancelAssistanceModelInstall', 'cancelDesktopAudioCodecOperation', 'cancelDesktopVideoCodecOperation', 'cancelNativeVampAnalyzer', 'cancelVideoSourceProbe',
