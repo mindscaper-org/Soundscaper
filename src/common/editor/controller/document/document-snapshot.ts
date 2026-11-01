@@ -69,6 +69,8 @@ export function createSelectionEffectTypeSnapshot(
 }
 
 interface SnapshotPreferences extends Readonly<Record<string, unknown>> {
+	readonly saving?: import('../../saving-preferences.ts').SavingPreferences;
+	readonly temporaryData?: import('../../saving-preferences.ts').TemporaryDataPreferences;
 	readonly playback?: Readonly<{ playAtSpeedMode?: string }>;
 	readonly recording: Readonly<{ retainInputs: boolean }>;
 }

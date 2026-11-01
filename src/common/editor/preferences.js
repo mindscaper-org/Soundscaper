@@ -1,5 +1,6 @@
 import { normalizeAppearancePreferences } from './appearance-preferences.ts';
 import { normalizeAudioEditorAdvancedPreferences } from './advanced-preferences.ts';
+import { normalizeSavingPreferences, normalizeTemporaryDataPreferences } from './saving-preferences.ts';
 import { normalizeCustomToolbarButtons } from './custom-toolbar-buttons.ts';
 import { mergePreferences } from './preference-merge.ts';
 import {
@@ -189,6 +190,8 @@ const FORBIDDEN_TOP_LEVEL_KEYS = new Set([
  * @property {{menuOrganization: 'default'|'sortby:name'}} effects
  * @property {import('./performance-preferences.ts').AudioEditorPerformancePreferences} performance
  * @property {import('./advanced-preferences.ts').AudioEditorAdvancedPreferences} advanced
+ * @property {import('./saving-preferences.ts').SavingPreferences} saving
+ * @property {import('./saving-preferences.ts').TemporaryDataPreferences} temporaryData
  * @property {import('./startup-preferences.ts').AudioEditorStartupPreferences} startup
  */
 
@@ -301,6 +304,8 @@ export function createAudioEditorPreferencesV1(options = {}) {
 		},
 		performance: normalizeAudioEditorPerformancePreferences(options.performance),
 		advanced: normalizeAudioEditorAdvancedPreferences(options.advanced),
+		saving: normalizeSavingPreferences(options.saving),
+		temporaryData: normalizeTemporaryDataPreferences(options.temporaryData),
 		startup: {
 			mode: oneOf(
 				options.startup?.mode ?? AUDIO_EDITOR_DEFAULT_STARTUP_MODE,
@@ -525,6 +530,8 @@ export function loadAudioEditorPreferencesV1(value) {
 			effects: normalized.effects,
 			performance: normalized.performance,
 			advanced: normalized.advanced,
+			saving: normalized.saving,
+			temporaryData: normalized.temporaryData,
 			// Preferences saved before Program start existed carry no startup
 			// section; normalization supplies the mode that matches what those
 			// sessions already did, which is to continue the last session.

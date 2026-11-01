@@ -41,7 +41,7 @@ export function createWorkspaceApplicationMenus({
 		fileService,
 		importInputRef,
 		locale,
-		openDesktopFiles,
+		openDesktopFiles, openProjectFile = undefined,
 		openEffects,
 		openAssistanceSearch = undefined,
 		openExternal,
@@ -220,7 +220,9 @@ export function createWorkspaceApplicationMenus({
 				openAudacityRecovery: () => openSurface('audacity-recovery'),
 				openFile: () => fileService.isDesktop
 					? run(() => openDesktopFiles('project'))
-					: aup4InputRef.current?.click(),
+					: fileService.browserProjectPickerAvailable && openProjectFile
+						? run(async () => { for (const file of await fileService.chooseBrowserProjectFiles()) await openProjectFile(file); })
+						: aup4InputRef.current?.click(),
 				openRecentProject: (projectId) => run(() => controller.actions.project.openRecent(projectId)),
 				switchProject: (projectId) => run(() => controller.actions.project.openById(projectId)),
 				clearRecentProjects: () => run(() => controller.actions.project.clearRecent()),

@@ -99,6 +99,7 @@
 		"document/project-admin-service.ts",
 		"document/project-bootstrap-composition.ts",
 		"document/project-feature-compatibility-service.ts",
+		"document/project-file-saving-composition.ts",
 		"document/project-lifecycle-composition.ts",
 		"document/project-lifecycle-types.ts",
 		"document/project-lock-service.ts",

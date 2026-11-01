@@ -169,6 +169,26 @@ Each browser project environment loads its desktop library bridge only when the
 preload global is present; ordinary browser startup keeps that renderer code out
 of its static graph.
 
+The project library is the working/recovery copy. General's Saving preference
+controls separate publication to an opened or explicitly saved Scape file:
+automatic file saving defaults off on desktop and on in browsers. Internal
+library autosaving remains enabled. The document file-saving owner compares a
+content fingerprint with the last successfully published file, independently of
+the library's dirty state. Desktop retains opaque original-file capabilities
+and persists path/identity associations exclusively in main; renderer restart
+restores permission only if the exact original remains current. File writes
+use the existing atomic publisher and refresh permission after commit. Browser
+file handles require granted write permission; download-only contexts retain
+internal saves and offer an explicit export.
+
+Desktop close prompts default on and enumerate every open writable project.
+Save and canceled/failed picker results are awaited before allowing shutdown;
+discard decisions apply only after all projects accept closing. The temporary
+project limit defaults to ten and prunes oldest closed copies under their
+project locks and exact-current deletion. Open projects can exceed the limit.
+A native-selected temporary root moves the closed library on the next startup;
+non-overwriting storage migration preserves conflicting destination data.
+
 Autosave retains an immutable document generation during its debounce and only
 materializes the snapshot when saving starts. Preparation and persistence share
 one failure boundary. Controller history compaction memoizes immutable past

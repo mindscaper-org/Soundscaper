@@ -1,3 +1,4 @@
+import type { ProjectFileSavingPort } from './project-file-saving-composition.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { FileSizeWarningConfirmation } from '../shared/file-size-warning.ts';
@@ -201,7 +202,7 @@ export interface NativeSesxReadDescriptor {
 	readonly lastModified: number;
 }
 
-export interface NativeProjectFileService {
+export interface NativeProjectFileService extends ProjectFileSavingPort {
 	readonly isDesktop: boolean;
 	externalMediaResolver?(input: object): ExternalMediaResolver;
 	resolveSesxMedia?(request: Readonly<{
@@ -363,6 +364,8 @@ export interface NativeAudioBuffer {
 }
 
 export interface NativeProjectServiceRuntime {
+	readonly onScapeOpened?: (project: NativeProjectDocument, input: object) => NativeAwaitable<void>;
+	readonly onScapeSaved?: (project: NativeProjectDocument, result: NativeSavedFile) => NativeAwaitable<void>;
 	readonly projectForRuntimeConsumers?: InterchangeProductProjection;
 	readonly confirmFileSizeWarning?: FileSizeWarningConfirmation;
 	readonly lifetime: Pick<EditorControllerLifetime, 'assertActive' | 'startTask'>;

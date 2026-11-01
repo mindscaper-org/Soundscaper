@@ -204,6 +204,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 				operation.task.assertCurrent();
 			}
 			runtime.projectGeneration.capture(imported.project.id);
+			await runtime.onScapeOpened?.(runtime.getProject()?.id === imported.project.id ? runtime.getProject()! : imported.project, file);
 			setLocalizedStatus(runtime.setStatus, runtime.copy, runtime.state.readOnly ? 'projectReadOnly' : 'projectSaved', undefined, runtime.state.readOnly ? 'error' : 'success');
 			return imported;
 		} finally {
@@ -243,6 +244,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 				assertReadyToCommit: () => assertOwnership(operation.task, operation.projectToken),
 				fileName, prepared, project: snapshot, signal: operation.task.signal,
 			});
+			await runtime.onScapeSaved?.(snapshot, saved);
 			if (finishSave(operation.task, operation.projectToken, 'saved')) {
 				setLocalizedStatus(runtime.setStatus, runtime.copy, "projectSaved", undefined, 'success');
 				runtime.publishDocumentSnapshot();

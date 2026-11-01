@@ -188,7 +188,7 @@ export default function WorkspacePreferencesDialog({
 						)}
 
 						{selectedPage === 'advanced' && (
-							<AdvancedPreferencesPage controller={controller} preferences={preferences} copy={copy} run={run} productId={productId} />
+							<AdvancedPreferencesPage fileService={fileService} controller={controller} preferences={preferences} copy={copy} run={run} productId={productId} />
 						)}
 
 						{selectedPage === 'workspace' && (

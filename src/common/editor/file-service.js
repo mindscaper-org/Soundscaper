@@ -1,3 +1,4 @@
+import { withProjectFileTarget } from './file-save-stream.ts';
 import {
 	createDesktopPreparedSave,
 	createFileSystemPreparedSave,
@@ -64,8 +65,10 @@ export function createAudioEditorFileService(options = {}) {
 	return Object.freeze({
 		kind: isDesktop ? 'desktop' : 'browser',
 		isDesktop,
+		browserProjectPickerAvailable: !isDesktop && typeof scope.showOpenFilePicker === 'function',
+		chooseBrowserProjectFiles: async () => (await import('./browser-project-files.ts')).chooseBrowserProjectFiles(scope),
 		originalOverwriteAvailable: typeof bridge?.prepareOriginalOverwrite === 'function',
-		prepareOriginalOverwrite: async (id) => { const target = await bridge?.prepareOriginalOverwrite?.(id); return target ? Object.freeze({ ...target, originalOverwrite: true }) : null; },
+		prepareOriginalOverwrite: async (id) => { const target = await bridge?.prepareOriginalOverwrite?.(id); return target ? Object.freeze({ ...target, originalOverwrite: true, originalFile: { id, name: target.name } }) : null; },
 		releaseSaveTarget: (target) => bridge?.releaseSaveTarget?.(target?.id),
 		releaseOriginalFile: (id) => bridge?.releaseOriginalFile?.(id),
 		externalMediaResolver: externalMediaFiles.resolve, captureExternalMediaFile: (file) => externalMediaFiles.capture(file),
@@ -81,6 +84,11 @@ export function createAudioEditorFileService(options = {}) {
 		chooseLinkedAudioOriginal: linkedOriginals.chooseAudio,
 		releaseLinkedAudioOriginal: linkedOriginals.releaseAudio,
 		getEnvironment: () => bridge?.getEnvironment?.() ?? null,
+		rememberProjectFile: (value) => bridge?.rememberProjectFile?.(value) ?? null,
+		restoreProjectFile: (value) => bridge?.restoreProjectFile?.(value) ?? null,
+		temporaryDataStatus: () => bridge?.temporaryDataStatus?.() ?? null,
+		chooseTemporaryDataFolder: () => bridge?.chooseTemporaryDataFolder?.() ?? null,
+		confirmProjectSave: (value) => bridge?.confirmProjectSave?.(value) ?? 'cancel',
 		...((typeof __SCAPE_DESKTOP_RENDERER__ === 'undefined' || __SCAPE_DESKTOP_RENDERER__) ? {
 			readMcpStatus: () => bridge?.readMcpStatus?.() ?? null,
 			startMcp: () => bridge?.startMcp?.() ?? null,
@@ -191,7 +199,7 @@ export function createAudioEditorFileService(options = {}) {
 	}
 	async function withScapeReadDescriptor(descriptor, request = {}, consume) {
 		const readIds = uniqueReadIds([descriptor]);
-		return withReadCleanup(readIds, releaseRead, async () => {
+		return withDesktopOriginalReadCleanup([descriptor], bridge?.releaseOriginalFile?.bind(bridge), () => withReadCleanup(readIds, releaseRead, async () => {
 			if (!isReadDescriptor(descriptor)) throw new TypeError('A valid desktop read descriptor is required.');
 			assertDesktopScapeReadProfile(descriptor, scapeReadMaximumBytes);
 			if (typeof consume !== 'function') throw new TypeError('A desktop Scape read consumer is required.');
@@ -201,9 +209,9 @@ export function createAudioEditorFileService(options = {}) {
 			}
 			throwIfAborted(request.signal);
 			const source = createDesktopScapeArchiveByteSource(descriptor, { fetch: fetchFile });
-			registerDesktopReadCapability(source, descriptor.id);
+			registerDesktopReadCapability(source, descriptor.id); registerOriginal(source, descriptor);
 			return consume(source);
-		});
+		}));
 	}
 	async function materializeReadDescriptor(descriptor, signal) {
 		if (typeof fetchFile !== 'function') throw new Error('Desktop file reads are unavailable.');
@@ -266,10 +274,10 @@ export function createAudioEditorFileService(options = {}) {
 		if (!target) return Object.freeze({ mode: 'cancelled', cancelled: true, fileName });
 		if (bridge) {
 			const persistent = bindSoundscaperPersistentDeliverySave(target, fileName);
-			return createDesktopPreparedSave({ ...(persistent ?? { bridge, target }), fileName, signal: request.signal });
+			return withProjectFileTarget(createDesktopPreparedSave({ ...(persistent ?? { bridge, target }), fileName, signal: request.signal }), target);
 		}
 		if (typeof target.createWritable === 'function') {
-			return createFileSystemPreparedSave({ target, fileName, signal: request.signal });
+			return withProjectFileTarget(createFileSystemPreparedSave({ target, fileName, signal: request.signal }), target);
 		}
 		return Object.freeze({ mode: 'blob', target, fileName });
 	}
