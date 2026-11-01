@@ -123,7 +123,7 @@ export const AUDACITY_ACTION_DEFINITIONS = [
 	implemented('file-open-recent', 'Open recent', ['File'], 'project.openRecent', { enableWhen: 'recent-projects' }),
 	implemented('clear-recent', 'Clear recent projects', ['File > Open recent'], 'project.clearRecent', { enableWhen: 'recent-projects' }),
 	implemented('project-import', 'Import audio', ['File'], 'io.importAudio', { shortcut: 'Ctrl+I' }),
-	implemented('file-save', 'Save project', ['File'], 'project.save', { shortcut: 'Ctrl+S', enableWhen: 'project-writable' }),
+	implemented('file-save', 'Save project', ['File'], 'project.saveFile', { shortcut: 'Ctrl+S', enableWhen: 'project-writable' }),
 	implemented('file-save-as', 'Save project as', ['File'], 'project.saveAs', { shortcut: 'Ctrl+Shift+S', enableWhen: 'project-opened' }),
 	implemented('export-audio', 'Export audio', ['File'], 'io.exportAudio', { shortcut: 'Ctrl+Shift+E', enableWhen: 'project-opened' }),
 	implemented('export-labels', 'Export labels', ['File > Export other'], 'labels.export', { enableWhen: 'label-track-present' }),

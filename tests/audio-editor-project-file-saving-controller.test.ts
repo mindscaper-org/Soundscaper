@@ -45,7 +45,8 @@ test('desktop controller saves an opened Scape to its original and asks only abo
 	await controller.actions.project.flush();
 	decisions.push('cancel'); assert.equal(await controller.actions.project.prepareClose(), false);
 	assert.equal(prompts.length, 1);
-	await controller.actions.project.save(); assert.deepEqual(targets, [original.id]);
+	await controller.actions.project.save(); assert.deepEqual(targets, [], 'internal publication does not write a project file');
+	await controller.actions.project.saveFile(); assert.deepEqual(targets, [original.id]);
 	assert.equal(await controller.actions.project.prepareClose(), true);
 	assert.equal(prompts.length, 1);
 	await controller.actions.project.rename('Discarded edit');

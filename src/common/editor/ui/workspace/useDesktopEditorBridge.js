@@ -48,7 +48,7 @@ export function useDesktopEditorBridge({
 				: controller.actions.edit[action]();
 			const actions = {
 				'project:open': () => openDesktopFiles('project'),
-				'project:save': () => controller.actions.project.save(),
+				'project:save': () => controller.actions.project.saveFile(),
 				'project:save-as': () => controller.actions.project.saveScape({ saveCopy: snapshot.readOnly }),
 				'audio:export': () => openSurface('export'),
 				'edit:undo': () => edit('undo'),

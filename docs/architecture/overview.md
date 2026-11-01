@@ -172,8 +172,10 @@ of its static graph.
 The project library is the working/recovery copy. General's Saving preference
 controls separate publication to an opened or explicitly saved Scape file:
 automatic file saving defaults off on desktop and on in browsers. Internal
-library autosaving remains enabled. The document file-saving owner compares a
-content fingerprint with the last successfully published file, independently of
+library autosaving remains enabled. Controller `project.save()` persists library
+state; the File menu and native Save command use `project.saveFile()` to publish
+a separate Scape file. The document file-saving owner compares a content
+fingerprint with the last successfully published file, independently of
 the library's dirty state. Desktop retains opaque original-file capabilities
 and persists path/identity associations exclusively in main; renderer restart
 restores permission only if the exact original remains current. File writes
