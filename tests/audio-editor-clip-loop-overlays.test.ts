@@ -45,6 +45,8 @@ test('selected single-pass clips expose the loop icon and keyboard handle withou
 		assert.equal(handle.getAttribute('aria-label'), 'Looped clip length');
 		assert.equal(handle.textContent, '\uEF1F');
 		assert.equal(dom.container.querySelectorAll('[data-loop-boundary-frame]').length, 0);
+		await act(async () => reactProps(handle).onPointerDown({ currentTarget: handle }));
+		assert.equal(dom.container.ownerDocument.activeElement, handle);
 		await act(async () => reactProps(handle).onKeyDown({ key: 'ArrowRight', stopPropagation() {}, preventDefault() {} }));
 		assert.deepEqual(changes, [{ loop: { periodFrames: 48_000, durationFrames: 96_000 } }]);
 		await act(async () => root.render(React.createElement(OverlayFixture, { current: clip, selected: false, onChange })));

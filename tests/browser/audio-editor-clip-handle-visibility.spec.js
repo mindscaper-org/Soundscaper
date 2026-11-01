@@ -38,6 +38,7 @@ test.describe('clip handle visibility', () => {
 		expect(bounds).not.toBeNull();
 		await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
 		await page.mouse.down();
+		await expect(loop).toBeFocused();
 		await page.mouse.move(bounds.x + 80, bounds.y + 80, { steps: 5 });
 		await expect(loop).toHaveCSS('opacity', '1');
 		await page.keyboard.press('Escape'); await page.mouse.up();
