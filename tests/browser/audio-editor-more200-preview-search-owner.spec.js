@@ -61,7 +61,7 @@ for (const outcome of ['replacement', 'failure']) {
 			if (path === '/api/freesound/oauth/session') return route.fulfill({ json: { data: { connected: false } } });
 			if (path === '/api/freesound/search') {
 				const request = ++searches;
-				if (request === 2) {
+				if (request >= 2) {
 					await pendingSearch;
 					if (outcome === 'failure') return route.fulfill({ status: 503, json: { error: { message: 'Search unavailable' } } });
 				}
