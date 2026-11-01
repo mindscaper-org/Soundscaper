@@ -1,3 +1,4 @@
+import { iconNameToChar } from '../Icon/icon-codes.ts';
 import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React, { useState } from 'react';
 import { CLIP_HEADER_HEIGHT, clipHandleRows } from '../utils/clipHandleRows';
@@ -17,15 +18,15 @@ import './Clip.css';
 // MusescoreIcon font glyphs. Codepoints come from design.
 
 const TrimLeftIcon = () => (
-  <span className="musescore-icon" aria-hidden="true">{'\uF4B1'}</span>
+  <span className="musescore-icon" aria-hidden="true">{iconNameToChar('TRIM_HANDLE_LEFT')}</span>
 );
 
 const TrimRightIcon = () => (
-  <span className="musescore-icon" aria-hidden="true">{'\uF4B0'}</span>
+  <span className="musescore-icon" aria-hidden="true">{iconNameToChar('TRIM_HANDLE_RIGHT')}</span>
 );
 
 const StretchIcon = () => (
-  <span className="musescore-icon" aria-hidden="true">{'\uF475'}</span>
+  <span className="musescore-icon" aria-hidden="true">{iconNameToChar('CLOCK')}</span>
 );
 
 const EMPTY_NUMBER_ARRAY: number[] = [];

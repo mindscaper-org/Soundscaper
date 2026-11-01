@@ -1258,6 +1258,7 @@ The browser editor also ports the MuseScore framework icon-code inventory from
 `framework/ui/view/iconcodes.h` at MuseScore framework commit
 `7a278749964388ba774fe972bc1a9824260fa2ed` (GPL-3.0-only). The port retains the
 upstream notice and source hash in
-`src/common/editor/audacity-iconcodes.js`.
+`vendor/audacity-design-system/components/src/Icon/icon-codes.ts`; the editor's
+`src/common/editor/audacity-iconcodes.js` re-exports this shared inventory.
 
 Except for identified third-party portions under compatible licenses, the repository is distributed under AGPL-3.0-only. Before deploying the FFmpeg core, the release process must archive the exact corresponding source and build configuration alongside the deployed version and verify the enabled codec libraries and their notices.

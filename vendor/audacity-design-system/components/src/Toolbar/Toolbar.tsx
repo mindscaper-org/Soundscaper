@@ -1,3 +1,4 @@
+import { iconNameToChar } from '../Icon/icon-codes.ts';
 import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React, { useRef, useEffect } from 'react';
 import { useTheme } from '../ThemeProvider';
@@ -138,7 +139,7 @@ export function Toolbar({
           role="presentation"
           onMouseDown={handleGripperMouseDown}
         >
-          {'\uF3A2'}
+          {iconNameToChar('TOOLBAR_GRIP')}
         </span>
       )}
       <div className="toolbar__content">

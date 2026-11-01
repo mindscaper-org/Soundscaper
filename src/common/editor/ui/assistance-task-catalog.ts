@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { iconNameToChar } from '../audacity-iconcodes.js';
 import type { AssistanceGuidedWorkflowId } from '../assistance/workflow-recipes.ts';
 
-export const LOCAL_ASSISTANCE_MENU_ICON = String.fromCodePoint(0xF476);
+export const LOCAL_ASSISTANCE_MENU_ICON = iconNameToChar('SPARKLES');
 
 export type AssistanceDialogRequest = Readonly<
 	{ mode: 'task'; workflowId: AssistanceGuidedWorkflowId } | { mode: 'advanced' }

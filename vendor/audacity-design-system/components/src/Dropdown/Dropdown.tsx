@@ -1,3 +1,4 @@
+import { iconNameToChar } from '../Icon/icon-codes.ts';
 import React, { useState, useRef, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../ThemeProvider';
@@ -244,7 +245,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
         tabIndex={tabIndex}
       >
         <span className="dropdown__text">{displayText}</span>
-        <span className="dropdown__icon musescore-icon">{'\uEF12'}</span>
+        <span className="dropdown__icon musescore-icon">{iconNameToChar('SMALL_ARROW_DOWN')}</span>
       </button>
 
       {isOpen && !disabled && menuPosition && createPortal(

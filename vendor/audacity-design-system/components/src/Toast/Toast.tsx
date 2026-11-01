@@ -1,3 +1,4 @@
+import { iconNameToChar } from '../Icon/icon-codes.ts';
 /**
  * Toast Component
  *
@@ -41,12 +42,12 @@ export interface ToastProps {
 }
 
 const ICONS = {
-  success: '\uEF31', // checkmark icon from MusescoreIcon
-  error: '\uF3D0',   // MuseScore IconCode::ERROR
-  warning: '\uF3CE', // MuseScore IconCode::WARNING
-  info: '\uF3CF',    // MuseScore IconCode::INFO
-  upload: '\uEF25',  // upload icon
-  syncing: '\uF450', // cloud-sync icon
+  success: iconNameToChar('TICK_RIGHT_ANGLE'), // checkmark icon from MusescoreIcon
+  error: iconNameToChar('ERROR'),   // MuseScore IconCode::ERROR
+  warning: iconNameToChar('WARNING'), // MuseScore IconCode::WARNING
+  info: iconNameToChar('INFO'),    // MuseScore IconCode::INFO
+  upload: iconNameToChar('CLOUD_FILE'),  // upload icon
+  syncing: iconNameToChar('CLOUD_DOWNLOAD'), // cloud-sync icon
 };
 
 export function Toast({

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { iconNameToChar } from '../audacity-iconcodes.js';
 import { mergeAssistanceTaskMenus, type AssistanceMenuEntry } from './assistance-task-catalog.ts';
 import { mergeCorridorKeyMenu } from './corridorkey-menu.ts';
 import { createFramescaperNativeServicesMenuItems } from './framescaper-native-services-menu.ts';
@@ -10,7 +11,7 @@ import { resolveOriginalFileOverwriteCopy } from '../../i18n/editor-original-fil
 import { resolveBlenderCopy } from '../../i18n/editor-blender-copy.ts';
 import { organizeNativePreferences } from './local-processing-menus.ts';
 
-const DESKTOP_COMMAND_ICON = '\uF35E';
+const DESKTOP_COMMAND_ICON = iconNameToChar('DESKTOP_MONITOR');
 type Entry = AssistanceMenuEntry;
 interface DesktopOffer {
 	readonly id?: string;

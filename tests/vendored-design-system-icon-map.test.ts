@@ -2,13 +2,14 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { Icon } from '../vendor/audacity-design-system/components/src/Icon/Icon.tsx';
-import { MUSESCORE_ICON_CODES, iconNameToChar } from '../src/common/editor/audacity-iconcodes.js';
+import { MUSESCORE_ICON_CODES, iconNameToChar } from '../vendor/audacity-design-system/components/src/Icon/icon-codes.ts';
+import { MUSESCORE_ICON_CODES as EDITOR_ICON_CODES } from '../src/common/editor/audacity-iconcodes.js';
 const ICON_FONT = new URL(
 	'../vendor/audacity-design-system/components/src/assets/fonts/MusescoreIcon.ttf',
 	import.meta.url,
@@ -20,6 +21,21 @@ const SHARE_FILE = 0xef24;
 const IMPORT = 0xf357;
 const ERROR = 0xf3d0;
 
+test('editor and design-system icon consumers use the named code inventory', () => {
+	const rawIcon = /\\u(?:[ef][0-9a-f]{3}|\{[ef][0-9a-f]{3}\})|\\[ef][0-9a-f]{3}\b|0x(?:e[0-9a-f]{3}|f[0-8][0-9a-f]{2})\b|[\uE000-\uF8FF]|&#(?:x[ef][0-9a-f]{3}|[0-9]{5});/giu;
+	const findings: string[] = [];
+	for (const directory of ['src/common/editor/ui/', 'vendor/audacity-design-system/components/src/']) {
+		const root = new URL(`../${directory}`, import.meta.url);
+		for (const relativePath of readdirSync(root, { recursive: true, encoding: 'utf8' })) {
+			const path = relativePath.replaceAll('\\', '/');
+			if (!/\.(?:[cm]?[jt]sx?|css)$/u.test(path) || path === 'Icon/icon-codes.ts') continue;
+			const source = readFileSync(new URL(path, root), 'utf8');
+			for (const match of source.matchAll(rawIcon)) findings.push(`${directory}${path}: ${match[0]}`);
+		}
+	}
+	assert.deepEqual(findings, [], 'Font codepoints belong in the named inventory, not its consumers.');
+});
+
 test('the editor names the bundled monitor and both graduation-cap aliases', () => {
 	assert.equal(iconNameToChar('DESKTOP_MONITOR'), '\uF35E');
 	assert.equal(iconNameToChar('GRADUATION_CAP'), '\uEF74');
@@ -29,7 +45,16 @@ test('the editor names the bundled monitor and both graduation-cap aliases', () 
 	}
 });
 
+test('shared local names preserve glyphs omitted from the upstream enum', () => {
+	for (const [name, codepoint] of [
+		['GRID_VIEW', 0xf35b], ['CLOUD_DOWNLOAD', 0xf450], ['SPARKLES', 0xf476], ['SLIDERS', 0xf4a8],
+	] as const) {
+		assert.equal(iconNameToChar(name), String.fromCodePoint(codepoint));
+	}
+});
+
 test('the icon inventory identifies every name without a bundled glyph', () => {
+	assert.equal(EDITOR_ICON_CODES, MUSESCORE_ICON_CODES);
 	const codepoints = readIconFontCodepoints(readFileSync(ICON_FONT));
 	assert.deepEqual(Object.entries(MUSESCORE_ICON_CODES)
 		.filter(([, codepoint]) => !codepoints.has(codepoint)).map(([name]) => name), ['NONE']);

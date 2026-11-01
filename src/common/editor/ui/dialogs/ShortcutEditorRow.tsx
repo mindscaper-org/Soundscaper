@@ -3,6 +3,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
+import { Icon } from '@soundscaper/design-system/Icon';
 
 import { formatLocalizedTemplate } from '../localization-template.ts';
 import { mouseShortcutBinding, mouseShortcutKey } from '../../mouse-shortcut.ts';
@@ -224,7 +225,7 @@ export function ShortcutEditorRow({ productId = 'soundscaper', command, commands
 							disabled={command.disabled}
 							aria-label={`${copy.shortcutRemoveBinding}: ${command.label} ${index + 1}`}
 							onClick={() => removeEntry(index)}
-						>{'\u00d7'}</button>}
+						><Icon name="close" size={12} /></button>}
 						{index === entries.length - 1 && <button
 							type="button"
 							className="kw-audio-editor-preferences__shortcut-add"
