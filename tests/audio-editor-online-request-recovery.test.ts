@@ -3,6 +3,25 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRecoveringOnlineFetch, onlineReadResponseError, recoverOnlineRead, OnlineMutationOutcomeUnknownError } from '../src/common/editor/online-request-recovery.ts';
 
+for (const status of [204, 205, 304]) for (const bufferResponses of [true, false]) {
+	test(`online recovery preserves HTTP ${status} with a browser's empty body stream (buffering: ${bufferResponses})`, async () => {
+		let calls = 0, cancelled = false;
+		const response = new Response(null, { status, headers: { 'X-Request-Id': 'acknowledged' } });
+		// Browsers can expose a stream even when HTTP forbids a response body.
+		Object.defineProperty(response, 'body', { value: new ReadableStream<Uint8Array>({
+			cancel() { cancelled = true; },
+		}) });
+		const request = createRecoveringOnlineFetch(async () => { calls += 1; return response; }, { bufferResponses, maximumAttempts: 1 });
+		const result = await request('https://example.test', { method: status === 304 ? 'GET' : 'POST' });
+		assert.equal(result.status, status);
+		assert.equal(result.headers.get('X-Request-Id'), 'acknowledged');
+		assert.equal(result.body, null);
+		assert.equal(await result.text(), '');
+		assert.equal(calls, 1);
+		assert.equal(cancelled, true);
+	});
+}
+
 test('safe online reads retry interrupted bodies before returning their response', async () => {
 	let calls = 0;
 	const request = createRecoveringOnlineFetch(async () => {

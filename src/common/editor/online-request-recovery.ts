@@ -143,6 +143,11 @@ async function fetchAttempt(
 		}, controller.signal);
 		clearTimeout(timer);
 		if (!response.body) { cleanup(); return response; }
+		if ([204, 205, 304].includes(response.status)) {
+			cleanup();
+			void response.body.cancel().catch(() => undefined);
+			return new Response(null, { status: response.status, statusText: response.statusText, headers: response.headers });
+		}
 		const reader = response.body.getReader();
 		let finished = false;
 		let receivedBytes = 0;
