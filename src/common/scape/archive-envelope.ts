@@ -86,6 +86,10 @@ export interface ScapeArchiveAdmission {
 	admitSize(byteLength: number, thresholdBytes: number, label: string, signal?: AbortSignal): Promise<number>;
 }
 
+export interface ScapeArchiveRecovery {
+	readonly missingAssetKinds: readonly string[];
+}
+
 export async function readScapeArchiveEnvelope<Family extends string>(
 	entries: readonly ScapeArchiveEntry[],
 	codec: ScapeFamilyCodec<Family>,
@@ -94,6 +98,7 @@ export async function readScapeArchiveEnvelope<Family extends string>(
 	additionalAssetKinds: readonly string[] = [],
 	desktopImport = false,
 	admission?: ScapeArchiveAdmission,
+	recovery?: ScapeArchiveRecovery,
 ): Promise<ScapeArchiveEnvelope<Family>> {
 	throwIfScapeAborted(signal);
 	const limits = resolveLimits(limitOverrides, desktopImport);
@@ -118,6 +123,21 @@ export async function readScapeArchiveEnvelope<Family extends string>(
 	);
 	throwIfScapeAborted(signal);
 	const manifest = parseScapeManifest(manifestText, additionalAssetKinds, codec);
+	if (recovery) {
+		const missing = manifest.assets.filter((asset) => !entryByName.has(asset.entry) && recovery.missingAssetKinds.includes(asset.kind))
+			.map((asset): ScapeArchiveEntry => ({
+				filename: asset.entry, directory: false, encrypted: false, compressionMethod: 0,
+				compressedSize: asset.size, uncompressedSize: asset.size,
+				async getData(_writable, options) {
+					options?.signal?.throwIfAborted();
+					if (options?.checkOverlappingEntryOnly) return;
+					throw new Error(`The Scape archive is missing ${asset.entry}.`);
+				},
+			}));
+		// Missing bodies still count against every entry and declared expansion limit.
+		indexEntries([...entries, ...missing], limits, signal);
+		for (const entry of missing) entryByName.set(entry.filename, entry);
+	}
 	const projectEntry = requiredFileEntry(entryByName, SCAPE_PROJECT_ENTRY);
 	if (admission) limits.maximumProjectBytes = await admission.admitSize(
 		projectEntry.uncompressedSize, limits.maximumProjectBytes, SCAPE_PROJECT_ENTRY, signal);

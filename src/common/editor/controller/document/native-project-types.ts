@@ -439,6 +439,7 @@ export interface NativeProjectServiceRuntime {
 			confirmFileSizeWarning?: FileSizeWarningConfirmation;
 			assertCurrent?: () => void;
 			collision: string;
+			recover?: boolean;
 			copySuffix?: string;
 			acquireReplaceProjectWriteAuthority?: (projectId: string) => Promise<ScapeReplaceWriteAuthority>;
 			estimateStorageForPreflight: (
@@ -487,6 +488,7 @@ export interface NativeProjectServiceRuntime {
 
 export interface OpenScapeOptions {
 	readonly collision?: string;
+	readonly recover?: boolean;
 	readonly signal?: AbortSignal;
 }
 

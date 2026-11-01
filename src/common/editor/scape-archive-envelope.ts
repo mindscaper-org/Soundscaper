@@ -11,6 +11,7 @@ import {
 	type ScapeArchiveEnvelope as ContainerEnvelope,
 	type ScapeManifest as ContainerManifest,
 	type ScapeProjectDescriptor as ContainerProjectDescriptor,
+	type ScapeArchiveRecovery,
 } from '../scape/archive-envelope.ts';
 import type { ScapeArchiveLimits } from '../scape/archive-limits.ts';
 
@@ -26,6 +27,7 @@ export function readScapeArchiveEnvelope(
 	additionalAssetKinds: readonly string[] = [],
 	desktopImport = false,
 	warningOptions: FileSizeWarningOptions = {},
+	recovery?: ScapeArchiveRecovery,
 ): Promise<ScapeArchiveEnvelope> {
 	return withFormatFileParserFailureAsync('scape', 'ARCHIVE_ENVELOPE', async () => {
 		try {
@@ -37,7 +39,7 @@ export function readScapeArchiveEnvelope(
 				admitSize: (byteLength, thresholdBytes, label, currentSignal) => confirmFileSizeWarning(
 					byteLength, thresholdBytes, label, { ...warningOptions, signal: currentSignal },
 				),
-			} : undefined);
+			} : undefined, recovery);
 		} catch (error) {
 			if (error instanceof ScapeArchiveReimportRequiredError) annotateFormatFileFailure(error, 'scape', 'REIMPORT_REQUIRED');
 			throw error;

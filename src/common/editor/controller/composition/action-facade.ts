@@ -82,7 +82,9 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	};
 	const effectLibraryScope = scope;
 	const storedProjectOpenActions = createStoredProjectOpenActions({
-		copy, state, store, sessionTab, switchProject, openProject,
+		copy, state, store, sessionTab, switchProject, openProject, publishProjectState: publishDocumentSnapshot,
+		onProjectOpenFailure: scope.onProjectOpenFailure, assertActive: scope.assertActive,
+		getProjectId: () => getProject()?.id ?? null, hasMissingTimelineSources: scope.hasMissingTimelineSources,
 	});
 	const yieldProgramPlayhead = <Args extends unknown[], Result>(operation: (...args: Args) => Result) => (...args: Args): Result => {
 		if (capabilities.videoCompositing) videoNavigationService.shuttleStop();
@@ -100,7 +102,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	const actions = Object.freeze({
 		project: Object.freeze({
 			create: (...args: Parameters<typeof newProject>) => newProject(...args),
-			open: (...args: Parameters<typeof openProject>) => openProject(...args),
+			open: storedProjectOpenActions.open,
 			openRecent: storedProjectOpenActions.openRecent,
 			clearRecent: clearRecentProjects,
 			openAudacityProject,

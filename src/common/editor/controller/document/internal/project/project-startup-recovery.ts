@@ -1,18 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-export interface StartupProjectRecoveryNotice {
-	readonly projectId: string;
-	readonly message: string;
-}
+import { offerProjectOpenRecovery, withProjectOpenRecovery, type ProjectOpenRecoveryRuntime } from '../../project-open-recovery.ts';
 
-interface StartupProjectRuntime<Project> {
-	readonly state: { startupProjectRecovery?: StartupProjectRecoveryNotice | null };
+interface StartupProjectRuntime<Project> extends ProjectOpenRecoveryRuntime {
 	readonly store: { loadProject(id: string, options: { signal: AbortSignal }): Promise<Project | null> };
 	readonly lifetimeSignal: AbortSignal;
 	openProject(project: Project): Promise<unknown>;
 	newProject(options?: { skipFlush?: boolean }): Promise<unknown>;
-	onStartupProjectFailure?(projectId: string, error: unknown): Promise<boolean>;
 	isDisposedError(error: unknown): boolean;
+	hasMissingTimelineSources?(): boolean;
 }
 
 class MissingStartupProjectError extends Error {
@@ -25,33 +21,34 @@ export async function openStartupProject<Project>(
 	projectId: string | null,
 	guard: <Value>(value: PromiseLike<Value> | Value) => Promise<Value>,
 ): Promise<boolean> {
-	runtime.state.startupProjectRecovery = null;
-	try {
+	runtime.state.projectRecovery = null;
+	return withProjectOpenRecovery(async () => {
 		const saved = projectId
 			? await guard(runtime.store.loadProject(projectId, { signal: runtime.lifetimeSignal }))
 			: null;
-		if (saved) await guard(runtime.openProject(saved));
+		if (saved) {
+			await guard(runtime.openProject(saved));
+			if (runtime.hasMissingTimelineSources?.()) throw new Error('The opened project contains missing or unreadable media.');
+		}
 		else {
-			if (projectId && runtime.onStartupProjectFailure) {
+			if (projectId && runtime.onProjectOpenFailure) {
 				throw new MissingStartupProjectError('The current saved project is missing.');
 			}
 			await guard(runtime.newProject());
 		}
 		return false;
-	} catch (error) {
+	}, async (error) => {
 		if (runtime.isDisposedError(error)) throw error;
 		await guard(undefined);
-		if (!projectId || !runtime.onStartupProjectFailure
-			|| !await guard(runtime.onStartupProjectFailure(projectId, error))) {
+		if (!projectId || !await guard(offerProjectOpenRecovery(runtime, projectId, error, () => {
+			if (runtime.lifetimeSignal.aborted) throw runtime.lifetimeSignal.reason;
+			return true;
+		}))) {
 			if (!(error instanceof MissingStartupProjectError)) throw error;
 			await guard(runtime.newProject());
-			return false;
+			return { value: false };
 		}
-		runtime.state.startupProjectRecovery = Object.freeze({
-			projectId,
-			message: error instanceof Error ? error.message : String(error),
-		});
 		await guard(runtime.newProject({ skipFlush: true }));
-		return true;
-	}
+		return { value: true };
+	});
 }

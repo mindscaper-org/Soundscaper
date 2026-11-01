@@ -15,6 +15,51 @@ function deferred<Value>() {
 	return { promise, resolve };
 }
 
+test('archive damage discovered during import is reinspected and requires recovery consent', async () => {
+	const opens: boolean[] = [], decisions: string[] = [];
+	const service = createScapeOpenRequestService({
+		lifetime: new EditorControllerLifetime(),
+		inspectScape: async (_file, options) => ({ exists: false,
+			...(options.recover ? { recoveryChanges: [{ path: 'sources[1]', reason: 'Missing audio', reasonCode: 'media-unavailable' as const }] } : {}),
+		}),
+		openScape: async (_file, options) => {
+			opens.push(options.recover === true);
+			if (!options.recover) throw new Error('audio failed SHA-256 verification');
+			return 'recovered';
+		},
+	});
+	const result = await service.openScapeFile(new Blob(), (request) => { decisions.push(request.kind); return 'copy'; });
+	assert.equal(result, 'recovered');
+	assert.deepEqual(opens, [false, true]);
+	assert.deepEqual(decisions, ['recovery']);
+});
+
+test('declining archive recovery publishes nothing and never opens the repaired copy', async () => {
+	const service = createScapeOpenRequestService({
+		lifetime: new EditorControllerLifetime(),
+		inspectScape: async () => ({ exists: false, recoveryChanges: [{ path: 'tracks', reason: 'Damage' }] }),
+		openScape: async () => { assert.fail('Cancelled recovery must not import.'); },
+	});
+	assert.deepEqual(await service.openScapeFile(new Blob(), (request) => {
+		assert.equal(request.kind, 'recovery'); return 'cancel';
+	}), { cancelled: true });
+});
+
+test('the normal archive request owns exactly one recovery pass when inspection finds damage', async () => {
+	const attempts: unknown[] = [];
+	const service = createScapeOpenRequestService({
+		lifetime: new EditorControllerLifetime(),
+		inspectScape: async (_file, options) => {
+			attempts.push(options.recover);
+			if (options.recover !== true) throw new Error('Invalid saved project');
+			return { exists: false, recoveryChanges: [{ path: 'tracks', reason: 'Damage' }] };
+		},
+		openScape: async () => 'recovered',
+	});
+	assert.equal(await service.openScapeFile(new Blob(), () => 'copy'), 'recovered');
+	assert.deepEqual(attempts, [false, true]);
+});
+
 async function assertRejectsPromptly(
 	promise: Promise<unknown>,
 	validate: (error: unknown) => boolean,

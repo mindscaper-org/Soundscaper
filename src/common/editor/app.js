@@ -389,7 +389,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		setRemoveDeviceChangeListener: (remove) => { removeDeviceChangeListener = remove; },
 		loadRecentProjectState: (guard) => doc.session.loadRecentProjectState(guard), getStartupPreferences: () => state.preferences?.startup,
 		openProject: (savedProject) => projectSwitchService.openProject(savedProject),
-		newProject: (newOptions) => projectSwitchService.newProject(newOptions), openRecovery: takeCycleOpenRecovery, onStartupProjectFailure: options.onStartupProjectFailure,
+		newProject: (newOptions) => projectSwitchService.newProject(newOptions), openRecovery: takeCycleOpenRecovery, onProjectOpenFailure: options.onProjectOpenFailure,
 		publishProjectState: bindings.publishProjectState,
 		saveNow: bindings.saveNow,
 		refreshStorageUsage: bindings.refreshStorageUsage,
@@ -558,7 +558,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		publishTelemetrySnapshot, publishProjectState: bindings.publishProjectState, updatePlayhead, updateTransportState: bindings.updateTransportState, setStatus: bindings.setStatus, handleError: bindings.handleError,
 	});
 	const actions = createControllerActionComposition(bindings, {
-		AUDIO_EDITOR_DEFAULT_SHORTCUTS, addLabelTrack,
+		AUDIO_EDITOR_DEFAULT_SHORTCUTS, addLabelTrack, onProjectOpenFailure: options.onProjectOpenFailure, assertActive: () => lifetime.assertActive(),
 		addTrack, addVideoTrackPair, adjustAllTrackHeights,
 		analysisService,
 		cancelEffectMacro: effects.macro.cancelEffectMacro,

@@ -70,7 +70,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	const parityRuntime = useControllerOwnedActionRuntime(controller, productId, locale);
 	const snapshot = useAudioEditorSnapshot(controller);
 	const [activeSurface, setActiveSurface] = useTakeCycleRecoverySurface(productId, snapshot.takeCycleRecovery);
-	useProjectRecoverySurface(productId, snapshot.startupProjectRecovery?.projectId, setActiveSurface);
+	useProjectRecoverySurface(productId, snapshot.projectRecovery?.projectId, setActiveSurface, snapshot.projectRecovery?.requestId);
 	usePrivacyPolicySurface(productId, initialSurface, setActiveSurface);
 	const { windows: effectWindows, open: setEffectWindow, close: closeEffectWindow } = useWorkspaceEffectWindows(snapshot.project?.id ?? null);
 	const [macroDraft, setMacroDraft] = useState(null);

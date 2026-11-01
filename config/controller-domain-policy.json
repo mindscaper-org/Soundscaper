@@ -104,6 +104,7 @@
 		"document/project-lock-service.ts",
 		"document/project-media-action-group.ts",
 		"document/project-mutation-service.ts",
+		"document/project-open-recovery.ts",
 		"document/project-read-only-status.ts",
 		"document/project-runtime-metrics.ts",
 		"document/project-runtime.ts",

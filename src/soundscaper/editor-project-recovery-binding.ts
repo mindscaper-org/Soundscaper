@@ -52,8 +52,8 @@ export function bindSoundscaperProjectRecovery(
 	});
 }
 
-/** Saved document or media damage can enter repair; an unrelated startup failure stays fatal. */
-export async function hasSoundscaperStartupRecovery(
+/** Saved document or media damage can enter repair; an unrelated open failure stays fatal. */
+export async function hasSoundscaperProjectOpenRecovery(
 	store: Pick<SoundscaperProjectRecoveryStore, 'readProjectRecoveryCandidates'> & Partial<Pick<SoundscaperProjectRecoveryStore, 'readSourceChunks' | 'getSourceMetadata' | 'loadMediaAsset' | 'resolveLinkedVideoOriginal' | 'getLinkedOriginalBinding'>>,
 	projectId: string,
 	error: unknown,

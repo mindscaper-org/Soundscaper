@@ -188,6 +188,24 @@ publication and rollback. A same-ID replacement installs the committed document
 as fresh session history; rollback leaves staged assets intact if ownership has
 changed and they may now be referenced by another writer.
 
+Project startup, direct activation, recent projects, library opens, Scape archives,
+and Audacity imports share one bounded recovery attempt. Cancellation,
+lost ownership, inaccessible storage, and quota failures remain errors. Stored
+document or media damage offers the existing recovery dialog for each current
+open request without overwriting the damaged original. A failure before activation
+retains the current workspace while the user chooses a new copy.
+Startup uses an empty workspace and defers saving and maintenance while that
+choice is pending.
+
+Soundscaper Scape recovery reads the owning-family document through the bounded
+archive reader, verifies its digest, and streams media verification before
+proposing repairs. Missing media still counts toward archive entry and declared
+expansion limits; missing or corrupt bodies are excluded from the repaired copy.
+The ordinary importer validates the reconstructed document and retained assets
+again and publishes under a fresh project identity. Recovery never replaces an
+existing library project, relaxes archive layout or resource limits, or admits
+foreign-family and future-version data as an editable owning-family document.
+
 Long-source playback sends PCM packets and acknowledgments over a direct
 worker-to-worklet MessageChannel. The main thread still serves storage reads and
 transport control. Live playback prepares streamed clips within a five-second

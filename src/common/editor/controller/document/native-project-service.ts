@@ -157,7 +157,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 			}
 			const imported = await runtime.importScapeProject(file, runtime.store, {
 				...(runtime.fileService?.isDesktop ? { resolveExternalMedia: runtime.fileService.externalMediaResolver?.(file), decodeExternalAudio: runtime.decodeExternalAudio } : {}),
-				collision: options.collision || 'copy', copySuffix: publishedCopyFor(runtime.copy).projectCopySuffix, acquireReplaceProjectWriteAuthority: runtime.acquireReplaceProjectWriteAuthority,
+				collision: options.collision || 'copy', recover: options.recover, copySuffix: publishedCopyFor(runtime.copy).projectCopySuffix, acquireReplaceProjectWriteAuthority: runtime.acquireReplaceProjectWriteAuthority,
 				confirmFileSizeWarning: runtime.confirmFileSizeWarning,
 				assertCurrent: () => assertOwnership(operation.task, operation.projectToken),
 				estimateStorageForPreflight: (bytes, operation) => runtime.estimateStorageForPreflight(bytes, operation, signal), signal,
