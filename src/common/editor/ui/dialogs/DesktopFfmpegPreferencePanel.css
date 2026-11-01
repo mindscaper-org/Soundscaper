@@ -15,15 +15,26 @@
 	line-height: 1.45;
 }
 
-.kw-audio-editor-external-ffmpeg > label {
+.kw-audio-editor-external-ffmpeg__location {
 	display: grid;
 	gap: 5px;
+}
+
+.kw-audio-editor-external-ffmpeg__location > label {
 	color: var(--muted);
 	font-size: var(--editor-font-size, 12px);
 	font-weight: 700;
 }
 
-.kw-audio-editor-external-ffmpeg > label input[readonly] {
+.kw-audio-editor-external-ffmpeg__path {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 7px;
+}
+
+.kw-audio-editor-external-ffmpeg__path input[readonly] {
+	min-width: 0;
 	width: 100%;
 	color: var(--text);
 }
