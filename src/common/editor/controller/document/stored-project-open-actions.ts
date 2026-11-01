@@ -52,7 +52,7 @@ export function createStoredProjectOpenActions<Project extends StoredProject>(
 		const activate = async (open: () => PromiseLike<unknown> | unknown): Promise<unknown> => {
 			activationStarted = true;
 			const result = await open();
-			if (runtime.hasMissingTimelineSources?.()) throw new Error('The opened project contains missing or unreadable media.');
+			if (runtime.onProjectOpenFailure && runtime.hasMissingTimelineSources?.()) throw new Error('The opened project contains missing or unreadable media.');
 			return result;
 		};
 		return withProjectOpenRecovery(() => operation(isCurrent, activate), async (error) => {

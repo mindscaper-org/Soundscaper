@@ -15,7 +15,7 @@ const blockedNames = new Set([
 	'AbortError', 'EditorDisposedError', 'EditorStoreClosedError', 'EditorStoreBlockedError',
 	'EditorStoreVersionStaleError', 'SecurityError', 'NotAllowedError', 'InvalidStateError', 'QuotaExceededError',
 ]);
-const blockedCodes = new Set(['STORE_CLOSED', 'STORE_BLOCKED', 'STORE_VERSION_STALE', 'ABORTED', 'DISPOSED', 'PROJECT_CHANGED', 'QUOTA_EXCEEDED']);
+const blockedCodes = new Set(['STORE_CLOSED', 'STORE_BLOCKED', 'STORE_VERSION_STALE', 'ABORTED', 'DISPOSED', 'PROJECT_CHANGED', 'QUOTA_EXCEEDED', 'REIMPORT_REQUIRED']);
 
 export function isProjectOpenRecoveryBlocked(error: unknown): boolean {
 	if (!(error instanceof Error)) return false;

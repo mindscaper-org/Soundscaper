@@ -112,3 +112,18 @@ test('missing media reported by activation enters the same recovery flow', async
 	await actions.openById('missing-audio');
 	assert.equal(state.projectRecovery?.projectId, 'missing-audio');
 });
+
+test('opening unavailable media without a recovery UI preserves the degraded project', async () => {
+	const project = { id: 'missing-audio' };
+	const state = { recentProjectIds: [project.id], projects: [project], projectRecovery: null };
+	const actions = createStoredProjectOpenActions({
+		copy: { projectNotFound: 'Not found' }, state,
+		store: { loadProject: async () => project }, sessionTab: () => null,
+		switchProject: value => value, openProject: value => value,
+		hasMissingTimelineSources: () => true,
+	});
+	assert.equal(await actions.open(project), project);
+	assert.equal(await actions.openById(project.id), project);
+	assert.equal(await actions.openRecent(project.id), project);
+	assert.equal(state.projectRecovery, null);
+});

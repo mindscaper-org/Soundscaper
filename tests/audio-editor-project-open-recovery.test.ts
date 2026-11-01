@@ -21,3 +21,10 @@ test('a failed recovery is never replayed and keeps its actionable diagnostic', 
 	}), (error) => error === recoveryFailure);
 	assert.equal(attempts, 1);
 });
+
+test('a project requiring reimport is refused without reading it again for recovery', async () => {
+	const failure = Object.assign(new RangeError('Reimport this historical project.'), { code: 'REIMPORT_REQUIRED' });
+	await assert.rejects(withProjectOpenRecovery(() => { throw failure; }, async () => {
+		assert.fail('An unsupported project format is not damaged data.');
+	}), error => error === failure);
+});
