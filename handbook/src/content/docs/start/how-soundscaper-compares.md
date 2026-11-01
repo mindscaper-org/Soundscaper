@@ -270,7 +270,7 @@ For Audition `.sesx` import, see [Project files](/projects-and-data/project-file
 for which audio settings transfer and what the report marks as omitted.
 
 Soundscaper's **File → Export other → Export track list for Blender** creates
-a portable bundle of WAV stems, a track list, and the add-on. **Tools → Start
+a portable bundle of WAV stems, a track list, and the add-on. **Tools → Desktop services → Start
 live Blender sync** publishes updated audio and track metadata to Blender's
 Video Sequencer after rendering. Blender edits do not change Soundscaper, and
 playback transport is not synchronised. See the

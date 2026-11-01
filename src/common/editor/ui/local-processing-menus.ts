@@ -5,8 +5,12 @@ import { LOCAL_ASSISTANCE_MENU_ICON, mergeAssistanceTaskMenus, type AssistanceDi
 export interface NativePreferenceEntry extends AssistanceMenuEntry {
 	readonly section: 'audio' | 'media' | 'effects' | 'advanced';
 }
-export function organizeNativePreferences(menus: readonly AssistanceMenuEntry[]): AssistanceMenuEntry[] {
-	const preferences: NativePreferenceEntry[] = [];
+interface NativePreferenceMenu extends AssistanceMenuEntry {
+	readonly nativePreferences?: readonly NativePreferenceEntry[];
+}
+export function organizeNativePreferences(
+	menus: readonly NativePreferenceMenu[], desktopServicesLabel = 'Desktop services',
+): NativePreferenceMenu[] {
 	const sectionFor = (id: string): NativePreferenceEntry['section'] | null => {
 		if (id === 'parallel-stack-processing') return 'advanced';
 		if (id === 'native-audio' || id.includes('audio-helper')) return 'audio';
@@ -16,22 +20,25 @@ export function organizeNativePreferences(menus: readonly AssistanceMenuEntry[])
 	};
 	return menus.map((menu) => {
 		if (menu.id !== 'tools') return menu;
+		const preferences = new Map((menu.nativePreferences ?? []).map(entry => [entry.id, entry]));
 		const items: AssistanceMenuEntry[] = [];
+		const services: AssistanceMenuEntry[] = [];
+		let servicesMenu: AssistanceMenuEntry | undefined;
 		for (const item of menu.items ?? []) {
 			const desktopServices = item.id === 'desktop-services';
-			const retainedServices: AssistanceMenuEntry[] = [];
+			if (desktopServices) servicesMenu = item;
 			const candidates = desktopServices ? item.items ?? [] : [item];
 			for (const candidate of candidates) {
 				const section = sectionFor(candidate.id ?? '');
-				if (section) preferences.push({ ...candidate, section });
-				else if ((typeof __SCAPE_DESKTOP_RENDERER__ === 'undefined' || __SCAPE_DESKTOP_RENDERER__)
-					&& desktopServices) retainedServices.push(candidate);
+				if (section) preferences.set(candidate.id, { ...candidate, section });
+				else if (desktopServices || candidate.id === 'blender-start-live-sync'
+					|| candidate.id === 'blender-stop-live-sync') services.push(candidate);
 				else items.push(candidate);
 			}
-			if ((typeof __SCAPE_DESKTOP_RENDERER__ === 'undefined' || __SCAPE_DESKTOP_RENDERER__)
-				&& retainedServices.length) items.push({ ...item, items: retainedServices });
 		}
-		return { ...menu, items, nativePreferences: preferences };
+		if (services.length) items.push({ ...servicesMenu, id: 'desktop-services',
+			label: servicesMenu?.label ?? desktopServicesLabel, items: services });
+		return { ...menu, items, nativePreferences: [...preferences.values()] };
 	});
 }
 
@@ -68,5 +75,5 @@ export function prepareLocalProcessingMenus(menus: readonly AssistanceMenuEntry[
 		: assistanceMenus;
 	return organizeNativePreferences(mergeCorridorKeyMenu(textToSpeechMenus, {
 		productId: input.productId, copy: input.copy, open: available ? input.actions.openCorridorKey : undefined,
-	}));
+	}), input.copy.desktopServices);
 }

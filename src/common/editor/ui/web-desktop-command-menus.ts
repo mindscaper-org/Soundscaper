@@ -8,6 +8,7 @@ import { createLocalModelManagerMenuItems } from './local-model-manager-menu.ts'
 import { resolveSoundscaperNativeServicesCopy } from './soundscaper-native-services-copy.ts';
 import { resolveOriginalFileOverwriteCopy } from '../../i18n/editor-original-file-overwrite-copy.ts';
 import { resolveBlenderCopy } from '../../i18n/editor-blender-copy.ts';
+import { organizeNativePreferences } from './local-processing-menus.ts';
 
 const DESKTOP_COMMAND_ICON = '\uF35E';
 type Entry = AssistanceMenuEntry;
@@ -40,11 +41,13 @@ function desktopOffers({ productId, copy, locale, organization, onUnavailable }:
 	const plugins = resolveSoundscaperNativeServicesCopy(copy);
 	const blender = resolveBlenderCopy(copy);
 	const services = [
+		...(soundscaper ? [leaf('blender-start-live-sync', blender.startSync),
+			leaf('blender-stop-live-sync', blender.stopSync)] : []),
 		leaf('desktop-use-native-probe-helper', copy.useNativeProbeHelper),
 		leaf('desktop-clear-probe-helper-quarantine', copy.clearProbeHelperQuarantine),
 		leaf('desktop-clear-audio-helper-quarantine', copy.clearAudioHelperQuarantine),
 		leaf('desktop-discover-native-effects', copy.discoverNativeEffects),
-		...(soundscaper ? [leaf('desktop-mcp-connection', copy['ui.desktopMcp.connection'])] : []),
+		...(soundscaper ? [leaf('desktop-mcp-connection', copy['ui.desktopMcp.connection'] || 'MCP connection')] : []),
 	];
 	const menus: Entry[] = [
 		branch('file', copy.fileMenu, [
@@ -75,8 +78,6 @@ function desktopOffers({ productId, copy, locale, organization, onUnavailable }:
 				{ open: onUnavailable, openIndexedSearch: onUnavailable }),
 			...createLocalModelManagerMenuItems({ desktopAvailable: true, copy }, { open: onUnavailable }),
 			...native.tools,
-			...(soundscaper ? [leaf('blender-start-live-sync', blender.startSync),
-				leaf('blender-stop-live-sync', blender.stopSync)] : []),
 			branch('desktop-services', copy.desktopServices, services),
 		]),
 		branch('window', copy.windowMenu, soundscaper ? [] : [leaf('panel-web-vcr', copy.webVcrTitle)]),
@@ -117,5 +118,6 @@ export function exposeWebDesktopCommands(menus: readonly Entry[], options: WebDe
 	};
 	const result = merge(menus, desktopOffers(options));
 	const order = ['file', 'edit', 'select', 'view', 'tracks', 'generate', 'effect', 'analyze', 'tools', 'window', 'help'];
-	return result.sort((a, b) => order.indexOf(a.id ?? '') - order.indexOf(b.id ?? ''));
+	return organizeNativePreferences(result.sort((a, b) => order.indexOf(a.id ?? '') - order.indexOf(b.id ?? '')),
+		options.copy.desktopServices);
 }
