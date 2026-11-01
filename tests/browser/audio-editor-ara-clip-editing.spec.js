@@ -73,10 +73,14 @@ for (const productId of ['soundscaper', 'framescaper']) {
 		await expect(editor.locator('[data-track-row]')).toHaveCount(trackCount);
 	});
 
-	test(`${productId} browser menu omits the native ARA editor`, async ({ page }) => {
+	test(`${productId} browser ARA command offers the desktop app`, async ({ page }) => {
 		const editor = await bootEditor(page, path);
 		const effect = await openNestedCommandMenu(page, editor, 'Effect', []);
-		await expect(getMenuItem(effect, MENU_LABEL)).toHaveCount(0);
+		await getMenuItem(effect, MENU_LABEL).click();
+		const dialog = page.getByRole('dialog', { name: 'Desktop feature', exact: true });
+		await expect(dialog).toBeVisible();
+		await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await expect(page.getByRole('dialog', { name: DIALOG_TITLE, exact: true })).toHaveCount(0);
 	});
 }
 

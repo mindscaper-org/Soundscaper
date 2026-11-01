@@ -44,10 +44,13 @@ test('desktop Blender export renders WAVs and live sync updates edits until stop
 	expect(await page.evaluate(() => globalThis.__blenderProbe.commits.length)).toBe(commitCount);
 });
 
-test('browser and Framescaper menus omit desktop Soundscaper Blender commands', async ({ page }) => {
+test('browser Blender commands offer the desktop app while Framescaper omits them', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	const tools = await openNestedCommandMenu(page, editor, 'Tools', []);
-	await expect(getMenuItem(tools, 'Start live Blender sync')).toHaveCount(0);
+	await getMenuItem(tools, 'Start live Blender sync').click();
+	const dialog = page.getByRole('dialog', { name: 'Desktop feature', exact: true });
+	await expect(dialog).toBeVisible();
+	await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 	await installBlenderFixture(page);
 	const framescaper = await bootEditor(page, '/framescaper/embed/en/');
 	const framescaperTools = await openNestedCommandMenu(page, framescaper, 'Tools', []);
