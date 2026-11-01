@@ -49,6 +49,7 @@ export class OpfsSyncWorkerRuntime {
 	readonly #writers = new Map<string, WorkerWriter>();
 	readonly #active = new Set<string>();
 	readonly #cancelled = new Set<string>();
+	readonly #reads = new Map<string, Promise<void>>();
 	#directory: FileSystemDirectoryHandle | null = null;
 	#initialized = false;
 
@@ -70,8 +71,7 @@ export class OpfsSyncWorkerRuntime {
 		this.#active.add(id);
 		try {
 			this.#throwIfCancelled(id);
-			if (type === 'read') return await this.#read(request, id);
-			if (type === 'snapshot') return await this.#snapshot(request, id);
+			if (type === 'read' || type === 'snapshot') return await this.#orderedRead(request, id, type);
 			if (type === 'open-writer') return await this.#openWriter(request, id);
 			if (type === 'write') return this.#write(request, id);
 			if (type === 'close-writer') return this.#closeWriter(request, id);
@@ -81,6 +81,24 @@ export class OpfsSyncWorkerRuntime {
 		} finally {
 			this.#active.delete(id);
 			this.#cancelled.delete(id);
+		}
+	}
+
+	async #orderedRead(request: WorkerRequest, id: string, type: 'read' | 'snapshot'): Promise<Record<string, unknown>> {
+		// Some engines grant exclusive access even for read-only handles. Keep
+		// overlapping waveform and playback reads on this worker, ordered by file.
+		const path = normalizeOpfsWorkerPath(request.path);
+		const previous = this.#reads.get(path);
+		let release = (): void => {};
+		const completed = new Promise<void>(resolve => { release = resolve; });
+		this.#reads.set(path, completed);
+		try {
+			await previous;
+			this.#throwIfCancelled(id);
+			return type === 'read' ? await this.#read(request, id) : await this.#snapshot(request, id);
+		} finally {
+			release();
+			if (this.#reads.get(path) === completed) this.#reads.delete(path);
 		}
 	}
 
