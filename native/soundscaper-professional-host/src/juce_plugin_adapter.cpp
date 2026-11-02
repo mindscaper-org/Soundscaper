@@ -28,6 +28,7 @@ std::string lower(std::string value)
 bool formatMatches(const juce::AudioPluginFormat &candidate, const std::string &format)
 {
 	const std::string name = lower(candidate.getName().toStdString());
+	if (format == "vst2") return name == "vst";
 	if (format == "vst3") return name.find("vst3") != std::string::npos;
 	if (format == "au") return name.find("audio unit") != std::string::npos;
 	if (format == "ladspa") return name.find("ladspa") != std::string::npos;
@@ -46,6 +47,9 @@ bool formatMatches(const juce::AudioPluginFormat &candidate, const std::string &
  */
 void registerCompiledFormats(juce::AudioPluginFormatManager &manager)
 {
+#if JUCE_PLUGINHOST_VST
+	manager.addFormat(std::make_unique<juce::VSTPluginFormat>());
+#endif
 #if JUCE_PLUGINHOST_VST3
 	manager.addFormat(std::make_unique<juce::VST3PluginFormat>());
 #endif
@@ -170,6 +174,9 @@ public:
 			return SOUNDSCAPER_PRO_FORMAT_REFUSED;
 		}
 		prepareNormalProcessing();
+		// Keep the reserved capacity but process only this block's frames: padding
+		// a short block advances a stateful plug-in past the project's timeline.
+		buffer.setSize(buffer.getNumChannels(), static_cast<int>(frames), false, false, true);
 		buffer.clear();
 		for (uint32_t channel = 0; channel < inputChannels; ++channel) {
 			if (inputs == nullptr || inputs[channel] == nullptr) return SOUNDSCAPER_PRO_FORMAT_REFUSED;

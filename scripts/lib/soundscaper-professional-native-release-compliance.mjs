@@ -21,7 +21,7 @@ export const SOUNDSCAPER_PROFESSIONAL_NATIVE_COMPLIANCE_NAME =
 	'Soundscaper-professional-native-compliance.json';
 
 const SOURCE_IDS = Object.freeze([
-	'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+	'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 	'asio-sdk', 'ladspa-sdk', 'lv2',
 ]);
 const FORBIDDEN_SOURCE_IDS = new Set(['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib']);

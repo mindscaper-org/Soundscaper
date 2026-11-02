@@ -15,7 +15,7 @@ import {
 const sha256 = 'ab'.repeat(32)
 
 test('LADSPA is an additive native effect and project-state format', () => {
-	assert.deepEqual(SOUNDSCAPER_NATIVE_PLUGIN_FORMATS, ['vst3', 'clap', 'au', 'lv2', 'ladspa'])
+	assert.deepEqual(SOUNDSCAPER_NATIVE_PLUGIN_FORMATS, ['vst3', 'vst2', 'clap', 'au', 'lv2', 'ladspa'])
 	const effect = createNativePluginEffect({
 		id: 'effect-ladspa',
 		params: { instanceId: 'instance-ladspa', latencyFrames: 0 },

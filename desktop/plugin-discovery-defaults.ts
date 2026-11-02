@@ -10,7 +10,7 @@ export function createDefaultPluginDiscoveryConsent(options: DesktopPluginConsen
 	const consent = new DesktopPluginConsent(options);
 	if (!defaults.enabled || options.state !== undefined) return consent;
 	for (const format of consent.describe().formats) {
-		if (!format.supported || !defaults.isFormatActivated(format.format) || format.roots.length === 0) continue;
+		if (format.format === 'vst2' || !format.supported || !defaults.isFormatActivated(format.format) || format.roots.length === 0) continue;
 		consent.grant(format.format);
 		for (const root of format.roots) consent.admitStandardRoot(format.format, root.rootId);
 	}

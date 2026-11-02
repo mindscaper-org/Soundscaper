@@ -31,10 +31,10 @@ function body(bytes: Uint8Array) {
 	})
 }
 
-function state(instanceId: string, stateBody: ReturnType<typeof body>) {
+function state(instanceId: string, stateBody: ReturnType<typeof body>, format: 'vst3' | 'vst2' = 'vst3') {
 	return Object.freeze({
 		instanceId,
-		format: 'vst3' as const,
+		format,
 		stablePluginId: 'com.example.eq',
 		binarySha256: 'ab'.repeat(32),
 		stateBody,
@@ -45,14 +45,14 @@ function state(instanceId: string, stateBody: ReturnType<typeof body>) {
 	})
 }
 
-test('AUP4 V29 deduplicates opaque bodies and restores instances through binary XML', async () => {
+for (const format of ['vst3', 'vst2'] as const) test(`AUP4 V29 restores ${format} instances and deduplicated opaque bodies through binary XML`, async () => {
 	const bytes = Uint8Array.from([0, 7, 13, 255])
 	const stateBody = body(bytes)
 	const original = createSoundscaperProject({
 		id: 'aup4-native-state-v29',
 		title: 'AUP4 native state',
 		now: '2026-08-24T00:00:00.000Z',
-		nativePluginStates: [state('insert-01', stateBody), state('insert-02', stateBody)],
+		nativePluginStates: [state('insert-01', stateBody, format), state('insert-02', stateBody, format)],
 	} as never)
 	const portable = await embedSoundscaperNativePluginStatesInAup4(original, {
 		loadNativePluginStateBody: (bodyId) => bodyId === stateBody.bodyId ? bytes : null,
