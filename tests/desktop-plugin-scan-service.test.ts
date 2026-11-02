@@ -263,7 +263,7 @@ test('consent withdrawn while a scan waits is refused, never raced', async () =>
 
 test('an unknown format or an unregistered root never becomes a helper job', async () => {
 	const { service, requests } = createService();
-	assert.equal(failed(await scan(service, { format: 'vst2' })).code, 'unknown-format');
+	assert.equal(failed(await scan(service, { format: 'unsupported' })).code, 'unknown-format');
 	assert.equal(failed(await scan(service, { rootId: 'root-9' })).code, 'unknown-root');
 	const unresolvable = createService({ root: null });
 	assert.equal(failed(await scan(unresolvable.service)).code, 'unknown-root');
@@ -391,6 +391,10 @@ test('a scanner fault is named, and every other failure is named as no fault at 
 				? 'a failure that is not a scanner fault may not cost the location anything'
 				: 'a scanner fault must durably quarantine its root-and-format scan unit');
 		assert.equal(outcome.message.includes('simulated'), false, 'helper text must not be relayed verbatim');
+		if (reason !== null && code !== 'helper-cancelled') {
+			assert.match(outcome.message, /crashed|stopped responding|invalid|limit/iu);
+			assert.match(outcome.message, /Plugin Manager/u, 'a fault must identify its recovery action');
+		}
 	}
 });
 

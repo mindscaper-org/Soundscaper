@@ -72,7 +72,7 @@ test.describe('desktop command offers on the web', () => {
 				.toBe(`https://${productId}.org/download/`);
 			await expect(dialog).toBeHidden();
 
-			await chooseCommandAction(page, editor, 'Effect', productId === 'soundscaper' ? 'Audio Plugins' : 'Plugin Manager');
+			await chooseCommandAction(page, editor, 'Effect', 'Plugin Manager');
 			await expect(dialog).toBeVisible();
 			if (productId === 'framescaper') {
 				await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();

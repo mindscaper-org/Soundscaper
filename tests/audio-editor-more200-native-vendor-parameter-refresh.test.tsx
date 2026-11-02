@@ -54,7 +54,7 @@ test('closing a vendor window refreshes generated controls from the edited nativ
 			inputChannels: 2, outputChannels: 2, state: 'ready', enabled: true, bypassed: false, latencySamples: 0 } };
 	const render = async (): Promise<void> => {
 		await act(async () => { root.render(<SoundscaperNativeEffectManagePanel copy={SOUNDSCAPER_NATIVE_SERVICES_COPY}
-			state={state} disabled={false} perform={() => {}} mode="use" />); });
+			state={state} disabled={false} perform={() => {}} />); });
 	};
 	try {
 		await render();

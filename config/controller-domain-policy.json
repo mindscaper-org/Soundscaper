@@ -184,6 +184,7 @@
 		"import/project-bin-video-playback.ts",
 		"import/raw-pcm-import.ts",
 		"preferences/mouse-shortcut-gesture.ts",
+		"preferences/plugin-discovery-defaults.ts",
 		"preferences/preference-action-group.ts",
 		"preferences/preferences-composition.ts",
 		"preferences/setting-persistence.ts",

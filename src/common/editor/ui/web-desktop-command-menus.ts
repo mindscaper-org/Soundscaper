@@ -69,8 +69,7 @@ function desktopOffers({ productId, copy, locale, organization, onUnavailable }:
 		branch('generate', copy.generateMenu, [leaf('text-to-speech', copy['ui.textToSpeech.title'])]),
 		branch('effect', copy.effectMenu, [
 			leaf('ara-clip-editor', copy['ui.ara.clipEditor']),
-			...(soundscaper ? [leaf('native-effect-manage', plugins.pluginManage),
-				leaf('native-effect-use', plugins.audioPluginEffects)] : []),
+			...(soundscaper ? [leaf('native-effect-manage', plugins.pluginManage)] : []),
 			...native.effect,
 		]),
 		branch('analyze', copy.analyzeMenu, soundscaper ? [leaf('native-analyzer-use', plugins.vampAnalyzers)] : []),

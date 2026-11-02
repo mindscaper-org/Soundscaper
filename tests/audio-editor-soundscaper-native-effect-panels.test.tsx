@@ -40,15 +40,8 @@ function registryState(): SoundscaperNativeServicesDialogState {
 	};
 }
 
-test('the effect chooser excludes Vamp analyzers while management keeps them visible', () => {
+test('the unified manager keeps Vamp analyzers visible and excludes them from effect instantiation', () => {
 	const manage = renderToStaticMarkup(<SoundscaperNativeEffectManagePanel
-		copy={COPY}
-		state={registryState()}
-		disabled={false}
-		perform={() => {}}
-	/>);
-	const use = renderToStaticMarkup(<SoundscaperNativeEffectManagePanel
-		mode="use"
 		copy={COPY}
 		state={registryState()}
 		disabled={false}
@@ -57,8 +50,6 @@ test('the effect chooser excludes Vamp analyzers while management keeps them vis
 
 	assert.match(manage, /Vamp Flux/u, 'analyzers remain available to the management workflow');
 	assert.match(manage, /data-native-plugin-entry="analyzer-entry"/u);
-	assert.doesNotMatch(use, /Vamp Flux/u, 'analyzers cannot enter the effect-instantiation workflow');
-	assert.match(use, /LADSPA Gain/u);
 	assert.equal(nativePluginEntryCanInstantiateAsEffect(EFFECT_ENTRY), true);
 	assert.equal(nativePluginEntryCanInstantiateAsEffect(ANALYZER_ENTRY), false);
 	assert.equal(nativePluginEntryCanInstantiateAsEffect({ ...ANALYZER_ENTRY, kind: 'effect' }), false,
@@ -76,7 +67,6 @@ test('a hosted native effect mounts its generated parameter controls inside the 
 		},
 	};
 	const markup = renderToStaticMarkup(<SoundscaperNativeEffectManagePanel
-		mode="use"
 		copy={COPY}
 		state={state}
 		disabled={false}

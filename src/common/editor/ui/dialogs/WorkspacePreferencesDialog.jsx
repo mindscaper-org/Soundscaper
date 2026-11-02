@@ -151,7 +151,7 @@ export default function WorkspacePreferencesDialog({
 						id={`dialog-panel-${selectedPage}`}
 						aria-label={selectedPageLabel}
 					>
-						<NativePreferencesPanel menus={menus} section={selectedPage} copy={copy} onNavigate={onClose} />
+						{selectedPage !== 'effects' && <NativePreferencesPanel menus={menus} section={selectedPage} copy={copy} onNavigate={onClose} />}
 						{selectedPage === 'general' && (
 							<GeneralPreferencesPage
 								controller={controller}
@@ -276,6 +276,7 @@ export default function WorkspacePreferencesDialog({
 								snapshot={snapshot}
 								copy={copy}
 								run={run}
+								plugins={<NativePreferencesPanel menus={menus} section="effects" copy={copy} onNavigate={onClose} />}
 							/>
 						)}
 

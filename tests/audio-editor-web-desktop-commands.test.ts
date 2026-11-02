@@ -24,7 +24,7 @@ for (const productId of ['soundscaper', 'framescaper']) {
 			...ASSISTANCE_TASKS.filter(task => !task.video || productId === 'framescaper')
 				.map(task => `assistance-task-${task.workflowId}`),
 			...(productId === 'soundscaper' ? [
-				'native-effect-manage', 'native-effect-use', 'native-analyzer-use',
+				'native-effect-manage', 'native-analyzer-use',
 				'blender-export-tracks', 'blender-start-live-sync', 'blender-stop-live-sync',
 				'desktop-mcp-connection',
 			] : [
@@ -48,7 +48,7 @@ for (const productId of ['soundscaper', 'framescaper']) {
 		assert.equal(prompts, ids.length);
 		for (const id of productId === 'soundscaper'
 			? ['corridorkey-2.0', 'framescaper-ofx-add', 'assistance-task-reframe']
-			: ['native-effect-use', 'blender-export-tracks', 'desktop-mcp-connection']) {
+			: ['native-effect-manage', 'blender-export-tracks', 'desktop-mcp-connection']) {
 			assert.equal(findMenuItem(menus, id), null, id);
 		}
 	});

@@ -511,6 +511,7 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 				copy={copy} onClose={() => setDialog(null)} />}
 			{dialog && dialog !== 'about' && dialog !== 'project-compatibility' && (
 				<EditorDialog
+					fileService={fileService}
 					type={dialog}
 					value={dialogValue}
 					onValueChange={setDialogValue}

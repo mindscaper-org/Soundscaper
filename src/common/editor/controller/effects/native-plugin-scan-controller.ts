@@ -123,9 +123,10 @@ export function createNativePluginScanController(port: ScanPort, timers: ScanTim
 					cancel(); return;
 				}
 				const completed = snapshot.completed + 1;
-				const detail = result.status === 'failed' && result.code !== 'unknown-root' ? result.message
+				const issue = result.status === 'failed' && result.code !== 'unknown-root' ? result.message
 					: result.status === 'described' && result.scan.status && !['scanned', 'complete'].includes(result.scan.status)
-						? result.scan.detail || result.scan.status : snapshot.detail;
+						? result.scan.detail || result.scan.status : '';
+				const detail = issue ? [snapshot.detail, `${folder.name}: ${issue}`].filter(Boolean).join('\n') : snapshot.detail;
 				publish({ completed, progress: completed / folders.length,
 					found: snapshot.found + (result.status === 'described' ? result.scan.entries.length : 0),
 					// Standard locations need not exist on a machine with no installed plugins.

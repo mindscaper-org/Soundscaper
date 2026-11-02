@@ -305,7 +305,7 @@ export class DesktopPluginScanService {
 			// rescan clearance is the one way out, so a healthy neighbour is
 			// blocked only until the user deliberately rescans the location.
 			if (reason !== null) this.#quarantine.quarantine(root.scanDigest, reason);
-			return failure(code, FAILURE_MESSAGES[code],
+			return failure(code, code === 'helper-failed' && reason !== null ? SCAN_FAULT_MESSAGES[reason] : FAILURE_MESSAGES[code],
 				reason === null ? null : Object.freeze({ reason, quarantined: true }));
 		} finally {
 			if (this.#owners.get(admitted.owner)?.controller === controller) this.#owners.delete(admitted.owner);
@@ -384,7 +384,14 @@ const FAILURE_MESSAGES: Readonly<Record<PluginScanFailureCode, string>> = Object
 	'unknown-root': 'That scan location is not registered for this format.',
 	'unsupported-job': 'This surface accepts plug-in discovery requests only.',
 	'helper-cancelled': 'The scan was cancelled.',
-	'helper-failed': 'The plug-in scan did not complete.',
+	'helper-failed': 'The plug-in scanner could not complete this folder. Review scanning preferences and retry. If it fails again, restart the application.',
+});
+
+const SCAN_FAULT_MESSAGES: Readonly<Record<PluginScanFaultReason, string>> = Object.freeze({
+	'scanner-crash': 'The plug-in scanner crashed. Clear this scan location in Plugin Manager, then scan again.',
+	'scanner-hang': 'The plug-in scanner stopped responding or exceeded its resource limit. Clear this scan location in Plugin Manager, then scan again.',
+	'malformed-answer': 'The plug-in scanner returned an invalid result. Clear this scan location in Plugin Manager, then scan again.',
+	'oversize-answer': 'The plug-in scan exceeded its result limit. Clear this scan location in Plugin Manager, then scan again.',
 });
 
 function admitRequest(request: PluginScanRequest): Readonly<{ owner: object; rootId: string; format: string }> | null {

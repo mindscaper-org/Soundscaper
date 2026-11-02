@@ -30,8 +30,9 @@ import {
 } from './editor-dialog-model.js';
 import { timedRecordingDialogRange } from './timed-recording-dialog-model.ts';
 import { selectAudioEditorEditBlock } from '../../edit-blocking.ts';
+import { resetSoundscaperPluginPreferences } from '../soundscaper-plugin-preferences-reset.ts';
 
-export default function EditorDialog({ type, value, onValueChange, trackId, controller, snapshot, copy, locale, run, showArmControls = false, onClose }) {
+export default function EditorDialog({ type, value, onValueChange, trackId, controller, snapshot, copy, locale, run, fileService = null, showArmControls = false, onClose }) {
 	const editBlocked = ['rename', 'track-rename', 'resample', 'track-rate'].includes(type)
 		&& selectAudioEditorEditBlock(snapshot).blocked;
 	const editBlockedRef = useRef(editBlocked);
@@ -183,7 +184,10 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 		if (type === 'revert-factory') return <>
 			{dismiss()}
 			{confirm(copy.confirmRevertFactorySettings, () => {
-				runThenClose(() => controller.actions.preferences.revertFactorySettings());
+				runThenClose(async () => {
+					await controller.actions.preferences.revertFactorySettings();
+					await resetSoundscaperPluginPreferences(snapshot.productId, fileService);
+				});
 			})}
 		</>;
 		if (type === 'delete' || type === 'clear') return <>

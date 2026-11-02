@@ -14,7 +14,7 @@ import { exposeWebDesktopCommands }
 
 test('desktop Soundscaper preserves native menu commands without adding download offers', () => {
 	let nativeCalls = 0;
-	const nativeCommand = { id: 'native-effect-use', label: 'Audio plug-in effects',
+	const nativeCommand = { id: 'native-effect-manage', label: 'Audio plug-in effects',
 		onClick: () => { nativeCalls++; } };
 	const menus = exposeWebDesktopCommands([nativeCommand], {
 		productId: 'soundscaper', locale: 'en', copy: {},
