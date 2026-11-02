@@ -26,7 +26,7 @@ test('macOS pumps JUCE on the main CFRunLoop while framed RPC runs on a worker',
 
 	assert.match(header, /runMacJuceMessageDispatcher/u);
 	assert.match(peer,
-		/#if defined\(__APPLE__\)[\s\S]*runMacJuceMessageDispatcher\(runFramedPeer\)[\s\S]*#else[\s\S]*runFramedPeer\(\)/u);
+		/#if defined\(__APPLE__\)[\s\S]*runMacJuceMessageDispatcher\(\[&\]\(\) \{ return runFramedPeer\(output\.get\(\)\); \}\)[\s\S]*#else[\s\S]*runFramedPeer\(output\.get\(\)\)/u);
 	assert.match(macProfile, /\(deny default\)/u);
 	assert.doesNotMatch(macProfile, /\(allow mach-lookup/u);
 	assert.doesNotMatch(macDispatcher,

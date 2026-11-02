@@ -88,6 +88,7 @@ test('native policy rows separate distribution requirements from test activation
 		'audio-backend-asio',
 		'audio-backend-pipewire',
 		'audio-backend-alsa',
+		'plugin-format-vst2',
 		'plugin-format-vst3',
 		'plugin-format-clap',
 		'plugin-format-audio-units',
@@ -133,7 +134,7 @@ test('native policy rows separate distribution requirements from test activation
 		'native-audio-stack',
 		'audio-backend-coreaudio', 'audio-backend-wasapi', 'audio-backend-asio',
 		'audio-backend-pipewire', 'audio-backend-alsa',
-		'plugin-format-vst3', 'plugin-format-clap', 'plugin-format-audio-units',
+		'plugin-format-vst2', 'plugin-format-vst3', 'plugin-format-clap', 'plugin-format-audio-units',
 		'plugin-format-ladspa', 'plugin-format-lv2', 'plugin-format-vamp', 'plugin-format-ofx',
 	];
 	assert.equal(REVIEWED_ROWS.some((id) => id.startsWith('codec-')), false);
