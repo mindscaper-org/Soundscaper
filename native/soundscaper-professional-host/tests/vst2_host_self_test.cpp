@@ -13,6 +13,7 @@
 #include <vector>
 
 // JUCE uses sizeof for the original ABI's minimum inline-array allocations.
+static_assert(sizeof(VstIntPtr) == sizeof(void *));
 static_assert(sizeof(VstSpeakerArrangement) >= offsetof(VstSpeakerArrangement, speakers) + 8 * sizeof(VstSpeakerProperties));
 static_assert(sizeof(VstEvents) >= offsetof(VstEvents, events) + 2 * sizeof(void *));
 static_assert(sizeof(MidiKeyName) >= offsetof(MidiKeyName, keyName) + 64);

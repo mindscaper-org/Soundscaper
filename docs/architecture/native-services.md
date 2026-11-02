@@ -191,8 +191,9 @@ this surface.
 VST2 uses JUCE's legacy host with the authenticated FST 0.177.0
 GPL-3.0-or-later compatibility headers, without the proprietary Steinberg SDK.
 The build copy restores the fixed inline-array storage floors and reserved pin
-properties tail that JUCE's legacy record allocation expects; the pinned FST
-source remains unchanged.
+properties tail that JUCE's legacy record allocation expects, and selects a
+64-bit pointer integer on both Windows architectures. The pinned FST source
+remains unchanged.
 VST2 uses the same automatic standard-folder discovery and plug-in preferences
 as the other formats, including saved discovery settings and folder choices.
 Candidates are `.vst` bundles on macOS, `.dll` files on Windows, and `.so`

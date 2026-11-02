@@ -7,6 +7,14 @@
 # opens. Adapt only the build copy; the authenticated source remains unchanged.
 function(soundscaper_write_fst_juce_header input output)
 	file(READ "${input}" source)
+	# Windows uses a 32-bit long even on ARM64. FST's x64-only condition
+	# truncates pointer-valued callbacks and shrinks reserved ABI fields there.
+	set(pointer_guard "#if defined(_WIN32) && (defined(__x86_64__) || defined (_M_X64))")
+	string(FIND "${source}" "${pointer_guard}" pointer_position)
+	if(pointer_position LESS 0)
+		message(FATAL_ERROR "The authenticated FST header has an unexpected pointer-width declaration")
+	endif()
+	string(REPLACE "${pointer_guard}" "#if defined(_WIN64)" source "${source}")
 	foreach(pair
 		"t_fstSpeakerProperties speakers[]|t_fstSpeakerProperties speakers[8]"
 		"t_fstEvent*events[]|t_fstEvent*events[2]"
