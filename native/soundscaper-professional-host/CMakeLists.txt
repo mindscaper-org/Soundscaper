@@ -326,6 +326,15 @@ if(BUILD_TESTING AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
 		C_VISIBILITY_PRESET hidden
 	)
 	add_executable(soundscaper_ladspa_host_self_test tests/ladspa_host_self_test.cpp)
+	add_executable(soundscaper_ladspa_native_identity_self_test
+		src/ladspa_plugin_metadata.cpp tests/ladspa_native_identity_self_test.cpp)
+	target_compile_features(soundscaper_ladspa_native_identity_self_test PRIVATE cxx_std_20)
+	target_include_directories(soundscaper_ladspa_native_identity_self_test PRIVATE
+		"${CMAKE_CURRENT_SOURCE_DIR}/src" "${SOUNDSCAPER_LADSPA_ROOT}/src")
+	target_link_libraries(soundscaper_ladspa_native_identity_self_test PRIVATE ${CMAKE_DL_LIBS})
+	add_dependencies(soundscaper_ladspa_native_identity_self_test soundscaper_professional_ladspa_fixture)
+	add_test(NAME soundscaper_ladspa_native_identity_self_test
+		COMMAND soundscaper_ladspa_native_identity_self_test $<TARGET_FILE:soundscaper_professional_ladspa_fixture>)
 	target_compile_features(soundscaper_ladspa_host_self_test PRIVATE cxx_std_20)
 	target_include_directories(soundscaper_ladspa_host_self_test PRIVATE
 		"${CMAKE_CURRENT_SOURCE_DIR}/src")

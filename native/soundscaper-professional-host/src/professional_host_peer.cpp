@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -85,13 +86,38 @@ FrameReadStatus readFrame(std::vector<uint8_t> &body)
 	return exactRead(stdin, body.data(), body.size()) ? FrameReadStatus::ready : FrameReadStatus::malformed;
 }
 
-bool writeFrame(const std::vector<uint8_t> &body)
+bool writeFrame(FILE *output, const std::vector<uint8_t> &body)
 {
 	if (body.empty() || body.size() > maximumFrameBytes) return false;
 	uint8_t header[8];
 	std::copy(magic.begin(), magic.end(), header);
 	encode32(header + magic.size(), static_cast<uint32_t>(body.size()));
-	return exactWrite(stdout, header, sizeof(header)) && exactWrite(stdout, body.data(), body.size());
+	return exactWrite(output, header, sizeof(header)) && exactWrite(output, body.data(), body.size());
+}
+
+FILE *protectReplyStream()
+{
+	// Vendor CRTs and native console writes may use stdout. Retain a private
+	// reply handle before redirecting the process's ordinary stdout to stderr.
+	if (std::fflush(stdout) != 0) return nullptr;
+#if defined(_WIN32)
+	const int descriptor = _dup(_fileno(stdout));
+	if (descriptor < 0) return nullptr;
+	FILE *output = _fdopen(descriptor, "wb");
+	if (output == nullptr) { _close(descriptor); return nullptr; }
+	if (_dup2(_fileno(stderr), _fileno(stdout)) != 0
+		|| !SetStdHandle(STD_OUTPUT_HANDLE, GetStdHandle(STD_ERROR_HANDLE))) {
+#else
+	const int descriptor = dup(fileno(stdout));
+	if (descriptor < 0) return nullptr;
+	FILE *output = fdopen(descriptor, "wb");
+	if (output == nullptr) { close(descriptor); return nullptr; }
+	if (dup2(fileno(stderr), fileno(stdout)) < 0) {
+#endif
+		std::fclose(output);
+		return nullptr;
+	}
+	return output;
 }
 
 bool description(Writer &writer, const soundscaper_pro_plugin_description &value)
@@ -206,6 +232,8 @@ private:
 			maximumFrames, &plugin_);
 		if (status == SOUNDSCAPER_PRO_OK) {
 			description_ = *selected;
+			status = soundscaper_pro_plugin_audio_topology(plugin_, &description_.input_channels, &description_.output_channels);
+			if (status != SOUNDSCAPER_PRO_OK) return status;
 			if (!description(writer, description_)) return SOUNDSCAPER_PRO_STATE_TOO_LARGE;
 		}
 		return status;
@@ -351,14 +379,14 @@ private:
 	bool finished_ = false;
 };
 
-int runFramedPeer()
+int runFramedPeer(FILE *output)
 {
 	Peer peer;
 	for (;;) {
 		std::vector<uint8_t> request, answer;
 		const FrameReadStatus status = readFrame(request);
 		if (status != FrameReadStatus::ready) return status == FrameReadStatus::cleanEof ? 0 : 125;
-		if (!peer.dispatch(request, answer) || !writeFrame(answer)) return 125;
+		if (!peer.dispatch(request, answer) || !writeFrame(output, answer)) return 125;
 		if (peer.finished()) {
 #if !defined(__APPLE__)
 			soundscaper::shutdownJuceMessageDispatcher();
@@ -384,9 +412,11 @@ int main(int argc, char **argv)
 	}
 	const int probe = soundscaper::professionalHostContainmentProbe(argc, argv);
 	if (probe >= 0) return probe;
+	std::unique_ptr<FILE, int (*)(FILE *)> output(protectReplyStream(), std::fclose);
+	if (output == nullptr) return 125;
 #if defined(__APPLE__)
-	return soundscaper::runMacJuceMessageDispatcher(runFramedPeer);
+	return soundscaper::runMacJuceMessageDispatcher([&]() { return runFramedPeer(output.get()); });
 #else
-	return runFramedPeer();
+	return runFramedPeer(output.get());
 #endif
 }

@@ -287,9 +287,11 @@ test('the professional plug-in RPC executes only in the enforced isolated child'
 	});
 	const descriptions = await plugin.inspectPluginCandidate(fixture.allowedPath, 'vst3', contextValue);
 	assert.deepEqual(descriptions.map(({ stableId }) => stableId), ['fixture:a', 'fixture:b']);
+	assert.equal(descriptions[1]!.inputChannels, 0);
 	const instance = await plugin.openPluginInstance(
 		fixture.allowedPath, 48_000, 256, 'vst3', 'fixture:b', contextValue,
 	);
+	assert.deepEqual(plugin.pluginAudioTopology(instance), { inputChannels: 2, outputChannels: 2 });
 	const input = [Float32Array.of(1, 2), Float32Array.of(3, 4)];
 	const output = [new Float32Array(2), new Float32Array(2)];
 	await plugin.processPluginBlock(instance, 2, input, output);

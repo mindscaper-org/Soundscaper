@@ -321,6 +321,18 @@ soundscaper_pro_status soundscaper_pro_plugin_process(
 		: soundscaper::processJucePlugin(*instance->juce, inputs, inputChannels, outputs, outputChannels, frames);
 }
 
+soundscaper_pro_status soundscaper_pro_plugin_audio_topology(
+	soundscaper_pro_plugin_instance *instance, uint32_t *inputs, uint32_t *outputs)
+{
+	if (instance == nullptr || inputs == nullptr || outputs == nullptr) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
+	*inputs = *outputs = 0;
+	if (instance->clap != nullptr) instance->clap->audioTopology(*inputs, *outputs);
+	else if (instance->juce != nullptr) instance->juce->audioTopology(*inputs, *outputs);
+	else return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
+	return *inputs <= SOUNDSCAPER_PRO_MAX_CHANNELS && *outputs > 0 && *outputs <= SOUNDSCAPER_PRO_MAX_CHANNELS
+		? SOUNDSCAPER_PRO_OK : SOUNDSCAPER_PRO_FORMAT_REFUSED;
+}
+
 uint32_t soundscaper_pro_plugin_latency(soundscaper_pro_plugin_instance *instance)
 {
 	if (instance == nullptr) return 0u;
@@ -332,18 +344,22 @@ soundscaper_pro_status soundscaper_pro_plugin_save_state(
 	soundscaper_pro_plugin_instance *instance, uint8_t *bytes, size_t capacity, size_t *written)
 {
 	if (instance == nullptr || written == nullptr) return SOUNDSCAPER_PRO_STATE_REJECTED;
-	if (instance->clap != nullptr) return instance->clap->saveState(bytes, capacity, *written);
-	return instance->juce == nullptr ? SOUNDSCAPER_PRO_STATE_REJECTED
-		: soundscaper::saveJucePluginState(*instance->juce, bytes, capacity, *written);
+	return soundscaper::dispatchJuceMessageTask([&]() {
+		if (instance->clap != nullptr) return instance->clap->saveState(bytes, capacity, *written);
+		return instance->juce == nullptr ? SOUNDSCAPER_PRO_STATE_REJECTED
+			: soundscaper::saveJucePluginState(*instance->juce, bytes, capacity, *written);
+	});
 }
 
 soundscaper_pro_status soundscaper_pro_plugin_load_state(
 	soundscaper_pro_plugin_instance *instance, const uint8_t *bytes, size_t length)
 {
 	if (instance == nullptr) return SOUNDSCAPER_PRO_STATE_REJECTED;
-	if (instance->clap != nullptr) return instance->clap->loadState(bytes, length);
-	return instance->juce == nullptr ? SOUNDSCAPER_PRO_STATE_REJECTED
-		: soundscaper::loadJucePluginState(*instance->juce, bytes, length);
+	return soundscaper::dispatchJuceMessageTask([&]() {
+		if (instance->clap != nullptr) return instance->clap->loadState(bytes, length);
+		return instance->juce == nullptr ? SOUNDSCAPER_PRO_STATE_REJECTED
+			: soundscaper::loadJucePluginState(*instance->juce, bytes, length);
+	});
 }
 
 soundscaper_pro_status soundscaper_pro_plugin_get_capabilities(
@@ -356,7 +372,9 @@ soundscaper_pro_status soundscaper_pro_plugin_get_capabilities(
 		return SOUNDSCAPER_PRO_OK;
 	}
 	return instance->juce == nullptr ? SOUNDSCAPER_PRO_PLUGIN_MALFORMED
-		: soundscaper::jucePluginCapabilities(*instance->juce, *report);
+		: soundscaper::dispatchJuceMessageTask([&]() {
+			return soundscaper::jucePluginCapabilities(*instance->juce, *report);
+		});
 }
 
 soundscaper_pro_status soundscaper_pro_plugin_describe_parameters(
@@ -392,7 +410,9 @@ soundscaper_pro_status soundscaper_pro_plugin_write_parameter(
 {
 	if (instance == nullptr) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
 	if (instance->clap != nullptr || instance->juce == nullptr) return SOUNDSCAPER_PRO_UNSUPPORTED;
-	return soundscaper::writeJucePluginParameter(*instance->juce, index, value);
+	return soundscaper::dispatchJuceMessageTask([&]() {
+		return soundscaper::writeJucePluginParameter(*instance->juce, index, value);
+	});
 }
 
 soundscaper_pro_status soundscaper_pro_plugin_open_vendor_window(

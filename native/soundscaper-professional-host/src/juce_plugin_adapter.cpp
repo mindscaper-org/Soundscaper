@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 #include "juce_plugin_adapter.h"
+#include "plugin_stable_identity.h"
 #include "juce_ara_adapter.h"
 #include "ladspa_host_state.h"
 #include "ladspa_plugin_metadata.h"
@@ -81,13 +82,24 @@ void text(char *destination, const juce::String &value)
 	destination[length] = '\0';
 }
 
-void describe(const std::string &format, const juce::PluginDescription &source,
+std::string stableIdFor(const std::string &format, const juce::PluginDescription &source)
+{
+	int32_t nativeId = source.uniqueId;
+#if JUCE_PLUGINHOST_LADSPA
+	// JUCE scan descriptions use the descriptor index, not LADSPA's UniqueID.
+	if (format == "ladspa" && (nativeId < 0 || readLadspaNativeId(source.fileOrIdentifier.toStdString(),
+		static_cast<uint32_t>(source.uniqueId), nativeId) != SOUNDSCAPER_PRO_OK)) return {};
+#endif
+	return stableJucePluginId(format, nativeId, source.name.toStdString(), source.fileOrIdentifier.toStdString());
+}
+
+void describe(const std::string &format, const std::string &stableId, const juce::PluginDescription &source,
 	soundscaper_pro_plugin_description &destination)
 {
 	destination = {};
 	destination.status = SOUNDSCAPER_PRO_OK;
 	std::strncpy(destination.format, format.c_str(), sizeof(destination.format) - 1u);
-	text(destination.stable_id, source.createIdentifierString());
+	text(destination.stable_id, juce::String(stableId));
 	text(destination.name, source.name);
 	text(destination.vendor, source.manufacturerName);
 	text(destination.version, source.version);
@@ -110,7 +122,7 @@ std::unique_ptr<juce::AudioPluginInstance> instantiate(
 	adapter->findAllTypesForFile(descriptions, juce::String(path));
 	juce::PluginDescription *selected = nullptr;
 	for (auto *description : descriptions) {
-		if (description->createIdentifierString().toStdString() != stableId) continue;
+		if (stableIdFor(format, *description) != stableId) continue;
 		if (selected != nullptr) { error = "The stable descriptor ID is ambiguous."; return nullptr; }
 		selected = description;
 	}
@@ -195,6 +207,12 @@ public:
 	uint32_t latency() const override
 	{
 		return static_cast<uint32_t>(std::max(0, plugin->getLatencySamples()));
+	}
+
+	void audioTopology(uint32_t &inputs, uint32_t &outputs) const override
+	{
+		inputs = static_cast<uint32_t>(plugin->getTotalNumInputChannels());
+		outputs = static_cast<uint32_t>(plugin->getTotalNumOutputChannels());
 	}
 
 	soundscaper_pro_status saveState(uint8_t *bytes, size_t capacity, size_t &written) override
@@ -357,7 +375,8 @@ private:
 			const float defaultValue = parameter->getDefaultValue();
 			if (!std::isfinite(defaultValue) || defaultValue < 0.0F || defaultValue > 1.0F) return false;
 			text(hosted.description.id, identifier);
-			text(hosted.description.name, parameter->getName(SOUNDSCAPER_PRO_MAX_TEXT - 1u));
+			const auto name = parameter->getName(SOUNDSCAPER_PRO_MAX_TEXT - 1u);
+			text(hosted.description.name, name.isEmpty() ? identifier : name);
 			text(hosted.description.label, parameter->getLabel());
 			hosted.description.default_value = defaultValue;
 			hosted.description.minimum_value = 0.0;
@@ -400,11 +419,11 @@ soundscaper_pro_status scanJucePlugin(
 	}
 	std::set<std::string> stableIds;
 	for (const auto *source : descriptions) {
-		const std::string stableId = source->createIdentifierString().toStdString();
+		const std::string stableId = stableIdFor(format, *source);
 		if (stableId.empty() || stableId.size() >= SOUNDSCAPER_PRO_MAX_TEXT
 			|| !stableIds.insert(stableId).second) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
 		soundscaper_pro_plugin_description destination{};
-		describe(format, *source, destination);
+		describe(format, stableId, *source, destination);
 		output.push_back(destination);
 	}
 	std::sort(output.begin(), output.end(), [](const auto &left, const auto &right) {
@@ -426,6 +445,15 @@ soundscaper_pro_status openJucePlugin(
 		manager, format, path, stableId, sampleRate, maximumFrames, descriptorIndex, error);
 	if (plugin == nullptr) return error.containsIgnoreCase("format")
 		? SOUNDSCAPER_PRO_UNSUPPORTED : SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
+	// A VST3 main bus need not carry kDefaultActive. Enable both directions in
+	// one layout transaction, retaining the plug-in's own channel arrangements.
+	auto layout = plugin->getBusesLayout();
+	for (const bool input : {true, false}) {
+		if (const auto *bus = plugin->getBus(input, 0); bus != nullptr && !bus->isEnabled()) {
+			layout.getChannelSet(input, 0) = bus->getLastEnabledLayout();
+		}
+	}
+	if (!plugin->setBusesLayout(layout)) return SOUNDSCAPER_PRO_FORMAT_REFUSED;
 	std::vector<LadspaParameterHint> ladspaHints;
 #if JUCE_PLUGINHOST_LADSPA
 	if (format == "ladspa") {

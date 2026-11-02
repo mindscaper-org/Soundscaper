@@ -55,6 +55,7 @@ int main(int argc, char **argv)
 	status = soundscaper_pro_plugin_scan("ladspa", argv[1], descriptions.data(), descriptions.size(), &count);
 	if (status != SOUNDSCAPER_PRO_OK || count != 1u
 		|| std::strcmp(descriptions[0].format, "ladspa") != 0
+		|| std::strcmp(descriptions[0].stable_id, "ladspa:00067932") != 0
 		|| descriptions[0].input_channels != 2u || descriptions[0].output_channels != 2u) {
 		return fail("The LADSPA descriptor was not preserved.");
 	}

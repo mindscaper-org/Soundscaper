@@ -2,15 +2,20 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <array>
+#include <cstdlib>
 #include <cstring>
 
 class Vst2Fixture final : public juce::AudioProcessor {
 public:
 	Vst2Fixture() : juce::AudioProcessor(BusesProperties()
-		.withInput("Input", juce::AudioChannelSet::stereo(), true)
-		.withOutput("Output", juce::AudioChannelSet::stereo(), true))
+		.withInput("Input", juce::AudioChannelSet::stereo(), false)
+		.withOutput("Output", juce::AudioChannelSet::stereo(), false))
 	{
+		// VST3 hosts must activate main buses even without kDefaultActive.
+		if (wrapperType != wrapperType_VST3) enableAllBuses();
 		addParameter(gain = new juce::AudioParameterFloat(juce::ParameterID{"gain", 1}, "Gain", 0.0F, 1.0F, 0.5F));
+		// Legacy plug-ins can expose an automatable parameter with an empty name.
+		addParameter(new juce::AudioParameterFloat(juce::ParameterID{"unnamed", 1}, "", 0.0F, 1.0F, 0.0F));
 		setLatencySamples(8);
 	}
 	const juce::String getName() const override { return "SoundscaperVST2Fixture"; }
@@ -45,11 +50,13 @@ public:
 	void changeProgramName(int, const juce::String &) override {}
 	void getStateInformation(juce::MemoryBlock &state) override
 	{
+		if (!juce::MessageManager::getInstance()->isThisTheMessageThread()) std::abort();
 		const float value = gain->get();
 		state.replaceAll(&value, sizeof(value));
 	}
 	void setStateInformation(const void *bytes, int length) override
 	{
+		if (!juce::MessageManager::getInstance()->isThisTheMessageThread()) std::abort();
 		float value = 0.0F;
 		if (length != sizeof(value)) return;
 		std::memcpy(&value, bytes, sizeof(value));

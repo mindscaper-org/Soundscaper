@@ -165,6 +165,24 @@ binary additionally binds platform, architecture, version, and digest. A new or
 changed digest requires an explicit allow decision; path ordering never resolves
 a stable-ID collision silently.
 
+JUCE identifiers must not hash a binary's location: scans and hosts receive
+separate immutable snapshot paths. VST2 uses the native 32-bit unique ID
+(including shell member IDs); VST3 uses JUCE's normalized class-ID hash and
+plug-in name; LADSPA reads the descriptor's native UniqueID rather than JUCE's
+descriptor index. AU retains its native component tuple and LV2 its full URI.
+CLAP already retains its native descriptor ID. Scan collision checks and instance
+selection use the same identifier. Unnamed JUCE parameters expose their stable
+parameter ID as their display name.
+
+Opening activates the main input/output buses using their native channel
+arrangements, even when a VST3 bus is not active by default. The open reply
+reports the instance's actual channel counts rather than scan metadata, which
+VST3 moduleinfo files can omit. Vendor editor probing, state save/restore and
+parameter writes run on JUCE's message thread; PCM processing stays on the
+processing thread.
+The plug-in peer duplicates its reply stream before redirecting vendor standard
+output to diagnostics, so plug-in logging cannot corrupt framed RPC replies.
+
 VST2, VST3 and CLAP are cross-platform effect targets, Audio Units is macOS-only,
 LADSPA and LV2 effects are Linux-only, and Vamp is an analyzer rather than an
 effect. Instrument descriptors may be discovered but are not materialized by
@@ -172,8 +190,9 @@ this surface.
 
 VST2 uses JUCE's legacy host with the authenticated FST 0.177.0
 GPL-3.0-or-later compatibility headers, without the proprietary Steinberg SDK.
-The build copy restores the fixed inline-array storage floors that JUCE's
-legacy record allocation expects; the pinned FST source remains unchanged.
+The build copy restores the fixed inline-array storage floors and reserved pin
+properties tail that JUCE's legacy record allocation expects; the pinned FST
+source remains unchanged.
 VST2 uses the same automatic standard-folder discovery and plug-in preferences
 as the other formats, including saved discovery settings and folder choices.
 Candidates are `.vst` bundles on macOS, `.dll` files on Windows, and `.so`
@@ -181,8 +200,9 @@ files on Linux. Plug-ins must match the desktop process architecture; no
 32-bit bridge or cross-architecture emulation is provided. VST2 instances use
 the same isolation, digest allowance, parameters, vendor windows, latency,
 opaque state, real-time and offline routes as the other native effects. ARA
-remains VST3-only. The native CTest fixture exercises VST2 discovery,
-processing, parameters, latency and state restoration into a new instance.
+remains VST3-only. Native CTest fixtures exercise VST2 and VST3 discovery,
+relocation between snapshots, processing, parameters, latency and state
+restoration into a new instance, alongside native LADSPA ID checks.
 
 Runtime hosting isolates one renderer owner and one plug-in digest per process.
 Opaque state is retained exactly and capped at 16 MiB per instance. State and
