@@ -123,6 +123,9 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 				if (disposed || !d.getPreferences().autoSaving || d.canSave?.() === false) return;
 				const latest = d.getProjects().find(entry => entry.project.id === project.id);
 				if (!latest || latest.readOnly) return;
+				await load(latest.project);
+				const entry = entries.get(project.id);
+				if (!entry?.originalFile && !entry?.fileHandle) return;
 				if (d.getProject()?.id === project.id) await d.flushInternal();
 				await write(latest.project, false);
 			}).catch(d.handleError);

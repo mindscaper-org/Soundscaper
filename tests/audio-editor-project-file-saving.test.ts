@@ -10,11 +10,12 @@ function fixture(desktop = true) {
 	const tabs = new Map([[current.id, current]]);
 	const writes: unknown[] = [], discarded: string[] = [], decisions: string[] = [];
 	const timers: Array<() => void> = [];
+	let flushes = 0;
 	let fail = false, cancelSave = false;
 	const service = createProjectFileSaving<Project>({
 		desktop, getProject: () => current, getPreferences: () => settings,
 		getProjects: () => [...tabs.values()].map(project => ({ project, readOnly: false })),
-		activate: async id => { current = tabs.get(id)!; }, flushInternal: async () => undefined,
+		activate: async id => { current = tabs.get(id)!; }, flushInternal: async () => { flushes += 1; },
 		write: async (_project, target) => { if (fail) throw new Error('disk full'); writes.push(target); return cancelSave ? { cancelled: true } : { fileHandle: target ?? { createWritable() {} } }; },
 		prepareOriginal: async original => ({ id: original.id, name: original.name }),
 		ask: async () => decisions.shift() as 'save' | 'discard' | 'cancel',
@@ -22,6 +23,7 @@ function fixture(desktop = true) {
 		schedule: callback => { timers.push(callback); return timers.length; }, clear: () => undefined,
 	});
 	return { service, tabs, writes, discarded, decisions, timers,
+		getFlushes: () => flushes,
 		edit: () => { current = { ...current, revision: current.revision + 1, title: `${current.title}!` }; tabs.set(current.id, current); service.observe(); },
 		setAuto: (value: boolean) => { settings = { ...settings, autoSaving: value }; service.observe(); },
 		setAsk: (value: boolean) => { settings = { ...settings, askBeforeClosing: value }; },
@@ -40,6 +42,13 @@ test('automatic file saving is opt in on desktop and uses a retained destination
 	const f = fixture(); await f.service.opened(f.getProject(), { fileHandle: { createWritable() {} } });
 	f.setAuto(true); f.edit(); f.timers.at(-1)!(); await f.service.drain();
 	assert.equal(f.writes.length, 1); assert.equal(await f.service.hasChanges(f.getProject()), false);
+});
+test('automatic file saving without a destination leaves internal autosave retries to their owner', async () => {
+	const f = fixture(false); f.service.observe(); f.edit();
+	f.timers.at(-1)!(); await f.service.drain();
+	assert.equal(f.getFlushes(), 0); assert.deepEqual(f.writes, []);
+	await f.service.save();
+	assert.equal(f.getFlushes(), 1); assert.equal(f.writes.length, 1);
 });
 test('new projects Save asks for a destination and a canceled picker keeps changes', async () => {
 	const f = fixture(); f.service.observe(); f.edit(); f.setCancelSave();
