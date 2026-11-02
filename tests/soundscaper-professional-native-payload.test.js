@@ -350,7 +350,7 @@ function hash(bytes) { return createHash('sha256').update(bytes).digest('hex'); 
 function sourceAuthentication(target) {
 	const sourceRegister = JSON.parse(readFileSync(join(ROOT,
 		'config/milestone-5-native-source-acquisitions.json'), 'utf8'));
-	const ids = ['electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+	const ids = ['electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 		...(target.startsWith('win-') ? ['asio-sdk'] : []),
 		...(target.startsWith('linux-') ? ['ladspa-sdk', 'lv2'] : [])];
 	return {

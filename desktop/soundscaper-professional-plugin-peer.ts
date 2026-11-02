@@ -466,7 +466,7 @@ function planes(value: readonly Float32Array[], count: number, frames: number) {
 
 function pluginFormats(value: readonly Exclude<HelperPluginFormat, 'fixture'>[]) {
 	if (!Array.isArray(value) || value.length < 1 || new Set(value).size !== value.length
-		|| value.some((format) => !['vst3', 'clap', 'au', 'lv2', 'ladspa'].includes(format))) {
+		|| value.some((format) => !['vst3', 'vst2', 'clap', 'au', 'lv2', 'ladspa'].includes(format))) {
 		throw new TypeError('The isolated peer needs exact professional formats.');
 	}
 	return Object.freeze([...value]);

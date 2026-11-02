@@ -101,7 +101,7 @@ async function sourceRoots(context, withdrawn = 'juce', embeddedVst3Version = '3
 	const roots = {
 		'electron-node-api-headers': join(root, 'electron-node-api-headers'),
 		juce: join(root, 'juce'), clap: join(root, 'clap'),
-		'vst3-sdk': join(root, 'vst3-sdk'),
+		'vst3-sdk': join(root, 'vst3-sdk'), fst: join(root, 'fst'),
 		'vamp-plugin-sdk': join(root, 'vamp-plugin-sdk'),
 		'ara-api': join(root, 'ara-api'), 'ara-library': join(root, 'ara-library'),
 		'ladspa-sdk': join(root, 'ladspa-sdk'),
@@ -114,6 +114,7 @@ async function sourceRoots(context, withdrawn = 'juce', embeddedVst3Version = '3
 		join(roots.juce, JUCE_VST3_SDK_CLOSURE, '.closure'),
 		join(roots.juce, JUCE_VST3_VERSION_HEADER),
 		join(roots.clap, 'include/clap/clap.h'),
+		join(roots.fst, 'fst/aeffect.h'), join(roots.fst, 'fst/aeffectx.h'), join(roots.fst, 'fst/fst.h'),
 		join(roots['vst3-sdk'], 'README.md'),
 		join(roots['ara-api'], 'ARAInterface.h'),
 		join(roots['ara-api'], 'ARA_Version.cmake'),
@@ -177,7 +178,7 @@ test('professional build plans bind exact SDK pins and never treat the VST3 meta
 	});
 	assert.deepEqual(linux.features.audioStreaming, ['pipewire', 'alsa']);
 	assert.deepEqual(linux.features.discoveryOnly, ['jack']);
-	assert.deepEqual(linux.features.plugins, ['vst3', 'clap', 'lv2', 'ladspa']);
+	assert.deepEqual(linux.features.plugins, ['vst3', 'vst2', 'clap', 'lv2', 'ladspa']);
 	assert.deepEqual(linux.features.analyzers, ['vamp']);
 	assert.deepEqual(linux.vst3Closure, {
 		kind: 'juce-embedded-sdk',
@@ -192,6 +193,7 @@ test('professional build plans bind exact SDK pins and never treat the VST3 meta
 	assert.match(linux.configure.argv.join(' '), /SOUNDSCAPER_LV2_ROOT/u);
 	assert.match(linux.configure.argv.join(' '), /SOUNDSCAPER_LADSPA_ROOT/u);
 	assert.match(linux.configure.argv.join(' '), /SOUNDSCAPER_VAMP_ROOT/u);
+	assert(linux.configure.argv.includes(`-DSOUNDSCAPER_FST_ROOT=${join(linux.sourceSnapshotRoot, 'fst')}`));
 	assert(linux.configure.argv.includes(`-DSOUNDSCAPER_ARA_SDK_ROOT=${linux.sourceSnapshotRoot}`));
 	assert.equal(linux.sourceAuthentication.find(({ id }) => id === 'ara-api').extractedTree.root,
 		join(linux.sourceSnapshotRoot, 'ARA_API'));

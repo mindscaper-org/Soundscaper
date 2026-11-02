@@ -156,18 +156,33 @@ fallback, with the backend change reported and the project unchanged.
 
 Plug-in discovery and execution are separate helper kinds and security controls.
 Scanning grants no project audio and hosts no project instance. Scan roots are
-main-owned grants, scanning never runs automatically at startup, and consent is
-per format.
+main-owned grants. New installations automatically discover supported standard
+folders when the editor opens; saved discovery settings and folder choices are
+preserved. Consent remains per format.
 
 Registry identity is the format plus its native stable identifier. An installed
 binary additionally binds platform, architecture, version, and digest. A new or
 changed digest requires an explicit allow decision; path ordering never resolves
 a stable-ID collision silently.
 
-VST3 and CLAP are cross-platform effect targets, Audio Units is macOS-only,
+VST2, VST3 and CLAP are cross-platform effect targets, Audio Units is macOS-only,
 LADSPA and LV2 effects are Linux-only, and Vamp is an analyzer rather than an
 effect. Instrument descriptors may be discovered but are not materialized by
 this surface.
+
+VST2 uses JUCE's legacy host with the authenticated FST 0.177.0
+GPL-3.0-or-later compatibility headers, without the proprietary Steinberg SDK.
+The build copy restores the fixed inline-array storage floors that JUCE's
+legacy record allocation expects; the pinned FST source remains unchanged.
+VST2 uses the same automatic standard-folder discovery and plug-in preferences
+as the other formats, including saved discovery settings and folder choices.
+Candidates are `.vst` bundles on macOS, `.dll` files on Windows, and `.so`
+files on Linux. Plug-ins must match the desktop process architecture; no
+32-bit bridge or cross-architecture emulation is provided. VST2 instances use
+the same isolation, digest allowance, parameters, vendor windows, latency,
+opaque state, real-time and offline routes as the other native effects. ARA
+remains VST3-only. The native CTest fixture exercises VST2 discovery,
+processing, parameters, latency and state restoration into a new instance.
 
 Runtime hosting isolates one renderer owner and one plug-in digest per process.
 Opaque state is retained exactly and capped at 16 MiB per instance. State and

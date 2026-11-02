@@ -145,7 +145,7 @@ and [Audition markers](https://helpx.adobe.com/audition/desktop/editing-audio-fi
 | Parametric EQ | + — a new parametric EQ with automatable bands | + — a new parametric EQ with automatable bands | ~ — Filter Curve and Graphic EQ | + — parametric, graphic, and FFT filters |
 | Effect presets | + — apply, save, import, export | + — apply, save, import, export | + — apply, save, import, export | + |
 | Macros and batch chains | + — saved macro library with templates | + — saved macro library with templates | / — the pinned build comments the Macros menu out | + — Favorites and Batch Process |
-| Third-party plug-in formats | / — native plug-ins require Desktop | + — VST3, CLAP, AU, LV2, Linux LADSPA, and Vamp; platform-specific, with consent and containment | + — VST3, AU, LV2, and Nyquist, with a plug-in manager | ~ — VST3, and AU on macOS, no CLAP or LV2 |
+| Third-party plug-in formats | / — native plug-ins require Desktop | + — VST2, VST3, CLAP, AU, LV2, Linux LADSPA, and Vamp; platform-specific, with consent and containment | + — VST3, AU, LV2, and Nyquist, with a plug-in manager | ~ — VST3, and AU on macOS, no CLAP or LV2 |
 | ARA clip editing | / — native ARA hosting requires Desktop | + — one mono or stereo clip through an allowed ARA-capable VST3 plug-in and matching native runtime | / — no ARA host in the audited build | / — no ARA host documented in the audited plug-in workflow |
 | Nyquist scripting | + — bundled plug-ins and the Nyquist prompt | + — bundled plug-ins and the Nyquist prompt | + — bundled plug-ins and the Nyquist prompt | / |
 | Sandboxed effect packages | ~ — reviewed WebAssembly packages, one ships and external ones are fenced | ~ — reviewed WebAssembly packages, one ships and external ones are fenced | / | / |

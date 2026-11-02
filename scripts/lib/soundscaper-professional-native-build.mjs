@@ -46,6 +46,7 @@ const LV2_INCLUDE_ROOT = 'include';
 const EXPECTED = Object.freeze({
 	'electron-node-api-headers': Object.freeze({ version: '43.8.3', commit: null, license: 'MIT' }),
 	juce: Object.freeze({ version: '9.0.1', commit: 'e18f7f506c0b96f2c738a0bcd7fe6467a5005ad8', license: 'AGPL-3.0-only' }),
+	fst: Object.freeze({ version: '0.177.0', commit: '30f49e6fe97cb822eaadcc6e1ae9941d004bff54', license: 'GPL-3.0-or-later' }),
 	clap: Object.freeze({ version: '1.2.4', commit: '00113aabdccf69c2e27ac269c35b369770e8fa73', license: 'MIT' }),
 	'vst3-sdk': Object.freeze({ version: '3.8.0_build_66', commit: '9fad9770f2ae8542ab1a548a68c1ad1ac690abe0', license: 'MIT' }),
 	'vamp-plugin-sdk': Object.freeze({ version: '2.10.0', commit: '67adfc2bf9486912a0fce5123cf54360ea2678bc', license: 'BSD-3-Clause' }),
@@ -95,7 +96,7 @@ export function createSoundscaperProfessionalNativeBuildPlan(options) {
 	const register = readMilestone5NativeSourceAcquisitions(repositoryRoot, sourceManifestPath);
 	for (const [id, expected] of Object.entries(EXPECTED)) assertSource(register, id, expected);
 	const requiredSourceIds = [
-		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 		...(target.startsWith('win-') ? ['asio-sdk'] : []),
 		...(target.startsWith('linux-') ? ['ladspa-sdk', 'lv2'] : []),
 	];
@@ -147,6 +148,9 @@ function authenticatedBuildPlan({
 	assertFile(snapshotRoots['ara-api'], 'ARAInterface.h', 'ARA 2.3.0 API');
 	assertFile(snapshotRoots['ara-api'], 'ARA_Version.cmake', 'ARA 2.3.0 version');
 	assertFile(snapshotRoots['ara-library'], 'Dispatch/ARAHostDispatch.h', 'ARA 2.3.0 host library');
+	assertFile(snapshotRoots.fst, 'fst/aeffect.h', 'FST VST2 compatibility header');
+	assertFile(snapshotRoots.fst, 'fst/aeffectx.h', 'FST VST2 compatibility extensions');
+	assertFile(snapshotRoots.fst, 'fst/fst.h', 'FST VST2 ABI');
 	assertFile(snapshotRoots.clap, 'include/clap/clap.h', 'direct CLAP 1.2.4 ABI');
 	assertFile(snapshotRoots['vamp-plugin-sdk'], 'vamp/vamp.h', 'Vamp SDK 2.10 C ABI');
 	assertFile(snapshotRoots['vamp-plugin-sdk'], 'vamp-hostsdk/PluginHostAdapter.h', 'Vamp SDK 2.10 host adapter');
@@ -162,6 +166,7 @@ function authenticatedBuildPlan({
 		: ['-G', 'Ninja'];
 	const definitions = [
 		`-DSOUNDSCAPER_JUCE_ROOT=${snapshotRoots.juce}`,
+		`-DSOUNDSCAPER_FST_ROOT=${snapshotRoots.fst}`,
 		`-DSOUNDSCAPER_CLAP_ROOT=${snapshotRoots.clap}`,
 		`-DSOUNDSCAPER_VAMP_ROOT=${snapshotRoots['vamp-plugin-sdk']}`,
 		`-DSOUNDSCAPER_ARA_SDK_ROOT=${snapshotParent}`,
@@ -268,11 +273,11 @@ function sourceAuthenticationSummary(witnesses) {
 function normalizeSourceRoots(value) {
 	assert(value && typeof value === 'object' && !Array.isArray(value), 'Native sourceRoots must be a record.');
 	const roots = {};
-	for (const id of ['electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'vamp-plugin-sdk', 'ara-api', 'ara-library', 'asio-sdk', 'ladspa-sdk', 'lv2']) {
+	for (const id of ['electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library', 'asio-sdk', 'ladspa-sdk', 'lv2']) {
 		if (value[id] !== undefined) roots[id] = resolve(String(value[id]));
 	}
-	assert(roots['electron-node-api-headers'] && roots.juce && roots.clap && roots['vst3-sdk'] && roots['vamp-plugin-sdk'] && roots['ara-api'] && roots['ara-library'],
-		'Electron Node-API headers, JUCE, direct CLAP, VST3 provenance, Vamp, and ARA extracted source roots are required.');
+	assert(roots['electron-node-api-headers'] && roots.juce && roots.clap && roots['vst3-sdk'] && roots.fst && roots['vamp-plugin-sdk'] && roots['ara-api'] && roots['ara-library'],
+		'Electron Node-API headers, JUCE, direct CLAP, VST3 provenance, FST, Vamp, and ARA extracted source roots are required.');
 	return roots;
 }
 
@@ -280,11 +285,11 @@ function normalizeSourceArchives(value) {
 	assert(value && typeof value === 'object' && !Array.isArray(value),
 		'Native sourceArchives must be a record.');
 	const archives = {};
-	for (const id of ['electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'vamp-plugin-sdk', 'ara-api', 'ara-library', 'asio-sdk', 'ladspa-sdk', 'lv2']) {
+	for (const id of ['electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library', 'asio-sdk', 'ladspa-sdk', 'lv2']) {
 		if (value[id] !== undefined) archives[id] = resolve(String(value[id]));
 	}
-	assert(archives['electron-node-api-headers'] && archives.juce && archives.clap && archives['vst3-sdk'] && archives['vamp-plugin-sdk'] && archives['ara-api'] && archives['ara-library'],
-		'Electron Node-API headers, JUCE, direct CLAP, VST3 provenance, Vamp, and ARA source archives are required.');
+	assert(archives['electron-node-api-headers'] && archives.juce && archives.clap && archives['vst3-sdk'] && archives.fst && archives['vamp-plugin-sdk'] && archives['ara-api'] && archives['ara-library'],
+		'Electron Node-API headers, JUCE, direct CLAP, VST3 provenance, FST, Vamp, and ARA source archives are required.');
 	return archives;
 }
 
@@ -337,8 +342,8 @@ function featuresFor(target) {
 			: target === 'mac-arm64' ? ['coreaudio'] : ['wasapi', 'asio']),
 		discoveryOnly: Object.freeze(target.startsWith('linux-') ? ['jack'] : []),
 		plugins: Object.freeze(target.startsWith('linux-')
-			? ['vst3', 'clap', 'lv2', 'ladspa']
-			: target === 'mac-arm64' ? ['vst3', 'clap', 'au'] : ['vst3', 'clap']),
+			? ['vst3', 'vst2', 'clap', 'lv2', 'ladspa']
+			: target === 'mac-arm64' ? ['vst3', 'vst2', 'clap', 'au'] : ['vst3', 'vst2', 'clap']),
 		analyzers: Object.freeze(['vamp']),
 		araCompanionFormats: Object.freeze(['vst3']),
 	});

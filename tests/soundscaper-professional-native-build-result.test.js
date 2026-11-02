@@ -54,13 +54,13 @@ test('self-test authority recognizes a normalized path on another Windows volume
 
 test('Soundscaper build-result source scope excludes every Framescaper codec input', () => {
 	assert.deepEqual(soundscaperProfessionalNativeSourceIdsForTarget('mac-arm64'), [
-		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 	]);
 	assert.deepEqual(soundscaperProfessionalNativeSourceIdsForTarget('win-arm64'), [
-		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'vamp-plugin-sdk', 'ara-api', 'ara-library', 'asio-sdk',
+		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library', 'asio-sdk',
 	]);
 	assert.deepEqual(soundscaperProfessionalNativeSourceIdsForTarget('linux-x64'), [
-		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'vamp-plugin-sdk', 'ara-api', 'ara-library', 'ladspa-sdk', 'lv2',
+		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library', 'ladspa-sdk', 'lv2',
 	]);
 	assert.throws(() => soundscaperProfessionalNativeSourceIdsForTarget('mac-x64'), /target/u);
 });
@@ -505,11 +505,11 @@ function sourceAuthentication(target) {
 		sources: soundscaperProfessionalNativeSourceIdsForTarget(target).map((id, index) => ({
 			id,
 			authenticationStatus: 'authenticated',
-			archiveEvidence: { byteLength: index + 1, sha256: `${index}`.repeat(64) },
+			archiveEvidence: { byteLength: index + 1, sha256: sha256(`archive:${index}`) },
 			extractedTreeEvidence: {
 				algorithm: 'framescaper-portable-source-tree-sha256-v1',
 				fileCount: index + 1,
-				sha256: `${index + 1}`.repeat(64),
+				sha256: sha256(`tree:${index}`),
 			},
 		})),
 	};

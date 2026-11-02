@@ -46,23 +46,31 @@ function runner(addon, hashFile = async (path) => ({ byteLength: path.length, sh
 	});
 }
 
-test('an authenticated professional payload can inspect an admitted VST3 bundle', async () => {
+for (const [format, platform, suffix] of [
+	['vst3', 'linux', '.vst3'], ['vst2', 'linux', '.so'],
+	['vst2', 'darwin', '.vst'], ['vst2', 'win32', '.dll'],
+]) test(`an authenticated payload inspects ${format} on ${platform}`, async () => {
 	const inspected = [];
-	const addon = fakeAddon(['/roots/a.vst3'], {}, ['vst3']);
-	const scan = runner({
-		...addon,
-		inspectPluginCandidate: (path, format) => {
-			inspected.push([path, format]);
-			return addon.inspectPluginCandidate(path, format);
-		},
+	const path = `/roots/a${suffix}`;
+	const addon = fakeAddon([path], {}, [format]);
+	const scan = createNativePluginScanJobRunner({
+		platform, addonPath: '/unused', addonSha256: 'f'.repeat(64),
+		hashFile: async () => ({ byteLength: 100, sha256: 'a'.repeat(64) }),
+		loadAddon: async () => ({
+			...addon,
+			inspectPluginCandidate: (path, format) => {
+				inspected.push([path, format]);
+				return addon.inspectPluginCandidate(path, format);
+			},
+		}),
 	});
 	const result = await scan({
-		grant: { rootPath: '/roots', format: 'vst3', identity: { dev: 1, ino: 2 } },
+		grant: { rootPath: '/roots', format, identity: { dev: 1, ino: 2 } },
 		onProgress: () => {},
 	}).completion;
 	assert.equal(result.status, 'scanned');
-	assert.deepEqual(inspected, [['/roots/a.vst3', 'vst3']]);
-	assert.equal(result.entries[0].binaryPath, '/roots/a.vst3');
+	assert.deepEqual(inspected, [[path, format]]);
+	assert.equal(result.entries[0].binaryPath, path);
 });
 
 test('one authenticated bundle publishes each exact format-native descriptor', async () => {
@@ -113,7 +121,7 @@ test('a bundle descriptor set refuses empty, unbounded, or duplicate native IDs'
 
 test('the helper names every implemented suffix but requires payload capability', async () => {
 	assert.deepEqual(Object.keys(SCANNABLE_PLUGIN_FORMATS), [
-		'fixture', 'vst3', 'clap', 'au', 'lv2', 'ladspa', 'vamp',
+		'fixture', 'vst2', 'vst3', 'clap', 'au', 'lv2', 'ladspa', 'vamp',
 	]);
 	assert.deepEqual(SCANNABLE_PLUGIN_FORMATS.ladspa.linux, ['.so']);
 	assert.deepEqual(SCANNABLE_PLUGIN_FORMATS.vamp, {

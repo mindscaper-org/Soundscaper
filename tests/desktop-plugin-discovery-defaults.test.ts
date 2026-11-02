@@ -7,13 +7,22 @@ import { createDefaultPluginDiscoveryConsent } from '../desktop/plugin-discovery
 test('new enabled installations admit standard folders only for activated platform formats', () => {
 	const consent = createDefaultPluginDiscoveryConsent({
 		pickDirectory: () => Promise.resolve(null), platform: 'linux', homeDirectory: '/home/editor',
-	}, { enabled: true, isFormatActivated: (format) => ['vst3', 'au'].includes(format) });
+	}, { enabled: true, isFormatActivated: (format) => ['vst3', 'vst2', 'au'].includes(format) });
 	const view = consent.describe();
 	assert.equal(view.formats.find((format) => format.format === 'vst3')?.granted, true);
 	assert.deepEqual(consent.scanTargets('vst3').map((root) => root.path), ['/usr/lib/vst3', '/usr/local/lib/vst3', '/home/editor/.vst3']);
+	assert.equal(view.formats.find((format) => format.format === 'vst2')?.granted, true);
+	assert.deepEqual(consent.scanTargets('vst2').map((root) => root.path), ['/usr/lib/vst', '/usr/local/lib/vst', '/home/editor/.vst']);
 	assert.equal(view.formats.find((format) => format.format === 'clap')?.granted, false);
 	assert.equal(view.formats.find((format) => format.format === 'au')?.granted, false);
 	assert.equal(view.formats.some((format) => format.roots.some((root) => root.origin === 'custom')), false);
+});
+
+test('VST2 receives no default grants when its format is inactive', () => {
+	const consent = createDefaultPluginDiscoveryConsent({ pickDirectory: () => Promise.resolve(null), platform: 'linux' },
+		{ enabled: true, isFormatActivated: (format) => format !== 'vst2' });
+	assert.equal(consent.isGranted('vst2'), false);
+	assert.throws(() => consent.scanTargets('vst2'), /consent/iu);
 });
 
 test('a saved disabled installation without a consent register receives no default folder grants', () => {

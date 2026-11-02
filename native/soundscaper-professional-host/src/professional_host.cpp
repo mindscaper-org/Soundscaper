@@ -77,7 +77,7 @@ bool pluginOpenValid(
 
 bool juceFormat(const std::string &format)
 {
-	return format == "vst3" || format == "au" || format == "ladspa" || format == "lv2";
+	return format == "vst3" || format == "vst2" || format == "au" || format == "ladspa" || format == "lv2";
 }
 
 bool opaqueWindowId(const char *value)
