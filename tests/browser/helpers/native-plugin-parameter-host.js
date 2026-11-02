@@ -26,6 +26,7 @@ export async function installNativePluginParameterHost(page, options = {}) {
 		let readsHeld = holdParameterReads;
 		const writes = [];
 		const requests = [];
+		const scans = [];
 		const stateBodies = new Map();
 		let delay = 0;
 		let persisted = 0;
@@ -50,7 +51,7 @@ export async function installNativePluginParameterHost(page, options = {}) {
 			formats: [{ format, consented: true }], consent: { scanningEnabled: true, formats: [{ format, supported: true,
 				granted: true, roots: [{ rootId: `system-${format}`, origin: 'standard', name: format.toUpperCase(), admitted: true }] }] }, quarantine };
 		Object.defineProperty(globalThis, '__nativePluginParameterHost', { configurable: true, value: {
-			values, writes, requests, setDelay: (milliseconds) => { delay = milliseconds; },
+			values, writes, requests, scans, setDelay: (milliseconds) => { delay = milliseconds; },
 			releaseParameterReads: () => { readsHeld = false; for (const reply of heldParameterReplies.splice(0)) reply(); },
 			get persisted() { return persisted; },
 		} });
@@ -67,7 +68,11 @@ export async function installNativePluginParameterHost(page, options = {}) {
 				payload: { status: 'unavailable', reason: 'not-built' }, backends: [] }),
 			setNativeAudioHelperEnabled: refused, describeNativeAudioBackend: refused,
 			nativePluginAvailability: async () => plugins, setNativePluginConsent: refused,
-			scanNativePlugins: refused, listNativePlugins: async () => registry,
+			scanNativePlugins: async ({ format: requestedFormat, rootId }) => {
+				if (requestedFormat !== format || rootId !== `system-${format}`) return refused();
+				scans.push({ format: requestedFormat, rootId });
+				return { status: 'described', scan: { format, status: 'scanned', detail: '', entries: [] } };
+			}, listNativePlugins: async () => registry,
 			openNativeAudioSession: refused, bindNativeAudioSession: refused, nativeAudioSessionStatus: refused,
 			calibrateNativeAudioSession: refused, reportNativeAudioSessionTransfer: refused,
 			reportNativeAudioSessionLoss: refused, closeNativeAudioSession: refused,
