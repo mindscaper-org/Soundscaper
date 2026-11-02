@@ -6,7 +6,7 @@ import test from 'node:test';
 import { extractJob, readWorkflow } from './helpers/workflow-jobs.js';
 
 test('each workflow compiles the desktop test runtime once and shares authenticated private-copy input across consuming execution slots', async () => {
-	for (const [workflow, producer] of [['quality.yml', 'build'], ['desktop-preview.yml', 'quality'], ['soundscaper-stable-1.yml', 'source']]) {
+	for (const [workflow, producer] of [['quality.yml', 'build'], ['desktop-preview.yml', 'build'], ['soundscaper-stable-1.yml', 'source']]) {
 		const source = await readWorkflow(workflow);
 		assert.match(extractJob(source, producer), /uses: \.\/\.github\/actions\/prepare-desktop-runtime-test-fixture/u);
 		const consumers = extractJob(source, 'tests');

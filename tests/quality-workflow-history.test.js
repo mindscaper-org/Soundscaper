@@ -9,11 +9,11 @@ import { expandNpmScript, extractJob, npmScriptsRunBy, readWorkflow } from './he
 
 // Both workflows run the static gate and Node suite. Quality also scores the
 // combined Node/Chromium coverage; desktop distribution only tests Electron.
-// Quality separates the static checks, while desktop preview runs them as one job
-// and resolves its release scope there.
+// Both workflows split static checks across independent jobs. Desktop preview
+// forwards the build's release scope through its aggregate quality job.
 const WORKFLOWS = new Map([
 	['quality.yml', { staticJobs: ['build', 'lint', 'typecheck', 'audits'], buildJob: 'build', historyJobs: ['audits'], coverageGate: true }],
-	['desktop-preview.yml', { staticJobs: ['quality'], buildJob: 'quality', historyJobs: ['quality'], coverageGate: false }],
+	['desktop-preview.yml', { staticJobs: ['build', 'lint', 'typecheck', 'audits'], buildJob: 'build', historyJobs: ['build', 'audits'], coverageGate: false }],
 ]);
 
 // `test:coverage` runs the whole Node suite and reports fresh local evidence.
