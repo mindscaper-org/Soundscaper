@@ -22,20 +22,23 @@ test('VST2 is an effect format on every maintained desktop target', () => {
 	}
 });
 
-test('VST2 scanning requires explicit consent and preserves that choice across restart', () => {
+test('VST2 uses standard discovery defaults and preserves saved choices across restart', () => {
 	for (const platform of ['linux', 'darwin', 'win32']) {
 		const options = { platform, homeDirectory: '/home/editor', pickDirectory: () => Promise.resolve(null) };
 		const consent = createDefaultPluginDiscoveryConsent(options, { enabled: true, isFormatActivated: () => true });
 		const offer = consent.describe().formats.find((format) => format.format === 'vst2');
 		assert.ok(offer?.supported);
-		assert.equal(offer.granted, false);
+		assert.equal(offer.granted, true);
 		assert.ok(offer.roots.length > 0);
-		assert.throws(() => consent.scanTargets('vst2'), /consent/iu);
-		consent.grant('vst2');
-		consent.admitStandardRoot('vst2', offer.roots[0].rootId);
-		assert.ok(consent.scanTargets('vst2')[0].path);
+		assert.ok(offer.roots.every((root) => root.admitted));
+		assert.equal(consent.scanTargets('vst2').length, offer.roots.length);
 		const restored = new DesktopPluginConsent({ ...options, state: consent.exportState() });
 		assert.deepEqual(restored.scanTargets('vst2'), consent.scanTargets('vst2'));
+		consent.revoke('vst2');
+		const disabled = createDefaultPluginDiscoveryConsent({ ...options, state: consent.exportState() },
+			{ enabled: true, isFormatActivated: () => true });
+		assert.equal(disabled.isGranted('vst2'), false);
+		assert.throws(() => disabled.scanTargets('vst2'), /consent/iu);
 	}
 });
 

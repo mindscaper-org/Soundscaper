@@ -156,8 +156,9 @@ fallback, with the backend change reported and the project unchanged.
 
 Plug-in discovery and execution are separate helper kinds and security controls.
 Scanning grants no project audio and hosts no project instance. Scan roots are
-main-owned grants, scanning never runs automatically at startup, and consent is
-per format.
+main-owned grants. New installations automatically discover supported standard
+folders when the editor opens; saved discovery settings and folder choices are
+preserved. Consent remains per format.
 
 Registry identity is the format plus its native stable identifier. An installed
 binary additionally binds platform, architecture, version, and digest. A new or
@@ -173,8 +174,8 @@ VST2 uses JUCE's legacy host with the authenticated FST 0.177.0
 GPL-3.0-or-later compatibility headers, without the proprietary Steinberg SDK.
 The build copy restores the fixed inline-array storage floors that JUCE's
 legacy record allocation expects; the pinned FST source remains unchanged.
-Enable it through the existing plug-in folder preferences before scanning:
-VST2 receives no automatic standard-folder grants on new installations.
+VST2 uses the same automatic standard-folder discovery and plug-in preferences
+as the other formats, including saved discovery settings and folder choices.
 Candidates are `.vst` bundles on macOS, `.dll` files on Windows, and `.so`
 files on Linux. Plug-ins must match the desktop process architecture; no
 32-bit bridge or cross-architecture emulation is provided. VST2 instances use
