@@ -14,6 +14,7 @@
 static_assert(sizeof(VstSpeakerArrangement) >= offsetof(VstSpeakerArrangement, speakers) + 8 * sizeof(VstSpeakerProperties));
 static_assert(sizeof(VstEvents) >= offsetof(VstEvents, events) + 2 * sizeof(void *));
 static_assert(sizeof(MidiKeyName) >= offsetof(MidiKeyName, keyName) + 64);
+static_assert(sizeof(VstPinProperties) == 128);
 
 #define REQUIRE(expression) do { if (!(expression)) { std::fprintf(stderr, "VST2 check failed at line %d: %s\n", __LINE__, #expression); return 1; } } while (false)
 

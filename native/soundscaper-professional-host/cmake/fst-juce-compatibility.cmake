@@ -20,5 +20,15 @@ function(soundscaper_write_fst_juce_header input output)
 		endif()
 		string(REPLACE "${before}" "${after}" source "${source}")
 	endforeach()
+	# Legacy plug-ins may write the complete 128-byte pin-properties record.
+	# FST omits its reserved tail, which otherwise leaves JUCE's stack allocation
+	# too small (including for its own short-label terminator).
+	set(pin_tail "  char shortLabel[8];\n} FST_UNKNOWN(t_fstPinProperties);")
+	string(FIND "${source}" "${pin_tail}" pin_position)
+	if(pin_position LESS 0)
+		message(FATAL_ERROR "The authenticated FST pin-properties declaration changed")
+	endif()
+	string(REPLACE "${pin_tail}"
+		"  char shortLabel[8];\n  char reserved[48];\n} FST_UNKNOWN(t_fstPinProperties);" source "${source}")
 	file(WRITE "${output}" "${source}")
 endfunction()
