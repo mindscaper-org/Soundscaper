@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdlib>
 #include <cstring>
+#include <thread>
 
 class Vst2Fixture final : public juce::AudioProcessor {
 public:
@@ -50,19 +51,22 @@ public:
 	void changeProgramName(int, const juce::String &) override {}
 	void getStateInformation(juce::MemoryBlock &state) override
 	{
-		if (!juce::MessageManager::getInstance()->isThisTheMessageThread()) std::abort();
+		if (std::this_thread::get_id() != controlThread) std::abort();
 		const float value = gain->get();
 		state.replaceAll(&value, sizeof(value));
 	}
 	void setStateInformation(const void *bytes, int length) override
 	{
-		if (!juce::MessageManager::getInstance()->isThisTheMessageThread()) std::abort();
+		if (std::this_thread::get_id() != controlThread) std::abort();
 		float value = 0.0F;
 		if (length != sizeof(value)) return;
 		std::memcpy(&value, bytes, sizeof(value));
 		if (std::isfinite(value) && value >= 0.0F && value <= 1.0F) *gain = value;
 	}
 private:
+	// Linux VST2's wrapper owns a separate JUCE GUI thread. State must instead
+	// stay on the host control thread that constructed this processor.
+	const std::thread::id controlThread = std::this_thread::get_id();
 	juce::AudioParameterFloat *gain = nullptr;
 	std::array<std::array<float, 8>, 2> delay{};
 	size_t position = 0;

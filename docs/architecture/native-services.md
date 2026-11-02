@@ -204,6 +204,8 @@ opaque state, real-time and offline routes as the other native effects. ARA
 remains VST3-only. Native CTest fixtures exercise VST2 and VST3 discovery,
 relocation between snapshots, processing, parameters, latency and state
 restoration into a new instance, alongside native LADSPA ID checks.
+The state fixture requires the host's processor-construction thread; the Linux
+VST2 wrapper's private JUCE GUI thread is independent of that host dispatcher.
 
 Runtime hosting isolates one renderer owner and one plug-in digest per process.
 Opaque state is retained exactly and capped at 16 MiB per instance. State and
