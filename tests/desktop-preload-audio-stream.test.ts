@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
-import { readDesktopPreloadSource } from './helpers/desktop-preload-source.mjs';
+import { desktopCodecPreloadContext } from './helpers/desktop-codec-preload-context.ts';
 import test from 'node:test';
-import vm from 'node:vm';
 
 interface StreamBridge { runDesktopAudioCodecStreamCommand(value: unknown): Promise<unknown>; }
 const plan = { schemaVersion: 1, frameCount: 3600 * 48000, maximumOutputBytes: 1_000_000_000,
@@ -10,15 +9,7 @@ const plan = { schemaVersion: 1, frameCount: 3600 * 48000, maximumOutputBytes: 1
 const operationId = `desktop-audio-stream-${'a'.repeat(32)}`;
 
 async function preload(invoke: (channel: string, value: unknown) => Promise<unknown>): Promise<StreamBridge> {
-	const exposed = new Map<string, unknown>();
-	const source = await readDesktopPreloadSource();
-	vm.runInNewContext(source, { AbortSignal, ArrayBuffer, Object, Promise, RangeError, String, TypeError, Uint8Array, URL,
-		require: (specifier: string) => {
-			assert.equal(specifier, 'electron');
-			return { contextBridge: { exposeInMainWorld: (name: string, value: unknown) => { exposed.set(name, value); } },
-				ipcRenderer: { invoke, send() {}, on() {}, removeListener() {} } };
-		} });
-	return (exposed.get('soundscaperDesktop') as { v1: StreamBridge }).v1;
+	return desktopCodecPreloadContext<StreamBridge>(invoke);
 }
 
 test('sandbox preload admits one-hour PCM offsets and copies only bounded pathless stream packets', async () => {

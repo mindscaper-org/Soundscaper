@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readDesktopPreloadSource } from './helpers/desktop-preload-source.mjs';
+import { desktopCodecPreloadContext } from './helpers/desktop-codec-preload-context.ts';
 import test from 'node:test';
-import vm from 'node:vm';
 
 const REQUEST = Object.freeze({
 	operation: 'audio-encode', format: 'opus', input: Uint8Array.of(0, 0, 0, 0),
-	sampleRate: 48_000, channelCount: 1, settings: Object.freeze({ bitrateKbps: 128 }),
+	sampleRate: 48_000, channelCount: 1, settings: Object.freeze({ bitrateKbps: 128, vbrMode: 1 }),
 	maximumOutputBytes: 4_096, requestId: `desktop-audio-${'a'.repeat(32)}`,
 });
 const RESULT = Object.freeze({
@@ -22,7 +21,7 @@ const CAPABILITY_QUERY = Object.freeze({
 	operations: Object.freeze([
 		Object.freeze({
 			operation: 'audio-encode', format: 'opus', sampleRate: 48_000, channelCount: 1,
-			settings: Object.freeze({ bitrateKbps: 128 }),
+			settings: Object.freeze({ bitrateKbps: 128, vbrMode: 1 }),
 		}),
 		Object.freeze({
 			operation: 'audio-decode', format: 'flac', sampleRate: 48_000, channelCount: 2,
@@ -127,17 +126,5 @@ test('sandbox preload rejects renderer paths, argv, malformed results, and cross
 });
 
 async function preloadBridge(invoke) {
-	const exposed = new Map();
-	const source = await readDesktopPreloadSource();
-	vm.runInNewContext(source, {
-		AbortSignal, ArrayBuffer, Object, Promise, RangeError, String, TypeError, Uint8Array, URL,
-		require: (specifier) => {
-			assert.equal(specifier, 'electron');
-			return {
-				contextBridge: { exposeInMainWorld: (name, value) => { exposed.set(name, value); } },
-				ipcRenderer: { invoke, send() {}, on() {}, removeListener() {} },
-			};
-		},
-	});
-	return exposed.get('soundscaperDesktop');
+	return { v1: await desktopCodecPreloadContext(invoke) };
 }
