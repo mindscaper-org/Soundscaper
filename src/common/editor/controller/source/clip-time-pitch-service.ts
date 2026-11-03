@@ -113,10 +113,11 @@ export interface ClipTimePitchCacheService<
 	): Promise<readonly Promise<ClipTimePitchCacheEntry>[]>;
 	beginPlaybackCachePreparation(
 		project: unknown,
-		options?: Readonly<{ abortController?: AbortController | null }>,
+		options?: Readonly<{ abortController?: AbortController | null; waitForFresh?: boolean }>,
 	): Promise<readonly Promise<ClipTimePitchCacheEntry>[]>;
 	cancelPlaybackCachePreparation(): boolean;
 	isPlaybackCachePreparationPending(): boolean;
+	hasPlaybackCachePreparation(): boolean;
 }
 
 export function createClipTimePitchCacheService<
@@ -136,6 +137,7 @@ export function createClipTimePitchCacheService<
 		beginPlaybackCachePreparation,
 		cancelPlaybackCachePreparation,
 		isPlaybackCachePreparationPending,
+		hasPlaybackCachePreparation,
 	});
 
 	function projectTimePitchPairs(
@@ -269,7 +271,8 @@ export function createClipTimePitchCacheService<
 		signal: AbortSignal,
 		projectToken: EditorProjectToken,
 	): Promise<readonly Promise<ClipTimePitchCacheEntry>[]> {
-		dependencies.cache.retainClipIds?.(snapshot.clips.map((clip) => clip.id));
+		// The incoming snapshot can omit clips that the active graph or history
+		// still uses. Document/session retention owns their cache retirement.
 		const refreshes: Promise<ClipTimePitchCacheEntry>[] = [];
 		for (const { clip, source } of projectTimePitchPairs(snapshot)) {
 			assertOwned(projectToken, signal);
@@ -291,7 +294,7 @@ export function createClipTimePitchCacheService<
 
 	async function beginPlaybackCachePreparation(
 		input: unknown,
-		options: Readonly<{ abortController?: AbortController | null }> = {},
+		options: Readonly<{ abortController?: AbortController | null; waitForFresh?: boolean }> = {},
 	): Promise<readonly Promise<ClipTimePitchCacheEntry>[]> {
 		dependencies.lifetime.assertActive();
 		const snapshot = admitTimePitchCacheProject(input);
@@ -305,7 +308,10 @@ export function createClipTimePitchCacheService<
 		try {
 			refreshes = await preparePlaybackOwned(snapshot, abort.signal, projectToken);
 			assertOwned(projectToken, abort.signal);
-			if (refreshes.length) {
+			if (options.waitForFresh) {
+				await Promise.all(refreshes);
+				assertPreparationOwned(snapshot, projectToken, generation, abort.signal);
+			} else if (refreshes.length) {
 				background = true;
 				if (generation === dependencies.playbackCacheState.playbackCacheGeneration) {
 					dependencies.playbackCacheState.playbackCacheAbort = null;
@@ -348,6 +354,10 @@ export function createClipTimePitchCacheService<
 
 	function isPlaybackCachePreparationPending(): boolean {
 		return dependencies.playbackCacheState.playbackCacheAbort !== null;
+	}
+
+	function hasPlaybackCachePreparation(): boolean {
+		return isPlaybackCachePreparationPending() || dependencies.playbackCacheState.playbackCacheRefreshAbort !== null;
 	}
 
 	function assertOwned(projectToken: EditorProjectToken, signal: AbortSignal | null): void {

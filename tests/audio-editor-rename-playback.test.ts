@@ -43,7 +43,8 @@ for (const command of [
 	assert.deepEqual(fixture.applied, [fixture.project()]);
 });
 
-for (const phase of ['preparing', 'applying'] as const) test(`a rename during pending playback ${phase} still applies the latest audio edit`, async () => {
+for (const followup of ['rename', 'selection', 'notes'] as const)
+for (const phase of ['preparing', 'applying'] as const) test(`a ${followup} change during pending playback ${phase} still applies the latest audio edit`, async () => {
 	let release!: () => void;
 	const pending = new Promise<void>(resolve => { release = resolve; });
 	let entered!: () => void;
@@ -60,18 +61,37 @@ for (const phase of ['preparing', 'applying'] as const) test(`a rename during pe
 	fixture.service.commit({ type: 'clip/update', clipId: 'clip', changes: { gain: .5 } });
 	await started;
 	try {
-		fixture.service.commit(namingCommands[0]);
+		if (followup === 'selection') {
+			fixture.service.updateSelection({ type: 'selection/set', startFrame: 0, endFrame: 1 });
+		} else if (followup === 'notes') {
+			fixture.service.commit({ type: 'project/recording-notes-set', notes: 'Session notes' }, {}, { skipPlaybackEngine: true });
+		} else fixture.service.commit(namingCommands[0]);
 		await nextTurn();
 	} finally {
 		release();
 	}
 	await nextTurn();
-	assert.equal(fixture.applied.at(-1), fixture.project(), 'the name change cannot strand the preceding audio edit');
+	assert.equal(fixture.applied.at(-1), fixture.project(), 'a document-only change cannot strand the preceding audio edit');
 	assert.deepEqual(fixture.errors, []);
 	const applied = fixture.applied.length;
 	fixture.service.commit(namingCommands[1]);
 	await nextTurn();
 	assert.equal(fixture.applied.length, applied, 'after pending audio settles, renames leave playback intact again');
+});
+
+test('selection changes alone leave playback intact', async () => {
+	const fixture = mutationFixture();
+	fixture.service.updateSelection({ type: 'selection/set', startFrame: 0, endFrame: 1 });
+	await nextTurn();
+	assert.equal(fixture.prepared(), 0);
+	assert.deepEqual(fixture.applied, []);
+});
+
+test('audio edits request fully rendered replacement audio before publication', async () => {
+	const fixture = mutationFixture();
+	fixture.service.commit({ type: 'clip/update', clipId: 'clip', changes: { speedRatio: .5 } });
+	await nextTurn();
+	assert.deepEqual(fixture.preparationOptions, [{ waitForFresh: true }]);
 });
 
 test('an explicit playback refresh overrides the name-only optimization', async () => {
@@ -94,7 +114,7 @@ test('a failed playback refresh releases its pending state', async () => {
 });
 
 function mutationFixture(options: { before?: (phase: 'preparing' | 'applying') => Promise<void> } = {}) {
-	const initial = { id: 'project', revision: 0, tracks: [{ id: 'track' }], clips: [{ id: 'clip' }] };
+	const initial = { id: 'project', revision: 0, selectionRevision: 0, tracks: [{ id: 'track' }], clips: [{ id: 'clip' }] };
 	type Project = typeof initial;
 	let project = initial;
 	const state = {
@@ -109,6 +129,7 @@ function mutationFixture(options: { before?: (phase: 'preparing' | 'applying') =
 	let published = 0;
 	let saved = 0;
 	const applied: Project[] = [];
+	const preparationOptions: unknown[] = [];
 	const errors: unknown[] = [];
 	const service = createProjectMutationService({
 		lifetime: { capture: () => 1, assertActive() {} }, state,
@@ -125,7 +146,7 @@ function mutationFixture(options: { before?: (phase: 'preparing' | 'applying') =
 			return { present: { ...history.present, revision: history.present.revision + 1 },
 				undoStack: [...history.undoStack, { project: history.present }] };
 		},
-		applyEditorCommand: value => value,
+		applyEditorCommand: value => ({ ...value, selectionRevision: value.selectionRevision + 1 }),
 		retention: { compactLiveSourceState() {}, retainLiveClipIds() {}, synchronizeLiveHistory: value => value },
 		publisher: { publishProjectState() { published += 1; } },
 		saves: { scheduleAutosave() { saved += 1; return true; }, flushProject() {} },
@@ -135,11 +156,15 @@ function mutationFixture(options: { before?: (phase: 'preparing' | 'applying') =
 		findTrack: (value, id) => value.tracks.find(track => track.id === id) ?? null,
 		synchronizeMicrophoneMeterTarget() {}, synchronizeAnnotationFocus() {},
 		getPlaybackState: () => 'playing', projectHasTimePitchClips: () => true,
-		async beginPlaybackCachePreparation() { prepared += 1; await options.before?.('preparing'); },
+		async beginPlaybackCachePreparation(_project, prepareOptions?: unknown) {
+			preparationOptions.push(prepareOptions);
+			prepared += 1;
+			await options.before?.('preparing');
+		},
 		async applyProjectToPlaybackEngine(value) { applied.push(value); await options.before?.('applying'); },
 		captureProject: (projectId: string) => projectId, assertProject() {},
 		handleError(error) { errors.push(error); }, isExpectedCancellation: () => false,
 	});
-	return { service, state, applied, errors, project: () => project,
+	return { service, state, applied, errors, preparationOptions, project: () => project,
 		prepared: () => prepared, published: () => published, saved: () => saved };
 }

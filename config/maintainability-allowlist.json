@@ -51,7 +51,7 @@
 		"src/common/editor/audacity-effects/manifest.js": 573,
 		"src/common/editor/automation-lane-interval-edit-v21.ts": 568,
 		"src/common/editor/browser-audio-codec-runtime.ts": 558,
-		"src/common/editor/clip-time-pitch-cache.js": 565,
+		"src/common/editor/clip-time-pitch-cache.js": 556,
 		"src/common/editor/controller/assistance/local-assistance-selected-video.ts": 552,
 		"src/common/editor/controller/capture/framescaper-capture-app-composition.ts": 589,
 		"src/common/editor/controller/capture/internal/framescaper-capture-durable-session.ts": 589,
