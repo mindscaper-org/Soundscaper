@@ -55,6 +55,8 @@ export interface SpeechModelPaths {
 }
 
 export interface SpeechRecognitionRequest {
+	/** Main-owned operation identity, preserved through helper execution and GPU receipts. */
+	readonly jobId?: string;
 	/** Stable catalog identity when available; exact artifact digests remain authority. */
 	readonly modelId?: string;
 	readonly audioPath: string;

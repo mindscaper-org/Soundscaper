@@ -380,7 +380,7 @@ async function executeSpeech(
 	if (!runtimeStatus.available) return 'runtime-unavailable';
 	emit('running');
 	return options.runtime.recognize({
-		modelId: request.models[0]!.modelId, audioPath, voiceActivityPath, model, signal,
+		jobId: request.jobId, modelId: request.models[0]!.modelId, audioPath, voiceActivityPath, model, signal,
 		onProgress: ({ completed, total }) => emit('running', completed, total),
 	});
 }
@@ -432,7 +432,7 @@ async function executeVoiceActivity(
 	if (!runtimeStatus.available) return 'runtime-unavailable';
 	emit('running');
 	return runtime.detect({
-		modelId: request.models[0]!.modelId, audioPath,
+		jobId: request.jobId, modelId: request.models[0]!.modelId, audioPath,
 		model: { model: modelPath }, signal,
 		onProgress: ({ completed, total }) => emit('running', completed, total),
 	});
@@ -459,7 +459,7 @@ async function executeSpeakerDiarization(
 	if (!runtimeStatus.available) return 'runtime-unavailable';
 	emit('running');
 	return runtime.diarize({
-		audioPath,
+		jobId: request.jobId, audioPath,
 		modelIds: {
 			segmentation: segmentation.binding.modelId,
 			embedding: embedding.binding.modelId,
