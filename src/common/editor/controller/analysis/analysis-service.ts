@@ -1,5 +1,6 @@
 import { createAnalysisDocumentFingerprint } from './internal/analysis-document-fingerprint.ts';
-import { spectrumReport, clippingReport, normalizeSpectrumSize } from '../../specialized-audio-analysis.ts';
+import { normalizeSpectrumSize } from '../../specialized-audio-analysis.ts';
+import { renderSpecializedAnalysis, type SpectrumTrack } from './internal/specialized-analysis-report.ts';
 import { AUDIO_CLIPPING_FULL_SCALE_THRESHOLD } from '../../audio-clipping-regions.ts';
 import { createLocalizedError, setLocalizedStatus } from '../../../i18n/presentation-message.ts';
 import { measureBextLoudness } from '../../broadcast-loudness.ts';
@@ -95,6 +96,7 @@ export interface AnalysisDependencies {
 	assertProject(token: EditorProjectToken): void;
 	getProject(): AnalysisProjectIdentity;
 	getSelectedTrackId(): string | null;
+	getSpectrumTracks?(): readonly SpectrumTrack[];
 	getRange(): AnalysisRange;
 	getActiveSelection(): AnalysisRange | null;
 	/** Opt in only when this opaque generation binds all immutable render inputs. */
@@ -216,6 +218,8 @@ export function createAudioAnalysisService(dependencies: AnalysisDependencies) {
 		const project = dependencies.getProject();
 		if (!project.clips.length) return null;
 		const request = captureRequest(project, scope, dependencies.getRange(), dependencies.getSelectedTrackId());
+		const tracks = type === 'spectrum' && scope === 'master'
+			? (dependencies.getSpectrumTracks?.() ?? []).map(track => Object.freeze({ ...track })) : [];
 		const projectToken = dependencies.captureProject();
 		const task = begin('analysisRendering');
 		try {
@@ -223,7 +227,7 @@ export function createAudioAnalysisService(dependencies: AnalysisDependencies) {
 			const reportOptions = type === 'spectrum'
 				? { size: normalizeSpectrumSize(options.size ?? dependencies.getSpectrumWindowSize()) }
 				: { threshold: Number(options.threshold ?? AUDIO_CLIPPING_FULL_SCALE_THRESHOLD), minimumConsecutiveSamples: Number(options.minimumConsecutiveSamples ?? 3) };
-			const key = JSON.stringify([analysisDocumentFingerprint(project), request, type, reportOptions]);
+			const key = JSON.stringify([analysisDocumentFingerprint(project), request, type, reportOptions, tracks]);
 			if (specializedCache?.key === key) {
 				const cached = specializedCache;
 				complete(task, () => {
@@ -233,15 +237,11 @@ export function createAudioAnalysisService(dependencies: AnalysisDependencies) {
 				});
 				return cached.report;
 			}
-			const { channels, sampleRate } = await renderChannels(request, task, projectToken);
-			if (type === 'spectrum' && (channels[0]?.length ?? 0) < Number(reportOptions.size)) {
-				throw createLocalizedError(RangeError, copy, 'spectrumSelectionTooShort', { samples: Number(reportOptions.size) });
-			}
-			const visuals = dependencies.createVisuals(channels, sampleRate);
-			const report = await (dependencies.createSpecializedReport
-				? dependencies.createSpecializedReport(type, scope, request.range, channels, sampleRate, reportOptions, task.signal)
-				: Promise.resolve(type === 'spectrum' ? spectrumReport(scope, request.range, channels, sampleRate, reportOptions)
-					: clippingReport(scope, request.range, channels, reportOptions)));
+			const { visuals, report } = await renderSpecializedAnalysis(
+				{ type, scope, range: request.range, options: reportOptions, tracks, signal: task.signal }, dependencies,
+				(renderScope, trackId = request.selectedTrackId) => renderChannels({ ...request, scope: renderScope, selectedTrackId: trackId }, task, projectToken),
+				() => assertCurrent(task, projectToken, request),
+			);
 			const result = null;
 			assertCurrent(task, projectToken, request);
 			complete(task, () => {
