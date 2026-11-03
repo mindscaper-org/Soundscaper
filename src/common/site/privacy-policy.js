@@ -4,21 +4,21 @@ import { privacyPolicyLocale, privacyPolicyPath, privacyPolicyUrl } from './priv
 
 export { privacyPolicyLocale, privacyPolicyPath, privacyPolicyUrl };
 
-const EFFECTIVE_DATE = Object.freeze({ en: '15 October 2026', de: '15. Oktober 2026' });
-const CONTROLLER = 'Koytek Wattenberg Media UG (haftungsbeschränkt)';
-const ADDRESS = 'Spiekerskamp 26, 45772 Marl, Germany';
+const EFFECTIVE_DATE = Object.freeze({ en: '3 November 2026', de: '3. November 2026' });
+const CONTROLLER = 'Mindscaper';
+const ADDRESS = 'Kirke Allé 5a, 6400 Sønderborg';
 const CONTACT = 'privacy@support.soundscaper.org';
 
 const POLICY = Object.freeze({
 	en: Object.freeze({
 		title: 'Privacy Policy',
-		summary: 'Soundscaper and Framescaper are local-first media editors. Your projects and media normally stay on your device. This policy explains the limited situations in which technical data is sent over a network.',
+		summary: 'Soundscaper and Framescaper are local media editors. While you do connect to a server to download assets or check for updates, your projects and recordings never leave your device. There is no telemetry. The only time your projects get exposed to others is if you choose to upload them to an online service.',
 		sections: Object.freeze([
 			section('overview', '1. Scope and overview', `
 				<p>This policy covers Soundscaper and Framescaper, including their web applications, directly distributed Electron desktop applications, documentation, translations, runtime assets, and optional local-assistance features. It does not cover future app-store distributions.</p>
 				<p>There are no Soundscaper or Framescaper accounts and no project synchronization. Connecting an existing Freesound or audio.com account is optional and does not create a Soundscaper account. We use no advertising, no product analytics, no profiling, and no automated decision-making that produces legal or similarly significant effects. We do not sell personal data.</p>`),
 			section('controller', '2. Controller and contact', `
-				<p>The controller is <strong>${CONTROLLER}</strong>, ${ADDRESS}.</p>
+				<p>The controller is <strong>${CONTROLLER}</strong>, ${ADDRESS}, Denmark.</p>
 				<p>For privacy questions and requests, email <a href="mailto:${CONTACT}">${CONTACT}</a>. Messages are delivered through our configured email provider, Migadu.</p>`),
 			section('local-data', '3. Data kept on your device', `
 				<p>Projects, imported media, recordings, capture recovery data, working files, waveform and proxy derivatives, preferences, local model artifacts, and Web VCR browser profiles are stored on your device. Media processing and local-assistance inference run on your device. We cannot access these local files.</p>
@@ -61,22 +61,22 @@ const POLICY = Object.freeze({
 				<p>We use transport encryption, restrictive browser security headers, isolated desktop bridges, integrity checks for downloaded runtime and model artifacts, and local storage boundaries appropriate to the feature. No system is completely secure. Protect your device and backups, install trusted updates, and use device encryption where appropriate.</p>`),
 			section('rights', '11. Your rights', `
 				<p>Subject to applicable law, you may request access, correction, deletion, restriction, or portability of personal data we process, and object to processing based on legitimate interests. You may withdraw consent for future processing where processing is based on consent. Contact us at <a href="mailto:${CONTACT}">${CONTACT}</a>.</p>
-				<p>Because we cannot access locally stored projects or media, we cannot retrieve, correct, or delete those files for you. You may lodge a complaint with a competent supervisory authority. Our German lead authority is the State Commissioner for Data Protection and Freedom of Information North Rhine-Westphalia (LDI NRW).</p>`),
+				<p>Because we cannot access locally stored projects or media, we cannot retrieve, correct, or delete those files for you. You may lodge a complaint with a competent supervisory authority. Our Danish lead authority is the Danish Data Protection Agency (Datatilsynet).</p>`),
 			section('international-transfers', '12. International transfers', `
-				<p>Cloudflare, GitHub, Migadu, and user-selected services may process data outside Germany or the European Economic Area. Where required, transfers are protected through an adequacy decision, approved contractual safeguards such as Standard Contractual Clauses, or another lawful transfer mechanism. Consult each provider’s privacy notice for its current locations and safeguards.</p>`),
+				<p>Cloudflare, GitHub, Migadu, and user-selected services may process data outside Denmark or the European Economic Area. Where required, transfers are protected through an adequacy decision, approved contractual safeguards such as Standard Contractual Clauses, or another lawful transfer mechanism. Consult each provider’s privacy notice for its current locations and safeguards.</p>`),
 			section('changes', '13. Changes to this policy', `
 				<p>We will update this policy when the products, service providers, data practices, or legal requirements materially change. The current version and effective date are published on this page. Material changes will be highlighted where appropriate.</p>`),
 		]),
 	}),
 	de: Object.freeze({
 		title: 'Datenschutzerklärung',
-		summary: 'Soundscaper und Framescaper sind lokal ausgerichtete Medieneditoren. Projekte und Medien bleiben grundsätzlich auf Ihrem Gerät. Diese Erklärung beschreibt die wenigen Fälle, in denen technische Daten über ein Netzwerk übertragen werden.',
+		summary: 'Soundscaper und Framescaper sind lokale Bearbeitungsprogramme. Es wird zwar mit einem Server kommuniziert um Inhalte oder Aktualisierungen herunterzuladen, aber Projekte und Aufnahmen verlassen niemals deinen Computer, es sei denn, du verwendest die Upload-funktionen für Online-services. Es gibt keine Telemetrie.',
 		sections: Object.freeze([
 			section('overview', '1. Geltungsbereich und Überblick', `
 				<p>Diese Erklärung gilt für Soundscaper und Framescaper einschließlich der Webanwendungen, der direkt vertriebenen Electron-Desktopanwendungen, der Dokumentation, Übersetzungen, Laufzeitdateien und optionalen lokalen Assistenzfunktionen. Zukünftige App-Store-Veröffentlichungen sind nicht umfasst.</p>
 				<p>Es gibt keine Soundscaper- oder Framescaper-Konten und keine Projektsynchronisierung. Die Verbindung eines bestehenden Freesound- oder audio.com-Kontos ist optional und erstellt kein Soundscaper-Konto. Wir verwenden keine Werbung, keine Produktanalyse, kein Profiling und keine automatisierten Entscheidungen mit rechtlicher oder ähnlich erheblicher Wirkung. Wir verkaufen keine personenbezogenen Daten.</p>`),
 			section('controller', '2. Verantwortlicher und Kontakt', `
-				<p>Verantwortlicher ist die <strong>${CONTROLLER}</strong>, Spiekerskamp 26, 45772 Marl, Deutschland.</p>
+				<p>Verantwortlicher ist <strong>${CONTROLLER}</strong>, ${ADDRESS}, Dänemark.</p>
 				<p>Für Datenschutzfragen und -anfragen schreiben Sie an <a href="mailto:${CONTACT}">${CONTACT}</a>. Nachrichten werden über unseren konfigurierten E-Mail-Anbieter Migadu zugestellt.</p>`),
 			section('local-data', '3. Daten auf Ihrem Gerät', `
 				<p>Projekte, importierte Medien, Aufnahmen, Wiederherstellungsdaten, Arbeitsdateien, Wellenform- und Proxy-Ableitungen, Einstellungen, lokale Modellartefakte und Web-VCR-Browserprofile werden auf Ihrem Gerät gespeichert. Medienverarbeitung und lokale Assistenz laufen auf Ihrem Gerät. Wir können auf diese lokalen Dateien nicht zugreifen.</p>
@@ -119,9 +119,9 @@ const POLICY = Object.freeze({
 				<p>Wir verwenden Transportverschlüsselung, restriktive Browser-Sicherheitsheader, isolierte Desktop-Schnittstellen, Integritätsprüfungen für heruntergeladene Laufzeit- und Modellartefakte sowie funktionsgerechte lokale Speichergrenzen. Kein System ist vollständig sicher. Schützen Sie Ihr Gerät und Ihre Sicherungen, installieren Sie vertrauenswürdige Aktualisierungen und verwenden Sie gegebenenfalls Geräteverschlüsselung.</p>`),
 			section('rights', '11. Ihre Rechte', `
 				<p>Nach Maßgabe des anwendbaren Rechts können Sie Auskunft, Berichtigung, Löschung, Einschränkung oder Übertragbarkeit der von uns verarbeiteten personenbezogenen Daten verlangen und einer Verarbeitung aufgrund berechtigter Interessen widersprechen. Soweit eine Verarbeitung auf Einwilligung beruht, können Sie diese mit Wirkung für die Zukunft widerrufen. Kontaktieren Sie <a href="mailto:${CONTACT}">${CONTACT}</a>.</p>
-				<p>Da wir nicht auf lokal gespeicherte Projekte oder Medien zugreifen können, können wir diese Dateien nicht für Sie abrufen, berichtigen oder löschen. Sie können sich bei einer zuständigen Aufsichtsbehörde beschweren. Unsere deutsche federführende Behörde ist die Landesbeauftragte für Datenschutz und Informationsfreiheit Nordrhein-Westfalen (LDI NRW).</p>`),
+				<p>Da wir nicht auf lokal gespeicherte Projekte oder Medien zugreifen können, können wir diese Dateien nicht für Sie abrufen, berichtigen oder löschen. Sie können sich bei einer zuständigen Aufsichtsbehörde beschweren. Unsere dänische federführende Behörde ist die dänische Datenschutzbehörde (Datatilsynet).</p>`),
 			section('international-transfers', '12. Internationale Übermittlungen', `
-				<p>Cloudflare, GitHub, Migadu und von Ihnen gewählte Dienste können Daten außerhalb Deutschlands oder des Europäischen Wirtschaftsraums verarbeiten. Soweit erforderlich, werden Übermittlungen durch einen Angemessenheitsbeschluss, genehmigte vertragliche Garantien wie Standardvertragsklauseln oder einen anderen zulässigen Übermittlungsmechanismus geschützt. Aktuelle Verarbeitungsorte und Garantien entnehmen Sie der Datenschutzerklärung des jeweiligen Anbieters.</p>`),
+				<p>Cloudflare, GitHub, Migadu und von Ihnen gewählte Dienste können Daten außerhalb Dänemarks oder des Europäischen Wirtschaftsraums verarbeiten. Soweit erforderlich, werden Übermittlungen durch einen Angemessenheitsbeschluss, genehmigte vertragliche Garantien wie Standardvertragsklauseln oder einen anderen zulässigen Übermittlungsmechanismus geschützt. Aktuelle Verarbeitungsorte und Garantien entnehmen Sie der Datenschutzerklärung des jeweiligen Anbieters.</p>`),
 			section('changes', '13. Änderungen dieser Erklärung', `
 				<p>Wir aktualisieren diese Erklärung, wenn sich Produkte, Dienstleister, Datenpraktiken oder rechtliche Anforderungen wesentlich ändern. Die aktuelle Fassung und ihr Gültigkeitsdatum werden auf dieser Seite veröffentlicht. Auf wesentliche Änderungen weisen wir gegebenenfalls besonders hin.</p>`),
 		]),
