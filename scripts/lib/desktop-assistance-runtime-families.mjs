@@ -12,6 +12,7 @@ import { stageDesktopWhisperCppRuntime } from './desktop-assistance-whisper-runt
 import { stageDesktopLlamaCppRuntime } from './desktop-assistance-llama-runtime.mjs';
 import { prepareDesktopVulkanBuild } from './desktop-assistance-vulkan-toolchain.mjs';
 import { withSharedDesktopVulkanToolchain } from './desktop-assistance-shared-vulkan.ts';
+import { stageDesktopAssistanceEnginePart } from './desktop-assistance-engine-parts.ts';
 
 /**
  * Build-time inventory is sealed inside app.asar; executable bytes remain outside
@@ -19,7 +20,7 @@ import { withSharedDesktopVulkanToolchain } from './desktop-assistance-shared-vu
  * The source register describes package-generated targets. Each build replaces
  * its selected target with the exact file inventory it produced and verified.
  * @param {{
- *   targetId: string, runtimeRoot: string, cacheRoot?: string,
+ *   targetId: string, runtimeRoot: string, cacheRoot?: string, enginePartsRoot?: string, sourceRevision?: string,
  *   stageOnnx?: (options: {targetId: string, outputRoot: string, cacheRoot: string | undefined}) => Promise<{manifest: unknown, summary?: unknown}>,
  *   stageWhisper?: (options: {targetId: string, runtimeRoot: string, cacheRoot: string | undefined,
  *     platform: string, architecture: string, prepareVulkan: (request: import('./desktop-assistance-shared-vulkan.ts').VulkanToolchainRequest) => Promise<unknown>}) => Promise<{manifest: unknown, summary?: unknown, provenance?: unknown}>,
@@ -28,17 +29,18 @@ import { withSharedDesktopVulkanToolchain } from './desktop-assistance-shared-vu
  * }} options
  */
 export async function stageDesktopAssistanceRuntimeFamilies({
-	targetId, runtimeRoot, cacheRoot,
+	targetId, runtimeRoot, cacheRoot, enginePartsRoot, sourceRevision,
 	stageOnnx = stageDesktopAssistanceOnnxRuntime,
 	stageWhisper = stageDesktopWhisperCppRuntime,
 	stageLlama = stageDesktopLlamaCppRuntime,
 }) {
 	return withSharedDesktopVulkanToolchain(prepareVulkan => stageRuntimeFamilies({
-		targetId, runtimeRoot, cacheRoot, stageOnnx, stageWhisper, stageLlama, prepareVulkan,
+		targetId, runtimeRoot, cacheRoot, enginePartsRoot, sourceRevision, stageOnnx, stageWhisper, stageLlama, prepareVulkan,
 	}), { prepare: prepareDesktopVulkanBuild });
 }
 
-async function stageRuntimeFamilies({ targetId, runtimeRoot, cacheRoot, stageOnnx, stageWhisper, stageLlama, prepareVulkan }) {
+async function stageRuntimeFamilies({ targetId, runtimeRoot, cacheRoot, enginePartsRoot, sourceRevision,
+	stageOnnx, stageWhisper, stageLlama, prepareVulkan }) {
 	const match = /^(mac|linux|win)-(x64|arm64)$/u.exec(targetId);
 	if (!match) throw new TypeError('The Local Assistance desktop target is invalid.');
 	const platform = { mac: 'darwin', linux: 'linux', win: 'win32' }[match[1]];
@@ -54,7 +56,9 @@ async function stageRuntimeFamilies({ targetId, runtimeRoot, cacheRoot, stageOnn
 			targetId, runtimeRoot, cacheRoot, platform: process.platform, architecture: process.arch, prepareVulkan,
 		})],
 	]) {
-		const result = await stage();
+		const result = enginePartsRoot && familyId !== 'onnxruntime-node'
+			? await stageDesktopAssistanceEnginePart({ familyId, targetId, runtimeRoot,
+				partsRoot: enginePartsRoot, sourceRevision }) : await stage();
 		const manifest = validateAssistanceRuntimeFamilyManifestV1(result.manifest);
 		if (manifest.familyId !== familyId) {
 			throw new Error(`Local Assistance staged the wrong engine for ${familyId}.`);

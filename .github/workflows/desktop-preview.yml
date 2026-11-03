@@ -310,8 +310,7 @@ jobs:
 
   prepare-assistance-runtime-handoff:
     name: Build AI runtimes / ${{ matrix.target.platform }} / ${{ matrix.target.arch }}
-    # Compile once while quality runs. Publication remains behind its gates.
-    timeout-minutes: ${{ matrix.target.platform == 'win' && 180 || 90 }}
+    # Each target starts alongside quality; Windows ARM engines use separate runners.
     strategy:
       fail-fast: false
       matrix:
@@ -336,81 +335,9 @@ jobs:
             platform: linux
             arch: arm64
             node_arch: arm64
-    runs-on: ${{ matrix.target.runner }}
-    steps:
-      - name: Check out source
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-          ref: ${{ github.sha }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
-        with:
-          node-version-file: .nvmrc
-          architecture: ${{ matrix.target.node_arch }}
-          cache: npm
-
-      - name: Set up native tooling
-        uses: ./.github/actions/setup-native-tooling
-
-      - name: Pin npm
-        run: npm install --global npm@12.0.1
-
-      - name: Restore or install verified dependencies
-        uses: ./.github/actions/verified-node-dependencies
-        with:
-          scope: desktop-native
-
-      - name: Install local-model build tools
-        if: runner.os == 'Linux'
-        timeout-minutes: 10
-        run: bash scripts/ci-apt-install.sh build-essential cmake pkg-config python3
-
-      - name: Set up the locked Kokoro G2P builder
-        uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
-        with:
-          version: 0.12.5
-
-      - name: Prepare the verified Kokoro G2P bundle
-        uses: ./.github/actions/verified-kokoro-g2p
-        with:
-          target: ${{ matrix.target.platform }}-${{ matrix.target.arch }}
-
-      - name: Stage the authenticated AI runtime archives
-        run: node scripts/prepare-assistance-runtimes.mjs
-        env:
-          SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ matrix.target.platform }}
-          SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.target.arch }}
-          SOUNDSCAPER_SOURCE_REVISION: ${{ github.sha }}
-
-      - name: Export the source-bound AI runtime handoff
-        run: node scripts/export-assistance-runtime-handoff.mjs
-        env:
-          SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ matrix.target.platform }}
-          SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.target.arch }}
-          SOUNDSCAPER_SOURCE_REVISION: ${{ github.sha }}
-          SOUNDSCAPER_ASSISTANCE_RUNTIME_HANDOFF_ROOT: ${{ github.workspace }}/.native-build/assistance-runtime-handoff
-
-      - name: Upload the verified AI runtime authority
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: assistance-runtime-handoff-${{ matrix.target.platform }}-${{ matrix.target.arch }}
-          path: .native-build/assistance-runtime-handoff/
-          include-hidden-files: true
-          compression-level: 0
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Retain the authenticated archives for offline consumers
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: assistance-runtime-archives-${{ matrix.target.platform }}-${{ matrix.target.arch }}
-          path: .desktop-build/assistance-distribution/
-          include-hidden-files: true
-          compression-level: 0
-          if-no-files-found: error
-          retention-days: 1
+    uses: ./.github/workflows/desktop-assistance-runtimes.yml
+    with:
+      target: ${{ toJSON(matrix.target) }}
 
   publish-assistance-runtime-handoff:
     name: Publish AI runtimes / ${{ matrix.target.platform }} / ${{ matrix.target.arch }}

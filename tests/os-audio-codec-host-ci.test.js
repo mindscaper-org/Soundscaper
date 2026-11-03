@@ -185,7 +185,10 @@ test('all OS-capable desktop staging paths build the codec host while Linux rece
 	]);
 	const previewProducerJob = jobSource(workflow, 'prepare-assistance-runtime-handoff', 'publish-assistance-runtime-handoff');
 	assert.match(previewProducerJob, /windows-2025[\s\S]*windows-11-arm/u);
-	assert.match(previewProducerJob, /run: node scripts\/prepare-assistance-runtimes\.mjs/u);
+	assert.match(previewProducerJob, /uses: \.\/\.github\/workflows\/desktop-assistance-runtimes\.yml/u);
+	const runtimeWorkflow = await readFile(join(ROOT, '.github/workflows/desktop-assistance-runtimes.yml'), 'utf8');
+	assert.match(runtimeWorkflow, /run: node scripts\/prepare-assistance-runtimes\.mjs/u);
+	assert.doesNotMatch(runtimeWorkflow, /scripts\/(?:ci-build-os-audio-codec-host|desktop-prepare)\.mjs/u);
 	assert.doesNotMatch(previewProducerJob, /scripts\/(?:ci-build-os-audio-codec-host|desktop-prepare)\.mjs/u);
 	const packageJob = jobSource(workflow, 'package', 'milestone-5-package-audit-summary');
 	assert.match(packageJob,
