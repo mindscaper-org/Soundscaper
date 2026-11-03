@@ -10,6 +10,17 @@ order:
 3. an external `ffmpeg`/`ffprobe` installation selected by the user.
 
 The production browser build contains no application-supplied FFmpeg runtime.
+
+The export dialog lists every supported audio container and all video containers
+applicable to the timeline. Availability checks admit the selected format and
+settings without removing other choices. An unavailable selection opens a dialog:
+missing external FFmpeg offers the existing installer explicitly, while an
+installed but incompatible build reports its missing codec components or the
+failed settings. Successful installation rechecks the selection. Capability IPC
+errors remain check failures and never imply that FFmpeg is absent. The sandbox
+preload and main process share the canonical codec capability and settings
+validators, including MP3 bitrate strategies and Opus VBR mode.
+
 Desktop packages contain no Soundscaper application-provider FFmpeg executable, libav
 library, or FFmpeg WASM payload. Electron's separately verified alternate
 framework libffmpeg remains Chromium infrastructure rather than a Soundscaper

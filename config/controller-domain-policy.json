@@ -155,6 +155,7 @@
 		"export/deferred-export-service.ts",
 		"export/delivery-preset-service.ts",
 		"export/export-action-group.ts",
+		"export/export-format-availability.ts",
 		"export/export-render-project.ts",
 		"export/export-settings.ts",
 		"export/export-snapshot-renderer.ts",

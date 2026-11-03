@@ -40,11 +40,9 @@ import ExportEmbeddedChaptersField from '../ExportEmbeddedChaptersField.tsx';
 import {
 	compactFields, parseJsonChannelMapping, parseJsonObject,
 } from './inspector-helpers.ts';
-import {
-	createDesktopExportCodecQuery, desktopExportCodecCapabilities,
-	desktopExportFormatAvailable, desktopExportFormatReason, desktopExportCapabilityNotice,
-	desktopExportSelectionReason,
-} from '../desktop-export-codec-model.ts';
+import { useDesktopExportAvailability } from '../use-desktop-export-availability.ts';
+import { desktopCodecMessage } from '../../desktop-codec-presentation.ts';
+import ExportFormatAvailabilityDialog from './ExportFormatAvailabilityDialog.tsx';
 import {
 	constrainExportDialogSampleRate, exportDialogBitRateOptions,
 	exportDialogBitRateSelectionReason, exportDialogCompressionLevels,
@@ -54,20 +52,19 @@ import {
 	exportDialogOutputChannelCount, exportDialogSampleFormats, exportDialogSampleRateSuggestions,
 	exportDialogVorbisQualityOptions, normalizeExportDialogAudioSettings,
 } from '../export-dialog-audio-codec-options.ts';
-import { useDesktopVideoExportCapabilities } from '../use-desktop-video-export-capabilities.ts';
 import { samePresetParams } from './effect-helpers.ts';
 export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fileService, onClose }) {
 	const exportProgress = useAudioEditorTelemetrySelector(controller, (telemetry) => telemetry.taskProgress?.kind === 'export' ? telemetry.taskProgress.value : telemetry.exportProgress);
 	const [metadataOpen, setMetadataOpen] = useState(false);
 	const [metadataTab, setMetadataTab] = useState('general');
 	const [mappingOpen, setMappingOpen] = useState(false);
+	const [editingSampleRate, setEditingSampleRate] = useState(false);
 	const projectIdentity = exportDialogProjectIdentity(snapshot.project);
 	const settingsProjectIdentity = useRef(projectIdentity);
 	const [settings, setSettings] = useState(() => createExportDialogInitialSettings(snapshot.project));
 	const [error, setError] = usePresentationFeedback(copy);
 	const [presetId, setPresetId] = useState('');
 	const [presetName, setPresetName] = useState('');
-	const [desktopCodecStatus, setDesktopCodecStatus] = useState(null);
 	const operationOwner = useMemo(
 		() => ({ controller, isOpen, projectIdentity }),
 		[controller, isOpen, projectIdentity],
@@ -79,22 +76,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 	currentOperationOwner.current = operationOwner;
 	const desktop = fileService?.isDesktop === true;
 	const projectChannelCount = snapshot.project?.masterChannels || 2;
-	const desktopVideoCapabilities = useDesktopVideoExportCapabilities(fileService, isOpen, copy);
-	const desktopCodecQuery = useMemo(() => {
-		if (!desktop) return null;
-		try { return createDesktopExportCodecQuery({
-			sampleRate: settings.sampleRate, channelMapping: settings.channelMapping, channelMatrix: settings.channelMatrix, binaural: settings.binaural,
-			format: settings.format, sampleFormat: settings.sampleFormat, compressionLevel: settings.compressionLevel, quality: settings.quality, bitRate: settings.bitRate,
-		}, projectChannelCount); }
-		catch { return false; }
-	}, [desktop, settings.binaural, settings.bitRate, settings.channelMapping, settings.channelMatrix, settings.compressionLevel,
-		settings.format, settings.quality, settings.sampleFormat, settings.sampleRate, projectChannelCount]);
-	const desktopCodecCapabilities = useMemo(() => {
-		if (!desktopCodecQuery) return null;
-		return desktopCodecStatus?.query === desktopCodecQuery
-			? desktopCodecStatus.capabilities
-			: desktopExportCodecCapabilities(null, desktopCodecQuery);
-	}, [desktopCodecQuery, desktopCodecStatus]);
+	const availability = useDesktopExportAvailability(fileService, isOpen, operationOwner, settings, projectChannelCount);
 	const presetKind = isVideoExportDialogFormat(settings.format) ? 'video' : 'audio';
 	const presets = controller.actions.export.presets.list(presetKind);
 	useEffect(() => {
@@ -155,18 +137,9 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		setPresetId('');
 		setPresetName('');
 		setMappingOpen(false);
+		setEditingSampleRate(false);
 	}, [projectIdentity, snapshot.project, setError]);
 
-	useEffect(() => {
-		if (!isOpen || !desktopCodecQuery) { setDesktopCodecStatus(null); return undefined; }
-		let current = true;
-		setDesktopCodecStatus(null);
-		Promise.resolve().then(() => fileService.getDesktopAudioCodecCapabilities(desktopCodecQuery))
-			.then((result) => desktopExportCodecCapabilities(result ?? null, desktopCodecQuery))
-			.then((capabilities) => { if (current) setDesktopCodecStatus({ query: desktopCodecQuery, capabilities }); })
-			.catch(() => { if (current) setDesktopCodecStatus(null); });
-		return () => { current = false; };
-	}, [desktopCodecQuery, fileService, isOpen]);
 
 	useEffect(() => {
 		if (!isOpen) {
@@ -192,9 +165,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 	}, [metadataTab, settings.format]);
 
 	useEffect(() => {
-		if (isVideoExportDialogFormat(settings.format) && (!hasTimelineVideo || (
-			desktop && desktopVideoCapabilities.resolved && !desktopVideoCapabilities.available(settings.format)
-		))) {
+		if (isVideoExportDialogFormat(settings.format) && !hasTimelineVideo) {
 			setPresetId(''); setPresetName('');
 			setSettings((current) => ({ ...current, format: 'wav', deliveryTarget: '' }));
 			return;
@@ -206,7 +177,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		} else if (settings.sampleFormat === 'float32' && settings.dither !== 'none') {
 			setSettings((current) => ({ ...current, dither: 'none' }));
 		}
-	}, [desktop, desktopCodecCapabilities, desktopVideoCapabilities, hasTimelineVideo, settings.dither, settings.format, settings.sampleFormat]);
+	}, [desktop, hasTimelineVideo, settings.dither, settings.format, settings.sampleFormat]);
 	const set = (name, value) => setSettings((current) => ({ ...current, [name]: value }));
 	const setCodec = (name, value) => setSettings((current) => normalizeExportDialogAudioSettings(
 		{ ...current, [name]: value }, desktop, projectChannelCount,
@@ -296,7 +267,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 	};
 
 	const qualityChannelCount = desktop
-		? desktopCodecQuery?.operations?.[0]?.channelCount
+		? availability.query?.operations?.[0]?.channelCount ?? projectChannelCount
 		: exportDialogOutputChannelCount(settings, projectChannelCount);
 	const mp3Format = settings.format === 'mp3';
 	const opusFormat = settings.format === 'opus';
@@ -312,21 +283,12 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 	const formatDescriptor = MEDIA_EXPORT_FORMATS[settings.format];
 	const sampleFormatOptions = formatDescriptor ? exportDialogSampleFormats(settings.format, desktop) : [];
 	const desktopFormatRefusal = desktop
-		? (videoFormat ? desktopVideoCapabilities.reason(settings.format)
-			: desktopExportSelectionReason(settings, desktopCodecCapabilities, desktopCodecQuery === false, copy)
-				|| exportDialogBitRateSelectionReason(
-					settings.format, settings[mp3QualityKey] ?? settings.bitRate, formatQualityOptions, desktop, copy,
-				))
+		? (!availability.available ? desktopCodecMessage('codecUnavailableTitle', copy, { format: settings.format })
+			: !videoFormat ? exportDialogBitRateSelectionReason(
+				settings.format, settings[mp3Format ? mp3QualityKey : 'bitRate'], formatQualityOptions, desktop, copy,
+			) : null)
 		: null;
-	const desktopCodecNotice = desktopFormatRefusal || (desktop && hasTimelineVideo ? desktopVideoCapabilities.notice : null)
-		|| (desktopCodecQuery === false
-		? desktopExportFormatReason('opus', null, true, copy)
-		: desktopExportCapabilityNotice(desktopCodecCapabilities, copy));
-	const audioFormatDescriptors = Object.values(MEDIA_EXPORT_FORMATS).filter((descriptor) => (
-		desktop
-			? desktopExportFormatAvailable(descriptor.id, desktopCodecCapabilities)
-			: descriptor.id !== 'custom-ffmpeg'
-	));
+	const audioFormatDescriptors = Object.values(MEDIA_EXPORT_FORMATS).filter(descriptor => descriptor.id !== 'custom-ffmpeg');
 	const pcmFormat = Boolean(formatDescriptor?.sampleFormats?.length);
 	const bitrateFormat = ['mp3', 'opus', 'mp2', 'aac-m4a'].includes(settings.format);
 	const requestClose = () => {
@@ -405,16 +367,14 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 				<div className="audio-editor-export-dialog__content">
 				<section className="audio-editor-export-section">
 					<h3>{copy.exportSection}</h3>
-					<LabeledDropdown label={copy.format} hook="format" value={settings.format} onChange={setFormat} disabled={exporting} options={[
+					<LabeledDropdown label={copy.format} hook="format" value={settings.format} onChange={(format) => { if (format === settings.format) void availability.retry(); setFormat(format); }} disabled={exporting} options={[
 						...audioFormatDescriptors.map((descriptor) => ({
 							value: descriptor.id,
 							label: descriptor.id === 'custom-ffmpeg'
 								? copy.customFfmpeg
 								: descriptor.id === 'bwf' ? copy.broadcastWav : descriptor.label,
 						})),
-						...(hasTimelineVideo ? VIDEO_EXPORT_DIALOG_FORMATS.filter((descriptor) => (
-							!desktop || desktopVideoCapabilities.available(descriptor.id)
-						)).map((descriptor) => ({
+						...(hasTimelineVideo ? VIDEO_EXPORT_DIALOG_FORMATS.map((descriptor) => ({
 							value: descriptor.id,
 							label: copy[descriptor.labelKey],
 						})) : []),
@@ -457,7 +417,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 					{!videoFormat && ['flac', 'wavpack'].includes(settings.format) && (
 						<LabeledDropdown label={copy.quality} hook="quality" value={settings.compressionLevel} onChange={(value) => setCodec('compressionLevel', value)} disabled={exporting} options={exportDialogCompressionLevels(settings.format, desktop).map((level) => ({ value: String(level), label: `${copy.level} ${level}` }))} />
 					)}
-					{!videoFormat && <label className="audio-editor-field" data-export-field="sampleRate"><span>{copy.sampleRate}</span><input type="number" min="8000" max={maximumAudioSampleRate} step="1" list="audio-editor-export-rates" value={settings.sampleRate} disabled={exporting || admPassthrough} onChange={(event) => set('sampleRate', event.currentTarget.value)} onBlur={() => setCodec('sampleRate', settings.sampleRate)} /><datalist id="audio-editor-export-rates">{exportDialogSampleRateSuggestions(maximumAudioSampleRate, snapshot.project?.sampleRate, settings.format, desktop).map((value) => <option key={value} value={value} />)}</datalist></label>}
+					{!videoFormat && <label className="audio-editor-field" data-export-field="sampleRate"><span>{copy.sampleRate}</span><input type="number" min="8000" max={maximumAudioSampleRate} step="1" list="audio-editor-export-rates" value={settings.sampleRate} disabled={exporting || admPassthrough} onFocus={() => setEditingSampleRate(true)} onChange={(event) => set('sampleRate', event.currentTarget.value)} onBlur={() => { setEditingSampleRate(false); setCodec('sampleRate', settings.sampleRate); }} /><datalist id="audio-editor-export-rates">{exportDialogSampleRateSuggestions(maximumAudioSampleRate, snapshot.project?.sampleRate, settings.format, desktop).map((value) => <option key={value} value={value} />)}</datalist></label>}
 					<ExportEmbeddedChaptersField copy={copy} settings={settings} desktop={desktop} project={snapshot.project} exporting={exporting} onChange={set} />
 					{videoFormat && (
 						<VideoDeliveryFields
@@ -494,7 +454,6 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 						</details>
 					</>
 				)}
-				{desktopCodecNotice && <p className="audio-editor-panel-hint" data-desktop-codec-status>{desktopCodecNotice}</p>}
 				{admRequired && <p className="audio-editor-field-error" role="alert">{copy.bw64AdmRequired}</p>}
 				{error && <p className="audio-editor-field-error" role="alert">{error}</p>}
 				<a
@@ -507,6 +466,12 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 				>{output?.fileName || copy.done}</a>
 				</div>
 			</div>
+			<ExportFormatAvailabilityDialog
+				problem={editingSampleRate ? null : availability.problem} installing={availability.installing} copy={copy}
+				format={formatDescriptor?.label || copy[VIDEO_EXPORT_DIALOG_FORMATS.find(descriptor => descriptor.id === settings.format)?.labelKey] || settings.format}
+				sampleRate={settings.sampleRate} channelCount={qualityChannelCount}
+				onClose={availability.dismiss} onInstall={availability.install}
+			/>
 			{mappingOpen && (
 				<ExportChannelMappingDialog
 					copy={copy}
