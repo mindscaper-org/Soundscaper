@@ -4,6 +4,7 @@ import { createLocalizedError } from '../../../i18n/presentation-message.ts'; im
 
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import type { ProjectFlushOptions } from './project-save-service.ts';
+import { isPlaybackNeutralRename } from './internal/playback-neutral-rename.ts';
 import { selectedLabelsForProject, type SelectedLabelState } from '../../label-clipboard-selection.ts';
 import {
 	assertEditorCommandCapabilities,
@@ -199,6 +200,7 @@ export function createProjectMutationService<
 	>,
 ): Readonly<ProjectMutationService<Project>> {
 	let openMacroTransactions = 0;
+	let pendingPlaybackProjects = 0;
 	let pendingPlayheadRestore: Readonly<{ frame: number; landed: unknown }> | null = null;
 
 	return Object.freeze({
@@ -233,7 +235,11 @@ export function createProjectMutationService<
 		if (Object.hasOwn(selection, 'selectClipId')) {
 			dependencies.state.selectedClipId = selection.selectClipId ?? null;
 		}
-		projectChanged(options);
+		// A name does not alter rendered audio. If a preceding audio edit is still
+		// preparing or applying, requeue the latest document so its identity fence
+		// cannot discard that edit merely because a rename followed it.
+		projectChanged({ ...options, skipPlaybackEngine: options.skipPlaybackEngine
+			?? (pendingPlaybackProjects === 0 && isPlaybackNeutralRename(command)) });
 		return requireProject();
 	}
 
@@ -366,8 +372,11 @@ export function createProjectMutationService<
 		const projectToken = dependencies.captureProject(project.id);
 		const prepare = dependencies.getPlaybackState() === 'playing'
 			&& dependencies.projectHasTimePitchClips(project);
+		pendingPlaybackProjects += 1;
 		void applyWhenCurrent().catch((error: unknown) => {
 			if (!dependencies.isExpectedCancellation(error)) dependencies.handleError(error);
+		}).finally(() => {
+			pendingPlaybackProjects -= 1;
 		});
 
 		async function applyWhenCurrent(): Promise<void> {
