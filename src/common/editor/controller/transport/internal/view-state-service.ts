@@ -36,7 +36,7 @@ export interface ViewStateServiceRuntime<Project extends ViewStateProject = View
 	readonly MAX_PIXELS_PER_SECOND: number;
 	readonly commit: (
 		command: Readonly<{ readonly type: 'batch'; readonly commands: readonly unknown[] }>,
-		selection?: Readonly<{ readonly selectTrackId?: unknown }>,
+		selection?: Readonly<{ readonly selectTrackId?: string | null }>,
 	) => unknown;
 	readonly copy: Readonly<{ readonly trackNotFound: string }>;
 	readonly editingBlocked: () => boolean;
@@ -201,7 +201,7 @@ export function createViewStateService<Project extends ViewStateProject = ViewSt
 			})
 			.filter(Boolean);
 		state.autoFitTrackHeight = false;
-		if (commands.length) commit({ type: 'batch', commands }, { selectTrackId: trackId });
+		if (commands.length) commit({ type: 'batch', commands }, { selectTrackId: selectedTrack.id });
 		else publishProjectState();
 		return selectedTrack.id;
 	}

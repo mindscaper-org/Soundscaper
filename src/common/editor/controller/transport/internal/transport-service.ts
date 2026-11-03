@@ -243,7 +243,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 
 	function clearLoopRegion() {
 		requireProject();
-		const next = commit({ type: 'loop/set', startFrame: 0, endFrame: 0, enabled: false });
+		const next = commit({ type: 'loop/set', startFrame: 0, endFrame: 0, enabled: false }, {}, { skipPlaybackEngine: true });
 		engine.setLoop(next.loop);
 		return next.loop;
 	}
@@ -298,7 +298,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 
 	function commitLoopRange(range: Readonly<{ readonly enabled: boolean; readonly startFrame: number; readonly endFrame: number }>) {
 		const loopCommand: TransportLoopCommand = { type: 'loop/set', ...range };
-		if (!range.enabled || !state.selectionFollowsLoop) return commit(loopCommand);
+		if (!range.enabled || !state.selectionFollowsLoop) return commit(loopCommand, {}, { skipPlaybackEngine: true });
 		const project = requireProject();
 		const selection: Partial<TransportSelection> = project.selection ?? {};
 		return commit({
@@ -313,7 +313,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 					frequencyRange: selection.frequencyRange || null,
 				} : {}),
 			}],
-		});
+		}, {}, { skipPlaybackEngine: true });
 	}
 
 	function toggleMetronome() {
