@@ -12,6 +12,7 @@ import {
 	HelperSupervisor,
 	type HelperChannel,
 } from './helper-supervisor.ts';
+import { HELPER_RESOURCE_HARD_LIMITS, HELPER_SPEECH_RECOGNITION_MAXIMUM_RSS_BYTES } from './helper-resource-policy.ts';
 
 export type AssistanceHelperChannel = HelperChannel;
 
@@ -95,6 +96,8 @@ export function createAssistanceJobHost(options: AssistanceJobHostOptions) {
 				return await supervisor.runJob({
 					kind: 'assistance-speech',
 					grant: validated.grant,
+					resourcePolicy: { maximumRssBytes: validated.grant.operation === 'recognize'
+						? HELPER_SPEECH_RECOGNITION_MAXIMUM_RSS_BYTES : HELPER_RESOURCE_HARD_LIMITS.maximumRssBytes },
 					signal: controller.signal,
 					onProgress: (value) => options.onProgress?.(Object.freeze({
 						completed: value ?? 0,
@@ -159,6 +162,7 @@ function isAbortError(error: unknown): boolean {
 }
 
 function assistanceCause(cause: HelperSupervisionError['cause_']): string {
+	if (cause === 'resource-violation') return 'resource-violation';
 	if (cause === 'malformed-message') return 'malformed-message';
 	if (cause === 'job-mismatch') return 'job-mismatch';
 	if (cause === 'heartbeat') return 'heartbeat';

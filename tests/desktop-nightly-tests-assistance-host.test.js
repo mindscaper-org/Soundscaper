@@ -77,7 +77,7 @@ test('the nightly error summary keeps causes while redacting private paths', () 
 
 test('the nightly error summary retains reviewed speech helper failure causes', () => {
 	for (const cause of ['helper-error', 'helper-exit', 'heartbeat', 'malformed-message',
-		'job-mismatch', 'cancelled', 'cancellation-timeout', 'disposed']) {
+		'job-mismatch', 'cancelled', 'cancellation-timeout', 'disposed', 'resource-violation']) {
 		const error = Object.assign(new Error('A private native runtime message.'), {
 			name: 'AssistanceJobError', cause,
 		});

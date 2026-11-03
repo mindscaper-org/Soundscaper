@@ -13,6 +13,10 @@ export const HELPER_RESOURCE_HARD_LIMITS = Object.freeze({
 	maximumConcurrentJobs: 1,
 });
 
+// Parakeet's published catalog requires four GiB. Other legacy helper jobs
+// retain their one-GiB ceiling; recognition still enforces this bounded limit.
+export const HELPER_SPEECH_RECOGNITION_MAXIMUM_RSS_BYTES = 4 * 1024 ** 3;
+
 export const HELPER_JOB_DURATION_HARD_LIMITS = Object.freeze({
 	'probe-video-source': 10 * 60_000,
 	'audio-device': 24 * 60 * 60_000,
@@ -59,7 +63,8 @@ export const HELPER_JOB_RESOURCE_HARD_LIMITS = Object.freeze({
 	'media-proxy': nativeLimits('media-proxy'),
 	'ofx-scan': ofxLimits('ofx-scan'),
 	'ofx-host': ofxLimits('ofx-host'),
-	'assistance-speech': legacyLimits('assistance-speech'),
+	'assistance-speech': Object.freeze({ ...legacyLimits('assistance-speech'),
+		maximumRssBytes: HELPER_SPEECH_RECOGNITION_MAXIMUM_RSS_BYTES }),
 } as const satisfies Readonly<Record<HelperJobKind, Readonly<{
 	maximumInputBytes: number;
 	maximumJobDurationMs: number;

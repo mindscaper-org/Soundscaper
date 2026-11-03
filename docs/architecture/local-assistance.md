@@ -105,6 +105,13 @@ thermal pressure can defer a new job for a bounded period, but never pauses a
 job already running. Process separation contains crashes; it is not an
 operating-system sandbox, and native helper code remains trusted code.
 
+Sherpa recognition jobs admit a four-GiB peak RSS ceiling, matching the published
+Parakeet memory floor. Status, VAD, and diarization retain the legacy one-GiB
+ceiling. Main enforces the selected ceiling through helper heartbeats; exceeding
+it terminates the helper and reports a resource violation. Speech helper jobs
+preserve their main-owned operation identity so private GPU receipts correlate
+with the exact operation that requested inference.
+
 Large inputs cross a digest- and byte-length-bound `MessagePort` reservation
 into main-private staging. Main captures regular-file identity and hashes the
 staged media and model artifacts; the worker rechecks identity, size, and

@@ -18,6 +18,7 @@ import {
 	helperJobSubcontractVersion,
 } from '../desktop/helper-contract.ts';
 import { waitFor } from './helpers/async-test-control.ts';
+import { normalizeHelperResourcePolicy } from '../desktop/helper-resource-policy.ts';
 
 const JOB_ID = 'ab'.repeat(20);
 const REQUEST = Object.freeze({
@@ -88,6 +89,48 @@ test('assistance uses the shared control-v1 envelope and its speech subcontract'
 	assert.deepEqual(await run.completed, STATUS);
 	assert.deepEqual(progress, [{ completed: 0.5, total: 1 }]);
 	assert.equal(host.isBusy, false);
+});
+
+test('recognition admits the catalogued four-GiB model footprint while enforcing its exact RSS ceiling', async () => {
+	const file = (role: string) => ({ role, path: `/fixture/${role}`, bytes: 1,
+		sha256: 'a'.repeat(64), identity: { dev: '1', ino: '2' } });
+	const request = { ...REQUEST, grant: {
+		operation: 'recognize', moduleId: SPEECH_RUNTIME_MODULE_ID, modelId: 'parakeet-tdt-0.6b-v2',
+		audio: file('audio'), voiceActivity: null, language: null, threads: 2,
+		model: { encoder: file('encoder'), decoder: file('decoder'), joiner: file('joiner'), tokens: file('tokens') },
+	} };
+	for (const rss of [2 * 1024 ** 3, 4 * 1024 ** 3 + 1]) {
+		const { channel, host } = harness({ sampleRss: () => rss });
+		const run = host.start(request);
+		const outcome = run.completed.then(value => ({ value }), (error: unknown) => ({ error }));
+		await ready(channel);
+		const envelope = channel.sent[0] as { resourcePolicy: { maximumRssBytes: number } };
+		assert.equal(envelope.resourcePolicy.maximumRssBytes, 4 * 1024 ** 3);
+		channel.emit({ contractVersion: 1, type: 'heartbeat', jobId: JOB_ID });
+		if (rss <= 4 * 1024 ** 3) {
+			channel.emit({ contractVersion: 1, type: 'result', jobId: JOB_ID,
+				result: { language: null, segments: [] } });
+			assert.deepEqual(await outcome, { value: { language: null, segments: [] } });
+			assert.equal(channel.killed, false);
+		} else {
+			const result = await outcome;
+			assert.ok('error' in result && result.error instanceof Error);
+			assert.match(result.error.message, /exceeded its admitted peak RSS/u);
+			assert.equal((result.error as { cause?: unknown }).cause, 'resource-violation');
+			assert.equal(channel.killed, true);
+		}
+		host.dispose();
+	}
+});
+
+test('speech RSS admission stays lower-only and other helper ceilings remain one GiB', () => {
+	assert.throws(() => normalizeHelperResourcePolicy({ maximumRssBytes: 4 * 1024 ** 3 + 1 },
+		'assistance-speech'), /lower-only/u);
+	assert.equal(normalizeHelperResourcePolicy({ maximumRssBytes: 512 * 1024 ** 2 },
+		'assistance-speech').maximumRssBytes, 512 * 1024 ** 2);
+	assert.equal(normalizeHelperResourcePolicy(undefined, 'media-decode').maximumRssBytes, 1024 ** 3);
+	assert.throws(() => normalizeHelperResourcePolicy({ maximumRssBytes: 2 * 1024 ** 3 },
+		'plugin-host'), /lower-only/u);
 });
 
 test('assistance shutdown asks an idle helper to exit and awaits it without killing', async () => {
