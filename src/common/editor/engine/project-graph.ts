@@ -78,6 +78,7 @@ export interface ProjectGainParams {
 }
 
 export interface ProjectGraph {
+	readonly outputGate?: GainNode;
 	readonly nodes: AudioNodeArray;
 	readonly sources: Set<AudioScheduledSourceNode>;
 	readonly abortController: AbortController;

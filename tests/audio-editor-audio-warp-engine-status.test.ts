@@ -414,7 +414,7 @@ test('exact warp playback follows an attached native output route', async () => 
 	await engine.play();
 	const routedOutput = gainNodes.find(({ destinations }) => destinations.includes(device));
 	assert.ok(routedOutput);
-	assert.strictEqual(connections.at(-1), routedOutput);
+	assert.ok(gainNodes.some(node => node === connections.at(-1) && node.destinations.includes(routedOutput)));
 	await renderer.dispose();
 	await engine.dispose();
 });

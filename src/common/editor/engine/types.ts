@@ -123,11 +123,11 @@ export interface ResolvedClipSource {
 	readonly reversed: boolean;
 }
 
-export type EngineSourceResolver = (
+export type EngineSourceResolver = ((
 	clip: EngineClip,
 	context: Readonly<{
 		project: EngineProject;
 		sources: ReadonlyMap<unknown, AudioBuffer>;
 		defaultBuffer: AudioBuffer | null;
 	}>,
-) => unknown;
+) => unknown) & { readonly snapshot?: () => EngineSourceResolver };

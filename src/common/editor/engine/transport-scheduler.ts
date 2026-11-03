@@ -29,6 +29,7 @@ import { suspendParallelProductionMeterSessionV21 } from './production-meter-run
 import { samplePlaybackMeters } from './playback-meter-sampling.ts';
 import { roundScheduledParameterContextFrameOffset } from './scheduled-parameter-registry.ts';
 import { isCutPreviewActive, releaseCutPreview } from './cut-preview.ts';
+import { cancelProjectRefresh } from './project-refresh-state.ts';
 import {
 	ENGINE_CANCEL_SCRUB,
 	ENGINE_EMIT_METERS,
@@ -357,6 +358,7 @@ async [ENGINE_ENSURE_MASTER_LOUDNESS_METER](context) {
 	},
 
 [ENGINE_CANCEL_SCRUB]() {
+		cancelProjectRefresh(this);
 		this.scrubbing = false;
 		this.scrubNextAt = 0;
 		this.scrubGeneration += 1;
