@@ -40,6 +40,7 @@ import {
 } from './internal/source-import.ts';
 import { admitChangedContentVideoCandidate, type ChangedContentVideoCandidateSource } from './internal/linked-media/video-relink-probe.ts';
 import { generateWaveformPeaks, peakCacheKey } from '../source/waveform-analysis.ts';
+import { createVideoImportDerivativeScheduler } from './internal/video-import-derivatives.ts';
 import type { createClipSpreadsheetPasteService } from './internal/clip-spreadsheet-paste-service.ts';
 
 export type {
@@ -133,7 +134,15 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 		taskProgress,
 	};
 	const projectImport = createProjectImportService(projectImportRuntime);
+	const derivatives = createVideoImportDerivativeScheduler({
+		lifetime, store, sourcePeaks: dependencies.sourcePeaks, peakCacheKey, audioEditorVideoThumbnailTimes,
+		assertProject, getProject: dependencies.getProject, protectedSourceIds: dependencies.protectedSourceIds,
+		generatePeaks: (channels, signal) => generateWaveformPeaks(channels, copy, undefined, signal),
+		publishDerivative: (source, derivative) => projectVisual.publishVideoSourceDerivative(source, derivative),
+		publish: dependencies.publishDocumentSnapshot,
+	});
 	importVideoFile = createImportVideoFile({
+		scheduleDerivatives: derivatives.schedule,
 		SOURCE_CHUNK_FRAMES: dependencies.sourceChunkFrames,
 		activateVideoSource,
 		audioBufferChannels,

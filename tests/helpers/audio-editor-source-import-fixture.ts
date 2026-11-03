@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { EditorControllerLifetime } from '../../src/common/editor/controller/shared/lifecycle.ts';
+import { createVideoImportDerivativeScheduler } from '../../src/common/editor/controller/import/internal/video-import-derivatives.ts';
 
 import type {
 	ImportVideoFileInput,
@@ -84,6 +86,8 @@ function isSourceAddCommand(value: unknown): value is Readonly<{
 }
 
 export function createFixture() {
+	const lifetime = new EditorControllerLifetime();
+	const protectedSourceIds = new Set<string>();
 	const calls: string[] = [];
 	const addedSources: Record<string, unknown>[] = [];
 	const derivatives: Array<{ timestamp?: number; type?: string }> = [];
@@ -175,6 +179,7 @@ export function createFixture() {
 		async abort() { calls.push('writer-abort'); },
 	};
 	const runtime: ImportVideoRuntime = {
+		scheduleDerivatives: request => { derivativesScheduler.schedule(request); },
 		SOURCE_CHUNK_FRAMES: 65_536,
 		activateVideoSource: async (source: { id: string }) => {
 			calls.push(`activate:${source.id}`);
@@ -208,6 +213,8 @@ export function createFixture() {
 				throw new Error('post-commit publication failed');
 			}
 			commits.push({ command, selection });
+			project = { ...project, sources: [...project.sources,
+				...command.commands.filter(isSourceAddCommand).map(({ source }) => source)] };
 		},
 		copy: {
 			audioAnalysisFailed: 'Audio analysis failed.',
@@ -387,7 +394,19 @@ export function createFixture() {
 			}
 		},
 	};
+	const derivativesScheduler = createVideoImportDerivativeScheduler({
+		lifetime, protectedSourceIds, store: runtime.store, sourcePeaks,
+		assertProject: token => runtime.assertProject(token), getProject: () => runtime.getProject(),
+		peakCacheKey: sourceId => runtime.peakCacheKey(sourceId),
+		audioEditorVideoThumbnailTimes: duration => runtime.audioEditorVideoThumbnailTimes(duration),
+		generatePeaks: channels => runtime.generateWaveformPeaks(channels, runtime.copy),
+		publishDerivative: () => { calls.push('publish-derivative'); return true; },
+		publish: () => { calls.push('publish'); },
+	});
 	return {
+		lifetime, protectedSourceIds,
+		finishDerivatives: derivativesScheduler.whenIdle,
+		editProject: (value: typeof project) => { project = value; },
 		addedSources,
 		boundSnapshots,
 		calls,

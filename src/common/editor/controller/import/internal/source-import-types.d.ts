@@ -13,6 +13,8 @@ import type { EditorProjectToken } from '../../shared/lifecycle.ts';
 import type { AudioBufferLike } from '../../source/source-audio.ts';
 import type { WaveformPeaks } from '../../source/waveform-analysis.ts';
 import type { SourceProvenanceV1 } from '../../../source-provenance.ts';
+import type { VideoTimingIndex } from '../../../video-timing-asset.ts';
+import type { VideoImportDerivativeRequest } from './video-import-derivatives.ts';
 import type {
 	ImportedVideoAudioBuffer,
 	ImportedVideoDecodedAudio,
@@ -71,7 +73,7 @@ export interface ImportVideoSequence {
 export interface ImportVideoProject {
 	readonly id: string;
 	readonly tracks: readonly ImportVideoTrack[];
-	readonly sources?: readonly Readonly<{ readonly id: string }>[];
+	readonly sources?: readonly Readonly<{ id: string; contentSha256?: string; storageKey?: string }>[];
 	readonly primarySequenceId?: string;
 	readonly sequences?: readonly ImportVideoSequence[];
 }
@@ -177,6 +179,7 @@ export interface ImportVideoStore {
 }
 
 export interface ImportVideoRuntime {
+	scheduleDerivatives(request: VideoImportDerivativeRequest): void;
 	readonly SOURCE_CHUNK_FRAMES: number;
 	readonly copy: ImportVideoCopy;
 	readonly engine: Readonly<{
@@ -226,7 +229,7 @@ export interface ImportVideoRuntime {
 	createAddClipCommand(trackId: string, clip: CommandFactoryValue): AddClipCommand;
 	createAddSourceCommand(source: CommandFactoryValue): AddSourceCommand;
 	createAddTrackCommand(track: CommandFactoryValue, projectSampleRate?: number): AddTrackCommand;
-	createAudioEditorVideoFrameExtractor(file: ImportVideoMedia, options?: Readonly<{ signal?: AbortSignal }>): Awaitable<ImportVideoFrameExtractor>;
+	createAudioEditorVideoFrameExtractor(file: ImportVideoMedia, options?: Readonly<{ signal?: AbortSignal; timing?: VideoTimingIndex }>): Awaitable<ImportVideoFrameExtractor>;
 	createStableId(prefix: string): string;
 	captureProject(): EditorProjectToken;
 	findTrack(project: ImportVideoProject, trackId: string): ImportVideoTrack | null;

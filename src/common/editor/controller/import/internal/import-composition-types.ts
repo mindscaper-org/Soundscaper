@@ -116,7 +116,7 @@ export interface ImportCompositionDependencies {
 	readonly protectedSourceIds: ProjectBinServiceDependencies['protectedSourceIds'];
 	readonly trackColors: readonly string[];
 	readonly taskProgress: Pick<EditorTaskProgressCoordinator, 'begin' | 'run' | 'updateActive'>;
-	readonly projectVisual: Pick<ProjectVisualService, 'getProjectBinClipVisualData' | 'activateVideoSource' | 'revokeVideoVisual'>;
+	readonly projectVisual: Pick<ProjectVisualService, 'getProjectBinClipVisualData' | 'activateVideoSource' | 'revokeVideoVisual' | 'publishVideoSourceDerivative'>;
 	readonly createPreviewEngine: ProjectBinServiceDependencies['createPreviewEngine'];
 	readonly getProject: () => ImportCompositionProject | null;
 	readonly editingBlocked: (allowReadOnly?: boolean) => boolean;

@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import {
-	VideoPreviewEncodedPayloadTooLargeError,
-	VideoPreviewSourceGeometryTooLargeError,
-} from '../../../video-preview-capture-admission.ts';
 import { linkedVideoLocatorReferenceFromImportOptions } from './project-import-options.ts';
 import { sampleFrameToVideoFrame } from '../../../timeline-time.ts'; import { attachExternalMedia } from '../../../desktop-external-media.ts';
 import type {
@@ -30,13 +26,13 @@ export type { ImportVideoFile, ImportVideoFileInput, ImportVideoOptions, ImportV
 
 export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoFile {
 	const {
-		SOURCE_CHUNK_FRAMES, activateVideoSource, audioBufferChannels, audioEditorVideoThumbnailTimes,
+		SOURCE_CHUNK_FRAMES, activateVideoSource, audioBufferChannels,
 		assertProject, bufferFromChannels, cacheSourceBuffer, canonicalizeBuffer, commit,
 		copy, createAddClipCommand, createAddSourceCommand, createAddTrackCommand,
 		captureProject, createAudioEditorVideoFrameExtractor, createStableId, engine, ffmpeg,
-		findTrack, fitAudioBufferToFrames, generateWaveformPeaks, helperTimingProbe,
+		findTrack, fitAudioBufferToFrames, helperTimingProbe,
 		inspectEncodedAudioSampleRate,
-		normalizeImportOptions, peakCacheKey, preflightStorage, getProject,
+		normalizeImportOptions, preflightStorage, getProject,
 		projectSampleRate, revokeVideoVisual, sourceBuffers, sourcePeaks,
 		store, stripExtension, warnEnvelope, writeBuffer,
 	} = runtime;
@@ -60,7 +56,6 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 				.filter((track) => track.type === 'video').length;
 			await preflightStorage(Math.max(file.size * 2, 16 * 1024 * 1024), 'import');
 			let canonicalVideoFile: Blob = file;
-			extractor = await createAudioEditorVideoFrameExtractor(canonicalVideoFile, { signal: importOptions.signal });
 			const sampleRate = projectSampleRate();
 			const ffmpegTimingProbe = createFfmpegVideoTimingProbe(ffmpeg);
 			// The native helper probes by opaque capability id and its failure
@@ -94,8 +89,6 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 					rate: timingProbe.rate,
 					signal: importOptions.signal,
 				});
-				extractor.dispose();
-				extractor = await createAudioEditorVideoFrameExtractor(canonicalVideoFile, { signal: importOptions.signal });
 				const conformedProbe = createFfmpegVideoTimingProbe(ffmpeg);
 				timingProbe = await probeVideoTiming(canonicalVideoFile, {
 					probes: [conformedProbe, createContainerVideoTimingProbe()]
@@ -108,6 +101,10 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 				}
 				conformedAtIngest = true;
 			}
+			extractor = await createAudioEditorVideoFrameExtractor(canonicalVideoFile, {
+				signal: importOptions.signal,
+				...(timingProbe.decision === 'timing-asset' ? { timing: timingProbe.timing } : {}),
+			});
 			const trackName = stripExtension(file.name) || `Video ${startingVideoTrackCount + 1}`;
 			prepared = {
 				startingProjectId, startingProjectToken,
@@ -153,15 +150,9 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 		let mediaPublication: OwnedMediaAssetPublication | null = null;
 		let timingAssetPublication: OwnedMediaAssetPublication | null = null;
 		let audioPersisted = false;
+		let derivativesScheduled = false;
 		let linkedBinding: Awaited<ReturnType<typeof store.bindLinkedVideoOriginal>> | null = null;
 		const linkedProjectId = startingProjectId;
-		const pendingLinkedDerivatives: Parameters<typeof store.saveVideoDerivative>[1][] = [];
-		const savePreviewDerivative = async (derivative: Parameters<typeof store.saveVideoDerivative>[1]) => {
-			if (linkedVideoLocatorId) pendingLinkedDerivatives.push(derivative);
-			else {
-				await store.saveVideoDerivative(videoSourceId, derivative);
-			}
-		};
 		try {
 			const activeProject = requireImportProjectCurrent();
 			const sequenceId = activeProject.primarySequenceId || 'main-sequence';
@@ -199,49 +190,6 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 				const published = await publishVideoTimingAsset(store, sourceContentSha256, timingProbe.timing);
 				timingAsset = published.reference;
 				timingAssetPublication = published.publication;
-			}
-			const thumbnailTimes = audioEditorVideoThumbnailTimes(durationFrames / sampleRate);
-			let sourcePreviewUnavailable = false;
-			const reportsAlpha = timingProbe.characteristics.hasAlpha === true;
-			try {
-				const poster = await extractor.capture(0, {
-					maximumWidth: 640,
-					maximumHeight: 360,
-					alpha: reportsAlpha, signal: importOptions.signal,
-				});
-				await savePreviewDerivative({
-					timestamp: 0,
-					type: 'poster',
-					blob: poster.blob,
-					metadata: {
-						width: poster.width,
-						height: poster.height,
-						mimeType: poster.mimeType,
-					},
-				});
-			} catch (error) {
-				importOptions.signal?.throwIfAborted();
-				// A preview derivative is disposable; the original media remains importable.
-				sourcePreviewUnavailable = error instanceof VideoPreviewSourceGeometryTooLargeError;
-			}
-			for (const timestamp of sourcePreviewUnavailable ? [] : thumbnailTimes) {
-				try {
-					const thumbnail = await extractor.capture(timestamp, { alpha: reportsAlpha, signal: importOptions.signal });
-					await savePreviewDerivative({
-						timestamp: thumbnail.timestampSeconds,
-						type: 'thumbnail',
-						blob: thumbnail.blob,
-						metadata: {
-							width: thumbnail.width,
-							height: thumbnail.height,
-							mimeType: thumbnail.mimeType,
-						},
-					});
-				} catch (error) {
-					importOptions.signal?.throwIfAborted();
-					// Keep the rest of the filmstrip when one seek/capture fails.
-					if (error instanceof VideoPreviewEncodedPayloadTooLargeError) break;
-				}
 			}
 
 			const context = await engine.getAudioContext({ resume: false });
@@ -310,9 +258,6 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 					);
 				}
 				cacheSourceBuffer(audioSourceId, canonicalAudio);
-				const peaks = await generateWaveformPeaks(audioBufferChannels(canonicalAudio), copy);
-				sourcePeaks.set(audioSourceId, peaks);
-				await Promise.resolve(store.saveAnalysis(peakCacheKey(audioSourceId), peaks)).catch(() => undefined);
 			}
 
 			const sourceRate = timingProbe.decision === 'timing-asset' ? timingProbe.nominalRate : timingProbe.rate;
@@ -471,13 +416,6 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 					linkedVideoLocatorId,
 					{ expectedLocatorRevision: linkedVideoLocatorRevision, expectedSnapshot: file },
 				);
-				for (const derivative of pendingLinkedDerivatives) {
-					try {
-						await store.saveLinkedVideoDerivative(
-							linkedProjectId, videoSource, linkedBinding, derivative,
-						);
-					} catch { /* A reproducible preview derivative is disposable. */ }
-				}
 			}
 			await activateVideoSource(videoSource);
 			requireImportProjectCurrent();
@@ -485,6 +423,16 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 				selectTrackId: selectedTrackId,
 				selectClipId: videoClipId,
 			});
+			try {
+				runtime.scheduleDerivatives({
+					source: videoSource, projectToken: startingProjectToken, extractor,
+					durationSeconds: durationFrames / sampleRate, linkedBinding,
+					audio: canonicalAudio && audioSource && audioSourceId
+						? { sourceId: audioSourceId, contentSha256: audioSource.contentSha256, channels: audioBufferChannels(canonicalAudio) } : null,
+				});
+				derivativesScheduled = true;
+			} catch { /* The playable import is already committed; derivatives are disposable. */ }
+
 			try { warnEnvelope(); } catch { /* The canonical import is already committed. */ }
 			return Object.freeze({
 				destination: importOptions.destination,
@@ -536,7 +484,9 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 			}
 			throw error;
 		} finally {
-			try { extractor.dispose(); } catch { /* Disposable import helper. */ }
+			if (!derivativesScheduled) {
+				try { extractor.dispose(); } catch { /* Disposable import helper. */ }
+			}
 		}
 	}
 	return importVideoFile;

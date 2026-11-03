@@ -180,6 +180,16 @@ lower-level breakpoint evaluator can represent them.
 
 ## Proxies and derived media
 
+Video import publishes the original, its exact timing asset, and any extracted
+playable PCM before starting disposable thumbnails and waveform analysis. The
+import busy claim ends at that publication, so editing does not wait for the
+filmstrip. Preview pixels and waveform peaks publish independently as they
+become available, without adding history entries or replacing the decoder URL.
+Background jobs belong to the active project lifetime and check each source's
+content identity before publishing. Project changes, source removal or replacement,
+and controller disposal fence late results; derivative failures never roll back
+the committed import. Repeated capture failures stop the remaining filmstrip.
+
 A proxy is an authenticated derivative, never a new timing authority. It is
 bound to the exact original generation, content identity, and timing facts from
 which it was made. Preview may use a conforming proxy, while export and delivery

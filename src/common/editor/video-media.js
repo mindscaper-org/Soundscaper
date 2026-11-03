@@ -77,7 +77,7 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		width = positiveInteger(video.videoWidth, 'Video width');
 		height = positiveInteger(video.videoHeight, 'Video height');
 		matchesCaptureFrame = await (await import('./video-frame-capture-timing.ts'))
-			.createVideoFrameCaptureTimingMatcher(file, options.signal ? { signal: options.signal } : {});
+			.createVideoFrameCaptureTimingMatcher(file, { signal: options.signal, timing: options.timing });
 	} catch (error) {
 		releaseVideoFrameCaptureElement(video, () => {
 			if (!selectedRange) urlApi.revokeObjectURL?.(objectUrl);

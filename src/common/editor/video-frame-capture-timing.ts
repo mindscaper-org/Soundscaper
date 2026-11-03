@@ -7,6 +7,7 @@ type CaptureTiming = Pick<VideoTimingProbeResult, 'timescale' | 'presentationTic
 type FrameMatcher = (timestamp: number, mediaTime: number) => boolean;
 interface CaptureTimingOptions {
 	readonly signal?: AbortSignal;
+	readonly timing?: CaptureTiming;
 	readonly readTiming?: (file: Blob, options: Readonly<{ signal?: AbortSignal }>) => Promise<CaptureTiming>;
 }
 const ROUNDING_SECONDS = 0.000001;
@@ -19,7 +20,7 @@ export async function createVideoFrameCaptureTimingMatcher(
 	options.signal?.throwIfAborted();
 	let timing: CaptureTiming;
 	try {
-		timing = await (options.readTiming ?? demuxVideoTiming)(file,
+		timing = options.timing ?? await (options.readTiming ?? demuxVideoTiming)(file,
 			options.signal ? { signal: options.signal } : {});
 	} catch {
 		options.signal?.throwIfAborted();

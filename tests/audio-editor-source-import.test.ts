@@ -71,18 +71,18 @@ test('video import extracts linked audio and creates a new timeline lane pair', 
 	assert.ok(committedVideoSource);
 	assert.equal(committedVideoSource.posterStorageKey, null);
 	assert.equal(committedVideoSource.thumbnailStorageKey, null);
+	assert.deepEqual(fixture.derivatives, []);
+	assert.equal(fixture.sourcePeaks.size, 0);
+	await fixture.finishDerivatives();
 	assert.deepEqual(fixture.derivatives.map(({ timestamp, type }) => [timestamp, type]), [
 		[0, 'poster'], [1, 'thumbnail'], [2, 'thumbnail'],
 	]);
 	assert.equal(fixture.sourceBuffers.size, 1);
 	assert.equal(fixture.sourcePeaks.size, 1);
-	assert.deepEqual(fixture.calls, [
-		'preflight:16777216', 'assert-project:0', 'write-media:video-source-1',
-		'capture:0:poster', 'capture:1:thumbnail', 'capture:2:thumbnail',
-		'preflight:32', 'writer-write', 'writer-commit', 'save-analysis',
-		'assert-project:0', 'assert-project:0', 'activate:video-source-1',
-		'assert-project:0', 'commit', 'warn-envelope', 'dispose',
-	]);
+	assert.ok(fixture.calls.indexOf('writer-commit') < fixture.calls.indexOf('commit'));
+	assert.ok(fixture.calls.indexOf('commit') < fixture.calls.indexOf('capture:0:poster'));
+	assert.ok(fixture.calls.indexOf('commit') < fixture.calls.indexOf('save-analysis'));
+	assert.equal(fixture.calls.at(-1), 'dispose');
 });
 
 test('video import reuses both members of an existing lane group', async () => {
@@ -136,6 +136,7 @@ test('project-bin video import tolerates missing audio and disposable preview fa
 		'The audio from Video 1.mp4 could not be decoded. The video was imported without audio.',
 	);
 	assert.equal(fixture.commits[0]?.command.commands.length, 2);
+	await fixture.finishDerivatives();
 	assert.deepEqual(fixture.derivatives.map(({ timestamp }) => timestamp), [2]);
 	assert.equal(fixture.calls.includes('warn-envelope'), true);
 });
@@ -147,6 +148,7 @@ test('video import stops disposable filmstrip work after an encoded hard-cap ref
 		destination: 'project-bin', trackId: null, timelineStartFrame: 0,
 	});
 
+	await fixture.finishDerivatives();
 	assert.deepEqual(
 		fixture.calls.filter((call) => call.startsWith('capture:')),
 		['capture:0:poster', 'capture:1:thumbnail'],
@@ -161,6 +163,7 @@ test('video import skips all disposable captures after source-frame admission re
 		destination: 'project-bin', trackId: null, timelineStartFrame: 0,
 	});
 
+	await fixture.finishDerivatives();
 	assert.deepEqual(
 		fixture.calls.filter((call) => call.startsWith('capture:')),
 		['capture:0:poster'],
@@ -219,16 +222,17 @@ test('linked video import keeps local derivatives and extracted PCM while activa
 		linkedVideoLocatorRevision: 'revision_0000000000000001',
 	});
 
+	const foregroundCalls = [...fixture.calls];
+	await fixture.finishDerivatives();
 	assert.equal(fixture.calls.some((call) => call.startsWith('write-media:')), false);
 	assert.ok(fixture.calls.indexOf(`bind:project-import-video:${result.sourceId}:${locatorId}`)
 		< fixture.calls.indexOf('save-linked-derivative'));
-	assert.ok(fixture.calls.indexOf('save-linked-derivative')
-		< fixture.calls.indexOf(`activate:${result.sourceId}`));
+	assert.ok(fixture.calls.indexOf('save-linked-derivative') > fixture.calls.indexOf('commit'));
 	assert.ok(fixture.calls.indexOf('assert-project:0')
 		< fixture.calls.indexOf(`bind:project-import-video:${result.sourceId}:${locatorId}`));
-	assert.ok(fixture.calls.lastIndexOf('assert-project:0')
-		> fixture.calls.indexOf(`activate:${result.sourceId}`));
-	assert.ok(fixture.calls.lastIndexOf('assert-project:0') < fixture.calls.indexOf('commit'));
+	assert.ok(foregroundCalls.lastIndexOf('assert-project:0')
+		> foregroundCalls.indexOf(`activate:${result.sourceId}`));
+	assert.ok(foregroundCalls.lastIndexOf('assert-project:0') < foregroundCalls.indexOf('commit'));
 	assert.equal(fixture.derivatives.length, 3);
 	assert.equal(fixture.calls.includes('writer-commit'), true);
 	assert.equal(fixture.sourceBuffers.size, 1);
