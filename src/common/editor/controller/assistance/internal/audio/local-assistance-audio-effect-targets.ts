@@ -23,8 +23,12 @@ export function localAssistanceAudioEffectTargets(
 	const startFrame = Number(selection.startFrame), endFrame = Number(selection.endFrame);
 	const ranged = Number.isSafeInteger(startFrame) && startFrame >= 0
 		&& Number.isSafeInteger(endFrame) && endFrame > startFrame;
+	const selectedTracks = new Set(trackIds);
+	const rangedTracks = ranged && trackIds.length > 0;
 	const explicitIds = new Set<string>();
-	const requestedIds = ranged && trackIds.length ? [] : clipIds.length ? clipIds
+	const requestedIds = rangedTracks ? clips.filter(clip => clip.kind === 'video'
+		&& tracks.some(track => track.type === 'video' && selectedTracks.has(String(track.id))
+			&& ids(track.clipIds).includes(String(clip.id)))).map(clip => String(clip.id)) : clipIds.length ? clipIds
 		: focusedClipId ? [focusedClipId] : [];
 	for (const id of requestedIds) {
 		const clip = clips.find(candidate => candidate.id === id);
@@ -34,13 +38,12 @@ export function localAssistanceAudioEffectTargets(
 			if (peers.length === 1 && typeof peers[0]!.id === 'string') explicitIds.add(peers[0]!.id);
 		}
 	}
-	const selectedTracks = new Set(trackIds);
 	const targets: LocalAssistanceAudioEffectTarget[] = [];
 	for (const clip of clips) {
 		if (clip.kind !== 'audio' || typeof clip.id !== 'string') continue;
 		const owners = tracks.filter(track => track.type === 'audio' && ids(track.clipIds).includes(String(clip.id)));
-		const selected = requestedIds.length ? explicitIds.has(clip.id)
-			: ranged && owners.some(track => selectedTracks.has(String(track.id)));
+		const selected = explicitIds.has(clip.id)
+			|| rangedTracks && owners.some(track => selectedTracks.has(String(track.id)));
 		if (!selected) continue;
 		if (owners.length !== 1 || typeof owners[0]!.id !== 'string') {
 			throw new Error('Selected audio has ambiguous track ownership.');

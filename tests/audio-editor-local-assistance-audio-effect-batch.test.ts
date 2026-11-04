@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createLocalAssistancePreparationRuntime } from '../src/common/editor/controller/assistance/internal/local-assistance-runtime.ts';
+import { localAssistanceAudioEffectTargets } from '../src/common/editor/controller/assistance/internal/audio/local-assistance-audio-effect-targets.ts';
 import type { LocalAssistanceAudioEffectBatch, LocalAssistancePreparedMedia } from '../src/common/editor/assistance/local-assistance-preparation.ts';
 import { createEditorHistory, executeEditorCommand, undoEditorCommand } from '../src/common/editor/history.js';
 import { createCurrentAudioEditorProject, type AudioEditorProjectCurrent } from '../src/common/editor/project-current.ts';
@@ -11,6 +12,30 @@ import type { AudioEditorCommand } from '../src/common/editor/commands/protocol.
 import { AudioStore, model, output, SOURCE_SHA256 } from './helpers/local-assistance-audio-publication-fixture.ts';
 
 type History = ReturnType<typeof createEditorHistory> & { present: AudioEditorProjectCurrent };
+
+test('video track ranges include uniquely linked audio alongside other selected audio tracks', () => {
+	const clips = [
+		{ id: 'camera', kind: 'video', avLinkId: 'av-link' },
+		{ id: 'voice', kind: 'audio', avLinkId: 'av-link', timelineStartFrame: 0, durationFrames: 20 },
+		{ id: 'music', kind: 'audio', timelineStartFrame: 0, durationFrames: 20 },
+	];
+	const tracks = [
+		{ id: 'video-track', type: 'video', clipIds: ['camera'] },
+		{ id: 'voice-track', type: 'audio', clipIds: ['voice'] },
+		{ id: 'music-track', type: 'audio', clipIds: ['music'] },
+	];
+	for (const trackIds of [['video-track'], ['video-track', 'music-track']]) {
+		const targets = localAssistanceAudioEffectTargets({ clips, tracks,
+			selection: { startFrame: 2, endFrame: 16, trackIds, clipIds: ['camera'] },
+		}, 'voice');
+		assert.deepEqual(targets.map(({ clipId }) => clipId),
+			trackIds.length === 1 ? ['voice'] : ['voice', 'music']);
+		for (const { selection } of targets) {
+			assert.equal(selection.startFrame, 2);
+			assert.equal(selection.endFrame, 16);
+		}
+	}
+});
 
 test('audio selection inventory deduplicates sources across selected tracks and occurrences', async () => {
 	const fixture = batchFixture();
