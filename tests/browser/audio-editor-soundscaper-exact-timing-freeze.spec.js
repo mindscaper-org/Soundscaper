@@ -21,6 +21,8 @@ import {
 	commitInput,
 	collectClientErrors,
 	clipByName,
+	disableNativeSavePicker,
+	downloadBytes,
 	importFiles,
 	getMenuItem,
 	openClipProperties,
@@ -77,6 +79,7 @@ test.describe('Soundscaper exact timing and freeze workflows', () => {
 
 	test('freezes native AudioWorklet PCM with zero-boundary PDC and an exact insert tail', async ({ page }) => {
 		test.setTimeout(90_000);
+		await disableNativeSavePicker(page);
 		await disableOpfsForRawPcmEvidence(page);
 		const clientErrors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/');
@@ -93,7 +96,13 @@ test.describe('Soundscaper exact timing and freeze workflows', () => {
 		const projectId = await editor.getAttribute('data-project-id');
 		expect(trackId).toBeTruthy();
 		expect(projectId).toBeTruthy();
-		await chooseFileAction(page, editor, 'Save project');
+		const [download] = await Promise.all([
+			page.waitForEvent('download'),
+			chooseFileAction(page, editor, 'Save project'),
+		]);
+		// The recovery save state can settle before the archive download starts.
+		// Complete that browser navigation before changing storage and reloading.
+		await downloadBytes(download);
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 		// Native dynamics remain readable in saved projects after the rack replaces
 		// their menu entries with the Audacity processors.
