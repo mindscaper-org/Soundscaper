@@ -3,6 +3,8 @@
 import type { MidiClipInterchange } from './midi-model.ts';
 import type { MidiFileEvent } from './midi-file-types.ts';
 
+interface OrderedEvent { readonly event: MidiFileEvent; readonly index: number }
+
 /** One export clip owns its ordering and at most three loop-edge source windows. */
 export function createMidiClipEventProjection(interchange: MidiClipInterchange | undefined) {
 	const events = [...(interchange?.events ?? [])].sort(byFrame);
@@ -14,16 +16,17 @@ export function createMidiClipEventProjection(interchange: MidiClipInterchange |
 			const key = `${start}:${frames}`;
 			let window = windows.get(key);
 			if (!window) {
-				const state = new Map<string, MidiFileEvent>();
-				const initial: MidiFileEvent[] = [], visible: MidiFileEvent[] = [];
-				for (const event of events) {
+				const state = new Map<string, OrderedEvent>();
+				const initial: OrderedEvent[] = [], visible: MidiFileEvent[] = [];
+				for (let index = 0; index < events.length; index += 1) {
+					const event = events[index]!;
 					if (event.frame >= start + frames) break;
 					if (event.frame >= start) visible.push(event);
-					else if (event.status === 240 || event.status === 247) initial.push(event);
-					else if (event.status < 240) state.set(`${event.status}:${[160, 176].includes(event.status & 240) ? event.data[0] : ''}`, event);
-					else if (event.status === 255 && [2, 4, 89].includes(event.metaType ?? -1)) state.set(`meta:${event.metaType}`, event);
+					else if (event.status === 240 || event.status === 247) initial.push({ event, index });
+					else if (event.status < 240) state.set(`${event.status}:${[160, 176].includes(event.status & 240) ? event.data[0] : ''}`, { event, index });
+					else if (event.status === 255 && [2, 4, 89].includes(event.metaType ?? -1)) state.set(`meta:${event.metaType}`, { event, index });
 				}
-				window = { initial: [...initial, ...state.values()], visible };
+				window = { initial: [...initial, ...state.values()].sort((a, b) => a.index - b.index).map(value => value.event), visible };
 				if (windows.size < 3) windows.set(key, window);
 			}
 			return [...window.initial.map(event => ({ ...event, frame: timelineStart })), ...window.visible.map(event => ({ ...event, frame: global(event.frame) }))];
