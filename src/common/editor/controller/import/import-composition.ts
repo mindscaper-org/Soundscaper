@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { inspectEncodedAudioSampleRate } from '../../audio-file-metadata.js';
+import { createLocalizedError } from '../../../i18n/presentation-message.ts';
 import { claimImportBusyState } from '../shared/import-busy-state.ts';
 import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-command.ts';
 import { createAddClipCommand, createAddSourceCommand, createAddTrackCommand } from '../../commands.js';
@@ -144,6 +145,7 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 	};
 	const projectImport = createProjectImportService(projectImportRuntime);
 	const derivatives = createVideoImportDerivativeScheduler({
+		activationUnavailableError: () => createLocalizedError(Error, copy, 'projectBinReplacementIncompatible'),
 		lifetime, store, activateVideoSource, revokeVideoVisual, sourcePeaks: dependencies.sourcePeaks, peakCacheKey, audioEditorVideoThumbnailTimes,
 		assertProject, getProject: dependencies.getProject, protectedSourceIds: dependencies.protectedSourceIds,
 		generatePeaks: (channels, signal) => generateWaveformPeaks(channels, copy, undefined, signal),
@@ -235,6 +237,7 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 			throwIfAborted(signal);
 			return result;
 		},
+		awaitVideoSourceActivation: derivatives.awaitActivation,
 		activateStoredSource: dependencies.activateStoredSource,
 		invalidateSourceRuntime: dependencies.invalidateSourceRuntime,
 		projectChanged: dependencies.projectChanged,

@@ -18,6 +18,8 @@ import type {
 
 interface HarnessOptions {
 	readonly importProjectBinFile?: ProjectBinServiceDependencies['importProjectBinFile'];
+	readonly awaitVideoSourceActivation?: (sourceId: string, options: Readonly<{ signal: AbortSignal }>) => Promise<void>;
+	readonly applySelection?: (project: ProjectBinProject, command: Extract<AudioEditorCommand, { type: 'selection/set' }>) => ProjectBinProject;
 	readonly revokeVideoVisual?: ProjectBinServiceDependencies['revokeVideoVisual'];
 	readonly sourceChunkProviders?: ProjectBinServiceDependencies['sourceChunkProviders'];
 	readonly retireSourceChunkProvider?: ProjectBinServiceDependencies['retireSourceChunkProvider'];
@@ -99,7 +101,13 @@ export function createHarness(initialProject: ProjectBinProject, options: Harnes
 		setPreview: (value) => { preview = value; },
 		editingBlocked: options.editingBlocked ?? (() => false),
 		commit: (command, selection) => { commits.push({ command, selection }); },
-		updateSelection: (command) => { selectionCommands.push(command); },
+		updateSelection: (command) => {
+			selectionCommands.push(command);
+			if (options.applySelection) {
+				project = options.applySelection(project, command);
+				history = { ...(history as object), present: project };
+			}
+		},
 		getPositionFrames: options.getPositionFrames ?? (() => 128),
 		normalizeTimelineStartFrame: (value) => Math.max(0, Math.round(Number(value))),
 		getVisualData: () => options.visualMediaUrl == null ? null : { mediaUrl: options.visualMediaUrl },
@@ -116,6 +124,7 @@ export function createHarness(initialProject: ProjectBinProject, options: Harnes
 		},
 		setImporting: (value) => { importing = value; },
 		importProjectBinFile: options.importProjectBinFile ?? (async () => null),
+		awaitVideoSourceActivation: options.awaitVideoSourceActivation,
 		projectChanged: options.projectChanged ?? (() => undefined),
 		publish: () => { publishCount += 1; },
 		revokeVideoVisual: options.revokeVideoVisual ?? (() => undefined),
@@ -130,6 +139,7 @@ export function createHarness(initialProject: ProjectBinProject, options: Harnes
 		deletedSources,
 		deletedMedia,
 		get project() { return project; },
+		get history() { return history; },
 		get preview() { return preview; },
 		get selectedClipId() { return selectedClipId; },
 		get selectedTrackId() { return selectedTrackId; },
@@ -137,9 +147,9 @@ export function createHarness(initialProject: ProjectBinProject, options: Harnes
 		get publishCount() { return publishCount; },
 		get restoreCount() { return restoreCount; },
 		get playbackStopCount() { return playbackStopCount; },
-		replaceImportedDocument(value: ProjectBinProject) {
+		replaceImportedDocument(value: ProjectBinProject, importedHistory?: unknown) {
 			project = value;
-			history = { present: value };
+			history = importedHistory ?? { present: value };
 		},
 		switchProject(value: ProjectBinProject) {
 			project = value;

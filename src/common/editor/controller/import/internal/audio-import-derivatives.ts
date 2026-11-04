@@ -2,6 +2,7 @@
 
 import type { EditorControllerLifetime, EditorProjectToken } from '../../shared/lifecycle.ts';
 import type { generateStoredWaveformPeaks, WaveformPeaks } from '../../source/waveform-analysis.ts';
+import { claimProtectedSources } from './protected-source-claims.ts';
 
 type StoredWaveformSource = Parameters<typeof generateStoredWaveformPeaks>[1];
 
@@ -49,7 +50,7 @@ export function createAudioImportDerivativeScheduler(options: AudioImportDerivat
 				throw new DOMException('The imported audio source is no longer current.', 'AbortError');
 			}
 		};
-		options.protectedSourceIds.add(request.source.id);
+		const releaseProtection = claimProtectedSources([request.source.id], options.protectedSourceIds);
 		const operation = tail.then(async () => {
 			try {
 				await new Promise<void>(resolve => { setTimeout(resolve, 0); });
@@ -64,7 +65,7 @@ export function createAudioImportDerivativeScheduler(options: AudioImportDerivat
 				options.publish();
 				await options.store.saveAnalysis(options.peakCacheKey(request.source.id), peaks);
 			} catch { /* Retired sources and optional analysis failures preserve the playable import. */ }
-			finally { options.protectedSourceIds.delete(request.source.id); task.finish(); }
+			finally { releaseProtection(); task.finish(); }
 		});
 		tail = operation;
 		pending.add(operation);

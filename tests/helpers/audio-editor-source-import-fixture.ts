@@ -415,6 +415,7 @@ export function createFixture() {
 	return {
 		lifetime, protectedSourceIds,
 		finishDerivatives: derivativesScheduler.whenIdle,
+		awaitVideoActivation: derivativesScheduler.awaitActivation,
 		editProject: (value: typeof project) => { project = value; },
 		addedSources,
 		boundSnapshots,
