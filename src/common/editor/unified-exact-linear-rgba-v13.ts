@@ -11,6 +11,7 @@ import {
 } from './video-preview-render-description.ts';
 import type { UnifiedExactLinearSourceFrame } from './unified-exact-linear-source-frame.ts';
 import type { UnifiedExactRenderRgbaFrameV13 } from './unified-exact-render-finishing-consumers-v13.ts';
+import { compositeNormalLinearPixels } from './unified-exact-linear-normal-composition.ts';
 
 export interface UnifiedExactLinearPremultipliedFrameV13 {
 	readonly width: number;
@@ -135,6 +136,10 @@ export function compositeUnifiedExactLinearFrameV13(
 	const target = premultipliedFrame(targetValue, 'linear composite target');
 	const source = premultipliedFrame(sourceValue, 'linear composite source');
 	assertSameGeometry(target, source, 'linear composite');
+	if (blendMode === 'normal' && hasOrdinaryFrameFields(target) && hasOrdinaryFrameFields(source)) {
+		compositeNormalLinearPixels(target.pixels, source.pixels);
+		return;
+	}
 	for (let offset = 0; offset < target.pixels.length; offset += 4) {
 		const targetAlpha = clamp(target.pixels[offset + 3]!);
 		const sourceAlpha = clamp(source.pixels[offset + 3]!);
@@ -291,12 +296,15 @@ function place(
 	}
 }
 
-function hasOrdinaryFrameFields(source: UnifiedExactRenderRgbaFrameV13 | UnifiedExactLinearSourceFrame): boolean {
+function hasOrdinaryFrameFields(
+	source: UnifiedExactRenderRgbaFrameV13 | UnifiedExactLinearSourceFrame | UnifiedExactLinearPremultipliedFrameV13,
+): boolean {
 	return ['width', 'height', 'pixels'].every((key) => {
 		const descriptor = Object.getOwnPropertyDescriptor(source, key);
 		return descriptor !== undefined && 'value' in descriptor;
-	}) && (Object.getPrototypeOf(source.pixels) === Uint8Array.prototype
-		|| Object.getPrototypeOf(source.pixels) === Float32Array.prototype);
+	}) && ArrayBuffer.isView(source.pixels) && (Object.getPrototypeOf(source.pixels) === Uint8Array.prototype
+		|| Object.getPrototypeOf(source.pixels) === Float32Array.prototype
+		|| Object.getPrototypeOf(source.pixels) === Float64Array.prototype);
 }
 
 /** Axis-aligned placement shares interpolation addresses across each row and column. */

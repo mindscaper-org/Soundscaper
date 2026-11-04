@@ -13,6 +13,7 @@ budgets remain in their machine-readable registers.
 | --- | --- | --- |
 | Timeline queries | Reuse indexes for immutable documents and keep repeated viewport queries proportional to visible content. Include index construction in measurements. | [Clip windows](../../tests/audio-editor-timeline-viewport-index.test.ts), [duration](../../tests/audio-editor-timeline-viewport-duration.test.tsx), [snapping](../../tests/audio-editor-boundary-snap.test.ts) |
 | Label geometry | Reuse weakly owned immutable ordering and bounded text measurements; calculate track heights without full presentation maps. Font completion invalidates both heights and visible rows; retired project records remain collectible. | [Layout work](../../tests/audio-editor-label-layout-performance.test.ts), [font publication](../../tests/audio-editor-label-layout-react.test.tsx) |
+| Track row selection | Check unchanged native selections through the smaller row membership. Changed intersections preserve source order; mutable selections, incoming drags, and custom traversal remain live. | [Row selection work](../../tests/audio-editor-track-row-selection-work.test.ts) |
 | Video overlap presentation | Bound retained pair geometry and use viewport-only generation for dense overlaps. Preserve visible pairs and invalid clip IDs. | [Overlap presentation](../../tests/audio-editor-video-overlap-presentation.test.ts) |
 | DSP | Share channel-independent work while preserving PCM, rounding, telemetry, and state across chunks. Retained history owns its buffers; transferred packets must not expose borrowed storage. | [Sinc kernels](../../tests/audio-editor-streaming-resample-kernel.test.ts), [frequency peaks](../../tests/audio-editor-frequency-waveform-band-peaks.test.ts), [live dynamics](../../tests/audio-editor-live-dynamics-gain-work.test.ts), [borrowed input](../../tests/audio-editor-resample-borrowed-input.test.ts) |
 | Playback meters | Sample visible or armed strips and retain master analysis. Reuse production channel measurements for scalar presentation, with fallback for missing or pending channel results. Headless consumers retain full metering. | [Demand and fallback](../../tests/audio-editor-playback-meter-demand.test.ts), [visibility leases](../../tests/audio-editor-playback-meter-visibility.test.tsx) |
@@ -56,6 +57,12 @@ placement. Rotation, shear, and custom source fields retain the general
 sampler. The [placement regressions](../../tests/audio-editor-linear-placement-performance.test.ts)
 check address work and pixel parity across transforms, crops, masks, and alpha.
 
+Normal linear composition omits unused backdrop unassociation and blend-mode
+dispatch for ordinary native working planes. It preserves the general kernel's
+Float64 arithmetic; other blend modes and custom frame accessors retain that
+kernel. The [normal composition regressions](../../tests/audio-editor-linear-normal-composition-performance.test.ts)
+check read work, exact output, aliases, exceptional channels, and live getters.
+
 Row readers retain one current visual result and still poll mutable visual
 providers. Recording views retain one current preview index. Preview windows
 box native peak views directly into detached number arrays; custom iterators,
@@ -97,6 +104,13 @@ storage. Convolution reuses its existing storage and clears only the unfilled
 suffix. The [Fourier](../../tests/audio-editor-runtime100-audio-fourier.test.ts)
 and [streaming overlap](../../tests/audio-editor-runtime100-audio-streaming-overlap.test.ts)
 regressions cover scratch reuse and output parity.
+
+Streaming sinc resampling reuses private history for ordinary channel arrays,
+bounded to 65,536 Float32 frames per channel. Larger feeds and custom array or
+typed-view behavior retain the original copying path. Input borrowing and
+independent output ownership remain intact; finishing or refusing a stream
+releases its retained PCM. The [history regressions](../../tests/audio-editor-resample-history-reuse.test.ts)
+cover allocation work, exact partitioned PCM, custom traversal, and collection.
 
 ### Storage and interchange
 
