@@ -9,6 +9,7 @@ for (const nonDefault of [true, false]) test(`Matroska original-language credit 
 	const file = await translatedTaggedWebmOpusFixture(nonDefault, true);
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 30_000 });
+	await expect.poll(async () => (await sourcePeakChannels(page, file.name)).channelCount).toBe(1);
 	const peak = await sourcePeakChannels(page, file.name); expect(peak.channelCount).toBe(1);
 	expect(peak.channels[0].maximum).toBeGreaterThan(.05);
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
