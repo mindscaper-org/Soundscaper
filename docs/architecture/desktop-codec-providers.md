@@ -95,6 +95,11 @@ admits up to one hour and 1,000,000,000 final file bytes, with a one-hour execut
 deadline, cancellation, progress, and final codec geometry/checksum validation.
 Neither input PCM nor encoded output accumulates in one JavaScript or WASM buffer.
 
+Opted-in label chapters use the shared MP3 and M4A container writers after native
+encoding and before publication. Chapter data stays outside the closed codec
+bridge. MP3 chapter tags retain the native scratch file through a bounded range
+view, and final file-size warnings include the chapter bytes.
+
 The small-buffer helpers still perform synchronous WASM calls internally. Their
 buffers, codec working state, JavaScript copies, and elapsed time do not form one
 shared reservation for aggregate helper-process RSS and CPU.

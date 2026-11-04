@@ -8,13 +8,11 @@ import { scaleSampleFrame } from '../timeline-time.ts';
 import { exportSequenceProject } from '../export-sequence-project.ts';
 import { resolveSelectionRange } from '../selection-range.ts';
 
-/** A chapter-bearing file follows the ordinary mixed browser delivery timeline. */
+/** A chapter-bearing file follows the ordinary mixed delivery timeline. */
 export function exportDialogSupportsEmbeddedChapters(
 	settings: Readonly<Record<string, unknown>>,
-	desktop = false,
 ): boolean {
-	return !desktop
-		&& supportsEmbeddedExportChapters(settings.format)
+	return supportsEmbeddedExportChapters(settings.format)
 		&& settings.mode === 'mix'
 		&& !settings.masteringSequenceId;
 }

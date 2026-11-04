@@ -291,7 +291,7 @@ spectrogram settings are in **Edit → Preferences → Track display**.
 | Stems and alternates in one pass | + — queued together with the mix | + — queued together with the mix | ~ — Export Multiple writes each track separately, but does not queue the mix and alternate renders together | ~ — one mixdown per stem |
 | Region-by-region delivery | + — mastering sequences with per-region metadata, gaps, and fades | + — mastering sequences with per-region metadata, gaps, and fades | + — Export Multiple writes each labelled region to its own file | + — export markers to separate files |
 | Individual clip delivery | + — single-clip export or one rendered file per audio clip in an archive | + — single-clip export or one rendered file per audio clip in an archive | ~ — single-clip export and labelled splits; no clip archive in the audited build | ~ — selected clips mixdown or trimmed session archive in the documented workflow |
-| Embedded podcast chapters | ~ — label chapters in a single MP3 or M4A mix; M4A depends on browser codec support | / — the chapter-embedding control is currently Web-only | / — no chapter embedding in the audited build | ~ — marker metadata export; MP3/M4A podcast chapter embedding is not documented |
+| Embedded podcast chapters | ~ — label chapters in a single MP3 or M4A mix; M4A depends on browser codec support | ~ — label chapters in a single MP3 or M4A mix; M4A requires an available desktop encoder | / — no chapter embedding in the audited build | ~ — marker metadata export; MP3/M4A podcast chapter embedding is not documented |
 | Loudness normalisation on export | + — part of the delivery plan | + — part of the delivery plan | ~ — run the effect first | + — Match Loudness |
 | Dither and channel mapping | + — explicit controls | + — explicit controls | ~ — dither in preferences | + — explicit controls |
 | Delivery report | + — itemised per job | + — itemised per job | / | / |
@@ -310,7 +310,7 @@ ID3, Vorbis comments, APEv2, or MP4 metadata according to the selected format.
 See [Project metadata](/soundscaper/edit-mix-and-export/#project-metadata).
 Audition documents its [metadata formats and export options](https://helpx.adobe.com/audition/desktop/saving-and-exporting/viewing-editing-xmp-metadata.html).
 
-Web's [chapter embedding](/soundscaper/edit-mix-and-export/#embedded-chapters)
+[Chapter embedding](/soundscaper/edit-mix-and-export/#embedded-chapters) on Web and Desktop
 is an opt-in setting for one mixed file. It excludes split deliveries and
 mastering sequences; M4A is limited to 255 chapters and 255 UTF-8 bytes per title.
 Chapter display depends on the player.
@@ -406,7 +406,7 @@ sends, track and effect automation lanes, and the macro manager remain outside
 the audited release's enabled workflows. Soundscaper adds those production
 tools, project notes, recovery workflows, and individual clip delivery. Desktop
 also adds VST2 and CLAP hosting, ARA clip editing, local models, legacy SES import,
-and Blender track sync; Web supplies embedded podcast chapters.
+and Blender track sync; Web and Desktop supply embedded podcast chapters.
 
 Audition offers a broader dedicated restoration toolkit, Premiere Pro
 round-trips, and ambisonics. Soundscaper offers surround and ADM delivery,

@@ -40,6 +40,9 @@ test('the actual streamed MP3 encoder embeds chapters after validating its gaple
 	assert.ok(bytes.includes(Buffer.from('Ambient')));
 	assert.equal(bytes.indexOf(Buffer.from('ID3'), 3), -1);
 	assert.equal(isFileBackedAudioExport(result.blob), true);
+	const downloadUrl = URL.createObjectURL(result.blob);
+	try { assert.deepEqual(Buffer.from(await (await fetch(downloadUrl)).arrayBuffer()), bytes); }
+	finally { URL.revokeObjectURL(downloadUrl); }
 	assert.equal(sink.removed, false);
 	const published: Uint8Array<ArrayBuffer>[] = [];
 	const delivery = await streamBrowserAudioEncodedResult(result, {

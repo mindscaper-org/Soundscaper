@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseDropdown, importFiles, openExportDialog } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, chooseDropdown, importFiles, openExportDialog } from './audio-editor-test-helpers.js';
 import { installDesktopSpeedWarmupManifest } from './helpers/desktop-speed-warmup-fixture.js';
 
 async function installCodecBridge(page, mode) {
@@ -104,4 +104,24 @@ test('editing the sample rate does not interrupt typing with a capability error'
 	await rate.fill('48000');
 	await rate.press('Tab');
 	await expect(dialog.getByRole('button', { name: 'Export', exact: true })).toBeEnabled();
+});
+
+test('desktop MP3 and M4A mixed exports offer opt-in embedded label chapters', async ({ page }) => {
+	await installCodecBridge(page, 'available');
+	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [toneA]);
+	await chooseCommandAction(page, editor, 'Edit', 'Add label');
+	const title = editor.getByRole('textbox', { name: /^Edit labels:/u });
+	await title.fill('Opening chapter');
+	await title.press('Enter');
+	const dialog = await openExportDialog(page, editor);
+	const chapters = dialog.getByRole('checkbox', { name: 'Embed labels as chapters', exact: true });
+	await expect(chapters).toHaveCount(0);
+	await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'MP3');
+	await expect(chapters).not.toBeChecked();
+	await chapters.check();
+	await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'AAC / M4A');
+	await expect(chapters).toBeChecked();
+	await chooseDropdown(page, dialog.locator('[data-export-field="output"]'), 'Individual stems (split by tracks)');
+	await expect(chapters).toHaveCount(0);
 });

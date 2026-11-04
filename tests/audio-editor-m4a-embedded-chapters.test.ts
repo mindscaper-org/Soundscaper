@@ -8,6 +8,8 @@ import { BlobSource, BufferTarget, EncodedAudioPacketSource, EncodedPacketSink, 
 import { aacSourceMetadata, readAacSourceMetadata } from '../src/common/editor/aac-source-geometry.ts';
 import { embedM4aChapters } from '../src/common/editor/m4a-embedded-chapters.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
+import { createDesktopAudioCodecRuntime } from '../src/common/editor/desktop-audio-codec-runtime.ts';
+import { createDesktopAudioCodecResult } from '../desktop/desktop-audio-codec-operation-contract.ts';
 
 const chapters = [
 	{ startFrame: 12_000, endFrame: 24_000, title: '日本語 = #1;\\\r\n' },
@@ -91,7 +93,7 @@ async function nativeFragments(blob: Blob): Promise<Uint8Array<ArrayBuffer>> {
 	} finally { input.dispose(); }
 }
 
-test('the shipped FFmpeg reader decodes native M4A chapters without changing audio, tags, or fragment offsets', async () => {
+test('the shipped FFmpeg reader decodes browser and desktop M4A chapters without changing audio, tags, or fragment offsets', async () => {
 	const previousSelf: unknown = Reflect.get(globalThis, 'self');
 	Reflect.set(globalThis, 'self', { location: { href: import.meta.url } });
 	try {
@@ -112,6 +114,15 @@ test('the shipped FFmpeg reader decodes native M4A chapters without changing aud
 				original = new Blob([bytes], { type: 'audio/mp4' });
 			}
 			const output = await embedM4aChapters(original, chapters, 48_000);
+			const nativeBytes = new Uint8Array(await original.arrayBuffer());
+			const desktop = createDesktopAudioCodecRuntime({
+				capabilities: query => ({ schemaVersion: 2, capabilities: query.operations.map(tuple => ({ ...tuple, available: true, provider: 'external-ffmpeg', reason: null })) }),
+				execute: request => createDesktopAudioCodecResult(request, nativeBytes), cancel() {},
+			});
+			try {
+				const result = await desktop.encode(core.FS.readFile('mix.wav'), 'aac-m4a', { sampleRate: 48_000, embeddedChapters: chapters });
+				assert.deepEqual(result.bytes, new Uint8Array(await output.arrayBuffer()), 'desktop applies the same chapter writer to native encoder output');
+			} finally { desktop.dispose(); }
 			core.FS.writeFile('output.m4a', new Uint8Array(await output.arrayBuffer()));
 			core.reset();
 			const logs: string[] = [];

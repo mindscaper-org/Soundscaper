@@ -418,7 +418,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 						<LabeledDropdown label={copy.quality} hook="quality" value={settings.compressionLevel} onChange={(value) => setCodec('compressionLevel', value)} disabled={exporting} options={exportDialogCompressionLevels(settings.format, desktop).map((level) => ({ value: String(level), label: `${copy.level} ${level}` }))} />
 					)}
 					{!videoFormat && <label className="audio-editor-field" data-export-field="sampleRate"><span>{copy.sampleRate}</span><input type="number" min="8000" max={maximumAudioSampleRate} step="1" list="audio-editor-export-rates" value={settings.sampleRate} disabled={exporting || admPassthrough} onFocus={() => setEditingSampleRate(true)} onChange={(event) => set('sampleRate', event.currentTarget.value)} onBlur={() => { setEditingSampleRate(false); setCodec('sampleRate', settings.sampleRate); }} /><datalist id="audio-editor-export-rates">{exportDialogSampleRateSuggestions(maximumAudioSampleRate, snapshot.project?.sampleRate, settings.format, desktop).map((value) => <option key={value} value={value} />)}</datalist></label>}
-					<ExportEmbeddedChaptersField copy={copy} settings={settings} desktop={desktop} project={snapshot.project} exporting={exporting} onChange={set} />
+					<ExportEmbeddedChaptersField copy={copy} settings={settings} project={snapshot.project} exporting={exporting} onChange={set} />
 					{videoFormat && (
 						<VideoDeliveryFields
 							copy={copy}
