@@ -189,6 +189,10 @@ Background jobs belong to the active project lifetime and check each source's
 content identity before publishing. Project changes, source removal or replacement,
 and controller disposal fence late results; derivative failures never roll back
 the committed import. Repeated capture failures stop the remaining filmstrip.
+Filmstrip captures prefer the nearest container-reported keyframe to each
+five-second grid point, keeping its actual source timestamp. Exact capture is
+the fallback when that index is unavailable. Playback, edits, and presentation
+effects continue to use their exact authored timing.
 
 A proxy is an authenticated derivative, never a new timing authority. It is
 bound to the exact original generation, content identity, and timing facts from

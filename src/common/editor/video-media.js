@@ -4,6 +4,7 @@ import {
 } from './video-preview-capture-admission.ts';
 import { mountVideoFrameCaptureElement, releaseVideoFrameCaptureElement } from './video-frame-capture-element.ts';
 import { seekVideoFrameForCapture } from './video-frame-capture-seek.ts';
+import { createVideoThumbnailKeyframeSelector } from './video-thumbnail-keyframes.ts';
 
 export const AUDIO_EDITOR_VIDEO_FILE_ACCEPT = 'video/mp4,video/webm,.mp4,.m4v,.mov,.webm';
 export const AUDIO_EDITOR_VIDEO_THUMBNAIL_INTERVAL_SECONDS = 5;
@@ -95,6 +96,7 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 	});
 	let hasPresentedFrame = false;
 	let captureTail = Promise.resolve();
+	const thumbnailKeyframes = createVideoThumbnailKeyframeSelector(file);
 
 	async function capture(timestampSeconds, captureOptions = {}) {
 		if (disposed) throw new Error('The video frame extractor is closed.');
@@ -131,7 +133,9 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		captureTail = predecessor.then(() => completion);
 		try {
 			await waitForCaptureTurn(predecessor, abortScope.signal);
-			return await captureFrame(request);
+			const selectedTimestamp = captureOptions.preferKeyframe
+				? await thumbnailKeyframes.nearest(timestamp, durationSeconds, abortScope.signal) : timestamp;
+			return await captureFrame({ ...request, timestamp: selectedTimestamp });
 		} finally {
 			abortScope.dispose();
 			release();
@@ -185,6 +189,7 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		if (disposed) return;
 		disposed = true;
 		captureLifetime.abort();
+		thumbnailKeyframes.dispose();
 		releaseVideoFrameCaptureElement(video, () => {
 			if (!selectedRange) urlApi.revokeObjectURL?.(objectUrl);
 		});

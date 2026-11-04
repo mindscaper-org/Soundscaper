@@ -92,7 +92,7 @@ export function VideoFilmstripClip({
 		frames: visualData?.frames, thumbnailUrlAt: visualData?.thumbnailUrlAt,
 	}), [visualData?.thumbnails, visualData?.thumbnailUrls, visualData?.frames, visualData?.thumbnailUrlAt]);
 	const timestampLookup = useMemo(() => createVideoThumbnailTimestampLookup(
-		thumbnailData.thumbnails ?? thumbnailData.thumbnailUrls ?? thumbnailData.frames,
+		thumbnailData.thumbnails ?? thumbnailData.thumbnailUrls ?? thumbnailData.frames, { nearest: true },
 	), [thumbnailData]);
 	const thumbnailModels = useMemo(() => thumbnailPoints.map((point, index) => ({
 		key: `${point.timelineFrame}:${point.sourceFrame}:${index}`,

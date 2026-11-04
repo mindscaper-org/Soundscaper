@@ -97,6 +97,7 @@ export interface ImportVideoFrameExtractor {
 		readonly maximumWidth?: number;
 		readonly maximumHeight?: number;
 		readonly alpha?: boolean;
+		readonly preferKeyframe?: boolean;
 	}>): PromiseLike<Readonly<ImportVideoFrameCapture>>;
 	dispose(): void;
 }

@@ -4,6 +4,7 @@ import type { DesktopReadFetch } from './desktop-read-materialization.ts';
 import { DESKTOP_READ_PROFILE_SELECTED_RANGE } from './desktop-read-profile.ts';
 import { readDesktopLinkedOriginalRange, DESKTOP_LINKED_ORIGINAL_RANGE_MAXIMUM_BYTES } from './storage/desktop-linked-original-range-reader.ts';
 import { registerDesktopReadCapability } from './desktop-read-capability-registry.ts';
+import { registerVideoTimingReadAuthority } from './video-timing-header-cache.ts';
 
 export interface DesktopSelectedRangeDescriptor {
 	readonly id: string; readonly url: string; readonly name: string;
@@ -46,6 +47,7 @@ export function createDesktopSelectedRangeBlob(descriptor: DesktopSelectedRangeD
 	registerDesktopReadCapability(blob, retained.id);
 	selections.set(blob, retained);
 	lifetimes.set(blob, lifetime);
+	registerVideoTimingReadAuthority(blob, () => assertReadable(lifetime, options.signal));
 	return blob;
 }
 
@@ -92,8 +94,7 @@ class SelectedRangeBlob extends Blob {
 	override stream(): ReadableStream<Uint8Array<ArrayBuffer>> {
 		let offset = 0;
 		return new ReadableStream({ pull: async (controller) => {
-			if (this.#lifetime.released) throw new Error('The selected desktop read scope was released.');
-			if (this.#options.signal?.aborted) throw this.#options.signal.reason;
+			assertReadable(this.#lifetime, this.#options.signal);
 			if (offset >= this.size) { controller.close(); return; }
 			const length = Math.min(this.size - offset, DESKTOP_LINKED_ORIGINAL_RANGE_MAXIMUM_BYTES);
 			const bytes = await readDesktopLinkedOriginalRange(this.#descriptor, {
@@ -103,6 +104,11 @@ class SelectedRangeBlob extends Blob {
 			offset += bytes.byteLength; controller.enqueue(bytes.slice());
 		} });
 	}
+}
+
+function assertReadable(lifetime: Lifetime, signal?: AbortSignal): void {
+	if (lifetime.released) throw new Error('The selected desktop read scope was released.');
+	if (signal?.aborted) throw signal.reason;
 }
 
 function relative(value: number, size: number): number {

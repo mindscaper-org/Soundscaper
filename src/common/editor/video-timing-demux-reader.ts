@@ -4,10 +4,16 @@
  * Bounded random access over a video Blob for the container timing demuxers.
  *
  * A timing probe only needs headers and per-frame index entries, which are tiny
- * beside the media they describe. Reading through ranged slices keeps a probe of
- * a multi-gigabyte source proportional to its index rather than to its bytes,
- * and caps how much any one read may pull into memory.
+ * beside the media they describe. Bounded read-ahead avoids a native I/O request
+ * for every field; only requested header pages survive between scans. Logical
+ * and physical byte ceilings still cap the work and resident read size.
  */
+
+import { assertVideoTimingReadAuthority, videoTimingHeaderCache } from './video-timing-header-cache.ts';
+import { raceAbortableRead } from '../foundation/abort-race.ts';
+
+const READ_AHEAD_BYTES = 1024 * 1024;
+const HEADER_PAGE_BYTES = 64;
 
 /** Largest single ranged read a container walker may ask for: 64 MiB. */
 export const VIDEO_TIMING_DEMUX_MAXIMUM_READ_BYTES = 64 * 1024 * 1024;
@@ -36,6 +42,9 @@ class BlobTimingReader implements VideoTimingDemuxReader {
 	readonly #signal: AbortSignal | undefined;
 	readonly #maximumTotalBytes: number;
 	#totalBytes = 0;
+	#physicalBytes = 0;
+	#windowOffset = 0;
+	#window = new Uint8Array(0);
 
 	constructor(blob: Blob, options: VideoTimingDemuxReaderOptions) {
 		this.#blob = blob;
@@ -54,6 +63,7 @@ class BlobTimingReader implements VideoTimingDemuxReader {
 
 	async readAtMost(offset: number, length: number): Promise<Uint8Array> {
 		throwIfAborted(this.#signal);
+		assertVideoTimingReadAuthority(this.#blob);
 		if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(length) || length < 0) {
 			throw new RangeError('A video container read requires a non-negative safe range.');
 		}
@@ -66,9 +76,37 @@ class BlobTimingReader implements VideoTimingDemuxReader {
 		if (this.#totalBytes > this.#maximumTotalBytes) {
 			throw new RangeError('Reading the video container exceeded the bounded timing-probe budget.');
 		}
-		const buffer = await this.#blob.slice(offset, end).arrayBuffer();
+		const lengthRead = end - offset;
+		const cache = videoTimingHeaderCache(this.#blob);
+		const cached = cache?.read(offset, lengthRead);
+		if (cached) return cached;
+		if (cache && offset >= this.#windowOffset && end <= this.#windowOffset + this.#window.byteLength) {
+			cache?.remember(offset, lengthRead, this.#windowOffset, this.#window);
+			return this.#window.slice(offset - this.#windowOffset, end - this.#windowOffset);
+		}
+		let start = offset, readEnd = end;
+		if (cache && lengthRead <= HEADER_PAGE_BYTES && this.#maximumTotalBytes >= READ_AHEAD_BYTES * 2) {
+			start = Math.floor(offset / HEADER_PAGE_BYTES) * HEADER_PAGE_BYTES;
+			const aheadEnd = Math.min(this.byteLength, start + READ_AHEAD_BYTES);
+			// A large sparse source still needs headroom for index reads after read-ahead stops.
+			const aheadBudget = this.byteLength <= this.#maximumTotalBytes
+				? this.#maximumTotalBytes : Math.floor(this.#maximumTotalBytes * 7 / 8);
+			readEnd = this.#physicalBytes + aheadEnd - start <= aheadBudget
+				? aheadEnd : Math.min(this.byteLength, Math.ceil(end / HEADER_PAGE_BYTES) * HEADER_PAGE_BYTES);
+		}
+		this.#physicalBytes += readEnd - start;
+		if (this.#physicalBytes > this.#maximumTotalBytes) {
+			throw new RangeError('Reading the video container exceeded the bounded timing-probe budget.');
+		}
+		const buffer = await raceAbortableRead(() => this.#blob.slice(start, readEnd).arrayBuffer(), this.#signal);
 		throwIfAborted(this.#signal);
-		return new Uint8Array(buffer);
+		assertVideoTimingReadAuthority(this.#blob);
+		const bytes = new Uint8Array(buffer);
+		if (!cache || lengthRead > HEADER_PAGE_BYTES) return bytes;
+		this.#windowOffset = start;
+		this.#window = bytes;
+		cache.remember(offset, lengthRead, start, bytes);
+		return bytes.slice(offset - start, end - start);
 	}
 }
 

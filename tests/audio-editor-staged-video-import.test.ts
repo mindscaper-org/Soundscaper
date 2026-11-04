@@ -5,6 +5,22 @@ import test from 'node:test';
 import { createImportVideoFile } from '../src/common/editor/controller/import/internal/source-import.ts';
 import { createFixture, videoFile } from './helpers/audio-editor-source-import-fixture.ts';
 
+test('only disposable filmstrip captures opt in to nearby keyframes', async () => {
+	const fixture = createFixture();
+	const requests: boolean[] = [];
+	const factory = fixture.runtime.createAudioEditorVideoFrameExtractor;
+	fixture.runtime.createAudioEditorVideoFrameExtractor = async (...args) => {
+		const extractor = await factory(...args);
+		return { ...extractor, capture(timestamp, options) {
+			requests.push(options?.preferKeyframe === true);
+			return extractor.capture(timestamp, options);
+		} };
+	};
+	await createImportVideoFile(fixture.runtime)(videoFile());
+	await fixture.finishDerivatives();
+	assert.deepEqual(requests, [false, true, true]);
+});
+
 test('video import publishes playable clips before disposable captures and waveforms settle', { timeout: 2_000 }, async () => {
 	const fixture = createFixture();
 	const capture = deferred<never>();

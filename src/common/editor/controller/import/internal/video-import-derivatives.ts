@@ -83,6 +83,7 @@ export function createVideoImportDerivativeScheduler(options: VideoImportDerivat
 			try {
 				const frame = await request.extractor.capture(timestamp, {
 					...(poster ? { maximumWidth: 640, maximumHeight: 360 } : {}),
+					preferKeyframe: !poster,
 					alpha: request.source.characteristics.hasAlpha === true, signal,
 				});
 				assertCurrent();

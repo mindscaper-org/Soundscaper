@@ -86,6 +86,14 @@ regressions cover scratch reuse and output parity.
 
 ### Storage and interchange
 
+Video timing walks batch nearby headers into a bounded 1 MiB read window.
+Only the requested 64-byte header pages are shared between scans, with at most
+32,768 pages per source and four source caches. Both logical requests and physical
+reads retain their original probe byte ceilings. Pathless desktop selections
+recheck their live read grant before cached results are returned. The
+[header-cache regressions](../../tests/editor-video-timing-read-cache.test.ts)
+cover read counts, byte bounds, private buffers, eviction, and grant retirement.
+
 Command indexes and export partitions belong to one operation or snapshot
 session. Export maps retain identities and lane references, never copied PCM;
 the Audacity source normalizer retains no PCM. The DAWproject width reader
