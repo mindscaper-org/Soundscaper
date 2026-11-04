@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "zh-CN",
 	"provenance": {
-		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:ac1bf3c5b9ccc389c73789c491e8f37f2248473ebadd01bcfaf878f65d651b32","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"codex","modelDigest":"sha256:1a78d8c3f30e417796d12fe614297d1958b734b293b1d84dd8bb745e1dba730a","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -220,6 +220,8 @@
 		"audacityParityLabelRepeatLastGenerator": ["machine","Repeat last generator","重复上一个生成器"],
 		"audacityParityLabelResetConfiguration": ["machine","Reset configuration","重置配置"],
 		"audacityParityLabelRevertToFactorySettings": ["machine","Revert to factory settings","恢复出厂设置"],
+		"audacityParityLabelScrollTimelineLeftOnePage": ["machine","Scroll timeline left one page","将时间轴向左滚动一页"],
+		"audacityParityLabelScrollTimelineRightOnePage": ["machine","Scroll timeline right one page","将时间轴向右滚动一页"],
 		"audacityParityLabelSelectionEnd": ["machine","Selection end","选区结尾"],
 		"audacityParityLabelSelectionStart": ["machine","Selection start","选区开头"],
 		"audacityParityLabelSetUpTimedRecording": ["machine","Set up timed recording","设置定时录音"],

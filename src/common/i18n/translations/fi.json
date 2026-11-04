@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "fi",
 	"provenance": {
-		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:f6cb21b77b886fd567b5946c37623f76a71a56bd718abb79fc33470feeaccf00","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"codex","modelDigest":"sha256:d0bcd9428b68307c274cc3b485d367718e3b6a94065a5d86fb7f6f2a0f7a2e8e","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -220,6 +220,8 @@
 		"audacityParityLabelRepeatLastGenerator": ["machine","Repeat last generator","Toista viimeisin generaattori"],
 		"audacityParityLabelResetConfiguration": ["machine","Reset configuration","Palauta asetukset"],
 		"audacityParityLabelRevertToFactorySettings": ["machine","Revert to factory settings","Palauta tehdasasetukset"],
+		"audacityParityLabelScrollTimelineLeftOnePage": ["machine","Scroll timeline left one page","Vieritä aikajanaa yksi sivu vasemmalle"],
+		"audacityParityLabelScrollTimelineRightOnePage": ["machine","Scroll timeline right one page","Vieritä aikajanaa yksi sivu oikealle"],
 		"audacityParityLabelSelectionEnd": ["machine","Selection end","Valinnan loppu"],
 		"audacityParityLabelSelectionStart": ["machine","Selection start","Valinnan alku"],
 		"audacityParityLabelSetUpTimedRecording": ["machine","Set up timed recording","Määritä ajastettu äänitys"],

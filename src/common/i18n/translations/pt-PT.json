@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "pt-PT",
 	"provenance": {
-		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:776a5a5437eda186f81ae8ad7dcce8a5767d2d3cb8a21e1e81e98154e75f1032","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"codex","modelDigest":"sha256:20d33993bdd6aa38be1a11f61220beedd3730bf268184f1c55c73cba3cd6572f","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -220,6 +220,8 @@
 		"audacityParityLabelRepeatLastGenerator": ["machine","Repeat last generator","Repetir último gerador"],
 		"audacityParityLabelResetConfiguration": ["machine","Reset configuration","Repor configuração"],
 		"audacityParityLabelRevertToFactorySettings": ["machine","Revert to factory settings","Repor definições de fábrica"],
+		"audacityParityLabelScrollTimelineLeftOnePage": ["machine","Scroll timeline left one page","Deslocar a linha temporal uma página para a esquerda"],
+		"audacityParityLabelScrollTimelineRightOnePage": ["machine","Scroll timeline right one page","Deslocar a linha temporal uma página para a direita"],
 		"audacityParityLabelSelectionEnd": ["machine","Selection end","Fim da seleção"],
 		"audacityParityLabelSelectionStart": ["machine","Selection start","Início da seleção"],
 		"audacityParityLabelSetUpTimedRecording": ["machine","Set up timed recording","Configurar gravação temporizada"],
