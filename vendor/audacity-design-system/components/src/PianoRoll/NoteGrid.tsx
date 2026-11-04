@@ -94,7 +94,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
   // Global mode (no clip selected): show all clips' notes at global positions
   // Local mode (clip selected): show only the active clip's notes at local positions
   const isGlobalMode = !clip;
-  const visibleClips = clip ? [clip] : (allClips ?? []);
+  const visibleClips = useMemo(() => clip ? [clip] : (allClips ?? []), [clip, allClips]);
 
   // Build unified note list from all visible clips
   const allNotes: NoteWithContext[] = useMemo(() => {

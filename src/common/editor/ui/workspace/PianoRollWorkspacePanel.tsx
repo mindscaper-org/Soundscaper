@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react';
 import { NoteGrid } from '@soundscaper/design-system/PianoRoll/NoteGrid';
 import { PianoKeyboard } from '@soundscaper/design-system/PianoRoll/PianoKeyboard';
 import { PianoRollRuler } from '@soundscaper/design-system/PianoRoll/PianoRollRuler';
@@ -90,13 +90,17 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	const tempo = project.tempo as { readonly bpm?: number; readonly timeSignature?: { readonly numerator?: number; readonly denominator?: number } } | undefined;
 	const bpm = tempo?.bpm ?? 120;
 	const beatsPerMeasure = midiBeatsPerMeasure(tempo?.timeSignature);
-	const notes = useMemo(() => persistedNotes.map(note => ({ ...note, ...drafts.get(note.id) })), [persistedNotes, drafts]);
-	const effectiveClip = clipDraft ? { ...clip, ...clipDraft } : clip;
-	const designClip = designSystemMidiClip(effectiveClip, sampleRate, selectedIds, notes);
-	const snap = { subdivision, triplet };
+	const notes = useMemo(() => drafts.size ? persistedNotes.map(note => {
+		const changes = drafts.get(note.id);
+		return changes ? { ...note, ...changes } : note;
+	}) : persistedNotes, [persistedNotes, drafts]);
+	const effectiveClip = useMemo(() => clipDraft ? { ...clip, ...clipDraft } : clip, [clip, clipDraft]);
+	const designClip = useMemo(() => designSystemMidiClip(effectiveClip, sampleRate, selectedIds, notes), [effectiveClip, sampleRate, selectedIds, notes]);
+	const snap = useMemo(() => ({ subdivision, triplet }), [subdivision, triplet]);
 	const gridWidth = Math.max(0, panelSize.width - 104);
 	const gridHeight = Math.max(100, panelSize.height - controlsSize.height - 52);
-	const selectedNotes = notes.filter(note => selectedIds.has(note.id));
+	const selectedNotes = useMemo(() => notes.filter(note => selectedIds.has(note.id)), [notes, selectedIds]);
+	const noteOptions = useMemo(() => notes.map(note => <MidiNoteOption key={note.id} note={note} format={copy.noteOption} sampleRate={sampleRate} />), [copy.noteOption, notes, sampleRate]);
 	const activeNote = selectedNotes[0];
 
 	useEffect(() => {
@@ -190,7 +194,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 			<div className="kw-audio-editor__piano-roll-note-editor" role="group" aria-label={copy.noteEditor}>
 				<label>{copy.selectedNote}<select value={activeNote?.id ?? ''} onChange={event => setSelectedIds(new Set(event.currentTarget.value ? [event.currentTarget.value] : []))}>
 					<option value="">{copy.noSelection}</option>
-					{notes.map(note => <option key={note.id} value={note.id}>{copy.noteOption.replace('{pitch}', String(note.pitch)).replace('{time}', (note.startFrame / sampleRate).toFixed(3))}</option>)}
+					{noteOptions}
 				</select></label>
 				<label>{copy.pitch}<input type="number" min={0} max={127} step={1} disabled={disabled || !activeNote} value={activeNote?.pitch ?? ''}
 					onChange={event => { const value = Number(event.currentTarget.value); if (Number.isInteger(value) && value >= 0 && value <= 127) editSelected({ pitch: value }); }} /></label>
@@ -232,6 +236,12 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 		</div>
 	</div>;
 }
+
+const MidiNoteOption = memo(function MidiNoteOption({ note, format, sampleRate }: {
+	readonly note: MidiNote; readonly format: string; readonly sampleRate: number;
+}) {
+	return <option value={note.id}>{format.replace('{pitch}', String(note.pitch)).replace('{time}', (note.startFrame / sampleRate).toFixed(3))}</option>;
+});
 
 /** Transport ticks move only the cursor; the note editor keeps its render cadence. */
 function PianoRollPlayhead({ controller, clip, sampleRate, pixelsPerSecond, scrollX, width }: {

@@ -711,3 +711,9 @@ are the places where the two keyboard models meet, so a future sync should re-ch
     and drawn-note lengths. A manually resized note still supplies the next
     drawn note's length. Covered by the beta MIDI browser workflow.
     Upstream-PR candidate.
+
+88. `NoteGrid` retains its local clip list while the active clip is unchanged,
+    so viewport and grid-control updates reuse the note-context projection.
+    Authored and draft note edits replace that clip projection as before.
+    Covered by `tests/audio-editor-midi-panel-performance.test.tsx` and the
+    beta MIDI browser workflow. Upstream-PR candidate.
