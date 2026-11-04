@@ -16,6 +16,7 @@ export interface MidiExpressionState {
 export interface MidiExpressionTimeline {
 	readonly states: readonly MidiExpressionState[];
 	readonly stops: readonly number[];
+	readonly keyReleases: readonly number[];
 	readonly pedalReleases: readonly number[];
 }
 
@@ -25,7 +26,7 @@ const INITIAL_STATE: MidiExpressionState = {
 
 /** Compile setup and performance controls once per render window, independently of prior windows. */
 export function compileMidiExpression(events: readonly MidiFileEvent[]): readonly MidiExpressionTimeline[] {
-	const channels = Array.from({ length: 16 }, () => ({ states: [INITIAL_STATE], stops: [] as number[], pedalReleases: [] as number[] }));
+	const channels = Array.from({ length: 16 }, () => ({ states: [INITIAL_STATE], stops: [] as number[], keyReleases: [] as number[], pedalReleases: [] as number[] }));
 	const relevant = events.filter(event => (event.status & 0xf0) === 0xb0 || (event.status & 0xf0) === 0xe0)
 		.slice().sort((left, right) => left.frame - right.frame);
 	for (const event of relevant) {
@@ -45,8 +46,8 @@ export function compileMidiExpression(events: readonly MidiFileEvent[]): readonl
 				case 7: next.volume = event.data[1]! / 127; break;
 				case 11: next.expression = event.data[1]! / 127; break;
 				case 64: next.sustain = event.data[1]! >= 64; break;
-				case 120:
-				case 123: channel.stops.push(event.frame); break;
+				case 120: channel.stops.push(event.frame); break;
+				case 123: channel.keyReleases.push(event.frame); break;
 				case 121:
 					next.expression = 1;
 					next.sustain = false;
@@ -77,7 +78,8 @@ export function midiExpressionPhaseArea(state: MidiExpressionState, frame: numbe
 
 /** Key release remains authored data; a pedal extends only the sounding voice. */
 export function midiNoteSoundEnd(note: MidiNote, timeline: MidiExpressionTimeline): number {
-	let end = note.startFrame + note.durationFrames;
+	let end = Math.min(note.startFrame + note.durationFrames,
+		timeline.keyReleases[firstFrameAfter(timeline.keyReleases, note.startFrame)] ?? Number.POSITIVE_INFINITY);
 	const atRelease = midiExpressionStateIndex(timeline.states, end);
 	if (timeline.states[atRelease]!.sustain) {
 		end = timeline.pedalReleases[firstFrameAfter(timeline.pedalReleases, end)] ?? Number.POSITIVE_INFINITY;

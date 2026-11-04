@@ -7,6 +7,7 @@ import { createMidiService } from '../src/common/editor/controller/track-audio/m
 import type { MidiServiceDependencies } from '../src/common/editor/controller/track-audio/midi-service-types.ts';
 import { readMidiClip, readMidiTrack } from '../src/common/editor/midi-model.ts';
 import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
+import { parseMidiFile } from '../src/common/editor/midi-file.ts';
 
 function fixture(options: Readonly<Record<string, unknown>> = {}) {
 	let project = createAudioEditorProjectV17({ ...options, sampleRate: 8000 });
@@ -96,6 +97,20 @@ test('MIDI import skips an empty conductor track and adopts initial timing into 
 	const tempo = f.project().tempo as { bpm: number; timeSignature: { numerator: number } };
 	assert.equal(tempo.bpm, 90);
 	assert.equal(tempo.timeSignature.numerator, 3);
+});
+
+test('imported All Notes Off releases keys while the sustain pedal keeps their PCM sounding', async () => {
+	const f = fixture();
+	// Type 0, 480 PPQN: pedal down, A4 on, All Notes Off at 1 s,
+	// pedal up at 1.5 s, and the authored note-off at 2 s.
+	const bytes = Uint8Array.from(Buffer.from(
+		'4d546864000000060000000101e04d54726b0000001b00b0407f009045648740b07b008360b04000836080450000ff2f00', 'hex'));
+	await f.service.importDocument(parseMidiFile(bytes, { sampleRate: 8000 }));
+	const sourceId = String(f.project().clips[0]?.sourceId);
+	const samples = f.pcm.get(sourceId)![0]!;
+	assert.ok(samples.slice(8500, 11000).some(value => Math.abs(value) > 0.01), 'pedal-held notes must survive All Notes Off');
+	assert.ok(samples.slice(12000).every(value => value === 0), 'pedal-up must release keys already stopped by All Notes Off');
+	assert.equal(readMidiClip(f.project().clips[0])?.notes[0]?.durationFrames, 16000);
 });
 
 test('both MIDI exports use the real shared file service interchange save contract', async () => {

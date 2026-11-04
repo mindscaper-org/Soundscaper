@@ -18,12 +18,26 @@ test('MIDI sustain holds key-release notes until pedal up and sound-off controll
 	const sustained = renderMidiFrames([note], 'sine', RATE, 0, 2_500, events);
 	assert.ok(energy(sustained.slice(1_100, 1_600)) > 1);
 	assert.ok(sustained.slice(2_000).every(value => value === 0));
-	for (const stop of [120, 123, 121]) {
+	for (const stop of [120, 121]) {
 		const stopped = renderMidiFrames([note], 'sine', RATE, 0, 2_500, [...events, cc(1_500, stop, 0)]);
 		assert.ok(energy(stopped.slice(1_100, 1_400)) > 0);
 		assert.ok(stopped.slice(1_500).every(value => value === 0));
 	}
 	assert.deepEqual(note, { id: 'note', pitch: 69, startFrame: 0, durationFrames: 1_000, velocity: 100, channel: 0 });
+});
+
+test('All Notes Off respects sustain and leaves later notes and other channels sounding', () => {
+	const held = { ...note, durationFrames: 3_000 };
+	const events = [cc(500, 64, 127), cc(1_500, 123, 0), cc(2_200, 64, 0)];
+	const sustained = renderMidiFrames([held], 'sine', RATE, 0, 3_000, events);
+	assert.ok(energy(sustained.slice(1_600, 2_000)) > 1);
+	assert.ok(sustained.slice(2_200).every(value => value === 0));
+	const released = renderMidiFrames([held], 'sine', RATE, 0, 3_000, [cc(1_500, 123, 0)]);
+	assert.ok(released.slice(1_500).every(value => value === 0));
+	for (const independent of [{ ...held, channel: 1 }, { ...held, startFrame: 1_600, durationFrames: 1_400 }]) {
+		const rendered = renderMidiFrames([independent], 'sine', RATE, 0, 3_000, events);
+		assert.ok(energy(rendered.slice(2_300, 2_800)) > 1);
+	}
 });
 
 test('MIDI pitch bend changes frequency while preserving the accumulated oscillator phase', () => {
