@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { DesktopReadFetch } from './desktop-read-materialization.ts';
+import { readSourceWithRecovery } from './storage/source-read-recovery.ts';
 import {
 	admitDesktopLinkedAudioRange,
 	type DesktopReadRelease,
@@ -23,6 +24,7 @@ export interface LinkedOriginalRangeLease {
 	readonly locatorRevision: string;
 	readonly byteLength: number;
 	readonly mimeType: string;
+	readonly boundedReads?: boolean;
 	readRange(request: Readonly<{
 		readonly offset: number;
 		readonly length: number;
@@ -117,6 +119,10 @@ export function createDesktopLinkedOriginalAccess(
 ): Readonly<DesktopLinkedOriginalAccess> {
 	const bridge = options?.bridge;
 	const releaseRead = bridge ? ownedReleaseRead(bridge) : null;
+	const discardLateRead = (raw: unknown): PromiseLike<unknown> | unknown => {
+		const id = possibleReadId(raw);
+		return id ? releaseRead?.(id) : undefined;
+	};
 	const available = Boolean(options?.videoPort
 		&& typeof bridge?.loadLinkedAudioOriginal === 'function'
 		&& typeof bridge.reconcileLinkedOriginals === 'function'
@@ -181,11 +187,11 @@ export function createDesktopLinkedOriginalAccess(
 			});
 			return snapshot ? Object.freeze(snapshot) : null;
 		}
-		const raw = await bridge?.loadLinkedAudioOriginal?.({
+		const raw = await readSourceWithRecovery(() => bridge?.loadLinkedAudioOriginal?.({
 			locatorId,
 			expectedRevision,
 			range: false,
-		});
+		}), { signal: request?.signal, discardLateValue: discardLateRead });
 		if (raw === null) {
 			throwIfAborted(request?.signal);
 			return null;
@@ -235,11 +241,11 @@ export function createDesktopLinkedOriginalAccess(
 		if (typeof options.fetch !== 'function' || !releaseRead) return null;
 		let raw: unknown;
 		try {
-			raw = await bridge?.loadLinkedAudioOriginal?.({
+			raw = await readSourceWithRecovery(() => bridge?.loadLinkedAudioOriginal?.({
 				locatorId,
 				expectedRevision,
 				range: true,
-			});
+			}), { signal: request?.signal, discardLateValue: discardLateRead });
 		} catch (error) {
 			throwIfAborted(request?.signal);
 			throw error;
@@ -281,7 +287,7 @@ export function createDesktopLinkedOriginalAccess(
 function ownedReleaseRead(bridge: DesktopLinkedOriginalBridge): DesktopReadRelease | null {
 	const operation = bridge.releaseRead;
 	return typeof operation === 'function'
-		? (id: string): unknown => Reflect.apply(operation, bridge, [id]) as unknown
+		? (id: string): Promise<unknown> => readSourceWithRecovery(() => Reflect.apply(operation, bridge, [id]) as unknown, { maximumAttempts: 1 })
 		: null;
 }
 
@@ -292,6 +298,7 @@ function closeRangeLease(
 		locatorRevision: lease.locatorRevision,
 		byteLength: lease.byteLength,
 		mimeType: lease.mimeType,
+		boundedReads: true,
 		readRange: (request: Parameters<LinkedOriginalRangeLease['readRange']>[0]) => (
 			lease.readRange(request)
 		),

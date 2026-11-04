@@ -41,7 +41,7 @@ const CONTAINERS = new Set<number>([
 const TRACK_TYPE_VIDEO = 1n;
 const NANOSECONDS_PER_SECOND = 1_000_000_000n;
 const MAXIMUM_LEAF_BYTES = 8;
-const HEADER_BYTES = 16;
+const HEADER_BYTES = 24;
 const BLOCK_HEADER_BYTES = 12;
 
 interface Element {
@@ -49,6 +49,7 @@ interface Element {
 	readonly body: number;
 	readonly end: number;
 	readonly unknownSize: boolean;
+	readonly prefix: Uint8Array;
 }
 
 interface Block {
@@ -170,7 +171,8 @@ async function readElement(
 	}
 	const length = element.end - element.body;
 	if (length > MAXIMUM_LEAF_BYTES) return true;
-	const bytes = await reader.read(element.body, length);
+	const bytes = element.prefix.length >= length ? element.prefix.subarray(0, length)
+		: await reader.read(element.body, length);
 	const value = bigEndianUnsigned(bytes, 0, bytes.byteLength);
 	if (element.id === ELEMENT.timecodeScale) state.timecodeScale = value;
 	else if (element.id === ELEMENT.trackNumber) state.pendingTrackNumber = value;
@@ -186,9 +188,9 @@ async function readBlock(
 	state: ScanState,
 ): Promise<boolean> {
 	if (state.videoTrackNumber === null) return false;
-	const header = await reader.readAtMost(
-		element.body, Math.min(BLOCK_HEADER_BYTES, element.end - element.body),
-	);
+	const length = Math.min(BLOCK_HEADER_BYTES, element.end - element.body);
+	const header = element.prefix.length >= length ? element.prefix.subarray(0, length)
+		: await reader.readAtMost(element.body, length);
 	const track = readVariableInteger(header, 0, false);
 	if (track === null || track.length + 2 > header.byteLength) return true;
 	if (track.value !== state.videoTrackNumber) return true;
@@ -215,7 +217,7 @@ async function readElementHeader(
 	if (size === null) return null;
 	const body = offset + id.length + size.length;
 	const unknownSize = size.value === unknownSizeValue(size.length);
-	if (unknownSize) return { id: Number(id.value), body, end, unknownSize };
+	if (unknownSize) return { id: Number(id.value), body, end, unknownSize, prefix: header.subarray(body - offset) };
 	const declaredEnd = body + Number(size.value);
 	if (!Number.isSafeInteger(declaredEnd) || declaredEnd < body) return null;
 	// The header read fine and states a body that runs past what is there: the
@@ -224,7 +226,8 @@ async function readElementHeader(
 	if (declaredEnd > end) {
 		throw new RangeError('The video container ended inside a structure it declared.');
 	}
-	return { id: Number(id.value), body, end: declaredEnd, unknownSize };
+	return { id: Number(id.value), body, end: declaredEnd, unknownSize,
+		prefix: header.subarray(body - offset, Math.min(header.byteLength, declaredEnd - offset)) };
 }
 
 /**

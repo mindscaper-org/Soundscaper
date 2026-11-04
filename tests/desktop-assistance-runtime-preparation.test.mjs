@@ -18,7 +18,8 @@ const options = { repositoryRoot, buildRoot: join(repositoryRoot, '.desktop-buil
 
 test('AI-only preparation builds every neural closure and uses the final sealed distribution inventories', async () => {
 	const calls = [];
-	const result = await prepareDesktopAssistanceRuntimeSet(options, {
+	const enginePartsRoot = join(repositoryRoot, 'engine-parts');
+	const result = await prepareDesktopAssistanceRuntimeSet({ ...options, enginePartsRoot }, {
 		stageSpeech: async request => { calls.push(['speech', request]); return { unsigned: 'speech' }; },
 		stageFamilies: async request => { calls.push(['families', request]); return { unsigned: 'families' }; },
 		buildKokoro: async request => { calls.push(['build-kokoro', request]); return { bundleRoot: '/verified/kokoro' }; },
@@ -29,6 +30,8 @@ test('AI-only preparation builds every neural closure and uses the final sealed 
 	assert.deepEqual(calls.map(([name]) => name), ['speech', 'families', 'build-kokoro', 'stage-kokoro', 'distribution']);
 	for (const [, request] of calls) assert.equal(request.targetId, 'win-arm64');
 	assert.equal(calls[0][1].nodeModulesRoot, join(repositoryRoot, 'node_modules'));
+	assert.equal(calls[1][1].sourceRevision, options.sourceRevision);
+	assert.equal(calls[1][1].enginePartsRoot, enginePartsRoot);
 	assert.equal(calls[3][1].bundleRoot, '/verified/kokoro');
 	assert.equal(calls[4][1].archiveRoot, join(options.buildRoot, 'assistance-distribution'));
 	assert.equal(result.speech, speech);
@@ -66,8 +69,13 @@ test('a failed neural family stops preparation before any archives can be publis
 test('standalone AI preparation writes only authenticated handoff metadata and no desktop application build', async context => {
 	const repositoryRoot = await mkdtemp(join(tmpdir(), 'assistance-only-'));
 	context.after(() => rm(repositoryRoot, { recursive: true, force: true }));
-	await prepareDesktopAssistanceOnly({ repositoryRoot, targetId: 'win-arm64', sourceRevision: options.sourceRevision }, {
-		prepare: async () => ({ speech, families, kokoro, distribution }),
+	const enginePartsRoot = join(repositoryRoot, 'engine-parts');
+	await prepareDesktopAssistanceOnly({ repositoryRoot, targetId: 'win-arm64', sourceRevision: options.sourceRevision,
+		enginePartsRoot }, {
+		prepare: async request => {
+			assert.equal(request.enginePartsRoot, enginePartsRoot);
+			return { speech, families, kokoro, distribution };
+		},
 	});
 	const build = join(repositoryRoot, '.desktop-build');
 	assert.deepEqual((await readdir(build)).sort(), ['app', 'stage-manifest.json']);

@@ -214,15 +214,21 @@ test('choosing the install entry replays the captured prompt exactly once', () =
 test('the desktop build leaves out the browser installation and download entries', () => {
 	const browser = (workspaceHelpMenu({ isDesktop: false }).items ?? []).map((item) => item.id);
 	const desktop = (workspaceHelpMenu({ isDesktop: true }).items ?? []).map((item) => item.id);
+	const browserOffers = [INSTALL_APPLICATION_MENU_ITEM_ID, DESKTOP_DOWNLOAD_MENU_ITEM_ID,
+		'desktop-product-help', 'desktop-check-updates', 'desktop-view-source'];
 	assert.ok(browser.includes(INSTALL_APPLICATION_MENU_ITEM_ID), 'a browser is offered the install entry');
 	assert.equal(
 		desktop.includes(INSTALL_APPLICATION_MENU_ITEM_ID),
 		false,
 		'an application the user already installed does not offer to install itself',
 	);
+	for (const id of browserOffers) {
+		assert.ok(browser.includes(id), `the browser offers ${id}`);
+		assert.equal(desktop.includes(id), false, `desktop omits the browser offer ${id}`);
+	}
 	assert.deepEqual(
 		desktop,
-		browser.filter((id) => id !== INSTALL_APPLICATION_MENU_ITEM_ID && id !== DESKTOP_DOWNLOAD_MENU_ITEM_ID),
+		browser.filter((id) => !browserOffers.some(offer => offer === id)),
 		'the rest of Help is the same menu it was',
 	);
 });

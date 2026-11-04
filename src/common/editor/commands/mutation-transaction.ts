@@ -23,6 +23,7 @@ import { dispatchEditorCommand } from './registry.ts';
 import { createEditorCommandRuntime } from './runtime-registry.ts';
 import { createTrackLockAdmission } from './track-lock-admission.ts';
 import { createVideoRetimePreservationAdmission } from './video-retime-preservation-admission.ts';
+import { prepareMidiSourceReplacement } from './midi-source-replacement.ts';
 
 type DataRecord = Record<PropertyKey, unknown>;
 
@@ -103,6 +104,7 @@ function mutateCommand(
 ): void {
 	const isChild = command.type !== 'batch';
 	if (isChild) admission.beforeCommand(project, command);
+	const reconcileMidi = prepareMidiSourceReplacement(project, command);
 	if (isTrackFolderProjectSchema(project)
 		&& (command.type === 'track/add' || command.type === 'track/remove' || command.type === 'track/reorder')
 		&& !(Array.isArray(project.trackFolders) && project.trackFolders.length > 0)) {
@@ -112,6 +114,7 @@ function mutateCommand(
 		const clips = recordArray(project.clips, 'project.clips');
 		const before = new Map(clips.map((clip) => [clip.id, commandTimingSignature(clip)]));
 		dispatchEditorCommand(handlers, project, command);
+		reconcileMidi?.();
 		const operation = {};
 		for (const clip of recordArray(project.clips, 'project.clips')) {
 			const previous = before.get(clip.id);
@@ -123,6 +126,7 @@ function mutateCommand(
 		return;
 	}
 	dispatchEditorCommand(handlers, project, command);
+	reconcileMidi?.();
 	if (isChild) admission.afterCommand(project);
 }
 

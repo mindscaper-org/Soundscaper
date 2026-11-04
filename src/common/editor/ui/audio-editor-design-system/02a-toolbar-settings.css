@@ -91,6 +91,18 @@
 	font-size: 16px;
 }
 
+.kw-audio-editor-custom-button-symbol {
+	width: 1em;
+	height: 1em;
+	object-fit: contain;
+	vertical-align: middle;
+}
+
+.kw-audio-editor__custom-toolbar-button .kw-audio-editor-custom-button-symbol {
+	width: 16px;
+	height: 16px;
+}
+
 .kw-audio-editor__custom-toolbar-button:hover,
 .kw-audio-editor__toolbar-settings-custom-edit:hover {
 	background: color-mix(in srgb, var(--accent) 16%, transparent);

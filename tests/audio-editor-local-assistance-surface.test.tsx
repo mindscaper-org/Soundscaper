@@ -118,7 +118,8 @@ test('the focused EN/DE catalog and dialog expose all operations without an impl
 		assert.match(markup, new RegExp(operation, 'u'));
 	}
 	assert.doesNotMatch(markup, /<option value="text-to-speech"/u);
-	assert.equal(markup.match(/<option value="" disabled=""[^>]*>Choose<\/option>/gu)?.length, 3);
+	assert.equal(markup.match(/<option value="" disabled=""[^>]*>Choose<\/option>/gu)?.length, 1,
+		'only the operation needs a picker; media comes from the timeline and a sole model is automatic');
 	assert.doesNotMatch(markup, /I consent to local processing/u);
 	assert.match(markup, /one consent dialog for this exact operation, model, input, and output/u);
 	// Review and Accept are the shared footer's buttons, and neither is offered

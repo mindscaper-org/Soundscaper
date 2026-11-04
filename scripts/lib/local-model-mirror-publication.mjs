@@ -93,17 +93,26 @@ async function verifyHead({ url, artifact, fetchImpl, signal }) {
 	assertExactLength(response, artifact.byteLength, `${url} HEAD`);
 }
 
-async function verifyRange({ url, artifact, fetchImpl, signal }) {
+async function verifyRange({ url, artifact, fetchImpl, signal, requireRange }) {
 	throwIfAborted(signal);
 	let response = await fetchMirrorResponse(fetchImpl, url,
 		requestOptions('GET', signal, { Range: 'bytes=0-0' }));
 	assertResponse(response, `${url} ranged GET`);
 	if (response.status === 200) {
+		await response.body?.cancel();
+		throwIfAborted(signal);
+		if (!requireRange) {
+			// Runtime downloads can restart when Range is ignored. The caller
+			// already authenticates the complete body; discard this duplicate.
+			assertCors(response, url, PUBLIC_CORS_ORIGIN, 'ranged GET');
+			if (response.headers.get('content-length') !== null) {
+				assertExactLength(response, artifact.byteLength, `${url} ranged GET`);
+			}
+			return;
+		}
 		// A cold R2 custom-domain edge can ignore its first range request for a
 		// large object. Let its metadata settle after cancelling the full body;
 		// only a proved 206 may pass below.
-		await response.body?.cancel();
-		throwIfAborted(signal);
 		await delay(1_000, undefined, { signal });
 		response = await fetchMirrorResponse(fetchImpl, url,
 			requestOptions('GET', signal, { Range: 'bytes=0-0' }));
@@ -168,12 +177,13 @@ function assertVerificationInput({ url, artifact, fetchImpl }) {
 /**
  * Proves the public browser-delivery contract with metadata and one byte only.
  * A caller that already downloads and hashes the complete object can use this
- * without transferring a second model body.
+ * without transferring a second model body. Set requireRange to false only
+ * when that consumer can safely restart a transfer after an ignored range.
  */
-export async function verifyMirroredArtifactDelivery({ url, artifact, fetchImpl = fetch, signal }) {
+export async function verifyMirroredArtifactDelivery({ url, artifact, fetchImpl = fetch, signal, requireRange = true }) {
 	assertVerificationInput({ url, artifact, fetchImpl });
 	await retryMirrorTransfer(() => verifyHead({ url, artifact, fetchImpl, signal }), signal);
-	await retryMirrorTransfer(() => verifyRange({ url, artifact, fetchImpl, signal }), signal);
+	await retryMirrorTransfer(() => verifyRange({ url, artifact, fetchImpl, signal, requireRange }), signal);
 	return Object.freeze({ url, byteLength: artifact.byteLength, sha256: artifact.sha256 });
 }
 
@@ -181,11 +191,12 @@ export async function verifyMirroredArtifactDelivery({ url, artifact, fetchImpl 
  * Proves the public object contract that must precede catalog publication:
  * browser-readable HEAD, a streamed full hash, then a one-byte Range response.
  * Completing the body lets an uncached CDN object finish before its range probe.
+ * Consumers that can restart downloads may opt out of requiring range support.
  */
-export async function verifyMirroredArtifact({ url, artifact, fetchImpl = fetch, signal }) {
+export async function verifyMirroredArtifact({ url, artifact, fetchImpl = fetch, signal, requireRange = true }) {
 	assertVerificationInput({ url, artifact, fetchImpl });
 	await retryMirrorTransfer(() => verifyHead({ url, artifact, fetchImpl, signal }), signal);
 	const verified = await retryMirrorTransfer(() => verifyFullBody({ url, artifact, fetchImpl, signal }), signal);
-	await retryMirrorTransfer(() => verifyRange({ url, artifact, fetchImpl, signal }), signal);
+	await retryMirrorTransfer(() => verifyRange({ url, artifact, fetchImpl, signal, requireRange }), signal);
 	return verified;
 }

@@ -72,6 +72,7 @@ export async function openSoundscaperDesktopSoakSession(options, dependencies) {
 		});
 		runtime = await launchDesktopRuntime({
 			executablePath, profile, outputDirectory: options.outputDirectory, launch,
+			initializePreferences: true,
 			...dependencies,
 		});
 		return await dependencies.createPageSession({
@@ -176,6 +177,7 @@ async function launchDesktopRuntimeImplementation({
 	profile,
 	outputDirectory,
 	allowPendingRecovery = false,
+	initializePreferences = false,
 	launch,
 	installRuntimeHooks,
 	prepareContext,
@@ -231,6 +233,9 @@ async function launchDesktopRuntimeImplementation({
 			await coverageCollector.start();
 			await waitForEditor(page, { allowPendingRecovery });
 		}
+		// Restarts retain the profile setting and may open a modal take-recovery
+		// surface that must stay in front until the recovery workflow handles it.
+		if (initializePreferences) await prepareSoundscaperDesktopSoakPreferences(page);
 		return {
 			browser, child, context, coverageCollector, output: () => output, page,
 			checkpointMainCoverage: launch.coverageDirectory === null
@@ -269,7 +274,22 @@ async function relaunchDesktopRuntime(options) {
 	throw bootstrapError('The packaged app writer leases did not become available after restart.', lastError);
 }
 
-async function quitDesktopRuntime(runtime) {
+export async function prepareSoundscaperDesktopSoakPreferences(page) {
+	// This disposable profile has no interactive owner to answer native save
+	// dialogs. Configure it before workflows close projects or quit the app.
+	await page.getByRole('menubar', { name: 'Application menu', exact: true })
+		.getByRole('menuitem', { name: 'Edit', exact: true }).click();
+	await page.getByRole('menu', { name: 'Edit', exact: true })
+		.getByRole('menuitem', { name: /^Preferences(?:\s|$)/u }).click();
+	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await preferences.getByRole('tab', { name: /General$/u }).click();
+	await preferences.getByRole('group', { name: 'Ask to save projects when closing', exact: true })
+		.getByRole('button').click();
+	await page.getByRole('option', { name: 'Off', exact: true }).click();
+	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
+}
+
+export async function quitDesktopRuntime(runtime) {
 	await runtime.page.locator('[data-window-control="quit"]').click();
 	if (!await waitForExit(runtime.child, 30_000)) {
 		throw bootstrapError('The packaged app did not complete its UI-requested shutdown.');

@@ -70,7 +70,7 @@ import {
 } from './controller/source/playback-project-service.ts';
 import { createMicrophoneMeterService } from './controller/recording/microphone-meter-service.ts'; import { createProjectVisualService } from './controller/document/project-visual-service.ts'; import { reloadPublishedVideoVisual } from './controller/document/reload-published-video-visual.ts';
 
-import { createNativeProjectComposition } from './controller/document/native-project-composition.ts';
+import { createNativeProjectComposition } from './controller/document/native-project-composition.ts'; import { createControllerFileSavingRuntime } from './controller/document/project-file-saving-composition.ts';
 import { createDawprojectAudioPreparer } from './controller/import/dawproject-audio-decode.ts'; import { createDeferredExternalMediaAudioDecoder } from './deferred-external-media-audio-decoder.ts';
 
 import { createTakeCycleOpenRecoveryAppPort } from './controller/recording/take-cycle-open-recovery-app-port.ts';
@@ -165,7 +165,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 	const { state, effectsAccess, effectsStatePorts, recordingAccess, transportAccess,
 		recordingPort, reconcileRecordingRouting,
 	} = createControllerOwnedStateComposition({ document: documentState,
-		preferences: createAudioEditorPreferencesV1({ workspace: { activeId: product.defaultWorkspace }, performance: { optimizeFor: defaultOptimizationMode }, waveformDisplay: { renderer: defaultWaveformRenderer } }),
+		preferences: createAudioEditorPreferencesV1({ saving: { autoSaving: !fileService.isDesktop }, workspace: { activeId: product.defaultWorkspace }, performance: { optimizeFor: defaultOptimizationMode }, waveformDisplay: { renderer: defaultWaveformRenderer } }),
 		effectPresets: createAudioEditorEffectPresets(),
 		initialEffectType: audioSelectionEffectTypes()[0],
 		phase: lifetime.phase, signal: lifetime.signal,
@@ -269,7 +269,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		getProject: () => documentState.project, publishDocumentSnapshot, setStatus: bindings.setStatus, handleError: bindings.handleError,
 	});
 	const preferences = createPreferencesComposition({
-		productId, defaultWorkspace: product.defaultWorkspace, defaultOptimizationMode, defaultWaveformRenderer, state, lifetime, copy,
+		productId, defaultWorkspace: product.defaultWorkspace, defaultOptimizationMode, defaultWaveformRenderer, isDesktop: fileService.isDesktop, state, lifetime, copy,
 		loadSetting: (key, fallback) => store.loadSetting(key, fallback), persistSetting, publish: publishDocumentSnapshot, setPcmOptimizationMode: (mode) => store.setPcmOptimizationMode?.(mode),
 	});
 	const preferencesService = preferences.service;
@@ -389,7 +389,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		setRemoveDeviceChangeListener: (remove) => { removeDeviceChangeListener = remove; },
 		loadRecentProjectState: (guard) => doc.session.loadRecentProjectState(guard), getStartupPreferences: () => state.preferences?.startup,
 		openProject: (savedProject) => projectSwitchService.openProject(savedProject),
-		newProject: (newOptions) => projectSwitchService.newProject(newOptions), openRecovery: takeCycleOpenRecovery, onStartupProjectFailure: options.onStartupProjectFailure,
+		newProject: (newOptions) => projectSwitchService.newProject(newOptions), openRecovery: takeCycleOpenRecovery, onProjectOpenFailure: options.onProjectOpenFailure,
 		publishProjectState: bindings.publishProjectState,
 		saveNow: bindings.saveNow,
 		refreshStorageUsage: bindings.refreshStorageUsage,
@@ -400,7 +400,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		copy,
 	});
 	const nativeProjectService = createNativeProjectComposition({
-		lifetime, projectGeneration, state, copy, store, fileService, taskProgress, confirmFileSizeWarning: options.confirmFileSizeWarning,
+		lifetime, projectGeneration, state, copy, store, fileService, taskProgress, confirmFileSizeWarning: options.confirmFileSizeWarning, fileSaving: createControllerFileSavingRuntime({ session: sessionController, store, ready: () => lifetime.phase === 'ready', preferences: () => state.preferences, switchProject: bindings.switchProject, closeProject: closeProjectTab, acquire: acquireLock, subscribe: documentChannel.subscribe, signal: lifetime.signal, handleError: bindings.handleError }),
 		getProject: documentScope.get, projectForRuntimeConsumers: projectRuntime.projectForRuntimeConsumers, acquireReplaceProjectWriteAuthority: createScapeReplaceWriteAuthority({ getActiveProjectId: () => documentScope.get()?.id ?? null, getActiveReadOnly: () => state.readOnly, getActiveLock: () => state.projectLock, acquireProjectLock: acquireLock }),
 		switchProject: bindings.switchProject,
 		editingBlocked,
@@ -558,7 +558,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		publishTelemetrySnapshot, publishProjectState: bindings.publishProjectState, updatePlayhead, updateTransportState: bindings.updateTransportState, setStatus: bindings.setStatus, handleError: bindings.handleError,
 	});
 	const actions = createControllerActionComposition(bindings, {
-		AUDIO_EDITOR_DEFAULT_SHORTCUTS, addLabelTrack,
+		AUDIO_EDITOR_DEFAULT_SHORTCUTS, addLabelTrack, onProjectOpenFailure: options.onProjectOpenFailure, assertActive: () => lifetime.assertActive(),
 		addTrack, addVideoTrackPair, adjustAllTrackHeights,
 		analysisService,
 		cancelEffectMacro: effects.macro.cancelEffectMacro,

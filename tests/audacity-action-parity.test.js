@@ -226,7 +226,7 @@ test('milestone 3 import and analysis actions have exact menu ownership and hand
 	}
 });
 
-test('the unimplemented milestone 8B MIDI plan stays inert and post-1.0', () => {
+test('full Audacity MIDI parity remains fenced while beta MIDI uses separate menu commands', () => {
 	const midiActionIds = ['export-midi', 'midi-device-info', 'local://midi-track'];
 	assert.deepEqual(AUDACITY_MIDI_FENCE.actionIds, midiActionIds);
 	for (const id of midiActionIds) {
@@ -238,7 +238,7 @@ test('the unimplemented milestone 8B MIDI plan stays inert and post-1.0', () => 
 		assert.equal(definition.roadmapMilestone, '8B', id);
 		assert.equal(definition.releaseReviewMilestone, undefined, id);
 		assert.equal(definition.blockedThroughMilestone, undefined, id);
-		assert.match(audacityActionReason(id, 'en'), /not implemented/u, id);
+		assert.match(audacityActionReason(id, 'en'), /Full Audacity MIDI integration remains post-1\.0.*beta MIDI/u, id);
 		assert.match(audacityActionReason(id, 'en'), /post-1\.0 scope/u, id);
 	}
 

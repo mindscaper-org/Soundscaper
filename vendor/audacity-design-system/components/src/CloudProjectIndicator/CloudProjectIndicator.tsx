@@ -1,3 +1,4 @@
+import { iconNameToChar } from '../Icon/icon-codes.ts';
 /**
  * CloudProjectIndicator Component
  *
@@ -29,7 +30,7 @@ export function CloudProjectIndicator({
   className = '',
 }: CloudProjectIndicatorProps) {
   // F435 = cloud-outline (saved), EF25 = cloud-upload (uploading)
-  const icon = isUploading ? '\uEF25' : '\uF435';
+  const icon = isUploading ? iconNameToChar('CLOUD_FILE') : iconNameToChar('CLOUD');
 
   return (
     <div className={`cloud-project-indicator ${className}`}>

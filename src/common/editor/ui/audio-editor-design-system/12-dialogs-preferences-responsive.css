@@ -123,7 +123,7 @@
 	min-width: 0;
 }
 
-:is(.kw-audio-editor-preferences__general, .kw-audio-editor-preferences__appearance, .kw-audio-editor-preferences__editing) {
+:is(.kw-audio-editor-preferences__general, .kw-audio-editor-preferences__appearance, .kw-audio-editor-preferences__editing, .kw-audio-editor-preferences__effects) {
 	display: grid;
 	gap: 18px;
 }

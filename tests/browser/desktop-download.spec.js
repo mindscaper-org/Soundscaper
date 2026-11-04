@@ -41,7 +41,7 @@ test('the sidebar opens the download page in a separate tab', async ({ page, con
 });
 
 test.describe('release candidate download pages', () => {
-	// Chromium prohibits debugger coverage when script execution is disabled.
+	// Chromium cannot start its JavaScript profiler with script execution disabled.
 	test.use({ javaScriptEnabled: false, browserCoverage: false });
 	for (const product of ['Soundscaper', 'Framescaper']) {
 		test(`${product} offers its current RC on desktop and narrow screens without JavaScript`, async ({ page, context }) => {

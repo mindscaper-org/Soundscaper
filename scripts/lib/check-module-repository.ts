@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 import { parseModulePolicy } from './module-policy.ts';
 import { planModuleTests } from './module-test-plan.ts';
 import { PRODUCT_STAND_IN_ALIASES } from './product-aliases.mjs';
+import { buildModuleTestSuites, modulePolicyWithTestSuites } from './module-test-suites.ts';
 
 const SOURCE = /\.(?:[cm]?[jt]sx?)$/u;
 const NODE_TEST = /^tests\/[^/]+\.test\.(?:[cm]?[jt]s|[jt]sx)$/u;
@@ -112,7 +113,7 @@ export function revisionModuleSnapshot(root: string, revision: string): Readonly
 
 export function collectRepositoryModulePlan(root: string, options: RepositoryModuleOptions = {}): RepositoryModulePlan {
 	const { snapshot: current, sourceFingerprint } = currentModuleState(root, true, true);
-	const policy = parseModulePolicy(JSON.parse(current.get('config/module-policy.json') ?? 'null'));
+	let policy = parseModulePolicy(JSON.parse(current.get('config/module-policy.json') ?? 'null'));
 	const nodeTests = [...current.keys()].filter(file => NODE_TEST.test(file)).sort();
 	const browserTests = [...current.keys()].filter(file => BROWSER_TEST.test(file)).sort();
 	const revision = git(root, ['rev-parse', 'HEAD']).trim();
@@ -135,6 +136,11 @@ export function collectRepositoryModulePlan(root: string, options: RepositoryMod
 	}
 	// The conservative union includes the default implementation and every
 	// browser/desktop product replacement, using the build's canonical table.
+	const suites = buildModuleTestSuites({ policy, snapshot: current, nodeTests, browserTests });
+	if (base) suites.push(...buildModuleTestSuites({ policy, snapshot: base,
+		nodeTests: [...base.keys()].filter(file => NODE_TEST.test(file)),
+		browserTests: [...base.keys()].filter(file => BROWSER_TEST.test(file)) }));
+	policy = modulePolicyWithTestSuites(policy, suites);
 	const planningPolicy = { ...policy, runtimeInputs: [...policy.runtimeInputs ?? [], ...PRODUCT_STAND_IN_ALIASES.flatMap(row => (
 		row.sourcePaths.filter(source => source !== row.standIn).map(source => ({ files: [source], dependencies: [row.standIn] }))
 	))] };

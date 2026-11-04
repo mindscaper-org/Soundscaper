@@ -11,6 +11,7 @@ import { createFramescaperCompositionPcmSource } from '../src/framescaper/editor
 import { createFramescaperVideoExportStrategySuccessor } from '../src/framescaper/video-export-strategy-successor.ts';
 import { framescaperSuccessorBaselineProject } from '../src/framescaper/editor-project-successor-commands.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
+import { provideChunkStreamStorageChunk } from '../src/common/editor/chunk-stream-source-read.ts';
 
 function fixture(audio = true) {
 	const motion = createMotionscaperProject({ id: 'sound', title: 'Scene', compositionId: 'main', sampleRate: 8000, frameRate: { num: 30, den: 1 }, durationFrames: 17 });
@@ -57,4 +58,33 @@ test('successor silent companion is still renderable and cancelled engine reads 
 	assert.ok(pcm); const abort = new AbortController(); abort.abort();
 	await assert.rejects(pcm.readStorageChunk(0, { signal: abort.signal }), { name: 'AbortError' }); assert.equal(acquired, 0);
 	assert.equal((await pcm.readStorageChunk(0))[0]!.every(value => value === 0), true); await pcm.dispose();
+});
+
+test('successor Motion PCM keeps the caller watchdog for acquisitions without read deadlines', { timeout: 2_000 }, async context => {
+	context.mock.timers.enable({ apis: ['setTimeout'] });
+	const { project, source } = fixture();
+	let release!: () => void, entered!: () => void;
+	const held = new Promise<void>(resolve => { release = resolve; });
+	const started = new Promise<void>(resolve => { entered = resolve; });
+	const signals: AbortSignal[] = [], messages: unknown[] = [];
+	const pcm = createFramescaperCompositionPcmSource({ project, source, async acquire(_offer, signal) {
+		assert.ok(signal); signals.push(signal); entered();
+		await held; signal.throwIfAborted();
+		throw new Error('A timed-out acquisition must not publish a provider.');
+	} });
+	assert.ok(pcm);
+	try {
+		assert.equal(pcm.boundedReads, false, 'block size and queue caps do not establish provider-owned time deadlines');
+		const reading = provideChunkStreamStorageChunk({ id: 'motion-watchdog', source: pcm,
+			abortController: new AbortController(), settled: false,
+		}, { requestId: 1, chunkIndex: 0, frameStart: 0, frames: 4096 },
+		() => ({ postMessage(message: unknown) { messages.push(message); } }), error => { assert.fail(String(error)); }, 1_000);
+		await started; context.mock.timers.tick(999); assert.equal(messages.length, 0);
+		context.mock.timers.tick(1); await reading;
+		assert.equal(messages.length, 1);
+		const failure = messages[0] as { type: string; error: { name: string } };
+		assert.equal(failure.type, 'storage-error'); assert.equal(failure.error.name, 'TimeoutError');
+		assert.equal(signals.length, 1); assert.equal(signals[0]!.aborted, true);
+		const reason: unknown = signals[0]!.reason; assert.ok(reason instanceof DOMException); assert.equal(reason.name, 'TimeoutError');
+	} finally { release(); await pcm.dispose(); }
 });

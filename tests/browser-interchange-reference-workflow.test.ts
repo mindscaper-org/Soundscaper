@@ -14,6 +14,19 @@ for (const jobName of ['browser', 'firefox']) {
 		assert.ok(selection >= 0 && provision > selection);
 		assert.ok(job.includes(jobName === 'browser' ? '--project=${{ matrix.project }}' : '--project=firefox'));
 		assert.ok(job.includes('--shard=${{ matrix.shard }}/' + (jobName === 'firefox' ? '3' : '4')));
+		const execution = /^ +run: npm run test:browser:built -- (.+)$/mu.exec(job);
+		assert.ok(execution, 'the browser command must retain its suite selection');
+		const suiteShard = /(?:^|\s)--suite-shard=\$\{\{ matrix\.shard \}\}\/([1-9]\d*)(?=\s|$)/u.exec(execution[1]!);
+		assert.ok(suiteShard, 'browser execution must use the matrix shard with semantic suite partitioning');
+		const total = Number(suiteShard[1]);
+		const matrix = /^ {8}shard: \[([\d, ]+)\]$/mu.exec(job);
+		assert.ok(matrix, 'the browser matrix must declare every suite partition');
+		assert.deepEqual(matrix[1]!.split(',').map(value => Number(value.trim())),
+			Array.from({ length: total }, (_, index) => index + 1), 'every selected suite partition must run exactly once');
+		const prerequisite = /^ +run: node scripts\/ci-test-prerequisites\.mjs (.+)$/mu.exec(job);
+		assert.ok(prerequisite);
+		assert.ok(prerequisite[1]!.includes(`--shard=\${{ matrix.shard }}/${total} `),
+			'prerequisites must inspect the same suite partition that executes');
 		for (const step of job.split(/\n {6}- /u).filter((step: string) => (
 			step.includes('uses: actions/setup-python@') || step.includes('id: interchange-cache-key')
 			|| step.includes('path: .wrangler/test-download-cache/interchange')
@@ -28,7 +41,7 @@ for (const jobName of ['browser', 'firefox']) {
 for (const workflowName of ['quality.yml', 'desktop-preview.yml', 'soundscaper-stable-1.yml']) {
 	test(`${workflowName} Node prerequisites follow the actual selected shard closure`, async () => {
 		const job = extractJob(await readWorkflow(workflowName), 'tests');
-		assert.ok(job.includes('node scripts/ci-test-prerequisites.mjs --node-shard=${{ matrix.shard }}'));
+		assert.ok(job.includes('node scripts/ci-test-prerequisites.mjs --node-module-shard=${{ matrix.shard }}'));
 		const provisions = job.split(/\n {6}- /u).filter((step: string) => step.includes('run: npm run provision:interchange-conformance'));
 		assert.equal(provisions.length, 1);
 		assert.ok(provisions[0]?.includes(REQUIRED));

@@ -1,3 +1,6 @@
+import { TemporaryProjectStorage } from './project-library-runtime/desktop/temporary-project-storage.js';
+import { ProjectFileAssociations } from './project-library-runtime/desktop/project-file-associations.js';
+import { registerProjectSavingIpc } from './project-library-runtime/desktop/project-saving-main-ipc.js';
 import { randomUUID } from 'node:crypto'; import { takeCoverage } from 'node:v8';
 import { existsSync } from 'node:fs';
 import { dirname, extname, isAbsolute, resolve } from 'node:path';
@@ -81,7 +84,7 @@ const rendererSaveOwnership = new RendererSaveOwnership();
 const { handle, on } = createTrustedDesktopIpc({ ipcMain, windowFor: () => mainWindow, assertDocumentUrl: assertEditorDocumentUrl });
 let mainWindow = null; const sesxMediaSessions = new SesxMediaSessionStore({ readCapabilities, dialog, windowFor: () => mainWindow });
 let nightlyTestsWindow = null;
-let settings = null, releaseChecker = null;
+let settings = null, releaseChecker = null; let temporaryProjectStorage = null, projectFileAssociations = null;
 let blender = null;
 let rendererReady = false;
 let pendingClose = null;
@@ -184,10 +187,13 @@ async function startApplication() {
 	linkedVideoLocators = createDesktopLinkedVideoLocatorRuntime({ readCapabilities, registryPath: resolve(desktopStorage.dataRoot, 'linked-video-locators-project-v1.json'), confirmFileSizeWarning: createDesktopSaveSizeWarningConfirmation((options) => dialog.showMessageBox(options), 'linking') });
 	await linkedVideoLocators.ready();
 	if (applicationShutdown.requested) return;
+	temporaryProjectStorage = new TemporaryProjectStorage(resolve(desktopStorage.configRoot, 'temporary-project-storage.json'), resolveDesktopProjectLibraryAppData({ applicationDataPath: desktopStorage.projectLibraryAppData, argv: process.argv }), APP_NAME);
+	const temporaryProjectAppData = await temporaryProjectStorage.prepare();
+	projectFileAssociations = new ProjectFileAssociations(resolve(desktopStorage.configRoot, 'project-file-associations.json'), originalFiles); await projectFileAssociations.load();
 	const libraryStartup = startDesktopProjectLibraryProductRuntime({
 		productId: PRODUCT_ID, confirmFileSizeWarning: createDesktopSaveSizeWarningConfirmation((options) => dialog.showMessageBox(options)),
 		appDataPath: resolveDesktopProjectLibraryAppData({
-			applicationDataPath: desktopStorage.projectLibraryAppData,
+			applicationDataPath: temporaryProjectAppData,
 			argv: process.argv,
 		}),
 		processId: process.pid,
@@ -392,6 +398,7 @@ async function registerIpcHandlers(desktopSession) {
 		capabilities: { displayAudio: process.platform === 'win32', updates: settings.snapshot().updatesEnabled },
 	}));
 	if (SOAK_DEBUG_ENABLED) { handle(IPC.soakDebugProcessMetrics, () => collectSoakDebugProcessMetrics(app)); handle(IPC.soakDebugCoverageCheckpoint, checkpointSoakMainCoverage); }
+	registerProjectSavingIpc({ channels: IPC, handle, ownerFor: rendererSaveOwnerFor, files: projectFileAssociations, storage: temporaryProjectStorage, chooseFolder: async (defaultPath) => { const result = await dialog.showOpenDialog(mainWindow, { title: 'Temporary data folder', defaultPath, properties: ['openDirectory', 'createDirectory'] }); return result.canceled ? null : result.filePaths[0] ?? null; }, prompt: (options) => dialog.showMessageBox(mainWindow, options) });
 	registerFileCapabilityIpc({
 		channels: IPC, desktopSmokeProbe, dialog, handle, opaqueId, ownerFor: rendererSaveOwnerFor,
 		pendingOpenProjects, readCapabilities, saves, saveTargets, originalFiles, sesxMediaSessions, windowFor: () => mainWindow, projectDirectory: desktopStorage.projectsDirectory,

@@ -93,6 +93,7 @@ import {
 	type VideoKeyframesCommandHandlers,
 	type VideoKeyframesCommandType,
 } from './video-keyframes.ts';
+import { defineMidiCommandHandlers, type MidiCommandHandlers, type MidiCommandType } from './midi-commands.ts';
 
 export {
 	AUDIO_WARP_COMMAND_TYPES,
@@ -126,6 +127,7 @@ export {
 };
 
 export interface EditorCommandHandlerDomains {
+	readonly midi: MidiCommandHandlers;
 	readonly projectSourceBin: ProjectSourceBinCommandHandlers;
 	readonly tempoSignature: TempoSignatureCommandHandlers;
 	readonly sequenceTiming: SequenceTimingCommandHandlers;
@@ -143,6 +145,7 @@ export interface EditorCommandHandlerDomains {
 }
 
 type RegisteredDomainCommandType =
+	| MidiCommandType
 	| ProjectSourceBinCommandType
 	| TempoSignatureCommandType
 	| SequenceTimingCommandType
@@ -174,6 +177,7 @@ export function defineEditorCommandHandlerRegistry(
 	domains: EditorCommandHandlerDomains,
 ): Readonly<EditorCommandHandlerRegistry> {
 	const domainRegistries = [
+		defineMidiCommandHandlers(domains.midi),
 		defineProjectSourceBinCommandHandlers(domains.projectSourceBin),
 		defineTempoSignatureCommandHandlers(domains.tempoSignature),
 		defineSequenceTimingCommandHandlers(domains.sequenceTiming),

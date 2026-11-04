@@ -1,3 +1,4 @@
+import SavingPreferencesPanel from './SavingPreferencesPanel.tsx';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { Separator } from '@soundscaper/design-system/Separator';
@@ -140,6 +141,8 @@ export default function GeneralPreferencesPage({
 					))}
 				</div>
 			</PreferencePanel>
+			<Separator />
+			<SavingPreferencesPanel controller={controller} preferences={snapshot.preferences.saving} copy={copy} desktop={fileService.isDesktop} run={run} />
 			{fileService.isDesktop && (
 				<>
 					<Separator />

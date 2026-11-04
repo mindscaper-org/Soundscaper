@@ -3,7 +3,8 @@ import { RECORDING_DEFAULT_DEVICE_ID } from '../../../../recording-routing.js';
 import type { TakeCycleRecordingOptions } from '../../take-cycle-recording-service.ts';
 import { selectRoutedRecordingChannels } from '../recording-capture-channels.ts';
 import { planRoutedRecordingSources } from '../routed-recording-source-plan.ts';
-import { observeTakeCycleRoutedCaptureLifetime } from './take-cycle-routed-capture-lifetime.ts';
+import { observeTakeCycleRoutedCaptureLifetime, takeCycleRecorderInterruptionError, handleTakeCycleRecorderFailure } from './take-cycle-routed-capture-lifetime.ts';
+import { MediaInputLostError } from '../../../shared/media-input-interruption.ts';
 import { createTakeCycleRoutedPcmStream } from './take-cycle-routed-pcm-stream.ts';
 import type {
 	TakeCycleRoutedActiveCapture as ActiveCapture,
@@ -112,7 +113,6 @@ export function createTakeCycleRoutedCaptureService(
 	function stop(options: TakeCycleRecordingOptions = {}): Promise<TakeCycleRoutedCaptureResult> {
 		return stopCapture(options, null);
 	}
-
 	function stopCapture(
 		options: TakeCycleRecordingOptions = {},
 		failure: CaptureFailure | null = null,
@@ -263,13 +263,11 @@ export function createTakeCycleRoutedCaptureService(
 						monitor: source.kind === 'device' && runtime.monitor === true,
 						inputGain: source.kind === 'device' ? finiteTakeCycleRoutedGain(runtime.inputGain ?? 1) : 1,
 						onChunk: (chunk) => enqueueChunk(pending, source, chunk),
-						onError: (error) => { enqueueSourceFailure(pending, source, error); },
+						onError: error => handleTakeCycleRecorderFailure(error, loss => interruptCapture(pending, loss, source), failure => enqueueSourceFailure(pending, source, failure)),
 						onState(recordingState) {
 							if ((recordingState === 'stopping' || recordingState === 'stopped'
 								|| recordingState === 'failed') && !source.stopping) {
-								interruptCapture(pending, new Error(
-									`Take cycle routed recorder ${source.sourceKey} ${recordingState} unexpectedly.`,
-								), source);
+								interruptCapture(pending, takeCycleRecorderInterruptionError(recordingState, source.sourceKey), source);
 							}
 						},
 					});
@@ -528,7 +526,7 @@ export function createTakeCycleRoutedCaptureService(
 			return;
 		}
 		reportError(reason);
-		settleTakeCycleRecordingSessionAfterInterruption(stopCapture({}, { reason, source }), runtime.stopRecording, reportError);
+		settleTakeCycleRecordingSessionAfterInterruption(stopCapture({}, reason instanceof MediaInputLostError ? null : { reason, source }), runtime.stopRecording, reportError);
 	}
 
 	function captureCurrentError(capture: ActiveCapture): unknown | null {

@@ -1,6 +1,6 @@
 {
 	"name": "soundscaper",
-	"version": "1.0.0-rc.Oct.29.b",
+	"version": "1.0.0-rc.Nov.4.d",
 	"description": "A local-first multitrack audio editor for the web and desktop.",
 	"private": true,
 	"type": "module",
@@ -232,6 +232,7 @@
 		"fast-check": "4.9.0",
 		"gettext-parser": "9.1.1",
 		"globals": "17.7.0",
+		"miniflare": "5.20260930.0-alpha",
 		"parse5": "8.0.0",
 		"patch-package": "^8.0.1",
 		"postcss": "8.5.26",

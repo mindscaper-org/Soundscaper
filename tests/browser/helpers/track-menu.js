@@ -24,6 +24,8 @@ async function openTrackMenuPath(page, editor, trackRow, path) {
 	const steps = Array.isArray(path) ? path : [path];
 	const row = trackRow ?? editor.locator('[data-track-row]').first();
 	await row.getByRole('button', { name: TRACK_MENU_TRIGGER }).first().click();
+	// Keep layout-driven hover away from the keyboard-selected submenu.
+	await page.mouse.move(1, 1);
 	let menu = page.locator('.audio-editor-track-menu');
 	await expect(menu).toBeVisible();
 	let item = trackMenuItem(menu, steps[0]);

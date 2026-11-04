@@ -12,6 +12,7 @@ test('Soundscaper browser alias targets have explicit semantic chunk owners', ()
 		['src/soundscaper/editor-framescaper-overlay-model.ts', 'editor-shell'],
 		['src/soundscaper/editor-video-preview-product-runtime.ts', 'editor-shell'],
 		['src/soundscaper/editor-application-menu-product-runtime.js', 'editor-shell'],
+		['src/soundscaper/editor-web-desktop-command-menus.ts', 'editor-shell'],
 		['src/soundscaper/editor-workspace-application-menu-runtime.ts', 'editor-shell'],
 		['src/soundscaper/editor-workspace-panel-runtime.ts', 'editor-shell'],
 		['src/soundscaper/local-assistance-deferred-publication.ts', 'editor-optional-assistance'],

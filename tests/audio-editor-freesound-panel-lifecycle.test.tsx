@@ -12,6 +12,8 @@ import {
 } from '../src/common/editor/ui/workspace/FreesoundPanelContainer.tsx';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import { settle } from './helpers/async-test-control.ts';
+import { createFreesoundClientTransport } from '../src/common/editor/ui/workspace/freesound-auth-upload-client.ts';
 
 const RESULT = Object.freeze({
 	id: 42,
@@ -96,7 +98,8 @@ test('Freesound waveform seeks, starts or resumes preview, and reuses the active
 			audioInstances.push(this);
 		}
 	} as unknown as typeof Audio;
-	globalThis.fetch = async () => Response.json({ data: {
+	globalThis.fetch = async (input) => String(input).includes('/oauth/session')
+		? Response.json({ data: { connected: false } }) : Response.json({ data: {
 		query: 'rain', page: 1, pageSize: 20, totalCount: 1, totalPages: 1,
 		hasNextPage: false, hasPreviousPage: false, results: [RESULT],
 	} });
@@ -114,6 +117,7 @@ test('Freesound waveform seeks, starts or resumes preview, and reuses the active
 	};
 	const props = {
 		controller,
+		freesoundTransport: createFreesoundClientTransport({ location: { origin: 'https://soundscaper.org', protocol: 'https:' } }),
 		snapshot: { locale: 'en', project: { tracks: [] } },
 		copy: ENGLISH_COPY,
 	};
@@ -125,7 +129,7 @@ test('Freesound waveform seeks, starts or resumes preview, and reuses the active
 		});
 		await act(async () => {
 			reactProps(dom.one('form')).onSubmit({ preventDefault() {} });
-			await Promise.resolve();
+			await settle();
 		});
 		const waveform = dom.one('.kw-audio-editor__freesound-waveform');
 		Object.defineProperty(waveform, 'getBoundingClientRect', {

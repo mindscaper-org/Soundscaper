@@ -188,23 +188,23 @@ test('workspace shortcut resolution rejects product-disabled actions and submenu
 
 test('workspace shortcut resolution evaluates known manifest enablement against the live runtime', () => {
 	let project: object | null = null;
-	const save = () => 'saved';
+	const saveFile = () => 'file saved';
 	const custom = () => 'custom';
 	const runtime = {
 		getActionContext: () => ({ snapshot: { project } }),
-		project: { save },
+		project: { save: () => 'saved internally', saveFile },
 	};
 	assert.equal(resolveAudioEditorShortcutHandler('file-save', { actionRuntime: runtime }), null);
 	assert.equal(resolveAudioEditorShortcutHandler('file-save', {
 		actionRuntime: runtime,
-		menus: [{ id: 'file-save', onClick: save }],
+		menus: [{ id: 'file-save', onClick: saveFile }],
 	}), null, 'an enabled-looking menu cannot bypass the manifest predicate');
 	assert.equal(resolveAudioEditorShortcutHandler('custom-action', {
 		actionRuntime: runtime,
 		menus: [{ id: 'custom-action', onClick: custom }],
 	}), custom, 'local commands outside the manifest retain their menu enablement');
 	project = { tracks: [], clips: [], selection: { startFrame: 0, endFrame: 0, trackIds: [], clipIds: [] } };
-	assert.equal(resolveAudioEditorShortcutHandler('file-save', { actionRuntime: runtime }), save);
+	assert.equal(resolveAudioEditorShortcutHandler('file-save', { actionRuntime: runtime }), saveFile);
 });
 
 test('workspace shortcuts never escape an open dialog into editor actions', () => {

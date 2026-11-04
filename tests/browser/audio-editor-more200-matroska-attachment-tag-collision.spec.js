@@ -9,6 +9,7 @@ for (const tagsFirst of [false, true]) for (const collision of [false, true]) te
 	const file = await attachmentCollisionWebmOpusFixture(collision, tagsFirst);
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 30_000 });
+	await expect.poll(async () => (await sourcePeakChannels(page, file.name)).channelCount).toBe(1);
 	const peak = await sourcePeakChannels(page, file.name); expect(peak.channels[0].maximum).toBeGreaterThan(.05);
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing', { timeout: 30_000 });
 	const downloading = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);

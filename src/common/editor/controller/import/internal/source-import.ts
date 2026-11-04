@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import {
-	VideoPreviewEncodedPayloadTooLargeError,
-	VideoPreviewSourceGeometryTooLargeError,
-} from '../../../video-preview-capture-admission.ts';
 import { linkedVideoLocatorReferenceFromImportOptions } from './project-import-options.ts';
 import { sampleFrameToVideoFrame } from '../../../timeline-time.ts'; import { attachExternalMedia } from '../../../desktop-external-media.ts';
 import type {
@@ -16,6 +12,8 @@ import {
 	normalizeVideoSourceCharacteristics,
 } from '../../../video-source-characteristics.ts';
 import { publishVideoTimingAsset } from '../../../video-timing-storage.ts';
+import { acquireVideoTimingIndex, type VideoTimingIndexLease } from '../../../video-source-time.ts';
+import type { VideoTimingIndex } from '../../../video-timing-asset.ts';
 import { planVideoImportTiming } from './video-import-timing.ts';
 import { createImportedAudioContentIdentityWriter, rollbackImportedAudioContentIdentityWriter,
 	type ImportedAudioContentIdentity } from '../imported-audio-content-identity.ts';
@@ -30,13 +28,13 @@ export type { ImportVideoFile, ImportVideoFileInput, ImportVideoOptions, ImportV
 
 export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoFile {
 	const {
-		SOURCE_CHUNK_FRAMES, activateVideoSource, audioBufferChannels, audioEditorVideoThumbnailTimes,
+		SOURCE_CHUNK_FRAMES, audioBufferChannels,
 		assertProject, bufferFromChannels, cacheSourceBuffer, canonicalizeBuffer, commit,
 		copy, createAddClipCommand, createAddSourceCommand, createAddTrackCommand,
 		captureProject, createAudioEditorVideoFrameExtractor, createStableId, engine, ffmpeg,
-		findTrack, fitAudioBufferToFrames, generateWaveformPeaks, helperTimingProbe,
+		findTrack, fitAudioBufferToFrames, helperTimingProbe,
 		inspectEncodedAudioSampleRate,
-		normalizeImportOptions, peakCacheKey, preflightStorage, getProject,
+		normalizeImportOptions, preflightStorage, getProject,
 		projectSampleRate, revokeVideoVisual, sourceBuffers, sourcePeaks,
 		store, stripExtension, warnEnvelope, writeBuffer,
 	} = runtime;
@@ -60,7 +58,6 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 				.filter((track) => track.type === 'video').length;
 			await preflightStorage(Math.max(file.size * 2, 16 * 1024 * 1024), 'import');
 			let canonicalVideoFile: Blob = file;
-			extractor = await createAudioEditorVideoFrameExtractor(canonicalVideoFile, { signal: importOptions.signal });
 			const sampleRate = projectSampleRate();
 			const ffmpegTimingProbe = createFfmpegVideoTimingProbe(ffmpeg);
 			// The native helper probes by opaque capability id and its failure
@@ -94,8 +91,6 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 					rate: timingProbe.rate,
 					signal: importOptions.signal,
 				});
-				extractor.dispose();
-				extractor = await createAudioEditorVideoFrameExtractor(canonicalVideoFile, { signal: importOptions.signal });
 				const conformedProbe = createFfmpegVideoTimingProbe(ffmpeg);
 				timingProbe = await probeVideoTiming(canonicalVideoFile, {
 					probes: [conformedProbe, createContainerVideoTimingProbe()]
@@ -108,6 +103,10 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 				}
 				conformedAtIngest = true;
 			}
+			extractor = await createAudioEditorVideoFrameExtractor(canonicalVideoFile, {
+				signal: importOptions.signal,
+				...(timingProbe.decision === 'timing-asset' ? { timing: timingProbe.timing } : {}),
+			});
 			const trackName = stripExtension(file.name) || `Video ${startingVideoTrackCount + 1}`;
 			prepared = {
 				startingProjectId, startingProjectToken,
@@ -150,18 +149,14 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 		let audioDecodeNotice: string | null = null;
 		let audioContentIdentity: ImportedAudioContentIdentity | null = null;
 		let originalAudioSampleRate = sampleRate, decodedAudioSampleRate = sampleRate;
-		let mediaPublication: OwnedMediaAssetPublication | null = null;
-		let timingAssetPublication: OwnedMediaAssetPublication | null = null;
+		const publications: { media: OwnedMediaAssetPublication | null; timing: OwnedMediaAssetPublication | null;
+			timingIndex: VideoTimingIndex | null } = { media: null, timing: null, timingIndex: null };
 		let audioPersisted = false;
+		let derivativesScheduled = false;
+		let timingLease: VideoTimingIndexLease | null = null;
 		let linkedBinding: Awaited<ReturnType<typeof store.bindLinkedVideoOriginal>> | null = null;
+		let pendingPublication: Promise<{ error: unknown } | null> | null = null;
 		const linkedProjectId = startingProjectId;
-		const pendingLinkedDerivatives: Parameters<typeof store.saveVideoDerivative>[1][] = [];
-		const savePreviewDerivative = async (derivative: Parameters<typeof store.saveVideoDerivative>[1]) => {
-			if (linkedVideoLocatorId) pendingLinkedDerivatives.push(derivative);
-			else {
-				await store.saveVideoDerivative(videoSourceId, derivative);
-			}
-		};
 		try {
 			const activeProject = requireImportProjectCurrent();
 			const sequenceId = activeProject.primarySequenceId || 'main-sequence';
@@ -176,73 +171,35 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 				timelineStartFrame: importOptions.timelineStartFrame,
 				sequenceRate: sequence.rate,
 			});
-			let sourceContentSha256: string;
-			if (!linkedVideoLocatorId) {
-				const published = await publishImportedVideo(
-					store,
-					videoSourceId,
-					canonicalVideoFile,
-					{
-					name: sourceName,
-					mimeType: canonicalVideoFile.type || 'video/mp4',
-					width: extractor.metadata.width,
-					height: extractor.metadata.height,
-					durationSeconds: extractor.metadata.durationSeconds,
-					},
-					importOptions.signal,
-				);
-				sourceContentSha256 = published.sha256;
-				mediaPublication = published.publication;
-			} else sourceContentSha256 = await digestImportedVideoFile(canonicalVideoFile);
-			let timingAsset = null;
-			if (timingProbe.decision === 'timing-asset') {
-				const published = await publishVideoTimingAsset(store, sourceContentSha256, timingProbe.timing);
-				timingAsset = published.reference;
-				timingAssetPublication = published.publication;
-			}
-			const thumbnailTimes = audioEditorVideoThumbnailTimes(durationFrames / sampleRate);
-			let sourcePreviewUnavailable = false;
-			const reportsAlpha = timingProbe.characteristics.hasAlpha === true;
-			try {
-				const poster = await extractor.capture(0, {
-					maximumWidth: 640,
-					maximumHeight: 360,
-					alpha: reportsAlpha, signal: importOptions.signal,
-				});
-				await savePreviewDerivative({
-					timestamp: 0,
-					type: 'poster',
-					blob: poster.blob,
-					metadata: {
-						width: poster.width,
-						height: poster.height,
-						mimeType: poster.mimeType,
-					},
-				});
-			} catch (error) {
-				importOptions.signal?.throwIfAborted();
-				// A preview derivative is disposable; the original media remains importable.
-				sourcePreviewUnavailable = error instanceof VideoPreviewSourceGeometryTooLargeError;
-			}
-			for (const timestamp of sourcePreviewUnavailable ? [] : thumbnailTimes) {
-				try {
-					const thumbnail = await extractor.capture(timestamp, { alpha: reportsAlpha, signal: importOptions.signal });
-					await savePreviewDerivative({
-						timestamp: thumbnail.timestampSeconds,
-						type: 'thumbnail',
-						blob: thumbnail.blob,
-						metadata: {
-							width: thumbnail.width,
-							height: thumbnail.height,
-							mimeType: thumbnail.mimeType,
+			let sourceContentSha256 = '';
+			let timingAsset: Awaited<ReturnType<typeof publishVideoTimingAsset>>['reference'] | null = null;
+			// Independent durable video and playable audio preparation overlap. Observe
+			// publication failures immediately and join both paths before any rollback.
+			pendingPublication = (async () => {
+				if (!linkedVideoLocatorId) {
+					const published = await publishImportedVideo(
+						store,
+						videoSourceId,
+						canonicalVideoFile,
+						{
+						name: sourceName,
+						mimeType: canonicalVideoFile.type || 'video/mp4',
+						width: extractor.metadata.width,
+						height: extractor.metadata.height,
+						durationSeconds: extractor.metadata.durationSeconds,
 						},
-					});
-				} catch (error) {
-					importOptions.signal?.throwIfAborted();
-					// Keep the rest of the filmstrip when one seek/capture fails.
-					if (error instanceof VideoPreviewEncodedPayloadTooLargeError) break;
+						importOptions.signal,
+					);
+					sourceContentSha256 = published.sha256;
+					publications.media = published.publication;
+				} else sourceContentSha256 = await digestImportedVideoFile(canonicalVideoFile);
+				if (timingProbe.decision === 'timing-asset') {
+					const published = await publishVideoTimingAsset(store, sourceContentSha256, timingProbe.timing);
+					timingAsset = published.reference;
+					publications.timing = published.publication;
+					publications.timingIndex = published.index;
 				}
-			}
+			})().then(() => null, (error: unknown) => ({ error }));
 
 			const context = await engine.getAudioContext({ resume: false });
 			try {
@@ -310,10 +267,9 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 					);
 				}
 				cacheSourceBuffer(audioSourceId, canonicalAudio);
-				const peaks = await generateWaveformPeaks(audioBufferChannels(canonicalAudio), copy);
-				sourcePeaks.set(audioSourceId, peaks);
-				await Promise.resolve(store.saveAnalysis(peakCacheKey(audioSourceId), peaks)).catch(() => undefined);
 			}
+			const publicationFailure = await pendingPublication;
+			if (publicationFailure) throw publicationFailure.error;
 
 			const sourceRate = timingProbe.decision === 'timing-asset' ? timingProbe.nominalRate : timingProbe.rate;
 			const sourceFrameCount = timingProbe.decision === 'timing-asset'
@@ -471,20 +427,24 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 					linkedVideoLocatorId,
 					{ expectedLocatorRevision: linkedVideoLocatorRevision, expectedSnapshot: file },
 				);
-				for (const derivative of pendingLinkedDerivatives) {
-					try {
-						await store.saveLinkedVideoDerivative(
-							linkedProjectId, videoSource, linkedBinding, derivative,
-						);
-					} catch { /* A reproducible preview derivative is disposable. */ }
-				}
 			}
-			await activateVideoSource(videoSource);
 			requireImportProjectCurrent();
+			if (publications.timingIndex) timingLease = acquireVideoTimingIndex(videoSource, publications.timingIndex);
 			commit({ type: 'batch', commands }, {
 				selectTrackId: selectedTrackId,
 				selectClipId: videoClipId,
 			});
+			try {
+				runtime.scheduleDerivatives({
+					source: videoSource, projectToken: startingProjectToken, extractor,
+					durationSeconds: durationFrames / sampleRate, linkedBinding,
+					timingLease: timingLease ?? undefined,
+					audio: canonicalAudio && audioSource && audioSourceId
+						? { sourceId: audioSourceId, contentSha256: audioSource.contentSha256, channels: audioBufferChannels(canonicalAudio) } : null,
+				});
+				derivativesScheduled = true;
+			} catch { /* The playable import is already committed; derivatives are disposable. */ }
+
 			try { warnEnvelope(); } catch { /* The canonical import is already committed. */ }
 			return Object.freeze({
 				destination: importOptions.destination,
@@ -496,6 +456,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 				...(audioDecodeNotice ? { notice: audioDecodeNotice } : {}),
 			});
 		} catch (error) {
+			await pendingPublication;
 			const currentProject = getProject();
 			const canonicalSourceLanded = currentProject?.id === startingProjectId
 				&& currentProject.sources?.some((source) => source.id === videoSourceId);
@@ -520,11 +481,11 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 					try { await store.deleteSource(audioSourceId); } catch (cleanupError) { cleanupErrors.push(cleanupError); }
 				}
 			}
-			if (timingAssetPublication) {
-				try { await timingAssetPublication.discardIfCurrent(); } catch (cleanupError) { cleanupErrors.push(cleanupError); }
+			if (publications.timing) {
+				try { await publications.timing.discardIfCurrent(); } catch (cleanupError) { cleanupErrors.push(cleanupError); }
 			}
-			if (mediaPublication) {
-				try { await mediaPublication.discardIfCurrent(); } catch (cleanupError) { cleanupErrors.push(cleanupError); }
+			if (publications.media) {
+				try { await publications.media.discardIfCurrent(); } catch (cleanupError) { cleanupErrors.push(cleanupError); }
 			}
 			if (releaseLinkedLocator) {
 				try { await releaseUnusedLinkedVideoLocator(); } catch (cleanupError) { cleanupErrors.push(cleanupError); }
@@ -536,7 +497,10 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 			}
 			throw error;
 		} finally {
-			try { extractor.dispose(); } catch { /* Disposable import helper. */ }
+			if (!derivativesScheduled) {
+				timingLease?.release();
+				try { extractor.dispose(); } catch { /* Disposable import helper. */ }
+			}
 		}
 	}
 	return importVideoFile;

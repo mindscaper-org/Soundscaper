@@ -1,3 +1,4 @@
+import { iconNameToChar } from '../Icon/icon-codes.ts';
 import { useComponentCopy } from '../contexts/ComponentCopyContext';
 /**
  * NumberStepper - Number input with up/down arrows
@@ -194,7 +195,7 @@ export const NumberStepper = React.forwardRef<HTMLInputElement, NumberStepperPro
           disabled={disabled}
           tabIndex={-1}
         >
-          <span className="number-stepper__icon musescore-icon" aria-hidden="true">{'\uEF10'}</span>
+          <span className="number-stepper__icon musescore-icon" aria-hidden="true">{iconNameToChar('SMALL_ARROW_UP')}</span>
         </button>
         <button
           type="button"
@@ -204,7 +205,7 @@ export const NumberStepper = React.forwardRef<HTMLInputElement, NumberStepperPro
           disabled={disabled}
           tabIndex={-1}
         >
-          <span className="number-stepper__icon musescore-icon" aria-hidden="true">{'\uEF12'}</span>
+          <span className="number-stepper__icon musescore-icon" aria-hidden="true">{iconNameToChar('SMALL_ARROW_DOWN')}</span>
         </button>
       </div>
     </div>

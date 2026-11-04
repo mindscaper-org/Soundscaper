@@ -67,7 +67,7 @@ export async function startPackagedRuntimeTargetCoverage({
 			checkpointTail: Promise.resolve(),
 			coverageHookScriptIds: new Set(),
 			navigationCheckpoints: null,
-			page: ownerPage,
+			page: ownerPage ?? page,
 			pageOperationCheckpoints: null,
 			session,
 			sources: new Map(),

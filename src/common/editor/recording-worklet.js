@@ -28,6 +28,9 @@ export class StreamingRecorderProcessor extends ProcessorBase {
 		this.recording = false;
 		this.inspectInputChannelCount = false;
 		this.hasCapturedFrames = false;
+		this.missingInputFrames = 0;
+		this.inputUnavailable = false;
+		this.inputLossGraceFrames = Math.ceil((Number(globalThis.sampleRate) || 48_000) * 5);
 		this.paused = false;
 		this.pausedAtFrame = null;
 		this.startFrame = 0;
@@ -74,6 +77,24 @@ export class StreamingRecorderProcessor extends ProcessorBase {
 		if (lastIndex <= firstIndex) {
 			if (globalFrame >= this.stopFrame) this.#finish();
 			return true;
+		}
+		if (!input[0]?.length) {
+			if (!this.inputUnavailable) {
+				this.inputUnavailable = true;
+				this.port.postMessage({ type: 'input-status', available: false });
+			}
+			this.missingInputFrames += lastIndex - firstIndex;
+			if (this.missingInputFrames >= this.inputLossGraceFrames) {
+				this.port.postMessage({ type: 'input-lost' });
+				this.#finish();
+				return true;
+			}
+		} else {
+			this.missingInputFrames = 0;
+			if (this.inputUnavailable) {
+				this.inputUnavailable = false;
+				this.port.postMessage({ type: 'input-status', available: true });
+			}
 		}
 
 		let frameIndex = firstIndex;
@@ -130,6 +151,8 @@ export class StreamingRecorderProcessor extends ProcessorBase {
 			this.stopFrame = Number.isFinite(message.stopFrame) ? Math.max(this.startFrame, Math.floor(message.stopFrame)) : Infinity;
 			this.recording = true;
 			this.hasCapturedFrames = false;
+			this.missingInputFrames = 0;
+			this.inputUnavailable = false;
 			this.paused = false;
 			this.pausedAtFrame = null;
 			this.port.postMessage({ type: 'started', startFrame: this.startFrame, stopFrame: this.stopFrame,

@@ -57,50 +57,62 @@ test('PowerShell exercises existing, missing and failed package-manager and FFmp
 	assert.match(result.stdout, /Windows FFmpeg bootstrap scenarios passed/u);
 });
 
-test('NSIS compiles the FFmpeg page, bootstrap launch and completion wait', async (context) => {
-	const require = createRequire(import.meta.url);
-	const toolset = require('app-builder-lib/out/toolsets/windows.js') as {
-		getMakeNsisPath: () => Promise<{ path: string; env?: NodeJS.ProcessEnv }>;
-		getNsisPluginsPath: () => Promise<string>;
-	};
-	if (process.env.SCAPE_TEST_NSIS !== '1') {
-		context.skip('Set SCAPE_TEST_NSIS=1 to compile with electron-builder’s pinned NSIS toolset.');
-		return;
-	}
-	const [compiler, plugins] = await Promise.all([
-		toolset.getMakeNsisPath(), toolset.getNsisPluginsPath(),
-	]);
-	const temporary = await mkdtemp(join(tmpdir(), 'scape-ffmpeg-nsis-'));
-	try {
-		const fixture = join(temporary, 'installer.nsi');
-		await writeFile(fixture, [
-			'Unicode true',
-			`!addplugindir /x86-unicode "${join(plugins, 'x86-unicode')}"`,
-			`!addincludedir "${join(root, 'node_modules/app-builder-lib/templates/nsis/include')}"`,
-			'!include StdUtils.nsh',
-			'!define PRODUCT_NAME "Soundscaper"',
-			'!define APP_ID "org.soundscaper.desktop"',
-			'!define APP_ARM64 "fixture"',
-			'!define isUpdated `"" == "updated"`',
-			`!include "${includePath}"`,
-			'Name "FFmpeg installer fixture"',
-			`OutFile "${join(temporary, 'installer.exe')}"`,
-			'RequestExecutionLevel admin',
-			'!insertmacro customPageAfterChangeDir',
-			'!insertmacro MUI_PAGE_INSTFILES',
-			'!insertmacro MUI_LANGUAGE "English"',
-			'Function .onInit',
-			'!insertmacro customInit',
-			'FunctionEnd',
-			'Section',
-			'!insertmacro customInstall',
-			'SectionEnd',
-		].join('\n'));
-		await executeFile(compiler.path, ['-WX', fixture], {
-			cwd: dirname(fixture), env: { ...process.env, ...compiler.env },
-		});
-		await access(join(temporary, 'installer.exe'));
-	} finally {
-		await rm(temporary, { recursive: true, force: true });
-	}
-});
+for (const registration of ['before', 'after'] as const) {
+	test(`NSIS compiles FFmpeg hooks with plugins registered ${registration} the custom include`, async (context) => {
+		const require = createRequire(import.meta.url);
+		const toolset = require('app-builder-lib/out/toolsets/windows.js') as {
+			getMakeNsisPath: () => Promise<{ path: string; env?: NodeJS.ProcessEnv }>;
+			getNsisPluginsPath: () => Promise<string>;
+		};
+		if (process.env.SCAPE_TEST_NSIS !== '1') {
+			context.skip('Set SCAPE_TEST_NSIS=1 to compile with electron-builder’s pinned NSIS toolset.');
+			return;
+		}
+		const [compiler, plugins] = await Promise.all([
+			toolset.getMakeNsisPath(), toolset.getNsisPluginsPath(),
+		]);
+		const { NsisScriptGenerator } = require('app-builder-lib/out/targets/nsis/nsisScriptGenerator.js') as {
+			NsisScriptGenerator: new () => { flags: (names: string[]) => void; build: () => string };
+		};
+		const flags = new NsisScriptGenerator();
+		flags.flags(['updated']);
+		const pluginDirectory = `!addplugindir /x86-unicode "${join(plugins, 'x86-unicode')}"`;
+		const temporary = await mkdtemp(join(tmpdir(), 'scape-ffmpeg-nsis-'));
+		try {
+			const fixture = join(temporary, 'installer.nsi');
+			await writeFile(fixture, [
+				'Unicode true',
+				...(registration === 'before' ? [pluginDirectory] : []),
+				`!addincludedir "${join(root, 'node_modules/app-builder-lib/templates/nsis/include')}"`,
+				'!include StdUtils.nsh',
+				'!define PRODUCT_NAME "Soundscaper"',
+				'!define APP_ID "org.soundscaper.desktop"',
+				'!define APP_ARM64 "fixture"',
+				flags.build(),
+				`!include "${includePath}"`,
+				...(registration === 'after' ? [pluginDirectory] : []),
+				'Name "FFmpeg installer fixture"',
+				`OutFile "${join(temporary, 'installer.exe')}"`,
+				'RequestExecutionLevel admin',
+				'!insertmacro customPageAfterChangeDir',
+				'!insertmacro MUI_PAGE_INSTFILES',
+				'!insertmacro MUI_LANGUAGE "English"',
+				'!ifmacrodef customHeader',
+				'!insertmacro customHeader',
+				'!endif',
+				'Function .onInit',
+				'!insertmacro customInit',
+				'FunctionEnd',
+				'Section',
+				'!insertmacro customInstall',
+				'SectionEnd',
+			].join('\n'));
+			await executeFile(compiler.path, ['-WX', fixture], {
+				cwd: dirname(fixture), env: { ...process.env, ...compiler.env },
+			});
+			await access(join(temporary, 'installer.exe'));
+		} finally {
+			await rm(temporary, { recursive: true, force: true });
+		}
+	});
+}

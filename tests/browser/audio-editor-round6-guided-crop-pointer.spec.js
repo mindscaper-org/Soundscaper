@@ -19,7 +19,7 @@ test('guided Reframe crop context input preserves the authored position', async 
 	await openAssistanceTask(page, editor, 'Reframe');
 	const dialog = page.locator('[data-local-assistance]');
 	page.on('dialog', async nativeDialog => { await nativeDialog.accept(); });
-	await dialog.getByRole('button', { name: 'Run locally', exact: true }).click();
+	await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
 	await expect(dialog.getByRole('status', { name: 'Processing status' })).toHaveText('Processing selected media locally');
 	await completeMilestone7Run(page);
 	await expect(dialog.getByRole('status', { name: 'Processing status' })).toContainText('Processing finished.');

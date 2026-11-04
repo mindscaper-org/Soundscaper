@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { iconNameToChar } from '../audacity-iconcodes.js';
 import type { AssistanceGuidedWorkflowId } from '../assistance/workflow-recipes.ts';
 
-export const LOCAL_ASSISTANCE_MENU_ICON = String.fromCodePoint(0xF476);
+export const LOCAL_ASSISTANCE_MENU_ICON = iconNameToChar('SPARKLES');
 
 export type AssistanceDialogRequest = Readonly<
 	{ mode: 'task'; workflowId: AssistanceGuidedWorkflowId } | { mode: 'advanced' }
@@ -89,7 +90,7 @@ export function mergeAssistanceTaskMenus(
 		if (menu.id === 'effect' && options.organization === 'sortby:name') {
 			// Sort only the effect block; management and repeat commands retain their positions.
 			const effects = items.filter((item) => item.assistanceTask || item.onClick && !item.items
-				&& !['realtime-effects', 'repeat-effect', 'native-effect-manage', 'native-effect-use', 'framescaper-ofx-manage'].includes(item.id ?? ''));
+				&& !['realtime-effects', 'repeat-effect', 'native-effect-manage', 'framescaper-ofx-manage'].includes(item.id ?? ''));
 			const sorted = [...effects].sort((a, b) => (a.label ?? '').localeCompare(b.label ?? '', options.locale || 'en'));
 			const effectSet = new Set(effects);
 			let index = 0;

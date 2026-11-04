@@ -8,6 +8,11 @@ import test from 'node:test';
 import { chunkGroupForModulePath } from '../scripts/lib/build-chunk-groups.mjs';
 import { staticRelativeImports } from './helpers/eager-chunk-group-crossings.ts';
 
+test('export format checks stay with the menu-opened export surface', () => {
+	assert.equal(chunkGroupForModulePath('src/common/editor/controller/export/export-format-availability.ts'), 'editor-optional-export');
+	assert.equal(chunkGroupForModulePath('src/common/editor/ui/use-desktop-export-availability.ts'), 'editor-optional-surfaces');
+});
+
 /**
  * Two modules sitting on the wrong side of the export boundary.
  *

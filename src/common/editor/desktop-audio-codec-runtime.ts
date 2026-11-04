@@ -30,6 +30,7 @@ import type { DesktopPcmStreamGeometry, PreparedDesktopPcmStream } from './deskt
 import type { DesktopAudioStreamCommandBridge } from './desktop-audio-stream-encoder.ts';
 import { DESKTOP_MAIN_AUDIO_CODEC_RUNTIME_MARKER } from './desktop-main-audio-codec-runtime-marker.ts';
 import type { FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
+import type { EmbeddedExportChapter } from './export-embedded-chapters.ts';
 export interface DesktopAudioCodecRendererBridge {
 	capabilities(query: DesktopAudioCodecCapabilityQuery): unknown | Promise<unknown>;
 	execute(request: DesktopAudioCodecRequest): unknown | Promise<unknown>;
@@ -45,6 +46,7 @@ export interface DesktopAudioCodecRuntimeSettings extends FileSizeWarningOptions
 	readonly floatingPoint?: boolean;
 	readonly dither?: unknown;
 	readonly metadata?: Readonly<Record<string, unknown>>;
+	readonly embeddedChapters?: readonly EmbeddedExportChapter[];
 	readonly compressionLevel?: number; readonly quality?: number; readonly bitRate?: number;
 	readonly applyDither?: boolean;
 	readonly maximumOutputBytes?: number; readonly maximumOutputChunkBytes?: number;
@@ -95,6 +97,7 @@ export interface NormalizedMediaSettings {
 	readonly bitDepth: number | null;
 	readonly compressionLevel?: number; readonly quality?: number; readonly bitRate?: number;
 	readonly metadata: Readonly<Record<string, unknown>>;
+	readonly embeddedChapters?: readonly EmbeddedExportChapter[];
 }
 
 interface ActiveRequest { cancel(reason: unknown): void; }
@@ -103,7 +106,7 @@ const FORMATS = new Set<string>(DESKTOP_AUDIO_CODEC_FORMATS);
 const ENCODE_SETTING_FIELDS = new Set<string>([
 	'format', 'backend', 'extension', 'mimeType', 'capabilities', 'sampleRate',
 	'inputChannelCount', 'channelCount', 'channelMapping',
-	'sampleFormat', 'bitDepth', 'floatingPoint', 'dither', 'metadata',
+	'sampleFormat', 'bitDepth', 'floatingPoint', 'dither', 'metadata', 'embeddedChapters',
 	'compressionLevel', 'quality', 'bitRate', 'applyDither', 'maximumOutputBytes',
 	'maximumOutputChunkBytes', 'signal', 'assertCurrent', 'onProgress', 'confirmFileSizeWarning',
 ]);
@@ -280,8 +283,17 @@ export function createDesktopAudioCodecRuntime(bridgeValue: DesktopAudioCodecRen
 		});
 		const result = await executeRequest(request, settings.signal);
 		if (result.operation !== 'audio-encode') throw new Error('The desktop audio bridge returned a decode result for encode.');
+		let bytes = result.bytes;
+		if (staged.media.embeddedChapters?.length) {
+			const { finalizeDesktopAudioBlob } = await import('./desktop-audio-embedded-chapters.ts');
+			const assertCurrent = (): void => { assertActive(); assertFfmpegOutputReady(settings); };
+			const blob = await finalizeDesktopAudioBlob(new Blob([Uint8Array.from(bytes)], { type: staged.media.mimeType }),
+				format, staged.media.sampleRate, { ...settings, embeddedChapters: staged.media.embeddedChapters, assertCurrent });
+			bytes = new Uint8Array(await blob.arrayBuffer());
+			assertCurrent();
+		}
 		return Object.freeze({
-			bytes: result.bytes,
+			bytes,
 			extension: `.${staged.media.extension}`,
 			mimeType: staged.media.mimeType,
 		});

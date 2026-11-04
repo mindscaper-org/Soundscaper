@@ -3,7 +3,7 @@ import { formatPresentationMessage } from '../../../i18n/presentation-message.ts
 import type { OnlineMediaFailure } from '../../online-media-failure.ts';
 const keys = { 'archive-cancelled': 'projectUploadCancelled', 'archive-invalid': 'projectArchiveInvalid',
 	'archive-size': 'projectArchiveTooLarge', 'archive-request': 'projectArchiveRequestFailed',
-	'archive-refresh': 'projectArchiveRefreshFailed', authentication: 'connectionError',
+	'archive-refresh': 'projectArchiveRefreshFailed', 'outcome-unknown': 'uploadValidationOutcomeUnknown', authentication: 'connectionError',
 	'connection-expired': 'connectionExpired', search: 'searchRequestFailed', preview: 'previewFailed' } as const;
 /** Resolve against the opt-in panel's current, lazily loaded copy. */
 export function onlineMediaFailureText(failure: OnlineMediaFailure, copy: Readonly<Record<string, string>>): string {

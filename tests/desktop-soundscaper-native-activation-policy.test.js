@@ -16,6 +16,7 @@ test('checked-in native policy keeps payload-backed audio closed and exposes pla
 		assert.equal(productionSoundscaperAudioBackendActivated(backend), false, backend);
 	}
 	const expected = {
+		vst2: ['darwin', 'win32', 'linux'].includes(process.platform),
 		vst3: ['darwin', 'win32', 'linux'].includes(process.platform),
 		clap: ['darwin', 'win32', 'linux'].includes(process.platform),
 		au: process.platform === 'darwin',

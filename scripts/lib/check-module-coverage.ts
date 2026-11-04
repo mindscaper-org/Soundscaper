@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { COVERAGE_SCOPES, classifyProductionCoveragePath, loadCoverageScopes } from './coverage-gates.mjs';
 import { normalizeDuplicateFunctionCoverage } from './coverage-function-normalization.mjs';
-import { normalizeModulePath, ownerOfModulePath, type ModuleDefinition, type ModulePolicy } from './module-policy.ts';
+import { matchesModulePattern, normalizeModulePath, ownerOfModulePath, type ModuleDefinition, type ModulePolicy } from './module-policy.ts';
 
 const METRICS = ['lines', 'branches', 'functions'] as const;
 const SOURCE = /(?<!\.d)\.(?:[cm]?[jt]sx?)$/u;
@@ -141,9 +141,20 @@ function assertProfiles(directory: string): void {
 }
 
 function sourceFiles(root: string): readonly string[] {
+	const configPath = resolve(root, '.c8rc.json');
+	const config = existsSync(configPath) ? JSON.parse(readFileSync(configPath, 'utf8')) as { include?: string[]; exclude?: string[] } : {};
+	const include = config.include ?? ['src/', 'desktop/'];
 	return execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], {
 		cwd: root, encoding: 'utf8', maxBuffer: 32 * 1024 ** 2,
-	}).split('\0').filter(file => file && SOURCE.test(file) && existsSync(resolve(root, file)));
+	}).split('\0').filter(file => file && SOURCE.test(file) && existsSync(resolve(root, file))
+		&& include.some(pattern => matchesModulePattern(file, pattern))
+		&& !(config.exclude ?? []).some(pattern => matchesModulePattern(file, pattern)));
+}
+
+/** Tooling and handbook suites have no sources in the shipped-code denominator. */
+export function productionModuleCoverageTargets(policy: ModulePolicy, ids: readonly string[]): string[] {
+	return selectedModules(policy, ids).filter(module => module.coverageScope !== undefined
+		|| [...module.sourcePrefixes, ...module.sourceFiles ?? []].some(path => /^(?:src|desktop)\//u.test(path))).map(module => module.id);
 }
 
 /** Report fresh raw or compacted V8 inputs; c8 --all keeps unexecuted owned sources in the gate. */

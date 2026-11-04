@@ -1,11 +1,13 @@
 import { expect, longTone, test } from './audio-editor-test-fixtures.js';
 import {
 	bootEditor,
+	chooseCommandAction,
 	clipByName,
 	collectClientErrors,
 	importFiles,
 	openTrackHeaderDrawer,
 	registerAudioEditorHooks,
+	seekOnRuler,
 } from './audio-editor-test-helpers.js';
 
 function intersectionRatio(locator) {
@@ -34,6 +36,30 @@ function isHitTestVisible(locator) {
 
 test.describe('timeline playback following', () => {
 	registerAudioEditorHooks();
+
+	test('mounting the master lane while stopped keeps its playhead aligned with the ruler', async ({ page }) => {
+		const errors = collectClientErrors(page);
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [longTone]);
+		await seekOnRuler(page, editor, 180);
+		const playhead = editor.getByRole('slider', { name: 'Playhead', exact: true });
+		await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
+		const position = await playhead.getAttribute('aria-valuenow');
+		await expect(editor.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+		const output = editor.locator('.audio-editor-output-playhead');
+		if (await output.count()) await chooseCommandAction(page, editor, 'View', 'Master track');
+		await expect(output).toHaveCount(0);
+		await chooseCommandAction(page, editor, 'View', 'Master track');
+		await expect(output).toBeVisible();
+		await expect.poll(async () => {
+			const [ruler, lane] = await Promise.all([
+				editor.locator('.audio-editor-ruler-playhead').boundingBox(), output.boundingBox(),
+			]);
+			return ruler && lane ? Math.abs(ruler.x - lane.x) : Number.POSITIVE_INFINITY;
+		}).toBeLessThan(2);
+		await expect(playhead).toHaveAttribute('aria-valuenow', position);
+		expect(errors).toEqual([]);
+	});
 
 	test('exposes mutually exclusive scroll and pinned playhead preferences', async ({ page }) => {
 		const errors = collectClientErrors(page);

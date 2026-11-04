@@ -4,7 +4,7 @@ import type { AudioEditorCommand } from './protocol.ts';
 
 /** These closed handlers mutate document/strip/label state without writing clip timing. */
 const TIMING_NEUTRAL = new Set<AudioEditorCommand['type']>([
-	'project/rename', 'selection/set', 'track/update', 'master/update',
+	'project/rename', 'selection/set', 'track/update', 'master/update', 'midi/track-set',
 	'track-folder/update', 'label/add', 'label/update', 'label/remove',
 ]);
 

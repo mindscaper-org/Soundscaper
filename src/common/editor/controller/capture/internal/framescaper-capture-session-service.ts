@@ -304,9 +304,7 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 					...identity, required: true as const, format: recorder.format,
 				}))),
 			});
-			sourceEndCleanups = installCaptureSourceEndWatchers(lease.sources, () => {
-				reportActiveFailure(new Error('A required capture source ended.'));
-			});
+			sourceEndCleanups = installCaptureSourceEndWatchers(lease.sources, reportActiveFailure, options.observeInput);
 			const sharedStartActiveTimeUs = clock.snapshot(now()).activeTimeUs;
 			machine.startRecording();
 			await recorderStarts.start(recorders, sharedStartActiveTimeUs, () => !signal.aborted && machine.snapshot.phase === 'recording');

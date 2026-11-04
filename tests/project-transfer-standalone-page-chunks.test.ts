@@ -39,8 +39,8 @@ import { chunkGroupForModulePath, chunkGroups } from '../scripts/lib/build-chunk
  * of this file measures the built documents instead: the preload set actually
  * emitted into each `dist/transfer/<role>/index.html`, by chunk group and byte.
  *
- * Those tests need a build. In CI they get one from the `quality` job, which
- * runs this file straight after `npm run check:static` has built `dist/` and
+ * Those tests need a build. In CI they get one from each workflow's `build` job,
+ * which runs this file straight after `npm run build` has built `dist/` and
  * before that build is uploaded as an artifact, with
  * `SOUNDSCAPER_TRANSFER_BUILD_REQUIRED=1` set so a missing build fails there
  * instead of standing the guard down. The Node test shards run the same file

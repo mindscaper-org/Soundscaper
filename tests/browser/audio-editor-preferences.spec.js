@@ -30,20 +30,35 @@ test('desktop Preferences opens General and manages the display-only FFmpeg loca
 	await expect(general).toHaveAttribute('aria-selected', 'true');
 	await expect(preferences.getByRole('group', { name: 'Language', exact: true })).toBeVisible();
 	const panel = preferences.locator('[data-external-ffmpeg-preference="true"]');
+	await expect(preferences.getByRole('heading', { name: 'FFmpeg', exact: true })).toBeVisible();
+	await expect(panel).toContainText('Used to import/export proprietary file formats.');
 	await expect(panel).toHaveAttribute('data-external-ffmpeg-state', 'unconfigured');
-	await expect(panel.getByLabel('FFmpeg location', { exact: true })).toHaveValue('No location selected');
+	const location = panel.getByRole('textbox', { name: 'FFmpeg location', exact: true });
+	const browse = panel.getByRole('button', { name: 'Browse', exact: true });
+	const install = panel.getByRole('button', { name: 'Install', exact: true });
+	await expect(location).toHaveValue('No location selected');
+	await expect(location).toHaveAttribute('readonly', '');
+	await expect(panel.getByRole('button', { name: 'Clear', exact: true })).toHaveCount(0);
+	await expect(install).toBeEnabled();
+	const pathBounds = await location.boundingBox();
+	const browseBounds = await browse.boundingBox();
+	expect(Math.abs(pathBounds.y + pathBounds.height / 2 - browseBounds.y - browseBounds.height / 2)).toBeLessThan(2);
+	expect(browseBounds.x).toBeGreaterThan(pathBounds.x + pathBounds.width);
 
-	await panel.getByRole('button', { name: 'Browse', exact: true }).click();
+	await install.click();
 	await expect(panel).toHaveAttribute('data-external-ffmpeg-state', 'ready');
-	await expect(panel.getByLabel('FFmpeg location', { exact: true })).toHaveValue('/fixture/bin/ffmpeg');
-	await expect(panel).toContainText('FFmpeg 9.0.1 is ready.');
-	await panel.getByRole('button', { name: 'Clear', exact: true }).click();
-	await expect(panel).toHaveAttribute('data-external-ffmpeg-state', 'unconfigured');
-	await panel.getByRole('button', { name: 'Install', exact: true }).click();
+	await expect(location).toHaveValue('/fixture/bin/ffmpeg');
+	await expect(panel).toContainText('Detected version: 9.0.1');
+	await expect(panel).not.toContainText('is ready');
+	await expect(panel).not.toContainText('passed the compatibility probe');
+	await expect(install).toHaveCount(0);
+	await browse.click();
 	await expect(panel).toHaveAttribute('data-external-ffmpeg-state', 'ready');
 	await panel.getByRole('button', { name: 'Rescan', exact: true }).click();
+	await expect(panel).toHaveAttribute('data-external-ffmpeg-state', 'ready');
+	await expect(install).toHaveCount(0);
 	await expect.poll(() => page.evaluate(() => globalThis.__externalFfmpegCalls)).toEqual([
-		'get', 'choose', 'clear', 'install', 'rescan',
+		'get', 'install', 'choose', 'rescan',
 	]);
 
 	await preferences.getByRole('tab', { name: /Appearance$/u }).click();
@@ -300,7 +315,7 @@ async function installDesktopFfmpegFixture(page) {
 		const ready = () => status('ready', {
 			location: '/fixture/bin/ffmpeg',
 			version: '9.0.1',
-			detail: 'Fixture capability probes passed.',
+			detail: 'FFmpeg 9.0.1 passed the compatibility probe.',
 		});
 		Object.defineProperty(globalThis, '__externalFfmpegCalls', {
 			configurable: true,

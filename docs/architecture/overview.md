@@ -24,6 +24,16 @@ source prefix or explicit source file owns a path. Semantic owners are separate
 from the Node runner's execution shards. Existing product applications remain
 under `src/soundscaper/`, `src/framescaper/`, and `src/motionscaper/`.
 
+`scripts/lib/module-test-suites.ts` derives a complete test inventory from those
+owners, declared test rules and helper dependencies. One-owner Node suites and
+cross-module integration suites retain their fixture inventories. Module checks,
+CI prerequisite discovery and balanced execution consume the same inventory;
+execution slots never change source ownership or coverage cohorts. Browser
+workflows remain integration suites and are partitioned only after their project
+has collected them. The four neutral modules have independent coverage at their
+inherited editor floors. Legacy product and platform owners retain the complete
+coverage fallback until independently qualified.
+
 Extracted neutral modules may depend only on their declared neutral owners.
 They must not import editor implementation, product applications, React UI or
 Electron, including through types. Import a public owning file directly; do not
@@ -159,6 +169,28 @@ Each browser project environment loads its desktop library bridge only when the
 preload global is present; ordinary browser startup keeps that renderer code out
 of its static graph.
 
+The project library is the working/recovery copy. General's Saving preference
+controls separate publication to an opened or explicitly saved Scape file:
+automatic file saving defaults off on desktop and on in browsers. Internal
+library autosaving remains enabled. Controller `project.save()` persists library
+state; the File menu and native Save command use `project.saveFile()` to publish
+a separate Scape file. The document file-saving owner compares a content
+fingerprint with the last successfully published file, independently of
+the library's dirty state. Desktop retains opaque original-file capabilities
+and persists path/identity associations exclusively in main; renderer restart
+restores permission only if the exact original remains current. File writes
+use the existing atomic publisher and refresh permission after commit. Browser
+file handles require granted write permission; download-only contexts retain
+internal saves and offer an explicit export.
+
+Desktop close prompts default on and enumerate every open writable project.
+Save and canceled/failed picker results are awaited before allowing shutdown;
+discard decisions apply only after all projects accept closing. The temporary
+project limit defaults to ten and prunes oldest closed copies under their
+project locks and exact-current deletion. Open projects can exceed the limit.
+A native-selected temporary root moves the closed library on the next startup;
+non-overwriting storage migration preserves conflicting destination data.
+
 Autosave retains an immutable document generation during its debounce and only
 materializes the snapshot when saving starts. Preparation and persistence share
 one failure boundary. Controller history compaction memoizes immutable past
@@ -178,11 +210,56 @@ publication and rollback. A same-ID replacement installs the committed document
 as fresh session history; rollback leaves staged assets intact if ownership has
 changed and they may now be referenced by another writer.
 
+Project startup, direct activation, recent projects, library opens, Scape archives,
+and Audacity imports share one bounded recovery attempt. Cancellation,
+lost ownership, inaccessible storage, and quota failures remain errors. Stored
+document or media damage offers the existing recovery dialog for each current
+open request without overwriting the damaged original. A failure before activation
+retains the current workspace while the user chooses a new copy.
+Startup uses an empty workspace and defers saving and maintenance while that
+choice is pending.
+
+Soundscaper Scape recovery reads the owning-family document through the bounded
+archive reader, verifies its digest, and streams media verification before
+proposing repairs. Missing media still counts toward archive entry and declared
+expansion limits; missing or corrupt bodies are excluded from the repaired copy.
+The ordinary importer validates the reconstructed document and retained assets
+again and publishes under a fresh project identity. Recovery never replaces an
+existing library project, relaxes archive layout or resource limits, or admits
+foreign-family and future-version data as an editable owning-family document.
+
 Long-source playback sends PCM packets and acknowledgments over a direct
 worker-to-worklet MessageChannel. The main thread still serves storage reads and
 transport control. Live playback prepares streamed clips within a five-second
 lookahead, with at most eight preparations in flight; realtime rendering keeps
 its eager preparation and completion barrier.
+
+Connection recovery stays with the operation that owns its publication boundary.
+Immutable linked-media ranges retry transient transport and filesystem errors
+within cancellable deadlines; changed source identities, malformed ranges and
+digest failures remain terminal. Whole-file verification can continue while
+individual ranges make progress. Interactive playback preserves synchronization
+by advancing through silence during underruns; a terminal source failure stops
+the graph and reports its cause. Realtime rendering rejects missing source audio
+before publishing output.
+
+Online reads retry only while their response or complete downloaded media has
+not been exposed to a consumer. Offline requests wait for a bounded reconnection
+window before sending. Sent uploads and other mutations are never replayed
+automatically after a lost acknowledgment: the server may have committed them,
+so the existing error/retry flow requires refreshing remote state. Connection
+and stream-idle deadlines release stalled requests, and cancellation observes
+late replies without publishing stale results. Recovery diagnostics omit private
+paths, media, credentials and request URLs.
+
+Recording and capture share a lifecycle observer for transient track muting and
+AudioContext interruption. A live track can recover without selecting another
+device; an interrupted context attempts a bounded resume. Recording also bounds
+missing input-channel delivery; ordinary digital silence never triggers loss.
+Permanent loss ends the affected source and preserves valid captured prefixes,
+including take-cycle PCM. Remaining routed inputs may continue. No recovery
+opens a permission picker or changes the ten-second ordinary recording checkpoint
+interval.
 
 The opt-in [realtime stack worker backend](realtime-effect-workers.md)
 defines a shared block pipeline and a bounded DSP worker pool for independent

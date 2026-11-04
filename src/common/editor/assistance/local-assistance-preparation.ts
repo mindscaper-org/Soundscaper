@@ -99,6 +99,7 @@ export interface LocalAssistancePreparedMedia {
 }
 
 export interface LocalAssistanceSelectedMediaPreparationPort {
+	createAudioEffectBatch?(workflowId: LocalAssistanceAudioEffectWorkflowId): Promise<LocalAssistanceAudioEffectBatch>;
 	listSelectedMedia(): Promise<unknown>;
 	prepareSelectedMedia(request: Readonly<{
 		sourceId: string;
@@ -118,6 +119,15 @@ export interface LocalAssistanceSelectedMediaPreparationPort {
 	acceptTranscriptCleanup?(proposalIds: readonly string[]): Promise<void>;
 	rejectTranscriptCleanup?(): Promise<void>;
 	cancelTranscriptCleanup?(): Promise<void>;
+}
+
+export type LocalAssistanceAudioEffectWorkflowId =
+	| 'enhance-dialogue' | 'reduce-reverb' | 'separate-dialogue-music-effects';
+
+export interface LocalAssistanceAudioEffectBatch {
+	readonly preparations: readonly LocalAssistanceSelectedMediaPreparationPort[];
+	commit(): Promise<void>;
+	dispose(): Promise<void>;
 }
 
 export interface LocalAssistanceGuidedWorkflowAcceptanceRequest {

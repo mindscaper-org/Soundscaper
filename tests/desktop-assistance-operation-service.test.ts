@@ -209,7 +209,7 @@ test('speech recognition consumes only authenticated claims and returns a pathle
 	assert.equal(outcome.outcome, 'completed');
 	if (outcome.outcome !== 'completed') return;
 	const recognitionRequest = recognitionRequests[0];
-	assert.equal(recognitionRequest?.modelId, MODEL_ID);
+	assert.deepEqual([recognitionRequest?.jobId, recognitionRequest?.modelId], [request.jobId, MODEL_ID]);
 	assert.deepEqual(recognitionRequest?.model, modelPaths);
 	assert.match(recognitionRequest?.audioPath ?? '', /private-staging/u);
 	assert.match(recognitionRequest?.voiceActivityPath ?? '', /private-staging/u);
@@ -257,7 +257,7 @@ test('voice activity executes the authenticated Silero model through the native 
 
 	assert.equal(outcome.outcome, 'completed');
 	if (outcome.outcome !== 'completed') return;
-	assert.equal(requests[0]?.modelId, modelId);
+	assert.deepEqual([requests[0]?.jobId, requests[0]?.modelId], [request.jobId, modelId]);
 	assert.deepEqual(requests[0]?.model, { model: '/models/silero_vad.onnx' });
 	assert.match(requests[0]?.audioPath ?? '', /private-staging/u);
 	const opened = await service.openOutput({ jobId: request.jobId, claim: outcome.result.outputs[0] });
@@ -314,7 +314,7 @@ test('speaker diarization executes exact Pyannote and ERes2Net bindings through 
 
 	assert.equal(outcome.outcome, 'completed');
 	if (outcome.outcome !== 'completed') return;
-	assert.equal(requests.length, 1);
+	assert.deepEqual(requests.map(({ jobId }) => jobId), [request.jobId]);
 	assert.deepEqual(requests[0]?.modelIds, {
 		segmentation: segmentation.modelId, embedding: embedding.modelId,
 	});

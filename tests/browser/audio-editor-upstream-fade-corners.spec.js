@@ -36,7 +36,7 @@ test.describe('upstream fade corner zones', () => {
 		expect(errors).toEqual([]);
 	});
 
-	test('a bare unselected corner previews its S-curve and removes the preview during the native fade drag', async ({ page }) => {
+	test('a bare unselected corner reveals its glyph without a preview fade and Escape cancels its drag', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
 		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
@@ -48,7 +48,9 @@ test.describe('upstream fade corner zones', () => {
 		await chooseCommandAction(page, editor, 'Select', 'Select none');
 		const zone = clip.locator('[data-fade-zone="in"]');
 		await zone.hover({ position: { x: 27, y: 16 } });
-		await expect(clip.locator('[data-fade-peek="in"]')).toBeVisible();
+		await expect(clip.getByRole('slider', { name: 'Fade in', exact: true })).toHaveCSS('opacity', '1');
+		await expect(clip.getByRole('slider', { name: 'Fade in', exact: true })).toHaveCSS('pointer-events', 'none');
+		await expect(clip.locator('[data-fade-peek="in"]')).toHaveCount(0);
 		await page.mouse.down();
 		await expect(clip.locator('[data-fade-peek="in"]')).toHaveCount(0);
 		await page.mouse.move(1, 1);

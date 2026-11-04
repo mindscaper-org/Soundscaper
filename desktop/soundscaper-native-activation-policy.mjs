@@ -13,6 +13,7 @@ const BACKENDS = Object.freeze({
 });
 
 const FORMATS = Object.freeze({
+	vst2: Object.freeze({ platforms: ['darwin', 'win32', 'linux'], policy: 'plugin-format-vst2', sources: ['electron-node-api-headers', 'juce', 'fst'] }),
 	vst3: Object.freeze({ platforms: ['darwin', 'win32', 'linux'], policy: 'plugin-format-vst3', sources: ['electron-node-api-headers', 'juce', 'vst3-sdk'] }),
 	clap: Object.freeze({ platforms: ['darwin', 'win32', 'linux'], policy: 'plugin-format-clap', sources: ['electron-node-api-headers', 'clap'] }),
 	au: Object.freeze({ platforms: ['darwin'], policy: 'plugin-format-audio-units', sources: ['electron-node-api-headers', 'juce'] }),

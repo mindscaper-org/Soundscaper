@@ -2508,6 +2508,32 @@ The narrow rendered-fallback playback and delivery relationships above do not
 supply canonical audio freeze, unfreeze, commit, relink, or freshness document
 models, and their absence must not be hidden behind a compatibility claim.
 
+## Beta MIDI editable carriers
+
+Beta MIDI uses ordinary audio tracks and clips with a version-1
+`opaqueExtensions['soundscaper.midi']` carrier. Track carriers identify the
+built-in instrument and retained MIDI program; clip carriers contain editable
+notes in source sample frames and optional controller, SysEx, tempo, and
+time-signature data for file interchange. The existing family-v1 project
+identity and media relationships stay authoritative.
+
+Each MIDI clip also references an owned canonical PCM source. Note and
+instrument edits publish a regenerated source and carrier update in one
+history transaction. Existing audio playback, delivery, and readers that retain
+opaque extensions can therefore use the stored audio fallback without
+interpreting MIDI. Save and archive routes retain the editable carrier alongside
+the source; they do not replace it with rendered audio alone. Current readers
+validate owned carrier versions, event ranges, and the complete audio fallback
+before accepting a project. This beta does not introduce MIDI device ports or
+native instrument state.
+
+Destructive audio edits that replace or rewrite a MIDI clip's source retire
+that clip's editable MIDI carrier and retain the resulting waveform as ordinary
+audio. This prevents a later note edit from silently regenerating the original
+instrument over a processed, resampled, or consolidated source. Clip placement,
+trimming against an unchanged source, and source renaming retain the carrier.
+The normal history transaction retains undo for the conversion.
+
 ## Schema retirement
 
 Schema migrations are not removed automatically because of age, file count, or

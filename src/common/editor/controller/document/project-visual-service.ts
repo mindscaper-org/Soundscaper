@@ -4,6 +4,7 @@ import { isAudioMediaKind } from '../../audio-media-kind.ts';
 import { hasProjectBinMediaAuthority } from '../../project-schema-version.ts';
 import { createProjectVisualFrequencyReaders } from './internal/project-visual-frequency-readers.ts';
 import { createVideoVisualMediaSynchronizer, videoVisualMediaIdentity } from './internal/video-visual-media-sync.ts';
+import { createVideoVisualDerivativePublisher, readVideoDerivative } from './internal/video-visual-derivatives.ts';
 import {
 	resolveRuntimeProjectProjection,
 	type RuntimeClipProject,
@@ -21,7 +22,6 @@ import type {
 	ProjectVisualServiceDependencies,
 	ProjectVisualSource,
 	ProjectVisualTrack,
-	VideoDerivative,
 	VideoSourceVisualData,
 	VideoThumbnail,
 	VideoVisual,
@@ -41,6 +41,9 @@ export function createProjectVisualService(
 		() => dependencies.getProject()?.sources ?? [], videoVisuals, mediaIdentities, revokeVideoVisual, activateVideoSource,
 	);
 	return Object.freeze({
+		publishVideoSourceDerivative: createVideoVisualDerivativePublisher(
+			() => dependencies.getProject()?.sources ?? [], videoVisuals, mediaIdentities, dependencies.url,
+		),
 		synchronizeVideoSources,
 		getClipVisualData,
 		getProjectBinClipVisualData,
@@ -502,22 +505,4 @@ function findClipTrack(project: ProjectVisualProject, clipId: string): ProjectVi
 function requireVisualBlob(value: unknown): Blob {
 	if (!(value instanceof Blob)) throw new TypeError('Stored video media must be a Blob.');
 	return value;
-}
-
-function readVideoDerivative(value: unknown): VideoDerivative {
-	if (typeof value !== 'object' || value === null || Array.isArray(value)
-		|| !('type' in value) || typeof value.type !== 'string') {
-		throw new TypeError('Stored video derivative metadata is invalid.');
-	}
-	const optionalNumber = (key: 'timestamp' | 'width' | 'height'): number | undefined => {
-		if (!(key in value)) return undefined;
-		const field: unknown = Reflect.get(value, key);
-		if (field === undefined) return undefined;
-		if (typeof field !== 'number' || !Number.isFinite(field)) {
-			throw new TypeError(`Stored video derivative ${key} is invalid.`);
-		}
-		return field;
-	};
-	return { ...value, type: value.type, timestamp: optionalNumber('timestamp'),
-		width: optionalNumber('width'), height: optionalNumber('height') };
 }

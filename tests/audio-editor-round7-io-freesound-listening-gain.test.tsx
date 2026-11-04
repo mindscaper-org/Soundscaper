@@ -6,6 +6,7 @@ import React, { act } from 'react';
 import { FreesoundPanelContainer } from '../src/common/editor/ui/workspace/FreesoundPanelContainer.tsx';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import { settle } from './helpers/async-test-control.ts';
 
 const SOUND = {
 	id: 42, name: 'Rain.ogg', creator: { username: 'field-recorder', pageUrl: 'https://freesound.org/people/field-recorder/' },
@@ -50,7 +51,7 @@ for (const [initialGain, loadingGain] of [[0, 0], [1, 1], [1, .25], [1, 0]] as c
 	try {
 		await render(initialGain);
 		await act(async () => reactProps(dom.one('input')).onChange({ currentTarget: { value: 'rain' } }));
-		await act(async () => reactProps(dom.one('form')).onSubmit({ preventDefault() {} }));
+		await act(async () => { reactProps(dom.one('form')).onSubmit({ preventDefault() {} }); await settle(); });
 		await clickPreview('Play preview');
 		assert.equal(audios.length, 1);
 		const audio = audios[0]!;
@@ -80,7 +81,7 @@ for (const [initialGain, loadingGain] of [[0, 0], [1, 1], [1, .25], [1, 0]] as c
 		assert.equal(audios.length, 1);
 		assert.equal(audio.playCount, 2);
 		assert.equal(audio.volume, 0, 'resume retains the listening gain applied while paused');
-		await act(async () => reactProps(dom.one('form')).onSubmit({ preventDefault() {} }));
+		await act(async () => { reactProps(dom.one('form')).onSubmit({ preventDefault() {} }); await settle(); });
 		await clickPreview('Play preview');
 		assert.equal(audios.length, 2);
 		audio.volume = 0.75;

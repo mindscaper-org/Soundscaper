@@ -87,8 +87,12 @@ export interface TransportServiceRuntime<Project extends TransportProject = Tran
 	readonly cancelPlaybackCachePreparation: () => unknown;
 	readonly playbackCachePreparationPending: () => boolean;
 	readonly cancelTimedRecording: () => unknown;
-	/** Apply a loop or batch command and return the document it produced. */
-	readonly commit: (command: TransportCommand) => Project & Readonly<{ readonly loop: TransportLoop }>;
+	/** Commit loop metadata; engine.setLoop owns its playback synchronization. */
+	readonly commit: (
+		command: TransportCommand,
+		selection?: Readonly<{ readonly selectTrackId?: string | null; readonly selectClipId?: string | null }>,
+		options?: Readonly<{ readonly skipPlaybackEngine?: boolean }>,
+	) => Project & Readonly<{ readonly loop: TransportLoop }>;
 	readonly copy: TransportCopy;
 	readonly editorTimelineDurationFrames: (project: Project | null, sampleRate: number) => number;
 	readonly engine: TransportEngine;

@@ -162,7 +162,6 @@ export function useTimelinePointerStart({
 				initial: clip[fadeShapeField(edge)] ?? 2, pointerId: event.pointerId,
 				trackId: fadeShapeHandle.closest('[data-track-lane]')?.dataset.trackId,
 			};
-			fadeShapeHandle.focus({ preventScroll: true });
 			event.preventDefault();
 			event.stopPropagation();
 			fadeShapeHandle.setPointerCapture?.(event.pointerId);
@@ -186,7 +185,6 @@ export function useTimelinePointerStart({
 				boundaryFrames: project.clips.filter(item => item.id !== clip.id).flatMap(item => [item.timelineStartFrame, item.timelineStartFrame + item.durationFrames]),
 				trackId: fadeHandle.closest('[data-track-lane]')?.dataset.trackId,
 			};
-			fadeHandle.focus({ preventScroll: true });
 			event.preventDefault();
 			event.stopPropagation();
 			fadeHandle.setPointerCapture?.(event.pointerId);

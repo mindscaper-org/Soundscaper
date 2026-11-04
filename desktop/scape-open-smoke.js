@@ -94,7 +94,9 @@ export function decodeScapeOpenSmokePlan(value) {
 
 export function validateScapeOpenProjectDescriptor(value, expectedPlan) {
 	const plan = validateScapeOpenSmokePlan(expectedPlan);
-	assertClosedRecord(value, NATIVE_DESCRIPTOR_FIELDS, 'Scape-open project descriptor');
+	const fields = value?.originalFile === undefined
+		? NATIVE_DESCRIPTOR_FIELDS : [...NATIVE_DESCRIPTOR_FIELDS, 'originalFile'];
+	assertClosedRecord(value, fields, 'Scape-open project descriptor');
 	if (typeof value.id !== 'string' || !CAPABILITY_ID.test(value.id)) {
 		throw new TypeError('Scape-open project descriptor capability id is invalid');
 	}
@@ -105,6 +107,13 @@ export function validateScapeOpenProjectDescriptor(value, expectedPlan) {
 	safeInteger(value.lastModified, 'Scape-open project descriptor timestamp');
 	const expectedUrl = `${APP_ORIGIN}/_desktop/read/${SCAPE_PROFILE}/${value.id}/${encodeURIComponent(value.name)}`;
 	if (value.url !== expectedUrl) throw new TypeError('Scape-open project descriptor capability URL is invalid');
+	if (value.originalFile !== undefined) {
+		assertClosedRecord(value.originalFile, ['id', 'name'], 'Scape-open original file descriptor');
+		if (typeof value.originalFile.id !== 'string' || !/^[a-f\d]{48}$/u.test(value.originalFile.id)
+			|| value.originalFile.name !== value.name) {
+			throw new TypeError('Scape-open original file descriptor is invalid');
+		}
+	}
 	return Object.freeze({
 		readProfile: SCAPE_PROFILE,
 		name: plan.archive.name,

@@ -2,6 +2,7 @@
 
 import type { VideoTimingIndex } from '../../video-timing-asset.ts';
 import type { PrepareSpectrogramProcessedPcm } from '../../spectrogram-processed-pcm-contract.ts';
+import type { VideoDerivativeInput } from '../../storage/video-derivative-repository.ts';
 
 /**
  * What the project visual service reads, and what it hands back.
@@ -183,6 +184,7 @@ export interface ProjectVisualServiceDependencies {
 }
 
 export interface ProjectVisualService {
+	publishVideoSourceDerivative(source: ProjectVisualSource, derivative: VideoDerivativeInput): boolean;
 	synchronizeVideoSources(): Promise<boolean>;
 	getClipVisualData(clipId: string): Readonly<ClipVisualData> | null;
 	getProjectBinClipVisualData(clipId: string): Readonly<ClipVisualData> | null;

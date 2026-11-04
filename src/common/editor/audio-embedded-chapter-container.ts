@@ -2,6 +2,7 @@
 
 import { normalizeEmbeddedExportChapters, type EmbeddedExportChapter } from './export-embedded-chapters.ts';
 import { createAudioMetadataId3Tag } from './id3-metadata.js';
+import { prependAudioExportBytes } from './audio-export-prefix-blob.ts';
 
 const textEncoder = new TextEncoder();
 
@@ -17,7 +18,7 @@ export async function embedAudioChapters(
 	signal?.throwIfAborted();
 	if (!chapters.length) return encoded;
 	if (format === 'mp3') {
-		return new Blob([createEmbeddedMp3ChapterTag(chapters, sampleRate, metadata), encoded], { type: encoded.type });
+		return prependAudioExportBytes(createEmbeddedMp3ChapterTag(chapters, sampleRate, metadata), encoded);
 	}
 	if (format === 'aac-m4a') {
 		return (await import('./m4a-embedded-chapters.ts')).embedM4aChapters(encoded, chapters, sampleRate, signal);

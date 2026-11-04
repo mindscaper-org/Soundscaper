@@ -9,6 +9,7 @@ for (const mode of ['name-first', 'value-first', 'targets-last']) test(`File Imp
 	const file = await reorderedTaggedWebmOpusFixture(mode);
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 30_000 });
+	await expect.poll(async () => (await sourcePeakChannels(page, file.name)).channelCount).toBe(1);
 	const peak = await sourcePeakChannels(page, file.name); expect(peak.channelCount).toBe(1); expect(peak.channels[0].maximum).toBeGreaterThan(.05);
 	const downloading = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
 	const document = JSON.parse(strFromU8(unzipSync(await downloadBytes(await downloading))['project.json']));

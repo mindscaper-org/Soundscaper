@@ -36,3 +36,8 @@ test('desktop active-work close copy is localized and names the current product'
 		...GERMAN_COPY, title: GERMAN_COPY.framescaperTitle,
 	}), 'Framescaper nimmt noch auf oder verarbeitet Daten. Aktive Arbeit stoppen und beenden?');
 });
+
+test('routine recovery autosaves do not add an active-work quit confirmation', () => {
+	assert.equal(editorCloseHasActiveWork({ save: { state: 'saving' } }), false);
+	assert.equal(editorCloseHasActiveWork({ save: { state: 'saving' }, taskProgress: { kind: 'project-io' } }), true);
+});

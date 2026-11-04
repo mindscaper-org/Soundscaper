@@ -14,6 +14,7 @@ import { acceptsFile, validateFileChoice, validateSaveChoice } from './validatio
  * @property {(id: string, options: {owner: object}) => Promise<OriginalFileDescriptor | null>} registerRead
  * @property {(id: string, options: {owner: object}) => Promise<OriginalFileDescriptor>} prepare
  * @property {(id: string, options: {owner: object}) => boolean} release
+ * @property {(path: string, options: {owner: object}) => OriginalFileDescriptor & {originalFile: OriginalFileDescriptor}} registerProjectSave
  */
 
 // Save purposes that write a project rather than exporting something out of one.
@@ -66,9 +67,11 @@ export function registerFileCapabilityIpc({
 	async function chooseSaveTarget(event, value) {
 		const owner = ownerFor(event);
 		const choice = validateSaveChoice(value);
+		const register = (path) => originalFiles && choice.purpose === 'project' && /\.(?:sscape|fscape|liscape|scape)$/iu.test(path)
+			? originalFiles.registerProjectSave(path, { owner }) : saveTargets.registerPath(path, { owner, purpose: choice.purpose });
 		const smokeFilePath = await desktopSmokeProbe.resolveSavePath(choice);
 		if (smokeFilePath !== null) {
-			return saveTargets.registerPath(smokeFilePath, { owner, purpose: choice.purpose });
+			return register(smokeFilePath);
 		}
 		let defaultPath = choice.suggestedName;
 		if (projectDirectory && SAVE_DIALOG_TITLES.has(choice.purpose)) {
@@ -89,7 +92,7 @@ export function registerFileCapabilityIpc({
 		});
 		return result.canceled || !result.filePath
 			? null
-			: saveTargets.registerPath(result.filePath, { owner, purpose: choice.purpose });
+			: register(result.filePath);
 	}
 
 	handle(channels.chooseFiles, (event, value) => chooseFiles(event, value));

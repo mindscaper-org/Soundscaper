@@ -37,6 +37,9 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['save-aup3', 'Export AUP3', 'File > Export other', SOUNDSCAPER],
 	['save-aup4', 'Export AUP4', 'File > Export other', SOUNDSCAPER],
 	['export-edl', 'Export edit list (EDL)', 'File > Export other', BOTH],
+	['midi-export-file', 'Export MIDI (beta)', 'File > Export other', SOUNDSCAPER],
+	['allegro-export-file', 'Export Allegro (beta)', 'File > Export other', SOUNDSCAPER],
+	['new-midi-track', 'MIDI track (beta)', 'Tracks > Add new track', SOUNDSCAPER],
 	['export-otio', 'Export OpenTimelineIO', 'File > Export other', BOTH],
 	['export-fcpxml', 'Export FCPXML', 'File > Export other', BOTH],
 	['export-dawproject', 'Export DAWproject', 'File > Export other', BOTH],
@@ -90,6 +93,7 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['panel-clock', 'Clock', 'Window', BOTH, 'setting'],
 	['panel-clip-properties', 'Clip properties', 'Window', BOTH, 'setting'],
 	['panel-clip-spreadsheet', 'Clip spreadsheet', 'Window', SOUNDSCAPER, 'setting'],
+	['panel-piano-roll', 'Piano roll (beta)', 'Window', SOUNDSCAPER, 'setting'],
 	['panel-playback-meter', 'Playback meter', 'Window', BOTH, 'setting'],
 	['panel-recording-meter', 'Recording meter', 'Window', SOUNDSCAPER, 'setting'],
 	['panel-recording-setup', 'Recording setup', 'Window', FRAMESCAPER, 'setting'],
@@ -169,7 +173,6 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 
 	// Soundscaper native effects and destructive selection effects.
 	['native-effect-manage', 'Plugin Manager', 'Effect', SOUNDSCAPER],
-	['native-effect-use', 'Audio Plugins', 'Effect', SOUNDSCAPER],
 	['nyquist-get-effects', 'Get effects', 'Effect > Nyquist', SOUNDSCAPER],
 	['audacity-amplify', 'Amplify', 'Effect > Volume and compression', SOUNDSCAPER],
 	['audacity-auto-duck', 'Auto Duck', 'Effect > Volume and compression', SOUNDSCAPER],

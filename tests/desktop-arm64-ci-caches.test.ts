@@ -11,7 +11,8 @@ const { load } = createRequire(import.meta.url)('js-yaml') as { load: (text: str
 
 test('Windows ARM64 build lanes reuse the same authenticated installed dependency policy', async () => {
 	for (const [workflow, jobs] of [
-		['desktop-preview', ['prepare-assistance-runtime-handoff', 'package', 'soundscaper-project-library-lease-matrix']],
+		['desktop-preview', ['package', 'soundscaper-project-library-lease-matrix']],
+		['desktop-assistance-runtimes', ['arm64-engines', 'prepare']],
 		['soundscaper-professional-native-build', ['build']],
 		['update-ai-assets', ['publish']],
 		['soundscaper-stable-1', ['package']],
@@ -30,13 +31,13 @@ test('Windows ARM64 build lanes reuse the same authenticated installed dependenc
 });
 
 test('AI producers prepare verified Kokoro bundles before runtime staging and replace damaged cache entries', async () => {
-	for (const [workflow, id] of [['desktop-preview', 'prepare-assistance-runtime-handoff'], ['update-ai-assets', 'publish']]) {
+	for (const [workflow, id] of [['desktop-assistance-runtimes', 'prepare']]) {
 		const parsed = load(await readFile(new URL(`../.github/workflows/${workflow}.yml`, import.meta.url), 'utf8'));
 		const steps = parsed.jobs[id]?.steps ?? [];
 		const uv = steps.findIndex(step => step.uses?.startsWith('astral-sh/setup-uv@'));
 		const cache = steps.findIndex(step => step.uses === './.github/actions/verified-kokoro-g2p');
 		assert.ok(uv >= 0 && cache > uv, `${workflow} configures uv before restoring or building Kokoro`);
-		assert.equal(steps[cache]?.with?.target, '${{ matrix.target.platform }}-${{ matrix.target.arch }}');
+		assert.equal(steps[cache]?.with?.target, '${{ fromJSON(inputs.target).platform }}-${{ fromJSON(inputs.target).arch }}');
 	}
 	const action = load(await readFile(new URL('../.github/actions/verified-kokoro-g2p/action.yml', import.meta.url), 'utf8')) as unknown as {
 		runs: { steps: Step[] };

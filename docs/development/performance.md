@@ -13,6 +13,8 @@ budgets remain in their machine-readable registers.
 | --- | --- | --- |
 | Timeline queries | Reuse indexes for immutable documents and keep repeated viewport queries proportional to visible content. Include index construction in measurements. | [Clip windows](../../tests/audio-editor-timeline-viewport-index.test.ts), [duration](../../tests/audio-editor-timeline-viewport-duration.test.tsx), [snapping](../../tests/audio-editor-boundary-snap.test.ts) |
 | Label geometry | Reuse weakly owned immutable ordering and bounded text measurements; calculate track heights without full presentation maps. Font completion invalidates both heights and visible rows; retired project records remain collectible. | [Layout work](../../tests/audio-editor-label-layout-performance.test.ts), [font publication](../../tests/audio-editor-label-layout-react.test.tsx) |
+| Track row selection | Check unchanged native selections through the smaller row membership. Changed intersections preserve source order; mutable selections, incoming drags, and custom traversal remain live. | [Row selection work](../../tests/audio-editor-track-row-selection-work.test.ts) |
+| Playhead painting | Read follow geometry before style writes and publish position directly to the playhead paint owners. The registered position property does not inherit through the timeline; newly mounted paused owners receive the current position. | [Projection work](../../tests/audio-editor-timeline-playhead-projection-work.test.ts), [browser following](../../tests/browser/audio-editor-playback-follow.spec.js) |
 | Video overlap presentation | Bound retained pair geometry and use viewport-only generation for dense overlaps. Preserve visible pairs and invalid clip IDs. | [Overlap presentation](../../tests/audio-editor-video-overlap-presentation.test.ts) |
 | DSP | Share channel-independent work while preserving PCM, rounding, telemetry, and state across chunks. Retained history owns its buffers; transferred packets must not expose borrowed storage. | [Sinc kernels](../../tests/audio-editor-streaming-resample-kernel.test.ts), [frequency peaks](../../tests/audio-editor-frequency-waveform-band-peaks.test.ts), [live dynamics](../../tests/audio-editor-live-dynamics-gain-work.test.ts), [borrowed input](../../tests/audio-editor-resample-borrowed-input.test.ts) |
 | Playback meters | Sample visible or armed strips and retain master analysis. Reuse production channel measurements for scalar presentation, with fallback for missing or pending channel results. Headless consumers retain full metering. | [Demand and fallback](../../tests/audio-editor-playback-meter-demand.test.ts), [visibility leases](../../tests/audio-editor-playback-meter-visibility.test.tsx) |
@@ -41,6 +43,32 @@ admission preserves the original first or last duplicate authority. Mutable
 records, accessors, sparse arrays, and custom traversal retain live-read paths;
 small selections retain short-circuit traversal before index admission.
 History projections share private Sets under weak document ownership.
+
+Command snapshots classify arrays and native views before probing binary
+getters, avoiding invalid-receiver exceptions for those kinds. Exact prototype,
+descriptor, structural-budget, cycle, and binary-isolation checks still admit
+the complete graph. The [snapshot regressions](../../tests/audio-editor-command-snapshot-brand-work.test.ts)
+check probe work alongside spoofed prototypes, proxies, aliases, and getters.
+
+Preview seeking retains only the latest pending target for each media element
+while its current seek drains. Exact composition waits for that target, and
+source replacement, cancellation, or element retirement drops queued work and
+its listeners. The [seek regressions](../../tests/audio-editor-video-preview-seek-coalescing.test.ts)
+and [decoded-picture browser check](../../tests/browser/audio-editor-video-preview-seek-coalescing.spec.js)
+cover coalescing, cleanup, and final-frame correctness.
+
+Exact axis-aligned picture placement prepares interpolation addresses per row
+and column while preserving the affine sampler's Float64 output. Its temporary
+column table uses three doubles per output column and is released after each
+placement. Rotation, shear, and custom source fields retain the general
+sampler. The [placement regressions](../../tests/audio-editor-linear-placement-performance.test.ts)
+check address work and pixel parity across transforms, crops, masks, and alpha.
+
+Normal linear composition omits unused backdrop unassociation and blend-mode
+dispatch for ordinary native working planes. It preserves the general kernel's
+Float64 arithmetic; other blend modes and custom frame accessors retain that
+kernel. The [normal composition regressions](../../tests/audio-editor-linear-normal-composition-performance.test.ts)
+check read work, exact output, aliases, exceptional channels, and live getters.
 
 Row readers retain one current visual result and still poll mutable visual
 providers. Recording views retain one current preview index. Preview windows
@@ -84,7 +112,38 @@ suffix. The [Fourier](../../tests/audio-editor-runtime100-audio-fourier.test.ts)
 and [streaming overlap](../../tests/audio-editor-runtime100-audio-streaming-overlap.test.ts)
 regressions cover scratch reuse and output parity.
 
+Streaming sinc resampling reuses private history for ordinary channel arrays,
+bounded to 65,536 Float32 frames per channel. Larger feeds and custom array or
+typed-view behavior retain the original copying path. Input borrowing and
+independent output ownership remain intact; finishing or refusing a stream
+releases its retained PCM. The [history regressions](../../tests/audio-editor-resample-history-reuse.test.ts)
+cover allocation work, exact partitioned PCM, custom traversal, and collection.
+
 ### Storage and interchange
+
+IndexedDB project publication batches at most 16 source identities, with two
+fresh metadata reads per identity. Their publication writes remain in the same
+atomic transaction as the project and revision, and each batch settles before
+the next starts. Conflict and write-fence checks precede metadata reads.
+The [publication regressions](../../tests/audio-editor-project-source-publication-work.test.ts)
+cover request bounds, freshness, failure rollback across batches, and conflict
+admission for ordinary saves, compare-and-swap saves, and imported projects.
+
+Video timing walks batch nearby headers into a bounded 1 MiB read window.
+Only the requested 64-byte header pages are shared between scans, with at most
+32,768 pages per source and four source caches. Both logical requests and physical
+reads retain their original probe byte ceilings. Pathless desktop selections
+recheck their live read grant before cached results are returned. The
+[header-cache regressions](../../tests/editor-video-timing-read-cache.test.ts)
+cover read counts, byte bounds, private buffers, eviction, and grant retirement.
+
+Video audio workload admission shares one bounded movie inspection and demuxer
+across the candidate programmes in one import. Movie metadata and the demuxer's
+source cache each retain at most 1 MiB, alongside 32 per-track admissions.
+The reader disposes the demuxer on completion or cancellation. Independent
+imports retain independent readers.
+The [workload reuse regressions](../../tests/audio-editor-import-video-workload-reuse.test.ts)
+check physical reads, route selection, authored endpoints, and disposal races.
 
 Command indexes and export partitions belong to one operation or snapshot
 session. Export maps retain identities and lane references, never copied PCM;

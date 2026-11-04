@@ -27,23 +27,23 @@ export interface SoundscaperNativeEffectPanelProps {
 }
 
 export function SoundscaperNativeEffectManagePanel({
-	copy, state, disabled, perform, mode = 'manage',
-}: SoundscaperNativeEffectPanelProps & { readonly mode?: 'manage' | 'use' }) {
+	copy, state, disabled, perform, processingBlocked = false,
+}: SoundscaperNativeEffectPanelProps & { readonly processingBlocked?: boolean }) {
 	const [query, setQuery] = useState('');
 	const [format, setFormat] = useState('all');
 	const [status, setStatus] = useState('all');
 	const [selectedId, setSelectedId] = useState<string | null>(null);
-	const entries = (state.registry?.entries ?? []).filter((entry) => (
-		mode === 'manage' || nativePluginEntryCanInstantiateAsEffect(entry)
-	));
+	const entries = state.registry?.entries ?? [];
+	const useBlocked = disabled || processingBlocked || state.plugins?.enabled !== true
+		|| state.plugins.quarantined || state.plugins.payload.status !== 'available';
 	const visible = entries.filter((entry) => (format === 'all' || entry.format === format)
 		&& (status === 'all' || (status === 'ready' ? entry.eligible : !entry.eligible))
 		&& `${entry.name} ${entry.vendor}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
 	const selected = visible.find((entry) => entry.entryId === selectedId);
 	const records = state.plugins?.quarantine.records ?? [];
 	return <div className="audio-editor-soundscaper-native-manage">
-		{mode === 'use' && state.pluginInstance !== null && <PluginInstanceControls
-			copy={copy} state={state} disabled={disabled} perform={perform} />}
+		{state.pluginInstance !== null && <PluginInstanceControls
+			copy={copy} state={state} disabled={disabled || processingBlocked} perform={perform} />}
 		<div className="kw-processing-filters">
 			<ProcessingSearchField value={query} onChange={setQuery} label={copy.searchPlugins} />
 			<PreferenceDropdownField label={copy.pluginFormat} value={format} onChange={setFormat}
@@ -70,17 +70,16 @@ export function SoundscaperNativeEffectManagePanel({
 				key={installation.installationId} data-native-plugin-installation={installation.installationId}>
 				<strong>{installation.version}</strong>
 				<div className="kw-processing-actions">
-					{mode === 'manage' ? <>
-						<Button variant="secondary" disabled={disabled} data-native-plugin-allowance={installation.allowed ? 'revoke' : 'allow'}
-							onClick={() => perform({ type: 'set-plugin-allowed', installationId: installation.installationId,
-								allowed: !installation.allowed })}>
-							{installation.allowed ? copy.revokePluginInstallation : copy.allowPluginInstallation}</Button>
-						{selected.installations.length > 1 && !installation.selected && <Button variant="secondary"
-							disabled={disabled} data-native-plugin-select onClick={() => perform({
-								type: 'select-plugin-installation', installationId: installation.installationId,
-							})}>{copy.selectPluginInstallation}</Button>}
-				</> : <Button variant="primary"
-					disabled={disabled || !selected.eligible || state.pluginInstance !== null
+					<Button variant="secondary" disabled={disabled} data-native-plugin-allowance={installation.allowed ? 'revoke' : 'allow'}
+						onClick={() => perform({ type: 'set-plugin-allowed', installationId: installation.installationId,
+							allowed: !installation.allowed })}>
+						{installation.allowed ? copy.revokePluginInstallation : copy.allowPluginInstallation}</Button>
+					{selected.installations.length > 1 && !installation.selected && <Button variant="secondary"
+						disabled={disabled} data-native-plugin-select onClick={() => perform({
+							type: 'select-plugin-installation', installationId: installation.installationId,
+						})}>{copy.selectPluginInstallation}</Button>}
+					{nativePluginEntryCanInstantiateAsEffect(selected) && <Button variant="primary"
+					disabled={useBlocked || !selected.eligible || state.pluginInstance !== null
 						|| (selected.installations.length > 1 && !installation.selected)}
 					data-native-plugin-instantiate={installation.installationId}
 					onClick={() => perform({ type: 'instantiate-plugin', installationId: installation.installationId })}>
@@ -88,13 +87,13 @@ export function SoundscaperNativeEffectManagePanel({
 				</div>
 			</li>)}</ul>
 		</section> : visible.length > 0 && <p>{copy.choosePlugin}</p>}
-		{mode === 'manage' && <details className="kw-processing-details" open={records.length > 0}>
+		<details className="kw-processing-details" open={records.length > 0}>
 			<summary>{copy.quarantinedPlugins}</summary>
 			{records.length === 0 ? <p>{copy.noQuarantine}</p> : <ul className="kw-processing-list">
 				{records.map((record) => <QuarantineRecord key={record.digest}
 					copy={copy} record={record} disabled={disabled} perform={perform} />)}
 			</ul>}
-		</details>}
+		</details>
 	</div>;
 }
 

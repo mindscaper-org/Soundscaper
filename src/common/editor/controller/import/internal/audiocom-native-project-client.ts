@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { readOnlineMutationAcknowledgment } from '../../../online-request-recovery.ts';
 import { createAup4Client } from '../../../aup4-client.js';
 import { WavPackCodecClient } from '../../../wavpack/client.js';
 import { nativeCloudHash, tagNativeCloudBlock } from '../../../audiocom-native-project.ts';
@@ -60,7 +61,8 @@ export async function uploadNativeCloudProject(transport: Transport, file: File,
 				await part(tagNativeCloudBlock(new Uint8Array(encoded.payload), block.id, hash.toUpperCase()), hash);
 			}
 			const completing = new URLSearchParams(query); completing.set('phase', 'complete');
-			return await transport.data(await transport.request(`projects?${completing}`, { method: 'POST', signal }));
+			const response = await transport.request(`projects?${completing}`, { method: 'POST', signal });
+			return await readOnlineMutationAcknowledgment(response, () => transport.data(response));
 		} catch (error) { await cancel(); throw error; }
 		finally { signal?.removeEventListener('abort', aborted); }
 	} finally {

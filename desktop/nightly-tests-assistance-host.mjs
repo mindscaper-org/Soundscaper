@@ -13,7 +13,7 @@ export const NIGHTLY_ASSISTANCE_SCHEME = 'soundscaper-nightly-assistance';
 export const NIGHTLY_ASSISTANCE_DOCUMENT_URL = `${NIGHTLY_ASSISTANCE_SCHEME}://host/`;
 const SPEECH_HELPER_FAILURE_CAUSES = new Set([
 	'helper-error', 'helper-exit', 'heartbeat', 'malformed-message',
-	'job-mismatch', 'cancelled', 'cancellation-timeout', 'disposed',
+	'job-mismatch', 'cancelled', 'cancellation-timeout', 'disposed', 'resource-violation',
 ]);
 
 /** Retain main-process failure causes without writing profile paths into nightly artifacts. */

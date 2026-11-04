@@ -103,7 +103,7 @@ async function downloadPublishedArchiveAttempt({ file, archive, fetchImpl }) {
 			createWriteStream(temporary, { flags: 'wx' }));
 		assert(byteLength === archive.byteLength && hash.digest('hex') === archive.sha256,
 			'Published AI runtime archive digest or length differs from its manifest.');
-		await verifyMirroredArtifactDelivery({ url: archive.url, artifact: archive, fetchImpl });
+		await verifyMirroredArtifactDelivery({ url: archive.url, artifact: archive, fetchImpl, requireRange: false });
 		await rename(temporary, file);
 	} finally {
 		await rm(temporary, { force: true });

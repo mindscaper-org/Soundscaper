@@ -9,6 +9,7 @@ const NATIVE_POLICY_IDS = Object.freeze([
 	'audio-backend-asio',
 	'audio-backend-pipewire',
 	'audio-backend-alsa',
+	'plugin-format-vst2',
 	'plugin-format-vst3',
 	'plugin-format-clap',
 	'plugin-format-audio-units',

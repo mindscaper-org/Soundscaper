@@ -20,6 +20,7 @@ import { audibleRecordingStartTime, planRecordingStartTiming } from './recording
 import { recordingSourceAlignment } from './recording-source-alignment.ts';
 import { assertRecordingTargetsUnlocked } from '../../../recording-target-admission.ts';
 import { probeCaptureAudioInputChannelCount } from '../../../capture-audio-input-channel-probe.ts';
+import { observeMediaInputInterruption, MediaInputLostError } from '../../shared/media-input-interruption.ts';
 
 function errorName(error: unknown): string | undefined {
 	return (error as Readonly<{ name?: string }> | null)?.name;
@@ -72,6 +73,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 				sampleRate: runtime.recordingInputSampleRate?.() ?? sampleRate,
 			});
 			scope.assertCurrent();
+			if (!runtime.recordingStreamIsLive(stream, 'device')) throw new MediaInputLostError('The recording input disconnected before recording could start.');
 			runtime.syncRecordingPoolSnapshot();
 			if (!timedStart) {
 				await runtime.beginPlaybackCachePreparation(project);
@@ -186,6 +188,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 			});
 			recorder = soundActivation.wrapController(createdRecorder);
 			scope.assertCurrent();
+			if (!runtime.recordingStreamIsLive(stream, 'device')) throw new MediaInputLostError('The recording input disconnected while recording was being prepared.');
 			state.recordingStartFrame = recordingStartFrame;
 			state.recordingSourceOffsetFrames = persistedSourceOffsetFrames;
 			state.recordingPreview = preview;
@@ -228,20 +231,15 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 						: undefined),
 				};
 			};
-			const interrupt = () => {
+			const interrupt = async (error: Error) => {
 				if (ownsStart() && state.recorder && !state.recordingFinishing) {
-					void runtime.stopRecording().catch(runtime.handleError);
+					state.recordingFatalError = error;
+					await runtime.stopRecording().catch(runtime.handleError);
 				}
 			};
-			inputTrack?.addEventListener?.('ended', interrupt, { once: true });
-			const contextStateChange = () => {
-				if (context.state === 'suspended' && state.recorder) interrupt();
-			};
-			context.addEventListener?.('statechange', contextStateChange);
-			state.recordingCleanup = () => {
-				inputTrack?.removeEventListener?.('ended', interrupt);
-				context.removeEventListener?.('statechange', contextStateChange);
-			};
+			state.recordingCleanup = observeMediaInputInterruption({
+				tracks: stream.getTracks?.() ?? stream.getAudioTracks(), context, onInterrupted: interrupt,
+			});
 			runtime.engine.setLoop(false);
 			runtime.engine.seek(timing.seekFrame);
 			if (timedStart) {

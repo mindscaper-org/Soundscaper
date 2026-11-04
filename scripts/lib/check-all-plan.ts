@@ -30,7 +30,7 @@ export function createCheckAllPlan(root: string, npmCli: string, scripts: Record
 	for (const shard of NODE_TEST_SHARD_IDS) {
 		tasks.push({
 			id: `node/${shard}`, dependsOn: [interchangePreparation],
-			args: [resolve(root, 'scripts/run-node-tests.mjs'), `--shard=${shard}`, `--coverage-directory=${CHECK_ALL_NODE_DIRECTORY}/raw/${shard}`],
+			args: [resolve(root, 'scripts/run-node-tests.mjs'), `--module-shard=${shard}`, `--coverage-directory=${CHECK_ALL_NODE_DIRECTORY}/raw/${shard}`],
 			env: { SCAPE_CHECK_ALL_PROGRESS: '1' },
 		}, {
 			id: `compact/${shard}`, dependsOn: [`node/${shard}`],
@@ -44,8 +44,8 @@ export function createCheckAllPlan(root: string, npmCli: string, scripts: Record
 	for (let shard = 1; shard <= 4; shard++) {
 		tasks.push({
 			id: `browser/${shard}`, dependsOn: ['build', interchangePreparation], browser: true,
-			args: [resolve(root, 'node_modules/@playwright/test/cli.js'), 'test',
-				'--config=playwright.check-all.config.ts', `--shard=${shard}/4`, '--workers=2',
+			args: [resolve(root, 'scripts/run-module-browser-tests.ts'),
+				'--config=playwright.check-all.config.ts', `--suite-shard=${shard}/4`, '--workers=2',
 				`--output=test-results/check-all/browser-${shard}`],
 			env: { SCAPE_CHECK_ALL_SERVERS: '1', SCAPE_BROWSER_COVERAGE: '' },
 		});

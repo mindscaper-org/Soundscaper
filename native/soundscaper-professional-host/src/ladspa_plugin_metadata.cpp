@@ -10,6 +10,22 @@
 
 namespace soundscaper {
 
+soundscaper_pro_status readLadspaNativeId(const std::string &path, uint32_t descriptorIndex, int32_t &nativeId)
+{
+	using Library = std::unique_ptr<void, int (*)(void *)>;
+	Library library(dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL), dlclose);
+	if (library == nullptr) return SOUNDSCAPER_PRO_PLUGIN_UNREADABLE;
+	using DescriptorFunction = const LADSPA_Descriptor *(*)(unsigned long);
+	auto function = reinterpret_cast<DescriptorFunction>(dlsym(library.get(), "ladspa_descriptor"));
+	if (function == nullptr) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
+	const auto *descriptor = function(descriptorIndex);
+	if (descriptor == nullptr || descriptor->UniqueID == 0 || descriptor->UniqueID > UINT32_MAX) {
+		return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
+	}
+	nativeId = static_cast<int32_t>(static_cast<uint32_t>(descriptor->UniqueID));
+	return SOUNDSCAPER_PRO_OK;
+}
+
 soundscaper_pro_status inspectLadspaParameters(
 	const std::string &path, uint32_t descriptorIndex, std::vector<LadspaParameterHint> &hints)
 {

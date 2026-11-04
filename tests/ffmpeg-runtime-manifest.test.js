@@ -292,13 +292,13 @@ test('desktop release assembly requires the immutable no-FFmpeg provider policy'
 
 test('incomplete runtime evidence fails both gates before side effects', async (context) => {
 	const fixture = await createFixture(context);
-	delete fixture.manifest.evidence.licensingPolicy;
+	delete fixture.manifest.evidence.correspondingSource;
 	await writeManifest(fixture);
-	await assertNoSideEffects(fixture, /evidence.*licensingPolicy/iu);
+	await assertNoSideEffects(fixture, /evidence.*correspondingSource/iu);
 	const mismatch = await createFixture(context);
-	const notice = Buffer.from('`@ffmpeg/core` 0.12.10 https://github.com/ffmpegwasm/ffmpeg.wasm/tree/v0.12.10\n');
+	const notice = Buffer.from('## Retained legacy FFmpeg WebAssembly publication and audit tooling\n\n`@ffmpeg/core` 0.12.10 https://github.com/ffmpegwasm/ffmpeg.wasm/tree/v0.12.10\n');
 	await writeFile(join(mismatch.root, 'THIRD_PARTY_LICENSES.md'), notice);
-	mismatch.manifest.evidence.notices = descriptor('THIRD_PARTY_LICENSES.md', notice);
+	Object.assign(mismatch.manifest.evidence.notices, descriptor('THIRD_PARTY_LICENSES.md', notice));
 	await writeManifest(mismatch);
 	await assertNoSideEffects(mismatch, /does not identify the pinned ffmpeg\.wasm build source/iu);
 });
@@ -316,13 +316,11 @@ test('the line-ending policy covers every digest-bound text input', async (conte
 	const fixture = await createFixture(context);
 	const attributesPath = join(fixture.root, '.gitattributes');
 	const attributes = String(await readFile(attributesPath))
-		.replace('/config/production-security-matrix.json text eol=lf\n', '')
+		.replace('/desktop/ffmpeg-corresponding-source.json text eol=lf\n', '')
 		.replaceAll('\n', '\r\n');
 	const bytes = Buffer.from(attributes);
 	await writeFile(attributesPath, bytes);
-	fixture.manifest.evidence.lineEndings = descriptor('.gitattributes', bytes);
-	await writeManifest(fixture);
-	await assertNoSideEffects(fixture, /must pin LF for config\/production-security-matrix\.json/iu);
+	await assertNoSideEffects(fixture, /must pin LF for desktop\/ffmpeg-corresponding-source\.json/iu);
 });
 
 test('unsafe and symbolic runtime inputs are rejected before side effects', async (context) => {

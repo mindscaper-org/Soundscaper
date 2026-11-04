@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { centeredTimelinePlayheadScroll, timelineFrameStartScroll } from './timeline-navigation-geometry.js';
+import { centeredTimelinePlayheadScroll, pagedTimelineScroll, timelineFrameStartScroll } from './timeline-navigation-geometry.js';
 import { startLabelInlineEdit } from '../timeline/label-inline-edit.ts';
 
 export function useWorkspaceParityRequests({
@@ -74,6 +74,9 @@ export function useWorkspaceParityRequests({
 				next.tabIndex = -1;
 				next.focus({ preventScroll: false });
 			});
+		} else if (request.type === 'page-timeline') {
+			const scroll = workspaceRef.current?.querySelector('.audio-editor-timeline-scroll');
+			if (scroll) scroll.scrollLeft = pagedTimelineScroll(scroll, payload.direction);
 		} else if (request.type === 'center-playhead') {
 			const scroll = workspaceRef.current?.querySelector('.audio-editor-timeline-scroll');
 			const positionFrame = controller.getTelemetrySnapshot?.().positionFrame || 0;

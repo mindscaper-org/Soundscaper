@@ -57,6 +57,7 @@ test('Cut Preview metronome follows the audition instead of an unrelated saved l
 	controller.actions.timeline.setSelection(144_000, 240_000, { trackIds: ['track'] });
 	controller.actions.transport.toggleMetronome();
 	await controller.actions.transport.playCutPreview();
+	assert.equal(controller.engine.getState().state, 'playing', 'the preceding loop edit cannot cancel cut preparation');
 	for (let turn = 0; turn < 30; turn++) await Promise.resolve();
 	assert.deepEqual(clicks, [880], 'the audition begins at timeline second1, a beat accent rather than the saved loop bar accent');
 	contexts[0]!.currentTime = 0.2;

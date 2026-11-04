@@ -24,25 +24,44 @@ test('dialog stylesheets only read defined editor theme tokens', async () => {
 
 	const missing = [];
 	const dialogFiles = await readdir(DIALOG_STYLES);
+	const components = await Promise.all(dialogFiles.filter((entry) => /\.[jt]sx$/u.test(entry))
+		.map((entry) => readFile(new URL(entry, DIALOG_STYLES), 'utf8')));
 	for (const entry of dialogFiles) {
 		if (!entry.endsWith('.css')) continue;
 		const css = await readFile(new URL(entry, DIALOG_STYLES), 'utf8');
-		const ownedTokens = new Set(defined);
-		for (const [, name] of css.matchAll(/(--[\w-]+)\s*:/gu)) ownedTokens.add(name);
-		// A dialog may map its theme palette and per-key geometry to local tokens.
-		// The stylesheet must have a matching component that actually supplies them.
-		const componentName = entry.replace(/\.css$/u, '.tsx');
-		if (dialogFiles.includes(componentName)) {
-			const component = await readFile(new URL(componentName, DIALOG_STYLES), 'utf8');
-			for (const [, name] of component.matchAll(/'(--[\w-]+)'\s*:/gu)) ownedTokens.add(name);
-		}
-		for (const [, name] of css.matchAll(/var\(\s*(--[\w-]+)/gu)) {
-			if (!ownedTokens.has(name)) missing.push(`${entry}: ${name}`);
-		}
+		for (const name of undefinedDialogTokens(entry, css, defined, components)) missing.push(`${entry}: ${name}`);
 	}
 
 	assert.deepEqual(missing, [], 'undefined tokens always fall back to their literal colour');
 });
+
+test('dialog token ownership follows JSX and TSX stylesheet imports', () => {
+	const components = [
+		"import './spectrum-plot.css'; const style = { '--curve': color };",
+		'import "./spectrum-plot.css"; const style = { "--legend": color } as CSSProperties;',
+		"import './other-dialog.css'; const style = { '--unrelated': color };",
+	];
+	assert.deepEqual(undefinedDialogTokens('spectrum-plot.css', `
+		.plot { --local: red; color: var(--theme); stroke: var(--curve); }
+		.legend { color: var(--legend); background: var(--local); }
+		.missing { color: var(--unrelated, red); border-color: var(--typo); }
+	`, new Set(['--theme']), components), ['--unrelated', '--typo']);
+	assert.deepEqual(undefinedDialogTokens('unowned.css', '.plot { color: var(--curve); }',
+		new Set(), components), ['--curve']);
+});
+
+function undefinedDialogTokens(stylesheet, css, defined, components) {
+	const ownedTokens = new Set(defined);
+	for (const [, name] of css.matchAll(/(--[\w-]+)\s*:/gu)) ownedTokens.add(name);
+	// Only components importing this stylesheet can supply its local tokens.
+	for (const component of components) {
+		const imports = [...component.matchAll(/^\s*import\s+['"]\.\/([^'"]+\.css)['"]/gmu)];
+		if (!imports.some(([, path]) => path === stylesheet)) continue;
+		for (const [, name] of component.matchAll(/['"](--[\w-]+)['"]\s*:/gu)) ownedTokens.add(name);
+	}
+	return [...css.matchAll(/var\(\s*(--[\w-]+)/gu)]
+		.map(([, name]) => name).filter((name) => !ownedTokens.has(name));
+}
 
 test('the vendored footer stylesheet only reads tokens the runtime publishes', async () => {
 	const runtime = await readFile(DESIGN_SYSTEM_RUNTIME, 'utf8');

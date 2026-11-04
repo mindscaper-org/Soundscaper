@@ -69,7 +69,8 @@ for (const retired of ['abort', 'superseded'] as const) test(`decoder preparatio
 	const arrayBuffer = Blob.prototype.arrayBuffer;
 	let held = false;
 	context.mock.method(Blob.prototype, 'arrayBuffer', async function(this: Blob): Promise<ArrayBuffer> {
-		if (!held && this.size === 16) { held = true; started.resolve(); await release.promise; }
+		// Header reads may be batched; fence the first physical decoder read.
+		if (!held) { held = true; started.resolve(); await release.promise; }
 		return arrayBuffer.call(this);
 	});
 	const activation = ports.service.activateVideoSource(ports.source, { signal: abort.signal });

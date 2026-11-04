@@ -5,6 +5,17 @@ import { DESIGN_SYSTEM_EDITOR_SHELL_COMPONENT_CHUNK_TEST, EDITOR_VARISPEED_CONTR
 /** @type {import('rolldown').CodeSplittingGroup[]} */
 export const EDITOR_UI_CHUNK_GROUPS = [
 	{
+		// The optional piano roll and the upstream note widgets initialize together.
+		// Letting the shell claim the host while its widgets follow the lazy entry
+		// creates an emitted initialization cycle before the editor can mount.
+		name: 'editor-midi-piano-roll',
+		test: /(?:src[\\/]common[\\/]editor[\\/]ui[\\/]workspace[\\/](?:PianoRollWorkspacePanel\.(?:tsx|css)|midi-panel-projection\.ts)|vendor[\\/]audacity-design-system[\\/]components[\\/]src[\\/](?:PianoRoll|NoteRect)[\\/])/,
+		priority: 99,
+		minSize: 0,
+		maxSize: 400_000,
+		includeDependenciesRecursively: false,
+	},
+	{
 		// The optional toolbar adapter and its upstream component initialize together.
 		name: 'editor-varispeed-control',
 		test: EDITOR_VARISPEED_CONTROL_CHUNK_TEST,

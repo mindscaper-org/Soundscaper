@@ -71,18 +71,18 @@ test('video import extracts linked audio and creates a new timeline lane pair', 
 	assert.ok(committedVideoSource);
 	assert.equal(committedVideoSource.posterStorageKey, null);
 	assert.equal(committedVideoSource.thumbnailStorageKey, null);
+	assert.deepEqual(fixture.derivatives, []);
+	assert.equal(fixture.sourcePeaks.size, 0);
+	await fixture.finishDerivatives();
 	assert.deepEqual(fixture.derivatives.map(({ timestamp, type }) => [timestamp, type]), [
 		[0, 'poster'], [1, 'thumbnail'], [2, 'thumbnail'],
 	]);
 	assert.equal(fixture.sourceBuffers.size, 1);
 	assert.equal(fixture.sourcePeaks.size, 1);
-	assert.deepEqual(fixture.calls, [
-		'preflight:16777216', 'assert-project:0', 'write-media:video-source-1',
-		'capture:0:poster', 'capture:1:thumbnail', 'capture:2:thumbnail',
-		'preflight:32', 'writer-write', 'writer-commit', 'save-analysis',
-		'assert-project:0', 'assert-project:0', 'activate:video-source-1',
-		'assert-project:0', 'commit', 'warn-envelope', 'dispose',
-	]);
+	assert.ok(fixture.calls.indexOf('writer-commit') < fixture.calls.indexOf('commit'));
+	assert.ok(fixture.calls.indexOf('commit') < fixture.calls.indexOf('capture:0:poster'));
+	assert.ok(fixture.calls.indexOf('commit') < fixture.calls.indexOf('save-analysis'));
+	assert.equal(fixture.calls.at(-1), 'dispose');
 });
 
 test('video import reuses both members of an existing lane group', async () => {
@@ -136,6 +136,7 @@ test('project-bin video import tolerates missing audio and disposable preview fa
 		'The audio from Video 1.mp4 could not be decoded. The video was imported without audio.',
 	);
 	assert.equal(fixture.commits[0]?.command.commands.length, 2);
+	await fixture.finishDerivatives();
 	assert.deepEqual(fixture.derivatives.map(({ timestamp }) => timestamp), [2]);
 	assert.equal(fixture.calls.includes('warn-envelope'), true);
 });
@@ -147,6 +148,7 @@ test('video import stops disposable filmstrip work after an encoded hard-cap ref
 		destination: 'project-bin', trackId: null, timelineStartFrame: 0,
 	});
 
+	await fixture.finishDerivatives();
 	assert.deepEqual(
 		fixture.calls.filter((call) => call.startsWith('capture:')),
 		['capture:0:poster', 'capture:1:thumbnail'],
@@ -161,6 +163,7 @@ test('video import skips all disposable captures after source-frame admission re
 		destination: 'project-bin', trackId: null, timelineStartFrame: 0,
 	});
 
+	await fixture.finishDerivatives();
 	assert.deepEqual(
 		fixture.calls.filter((call) => call.startsWith('capture:')),
 		['capture:0:poster'],
@@ -180,18 +183,17 @@ test('a selected ungrouped video lane causes a companion lane pair to be created
 	assert.equal(fixture.commits[0]?.command.commands.length, 6);
 });
 
-test('video import removes persisted media and audio when activation fails', async () => {
+test('video import preserves editable clips and audio when background activation fails', async () => {
 	const fixture = createFixture();
 	fixture.options.activateFails = true;
-	await assert.rejects(
-		() => createImportVideoFile(fixture.runtime)(videoFile()),
-		/activation failed/u,
-	);
-	assert.deepEqual(fixture.deletedSources, ['source-1']);
-	assert.deepEqual(fixture.deletedMedia, ['video-source-1']);
-	assert.equal(fixture.sourceBuffers.size, 0);
-	assert.equal(fixture.sourcePeaks.size, 0);
-	assert.equal(fixture.calls.includes('revoke:video-source-1'), true);
+	await createImportVideoFile(fixture.runtime)(videoFile());
+	await fixture.finishDerivatives();
+	assert.deepEqual(fixture.deletedSources, []);
+	assert.deepEqual(fixture.deletedMedia, []);
+	assert.equal(fixture.commits.length, 1);
+	assert.equal(fixture.sourceBuffers.size, 1);
+	assert.equal(fixture.sourcePeaks.size, 1);
+	assert.deepEqual(fixture.derivatives, []);
 	assert.equal(fixture.calls.at(-1), 'dispose');
 });
 
@@ -219,16 +221,17 @@ test('linked video import keeps local derivatives and extracted PCM while activa
 		linkedVideoLocatorRevision: 'revision_0000000000000001',
 	});
 
+	const foregroundCalls = [...fixture.calls];
+	await fixture.finishDerivatives();
 	assert.equal(fixture.calls.some((call) => call.startsWith('write-media:')), false);
 	assert.ok(fixture.calls.indexOf(`bind:project-import-video:${result.sourceId}:${locatorId}`)
 		< fixture.calls.indexOf('save-linked-derivative'));
-	assert.ok(fixture.calls.indexOf('save-linked-derivative')
-		< fixture.calls.indexOf(`activate:${result.sourceId}`));
+	assert.ok(fixture.calls.indexOf('save-linked-derivative') > fixture.calls.indexOf('commit'));
 	assert.ok(fixture.calls.indexOf('assert-project:0')
 		< fixture.calls.indexOf(`bind:project-import-video:${result.sourceId}:${locatorId}`));
-	assert.ok(fixture.calls.lastIndexOf('assert-project:0')
-		> fixture.calls.indexOf(`activate:${result.sourceId}`));
-	assert.ok(fixture.calls.lastIndexOf('assert-project:0') < fixture.calls.indexOf('commit'));
+	assert.equal(foregroundCalls.includes(`activate:${result.sourceId}`), false);
+	assert.ok(fixture.calls.indexOf(`activate:${result.sourceId}`) > fixture.calls.indexOf('commit'));
+	assert.ok(foregroundCalls.lastIndexOf('assert-project:0') < foregroundCalls.indexOf('commit'));
 	assert.equal(fixture.derivatives.length, 3);
 	assert.equal(fixture.calls.includes('writer-commit'), true);
 	assert.equal(fixture.sourceBuffers.size, 1);
@@ -239,27 +242,21 @@ test('linked video import keeps local derivatives and extracted PCM while activa
 	assert.equal(fixture.commits.length, 1);
 });
 
-test('linked video import unlinks and releases its locator when activation fails', async () => {
+test('linked video import retains its binding when background activation fails', async () => {
 	const fixture = createFixture();
 	fixture.options.activateFails = true;
 	const locatorId = 'locator_0000000000000001';
-	await assert.rejects(
-		createImportVideoFile(fixture.runtime)(videoFile(), {
+	await createImportVideoFile(fixture.runtime)(videoFile(), {
 			destination: 'timeline', trackId: null, timelineStartFrame: 0,
 			linkedVideoLocatorId: locatorId, linkedVideoLocatorRevision: 'revision_0000000000000001',
-		}),
-		/activation failed/u,
-	);
+	});
+	await fixture.finishDerivatives();
 
-	assert.deepEqual(fixture.unlinkedBindings, [{
-		projectId: 'project-import-video',
-		sourceId: 'video-source-1',
-		bindingToken: 'binding_token_0000000000001',
-	}]);
-	assert.deepEqual(fixture.releasedLocators, [{ locatorId, locatorRevision: 'revision_0000000000000001' }]);
-	assert.deepEqual(fixture.deletedSources, ['source-1']);
+	assert.deepEqual(fixture.unlinkedBindings, []);
+	assert.deepEqual(fixture.releasedLocators, []);
+	assert.deepEqual(fixture.deletedSources, []);
 	assert.deepEqual(fixture.deletedMedia, []);
-	assert.equal(fixture.commits.length, 0);
+	assert.equal(fixture.commits.length, 1);
 });
 
 test('linked video import releases an unused locator after an early admission failure', async () => {
@@ -315,38 +312,38 @@ test('linked video import rolls back its binding and local media when commit ref
 	assert.equal(fixture.commits.length, 0);
 });
 
-test('linked video import rolls back when the active project changes during activation', async () => {
+test('linked video import rolls back when the active project changes during audio persistence', async () => {
 	const fixture = createFixture();
-	let continueActivation!: () => void;
-	fixture.options.activationGate = new Promise<void>((resolve) => { continueActivation = resolve; });
+	let continueAudioWrite!: () => void;
+	fixture.options.audioWriteGate = new Promise<void>((resolve) => { continueAudioWrite = resolve; });
 	const operation = createImportVideoFile(fixture.runtime)(videoFile(), {
 		destination: 'project-bin', trackId: null, timelineStartFrame: 0,
 		linkedVideoLocatorId: 'locator_0000000000000001',
 		linkedVideoLocatorRevision: 'revision_0000000000000001',
 	});
-	while (!fixture.calls.includes('activate:video-source-1')) await Promise.resolve();
+	while (!fixture.calls.includes('writer-commit')) await Promise.resolve();
 	fixture.setProject({ id: 'replacement-project', tracks: [], sources: [] });
-	continueActivation();
+	continueAudioWrite();
 
 	await assert.rejects(operation, /project changed during video import/iu);
 	assert.equal(fixture.commits.length, 0);
-	assert.equal(fixture.unlinkedBindings.length, 1);
+	assert.equal(fixture.unlinkedBindings.length, 0);
 	assert.deepEqual(fixture.releasedLocators, [{ locatorId: 'locator_0000000000000001', locatorRevision: 'revision_0000000000000001' }]);
 	assert.deepEqual(fixture.deletedSources, ['source-1']);
 	assert.deepEqual(fixture.deletedMedia, []);
 	assert.deepEqual(fixture.getProject().sources, []);
 });
 
-test('video import rolls back when the active project closes during activation', async () => {
+test('video import rolls back when the active project closes during audio persistence', async () => {
 	const fixture = createFixture();
-	let continueActivation!: () => void;
-	fixture.options.activationGate = new Promise<void>((resolve) => { continueActivation = resolve; });
+	let continueAudioWrite!: () => void;
+	fixture.options.audioWriteGate = new Promise<void>((resolve) => { continueAudioWrite = resolve; });
 	const operation = createImportVideoFile(fixture.runtime)(videoFile(), {
 		destination: 'project-bin', trackId: null, timelineStartFrame: 0,
 	});
-	while (!fixture.calls.includes('activate:video-source-1')) await Promise.resolve();
+	while (!fixture.calls.includes('writer-commit')) await Promise.resolve();
 	fixture.options.projectAbsent = true;
-	continueActivation();
+	continueAudioWrite();
 
 	await assert.rejects(operation, /project changed during video import/iu);
 	assert.equal(fixture.commits.length, 0);
@@ -358,20 +355,20 @@ test('video import rolls back when the active project closes during activation',
 
 test('linked video import rolls back when the active project generation changes under the same id', async () => {
 	const fixture = createFixture();
-	let continueActivation!: () => void;
-	fixture.options.activationGate = new Promise<void>((resolve) => { continueActivation = resolve; });
+	let continueAudioWrite!: () => void;
+	fixture.options.audioWriteGate = new Promise<void>((resolve) => { continueAudioWrite = resolve; });
 	const operation = createImportVideoFile(fixture.runtime)(videoFile(), {
 		destination: 'project-bin', trackId: null, timelineStartFrame: 0,
 		linkedVideoLocatorId: 'locator_0000000000000001',
 		linkedVideoLocatorRevision: 'revision_0000000000000001',
 	});
-	while (!fixture.calls.includes('activate:video-source-1')) await Promise.resolve();
+	while (!fixture.calls.includes('writer-commit')) await Promise.resolve();
 	fixture.setProject({ id: 'project-import-video', tracks: [], sources: [] });
-	continueActivation();
+	continueAudioWrite();
 
 	await assert.rejects(operation, /project changed during video import/iu);
 	assert.equal(fixture.commits.length, 0);
-	assert.equal(fixture.unlinkedBindings.length, 1);
+	assert.equal(fixture.unlinkedBindings.length, 0);
 	assert.deepEqual(fixture.releasedLocators, [{ locatorId: 'locator_0000000000000001', locatorRevision: 'revision_0000000000000001' }]);
 	assert.deepEqual(fixture.deletedSources, ['source-1']);
 	assert.deepEqual(fixture.deletedMedia, []);

@@ -376,10 +376,15 @@ export async function createProfessionalNativeHelperRoleSeams(location, role, po
 		const createPeer = ports.createPeer ?? (await import(
 			'./project-library-runtime/desktop/soundscaper-professional-plugin-peer.js'
 		)).createSoundscaperProfessionalPluginPeer;
-		const formats = descriptor.target.startsWith('mac-') ? ['vst3', 'clap', 'au']
-			: descriptor.target.startsWith('linux-') ? ['vst3', 'clap', 'lv2', 'ladspa'] : ['vst3', 'clap'];
+		const formats = descriptor.target.startsWith('mac-') ? ['vst3', 'vst2', 'clap', 'au']
+			: descriptor.target.startsWith('linux-') ? ['vst3', 'vst2', 'clap', 'lv2', 'ladspa'] : ['vst3', 'vst2', 'clap'];
 		const effectPeer = createPeer({
-			launcher, peerExecutable: descriptor.pluginPeer, entryExecutable, entryArguments,
+			launcher: descriptor.target.startsWith('win-')
+				? (ports.createPluginLauncher ?? (await import('./project-library-runtime/desktop/native-plugin-process-launcher.js'))
+					.createNativePluginProcessLauncher)({ target: descriptor.target, peerExecutable: descriptor.pluginPeer,
+					artifacts: { launcher: descriptor.isolation.launcher, sandboxProfile: descriptor.isolation.sandboxProfile,
+						brokerPolicy: descriptor.isolation.brokerPolicy } }) : launcher,
+			peerExecutable: descriptor.pluginPeer, entryExecutable, entryArguments,
 			runtimeReadExecute: runtimeClosure, pluginFormats: formats,
 		});
 		if (role === 'plugin-scanner') {

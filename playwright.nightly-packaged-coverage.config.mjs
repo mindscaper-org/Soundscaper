@@ -35,7 +35,7 @@ export function createNightlyPackagedCoverageConfig(environment = process.env) {
 			{
 				name: 'packaged-coverage-soundscaper',
 				metadata: { productId: 'soundscaper' },
-				testMatch: [SMOKE, DISPLAY_AUDIO],
+				testMatch: [SMOKE],
 			},
 			{
 				name: 'packaged-coverage-soundscaper-audio-devices',
@@ -51,6 +51,17 @@ export function createNightlyPackagedCoverageConfig(environment = process.env) {
 				name: 'packaged-coverage-framescaper',
 				metadata: { productId: 'framescaper' },
 				testMatch: [SMOKE],
+			},
+			{
+				name: 'packaged-coverage-soundscaper-display-audio',
+				metadata: { productId: 'soundscaper' },
+				testMatch: [DISPLAY_AUDIO],
+				// Native loopback admission rechecks OS window focus after source
+				// enumeration. Other packaged apps must finish before this request.
+				dependencies: [
+					'packaged-coverage-soundscaper', 'packaged-coverage-soundscaper-audio-devices',
+					'packaged-coverage-soundscaper-soak', 'packaged-coverage-framescaper',
+				],
 			},
 		],
 	});

@@ -33,6 +33,10 @@ export type EngineChunkSourceInput =
 	| Readonly<Record<string, EngineChunkSource | unknown>>;
 
 export interface EngineLoadProjectOptions {
+	/** Cancels an asynchronous project replacement before its audio-clock handoff. */
+	readonly signal?: AbortSignal;
+	/** The controller may replace its document while a candidate is still preparing. */
+	readonly isCurrent?: () => boolean;
 	readonly chunkSources?: EngineChunkSourceInput;
 	/**
 	 * Keeps the running loudness measurement — its integrated reading and any manual

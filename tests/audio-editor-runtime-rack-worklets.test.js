@@ -390,7 +390,8 @@ test('Audacity worklet load failures reject playback instead of bypassing the ra
 	}
 });
 
-test('rebuilding a playing rack disconnects its old worklet graph and reuses the loaded module', async () => {
+test('rebuilding a playing rack retires its old worklets at the audio boundary and reuses the loaded module', async (t) => {
+	t.mock.timers.enable({ apis: ['setTimeout'] });
 	const previousWorkletNode = globalThis.AudioWorkletNode;
 	globalThis.AudioWorkletNode = MockAudioWorkletNode;
 	const context = new MockAudioContext();
@@ -414,6 +415,11 @@ test('rebuilding a playing rack disconnects its old worklet graph and reuses the
 		});
 		await engine.applyProject(updated, sources);
 
+		assert.equal(oldWorklet.disconnected, false, 'the old graph remains audible before the handoff');
+		t.mock.timers.tick(100);
+		assert.equal(oldWorklet.disconnected, false, 'elapsed wall time cannot retire a paused audio clock');
+		context.currentTime = engine.playbackStartTime;
+		t.mock.timers.tick(100);
 		assert.equal(oldWorklet.disconnected, true);
 		assert.equal(context.audioWorkletModules.filter((url) => url.endsWith('/audacity-effects/live-worklet.js')).length, 1);
 		assert.deepEqual(

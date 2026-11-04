@@ -63,6 +63,25 @@
 			]
 		},
 		{
+			"id": "fst",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "FST-GPL-3.0.txt",
+					"origin": "authenticated-source",
+					"path": "LICENSE",
+					"byteLength": 35075,
+					"sha256": "815a52d83c22a1d2c41920d29f33254c7300b4c90877295cafdb2c722cb1cb6b"
+				}
+			]
+		},
+		{
 			"id": "vamp-plugin-sdk",
 			"targets": ["linux-x64", "linux-arm64", "mac-arm64", "win-x64", "win-arm64"],
 			"notices": [

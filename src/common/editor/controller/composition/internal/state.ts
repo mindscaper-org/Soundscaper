@@ -82,7 +82,7 @@ export function createEditorControllerState<Preferences, RecordingRouting, Effec
 		readOnly: false,
 		writeAuthorityGeneration: 0,
 		takeCycleRecovery: null,
-		startupProjectRecovery: null,
+		projectRecovery: null,
 		takeCycleRecoveryInspecting: false,
 		projectLock: null,
 		projectLockRetryTimer: 0,

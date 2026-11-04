@@ -9,6 +9,7 @@ import {
 } from '../src/common/editor/controller/import/audiocom-panel-session.ts';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import { settle } from './helpers/async-test-control.ts';
 
 const SOUND = {
 	id: 42, name: 'Rain.ogg', pageUrl: 'https://freesound.org/s/42/',
@@ -72,7 +73,7 @@ for (const outcome of ['replace', 'failure', 'stale'] as const) {
 			freesoundTransport: { request: async () => Response.json({ data: { connected: false } }), openAuthorization: () => undefined },
 		};
 		const submit = async () => {
-			await act(async () => { reactProps(dom.one('form')).onSubmit({ preventDefault() {} }); });
+			await act(async () => { reactProps(dom.one('form')).onSubmit({ preventDefault() {} }); await settle(); });
 		};
 		const play = async () => {
 			const button = dom.container.querySelectorAll('button').find(value => value.getAttribute('aria-label') === 'Play preview: Rain.ogg');
@@ -94,6 +95,7 @@ for (const outcome of ['replace', 'failure', 'stale'] as const) {
 			await act(async () => {
 				if (outcome === 'failure') pending.reject(new Error('Search unavailable'));
 				else pending.resolve(page(43));
+				await settle();
 			});
 			if (outcome === 'replace') {
 				assert.equal(audio[0]?.paused, true, 'retired results cannot keep playing without their controls');

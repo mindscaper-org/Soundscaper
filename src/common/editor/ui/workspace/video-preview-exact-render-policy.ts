@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { hasPendingVideoPreviewMediaSeek } from '../../controller/clip-video/video-preview-media-seek.ts';
+
 /**
  * Exact RGBA composition is the settled-frame/export oracle. During playback,
  * keep frames on the complete GPU shader-preview path so readback and full CPU
@@ -23,5 +25,6 @@ export function areVideoPreviewMediaLayersReadyForExactRender(
 ): boolean {
 	return layers.every((layer) => layer.entries.every(({ video }) => (
 		video != null && Number(video.readyState) >= 2 && video.seeking !== true
+			&& !hasPendingVideoPreviewMediaSeek(video)
 	)));
 }

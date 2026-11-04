@@ -1148,6 +1148,21 @@
 			"evidence": ["config/milestone-5-native-source-acquisitions.json", "docs/architecture/native-services.md", "native/soundscaper-helper-addon/src/audio_backends.c"]
 		},
 		{
+			"id": "plugin-format-vst2",
+			"kind": "plugin-format",
+			"upstreamLicensing": "GPL-3.0-or-later at the pinned FST 0.177.0 revision; independently reverse-engineered VST2-compatible headers, without the proprietary Steinberg VST2 SDK.",
+			"agplCompatibilityDirection": "The GPLv3 FST headers combine with this AGPL-3.0-only work under GPLv3 section 13; the FST copyright and license notices remain intact.",
+			"redistribution": "Builds retain the pinned FST archive, source authentication, and installed GPL notice. User-installed third-party plug-in binaries are never redistributed. Source identity and copyright licenses do not establish trademark or patent permissions.",
+			"status": "implemented",
+			"blocker": null,
+			"evidence": [
+				"config/milestone-5-native-source-acquisitions.json",
+				"config/soundscaper-professional-native-notices.json",
+				"native/soundscaper-professional-host/CMakeLists.txt",
+				"docs/architecture/native-services.md"
+			]
+		},
+		{
 			"id": "plugin-format-vst3",
 			"kind": "plugin-format",
 			"upstreamLicensing": "MIT at the pinned VST3 SDK 3.8.0_build_66 revision",

@@ -157,7 +157,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 			}
 			const imported = await runtime.importScapeProject(file, runtime.store, {
 				...(runtime.fileService?.isDesktop ? { resolveExternalMedia: runtime.fileService.externalMediaResolver?.(file), decodeExternalAudio: runtime.decodeExternalAudio } : {}),
-				collision: options.collision || 'copy', copySuffix: publishedCopyFor(runtime.copy).projectCopySuffix, acquireReplaceProjectWriteAuthority: runtime.acquireReplaceProjectWriteAuthority,
+				collision: options.collision || 'copy', recover: options.recover, copySuffix: publishedCopyFor(runtime.copy).projectCopySuffix, acquireReplaceProjectWriteAuthority: runtime.acquireReplaceProjectWriteAuthority,
 				confirmFileSizeWarning: runtime.confirmFileSizeWarning,
 				assertCurrent: () => assertOwnership(operation.task, operation.projectToken),
 				estimateStorageForPreflight: (bytes, operation) => runtime.estimateStorageForPreflight(bytes, operation, signal), signal,
@@ -204,6 +204,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 				operation.task.assertCurrent();
 			}
 			runtime.projectGeneration.capture(imported.project.id);
+			await runtime.onScapeOpened?.(runtime.getProject()?.id === imported.project.id ? runtime.getProject()! : imported.project, file);
 			setLocalizedStatus(runtime.setStatus, runtime.copy, runtime.state.readOnly ? 'projectReadOnly' : 'projectSaved', undefined, runtime.state.readOnly ? 'error' : 'success');
 			return imported;
 		} finally {
@@ -243,6 +244,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 				assertReadyToCommit: () => assertOwnership(operation.task, operation.projectToken),
 				fileName, prepared, project: snapshot, signal: operation.task.signal,
 			});
+			await runtime.onScapeSaved?.(snapshot, saved);
 			if (finishSave(operation.task, operation.projectToken, 'saved')) {
 				setLocalizedStatus(runtime.setStatus, runtime.copy, "projectSaved", undefined, 'success');
 				runtime.publishDocumentSnapshot();

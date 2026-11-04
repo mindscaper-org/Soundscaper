@@ -26,7 +26,7 @@ for (const status of [401, 500]) test(`audio.com original preview HTTP${status} 
 	await panel.getByRole('searchbox', { name: 'Search audio.com', exact: true }).fill('recording');
 	await panel.getByRole('button', { name: 'Search', exact: true }).click();
 	await panel.getByRole('button', { name: 'Play preview: Original recording', exact: true }).click();
-	await expect.poll(() => previews).toBe(1);
+	await expect.poll(() => previews).toBe(status === 401 ? 1 : 3);
 	if (status === 401) {
 		await expect(panel.getByRole('button', { name: 'Connect to audio.com', exact: true })).toBeVisible();
 		await expect(panel.getByRole('alert')).toContainText(AUDIOCOM_COPY_BY_LOCALE.en.connectionExpired);

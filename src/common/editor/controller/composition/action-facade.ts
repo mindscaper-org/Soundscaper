@@ -11,6 +11,7 @@ import {
 	createRecordingPreferenceActionFacade,
 } from '../recording/recording-action-facade.ts';
 import { createClipSpreadsheetAction } from './internal/clip-spreadsheet-action.ts';
+import { createMidiActionGroup } from './midi-action-group.ts';
 import { createMixerParameterActions } from './internal/mixer-parameter-actions.ts';
 import { createProjectOwnedFeatureActionFacades } from './internal/project-owned-feature-action-facades.ts';
 import { createTimelineAnnotationActionFacade } from '../document/timeline-annotation-action-facade.ts';
@@ -47,7 +48,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	fileService, findTrack, persistSetting, publishDocumentSnapshot, flushProject, generateSelectionSilence,
 	generateSignal, repeatLastGenerator, getClipVisualData, getVisibleClips,
 	handleClipAction, handleEdit, handleExportAction, handlePlayAtSpeed, handleTransport, handleScrub, endScrub,
-	importFiles, pasteClipSpreadsheet, inspectScape, labels, listProjects, makeStereoTrack,
+	pasteClipSpreadsheet, inspectScape, labels, listProjects, makeStereoTrack,
 	materializeFreesoundUploadClip, publishBlenderTracks, mixAndRenderTracks, moveClips, moveClipsToNewTrack, moveTrack, newProject,
 	normalizePlaybackFrame, openAudacityProject, openAup4, openProject, openScape, openScapeFile, overwriteClips,
 	openDawproject, openSesx, saveDawproject, pasteEffectStack, pauseLoudnessMeasurement,
@@ -58,7 +59,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	renameProject,
 	renderClipPitchSpeed, reorderTrack, repeatLastAudacityEffect, requestInputAccess, requestStoragePersistence,
 	requestFrequencyWaveform, requestWaveformPcmWindow, resampleClip, reinterpretClip, resampleTrack, resetClipPitchSpeed, resetLoudnessMeasurement,
-	resizeTrackHeight, fitTrackHeights, runNyquistEvaluation, saveAup3, saveAup4, saveNow, saveScape,
+	resizeTrackHeight, fitTrackHeights, runNyquistEvaluation, saveAup3, saveAup4, saveNow, saveScape, saveProjectFile, prepareFileClose,
 	selection, sessionTab,
 	setAllTracksView, setAudacityControlTrack, setAudacityEffectParamsFromController,
 	setAudioOutputDevice, setAutoFitTrackHeight, setClipTimePitch, setClipsTimePitch, setLoopRegion, setLoopRegionInOut, setStatus,
@@ -82,7 +83,9 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	};
 	const effectLibraryScope = scope;
 	const storedProjectOpenActions = createStoredProjectOpenActions({
-		copy, state, store, sessionTab, switchProject, openProject,
+		copy, state, store, sessionTab, switchProject, openProject, publishProjectState: publishDocumentSnapshot,
+		onProjectOpenFailure: scope.onProjectOpenFailure, assertActive: scope.assertActive,
+		getProjectId: () => getProject()?.id ?? null, hasMissingTimelineSources: scope.hasMissingTimelineSources,
 	});
 	const yieldProgramPlayhead = <Args extends unknown[], Result>(operation: (...args: Args) => Result) => (...args: Args): Result => {
 		if (capabilities.videoCompositing) videoNavigationService.shuttleStop();
@@ -97,10 +100,12 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	]);
 	const crossProductHandoffActions = createCrossProductHandoffActionFacade({ ...scope, copy: { get projectSaved() { return copy.projectSaved; }, get projectSaving() { return copy.projectSaving; } } });
 	const macros = createEffectMacroActions(effectLibraryScope, restricted);
+	const midi = createMidiActionGroup(scope);
 	const actions = Object.freeze({
+		midi: midi.actions,
 		project: Object.freeze({
 			create: (...args: Parameters<typeof newProject>) => newProject(...args),
-			open: (...args: Parameters<typeof openProject>) => openProject(...args),
+			open: storedProjectOpenActions.open,
 			openRecent: storedProjectOpenActions.openRecent,
 			clearRecent: clearRecentProjects,
 			openAudacityProject,
@@ -113,10 +118,12 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			saveScape,
 			saveAs: saveScape,
 			dismissAup4CompatibilitySummary,
-			close: closeProjectTab,
+			close: async (id = getProject()?.id, options: Parameters<typeof closeProjectTab>[1] = {}) => { if (options.discard) return closeProjectTab(id, options); if (!await prepareFileClose(id)) return { closed: false }; return id && sessionTab(id) ? closeProjectTab(id) : { closed: true }; },
+			prepareClose: prepareFileClose,
 			openById: storedProjectOpenActions.openById,
 			list: listProjects,
 			save: saveNow,
+			saveFile: saveProjectFile,
 			flush: flushProject,
 			prepareHandoff: prepareProjectHandoff,
 			...crossProductHandoffActions,
@@ -125,7 +132,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			duplicate: (...args: Parameters<typeof duplicateProject>) => duplicateProject(...args),
 			remove: deleteProject,
 			clear: clearLocalData,
-			importFiles,
+			importFiles: midi.importFiles,
 			cancelTask: () => scope.taskProgress?.cancelActive() ?? false,
 			setTempo: (bpm: number) => commit({ type: 'tempo/set', bpm }),
 			setTimeSignature: (numerator: number, denominator: number) => commit({ type: 'tempo/set', numerator, denominator }),

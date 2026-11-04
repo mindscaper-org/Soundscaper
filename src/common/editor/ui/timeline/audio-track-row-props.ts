@@ -25,11 +25,36 @@ export interface AudioTrackRowMemoProps extends Readonly<Record<string, unknown>
 
 const EMPTY_IDS: ReadonlySet<string> = new Set();
 const EMPTY_TARGETS: readonly unknown[] = Object.freeze([]);
+const SET_PROTOTYPE = Set.prototype;
+const SET_ITERATOR = SET_PROTOTYPE[Symbol.iterator];
+const SET_HAS = SET_PROTOTYPE.has;
+const SET_SIZE = Object.getOwnPropertyDescriptor(SET_PROTOTYPE, 'size')!.get!;
 const entries = (preview: DragPreview | null | undefined) => preview?.previews ?? (preview ? [preview] : []);
 
-function retainIntersection(previous: ReadonlySet<string>, source: ReadonlySet<string>, belongs: (id: string) => boolean): ReadonlySet<string> {
+function hasLargerNativeSelection(source: ReadonlySet<string>, localSize: number): boolean {
+	if (Object.getPrototypeOf(source) !== SET_PROTOTYPE
+		|| Object.getOwnPropertyDescriptor(source, Symbol.iterator)
+		|| SET_PROTOTYPE[Symbol.iterator] !== SET_ITERATOR) return false;
+	try {
+		return localSize < Number(SET_SIZE.call(source));
+	} catch {
+		// Proxied Sets can expose custom bound traversal without native custody.
+		return false;
+	}
+}
+
+function retainIntersection(previous: ReadonlySet<string>, source: ReadonlySet<string>,
+	local: ReadonlySet<string>, incoming: ReadonlySet<string>, belongs: (id: string) => boolean): ReadonlySet<string> {
 	let count = 0, changed = false;
-	for (const id of source) if (belongs(id)) { count++; if (!previous.has(id)) changed = true; }
+	// Mutable native Sets can be checked through the smaller private row
+	// membership. Changed results still follow the source's insertion order.
+	// Custom traversal keeps the original live iteration path.
+	if (hasLargerNativeSelection(source, local.size + incoming.size)) {
+		for (const id of local) if (SET_HAS.call(source, id)) { count++; if (!previous.has(id)) changed = true; }
+		for (const id of incoming) if (!local.has(id) && SET_HAS.call(source, id)) { count++; if (!previous.has(id)) changed = true; }
+	} else {
+		for (const id of source) if (belongs(id)) { count++; if (!previous.has(id)) changed = true; }
+	}
 	if (!changed && previous.size === count) return previous;
 	if (!count) return EMPTY_IDS;
 	const next = new Set<string>();
@@ -70,8 +95,8 @@ export function createAudioTrackRowPropReader() {
 			const incoming = clipDragPreview ? new Set(previewEntries.filter(preview => preview.trackId === props.track.id).flatMap(preview => preview.clipId ? [preview.clipId] : [])) : EMPTY_IDS;
 			const binVisualClips = entries(projectBinDragPreview).flatMap(preview => preview.clip?.id ? [{ id: preview.clip.id, projectBinClipId: preview.clip.projectBinClipId }] : []);
 			const belongs = (id: string) => clipIds.has(id) || incoming.has(id);
-			selectedIds = retainIntersection(selectedIds, props.selectedClipIdSet, belongs);
-			draggedIds = retainIntersection(draggedIds, props.draggingClipIds ?? EMPTY_IDS, belongs);
+			selectedIds = retainIntersection(selectedIds, props.selectedClipIdSet, clipIds, incoming, belongs);
+			draggedIds = retainIntersection(draggedIds, props.draggingClipIds ?? EMPTY_IDS, clipIds, incoming, belongs);
 			const start = Math.max(0, props.renderViewportStartFrame - props.viewportDurationFrames);
 			const end = Math.min(Number.MAX_SAFE_INTEGER, props.renderViewportStartFrame + props.viewportDurationFrames * 2);
 			if (!visibleClips || visibleStart !== start || visibleEnd !== end) {
@@ -91,6 +116,8 @@ export function createAudioTrackRowPropReader() {
 				selectedTrackId: props.selectedTrackId === props.track.id ? props.track.id : null,
 				selectedClipId: props.selectedClipId && belongs(props.selectedClipId) ? props.selectedClipId : null,
 				selectedClipIdSet: selectedIds, draggingClipIds: draggedIds.size ? draggedIds : null,
+				singleClipSelection: selectedIds.size === 1 && props.selectedClipIdSet.size === 1
+					|| props.selectedClipIdSet.size === 0 && Boolean(props.selectedClipId && belongs(props.selectedClipId)),
 				clipDragPreview, projectBinDragPreview, viewModelRevision: revision,
 				spectralSelection: props.selectedTrackId === props.track.id ? props.spectralSelection : null,
 				automationTargets: props.automationTargets?.length ? props.automationTargets : EMPTY_TARGETS,

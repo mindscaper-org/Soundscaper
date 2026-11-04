@@ -25,7 +25,7 @@ Blender before moving the project independently.
 
 ## Live edits
 
-1. In Soundscaper desktop, choose **Tools > Start live Blender sync** and choose
+1. In Soundscaper desktop, choose **Tools > Desktop services > Start live Blender sync** and choose
    a parent directory for a new bundle.
 2. Enable the bundled add-on in Blender as described above.
 3. In Blender's Sequencer, choose **Add > Start Soundscaper live sync** and select
@@ -33,7 +33,7 @@ Blender before moving the project independently.
 4. Edit audio in Soundscaper. Blender reloads the corresponding WAV stems after
    Soundscaper finishes rendering the latest revision.
 
-Stop with **Tools > Stop live Blender sync** in Soundscaper or **Add > Stop
+Stop with **Tools > Desktop services > Stop live Blender sync** in Soundscaper or **Add > Stop
 Soundscaper live sync** in Blender. Loading another `.blend` file or disabling
 the add-on stops Blender's receiver. Closing or switching the Soundscaper project
 ends its connection; start a new connection and select its new bundle to resume.

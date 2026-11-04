@@ -16,6 +16,8 @@ struct LadspaParameterHint {
 	uint32_t flags = 0u;
 };
 
+soundscaper_pro_status readLadspaNativeId(const std::string &path, uint32_t descriptorIndex, int32_t &nativeId);
+
 soundscaper_pro_status inspectLadspaParameters(
 	const std::string &path, uint32_t descriptorIndex, std::vector<LadspaParameterHint> &hints);
 

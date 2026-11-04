@@ -55,7 +55,7 @@ export type RecordingCompositionState = ControllerRecordingState & {
 	takeCycleRecoveryInspecting: boolean;
 	history: TakeCyclePublicationHistory | null;
 	saveState: string;
-	readonly preferences: Readonly<{ readonly recording: Readonly<{ readonly retainInputs: boolean }> }>;
+	readonly preferences: Readonly<{ readonly recording: Readonly<{ readonly retainInputs: boolean; readonly alwaysRecordToNewTrack?: boolean }> }>;
 	readonly projectLock: Readonly<{ readonly readOnly?: boolean }> | null;
 };
 

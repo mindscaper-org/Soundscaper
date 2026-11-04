@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { interchangeRequiredForTests, selectedBrowserTestFiles } from '../scripts/ci-test-prerequisites.mjs';
+import { interchangeRequiredForTests, nativePrerequisitesForTests, selectedBrowserTestFiles } from '../scripts/ci-test-prerequisites.mjs';
 
 function fixture(context) {
 	const root = mkdtempSync(join(tmpdir(), 'soundscaper-prerequisite-selection-'));
@@ -18,6 +18,7 @@ function fixture(context) {
 		['tests/helpers/nested-reader.ts', "export { read } from './interchange-reference.ts';"],
 		['tests/helpers/interchange-reference.ts', 'export const read = true;'],
 		['tests/audio-editor-dawproject-reference-conformance.test.ts', 'export const validatesPublishedSchemas = true;'],
+		['tests/desktop-payload-manifests-exist.test.ts', 'export const validatesPayloadAssets = true;'],
 		['src/ordinary.ts', 'export const ordinary = true;'],
 	]) {
 		mkdirSync(dirname(join(root, file)), { recursive: true });
@@ -34,6 +35,15 @@ test('selected dependency closures require interchange readers only on their act
 	assert.equal(interchangeRequiredForTests(root, []), false);
 });
 
+test('desktop payload manifest checks require interchange assets only when selected', context => {
+	const root = fixture(context);
+	const ordinary = join(root, 'tests/browser/ordinary.spec.js');
+	const manifest = join(root, 'tests/desktop-payload-manifests-exist.test.ts');
+	assert.equal(interchangeRequiredForTests(root, [ordinary]), false);
+	assert.equal(interchangeRequiredForTests(root, [manifest]), true);
+	assert.equal(interchangeRequiredForTests(root, [ordinary, manifest]), true);
+});
+
 test('Playwright prerequisite discovery uses only selected specs, including nested suites', context => {
 	const root = fixture(context);
 	const report = { config: { rootDir: join(root, 'tests/browser') }, errors: [], suites: [
@@ -43,6 +53,15 @@ test('Playwright prerequisite discovery uses only selected specs, including nest
 	] };
 	assert.deepEqual(selectedBrowserTestFiles(report), ['ordinary.spec.js', 'reader.spec.js'].map(file => join(root, 'tests/browser', file)));
 	assert.throws(() => selectedBrowserTestFiles({ ...report, errors: [{ message: 'reader collection failed' }] }), /collection failed/u);
+});
+
+test('native prerequisites follow selected helper dependencies rather than execution slot names', context => {
+	const root = fixture(context);
+	const ordinary = join(root, 'tests/browser/ordinary.spec.js');
+	assert.deepEqual(nativePrerequisitesForTests(root, [ordinary]), { boost: false, electron: false, desktop_runtime: false });
+	writeFileSync(join(root, 'tests/helpers/native.js'), "import 'electron'; export { run } from '../../src/framescaper/native.ts';");
+	writeFileSync(join(root, 'tests/native.test.js'), "import './helpers/native.js';");
+	assert.deepEqual(nativePrerequisitesForTests(root, [join(root, 'tests/native.test.js')]), { boost: true, electron: true, desktop_runtime: false });
 });
 
 test('production parity discovery needs no downloaded build assets in any browser project', context => {

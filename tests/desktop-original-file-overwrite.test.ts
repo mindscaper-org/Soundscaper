@@ -41,7 +41,7 @@ async function fixture(context: TestContext, extension = 'wav', saveOptions: { r
 }
 
 test('the original media capability survives read release and repeated atomic overwrites', async (context) => {
-	for (const extension of ['wav', 'mp3', 'mp4', 'webm']) {
+	for (const extension of ['wav', 'mp3', 'mp4', 'webm', 'sscape', 'fscape']) {
 		const entry = await fixture(context, extension);
 		assert.ok(entry.descriptor.originalFile);
 		assert.match(entry.descriptor.originalFile.id, /^[a-f0-9]{48}$/u);
@@ -57,8 +57,8 @@ test('the original media capability survives read release and repeated atomic ov
 	}
 });
 
-test('project, label, read-only and symbolic-link imports do not grant original overwrite', async (context) => {
-	for (const extension of ['sscape', 'aup4', 'srt']) {
+test('interchange, label, read-only and symbolic-link imports do not grant original overwrite', async (context) => {
+	for (const extension of ['aup4', 'srt']) {
 		assert.equal((await fixture(context, extension)).descriptor.originalFile, undefined);
 	}
 	const entry = await fixture(context);

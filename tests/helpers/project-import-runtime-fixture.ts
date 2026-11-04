@@ -24,6 +24,7 @@ export function createProjectImportService(runtime: ProjectImportRuntime) {
 		: null;
 	const completed = new Proxy(runtime, {
 		get(target, property, receiver) {
+			if (property === 'scheduleAudioDerivatives') return target[property] ?? (() => {});
 			if (property === 'createStableId') {
 				return (prefix: string) => {
 					if (prefix === 'attribution') {

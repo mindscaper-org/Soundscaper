@@ -22,6 +22,16 @@ export type SelectedClipFadeEdit =
 	| Readonly<{ kind: 'shape'; edge: ClipFadeEdge; shape: number | undefined }>
 	| Readonly<{ kind: 'properties'; changes: SelectedClipFadeChanges }>;
 
+/** A shape-only assignment is a preset; dialog patches retain their explicit lengths. */
+export function clipFadeEditIntent(changes: SelectedClipFadeChanges, editedEdge?: ClipFadeEdge): SelectedClipFadeEdit {
+	if (editedEdge) return { kind: 'length', edge: editedEdge, frames: changes[fadeField(editedEdge)] ?? 0 };
+	const fields = Object.keys(changes);
+	for (const edge of ['in', 'out'] as const) if (fields.length === 1 && fields[0] === fadeShapeField(edge)) {
+		return { kind: 'shape', edge, shape: changes[fadeShapeField(edge)] };
+	}
+	return { kind: 'properties', changes };
+}
+
 export interface SelectedClipFadeRequest {
 	readonly clips: readonly ClipFadeTarget[];
 	readonly editedClipId: string;
@@ -81,7 +91,11 @@ export function planSelectedClipFadeCommand(request: SelectedClipFadeRequest): B
 }
 
 function changesForClip(clip: ClipFadeTarget, edit: SelectedClipFadeEdit, sampleRate: number): SelectedClipFadeChanges {
-	if (edit.kind === 'shape') return { [fadeShapeField(edit.edge)]: edit.shape };
+	if (edit.kind === 'shape') return {
+		...((clip[fadeField(edit.edge)] ?? 0) > 0 ? {} : clipFadeLengthChange(clip, edit.edge,
+			Math.max(1, Math.min(Math.round(sampleRate * 0.5), Math.floor(clip.durationFrames / 4))))),
+		[fadeShapeField(edit.edge)]: edit.shape,
+	};
 	let lengths: SelectedClipFadeChanges = {};
 	if (edit.kind === 'length') lengths = clipFadeLengthChange(clip, edit.edge, edit.frames, sampleRate);
 	else for (const edge of ['in', 'out'] as const) {

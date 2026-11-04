@@ -16,8 +16,25 @@
 
 .audio-editor-analysis-dialog__plot polyline {
 	fill: none;
-	stroke: #66d3c5;
+	stroke: var(--spectrum-color, #66d3c5);
 	stroke-width: 2;
+}
+
+.audio-editor-analysis-dialog__legend {
+	display: grid;
+	gap: 6px;
+	padding: 0;
+	list-style: none;
+}
+
+.audio-editor-analysis-dialog__legend li::before {
+	content: '';
+	display: inline-block;
+	width: 20px;
+	height: 3px;
+	margin-inline-end: 8px;
+	vertical-align: middle;
+	background: var(--spectrum-color);
 }
 
 [data-editor-surface] [data-analysis-overlay="contrast"] {

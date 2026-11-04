@@ -35,7 +35,7 @@ export type AssistanceWorkflowSettingsV1 =
 		placement: 'project-bin' | 'replace-selection';
 	}>)
 	| (SettingsBase<'separate-dialogue-music-effects'> & Readonly<{
-		placement: 'project-bin' | 'muted-aligned-tracks';
+		placement: 'project-bin' | 'muted-aligned-tracks' | 'replace-selection';
 	}>)
 	| (SettingsBase<'mark-reactions'> & Readonly<{ threshold: number }>)
 	| (SettingsBase<'index-transcript'> & Readonly<{
@@ -86,10 +86,10 @@ export function defaultAssistanceWorkflowSettingsV1(
 			recognizer: 'parakeet', language: 'auto', englishWhisperAlignment: 'when-installed' });
 		case 'clean-filler-silence': return Object.freeze({ ...base, workflowId, preset: 'balanced' });
 		case 'identify-speakers': return Object.freeze({ ...base, workflowId, speakerNames: 'anonymous' });
-		case 'enhance-dialogue': return Object.freeze({ ...base, workflowId, placement: 'project-bin' });
-		case 'reduce-reverb': return Object.freeze({ ...base, workflowId, placement: 'project-bin' });
+		case 'enhance-dialogue': return Object.freeze({ ...base, workflowId, placement: 'replace-selection' });
+		case 'reduce-reverb': return Object.freeze({ ...base, workflowId, placement: 'replace-selection' });
 		case 'separate-dialogue-music-effects': return Object.freeze({ ...base, workflowId,
-			placement: 'project-bin' });
+			placement: 'replace-selection' });
 		case 'mark-reactions': return Object.freeze({ ...base, workflowId, threshold: 0.5 });
 		case 'index-transcript': return Object.freeze({ ...base, workflowId,
 			chunkTokens: 256, overlapTokens: 32 });
@@ -151,7 +151,8 @@ export function validateAssistanceWorkflowSettingsV1(
 		case 'separate-dialogue-music-effects':
 			exact(row, ['settingsVersion', 'workflowId', 'placement']);
 			return Object.freeze({ settingsVersion: 1, workflowId,
-				placement: oneOf(row.placement, ['project-bin', 'muted-aligned-tracks'], 'separation placement') });
+				placement: oneOf(row.placement, ['project-bin', 'muted-aligned-tracks', 'replace-selection'],
+					'separation placement') });
 		case 'mark-reactions':
 			exact(row, ['settingsVersion', 'workflowId', 'threshold']);
 			return Object.freeze({ settingsVersion: 1, workflowId,

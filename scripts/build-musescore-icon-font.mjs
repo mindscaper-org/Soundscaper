@@ -3,6 +3,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,6 +20,14 @@ export const MUSESCORE_ICON_WOFF2_PATH = resolve(
 );
 
 export async function buildMusescoreIconFont({ check = false } = {}) {
+	const provenance = JSON.parse(await readFile(resolve(root, 'config/musescore-icon-font.json'), 'utf8'));
+	for (const artifact of provenance.artifacts) {
+		if (!check && artifact.kind === 'browser-woff2') continue;
+		const bytes = await readFile(resolve(root, artifact.path));
+		if (bytes.byteLength !== artifact.byteLength || createHash('sha256').update(bytes).digest('hex') !== artifact.sha256) {
+			throw new Error(`${artifact.path} does not match config/musescore-icon-font.json.`);
+		}
+	}
 	const source = await readFile(MUSESCORE_ICON_TTF_PATH);
 	const first = Buffer.from(await wawoff2.compress(source));
 	const second = Buffer.from(await wawoff2.compress(source));

@@ -57,7 +57,6 @@ Product availability follows each product profile’s command filters and each l
 | At zero crossings | `zero-cross` | Z | Select | Soundscaper, Framescaper | Audacity |
 | Attach | `framescaper-proxy-attach` | — | Tools > Proxies | Framescaper | Soundscaper local |
 | Audacity | `workspace-audacity` | — | View > Workspace; Window | Soundscaper | Soundscaper local |
-| Audio Plugins | `native-effect-use` | — | Effect | Soundscaper | Soundscaper local |
 | Audio track | `new-audio-track` | — | Tracks > Add new track | Soundscaper, Framescaper | Soundscaper local |
 | Audio warp and transients | `audio-warp-editor` | — | Effect > Pitch and tempo | Soundscaper | Soundscaper local |
 | Auto Duck | `audacity-auto-duck` | — | Effect > Volume and compression | Soundscaper | Soundscaper local |
@@ -179,8 +178,10 @@ Product availability follows each product profile’s command filters and each l
 | Enhance Dialogue | `assistance-task-enhance-dialogue` | — | Effect > Noise removal and repair | Soundscaper, Framescaper | Soundscaper local |
 | Export AUP3 | `save-aup3` | — | File > Export other | Soundscaper | Soundscaper local |
 | Export AUP4 | `save-aup4` | — | File > Export other | Soundscaper | Soundscaper local |
+| Export Allegro (beta) | `allegro-export-file` | — | File > Export other | Soundscaper | Soundscaper local |
 | Export DAWproject | `export-dawproject` | — | File > Export other | Soundscaper, Framescaper | Soundscaper local |
 | Export FCPXML | `export-fcpxml` | — | File > Export other | Soundscaper, Framescaper | Soundscaper local |
+| Export MIDI (beta) | `midi-export-file` | — | File > Export other | Soundscaper | Soundscaper local |
 | Export OpenTimelineIO | `export-otio` | — | File > Export other | Soundscaper, Framescaper | Soundscaper local |
 | Export audio | `export-audio` | Ctrl+Shift+E | File | Soundscaper, Framescaper | Audacity |
 | Export clip | `clip-export` | — | Clip context | Soundscaper, Framescaper | Audacity |
@@ -259,6 +260,7 @@ Product availability follows each product profile’s command filters and each l
 | Low-Pass Filter | `nyquist:lowpass` | — | Nyquist | Soundscaper | Audacity |
 | Low-pass filter | `lowpass-filter` | — | Effect > EQ and filters | Soundscaper | Soundscaper local |
 | MCP connection | `desktop-mcp-connection` | — | Tools > Desktop services | Soundscaper | Soundscaper local |
+| MIDI track (beta) | `new-midi-track` | — | Tracks > Add new track | Soundscaper | Soundscaper local |
 | Macros palette | `manage-macros` | — | Tools | Soundscaper | Audacity |
 | Make Highlights | `assistance-task-make-highlights` | — | Edit | Framescaper | Soundscaper local |
 | Make stereo track | `track-make-stereo` | — | Track context | Soundscaper, Framescaper | Audacity |
@@ -342,6 +344,7 @@ Product availability follows each product profile’s command filters and each l
 | Pause | `action://playback/pause` | — | Transport | Soundscaper, Framescaper | Audacity |
 | Pause recording | `action://record/pause` | — | Record; Transport | Soundscaper | Audacity |
 | Phaser | `audacity-phaser` | — | Effect > Distortion and modulation | Soundscaper | Soundscaper local |
+| Piano roll (beta) | `panel-piano-roll` | — | Window | Soundscaper | Soundscaper local |
 | Pinned playhead | `toggle-pinned-play-head` | — | View | Soundscaper, Framescaper | Audacity |
 | Pitch and speed | `clip-pitch-speed` | Ctrl+Shift+P | Clip context | Soundscaper, Framescaper | Audacity |
 | Pitch down / move realtime effect down | `realtime-effect-move-down` | Alt+Down | Clip context; Realtime effect context | Soundscaper | Audacity |
@@ -428,6 +431,8 @@ Product availability follows each product profile’s command filters and each l
 | Save preset as | `action://effects/presets/save_as` | — | Effect dialog > Presets | Soundscaper | Audacity |
 | Save project | `file-save` | Ctrl+S | File | Soundscaper, Framescaper | Audacity |
 | Save project as | `file-save-as` | — | File | Soundscaper, Framescaper | Audacity |
+| Scroll timeline left one page | `timeline-page-left` | PageUp | View | Soundscaper, Framescaper | Audacity |
+| Scroll timeline right one page | `timeline-page-right` | PageDown | View | Soundscaper, Framescaper | Audacity |
 | Scroll view to playhead | `toggle-update-display-while-playing` | — | View | Soundscaper, Framescaper | Audacity |
 | Seconds | `snap-seconds` | — | View > Snapping > Seconds and samples | Soundscaper, Framescaper | Soundscaper local |
 | Select all | `select-all` | Ctrl+A | Select | Soundscaper, Framescaper | Audacity |

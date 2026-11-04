@@ -157,6 +157,7 @@ test.describe('audio file import formats', () => {
 		}
 		await chooser.setFiles({ ...wav, name: 'field-recording.wave', mimeType: '' });
 		await expect(clipByName(editor, 'field-recording.wave')).toBeVisible();
+		await expect.poll(async () => (await sourcePeakChannels(page, 'field-recording.wave')).channelCount).toBe(2);
 		const peaks = await sourcePeakChannels(page, 'field-recording.wave');
 		expect(peaks.channelCount).toBe(2);
 		expect(peaks.channels[0].maximum).toBeCloseTo(0.3, 3);
@@ -189,6 +190,7 @@ test.describe('audio file import formats', () => {
 		await (await choosingFile).setFiles({ ...encoded, name: 'downloaded-original' });
 		await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 20_000 });
 		expect(await editor.getAttribute('data-project-id')).not.toBe(initialId);
+		await expect.poll(async () => (await sourcePeakChannels(page, 'downloaded-original')).channelCount).toBe(2);
 		const peaks = await sourcePeakChannels(page, 'downloaded-original');
 		expect(peaks.channelCount).toBe(2);
 		expect(peaks.channels[0].maximum).toBeGreaterThan(0.2);
@@ -201,6 +203,7 @@ test.describe('audio file import formats', () => {
 			const editor = await bootEditor(page, '/embed/en/');
 			await importThroughFileMenu(page, editor, file);
 			await expect(clipByName(editor, file.name)).toBeVisible();
+			await expect.poll(async () => (await sourcePeakChannels(page, file.name)).channelCount).toBe(2);
 			const peaks = await sourcePeakChannels(page, file.name);
 			expect(peaks.channelCount).toBe(2);
 			expect(peaks.channels[0].maximum).toBeGreaterThan(0.2);
@@ -244,6 +247,7 @@ test.describe('audio file import formats', () => {
 			await importThroughFileMenu(page, editor, file);
 			await expect(clipByName(editor, file.name)).toBeVisible();
 			await expect(editor).toHaveAttribute('data-clip-count', '1');
+			await expect.poll(async () => (await sourcePeakChannels(page, file.name)).channelCount).toBe(2);
 			const peaks = await sourcePeakChannels(page, file.name);
 			expect(peaks.channelCount).toBe(2);
 			expect(peaks.channels[0].maximum).toBeGreaterThan(0.2);

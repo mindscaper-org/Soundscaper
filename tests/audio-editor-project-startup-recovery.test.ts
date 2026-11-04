@@ -10,10 +10,10 @@ test('a damaged startup project opens a recovery workspace without overwriting o
 	const damage = new Error('Invalid stored project');
 	fixture.setLastProject('damaged', null);
 	fixture.setLoadProject(async () => { throw damage; });
-	const state = { ...fixture.state, startupProjectRecovery: null as { projectId: string; message: string } | null };
+	const state = { ...fixture.state, projectRecovery: null as { projectId: string; message: string; requestId: number } | null };
 	const service = createProjectBootstrapService({
 		...fixture.runtime, state,
-		onStartupProjectFailure: async (id: string, error: unknown) => {
+		onProjectOpenFailure: async (id: string, error: unknown) => {
 			assert.equal(id, 'damaged');
 			assert.equal(error, damage);
 			return true;
@@ -24,7 +24,7 @@ test('a damaged startup project opens a recovery workspace without overwriting o
 		},
 	});
 	await service.bootstrap(fixture.lifetime.capture());
-	assert.deepEqual(state.startupProjectRecovery, { projectId: 'damaged', message: damage.message });
+	assert.deepEqual(state.projectRecovery, { projectId: 'damaged', message: damage.message, requestId: 1 });
 	assert.ok(fixture.events.includes('recovery-workspace'));
 	assert.ok(!fixture.events.includes('save-now'));
 	assert.ok(!fixture.events.includes('cleanup-assets'));
@@ -43,7 +43,7 @@ test('startup recovery does not swallow storage failures or cancellation', async
 		let inspected = 0;
 		const service = createProjectBootstrapService({
 			...fixture.runtime,
-			onStartupProjectFailure: async () => { inspected += 1; return false; },
+			onProjectOpenFailure: async () => { inspected += 1; return false; },
 		});
 		await assert.rejects(service.bootstrap(fixture.lifetime.capture()));
 		assert.equal(inspected, cancel ? 0 : 1);
@@ -54,12 +54,12 @@ test('startup recovery does not swallow storage failures or cancellation', async
 test('a missing current row can offer retained history without inspecting twice', async () => {
 	const fixture = createFixture();
 	fixture.setLastProject('history-only', null);
-	const state = { ...fixture.state, startupProjectRecovery: null as { projectId: string; message: string } | null };
+	const state = { ...fixture.state, projectRecovery: null as { projectId: string; message: string; requestId: number } | null };
 	let inspected = 0;
 	const service = createProjectBootstrapService({ ...fixture.runtime, state,
-		onStartupProjectFailure: async () => { inspected += 1; return true; },
+		onProjectOpenFailure: async () => { inspected += 1; return true; },
 	});
 	await service.bootstrap(fixture.lifetime.capture());
 	assert.equal(inspected, 1);
-	assert.equal(state.startupProjectRecovery?.projectId, 'history-only');
+	assert.equal(state.projectRecovery?.projectId, 'history-only');
 });

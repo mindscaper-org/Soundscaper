@@ -28,6 +28,7 @@ import {
 } from './clip-time-pitch-cache-plan.js';
 import { linkedSourceContentDigest } from './linked-source-cache-content.ts';
 import { ClipTimePitchCacheSessionFence } from './clip-time-pitch-cache-session.ts';
+import { createClipTimePitchPlaybackResolver } from './clip-time-pitch-playback-resolver.ts';
 import { prepareClipTimePitchWorkingInput } from './clip-time-pitch-working-clock.ts';
 import { cloneJson } from './clip-time-pitch-cache-values.ts';
 import {
@@ -278,17 +279,7 @@ export class ClipTimePitchRenderCacheCoordinator {
 	 * substituted; unresolved clips continue through the engine's normal Map.
 	 */
 	createEngineSourceResolver() {
-		return (clip) => {
-			if (!clipNeedsTimePitchRender(clip)) return null;
-			const entry = this.lastCommittedByClip.get(String(clip?.id))?.entry;
-			if (!entry?.audioBuffer) return null;
-			return {
-				buffer: entry.audioBuffer,
-				sourceStartFrame: 0,
-				sourceDurationFrames: entry.frameCount,
-				reversed: false,
-			};
-		};
+		return createClipTimePitchPlaybackResolver(this.lastCommittedByClip, clipNeedsTimePitchRender);
 	}
 
 	dispose() {

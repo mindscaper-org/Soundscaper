@@ -1,3 +1,5 @@
+import TemporaryDataPreferencesPanel, { type TemporaryDataFileService } from './TemporaryDataPreferencesPanel.tsx';
+import type { TemporaryDataPreferences } from '../../saving-preferences.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useEffect, useId, useState } from 'react';
@@ -32,21 +34,24 @@ interface AdvancedPreferencesPageProps {
 	readonly controller: { readonly actions: { readonly preferences: {
 		readonly update: (changes: {
 			readonly advanced?: AudioEditorAdvancedPreferences;
+			readonly temporaryData?: Partial<TemporaryDataPreferences>;
 			readonly performance?: AudioEditorPerformancePreferences;
 			readonly waveformDisplay?: Partial<WaveformDisplayPreferences>;
 		}) => unknown;
 	} } };
 	readonly preferences: {
 		readonly advanced: AudioEditorAdvancedPreferences;
+		readonly temporaryData?: TemporaryDataPreferences;
 		readonly performance?: AudioEditorPerformancePreferences;
 		readonly waveformDisplay?: WaveformDisplayPreferences;
 	};
 	readonly productId?: string;
+	readonly fileService?: TemporaryDataFileService;
 	readonly copy: AdvancedPreferencesCopy;
 	readonly run: (operation: () => unknown) => unknown;
 }
 
-export default function AdvancedPreferencesPage({ controller, preferences, copy, run, productId = 'soundscaper' }: AdvancedPreferencesPageProps) {
+export default function AdvancedPreferencesPage({ controller, preferences, copy, run, fileService, productId = 'soundscaper' }: AdvancedPreferencesPageProps) {
 	const serverUrl = preferences.advanced.audioComServerUrl;
 	const [draft, setDraft] = useState(serverUrl);
 	const [invalid, setInvalid] = useState(false);
@@ -61,6 +66,8 @@ export default function AdvancedPreferencesPage({ controller, preferences, copy,
 		if (audioComServerUrl !== serverUrl) run(() => controller.actions.preferences.update({ advanced: { audioComServerUrl } }));
 	};
 	return <>
+		<TemporaryDataPreferencesPanel controller={controller} preferences={preferences.temporaryData} copy={copy as unknown as Record<string, unknown>} fileService={fileService} run={run} />
+		<Separator />
 		<PreferencePanel title={copy.optimizeFor}>
 			<div className="kw-audio-editor-preferences__grid">
 				<PreferenceDropdownField label={copy.optimizeFor} value={preferences.performance?.optimizeFor ?? 'memory'}

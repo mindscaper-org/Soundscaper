@@ -20,9 +20,12 @@ test('measures arbitrary paused seeks and filmstrip presentation with an externa
 	if (await editor.locator('[data-workspace-panel="project-bin"]').isVisible()) {
 		await closeWorkspacePanel(editor, 'project-bin');
 	}
+	const importStarted = performance.now();
 	await editor.locator('[data-import-input]').setInputFiles(process.env.FRAMESCAPER_REAL_VIDEO);
 	await expect(editor.locator('[data-video-track]')).toHaveCount(1, { timeout: 300_000 });
 	await expect(editor.locator('[data-status]')).toHaveAttribute('data-state', 'success', { timeout: 300_000 });
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
+	console.log(`FRAMESCAPER_REAL_VIDEO_IMPORT ${JSON.stringify({ file: process.env.FRAMESCAPER_REAL_VIDEO, editableMs: performance.now() - importStarted })}`);
 	const preview = editor.locator('[data-video-preview]');
 	await expect(preview).toHaveAttribute('data-video-preview-renderer', 'ready', { timeout: 30_000 });
 	await expect(preview).toHaveAttribute('data-video-preview-visual-pending', 'false', { timeout: 30_000 });

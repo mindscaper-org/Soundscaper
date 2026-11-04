@@ -45,6 +45,24 @@ test('source audition scopes cache preparation without evicting other project cl
 	assert.deepEqual(harness.cache.prepared, ['pitched']);
 });
 
+test('playback preparation preserves history and still-playing clip caches while a replacement loads', async () => {
+	for (const managed of [false, true]) {
+		const project = projectFixture();
+		const gate = deferred<ClipTimePitchCacheEntry>();
+		const harness = createHarness(project, { resolvePlayback: () => gate.promise });
+		const retained = ['history-clip', 'deleted-playing-clip', 'pitched', 'plain', 'video'];
+		harness.cache.retainClipIds(retained);
+
+		const preparation = managed
+			? harness.service.beginPlaybackCachePreparation(project)
+			: harness.service.preparePlaybackTimePitchCaches(project, new AbortController().signal);
+		assert.deepEqual(harness.cache.retained, retained);
+		gate.resolve(cacheEntry('replacement', { audioBuffer: audioBufferFixture() }));
+		await Promise.all(await preparation);
+		assert.deepEqual(harness.cache.retained, retained);
+	}
+});
+
 test('canonical clips need no transient coordinates when deciding whether caches are needed', async () => {
 	const harness = createHarness(projectFixture());
 	harness.cache.retainClipIds(['pitched', 'plain', 'video']);
@@ -68,7 +86,7 @@ test('linked playback and committed exports bypass StaffPad preparation even wit
 	assert.equal(harness.service.projectHasTimePitchClips(project), false);
 	assert.deepEqual(await harness.service.prepareCommittedTimePitchCaches(project), []);
 	assert.deepEqual(await harness.service.beginPlaybackCachePreparation(project), []);
-	assert.deepEqual(harness.cache.retained, ['pitched']);
+	assert.deepEqual(harness.cache.retained, []);
 });
 
 test('committed cache preparation rejects malformed inventories before changing retained clips', async () => {
@@ -120,6 +138,7 @@ test('stale playback refreshes apply only while generation, project, and playbac
 
 	const refreshes = await harness.service.beginPlaybackCachePreparation(project);
 	assert.equal(refreshes.length, 1);
+	assert.equal(harness.service.hasPlaybackCachePreparation(), true);
 	assert.ok(harness.state.playbackCacheRefreshAbort);
 	assert.equal(harness.state.playbackCacheAbort, null);
 	refresh.resolve(cacheEntry('fresh', { channels: [new Float32Array(4)] }));
@@ -127,6 +146,7 @@ test('stale playback refreshes apply only while generation, project, and playbac
 	await new Promise<void>((resolve) => { setImmediate(resolve); });
 	assert.deepEqual(harness.appliedProjects, ['project']);
 	assert.equal(harness.state.playbackCacheRefreshAbort, null);
+	assert.equal(harness.service.hasPlaybackCachePreparation(), false);
 
 	const staleRefresh = deferred<ClipTimePitchCacheEntry>();
 	harness.setResolvePlayback(() => Promise.resolve(cacheEntry('second-stale', {
@@ -134,11 +154,36 @@ test('stale playback refreshes apply only while generation, project, and playbac
 	})));
 	const staleRefreshes = await harness.service.beginPlaybackCachePreparation(project);
 	assert.equal(harness.service.cancelPlaybackCachePreparation(), true);
+	assert.equal(harness.service.hasPlaybackCachePreparation(), false);
 	assert.equal(harness.state.playbackCacheRefreshAbort, null);
 	staleRefresh.resolve(cacheEntry('too-late', { channels: [new Float32Array(4)] }));
 	await assert.rejects(staleRefreshes[0]!, { name: 'AbortError' });
 	await Promise.resolve();
 	assert.deepEqual(harness.appliedProjects, ['project']);
+});
+
+test('editing can wait for fresh playback caches without a competing background project apply', async () => {
+	const project = projectFixture();
+	const fresh = deferred<ClipTimePitchCacheEntry>();
+	const harness = createHarness(project, {
+		resolvePlayback: () => Promise.resolve(cacheEntry('old', {
+			audioBuffer: audioBufferFixture(), stale: true, pending: fresh.promise,
+		})),
+	});
+	let settled = false;
+	const preparation = harness.service.beginPlaybackCachePreparation(project, { waitForFresh: true });
+	void preparation.then(() => { settled = true; });
+	await new Promise<void>((resolve) => { setImmediate(resolve); });
+	assert.equal(settled, false);
+	assert.equal(harness.service.isPlaybackCachePreparationPending(), true);
+	assert.equal(harness.service.hasPlaybackCachePreparation(), true);
+	assert.deepEqual(harness.appliedProjects, []);
+
+	fresh.resolve(cacheEntry('fresh', { channels: [new Float32Array(8)] }));
+	await Promise.all(await preparation);
+	assert.deepEqual(harness.cache.attached, ['fresh']);
+	assert.equal(harness.service.isPlaybackCachePreparationPending(), false);
+	assert.deepEqual(harness.appliedProjects, []);
 });
 
 test('cache-aware render engines receive both the StaffPad resolver and chunk inventory', () => {

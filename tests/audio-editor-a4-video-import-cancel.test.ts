@@ -6,7 +6,7 @@ import type { ImportVideoFrameExtractor } from '../src/common/editor/controller/
 import { createFixture, videoFile } from './helpers/audio-editor-source-import-fixture.ts';
 
 type CaptureOptions = NonNullable<Parameters<ImportVideoFrameExtractor['capture']>[1]> & { readonly signal?: AbortSignal };
-for (const phase of ['metadata', 'poster', 'thumbnail'] as const) test(`Cancel retires a pending native video ${phase} wait before retry`, { timeout: 2000 }, async () => {
+for (const phase of ['metadata', 'poster', 'thumbnail'] as const) test(`Cancellation retires a pending video ${phase} wait in its owning stage`, { timeout: 2000 }, async () => {
 	const fixture = createFixture(), factory = fixture.runtime.createAudioEditorVideoFrameExtractor;
 	const abort = new AbortController(), reason = new DOMException('Cancel video import.', 'AbortError');
 	let notify: (() => void) | undefined, release: (() => void) | undefined, held = false;
@@ -29,11 +29,20 @@ for (const phase of ['metadata', 'poster', 'thumbnail'] as const) test(`Cancel r
 	const operation = importVideo(videoFile(), { destination: 'timeline', trackId: null, timelineStartFrame: 0, signal: abort.signal });
 	const observed = operation.then(() => { status.value = 'completed'; }, error => { status.value = error === reason ? 'aborted' : String(error); });
 	try {
-		await entered; abort.abort(reason); await new Promise<void>(resolve => setImmediate(resolve));
-		assert.equal(status.value, 'aborted', 'Cancel must release the importer without waiting for the native callback.');
-		assert.equal(fixture.commits.length, 0); assert.equal(fixture.sourceBuffers.size, 0);
-		assert.equal(fixture.deletedMedia.length, phase === 'metadata' ? 0 : 1);
+		await entered;
+		if (phase === 'metadata') {
+			abort.abort(reason); await observed;
+			assert.equal(status.value, 'aborted');
+			assert.equal(fixture.commits.length, 0); assert.equal(fixture.sourceBuffers.size, 0);
+		} else {
+			await observed;
+			assert.equal(status.value, 'completed', 'Preview waits must not hold the importer.');
+			fixture.lifetime.cancelScope('project', reason);
+			await fixture.finishDerivatives();
+			assert.equal(fixture.commits.length, 1); assert.equal(fixture.sourceBuffers.size, 1);
+		}
+		assert.deepEqual(fixture.deletedMedia, [], 'Preview cancellation never rolls back committed media.');
 		await importVideo(videoFile('Fresh.mp4'), { destination: 'timeline', trackId: null, timelineStartFrame: 0 });
-		assert.equal(fixture.commits.length, 1);
-	} finally { release?.(); await observed; }
+		assert.equal(fixture.commits.length, phase === 'metadata' ? 1 : 2);
+	} finally { release?.(); await observed; await fixture.finishDerivatives(); }
 });

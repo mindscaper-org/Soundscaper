@@ -17,6 +17,7 @@ import {
 } from './registry.ts';
 import { createTrackFolderRuntimeHandlers } from './track-folder-runtime.ts';
 import { createTrackMixerLabelRuntimeHandlers } from './track-mixer-label-runtime.js';
+import { createMidiRuntimeHandlers } from './midi-runtime.ts';
 import type {
 	AudioEditorCommand,
 	EditorCommandHandlerRegistry,
@@ -32,6 +33,7 @@ export function createEditorCommandRuntime(
 	dispatchChild: ChildCommandDispatcher,
 ): Readonly<EditorCommandHandlerRegistry> {
 	return defineEditorCommandHandlerRegistry({
+		midi: createMidiRuntimeHandlers(),
 		projectSourceBin: createProjectSourceBinRuntimeHandlers(dispatchChild),
 		tempoSignature: createTempoSignatureRuntimeHandlers(),
 		sequenceTiming: createSequenceTimingRuntimeHandlers(),

@@ -52,11 +52,6 @@
 		}
 	},
 	"evidence": {
-		"lineEndings": {
-			"path": ".gitattributes",
-			"byteLength": 4085,
-			"sha256": "6f24de3e2795936e97438dbe41799c322c6fa731eb82f451a0738a9a7ea049a2"
-		},
 		"correspondingSource": {
 			"path": "desktop/ffmpeg-corresponding-source.json",
 			"byteLength": 780,
@@ -64,28 +59,9 @@
 		},
 		"notices": {
 			"path": "THIRD_PARTY_LICENSES.md",
-			"byteLength": 96342,
-			"sha256": "1c0e643c0e76668eb15dbd1f6e2aeb3eaf820166a57a4c2bab9ececb29d24196"
-		},
-		"licensingPolicy": {
-			"path": "docs/policies/licensing.md",
-			"byteLength": 34612,
-			"sha256": "c0bc6ca3cc634bd1eb457b5a22a7bae4bf944f23084e0529f2fbf28d0879f392"
-		},
-		"licensingMatrix": {
-			"path": "config/production-licensing-matrix.json",
-			"byteLength": 157762,
-			"sha256": "1f1d99f13ee97168797003b9ea96d6d02da36addc7aec59e3fbae836f5528ed5"
-		},
-		"securityMatrix": {
-			"path": "config/production-security-matrix.json",
-			"byteLength": 915564,
-			"sha256": "73072654e397571fd41d4edc8b4a9a33fb6ec7df880440ed32e875fcae08134d"
-		},
-		"threatModel": {
-			"path": "docs/policies/security.md",
-			"byteLength": 356155,
-			"sha256": "34e57e777606a2be5297fbab3373f9cd3eb0647ad2a96501b7c8d8c6e280d664"
+			"byteLength": 4128,
+			"sha256": "12af49fa293601fdd11cee9fb0dcb9bcbb09dc4096de3af7e2a555ddb9377ff6",
+			"section": "Retained legacy FFmpeg WebAssembly publication and audit tooling"
 		}
 	},
 	"security": {
@@ -115,6 +91,6 @@
 		}
 	},
 	"integrity": {
-		"payloadSha256": "3f88144f5c99ec421762a94eb3e8d97f2fa802b8e29f7a644de803a1479c6d10"
+		"payloadSha256": "481b98e00c243b39261090acdb5486e97eb573812c8397d142348bcb8813a3ea"
 	}
 }

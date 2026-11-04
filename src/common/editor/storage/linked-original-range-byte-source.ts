@@ -2,6 +2,7 @@
 
 import { MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../../media/content-digest.ts';
 import { createAbortGuard } from '../../foundation/abort-error.ts';
+import { readSourceWithRecovery } from './source-read-recovery.ts';
 
 export const LINKED_ORIGINAL_RANGE_MAXIMUM_BYTES = MEDIA_CONTENT_DIGEST_CHUNK_BYTES;
 const throwIfAborted = createAbortGuard('Linked original range access was cancelled.');
@@ -25,6 +26,7 @@ export interface LinkedOriginalRangeByteSource {
 interface LinkedOriginalRangeByteSourceOptions {
 	readonly size: number;
 	readonly type: string;
+	readonly boundedReads?: boolean;
 	readRange(
 		request: LinkedOriginalRangeReadRequest,
 	): PromiseLike<Uint8Array> | Uint8Array;
@@ -43,6 +45,7 @@ export function createLinkedOriginalRangeByteSource(
 	}
 	const type = options.type;
 	const readRange = options.readRange;
+	const boundedReads = options.boundedReads === true;
 	return Object.freeze({ size, type, slice });
 
 	async function slice(
@@ -73,7 +76,9 @@ export function createLinkedOriginalRangeByteSource(
 	): Promise<Uint8Array> {
 		let bytes: Uint8Array;
 		try {
-			bytes = await readRange({ offset, length, ...(signal ? { signal } : {}) });
+			bytes = boundedReads
+				? await readRange({ offset, length, ...(signal ? { signal } : {}) })
+				: await readSourceWithRecovery(current => readRange({ offset, length, signal: current }), { signal });
 		} catch (error) {
 			throwIfAborted(signal);
 			throw error;

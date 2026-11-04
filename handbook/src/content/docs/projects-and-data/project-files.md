@@ -9,7 +9,10 @@ sidebar:
 
 The editor saves working projects into its local library. In a browser this is
 origin-private storage; in the desktop edition it is application data. This is
-the convenient working copy, not the only copy you should keep.
+a temporary working copy. Save an `.sscape` or `.fscape` file for a copy you control.
+When you open one of these files, **Save** updates that file; internal recovery
+saves continue separately. **Auto-saving** in General preferences controls
+automatic updates to the file.
 
 ## Scape project files
 

@@ -37,7 +37,7 @@ export type ControllerWorkspaceState<Preferences, EffectPresets, History = Contr
 	visibleTrackHeights: Record<string, number>;
 	timelineView: ProjectViewState['timelineView'];
 	takeCycleRecovery: TakeCyclePendingOpenRecovery | null;
-	startupProjectRecovery: Readonly<{ projectId: string; message: string }> | null;
+	projectRecovery: Readonly<{ projectId: string; message: string; requestId: number }> | null;
 	projectLock: ProjectLifecycleLock | null;
 	projectBinPreview: ProjectBinPreview | null;
 	exportAbort: EditorCancellableHandle | null;

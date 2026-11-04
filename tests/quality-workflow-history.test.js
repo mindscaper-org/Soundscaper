@@ -9,11 +9,11 @@ import { expandNpmScript, extractJob, npmScriptsRunBy, readWorkflow } from './he
 
 // Both workflows run the static gate and Node suite. Quality also scores the
 // combined Node/Chromium coverage; desktop distribution only tests Electron.
-// Quality separates the static checks, while desktop preview runs them as one job
-// and resolves its release scope there.
+// Both workflows split static checks across independent jobs. Desktop preview
+// forwards the build's release scope through its aggregate quality job.
 const WORKFLOWS = new Map([
 	['quality.yml', { staticJobs: ['build', 'lint', 'typecheck', 'audits'], buildJob: 'build', historyJobs: ['audits'], coverageGate: true }],
-	['desktop-preview.yml', { staticJobs: ['quality'], buildJob: 'quality', historyJobs: ['quality'], coverageGate: false }],
+	['desktop-preview.yml', { staticJobs: ['build', 'lint', 'typecheck', 'audits'], buildJob: 'build', historyJobs: ['build', 'audits'], coverageGate: false }],
 ]);
 
 // `test:coverage` runs the whole Node suite and reports fresh local evidence.
@@ -142,7 +142,7 @@ for (const [workflowName, { staticJobs, buildJob, historyJobs, coverageGate }] o
 		}
 	});
 
-	test(`${workflowName} shards the Node suite by owner with coverage collected only for its union gate`, async () => {
+	test(`${workflowName} balances module suites across Node execution slots with coverage collected only for its union gate`, async () => {
 		const workflow = await readWorkflow(workflowName);
 		const tests = extractJob(workflow, 'tests');
 
@@ -155,7 +155,7 @@ for (const [workflowName, { staticJobs, buildJob, historyJobs, coverageGate }] o
 			assert.match(extractJob(workflow, 'coverage'), /^\s+needs: (?:tests|\[[^\]\n]*\btests\b[^\]\n]*\])$/mu,
 				'the thresholds may only be checked once every shard has reported');
 		} else {
-			assert.match(tests, /npm run test -- --shard=/u);
+			assert.match(tests, /npm run test -- --module-shard=/u);
 			assert.doesNotMatch(tests, /coverage:|test:shard/u);
 		}
 	});
@@ -172,9 +172,10 @@ for (const [workflowName, { staticJobs, buildJob, historyJobs, coverageGate }] o
 		}
 	});
 
-	test(`${workflowName} publishes a verified website build only for browser consumers`, async () => {
+	test(`${workflowName} publishes prepared website bytes only for browser consumers`, async () => {
 		const workflow = await readWorkflow(workflowName);
-		const publishers = gateJobs.filter((jobName) => extractJob(workflow, jobName).includes('verified-site-build'));
+		assert.doesNotMatch(workflow, /name: verified-site-build\n/u, 'the unprepared site artifact has no CI consumer');
+		const publishers = gateJobs.filter((jobName) => extractJob(workflow, jobName).includes('name: verified-soundscaper-browser-site-build'));
 		assert.deepEqual(publishers, coverageGate ? [buildJob] : [],
 			'only workflows with browser consumers should upload the website build');
 	});

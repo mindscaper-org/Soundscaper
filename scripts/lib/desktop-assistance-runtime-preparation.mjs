@@ -14,7 +14,7 @@ import { stageDesktopAssistanceSpeechRuntime } from './desktop-assistance-speech
 import { stageDesktopKokoroG2pRuntime } from './desktop-kokoro-g2p-runtime.mjs';
 
 export async function prepareDesktopAssistanceRuntimeSet({
-	repositoryRoot, buildRoot, targetId, sourceRevision, handoffRoot,
+	repositoryRoot, buildRoot, targetId, sourceRevision, handoffRoot, enginePartsRoot,
 }, {
 	stageSpeech = stageDesktopAssistanceSpeechRuntime,
 	stageFamilies = stageDesktopAssistanceRuntimeFamilies,
@@ -34,7 +34,9 @@ export async function prepareDesktopAssistanceRuntimeSet({
 	const assistanceSpeechRuntime = await phase('Sherpa ONNX', () => stageSpeech({
 		repositoryRoot, targetId, nodeModulesRoot: resolve(repositoryRoot, 'node_modules'), runtimeRoot, cacheRoot,
 	}));
-	const assistanceRuntimeFamilies = await phase('ONNX, Whisper and llama', () => stageFamilies({ targetId, runtimeRoot, cacheRoot }));
+	const assistanceRuntimeFamilies = await phase('ONNX, Whisper and llama', () => stageFamilies({
+		targetId, runtimeRoot, cacheRoot, enginePartsRoot, sourceRevision,
+	}));
 	const kokoroBuild = await phase('Kokoro G2P build/cache verification', () => buildKokoro({
 		targetId, outputRoot: resolve(cacheRoot, 'kokoro-g2p'), cacheRoot: resolve(cacheRoot, 'kokoro-g2p-cache'),
 	}));
@@ -78,7 +80,7 @@ export async function writeDesktopAssistanceRuntimeStage({ buildRoot, targetId, 
 	return stage;
 }
 
-export async function prepareDesktopAssistanceOnly({ repositoryRoot, targetId, sourceRevision }, {
+export async function prepareDesktopAssistanceOnly({ repositoryRoot, targetId, sourceRevision, handoffRoot, enginePartsRoot }, {
 	prepare = prepareDesktopAssistanceRuntimeSet,
 } = {}) {
 	// Validate before replacing even disposable output from a previous preparation.
@@ -86,7 +88,7 @@ export async function prepareDesktopAssistanceOnly({ repositoryRoot, targetId, s
 	const buildRoot = resolve(repositoryRoot, '.desktop-build');
 	await rm(buildRoot, { recursive: true, force: true });
 	await mkdir(buildRoot, { recursive: true });
-	const prepared = await prepare({ repositoryRoot, buildRoot, targetId, sourceRevision });
+	const prepared = await prepare({ repositoryRoot, buildRoot, targetId, sourceRevision, handoffRoot, enginePartsRoot });
 	return writeDesktopAssistanceRuntimeStage({ buildRoot, targetId, sourceRevision, prepared });
 }
 

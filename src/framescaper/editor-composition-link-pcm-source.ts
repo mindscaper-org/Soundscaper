@@ -6,6 +6,8 @@ import { resolveFramescaperCompositionAudioSource } from './editor-composition-l
 import { createFramescaperCompositionResources, type FramescaperCompositionAssetReader } from './editor-composition-link-resources.ts';
 
 export interface FramescaperCompositionPcmSource extends EngineChunkSource {
+	/** Acquisition and rendering retain the engine's outer read watchdog. */
+	readonly boundedReads: false;
 	readStorageChunk(chunkIndex: number, context?: EngineChunkReadContext): Promise<readonly Float32Array[]>;
 	dispose(): Promise<void>;
 }
@@ -23,6 +25,7 @@ export function createFramescaperCompositionPcmSource(options: Readonly<{
 	let closing: Promise<void> | null = null; const lifetime = new AbortController();
 	return Object.freeze({
 		channelCount: source.channelCount, frameCount: source.frameCount, sampleRate: source.sampleRate, chunkFrames: source.chunkFrames,
+		boundedReads: false,
 		async readStorageChunk(chunkIndex: number, context?: EngineChunkReadContext): Promise<readonly Float32Array[]> {
 			if (disposed) throw new Error('Composition PCM source is disposed.');
 			const index = motionInteger(chunkIndex, 'composition PCM chunk index'); const start = index * source.chunkFrames;

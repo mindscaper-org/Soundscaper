@@ -267,6 +267,8 @@ export function createStoredChunkProvider(
 		frameCount: source.frameCount,
 		chunkFrames: Number(Object.hasOwn(metadata, 'chunkFrames') ? metadata.chunkFrames : source.chunkFrames),
 		sampleRate: source.sampleRate,
+		// This provider verifies complete linked files through individually bounded range reads.
+		boundedReads: metadata.storage === 'linked-audio-original-v1',
 		readStorageChunk(chunkIndex: number, context: Record<string, unknown> = {}): Promise<unknown> | unknown {
 			if (disposed) throw disposedError;
 			if (store.openSourceReadSession) return readSessionChunk(chunkIndex, context);

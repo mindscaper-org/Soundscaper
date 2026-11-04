@@ -127,7 +127,7 @@ test('cancelling one provider lookup does not cancel the next restored-session s
 	await started;
 	const next = client.search({ query: 'forest again', page: 1 });
 	await new Promise<void>(resolve => setImmediate(resolve));
-	first.abort();
+	first.abort(new Error('Cancelled lookup.'));
 	await cancelled;
 	assert.equal((await next).results[0].title, 'Forest');
 });

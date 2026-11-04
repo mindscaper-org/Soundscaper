@@ -249,6 +249,18 @@ class SessionStore {
 		return { index, frames, channels: [new Float32Array(frames)] };
 	}
 
+	async *readSourceChunks(sourceId, { signal } = {}) {
+		signal?.throwIfAborted();
+		const metadata = await this.getSourceMetadata(sourceId);
+		if (!metadata) throw new Error(`Missing source ${sourceId}.`);
+		for (let index = 0; index < metadata.chunkCount; index += 1) {
+			signal?.throwIfAborted();
+			const chunk = await this.readSourceChunk(sourceId, index);
+			signal?.throwIfAborted();
+			yield chunk;
+		}
+	}
+
 	async openSourceReadSession(sourceId) {
 		this.events.push('session:open');
 		return {

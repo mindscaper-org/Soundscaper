@@ -4,6 +4,7 @@ import { createLocalizedError } from '../../../i18n/presentation-message.ts'; im
 
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import type { ProjectFlushOptions } from './project-save-service.ts';
+import { isPlaybackNeutralRename } from './internal/playback-neutral-rename.ts';
 import { selectedLabelsForProject, type SelectedLabelState } from '../../label-clipboard-selection.ts';
 import {
 	assertEditorCommandCapabilities,
@@ -150,7 +151,10 @@ export interface ProjectMutationServiceDependencies<
 	/** Move the transport's playhead, answering where it actually landed. */
 	readonly seekPlayhead?: (frame: number) => number | null | undefined;
 	readonly projectHasTimePitchClips: (project: Project) => boolean;
-	readonly beginPlaybackCachePreparation: (project: Project) => PromiseLike<unknown>;
+	readonly hasPendingPlaybackCachePreparation?: () => boolean;
+	readonly beginPlaybackCachePreparation: (
+		project: Project, options?: Readonly<{ waitForFresh?: boolean }>,
+	) => PromiseLike<unknown>;
 	readonly applyProjectToPlaybackEngine: (project: Project) => PromiseLike<unknown>;
 	readonly captureProject: (projectId: string) => ProjectToken;
 	readonly assertProject: (token: ProjectToken) => void;
@@ -199,6 +203,7 @@ export function createProjectMutationService<
 	>,
 ): Readonly<ProjectMutationService<Project>> {
 	let openMacroTransactions = 0;
+	let pendingPlaybackProjects = 0;
 	let pendingPlayheadRestore: Readonly<{ frame: number; landed: unknown }> | null = null;
 
 	return Object.freeze({
@@ -233,7 +238,10 @@ export function createProjectMutationService<
 		if (Object.hasOwn(selection, 'selectClipId')) {
 			dependencies.state.selectedClipId = selection.selectClipId ?? null;
 		}
-		projectChanged(options);
+		// Name-only changes leave the current graph intact. projectChanged still
+		// carries pending audio edits forward through their new document identity.
+		projectChanged({ ...options, skipPlaybackEngine: options.skipPlaybackEngine
+			?? isPlaybackNeutralRename(command) });
 		return requireProject();
 	}
 
@@ -298,6 +306,7 @@ export function createProjectMutationService<
 		dependencies.setProject(nextHistory.present);
 		dependencies.synchronizeAnnotationFocus();
 		if (dependencies.state.selectedLabels?.length) dependencies.state.selectedLabels = [];
+		if (openMacroTransactions === 0 && playbackProjectPending()) queuePlaybackProject(nextHistory.present);
 		dependencies.publisher.publishProjectState();
 		return nextHistory.present;
 	}
@@ -337,7 +346,7 @@ export function createProjectMutationService<
 		dependencies.synchronizeMicrophoneMeterTarget();
 		dependencies.synchronizeAnnotationFocus();
 		restorePlayhead(options.restorePlayheadFrame);
-		if (settling && !options.skipPlaybackEngine) queuePlaybackProject(project);
+		if (settling && (!options.skipPlaybackEngine || playbackProjectPending())) queuePlaybackProject(project);
 		dependencies.publisher.publishProjectState();
 		if (settling) dependencies.saves.scheduleAutosave();
 	}
@@ -366,12 +375,26 @@ export function createProjectMutationService<
 		const projectToken = dependencies.captureProject(project.id);
 		const prepare = dependencies.getPlaybackState() === 'playing'
 			&& dependencies.projectHasTimePitchClips(project);
+		pendingPlaybackProjects += 1;
 		void applyWhenCurrent().catch((error: unknown) => {
 			if (!dependencies.isExpectedCancellation(error)) dependencies.handleError(error);
+		}).finally(() => {
+			pendingPlaybackProjects -= 1;
 		});
 
 		async function applyWhenCurrent(): Promise<void> {
-			if (prepare) await dependencies.beginPlaybackCachePreparation(project);
+			try {
+				if (prepare) await dependencies.beginPlaybackCachePreparation(project, { waitForFresh: true });
+				await applyCurrent();
+			} catch (error) {
+				if (!dependencies.isExpectedCancellation(error) || dependencies.getPlaybackState() === 'playing') throw error;
+				// Stop/Pause cancels preparation, but the idle engine must still learn
+				// the edited geometry before the next explicit Play prepares its PCM.
+				await applyCurrent();
+			}
+		}
+
+		async function applyCurrent(): Promise<void> {
 			dependencies.lifetime.assertActive(lifetimeToken);
 			dependencies.assertProject(projectToken);
 			if (dependencies.getProject() !== project) return;
@@ -380,6 +403,10 @@ export function createProjectMutationService<
 			dependencies.assertProject(projectToken);
 			settlePlayheadRestore();
 		}
+	}
+
+	function playbackProjectPending(): boolean {
+		return pendingPlaybackProjects > 0 || dependencies.hasPendingPlaybackCachePreparation?.() === true;
 	}
 
 	/**

@@ -25,9 +25,124 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Match Quality's four independent static lanes. Each lane walks its own
+  # complete check set; the aggregate retains the downstream quality contract.
   quality:
+    name: Quality
+    if: always()
+    needs: [lint, typecheck, audits, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      release-products: ${{ needs.build.outputs.release-products }}
+      release-product-pattern: ${{ needs.build.outputs.release-product-pattern }}
+      release-assembler-arguments: ${{ needs.build.outputs.release-assembler-arguments }}
+      package-audit-arguments: ${{ needs.build.outputs.package-audit-arguments }}
+      release-channel: ${{ needs.build.outputs.release-channel }}
+    steps:
+      - name: Require every static shard to succeed
+        env:
+          STATIC_JOB_RESULTS: ${{ join(needs.*.result, ',') }}
+        run: test "$STATIC_JOB_RESULTS" = 'success,success,success,success'
+
+  lint:
+    name: Lint
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Pin npm
+        run: npm install --global npm@12.0.1
+
+      - name: Restore or install verified dependencies
+        uses: ./.github/actions/verified-node-dependencies
+        with:
+          scope: ubuntu-24.04
+
+      - name: Lint every shard
+        run: npm run lint
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Pin npm
+        run: npm install --global npm@12.0.1
+
+      - name: Restore or install verified dependencies
+        uses: ./.github/actions/verified-node-dependencies
+        with:
+          scope: ubuntu-24.04
+
+      - name: Type-check every project
+        run: npm run typecheck
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+
+  audits:
+    name: Architecture and audits
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NODE_OPTIONS: --max-old-space-size=8192
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          # Audits read revision-bound source and notice inputs.
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Pin npm
+        run: npm install --global npm@12.0.1
+
+      - name: Restore or install verified dependencies
+        uses: ./.github/actions/verified-node-dependencies
+        with:
+          scope: ubuntu-24.04
+
+      - name: Check the architecture rules
+        run: npm run check:architecture
+
+      - name: Audit the pinned third-party payloads
+        run: npm run audit:ci
+
+  build:
+    name: Build and handbook
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      NODE_OPTIONS: --max-old-space-size=8192
     outputs:
       release-products: ${{ steps.release-scope.outputs.products }}
       release-product-pattern: ${{ steps.release-scope.outputs.product-pattern }}
@@ -69,25 +184,20 @@ jobs:
       - name: Pin npm
         run: npm install --global npm@12.0.1
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Restore or install verified dependencies
+        uses: ./.github/actions/verified-node-dependencies
+        with:
+          scope: ubuntu-24.04
 
-      - name: Run the canonical quality checks that are not the Node test suite
-        # The Node suite runs in the per-product `tests` shards below. Browser
-        # testing and combined coverage enforcement belong to quality.yml.
-        run: npm run check:static
-        env:
-          # Type-aware linting of the whole tree exhausts the default old-space
-          # limit and dies with "Ineffective mark-compacts near heap limit"
-          # before it reports a single rule. The ubuntu-24.04 runner has 16 GiB.
-          NODE_OPTIONS: --max-old-space-size=8192
+      - name: Check and build the Soundscaper handbook
+        run: npm run docs:check
+
+      - name: Build the site
+        run: npm run build
 
       - name: Measure the built transfer documents against the build just made
-        # The same step quality.yml runs in its `build` job, for the same
-        # reason. This job does what that whole gate does, in one runner rather
-        # than sharded across several - nothing waits on it in a hurry, and the
-        # release scope resolved above has to be an output of it.
-        # The `tests` shards below never build, and the
+        # Keep the guard beside the build, as in quality.yml. The Node test
+        # shards below never build, and the
         # three assertions in this file that read `dist/` are the only ones that
         # can see the chunk-graph edge no source-level model declares: rolldown
         # injects `vite/preload-helper` into the transfer chunk for its dynamic
@@ -98,17 +208,18 @@ jobs:
         env:
           SOUNDSCAPER_TRANSFER_BUILD_REQUIRED: '1'
 
-      - name: Prepare one fresh desktop test runtime for the common shards
+      - name: Prepare one fresh desktop test runtime for consuming suites
         uses: ./.github/actions/prepare-desktop-runtime-test-fixture
+        with:
+          collect-coverage: 'false'
 
   tests:
     name: Tests / ${{ matrix.shard }}
     needs: quality
     strategy:
       fail-fast: false
-      # Product ownership separates Framescaper and Soundscaper tests; the
-      # shared tests run in two stable filename-hash partitions. Wait for lint
-      # and typecheck so a static-check failure does not burn the test runners.
+      # Balance module and integration suites across five stable artifact slots.
+      # Wait for static checks before starting the test runners.
       matrix:
         shard: [common-1, common-2, framescaper, soundscaper, motionscaper]
     runs-on: ubuntu-24.04
@@ -149,7 +260,7 @@ jobs:
 
       - name: Resolve the selected test prerequisites
         id: test-prerequisites
-        run: node scripts/ci-test-prerequisites.mjs --node-shard=${{ matrix.shard }} >> "$GITHUB_OUTPUT"
+        run: node scripts/ci-test-prerequisites.mjs --node-module-shard=${{ matrix.shard }} >> "$GITHUB_OUTPUT"
 
       - name: Resolve the interchange download cache identity
         if: steps.test-prerequisites.outputs.interchange == 'true'
@@ -169,7 +280,7 @@ jobs:
         run: npm run provision:interchange-conformance
 
       - name: Restore authenticated Boost test headers
-        if: matrix.shard == 'framescaper'
+        if: steps.test-prerequisites.outputs.boost == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .wrangler/test-download-cache/boost
@@ -177,11 +288,11 @@ jobs:
             boost-test-headers-v1-${{ hashFiles('config/boost-multiprecision-source-manifest.json', 'native/framescaper-media-host/source-manifest.json', 'scripts/lib/framescaper-boost-ci.mjs', 'scripts/lib/framescaper-boost-ci-cache.mjs') }}
 
       - name: Provision pinned Boost closure for Framescaper native tests
-        if: matrix.shard == 'framescaper'
+        if: steps.test-prerequisites.outputs.boost == 'true'
         run: node scripts/ci-provision-framescaper-boost.mjs
 
       - name: Restore Electron binary for the desktop protocol test
-        if: matrix.shard == 'common-2'
+        if: steps.test-prerequisites.outputs.electron == 'true'
         run: |
           if [ ! -x node_modules/electron/dist/electron ]; then
             node node_modules/electron/install.js
@@ -189,14 +300,14 @@ jobs:
           test -x node_modules/electron/dist/electron
 
       - name: Download the fresh desktop test runtime
-        if: matrix.shard == 'common-1' || matrix.shard == 'common-2'
+        if: steps.test-prerequisites.outputs.desktop_runtime == 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: node-desktop-runtime-fixture-${{ github.sha }}
           path: .wrangler/node-desktop-runtime-fixture
 
       - name: Run the ${{ matrix.shard }} Node test shard
-        run: xvfb-run --auto-servernum npm run test -- --shard=${{ matrix.shard }} --require-linux-native --desktop-runtime-fixture=.wrangler/node-desktop-runtime-fixture
+        run: xvfb-run --auto-servernum npm run test -- --module-shard=${{ matrix.shard }} --require-linux-native --desktop-runtime-fixture=.wrangler/node-desktop-runtime-fixture
         env:
           # A few tests stage large buffers. Keep their existing heap headroom;
           # the ubuntu-24.04 runner has 16 GiB, leaving room for Electron and xvfb.
@@ -205,8 +316,7 @@ jobs:
   prepare-assistance-runtime-handoff:
     if: ${{ !startsWith(github.ref, 'refs/tags/motionscaper-v') }}
     name: Build AI runtimes / ${{ matrix.target.platform }} / ${{ matrix.target.arch }}
-    # Compile once while quality runs. Publication remains behind its gates.
-    timeout-minutes: ${{ matrix.target.platform == 'win' && 180 || 90 }}
+    # Each target starts alongside quality; Windows ARM engines use separate runners.
     strategy:
       fail-fast: false
       matrix:
@@ -231,81 +341,9 @@ jobs:
             platform: linux
             arch: arm64
             node_arch: arm64
-    runs-on: ${{ matrix.target.runner }}
-    steps:
-      - name: Check out source
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-          ref: ${{ github.sha }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
-        with:
-          node-version-file: .nvmrc
-          architecture: ${{ matrix.target.node_arch }}
-          cache: npm
-
-      - name: Set up native tooling
-        uses: ./.github/actions/setup-native-tooling
-
-      - name: Pin npm
-        run: npm install --global npm@12.0.1
-
-      - name: Restore or install verified dependencies
-        uses: ./.github/actions/verified-node-dependencies
-        with:
-          scope: desktop-native
-
-      - name: Install local-model build tools
-        if: runner.os == 'Linux'
-        timeout-minutes: 10
-        run: bash scripts/ci-apt-install.sh build-essential cmake pkg-config python3
-
-      - name: Set up the locked Kokoro G2P builder
-        uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
-        with:
-          version: 0.12.5
-
-      - name: Prepare the verified Kokoro G2P bundle
-        uses: ./.github/actions/verified-kokoro-g2p
-        with:
-          target: ${{ matrix.target.platform }}-${{ matrix.target.arch }}
-
-      - name: Stage the authenticated AI runtime archives
-        run: node scripts/prepare-assistance-runtimes.mjs
-        env:
-          SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ matrix.target.platform }}
-          SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.target.arch }}
-          SOUNDSCAPER_SOURCE_REVISION: ${{ github.sha }}
-
-      - name: Export the source-bound AI runtime handoff
-        run: node scripts/export-assistance-runtime-handoff.mjs
-        env:
-          SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ matrix.target.platform }}
-          SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.target.arch }}
-          SOUNDSCAPER_SOURCE_REVISION: ${{ github.sha }}
-          SOUNDSCAPER_ASSISTANCE_RUNTIME_HANDOFF_ROOT: ${{ github.workspace }}/.native-build/assistance-runtime-handoff
-
-      - name: Upload the verified AI runtime authority
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: assistance-runtime-handoff-${{ matrix.target.platform }}-${{ matrix.target.arch }}
-          path: .native-build/assistance-runtime-handoff/
-          include-hidden-files: true
-          compression-level: 0
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Retain the authenticated archives for offline consumers
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: assistance-runtime-archives-${{ matrix.target.platform }}-${{ matrix.target.arch }}
-          path: .desktop-build/assistance-distribution/
-          include-hidden-files: true
-          compression-level: 0
-          if-no-files-found: error
-          retention-days: 1
+    uses: ./.github/workflows/desktop-assistance-runtimes.yml
+    with:
+      target: ${{ toJSON(matrix.target) }}
 
   publish-assistance-runtime-handoff:
     if: ${{ !startsWith(github.ref, 'refs/tags/motionscaper-v') }}
@@ -392,12 +430,12 @@ jobs:
           npm run provision:milestone-5-native-sources -- \
             --root "$RUNNER_TEMP/soundscaper-professional-native-source-cache" \
             --source electron-node-api-headers --source juce --source clap \
-            --source vst3-sdk --source vamp-plugin-sdk --source ara-api --source ara-library \
+            --source vst3-sdk --source fst --source vamp-plugin-sdk --source ara-api --source ara-library \
             --source asio-sdk --source ladspa-sdk --source lv2
           npm run provision:milestone-5-native-sources -- --check \
             --root "$RUNNER_TEMP/soundscaper-professional-native-source-cache" \
             --source electron-node-api-headers --source juce --source clap \
-            --source vst3-sdk --source vamp-plugin-sdk --source ara-api --source ara-library \
+            --source vst3-sdk --source fst --source vamp-plugin-sdk --source ara-api --source ara-library \
             --source asio-sdk --source ladspa-sdk --source lv2
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -700,7 +738,7 @@ jobs:
           name: desktop-milestone-5-native-audit-source-cache
           path: ${{ runner.temp }}/soundscaper-milestone-5-audit-source-cache
 
-      - name: Audit the Milestone 5 package
+      - name: Audit the desktop package
         run: >-
           node scripts/audit-milestone-5-package.mjs --output
           "${{ runner.temp }}/milestone-5-package-audit-${{ matrix.product }}-${{ matrix.target.platform }}-${{ matrix.target.arch }}.json"
@@ -711,10 +749,10 @@ jobs:
           SOUNDSCAPER_SOURCE_REVISION: ${{ github.sha }}
           SOUNDSCAPER_M5_NATIVE_SOURCE_ROOT: ${{ matrix.product == 'framescaper' && format('{0}/soundscaper-milestone-5-audit-source-cache', runner.temp) || format('{0}/soundscaper-professional-native-source-cache', runner.temp) }}
 
-      - name: Upload the Milestone 5 package audit
+      - name: Upload the desktop package audit
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: milestone-5-package-audit-${{ matrix.product }}-${{ matrix.target.platform }}-${{ matrix.target.arch }}
+          name: desktop-package-audit-${{ matrix.product }}-${{ matrix.target.platform }}-${{ matrix.target.arch }}
           path: ${{ runner.temp }}/milestone-5-package-audit-${{ matrix.product }}-${{ matrix.target.platform }}-${{ matrix.target.arch }}.json
           if-no-files-found: error
           retention-days: 14
@@ -739,7 +777,7 @@ jobs:
         run: node scripts/desktop-signing-keychain.mjs cleanup
 
   milestone-5-package-audit-summary:
-    name: Re-audit the Milestone 5 packages
+    name: Re-audit desktop packages
     if: always() && needs.package.result == 'success'
     needs: [quality, package, milestone-5-native-audit-source]
     runs-on: ubuntu-24.04
@@ -816,10 +854,10 @@ jobs:
           SOUNDSCAPER_SOURCE_REVISION: ${{ github.sha }}
           SOUNDSCAPER_M5_NATIVE_SOURCE_ROOT: ${{ contains(fromJSON(needs.quality.outputs.release-products), 'framescaper') && format('{0}/soundscaper-milestone-5-audit-source-cache', runner.temp) || format('{0}/soundscaper-professional-native-source-cache', runner.temp) }}
 
-      - name: Upload the Milestone 5 package-audit summary
+      - name: Upload the desktop package audit summary
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: milestone-5-package-audit-summary
+          name: desktop-package-audit-summary
           path: ${{ runner.temp }}/milestone-5-package-audit-summary.json
           if-no-files-found: error
           retention-days: 14

@@ -119,7 +119,8 @@ export async function fetchDesktopReleases(fetchImpl: typeof fetch): Promise<unk
 				'X-GitHub-Api-Version': '2026-03-10',
 			},
 			signal,
-			redirect: 'error',
+			// Workers supports manual/follow only; reject redirects through response.ok below.
+			redirect: 'manual',
 			cf: { cacheEverything: true, cacheTtlByStatus: { '200-299': 300, '400-599': 0 } },
 		};
 		const response = await fetchImpl(url, options);

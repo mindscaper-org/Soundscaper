@@ -20,7 +20,8 @@ import { desktopExternalDestination } from '../src/common/editor/ui/workspace-ru
 import { staticRouteGeneratorArguments } from './helpers/static-route-generator-subprocess.ts';
 
 const execFileAsync = promisify(execFile);
-const CONTROLLER = 'Koytek Wattenberg Media UG (haftungsbeschränkt)';
+const CONTROLLER = 'Mindscaper';
+const ADDRESS = 'Kirke Allé 5a, 6400 Sønderborg';
 const CONTACT = 'privacy@support.soundscaper.org';
 
 test('privacy policy locale and product URLs are closed over English and German routes', () => {
@@ -41,17 +42,17 @@ test('privacy policy locale and product URLs are closed over English and German 
 
 test('English and German dialog content carries equivalent privacy disclosures', () => {
 	const policies = [privacyPolicyContent('en'), privacyPolicyContent('de')];
-	const effectiveDates = ['15 October 2026', '15. Oktober 2026'];
+	const effectiveDates = ['3 November 2026', '3. November 2026'];
 	for (const [index, policy] of policies.entries()) {
 		const prose = [policy.effectiveDate, policy.summary, ...policy.sections.flatMap(
 			({ heading, body }) => [heading, body],
 		)].join('\n');
-		// Both are literal strings, so a substring check asserts what the test
-		// means. Compiling them as patterns instead escaped only the parentheses
-		// of the controller name and left the address's dots matching any
-		// character at all.
-		assert.ok(prose.includes(CONTROLLER), `the policy names the controller ${CONTROLLER}`);
-		assert.ok(prose.includes(CONTACT), `the policy names the contact address ${CONTACT}`);
+		const controller = policy.sections.find(({ id }) => id === 'controller')?.body ?? '';
+		// Match contact details literally so punctuation is not treated as regex syntax.
+		assert.ok(controller.includes(CONTROLLER), `the policy names the controller ${CONTROLLER}`);
+		assert.ok(controller.includes(ADDRESS), `${policy.locale} policy names the address ${ADDRESS}`);
+		assert.ok(controller.includes(CONTACT), `the policy names the contact address ${CONTACT}`);
+		assert.match(controller, /Denmark|Dänemark/u);
 		assert.match(prose, /Cloudflare/iu);
 		assert.match(prose, /audio\.com/iu);
 		assert.match(prose, /unlisted audio is not private|Nicht gelistetes Audio ist nicht privat/iu);
@@ -71,6 +72,12 @@ test('English and German dialog content carries equivalent privacy disclosures',
 		assert.match(prose, /supervisory authority|Aufsichtsbehörde/iu);
 		assert.equal(policy.effectiveDate, effectiveDates[index]);
 		assert.doesNotMatch(prose, /google-analytics|googletagmanager|cloudflareinsights|posthog|sentry/iu);
+		assert.doesNotMatch(prose, /Germany|Deutschland|LDI NRW/iu);
+
+		const rights = policy.sections.find(({ id }) => id === 'rights')?.body ?? '';
+		assert.match(rights, /Datatilsynet/u);
+		const transfers = policy.sections.find(({ id }) => id === 'international-transfers')?.body ?? '';
+		assert.match(transfers, /outside Denmark|außerhalb Dänemarks/u);
 
 		const network = policy.sections.find(({ id }) => id === 'network')?.body ?? '';
 		assert.match(network, /Freesound/iu);

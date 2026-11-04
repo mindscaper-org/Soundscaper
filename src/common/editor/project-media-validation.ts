@@ -19,6 +19,7 @@ import { normalizeVideoEffects } from './video-effects.js';
 import { validateVideoTrackComposition } from './video-timeline.js';
 import { hasCoreEditingProjectAuthority } from './project-schema-version.ts';
 import { isTrackDisplayMode } from './track-display-mode.ts';
+import { validateProjectMidiCarriers } from './midi-model.ts';
 
 const SAMPLE_FORMATS = new Set(['int16', 'int24', 'int32', 'float32', 'float64', 'unknown']);
 
@@ -44,6 +45,7 @@ export function validateProjectMedia(
 	const tracks = recordArray(project.tracks, 'project.tracks');
 	const projectBin = projectRecord(project.projectBin, 'project.projectBin');
 	const binClips = recordArray(projectBin.clips, 'project.projectBin.clips');
+	validateProjectMidiCarriers({ tracks, clips, binClips, sources });
 	projectUniqueIds(sources, 'project.sources');
 	projectUniqueIds([...clips, ...binClips], 'project clips');
 	projectUniqueIds(tracks, 'project.tracks');

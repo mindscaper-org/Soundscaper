@@ -4,8 +4,11 @@
 export const DESKTOP_PROJECT_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/adm-strip-existence.js',
 	'src/common/editor/commands/label-clipboard-codec.js',
+	'src/common/editor/commands/midi-commands.js',
 	'src/common/editor/exact-record-id-index.js',
 	'src/common/editor/frozen-record-id-index.js',
+	'src/common/editor/midi-file-types.js',
+	'src/common/editor/midi-model.js',
 	'src/common/editor/project-audio-warp-validation.js',
 	'src/common/editor/project-bext-metadata.js',
 	'src/common/editor/project-command-musical-labels.js',

@@ -4,16 +4,17 @@ import { installDesktopSpeedWarmupManifest } from './helpers/desktop-speed-warmu
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, collectClientErrors } from './audio-editor-test-helpers.js';
 
-test('keyboard removal of a custom plugin folder retains the surviving Add path action', async ({ page, browserName }) => {
-	await installPluginFolderBridge(page);
+for (const format of ['VST3', 'VST2']) test(`keyboard removal of a custom plugin folder retains the surviving Add path action (${format})`, async ({ page, browserName }) => {
+	await installPluginFolderBridge(page, format.toLowerCase());
 	const errors = collectClientErrors(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Effects$/u }).click();
-	const folders = preferences.getByRole('group', { name: 'VST3', exact: true });
-	const add = folders.getByRole('button', { name: 'Add path: VST3', exact: true });
+	const folders = preferences.getByRole('group', { name: format, exact: true });
+	const add = folders.getByRole('button', { name: `Add path: ${format}`, exact: true });
 	const remove = folders.getByRole('button', { name: 'Remove path: /opt/vendor/plugins', exact: true });
+	await expect.poll(() => page.evaluate(() => window.__round7PluginFolderCalls)).toEqual([]);
 	await add.click();
 	await expect(remove).toBeEnabled();
 	await remove.click();
@@ -38,17 +39,17 @@ test('keyboard removal of a custom plugin folder retains the surviving Add path 
 	expect(errors).toEqual([]);
 });
 
-async function installPluginFolderBridge(page) {
+async function installPluginFolderBridge(page, format) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(() => {
+	await page.addInitScript((format) => {
 		let granted = false;
 		let added = false;
 		const calls = [];
 		window.__round7PluginFolderCalls = calls;
 		const unavailable = { status: 'unavailable', reason: 'not-built', detail: '' };
 		const availability = () => ({ enabled: false, quarantined: false, payload: unavailable, formats: [],
-			consent: { scanningEnabled: false, formats: [{ format: 'vst3', supported: true, granted, roots: added
-				? [{ rootId: 'custom-vst3', origin: 'custom', name: 'plugins', displayPath: '/opt/vendor/plugins', admitted: true }]
+			consent: { scanningEnabled: false, formats: [{ format, supported: true, granted, roots: added
+				? [{ rootId: `custom-${format}`, origin: 'custom', name: 'plugins', displayPath: '/opt/vendor/plugins', admitted: true }]
 				: [] }] }, quarantine: { loaded: true, degraded: false, records: [], pendingFaults: 0 } });
 		const forbidden = Object.fromEntries([
 			'setNativeAudioHelperEnabled', 'describeNativeAudioBackend', 'scanNativePlugins',
@@ -69,12 +70,13 @@ async function installPluginFolderBridge(page) {
 				audioHelperEnabled: false, audioHelperQuarantined: false, nativeEffectDiscoveryEnabled: false }),
 			nativeAudioHelperAvailability: async () => ({ enabled: false, quarantined: false, payload: unavailable, backends: [] }),
 			nativePluginAvailability: async () => availability(), listNativePlugins: async () => ({ entries: [] }),
-			setNativePluginConsent: async ({ action }) => {
+			setNativePluginConsent: async ({ action, format: requested }) => {
+				if (requested !== format) throw new Error('The requested plug-in format changed.');
 				calls.push(action);
 				if (action === 'grant') granted = true;
 				if (action === 'add-custom-root') added = true;
 				if (action === 'remove-root') added = false;
 			},
 		} } });
-	});
+	}, format);
 }

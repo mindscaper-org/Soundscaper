@@ -7,6 +7,7 @@ import { confirmClockedPlaybackStart, type ClockedPlaybackStartHook } from './cl
 import { clamp, clampFrame, playRangeStopFrame } from './buffer-math.ts';
 import { createAnalyser } from './effect-rack.ts';
 import { playbackOutputDestination } from './playback-output.ts';
+import { createPlaybackGraphOutput, attachPlaybackGraphOutput } from './playback-graph-output.ts';
 import { isPlaybackLoopEnabled } from './playback-frequency-range.ts';
 import { ScheduledParameterRegistry } from './scheduled-parameter-registry.ts';
 import { createStripMeterAnalyserBankV21 } from './strip-meter-analyser-bank-v21.ts';
@@ -59,7 +60,8 @@ export async function schedulePreparedSpeedPlayback(engine: EngineRuntimeHost, f
 	const playbackDestination = playbackOutputDestination(
 		engine, context, soundscaperNativeAudioDestination(context, context.destination),
 	);
-	const meterDestination = engine.masterLoudnessMeter?.node || playbackDestination;
+	const output = createPlaybackGraphOutput(engine, context, engine.masterLoudnessMeter?.node || playbackDestination);
+	const meterDestination = output;
 	if (engine.meterListeners.size > 0) {
 		masterAnalyser = createAnalyser(context, nodes);
 		connect(source, masterAnalyser);
@@ -108,7 +110,7 @@ export async function schedulePreparedSpeedPlayback(engine: EngineRuntimeHost, f
 		effectMessageSequences: new Map(),
 		latencyFrames: 0,
 	};
-	const graph = engine.graph;
+	const graph = attachPlaybackGraphOutput(engine.graph, output);
 	try {
 		scheduledTime = Math.max(scheduledTime, context.currentTime + minimumStartLeadSeconds);
 		if (onBeforeStart) scheduledTime = await confirmClockedPlaybackStart(context, scheduledTime, onBeforeStart);
@@ -163,7 +165,7 @@ export function scheduleSilentPreparedLoopAhead(engine: EngineRuntimeHost): void
 			const transient = getTransientNodes(graph.nodes);
 			const source = addNode(transient, context.createBufferSource());
 			source.buffer = prepared.audioBuffer;
-			connect(source, graph.masterAnalyser || engine.masterLoudnessMeter?.node || playbackOutputDestination(
+			connect(source, graph.masterAnalyser || graph.outputGate || engine.masterLoudnessMeter?.node || playbackOutputDestination(
 				engine, context, soundscaperNativeAudioDestination(context, context.destination)));
 			const offset = Math.round(engine.loop.startFrame / prepared.durationFrames * prepared.frameCount);
 			source.onended = () => { graph.sources.delete(source); releaseTransientNodes(transient, [source]); };

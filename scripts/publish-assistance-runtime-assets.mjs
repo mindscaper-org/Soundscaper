@@ -89,7 +89,7 @@ export async function publishAssistanceRuntimeBundles({
 		const result = await upload({ client, key: `runtime/assistance/${relative}`, file,
 			artifact: archive, contentType: 'application/gzip' });
 		assert(result?.status === 0, `Assistance runtime R2 publication failed for ${familyId}.`);
-		await verify({ url: archive.url, artifact: archive });
+		await verify({ url: archive.url, artifact: archive, requireRange: false });
 		published += 1;
 	}
 	return { targetId: distribution.targetId, published };
@@ -102,7 +102,7 @@ export async function verifyAssistanceRuntimeBundles({
 	const distribution = validatedDistribution(authority);
 	let verified = 0;
 	for await (const { archive } of authenticatedArchives(distribution, archivesRoot)) {
-		await verify({ url: archive.url, artifact: archive });
+		await verify({ url: archive.url, artifact: archive, requireRange: false });
 		verified += 1;
 	}
 	return { targetId: distribution.targetId, verified };

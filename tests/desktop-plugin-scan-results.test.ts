@@ -67,7 +67,8 @@ test('a scan that did not complete may not smuggle entries through', () => {
 });
 
 test('the closed vocabulary of a scan result is enforced in every position', () => {
-	assert.throws(() => validateHelperPluginScanResult(scanWith({ format: 'vst2' })), /known plug-in format/u);
+	assert.equal(validateHelperPluginScanResult(scanWith({ format: 'vst2' })).format, 'vst2');
+	assert.throws(() => validateHelperPluginScanResult(scanWith({ format: 'vst4' })), /known plug-in format/u);
 	assert.throws(() => validateHelperPluginScanResult(scanWith({ status: 'partial' })), /known plug-in scan status/u);
 	assert.throws(() => validateHelperPluginScanResult(scanWith({ entries: [entryWith({ classification: 'synth' })] })),
 		/known plug-in classification/u);

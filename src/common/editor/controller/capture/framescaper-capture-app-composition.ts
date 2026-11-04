@@ -113,7 +113,7 @@ export interface FramescaperCaptureAppCompositionOptions {
 	readonly MediaStreamTrackProcessor?: FramescaperBrowserRecorderFactoryOptions['MediaStreamTrackProcessor'];
 	readonly MediaStreamTrackGenerator?: WebVcrVideoFrameCropRuntime['MediaStreamTrackGenerator'] | null;
 	readonly VideoFrame?: WebVcrVideoFrameCropRuntime['VideoFrame'] | null;
-	readonly recordingControllerFactory?: FramescaperBrowserRecorderFactoryOptions['recordingControllerFactory'];
+	readonly recordingControllerFactory?: FramescaperBrowserRecorderFactoryOptions['recordingControllerFactory']; readonly observeInput?: FramescaperBrowserRecorderFactoryOptions['observeInput'];
 	readonly getAudioContext: FramescaperBrowserRecorderFactoryOptions['getAudioContext'];
 	readonly getMonitorDestination?: Parameters<typeof createFramescaperWebVcrCaptureAdapter>[0]['getMonitorDestination'];
 	readonly AudioWorkletNode?: unknown;
@@ -201,7 +201,7 @@ export function createFramescaperCaptureAppComposition(
 	const recorderFactory = createFramescaperBrowserRecorderFactory({
 		MediaRecorder,
 		MediaStreamTrackProcessor: TrackProcessor,
-		getAudioContext: options.getAudioContext,
+		getAudioContext: options.getAudioContext, observeInput: options.observeInput,
 		...(options.recordingControllerFactory ? { recordingControllerFactory: options.recordingControllerFactory } : {}),
 		...(options.receiptTime ? { receiptTime: options.receiptTime } : {}),
 	});
@@ -242,7 +242,7 @@ export function createFramescaperCaptureAppComposition(
 	const canonical = createCanonicalPublisher(options, durable, videoProbe);
 	let deviceAvailability: CaptureRuntimeAvailability | null = null;
 	const service = createFramescaperCaptureSessionService<BrowserCaptureStream, BrowserCaptureTrack>({
-		enabled: options.productId === 'framescaper',
+		enabled: options.productId === 'framescaper', observeInput: options.observeInput,
 		embedded: options.embedded && !desktop,
 		sourcePort: router.sourcePort,
 		...(desktop || webAdapter ? { displaySelection: router.displaySelection } : {}),

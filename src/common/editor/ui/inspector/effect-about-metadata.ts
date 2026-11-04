@@ -153,6 +153,7 @@ function menuCategory(type: string, copyOrLocale: CopyOrLocale): string | undefi
 function nativeFormat(format: string | undefined): string | undefined {
 	switch (format?.toLowerCase()) {
 		case 'vst3': return 'VST3';
+		case 'vst2': return 'VST2';
 		case 'clap': return 'CLAP';
 		case 'au': return 'Audio Unit';
 		case 'lv2': return 'LV2';

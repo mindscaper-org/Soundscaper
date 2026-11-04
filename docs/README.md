@@ -170,9 +170,14 @@ the owning register field, then run `node scripts/sync-policy-narratives.mjs`.
 When register prose duplicates a narrative document, add a binding rather than
 maintaining a second hand-written paragraph.
 
-After changing a file digest-pinned by `config/ffmpeg-runtime-manifest.json`,
-including `config/production-security-matrix.json` or `docs/policies/security.md`,
-run `node scripts/repin-runtime-evidence.mjs`. Commit the refreshed byte lengths,
-SHA-256 pins, and review payload digest with the source edit; never hand-edit
-those pins. Use `node scripts/repin-runtime-evidence.mjs --check` to verify them
-without writing.
+The legacy FFmpeg manifest pins its corresponding-source descriptor, the
+**Retained legacy FFmpeg WebAssembly publication and audit tooling** section of
+`THIRD_PARTY_LICENSES.md`, CORS configuration, and FFmpeg publication policy.
+After changing those inputs, run `node scripts/repin-runtime-evidence.mjs` and
+commit the refreshed byte lengths, SHA-256 pins, and integrity payload digest
+with the edit; never hand-edit those pins. The notice section includes its
+heading and ends before the next level-two heading, with trailing whitespace
+replaced by one newline. General policy documents, matrices, `.gitattributes`,
+and other notice sections do not require repinning. The audit validates the
+relevant FFmpeg policy entries and LF rules directly. Use
+`node scripts/repin-runtime-evidence.mjs --check` to verify pins without writing.

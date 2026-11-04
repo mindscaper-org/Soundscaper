@@ -63,7 +63,10 @@ export function createWaveformPcmWindowRequester<
 		if (product) { sourceChunkProviders.set(source.id, product); runtime.engine.setChunkSources?.(sourceChunkProviders); return product; }
 		const metadata = await store.getSourceMetadata(source.storageKey || source.id);
 		if (getProject() !== projectAtStart) return null;
-		const provider = registerStoredChunkProvider(source, metadata);
+		// Playback preparation or another clip's waveform can publish this source
+		// while metadata is loading. Replacing that provider would retire the read
+		// session already captured by the audio scheduler.
+		const provider = sourceChunkProviders.get(source.id) ?? registerStoredChunkProvider(source, metadata);
 		return provider && getProject() === projectAtStart ? provider : null;
 	}
 

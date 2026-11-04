@@ -120,6 +120,7 @@ async function fixture(context: test.TestContext, mode: 'success' | 'failure' | 
 			`export const partitionNodeTestBootstrapBatches = (_root, files) => [{ files, useLoaders: ${String(useLoaders)} }];`),
 		writeFile(join(root, 'scripts/lib/node-test-shards.mjs'), [
 			"import { join } from 'node:path';",
+			'export const NODE_TEST_SHARD_IDS = ["common-1", "common-2", "framescaper", "soundscaper"];',
 			'export const describeNodeTestSelection = () => "fixture tests";',
 			'export const parseNodeTestSelection = () => ({ shard: null });',
 			'export const partitionNodeTestExecutionBatches = files => [files];',

@@ -32,6 +32,8 @@ const REPOSITORY_ROOT = fileURLToPath(new URL('../', import.meta.url));
 
 /** The owner each passenger takes from the importers it already has, or none. */
 const DELIVERY_PASSENGERS: readonly (readonly [string, string | null])[] = [
+	['src/common/editor/audio-export-prefix-blob.ts', 'editor-optional-export'],
+	['src/common/editor/audio-embedded-chapter-container.ts', 'editor-optional-export'],
 	['src/common/editor/delivery-conformance.ts', 'editor-optional-export'],
 	['src/common/editor/delivery-video-conversion-inventory.ts', 'editor-optional-export'],
 	['src/common/editor/delivery-conversion-inventory.ts', 'editor-optional-export'],

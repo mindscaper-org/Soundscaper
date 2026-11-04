@@ -4,6 +4,22 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createVideoThumbnailTimestampLookup } from '../src/common/editor/ui/timeline/video-thumbnail-timestamp-index.ts';
 
+void test('I-frame filmstrips choose the nearest available source timestamp instead of a grid ordinal', () => {
+	const candidates = [
+		{ timestampSeconds: 0, sourceTimeSeconds: 0, url: 'zero' },
+		{ sourceTimeSeconds: 8, url: 'eight' },
+		{ sourceTimeSeconds: 16, url: 'sixteen' },
+		{ sourceTimeSeconds: 8, url: 'later duplicate' },
+	];
+	const lookup = createVideoThumbnailTimestampLookup(candidates, { nearest: true })!;
+	assert.equal(lookup(5)?.url, 'eight');
+	assert.equal(lookup(10)?.url, 'eight');
+	assert.equal(lookup(12)?.url, 'eight');
+	assert.equal(lookup(15)?.url, 'sixteen');
+	assert.equal(lookup(99)?.url, 'sixteen');
+	assert.equal(lookup(NaN), undefined);
+});
+
 void test('thumbnail timestamp lookup preserves first authored matches and strict tolerance without rescanning the catalog', () => {
 	let reads = 0;
 	const candidates = Array.from({ length: 10_000 }, (_, index) => ({ url: `blob:${index}`, get timestamp() { reads++; return index / 10; } }));

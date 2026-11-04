@@ -5,9 +5,9 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ClipFadeOverlays } from '../src/common/editor/ui/timeline/ClipFadeOverlays.tsx';
 import { presentCapturedClipFadeGesture } from '../src/common/editor/ui/timeline/clip-fade-gesture-presentation.ts';
-import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import { installReactTestDom } from './helpers/react-test-dom.ts';
 
-test('unselected audio clips expose corner zones and a bare-edge peek without selecting the clip', async context => {
+test('unselected audio clips expose corner zones without preview fades or selection changes', async context => {
 	const dom = installReactTestDom();
 	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const previous = globals.IS_REACT_ACT_ENVIRONMENT;
@@ -42,8 +42,7 @@ test('unselected audio clips expose corner zones and a bare-edge peek without se
 	assert.equal(zone.getAttribute('data-clip-fade-handle'), 'in', 'the corner uses the native fade gesture');
 	assert.equal((zone.style as unknown as CSSStyleDeclaration).left, '-16px');
 	assert.equal((dom.one('[data-fade-zone="out"]').style as unknown as CSSStyleDeclaration).left, '134px', 'an existing fade owns its boundary');
-	await act(async () => reactProps(zone).onMouseEnter({ buttons: 0 }));
-	assert.equal(dom.one('[data-fade-peek="in"]').getAttribute('aria-hidden'), 'true');
+	assert.equal(dom.find('[data-fade-peek="in"]'), null);
 	assert.deepEqual(changes, [], 'hover is a preview only');
 	assert.equal(listeners.size, 0, 'idle overlays defer pointer admission to the native timeline');
 	const owner = dom.one('.audio-editor-clip-fade') as unknown as HTMLElement;

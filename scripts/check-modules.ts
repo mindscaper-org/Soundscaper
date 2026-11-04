@@ -74,20 +74,31 @@ async function execute(root: string, plan: RepositoryModulePlan): Promise<void> 
 	mkdirSync(dirname(planFile), { recursive: true });
 	writeFileSync(planFile, JSON.stringify(plan));
 	const rawDirectory = resolve(root, 'coverage/modules/raw');
-	rmSync(rawDirectory, { recursive: true, force: true });
-	const environment = { ...process.env, SCAPE_MODULE_PLAN: planFile, SCAPE_NODE_TEST_CONCURRENCY: '1' };
-	if (plan.nodeTests.length) command(root, [resolve(root, 'scripts/run-node-tests.mjs'), `--coverage-directory=${rawDirectory}`], environment);
-	const { runModuleCoverageGate } = await import('./lib/check-module-coverage.ts');
+	const combinedDirectory = resolve(root, 'coverage/modules/combined');
+	const browserRawDirectory = resolve(root, 'coverage/v8-browser');
+	const { productionModuleCoverageTargets, runModuleCoverageGate } = await import('./lib/check-module-coverage.ts');
 	const policy = parseModulePolicy(JSON.parse(readFileSync(resolve(root, 'config/module-policy.json'), 'utf8')));
-	if (plan.modules.length && !runModuleCoverageGate(root, rawDirectory, plan.modules, policy)) throw new Error('Module coverage requirements failed.');
+	const coverageTargets = plan.modules.length ? productionModuleCoverageTargets(policy, plan.modules) : [];
+	const collectCoverage = coverageTargets.length > 0;
+	rmSync(rawDirectory, { recursive: true, force: true });
+	rmSync(combinedDirectory, { recursive: true, force: true });
+	const environment = { ...process.env, SCAPE_MODULE_PLAN: planFile, SCAPE_NODE_TEST_CONCURRENCY: '1' };
+	if (plan.nodeTests.length) command(root, [resolve(root, 'scripts/run-node-tests.mjs'),
+		...collectCoverage ? [`--coverage-directory=${rawDirectory}`] : []], environment);
+	const compact = (directory: string, name: string): void => command(root,
+		[resolve(root, 'scripts/compact-v8-coverage.mjs'), directory, resolve(combinedDirectory, `${name}.json`)], environment);
+	if (collectCoverage && plan.nodeTests.length) compact(rawDirectory, 'node');
 	if (plan.browserTests.length) {
 		const { ordinaryBrowserProductSitePlan } = await import('./lib/browser-product-site-plan.mjs');
 		const { buildBrowserProductSite } = await import('./lib/browser-product-test-sites.mjs');
-		const browserEnvironment = { ...environment, SCAPE_BROWSER_PRODUCTS: plan.products.join(',') };
+		rmSync(browserRawDirectory, { recursive: true, force: true });
+		const browserEnvironment = { ...environment, SCAPE_BROWSER_PRODUCTS: plan.products.join(','), SCAPE_BROWSER_COVERAGE: collectCoverage ? '1' : '0' };
 		const sites = ordinaryBrowserProductSitePlan(browserEnvironment);
 		for (const site of sites.sites) await buildBrowserProductSite(site);
 		command(root, ['--import', 'tsx', resolve(root, 'scripts/run-module-browser-tests.ts'), '--workers=1'], browserEnvironment);
+		if (collectCoverage) compact(browserRawDirectory, 'browser');
 	}
+	if (coverageTargets.length && !runModuleCoverageGate(root, combinedDirectory, coverageTargets, policy)) throw new Error('Module coverage requirements failed.');
 }
 
 export async function main(args: readonly string[]): Promise<void> {

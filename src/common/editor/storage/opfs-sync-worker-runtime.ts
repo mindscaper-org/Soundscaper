@@ -49,7 +49,7 @@ export class OpfsSyncWorkerRuntime {
 	readonly #writers = new Map<string, WorkerWriter>();
 	readonly #active = new Set<string>();
 	readonly #cancelled = new Set<string>();
-	readonly #readTails = new Map<string, Promise<void>>();
+	readonly #reads = new Map<string, Promise<void>>();
 	#directory: FileSystemDirectoryHandle | null = null;
 	#initialized = false;
 
@@ -84,20 +84,21 @@ export class OpfsSyncWorkerRuntime {
 		}
 	}
 
-	/** Some OPFS hosts still take an exclusive lock for read-only sync handles. */
 	async #orderedRead(request: WorkerRequest, id: string, type: 'read' | 'snapshot'): Promise<Record<string, unknown>> {
+		// Some engines grant exclusive access even for read-only handles. Keep
+		// overlapping waveform and playback reads on this worker, ordered by file.
 		const path = normalizeOpfsWorkerPath(request.path);
-		const previous = this.#readTails.get(path);
-		let release = () => {};
-		const tail = new Promise<void>(resolve => { release = resolve; });
-		this.#readTails.set(path, tail);
+		const previous = this.#reads.get(path);
+		let release = (): void => {};
+		const completed = new Promise<void>(resolve => { release = resolve; });
+		this.#reads.set(path, completed);
 		try {
 			await previous;
 			this.#throwIfCancelled(id);
-			return await (type === 'read' ? this.#read(request, id) : this.#snapshot(request, id));
+			return type === 'read' ? await this.#read(request, id) : await this.#snapshot(request, id);
 		} finally {
 			release();
-			if (this.#readTails.get(path) === tail) this.#readTails.delete(path);
+			if (this.#reads.get(path) === completed) this.#reads.delete(path);
 		}
 	}
 

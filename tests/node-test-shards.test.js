@@ -229,14 +229,14 @@ for (const workflowName of SHARDED_WORKFLOWS) {
 		);
 		assert.match(
 			job,
-			/npm run test(?::shard)? -- --shard=\$\{\{ matrix\.shard \}\} --require-linux-native/u,
+			/npm run test(?::shard)? -- --module-shard=\$\{\{ matrix\.shard \}\} --require-linux-native/u,
 			`${workflowName} must turn native prerequisite skips into failures`,
 		);
 		const boostProvision = 'node scripts/ci-provision-framescaper-boost.mjs';
 		assert.match(
 			job,
-			/if: matrix\.shard == 'framescaper'\s+run: node scripts\/ci-provision-framescaper-boost\.mjs/u,
-			`${workflowName} must provision the pinned Boost closure only for Framescaper`,
+			/if: steps\.test-prerequisites\.outputs\.boost == 'true'\s+run: node scripts\/ci-provision-framescaper-boost\.mjs/u,
+			`${workflowName} must provision the pinned Boost closure for the selected native consumers`,
 		);
 		assert.ok(
 			job.indexOf(boostProvision) < job.indexOf('npm run test'),
@@ -253,7 +253,7 @@ test('the Electron protocol test shard restores its native binary before running
 	const job = extractJob(await readWorkflow('quality.yml'), 'tests');
 	const restore = /- name: Restore Electron binary for the desktop protocol test\n([\s\S]*?)(?=\n\s+- name:|$)/u.exec(job)?.[0];
 	assert.ok(restore, 'the Quality test job must restore the Electron binary');
-	assert.match(restore, new RegExp(`if: matrix\\.shard == '${shard}'`, 'u'));
+	assert.match(restore, /if: steps\.test-prerequisites\.outputs\.electron == 'true'/u);
 	assert.match(restore, /node node_modules\/electron\/install\.js/u);
 	assert.ok(job.indexOf(restore) < job.indexOf('npm run test:shard'));
 });

@@ -420,6 +420,9 @@ for (const productId of ['soundscaper', 'framescaper']) {
 		const editor = await bootEditor(page, route);
 		await importFiles(editor, [toneA]);
 		const fileMenu = await openNestedCommandMenu(page, editor, 'File', []);
-		await expect(fileMenu.getByRole('menuitem', { name: /^Overwrite /u })).toHaveCount(0);
+		await fileMenu.getByRole('menuitem', { name: /^Overwrite /u }).click();
+		const dialog = page.getByRole('dialog', { name: 'Desktop feature', exact: true });
+		await expect(dialog).toBeVisible();
+		await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 	});
 }

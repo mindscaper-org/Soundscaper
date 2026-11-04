@@ -69,6 +69,7 @@ export interface PlaybackProjectService {
 export const PLAYBACK_PROJECT_APPLY_TASK = 'playback-project-apply';
 const STALE_PLAYBACK_PROJECT_APPLY = Symbol('stale-playback-project-apply');
 const NO_PLAYBACK_PROJECT_APPLY_FAILURE = Symbol('no-playback-project-apply-failure');
+const engineApplications = new WeakMap<object, object>();
 
 interface PlaybackEngineState {
 	readonly state?: unknown;
@@ -81,7 +82,7 @@ interface PlaybackProjectEngine<Project extends object, Buffer> {
 	applyProject(
 		project: Project,
 		sourceBuffers: ReadonlyMap<string, Buffer>,
-		options: Readonly<{ chunkSources: ReadonlyMap<string, unknown> }>,
+		options: Readonly<{ chunkSources: ReadonlyMap<string, unknown>; signal?: AbortSignal; isCurrent?: () => boolean }>,
 	): PromiseLike<unknown> | unknown;
 }
 
@@ -235,6 +236,17 @@ export async function applyCanonicalProjectToPlaybackEngine<Project extends obje
 	throwIfPlaybackProjectApplyAborted(options.signal);
 	const previousPlayback = runtime.engine.getState();
 	const projection = runtime.projectForPlayback(canonicalProject);
+	const application = {};
+	let applied = false;
+	const applyToEngine = async (buffers: ReadonlyMap<string, unknown>, chunkSources: ReadonlyMap<string, unknown>) => {
+		// Cleanup belongs to this engine application, even after a newer task starts.
+		engineApplications.set(runtime.engine, application);
+		const result = await runtime.engine.applyProject(projection.project, buffers, {
+			chunkSources, signal: options.signal, isCurrent: () => runtime.getCurrentProject() === canonicalProject,
+		});
+		applied = true;
+		return result;
+	};
 	const preparedSources = projection.requiredAudioSourceIds.length
 		? await runtime.prepareRequiredProjectSources(projection.project, {
 			requiredAudioSourceIds: projection.requiredAudioSourceIds,
@@ -258,24 +270,20 @@ export async function applyCanonicalProjectToPlaybackEngine<Project extends obje
 		throwIfPlaybackProjectApplyAborted(options.signal);
 		if (runtime.getCurrentProject() !== canonicalProject) return false;
 		if (preparedSources) {
-			await preparedSources.commit((inputs) => runtime.engine.applyProject(
-				projection.project,
-				inputs.sourceBuffers,
-				{ chunkSources: inputs.chunkSources },
-			), {
+			await preparedSources.commit((inputs) => applyToEngine(inputs.sourceBuffers, inputs.chunkSources), {
 				assertCurrent() {
 					if (runtime.getCurrentProject() !== canonicalProject) throw STALE_PLAYBACK_PROJECT_APPLY;
 				},
-				retireApplied: async () => { await runtime.engine.stop(); },
+				retireApplied: async () => {
+					if (applied && engineApplications.get(runtime.engine) === application) await runtime.engine.stop();
+				},
 				transientBuffers,
 			});
 		} else {
 			const playbackBuffers = transientBuffers.size
 				? new Map([...runtime.sourceBuffers, ...transientBuffers])
 				: runtime.sourceBuffers;
-			await runtime.engine.applyProject(projection.project, playbackBuffers, {
-				chunkSources: runtime.sourceChunkProviders,
-			});
+			await applyToEngine(playbackBuffers, runtime.sourceChunkProviders);
 		}
 		throwIfPlaybackProjectApplyAborted(options.signal);
 		if (runtime.getCurrentProject() !== canonicalProject) return false;

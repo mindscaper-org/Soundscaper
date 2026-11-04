@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { AccessibilityProfileProvider } from '@soundscaper/design-system/contexts/AccessibilityProfileContext';
 import { useTheme } from '@soundscaper/design-system/ThemeProvider';
 
@@ -7,6 +7,7 @@ import { EditorSkinProvider, useEditorSkin } from './skins/EditorSkinProvider.ts
 import EditorMusicalTimeCodeProvider from './EditorMusicalTimeCodeProvider.tsx';
 
 import { wcagContrastRatio } from './theme-contrast.ts';
+export { useElementSize, retainElementSize } from './use-element-size.ts';
 
 const PORTAL_BODY_CLASS = 'kw-audio-editor-design-system-mounted';
 const ACCESSIBILITY_STORAGE_KEY = 'audacity-accessibility-profile';
@@ -166,39 +167,6 @@ export function readablePrimaryButtonText(theme) {
 		}
 	}
 	return best;
-}
-
-/** @returns {[(node: HTMLElement | null) => void, { width: number, height: number }]} */
-export function useElementSize() {
-	const [element, setElement] = useState(null);
-	const [size, setSize] = useState({ width: 1, height: 1 });
-	const ref = useCallback((node) => setElement(node), []);
-
-	useLayoutEffect(() => {
-		if (!element) return undefined;
-		const update = () => {
-			const rect = element.getBoundingClientRect();
-			setSize((current) => retainElementSize(current, rect.width, rect.height));
-		};
-		update();
-		if (typeof ResizeObserver !== 'function') {
-			window.addEventListener('resize', update);
-			return () => window.removeEventListener('resize', update);
-		}
-		const observer = new ResizeObserver(update);
-		observer.observe(element);
-		return () => observer.disconnect();
-	}, [element]);
-
-	return [ref, size];
-}
-
-export function retainElementSize(current, width, height) {
-	const nextWidth = Math.max(1, Math.round(width));
-	const nextHeight = Math.max(1, Math.round(height));
-	return current.width === nextWidth && current.height === nextHeight
-		? current
-		: { width: nextWidth, height: nextHeight };
 }
 
 export function ActionBoundary({ name, children, className = '' }) {

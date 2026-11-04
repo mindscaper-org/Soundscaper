@@ -56,6 +56,7 @@ const RegularIntervalAnnotationDialog = lazyEditorModule(() => import('../dialog
 const LocalDiagnosticsDialog = lazyEditorModule(() => import('../dialogs/LocalDiagnosticsDialog.tsx'));
 const PrivacyPolicyDialog = lazyEditorModule(() => import('../dialogs/PrivacyPolicyDialog.tsx'));
 const AboutDialog = lazyEditorModule(() => import('../dialogs/AboutDialog.tsx'));
+const WebDesktopFeatureDialog = lazyEditorModule(() => import('./WebDesktopFeatureDialog.tsx'));
 
 function LazyInspectorFallback({ copy }) {
 	return <span className="kw-audio-editor-sr-only" role="status" aria-live="polite">{copy.loading}</span>;
@@ -111,7 +112,7 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 		<EditorSurfaceBoundary copy={copy} surface="dialogs" resetKey={snapshot.project}>
 			{productId === 'soundscaper' && activeSurface === 'project-recovery' && ProjectRecoveryDialog && controller.actions.project.recovery && (
 				<ProjectRecoveryDialog actions={controller.actions.project.recovery} copy={copy} run={run}
-					initialProjectId={snapshot.startupProjectRecovery?.projectId} onClose={() => setActiveSurface((current) => recoverySurfaceAfterClose(current, 'project-recovery'))} />
+					initialProjectId={snapshot.projectRecovery?.projectId} onClose={() => setActiveSurface((current) => recoverySurfaceAfterClose(current, 'project-recovery'))} />
 			)}
 			{productId === 'soundscaper' && activeSurface === 'audacity-recovery' && AudacityRecoveryDialog && (
 				<AudacityRecoveryDialog open={controller.actions.project.openAudacityProject} copy={copy} run={run} onClose={() => setActiveSurface((current) => recoverySurfaceAfterClose(current, 'audacity-recovery'))} />
@@ -159,6 +160,9 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 					</React.Suspense>
 				</div>
 			)}
+			{!fileService.isDesktop && activeSurface === 'web-desktop-feature' && <React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
+				<WebDesktopFeatureDialog copy={copy} productId={productId} onClose={() => setActiveSurface(null)} />
+			</React.Suspense>}
 			{activeSurface === 'privacy-policy' && (
 				<div data-editor-surface="privacy-policy">
 					<React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
@@ -507,6 +511,7 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 				copy={copy} onClose={() => setDialog(null)} />}
 			{dialog && dialog !== 'about' && dialog !== 'project-compatibility' && (
 				<EditorDialog
+					fileService={fileService}
 					type={dialog}
 					value={dialogValue}
 					onValueChange={setDialogValue}

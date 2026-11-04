@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { fetchUpstreamWithDeadline } from '../../_shared/upstream-transfer.ts';
 
 import { freesoundDownloadMaximumBytes } from './download-size-warning.ts';
 import {
@@ -72,12 +73,16 @@ export async function handleFreesoundOriginalRequest(
 			await throwProtectedUpstreamError(response, 'download', authorized, dependencies);
 		}
 		if (response.status === 416) {
+			await response.body?.cancel();
 			return new Response(null, {
 				status: 416,
 				headers: streamedAudioHeaders(response.headers, admission.corsOrigin, id, null),
 			});
 		}
-		const originalBytes = assertOriginalResponse(response, maximumBytes);
+		let originalBytes: number | null;
+		try { originalBytes = assertOriginalResponse(response, maximumBytes); }
+		catch (error) { await response.body?.cancel(error).catch(() => undefined); throw error; }
+		if (admission.head) await response.body?.cancel();
 		const responseHeaders = streamedAudioHeaders(response.headers, admission.corsOrigin, id, originalBytes);
 		const body = admission.head || response.body === null
 			? null
@@ -425,7 +430,7 @@ async function protectedFetch(
 ): Promise<Response> {
 	const fetchImpl = dependencies.fetchImpl ?? ((input, requestInit) => globalThis.fetch(input, requestInit));
 	try {
-		return await fetchImpl(url, init);
+		return await fetchUpstreamWithDeadline(fetchImpl, url, init);
 	} catch {
 		throw new OAuthHttpError(502, 'upstream_unavailable', 'Freesound is temporarily unavailable.');
 	}
@@ -460,6 +465,7 @@ async function throwProtectedUpstreamError(
 	authorized: AuthorizedFreesoundSession,
 	dependencies: ProtectedHandlerDependencies,
 ): Promise<never> {
+	await response.body?.cancel().catch(() => undefined);
 	if (response.status === 401 || response.status === 403) {
 		await invalidateAuthorizedFreesoundSession(authorized, dependencies);
 	}

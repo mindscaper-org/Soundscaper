@@ -73,6 +73,7 @@ export const SOUNDSCAPER_NATIVE_SERVICES_COPY = Object.freeze({
 	pluginScanToastFailed: 'Plugin scan needs attention',
 	pluginScanToastProgress: '{completed} of {total} folders scanned',
 	pluginScanToastPreferences: 'Scanning preferences',
+	pluginScanRecoveryHelp: 'Review Plugin folders in Preferences → Effects and scan again. Clear quarantined scan locations in Plugin Manager before retrying.',
 	scanEntries: 'Plug-ins found',
 	installedPlugins: 'Installed native effects',
 	noInstalledPlugins: 'Nothing has been discovered yet.',

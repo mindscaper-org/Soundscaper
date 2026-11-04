@@ -230,6 +230,7 @@ test('a short transfer keeps its partial so the next attempt resumes', { timeout
 			artifact: ARTIFACT,
 			url: URL_UNDER_TEST,
 			fetchImpl: stubFetch({ body: PAYLOAD.slice(0, 20), contentLength: 20 }),
+			recovery: { maxAttempts: 1 },
 		}),
 		/ended before the recorded artifact length/iu,
 	);

@@ -47,6 +47,7 @@ Choose a workspace directly from **Window**. This menu lists open projects first
 | Clock | `clock` | Floating | Hidden | Hidden | Hidden | Hidden | Hidden |
 | Clip properties | `clip-properties` | Right | Hidden | Hidden | Hidden | Hidden | Hidden |
 | Clip spreadsheet | `clip-spreadsheet` | Bottom | Hidden | Hidden | Hidden | Hidden | Hidden |
+| Piano roll (beta) | `piano-roll` | Bottom | Hidden | Hidden | Hidden | Hidden | Hidden |
 
 Open optional panels from **Window**. The **Clock**, **Playback meter**, and Soundscaper’s **Recording meter** start hidden. You can also choose **Undock timecode** in the toolbar timecode’s dropdown to move that readout into the Clock panel; **Return to toolbar** in the Clock’s dropdown puts it back.
 

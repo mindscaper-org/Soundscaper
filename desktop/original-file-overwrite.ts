@@ -9,6 +9,7 @@ import { exactOriginalFileIdentity as identity, type ExactOriginalFileIdentity a
 type Owner = object;
 type OriginalFile = Readonly<{ id: string; name: string }>;
 type Entry = { id: string; path: string; name: string; owner: Owner; identity: Identity; directory: Identity };
+const isProject = (path: string) => /\.(?:sscape|fscape|liscape|scape)$/iu.test(path);
 type ReadStore = {
 	resolveOriginalFileGrant(id: string, options: { owner: Owner }): Promise<{
 		path: string; identity: Identity;
@@ -53,7 +54,7 @@ export class OriginalFileOverwriteStore {
 		if ([...this.#entries.values()].filter((entry) => entry.owner === owner).length >= this.#maximumCount) return null;
 		try {
 			const granted = await this.#reads.resolveOriginalFileGrant(readId, { owner });
-			if (!granted || (!this.#acceptsFile('audio', granted.path) && !this.#acceptsFile('video', granted.path))) return null;
+			if (!granted || (!isProject(granted.path) && !this.#acceptsFile('audio', granted.path) && !this.#acceptsFile('video', granted.path))) return null;
 			const details = await lstat(granted.path, { bigint: true });
 			assertIdentity(details, granted.identity);
 			await assertWritable(granted.path, details);
@@ -76,7 +77,7 @@ export class OriginalFileOverwriteStore {
 		const expected = entry.identity;
 		await this.#assertCurrent(entry, expected);
 		return this.#targets.registerPath(entry.path, {
-			owner, purpose: this.#acceptsFile('video', entry.path) ? 'video' : 'audio',
+			owner, purpose: isProject(entry.path) ? 'project' : this.#acceptsFile('video', entry.path) ? 'video' : 'audio',
 			beforeCommit: () => this.#assertCurrent(entry, expected),
 			afterCommit: async (published) => {
 				try {
@@ -89,6 +90,47 @@ export class OriginalFileOverwriteStore {
 				}
 			},
 		});
+	}
+
+	/** A save-picker destination becomes reusable authority only after publication. */
+	registerProjectSave(path: string, { owner }: { owner: Owner }): OriginalFile & { originalFile: OriginalFile } {
+		this.#assertOwner(owner);
+		if (!isProject(path)) throw new TypeError('A Scape project destination is required');
+		if ([...this.#entries.values()].filter(entry => entry.owner === owner).length >= this.#maximumCount) throw new RangeError('Project file permission limit reached');
+		const id = randomBytes(24).toString('hex');
+		const name = this.#cleanDisplayName(basename(path));
+		const target = this.#targets.registerPath(path, {
+			owner, purpose: 'project', beforeCommit: async () => { this.#assertOwner(owner); },
+			afterCommit: async (published) => {
+				this.#assertOwner(owner);
+				const details = await lstat(path, { bigint: true });
+				if (!details.isFile() || (['dev', 'ino', 'size', 'mtimeNs'] as const).some(key => details[key] !== published[key])) throw new Error('Published original changed');
+				const directory = identity(await lstat(dirname(path), { bigint: true }));
+				this.#entries.set(id, { id, name, path, owner, identity: identity(details), directory });
+			},
+		});
+		return Object.freeze({ ...target, originalFile: Object.freeze({ id, name }) });
+	}
+
+	projectReference(id: string, { owner }: { owner: Owner }): Readonly<{ path: string; identity: Record<string, string> }> {
+		const entry = this.#entry(id, owner);
+		if (!isProject(entry.path)) throw new TypeError('A Scape project original is required');
+		return { path: entry.path, identity: Object.fromEntries(Object.entries(entry.identity).map(([key, value]) => [key, String(value)])) };
+	}
+
+	async restoreProjectReference(reference: Readonly<{ path: string; identity: Record<string, string> }>, { owner }: { owner: Owner }): Promise<OriginalFile> {
+		this.#assertOwner(owner);
+		if (!isProject(reference.path)) throw new TypeError('A Scape project original is required');
+		if ([...this.#entries.values()].filter(entry => entry.owner === owner).length >= this.#maximumCount) throw new RangeError('Project file permission limit reached');
+		const details = await lstat(reference.path, { bigint: true });
+		const expected = Object.fromEntries(Object.entries(reference.identity).map(([key, value]) => [key, BigInt(value)])) as unknown as Identity;
+		assertIdentity(details, expected);
+		await assertWritable(reference.path, details);
+		const directory = identity(await lstat(dirname(reference.path), { bigint: true }));
+		this.#assertOwner(owner);
+		const id = randomBytes(24).toString('hex'), name = this.#cleanDisplayName(basename(reference.path));
+		this.#entries.set(id, { id, name, path: reference.path, owner, identity: expected, directory });
+		return Object.freeze({ id, name });
 	}
 
 	release(id: string, { owner }: { owner: Owner }): boolean {

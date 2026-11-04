@@ -20,6 +20,7 @@ test('the declared nightly preload fixture builds from packaged sources without 
 	const sources = [
 		'tests/helpers/desktop-preload-source.mjs', 'desktop/preload.mjs',
 		...runtimeSources,
+		'desktop/desktop-audio-decode-formats.ts',
 		'src/common/editor/ara-contract.ts', 'src/common/editor/blender-contract.ts',
 	];
 	const payload = nightlyConfig.extraResources.find(({ to }) => to === 'nightly-tests');

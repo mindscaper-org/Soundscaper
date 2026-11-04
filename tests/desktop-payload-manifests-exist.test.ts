@@ -11,8 +11,9 @@
  * staged tree, so it is asserted here instead, in one pass over the manifests.
  *
  * The generated roots are the exception: the nightly payload stages verified
- * browser sites out of `.wrangler/`, which exists only after a build. Those
- * entries are still held to their declared kind and to agreeing with every
+ * browser sites out of `.wrangler/`, which exists only after a build.
+ * The interchange readers are also provisioned into an ignored vendor tree.
+ * These entries are still held to their declared kind and to agreeing with every
  * other list that names them; only their existence waits for the staging test.
  */
 
@@ -37,8 +38,8 @@ const NIGHTLY_BUILDER_CONFIG = createRequire(import.meta.url)(
 	'../electron-builder.nightly-tests.config.cjs',
 ) as { readonly files: readonly string[]; readonly directories: { readonly app: string } };
 
-/** Roots a build writes, so a checkout that has not built one is not a failure. */
-const GENERATED_ROOTS = Object.freeze(['.desktop-build', '.wrangler', 'dist', 'release']);
+/** Generated or provisioned roots need not exist in an unprepared checkout. */
+const GENERATED_ROOTS = Object.freeze(['.desktop-build', '.wrangler', 'dist', 'release', 'vendor/interchange-conformance']);
 
 type PathKind = 'file' | 'directory';
 
@@ -64,12 +65,12 @@ test('every path the desktop payload manifests name is backed by the repository'
 	const checked = CLAIMS.filter(({ path }) => !isGenerated(path));
 	assert.deepEqual(
 		CLAIMS.filter(({ path }) => isGenerated(path)).map(({ list, path, kind }) => ({ list, path, kind })),
-		['soundscaper', 'framescaper', 'motionscaper'].flatMap((productId) => ['', '-source-maps'].map((suffix) => ({
+		[...['soundscaper', 'framescaper', 'motionscaper'].flatMap((productId) => ['', '-source-maps'].map((suffix) => ({
 			list: 'NIGHTLY_TEST_PAYLOAD_INPUTS',
 			path: `.wrangler/dual-origin-browser/${productId}${suffix}`,
 			kind: 'directory',
-		}))),
-		'only the built browser sites and their source maps may be generated',
+		}))), { list: 'NIGHTLY_TEST_PAYLOAD_INPUTS', path: 'vendor/interchange-conformance', kind: 'directory' }],
+		'only built browser sites, their source maps, and provisioned interchange readers may be generated',
 	);
 	const failures: string[] = [];
 	for (const claim of checked) {

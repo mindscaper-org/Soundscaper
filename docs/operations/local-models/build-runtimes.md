@@ -116,6 +116,17 @@ Whisper and llama.cpp share one source-built toolchain during each preparation.
 Its temporary directory remains alive through both engine builds and is removed
 afterward; each new preparation rebuilds it from the pinned inputs.
 
+Desktop preview and **Update AI assets** use the reusable
+`desktop-assistance-runtimes.yml` workflow. For Windows ARM64, Whisper and
+llama.cpp compile on separate native runners, each with its own pinned Vulkan
+toolchain. Their same-run artifacts contain both CPU and Vulkan executables,
+notices, provenance, and a receipt bound to the source revision and target.
+Assembly verifies each exact file inventory before copying it and again in the
+destination, then produces the existing five-runtime distribution and handoff.
+A missing, stale, damaged, or CPU-only engine part fails assembly without
+recompiling it. Other targets and local preparation retain the shared-toolchain
+build path.
+
 A small source-checked Whisper patch routes JSON
 through inherited stdout without reopening `CON` or `/dev/stdout`, which do not
 work with every Electron/Node process pipe. This preserves the existing

@@ -94,6 +94,11 @@ export const MAX_SAVE_SESSIONS = 4;
 export const MAX_DESKTOP_SAVE_BYTES = 65 * 1024 ** 3;
 export const MAX_SAVE_ADMITTED_BYTES = MAX_DESKTOP_SAVE_BYTES;
 export const IPC = Object.freeze({
+	rememberProjectFile: 'soundscaper:v1:project-saving:rememberProjectFile',
+	restoreProjectFile: 'soundscaper:v1:project-saving:restoreProjectFile',
+	temporaryDataStatus: 'soundscaper:v1:project-saving:temporaryDataStatus',
+	chooseTemporaryDataFolder: 'soundscaper:v1:project-saving:chooseTemporaryDataFolder',
+	confirmProjectSave: 'soundscaper:v1:project-saving:confirmProjectSave',
 	environment: 'soundscaper:v1:environment',
 	soakDebugProcessMetrics: 'soundscaper:v1:soak-debug:process-metrics',
 	soakDebugCoverageCheckpoint: 'soundscaper:v1:soak-debug:coverage-checkpoint',

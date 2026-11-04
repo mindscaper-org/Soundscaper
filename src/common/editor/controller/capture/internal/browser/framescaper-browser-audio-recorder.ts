@@ -6,6 +6,7 @@ import { createFramescaperBrowserAudioProcessorRecorder } from './framescaper-br
 import { createFramescaperCapturePcmFrameMapper } from '../framescaper-capture-pcm-frame-mapper.ts';
 import { acquireFramescaperCaptureAudioContext, type FramescaperCaptureAudioContextFactory } from './framescaper-capture-audio-context.ts';
 import type { CapturePcmChunk } from '../framescaper-capture-pcm-packetizer.ts';
+import type { FramescaperCaptureInputObserver } from '../../framescaper-capture-session-types.ts';
 const CAPTURE_AUDIO_CHANNEL_COUNT_MAXIMUM = 32;
 const CAPTURE_AUDIO_SAMPLE_RATE_MAXIMUM = 768_000;
 const CAPTURE_AUDIO_CHUNK_FRAMES_DEFAULT = 4_096;
@@ -82,6 +83,7 @@ export type FramescaperWorkletRecordingControllerFactory = (
 	options: FramescaperWorkletRecordingControllerOptions,
 ) => PromiseLike<FramescaperWorkletRecordingController> | FramescaperWorkletRecordingController;
 export interface FramescaperBrowserAudioRecorderOptions {
+	readonly observeInput?: FramescaperCaptureInputObserver;
 	readonly role: FramescaperCaptureAudioRole;
 	readonly track: FramescaperAudioTrackLike;
 	readonly stream: unknown;
@@ -232,6 +234,9 @@ async function createWorkletRecorder(input: Readonly<{
 			state = 'failed';
 		},
 	})).catch(async (error: unknown) => { await context.dispose(); throw error; });
+	const cleanupInterruption = options.observeInput?.({ context: context.context,
+		onInterrupted: error => { failures.fail(error); state = 'failed'; },
+	}) ?? (() => undefined);
 
 	function start(startFrameValue = 0): void {
 		assertStartable(state, failures.failure);
@@ -261,6 +266,7 @@ async function createWorkletRecorder(input: Readonly<{
 
 	function stop(): Promise<void> {
 		if (stopPromise) return stopPromise;
+		cleanupInterruption();
 		if (state !== 'disposed') state = failures.failure ? 'failed' : 'stopping';
 		stopPromise = (async () => {
 			try { await delegate.stop(); } catch (error) { failures.fail(error); }
