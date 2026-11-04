@@ -50,6 +50,8 @@ test.describe('dedicated OPFS storage worker', () => {
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', { timeout: 20_000 });
 		await expectPersistedPreviewClip(page, editor);
 
+		await expect.poll(async () => (await persistedOpfsInventory(page, fixture.name)).derivativeCount,
+			{ timeout: 20_000, message: 'The disposable video derivative must finish persisting in its worker.' }).toBeGreaterThan(0);
 		const inventory = await persistedOpfsInventory(page, fixture.name);
 		expect(inventory.sourceStorage).toBe('opfs-pcm-v1');
 		expect(inventory.mediaStorage).toBe('opfs');
