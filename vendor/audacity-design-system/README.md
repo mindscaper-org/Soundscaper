@@ -706,3 +706,8 @@ are the places where the two keyboard models meet, so a future sync should re-ch
     access remains available. Native frame-based edits, selected-target batches,
     localization and Undo remain host-owned. Covered by the focused fade-menu,
     selected-fade, native pointer and clip-handle visibility regressions.
+
+87. `NoteGrid` applies the selected triplet subdivision to default ghost-note
+    and drawn-note lengths. A manually resized note still supplies the next
+    drawn note's length. Covered by the beta MIDI browser workflow.
+    Upstream-PR candidate.
