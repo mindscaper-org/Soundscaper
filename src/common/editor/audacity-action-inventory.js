@@ -201,6 +201,9 @@ export const AUDACITY_ACTION_DEFINITIONS = [
 	implemented('toggle-spectral-selection', 'Spectral selection', ['Select > Spectral'], 'tools.toggleSpectralSelection', { enableWhen: 'editable-spectrogram-track-selected', source: UPSTREAM.menu }),
 
 	// View, rulers, and panels.
+	// Timeline paging was added after the baseline in Audacity 4.0.2 (#12570).
+	implemented('timeline-page-left', 'Scroll timeline left one page', ['View'], 'timeline.pageLeft', { enableWhen: 'project-opened', source: UPSTREAM.projectScene }),
+	implemented('timeline-page-right', 'Scroll timeline right one page', ['View'], 'timeline.pageRight', { enableWhen: 'project-opened', source: UPSTREAM.projectScene }),
 	implemented('zoom-in', 'Zoom in', ['View > Zoom'], 'timeline.zoomIn', { shortcut: 'Ctrl+1', enableWhen: 'project-opened', source: UPSTREAM.projectScene }),
 	implemented('zoom-out', 'Zoom out', ['View > Zoom'], 'timeline.zoomOut', { shortcut: 'Ctrl+3', enableWhen: 'project-opened', source: UPSTREAM.projectScene }),
 	implemented('zoom-default', 'Zoom normal', ['View > Zoom'], 'timeline.zoomDefault', { shortcut: 'Ctrl+2', enableWhen: 'project-opened', source: UPSTREAM.projectScene }),

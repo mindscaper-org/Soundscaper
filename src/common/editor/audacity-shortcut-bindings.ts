@@ -131,11 +131,14 @@ export const AUDACITY_SHORTCUT_BINDINGS_BY_ACTION = freezeBindings([
  * Defaults intentionally retained outside Audacity's XML inventory:
  * Soundscaper's fullscreen and Play Selection keys, plus the Labeled Audio
  * submenu, whose commands Audacity 4 has not carried over and which therefore
- * keep the Audacity 3 defaults from au3/src/menus/LabelMenus.cpp.
+ * keep the Audacity 3 defaults from au3/src/menus/LabelMenus.cpp. Timeline paging
+ * carries the Audacity 4.0.2 additions without changing the pinned 4.0.0 profile.
  */
 export const AUDIO_EDITOR_SUPPLEMENTAL_SHORTCUT_BINDINGS_BY_ACTION: Readonly<Record<string, readonly string[]>> = freezeBindings([
 	['fullscreen', 'F11'],
 	['action://playback/play-selection', 'W'],
+	['timeline-page-left', 'PageUp'],
+	['timeline-page-right', 'PageDown'],
 	['cut-labels', 'Alt+X'],
 	['delete-labels', 'Alt+K'],
 	['split-cut-labels', 'Alt+Shift+X'],

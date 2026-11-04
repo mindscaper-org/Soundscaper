@@ -381,6 +381,8 @@ export function createAudacityActionRuntime(controller, options = {}) {
 		},
 		timeline: {
 			...controllerActions.timeline,
+			pageLeft: () => ui.issue('page-timeline', { direction: -1 }),
+			pageRight: () => ui.issue('page-timeline', { direction: 1 }),
 			zoomDefault: () => controllerActions.timeline.setZoom(120),
 			zoomSelection: () => {
 				// Selected clips are a selection: the zoom frames the range they
