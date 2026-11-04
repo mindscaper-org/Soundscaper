@@ -5,6 +5,10 @@ import test from 'node:test';
 import { createMidiClip, createMidiTrack } from '../src/common/editor/midi-factory.ts';
 import { midiDocumentFromProject } from '../src/common/editor/midi-project-interchange.ts';
 import type { MidiClipInterchange, MidiNote } from '../src/common/editor/midi-model.ts';
+import { clipLoopUpdateFields } from '../src/common/editor/audio-clip-loop.ts';
+import { parseMidiFile, writeMidiFile } from '../src/common/editor/midi-file.ts';
+import { parseAllegroFile, writeAllegroFile } from '../src/common/editor/allegro-file.ts';
+import { MIDI_FILE_MAX_EVENTS, type MidiFileDocument } from '../src/common/editor/midi-file-types.ts';
 
 const note = (id: string, startFrame: number, durationFrames: number, pitch = 60): MidiNote => ({ id, startFrame, durationFrames, pitch, channel: 2, velocity: 90 });
 function fixture(options: Readonly<Record<string, unknown>> = {}, interchange?: MidiClipInterchange) {
@@ -78,3 +82,81 @@ test('MIDI project export rejects absent MIDI and invalid geometry instead of pu
 	const project = fixture();
 	assert.throws(() => midiDocumentFromProject({ ...project, clips: [{ ...project.clips[0], sourceDurationFrames: 0 }] }), /duration|geometry|positive/i);
 });
+
+test('MIDI project export follows authored audio warp timing for notes and expressive messages', () => {
+	const project = fixture({ warpMap: { feature: 'audio-warp', points: [
+		{ outer: { num: 0, den: 1 }, source: { num: 100, den: 1 }, mode: 'forward' },
+		{ outer: { num: 300, den: 1 }, source: { num: 200, den: 1 }, mode: 'forward' },
+		{ outer: { num: 400, den: 1 }, source: { num: 300, den: 1 }, mode: 'forward' },
+	] } }, { tempos: [], signatures: [], events: [{ frame: 150, status: 0xe2, data: [0, 80] }] });
+	const exported = midiDocumentFromProject(project);
+	assert.deepEqual(exported.tracks[0]?.notes.map(n => [n.pitch, n.startFrame, n.durationFrames]), [
+		[60, 1000, 150], [64, 1150, 200], [67, 1350, 50],
+	]);
+	assert.deepEqual(exported.tracks[0]?.events, [{ frame: 1150, status: 0xe2, data: [0, 80] }]);
+	assertInterchangeRoundtrip(exported);
+});
+
+test('MIDI project export resolves musical warp points through the project tempo map', () => {
+	const project = fixture({ anchor: 'musical', musicalStartBeat: { num: 2, den: 1 },
+		musicalExtent: 'beat', musicalDurationBeats: { num: 4, den: 1 }, warpMap: { feature: 'audio-warp', points: [
+			{ outer: { num: 0, den: 1 }, source: { num: 100, den: 1 }, mode: 'forward' },
+			{ outer: { num: 3, den: 1 }, source: { num: 200, den: 1 }, mode: 'forward' },
+			{ outer: { num: 4, den: 1 }, source: { num: 300, den: 1 }, mode: 'forward' },
+		] } });
+	const exported = midiDocumentFromProject({ ...project, tempoMap: { mode: 'musical', events: [
+		{ beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } },
+		{ beat: { num: 4, den: 1 }, bpm: { num: 60, den: 1 } },
+	] } });
+	assert.deepEqual(exported.tracks[0]?.notes.map(n => [n.pitch, n.startFrame, n.durationFrames]), [
+		[60, 48_000, 36_000], [64, 84_000, 84_000], [67, 168_000, 24_000],
+	]);
+	assertInterchangeRoundtrip(exported);
+});
+
+test('MIDI project export repeats loop notes and controllers with partial final periods', () => {
+	const project = fixture({}, { tempos: [], signatures: [], events: [{ frame: 150, status: 0xb2, data: [1, 100] }] });
+	const clip = loopingFixtureClip(project);
+	const loop = { ...clip, ...clipLoopUpdateFields(clip, { periodFrames: 400, durationFrames: 1000 }) };
+	const exported = midiDocumentFromProject({ ...project, clips: [loop] });
+	assert.deepEqual(exported.tracks[0]?.notes.map(n => [n.pitch, n.startFrame, n.durationFrames]), [
+		[60, 1000, 100], [64, 1100, 200], [67, 1300, 100],
+		[60, 1400, 100], [64, 1500, 200], [67, 1700, 100],
+		[60, 1800, 100], [64, 1900, 100],
+	]);
+	assert.deepEqual(exported.tracks[0]?.events?.map(event => event.frame), [1100, 1500, 1900]);
+	assertInterchangeRoundtrip(exported);
+});
+
+test('MIDI project export keeps loop offsets and reversed source orientation', () => {
+	const project = fixture({ reversed: true });
+	const clip = loopingFixtureClip(project);
+	const loop = { ...clip, ...clipLoopUpdateFields(clip, { periodFrames: 400, offsetFrames: 150, durationFrames: 500 }) };
+	const exported = midiDocumentFromProject({ ...project, clips: [loop] });
+	assert.deepEqual(exported.tracks[0]?.notes.map(n => [n.pitch, n.startFrame, n.durationFrames]), [
+		[60, 1150, 100], [64, 1000, 150], [64, 1350, 150], [67, 1250, 100],
+	]);
+	assertInterchangeRoundtrip(exported);
+});
+
+test('MIDI project export refuses loop expansion beyond the interchange event budget', () => {
+	const project = fixture();
+	const clip = loopingFixtureClip(project);
+	const loop = { ...clip, ...clipLoopUpdateFields(clip, { periodFrames: 400, durationFrames: 400 * (MIDI_FILE_MAX_EVENTS + 1) }) };
+	assert.throws(() => midiDocumentFromProject({ ...project, clips: [loop] }), /too many loop repetitions/i);
+});
+
+function loopingFixtureClip(project: ReturnType<typeof fixture>) {
+	const clip = project.clips[0]!;
+	assert.ok(typeof clip.durationFrames === 'number');
+	return { ...clip, durationFrames: clip.durationFrames };
+}
+
+function assertInterchangeRoundtrip(document: MidiFileDocument): void {
+	const content = (value: MidiFileDocument) => value.tracks.filter(track => track.notes.length).map(track => ({
+		notes: track.notes.map(({ id: _id, ...note }) => note).sort((a, b) => a.startFrame - b.startFrame || a.pitch - b.pitch),
+		events: (track.events ?? []).filter(event => (event.status & 240) !== 192),
+	}));
+	assert.deepEqual(content(parseMidiFile(writeMidiFile(document), { sampleRate: document.sampleRate })), content(document));
+	assert.deepEqual(content(parseAllegroFile(writeAllegroFile(document), { sampleRate: document.sampleRate })), content(document));
+}
