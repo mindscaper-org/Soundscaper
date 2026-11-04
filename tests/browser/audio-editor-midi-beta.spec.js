@@ -133,4 +133,28 @@ test.describe('beta MIDI editing and shared transport', () => {
 		await page.keyboard.press('Delete');
 		await expect(noteEditor.getByRole('combobox', { name: 'Selected note', exact: true }).getByRole('option')).toHaveCount(1);
 	});
+
+	test('typing a complete pitch value keeps every digit while editing a note', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		const noteEditor = await openPianoRoll(page, editor);
+		await noteEditor.getByRole('combobox', { name: 'Selected note', exact: true }).selectOption({ index: 1 });
+		const pitch = noteEditor.getByRole('spinbutton', { name: 'Pitch (MIDI number)', exact: true });
+		await pitch.focus();
+		await pitch.press('ControlOrMeta+a');
+		await pitch.pressSequentially('67', { delay: 30 });
+		await expect(pitch).toHaveValue('67');
+		await pitch.press('Tab');
+		await expect(pitch).toHaveValue('67');
+	});
+
+	test('computer keyboard shortcuts work immediately after enabling the keyboard', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		await openPianoRoll(page, editor);
+		const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
+		await panel.getByRole('checkbox', { name: 'Computer keyboard', exact: true }).check();
+		await page.keyboard.press('x');
+		await expect(panel.getByRole('spinbutton', { name: 'Keyboard octave', exact: true })).toHaveValue('4');
+	});
 });

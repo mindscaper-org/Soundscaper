@@ -723,3 +723,18 @@ are the places where the two keyboard models meet, so a future sync should re-ch
     using a control. Resizing an already selected note preserves the complete
     group selection for subsequent edits. Covered by the focused MIDI grid
     interaction tests and beta MIDI browser workflow. Upstream-PR candidate.
+
+90. `NoteGrid` limits a selected group's movement with one shared time/pitch
+    delta, preserving onset spacing and chord intervals at source and MIDI
+    pitch boundaries. Its remembered resize length stays positive after snap
+    rounding, so subsequent drawn notes retain the actual minimum length.
+    Note and clip-strip gestures admit the primary mouse button, preventing
+    secondary-button movement from editing notes or trim boundaries. Covered
+    by the focused MIDI grid interaction regressions. Upstream-PR candidate.
+
+91. Piano-roll pointer sessions retire their document listeners on unmount and
+    finish at the last visible point when the window loses focus. Releasing a
+    secondary mouse button leaves the primary gesture active. Ctrl/Meta-click
+    follows the host's existing toggle-selection convention, with one selection
+    transition per click. Covered by focused MIDI grid and panel-selection
+    regressions. Upstream-PR candidate.

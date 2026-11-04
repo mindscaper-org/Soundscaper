@@ -6,6 +6,7 @@ import type { NoteEdge } from '../NoteRect/NoteRect';
 import { TOTAL_PITCHES, NOTE_MOVE_THRESHOLD, DEFAULT_VELOCITY, MIN_PPS, MAX_PPS, CLIP_BOUNDARY_THRESHOLD } from './constants';
 import type { NoteGridProps } from './types';
 import type { MidiNote, MidiClip } from '@audacity-ui/core';
+import { retainPianoRollMouseGesture } from './piano-roll-mouse-gesture';
 
 interface DragState {
   type: 'move' | 'resize-left' | 'resize-right';
@@ -87,6 +88,8 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
   const isDraggingRef = useRef(false);
   const [dragPitch, setDragPitch] = useState<number | null>(null);
   const lastPlayedPitchRef = useRef<number | null>(null);
+  const releaseGesture = useRef<() => void>(() => {});
+  useEffect(() => () => releaseGesture.current(), []);
 
   // Effective highlighted pitch: keyboard hover > preview note > ghost note > drag
   const effectiveHoveredPitch = hoveredKeyPitch ?? previewNote?.pitch ?? ghostNote?.pitch ?? dragPitch ?? null;
@@ -240,12 +243,9 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
           clipBoundaryDragRef.current = null;
           isDraggingRef.current = false;
           setGridCursor('crosshair');
-          document.removeEventListener('mousemove', handleBoundaryMove);
-          document.removeEventListener('mouseup', handleBoundaryUp);
         };
 
-        document.addEventListener('mousemove', handleBoundaryMove);
-        document.addEventListener('mouseup', handleBoundaryUp);
+        releaseGesture.current = retainPianoRollMouseGesture(document, handleBoundaryMove, handleBoundaryUp);
         return;
       }
     }
@@ -308,12 +308,9 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
         }
         boxSelectionRef.current = null;
         setBoxSelectionRect(null);
-        document.removeEventListener('mousemove', handleBoxMove);
-        document.removeEventListener('mouseup', handleBoxUp);
       };
 
-      document.addEventListener('mousemove', handleBoxMove);
-      document.addEventListener('mouseup', handleBoxUp);
+      releaseGesture.current = retainPianoRollMouseGesture(document, handleBoxMove, handleBoxUp);
       return;
     }
 
@@ -358,16 +355,14 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
         onAddNote(newNote);
       }
       setPreviewNote(null);
-      document.removeEventListener('mousemove', handlePreviewMove);
-      document.removeEventListener('mouseup', handlePreviewUp);
     };
 
-    document.addEventListener('mousemove', handlePreviewMove);
-    document.addEventListener('mouseup', handlePreviewUp);
+    releaseGesture.current = retainPianoRollMouseGesture(document, handlePreviewMove, handlePreviewUp);
   }, [snapTime, xToTime, yToPitch, bpm, snap, onAddNote, onDeselectAll, allNotes, pixelsPerSecond, scrollX, scrollY, noteHeight, onSelectNotes, visibleClips, onResizeClip, getClipBoundaryEdge, onPlayNote]);
 
   // Handle note mouse down (drag or resize)
   const handleNoteMouseDown = useCallback((e: React.MouseEvent, note: { id: number; pitch: number; velocity: number; selected?: boolean }, edge: NoteEdge) => {
+    if (e.button !== 0) return;
     containerRef.current?.focus({ preventScroll: true });
     e.preventDefault();
     e.stopPropagation();
@@ -448,12 +443,18 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
 
       if (drag.type === 'move') {
         const deltaTime = dx / pixelsPerSecond;
-        const deltaPitch = -Math.round(dy / noteHeight);
+        let minimumTime = Infinity, minimumPitch = 127, maximumPitch = 0;
+        for (const init of drag.initials) {
+          minimumTime = Math.min(minimumTime, init.startTime);
+          minimumPitch = Math.min(minimumPitch, init.pitch);
+          maximumPitch = Math.max(maximumPitch, init.pitch);
+        }
+        const deltaPitch = Math.max(-minimumPitch, Math.min(127 - maximumPitch, -Math.round(dy / noteHeight)));
 
         // Apply snapped delta to all selected notes
         const anchor = drag.initials.find(i => i.id === drag.noteId)!;
         const snappedNewTime = snapTime(anchor.startTime + deltaTime);
-        const snappedDeltaTime = snappedNewTime - anchor.startTime;
+        const snappedDeltaTime = Math.max(-minimumTime, snappedNewTime - anchor.startTime);
 
         const anchorNewPitch = Math.max(0, Math.min(127, anchor.pitch + deltaPitch));
         if (anchorNewPitch !== lastPlayedPitchRef.current) {
@@ -472,7 +473,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
         const minDuration = (60 / bpm) / 32; // 1/32 note
         // Compute snapped duration from the anchor note, apply same delta to all
         const anchor = drag.initials.find(i => i.id === drag.noteId)!;
-        const anchorNewDuration = snapTime(Math.max(minDuration, anchor.duration + deltaTime));
+        const anchorNewDuration = Math.max(minDuration, snapTime(anchor.duration + deltaTime));
         const durationDelta = anchorNewDuration - anchor.duration;
         for (const init of drag.initials) {
           const newDur = Math.max(minDuration, init.duration + durationDelta);
@@ -506,7 +507,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
       const drag = dragRef.current;
       if (drag && !drag.hasMoved) {
         // It was a click, not a drag
-        if (drag.type === 'move') {
+        if (drag.type === 'move' && note.selected) {
           onSelectNote(note.id, isAdditive);
         }
       }
@@ -517,12 +518,9 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
       setDragPitch(null);
       lastPlayedPitchRef.current = null;
       setGridCursor('crosshair');
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    releaseGesture.current = retainPianoRollMouseGesture(document, handleMouseMove, handleMouseUp);
   }, [allNotes, pixelsPerSecond, noteHeight, snapTime, bpm, onSelectNote, onUpdateNote, onResizeNote]);
 
   // Handle keyboard events

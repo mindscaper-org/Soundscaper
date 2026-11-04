@@ -52,7 +52,7 @@ test('piano-roll view and drag updates retain unchanged note options while edite
 		assert.equal(dom.container.querySelectorAll('select')[2]?.options.length, notes.length + 1);
 		await act(async () => {
 			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({});
-			reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} });
+			reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ button: 0, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} });
 		});
 		await act(async () => {
 			for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: 60, clientY: 10 } as MouseEvent);

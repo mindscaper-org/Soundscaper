@@ -311,7 +311,7 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 				aria-label={copy.projectBinImport}
 				type="file"
 				tabIndex={-1}
-				accept={AUDIO_EDITOR_AUDIO_FILE_ACCEPT}
+				accept={`${AUDIO_EDITOR_AUDIO_FILE_ACCEPT},.mid,.midi,.gro`}
 				multiple
 				onChange={(event) => {
 					const files = [...event.currentTarget.files];
