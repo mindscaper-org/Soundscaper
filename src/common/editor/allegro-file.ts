@@ -30,7 +30,19 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 	const declarations: MidiFileTempo[] = [];
 	const signatureParts = new Map<number, { numerator?: number; denominator?: number }>();
 	const keySignatures = new Map<string, { frame: number; track: AllegroTrack; key: number; minor: boolean }>();
-	let timing = createMidiTempoTimeline(knownTempos, sampleRate, 100);
+	let resolvedTiming = createMidiTempoTimeline(knownTempos, sampleRate, 100);
+	let timingDirty = false;
+	const currentTiming = () => {
+		if (timingDirty) {
+			resolvedTiming = createMidiTempoTimeline(declarations, sampleRate, 100);
+			timingDirty = false;
+		}
+		return resolvedTiming;
+	};
+	const timing = {
+		frameToBeat: (frame: number) => currentTiming().frameToBeat(frame),
+		beatToFrame: (beat: number) => currentTiming().beatToFrame(beat),
+	};
 	let trackIndex = 0;
 	let currentFrame = 0;
 	let pitch = 60;
@@ -99,7 +111,7 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 					const bpm = allegroNumber(value, 'tempo');
 					if (bpm <= 0 || bpm > 60_000_000) throw new RangeError('Invalid Allegro tempo.');
 					declarations.push({ frame: Math.round(currentFrame), bpm });
-					if (!knownTempos.length) timing = createMidiTempoTimeline(declarations, sampleRate, 100);
+					if (!knownTempos.length) timingDirty = true;
 				} else if (name === 'beatr') {
 					const beat = allegroNumber(value, 'beat anchor');
 					if (currentFrame === 0 && beat === 0) continue;
@@ -107,7 +119,7 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 					const bpm = (beat - beatAnchor.beat) / (currentFrame - beatAnchor.frame) * sampleRate * 60;
 					declarations.push({ frame: Math.round(beatAnchor.frame), bpm });
 					beatAnchor = { frame: currentFrame, beat };
-					if (!knownTempos.length) timing = createMidiTempoTimeline(declarations, sampleRate, 100);
+					if (!knownTempos.length) timingDirty = true;
 				} else if (name === 'timesig_numr' || name === 'timesig_denr') {
 					const frame = Math.round(currentFrame);
 					const parts = signatureParts.get(frame) ?? {};

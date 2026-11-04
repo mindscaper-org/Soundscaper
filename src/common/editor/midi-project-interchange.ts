@@ -3,6 +3,7 @@ import { readMidiClip, readMidiTrack } from './midi-model.ts';
 import { MIDI_FILE_MAX_EVENTS, validateMidiFileDocument, type MidiFileDocument, type MidiFileEvent } from './midi-file-types.ts';
 import { midiProjectTiming } from './midi-project-timing.ts';
 import { midiClipOccurrences } from './midi-project-source-projection.ts';
+import { createMidiClipEventProjection } from './midi-project-event-projection.ts';
 
 interface MidiExportProject extends Readonly<Record<string, unknown>> {
 	readonly sampleRate: number;
@@ -38,6 +39,12 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 			const persistedClip = clipsById.get(String(id));
 			const data = readMidiClip(persistedClip);
 			if (!persistedClip || !data) continue;
+			const eventProjection = createMidiClipEventProjection(data.interchange);
+			const importedRootTempo = data.interchange?.tempos.find(tempo => tempo.frame === 0);
+			const preserveTempos = !timing.hasTempoChanges && importedRootTempo && Math.abs(importedRootTempo.bpm - timing.tempos[0]!.bpm) < 0.000001;
+			const importedRootSignature = data.interchange?.signatures.find(signature => signature.frame === 0);
+			const preserveSignatures = !timing.hasSignatureChanges && importedRootSignature && importedRootSignature.numerator === timing.signatures[0]!.numerator
+				&& importedRootSignature.denominator === timing.signatures[0]!.denominator;
 			let occurrence = 0;
 			for (const { start, sourceFrames, timelineStart, global } of midiClipOccurrences(projectionProject, persistedClip)) {
 				const prefix = `${String(persistedClip.id)}${occurrence ? `:loop-${occurrence}` : ''}`;
@@ -49,20 +56,15 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 					reserveEvents(1);
 					notes.push({ ...note, id: `${prefix}:${note.id}`, startFrame: Math.min(global(from), global(to)), durationFrames: Math.max(1, Math.abs(global(to) - global(from))) });
 				}
-				const visible = visibleEvents(data.interchange?.events ?? [], start, sourceFrames, timelineStart, global);
+				const visible = eventProjection.events(start, sourceFrames, timelineStart, global);
 				reserveEvents(visible.length);
 				for (const event of visible) events.push(event);
-				const importedTempos = data.interchange?.tempos ?? [];
-				const importedRootTempo = importedTempos.find(tempo => tempo.frame === 0);
-				if (!timing.hasTempoChanges && importedRootTempo && Math.abs(importedRootTempo.bpm - timing.tempos[0]!.bpm) < 0.000001) {
-					const visible = visibleTiming(importedTempos, start, sourceFrames, timelineStart, global);
+				if (preserveTempos) {
+					const visible = eventProjection.tempos(start, sourceFrames, timelineStart, global);
 					addTiming(tempos, visible);
 				}
-				const importedSignatures = data.interchange?.signatures ?? [];
-				const importedRootSignature = importedSignatures.find(signature => signature.frame === 0);
-				if (!timing.hasSignatureChanges && importedRootSignature && importedRootSignature.numerator === timing.signatures[0]!.numerator
-					&& importedRootSignature.denominator === timing.signatures[0]!.denominator) {
-					const visible = visibleTiming(importedSignatures, start, sourceFrames, timelineStart, global);
+				if (preserveSignatures) {
+					const visible = eventProjection.signatures(start, sourceFrames, timelineStart, global);
 					addTiming(signatures, visible);
 				}
 			}
@@ -75,27 +77,6 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 	const document = { sampleRate: project.sampleRate, tracks, tempos: [...tempos.values()].sort(byFrame), signatures: [...signatures.values()].sort(byFrame) };
 	validateMidiFileDocument(document);
 	return document;
-}
-
-function visibleEvents(events: readonly MidiFileEvent[], start: number, frames: number, timelineStart: number, global: (frame: number) => number): MidiFileEvent[] {
-	const state = new Map<string, MidiFileEvent>();
-	const initial: MidiFileEvent[] = [];
-	const visible: MidiFileEvent[] = [];
-	for (const event of [...events].sort((a, b) => a.frame - b.frame)) {
-		if (event.frame >= start && event.frame < start + frames) visible.push({ ...event, frame: global(event.frame) });
-		else if (event.frame < start) {
-			if (event.status === 240 || event.status === 247) initial.push({ ...event, frame: timelineStart });
-			else if (event.status < 240) state.set(`${event.status}:${[160, 176].includes(event.status & 240) ? event.data[0] : ''}`, event);
-			else if (event.status === 255 && [2, 4, 89].includes(event.metaType ?? -1)) state.set(`meta:${event.metaType}`, event);
-		}
-	}
-	return [...initial, ...[...state.values()].map(event => ({ ...event, frame: timelineStart })), ...visible];
-}
-
-function visibleTiming<Value extends Readonly<{ frame: number }>>(values: readonly Value[], start: number, frames: number, timelineStart: number, global: (frame: number) => number): Value[] {
-	const sorted = [...values].filter(value => value.frame > 0).sort((a, b) => a.frame - b.frame);
-	const before = sorted.filter(value => value.frame < start).at(-1);
-	return [...(before ? [{ ...before, frame: timelineStart }] : []), ...sorted.filter(value => value.frame >= start && value.frame < start + frames).map(value => ({ ...value, frame: global(value.frame) }))];
 }
 
 function byFrame(a: Readonly<{ frame: number }>, b: Readonly<{ frame: number }>): number { return a.frame - b.frame; }

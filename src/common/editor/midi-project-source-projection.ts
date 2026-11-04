@@ -4,7 +4,7 @@ import { readClipLoop } from './audio-clip-loop.ts';
 import { normalizeAudioWarpRuntimeInputs, isMusicalAudioWarpClip, type AudioWarpAuthorityRuntimeClip } from './audio-warp-runtime-authority.ts';
 import { MIDI_FILE_MAX_EVENTS } from './midi-file-types.ts';
 import { resolveRuntimeClipProjection, type RuntimePersistedClip, type RuntimeClipProjection } from './runtime-clip-projection.ts';
-import { addRationals, beatToSampleFrame, createBreakpointMapEvaluator, roundRational, type HoldTempoMap } from './timeline-time.ts';
+import { addRationals, beatToSampleFrame, compareRationals, createBreakpointMapEvaluator, roundRational, type HoldTempoMap } from './timeline-time.ts';
 
 interface ProjectionProject extends Readonly<Record<string, unknown>> { readonly sampleRate: number; readonly tempoMap: HoldTempoMap }
 export interface MidiClipOccurrence {
@@ -42,10 +42,17 @@ export function* midiClipOccurrences(project: ProjectionProject, persistedClip: 
 function sourceProjector(project: ProjectionProject, clip: RuntimeClipProjection, origin: number, period: number): (frame: number) => number {
 	if (clip.warpMap != null) {
 		const { clip: authority, map } = normalizeAudioWarpRuntimeInputs(project, clip as AudioWarpAuthorityRuntimeClip);
-		const outerAtSource = createBreakpointMapEvaluator({ ...map, points: map.points.map(point => ({ ...point, outer: point.source, source: point.outer })) });
+		const points = map.points.map(point => ({ ...point, outer: point.source, source: point.outer }));
+		const segments = points.slice(1).map((point, index) => createBreakpointMapEvaluator({ ...map, points: [points[index]!, point] }));
 		const musical = isMusicalAudioWarpClip(authority);
 		return frame => {
-			const outer = outerAtSource(frame);
+			let low = 0, high = points.length - 1;
+			while (low + 1 < high) {
+				const middle = Math.floor((low + high) / 2);
+				if (compareRationals(frame, points[middle]!.outer) >= 0) low = middle;
+				else high = middle;
+			}
+			const outer = segments[low]!(frame);
 			return musical ? beatToSampleFrame(addRationals(authority.musicalStartBeat!, outer), project.tempoMap, project.sampleRate, 'point')
 				: clip.timelineStartFrame + roundRational(outer.num, outer.den, 'point');
 		};
