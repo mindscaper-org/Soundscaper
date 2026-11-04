@@ -11,10 +11,8 @@ import {
 	resolveTimelinePlaybackScroll,
 	type TimelinePlaybackFollowMode,
 } from './timeline-playback-frame-loop.ts';
-import {
-	readTimelineContentScrollX,
-	timelineDomScrollForElement,
-} from './timeline-scroll-space.ts';
+import { readTimelineContentScrollX } from './timeline-scroll-space.ts';
+import { projectTimelinePlaybackFrame } from './timeline-playhead-projection.ts';
 
 interface PlaybackTelemetrySnapshot {
 	readonly positionFrame?: number;
@@ -61,29 +59,15 @@ export function TimelinePlaybackProjection({
 		const frame = Math.max(0, Number(rawFrame) || 0);
 		const playheadX = CLIP_CONTENT_OFFSET
 			+ frame / Math.max(1, sampleRate) * pixelsPerSecond;
-		rootRef.current?.style.setProperty(
-			'--timeline-playhead-x',
-			`${playheadX}px`,
-		);
 		const scroll = scrollRef.current;
-		if (!follow || !scroll) return;
-		const resolution = resolveTimelinePlaybackScroll({
-			mode: followMode,
-			playheadX,
-			scrollX: readTimelineContentScrollX(scroll),
-			viewportWidth,
-			leadingInset: CLIP_CONTENT_OFFSET,
-			suspended: suspendedRef.current,
+		const projection = projectTimelinePlaybackFrame(rootRef.current, scroll, {
+			mode: followMode, follow, playheadX, viewportWidth,
+			leadingInset: CLIP_CONTENT_OFFSET, suspended: suspendedRef.current,
 		});
-		suspendedRef.current = resolution.suspended;
-		if (resolution.targetScrollX === null) return;
-		const nextScroll = timelineDomScrollForElement(
-			scroll,
-			resolution.targetScrollX,
-		);
-		if (Math.abs(scroll.scrollLeft - nextScroll) <= 1) return;
-		automaticScrollRef.current = nextScroll;
-		scroll.scrollLeft = nextScroll;
+		suspendedRef.current = projection.suspended;
+		if (!scroll || projection.targetDomScrollX === null) return;
+		automaticScrollRef.current = projection.targetDomScrollX;
+		scroll.scrollLeft = projection.targetDomScrollX;
 	}, [followMode, pixelsPerSecond, rootRef, sampleRate, scrollRef, viewportWidth]);
 
 	useEffect(() => {
@@ -126,7 +110,8 @@ export function TimelinePlaybackProjection({
 	useLayoutEffect(() => {
 		if (transportState === 'playing' || transportState === 'recording') return;
 		projectPosition(positionFrame, false);
-	}, [positionFrame, projectPosition, transportState]);
+		// A paused commit can mount another output playhead without changing time.
+	});
 
 	useEffect(() => {
 		if (transportState !== 'playing' && transportState !== 'recording') return undefined;

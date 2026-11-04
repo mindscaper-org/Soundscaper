@@ -1,3 +1,10 @@
+/* Position changes belong to the playhead paint owners, not every timeline descendant. */
+@property --timeline-playhead-x {
+	syntax: '<length>';
+	inherits: false;
+	initial-value: 0px;
+}
+
 .audio-editor-output-ruler {
 	position: absolute;
 	z-index: 7;
