@@ -95,4 +95,42 @@ test.describe('beta MIDI editing and shared transport', () => {
 		await expect(noteEditor.getByRole('spinbutton', { name: 'Pitch (MIDI number)', exact: true })).toHaveValue('62');
 		await expect(noteEditor.getByRole('spinbutton', { name: 'Note duration (seconds)', exact: true })).toHaveValue(String(1 / 12));
 	});
+
+	test('clicking a piano-roll note routes Delete to notes after using the note controls', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		const noteEditor = await openPianoRoll(page, editor);
+		const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
+		await panel.getByRole('button', { name: 'Add note', exact: true }).click();
+		const notes = noteEditor.getByRole('combobox', { name: 'Selected note', exact: true });
+		await expect(notes.getByRole('option')).toHaveCount(3);
+		await panel.getByRole('group', { name: 'Piano roll notes', exact: true }).click({ position: { x: 110, y: 108 } });
+		await page.keyboard.press('Delete');
+		await expect(notes.getByRole('option')).toHaveCount(2);
+	});
+
+	test('resizing selected notes preserves the group for the next Delete', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		const noteEditor = await openPianoRoll(page, editor);
+		const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
+		await panel.getByRole('button', { name: 'Add note', exact: true }).click();
+		await expect(noteEditor.getByRole('combobox', { name: 'Selected note', exact: true }).getByRole('option')).toHaveCount(3);
+		const grid = panel.getByRole('group', { name: 'Piano roll notes', exact: true });
+		await grid.click({ position: { x: 110, y: 108 } });
+		await page.keyboard.press('ControlOrMeta+a');
+		const bounds = await grid.boundingBox();
+		if (!bounds) throw new Error('Piano roll grid is not visible.');
+		await page.mouse.move(bounds.x + 115, bounds.y + 108);
+		await expect.poll(() => page.evaluate(({ x, y }) => {
+			const target = document.elementFromPoint(x, y);
+			return target ? getComputedStyle(target).cursor : null;
+		}, { x: bounds.x + 115, y: bounds.y + 108 })).toBe('ew-resize');
+		await page.mouse.down();
+		await page.mouse.move(bounds.x + 140, bounds.y + 108, { steps: 3 });
+		await page.mouse.up();
+		await expect(noteEditor.getByRole('spinbutton', { name: 'Note duration (seconds)', exact: true })).toHaveValue('0.75');
+		await page.keyboard.press('Delete');
+		await expect(noteEditor.getByRole('combobox', { name: 'Selected note', exact: true }).getByRole('option')).toHaveCount(1);
+	});
 });

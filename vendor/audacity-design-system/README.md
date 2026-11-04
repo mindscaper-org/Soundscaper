@@ -717,3 +717,9 @@ are the places where the two keyboard models meet, so a future sync should re-ch
     Authored and draft note edits replace that clip projection as before.
     Covered by `tests/audio-editor-midi-panel-performance.test.tsx` and the
     beta MIDI browser workflow. Upstream-PR candidate.
+
+89. `NoteGrid` focuses its keyboard owner when a note or background gesture
+    starts, keeping Delete and selection shortcuts inside the piano roll after
+    using a control. Resizing an already selected note preserves the complete
+    group selection for subsequent edits. Covered by the focused MIDI grid
+    interaction tests and beta MIDI browser workflow. Upstream-PR candidate.

@@ -185,6 +185,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
   // Handle click on empty grid — add note, start box selection, or start clip boundary drag
   const handleBackgroundMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
+    containerRef.current?.focus({ preventScroll: true });
     isDraggingRef.current = true;
     setGhostNote(null);
 
@@ -367,6 +368,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
 
   // Handle note mouse down (drag or resize)
   const handleNoteMouseDown = useCallback((e: React.MouseEvent, note: { id: number; pitch: number; velocity: number; selected?: boolean }, edge: NoteEdge) => {
+    containerRef.current?.focus({ preventScroll: true });
     e.preventDefault();
     e.stopPropagation();
 
@@ -408,7 +410,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
       lastPlayedPitchRef.current = note.pitch;
     } else {
       // Resize — include all selected notes so they resize together
-      onSelectNote(note.id, isAdditive);
+      if (!note.selected) onSelectNote(note.id, isAdditive);
       if (!fullNote) return;
       const willResizeMulti = note.selected || isAdditive;
       const selectedNotes = willResizeMulti
