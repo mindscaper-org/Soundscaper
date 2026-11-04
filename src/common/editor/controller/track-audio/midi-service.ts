@@ -130,7 +130,12 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 		return enqueue(async project => {
 			const { clip, data, trackData } = findMidi(project, clipId);
 			const next = edit(data);
-			const noteEnd = next.notes.reduce((end, note) => Math.max(end, note.startFrame + note.durationFrames), 0);
+			const previousNotes = new Map(data.notes.map(note => [note.id, note]));
+			const noteEnd = next.notes.reduce((end, note) => {
+				const previous = previousNotes.get(note.id);
+				return previous?.startFrame === note.startFrame && previous.durationFrames === note.durationFrames
+					? end : Math.max(end, note.startFrame + note.durationFrames);
+			}, 0);
 			const sourceFrames = Math.max(Number(clip.sourceDurationFrames), noteEnd - Number(clip.sourceStartFrame));
 			const durationFrames = Math.max(Number(clip.durationFrames), Math.round(sourceFrames * Number(clip.durationFrames) / Number(clip.sourceDurationFrames)));
 			await publishEdit(project, next, trackData.instrument, Number(clip.sourceStartFrame) + sourceFrames, source => [

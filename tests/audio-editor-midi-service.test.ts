@@ -8,6 +8,7 @@ import type { MidiServiceDependencies } from '../src/common/editor/controller/tr
 import { readMidiClip, readMidiTrack } from '../src/common/editor/midi-model.ts';
 import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
 import { parseMidiFile } from '../src/common/editor/midi-file.ts';
+import type { AudioEditorCommand } from '../src/common/editor/commands/protocol.ts';
 
 function fixture(options: Readonly<Record<string, unknown>> = {}) {
 	let project = createAudioEditorProjectV17({ ...options, sampleRate: 8000 });
@@ -33,6 +34,7 @@ function fixture(options: Readonly<Record<string, unknown>> = {}) {
 		previewNote: async () => undefined, saveFile: request => { saves.push(request); return files.saveFile(request); },
 	};
 	return { service: createMidiService(dependencies), pcm, deleted, saves, project: () => project,
+		apply(command: AudioEditorCommand) { project = applyEditorCommand(project, command); },
 		replaceProject() { project = createAudioEditorProjectV17({ id: 'replacement', sampleRate: 8000 }); },
 		onWrite(callback: () => void) { onWrite = callback; } };
 }
@@ -81,6 +83,35 @@ test('a new MIDI clip spans four measures using the project signature denominato
 	const f = fixture({ tempo: { bpm: 120, timeSignature: { numerator: 6, denominator: 8 } } });
 	await f.service.addTrack();
 	assert.equal(f.project().clips[0]?.durationFrames, 48_000);
+});
+
+test('editing a split MIDI clip preserves its boundaries and the neighboring clip', async () => {
+	const f = fixture();
+	const created = await f.service.importDocument({ sampleRate: 8000, tracks: [{ name: 'Melody', notes: [
+		{ id: 'a', pitch: 60, startFrame: 0, durationFrames: 4000, velocity: 100, channel: 0 },
+		{ id: 'b', pitch: 64, startFrame: 24000, durationFrames: 8000, velocity: 100, channel: 0 },
+	] }], tempos: [{ frame: 0, bpm: 120 }], signatures: [{ frame: 0, numerator: 4, denominator: 4 }] });
+	const clipId = created[0]!.clipId;
+	f.apply({ type: 'clip/split', clipId, atFrame: 16000, rightClipId: 'right' });
+	const right = structuredClone(f.project().clips.find(clip => clip.id === 'right'));
+	await f.service.updateNote(clipId, 'a', { pitch: 67 });
+	const left = f.project().clips.find(clip => clip.id === clipId)!;
+	assert.equal(left.durationFrames, 16000);
+	assert.equal(left.sourceDurationFrames, 16000);
+	assert.equal(readMidiClip(left)?.notes[0]?.pitch, 67);
+	assert.deepEqual(f.project().clips.find(clip => clip.id === 'right'), right);
+	await f.service.deleteNotes(clipId, ['a']);
+	assert.equal(f.project().clips.find(clip => clip.id === clipId)?.durationFrames, 16000);
+});
+
+test('MIDI note geometry edits still extend a clip when its edited note goes beyond the right edge', async () => {
+	const f = fixture();
+	const { clipId } = await f.service.addTrack();
+	await f.service.addNote(clipId, { id: 'a', pitch: 60, startFrame: 0, durationFrames: 4000, velocity: 100, channel: 0 });
+	f.apply({ type: 'clip/trim', clipId, durationFrames: 8000, sourceDurationFrames: 8000 });
+	await f.service.updateNote(clipId, 'a', { startFrame: 10000 });
+	assert.equal(f.project().clips[0]?.durationFrames, 14000);
+	assert.equal(f.project().clips[0]?.sourceDurationFrames, 14000);
 });
 
 test('MIDI import skips an empty conductor track and adopts initial timing into an empty project', async () => {
