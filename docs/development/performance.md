@@ -42,6 +42,20 @@ records, accessors, sparse arrays, and custom traversal retain live-read paths;
 small selections retain short-circuit traversal before index admission.
 History projections share private Sets under weak document ownership.
 
+Preview seeking retains only the latest pending target for each media element
+while its current seek drains. Exact composition waits for that target, and
+source replacement, cancellation, or element retirement drops queued work and
+its listeners. The [seek regressions](../../tests/audio-editor-video-preview-seek-coalescing.test.ts)
+and [decoded-picture browser check](../../tests/browser/audio-editor-video-preview-seek-coalescing.spec.js)
+cover coalescing, cleanup, and final-frame correctness.
+
+Exact axis-aligned picture placement prepares interpolation addresses per row
+and column while preserving the affine sampler's Float64 output. Its temporary
+column table uses three doubles per output column and is released after each
+placement. Rotation, shear, and custom source fields retain the general
+sampler. The [placement regressions](../../tests/audio-editor-linear-placement-performance.test.ts)
+check address work and pixel parity across transforms, crops, masks, and alpha.
+
 Row readers retain one current visual result and still poll mutable visual
 providers. Recording views retain one current preview index. Preview windows
 box native peak views directly into detached number arrays; custom iterators,
@@ -93,6 +107,14 @@ reads retain their original probe byte ceilings. Pathless desktop selections
 recheck their live read grant before cached results are returned. The
 [header-cache regressions](../../tests/editor-video-timing-read-cache.test.ts)
 cover read counts, byte bounds, private buffers, eviction, and grant retirement.
+
+Video audio workload admission shares one bounded movie inspection and demuxer
+across the candidate programmes in one import. Movie metadata and the demuxer's
+source cache each retain at most 1 MiB, alongside 32 per-track admissions.
+The reader disposes the demuxer on completion or cancellation. Independent
+imports retain independent readers.
+The [workload reuse regressions](../../tests/audio-editor-import-video-workload-reuse.test.ts)
+check physical reads, route selection, authored endpoints, and disposal races.
 
 Command indexes and export partitions belong to one operation or snapshot
 session. Export maps retain identities and lane references, never copied PCM;
