@@ -6,6 +6,8 @@ import { publishedCopyFor } from '../../shared/presentation-localization.ts'; im
 import { scaleSampleFrame } from '../../../timeline-time.ts';
 import { createWaveformPeakBuilder } from '../../../waveform-peak-builder.ts';
 import { admitAudioImportChannelCount } from './audio-import-channel-admission.ts';
+import type { EditorProjectToken } from '../../shared/lifecycle.ts';
+import type { AudioImportDerivativeRequest } from './audio-import-derivatives.ts';
 import {
 	createImportedAudioContentIdentityWriter,
 	rollbackImportedAudioContentIdentityWriter,
@@ -15,6 +17,7 @@ import {
 type LegacyPort = (...args: any[]) => any;
 
 export interface IncrementalPcmImportRuntime {
+	readonly scheduleAudioDerivatives?: (request: AudioImportDerivativeRequest) => void;
 	readonly SOURCE_CHUNK_FRAMES: number;
 	readonly activateStoredSource: LegacyPort;
 	readonly commit: LegacyPort;
@@ -44,6 +47,7 @@ export type IncrementalWavImportRuntime = IncrementalPcmImportRuntime;
 
 interface IncrementalPcmImportOwnership {
 	readonly assertCurrent?: () => void;
+	readonly projectToken?: EditorProjectToken;
 }
 
 export function createIncrementalPcmImporter(runtime: IncrementalPcmImportRuntime) {
@@ -165,14 +169,20 @@ export function createIncrementalPcmImporter(runtime: IncrementalPcmImportRuntim
 			}, trackName, importOptions, wavMetadata.projectBext, descriptor.markers || [],
 			descriptor.sampleRate, wavMetadata.projectIxml, wavMetadata.projectCart,
 			wavMetadata.projectAdmCandidate, descriptor);
+			const peaks = peakBuilder.finish();
 			await activateStoredSource(source, metadata, {
 				...activationOptions,
-				peaks: peakBuilder.finish(),
+				peaks,
+				persistPeaks: !(ownership.projectToken != null && runtime.scheduleAudioDerivatives),
 				signal: importOptions.signal,
 				onProgress: (value: number) => { assertCurrent(); reportProgress(0.8 + 0.19 * value); },
 			});
 			assertCurrent();
 			commit(prepared.command, prepared.selection);
+			if (ownership.projectToken != null && runtime.scheduleAudioDerivatives) {
+				try { runtime.scheduleAudioDerivatives({ source, projectToken: ownership.projectToken, peaks }); }
+				catch { /* The playable source and clips are already committed. */ }
+			}
 			reportProgress(1);
 			importedResult = prepared.result;
 		} catch (error) {

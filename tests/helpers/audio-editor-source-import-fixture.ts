@@ -119,6 +119,7 @@ export function createFixture() {
 		activateFails: false,
 		replaceMediaBeforeRollback: false,
 		activationGate: null as Promise<void> | null,
+		audioWriteGate: null as Promise<void> | null,
 		bindFails: false,
 		commitFails: false,
 		commitMutatesThenFails: false,
@@ -175,7 +176,7 @@ export function createFixture() {
 			calls.push('writer-write');
 			if (options.writerFails) throw new Error('writer failed');
 		},
-		async commit() { calls.push('writer-commit'); },
+		async commit() { calls.push('writer-commit'); if (options.audioWriteGate) await options.audioWriteGate; },
 		async abort() { calls.push('writer-abort'); },
 	};
 	const runtime: ImportVideoRuntime = {
@@ -201,7 +202,13 @@ export function createFixture() {
 		commit: (command, selection = {}) => {
 			if (command.type !== 'batch') throw new TypeError('The fixture accepts only batch imports.');
 			calls.push('commit');
-			if (options.commitFails) throw new Error('commit failed');
+			if (options.commitFails) {
+				if (options.replaceMediaBeforeRollback) {
+					const id = 'video-source-1';
+					mediaGenerations.set(id, (mediaGenerations.get(id) ?? 0) + 1);
+				}
+				throw new Error('commit failed');
+			}
 			if (options.commitMutatesThenFails) {
 				project = {
 					...project,
@@ -396,6 +403,8 @@ export function createFixture() {
 	};
 	const derivativesScheduler = createVideoImportDerivativeScheduler({
 		lifetime, protectedSourceIds, store: runtime.store, sourcePeaks,
+		activateVideoSource: (...args) => runtime.activateVideoSource(...args),
+		revokeVideoVisual: (...args) => runtime.revokeVideoVisual(...args),
 		assertProject: token => runtime.assertProject(token), getProject: () => runtime.getProject(),
 		peakCacheKey: sourceId => runtime.peakCacheKey(sourceId),
 		audioEditorVideoThumbnailTimes: duration => runtime.audioEditorVideoThumbnailTimes(duration),

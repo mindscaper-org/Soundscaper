@@ -85,7 +85,7 @@ test('a project-bin import surfaces its cue omission in the import notice', asyn
 	assert.match(String(result.notice || ''), /Project Bin/u);
 });
 
-test('decoded audio imports cannot cross projects while decoding or after persistence', async () => {
+test('decoded audio imports cannot cross projects while decoding', async () => {
 	const decoding = createFixture();
 	const decodeGate = deferred<void>();
 	decoding.options.decodeGate = decodeGate.promise;
@@ -98,21 +98,6 @@ test('decoded audio imports cannot cross projects while decoding or after persis
 	await assert.rejects(decodeOperation, /project changed during audio import/iu);
 	assert.equal(decoding.commands.length, 0);
 	assert.deepEqual(decoding.deletedSources, []);
-
-	const persisted = createFixture();
-	const peakGate = deferred<void>();
-	persisted.options.peakGate = peakGate.promise;
-	const persistedOperation = createProjectImportService(persisted.runtime).importFile(
-		file('persisted.mp3', 'audio/mpeg'),
-	);
-	while (!persisted.calls.includes('peaks-started')) await Promise.resolve();
-	persisted.setProject({ id: 'replacement', tracks: [], sources: [] });
-	peakGate.resolve();
-	await assert.rejects(persistedOperation, /project changed during audio import/iu);
-	assert.equal(persisted.commands.length, 0);
-	assert.deepEqual(persisted.deletedSources, ['source-1']);
-	assert.equal(persisted.sourceBuffers.size, 0);
-	assert.equal(persisted.sourcePeaks.size, 0);
 });
 
 test('an externally captured import project remains authoritative during asynchronous admission', async () => {
@@ -131,26 +116,7 @@ test('an externally captured import project remains authoritative during asynchr
 	assert.equal(fixture.commands.length, 0);
 });
 
-test('audio imports create indexed tracks and clean persisted data after analysis failure', async () => {
-	const fixture = createFixture();
-	const service = createProjectImportService(fixture.runtime);
-	const created = await service.importFile(file('new-track.mp3', 'audio/mpeg'), {
-		destination: 'timeline', trackId: null, trackIndex: 1, timelineStartFrame: 3,
-	});
-	assert.match(created.trackId, /^track-/u);
-
-	fixture.options.peakFails = true;
-	await assert.rejects(() => service.importFile(file('broken.mp3', 'audio/mpeg')), /peaks failed/u);
-	assert.equal(fixture.deletedSources.length, 1);
-	assert.equal(fixture.sourcePeaks.size, 1);
-
-	fixture.options.peakFails = false;
-	fixture.options.writerFails = true;
-	await assert.rejects(() => service.importFile(file('writer.mp3', 'audio/mpeg')), /write failed/u);
-	assert.equal(fixture.calls.includes('writer-abort'), true);
-});
-
-test('decoded audio rollback preserves the import failure and removes persisted peaks', async () => {
+test('decoded audio rollback preserves commit and source-cleanup failures', async () => {
 	const fixture = createFixture();
 	const deletedAnalysis: string[] = [];
 	fixture.options.commitFails = true;

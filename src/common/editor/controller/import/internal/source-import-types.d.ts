@@ -205,7 +205,7 @@ export interface ImportVideoRuntime {
 	readonly store: ImportVideoStore;
 	readonly sourceBuffers: Pick<Map<string, unknown>, 'delete'>;
 	readonly sourcePeaks: Pick<Map<string, unknown>, 'delete' | 'set'>;
-	activateVideoSource(source: ImportVideoSource): Awaitable<unknown>;
+	activateVideoSource(source: ImportVideoSource, options?: Readonly<{ signal?: AbortSignal }>): Awaitable<unknown>;
 	audioBufferChannels(buffer: ImportedVideoAudioBuffer): Float32Array[];
 	audioEditorVideoThumbnailTimes(durationSeconds: number): readonly number[];
 	assertProject(token: EditorProjectToken): void;
@@ -246,7 +246,7 @@ export interface ImportVideoRuntime {
 	preflightStorage(bytes: number, category: 'import'): PromiseLike<unknown>;
 	getProject(): ImportVideoProject | null;
 	projectSampleRate(): number;
-	revokeVideoVisual(sourceId: string): Awaitable<unknown>;
+	revokeVideoVisual(sourceId: string, expectedMediaUrl?: string | null): Awaitable<unknown>;
 	stripExtension(name: string): string;
 	warnEnvelope(): void;
 	writeBuffer(

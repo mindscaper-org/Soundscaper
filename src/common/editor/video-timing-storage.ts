@@ -42,6 +42,7 @@ export async function publishVideoTimingAsset(
 	options: Readonly<{ signal?: AbortSignal }> = {},
 ): Promise<Readonly<{
 	reference: Readonly<VideoTimingAssetReference>;
+	index: VideoTimingIndex;
 	created: boolean;
 	publication: OwnedMediaAssetPublication | null;
 }>> {
@@ -58,12 +59,12 @@ export async function publishVideoTimingAsset(
 			signal: options.signal,
 			sourceSha256,
 		});
-		if (loaded.status !== 'available') {
+		if (loaded.status !== 'available' || !loaded.index) {
 			throw new Error(`The immutable stored timing asset is ${loaded.status}.`);
 		}
-		return Object.freeze({ reference, created: false, publication: null });
+		return Object.freeze({ reference, index: loaded.index, created: false, publication: null });
 	}
-	validateVideoTimingAssetBytes(reference, bytes);
+	const index = validateVideoTimingAssetBytes(reference, bytes);
 	const writer = await store.beginMediaAssetWrite(
 		reference.storageKey,
 		{
@@ -108,7 +109,7 @@ export async function publishVideoTimingAsset(
 		throw error;
 	}
 	if (!ownedPublication) throw new Error('The timing asset publication did not return an ownership capability.');
-	return Object.freeze({ reference, created: true, publication: ownedPublication });
+	return Object.freeze({ reference, index, created: true, publication: ownedPublication });
 }
 
 export async function loadVideoTimingAsset(

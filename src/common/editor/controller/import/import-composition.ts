@@ -39,8 +39,9 @@ import {
 	type ImportVideoOptions,
 } from './internal/source-import.ts';
 import { admitChangedContentVideoCandidate, type ChangedContentVideoCandidateSource } from './internal/linked-media/video-relink-probe.ts';
-import { generateWaveformPeaks, peakCacheKey } from '../source/waveform-analysis.ts';
+import { generateStoredWaveformPeaks, generateWaveformPeaks, peakCacheKey } from '../source/waveform-analysis.ts';
 import { createVideoImportDerivativeScheduler } from './internal/video-import-derivatives.ts';
+import { createAudioImportDerivativeScheduler } from './internal/audio-import-derivatives.ts';
 import type { createClipSpreadsheetPasteService } from './internal/clip-spreadsheet-paste-service.ts';
 
 export type {
@@ -71,8 +72,16 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 		projectVisual.revokeVideoVisual(sourceId, expectedMediaUrl)
 	);
 	let importVideoFile: ImportVideoFile | null = null;
+	const audioDerivatives = createAudioImportDerivativeScheduler({
+		lifetime, store, assertProject, getProject: dependencies.getProject,
+		protectedSourceIds: dependencies.protectedSourceIds, sourcePeaks: dependencies.sourcePeaks, peakCacheKey,
+		generatePeaks: (channels, signal) => generateWaveformPeaks(channels, copy, undefined, signal),
+		generateStoredPeaks: (source, signal) => generateStoredWaveformPeaks(store, source, copy, { signal }),
+		publish: dependencies.publishDocumentSnapshot,
+	});
 
 	const projectImportRuntime: ProjectImportRuntime = {
+		scheduleAudioDerivatives: audioDerivatives.schedule,
 		captureExternalMediaFile: dependencies.captureExternalMediaFile,
 		SOURCE_CHUNK_FRAMES: dependencies.sourceChunkFrames,
 		activateStoredSource: dependencies.activateStoredSource,
@@ -135,7 +144,7 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 	};
 	const projectImport = createProjectImportService(projectImportRuntime);
 	const derivatives = createVideoImportDerivativeScheduler({
-		lifetime, store, sourcePeaks: dependencies.sourcePeaks, peakCacheKey, audioEditorVideoThumbnailTimes,
+		lifetime, store, activateVideoSource, revokeVideoVisual, sourcePeaks: dependencies.sourcePeaks, peakCacheKey, audioEditorVideoThumbnailTimes,
 		assertProject, getProject: dependencies.getProject, protectedSourceIds: dependencies.protectedSourceIds,
 		generatePeaks: (channels, signal) => generateWaveformPeaks(channels, copy, undefined, signal),
 		publishDerivative: (source, derivative) => projectVisual.publishVideoSourceDerivative(source, derivative),

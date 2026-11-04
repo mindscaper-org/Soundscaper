@@ -5,6 +5,7 @@ import type { VideoDerivativeInput } from '../../../storage/video-derivative-rep
 import type { LinkedVideoOriginalBinding } from '../../../storage/linked-video-original-binding.ts';
 import type { EditorControllerLifetime, EditorProjectToken } from '../../shared/lifecycle.ts';
 import type { ImportVideoFrameExtractor, ImportVideoRuntime, ImportVideoSource } from './source-import-types.d.ts';
+import type { VideoTimingIndexLease } from '../../../video-source-time.ts';
 
 export interface VideoImportDerivativeRequest {
 	readonly source: ImportVideoSource;
@@ -12,6 +13,7 @@ export interface VideoImportDerivativeRequest {
 	readonly extractor: ImportVideoFrameExtractor;
 	readonly durationSeconds: number;
 	readonly linkedBinding: LinkedVideoOriginalBinding | null;
+	readonly timingLease?: VideoTimingIndexLease;
 	readonly audio: Readonly<{ sourceId: string; contentSha256: string; channels: Float32Array[] }> | null;
 }
 
@@ -19,6 +21,8 @@ interface VideoImportDerivativeOptions extends Pick<ImportVideoRuntime,
 	'assertProject' | 'getProject' | 'store' | 'sourcePeaks' | 'peakCacheKey' | 'audioEditorVideoThumbnailTimes'
 > {
 	readonly lifetime: Pick<EditorControllerLifetime, 'startTask'>;
+	readonly activateVideoSource: ImportVideoRuntime['activateVideoSource'];
+	readonly revokeVideoVisual: ImportVideoRuntime['revokeVideoVisual'];
 	readonly protectedSourceIds: Set<string>;
 	readonly generatePeaks: (channels: Float32Array[], signal: AbortSignal) => ReturnType<ImportVideoRuntime['generateWaveformPeaks']>;
 	readonly publishDerivative: (source: ImportVideoSource, derivative: VideoDerivativeInput) => boolean;
@@ -55,6 +59,7 @@ export function createVideoImportDerivativeScheduler(options: VideoImportDerivat
 				]);
 			} catch { /* Source retirement makes disposable work unnecessary. */ }
 			finally {
+				request.timingLease?.release();
 				try { request.extractor.dispose(); } catch { /* Disposable decoder. */ }
 				for (const id of sourceIds) options.protectedSourceIds.delete(id);
 				task.finish();
@@ -77,6 +82,16 @@ export function createVideoImportDerivativeScheduler(options: VideoImportDerivat
 	}
 
 	async function generateVideo(request: VideoImportDerivativeRequest, signal: AbortSignal, assertCurrent: () => void): Promise<void> {
+		assertCurrent();
+		const visual = await options.activateVideoSource(request.source, { signal });
+		try { assertCurrent(); }
+		catch (error) {
+			if (visual && typeof visual === 'object' && 'mediaUrl' in visual && typeof visual.mediaUrl === 'string') {
+				await options.revokeVideoVisual(request.source.id, visual.mediaUrl);
+			}
+			throw error;
+		}
+		options.publish();
 		let consecutiveFailures = 0;
 		const capture = async (timestamp: number, poster: boolean): Promise<boolean> => {
 			assertCurrent();

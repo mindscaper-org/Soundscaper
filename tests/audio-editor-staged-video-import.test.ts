@@ -4,6 +4,106 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createImportVideoFile } from '../src/common/editor/controller/import/internal/source-import.ts';
 import { createFixture, videoFile } from './helpers/audio-editor-source-import-fixture.ts';
+import { registeredVideoTimingIndex } from '../src/common/editor/video-source-time.ts';
+import { isVideoTimingIndexVerifiedForReference } from '../src/common/editor/video-timing-asset.ts';
+
+test('video clips are editable before preview activation finishes', { timeout: 2_000 }, async () => {
+	const fixture = createFixture();
+	const held = deferred<void>();
+	fixture.options.activationGate = held.promise;
+	try {
+		const result = await createImportVideoFile(fixture.runtime)(videoFile());
+		assert.ok(result.clipId);
+		assert.equal(fixture.commits.length, 1);
+		assert.deepEqual(fixture.derivatives, []);
+	} finally { held.resolve(); }
+	await fixture.finishDerivatives();
+	assert.equal(fixture.derivatives.length, 3);
+});
+
+test('verified exact frame timing is ready when the video clip is committed', async () => {
+	const fixture = createFixture();
+	const held = deferred<void>();
+	fixture.options.activationGate = held.promise;
+	Object.assign(fixture.runtime, { helperTimingProbe: { id: 'exact-test', async probe() {
+		return { timescale: 1_000, presentationTicks: [0n, 40n, 80n], finalFrameDurationTicks: 40n, nominalRate: { num: 25, den: 1 } };
+	} } });
+	const commit = fixture.runtime.commit;
+	fixture.runtime.commit = (...args) => {
+		const source = fixture.addedSources.find(value => value.kind === 'video');
+		assert.equal(registeredVideoTimingIndex(source)?.frameCount, 3);
+		assert.equal(isVideoTimingIndexVerifiedForReference(registeredVideoTimingIndex(source), source?.timingAsset), true);
+		return commit(...args);
+	};
+	try {
+		await createImportVideoFile(fixture.runtime)(new File([Uint8Array.of(1, 2, 3)], 'exact.mp4', { type: 'video/mp4' }));
+		assert.equal(fixture.commits.length, 1);
+	} finally { held.resolve(); }
+	await fixture.finishDerivatives();
+	assert.equal(registeredVideoTimingIndex(fixture.addedSources.find(value => value.kind === 'video')), undefined);
+});
+
+test('video persistence overlaps audio decoding without publishing partial clips', { timeout: 2_000 }, async () => {
+	const fixture = createFixture();
+	const decoding = deferred<void>();
+	const persisted = deferred<void>();
+	const held = deferred<void>();
+	const decode = fixture.runtime.engine.decodeAudioData;
+	Object.assign(fixture.runtime.engine, { decodeAudioData: async (...args: Parameters<typeof decode>) => {
+		decoding.resolve(); await held.promise; return decode(...args);
+	} });
+	const begin = fixture.runtime.store.beginMediaAssetWrite;
+	fixture.runtime.store.beginMediaAssetWrite = async (...args) => {
+		persisted.resolve(); await held.promise; return begin(...args);
+	};
+	const operation = createImportVideoFile(fixture.runtime)(videoFile());
+	try {
+		await Promise.all([decoding.promise, persisted.promise]);
+		assert.equal(fixture.commits.length, 0);
+	} finally { held.resolve(); }
+	await operation;
+	await fixture.finishDerivatives();
+	assert.equal(fixture.commits.length, 1);
+});
+
+test('undo during deferred video activation releases only that activation visual', async () => {
+	const fixture = createFixture();
+	const started = deferred<void>(), held = deferred<void>();
+	const revoked: (string | null | undefined)[] = [];
+	fixture.runtime.activateVideoSource = async () => {
+		started.resolve(); await held.promise; return { mediaUrl: 'blob:retired-import' };
+	};
+	fixture.runtime.revokeVideoVisual = async (_id, expectedMediaUrl) => { revoked.push(expectedMediaUrl); };
+	await createImportVideoFile(fixture.runtime)(videoFile());
+	await started.promise;
+	fixture.editProject({ ...fixture.getProject(), sources: [] });
+	held.resolve();
+	await fixture.finishDerivatives();
+	assert.deepEqual(revoked, ['blob:retired-import']);
+	assert.deepEqual(fixture.derivatives, []);
+	assert.equal(fixture.protectedSourceIds.size, 0);
+});
+
+test('a project switch during linked binding cannot publish clips into the replacement', async () => {
+	const fixture = createFixture();
+	const started = deferred<void>(), held = deferred<void>();
+	const bind = fixture.runtime.store.bindLinkedVideoOriginal;
+	fixture.runtime.store.bindLinkedVideoOriginal = async (...args) => {
+		const binding = await bind(...args);
+		started.resolve(); await held.promise; return binding;
+	};
+	const operation = createImportVideoFile(fixture.runtime)(videoFile(), {
+		destination: 'timeline', trackId: null, timelineStartFrame: 0,
+		linkedVideoLocatorId: 'locator_0000000000000001', linkedVideoLocatorRevision: 'revision_0000000000000001',
+	});
+	await started.promise;
+	fixture.setProject({ id: 'replacement-project', tracks: [], sources: [] });
+	held.resolve();
+	await assert.rejects(operation, /project changed during video import/iu);
+	assert.equal(fixture.commits.length, 0);
+	assert.equal(fixture.unlinkedBindings.length, 1);
+	assert.deepEqual(fixture.deletedSources, ['source-1']);
+});
 
 test('only disposable filmstrip captures opt in to nearby keyframes', async () => {
 	const fixture = createFixture();

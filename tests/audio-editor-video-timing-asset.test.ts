@@ -7,6 +7,7 @@ import {
 	createVideoTimingAssetPublication,
 	decodeVideoTimingAsset,
 	encodeVideoTimingAsset,
+	isVideoTimingIndexVerifiedForReference,
 	normalizeVideoTimingAssetReference,
 	validateVideoTimingAssetBytes,
 	VideoTimingAssetStore,
@@ -354,11 +355,16 @@ test('durable timing storage verifies immutable metadata, bytes, source binding,
 			return records.get(storageKey)?.blob ?? null;
 		},
 	};
-	const published = await publishVideoTimingAsset(store, SOURCE_SHA256, {
+	const timing = {
 		timescale: 1_000,
 		presentationTicks: [0n, 40n, 81n],
 		finalFrameDurationTicks: 39n,
-	});
+	};
+	const published = await publishVideoTimingAsset(store, SOURCE_SHA256, timing);
+	assert.equal(isVideoTimingIndexVerifiedForReference(published.index, published.reference), true);
+	const reused = await publishVideoTimingAsset(store, SOURCE_SHA256, timing);
+	assert.equal(reused.created, false);
+	assert.equal(isVideoTimingIndexVerifiedForReference(reused.index, reused.reference), true);
 	assert.equal((await loadVideoTimingAsset(store, published.reference, {
 		sourceSha256: SOURCE_SHA256,
 	})).status, 'available');

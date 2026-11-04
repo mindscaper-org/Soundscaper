@@ -22,7 +22,7 @@ import type { EditorTaskProgressCoordinator } from '../../shared/task-progress.t
 import type { FileSizeWarningConfirmation } from '../../shared/file-size-warning.ts';
 import type { ChangedContentVideoCandidateRuntime } from './linked-media/video-relink-probe.ts';
 import type { VideoSourceReprobeDependencies } from '../../clip-video/video-source-reprobe-service.ts';
-import type { generateWaveformPeaks } from '../../source/waveform-analysis.ts';
+import type { generateStoredWaveformPeaks, generateWaveformPeaks } from '../../source/waveform-analysis.ts';
 
 export type ImportCompositionProject = ReturnType<ProjectBinServiceDependencies['getProject']>
 	& RiffAnnotationImportProject & Readonly<{
@@ -70,6 +70,7 @@ export type ImportCompositionStore =
 	& Parameters<typeof createIncrementalPcmImporter>[0]['store']
 	& Parameters<typeof createLinkedPcmImporter>[0]['store']
 	& Parameters<typeof publishImportedVideo>[0]
+	& Parameters<typeof generateStoredWaveformPeaks>[0]
 	& Pick<VideoTimingMediaStore, 'getMediaAssetMetadata' | 'loadMediaAsset'>
 	& Pick<ConsolidateMediaStore, 'unlinkLinkedVideoOriginal'>
 	& Pick<LinkedOriginalStoreService, 'saveLinkedVideoDerivative'>

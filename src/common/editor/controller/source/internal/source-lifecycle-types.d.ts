@@ -138,6 +138,8 @@ export interface ActivateStoredSourceOptions<Buffer, Peaks = unknown> extends St
 	readonly buffer?: Buffer | null;
 	readonly peaks?: Peaks;
 	readonly requireChunkStream?: boolean;
+	/** Imports can persist disposable peaks after their clips have been committed. */
+	readonly persistPeaks?: boolean;
 }
 
 /** Closed, generic ports for stored-source loading and runtime cache ownership. */
