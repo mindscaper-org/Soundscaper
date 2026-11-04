@@ -23,6 +23,7 @@ import {
 	LOCAL_ASSISTANCE_PREPARATION_CHUNK_FRAMES,
 } from './audio/local-assistance-audio-preparation.ts';
 import { localAssistanceAudioWaveGeometry } from './audio/local-assistance-audio-geometry.ts';
+import { localAssistanceAudioEffectTargets } from './audio/local-assistance-audio-effect-targets.ts';
 
 const MAXIMUM_OUTPUT_BYTES = 64 * 1024 * 1024;
 const TEXT_ENCODER = new TextEncoder();
@@ -136,15 +137,20 @@ export function createLocalAssistanceSelectedMediaPreparation(
 	}
 
 	async function listSelectedMedia(): Promise<LocalAssistanceSelectedMediaInventory> {
-		let selected: LocalAssistanceSelectedMediaAuthority;
-		try { selected = resolveLocalAssistanceSelectedMediaAuthority(dependencies); }
+		const sources = new Map<string, LocalAssistanceSelectedMediaInventory['sources'][number]>();
+		try {
+			const project = selectedProject(dependencies.getProject());
+			for (const target of localAssistanceAudioEffectTargets(project, dependencies.getSelectedClipId())) {
+				const selected = resolveLocalAssistanceSelectedMediaAuthority({ ...dependencies,
+					getProject: () => ({ ...project, selection: target.selection }), getSelectedClipId: () => target.clipId });
+				const sourceId = text(selected.source.id, 'source id');
+				sources.set(sourceId, Object.freeze({ sourceId,
+					label: text(selected.clip.title ?? selected.source.name, 'selected-media label'),
+					mediaKind: 'audio' as const, operations: AUDIO_OPERATIONS }));
+			}
+		}
 		catch { return Object.freeze({ sources: Object.freeze([]) }); }
-		return Object.freeze({ sources: Object.freeze([Object.freeze({
-			sourceId: text(selected.source.id, 'source id'),
-			label: text(selected.clip.title ?? selected.source.name, 'selected-media label'),
-			mediaKind: 'audio' as const,
-			operations: AUDIO_OPERATIONS,
-		})]) });
+		return Object.freeze({ sources: Object.freeze([...sources.values()]) });
 	}
 
 	async function prepareSelectedMedia(value: Readonly<{
@@ -221,7 +227,8 @@ export function resolveLocalAssistanceSelectedMediaAuthority(
 	dependencies: LocalAssistanceSelectedMediaPreparationDependencies,
 ): LocalAssistanceSelectedMediaAuthority {
 	const project = selectedProject(dependencies.getProject());
-	const clipId = dependencies.getSelectedClipId();
+	const focusedId = dependencies.getSelectedClipId();
+	const clipId = project.clips.some(clip => clip.id === focusedId) ? focusedId : selectedRangeClipId(project);
 	if (typeof clipId !== 'string' || clipId === '') {
 		throw new Error('Local assistance requires one selected audio occurrence.');
 	}
@@ -259,6 +266,11 @@ export function resolveLocalAssistanceSelectedMediaAuthority(
 		selectionStart, selectionEnd, sourceStart, sourceEnd);
 	return Object.freeze({ project, source, clip, track, startFrame: selectionStart,
 		endFrame: selectionEnd, sourceStartFrame: sourceStart, sourceEndFrame: sourceEnd, fence });
+}
+
+function selectedRangeClipId(project: SelectedMediaProject): string | null {
+	const targets = localAssistanceAudioEffectTargets(project, null);
+	return targets.length === 1 ? targets[0]!.clipId : null;
 }
 
 export function createLocalAssistanceSelectionFence(

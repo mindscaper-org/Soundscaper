@@ -11,6 +11,8 @@ import type { LocalModelManagerBridge, LocalModelManagerModel } from
 	'../src/common/editor/ui/local-model-manager-bridge.ts';
 import type { AssistanceGuidedWorkflowId } from '../src/common/editor/assistance/workflow-recipes.ts';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import { rawBridgeFixture } from './helpers/local-assistance-fixtures.ts';
+import { localModelManagerStoreFor } from '../src/common/editor/ui/local-model-manager-store.ts';
 
 function model(modelId: string, version: string, task: string,
 	availability: LocalModelManagerModel['availability']): LocalModelManagerModel {
@@ -25,8 +27,10 @@ const ALIGNMENT = model('wav2vec2-base-960h', '1.0.0', 'word-alignment', 'instal
 
 async function mounted(workflowId: AssistanceGuidedWorkflowId,
 	initialModels: readonly LocalModelManagerModel[], run: (
-		dom: ReturnType<typeof installReactTestDom>, installs: readonly string[],
-	) => Promise<void>): Promise<void> {
+		dom: ReturnType<typeof installReactTestDom>, installs: readonly string[], removals: readonly string[],
+		bridge: LocalModelManagerBridge,
+	) => Promise<void>, loseRecognizer = false, lostRecognizerId = PARAKEET.modelId,
+	loseAfterConfiguration = false): Promise<void> {
 	const dom = installReactTestDom();
 	const root = createRoot(dom.container as unknown as Element);
 	const scope = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
@@ -36,6 +40,7 @@ async function mounted(workflowId: AssistanceGuidedWorkflowId,
 	Object.defineProperty(globalThis, 'React', { configurable: true, value: React });
 	let models = [...initialModels];
 	const installs: string[] = [];
+	const removals: string[] = [];
 	const bridge: LocalModelManagerBridge = {
 		listAssistanceModels: async () => ({ runtimeAvailable: true, runtimeReason: null, models }),
 		installAssistanceModel: async (modelId) => {
@@ -48,14 +53,44 @@ async function mounted(workflowId: AssistanceGuidedWorkflowId,
 		installPreseededAssistanceModel: async () => null,
 		reconcileAssistanceModels: async () => ({ installedModelIds: [], incompleteModelIds: [], rejected: [] }),
 		collectAssistanceModelGarbage: async () => ({}), listAssistanceModelNotices: async () => [],
-		relocateAssistanceModels: async () => ({}), removeAssistanceModel: async () => 0,
+		relocateAssistanceModels: async () => ({}), removeAssistanceModel: async modelId => {
+			removals.push(modelId);
+			models = models.map(value => value.modelId === modelId
+				? { ...value, availability: 'installable', installedBytes: null } : value);
+			return 0;
+		},
 		onAssistanceInstallProgress: () => () => undefined,
 	};
+	const unused = async (): Promise<never> => { throw new Error('This preflight test never runs inference.'); };
+	let loseModel = loseRecognizer;
+	let modelReads = 0;
+	const runtime = loseRecognizer ? { ...rawBridgeFixture().api,
+		models: async () => {
+			if (loseModel && (!loseAfterConfiguration || modelReads++ > 0)) {
+				loseModel = false;
+				models = models.map(value => value.modelId === lostRecognizerId
+					? { ...value, availability: 'installable', installedBytes: null } : value);
+			}
+			return models.filter(value => value.availability === 'installed')
+				.map(({ modelId, version, task }) => ({ modelId, version, task, artifactSha256s: ['a'.repeat(64)] }));
+		},
+		workflow: { createJob: loseAfterConfiguration ? async () => ({ contractVersion: 1, jobId: 'a'.repeat(40) }) : unused,
+			run: unused, cancel: unused, readOutput: unused,
+			onProgress: () => () => undefined,
+			custody: { stageInput: unused, reserveOutput: unused, bindProducer: unused, release: async () => true } },
+	} : null;
+	const preparation = loseRecognizer ? {
+		listSelectedMedia: async () => ({ sources: [{ sourceId: 'source-1', label: 'Selection',
+			mediaKind: 'audio' as const, operations: ['speech-recognition' as const] }] }),
+		prepareSelectedMedia: unused, prepareAdvancedWorkflow: unused,
+		prepareGuidedWorkflow: loseAfterConfiguration ? async () => ({ outcome: 'unavailable' as const,
+			reason: 'model-binding-unavailable' as const }) : unused,
+	} : null;
 	try {
-		await act(async () => root.render(<LocalAssistanceDialogSurface bridgeScope={bridge}
-			request={{ mode: 'task', workflowId }} projectId="project" preparation={null}
+		await act(async () => root.render(<LocalAssistanceDialogSurface bridgeScope={runtime ? { ...bridge, localAssistance: runtime } : bridge}
+			request={{ mode: 'task', workflowId }} projectId="project" preparation={preparation}
 			copy={ENGLISH_COPY} onClose={() => undefined} />));
-		await run(dom, installs);
+		await run(dom, installs, removals, bridge);
 	} finally {
 		await act(async () => root.unmount());
 		scope.IS_REACT_ACT_ENVIRONMENT = priorAct;
@@ -80,21 +115,81 @@ test('Transcribe Captions keeps missing required recognizer downloads ahead of r
 	});
 });
 
-test('an installed alternative recognizer can satisfy the explicitly selected task before downloads', async () => {
+test('re-downloading a lost recognizer preserves its healthy installed speech-detection model', async () => {
+	await mounted('transcribe-captions', [SILERO, { ...PARAKEET, availability: 'installed' }],
+		async (dom, installs, removals) => {
+			for (let attempt = 0; attempt < 100 && !dom.find('[data-assistance-model-prerequisites]'); attempt += 1) {
+				await act(async () => new Promise<void>(resolve => setTimeout(resolve, 10)));
+			}
+			const prerequisite = dom.one('[data-assistance-model-prerequisites]');
+			assert.match(prerequisite.textContent, /Parakeet TDT/u);
+			assert.doesNotMatch(prerequisite.textContent, /Silero VAD/u);
+			const download = prerequisite.querySelectorAll('button').find(button => button.textContent === 'Re-download');
+			assert.ok(download);
+			await act(async () => { await reactProps(download).onClick(); });
+			assert.deepEqual(installs, [PARAKEET.modelId]);
+			assert.deepEqual(removals, []);
+			assert.equal(dom.find('[data-assistance-model-prerequisites]'), null);
+		}, true);
+});
+
+test('a sole installed alternative recognizer satisfies the task without a download or picker', async () => {
 	await mounted('transcribe-captions', [SILERO, PARAKEET, WHISPER, ALIGNMENT], async (dom, installs) => {
-		assert.ok(dom.find('[data-assistance-model-prerequisites]'));
-		assert.match(dom.container.textContent, /Parakeet TDT/u);
-		const recognizer = dom.container.querySelectorAll('select')
-			.find(select => select.getAttribute('aria-label') === 'Speech recognizer');
-		assert.ok(recognizer, 'the existing recognizer choice must remain reachable before its download');
-		await act(async () => { await reactProps(recognizer).onChange({ currentTarget: { value: 'whisper' } }); });
 		assert.equal(dom.find('[data-assistance-model-prerequisites]'), null);
 		assert.deepEqual(installs, []);
-		const selected = dom.container.querySelectorAll('[role="group"]')
-			.find(group => group.getAttribute('aria-label') === 'Speech recognizer');
-		assert.ok(selected);
-		assert.match(selected.querySelector('button')?.textContent ?? '', /^Whisper/u);
+		assert.equal(dom.container.querySelectorAll('[role="group"]')
+			.some(group => group.getAttribute('aria-label') === 'Model'), false);
 	});
+});
+
+test('installing another recognizer preserves the admitted task settings', async () => {
+	await mounted('transcribe-captions', [SILERO, PARAKEET, WHISPER], async (dom, _installs, _removals, bridge) => {
+		const whisperAlignment = () => dom.container.querySelectorAll('[role="checkbox"]')
+			.find(node => node.getAttribute('aria-label') === 'Improve English word timing when available');
+		assert.ok(whisperAlignment());
+		await act(async () => { await localModelManagerStoreFor(bridge).install(PARAKEET.modelId); });
+		assert.ok(whisperAlignment(), 'an installed alternative must not reset the current Whisper settings');
+	});
+});
+
+test('recovery requests the sole recognizer admitted before it disappears from runtime inventory', async () => {
+	await mounted('transcribe-captions', [SILERO, WHISPER], async (dom, installs, removals) => {
+		for (let attempt = 0; attempt < 100 && !dom.find('[data-assistance-model-prerequisites]'); attempt += 1) {
+			await act(async () => new Promise<void>(resolve => setTimeout(resolve, 10)));
+		}
+		const prerequisite = dom.one('[data-assistance-model-prerequisites]');
+		assert.match(prerequisite.textContent, /Whisper/u);
+		assert.doesNotMatch(prerequisite.textContent, /Parakeet TDT|Silero VAD/u);
+		const download = prerequisite.querySelectorAll('button').find(button => button.textContent === 'Re-download');
+		assert.ok(download);
+		assert.equal(download.disabled, false);
+		await act(async () => { await reactProps(download).onClick(); });
+		assert.deepEqual(installs, [WHISPER.modelId]);
+		assert.deepEqual(removals, []);
+		assert.equal(dom.find('[data-assistance-model-prerequisites]'), null);
+	}, true, WHISPER.modelId);
+});
+
+test('a model lost while configuration is open offers re-download after typed preparation refusal', async () => {
+	await mounted('transcribe-captions', [SILERO, { ...PARAKEET, availability: 'installed' }], async (dom, installs) => {
+		let analyze = dom.container.querySelectorAll('button').find(button => button.textContent === 'Analyze');
+		for (let attempt = 0; attempt < 100 && (!analyze || analyze.disabled); attempt += 1) {
+			await act(async () => new Promise<void>(resolve => setTimeout(resolve, 10)));
+			analyze = dom.container.querySelectorAll('button').find(button => button.textContent === 'Analyze');
+		}
+		assert.ok(analyze);
+		assert.equal(analyze.disabled, false);
+		await act(async () => { await reactProps(analyze).onClick(); });
+		for (let attempt = 0; attempt < 100 && !dom.find('[data-assistance-model-prerequisites]'); attempt += 1) {
+			await act(async () => new Promise<void>(resolve => setTimeout(resolve, 10)));
+		}
+		const prerequisite = dom.one('[data-assistance-model-prerequisites]');
+		assert.match(prerequisite.textContent, /A required model is missing or unavailable/u);
+		assert.doesNotMatch(prerequisite.textContent, /Silero VAD/u,
+			'fresh runtime inventory must preserve healthy dependencies after a cached-model refusal');
+		assert.ok(prerequisite.querySelectorAll('button').find(button => button.textContent === 'Re-download'));
+		assert.deepEqual(installs, [], 'preparation refusal must ask before downloading anything');
+	}, true, PARAKEET.modelId, true);
 });
 
 test('optional alignment alone does not replace the required task recognizer', async () => {

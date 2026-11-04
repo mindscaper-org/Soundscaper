@@ -118,8 +118,7 @@ test('Guided enhancement and complete D/M/E selection reuse geometry-authenticat
 		models: [model('enhance-dialogue', 'enhancer', 'deepfilternet3', '3.0.0')],
 		inputs: [claim('input', 'enhance-dialogue', 'audio', 1)],
 		outputs: [claim('output', 'enhance-dialogue', 'enhanced-audio', 2)],
-		settings: { settingsVersion: 1, workflowId: 'enhance-dialogue',
-			placement: 'replace-selection' },
+		settings: defaultAssistanceWorkflowSettingsV1('enhance-dialogue'),
 	});
 	const enhancedOutput = audioOutput(enhancement, 'enhance-dialogue', 'enhanced-audio', 48_000);
 	const adapter = createLocalAssistanceGuidedResultAcceptance({
@@ -142,8 +141,7 @@ test('Guided enhancement and complete D/M/E selection reuse geometry-authenticat
 		inputs: [claim('input', 'separate-sources', 'audio', 1)],
 		outputs: ['dialogue', 'music', 'effects'].map((slot, index) =>
 			claim('output', 'separate-sources', slot, index + 2)),
-		settings: { settingsVersion: 1, workflowId: 'separate-dialogue-music-effects',
-			placement: 'muted-aligned-tracks' },
+		settings: defaultAssistanceWorkflowSettingsV1('separate-dialogue-music-effects'),
 	});
 	const separationCalls: unknown[] = [];
 	const stems = ['dialogue', 'music', 'effects'].map((slot) =>
@@ -165,7 +163,7 @@ test('Guided enhancement and complete D/M/E selection reuse geometry-authenticat
 	assert.equal(separationCalls.length, 0);
 	await separationReady.session.accept(['dialogue', 'music', 'effects']);
 	assert.deepEqual((separationCalls[0] as Record<string, unknown>).choice,
-		{ placement: 'project-bin-and-muted-tracks' });
+		{ placement: 'replace-selection' });
 });
 
 test('Guided beats and cuts pass only explicitly selected proposal identities', async () => {

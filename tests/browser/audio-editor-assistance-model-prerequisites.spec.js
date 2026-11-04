@@ -100,7 +100,7 @@ test.describe('AI effect model prerequisites', () => {
 		await page.evaluate(() => globalThis.__assistancePrerequisiteFixture.releaseInstall());
 		await expect(prerequisite).toBeHidden();
 		const assistance = page.getByRole('dialog', { name: 'Clean Filler & Silence', exact: true });
-		await expect(assistance.getByRole('button', { name: 'Run locally', exact: true })).toBeVisible();
+		await expect(assistance.getByRole('button', { name: 'Apply', exact: true })).toBeVisible();
 		await expect.poll(() => fixtureSnapshot(page).then(({ modelCalls }) => modelCalls)).toBeGreaterThan(0);
 		const { installCalls } = await fixtureSnapshot(page);
 		expect(installCalls.slice().sort()).toEqual(['parakeet-tdt-0.6b-v3', 'silero-vad-v6']);
@@ -118,8 +118,12 @@ test.describe('AI effect model prerequisites', () => {
 		expect(await fixtureSnapshot(page)).toMatchObject({ installCalls: [], createJobCalls: 0 });
 		await page.evaluate(() => globalThis.__assistancePrerequisiteFixture.releaseModels());
 		const assistance = page.getByRole('dialog', { name: 'Enhance Dialogue', exact: true });
-		await expect(assistance.getByRole('button', { name: 'Run locally', exact: true })).toBeVisible();
-		await expect(assistance.getByText('Required models are installed.', { exact: true })).toBeVisible();
+		await expect.poll(() => fixtureSnapshot(page).then(({ createJobCalls }) => createJobCalls)).toBe(1);
+		await expect(assistance.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
+		await expect(assistance.getByRole('button', { name: 'Add result to', exact: true })).toHaveCount(0);
+		await expect(assistance.getByText('Technical details', { exact: true })).toHaveCount(0);
+		await expect(assistance.getByText('Exact settings', { exact: true })).toHaveCount(0);
+		await expect(assistance.getByRole('alert')).toContainText('Inference is not used');
 		expect(errors).toEqual([]);
 	});
 
@@ -134,27 +138,66 @@ test.describe('AI effect model prerequisites', () => {
 		await prerequisite.getByRole('button', { name: 'Download all', exact: true }).click();
 		await expect(prerequisite).toBeHidden();
 		const assistance = page.getByRole('dialog', { name: 'Transcribe & Captions', exact: true });
-		await expect(assistance.getByRole('button', { name: 'Run locally', exact: true })).toBeEnabled();
+		await expect(assistance.getByRole('button', { name: 'Analyze', exact: true })).toBeEnabled();
+		await expect(assistance.getByRole('button', { name: 'Model', exact: true })).toHaveCount(0);
 		expect(await fixtureSnapshot(page)).toMatchObject({ installCalls: ['parakeet-tdt-0.6b-v3'] });
 		expect(errors).toEqual([]);
 	});
 
-	test('an installed alternative recognizer remains selectable before prerequisite downloads', async ({ page }) => {
+	test('uses the sole installed alternative recognizer without prerequisite downloads', async ({ page }) => {
 		const { editor, errors } = await bootFixture(page, {
 			installed: ['silero-vad-v6', 'whisper-large-v3-turbo-ggml'],
 		});
 		await openAssistanceTask(page, editor, 'Transcribe & Captions');
 		const prerequisite = page.locator('[data-assistance-model-prerequisites]');
-		await expect(prerequisite).toBeVisible();
-		await prerequisite.getByRole('combobox', { name: 'Speech recognizer', exact: true }).selectOption('whisper');
-		await expect(prerequisite).toBeHidden();
+		await expect(prerequisite).toHaveCount(0);
 		const assistance = page.getByRole('dialog', { name: 'Transcribe & Captions', exact: true });
-		await expect(assistance.getByRole('group', { name: 'Speech recognizer', exact: true }).getByRole('button'))
-			.toContainText('Whisper');
-		await expect(assistance.getByRole('button', { name: 'Run locally', exact: true })).toBeEnabled();
+		await expect(assistance.getByRole('button', { name: 'Model', exact: true })).toHaveCount(0);
+		await expect(assistance.getByRole('button', { name: 'Analyze', exact: true })).toBeEnabled();
 		expect(await fixtureSnapshot(page)).toMatchObject({ installCalls: [], createJobCalls: 0 });
 		expect(errors).toEqual([]);
 	});
+
+	test('offers a model picker only when both recognizers are installed', async ({ page }) => {
+		const { editor, errors } = await bootFixture(page, {
+			installed: ['silero-vad-v6', 'parakeet-tdt-0.6b-v3', 'whisper-large-v3-turbo-ggml'],
+		});
+		await openAssistanceTask(page, editor, 'Transcribe & Captions');
+		const assistance = page.getByRole('dialog', { name: 'Transcribe & Captions', exact: true });
+		const models = assistance.getByRole('button', { name: 'Model', exact: true });
+		await expect(models).toContainText('Parakeet');
+		await models.click();
+		await expect(page.getByRole('option', { name: 'Parakeet', exact: true })).toBeVisible();
+		await page.getByRole('option', { name: 'Whisper', exact: true }).click();
+		await expect(models).toContainText('Whisper');
+		await expect(assistance.getByRole('button', { name: 'Analyze', exact: true })).toBeEnabled();
+		await expect(assistance.getByRole('combobox', { name: 'Selected media', exact: true })).toHaveCount(0);
+		await expect(assistance.getByText('Technical details', { exact: true })).toHaveCount(0);
+		await expect(assistance.getByText('Exact settings', { exact: true })).toHaveCount(0);
+		expect(await fixtureSnapshot(page)).toMatchObject({ installCalls: [], createJobCalls: 0 });
+		expect(errors).toEqual([]);
+	});
+	for (const [when, loseModelsOnCall, initialJobCount] of [
+		['before processing', 1, 0], ['during preparation', 2, 1],
+	]) {
+		test(`offers explicit re-download when an installed model disappears ${when}`, async ({ page }) => {
+			const { editor, errors } = await bootFixture(page, {
+				installed: ['deepfilternet3'], loseModelsAfterPreflight: ['deepfilternet3'], loseModelsOnCall,
+			});
+			await openAssistanceTask(page, editor, 'Enhance Dialogue');
+			const prerequisite = page.locator('[data-assistance-model-prerequisites]');
+			await expect(prerequisite).toContainText('DeepFilterNet 3');
+			const download = prerequisite.getByRole('button', { name: 'Re-download', exact: true });
+			await expect(download).toBeEnabled();
+			expect(await fixtureSnapshot(page)).toMatchObject({ createJobCalls: initialJobCount, installCalls: [] });
+			await download.click();
+			await expect(prerequisite).toBeHidden();
+			await expect.poll(() => fixtureSnapshot(page)).toMatchObject({
+				createJobCalls: initialJobCount + 1, installCalls: ['deepfilternet3'],
+			});
+			expect(errors).toEqual([]);
+		});
+	}
 });
 
 async function bootFixture(page, options = {}) {
@@ -182,7 +225,7 @@ async function fixtureSnapshot(page) {
 async function installFixture(page, options) {
 	await installDesktopSpeedWarmupManifest(page);
 	await page.addInitScript(({ installed = [], holdList = false, holdModels = false,
-		holdInstall = false }) => {
+		holdInstall = false, loseModelsAfterPreflight = [], loseModelsOnCall = 1 }) => {
 		const installedIds = new Set([...installed, 'panns-cnn10']);
 		const definitions = [
 			['deepfilternet3', '3.0.0', 'speech-enhancement', 4_096],
@@ -234,6 +277,9 @@ async function installFixture(page, options) {
 		const localAssistance = {
 			models: async () => {
 				state.modelCalls += 1;
+				if (state.modelCalls === loseModelsOnCall) {
+					for (const modelId of loseModelsAfterPreflight) installedIds.delete(modelId);
+				}
 				await modelsGate;
 				return runtimeModels();
 			},

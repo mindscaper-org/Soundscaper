@@ -8,6 +8,7 @@ import {
 } from '../assistance/shot-detection-mode.ts';
 import {
 	localAssistanceModelCompatible,
+	localAssistanceModelTaskSlots,
 	localAssistanceOperationModelsAvailable,
 	localAssistanceReplaceSelectedModel,
 	normalizeLocalAssistanceSelectedMediaInventory,
@@ -45,7 +46,7 @@ export async function loadLocalAssistanceSelectionInventory(
 		phase: inventory.sources.length ? 'ready' : 'selection-required',
 		sources: inventory.sources,
 		models,
-		selectedSourceId: null,
+		selectedSourceId: inventory.sources[0]?.sourceId ?? null,
 		selectedOperation: null,
 		selectedModelIds: EMPTY_LOCAL_ASSISTANCE_MODEL_IDS,
 		shotDetectionMode: 'fast',
@@ -77,15 +78,17 @@ export function selectLocalAssistanceOperation(
 	snapshot: SelectionSnapshot,
 	operation: AssistanceOperation,
 ): SelectionChange {
-	const source = selectedSource(snapshot);
-	if (!source?.operations.includes(operation)) {
+	const source = snapshot.sources.find((candidate) => candidate.sourceId === snapshot.selectedSourceId
+		&& candidate.operations.includes(operation))
+		?? snapshot.sources.find((candidate) => candidate.operations.includes(operation));
+	if (!source) {
 		throw new TypeError('The selected media does not admit that assistance operation.');
 	}
 	const available = localAssistanceOperationModelsAvailable(operation, snapshot.models,
 		operation === 'shot-detection' ? 'fast' : undefined);
 	return {
-		phase: available ? 'ready' : 'unavailable', selectedOperation: operation,
-		shotDetectionMode: 'fast', selectedModelIds: EMPTY_LOCAL_ASSISTANCE_MODEL_IDS,
+		phase: available ? 'ready' : 'unavailable', selectedSourceId: source.sourceId, selectedOperation: operation,
+		shotDetectionMode: 'fast', selectedModelIds: defaultModels(snapshot, operation),
 		consent: false, progress: null, result: null,
 		unavailableReason: available ? null : 'no-compatible-model', error: null, cleanup: null,
 	};
@@ -102,7 +105,7 @@ export function selectLocalAssistanceShotDetectionMode(
 	const available = localAssistanceOperationModelsAvailable('shot-detection', snapshot.models, mode);
 	return {
 		phase: available ? 'ready' : 'unavailable', shotDetectionMode: mode,
-		selectedModelIds: EMPTY_LOCAL_ASSISTANCE_MODEL_IDS, consent: false,
+		selectedModelIds: defaultModels(snapshot, 'shot-detection', mode), consent: false,
 		progress: null, result: null,
 		unavailableReason: available ? null : 'no-compatible-model', error: null, cleanup: null,
 	};
@@ -150,6 +153,14 @@ export function createLocalAssistanceListenerAuthority(): Readonly<{
 	});
 }
 
-function selectedSource(snapshot: SelectionSnapshot): LocalAssistanceSelectedMediaSource | null {
-	return snapshot.sources.find((source) => source.sourceId === snapshot.selectedSourceId) ?? null;
+function defaultModels(
+	snapshot: SelectionSnapshot, operation: AssistanceOperation, mode?: LocalAssistanceShotDetectionMode,
+): readonly string[] {
+	return Object.freeze(localAssistanceModelTaskSlots(operation, mode).flatMap((slot) => {
+		const compatible = snapshot.models.filter((model) => slot.includes(model.task)
+			&& localAssistanceModelCompatible(operation, model, mode));
+		const model = compatible.find(({ modelId }) => snapshot.selectedModelIds.includes(modelId))
+			?? compatible[0];
+		return model ? [model.modelId] : [];
+	}));
 }

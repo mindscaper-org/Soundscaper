@@ -224,6 +224,7 @@
 		"desktop/assistance-runtime-family-utility-worker.ts",
 		"desktop/assistance-runtime-family-worker-entry.ts",
 		"desktop/assistance-workflow-consent.ts",
+		"desktop/assistance-workflow-confirmation.ts",
 		"desktop/assistance-workflow-custody.ts",
 		"desktop/assistance-workflow-executor.ts",
 		"desktop/assistance-workflow-main-ipc.ts",

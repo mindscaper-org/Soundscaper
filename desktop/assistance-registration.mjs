@@ -19,6 +19,7 @@ import assistanceNativeRuntimeManifest from '../config/assistance-native-runtime
 import assistanceRuntimeFamilySupply from '../config/assistance-runtime-family-supply-candidates.json' with { type: 'json' };
 import licensingMatrix from '../config/production-licensing-matrix.json' with { type: 'json' };
 import { awaitAssistanceCleanupPhases } from './project-library-runtime/desktop/assistance-cleanup-barrier.js';
+import { assistanceWorkflowRequiresConfirmation } from './project-library-runtime/desktop/assistance-workflow-confirmation.js';
 import {
 	assistanceNativeRuntimeTargetId,
 	verifyAssistanceNativeRuntimePayload,
@@ -82,6 +83,7 @@ async function confirmOperation(dialog, window, request) {
 }
 
 async function confirmWorkflow(dialog, window, request, stages) {
+	if (!assistanceWorkflowRequiresConfirmation(request)) return true;
 	const options = {
 		type: 'question',
 		title: 'Local Assistance consent',

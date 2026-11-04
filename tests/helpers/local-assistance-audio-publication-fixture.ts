@@ -95,20 +95,21 @@ export async function output(
 	values: readonly (readonly number[])[],
 ) {
 	const sampleRate = operation === 'speech-enhancement' ? 48_000 : 44_100;
-	const role = operation === 'source-separation' ? 'separated-audio' : 'enhanced-audio';
+	const role: 'separated-audio' | 'enhanced-audio' = operation === 'source-separation'
+		? 'separated-audio' : 'enhanced-audio';
 	const result = await wave(sampleRate, values);
 	return {
 		slotId,
 		claim: {
-			claimVersion: 1, claimId, jobId: '9'.repeat(40),
+			claimVersion: 1 as const, claimId, jobId: '9'.repeat(40),
 			role,
-			mediaType: 'audio/wav', byteLength: result.bytes.size, sha256: result.sha256,
+			mediaType: 'audio/wav' as const, byteLength: result.bytes.size, sha256: result.sha256,
 		},
 		review: {
-			kind: 'audio-wave',
+			kind: 'audio-wave' as const,
 			role,
 			sampleRate, channelCount: result.channelCount, frameCount: result.frameCount,
-			sampleFormat: 'float32',
+			sampleFormat: 'float32' as const,
 		},
 		bytes: result.bytes,
 	};

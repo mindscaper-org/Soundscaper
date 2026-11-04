@@ -139,7 +139,7 @@
 		"tests/audio-editor-framescaper-web-vcr-controller.test.ts": 600,
 		"tests/audio-editor-linked-audio-range-source-reader.test.ts": 568,
 		"tests/audio-editor-linked-original-provisional-root-writers.test.ts": 559,
-		"tests/audio-editor-local-assistance-guided-result-acceptance.test.ts": 564,
+		"tests/audio-editor-local-assistance-guided-result-acceptance.test.ts": 562,
 		"tests/audio-editor-local-assistance-guided.test.tsx": 597,
 		"tests/audio-editor-local-assistance-selected-video.test.ts": 598,
 		"tests/audio-editor-native-realtime-transport.test.ts": 592,

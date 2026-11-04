@@ -114,7 +114,7 @@ export const LOCAL_ASSISTANCE_ADDITIONAL_COPY = Object.freeze({
 	localAssistanceVisualFrameEvidence: "Source frame {frame} · tick {tick} · {confidence}%",
 	localAssistanceVoiceActivityRanges: "Voice activity ranges",
 	localAssistanceWordAlignment: "Word alignment",
-	localAssistanceWorkflowConsent: "Run locally opens one consent dialog for this exact operation, model, input, and output selection.",
+	localAssistanceWorkflowConsent: "Processing opens one consent dialog for this exact operation, model, input, and output selection.",
 	localAssistanceWorkflowUnavailable: "This task is unavailable on this device.",
 });
 
