@@ -40,36 +40,41 @@ export function allegroDuration(value: string, frame: number, timing: TempoTimel
 	const terms = value.split('+');
 	let duration = 0;
 	for (const term of terms) {
-		if (/^[\d.-]/.test(term)) {
-			const seconds = allegroNumber(term, 'duration');
-			if (seconds < 0) throw new RangeError('Allegro duration cannot be negative.');
-			duration += seconds * sampleRate;
-			continue;
-		}
-		const match = /^([SIQHW])([.T]*)(\d+(?:\.\d*)?)?(?:\/(\d+(?:\.\d*)?))?$/i.exec(term);
-		if (!match) throw new RangeError(`Invalid Allegro duration: ${term}.`);
-		const modifier = match[2]!.toUpperCase();
-		const dots = [...modifier].filter(char => char === '.').length;
-		const triplets = [...modifier].filter(char => char === 'T').length;
-		const divisor = match[4] ? allegroNumber(match[4], 'duration divisor') : 1;
-		if (!divisor) throw new RangeError('Allegro duration divisor cannot be zero.');
-		const beats = DURATIONS[match[1]!.toUpperCase()]! * (2 - 2 ** -dots) * (2 / 3) ** triplets
-			* (match[3] ? allegroNumber(match[3], 'duration multiplier') : 1) / divisor;
 		const start = frame + duration;
+		const numeric = /^(-?(?:\d+(?:\.\d*)?|\.\d+))(.*)$/i.exec(term);
+		const seconds = numeric ? allegroNumber(numeric[1]!, 'duration') : null;
+		if (seconds !== null && seconds < 0) throw new RangeError('Allegro duration cannot be negative.');
+		let suffix = numeric ? numeric[2]! : term.slice(1);
+		if (seconds !== null && !suffix) { duration += seconds * sampleRate; continue; }
+		let beats = seconds === null ? DURATIONS[term[0]!.toUpperCase()]
+			: timing.frameToBeat(start + seconds * sampleRate) - timing.frameToBeat(start);
+		if (beats === undefined) throw new RangeError(`Invalid Allegro duration: ${term}.`);
+		while (suffix) {
+			const modifier = /^([.T]|\/?\d+(?:\.\d*)?)/i.exec(suffix);
+			if (!modifier) throw new RangeError(`Invalid Allegro duration: ${term}.`);
+			const token = modifier[0].toUpperCase();
+			if (token === '.') beats *= 1.5;
+			else if (token === 'T') beats *= 2 / 3;
+			else if (token.startsWith('/')) {
+				const divisor = allegroNumber(token.slice(1), 'duration divisor');
+				if (!divisor) throw new RangeError('Allegro duration divisor cannot be zero.');
+				beats /= divisor;
+			} else beats *= allegroNumber(token, 'duration multiplier');
+			suffix = suffix.slice(token.length);
+		}
 		duration += timing.beatToFrame(timing.frameToBeat(start) + beats) - start;
 	}
 	return duration;
 }
 
-export function allegroPitch(value: string, previous: number): number {
+export function allegroPitch(value: string, _previous: number): number {
 	if (/^[\d.-]/.test(value)) return allegroNumber(value, 'pitch');
-	const match = /^([A-G])([SF]*)(-?\d+)?$/i.exec(value);
+	const match = /^([A-G])([SF]*)(-?\d+)?([SF]*)$/i.exec(value);
 	if (!match) throw new RangeError(`Invalid Allegro pitch: ${value}.`);
 	const pitchClass = PITCH_CLASSES[match[1]!.toUpperCase()]!;
-	const accidental = [...match[2]!.toUpperCase()].reduce((sum, char) => sum + (char === 'S' ? 1 : -1), 0);
+	const accidental = [...`${match[2]}${match[4]}`.toUpperCase()].reduce((sum, char) => sum + (char === 'S' ? 1 : -1), 0);
 	if (match[3] !== undefined) return (Number(match[3]) + 1) * 12 + pitchClass + accidental;
-	const base = pitchClass + accidental;
-	return base + Math.floor((previous - base + 6) / 12) * 12;
+	return 12 + pitchClass + accidental;
 }
 
 export function allegroVelocity(value: string): number {

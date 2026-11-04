@@ -13,6 +13,8 @@ export interface MidiFileEvent {
 export interface MidiFileTrack {
 	readonly name: string;
 	readonly notes: readonly MidiNote[];
+	/** End-of-Track position, including authored trailing silence. */
+	readonly durationFrames?: number;
 	readonly events?: readonly MidiFileEvent[];
 	readonly program?: number;
 }
@@ -54,15 +56,17 @@ export function midiFileSampleRate(value = 48_000): number {
 
 export function validateMidiFileDocument(document: MidiFileDocument): void {
 	midiFileSampleRate(document.sampleRate);
-	midiFileInteger(document.tracks.length, 1, MIDI_FILE_MAX_TRACKS - 1, 'track count');
+	midiFileInteger(document.tracks.length, 1, MIDI_FILE_MAX_TRACKS, 'track count');
 	let count = document.tempos.length + document.signatures.length;
 	for (const track of document.tracks) {
 		if (typeof track.name !== 'string' || track.name.length > 65_536) throw new RangeError('Invalid MIDI track name.');
+		if (track.durationFrames !== undefined) midiFileInteger(track.durationFrames, 0, Number.MAX_SAFE_INTEGER, 'track duration');
 		count += track.notes.length + (track.events?.length ?? 0);
 		if (track.program !== undefined) midiFileInteger(track.program, 0, 127, 'program');
 		for (const note of track.notes) {
 			midiFileInteger(note.pitch, 0, 127, 'pitch');
 			midiFileInteger(note.velocity, 0, 127, 'velocity');
+			if (note.releaseVelocity !== undefined) midiFileInteger(note.releaseVelocity, 0, 127, 'release velocity');
 			midiFileInteger(note.channel, 0, 15, 'channel');
 			midiFileInteger(note.startFrame, 0, Number.MAX_SAFE_INTEGER, 'note start');
 			midiFileInteger(note.durationFrames, 1, Number.MAX_SAFE_INTEGER - note.startFrame, 'note duration');

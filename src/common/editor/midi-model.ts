@@ -14,6 +14,8 @@ export interface MidiNote {
 	readonly startFrame: number;
 	readonly durationFrames: number;
 	readonly velocity: number;
+	/** Release velocity retained from MIDI note-off messages. */
+	readonly releaseVelocity?: number;
 	/** Zero-based MIDI channel, 0–15. */
 	readonly channel: number;
 }
@@ -94,6 +96,7 @@ export function normalizeMidiNote(value: unknown): MidiNote {
 		startFrame,
 		durationFrames,
 		velocity: integer(input.velocity, 0, 127, 'MIDI note.velocity'),
+		...(input.releaseVelocity === undefined ? {} : { releaseVelocity: integer(input.releaseVelocity, 0, 127, 'MIDI note.releaseVelocity') }),
 		channel: integer(input.channel ?? 0, 0, 15, 'MIDI note.channel'),
 	};
 }

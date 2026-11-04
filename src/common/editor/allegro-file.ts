@@ -9,6 +9,7 @@ import {
 import { createMidiTempoTimeline } from './midi-file-timing.ts';
 import { allegroDuration, allegroNumber, allegroPitch, allegroString, allegroTokens, allegroVelocity } from './allegro-file-fields.ts';
 import { allegroAttributeToEvent, allegroEventFields } from './allegro-file-events.ts';
+import { offsetAllegroTiming } from './allegro-file-offset.ts';
 
 // Current Audacity/PortSMF Allegro grammar: numeric T/U values are seconds.
 // https://github.com/rbdannenberg/portsmf/blob/master/allegrord.cpp
@@ -160,7 +161,7 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 	}
 	if (!signatures.some(signature => signature.frame === 0)) signatures.unshift({ frame: 0, numerator: 4, denominator: 4 });
 	const document: MidiFileDocument = {
-		sampleRate, tempos: tempos.sort((a, b) => a.frame - b.frame), signatures: signatures.sort((a, b) => a.frame - b.frame),
+		sampleRate, tempos: offsetAllegroTiming(tempos, offset), signatures: offsetAllegroTiming(signatures, offset),
 		tracks: [...tracks.entries()].sort(([a], [b]) => a - b).map(([, track]) => ({
 			name: track.name,
 			notes: track.notes.map(note => ({ ...note, startFrame: midiFileInteger(Math.round(note.startFrame + offset), 0, Number.MAX_SAFE_INTEGER, 'Allegro note time') })),

@@ -71,7 +71,7 @@ function parseTrack(bytes: Uint8Array, index: number, budget: { count: number })
 				return { name, events, endTick: tick };
 			}
 			if (metaType === 3) name = textDecoder.decode(Uint8Array.from(data));
-			else events.push({ tick, status, data, ...(metaType === undefined ? {} : { metaType }) });
+			else if (status !== 247 || data.length) events.push({ tick, status, data, ...(metaType === undefined ? {} : { metaType }) });
 		}
 	}
 	throw new RangeError('MIDI track is missing its end-of-track event.');
@@ -133,10 +133,11 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 		const events: MidiFileEvent[] = [];
 		const active = new Map<number, TickEvent[]>();
 		let noteIndex = 0;
-		const finish = (start: TickEvent, endTick: number): void => {
+		const finish = (start: TickEvent, endTick: number, releaseVelocity = 0): void => {
 			const startFrame = tickToFrame(start.tick);
 			notes.push({ id: `midi-${trackIndex}-${noteIndex++}`, pitch: start.data[0]!, channel: start.status & 15,
-				velocity: start.data[1]!, startFrame, durationFrames: Math.max(1, tickToFrame(endTick) - startFrame) });
+				velocity: start.data[1]!, startFrame, durationFrames: Math.max(1, tickToFrame(endTick) - startFrame),
+				...(releaseVelocity ? { releaseVelocity } : {}) });
 		};
 		for (const event of track.events) {
 			const type = event.status & 240;
@@ -148,12 +149,20 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 				const key = (event.status & 15) * 128 + event.data[0]!;
 				const stack = active.get(key) ?? [];
 				if (type === 144 && event.data[1]) { stack.push(event); active.set(key, stack); }
-				else { const start = stack.shift(); if (start) finish(start, event.tick); }
-			} else events.push({ frame: tickToFrame(event.tick), status: event.status, data: event.data, ...(event.metaType === undefined ? {} : { metaType: event.metaType }) });
+				else { const start = stack.shift(); if (start) finish(start, event.tick, type === 128 ? event.data[1]! : 64); }
+			} else {
+				if (type === 176 && [120, 123, 124, 125, 126, 127].includes(event.data[0]!)) {
+					for (const [key, stack] of active) if (Math.floor(key / 128) === (event.status & 15)) {
+						for (const start of stack) finish(start, event.tick);
+						active.delete(key);
+					}
+				}
+				events.push({ frame: tickToFrame(event.tick), status: event.status, data: event.data, ...(event.metaType === undefined ? {} : { metaType: event.metaType }) });
+			}
 		}
 		for (const stack of active.values()) for (const start of stack) finish(start, track.endTick);
 		notes.sort((a, b) => a.startFrame - b.startFrame || a.pitch - b.pitch);
-		return { name: track.name, notes, ...(events.length ? { events } : {}) };
+		return { name: track.name, notes, durationFrames: tickToFrame(track.endTick), ...(events.length ? { events } : {}) };
 	});
 	if (!signatures.some(signature => signature.frame === 0)) signatures.unshift({ frame: 0, numerator: 4, denominator: 4 });
 	const document = { sampleRate, tracks: result, tempos, signatures: signatures.sort((a, b) => a.frame - b.frame) };
@@ -175,18 +184,30 @@ function variableBytes(value: number): number[] {
 	return result;
 }
 
-function trackBytes(events: readonly TickEvent[]): number[] {
+function trackBytes(events: readonly TickEvent[], endTick: number | undefined, paddingBudget: { remaining: number }): number[] {
 	const result: number[] = [];
 	let previous = 0;
+	const appendDelta = (tick: number): void => {
+		midiFileInteger(tick, 0, Number.MAX_SAFE_INTEGER, 'event tick');
+		while (tick - previous > 0x0fffffff) {
+			if (paddingBudget.remaining-- <= 0) throw new RangeError('MIDI export exceeds the reader event limit.');
+			// An empty F7 escape transmits no MIDI bytes; it only advances the SMF clock.
+			result.push(...variableBytes(0x0fffffff), 247, 0);
+			previous += 0x0fffffff;
+		}
+		result.push(...variableBytes(tick - previous));
+		previous = tick;
+	};
 	for (const event of [...events].sort((a, b) => a.tick - b.tick || eventOrder(a) - eventOrder(b))) {
-		result.push(...variableBytes(event.tick - previous), event.status);
+		appendDelta(event.tick);
+		result.push(event.status);
 		if (event.status === 255) result.push(event.metaType!);
 		if (event.status >= 240) result.push(...variableBytes(event.data.length));
 		for (const byte of event.data) result.push(byte);
-		previous = event.tick;
 		if (result.length > MIDI_FILE_MAX_BYTES) throw new RangeError('MIDI export exceeds the 16 MiB limit.');
 	}
-	result.push(0, 255, 47, 0);
+	appendDelta(Math.max(previous, endTick ?? previous));
+	result.push(255, 47, 0);
 	return [77, 84, 114, 107, ...uint32Bytes(result.length), ...result];
 }
 
@@ -199,6 +220,15 @@ function uint32Bytes(value: number): number[] { return [value >>> 24, value >>> 
 
 export function writeMidiFile(document: MidiFileDocument): Uint8Array<ArrayBuffer> {
 	validateMidiFileDocument(document);
+	const separateConductor = document.tracks.length < MIDI_FILE_MAX_TRACKS;
+	let eventCount = document.tempos.length + document.signatures.length + (separateConductor ? 1 : 0);
+	for (const track of document.tracks) {
+		eventCount += track.notes.length * 2 + 2;
+		if (track.program !== undefined && !track.events?.some(event => (event.status & 240) === 192)) eventCount += 1;
+		for (const event of track.events ?? []) if (writtenAuxiliaryEvent(event)) eventCount += 1;
+	}
+	if (eventCount > MIDI_FILE_MAX_EVENTS) throw new RangeError('MIDI export exceeds the reader event limit.');
+	const paddingBudget = { remaining: MIDI_FILE_MAX_EVENTS - eventCount };
 	const division = 9600;
 	const quantizedTempos = document.tempos.map(tempo => ({ ...tempo, bpm: 60_000_000 / Math.round(60_000_000 / tempo.bpm) }));
 	const timing = createMidiTempoTimeline(quantizedTempos, document.sampleRate);
@@ -209,25 +239,28 @@ export function writeMidiFile(document: MidiFileDocument): Uint8Array<ArrayBuffe
 	});
 	for (const signature of document.signatures) conductor.push({ tick: tick(signature.frame), status: 255, metaType: 88,
 		data: [signature.numerator, Math.log2(signature.denominator), 24, 8] });
-	const count = document.tracks.length + 1;
+	const count = document.tracks.length + (separateConductor ? 1 : 0);
 	const bytes = [77, 84, 104, 100, 0, 0, 0, 6, 0, 1, count >> 8, count & 255, division >> 8, division & 255];
-	for (const byte of trackBytes(conductor)) bytes.push(byte);
-	for (const track of document.tracks) {
+	if (separateConductor) for (const byte of trackBytes(conductor, undefined, paddingBudget)) bytes.push(byte);
+	for (const [index, track] of document.tracks.entries()) {
 		const events: TickEvent[] = [{ tick: 0, status: 255, metaType: 3, data: [...textEncoder.encode(track.name)] }];
+		if (!separateConductor && index === 0) for (const event of conductor) events.push(event);
 		if (track.program !== undefined && !track.events?.some(event => (event.status & 240) === 192)) {
 			events.push({ tick: 0, status: 192, data: [track.program] });
 		}
 		for (const note of track.notes) {
 			if (note.velocity === 0) throw new RangeError('A zero-velocity MIDI note cannot be exported as a sounding note. Raise its velocity or delete it.');
 			events.push({ tick: tick(note.startFrame), status: 144 | note.channel, data: [note.pitch, note.velocity] });
-			events.push({ tick: Math.max(tick(note.startFrame) + 1, tick(note.startFrame + note.durationFrames)), status: 128 | note.channel, data: [note.pitch, 0] });
+			events.push({ tick: Math.max(tick(note.startFrame) + 1, tick(note.startFrame + note.durationFrames)), status: 128 | note.channel, data: [note.pitch, note.releaseVelocity ?? 0] });
 		}
 		for (const event of track.events ?? []) {
-			if (event.status === 255 && [3, 47, 81, 88].includes(event.metaType!)) continue;
+			if (!writtenAuxiliaryEvent(event)) continue;
 			events.push({ ...event, tick: tick(event.frame) });
 		}
-		for (const byte of trackBytes(events)) bytes.push(byte);
+		for (const byte of trackBytes(events, track.durationFrames === undefined ? undefined : tick(track.durationFrames), paddingBudget)) bytes.push(byte);
 		if (bytes.length > MIDI_FILE_MAX_BYTES) throw new RangeError('MIDI export exceeds the 16 MiB limit.');
 	}
 	return Uint8Array.from(bytes);
 }
+
+function writtenAuxiliaryEvent(event: MidiFileEvent): boolean { return !(event.status === 255 && [3, 47, 81, 88].includes(event.metaType!)); }

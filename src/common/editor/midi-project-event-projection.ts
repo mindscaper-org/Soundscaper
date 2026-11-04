@@ -2,17 +2,19 @@
 
 import type { MidiClipInterchange } from './midi-model.ts';
 import type { MidiFileEvent } from './midi-file-types.ts';
+import { createMidiPerformanceStateProjection, isMidiPerformanceStateEvent } from './midi-project-performance-state.ts';
 
 interface OrderedEvent { readonly event: MidiFileEvent; readonly index: number }
 
 /** One export clip owns its ordering and at most three loop-edge source windows. */
 export function createMidiClipEventProjection(interchange: MidiClipInterchange | undefined) {
 	const events = [...(interchange?.events ?? [])].sort(byFrame);
+	const performance = createMidiPerformanceStateProjection(events);
 	const windows = new Map<string, Readonly<{ initial: readonly MidiFileEvent[]; visible: readonly MidiFileEvent[] }>>();
 	return {
 		tempos: timingProjection(interchange?.tempos ?? []),
 		signatures: timingProjection(interchange?.signatures ?? []),
-		events(start: number, frames: number, timelineStart: number, global: (frame: number) => number): MidiFileEvent[] {
+		events(start: number, frames: number, timelineStart: number, global: (frame: number) => number, repeated = false): MidiFileEvent[] {
 			const key = `${start}:${frames}`;
 			let window = windows.get(key);
 			if (!window) {
@@ -29,7 +31,12 @@ export function createMidiClipEventProjection(interchange: MidiClipInterchange |
 				window = { initial: [...initial, ...state.values()].sort((a, b) => a.index - b.index).map(value => value.event), visible };
 				if (windows.size < 3) windows.set(key, window);
 			}
-			return [...window.initial.map(event => ({ ...event, frame: timelineStart })), ...window.visible.map(event => ({ ...event, frame: global(event.frame) }))];
+			if (global(start + frames) < global(start)) return [
+				...window.initial.filter(event => !isMidiPerformanceStateEvent(event)).map(event => ({ ...event, frame: timelineStart })),
+				...window.visible.filter(event => !isMidiPerformanceStateEvent(event)).map(event => ({ ...event, frame: global(event.frame) })),
+				...performance.reversed(start, frames, timelineStart, global),
+			];
+			return [...(repeated ? performance.initial(timelineStart) : []), ...window.initial.map(event => ({ ...event, frame: timelineStart })), ...window.visible.map(event => ({ ...event, frame: global(event.frame) }))];
 		},
 	};
 }

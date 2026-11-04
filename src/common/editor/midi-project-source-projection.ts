@@ -11,6 +11,8 @@ export interface MidiClipOccurrence {
 	readonly start: number;
 	readonly sourceFrames: number;
 	readonly timelineStart: number;
+	readonly timelineEnd: number;
+	readonly initializePerformance?: boolean;
 	global(frame: number): number;
 }
 
@@ -21,7 +23,7 @@ export function* midiClipOccurrences(project: ProjectionProject, persistedClip: 
 	const sourceFrames = clip.sourceDurationFrames;
 	const loop = readClipLoop(clip);
 	if (!loop) {
-		yield { start, sourceFrames, timelineStart: clip.timelineStartFrame, global: sourceProjector(project, clip, clip.timelineStartFrame, clip.durationFrames) };
+		yield { start, sourceFrames, timelineStart: clip.timelineStartFrame, timelineEnd: clip.timelineEndFrame, global: sourceProjector(project, clip, clip.timelineStartFrame, clip.durationFrames) };
 		return;
 	}
 	const count = Math.ceil((loop.offsetFrames + clip.durationFrames) / loop.periodFrames);
@@ -34,7 +36,7 @@ export function* midiClipOccurrences(project: ProjectionProject, persistedClip: 
 			? 1 - (timeline - origin) / loop.periodFrames : (timeline - origin) / loop.periodFrames) * sourceFrames;
 		const from = source(timelineStart);
 		const to = source(timelineEnd);
-		yield { start: Math.min(from, to), sourceFrames: Math.abs(to - from), timelineStart,
+		yield { start: Math.min(from, to), sourceFrames: Math.abs(to - from), timelineStart, timelineEnd, initializePerformance: true,
 			global: sourceProjector(project, clip, origin, loop.periodFrames) };
 	}
 }

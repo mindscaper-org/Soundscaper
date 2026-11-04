@@ -35,6 +35,7 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 		if (!metadata) return [];
 		const notes: MidiFileDocument['tracks'][number]['notes'][number][] = [];
 		const events: MidiFileEvent[] = [];
+		let durationFrames = 0;
 		for (const id of Array.isArray(track.clipIds) ? track.clipIds : []) {
 			const persistedClip = clipsById.get(String(id));
 			const data = readMidiClip(persistedClip);
@@ -46,7 +47,8 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 			const preserveSignatures = !timing.hasSignatureChanges && importedRootSignature && importedRootSignature.numerator === timing.signatures[0]!.numerator
 				&& importedRootSignature.denominator === timing.signatures[0]!.denominator;
 			let occurrence = 0;
-			for (const { start, sourceFrames, timelineStart, global } of midiClipOccurrences(projectionProject, persistedClip)) {
+			for (const { start, sourceFrames, timelineStart, timelineEnd, global, initializePerformance } of midiClipOccurrences(projectionProject, persistedClip)) {
+				durationFrames = Math.max(durationFrames, timelineEnd);
 				const prefix = `${String(persistedClip.id)}${occurrence ? `:loop-${occurrence}` : ''}`;
 				occurrence += 1;
 				for (const note of data.notes) {
@@ -56,7 +58,7 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 					reserveEvents(1);
 					notes.push({ ...note, id: `${prefix}:${note.id}`, startFrame: Math.min(global(from), global(to)), durationFrames: Math.max(1, Math.abs(global(to) - global(from))) });
 				}
-				const visible = eventProjection.events(start, sourceFrames, timelineStart, global);
+				const visible = eventProjection.events(start, sourceFrames, timelineStart, global, initializePerformance);
 				reserveEvents(visible.length);
 				for (const event of visible) events.push(event);
 				if (preserveTempos) {
@@ -69,7 +71,7 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 				}
 			}
 		}
-		return [{ name: String(track.name), notes, events, ...(metadata.program === undefined ? {} : { program: metadata.program }) }];
+		return [{ name: String(track.name), notes, events, durationFrames, ...(metadata.program === undefined ? {} : { program: metadata.program }) }];
 	});
 	if (!tracks.length) throw new RangeError('The project has no MIDI tracks to export.');
 	tempos.set(0, timing.tempos[0]!);

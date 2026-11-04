@@ -146,7 +146,7 @@ test('imported All Notes Off releases keys while the sustain pedal keeps their P
 	const samples = f.pcm.get(sourceId)![0]!;
 	assert.ok(samples.slice(8500, 11000).some(value => Math.abs(value) > 0.01), 'pedal-held notes must survive All Notes Off');
 	assert.ok(samples.slice(12000).every(value => value === 0), 'pedal-up must release keys already stopped by All Notes Off');
-	assert.equal(readMidiClip(f.project().clips[0])?.notes[0]?.durationFrames, 16000);
+	assert.equal(readMidiClip(f.project().clips[0])?.notes[0]?.durationFrames, 8000);
 });
 
 test('type-1 MIDI channel controls on a separate track affect the imported note PCM', async () => {
