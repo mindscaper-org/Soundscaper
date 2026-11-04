@@ -90,6 +90,25 @@ for (const fail of [false, true]) test(`a document edit during required activati
 	assert.equal(harness.commits.length, 0);
 });
 
+for (const fail of [false, true]) test(`newer history with the same present retains its ownership, activation failure=${fail}`, async () => {
+	const activation = deferred(), started = deferred();
+	const harness = replacementHarness(async () => {
+		started.resolve(); await activation.promise;
+		if (fail) throw new Error('Activation failed after the history change.');
+	});
+	const preparing = harness.service.prepareProjectBinReplacement('bin', { name: 'replacement.mp4' });
+	const rejected = assert.rejects(preparing);
+	await started.promise;
+	const imported = harness.project;
+	const newerHistory = { present: imported, undoStack: ['newer-history-entry'] };
+	harness.replaceImportedDocument(imported, newerHistory);
+	activation.resolve(); await rejected;
+	assert.equal(harness.project, imported);
+	assert.equal(harness.history, newerHistory);
+	assert.deepEqual(harness.deletedMedia, []);
+	assert.equal(harness.commits.length, 0);
+});
+
 function replacementHarness(awaitVideoSourceActivation: NonNullable<Parameters<typeof createHarness>[1]>['awaitVideoSourceActivation']) {
 	const original = createVideoSource({ id: 'old-video', storageKey: 'old-video', name: 'Original',
 		contentSha256: '12'.repeat(32), sampleFrameCount: 48_000, sourceFrameCount: 10,

@@ -128,6 +128,7 @@ export function createProjectBinReplacementService(
 		const task = dependencies.lifetime.startTask(PROJECT_BIN_REPLACEMENT_TASK);
 		let restored = false;
 		let importedDocument: ProjectBinProject | null = null;
+		let importedHistory: unknown;
 		let releaseProtection = (): void => undefined;
 		let protectionTransferred = false;
 		const importing = dependencies.claimImporting?.();
@@ -139,6 +140,7 @@ export function createProjectBinReplacementService(
 			const importedProject = dependencies.getProject();
 			importedDocument = importedProject;
 			const importedCheckpoint = dependencies.captureActiveDocument();
+			importedHistory = importedCheckpoint.history;
 			if (!result) {
 				restoreBaseDocument(baseDocument);
 				return null;
@@ -160,15 +162,19 @@ export function createProjectBinReplacementService(
 				for (const source of importedSources) if (source.kind === 'video') {
 					await dependencies.awaitVideoSourceActivation?.(source.id, { signal: task.signal });
 					assertCurrent(task, projectToken);
-					if (dependencies.getProject() !== importedProject) throw new DOMException('The project changed during video replacement preparation.', 'AbortError');
+					const current = dependencies.captureActiveDocument();
+					if (current.project !== importedProject || current.history !== importedHistory) {
+						throw new DOMException('The project changed during video replacement preparation.', 'AbortError');
+					}
 				}
 			} catch (error) {
 				try {
 					if (isCurrentAssertion(() => { dependencies.lifetime.assertActive(); dependencies.assertProject(projectToken); })) {
 						const latestCheckpoint = dependencies.captureActiveDocument(), latest = latestCheckpoint.project;
-						const selection = latest !== importedProject && dependencies.updateSelection
+						const ownsImported = latest === importedProject && latestCheckpoint.history === importedHistory;
+						const selection = !ownsImported && dependencies.updateSelection
 							? replacementSelectionChange(baseProject, importedCheckpoint, latestCheckpoint) : null;
-						if (latest === importedProject || selection) {
+						if (ownsImported || selection) {
 							restoreBaseDocument(baseDocument);
 							if (selection) {
 								dependencies.updateSelection?.(selection);
@@ -235,7 +241,8 @@ export function createProjectBinReplacementService(
 				} catch {
 					projectIsCurrent = false;
 				}
-				if (projectIsCurrent && (importedDocument === null || dependencies.getProject() === importedDocument)) restoreBaseDocument(baseDocument);
+				if (projectIsCurrent && (importedDocument === null || dependencies.getProject() === importedDocument
+					&& dependencies.captureActiveDocument().history === importedHistory)) restoreBaseDocument(baseDocument);
 				// A switched project must not be replaced by this task's saved document.
 				else finishImporting();
 			}
