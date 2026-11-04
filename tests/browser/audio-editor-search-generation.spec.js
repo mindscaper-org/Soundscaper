@@ -543,7 +543,9 @@ test.describe('audio editor React/design-system workflows', () => {
 			await page.keyboard.press('ArrowRight');
 			const exportOtherMenu = exportOther.getByRole('menu');
 			await expect(exportOtherMenu).toBeVisible();
-			await expect(getMenuItem(exportOtherMenu, 'Export MIDI')).toHaveCount(0);
+			for (const label of ['Export MIDI (beta)', 'Export Allegro (beta)']) {
+				await expect(getMenuItem(exportOtherMenu, label)).toBeDisabled();
+			}
 			await page.keyboard.press('Escape');
 			await page.keyboard.press('Escape');
 

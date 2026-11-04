@@ -344,7 +344,9 @@ test.describe('non-destructive clip fade handles', () => {
 		const fadeIn = clip.getByRole('slider', { name: 'Fade in', exact: true });
 		// Resetting the shape creates a default fade on a bare edge; clear its length afterwards.
 		await fadeIn.press('0'); await fadeIn.press('Home');
+		await expect(fadeIn).toHaveAttribute('aria-valuenow', '0');
 		for (let step = 0; step < 4; step++) await fadeIn.press('ArrowRight');
+		await expect(fadeIn).toHaveAttribute('aria-valuenow', '0.4');
 		let shape = clip.getByRole('slider', { name: 'Fade in shape', exact: true });
 		const curve = clip.locator('path[data-fade-curve="in"]');
 		const originalCurve = await curve.getAttribute('d');

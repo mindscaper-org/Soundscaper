@@ -18,6 +18,7 @@ function fixture(context) {
 		['tests/helpers/nested-reader.ts', "export { read } from './interchange-reference.ts';"],
 		['tests/helpers/interchange-reference.ts', 'export const read = true;'],
 		['tests/audio-editor-dawproject-reference-conformance.test.ts', 'export const validatesPublishedSchemas = true;'],
+		['tests/desktop-payload-manifests-exist.test.ts', 'export const validatesPayloadAssets = true;'],
 		['src/ordinary.ts', 'export const ordinary = true;'],
 	]) {
 		mkdirSync(dirname(join(root, file)), { recursive: true });
@@ -32,6 +33,15 @@ test('selected dependency closures require interchange readers only on their act
 	assert.equal(interchangeRequiredForTests(root, [join(root, 'tests/browser/reader.spec.js')]), true);
 	assert.equal(interchangeRequiredForTests(root, [join(root, 'tests/audio-editor-dawproject-reference-conformance.test.ts')]), true);
 	assert.equal(interchangeRequiredForTests(root, []), false);
+});
+
+test('desktop payload manifest checks require interchange assets only when selected', context => {
+	const root = fixture(context);
+	const ordinary = join(root, 'tests/browser/ordinary.spec.js');
+	const manifest = join(root, 'tests/desktop-payload-manifests-exist.test.ts');
+	assert.equal(interchangeRequiredForTests(root, [ordinary]), false);
+	assert.equal(interchangeRequiredForTests(root, [manifest]), true);
+	assert.equal(interchangeRequiredForTests(root, [ordinary, manifest]), true);
 });
 
 test('Playwright prerequisite discovery uses only selected specs, including nested suites', context => {

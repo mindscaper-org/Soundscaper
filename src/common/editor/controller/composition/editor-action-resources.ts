@@ -28,6 +28,9 @@ type EffectLibraryState =
 	& MacroScriptLibraryServiceRuntime['state']
 	& Pick<EffectControlsState, 'audacityEffectType' | 'effectPresets'>;
 interface EditorActionState extends ExportActionState {
+	readonly readOnly?: boolean;
+	readonly projectActivationPending?: boolean;
+	readonly phase?: string;
 	projectRecovery?: ProjectOpenRecoveryRuntime['state']['projectRecovery'];
 	selectedTrackId: string | null;
 	readonly timelineView: string;

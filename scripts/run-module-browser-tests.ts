@@ -52,6 +52,38 @@ export function analyzeModuleBrowserCollection(value: unknown): BrowserCollectio
 	return { testCount, files: [...files].sort() };
 }
 
+/** Reuse an authenticated list report without recollecting the same browser project. */
+export function selectedModuleBrowserReport(value: unknown, selectedFiles: readonly string[]): Record<string, unknown> {
+	const collection = analyzeModuleBrowserCollection(value);
+	const report = record(value, 'report');
+	const root = record(report.config, 'configuration').rootDir as string;
+	const selected = new Set(selectedFiles.map(file => resolve(file)));
+	const observed = new Set(collection.files);
+	for (const file of selected) if (!observed.has(file)) throw new Error(`The selected browser workflow was not collected: ${file}.`);
+	const selectSuite = (value: unknown): Record<string, unknown>[] => {
+		const suite = record(value, 'suite');
+		const specs = rows(suite.specs ?? [], 'specs').filter(value => {
+			const spec = record(value, 'spec');
+			if (rows(spec.tests, 'tests').length === 0) return false;
+			return selected.has(resolve(root, (spec.file ?? suite.file) as string));
+		});
+		const suites = rows(suite.suites ?? [], 'suites').flatMap(selectSuite);
+		return specs.length || suites.length ? [{ ...suite,
+			...(suite.specs !== undefined ? { specs } : {}), ...(suite.suites !== undefined ? { suites } : {}) }] : [];
+	};
+	return { ...report, suites: rows(report.suites, 'suites').flatMap(selectSuite) };
+}
+
+function requestsJsonList(args: readonly string[]): boolean {
+	let reporter: string | undefined;
+	for (let index = 0; index < args.length; index++) {
+		const argument = args[index]!;
+		if (argument === '--reporter') reporter = args[++index];
+		else if (argument.startsWith('--reporter=')) reporter = argument.slice('--reporter='.length);
+	}
+	return args.includes('--list') && reporter === 'json';
+}
+
 export function moduleBrowserListArguments(args: readonly string[], unsharded: boolean): string[] {
 	const result = ['test'];
 	for (let index = 0; index < args.length; index++) {
@@ -68,7 +100,7 @@ export function moduleBrowserListArguments(args: readonly string[], unsharded: b
 	return [...result, '--list', '--reporter=json'];
 }
 
-function collect(root: string, args: readonly string[], environment: NodeJS.ProcessEnv): BrowserCollection & { report: Record<string, unknown> } {
+function collect(root: string, args: readonly string[], environment: NodeJS.ProcessEnv): BrowserCollection & { readonly report: unknown } {
 	const result = spawnSync(process.execPath, [resolve(root, 'node_modules/@playwright/test/cli.js'), ...args], {
 		cwd: root, env: environment, encoding: 'utf8', maxBuffer: 32 * 1024 ** 2, timeout: 60_000,
 	});
@@ -77,24 +109,7 @@ function collect(root: string, args: readonly string[], environment: NodeJS.Proc
 	let report: unknown;
 	try { report = JSON.parse(result.stdout); }
 	catch (error) { throw new Error('Playwright collection returned invalid JSON.', { cause: error }); }
-	return { ...analyzeModuleBrowserCollection(report), report: record(report, 'report') };
-}
-
-/** Reuse the project listing for prerequisite discovery instead of loading every spec twice. */
-function selectedCollectionReport(report: Record<string, unknown>, root: string, files: readonly string[]): Record<string, unknown> {
-	const selected = new Set(files.map(file => resolve(root, file)));
-	const testRoot = record(report.config, 'configuration').rootDir as string;
-	const visit = (value: unknown): Record<string, unknown> | null => {
-		const suite = record(value, 'suite');
-		const specs = rows(suite.specs ?? [], 'specs').filter(value => {
-			const spec = record(value, 'spec');
-			return rows(spec.tests, 'tests').length > 0 && selected.has(resolve(testRoot, (spec.file ?? suite.file) as string));
-		});
-		const suites = rows(suite.suites ?? [], 'suites').map(visit).filter(value => value !== null);
-		return specs.length || suites.length ? { ...suite,
-			...(suite.specs !== undefined ? { specs } : {}), ...(suite.suites !== undefined ? { suites } : {}) } : null;
-	};
-	return { ...report, suites: rows(report.suites, 'suites').map(visit).filter(value => value !== null) };
+	return { ...analyzeModuleBrowserCollection(report), report };
 }
 
 function skip(root: string, environment: NodeJS.ProcessEnv, list = false): number {
@@ -127,11 +142,11 @@ export function runModuleBrowserTests(root: string, args: readonly string[], env
 			if (missing.length) throw new Error(`The selected browser workflows were not collected: ${missing.join(', ')}.`);
 		}
 		const selected = browserSuiteFiles(root, repositoryModuleTestSuites(root), all.files, suiteShard.index, suiteShard.total);
-		if (selected.length === 0) return skip(root, environment, args.includes('--list'));
-		if (suiteShard.args.includes('--list') && suiteShard.args.includes('--reporter=json')) {
-			process.stdout.write(JSON.stringify(selectedCollectionReport(all.report, root, selected)) + '\n');
+		if (requestsJsonList(suiteShard.args)) {
+			process.stdout.write(JSON.stringify(selectedModuleBrowserReport(all.report, selected.map(file => resolve(root, file)))) + '\n');
 			return 0;
 		}
+		if (selected.length === 0) return skip(root, environment, args.includes('--list'));
 		return runModuleBrowserTests(root, suiteShard.args, { ...unscoped, SCAPE_BROWSER_SUITE_FILES: JSON.stringify(selected) });
 	}
 	if (args.includes('--list')) {

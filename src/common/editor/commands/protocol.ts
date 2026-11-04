@@ -4,6 +4,7 @@ import type { TimelineAnnotationV11 } from '../timeline-annotation.ts';
 import type { VideoClipComposition } from '../video-clip-composition.ts';
 import { AUDIO_PRODUCTION_COMMAND_TYPES, type AudioProductionCommandPayloads } from './audio-production.ts';
 import { MASTERING_SEQUENCE_COMMAND_TYPES, type MasteringSequenceCommandPayloads } from './mastering-sequence.ts';
+import { MIDI_COMMAND_TYPES, type MidiCommandPayloads } from './midi-commands.ts';
 import type {
 	AudioEditorClipboard,
 	CanonicalVideoPlacementCommandValue,
@@ -29,6 +30,7 @@ import type { VideoKeyframesSetCommandPayload } from './video-keyframes-command-
  * payload map and exactly one domain registry must be updated.
  */
 export const AUDIO_EDITOR_COMMAND_TYPES = [
+	...MIDI_COMMAND_TYPES,
 	'batch',
 	'project/rename',
 	'project/recording-notes-set',
@@ -424,6 +426,7 @@ type LegacyNonBatchAudioEditorCommandPayloads = {
 };
 
 type NonBatchAudioEditorCommandPayloads = LegacyNonBatchAudioEditorCommandPayloads
+	& MidiCommandPayloads
 	& AudioProductionCommandPayloads
 	& MasteringSequenceCommandPayloads;
 

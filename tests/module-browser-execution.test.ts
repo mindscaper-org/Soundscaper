@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { analyzeModuleBrowserCollection, moduleBrowserListArguments, runModuleBrowserTests } from '../scripts/run-module-browser-tests.ts';
+import { analyzeModuleBrowserCollection, moduleBrowserListArguments, runModuleBrowserTests, selectedModuleBrowserReport } from '../scripts/run-module-browser-tests.ts';
 import { currentModuleSourceFingerprint } from '../scripts/lib/check-module-repository.ts';
 
 function fixture(mode: 'focused' | 'full' = 'focused', browserTests = ['tests/browser/image.spec.js']) {
@@ -46,6 +46,32 @@ void test('browser collection counts cases and rejects reported errors or malfor
 	assert.deepEqual(result.files, ['/repo/tests/browser/image.spec.js']);
 	assert.throws(() => analyzeModuleBrowserCollection({ errors: [{ message: 'bad spec' }] }), /collection failed/u);
 	assert.throws(() => analyzeModuleBrowserCollection({ config: { rootDir: '/repo' }, suites: 'invalid' }), /suites/u);
+});
+
+void test('selected JSON reports retain nested specs, project cases and metadata without changing the original', () => {
+	const report = {
+		config: { rootDir: '/repo/tests/browser', projects: [{ name: 'webkit' }, { name: 'firefox' }] },
+		errors: [], stats: { duration: 12 },
+		suites: [{ title: 'outer', line: 2, specs: [
+			{ file: 'image.spec.js', title: 'selected', tests: [{ projectName: 'webkit' }, { projectName: 'firefox' }] },
+			{ file: 'other.spec.js', title: 'excluded', tests: [{ projectName: 'webkit' }] },
+		], suites: [
+			{ title: 'nested', file: 'image.spec.js', specs: [{ title: 'inherited file', tests: [{ projectName: 'webkit' }] }] },
+			{ title: 'excluded group', file: 'other.spec.js', specs: [{ title: 'excluded', tests: [{ projectName: 'webkit' }] }] },
+		] }],
+	};
+	const original = structuredClone(report);
+	const selected = selectedModuleBrowserReport(report, ['/repo/tests/browser/image.spec.js']);
+	assert.deepEqual(selected, { ...report, suites: [{ ...report.suites[0],
+		specs: [report.suites[0]!.specs[0]],
+		suites: [report.suites[0]!.suites[0]],
+	}] });
+	assert.deepEqual(analyzeModuleBrowserCollection(selected), { testCount: 3, files: ['/repo/tests/browser/image.spec.js'] });
+	assert.deepEqual(report, original);
+	assert.deepEqual(selectedModuleBrowserReport(report, []), { ...report, suites: [] });
+	assert.throws(() => selectedModuleBrowserReport(report, ['/repo/tests/browser/missing.spec.js']), /not collected/u);
+	assert.throws(() => selectedModuleBrowserReport({ ...report, errors: [{ message: 'bad spec' }] }, []), /collection failed/u);
+	assert.throws(() => selectedModuleBrowserReport({ ...report, suites: 'invalid' }, []), /suites/u);
 });
 
 void test('collection arguments preserve project selection and remove only shard or reporter switches', () => {
@@ -103,6 +129,43 @@ void test('suite prerequisite listing filters the first collection without start
 	} finally { setup.close(); }
 });
 
+void test('listing a browser suite shard reuses its validated collection instead of collecting twice', context => {
+	let output = '';
+	context.mock.method(process.stdout, 'write', (value: string) => { output += value; return true; });
+	for (const reporter of [['--reporter=json'], ['--reporter', 'json']]) {
+		const setup = fixture('full');
+		try {
+			output = '';
+			assert.equal(runModuleBrowserTests(setup.root, ['--project=webkit', '--suite-shard=1/4', '--list', ...reporter], setup.env), 0);
+			assert.equal(setup.calls().length, 1, 'one authenticated collection must supply the selected list report');
+			assert.deepEqual(analyzeModuleBrowserCollection(JSON.parse(output)), {
+				testCount: 1, files: [join(setup.root, 'tests/browser/image.spec.js')],
+			});
+		} finally { setup.close(); }
+	}
+});
+
+void test('human and custom browser listings retain the requested reporter invocation', () => {
+	for (const reporter of [[], ['--reporter=json', '--reporter=line'], ['--reporter', 'list']]) {
+		const setup = fixture('full');
+		try {
+			assert.equal(runModuleBrowserTests(setup.root, ['--project=webkit', '--suite-shard=1/4', '--list', ...reporter], setup.env), 0);
+			assert.deepEqual(setup.calls()[1], ['test', '--project=webkit', '--list', ...reporter]);
+		} finally { setup.close(); }
+	}
+});
+
+void test('JSON listing emits an empty assigned suite shard from its single valid collection', context => {
+	const setup = fixture('full');
+	let output = '';
+	context.mock.method(process.stdout, 'write', (value: string) => { output += value; return true; });
+	try {
+		assert.equal(runModuleBrowserTests(setup.root, ['--project=webkit', '--suite-shard=4/4', '--list', '--reporter=json'], setup.env), 0);
+		assert.equal(setup.calls().length, 1);
+		assert.deepEqual(analyzeModuleBrowserCollection(JSON.parse(output)), { testCount: 0, files: [] });
+	} finally { setup.close(); }
+});
+
 void test('focused browser runs collect the full selection and requested shard before executing', () => {
 	const setup = fixture();
 	try {
@@ -148,10 +211,13 @@ void test('listing an empty focused browser selection returns a machine-readable
 });
 
 void test('collection failure and a nonempty plan that matches no browser cases fail closed', () => {
-	for (const outcome of ['failure', 'invalid', 'empty-all']) {
+	for (const args of [
+		['--project=webkit', '--shard=2/4'],
+		['--project=webkit', '--suite-shard=2/4', '--list', '--reporter=json'],
+	]) for (const outcome of ['failure', 'invalid', 'empty-all']) {
 		const setup = fixture();
 		try {
-			assert.throws(() => runModuleBrowserTests(setup.root, ['--project=webkit', '--shard=2/4'], { ...setup.env, FIXTURE_COLLECTION: outcome }), /collection|selected browser/u);
+			assert.throws(() => runModuleBrowserTests(setup.root, args, { ...setup.env, FIXTURE_COLLECTION: outcome }), /collection|collected|selected browser/u);
 			assert.equal(setup.calls().length, 1);
 		} finally { setup.close(); }
 	}

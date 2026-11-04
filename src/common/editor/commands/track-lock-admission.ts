@@ -117,6 +117,7 @@ export function createTrackLockAdmission(
 		switch (command.type) {
 			case 'track/remove':
 			case 'track/reorder':
+			case 'midi/track-set':
 				lockedId = firstLockedLaneMember(project, command.trackId, baselines);
 				break;
 			case 'track-node/move':
@@ -139,6 +140,7 @@ export function createTrackLockAdmission(
 			case 'audio-warp/set':
 			case 'audio-warp/clear':
 			case 'audio-warp/quantize':
+			case 'midi/clip-set':
 				lockedId = firstLockedClipOwner(project, command.clipId, baselines);
 				break;
 			default:

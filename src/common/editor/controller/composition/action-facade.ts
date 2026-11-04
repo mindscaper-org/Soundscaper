@@ -11,6 +11,7 @@ import {
 	createRecordingPreferenceActionFacade,
 } from '../recording/recording-action-facade.ts';
 import { createClipSpreadsheetAction } from './internal/clip-spreadsheet-action.ts';
+import { createMidiActionGroup } from './midi-action-group.ts';
 import { createMixerParameterActions } from './internal/mixer-parameter-actions.ts';
 import { createProjectOwnedFeatureActionFacades } from './internal/project-owned-feature-action-facades.ts';
 import { createTimelineAnnotationActionFacade } from '../document/timeline-annotation-action-facade.ts';
@@ -47,7 +48,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	fileService, findTrack, persistSetting, publishDocumentSnapshot, flushProject, generateSelectionSilence,
 	generateSignal, repeatLastGenerator, getClipVisualData, getVisibleClips,
 	handleClipAction, handleEdit, handleExportAction, handlePlayAtSpeed, handleTransport, handleScrub, endScrub,
-	importFiles, pasteClipSpreadsheet, inspectScape, labels, listProjects, makeStereoTrack,
+	pasteClipSpreadsheet, inspectScape, labels, listProjects, makeStereoTrack,
 	materializeFreesoundUploadClip, publishBlenderTracks, mixAndRenderTracks, moveClips, moveClipsToNewTrack, moveTrack, newProject,
 	normalizePlaybackFrame, openAudacityProject, openAup4, openProject, openScape, openScapeFile, overwriteClips,
 	openDawproject, openSesx, saveDawproject, pasteEffectStack, pauseLoudnessMeasurement,
@@ -99,7 +100,9 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	]);
 	const crossProductHandoffActions = createCrossProductHandoffActionFacade({ ...scope, copy: { get projectSaved() { return copy.projectSaved; }, get projectSaving() { return copy.projectSaving; } } });
 	const macros = createEffectMacroActions(effectLibraryScope, restricted);
+	const midi = createMidiActionGroup(scope);
 	const actions = Object.freeze({
+		midi: midi.actions,
 		project: Object.freeze({
 			create: (...args: Parameters<typeof newProject>) => newProject(...args),
 			open: storedProjectOpenActions.open,
@@ -129,7 +132,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			duplicate: (...args: Parameters<typeof duplicateProject>) => duplicateProject(...args),
 			remove: deleteProject,
 			clear: clearLocalData,
-			importFiles,
+			importFiles: midi.importFiles,
 			cancelTask: () => scope.taskProgress?.cancelActive() ?? false,
 			setTempo: (bpm: number) => commit({ type: 'tempo/set', bpm }),
 			setTimeSignature: (numerator: number, denominator: number) => commit({ type: 'tempo/set', numerator, denominator }),

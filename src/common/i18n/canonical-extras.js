@@ -157,7 +157,7 @@ const COPY_ENTRIES = Object.freeze([
 	["audacityParityReasonPlugins","External plugin and Nyquist support is intentionally omitted."],
 	["audacityParityReasonOs","Operating-system audio, device, and application-lifecycle settings are intentionally omitted."],
 	["audacityParityReasonDeveloper","Hidden Extra, diagnostic, benchmark, and developer scaffolding is intentionally omitted."],
-	["audacityParityReasonMidi","MIDI is not implemented and remains post-1.0 scope."],
+	["audacityParityReasonMidi","Full Audacity MIDI integration remains post-1.0 scope; beta MIDI uses separate menu commands."],
 	["audacityParityReasonSuperseded","This upstream action is superseded by the maintained Soundscaper equivalent."],
 	["audacityParityReasonSampleFormat","Sources are stored as float32 PCM throughout, so a declared sample format converts nothing."],
 	["audacityParityLabelExportOther","Export other"],

@@ -66,6 +66,9 @@ for (const variant of ['aligned', 'delayed-default', 'long-primary']) test(`mult
 			expect(spectrum(880, 4)).toBeGreaterThan(.04);
 		} else expect(audio.frameCount).toBe(144_000);
 	}
+	// The download starts before checksum readback finishes. Let the save task
+	// complete before reload destroys its Blob reader's document.
+	await expect(editor.getByRole('progressbar', { name: 'Saving project', exact: true })).toBeHidden();
 	await page.reload(); await waitForEditor(page); await waitForProjectActivation(editor);
 	await expect(editor).toHaveAttribute('data-clip-count', '2'); expect(errors).toEqual([]);
 });

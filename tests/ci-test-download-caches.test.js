@@ -24,11 +24,13 @@ for (const workflow of ['quality.yml', 'desktop-preview.yml', 'soundscaper-stabl
 			const boost = job.indexOf('run: node scripts/ci-provision-framescaper-boost.mjs');
 			if (boost >= 0) {
 				boostJobs += 1;
+				const prerequisites = job.indexOf('id: test-prerequisites');
 				const cache = job.indexOf('path: .wrangler/test-download-cache/boost');
-				assert.ok(cache >= 0 && boost > cache);
+				assert.ok(prerequisites >= 0 && cache > prerequisites && boost > cache);
 				assert.match(job, /node scripts\/ci-test-prerequisites\.mjs --node-module-shard=\$\{\{ matrix\.shard \}\}/u);
-				assert.match(job.slice(0, cache).split(/\n {6}- /u).at(-1), /if: steps\.test-prerequisites\.outputs\.boost == 'true'/u);
-				assert.match(job.slice(0, boost).split(/\n {6}- /u).at(-1), /if: steps\.test-prerequisites\.outputs\.boost == 'true'/u);
+				for (const step of [cache, boost]) {
+					assert.match(job.slice(0, step).split(/\n {6}- /u).at(-1), /if: steps\.test-prerequisites\.outputs\.boost == 'true'/u);
+				}
 				assert.match(job, /config\/boost-multiprecision-source-manifest\.json/u);
 				assert.match(job, /scripts\/lib\/framescaper-boost-ci-cache\.mjs/u);
 			}
