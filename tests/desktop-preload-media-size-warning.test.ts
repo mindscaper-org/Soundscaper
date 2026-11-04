@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readDesktopPreloadSource } from './helpers/desktop-preload-source.mjs';
+import { desktopCodecPreloadContext } from './helpers/desktop-codec-preload-context.ts';
 import test from 'node:test';
-import vm from 'node:vm';
 
 interface Bridge {
 	beginWrite(value: unknown): Promise<unknown>;
@@ -14,17 +13,8 @@ interface Bridge {
 	loadLinkedVideoOriginal(value: unknown): Promise<{ descriptor: { size: number } }>;
 }
 
-async function preload(invoke: (channel: string, value: unknown) => Promise<unknown>): Promise<Bridge> {
-	const exposed = new Map<string, unknown>();
-	const source = await readDesktopPreloadSource();
-	vm.runInNewContext(source, {
-		AbortSignal, ArrayBuffer, Object, Promise, RangeError, String, TypeError, Uint8Array, URL,
-		require: () => ({
-			contextBridge: { exposeInMainWorld(name: string, value: unknown) { exposed.set(name, value); } },
-			ipcRenderer: { invoke, send() {}, on() {}, removeListener() {}, postMessage() {} },
-		}),
-	});
-	return (exposed.get('soundscaperDesktop') as { v1: Bridge }).v1;
+function preload(invoke: (channel: string, value: unknown) => Promise<unknown>): Promise<Bridge> {
+	return desktopCodecPreloadContext<Bridge>(invoke);
 }
 
 test('save declarations reach main-process warning admission above 65 GiB while unsafe counts fail before IPC', async () => {
