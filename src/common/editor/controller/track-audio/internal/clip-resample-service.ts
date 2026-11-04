@@ -7,6 +7,7 @@ import type { AudioEditorCommand } from '../../../commands/protocol.ts';
 import { scaleSampleFrame } from '../../../timeline-time.ts';
 import { remapAudioWarpSourceWindow } from '../../../audio-warp-source-window.ts';
 import { resampledClipSourceStretchFields } from '../../../clip-source-stretch-memory.ts';
+import { removeMidiClipData } from '../../../midi-model.ts';
 import { resampledClipSelectionCommands } from './resampled-clip-selection.ts';
 import { clipPcmFormat, convertPcmPrecision, pcmBytesPerSample, reinterpretPcmChannels, storedPcmFormat, type ClipPcmFormat, type StoredPcmFormat } from './clip-pcm-format.ts';
 import { assertClipCanReinterpret, reinterpretedClipCommands } from './clip-reinterpret-commands.ts';
@@ -117,7 +118,7 @@ export function resampledClipCommands(
 			: []),
 		...(avLinkId ? [{ type: 'clip/unlink-av' as const, clipId: clip.id }] : []),
 		{ type: 'clip/remove', clipId: clip.id },
-		createAddClipCommand(trackId, {
+		createAddClipCommand(trackId, removeMidiClipData({
 			...clip,
 			...resampledClipSourceStretchFields(clip, originalSource, replacement),
 			...(avLinkId ? { avLinkId: null } : {}),
@@ -127,7 +128,7 @@ export function resampledClipCommands(
 			trimStartFrames,
 			trimEndFrames,
 			...(warpMap ? { warpMap } : {}),
-		}),
+		})),
 		...(avLinkId && linkedVideo ? [{
 			type: 'clip/link-av' as const, videoClipId: linkedVideo.id, audioClipId: clip.id, avLinkId,
 		}] : []),

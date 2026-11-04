@@ -4,6 +4,7 @@ import { CLIP_SOURCE_STRETCH_EXTENSION } from '../../../clip-source-stretch-memo
 import { createAddClipCommand } from '../../../commands/factories.ts';
 import type { AudioEditorCommand } from '../../../commands/protocol.ts';
 import { roundRational } from '../../../timeline-time.ts';
+import { removeMidiClipData } from '../../../midi-model.ts';
 import type { ControllerClip, ControllerSource } from '../track-domain-types.ts';
 
 /** Reinterpret changes the sound's clock; composite clocks must be rendered first. */
@@ -37,7 +38,7 @@ export function reinterpretedClipCommands(trackId: string, clip: ControllerClip,
 	return [
 		...(typeof clip.groupId === 'string' && clip.groupId ? [{ type: 'clip/ungroup' as const, clipIds: [clip.id] }] : []),
 		{ type: 'clip/remove', clipId: clip.id },
-		createAddClipCommand(trackId, { ...clip, sourceId: replacement.id,
+		createAddClipCommand(trackId, { ...removeMidiClipData(clip), sourceId: replacement.id,
 			sourceStartFrame: sourceFrame(clip.sourceStartFrame), sourceDurationFrames: sourceFrame(clip.sourceDurationFrames),
 			trimStartFrames: sourceFrame(clip.trimStartFrames ?? 0), trimEndFrames: sourceFrame(clip.trimEndFrames ?? 0), durationFrames,
 			...(typeof clip.fadeInFrames === 'number' ? { fadeInFrames: timelineFrame(clip.fadeInFrames) } : {}),
