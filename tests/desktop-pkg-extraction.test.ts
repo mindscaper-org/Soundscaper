@@ -9,6 +9,7 @@ import test from 'node:test';
 
 import { extractPkgApplication } from '../scripts/lib/desktop-pkg-extraction.mjs';
 import { writeDesktopPkgFixture } from './helpers/desktop-pkg-fixture.ts';
+import { pkgCodeSignatureSidecar } from './helpers/desktop-pkg-appledouble-fixture.ts';
 
 const portableInspectorAvailable = process.platform === 'linux'
 	&& spawnSync('7z', ['i'], { stdio: 'ignore', timeout: 5000 }).status === 0;
@@ -95,6 +96,65 @@ test('portable PKG auditing refuses extra payloads, components, relocation and e
 		await assert.rejects(extractPkgApplication({ artifact, extractedRoot: join(root, `${index}`, 'content'),
 			productId: 'soundscaper', targetId: 'mac-arm64', sevenZip: '7z' }, { platform: 'linux' }), /PKG/u);
 	}
+});
+
+test('portable PKG auditing accepts productbuild metadata without Unix modes', {
+	skip: portableInspectorSkip,
+}, async context => {
+	const root = await mkdtemp(join(tmpdir(), 'desktop-pkg-productbuild-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const artifact = join(root, 'Soundscaper-1.0.0-mac-arm64.pkg');
+	await writeDesktopPkgFixture(artifact, { xarMetadata: {
+		Distribution: { mode: null },
+		'org.soundscaper.desktop.pkg/PackageInfo': { mode: null },
+	} });
+	const payload = await extractPkgApplication({ artifact, extractedRoot: join(root, 'content'),
+		productId: 'soundscaper', targetId: 'mac-arm64', sevenZip: '7z' }, { platform: 'linux' });
+	assert.equal(await readFile(join(payload, 'Soundscaper.app/Contents/MacOS/Soundscaper'), 'utf8'),
+		'application fixture');
+});
+
+test('portable PKG auditing still rejects nonregular metadata and payloads without modes', {
+	skip: portableInspectorSkip,
+}, async context => {
+	const root = await mkdtemp(join(tmpdir(), 'desktop-pkg-metadata-invalid-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const foreignMetadata = join(root, 'foreign-metadata');
+	await writeFile(foreignMetadata, 'foreign metadata');
+	const scenarios: NonNullable<Parameters<typeof writeDesktopPkgFixture>[1]>[] = [];
+	for (const path of ['Distribution', 'org.soundscaper.desktop.pkg/PackageInfo']) {
+		for (const mode of ['0755', null]) {
+			scenarios.push({ xarMetadata: { [path]: { type: 'directory', mode } } });
+		}
+		for (const mode of ['0120777', null]) {
+			scenarios.push({ xarMetadata: { [path]: { type: 'symlink', mode, link: foreignMetadata } } });
+		}
+	}
+	for (const path of ['org.soundscaper.desktop.pkg/Payload', 'org.soundscaper.desktop.ffmpeg.pkg/Scripts']) {
+		scenarios.push({ xarMetadata: { [path]: { mode: null } } });
+	}
+	for (const [index, options] of scenarios.entries()) {
+		const scenarioRoot = join(root, String(index));
+		await mkdir(scenarioRoot);
+		const artifact = join(scenarioRoot, 'Soundscaper-1.0.0-mac-arm64.pkg');
+		await writeDesktopPkgFixture(artifact, options);
+		await assert.rejects(extractPkgApplication({ artifact, extractedRoot: join(scenarioRoot, 'content'),
+			productId: 'soundscaper', targetId: 'mac-arm64', sevenZip: '7z' }, { platform: 'linux' }), /PKG/u);
+	}
+});
+
+test('portable PKG auditing restores the installed file inventory from AppleDouble signing metadata', {
+	skip: portableInspectorSkip,
+}, async context => {
+	const root = await mkdtemp(join(tmpdir(), 'desktop-pkg-appledouble-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const artifact = join(root, 'Soundscaper-1.0.0-mac-arm64.pkg');
+	await writeDesktopPkgFixture(artifact, { codeSignatureSidecar: pkgCodeSignatureSidecar() });
+	const payload = await extractPkgApplication({ artifact, extractedRoot: join(root, 'content'),
+		productId: 'soundscaper', targetId: 'mac-arm64', sevenZip: '7z' }, { platform: 'linux' });
+	const executable = join(payload, 'Soundscaper.app/Contents/MacOS/Soundscaper');
+	assert.equal(await readFile(executable, 'utf8'), 'application fixture');
+	await assert.rejects(lstat(join(payload, 'Soundscaper.app/Contents/MacOS/._Soundscaper')), { code: 'ENOENT' });
 });
 
 async function packageFixture(root: string, location = '/Applications', identity = 'org.soundscaper.desktop'): Promise<void> {
