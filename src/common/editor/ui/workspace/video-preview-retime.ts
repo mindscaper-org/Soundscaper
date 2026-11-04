@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { seekVideoPreviewMedia, type VideoPreviewMediaSeekSource } from '../../controller/clip-video/video-preview-media-seek.ts';
+
 import {
 	createRegisteredVideoRetimeWebCorePreviewResolver,
 	type VideoRetimeWebCorePreviewResolver,
@@ -31,7 +33,7 @@ export function resolveRegisteredVideoRetimePreview(
 
 /** Keep exact retime preview frame-addressed while preserving legacy continuous playback. */
 export function synchronizeVideoPreviewMedia(
-	video: Pick<HTMLVideoElement, 'currentTime' | 'playbackRate' | 'pause' | 'play'>,
+	video: VideoPreviewMediaSeekSource & Pick<HTMLVideoElement, 'playbackRate' | 'pause' | 'play'>,
 	entry: Readonly<{
 		readonly sourceTimeSeconds?: unknown;
 		readonly playbackRate?: unknown;
@@ -45,12 +47,10 @@ export function synchronizeVideoPreviewMedia(
 	// Drift tolerance keeps continuous playback from seeking on every update.
 	// A stopped transport owns an explicit picture, even a single frame away.
 	const tolerance = exact || transportState !== 'playing' ? 0.000001 : 0.08;
-	if (Math.abs((Number(video.currentTime) || 0) - targetTime) > tolerance) {
-		try {
-			video.currentTime = targetTime;
-		} catch {
-			// Metadata can still be loading; media readiness callbacks retry the seek.
-		}
+	try {
+		seekVideoPreviewMedia(video, targetTime, tolerance);
+	} catch {
+		// Metadata can still be loading; media readiness callbacks retry the seek.
 	}
 	if (exact) {
 		video.pause();

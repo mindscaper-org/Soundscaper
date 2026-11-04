@@ -49,6 +49,7 @@
 		"clip-video/video-effect-service.ts",
 		"clip-video/video-preview-effect-result-cache.ts",
 		"clip-video/video-preview-frame-identity.ts",
+		"clip-video/video-preview-media-seek.ts",
 		"clip-video/video-preview-presented-frame.ts",
 		"clip-video/video-preview-target-pool.ts",
 		"clip-video/video-source-reprobe-service.ts",
