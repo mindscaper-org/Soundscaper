@@ -8,6 +8,7 @@ import {
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import { isSoundscaperProductionProject } from '../../project-schema-version.ts';
 import { projectEffectTailFramesV21 } from '../../project-effect-tail-v21.ts';
+import { resolveRuntimeClipProjection } from '../../runtime-clip-projection.ts';
 import {
 	inheritTrackFolderMediaStateProjectionV12,
 	projectTrackFolderMediaStateV12,
@@ -81,7 +82,7 @@ export function createMixRenderPlan(
 	for (const clip of project.clips) if (!clipsById.has(clip.id)) clipsById.set(clip.id, clip);
 	const clips = targetTracks.flatMap((track) => (track.clipIds ?? [])
 		.map((clipId) => clipsById.get(clipId))
-		.filter((clip): clip is NonNullable<typeof clip> => Boolean(clip)));
+		.filter((clip): clip is NonNullable<typeof clip> => Boolean(clip))).map(clip => resolveRuntimeClipProjection(project, clip));
 	if (!targetTracks.length || !clips.length) return null;
 	const startFrame = Math.min(...clips.map((clip) => clip.timelineStartFrame));
 	const endFrame = Math.max(...clips.map((clip) => clip.timelineStartFrame + clip.durationFrames));

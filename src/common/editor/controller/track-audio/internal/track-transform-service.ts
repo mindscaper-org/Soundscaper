@@ -346,7 +346,7 @@ export function createTrackTransformService(
 			.map((clipId) => clipById.get(clipId))
 			.filter((clip): clip is ControllerClip => Boolean(clip));
 		const { startFrame, endFrame } = stereoTrackRenderRange([track, partner], clips, dependencies.projectSampleRate(),
-			Array.isArray(project.automationLanes) ? project.automationLanes : []);
+			Array.isArray(project.automationLanes) ? project.automationLanes : [], project);
 		if (!monoMergeRoutingCompatible(project, track.id, partner.id, endFrame > startFrame)) throw createLocalizedError(Error, dependencies.copy, 'compatibleMonoTrackRequired');
 		if (endFrame <= startFrame) return dependencies.commit({ type: 'batch', commands: [
 			{ type: 'track/update', trackId: track.id, changes: { pan: 0 } },

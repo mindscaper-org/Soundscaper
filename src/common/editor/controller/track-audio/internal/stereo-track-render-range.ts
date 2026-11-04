@@ -2,6 +2,7 @@
 
 import { rackTailFrames } from '../../../effects.js';
 import type { ControllerClip, ControllerTrack } from '../track-domain-types.ts';
+import { resolveRuntimeClipProjection, type RuntimeClipProject } from '../../../runtime-clip-projection.ts';
 
 /** Channel conversion removes both racks, so capture their last audible samples too. */
 export function stereoTrackRenderRange(
@@ -9,9 +10,11 @@ export function stereoTrackRenderRange(
 	clips: readonly ControllerClip[],
 	sampleRate: number,
 	automationLanes: readonly unknown[] = [],
+	project?: RuntimeClipProject,
 ): Readonly<{ startFrame: number; endFrame: number }> {
-	const startFrame = clips.length ? Math.min(...clips.map(clip => clip.timelineStartFrame)) : 0;
-	const byId = new Map(clips.map(clip => [clip.id, clip]));
+	const resolved = project ? clips.map(clip => resolveRuntimeClipProjection(project, clip)) : clips;
+	const startFrame = resolved.length ? Math.min(...resolved.map(clip => clip.timelineStartFrame)) : 0;
+	const byId = new Map(resolved.map(clip => [clip.id, clip]));
 	const ends = tracks.map(track => {
 		const owned = (track.clipIds ?? []).flatMap(id => { const clip = byId.get(id); return clip ? [clip] : []; });
 		if (!owned.length) return 0;
