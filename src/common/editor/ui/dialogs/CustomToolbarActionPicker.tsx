@@ -16,6 +16,7 @@ export default function CustomToolbarActionPicker({ actions, actionId, copy, dis
 	const listId = useId();
 	const inputRef = useRef<HTMLInputElement>(null);
 	const listRef = useRef<HTMLDivElement>(null);
+	const actionBeforeSearch = useRef<string | null>(null);
 	const [query, setQuery] = useState<string | null>(null);
 	const [open, setOpen] = useState(false);
 	const [active, setActive] = useState(-1);
@@ -24,6 +25,7 @@ export default function CustomToolbarActionPicker({ actions, actionId, copy, dis
 	const matches = findActions(query ?? '');
 	const selected = actions.find((action) => action.actionId === actionId);
 	const choose = (action: CustomToolbarButtonAction) => {
+		actionBeforeSearch.current = null;
 		onSelect(action.actionId);
 		setQuery(null);
 		setOpen(false);
@@ -33,11 +35,13 @@ export default function CustomToolbarActionPicker({ actions, actionId, copy, dis
 		if (expanded && active >= 0) listRef.current?.children[active]?.scrollIntoView({ block: 'nearest' });
 	}, [active, expanded]);
 	return <div className="kw-audio-editor-custom-button-dialog__action-picker" onBlur={(event) => {
-		if (!event.currentTarget.contains(event.relatedTarget)) { setOpen(false); setQuery(null); }
+		if (!event.currentTarget.contains(event.relatedTarget)) { actionBeforeSearch.current = null; setOpen(false); setQuery(null); }
 	}} onKeyDown={(event) => {
 		if (disabled || event.nativeEvent.isComposing) return;
-		if (event.key === 'Escape' && open) {
-			event.preventDefault(); event.stopPropagation(); setOpen(false);
+		if (event.key === 'Escape' && (open || query !== null)) {
+			event.preventDefault(); event.stopPropagation(); setOpen(false); setQuery(null); setActive(-1);
+			if (actionBeforeSearch.current !== null) onSelect(actionBeforeSearch.current);
+			actionBeforeSearch.current = null;
 		} else if (event.target !== inputRef.current) return;
 		else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
 			event.preventDefault(); setOpen(true);
@@ -59,6 +63,7 @@ export default function CustomToolbarActionPicker({ actions, actionId, copy, dis
 				value={query ?? selected?.path.join(' › ') ?? actionId}
 				onChange={(event) => {
 					const value = event.currentTarget.value;
+					actionBeforeSearch.current ??= actionId;
 					setQuery(value); onSelect(''); setActive(-1);
 					setOpen(value.trim().length >= 3 || findActions(value).length < 10);
 				}} />

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import React, { act } from 'react';
+import React, { act, useState } from 'react';
 import CustomToolbarActionPicker from '../src/common/editor/ui/dialogs/CustomToolbarActionPicker.tsx';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
@@ -41,5 +41,31 @@ test('action results open at three characters or fewer than ten matches, without
 		await act(async () => root.unmount());
 		actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
 		dom.restore();
+	}
+});
+
+test('Escape cancels an action search and restores the existing custom-button action', async () => {
+	const dom = installReactTestDom();
+	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const previousAct = globals.IS_REACT_ACT_ENVIRONMENT;
+	globals.IS_REACT_ACT_ENVIRONMENT = true;
+	const { createRoot } = await import('react-dom/client');
+	const root = createRoot(dom.container as unknown as Element);
+	const actions = [{ actionId: 'undo', label: 'Undo', disabled: false, path: ['Edit', 'Undo'] },
+		{ actionId: 'redo', label: 'Redo', disabled: false, path: ['Edit', 'Redo'] }];
+	function Picker() {
+		const [actionId, setActionId] = useState('undo');
+		return <CustomToolbarActionPicker actions={actions} actionId={actionId} copy={ENGLISH_COPY} disabled={false} onSelect={setActionId} />;
+	}
+	try {
+		await act(async () => root.render(<Picker />));
+		const input = dom.one('[role="combobox"]');
+		await act(async () => { reactProps(input).onChange?.({ currentTarget: { value: 'redo' } }); });
+		await act(async () => { reactProps(dom.one('.kw-audio-editor-custom-button-dialog__action-picker')).onKeyDown?.({ key: 'Escape', target: input, nativeEvent: { isComposing: false }, preventDefault() {}, stopPropagation() {} }); });
+		assert.equal(input.value, 'Edit › Undo');
+		assert.equal(input.getAttribute('aria-expanded'), 'false');
+	} finally {
+		await act(async () => root.unmount());
+		globals.IS_REACT_ACT_ENVIRONMENT = previousAct; dom.restore();
 	}
 });
