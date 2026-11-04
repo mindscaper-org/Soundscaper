@@ -172,9 +172,10 @@ for (const [workflowName, { staticJobs, buildJob, historyJobs, coverageGate }] o
 		}
 	});
 
-	test(`${workflowName} publishes a verified website build only for browser consumers`, async () => {
+	test(`${workflowName} publishes prepared website bytes only for browser consumers`, async () => {
 		const workflow = await readWorkflow(workflowName);
-		const publishers = gateJobs.filter((jobName) => extractJob(workflow, jobName).includes('verified-site-build'));
+		assert.doesNotMatch(workflow, /name: verified-site-build\n/u, 'the unprepared site artifact has no CI consumer');
+		const publishers = gateJobs.filter((jobName) => extractJob(workflow, jobName).includes('name: verified-soundscaper-browser-site-build'));
 		assert.deepEqual(publishers, coverageGate ? [buildJob] : [],
 			'only workflows with browser consumers should upload the website build');
 	});

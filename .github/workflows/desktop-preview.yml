@@ -207,6 +207,8 @@ jobs:
 
       - name: Prepare one fresh desktop test runtime for consuming suites
         uses: ./.github/actions/prepare-desktop-runtime-test-fixture
+        with:
+          collect-coverage: 'false'
 
   tests:
     name: Tests / ${{ matrix.shard }}
