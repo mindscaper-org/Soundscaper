@@ -23,8 +23,8 @@ test('Framescaper package audits use the retained cache while native builds and 
 	const packages = extractJob(workflow, 'package');
 	assert.match(packages, /needs: \[[^\n]*milestone-5-native-audit-source\]/u);
 	assert.match(packages, /if: matrix\.product == 'framescaper'[\s\S]*?name: desktop-milestone-5-native-audit-source-cache/u);
-	const audit = packages.slice(packages.indexOf('- name: Audit the Milestone 5 package'),
-		packages.indexOf('- name: Upload the Milestone 5 package audit'));
+	const audit = packages.slice(packages.indexOf('- name: Audit the desktop package'),
+		packages.indexOf('- name: Upload the desktop package audit'));
 	assert.match(audit, /SOUNDSCAPER_M5_NATIVE_SOURCE_ROOT: \$\{\{ matrix\.product == 'framescaper' && format\('\{0\}\/soundscaper-milestone-5-audit-source-cache', runner\.temp\) \|\| format\('\{0\}\/soundscaper-professional-native-source-cache', runner\.temp\) \}\}/u);
 	const build = extractJob(workflow, 'professional-native-build');
 	assert.match(build, /source-cache-artifact: desktop-professional-native-source-cache/u);

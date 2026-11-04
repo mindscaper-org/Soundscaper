@@ -730,7 +730,7 @@ jobs:
           name: desktop-milestone-5-native-audit-source-cache
           path: ${{ runner.temp }}/soundscaper-milestone-5-audit-source-cache
 
-      - name: Audit the Milestone 5 package
+      - name: Audit the desktop package
         run: >-
           node scripts/audit-milestone-5-package.mjs --output
           "${{ runner.temp }}/milestone-5-package-audit-${{ matrix.product }}-${{ matrix.target.platform }}-${{ matrix.target.arch }}.json"
@@ -741,10 +741,10 @@ jobs:
           SOUNDSCAPER_SOURCE_REVISION: ${{ github.sha }}
           SOUNDSCAPER_M5_NATIVE_SOURCE_ROOT: ${{ matrix.product == 'framescaper' && format('{0}/soundscaper-milestone-5-audit-source-cache', runner.temp) || format('{0}/soundscaper-professional-native-source-cache', runner.temp) }}
 
-      - name: Upload the Milestone 5 package audit
+      - name: Upload the desktop package audit
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: milestone-5-package-audit-${{ matrix.product }}-${{ matrix.target.platform }}-${{ matrix.target.arch }}
+          name: desktop-package-audit-${{ matrix.product }}-${{ matrix.target.platform }}-${{ matrix.target.arch }}
           path: ${{ runner.temp }}/milestone-5-package-audit-${{ matrix.product }}-${{ matrix.target.platform }}-${{ matrix.target.arch }}.json
           if-no-files-found: error
           retention-days: 14
@@ -769,7 +769,7 @@ jobs:
         run: node scripts/desktop-signing-keychain.mjs cleanup
 
   milestone-5-package-audit-summary:
-    name: Re-audit the Milestone 5 packages
+    name: Re-audit desktop packages
     if: always() && needs.package.result == 'success'
     needs: [quality, package, milestone-5-native-audit-source]
     runs-on: ubuntu-24.04
@@ -846,10 +846,10 @@ jobs:
           SOUNDSCAPER_SOURCE_REVISION: ${{ github.sha }}
           SOUNDSCAPER_M5_NATIVE_SOURCE_ROOT: ${{ contains(fromJSON(needs.quality.outputs.release-products), 'framescaper') && format('{0}/soundscaper-milestone-5-audit-source-cache', runner.temp) || format('{0}/soundscaper-professional-native-source-cache', runner.temp) }}
 
-      - name: Upload the Milestone 5 package-audit summary
+      - name: Upload the desktop package audit summary
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: milestone-5-package-audit-summary
+          name: desktop-package-audit-summary
           path: ${{ runner.temp }}/milestone-5-package-audit-summary.json
           if-no-files-found: error
           retention-days: 14
