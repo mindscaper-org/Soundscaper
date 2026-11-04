@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { createMidiClip, createMidiTrack } from '../../midi-factory.ts';
 import {
-	addMidiNoteData, readMidiClip, readMidiTrack, removeMidiNoteData, updateMidiNoteData,
+	addMidiNoteData, readMidiClip, readMidiTrack, removeMidiNoteData, updateMidiNotesData,
 	normalizeMidiTrackData, type MidiClipData, type MidiInstrument,
 } from '../../midi-model.ts';
 import { midiDocumentFromProject } from '../../midi-project-interchange.ts';
@@ -25,7 +25,7 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 		updateNote: (clipId, id, changes) => service.updateNotes(clipId, [{ id, changes }]),
 		updateNotes: (clipId, updates) => {
 			const detached = structuredClone(updates);
-			return editClip(clipId, data => detached.reduce((next, update) => updateMidiNoteData(next, update.id, update.changes), data));
+			return editClip(clipId, data => updateMidiNotesData(data, detached));
 		},
 		deleteNotes: (clipId, ids) => editClip(clipId, data => removeMidiNoteData(data, [...ids])),
 		resizeClip: (clipId, changes) => {

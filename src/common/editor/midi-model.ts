@@ -140,6 +140,23 @@ export function updateMidiNoteData(
 	});
 }
 
+/** Validate one gesture without cloning the whole clip for every selected note. */
+export function updateMidiNotesData(
+	data: MidiClipData,
+	updates: readonly Readonly<{ id: string; changes: Partial<MidiNote> }>[],
+): MidiClipData {
+	if (!updates.length) return data;
+	if (updates.length === 1) return updateMidiNoteData(data, updates[0]!.id, updates[0]!.changes);
+	const notes = new Map(data.notes.map(note => [note.id, note]));
+	for (const { id, changes } of updates) {
+		const previous = notes.get(id);
+		if (!previous) throw new ReferenceError(`MIDI note ${id} is missing.`);
+		// Validate each step, including repeated edits to one note, before publishing the batch.
+		notes.set(id, normalizeMidiNote({ ...previous, ...changes, id }));
+	}
+	return normalizeMidiClipData({ ...data, notes: data.notes.map(note => notes.get(note.id)!) });
+}
+
 export function removeMidiNoteData(data: MidiClipData, noteIds: readonly string[]): MidiClipData {
 	const removed = new Set(noteIds);
 	return normalizeMidiClipData({ ...data, notes: data.notes.filter(note => !removed.has(note.id)) });
