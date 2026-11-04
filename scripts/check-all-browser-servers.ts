@@ -24,7 +24,7 @@ for (const site of sites) {
 	const child = spawn(process.execPath, [
 		resolve(root, 'node_modules/vite/bin/vite.js'), 'preview', '--outDir', site.outputDirectory,
 		'--host', '127.0.0.1', '--port', String(port), '--strictPort', '--logLevel', 'error',
-	], { cwd: root, stdio: 'inherit' });
+	], { cwd: root, env: { ...process.env, SCAPE_PRODUCT: site.productId }, stdio: 'inherit' });
 	children.push(child);
 	child.once('error', error => { failure = error; });
 	child.once('exit', (code, signal) => { failure = new Error(`${site.productId} preview stopped (${signal ?? code}).`); });
