@@ -6,7 +6,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { expect, type Locator } from '@playwright/test';
 import type { launchMotionSustainedApplication } from '../scripts/performance/motionscaper-sustained-launch.ts';
 import { waitMotionSustainedGone } from '../scripts/performance/motionscaper-sustained-launch.ts';
-import { motionSustainedMenu } from '../scripts/performance/motionscaper-sustained-ui.ts';
+import { motionSustainedMenu, motionSustainedRenderProgress } from '../scripts/performance/motionscaper-sustained-ui.ts';
 import { assertMotionSustainedNativeClean } from '../scripts/performance/motionscaper-sustained-cancel.ts';
 import { startMotionSustainedEncoderSampler } from '../scripts/performance/motionscaper-sustained-encoder-sampler.ts';
 import { startMotionMaximumObservation } from './motionscaper-native-maximum-observation.ts';
@@ -24,10 +24,43 @@ async function waitFor(check: () => Promise<boolean>, timeout: number, signal: A
 	}
 }
 async function close(dialog: Locator) { await dialog.getByRole('button', { name: 'Close', exact: true }).last().click(); await expect(dialog).toHaveCount(0); }
-async function progress(job: Locator, frames: number) {
-	const status = job.getByRole('status');
-	if (await status.textContent() === 'Completed') return frames;
-	const bar = job.getByRole('progressbar'); return await bar.count() ? Number(await bar.getAttribute('value')) : 0;
+async function maximumQueueState(job: Locator) {
+	const observed = await job.evaluate(element => ({
+		alerts: Array.from(element.querySelectorAll('[role="alert"]'), node => node.textContent ?? ''),
+		statuses: Array.from(element.querySelectorAll('[role="status"]'), node => node.textContent ?? ''),
+		progress: Array.from(element.querySelectorAll('progress, [role="progressbar"]'))
+			.filter(node => node.getAttribute('aria-label') === 'Rendered frames').map(node => node.getAttribute('value')),
+		text: element.textContent ?? '',
+	}));
+	if (observed.alerts.length) throw new Error(observed.alerts.join('\n'));
+	assert.equal(observed.statuses.length, 1, 'Maximum queue status ownership is ambiguous.');
+	assert.ok(observed.progress.length <= 1, 'Maximum rendered frames ownership is ambiguous.');
+	return { status: observed.statuses[0]!, progress: observed.progress, text: observed.text };
+}
+function maximumQueueProgress(observed: Awaited<ReturnType<typeof maximumQueueState>>, frames: number) {
+	const status = observed.status;
+	if (status === 'Failed' || status === 'Cancelled') throw new Error(`Maximum index retry ${status}: ${observed.text}`);
+	if (status === 'Completed') return frames;
+	const raw = observed.progress[0];
+	if (observed.progress.length) assert.ok(raw !== null && raw !== undefined && raw.trim() !== '', 'Maximum rendered frames value is missing.');
+	const value = observed.progress.length ? Number(raw) : 0;
+	assert.ok(Number.isSafeInteger(value) && value >= 0 && value <= frames); return value;
+}
+export async function motionMaximumQueueProgress(job: Locator, frames: number) {
+	return maximumQueueProgress(await maximumQueueState(job), frames);
+}
+/** The index observer starts on its verified cancelled job before Retry opens a chooser. */
+export function motionMaximumRetryProgress(job: Locator, frames: number): () => Promise<number> {
+	let cancelledBaseline = true;
+	return async () => {
+		const observed = await maximumQueueState(job);
+		if (observed.status !== 'Cancelled') cancelledBaseline = false;
+		if (cancelledBaseline) {
+			assert.equal(observed.progress.length, 0, 'Cancelled baseline must have no active progressbar.');
+			return 0;
+		}
+		return maximumQueueProgress(observed, frames);
+	};
 }
 export async function previewMotionMaximum(application: Application, kind: MotionMaximumNativeKind, directory: string) {
 	const profile = motionMaximumNativeProfile(kind), actual: Uint8Array[] = []; let completed = 0;
@@ -92,10 +125,11 @@ export async function renderMotionMaximum(application: Application, kind: Motion
 		await dialog.getByLabel('Output format', { exact: true }).selectOption('prores');
 		await dialog.getByLabel('End frame (exclusive)', { exact: true }).fill('32768');
 		await dialog.getByRole('button', { name: 'Render', exact: true }).click(); await choose(movie);
+		let completed = 0;
 		await expect.poll(async () => {
-			const bar = dialog.getByRole('progressbar'); return await bar.count() ? Number(await bar.getAttribute('value')) : 0;
+			completed = await motionSustainedRenderProgress(dialog, 32768); return completed;
 		}, { timeout: 30000, intervals: [25] }).toBeGreaterThan(0);
-		const completed = Number(await dialog.getByRole('progressbar').getAttribute('value')); assert.ok(completed < 32768);
+		assert.ok(completed < 32768);
 		assert.equal((await application.nativeHelpers()).length, 0);
 		const custody = (await readdir(directory)).filter(name => name.startsWith('.motionscaper-export-')); assert.equal(custody.length, 1);
 		const carriers = await Promise.all(['frames.mfc', 'audio.mpc'].map(async name => { const path = join(directory, custody[0]!, name), value = await lstat(path); assert.ok(value.isFile() && !value.isSymbolicLink() && value.size > 0); return { path, bytes: value.size }; }));
@@ -106,13 +140,10 @@ export async function renderMotionMaximum(application: Application, kind: Motion
 	}
 	const queue = application.page.getByRole('dialog', { name: 'Render Queue', exact: true }), job = queue.locator('[data-motion-render-job]');
 	if (kind === 'index') { await motionSustainedMenu(application.page, 'File', 'Render Queue'); await expect(job).toHaveCount(1); await expect(job.getByRole('status')).toHaveText('Cancelled'); }
-	let selectedJob = job;
+	const retryProgress = kind === 'index' ? motionMaximumRetryProgress(job, profile.frames) : undefined;
 	const observer = await startMotionMaximumObservation(application, { logPath: join(directory, 'render-memory.jsonl'), frames: profile.frames, deadline: profile.timeoutMs, progress: async () => {
-		if (kind !== 'index' && await dialog.count()) {
-			const status = dialog.getByRole('status'); if (await status.count() && await status.textContent() === 'Render complete') return profile.frames;
-			const bar = dialog.getByRole('progressbar'); return await bar.count() ? Number(await bar.getAttribute('value')) : 0;
-		}
-		return progress(selectedJob, profile.frames);
+		if (kind !== 'index') return motionSustainedRenderProgress(dialog, profile.frames);
+		return retryProgress!();
 	} });
 	let encoder: Awaited<ReturnType<typeof startMotionSustainedEncoderSampler>> | undefined;
 	let encoderResult: Awaited<ReturnType<NonNullable<typeof encoder>['stop']>> | null = null, measurement: unknown, primary: unknown;
@@ -128,7 +159,7 @@ export async function renderMotionMaximum(application: Application, kind: Motion
 				return status === 'Completed';
 			}, profile.timeoutMs, interrupt.signal); pending.push(complete);
 			const observeEncoder = async () => {
-				await waitFor(async () => await progress(job, profile.frames) === profile.frames, profile.timeoutMs, interrupt.signal);
+				await waitFor(async () => await motionMaximumQueueProgress(job, profile.frames) === profile.frames, profile.timeoutMs, interrupt.signal);
 				encoder = await startMotionSustainedEncoderSampler({ owner: application.owner, helperPath, logPath: join(directory, 'encoder-memory.jsonl'), retainProcesses: values => application.retainProcessIdentities(values), withProcessCustody: application.withProcessCustody });
 				await Promise.race([complete, encoder.failed]); return encoder.stop();
 			};
@@ -146,7 +177,7 @@ export async function renderMotionMaximum(application: Application, kind: Motion
 			await Promise.race([complete, observer.failed]);
 			measurement = await observer.stop();
 		}
-		if (kind !== 'index') { await close(dialog); await motionSustainedMenu(application.page, 'File', 'Render Queue'); selectedJob = queue.locator('[data-motion-render-job]'); await expect(selectedJob).toHaveCount(1); await selectedJob.getByRole('button', { name: 'Remove Job', exact: true }).click(); await close(queue); }
+		if (kind !== 'index') { await close(dialog); await motionSustainedMenu(application.page, 'File', 'Render Queue'); const selectedJob = queue.locator('[data-motion-render-job]'); await expect(selectedJob).toHaveCount(1); await selectedJob.getByRole('button', { name: 'Remove Job', exact: true }).click(); await close(queue); }
 		await assertMotionSustainedNativeClean(directory);
 		if (encoderResult) await waitMotionSustainedGone(encoderResult.observations.flatMap(row => row.helpers.map(helper => helper.identity)));
 	} catch (error) { primary = error; }

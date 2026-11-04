@@ -438,6 +438,7 @@
 				"tests/browser/motionscaper-link-storage.spec.ts",
 				"tests/browser/motionscaper-media-dialog.spec.ts",
 				"tests/browser/motionscaper-media-provider.spec.ts",
+				"tests/browser/motionscaper-native-maximum-progress.spec.ts",
 				"tests/browser/motionscaper-native-render-dialog.spec.ts",
 				"tests/browser/motionscaper-opaque-archive.spec.ts",
 				"tests/browser/motionscaper-operators.spec.ts",
