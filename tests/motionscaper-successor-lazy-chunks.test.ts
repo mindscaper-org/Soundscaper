@@ -42,6 +42,24 @@ function reached(chunks: readonly OutputChunk[], entry: string): Set<string> {
 	visit(root); return modules;
 }
 
+test('successor repository shares its eager environment owner when migration also reads it', async () => {
+	const main = '/fixture/src/main.jsx';
+	const environment = '/fixture/src/framescaper/editor-project-successor-environment.ts';
+	const repository = '/fixture/src/framescaper/editor-project-successor-repository.ts';
+	const migration = '/fixture/src/common/editor/ui/framescaper-successor-migration-dialog.tsx';
+	const chunks = await generate({
+		[main]: `import { environment } from '${environment}'; globalThis.environment = environment; globalThis.migrate = () => import('${migration}');`,
+		[environment]: `import { openRepository } from '${repository}'; export const environment = () => openRepository();`,
+		[repository]: 'export const openRepository = () => globalThis.openSuccessorDatabase();',
+		[migration]: `import { openRepository } from '${repository}'; export const migrate = () => openRepository();`,
+	}, main);
+	const owner = chunks.find(chunk => Object.hasOwn(chunk.modules, environment));
+	assert.ok(owner);
+	assert.ok(Object.hasOwn(owner.modules, repository), 'startup repository must share its existing environment chunk');
+	assert.equal(reached(chunks, main).has(migration), false, 'migration UI stays behind its menu action');
+	assert.ok(reached(chunks, migration).has(repository), 'migration retains the same repository implementation');
+});
+
 test('eager Motion values cannot import the lazy CanvasKit decoration implementation', async () => {
 	const main = '/fixture/src/main.jsx';
 	const values = '/fixture/src/common/editor/motion-values.ts';
