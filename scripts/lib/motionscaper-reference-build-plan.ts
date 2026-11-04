@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { posix, win32 } from 'node:path';
+import { FRAMESCAPER_FFMPEG_POLICY } from '../../native/framescaper-media-host/build/media-build-commands.mjs';
 import type { MotionNativeTarget } from './motionscaper-native-source.ts';
 import { motionReferenceDecoderName } from './motionscaper-reference-target.ts';
 
@@ -21,8 +22,7 @@ export function createMotionReferenceCompilePlan(input: MotionReferenceCompileIn
 	for (const role of ['cmake', 'ninja', 'c', 'cxx', 'pkgConfig'] as const) canonical(input.tools[role]);
 	if (input.target.startsWith('win-') && !input.tools.rc) throw new Error('Reference Windows compiler plan requires its authenticated resource compiler.');
 	if (input.tools.rc) canonical(input.tools.rc);
-	if (!input.installRoots.length || input.installRoots.length > 6 || new Set(input.installRoots).size !== input.installRoots.length) throw new Error('Reference compiler install roots are not closed.');
-	for (const root of input.installRoots) canonical(root);
+	requireMotionReferenceInstallRoots(input.installRoots, input.target);
 	const decoder = path.join(input.directory, motionReferenceDecoderName(input.target));
 	const build = path.join(input.directory, 'reference-build');
 	const configure = ['-S', path.join(input.repositoryRoot, 'scripts/lib/motionscaper-reference-native'), '-B', build, '--fresh',
@@ -42,8 +42,21 @@ export function createMotionReferenceCompilePlan(input: MotionReferenceCompileIn
 }
 
 export function createMotionReferenceCompileEnvironment(environment: Readonly<Record<string, string>>, installRoots: readonly string[], target: MotionNativeTarget): NodeJS.ProcessEnv {
+	requireMotionReferenceInstallRoots(installRoots, target);
 	const path = target.startsWith('win-') ? win32 : posix;
 	// Node otherwise injects parent coverage into this object during spawn, changing its audited bytes.
 	return { ...environment, NODE_V8_COVERAGE: undefined, PKG_CONFIG_LIBDIR: installRoots.flatMap(root => [path.join(root, 'lib/pkgconfig'), path.join(root, 'share/pkgconfig')]).join(target.startsWith('win-') ? ';' : ':'),
 		PKG_CONFIG_PATH: '', PKG_CONFIG_SYSROOT_DIR: '', LC_ALL: 'C', TZ: 'UTC' };
+}
+
+/** Match the exact source-owned FFmpeg dependency recipe, including static SVT-AV1. */
+function requireMotionReferenceInstallRoots(roots: readonly string[], target: MotionNativeTarget): void {
+	const path = target.startsWith('win-') ? win32 : posix;
+	const expected = ['ffmpeg-install', ...FRAMESCAPER_FFMPEG_POLICY.externalLibraries.map((name: string) => `${name}-install`)];
+	if (roots.length !== expected.length || new Set(roots).size !== roots.length) throw new Error('Reference compiler install closure is incomplete.');
+	const parent = path.dirname(roots[0]!);
+	for (const [index, root] of roots.entries()) {
+		if (!path.isAbsolute(root) || path.resolve(root) !== root || /[\0\r\n;]/u.test(root)
+			|| path.dirname(root) !== parent || path.basename(root) !== expected[index]) throw new Error('Reference compiler install closure differs from its exact recipe roots.');
+	}
 }

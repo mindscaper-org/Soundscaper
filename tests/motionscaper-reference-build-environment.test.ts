@@ -15,7 +15,7 @@ test('Reference compiler child excludes parent coverage without changing its aud
 		const windows = process.platform === 'win32', systemRoot = process.env.SystemRoot ?? process.env.SYSTEMROOT;
 		assert.ok(!windows || systemRoot, 'The native Windows shell requires its actual system root.');
 		const environment = createMotionReferenceCompileEnvironment({ PATH: process.env.PATH!, ...(windows ? { SYSTEMROOT: systemRoot! } : {}) },
-			[windows ? 'C:\\native\\ffmpeg-install' : '/native/ffmpeg-install'], windows ? 'win-x64' : 'linux-x64');
+			['ffmpeg', 'x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib'].map(name => windows ? `C:\\native\\${name}-install` : `/native/${name}-install`), windows ? 'win-x64' : 'linux-x64');
 		const digest = () => createHash('sha256').update(JSON.stringify(environment)).digest('hex');
 		const before = digest();
 		const command = windows ? process.env.ComSpec ?? join(systemRoot!, 'System32', 'cmd.exe') : '/bin/sh';

@@ -26,7 +26,8 @@ export function readMotionReferenceToolchainAudit(encoded: unknown, target: Moti
 	const { identitySha256: _identity, ...body } = receipt;
 	if (fingerprintFramescaperMediaHostToolchainReceipt(body) !== expectedIdentity) throw new Error('Reference compiler toolchain fingerprint differs from the native build.');
 	if (!bytes.equals(Buffer.from(`${JSON.stringify(receipt, null, '\t')}\n`))) throw new Error('Reference compiler toolchain receipt is not canonical.');
-	const roles = ['ar', 'c', 'cmake', 'cxx', 'make', 'ninja', 'pkgConfig', 'ranlib', 'shell', ...(target.startsWith('win-') ? ['msbuild', 'rc'] : [])];
+	const roles = ['ar', 'c', 'cmake', 'cxx', 'make', 'ninja', 'pkgConfig', 'ranlib', 'shell',
+		...(target.endsWith('-x64') ? ['nasm'] : []), ...(target.startsWith('win-') ? ['msbuild', 'rc'] : [])];
 	const executables = record(receipt.executables, roles), path = target.startsWith('win-') ? win32 : posix;
 	for (const value of Object.values(executables)) {
 		const tool = record(value, ['path', 'sha256']);

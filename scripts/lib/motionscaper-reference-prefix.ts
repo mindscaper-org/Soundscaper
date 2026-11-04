@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { lstat, readdir, realpath, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { framescaperMediaHostBuildPaths } from '../../native/framescaper-media-host/build/media-build-commands.mjs';
+import { FRAMESCAPER_FFMPEG_POLICY, framescaperMediaHostBuildPaths } from '../../native/framescaper-media-host/build/media-build-commands.mjs';
 import { verifyMotionscaperNativeBuildResult } from './motionscaper-native-build-result.ts';
 import type { MotionNativeTarget } from './motionscaper-native-source.ts';
 import { motionReferencePin, readMotionReferenceFile, readMotionReferenceSources, type MotionReferenceFilePin } from './motionscaper-reference-sources.ts';
@@ -26,14 +26,14 @@ const MAXIMUM_FILES = 16_384, MAXIMUM_FILE_BYTES = 1024 ** 3, MAXIMUM_AUTHORITY_
 /** Exact source-owned recipe outputs, including headers, static libraries and pkg-config metadata. */
 export function motionReferenceInstallRoots(nativeWorkRoot: string): readonly string[] {
 	const paths = framescaperMediaHostBuildPaths(join(nativeWorkRoot, 'media-build')) as Readonly<Record<string, string>>;
-	return ['ffmpegInstall', 'x264Install', 'x265Install', 'libvpxInstall', 'libopusInstall', 'zlibInstall'].map(key => {
+	return ['ffmpegInstall', 'x264Install', 'x265Install', 'libvpxInstall', 'svtAv1Install', 'libopusInstall', 'zlibInstall'].map(key => {
 		const path = paths[key]; if (!path) throw new Error('Reference prefix recipe omitted an install root.'); return path;
 	});
 }
 
 /** No subtree or file exclusions; every symlink and special file refuses the authority. */
 export async function captureMotionReferencePrefixClosure(roots: readonly string[]): Promise<readonly MotionReferencePrefixRoot[]> {
-	if (roots.length < 1 || roots.length > 6 || new Set(roots).size !== roots.length) throw new Error('Reference prefix roots are not closed.');
+	if (roots.length < 1 || roots.length > FRAMESCAPER_FFMPEG_POLICY.externalLibraries.length + 1 || new Set(roots).size !== roots.length) throw new Error('Reference prefix roots are not closed.');
 	const result: MotionReferencePrefixRoot[] = []; let count = 0, members = 0, totalBytes = 0;
 	for (const directory of roots) {
 		await canonicalDirectory(directory);

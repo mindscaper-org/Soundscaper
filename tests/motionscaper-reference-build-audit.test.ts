@@ -11,7 +11,7 @@ import { motionReferenceInstallRoots } from '../scripts/lib/motionscaper-referen
 const digest = (digit: string) => digit.repeat(64);
 function fixture() {
 	const target = 'linux-x64' as const;
-	const executables = Object.fromEntries(['ar', 'c', 'cmake', 'cxx', 'make', 'ninja', 'pkgConfig', 'ranlib', 'shell']
+	const executables = Object.fromEntries(['ar', 'c', 'cmake', 'cxx', 'make', 'ninja', 'pkgConfig', 'ranlib', 'shell', 'nasm']
 		.map(role => [role, { path: `/tools/${role}`, sha256: digest('1') }]));
 	const body = { schemaVersion: 1, targetId: target, hostRuntime: target, executables, environment: { PATH: '/tools' } };
 	const identitySha256 = fingerprintFramescaperMediaHostToolchainReceipt(body) as string;
@@ -76,4 +76,26 @@ test('toolchain compression stays canonical and bounded and cannot disguise targ
 	}
 	assert.throws(() => readMotionReferenceToolchainAudit(deflateSync(bytes).toString('base64') + '\n', 'linux-x64', identitySha256), /encoding/u);
 	assert.throws(() => readMotionReferenceToolchainAudit(deflateSync(Buffer.alloc(65_537, 32)).toString('base64'), 'linux-x64', identitySha256));
+});
+
+test('reference toolchain retains native x64 NASM and refuses missing or foreign assembler roles', () => {
+	for (const target of ['linux-x64', 'linux-arm64', 'mac-arm64', 'win-x64', 'win-arm64'] as const) {
+		const windows = target.startsWith('win-');
+		const roles = ['ar', 'c', 'cmake', 'cxx', 'make', 'ninja', 'pkgConfig', 'ranlib', 'shell',
+			...(target.endsWith('-x64') ? ['nasm'] : []), ...(windows ? ['msbuild', 'rc'] : [])];
+		const executables = Object.fromEntries(roles.map(role => [role, { path: windows ? `C:\\tools\\${role}.exe` : `/tools/${role}`, sha256: digest('1') }]));
+		const body = { schemaVersion: 1, targetId: target, hostRuntime: target === 'mac-arm64' ? 'darwin-arm64' : windows ? `win32-${target.slice(4)}` : target,
+			executables, environment: { PATH: windows ? 'C:\\tools' : '/tools' } };
+		const encode = (value: typeof body) => {
+			const identity = fingerprintFramescaperMediaHostToolchainReceipt(value) as string;
+			return { identity, encoded: deflateSync(Buffer.from(`${JSON.stringify({ ...value, identitySha256: identity }, null, '\t')}\n`)).toString('base64') };
+		};
+		const accepted = encode(body);
+		assert.deepEqual(readMotionReferenceToolchainAudit(accepted.encoded, target, accepted.identity).receipt.executables, executables);
+		const changedExecutables = { ...executables };
+		if (target.endsWith('-x64')) delete changedExecutables.nasm;
+		else changedExecutables.nasm = { path: '/tools/nasm', sha256: digest('1') };
+		const changed = encode({ ...body, executables: changedExecutables });
+		assert.throws(() => readMotionReferenceToolchainAudit(changed.encoded, target, changed.identity), /fields|executable/u);
+	}
 });
