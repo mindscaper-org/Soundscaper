@@ -10,6 +10,7 @@ export interface MidiProject extends Readonly<Record<string, unknown>> {
 	readonly sampleRate: number;
 	readonly tracks: readonly Readonly<Record<string, unknown>>[];
 	readonly clips: readonly Readonly<Record<string, unknown>>[];
+	readonly sources?: readonly Readonly<Record<string, unknown>>[];
 	readonly tempo?: Readonly<{ bpm?: number; timeSignature?: Readonly<{ numerator?: number; denominator?: number }> }>;
 }
 export interface MidiSourceWriter {
@@ -32,6 +33,7 @@ export interface MidiServiceDependencies {
 	saveFile(request: Readonly<Record<string, unknown>>): Promise<unknown> | unknown;
 }
 export interface MidiCreatedTrack { readonly trackId: string; readonly clipId: string }
+export interface MidiImportedClip { readonly trackId: string | null; readonly clipId: string }
 export interface MidiNoteUpdate { readonly id: string; readonly changes: Partial<MidiNote> }
 export interface MidiClipResize {
 	readonly timelineStartFrame: number;
@@ -47,6 +49,6 @@ export interface MidiService {
 	resizeClip(clipId: string, changes: MidiClipResize): Promise<void>;
 	setInstrument(trackId: string, instrument: MidiInstrument): Promise<void>;
 	previewNote(pitch: number, instrument?: MidiInstrument): Promise<void>;
-	importDocument(document: MidiFileDocument, options?: Readonly<{ timelineStartFrame?: number; signal?: AbortSignal }>): Promise<readonly MidiCreatedTrack[]>;
+	importDocument(document: MidiFileDocument, options?: Readonly<{ timelineStartFrame?: number; destination?: 'timeline' | 'project-bin'; signal?: AbortSignal }>): Promise<readonly MidiImportedClip[]>;
 	exportFile(format: 'midi' | 'allegro'): Promise<unknown>;
 }

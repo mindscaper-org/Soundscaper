@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { frozenTrimParticipants } from './frozen-trim-participants.ts';
+import { inheritMidiTrackForTransfer } from './midi-track-transfer.ts';
 
 import {
 	assertFrame,
@@ -335,6 +336,7 @@ export function moveClip(project, command) {
 	assertClipSpace(project, targetTrack, updated, clip.id);
 	replaceClip(project, updated);
 	if (targetTrack.id !== oldTrack.id) {
+		inheritMidiTrackForTransfer(clip, oldTrack, targetTrack);
 		oldTrack.clipIds = oldTrack.clipIds.filter((id) => id !== clip.id);
 		targetTrack.clipIds.push(clip.id);
 	}

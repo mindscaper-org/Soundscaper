@@ -31,7 +31,7 @@ export function midiProjectTiming(project: TimingProject) {
 	const signatures: MidiFileSignature[] = signatureEvents.map(event => ({
 		frame: projectFrame(barStartBeat(event.bar, signatureMap)), numerator: event.numerator, denominator: event.denominator,
 	}));
-	return { tempoMap, tempos, signatures, hasTempoChanges: tempos.length > 1, hasSignatureChanges: signatures.length > 1 };
+	return { tempoMap, tempos, signatures, signatureMap, hasTempoChanges: tempos.length > 1, hasSignatureChanges: signatures.length > 1 };
 }
 
 function record(value: unknown): Readonly<Record<string, unknown>> {

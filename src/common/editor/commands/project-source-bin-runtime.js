@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { dispatchTimelineAnnotationAppendRuns } from './timeline-annotation-add-batch.ts';
+import { adoptMidiTransferContext, midiBinTransferContexts } from './midi-transfer-context.ts';
 import { createEnvelopeValueEvaluator } from '../automation.js';
 import { setProjectRecordingNotes } from '../recording-notes.ts';
 import { processSourceAudio } from './source-process-audio-runtime.ts';
@@ -163,10 +164,12 @@ function moveTimelineClipsToProjectBin(project, clipIds) {
 		}
 	}
 	const material = project.clips.filter((clip) => movedIds.has(clip.id));
+	const midiContexts = midiBinTransferContexts(material, project.tracks);
 	const binItemByClipId = movedBinItemIds(material, projectBin.clips.map(clip => clip.binItemId || clip.id));
 	const movedClips = material
 		.map((clip) => normalizeClipForProject(project, {
 			...clip,
+			...midiContexts.get(clip.id),
 			...cloneVideoCompositionCarrierFields(clip, `Moved Project Bin clip ${clip.id}`),
 			groupId: null,
 			id: clip.id,
@@ -240,7 +243,7 @@ function placeProjectBinClip(project, command) {
 		const clip = normalizeClipForProject(project, candidate);
 		assertClipSourceBounds(project, clip);
 		assertClipSpace(project, track, clip);
-		project.clips.push(clip);
+		project.clips.push(adoptMidiTransferContext(clip, track));
 		track.clipIds.push(clip.id);
 		sortTrack(project, track);
 	}
