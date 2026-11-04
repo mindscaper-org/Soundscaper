@@ -31,7 +31,7 @@ export function ixmlAtImportOrigin(
 	const origin = safeFrame(timelineStartFrame);
 	return transform(input, sourceSampleRate, projectSampleRate, undefined, (position, duration) => [{
 		position: bounded(scale(position, sourceSampleRate, projectSampleRate) + origin),
-		duration: duration === null ? null : scale(duration, sourceSampleRate, projectSampleRate),
+		duration: duration === null ? null : scale(position + duration, sourceSampleRate, projectSampleRate) - scale(position, sourceSampleRate, projectSampleRate),
 	}]);
 }
 
@@ -53,12 +53,12 @@ export function ixmlForDeliveryRange(
 			const end = safeFrame(segment.sourceEndFrame);
 			if (end < start) throw new RangeError('An iXML delivery range cannot end before it starts.');
 			const eventEnd = duration === null ? position : position + duration;
-			if (position > end || eventEnd < start || (duration !== null && duration > 0n && eventEnd === start)) continue;
+			if (position >= end || eventEnd < start || (duration !== null && duration > 0n && eventEnd === start)) continue;
 			const clippedStart = position < start ? start : position;
 			const clippedEnd = eventEnd > end ? end : eventEnd;
 			const relative = scale(clippedStart - start, projectSampleRate, outputSampleRate);
 			mapped.push({ position: bounded(safeFrame(segment.outputStartFrame) + relative),
-				duration: duration === null ? null : scale(clippedEnd - clippedStart, projectSampleRate, outputSampleRate) });
+				duration: duration === null ? null : scale(clippedEnd - start, projectSampleRate, outputSampleRate) - relative });
 		}
 		return mapped;
 	});

@@ -148,14 +148,14 @@ function parseIxmlDocument(xml: string): {
 		}
 		elementNames.push(tag.name);
 		const name = tag.name.toUpperCase();
-		if (name === 'TRACK') {
+		if (name === 'TRACK' && elementNames.length === 3 && elementNames[1]?.toUpperCase() === 'TRACK_LIST') {
 			if (activeTrack !== null || activeSyncPoint !== null) throw new IxmlValidationError('iXML record elements cannot be nested.');
 			activeTrack = { depth: elementNames.length, fields: {} };
-		} else if (name === 'SYNC_POINT') {
+		} else if (name === 'SYNC_POINT' && elementNames.length === 3 && elementNames[1]?.toUpperCase() === 'SYNC_POINT_LIST') {
 			if (activeTrack !== null || activeSyncPoint !== null) throw new IxmlValidationError('iXML record elements cannot be nested.');
 			activeSyncPoint = { depth: elementNames.length, fields: {} };
 		}
-		const target = captureTarget(name, document, activeTrack?.fields ?? null, activeSyncPoint?.fields ?? null);
+		const target = captureTarget(name, document, activeTrack?.fields ?? null, activeSyncPoint?.fields ?? null, elementNames);
 		if (target !== null) capture = { depth: elementNames.length, parts: [], target };
 	});
 	const appendText = (text: string): void => {
@@ -194,14 +194,18 @@ function captureTarget(
 	document: Partial<Record<DocumentField, string>>,
 	track: TrackFields | null,
 	syncPoint: SyncPointFields | null,
+	path: readonly string[],
 ): TextCapture['target'] | null {
 	const documentField = ixmlDocumentField(name);
-	if (documentField !== null && document[documentField] === undefined) return { kind: 'document', field: documentField };
-	if (track !== null) {
+	const documentScope = path.length === 2 || (path.length === 3 && (
+		(path[1]?.toUpperCase() === 'SPEED' && ['TIMECODE_RATE', 'TIMECODE_FLAG'].includes(name))
+		|| (path[1]?.toUpperCase() === 'FILE_SET' && name === 'FAMILY_UID')));
+	if (documentScope && documentField !== null && document[documentField] === undefined) return { kind: 'document', field: documentField };
+	if (track !== null && path.length === 4 && path[2]?.toUpperCase() === 'TRACK') {
 		const field = name === 'CHANNEL_INDEX' ? 'channelIndex' : name === 'NAME' ? 'name' : name === 'FUNCTION' ? 'function' : null;
 		if (field !== null && track[field] === undefined) return { kind: 'track', field, record: track };
 	}
-	if (syncPoint !== null) {
+	if (syncPoint !== null && path.length === 4 && path[2]?.toUpperCase() === 'SYNC_POINT') {
 		const field = name === 'POINT_TYPE' || name === 'SYNC_POINT_TYPE' ? 'type'
 			: name === 'SAMPLE_COUNT' ? 'sampleCount' : name === 'SYNC_POINT_LOW' ? 'low' : name === 'SYNC_POINT_HIGH' ? 'high'
 				: name === 'FUNCTION' || name === 'SYNC_POINT_FUNCTION' ? 'function' : null;
