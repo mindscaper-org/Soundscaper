@@ -98,7 +98,8 @@ test.describe('menu-only Local Assistance workflows', () => {
 		const fastMode = guided.getByRole('radio', { name: 'Fast · model-free', exact: true });
 		const accurateMode = guided.getByRole('radio', { name: 'Accurate · TransNetV2', exact: true });
 		await expect(fastMode).toBeChecked();
-		await accurateMode.check();
+		// Selecting an unavailable mode replaces the radio group with the model prerequisite.
+		await accurateMode.click();
 		const missingAccurateModel = page.locator('[data-assistance-model-prerequisites]');
 		await expect(missingAccurateModel).toBeVisible();
 		await expect(missingAccurateModel.getByRole('button', { name: 'Re-download', exact: true })).toBeDisabled();
