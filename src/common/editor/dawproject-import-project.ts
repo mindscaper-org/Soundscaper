@@ -12,6 +12,7 @@ import type { DawprojectDocument, DawprojectTrack } from './dawproject-import.ts
 import type { SourceProvenanceV1 } from './source-provenance.ts';
 import { buildSignatureMap, buildTempoMap } from './dawproject-import-maps.ts';
 import { dawprojectImportedClipFades } from './dawproject-import-fades.ts';
+import { dawprojectMarkerExtensions } from './dawproject-marker-metadata.ts';
 import {
 	type Build,
 	type DataRecord,
@@ -26,6 +27,7 @@ import {
 	createDawprojectTimeResolver,
 	flattenDawprojectArrangement,
 	type DawprojectAudioEvent,
+	type DawprojectMarkerEvent,
 	type DawprojectFlattenedOmissions,
 } from './dawproject-import-timeline.ts';
 
@@ -305,7 +307,7 @@ function createClip(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInf
 		});
 		return null;
 	}
-	const requested = Math.max(1, Math.round(span * sourceRate));
+	const requested = Math.max(1, Math.round((sourceOffset + span) * sourceRate) - sourceStartFrame);
 	let durationFrames = durationCandidate;
 	let sourceDurationFrames = requested;
 	if (requested > available) {
@@ -364,7 +366,7 @@ function createClip(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInf
 	};
 }
 
-function createMarkers(markers: readonly Readonly<{ frame: number; name: string; color: string | null }>[], build: Build): DataRecord[] {
+function createMarkers(markers: readonly DawprojectMarkerEvent[], build: Build): DataRecord[] {
 	let clamped = 0;
 	let colored = 0;
 	const annotations = markers.map((marker) => {
@@ -379,7 +381,7 @@ function createMarkers(markers: readonly Readonly<{ frame: number; name: string;
 			name: marker.name,
 			color: 'auto',
 			batchId: null,
-			opaqueExtensions: {},
+			opaqueExtensions: dawprojectMarkerExtensions(marker.comment),
 		};
 	});
 	if (clamped > 0) {

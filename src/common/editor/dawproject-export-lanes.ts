@@ -7,6 +7,7 @@ import { reportOmittedClipFeatures } from './dawproject-export-clip-omissions.ts
 import { buildStripAutomation, reportUnconsumedLanes } from './dawproject-export-automation.ts';
 import { interchangeClipTimeEffect } from './interchange-omission-inventory.ts';
 import { interchangeSourceInSeconds } from './interchange-source-in-point.ts';
+import { dawprojectMarkerComment } from './dawproject-marker-metadata.ts';
 import { barStartBeat } from './musical-grid.ts';
 import { xmlElement, type XmlElement } from './dawproject-xml.ts';
 import { isHexColor, rationalToNumber } from './dawproject-format.ts';
@@ -312,7 +313,7 @@ function buildMarkers(context: DawprojectExportContext, structure: readonly Dawp
 		const start = finite(annotation.timelineStartFrame ?? annotation.positionFrame ?? annotation.startFrame, Number.NaN);
 		if (!Number.isFinite(start)) continue;
 		const end = finite(annotation.timelineEndFrame ?? annotation.endFrame, start);
-		markers.push({ time: start / sampleRate, name: String(annotation.name ?? ''), comment: null });
+		markers.push({ time: start / sampleRate, name: String(annotation.name ?? ''), comment: dawprojectMarkerComment(annotation) });
 		if (annotation.kind === 'region' && end > start) regionIds.push(String(annotation.id));
 	}
 	if (regionIds.length > 0) {

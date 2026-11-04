@@ -99,16 +99,15 @@ export async function inspectAiffMetadata(file: Blob, signal?: AbortSignal): Pro
 		if (Array.isArray(pictures)) images.push(...pictures.slice(0, MAXIMUM_METADATA_ARRAY_LENGTH + 1 - images.length));
 		if (images.length > MAXIMUM_METADATA_ARRAY_LENGTH) break;
 	}
+	const normalizedTitle = title || stringValue(ownDataValue(firstId3 ?? null, 'title'));
+	const normalizedArtist = artist || stringValue(ownDataValue(firstId3 ?? null, 'artist'));
+	const normalizedComment = annotations.some(Boolean) ? annotations.join('\n') : stringValue(ownDataValue(firstId3 ?? null, 'comment'));
 	const normalized = {
 		...(firstId3 ?? {}),
 		...(images.length ? { images } : {}),
-		...(title || stringValue(ownDataValue(firstId3 ?? null, 'title'))
-			? { title: title ?? stringValue(ownDataValue(firstId3 ?? null, 'title')) } : {}),
-		...(artist || stringValue(ownDataValue(firstId3 ?? null, 'artist'))
-			? { artist: artist ?? stringValue(ownDataValue(firstId3 ?? null, 'artist')) } : {}),
-		...(annotations.length || stringValue(ownDataValue(firstId3 ?? null, 'comment'))
-			? { comment: annotations.length
-				? annotations.join('\n') : stringValue(ownDataValue(firstId3 ?? null, 'comment')) } : {}),
+		...(normalizedTitle ? { title: normalizedTitle } : {}),
+		...(normalizedArtist ? { artist: normalizedArtist } : {}),
+		...(normalizedComment ? { comment: normalizedComment } : {}),
 		raw,
 	};
 	return Object.freeze({
