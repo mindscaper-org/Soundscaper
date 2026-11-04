@@ -227,6 +227,17 @@ apply. Vamp analyzers, containment fixtures and the other target launchers retai
 their separate sandbox policies. Neither vendor-specific allowlists nor a
 global shared plug-in process are used.
 
+Scanning receives the same one-GiB memory ceiling as hosting: library discovery
+can initialize the full vendor engine before describing it. The helper hard
+ceiling remains unchanged. Windows x64 VST2 peers additionally keep bottom-up
+allocation ASLR enabled but disable high-entropy allocation in that child.
+This supports older statically linked runtimes that truncate heap pointers;
+image ASLR and the full 64-bit address space remain available. VST3, CLAP,
+Windows ARM64, the launcher and the main application keep their normal
+allocation policy. The trusted process enforcement report names the selected
+allocation policy explicitly; installed plug-ins and host executables are not
+patched.
+
 Opaque state is retained exactly and capped at 16 MiB per instance. State and
 parameters survive missing, changed, crashed, revoked, or quarantined binaries;
 the live graph uses truthful bypass or an already authored, verified freeze.

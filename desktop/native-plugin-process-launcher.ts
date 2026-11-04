@@ -22,6 +22,7 @@ export interface SupervisedNativePluginEnforcement {
 	readonly filesystem: 'user';
 	readonly network: 'user';
 	readonly childProcesses: 'denied';
+	readonly allocationRandomization: 'system' | 'low-entropy-for-legacy-vst2';
 }
 
 export type NativePluginProcessLaunch = Omit<NativeChildIsolationLaunch, 'enforcement'> & {
@@ -58,13 +59,14 @@ export function createNativePluginProcessLauncher(options: Readonly<{
 				handles.push(await authenticatedFile(artifact));
 			}
 			const profile = JSON.parse(await readFile(artifacts.sandboxProfile.path, 'utf8')) as { trustedPluginProcesses?: unknown };
-			if (profile.trustedPluginProcesses !== 'user-access-job-v1') {
+			if (profile.trustedPluginProcesses !== 'user-access-job-v2') {
 				throw new Error('This Windows launcher payload does not support trusted plug-in processes.');
 			}
 		} finally { await closeFiles(handles); }
 	};
 	return Object.freeze({
 		pluginFilesystemAccess: 'user' as const,
+		...(target === 'win-x64' ? { vst2LowAddressHeap: true as const } : {}),
 		machineReady: async () => {
 			try { await verify(); return Object.freeze({ status: 'ready' as const, target }); }
 			catch (error) { return Object.freeze({ status: 'unavailable' as const, target,
@@ -72,6 +74,10 @@ export function createNativePluginProcessLauncher(options: Readonly<{
 		},
 		launch: async (request: NativeChildIsolationLaunchRequest): Promise<NativePluginProcessLaunch> => {
 			await verify();
+			const legacyHeap = request.windowsVst2LowAddressHeap === true;
+			if (request.windowsVst2LowAddressHeap !== undefined && (!legacyHeap || target !== 'win-x64')) {
+				throw new Error('Legacy VST2 allocation compatibility requires a trusted Windows x64 process.');
+			}
 			if (request.executable.path !== peer.path || request.executable.sha256 !== peer.sha256
 				|| request.arguments.length !== 0 || request.runtimeClosure?.length
 				|| request.extraInput || !request.framedControl
@@ -90,7 +96,8 @@ export function createNativePluginProcessLauncher(options: Readonly<{
 					handles.push(await authenticatedFile(artifact));
 				}
 				child = spawn(artifacts.launcher.path, [
-					'--plugin-user-access', '--enforcement-fd=3', '--profile-fd=5', '--broker-policy-fd=6',
+					'--plugin-user-access', ...(legacyHeap ? ['--plugin-low-address-heap'] : []),
+					'--enforcement-fd=3', '--profile-fd=5', '--broker-policy-fd=6',
 					'--executable-fd=7', `--authority-profile=soundscaper-professional:${peer.sha256}`,
 					`--maximum-duration-ms=${duration}`, `--maximum-rss-bytes=${rss}`, '--', 'native-plugin-child',
 				], { shell: false, windowsHide: true, env: { ...process.env, NODE_V8_COVERAGE: undefined },
@@ -110,6 +117,7 @@ export function createNativePluginProcessLauncher(options: Readonly<{
 				if (!child.pid) throw new Error('The supervised plug-in process has no process identity.');
 				const enforcement = Object.freeze({ kind: 'native-plugin-process-supervised' as const,
 					target: target as 'win-x64' | 'win-arm64', pid: child.pid,
+					allocationRandomization: legacyHeap ? 'low-entropy-for-legacy-vst2' as const : 'system' as const,
 					filesystem: 'user' as const, network: 'user' as const, childProcesses: 'denied' as const });
 				supervised.add(enforcement);
 				const launchedChild = child;

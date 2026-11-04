@@ -144,6 +144,7 @@ test('the discovery service cannot reach an execution surface at all', () => {
 	const specifiers = [...SERVICE_SOURCE.matchAll(/from '([^']+)'/gu)].map(([, specifier]) => specifier);
 	assert.deepEqual([...new Set(specifiers)].sort(), [
 		'./helper-job-grant.ts',
+		'./helper-resource-policy.ts',
 		'./helper-supervisor.ts',
 		'./helper-wire-admission.ts',
 		'./native-addon-payload.ts',

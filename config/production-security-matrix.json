@@ -12745,7 +12745,7 @@
 				},
 				{
 					"id": "trusted-windows-effect-processes",
-					"summary": "Windows Soundscaper effect scanning and hosting use authenticated, supervised native plug-in processes with normal user filesystem, registry, environment and network access. The installed primary candidate is reauthenticated before use and loaded at its original location so sibling libraries, shared vendor runtimes, presets, licences and services resolve without vendor-specific rules. Its digest does not authenticate the dependencies or freeze installed files for the process lifetime. The Windows Job launcher assigns the peer before resuming it, enforces the existing memory, CPU, duration, kill-on-close and single-process limits, and reports a distinct supervision handshake rather than AppContainer enforcement. Format consent, per-installation allowance, quarantine, revocation and one renderer owner plus binary digest per host remain required. This trusted-code route is not a filesystem or network sandbox. Vamp analyzers, containment fixtures and the other target launchers retain their separate sandbox policies.",
+					"summary": "Windows Soundscaper effect scanning and hosting use authenticated, supervised native plug-in processes with normal user filesystem, registry, environment and network access. The installed primary candidate is reauthenticated before use and loaded at its original location so sibling libraries, shared vendor runtimes, presets, licences and services resolve without vendor-specific rules. Its digest does not authenticate the dependencies or freeze installed files for the process lifetime. The Windows Job launcher assigns the peer before resuming it, enforces the existing memory, CPU, duration, kill-on-close and single-process limits, and reports a distinct supervision handshake rather than AppContainer enforcement. Format consent, per-installation allowance, quarantine, revocation and one renderer owner plus binary digest per host remain required. This trusted-code route is not a filesystem or network sandbox. Vamp analyzers, containment fixtures and the other target launchers retain their separate sandbox policies. Windows x64 VST2 children use a versioned compatibility allocation policy that keeps bottom-up ASLR enabled but disables high-entropy allocation only in that trusted child; image ASLR and the full 64-bit address space are retained. VST3, CLAP, Windows ARM64 and other processes retain the system allocation policy. Discovery uses the existing one-GiB helper hard ceiling, matching hosting so a full vendor engine can initialize during scanning.",
 					"evidence": [
 						{
 							"kind": "implementation",
@@ -12766,6 +12766,14 @@
 						{
 							"kind": "test",
 							"path": "tests/desktop-native-plugin-process-launcher.test.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "desktop/plugin-scan-service.ts"
+						},
+						{
+							"kind": "test",
+							"path": "tests/desktop-native-plugin-compatibility.test.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"

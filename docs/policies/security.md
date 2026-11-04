@@ -1490,7 +1490,13 @@ AppContainer enforcement. Format consent, per-installation allowance,
 quarantine, revocation and one renderer owner plus binary digest per host remain
 required. This trusted-code route is not a filesystem or network sandbox. Vamp
 analyzers, containment fixtures and the other target launchers retain their
-separate sandbox policies.
+separate sandbox policies. Windows x64 VST2 children use a versioned
+compatibility allocation policy that keeps bottom-up ASLR enabled but disables
+high-entropy allocation only in that trusted child; image ASLR and the full
+64-bit address space are retained. VST3, CLAP, Windows ARM64 and other processes
+retain the system allocation policy. Discovery uses the existing one-GiB helper
+hard ceiling, matching hosting so a full vendor engine can initialize during
+scanning.
 <!-- /policy-narrative:trusted-windows-effect-processes -->
 
 An ordinary checkout reports all thirteen required archive/extracted-tree inputs as

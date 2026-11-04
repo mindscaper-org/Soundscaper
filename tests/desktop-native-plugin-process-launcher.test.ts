@@ -96,9 +96,11 @@ test('trusted process launch authenticates artifacts, preserves user environment
 	assert.equal(launch.enforcement.filesystem, 'user');
 	assert.equal(launch.enforcement.network, 'user');
 	assert.equal(launch.enforcement.childProcesses, 'denied');
+	assert.equal(launch.enforcement.allocationRandomization, 'system');
 	assert.equal(fixture.calls[0]?.options.shell, false);
 	assert.equal(fixture.calls[0]?.options.env?.PATH, process.env.PATH);
 	assert.equal(fixture.calls[0]?.arguments.includes('--plugin-user-access'), true);
+	assert.equal(fixture.calls[0]?.arguments.includes('--plugin-low-address-heap'), false);
 	assert.ok(launch.control);
 	await launch.control.send(new Uint8Array([2, 7]));
 	const body = Buffer.from([2, 7, 0, 0, 0, 0]);
@@ -142,6 +144,16 @@ test('the trusted process wall deadline kills its Job launcher', async (context)
 	assert.ok(fixture.kills.includes('SIGKILL'));
 });
 
+test('legacy VST2 allocation compatibility changes only its explicitly selected child', async (context) => {
+	const fixture = await processFixture(context);
+	assert.equal(fixture.launcher.vst2LowAddressHeap, true);
+	const launch = await fixture.launcher.launch({ ...fixture.request, windowsVst2LowAddressHeap: true });
+	assert.equal(fixture.calls[0]?.arguments.includes('--plugin-low-address-heap'), true);
+	assert.equal(launch.enforcement.allocationRandomization, 'low-entropy-for-legacy-vst2');
+	fixture.finish();
+	await launch.completion;
+});
+
 async function processFixture(context: { after: (action: () => Promise<void>) => void }, options: {
 	trustedProfile?: boolean; handshake?: string;
 } = {}) {
@@ -149,7 +161,7 @@ async function processFixture(context: { after: (action: () => Promise<void>) =>
 	context.after(() => rm(root, { recursive: true, force: true }));
 	const artifacts = [];
 	for (const [name, bytes] of Object.entries({ launcher: 'launcher', profile: JSON.stringify({
-		trustedPluginProcesses: options.trustedProfile === false ? undefined : 'user-access-job-v1',
+		trustedPluginProcesses: options.trustedProfile === false ? undefined : 'user-access-job-v2',
 	}), broker: 'broker', peer: 'peer' })) {
 		const path = join(root, name); await writeFile(path, bytes); artifacts.push(await descriptor(path));
 	}

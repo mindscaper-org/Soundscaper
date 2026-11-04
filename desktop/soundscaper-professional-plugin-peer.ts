@@ -60,7 +60,9 @@ export interface ProfessionalPluginParameter {
 
 export interface ProfessionalPluginPeerLauncher {
 	readonly pluginFilesystemAccess?: 'user';
+	readonly vst2LowAddressHeap?: true;
 	launch(request: Readonly<{
+		readonly windowsVst2LowAddressHeap?: true;
 		readonly executable: NativeChildIsolationArtifactDescriptor;
 		readonly arguments: readonly string[];
 		readonly readOnly: readonly NativeChildIsolationPathGrant[];
@@ -135,7 +137,7 @@ export function createSoundscaperProfessionalPluginPeer(options: Readonly<{
 		inspectPluginCandidate: async (path: string, format: HelperPluginFormat, context: ProfessionalPluginPeerContext) => {
 			admittedFormat(formats, format);
 			const session = await openSession(options.launcher, executable, entryExecutable, entryArguments,
-				runtimeReadExecute, path, context);
+				runtimeReadExecute, path, context, format);
 			let scanCompleted = false;
 			let operationFailed = false;
 			let operationError: unknown;
@@ -177,7 +179,7 @@ export function createSoundscaperProfessionalPluginPeer(options: Readonly<{
 		) => {
 			admittedFormat(formats, format);
 			const session = await openSession(options.launcher, executable, entryExecutable, entryArguments,
-				runtimeReadExecute, path, context);
+				runtimeReadExecute, path, context, format);
 			try {
 				const answer = await session.request(OPERATION.open, (writer) => {
 					writer.text(format); writer.text(session.pluginPath); writer.text(stableId);
@@ -306,6 +308,7 @@ async function openSession(
 	runtimeReadExecute: readonly NativeChildIsolationArtifactDescriptor[],
 	pluginPath: string,
 	context: ProfessionalPluginPeerContext,
+	format: HelperPluginFormat,
 ): Promise<PeerSession> {
 	const snapshot = await prepareProfessionalPluginCandidate(pluginPath, context, launcher.pluginFilesystemAccess === 'user');
 	let launch;
@@ -315,6 +318,7 @@ async function openSession(
 		const arguments_ = entryExecutable.path === peerExecutable.path ? []
 			: [...entryArguments, peerExecutable.path];
 		launch = await launcher.launch({
+			...(format === 'vst2' && launcher.vst2LowAddressHeap ? { windowsVst2LowAddressHeap: true as const } : {}),
 			executable: entryExecutable, workloadPayload: peerExecutable, arguments: arguments_,
 			readOnly: [], readExecute: [pluginGrant], writeOnly: [],
 			runtimeClosure: runtimeReadExecute,

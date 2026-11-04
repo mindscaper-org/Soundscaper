@@ -47,7 +47,7 @@ test('Windows opts the peer out of ambient all-application-package access', () =
 		/PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT[\s\S]*UpdateProcThreadAttribute\(attributes,[\s\S]*PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY[\s\S]*nativeFailure\("all-application-packages-policy"[\s\S]*PROC_THREAD_ATTRIBUTE_HANDLE_LIST/u,
 		'the LPAC policy must fail closed before inherited handles and process creation');
 	assert.match(SOURCE,
-		/attributeCount = values\.pluginUserAccess \? 1u : 3u[\s\S]*InitializeProcThreadAttributeList\(nullptr, attributeCount,[\s\S]*InitializeProcThreadAttributeList\(attributes, attributeCount,/u,
+		/attributeCount = values\.pluginUserAccess \? \(values\.pluginLowAddressHeap \? 2u : 1u\) : 3u[\s\S]*InitializeProcThreadAttributeList\(nullptr, attributeCount,[\s\S]*InitializeProcThreadAttributeList\(attributes, attributeCount,/u,
 		'the LPAC policy must occupy its own process attribute slot');
 	assert.match(PROFILE, /less-privileged-appcontainer-low-integrity/u);
 	assert.match(PROFILE, /exact-user-and-appcontainer-sid-intersection-grants/u);

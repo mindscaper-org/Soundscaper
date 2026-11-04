@@ -24,6 +24,7 @@ enum class Access { readOnly, readExecute, writeOnly };
 struct Grant { HANDLE handle; Access access; };
 struct Values {
 	bool pluginUserAccess = false;
+	bool pluginLowAddressHeap = false;
 	HANDLE enforcement = nullptr, profile = nullptr, broker = nullptr, executable = nullptr;
 	int enforcementFd = -1;
 	HANDLE extraInput = nullptr;
@@ -275,6 +276,10 @@ int wmain(int argc, wchar_t **argv)
 			if (values.pluginUserAccess) return 125;
 			values.pluginUserAccess = true; continue;
 		}
+		if (option == L"--plugin-low-address-heap") {
+			if (values.pluginLowAddressHeap) return 125;
+			values.pluginLowAddressHeap = true; continue;
+		}
 		if (exactFd(option, L"--enforcement-fd=", values.enforcement, &values.enforcementFd)
 			|| exactFd(option, L"--profile-fd=", values.profile)
 			|| exactFd(option, L"--broker-policy-fd=", values.broker)
@@ -303,6 +308,10 @@ int wmain(int argc, wchar_t **argv)
 		|| values.rss == 0u || values.durationMs == 0u || child.empty()) return 125;
 	if (values.pluginUserAccess
 		&& values.authorityProfile.rfind(L"soundscaper-professional:", 0u) != 0u) return 125;
+	if (values.pluginLowAddressHeap && !values.pluginUserAccess) return 125;
+#if !defined(_M_X64) && !defined(__x86_64__)
+	if (values.pluginLowAddressHeap) return 125;
+#endif
 	std::vector<HANDLE> unique{ values.enforcement, values.profile, values.broker, values.executable };
 	if (values.extraInput != nullptr) unique.push_back(values.extraInput);
 	for (const auto &grant : values.grants) unique.push_back(grant.handle);
@@ -332,7 +341,7 @@ int wmain(int argc, wchar_t **argv)
 	std::vector<HANDLE> inherited{ GetStdHandle(STD_INPUT_HANDLE), GetStdHandle(STD_OUTPUT_HANDLE),
 		GetStdHandle(STD_ERROR_HANDLE) };
 	if (values.extraInput != nullptr) inherited.push_back(values.extraInput);
-	const DWORD attributeCount = values.pluginUserAccess ? 1u : 3u;
+	const DWORD attributeCount = values.pluginUserAccess ? (values.pluginLowAddressHeap ? 2u : 1u) : 3u;
 	SIZE_T bytes = 0u; InitializeProcThreadAttributeList(nullptr, attributeCount, 0u, &bytes);
 	std::vector<unsigned char> storage(bytes);
 	auto *attributes = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(storage.data());
@@ -347,6 +356,15 @@ int wmain(int argc, wchar_t **argv)
 		PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
 		&allApplicationPackagesPolicy, sizeof(allApplicationPackagesPolicy), nullptr, nullptr)) {
 		nativeFailure("all-application-packages-policy", GetLastError());
+	}
+	// Old statically linked VST2 runtimes may truncate heap pointers. Keep the
+	// full address space, bottom-up and image ASLR; lower allocation entropy in this
+	// trusted legacy child, never in the launcher or an AppContainer process.
+	DWORD64 legacyHeapPolicy = PROCESS_CREATION_MITIGATION_POLICY_BOTTOM_UP_ASLR_ALWAYS_ON
+		| PROCESS_CREATION_MITIGATION_POLICY_HIGH_ENTROPY_ASLR_ALWAYS_OFF;
+	if (values.pluginLowAddressHeap && !UpdateProcThreadAttribute(attributes, 0u,
+		PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY, &legacyHeapPolicy, sizeof(legacyHeapPolicy), nullptr, nullptr)) {
+		nativeFailure("legacy-heap-policy", GetLastError());
 	}
 	if (!UpdateProcThreadAttribute(attributes, 0u, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
 		inherited.data(), inherited.size() * sizeof(HANDLE), nullptr, nullptr)) {

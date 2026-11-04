@@ -25,6 +25,7 @@
  */
 
 import { HELPER_PLUGIN_FORMATS, type HelperPluginFormat } from './helper-job-grant.ts';
+import { HELPER_RESOURCE_HARD_LIMITS } from './helper-resource-policy.ts';
 import { HelperSupervisionError, type HelperJobRequest } from './helper-supervisor.ts';
 import { HelperContractViolationError } from './helper-wire-admission.ts';
 import type { NativeAddonAvailability } from './native-addon-payload.ts';
@@ -45,7 +46,8 @@ import {
 export const PLUGIN_SCAN_RESOURCE_POLICY = Object.freeze({
 	maximumInputBytes: 1,
 	maximumJobDurationMs: 5 * 60_000,
-	maximumRssBytes: 512 * 1024 ** 2,
+	// Scanning initializes the same vendor runtime as hosting (for example Ozone).
+	maximumRssBytes: HELPER_RESOURCE_HARD_LIMITS.maximumRssBytes,
 });
 
 export type PluginScanFailureCode =
