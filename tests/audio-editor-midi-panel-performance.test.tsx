@@ -18,12 +18,12 @@ test('piano-roll view and drag updates retain unchanged note options while edite
 	Object.defineProperty(ReactTestElement.prototype, 'getContext', { configurable: true, value: () => null });
 	const listeners = new Map<string, Set<EventListener>>();
 	const document = dom.container.ownerDocument as unknown as Document;
-	document.addEventListener = (type, listener) => {
+	document.addEventListener = (type: string, listener: EventListenerOrEventListenerObject | null) => {
 		if (typeof listener !== 'function') return;
 		const entries = listeners.get(type) ?? new Set<EventListener>();
 		entries.add(listener); listeners.set(type, entries);
 	};
-	document.removeEventListener = (type, listener) => { if (typeof listener === 'function') listeners.get(type)?.delete(listener); };
+	document.removeEventListener = (type: string, listener: EventListenerOrEventListenerObject | null) => { if (typeof listener === 'function') listeners.get(type)?.delete(listener); };
 	const root = createRoot(dom.container as unknown as Element);
 	const noop = () => undefined;
 	const telemetry = { positionFrame: 0 };

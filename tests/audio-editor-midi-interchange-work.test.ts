@@ -48,7 +48,7 @@ test('dense MIDI warp export retains exact rational source projection at boundar
 		sourceStartFrame: 0, sourceDurationFrames: 12_800, durationFrames: 25_600, notes: [], warpMap: map });
 	const frames = [0, 100, 12_800, ...Array.from({ length: 64 }, (_, index) => 6401 + index * 97)];
 	const expected = frames.map(frame => { const outer = evaluateAudioWarpMapAtSource(map, frame); return 1000 + roundRational(outer.num, outer.den, 'point'); });
-	const occurrence = [...midiClipOccurrences({ sampleRate: 48_000, tempoMap: { mode: 'musical', events: [{ beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }] } }, clip)][0]!;
+	const occurrence = [...midiClipOccurrences({ sampleRate: 48_000, tempoMap: { mode: 'musical', events: [{ beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }] } }, { ...clip })][0]!;
 	assert.deepEqual(frames.map(frame => occurrence.global(frame)), expected);
 });
 
