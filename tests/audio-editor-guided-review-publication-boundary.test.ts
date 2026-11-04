@@ -55,7 +55,7 @@ test('actual enhanced audio review retains geometry and publication placement ac
 	assert.ok(available.outcome === 'ready');
 	assert.deepEqual(await available.session.accept(['enhanced-audio']), { outcome: 'accepted', selectedIds: ['enhanced-audio'] });
 	assert.equal(calls.length, 1);
-	assert.deepEqual((calls[0] as { placement: unknown }).placement, { placement: 'project-bin' });
+	assert.deepEqual((calls[0] as { placement: unknown }).placement, { placement: 'replace-selection' });
 	assert.deepEqual(review.outputs[0]?.semantic, { kind: 'audio-wave', role: 'enhanced-audio', sampleRate: 48_000, channelCount: 1, frameCount: 96_000, sampleFormat: 'float32' });
 });
 

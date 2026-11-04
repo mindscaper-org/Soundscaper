@@ -5,7 +5,7 @@ import { bootEditor, clipByName, collectClientErrors, importFiles } from './audi
 import { openAssistanceTask } from './helpers/assistance-task-menu.js';
 import { completeMilestone7Run, installMilestone7LocalAssistanceFixture } from './helpers/milestone-7-local-assistance.js';
 
-test('ordinary Guided review auditions retain Playback volume for original and enhanced audio', async ({ page }) => {
+test('ordinary Guided cleanup auditions retain Playback volume', async ({ page }) => {
 	await installMilestone7LocalAssistanceFixture(page);
 	const errors = collectClientErrors(page);
 	const editor = await bootEditor(page, '/embed/en/');
@@ -21,15 +21,15 @@ test('ordinary Guided review auditions retain Playback volume for original and e
 		await volume.focus();
 		await volume.press(gain === 1 ? 'End' : 'Home');
 		await expect(volume).toHaveValue(String(gain));
-		const assistance = await openAssistanceTask(page, editor, 'Enhance Dialogue');
-		await assistance.getByRole('button', { name: 'Run locally', exact: true }).click();
+		const assistance = await openAssistanceTask(page, editor, 'Clean Filler & Silence');
+		await assistance.getByRole('button', { name: 'Apply', exact: true }).click();
 		await expect(assistance.getByRole('status', { name: 'Processing status' })).toHaveText('Processing selected media locally');
 		await completeMilestone7Run(page);
 		await expect(assistance.getByRole('status', { name: 'Processing status' })).toContainText('Processing finished.');
 		await assistance.getByRole('button', { name: 'Review result', exact: true }).click();
 		const review = assistance.getByRole('region', { name: 'Guided workflow review', exact: true });
-		await expect(review.locator('audio')).toHaveCount(2);
-		for (const label of ['Original selection', 'Enhanced dialogue']) {
+		await expect(review.locator('audio')).toHaveCount(1);
+		for (const label of ['Original selection']) {
 			const audio = review.locator('label', { hasText: label }).locator('audio');
 			await expect.poll(() => audio.evaluate(element => element.readyState)).toBeGreaterThanOrEqual(2);
 			expect(await audio.evaluate(element => element.volume), label).toBe(gain);
