@@ -37,6 +37,12 @@ Retained channel events provide sustain, volume/expression, sound-off and
 controller reset, plus pitch bend with the default two-semitone range. Bend
 changes integrate oscillator phase against absolute source frames; sustain
 changes sounding duration without changing the authored key-release event.
+Source publication prepares one private renderer for all PCM chunks. It snapshots
+note geometry and expression timelines, indexes sounding note intervals, and
+retains authored note accumulation order for exact PCM. Render windows remain
+independent and may be requested out of order. The interval tree uses fewer
+than four doubles per prepared note; its records and channel states live only
+for that source-publication invocation. No rendered PCM is retained by the plan.
 
 `runtime-types.ts` documents the shared mutable host explicitly, while symbol
 keys keep internal scheduling and lifecycle operations off the public string
