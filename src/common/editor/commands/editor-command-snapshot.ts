@@ -13,6 +13,8 @@ const INTRINSIC_OWN_KEYS = Reflect.ownKeys;
 const INTRINSIC_APPLY = Reflect.apply;
 const INTRINSIC_ARRAY_BUFFER = ArrayBuffer;
 const INTRINSIC_UINT8_ARRAY = Uint8Array;
+const INTRINSIC_ARRAY_IS_ARRAY = Array.isArray;
+const INTRINSIC_ARRAY_BUFFER_IS_VIEW = ArrayBuffer.isView;
 const INTRINSIC_ARRAY_BUFFER_PROTOTYPE = INTRINSIC_ARRAY_BUFFER.prototype;
 const INTRINSIC_UINT8_ARRAY_PROTOTYPE = INTRINSIC_UINT8_ARRAY.prototype;
 const INTRINSIC_TYPED_ARRAY_PROTOTYPE = INTRINSIC_GET_PROTOTYPE_OF(INTRINSIC_UINT8_ARRAY_PROTOTYPE);
@@ -89,28 +91,9 @@ function snapshotInertCommandGraph(value: unknown, name: string): unknown {
 			assignSnapshot(work, prior, (next) => { result = next; });
 			continue;
 		}
-		if (intrinsicLength(INTRINSIC_ARRAY_BUFFER_BYTE_LENGTH, source) !== null) {
-			if (INTRINSIC_GET_PROTOTYPE_OF(source) !== INTRINSIC_ARRAY_BUFFER_PROTOTYPE) {
-				throw new TypeError(`${work.name} must be an exact ArrayBuffer.`);
-			}
-			const clone = cloneArrayBuffer(source as ArrayBuffer, work.name);
-			clones.set(source, clone);
-			assignSnapshot(work, clone, (next) => { result = next; });
-			continue;
-		}
-		if (intrinsicLength(INTRINSIC_TYPED_ARRAY_LENGTH, source) !== null) {
-			if (INTRINSIC_GET_PROTOTYPE_OF(source) !== INTRINSIC_UINT8_ARRAY_PROTOTYPE) {
-				throw new TypeError(`${work.name} supports only exact Uint8Array binary views.`);
-			}
-			const clone = cloneUint8Array(source as Uint8Array, work.name);
-			clones.set(source, clone);
-			assignSnapshot(work, clone, (next) => { result = next; });
-			continue;
-		}
-		if (ArrayBuffer.isView(source)) {
-			throw new TypeError(`${work.name} supports only Uint8Array and ArrayBuffer binary values.`);
-		}
-		if (Array.isArray(source)) {
+		// Native array/view predicates do not invoke caller code or throw on
+		// ordinary records. Avoid constructing receiver errors for those kinds.
+		if (INTRINSIC_ARRAY_IS_ARRAY(source)) {
 			if (Object.getPrototypeOf(source) !== Array.prototype) {
 				throw new TypeError(`${work.name} must be a plain array.`);
 			}
@@ -129,6 +112,27 @@ function snapshotInertCommandGraph(value: unknown, name: string): unknown {
 					name: `${work.name}[${String(index)}]`, depth: work.depth + 1,
 				});
 			}
+			continue;
+		}
+		if (INTRINSIC_ARRAY_BUFFER_IS_VIEW(source)) {
+			if (intrinsicLength(INTRINSIC_TYPED_ARRAY_LENGTH, source) === null) {
+				throw new TypeError(`${work.name} supports only Uint8Array and ArrayBuffer binary values.`);
+			}
+			if (INTRINSIC_GET_PROTOTYPE_OF(source) !== INTRINSIC_UINT8_ARRAY_PROTOTYPE) {
+				throw new TypeError(`${work.name} supports only exact Uint8Array binary views.`);
+			}
+			const clone = cloneUint8Array(source as Uint8Array, work.name);
+			clones.set(source, clone);
+			assignSnapshot(work, clone, (next) => { result = next; });
+			continue;
+		}
+		if (intrinsicLength(INTRINSIC_ARRAY_BUFFER_BYTE_LENGTH, source) !== null) {
+			if (INTRINSIC_GET_PROTOTYPE_OF(source) !== INTRINSIC_ARRAY_BUFFER_PROTOTYPE) {
+				throw new TypeError(`${work.name} must be an exact ArrayBuffer.`);
+			}
+			const clone = cloneArrayBuffer(source as ArrayBuffer, work.name);
+			clones.set(source, clone);
+			assignSnapshot(work, clone, (next) => { result = next; });
 			continue;
 		}
 		const prototype = Object.getPrototypeOf(source);
