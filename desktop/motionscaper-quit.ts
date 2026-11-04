@@ -10,9 +10,10 @@ interface MotionQuitOptions {
 
 /** Retains the native authorities until an intentional desktop quit. */
 export class MotionDesktopQuitOwner {
+	readonly options: MotionQuitOptions;
 	#completion: Promise<void> | null = null;
 	#released = false;
-	constructor(readonly options: MotionQuitOptions) {}
+	constructor(options: MotionQuitOptions) { this.options = options; }
 	beforeQuit(event: MotionQuitEvent): Promise<void> {
 		if (this.#released) return Promise.resolve();
 		event.preventDefault();

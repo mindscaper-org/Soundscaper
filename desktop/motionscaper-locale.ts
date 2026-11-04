@@ -9,9 +9,10 @@ import { motionscaperDesktopDocumentUrl } from './motionscaper-desktop-contract.
 
 /** Locale-only, product-private settings; no foreign desktop service is imported. */
 export class MotionscaperLocaleSettings {
+	readonly filePath: string;
 	#locale = 'en';
 	#tail: Promise<unknown> = Promise.resolve();
-	constructor(readonly filePath: string) {}
+	constructor(filePath: string) { this.filePath = filePath; }
 	get locale(): string { return this.#locale; }
 	async load(preferred: readonly unknown[]): Promise<string> {
 		let value: unknown;

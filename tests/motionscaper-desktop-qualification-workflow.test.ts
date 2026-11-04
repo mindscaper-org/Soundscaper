@@ -1,8 +1,28 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { promisify } from 'node:util';
 import { extractJob } from './helpers/workflow-jobs.js';
+
+test('native qualification modules load in Node without a TypeScript transform loader', async () => {
+	const modules = [
+		'../desktop/motionscaper-locale.ts',
+		'../desktop/motionscaper-quit.ts',
+		'../desktop/motionscaper-launch-native-qualification.ts',
+		'../desktop/motionscaper-scene-native-qualification.ts',
+		'../desktop/motionscaper-authored-qualification.ts',
+		'../desktop/motionscaper-successor-native-qualification.ts',
+	].map(path => new URL(path, import.meta.url).href);
+	const environment = { ...process.env };
+	for (const key of ['NODE_OPTIONS', 'NODE_V8_COVERAGE', 'ELECTRON_RUN_AS_NODE']) delete environment[key];
+	const code = `for (const path of ${JSON.stringify(modules)}) await import(path); console.log('Motion qualification imports ready');`;
+	const { stdout } = await promisify(execFile)(process.execPath, ['--input-type=module', '--eval', code], {
+		env: environment, timeout: 30_000, maxBuffer: 1024 * 1024,
+	});
+	assert.equal(stdout.trim(), 'Motion qualification imports ready');
+});
 
 function commandStep(source: string, command: string): string {
 	const lines = source.split('\n');
