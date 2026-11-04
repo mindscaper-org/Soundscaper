@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "vi",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:9841cf1a1191a584a1d6eecbaeac53d39230c01d4dc117bfcf3d90ba7af78efc","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:5233bb32f5bcc50da11c30608b9bdcb6d531524a3730197499299e5115d4133f","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","Đang render audio để phân tích"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","Phạm vi phân tích phải là track hoặc master."],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} kênh · {duration} s · {sampleRate} Hz"],
+		"analyze": ["machine","Analyze","Phân tích"],
 		"analyzeMaster": ["machine","Analyze master","Phân tích master"],
 		"analyzeMenu": ["machine","Analyze","Phân tích"],
 		"analyzeSelection": ["machine","Analyze selection","Phân tích vùng chọn"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","Giao diện"],
 		"applicationCommands": ["machine","Application commands","Lệnh ứng dụng"],
 		"applicationMenu": ["machine","Application menu","Menu ứng dụng"],
+		"apply": ["machine","Apply","Áp dụng"],
 		"applyAudacityEffect": ["machine","Apply to selection","Áp dụng cho vùng chọn"],
 		"applyEffect": ["machine","Apply effect","Áp dụng hiệu ứng"],
 		"applyEffectPreset": ["audacity","Apply preset","Áp dụng cài đặt có sẵn"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","Khung lại"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","Tách đối thoại / âm nhạc / hiệu ứng"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","Chuyển ngữ & chú thích"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","Xử lý không thể hoàn thành. Mở chi tiết kỹ thuật để biết thêm thông tin."],
 		"assistanceTechnicalDetails": ["machine","Technical details","Chi tiết kỹ thuật"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","Đã áp dụng hiệu ứng Audacity."],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","Hiệu ứng vùng chọn Audacity"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","Khung hình nguồn {frame} · tick {tick} · {confidence}%"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","Phạm vi hoạt động giọng nói"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","Căn chỉnh từ"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","Chạy cục bộ mở một hộp thoại đồng ý cho chính hoạt động, mô hình, lựa chọn đầu vào và đầu ra này."],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","Nhiệm vụ này không có sẵn trên thiết bị này."],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","Đánh bại điều này!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","DeepFilterNet 3"],

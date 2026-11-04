@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "ja",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:d7ae927fe2530e02a8a21d55bb5be50f435b1626423b32d3dd73142cbfc635cb","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:4a398dbf1d91a92679ec6bfe3d779a1267baceab7e32f97ca2552873025fda14","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","分析のためにオーディオをレンダリングしています"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","分析スコープは、トラックまたはマスターでなければなりません。"],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} チャンネル · {duration} 秒 · {sampleRate} Hz"],
+		"analyze": ["machine","Analyze","分析"],
 		"analyzeMaster": ["machine","Analyze master","マスターを分析"],
 		"analyzeMenu": ["machine","Analyze","分析"],
 		"analyzeSelection": ["machine","Analyze selection","選択範囲を分析"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","外観"],
 		"applicationCommands": ["machine","Application commands","アプリケーションコマンド"],
 		"applicationMenu": ["machine","Application menu","アプリケーションメニュー"],
+		"apply": ["machine","Apply","適用"],
 		"applyAudacityEffect": ["machine","Apply to selection","選択範囲に適用"],
 		"applyEffect": ["machine","Apply effect","エフェクトを適用"],
 		"applyEffectPreset": ["audacity","Apply preset","プリセットを適用"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","フレームを再調整"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","ダイアログ/音楽/効果を分離"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","トランスクリプトとキャプション"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","処理が完了できませんでした。詳細については、技術詳細を参照してください。"],
 		"assistanceTechnicalDetails": ["machine","Technical details","技術詳細"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","Audacityのエフェクトを適用しました。"],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","Audacity選択エフェクト"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","ソースフレーム {frame} · ティック {tick} · {confidence}%"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","音声アクティビティ範囲"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","単語アラインメント"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","ローカルで実行すると、この正確な操作、モデル、入力、および出力の選択に対して、1 つの同意ダイアログが開きます。"],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","このタスクは、このデバイスでは利用できません。"],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","Beat This!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","DeepFilterNet 3"],

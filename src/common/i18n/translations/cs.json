@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "cs",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:e794d7e5b2f53c558607a7ddb1e44d849aa5a0c0977a757d592540991d6e3e5f","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:52c4aa0594ad02746a056a9b8f595e04bd3ae9de6e61f667dc3a9ed381f8a976","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","Renderování zvuku pro analýzu"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","Rozsah analýzy musí být stopa nebo master."],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} kanálů · {duration} s · {sampleRate} Hz"],
+		"analyze": ["machine","Analyze","Analýza"],
 		"analyzeMaster": ["machine","Analyze master","Analyzovat master"],
 		"analyzeMenu": ["machine","Analyze","Analyzovat"],
 		"analyzeSelection": ["machine","Analyze selection","Analyzovat výběr"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","Vzhled"],
 		"applicationCommands": ["machine","Application commands","Příkazy aplikace"],
 		"applicationMenu": ["machine","Application menu","Nabídka aplikace"],
+		"apply": ["machine","Apply","Použít"],
 		"applyAudacityEffect": ["machine","Apply to selection","Použít na výběr"],
 		"applyEffect": ["machine","Apply effect","Použít efekt"],
 		"applyEffectPreset": ["audacity","Apply preset","Použít přednastavení"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","Přerámovat"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","Oddělit dialog / hudbu / efekty"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","Přepisovat a titulky"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","Zpracování nemohlo být dokončeno. Podrobnější informace naleznete v technických detailech."],
 		"assistanceTechnicalDetails": ["machine","Technical details","Technické detaily"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","Efekt Audacity byl použit."],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","Efekty výběru Audacity"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","Zdrojový snímek {frame} · tik {tick} · {confidence}%"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","Rozsahy hlasové aktivity"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","Zarovnání slov"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","Spuštění lokálně otevře jeden dialog s souhlasem pro tuto přesnou operaci, model, vstup a výběr výstupu."],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","Tento úkol není na tomto zařízení dostupný."],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","Beat This!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","DeepFilterNet 3"],

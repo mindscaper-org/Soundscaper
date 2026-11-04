@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "uk",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:096ff3eab21f7ee17ba2d2b4f727442d899f4e56c5ee583e82c00732b4147918","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:a832b72f2338aecff681565cadeea2420038da520e1c405cfb368ecd58da452d","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","Рендеринг звуку для аналізу"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","Область аналізу повинна бути доріжкою або майстер-шиною."],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} каналів · {duration} с · {sampleRate} Гц"],
+		"analyze": ["machine","Analyze","Аналіз"],
 		"analyzeMaster": ["machine","Analyze master","Аналізувати майстер-шину"],
 		"analyzeMenu": ["machine","Analyze","Аналіз"],
 		"analyzeSelection": ["machine","Analyze selection","Аналізувати виділення"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","Зовнішній вигляд"],
 		"applicationCommands": ["machine","Application commands","Команди застосунку"],
 		"applicationMenu": ["machine","Application menu","Меню застосунку"],
+		"apply": ["machine","Apply","Застосувати"],
 		"applyAudacityEffect": ["machine","Apply to selection","Застосувати до позначеного"],
 		"applyEffect": ["machine","Apply effect","Застосувати ефект"],
 		"applyEffectPreset": ["audacity","Apply preset","Застосувати шаблон"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","Перепідбір кадру"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","Розділення діалогу/музики/ефектів"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","Транскрибування та субтитри"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","Обробка не змогла завершитися. Відкрийте технічні деталі для отримання додаткової інформації."],
 		"assistanceTechnicalDetails": ["machine","Technical details","Технічні деталі"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","Ефект Audacity застосовано."],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","Ефекти Audacity для позначеного"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","Джерельний кадр {frame} · тик {tick} · {confidence}%"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","Діапазони активності голосу"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","Вирівнювання слів"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","Виконання локально відкриває один діалог згоди для цієї конкретної операції, моделі, вибору вхідних та вихідних даних."],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","Це завдання недоступне на цьому пристрої."],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","Бій цей!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","DeepFilterNet 3"],

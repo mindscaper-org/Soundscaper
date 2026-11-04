@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "hi",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:bac214180ccd4ebd36160bdd5ee8b530c119c35469b22f2126aefda5946c5489","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:0dbe6b4b6e3397e745d6e7d1744bd71da197c7406815d7cc7db4eff888747cc4","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","विश्लेषण के लिए ऑडियो रेंडर हो रहा है"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","विश्लेषण का दायरा ट्रैक या मास्टर होना चाहिए।"],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} चैनल · {duration} s · {sampleRate} Hz"],
+		"analyze": ["machine","Analyze","विश्लेषण"],
 		"analyzeMaster": ["machine","Analyze master","मास्टर का विश्लेषण करें"],
 		"analyzeMenu": ["machine","Analyze","विश्लेषण करें"],
 		"analyzeSelection": ["machine","Analyze selection","चयन का विश्लेषण करें"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","उपस्थिति"],
 		"applicationCommands": ["machine","Application commands","एप्लिकेशन कमांड"],
 		"applicationMenu": ["machine","Application menu","एप्लिकेशन मेनू"],
+		"apply": ["machine","Apply","लागू करें"],
 		"applyAudacityEffect": ["machine","Apply to selection","चयन पर लागू करें"],
 		"applyEffect": ["machine","Apply effect","प्रभाव लागू करें"],
 		"applyEffectPreset": ["machine","Apply preset","प्रीसेट लागू करें"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","रीफ़्रेम"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","डायलॉग/संगीत/प्रभावों को अलग करें"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","ट्रांसक्राइब और कैप्शन"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","प्रसंस्करण पूरा नहीं हो सका। अधिक जानकारी के लिए तकनीकी विवरण खोलें।"],
 		"assistanceTechnicalDetails": ["machine","Technical details","तकनीकी विवरण"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","Audacity प्रभाव लागू किया गया।"],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","Audacity चयन प्रभाव"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","स्रोत फ्रेम {frame} · टिक {tick} · {confidence}%"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","वॉइस एक्टिविटी रेंजेस"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","वर्ड एलाइनमेंट"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","स्थानीय रूप से चलाना इस सटीक ऑपरेशन, मॉडल, इनपुट और आउटपुट चयन के लिए एक सहमति संवाद खोलता है।"],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","यह कार्य इस डिवाइस पर उपलब्ध नहीं है।"],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","बीट यह!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","डीपफिल्टरनेट 3"],

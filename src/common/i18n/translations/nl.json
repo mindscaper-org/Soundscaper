@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "nl",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:703048efd3ddad4b5ee849f5567ab9150f5f3f639f0c6eab1d0b02ce90a513c5","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:57a45b4ed23dc545dae74c3338c5a06bf14e0b785d2569fd5d61eef4c1388d0b","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","Audio wordt gerenderd voor analyse"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","Het analysebereik moet track of master zijn."],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} kanalen · {duration} s · {sampleRate} Hz"],
+		"analyze": ["machine","Analyze","Analyseren"],
 		"analyzeMaster": ["machine","Analyze master","Master analyseren"],
 		"analyzeMenu": ["machine","Analyze","Analyse"],
 		"analyzeSelection": ["machine","Analyze selection","Selectie analyseren"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","Uiterlijk"],
 		"applicationCommands": ["machine","Application commands","Toepassingsopdrachten"],
 		"applicationMenu": ["machine","Application menu","Toepassingsmenu"],
+		"apply": ["machine","Apply","Toepassen"],
 		"applyAudacityEffect": ["machine","Apply to selection","Toepassen op selectie"],
 		"applyEffect": ["machine","Apply effect","Effect toepassen"],
 		"applyEffectPreset": ["audacity","Apply preset","Voorinstelling toepassen"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","Bildausschnitt aanpassen"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","Dialoog / Muziek / Effecten scheiden"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","Transcriberen en ondertitels"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","Verwerking kon niet worden voltooid. Open technische details voor meer informatie."],
 		"assistanceTechnicalDetails": ["machine","Technical details","Technische details"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","Het Audacity-effect is toegepast."],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","Audacity-effecten voor selectie"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","Bronframe {frame} · tick {tick} · {confidence}%"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","Stemactiviteit bereiken"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","Woord uitlijning"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","Lokaal uitvoeren opent één toestemming dialoog voor deze exacte bewerking, model, invoer en uitvoerselectie."],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","Deze taak is niet beschikbaar op dit apparaat."],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","Beat Dit!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","DeepFilterNet 3"],

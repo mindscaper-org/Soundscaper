@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "it",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:72434abc5a4d971e27bd38f3b345bea83ef0e7067857bd3c01f917ba5ec56d82","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:a4b0fb1d7f564ca398801fc4655d377d22e9069f5696b9d63a3aa88aa259e5cb","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","Rendering dell'audio per l'analisi"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","L'ambito dell'analisi deve essere traccia o master."],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} canali · {duration} s · {sampleRate} Hz"],
+		"analyze": ["machine","Analyze","Analizza"],
 		"analyzeMaster": ["machine","Analyze master","Analizza il master"],
 		"analyzeMenu": ["machine","Analyze","Analizza"],
 		"analyzeSelection": ["machine","Analyze selection","Analizza la selezione"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","Aspetto"],
 		"applicationCommands": ["machine","Application commands","Comandi dell'applicazione"],
 		"applicationMenu": ["machine","Application menu","Menu dell'applicazione"],
+		"apply": ["machine","Apply","Applica"],
 		"applyAudacityEffect": ["machine","Apply to selection","Applica alla selezione"],
 		"applyEffect": ["machine","Apply effect","Applica effetto"],
 		"applyEffectPreset": ["audacity","Apply preset","Applica combinazione"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","Riquadra"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","Separa dialogo/musica/effetti"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","Trascrizione e sottotitoli"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","Elaborazione non completata. Apri i dettagli tecnici per maggiori informazioni."],
 		"assistanceTechnicalDetails": ["machine","Technical details","Dettagli tecnici"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","Effetto di Audacity applicato."],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","Effetti di selezione di Audacity"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","Fotogramma origine {frame} · tick {tick} · {confidence}%"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","Intervalli attività vocale"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","Allineamento parole"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","Esegui localmente apre un dialogo consenso per questa operazione, modello, selezione input e output esatta."],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","Questo compito non è disponibile su questo dispositivo."],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","Beat This!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","DeepFilterNet 3"],

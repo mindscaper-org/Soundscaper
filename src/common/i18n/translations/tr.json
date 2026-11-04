@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "tr",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:9f2405d6b12e75fa45f5053a448d90e0b44e6c51a457ea9bf8594594c6e58932","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:ef73fa8afff9456261a8d7b6459df68d30fa4b27a6daa6c86b8f34a5bfaa7312","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","Analiz için ses oluşturuluyor"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","Analiz kapsamı iz veya Master olmalıdır."],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} kanal · {duration} s · {sampleRate} Hz"],
+		"analyze": ["machine","Analyze","İncele"],
 		"analyzeMaster": ["machine","Analyze master","Master'ı analiz et"],
 		"analyzeMenu": ["machine","Analyze","Analiz"],
 		"analyzeSelection": ["machine","Analyze selection","Seçimi analiz et"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","Görünüm"],
 		"applicationCommands": ["machine","Application commands","Uygulama komutları"],
 		"applicationMenu": ["machine","Application menu","Uygulama menüsü"],
+		"apply": ["machine","Apply","Uygula"],
 		"applyAudacityEffect": ["machine","Apply to selection","Seçime uygula"],
 		"applyEffect": ["machine","Apply effect","Etkiyi uygula"],
 		"applyEffectPreset": ["audacity","Apply preset","Hazır ayarı uygula"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","Kareyi Yeniden Ayarla"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","Diyalog / Müzik / Efektleri Ayır"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","Transkribe Et ve Alt Yazılar"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","İşlem tamamlanamadı. Daha fazla bilgi için teknik ayrıntıları açın."],
 		"assistanceTechnicalDetails": ["machine","Technical details","Teknik ayrıntılar"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","Audacity etkisi uygulandı."],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","Audacity seçim etkileri"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","Kaynak kare {frame} · tik {tick} · {confidence}%"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","Ses Aktivitesi Aralıkları"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","Kelime Hizalaması"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","Yerel olarak çalıştırmak, bu işlem, model, giriş ve çıkış seçimi için tam olarak bir onay iletişim kutusu açar."],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","Bu görev bu cihazda kullanılamıyor."],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","Bunu Yen!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","DeepFilterNet 3"],

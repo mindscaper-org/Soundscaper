@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "fi",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:87885400265162e137b2c69177f0ec9ba5bbc64389240340bedf96c0670e5e43","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:f6cb21b77b886fd567b5946c37623f76a71a56bd718abb79fc33470feeaccf00","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","Renderöidään ääntä analyysiä varten"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","Analyysin laajuuden on oltava raita tai master."],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} kanavaa · {duration} s · {sampleRate} Hz"],
+		"analyze": ["machine","Analyze","Analysoi"],
 		"analyzeMaster": ["machine","Analyze master","Analysoi master"],
 		"analyzeMenu": ["machine","Analyze","Analysoi"],
 		"analyzeSelection": ["machine","Analyze selection","Analysoi valinta"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","Ulkoasu"],
 		"applicationCommands": ["machine","Application commands","Sovelluskomennot"],
 		"applicationMenu": ["machine","Application menu","Sovellusvalikko"],
+		"apply": ["machine","Apply","Käytä"],
 		"applyAudacityEffect": ["machine","Apply to selection","Käytä valintaan"],
 		"applyEffect": ["machine","Apply effect","Käytä tehostetta"],
 		"applyEffectPreset": ["audacity","Apply preset","Käytä esiasetusta"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","Muokkaa kuvakehystä"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","Erota dialogi / musiikki / tehosteet"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","Transkriboi ja alikirjoita"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","Käsittelyä ei voitu viimeistellä. Avaa tekniset tiedot lisätietoja varten."],
 		"assistanceTechnicalDetails": ["machine","Technical details","Tekniset tiedot"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","Audacity-tehoste käytetty."],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","Audacityn valintatehosteet"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","Lähdekehys {frame} · merkki {tick} · {confidence} %"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","Äänitoiminnallisuuden alueet"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","Sanojen tasaus"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","Paikallinen suoritus avaa yhden suostumusikkunan tälle tarkalle toiminnolle, mallille, syötteelle ja tulosteen valinnalle."],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","Tämä tehtävä ei ole käytettävissä tällä laitteella."],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","Beat This!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","DeepFilterNet 3"],

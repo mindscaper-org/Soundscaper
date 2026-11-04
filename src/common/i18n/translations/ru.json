@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "ru",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:186012ead4e7cc99d8ac0a4449fb3e9ffa8a8db080ec288e7bf3e402b511df51","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:8fe4348b8862730cd31d67a7fe4ddda10034a8de06dae48d32531c17c821e467","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","Рендеринг аудио для анализа"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","Область анализа должна быть треком или мастером."],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} каналов · {duration} с · {sampleRate} Гц"],
+		"analyze": ["machine","Analyze","Анализ"],
 		"analyzeMaster": ["machine","Analyze master","Анализировать мастер"],
 		"analyzeMenu": ["machine","Analyze","Анализ"],
 		"analyzeSelection": ["machine","Analyze selection","Анализировать выделение"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","Внешний вид"],
 		"applicationCommands": ["machine","Application commands","Команды приложения"],
 		"applicationMenu": ["machine","Application menu","Меню приложения"],
+		"apply": ["machine","Apply","Применить"],
 		"applyAudacityEffect": ["machine","Apply to selection","Применить к выделению"],
 		"applyEffect": ["machine","Apply effect","Применить эффект"],
 		"applyEffectPreset": ["audacity","Apply preset","Применить предустановку"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","Изменить кадр"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","Разделить диалог / музыку / эффекты"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","Транскрибировать и создать субтитры"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","Обработка не могла быть завершена. Подробнее в технических деталях."],
 		"assistanceTechnicalDetails": ["machine","Technical details","Технические детали"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","Применен эффект Audacity."],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","Эффекты Audacity для выделенного участка"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","Исходный кадр {frame} · тик {tick} · {confidence}%"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","Диапазоны активности голоса"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","Выравнивание слов"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","Выполнение локально открывает один диалог согласия для этой конкретной операции, модели, выбора входных и выходных данных."],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","Эта задача недоступна на этом устройстве."],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","Бить это!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","DeepFilterNet 3"],

@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "el",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:07f30b1798e9bb47bfaaf39ceae62e3f48587e23e78d5bb313db68d1b59a4dff","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:f0dab2385414ad9eb51f27404504a4faded2ab309d06a555fe89dce2d4a276eb","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","Απόδοση ήχου για ανάλυση"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","Το εύρος ανάλυσης πρέπει να είναι κομμάτι ή master."],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} κανάλια · {duration} s · {sampleRate} Hz"],
+		"analyze": ["machine","Analyze","Ανάλυση"],
 		"analyzeMaster": ["machine","Analyze master","Ανάλυση master"],
 		"analyzeMenu": ["machine","Analyze","Ανάλυση"],
 		"analyzeSelection": ["machine","Analyze selection","Ανάλυση επιλογής"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","Εμφάνιση"],
 		"applicationCommands": ["machine","Application commands","Εντολές εφαρμογής"],
 		"applicationMenu": ["machine","Application menu","Μενού εφαρμογής"],
+		"apply": ["machine","Apply","Εφαρμογή"],
 		"applyAudacityEffect": ["machine","Apply to selection","Εφαρμογή στην επιλογή"],
 		"applyEffect": ["machine","Apply effect","Εφαρμογή εφέ"],
 		"applyEffectPreset": ["machine","Apply preset","Εφαρμογή προεπιλογής"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","Αναπροσαρμογή"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","Διαχωρισμός διαλόγου / μουσικής / αποτελεσμάτων"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","Μεταγραφή και υπότιτλοι"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","Η επεξεργασία δεν μπόρεσε να ολοκληρωθεί. Ανοίξτε τις τεχνικές λεπτομέρειες για περισσότερες πληροφορίες."],
 		"assistanceTechnicalDetails": ["machine","Technical details","Τεχνικές λεπτομέρειες"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","Το εφέ Audacity εφαρμόστηκε."],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","Εφέ επιλογής Audacity"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","Πλαίσιο προέλευσης {frame} · σήμανση {tick} · {confidence}%"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","Εμβέλειες δραστηριότητας φωνής"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","Ευθυγράμμιση λέξεων"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","Η εκτέλεση τοπικά ανοίγει ένα παράθυρο συγκατάθεσης για αυτήν την ακριβή λειτουργία, μοντέλο, επιλογή εισόδου και εξόδου."],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","Αυτή η εργασία δεν είναι διαθέσιμη σε αυτήν τη συσκευή."],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","Χτύπα το!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","DeepFilterNet 3"],

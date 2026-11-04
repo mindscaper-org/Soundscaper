@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "ar",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:b74f07508d53ecbb77d6c8baf6b6505ab91c531c9cf21b168c47e9063ec77809","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:315e8cd0dc18f5d091646014c5ab4d9a47962bd0f8e6f51cfa07842fcd29640c","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","يتم تقديم إشارة الصوت للتحليل"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","يجب أن يكون نطاق التحليل مسارًا أو ماستر."],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} قنوات · {duration} ث · {sampleRate} هرتز"],
+		"analyze": ["machine","Analyze","تحليل"],
 		"analyzeMaster": ["machine","Analyze master","تحليل الماستر"],
 		"analyzeMenu": ["machine","Analyze","التحليل"],
 		"analyzeSelection": ["machine","Analyze selection","تحليل التحديد"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","مظهر"],
 		"applicationCommands": ["machine","Application commands","أوامر التطبيق"],
 		"applicationMenu": ["machine","Application menu","قائمة التطبيق"],
+		"apply": ["machine","Apply","تطبيق"],
 		"applyAudacityEffect": ["machine","Apply to selection","تطبيق على الاختيار"],
 		"applyEffect": ["machine","Apply effect","تطبيق تأثير"],
 		"applyEffectPreset": ["audacity","Apply preset","تطبيق الإعداد المسبق"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","إعادة الإطار"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","فصل الحوار/الموسيقى/التأثيرات"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","النسخ والتعليقات"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","لم يتمكن المعالجة من الانتهاء. افتح التفاصيل التقنية لمزيد من المعلومات."],
 		"assistanceTechnicalDetails": ["machine","Technical details","التفاصيل التقنية"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","تم تطبيق تأثير Audacity."],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","تأثيرات اختيار Audacity"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","إطار المصدر {frame} · علامة {tick} · {confidence}%"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","نطاقات نشاط الصوت"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","محاذاة الكلمات"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","يؤدي التشغيل محلياً إلى فتح مربع حوار موافقة واحد لهذه العملية الدقيقة، والنموذج، واختيار الإدخال والإخراج."],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","هذه المهمة غير متوفرة على هذا الجهاز."],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","هزم هذا!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","DeepFilterNet 3"],

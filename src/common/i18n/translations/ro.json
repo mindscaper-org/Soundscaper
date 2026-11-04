@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "ro",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:56595031aca9c476645ed8672c384c8375eedfe98922368bbcb8874534cc04ce","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:6ae1580c0a495d310d1d8688f8282c5eea159b01fca9b7ffba8124a17fe8235a","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","Randarea semnalului audio pentru analiză"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","Domeniul de analiză trebuie să fie pistă sau master."],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} canale · {duration} s · {sampleRate} Hz"],
+		"analyze": ["machine","Analyze","Analizează"],
 		"analyzeMaster": ["machine","Analyze master","Analizează masterul"],
 		"analyzeMenu": ["machine","Analyze","Meniuri de analiză"],
 		"analyzeSelection": ["machine","Analyze selection","Analizează selecția"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","Apariție"],
 		"applicationCommands": ["machine","Application commands","Comenzi aplicație"],
 		"applicationMenu": ["machine","Application menu","Meniu aplicație"],
+		"apply": ["machine","Apply","Aplică"],
 		"applyAudacityEffect": ["machine","Apply to selection","Aplicați pe selecție"],
 		"applyEffect": ["machine","Apply effect","Aplicați efect"],
 		"applyEffectPreset": ["audacity","Apply preset","Aplică presetarea"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","Reframare"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","Separare dialog / muzică / efecte"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","Transcriere și subtitrare"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","Procesarea nu a putut fi finalizată. Deschideți detaliile tehnice pentru mai multe informații."],
 		"assistanceTechnicalDetails": ["machine","Technical details","Detalii tehnice"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","A aplicat efectul Audacity."],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","Efecte de selecție Audacity"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","Cadrul sursă {frame} · ticăit {tick} · {confidence}%"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","Intervaluri de activitate vocală"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","Aliniere cuvânt"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","Executarea locală deschide un dialog de consimțământ pentru această operațiune exactă, model, selecție de intrare și ieșire."],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","Această sarcină nu este disponibilă pe acest dispozitiv."],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","Bate asta!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","DeepFilterNet 3"],

@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "id",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:1cbf2bcf2d6d00945e258161ecd3cc424e99352861526e3a198cbdef808cc78c","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:aee1c2fe2baa221c25b95f3df332d568c84d7f845f19945c19c102f38889dd0f","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","Merender audio untuk analisis"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","Cakupan analisis harus berupa trek atau master."],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} kanal · {duration} s · {sampleRate} Hz"],
+		"analyze": ["machine","Analyze","Analisis"],
 		"analyzeMaster": ["machine","Analyze master","Analisis master"],
 		"analyzeMenu": ["machine","Analyze","Analisis"],
 		"analyzeSelection": ["machine","Analyze selection","Analisis seleksi"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","Tampilan"],
 		"applicationCommands": ["machine","Application commands","Perintah aplikasi"],
 		"applicationMenu": ["machine","Application menu","Menu aplikasi"],
+		"apply": ["machine","Apply","Terapkan"],
 		"applyAudacityEffect": ["machine","Apply to selection","Terapkan ke pilihan"],
 		"applyEffect": ["machine","Apply effect","Terapkan efek"],
 		"applyEffectPreset": ["audacity","Apply preset","Terapkan preset"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","Reframe"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","Pisahkan Dialog / Musik / Efek"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","Transkripsi & Subtitel"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","Pemrosesan tidak dapat selesai. Buka detail teknis untuk informasi lebih lanjut."],
 		"assistanceTechnicalDetails": ["machine","Technical details","Detail Teknis"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","Efek Audacity diterapkan."],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","Efek pilihan Audacity"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","Frame sumber {frame} · tiket {tick} · {confidence}%"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","Jangkauan Aktivitas Suara"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","Penyesuaian Kata"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","Jalankan secara lokal membuka satu dialog persetujuan untuk operasi, model, pilihan input, dan output yang tepat ini."],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","Tugas ini tidak tersedia di perangkat ini."],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","Beat This!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","DeepFilterNet 3"],

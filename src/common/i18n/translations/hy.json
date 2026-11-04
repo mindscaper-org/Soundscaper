@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "hy",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:f939d71f4e53afc2ee1b30de66f20ed3e891a24a1da0988d41c84febf330641a","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:2b6c2b224af3243f4c481ba9f94ea6175c3c3bfa9c67ead9bbdf826cf2798a81","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","Աուդիոն ռենդերվում է վերլուծության համար"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","Վերլուծության շրջանակը պետք է լինի թրեք կամ մաստեր։"],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} ալիք · {duration} վրկ · {sampleRate} Հց"],
+		"analyze": ["machine","Analyze","Վերլուծել"],
 		"analyzeMaster": ["machine","Analyze master","Վերլուծել մաստերը"],
 		"analyzeMenu": ["machine","Analyze","Վերլուծել"],
 		"analyzeSelection": ["machine","Analyze selection","Վերլուծել ընտրությունը"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","Տեսք"],
 		"applicationCommands": ["machine","Application commands","Հավելվածի հրամաններ"],
 		"applicationMenu": ["machine","Application menu","Հավելվածի ցանկ"],
+		"apply": ["machine","Apply","Կիրառել"],
 		"applyAudacityEffect": ["machine","Apply to selection","Կիրառել ընտրության վրա"],
 		"applyEffect": ["machine","Apply effect","Կիրառել էֆեկտը"],
 		"applyEffectPreset": ["audacity","Apply preset","Կիրառել նախադրվածը"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","Կարգավորել կադրավորումը"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","Առանձնացնել երաժշտությունը / երաժշտությունը / էֆեկտները"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","Տրանսկրիպտավորել և ենթատեքստավորել"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","Կարգավորումը չկարողացավ ավարտվել։ Բացեք տեխնիկական մանրամասները՝ ավելի շատ տեղեկատվության համար։"],
 		"assistanceTechnicalDetails": ["machine","Technical details","Տեխնիկական մանրամասներ"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","Կիրառվեց Audacity էֆեկտը։"],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","Audacity ընտրության էֆեկտներ"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","Բնօրինակ կադր {frame} · նշան {tick} · {confidence}%"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","Ձայնային ակտիվության միջակայքեր"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","Բառերի հավասարեցում"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","Տեղային գործարկումը բացում է մեկ համաձայնության երազարկ այս ճշգրիտ գործողության, մոդելի, մուտքի և ելքի ընտրության համար։"],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","Այս խնդիրը հասանելի չէ այս սարքի վրա։"],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","Beat This!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","DeepFilterNet 3"],

@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "zh-TW",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:9d49e773f538eb6e2add59c65182c3125588ae178f3e48492d5934c011fd0756","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:01f3000aecf93431050317e512efc5e3e89f72c2877a0c83f505fccce52e3960","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","正在為分析轉譯音訊"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","分析範圍必須是音軌或主控。"],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} 聲道 · {duration} 秒 · {sampleRate} Hz"],
+		"analyze": ["machine","Analyze","分析"],
 		"analyzeMaster": ["machine","Analyze master","分析主控"],
 		"analyzeMenu": ["machine","Analyze","分析"],
 		"analyzeSelection": ["machine","Analyze selection","分析選取範圍"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","外觀"],
 		"applicationCommands": ["machine","Application commands","應用程式命令"],
 		"applicationMenu": ["machine","Application menu","應用程式選單"],
+		"apply": ["machine","Apply","套用"],
 		"applyAudacityEffect": ["machine","Apply to selection","套用至選取範圍"],
 		"applyEffect": ["machine","Apply effect","套用效果器"],
 		"applyEffectPreset": ["machine","Apply preset","套用預設集"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","重構"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","分離對話/音樂/效果"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","轉錄和字幕"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","處理無法完成。有關更多資訊，請打開技術詳細資訊。"],
 		"assistanceTechnicalDetails": ["machine","Technical details","技術詳細資訊"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","已套用 Audacity 效果器。"],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","Audacity 選取效果器"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","來源畫面 {frame} · 刻度 {tick} · {confidence}%"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","語音活動範圍"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","字詞對齊"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","在本地執行會為本次操作、模型、輸入和輸出選擇開啟一個同意對話方塊。"],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","此任務在此設備上不可用。"],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","Beat This!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","DeepFilterNet 3"],

@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "fa",
 	"provenance": {
-		"machine": {"model":"codex-gpt-6","modelDigest":"sha256:7642680576c04d960210b3bfcd36c66ad315b28b39a9bcb14402bb5ab2e21d84","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"catalog-exact-source-reuse","modelDigest":"sha256:f88e072d83d0abee24496a640ce2ccf009804a3ff3ab99f5af733a66f343f833","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -73,6 +73,7 @@
 		"analysisRendering": ["machine","Rendering audio for analysis","در حال رندر کردن صدا برای تحلیل"],
 		"analysisScopeInvalid": ["machine","Analysis scope must be track or master.","محدوده تحلیل باید ترک یا مستر باشد."],
 		"analysisSummary": ["machine","{channelCount} channels · {duration} s · {sampleRate} Hz","{channelCount} کانال · {duration} s · {sampleRate} Hz"],
+		"analyze": ["machine","Analyze","تحلیل"],
 		"analyzeMaster": ["machine","Analyze master","تحلیل مستر"],
 		"analyzeMenu": ["machine","Analyze","تحلیل"],
 		"analyzeSelection": ["machine","Analyze selection","تحلیل انتخاب"],
@@ -97,6 +98,7 @@
 		"appearance": ["machine","Appearance","ظاهر"],
 		"applicationCommands": ["machine","Application commands","فرمان‌های برنامه"],
 		"applicationMenu": ["machine","Application menu","منوی برنامه"],
+		"apply": ["machine","Apply","اعمال"],
 		"applyAudacityEffect": ["machine","Apply to selection","اعمال روی انتخاب"],
 		"applyEffect": ["machine","Apply effect","اعمال افکت"],
 		"applyEffectPreset": ["machine","Apply preset","اعمال پیش‌تنظیم"],
@@ -187,7 +189,6 @@
 		"assistanceTask.reframe": ["machine","Reframe","بازچینش"],
 		"assistanceTask.separate-dialogue-music-effects": ["machine","Separate Dialogue / Music / Effects","جداسازی گفتگو / موسیقی / افکت‌ها"],
 		"assistanceTask.transcribe-captions": ["machine","Transcribe & Captions","نسخه‌برداری و زیرنویس"],
-		"assistanceTaskFailed": ["machine","Processing could not finish. Open technical details for more information.","پردازش به پایان نرسید. برای اطلاعات بیشتر جزئیات فنی را باز کنید."],
 		"assistanceTechnicalDetails": ["machine","Technical details","جزئیات فنی"],
 		"audacityApplied": ["machine","Applied the Audacity effect.","افکت Audacity اعمال شد."],
 		"audacityEffectsTitle": ["machine","Audacity selection effects","افکت‌های انتخابی Audacity"],
@@ -3808,7 +3809,6 @@
 		"ui.localAssistance.localAssistanceVisualFrameEvidence": ["machine","Source frame {frame} · tick {tick} · {confidence}%","فریم منبع {frame} · تیک {tick} · {confidence}%"],
 		"ui.localAssistance.localAssistanceVoiceActivityRanges": ["machine","Voice activity ranges","محدوده‌های فعالیت صوتی"],
 		"ui.localAssistance.localAssistanceWordAlignment": ["machine","Word alignment","ترازبندی کلمات"],
-		"ui.localAssistance.localAssistanceWorkflowConsent": ["machine","Run locally opens one consent dialog for this exact operation, model, input, and output selection.","اجرای محلی یک دیالوگ رضایت برای این عملیات، مدل، انتخاب ورودی و خروجی دقیق باز می‌کند."],
 		"ui.localAssistance.localAssistanceWorkflowUnavailable": ["machine","This task is unavailable on this device.","این کار در این دستگاه در دسترس نیست."],
 		"ui.localModelNames.beat-this-small0": ["machine","Beat This!","Beat This!"],
 		"ui.localModelNames.deepfilternet3": ["machine","DeepFilterNet 3","DeepFilterNet 3"],
