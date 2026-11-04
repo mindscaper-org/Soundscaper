@@ -22,6 +22,7 @@ const PREFLIGHT_MODULES = [
 	'src/common/editor/ui/local-model-manager-bridge.ts',
 	'src/common/editor/ui/local-model-manager-store.ts',
 	'src/common/editor/ui/local-model-bytes.ts',
+	'src/common/editor/ui/local-assistance-task-controls.ts',
 ] as const;
 
 test('model preflight has a narrow lazy owner independent of the inference and optional surface chunks', () => {
@@ -31,6 +32,8 @@ test('model preflight has a narrow lazy owner independent of the inference and o
 	}
 	assert.equal(EAGER_CHUNK_GROUPS.has(PREFLIGHT_OWNER), false);
 	assert.equal(chunkGroupForModulePath('src/common/editor/ui/dialogs/AssistanceLoadingDialog.tsx'), 'editor-shell');
+	assert.equal(chunkGroupForModulePath('src/common/editor/ui/dialogs/AssistanceModelGate.css'), 'editor-shell',
+		'the eagerly used loading styles must share their shell owner instead of adding a standalone request');
 	assert.equal(chunkGroupForModulePath('src/common/editor/controller/assistance/internal/local-assistance-runtime.ts'),
 		'editor-optional-assistance');
 	assert.equal(chunkGroupForModulePath('src/common/editor/ui/local-assistance-guided-session-store.ts'),

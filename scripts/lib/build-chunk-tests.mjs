@@ -42,7 +42,7 @@ const editorOptionalExportControllerModule = String.raw`(?:export[\\/](?:${contr
  * The platform encoder probe is dynamically opened by desktop capability UI
  * and otherwise read only by the same deferred video export service.
  */
-const editorOptionalExportFlatModule = String.raw`(?:ape-file-metadata|audio-container-metadata|audio-export-output|binaural-render|delivery-conformance|delivery-conversion-inventory|delivery-video-conversion-inventory|file-backed-audio-export|flac-file-metadata|ogg-comment-metadata|loudness-normalization-render|platform-delivery-(?:licensing|presets)|platform-video-delivery-encoder|video-burn-in-font|video-delivery-encoder-tier|video-webcodecs-capability)`;
+const editorOptionalExportFlatModule = String.raw`(?:ape-file-metadata|audio-container-metadata|audio-embedded-chapter-container|audio-export-output|audio-export-prefix-blob|binaural-render|delivery-conformance|delivery-conversion-inventory|delivery-video-conversion-inventory|file-backed-audio-export|flac-file-metadata|ogg-comment-metadata|loudness-normalization-render|platform-delivery-(?:licensing|presets)|platform-video-delivery-encoder|video-burn-in-font|video-delivery-encoder-tier|video-webcodecs-capability)`;
 export const editorOptionalControllerModule = String.raw`(?:analysis[\\/](?:analysis-service|internal[\\/](?:vamp-analysis-action|analysis-document-fingerprint|specialized-analysis-report))|document[\\/]internal[\\/]cross-product-handoff-(?:action|save-target)|import[\\/]internal[\\/](?:dawproject[\\/]dawproject|sesx[\\/]sesx)-service|recording[\\/]internal[\\/]recording-checkpoint-writer|${editorOptionalExportControllerModule})`;
 /**
  * The Framescaper capture and Web VCR implementation, loaded when a capture
@@ -74,7 +74,7 @@ export const EDITOR_ASSISTANCE_SEMANTIC_SEARCH_RUNTIME_CHUNK_TEST =
 	/src[\\/]common[\\/]editor[\\/](?:assistance[\\/]local-assistance-semantic-search-bridge|ui[\\/]local-assistance-semantic-search-source)\.ts$/;
 /** Catalog preflight must load before the optional inference and dialog implementation. */
 export const EDITOR_ASSISTANCE_MODEL_PREFLIGHT_CHUNK_TEST = new RegExp(
-	`${editorPath}(?:assistance[\\\\/](?:workflow-recipes|workflow-settings-v1)|controller[\\\\/]assistance[\\\\/](?:local-assistance-task-models|internal[\\\\/]guided[\\\\/]local-assistance-guided-(?:model-selection|stage-selection))|ui[\\\\/](?:local-model-manager-(?:bridge|store)|local-model-bytes))\\.ts$`,
+	`${editorPath}(?:assistance[\\\\/](?:workflow-recipes|workflow-settings-v1)|controller[\\\\/]assistance[\\\\/](?:local-assistance-task-models|internal[\\\\/]guided[\\\\/]local-assistance-guided-(?:model-selection|stage-selection))|ui[\\\\/](?:local-model-manager-(?:bridge|store)|local-model-bytes|local-assistance-task-controls))\\.ts$`,
 );
 export const EDITOR_COPY_CHUNK_TEST =
 	/(?!.*[\\/]audiocom-copy\.ts$)(?:src[\\/]common[\\/]i18n[\\/](?:(?:catalogs|runtime|canonical-extras(?:-standard-effects)?|(?!(?:freesound-attribution|site|site-sidebar)-copy\.js$)[^\\/]+-copy)\.js|(?:editor-copy-(?:inventory|scope|origin)|[^\\/]+-copy)\.ts)|src[\\/]soundscaper[\\/]framescaper-capture-copy\.js)$/;
