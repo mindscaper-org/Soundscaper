@@ -58,6 +58,7 @@ export interface RoutedRecordingController extends RecordingControllerLike {
 
 export interface RecordingStartOptions {
 	readonly trackId?: string;
+	readonly multitrack?: boolean;
 	readonly timedStartTimeMs?: number;
 	readonly timedEndTimeMs?: number;
 	readonly timedGeneration?: number;
@@ -129,6 +130,7 @@ export interface RecordingFinalizationSnapshot {
 
 export interface RecordingSessionServiceRuntime {
 	readonly state: RecordingSessionMutableState;
+	readonly prepareRecordingOptions?: (options: RecordingStartOptions) => RecordingStartOptions;
 	readonly getProjectId: () => string | null;
 	readonly beginRecording: (
 		options: RecordingStartOptions,
@@ -281,7 +283,7 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 	}
 
 	function startRecording(options: RecordingStartOptions = {}) { return startRecordingSession(options, false); }
-	function startRecordingSession(options: RecordingStartOptions, soundActivated: boolean): Promise<void> | undefined {
+	function startRecordingSession(options: RecordingStartOptions, soundActivated: boolean, keepTarget = false): Promise<void> | undefined {
 		if (soundActivated && runtime.canStartSoundActivatedRecording?.() === false) return undefined;
 		const timedStart = isTimedStart(options);
 		if (startBlocked() || (!timedStart && (state.timedRecordingPreparing || state.timedRecording))) {
@@ -291,7 +293,9 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 		runtime.setSoundActivationCaptureEnabled?.(soundActivated);
 		const scope = createStartScope();
 		state.recordingKind = soundActivated ? 'sound-activated' : 'ordinary';
-		const operation = invokeAsPromise(() => runtime.beginRecording(options, scope));
+		const operation = invokeAsPromise(() => runtime.beginRecording(
+			keepTarget ? options : runtime.prepareRecordingOptions?.(options) ?? options, scope,
+		));
 		const tracked = operation.finally(() => {
 			if (state.recordingStartPromise === tracked) {
 				state.recordingStartPromise = null;
@@ -337,7 +341,7 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 			|| state.timedRecording || state.recorder) return null;
 		const trackId = runtime.addTrack?.({ armed: true }) || null;
 		if (!trackId) return null;
-		await startRecording({ ...options, trackId });
+		await startRecordingSession({ ...options, trackId }, false, true);
 		return trackId;
 	}
 

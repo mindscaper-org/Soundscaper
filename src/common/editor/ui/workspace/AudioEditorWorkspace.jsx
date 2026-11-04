@@ -208,7 +208,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 			: controller.actions.recording.pause());
 		if (snapshot.scheduledRecording || snapshot.recordingScheduling) return undefined;
 		const trackId = focusedRecordingTrackId(project, snapshot.selectedTrackId, showArmControls);
-		return run(() => controller.actions.recording.start({ trackId }));
+		return run(() => controller.actions.recording.start({ trackId, multitrack: showArmControls }));
 	}, [controller, project, run, showArmControls, snapshot.recording, snapshot.recordingKind, snapshot.recordingScheduling, snapshot.scheduledRecording, snapshot.selectedTrackId]);
 
 	const openTimedRecording = useCallback(() => {
@@ -266,8 +266,8 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		: snapshot.save?.state === 'dirty'
 			? copy.projectDirty
 			: copy.projectSaved;
-	const recordLabel = showArmControls ? copy.record : copy.recordActiveTrack;
-	const recordingTargetLocked = hasLockedRecordingTarget(project,
+	const recordLabel = snapshot.preferences.recording?.alwaysRecordToNewTrack ? copy.recordToNewTrack : showArmControls ? copy.record : copy.recordActiveTrack;
+	const recordingTargetLocked = !snapshot.preferences.recording?.alwaysRecordToNewTrack && hasLockedRecordingTarget(project,
 		focusedRecordingTrackId(project, snapshot.selectedTrackId, showArmControls), snapshot.recordingInputs?.routes);
 	const editItems = createWorkspaceEditItems({
 		copy, editBlocked, copyBlocked: blocked, editSelectionActive, selectedLabels: snapshot.selectedLabels, hasClipboard: Boolean(snapshot.history?.hasClipboard), splitAvailable: editingActions.split,

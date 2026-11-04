@@ -25,6 +25,12 @@ For multitrack routing, choose **View → Enable multi-track recording**, arm th
 tracks you want to record, and assign an input to each armed track. Recording
 will not start when no available input is assigned.
 
+To keep each recording on fresh tracks, open **Edit → Preferences →
+Playback/Recording** and enable **Always record to a new track**. Normal recording
+creates one new track. Multi-track recording creates a new track for each armed,
+assigned input, preserving track order and moving the input assignments to the
+new tracks for the next take. This preference is off by default.
+
 Soundscaper also exposes timed, punch/count-in, loop/take, and sound-activated
 recording workflows through its menus. Start with a normal take before adding
 these conditions.

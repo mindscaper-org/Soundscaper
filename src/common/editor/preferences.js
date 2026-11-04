@@ -20,7 +20,7 @@ import {
 	DEFAULT_TOOLBAR_BUTTONS,
 	DEFAULT_TOOLBARS,
 } from './workspace-layout-defaults.ts';
-import { normalizeRecordingSoundActivationPreferences } from './sound-activation-preferences.ts';
+import { normalizeRecordingPreferences, validateRecordingPreferences } from './recording-preferences.ts';
 import { normalizeAudioEditorPerformancePreferences } from './performance-preferences.ts';
 import {
 	AUDIO_EDITOR_DEFAULT_STARTUP_MODE,
@@ -185,7 +185,7 @@ const FORBIDDEN_TOP_LEVEL_KEYS = new Set([
  * @property {import('./waveform-visualization-preferences.ts').WaveformVisualizationPreferences} waveformVisualization
  * @property {import('./waveform-display-preferences.ts').WaveformDisplayPreferences} waveformDisplay
  * @property {{detectTempo: boolean}} import
- * @property {{retainInputs: boolean, soundActivation: import('./sound-activation-preferences.ts').SoundActivationPreferences}} recording
+ * @property {import('./recording-preferences.ts').RecordingPreferences} recording
  * @property {{playAtSpeedMode: 'naive'|'staffpad'}} playback
  * @property {{menuOrganization: 'default'|'sortby:name'}} effects
  * @property {import('./performance-preferences.ts').AudioEditorPerformancePreferences} performance
@@ -284,10 +284,7 @@ export function createAudioEditorPreferencesV1(options = {}) {
 		import: {
 			detectTempo: options.import?.detectTempo !== false,
 		},
-		recording: {
-			retainInputs: options.recording?.retainInputs !== false,
-			soundActivation: normalizeRecordingSoundActivationPreferences(options.recording),
-		},
+		recording: normalizeRecordingPreferences(options.recording),
 		playback: {
 			playAtSpeedMode: oneOf(
 				options.playback?.playAtSpeedMode ?? 'naive',
@@ -454,12 +451,7 @@ export function validateAudioEditorPreferencesV1(preferences) {
 		if (preferences.view.fadeShapeHandlesPreferenceVersion !== undefined && preferences.view.fadeShapeHandlesPreferenceVersion !== 1) throw new RangeError('view.fadeShapeHandlesPreferenceVersion must be 1.');
 	}
 	if (preferences.recording !== undefined) {
-		if (!preferences.recording || typeof preferences.recording !== 'object' || Array.isArray(preferences.recording)) {
-			throw new TypeError('preferences.recording must be an object.');
-		}
-		if (typeof preferences.recording.retainInputs !== 'boolean') {
-			throw new TypeError('recording.retainInputs must be boolean.');
-		}
+		validateRecordingPreferences(preferences.recording);
 	}
 	if (preferences.playback !== undefined) {
 		if (!preferences.playback || typeof preferences.playback !== 'object' || Array.isArray(preferences.playback)) {
