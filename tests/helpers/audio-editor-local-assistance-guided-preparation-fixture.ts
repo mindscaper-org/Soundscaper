@@ -36,6 +36,7 @@ export function preparationFixture(
 	projectValue: FixtureProject = project(),
 	stale = false,
 	transcript?: Readonly<{ storageKey: string; bytes: Uint8Array }>,
+	selectedClipId: string | null = 'voice-clip',
 ) {
 	const operations: string[] = [];
 	const preflights: number[] = [];
@@ -93,7 +94,7 @@ export function preparationFixture(
 		linkMembershipSha256: '12'.repeat(32), timingAuthoritySha256: '34'.repeat(32),
 	};
 	const preparation = createLocalAssistanceGuidedWorkflowPreparation({
-		getProject: () => projectValue, getSelectedClipId: () => 'voice-clip',
+		getProject: () => projectValue, getSelectedClipId: () => selectedClipId,
 		captureProject: () => ({ revision: 4 }),
 		assertProject: () => {
 			if (stale) throw new DOMException('stale', 'AbortError');

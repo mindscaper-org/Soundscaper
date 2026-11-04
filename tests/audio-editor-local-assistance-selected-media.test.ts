@@ -68,6 +68,21 @@ test('selected-media inventory exposes only operations with an exact audio input
 	assert.deepEqual(rendered, []);
 });
 
+test('an ordinary audio range selection resolves its unique occurrence without focused clip state', () => {
+	for (const clipIds of [[], ['voice-clip']]) {
+		const selectedProject = project({ selection: { startFrame: 48_000, endFrame: 96_000,
+			trackIds: ['voice-track'], clipIds } });
+		const selected = resolveLocalAssistanceSelectedMediaAuthority({
+			getProject: () => selectedProject, getSelectedClipId: () => null,
+			captureProject: () => null, assertProject: () => undefined,
+			renderDryTrackRange: async () => { throw new Error('Selection resolution does not render.'); },
+		});
+		assert.equal(selected.clip.id, 'voice-clip');
+		assert.equal(selected.startFrame, 48_000);
+		assert.equal(selected.endFrame, 96_000);
+	}
+});
+
 test('speech preparation reads only the selected occurrence and emits bounded 16 kHz mono WAV', async () => {
 	const { preparation, rendered } = fixture();
 	const result = await preparation.prepareSelectedMedia({
@@ -324,7 +339,7 @@ test('selected-media preparation yields to cancellation while conforming rendere
 
 test('ambiguous and transformed selections refuse before rendering', async () => {
 	for (const [name, changed, pattern] of [
-		['no selected clip', project(), /selected audio occurrence/iu],
+		['no selected clip', project({ selection: null }), /selected audio occurrence/iu],
 		['reverse', project({ clips: project().clips.map((clip) => clip.id === 'voice-clip'
 			? { ...clip, reversed: true } : clip) }), /forward identity timing/iu],
 		['warp', project({ clips: project().clips.map((clip) => clip.id === 'voice-clip'

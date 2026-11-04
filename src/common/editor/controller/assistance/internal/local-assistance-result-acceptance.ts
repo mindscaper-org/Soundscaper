@@ -56,7 +56,9 @@ export interface LocalAssistanceResultAcceptanceDependencies {
 	readonly audioStore?: LocalAssistanceAudioPublicationStore;
 	readonly createId?: (prefix: string) => string;
 	readonly preflightStorage?: (bytes: number, category: 'effect') => Promise<unknown>;
-	readonly commit: (command: Readonly<Record<string, unknown>>) => void;
+	readonly commit: (command: Readonly<Record<string, unknown>>, selection?: Readonly<{
+		selectClipId: string; selectTrackId: string;
+	}>) => void;
 }
 
 export function createLocalAssistanceResultAcceptance(

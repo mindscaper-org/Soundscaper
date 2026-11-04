@@ -31,7 +31,9 @@ export interface DeferredLocalAssistanceRuntimeDependencies {
 		requestedClipIds: readonly string[],
 		signal?: AbortSignal,
 	) => Promise<readonly Float32Array[]>;
-	readonly commit: (command: Readonly<Record<string, unknown>>) => void;
+	readonly commit: (command: Readonly<Record<string, unknown>>, selection?: Readonly<{
+		selectClipId: string; selectTrackId: string;
+	}>) => void;
 }
 
 export type DeferredLocalAssistancePreparationLoader = () => Promise<
@@ -43,6 +45,7 @@ const DEFAULT_LOADER: DeferredLocalAssistancePreparationLoader = () => (
 );
 
 const SELECTED_MEDIA_METHOD_NAMES = [
+	'createAudioEffectBatch',
 	'listSelectedMedia',
 	'prepareSelectedMedia',
 	'prepareAdvancedWorkflow',
