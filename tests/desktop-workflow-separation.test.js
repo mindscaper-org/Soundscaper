@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { extractJob, readWorkflow } from './helpers/workflow-jobs.js';
+import { extractJob, npmScriptsRunBy, readWorkflow } from './helpers/workflow-jobs.js';
 
 test('desktop distribution job environments do not reference an unassigned runner', async () => {
 	const workflow = await readWorkflow('desktop-preview.yml');
@@ -31,7 +31,9 @@ test('desktop preview leaves browser testing and combined coverage to Quality', 
 		assert.doesNotMatch(preview, new RegExp(`^  ${jobName}:`, 'mu'));
 	}
 	assert.doesNotMatch(preview, /test:browser|playwright|verified-firefox|SCAPE_BUILD_SOURCE_MAPS/u);
-	assert.doesNotMatch(preview, /coverage:|coverage-shard-|test:shard|verified-(?:framescaper-)?site-|checked-soundscaper-handbook/u);
+	assert.deepEqual([...npmScriptsRunBy(preview)].filter(script => script.startsWith('coverage:') || script === 'test:shard'), [],
+		'coverage commands belong to Quality; collect-coverage: false only disables fixture coverage');
+	assert.doesNotMatch(preview, /coverage-shard-|verified-(?:framescaper-)?site-|checked-soundscaper-handbook/u);
 	assert.match(extractJob(preview, 'tests'), /npm run test -- --module-shard=\$\{\{ matrix\.shard \}\} --require-linux-native/u);
 	assert.match(extractJob(quality, 'coverage'), /npm run coverage:check/u);
 
