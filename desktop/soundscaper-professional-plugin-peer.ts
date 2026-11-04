@@ -15,7 +15,8 @@ import {
 	type NativeChildIsolationPathGrant,
 } from './native-child-isolation-launcher.ts';
 import type { HelperJobResourcePolicy } from './helper-resource-policy.ts';
-import { snapshotAuthenticatedPluginCandidate } from './plugin-candidate-snapshot.mjs';
+import { prepareProfessionalPluginCandidate } from './professional-plugin-custody.ts';
+import { isSupervisedNativePluginLaunch, type NativePluginProcessLaunch } from './native-plugin-process-launcher.ts';
 import { professionalPeerLoaderArgumentsValid } from './professional-peer-loader-arguments.ts';
 
 const VERSION = 2;
@@ -58,6 +59,7 @@ export interface ProfessionalPluginParameter {
 }
 
 export interface ProfessionalPluginPeerLauncher {
+	readonly pluginFilesystemAccess?: 'user';
 	launch(request: Readonly<{
 		readonly executable: NativeChildIsolationArtifactDescriptor;
 		readonly arguments: readonly string[];
@@ -73,7 +75,7 @@ export interface ProfessionalPluginPeerLauncher {
 			readonly maximumMessageBytes: number;
 			readonly maximumInFlightMessages: number;
 		}>;
-	}>): Promise<NativeChildIsolationLaunch>;
+	}>): Promise<NativeChildIsolationLaunch | NativePluginProcessLaunch>;
 }
 
 interface PeerDescription {
@@ -98,7 +100,7 @@ interface PeerInstance {
 }
 
 interface PeerSession {
-	readonly launch: NativeChildIsolationLaunch;
+	readonly launch: NativeChildIsolationLaunch | NativePluginProcessLaunch;
 	readonly pluginPath: string;
 	request(operation: number, build?: (writer: BinaryWriter) => void): Promise<BinaryReader>;
 	close(): Promise<void>;
@@ -305,7 +307,7 @@ async function openSession(
 	pluginPath: string,
 	context: ProfessionalPluginPeerContext,
 ): Promise<PeerSession> {
-	const snapshot = await snapshotAuthenticatedPluginCandidate(pluginPath, context);
+	const snapshot = await prepareProfessionalPluginCandidate(pluginPath, context, launcher.pluginFilesystemAccess === 'user');
 	let launch;
 	try {
 		const pluginGrant = await exactProfessionalCandidateGrant(snapshot.path, snapshot.authentication.identity, true,
@@ -326,7 +328,7 @@ async function openSession(
 			},
 		});
 	} catch (error) { await snapshot.dispose(); throw error; }
-	if (!isEnforcedNativeChildLaunch(launch.enforcement) || !launch.control) {
+	if (!(isEnforcedNativeChildLaunch(launch.enforcement) || isSupervisedNativePluginLaunch(launch.enforcement)) || !launch.control) {
 		launch.kill('SIGKILL');
 		await snapshot.dispose();
 		throw new Error('The professional plug-in peer has no enforced framed child transport.');

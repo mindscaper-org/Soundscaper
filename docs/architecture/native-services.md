@@ -44,7 +44,7 @@ private paths, mints and revokes grants, and starts helpers with
 bounded status, not raw paths or generic process, filesystem, native-module, or
 network primitives.
 
-Native adapters load only inside supervised utility processes. They do not load
+Native adapters load only inside supervised helper processes. They do not load
 into Electron main, preload, a renderer, or an `AudioWorklet`. A helper may use
 threads internally, but a worker thread never substitutes for the crash and
 authority boundary of a process.
@@ -208,6 +208,25 @@ The state fixture requires the host's processor-construction thread; the Linux
 VST2 wrapper's private JUCE GUI thread is independent of that host dispatcher.
 
 Runtime hosting isolates one renderer owner and one plug-in digest per process.
+On Windows, effect discovery and hosting use trusted plug-in processes with
+normal user filesystem, registry, environment and network access. This lets
+installed plug-ins resolve sibling libraries, shared vendor runtimes, presets,
+licences and services without vendor-specific support rules. The primary
+candidate is reauthenticated and loaded from its installed location; its
+dependencies retain the installation's normal trust model and are not covered
+by that candidate's digest. File authentication is point-in-time and does not
+freeze the installed files for the process lifetime.
+
+The authenticated Windows launcher assigns the peer to a kill-on-close Job
+before resuming it, with the existing memory, CPU, duration and single-process
+limits. Its distinct supervision handshake and enforcement report explicitly
+say that filesystem and network access are those of the user. This is process
+supervision, not an AppContainer sandbox. Existing format consent, installation
+allowance, quarantine, revocation and per-owner/digest process boundaries still
+apply. Vamp analyzers, containment fixtures and the other target launchers retain
+their separate sandbox policies. Neither vendor-specific allowlists nor a
+global shared plug-in process are used.
+
 Opaque state is retained exactly and capped at 16 MiB per instance. State and
 parameters survive missing, changed, crashed, revoked, or quarantined binaries;
 the live graph uses truthful bypass or an already authored, verified freeze.

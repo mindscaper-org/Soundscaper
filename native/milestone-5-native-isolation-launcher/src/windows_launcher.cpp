@@ -18,10 +18,12 @@
 
 namespace {
 constexpr char enforcementFrame[] = "M5_NATIVE_ISOLATION_ENFORCED_V1\n";
+constexpr char pluginProcessFrame[] = "M5_NATIVE_PLUGIN_PROCESS_SUPERVISED_V1\n";
 constexpr size_t maximumGrants = 64u;
 enum class Access { readOnly, readExecute, writeOnly };
 struct Grant { HANDLE handle; Access access; };
 struct Values {
+	bool pluginUserAccess = false;
 	HANDLE enforcement = nullptr, profile = nullptr, broker = nullptr, executable = nullptr;
 	int enforcementFd = -1;
 	HANDLE extraInput = nullptr;
@@ -269,6 +271,10 @@ int wmain(int argc, wchar_t **argv)
 		const std::wstring option(argv[index]);
 		if (separator) { child.push_back(option); continue; }
 		if (option == L"--") { separator = true; continue; }
+		if (option == L"--plugin-user-access") {
+			if (values.pluginUserAccess) return 125;
+			values.pluginUserAccess = true; continue;
+		}
 		if (exactFd(option, L"--enforcement-fd=", values.enforcement, &values.enforcementFd)
 			|| exactFd(option, L"--profile-fd=", values.profile)
 			|| exactFd(option, L"--broker-policy-fd=", values.broker)
@@ -295,6 +301,8 @@ int wmain(int argc, wchar_t **argv)
 	if (!separator || values.enforcement == nullptr || values.profile == nullptr || values.broker == nullptr
 		|| values.executable == nullptr || values.authorityProfile.empty()
 		|| values.rss == 0u || values.durationMs == 0u || child.empty()) return 125;
+	if (values.pluginUserAccess
+		&& values.authorityProfile.rfind(L"soundscaper-professional:", 0u) != 0u) return 125;
 	std::vector<HANDLE> unique{ values.enforcement, values.profile, values.broker, values.executable };
 	if (values.extraInput != nullptr) unique.push_back(values.extraInput);
 	for (const auto &grant : values.grants) unique.push_back(grant.handle);
@@ -306,13 +314,15 @@ int wmain(int argc, wchar_t **argv)
 	for (size_t childIndex = 1u; childIndex < child.size(); ++childIndex) {
 		command += L" " + quote(child[childIndex]);
 	}
-	PSID sid = appContainerSid(values.authorityProfile);
-	PSID registryReadSid = registryReadAuthority(values.authorityProfile)
+	PSID sid = values.pluginUserAccess ? nullptr : appContainerSid(values.authorityProfile);
+	PSID registryReadSid = !values.pluginUserAccess && registryReadAuthority(values.authorityProfile)
 		? registryReadCapabilitySid() : nullptr;
 	std::vector<uintptr_t> userSidStorage;
-	PSID userSid = currentUserSid(userSidStorage);
-	grantExactAccess(values.executable, sid, userSid, Access::readExecute);
-	for (const auto &grant : values.grants) grantExactAccess(grant.handle, sid, userSid, grant.access);
+	if (!values.pluginUserAccess) {
+		PSID userSid = currentUserSid(userSidStorage);
+		grantExactAccess(values.executable, sid, userSid, Access::readExecute);
+		for (const auto &grant : values.grants) grantExactAccess(grant.handle, sid, userSid, grant.access);
+	}
 	SID_AND_ATTRIBUTES registryRead{ registryReadSid, SE_GROUP_ENABLED };
 	SECURITY_CAPABILITIES capabilities{ sid,
 		registryReadSid == nullptr ? nullptr : &registryRead,
@@ -322,17 +332,18 @@ int wmain(int argc, wchar_t **argv)
 	std::vector<HANDLE> inherited{ GetStdHandle(STD_INPUT_HANDLE), GetStdHandle(STD_OUTPUT_HANDLE),
 		GetStdHandle(STD_ERROR_HANDLE) };
 	if (values.extraInput != nullptr) inherited.push_back(values.extraInput);
-	SIZE_T bytes = 0u; InitializeProcThreadAttributeList(nullptr, 3u, 0u, &bytes);
+	const DWORD attributeCount = values.pluginUserAccess ? 1u : 3u;
+	SIZE_T bytes = 0u; InitializeProcThreadAttributeList(nullptr, attributeCount, 0u, &bytes);
 	std::vector<unsigned char> storage(bytes);
 	auto *attributes = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(storage.data());
-	if (!InitializeProcThreadAttributeList(attributes, 3u, 0u, &bytes)) {
+	if (!InitializeProcThreadAttributeList(attributes, attributeCount, 0u, &bytes)) {
 		nativeFailure("initialize-attributes", GetLastError());
 	}
-	if (!UpdateProcThreadAttribute(attributes, 0u, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
+	if (!values.pluginUserAccess && !UpdateProcThreadAttribute(attributes, 0u, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
 		&capabilities, sizeof(capabilities), nullptr, nullptr)) {
 		nativeFailure("security-capabilities", GetLastError());
 	}
-	if (!UpdateProcThreadAttribute(attributes, 0u,
+	if (!values.pluginUserAccess && !UpdateProcThreadAttribute(attributes, 0u,
 		PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
 		&allApplicationPackagesPolicy, sizeof(allApplicationPackagesPolicy), nullptr, nullptr)) {
 		nativeFailure("all-application-packages-policy", GetLastError());
@@ -368,8 +379,10 @@ int wmain(int argc, wchar_t **argv)
 		nativeFailure("assign-job", code);
 	}
 	DWORD written = 0u;
-	if (!WriteFile(values.enforcement, enforcementFrame, sizeof(enforcementFrame) - 1u, &written, nullptr)
-		|| written != sizeof(enforcementFrame) - 1u || _close(values.enforcementFd) != 0) return 125;
+	const char *frame = values.pluginUserAccess ? pluginProcessFrame : enforcementFrame;
+	const auto frameBytes = static_cast<DWORD>(std::strlen(frame));
+	if (!WriteFile(values.enforcement, frame, frameBytes, &written, nullptr)
+		|| written != frameBytes || _close(values.enforcementFd) != 0) return 125;
 	values.enforcementFd = -1;
 	values.enforcement = nullptr;
 	if (ResumeThread(process.hThread) == static_cast<DWORD>(-1)) return 125;
@@ -378,6 +391,6 @@ int wmain(int argc, wchar_t **argv)
 	CloseHandle(process.hThread); CloseHandle(process.hProcess); CloseHandle(job);
 	DeleteProcThreadAttributeList(attributes);
 	if (registryReadSid != nullptr) LocalFree(registryReadSid);
-	FreeSid(sid);
+	if (sid != nullptr) FreeSid(sid);
 	return static_cast<int>(exitCode);
 }
