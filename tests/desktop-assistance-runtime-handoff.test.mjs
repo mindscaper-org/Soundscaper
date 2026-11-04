@@ -109,14 +109,14 @@ async function fixture(run) {
 }
 
 function publicFetch({ archiveRoot, bundles, calls = [], corruptFullBody = false,
-	omitFullGetLength = false }) {
+	omitFullGetLength = false, ignoreRanges = false }) {
 	return async (url, init) => {
 		calls.push([url, init.method, init.headers?.Range ?? null]);
 		const bundle = bundles.find(({ archive }) => archive.url === url);
 		assert.ok(bundle);
 		const bytes = await readFile(join(archiveRoot, bundle.familyId, bundle.runtimeVersion,
 			TARGET_ID, `${bundle.archive.sha256}.tar.gz`));
-		const ranged = init.headers?.Range === 'bytes=0-0';
+		const ranged = !ignoreRanges && init.headers?.Range === 'bytes=0-0';
 		const body = init.method === 'HEAD' ? null : ranged ? bytes.subarray(0, 1)
 			: corruptFullBody ? Buffer.from(bytes).fill(0, 0, 1) : bytes;
 		return new Response(body, { status: ranged ? 206 : 200, headers: {
@@ -129,7 +129,7 @@ function publicFetch({ archiveRoot, bundles, calls = [], corruptFullBody = false
 	};
 }
 
-test('publisher handoff imports the exact five target archives without rebuilding', async () => {
+for (const ignoreRanges of [false, true]) test(`publisher handoff imports exact archives when ranges are ${ignoreRanges ? 'ignored' : 'supported'}`, async () => {
 	await fixture(async ({ buildRoot, handoffRoot, native, archiveRoot, bundles }) => {
 		const options = { buildRoot, handoffRoot, sourceRevision: SOURCE_REVISION,
 			targetId: TARGET_ID, sourceNativeManifest: native };
@@ -138,7 +138,7 @@ test('publisher handoff imports the exact five target archives without rebuildin
 		const packageRoot = join(handoffRoot, '..', 'package-archives');
 		const cacheRoot = join(handoffRoot, '..', 'download-cache');
 		const fetchCalls = [];
-		const fetchImpl = publicFetch({ archiveRoot, bundles, calls: fetchCalls });
+		const fetchImpl = publicFetch({ archiveRoot, bundles, calls: fetchCalls, ignoreRanges });
 		const imported = await stageDesktopAssistanceRuntimeHandoff({ ...options,
 			archiveRoot: packageRoot, cacheRoot, fetchImpl });
 		assert.equal(imported.distribution.manifest.bundles.length, 5);
@@ -252,8 +252,10 @@ test('handoff removes authenticated temporary bytes when the later range proof f
 			archiveRoot: packageRoot, cacheRoot, fetchImpl: async (url, init) => {
 				const response = await validFetch(url, init);
 				return init.headers?.Range
-					? new Response(response.body, { status: 200, headers: response.headers }) : response;
-			} }), /not 206/u);
+					? new Response(response.body, { status: 206, headers: {
+						...Object.fromEntries(response.headers), 'Content-Range': 'bytes 1-1/1',
+					} }) : response;
+			} }), /Content-Range/u);
 		const first = bundles[0];
 		assert.deepEqual(await readdir(join(cacheRoot, first.familyId, first.runtimeVersion, TARGET_ID)), []);
 		await assert.rejects(readdir(packageRoot), { code: 'ENOENT' });

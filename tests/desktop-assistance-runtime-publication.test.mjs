@@ -69,11 +69,18 @@ test('runtime publication uploads immutable R2 keys and reads public bytes back 
 			nativeManifestBytes: Buffer.from(JSON.stringify(native)),
 			familyManifestBytes: Buffer.from(JSON.stringify(family)),
 			kokoroManifestBytes: Buffer.from(JSON.stringify(kokoro)) };
+		const fetchImpl = async (_url, init) => new Response(init.method === 'HEAD' ? null : bytes, {
+			status: 200, headers: { 'Content-Length': String(bytes.length),
+				'Access-Control-Allow-Origin': 'https://soundscaper.org' },
+		});
 		const calls = [];
 		await publishAssistanceRuntimeBundles({ authority, archivesRoot: root,
 			client: { bucket: 'soundscaper-assets', endpoint: new URL('https://example.eu.r2.cloudflarestorage.com') },
 			upload: async (input) => { calls.push(['upload', input.key, input.file]); return { status: 0 }; },
-			verify: async (input) => { calls.push(['verify', input.url]); },
+			verify: async (input) => {
+				calls.push(['verify', input.url]);
+				return verifyMirroredArtifact({ ...input, fetchImpl });
+			},
 		});
 		assert.deepEqual(calls, bundles.flatMap((bundle) => [
 			['upload', `runtime/assistance/${bundle.familyId}/1.0.0/linux-x64/${sha256}.tar.gz`,
@@ -90,9 +97,13 @@ test('runtime publication uploads immutable R2 keys and reads public bytes back 
 		assert.equal(misdirectedUploads, 0);
 		const publicChecks = [];
 		const verified = await verifyAssistanceRuntimeBundles({ authority, archivesRoot: root,
-			verify: async (input) => { publicChecks.push(input); return input; } });
+			verify: async (input) => {
+				publicChecks.push(input);
+				return verifyMirroredArtifact({ ...input, fetchImpl });
+			} });
 		assert.deepEqual(verified, { targetId: 'linux-x64', verified: families.length });
-		assert.deepEqual(publicChecks, bundles.map(({ archive }) => ({ url: archive.url, artifact: archive })));
+		assert.deepEqual(publicChecks, bundles.map(({ archive }) => ({ url: archive.url, artifact: archive,
+			requireRange: false })));
 		await assert.rejects(verifyAssistanceRuntimeBundles({ authority, archivesRoot: root,
 			verify: async () => { throw new Error('public archive is absent'); } }), /public archive is absent/u);
 		const wrongBytes = Buffer.from('pinned archivf');

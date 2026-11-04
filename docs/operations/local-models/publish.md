@@ -90,24 +90,26 @@ The second command uses the same `R2_MODELS_*` credentials and EU
 `soundscaper-assets` bucket as the model publisher. It uploads immutable
 content-addressed `.tar.gz` objects under
 `https://assets.soundscaper.org/runtime/assistance/`, then requires public
-HEAD, byte-range, CORS and full SHA-256 readback of every archive. The generated
+HEAD, CORS and full SHA-256 readback of every archive. The generated
 `config/assistance-runtime-distribution.json` in the staged application pins
 each archive and its exact extracted file inventory; packaging seals that
 manifest in `app.asar`. Release workflows run publication between
 preparation and Electron packaging. The installer contains the pinned manifest,
 while users download only the engines their selected models require.
 
-For large R2 objects, a cold CDN edge can return a full `200` response to its
-first range request. Publication verification cancels that body, waits one
-second for edge metadata to settle, and retries once. It still requires the
-exact `206`, `Content-Range`, CORS headers, byte length, and complete-file
-digest. The desktop downloader already restarts a
-resumed transfer safely when the server returns a full response.
+Range support is optional for desktop runtime archives. If an edge ignores the
+range probe with a full `200` response, publication and build-time verification
+cancel that duplicate body without retrying, require CORS and an exact declared
+length when present, and rely on the completed full-file length and SHA-256
+verification. A `206` response still requires the exact `Content-Range`, CORS
+exposure, and one-byte body. The desktop downloader safely restarts a resumed
+transfer when the server returns a full response. Model catalog publication
+retains its required range-support proof.
 
 Complete verification finishes the streamed archive hash before probing range
-support, allowing an uncached CDN transfer to finish. Build-time downloads keep
-those authenticated bytes in a temporary file until HEAD, CORS, and range
-verification also pass; a failed delivery check removes the temporary file.
+support. Build-time downloads keep those authenticated bytes in a temporary file
+until HEAD, CORS, and delivery verification also pass; a failed delivery check
+removes the temporary file.
 
 Publication readback and build-time archive downloads retry transient HTTP and
 connection failures at most twice. A broken response restarts its complete
