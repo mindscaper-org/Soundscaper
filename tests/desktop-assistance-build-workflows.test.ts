@@ -27,5 +27,7 @@ test('Windows preflights exercise real compiler descendant termination before ru
 		assert.ok(start > 0);
 		const step = source.slice(start, source.indexOf('\n      - ', start + 1));
 		assert.ok(step.includes('tests/desktop-assistance-build-process.test.ts'));
+		assert.match(step, /--test-concurrency=1/u,
+			'compiler fixtures must not compete with sibling fixture processes for Windows build resources');
 	}
 });
