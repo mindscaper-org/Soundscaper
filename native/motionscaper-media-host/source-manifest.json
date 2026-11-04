@@ -150,8 +150,8 @@
 		},
 		{
 			"path": "scripts/lib/soundscaper-professional-native-build-result-contract.mjs",
-			"byteLength": 21986,
-			"sha256": "a62b863e53b00209c5867d99998d8b917aabbecc79b283602411069e22243b39"
+			"byteLength": 22017,
+			"sha256": "a40a383e967c97a8c1608d9ac7fc006ad38a38231e83571c0cf0a19014f035e8"
 		},
 		{
 			"path": "scripts/lib/soundscaper-professional-native-dependency-inspection.mjs",
