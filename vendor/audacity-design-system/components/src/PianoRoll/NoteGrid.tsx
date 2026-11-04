@@ -166,7 +166,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
       if (pitch >= 0 && pitch <= 127) {
         const snappedTime = snapTime(xToTime(localX));
         const beatDuration = 60 / bpm;
-        const duration = lastResizedDurationRef.current ?? beatDuration / snap.subdivision;
+        const duration = lastResizedDurationRef.current ?? beatDuration / (snap.subdivision * (snap.triplet ? 1.5 : 1));
         setGhostNote({ pitch, startTime: Math.max(0, snappedTime), duration });
       } else {
         setGhostNote(null);
@@ -324,7 +324,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
     onDeselectAll();
 
     const beatDuration = 60 / bpm;
-    const duration = lastResizedDurationRef.current ?? beatDuration / snap.subdivision;
+    const duration = lastResizedDurationRef.current ?? beatDuration / (snap.subdivision * (snap.triplet ? 1.5 : 1));
 
     setPreviewNote({ pitch, startTime: Math.max(0, globalTime), duration });
     onPlayNote?.(pitch);

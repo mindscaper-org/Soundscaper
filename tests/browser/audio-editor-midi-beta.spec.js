@@ -83,4 +83,16 @@ test.describe('beta MIDI editing and shared transport', () => {
 		}
 		expect(errors).toEqual([]);
 	});
+
+	test('drawing notes with triplets enabled uses the selected triplet length', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		const noteEditor = await openPianoRoll(page, editor);
+		const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
+		await panel.getByRole('checkbox', { name: 'Triplets', exact: true }).check();
+		const grid = panel.getByRole('group', { name: 'Piano roll notes', exact: true });
+		await grid.click({ position: { x: 171, y: 76 } });
+		await expect(noteEditor.getByRole('spinbutton', { name: 'Pitch (MIDI number)', exact: true })).toHaveValue('62');
+		await expect(noteEditor.getByRole('spinbutton', { name: 'Note duration (seconds)', exact: true })).toHaveValue(String(1 / 12));
+	});
 });
