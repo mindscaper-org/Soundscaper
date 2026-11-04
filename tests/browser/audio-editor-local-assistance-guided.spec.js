@@ -83,16 +83,10 @@ test.describe('menu-only Local Assistance workflows', () => {
 		await expect(manager).toBeHidden();
 		let assistance = page.getByRole('dialog', { name: 'Enhance Dialogue', exact: true });
 		await expect(assistance.getByRole('tablist')).toHaveCount(0);
-		const placement = assistance.getByRole('button', { name: 'Add result to', exact: true });
-		await placement.click();
-		await page.getByRole('option', { name: 'Replace selected range', exact: true }).click();
-		await assistance.getByRole('button', { name: 'Manage Models', exact: true }).click();
-		await expect(manager).toBeVisible();
-		await manager.locator('button').filter({ hasText: /^Close$/u }).click();
-		await expect(manager).toBeHidden();
-		await expect(placement).toContainText('Replace selected range');
-		await expect(assistance.getByRole('button', { name: 'Manage Models', exact: true })).toBeFocused();
-		await expect(assistance.getByText('Required models are installed.', { exact: true })).toBeVisible();
+		await expect(assistance.getByRole('combobox', { name: 'Selected media', exact: true })).toHaveCount(0);
+		await expect(assistance.getByRole('button', { name: 'Add result to', exact: true })).toHaveCount(0);
+		await expect(assistance.getByText('Technical details', { exact: true })).toHaveCount(0);
+		await expect(assistance.getByText('Exact settings', { exact: true })).toHaveCount(0);
 		await assistance.locator('button').filter({ hasText: /^Close$/u }).click();
 		await selectedClip.focus();
 		await page.keyboard.press('Enter');
@@ -105,8 +99,11 @@ test.describe('menu-only Local Assistance workflows', () => {
 		const accurateMode = guided.getByRole('radio', { name: 'Accurate · TransNetV2', exact: true });
 		await expect(fastMode).toBeChecked();
 		await accurateMode.check();
-		await expect(accurateMode).toBeChecked();
-		await fastMode.check();
+		const missingAccurateModel = page.locator('[data-assistance-model-prerequisites]');
+		await expect(missingAccurateModel).toBeVisible();
+		await expect(missingAccurateModel.getByRole('button', { name: 'Re-download', exact: true })).toBeDisabled();
+		await missingAccurateModel.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await openAssistanceTask(page, editor, 'Mark Cuts');
 		await expect(fastMode).toBeChecked();
 
 		const consentMessages = [];
@@ -115,7 +112,7 @@ test.describe('menu-only Local Assistance workflows', () => {
 			expect(dialog.type()).toBe('confirm');
 			await dialog.accept();
 		});
-		await guided.getByRole('button', { name: 'Run locally', exact: true }).click();
+		await guided.getByRole('button', { name: 'Analyze', exact: true }).click();
 		await expect(guided.getByRole('status', { name: 'Processing status' })).toHaveText('Processing selected media locally');
 		await expect.poll(() => fixtureSnapshot(page).then(({ progressEvents }) => progressEvents)).toBe(1);
 		await page.evaluate(() => globalThis.__m7AssistanceFixture.completeRun());
@@ -175,7 +172,7 @@ test.describe('menu-only Local Assistance workflows', () => {
 			name: 'Mark Cuts', exact: true,
 		});
 		const cancellationGuided = cancellationDialog;
-		await cancellationGuided.getByRole('button', { name: 'Run locally', exact: true })
+		await cancellationGuided.getByRole('button', { name: 'Analyze', exact: true })
 			.click();
 		await expect.poll(() => fixtureSnapshot(page).then(({ createWaits }) => createWaits)).toBe(1);
 		await expect(cancellationGuided.getByRole('status', { name: 'Processing status' }))
@@ -214,14 +211,12 @@ test.describe('menu-only Local Assistance workflows', () => {
 		const advanced = assistance.getByRole('tabpanel', { name: 'Advanced', exact: true });
 		await expect(advanced).toBeVisible();
 
-		const source = advanced.getByRole('combobox', { name: 'Selected media', exact: true });
-		await expect(source.locator('option')).toHaveCount(2);
-		await source.selectOption({ index: 1 });
+		await expect(advanced.getByRole('combobox', { name: 'Selected media', exact: true })).toHaveCount(0);
 		const operation = advanced.getByRole('combobox', { name: 'Operation', exact: true });
 		expect((await operation.locator('option').allTextContents()).slice(1)).toEqual(ADVANCED_OPERATIONS);
 		await expect(advanced.locator('input[type="checkbox"]')).toHaveCount(0);
 		await expect(advanced).toContainText(
-			'Run locally opens one consent dialog for this exact operation, model, input, and output selection.',
+			'Processing opens one consent dialog for this exact operation, model, input, and output selection.',
 		);
 		await operation.selectOption('shot-detection');
 		await expect(advanced.getByText('This operation requires no installed model binding.'))
@@ -233,7 +228,7 @@ test.describe('menu-only Local Assistance workflows', () => {
 			expect(dialog.type()).toBe('confirm');
 			await dialog.accept();
 		});
-		await advanced.getByRole('button', { name: 'Run locally', exact: true }).click();
+		await advanced.getByRole('button', { name: 'Analyze', exact: true }).click();
 		await expect(advanced.getByText('Running the local model.', { exact: true })).toBeVisible();
 		await page.evaluate(() => globalThis.__m7AssistanceFixture.completeRun());
 		await expect(advanced.getByText('A validated local result is available.', { exact: true }))

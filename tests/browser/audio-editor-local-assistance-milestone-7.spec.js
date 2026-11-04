@@ -52,21 +52,8 @@ test.describe('Milestone 7 Guided workflow qualification', () => {
 		assistance = page.locator('[data-local-assistance]');
 		guided = assistance;
 
-		review = await runAndReview(page, guided, 'Enhance Dialogue');
-		await expect(review.locator('label', { hasText: 'Original selection' }).locator('audio'))
-			.toHaveCount(1);
-		await expect(review.locator('label', { hasText: 'Enhanced dialogue' }).locator('audio'))
-			.toHaveCount(1);
-		await expect(review.getByRole('checkbox', { name: 'Enhanced Dialogue', exact: true }))
-			.not.toBeChecked();
-
-		review = await runAndReview(page, guided, 'Reduce Reverb');
-		await expect(review.locator('label', { hasText: 'Original selection' }).locator('audio'))
-			.toHaveCount(1);
-		await expect(review.locator('label', { hasText: 'Reduced reverb' }).locator('audio'))
-			.toHaveCount(1);
-		await expect(review.getByRole('checkbox', { name: 'Reduced Reverb', exact: true }))
-			.not.toBeChecked();
+		await applyDirectEffectAndUndo(page, editor, 'Enhance Dialogue');
+		await applyDirectEffectAndUndo(page, editor, 'Reduce Reverb');
 
 		await selectWorkflow(page, guided, 'Detect Beats & Tempo');
 		const beatLabels = guided.getByRole('checkbox', {
@@ -108,12 +95,12 @@ test.describe('Milestone 7 Guided workflow qualification', () => {
 		await expect(editor).toHaveAttribute('data-product', 'framescaper');
 	});
 
-	test('auditions cleanup ranges and keeps separated stem choices atomic', async ({ page }) => {
+	test('auditions cleanup ranges and applies separated stems atomically', async ({ page }) => {
 		test.setTimeout(180_000);
-		const { guided, errors } = await openGuidedLinkedFixture(page);
+		const { editor, guided, errors } = await openGuidedLinkedFixture(page);
 		acceptConsentDialogs(page);
 
-		let review = await runAndReview(page, guided, 'Clean Filler & Silence');
+		const review = await runAndReview(page, guided, 'Clean Filler & Silence');
 		const original = review.locator('label', { hasText: 'Original selection' }).locator('audio');
 		await expect(original).toHaveAttribute('data-skip-range-count', '0');
 		await expect(original).toHaveAttribute('src', /^blob:/u);
@@ -128,16 +115,7 @@ test.describe('Milestone 7 Guided workflow qualification', () => {
 			'Audition skips checked ranges without changing the project.',
 		);
 
-		review = await runAndReview(page, guided, 'Separate Dialogue / Music / Effects');
-		await expect(review.locator('audio')).toHaveCount(4);
-		const stems = ['Dialogue', 'Music', 'Effects'].map((name) => (
-			review.getByRole('checkbox', { name, exact: true })
-		));
-		for (const stem of stems) await expect(stem).not.toBeChecked();
-		await stems[0].check();
-		for (const stem of stems) await expect(stem).toBeChecked();
-		await stems[2].uncheck();
-		for (const stem of stems) await expect(stem).not.toBeChecked();
+		await applyDirectEffectAndUndo(page, editor, 'Separate Dialogue / Music / Effects');
 		expect(errors).toEqual([]);
 	});
 
@@ -430,11 +408,11 @@ async function runAndReview(page, guided, label) {
 }
 
 async function runSelectedAndReview(page, guided) {
-	const run = guided.getByRole('button', { name: 'Run locally', exact: true });
+	const run = guided.getByRole('button', { name: /^(?:Apply|Analyze|Generate)$/u });
 	await expect(run).toBeEnabled();
 	await run.click();
 	const status = guided.getByRole('status', { name: 'Processing status' });
-	await expect(status).toHaveText(/Processing selected media|unavailable locally/u);
+	await expect(status).toHaveText(/Processing selected media|unavailable/u);
 	if ((await status.textContent())?.includes('unavailable')) {
 		throw new Error(JSON.stringify(await milestone7FixtureSnapshot(page)));
 	}
@@ -454,4 +432,25 @@ async function seekVideo(video, currentTime) {
 			element.currentTime = target;
 		});
 	}, currentTime);
+}
+
+async function applyDirectEffectAndUndo(page, editor, label) {
+	const { progressEvents } = await milestone7FixtureSnapshot(page);
+	const openDialog = page.locator('[data-local-assistance]');
+	await openDialog.locator('button').filter({ hasText: /^Close$/u }).click();
+	await openAssistanceTask(page, editor, label);
+	const processing = page.getByRole('dialog', { name: label, exact: true });
+	await expect(processing.getByRole('progressbar', { name: 'Processing status' })).toBeVisible();
+	await expect.poll(() => milestone7FixtureSnapshot(page).then((state) => state.progressEvents))
+		.toBe(progressEvents + 1);
+	await expect(processing.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
+	await expect(processing.getByRole('combobox')).toHaveCount(0);
+	await completeMilestone7Run(page);
+	await expect(processing).toBeHidden();
+	await expect(editor).toHaveAttribute('data-clip-count', label.startsWith('Separate') ? '4' : '2');
+	await expect(editor.getByRole('group', { name: /^Video clip:/u })).toHaveCount(1);
+	await editor.getByRole('button', { name: 'Undo', exact: true }).click();
+	await expect(editor).toHaveAttribute('data-clip-count', '2');
+	await reselectTimelineAudio(editor, page);
+	await openAssistanceTask(page, editor, 'Transcribe & Captions');
 }

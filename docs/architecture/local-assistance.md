@@ -170,7 +170,8 @@ directory, defaulting to `<userData>/models` on macOS and Windows and
 plain `blobs/sha256-<hex>` files that users can inspect and delete. Model
 bytes never live in browser storage or the installation directory.
 
-`Tools > Local Models > Manage Models...` is the only installation surface.
+`Tools > Local Models > Manage Models...` provides model installation and management.
+Task commands also offer a scoped download prompt for their missing prerequisites.
 Installation is always a direct user action and performs capacity preflight,
 bounded resumable range download, streamed hashing, digest verification, and
 atomic publication. Downloads are cancellable and an interrupted partial does
@@ -199,6 +200,11 @@ model removes its manifest and garbage-collects unreferenced blobs. An app
 update may ship a new catalog and mark an installation stale, but it never
 silently downloads, replaces, or removes model bytes.
 
+If a task discovers a required model has disappeared, it returns to the download
+prompt with an explicit re-download action. Healthy installed dependencies remain
+available, the selected model and settings are retained, and successful installation
+resumes the task. Stale installed metadata cannot automatically retry the missing model.
+
 Every installed blob carries its offline licence and attribution material.
 After installation, inference performs zero network requests. The privacy
 workload observes the complete workflow rather than trusting a JavaScript flag;
@@ -207,11 +213,21 @@ defence, not the primary claim.
 
 ## Consent and job authority
 
-`Analyze > Local Assistance` opens product-specific configuration and review
-dialogs. The versioned `AssistanceWorkflow` contract owns the guided recipes
+Task commands in the existing Effect, Analyze, Generate, Edit, and Tools menus
+use the current timeline selection. They show configuration only when the task
+has editable settings; installed alternative recognizers appear in a model picker,
+and a sole installed recognizer is selected automatically. Advanced Local
+Processing retains the explicit primitive-operation workflow. The versioned
+`AssistanceWorkflow` contract owns the guided recipes
 and all fifteen Advanced primitive recipes. Each recipe is a closed stage graph
 with slotted inputs and outputs, exact model roles, versioned settings, progress,
 and one main-owned consent decision.
+
+Choosing Enhance Dialogue, Reduce Reverb, or Separate Dialogue / Music / Effects
+authorizes that selection-replacing effect. These fixed-control commands start
+directly, with cancellable progress, and main issues the same request-bound consent
+grant without a second confirmation dialog. Advanced operations and workflows
+requiring result choices retain their explicit confirmation and review steps.
 
 One aggregate fence binds the job to the project revision, sequence, selected
 occurrences, source ids and digests, source ranges, link membership, timing,
@@ -237,11 +253,21 @@ project-isolated derivatives so a rerun can resume coarsely.
 
 ## Review and result publication
 
-Every workflow follows **propose, then commit**. Proposals begin unselected and
-review surfaces are mutation-free. Cleanup review retains original/result
-audition, separation exposes each stem, and crop and highlight proposals remain
-transport-backed and editable. Nothing touches the project until explicit
-acceptance revalidates the aggregate fence.
+Every workflow authenticates its proposal before committing it. The three ordinary
+audio effects validate and select their fixed outputs internally, then apply one
+atomic, undoable edit after revalidating the selection fence. A selection spanning
+multiple clips or audio tracks is divided into selected occurrence intersections;
+each keeps its own fence and authenticated output. Their sources and commands remain
+staged until every occurrence succeeds, and failure or cancellation rolls them all back.
+Enhancement and dereverberation replace the selected range; separation replaces it with Dialogue
+and adds aligned, audible Music and Effects tracks. Unselected audio and linked
+video remain intact. Replacing linked audio detaches its A/V link, restored by undo.
+Derived PCM is stored at the project rate so subsequent effects can process it normally;
+provenance retains the authenticated model output identity.
+
+Other proposals begin unselected and review surfaces are mutation-free. Cleanup
+review retains original/result audition, and crop and highlight proposals remain
+transport-backed and editable. Their explicit acceptance revalidates the aggregate fence.
 
 Acceptance publishes through ordinary atomic, undoable commands:
 
