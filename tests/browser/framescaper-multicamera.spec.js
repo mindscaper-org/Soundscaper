@@ -8,6 +8,9 @@ import {
 	chooseFileAction,
 	chooseNestedCommandAction,
 	closeWorkspacePanel,
+	resolveBrowserProductTestUrl,
+	waitForEditor,
+	waitForProjectActivation,
 } from './audio-editor-test-helpers.js';
 import { videoTimingProbeMedia } from './fixtures/video-timing-probe-media.js';
 import { videoSourceGeometryMedia } from './fixtures/video-source-geometry-media.js';
@@ -109,7 +112,13 @@ test.describe('Framescaper selected-web multicamera workflow', () => {
 		await chooseFileAction(page, editor, 'Save project');
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 		const switched = await storedMulticamera(page, projectId);
-		const reopened = await bootEditor(page, `/framescaper/en/?project=${encodeURIComponent(projectId)}`);
+		// Firefox can replace a committed navigation before DOMContentLoaded.
+		// The active requested project below owns completion of this reopen.
+		await page.goto(resolveBrowserProductTestUrl(`/framescaper/en/?project=${encodeURIComponent(projectId)}`), {
+			waitUntil: 'commit',
+		});
+		const reopened = await waitForEditor(page);
+		await waitForProjectActivation(reopened);
 		await expect(reopened).toHaveAttribute('data-project-id', projectId);
 		await expect.poll(() => storedMulticamera(page, projectId)).toEqual(switched);
 		await seekFramescaperTimecode(page, reopened, PREVIEW_TIMECODE);

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-export const AUDIO_EDITOR_SHORTCUT_DEFAULTS_VERSION = 5;
+export const AUDIO_EDITOR_SHORTCUT_DEFAULTS_VERSION = 6;
 
 // New manifest metadata for these previously unavailable commands is not a
 // former installed default, even in the legacy table derived from the manifest.
@@ -8,6 +8,7 @@ const VERSIONED_ADDITIONS = [
 	{ version: 2, actionIds: ['play-cut-preview', 'play-stop-select'] },
 	{ version: 3, actionIds: ['action://playback/play-selection'] },
 	{ version: 4, actionIds: ['sel-start', 'sel-end'] },
+	{ version: 6, actionIds: ['timeline-page-left', 'timeline-page-right'] },
 ] as const;
 const NEW_DEFAULT_ACTION_IDS = new Set<string>(VERSIONED_ADDITIONS.flatMap(({ actionIds }) => [...actionIds]));
 

@@ -41,7 +41,7 @@ export function createWorkspaceApplicationMenus({
 		fileService,
 		importInputRef,
 		locale,
-		openDesktopFiles,
+		openDesktopFiles, openProjectFile = undefined,
 		openEffects,
 		openAssistanceSearch = undefined,
 		openExternal,
@@ -220,14 +220,16 @@ export function createWorkspaceApplicationMenus({
 				openAudacityRecovery: () => openSurface('audacity-recovery'),
 				openFile: () => fileService.isDesktop
 					? run(() => openDesktopFiles('project'))
-					: aup4InputRef.current?.click(),
+					: fileService.browserProjectPickerAvailable && openProjectFile
+						? run(async () => { for (const file of await fileService.chooseBrowserProjectFiles()) await openProjectFile(file); })
+						: aup4InputRef.current?.click(),
 				openRecentProject: (projectId) => run(() => controller.actions.project.openRecent(projectId)),
 				switchProject: (projectId) => run(() => controller.actions.project.openById(projectId)),
 				clearRecentProjects: () => run(() => controller.actions.project.clearRecent()),
 				closeProject: () => run(() => controller.actions.project.close()),
 				claimProjectLock: () => run(() => controller.actions.project.claimLock()),
 				saveDawproject: () => run(() => controller.actions.project.saveDawproject()),
-				saveProject: () => run(() => controller.actions.project.save()),
+				saveProject: () => run(() => controller.actions.project.saveFile()),
 				saveScape: () => run(() => controller.actions.project.saveScape({ saveCopy: snapshot.readOnly })),
 				saveAup3: () => run(() => controller.actions.project.saveAup3({ saveCopy: snapshot.readOnly })),
 				saveAup4: () => run(() => controller.actions.project.saveAup4({ saveCopy: snapshot.readOnly })),

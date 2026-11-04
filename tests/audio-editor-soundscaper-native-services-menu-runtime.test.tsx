@@ -134,7 +134,6 @@ test('the workspace supplies the native services runtime so its menu entries are
 
 	assert.deepEqual(entries.map(({ id, disabled }) => [id, disabled]), [
 		['native-effect-manage', false],
-		['native-effect-use', false],
 	]);
 	assert.ok(calls.includes('nativePluginAvailability'), 'the runtime must consume the preload bridge');
 	for (const entry of entries) {
@@ -143,7 +142,7 @@ test('the workspace supplies the native services runtime so its menu entries are
 	}
 });
 
-test('a tier whose formats are all unconsented keeps the scan entry disabled but reachable', async (t) => {
+test('a tier whose formats are all unconsented keeps the manager reachable', async (t) => {
 	const { bridge } = fakeBridge({
 		nativePluginAvailability: () => Promise.resolve({
 			enabled: true,
@@ -164,7 +163,7 @@ test('a tier whose formats are all unconsented keeps the scan entry disabled but
 
 	assert.deepEqual(
 		entries.filter(({ id }) => (id ?? '').startsWith('native-effect-')).map(({ id, disabled }) => [id, disabled]),
-		[['native-effect-manage', false], ['native-effect-use', true]],
+		[['native-effect-manage', false]],
 	);
 });
 

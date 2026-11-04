@@ -259,6 +259,12 @@ public:
 		plugin->destroy(plugin);
 	}
 
+	void audioTopology(uint32_t &inputs, uint32_t &outputs) const override
+	{
+		inputs = topology.inputChannels;
+		outputs = topology.outputChannels;
+	}
+
 	soundscaper_pro_status process(
 		const float *const *inputs, uint32_t inputChannels, float **outputs,
 		uint32_t outputChannels, uint32_t frames) override

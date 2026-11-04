@@ -155,7 +155,7 @@ test('playback reapply awaits staged cleanup and preserves primary cleanup conte
 			new Map(),
 			() => undefined,
 			async () => {
-				assert.equal(engineStopped, true);
+				assert.equal(engineStopped, false, 'failed candidate application preserves the prior graph');
 				cleanupStarted.resolve();
 				await gate.promise;
 				throw cleanupFailure;

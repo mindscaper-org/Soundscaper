@@ -9,15 +9,19 @@ import {
 import {
 	bootEditor,
 	clipByName,
+	chooseCommandAction,
+	chooseNestedCommandAction,
 	collectClientErrors,
 	importFiles,
 	registerAudioEditorHooks,
 	stubStorageEstimate,
 } from './audio-editor-test-helpers.js';
 import { SOUNDSCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
+import { selectClipRange } from './helpers/complex-editing-workflows.js';
 import {
 	completeMilestone7Run,
 	installMilestone7LocalAssistanceFixture,
+	milestone7FixtureSnapshot,
 } from './helpers/milestone-7-local-assistance.js';
 
 const AUDIO = createWavFixture({
@@ -30,7 +34,7 @@ const AUDIO = createWavFixture({
 test.describe('Local Assistance result acceptance', () => {
 	registerAudioEditorHooks();
 
-	test('publishes reviewed audio, reaction, beat, tempo, and cleanup results', async ({ page }) => {
+	test('publishes reviewed reaction, beat, tempo, and cleanup results', async ({ page }) => {
 		test.setTimeout(240_000);
 		await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
 		await installMilestone7LocalAssistanceFixture(page);
@@ -43,14 +47,7 @@ test.describe('Local Assistance result acceptance', () => {
 		acceptConsentDialogs(page);
 
 		await selectSource(editor, page);
-		let review = await runAndReview(page, editor, 'Enhance Dialogue');
-		await review.getByRole('checkbox', { name: 'Enhanced Dialogue', exact: true }).check();
-		await applyAndClose(page);
-		await expect.poll(() => acceptedProjectSummary(page, projectId))
-			.toMatchObject({ assistanceSourceNames: ['Enhanced Dialogue'] });
-
-		await selectSource(editor, page);
-		review = await runAndReview(page, editor, 'Mark Reactions');
+		let review = await runAndReview(page, editor, 'Mark Reactions');
 		await review.getByRole('checkbox', { name: 'Reaction range 1', exact: true }).check();
 		await applyAndClose(page);
 		await expect(editor.locator('[data-label-track] [data-label-id]', { hasText: 'Laughter' }))
@@ -78,12 +75,112 @@ test.describe('Local Assistance result acceptance', () => {
 		await applyAndClose(page);
 
 		await expect.poll(() => acceptedProjectSummary(page, projectId)).toMatchObject({
-			assistanceSourceNames: ['Enhanced Dialogue'],
+			assistanceSourceNames: [],
 			beatLabels: ['Downbeat'],
 			cleanupClipCount: 2,
 			reactionLabels: ['Laughter'],
 			tempoBpm: { den: 1, num: 120 },
 		});
+		expect(errors).toEqual([]);
+	});
+
+	test('applies effects without configuration dialogs and undoes each selected-audio replacement', async ({ page }) => {
+		test.setTimeout(180_000);
+		await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
+		await installMilestone7LocalAssistanceFixture(page);
+		const errors = collectClientErrors(page);
+		const editor = await bootEditor(page, '/en/');
+		await importFiles(editor, [AUDIO], { timeout: 30_000 });
+		const projectId = await editor.getAttribute('data-project-id');
+		acceptConsentDialogs(page);
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		const initial = await storedAudioSummary(page, projectId);
+		for (const [task, names] of [
+			['Enhance Dialogue', ['Enhanced Dialogue']],
+			['Reduce Reverb', ['Reduced Reverb']],
+			['Separate Dialogue / Music / Effects', ['Dialogue', 'Music', 'Effects']],
+		]) {
+			const { progressEvents } = await milestone7FixtureSnapshot(page);
+			await chooseCommandAction(page, editor, 'Select', 'Select none');
+			await selectClipRange(page, editor, clipByName(editor, AUDIO.name).first(), 0.25, 0.75);
+			const playhead = editor.getByRole('slider', { name: 'Playhead', exact: true });
+			await chooseNestedCommandAction(page, editor, 'View', ['Skip to', 'Selection start']);
+			const startFrame = Number(await playhead.getAttribute('aria-valuenow'));
+			await chooseNestedCommandAction(page, editor, 'View', ['Skip to', 'Selection end']);
+			const endFrame = Number(await playhead.getAttribute('aria-valuenow'));
+			await openAssistanceTask(page, editor, task);
+			const assistance = page.getByRole('dialog', { name: task, exact: true });
+			await expect(assistance.getByRole('progressbar', { name: 'Processing status' })).toBeVisible();
+			await expect.poll(() => milestone7FixtureSnapshot(page).then((state) => state.progressEvents))
+				.toBe(progressEvents + 1);
+			await expect(assistance.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
+			await expect(assistance.getByRole('combobox')).toHaveCount(0);
+			await expect(assistance.getByRole('button', { name: 'Add result to', exact: true })).toHaveCount(0);
+			await expect(assistance.getByText('Technical details', { exact: true })).toHaveCount(0);
+			await expect(assistance.getByText('Exact settings', { exact: true })).toHaveCount(0);
+			await expect(assistance.getByRole('button', { name: 'Review result', exact: true })).toHaveCount(0);
+			await completeMilestone7Run(page);
+			await expect(assistance).toBeHidden();
+			await expect.poll(() => storedAudioSummary(page, projectId)).toMatchObject({
+				clipSourceNames: [AUDIO.name, AUDIO.name, ...names].sort(),
+				projectBinClipCount: initial.projectBinClipCount,
+			});
+			const applied = await storedAudioSummary(page, projectId);
+			const replacements = applied.clips.filter(({ sourceName }) => names.includes(sourceName));
+			expect(replacements).toHaveLength(names.length);
+			for (const clip of replacements) {
+				expect(clip.startFrame).toBe(startFrame);
+				expect(clip.durationFrames).toBe(endFrame - startFrame);
+				expect(clip.startFrame).toBeGreaterThan(0);
+				expect(clip.durationFrames).toBeLessThan(initial.clips[0].durationFrames);
+				expect(clip.startFrame + clip.durationFrames).toBeLessThan(initial.clips[0].durationFrames);
+			}
+			expect(applied.mutedAudioTrackCount).toBe(0);
+			expect(applied.audioTrackCount).toBe(initial.audioTrackCount + names.length - 1);
+			await editor.getByRole('button', { name: 'Undo', exact: true }).click();
+			await expect.poll(() => storedAudioSummary(page, projectId)).toEqual(initial);
+		}
+		expect(errors).toEqual([]);
+	});
+
+	test('applies a shared range on multiple tracks as one undoable edit', async ({ page }) => {
+		test.setTimeout(120_000);
+		const companion = createWavFixture({
+			name: 'assistance-second-track.wav', frequency: 440, duration: 4, channelCount: 1,
+		});
+		await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
+		await installMilestone7LocalAssistanceFixture(page);
+		const errors = collectClientErrors(page);
+		const editor = await bootEditor(page, '/en/');
+		await importFiles(editor, [AUDIO, companion], { timeout: 30_000 });
+		await expect(editor).toHaveAttribute('data-clip-count', '2');
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		const projectId = await editor.getAttribute('data-project-id');
+		const initial = await storedAudioSummary(page, projectId);
+		acceptConsentDialogs(page);
+		await selectClipRange(page, editor, clipByName(editor, AUDIO.name).first(), 0.25, 0.75);
+		await chooseNestedCommandAction(page, editor, 'Select', ['Tracks', 'Select all tracks']);
+		await openAssistanceTask(page, editor, 'Enhance Dialogue');
+		const processing = page.getByRole('dialog', { name: 'Enhance Dialogue', exact: true });
+		await expect(processing.getByRole('progressbar', { name: 'Processing status' })).toBeVisible();
+		await expect.poll(() => milestone7FixtureSnapshot(page).then(({ progressEvents }) => progressEvents)).toBe(1);
+		await completeMilestone7Run(page);
+		await expect.poll(() => milestone7FixtureSnapshot(page).then(({ progressEvents }) => progressEvents)).toBe(2);
+		expect(await storedAudioSummary(page, projectId)).toEqual(initial);
+		await completeMilestone7Run(page);
+		await expect(processing).toBeHidden();
+		await expect.poll(() => storedAudioSummary(page, projectId)).toMatchObject({
+			audioTrackCount: initial.audioTrackCount,
+			clipSourceNames: [AUDIO.name, AUDIO.name, companion.name, companion.name,
+				'Enhanced Dialogue', 'Enhanced Dialogue'].sort(),
+			mutedAudioTrackCount: 0,
+			projectBinClipCount: initial.projectBinClipCount,
+		});
+		const applied = await storedAudioSummary(page, projectId);
+		expect(applied.clips.filter(({ sourceName }) => sourceName === 'Enhanced Dialogue')
+			.map(({ trackName }) => trackName).sort()).toEqual(initial.clips.map(({ trackName }) => trackName).sort());
+		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
+		await expect.poll(() => storedAudioSummary(page, projectId)).toEqual(initial);
 		expect(errors).toEqual([]);
 	});
 });
@@ -109,7 +206,7 @@ async function runAndReview(page, editor, task) {
 }
 
 async function runSelectedAndReview(page, assistance) {
-	await assistance.getByRole('button', { name: 'Run locally', exact: true }).click();
+	await assistance.getByRole('button', { name: /^(?:Apply|Analyze)$/u }).click();
 	await expect(assistance.getByRole('status', { name: 'Processing status' }))
 		.toHaveText('Processing selected media locally');
 	await completeMilestone7Run(page);
@@ -155,4 +252,31 @@ async function acceptedProjectSummary(page, projectId) {
 			database.close();
 		}
 	}, { databaseName: SOUNDSCAPER_DATABASE_NAME, id: projectId, sourceName: AUDIO.name });
+}
+
+async function storedAudioSummary(page, projectId) {
+	return page.evaluate(async ({ databaseName, id }) => {
+		const result = (request) => new Promise((resolve, reject) => {
+			request.onsuccess = () => resolve(request.result);
+			request.onerror = () => reject(request.error);
+		});
+		const database = await result(indexedDB.open(databaseName));
+		try {
+			const project = await result(database.transaction('projects', 'readonly')
+				.objectStore('projects').get(id));
+			const audioTracks = project.tracks.filter(({ type }) => type === 'audio');
+			return {
+				audioTrackCount: audioTracks.length,
+				mutedAudioTrackCount: audioTracks.filter(({ mute }) => mute).length,
+				clipSourceNames: project.clips.map(({ sourceId }) => project.sources
+					.find(({ id: candidate }) => candidate === sourceId)?.name).sort(),
+				clips: project.clips.map(({ id: clipId, sourceId, timelineStartFrame, durationFrames }) => ({
+					trackName: project.tracks.find(({ clipIds }) => clipIds?.includes(clipId))?.name,
+					sourceName: project.sources.find(({ id: candidate }) => candidate === sourceId)?.name,
+					startFrame: timelineStartFrame, durationFrames,
+				})),
+				projectBinClipCount: project.projectBin.clips.length,
+			};
+		} finally { database.close(); }
+	}, { databaseName: SOUNDSCAPER_DATABASE_NAME, id: projectId });
 }

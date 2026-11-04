@@ -1,0 +1,159 @@
+name: Build authenticated AI runtimes
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        description: JSON desktop target with runner, platform, arch and node_arch
+        required: true
+        type: string
+      handoff-artifact-prefix:
+        description: Same-run artifact prefix for the verified runtime authority
+        type: string
+        default: assistance-runtime-handoff
+
+permissions:
+  contents: read
+
+jobs:
+  arm64-engines:
+    name: Build ${{ matrix.family }} / win / arm64
+    if: fromJSON(inputs.target).platform == 'win' && fromJSON(inputs.target).arch == 'arm64'
+    runs-on: windows-11-arm
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        family: [whisper-cpp, llama-cpp]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Set up Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version-file: .nvmrc
+          architecture: arm64
+          cache: npm
+      - name: Set up native tooling
+        uses: ./.github/actions/setup-native-tooling
+      - name: Pin npm
+        run: npm install --global npm@12.0.1
+      - name: Restore or install verified dependencies
+        uses: ./.github/actions/verified-node-dependencies
+        with:
+          scope: desktop-native
+      - name: Build and authenticate the CPU and Vulkan engine
+        run: node scripts/build-assistance-engine-part.ts
+        env:
+          SOUNDSCAPER_ASSISTANCE_ENGINE_FAMILY: ${{ matrix.family }}
+          SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: win
+          SOUNDSCAPER_DESKTOP_TARGET_ARCH: arm64
+          SOUNDSCAPER_SOURCE_REVISION: ${{ github.sha }}
+      - name: Upload the verified engine part
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: assistance-engine-${{ matrix.family }}-win-arm64
+          path: .native-build/assistance-engine-parts/${{ matrix.family }}/
+          include-hidden-files: true
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 1
+
+  prepare:
+    name: Assemble AI runtimes / ${{ fromJSON(inputs.target).platform }} / ${{ fromJSON(inputs.target).arch }}
+    needs: arm64-engines
+    if: ${{ !cancelled() && (needs.arm64-engines.result == 'success' || needs.arm64-engines.result == 'skipped') }}
+    runs-on: ${{ fromJSON(inputs.target).runner }}
+    timeout-minutes: ${{ fromJSON(inputs.target).platform == 'win' && 180 || 90 }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version-file: .nvmrc
+          architecture: ${{ fromJSON(inputs.target).node_arch }}
+          cache: npm
+
+      - name: Set up native tooling
+        uses: ./.github/actions/setup-native-tooling
+
+      - name: Pin npm
+        run: npm install --global npm@12.0.1
+
+      - name: Restore or install verified dependencies
+        uses: ./.github/actions/verified-node-dependencies
+        with:
+          scope: desktop-native
+
+      - name: Install local-model build tools
+        if: runner.os == 'Linux'
+        timeout-minutes: 10
+        run: bash scripts/ci-apt-install.sh build-essential cmake pkg-config python3
+
+      - name: Set up the locked Kokoro G2P builder
+        uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
+        with:
+          version: 0.12.5
+
+      - name: Prepare the verified Kokoro G2P bundle
+        uses: ./.github/actions/verified-kokoro-g2p
+        with:
+          target: ${{ fromJSON(inputs.target).platform }}-${{ fromJSON(inputs.target).arch }}
+
+      - name: Download the verified whisper-cpp Windows ARM engine
+        if: fromJSON(inputs.target).platform == 'win' && fromJSON(inputs.target).arch == 'arm64'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: assistance-engine-whisper-cpp-win-arm64
+          path: ${{ github.workspace }}/.native-build/assistance-engine-parts/whisper-cpp
+
+      - name: Download the verified llama-cpp Windows ARM engine
+        if: fromJSON(inputs.target).platform == 'win' && fromJSON(inputs.target).arch == 'arm64'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: assistance-engine-llama-cpp-win-arm64
+          path: ${{ github.workspace }}/.native-build/assistance-engine-parts/llama-cpp
+
+      - name: Stage the authenticated AI runtime archives
+        run: node scripts/prepare-assistance-runtimes.mjs
+        env:
+          SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ fromJSON(inputs.target).platform }}
+          SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ fromJSON(inputs.target).arch }}
+          SOUNDSCAPER_SOURCE_REVISION: ${{ github.sha }}
+          SOUNDSCAPER_ASSISTANCE_ENGINE_PARTS_ROOT: ${{ fromJSON(inputs.target).platform == 'win' && fromJSON(inputs.target).arch == 'arm64' && format('{0}/.native-build/assistance-engine-parts', github.workspace) || '' }}
+
+      - name: Export the source-bound AI runtime handoff
+        run: node scripts/export-assistance-runtime-handoff.mjs
+        env:
+          SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ fromJSON(inputs.target).platform }}
+          SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ fromJSON(inputs.target).arch }}
+          SOUNDSCAPER_SOURCE_REVISION: ${{ github.sha }}
+          SOUNDSCAPER_ASSISTANCE_RUNTIME_HANDOFF_ROOT: ${{ github.workspace }}/.native-build/assistance-runtime-handoff
+
+      - name: Upload the verified AI runtime authority
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ inputs.handoff-artifact-prefix }}-${{ fromJSON(inputs.target).platform }}-${{ fromJSON(inputs.target).arch }}
+          path: .native-build/assistance-runtime-handoff/
+          include-hidden-files: true
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Retain the authenticated archives for offline consumers
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: assistance-runtime-archives-${{ fromJSON(inputs.target).platform }}-${{ fromJSON(inputs.target).arch }}
+          path: .desktop-build/assistance-distribution/
+          include-hidden-files: true
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 1

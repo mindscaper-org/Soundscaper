@@ -9,7 +9,11 @@ import { test } from 'node:test';
 
 import { assistanceNativeRuntimeStageSummary } from '../desktop/assistance-native-runtime-payload.mjs';
 import { createAssistanceRuntimeArchive } from '../scripts/lib/desktop-assistance-runtime-archive.mjs';
-import { writeDesktopAssistanceRuntimeStage } from '../scripts/lib/desktop-assistance-runtime-preparation.mjs';
+import {
+	prepareDesktopAssistanceOnly,
+	prepareDesktopAssistanceRuntimeSet,
+	writeDesktopAssistanceRuntimeStage,
+} from '../scripts/lib/desktop-assistance-runtime-preparation.mjs';
 import {
 	exportDesktopAssistanceRuntimeHandoff,
 	readDesktopAssistanceRuntimeHandoff,
@@ -180,6 +184,29 @@ test('unpublished archives seed both product imports offline and corrupted local
 			archiveRoot: destination, cacheRoot: archiveRoot, fetchImpl }), /digest|length/u);
 		await assert.rejects(readdir(destination), /ENOENT/u,
 			'no archive may be copied into the package before the entire handoff verifies');
+	});
+});
+
+test('AI asset publication stages and re-exports prepared authority without a second engine build', async () => {
+	await fixture(async ({ buildRoot, handoffRoot, native, archiveRoot }) => {
+		const identity = { sourceRevision: SOURCE_REVISION, targetId: TARGET_ID, sourceNativeManifest: native };
+		await exportDesktopAssistanceRuntimeHandoff({ ...identity, buildRoot, handoffRoot });
+		const repositoryRoot = join(handoffRoot, '..', 'publisher');
+		await prepareDesktopAssistanceOnly({ ...identity, repositoryRoot, handoffRoot }, {
+			prepare: options => prepareDesktopAssistanceRuntimeSet(options, {
+				stageSpeech: async () => { throw new Error('Publication must not compile a neural engine.'); },
+				stageHandoff: request => stageDesktopAssistanceRuntimeHandoff({ ...request,
+					sourceNativeManifest: native, cacheRoot: archiveRoot,
+					fetchImpl: async () => { throw new Error('Same-run archives must stay offline.'); },
+				}),
+			}),
+		});
+		const exported = await exportDesktopAssistanceRuntimeHandoff({ ...identity,
+			buildRoot: join(repositoryRoot, '.desktop-build'), handoffRoot: join(repositoryRoot, 'handoff') });
+		assert.equal(exported.distribution.bundles.length, 5);
+		assert.equal(exported.handoff.sourceRevision, SOURCE_REVISION);
+		assert.deepEqual(exported.authority.nativeManifestBytes,
+			await readFile(join(handoffRoot, 'config/assistance-native-runtime-manifest.json')));
 	});
 });
 

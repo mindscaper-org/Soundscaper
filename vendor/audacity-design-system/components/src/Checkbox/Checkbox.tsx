@@ -1,3 +1,4 @@
+import { iconNameToChar } from '../Icon/icon-codes.ts';
 /**
  * Checkbox Component
  *
@@ -104,7 +105,7 @@ export function Checkbox({
       style={style}
     >
       {checked && (
-        <div className="checkbox__icon">{'\uEF31'}</div>
+        <div className="checkbox__icon">{iconNameToChar('TICK_RIGHT_ANGLE')}</div>
       )}
     </div>
   );

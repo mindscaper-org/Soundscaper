@@ -20,6 +20,7 @@ for (const audioSeconds of [2, 10] as const) test(`native ${audioSeconds}s conta
 		return { ...writer, maximumChunkBytes: 65536, get bytesWritten() { return writer.bytesWritten; } };
 	};
 	await createImportVideoFile(fixture.runtime)(unequalAvPreviewFixture(audioSeconds), { destination: 'timeline', trackId: null, timelineStartFrame: 0 });
+	await fixture.finishDerivatives();
 	const video = fixture.addedSources.find(source => source.kind === 'video'); assert.ok(video);
 	assert.equal(video.sourceFrameCount, 60); assert.equal(video.sampleFrameCount, 96000);
 	const timestamps = fixture.derivatives.filter(value => value.type === 'thumbnail').map(value => value.timestamp);

@@ -11,7 +11,7 @@ import PreferenceDropdownField from './PreferenceDropdownField.jsx';
 /**
  * Audacity's Playback/Recording preferences page. Audacity lists the page but
  * ships no content for it yet, so it collects what this editor already had:
- * the play-at-speed pitch behaviour, and the recording input retention setting.
+ * the play-at-speed pitch behaviour and the recording preferences.
  */
 export default function PlaybackRecordingPreferencesPage({
 	controller,
@@ -39,6 +39,11 @@ export default function PlaybackRecordingPreferencesPage({
 			<Separator />
 			<PreferencePanel title={copy.recordingPreferences}>
 				<div className="kw-audio-editor-preferences__checks kw-audio-editor-preferences__recording">
+					<PreferenceCheckbox
+						label={copy.recordingAlwaysRecordToNewTrack}
+						checked={preferences.recording?.alwaysRecordToNewTrack ?? false}
+						onChange={(checked) => run(() => controller.actions.preferences.update({ recording: { alwaysRecordToNewTrack: checked } }))}
+					/>
 					<span className="audio-editor-help-label">
 						<PreferenceCheckbox
 							label={copy.recordingKeepInputsOpen}

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { isProjectFileName } from '../../../../project-file-extensions.ts';
+import { claimProtectedSources } from './protected-source-claims.ts';
 import { findMissingClipSpreadsheetEditSources, planClipSpreadsheetEdits, type ClipSpreadsheetEdit } from '../../../clip-spreadsheet.ts';
 import {
 	findMissingClipSpreadsheetSources, planClipSpreadsheetInsert,
@@ -99,6 +100,7 @@ export function createClipSpreadsheetPasteService(dependencies: ClipSpreadsheetP
 		progress.setCancellation(() => task.abort(new DOMException('The spreadsheet paste was cancelled.', 'AbortError')));
 		const sources: ClipSpreadsheetInsertSource[] = [];
 		const stagedSourceIds = new Set<string>();
+		const releaseProtections: Array<() => void> = [];
 		const resolvedSourceIds = new Map<string, string>();
 		const importedFiles = new Map<File, string>();
 		let importingHeld = true;
@@ -124,7 +126,7 @@ export function createClipSpreadsheetPasteService(dependencies: ClipSpreadsheetP
 					onSourcePrepared: sourceId => {
 						if (!sourceId || sourcesById.has(sourceId)) throw new Error('An imported spreadsheet source requires a fresh source ID.');
 						stagedSourceIds.add(sourceId);
-						dependencies.protectedSourceIds.add(sourceId);
+						releaseProtections.push(claimProtectedSources([sourceId], dependencies.protectedSourceIds));
 					},
 				});
 				assertCurrent();
@@ -156,7 +158,7 @@ export function createClipSpreadsheetPasteService(dependencies: ClipSpreadsheetP
 			if (cleanupErrors.length) throw new AggregateError([error, ...cleanupErrors], 'Spreadsheet paste and imported-source cleanup failed.', { cause: error });
 			throw error;
 		} finally {
-			for (const id of stagedSourceIds) dependencies.protectedSourceIds.delete(id);
+			for (const release of releaseProtections) release();
 			if (ownsProject()) {
 				if (importingHeld) finishImporting();
 				dependencies.publish();

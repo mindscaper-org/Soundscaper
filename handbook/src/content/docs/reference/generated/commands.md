@@ -57,7 +57,6 @@ Product availability follows each product profile’s command filters and each l
 | At zero crossings | `zero-cross` | Z | Select | Soundscaper, Framescaper | Audacity |
 | Attach | `framescaper-proxy-attach` | — | Tools > Proxies | Framescaper | Soundscaper local |
 | Audacity | `workspace-audacity` | — | View > Workspace; Window | Soundscaper | Soundscaper local |
-| Audio Plugins | `native-effect-use` | — | Effect | Soundscaper | Soundscaper local |
 | Audio track | `new-audio-track` | — | Tracks > Add new track | Soundscaper, Framescaper | Soundscaper local |
 | Audio warp and transients | `audio-warp-editor` | — | Effect > Pitch and tempo | Soundscaper | Soundscaper local |
 | Auto Duck | `audacity-auto-duck` | — | Effect > Volume and compression | Soundscaper | Soundscaper local |
@@ -432,6 +431,8 @@ Product availability follows each product profile’s command filters and each l
 | Save preset as | `action://effects/presets/save_as` | — | Effect dialog > Presets | Soundscaper | Audacity |
 | Save project | `file-save` | Ctrl+S | File | Soundscaper, Framescaper | Audacity |
 | Save project as | `file-save-as` | — | File | Soundscaper, Framescaper | Audacity |
+| Scroll timeline left one page | `timeline-page-left` | PageUp | View | Soundscaper, Framescaper | Audacity |
+| Scroll timeline right one page | `timeline-page-right` | PageDown | View | Soundscaper, Framescaper | Audacity |
 | Scroll view to playhead | `toggle-update-display-while-playing` | — | View | Soundscaper, Framescaper | Audacity |
 | Seconds | `snap-seconds` | — | View > Snapping > Seconds and samples | Soundscaper, Framescaper | Soundscaper local |
 | Select all | `select-all` | Ctrl+A | Select | Soundscaper, Framescaper | Audacity |

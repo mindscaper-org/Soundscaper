@@ -12,6 +12,7 @@ test('File Import and native Save retain Matroska private tag names with their a
 	for (const value of Object.values(custom)) expect(buffer.includes(Buffer.from(value))).toBe(true);
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer });
 	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 30_000 });
+	await expect.poll(async () => (await sourcePeakChannels(page, file.name)).channelCount).toBe(1);
 	const peak = await sourcePeakChannels(page, file.name); expect(peak.channelCount).toBe(1);
 	expect(peak.channels[0].maximum).toBeGreaterThan(.05);
 	const downloading = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);

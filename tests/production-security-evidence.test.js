@@ -63,7 +63,7 @@ test('threat-model documentation defines the limits of enforced controls', async
 	for (const risk of matrix.risks) assert.match(documentation, new RegExp(`\\b${risk.id}\\b`, 'u'));
 	assert.match(documentation, /enforced does not mean risk-free/iu);
 	assert.match(documentation, /workers? provide fault isolation, not an operating-system security boundary/iu);
-	assertOrderedClaim(documentation, /native plug-ins? execute arbitrary code.*exact per-OS launcher.*rather than.*same-UID/isu);
+	assertOrderedClaim(documentation, /native plug-ins? execute arbitrary code.*Windows effects intentionally use the trusted user-access Job policy.*other native plug-in routes require their exact namespace\/Landlock\/seccomp, Seatbelt, or AppContainer policy.*No route silently substitutes an unreported process policy.*same-UID/isu);
 	assert.match(documentation, /local operating-system compromise is out of scope/iu);
 	assertOrderedClaim(
 		documentation,

@@ -43,7 +43,10 @@ test('every ARM runner installs native Node before installing dependencies', () 
 				if (row.tooling_node_arch) {
 					assert.equal(row.tooling_node_arch, 'arm64', `${name}/${id} npm architecture`);
 				}
-				const steps = job.steps as Record<string, unknown>[];
+				const implementation = job.uses === './.github/workflows/desktop-assistance-runtimes.yml'
+					? record(record(record(load(readFileSync(resolve(root,
+						'.github/workflows/desktop-assistance-runtimes.yml'), 'utf8'))).jobs).prepare) : job;
+				const steps = implementation.steps as Record<string, unknown>[];
 				const setup = steps.findIndex((step) => step.uses === './.github/actions/setup-native-tooling');
 				const install = steps.findIndex(dependencyInstallation);
 				assert.ok(setup >= 0 && setup < install, `${name}/${id} native tools before installed dependency reuse or npm ci`);

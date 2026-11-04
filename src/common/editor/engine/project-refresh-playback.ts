@@ -3,11 +3,20 @@ import { playbackSessionStart, restorePlaybackSessionStart } from './playback-se
 import { playbackFrequencyRange } from './playback-frequency-range.ts';
 import { isCutPreviewActive } from './cut-preview.ts';
 import { ENGINE_EMIT_POSITION } from './runtime-symbols.ts';
+import { refreshPlayingProject } from './project-refresh-handoff.ts';
+import { cancelPendingProjectRefresh } from './project-refresh-state.ts';
+import { throwIfAborted } from './async-utils.ts';
 import type { EngineRuntimeHost, EngineRuntimeMethodMap } from './runtime-types.ts';
 
 /** Rebuild the edited graph without turning an active bounded audition into normal playback. */
 export const engineProjectRefreshMethods = {
 	applyProject(this: EngineRuntimeHost, project, sourceBuffers = this.sources, options = {}) {
+		throwIfAborted(options.signal);
+		cancelPendingProjectRefresh(this);
+		if (this.state === 'playing' && this.graph && !isCutPreviewActive(this) && project && this.project
+			&& project.id === this.project.id && project.sampleRate === this.project.sampleRate) {
+			return refreshPlayingProject(this, project, sourceBuffers, options);
+		}
 		const wasPlaying = this.state === 'playing';
 		// A pending Play is reissued after loadProject retires its old generation.
 		const playRequested = this.pendingPlayRequest !== 0;

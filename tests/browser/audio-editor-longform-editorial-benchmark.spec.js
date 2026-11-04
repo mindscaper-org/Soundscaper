@@ -12,8 +12,11 @@ import {
 } from '../../src/common/editor/quality/m3-longform-editorial-workload.ts';
 import {
 	bootEditor,
+	waitForProjectActivation,
 } from './audio-editor-test-helpers.js';
-import { deterministicAvMedia } from './fixtures/deterministic-av-media.js';
+import { deterministicAvMedia, deterministicSilentVideoMedia } from './fixtures/deterministic-av-media.js';
+import { waveformPeakBlockSizes, WAVEFORM_PEAKS_VERSION } from '../../src/common/editor/waveform-peak-contract.ts';
+import { WAVEFORM_PEAK_CACHE_PREFIX } from '../../src/common/editor/source-analysis-cache.ts';
 import { collectDecodedAvDriftSamples } from './helpers/decoded-av-drift-probe.js';
 import { SOUNDSCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 import {
@@ -142,41 +145,30 @@ async function measureDecodedAvDrift(page) {
 	return page.evaluate(collectDecodedAvDriftSamples, fixtures);
 }
 
-// The long-form fixture declares 26 two-hour sources without local media,
-// because not one of the six registered metrics reads their bytes: positions
-// are structural, A/V drift is measured from separate probe fixtures, and seek,
-// scroll and retained heap are properties of the editor. The seeded editor
-// therefore settles on the missing-source notice rather than `success`. Errors
-// are shown in a toast, while the status toolbar reports `info`. Accept only
-// that notice, so any other error still fails the benchmark.
-const MISSING_SOURCES_NOTICE = 'Some local audio sources are missing.';
-
 async function waitForSeededEditor(page) {
 	const editor = page.locator('[data-audio-editor]');
 	await expect(editor).toBeVisible({ timeout: 20_000 });
 	await expect(editor).toHaveAttribute('data-audio-editor-bound', 'true', { timeout: 20_000 });
-	await expect.poll(async () => {
-		return editor.evaluate((root, expectedNotice) => {
-			const state = root.querySelector('[data-status]')?.getAttribute('data-state');
-			if (state === 'success') return 'success';
-			const errorToast = root.querySelector('[data-editor-toast="workspace-status-error"]');
-			return errorToast?.textContent?.includes(expectedNotice) === true
-				? 'missing-sources'
-				: state;
-		}, MISSING_SOURCES_NOTICE);
-	}, { timeout: 30_000 }).toMatch(/^(?:success|missing-sources)$/u);
+	await expect(editor).toHaveAttribute('data-project-id', M3_LONGFORM_EDITORIAL_FIXTURE_ID, { timeout: 30_000 });
+	await waitForProjectActivation(editor);
+	await expect(editor.locator('[data-status]')).toHaveAttribute('data-state', 'success');
 	return editor;
 }
 
 async function seedProject(page, project) {
-	await page.evaluate(async ({ databaseName, document }) => {
+	// Implicit silence blocks provide real readable two-hour PCM without retaining
+	// two-hour arrays. Small video bodies support source activation only; decoded
+	// A/V drift still uses the independent probe fixtures, not these timeline proxies.
+	const video = deterministicSilentVideoMedia[0].file;
+	const audio = project.sources.find((source) => source.kind === 'audio');
+	await page.evaluate(async ({ databaseName, document, peakSizes, peakVersion, peakPrefix, videoBase64, videoMimeType }) => {
 		const request = (value) => new Promise((resolve, reject) => {
 			value.onsuccess = () => resolve(value.result);
 			value.onerror = () => reject(value.error);
 		});
 		const database = await request(indexedDB.open(databaseName));
 		try {
-			const transaction = database.transaction(['projects', 'settings'], 'readwrite');
+			const transaction = database.transaction(['projects', 'settings', 'sources', 'sourceChunks', 'analysis', 'mediaAssets'], 'readwrite');
 			const completion = new Promise((resolve, reject) => {
 				transaction.oncomplete = resolve;
 				transaction.onerror = () => reject(transaction.error);
@@ -188,11 +180,38 @@ async function seedProject(page, project) {
 			settings.put({ key: 'last-project-id', value: document.id });
 			settings.put({ key: 'soundscaper:audio-editor-recent-project-ids', value: [document.id] });
 			settings.put({ key: 'soundscaper:timeline-ruler-playback', value: false });
+			const sources = transaction.objectStore('sources');
+			const poolId = `${document.id}:silence-pool`;
+			const sourceToken = `${poolId}:pcm`;
+			sources.put({ id: poolId, storage: 'indexeddb-chunks', sourceToken,
+				sampleRate: document.sampleRate, channelCount: 1, frameCount: 1, frameLength: 1, chunkFrames: 65_536, chunkCount: 1 });
+			transaction.objectStore('sourceChunks').put({ key: `${sourceToken}:0000000000`, sourceToken,
+				index: 0, frames: 1, channels: [new Float32Array(1).buffer] });
+			const videoBlob = new Blob([Uint8Array.from(atob(videoBase64), (character) => character.charCodeAt(0))], { type: videoMimeType });
+			for (const source of document.sources) {
+				if (source.kind === 'video') {
+					transaction.objectStore('mediaAssets').put({ sourceId: source.storageKey, storage: 'indexeddb',
+						blob: videoBlob, size: videoBlob.size, mimeType: videoMimeType });
+					continue;
+				}
+				sources.put({ ...source, id: source.storageKey, storage: 'sample-block-sequence',
+					sourceToken: `${source.id}:silence`, baseSourceId: poolId, frameLength: source.frameCount,
+					chunkFrames: 65_536, chunkCount: Math.ceil(source.frameCount / 65_536),
+					sampleBlockChannels: [[{ start: 0, frameCount: source.frameCount, poolStartFrame: null }]] });
+				transaction.objectStore('analysis').put({ key: `${peakPrefix}${source.id}`, value: {
+					version: peakVersion, channelCount: 1, levels: peakSizes.map((blockSize) => {
+						const count = Math.ceil(source.frameCount / blockSize);
+						return { blockSize, channels: [{ minimums: new Float32Array(count), maximums: new Float32Array(count), rms: new Float32Array(count) }] };
+					}),
+				} });
+			}
 			await completion;
 		} finally {
 			database.close();
 		}
-	}, { databaseName: DATABASE_NAME, document: project });
+	}, { databaseName: DATABASE_NAME, document: project,
+		peakSizes: waveformPeakBlockSizes(audio.frameCount, audio.channelCount), peakVersion: WAVEFORM_PEAKS_VERSION,
+		peakPrefix: WAVEFORM_PEAK_CACHE_PREFIX, videoBase64: video.buffer.toString('base64'), videoMimeType: video.mimeType });
 }
 
 async function persistedPositionChecks(page, expectedPositions) {

@@ -3,6 +3,8 @@ import { Button } from '@soundscaper/design-system/Button';
 import type { LocalAssistanceSnapshot } from '../local-assistance-session-types.ts';
 import type { AssistanceWorkflowSettingsV1 } from '../../assistance/workflow-settings-v1.ts';
 import { assistanceTaskModelsReady } from '../../controller/assistance/local-assistance-task-models.ts';
+import type { AssistanceGuidedWorkflowId } from '../../assistance/workflow-recipes.ts';
+import { assistanceTaskActionLabel } from '../local-assistance-task-controls.ts';
 
 type Copy = Readonly<Record<string, string | undefined>>;
 export default function LocalAssistanceTaskSummary({ snapshot, settings, copy, disabled, onManageModels }: {
@@ -30,9 +32,10 @@ export default function LocalAssistanceTaskSummary({ snapshot, settings, copy, d
 }
 
 export function LocalAssistanceTaskActions({ copy, canRun, canCancel, canReview, canAccept,
-	onRun, onCancel, onReview, onAccept, onClose, reviewReady,
+	onRun, onCancel, onReview, onAccept, onClose, reviewReady, workflowId = 'enhance-dialogue',
 }: {
 	readonly copy: Copy;
+	readonly workflowId?: AssistanceGuidedWorkflowId;
 	readonly reviewReady: boolean;
 	readonly canRun: boolean; readonly canCancel: boolean;
 	readonly canReview: boolean; readonly canAccept: boolean;
@@ -48,6 +51,6 @@ export function LocalAssistanceTaskActions({ copy, canRun, canCancel, canReview,
 				: canReview ? <Button variant="primary" onClick={() => { void onReview(); }}>
 					{copy.localAssistanceReview || 'Review result'}</Button>
 					: <Button variant="primary" disabled={!canRun} onClick={() => { void onRun(); }}>
-						{copy.localAssistanceRun || 'Run locally'}</Button>}
+						{assistanceTaskActionLabel(workflowId, copy)}</Button>}
 	</>;
 }

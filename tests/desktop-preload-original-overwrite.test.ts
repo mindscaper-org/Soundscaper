@@ -67,3 +67,12 @@ test('preload retires unused opaque save targets with strict boolean acknowledge
 	await assert.rejects(entry.bridge.releaseSaveTarget(ID), /boolean/iu);
 	assert.throws(() => entry.bridge.releaseSaveTarget('/tmp/original.wav'), /opaque identifier/iu);
 });
+
+
+test('preload preserves original write permission for native Scape archives', async () => {
+	for (const name of ['original.sscape', 'original.fscape']) {
+		const source = { ...descriptor, name, mimeType: 'application/vnd.soundscaper.scape+zip', originalFile: { ...originalFile, name }, readProfile: 'scape-range-v1', url: `soundscaper-app://bundle/_desktop/read/scape-range-v1/${READ_ID}/${name}` };
+		const entry = await fixture([[source]]);
+		assert.equal((await entry.bridge.chooseFiles({ purpose: 'project' }))[0]?.originalFile?.name, name);
+	}
+});

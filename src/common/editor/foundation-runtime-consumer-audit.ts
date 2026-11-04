@@ -103,7 +103,7 @@ export const FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES: readonly FoundationRuntim
 	},
 	{
 		boundary: 'loadProject',
-		file: 'src/common/editor/engine/lifecycle.ts',
+		file: 'src/common/editor/engine/project-loading.ts',
 		root: false,
 		delegate: 'resolveTimePitchPlaybackProject',
 		guardsBrand: false,
@@ -137,7 +137,7 @@ export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShiel
 	{ file: 'src/common/editor/ui/workspace/project-bin-video-preview-model.ts', surfaces: ['preview'] },
 	{ file: 'src/common/editor/ui/workspace/useProjectBinPresentation.ts', surfaces: ['preview'] },
 	{ file: 'src/common/editor/ui/workspace/project-bin-warp-ranges.ts', surfaces: ['waveform'] },
-	{ file: 'src/common/editor/engine/lifecycle.ts', surfaces: ['playback'] },
+	{ file: 'src/common/editor/engine/project-loading.ts', surfaces: ['playback'] },
 	{ file: 'src/common/editor/engine/project-refresh-playback.ts', surfaces: ['playback'] },
 	{ file: 'src/common/editor/export.js', surfaces: ['audio-export'] },
 	{ file: 'src/common/editor/ui/export-dialog-embedded-chapters.ts', surfaces: ['audio-export'] },

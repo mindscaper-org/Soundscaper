@@ -59,7 +59,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	renameProject,
 	renderClipPitchSpeed, reorderTrack, repeatLastAudacityEffect, requestInputAccess, requestStoragePersistence,
 	requestFrequencyWaveform, requestWaveformPcmWindow, resampleClip, reinterpretClip, resampleTrack, resetClipPitchSpeed, resetLoudnessMeasurement,
-	resizeTrackHeight, fitTrackHeights, runNyquistEvaluation, saveAup3, saveAup4, saveNow, saveScape,
+	resizeTrackHeight, fitTrackHeights, runNyquistEvaluation, saveAup3, saveAup4, saveNow, saveScape, saveProjectFile, prepareFileClose,
 	selection, sessionTab,
 	setAllTracksView, setAudacityControlTrack, setAudacityEffectParamsFromController,
 	setAudioOutputDevice, setAutoFitTrackHeight, setClipTimePitch, setClipsTimePitch, setLoopRegion, setLoopRegionInOut, setStatus,
@@ -83,7 +83,9 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	};
 	const effectLibraryScope = scope;
 	const storedProjectOpenActions = createStoredProjectOpenActions({
-		copy, state, store, sessionTab, switchProject, openProject,
+		copy, state, store, sessionTab, switchProject, openProject, publishProjectState: publishDocumentSnapshot,
+		onProjectOpenFailure: scope.onProjectOpenFailure, assertActive: scope.assertActive,
+		getProjectId: () => getProject()?.id ?? null, hasMissingTimelineSources: scope.hasMissingTimelineSources,
 	});
 	const yieldProgramPlayhead = <Args extends unknown[], Result>(operation: (...args: Args) => Result) => (...args: Args): Result => {
 		if (capabilities.videoCompositing) videoNavigationService.shuttleStop();
@@ -103,7 +105,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 		midi: midi.actions,
 		project: Object.freeze({
 			create: (...args: Parameters<typeof newProject>) => newProject(...args),
-			open: (...args: Parameters<typeof openProject>) => openProject(...args),
+			open: storedProjectOpenActions.open,
 			openRecent: storedProjectOpenActions.openRecent,
 			clearRecent: clearRecentProjects,
 			openAudacityProject,
@@ -116,10 +118,12 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			saveScape,
 			saveAs: saveScape,
 			dismissAup4CompatibilitySummary,
-			close: closeProjectTab,
+			close: async (id = getProject()?.id, options: Parameters<typeof closeProjectTab>[1] = {}) => { if (options.discard) return closeProjectTab(id, options); if (!await prepareFileClose(id)) return { closed: false }; return id && sessionTab(id) ? closeProjectTab(id) : { closed: true }; },
+			prepareClose: prepareFileClose,
 			openById: storedProjectOpenActions.openById,
 			list: listProjects,
 			save: saveNow,
+			saveFile: saveProjectFile,
 			flush: flushProject,
 			prepareHandoff: prepareProjectHandoff,
 			...crossProductHandoffActions,

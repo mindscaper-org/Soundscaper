@@ -180,6 +180,34 @@ lower-level breakpoint evaluator can represent them.
 
 ## Proxies and derived media
 
+Video import publishes the original, its exact timing asset, and any extracted
+playable PCM before starting disposable thumbnails and waveform analysis. The
+import busy claim ends at that publication, so editing does not wait for the
+filmstrip or preview-media activation. Original/timing persistence and audio
+preparation overlap, and both paths settle before rollback can remove assets.
+Timing publication returns its byte-verified index, which import leases before
+the clip commit until preview activation takes over. Editing can use exact
+frame boundaries while preview media is still loading.
+Preview pixels and waveform peaks publish independently as they
+become available, without adding history entries or replacing the decoder URL.
+Background jobs belong to the active project lifetime and check each source's
+content identity before publishing. Project changes, source removal or replacement,
+and controller disposal fence late results; derivative failures never roll back
+the committed import. Repeated capture failures stop the remaining filmstrip.
+Filmstrip captures prefer the nearest container-reported keyframe to each
+five-second grid point, keeping its actual source timestamp. Exact capture is
+the fallback when that index is unavailable. Playback, edits, and presentation
+effects continue to use their exact authored timing.
+
+Standalone decoded-audio imports likewise commit playable PCM before waveform
+analysis. Incremental PCM and compressed-audio streams build peaks during the
+existing bounded decode pass, activate their chunk provider, and defer optional
+peak-cache persistence until after the clip commit. These analysis jobs check
+project generation and source content identity before publishing; failures do
+not remove committed clips or add history entries.
+Standalone analysis runs one job at a time; queued decoded imports retain source
+metadata and read persisted PCM chunks instead of keeping whole decoded buffers.
+
 A proxy is an authenticated derivative, never a new timing authority. It is
 bound to the exact original generation, content identity, and timing facts from
 which it was made. Preview may use a conforming proxy, while export and delivery

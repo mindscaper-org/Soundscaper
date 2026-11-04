@@ -47,6 +47,8 @@ test('desktop composition gives local assistance the authenticated external FFmp
 	assert.match(registration,
 		/createTransfers: \(workflows\) => new AssistanceWorkflowTransfers\(\{[\s\S]*?custody: workflowCustody,[\s\S]*?workflows,[\s\S]*?\}\)/u);
 	assert.match(registration, /`Settings: \$\{JSON\.stringify\(request\.settings\)\}`/u);
+	assert.match(registration, /import \{ assistanceWorkflowRequiresConfirmation \} from '\.\/project-library-runtime\/desktop\/assistance-workflow-confirmation\.js';/u);
+	assert.match(registration, /if \(!assistanceWorkflowRequiresConfirmation\(request\)\) return true;/u);
 	assert.equal((registration.match(/new AssistanceStagingRegistry\(/gu) ?? []).length, 1,
 		'primitive and aggregate jobs share one authenticated staging authority');
 	assert.match(main,
@@ -111,9 +113,12 @@ test('every assistance helper is composed as background work the machine can pau
 		/createAssistanceRuntimeFamilyDesktopStartup\(\{[\s\S]*?applyBackgroundPriority: assistanceBackgroundPriority,[\s\S]*?powerEtiquette: assistancePowerEtiquette\(\),/u);
 });
 
-test('the staged desktop runtime carries the assistance power etiquette module', async () => {
+test('the staged desktop runtime carries assistance scheduling and confirmation policy', async () => {
 	const configuration = JSON.parse(await readFile(
 		new URL('../tsconfig.desktop-runtime.json', import.meta.url), 'utf8'));
 	assert.ok(configuration.include.includes('desktop/assistance-power-etiquette-v1.ts'),
 		'the composition root imports it from the staged runtime, so it must be emitted there');
+	assert.ok(configuration.include.includes('desktop/assistance-workflow-confirmation.ts'));
+	const { DESKTOP_ASSISTANCE_RUNTIME_FILES } = await import('../scripts/lib/desktop-assistance-runtime-files.mjs');
+	assert.ok(DESKTOP_ASSISTANCE_RUNTIME_FILES.includes('desktop/assistance-workflow-confirmation.js'));
 });

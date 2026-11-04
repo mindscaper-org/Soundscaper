@@ -2,16 +2,19 @@
 
 import type { EditorControllerLifetime } from '../shared/lifecycle.ts';
 import type { ScapeProjectInput } from '../../scape-project-input.ts';
+import type { ProjectRecoveryChange } from '../../project-recovery-reason.ts';
+import { withProjectOpenRecovery } from './project-open-recovery.ts';
 
 export const SCAPE_OPEN_REQUEST_TASK = 'scape-open-request';
 
 export type ScapeCollisionChoice = 'copy' | 'replace' | 'cancel';
 export type ScapeOpenDecisionChoice = ScapeCollisionChoice | 'open-read-only' | 'copy-read-only';
-export type ScapeOpenDecisionKind = 'compatibility' | 'collision' | 'compatibility-collision';
+export type ScapeOpenDecisionKind = 'compatibility' | 'collision' | 'compatibility-collision' | 'recovery';
 
 export interface ScapeOpenInspection {
 	readonly exists: boolean;
 	readonly featureRequirementsCompatibility?: Readonly<{ compatible: boolean }> | null;
+	readonly recoveryChanges?: readonly ProjectRecoveryChange[];
 	readonly [name: string]: unknown;
 }
 
@@ -40,6 +43,7 @@ export interface ScapeOpenRequestRuntime<Inspection extends ScapeOpenInspection,
 		file: ScapeProjectInput,
 		options: Readonly<{
 			collision: Exclude<ScapeCollisionChoice, 'cancel'>;
+			recover?: boolean;
 			signal: AbortSignal;
 		}>,
 	) => PromiseLike<Result> | Result;
@@ -59,37 +63,47 @@ export function createScapeOpenRequestService<
 		options: ScapeOpenRequestOptions = {},
 	): Promise<Result | typeof CANCELLED> {
 		const task = runtime.lifetime.startTask(SCAPE_OPEN_REQUEST_TASK);
-		let collision: Exclude<ScapeCollisionChoice, 'cancel'> = 'copy';
 		try {
 			const snapshot = { ...options };
 			const signal = snapshot.signal
 				? AbortSignal.any([task.signal, snapshot.signal])
 				: task.signal;
-			const ownedOptions = Object.freeze({ ...snapshot, signal });
+			const ownedOptions = Object.freeze({ ...snapshot, recover: false, signal });
 			throwIfAborted(signal);
-			const inspected = await awaitWithSignal(runtime.inspectScape(file, ownedOptions), signal);
-			throwIfAborted(signal);
-			task.assertCurrent();
-			const kind = getOpenDecisionKind(inspected);
-			if (kind !== null) {
-				const choice = await awaitWithSignal(requestOpenDecision(Object.freeze({
-					kind,
-					file,
-					inspected,
-					signal,
+			let recoveryAttempted = false;
+			const openInspected = async (inspected: Inspection): Promise<Result | typeof CANCELLED> => {
+				let collision: Exclude<ScapeCollisionChoice, 'cancel'> = 'copy';
+				recoveryAttempted ||= Boolean(inspected.recoveryChanges?.length);
+				throwIfAborted(signal);
+				task.assertCurrent();
+				const kind = getOpenDecisionKind(inspected);
+				if (kind !== null) {
+					const choice = await awaitWithSignal(requestOpenDecision(Object.freeze({ kind, file, inspected, signal })), signal);
+					throwIfAborted(signal);
+					task.assertCurrent();
+					if (choice === 'cancel') return CANCELLED;
+					collision = resolveOpenDecision(kind, choice);
+				}
+				const result = await awaitWithSignal(runtime.openScape(file, Object.freeze({
+					collision, signal, recover: recoveryAttempted,
 				})), signal);
 				throwIfAborted(signal);
 				task.assertCurrent();
-				if (choice === 'cancel') return CANCELLED;
-				collision = resolveOpenDecision(kind, choice);
-			}
-			const result = await awaitWithSignal(runtime.openScape(file, Object.freeze({
-				collision,
-				signal,
-			})), signal);
-			throwIfAborted(signal);
-			task.assertCurrent();
-			return result;
+				return result;
+			};
+			return await withProjectOpenRecovery(
+				async () => openInspected(await awaitWithSignal(runtime.inspectScape(file, ownedOptions), signal)),
+				async () => {
+					throwIfAborted(signal);
+					task.assertCurrent();
+					if (recoveryAttempted) return null;
+					recoveryAttempted = true;
+					const inspected = await awaitWithSignal(runtime.inspectScape(file, { ...ownedOptions, recover: true }), signal);
+					throwIfAborted(signal);
+					task.assertCurrent();
+					return inspected.recoveryChanges?.length ? { value: await openInspected(inspected) } : null;
+				},
+			);
 		} finally {
 			task.finish();
 		}
@@ -99,6 +113,7 @@ export function createScapeOpenRequestService<
 function getOpenDecisionKind(inspected: ScapeOpenInspection): ScapeOpenDecisionKind | null {
 	const incompatible = inspected.featureRequirementsCompatibility?.compatible === false;
 	if (incompatible) return inspected.exists ? 'compatibility-collision' : 'compatibility';
+	if (inspected.recoveryChanges?.length) return 'recovery';
 	return inspected.exists ? 'collision' : null;
 }
 
@@ -109,6 +124,7 @@ function resolveOpenDecision(
 	if (kind === 'compatibility' && value === 'open-read-only') return 'copy';
 	if (kind === 'compatibility-collision' && value === 'copy-read-only') return 'copy';
 	if (kind === 'collision' && (value === 'copy' || value === 'replace')) return value;
+	if (kind === 'recovery' && value === 'copy') return 'copy';
 	if (kind === 'compatibility') {
 		throw new RangeError('Choose open read-only or cancel for the incompatible Scape project.');
 	}

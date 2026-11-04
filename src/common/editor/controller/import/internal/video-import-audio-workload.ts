@@ -46,38 +46,86 @@ export function explicitVideoAacLcGeometry(config: AudioDecoderConfig | null): R
 	return { sampleRate: rate, channelCount: channels };
 }
 
-/** Bound metadata inspection for the programme selected by each decoder. */
-export async function readVideoAudioWorkload(file: Blob, signal?: AbortSignal,
-	selection: 'primary' | 'first' | number = 'primary'): Promise<VideoAudioWorkload | null> {
+export type VideoAudioWorkloadSelection = 'primary' | 'first' | number;
+export interface VideoAudioWorkloadReader {
+	read(selection?: VideoAudioWorkloadSelection): Promise<VideoAudioWorkload | null>;
+	dispose(): void;
+}
+
+/** One import owns its bounded movie bytes and demuxer until all programme checks settle. */
+export async function createVideoAudioWorkloadReader(file: Blob, signal?: AbortSignal): Promise<VideoAudioWorkloadReader> {
+	let dispose = (): void => {};
+	const unavailable = (): VideoAudioWorkloadReader => ({
+		async read() { signal?.throwIfAborted(); return null; }, dispose,
+	});
 	try {
 		const movie = await readMovie(file, signal);
-		if (!movie) return null;
+		if (!movie) return unavailable();
 		const { BlobSource, Input, MP4, QTFF } = await raceAbortableRead(() => import('mediabunny'), signal);
 		signal?.throwIfAborted();
 		const input = new Input({ source: new BlobSource(file, { maxCacheSize: MAXIMUM_MOVIE_BYTES, useStreamReader: false }), formats: [MP4, QTFF] });
-		const onAbort = (): void => input.dispose(); signal?.addEventListener('abort', onAbort, { once: true });
-		try {
-			const [tracks, pictures] = await raceAbortableRead(() => Promise.all([input.getAudioTracks(), input.getVideoTracks()]), signal);
-			if (!tracks.length || tracks.length > 32 || pictures.length !== 1) return null;
-			const track = typeof selection === 'number' ? tracks[selection] : selection === 'first'
-				? tracks[0] : await raceAbortableRead(() => input.getPrimaryAudioTrack(), signal);
-			if (!track) return null;
-			const config = await raceAbortableRead(() => track.getDecoderConfig(), signal);
-			const geometry = explicitVideoAacLcGeometry(config);
-			if (!geometry) return null;
-			const [rate, channels] = await raceAbortableRead(() => Promise.all([track.getSampleRate(), track.getNumberOfChannels()]), signal);
-			if (rate !== geometry.sampleRate || channels !== geometry.channelCount) return null;
-			const packets = codedAacPacketCount(movie, track.id, geometry.sampleRate, file.size);
-			if (packets === null) return null;
-			const [editEnd, pictureStart] = await raceAbortableRead(() => Promise.all([
-				readIsoAudioPresentationEnd(file, track.id, signal), pictures[0]!.getFirstTimestamp(),
-			]), signal);
-			signal?.throwIfAborted();
-			if (!Number.isFinite(pictureStart)) return null;
-			return { ...geometry, codedFrameCount: packets * 1024,
-				presentationEndSeconds: editEnd === null ? null : Math.max(0, editEnd - Math.max(0, pictureStart)) };
-		} finally { signal?.removeEventListener('abort', onAbort); input.dispose(); }
-	} catch { signal?.throwIfAborted(); return null; }
+		let disposed = false;
+		const lifetime = new AbortController();
+		const activeSignal = signal ? AbortSignal.any([signal, lifetime.signal]) : lifetime.signal;
+		const workloads = new Map<number, Promise<VideoAudioWorkload | null>>();
+		dispose = (): void => {
+			if (disposed) return;
+			disposed = true; workloads.clear();
+			lifetime.abort(new Error('The video audio workload reader is disposed.'));
+			signal?.removeEventListener('abort', dispose); input.dispose();
+		};
+		signal?.addEventListener('abort', dispose, { once: true });
+		const [tracks, pictures] = await raceAbortableRead(() => Promise.all([input.getAudioTracks(), input.getVideoTracks()]), activeSignal);
+		if (!tracks.length || tracks.length > 32 || pictures.length !== 1) { dispose(); return unavailable(); }
+		const inspect = async (track: (typeof tracks)[number]): Promise<VideoAudioWorkload | null> => {
+			try {
+				const config = await raceAbortableRead(() => track.getDecoderConfig(), activeSignal);
+				const geometry = explicitVideoAacLcGeometry(config);
+				if (!geometry) return null;
+				const [rate, channels] = await raceAbortableRead(() => Promise.all([track.getSampleRate(), track.getNumberOfChannels()]), activeSignal);
+				if (rate !== geometry.sampleRate || channels !== geometry.channelCount) return null;
+				const packets = codedAacPacketCount(movie, track.id, geometry.sampleRate, file.size);
+				if (packets === null) return null;
+				const [editEnd, pictureStart] = await raceAbortableRead(() => Promise.all([
+					readIsoAudioPresentationEnd(file, track.id, activeSignal), pictures[0]!.getFirstTimestamp(),
+				]), activeSignal);
+				activeSignal.throwIfAborted();
+				if (!Number.isFinite(pictureStart)) return null;
+				return Object.freeze({ ...geometry, codedFrameCount: packets * 1024,
+					presentationEndSeconds: editEnd === null ? null : Math.max(0, editEnd - Math.max(0, pictureStart)) });
+			} catch { activeSignal.throwIfAborted(); return null; }
+		};
+		return {
+			async read(selection: VideoAudioWorkloadSelection = 'primary') {
+				signal?.throwIfAborted();
+				if (disposed) throw new Error('The video audio workload reader is disposed.');
+				try {
+					const track = typeof selection === 'number' ? tracks[selection] : selection === 'first'
+						? tracks[0] : await raceAbortableRead(() => input.getPrimaryAudioTrack(), activeSignal);
+					if (!track) return null;
+					let workload = workloads.get(track.id);
+					if (!workload) { workload = inspect(track); workloads.set(track.id, workload); }
+					const result = await workload;
+					signal?.throwIfAborted();
+					if (disposed) throw new Error('The video audio workload reader is disposed.');
+					return result;
+				} catch {
+					signal?.throwIfAborted();
+					if (disposed) throw new Error('The video audio workload reader is disposed.');
+					return null;
+				}
+			},
+			dispose,
+		};
+	} catch { dispose(); signal?.throwIfAborted(); return unavailable(); }
+}
+
+/** Bound metadata inspection for a single programme outside an import session. */
+export async function readVideoAudioWorkload(file: Blob, signal?: AbortSignal,
+	selection: VideoAudioWorkloadSelection = 'primary'): Promise<VideoAudioWorkload | null> {
+	const reader = await createVideoAudioWorkloadReader(file, signal);
+	try { return await reader.read(selection); }
+	finally { reader.dispose(); }
 }
 
 /** Every audio programme needs at least one project-rate float32 plane. */

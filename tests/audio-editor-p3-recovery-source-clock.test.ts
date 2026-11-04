@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
-import { bindSoundscaperProjectRecovery, hasSoundscaperStartupRecovery } from '../src/soundscaper/editor-project-recovery-binding.ts';
+import { bindSoundscaperProjectRecovery, hasSoundscaperProjectOpenRecovery } from '../src/soundscaper/editor-project-recovery-binding.ts';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
@@ -33,7 +33,7 @@ for (const physicalRate of [48_000, 768_000]) for (const damaged of [false, true
 		assert.ok(Array.isArray(stored.sources)); const source: unknown = stored.sources[0]; assert.ok(record(source));
 		if (damaged) source.sampleRate = physicalRate === 48_000 ? 96_000 : 384_000;
 		stored.revision = 100; store.memory.projects.set(original.id, stored);
-		assert.equal(await hasSoundscaperStartupRecovery(store, original.id, new Error('Audio engine activation failed.')), damaged);
+		assert.equal(await hasSoundscaperProjectOpenRecovery(store, original.id, new Error('Audio engine activation failed.')), damaged);
 		const recovery = bindSoundscaperProjectRecovery(store, project => controller.actions.project.open(project), controller);
 		const inspection = await recovery.inspect(original.id);
 		assert.equal(inspection.candidates[0]?.status, damaged ? 'repairable' : 'usable');

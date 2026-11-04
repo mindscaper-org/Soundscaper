@@ -13,8 +13,6 @@ record the constraints on broader extensions.
 | Share catalog validation between site and editor consumers | `src/common/i18n/translation-catalog.js` | A localized cold-load profile showing repeated validation of the same catalog is material. Preserve English-based retirement, origin filtering, and fallback behavior. |
 | Preload the selected editor font subset | Editor startup and font stylesheets | A throttled network trace showing late font discovery delays a useful paint. Load only the subset and family actually used by the selected locale and skin. |
 | Move additional small helpers to their deferred feature owners | `scripts/lib/build-chunk-tests.mjs` | Confirm every value importer is deferred and measure compressed startup savings. Some desktop and cross-product consumers deliberately keep shared contracts eager. |
-| Batch pending-project metadata updates during autosave | Storage publication repositories | A storage trace showing serial source and media metadata reads dominate save time. Bound concurrency and preserve atomic publication and retention protection. |
-| Reuse resampler input and history buffers | `src/common/editor/resample.js` | Worker allocation and garbage-collection measurements showing bounded input/history concatenation dominates. Preserve input ownership, partial feeds, and exact chunk parity. |
 
 Local production previews cannot establish field interaction latency,
 production caching behavior, or GPU performance on every supported machine.

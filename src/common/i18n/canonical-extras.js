@@ -23,6 +23,8 @@ const COPY_ENTRIES = Object.freeze([
 	['effectAboutLatency', 'Latency'],
 	...STANDARD_EFFECT_COPY_ENTRIES,
 	['audacityParityLabelCutPreview', 'Cut preview'],
+	['audacityParityLabelScrollTimelineLeftOnePage', 'Scroll timeline left one page'],
+	['audacityParityLabelScrollTimelineRightOnePage', 'Scroll timeline right one page'],
 	['audacityParityLabelPlayStopAndSetCursor', 'Play/Stop and set cursor'],
 	["effectNameDeesser","De-esser"],
 	["effectNameMultibandCompressor","Multiband compressor"],

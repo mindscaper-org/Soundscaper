@@ -330,9 +330,10 @@ async function publishSelection(
 		return;
 	}
 	const placement = workflowId === 'enhance-dialogue' || workflowId === 'reduce-reverb'
-		? workflow.settings.workflowId === workflowId ? workflow.settings.placement : 'project-bin'
-		: workflow.settings.workflowId === workflowId && workflow.settings.placement === 'muted-aligned-tracks'
-			? 'project-bin-and-muted-tracks' : 'project-bin';
+		? workflow.settings.workflowId === workflowId ? workflow.settings.placement : 'replace-selection'
+		: workflow.settings.workflowId !== workflowId ? 'replace-selection'
+			: workflow.settings.placement === 'muted-aligned-tracks'
+				? 'project-bin-and-muted-tracks' : workflow.settings.placement;
 	await dependencies.acceptAudioResult!(createGuidedAudioAcceptanceRequest(
 		workflow, workflowId, fence, review.outputs,
 	), { placement });

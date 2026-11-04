@@ -47,13 +47,13 @@ test('Mark Cuts exposes Fast by default and Accurate only with an exact TransNet
 	assert.doesNotMatch(fastMarkup, /transnetv2 · 1\.0\.0/u);
 
 	store.selectShotDetectionMode('accurate');
-	assert.deepEqual(store.getSnapshot().selectedModelIds, []);
-	assert.equal(store.getSnapshot().canRun, false);
+	assert.deepEqual(store.getSnapshot().selectedModelIds, ['transnetv2']);
+	assert.equal(store.getSnapshot().canRun, true);
 	const accurateMarkup = renderLocalAssistance(store.getSnapshot());
 	assert.match(accurateMarkup,
 		/type="radio" name="local-assistance-shot-mode" checked="" value="accurate"/u);
 	assert.match(accurateMarkup, /Accurate · TransNetV2/u);
-	assert.match(accurateMarkup, /<option value="transnetv2">transnetv2 · 1\.0\.0<\/option>/u);
+	assert.doesNotMatch(accurateMarkup, /<option value="transnetv2">/u);
 	assert.doesNotMatch(accurateMarkup, /substitute-shot-model/u);
 	store.selectModel('transnetv2');
 	assert.equal(store.getSnapshot().canRun, true);
@@ -79,7 +79,7 @@ test('the active Advanced store sends one exact Mark Cuts mode and model binding
 	assert.deepEqual(fast.requests[0]?.models, []);
 
 	fastStore.selectShotDetectionMode('accurate');
-	assert.deepEqual(fastStore.getSnapshot().selectedModelIds, []);
+	assert.deepEqual(fastStore.getSnapshot().selectedModelIds, ['transnetv2']);
 	fastStore.selectModel('transnetv2');
 	fastStore.selectShotDetectionMode('fast');
 	assert.deepEqual(fastStore.getSnapshot().selectedModelIds, []);

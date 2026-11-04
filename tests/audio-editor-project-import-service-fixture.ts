@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createAudioImportDerivativeScheduler, type AudioImportDerivativeRequest } from '../src/common/editor/controller/import/internal/audio-import-derivatives.ts';
+import { EditorControllerLifetime } from '../src/common/editor/controller/shared/lifecycle.ts';
+
 export interface TestFile {
 	readonly name: string;
 	readonly type?: string;
@@ -94,7 +97,7 @@ export function createFixture() {
 		sampleRate: 48_000,
 		channels: [Float32Array.of(0.1, 0.2, 0.3, 0.4)],
 	};
-	let currentProject: Record<string, unknown> = {
+	let currentProject: Record<string, unknown> & { sources?: readonly { id: string; contentSha256?: string }[] } = {
 		id: 'current',
 		metadata: { bext: null },
 		tracks: [{ id: 'target', type: 'audio' }, { id: 'after', type: 'audio' }],
@@ -137,6 +140,7 @@ export function createFixture() {
 		warnings: ['converted'],
 	};
 	const runtime = {
+		scheduleAudioDerivatives: (request: AudioImportDerivativeRequest) => { derivatives.schedule(request); },
 		SHORT_SOURCE_AUDIO_BUFFER_MAX_BYTES: 32,
 		SOURCE_CHUNK_FRAMES: 65_536,
 		activateStoredSource: async (source: { id: string }) => {
@@ -152,6 +156,8 @@ export function createFixture() {
 		commit: (command: unknown, selection: unknown) => {
 			if (options.commitFails) throw new Error('commit failed');
 			commands.push({ command, selection });
+			const source = commandOfType(command, 'source/add')?.source as { id: string; contentSha256?: string } | undefined;
+			if (source) currentProject = { ...currentProject, sources: [...(currentProject.sources ?? []), source] };
 			const batch = command as { type?: string; commands?: Array<{ type?: string; changes?: Record<string, unknown> }> };
 			const children: Array<{ type?: string; changes?: Record<string, unknown> }> = batch.type === 'batch'
 				? batch.commands || []
@@ -241,9 +247,9 @@ export function createFixture() {
 		peakCacheKey: (sourceId: string) => `peaks:${sourceId}`,
 		preflightStorage: async (bytes: number, purpose: string) => { calls.push(`preflight:${purpose}:${bytes}`); },
 		getProject: () => currentProject,
-		captureProject: () => projectGeneration,
-		assertProject: (generation: number) => {
-			if (generation !== projectGeneration) throw new Error('stale project generation');
+		captureProject: () => ({ generation: projectGeneration, projectId: String(currentProject.id) }),
+		assertProject: (token: { generation: number }) => {
+			if (token.generation !== projectGeneration) throw new Error('stale project generation');
 		},
 		projectSampleRate: () => 48_000,
 		publishDocumentSnapshot: () => { calls.push('publish'); },
@@ -275,7 +281,16 @@ export function createFixture() {
 		warnEnvelope: () => { calls.push('warn-envelope'); },
 		writeBuffer: async (target: ReturnType<typeof writer>) => { await target.write(audio.channels); },
 	};
+	const derivatives = createAudioImportDerivativeScheduler({
+		lifetime: new EditorControllerLifetime(), protectedSourceIds: new Set(),
+		assertProject: token => runtime.assertProject(token), getProject: () => currentProject,
+		sourcePeaks, peakCacheKey: runtime.peakCacheKey,
+		generatePeaks: async () => { await runtime.generateWaveformPeaks(); return { version: 1, channelCount: 1, levels: [] }; },
+		generateStoredPeaks: async () => { await runtime.generateWaveformPeaks(); return { version: 1, channelCount: 1, levels: [] }; },
+		store: runtime.store, publish: runtime.publishDocumentSnapshot,
+	});
 	return {
+		finishDerivatives: derivatives.whenIdle,
 		calls,
 		commands,
 		deletedSources,

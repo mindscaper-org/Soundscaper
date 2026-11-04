@@ -116,6 +116,7 @@ export const DESKTOP_ASSISTANCE_RUNTIME_FILES = Object.freeze([
 	'desktop/assistance-workflow-custody.js',
 	'desktop/assistance-workflow-executor.js',
 	'desktop/assistance-workflow-main-ipc.js',
+	'desktop/assistance-workflow-confirmation.js',
 	'desktop/assistance-workflow-nomic-tokenizer-resolver.js',
 	'desktop/assistance-workflow-operation-stage-runtime.js',
 	'desktop/assistance-workflow-owned-audio-cut-source-normalization.js',

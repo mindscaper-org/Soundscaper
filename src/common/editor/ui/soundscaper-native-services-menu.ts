@@ -9,7 +9,6 @@ import {
 
 export const SOUNDSCAPER_NATIVE_SERVICE_SURFACES = Object.freeze([
 	'native-effect-manage',
-	'native-effect-use',
 	'native-analyzer-use',
 ] as const);
 
@@ -88,13 +87,6 @@ export function createSoundscaperNativeServicesMenuItems(
 	const snapshot = input.snapshot;
 	const pluginReason = pluginUnavailableReason(copy, snapshot);
 
-	const use = entry({
-		id: 'native-effect-use', label: copy.audioPluginEffects,
-		disabledReason: pluginReason
-			?? (input.editingBlocked === true || input.readOnly === true ? copy.projectReadOnly : null)
-			?? (snapshot.enabledPluginFormats.length === 0 ? copy.pluginFormatsBlocked : null),
-		open: actions.open,
-	});
 	const manage = entry({
 		id: 'native-effect-manage',
 		label: copy.pluginManage,
@@ -118,7 +110,7 @@ export function createSoundscaperNativeServicesMenuItems(
 	return Object.freeze({
 		tools: Object.freeze([]),
 		effect: Object.freeze([
-			manage, use,
+			manage,
 		]),
 		analyze: Object.freeze([analyzer]),
 	});

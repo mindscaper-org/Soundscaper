@@ -150,7 +150,7 @@ export async function createFixture(context) {
 			source: sourceDescriptor,
 			buildSource: buildSourceDescriptor,
 		})),
-		notices: Buffer.from('Fixture notices for `@ffmpeg/core` 0.12.10 from https://github.com/ffmpegwasm/ffmpeg.wasm/tree/v12.15\n'),
+		notices: Buffer.from('## Retained legacy FFmpeg WebAssembly publication and audit tooling\n\nFixture notices for `@ffmpeg/core` 0.12.10 from https://github.com/ffmpegwasm/ffmpeg.wasm/tree/v12.15\n'),
 		licensingPolicy: Buffer.from('# Fixture licensing policy\n'),
 		licensingMatrix: Buffer.from(JSON.stringify({
 			schemaVersion: 1,
@@ -210,10 +210,13 @@ export async function createFixture(context) {
 			cors: descriptor('r2-cors.json', cors),
 			policy: descriptor('config/ffmpeg-runtime-publication-policy.json', publicPolicy),
 		},
-		evidence: Object.fromEntries(Object.entries(paths).map(([id, path]) => [
-			id,
-			descriptor(path, evidenceBytes[id]),
-		])),
+		evidence: {
+			correspondingSource: descriptor(paths.correspondingSource, evidenceBytes.correspondingSource),
+			notices: {
+				...descriptor(paths.notices, evidenceBytes.notices),
+				section: 'Retained legacy FFmpeg WebAssembly publication and audit tooling',
+			},
+		},
 		security: {
 			matrixPath: 'config/production-security-matrix.json',
 			riskId: 'runtime-supply-chain',

@@ -33,7 +33,8 @@ test('local assistance replaces project-scoped inventory when the active project
 			inventoryCalls.push(activeProjectId);
 			return { sources: [{
 				sourceId: `${activeProjectId}-source`, label: `${activeProjectId} selection`,
-				mediaKind: 'audio' as const, operations: ['speech-recognition' as const],
+				mediaKind: 'audio' as const, operations: activeProjectId === 'project-a'
+					? ['speech-recognition' as const] : ['voice-activity-detection' as const],
 			}] };
 		},
 		prepareSelectedMedia: async () => { throw new Error('The test never starts a job.'); },
@@ -56,8 +57,8 @@ test('local assistance replaces project-scoped inventory when the active project
 		await act(async () => {
 			void reactProps(buttonWithText(dom.container, 'Advanced')).onClick({});
 		});
-		assert.equal(dom.container.textContent.includes('project-a selection'), true,
-			dom.container.textContent);
+		assert.equal(reactProps(operationOption(dom.container, 'speech-recognition')).disabled, false);
+		assert.equal(reactProps(operationOption(dom.container, 'voice-activity-detection')).disabled, true);
 
 		activeProjectId = 'project-b';
 		await act(async () => {
@@ -68,8 +69,8 @@ test('local assistance replaces project-scoped inventory when the active project
 			void reactProps(buttonWithText(dom.container, 'Advanced')).onClick({});
 		});
 		assert.deepEqual(inventoryCalls, ['project-a', 'project-b']);
-		assert.equal(dom.container.textContent.includes('project-a selection'), false);
-		assert.equal(dom.container.textContent.includes('project-b selection'), true);
+		assert.equal(reactProps(operationOption(dom.container, 'speech-recognition')).disabled, true);
+		assert.equal(reactProps(operationOption(dom.container, 'voice-activity-detection')).disabled, false);
 	} finally {
 		await act(async () => root.unmount());
 		actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
@@ -81,4 +82,10 @@ function buttonWithText(root: ReactTestElement, text: string): ReactTestElement 
 	const button = root.querySelectorAll('button').find((candidate) => candidate.textContent === text);
 	if (!button) throw new Error(`Missing button ${text}.`);
 	return button;
+}
+
+function operationOption(root: ReactTestElement, operation: string): ReactTestElement {
+	const option = root.querySelectorAll('option').find(candidate => candidate.getAttribute('value') === operation);
+	if (!option) throw new Error(`Missing operation ${operation}.`);
+	return option;
 }

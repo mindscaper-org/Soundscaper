@@ -44,7 +44,7 @@ private paths, mints and revokes grants, and starts helpers with
 bounded status, not raw paths or generic process, filesystem, native-module, or
 network primitives.
 
-Native adapters load only inside supervised utility processes. They do not load
+Native adapters load only inside supervised helper processes. They do not load
 into Electron main, preload, a renderer, or an `AudioWorklet`. A helper may use
 threads internally, but a worker thread never substitutes for the crash and
 authority boundary of a process.
@@ -156,20 +156,88 @@ fallback, with the backend change reported and the project unchanged.
 
 Plug-in discovery and execution are separate helper kinds and security controls.
 Scanning grants no project audio and hosts no project instance. Scan roots are
-main-owned grants, scanning never runs automatically at startup, and consent is
-per format.
+main-owned grants. New installations automatically discover supported standard
+folders when the editor opens; saved discovery settings and folder choices are
+preserved. Consent remains per format.
 
 Registry identity is the format plus its native stable identifier. An installed
 binary additionally binds platform, architecture, version, and digest. A new or
 changed digest requires an explicit allow decision; path ordering never resolves
 a stable-ID collision silently.
 
-VST3 and CLAP are cross-platform effect targets, Audio Units is macOS-only,
+JUCE identifiers must not hash a binary's location: scans and hosts receive
+separate immutable snapshot paths. VST2 uses the native 32-bit unique ID
+(including shell member IDs); VST3 uses JUCE's normalized class-ID hash and
+plug-in name; LADSPA reads the descriptor's native UniqueID rather than JUCE's
+descriptor index. AU retains its native component tuple and LV2 its full URI.
+CLAP already retains its native descriptor ID. Scan collision checks and instance
+selection use the same identifier. Unnamed JUCE parameters expose their stable
+parameter ID as their display name.
+
+Opening activates the main input/output buses using their native channel
+arrangements, even when a VST3 bus is not active by default. The open reply
+reports the instance's actual channel counts rather than scan metadata, which
+VST3 moduleinfo files can omit. Vendor editor probing, state save/restore and
+parameter writes run on JUCE's message thread; PCM processing stays on the
+processing thread.
+The plug-in peer duplicates its reply stream before redirecting vendor standard
+output to diagnostics, so plug-in logging cannot corrupt framed RPC replies.
+
+VST2, VST3 and CLAP are cross-platform effect targets, Audio Units is macOS-only,
 LADSPA and LV2 effects are Linux-only, and Vamp is an analyzer rather than an
 effect. Instrument descriptors may be discovered but are not materialized by
 this surface.
 
+VST2 uses JUCE's legacy host with the authenticated FST 0.177.0
+GPL-3.0-or-later compatibility headers, without the proprietary Steinberg SDK.
+The build copy restores the fixed inline-array storage floors and reserved pin
+properties tail that JUCE's legacy record allocation expects, and selects a
+64-bit pointer integer on both Windows architectures. The pinned FST source
+remains unchanged.
+VST2 uses the same automatic standard-folder discovery and plug-in preferences
+as the other formats, including saved discovery settings and folder choices.
+Candidates are `.vst` bundles on macOS, `.dll` files on Windows, and `.so`
+files on Linux. Plug-ins must match the desktop process architecture; no
+32-bit bridge or cross-architecture emulation is provided. VST2 instances use
+the same isolation, digest allowance, parameters, vendor windows, latency,
+opaque state, real-time and offline routes as the other native effects. ARA
+remains VST3-only. Native CTest fixtures exercise VST2 and VST3 discovery,
+relocation between snapshots, processing, parameters, latency and state
+restoration into a new instance, alongside native LADSPA ID checks.
+The state fixture requires the host's processor-construction thread; the Linux
+VST2 wrapper's private JUCE GUI thread is independent of that host dispatcher.
+
 Runtime hosting isolates one renderer owner and one plug-in digest per process.
+On Windows, effect discovery and hosting use trusted plug-in processes with
+normal user filesystem, registry, environment and network access. This lets
+installed plug-ins resolve sibling libraries, shared vendor runtimes, presets,
+licences and services without vendor-specific support rules. The primary
+candidate is reauthenticated and loaded from its installed location; its
+dependencies retain the installation's normal trust model and are not covered
+by that candidate's digest. File authentication is point-in-time and does not
+freeze the installed files for the process lifetime.
+
+The authenticated Windows launcher assigns the peer to a kill-on-close Job
+before resuming it, with the existing memory, CPU, duration and single-process
+limits. Its distinct supervision handshake and enforcement report explicitly
+say that filesystem and network access are those of the user. This is process
+supervision, not an AppContainer sandbox. Existing format consent, installation
+allowance, quarantine, revocation and per-owner/digest process boundaries still
+apply. Vamp analyzers, containment fixtures and the other target launchers retain
+their separate sandbox policies. Neither vendor-specific allowlists nor a
+global shared plug-in process are used.
+
+Scanning receives the same one-GiB memory ceiling as hosting: library discovery
+can initialize the full vendor engine before describing it. The helper hard
+ceiling remains unchanged. Windows x64 VST2 peers additionally keep bottom-up
+allocation ASLR enabled but disable high-entropy allocation in that child.
+This supports older statically linked runtimes that truncate heap pointers;
+image ASLR and the full 64-bit address space remain available. VST3, CLAP,
+Windows ARM64, the launcher and the main application keep their normal
+allocation policy. The trusted process enforcement report names the selected
+allocation policy explicitly; installed plug-ins and host executables are not
+patched.
+
 Opaque state is retained exactly and capped at 16 MiB per instance. State and
 parameters survive missing, changed, crashed, revoked, or quarantined binaries;
 the live graph uses truthful bypass or an already authored, verified freeze.

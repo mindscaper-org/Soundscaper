@@ -2,7 +2,7 @@
 
 import { installDesktopSpeedWarmupManifest } from './helpers/desktop-speed-warmup-fixture.js';
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, chooseNestedCommandAction, getMenuItem, importFiles, openNestedCommandMenu } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseNestedCommandAction, getMenuItem, importFiles, openNestedCommandMenu } from './audio-editor-test-helpers.js';
 
 const AUDIO = createWavFixture({ name: 'blender-voice.wav', frequency: 440, duration: 0.1, channelCount: 1, sampleRate: 48_000 });
 test.setTimeout(60_000);
@@ -22,13 +22,14 @@ test('desktop Blender export renders WAVs and live sync updates edits until stop
 	expect(first.wavHeaders).toEqual(['RIFF']);
 	expect(first.chunkSizes.every((size) => size > 0 && size <= 4 * 1024 * 1024)).toBe(true);
 	const syncReady = dismissCompletionNotice(page, 'Live Blender sync is running.');
-	const startMenu = await openNestedCommandMenu(page, editor, 'Tools', []);
+	const startMenu = await openNestedCommandMenu(page, editor, 'Tools', ['Desktop services']);
 	await expect(getMenuItem(startMenu, 'Start live Blender sync')).toBeEnabled();
 	await getMenuItem(startMenu, 'Start live Blender sync').press('Enter');
 	await syncReady;
 	await expect.poll(() => page.evaluate(() => globalThis.__blenderProbe.commits.length)).toBe(2);
-	const tools = await openNestedCommandMenu(page, editor, 'Tools', []);
+	const tools = await openNestedCommandMenu(page, editor, 'Tools', ['Desktop services']);
 	await expect(getMenuItem(tools, 'Stop live Blender sync')).toBeEnabled();
+	await page.keyboard.press('Escape');
 	await page.keyboard.press('Escape');
 	const track = editor.locator(`[data-track-row][data-track-id="${first.tracks[0].id}"]`);
 	await track.getByRole('button', { name: 'Mute', exact: true }).click();
@@ -36,7 +37,7 @@ test('desktop Blender export renders WAVs and live sync updates edits until stop
 	const latest = await page.evaluate(() => globalThis.__blenderProbe.commits.at(-1));
 	expect(latest.tracks[0].id).toBe(first.tracks[0].id);
 	expect(latest.tracks[0].mute).toBe(true);
-	await chooseCommandAction(page, editor, 'Tools', 'Stop live Blender sync');
+	await chooseNestedCommandAction(page, editor, 'Tools', ['Desktop services', 'Stop live Blender sync']);
 	await expect.poll(() => page.evaluate(() => globalThis.__blenderProbe.stops.length)).toBe(2);
 	const commitCount = await page.evaluate(() => globalThis.__blenderProbe.commits.length);
 	await track.getByRole('button', { name: 'Mute', exact: true }).click();
@@ -47,7 +48,8 @@ test('desktop Blender export renders WAVs and live sync updates edits until stop
 test('browser Blender commands offer the desktop app while Framescaper omits them', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	const tools = await openNestedCommandMenu(page, editor, 'Tools', []);
-	await getMenuItem(tools, 'Start live Blender sync').click();
+	await expect(getMenuItem(tools, 'Start live Blender sync')).toHaveCount(0);
+	await chooseNestedCommandAction(page, editor, 'Tools', ['Desktop services', 'Start live Blender sync']);
 	const dialog = page.getByRole('dialog', { name: 'Desktop feature', exact: true });
 	await expect(dialog).toBeVisible();
 	await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();

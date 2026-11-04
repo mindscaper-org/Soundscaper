@@ -2,16 +2,18 @@
 
 import { useEffect, useRef } from 'react';
 
-/** Offer a damaged startup project once; the existing File menu can reopen recovery. */
+/** Offer each damaged-project open once; the existing File menu can reopen recovery. */
 export function useProjectRecoverySurface(
 	productId: string,
 	projectId: string | null | undefined,
 	setActiveSurface: (surface: string) => void,
+	requestId = 0,
 ) {
 	const offered = useRef<string | null>(null);
 	useEffect(() => {
-		if (productId !== 'soundscaper' || !projectId || offered.current === projectId) return;
-		offered.current = projectId;
+		const key = `${projectId ?? ''}:${requestId}`;
+		if (productId !== 'soundscaper' || !projectId || offered.current === key) return;
+		offered.current = key;
 		setActiveSurface('project-recovery');
-	}, [productId, projectId, setActiveSurface]);
+	}, [productId, projectId, requestId, setActiveSurface]);
 }

@@ -47,6 +47,7 @@ export type DesktopAudioCodecCapabilityEntry = DesktopAudioCodecCapabilityTuple 
 	readonly available: boolean;
 	readonly provider: DesktopAudioCodecCapabilityProvider | null;
 	readonly reason: DesktopAudioCodecCapabilityReason | null;
+	readonly missingCapabilities?: readonly string[];
 }>;
 
 export interface DesktopAudioCodecCapabilityResult {
@@ -150,7 +151,12 @@ function normalizeTuple(value: unknown): DesktopAudioCodecCapabilityTuple {
 
 function normalizeEntry(value: unknown): DesktopAudioCodecCapabilityEntry {
 	const record = exactRecord(value, 'capability result entry');
-	exactKeys(record, ENTRY_FIELDS, 'capability result entry');
+	const { missingCapabilities, ...required } = record;
+	exactKeys(required, ENTRY_FIELDS, 'capability result entry');
+	if (missingCapabilities !== undefined && (!Array.isArray(missingCapabilities)
+		|| missingCapabilities.length > 32 || missingCapabilities.some((item: unknown) => (
+			typeof item !== 'string' || !/^(?:encoder|decoder|muxer|demuxer|filter):[a-zA-Z0-9_]{1,64}$/u.test(item)
+		)))) throw new TypeError('The desktop audio codec component diagnostics are invalid.');
 	const tuple = normalizeTuple(Object.fromEntries(TUPLE_FIELDS.map((field) => [field, record[field]])));
 	if (typeof record.available !== 'boolean') {
 		throw new TypeError('The desktop audio codec capability result availability is invalid.');
@@ -167,6 +173,7 @@ function normalizeEntry(value: unknown): DesktopAudioCodecCapabilityEntry {
 		available: record.available,
 		provider: provider as DesktopAudioCodecCapabilityProvider | null,
 		reason: reason as DesktopAudioCodecCapabilityReason | null,
+		...(missingCapabilities === undefined ? {} : { missingCapabilities: Object.freeze([...missingCapabilities as string[]]) }),
 	});
 }
 

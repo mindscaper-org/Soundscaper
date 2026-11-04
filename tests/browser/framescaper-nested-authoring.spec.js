@@ -8,6 +8,7 @@ import {
 	chooseFileAction,
 	chooseNestedCommandAction,
 	collectClientErrors,
+	disableNativeSavePicker,
 	registerAudioEditorHooks,
 } from './audio-editor-test-helpers.js';
 import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
@@ -16,6 +17,7 @@ test.describe('Framescaper selected-web nested-sequence authoring', () => {
 	registerAudioEditorHooks();
 
 	test('creates, places, moves, reopens, removes, and deletes through Tracks', async ({ browserName, page }) => {
+		await disableNativeSavePicker(page);
 		const errors = collectClientErrors(page);
 		let editor = await bootEditor(page, '/framescaper/en/');
 		await expect(editor).toHaveAttribute('data-product', 'framescaper');
@@ -115,7 +117,9 @@ async function nestedAction(page, editor, action) {
 
 async function saveProject(page, editor) {
 	await expect(editor.getByRole('tab', { selected: true })).toBeEnabled();
+	const downloading = page.waitForEvent('download');
 	await chooseFileAction(page, editor, 'Save project');
+	await (await downloading).delete();
 	await expect(editor.getByRole('tab', { selected: true })).toBeEnabled();
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 }

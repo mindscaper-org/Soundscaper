@@ -14,6 +14,9 @@ import { ProcessingButton as Button } from './ProcessingButton.tsx';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 import './ProcessingDialogs.css';
 import React, { useEffect, useMemo, useSyncExternalStore, type KeyboardEvent } from 'react';
+import { soundscaperPluginScanRuntimeFor } from '../soundscaper-plugin-scan-runtime.ts';
+import type { NativePluginScanController } from '../../controller/effects/native-plugin-scan-controller.ts';
+import SoundscaperPluginScanStatus, { canScanPluginFolders } from './SoundscaperPluginScanStatus.tsx';
 
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { useNativePluginParameterClose } from './useNativePluginParameterClose.ts';
@@ -22,7 +25,6 @@ import {
 } from '../soundscaper-native-services-bridge.ts';
 import {
 	resolveSoundscaperNativeServicesCopy,
-	type SoundscaperNativeServicesCopy,
 } from '../soundscaper-native-services-copy.ts';
 import {
 	EMPTY_SOUNDSCAPER_NATIVE_SERVICES_DIALOG_STATE,
@@ -47,6 +49,7 @@ const SoundscaperVampAnalyzerSurface = React.lazy(() => (
 
 export interface SoundscaperNativeServicesDialogProps {
 	readonly processingBlocked?: boolean;
+	readonly scanner?: NativePluginScanController;
 	readonly bridge: SoundscaperNativeServicesBridge;
 	readonly initialSurface: SoundscaperNativeServiceSurface;
 	readonly initialState?: SoundscaperNativeServicesDialogState;
@@ -68,7 +71,7 @@ export default function SoundscaperNativeServicesDialog(props: SoundscaperNative
 
 function NativeServicesDialog({
 	bridge,
-	initialSurface,
+	scanner: workspaceScanner,
 	processingBlocked = false,
 	initialState = EMPTY_SOUNDSCAPER_NATIVE_SERVICES_DIALOG_STATE,
 	runtime: workspaceRuntime,
@@ -76,7 +79,9 @@ function NativeServicesDialog({
 	onClose,
 }: SoundscaperNativeServicesDialogProps) {
 	const copy = useMemo(() => resolveSoundscaperNativeServicesCopy(hostCopy), [hostCopy]);
-	const [surface, setSurface] = React.useState<SoundscaperNativeServiceSurface>(initialSurface);
+	const surface = 'native-effect-manage';
+	const scanner = workspaceScanner ?? soundscaperPluginScanRuntimeFor(bridge);
+	const scan = useSyncExternalStore(scanner.subscribe, scanner.getSnapshot, scanner.getSnapshot);
 	const localRuntime = useMemo(
 		() => createSoundscaperNativeServicesDialogRuntime(bridge, initialState),
 		[bridge, initialState],
@@ -85,31 +90,32 @@ function NativeServicesDialog({
 	const state = useSyncExternalStore(runtime.subscribe, runtime.getState, runtime.getState);
 	const close = useNativePluginParameterClose(state.pluginInstance?.instanceId ?? null, onClose);
 	const perform = useMemo(() => (action: SoundscaperNativeServicesDialogAction): void => {
-		void runtime.perform(action);
-	}, [runtime]);
-	useEffect(() => { perform({ type: 'refresh' }); }, [perform]);
-
-	const surfaces: readonly SoundscaperNativeServiceSurface[] = initialSurface === 'native-effect-use'
-		? ['native-effect-use'] : ['native-effect-manage'];
-	const busy = state.pending !== null || Object.values(state.scans).some((scan) => scan.running);
-	const handleTabKey = (event: KeyboardEvent<HTMLButtonElement>): void => {
-		if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
-		const next = adjacentSurface(surface, event.key, surfaces);
-		if (next === null) return;
-		event.preventDefault();
-		setSurface(next);
-		requestAnimationFrame(() => {
-			document.getElementById(tabId(next))?.focus({ preventScroll: true });
+		void runtime.perform(action).then((next) => {
+			if (action.type === 'clear-quarantine' && action.clearance === 'rescan' && !next.error) void scanner.scan();
 		});
+	}, [runtime, scanner]);
+	useEffect(() => { perform({ type: 'refresh' }); }, [perform, scan.generation, scan.status]);
+
+	const surfaces = [surface] as const;
+	const busy = state.pending !== null || scan.status === 'running' || Object.values(state.scans).some((scan) => scan.running);
+	const handleTabKey = (event: KeyboardEvent<HTMLButtonElement>): void => {
+		if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
+		if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+		event.preventDefault();
 	};
 
 	return <AudioEditorDialogShell
-		title={initialSurface === 'native-effect-use' ? copy.audioPluginEffects : copy.pluginManage.replace(/…$/u, '')}
+		title={copy.pluginManage.replace(/…$/u, '')}
 		onClose={close}
 		width={760}
 		initialFocus={`[data-native-service-tab="${surface}"]`}
 		dataAttributes={{ 'data-soundscaper-native-services-dialog': 'true' }}
-		footer={<DialogFooter className="audio-editor-dialog-footer" rightContent={
+		footer={<DialogFooter className="audio-editor-dialog-footer" leftContent={<div className="kw-processing-actions">
+			<Button disabled={state.pending !== null} data-native-service-refresh="true"
+				onClick={() => perform({ type: 'refresh' })}>{copy.refresh}</Button>
+			<Button disabled={busy || !canScanPluginFolders(state.plugins)}
+				onClick={() => { void scanner.scan(); }}>{scan.status === 'running' ? copy.scanRunning : copy.scanPluginFolders}</Button>
+		</div>} rightContent={
 			<Button variant="primary" onClick={close}>{copy.close}</Button>} />}
 	>
 		<div className="audio-editor-soundscaper-native-services">
@@ -123,58 +129,29 @@ function NativeServicesDialog({
 					aria-controls={panelId(candidate)}
 					tabIndex={surface === candidate ? 0 : -1}
 					data-native-service-tab={candidate}
-					onClick={() => setSurface(candidate)}
 					onKeyDown={handleTabKey}
-				>{surfaceLabel(copy, candidate)}</button>)}
+				>{copy.tabEffectManage}</button>)}
 			</div>
 			<p role="status" aria-live="polite" aria-busy={busy ? 'true' : undefined}>
 				{state.error || (busy ? copy.working : state.completed === null ? '' : copy.operationComplete)}
 			</p>
+			<SoundscaperPluginScanStatus scan={scan} plugins={state.plugins} copy={copy} />
 			<section
 				id={panelId(surface)}
 				role="tabpanel"
 				aria-labelledby={tabId(surface)}
 				tabIndex={0}
 			>
-				<p>
-					<Button
-						variant="secondary"
-						disabled={state.pending !== null}
-						data-native-service-refresh="true"
-						onClick={() => perform({ type: 'refresh' })}
-					>{copy.refresh}</Button>
-				</p>
-				{(surface === 'native-effect-manage' || surface === 'native-effect-use') && <SoundscaperNativeEffectManagePanel
-					mode={surface === 'native-effect-use' ? 'use' : 'manage'}
+				<SoundscaperNativeEffectManagePanel
 					copy={copy}
 					state={state}
-					disabled={state.pending !== null || (surface === 'native-effect-use' && processingBlocked)}
+					disabled={busy}
+					processingBlocked={processingBlocked}
 					perform={perform}
-				/>}
+				/>
 			</section>
 		</div>
 	</AudioEditorDialogShell>;
-}
-
-function adjacentSurface(
-	surface: SoundscaperNativeServiceSurface,
-	key: string,
-	surfaces: readonly SoundscaperNativeServiceSurface[],
-): SoundscaperNativeServiceSurface | null {
-	const index = surfaces.indexOf(surface);
-	if (key === 'ArrowRight') return surfaces[(index + 1) % surfaces.length];
-	if (key === 'ArrowLeft') return surfaces[(index - 1 + surfaces.length) % surfaces.length];
-	if (key === 'Home') return surfaces[0];
-	if (key === 'End') return surfaces[surfaces.length - 1];
-	return null;
-}
-
-function surfaceLabel(
-	copy: SoundscaperNativeServicesCopy,
-	surface: SoundscaperNativeServiceSurface,
-): string {
-	if (surface === 'native-effect-use') return copy.audioPluginEffects;
-	return copy.tabEffectManage;
 }
 
 function tabId(surface: SoundscaperNativeServiceSurface): string {

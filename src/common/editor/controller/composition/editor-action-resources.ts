@@ -21,6 +21,7 @@ import type { TrimMediaFfmpegHost } from '../document/trim-media-service.ts';
 import type { ExportActionState } from '../export/export-action-group.ts';
 import type { EditorTaskScope } from '../shared/lifecycle.ts';
 import type { InterchangeProductProjection } from '../../interchange-multicamera-delivery.ts';
+import type { ProjectOpenRecoveryRuntime } from '../document/project-open-recovery.ts';
 
 type EffectLibraryState =
 	& EffectMacroLibraryServiceRuntime['state']
@@ -30,6 +31,7 @@ interface EditorActionState extends ExportActionState {
 	readonly readOnly?: boolean;
 	readonly projectActivationPending?: boolean;
 	readonly phase?: string;
+	projectRecovery?: ProjectOpenRecoveryRuntime['state']['projectRecovery'];
 	selectedTrackId: string | null;
 	readonly timelineView: string;
 	readonly preferences?: Readonly<{
@@ -49,6 +51,8 @@ interface EditorActionState extends ExportActionState {
 }
 
 export interface EditorActionResources {
+	readonly onProjectOpenFailure?: ProjectOpenRecoveryRuntime['onProjectOpenFailure'];
+	readonly assertActive?: () => void;
 	readonly AUDIO_EDITOR_DEFAULT_SHORTCUTS: typeof AUDIO_EDITOR_DEFAULT_SHORTCUTS;
 	readonly analysisService: AnalysisActions;
 	readonly audioWarpService: ReturnType<typeof createTrackAudioComposition>['audioWarp'];

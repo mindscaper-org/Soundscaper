@@ -8,12 +8,10 @@ import { Button } from '@soundscaper/design-system/Button';
 import { assistanceTaskLabel } from '../assistance-task-catalog.ts';
 import { Suspense } from 'react';
 
-import {
-	assistanceWorkflowStageGraph,
-	type AssistanceGuidedWorkflowId,
-} from '../../assistance/workflow-recipes.ts';
-import { serializeAssistanceWorkflowSettingsV1 } from '../../assistance/workflow-settings-v1.ts';
+import type { AssistanceGuidedWorkflowId } from '../../assistance/workflow-recipes.ts';
+import type { LocalAssistanceModel } from '../../assistance/local-assistance-bridge.ts';
 import type { AssistanceWorkflowSettingsV1 } from '../../assistance/workflow-settings-v1.ts';
+import { assistanceTaskActionLabel } from '../local-assistance-task-controls.ts';
 import {
 	localAssistanceGuidedConfigurationLocked,
 	type LocalAssistanceGuidedSnapshot,
@@ -30,6 +28,7 @@ export interface LocalAssistanceGuidedPanelProps {
 	readonly focusedTask?: boolean;
 	readonly copy: Copy;
 	readonly snapshot: LocalAssistanceGuidedSnapshot;
+	readonly models?: readonly LocalAssistanceModel[];
 	readonly onSelectWorkflow: (workflowId: AssistanceGuidedWorkflowId) => unknown;
 	readonly onSettingsChange: (settings: AssistanceWorkflowSettingsV1) => unknown;
 	readonly onRun: () => unknown;
@@ -48,12 +47,10 @@ export interface LocalAssistanceGuidedPanelProps {
 }
 
 export default function LocalAssistanceGuidedPanel({
-	copy, snapshot, focusedTask = false, onSelectWorkflow, onSettingsChange, onRun, onCancel, onReview, onAccept,
+	copy, snapshot, models = [], focusedTask = false, onSelectWorkflow, onSettingsChange, onRun, onCancel, onReview, onAccept,
 	onChoiceChange, onReframeCropChange, onHighlightTitleChange, onHighlightTrimChange,
 	onHighlightCropChange,
 }: LocalAssistanceGuidedPanelProps) {
-	const graph = snapshot.selectedWorkflowId
-		? assistanceWorkflowStageGraph(snapshot.selectedWorkflowId) : null;
 	const message = statusMessage(copy, snapshot);
 	const configurationLocked = localAssistanceGuidedConfigurationLocked(snapshot.phase);
 	return <section id="local-assistance-guided-panel" className="kw-local-assistance__guided" role={focusedTask ? 'region' : 'tabpanel'}
@@ -71,27 +68,13 @@ export default function LocalAssistanceGuidedPanel({
 				</option>)}
 			</select>
 		</label>}
-		{graph && <details className="kw-local-assistance__guided-recipe">
-			<summary>{text(copy, 'assistanceTechnicalDetails', 'Technical details')}</summary>
-			<h3>{text(copy, 'localAssistanceGuidedStages', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceGuidedStages)}</h3>
-			<ol>{graph.map(({ stageId, required }) => <li key={stageId}>
-				<code>{stageId}</code>{required ? '' : ` · ${text(copy,
-					'localAssistanceOptional', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceOptional)}`}
-			</li>)}</ol>
-			{snapshot.error && <p>{snapshot.error}</p>}
-			{snapshot.progress && <code>{JSON.stringify(snapshot.progress)}</code>}
-		</details>}
-		{snapshot.settings && <>
-			<LocalAssistanceGuidedSettings copy={copy} settings={snapshot.settings}
+		{snapshot.settings && <LocalAssistanceGuidedSettings copy={copy} settings={snapshot.settings} models={models}
 				disabled={configurationLocked} onChange={onSettingsChange} />
-			<details className="kw-local-assistance__guided-settings">
-				<summary>{text(copy, 'localAssistanceExactSettings', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceExactSettings)}</summary>
-				<code>{serializeAssistanceWorkflowSettingsV1(snapshot.settings)}</code>
-			</details>
-		</>}
+		}
 		{!focusedTask && <div className="kw-local-assistance__run-actions">
 			<Button variant="secondary" disabled={!snapshot.canRun} onClick={() => { void onRun(); }}>
-				{text(copy, 'localAssistanceRunGuided', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceRunGuided)}
+				{snapshot.selectedWorkflowId ? assistanceTaskActionLabel(snapshot.selectedWorkflowId, copy)
+					: copy.analyze || 'Analyze'}
 			</Button>
 			<Button variant="secondary" disabled={!snapshot.canCancel} onClick={() => { void onCancel(); }}>
 				{text(copy, 'localAssistanceCancel', 'Cancel')}
@@ -126,7 +109,7 @@ export default function LocalAssistanceGuidedPanel({
 }
 
 function statusMessage(copy: Copy, snapshot: LocalAssistanceGuidedSnapshot): string | null {
-	if (snapshot.error) return text(copy, 'assistanceTaskFailed', 'Processing could not finish. Open technical details for more information.');
+	if (snapshot.error) return `${text(copy, 'assistanceTaskFailed', 'Processing could not finish.')} ${snapshot.error}`;
 	if (snapshot.phase === 'selection-required') {
 		return text(copy, 'localAssistanceGuidedChoose', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceGuidedChoose);
 	}

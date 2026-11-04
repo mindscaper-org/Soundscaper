@@ -58,6 +58,7 @@ export const POLICY_NARRATIVE_BINDINGS = Object.freeze([
 		['scape-archive-expansion', 'overridable-scape-size-admission'],
 		['scape-archive-expansion', 'bounded-streaming-media-extraction'],
 		['external-project-document-validation', 'maintained-project-publication-admission'],
+		['native-plugin-hosting', 'trusted-windows-effect-processes'],
 		['audiocom-proxy-boundary', 'bounded-audiocom-oauth-media-proxy'],
 	].map(([riskId, controlId]) => Object.freeze({
 		marker: controlId,

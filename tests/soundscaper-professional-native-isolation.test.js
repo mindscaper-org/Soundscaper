@@ -95,7 +95,7 @@ test('trusted audio stays in Node while real plug-ins execute only through the i
 		'teardown must stop JUCE\'s dispatch loop before joining its worker');
 	assert.match(dispatcher, /shutdownJuceMessageDispatcher[\s\S]*value->shutdown\(\)/u);
 	assert.match(peer,
-		/writeFrame\(answer\)[\s\S]*peer\.finished\(\)[\s\S]*shutdownJuceMessageDispatcher\(\)/u,
+		/writeFrame\(output, answer\)[\s\S]*peer\.finished\(\)[\s\S]*shutdownJuceMessageDispatcher\(\)/u,
 		'the successful close frame must precede explicit bounded-lifetime JUCE teardown');
 	assert.match(peer,
 		/int main\(int argc, char \*\*argv\)[\s\S]*_setmode\(_fileno\(stdout\), _O_BINARY\)[\s\S]*runVampAnalyzerPeer\(\)[\s\S]*professionalHostContainmentProbe\(argc, argv\)/u,

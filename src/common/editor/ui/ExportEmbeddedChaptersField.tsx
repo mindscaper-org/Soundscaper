@@ -12,7 +12,6 @@ interface ExportEmbeddedChaptersFieldProps {
 		helpMenu: string;
 	}>;
 	readonly settings: Readonly<Record<string, unknown>>;
-	readonly desktop: boolean;
 	readonly project: unknown;
 	readonly exporting: boolean;
 	readonly onChange: (name: string, value: boolean) => void;
@@ -20,9 +19,9 @@ interface ExportEmbeddedChaptersFieldProps {
 
 /** The menu-opened export dialog is the opt-in entry point for chapter metadata. */
 export default function ExportEmbeddedChaptersField({
-	copy, settings, desktop, project, exporting, onChange,
+	copy, settings, project, exporting, onChange,
 }: ExportEmbeddedChaptersFieldProps) {
-	if (!exportDialogSupportsEmbeddedChapters(settings, desktop)) return null;
+	if (!exportDialogSupportsEmbeddedChapters(settings)) return null;
 	const hasLabels = exportDialogHasDeliveredChapterLabels(project, settings);
 	return <>
 		<div className="audio-editor-export-check" data-export-field="embedLabelChapters">

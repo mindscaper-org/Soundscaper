@@ -101,7 +101,7 @@ test('compares Web and Desktop with accessible symbols and explains the capabili
 	expect(await tables.count()).toBeGreaterThan(0);
 	for (const table of await tables.all()) {
 		await expect(table.getByRole('columnheader')).toHaveText([
-			'Capability', 'Soundscaper Web', 'Soundscaper Desktop', 'Audacity 4', 'Audition',
+			'Capability', 'Soundscaper Web', 'Soundscaper Desktop', 'Audacity 4.0.2', 'Audition',
 		]);
 	}
 

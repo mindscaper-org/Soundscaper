@@ -1,3 +1,4 @@
+import { iconNameToChar } from '../Icon/icon-codes.ts';
 import React from 'react';
 import { useTheme } from '../ThemeProvider';
 import '../assets/fonts/musescore-icon.css';
@@ -334,7 +335,7 @@ export const MasterMeter: React.FC<MasterMeterProps> = ({
         role="presentation"
         onMouseDown={gripMouseDown}
       >
-        {'\uF347'}
+        {iconNameToChar('DOUBLE_BAR_LINE')}
       </span>
       )}
     </div>

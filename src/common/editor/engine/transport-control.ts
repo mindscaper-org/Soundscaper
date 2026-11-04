@@ -29,6 +29,8 @@ import {
 	buildProjectGraph,
 } from './project-graph.ts';
 import { playbackOutputDestination } from './playback-output.ts';
+import { rememberPlaybackPitchPreserver } from './project-refresh-speed.ts';
+import { capturePlaybackSourceResolver } from './playback-source-resolver.ts';
 import { resetPlaybackSession } from './playback-session.ts';
 import { isPlaybackLoopEnabled, resetPlaybackFrequencyRange } from './playback-frequency-range.ts';
 import { isCutPreviewActive, isCutPreviewPaused, pauseCutPreview, readCutPreviewPosition, resumeCutPreview } from './cut-preview.ts';
@@ -81,6 +83,7 @@ async play() {
 		if (!this.project) throw new Error('Load an audio editor project before playback.');
 		const previewResume = this.state === 'paused' ? resumeCutPreview(this) : null;
 		if (this.state === 'playing' || previewResume) return previewResume ?? undefined;
+		capturePlaybackSourceResolver(this);
 		this[ENGINE_CANCEL_SCRUB]();
 		const generation = this.scrubGeneration;
 		// The request stays marked while this method is suspended. A project
@@ -136,6 +139,7 @@ async playAtSpeed(rate, {
 		resetPlaybackFrequencyRange(this);
 		if (!this.project) throw new Error('Load an audio editor project before playback.');
 		if (this.state === 'playing') return;
+		capturePlaybackSourceResolver(this);
 		this[ENGINE_CANCEL_SCRUB]();
 		const generation = this.scrubGeneration;
 		const normalizedRate = normalizePlayAtSpeedRate(rate);
@@ -179,6 +183,7 @@ async playAtSpeed(rate, {
 			if (typeof pitchPreserver !== 'function') {
 				throw new TypeError('Pitch-preserving playback requires a StaffPad renderer.');
 			}
+			rememberPlaybackPitchPreserver(this, pitchPreserver);
 			await prepareSpeedRender(this, normalizedRate, pitchPreserver, signal, onProgress,
 				() => assertPlaybackRequestCurrent(this, generation));
 			this.playbackMode = 'staffpad';
@@ -198,6 +203,7 @@ async playAt(this: EngineRuntimeHost, contextTime, fromFrame = this.positionFram
 		resetPlaybackFrequencyRange(this);
 		if (!this.project) throw new Error('Load an audio editor project before playback.');
 		resetPlaybackSession(this);
+		capturePlaybackSourceResolver(this);
 		// Recording and the other clocked starts run to their own end, never to
 		// the end of whatever bounded the last thing that was played.
 		this.playRange = null;
@@ -314,6 +320,7 @@ async scrub(frame, { durationMs = DEFAULT_SCRUB_FRAME_MS } = {}) {
 		const nextFrame = clampFrame(frame, 0, this.playbackDurationFrames);
 		const frameMs = clamp(Number(durationMs) || DEFAULT_SCRUB_FRAME_MS, 16, 250);
 		if (!this.scrubbing) {
+			capturePlaybackSourceResolver(this);
 			this[ENGINE_CANCEL_SCRUB]();
 			this[ENGINE_HALT_GRAPH]();
 			this.scrubbing = true;

@@ -15,7 +15,8 @@ import {
 	type NativeChildIsolationPathGrant,
 } from './native-child-isolation-launcher.ts';
 import type { HelperJobResourcePolicy } from './helper-resource-policy.ts';
-import { snapshotAuthenticatedPluginCandidate } from './plugin-candidate-snapshot.mjs';
+import { prepareProfessionalPluginCandidate } from './professional-plugin-custody.ts';
+import { isSupervisedNativePluginLaunch, type NativePluginProcessLaunch } from './native-plugin-process-launcher.ts';
 import { professionalPeerLoaderArgumentsValid } from './professional-peer-loader-arguments.ts';
 
 const VERSION = 2;
@@ -58,7 +59,10 @@ export interface ProfessionalPluginParameter {
 }
 
 export interface ProfessionalPluginPeerLauncher {
+	readonly pluginFilesystemAccess?: 'user';
+	readonly vst2LowAddressHeap?: true;
 	launch(request: Readonly<{
+		readonly windowsVst2LowAddressHeap?: true;
 		readonly executable: NativeChildIsolationArtifactDescriptor;
 		readonly arguments: readonly string[];
 		readonly readOnly: readonly NativeChildIsolationPathGrant[];
@@ -73,7 +77,7 @@ export interface ProfessionalPluginPeerLauncher {
 			readonly maximumMessageBytes: number;
 			readonly maximumInFlightMessages: number;
 		}>;
-	}>): Promise<NativeChildIsolationLaunch>;
+	}>): Promise<NativeChildIsolationLaunch | NativePluginProcessLaunch>;
 }
 
 interface PeerDescription {
@@ -98,7 +102,7 @@ interface PeerInstance {
 }
 
 interface PeerSession {
-	readonly launch: NativeChildIsolationLaunch;
+	readonly launch: NativeChildIsolationLaunch | NativePluginProcessLaunch;
 	readonly pluginPath: string;
 	request(operation: number, build?: (writer: BinaryWriter) => void): Promise<BinaryReader>;
 	close(): Promise<void>;
@@ -133,7 +137,7 @@ export function createSoundscaperProfessionalPluginPeer(options: Readonly<{
 		inspectPluginCandidate: async (path: string, format: HelperPluginFormat, context: ProfessionalPluginPeerContext) => {
 			admittedFormat(formats, format);
 			const session = await openSession(options.launcher, executable, entryExecutable, entryArguments,
-				runtimeReadExecute, path, context);
+				runtimeReadExecute, path, context, format);
 			let scanCompleted = false;
 			let operationFailed = false;
 			let operationError: unknown;
@@ -175,7 +179,7 @@ export function createSoundscaperProfessionalPluginPeer(options: Readonly<{
 		) => {
 			admittedFormat(formats, format);
 			const session = await openSession(options.launcher, executable, entryExecutable, entryArguments,
-				runtimeReadExecute, path, context);
+				runtimeReadExecute, path, context, format);
 			try {
 				const answer = await session.request(OPERATION.open, (writer) => {
 					writer.text(format); writer.text(session.pluginPath); writer.text(stableId);
@@ -304,8 +308,9 @@ async function openSession(
 	runtimeReadExecute: readonly NativeChildIsolationArtifactDescriptor[],
 	pluginPath: string,
 	context: ProfessionalPluginPeerContext,
+	format: HelperPluginFormat,
 ): Promise<PeerSession> {
-	const snapshot = await snapshotAuthenticatedPluginCandidate(pluginPath, context);
+	const snapshot = await prepareProfessionalPluginCandidate(pluginPath, context, launcher.pluginFilesystemAccess === 'user');
 	let launch;
 	try {
 		const pluginGrant = await exactProfessionalCandidateGrant(snapshot.path, snapshot.authentication.identity, true,
@@ -313,6 +318,7 @@ async function openSession(
 		const arguments_ = entryExecutable.path === peerExecutable.path ? []
 			: [...entryArguments, peerExecutable.path];
 		launch = await launcher.launch({
+			...(format === 'vst2' && launcher.vst2LowAddressHeap ? { windowsVst2LowAddressHeap: true as const } : {}),
 			executable: entryExecutable, workloadPayload: peerExecutable, arguments: arguments_,
 			readOnly: [], readExecute: [pluginGrant], writeOnly: [],
 			runtimeClosure: runtimeReadExecute,
@@ -326,7 +332,7 @@ async function openSession(
 			},
 		});
 	} catch (error) { await snapshot.dispose(); throw error; }
-	if (!isEnforcedNativeChildLaunch(launch.enforcement) || !launch.control) {
+	if (!(isEnforcedNativeChildLaunch(launch.enforcement) || isSupervisedNativePluginLaunch(launch.enforcement)) || !launch.control) {
 		launch.kill('SIGKILL');
 		await snapshot.dispose();
 		throw new Error('The professional plug-in peer has no enforced framed child transport.');
@@ -466,7 +472,7 @@ function planes(value: readonly Float32Array[], count: number, frames: number) {
 
 function pluginFormats(value: readonly Exclude<HelperPluginFormat, 'fixture'>[]) {
 	if (!Array.isArray(value) || value.length < 1 || new Set(value).size !== value.length
-		|| value.some((format) => !['vst3', 'clap', 'au', 'lv2', 'ladspa'].includes(format))) {
+		|| value.some((format) => !['vst3', 'vst2', 'clap', 'au', 'lv2', 'ladspa'].includes(format))) {
 		throw new TypeError('The isolated peer needs exact professional formats.');
 	}
 	return Object.freeze([...value]);

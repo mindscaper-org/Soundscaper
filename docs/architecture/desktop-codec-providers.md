@@ -10,6 +10,17 @@ order:
 3. an external `ffmpeg`/`ffprobe` installation selected by the user.
 
 The production browser build contains no application-supplied FFmpeg runtime.
+
+The export dialog lists every supported audio container and all video containers
+applicable to the timeline. Availability checks admit the selected format and
+settings without removing other choices. An unavailable selection opens a dialog:
+missing external FFmpeg offers the existing installer explicitly, while an
+installed but incompatible build reports its missing codec components or the
+failed settings. Successful installation rechecks the selection. Capability IPC
+errors remain check failures and never imply that FFmpeg is absent. The sandbox
+preload and main process share the canonical codec capability and settings
+validators, including MP3 bitrate strategies and Opus VBR mode.
+
 Desktop packages contain no Soundscaper application-provider FFmpeg executable, libav
 library, or FFmpeg WASM payload. Electron's separately verified alternate
 framework libffmpeg remains Chromium infrastructure rather than a Soundscaper
@@ -84,6 +95,11 @@ admits up to one hour and 1,000,000,000 final file bytes, with a one-hour execut
 deadline, cancellation, progress, and final codec geometry/checksum validation.
 Neither input PCM nor encoded output accumulates in one JavaScript or WASM buffer.
 
+Opted-in label chapters use the shared MP3 and M4A container writers after native
+encoding and before publication. Chapter data stays outside the closed codec
+bridge. MP3 chapter tags retain the native scratch file through a bounded range
+view, and final file-size warnings include the chapter bytes.
+
 The small-buffer helpers still perform synchronous WASM calls internally. Their
 buffers, codec working state, JavaScript copies, and elapsed time do not form one
 shared reservation for aggregate helper-process RSS and CPU.
@@ -152,19 +168,19 @@ memory and scratch storage. Large audio requests bypass the 32 MiB input and
 128 MiB output utility tiers. Explicit caller output bounds remain enforced,
 and browser publication keeps its existing limits.
 
-Edit > Preferences > General shows the canonical location and status and owns
-Browse, Clear, Rescan, and explicit Install actions. Installation uses the
-exact WinGet package id `BtbN.FFmpeg.GPL.8.1` or an already installed Homebrew
-binary with `brew install ffmpeg`. These in-app actions require an existing
-package manager and do not bootstrap it or invoke `sudo`.
+Edit > Preferences > General shows the canonical location and detected version,
+with Browse beside the path and a Rescan action. Install is offered only while
+FFmpeg is not ready. Installation uses the exact WinGet package id
+`BtbN.FFmpeg.GPL.8.1` or an already installed Homebrew binary with
+`brew install ffmpeg`. These in-app actions require an existing package manager
+and do not bootstrap it or invoke `sudo`.
 
 The Windows setup and macOS PKG also offer an unchecked optional FFmpeg
 component. Selecting it authorizes installation of WinGet or Homebrew when
 missing, followed by FFmpeg under the desktop user's account. A successful
 installer writes a per-user, per-product consent marker; first launch consumes
-it and probes the installed executable pair. Clearing FFmpeg in Preferences
-therefore remains effective across later launches. The Debian package lists
-FFmpeg in `Recommends`, not `Depends`. FFmpeg executables remain outside the
+it and probes the installed executable pair. The Debian package lists FFmpeg
+in `Recommends`, not `Depends`. FFmpeg executables remain outside the
 application package. See [desktop installers](../operations/desktop-installers.md).
 
 The desktop keyed-video renderer probes the exact video geometry and quality

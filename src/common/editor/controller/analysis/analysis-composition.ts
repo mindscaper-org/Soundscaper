@@ -25,6 +25,11 @@ export type AnalysisWorkerPort = (
 ) => Promise<unknown>;
 
 type AnalysisProject = AnalysisRenderProject & ReturnType<AnalysisDependencies['getProject']>;
+type AnalysisTrack = AnalysisRenderProject['tracks'][number] & {
+	readonly name?: string;
+	readonly color?: string;
+	readonly clipIds?: readonly string[];
+};
 export type AnalysisCompositionState = AnalysisState & {
 	selectedTrackId: string | null;
 	selectedClipId?: string | null;
@@ -81,6 +86,13 @@ export function createAnalysisComposition<Project extends AnalysisProject, Buffe
 		captureDocumentGeneration: dependencies.getImmutableProjectGeneration
 			? () => dependencies.getImmutableProjectGeneration?.() ?? null : undefined,
 		getSelectedTrackId: () => state.selectedTrackId,
+		getSpectrumTracks: () => {
+			const project = requireProject();
+			const selected = new Set(resolveSelectionRange(project, { selectedClipId: state.selectedClipId ?? null })?.trackIds ?? []);
+			const tracks: readonly AnalysisTrack[] = project.tracks;
+			return tracks.filter(track => track.type === 'audio' && track.clipIds?.length && selected.has(track.id))
+				.map(track => ({ id: track.id, name: track.name ?? track.id, color: track.color ?? 'blue' }));
+		},
 		getRange: () => {
 			const selection = currentSelection();
 			return Object.freeze({

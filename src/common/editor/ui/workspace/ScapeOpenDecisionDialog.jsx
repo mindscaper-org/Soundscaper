@@ -6,15 +6,17 @@ import { DialogFooter } from '@soundscaper/design-system/Footer';
 
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { formatLocalizedTemplate, formatResizeLabel } from '../localization-template.ts';
+import { projectRecoveryChangeCopyKey } from '../project-recovery-reason-key.ts';
 
 export default function ScapeOpenDecisionDialog({ copy, prompt, onSettle }) {
 	const descriptionId = React.useId();
-	const compatibility = prompt.kind !== 'collision';
-	const collision = prompt.kind !== 'compatibility';
+	const recovery = Boolean(prompt.inspected.recoveryChanges?.length);
+	const compatibility = prompt.kind === 'compatibility' || prompt.kind === 'compatibility-collision';
+	const collision = prompt.kind === 'collision' || prompt.kind === 'compatibility-collision';
 	const report = compatibility ? prompt.inspected.featureRequirementsCompatibility : null;
 	const affectedItems = (report?.items || []).filter((item) => item.availability !== 'available');
-	const title = compatibility ? copy.scapeCompatibilityTitle : copy.scapeCollisionTitle;
-	const initialFocus = compatibility
+	const title = recovery ? copy.projectRecoveryTitle : compatibility ? copy.scapeCompatibilityTitle : copy.scapeCollisionTitle;
+	const initialFocus = compatibility || recovery
 		? '.audio-editor-scape-open-cancel'
 		: '.audio-editor-scape-collision-copy';
 	return (
@@ -36,13 +38,13 @@ export default function ScapeOpenDecisionDialog({ copy, prompt, onSettle }) {
 					>
 						{copy.cancel}
 					</Button>
-					{prompt.kind === 'collision' ? (
+					{!compatibility ? (
 						<Button
 							className="audio-editor-scape-collision-copy"
 							variant="primary"
 							onClick={() => onSettle(prompt, 'copy')}
 						>
-							{copy.scapeOpenAsCopy}
+							{recovery ? copy.projectRecoveryCreate : copy.scapeOpenAsCopy}
 						</Button>
 					) : (
 						<Button variant="primary" onClick={() => onSettle(
@@ -56,6 +58,7 @@ export default function ScapeOpenDecisionDialog({ copy, prompt, onSettle }) {
 			/>}
 		>
 			<div id={descriptionId}>
+				{recovery && <p>{copy.projectRecoveryDescription}</p>}
 				{compatibility && (
 					<p>{formatLocalizedTemplate(copy.scapeCompatibilityMessage, {
 						title: prompt.inspected.title,
@@ -67,6 +70,13 @@ export default function ScapeOpenDecisionDialog({ copy, prompt, onSettle }) {
 					})}</p>
 				)}
 			</div>
+			{recovery && <>
+				<h3>{copy.projectRecoveryChanges}</h3>
+				<ul>{prompt.inspected.recoveryChanges.map((change, index) => <li key={index}>
+					{change.path}: {copy[projectRecoveryChangeCopyKey(change)] || copy.projectRecoveryDataReset}
+					<details><summary>{copy.projectRecoveryDiagnostic}</summary>{change.reason}</details>
+				</li>)}</ul>
+			</>}
 			{compatibility && (
 				<>
 					<dl className="kw-audio-editor-compatibility-counts">

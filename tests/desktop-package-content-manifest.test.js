@@ -86,7 +86,7 @@ test('Stable Soundscaper admits no legacy native-addon manifest or helper payloa
 		resourcesRoot: stable.resourcesRoot, runtimeManifestPath: stable.runtimeManifestPath,
 		productId: 'soundscaper', targetId: 'linux-x64',
 	}, stableNotices.dependencies);
-	assert.equal(written.fileCount, 20);
+	assert.equal(written.fileCount, 21);
 
 	const missingNotices = await packageTree(context, { professionalBuilt: true });
 	await rm(join(missingNotices.resourcesRoot, 'runtime/native/linux-x64'), { recursive: true });
@@ -370,7 +370,7 @@ function peExecutable(machine) {
 
 async function addStableProfessionalNotices(fixture, { writeNotices = true } = {}) {
 	const ids = [
-		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 		'asio-sdk', 'ladspa-sdk', 'lv2',
 	];
 	const targets = ['linux-x64', 'linux-arm64', 'mac-arm64', 'win-x64', 'win-arm64'];

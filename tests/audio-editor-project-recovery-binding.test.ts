@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { bindSoundscaperProjectRecovery, hasSoundscaperStartupRecovery } from '../src/soundscaper/editor-project-recovery-binding.ts';
+import { bindSoundscaperProjectRecovery, hasSoundscaperProjectOpenRecovery } from '../src/soundscaper/editor-project-recovery-binding.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project-store.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
@@ -62,26 +62,26 @@ test('startup salvage never masks cancellation, disposal or inaccessible storage
 	const store = { readProjectRecoveryCandidates: () => { reads += 1; return Promise.resolve([]); } };
 	for (const name of ['AbortError', 'EditorDisposedError', 'EditorStoreClosedError', 'EditorStoreBlockedError',
 		'EditorStoreVersionStaleError', 'SecurityError', 'NotAllowedError', 'InvalidStateError', 'QuotaExceededError']) {
-		assert.equal(await hasSoundscaperStartupRecovery(store, 'project', Object.assign(new Error(name), { name })), false);
+		assert.equal(await hasSoundscaperProjectOpenRecovery(store, 'project', Object.assign(new Error(name), { name })), false);
 	}
 	assert.equal(reads, 0);
 	const failure = new Error('The project database is unavailable.');
 	const unavailable = { readProjectRecoveryCandidates: () => Promise.reject(failure) };
-	await assert.rejects(hasSoundscaperStartupRecovery(unavailable, 'project', failure), (error) => error === failure);
-	assert.equal(await hasSoundscaperStartupRecovery(store, 'project', new Error('Malformed current document.')), false);
+	await assert.rejects(hasSoundscaperProjectOpenRecovery(unavailable, 'project', failure), (error) => error === failure);
+	assert.equal(await hasSoundscaperProjectOpenRecovery(store, 'project', new Error('Malformed current document.')), false);
 });
 
 test('startup repair requires damaged document evidence or a missing or corrupt immutable body', async () => {
 	const project = createSoundscaperProject({ id: 'startup-evidence' });
 	const current = { key: 'current', kind: 'current' as const, revision: 0, project };
 	const store = { readProjectRecoveryCandidates: () => Promise.resolve([current]) };
-	assert.equal(await hasSoundscaperStartupRecovery(store, project.id, new Error('Audio engine unavailable.')), false);
+	assert.equal(await hasSoundscaperProjectOpenRecovery(store, project.id, new Error('Audio engine unavailable.')), false);
 	const damaged = { readProjectRecoveryCandidates: () => Promise.resolve([{ ...current, project: { ...project, tracks: null } }]) };
-	assert.equal(await hasSoundscaperStartupRecovery(damaged, project.id, new TypeError('Malformed tracks.')), true);
+	assert.equal(await hasSoundscaperProjectOpenRecovery(damaged, project.id, new TypeError('Malformed tracks.')), true);
 	const history = { readProjectRecoveryCandidates: () => Promise.resolve([{ ...current, kind: 'revision' as const }]) };
-	assert.equal(await hasSoundscaperStartupRecovery(history, project.id,
+	assert.equal(await hasSoundscaperProjectOpenRecovery(history, project.id,
 		Object.assign(new Error('Current document is missing.'), { name: 'MissingStartupProjectError' })), true);
-	assert.equal(await hasSoundscaperStartupRecovery(history, project.id,
+	assert.equal(await hasSoundscaperProjectOpenRecovery(history, project.id,
 		new Error('Soundscaper desktop baseline immutable file failed SHA-256 snapshot verification')), true);
 });
 
@@ -102,7 +102,7 @@ test('startup repair detects lost or corrupt PCM in a valid document and keeps a
 			const chunk = [...store.memory.sourceChunks.values()][0] as { channels: ArrayBuffer[] };
 			chunk.channels[0] = new ArrayBuffer(0);
 		}
-		assert.equal(await hasSoundscaperStartupRecovery(store, project.id, new Error('Audio engine activation failed.')), condition !== 'healthy', condition);
+		assert.equal(await hasSoundscaperProjectOpenRecovery(store, project.id, new Error('Audio engine activation failed.')), condition !== 'healthy', condition);
 		if (condition !== 'healthy') {
 			const binding = bindSoundscaperProjectRecovery(store, () => undefined);
 			const inspection = await binding.inspect(project.id);
@@ -128,7 +128,7 @@ test('startup media inspection propagates storage, permission and cancellation f
 		const blocked = { readProjectRecoveryCandidates: store.readProjectRecoveryCandidates.bind(store),
 			getSourceMetadata: () => Promise.resolve(source),
 			async *readSourceChunks() { yield* []; throw failure; } };
-		await assert.rejects(hasSoundscaperStartupRecovery(blocked, project.id, new Error('Activation failed.')), (error) => error === failure);
+		await assert.rejects(hasSoundscaperProjectOpenRecovery(blocked, project.id, new Error('Activation failed.')), (error) => error === failure);
 	}
 });
 

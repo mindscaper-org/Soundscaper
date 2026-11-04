@@ -16,6 +16,7 @@ import {
 import { createStreamingWindowedSincResampler } from '../../resample.js';
 import { abortError } from '../shared/app-helpers.ts';
 import { createLegacyRecordingCaptureService } from './internal/legacy-recording-capture-service.ts';
+import { planNewRecordingTracks } from './internal/new-recording-tracks.ts';
 import type { RecordingFinalizationCommonRuntime, RoutedRecordingFinalizationRuntime } from './internal/recording-finalization-types.ts';
 import {
 	createRecordingInputCoordinationService,
@@ -317,6 +318,16 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		getProjectId: () => document.get()?.id || null,
 		abortError,
 		addTrack: dependencies.addTrack,
+		prepareRecordingOptions: (options) => {
+			if (!state.preferences.recording.alwaysRecordToNewTrack) return options;
+			const plan = planNewRecordingTracks(requireProject(), state.recordingRouting, options, createStableId, publishedCopyFor(copy).recordingLabel);
+			if (!plan) return options;
+			dependencies.commit(plan.command, { selectTrackId: plan.selectTrackId });
+			state.recordingRouting = normalizeRecordingRouting(plan.routing, requireProject().tracks);
+			void routing.persistRecordingRouting().catch(dependencies.handleError);
+			dependencies.publishDocumentSnapshot();
+			return plan.options;
+		},
 		stopProjectBinPreview: dependencies.stopProjectBinPreview,
 		cancelTimedRecording: () => timed.cancelTimedRecording(),
 		beginRecording: async (options, scope) => {

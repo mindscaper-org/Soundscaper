@@ -20,6 +20,9 @@ Var ffmpegFailureEvent
 	Page custom FfmpegPageCreate FfmpegPageLeave
 !macroend
 
+; electron-builder registers the StdUtils plug-in directory asynchronously while
+; assembling its header. Compile function bodies only after that header is done.
+!macro customHeader
 Function FfmpegPageCreate
 	${If} ${Silent}
 		Abort
@@ -125,6 +128,8 @@ Function InstallOptionalFfmpeg
 			System::Call 'kernel32::CloseHandle(p $ffmpegFailureEvent)'
 		${EndIf}
 FunctionEnd
+
+!macroend
 
 !macro customInstall
 	${IfNot} ${Silent}

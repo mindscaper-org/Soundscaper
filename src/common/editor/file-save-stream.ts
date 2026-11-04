@@ -431,3 +431,23 @@ function throwIfAborted(signal?: AbortSignal): void {
 	if (signal.reason instanceof Error) throw signal.reason;
 	throw new DOMException('The file operation was cancelled.', 'AbortError');
 }
+
+
+export interface ProjectFileReference { readonly id: string; readonly name: string }
+export type ProjectFileTarget = Readonly<{ originalFile?: ProjectFileReference; fileHandle?: unknown }>;
+const browserHandles = new WeakMap<object, unknown>();
+
+export function rememberBrowserProjectHandle(file: object, handle: unknown): void { browserHandles.set(file, handle); }
+export function browserProjectHandle(file: object): unknown { return browserHandles.get(file); }
+
+/** Keep reusable permission separate from the one-shot atomic write capability. */
+export function withProjectFileTarget<Prepared extends { commit(): PromiseLike<Readonly<Record<string, unknown>>> }>(
+	prepared: Prepared,
+	target: unknown,
+): Prepared {
+	if (!target || typeof target !== 'object') return prepared;
+	const value = target as { originalFile?: ProjectFileReference; createWritable?: unknown };
+	const reference: ProjectFileTarget = value.originalFile ? { originalFile: value.originalFile }
+		: typeof value.createWritable === 'function' ? { fileHandle: target } : {};
+	return Object.assign({}, prepared, { commit: async () => ({ ...await prepared.commit(), ...reference }) });
+}

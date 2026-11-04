@@ -104,10 +104,14 @@ for (const oversized of [false, true]) test(`video import bounds native decoded 
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
 	const image = editor.locator('.audio-editor-video-clip__filmstrip img').first();
 	await expect.poll(() => image.evaluate(value => value.complete && value.naturalWidth === 64)).toBe(true);
-	const pixel = await image.evaluate(value => {
-		const canvas = document.createElement('canvas'); canvas.width = value.naturalWidth; canvas.height = value.naturalHeight;
-		const context = canvas.getContext('2d'); context.drawImage(value, 0, 0); return [...context.getImageData(32, 16, 1, 1).data];
-	});
+	let pixel = [];
+	await expect.poll(async () => {
+		pixel = await image.evaluate(value => {
+			const canvas = document.createElement('canvas'); canvas.width = value.naturalWidth; canvas.height = value.naturalHeight;
+			const context = canvas.getContext('2d'); context.drawImage(value, 0, 0); return [...context.getImageData(32, 16, 1, 1).data];
+		});
+		return pixel[0] < 40 && pixel[1] > 60 && pixel[1] < 100 && pixel[2] > 200 && pixel[3] === 255;
+	}, { message: 'The decoded filmstrip must present the fixture blue frame.' }).toBe(true);
 	expect(pixel[0]).toBeLessThan(40); expect(pixel[1]).toBeGreaterThan(60); expect(pixel[1]).toBeLessThan(100);
 	expect(pixel[2]).toBeGreaterThan(200); expect(pixel[3]).toBe(255);
 	const saving = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);

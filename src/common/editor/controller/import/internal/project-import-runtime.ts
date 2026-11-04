@@ -13,6 +13,7 @@ import type { EditorProjectToken } from '../../shared/lifecycle.ts';
 import type { audioBufferChannels, bufferFromChannels, canonicalizeBuffer, sourcePcmBytes, writeBuffer } from '../../source/source-audio.ts';
 import type { ImportVideoFile } from './source-import.ts';
 import type { generateWaveformPeaks, peakCacheKey } from '../../source/waveform-analysis.ts';
+import type { AudioImportDerivativeRequest } from './audio-import-derivatives.ts';
 
 /** Only ports read by the audio and legacy-project import coordinator. */
 export interface ProjectImportRuntime extends Pick<ImportCompositionDependencies,
@@ -21,6 +22,7 @@ export interface ProjectImportRuntime extends Pick<ImportCompositionDependencies
 	| 'publishDocumentSnapshot' | 'retireSourceChunkProvider' | 'setStatus' | 'sourceBuffers'
 	| 'sourcePeaks' | 'state' | 'store' | 'switchProject' | 'warnEnvelope' | 'taskProgress'
 > {
+	readonly scheduleAudioDerivatives: (request: AudioImportDerivativeRequest) => void;
 	readonly SOURCE_CHUNK_FRAMES: number;
 	readonly captureProject: () => EditorProjectToken;
 	readonly assertProject: (token: EditorProjectToken) => void;

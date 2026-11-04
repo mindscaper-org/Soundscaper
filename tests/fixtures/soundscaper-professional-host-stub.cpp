@@ -4,6 +4,7 @@
 #include "ara_clip_data.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 
 struct soundscaper_pro_plugin_instance {
@@ -25,6 +26,9 @@ extern "C" soundscaper_pro_status soundscaper_pro_plugin_scan(
 	const char *format, const char *, soundscaper_pro_plugin_description *values,
 	size_t capacity, size_t *written) {
 	if (std::strcmp(format, "vst3") != 0 || written == nullptr) return SOUNDSCAPER_PRO_FORMAT_REFUSED;
+	// Vendor diagnostics must not become bytes in the binary RPC reply.
+	std::fputs("vendor scan diagnostic\n", stdout);
+	std::fflush(stdout);
 	*written = 2u;
 	if (values == nullptr || capacity == 0u) return SOUNDSCAPER_PRO_OK;
 	if (capacity < 2u) return SOUNDSCAPER_PRO_FORMAT_REFUSED;
@@ -35,7 +39,8 @@ extern "C" soundscaper_pro_status soundscaper_pro_plugin_scan(
 		text(values[index].name, sizeof(values[index].name), index == 0u ? "Fixture A" : "Fixture B");
 		text(values[index].vendor, sizeof(values[index].vendor), "Soundscaper");
 		text(values[index].version, sizeof(values[index].version), "1.0.0");
-		values[index].input_channels = 2u; values[index].output_channels = 2u; values[index].latency_frames = 32u;
+		// VST3 moduleinfo scanning can omit channel counts; opening reveals them.
+		values[index].latency_frames = 32u;
 	}
 	return SOUNDSCAPER_PRO_OK;
 }
@@ -54,6 +59,10 @@ extern "C" soundscaper_pro_status soundscaper_pro_plugin_process(
 	return SOUNDSCAPER_PRO_OK;
 }
 extern "C" uint32_t soundscaper_pro_plugin_latency(soundscaper_pro_plugin_instance *) { return 32u; }
+extern "C" soundscaper_pro_status soundscaper_pro_plugin_audio_topology(
+	soundscaper_pro_plugin_instance *, uint32_t *inputs, uint32_t *outputs) {
+	*inputs = *outputs = 2u; return SOUNDSCAPER_PRO_OK;
+}
 extern "C" soundscaper_pro_status soundscaper_pro_plugin_save_state(
 	soundscaper_pro_plugin_instance *, uint8_t *bytes, size_t capacity, size_t *written) {
 	*written = 3u; if (bytes == nullptr || capacity == 0u) return SOUNDSCAPER_PRO_STATE_TOO_LARGE;

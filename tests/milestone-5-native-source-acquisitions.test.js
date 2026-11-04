@@ -30,6 +30,8 @@ const EXPECTED_PINS = {
 		'1c43b675dcf3c99889fed6f68317873048b15449455974e22859275f17b2e69b'],
 	clap: ['1.2.4', '00113aabdccf69c2e27ac269c35b369770e8fa73', 2351103,
 		'0f937070e51d3ead11316e757995662a3ea846f81573e720b8e8f7fb63a03a35'],
+	fst: ['0.177.0', '30f49e6fe97cb822eaadcc6e1ae9941d004bff54', 128915,
+		'68851e19cdd81350cac3f102bc1a691ae3a14f80ea6b736cd4a1dafcb06a1898'],
 	'vst3-sdk': ['3.8.0_build_66', '9fad9770f2ae8542ab1a548a68c1ad1ac690abe0', 325954,
 		'121e1063962aea6e02817fec6bd3066162e22f262904c00b4be4e8a1fb3f826b'],
 	'vamp-plugin-sdk': ['2.10.0', '67adfc2bf9486912a0fce5123cf54360ea2678bc', 313354,
@@ -62,6 +64,7 @@ const EXPECTED_LICENSE_SELECTIONS = {
 	juce: 'AGPL-3.0-only',
 	clap: 'MIT',
 	'vst3-sdk': 'MIT',
+	fst: 'GPL-3.0-or-later',
 	'vamp-plugin-sdk': 'BSD-3-Clause',
 	'ara-api': 'Apache-2.0', 'ara-library': 'Apache-2.0',
 	'asio-sdk': 'GPL-3.0-only',
@@ -99,7 +102,7 @@ test('milestone-5 source packet pins and test-enables every native dependency', 
 
 	assert.equal(requireMilestone5NativeSource(register, 'juce').version, '9.0.1');
 	assert.deepEqual(requireMilestone5NativeSource(register, 'juce').uses, [
-		'native-audio-backends', 'vst3-host', 'audio-unit-host', 'lv2-host', 'ladspa-effect-host',
+		'native-audio-backends', 'vst3-host', 'vst2-host', 'audio-unit-host', 'lv2-host', 'ladspa-effect-host',
 	]);
 	assert.equal(requireMilestone5NativeSource(register, 'electron-node-api-headers').version, '43.8.3');
 	assert.equal(requireMilestone5NativeSource(register, 'clap').version, '1.2.4');
@@ -141,7 +144,7 @@ test('Soundscaper source audit excludes every deferred Framescaper native input'
 		null,
 	);
 	assert.deepEqual(audit.sources.map(({ id }) => id), [
-		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 		'asio-sdk', 'ladspa-sdk', 'lv2',
 	]);
 	assert.deepEqual(audit.delegatedSources, []);

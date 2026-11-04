@@ -1,3 +1,4 @@
+import { createResampleHistoryBuffer } from './resample-history-buffer.ts';
 import { createWindowedSincChannelSampler } from './windowed-sinc-kernel.ts';
 
 /**
@@ -104,6 +105,7 @@ export function createStreamingWindowedSincResampler(inputSampleRate, outputSamp
 	const step = inputRate / outputRate;
 	const cutoff = Math.min(1, outputRate / inputRate) * 0.94;
 	const sampleChannels = createWindowedSincChannelSampler(radius, cutoff);
+	const historyBuffer = createResampleHistoryBuffer(channels);
 	const initialInputPosition = Number(options.initialInputPosition ?? 0);
 	if (!Number.isFinite(initialInputPosition) || initialInputPosition < 0) {
 		throw new RangeError('initialInputPosition must be finite and non-negative.');
@@ -136,29 +138,35 @@ export function createStreamingWindowedSincResampler(inputSampleRate, outputSamp
 		}
 		// Sampling is synchronous. Borrow an initial chunk, then make any retained
 		// history private before returning control to the chunk owner.
-		buffered = buffered[0].length ? appendChannels(buffered, normalized) : normalized;
+		buffered = historyBuffer.frames(buffered) ? historyBuffer.append(buffered, normalized) : normalized;
 		totalInputFrames += frameCount;
 		const output = produce(false);
 		if (buffered === normalized) buffered = normalized.map((values) => new Float32Array(values));
 		return output;
 	}
 
+	/** @param {number | null} requestedOutputFrames */
 	function finish(requestedOutputFrames = null) {
 		if (finished) return emptyChannels(channels);
 		finished = true;
-		const naturalFrames = Math.max(0, Math.round((totalInputFrames - initialInputPosition) * outputRate / inputRate));
-		const targetFrames = requestedOutputFrames == null
-			? naturalFrames
-			: Math.max(totalOutputFrames, Math.round(Number(requestedOutputFrames)));
-		if (!Number.isSafeInteger(targetFrames) || targetFrames < 0) {
-			throw new RangeError('Requested resampler output length is invalid.');
+		try {
+			const naturalFrames = Math.max(0, Math.round((totalInputFrames - initialInputPosition) * outputRate / inputRate));
+			const targetFrames = requestedOutputFrames == null
+				? naturalFrames
+				: Math.max(totalOutputFrames, Math.round(Number(requestedOutputFrames)));
+			if (!Number.isSafeInteger(targetFrames) || targetFrames < 0) {
+				throw new RangeError('Requested resampler output length is invalid.');
+			}
+			if (passthrough) {
+				const remaining = targetFrames - totalOutputFrames;
+				totalOutputFrames = targetFrames;
+				return Array.from({ length: channels }, () => new Float32Array(remaining));
+			}
+			return produce(true, targetFrames);
+		} finally {
+			buffered = [];
+			historyBuffer.release();
 		}
-		if (passthrough) {
-			const remaining = targetFrames - totalOutputFrames;
-			totalOutputFrames = targetFrames;
-			return Array.from({ length: channels }, () => new Float32Array(remaining));
-		}
-		return produce(true, targetFrames);
 	}
 
 	function produce(flush, targetFrames = Number.POSITIVE_INFINITY) {
@@ -192,7 +200,7 @@ export function createStreamingWindowedSincResampler(inputSampleRate, outputSamp
 			Math.min(totalInputFrames, Math.floor(nextInputPosition) - radius - 1));
 		const dropFrames = retainFrom - bufferStartFrame;
 		if (dropFrames <= 0) return;
-		buffered = buffered.map((values) => Float32Array.prototype.slice.call(values, Math.min(values.length, dropFrames)));
+		buffered = historyBuffer.prune(buffered, dropFrames);
 		bufferStartFrame = retainFrom;
 	}
 }
@@ -200,15 +208,6 @@ export function createStreamingWindowedSincResampler(inputSampleRate, outputSamp
 /** Input lookahead for the default bounded, output-clock antialias window. */
 export function defaultWindowedSincRadius(inputRate, outputRate) {
 	return Math.max(24, Math.min(4096, Math.ceil(24 * inputRate / outputRate)));
-}
-
-function appendChannels(previous, next) {
-	return previous.map((values, channel) => {
-		const combined = new Float32Array(values.length + next[channel].length);
-		combined.set(values);
-		combined.set(next[channel], values.length);
-		return combined;
-	});
 }
 
 function validateStreamingChannels(values, channelCount) {

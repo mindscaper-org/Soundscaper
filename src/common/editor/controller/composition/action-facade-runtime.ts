@@ -169,7 +169,7 @@ export const EDITOR_ACTION_FUNCTION_NAMES = defineEditorActionFunctionNames([
 	'saveDawproject',
 	'saveEffectPreset',
 	'saveNow',
-	'saveScape',
+	'saveScape', 'saveProjectFile', 'prepareFileClose',
 	'scheduleTimedRecording',
 	'sessionTab',
 	'setAllTracksView',

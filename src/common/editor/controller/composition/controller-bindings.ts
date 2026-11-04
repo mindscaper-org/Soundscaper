@@ -132,10 +132,10 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 	const { updateTransportState, updateMeters, updateZoom, setTimelineViewportWidth, setAutoFitTrackHeight, adjustTrackHeight } = deferControllerMethods(() => services.viewStateService(), ['updateTransportState', 'updateMeters', 'updateZoom', 'setTimelineViewportWidth', 'setAutoFitTrackHeight', 'adjustTrackHeight']);
 	const { toggleExport, updateExportProgress, showAnalysis, setStatus, handleError } = deferControllerMethods(() => services.presentationState(), ['toggleExport', 'updateExportProgress', 'showAnalysis', 'setStatus', 'handleError']);
 	const { refreshStorageUsage, estimateStorageForPreflight, preflightStorage } = deferControllerMethods(() => services.storageCapacityService(), ['refreshStorageUsage', 'estimateStorageForPreflight', 'preflightStorage']);
-	const { openScape, saveScape, openAup4, openAudacityProject, saveAup3, saveAup4 } = deferAsyncControllerMethods(() => services.nativeProjectService(), ['openScape', 'saveScape', 'openAup4', 'openAudacityProject', 'saveAup3', 'saveAup4']);
+	const { openScape, saveScape, openAup4, openAudacityProject, saveAup3, saveAup4, saveProjectFile, prepareFileClose } = deferAsyncControllerMethods(() => services.nativeProjectService(), ['openScape', 'saveScape', 'openAup4', 'openAudacityProject', 'saveAup3', 'saveAup4', 'saveProjectFile', 'prepareFileClose']);
 	return Object.freeze({
 		setSourceSelection, readSourceSelection, readSourceSelectionDuration, readSourceSelectionSampleRate, loadSourceAudio, loadSourceAudioWindow,
-		openScape, saveScape, openAup4, openAudacityProject, saveAup3, saveAup4,
+		openScape, saveScape, openAup4, openAudacityProject, saveAup3, saveAup4, saveProjectFile, prepareFileClose,
 		loadPreferences, switchProject, labels, selection, projectBin,
 		get preferenceActions() { return services.preferences().actions; },
 		sampleEditingAvailable, setSampleEditMode, applySamplePencil, smoothSelectedSamples,

@@ -35,6 +35,8 @@ test('desktop packaging audits ten nightly product targets while tags select one
 	const qualityJob = workflow.slice(qualityStart, testsStart);
 	const packageJob = workflow.slice(packageStart, aggregateStart);
 	const aggregateJob = workflow.slice(aggregateStart, nextJob);
+	assert.match(aggregateJob, /name: Re-audit desktop packages/u);
+	assert.match(packageJob, /name: Audit the desktop package/u);
 	assert.match(qualityJob, /resolveProductReleaseTag[\s\S]*?release \? \[release\.productId\] : \['soundscaper', 'framescaper'\]/u);
 	assert.match(qualityJob, /package-audit-arguments:[\s\S]*?package-audit-arguments=' \+ \(release \? '--product ' \+ release\.productId : ''\)/u);
 	assert.match(packageJob, /strategy:\s+fail-fast: false\s+matrix:\s+product: \$\{\{ fromJSON\(needs\.quality\.outputs\.release-products\) \}\}[\s\S]*?platform: win\s+arch: x64[\s\S]*?platform: win\s+arch: arm64[\s\S]*?platform: mac\s+arch: arm64[\s\S]*?platform: linux\s+arch: x64[\s\S]*?platform: linux\s+arch: arm64/u);
@@ -51,7 +53,7 @@ test('desktop packaging audits ten nightly product targets while tags select one
 	assert.doesNotMatch(aggregateJob, /merge-multiple: true/u);
 	assert.match(aggregateJob, /node scripts\/audit-milestone-5-packages\.mjs[\s\S]*?--package-directory[\s\S]*?--output[\s\S]*?needs\.quality\.outputs\.package-audit-arguments/u);
 	assert.match(aggregateJob, /SOUNDSCAPER_SOURCE_REVISION: \$\{\{ github\.sha \}\}/u);
-	assert.match(aggregateJob, /name: milestone-5-package-audit-summary[\s\S]*?milestone-5-package-audit-summary\.json/u);
+	assert.match(aggregateJob, /name: desktop-package-audit-summary[\s\S]*?milestone-5-package-audit-summary\.json/u);
 	assert.doesNotMatch(`${packageJob}\n${aggregateJob}`, /milestone5:handoff|evidenceAuthenticated|evidenceSha256/iu);
 	assert.doesNotMatch(packageJob, /--require-ready/u);
 });

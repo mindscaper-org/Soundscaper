@@ -18,11 +18,11 @@ type MutableImportVideoRuntime = {
 
 test('video import rollback cannot delete a newer media generation', async () => {
 	const fixture = createFixture();
-	fixture.options.activateFails = true;
+	fixture.options.commitFails = true;
 	fixture.options.replaceMediaBeforeRollback = true;
 	await assert.rejects(
 		() => createImportVideoFile(fixture.runtime)(videoFile()),
-		/activation failed/u,
+		/commit failed/u,
 	);
 	assert.deepEqual(fixture.mediaDiscardAttempts, ['video-source-1']);
 	assert.deepEqual(fixture.deletedMedia, []);
@@ -65,16 +65,16 @@ test('failed exact-timing import preserves newer original and timing generations
 			};
 		},
 	};
-	runtime.activateVideoSource = async () => {
+	runtime.commit = () => {
 		for (const storageKey of storageKeys) fixture.replaceMediaGeneration(storageKey);
-		throw new Error('activation failed after exact timing publication');
+		throw new Error('commit failed after exact timing publication');
 	};
 
 	await assert.rejects(
 		createImportVideoFile(runtime)(new File([Uint8Array.of(1, 2, 3)], 'exact.mp4', { type: 'video/mp4' }), {
 			destination: 'project-bin', trackId: null, timelineStartFrame: 0,
 		}),
-		/activation failed after exact timing publication/u,
+		/commit failed after exact timing publication/u,
 	);
 	assert.equal(storageKeys.length, 2);
 	assert.deepEqual(fixture.mediaDiscardAttempts, [...storageKeys].reverse());

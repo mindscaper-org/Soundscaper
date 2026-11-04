@@ -53,6 +53,7 @@ test('main grants exact digest-bound audio and model artifacts to the speech hel
 	});
 
 	assert.deepEqual(await runtime.recognize({
+		jobId: 'cd'.repeat(20),
 		modelId: 'parakeet-tdt-0.6b-v2',
 		audioPath: paths.audio!,
 		voiceActivityPath: paths['voice-activity']!,
@@ -63,6 +64,7 @@ test('main grants exact digest-bound audio and model artifacts to the speech hel
 	}), RESULT);
 	assert.deepEqual(lifecycle, ['ensure', 'start']);
 	const admitted = validateAssistanceJobRequest(requests[0]);
+	assert.equal(admitted.jobId, 'cd'.repeat(20));
 	assert.equal(admitted.grant.operation, 'recognize');
 	if (admitted.grant.operation !== 'recognize') return;
 	assert.equal(admitted.grant.modelId, 'parakeet-tdt-0.6b-v2');
@@ -134,9 +136,11 @@ test('main grants exact digest-bound selected audio and Silero model to the VAD 
 	});
 
 	assert.deepEqual(await runtime.detect({
+		jobId: 'cd'.repeat(20),
 		modelId: 'silero-vad-v6', audioPath, model: { model: modelPath },
 	}), { sampleRate: 16_000, segments: [{ startSample: 512, sampleCount: 1_024 }] });
 	const admitted = validateAssistanceJobRequest(request);
+	assert.equal(admitted.jobId, 'cd'.repeat(20));
 	assert.equal(admitted.grant.operation, 'detect-voice-activity');
 	if (admitted.grant.operation !== 'detect-voice-activity') return;
 	assert.equal(admitted.grant.modelId, 'silero-vad-v6');
@@ -176,6 +180,7 @@ test('main grants exact audio, segmentation, and embedding files to the diarizat
 	});
 
 	assert.deepEqual(await runtime.diarize({
+		jobId: 'cd'.repeat(20),
 		audioPath,
 		modelIds: {
 			segmentation: 'pyannote-segmentation-3.0',
@@ -187,6 +192,7 @@ test('main grants exact audio, segmentation, and embedding files to the diarizat
 		turns: [{ startSample: 1_600, sampleCount: 8_000, speakerId: 0 }],
 	});
 	const admitted = validateAssistanceJobRequest(request);
+	assert.equal(admitted.jobId, 'cd'.repeat(20));
 	assert.equal(admitted.grant.operation, 'diarize-speakers');
 	if (admitted.grant.operation !== 'diarize-speakers') return;
 	assert.deepEqual(admitted.grant.modelIds, {

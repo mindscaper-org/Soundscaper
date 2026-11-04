@@ -1,3 +1,4 @@
+import { iconNameToChar } from '../Icon/icon-codes.ts';
 import React from 'react';
 import { Toolbar, ToolbarButtonGroup } from '../Toolbar/Toolbar';
 import { TransportButton } from '../TransportButton';
@@ -303,7 +304,7 @@ export function TransportToolbar({
             <Button
               variant="secondary"
               size="default"
-              icon={'\uEF25'}
+              icon={iconNameToChar('CLOUD_FILE')}
               onClick={onShareClick}
             >
               Share on audio.com
@@ -315,7 +316,7 @@ export function TransportToolbar({
             <Button
               variant="secondary"
               size="default"
-              icon={'\uEF24'}
+              icon={iconNameToChar('SHARE_FILE')}
               onClick={onExportAudioClick}
             >
               Export audio
@@ -323,7 +324,7 @@ export function TransportToolbar({
             <Button
               variant="secondary"
               size="default"
-              icon={'\uEF1F'}
+              icon={iconNameToChar('LOOP')}
               onClick={onExportLoopRegionClick}
             >
               Export loop region

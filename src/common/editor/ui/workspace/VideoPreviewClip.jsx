@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { cancelVideoPreviewMediaSeek } from '../../controller/clip-video/video-preview-media-seek.ts';
 import { createVideoPreviewPresentedFrameGate } from '../../controller/clip-video/video-preview-presented-frame.ts';
 import { synchronizeVideoPreviewMedia } from './video-preview-retime.ts';
 
@@ -26,7 +27,10 @@ export default function VideoPreviewClip({
 		presentedFrameGateRef.current.cancel();
 	}, []);
 	const setVideoRef = useCallback((element) => {
-		if (videoRef.current !== element) cancelPresentedFrameCallback();
+		if (videoRef.current !== element) {
+			cancelPresentedFrameCallback();
+			cancelVideoPreviewMediaSeek(videoRef.current);
+		}
 		videoRef.current = element;
 		onVideoElement?.(entry.clipId, element);
 	}, [cancelPresentedFrameCallback, entry.clipId, onVideoElement]);
@@ -66,6 +70,7 @@ export default function VideoPreviewClip({
 	}, [requestFrameWhenPresented, syncVideo]);
 	useEffect(() => () => {
 		cancelPresentedFrameCallback();
+		cancelVideoPreviewMediaSeek(videoRef.current);
 		videoRef.current?.pause?.();
 	}, [cancelPresentedFrameCallback]);
 

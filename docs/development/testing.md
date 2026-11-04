@@ -148,6 +148,13 @@ checks, architecture and file-size guards, audits, documentation checks, the
 production build, and Node coverage. `npm run check:static` runs everything in
 that gate except the Node suite.
 
+Desktop preview and nightly split that static gate into four independent jobs:
+lint, type checks, architecture/audits, and handbook/site builds. The `quality`
+aggregate requires every job to succeed before Node tests and distribution
+consumers proceed, and forwards the build's product release scope. The build
+job also checks its emitted transfer documents and prepares the single shared
+desktop test runtime. Browser testing and combined coverage remain in Quality.
+
 Maintainers can run that gate and the complete ordinary Playwright suite
 (Chromium, Firefox and WebKit) together:
 

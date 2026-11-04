@@ -92,7 +92,8 @@ test('the keep-inputs-open preference keeps its description outside the tooltip'
 		run={(operation: () => unknown) => operation()}
 	/>);
 
-	const control = /<div[^>]*role="checkbox"[^>]*>/u.exec(markup)?.[0];
+	const control = markup.match(/<div[^>]*role="checkbox"[^>]*>/gu)
+		?.find(tag => tag.includes('aria-label="Keep input devices open between recordings"'));
 	assert.ok(control, 'the recording page renders the keep-inputs-open checkbox.');
 	assert.match(control, /aria-label="Keep input devices open between recordings"/u);
 	const describedBy = /aria-describedby="([^"]*)"/u.exec(control)?.[1];

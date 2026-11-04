@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { deferredArchiveRuntime } from '../common/editor/controller/document/deferred-archive-runtime.ts';
+import { withProjectOpenRecovery } from '../common/editor/controller/document/project-open-recovery.ts';
+import type { ProjectRecoveryChange } from '../common/editor/project-recovery-reason.ts';
+import type { SoundscaperScapeRecoveryOptions } from './editor-scape-recovery.ts';
 import {
 	PROJECT_SCHEMA_VERSION,
 	SOUNDSCAPER_PROJECT_SCHEMA_FAMILY,
@@ -31,34 +34,53 @@ export function createSoundscaperScapeNativeRuntime() {
 	const compatibility = createSoundscaperProjectFeatureCompatibilityService();
 	const projectAssetExtension = createSoundscaperScapeProjectAssetExtension();
 	const loadProject = (value: unknown) => loadSoundscaperProject(value);
+	async function openWithRecovery<Result extends object>(input: ScapeProjectInput,
+		options: Readonly<Record<string, unknown>> & SoundscaperScapeRecoveryOptions,
+		open: (input: ScapeProjectInput, options: Readonly<Record<string, unknown>>) => Promise<Result>,
+	): Promise<Result & { readonly recoveryChanges?: readonly ProjectRecoveryChange[] }> {
+		const recover = async () => {
+			const { recoverSoundscaperScape } = await import('./editor-scape-recovery.ts');
+			return recoverSoundscaperScape(input, { ...options, projectAssetExtension },
+				(file, overrides) => open(file, { ...options, ...overrides }));
+		};
+		if (options.recover === true) {
+			const recovered = await recover();
+			if (recovered) return recovered;
+		}
+		return withProjectOpenRecovery(() => open(input, options), async () => {
+			if (options.recover !== undefined) return null;
+			const recovered = await recover();
+			return recovered ? { value: recovered } : null;
+		});
+	}
 	return Object.freeze({
 		inspectScapeProject: (
 			input: ScapeProjectInput,
 			store: SoundscaperScapeNativeStore | null = null,
 			options: Readonly<Record<string, unknown>> & Readonly<{ signal: AbortSignal }>,
 			retention: Readonly<{ retain(settlement: PromiseLike<unknown>): void }>,
-		) => inspectScapeProject(input, store, {
-			...options,
+		) => openWithRecovery(input, options, (file, currentOptions) => inspectScapeProject(file, store, {
+			...currentOptions,
 			loadProject,
 			currentProjectSchemaFamily: SOUNDSCAPER_PROJECT_SCHEMA_FAMILY,
 			currentProjectSchemaVersion: PROJECT_SCHEMA_VERSION,
 			projectFeatureCompatibility: compatibility,
 			projectAssetExtension,
-		}, retention),
+		}, retention)),
 		importScapeProject: async (
 			input: ScapeProjectInput,
 			store: SoundscaperScapeNativeStore,
 			options: Readonly<Record<string, unknown>> = {},
 		) => {
 			const adaptedStore = adaptSoundscaperScapeNativePluginStateStore(store);
-			const result = await importScapeProject(input, adaptedStore, {
-				...options,
+			const result = await openWithRecovery(input, options, (file, currentOptions) => importScapeProject(file, adaptedStore, {
+				...currentOptions,
 				loadProject,
 				currentProjectSchemaFamily: SOUNDSCAPER_PROJECT_SCHEMA_FAMILY,
 				currentProjectSchemaVersion: PROJECT_SCHEMA_VERSION,
 				rebindProjectSourceIdentities: rebindSoundscaperProjectSourceIdentities,
 				projectAssetExtension,
-			});
+			}));
 			if (result.readOnly) return result;
 			return Object.freeze({ ...result, project: cloneSoundscaperProject(result.project) });
 		},

@@ -1,6 +1,6 @@
 {
 	"schemaVersion": 1,
-	"groundedAt": "2026-09-30",
+	"groundedAt": "2026-11-02",
 	"purpose": "Exact source identities for Milestone 5 native build recipes. Source authentication is separate from redistribution terms, patent considerations, and runtime activation.",
 	"sources": [
 		{
@@ -51,7 +51,7 @@
 			"authenticationStatus": "pinned-metadata",
 			"activationStatus": "accepted",
 			"blockedBy": null,
-			"uses": ["native-audio-backends", "vst3-host", "audio-unit-host", "lv2-host", "ladspa-effect-host"]
+			"uses": ["native-audio-backends", "vst3-host", "vst2-host", "audio-unit-host", "lv2-host", "ladspa-effect-host"]
 		},
 		{
 			"id": "clap",
@@ -102,6 +102,33 @@
 			"activationStatus": "accepted",
 			"blockedBy": null,
 			"uses": ["vst3-provenance", "vst3-host"]
+		},
+		{
+			"id": "fst",
+			"version": "0.177.0",
+			"git": {
+				"tag": "v0.177.0",
+				"commit": "30f49e6fe97cb822eaadcc6e1ae9941d004bff54"
+			},
+			"archive": {
+				"url": "https://git.iem.at/api/v4/projects/zmoelnig%2FFST/repository/archive.tar.gz?sha=30f49e6fe97cb822eaadcc6e1ae9941d004bff54",
+				"fileName": "fst-0.177.0.tar.gz",
+				"byteLength": 128915,
+				"sha256": "68851e19cdd81350cac3f102bc1a691ae3a14f80ea6b736cd4a1dafcb06a1898"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 64,
+				"sha256": "2ed3e2e8c07f8b1779625f053c46c6b0c841f025db91222f6e7a3c0e1181be09"
+			},
+			"license": "GPL-3.0-or-later",
+			"licenseSelection": "GPL-3.0-or-later",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"vst2-host-compatibility-headers"
+			]
 		},
 		{
 			"id": "vamp-plugin-sdk",

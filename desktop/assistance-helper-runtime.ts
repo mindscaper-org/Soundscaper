@@ -75,11 +75,12 @@ export function createAssistanceHelperRuntimeAdapter(
 	async function run(
 		grant: AssistanceSpeechJobGrant,
 		runOptions?: AssistanceJobStartOptions,
+		jobId = mintJobId(),
 	): Promise<unknown> {
 		if (grant.operation !== 'status') await options.ensureRuntime?.(runOptions?.signal);
 		return options.host.start({
 			protocolVersion: ASSISTANCE_JOB_PROTOCOL_VERSION,
-			jobId: mintJobId(),
+			jobId,
 			kind: 'speech',
 			grant,
 		}, runOptions).completed;
@@ -116,21 +117,21 @@ export function createAssistanceHelperRuntimeAdapter(
 			return normalizeRecognition(await run(grant, {
 				signal: request.signal,
 				onProgress: request.onProgress,
-			}));
+			}, request.jobId));
 		},
 		async detect(request: VoiceActivityRequest): Promise<VoiceActivityResult> {
 			const grant = await authorizeVoiceActivity(request, openFileReadStream);
 			return validateAssistanceSpeechJobResult(await run(grant, {
 				signal: request.signal,
 				onProgress: request.onProgress,
-			}), grant) as VoiceActivityResult;
+			}, request.jobId), grant) as VoiceActivityResult;
 		},
 		async diarize(request: SpeakerDiarizationRequest): Promise<SpeakerDiarizationResult> {
 			const grant = await authorizeDiarization(request, openFileReadStream);
 			return validateAssistanceSpeechJobResult(await run(grant, {
 				signal: request.signal,
 				onProgress: request.onProgress,
-			}), grant) as SpeakerDiarizationResult;
+			}, request.jobId), grant) as SpeakerDiarizationResult;
 		},
 		dispose: () => options.host.dispose(),
 		shutdown: async () => options.host.shutdown ? await options.host.shutdown() : options.host.dispose(),

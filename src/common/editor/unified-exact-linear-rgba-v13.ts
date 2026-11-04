@@ -11,6 +11,7 @@ import {
 } from './video-preview-render-description.ts';
 import type { UnifiedExactLinearSourceFrame } from './unified-exact-linear-source-frame.ts';
 import type { UnifiedExactRenderRgbaFrameV13 } from './unified-exact-render-finishing-consumers-v13.ts';
+import { compositeNormalLinearPixels } from './unified-exact-linear-normal-composition.ts';
 
 export interface UnifiedExactLinearPremultipliedFrameV13 {
 	readonly width: number;
@@ -135,6 +136,10 @@ export function compositeUnifiedExactLinearFrameV13(
 	const target = premultipliedFrame(targetValue, 'linear composite target');
 	const source = premultipliedFrame(sourceValue, 'linear composite source');
 	assertSameGeometry(target, source, 'linear composite');
+	if (blendMode === 'normal' && hasOrdinaryFrameFields(target) && hasOrdinaryFrameFields(source)) {
+		compositeNormalLinearPixels(target.pixels, source.pixels);
+		return;
+	}
 	for (let offset = 0; offset < target.pixels.length; offset += 4) {
 		const targetAlpha = clamp(target.pixels[offset + 3]!);
 		const sourceAlpha = clamp(source.pixels[offset + 3]!);
@@ -250,6 +255,10 @@ function place(
 	if (!Number.isFinite(determinant) || Math.abs(determinant) < 1e-15) {
 		throw new RangeError('The linear placement transform is singular.');
 	}
+	if (b === 0 && c === 0 && hasOrdinaryFrameFields(source)) {
+		placeAxisAligned(source, target, geometry, displayWidth, displayHeight, opacity, determinant, mask);
+		return;
+	}
 	const crop = geometry.sourcePixels;
 	const scale = source.pixels instanceof Uint8Array ? 255 : 1;
 	for (let y = 0; y < target.height; y += 1) for (let x = 0; x < target.width; x += 1) {
@@ -284,6 +293,76 @@ function place(
 			) / scale * presentationOpacity;
 		}
 		target.pixels[offset + 3] = alpha;
+	}
+}
+
+function hasOrdinaryFrameFields(
+	source: UnifiedExactRenderRgbaFrameV13 | UnifiedExactLinearSourceFrame | UnifiedExactLinearPremultipliedFrameV13,
+): boolean {
+	return ['width', 'height', 'pixels'].every((key) => {
+		const descriptor = Object.getOwnPropertyDescriptor(source, key);
+		return descriptor !== undefined && 'value' in descriptor;
+	}) && ArrayBuffer.isView(source.pixels) && (Object.getPrototypeOf(source.pixels) === Uint8Array.prototype
+		|| Object.getPrototypeOf(source.pixels) === Float32Array.prototype
+		|| Object.getPrototypeOf(source.pixels) === Float64Array.prototype);
+}
+
+/** Axis-aligned placement shares interpolation addresses across each row and column. */
+function placeAxisAligned(
+	source: UnifiedExactRenderRgbaFrameV13 | UnifiedExactLinearSourceFrame,
+	target: UnifiedExactLinearPremultipliedFrameV13,
+	geometry: VideoPreviewRenderGeometry,
+	displayWidth: number,
+	displayHeight: number,
+	opacity: number,
+	determinant: number,
+	mask?: Uint8Array,
+): void {
+	const [a, b, c, d, e, f] = geometry.sourceDisplayToCanvas;
+	const crop = geometry.sourcePixels;
+	const pixels = source.pixels;
+	const scale = pixels instanceof Uint8Array ? 255 : 1;
+	// At most three doubles per output column, released after this placement.
+	const columns = new Float64Array(target.width * 3);
+	for (let x = 0; x < target.width; x += 1) {
+		const sourceX = (d * (x + 0.5 - e) - c * (0.5 - f)) / determinant;
+		const column = x * 3;
+		columns[column] = -1;
+		if (sourceX < crop.x || sourceX >= crop.x + crop.width) continue;
+		const sx = Math.max(0, Math.min(source.width - 1, sourceX * source.width / displayWidth - 0.5));
+		const x0 = Math.floor(sx);
+		columns[column] = x0 * 4;
+		columns[column + 1] = Math.min(source.width - 1, x0 + 1) * 4;
+		columns[column + 2] = sx - x0;
+	}
+	for (let y = 0; y < target.height; y += 1) {
+		const sourceY = (-b * (0.5 - e) + a * (y + 0.5 - f)) / determinant;
+		if (sourceY < crop.y || sourceY >= crop.y + crop.height) continue;
+		const sy = Math.max(0, Math.min(source.height - 1, sourceY * source.height / displayHeight - 0.5));
+		const y0 = Math.floor(sy);
+		const top = y0 * source.width * 4;
+		const bottom = Math.min(source.height - 1, y0 + 1) * source.width * 4;
+		const mixY = sy - y0;
+		for (let x = 0; x < target.width; x += 1) {
+			const column = x * 3;
+			const left = columns[column]!;
+			if (left < 0) continue;
+			const right = columns[column + 1]!;
+			const mixX = columns[column + 2]!;
+			const pixel = y * target.width + x;
+			const presentationOpacity = opacity * (mask === undefined ? 1 : mask[pixel]! / 255);
+			const topLeft = top + left, topRight = top + right;
+			const bottomLeft = bottom + left, bottomRight = bottom + right;
+			const alpha = sampleChannel(pixels, topLeft, topRight, bottomLeft, bottomRight, mixX, mixY, 3, scale)
+				/ scale * presentationOpacity;
+			const offset = pixel * 4;
+			for (let channel = 0; channel < 3; channel += 1) {
+				target.pixels[offset + channel] = sampleChannel(
+					pixels, topLeft, topRight, bottomLeft, bottomRight, mixX, mixY, channel, scale, true,
+				) / scale * presentationOpacity;
+			}
+			target.pixels[offset + 3] = alpha;
+		}
 	}
 }
 

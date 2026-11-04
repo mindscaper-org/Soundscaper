@@ -48,6 +48,12 @@ on npmjs and GitHub Packages needed a token even for public reads).
 
 ## Local deviations from upstream
 
+Icon consumers share the named MuseScore inventory in `components/src/Icon/icon-codes.ts`,
+also re-exported by the editor's `audacity-iconcodes.js`. Local names cover the bundled
+monitor, grid-view, cloud-download, sparkles and sliders glyphs omitted from the pinned
+upstream enum. Literal codepoints stay in that inventory; component mappings keep their
+existing glyphs. Covered by `tests/vendored-design-system-icon-map.test.ts`.
+
 Tracked so upstream syncs know what to preserve. Aside from this list, keep the tree pristine.
 See the [2026-09-09 override audit](OVERRIDE_AUDIT.md) for the latest comparison of
 application overrides and source patches against the pin and upstream master.

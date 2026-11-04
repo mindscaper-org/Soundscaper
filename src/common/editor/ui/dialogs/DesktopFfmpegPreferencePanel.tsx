@@ -2,7 +2,7 @@
 
 import { Button } from '@soundscaper/design-system/Button';
 import { PreferencePanel } from '@soundscaper/design-system/PreferencePanel';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 
 import { resolveEditorCopyScope } from '../../../i18n/editor-copy-scope.ts';
 import { DESKTOP_FFMPEG_COPY } from '../../../i18n/editor-desktop-ffmpeg-copy.ts';
@@ -65,6 +65,7 @@ export default function DesktopFfmpegPreferencePanel({
 		[hostCopy],
 	);
 	const [status, setStatus] = useState(() => normalizeDesktopFfmpegStatus(initialStatus));
+	const locationId = useId();
 	const getterAvailable = typeof fileService.getExternalFfmpegStatus === 'function';
 
 	useEffect(() => {
@@ -87,7 +88,7 @@ export default function DesktopFfmpegPreferencePanel({
 	const summary = getterAvailable
 		? statusSummary(copy, status)
 		: copy.externalFfmpegControlsUnavailable;
-	const detail = getterAvailable ? status.detail : '';
+	const detail = getterAvailable && status.state !== 'ready' ? status.detail : '';
 
 	async function perform(
 		method: keyof DesktopFfmpegPreferenceFileService,
@@ -111,22 +112,23 @@ export default function DesktopFfmpegPreferencePanel({
 				data-external-ffmpeg-state={status.state}
 			>
 				<p>{copy.externalFfmpegDescription}</p>
-				<label>
-					<span>{copy.externalFfmpegLocation}</span>
-					<input aria-label={copy.externalFfmpegLocation} value={location} readOnly />
-				</label>
+				<div className="kw-audio-editor-external-ffmpeg__location">
+					<label htmlFor={locationId}>{copy.externalFfmpegLocation}</label>
+					<div className="kw-audio-editor-external-ffmpeg__path">
+						<input id={locationId} value={location} readOnly />
+						<Button variant="secondary" disabled={busy || !status.canBrowse || typeof fileService.chooseExternalFfmpeg !== 'function'} onClick={() => { void perform('chooseExternalFfmpeg', 'probing'); }}>{copy.externalFfmpegBrowse}</Button>
+					</div>
+				</div>
 				{status.version && <p><span>{copy.externalFfmpegVersion}: </span><strong>{status.version}</strong></p>}
-				<p
+				{summary && <p
 					role={status.state === 'error' || status.state === 'quarantined' ? 'alert' : 'status'}
 					aria-live="polite"
 					aria-busy={busy ? 'true' : undefined}
-				>{summary}</p>
+				>{summary}</p>}
 				{detail && <small>{detail}</small>}
 				<div className="kw-audio-editor-external-ffmpeg__actions">
-					<Button variant="secondary" disabled={busy || !status.canBrowse || typeof fileService.chooseExternalFfmpeg !== 'function'} onClick={() => { void perform('chooseExternalFfmpeg', 'probing'); }}>{copy.externalFfmpegBrowse}</Button>
-					<Button variant="secondary" disabled={busy || !status.canClear || typeof fileService.clearExternalFfmpeg !== 'function'} onClick={() => { void perform('clearExternalFfmpeg', 'probing'); }}>{copy.externalFfmpegClear}</Button>
 					<Button variant="secondary" disabled={busy || typeof fileService.rescanExternalFfmpeg !== 'function'} onClick={() => { void perform('rescanExternalFfmpeg', 'probing'); }}>{copy.externalFfmpegRescan}</Button>
-					<Button variant="secondary" disabled={busy || !status.canInstall || typeof fileService.installExternalFfmpeg !== 'function'} onClick={() => { void perform('installExternalFfmpeg', 'installing'); }}>{copy.externalFfmpegInstall}</Button>
+					{status.state !== 'ready' && <Button variant="secondary" disabled={busy || !status.canInstall || typeof fileService.installExternalFfmpeg !== 'function'} onClick={() => { void perform('installExternalFfmpeg', 'installing'); }}>{copy.externalFfmpegInstall}</Button>}
 				</div>
 			</div>
 		</PreferencePanel>
@@ -179,7 +181,7 @@ function statusSummary(copy: DesktopFfmpegPreferenceCopy, status: DesktopFfmpegS
 	switch (status.state) {
 		case 'unconfigured': return copy.externalFfmpegUnconfigured;
 		case 'probing': return copy.externalFfmpegProbing;
-		case 'ready': return copy.externalFfmpegReady.replace('{version}', status.version ?? '');
+		case 'ready': return '';
 		case 'unsupported': return copy.externalFfmpegUnsupported;
 		case 'quarantined': return copy.externalFfmpegQuarantined;
 		case 'unavailable': return copy.externalFfmpegUnavailable;

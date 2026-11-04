@@ -9,6 +9,7 @@ import {
 	reviewLocalAssistanceSelectedVideoSourceTimeDescriptorV1,
 } from
 	'../../local-assistance-selected-video-source-time.ts';
+import { localAssistanceAudioEffectTargets } from '../audio/local-assistance-audio-effect-targets.ts';
 
 /**
  * What a guided workflow will and will not prepare from.
@@ -74,8 +75,19 @@ export function assertSafeProjectTopology(project: Record<string, unknown>): voi
 
 export function projectRecord(value: unknown, selectedClipIdValue: string | null): Record<string, unknown> {
 	const row = dataRecord(value, 'aggregate project');
-	const selectedClipId = typeof selectedClipIdValue === 'string' && selectedClipIdValue.length > 0
-		? selectedClipIdValue : null;
+	const clips = recordArray(row.clips);
+	let selectedClipId = clips.some(clip => clip.id === selectedClipIdValue) ? selectedClipIdValue : null;
+	if (selectedClipId === null) {
+		const selection = row.selection && typeof row.selection === 'object' && !Array.isArray(row.selection)
+			? dataRecord(row.selection, 'aggregate selection') : {};
+		const clipIds = Array.isArray(selection.clipIds) ? selection.clipIds : [];
+		const explicit = clips.filter(clip => clipIds.includes(clip.id));
+		if (explicit.length === 1 && typeof explicit[0]!.id === 'string') selectedClipId = explicit[0]!.id;
+		else {
+			const targets = localAssistanceAudioEffectTargets(row, null);
+			if (targets.length === 1) selectedClipId = targets[0]!.clipId;
+		}
+	}
 	return { ...row, selectedClipId };
 }
 

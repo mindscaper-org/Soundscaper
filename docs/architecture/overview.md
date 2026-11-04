@@ -169,6 +169,28 @@ Each browser project environment loads its desktop library bridge only when the
 preload global is present; ordinary browser startup keeps that renderer code out
 of its static graph.
 
+The project library is the working/recovery copy. General's Saving preference
+controls separate publication to an opened or explicitly saved Scape file:
+automatic file saving defaults off on desktop and on in browsers. Internal
+library autosaving remains enabled. Controller `project.save()` persists library
+state; the File menu and native Save command use `project.saveFile()` to publish
+a separate Scape file. The document file-saving owner compares a content
+fingerprint with the last successfully published file, independently of
+the library's dirty state. Desktop retains opaque original-file capabilities
+and persists path/identity associations exclusively in main; renderer restart
+restores permission only if the exact original remains current. File writes
+use the existing atomic publisher and refresh permission after commit. Browser
+file handles require granted write permission; download-only contexts retain
+internal saves and offer an explicit export.
+
+Desktop close prompts default on and enumerate every open writable project.
+Save and canceled/failed picker results are awaited before allowing shutdown;
+discard decisions apply only after all projects accept closing. The temporary
+project limit defaults to ten and prunes oldest closed copies under their
+project locks and exact-current deletion. Open projects can exceed the limit.
+A native-selected temporary root moves the closed library on the next startup;
+non-overwriting storage migration preserves conflicting destination data.
+
 Autosave retains an immutable document generation during its debounce and only
 materializes the snapshot when saving starts. Preparation and persistence share
 one failure boundary. Controller history compaction memoizes immutable past
@@ -187,6 +209,24 @@ Scape replacement imports hold that write authority through their exact-current
 publication and rollback. A same-ID replacement installs the committed document
 as fresh session history; rollback leaves staged assets intact if ownership has
 changed and they may now be referenced by another writer.
+
+Project startup, direct activation, recent projects, library opens, Scape archives,
+and Audacity imports share one bounded recovery attempt. Cancellation,
+lost ownership, inaccessible storage, and quota failures remain errors. Stored
+document or media damage offers the existing recovery dialog for each current
+open request without overwriting the damaged original. A failure before activation
+retains the current workspace while the user chooses a new copy.
+Startup uses an empty workspace and defers saving and maintenance while that
+choice is pending.
+
+Soundscaper Scape recovery reads the owning-family document through the bounded
+archive reader, verifies its digest, and streams media verification before
+proposing repairs. Missing media still counts toward archive entry and declared
+expansion limits; missing or corrupt bodies are excluded from the repaired copy.
+The ordinary importer validates the reconstructed document and retained assets
+again and publishes under a fresh project identity. Recovery never replaces an
+existing library project, relaxes archive layout or resource limits, or admits
+foreign-family and future-version data as an editable owning-family document.
 
 Long-source playback sends PCM packets and acknowledgments over a direct
 worker-to-worklet MessageChannel. The main thread still serves storage reads and

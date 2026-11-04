@@ -11,7 +11,7 @@ import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
-for (const route of ['open', 'import'] as const) for (const failure of route === 'open' ? ['read', 'write', 'none'] as const : ['write', 'none'] as const) test(`File ${route} keeps durable PCM available when waveform cache ${failure} fails`, async context => {
+for (const route of ['open', 'import'] as const) for (const failure of route === 'open' ? ['read', 'write', 'none'] as const : ['write', 'none'] as const) test(`File ${route} keeps durable PCM available when waveform cache ${failure} fails`, { timeout: 10_000 }, async context => {
 	const source = createAudioSource({ id: 'source', name: 'Healthy recording', sampleRate: 48_000, frameCount: 4_800, channelCount: 1 });
 	const clip = createAudioClip({ id: 'clip', sourceId: source.id, timelineStartFrame: 0, durationFrames: 4_800, sourceStartFrame: 0, sourceDurationFrames: 4_800 });
 	const project = createSoundscaperProject({ id: context.name, title: 'Healthy recording', sources: [source], clips: [clip],
@@ -21,10 +21,15 @@ for (const route of ['open', 'import'] as const) for (const failure of route ===
 	await writer.write([new Float32Array(4_800).fill(.25)]); await writer.commit();
 	const archive = await exportScapeProject(project, rawStore); assert.ok(archive.blob instanceof Blob);
 	let cacheCalls = 0;
+	let cacheAttempted!: () => void;
+	const cacheAttempt = new Promise<void>(resolve => { cacheAttempted = resolve; });
 	const store = new Proxy(rawStore, { get(target, property, receiver) {
 		if ((failure === 'read' && property === 'loadAnalysis') || (failure === 'write' && property === 'saveAnalysis')) {
 			return async (key: string) => {
-				if (key.includes('peaks')) { cacheCalls++; throw new DOMException('Waveform cache is full', 'QuotaExceededError'); }
+				if (key.includes('peaks')) {
+					cacheCalls++; cacheAttempted();
+					throw new DOMException('Waveform cache is full', 'QuotaExceededError');
+				}
 				return property === 'loadAnalysis' ? await target.loadAnalysis(key) : undefined;
 			};
 		}
@@ -47,7 +52,10 @@ for (const route of ['open', 'import'] as const) for (const failure of route ===
 	const channels: Float32Array[] = [];
 	for await (const chunk of rawStore.readSourceChunks(String(loadedSource.storageKey))) channels.push(chunk.channels[0]!);
 	assert.equal(channels[0]?.[0], .25, 'the original recording is still physically readable');
-	if (failure !== 'none') assert.ok(cacheCalls > 0, 'the failure injection exercised the optional waveform cache');
+	if (failure !== 'none') {
+		await cacheAttempt;
+		assert.ok(cacheCalls > 0, 'the failure injection exercised the optional waveform cache');
+	}
 	assert.deepEqual(controller.getSnapshot().missingSourceIds, [], 'optional waveform cache failure must not report missing recording bytes');
 	const saved = await controller.actions.project.saveScape({ saveCopy: true, useFileSystemAccess: false });
 	assert.ok(saved && !('cancelled' in saved), 'a healthy project can still be saved');

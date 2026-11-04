@@ -123,7 +123,7 @@ test('manual rescans share the background progress and refuse duplicates', async
 	await operation;
 	assert.equal(f.controller.getSnapshot().status, 'failed');
 	assert.equal(f.controller.getSnapshot().found, 1);
-	assert.equal(f.controller.getSnapshot().detail, 'Scanner failed');
+	assert.equal(f.controller.getSnapshot().detail, 'System VST3 folder: Scanner failed');
 });
 
 test('disposal during availability lookup prevents any scan and is idempotent', async () => {
@@ -161,5 +161,17 @@ test('an unreadable or truncated described result remains visible as a warning',
 	await operation;
 	assert.equal(f.controller.getSnapshot().status, 'failed');
 	assert.equal(f.controller.getSnapshot().found, 2);
-	assert.equal(f.controller.getSnapshot().detail, 'Only a prefix fit.');
+	assert.equal(f.controller.getSnapshot().detail, 'System VST3 folder: Only a prefix fit.');
+});
+
+test('a missing standard folder does not erase an earlier scan failure', async () => {
+	const f = fixture();
+	const operation = f.controller.scan();
+	await flush();
+	f.jobs[0]!.resolve({ status: 'failed', code: 'helper-failed', message: 'Scanner failed' });
+	await flush();
+	f.jobs[1]!.resolve({ status: 'failed', code: 'unknown-root', message: 'Missing folder' });
+	await operation;
+	assert.equal(f.controller.getSnapshot().status, 'failed');
+	assert.equal(f.controller.getSnapshot().detail, 'System VST3 folder: Scanner failed');
 });

@@ -139,6 +139,34 @@ test('packaged coverage records renderer, preload, and a final worker delta bank
 	assert.ok(page.calls.includes('CDP.detach'));
 });
 
+test('packaged coverage retains checkpointed worklets after their owning page closes without child detach events', async (context) => {
+	const directory = await mkdtemp(join(tmpdir(), 'soundscaper-closed-worklet-'));
+	context.after(() => rm(directory, { recursive: true, force: true }));
+	const identity = await packagedAppFixture(context);
+	let closed = false;
+	class ClosingPage extends FakePage {
+		override isClosed() { return closed; }
+	}
+	const page = new ClosingPage('soundscaper-app://bundle/',
+		[coverageEntry('11', 'soundscaper-app://bundle/assets/editor.js', 120)],
+		[coverageEntry('21', 'soundscaper-app://bundle/assets/worklet.js', 50)], 'worklet');
+	const collector = createPackagedRuntimeCoverageCollector({
+		...identity, architecture: 'x64', baseURL: 'http://127.0.0.1:4567/',
+		context: new FakeContext([page]), coverageDirectory: directory,
+		platform: 'linux', productId: 'soundscaper',
+	});
+	await collector.start();
+	await collector.checkpoint();
+	closed = true;
+	const originalSessionCount = page.calls.filter(call => call.startsWith('child:')).length;
+	const profilePath = await collector.collect();
+	assert.ok(profilePath);
+	const profile = JSON.parse(await readFile(profilePath, 'utf8')) as { result: { url: string }[] };
+	assert.ok(profile.result.some(({ url }) => url.endsWith('/worklet.js')));
+	assert.equal(page.calls.filter(call => call.startsWith('child:')).length, originalSessionCount,
+		'closed owner pages cannot service further child profiler requests');
+});
+
 test('packaged page and worker capture exclude protocol-authenticated binary WebAssembly', async (context) => {
 	const directory = await mkdtemp(join(tmpdir(), 'soundscaper-packaged-wasm-coverage-'));
 	context.after(() => rm(directory, { recursive: true, force: true }));

@@ -14,7 +14,9 @@ async function fixture(t: test.TestContext, platform: NodeJS.Platform = 'linux',
 	t.after(() => rm(home, { recursive: true, force: true }));
 	const appData = join(home, '.config');
 	const userData = join(appData, 'Soundscaper');
-	const paths = new Map<string, string>([['home', home], ['appData', appData], ['userData', userData]]);
+	const paths = new Map<string, string>([
+		['home', home], ['appData', appData], ['userData', userData], ['exe', join(home, 'application', 'Soundscaper')],
+	]);
 	const switches = new Map<string, string>();
 	await seed?.(userData);
 	const storage = configureDesktopStorage({

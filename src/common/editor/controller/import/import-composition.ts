@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { inspectEncodedAudioSampleRate } from '../../audio-file-metadata.js';
+import { createLocalizedError } from '../../../i18n/presentation-message.ts';
 import { claimImportBusyState } from '../shared/import-busy-state.ts';
 import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-command.ts';
 import { createAddClipCommand, createAddSourceCommand, createAddTrackCommand } from '../../commands.js';
@@ -39,7 +40,9 @@ import {
 	type ImportVideoOptions,
 } from './internal/source-import.ts';
 import { admitChangedContentVideoCandidate, type ChangedContentVideoCandidateSource } from './internal/linked-media/video-relink-probe.ts';
-import { generateWaveformPeaks, peakCacheKey } from '../source/waveform-analysis.ts';
+import { generateStoredWaveformPeaks, generateWaveformPeaks, peakCacheKey } from '../source/waveform-analysis.ts';
+import { createVideoImportDerivativeScheduler } from './internal/video-import-derivatives.ts';
+import { createAudioImportDerivativeScheduler } from './internal/audio-import-derivatives.ts';
 import type { createClipSpreadsheetPasteService } from './internal/clip-spreadsheet-paste-service.ts';
 
 export type {
@@ -70,8 +73,16 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 		projectVisual.revokeVideoVisual(sourceId, expectedMediaUrl)
 	);
 	let importVideoFile: ImportVideoFile | null = null;
+	const audioDerivatives = createAudioImportDerivativeScheduler({
+		lifetime, store, assertProject, getProject: dependencies.getProject,
+		protectedSourceIds: dependencies.protectedSourceIds, sourcePeaks: dependencies.sourcePeaks, peakCacheKey,
+		generatePeaks: (channels, signal) => generateWaveformPeaks(channels, copy, undefined, signal),
+		generateStoredPeaks: (source, signal) => generateStoredWaveformPeaks(store, source, copy, { signal }),
+		publish: dependencies.publishDocumentSnapshot,
+	});
 
 	const projectImportRuntime: ProjectImportRuntime = {
+		scheduleAudioDerivatives: audioDerivatives.schedule,
 		captureExternalMediaFile: dependencies.captureExternalMediaFile,
 		SOURCE_CHUNK_FRAMES: dependencies.sourceChunkFrames,
 		activateStoredSource: dependencies.activateStoredSource,
@@ -133,7 +144,16 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 		taskProgress,
 	};
 	const projectImport = createProjectImportService(projectImportRuntime);
+	const derivatives = createVideoImportDerivativeScheduler({
+		activationUnavailableError: () => createLocalizedError(Error, copy, 'projectBinReplacementIncompatible'),
+		lifetime, store, activateVideoSource, revokeVideoVisual, sourcePeaks: dependencies.sourcePeaks, peakCacheKey, audioEditorVideoThumbnailTimes,
+		assertProject, getProject: dependencies.getProject, protectedSourceIds: dependencies.protectedSourceIds,
+		generatePeaks: (channels, signal) => generateWaveformPeaks(channels, copy, undefined, signal),
+		publishDerivative: (source, derivative) => projectVisual.publishVideoSourceDerivative(source, derivative),
+		publish: dependencies.publishDocumentSnapshot,
+	});
 	importVideoFile = createImportVideoFile({
+		scheduleDerivatives: derivatives.schedule,
 		SOURCE_CHUNK_FRAMES: dependencies.sourceChunkFrames,
 		activateVideoSource,
 		audioBufferChannels,
@@ -217,6 +237,7 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 			throwIfAborted(signal);
 			return result;
 		},
+		awaitVideoSourceActivation: derivatives.awaitActivation,
 		activateStoredSource: dependencies.activateStoredSource,
 		invalidateSourceRuntime: dependencies.invalidateSourceRuntime,
 		projectChanged: dependencies.projectChanged,

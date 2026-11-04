@@ -9,6 +9,14 @@ const readTiming = () => Promise.resolve({
 	timescale: 1_000, presentationTicks: [0n, 67n, 140n], finalFrameDurationTicks: 40n,
 });
 
+test('capture reuses admitted import timing without scanning the container again', async () => {
+	const matches = await createVideoFrameCaptureTimingMatcher(file, {
+		timing: await readTiming(), readTiming: () => { throw new Error('Duplicate timing scan.'); },
+	});
+	assert.equal(matches(.1, .067), true);
+	assert.equal(matches(.1, .14), false);
+});
+
 test('capture matches frame PTS and interior times across variable source intervals', async () => {
 	const matches = await createVideoFrameCaptureTimingMatcher(file, { readTiming });
 	assert.equal(matches(.0335, 0), true);

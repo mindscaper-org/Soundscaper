@@ -23,7 +23,8 @@ import { macroScriptLibrarySchemaIsAhead } from '../../../../macro-script-librar
 import type { OwnedStateWriteScope } from '../../../shared/owned-state.ts';
 import type { ControllerRecordingState } from '../../../recording/recording-state.ts';
 import type { ControllerTransportState } from '../../../transport/transport-state.ts';
-import { openStartupProject, type StartupProjectRecoveryNotice } from './project-startup-recovery.ts';
+import { openStartupProject } from './project-startup-recovery.ts';
+import type { ProjectOpenRecoveryNotice } from '../../project-open-recovery.ts';
 
 export interface ProjectBootstrapState<Preferences> {
 	preferences: Preferences;
@@ -34,7 +35,7 @@ export interface ProjectBootstrapState<Preferences> {
 	readOnly: boolean;
 	takeCycleRecovery?: unknown;
 	takeCycleRecoveryInspecting?: boolean;
-	startupProjectRecovery?: StartupProjectRecoveryNotice | null;
+	projectRecovery?: ProjectOpenRecoveryNotice | null;
 }
 
 export type ProjectBootstrapRecordingState = Pick<ControllerRecordingState,
@@ -128,7 +129,7 @@ export interface ProjectBootstrapServiceRuntime<
 	readonly startupProjectId?: (lastProjectId: string | null) => string | null;
 	readonly openProject: (project: Project) => Promise<unknown>;
 	readonly newProject: (options?: { skipFlush?: boolean }) => Promise<unknown>;
-	readonly onStartupProjectFailure?: (projectId: string, error: unknown) => Promise<boolean>;
+	readonly onProjectOpenFailure?: (projectId: string, error: unknown) => Promise<boolean>;
 	readonly openRecovery?: Readonly<{
 		deferInitialSave(operation: () => PromiseLike<unknown> | unknown): PromiseLike<boolean>;
 		deferMaintenance(operation: () => PromiseLike<unknown> | unknown): PromiseLike<boolean>;

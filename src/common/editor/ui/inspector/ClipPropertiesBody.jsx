@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { iconNameToChar } from '../../audacity-iconcodes.js';
 import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
@@ -237,7 +238,7 @@ export default function ClipPropertiesBody({ controller, snapshot, copy, clipId 
 							<div className="audio-editor-clip-pitch-units" role="group" aria-label={copy.clipPitchUnit} data-clip-pitch-unit>
 								<button type="button" aria-label={copy.clipPitchUnitSemitones} title={copy.clipPitchUnitSemitones}
 									aria-pressed={pitchUnit === 'semitones'} disabled={disabled} onClick={() => setPitchUnit('semitones')}>
-									<span className="audio-editor-clip-pitch-units__semitones" aria-hidden="true">{'\uEF21'}</span>
+									<span className="audio-editor-clip-pitch-units__semitones" aria-hidden="true">{iconNameToChar('TUNING_FORK')}</span>
 								</button>
 								<button type="button" aria-label={copy.clipPitchUnitPercent} title={copy.clipPitchUnitPercent}
 									aria-pressed={pitchUnit === 'percent'} disabled={disabled} onClick={() => setPitchUnit('percent')}>%</button>
@@ -283,7 +284,7 @@ export default function ClipPropertiesBody({ controller, snapshot, copy, clipId 
 }
 
 function ClipPropertiesDrawer({ name, label, initiallyOpen = false, children }) {
-	const icons = { media: '\uEF28', pitch: '\uF475', normalize: '\uF4A8' };
+	const icons = { media: iconNameToChar('CONFIGURE'), pitch: iconNameToChar('CLOCK'), normalize: iconNameToChar('SLIDERS') };
 	return <details className="audio-editor-clip-properties__drawer" data-clip-properties-drawer={name} open={initiallyOpen || undefined}>
 		<summary><h3>{label}</h3><span className="audio-editor-clip-properties__drawer-icon" data-drawer-icon aria-hidden="true">
 			{name === 'fading' ? <TrackFadeHandleGlyph /> : icons[name]}

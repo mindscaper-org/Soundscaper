@@ -79,8 +79,9 @@ test.describe('project import formats', () => {
 		const editor = await bootEditor(page, '/embed/en/');
 		const projectChooser = page.waitForEvent('filechooser');
 		await chooseFileAction(page, editor, 'Open');
+		const projectFileChooser = await projectChooser;
 		const dataChooser = page.waitForEvent('filechooser');
-		await (await projectChooser).setFiles(projectPath);
+		await projectFileChooser.setFiles(projectPath);
 		await (await dataChooser).setFiles(folder);
 		await expect(editor.locator('[data-status]')).toHaveText('Imported the legacy AUP tracks, clips, and labels.');
 		await waitForProjectActivation(editor);

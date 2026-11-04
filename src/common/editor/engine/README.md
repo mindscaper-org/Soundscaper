@@ -45,3 +45,17 @@ methods there, to exactly one method map, and to `ENGINE_PUBLIC_METHOD_NAMES`;
 the registry has a compile-time completeness assertion, while lifecycle and
 prototype characterization tests guard terminal cleanup and runtime
 compatibility.
+
+An edit to the playing project prepares a replacement graph on the existing
+audio context while the previous graph continues. Each graph owns a snapshot of
+rendered clip buffers and an output gate. Once worklets, workers, and streamed
+sources are ready, both gates switch at the same audio-clock boundary. The new
+graph starts at the position playback will have reached at that boundary,
+including loop wraps and the selected playback rate. Preparation failure leaves
+the previous graph running; transport changes and newer edits cancel obsolete
+candidates.
+
+The document owner waits for fresh time/pitch PCM before submitting edited clip
+geometry. Selection and metadata changes carry unfinished playback updates
+forward without changing ordinary rename behavior. Stop and Pause cancel audio
+preparation but still install the edited document for the next explicit Play.

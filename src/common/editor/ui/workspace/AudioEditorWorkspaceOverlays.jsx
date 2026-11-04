@@ -112,7 +112,7 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 		<EditorSurfaceBoundary copy={copy} surface="dialogs" resetKey={snapshot.project}>
 			{productId === 'soundscaper' && activeSurface === 'project-recovery' && ProjectRecoveryDialog && controller.actions.project.recovery && (
 				<ProjectRecoveryDialog actions={controller.actions.project.recovery} copy={copy} run={run}
-					initialProjectId={snapshot.startupProjectRecovery?.projectId} onClose={() => setActiveSurface((current) => recoverySurfaceAfterClose(current, 'project-recovery'))} />
+					initialProjectId={snapshot.projectRecovery?.projectId} onClose={() => setActiveSurface((current) => recoverySurfaceAfterClose(current, 'project-recovery'))} />
 			)}
 			{productId === 'soundscaper' && activeSurface === 'audacity-recovery' && AudacityRecoveryDialog && (
 				<AudacityRecoveryDialog open={controller.actions.project.openAudacityProject} copy={copy} run={run} onClose={() => setActiveSurface((current) => recoverySurfaceAfterClose(current, 'audacity-recovery'))} />
@@ -511,6 +511,7 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 				copy={copy} onClose={() => setDialog(null)} />}
 			{dialog && dialog !== 'about' && dialog !== 'project-compatibility' && (
 				<EditorDialog
+					fileService={fileService}
 					type={dialog}
 					value={dialogValue}
 					onValueChange={setDialogValue}

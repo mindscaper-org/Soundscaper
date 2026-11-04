@@ -47,7 +47,7 @@ export interface ControllerOptions extends ControllerResourceOptions, Controller
 	readonly playbackProjectService?: PlaybackProjectService;
 	readonly acquireProjectLock?: ProjectLockServiceRuntime['acquireProjectLock'];
 	readonly createProjectIfAbsent?: ProjectSwitchServiceRuntime<DocumentProject, DocumentHistory>['createProjectIfAbsent'];
-	readonly onStartupProjectFailure?: (projectId: string, error: unknown) => Promise<boolean>;
+	readonly onProjectOpenFailure?: (projectId: string, error: unknown) => Promise<boolean>;
 	readonly prepareProjectSnapshot?: DocumentCompositionDependencies['prepareProjectSnapshot'];
 	readonly prepareProjectForExport?: TrackAudioCompositionDependencies['export']['prepareProjectForExport'];
 	readonly productNativeRenderInputAuthority?: ProductNativeRenderInputAuthorityBinding;

@@ -16,6 +16,7 @@
  * absent until an existing menu explicitly opens it, so the tier adds no chrome.
  */
 
+import { soundscaperPluginScanRuntimeFor } from '../soundscaper-plugin-scan-runtime.ts';
 import { captureNativeProcessingReturnFocus } from './native-processing-return-focus.ts';
 import { useParallelStackMenuRefresh } from './parallel-stack-menu-runtime.ts';
 import React, { useEffect, useSyncExternalStore } from 'react';
@@ -150,6 +151,7 @@ export function createSoundscaperNativeServicesSurfaceHost(
 		root?.render(<React.Suspense fallback={null}>
 			<SoundscaperNativeServicesDialog
 				bridge={bridge}
+				scanner={soundscaperPluginScanRuntimeFor(options.bridge)}
 				runtime={dialogRuntime}
 				initialSurface={surface}
 				processingBlocked={processingBlocked}

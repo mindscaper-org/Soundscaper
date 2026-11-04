@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { seekVideoPreviewMedia } from '../../controller/clip-video/video-preview-media-seek.ts';
 import { resolveVideoKeyframePreviewState } from '../../video-keyframe-preview-state.ts';
 import { resolveVideoSourceDisplaySize } from '../../video-source-presentation.ts';
 import { drawableVideoIntervalInteriorSeconds } from '../../video-drawable-interval.ts';
@@ -188,9 +189,8 @@ function synchronizeExactPresentation(timeline, clip, timelineFrame, video) {
 		throw new RangeError('Exact program preview source time exceeds the browser media range.');
 	}
 	video.pause?.();
-	if (Math.abs((Number(video.currentTime) || 0) - targetTime) <= 0.000001) return;
 	try {
-		video.currentTime = targetTime;
+		seekVideoPreviewMedia(video, targetTime, 0.000001);
 	} catch {
 		// Metadata readiness callbacks and the next compositor pass retry the exact seek.
 	}
