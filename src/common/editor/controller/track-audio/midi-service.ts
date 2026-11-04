@@ -9,6 +9,7 @@ import { createAddClipCommand, createAddSourceCommand, createAddTrackCommand } f
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import type { AudioSourceLeaf } from '../../project-media-types.ts';
 import { publishMidiSource } from './internal/midi-source-publication.ts';
+import { routeMidiImportControls } from './internal/midi-import-channel-routing.ts';
 import type { MidiProject, MidiService, MidiServiceDependencies } from './midi-service-types.ts';
 
 /** Serialize edits and publish every note document together with its playable PCM fallback. */
@@ -76,8 +77,9 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 				if (detached.sampleRate !== project.sampleRate) throw new RangeError('MIDI import sample rate differs from the project.');
 				const offset = options.timelineStartFrame ?? 0;
 				if (!Number.isSafeInteger(offset) || offset < 0) throw new RangeError('Invalid MIDI import position.');
-				const hasContent = detached.tracks.some(track => track.notes.length || track.events?.length);
-				const tracks = hasContent ? detached.tracks.filter(track => track.notes.length || track.events?.length) : detached.tracks.slice(0, 1);
+				const routed = routeMidiImportControls(detached.tracks);
+				const hasContent = routed.some(track => track.notes.length || track.events?.length);
+				const tracks = hasContent ? routed.filter(track => track.notes.length || track.events?.length) : routed.slice(0, 1);
 				return importTracks(project, tracks.map(track => ({ name: track.name || dependencies.trackName(), program: track.program,
 					data: { version: 1, notes: track.notes, interchange: { events: track.events ?? [], tempos: detached.tempos, signatures: detached.signatures } } })),
 				offset, Math.max(1, Math.round(project.sampleRate * 60 / (detached.tempos[0]?.bpm ?? 120) * 4)), options.signal);

@@ -22,7 +22,12 @@ function fixture(options: Readonly<Record<string, unknown>> = {}) {
 		getProject: () => project,
 		editingBlocked: () => false,
 		commit: command => { project = applyEditorCommand(project, command); },
-		createId: prefix => `${prefix}-${++counter}`,
+		createId: prefix => {
+			let id: string;
+			do { id = `${prefix}-${++counter}`; }
+			while ([...project.sources, ...project.tracks, ...project.clips].some(record => record.id === id));
+			return id;
+		},
 		trackName: () => 'MIDI track (beta)', clipName: () => 'MIDI clip',
 		store: {
 			beginSourceWrite: async id => {
@@ -142,6 +147,34 @@ test('imported All Notes Off releases keys while the sustain pedal keeps their P
 	assert.ok(samples.slice(8500, 11000).some(value => Math.abs(value) > 0.01), 'pedal-held notes must survive All Notes Off');
 	assert.ok(samples.slice(12000).every(value => value === 0), 'pedal-up must release keys already stopped by All Notes Off');
 	assert.equal(readMidiClip(f.project().clips[0])?.notes[0]?.durationFrames, 16000);
+});
+
+test('type-1 MIDI channel controls on a separate track affect the imported note PCM', async () => {
+	const f = fixture();
+	// Controller track mutes channel 1 until 0.5 s; the other track holds A4 for 1 s.
+	const bytes = Uint8Array.from(Buffer.from(
+		'4d546864000000060001000201e04d54726b0000000d00b007008360b0077f00ff2f004d54726b0000000d00904564874080450000ff2f00', 'hex'));
+	await f.service.importDocument(parseMidiFile(bytes, { sampleRate: 8000 }));
+	const clip = f.project().clips.find(candidate => readMidiClip(candidate)?.notes.length)!;
+	const assertVolume = (samples: Float32Array) => {
+		assert.ok(samples.slice(1000, 3000).every(value => value === 0), 'channel-volume controls belong to the shared MIDI channel');
+		assert.ok(samples.slice(5000, 7000).some(value => Math.abs(value) > 0.01));
+	};
+	assertVolume(f.pcm.get(String(clip.sourceId))![0]!);
+	assert.equal(f.project().tracks.length, 1);
+	assert.equal(f.project().tracks[0]?.name, 'MIDI 2');
+	const expectedEvents = [{ frame: 0, status: 0xb0, data: [7, 0] }, { frame: 4000, status: 0xb0, data: [7, 127] }];
+	assert.deepEqual(readMidiClip(clip)?.interchange?.events, expectedEvents);
+	const noteId = readMidiClip(clip)!.notes[0]!.id;
+	await f.service.updateNote(String(clip.id), noteId, { pitch: 67 });
+	assertVolume(f.pcm.get(String(f.project().clips[0]?.sourceId))![0]!);
+	const reopened = fixture(structuredClone(f.project()));
+	await reopened.service.setInstrument(String(reopened.project().tracks[0]?.id), 'square');
+	assertVolume(reopened.pcm.get(String(reopened.project().clips[0]?.sourceId))![0]!);
+	assert.deepEqual(readMidiClip(reopened.project().clips[0])?.interchange?.events, expectedEvents);
+	await reopened.service.exportFile('midi');
+	const exported = parseMidiFile(reopened.saves[0]!.bytes as Uint8Array, { sampleRate: 8000 });
+	assert.deepEqual(exported.tracks.flatMap(track => track.events ?? []), expectedEvents);
 });
 
 test('both MIDI exports use the real shared file service interchange save contract', async () => {
