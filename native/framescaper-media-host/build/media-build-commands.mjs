@@ -116,11 +116,14 @@ export function createFramescaperMediaHostBuildCommands(input) {
 	// The VS target selects its generated MSBuild projects when CC is empty.
 	const vpxEnvironment = windows
 		? Object.freeze({ ...makeEnvironment, CC: '', CXX: '' }) : makeEnvironment;
+	const windowsShellPath = windows ? `${dirname(tools.executables.shell.path)};${makeEnvironment.PATH}` : makeEnvironment.PATH;
+	// Upstream --as=nasm replaces AS with a bare command during configure.
 	const vpxAssemblerEnvironment = target.id.endsWith('-x64')
-		? { AS: shellTool(tools.executables.nasm.path, windows) } : {};
-	const vpxBuildEnvironment = Object.freeze({ ...vpxEnvironment, ...vpxAssemblerEnvironment,
-		...(windows ? { MSBUILDDISABLENODEREUSE: '1',
-			PATH: `${dirname(tools.executables.shell.path)};${makeEnvironment.PATH}` } : {}),
+		? { AS: shellTool(tools.executables.nasm.path, windows),
+			PATH: `${dirname(tools.executables.nasm.path)}${windows ? ';' : delimiter}${windowsShellPath}` } : {};
+	const vpxBuildEnvironment = Object.freeze({ ...vpxEnvironment,
+		...(windows ? { MSBUILDDISABLENODEREUSE: '1', PATH: windowsShellPath } : {}),
+		...vpxAssemblerEnvironment,
 	});
 	const pkgConfigRoots = [
 		paths.ffmpegInstall, paths.x264Install, paths.x265Install,
@@ -230,7 +233,7 @@ export function createFramescaperMediaHostBuildCommands(input) {
 			+ `awk -v target="$@" -f ${dependencyFilter} > $(@:.o=.d)`),
 	] : [];
 	const ffmpegBuildEnvironment = windows ? Object.freeze({ ...dependencyEnvironment,
-		PATH: vpxBuildEnvironment.PATH,
+		PATH: windowsShellPath,
 	}) : dependencyEnvironment;
 	const zlibLibrary = windows ? 'zlibstatic.lib' : 'libz.a';
 	const installedZlibLibrary = windows ? 'zlib.lib' : 'libz.a';

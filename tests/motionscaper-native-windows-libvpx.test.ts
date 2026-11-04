@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { delimiter, join, resolve } from 'node:path';
 import test from 'node:test';
 
 import {
@@ -57,12 +57,13 @@ for (const target of targets) {
 		const codecEnvironment = phase(commands, 'x264-configure').environment;
 		const expectedEnvironment = {
 			...codecEnvironment, ...(windows ? { CC: '', CXX: '' } : {}),
-			...(target.endsWith('-x64') ? { AS: windows ? 'nasm.exe' : join(root, 'authenticated-tools', 'nasm') } : {}),
+			...(target.endsWith('-x64') ? { AS: windows ? 'nasm.exe' : join(root, 'authenticated-tools', 'nasm'),
+				PATH: `${join(root, 'authenticated-tools')}${windows ? ';C:/Program Files/Git/bin;' : delimiter}${codecEnvironment.PATH}` } : {}),
 		};
 		for (const name of ['libvpx-configure', 'libvpx-build', 'libvpx-install']) {
 			const expected = windows && name !== 'libvpx-configure'
 				? { ...expectedEnvironment, MSBUILDDISABLENODEREUSE: '1',
-					PATH: `C:/Program Files/Git/bin;${codecEnvironment.PATH}` } : expectedEnvironment;
+					...(target.endsWith('-x64') ? {} : { PATH: `C:/Program Files/Git/bin;${codecEnvironment.PATH}` }) } : expectedEnvironment;
 			assert.deepEqual(phase(commands, name).environment, expected,
 				`${target}: libvpx must select native compilers and retire Windows build nodes after completion`);
 		}
