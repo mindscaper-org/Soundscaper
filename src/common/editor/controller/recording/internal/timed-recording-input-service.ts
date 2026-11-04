@@ -152,6 +152,9 @@ export function createTimedRecordingInputService<Stream>(
 		if (!runtime.recordingStreamIsLive(stream, route.kind)) {
 			throw createLocalizedError(Error, { ['recordingPreparedInputClosed']: runtime.messages.preparedInputClosed }, 'recordingPreparedInputClosed');
 		}
+		if (route.kind !== 'display' && runtime.streamAudioChannelCount(stream) < requestedChannels) {
+			throw createLocalizedError(Error, { ['timedRecordingAssignedInputsUnavailable']: runtime.messages.assignedInputsUnavailable }, 'timedRecordingAssignedInputsUnavailable');
+		}
 		return frozenInputs([runtime.recordingRouteSourceKey(route)]);
 	}
 

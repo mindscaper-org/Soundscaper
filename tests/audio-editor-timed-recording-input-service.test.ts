@@ -157,6 +157,7 @@ test('explicit display and routed microphone preparation preserve retained-input
 	assert.equal(display.displayRequests, 0);
 
 	const routedMicrophone = createFixture({
+		acquireHardware: async () => stream('four-channel-interface', 4),
 		routes: {
 			'track-1': { kind: 'device', deviceId: 'interface', channelStart: 2, channelCount: 2 },
 		},
@@ -168,6 +169,14 @@ test('explicit display and routed microphone preparation preserve retained-input
 	assert.deepEqual(routedMicrophone.hardwareRequests, [{
 		deviceId: 'interface', channelCount: 4, sampleRate: 48_000,
 	}]);
+});
+
+test('explicit timer recording refuses an input whose actual channels cannot supply the pinned route', async () => {
+	const fixture = createFixture({ routes: {
+		'track-1': { kind: 'device', deviceId: 'interface', channelStart: 2, channelCount: 2 },
+	}, acquireHardware: async () => stream('mono-fallback', 1) });
+	await assert.rejects(fixture.service.prepareTimedRecordingInputs({ trackId: 'track-1' }, currentScope),
+		/Every assigned recording input must remain available/iu);
 });
 
 test('prepared-only explicit capture rejects missing capabilities and delegates adequate pool reuse', async () => {
