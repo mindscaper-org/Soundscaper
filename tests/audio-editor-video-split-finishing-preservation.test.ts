@@ -7,6 +7,8 @@ import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescap
 import { applyFramescaperProjectCommand, prepareFramescaperVideoTransitionAllocations } from '../src/framescaper/editor-project-commands.ts';
 import { normalizeVideoVisualPresentationV1 } from '../src/common/editor/video-visual-presentation-v27.ts';
 import { framescaperBaselineOptions } from './helpers/framescaper-baseline-model-fixture.ts';
+import { createEditorProjectRuntimeSelection } from '../src/framescaper/editor-project-runtime-selection.ts';
+import { resolveEditingActionAvailability } from '../src/common/editor/commands/editing-selection-authority.ts';
 
 test('splitting a video clip preserves its clip-owned finishing on the right child', () => {
 	let project = createFramescaperProject(PROFILE, framescaperBaselineOptions());
@@ -37,6 +39,10 @@ test('joining camera clips cannot silently discard a different clip-owned finish
 		grade: null, processorStackId: null, maskMatteIds: [] });
 	project = applyFramescaperProjectCommand(PROFILE, project, { type: 'video-visual-presentation/set',
 		presentationId: presentation.id, expectedPresentation: null, presentation });
+	assert.equal(resolveEditingActionAvailability({
+		project: createEditorProjectRuntimeSelection(PROFILE).projectForCommandConsumers(project),
+		explicitClipIds: ['video-clip', 'right'],
+	}).join, true, 'the shipped Edit > Audio clips > Join gate offers this camera selection');
 	assert.throws(() => applyFramescaperProjectCommand(PROFILE, project, {
 		type: 'clip/join', clipIds: ['video-clip', 'right'],
 	}), /finishing|presentation|processing/iu);
