@@ -7,7 +7,7 @@ import { originalMpegExportSettings, readOriginalMpegFrameHeader } from './deskt
 import { readDesktopOriginalM4aMovie } from './desktop-original-m4a-movie.ts';
 import { readDesktopOriginalAudioBitRate } from './desktop-original-audio-bit-rate.ts';
 import { readOriginalFlacHeader } from './desktop-original-flac-settings.ts';
-import { leadingApeTagEnd } from './ape-tag-location.ts';
+import { readOriginalWavPackHeader } from './desktop-original-wavpack-settings.ts';
 import { BIT_RATES } from './media-export-values.js';
 
 type DataRecord = Readonly<Record<string, unknown>>;
@@ -60,7 +60,11 @@ export async function resolveDesktopOriginalExportSettings(
 			if (!flac) return null;
 			header = flac;
 		}
-		if (format === 'wavpack') header = await originalWavPackAudioHeader(file, header);
+		if (format === 'wavpack') {
+			const wavpack = await readOriginalWavPackHeader(file, header, positiveInteger(source.channelCount) ?? 0);
+			if (!wavpack) return null;
+			header = wavpack;
+		}
 		if (format === 'ogg-vorbis' && matchesEncodedContainer('opus', header)) format = 'opus';
 		const pcm = await pcmSettings(format, file, header);
 		if (pcm !== undefined) {
@@ -107,23 +111,6 @@ export async function resolveDesktopOriginalExportSettings(
 		// The import has already succeeded; an unprovable re-export disables the shortcut.
 		return null;
 	}
-}
-
-/** Imported wrapper/MD5 blocks carry no audio format flags. Seek only bounded headers. */
-async function originalWavPackAudioHeader(file: NamedByteSource, prefix: Uint8Array): Promise<Uint8Array> {
-	let offset = await leadingApeTagEnd(file);
-	let header = offset + 32 <= prefix.length ? prefix.subarray(offset, offset + 32)
-		: new Uint8Array(await file.slice(offset, offset + 32).arrayBuffer());
-	for (let block = 0; block < 1_000_000; block++) {
-		if (header.length !== 32 || ascii(header, 0, 4) !== 'wvpk') throw new RangeError('Invalid WavPack header.');
-		const view = new DataView(header.buffer, header.byteOffset, header.byteLength);
-		if (view.getUint32(20, true) > 0) return header;
-		const size = view.getUint32(4, true) + 8;
-		if (size < 32 || size > 4 * 1024 ** 2 || offset + size + 32 > file.size) throw new RangeError('Invalid WavPack metadata block.');
-		offset += size;
-		header = new Uint8Array(await file.slice(offset, offset + 32).arrayBuffer());
-	}
-	throw new RangeError('The WavPack source has too many metadata blocks.');
 }
 
 function audioBase(format: string, sampleRate: number, channelCount: number): DataRecord {
