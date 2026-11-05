@@ -78,6 +78,7 @@ export const Slider: React.FC<SliderProps> = ({
   const gestureActiveRef = React.useRef(false);
   const gestureChangedRef = React.useRef(false);
   const pointerIdRef = React.useRef<number | null>(null);
+  const canceledPointerRef = React.useRef(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const gestureValueRef = React.useRef(value);
   const gestureCancelRef = React.useRef(onGestureCancel);
@@ -96,6 +97,11 @@ export const Slider: React.FC<SliderProps> = ({
   const handleSize = 16;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (canceledPointerRef.current) {
+      e.currentTarget.value = String(clampedValue);
+      if (pointerIdRef.current === null) canceledPointerRef.current = false;
+      return;
+    }
     const newValue = parseFloat(e.target.value);
     const standalone = !gestureActiveRef.current;
     if (standalone) {
@@ -114,6 +120,7 @@ export const Slider: React.FC<SliderProps> = ({
 
   const beginGesture = () => {
     if (disabled || gestureActiveRef.current) return;
+    canceledPointerRef.current = false;
     gestureActiveRef.current = true;
     gestureChangedRef.current = false;
     gestureValueRef.current = clampedValue;
@@ -130,7 +137,16 @@ export const Slider: React.FC<SliderProps> = ({
   const cancelGesture = () => {
     if (!gestureActiveRef.current) return;
     gestureActiveRef.current = false;
+    canceledPointerRef.current = pointerIdRef.current !== null;
     onGestureCancel?.();
+  };
+
+  const finishPointer = () => {
+    pointerIdRef.current = null;
+    endGesture();
+    if (canceledPointerRef.current) requestAnimationFrame(() => {
+      if (pointerIdRef.current === null) canceledPointerRef.current = false;
+    });
   };
 
   React.useEffect(() => () => {
@@ -168,28 +184,30 @@ export const Slider: React.FC<SliderProps> = ({
         onPointerMove={(event) => {
           if (event.pointerId !== pointerIdRef.current || event.pointerType !== 'mouse'
             || event.button !== 0 || (event.buttons & 1) !== 0) return;
-          pointerIdRef.current = null;
-          endGesture();
+          finishPointer();
         }}
         onPointerUp={(event) => {
           if (event.pointerId !== pointerIdRef.current) return;
-          pointerIdRef.current = null;
-          endGesture();
+          finishPointer();
         }}
         onPointerCancel={(event) => {
           if (event.pointerId !== pointerIdRef.current) return;
-          pointerIdRef.current = null;
           cancelGesture();
+          pointerIdRef.current = null;
         }}
         onKeyDown={(event) => {
           if (['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp'].includes(event.key)) {
             beginGesture();
-          } else if (event.key === 'Escape') cancelGesture();
+          } else if (event.key === 'Escape' && gestureActiveRef.current) {
+            event.preventDefault();
+            event.stopPropagation();
+            cancelGesture();
+          }
         }}
         onKeyUp={(event) => {
           if (['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp'].includes(event.key)) endGesture();
         }}
-        onBlur={() => { pointerIdRef.current = null; endGesture(); }}
+        onBlur={finishPointer}
         onDoubleClick={(event) => {
           if (disabled || !onChange || defaultValue === undefined || !Number.isFinite(defaultValue)) return;
           event.preventDefault();
