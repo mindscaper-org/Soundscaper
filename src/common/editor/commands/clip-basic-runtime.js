@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { renderedClipGeometrySteps, renderedClipPlacement, renderedClipRipplePlacements } from './rendered-clip-geometry.ts';
 import { frozenTrimParticipants } from './frozen-trim-participants.ts';
 import { inheritMidiTrackForTransfer } from './midi-track-transfer.ts';
 
@@ -30,7 +31,7 @@ import {
 	withoutImportedPitchPreset,
 } from './shared-runtime.js';
 import { planTakeGraphClipRipple, planTakeGraphRangeRipple } from './take-graph-range-edit.ts';
-import { clipOwnerIndex, createCompletedFrameSum, createRelatedClipReader, firstById, requireIndexedClip } from './editing-work-index.ts';
+import { clipOwnerIndex, createCompletedFrameSum, firstById, requireIndexedClip } from './editing-work-index.ts';
 
 export {
 	collectRelatedClipIds,
@@ -188,7 +189,7 @@ export function replaceRenderedClips(project, command) {
 	}
 	const clipById = firstById(project.clips);
 	const topology = { duplicateTrackIds: false, duplicateClipOwners: false };
-	const owners = clipOwnerIndex(project.tracks, topology);
+	clipOwnerIndex(project.tracks, topology);
 	// Persisted commands reject ambiguous identities; direct mutable helpers retain legacy traversal.
 	const legacyTraversal = topology.duplicateTrackIds || topology.duplicateClipOwners || clipById.size !== project.clips.length;
 	const sourceIds = new Set(project.sources.map(source => source.id));
@@ -205,42 +206,10 @@ export function replaceRenderedClips(project, command) {
 		if (sourceIds.has(source.id)) throw new RangeError(`Duplicate source ID: ${source.id}.`);
 		return { clip, source, ratio: source.frameCount / clip.durationFrames };
 	});
-	const processedIds = new Set(entries.map(({ clip }) => clip.id));
-	const remaining = new Set(processedIds);
-	const entryById = new Map();
-	for (const [index, entry] of entries.entries()) {
-		const duplicates = entryById.get(entry.clip.id) || [];
-		duplicates.push({ entry, index });
-		entryById.set(entry.clip.id, duplicates);
-	}
-	const readRelated = createRelatedClipReader(project.clips, clipById.size === project.clips.length ? clipById : undefined);
-	const components = [];
-	while (remaining.size) {
-		const seed = remaining.values().next().value;
-		const relatedIds = new Set(readRelated([seed]));
-		const targets = [...relatedIds].flatMap(id => entryById.get(id) || [])
-			.sort((left, right) => left.index - right.index).map(item => item.entry);
-		for (const { clip } of targets) remaining.delete(clip.id);
-		const ratio = targets[0].ratio;
-		if (targets.some((target) => Math.abs(target.ratio - ratio) > 1 / Math.max(1, target.clip.durationFrames))) {
-			throw new RangeError('Related clips produced inconsistent effect duration ratios.');
-		}
-		components.push({ relatedIds, targets, ratio });
-	}
-
 	const affectedTracks = new Set();
-	for (const component of components) {
-		const related = [...component.relatedIds].sort((left, right) => clipSlots.get(left) - clipSlots.get(right))
-			.map((clipId) => requireIndexedClip(clipById, clipId));
-		const anchor = Math.min(...related.map((clip) => clip.timelineStartFrame));
-		const oldEnd = Math.max(...related.map(clipEndFrame));
-		const newEnd = anchor + Math.max(1, Math.round((oldEnd - anchor) * component.ratio));
-		const delta = newEnd - oldEnd;
-		const relatedTracks = new Set(related.map((clip) => owners.get(clip.id)));
-		for (const track of relatedTracks) {
-			if (!track) throw new ReferenceError('Rendered clip is not assigned to a track.');
-			affectedTracks.add(track);
-		}
+	for (const component of renderedClipGeometrySteps(project.clips, project.tracks, entries, clipById)) {
+		const { related, anchor, oldEnd, delta, relatedTracks } = component;
+		for (const track of relatedTracks) affectedTracks.add(track);
 		const relatedTrackIds = new Set([...relatedTracks].map(track => track.id));
 		if (rippleMode === 'track') {
 			// The rendered span ripples the rest of its tracks, so the take graph on
@@ -259,12 +228,8 @@ export function replaceRenderedClips(project, command) {
 					const track = requireClipTrack(project, clip.id);
 					if (relatedTrackIds.has(track.id) && clip.timelineStartFrame >= oldEnd) clip.timelineStartFrame += delta;
 				}
-			} else if (delta !== 0) for (const track of relatedTracks) {
-				for (const clipId of track.clipIds) {
-					if (component.relatedIds.has(clipId)) continue;
-					const clip = requireIndexedClip(clipById, clipId);
-					if (clip.timelineStartFrame >= oldEnd) clip.timelineStartFrame += delta;
-				}
+			} else for (const placement of renderedClipRipplePlacements(component, clipById)) {
+				placement.clip.timelineStartFrame = placement.timelineStartFrame;
 			}
 		}
 		const targetById = new Map();
@@ -272,10 +237,7 @@ export function replaceRenderedClips(project, command) {
 		for (const original of related) {
 			const current = requireIndexedClip(clipById, original.id);
 			const target = targetById.get(original.id);
-			const durationFrames = target
-				? target.source.frameCount
-				: Math.max(1, Math.round(original.durationFrames * component.ratio));
-			const timelineStartFrame = anchor + Math.round((original.timelineStartFrame - anchor) * component.ratio);
+			const { durationFrames, timelineStartFrame } = renderedClipPlacement(component, original, target?.source.frameCount);
 			const updated = target
 				? normalizeClipForProject(project, {
 					...current,

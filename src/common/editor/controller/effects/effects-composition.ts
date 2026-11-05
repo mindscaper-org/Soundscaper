@@ -396,6 +396,7 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 			playNyquistPreview: nyquistHost.playNyquistPreview,
 			preflightStorage: dependencies.preflightStorage,
 			getProject: dependencies.getProject,
+			effectPreviewProject: dependencies.getCommandProject,
 			getPreparedAudioAuthority: () => state.preferences?.performance?.optimizeFor === 'speed'
 				? dependencies.getProject() : null,
 			canSliceDryPcm: canSliceSimpleDryTrackPcm,

@@ -1,10 +1,12 @@
 import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { previewRenderedClipStarts, previewGeometryFromTargets, type PreviewGeometryProject } from './preview-rendered-clip-placement.ts';
 import { independentTrackEffectParams } from './independent-track-effect-params.ts';
 import { paulstretchPreviewInputFrames } from './paulstretch-preview-prefix.ts';
 import { speedDelayPreviewInputFrames } from './speed-delay-preview-prefix.ts';
 
 export interface SelectionEffectPreviewRuntime {
+	readonly effectPreviewProject?: () => PreviewGeometryProject;
 	// Legacy JavaScript ports are narrowed as their owning services migrate.
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	readonly [name: string]: any;
@@ -66,8 +68,10 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 		);
 		const previewFrameCount = previewEndFrame - previewStartFrame;
 		let params = normalizeAudioSelectionEffectParams(type, currentAudacityEffectParams());
+		const placeExactClips = Boolean(definition.lengthChanging) && fullTargets.length > 1
+			&& fullTargets.every((target: RuntimeValue) => target.clipId && !target.sourceId);
 		// Whole-range transforms must run before trimming the six-second audition.
-		const processCompleteSelection = ['audacity-normalize', 'audacity-loudness-normalization',
+		const processCompleteSelection = placeExactClips || ['audacity-normalize', 'audacity-loudness-normalization',
 			'audacity-fade-in', 'audacity-fade-out', 'audacity-reverse', 'audacity-legacy-compressor', 'audacity-auto-duck', 'audacity-truncate-silence'].includes(type)
 			|| (type === 'audacity-sliding-stretch' && (params.startTempoPercent !== params.endTempoPercent
 				|| params.startPitchSemitones !== params.endPitchSemitones));
@@ -77,6 +81,7 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 			spectralSelection: audacitySpectralEffectContext(full, definition),
 		}));
 		const targets: PreviewTarget[] = fullPreviewTargets.map(({ full, fullIndex, spectralSelection }) => {
+			if (placeExactClips) return { full, fullIndex, spectralSelection, preview: full, offsetFrames: full.startFrame - previewStartFrame };
 			const startFrame = Math.max(previewStartFrame, full.startFrame);
 			const auditionFrames = Math.max(0, Math.min(previewEndFrame, full.endFrame) - startFrame);
 			if (auditionFrames === 0) return null;
@@ -223,12 +228,16 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 				assertAudacityEffectOutput(result.channels);
 				resultChannelSets.push(result.channels);
 			}
+			const starts = placeExactClips ? previewRenderedClipStarts(runtime.effectPreviewProject?.() ?? previewGeometryFromTargets(fullTargets),
+				targets.map((target, index) => ({ clipId: target.full.clipId, frameCount: resultChannelSets[index]![0]!.length }))) : null;
+			const firstResultStart = starts ? Math.min(...starts) : previewStartFrame;
+			const offsets = targets.map((target, index) => starts ? starts[index]! - firstResultStart : target.offsetFrames);
 			const changedDuration = resultChannelSets.some((channels, index) => channels[0]!.length !== targets[index]!.preview.durationFrames);
 			const resultFrameCount = Math.min(maximumFrames, Math.max(changedDuration ? 0 : previewFrameCount, ...resultChannelSets.map((channels, index) => (
-				targets[index]!.offsetFrames + channels[0]!.length
+				offsets[index]! + channels[0]!.length
 			))));
 			const mixedChannels = mixNyquistPreviewChannels(resultChannelSets.map((channels, index) => (
-				alignPreviewChannels(channels, targets[index]!.offsetFrames, resultFrameCount)
+				alignPreviewChannels(channels, offsets[index]!, resultFrameCount)
 			)), resultFrameCount);
 			const context = await engine.getAudioContext({ resume: true });
 			await context.resume?.();
@@ -273,6 +282,7 @@ function alignPreviewChannels(
 ): Float32Array[] {
 	return channels.map((channel) => {
 		const aligned = new Float32Array(frameCount);
+		if (offsetFrames >= frameCount) return aligned;
 		aligned.set(channel.subarray(0, Math.max(0, frameCount - offsetFrames)), offsetFrames);
 		return aligned;
 	});
