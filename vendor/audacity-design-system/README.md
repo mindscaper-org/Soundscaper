@@ -890,3 +890,11 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      anchor when room returns, and releases tracking on close. Covered by
      mounted focus/placement checks and a production resize/edit workflow.
      Upstream-PR candidate.
+
+119. `MixerFader` retains the physical grab offset inside its painted handle,
+     preserving gain on a no-motion grab and moving only by the pointer delta.
+     The painted handle remains a pointer target at the track endpoints.
+     Exposed-track clicks keep their existing absolute setting behavior. The
+     geometry utility stays outside the capped component pool. Covered by
+     mounted grab/ownership checks and the production mixer workflow.
+     Upstream-PR candidate.
