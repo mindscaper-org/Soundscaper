@@ -246,6 +246,13 @@ rendering; the packaged fixture uses `--disable-gpu` as prior native references.
 The small WebM verifier bundle and separate C++ decoder are test-only artifacts
 created by the approved run, never installed in the app.
 
+The dialog and editing-canvas previews each own one private sRGB `ImageData`
+upload buffer per current geometry. Every upload copies the complete validated
+RGBA view, preserving worker and cache ownership. Equal-size frames reuse the
+buffer and canvas dimensions; either dimension changing replaces the buffer.
+Closing the preview releases that storage and refuses late uploads. This bounds
+upload storage independently of the existing preview-frame cache.
+
 Each preview phase binds the exact actual worker target/session, revision and
 backend, observes WASM there, and requires monotonic delivered-frame progress
 covering every distinct seek. It then proves detach and a different target/session

@@ -73,6 +73,7 @@
 		"composition/motion-link-port.ts",
 		"composition/motion-link-window-bridge.ts",
 		"composition/motion-preview-backend.ts",
+		"composition/motion-preview-canvas-upload.ts",
 		"composition/motion-preview-client.ts",
 		"composition/motion-preview-render-session.ts",
 		"composition/motion-preview-types.ts",

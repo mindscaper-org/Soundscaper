@@ -5,6 +5,7 @@ import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { createMotionPreviewClient } from '../../controller/composition/motion-preview-client.ts';
+import { createMotionPreviewCanvasUpload } from '../../controller/composition/motion-preview-canvas-upload.ts';
 import type { MotionPreviewClient, MotionPreviewState } from '../../controller/composition/motion-preview-types.ts';
 import { compareRationals, divideRationals, multiplyRationals, type Rational } from '../../timeline-time.ts';
 import { motionCompositionWorkArea } from '../../motion-composition-work-area.ts';
@@ -33,6 +34,7 @@ export default function MotionPreviewDialog({ copy, project, store, onClose }: R
 		let disposed = false; let active: MotionPreviewClient | null = null;
 		const loadAsset = (asset: Parameters<typeof loadMotionscaperAssetBytes>[0], signal?: AbortSignal) => loadMotionscaperAssetBytes(asset, store, signal);
 		const provider = createMotionMediaProvider({ loadAsset });
+		const upload = createMotionPreviewCanvasUpload();
 		const hasAudio = motionCompositionHasAudio(project, composition.id);
 		let mixer: ReturnType<typeof createMotionAudioMixer> | null = null;
 		let sound: ReturnType<typeof createMotionAudioPreview> | null = null;
@@ -52,8 +54,7 @@ export default function MotionPreviewDialog({ copy, project, store, onClose }: R
 						if (disposed || !canvas.current) return;
 						const context = canvas.current.getContext('2d');
 						if (!context) throw new Error(copy.motionscaperPreviewFailed);
-						canvas.current.width = next.width; canvas.current.height = next.height;
-						context.putImageData(new ImageData(new Uint8ClampedArray(next.rgba), next.width, next.height), 0, 0);
+						upload.paint(canvas.current, context, next);
 						canvas.current.dataset.motionRendered = String(next.revision);
 						const currentFrame = multiplyRationals(next.time, composition.frameRate);
 						canvas.current.dataset.motionFrame = format(currentFrame);
@@ -66,7 +67,7 @@ export default function MotionPreviewDialog({ copy, project, store, onClose }: R
 				if (!disposed) await active.seek({ compositionId: composition.id, time: divideRationals(area.startFrame, composition.frameRate) });
 			} catch (failure) { if (!disposed) setError(failure instanceof Error ? failure.message : copy.motionscaperPreviewFailed!); }
 		})();
-		return () => { disposed = true; playbackGeneration.current++; active?.dispose(); sound?.dispose(); mixer?.dispose(); provider.dispose(); client.current = null; audio.current = null; };
+		return () => { disposed = true; playbackGeneration.current++; active?.dispose(); upload.dispose(); sound?.dispose(); mixer?.dispose(); provider.dispose(); client.current = null; audio.current = null; };
 	}, [project, composition, area, copy, store, attempt]);
 	// The client publishes frame time only after onFrame has painted its pixels.
 	const ready = state?.time != null && state.compositionId === composition.id && state.status !== 'idle' && state.status !== 'loading' && state.status !== 'error';

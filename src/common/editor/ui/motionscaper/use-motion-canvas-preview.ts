@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { createMotionPreviewClient } from '../../controller/composition/motion-preview-client.ts';
+import { createMotionPreviewCanvasUpload } from '../../controller/composition/motion-preview-canvas-upload.ts';
 import type { MotionPreviewClient } from '../../controller/composition/motion-preview-types.ts';
 import { createMotionMediaProvider } from '../../motion-media-provider.ts';
 import { compareRationals, divideRationals, type Rational } from '../../timeline-time.ts';
@@ -22,6 +23,7 @@ export function useMotionCanvasPreview(canvas: RefObject<HTMLCanvasElement | nul
 		const report = (error: unknown) => { if (!disposed && latest.current.session === session) { setPainted(null); setFailure({ session, message: error instanceof Error ? error.message : String(error) }); } };
 		const loadAsset = (asset: Parameters<typeof loadMotionscaperAssetBytes>[0], signal?: AbortSignal) => loadMotionscaperAssetBytes(asset, store, signal);
 		const provider = createMotionMediaProvider({ loadAsset });
+		const upload = createMotionPreviewCanvasUpload();
 		const drain = async () => {
 			if (draining || !client) return; draining = true;
 			try {
@@ -43,15 +45,14 @@ export function useMotionCanvasPreview(canvas: RefObject<HTMLCanvasElement | nul
 						const next = active;
 						if (!next || !current(next) || pending || !canvas.current) return; const context = canvas.current.getContext('2d');
 						if (!context) throw new Error('Canvas preview is unavailable.');
-						canvas.current.width = frame.width; canvas.current.height = frame.height;
-						context.putImageData(new ImageData(new Uint8ClampedArray(frame.rgba), frame.width, frame.height), 0, 0);
+						upload.paint(canvas.current, context, frame);
 						canvas.current.dataset.motionRendered = String(frame.revision);
 						setPainted({ session, request: next });
 					} });
 				if (disposed) { client.dispose(); return; } pending = latest.current.request; await drain();
 			} catch (error) { report(error); }
 		})();
-		return () => { disposed = true; pending = null; submit.current = null; client?.dispose(); provider.dispose(); };
+		return () => { disposed = true; pending = null; submit.current = null; client?.dispose(); upload.dispose(); provider.dispose(); };
 	}, [canvas, store, session]);
 	useEffect(() => { submit.current?.(request); }, [request]);
 	const error = failure?.session === session ? failure.message : null;

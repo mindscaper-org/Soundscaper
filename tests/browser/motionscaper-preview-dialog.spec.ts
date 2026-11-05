@@ -26,19 +26,21 @@ test('menu-opened motion preview paints real alpha pixels, seeks, plays and rele
 	const dialog = page.getByRole('dialog', { name: 'Composition Preview', exact: true });
 	const canvas = dialog.locator('canvas');
 	await expect(canvas).toHaveAttribute('data-motion-frame', '0', { timeout: 15000 });
-	const pixels = await canvas.evaluate((element: HTMLCanvasElement) => {
+	const pixels = () => canvas.evaluate((element: HTMLCanvasElement) => {
 		const context = element.getContext('2d')!;
 		return [Array.from(context.getImageData(8, 8, 1, 1).data), Array.from(context.getImageData(48, 48, 1, 1).data)];
 	});
-	expect(pixels).toEqual([[255, 0, 0, 128], [0, 0, 0, 0]]);
+	expect(await pixels()).toEqual([[255, 0, 0, 128], [0, 0, 0, 0]]);
 	expect(page.workers().length).toBeGreaterThan(0);
 	await dialog.getByLabel('Frame', { exact: true }).fill('10');
 	await expect(canvas).toHaveAttribute('data-motion-frame', '10');
+	expect(await pixels()).toEqual([[255, 0, 0, 128], [0, 0, 0, 0]]);
 	await dialog.getByRole('button', { name: 'Play', exact: true }).click();
 	await expect(dialog.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 	await expect.poll(async () => Number(await canvas.getAttribute('data-motion-frame'))).toBeGreaterThan(10);
 	await dialog.getByRole('button', { name: 'Pause', exact: true }).click();
 	await expect(dialog.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+	expect(await pixels()).toEqual([[255, 0, 0, 128], [0, 0, 0, 0]]);
 	await page.keyboard.press('Escape');
 	await expect(dialog).toHaveCount(0);
 	await expect.poll(() => page.workers().length).toBe(0);
