@@ -5,7 +5,7 @@ import { formatLocalizedTemplate } from '../localization-template.ts';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { Checkbox } from '@soundscaper/design-system/Checkbox';
-import { TextInput } from '@soundscaper/design-system/TextInput';
+import { MacroNameInput } from './MacroNameInput.tsx';
 
 /**
  * The editor for a macro written as a program.
@@ -105,12 +105,12 @@ export default function MacroScriptEditor({
 				event.target.blur();
 			}}>
 				<span>{copy.programName}</span>
-				<TextInput
+				<MacroNameInput
 					value={nameDraft}
+					onCommit={commitName}
 					onFocus={() => { nameFocusedRef.current = true; nameCancelledRef.current = false; }}
 					onChange={setNameDraft}
 					onBlur={finishName}
-					width="100%"
 				/>
 			</label>
 			<label className="audio-editor-field audio-editor-macro-script__source">
