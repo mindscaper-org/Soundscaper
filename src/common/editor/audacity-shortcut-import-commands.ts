@@ -44,7 +44,6 @@ const LEGACY_COMMANDS: Readonly<Record<string, string>> = Object.freeze({
 	RecordNewTrack: 'record-on-new-track', Record: 'record-on-current-track',
 	AppendRecord: 'record-on-current-track',
 	MixAndRender: 'mix-render',
-	AddLabel: 'label-add', AddLabelPlaying: 'label-add',
 	FitInWindow: 'zoom-to-fit-project', FitVertically: 'fit-height',
 	ZoomSel: 'zoom-to-selection', ZoomSelection: 'zoom-to-selection',
 	FullScreenOnOff: 'fullscreen',
@@ -75,6 +74,8 @@ const KNOWN_COMMANDS = new Set([
 export function audacityShortcutImportCommand(
 	command: string, legacy: boolean, availableActionIds?: ReadonlySet<string>,
 ): string | null {
+	// Native label commands have fixed modes; the local action follows transport state.
+	if (legacy && (command === 'AddLabel' || command === 'AddLabelPlaying')) return null;
 	const sourceId = legacy
 		? LEGACY_COMMANDS[command] ?? command.replace(/([a-z\d])([A-Z])/gu, '$1-$2').toLowerCase()
 		: command;
