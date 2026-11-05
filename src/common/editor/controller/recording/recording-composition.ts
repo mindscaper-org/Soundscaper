@@ -104,6 +104,7 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		engine,
 		getMicrophoneMeterSession: microphoneMeter.getSession,
 		invalidateMicrophoneMeter: microphoneMeter.invalidate,
+		synchronizeMicrophoneMeterTarget: microphoneMeter.synchronizeTarget,
 		mediaDevices: dependencies.mediaDevices,
 		microphoneMeterDeviceId: microphoneMeter.getDeviceId,
 		normalizePreferredInputDeviceId,

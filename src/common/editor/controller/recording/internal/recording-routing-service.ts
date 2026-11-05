@@ -44,8 +44,10 @@ export function createRecordingRoutingService<
 	} = runtime;
 	let outputDeviceSelectionGeneration = 0;
 	let inventoryGeneration = 0;
+	let routingLoadGeneration = 0;
 	let retainedNativeInventory: RecordingRoutingNativeInventory | null = null;
 	async function loadRecordingRouting(currentProject: Project | null = getProject()) {
+		const generation = ++routingLoadGeneration;
 		if (!currentProject) {
 			state.recordingRouting = normalizeRecordingRouting();
 			state.recordingDevices = [];
@@ -58,8 +60,9 @@ export function createRecordingRoutingService<
 		} catch {
 			// Local routing is optional and must never prevent a project from opening.
 		}
+		if (generation !== routingLoadGeneration || getProject()?.id !== currentProject.id) return state.recordingRouting;
 		const storedRouting = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
-		state.recordingRouting = normalizeRecordingRouting(storedRouting, currentProject.tracks);
+		state.recordingRouting = normalizeRecordingRouting(storedRouting, getProject()?.tracks ?? currentProject.tracks);
 		state.recordingRouteHealth = Object.fromEntries(Object.keys(state.recordingRouting.routes)
 			.map((trackId) => [trackId, 'unavailable']));
 		updateRecordingDeviceRows();
@@ -254,7 +257,9 @@ export function createRecordingRoutingService<
 			deviceId: state.preferredInputDeviceId, channelCount: state.preferredInputChannelCount,
 			deviceLabel: state.audioInputDevices.find(device => device.deviceId === state.preferredInputDeviceId)?.label ?? '',
 		}, followTrackId);
-		return previous === state.recordingRouting ? Promise.resolve() : persistRecordingRouting();
+		if (previous === state.recordingRouting) return Promise.resolve();
+		runtime.synchronizeMicrophoneMeterTarget();
+		return persistRecordingRouting();
 	}
 
 	function recordingInputSampleRate() {

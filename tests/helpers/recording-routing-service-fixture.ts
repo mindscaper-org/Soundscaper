@@ -44,7 +44,7 @@ interface FixtureOptions {
 
 export function createFixture(options: FixtureOptions = {}) {
 	const lifetime = options.lifetime ?? new EditorControllerLifetime();
-	const project = options.project === undefined
+	let project = options.project === undefined
 		? { id: 'project', tracks: [{ id: 'track' }] }
 		: options.project;
 	const normalizationCalls: Array<{ saved: unknown; tracks: unknown }> = [];
@@ -56,6 +56,7 @@ export function createFixture(options: FixtureOptions = {}) {
 	const releasedHardware: string[] = [];
 	let publishes = 0;
 	let meterInvalidations = 0;
+	let meterSynchronizations = 0;
 	let releaseAllCalls = 0;
 	let releaseDisplayCalls = 0;
 	let poolSources: readonly RecordingPoolSource[] = [];
@@ -130,6 +131,7 @@ export function createFixture(options: FixtureOptions = {}) {
 		microphoneMeterDeviceId: () => 'meter-device',
 		getMicrophoneMeterSession: () => null,
 		invalidateMicrophoneMeter: () => { meterInvalidations += 1; },
+		synchronizeMicrophoneMeterTarget: () => { meterSynchronizations += 1; },
 		normalizePreferredInputDeviceId: (value: unknown) => String(value || 'default'),
 		normalizePreferredOutputDeviceId: (value: unknown) => String(value || ''),
 		normalizeRecordingRouting(
@@ -184,8 +186,10 @@ export function createFixture(options: FixtureOptions = {}) {
 		releasedHardware,
 		stopMeterCalls,
 		setPoolSources: (sources: readonly RecordingPoolSource[]) => { poolSources = sources; },
+		setProject(next: TestProject | null) { project = next; },
 		publishes: () => publishes,
 		meterInvalidations: () => meterInvalidations,
+		meterSynchronizations: () => meterSynchronizations,
 		releaseAllCalls: () => releaseAllCalls,
 		releaseDisplayCalls: () => releaseDisplayCalls,
 	};

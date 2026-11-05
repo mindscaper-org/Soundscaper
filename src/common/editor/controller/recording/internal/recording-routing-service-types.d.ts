@@ -121,6 +121,7 @@ export interface RecordingRoutingServiceRuntime<
 	readonly microphoneMeterDeviceId: () => string;
 	readonly getMicrophoneMeterSession: () => Pick<MicrophoneMeterSession, 'deviceId'> | null;
 	readonly invalidateMicrophoneMeter: () => unknown;
+	readonly synchronizeMicrophoneMeterTarget: () => void;
 	readonly normalizePreferredInputDeviceId: typeof normalizePreferredInputDeviceId;
 	readonly normalizePreferredOutputDeviceId: typeof normalizePreferredOutputDeviceId;
 	readonly normalizeRecordingRouting: (
