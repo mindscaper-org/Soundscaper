@@ -95,9 +95,12 @@ function isMidiPatchSetup(event: MidiFileEvent): boolean {
 
 function timingProjection<Value extends Readonly<{ frame: number }>>(values: readonly Value[]) {
 	const sorted = values.filter(value => value.frame > 0).sort(byFrame);
-	return (start: number, frames: number, timelineStart: number, global: (frame: number) => number): Value[] => {
+	let origin: Value | undefined;
+	for (const value of values) if (value.frame === 0) origin = value;
+	return (start: number, frames: number, timelineStart: number, global: (frame: number) => number, initialize = false): Value[] => {
 		const first = lowerBound(sorted, start), end = lowerBound(sorted, start + frames);
-		const before = first > 0 ? sorted[first - 1] : undefined;
+		// A repeated changing clock must restart from its own origin, including metronome fields.
+		const before = first > 0 ? sorted[first - 1] : initialize && sorted.length > 0 && global(start + frames) > global(start) ? origin : undefined;
 		return [...(before ? [{ ...before, frame: timelineStart }] : []), ...sorted.slice(first, end).map(value => ({ ...value, frame: global(value.frame) }))];
 	};
 }

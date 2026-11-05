@@ -71,11 +71,11 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 				reserveEvents(visible.length);
 				for (const event of visible) events.push(event.releaseId === undefined ? event : { ...event, releaseId: `${prefix}:${event.releaseId}` });
 				if (preserveTempos) {
-					const visible = eventProjection.tempos(start, sourceFrames, timelineStart, global);
+					const visible = eventProjection.tempos(start, sourceFrames, timelineStart, global, initializePerformance);
 					addTiming(tempos, visible);
 				}
 				if (preserveSignatures) {
-					const visible = eventProjection.signatures(start, sourceFrames, timelineStart, global);
+					const visible = eventProjection.signatures(start, sourceFrames, timelineStart, global, initializePerformance);
 					addTiming(signatures, visible);
 				}
 			}
