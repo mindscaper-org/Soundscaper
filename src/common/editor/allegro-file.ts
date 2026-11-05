@@ -196,6 +196,7 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 
 export function writeAllegroFile(document: MidiFileDocument): string {
 	validateMidiFileDocument(document);
+	if (document.tracks.some(track => track.notes.some(note => (note.releaseVelocity ?? 0) !== 0))) throw new RangeError('Allegro cannot preserve MIDI release velocity. Export MIDI or save the native project.');
 	if (document.tracks.some(track => track.notes.some(note => note.onsetStop))) throw new RangeError('Allegro cannot preserve a note stopped by a same-frame panic. Export MIDI or save the native project.');
 	if (document.tracks.some(track => track.notes.some(note => note.midiPort !== undefined))) throw new RangeError('Allegro cannot preserve authored MIDI port destinations. Export MIDI or save the native project.');
 	if (document.signatures.some(signature => (signature.clocksPerMetronomeClick ?? 24) !== 24 || (signature.notated32ndNotesPerQuarter ?? 8) !== 8)) {
