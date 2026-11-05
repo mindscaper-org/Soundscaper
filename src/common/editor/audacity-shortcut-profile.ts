@@ -67,7 +67,6 @@ const CONTEXTUAL_ACTION_TARGETS: Readonly<Record<string, string>> = Object.freez
 	'seek-right-short': 'play-position-increase',
 	'seek-left-long': 'track-view-item-extend-left',
 	'seek-right-long': 'track-view-item-extend-right',
-	'mix-and-render-to-new-track': 'mix-render',
 	'track-close': 'remove-tracks',
 	'action://record/stop': 'action://playback/toggle-play-stop',
 	'sel-ext-left': 'track-view-item-extend-left',
@@ -112,6 +111,7 @@ const RETIRED_ACTION_IDS = new Set([
 ]);
 
 const UNSUPPORTED_ACTION_IDS = new Set([
+	'mix-and-render-to-new-track',
 	'sel-sync-lock-tracks',
 	'curs-track-start',
 	'curs-track-end',

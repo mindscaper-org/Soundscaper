@@ -45,7 +45,7 @@ const LEGACY_COMMANDS: Readonly<Record<string, string>> = Object.freeze({
 	Record1stChoice: 'record-on-current-track', Record2ndChoice: 'record-on-new-track',
 	RecordNewTrack: 'record-on-new-track', Record: 'record-on-current-track',
 	AppendRecord: 'record-on-current-track',
-	MixAndRender: 'mix-render', MixAndRenderToNewTrack: 'mix-render',
+	MixAndRender: 'mix-render',
 	AddLabel: 'label-add', AddLabelPlaying: 'label-add',
 	FitInWindow: 'zoom-to-fit-project', FitVertically: 'fit-height',
 	ZoomSel: 'zoom-to-selection', ZoomSelection: 'zoom-to-selection',
@@ -64,7 +64,7 @@ const CONTEXTUAL_COMMANDS: Readonly<Record<string, string>> = Object.freeze({
 	'seek-left-long': 'track-view-item-extend-left', 'seek-right-long': 'track-view-item-extend-right',
 	'sel-ext-left': 'track-view-item-extend-left', 'sel-ext-right': 'track-view-item-extend-right',
 	'sel-cntr-right': 'track-view-item-reduce-left', 'sel-cntr-left': 'track-view-item-reduce-right',
-	'track-close': 'remove-tracks', 'mix-and-render-to-new-track': 'mix-render',
+	'track-close': 'remove-tracks',
 	'action://record/stop': 'action://playback/toggle-play-stop',
 	'pitch-up': 'realtime-effect-move-up', 'pitch-down': 'realtime-effect-move-down',
 });
