@@ -85,10 +85,20 @@ async function createMotionQualificationNativeInternal(root: string, directory: 
 			let executable: string;
 			try { executable = await readlink(`/proc/${pid}/exe`); } catch (error) {
 				if (!missing(error)) throw error;
-				const parsed = parseMotionProcessStat(text), retained = known.get(key(pid, parsed.startTicks));
-				const state = text.slice(text.lastIndexOf(')') + 2).split(' ')[0];
-				if (!retained || state !== 'Z' && state !== 'X') throw new Error('Live process executable is unavailable.', { cause: error });
-				executable = retained.executable;
+				const observed = parseMotionProcessStat(text);
+				let parsed = observed, retained = known.get(key(pid, observed.startTicks)), state: string | undefined;
+				// An exiting task can lose its executable before /proc reports Z/X. At most five reads and 40 ms of delays.
+				for (let confirmation = 0; confirmation < 5; confirmation++) {
+					if (confirmation) await delay(10);
+					try { text = await readFile(`/proc/${pid}/stat`, 'utf8'); } catch (failure) { if (missing(failure)) return null; throw failure; }
+					parsed = parseMotionProcessStat(text); retained = known.get(key(pid, parsed.startTicks));
+					state = text.slice(text.lastIndexOf(')') + 2).trim().split(/\s+/u)[0];
+					if (parsed.startTicks !== observed.startTicks || !retained) break;
+					if (state === 'Z' || state === 'X') {
+						const value = linuxIdentity(pid, text, retained.executable); known.set(key(pid, value.birth), value); return value;
+					}
+				}
+				throw new Error(`Live process executable is unavailable (pid=${pid}, birth=${observed.startTicks}->${parsed.startTicks}, state=${state}, retained=${!!retained}, error=${String(Reflect.get(Object(error), 'code'))}).`, { cause: error });
 			}
 			const value = linuxIdentity(pid, text, executable); known.set(key(pid, value.birth), value); return value;
 		}
@@ -98,14 +108,25 @@ async function createMotionQualificationNativeInternal(root: string, directory: 
 	};
 	const snapshot = async (): Promise<Readonly<{ processes: readonly MotionQualificationProcess[]; visibilityGaps: unknown }>> => {
 		if (platform === 'linux') {
+			const knownAtStart = new Map(known);
 			const names = (await readdir('/proc')).filter(value => /^[1-9]\d*$/u.test(value)); if (names.length > 65536) throw new Error('Process census exceeded its bound.');
-			const processes: MotionQualificationProcess[] = [];
+			const processes: MotionQualificationProcess[] = [], present = new Set(names.map(Number)), births = new Map<number, string>();
 			for (const name of names) {
 				try {
 					const text = await readFile(`/proc/${name}/stat`, 'utf8');
+					births.set(Number(name), parseMotionProcessStat(text).startTicks);
 					if (['Z', 'X'].includes(text.slice(text.lastIndexOf(')') + 2).split(' ')[0]!)) continue;
-					processes.push(linuxIdentity(Number(name), text, await readlink(`/proc/${name}/exe`)));
+					const value = linuxIdentity(Number(name), text, await readlink(`/proc/${name}/exe`));
+					const id = key(value.pid, value.birth);
+					if (known.get(id) === knownAtStart.get(id)) known.set(id, value);
+					processes.push(value);
 				} catch (error) { if (!missing(error) && String(Reflect.get(Object(error), 'code')) !== 'EACCES') throw error; }
+			}
+			// A census may retire only unchanged entries; concurrent inspections retain their newer observations.
+			for (const [id, value] of knownAtStart) {
+				if (known.get(id) !== value) continue;
+				const birth = births.get(value.pid);
+				if (!present.has(value.pid) || birth !== undefined && birth !== value.birth) known.delete(id);
 			}
 			return { processes, visibilityGaps: 'Accessible /proc executable paths only; retained births are independently reobserved through physical disappearance.' };
 		}
