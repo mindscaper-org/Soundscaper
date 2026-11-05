@@ -17,7 +17,7 @@ import {
 } from './buffer-math.ts';
 import { projectGraphLatencyFrames } from './project-graph.ts';
 import { projectEffectRacks } from './project-effects.ts';
-import { resolveRenderFrameRange } from './rendering-range.ts';
+import { resolveRenderFrameRange, resolveRenderTimelineRanges } from './rendering-range.ts';
 import type {
 	EngineRuntimeHost,
 	PreparedAudioWarpPlayback,
@@ -200,6 +200,7 @@ export async function renderExactAudioWarpToSink(
 	if (typeof onChunk !== 'function') throw new TypeError('Exact audio warp streaming requires an onChunk callback.');
 	const chunkFrames = boundedChunkFrames(options.chunkFrames ?? 4_096);
 	const { fromFrame: startFrame, toFrame: endFrame } = resolveRenderFrameRange(numberOption(options.startFrame) ?? 0, numberOption(options.endFrame) ?? engine.durationFrames);
+	const timeline = resolveRenderTimelineRanges(startFrame, endFrame, options.joinedRanges);
 	if (endFrame <= startFrame) throw new RangeError('Exact audio warp streaming requires a non-empty range.');
 	// The graph preflight admits no stateful or latency-owning processors.
 	// Gain, pan, mute, envelopes, and clip fades are absolute-time schedules,
@@ -211,12 +212,13 @@ export async function renderExactAudioWarpToSink(
 		options.trackId,
 		options.includeMaster !== false,
 	);
-	const expectedFrames = endFrame - startFrame + tailFrames;
+	const expectedFrames = timeline.frameCount + tailFrames;
 	const requestedOutputFrames = nullableNumberOption(options.outputFrames);
 	if (requestedOutputFrames != null && requestedOutputFrames !== expectedFrames) {
 		throw new RangeError('Exact audio warp fallback does not substitute scalar output-length conversion.');
 	}
 	let cursor = startFrame;
+	let interval = 0;
 	let frameOffset = 0;
 	let chunkCount = 0;
 	let renderedChannelCount: number | null = null;
@@ -224,22 +226,24 @@ export async function renderExactAudioWarpToSink(
 	// channels is conservative; the first window establishes actual geometry.
 	const admittedChannelCount = 32;
 	while (cursor < endFrame) {
+		const intervalEnd = timeline.ranges[interval]!.endFrame;
+		if (cursor >= intervalEnd) { cursor = timeline.ranges[++interval]!.startFrame; continue; }
 		throwIfAborted(signal);
 		assertProjectAuthority(engine, project, authorityFingerprint);
 		const activePreRoll = Math.min(preRollFrames, cursor);
 		const finalPlan = planExactAudioWarpWindow({
 			startFrame: cursor,
-			endFrame,
+			endFrame: intervalEnd,
 			sampleRate: engine.sampleRate,
 			channelCount: admittedChannelCount,
 			preRollFrames: activePreRoll,
 			tailFrames,
 			graphLatencyFrames,
 		});
-		const finalWindow = finalPlan.endFrame === endFrame;
+		const finalWindow = interval === timeline.ranges.length - 1 && finalPlan.endFrame === endFrame;
 		const range = finalWindow ? finalPlan : planExactAudioWarpWindow({
 			startFrame: cursor,
-			endFrame,
+			endFrame: intervalEnd,
 			sampleRate: engine.sampleRate,
 			channelCount: admittedChannelCount,
 			preRollFrames: activePreRoll,

@@ -17,10 +17,8 @@ import {
 	AUDIO_EDITOR_RENDER_STREAM_QUEUE_PACKETS,
 } from '../chunk-stream.js';
 import { scaleSampleFrame } from '../timeline-time.ts';
-import {
-	scheduleProjectClips,
-	type ScheduledChunkStreamUnderrun,
-} from './clip-scheduler.ts';
+import type { ScheduledChunkStreamUnderrun } from './clip-scheduler.ts';
+import { scheduleRenderTimeline } from './rendering-timeline.ts';
 import {
 	ensureProjectWorklets,
 	getParametricEqWasmModule,
@@ -53,7 +51,7 @@ import {
 	admitNativePluginRealtimeRender,
 	prepareNativePluginOfflineRuntimes,
 } from './native-plugin-realtime-render.ts';
-import { realtimeRenderUnderrunError, resolveRenderFrameRange, resolveRenderPreRollFrames, resolveRenderTailSeconds } from './rendering-range.ts';
+import { realtimeRenderUnderrunError, resolveRenderFrameRange, resolveRenderPreRollFrames, resolveRenderTailSeconds, resolveRenderTimelineRanges } from './rendering-range.ts';
 import { renderMix } from './rendering-offline-mix.ts';
 import { canStreamStatelessOffline, renderStatelessOfflineToSink } from './stateless-offline-stream.ts';
 import { admitsBoundedOfflineBackend } from './bounded-offline-backend-admission.ts';
@@ -73,6 +71,7 @@ async renderMixRealtime(this: EngineRuntimeHost, {
 		sampleRate = this.sampleRate,
 		outputFrames: requestedOutputFrames = null,
 		preRollFrames = 0,
+		joinedRanges,
 		chunkFrames = 4096,
 		maximumPendingChunks = undefined,
 		backpressureHighWaterChunks = undefined,
@@ -85,7 +84,7 @@ async renderMixRealtime(this: EngineRuntimeHost, {
 		admitNativePluginRealtimeRender(this.project, { trackId, includeMaster });
 		if (typeof onChunk !== 'function') throw new TypeError('Realtime rendering requires an onChunk callback.');
 		if (signal?.aborted) throw createAbortError();
-		if (preferBoundedOffline && admitsBoundedOfflineBackend() && sampleRate === this.sampleRate && canStreamStatelessOffline(this.project)
+		if (!joinedRanges && preferBoundedOffline && admitsBoundedOfflineBackend() && sampleRate === this.sampleRate && canStreamStatelessOffline(this.project)
 			&& resolveRenderTailSeconds(this.project, includeTail, { trackId, includeMaster, respectMuteSolo }) === 0) {
 			return renderStatelessOfflineToSink(this, { startFrame, endFrame, includeTail, trackId, includeMaster, includeTrackPan,
 				respectMuteSolo, sampleRate, outputFrames: requestedOutputFrames, chunkFrames, onChunk, onProgress, signal });
@@ -94,11 +93,12 @@ async renderMixRealtime(this: EngineRuntimeHost, {
 			&& this.getAudioWarpRenderStatus().path === 'exact-offline') {
 			return renderExactAudioWarpToSink(this, {
 				startFrame, endFrame, includeTail, trackId, includeMaster, includeTrackPan,
-				respectMuteSolo, sampleRate, outputFrames: requestedOutputFrames, preRollFrames,
+				respectMuteSolo, sampleRate, outputFrames: requestedOutputFrames, preRollFrames, joinedRanges,
 				chunkFrames, onChunk, onProgress, signal,
 			});
 		}
 		const { fromFrame, toFrame } = resolveRenderFrameRange(startFrame, endFrame);
+		const timeline = resolveRenderTimelineRanges(fromFrame, toFrame, joinedRanges);
 		const renderFromFrame = fromFrame - resolveRenderPreRollFrames(this.project, fromFrame, preRollFrames,
 			{ trackId, includeMaster, respectMuteSolo });
 		const warmupProjectFrames = fromFrame - renderFromFrame;
@@ -149,7 +149,7 @@ async renderMixRealtime(this: EngineRuntimeHost, {
 			});
 			outputFrames = requestedOutputFrames == null
 				? Math.max(1, scaleSampleFrame(
-						toFrame - fromFrame + tailFrames, this.sampleRate, context.sampleRate, 'point',
+						timeline.frameCount + tailFrames, this.sampleRate, context.sampleRate, 'point',
 					))
 				: positiveInteger(requestedOutputFrames, 1);
 			captureLeadFrames = scaleSampleFrame(
@@ -213,7 +213,7 @@ async renderMixRealtime(this: EngineRuntimeHost, {
 		};
 		try {
 			startTime = context.currentTime + 0.08;
-			const scheduled = await scheduleProjectClips({
+			const scheduled = await scheduleRenderTimeline({
 				context,
 				project: this.project,
 				sources: this.sources,
@@ -238,7 +238,7 @@ async renderMixRealtime(this: EngineRuntimeHost, {
 				streamQueuePackets: AUDIO_EDITOR_RENDER_STREAM_QUEUE_PACKETS,
 				streamPrebufferPackets: AUDIO_EDITOR_RENDER_STREAM_PREBUFFER_PACKETS,
 				deferStartUntilPrimed: true,
-			});
+			}, timeline.ranges.map((range, index) => index ? range : { ...range, startFrame: renderFromFrame }));
 			startTime = scheduled.contextStartTime;
 			captureStartFrame = Math.ceil(startTime * context.sampleRate) + captureLeadFrames;
 			const streamCompletion = scheduled.waitForStreamedClips();

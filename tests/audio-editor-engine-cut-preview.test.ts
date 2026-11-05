@@ -20,8 +20,13 @@ function fixture(multipleTracks = false, contextRate = 48_000) {
 	const renders: EngineRenderMixOptions[] = [];
 	engine.renderMix = async (options = {}) => {
 		renders.push(options);
-		const buffer = new MockAudioBuffer(1, Number(options.endFrame) - Number(options.startFrame), 48_000);
-		buffer.getChannelData(0).fill(renders.length === 1 ? 0.25 : 0.75);
+		const ranges = options.joinedRanges ?? [{ startFrame: Number(options.startFrame), endFrame: Number(options.endFrame) }];
+		const buffer = new MockAudioBuffer(1, ranges.reduce((sum, range) => sum + range.endFrame - range.startFrame, 0), 48_000);
+		let offset = 0;
+		for (const [index, range] of ranges.entries()) {
+			const end = offset + range.endFrame - range.startFrame;
+			buffer.getChannelData(0).fill(index === 0 ? 0.25 : 0.75, offset, end); offset = end;
+		}
 		return buffer as unknown as AudioBuffer;
 	};
 	return { context, engine, project, renders };
@@ -32,7 +37,8 @@ test('cut preview joins two seconds before and one second after the gap, with th
 	const before = structuredClone(project);
 	engine.setLoop({ enabled: true, startFrame: 0, endFrame: 48_000 });
 	await engine.playCutPreview({ startFrame: 144_000, endFrame: 240_000 });
-	assert.deepEqual(renders.map(({ startFrame, endFrame }) => [startFrame, endFrame]), [[48_000, 144_000], [240_000, 288_000]]);
+	assert.deepEqual(renders.map(({ startFrame, endFrame }) => [startFrame, endFrame]), [[48_000, 288_000]]);
+	assert.deepEqual(renders[0]!.joinedRanges, [{ startFrame: 48_000, endFrame: 144_000 }, { startFrame: 240_000, endFrame: 288_000 }]);
 	assert.ok(renders.every(({ includeTail }) => includeTail === false));
 	assert.ok(renders.every(({ trackId }) => trackId === 'track-1'));
 	const buffer = context.bufferSources.at(-1)!.buffer as AudioBuffer;
@@ -76,7 +82,7 @@ test('cut preview auditions only the uppermost selected track regardless of sele
 	assert.ok(renders.every(({ trackId }) => trackId === 'upper-track'));
 	engine.stop();
 	await engine.playCutPreview({ startFrame: 144_000, endFrame: 240_000, trackIds: ['track-1'] });
-	assert.ok(renders.slice(2).every(({ trackId }) => trackId === 'track-1'));
+	assert.equal(renders[1]!.trackId, 'track-1');
 	engine.stop();
 	await engine.dispose();
 });
@@ -114,7 +120,7 @@ for (const pauseTime of [1, 2.25]) {
 			assert.ok(resumed.buffer === buffer, 'resume must reuse the joined audition instead of the original media');
 			assert.deepEqual(resumed.started, [10, pauseTime, undefined]);
 			assert.equal(engine.getPositionFrames(), pausedFrame);
-			assert.equal(renders.length, 2, 'resume must reuse the bounded render');
+			assert.equal(renders.length, 1, 'resume must reuse the bounded render');
 			context.currentTime = 10 + (pauseTime < 2 ? 1.25 : 0.25);
 			assert.equal(engine.getPositionFrames(), pauseTime < 2 ? 252_000 : 264_000);
 			context.currentTime = 10 + 3 - pauseTime + 0.1;
@@ -157,7 +163,7 @@ test('a second cut preview supersedes a pending render without letting the first
 		let calls = 0;
 		engine.renderMix = (options = {}) => {
 			calls += 1;
-			const buffer = new MockAudioBuffer(1, Number(options.endFrame) - Number(options.startFrame), 48_000) as unknown as AudioBuffer;
+			const buffer = new MockAudioBuffer(1, Number(options.outputFrames), 48_000) as unknown as AudioBuffer;
 			if (calls !== 1) return Promise.resolve(buffer);
 			return new Promise<AudioBuffer>((resolve) => { releaseFirst = () => { resolve(buffer); }; });
 		};
@@ -168,7 +174,7 @@ test('a second cut preview supersedes a pending render without letting the first
 		await first;
 		assert.equal(context.bufferSources.length, 1);
 		assert.equal((context.bufferSources[0]!.buffer as AudioBuffer).length, 96_000);
-		assert.equal(calls, 3, 'the superseded request must not render its second window');
+		assert.equal(calls, 2, 'each request owns one continuous graph render');
 		assert.equal(engine.getPositionFrames(), 0);
 	} finally {
 		await engine.dispose();
@@ -208,5 +214,28 @@ for (const pauseTime of [.25, .75]) test(`cut-preview clock segments retain exac
 			{ startFrame: 25200, endFrame: 73200, contextStartTime: 51.225 },
 		] : [{ startFrame: 38400, endFrame: 73200, contextStartTime: 51 }]);
 		engine.stop(); assert.equal(engine.getCutPreviewSegments?.(), null);
+	} finally { await engine.dispose(); }
+});
+
+for (const burstFrame of [12000, 36000]) test(`cut preview keeps one continuous effect history for a burst at frame${burstFrame}`, async () => {
+	const { context, engine } = fixture();
+	const raw = new Float32Array(480000); raw.fill(.25, burstFrame, burstFrame + 2400);
+	engine.renderMix = async (options = {}) => {
+		const ranges = options.joinedRanges ?? [{ startFrame: Number(options.startFrame), endFrame: Number(options.endFrame) }];
+		const prefix = ranges[0]!.startFrame;
+		const frames = ranges.reduce((sum, range) => sum + range.endFrame - range.startFrame, 0);
+		const input = new Float32Array(prefix + frames); input.set(raw.subarray(0, prefix));
+		let at = prefix;
+		for (const range of ranges) { input.set(raw.subarray(range.startFrame, range.endFrame), at); at += range.endFrame - range.startFrame; }
+		// Independent single-tap delay reference: history is evaluated before the requested crop.
+		const output = Float32Array.from({ length: frames }, (_, frame) => input[prefix + frame - 24000] ?? 0);
+		return { sampleRate: 48000, length: frames, numberOfChannels: 1, channels: [output], getChannelData: () => output };
+	};
+	try {
+		await engine.playCutPreview({ startFrame: 24000, endFrame: 48000 });
+		const samples: Float32Array = context.bufferSources.at(-1)!.buffer.getChannelData(0);
+		const peak = samples.reduce((peak, value) => Math.max(peak, Math.abs(value)), 0);
+		if (burstFrame < 24000) assert.equal(peak, .25, 'the retained input before the gap still drives the delay after the join');
+		else assert.equal(peak, 0, 'removed input cannot reappear through the effect history');
 	} finally { await engine.dispose(); }
 });

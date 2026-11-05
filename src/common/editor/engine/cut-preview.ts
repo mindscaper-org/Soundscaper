@@ -192,28 +192,20 @@ export const engineCutPreviewMethods = {
 		this[ENGINE_CANCEL_SCRUB]();
 		releaseCutPreview(this);
 		const generation = this.scrubGeneration;
-		const parts: Array<readonly Float32Array[]> = [];
-		for (const [startFrame, endFrame] of [[beforeStart, start], [end, afterEnd]]) {
-			if (endFrame <= startFrame) continue;
-			const rendered = await this.renderMix({ startFrame, endFrame, trackId: track.id, includeTail: false, respectMuteSolo: true });
-			if (!current(this, project, generation)) return;
-			parts.push(audioBufferChannels(rendered));
-		}
+		const joinedRanges = [{ startFrame: beforeStart, endFrame: start }, { startFrame: end, endFrame: afterEnd }]
+			.filter(range => range.endFrame > range.startFrame);
+		const totalFrames = beforeFrames + afterFrames;
+		const rendered = await this.renderMix({ startFrame: joinedRanges[0]!.startFrame, endFrame: joinedRanges.at(-1)!.endFrame,
+			joinedRanges, outputFrames: totalFrames, trackId: track.id, includeTail: false, respectMuteSolo: true });
+		if (!current(this, project, generation)) return;
+		const channels = audioBufferChannels(rendered);
+		if (!channels.length || channels.some(channel => channel.length !== totalFrames)) throw new RangeError('Cut preview returned an inexact joined extent.');
 		const context = await this.getAudioContext();
 		if (!current(this, project, generation)) return;
 		await this[ENGINE_ENSURE_MASTER_LOUDNESS_METER](context);
 		if (!current(this, project, generation)) return;
-		const totalFrames = beforeFrames + afterFrames;
-		const channelCount = Math.max(...parts.map((part) => part.length));
-		const buffer = context.createBuffer(channelCount, totalFrames, this.sampleRate);
-		for (let channel = 0; channel < channelCount; channel += 1) {
-			let offset = 0;
-			for (const part of parts) {
-				const values = part[channel];
-				if (values) buffer.getChannelData(channel).set(values, offset);
-				offset += part[0]?.length ?? 0;
-			}
-		}
+		const buffer = context.createBuffer(channels.length, totalFrames, this.sampleRate);
+		for (const [channel, samples] of channels.entries()) buffer.getChannelData(channel).set(samples);
 		startJoinedPreview(this, context, { project, buffer, beforeStart, beforeFrames, afterStart: afterFrames ? end : start, totalFrames });
 	},
 } satisfies EngineRuntimeMethodMap<'playCutPreview' | 'getCutPreviewSegments'>;

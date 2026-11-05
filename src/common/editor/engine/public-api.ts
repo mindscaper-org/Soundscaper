@@ -159,7 +159,14 @@ export interface EngineParametricEqPreview {
 	disconnect(): void;
 }
 
+export interface EngineRenderTimelineRange {
+	readonly startFrame: number;
+	readonly endFrame: number;
+}
+
 export interface EngineRenderMixOptions {
+	/** At most two retained intervals, joined before effects while preserving their original automation clocks. */
+	readonly joinedRanges?: readonly EngineRenderTimelineRange[];
 	readonly startFrame?: number;
 	readonly endFrame?: number;
 	readonly includeTail?: boolean | number;
