@@ -10,13 +10,17 @@ interface OrderedEvent { readonly event: MidiFileEvent; readonly index: number }
 export function createMidiClipEventProjection(interchange: MidiClipInterchange | undefined) {
 	const events = [...(interchange?.events ?? [])].sort(byFrame);
 	const performance = createMidiPerformanceStateProjection(events);
-	const portPerformance = events.some(event => event.status === 255 && event.metaType === 0x21 && event.data[0] !== 0)
-		&& events.some(isMidiPerformanceStateEvent);
+	const portRouted = events.some(event => event.status === 255 && event.metaType === 0x21 && event.data[0] !== 0);
+	const portPerformance = portRouted && events.some(isMidiPerformanceStateEvent);
+	const portPatchSetup = portRouted && events.some(isMidiPatchSetup);
 	const windows = new Map<string, Readonly<{ initial: readonly MidiFileEvent[]; visible: readonly MidiFileEvent[] }>>();
 	return {
 		tempos: timingProjection(interchange?.tempos ?? []),
 		signatures: timingProjection(interchange?.signatures ?? []),
 		events(start: number, frames: number, timelineStart: number, global: (frame: number) => number, repeated = false): MidiFileEvent[] {
+			if (portPatchSetup && global(start + frames) < global(start)) {
+				throw new RangeError('Reversed MIDI port-aware program or bank setup cannot be preserved by this delivery. Save the native project.');
+			}
 			if (portPerformance && (repeated || global(start + frames) < global(start))) {
 				throw new RangeError('Reversed or repeated MIDI port-aware performance state cannot be preserved by this delivery. Save the native project.');
 			}
@@ -66,14 +70,27 @@ export function createMidiClipEventProjection(interchange: MidiClipInterchange |
 				window = { initial: [...retained.values()].sort((a, b) => a.index - b.index).map(value => value.event), visible };
 				if (windows.size < 3) windows.set(key, window);
 			}
-			if (global(start + frames) < global(start)) return [
+			const reversed = global(start + frames) < global(start);
+			if (reversed && window.visible.some(event => isReverseSetup(event) && event.frame > start)) {
+				throw new RangeError('Reversed MIDI device, program, or bank changes cannot be preserved by this delivery. Save the native project.');
+			}
+			if (reversed) return [
 				...window.initial.filter(event => !isMidiPerformanceStateEvent(event)).map(event => ({ ...event, frame: timelineStart })),
-				...window.visible.filter(event => !isMidiPerformanceStateEvent(event)).map(event => ({ ...event, frame: global(event.frame) })),
+				...window.visible.filter(event => !isMidiPerformanceStateEvent(event)).map(event => ({ ...event, frame: isReverseSetup(event) ? timelineStart : global(event.frame) })),
 				...performance.reversed(start, frames, timelineStart, global),
 			];
 			return [...(repeated ? performance.initial(timelineStart) : []), ...window.initial.map(event => ({ ...event, frame: timelineStart })), ...window.visible.map(event => ({ ...event, frame: global(event.frame) }))];
 		},
 	};
+}
+
+function isReverseSetup(event: MidiFileEvent): boolean {
+	return event.status === 255 && event.metaType === 9 || isMidiPatchSetup(event);
+}
+
+function isMidiPatchSetup(event: MidiFileEvent): boolean {
+	return (event.status & 240) === 192
+		|| (event.status & 240) === 176 && [0, 32].includes(event.data[0]!);
 }
 
 function timingProjection<Value extends Readonly<{ frame: number }>>(values: readonly Value[]) {
