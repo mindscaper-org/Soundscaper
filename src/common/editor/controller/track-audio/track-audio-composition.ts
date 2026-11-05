@@ -97,6 +97,7 @@ export function createTrackAudioComposition(dependencies: TrackAudioCompositionD
 		createId: createStableId,
 		commit: dependencies.commit,
 		previewCommand: mixPreview.previewCommand,
+		stageSourceSelectionClockRewrite: dependencies.stageSourceSelectionClockRewrite,
 		projectSampleRate: dependencies.projectSampleRate,
 		normalizeProjectSampleRate,
 		audioTrackChannelCount,

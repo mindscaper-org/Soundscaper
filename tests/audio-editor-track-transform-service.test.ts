@@ -79,7 +79,8 @@ function sourceFixture(id: string, overrides: Partial<ControllerSource> = {}): C
 	};
 }
 
-function createTransformFixture(initialProject: ControllerProject) {
+function createTransformFixture(initialProject: ControllerProject,
+	selection: Pick<TrackTransformServiceDependencies, 'stageSourceSelectionClockRewrite'> = {}) {
 	let project = initialProject;
 	let blocked = false;
 	let projectCurrent = true;
@@ -109,6 +110,7 @@ function createTransformFixture(initialProject: ControllerProject) {
 		statuses: [] as unknown[][],
 	};
 	const dependencies: TrackTransformServiceDependencies = {
+		...selection,
 		lifetime: {
 			assertActive() { calls.activeAssertions += 1; },
 			startTask: (name) => ({
@@ -221,6 +223,24 @@ function createTransformFixture(initialProject: ControllerProject) {
 		setTaskCurrent(value: boolean) { taskCurrent = value; },
 	};
 }
+
+test('track resampling stages its source editor selection in the rewritten native clock', async () => {
+	const source = sourceFixture('source', { sampleRate: 24_000, frameCount: 4 });
+	const clip = clipFixture('clip', source.id, { durationFrames: 8, sourceDurationFrames: 4 });
+	let stages = 0;
+	const f = createTransformFixture(projectFixture({ sources: [source], clips: [clip],
+		tracks: [trackFixture({ clipIds: [clip.id] })] }), {
+		stageSourceSelectionClockRewrite(rewrite) {
+			assert.equal(f.calls.commits.length, 0);
+			assert.deepEqual(rewrite.clipIds, [clip.id]);
+			assert.equal(rewrite.previousSourceId, source.id);
+			assert.equal(rewrite.numerator / rewrite.denominator, 2);
+			stages += 1; return () => undefined;
+		},
+	});
+	await f.service.resampleTrack('track', 48_000);
+	assert.equal(stages, 1);
+});
 
 test('resampling persists one derived source and atomically rewrites clip geometry', async () => {
 	const source = sourceFixture('source', { sampleRate: 24_000, originalSampleRate: 0, frameCount: 100 });

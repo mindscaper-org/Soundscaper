@@ -503,7 +503,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		state: transportAccess, copy, lifetime, projectGeneration, projectRuntime, controllerOptions: options, store, engine, sourceBuffers, sourceChunkProviders, sourcePeaks, setEffectProcessing: effectsStatePorts.processing.set,
 		sourceResolver: clipTimePitchSourceResolver, sourceChunkFrames: SOURCE_CHUNK_FRAMES, mixRenderMemoryLimitBytes,
 		defaultPixelsPerSecond: AUDIO_EDITOR_DEFAULT_PIXELS_PER_SECOND, maximumPixelsPerSecond: AUDIO_EDITOR_MAX_PIXELS_PER_SECOND, trackColors: AUDIO_EDITOR_TRACK_COLORS,
-		taskProgress, microphoneMeter: microphoneMeterService,
+		taskProgress, microphoneMeter: microphoneMeterService, stageSourceSelectionClockRewrite: rewrite => effects.sourceEditor.stageSourceSelectionClockRewrite(rewrite),
 		recording: recordingPort,
 		export: {
 			state: createEditorExportStateAccess(state),

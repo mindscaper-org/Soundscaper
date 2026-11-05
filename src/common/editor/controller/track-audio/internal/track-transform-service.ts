@@ -10,6 +10,8 @@ import {
 } from '../../../commands/factories.ts';
 import type { AudioEditorCommand } from '../../../commands/protocol.ts';
 import { scaleSampleFrame } from '../../../timeline-time.ts';
+import type { StageClipSourceClockRewrite } from '../../../clip-source-timing.ts';
+import { commitSourceFormatRewrite } from './source-selection-format-commit.ts';
 import { loadSourceProvenanceDerivation } from '../../../source-provenance-derivation-loader.ts';
 import { resampledClipCommands } from './clip-resample-service.ts';
 import { trackReplacementPlacement } from './track-replacement-placement.ts';
@@ -67,6 +69,7 @@ interface CommitSelection {
 }
 
 export interface TrackTransformServiceDependencies {
+	readonly stageSourceSelectionClockRewrite?: StageClipSourceClockRewrite;
 	readonly previewCommand?: MixRenderCommandPreview;
 	readonly lifetime: Pick<EditorControllerLifetime, 'assertActive' | 'startTask'>;
 	readonly copy: TrackTransformCopy;
@@ -169,7 +172,11 @@ export function createTrackTransformService(
 				for (const clip of clips) addResampledClipCommands(commands, track, clip, replacements, sampleRate, sourceById, linkedVideoByLink);
 				assertOwned(ownership);
 				commands.push(...resampledClipSelectionCommands(dependencies.getProject().selection, clips.map(clip => clip.id)));
-				dependencies.commit({ type: 'batch', commands }, { selectTrackId: track.id }, { microfadeNewClips: false });
+				commitSourceFormatRewrite(dependencies.stageSourceSelectionClockRewrite,
+					[...replacements].map(([previousSourceId, record]) => ({ clipIds: clips.map(clip => clip.id),
+						previousSourceId, sourceId: record.source.id, frameCount: record.source.frameCount,
+						numerator: sampleRate, denominator: sourceById.get(previousSourceId)!.sampleRate })),
+					() => dependencies.commit({ type: 'batch', commands }, { selectTrackId: track.id }, { microfadeNewClips: false }));
 				setLocalizedStatus(dependencies.setStatus, dependencies.copy, "done", undefined, 'success');
 				return track.id;
 			} catch (error) {

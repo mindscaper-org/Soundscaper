@@ -8,6 +8,8 @@ import { scaleSampleFrame } from '../../../timeline-time.ts';
 import { remapAudioWarpSourceWindow } from '../../../audio-warp-source-window.ts';
 import { resampledClipSourceStretchFields } from '../../../clip-source-stretch-memory.ts';
 import { removeMidiClipData } from '../../../midi-model.ts';
+import type { StageClipSourceClockRewrite } from '../../../clip-source-timing.ts';
+import { commitSourceFormatRewrite } from './source-selection-format-commit.ts';
 import { resampledClipSelectionCommands } from './resampled-clip-selection.ts';
 import { clipPcmFormat, convertPcmPrecision, pcmBytesPerSample, reinterpretPcmChannels, storedPcmFormat, type ClipPcmFormat, type StoredPcmFormat } from './clip-pcm-format.ts';
 import { assertClipCanReinterpret, reinterpretedClipCommands } from './clip-reinterpret-commands.ts';
@@ -26,6 +28,7 @@ import {
 	type ControllerProject,
 	type ControllerSource,
 	type ControllerTrack,
+	type DerivedSourceRecord,
 } from '../track-domain-types.ts';
 
 const CLIP_RESAMPLE_TASK = 'clip-resample';
@@ -49,6 +52,7 @@ interface CommitSelection {
 }
 
 export interface ClipResampleServiceDependencies {
+	readonly stageSourceSelectionClockRewrite?: StageClipSourceClockRewrite;
 	readonly lifetime: Pick<EditorControllerLifetime, 'assertActive' | 'startTask'>;
 	readonly copy: ClipResampleCopy;
 	readonly derivedSources: DerivedSourceService;
@@ -202,7 +206,7 @@ export function createClipResampleService(
 		dependencies.setProcessing(true);
 		setLocalizedStatus(dependencies.setStatus, dependencies.copy, (!reinterpret && dependencies.copy.resamplingClip ? "resamplingClip" : "audacityProcessing"));
 		dependencies.publish();
-		let record = null;
+		let record: DerivedSourceRecord | null = null;
 		try {
 			await dependencies.preflightStorage(estimatedBytes, 'effect');
 			assertOwned(ownership);
@@ -218,15 +222,19 @@ export function createClipResampleService(
 				reinterpret ? 'reinterpreted-source' : 'resampled-source',
 			);
 			assertOwned(ownership);
-			dependencies.commit({
+			const replacement = record.source;
+			commitSourceFormatRewrite(dependencies.stageSourceSelectionClockRewrite, [{ clipIds: [clip.id],
+				previousSourceId: source.id, sourceId: replacement.id, frameCount: replacement.frameCount,
+				numerator: reinterpret ? replacement.frameCount : sampleRate,
+				denominator: reinterpret ? source.frameCount : source.sampleRate }], () => dependencies.commit({
 				type: 'batch',
 				commands: [
-					createAddSourceCommand(record.source),
-					...(reinterpret ? reinterpretedClipCommands(track.id, clip, source, record.source)
-						: resampledClipCommands(track.id, clip, source, record.source, sampleRate, linkedVideo)),
+					createAddSourceCommand(replacement),
+					...(reinterpret ? reinterpretedClipCommands(track.id, clip, source, replacement)
+						: resampledClipCommands(track.id, clip, source, replacement, sampleRate, linkedVideo)),
 					...resampledClipSelectionCommands(dependencies.getProject().selection, [clip.id]),
 				],
-			}, { selectTrackId: track.id, selectClipId: clip.id }, { microfadeNewClips: false });
+			}, { selectTrackId: track.id, selectClipId: clip.id }, { microfadeNewClips: false }));
 			setLocalizedStatus(dependencies.setStatus, dependencies.copy, "done", undefined, 'success');
 			return clip.id;
 		} catch (error) {
