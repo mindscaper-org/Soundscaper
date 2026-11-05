@@ -78,6 +78,7 @@ export const REPORT_ITEM_COPY: Readonly<Record<string, string>> = Object.freeze(
 	"reportItem.UNSUPPORTED_TRACK_GAIN": "Unsupported track gain",
 	"reportItem.VIDEO_OMITTED": "Video tracks and their effects were omitted.",
 	"reportItem.dawproject.color-omitted": "An authored RGB color outside the track and clip palette was omitted.",
+	"reportItem.dawproject.midi-authoring-converted": "Editable MIDI notes, messages, and instrument settings were converted to fallback audio.",
 	"reportItem.delivery.adm-immersive-bed": "ADM immersive bed",
 	"reportItem.delivery.adm-objects": "ADM objects",
 	"reportItem.delivery.adm-passthrough": "ADM passthrough",
