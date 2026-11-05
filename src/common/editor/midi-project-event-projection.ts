@@ -10,14 +10,20 @@ interface OrderedEvent { readonly event: MidiFileEvent; readonly index: number }
 export function createMidiClipEventProjection(interchange: MidiClipInterchange | undefined) {
 	const events = [...(interchange?.events ?? [])].sort(byFrame);
 	const performance = createMidiPerformanceStateProjection(events);
+	const portPerformance = events.some(event => event.status === 255 && event.metaType === 0x21 && event.data[0] !== 0)
+		&& events.some(isMidiPerformanceStateEvent);
 	const windows = new Map<string, Readonly<{ initial: readonly MidiFileEvent[]; visible: readonly MidiFileEvent[] }>>();
 	return {
 		tempos: timingProjection(interchange?.tempos ?? []),
 		signatures: timingProjection(interchange?.signatures ?? []),
 		events(start: number, frames: number, timelineStart: number, global: (frame: number) => number, repeated = false): MidiFileEvent[] {
+			if (portPerformance && (repeated || global(start + frames) < global(start))) {
+				throw new RangeError('Reversed or repeated MIDI port-aware performance state cannot be preserved by this delivery. Save the native project.');
+			}
 			const key = `${start}:${frames}`;
 			let window = windows.get(key);
 			if (!window) {
+				const routed = events.some(event => event.frame < start && event.status === 255 && [9, 0x21].includes(event.metaType ?? -1));
 				const state = new Map<string, OrderedEvent>();
 				const banks = new Map<number, Map<number, OrderedEvent>>();
 				const programBanks = new Map<number, readonly OrderedEvent[]>();
@@ -30,15 +36,30 @@ export function createMidiClipEventProjection(interchange: MidiClipInterchange |
 					else if (event.status < 240) {
 						const type = event.status & 240, channel = event.status & 15;
 						const ordered = { event, index };
+						// Replaying routed setup retains each namespace, including the
+						// default port before its first selector, without folding them together.
+						if (routed) { initial.push(ordered); continue; }
+						// Parameter selectors and data operations form an ordered program:
+						// repeated increments and values for earlier selections cannot fold.
+						if (type === 176 && [6, 38, 96, 97, 98, 99, 100, 101].includes(event.data[0]!)) {
+							initial.push(ordered);
+							continue;
+						}
 						state.set(`${event.status}:${[160, 176].includes(type) ? event.data[0] : ''}`, ordered);
 						if (type === 176 && [0, 32].includes(event.data[0]!)) {
 							const selected = banks.get(channel) ?? new Map<number, OrderedEvent>();
 							selected.set(event.data[0]!, ordered); banks.set(channel, selected);
 						} else if (type === 192) programBanks.set(channel, [...(banks.get(channel)?.values() ?? [])]);
 					}
+					else if (routed && event.status === 255 && [9, 0x21].includes(event.metaType ?? -1)) initial.push({ event, index });
 					else if (event.status === 255 && event.metaType === 0x54 && event.conductor !== false) {
 						throw new RangeError('MIDI export cannot preserve SMPTE synchronization after trimming its source origin.');
 					} else if (event.status === 255 && [2, 4, 9, 0x21, 89].includes(event.metaType ?? -1)) state.set(`meta:${event.metaType}`, { event, index });
+				}
+				const firstChannel = initial.find(value => value.event.status < 240);
+				const firstPort = initial.find(value => value.event.status === 255 && value.event.metaType === 0x21);
+				if (routed && firstChannel && (!firstPort || firstChannel.index < firstPort.index)) {
+					initial.unshift({ index: -1, event: { frame: start, status: 255, metaType: 0x21, data: [0] } });
 				}
 				// Bank Select is pending state: the active patch also needs the bank at its last Program Change.
 				const retained = new Map([...initial, ...state.values(), ...[...programBanks.values()].flat()].map(value => [value.index, value]));
