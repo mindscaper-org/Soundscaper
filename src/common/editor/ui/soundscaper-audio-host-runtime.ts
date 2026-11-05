@@ -84,6 +84,7 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 	let disposal: Promise<void> | null = null;
 	let requestGeneration = 0;
 	let inputReplacement: MicrophoneMeterInputReplacement | null = null;
+	let inputAttachment: MicrophoneMeterInputReplacement | null = null;
 	const unsubscribe = controller.subscribe(() => {
 		if (disposed || suppressChanges || busy()) return;
 		const key = preferenceKey();
@@ -173,8 +174,16 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 	}
 	async function settleInputReplacement(outcome: Parameters<MicrophoneMeterInputReplacement['finish']>[0]): Promise<void> {
 		const current = inputReplacement;
-		if (outcome !== 'superseded' && outcome !== 'ready') inputReplacement = null;
-		await current?.finish(outcome);
+		if (outcome === 'disposed') {
+			const attached = inputAttachment; inputReplacement = null; inputAttachment = null;
+			await Promise.all([current?.finish(outcome), attached !== current ? attached?.finish(outcome) : undefined]);
+			return;
+		}
+		if (!current) return;
+		if (outcome !== 'superseded') {
+			inputReplacement = null; inputAttachment = outcome === 'ready' ? current : null;
+		}
+		await current.finish(outcome);
 	}
 	async function readAvailability(): Promise<void> {
 		availability = await audioHostOperation('availability', () => bridge.nativeAudioHelperAvailability());

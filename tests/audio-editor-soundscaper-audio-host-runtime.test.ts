@@ -8,7 +8,9 @@ import {
 } from '../src/common/editor/ui/soundscaper-audio-host-runtime.ts';
 import type { NativeAudioDeviceReport, NativeAudioInventoryReport } from '../src/common/editor/controller/recording/native-audio-inventory.ts';
 import type { NativeAudioSessionOpenRequestV1, SoundscaperNativeServicesBridge } from '../src/common/editor/ui/soundscaper-native-services-bridge.ts';
-import type { MicrophoneMeterInputReplacement } from '../src/common/editor/controller/recording/microphone-meter-service.ts';
+import { createMicrophoneMeterService, type MeterMediaStream, type MicrophoneMeterState, type MicrophoneMeterInputReplacement } from '../src/common/editor/controller/recording/microphone-meter-service.ts';
+import { createOwnedStateAccess } from '../src/common/editor/controller/shared/owned-state.ts';
+import { MockAudioContext } from './helpers/mock-audio-context.js';
 import { deferred } from './helpers/async-test-control.ts';
 import type { RecordingRoute } from '../src/common/editor/recording-routing.js';
 
@@ -152,7 +154,9 @@ for (const mode of ['ready', 'failed', 'superseded', 'disposed'] as const) test(
 			release.resolve();
 			await fixture.runtime.settle(); await disposed;
 		}
-		assert.deepEqual(outcomes, mode === 'superseded' ? ['2:superseded', '3:ready'] : [`2:${mode}`]);
+		const expected = mode === 'superseded' ? ['2:superseded', '3:ready'] : [`2:${mode}`];
+		if (mode === 'disposed') expected.push('1:disposed');
+		assert.deepEqual(outcomes, expected);
 		if (mode === 'failed') assert.match(fixture.runtime.getSnapshot().error, /device is busy/u);
 	} finally { release.resolve(); await fixture.runtime.dispose(); }
 });
@@ -263,6 +267,90 @@ test('returning to the prior native channel demand during a pending rebind still
 	} finally { release.resolve(); await fixture.runtime.dispose(); }
 });
 
+for (const failedRefresh of [false, true]) test(`ready meter disposal retains its saved preference after availability query failure=${failedRefresh}`, async () => {
+	const meter = activeMeterFixture();
+	await meter.service.setMicrophoneMetering(true);
+	const host = hostFixture('wasapi', false, undefined, {
+		prepareInputReplacement: meter.service.prepareInputReplacement, close: meter.endInput,
+	});
+	try {
+		await host.runtime.refresh();
+		assert.ok(meter.service.getSession());
+		if (failedRefresh) {
+			host.failAvailability(true); await host.runtime.refresh();
+			assert.match(host.runtime.getSnapshot().error, /availability query failure/u);
+		}
+		assert.ok(meter.service.getSession(), 'a failed discovery query does not end the already-attached input');
+		await host.runtime.dispose();
+		assert.equal(meter.service.getSession(), null);
+		assert.equal(meter.intervals.size, 0);
+		assert.ok(meter.persisted.every(([key, value]) => key !== 'microphone-metering' || value !== false),
+			'intentional native cleanup must not rewrite the saved preference');
+	} finally { await host.runtime.dispose(); meter.service.dispose(); }
+});
+
+test('a failed refresh releases an Enable waiting behind a superseded native attachment', async () => {
+	const entered = deferred<void>(), release = deferred<void>(), meter = activeMeterFixture();
+	await meter.service.setMicrophoneMetering(true);
+	const host = hostFixture('wasapi', false, undefined, {
+		prepareInputReplacement: meter.service.prepareInputReplacement, close: meter.endInput,
+		bind: async id => { if (id === 'session-4') { entered.resolve(); await release.promise; } },
+	});
+	try {
+		await host.runtime.refresh(); host.change({ recordingSampleRate: 44_100 }); await entered.promise;
+		let settled = false;
+		const enabling = meter.service.setMicrophoneMetering(true).then(value => { settled = true; return value; });
+		host.failAvailability(true); const refreshing = host.runtime.refresh(); release.resolve(); await refreshing;
+		await new Promise<void>(resolve => globalThis.setTimeout(resolve, 0));
+		assert.equal(settled, true, 'failure owns a genuinely pending ticket rather than retaining its unresolved barrier');
+		assert.equal(await enabling, false);
+		assert.equal(meter.service.getSession(), null);
+		assert.equal(meter.intervals.size, 0);
+	} finally { release.resolve(); await host.runtime.dispose(); meter.service.dispose(); }
+});
+
+function activeMeterFixture() {
+	type Mutable<Value> = { -readonly [Key in keyof Value]: Value[Key] };
+	const state: Mutable<MicrophoneMeterState> = {
+		disposed: false, microphoneMetering: false, recorder: null, recordingStarting: false,
+		recordingAdmissionPending: false, timedRecordingPreparing: false, timedRecording: null,
+		preferences: { recording: { retainInputs: false } }, recordingInputGain: 1, transportState: 'stopped',
+		inputLoudnessMeasurementManuallyPaused: false, inputLoudnessMeasurementExplicitlyRunning: false,
+		inputMeterDb: -60, inputMeter: null, selectedTrackId: null, recordingRouting: { routes: {} },
+	};
+	let input: Readonly<{ end(): void }> | null = null, held: MeterMediaStream | null = null, nextInterval = 0;
+	const intervals = new Set<number>(), persisted: Array<readonly [string, unknown]> = [];
+	const context = new class extends MockAudioContext {
+		createMediaStreamSource() { return this.createGain(); }
+		override createAnalyser() {
+			return Object.assign(super.createAnalyser(), { fftSize: 256, smoothingTimeConstant: 0,
+				getFloatTimeDomainData: (values: Float32Array) => { values.fill(.25); } });
+		}
+	}({ sampleRate: 96_000 });
+	const service = createMicrophoneMeterService({
+		state: createOwnedStateAccess(state, state), defaultDeviceId: 'default',
+		getPreferredInput: () => ({ deviceId: 'default', channelCount: 1 }),
+		recordingCapturePool: {
+			getHardware: () => held,
+			acquireHardware: async () => {
+				const track = Object.assign(new EventTarget(), { getSettings: () => ({ channelCount: 1 }) });
+				const stream = { getAudioTracks: () => [track], end: () => { track.dispatchEvent(new Event('ended')); } };
+				input = stream; held = stream; return stream;
+			},
+			releaseHardware: () => { held = null; },
+		},
+		getAudioContext: async () => context,
+		createLoudnessMeterNode: async () => ({ node: context.createGain(), setRunning() {}, setInputGain() {}, reset() {} }),
+		streamAudioChannelCount: () => 1, projectSampleRate: () => 96_000,
+		persistSetting: async (key, value) => { persisted.push([key, value]); },
+		publishDocumentSnapshot() {}, publishTelemetrySnapshot() {}, syncRecordingPoolSnapshot() {},
+		handleError: error => { throw error; },
+		scheduleInterval: () => { const id = ++nextInterval; intervals.add(id); return id; },
+		clearInterval: id => { if (typeof id === 'number') intervals.delete(id); },
+	});
+	return { service, persisted, intervals, endInput: () => { input?.end(); } };
+}
+
 function hostFixture(host = 'electron', failOutput = false, devices?: readonly NativeAudioDeviceReport[], meter: Readonly<{
 	prepareInputReplacement?: () => MicrophoneMeterInputReplacement;
 	bind?: (sessionId: string) => Promise<void>;
@@ -280,7 +368,7 @@ function hostFixture(host = 'electron', failOutput = false, devices?: readonly N
 	let scheduled = false;
 	let preparingSchedule = false;
 	let failClose = false;
-	let failRate = false;
+	let failRate = false, failAvailability = false;
 	const listeners = new Set<() => void>();
 	const described: string[] = [];
 	const opened: NativeAudioSessionOpenRequestV1[] = [];
@@ -296,8 +384,10 @@ function hostFixture(host = 'electron', failOutput = false, devices?: readonly N
 		}, recording: { prepareInputReplacement: meter.prepareInputReplacement } },
 	};
 	const bridge = {
-		nativeAudioHelperAvailability: async () => ({ enabled, quarantined: false,
-			payload: { status: 'available', reason: null, detail: '' }, backends: ['wasapi', 'asio', 'jack'] }),
+		nativeAudioHelperAvailability: async () => {
+			if (failAvailability) throw new Error('Temporary availability query failure');
+			return { enabled, quarantined: false, payload: { status: 'available', reason: null, detail: '' }, backends: ['wasapi', 'asio', 'jack'] };
+		},
 		setNativeAudioHelperEnabled: async (value: boolean) => { enabled = value; return value; },
 		describeNativeAudioBackend: async ({ backend }: { backend: string }) => {
 			described.push(backend);
@@ -329,6 +419,7 @@ function hostFixture(host = 'electron', failOutput = false, devices?: readonly N
 		schedule: (value: boolean, preparing = false) => { scheduled = value; preparingSchedule = preparing; },
 		failClose: (value: boolean) => { failClose = value; },
 		failOutput: (value: boolean) => { failOutput = value; },
+		failAvailability: (value: boolean) => { failAvailability = value; },
 		failRate: (value: boolean) => { failRate = value; },
 		inventory: () => inventory, accessRequests: () => requests,
 		changeRoutes: (next: Readonly<Record<string, RecordingRoute>>) => { routes = next; for (const listener of listeners) listener(); },
