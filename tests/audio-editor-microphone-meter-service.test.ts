@@ -227,6 +227,118 @@ test('transport transitions apply loudness policy inside the microphone owner', 
 	assert.deepEqual(harness.releasedDevices, []);
 });
 
+for (const outcome of ['ready', 'disabled', 'disposed', 'failed', 'nested', 'superseded', 'enabled-during-replacement', 'failed-while-enabling', 'disposed-while-enabling'] as const) {
+	test(`expected input replacement retains meter intent until its current ${outcome} settlement`, async () => {
+		const originalStream = fakeStream('original');
+		const harness = createHarness({ acquireHardware: async () => originalStream });
+		await harness.service.setMicrophoneMetering(true);
+		const original = harness.service.getSession(); assert.ok(original);
+		const ticket = harness.service.prepareInputReplacement();
+		assert.equal(harness.service.getSession(), null, 'detach the old graph before its native lease ends');
+		originalStream.end();
+		assert.equal(harness.state.microphoneMetering, true, 'expected retirement must not edit the user preference');
+		const replacement = fakeStream('replacement');
+		harness.replaceStream(original.deviceId, replacement);
+		if (outcome === 'disabled') await harness.service.setMicrophoneMetering(false);
+		if (outcome === 'disposed') await ticket.finish('disposed');
+		if (outcome === 'nested' || outcome === 'superseded') {
+			if (outcome === 'superseded') await ticket.finish('superseded');
+			const latest = harness.service.prepareInputReplacement();
+			await ticket.finish('failed');
+			assert.equal(harness.state.microphoneMetering, true, 'stale replacement failure cannot own the latest intent');
+			await latest.finish('ready');
+		} else if (outcome === 'enabled-during-replacement' || outcome === 'failed-while-enabling' || outcome === 'disposed-while-enabling') {
+			if (outcome !== 'disposed-while-enabling') await harness.service.setMicrophoneMetering(false);
+			const enabling = harness.service.setMicrophoneMetering(true);
+			await harness.flush();
+			assert.equal(harness.service.getSession(), null, 'a new Enable must wait for the replacement attachment');
+			await ticket.finish(outcome === 'enabled-during-replacement' ? 'ready' : outcome === 'failed-while-enabling' ? 'failed' : 'disposed');
+			assert.equal(await enabling, outcome === 'enabled-during-replacement');
+		} else await ticket.finish(outcome === 'failed' ? 'failed' : 'ready');
+		const enabled = !['disabled', 'disposed', 'failed', 'failed-while-enabling', 'disposed-while-enabling'].includes(outcome);
+		assert.equal(harness.state.microphoneMetering, enabled);
+		assert.equal(harness.service.getSession()?.stream ?? null, enabled ? replacement : null);
+		assert.equal(harness.activeIntervalCount, enabled ? 1 : 0);
+		if (enabled) assert.equal(harness.persisted.some(([key, value]) => key === 'microphone-metering' && value === false), outcome === 'enabled-during-replacement');
+		if (outcome.startsWith('disposed')) assert.ok(harness.persisted.every(([key, value]) => key !== 'microphone-metering' || value !== false), 'workspace disposal must not rewrite the saved user preference');
+		harness.service.dispose();
+	});
+}
+
+test('a stale native meter startup failure cannot clear a newer replacement intent', async () => {
+	let reject: (error: Error) => void = () => {};
+	const pending = new Promise<void>((_resolve, failed) => { reject = failed; });
+	const context = new InputContext();
+	let requests = 0;
+	const harness = createHarness({ getAudioContext: async () => { if (++requests === 1) await pending; return context; } });
+	const enabling = harness.service.setMicrophoneMetering(true);
+	await harness.flush();
+	const replacement = harness.service.prepareInputReplacement();
+	reject(new Error('The previous native context closed.'));
+	await harness.flush();
+	assert.equal(harness.state.microphoneMetering, true);
+	assert.equal(harness.service.getSession(), null);
+	await replacement.finish('ready');
+	assert.equal(await enabling, true);
+	assert.ok(harness.service.getSession());
+	harness.service.dispose();
+});
+
+test('an attached replacement starts before obsolete acquisition settles and keeps its input after late cleanup', async () => {
+	let release: () => void = () => {};
+	const pending = new Promise<void>(resolve => { release = resolve; });
+	const original = fakeStream('old-native'), replacementStream = fakeStream('new-native');
+	const oldContext = new InputContext({ sampleRate: 48_000 }), currentContext = new InputContext({ sampleRate: 96_000 });
+	let requests = 0;
+	const harness = createHarness({ acquireHardware: async () => original,
+		getAudioContext: async () => { if (++requests === 1) { await pending; return oldContext; } return currentContext; },
+	});
+	const enabling = harness.service.setMicrophoneMetering(true);
+	await harness.flush();
+	const ticket = harness.service.prepareInputReplacement();
+	original.end(); harness.replaceStream('default', replacementStream);
+	await ticket.finish('ready');
+	const attached = harness.service.getSession(); assert.ok(attached);
+	assert.equal(attached.stream, replacementStream);
+	assert.equal(requests, 2, 'the new native context must not wait for an obsolete acquisition');
+	release(); assert.equal(await enabling, true);
+	assert.equal(harness.service.getSession(), attached);
+	assert.deepEqual(harness.releasedDevices, [], 'late cleanup must not release the newer device-key owner');
+	harness.service.dispose();
+});
+
+for (const explicitRoute of [false, true]) test(`restored native meter uses preferred input only without an authored route, explicit=${explicitRoute}`, async () => {
+	const harness = createHarness({ getPreferredInput: () => ({ deviceId: 'native:alsa:in:microphone', channelCount: 1 }),
+		acquireHardware: async (_device, options) => {
+			assert.equal(options.channelCount, explicitRoute ? 2 : 1, 'restored mono host must not receive the old stereo fallback');
+			return fakeStream('native');
+		},
+	});
+	if (explicitRoute) {
+		harness.state.selectedTrackId = 'selected';
+		harness.state.recordingRouting = { routes: { selected: deviceRoute('explicit-device', 0, 2) } };
+	}
+	assert.equal(harness.service.getRoute().deviceId, explicitRoute ? 'explicit-device' : 'native:alsa:in:microphone');
+	assert.equal(await harness.service.setMicrophoneMetering(true), true);
+	assert.equal(harness.state.microphoneMetering, true);
+	harness.service.dispose();
+});
+
+test('a completed native replacement keeps disposal authority over its resumed idle graph', async () => {
+	const harness = createHarness();
+	await harness.service.setMicrophoneMetering(true);
+	const receipt = harness.service.prepareInputReplacement();
+	await receipt.finish('ready');
+	const resumed = harness.service.getSession(); assert.ok(resumed);
+	await receipt.finish('disposed');
+	assert.equal(harness.service.getSession(), null);
+	assert.equal(harness.activeIntervalCount, 0);
+	assert.equal(harness.state.microphoneMetering, false);
+	assert.ok(harness.persisted.every(([key, value]) => key !== 'microphone-metering' || value !== false));
+	assert.equal(harness.service.reconcileInput({ endedSession: resumed }), false);
+	harness.service.dispose();
+});
+
 interface FakeTrack {
 	addEventListener(type: string, listener: () => void): void;
 	removeEventListener(type: string, listener: () => void): void;
@@ -240,7 +352,8 @@ interface FakeStream extends MeterMediaStream {
 }
 
 function createHarness(overrides: Readonly<{
-	acquireHardware?: (deviceId: string) => Promise<FakeStream>;
+	acquireHardware?: (deviceId: string, options: Readonly<{ channelCount: number; sampleRate: number }>) => Promise<FakeStream>;
+	getPreferredInput?: MicrophoneMeterDependencies['getPreferredInput'];
 	failLoudnessConnection?: boolean;
 	loudnessGate?: Promise<void>;
 	getAudioContext?: MicrophoneMeterDependencies['getAudioContext'];
@@ -296,12 +409,13 @@ function createHarness(overrides: Readonly<{
 	const service = createMicrophoneMeterService({
 		state: createOwnedStateAccess(state, state),
 		defaultDeviceId: 'default',
+		getPreferredInput: overrides.getPreferredInput,
 		recordingCapturePool: {
 			getHardware: (deviceId) => streams.get(deviceId) ?? null,
-			acquireHardware: async (deviceId) => {
+			acquireHardware: async (deviceId, options) => {
 				acquireCount += 1;
 				const stream = overrides.acquireHardware
-					? await overrides.acquireHardware(deviceId)
+					? await overrides.acquireHardware(deviceId, options)
 					: fakeStream(deviceId);
 				streams.set(deviceId, stream);
 				return stream;
@@ -354,6 +468,7 @@ function createHarness(overrides: Readonly<{
 		get acquireCount() { return acquireCount; },
 		get contextRequests() { return contextRequests; },
 		get intervalCount() { return intervalCount; },
+		get activeIntervalCount() { return scheduled.size; },
 		get loudnessDisposeCount() { return loudnessDisposeCount; },
 		get disconnectCount() { return disconnectCount; },
 		async flush() {

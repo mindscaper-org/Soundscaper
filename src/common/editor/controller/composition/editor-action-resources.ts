@@ -23,6 +23,7 @@ import type { EditorTaskScope } from '../shared/lifecycle.ts';
 import type { InterchangeProductProjection } from '../../interchange-multicamera-delivery.ts';
 import type { ProjectOpenRecoveryRuntime } from '../document/project-open-recovery.ts';
 import type { SelectedLabelState } from '../../label-clipboard-selection.ts';
+import type { MicrophoneMeterService } from '../recording/microphone-meter-service.ts';
 
 type EffectLibraryState =
 	& EffectMacroLibraryServiceRuntime['state']
@@ -55,6 +56,7 @@ interface EditorActionState extends ExportActionState, SelectedLabelState {
 }
 
 export interface EditorActionResources {
+	readonly prepareMicrophoneMeterInputReplacement?: MicrophoneMeterService['prepareInputReplacement'];
 	readonly previewMidiTransfer?: import('./controller-bindings.ts').ControllerBindingServices['previewMidiTransfer'];
 	readonly midiController?: import('./internal/midi-controller-port.ts').MidiControllerPort;
 	readonly onProjectOpenFailure?: ProjectOpenRecoveryRuntime['onProjectOpenFailure'];

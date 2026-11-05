@@ -240,7 +240,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 	const acquireLock = createFencedProjectLockAcquisition(options.acquireProjectLock || acquireProjectLock, store);
 	const microphoneMeterService = createMicrophoneMeterService({
 		state: recordingAccess,
-		defaultDeviceId: RECORDING_DEFAULT_DEVICE_ID,
+		defaultDeviceId: RECORDING_DEFAULT_DEVICE_ID, getPreferredInput: () => ({ deviceId: state.preferredInputDeviceId, channelCount: state.preferredInputChannelCount }),
 		recordingCapturePool,
 		getAudioContext: () => engine.getAudioContext({ resume: false }),
 		createLoudnessMeterNode: createEbuR128MeterNode,
@@ -590,7 +590,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		setTrackDisplayMode, setTrackRate,
 		startTakeCycleRecording: () => recording.session.startTakeCycleRecording(),
 		state, cleanupDisposableStorage: storageCapacityService.cleanupDisposableStorage, cleanupDerivativeCache: storageCapacityService.cleanupDerivativeCache,
-		store, persistSetting, publishDocumentSnapshot,
+		store, persistSetting, publishDocumentSnapshot, prepareMicrophoneMeterInputReplacement: microphoneMeterService.prepareInputReplacement,
 		toggleMetronome,
 		toggleSelectionFollowsLoop,
 		recoverTakeCycleRecording: (pending) => takeCycleOpenRecovery.resolve(pending, 'recover'), discardTakeCycleRecording: (pending) => takeCycleOpenRecovery.resolve(pending, 'discard'),

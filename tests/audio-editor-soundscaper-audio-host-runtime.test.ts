@@ -8,6 +8,8 @@ import {
 } from '../src/common/editor/ui/soundscaper-audio-host-runtime.ts';
 import type { NativeAudioDeviceReport, NativeAudioInventoryReport } from '../src/common/editor/controller/recording/native-audio-inventory.ts';
 import type { NativeAudioSessionOpenRequestV1, SoundscaperNativeServicesBridge } from '../src/common/editor/ui/soundscaper-native-services-bridge.ts';
+import type { MicrophoneMeterInputReplacement } from '../src/common/editor/controller/recording/microphone-meter-service.ts';
+import { deferred } from './helpers/async-test-control.ts';
 
 test('native host selection replaces the inventory and connects the selected devices at the recording rate', async () => {
 	const fixture = hostFixture();
@@ -125,7 +127,82 @@ test('a refused context-rate change preserves the working native devices', async
 	await fixture.runtime.dispose();
 });
 
-function hostFixture(host = 'electron', failOutput = false, devices?: readonly NativeAudioDeviceReport[]) {
+for (const mode of ['ready', 'failed', 'superseded', 'disposed'] as const) test(`native input replacement owns meter retirement until its ${mode} attachment`, async () => {
+	const entered = deferred<void>(), release = deferred<void>();
+	const outcomes: string[] = [];
+	let prepared = 0;
+	const fixture = hostFixture('wasapi', false, undefined, {
+		prepareInputReplacement: () => { const id = ++prepared; return { finish: async outcome => { outcomes.push(`${String(id)}:${outcome}`); } }; },
+		bind: async id => { if (id === 'session-4' && mode !== 'failed') { entered.resolve(); await release.promise; } },
+	});
+	try {
+		await fixture.runtime.refresh();
+		assert.deepEqual(outcomes, ['1:ready']); outcomes.length = 0;
+		if (mode === 'failed') fixture.failOutput(true);
+		fixture.change({ recordingSampleRate: 44_100 });
+		if (mode === 'failed') await fixture.runtime.settle();
+		else {
+			await entered.promise;
+			assert.equal(prepared, 2);
+			assert.deepEqual(outcomes, [], 'binding the new output is still pending');
+			assert.deepEqual(fixture.closed, ['session-1', 'session-2']);
+			if (mode === 'superseded') fixture.change({ recordingSampleRate: 88_200 });
+			const disposed = mode === 'disposed' ? fixture.runtime.dispose() : null;
+			release.resolve();
+			await fixture.runtime.settle(); await disposed;
+		}
+		assert.deepEqual(outcomes, mode === 'superseded' ? ['2:superseded', '3:ready'] : [`2:${mode}`]);
+		if (mode === 'failed') assert.match(fixture.runtime.getSnapshot().error, /device is busy/u);
+	} finally { release.resolve(); await fixture.runtime.dispose(); }
+});
+
+test('disposing a ready native host retires its meter before closing the input without saving Disable', async () => {
+	let metering = true, persisted = true, active = false;
+	const fixture = hostFixture('wasapi', false, undefined, {
+		prepareInputReplacement: () => { active = false; return { finish: async outcome => {
+			if (outcome === 'ready') active = metering;
+			if (outcome === 'disposed') { metering = false; active = false; }
+		} }; },
+		close: () => { if (active) { metering = false; persisted = false; } },
+	});
+	await fixture.runtime.refresh();
+	assert.equal(active, true);
+	await fixture.runtime.dispose();
+	assert.equal(active, false);
+	assert.equal(metering, false);
+	assert.equal(persisted, true, 'intentional native-host disposal must not look like physical input loss');
+});
+
+test('disposing during native attachment releases a waiting meter before the driver returns', async () => {
+	const entered = deferred<void>(), release = deferred<void>(), retired = deferred<void>();
+	const fixture = hostFixture('wasapi', false, undefined, {
+		prepareInputReplacement: () => ({ finish: async outcome => { if (outcome === 'disposed') retired.resolve(); } }),
+		bind: async id => { if (id === 'session-2') { entered.resolve(); await release.promise; } },
+	});
+	const attaching = fixture.runtime.refresh(); await entered.promise;
+	const disposing = fixture.runtime.dispose();
+	let settled = false; void retired.promise.then(() => { settled = true; });
+	await new Promise<void>(resolve => globalThis.setTimeout(resolve, 0));
+	try { assert.equal(settled, true, 'disposal must not wait for an uncancellable native bind'); }
+	finally { release.resolve(); await Promise.all([attaching, disposing]); }
+});
+
+test('meter retirement precedes native AudioContext replacement', async () => {
+	const events: string[] = [];
+	const fixture = hostFixture('wasapi', false, undefined, {
+		prepareInputReplacement: () => { events.push('retire'); return { finish: async () => {} }; },
+		context: () => { events.push('context'); },
+	});
+	try { await fixture.runtime.refresh(); assert.deepEqual(events, ['retire', 'context']); }
+	finally { await fixture.runtime.dispose(); }
+});
+
+function hostFixture(host = 'electron', failOutput = false, devices?: readonly NativeAudioDeviceReport[], meter: Readonly<{
+	prepareInputReplacement?: () => MicrophoneMeterInputReplacement;
+	bind?: (sessionId: string) => Promise<void>;
+	close?: () => void;
+	context?: () => void;
+}> = {}) {
 	let settings = { host, recordingSampleRate: 96_000, preferredInputDeviceId: '',
 		preferredOutputDeviceId: '', preferredInputChannelCount: 1 };
 	let inventory: NativeAudioInventoryReport | null = null;
@@ -148,7 +225,7 @@ function hostFixture(host = 'electron', failOutput = false, devices?: readonly N
 		actions: { audioDevices: {
 			setHostInventory: async (next, value) => { settings = { ...settings, host: next }; inventory = value; },
 			requestAccess: async () => { requests += 1; },
-		} },
+		}, recording: { prepareInputReplacement: meter.prepareInputReplacement } },
 	};
 	const bridge = {
 		nativeAudioHelperAvailability: async () => ({ enabled, quarantined: false,
@@ -167,20 +244,23 @@ function hostFixture(host = 'electron', failOutput = false, devices?: readonly N
 			return { status: 'opened', sessionId: `session-${String(++sequence)}`, backend: request.candidates[0]?.backend,
 				deviceHandle: request.candidates[0]?.deviceHandle, format: request, attempts: [] };
 		},
-		bindNativeAudioSession: async ({ sessionId }: { sessionId: string }) => { bound.push(sessionId); },
+		bindNativeAudioSession: async ({ sessionId }: { sessionId: string }) => { bound.push(sessionId); await meter.bind?.(sessionId); },
 		closeNativeAudioSession: async ({ sessionId }: { sessionId: string }) => {
 			if (failClose) throw new Error('planned close failure');
+			meter.close?.();
 			closed.push(sessionId); return true;
 		},
 	} as unknown as SoundscaperNativeServicesBridge;
 	const runtime = createSoundscaperAudioHostRuntime({ controller, bridge,
 		engine: { getAudioContext: async () => {
+			meter.context?.();
 			if (failRate) throw new Error('planned rate refusal');
 			return { sampleRate: settings.recordingSampleRate } as AudioContext;
 		} } });
 	return { runtime, opened, described, bound, closed, settings: () => settings,
 		schedule: (value: boolean, preparing = false) => { scheduled = value; preparingSchedule = preparing; },
 		failClose: (value: boolean) => { failClose = value; },
+		failOutput: (value: boolean) => { failOutput = value; },
 		failRate: (value: boolean) => { failRate = value; },
 		inventory: () => inventory, accessRequests: () => requests,
 		change: (patch: Partial<typeof settings>) => { settings = { ...settings, ...patch }; for (const listener of listeners) listener(); },

@@ -4,6 +4,7 @@ import { AudioHostError, audioHostOperation, type AudioHostFailureCode } from '.
 import { nativeAudioDeviceId, type NativeAudioDeviceReport, type NativeAudioInventoryReport } from '../controller/recording/native-audio-inventory.ts';
 import { createNativeAudioRouteOpenRequest, isNativeAudioStreamingBackend } from './soundscaper-native-audio-route.ts';
 import type { NativeAudioAvailability, NativeAudioSessionOpenRequestV1, SoundscaperNativeServicesBridge } from './soundscaper-native-services-bridge.ts';
+import type { MicrophoneMeterInputReplacement } from '../controller/recording/microphone-meter-service.ts';
 
 interface AudioHostPreferences {
 	readonly inputAccess?: boolean;
@@ -21,7 +22,7 @@ export interface SoundscaperAudioHostController {
 	readonly actions: Readonly<{ audioDevices: Readonly<{
 		setHostInventory(host: string, inventory: NativeAudioInventoryReport | null): Promise<unknown>;
 		requestAccess(): Promise<unknown>;
-	}> }>;
+	}>; recording?: Readonly<{ prepareInputReplacement?(): MicrophoneMeterInputReplacement }> }>;
 }
 
 export interface SoundscaperAudioHostSnapshot {
@@ -80,6 +81,8 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 	let suppressChanges = false;
 	let disposed = false;
 	let disposal: Promise<void> | null = null;
+	let requestGeneration = 0;
+	let inputReplacement: MicrophoneMeterInputReplacement | null = null;
 	const unsubscribe = controller.subscribe(() => {
 		if (disposed || suppressChanges || busy()) return;
 		const key = preferenceKey();
@@ -116,7 +119,8 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			disposed = true;
 			unsubscribe();
 			if (RUNTIMES.get(controller) === runtime) RUNTIMES.delete(controller);
-			const pending = queue.then(closeSessions).finally(() => { listeners.clear(); });
+			const retired = settleInputReplacement('disposed');
+			const pending = Promise.all([queue, retired]).then(closeSessions).finally(() => { listeners.clear(); });
 			disposal = pending;
 			void pending.catch(() => { if (disposal === pending) disposal = null; });
 			return pending;
@@ -144,14 +148,25 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 	function assertActive(): void { if (disposed) throw new AudioHostError('closed', 'The audio host workspace has closed.'); }
 	function enqueue(operation: () => Promise<void>): Promise<void> {
 		if (disposed) return Promise.resolve();
+		const request = ++requestGeneration;
 		queue = queue.then(async () => {
 			if (disposed) return;
 			publish({ pending: true, error: '', failureCode: null });
-			try { await operation(); }
+			let completed = false;
+			try { await operation(); completed = true; }
 			catch (error) { publish({ error: error instanceof Error ? error.message : String(error), failureCode: error instanceof AudioHostError ? error.code : 'operation' }); }
-			finally { requestedKey = preferenceKey(); publish({ pending: false }); }
+			finally {
+				try { await settleInputReplacement(disposed ? 'disposed' : request !== requestGeneration ? 'superseded' : completed ? 'ready' : 'failed'); }
+				catch (error) { publish({ error: error instanceof Error ? error.message : String(error), failureCode: 'operation' }); }
+				requestedKey = preferenceKey(); publish({ pending: false });
+			}
 		});
 		return queue;
+	}
+	async function settleInputReplacement(outcome: Parameters<MicrophoneMeterInputReplacement['finish']>[0]): Promise<void> {
+		const current = inputReplacement;
+		if (outcome !== 'superseded' && outcome !== 'ready') inputReplacement = null;
+		await current?.finish(outcome);
 	}
 	async function readAvailability(): Promise<void> {
 		availability = await audioHostOperation('availability', () => bridge.nativeAudioHelperAvailability());
@@ -180,10 +195,12 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			if (!snapshot.hosts.some((candidate) => candidate.id === host)) {
 				throw new AudioHostError('unavailable', availability?.payload.detail || 'This native audio host is unavailable. Choose Electron or refresh audio devices.');
 			}
+			inputReplacement = controller.actions.recording?.prepareInputReplacement?.() ?? inputReplacement;
 			const context = await audioHostOperation('rate-mismatch', () => options.engine.getAudioContext({ resume: true, sampleRate: preferences().recordingSampleRate }));
 			assertActive();
 			if (context.sampleRate !== preferences().recordingSampleRate) throw new AudioHostError('rate-mismatch', 'The audio host could not use the selected recording sample rate. Choose another sample rate.');
 		}
+		if (host === 'electron') inputReplacement = controller.actions.recording?.prepareInputReplacement?.() ?? inputReplacement;
 		await closeSessions();
 		assertActive();
 		if (host === 'electron') {
