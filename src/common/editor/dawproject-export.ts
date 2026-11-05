@@ -18,7 +18,6 @@ import {
 	DAWPROJECT_MIME_TYPE,
 	DAWPROJECT_VERSION,
 	DawprojectIdAllocator,
-	isHexColor,
 	panToNormalized,
 	rationalToNumber,
 } from './dawproject-format.ts';
@@ -44,6 +43,7 @@ import { buildArrangement } from './dawproject-export-lanes.ts';
 import { portableFileStem } from './portable-file-stem.ts';
 import type { HoldTempoMap } from './timeline-time.ts';
 import { projectAudioMetadata } from './id3-descriptive-fields.ts';
+import { dawprojectExportColor } from './dawproject-colors.ts';
 
 /**
  * DAWproject export.
@@ -253,7 +253,7 @@ function buildAudioTrack(track: DataRecord, context: DawprojectExportContext): X
 		loaded: true,
 		id: context.ids.id('track', trackId),
 		name: String(track.name ?? trackId),
-		color: isHexColor(track.color) ? track.color : null,
+		color: dawprojectExportColor(track.color),
 	}, [
 		buildChannel(context, key, {
 			role: 'regular',

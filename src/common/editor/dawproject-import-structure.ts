@@ -6,6 +6,7 @@ import type { DawprojectChannel, DawprojectDocument, DawprojectTrack } from './d
 import type { DawprojectAudioEvent, DawprojectAutomationEvent, DawprojectAutomationPoint } from './dawproject-import-timeline.ts';
 import { dawprojectImportedVolumeCurve } from './dawproject-import-volume-curve.ts';
 import { dawprojectStaticGain } from './dawproject-import-gain.ts';
+import { dawprojectImportColor } from './dawproject-colors.ts';
 
 /**
  * The structural half of the DAWproject importer: tracks, folders, buses,
@@ -33,6 +34,7 @@ export interface EnvelopePoint {
 export interface TrackBuild {
 	readonly id: string;
 	readonly name: string;
+	readonly color?: string;
 	gain: number;
 	readonly pan: number;
 	readonly mute: boolean;
@@ -162,7 +164,7 @@ export function walkTrack(track: DawprojectTrack, parentFolderId: string | null,
 		});
 		return;
 	}
-	const built = createAudioTrack(track.name, channel, build);
+	const built = createAudioTrack(track.name, channel, build, track.color);
 	if (track.id) build.trackByDawId.set(track.id, built);
 	if (channel) registerParameters(channel, { kind: 'track', id: built.id }, build);
 	build.trackNodes.push({ kind: 'track', id: built.id, parentFolderId });
@@ -187,11 +189,13 @@ function isInsideFolder(trackId: string, folderId: string, build: Build): boolea
 	return false;
 }
 
-function createAudioTrack(name: string, channel: DawprojectChannel | null, build: Build): TrackBuild {
+function createAudioTrack(name: string, channel: DawprojectChannel | null, build: Build, rgb?: string | null): TrackBuild {
 	const id = build.createStableId('track');
+	const color = dawprojectImportColor(rgb, build.draft, { kind: 'track', id });
 	const built: TrackBuild = {
 		id,
 		name: name.trim() ? name : `Track ${String(build.tracks.length + 1)}`,
+		...(color ? { color } : {}),
 		gain: dawprojectStaticGain(channel?.volume, build.draft, { kind: 'track', id }),
 		pan: panOf(channel?.pan),
 		mute: channel?.mute?.value === true,
@@ -284,7 +288,7 @@ export function trackForEvent(event: DawprojectAudioEvent, build: Build, documen
 		const folderId = build.folderByDawId.get(event.trackId) ?? null;
 		// A folder's own audio enters its existing channel alongside child tracks.
 		// Its channel state belongs to that bus, never to this synthetic leaf too.
-		const built = createAudioTrack(declared?.name ?? event.trackId, folderId ? null : declared?.channel ?? null, build);
+		const built = createAudioTrack(declared?.name ?? event.trackId, folderId ? null : declared?.channel ?? null, build, declared?.color);
 		build.trackByDawId.set(event.trackId, built);
 		build.trackNodes.push({ kind: 'track', id: built.id, parentFolderId: folderId });
 		build.parentFolderIds.set(built.id, folderId);

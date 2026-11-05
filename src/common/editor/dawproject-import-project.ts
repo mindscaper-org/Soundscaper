@@ -13,6 +13,7 @@ import type { SourceProvenanceV1 } from './source-provenance.ts';
 import { buildSignatureMap, buildTempoMap } from './dawproject-import-maps.ts';
 import { dawprojectImportedClipFades } from './dawproject-import-fades.ts';
 import { dawprojectMarkerExtensions } from './dawproject-marker-metadata.ts';
+import { dawprojectImportColor } from './dawproject-colors.ts';
 import {
 	type Build,
 	type DataRecord,
@@ -191,6 +192,7 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 		clips,
 		tracks: build.tracks.map((track) => ({
 			type: 'audio', id: track.id, name: track.name, gain: track.gain, pan: track.pan,
+			...(track.color ? { color: track.color } : {}),
 			mute: track.mute, solo: track.solo, clipIds: track.clipIds, envelope: track.envelope,
 		})),
 		trackFolders: build.folders,
@@ -353,10 +355,12 @@ function createClip(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInf
 			message: 'A negative fade-in marks an earlier crossfade head; its available source audio and fade timing are retained.',
 		});
 	}
+	const color = dawprojectImportColor(event.color, draft, { kind: 'clip', id: clipId });
 	return {
 		id: clipId,
 		sourceId: String(source.id),
 		title: event.name?.trim() ? event.name : event.mediaName?.trim() ? event.mediaName : String(source.name),
+		...(color ? { color } : {}),
 		timelineStartFrame: startFrame,
 		sourceStartFrame,
 		sourceDurationFrames,

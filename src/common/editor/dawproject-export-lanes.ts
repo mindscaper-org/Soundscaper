@@ -10,7 +10,8 @@ import { interchangeSourceInSeconds } from './interchange-source-in-point.ts';
 import { dawprojectMarkerComment } from './dawproject-marker-metadata.ts';
 import { barStartBeat } from './musical-grid.ts';
 import { xmlElement, type XmlElement } from './dawproject-xml.ts';
-import { isHexColor, rationalToNumber } from './dawproject-format.ts';
+import { rationalToNumber } from './dawproject-format.ts';
+import { dawprojectExportColor } from './dawproject-colors.ts';
 import {
 	type DataRecord,
 	type DawprojectExportContext,
@@ -226,7 +227,7 @@ function buildAudioClip(clip: DataRecord, context: DawprojectExportContext): Xml
 		fadeOutTime: fadeOut / sampleRate,
 		enable: true,
 		name: String(clip.title ?? source.name ?? clipId),
-		color: isHexColor(clip.color) ? clip.color : null,
+		color: dawprojectExportColor(clip.color),
 	}, [content]);
 }
 
