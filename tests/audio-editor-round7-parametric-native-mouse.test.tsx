@@ -95,6 +95,34 @@ test('Parametric keyboard accepted values finish once without mouse capture', as
 	});
 });
 
+for (const input of ['mouse', 'keyboard'] as const) test(`Escape retires a native Parametric output ${input} gesture until a fresh edit`, async () => {
+	await withRange(async f => {
+		if (input === 'mouse') await begin(f);
+		else await f.send('onKeyDown', { key: 'ArrowRight' });
+		await change(f, 6);
+		let prevented = false, stopped = false;
+		await f.send('onKeyDown', { key: 'Escape', preventDefault() { prevented = true; }, stopPropagation() { stopped = true; } });
+		assert.equal(prevented, true);
+		assert.equal(stopped, true, 'the active edit consumes Escape before the enclosing dialog');
+		assert.deepEqual(f.cancellations, [0]);
+		assert.equal(f.value(), 0);
+		if (input === 'keyboard') await f.send('onKeyDown', { key: 'ArrowRight', repeat: true, preventDefault() {} });
+		await change(f, 12);
+		await f.documentEvent('pointerup', { pointerId: 1, pointerType: 'mouse', buttons: 0 });
+		await f.send('onPointerUp', { pointerId: 1, pointerType: 'mouse', buttons: 0 });
+		await f.send('onKeyUp', { key: 'ArrowRight' });
+		await f.send('onBlur');
+		assert.equal(f.value(), 0, 'the browser cannot revive the canceled native edit');
+		assert.deepEqual(f.commits, []);
+		if (input === 'mouse') await begin(f, 2);
+		else await f.send('onKeyDown', { key: 'ArrowRight' });
+		await change(f, 3);
+		if (input === 'mouse') await f.send('onPointerUp', { pointerId: 2, pointerType: 'mouse', buttons: 0 });
+		else await f.send('onKeyUp', { key: 'ArrowRight' });
+		assert.deepEqual(f.commits, [3], 'a new deliberate edit still completes');
+	});
+});
+
 async function begin(f: Fixture, pointerId = 1, pointerType = 'mouse'): Promise<void> {
 	await f.send('onPointerDown', { pointerId, pointerType, button: 0, buttons: 1, isPrimary: true, preventDefault() {} });
 }
