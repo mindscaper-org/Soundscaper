@@ -52,6 +52,16 @@ test('Native chooser grants stay inside one owned directory and select only the 
 	assert.throws(() => motionQualificationChooserRequest(owner, 'successor-open', 'C:\\owned\\output.mov', 'C:\\owned'), /filename/u);
 });
 
+test('Native chooser authority excludes observational fields without mutating the observed process', () => {
+	const owner = { platform: 'win32', pid: 27, parent: 1, birth: '638990000000000000', executable: 'C:\\app\\Motionscaper.exe' } as const;
+	const observed = Object.freeze({ ...owner, state: 'running', group: 123, session: 456 });
+	const grant = motionQualificationChooserRequest(observed, 'authored-save', 'C:\\owned\\saved.mscape', 'C:\\owned');
+	assert.deepEqual(grant.owner, owner);
+	assert.deepEqual(Object.keys(grant.owner).sort(), ['birth', 'executable', 'parent', 'pid', 'platform']);
+	assert.notEqual(grant.owner, observed, 'A native authority record must snapshot identity rather than retain an observational object.');
+	assert.deepEqual(observed, { ...owner, state: 'running', group: 123, session: 456 });
+});
+
 test('Native command output bounds preserve authored 64 KiB and bounded aggregate 2 MiB profiles', () => {
 	assert.equal(motionQualificationOutputLimit(), 65536);
 	assert.equal(motionQualificationOutputLimit(2 * 1024 * 1024), 2097152);

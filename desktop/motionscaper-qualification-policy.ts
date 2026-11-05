@@ -42,7 +42,8 @@ export function motionQualificationChooserRequest(owner: MotionQualificationOwne
 	for (const value of [path, directory]) if (!value || value.length > 8192 || value.includes('\0') || !paths.isAbsolute(value) || paths.normalize(value) !== value) throw new Error('Invalid owned chooser path.');
 	if (paths.dirname(path) !== directory) throw new Error('Chooser path escapes its owned directory.');
 	if (paths.basename(path) !== selected[2]) throw new Error('Unexpected qualification chooser filename.');
-	return Object.freeze({ schemaVersion: 1, owner, kind, path, directory, caption: selected[0], action: selected[1], linuxMode: selected[3] });
+	const identity: MotionQualificationOwner = { platform: owner.platform, pid: owner.pid, parent: owner.parent, birth: owner.birth, executable: owner.executable };
+	return Object.freeze({ schemaVersion: 1, owner: identity, kind, path, directory, caption: selected[0], action: selected[1], linuxMode: selected[3] });
 }
 
 /** Native controllers return the actual app status; mere retirement is never a successful workflow. */

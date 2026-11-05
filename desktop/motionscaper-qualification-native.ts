@@ -165,10 +165,10 @@ async function createMotionQualificationNativeInternal(root: string, directory: 
 			for (;;) {
 				const spawnFailure = observation.failure(); if (spawnFailure) throw spawnFailure;
 				try {
-					const value = object(JSON.parse(await readFile(ownerFile, 'utf8')) as unknown), owner = decode(value.owner), custody = object(value.custody);
+					const value = object(JSON.parse(await readFile(ownerFile, 'utf8')) as unknown), owner = readMotionQualificationOwner(decode(value.owner)), custody = object(value.custody);
 					if (owner.executable !== executable || owner.platform !== platform || typeof custody.controlId !== 'string' || !custody.controlId) throw new Error('Native launch authority differs.');
 					return { owner, custody: { ...custody, directory, id: options.id, controlId: custody.controlId } as MotionQualificationCustody,
-						...(value.controller ? { controller: decode(value.controller) } : {}) };
+						...(value.controller ? { controller: readMotionQualificationOwner(decode(value.controller)) } : {}) };
 				} catch (error) { if (!missing(error) || performance.now() >= deadline) throw error; }
 				if (child.exitCode !== null || child.signalCode !== null) throw new Error('Native controller ended before owner admission.');
 				await delay(25);
@@ -179,7 +179,7 @@ async function createMotionQualificationNativeInternal(root: string, directory: 
 	const signal = async (owner: MotionQualificationOwner, custody: MotionQualificationCustody, selected: 'TERM' | 'KILL') => {
 		const current = await inspect(owner.pid); if (!current || current.state === 'zombie') return; verifyMotionQualificationOwner(owner, current);
 		if (platform === 'linux') { process.kill(owner.pid, selected === 'TERM' ? 'SIGTERM' : 'SIGKILL'); return; }
-		if (platform === 'win32') { await windows({ schemaVersion: 1, action: 'signal', owner, custody, signal: selected }); return; }
+		if (platform === 'win32') { await windows({ schemaVersion: 1, action: 'signal', owner: readMotionQualificationOwner(owner), custody, signal: selected }); return; }
 		await execute(darwin, ['signal', String(owner.pid), owner.birth, owner.executable, selected], { timeout: 5000, maxBuffer: 65536 });
 	};
 	return { platform, directory, darwin, request, windows, inspect, snapshot, start, signal, requireInteractive };

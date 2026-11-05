@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
-import { copyFile, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test, { type TestContext } from 'node:test';
@@ -111,7 +111,10 @@ test('Windows native metadata preserves a real Unicode executable path before ca
 	retained.launch = launch;
 	launch.child.stdin.on('error', () => { /* The retained controller closure is checked below. */ });
 	launch.child.stdout.resume(); launch.child.stderr.resume();
-	const { owner } = await launch.admitted;
+	const { owner, controller } = await launch.admitted;
+	const identityKeys = ['birth', 'executable', 'parent', 'pid', 'platform'];
+	assert.deepEqual(Object.keys(owner).sort(), identityKeys);
+	assert.ok(controller); assert.deepEqual(Object.keys(controller).sort(), identityKeys);
 	const actual = await native.inspect(owner.pid);
 	assert.equal(actual?.executable, owner.executable);
 	assert.ok(actual?.executable.includes('unicode-ä'));
@@ -126,4 +129,36 @@ test('Windows native metadata preserves a real Unicode executable path before ca
 	assert.equal(closure.details.naturalClosure, false);
 	const retired = await native.inspect(owner.pid);
 	assert.ok(!retired || retired.birth !== owner.birth);
+});
+
+test('Windows owned signal projects an actual rich inspection before the unchanged UIAutomation refusal', nativeOnly, async context => {
+	const id = 'native-signal-identity', directory = await fixtureDirectory(context, [id]);
+	assert.ok(process.env.SystemRoot, 'A genuine Windows SystemRoot is required.');
+	const native = await createMotionQualificationNative(root, directory);
+	const launch = await native.start({ executable: join(process.env.SystemRoot, 'System32', 'PING.EXE'),
+		args: ['-n', '30', '127.0.0.1'], cwd: root, id, timeoutMs: 30000, maximumOutputBytes: 65536, env: process.env });
+	context.after(async () => { launch.child.stdin.end(); await launch.closed; });
+	launch.child.stdin.on('error', () => { /* The actual retained controller closure is checked below. */ });
+	launch.child.stdout.resume(); launch.child.stderr.resume();
+	const { owner, custody } = await launch.admitted;
+	const actual = await native.inspect(owner.pid); assert.ok(actual);
+	assert.equal(actual.state, 'running');
+	const original = { ...actual };
+	// PING has no owned GUI window: identity admission must reach the existing refusal, never TERM another process.
+	await assert.rejects(native.signal(actual, custody, 'TERM'),
+		/No owned UIAutomation window supports TERM; explicit owned-job KILL is required\.|Owned UIAutomation TERM is unavailable without an interactive desktop\./u);
+	assert.deepEqual(actual, original, 'Authority serialization must preserve the rich process observation.');
+	const requests: { action: string; owner?: unknown }[] = [];
+	for (const name of await readdir(directory)) if (/^native-request-\d+\.json$/u.test(name)) {
+		requests.push(JSON.parse(await readFile(join(directory, name), 'utf8')) as { action: string; owner?: unknown });
+	}
+	const signals = requests.filter(request => request.action === 'signal'); assert.equal(signals.length, 1);
+	assert.deepEqual(signals[0]!.owner, owner);
+	assert.deepEqual(Object.keys(signals[0]!.owner as object).sort(), ['birth', 'executable', 'parent', 'pid', 'platform']);
+	assert.equal((await native.inspect(owner.pid))?.birth, owner.birth, 'The expected TERM refusal leaves the owned PING alive for caller-EOF cleanup.');
+	launch.child.stdin.end();
+	const terminal = await launch.closed; assert.deepEqual(terminal, { code: 125, signal: null });
+	const closure = await readClosure(directory, id); assertPhysicalClosure(closure);
+	assert.equal(closure.details.outcome, 'parent-eof'); assert.equal(closure.details.naturalClosure, false);
+	const retired = await native.inspect(owner.pid); assert.ok(!retired || retired.birth !== owner.birth);
 });
