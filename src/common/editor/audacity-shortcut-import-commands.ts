@@ -61,7 +61,6 @@ const CONTEXTUAL_COMMANDS: Readonly<Record<string, string>> = Object.freeze({
 	'curs-project-start': 'action://playback/rewind-start',
 	'curs-project-end': 'action://playback/rewind-end',
 	'seek-left-short': 'play-position-decrease', 'seek-right-short': 'play-position-increase',
-	'seek-left-long': 'track-view-item-extend-left', 'seek-right-long': 'track-view-item-extend-right',
 	'sel-ext-left': 'track-view-item-extend-left', 'sel-ext-right': 'track-view-item-extend-right',
 	'sel-cntr-right': 'track-view-item-reduce-left', 'sel-cntr-left': 'track-view-item-reduce-right',
 	'track-close': 'remove-tracks',

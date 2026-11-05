@@ -106,7 +106,7 @@ test('renamed, contextual, native, and retired records keep explicit disposition
 	assert.equal(profile.get('sel-ext-right')?.actionId, 'track-view-item-extend-right');
 	assert.equal(profile.get('sel-cntr-right')?.actionId, 'track-view-item-reduce-left');
 	assert.equal(profile.get('sel-cntr-left')?.actionId, 'track-view-item-reduce-right');
-	assert.equal(profile.get('seek-left-long')?.actionId, 'track-view-item-extend-left');
+	assert.equal(profile.get('seek-left-long')?.disposition, 'unavailable');
 	assert.equal(profile.get('seek-left-short')?.actionId, 'play-position-decrease');
 	assert.equal(profile.get('cursor-short-jump-left')?.actionId, 'cursor-short-jump-left');
 	assert.equal(profile.get('cursor-long-jump-left')?.actionId, 'cursor-long-jump-left');
