@@ -6,6 +6,7 @@ import {
 	supportsEmbeddedExportChapters,
 	type EmbeddedExportChapter,
 } from './export-embedded-chapters.ts';
+import { scaleSampleFrame } from './timeline-time.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
 
@@ -59,6 +60,14 @@ export function createEmbeddedChapterEncoding<Encoding extends DataRecord>(
 	const sampleRate = Number(encoding.sampleRate);
 	const chapters = resolveEmbeddedExportChapters(project, range, sampleRate, output);
 	if (chapters.length === 0) throw new RangeError('No labels occur in the exported range.');
+	if (encoding.format === 'aac-m4a') {
+		const projectRate = Number(project && typeof project === 'object' && 'sampleRate' in project ? project.sampleRate : NaN);
+		const end = output?.deliveryOutputFrames ?? output?.rangeOutputFrames
+			?? scaleSampleFrame(range.endFrame - range.startFrame, projectRate, sampleRate, 'point');
+		if (chapters.some((chapter, index) => chapter.endFrame !== (chapters[index + 1]?.startFrame ?? end))) {
+			throw new RangeError('M4A chapter metadata cannot preserve independent chapter ends. Export MP3 or use contiguous chapters ending at the audio end.');
+		}
+	}
 	return Object.freeze({
 		...encoding,
 		...embeddedChapterEncodingFields(encoding.format, chapters, sampleRate),

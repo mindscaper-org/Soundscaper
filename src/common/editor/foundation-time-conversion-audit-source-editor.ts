@@ -6,6 +6,12 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Source editor display and authoring share the owning project tempo and sample grid. */
 export const FOUNDATION_TIME_CONVERSION_SOURCE_EDITOR_SITES: readonly FoundationTimeConversionSite[] = deepFreezeAuditSites([
 	{
+		id: 'm4a-chapter-region-admission',
+		file: 'src/common/editor/export-embedded-chapter-encoding.ts',
+		behavior: 'M4A chapter admission uses the chapter resolver’s nearest-sample nominal endpoint when no actual rendered delivery length is supplied, so unsupported independent ends are refused against the same output clock.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
 		id: 'source-selection-native-format-rewrite',
 		file: 'src/common/editor/controller/effects/internal/source-editor-effects.ts',
 		behavior: 'A source-format rewrite maps each selected native-frame boundary through its exact retained source-clock ratio and rounds once to the nearest destination source frame; inverse mappings preserve the selection through Undo and Redo.',
