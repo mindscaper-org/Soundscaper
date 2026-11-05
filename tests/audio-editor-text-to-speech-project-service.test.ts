@@ -269,3 +269,36 @@ test('regenerating speech retains the authored playback speed and its matching t
 	assert.equal(clip?.speedRatio, 2);
 	assert.equal(clip?.durationFrames, 12000, 'half a second of new speech retains its authored2x speed');
 });
+
+test('regenerating a speech instance retains the private script of its Project Bin template', async () => {
+	const digest = 'b'.repeat(64);
+	const prior = createAssistanceTtsScriptBodyPublicationV1({ assetId: 'script-original', text: 'Original voice',
+		language: 'a', voiceId: 'af_heart', speed: 1,
+		source: { sourceId: 'voice-source', sourceSha256: digest, sourceStartFrame: 0, sourceEndFrame: 24000 },
+		model: { modelId: REVIEWED.modelId, modelVersion: REVIEWED.modelVersion, artifactSha256s: REVIEWED.artifactSha256s },
+		recipe: { id: 'kokoro-text-to-speech', version: 1 } });
+	const original = createSoundscaperProject({ sampleRate: 48000,
+		sources: [{ kind: 'audio', id: 'voice-source', name: 'Voice', storageKey: 'voice-source',
+			sampleRate: 24000, originalSampleRate: 24000, channelCount: 1, frameCount: 24000,
+			mimeType: 'audio/wav', contentSha256: digest }],
+		tracks: [{ id: 'voice-track', type: 'audio', clipIds: ['voice-clip', 'template'] }],
+		clips: ['voice-clip', 'template'].map((id, index) => ({ kind: 'audio', id, sourceId: 'voice-source',
+			timelineStartFrame: index * 96000, sourceStartFrame: 0, sourceDurationFrames: 24000, durationFrames: 48000 })),
+		assistanceAssets: [prior.reference] });
+	const initial = applySoundscaperProjectCommand(original,
+		snapshotSoundscaperProjectCommand({ type: 'project-bin/move-from-timeline', clipIds: ['template'] }));
+	assert.equal(initial.clips.length, 1);
+	assert.equal(initial.projectBin.clips.length, 1);
+	const state = fixture({ project: { ...initial, primarySequenceId: String(initial.primarySequenceId),
+		sources: initial.sources.map(value => ({ ...value })), clips: initial.clips.map(value => ({ ...value })),
+		tracks: initial.tracks.map(value => ({ ...value })), assistanceAssets: [...initial.assistanceAssets] },
+		selectedClipId: 'voice-clip', existingBodyBytes: prior.bytes });
+	assert.equal((await state.port.loadInitial())?.text, 'Original voice');
+	await state.port.accept(REVIEWED);
+	const regenerated = applySoundscaperProjectCommand(initial, snapshotSoundscaperProjectCommand(state.commands[0]));
+	assert.equal(regenerated.projectBin.clips[0]?.sourceId, 'voice-source');
+	assert.ok(regenerated.assistanceAssets.some(reference => reference.kind === 'tts-script-v1'
+		&& reference.sourceId === 'voice-source'), 'the retained template remains editable as its original speech');
+	assert.ok(regenerated.assistanceAssets.some(reference => reference.kind === 'tts-script-v1'
+		&& reference.sourceId === regenerated.clips[0]?.sourceId));
+});

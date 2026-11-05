@@ -33,6 +33,7 @@ interface SpeechProject extends RecordValue {
 	readonly primarySequenceId?: string;
 	readonly sources: readonly RecordValue[];
 	readonly clips: readonly RecordValue[];
+	readonly projectBin?: Readonly<{ clips: readonly RecordValue[] }>;
 	readonly tracks: readonly RecordValue[];
 	readonly assistanceAssets?: readonly unknown[];
 }
@@ -130,8 +131,9 @@ export function createTextToSpeechProjectPort(
 			provenance: createNonImportedSourceProvenance('generated'),
 		});
 		const selected = target;
-		const sourceHasPeerClip = selected !== null && project.clips.some(({ id, sourceId: clipSourceId }) =>
-			id !== selected.clipId && clipSourceId === selected.reference.sourceId);
+		const sourceHasPeerClip = selected !== null && (project.clips.some(({ id, sourceId: clipSourceId }) =>
+			id !== selected.clipId && clipSourceId === selected.reference.sourceId)
+			|| Boolean(project.projectBin?.clips.some(clip => clip.sourceId === selected.reference.sourceId)));
 		const reference = sourceHasPeerClip ? null : selected?.reference ?? null;
 		const publication = createAssistanceTtsScriptBodyPublicationV1({
 			assetId: reference?.id ?? dependencies.createId('tts-script'),
