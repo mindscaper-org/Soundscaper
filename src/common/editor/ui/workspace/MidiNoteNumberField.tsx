@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useEffect, useRef, useState } from 'react';
+import { retainDraftBlurBeforePointerSelection } from '../draft-blur-commit.ts';
 
 interface MidiNoteNumberFieldProps {
 	readonly value: number | '';
@@ -14,11 +15,13 @@ interface MidiNoteNumberFieldProps {
 
 /** Keep an authored number intact while the asynchronous note edit is pending. */
 export function MidiNoteNumberField({ value, min, max, step, disabled, title, onCommit }: MidiNoteNumberFieldProps) {
+	const field = useRef<HTMLInputElement>(null);
 	const [draft, setDraft] = useState(String(value));
 	const focused = useRef(false);
 	const cancelled = useRef(false);
 	useEffect(() => { if (!focused.current) setDraft(String(value)); }, [value]);
-	return <input type="number" min={min} max={max} step={step} disabled={disabled} title={title} value={draft}
+	useEffect(() => field.current ? retainDraftBlurBeforePointerSelection(field.current) : undefined, []);
+	return <input ref={field} type="number" min={min} max={max} step={step} disabled={disabled} title={title} value={draft}
 		onFocus={() => { focused.current = true; cancelled.current = false; }}
 		onChange={event => setDraft(event.currentTarget.value)}
 		onBlur={() => {

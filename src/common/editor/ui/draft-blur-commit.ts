@@ -35,3 +35,14 @@ export function cancelDraftEditOnEscape<Target extends DraftFieldTarget>(
 	event.stopPropagation();
 	event.currentTarget.blur();
 }
+
+/** Let native blur publish a focused draft before pointer selection removes its field. */
+export function retainDraftBlurBeforePointerSelection(input: HTMLInputElement): () => void {
+	const document = input.ownerDocument;
+	const beforeSelection = (event: PointerEvent): void => {
+		if (event.button === 0 && event.isPrimary !== false && event.target !== input
+			&& document.activeElement === input) input.blur();
+	};
+	document.addEventListener('pointerdown', beforeSelection, true);
+	return () => { document.removeEventListener('pointerdown', beforeSelection, true); };
+}
