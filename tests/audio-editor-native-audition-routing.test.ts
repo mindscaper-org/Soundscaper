@@ -158,3 +158,34 @@ test('an active audition keeps its timeline position across native rate replacem
 	await preview.dispose();
 	assert.equal(f.context().state, 'running');
 });
+
+for (const looping of [false, true]) test(`internal native restart preserves the Source playback boundary, loop=${looping}`, async context => {
+	const f = fixture(); context.after(() => f.dispose());
+	await f.attach();
+	const preview = f.pool.create({});
+	const frames = 160000, buffer = f.context().createBuffer(1, frames, 16000);
+	buffer.getChannelData(0).fill(.25);
+	preview.loadProject(createAudioPreviewProject({ sampleRate: 16000,
+		sources: [{ id: 'source', sampleRate: 16000, frameCount: frames, channelCount: 1 }],
+		clips: [{ id: 'clip', sourceId: 'source', durationFrames: frames, sourceDurationFrames: frames }],
+		tracks: [{ id: 'track', clipIds: ['clip'] }] }), new Map([['source', buffer as unknown as AudioBuffer]]));
+	preview.setLoop(looping, 16000, 32000);
+	preview.setPlayRange(looping ? null : { startFrame: 16000, endFrame: 32000 });
+	preview.seek(16000); await preview.play();
+	f.context().currentTime += .25;
+	await f.renderer.release('output'); await f.replaceContext(); await f.attach('replacement');
+	await f.pool.setOutput('native:alsa:audio-output:chosen');
+	const scheduled = Reflect.get(f.context().bufferSources.at(-1) ?? {}, 'started');
+	assert.ok(Array.isArray(scheduled) && typeof scheduled[2] === 'number');
+	assert.ok(scheduled[2] <= 1, 'the resumed native source must not schedule indefinite audio past the selected edge');
+	f.context().currentTime += 1.5;
+	assert.ok(preview.getState().positionFrame <= 32000);
+	if (looping) assert.deepEqual(preview.getState().loop, { enabled: true, startFrame: 16000, endFrame: 32000 });
+	else {
+		preview.pause(); await preview.play();
+		const resumed = Reflect.get(f.context().bufferSources.at(-1) ?? {}, 'started');
+		assert.ok(Array.isArray(resumed) && typeof resumed[2] === 'number' && resumed[2] > 1,
+			'explicit engine Pause keeps its existing range-retirement semantics');
+	}
+	await preview.dispose();
+});

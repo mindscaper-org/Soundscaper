@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createNativePreviewOutput, type NativePreviewEngine, type NativePreviewEnginePort } from './native-preview-output.ts';
+import type { NormalizedPlayRange } from '../../../engine/buffer-math.ts';
 
 interface ListeningEngine extends NativePreviewEngine {
 	setPlaybackGain(gain: number): unknown;
 	setOutputDevice?(deviceId: string): unknown;
 	play?(): Promise<void>;
+	setPlayRange?(range: NormalizedPlayRange | null): NormalizedPlayRange | null;
 	dispose(): Promise<void> | void;
 }
 
@@ -25,6 +27,7 @@ export function createPlaybackPreviewEngines<Args extends readonly unknown[], En
 	const rawPause = new Map<Engine, (() => unknown) | undefined>();
 	const playRequests = new Map<Engine, number>();
 	const desiredOutputs = new Map<Engine, string>();
+	const playRanges = new Map<Engine, NormalizedPlayRange | null>();
 	const routeOutput = (engine: Engine, deviceId: string): Promise<void> => {
 		desiredOutputs.set(engine, deviceId);
 		controllers.get(engine)?.abort();
@@ -40,7 +43,10 @@ export function createPlaybackPreviewEngines<Args extends readonly unknown[], En
 				}
 				if (route) await route.route(deviceId, controller.signal);
 				else await engine.setOutputDevice?.(browserDeviceId);
-				if (!controller.signal.aborted && resumes.delete(engine)) await rawPlay.get(engine)?.();
+				if (!controller.signal.aborted && resumes.delete(engine)) {
+					if (playRanges.has(engine)) engine.setPlayRange?.(playRanges.get(engine) ?? null);
+					await rawPlay.get(engine)?.();
+				}
 			} catch (error) { if (active.has(engine) && !controller.signal.aborted) throw error; }
 		});
 		outputReady.set(engine, work);
@@ -55,11 +61,17 @@ export function createPlaybackPreviewEngines<Args extends readonly unknown[], En
 		engine.setPlaybackGain(getPlaybackGain());
 		active.add(engine);
 		const play = engine.play?.bind(engine);
+		const setPlayRange = engine.setPlayRange?.bind(engine);
+		if (native && setPlayRange) engine.setPlayRange = range => {
+			const normalized = setPlayRange(range);
+			playRanges.set(engine, normalized);
+			return normalized;
+		};
 		rawPlay.set(engine, play); rawPause.set(engine, engine.pause?.bind(engine));
 		for (const method of ['pause', 'stop'] as const) {
 			const operation = engine[method]?.bind(engine);
 			if (operation) engine[method] = () => {
-				resumes.delete(engine); controllers.get(engine)?.abort();
+				resumes.delete(engine); playRanges.delete(engine); controllers.get(engine)?.abort();
 				playRequests.set(engine, (playRequests.get(engine) ?? 0) + 1);
 				return operation();
 			};
@@ -82,6 +94,7 @@ export function createPlaybackPreviewEngines<Args extends readonly unknown[], En
 			nativeRoutes.get(engine)?.dispose(); nativeRoutes.delete(engine);
 			resumes.delete(engine); rawPlay.delete(engine); rawPause.delete(engine);
 			playRequests.delete(engine); desiredOutputs.delete(engine);
+			playRanges.delete(engine);
 			outputReady.delete(engine);
 			return dispose();
 		};

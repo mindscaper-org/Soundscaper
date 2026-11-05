@@ -57,6 +57,43 @@ for (const audition of ['source', 'bin']) test(`native ${audition} audition foll
 	await expect(editor.getByRole('alert')).toHaveCount(0);
 });
 
+test('a Source selection still stops at its right edge after native rate replacement', async ({ page }) => {
+	await installAuditionProbe(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	const recording = createWavFixture({ name: 'Bounded native audition.wav', sampleRate: 16000, frequency: 440, duration: 12, channelCount: 1 });
+	await importFiles(editor, [recording]);
+	await editor.getByRole('button', { name: 'Audio setup', exact: true }).click();
+	let setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+	await setup.getByRole('combobox', { name: 'Host', exact: true }).selectOption('alsa');
+	await expect(setup.getByRole('combobox', { name: 'Speakers', exact: true })).toBeEnabled();
+	await page.keyboard.press('Escape');
+	await editor.getByRole('button', { name: 'Play', exact: true }).click();
+	await expect.poll(() => nativeRms(page)).toBeGreaterThan(.05);
+	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
+	const source = await openSourceMonitor(page, editor, clipByName(editor, recording.name));
+	const waveform = source.getByRole('region', { name: 'Source waveform', exact: true });
+	const bounds = await waveform.boundingBox(); expect(bounds).not.toBeNull();
+	await page.mouse.move(bounds.x + bounds.width * .1, bounds.y + 80); await page.mouse.down();
+	await page.mouse.move(bounds.x + bounds.width * .55, bounds.y + 80, { steps: 5 }); await page.mouse.up();
+	await expect(waveform.locator('.audio-editor-source-selection')).toBeVisible();
+	const ruler = source.getByRole('slider', { name: 'Source timeline', exact: true });
+	const rangeEnd = Number(await ruler.getAttribute('aria-valuemax')) * .55;
+	await source.getByRole('button', { name: 'Play', exact: true }).click();
+	await expect(source.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+	await editor.getByRole('button', { name: 'Audio setup', exact: true }).click();
+	setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+	const rate = setup.getByRole('combobox', { name: 'Recording sample rate', exact: true });
+	await rate.selectOption('44100'); await expect(rate).toBeEnabled();
+	await expect.poll(() => page.evaluate(() => window.__nativeAuditionProof.contexts.filter(context => context.state !== 'closed').map(context => context.sampleRate))).toEqual([44100]);
+	await page.keyboard.press('Escape');
+	await expect(source.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+	await expect.poll(async () => Number(await ruler.getAttribute('aria-valuenow')), { timeout: 8000 }).toBeGreaterThan(rangeEnd - .1);
+	await expect(source.getByRole('button', { name: 'Play', exact: true })).toBeVisible({ timeout: 8000 });
+	expect(Number(await ruler.getAttribute('aria-valuenow'))).toBeLessThanOrEqual(rangeEnd + .02);
+	await expectNativeStopped(page);
+	await expect(editor.getByRole('alert')).toHaveCount(0);
+});
+
 async function nativeRms(page) {
 	return page.evaluate(() => Math.max(0, ...window.__nativeOutput.channelRms));
 }
