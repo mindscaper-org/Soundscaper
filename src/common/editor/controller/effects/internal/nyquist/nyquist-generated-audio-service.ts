@@ -170,6 +170,7 @@ export function createNyquistGeneratedAudioService<Buffer extends NyquistGenerat
 				channels: runtime.matchAudacitySelectionChannels(channels, target.channelCount) }));
 			const result = await runtime.persistAudacityEffectResults(replacements, null, {
 				assertCurrent: assertOwnership,
+				materializeSilentTargets: true,
 				effectName: String(options.name || publishedCopyFor(runtime.copy).nyquistPrompt),
 				selectionDetails: { trackIds: [...new Set(replacements.map(item => item.target.track.id))] },
 				signal,

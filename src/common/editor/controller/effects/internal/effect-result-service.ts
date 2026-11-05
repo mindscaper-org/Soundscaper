@@ -50,6 +50,8 @@ export interface EffectResultSelectionDetails {
 
 export interface PersistEffectResultOptions {
 	readonly allowIndependentLengths?: boolean;
+	/** Generated output fills a destination even when its input range has no audio. */
+	readonly materializeSilentTargets?: boolean;
 	readonly assertCurrent?: () => void;
 	readonly effectName?: string;
 	readonly project?: EffectResultProject;
@@ -285,7 +287,7 @@ export function createSelectionEffectResultService<Buffer extends AudioBufferLik
 			assertAudacityEffectOutput(channels);
 			if (channels.length !== target.channelCount) throw createLocalizedError(Error, copy, 'effectChannelLayoutChanged');
 			if (frameCount === 0 && target.sourceId) throw createLocalizedError(Error, copy, 'decodedAudioEmpty');
-			if (target.hasAudio === false || frameCount === 0) {
+			if ((target.hasAudio === false && !options.materializeSilentTargets) || frameCount === 0) {
 				entries.push({
 					target,
 					channels,
