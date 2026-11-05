@@ -878,3 +878,8 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      focused candidate helper belongs to the existing utility chunk owner.
      Covered by mounted group/native-control checks and the production ruler
      Tab/arrow/activation workflow. Upstream-PR candidate.
+
+117. `RulerFlyout` passes its localized Min and Max labels to the existing
+     frequency inputs, giving the two editable controls distinct accessible
+     names. Covered by mounted localization/editing checks and the production
+     spectrogram-ruler keyboard workflow. Upstream-PR candidate.

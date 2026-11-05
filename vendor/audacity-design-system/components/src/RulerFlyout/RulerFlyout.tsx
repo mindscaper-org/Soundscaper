@@ -14,7 +14,8 @@ import './RulerFlyout.css';
  * Lets the user type freely; only validates + commits on blur, Enter,
  * or arrow-button clicks.
  */
-function FreqStepper({ value, onCommit, min, max, step, width, className }: {
+function FreqStepper({ label, value, onCommit, min, max, step, width, className }: {
+  label: string;
   value: number;
   onCommit: (n: number) => void;
   min: number;
@@ -45,6 +46,7 @@ function FreqStepper({ value, onCommit, min, max, step, width, className }: {
     >
       <NumberStepper
         ref={ref}
+        ariaLabel={label}
         value={draft}
         onChange={(val) => {
           // Arrow buttons produce a clean integer — commit immediately
@@ -387,6 +389,7 @@ export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
             <div className="ruler-flyout__freq-row">
               <label className="ruler-flyout__freq-label">{copy.minimum}</label>
               <FreqStepper
+                label={copy.minimum}
                 value={minFreq}
                 onCommit={(n) => onMinFreqChange?.(n)}
                 min={0}
@@ -400,6 +403,7 @@ export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
             <div className="ruler-flyout__freq-row">
               <label className="ruler-flyout__freq-label">{copy.maximum}</label>
               <FreqStepper
+                label={copy.maximum}
                 value={maxFreq}
                 onCommit={(n) => onMaxFreqChange?.(n)}
                 min={minFreq + 1}
