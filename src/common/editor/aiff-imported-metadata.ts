@@ -77,7 +77,7 @@ export async function inspectAiffMetadata(file: Blob, signal?: AbortSignal): Pro
 				}
 				else if (id === 'COMT') comments.push(...parseAiffComments(bytes));
 				else {
-					const text = decodeAiffMetadataText(bytes);
+					const text = decodeAiffMetadataText(bytes, id !== 'ANNO');
 					const rawKey = Object.hasOwn(raw, id) ? `${id}[${String(chunkCount)}]` : id;
 					raw[rawKey] = text;
 					if (id === 'NAME' && title === undefined) title = text;
@@ -101,7 +101,7 @@ export async function inspectAiffMetadata(file: Blob, signal?: AbortSignal): Pro
 	}
 	const normalizedTitle = title || stringValue(ownDataValue(firstId3 ?? null, 'title'));
 	const normalizedArtist = artist || stringValue(ownDataValue(firstId3 ?? null, 'artist'));
-	const normalizedComment = annotations.some(Boolean) ? annotations.join('\n') : stringValue(ownDataValue(firstId3 ?? null, 'comment'));
+	const normalizedComment = annotations.some(text => text.trim() !== '') ? annotations.join('\n') : stringValue(ownDataValue(firstId3 ?? null, 'comment'));
 	const normalized = {
 		...(firstId3 ?? {}),
 		...(images.length ? { images } : {}),
@@ -176,7 +176,7 @@ function parseAiffComments(bytes: Uint8Array): Readonly<Record<string, unknown>>
 		comments.push(Object.freeze({
 			timestamp: Number.isNaN(date.getTime()) ? String(timestamp) : date.toISOString(),
 			markerId,
-			text: decodeAiffMetadataText(bytes.subarray(textStart, textEnd)),
+			text: decodeAiffMetadataText(bytes.subarray(textStart, textEnd), false),
 		}));
 		offset = textEnd + textLength % 2;
 	}
