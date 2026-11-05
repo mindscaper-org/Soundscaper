@@ -23,6 +23,7 @@ import { dispatchEditorCommand } from './registry.ts';
 import { createEditorCommandRuntime } from './runtime-registry.ts';
 import { createTrackLockAdmission } from './track-lock-admission.ts';
 import { createVideoRetimePreservationAdmission } from './video-retime-preservation-admission.ts';
+import { createRackWidthTopologyAdmission } from './rack-width-topology-admission.ts';
 import { prepareMidiSourceReplacement } from './midi-source-replacement.ts';
 
 type DataRecord = Record<PropertyKey, unknown>;
@@ -70,6 +71,7 @@ function createCommandAdmission(
 	const admissions = [
 		createTrackLockAdmission(persistedProject, commandProject),
 		createVideoRetimePreservationAdmission(persistedProject, commandProject),
+		createRackWidthTopologyAdmission(persistedProject),
 	];
 	return Object.freeze({
 		beforeCommand: (project: unknown, command: AudioEditorCommand) => {
