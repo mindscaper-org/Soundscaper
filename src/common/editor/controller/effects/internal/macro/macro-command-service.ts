@@ -151,6 +151,21 @@ export function createMacroCommandService(runtime: MacroCommandServiceRuntime) {
 		if (typeof target !== 'function') {
 			throw new RangeError(`The macro command ${command} has no editor action (${path}).`);
 		}
+		if (command === 'NewMonoTrack' || command === 'NewStereoTrack') {
+			const before = runtime.getProject();
+			const selection = before.selection;
+			const range = resolveSelectionRange(before) ?? selection ?? { startFrame: 0, endFrame: 0 };
+			const created = (target as () => unknown)();
+			const after = runtime.getProject();
+			if (typeof created !== 'string' || after.id !== before.id || before.tracks.some(track => track.id === created)
+				|| !after.tracks.some(track => track.id === created)) {
+				throw new RangeError(`The macro command ${command} did not create a track in the current project.`);
+			}
+			runtime.setExactSelection(range.startFrame, range.endFrame, {
+				trackIds: [created], clipIds: [], frequencyRange: selection?.frequencyRange ?? null,
+			});
+			return created;
+		}
 		if (command === 'SelectAll' || command === 'SelAllTracks') {
 			const frequencyRange = runtime.getProject().selection?.frequencyRange;
 			const result = command === 'SelectAll' ? (target as (options: Readonly<{ nativeRegion: boolean }>) => unknown)({ nativeRegion: true })
