@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
-import { access, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rename, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { expect } from '@playwright/test';
@@ -15,6 +15,7 @@ import { motionQualificationTarget, requireMotionQualificationHost } from './mot
 import { launchMotionQualificationApplication } from './motionscaper-qualification-session.ts';
 import { publishMotionQualificationRevision } from './motionscaper-native-publish-qualification.ts';
 import { withMotionQualificationActivation } from './motionscaper-qualification-activation.ts';
+import { withMotionQualificationCleanup } from './motionscaper-qualification-cleanup.ts';
 
 export async function qualifyFramescaperSuccessorNativeLink(): Promise<void> {
 	if (process.argv.length !== 2) throw new Error('Native linked composition qualification accepts no arguments.');
@@ -40,7 +41,7 @@ export async function qualifyFramescaperSuccessorNativeLink(): Promise<void> {
 	const application = await launchMotionQualificationApplication({ executable, cwd: root, directory: temporary, env, flags: previewFlags, workflow: 'successor', timeoutMs: 180000 });
 	const watchCount = () => application.watchCount(temporary);
 	const assertWatch = async (expected: number) => { if (process.platform === 'linux') await expect.poll(watchCount).toBe(expected); else assert.equal(await watchCount(), null); };
-	try {
+	await withMotionQualificationCleanup(async () => {
 		const { page } = application;
 		await expect(page.locator('[data-audio-editor-bound="true"]')).toBeVisible({ timeout: 30000 });
 		assert.equal(new URL(page.url()).origin, 'null'); assert.ok(page.url().startsWith('framescaper-successor-app://bundle/'));
@@ -72,5 +73,5 @@ export async function qualifyFramescaperSuccessorNativeLink(): Promise<void> {
 		await qualifyFramescaperSuccessorNativeDelivery(page, { root, temporary, sourceRevision: stageMetadata.sourceRevision, acceptedDigest: third.digest, previewBackend, chooseFile: application.chooseFile });
 		console.log(`FRAMESCAPER_SUCCESSOR_NATIVE_LINK_QUALIFIED ${JSON.stringify({ platform: process.platform, arch: process.arch, sourceRevision: stageMetadata.sourceRevision,
 			actualNativeChooser: true, normalMotionFileSave: true, nativeWatchReleased: process.platform === 'linux' ? true : null, nativeWatchObservation: application.watchObservation, initialDigest: initial.digest, updatedDigest: third.digest, corruptReplacementRefused: true, disconnectedRetainedDigest: third.digest, assetSha256: sha256, databases: persisted.databases })}`);
-	} finally { await application.cleanup(); await rm(temporary, { recursive: true, force: true, maxRetries: 4, retryDelay: 250 }); }
+	}, application.cleanup, temporary);
 }
