@@ -264,12 +264,14 @@ export function createSelectionViewService<
 	 * The range ends at the content, not at the timeline's visible extent, which
 	 * deliberately runs past it so there is somewhere to drag to.
 	 */
-	function selectAll() {
+	function selectAll(options: Readonly<{ nativeRegion?: boolean }> = {}) {
 		const project = getProject();
 		if (!project) return null;
 		const trackIds = project.tracks.map((track) => track.id);
-		const endFrame = Math.max(projectDurationFrames(project), selectedTrackContentRange(project, trackIds, () => 0)?.endFrame ?? 0);
-		const next = applySelectionRange(project, 0, endFrame, { trackIds }, false);
+		const content = selectedTrackContentRange(project, trackIds, () => 0, { nativeAll: options.nativeRegion === true });
+		const startFrame = options.nativeRegion ? content?.startFrame ?? 0 : 0;
+		const endFrame = options.nativeRegion ? content?.endFrame ?? 0 : Math.max(projectDurationFrames(project), content?.endFrame ?? 0);
+		const next = applySelectionRange(project, startFrame, endFrame, { trackIds }, false);
 		if (!state.selectedTrackId && trackIds.length) {
 			state.selectedTrackId = trackIds[0];
 			synchronizeMicrophoneMeterTarget();

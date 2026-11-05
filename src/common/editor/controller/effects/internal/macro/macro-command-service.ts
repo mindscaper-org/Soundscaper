@@ -153,7 +153,8 @@ export function createMacroCommandService(runtime: MacroCommandServiceRuntime) {
 		}
 		if (command === 'SelectAll' || command === 'SelAllTracks') {
 			const frequencyRange = runtime.getProject().selection?.frequencyRange;
-			const result = (target as () => unknown)();
+			const result = command === 'SelectAll' ? (target as (options: Readonly<{ nativeRegion: boolean }>) => unknown)({ nativeRegion: true })
+				: (target as () => unknown)();
 			const selection = runtime.getProject().selection;
 			return frequencyRange && selection ? runtime.setExactSelection(selection.startFrame, selection.endFrame,
 				{ ...selection, frequencyRange }) : result;
