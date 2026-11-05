@@ -239,6 +239,10 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 			const mixedChannels = mixNyquistPreviewChannels(resultChannelSets.map((channels, index) => (
 				alignPreviewChannels(channels, offsets[index]!, resultFrameCount)
 			)), resultFrameCount);
+			if (!mixedChannels.length || !mixedChannels[0]!.length) {
+				setLocalizedStatus(setStatus, copy, copy.audacityPreviewComplete ? 'audacityPreviewComplete' : 'ready', undefined, 'success');
+				return true;
+			}
 			const context = await engine.getAudioContext({ resume: true });
 			await context.resume?.();
 			requireCurrentPreview();
