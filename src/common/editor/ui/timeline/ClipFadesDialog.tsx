@@ -55,7 +55,8 @@ export default function ClipFadesDialog({ clip, sampleRate, copy, blocked, onPre
 					<NumberStepper ariaLabel={edge === 'in' ? labels.fadeInLength : labels.fadeOutLength}
 						incrementLabel={labels.increaseValue} decrementLabel={labels.decreaseValue} value={lengthDrafts[edge] ?? String((value[field] ?? 0) / sampleRate)} min={0} max={clip.durationFrames / sampleRate}
 						step={0.1} disabled={blocked} onChange={text => {
-							setLengthDrafts(previous => ({ ...previous, [edge]: text }));
+							// The arrows parse periods, so keep the already accepted comma entry on that grammar too.
+							setLengthDrafts(previous => ({ ...previous, [edge]: text.replace(',', '.') }));
 							const seconds = parseLengthSeconds(text, clip.durationFrames / sampleRate);
 							if (Number.isFinite(seconds)) {
 								const length = clipFadeLengthChange(value, edge, Math.round(seconds * sampleRate));
