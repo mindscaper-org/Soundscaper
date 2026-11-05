@@ -97,18 +97,11 @@ export const NoteGridCanvas: React.FC<NoteGridCanvasProps> = ({
       const beat = t / beatDuration;
       const beatRound = Math.round(beat * 1000) / 1000;
       const isWholeBeat = Math.abs(beatRound - Math.round(beatRound)) < 0.001;
-
-      if (isWholeBeat) {
-        const wholeBeat = Math.round(beatRound);
-        if (wholeBeat % beatsPerMeasure === 0) {
-          // Measure line
-          ctx.strokeStyle = pr.gridMeasure;
-          ctx.lineWidth = 1;
-        } else {
-          // Beat line
-          ctx.strokeStyle = pr.gridBeat;
-          ctx.lineWidth = 1;
-        }
+      const measure = t / measureDuration;
+      if (Math.abs(measure - Math.round(measure)) < 0.000001) {
+        ctx.strokeStyle = pr.gridMeasure;
+      } else if (isWholeBeat) {
+        ctx.strokeStyle = pr.gridBeat;
       } else {
         // Subdivision line
         ctx.strokeStyle = pr.gridSubdivision;
@@ -119,6 +112,19 @@ export const NoteGridCanvas: React.FC<NoteGridCanvasProps> = ({
       ctx.moveTo(x, 0);
       ctx.lineTo(x, height);
       ctx.stroke();
+    }
+
+    // A bar can start between visible snap divisions (for example 3/8 with
+    // quarter-note snapping). Paint those boundaries once as well.
+    const measureStride = Math.max(1, Math.ceil(1 / (measureDuration * pixelsPerSecond)));
+    for (let measure = Math.ceil(startTime / (measureDuration * measureStride)) * measureStride;
+      measure * measureDuration <= endTime; measure += measureStride) {
+      const t = measure * measureDuration;
+      const division = t / gridStep;
+      if (Math.abs(division - Math.round(division)) < 0.000001) continue;
+      const x = t * pixelsPerSecond - scrollX;
+      ctx.strokeStyle = pr.gridMeasure;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
     }
 
     // Draw clip bounds (dimmed regions outside, boundary lines at edges)
