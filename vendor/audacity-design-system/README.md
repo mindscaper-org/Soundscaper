@@ -809,10 +809,30 @@ are the places where the two keyboard models meet, so a future sync should re-ch
 
 106. Mixer strips forward read-only state to their faders, pan knobs, mute/solo
      and effect mutation controls while keeping effect settings inspectable.
+     Timeline strips also forward read-only admission to their existing gain,
+     pan and mute/solo controls, including compact headers. Their controls live
+     in `TrackControlPanelParameters.tsx`, reducing the growth-frozen parent.
      Covered by mounted control admission and production project-lock workflows.
      Upstream-PR candidate.
 
 107. Manual numeric dialogs preserve composing Enter/Escape before nested controls
      or ancestor dialogs can submit or dismiss them. Covered by mounted native
      composition/229 and production direct-entry regressions.
+     Upstream-PR candidate.
+
+108. Native `Slider` Escape cancellation retires input from its still-held
+     pointer through release, so native range changes cannot restart and commit
+     the canceled edit. Fresh pointer and keyboard gestures remain available.
+     Covered by mounted lifecycle and production track-volume regressions.
+     Upstream-PR candidate.
+
+109. Open `ContextMenu` placement follows viewport and content resizing, keeping
+     its existing bounds when the editor changes layout and returning to its
+     original anchor when space returns. Covered by mounted resize and production
+     desktop-to-compact menu regressions. Upstream-PR candidate.
+
+110. Piano-roll grid measure lines use complete bar duration independently of
+     whole quarter beats or the visible snap subdivisions. Fractional-quarter
+     meters such as 3/8 and 5/8 retain every visible bar boundary. Covered by
+     mounted canvas painting and production project-signature regressions.
      Upstream-PR candidate.
