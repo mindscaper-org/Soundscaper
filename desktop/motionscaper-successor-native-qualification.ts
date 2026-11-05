@@ -14,6 +14,7 @@ import { resolveMotionQualificationPaths } from './motionscaper-native-qualifica
 import { motionQualificationTarget, requireMotionQualificationHost } from './motionscaper-qualification-platform.ts';
 import { launchMotionQualificationApplication } from './motionscaper-qualification-session.ts';
 import { publishMotionQualificationRevision } from './motionscaper-native-publish-qualification.ts';
+import { withMotionQualificationActivation } from './motionscaper-qualification-activation.ts';
 
 export async function qualifyFramescaperSuccessorNativeLink(): Promise<void> {
 	if (process.argv.length !== 2) throw new Error('Native linked composition qualification accepts no arguments.');
@@ -51,7 +52,7 @@ export async function qualifyFramescaperSuccessorNativeLink(): Promise<void> {
 		await application.chooseFile({ kind: 'successor-open', path });
 		await expect(dialog.getByText('Native first', { exact: true })).toBeVisible({ timeout: 30000 }); await expect(dialog.locator('code')).toHaveText(initial.digest); await assertWatch(1);
 		await dialog.getByRole('button', { name: 'Close', exact: true }).click(); await expect(dialog).toHaveCount(0);
-		const second = await publishMotionQualificationRevision(root, path, join(temporary, 'publisher'), stageMetadata.sourceRevision); await menu(); await expect(dialog.locator('code')).toHaveText(second.digest, { timeout: 10000 });
+		const second = await withMotionQualificationActivation(page, () => publishMotionQualificationRevision(root, path, join(temporary, 'publisher'), stageMetadata.sourceRevision)); await menu(); await expect(dialog.locator('code')).toHaveText(second.digest, { timeout: 10000 });
 		await writeFile(`${path}.tmp`, new Uint8Array([1, 2, 3])); await rename(`${path}.tmp`, path);
 		await dialog.getByRole('button', { name: 'Refresh saved revision', exact: true }).click(); await expect(dialog.getByRole('alert')).toBeVisible(); await expect(dialog.locator('code')).toHaveText(second.digest);
 		const third = await save(2); await dialog.getByRole('button', { name: 'Refresh saved revision', exact: true }).click(); await expect(dialog.locator('code')).toHaveText(third.digest, { timeout: 10000 }); await expect(dialog.getByRole('alert')).toHaveCount(0);
