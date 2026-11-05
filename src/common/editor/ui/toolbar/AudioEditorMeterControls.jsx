@@ -111,7 +111,9 @@ function recordingMeterData(dbfs) {
 	return { dbfs, peak, rms: peak };
 }
 
-function recordingMeterChannelCount(snapshot) {
+function recordingMeterChannelCount(snapshot, meter) {
+	const channels = meter?.channels?.length;
+	if (channels) return Math.min(2, channels);
 	return snapshot.recordingInputs?.routes?.[snapshot.selectedTrackId]?.channelCount === 2 ? 2 : 1;
 }
 
@@ -189,7 +191,7 @@ export function RecordingMeterToolbarGroup({
 				meter={meter}
 				settings={settings}
 				orientation="horizontal"
-				channelCount={recordingMeterChannelCount(snapshot)}
+				channelCount={recordingMeterChannelCount(snapshot, meter)}
 				meterLabel={copy.inputLevel}
 				meterKind="recording"
 				compact
@@ -201,7 +203,7 @@ export function RecordingMeterToolbarGroup({
 				meter={meter}
 				settings={settings}
 				orientation="horizontal"
-				channelCount={recordingMeterChannelCount(snapshot)}
+				channelCount={recordingMeterChannelCount(snapshot, meter)}
 				meterLabel={copy.inputLevel}
 				meterKind="recording"
 				slider={slider}
@@ -237,7 +239,7 @@ function RecordingMeterFlyout({
 				meter={meter}
 				settings={settings}
 				orientation="horizontal"
-				channelCount={recordingMeterChannelCount(snapshot)}
+				channelCount={recordingMeterChannelCount(snapshot, meter)}
 				meterLabel={copy.inputLevel}
 				meterKind="recording"
 				dataMeterAttribute="input-meter"
@@ -395,7 +397,7 @@ export function SideRecordingMeter({
 				meter={meter}
 				settings={settings}
 				orientation={orientation}
-				channelCount={recordingMeterChannelCount(snapshot)}
+				channelCount={recordingMeterChannelCount(snapshot, meter)}
 				meterLabel={copy.inputLevel}
 				meterKind="recording"
 				slider={slider}
