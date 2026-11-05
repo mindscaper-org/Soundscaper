@@ -44,7 +44,7 @@ export const FOUNDATION_TIME_CONVERSION_SOURCE_EDITOR_SITES: readonly Foundation
 	{
 		id: 'midi-source-warp-delivery',
 		file: 'src/common/editor/midi-project-source-projection.ts',
-		behavior: 'MIDI delivery maps source events through the authored warp, rounding musical beat positions and sample-domain warp offsets once to the nearest project sample.',
+		behavior: 'MIDI delivery retains continuous loop source-window ratios with exact integral cut boundaries, then maps source events through the authored warp and rounds musical beat positions and sample-domain warp offsets once to the nearest project sample.',
 		conversions: [{ helper: 'beatToSampleFrame', policies: ['point'] }, { helper: 'roundRational', policies: ['point'] }],
 	},
 	{

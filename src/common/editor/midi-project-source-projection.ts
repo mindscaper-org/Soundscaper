@@ -32,13 +32,23 @@ export function* midiClipOccurrences(project: ProjectionProject, persistedClip: 
 		const origin = clip.timelineStartFrame - loop.offsetFrames + index * loop.periodFrames;
 		const timelineStart = Math.max(clip.timelineStartFrame, origin);
 		const timelineEnd = Math.min(clip.timelineEndFrame, origin + loop.periodFrames);
-		const source = (timeline: number): number => start + (clip.reversed === true
-			? 1 - (timeline - origin) / loop.periodFrames : (timeline - origin) / loop.periodFrames) * sourceFrames;
+		const source = (timeline: number): number => {
+			const offset = timeline - origin;
+			return start + sourcePosition(clip.reversed === true ? loop.periodFrames - offset : offset, sourceFrames, loop.periodFrames);
+		};
 		const from = source(timelineStart);
 		const to = source(timelineEnd);
 		yield { start: Math.min(from, to), sourceFrames: Math.abs(to - from), timelineStart, timelineEnd, initializePerformance: true,
 			global: sourceProjector(project, clip, origin, loop.periodFrames) };
 	}
+}
+
+/** Keep exact integer boundaries exact, and retain fractional source windows. */
+function sourcePosition(offset: number, frames: number, period: number): number {
+	const numerator = offset * frames;
+	if (Number.isSafeInteger(numerator)) return numerator / period;
+	const exact = BigInt(offset) * BigInt(frames), denominator = BigInt(period);
+	return Number(exact / denominator) + Number(exact % denominator) / period;
 }
 
 function sourceProjector(project: ProjectionProject, clip: RuntimeClipProjection, origin: number, period: number): (frame: number) => number {
