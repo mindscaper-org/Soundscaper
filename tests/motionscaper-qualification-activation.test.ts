@@ -12,12 +12,14 @@ function browser() {
 	let waitError: Error | undefined, cleanupError: Error | undefined;
 	let beforeWait: (() => void) | undefined;
 	const records: MutationRecord[] = [];
+	const waitTimeouts: number[] = [];
 	class Observer {
 		constructor(next: MutationCallback) { callback = next; }
 		observe(_target: unknown, options: MutationObserverInit) {
 			assert.equal(options.attributeOldValue, true); assert.equal(options.subtree, true); observing = true;
 		}
-		disconnect() { observing = false; disconnected++; }
+		takeRecords() { return records.splice(0); }
+		disconnect() { if (cleanupError) throw cleanupError; observing = false; disconnected++; }
 	}
 	function inBrowser<Value>(action: () => Value): Value {
 		const values = { document: { querySelectorAll: () => selected ? [selected] : [] }, MutationObserver: Observer };
@@ -37,14 +39,14 @@ function browser() {
 			state = inBrowser(action);
 			return Promise.resolve({
 				evaluate: (action: (value: unknown) => unknown) => {
-					if (cleanupError) return Promise.reject(cleanupError);
 					return Promise.resolve(inBrowser(() => action(state)));
 				},
 				dispose: () => { disposed++; return Promise.resolve(); },
 			} as unknown as JSHandle);
 		},
 		waitForFunction(action: (value: unknown) => unknown, _handle: JSHandle, options: { timeout: number }) {
-			waited++; assert.equal(options.timeout, 10000);
+			waited++; assert.ok(options.timeout > 0 && options.timeout <= 10000);
+			waitTimeouts.push(options.timeout);
 			if (waitError) return Promise.reject(waitError);
 			beforeWait?.();
 			if (!inBrowser(() => action(state))) return Promise.reject(new Error('The expected activation cycle did not complete.'));
@@ -52,7 +54,7 @@ function browser() {
 		},
 	} as unknown as Pick<Page, 'evaluateHandle' | 'waitForFunction'>;
 	return {
-		page, attributes,
+		page, attributes, waitTimeouts,
 		get observing() { return observing; },
 		get counts() { return { disposed, disconnected, waited, resultDisposed }; },
 		set waitError(value: Error) { waitError = value; },
@@ -153,11 +155,76 @@ test('The activation fence rejects editor root retirement within one observer ba
 	assert.equal(fixture.counts.disconnected, 1); assert.equal(fixture.counts.disposed, 1);
 });
 
-test('An already pending activation cannot be mistaken for the next saved revision', async () => {
+test('The activation fence settles the initial linked revision before arming and publishing the next revision', async () => {
 	const fixture = browser(); fixture.attributes.set('data-project-activation-pending', 'true'); let published = false;
-	await assert.rejects(withMotionQualificationActivation(fixture.page, async () => { published = true; }), /already pending/iu);
-	assert.equal(published, false);
+	fixture.beforeWait = () => {
+		if (published) { fixture.pending(true); fixture.flush(); }
+		fixture.pending(false); fixture.flush();
+	};
+	assert.equal(await withMotionQualificationActivation(fixture.page, async () => {
+		assert.equal(fixture.counts.waited, 1); assert.equal(fixture.observing, true);
+		assert.equal(fixture.attributes.has('data-project-activation-pending'), false);
+		published = true; return 'next';
+	}), 'next');
+	assert.deepEqual(fixture.counts, { disposed: 1, disconnected: 1, waited: 2, resultDisposed: 2 });
 });
+
+test('Initial linked activation completion cannot satisfy the next publication activation', async () => {
+	const fixture = browser(); fixture.attributes.set('data-project-activation-pending', 'true'); let published = false;
+	fixture.beforeWait = () => { if (!published) { fixture.pending(false); fixture.flush(); } };
+	await assert.rejects(withMotionQualificationActivation(fixture.page, async () => { published = true; }), /expected activation cycle/u);
+	assert.equal(published, true); assert.equal(fixture.counts.waited, 2); assert.equal(fixture.counts.disconnected, 1);
+});
+
+test('Queued initial activation records are drained before arming the next publication', async () => {
+	const fixture = browser(); fixture.attributes.set('data-project-activation-pending', 'true'); let published = false;
+	fixture.beforeWait = () => { if (!published) fixture.pending(false); };
+	await assert.rejects(withMotionQualificationActivation(fixture.page, async () => {
+		published = true; fixture.flush();
+	}), /expected activation cycle/u);
+	assert.equal(published, true); assert.equal(fixture.counts.disconnected, 1);
+});
+
+test('An initial activation that does not settle prevents publication and releases the observation', async () => {
+	const fixture = browser(); fixture.attributes.set('data-project-activation-pending', 'true'); let published = false;
+	await assert.rejects(withMotionQualificationActivation(fixture.page, async () => { published = true; }), /expected activation cycle/u);
+	assert.equal(published, false);
+	assert.deepEqual(fixture.counts, { disposed: 1, disconnected: 1, waited: 1, resultDisposed: 0 });
+});
+
+test('Initial settling and the next cycle consume one shared ten-second wait allowance', async context => {
+	const fixture = browser(); fixture.attributes.set('data-project-activation-pending', 'true'); let published = false;
+	const times = [0, 2500, 3000]; let sample = 0;
+	context.mock.method(performance, 'now', () => times[Math.min(sample++, times.length - 1)] ?? 0);
+	fixture.beforeWait = () => {
+		if (published) { fixture.pending(true); fixture.flush(); }
+		fixture.pending(false); fixture.flush();
+	};
+	await withMotionQualificationActivation(fixture.page, async () => { published = true; });
+	assert.deepEqual(fixture.waitTimeouts, [7500, 7000]);
+});
+
+test('An exhausted initial wait budget rejects before publication or an unlimited zero-timeout wait', async context => {
+	const fixture = browser(); fixture.attributes.set('data-project-activation-pending', 'true'); let published = false;
+	let sample = 0; context.mock.method(performance, 'now', () => sample++ === 0 ? 0 : 10000);
+	fixture.beforeWait = () => { fixture.pending(false); fixture.flush(); };
+	await assert.rejects(withMotionQualificationActivation(fixture.page, async () => { published = true; }), /exhausted.*budget/u);
+	assert.equal(published, false); assert.equal(fixture.counts.waited, 0);
+	assert.equal(fixture.counts.disconnected, 1); assert.equal(fixture.counts.disposed, 1);
+});
+
+for (const change of ['replace', 'remove', 'owner-roundtrip', 'root-roundtrip'] as const) {
+	test(`Initial activation settling preserves the original project and root: ${change}`, async () => {
+		const fixture = browser(); fixture.attributes.set('data-project-activation-pending', 'true'); let published = false;
+		fixture.beforeWait = () => {
+			if (change === 'owner-roundtrip') { fixture.project('another-project'); fixture.project('linked-project'); }
+			else if (change === 'root-roundtrip') fixture.detachAndReinsert(); else fixture[change]();
+			fixture.pending(false); fixture.flush();
+		};
+		await assert.rejects(withMotionQualificationActivation(fixture.page, async () => { published = true; }), /project.*changed/iu);
+		assert.equal(published, false); assert.equal(fixture.counts.disconnected, 1); assert.equal(fixture.counts.disposed, 1);
+	});
+}
 
 test('Publication failure remains primary and always disconnects the observation', async () => {
 	const fixture = browser(), failure = new Error('publisher failed');
