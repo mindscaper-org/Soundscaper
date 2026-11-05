@@ -919,3 +919,11 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      The existing lifecycle hook and focused native-event utility own cleanup
      without growing the capped interaction component. Covered by native-history checks
      and an outside-release browser workflow. Upstream-PR candidate.
+
+123. Piano-roll rulers, grid lines, snapping and note lengths share an optional
+     host musical clock for authored tempo and signature changes. The clock
+     retains local source seconds independently of clip playback transforms;
+     the existing constant 4/4 path stays intact. Group
+     resizing keeps one bounded source-time delta. Focused math and painting
+     owners reduce the capped NoteGrid and canvas components. Covered by native
+     authored MIDI/export, source-clock and gesture regressions. Upstream-PR candidate.

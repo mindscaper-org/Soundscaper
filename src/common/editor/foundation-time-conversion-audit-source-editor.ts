@@ -6,6 +6,12 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Source editor display and authoring share the owning project tempo and sample grid. */
 export const FOUNDATION_TIME_CONVERSION_SOURCE_EDITOR_SITES: readonly FoundationTimeConversionSite[] = deepFreezeAuditSites([
 	{
+		id: 'piano-roll-source-note-duration',
+		file: 'src/common/editor/ui/workspace/PianoRollWorkspacePanel.tsx',
+		behavior: 'The source-local musical clock retains fractional project-frame positions while choosing a note length; the final authored note rounds once to its nearest native source sample.',
+		conversions: [{ helper: 'secondsToSampleFrame', policies: ['point'] }],
+	},
+	{
 		id: 'capture-native-audio-data-clock',
 		file: 'src/common/editor/controller/capture/internal/browser/framescaper-audio-data-frame-clock.ts',
 		behavior: 'Native AudioData timestamp deltas round once to the nearest observed native block interval to locate loss across queued delivery. Exact source holes use the native discarded-block counter and fixed observed block size; timestamp jitter never manufactures or changes missing-sample counts.',

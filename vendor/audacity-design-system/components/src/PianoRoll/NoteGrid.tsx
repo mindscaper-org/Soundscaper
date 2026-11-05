@@ -9,6 +9,8 @@ import type { MidiNote, MidiClip } from '@audacity-ui/core';
 import { retainPianoRollMouseGesture } from './piano-roll-mouse-gesture';
 import { useNoteGridNoteDrag } from './use-note-grid-note-drag';
 import { handleNoteGridEditingKey } from '../utils/note-grid-editing-key';
+import { pianoRollGridMath } from './musical-clock';
+import { resizePianoRollNotes } from './piano-roll-note-resize';
 
 interface DragState {
   type: 'move' | 'resize-left' | 'resize-right';
@@ -49,6 +51,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
   gestureRevision,
   allClips,
   bpm,
+  musicalClock,
   beatsPerMeasure,
   pixelsPerSecond,
   scrollX,
@@ -121,12 +124,8 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
     : [];
 
   // Snap helper
-  const snapTime = useCallback((t: number): number => {
-    const beatDuration = 60 / bpm;
-    const subDivisions = snap.subdivision * (snap.triplet ? 1.5 : 1);
-    const gridStep = beatDuration / subDivisions;
-    return Math.round(t / gridStep) * gridStep;
-  }, [bpm, snap]);
+  const gridMath = useMemo(() => pianoRollGridMath(bpm, snap, musicalClock), [bpm, snap, musicalClock]);
+  const { snapTime, durationAt } = gridMath;
 
   // Convert pixel X to global time
   const xToTime = useCallback((px: number): number => {
@@ -177,8 +176,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
       const pitch = yToPitch(localY);
       if (pitch >= 0 && pitch <= 127) {
         const snappedTime = snapTime(xToTime(localX));
-        const beatDuration = 60 / bpm;
-        const duration = lastResizedDurationRef.current ?? beatDuration / (snap.subdivision * (snap.triplet ? 1.5 : 1));
+        const duration = lastResizedDurationRef.current ?? durationAt(Math.max(0, snappedTime));
         setGhostNote({ pitch, startTime: Math.max(0, snappedTime), duration });
       } else {
         setGhostNote(null);
@@ -186,7 +184,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
     } else if (isOverNote) {
       setGhostNote(null);
     }
-  }, [getClipBoundaryEdge, yToPitch, snapTime, xToTime, bpm, snap, onHoverClip, isGlobalMode, visibleClips]);
+  }, [getClipBoundaryEdge, yToPitch, snapTime, durationAt, xToTime, onHoverClip, isGlobalMode, visibleClips]);
 
   // Clear ghost and hover when mouse leaves the grid
   const handleMouseLeave = useCallback(() => {
@@ -225,7 +223,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
           if (!drag) return;
 
           const deltaTime = pointerPosition(me).time - drag.initialPointerTime;
-          const minDuration = (60 / bpm) / 4; // minimum 1/4 beat
+          const minDuration = durationAt(drag.initialTrimStart, 1 / 4);
 
           if (drag.edge === 'left') {
             // Left edge drag adjusts trimStart — like trimming audio
@@ -330,8 +328,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
 
     onDeselectAll();
 
-    const beatDuration = 60 / bpm;
-    const duration = lastResizedDurationRef.current ?? beatDuration / (snap.subdivision * (snap.triplet ? 1.5 : 1));
+    const duration = lastResizedDurationRef.current ?? durationAt(Math.max(0, globalTime));
 
     setPreviewNote({ pitch, startTime: Math.max(0, globalTime), duration });
     onPlayNote?.(pitch);
@@ -345,7 +342,8 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
         onPlayNote?.(newPitch);
         lastPlayedPitchRef.current = newPitch;
       }
-      setPreviewNote(prev => prev ? { ...prev, pitch: newPitch, startTime: newTime } : null);
+      setPreviewNote(prev => prev ? { ...prev, pitch: newPitch, startTime: newTime,
+        duration: lastResizedDurationRef.current ?? durationAt(newTime) } : null);
     };
 
     const handlePreviewUp = () => {
@@ -366,7 +364,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
     };
 
     releaseGesture.current = retainPianoRollMouseGesture(document, handlePreviewMove, handlePreviewUp);
-  }, [snapTime, xToTime, yToPitch, pointerPosition, bpm, snap, onAddNote, onDeselectAll, allNotes, pixelsPerSecond, scrollX, scrollY, noteHeight, onSelectNotes, visibleClips, onResizeClip, getClipBoundaryEdge, onPlayNote]);
+  }, [snapTime, durationAt, xToTime, yToPitch, pointerPosition, onAddNote, onDeselectAll, allNotes, pixelsPerSecond, scrollX, scrollY, noteHeight, onSelectNotes, visibleClips, onResizeClip, getClipBoundaryEdge, onPlayNote]);
 
   // Handle note mouse down (drag or resize)
   const handleNoteMouseDown = useCallback((e: React.MouseEvent, note: { id: number; pitch: number; velocity: number; selected?: boolean }, edge: NoteEdge) => {
@@ -475,33 +473,13 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
           const newPitch = Math.max(0, Math.min(127, init.pitch + deltaPitch));
           onUpdateNote(init.id, { startTime: newTime, pitch: newPitch });
         }
-      } else if (drag.type === 'resize-right') {
-        const minDuration = (60 / bpm) / 32; // 1/32 note
-        // Compute snapped duration from the anchor note, apply same delta to all
-        const anchor = drag.initials.find(i => i.id === drag.noteId)!;
-        const anchorNewDuration = Math.max(minDuration, snapTime(anchor.duration + deltaTime));
-        let shortest = Infinity;
-        for (const init of drag.initials) shortest = Math.min(shortest, init.duration);
-        const durationDelta = Math.max(Math.min(0, minDuration - shortest), anchorNewDuration - anchor.duration);
-        for (const init of drag.initials) {
-          onResizeNote(init.id, init.duration + durationDelta);
+      } else {
+        const resized = resizePianoRollNotes(drag.initials, drag.noteId, drag.type, deltaTime, gridMath);
+        for (const note of resized) {
+          if (drag.type === 'resize-right') onResizeNote(note.id, note.duration);
+          else onUpdateNote(note.id, { startTime: note.startTime, duration: note.duration });
         }
-        lastResizeDuration = anchor.duration + durationDelta;
-      } else if (drag.type === 'resize-left') {
-        const minDuration = (60 / bpm) / 32;
-        // Compute snapped start delta from the anchor note, apply same shift to all
-        const anchor = drag.initials.find(i => i.id === drag.noteId)!;
-        const snappedStart = snapTime(anchor.startTime + deltaTime);
-        let minimumStart = Infinity, maximumShift = Infinity;
-        for (const init of drag.initials) {
-          minimumStart = Math.min(minimumStart, init.startTime);
-          maximumShift = Math.min(maximumShift, Math.max(0, init.duration - minDuration));
-        }
-        const startDelta = Math.max(-minimumStart, Math.min(maximumShift, snappedStart - anchor.startTime));
-        for (const init of drag.initials) {
-          onUpdateNote(init.id, { startTime: init.startTime + startDelta, duration: init.duration - startDelta });
-        }
-        lastResizeDuration = anchor.duration - startDelta;
+        lastResizeDuration = resized.find(note => note.id === drag.noteId)!.duration;
       }
     };
 
@@ -523,7 +501,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
     };
 
     releaseGesture.current = retainPianoRollMouseGesture(document, handleMouseMove, handleMouseUp);
-  }, [allNotes, pointerPosition, snapTime, bpm, onSelectNote, onUpdateNote, onResizeNote]);
+  }, [allNotes, pointerPosition, snapTime, gridMath, onSelectNote, onUpdateNote, onResizeNote]);
 
   // Handle keyboard events
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -615,6 +593,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
       onKeyDown={handleKeyDown}
     >
       <NoteGridCanvas
+        musicalClock={musicalClock}
         width={width}
         height={height}
         scrollX={scrollX}

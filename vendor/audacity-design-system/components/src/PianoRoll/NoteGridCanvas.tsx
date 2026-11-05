@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useTheme } from '../ThemeProvider/ThemeProvider';
 import { TOTAL_PITCHES, BLACK_KEY_CLASSES } from './constants';
+import { paintPianoRollGridLines } from './paint-piano-roll-grid';
 import type { NoteGridCanvasProps } from './types';
 
 export const NoteGridCanvas: React.FC<NoteGridCanvasProps> = ({
@@ -11,6 +12,7 @@ export const NoteGridCanvas: React.FC<NoteGridCanvasProps> = ({
   noteHeight,
   pixelsPerSecond,
   bpm,
+  musicalClock,
   beatsPerMeasure,
   snap,
   timeBasis,
@@ -73,59 +75,7 @@ export const NoteGridCanvas: React.FC<NoteGridCanvasProps> = ({
       ctx.fillRect(0, hy, width, noteHeight);
     }
 
-    // Draw grid lines (vertical)
-    const beatDuration = 60 / bpm;
-    const measureDuration = beatDuration * beatsPerMeasure;
-    const fullSubDivisions = snap.subdivision * (snap.triplet ? 1.5 : 1);
-
-    // Reduce visible subdivisions when zoomed out so lines don't crowd
-    const MIN_GRID_PX = 12; // Minimum pixels between grid lines
-    let subDivisions = fullSubDivisions;
-    while (subDivisions > 1 && (beatDuration / subDivisions) * pixelsPerSecond < MIN_GRID_PX) {
-      subDivisions = Math.floor(subDivisions / 2) || 1;
-    }
-    const gridStep = beatDuration / subDivisions;
-
-    const startTime = scrollX / pixelsPerSecond;
-    const endTime = (scrollX + width) / pixelsPerSecond;
-
-    const firstGrid = Math.floor(startTime / gridStep) * gridStep;
-    for (let t = firstGrid; t <= endTime; t += gridStep) {
-      const x = t * pixelsPerSecond - scrollX;
-      if (x < 0) continue;
-
-      const beat = t / beatDuration;
-      const beatRound = Math.round(beat * 1000) / 1000;
-      const isWholeBeat = Math.abs(beatRound - Math.round(beatRound)) < 0.001;
-      const measure = t / measureDuration;
-      if (Math.abs(measure - Math.round(measure)) < 0.000001) {
-        ctx.strokeStyle = pr.gridMeasure;
-      } else if (isWholeBeat) {
-        ctx.strokeStyle = pr.gridBeat;
-      } else {
-        // Subdivision line
-        ctx.strokeStyle = pr.gridSubdivision;
-        ctx.lineWidth = 1;
-      }
-
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
-      ctx.stroke();
-    }
-
-    // A bar can start between visible snap divisions (for example 3/8 with
-    // quarter-note snapping). Paint those boundaries once as well.
-    const measureStride = Math.max(1, Math.ceil(1 / (measureDuration * pixelsPerSecond)));
-    for (let measure = Math.ceil(startTime / (measureDuration * measureStride)) * measureStride;
-      measure * measureDuration <= endTime; measure += measureStride) {
-      const t = measure * measureDuration;
-      const division = t / gridStep;
-      if (Math.abs(division - Math.round(division)) < 0.000001) continue;
-      const x = t * pixelsPerSecond - scrollX;
-      ctx.strokeStyle = pr.gridMeasure;
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
-    }
+    paintPianoRollGridLines(ctx, { width, height, scrollX, pixelsPerSecond, bpm, beatsPerMeasure, snap, musicalClock }, pr);
 
     // Draw clip bounds (dimmed regions outside, boundary lines at edges)
     if (clipStart !== undefined && clipDuration !== undefined) {
@@ -197,7 +147,7 @@ export const NoteGridCanvas: React.FC<NoteGridCanvasProps> = ({
         ctx.setLineDash([]);
       }
     }
-  }, [width, height, scrollX, scrollY, noteHeight, pixelsPerSecond, bpm, beatsPerMeasure, snap, timeBasis, pr, clipStart, clipDuration, allClipBounds, hoveredKeyPitch]);
+  }, [width, height, scrollX, scrollY, noteHeight, pixelsPerSecond, bpm, beatsPerMeasure, snap, musicalClock, timeBasis, pr, clipStart, clipDuration, allClipBounds, hoveredKeyPitch]);
 
   return (
     <canvas

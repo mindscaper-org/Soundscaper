@@ -32,17 +32,60 @@ export function createIndexedBeatFrameProjector(
 	beatToSampleFrame(0, tempoMap, sampleRate, 'point');
 	const events = indexTempoEvents(tempoMap, sampleRate);
 	return (beat) => {
-		const target = fraction(beat);
-		const active = indexedTempoEvent(events, activeEventIndex(events, target));
-		const position = add(
-			active.samplePosition,
-			tempoSegmentSamples(target, active.beat, active.bpm, sampleRate),
-		);
+		const position = samplePositionAtBeat(events, fraction(beat), sampleRate);
 		if (options.requireExact && position.denominator !== 1n) {
 			throw new RangeError('The requested beat cannot be represented as an exact sample frame.');
 		}
 		return roundRational(position.numerator, position.denominator, 'point') as SampleFrame;
 	};
+}
+
+/** A continuous view clock shares exact event positions; native frame edits round at their own boundary. */
+export function createIndexedTempoClock(tempoMap: HoldTempoMap, sampleRate: number): Readonly<{
+	beatAtTime(seconds: number): number;
+	timeAtBeat(beat: number): number;
+}> {
+	beatToSampleFrame(0, tempoMap, sampleRate, 'point');
+	const events = indexTempoEvents(tempoMap, sampleRate);
+	return Object.freeze({
+		beatAtTime(seconds: number) {
+			if (!Number.isFinite(seconds) || seconds < 0) throw new RangeError('Source seconds must be non-negative and finite.');
+			const position = multiply(fraction(seconds), integerFraction(sampleRate));
+			let lower = 1, upper = events.length;
+			while (lower < upper) {
+				const middle = lower + Math.floor((upper - lower) / 2);
+				if (compare(events[middle]!.samplePosition, position) <= 0) lower = middle + 1;
+				else upper = middle;
+			}
+			const active = events[lower - 1]!;
+			return fractionNumber(add(active.beat, divide(multiply(subtract(position, active.samplePosition), active.bpm), integerFraction(60 * sampleRate))));
+		},
+		timeAtBeat(beat: number) {
+			return fractionNumber(divide(samplePositionAtBeat(events, fraction(beat), sampleRate), integerFraction(sampleRate)));
+		},
+	});
+}
+
+/** Convert the ratio itself to IEEE-754, without overflowing its exact numerator or denominator. */
+function fractionNumber(value: BigFraction): number {
+	if (value.numerator === 0n) return 0;
+	const numerator = absoluteBigInt(value.numerator), denominator = value.denominator;
+	let exponent = numerator.toString(2).length - denominator.toString(2).length;
+	if (exponent >= 0 ? numerator < denominator << BigInt(exponent) : numerator << BigInt(-exponent) < denominator) exponent--;
+	if (exponent > 1023) return value.numerator < 0n ? -Infinity : Infinity;
+	const shift = Math.max(-1074, exponent - 52);
+	const scaledNumerator = shift <= 0 ? numerator << BigInt(-shift) : numerator;
+	const scaledDenominator = shift <= 0 ? denominator : denominator << BigInt(shift);
+	let significand = scaledNumerator / scaledDenominator;
+	const remainder = (scaledNumerator % scaledDenominator) * 2n;
+	if (remainder > scaledDenominator || remainder === scaledDenominator && significand % 2n !== 0n) significand++;
+	const magnitude = Number(significand) * 2 ** shift;
+	return value.numerator < 0n ? -magnitude : magnitude;
+}
+
+function samplePositionAtBeat(events: readonly IndexedTempoEvent[], target: BigFraction, rate: number): BigFraction {
+	const active = indexedTempoEvent(events, activeEventIndex(events, target));
+	return add(active.samplePosition, tempoSegmentSamples(target, active.beat, active.bpm, rate));
 }
 
 function indexTempoEvents(tempoMap: HoldTempoMap, sampleRate: number): readonly IndexedTempoEvent[] {

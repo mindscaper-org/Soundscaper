@@ -1,4 +1,5 @@
 import type { MidiNote, MidiClip, SnapGrid } from '@audacity-ui/core';
+import type { PianoRollMusicalClock } from './musical-clock';
 
 export type TimeBasis = 'beats' | 'seconds';
 
@@ -91,6 +92,7 @@ export interface PianoKeyboardProps {
 }
 
 export interface PianoRollRulerProps {
+  musicalClock?: PianoRollMusicalClock;
   width: number;
   scrollX: number;
   pixelsPerSecond: number;
@@ -101,6 +103,7 @@ export interface PianoRollRulerProps {
 }
 
 export interface NoteGridProps {
+  musicalClock?: PianoRollMusicalClock;
   clip?: MidiClip | null;
   /** Retire a note gesture whose authoring target disappeared. */
   gestureRevision?: number;
@@ -139,6 +142,7 @@ export interface NoteGridProps {
 }
 
 export interface NoteGridCanvasProps {
+  musicalClock?: PianoRollMusicalClock;
   width: number;
   height: number;
   scrollX: number;

@@ -12,6 +12,9 @@ import { resolveMidiCopy } from '../../../i18n/editor-midi-copy.ts';
 import { useElementSize } from '../use-element-size.ts';
 import { createMidiPanelPlayheadProjector, designSystemMidiClip, midiBeatsPerMeasure, midiNoteChanges, midiPanelClipResize, midiPanelSelection } from './midi-panel-projection.ts';
 import { MidiNoteNumberField } from './MidiNoteNumberField.tsx';
+import { createMidiPanelMusicalClock } from './midi-panel-musical-clock.ts';
+import { pianoRollGridMath } from '@soundscaper/design-system/PianoRoll/musical-clock';
+import { secondsToSampleFrame } from '../../timeline-time.ts';
 import './PianoRollWorkspacePanel.css';
 
 interface MidiActions {
@@ -101,6 +104,8 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	const effectiveClip = useMemo(() => clipDraft ? { ...clip, ...clipDraft } : clip, [clip, clipDraft]);
 	const designClip = useMemo(() => designSystemMidiClip(effectiveClip, project.sampleRate, selectedIds, notes, sampleRate), [effectiveClip, project.sampleRate, sampleRate, selectedIds, notes]);
 	const snap = useMemo(() => ({ subdivision, triplet }), [subdivision, triplet]);
+	const musicalClock = useMemo(() => createMidiPanelMusicalClock({ sampleRate: project.sampleRate,
+		tempoMap: project.tempoMap, signatureMap: project.signatureMap, tempo }), [project.sampleRate, project.tempoMap, project.signatureMap, tempo]);
 	const gridWidth = Math.max(0, panelSize.width - 104);
 	const gridHeight = Math.max(100, panelSize.height - controlsSize.height - 52);
 	const selectedNotes = useMemo(() => notes.filter(note => selectedIds.has(note.id)), [notes, selectedIds]);
@@ -203,10 +208,12 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	};
 	const deleteSelected = () => deleteNotes([...selectedIds]);
 	const addNote = () => {
+		const startFrame = Math.max(clip.sourceStartFrame, Math.round(scrollX / pixelsPerSecond * sampleRate));
+		const duration = musicalClock ? pianoRollGridMath(bpm, snap, musicalClock).durationAt(startFrame / sampleRate)
+			: 60 / bpm / subdivision / (triplet ? 1.5 : 1);
 		const note: MidiNote = {
 			id: createStableId('midi-note'), pitch: 60, velocity: 100, channel: 0,
-			startFrame: Math.max(clip.sourceStartFrame, Math.round(scrollX / pixelsPerSecond * sampleRate)),
-			durationFrames: Math.max(1, Math.round(60 / bpm / subdivision / (triplet ? 1.5 : 1) * sampleRate)),
+			startFrame, durationFrames: Math.max(1, secondsToSampleFrame(duration, sampleRate, 'point')),
 		};
 		edit(() => controller.actions.midi.addNote(clip.id, note));
 		setSelectedIds(new Set([note.id]));
@@ -259,10 +266,10 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 		<div className="kw-audio-editor__piano-roll-grid" role="group" aria-label={copy.grid}>
 			<PianoKeyboard ariaLabel={copy.preview} scrollY={scrollY} noteHeight={16} height={gridHeight + 52} onKeyClick={preview} onHoverKey={setHoveredPitch} clipStripVisible />
 			<div className="kw-audio-editor__piano-roll-notes" onMouseDownCapture={beginGesture}>
-				<PianoRollRuler width={gridWidth} scrollX={scrollX} pixelsPerSecond={pixelsPerSecond} bpm={bpm} beatsPerMeasure={beatsPerMeasure} snap={snap} timeBasis="beats" />
+				<PianoRollRuler musicalClock={musicalClock} width={gridWidth} scrollX={scrollX} pixelsPerSecond={pixelsPerSecond} bpm={bpm} beatsPerMeasure={beatsPerMeasure} snap={snap} timeBasis="beats" />
 				<PianoRollClipStrip clips={[designClip]} activeClipId={1} width={gridWidth} scrollX={scrollX} pixelsPerSecond={pixelsPerSecond}
-					bpm={bpm} snap={snap} onResizeClip={resize} />
-				<NoteGrid clip={designClip} gestureRevision={gestureRevision} bpm={bpm} beatsPerMeasure={beatsPerMeasure} width={gridWidth} height={gridHeight}
+					bpm={bpm} snap={snap} musicalClock={musicalClock} onResizeClip={resize} />
+				<NoteGrid musicalClock={musicalClock} clip={designClip} gestureRevision={gestureRevision} bpm={bpm} beatsPerMeasure={beatsPerMeasure} width={gridWidth} height={gridHeight}
 					pixelsPerSecond={pixelsPerSecond} scrollX={scrollX} scrollY={scrollY} noteHeight={16} snap={snap} timeBasis="beats"
 					onAddNote={note => {
 						const id = createStableId('midi-note');

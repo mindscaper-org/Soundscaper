@@ -3,8 +3,10 @@ import { useTheme } from '../ThemeProvider/ThemeProvider';
 import { CLIP_STRIP_HEIGHT } from './constants';
 import type { MidiClip, SnapGrid } from '@audacity-ui/core';
 import { retainPianoRollMouseGesture } from './piano-roll-mouse-gesture';
+import { pianoRollGridMath, type PianoRollMusicalClock } from './musical-clock';
 
 export interface PianoRollClipStripProps {
+  musicalClock?: PianoRollMusicalClock;
   clips: MidiClip[];
   activeClipId?: number;
   pixelsPerSecond: number;
@@ -33,6 +35,7 @@ export const PianoRollClipStrip: React.FC<PianoRollClipStripProps> = ({
   width,
   snap,
   bpm,
+  musicalClock,
   onResizeClip,
   onSelectClip,
   onMoveClip,
@@ -62,11 +65,8 @@ export const PianoRollClipStrip: React.FC<PianoRollClipStripProps> = ({
   useEffect(() => () => { releaseMove.current(); dragRef.current = null; document.body.style.cursor = ''; }, []);
 
   const snapTime = useCallback((t: number): number => {
-    const beatDuration = 60 / bpm;
-    const subDivisions = snap.subdivision * (snap.triplet ? 1.5 : 1);
-    const gridStep = beatDuration / subDivisions;
-    return Math.round(t / gridStep) * gridStep;
-  }, [bpm, snap]);
+    return pianoRollGridMath(bpm, snap, musicalClock).snapTime(t);
+  }, [bpm, snap, musicalClock]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
