@@ -232,7 +232,7 @@ function reportReel(
 }
 
 function sanitizeTitle(value: string): string {
-	return value.replaceAll(/[\r\n\v\f\u0085\u2028\u2029]+/gu, ' ').slice(0, 70);
+	return value.replaceAll(/[\r\n\v\f\u0085\u2028\u2029]+/gu, ' ');
 }
 
 export function createEdlExport(request: EdlExportRequest): EdlExportResult {
