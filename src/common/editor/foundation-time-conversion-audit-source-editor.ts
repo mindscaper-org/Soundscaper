@@ -6,6 +6,12 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Source editor display and authoring share the owning project tempo and sample grid. */
 export const FOUNDATION_TIME_CONVERSION_SOURCE_EDITOR_SITES: readonly FoundationTimeConversionSite[] = deepFreezeAuditSites([
 	{
+		id: 'source-selection-native-format-rewrite',
+		file: 'src/common/editor/controller/effects/internal/source-editor-effects.ts',
+		behavior: 'A source-format rewrite maps each selected native-frame boundary through its exact retained source-clock ratio and rounds once to the nearest destination source frame; inverse mappings preserve the selection through Undo and Redo.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
 		id: 'midi-warp-note-growth-extent',
 		file: 'src/common/editor/controller/track-audio/internal/midi-warp-note-growth.ts',
 		behavior: 'MIDI note growth preserves authored warp anchors and rounds its positive final-segment continuation outward to the enclosing sample endpoint; musical extents retain exact rational beats.',
