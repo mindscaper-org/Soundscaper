@@ -218,7 +218,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 					onCommit={value => editSelected({ pitch: value })} /></label>
 				<label>{copy.start}<MidiNoteNumberField key={`start:${activeNote?.id}`} min={0} step={0.001} disabled={disabled || !activeNote} value={activeNote ? activeNote.startFrame / sampleRate : ''}
 					onCommit={value => editSelected({ startFrame: Math.round(value * sampleRate) })} /></label>
-				<label>{copy.duration}<MidiNoteNumberField key={`duration:${activeNote?.id}`} min={1 / sampleRate} step={0.001} disabled={disabled || !activeNote} value={activeNote ? activeNote.durationFrames / sampleRate : ''}
+				<label>{copy.duration}<MidiNoteNumberField key={`duration:${activeNote?.id}`} min={0} step={0.001} disabled={disabled || !activeNote} value={activeNote ? activeNote.durationFrames / sampleRate : ''}
 					onCommit={value => editSelected({ durationFrames: Math.max(1, Math.round(value * sampleRate)) })} /></label>
 				<label>{copy.velocity}<MidiNoteNumberField key={`velocity:${activeNote?.id}`} min={1} max={127} step={1} disabled={disabled || !activeNote} value={activeNote?.velocity ?? ''}
 					onCommit={value => editSelected({ velocity: value })} /></label>

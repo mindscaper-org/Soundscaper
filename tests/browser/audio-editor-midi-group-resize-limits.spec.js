@@ -25,3 +25,35 @@ test('left resizing selected notes at source zero preserves their onset offsets'
 	await expect(panel.locator('.note-rect[data-note-id="1"]')).toHaveCSS('width', '62.5px');
 	await expect(laterNote).toHaveCSS('width', '62.5px');
 });
+
+test('right resizing selected notes shares the shortest-note limit without moving their onsets', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	const events = Buffer.from('00ff510307a12078903c648360803c008268903e648360803e0000ff2f00', 'hex');
+	const size = Buffer.alloc(4); size.writeUInt32BE(events.length);
+	const buffer = Buffer.concat([Buffer.from('4d546864000000060000000101e04d54726b', 'hex'), size, events]);
+	await importFiles(editor, [{ name: 'right-resize-group.mid', mimeType: 'audio/midi', buffer }]);
+	await chooseNestedCommandAction(page, editor, 'Window', ['Piano roll (beta)']);
+	const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
+	const fields = panel.getByRole('group', { name: 'Note editor', exact: true });
+	const selected = fields.getByRole('combobox', { name: 'Selected note', exact: true });
+	const duration = fields.getByRole('spinbutton', { name: 'Note duration (seconds)', exact: true });
+	await selected.selectOption({ index: 1 });
+	await duration.fill('0.0625'); await duration.press('Enter');
+	await expect(duration).toHaveValue('0.0625');
+	const later = panel.locator('.note-rect[data-note-id="2"]');
+	await later.click({ position: { x: 20, y: 5 } });
+	await page.keyboard.press('ControlOrMeta+a');
+	await expect(panel.locator('.note-rect--selected')).toHaveCount(2);
+	const bounds = await later.boundingBox();
+	if (!bounds) throw new Error('Later selected note is unavailable');
+	const x = bounds.x + bounds.width - 1, y = bounds.y + bounds.height / 2;
+	await page.mouse.move(x, y); await page.mouse.down();
+	await page.mouse.move(x - 25, y, { steps: 3 }); await page.mouse.up();
+	await expect(later).toHaveCSS('left', '100px');
+	await expect(later).toHaveCSS('width', '45.3125px');
+	await expect(panel.locator('.note-rect[data-note-id="1"]')).toHaveCSS('left', '12.5px');
+	await selected.selectOption({ index: 1 });
+	await expect(duration).toHaveValue('0.015625');
+	await selected.selectOption({ index: 2 });
+	await expect(duration).toHaveValue('0.453125');
+});

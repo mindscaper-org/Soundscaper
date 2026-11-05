@@ -27,7 +27,17 @@ test('selected left-edge resize stops before the shortest note disappears', asyn
 	assert.deepEqual(updates.map(update => update.startTime + update.duration), [0.1875, 1.5]);
 });
 
-async function resize(notes: MidiNote[], dx: number, triplet: boolean): Promise<MidiNote[]> {
+test('selected right-edge shrinking shares the shortest note limit without moving onsets', async () => {
+	const notes = [
+		{ id: 1, pitch: 60, velocity: 100, startTime: 0.125, duration: 0.0625, selected: true },
+		{ id: 2, pitch: 62, velocity: 100, startTime: 1, duration: 0.5, selected: true },
+	];
+	const updates = await resize(notes, -25, false, 'right');
+	assert.deepEqual(updates.map(note => note.startTime), [0.125, 1]);
+	assert.deepEqual(updates.map(note => note.duration), [0.015625, 0.453125]);
+});
+
+async function resize(notes: MidiNote[], dx: number, triplet: boolean, edge: 'left' | 'right' = 'left'): Promise<MidiNote[]> {
 	const dom = installReactTestDom();
 	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const previous = globals.IS_REACT_ACT_ENVIRONMENT; globals.IS_REACT_ACT_ENVIRONMENT = true;
@@ -49,12 +59,13 @@ async function resize(notes: MidiNote[], dx: number, triplet: boolean): Promise<
 	await act(async () => root.render(<NoteGrid clip={{ id: 1, name: 'Notes', start: 0, duration: 2, trimStart: 0, notes }}
 	width={800} height={200} bpm={120} beatsPerMeasure={4} pixelsPerSecond={100} scrollX={0} scrollY={1024}
 	noteHeight={16} snap={{ subdivision: 4, triplet }} timeBasis="beats" onAddNote={noop} onDeleteNotes={noop}
-	onUpdateNote={(id, changes) => { updates.set(id, changes); }} onMoveNotes={noop} onResizeNote={noop}
+	onUpdateNote={(id, changes) => { updates.set(id, changes); }} onMoveNotes={noop} onResizeNote={(id, duration) => { updates.set(id, { duration }); }}
 	onSelectNote={noop} onSelectNotes={noop} onDeselectAll={noop} onScrollYChange={noop} />));
 	const note = dom.one('[data-note-id="2"]'); note.getBoundingClientRect = () => ({ left: 100, width: 50 });
-	await act(async () => { reactProps(note).onMouseDown?.({ currentTarget: note, button: 0, clientX: 101, clientY: 10,
+	const pointerX = edge === 'right' ? 149 : 101;
+	await act(async () => { reactProps(note).onMouseDown?.({ currentTarget: note, button: 0, clientX: pointerX, clientY: 10,
 	preventDefault() {}, stopPropagation() {} }); });
-	await act(async () => { for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: 101 + dx, clientY: 10 } as MouseEvent); });
+	await act(async () => { for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: pointerX + dx, clientY: 10 } as MouseEvent); });
 	return notes.map(note => ({ ...note, ...updates.get(note.id) }));
 	} finally {
 	await act(async () => root.unmount());

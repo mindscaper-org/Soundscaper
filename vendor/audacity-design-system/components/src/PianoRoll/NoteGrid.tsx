@@ -1,7 +1,7 @@
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { useTheme } from '../ThemeProvider/ThemeProvider';
 import { NoteGridCanvas } from './NoteGridCanvas';
-import { NoteRect } from '../NoteRect/NoteRect';
+import { MIN_NOTE_WIDTH, NoteRect } from '../NoteRect/NoteRect';
 import type { NoteEdge } from '../NoteRect/NoteRect';
 import { TOTAL_PITCHES, NOTE_MOVE_THRESHOLD, DEFAULT_VELOCITY, MIN_PPS, MAX_PPS, CLIP_BOUNDARY_THRESHOLD } from './constants';
 import type { NoteGridProps } from './types';
@@ -303,7 +303,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
           for (const { note, globalTimeOffset } of allNotes) {
             const nx = (note.startTime + globalTimeOffset) * view.pixelsPerSecond - view.scrollX;
             const ny = (TOTAL_PITCHES - 1 - note.pitch) * view.noteHeight - view.scrollY;
-            const nw = note.duration * view.pixelsPerSecond;
+            const nw = Math.max(MIN_NOTE_WIDTH, note.duration * view.pixelsPerSecond);
             const nh = view.noteHeight;
 
             // AABB overlap test
@@ -481,12 +481,13 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
         // Compute snapped duration from the anchor note, apply same delta to all
         const anchor = drag.initials.find(i => i.id === drag.noteId)!;
         const anchorNewDuration = Math.max(minDuration, snapTime(anchor.duration + deltaTime));
-        const durationDelta = anchorNewDuration - anchor.duration;
+        let shortest = Infinity;
+        for (const init of drag.initials) shortest = Math.min(shortest, init.duration);
+        const durationDelta = Math.max(Math.min(0, minDuration - shortest), anchorNewDuration - anchor.duration);
         for (const init of drag.initials) {
-          const newDur = Math.max(minDuration, init.duration + durationDelta);
-          onResizeNote(init.id, newDur);
+          onResizeNote(init.id, init.duration + durationDelta);
         }
-        lastResizeDuration = anchorNewDuration;
+        lastResizeDuration = anchor.duration + durationDelta;
       } else if (drag.type === 'resize-left') {
         const minDuration = (60 / bpm) / 32;
         // Compute snapped start delta from the anchor note, apply same shift to all
@@ -626,7 +627,6 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
         width,
         height,
         overflow: 'hidden',
-        outline: 'none',
         cursor: gridCursor,
       }}
       tabIndex={0}
@@ -656,7 +656,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
       {allNotes.map(({ note, globalTimeOffset }) => {
         const x = (note.startTime + globalTimeOffset) * pixelsPerSecond - scrollX;
         const y = (TOTAL_PITCHES - 1 - note.pitch) * noteHeight - scrollY;
-        const w = note.duration * pixelsPerSecond;
+        const w = Math.max(MIN_NOTE_WIDTH, note.duration * pixelsPerSecond);
 
         // Cull offscreen notes
         if (x + w < 0 || x > width || y + noteHeight < 0 || y > height) return null;

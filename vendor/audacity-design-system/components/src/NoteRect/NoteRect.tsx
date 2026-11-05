@@ -5,6 +5,7 @@ import './NoteRect.css';
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const EDGE_THRESHOLD = 4; // px from left/right edge to trigger resize cursor
+export const MIN_NOTE_WIDTH = 4;
 
 function labelColor(fill: string): string {
   const channels = [1, 3, 5].map(offset => {
@@ -130,7 +131,7 @@ export const NoteRect: React.FC<NoteRectProps> = ({
     '--note-border-selected': pr.noteBorderSelected,
     left: x,
     top: y + 1,
-    width: Math.max(width, 4),
+    width: Math.max(width, MIN_NOTE_WIDTH),
     height: height - 2,
     cursor: ghost ? 'default' : cursor,
     opacity: ghost ? 0.35 : 1,
