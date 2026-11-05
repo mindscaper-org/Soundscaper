@@ -52,6 +52,8 @@ export interface MixerChannelProps {
   pan?: number;
   /** Pan is unavailable when the host must preserve native channel identity. */
   panDisabled?: boolean;
+  /** Project mutations are unavailable; effect inspection remains available. */
+  disabled?: boolean;
   /**
    * Whether the channel is muted
    * @default false
@@ -138,6 +140,7 @@ export const MixerChannel: React.FC<MixerChannelProps> = ({
   volume = -6,
   pan = 0,
   panDisabled = false,
+  disabled = false,
   muted = false,
   soloed = false,
   meterLeft = 0,
@@ -198,6 +201,7 @@ export const MixerChannel: React.FC<MixerChannelProps> = ({
               key={i}
               effectName={effect.name}
               enabled={effect.enabled}
+              disabled={disabled}
               trackColor={resolvedTrackColor}
               onToggle={effect.onToggle}
               onDropdownClick={effect.onDropdownClick}
@@ -208,7 +212,7 @@ export const MixerChannel: React.FC<MixerChannelProps> = ({
           ))}
           {/* Fill remaining slots with empties to match effectSlotCount */}
           {Array.from({ length: Math.max(0, effectSlotCount - effects.length) }, (_, i) => (
-            <MixerEffect key={`empty-${i}`} onDropdownClick={onAddEffect} />
+            <MixerEffect key={`empty-${i}`} onDropdownClick={onAddEffect} disabled={disabled} />
           ))}
         </div>
 
@@ -220,7 +224,7 @@ export const MixerChannel: React.FC<MixerChannelProps> = ({
         <div className="mixer-channel__pan-row">
           <PanKnob
             value={pan}
-            disabled={panDisabled}
+            disabled={disabled || panDisabled}
             defaultValue={0}
             label={copy.pan}
             onChange={onPanChange}
@@ -265,6 +269,7 @@ export const MixerChannel: React.FC<MixerChannelProps> = ({
               })}
             </div>
             <MixerFader
+              disabled={disabled}
               value={volume}
               min={FADER_MIN}
               max={FADER_MAX}
@@ -314,6 +319,7 @@ export const MixerChannel: React.FC<MixerChannelProps> = ({
           <button
             className={`mixer-channel__toggle-btn ${muted ? 'mixer-channel__toggle-btn--mute-active' : ''}`}
             onClick={onMuteToggle}
+            disabled={disabled}
             aria-label={copy.mute}
             aria-pressed={muted}
           >
@@ -322,6 +328,7 @@ export const MixerChannel: React.FC<MixerChannelProps> = ({
           <button
             className={`mixer-channel__toggle-btn ${soloed ? 'mixer-channel__toggle-btn--solo-active' : ''}`}
             onClick={onSoloToggle}
+            disabled={disabled}
             aria-label={copy.solo}
             aria-pressed={soloed}
           >

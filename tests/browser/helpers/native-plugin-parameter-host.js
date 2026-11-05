@@ -19,7 +19,7 @@ export async function openInstalledGain(page, options = {}) {
 /** Desktop host fixture over the production preload relay and plug-in RPC port. */
 export async function installNativePluginParameterHost(page, options = {}) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(({ parameterCount, holdParameterReads, parameterLabel, vendorUi }) => {
+	await page.addInitScript(({ parameterCount, holdParameterReads, parameterLabel, vendorUi, allowBypass }) => {
 		const format = vendorUi ? 'clap' : 'ladspa';
 		const values = Array.from({ length: parameterCount }, () => .25);
 		const heldParameterReplies = [];
@@ -30,6 +30,7 @@ export async function installNativePluginParameterHost(page, options = {}) {
 		const stateBodies = new Map();
 		let delay = 0;
 		let persisted = 0;
+		let bypassed = false;
 		const encoder = new TextEncoder();
 		const hex = (bytes) => Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, '0')).join('');
 		const digest = async (bytes) => hex(await crypto.subtle.digest('SHA-256', bytes));
@@ -41,7 +42,7 @@ export async function installNativePluginParameterHost(page, options = {}) {
 		const binaryHash = digest(encoder.encode('Installed test gain plug-in, version 1'));
 		const instance = async (instanceId) => ({ instanceId, entryId: 'gain', stablePluginId: 'org.test.gain',
 			format, binarySha256: await binaryHash, inputChannels: 2, outputChannels: 2,
-			state: 'ready', enabled: true, bypassed: false, latencySamples: 0 });
+			state: 'ready', enabled: true, bypassed, latencySamples: 0 });
 		const refused = async () => { throw new Error('This host fixture does not offer that operation.'); };
 		const quarantine = { loaded: true, degraded: false, records: [], pendingFaults: 0 };
 		const registry = { entries: [{ entryId: 'gain', format: format.toUpperCase(), name: 'Test Gain', vendor: 'Test host',
@@ -54,6 +55,7 @@ export async function installNativePluginParameterHost(page, options = {}) {
 			values, writes, requests, scans, setDelay: (milliseconds) => { delay = milliseconds; },
 			releaseParameterReads: () => { readsHeld = false; for (const reply of heldParameterReplies.splice(0)) reply(); },
 			get persisted() { return persisted; },
+			get bypassed() { return bypassed; },
 		} });
 		const bridge = {
 			getExternalFfmpegStatus: async () => ({ state: 'unconfigured', location: null, version: null, detail: '',
@@ -127,7 +129,8 @@ export async function installNativePluginParameterHost(page, options = {}) {
 					reportedLatencyFrames: 0 } }, '*', [channel.port2]);
 				return instance(instanceId);
 			},
-			runNativePluginOffline: refused, setNativePluginBypassed: refused,
+			runNativePluginOffline: refused, setNativePluginBypassed: allowBypass
+				? async ({ instanceId, bypassed: next }) => { bypassed = next; return instance(instanceId); } : refused,
 			persistNativePluginState: async ({ instanceId, bytes, authentication }) => {
 				const expected = await authenticate(authentication.requestId, bytes);
 				if (JSON.stringify(authentication) !== JSON.stringify(expected)) throw new Error('Unauthenticated plug-in state.');
@@ -153,5 +156,5 @@ export async function installNativePluginParameterHost(page, options = {}) {
 		};
 		Object.defineProperty(globalThis, 'soundscaperDesktop', { configurable: true, value: Object.freeze({ v1: bridge }) });
 	}, { parameterCount: options.parameterCount ?? 1, holdParameterReads: options.holdParameterReads === true,
-		parameterLabel: options.parameterLabel ?? '', vendorUi: options.vendorUi === true });
+		parameterLabel: options.parameterLabel ?? '', vendorUi: options.vendorUi === true, allowBypass: options.allowBypass === true });
 }
