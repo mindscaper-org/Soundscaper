@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { WebVcrHandshake } from '../../framescaper-web-vcr-controller-types.ts';
 import type { CapturePhase } from '../../../../framescaper-capture-domain.ts';
-import type { WebVcrCapability } from '../../../../web-vcr-domain.ts';
+import { WEB_VCR_RESOLUTIONS, type WebVcrCapability } from '../../../../web-vcr-domain.ts';
 
 export async function settleFramescaperWebVcrGuestClose(options: Readonly<{
 	phase: string;
@@ -29,4 +30,15 @@ export function framescaperCaptureWorkActive(phase: CapturePhase): boolean {
 
 export function webVcrErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+export function acceptedWebVcrCapability(handshake: Readonly<WebVcrHandshake>): WebVcrCapability {
+	if (handshake.version !== 1 || handshake.capability.status === 'checking') {
+		throw new Error('Web VCR desktop handshake is incomplete.');
+	}
+	return handshake.capability.status === 'available'
+		? Object.freeze({ status: 'available', resolutions: Object.freeze(
+			handshake.capability.resolutions.filter(value => WEB_VCR_RESOLUTIONS.includes(value)),
+		) })
+		: handshake.capability;
 }

@@ -136,7 +136,6 @@
 		"tests/audio-editor-framescaper-capture-creation-recovery.test.ts": 566,
 		"tests/audio-editor-framescaper-capture-durable-session.test.ts": 585,
 		"tests/audio-editor-framescaper-video-proxy-actions.test.ts": 560,
-		"tests/audio-editor-framescaper-web-vcr-controller.test.ts": 600,
 		"tests/audio-editor-linked-audio-range-source-reader.test.ts": 568,
 		"tests/audio-editor-linked-original-provisional-root-writers.test.ts": 559,
 		"tests/audio-editor-local-assistance-guided-result-acceptance.test.ts": 562,
