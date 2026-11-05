@@ -85,11 +85,12 @@ function createDesktopCaptureSelection(
 		get mode() { return mode; },
 		async listSources() {
 			if (mode !== 'source-list') throw new Error('Desktop source listing is unavailable.');
-			generation += 1;
-			const listed = await bridge.listSources(generation);
-			if (listed.generation !== generation) throw new Error('Desktop source inventory generation changed.');
-			inventoryGeneration = generation;
-			currentGeneration = generation;
+			const requestedGeneration = ++generation;
+			const listed = await bridge.listSources(requestedGeneration);
+			if (requestedGeneration !== generation) throw new DOMException('Desktop source inventory was superseded.', 'AbortError');
+			if (listed.generation !== requestedGeneration) throw new Error('Desktop source inventory generation changed.');
+			inventoryGeneration = requestedGeneration;
+			currentGeneration = requestedGeneration;
 			return listed.sources;
 		},
 		async authorize(request: Parameters<FramescaperCaptureDisplaySelectionPort['authorize']>[0]) {
