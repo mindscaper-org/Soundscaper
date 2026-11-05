@@ -7,6 +7,8 @@ import { Button } from '@soundscaper/design-system/Button';
 import { TrackFadeHandleGlyph } from '@soundscaper/design-system/Track/TrackFadeHandle';
 import { AUDIO_EDITOR_SAMPLE_RATE, findClip, findClipTrack, findSource } from '../../project.js';
 import { readClipLoop } from '../../audio-clip-loop.ts';
+import { collectClipTransformIds, collectClipTrimIds } from '../../commands/clip-basic-runtime.js';
+import { clipGestureBlocked } from '../timeline/clip-gesture-admission.ts';
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
 import EditorMusicalTimeCodeProvider from '../EditorMusicalTimeCodeProvider.tsx';
 import { selectAudioEditorEditBlock } from '../edit-blocking.ts';
@@ -55,6 +57,9 @@ export default function ClipPropertiesBody({ controller, snapshot, copy, clipId 
 	const blocked = selectAudioEditorEditBlock(snapshot).blocked;
 	const disabled = blocked || !clip || track?.locked === true;
 	const isVideoClip = clip?.kind === 'video';
+	const moveDisabled = disabled || clipGestureBlocked(project, collectClipTransformIds(project, clip.id));
+	const durationDisabled = disabled || (isVideoClip && !readClipLoop(clip)
+		&& clipGestureBlocked(project, collectClipTrimIds(project, clip.id, 'right')));
 	const [error, setError] = usePresentationFeedback(copy);
 	const reportError = cause => { if (onError) onError(cause); else setError(feedbackFailure(cause)); };
 	const [resampleOpen, setResampleOpen] = useState(false);
@@ -98,6 +103,7 @@ export default function ClipPropertiesBody({ controller, snapshot, copy, clipId 
 
 	const commitField = (name, rawValue) => {
 		if (!clip || !track || disabled || !ownsTarget()) return false;
+		if ((name === 'startFrame' && moveDisabled) || (name === 'durationFrame' && durationDisabled)) return false;
 		try {
 			if (name === 'name') {
 				const title = clipRenameTitle(rawValue, displayedName);
@@ -176,14 +182,14 @@ export default function ClipPropertiesBody({ controller, snapshot, copy, clipId 
 					<CommitField label={copy.clipName} name="name" value={displayedName} multiline={/[\r\n]/u.test(displayedName)} multilineCommitOnEnter disabled={disabled} onCommit={commitField} />
 					<div className="audio-editor-clip-properties__time-grid">
 						<ClipTimeCodeField name="startFrame" label={copy.clipStart} value={clip?.timelineStartFrame ?? 0}
-							sampleRate={sampleRate} frameRate={frameRate} disabled={disabled}
+							sampleRate={sampleRate} frameRate={frameRate} disabled={moveDisabled}
 							onCommit={(value) => commitField('startFrame', value)} />
 						<ClipSourceInTimeCodeField label={copy.clipIn} value={clip?.sourceStartFrame ?? 0}
 							source={source} sampleRate={source?.sampleRate || sampleRate} frameRate={frameRate} disabled={disabled}
 							onCommit={(value) => commitField('sourceInFrame', value)} />
 						<ClipTimeCodeField name="durationFrame" label={copy.clipDuration} value={clip?.durationFrames ?? 1}
 							controller={controller} musicalOriginFrame={clip?.timelineStartFrame ?? 0}
-							sampleRate={sampleRate} frameRate={frameRate} minimum={1} disabled={disabled}
+							sampleRate={sampleRate} frameRate={frameRate} minimum={1} disabled={durationDisabled}
 							onCommit={(value) => commitField('durationFrame', value)} />
 						{!isVideoClip && source && (
 							<ClipSourceFactRow name="sampleRate" label={copy.sampleRateHz} value={source.sampleRate}
