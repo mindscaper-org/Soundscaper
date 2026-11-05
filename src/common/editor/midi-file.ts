@@ -15,7 +15,7 @@ import { midiPortEvents, type MidiPortTickEvent as TickEvent } from './midi-file
 
 // Independent implementation of Standard MIDI Files 1.0 (MIDI Association RP-001).
 // https://midi.org/standard-midi-files
-interface TickTrack { readonly name: string; readonly events: readonly TickEvent[]; readonly endTick: number }
+interface TickTrack { readonly name: string; readonly events: readonly TickEvent[]; readonly endTick: number; readonly named: boolean }
 const textDecoder = new TextDecoder();
 const textEncoder = new TextEncoder();
 
@@ -48,6 +48,7 @@ function parseTrack(bytes: Uint8Array, index: number, budget: { count: number })
 	let tick = 0;
 	let runningStatus = 0;
 	let name = `MIDI ${index + 1}`;
+	let named = false;
 	while (reader.position < bytes.length) {
 		if (++budget.count > MIDI_FILE_MAX_EVENTS) throw new RangeError('MIDI file contains too many events.');
 		tick += reader.variable();
@@ -72,9 +73,9 @@ function parseTrack(bytes: Uint8Array, index: number, budget: { count: number })
 			if (metaType === 47) {
 				if (data.length) throw new RangeError('Invalid MIDI end-of-track event.');
 				if (reader.position !== bytes.length) throw new RangeError('MIDI track contains data after end-of-track.');
-				return { name, events, endTick: tick };
+				return { name, events, endTick: tick, named };
 			}
-			if (metaType === 3) name = decodeMidiFileText(Uint8Array.from(data));
+			if (metaType === 3) { name = decodeMidiFileText(Uint8Array.from(data)); named = true; }
 			else if (status !== 247 || data.length) events.push({ tick, status, data, ...(metaType === undefined ? {} : { metaType }) });
 		}
 	}
@@ -172,7 +173,7 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 		}
 		notes.sort((a, b) => a.startFrame - b.startFrame || a.pitch - b.pitch);
 		return { name: track.name, notes, durationFrames: tickToFrame(track.endTick), ...(events.length ? { events } : {}),
-			...(track.events.length && track.events.every(event => event.metaType === 81 || event.metaType === 88) ? { conductorOnly: true as const } : {}),
+			...(!track.named && track.events.length && track.events.every(event => event.metaType === 81 || event.metaType === 88) ? { conductorOnly: true as const } : {}),
 			...(notes.length ? { noteDestinations: midiFileNoteDestinations(track.events) } : {}) };
 	});
 	if (!signatures.some(signature => signature.frame === 0)) signatures.unshift({ frame: 0, numerator: 4, denominator: 4 });
