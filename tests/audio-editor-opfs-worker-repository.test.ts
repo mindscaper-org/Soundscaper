@@ -238,6 +238,63 @@ test('OPFS repository routes all six frozen operation classes through the detect
 	assert.equal(worker.closed, 1);
 });
 
+test('OPFS orphan cleanup reads timestamps in the worker and retains current or referenced files', async () => {
+	const worker = new MemorySyncWorker();
+	for (const path of ['stale', 'retained', 'fresh']) worker.files.set(path, Uint8Array.of(1));
+	worker.snapshot = async (operationId, path) => {
+		worker.calls.push({ type: 'snapshot', operationId, path });
+		return new File([exactBuffer(worker.files.get(path)!)], path, { lastModified: path === 'fresh' ? 100 : 0 });
+	};
+	const mainThreadReads: string[] = [];
+	const directory = {
+		async *entries() {
+			for (const path of [...worker.files.keys()]) yield [path, {
+				kind: 'file',
+				async getFile() {
+					mainThreadReads.push(path);
+					throw new Error('Orphan timestamps must be read in the OPFS worker.');
+				},
+			}];
+		},
+	} as unknown as FileSystemDirectoryHandle;
+	const repository = new OpfsRepository({
+		preferOpfs: true,
+		opfsRoot: { async getDirectoryHandle() { return directory; } } as unknown as FileSystemDirectoryHandle,
+		syncWorkerClient: worker,
+	});
+	try {
+		await repository.cleanupOrphans(new Set(['retained']), 100);
+		assert.deepEqual(mainThreadReads, []);
+		assert.deepEqual([...worker.files.keys()], ['retained', 'fresh']);
+		assert.deepEqual(worker.calls.filter(call => call.type === 'snapshot').map(call => call.path), ['stale', 'fresh']);
+	} finally {
+		repository.close();
+	}
+});
+
+test('OPFS orphan cleanup preserves the async timestamp fallback without worker support', async () => {
+	const removed: string[] = [];
+	const directory = {
+		async *entries() {
+			for (const name of ['stale', 'retained', 'fresh']) yield [name, {
+				kind: 'file', async getFile() { return new File([], name, { lastModified: name === 'fresh' ? 100 : 0 }); },
+			}];
+		},
+		async removeEntry(name: string) { removed.push(name); },
+	} as unknown as FileSystemDirectoryHandle;
+	const repository = new OpfsRepository({
+		preferOpfs: true,
+		opfsRoot: { async getDirectoryHandle() { return directory; } } as unknown as FileSystemDirectoryHandle,
+		syncWorkerClient: null,
+	});
+	try {
+		await repository.cleanupOrphans(new Set(['retained']), 100);
+		assert.deepEqual(removed, ['stale']);
+	} finally {
+		repository.close();
+	}
+});
+
 test('OPFS repository preserves the asynchronous correctness path when the worker is unavailable', async () => {
 	let stored = new Blob();
 	let asyncWrites = 0;
