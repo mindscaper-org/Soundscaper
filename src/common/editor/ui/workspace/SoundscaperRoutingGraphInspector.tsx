@@ -183,7 +183,7 @@ function VcaInspector(props: SoundscaperRoutingGraphInspectorProps & Readonly<{ 
 	const members = new Set(vca.members.map(routingEndpointValue));
 	return <>
 		<h3>{vca.name || vca.id}</h3><p>{copy.vca} · {vca.members.length} {copy.members}</p>
-		<RoutingInspectorForm owner={vca.id} savedValues={{ name: vca.name, gain: vca.gain, mute: vca.mute, member: [...members] }} onSubmit={(event) => {
+		<RoutingInspectorForm owner={vca.id} continuousNumbers={['gain']} savedValues={{ name: vca.name, gain: vca.gain, mute: vca.mute, member: [...members] }} onSubmit={(event) => {
 			event.preventDefault();
 			if (disabled) return;
 			const data = new FormData(event.currentTarget);
