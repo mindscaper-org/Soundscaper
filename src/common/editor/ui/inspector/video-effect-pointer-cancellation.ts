@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-/** Native range inputs can keep emitting changes after a canceled drag. */
+/** Native form inputs can keep emitting changes after a canceled pointer edit. */
 export function createVideoEffectPointerCancellation() {
 	let held = false;
 	let canceled = false;
