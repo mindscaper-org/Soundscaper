@@ -6,6 +6,7 @@ import { midiInitialTimingEvent } from './midi-initial-timing.ts';
 import { midiClipOccurrences } from './midi-project-source-projection.ts';
 import { createMidiClipEventProjection } from './midi-project-event-projection.ts';
 import { createMidiClipNoteProjection } from './midi-project-note-projection.ts';
+import { assertMidiClipTailBoundaries, type MidiClipTailBoundary } from './midi-project-clip-tail-boundaries.ts';
 
 interface MidiExportProject extends Readonly<Record<string, unknown>> {
 	readonly sampleRate: number;
@@ -33,6 +34,7 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 		}
 	};
 	const clipsById = new Map(project.clips.map(clip => [String(clip.id), clip]));
+	const boundaries: MidiClipTailBoundary[] = [];
 	const tracks = project.tracks.flatMap(track => {
 		const metadata = readMidiTrack(track);
 		if (!metadata) return [];
@@ -52,8 +54,11 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 				&& importedRootSignature.denominator === timing.signatures[0]!.denominator;
 			if (preserveSignatures && !preservedRootSignature) preservedRootSignature = importedRootSignature;
 			let occurrence = 0;
+			const firstNote = notes.length;
+			let clipEnd = 0;
 			for (const { start, sourceFrames, timelineStart, timelineEnd, global, initializePerformance } of midiClipOccurrences(projectionProject, persistedClip)) {
 				durationFrames = Math.max(durationFrames, timelineEnd);
+				clipEnd = Math.max(clipEnd, timelineEnd);
 				const prefix = `${String(persistedClip.id)}${occurrence ? `:loop-${occurrence}` : ''}`;
 				occurrence += 1;
 				for (const note of noteProjection(start, sourceFrames, global)) {
@@ -74,6 +79,7 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 					addTiming(signatures, visible);
 				}
 			}
+			if (notes.length > firstNote) boundaries.push({ notes: notes.slice(firstNote), events, endFrame: clipEnd });
 		}
 		return [{ name: String(track.name), notes, events, durationFrames, ...(metadata.program === undefined ? {} : { program: metadata.program }) }];
 	});
@@ -82,6 +88,7 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 	signatures.set(0, { ...preservedRootSignature, ...timing.signatures[0]! });
 	const document = { sampleRate: project.sampleRate, tracks, tempos: [...tempos.values()].sort(byFrame), signatures: [...signatures.values()].sort(byFrame) };
 	validateMidiFileDocument(document);
+	assertMidiClipTailBoundaries(document, boundaries);
 	return document;
 }
 
