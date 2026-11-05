@@ -41,6 +41,7 @@ export interface ProjectBinPreviewEngine {
 	): unknown;
 	setSourceResolver?(resolver?: EngineSourceResolver | null): unknown;
 	play(): Promise<void>;
+	getState?(): Readonly<{ state: string }>;
 	pause(): void;
 	stop?(): void;
 	dispose?(): Promise<void> | void;
@@ -255,10 +256,12 @@ export function createProjectBinPreviewService(
 	function handlePreviewState(engine: ProjectBinPreviewEngine | null, state: string): void {
 		const active = dependencies.getPreview();
 		if (!engine || previewEngine !== engine || dependencies.lifetime.inactive
-			|| !active || (active.kind !== 'audio' && !active.audioSourceId) || state === 'playing') return;
+			|| !active || (active.kind !== 'audio' && !active.audioSourceId)) return;
+		if (state === 'playing' && (active.state !== 'paused'
+			|| (engine.getState && engine.getState().state !== 'playing'))) return;
 		dependencies.setPreview(Object.freeze({
 			...active,
-			state: state === 'paused' ? 'paused' : 'stopped',
+			state: state === 'playing' ? 'playing' : state === 'paused' ? 'paused' : 'stopped',
 		}));
 		dependencies.publish();
 	}

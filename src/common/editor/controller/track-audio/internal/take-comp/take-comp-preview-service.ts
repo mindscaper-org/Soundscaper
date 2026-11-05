@@ -26,6 +26,7 @@ export interface TakeCompPreviewEngine {
 	): unknown;
 	setSourceResolver?(resolver?: EngineSourceResolver | null): unknown;
 	play(): Promise<void>;
+	getState?(): Readonly<{ state: string }>;
 	pause(): void;
 	stop?(): void;
 	dispose?(): Promise<void> | void;
@@ -212,10 +213,12 @@ export function createTakeCompPreviewService(
 	}
 
 	function handleEngineState(source: TakeCompPreviewEngine | null, state: string): void {
-		if (!source || engine !== source || !active || state === 'playing') return;
+		if (!source || engine !== source || !active) return;
+		if (state === 'playing' && (active.state !== 'paused'
+			|| (source.getState && source.getState().state !== 'playing'))) return;
 		active = Object.freeze({
 			...active,
-			state: state === 'paused' ? 'paused' : 'stopped',
+			state: state === 'playing' ? 'playing' : state === 'paused' ? 'paused' : 'stopped',
 		});
 		if (active.state === 'stopped') releaseTask?.();
 	}

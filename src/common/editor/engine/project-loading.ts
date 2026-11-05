@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { resolveAdmEbuChannelWeights } from '../loudness-channel-layout.ts';
+import { isBorrowedRealtimeContext } from './realtime-context-custody.ts';
 import { clearPreparedAudioWarpPlayback } from './audio-warp-fallback.ts';
 import { getProjectDurationFrames, getProjectTimelineDurationFrames, normalizeLoop } from './buffer-math.ts';
 import { configureMasterLoudnessMeterChannelCount, configureNativeSurroundDestination } from '../surround-monitoring.ts';
@@ -31,10 +32,10 @@ loadProject(project, sourceBuffers = new Map(), options = {}) {
 		this.projectGraphSelection = runtimeProject
 			? options.graph ?? resolveProjectGraphSelection(runtimeProject)
 			: null;
-		if (this.context && runtimeProject) {
+		if (this.context && runtimeProject && !isBorrowedRealtimeContext(this, this.context)) {
 			configureNativeSurroundDestination(this.context.destination, Number(runtimeProject.masterChannels) || 2);
 		}
-		const meterChannelCount = this.context && runtimeProject
+		const meterChannelCount = this.context && runtimeProject && !isBorrowedRealtimeContext(this, this.context)
 			? configureMasterLoudnessMeterChannelCount(this.context.destination, runtimeProject.masterChannels)
 			: null;
 		const runtimeMetadata = runtimeProject?.metadata;

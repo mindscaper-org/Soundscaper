@@ -34,6 +34,17 @@ interface PreparedSession {
 }
 
 const ROUTES = new WeakMap<BaseAudioContext, Readonly<{ node: AudioNode; channelCount: number }>>();
+const routeListeners = new Set<(context: BaseAudioContext) => void>();
+
+/** Auditions retain their own graph while following the owning native session. */
+export function observeSoundscaperNativeAudioOutputs(listener: (context: BaseAudioContext) => void): () => void {
+	routeListeners.add(listener);
+	return () => { routeListeners.delete(listener); };
+}
+
+function publishOutputRoute(context: BaseAudioContext): void {
+	for (const listener of routeListeners) listener(context);
+}
 
 /** Live project graphs consult this only for output/duplex sessions. */
 export function soundscaperNativeAudioDestination(context: BaseAudioContext, fallback: AudioNode): AudioNode {
@@ -96,6 +107,7 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 			session.attachment.resolve();
 			if (session.direction !== 'input') {
 				ROUTES.set(session.context, Object.freeze({ node: session.node, channelCount: session.channelCount }));
+				publishOutputRoute(session.context);
 				void restartIfPlaying(options.engine).catch(() => undefined);
 			}
 		} else session.attachment.reject(new Error(outcome.message));
@@ -118,6 +130,7 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 			}
 			if (ROUTES.get(current.context)?.node === current.node) {
 				ROUTES.delete(current.context);
+				publishOutputRoute(current.context);
 				outputReleased = true;
 			}
 			current.capture?.revoke('session-closed');

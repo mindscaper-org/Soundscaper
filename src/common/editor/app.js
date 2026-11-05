@@ -153,7 +153,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		clipTimePitchSourceResolver, ffmpeg, nyquistClient, nyquistEvaluator, playAtSpeedPitchPreserver,
 	} = createControllerResources(options, {
 		copy, onPosition: updatePlayhead, onMeter: bindings.updateMeters, onState: bindings.updateTransportState,
-		setStatus: bindings.setStatus, updateExportProgress: bindings.updateExportProgress,
+		setStatus: bindings.setStatus, updateExportProgress: bindings.updateExportProgress, getPlaybackOutputDevice: () => state.preferredOutputDeviceId,
 	});
 	const defaultOptimizationMode = fileService.isDesktop ? 'speed' : 'memory', defaultWaveformRenderer = fileService.isDesktop ? 'gpu' : undefined, sessionController = bindSessionHistoryAdmission(rawSessionController, (value) => projectRuntime.createHistory(value).present);
 	const currentTimeMs = typeof options.now === 'function' ? options.now : () => Date.now();

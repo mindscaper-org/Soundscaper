@@ -11,6 +11,7 @@ import {
 	createRecordingPreferenceActionFacade,
 } from '../recording/recording-action-facade.ts';
 import { createClipSpreadsheetAction } from './internal/clip-spreadsheet-action.ts';
+import { createAuditionOutputActions } from './internal/audition-output-actions.ts';
 import { createMidiActionGroup } from './midi-action-group.ts';
 import { createMixerParameterActions } from './internal/mixer-parameter-actions.ts';
 import { createProjectOwnedFeatureActionFacades } from './internal/project-owned-feature-action-facades.ts';
@@ -62,8 +63,8 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	resizeTrackHeight, fitTrackHeights, runNyquistEvaluation, saveAup3, saveAup4, saveNow, saveScape, saveProjectFile, prepareFileClose,
 	selection, sessionTab,
 	setAllTracksView, setAudacityControlTrack, setAudacityEffectParamsFromController,
-	setAudioOutputDevice, setAutoFitTrackHeight, setClipTimePitch, setClipsTimePitch, setLoopRegion, setLoopRegionInOut, setStatus,
-	setLoopRegionToSelection, setPlayAtSpeedRate, setPreferredInputChannelCount, setRecordingSampleRate, setHostInventory,
+	setAutoFitTrackHeight, setClipTimePitch, setClipsTimePitch, setLoopRegion, setLoopRegionInOut, setStatus,
+	setLoopRegionToSelection, setPlayAtSpeedRate, setPreferredInputChannelCount, setRecordingSampleRate,
 	setPreferredInputDevice, setSampleEditMode, setSelectionToLoopRegion,
 	effectPreviewState, effectSelectionService, setTimelineView, setTimelineViewportWidth,
 	setTrackChannelHeightRatio, setTrackDisplayMode,
@@ -277,13 +278,8 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			setPreferredInput: setPreferredInputDevice,
 			setPreferredInputChannelCount,
 			setRecordingSampleRate,
-			setHostInventory,
+			...createAuditionOutputActions(scope),
 			configureDisplayInput,
-			setOutput: async (...args: Parameters<typeof setAudioOutputDevice>) => {
-				const deviceId = await setAudioOutputDevice(...args);
-				await scope.playbackPreviews?.setOutput(engine.getOutputDeviceState?.().preferredDeviceId ?? deviceId);
-				return deviceId;
-			},
 			setPlaybackGain: (gain: number) => {
 				const value = engine.setPlaybackGain(Number(gain));
 				scope.playbackPreviews?.setGain(value);
