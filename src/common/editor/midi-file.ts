@@ -11,7 +11,7 @@ import { midiFileNoteReleaseId, midiFileNoteReleases } from './midi-file-note-re
 import { createMidiFileNoteOrderGuard } from './midi-file-note-order.ts';
 import { decodeMidiFileText } from './midi-file-text.ts';
 import { roundRational } from './timeline-time.ts';
-import { midiFileNoteDestinations } from './midi-file-destinations.ts';
+import { assertMidiFileProgramOrder, assertMidiFileWrittenProgramOrder, midiFileNoteDestinations } from './midi-file-destinations.ts';
 import { midiPortEvents, midiTextChannelEvents, type MidiPortTickEvent as TickEvent } from './midi-file-port-events.ts';
 
 // Independent implementation of Standard MIDI Files 1.0 (MIDI Association RP-001).
@@ -143,6 +143,7 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 	};
 	const signatures: MidiFileSignature[] = [];
 	const releases = midiFileNoteReleases(tracks);
+	assertMidiFileProgramOrder(tracks, tickToFrame, releases, () => createMidiFileWriteClock(tempos, sampleRate, 9600).tick);
 	const result = tracks.map((track, trackIndex) => {
 		const notes: MidiNote[] = [];
 		const events: MidiFileEvent[] = [];
@@ -274,6 +275,7 @@ export function writeMidiFile(document: MidiFileDocument): Uint8Array<ArrayBuffe
 	const division = 9600;
 	const clock = createMidiFileWriteClock(document.tempos, document.sampleRate, division);
 	const tick = clock.tick;
+	assertMidiFileWrittenProgramOrder(document, tick);
 	const conductor: TickEvent[] = clock.tempos.map(tempo => ({ tick: tempo.tick, status: 255, metaType: 81, data: uint32Bytes(tempo.micros).slice(1) }));
 	for (const signature of document.signatures) conductor.push({ tick: tick(signature.frame), status: 255, metaType: 88,
 		data: [signature.numerator, Math.log2(signature.denominator), signature.clocksPerMetronomeClick ?? 24, signature.notated32ndNotesPerQuarter ?? 8] });
