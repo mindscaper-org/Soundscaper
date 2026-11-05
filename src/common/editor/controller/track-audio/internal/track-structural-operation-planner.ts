@@ -29,6 +29,7 @@ export type TrackAlignmentMode =
 	| 'end-selection-end';
 
 export type TrackSortCriterion = 'time' | 'name';
+export interface TrackSortOptions { readonly nativeSort?: boolean }
 
 export interface TrackAlignmentTransform {
 	readonly clipId: string;
@@ -150,6 +151,7 @@ export function planTrackAlignment(
 export function planTrackSort(
 	project: ControllerProject,
 	criterion: TrackSortCriterion,
+	options: TrackSortOptions = {},
 ): readonly StructuralCommand[] {
 	const lookups = structuralLookups(project);
 	const blocks = structuralBlocks(project, lookups);
@@ -157,7 +159,11 @@ export function planTrackSort(
 	const sequenceIds = [...new Set(blocks.map(({ sequenceId }) => sequenceId))];
 	for (const sequenceId of sequenceIds) {
 		const timed = blocks.filter((block) => block.sequenceId === sequenceId);
-		const starts = criterion === 'time' ? new Map(timed.map(block => [block.nodeId, timedBlock(project, block, lookups).start])) : null;
+		const starts = criterion === 'time' ? new Map(timed.map(block => {
+			const start = timedBlock(project, block, lookups).start;
+			// Audacity's empty WaveTrack and LabelTrack both start at zero.
+			return [block.nodeId, options.nativeSort && start === Infinity ? 0 : start];
+		})) : null;
 		const sorted = [...timed].sort((left, right) => {
 			const comparison = criterion === 'time'
 				? compareNumbers(starts!.get(left.nodeId)!, starts!.get(right.nodeId)!)

@@ -162,6 +162,9 @@ export function createMacroCommandService(runtime: MacroCommandServiceRuntime) {
 		if (command === 'SelNextClip' || command === 'SelPrevClip') {
 			return (target as (options: Readonly<{ nativeRegion: boolean }>) => unknown)({ nativeRegion: true });
 		}
+		if (command === 'SortByTime') {
+			return (target as (options: Readonly<{ nativeSort: boolean }>) => unknown)({ nativeSort: true });
+		}
 		if (command === 'SelectNone') {
 			const timeline = actions?.timeline;
 			const noTracks = timeline && typeof timeline === 'object'
