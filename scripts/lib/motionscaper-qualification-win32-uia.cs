@@ -23,6 +23,9 @@ namespace Soundscaper.Qualification.Win32 {
  }
  public static class OwnedUi {
   [DllImport("user32.dll",SetLastError=true)] private static extern uint GetWindowThreadProcessId(IntPtr window,out uint pid);
+  [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate bool WindowVisitor(IntPtr window,IntPtr parameter);
+  [DllImport("user32.dll",SetLastError=true)] private static extern bool EnumWindows(WindowVisitor callback,IntPtr parameter);
+  [DllImport("user32.dll")] private static extern IntPtr GetWindow(IntPtr window,uint command);
   private sealed class Dialog {
    internal AutomationElement Element;
    internal IntPtr Handle;
@@ -40,8 +43,44 @@ namespace Soundscaper.Qualification.Win32 {
   private static AutomationElementCollection Windows(Grant grant) {
    grant.Verify();return AutomationElement.RootElement.FindAll(TreeScope.Children,new PropertyCondition(AutomationElement.ProcessIdProperty,checked((int)grant.Owner.pid)));
   }
+  private static bool OwnedChooserWindow(IntPtr window,HashSet<long> roots) {
+   HashSet<long> seen=new HashSet<long>();
+   for(int depth=0;depth<16&&window!=IntPtr.Zero&&seen.Add(window.ToInt64());depth++) {
+    if(roots.Contains(window.ToInt64())) return true;
+    window=GetWindow(window,4); // GW_OWNER: never traverse the global UIA descendant tree.
+   }
+   return false;
+  }
+  private static List<AutomationElement> ChooserWindows(Grant grant) {
+   AutomationElementCollection owned=Windows(grant);
+   if(owned.Count>128) throw new InvalidOperationException("Owned top-level window count exceeds its bound.");
+   List<AutomationElement> result=new List<AutomationElement>();List<Dialog> anchors=new List<Dialog>();
+   HashSet<long> roots=new HashSet<long>(),seen=new HashSet<long>();
+   foreach(AutomationElement element in owned) {
+    IntPtr handle=new IntPtr(element.Current.NativeWindowHandle);if(handle==IntPtr.Zero) continue;
+    Dialog anchor=new Dialog { Element=element,Handle=handle,RuntimeId=element.GetRuntimeId() };VerifyWindow(grant,anchor);anchors.Add(anchor);
+    roots.Add(handle.ToInt64());if(seen.Add(handle.ToInt64())) result.Add(element);
+   }
+   int visited=0;Exception failure=null;
+   WindowVisitor visit=delegate(IntPtr window,IntPtr ignored) {
+    try {
+     if(++visited>4096) throw new InvalidOperationException("Native chooser window census exceeds its bound.");
+     uint pid;if(GetWindowThreadProcessId(window,out pid)==0||pid!=grant.Owner.pid) return true;
+     if(!OwnedChooserWindow(window,roots)||!seen.Add(window.ToInt64())) return true;
+     if(result.Count>=128) throw new InvalidOperationException("Owned chooser window count exceeds its bound.");
+     AutomationElement element=AutomationElement.FromHandle(window);
+     if(element==null) throw new InvalidOperationException("Owned chooser UIAutomation element is unavailable.");
+     VerifyWindow(grant,new Dialog { Element=element,Handle=window,RuntimeId=element.GetRuntimeId() });result.Add(element);return true;
+    } catch(Exception error) { failure=error;return false; }
+   };
+   bool complete=EnumWindows(visit,IntPtr.Zero);
+   if(failure!=null) throw failure;
+   if(!complete) throw Native.Error("Enumerate native chooser windows");
+   foreach(Dialog anchor in anchors) VerifyWindow(grant,anchor);
+   grant.Verify();return result;
+  }
   private static List<Dialog> Dialogs(Grant grant,string caption) {
-   List<Dialog> result=new List<Dialog>();AutomationElementCollection windows=Windows(grant);
+   List<Dialog> result=new List<Dialog>();List<AutomationElement> windows=ChooserWindows(grant);
    if(windows.Count>128) throw new InvalidOperationException("Owned top-level window count exceeds its bound.");
    foreach(AutomationElement element in windows) {
     if(element.Current.IsOffscreen||element.Current.NativeWindowHandle==0) continue;
