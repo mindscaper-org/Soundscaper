@@ -15,6 +15,7 @@ import { captureSessionFailure, captureSessionInputGain, installCaptureSourceEnd
 import { createFramescaperCaptureRecorderStartFence } from './framescaper-capture-recorder-start.ts';
 import { createFramescaperCapturePauseActions } from './framescaper-capture-pause-actions.ts';
 import { createFramescaperCaptureFailureAdmission } from './framescaper-capture-failure-admission.ts';
+import { createFramescaperCaptureRecoveryActions } from './framescaper-capture-recovery-actions.ts';
 import { createFramescaperCaptureStateMachine, type FramescaperCaptureArmOptions } from './framescaper-capture-state-machine.ts';
 import type {
 	FramescaperCaptureDurableSession, FramescaperCaptureRecorder, FramescaperCaptureSessionActions,
@@ -42,7 +43,7 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 	let originAuthority: Readonly<FramescaperCaptureOriginAuthority> | null = null;
 	let countdownAbort: AbortController | null = null;
 	let startPromise: Promise<void> | null = null; let stopPromise: Promise<void> | null = null;
-	let recoveryPromise: Promise<void> | null = null; let recoveryFinalizationPromise: Promise<void> | null = null;
+	let recoveryPromise: Promise<void> | null = null;
 	let initializePromise: Promise<void> | null = null; let disposePromise: Promise<void> | null = null;
 	const pendingOperations = new Set<Promise<unknown>>();
 	let monitoring = false; let inputGain = 1;
@@ -425,49 +426,19 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 		releaseOrigin('stopped');
 		notify();
 	}
-	function finalizeRecovery(provenance: 'recovered' | 'import-as-is'): Promise<void> {
-		assertActive();
-		if (recoveryFinalizationPromise) return recoveryFinalizationPromise;
-		if (!durableSession) throw new Error('No recoverable Framescaper capture is selected.');
-		machine.beginRecoveryFinalization();
-		recoveryFinalizationPromise = trackOperation(
-			Promise.resolve().then(() => completeRecoveryFinalization(provenance)));
-		notify();
-		return recoveryFinalizationPromise;
-	}
-	async function completeRecoveryFinalization(provenance: 'recovered' | 'import-as-is'): Promise<void> {
-		try {
-			await recoveryPromise;
-			if (!durableSession) throw new Error('No recoverable Framescaper capture is selected.');
-			await options.finalize({
-				session: durableSession,
-				metrics: metrics?.snapshot ?? Object.freeze([]),
-				provenance,
-			});
-			machine.completeFinalization();
-			releaseOrigin('stopped');
-			clearSettledSession();
-			notify();
-		} catch (error) {
-			machine.enterRecovery(captureSessionFailure(error, 'finalization-failed'));
-			recoveryFinalizationPromise = null;
-			notify();
-			throw error;
-		}
-	}
-
-	async function discard(): Promise<void> {
-		assertActive();
-		if (machine.snapshot.phase !== 'recovery' || !durableSession) {
-			throw new Error('No recoverable Framescaper capture is selected.');
-		}
-		await recoveryPromise;
-		await options.durable.discard(durableSession);
-		machine.completeRecovery();
-		releaseOrigin('discarded');
-		clearSettledSession();
-		notify();
-	}
+	const recoveryActions = createFramescaperCaptureRecoveryActions({
+		assertActive, session: () => durableSession, settled: () => recoveryPromise,
+		begin: () => { machine.beginRecoveryFinalization(); },
+		finalize: (session, provenance) => options.finalize({ session,
+			metrics: metrics?.snapshot ?? Object.freeze([]), provenance }),
+		discard: session => options.durable.discard(session),
+		complete(decision) {
+			machine.completeFinalization(); releaseOrigin(decision === 'discarded' ? 'discarded' : 'stopped');
+			clearSettledSession(); notify();
+		},
+		fail(error) { machine.enterRecovery(captureSessionFailure(error, 'finalization-failed')); notify(); },
+		notify, track: trackOperation,
+	});
 
 	function restoreRecovery(session: FramescaperCaptureDurableSession): void {
 		durableSession = session;
@@ -511,7 +482,6 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 		startPromise = null;
 		stopPromise = null;
 		recoveryPromise = null;
-		recoveryFinalizationPromise = null;
 		recorderStarts.reset();
 	}
 
@@ -581,9 +551,9 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 		pause: () => trackAction(pauseActions.pause),
 		resume: () => trackAction(pauseActions.resume),
 		stop,
-		recover: () => finalizeRecovery('recovered'),
-		importAsIs: () => finalizeRecovery('import-as-is'),
-		discard: () => trackAction(discard),
+		recover: () => recoveryActions.recover('recovered'),
+		importAsIs: () => recoveryActions.recover('import-as-is'),
+		discard: recoveryActions.discard,
 		resetFailure, sealForShutdown: () => recoverActive(new Error('Capture runtime is shutting down.'), 'runtime-lost'),
 	});
 	return Object.freeze({

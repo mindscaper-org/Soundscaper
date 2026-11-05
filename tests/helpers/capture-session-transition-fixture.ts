@@ -17,6 +17,7 @@ export function captureSessionTransitionFixture() {
 	let recorderCreationFailure: unknown = null;
 	let pauseStorageGate: Promise<void> | undefined;
 	let sealGate: Promise<void> | undefined;
+	let discardGate: Promise<void> | undefined;
 	const errors = new Map<string, (error: unknown) => void>();
 	let clock = 100;
 	const service = createFramescaperCaptureSessionService({
@@ -43,7 +44,7 @@ export function captureSessionTransitionFixture() {
 				events.push('pause:committed'); return session;
 			},
 			async seal(session) { events.push('seal'); await sealGate; events.push('seal:committed'); return session; },
-			async discard() { events.push('discard'); }, async findRecovery() { return null; },
+			async discard() { events.push('discard'); await discardGate; }, async findRecovery() { return null; },
 		},
 		captureOrigin: () => ({ projectFence: { schemaFamily: 'framescaper' as const, schemaVersion: 1 as const,
 			projectId: 'capture-project', baseRevision: 0, baseSha256: 'ab'.repeat(32) },
@@ -69,6 +70,7 @@ export function captureSessionTransitionFixture() {
 		failRecorderCreation(error: unknown) { recorderCreationFailure = error; },
 		gatePauseStorage(gate: Promise<void>) { pauseStorageGate = gate; },
 		gateSeal(gate: Promise<void>) { sealGate = gate; },
+		gateDiscard(gate: Promise<void>) { discardGate = gate; },
 		failRecorder(role: string, error: unknown) { errors.get(role)!(error); },
 		async start() {
 			await service.initialize(); await service.actions.requestPreview(['camera', 'microphone']);
