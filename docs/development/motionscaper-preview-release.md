@@ -88,12 +88,15 @@ Electron Builder receives `--publish never` and workflow permissions remain
 read-only. A Motion Flatpak or macOS x64 artifact is not part of this route.
 
 Source assembly retains the exact committed repository plus authenticated
-original FFmpeg, Boost, x264, x265, libvpx, Opus and zlib archives. Source URLs,
+original FFmpeg, Boost, x264, x265, libvpx, SVT-AV1, Opus and zlib archives. Source URLs,
 byte lengths and hashes come from the existing pinned native manifests. Each
 download is bounded and verified before assembly; incomplete downloads are
 removed. The existing source assembler retains inner archives unchanged and
 writes their digests in `SOURCE_MANIFEST.json`. Assembly is mandatory: a source
 download or digest failure prevents the final inventory artifact.
+The committed application archive includes the build adapters needed to reproduce
+the native payload, including the Windows FFmpeg working-copy flag adaptation;
+the authenticated upstream source archives remain unchanged.
 
 ## Local checks and remaining receipts
 

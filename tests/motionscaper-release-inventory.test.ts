@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { motionReleasePackageNames, pinMotionReleaseFile, validateMotionReleaseReceipt, verifyMotionReleaseReceiptFiles } from '../scripts/lib/motionscaper-release-inventory.ts';
 import { downloadMotionReleaseSource, motionReleaseSourcePlan } from '../scripts/lib/motionscaper-release-sources.ts';
+import { createMotionscaperNativeSourceManifest } from '../scripts/lib/motionscaper-native-source.ts';
+import { expectedProductReleaseTag } from '../scripts/lib/product-release-lines.mjs';
 import { assembleMotionRelease } from '../scripts/motionscaper-release-assets.ts';
 import { qualifyMotionReleaseTarget } from '../scripts/motionscaper-release-target.ts';
 
@@ -40,10 +42,55 @@ test('Motion stable inventory retains exactly nine own target packages', () => {
 
 test('Motion corresponding-source plan includes every pinned linked library and Boost source before assembly', async () => {
 	const plan = await motionReleaseSourcePlan(join(import.meta.dirname, '..'));
-	assert.deepEqual(plan.map(source => source.id), ['ffmpeg', 'boost', 'x264', 'x265', 'libvpx', 'libopus', 'zlib']);
+	assert.deepEqual(plan.map(source => source.id), ['ffmpeg', 'boost', 'x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib']);
+	const external = JSON.parse(await readFile(join(import.meta.dirname, '../native/framescaper-media-host/build/ffmpeg-9.0.1-external-sources.json'), 'utf8')) as {
+		readonly libraries: readonly { readonly id: string; readonly url: string; readonly byteLength: number; readonly sha256: string }[];
+	};
+	for (const library of external.libraries) {
+		const source = plan.find(source => source.id === library.id); assert.ok(source);
+		assert.deepEqual({ url: source.url, byteLength: source.byteLength, sha256: source.sha256 },
+			{ url: library.url, byteLength: library.byteLength, sha256: library.sha256 });
+	}
+	assert.ok(plan.find(source => source.id === 'svt-av1')?.path.startsWith('svt-av1-'));
 	assert.ok(plan.every(source => source.byteLength > 0 && /^[a-f\d]{64}$/u.test(source.sha256)));
 	assert.equal(new Set(plan.map(source => source.path)).size, plan.length);
 	assert.ok(plan.reduce((sum, source) => sum + source.byteLength, 0) < 384 * 1024 * 1024);
+});
+
+test('Motion corresponding-source plan refuses omitted, duplicate, reordered, unknown and unsafe codec sources', async () => {
+	const actual = join(import.meta.dirname, '..'), root = await mkdtemp(join(tmpdir(), 'motionscaper-release-source-plan-'));
+	try {
+		const motionPath = 'native/motionscaper-media-host/source-manifest.json';
+		const motion = JSON.parse(await readFile(join(actual, motionPath), 'utf8')) as { readonly sourceFiles: readonly { readonly path: string }[] };
+		const hostRelative = 'native/framescaper-media-host/source-manifest.json', hostPath = join(root, hostRelative);
+		const host = JSON.parse(await readFile(join(actual, hostRelative), 'utf8')) as {
+			sourceFiles: { path: string; byteLength: number; sha256: string }[]; readonly sharedSourceFiles: readonly { readonly path: string }[];
+		};
+		const paths = [motionPath, hostRelative, 'config/boost-multiprecision-source-manifest.json', ...motion.sourceFiles.map(pin => pin.path),
+			...host.sourceFiles.map(pin => `native/framescaper-media-host/${pin.path}`), ...host.sharedSourceFiles.map(pin => pin.path)];
+		for (const path of new Set(paths)) {
+			await mkdir(dirname(join(root, path)), { recursive: true }); await copyFile(join(actual, path), join(root, path));
+		}
+		const externalPath = 'build/ffmpeg-9.0.1-external-sources.json', path = join(root, 'native/framescaper-media-host', externalPath);
+		const external = JSON.parse(await readFile(path, 'utf8')) as { libraries: { id: string }[] };
+		const svt = external.libraries.find(library => library.id === 'svt-av1'); assert.ok(svt);
+		const scenarios: readonly (readonly [string, readonly { id: string }[]])[] = [
+			['omitted SVT', external.libraries.filter(library => library.id !== 'svt-av1')],
+			['duplicate SVT', [...external.libraries, svt]],
+			['reordered sources', [...external.libraries].reverse()],
+			...['unknown-library', '../svt-av1', 'svt--av1', '-svt-av1', 'svt-av1-', 'svt_av1', 'svt-av1/foreign'].map(id => [
+				id, external.libraries.map(library => library.id === 'svt-av1' ? { ...library, id } : library),
+			] as const),
+		];
+		for (const [label, libraries] of scenarios) {
+			const bytes = Buffer.from(`${JSON.stringify({ ...external, libraries }, null, '\t')}\n`); await writeFile(path, bytes);
+			const pin = host.sourceFiles.find(pin => pin.path === externalPath); assert.ok(pin);
+			pin.byteLength = bytes.length; pin.sha256 = createHash('sha256').update(bytes).digest('hex');
+			await writeFile(hostPath, `${JSON.stringify(host, null, '\t')}\n`);
+			await writeFile(join(root, motionPath), `${JSON.stringify(await createMotionscaperNativeSourceManifest(root), null, '\t')}\n`);
+			await assert.rejects(motionReleaseSourcePlan(root), /Motion corresponding-source (?:pin|closure)/u, label);
+		}
+	} finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test('Motion source assembly authenticates bytes and removes an incomplete or corrupted download', async () => {
@@ -61,6 +108,6 @@ test('Motion source assembly authenticates bytes and removes an incomplete or co
 
 test('Motion release entry points refuse foreign tags and non-native smoke before creating candidate output', async () => {
 	const root = join(import.meta.dirname, '..');
-	await assert.rejects(assembleMotionRelease({ root, inputs: '/missing', nativeResults: '/missing', output: '/missing', evidence: '/missing', sourceInputs: '/missing', tag: 'framescaper-v1.0.0-rc.13' }), /Motion preview/u);
+	await assert.rejects(assembleMotionRelease({ root, inputs: '/missing', nativeResults: '/missing', output: '/missing', evidence: '/missing', sourceInputs: '/missing', tag: expectedProductReleaseTag('framescaper') }), /Motion preview/u);
 	await assert.rejects(qualifyMotionReleaseTarget({ root, target: process.platform === 'win32' ? 'linux-x64' : 'win-x64', nativeResult: '/missing', productRoot: '/missing', output: '/missing' }), /native target/u);
 });

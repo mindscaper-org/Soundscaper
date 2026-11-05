@@ -22,12 +22,12 @@ export async function motionReleaseSourcePlan(root: string): Promise<readonly Mo
 	const plan = [source('ffmpeg', ffmpeg.url, ffmpeg.byteLength, ffmpeg.sha256),
 		source('boost', boostSource.archiveUrl, boostSource.archiveByteLength, boostSource.sha256),
 		...external.libraries.map((value: unknown) => { const item = releaseRecord(value); return source(item.id, item.url, item.byteLength, item.sha256); })];
-	if (plan.map(source => source.id).join() !== 'ffmpeg,boost,x264,x265,libvpx,libopus,zlib'
+	if (plan.map(source => source.id).join() !== 'ffmpeg,boost,x264,x265,libvpx,svt-av1,libopus,zlib'
 		|| plan.reduce((sum, item) => sum + item.byteLength, 0) > 384 * 1024 ** 2) throw new Error('Motion corresponding-source closure exceeds its admission.');
 	return plan;
 }
 function source(id: unknown, url: unknown, byteLength: unknown, sha256: unknown): MotionReleaseSource {
-	if (typeof id !== 'string' || !/^[a-z\d]+$/u.test(id) || typeof url !== 'string' || !url.startsWith('https://')
+	if (typeof id !== 'string' || !/^[a-z\d]+(?:-[a-z\d]+)*$/u.test(id) || typeof url !== 'string' || !url.startsWith('https://')
 		|| typeof byteLength !== 'number' || !Number.isSafeInteger(byteLength) || byteLength < 1 || byteLength > 256 * 1024 ** 2
 		|| typeof sha256 !== 'string' || !/^[a-f\d]{64}$/u.test(sha256)) throw new Error('Motion corresponding-source pin is invalid.');
 	const path = `${id}-${basename(new URL(url).pathname)}`;
