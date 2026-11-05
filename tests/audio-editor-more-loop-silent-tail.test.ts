@@ -128,3 +128,27 @@ test('Loop to selection then Play retains a menu-authored blank ending through c
 	await controller.actions.transport.playStopSelect();
 	assert.equal(controller.project!.selection!.startFrame, 60_000, 'the engine obeys the region published by the actual loop command');
 });
+
+test('drawing a loop past the last clip preserves its selected blank ending', async context => {
+	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
+	const device = new MockAudioContext();
+	const engine = createAudioEditorEngine({ audioContextFactory: () => device as unknown as AudioContext });
+	const pcm = new MockAudioBuffer(2, 48_000, 48_000) as unknown as AudioBuffer;
+	const runtime = createSoundscaperProjectRuntimeSelection();
+	const project = document();
+	const store = Object.assign(createMemoryStore(), { async loadSourceAudioBuffer() { return pcm; } });
+	store.audioSources.set('source', [new Float32Array(48_000), new Float32Array(48_000)]);
+	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY,
+		projectRuntime: runtime, sessionController: runtime.createSessionController(), store: store as unknown as Options['store'],
+		ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'], engine });
+	context.after(async () => { await controller.dispose(); });
+	await controller.ready;
+	await store.saveProject(project);
+	await controller.actions.project.open(project);
+	for (const [start, end] of [[0, 96_000], [96_000, 0]] as const) {
+		controller.actions.transport.setLoopRegion(start, end);
+		assert.deepEqual(controller.project!.loop, { enabled: true, startFrame: 0, endFrame: 96_000 });
+	}
+	assert.throws(() => controller.actions.transport.setLoopRegion(96_000, 96_000));
+	assert.deepEqual(controller.project!.loop, { enabled: true, startFrame: 0, endFrame: 96_000 });
+});

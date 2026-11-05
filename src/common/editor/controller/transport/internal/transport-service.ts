@@ -263,8 +263,8 @@ export function createEditorTransportService<Project extends TransportProject = 
 	}
 
 	function setLoopRegion(startFrame: number, endFrame: number) {
-		const start = normalizeTimelineFrame(Math.min(startFrame, endFrame));
-		const end = normalizeTimelineFrame(Math.max(startFrame, endFrame));
+		const start = normalizePlaybackFrame(Math.min(startFrame, endFrame));
+		const end = normalizePlaybackFrame(Math.max(startFrame, endFrame));
 		if (end <= start) throw createLocalizedError(Error, copy, 'timeSelectionRequired');
 		const next = commitLoopRange({ enabled: true, startFrame: start, endFrame: end });
 		engine.setLoop(next.loop);
