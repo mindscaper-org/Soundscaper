@@ -8,6 +8,7 @@ import {
 } from './midi-file-types.ts';
 import { createMidiTempoTimeline } from './midi-file-timing.ts';
 import { midiFileNoteReleases } from './midi-file-note-releases.ts';
+import { createMidiFileNoteOrderGuard } from './midi-file-note-order.ts';
 import { decodeMidiFileText } from './midi-file-text.ts';
 import { roundRational } from './timeline-time.ts';
 import { midiFileNoteDestinations } from './midi-file-destinations.ts';
@@ -197,7 +198,8 @@ function variableBytes(value: number): number[] {
 	return result;
 }
 
-function trackBytes(events: readonly TickEvent[], endTick: number | undefined, paddingBudget: { remaining: number }): number[] {
+function trackBytes(events: readonly TickEvent[], endTick: number | undefined, paddingBudget: { remaining: number },
+	observe?: (event: TickEvent) => void): number[] {
 	const result: number[] = [];
 	let previous = 0;
 	let multipartSysex = false;
@@ -213,6 +215,7 @@ function trackBytes(events: readonly TickEvent[], endTick: number | undefined, p
 		previous = tick;
 	};
 	for (const event of midiPortEvents([...events].sort((a, b) => a.tick - b.tick || eventOrder(a) - eventOrder(b)), paddingBudget)) {
+		observe?.(event);
 		if (event.status === 240) {
 			if (multipartSysex) throw new RangeError('MIDI export interrupts an incomplete multipart System Exclusive message.');
 			multipartSysex = event.data.at(-1) !== 247;
@@ -268,6 +271,7 @@ export function writeMidiFile(document: MidiFileDocument): Uint8Array<ArrayBuffe
 	const bytes = [77, 84, 104, 100, 0, 0, 0, 6, 0, 1, count >> 8, count & 255, division >> 8, division & 255];
 	if (separateConductor) for (const byte of trackBytes(conductor, undefined, paddingBudget)) bytes.push(byte);
 	for (const [index, track] of document.tracks.entries()) {
+		const noteOrder = createMidiFileNoteOrderGuard();
 		const events: TickEvent[] = [{ tick: 0, status: 255, metaType: 3, data: [...textEncoder.encode(track.name)] }];
 		const auxiliary = (track.events ?? []).filter(writtenAuxiliaryEvent);
 		const stops = new Map<string, number>();
@@ -289,11 +293,13 @@ export function writeMidiFile(document: MidiFileDocument): Uint8Array<ArrayBuffe
 			if (note.velocity === 0) throw new RangeError('A zero-velocity MIDI note cannot be exported as a sounding note. Raise its velocity or delete it.');
 			const stopOrder = note.onsetStop ? stops.get(`${note.startFrame}:${note.channel}:${note.midiPort ?? 0}`) : undefined;
 			if (note.onsetStop && stopOrder === undefined) throw new RangeError('MIDI export cannot preserve a same-frame panic whose causal event is on another track. Save the native project.');
-			events.push({ tick: tick(note.startFrame), status: 144 | note.channel, data: [note.pitch, note.velocity], midiPort: note.midiPort, ...(stopOrder === undefined ? {} : { order: stopOrder }) });
-			events.push({ tick: note.onsetStop ? tick(note.startFrame) : Math.max(tick(note.startFrame) + 1, tick(note.startFrame + note.durationFrames)),
-				status: 128 | note.channel, data: [note.pitch, note.releaseVelocity ?? 0], midiPort: note.midiPort });
+			const on = { tick: tick(note.startFrame), status: 144 | note.channel, data: [note.pitch, note.velocity], midiPort: note.midiPort, ...(stopOrder === undefined ? {} : { order: stopOrder }) };
+			const off = { tick: note.onsetStop ? tick(note.startFrame) : Math.max(tick(note.startFrame) + 1, tick(note.startFrame + note.durationFrames)),
+				status: 128 | note.channel, data: [note.pitch, note.releaseVelocity ?? 0], midiPort: note.midiPort };
+			noteOrder.register(on, off);
+			events.push(on, off);
 		}
-		for (const byte of trackBytes(events, track.durationFrames === undefined ? undefined : tick(track.durationFrames), paddingBudget)) bytes.push(byte);
+		for (const byte of trackBytes(events, track.durationFrames === undefined ? undefined : tick(track.durationFrames), paddingBudget, noteOrder.observe)) bytes.push(byte);
 		if (bytes.length > MIDI_FILE_MAX_BYTES) throw new RangeError('MIDI export exceeds the 16 MiB limit.');
 	}
 	return Uint8Array.from(bytes);
