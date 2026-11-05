@@ -2389,6 +2389,7 @@
 		"reportItem.UNSUPPORTED_TRACK_GAIN": ["machine","Unsupported track gain","Nieobsługiwane wzmocnienie ścieżki"],
 		"reportItem.VIDEO_OMITTED": ["machine","Video tracks and their effects were omitted.","Pominięto ścieżki wideo i ich efekty."],
 		"reportItem.dawproject.color-omitted": ["human","An authored RGB color outside the track and clip palette was omitted.","Zdefiniowany kolor RGB spoza palety ścieżek i klipów został pominięty."],
+		"reportItem.dawproject.inactive-track-converted": ["human","Inactive tracks were imported muted; their audio remains available for reactivation.","Nieaktywne ścieżki zaimportowano jako wyciszone; ich dźwięk pozostaje dostępny do ponownej aktywacji."],
 		"reportItem.dawproject.midi-authoring-converted": ["human","Editable MIDI notes, messages, and instrument settings were converted to fallback audio.","Edytowalne nuty MIDI, komunikaty i ustawienia instrumentów zostały przekształcone w zastępcze audio."],
 		"reportItem.delivery.adm-immersive-bed": ["machine","ADM immersive bed","Immersyjna podstawa ADM"],
 		"reportItem.delivery.adm-objects": ["machine","ADM objects","Obiekty ADM"],

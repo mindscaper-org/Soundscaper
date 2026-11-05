@@ -2389,6 +2389,7 @@
 		"reportItem.UNSUPPORTED_TRACK_GAIN": ["machine","Unsupported track gain","未対応のトラックゲイン"],
 		"reportItem.VIDEO_OMITTED": ["machine","Video tracks and their effects were omitted.","ビデオトラックとそのエフェクトを省略しました。"],
 		"reportItem.dawproject.color-omitted": ["human","An authored RGB color outside the track and clip palette was omitted.","トラックとクリップのパレットに含まれない指定 RGB 色は省略されました。"],
+		"reportItem.dawproject.inactive-track-converted": ["human","Inactive tracks were imported muted; their audio remains available for reactivation.","無効なトラックはミュート状態で読み込まれました。再度有効にできるよう、音声は保持されています。"],
 		"reportItem.dawproject.midi-authoring-converted": ["human","Editable MIDI notes, messages, and instrument settings were converted to fallback audio.","編集可能な MIDI ノート、メッセージ、楽器設定は代替オーディオに変換されました。"],
 		"reportItem.delivery.adm-immersive-bed": ["machine","ADM immersive bed","ADM イマーシブベッド"],
 		"reportItem.delivery.adm-objects": ["machine","ADM objects","ADM オブジェクト"],

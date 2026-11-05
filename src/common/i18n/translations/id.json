@@ -2389,6 +2389,7 @@
 		"reportItem.UNSUPPORTED_TRACK_GAIN": ["machine","Unsupported track gain","Gain trek tidak didukung"],
 		"reportItem.VIDEO_OMITTED": ["machine","Video tracks and their effects were omitted.","Trek video beserta efeknya dihilangkan."],
 		"reportItem.dawproject.color-omitted": ["human","An authored RGB color outside the track and clip palette was omitted.","Warna RGB yang ditetapkan di luar palet trek dan klip dihilangkan."],
+		"reportItem.dawproject.inactive-track-converted": ["human","Inactive tracks were imported muted; their audio remains available for reactivation.","Trek yang tidak aktif diimpor dalam keadaan dibisukan; audionya tetap tersedia untuk diaktifkan kembali."],
 		"reportItem.dawproject.midi-authoring-converted": ["human","Editable MIDI notes, messages, and instrument settings were converted to fallback audio.","Not MIDI, pesan, dan pengaturan instrumen yang dapat diedit dikonversi menjadi audio pengganti."],
 		"reportItem.delivery.adm-immersive-bed": ["machine","ADM immersive bed","Bed imersif ADM"],
 		"reportItem.delivery.adm-objects": ["machine","ADM objects","Objek ADM"],

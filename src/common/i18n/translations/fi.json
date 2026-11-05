@@ -2389,6 +2389,7 @@
 		"reportItem.UNSUPPORTED_TRACK_GAIN": ["machine","Unsupported track gain","Tukematon raidan vahvistus"],
 		"reportItem.VIDEO_OMITTED": ["machine","Video tracks and their effects were omitted.","Videoraidat ja niiden tehosteet jätettiin pois."],
 		"reportItem.dawproject.color-omitted": ["human","An authored RGB color outside the track and clip palette was omitted.","Raitojen ja leikkeiden väripaletin ulkopuolinen määritetty RGB-väri jätettiin pois."],
+		"reportItem.dawproject.inactive-track-converted": ["human","Inactive tracks were imported muted; their audio remains available for reactivation.","Passiiviset raidat tuotiin mykistettyinä; niiden ääni on edelleen käytettävissä uudelleenaktivointia varten."],
 		"reportItem.dawproject.midi-authoring-converted": ["human","Editable MIDI notes, messages, and instrument settings were converted to fallback audio.","Muokattavat MIDI-nuotit, viestit ja soitinasetukset muunnettiin korvaavaksi ääneksi."],
 		"reportItem.delivery.adm-immersive-bed": ["machine","ADM immersive bed","Immersiivinen ADM-pohjakerros"],
 		"reportItem.delivery.adm-objects": ["machine","ADM objects","ADM-objektit"],

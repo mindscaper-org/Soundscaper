@@ -2389,6 +2389,7 @@
 		"reportItem.UNSUPPORTED_TRACK_GAIN": ["machine","Unsupported track gain","הגבר רצועה שאינו נתמך"],
 		"reportItem.VIDEO_OMITTED": ["machine","Video tracks and their effects were omitted.","רצועות הווידאו והאפקטים שלהן הושמטו."],
 		"reportItem.dawproject.color-omitted": ["human","An authored RGB color outside the track and clip palette was omitted.","צבע RGB שהוגדר מחוץ ללוח הצבעים של הרצועות והקטעים הושמט."],
+		"reportItem.dawproject.inactive-track-converted": ["human","Inactive tracks were imported muted; their audio remains available for reactivation.","רצועות לא פעילות יובאו כשהן מושתקות; השמע שלהן נשאר זמין להפעלה מחדש."],
 		"reportItem.dawproject.midi-authoring-converted": ["human","Editable MIDI notes, messages, and instrument settings were converted to fallback audio.","תווי MIDI, הודעות והגדרות כלי נגינה הניתנים לעריכה הומרו לשמע חלופי."],
 		"reportItem.delivery.adm-immersive-bed": ["machine","ADM immersive bed","מצע ADM סוחף"],
 		"reportItem.delivery.adm-objects": ["machine","ADM objects","עצמי ADM"],

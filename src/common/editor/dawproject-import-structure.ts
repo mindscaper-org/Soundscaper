@@ -110,7 +110,7 @@ export function walkTrack(track: DawprojectTrack, parentFolderId: string | null,
 		const id = build.createStableId('folder');
 		const name = track.name.trim() ? track.name : 'Folder';
 		if (track.id) build.folderByDawId.set(track.id, id);
-		build.folders.push({ id, name, mute: channel?.mute?.value === true, solo: channel?.solo === true });
+		build.folders.push({ id, name, mute: importedMute(track.loaded === false, channel?.mute?.value, build, { kind: 'folder', id }), solo: channel?.solo === true });
 		build.trackNodes.push({ kind: 'folder', id, parentFolderId });
 		build.parentFolderIds.set(id, parentFolderId);
 		if (channel) {
@@ -135,14 +135,14 @@ export function walkTrack(track: DawprojectTrack, parentFolderId: string | null,
 		return;
 	}
 	if (role === 'master') {
-		build.master = strip('master', 'Master', channel!, build);
+		build.master = strip('master', 'Master', channel!, build, track.loaded === false);
 		build.masterChannels = channel!.audioChannels ?? 2;
 		registerParameters(channel!, { kind: 'master', id: null }, build);
 		return;
 	}
 	if (role === 'submix' || role === 'effect') {
 		const id = build.createStableId(role === 'submix' ? 'group-bus' : 'send-bus');
-		(role === 'submix' ? build.groups : build.sends).push(strip(id, track.name || (role === 'submix' ? 'Group' : 'Send'), channel!, build));
+		(role === 'submix' ? build.groups : build.sends).push(strip(id, track.name || (role === 'submix' ? 'Group' : 'Send'), channel!, build, track.loaded === false));
 		if (channel!.id) {
 			build.stripByChannelId.set(channel!.id, { kind: role === 'submix' ? 'group' : 'send', id });
 			build.busByChannelId.set(channel!.id, id);
@@ -164,7 +164,7 @@ export function walkTrack(track: DawprojectTrack, parentFolderId: string | null,
 		});
 		return;
 	}
-	const built = createAudioTrack(track.name, channel, build, track.color);
+	const built = createAudioTrack(track.name, channel, build, track.color, track.loaded === false);
 	if (track.id) build.trackByDawId.set(track.id, built);
 	if (channel) registerParameters(channel, { kind: 'track', id: built.id }, build);
 	build.trackNodes.push({ kind: 'track', id: built.id, parentFolderId });
@@ -189,7 +189,7 @@ function isInsideFolder(trackId: string, folderId: string, build: Build): boolea
 	return false;
 }
 
-function createAudioTrack(name: string, channel: DawprojectChannel | null, build: Build, rgb?: string | null): TrackBuild {
+function createAudioTrack(name: string, channel: DawprojectChannel | null, build: Build, rgb?: string | null, inactive = false): TrackBuild {
 	const id = build.createStableId('track');
 	const color = dawprojectImportColor(rgb, build.draft, { kind: 'track', id });
 	const built: TrackBuild = {
@@ -198,7 +198,7 @@ function createAudioTrack(name: string, channel: DawprojectChannel | null, build
 		...(color ? { color } : {}),
 		gain: dawprojectStaticGain(channel?.volume, build.draft, { kind: 'track', id }),
 		pan: panOf(channel?.pan),
-		mute: channel?.mute?.value === true,
+		mute: importedMute(inactive, channel?.mute?.value, build, { kind: 'track', id }),
 		solo: channel?.solo === true,
 		clipIds: [],
 		envelope: [],
@@ -207,12 +207,21 @@ function createAudioTrack(name: string, channel: DawprojectChannel | null, build
 	return built;
 }
 
-function strip(id: string, name: string, channel: DawprojectChannel, build: Build): StripBuild {
+function strip(id: string, name: string, channel: DawprojectChannel, build: Build, inactive = false): StripBuild {
 	return {
 		id, name, gain: dawprojectStaticGain(channel.volume, build.draft, { kind: id === 'master' ? 'master' : 'mixer-node', id }), pan: panOf(channel.pan),
 		channelCount: channel.audioChannels ?? 2,
-		mute: channel.mute?.value === true, solo: channel.solo, envelope: [],
+		mute: importedMute(inactive, channel.mute?.value, build, { kind: id === 'master' ? 'master' : 'mixer-node', id }), solo: channel.solo, envelope: [],
 	};
+}
+
+function importedMute(inactive: boolean, mute: boolean | null | undefined, build: Build, scope: DataRecord): boolean {
+	if (inactive) addDeliveryReportItem(build.draft, {
+		code: 'dawproject.inactive-track-converted', disposition: 'converted', severity: 'warning', scope,
+		data: { loaded: false, mute: true },
+		message: 'Inactive tracks were imported muted; their audio remains available for reactivation.',
+	});
+	return inactive || mute === true;
 }
 
 function registerParameters(channel: DawprojectChannel, target: Readonly<{ kind: ParameterTarget['kind']; id: string | null }>, build: Build): void {
@@ -288,7 +297,7 @@ export function trackForEvent(event: DawprojectAudioEvent, build: Build, documen
 		const folderId = build.folderByDawId.get(event.trackId) ?? null;
 		// A folder's own audio enters its existing channel alongside child tracks.
 		// Its channel state belongs to that bus, never to this synthetic leaf too.
-		const built = createAudioTrack(declared?.name ?? event.trackId, folderId ? null : declared?.channel ?? null, build, declared?.color);
+		const built = createAudioTrack(declared?.name ?? event.trackId, folderId ? null : declared?.channel ?? null, build, declared?.color, !folderId && declared?.loaded === false);
 		build.trackByDawId.set(event.trackId, built);
 		build.trackNodes.push({ kind: 'track', id: built.id, parentFolderId: folderId });
 		build.parentFolderIds.set(built.id, folderId);

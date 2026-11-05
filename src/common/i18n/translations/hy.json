@@ -2389,6 +2389,7 @@
 		"reportItem.UNSUPPORTED_TRACK_GAIN": ["machine","Unsupported track gain","Թրեքի չաջակցվող ուժգնացում"],
 		"reportItem.VIDEO_OMITTED": ["machine","Video tracks and their effects were omitted.","Տեսանյութի թրեքերն ու դրանց էֆեկտները բաց են թողնվել։"],
 		"reportItem.dawproject.color-omitted": ["human","An authored RGB color outside the track and clip palette was omitted.","Ուղիների և հոլովակների գունապնակից դուրս սահմանված RGB գույնը բաց է թողնվել։"],
+		"reportItem.dawproject.inactive-track-converted": ["human","Inactive tracks were imported muted; their audio remains available for reactivation.","Ոչ ակտիվ ուղիները ներմուծվել են խլացված․ դրանց ձայնը հասանելի է մնում կրկին ակտիվացնելու համար։"],
 		"reportItem.dawproject.midi-authoring-converted": ["human","Editable MIDI notes, messages, and instrument settings were converted to fallback audio.","Խմբագրվող MIDI նոտաները, հաղորդագրությունները և գործիքների կարգավորումները փոխարկվել են փոխարինող ձայնի։"],
 		"reportItem.delivery.adm-immersive-bed": ["machine","ADM immersive bed","Տարածական ADM ալիքային հիմք"],
 		"reportItem.delivery.adm-objects": ["machine","ADM objects","ADM օբյեկտներ"],

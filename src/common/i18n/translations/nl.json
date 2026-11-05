@@ -2389,6 +2389,7 @@
 		"reportItem.UNSUPPORTED_TRACK_GAIN": ["machine","Unsupported track gain","Niet-ondersteunde trackversterking"],
 		"reportItem.VIDEO_OMITTED": ["machine","Video tracks and their effects were omitted.","Videotracks en hun effecten zijn weggelaten."],
 		"reportItem.dawproject.color-omitted": ["human","An authored RGB color outside the track and clip palette was omitted.","Een ingestelde RGB-kleur buiten het palet voor sporen en clips is weggelaten."],
+		"reportItem.dawproject.inactive-track-converted": ["human","Inactive tracks were imported muted; their audio remains available for reactivation.","Inactieve sporen zijn gedempt geïmporteerd; hun audio blijft beschikbaar om ze opnieuw te activeren."],
 		"reportItem.dawproject.midi-authoring-converted": ["human","Editable MIDI notes, messages, and instrument settings were converted to fallback audio.","Bewerkbare MIDI-noten, berichten en instrumentinstellingen zijn omgezet naar vervangende audio."],
 		"reportItem.delivery.adm-immersive-bed": ["machine","ADM immersive bed","Immersief ADM-kanaalbed"],
 		"reportItem.delivery.adm-objects": ["machine","ADM objects","ADM-objecten"],

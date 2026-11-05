@@ -2389,6 +2389,7 @@
 		"reportItem.UNSUPPORTED_TRACK_GAIN": ["machine","Unsupported track gain","지원되지 않는 트랙 게인"],
 		"reportItem.VIDEO_OMITTED": ["machine","Video tracks and their effects were omitted.","비디오 트랙과 해당 효과를 생략했습니다."],
 		"reportItem.dawproject.color-omitted": ["human","An authored RGB color outside the track and clip palette was omitted.","트랙 및 클립 팔레트에 없는 지정된 RGB 색상은 생략되었습니다."],
+		"reportItem.dawproject.inactive-track-converted": ["human","Inactive tracks were imported muted; their audio remains available for reactivation.","비활성 트랙을 음소거 상태로 가져왔습니다. 다시 활성화할 수 있도록 오디오는 유지됩니다."],
 		"reportItem.dawproject.midi-authoring-converted": ["human","Editable MIDI notes, messages, and instrument settings were converted to fallback audio.","편집 가능한 MIDI 노트, 메시지 및 악기 설정이 대체 오디오로 변환되었습니다."],
 		"reportItem.delivery.adm-immersive-bed": ["machine","ADM immersive bed","ADM 이머시브 베드"],
 		"reportItem.delivery.adm-objects": ["machine","ADM objects","ADM 객체"],

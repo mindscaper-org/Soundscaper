@@ -2389,6 +2389,7 @@
 		"reportItem.UNSUPPORTED_TRACK_GAIN": ["machine","Unsupported track gain","بهرهٔ پشتیبانی‌نشدهٔ ترک"],
 		"reportItem.VIDEO_OMITTED": ["machine","Video tracks and their effects were omitted.","ترک‌های ویدیویی و افکت‌هایشان در خروجی لحاظ نشدند."],
 		"reportItem.dawproject.color-omitted": ["human","An authored RGB color outside the track and clip palette was omitted.","یک رنگ RGB تعیین‌شده خارج از پالت ترک‌ها و کلیپ‌ها حذف شد."],
+		"reportItem.dawproject.inactive-track-converted": ["human","Inactive tracks were imported muted; their audio remains available for reactivation.","ترک‌های غیرفعال به‌صورت بی‌صدا وارد شدند؛ صدای آن‌ها برای فعال‌سازی دوباره همچنان در دسترس است."],
 		"reportItem.dawproject.midi-authoring-converted": ["human","Editable MIDI notes, messages, and instrument settings were converted to fallback audio.","نت‌های MIDI، پیام‌ها و تنظیمات ساز قابل ویرایش به صدای جایگزین تبدیل شدند."],
 		"reportItem.delivery.adm-immersive-bed": ["machine","ADM immersive bed","بستر فراگیر ADM"],
 		"reportItem.delivery.adm-objects": ["machine","ADM objects","اشیای ADM"],

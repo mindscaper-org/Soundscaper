@@ -2389,6 +2389,7 @@
 		"reportItem.UNSUPPORTED_TRACK_GAIN": ["machine","Unsupported track gain","Nepodporované zesílení stopy"],
 		"reportItem.VIDEO_OMITTED": ["machine","Video tracks and their effects were omitted.","Videostopy a jejich efekty byly vynechány."],
 		"reportItem.dawproject.color-omitted": ["human","An authored RGB color outside the track and clip palette was omitted.","Zadaná barva RGB mimo paletu stop a klipů byla vynechána."],
+		"reportItem.dawproject.inactive-track-converted": ["human","Inactive tracks were imported muted; their audio remains available for reactivation.","Neaktivní stopy byly importovány ztlumené; jejich zvuk zůstává dostupný pro opětovnou aktivaci."],
 		"reportItem.dawproject.midi-authoring-converted": ["human","Editable MIDI notes, messages, and instrument settings were converted to fallback audio.","Upravitelné noty MIDI, zprávy a nastavení nástrojů byly převedeny na náhradní zvuk."],
 		"reportItem.delivery.adm-immersive-bed": ["machine","ADM immersive bed","Imerzivní základní vrstva ADM"],
 		"reportItem.delivery.adm-objects": ["machine","ADM objects","Objekty ADM"],

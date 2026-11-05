@@ -2389,6 +2389,7 @@
 		"reportItem.UNSUPPORTED_TRACK_GAIN": ["machine","Unsupported track gain","Μη υποστηριζόμενη απολαβή κομματιού"],
 		"reportItem.VIDEO_OMITTED": ["machine","Video tracks and their effects were omitted.","Παραλείφθηκαν τα κομμάτια βίντεο και τα εφέ τους."],
 		"reportItem.dawproject.color-omitted": ["human","An authored RGB color outside the track and clip palette was omitted.","Ένα καθορισμένο χρώμα RGB εκτός της παλέτας διαδρομών και κλιπ παραλείφθηκε."],
+		"reportItem.dawproject.inactive-track-converted": ["human","Inactive tracks were imported muted; their audio remains available for reactivation.","Τα ανενεργά κομμάτια εισήχθησαν σε σίγαση· ο ήχος τους παραμένει διαθέσιμος για επανενεργοποίηση."],
 		"reportItem.dawproject.midi-authoring-converted": ["human","Editable MIDI notes, messages, and instrument settings were converted to fallback audio.","Οι επεξεργάσιμες νότες MIDI, τα μηνύματα και οι ρυθμίσεις οργάνων μετατράπηκαν σε εναλλακτικό ήχο."],
 		"reportItem.delivery.adm-immersive-bed": ["machine","ADM immersive bed","Καθηλωτικό υπόβαθρο ADM"],
 		"reportItem.delivery.adm-objects": ["machine","ADM objects","Αντικείμενα ADM"],

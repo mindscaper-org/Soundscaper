@@ -2389,6 +2389,7 @@
 		"reportItem.UNSUPPORTED_TRACK_GAIN": ["machine","Unsupported track gain","असमर्थित ट्रैक गेन"],
 		"reportItem.VIDEO_OMITTED": ["machine","Video tracks and their effects were omitted.","वीडियो ट्रैक और उनके प्रभाव छोड़ दिए गए।"],
 		"reportItem.dawproject.color-omitted": ["human","An authored RGB color outside the track and clip palette was omitted.","ट्रैक और क्लिप पैलेट से बाहर का निर्दिष्ट RGB रंग छोड़ दिया गया।"],
+		"reportItem.dawproject.inactive-track-converted": ["human","Inactive tracks were imported muted; their audio remains available for reactivation.","निष्क्रिय ट्रैक म्यूट करके आयात किए गए; उन्हें फिर सक्रिय करने के लिए उनका ऑडियो उपलब्ध है।"],
 		"reportItem.dawproject.midi-authoring-converted": ["human","Editable MIDI notes, messages, and instrument settings were converted to fallback audio.","संपादन योग्य MIDI नोट, संदेश और वाद्य सेटिंग को वैकल्पिक ऑडियो में बदला गया।"],
 		"reportItem.delivery.adm-immersive-bed": ["machine","ADM immersive bed","इमर्सिव ADM बेड"],
 		"reportItem.delivery.adm-objects": ["machine","ADM objects","ADM ऑब्जेक्ट"],

@@ -2389,6 +2389,7 @@
 		"reportItem.UNSUPPORTED_TRACK_GAIN": ["machine","Unsupported track gain","不受支援的軌道增益"],
 		"reportItem.VIDEO_OMITTED": ["machine","Video tracks and their effects were omitted.","已省略視訊軌道及其效果。"],
 		"reportItem.dawproject.color-omitted": ["human","An authored RGB color outside the track and clip palette was omitted.","不在音軌與片段調色盤中的指定 RGB 色彩已被省略。"],
+		"reportItem.dawproject.inactive-track-converted": ["human","Inactive tracks were imported muted; their audio remains available for reactivation.","未啟用的軌道已以靜音狀態匯入；其音訊仍予以保留，以便重新啟用。"],
 		"reportItem.dawproject.midi-authoring-converted": ["human","Editable MIDI notes, messages, and instrument settings were converted to fallback audio.","可編輯的 MIDI 音符、訊息與樂器設定已轉換為替代音訊。"],
 		"reportItem.delivery.adm-immersive-bed": ["machine","ADM immersive bed","ADM 沈浸式底層聲場"],
 		"reportItem.delivery.adm-objects": ["machine","ADM objects","ADM 物件"],

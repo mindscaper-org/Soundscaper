@@ -2389,6 +2389,7 @@
 		"reportItem.UNSUPPORTED_TRACK_GAIN": ["machine","Unsupported track gain","Непідтримуване підсилення доріжки"],
 		"reportItem.VIDEO_OMITTED": ["machine","Video tracks and their effects were omitted.","Відеодоріжки та їхні ефекти пропущено."],
 		"reportItem.dawproject.color-omitted": ["human","An authored RGB color outside the track and clip palette was omitted.","Заданий колір RGB поза палітрою доріжок і кліпів пропущено."],
+		"reportItem.dawproject.inactive-track-converted": ["human","Inactive tracks were imported muted; their audio remains available for reactivation.","Неактивні доріжки імпортовано з вимкненим звуком; їхнє аудіо збережено для повторної активації."],
 		"reportItem.dawproject.midi-authoring-converted": ["human","Editable MIDI notes, messages, and instrument settings were converted to fallback audio.","Редаговані ноти MIDI, повідомлення та налаштування інструментів перетворено на замінне аудіо."],
 		"reportItem.delivery.adm-immersive-bed": ["machine","ADM immersive bed","Імерсивна підкладка ADM"],
 		"reportItem.delivery.adm-objects": ["machine","ADM objects","Об'єкти ADM"],

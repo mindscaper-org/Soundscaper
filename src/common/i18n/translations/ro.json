@@ -2389,6 +2389,7 @@
 		"reportItem.UNSUPPORTED_TRACK_GAIN": ["machine","Unsupported track gain","Amplificare de pistă neacceptată"],
 		"reportItem.VIDEO_OMITTED": ["machine","Video tracks and their effects were omitted.","Pistele video și efectele lor au fost omise."],
 		"reportItem.dawproject.color-omitted": ["human","An authored RGB color outside the track and clip palette was omitted.","O culoare RGB definită în afara paletei de piste și clipuri a fost omisă."],
+		"reportItem.dawproject.inactive-track-converted": ["human","Inactive tracks were imported muted; their audio remains available for reactivation.","Pistele inactive au fost importate cu sunetul dezactivat; conținutul audio rămâne disponibil pentru reactivare."],
 		"reportItem.dawproject.midi-authoring-converted": ["human","Editable MIDI notes, messages, and instrument settings were converted to fallback audio.","Notele MIDI, mesajele și setările instrumentelor editabile au fost convertite în audio de rezervă."],
 		"reportItem.delivery.adm-immersive-bed": ["machine","ADM immersive bed","Strat imersiv de bază ADM"],
 		"reportItem.delivery.adm-objects": ["machine","ADM objects","Obiecte ADM"],
