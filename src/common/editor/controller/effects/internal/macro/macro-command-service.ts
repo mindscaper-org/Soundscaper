@@ -151,6 +151,13 @@ export function createMacroCommandService(runtime: MacroCommandServiceRuntime) {
 		if (typeof target !== 'function') {
 			throw new RangeError(`The macro command ${command} has no editor action (${path}).`);
 		}
+		if (command === 'SelectAll' || command === 'SelAllTracks') {
+			const frequencyRange = runtime.getProject().selection?.frequencyRange;
+			const result = (target as () => unknown)();
+			const selection = runtime.getProject().selection;
+			return frequencyRange && selection ? runtime.setExactSelection(selection.startFrame, selection.endFrame,
+				{ ...selection, frequencyRange }) : result;
+		}
 		if (command === 'SelNextClip' || command === 'SelPrevClip') {
 			return (target as (options: Readonly<{ nativeRegion: boolean }>) => unknown)({ nativeRegion: true });
 		}

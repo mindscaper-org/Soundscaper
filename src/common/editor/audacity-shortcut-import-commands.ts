@@ -55,6 +55,7 @@ const LEGACY_CURSOR_COLLAPSE_COMMANDS = new Set([
 	'CursorLeft', 'CursorRight', 'CursorShortJumpLeft', 'CursorShortJumpRight',
 	'CursorLongJumpLeft', 'CursorLongJumpRight',
 ]);
+const LEGACY_SELECTION_SCOPE_COMMANDS = new Set(['SelectNone', 'SelNextClip', 'SelPrevClip', 'SelectAll', 'SelAll', 'SelAllTracks']);
 
 const CONTEXTUAL_COMMANDS: Readonly<Record<string, string>> = Object.freeze({
 	'nav-next-section': 'track-view-next-panel', 'nav-next-panel': 'track-view-next-panel',
@@ -79,7 +80,7 @@ export function audacityShortcutImportCommand(
 	command: string, legacy: boolean, availableActionIds?: ReadonlySet<string>,
 ): string | null {
 	// Native region/collapse commands retain facets that these local actions replace.
-	if (legacy && (command === 'SelectNone' || command === 'SelNextClip' || command === 'SelPrevClip' || LEGACY_CURSOR_COLLAPSE_COMMANDS.has(command))) return null;
+	if (legacy && (LEGACY_SELECTION_SCOPE_COMMANDS.has(command) || LEGACY_CURSOR_COLLAPSE_COMMANDS.has(command))) return null;
 	// Native label commands have fixed modes; the local action follows transport state.
 	if (legacy && (command === 'AddLabel' || command === 'AddLabelPlaying')) return null;
 	const sourceId = legacy
