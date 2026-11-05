@@ -57,7 +57,11 @@ export function createMidiImportFiles(scope: MidiImportRuntime,
 				options.signal?.throwIfAborted();
 				assertCurrent(context);
 				const file = files[index]!;
-				if (kinds[index] === 'other') { result = await scope.importFiles([file], options); context.project = scope.getProject(); continue; }
+				if (kinds[index] === 'other') {
+					result = await scope.importFiles([file], options);
+					if (result && typeof result === 'object' && 'cancelled' in result && result.cancelled === true) return result;
+					context.project = scope.getProject(); continue;
+				}
 				const { MIDI_FILE_MAX_BYTES } = await import('../../../midi-file-types.ts');
 				if (file.size !== undefined && file.size > MIDI_FILE_MAX_BYTES) throw new RangeError('MIDI files cannot exceed 16 MiB.');
 				const sampleRate = context.project?.sampleRate ?? 48_000;
