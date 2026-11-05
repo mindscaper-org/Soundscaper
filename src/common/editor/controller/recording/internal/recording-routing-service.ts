@@ -413,8 +413,9 @@ export function createRecordingRoutingService<
 		}
 		for (const source of state.recordingPoolSources) {
 			if (source.kind !== 'device' || !source.deviceId) continue;
-			const existing = rows.get(source.deviceId) || { deviceId: source.deviceId, label: '' };
-			rows.set(source.deviceId, { ...existing, channelCount: source.channelCount });
+			const existing: RecordingRoutingDeviceRow = rows.get(source.deviceId) || { deviceId: source.deviceId, label: '' };
+			const channelCount = source.deviceId.startsWith('native:') && existing.channels?.length ? existing.channels.length : source.channelCount;
+				rows.set(source.deviceId, { ...existing, channelCount });
 		}
 		state.recordingDevices = Object.freeze([...rows.values()].map((device) => Object.freeze({
 			deviceId: device.deviceId,

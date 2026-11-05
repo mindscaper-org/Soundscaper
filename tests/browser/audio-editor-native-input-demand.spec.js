@@ -4,7 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
 import { installNativeInputPeer } from './helpers/native-input-peer.js';
 
-for (const [channel, stereo] of [['0', false], ['1', false], ['1', true]]) {
+for (const [channel, stereo] of [['0', false], ['1', false], ['1', true], ['2', false]]) {
 	test(`an explicit native Mono ${Number(channel) + 1} pin records with global ${stereo ? 'Stereo' : 'Mono'}`, async ({ page }) => {
 		await installNativeInputPeer(page);
 		await page.addInitScript(() => {
@@ -43,7 +43,7 @@ for (const [channel, stereo] of [['0', false], ['1', false], ['1', true]]) {
 			await expect(row.locator('[data-clip-id^="recording-preview-"]')).toBeVisible();
 			const playhead = editor.getByRole('slider', { name: 'Playhead', exact: true });
 			await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(12_000);
-			await expect.poll(() => page.evaluate(() => window.__nativeInputPeer.requests.filter(request => request.direction === 'input').at(-1)?.channelCount)).toBe(channel === '1' || stereo ? 2 : 1);
+			await expect.poll(() => page.evaluate(() => window.__nativeInputPeer.requests.filter(request => request.direction === 'input').at(-1)?.channelCount)).toBe(Math.max(Number(channel) + 1, stereo ? 2 : 1));
 			await expect(editor.getByRole('alert').filter({ hasText: /None of the assigned recording inputs are available/u })).toHaveCount(0);
 		} finally { await editor.getByRole('button', { name: 'Stop', exact: true }).click(); }
 	});
