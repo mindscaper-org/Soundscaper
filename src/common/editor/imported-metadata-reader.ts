@@ -7,7 +7,7 @@ export async function readImportedMetadataTags(file: Blob, signal?: AbortSignal)
 	signal?.throwIfAborted();
 	const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
 	const signature = new TextDecoder().decode(header.subarray(0, 4));
-	if (signature === 'wvpk' || signature === 'MAC ' || signature === 'TTA1') {
+	if (signature === 'wvpk' || signature === 'MAC ' || signature === 'TTA1' || new TextDecoder().decode(header.subarray(0, 8)) === 'APETAGEX') {
 		return (await import('./ape-metadata-reader.ts')).readApeMetadataTags(file, signal);
 	}
 	file = await riffMetadataReadView(file, header, signal) ?? file;

@@ -64,8 +64,13 @@ export async function prepareStreamedAudioImport(
 	}
 	if (!options.desktop) await confirmFileSizeWarning(file.size, LARGE_AUDIO_FILE_BYTES, 'Compressed audio import', options);
 	const session = await awaitImportOperation((options.openSession ?? (async (blob, signal) => {
-		const header = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
-		if (String.fromCharCode(...header) === 'wvpk') {
+		let header = new Uint8Array(await blob.slice(0, 8).arrayBuffer());
+		if (new TextDecoder().decode(header) === 'APETAGEX') {
+			const { leadingApeTagEnd } = await import('./ape-tag-location.ts');
+			const start = await leadingApeTagEnd(blob, signal);
+			header = new Uint8Array(await blob.slice(start, start + 4).arrayBuffer());
+		}
+		if (String.fromCharCode(...header.subarray(0, 4)) === 'wvpk') {
 			const { openStreamedWavPackImportSession } = await import('./browser-streamed-wavpack-import.ts');
 			return openStreamedWavPackImportSession(blob, signal, options.desktopCodec);
 		}

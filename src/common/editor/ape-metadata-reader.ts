@@ -1,16 +1,18 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { metadataBlobBytes } from './audio-metadata-values.ts';
+import { apeFooter, apeTagEnd, leadingApeTagEnd } from './ape-tag-location.ts';
 
 /** Keep APEv2 trailers outside the reviewed WavPack audio-block decoder. */
 export async function wavPackAudioBlob(file: Blob, signal?: AbortSignal): Promise<Blob> {
 	if (file.size < 32) return file;
-	const tagEnd = await apeTagEnd(file, signal);
+	const audioStart = await leadingApeTagEnd(file, signal);
+	const tagEnd = await apeTagEnd(file, audioStart, signal);
 	const footer = await metadataBlobBytes(file, tagEnd - 32, tagEnd, signal);
 	const info = apeFooter(footer, false);
-	if (!info) return file.slice(0, await wavPackZeroPaddingStart(file, tagEnd, signal), file.type);
+	if (!info) return file.slice(audioStart, await wavPackZeroPaddingStart(file, audioStart, tagEnd, signal), file.type);
 	const start = tagEnd - info.size - (info.header ? 32 : 0);
-	if (start < 32) throw new RangeError('The APEv2 trailer exceeds its WavPack file.');
+	if (start < audioStart + 32) throw new RangeError('The APEv2 trailer exceeds its WavPack file.');
 	if (info.header) {
 		const header = await metadataBlobBytes(file, start, start + 32, signal);
 		const declared = apeFooter(header, false);
@@ -18,16 +20,26 @@ export async function wavPackAudioBlob(file: Blob, signal?: AbortSignal): Promis
 		if (!declared || declared.size !== info.size || view.getUint32(16, true) !== new DataView(footer.buffer).getUint32(16, true)
 			|| !(view.getUint32(20, true) & 0x2000_0000)) throw new RangeError('The APEv2 header is missing or inconsistent.');
 	}
-	return file.slice(0, await wavPackZeroPaddingStart(file, start, signal), file.type);
+	return file.slice(audioStart, await wavPackZeroPaddingStart(file, audioStart, start, signal), file.type);
 }
 
 /** Inspect APE text and cover art without asking a codec to decode the trailer. */
 export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Promise<Readonly<Record<string, unknown>>> {
 	if (file.size < 32) return {};
-	const tagEnd = await apeTagEnd(file, signal);
-	const footer = await metadataBlobBytes(file, tagEnd - 32, tagEnd, signal);
-	const info = apeFooter(footer);
-	if (!info) return tagEnd < file.size ? readLegacyId3Tags(await metadataBlobBytes(file, tagEnd, file.size, signal)) : {};
+	const audioStart = await leadingApeTagEnd(file, signal);
+	let tagEnd = await apeTagEnd(file, audioStart, signal);
+	let footer = await metadataBlobBytes(file, tagEnd - 32, tagEnd, signal);
+	let info = apeFooter(footer);
+	if (!info && tagEnd < file.size) return readLegacyId3Tags(await metadataBlobBytes(file, tagEnd, file.size, signal));
+	if (!info && audioStart) {
+		const header = await metadataBlobBytes(file, 0, 32, signal);
+		const footerAbsent = Boolean(new DataView(header.buffer).getUint32(20, true) & 0x4000_0000);
+		// The declared size includes a virtual footer even for a header-only tag.
+		tagEnd = audioStart + (footerAbsent ? 32 : 0);
+		footer = footerAbsent ? header : await metadataBlobBytes(file, tagEnd - 32, tagEnd, signal);
+		info = apeFooter(footer);
+	}
+	if (!info) return {};
 	await wavPackAudioBlob(file, signal);
 	const bytes = await metadataBlobBytes(file, tagEnd - info.size, tagEnd - 32, signal);
 	const view = new DataView(bytes.buffer);
@@ -58,7 +70,7 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 				const end = value.indexOf(0);
 				if (end >= 0 && end + 1 < value.length) {
 					const data = value.subarray(end + 1);
-					images.push({ data, description: new TextDecoder().decode(value.subarray(0, end)), mimeType: data[0] === 137 ? 'image/png' : 'image/jpeg',
+					images.push({ data, description: new TextDecoder().decode(value.subarray(0, end)), mimeType: artworkMimeType(data),
 						kind: /\(front\)/iu.test(key) ? 'coverFront' : /\(back\)/iu.test(key) ? 'coverBack' : 'unknown' });
 				}
 			}
@@ -94,9 +106,20 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 	return tags;
 }
 
+function artworkMimeType(bytes: Uint8Array): string {
+	const starts = (...signature: number[]): boolean => signature.every((byte, index) => bytes[index] === byte);
+	if (starts(137, 80, 78, 71, 13, 10, 26, 10)) return 'image/png';
+	if (starts(255, 216, 255)) return 'image/jpeg';
+	const text = new TextDecoder().decode(bytes.subarray(0, 12));
+	if (text.startsWith('GIF87a') || text.startsWith('GIF89a')) return 'image/gif';
+	if (text.startsWith('RIFF') && text.slice(8, 12) === 'WEBP') return 'image/webp';
+	if (starts(66, 77)) return 'image/bmp';
+	return 'application/octet-stream';
+}
+
 /** Older native tag writers zero the released tag extent instead of truncating it. */
-async function wavPackZeroPaddingStart(file: Blob, end: number, signal?: AbortSignal): Promise<number> {
-	let offset = 0; let complete = false;
+async function wavPackZeroPaddingStart(file: Blob, offset: number, end: number, signal?: AbortSignal): Promise<number> {
+	let complete = false;
 	for (let blocks = 0; offset < end && blocks < 1_000_000; blocks++) {
 		const header = await metadataBlobBytes(file, offset, Math.min(offset + 32, end), signal);
 		if (header.length === 32 && new TextDecoder().decode(header.subarray(0, 4)) === 'wvpk') {
@@ -113,40 +136,6 @@ async function wavPackZeroPaddingStart(file: Blob, end: number, signal?: AbortSi
 		return offset;
 	}
 	return end;
-}
-
-function apeFooter(bytes: Uint8Array, inspectItems = true): Readonly<{ size: number; header: boolean }> | null {
-	if (new TextDecoder().decode(bytes.subarray(0, 8)) !== 'APETAGEX') return null;
-	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-	const size = view.getUint32(12, true);
-	if (bytes.length !== 32 || view.getUint32(8, true) !== 2000 || size < 32) throw new RangeError('Invalid APEv2 trailer.');
-	if (inspectItems && (size > 16 * 1024 ** 2 || view.getUint32(16, true) > 256)) throw new RangeError('APEv2 metadata exceeds its bounded inspection limit.');
-	return { size, header: Boolean(view.getUint32(20, true) & 0x8000_0000) };
-}
-
-/** ID3v1 may follow APEv2 for compatibility with older tagging programs. */
-async function apeTagEnd(file: Blob, signal?: AbortSignal): Promise<number> {
-	const footer = await metadataBlobBytes(file, file.size - 32, file.size, signal);
-	if (apeFooter(footer, false)) return file.size;
-	if (file.size >= 160) {
-		const marker = await metadataBlobBytes(file, file.size - 128, file.size - 125, signal);
-		if (new TextDecoder().decode(marker) === 'TAG' && await isExternalWavPackTrailer(file, file.size - 128, signal)) return file.size - 128;
-	}
-	return file.size;
-}
-
-/** Wrapper bytes inside a WavPack block may contain any tag-looking prefix. */
-async function isExternalWavPackTrailer(file: Blob, position: number, signal?: AbortSignal): Promise<boolean> {
-	let offset = 0;
-	while (offset < position) {
-		const header = await metadataBlobBytes(file, offset, offset + 32, signal);
-		if (new TextDecoder().decode(header.subarray(0, 4)) !== 'wvpk') return true;
-		const size = new DataView(header.buffer).getUint32(4, true) + 8;
-		if (size < 32 || size > file.size - offset) return true;
-		offset += size;
-		if (offset > position) return false;
-	}
-	return true;
 }
 
 /** ID3v1 is an admitted WavPack trailer even when no APEv2 tag accompanies it. */
