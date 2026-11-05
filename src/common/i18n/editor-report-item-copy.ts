@@ -3,6 +3,8 @@
 export const REPORT_ITEM_COPY: Readonly<Record<string, string>> = Object.freeze({
 	"reportItem.ASSISTANCE_TRANSCRIPTS_OMITTED": "Assistance transcripts and their source bindings were omitted.",
 	"reportItem.AUDACITY_EFFECT_UNSUPPORTED_STATE_EXPORTED_AS_MISSING": "An unsupported Audacity effect state was exported as a missing effect",
+	"reportItem.AUDACITY_LABELS_BEFORE_ZERO_OMITTED": "Labels entirely before the timeline origin were omitted.",
+	"reportItem.AUDACITY_LABELS_BEFORE_ZERO_TRIMMED": "Label regions crossing the timeline origin were trimmed to start at zero.",
 	"reportItem.AUDACITY_RECOVERY_COPY": "Audacity recovery copy",
 	"reportItem.AUDIO_WARP_MAPS_OMITTED": "Warped timing was rendered into clips; editable warp maps were omitted.",
 	"reportItem.AUDIO_WARP_RENDERED": "Audio warp rendered",
