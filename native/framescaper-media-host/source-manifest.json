@@ -137,8 +137,8 @@
 		},
 		{
 			"path": "build/windows-ffmpeg-msvc-flags.cmake",
-			"byteLength": 2581,
-			"sha256": "cada34d2b26b5d24c8fef45ade9661b183022e18439814f5a97b4cc29d4269cb"
+			"byteLength": 3140,
+			"sha256": "ee48e5922baeead6694d504f0fee8b2ae82fa197af144273f69cecbc64889380"
 		},
 		{
 			"path": "build/windows-ffmpeg-pkg-config.cmake",
