@@ -21,6 +21,7 @@ interface PauseDependencies {
 /** Pause every stream together; failed transitions retire the whole live graph. */
 export function createFramescaperCapturePauseActions(dependencies: PauseDependencies) {
 	let pending = Promise.resolve();
+	let latest: Readonly<{ action: 'pause' | 'resume'; operation: Promise<void> }> | null = null;
 	const journal = dependencies.clockJournal ?? createFramescaperCaptureClockJournal(dependencies.durable, dependencies.setSession);
 	async function transition(action: 'pause' | 'resume'): Promise<void> {
 		dependencies.assertActive();
@@ -52,8 +53,11 @@ export function createFramescaperCapturePauseActions(dependencies: PauseDependen
 		}
 	}
 	function enqueue(action: 'pause' | 'resume'): Promise<void> {
+		if (latest?.action === action) return latest.operation;
 		const operation = pending.then(() => transition(action));
+		const request = { action, operation }; latest = request;
 		pending = operation.catch(() => undefined);
+		void operation.finally(() => { if (latest === request) latest = null; }).catch(() => undefined);
 		return operation;
 	}
 	return Object.freeze({ pause: () => enqueue('pause'), resume: () => enqueue('resume'), settled: () => pending });

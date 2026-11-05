@@ -3,7 +3,7 @@ import { createFramescaperCaptureSessionService } from '../../src/common/editor/
 import { createFramescaperCaptureOriginGuard } from '../../src/common/editor/controller/capture/framescaper-capture-origin-guard.ts';
 import { createCaptureRuntimeAvailability } from '../../src/common/editor/framescaper-capture-domain.ts';
 
-export function captureSessionTransitionFixture() {
+export function captureSessionTransitionFixture(options: Readonly<{ onChange?: () => void }> = {}) {
 	const events: string[] = [];
 	class CaptureTrack extends EventTarget {
 		readyState = 'live';
@@ -22,6 +22,7 @@ export function captureSessionTransitionFixture() {
 	let clock = 100;
 	const service = createFramescaperCaptureSessionService({
 		enabled: true, embedded: false, originGuard: origin,
+		...(options.onChange ? { onChange: options.onChange } : {}),
 		sourcePort: {
 			async probe() { return createCaptureRuntimeAvailability({ status: 'available', sourceRoles: ['camera', 'microphone'] }); },
 			async enumerate() { return { devices: [] }; },
