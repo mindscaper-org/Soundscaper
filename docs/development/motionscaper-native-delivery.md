@@ -74,3 +74,12 @@ Changes to this helper's source or build closure require refreshing
 `native/motionscaper-media-host/source-manifest.json` and rebuilding native media
 artifacts. They do not require **Update AI assets** unless the separate assistance
 runtime closure also changes.
+
+Windows builds authenticate the upstream FFmpeg source tree, stage a separate
+working copy, then run `windows-ffmpeg-msvc-flags.cmake` against the pinned
+`configure` file. This adapter keeps `-U` macro undefines in compiler flags and
+excludes them from linker flags, alongside FFmpeg's existing `-D` handling.
+Static SVT-AV1 metadata retains its `-UEB_DLL` directive, and unknown linker
+option warnings still fail configuration. The source cache, upstream archive
+and extracted-tree pins remain unchanged; the adapter and command plan belong
+to the media-host source manifest.

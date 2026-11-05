@@ -278,6 +278,11 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		command('libopus-configure', tools.executables.cmake.path, opusArgs, paths.libopusBuild, nativeEnvironment),
 		command('libopus-build', tools.executables.cmake.path, ['--build', paths.libopusBuild, '--config', 'Release', '--target', 'opus', '--parallel', '1'], paths.libopusBuild, nativeEnvironment),
 		command('libopus-install', tools.executables.cmake.path, ['--install', paths.libopusBuild, '--config', 'Release', '--prefix', paths.libopusInstall], paths.libopusBuild, nativeEnvironment),
+		...(windows ? [command('ffmpeg-normalize-msvc-flags', tools.executables.cmake.path, [
+			`-DFFMPEG_CONFIGURE_FILE=${join(paths.ffmpegBuild, 'src/configure')}`,
+			'-DFFMPEG_CONFIGURE_SHA256=5b281b249ad5ad859030b4da0a24ec105b5abff7b3d87a65b302df8bf5fd9833',
+			'-P', join(hostRoot, 'build/windows-ffmpeg-msvc-flags.cmake'),
+		], paths.ffmpegBuild, nativeEnvironment)] : []),
 		command('ffmpeg-configure', tools.executables.shell.path, ffmpegArgs, paths.ffmpegBuild, dependencyEnvironment),
 		...(windows ? [
 			command('ffmpeg-prepare-dependencies', tools.executables.cmake.path, ['-E', 'copy',
