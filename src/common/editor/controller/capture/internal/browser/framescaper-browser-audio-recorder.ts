@@ -29,6 +29,7 @@ export interface FramescaperAudioTrackLike {
 	getSettings?(): Readonly<{ sampleRate?: unknown; channelCount?: unknown }>;
 }
 export interface FramescaperAudioDataLike {
+	readonly timestamp: number;
 	readonly numberOfFrames: number;
 	readonly numberOfChannels: number;
 	readonly sampleRate: number;
@@ -49,6 +50,8 @@ export interface FramescaperAudioTrackProcessorReader {
 	releaseLock(): void;
 }
 export interface FramescaperAudioTrackProcessorLike {
+	readonly discardedFrames?: number;
+	readonly totalFrames?: number;
 	readonly readable: {
 		getReader(): FramescaperAudioTrackProcessorReader;
 	};

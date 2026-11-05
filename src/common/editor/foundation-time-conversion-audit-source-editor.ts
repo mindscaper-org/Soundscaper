@@ -6,6 +6,12 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Source editor display and authoring share the owning project tempo and sample grid. */
 export const FOUNDATION_TIME_CONVERSION_SOURCE_EDITOR_SITES: readonly FoundationTimeConversionSite[] = deepFreezeAuditSites([
 	{
+		id: 'capture-native-audio-data-clock',
+		file: 'src/common/editor/controller/capture/internal/browser/framescaper-audio-data-frame-clock.ts',
+		behavior: 'Native AudioData timestamp deltas round once to the nearest observed native block interval to locate loss across queued delivery. Exact source holes use the native discarded-block counter and fixed observed block size; timestamp jitter never manufactures or changes missing-sample counts.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
 		id: 'midi-file-import-clock',
 		file: 'src/common/editor/midi-file.ts',
 		behavior: 'SMF import accumulates exact PPQ microsecond/tick numerators or SMPTE rational frame-rate/tick coordinates, including 30000/1001 fps, then rounds each note, event and conductor point once to its nearest destination sample.',

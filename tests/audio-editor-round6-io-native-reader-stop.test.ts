@@ -14,17 +14,22 @@ for (const closeAtStop of [false, true]) {
 			start(value) { controller = value; },
 		});
 		let copied = false;
+		let totalFrames = 0;
 		const samples = Float32Array.from({ length: 480 }, (_, index) => index / 480);
 		const chunks: number[] = [];
 		const recorder = await createFramescaperBrowserAudioRecorder({
 			role: 'microphone', track: { kind: 'audio', getSettings: () => ({ sampleRate: 48_000, channelCount: 1 }) },
 			stream: {},
-			MediaStreamTrackProcessor: class { readonly readable = readable; },
+			MediaStreamTrackProcessor: class {
+				readonly readable = readable; readonly discardedFrames = 0;
+				get totalFrames() { return totalFrames; }
+			},
 			onChunk(chunk) { chunks.push(chunk.frames); assert.deepEqual(chunk.channels[0], samples); },
 		});
 		await recorder.start();
+		totalFrames += 1;
 		controller.enqueue({
-			numberOfFrames: 480, numberOfChannels: 1, sampleRate: 48_000,
+			numberOfFrames: 480, numberOfChannels: 1, sampleRate: 48_000, timestamp: 0,
 			copyTo(destination, options) {
 				destination.set(samples.subarray(options.frameOffset ?? 0, (options.frameOffset ?? 0) + (options.frameCount ?? 480)));
 				copied = true;
