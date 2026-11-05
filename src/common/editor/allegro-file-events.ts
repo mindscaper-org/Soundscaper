@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { allegroNumber, allegroString } from './allegro-file-fields.ts';
+import { allegroNumber, allegroQuotedString, allegroString } from './allegro-file-fields.ts';
 import { midiFileInteger, type MidiFileEvent } from './midi-file-types.ts';
 import { decodeMidiFileText } from './midi-file-text.ts';
 
@@ -52,7 +52,7 @@ export function allegroEventFields(event: MidiFileEvent): string {
 	if (event.status === 240) return `V- -sysexs:"f0${event.data.map(byte => byte.toString(16).padStart(2, '0')).join('')}"`;
 	if (event.status === 255) {
 		const name = Object.keys(TEXT_ATTRIBUTES).find(attribute => TEXT_ATTRIBUTES[attribute] === event.metaType);
-		if (name) return `V- -${name}:${JSON.stringify(decodeMidiFileText(Uint8Array.from(event.data)))}`;
+		if (name) return `V- -${name}:${allegroQuotedString(decodeMidiFileText(Uint8Array.from(event.data)))}`;
 		if (event.metaType === 127) return `V- -sqspecifics:"${event.data.map(byte => byte.toString(16).padStart(2, '0')).join('')}"`;
 		if (event.metaType === 89) return `V- -keysigi:${event.data[0]! > 127 ? event.data[0]! - 256 : event.data[0]} -modea:'${event.data[1] ? 'minor' : 'major'}'`;
 	}

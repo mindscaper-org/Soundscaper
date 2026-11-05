@@ -82,10 +82,25 @@ export function allegroVelocity(value: string): number {
 }
 
 export function allegroString(value: string): string {
-	if (value.startsWith('"')) {
-		try { const parsed: unknown = JSON.parse(value); if (typeof parsed === 'string') return parsed; } catch { /* Report as format error below. */ }
-		throw new RangeError('Invalid Allegro quoted string.');
+	if (value.startsWith('"') && value.endsWith('"')) {
+		let text = '';
+		for (let index = 1; index < value.length - 1; index += 1) {
+			let character = value[index]!;
+			if (character === '\\') {
+				index += 1;
+				if (index >= value.length - 1) throw new RangeError('Invalid Allegro quoted string.');
+				character = value[index]!;
+			} else if (character === '"') throw new RangeError('Invalid Allegro quoted string.');
+			text += character;
+		}
+		return text;
 	}
 	if (value.startsWith("'") && value.endsWith("'")) return value.slice(1, -1);
 	throw new RangeError('Allegro string or atom must be quoted.');
+}
+
+/** PortSMF quotes only escape the following literal byte; JSON escapes differ. */
+export function allegroQuotedString(value: string): string {
+	if (/[\r\n\0]/u.test(value)) throw new RangeError('Text containing line breaks or NUL cannot be represented in Allegro. Export MIDI instead.');
+	return `"${value.replace(/[\\"]/gu, character => `\\${character}`)}"`;
 }
