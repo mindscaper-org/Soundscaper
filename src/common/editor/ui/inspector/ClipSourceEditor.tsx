@@ -152,10 +152,10 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 		setView({ startFrame: nextStart, endFrame: nextStart + nextSpan });
 	});
 	const begin = (event: PointerEvent<HTMLElement>, kind: Gesture['kind'], pointIndex?: number) => {
-		if (event.button !== 0 || event.isPrimary === false || gesture.current || blocked) return;
 		const handle = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-clip-fade-handle], [data-clip-fade-shape-handle]') : null;
 		if (handle?.dataset.clipFadeHandle) kind = handle.dataset.clipFadeHandle === 'in' ? 'fade-in' : 'fade-out';
 		if (handle?.dataset.clipFadeShapeHandle) kind = handle.dataset.clipFadeShapeHandle === 'in' ? 'shape-in' : 'shape-out';
+		if (event.button !== 0 || event.isPrimary === false || gesture.current || (kind === 'selection' && !event.ctrlKey && !event.metaKey ? previewBlocked : blocked)) return;
 		event.preventDefault(); event.stopPropagation(); (handle ?? waveRef.current)?.focus(); focus();
 		const frame = frameAt(event.clientX);
 		if (kind === 'selection' && (event.ctrlKey || event.metaKey)) {
