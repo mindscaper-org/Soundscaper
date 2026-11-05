@@ -32,3 +32,37 @@ export function sameAllegroTempoClock(left: readonly MidiFileTempo[], right: rea
 	return left.length === right.length && left.every((tempo, index) => tempo.bpm === right[index]!.bpm
 		&& Math.abs(tempo.frame - right[index]!.frame) <= 1e-7);
 }
+
+interface EventClock {
+	frameToBeat(frame: number): number;
+	beatToFrame(beat: number): number;
+}
+
+/** Later source clock updates preserve the beat identity of events already read. */
+export function createAllegroEventClockValidation() {
+	const source = new Map<string, Readonly<{ frame: number; beat: number; keyPart: boolean }>>();
+	const output = new Map<string, number>();
+	const sourceKeys = new Set<string>(), outputKeys = new Set<string>();
+	const refuse = (): never => { throw new RangeError('Allegro earlier events require clock retiming that this import cannot retain. Move conductor declarations before affected events or import MIDI.'); };
+	return {
+		position(id: string, frame: number, materialize: boolean, timing: EventClock, keyPart = false): void {
+			if (materialize) output.set(id, frame);
+			else source.set(id, { frame, beat: timing.frameToBeat(frame), keyPart });
+		},
+		completeKeys(ids: readonly string[], materialize: boolean): void {
+			for (const id of ids) (materialize ? outputKeys : sourceKeys).add(id);
+		},
+		assertRetained(timing: EventClock, offset: number): void {
+			if (sourceKeys.size !== outputKeys.size || [...sourceKeys].some(id => !outputKeys.has(id))) refuse();
+			for (const [id, point] of source) {
+				if (point.keyPart && !sourceKeys.has(id)) continue;
+				const frame = output.get(id);
+				// A point already on the final clock keeps its original precision.
+				const expected = timing.frameToBeat(point.frame) === point.beat ? point.frame : timing.beatToFrame(point.beat);
+				if (frame === undefined || Math.round(expected + offset) !== Math.round(frame + offset)) {
+					refuse();
+				}
+			}
+		},
+	};
+}

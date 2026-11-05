@@ -11,14 +11,18 @@ interface TempoSegment {
 export function createMidiTempoTimeline(tempos: readonly MidiFileTempo[], sampleRate: number, defaultBpm = 120) {
 	const sorted = [...tempos].sort((a, b) => a.frame - b.frame);
 	const segments: TempoSegment[] = [{ frame: 0, beat: 0, bpm: defaultBpm }];
-	for (const tempo of sorted) {
+	const appendTempo = (tempo: MidiFileTempo): boolean => {
+		if (tempo.frame < segments[segments.length - 1]!.frame) return false;
 		const previous = segments[segments.length - 1]!;
 		const beat = previous.beat + (tempo.frame - previous.frame) / sampleRate * previous.bpm / 60;
 		const segment = { ...tempo, beat };
 		if (tempo.frame === previous.frame) segments[segments.length - 1] = segment;
 		else segments.push(segment);
-	}
+		return true;
+	};
+	for (const tempo of sorted) appendTempo(tempo);
 	return {
+		appendTempo,
 		frameToBeat(frame: number): number {
 			const segment = findSegment(segments, frame, 'frame');
 			return segment.beat + (frame - segment.frame) / sampleRate * segment.bpm / 60;

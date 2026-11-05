@@ -22,7 +22,7 @@ test('Allegro reads beat notation, sticky defaults, named pitches, triplets, and
 });
 
 test('Allegro roundtrip preserves notes, tempo/signature changes and MIDI controller messages', () => {
-	const document = parseAllegroFile('#track 0 Lead\nT0 -tempor:120\nT0 V- -timesig_numr:6\nT0 V- -timesig_denr:8\nT0 V0 -programi:40\nT0.25 V0 -control64r:1\nT0.5 V0 P67 U1 L110\nT1 -tempor:90\n');
+	const document = parseAllegroFile('#track 0 Lead\nT0 -tempor:120\nT0 V- -timesig_numr:6\nT0 V- -timesig_denr:8\nT1 -tempor:90\nT0 V0 -programi:40\nT0.25 V0 -control64r:1\nT0.5 V0 P67 U1 L110\n');
 	const parsed = parseAllegroFile(writeAllegroFile(document));
 	assert.deepEqual(parsed.tempos, document.tempos);
 	assert.deepEqual(parsed.signatures, document.signatures);

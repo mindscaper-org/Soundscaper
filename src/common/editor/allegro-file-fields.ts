@@ -3,7 +3,7 @@
 import type { createMidiTempoTimeline } from './midi-file-timing.ts';
 import { MIDI_FILE_MAX_EVENTS } from './midi-file-types.ts';
 
-type TempoTimeline = ReturnType<typeof createMidiTempoTimeline>;
+type TempoTimeline = Pick<ReturnType<typeof createMidiTempoTimeline>, 'frameToBeat' | 'beatToFrame'>;
 const PITCH_CLASSES: Readonly<Record<string, number>> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const DURATIONS: Readonly<Record<string, number>> = { S: 0.25, I: 0.5, Q: 1, H: 2, W: 4 };
 const DYNAMICS: Readonly<Record<string, number>> = { PPP: 60, PP: 70, P: 80, MP: 90, MF: 100, F: 110, FF: 120, FFF: 127 };

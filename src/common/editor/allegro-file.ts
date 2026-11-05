@@ -11,7 +11,7 @@ import { allegroDuration, allegroNumber, allegroPitch, allegroString, allegroTok
 import { allegroAttributeToEvent, allegroEventFields, assertAllegroGlobalTextChannel } from './allegro-file-events.ts';
 import { offsetAllegroFrame, offsetAllegroNotes, offsetAllegroTiming } from './allegro-file-offset.ts';
 import { allegroTempoDeclarations, type AllegroBeatAnchor, type AllegroTempoDeclaration } from './allegro-file-anchors.ts';
-import { sameAllegroTempoClock } from './allegro-file-tempo-clock.ts';
+import { createAllegroEventClockValidation, sameAllegroTempoClock } from './allegro-file-tempo-clock.ts';
 import { allegroKeySignatures, type AllegroKeyPart } from './allegro-file-key-signatures.ts';
 
 // Current Audacity/PortSMF Allegro grammar: numeric T/U values are seconds.
@@ -26,14 +26,15 @@ export function parseAllegroFile(text: string, options: MidiFileReadOptions = {}
 	const sampleRate = midiFileSampleRate(options.sampleRate);
 	const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
 	const discovery = allegroTempoDiscoveryPlan(lines);
+	const eventClock = createAllegroEventClockValidation();
 	// Read the time map before notes, including files whose tempo declarations follow notes.
-	const first = parseLines(lines, sampleRate, [], false, discovery);
-	const final = parseLines(lines, sampleRate, first.tempoDeclarations, true, discovery).document;
+	const first = parseLines(lines, sampleRate, [], false, discovery, eventClock);
+	const final = parseLines(lines, sampleRate, first.tempoDeclarations, true, discovery, eventClock).document;
 	if (!final) throw new Error('Allegro materialization produced no document.');
 	return final;
 }
 
-function parseLines(lines: readonly string[], sampleRate: number, knownTempos: readonly MidiFileTempo[], materialize: boolean, discovery: AllegroTempoDiscoveryPlan): AllegroParseResult {
+function parseLines(lines: readonly string[], sampleRate: number, knownTempos: readonly MidiFileTempo[], materialize: boolean, discovery: AllegroTempoDiscoveryPlan, eventClock: ReturnType<typeof createAllegroEventClockValidation>): AllegroParseResult {
 	const deferBeatTempoFrames = !materialize && discovery.deferBeatTempos;
 	const tracks = new Map<number, AllegroTrack>();
 	const declarations: AllegroTempoDeclaration[] = [];
@@ -45,9 +46,21 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 	const keyParts: AllegroKeyPart[] = [];
 	let resolvedTiming = createMidiTempoTimeline(knownTempos, sampleRate, 100);
 	let timingDirty = false;
+	let preparedTempos = 0, preparedAnchors = 0;
 	const currentTiming = () => {
 		if (timingDirty) {
-			resolvedTiming = createMidiTempoTimeline(allegroTempoDeclarations(declarations, clockAnchors, sampleRate), sampleRate, 100);
+			let appendable = true;
+			for (let index = preparedTempos; appendable && index < declarations.length; index += 1) {
+				const declaration = declarations[index]!;
+				appendable = declaration.beat === undefined && resolvedTiming.appendTempo(declaration);
+			}
+			// Inserting a point already on the clock does not change its mapping.
+			for (let index = preparedAnchors; appendable && index < clockAnchors.length; index += 1) {
+				const anchor = clockAnchors[index]!;
+				appendable = resolvedTiming.frameToBeat(anchor.frame) === anchor.beat;
+			}
+			if (!appendable) resolvedTiming = createMidiTempoTimeline(allegroTempoDeclarations(declarations, clockAnchors, sampleRate), sampleRate, 100);
+			preparedTempos = declarations.length; preparedAnchors = clockAnchors.length;
 			timingDirty = false;
 		}
 		return resolvedTiming;
@@ -151,8 +164,16 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 			}
 			// PortSMF prepends ordinary attributes before emitting the update list.
 			// Conductor fields above retain their separate time-map processing.
-			for (const event of updates.reverse()) track.events.push(event);
-			for (const part of keys.reverse()) keyParts.push(part);
+			for (const [index, event] of updates.reverse().entries()) {
+				track.events.push(event);
+				eventClock.position(`${lineIndex}:event:${index}`, event.frame, materialize, timing);
+			}
+			for (const [index, part] of keys.reverse().entries()) {
+				const positionId = `${lineIndex}:key:${index}`;
+				keyParts.push({ ...part, positionId });
+				eventClock.position(positionId, part.frame, materialize, timing, true);
+			}
+			if (attributes.some(([name]) => name === 'timesig_numr' || name === 'timesig_denr')) eventClock.position(`${lineIndex}:signature`, currentFrame, materialize, timing);
 			if (isNote) {
 				if (duration <= 0) throw new RangeError('Allegro note duration must be positive.');
 				midiFileInteger(pitch, 0, 127, 'Allegro pitch (microtonal notes are unsupported)');
@@ -160,6 +181,8 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 				midiFileInteger(Math.round(velocity), 0, 127, 'Allegro velocity');
 				track.notes.push({ id: `allegro-${trackIndex}-${noteCount++}`, pitch, channel, velocity: Math.round(velocity),
 					startFrame: currentFrame, durationFrames: duration });
+				eventClock.position(`${lineIndex}:note:start`, currentFrame, materialize, timing);
+				eventClock.position(`${lineIndex}:note:end`, currentFrame + duration, materialize, timing);
 			}
 			if (next !== null) currentFrame += next;
 			else if (isNote) currentFrame += duration;
@@ -169,10 +192,13 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 		}
 	}
 	if (!tracks.size) throw new RangeError('Allegro file contains no tracks or events.');
-	for (const signature of allegroKeySignatures(keyParts)) tracks.get(signature.track)!.events.push(signature.event);
+	const keySignatures = allegroKeySignatures(keyParts);
+	eventClock.completeKeys(keySignatures.flatMap(signature => signature.positionId ? [signature.positionId] : []), materialize);
+	for (const signature of keySignatures) tracks.get(signature.track)!.events.push(signature.event);
 	const tempoDeclarations = allegroTempoDeclarations(declarations, clockAnchors, sampleRate);
 	if (!materialize) return { document: null, tempoDeclarations };
 	if (!sameAllegroTempoClock(knownTempos, tempoDeclarations)) throw new RangeError('Allegro tempo expressions cannot be resolved to one stable clock. Use explicit second or beat positions.');
+	eventClock.assertRetained(timing, offset);
 	const tempos = tempoDeclarations.length ? [...tempoDeclarations] : [{ frame: 0, bpm: 100 }];
 	if (!tempos.some(tempo => tempo.frame === 0)) tempos.unshift({ frame: 0, bpm: 100 });
 	const signatures: MidiFileSignature[] = [];
