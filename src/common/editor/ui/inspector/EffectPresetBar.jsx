@@ -186,7 +186,7 @@ export default function EffectPresetBar({
 					<ContextMenuItem
 						label={copy.importEffectPreset}
 						disabled={disabled}
-						onClick={() => { close(); fileRef.current?.click(); }}
+						onClick={() => { close(); optionsTriggerRef.current?.focus({ preventScroll: true }); fileRef.current?.click(); }}
 					/>
 					<ContextMenuItem
 						label={copy.exportEffectPreset}
