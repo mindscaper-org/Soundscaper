@@ -864,3 +864,17 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      Covered by mounted primitive checks
      and production Snap-command and Chirp-interpolation regressions.
      Upstream-PR candidate.
+
+115. `LabeledRadio` forwards label and description clicks once to the existing
+     choice, retains checked and disabled behavior, and focuses its visible
+     radio. Generator label-area handling leaves that activation to the shared
+     wrapper. The event helper stays with `choice-activation` to preserve the
+     component chunk ceiling. Covered by mounted callback/focus controls and
+     the production waveform-ruler label workflow. Upstream-PR candidate.
+
+116. `RulerFlyout` enumerates each visible choice once, retaining native inputs
+     and the checked radio while excluding hidden or disabled controls. Hidden
+     native radio inputs no longer become extra arrow-navigation stops. The
+     focused candidate helper belongs to the existing utility chunk owner.
+     Covered by mounted group/native-control checks and the production ruler
+     Tab/arrow/activation workflow. Upstream-PR candidate.

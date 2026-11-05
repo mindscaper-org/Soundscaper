@@ -10,3 +10,11 @@ export function consumeChoiceActivation(event: ChoiceActivationEvent): boolean {
 	event.preventDefault();
 	return true;
 }
+
+/** The visible label owns clicks outside its separately handled radio control. */
+export function activateLabeledChoice(event: { readonly target: EventTarget }, root: ParentNode | null,
+	checked: boolean, disabled: boolean, onChange?: (checked: boolean) => void): void {
+	if (disabled || (event.target instanceof Element && event.target.closest('[role="radio"]'))) return;
+	if (!checked) onChange?.(true);
+	root?.querySelector<HTMLElement>('[role="radio"]')?.focus();
+}

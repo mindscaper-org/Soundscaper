@@ -1,5 +1,6 @@
 import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React from 'react';
+import { rulerFlyoutGroupItems as getGroupItems } from '../utils/ruler-focus-items';
 import { Icon } from '../Icon';
 import { LabeledRadio } from '../LabeledRadio';
 import { LabeledCheckbox } from '../LabeledCheckbox';
@@ -124,13 +125,6 @@ const SPECTROGRAM_OPTIONS: { value: SpectrogramScale; label: string }[] = [
   { value: 'erb', label: 'ERB' },
   { value: 'period', label: 'Period' },
 ];
-
-/** Query focusable items within a group container */
-function getGroupItems(group: HTMLElement): HTMLElement[] {
-  return Array.from(
-    group.querySelectorAll<HTMLElement>('button, input, [role="radio"], [role="checkbox"]')
-  );
-}
 
 export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
   isOpen,
