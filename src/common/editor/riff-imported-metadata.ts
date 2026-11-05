@@ -6,6 +6,7 @@ import { readImportedMetadataTags } from './imported-metadata-reader.ts';
 import { ascii, dataView, readBlobBytes } from './wav-import-io.ts';
 import { consumeDs64TableSize, readDs64Directory } from './wav-ds64.js';
 import { createRiffStreamingSizeResolver } from './riff-streaming-size.ts';
+import { riffMetadataReadView } from './riff-metadata-read-view.ts';
 
 const MAXIMUM_CHUNKS = 4096;
 const MAXIMUM_INFO_BYTES = 4 * 1024 * 1024;
@@ -63,7 +64,6 @@ async function readRiffInfoFields(file: Blob, signal?: AbortSignal,
 	let chunkCount = 0;
 	let dataSeen = false;
 	const payloads: Uint8Array[] = [];
-	const infoHeaders: number[] = [];
 	while (offset < end) {
 		if (++chunkCount > MAXIMUM_CHUNKS) throw new RangeError('The RIFF metadata chunk count is too large.');
 		if (offset + 8 > end) throw new RangeError('The RIFF metadata chunk header is incomplete.');
@@ -83,7 +83,6 @@ async function readRiffInfoFields(file: Blob, signal?: AbortSignal,
 		} else if (id === 'LIST' && size >= 4) {
 			const type = ascii(await readBlobBytes(file, start, start + 4, signal), 0, 4);
 			if (type === 'INFO' || type === 'INF0') {
-				infoHeaders.push(offset);
 				infoBytes += size;
 				if (infoBytes > MAXIMUM_INFO_BYTES) throw new RangeError('The RIFF INFO metadata exceeds its inspection limit.');
 				payloads.push(await readBlobBytes(file, start + 4, start + size, signal));
@@ -98,17 +97,9 @@ async function readRiffInfoFields(file: Blob, signal?: AbortSignal,
 		invalid = true;
 		onWarning(`RIFF INFO ${id} text was omitted: ${error instanceof Error ? error.message : String(error)}`);
 	});
-	const parts: BlobPart[] = [];
-	let start = 0;
 	const needsIndependent = invalid || Object.entries(fields).some(([id, text]) => Object.hasOwn(INFO_TAG_FIELDS, id) && text === '');
-	if (needsIndependent) {
-		for (const offset of infoHeaders) {
-			parts.push(file.slice(start, offset), 'JUNK');
-			start = offset + 4;
-		}
-		parts.push(file.slice(start));
-	}
-	return { fields, withoutInfo: needsIndependent ? new Blob(parts, { type: file.type }) : null, invalidText: invalid };
+	const withoutInfo = needsIndependent ? await riffMetadataReadView(file, header, signal, { omitInfo: true }) : null;
+	return { fields, withoutInfo, invalidText: invalid };
 }
 
 function record(value: unknown): value is MetadataRecord {

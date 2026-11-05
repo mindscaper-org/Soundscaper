@@ -18,10 +18,15 @@ interface Directory {
  * Present its bounded INFO/ID3 chunks in a small RIFF view without reading PCM.
  * The original container remains the authority for CSET and audio validation.
  */
-export async function riffMetadataReadView(file: Blob, header: Uint8Array, signal?: AbortSignal): Promise<Blob | null> {
+export async function riffMetadataReadView(file: Blob, header: Uint8Array, signal?: AbortSignal,
+	options: Readonly<{ omitInfo?: boolean }> = {}): Promise<Blob | null> {
 	const kind = ascii(header, 0, 4);
-	if (header.length < 12 || !['RIFF', 'RF64', 'BW64'].includes(kind) || ascii(header, 8, 4) !== 'WAVE') return null;
-	const declaredSize = dataView(header).getUint32(4, true);
+	if (header.length < 12 || !['RIFF', 'RIFX', 'RF64', 'BW64'].includes(kind) || ascii(header, 8, 4) !== 'WAVE') return null;
+	// Ordinary RIFX text remains with its native reader. An independent ID3-only
+	// view can safely normalize chunk sizes because no INFO payload is copied.
+	if (kind === 'RIFX' && !options.omitInfo) return null;
+	const littleEndian = kind !== 'RIFX';
+	const declaredSize = dataView(header).getUint32(4, littleEndian);
 	const streamingSize = kind === 'RIFF' ? createRiffStreamingSizeResolver(declaredSize, file.size) : null;
 	const directory = kind === 'RF64' || kind === 'BW64' ? await readDs64Directory(file, signal, MAXIMUM_CHUNKS,
 		declaredSize, kind.toLowerCase(), readBlobBytes) as Directory : null;
@@ -36,7 +41,7 @@ export async function riffMetadataReadView(file: Blob, header: Uint8Array, signa
 		if (++count > MAXIMUM_CHUNKS || offset + 8 > riffEnd) throw new RangeError('The RIFF64 metadata chunk directory is invalid.');
 		const chunk = await readBlobBytes(file, offset, offset + 8, signal);
 		const id = ascii(chunk, 0, 4);
-		let size = dataView(chunk).getUint32(4, true);
+		let size = dataView(chunk).getUint32(4, littleEndian);
 		if (directory && size === 0xffff_ffff) size = id === 'data' && !dataSeen
 			? directory.dataByteLength : consumeDs64TableSize(directory, id) as number;
 		if (id === 'data') dataSeen = true;
@@ -46,7 +51,7 @@ export async function riffMetadataReadView(file: Blob, header: Uint8Array, signa
 		const next = terminalData?.paddedEnd ?? start + size + size % 2;
 		if (!Number.isSafeInteger(next) || next > riffEnd) throw new RangeError('The RIFF64 metadata chunk is incomplete.');
 		const info = id === 'LIST' && size >= 4 && ['INFO', 'INF0'].includes(ascii(await readBlobBytes(file, start, start + 4, signal), 0, 4));
-		if (info || id === 'ID3 ' || id === 'id3 ') {
+		if ((info && !options.omitInfo) || id === 'ID3 ' || id === 'id3 ') {
 			metadataBytes += 8 + size + size % 2;
 			if (metadataBytes > MAXIMUM_METADATA_BYTES) throw new RangeError('The RIFF64 metadata exceeds its inspection limit.');
 			dataView(chunk).setUint32(4, size, true);
