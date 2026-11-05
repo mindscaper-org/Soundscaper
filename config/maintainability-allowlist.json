@@ -55,7 +55,7 @@
 		"src/common/editor/controller/capture/framescaper-capture-app-composition.ts": 589,
 		"src/common/editor/controller/capture/internal/framescaper-capture-durable-session.ts": 589,
 		"src/common/editor/controller/capture/internal/framescaper-capture-publication-plan.ts": 596,
-		"src/common/editor/controller/capture/internal/framescaper-capture-session-service.ts": 567,
+		"src/common/editor/controller/capture/internal/framescaper-capture-session-service.ts": 564,
 		"src/common/editor/controller/capture/internal/web-vcr/framescaper-web-vcr-controller.ts": 599,
 		"src/common/editor/controller/document/internal/annotations/timeline-annotation-service.ts": 576,
 		"src/common/editor/controller/export/internal/direct/direct-compressed-plan.ts": 599,

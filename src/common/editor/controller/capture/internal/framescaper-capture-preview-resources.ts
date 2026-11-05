@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { CapturePreviewLease, CapturePreviewSource } from '../../../platform/capture-source-port.ts';
+import type { CapturePhase } from '../../../framescaper-capture-domain.ts';
 import type {
 	FramescaperCaptureLevelMonitor,
 	FramescaperCaptureDisplaySource,
@@ -186,4 +187,19 @@ export function normalizeCaptureDisplaySources(
 		tokens.add(value.token);
 		return Object.freeze({ token: value.token, name: value.name, kind: value.kind });
 	}));
+}
+
+/** Settings already requested by the preview must settle before recorder format admission. */
+export async function settleCaptureSourceSettings(tracks: readonly unknown[]): Promise<void> {
+	await Promise.all(tracks.map(track => track && typeof track === 'object' ? sourceSettingWrites.get(track) : undefined));
+}
+
+export async function configureCapturePreviewSource<Stream, Track>(
+	phase: CapturePhase, lease: CapturePreviewLease<Stream, Track> | null,
+	sourceId: string, settings: Readonly<FramescaperCaptureSourceSettings>,
+): Promise<void> {
+	if (phase !== 'previewing' || !lease) throw new Error('Capture source settings can change only while previewing.');
+	const source = lease.sources.find(candidate => candidate.sourceId === sourceId);
+	if (!source) throw new Error('The selected capture source is not active.');
+	await applyCaptureSourceSettings(source.track, settings);
 }

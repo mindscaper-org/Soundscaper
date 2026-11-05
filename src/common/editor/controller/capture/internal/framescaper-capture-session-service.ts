@@ -7,7 +7,7 @@ import { createFramescaperCaptureActiveTimeClock } from './framescaper-capture-a
 import { createFramescaperCaptureDisplaySelection } from './framescaper-capture-display-selection.ts';
 import { createFramescaperCaptureMetrics } from './framescaper-capture-metrics.ts';
 import { findFramescaperCaptureRecovery } from './framescaper-capture-recovery-admission.ts';
-import { applyCaptureSourceSettings, capturePreviewSourceSnapshots, createFramescaperCapturePreviewResources,
+import { configureCapturePreviewSource, settleCaptureSourceSettings, capturePreviewSourceSnapshots, createFramescaperCapturePreviewResources,
 	disposeCapturePreviewOwnership, selectedCaptureDevices,
 	type FramescaperCapturePreviewResources } from './framescaper-capture-preview-resources.ts';
 import { captureSessionFailure, captureSessionInputGain, installCaptureSourceEndWatchers,
@@ -211,12 +211,7 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 		settings: Readonly<FramescaperCaptureSourceSettings>,
 	): Promise<void> {
 		assertActive();
-		if (machine.snapshot.phase !== 'previewing' || !previewLease) {
-			throw new Error('Capture source settings can change only while previewing.');
-		}
-		const source = previewLease.sources.find((candidate) => candidate.sourceId === sourceId);
-		if (!source) throw new Error('The selected capture source is not active.');
-		await applyCaptureSourceSettings(source.track, settings);
+		await configureCapturePreviewSource(machine.snapshot.phase, previewLease, sourceId, settings);
 		notify();
 	}
 	async function release(): Promise<void> {
@@ -275,6 +270,8 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 			if (signal.aborted || machine.snapshot.phase !== 'countdown') return;
 			const lease = previewLease;
 			if (!lease) throw new Error('Capture preview ownership was released before record start.');
+			await settleCaptureSourceSettings(lease.sources.map(source => source.track));
+			if (signal.aborted || machine.snapshot.phase !== 'countdown') return;
 			const sessionId = createId('framescaper-capture-session');
 			const identities = lease.sources.map((source) => Object.freeze({
 				streamId: createId(`${source.role}-capture-stream`),
