@@ -45,7 +45,7 @@ export function createMidiClipEventProjection(interchange: MidiClipInterchange |
 						if (routed) { initial.push(ordered); continue; }
 						// Parameter selectors and data operations form an ordered program:
 						// repeated increments and values for earlier selections cannot fold.
-						if (type === 176 && [6, 38, 96, 97, 98, 99, 100, 101].includes(event.data[0]!)) {
+						if (type === 176 && [6, 38, 96, 97, 98, 99, 100, 101, 121].includes(event.data[0]!)) {
 							initial.push(ordered);
 							continue;
 						}

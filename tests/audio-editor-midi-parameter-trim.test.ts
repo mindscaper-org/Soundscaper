@@ -45,3 +45,17 @@ test('trimmed parameter setup retains earlier RPN and NRPN values before the fin
 	assert.deepEqual(parseMidiFile(bytes, { sampleRate: 8000 }).tracks.flatMap(track => track.events ?? [])
 		.filter(event => event.status === 0xb0).map(event => event.data), setup.map(event => event.data));
 });
+
+for (const resets of [[1000, 3000], [1000], [3000]]) test(`trimmed parameter history retains reset boundaries at ${resets}`, async () => {
+	const setup = [control(0, 101, 0), control(0, 100, 0), ...resets.map(frame => control(frame, 121, 0)), control(2000, 96, 0)]
+		.sort((left, right) => left.frame - right.frame);
+	const f = await trimmed(setup);
+	for (const format of ['midi', 'allegro'] as const) {
+		await f.service.exportFile(format);
+		const saved = f.saves.at(-1)!;
+		const document = format === 'midi' && saved.bytes instanceof Uint8Array
+			? parseMidiFile(saved.bytes, { sampleRate: 8000 }) : parseAllegroFile(String(saved.text), { sampleRate: 8000 });
+		assert.deepEqual(document.tracks.flatMap(track => track.events ?? []).filter(event => event.status === 176).map(event => event.data),
+			setup.map(event => event.data), 'Reset All Controllers retires RPN/NRPN selection without clearing its previously assigned value');
+	}
+});
