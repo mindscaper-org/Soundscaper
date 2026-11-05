@@ -29,13 +29,16 @@ export function adoptMidiTransferContext<Value extends DataRecord>(clip: Value, 
 
 /** Capture owners before a group of timeline clips moves into a trackless media bin. */
 export function midiBinTransferContexts(clips: readonly DataRecord[], tracks: readonly DataRecord[]): ReadonlyMap<unknown, DataRecord> {
-	const selected = new Map(clips.map(clip => [clip.id, clip]));
 	const contexts = new Map<unknown, DataRecord>();
-	for (const track of tracks) {
-		if (!readMidiTrack(track) || !Array.isArray(track.clipIds)) continue;
+	const owners = tracks.filter(track => readMidiTrack(track));
+	if (!owners.length) return contexts;
+	const selected = new Map<unknown, DataRecord>();
+	for (const clip of clips) if (readMidiClip(clip)) selected.set(clip.id, clip);
+	for (const track of owners) {
+		if (!Array.isArray(track.clipIds)) continue;
 		for (const id of track.clipIds) {
 			const clip = selected.get(id);
-			if (clip && readMidiClip(clip)) contexts.set(id, { opaqueExtensions: midiTransferExtensions(clip, track) });
+			if (clip) contexts.set(id, { opaqueExtensions: midiTransferExtensions(clip, track) });
 		}
 	}
 	return contexts;

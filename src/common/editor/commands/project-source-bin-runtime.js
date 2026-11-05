@@ -169,7 +169,7 @@ function moveTimelineClipsToProjectBin(project, clipIds) {
 	const movedClips = material
 		.map((clip) => normalizeClipForProject(project, {
 			...clip,
-			...midiContexts.get(clip.id),
+			...(midiContexts.size ? midiContexts.get(clip.id) : undefined),
 			...cloneVideoCompositionCarrierFields(clip, `Moved Project Bin clip ${clip.id}`),
 			groupId: null,
 			id: clip.id,
