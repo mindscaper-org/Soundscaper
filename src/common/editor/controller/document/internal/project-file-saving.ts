@@ -173,8 +173,9 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 }
 
 function emptyProject(project: FileSavingProject): boolean {
-	const value = project as FileSavingProject & { tracks?: readonly unknown[]; clips?: readonly unknown[]; sources?: readonly unknown[] };
-	return !value.clips?.length && !value.sources?.length;
+	const value = project as FileSavingProject & { tracks?: readonly { labels?: readonly unknown[] }[]; clips?: readonly unknown[]; sources?: readonly unknown[]; timelineAnnotations?: readonly unknown[] };
+	return !value.clips?.length && !value.sources?.length && !value.timelineAnnotations?.length
+		&& !value.tracks?.some(track => track.labels?.length);
 }
 async function fingerprint(project: FileSavingProject): Promise<string> {
 	const content = Object.fromEntries(Object.entries(project).filter(([key]) => !['revision', 'updatedAt', 'createdAt', 'selection', 'playheadFrame'].includes(key)));
