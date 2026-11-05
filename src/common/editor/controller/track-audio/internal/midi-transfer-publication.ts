@@ -5,6 +5,7 @@ import type { AudioEditorCommand } from '../../../commands/protocol.ts';
 import type { AudioSourceLeaf } from '../../../project-media-types.ts';
 import type { MidiServiceDependencies, MidiTransferSnapshot } from '../midi-service-types.ts';
 import { publishMidiSource } from './midi-source-publication.ts';
+import { retainedMidiSourceFrames } from './midi-source-retention.ts';
 
 /** Rebuild a transferred carrier only when its new owner cannot reuse its old audible instrument. */
 export async function prepareMidiTransferPublication(
@@ -31,7 +32,7 @@ export async function prepareMidiTransferPublication(
 			throw new RangeError('Transferred MIDI requires its complete native audio source.');
 		}
 		const replacement = await publishMidiSource(dependencies, data, owner.instrument,
-			Number(source.sampleRate), Number(source.frameCount), assertCurrent);
+			Number(source.sampleRate), retainedMidiSourceFrames(source, 1), assertCurrent);
 		retained.push(replacement);
 		commands.push(createAddSourceCommand({ ...replacement }), { type: 'midi/clip-set', clipId: clip.id,
 			data, sourceId: replacement.id, sourceDurationFrames: Number(clip.sourceDurationFrames) });

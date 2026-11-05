@@ -5,6 +5,7 @@ import type { MidiTransferSelection, MidiTransferSnapshot } from '../../track-au
 
 export interface MidiControllerBinding {
 	settled(): Promise<void>;
+	hasPendingEdits(): boolean;
 	commitTransfer(command: AudioEditorCommand, preview: (command: AudioEditorCommand) => MidiTransferSnapshot,
 		selection?: MidiTransferSelection, options?: ProjectChangedOptions): unknown;
 }
@@ -18,6 +19,7 @@ export function createMidiControllerPort() {
 			owner = value;
 		},
 		settled: async (): Promise<void> => { await owner?.settled(); },
+		hasPendingEdits: (): boolean => owner?.hasPendingEdits() ?? false,
 		commitTransfer(command: AudioEditorCommand, preview: (command: AudioEditorCommand) => MidiTransferSnapshot,
 			selection?: MidiTransferSelection, options?: ProjectChangedOptions): unknown {
 			if (!owner) throw new Error('The MIDI controller is not ready.');

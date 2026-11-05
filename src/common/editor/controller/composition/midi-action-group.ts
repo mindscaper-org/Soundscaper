@@ -13,7 +13,9 @@ import { resolveMidiCopy } from '../../../i18n/editor-midi-copy.ts';
 /** Keep the beta synthesizer and file codecs outside the initial editor graph. */
 export function createMidiActionGroup(scope: EditorActionRuntime) {
 	let loaded: Promise<Readonly<MidiService>> | null = null;
-	const service = () => loaded ??= import('../track-audio/midi-service.ts').then(({ createMidiService }) => createMidiService({
+	let owner: Readonly<MidiService> | null = null;
+	const pendingCalls = new Set<Promise<unknown>>();
+	const service = () => loaded ??= import('../track-audio/midi-service.ts').then(({ createMidiService }) => owner = createMidiService({
 		getProject: scope.getProject,
 		editingBlocked: () => Boolean(scope.state.phase === 'disposed' || scope.state.phase === 'disposing' || scope.state.readOnly || scope.state.projectActivationPending || scope.state.recorder || scope.state.recordingStarting || scope.state.projectAdministrationPending),
 		commit: scope.commit,
@@ -27,14 +29,24 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 		},
 		saveFile: request => scope.fileService.saveFile(request),
 	}));
+	function edit<Result>(action: (service: Readonly<MidiService>) => Promise<Result>): Promise<Result> {
+		const project = scope.getProject();
+		const operation = owner ? action(owner) : service().then(loaded => {
+			if (scope.getProject() !== project) throw new Error('The project changed before the MIDI edit.');
+			return action(loaded);
+		});
+		pendingCalls.add(operation);
+		void operation.then(() => { pendingCalls.delete(operation); }, () => { pendingCalls.delete(operation); });
+		return operation;
+	}
 	const actions = Object.freeze({
-		addTrack: async () => (await service()).addTrack(),
-		addNote: async (clipId: string, note: MidiNote) => (await service()).addNote(clipId, note),
-		updateNote: async (clipId: string, id: string, changes: Partial<MidiNote>) => (await service()).updateNote(clipId, id, changes),
-		updateNotes: async (clipId: string, updates: readonly MidiNoteUpdate[]) => (await service()).updateNotes(clipId, updates),
-		deleteNotes: async (clipId: string, ids: readonly string[]) => (await service()).deleteNotes(clipId, ids),
-		resizeClip: async (clipId: string, changes: MidiClipResize) => (await service()).resizeClip(clipId, changes),
-		setInstrument: async (trackId: string, instrument: MidiInstrument) => (await service()).setInstrument(trackId, instrument),
+		addTrack: () => edit(service => service.addTrack()),
+		addNote: (clipId: string, note: MidiNote) => edit(service => service.addNote(clipId, note)),
+		updateNote: (clipId: string, id: string, changes: Partial<MidiNote>) => edit(service => service.updateNote(clipId, id, changes)),
+		updateNotes: (clipId: string, updates: readonly MidiNoteUpdate[]) => edit(service => service.updateNotes(clipId, updates)),
+		deleteNotes: (clipId: string, ids: readonly string[]) => edit(service => service.deleteNotes(clipId, ids)),
+		resizeClip: (clipId: string, changes: MidiClipResize) => edit(service => service.resizeClip(clipId, changes)),
+		setInstrument: (trackId: string, instrument: MidiInstrument) => edit(service => service.setInstrument(trackId, instrument)),
 		previewNote: async (pitch: number, instrument?: MidiInstrument) => (await service()).previewNote(pitch, instrument),
 		exportFile: async (format: 'midi' | 'allegro') => (await service()).exportFile(format),
 	});
@@ -71,8 +83,12 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 				return clip && readMidiClip(clip) && !reusable.get(clip.sourceId)?.has(instrument);
 			});
 		});
-		if (!changedInstrument) return scope.commit(command, selection, options);
-		return service().then(owner => owner.commitTransfer(command, preview, selection, options));
+		if (!changedInstrument && !hasPendingEdits()) return scope.commit(command, selection, options);
+		return edit(service => service.commitTransfer(command, preview, selection, options));
 	};
-	return Object.freeze({ commitTransfer, settled: async () => { if (loaded) await (await loaded).settled(); }, actions, importFiles: createMidiImportFiles(scope, service) });
+	function hasPendingEdits(): boolean { return pendingCalls.size > 0 || Boolean(owner?.hasPendingEdits()); }
+	return Object.freeze({ commitTransfer, hasPendingEdits, settled: async () => {
+		await Promise.allSettled([...pendingCalls]);
+		if (loaded) await (await loaded).settled();
+	}, actions, importFiles: createMidiImportFiles(scope, service) });
 }

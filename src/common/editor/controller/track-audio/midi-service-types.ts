@@ -50,6 +50,7 @@ export interface MidiTransferSelection { readonly selectTrackId?: string | null;
 export interface MidiService {
 	/** Wait for MIDI work requested before this barrier, including source publication. */
 	settled(): Promise<void>;
+	hasPendingEdits(): boolean;
 	commitTransfer(command: AudioEditorCommand, preview: (command: AudioEditorCommand) => MidiTransferSnapshot, selection?: MidiTransferSelection, options?: ProjectChangedOptions): Promise<unknown>;
 	addTrack(): Promise<MidiCreatedTrack>;
 	addNote(clipId: string, note: MidiNote): Promise<void>;

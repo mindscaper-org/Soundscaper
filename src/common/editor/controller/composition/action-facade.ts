@@ -47,7 +47,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	duplicateTrack, engine, framescaperCaptureActions, framescaperWebVcrActions, ffmpeg,
 	fileService, findTrack, persistSetting, publishDocumentSnapshot, flushProject, generateSelectionSilence,
 	generateSignal, repeatLastGenerator, getClipVisualData, getVisibleClips,
-	handleClipAction, handleEdit, handleExportAction, handlePlayAtSpeed, handleTransport, handleScrub, endScrub,
+	handleClipAction, handleEdit: handleImmediateEdit, handleExportAction, handlePlayAtSpeed, handleTransport, handleScrub, endScrub,
 	pasteClipSpreadsheet, inspectScape, labels, listProjects, makeStereoTrack,
 	materializeFreesoundUploadClip, publishBlenderTracks, mixAndRenderTracks, moveClips, moveClipsToNewTrack, moveTrack, newProject,
 	normalizePlaybackFrame, openAudacityProject, openAup4, openProject, openScape, openScapeFile, overwriteClips,
@@ -100,6 +100,20 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	]);
 	const macros = createEffectMacroActions(effectLibraryScope, restricted);
 	const midi = createMidiActionGroup(scope); scope.midiController?.bind(midi);
+	const clipboardSelection = () => JSON.stringify([getProject()?.id, getProject()?.selection,
+		state.selectedClipId, state.selectedTrackId, state.selectedLabels]);
+	const handleEdit: typeof handleImmediateEdit = (action, options) => {
+		if (!midi.hasPendingEdits() || !['copy', 'duplicate', 'labeled-copy', 'labeled-cut', 'labeled-split-cut'].includes(action)
+			&& action !== 'cut' && !action.startsWith('cut-')) return handleImmediateEdit(action, options);
+		const selection = clipboardSelection();
+		return midi.settled().then(() => {
+			if (clipboardSelection() !== selection) throw new DOMException('The selection changed before the clipboard edit.', 'AbortError');
+			return handleImmediateEdit(action, options);
+		}).catch((error: unknown) => {
+			if (options?.propagateErrors) throw error;
+			scope.handleError(error);
+		});
+	};
 	const afterMidiEdits = <Args extends unknown[], Result>(operation: (...args: Args) => Result) => async (...args: Args) => {
 		const projectId = getProject()?.id;
 		await midi.settled();

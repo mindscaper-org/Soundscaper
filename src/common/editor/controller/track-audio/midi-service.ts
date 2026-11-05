@@ -16,6 +16,7 @@ import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import type { AudioSourceLeaf } from '../../project-media-types.ts';
 import { clipLoopUpdateFields, readClipLoop } from '../../audio-clip-loop.ts';
 import { publishMidiSource } from './internal/midi-source-publication.ts';
+import { retainedMidiSourceFrames } from './internal/midi-source-retention.ts';
 import { midiTransferExtensions } from '../../commands/midi-transfer-context.ts';
 import { routeMidiImportControls } from './internal/midi-import-channel-routing.ts';
 import { prepareMidiTransferPublication } from './internal/midi-transfer-publication.ts';
@@ -27,8 +28,10 @@ type ImportedMidiTrack = Readonly<{ name: string; data: MidiClipData; program?: 
 /** Serialize edits and publish every note document together with its playable PCM fallback. */
 export function createMidiService(dependencies: MidiServiceDependencies): Readonly<MidiService> {
 	let pending: Promise<unknown> = Promise.resolve();
+	const requests = new Set<{ expected: MidiProject }>();
 	const service: MidiService = {
 		settled: async () => { await pending; },
+		hasPendingEdits: () => requests.size > 0,
 		commitTransfer: (command, preview, selection, options) => {
 			const detached = structuredClone(command);
 			return enqueue(async project => {
@@ -39,7 +42,7 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 						tracks: project.tracks.flatMap(track => Array.isArray(track.clipIds) ? [{ ...track, clipIds: track.clipIds.filter((id: unknown): id is string => typeof id === 'string') }] : []),
 					}, preview(detached), () => assertCurrent(project), sources);
 					assertCurrent(project);
-					return dependencies.commit(additions.length ? { type: 'batch', commands: [detached, ...additions] } : detached, selection, options);
+					return commitOwned(additions.length ? { type: 'batch', commands: [detached, ...additions] } : detached, selection, options);
 				} catch (error) { return rollbackSources(sources, error); }
 			});
 		},
@@ -96,13 +99,14 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 					const data = readMidiClip(clip);
 					if (!data) continue;
 					const source = await publishMidiSource(dependencies, data, next.instrument, sourceSampleRate(project, clip),
-						Number(clip.sourceStartFrame) + Number(clip.sourceDurationFrames), () => assertCurrent(project));
+						retainedMidiSourceFrames(project.sources?.find(source => source.id === clip.sourceId),
+							Number(clip.sourceStartFrame) + Number(clip.sourceDurationFrames)), () => assertCurrent(project));
 					sources.push(source);
 					commands.push(createAddSourceCommand({ ...source }), { type: 'midi/clip-set', clipId: String(clip.id), data,
 						sourceId: source.id, sourceDurationFrames: Number(clip.sourceDurationFrames) });
 				}
 				assertCurrent(project);
-				dependencies.commit({ type: 'batch', commands });
+				commitOwned({ type: 'batch', commands });
 			} catch (error) { await rollbackSources(sources, error); }
 		}),
 		previewNote: async (pitch, instrument = 'triangle') => {
@@ -155,14 +159,22 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 		if (dependencies.editingBlocked()) throw new Error('MIDI editing is currently unavailable.');
 		if (dependencies.getProject() !== project) throw new Error('The project changed during MIDI rendering.');
 	}
+	function commitOwned(...args: Parameters<MidiServiceDependencies['commit']>): unknown {
+		const previous = requireProject();
+		const result = dependencies.commit(...args);
+		const next = requireProject();
+		for (const request of requests) if (request.expected === previous) request.expected = next;
+		return result;
+	}
 	function enqueue<Result>(operation: (project: MidiProject) => Promise<Result>): Promise<Result> {
-		const requested = requireProject();
+		const request = { expected: requireProject() };
+		requests.add(request);
 		const work = pending.then(() => {
 			const project = requireProject();
-			if (requested.id !== project.id) throw new Error('The project changed before the MIDI edit.');
+			if (request.expected !== project) throw new Error('The project changed before the MIDI edit.');
 			assertCurrent(project);
 			return operation(project);
-		});
+		}).finally(() => { requests.delete(request); });
 		pending = work.catch(() => undefined);
 		return work;
 	}
@@ -210,10 +222,11 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 	}
 	async function publishEdit(project: MidiProject, clip: Readonly<Record<string, unknown>>, data: MidiClipData, instrument: MidiInstrument,
 		frames: number, commands: (source: AudioSourceLeaf) => AudioEditorCommand[]): Promise<void> {
-		const source = await publishMidiSource(dependencies, data, instrument, sourceSampleRate(project, clip), frames, () => assertCurrent(project));
+		const source = await publishMidiSource(dependencies, data, instrument, sourceSampleRate(project, clip),
+			retainedMidiSourceFrames(project.sources?.find(source => source.id === clip.sourceId), frames), () => assertCurrent(project));
 		try {
 			assertCurrent(project);
-			dependencies.commit({ type: 'batch', commands: [createAddSourceCommand({ ...source }), ...commands(source)] });
+			commitOwned({ type: 'batch', commands: [createAddSourceCommand({ ...source }), ...commands(source)] });
 		} catch (error) { await rollbackSources([source], error); }
 	}
 	async function importTracks(project: MidiProject,
@@ -246,7 +259,7 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 			}
 			if (!commands.length) throw new RangeError('The MIDI file has no tracks.');
 			current();
-			dependencies.commit({ type: 'batch', commands }, { selectTrackId: created[0]!.trackId, selectClipId: created[0]!.clipId });
+			commitOwned({ type: 'batch', commands }, { selectTrackId: created[0]!.trackId, selectClipId: created[0]!.clipId });
 			return created;
 		} catch (error) { return rollbackSources(sources, error); }
 	}
@@ -272,7 +285,7 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 			}
 			if (!commands.length) throw new RangeError('The MIDI file has no tracks.');
 			current();
-			dependencies.commit({ type: 'batch', commands });
+			commitOwned({ type: 'batch', commands });
 			return created;
 		} catch (error) { return rollbackSources(sources, error); }
 	}

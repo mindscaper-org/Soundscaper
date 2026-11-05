@@ -22,17 +22,19 @@ import type { ExportActionState } from '../export/export-action-group.ts';
 import type { EditorTaskScope } from '../shared/lifecycle.ts';
 import type { InterchangeProductProjection } from '../../interchange-multicamera-delivery.ts';
 import type { ProjectOpenRecoveryRuntime } from '../document/project-open-recovery.ts';
+import type { SelectedLabelState } from '../../label-clipboard-selection.ts';
 
 type EffectLibraryState =
 	& EffectMacroLibraryServiceRuntime['state']
 	& MacroScriptLibraryServiceRuntime['state']
 	& Pick<EffectControlsState, 'audacityEffectType' | 'effectPresets'>;
-interface EditorActionState extends ExportActionState {
+interface EditorActionState extends ExportActionState, SelectedLabelState {
 	readonly readOnly?: boolean;
 	readonly projectActivationPending?: boolean;
 	readonly phase?: string;
 	projectRecovery?: ProjectOpenRecoveryRuntime['state']['projectRecovery'];
 	selectedTrackId: string | null;
+	readonly selectedClipId?: string | null;
 	readonly timelineView: string;
 	readonly preferences?: Readonly<{
 		readonly waveformVisualization?: Readonly<{
