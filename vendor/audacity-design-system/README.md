@@ -842,3 +842,9 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      controls. Shared `Slider`/stepped-slider hit geometry stays aligned while
      surrounding labels retain their direction. Covered by production English
      and Arabic pointer regressions. Upstream-PR candidate.
+
+112. A disabled `ContextMenuItem` cannot open or retain an actionable submenu.
+     Pointer hover follows the same admission as click and keyboard entry, and
+     disabling an open parent retires its child popup. Covered by mounted state
+     transitions and the existing Open recent menu during real recording.
+     Upstream-PR candidate.

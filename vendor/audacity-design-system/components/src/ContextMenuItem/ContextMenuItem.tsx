@@ -212,6 +212,12 @@ export const ContextMenuItem: React.FC<ContextMenuItemProps> = ({
 
   const clearSafeTriangle = () => safeTriangle.clear();
 
+  useEffect(() => {
+    if (!disabled) return;
+    safeTriangle.clear();
+    setSubmenuOpen(false);
+  }, [disabled, safeTriangle]);
+
   const armSafeTriangle = (originClientX: number, originClientY: number) => {
     const submenu = submenuRef.current;
     if (!submenu) {
@@ -325,6 +331,7 @@ export const ContextMenuItem: React.FC<ContextMenuItemProps> = ({
   };
 
   const handleMouseEnter = () => {
+    if (disabled) return;
     // Re-entering the parent item tears down any active
     // safe-triangle tracking — hover state resumes normally.
     clearSafeTriangle();
@@ -509,7 +516,7 @@ export const ContextMenuItem: React.FC<ContextMenuItemProps> = ({
         )}
       </div>
 
-      {(hasSubmenu || children) && submenuOpen && (
+      {(hasSubmenu || children) && submenuOpen && !disabled && (
         <div
           ref={submenuRef}
           className="context-menu-submenu"
