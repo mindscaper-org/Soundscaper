@@ -245,6 +245,14 @@ export function audacityMacroEffectDefaults(type) {
  */
 export function encodeAudacityMacroEffectParameters(type, params = {}) {
 	const profile = AUDACITY_SELECTION_EFFECT_MACRO_PROFILES[type];
+	if (type === 'audacity-amplify') {
+		// Batch Amplify captures Ratio only and always allows clipping. Keep
+		// the interactive flag readable for imported one-line effect presets.
+		if (params.allowClipping !== true) {
+			throw new RangeError('Audacity Amplify macros cannot retain a no-clipping guard. Enable Allow clipping for native macro export.');
+		}
+		return encodeCommandParameters(profile, params).filter(([name]) => name !== 'AllowClipping');
+	}
 	if (profile) return encodeCommandParameters(profile, params);
 	if (AUP4_REALTIME_EFFECT_PROFILES[type]) return encodeAudacityRealtimeEffectParameters(type, params);
 	throw new RangeError(`Unsupported Audacity macro effect: ${type}.`);

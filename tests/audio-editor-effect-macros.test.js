@@ -99,7 +99,7 @@ test('every Audacity effect with a macro command round-trips through concrete ma
 		.filter((type) => type !== 'audacity-noise-reduction');
 	const draft = createEffectMacroDraft({
 		name: 'Every command',
-		effects: types.map((type) => ({ type })),
+		effects: types.map((type) => ({ type, ...(type === 'audacity-amplify' ? { params: { allowClipping: true } } : {}) })),
 		idFactory: (prefix, index) => `source-${prefix}-${index}`,
 	});
 	const exported = serializeAudacityEffectMacro(draft.effects);
@@ -506,7 +506,7 @@ test('macros Audacity itself wrote import with its own names, units and implied 
 
 test('decibel and semitone settings survive a macro round trip through Audacity units', () => {
 	for (const gainDb of [0.1, -0.9151498112, 12.3456, -37.5]) {
-		const exported = serializeAudacityEffectMacro([{ type: 'audacity-amplify', id: 'a', params: { gainDb } }]);
+		const exported = serializeAudacityEffectMacro([{ type: 'audacity-amplify', id: 'a', params: { gainDb, allowClipping: true } }]);
 		assert.equal(parseAudacityEffectMacro(exported, { idFactory: () => 'a' })
 			.effects[0].params.gainDb, gainDb);
 	}
