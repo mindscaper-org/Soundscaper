@@ -48,6 +48,8 @@ export interface MidiTransferSnapshot {
 }
 export interface MidiTransferSelection { readonly selectTrackId?: string | null; readonly selectClipId?: string | null }
 export interface MidiService {
+	/** Advance pending work only across an authoritative selection-only update. */
+	followSelection(before: MidiProject, after: MidiProject): void;
 	/** Wait for MIDI work requested before this barrier, including source publication. */
 	settled(): Promise<void>;
 	hasPendingEdits(): boolean;

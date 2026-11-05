@@ -221,6 +221,7 @@ export function createDocumentComposition(dependencies: DocumentCompositionDepen
 		setProject: document.set,
 		getHistory: dependencies.getHistory,
 		setHistory: dependencies.setHistory,
+		onSelectionChanged: dependencies.onSelectionChanged,
 		executeEditorCommand: projectRuntime.executeCommand,
 		collapseEditorHistory: projectRuntime.collapseHistory,
 		rollbackEditorHistory: projectRuntime.rollbackHistory,

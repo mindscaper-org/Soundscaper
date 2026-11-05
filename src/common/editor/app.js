@@ -278,7 +278,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		timePitchCache: clipTimePitchCache, protectedSourceIds: stagedProjectBinSourceIds, maximumPixelsPerSecond: AUDIO_EDITOR_MAX_PIXELS_PER_SECOND,
 		settingKeys: { recentProjects: recentProjectsSettingKey, lastProject: lastProjectSettingKey }, scheduleTimer, clearTimer: clearScheduledTimer,
 		prepareProjectSnapshot: options.prepareProjectSnapshot, sources,
-		getHistory: () => state.history, setHistory: (history) => { state.history = history; },
+		getHistory: () => state.history, setHistory: (history) => { state.history = history; }, onSelectionChanged: bindings.midiController.followSelection,
 		projectDurationFrames, editorTimelineDurationFrames, projectSampleRate: () => projectSampleRate(), getMicrofadeNewClips: () => state.preferences.editing.applyMicrofadesToNewClips, persistSetting, preflightStorage: bindings.preflightStorage,
 		garbageCollectSources: bindings.garbageCollectSources, refreshStorageUsage: bindings.refreshStorageUsage, editingBlocked,
 		assertEditingAllowed: () => { if (documentState.project) framescaperCapture?.assertOriginEditAllowed(documentState.project.id); },

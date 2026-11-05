@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { ProjectChangedOptions } from '../../document/project-mutation-service.ts';
 import type { AudioEditorCommand } from '../../../commands/protocol.ts';
-import type { MidiTransferSelection, MidiTransferSnapshot } from '../../track-audio/midi-service-types.ts';
+import type { MidiProject, MidiTransferSelection, MidiTransferSnapshot } from '../../track-audio/midi-service-types.ts';
 
 export interface MidiControllerBinding {
+	followSelection(before: MidiProject, after: MidiProject): void;
 	settled(): Promise<void>;
 	hasPendingEdits(): boolean;
 	commitTransfer(command: AudioEditorCommand, preview: (command: AudioEditorCommand) => MidiTransferSnapshot,
@@ -19,6 +20,7 @@ export function createMidiControllerPort() {
 			owner = value;
 		},
 		settled: async (): Promise<void> => { await owner?.settled(); },
+		followSelection: (before: MidiProject, after: MidiProject): void => { owner?.followSelection(before, after); },
 		hasPendingEdits: (): boolean => owner?.hasPendingEdits() ?? false,
 		commitTransfer(command: AudioEditorCommand, preview: (command: AudioEditorCommand) => MidiTransferSnapshot,
 			selection?: MidiTransferSelection, options?: ProjectChangedOptions): unknown {

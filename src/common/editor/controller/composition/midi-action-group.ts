@@ -4,7 +4,7 @@ import type { EditorActionRuntime } from './action-facade-runtime.ts';
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import { readMidiClip, readMidiTrack } from '../../midi-model.ts';
 import type { MidiTransferSelection, MidiTransferSnapshot } from '../track-audio/midi-service-types.ts';
-import type { MidiService } from '../track-audio/midi-service-types.ts';
+import type { MidiProject, MidiService } from '../track-audio/midi-service-types.ts';
 import type { MidiInstrument, MidiNote } from '../../midi-model.ts';
 import type { MidiClipResize, MidiNoteUpdate } from '../track-audio/midi-service-types.ts';
 import { createMidiImportFiles } from './internal/midi-import-files.ts';
@@ -15,6 +15,7 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 	let loaded: Promise<Readonly<MidiService>> | null = null;
 	let owner: Readonly<MidiService> | null = null;
 	const pendingCalls = new Set<Promise<unknown>>();
+	const awaitingService = new Set<{ project: MidiProject | null }>();
 	const service = () => loaded ??= import('../track-audio/midi-service.ts').then(({ createMidiService }) => owner = createMidiService({
 		getProject: scope.getProject,
 		editingBlocked: () => Boolean(scope.state.phase === 'disposed' || scope.state.phase === 'disposing' || scope.state.readOnly || scope.state.projectActivationPending || scope.state.recorder || scope.state.recordingStarting || scope.state.projectAdministrationPending),
@@ -30,11 +31,12 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 		saveFile: request => scope.fileService.saveFile(request),
 	}));
 	function edit<Result>(action: (service: Readonly<MidiService>) => Promise<Result>): Promise<Result> {
-		const project = scope.getProject();
+		const context = { project: scope.getProject() };
+		if (!owner) awaitingService.add(context);
 		const operation = owner ? action(owner) : service().then(loaded => {
-			if (scope.getProject() !== project) throw new Error('The project changed before the MIDI edit.');
+			if (scope.getProject() !== context.project) throw new Error('The project changed before the MIDI edit.');
 			return action(loaded);
-		});
+		}).finally(() => { awaitingService.delete(context); });
 		pendingCalls.add(operation);
 		void operation.then(() => { pendingCalls.delete(operation); }, () => { pendingCalls.delete(operation); });
 		return operation;
@@ -87,7 +89,11 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 		return edit(service => service.commitTransfer(command, preview, selection, options));
 	};
 	function hasPendingEdits(): boolean { return pendingCalls.size > 0 || Boolean(owner?.hasPendingEdits()); }
-	return Object.freeze({ commitTransfer, hasPendingEdits, settled: async () => {
+	function followSelection(before: MidiProject, after: MidiProject): void {
+		for (const context of awaitingService) if (context.project === before) context.project = after;
+		owner?.followSelection(before, after);
+	}
+	return Object.freeze({ commitTransfer, hasPendingEdits, followSelection, settled: async () => {
 		await Promise.allSettled([...pendingCalls]);
 		if (loaded) await (await loaded).settled();
 	}, actions, importFiles: createMidiImportFiles(scope, service) });

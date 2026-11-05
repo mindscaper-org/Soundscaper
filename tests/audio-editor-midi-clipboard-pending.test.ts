@@ -72,6 +72,7 @@ test('pending Copy refuses a changed selection instead of copying a different ta
 	controller.actions.timeline.selectClip(other.clipId);
 	release.resolve();
 	const results = await Promise.allSettled([updating, copying]);
+	assert.equal(results[0]!.status, 'fulfilled', 'selection does not cancel the independently requested note edit');
 	assert.equal(results[1]!.status, 'rejected');
 	assert.equal(firstClipboardPitch(fixture), undefined);
 });

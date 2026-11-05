@@ -29,7 +29,11 @@ type ImportedMidiTrack = Readonly<{ name: string; data: MidiClipData; program?: 
 export function createMidiService(dependencies: MidiServiceDependencies): Readonly<MidiService> {
 	let pending: Promise<unknown> = Promise.resolve();
 	const requests = new Set<{ expected: MidiProject }>();
+	let active: { origin: MidiProject; request: { expected: MidiProject } } | null = null;
 	const service: MidiService = {
+		followSelection: (before, after) => {
+			for (const request of requests) if (request.expected === before) request.expected = after;
+		},
 		settled: async () => { await pending; },
 		hasPendingEdits: () => requests.size > 0,
 		commitTransfer: (command, preview, selection, options) => {
@@ -157,7 +161,8 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 	}
 	function assertCurrent(project: MidiProject): void {
 		if (dependencies.editingBlocked()) throw new Error('MIDI editing is currently unavailable.');
-		if (dependencies.getProject() !== project) throw new Error('The project changed during MIDI rendering.');
+		const expected = active?.origin === project ? active.request.expected : project;
+		if (dependencies.getProject() !== expected) throw new Error('The project changed during MIDI rendering.');
 	}
 	function commitOwned(...args: Parameters<MidiServiceDependencies['commit']>): unknown {
 		const previous = requireProject();
@@ -169,11 +174,13 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 	function enqueue<Result>(operation: (project: MidiProject) => Promise<Result>): Promise<Result> {
 		const request = { expected: requireProject() };
 		requests.add(request);
-		const work = pending.then(() => {
+		const work = pending.then(async () => {
 			const project = requireProject();
 			if (request.expected !== project) throw new Error('The project changed before the MIDI edit.');
 			assertCurrent(project);
-			return operation(project);
+			active = { origin: project, request };
+			try { return await operation(project); }
+			finally { active = null; }
 		}).finally(() => { requests.delete(request); });
 		pending = work.catch(() => undefined);
 		return work;
