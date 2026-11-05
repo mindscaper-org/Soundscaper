@@ -18,7 +18,6 @@ import {
 } from './editor-project-finishing-validation.ts';
 import { reconcileInheritedFramescaperProjectStateFinishing } from './editor-project-finishing-inherited-state.ts';
 import { assertJoinedCameraFinishing } from './editor-join-finishing-admission.ts';
-import { inheritDuplicatedTrackFinishing } from './editor-track-duplicate-finishing.ts';
 
 /** Apply one maintained visual command without allowing it to observe or erase finishing state. */
 export function applyInheritedFramescaperProjectCommandFinishing(
@@ -43,7 +42,6 @@ export function applyInheritedFramescaperProjectCommandFinishing(
 	for (const field of FRAMESCAPER_FINISHING_STATE_FIELDS) {
 		applied[field] = structuredClone(finishing[field]);
 	}
-	inheritDuplicatedTrackFinishing(project, applied, command);
 	reconcileInheritedFramescaperProjectStateFinishing(applied);
 	normalizeFramescaperProjectFinishingStateFinishing(applied);
 	applied.featureRequirements = reconcileFramescaperProjectFeatureRequirementsFinishing(profile, applied);

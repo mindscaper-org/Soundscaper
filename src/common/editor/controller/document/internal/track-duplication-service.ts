@@ -5,7 +5,6 @@ import { duplicateTrackAdmCommands } from '../../../derived-track-adm.ts';
 import { preserveProductionTrackRouting } from '../../../derived-track-routing.ts';
 import { trackHierarchyPlacement } from '../../../track-hierarchy-placement.ts';
 import { duplicateTrackTakeGroupCommands } from './track-duplicate-take-groups.ts';
-import { rebindVideoKeyframeCarrierEffects } from '../../../commands/video-keyframe-carrier.ts';
 import type {
 	ControllerTrackDuplicateCarrier,
 	ControllerTrackDuplicateRequest,
@@ -116,7 +115,7 @@ export function createTrackDuplicationService(dependencies: TrackDuplicationServ
 				groupId = groupIds.get(clip.groupId) ?? dependencies.createId('clip-group');
 				groupIds.set(clip.groupId, groupId);
 			}
-			const copied = {
+			commands.push(dependencies.createAddClipCommand(trackId, {
 				...clip,
 				id: nextClipId,
 				avLinkId: null,
@@ -126,9 +125,7 @@ export function createTrackDuplicationService(dependencies: TrackDuplicationServ
 						regenerateIds: true,
 					}),
 				} : {}),
-			};
-			commands.push(dependencies.createAddClipCommand(trackId,
-				rebindVideoKeyframeCarrierEffects(copied, clip, copied, `Duplicated clip ${nextClipId}`)));
+			}));
 		}
 		commands.push(...duplicateTrackTakeGroupCommands(project, track.id, trackId, dependencies.createId));
 		commands.push(...duplicateTrackAdmCommands(project, [
