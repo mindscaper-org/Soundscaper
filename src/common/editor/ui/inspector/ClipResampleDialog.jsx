@@ -7,6 +7,7 @@ import { NumberStepper } from '@soundscaper/design-system/NumberStepper';
 
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { MAXIMUM_CLIP_RESAMPLE_RATE, MINIMUM_CLIP_RESAMPLE_RATE, parseClipResampleRate } from './clip-resample-rate.ts';
+import { submitCompletedNumberField } from '../dialogs/completed-number-field-submit.ts';
 
 /**
  * Ask for the rate one clip should be resampled to.
@@ -41,17 +42,7 @@ export default function ClipResampleDialog({ sampleRate, copy, disabled, onCance
 				</>}
 			/>}
 		>
-			<form onKeyDownCapture={(event) => {
-				if (event.nativeEvent?.isComposing) {
-					event.stopPropagation();
-					return;
-				}
-				if (event.key !== 'Enter' || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey
-					|| !(event.target instanceof HTMLElement) || event.target.tagName !== 'INPUT') return;
-				event.preventDefault();
-				event.stopPropagation();
-				apply();
-			}} onSubmit={(event) => {
+			<form onKeyDownCapture={event => submitCompletedNumberField(event, apply)} onSubmit={(event) => {
 				event.preventDefault();
 				apply();
 			}}>

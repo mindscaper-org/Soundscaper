@@ -29,6 +29,7 @@ import {
 	TRACK_RATE_DIALOG_MISSING_TRACK,
 } from './editor-dialog-model.js';
 import { timedRecordingDialogRange } from './timed-recording-dialog-model.ts';
+import { submitCompletedNumberField } from './completed-number-field-submit.ts';
 import { selectAudioEditorEditBlock } from '../../edit-blocking.ts';
 import { resetSoundscaperPluginPreferences } from '../soundscaper-plugin-preferences-reset.ts';
 
@@ -249,7 +250,7 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 							copy={copy} locale={locale} />
 					)}
 					{type === 'resample' && (
-						<form onSubmit={(event) => { event.preventDefault(); submitResample(); }}>
+						<form onKeyDownCapture={event => submitCompletedNumberField(event, submitResample)} onSubmit={(event) => { event.preventDefault(); submitResample(); }}>
 							<label className="kw-audio-editor-dialog__field">
 								<span>{copy.sampleRate} (Hz)</span>
 								<NumberStepper value={String(value)} min={8_000} max={384_000} step={1_000} width="100%" onChange={onValueChange} />
@@ -257,7 +258,7 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 						</form>
 					)}
 					{type === 'track-rate' && (
-						<form onSubmit={(event) => { event.preventDefault(); submitTrackRate(); }}>
+						<form onKeyDownCapture={event => submitCompletedNumberField(event, submitTrackRate)} onSubmit={(event) => { event.preventDefault(); submitTrackRate(); }}>
 							<label className="kw-audio-editor-dialog__field">
 								<span>{copy.sampleRate} (Hz)</span>
 								<NumberStepper value={String(value)} min={8_000} max={384_000} step={1_000} width="100%" onChange={onValueChange} />
