@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { createFramescaperCaptureClockJournal, type FramescaperCaptureClockJournal } from './framescaper-capture-clock-journal.ts';
 import type { FramescaperCaptureRecorder, FramescaperCaptureDurablePort, FramescaperCaptureDurableSession } from '../framescaper-capture-session-types.ts';
 import type { FramescaperCaptureActiveTimeClock } from './framescaper-capture-active-time-clock.ts';
 import type { FramescaperCaptureStateMachine } from './framescaper-capture-state-machine.ts';
@@ -10,6 +11,7 @@ interface PauseDependencies {
 	session(): FramescaperCaptureDurableSession | null;
 	setSession(session: FramescaperCaptureDurableSession): void;
 	recorders(): readonly FramescaperCaptureRecorder[];
+	readonly clockJournal?: FramescaperCaptureClockJournal;
 	readonly durable: Pick<FramescaperCaptureDurablePort, 'recordPauseSpan'>;
 	now(): number;
 	recover(error: unknown): Promise<void>;
@@ -19,6 +21,7 @@ interface PauseDependencies {
 /** Pause every stream together; failed transitions retire the whole live graph. */
 export function createFramescaperCapturePauseActions(dependencies: PauseDependencies) {
 	let pending = Promise.resolve();
+	const journal = dependencies.clockJournal ?? createFramescaperCaptureClockJournal(dependencies.durable, dependencies.setSession);
 	async function transition(action: 'pause' | 'resume'): Promise<void> {
 		dependencies.assertActive();
 		dependencies.machine[action]();
@@ -26,23 +29,18 @@ export function createFramescaperCapturePauseActions(dependencies: PauseDependen
 			const clock = dependencies.clock();
 			if (!clock) throw new Error('Capture clock is unavailable.');
 			let excludedPauseUs: number | undefined;
+			let journalWrite: Promise<void> = Promise.resolve();
 			if (action === 'pause') clock.pause(dependencies.now());
 			else {
 				const session = dependencies.session();
 				if (!session) throw new Error('Capture recovery evidence is unavailable.');
-				const snapshot = clock.resume(dependencies.now());
-				const span = snapshot.pauseSpans.at(-1)!;
-				const next = await dependencies.durable.recordPauseSpan(session, {
-					startMicroseconds: Math.round((span.startedAtMs - snapshot.startedAtMs) * 1000),
-					endMicroseconds: Math.round((span.endedAtMs - snapshot.startedAtMs) * 1000),
-				});
-				if (!['recording', 'finalizing'].includes(dependencies.machine.snapshot.phase)) return;
-				dependencies.setSession(next);
-				if (dependencies.machine.snapshot.phase !== 'recording') return;
-				excludedPauseUs = Math.round(span.durationMs * 1000);
+				const resumed = journal.resume(clock, session, dependencies.now());
+				journalWrite = resumed.settled;
+				excludedPauseUs = resumed.excludedPauseUs;
 			}
-			const results = await Promise.allSettled(dependencies.recorders().map(recorder => Promise.resolve().then(
-				() => action === 'pause' ? recorder.pause() : recorder.resume(excludedPauseUs))));
+			const results = await Promise.allSettled([journalWrite, ...dependencies.recorders().map(recorder => Promise.resolve().then(
+				() => action === 'pause' ? recorder.pause() : dependencies.machine.snapshot.phase === 'recording'
+					? recorder.resume(excludedPauseUs) : true))]);
 			const failures = results.flatMap(result => result.status === 'rejected' ? [result.reason as unknown]
 				: result.value === false ? [new Error(`Capture recorder could not ${action}.`)] : []);
 			if (failures.length === 1) throw failures[0];

@@ -1,4 +1,5 @@
 import { soundscaperNativeAudioCaptureSource, subscribeSoundscaperNativeAudioCaptureLoss } from './soundscaper-native-audio-capture.ts';
+import { recordingChunkAtArrival } from './recording-chunk-arrival.ts';
 import { handleRecordingInputEvent } from './recording-input-events.ts';
 import {
 	RECORDING_INPUT_GAIN_DEFAULT,
@@ -34,7 +35,7 @@ export async function createRecordingController({
 	monitorDestination = /** @type {AudioNode | null} */ (null),
 	fixedStopFrame = false,
 	inputGain = RECORDING_INPUT_GAIN_DEFAULT,
-	onChunk,
+	onChunk, receiptTime,
 	onState,
 	onError,
 	maxPendingChunks = 32,
@@ -424,11 +425,7 @@ export async function createRecordingController({
 				try { node.port.postMessage({ type: 'stop' }); } catch { /* Failure is already recorded. */ }
 				return;
 			}
-			const chunk = {
-				frameStart: message.frameStart,
-				frames: message.frames,
-				channels: (message.channels || []).map((channel) => channel instanceof Float32Array ? channel : new Float32Array(channel)),
-			};
+			const chunk = recordingChunkAtArrival(message, receiptTime);
 			writeQueue = writeQueue.then(async () => {
 				await onChunk?.(chunk);
 				if (Number.isSafeInteger(message.chunkId) && message.chunkId > 0) {

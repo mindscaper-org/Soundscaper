@@ -76,6 +76,7 @@ export interface FramescaperWorkletRecordingControllerOptions {
 	readonly monitorDestination?: AudioNode;
 	readonly inputGain: number;
 	readonly maxPendingChunks: number;
+	readonly receiptTime?: () => number;
 	readonly onChunk: (chunk: CapturePcmChunk) => PromiseLike<void> | void;
 	readonly onError: (error: unknown) => void;
 }
@@ -97,6 +98,7 @@ export interface FramescaperBrowserAudioRecorderOptions {
 	readonly inputGain?: number;
 	readonly chunkFrames?: number;
 	readonly maximumPendingChunks?: number;
+	readonly receiptTime?: () => number;
 	readonly onChunk: (chunk: Readonly<CapturePcmChunk>) => PromiseLike<void> | void;
 	readonly onBackpressure?: (pendingChunks: number, error: Error) => PromiseLike<void> | void;
 	readonly onError?: (error: unknown) => void;
@@ -157,7 +159,7 @@ export async function createFramescaperBrowserAudioRecorder(
 		channelCount: format.channelCount,
 		chunkFrames,
 		maximumPendingChunks,
-		onChunk: options.onChunk,
+		onChunk: options.onChunk, receiptTime: options.receiptTime,
 		onBackpressure: options.onBackpressure,
 		fail: failures.fail,
 	});
@@ -229,6 +231,7 @@ async function createWorkletRecorder(input: Readonly<{
 		inputGain,
 		maxPendingChunks: maximumPendingChunks,
 		onChunk: (chunk) => sink.push(frameMapper.map(chunk)),
+		receiptTime: options.receiptTime ?? (() => globalThis.performance?.now?.() ?? Date.now()),
 		onError: (error) => {
 			failures.fail(error);
 			state = 'failed';
@@ -316,6 +319,7 @@ function createBoundedPcmSink(input: Readonly<{
 	chunkFrames: number;
 	maximumPendingChunks: number;
 	onChunk: (chunk: Readonly<CapturePcmChunk>) => PromiseLike<void> | void;
+	receiptTime?: () => number;
 	onBackpressure?: (pendingChunks: number, error: Error) => PromiseLike<void> | void;
 	fail(error: unknown): Error;
 }>): BoundedPcmSink {
@@ -335,7 +339,9 @@ function createBoundedPcmSink(input: Readonly<{
 			return Promise.reject(failure);
 		}
 		pendingChunks += 1;
-		const completion = queue.then(() => input.onChunk(chunk));
+		const receiptTimeMs = chunk.receiptTimeMs ?? input.receiptTime?.() ?? globalThis.performance?.now?.() ?? Date.now();
+		const arrived = { ...chunk, receiptTimeMs };
+		const completion = queue.then(() => input.onChunk(arrived));
 		queue = completion.catch((error: unknown) => {
 			throw input.fail(error);
 		}).finally(() => { pendingChunks -= 1; });

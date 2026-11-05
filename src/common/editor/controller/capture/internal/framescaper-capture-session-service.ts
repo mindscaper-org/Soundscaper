@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createCaptureRuntimeAvailability, type CaptureFailure, type CapturePacket, type CaptureRuntimeAvailability, type CaptureSourceRole } from '../../../framescaper-capture-domain.ts';
+import { createCaptureRuntimeAvailability, type CaptureFailure, type CaptureRuntimeAvailability, type CaptureSourceRole } from '../../../framescaper-capture-domain.ts';
 import type { CapturePreviewLease, CapturePreviewSource } from '../../../platform/capture-source-port.ts';
 import type { FramescaperCaptureOriginAuthority } from '../framescaper-capture-origin-guard.ts';
 import { createFramescaperCaptureActiveTimeClock } from './framescaper-capture-active-time-clock.ts';
 import { createFramescaperCaptureDisplaySelection } from './framescaper-capture-display-selection.ts';
+import { createFramescaperCaptureClockJournal } from './framescaper-capture-clock-journal.ts';
+import { createFramescaperCapturePacketAdmission } from './framescaper-capture-packet-admission.ts';
 import { createFramescaperCaptureMetrics } from './framescaper-capture-metrics.ts';
 import { findFramescaperCaptureRecovery } from './framescaper-capture-recovery-admission.ts';
 import { configureCapturePreviewSource, settleCaptureSourceSettings, capturePreviewSourceSnapshots, createFramescaperCapturePreviewResources,
@@ -38,6 +40,7 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 	let previewResources: FramescaperCapturePreviewResources | null = null;
 	let recorders: readonly ActiveRecorder<Stream, Track>[] = Object.freeze([]);
 	let durableSession: FramescaperCaptureDurableSession | null = null;
+	const clockJournal = createFramescaperCaptureClockJournal(options.durable, session => { durableSession = session; });
 	let clock: ReturnType<typeof createFramescaperCaptureActiveTimeClock> | null = null;
 	let metrics: ReturnType<typeof createFramescaperCaptureMetrics> | null = null;
 	let originAuthority: Readonly<FramescaperCaptureOriginAuthority> | null = null;
@@ -278,7 +281,7 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 				sourceId: options.createSourceIdentity?.(source, createId) ?? createId(`${source.role}-capture-source`),
 				role: source.role,
 			}));
-			clock = createFramescaperCaptureActiveTimeClock(now());
+			clock = createFramescaperCaptureActiveTimeClock(now(), true);
 			metrics = createFramescaperCaptureMetrics(identities);
 			const created: ActiveRecorder<Stream, Track>[] = [];
 			for (let index = 0; index < lease.sources.length; index += 1) {
@@ -307,9 +310,9 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 					...identity, required: true as const, format: recorder.format,
 				}))),
 			});
-			const sharedStartActiveTimeUs = clock.snapshot(now()).activeTimeUs;
 			machine.startRecording();
-			await recorderStarts.start(recorders, sharedStartActiveTimeUs, () => !signal.aborted && machine.snapshot.phase === 'recording');
+			await clockJournal.start(clock, durableSession, now(), recorders, recorderStarts,
+				() => !signal.aborted && machine.snapshot.phase === 'recording');
 			notify();
 		} catch (error) {
 			if (signal.aborted && machine.snapshot.phase === 'finalizing' && !recorderStarts.hasDurablePacket) {
@@ -325,22 +328,14 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 			if (!disposed || !signal.aborted) throw error;
 		}
 	}
-	async function onPacket(packet: Readonly<CapturePacket>): Promise<void> {
-		if (!durableSession || !clock || !metrics) throw new Error('Capture packet arrived before durable admission.');
-		const phase = machine.snapshot.phase;
-		if (!['recording', 'paused', 'finalizing'].includes(phase)) {
-			throw new Error(`Capture packet arrived while ${phase}.`);
-		}
-		const observedActiveTimeUs = clock.snapshot(now()).activeTimeUs;
-		const next = await options.durable.append(durableSession, packet);
-		durableSession = next;
-		recorderStarts.admitDurablePacket();
-		metrics.observe(packet, observedActiveTimeUs);
-		notify();
-	}
+	const onPacket = createFramescaperCapturePacketAdmission({
+		session: () => durableSession, clock: () => clock, metrics: () => metrics, phase: () => machine.snapshot.phase,
+		beforeAppend: clockJournal.settled, append: (session, packet) => options.durable.append(session, packet),
+		setSession: session => { durableSession = session; }, admitDurablePacket: recorderStarts.admitDurablePacket, notify,
+	});
 	const pauseActions = createFramescaperCapturePauseActions({ assertActive, machine,
 		clock: () => clock, session: () => durableSession, setSession: session => { durableSession = session; },
-		recorders: () => recorders.map(({ recorder }) => recorder), durable: options.durable, now, notify,
+		recorders: () => recorders.map(({ recorder }) => recorder), durable: options.durable, clockJournal, now, notify,
 		recover: error => recoverActive(error, 'encoder-failed') });
 	function stop(): Promise<void> {
 		assertActive();
@@ -453,6 +448,7 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 
 	async function releaseCaptureResources(): Promise<unknown[]> {
 		await recorderStarts.waitForPendingStart();
+		await clockJournal.settled().catch(() => undefined);
 		const activeRecorders = recorders;
 		const stopResults = activeRecorders.map(({ recorder }) => {
 			try { return Promise.resolve(recorder.stop()); }

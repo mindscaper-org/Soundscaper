@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createFramescaperVideoPacketClock } from './framescaper-video-packet-clock.ts';
 import type { CaptureEncodedVideoPacket } from '../../../../framescaper-capture-domain.ts';
 
 // MediaAssetChunkRecords splits this bounded logical event into 4 MiB physical
@@ -101,9 +102,7 @@ export function createFramescaperBrowserVideoRecorder<Recorder extends Framescap
 	const receiptTime = options.receiptTime ?? (() => globalThis.performance?.now?.() ?? Date.now());
 	let state: RecorderState = 'ready';
 	let sequence = 0;
-	let presentationOriginUs = 0;
-	let previousTimecodeUs = 0;
-	let excludedPauseTimeUs = 0;
+	const clock = createFramescaperVideoPacketClock(timesliceMs, receiptTime);
 	let pendingEvents = 0;
 	let pressureReported = false;
 	let queue = Promise.resolve();
@@ -119,7 +118,7 @@ export function createFramescaperBrowserVideoRecorder<Recorder extends Framescap
 
 	function start(originValue = 0): void {
 		if (state !== 'ready') throw new Error('Capture video recorder can start only once.');
-		presentationOriginUs = nonNegativeSafeInteger(originValue, 'Capture video presentation origin');
+		clock.start(originValue);
 		recorder.start(timesliceMs);
 		state = 'recording';
 	}
@@ -133,11 +132,7 @@ export function createFramescaperBrowserVideoRecorder<Recorder extends Framescap
 
 	function resume(excludedPauseDurationUs = 0): boolean {
 		if (state !== 'paused') return false;
-		excludedPauseTimeUs = exactSum(
-			excludedPauseTimeUs,
-			nonNegativeSafeInteger(excludedPauseDurationUs, 'Capture video excluded pause duration'),
-			'Capture video excluded pause time',
-		);
+		clock.resume(excludedPauseDurationUs);
 		recorder.resume();
 		state = 'recording';
 		pressureReported = false;
@@ -204,19 +199,7 @@ export function createFramescaperBrowserVideoRecorder<Recorder extends Framescap
 			fail(new RangeError('Capture video encoder emitted an oversized logical packet.'));
 			return;
 		}
-		const fallbackTimecodeMs = (previousTimecodeUs + excludedPauseTimeUs) / 1_000 + timesliceMs;
-		const reportedTimecodeUs = millisecondsToMicroseconds(finiteTimecode(event.timecode, fallbackTimecodeMs));
-		const activeTimecodeUs = Math.max(0, reportedTimecodeUs - excludedPauseTimeUs);
-		const eventTimecodeUs = activeTimecodeUs > previousTimecodeUs
-			? activeTimecodeUs
-			: exactSum(previousTimecodeUs, timesliceMs * 1_000, 'Capture video fallback timecode');
-		const presentationTimeUs = exactSum(
-			presentationOriginUs,
-			previousTimecodeUs,
-			'Capture video presentation time',
-		);
-		const durationUs = eventTimecodeUs - previousTimecodeUs;
-		previousTimecodeUs = eventTimecodeUs;
+		const timing = clock.next(event.timecode);
 		queue = queue.then(async () => {
 			const bytes = new Uint8Array(await event.data.arrayBuffer());
 			if (bytes.byteLength < 1 || bytes.byteLength > maximumPacketBytes) {
@@ -225,9 +208,7 @@ export function createFramescaperBrowserVideoRecorder<Recorder extends Framescap
 			const packet: CaptureEncodedVideoPacket = Object.freeze({
 				kind: 'encoded-video', sessionId, streamId, role: options.role,
 				sequence: sequence++,
-				presentationTimeUs,
-				durationUs,
-				receiptTimeMs: finiteReceiptTime(receiptTime()),
+				...timing,
 				droppedBefore: Object.freeze({ value: null, confidence: 'unavailable' }),
 				byteLength: bytes.byteLength,
 				bytes,
@@ -290,30 +271,4 @@ function canonicalMimeType(value: string): string {
 		throw new TypeError('The capture video recorder did not report an actual video MIME type.');
 	}
 	return value;
-}
-
-function finiteTimecode(value: number | undefined, fallback: number): number {
-	return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback;
-}
-
-function finiteReceiptTime(value: number): number {
-	if (!Number.isFinite(value) || value < 0) throw new RangeError('Capture receipt time must be finite and non-negative.');
-	return value;
-}
-
-function nonNegativeSafeInteger(value: number, name: string): number {
-	if (!Number.isSafeInteger(value) || value < 0) throw new RangeError(`${name} must be a non-negative integer.`);
-	return value;
-}
-
-function exactSum(left: number, right: number, name: string): number {
-	const result = left + right;
-	if (!Number.isSafeInteger(result) || result < 0) throw new RangeError(`${name} exceeds the safe range.`);
-	return result;
-}
-
-function millisecondsToMicroseconds(value: number): number {
-	const result = Math.round(value * 1_000);
-	if (!Number.isSafeInteger(result) || result < 0) throw new RangeError('Capture video time exceeds the safe range.');
-	return result;
 }

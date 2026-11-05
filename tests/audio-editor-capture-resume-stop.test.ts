@@ -7,8 +7,8 @@ import { deferred, remainsPending, waitForEvent } from './helpers/async-test-con
 test('capture Stop joins a Resume pause-span commit before sealing and publishing', async () => {
 	const f = captureSessionTransitionFixture();
 	const gate = deferred<void>();
-	f.gatePauseStorage(gate.promise);
 	await f.start(); await f.service.actions.pause();
+	f.gatePauseStorage(gate.promise);
 	const resuming = f.service.actions.resume();
 	await waitForEvent(f.events, 'pause:write');
 	const stopping = f.service.actions.stop();

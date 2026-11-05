@@ -119,7 +119,7 @@ async function createAudioRecorder<Recorder extends FramescaperMediaRecorderLike
 		MediaStreamTrackProcessor: options.MediaStreamTrackProcessor,
 		recordingControllerFactory: options.recordingControllerFactory,
 		monitoring: request.source.role === 'microphone' && request.monitoring,
-		inputGain: request.inputGain,
+		inputGain: request.inputGain, receiptTime: options.receiptTime,
 		onChunk: (chunk) => {
 			if (!packetizer) throw new Error('Framescaper PCM arrived before recorder admission.');
 			return request.onPacket(packetizer.packet(chunk));

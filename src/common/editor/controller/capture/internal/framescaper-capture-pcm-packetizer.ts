@@ -10,6 +10,7 @@ const MAXIMUM_CAPTURE_AUDIO_CHUNK_FRAMES = 16_384;
 type AudioRole = 'microphone' | 'system-audio';
 
 export interface CapturePcmChunk {
+	readonly receiptTimeMs?: number;
 	readonly frameStart: number;
 	readonly frames: number;
 	readonly channels: readonly Float32Array[];
@@ -120,7 +121,7 @@ export function createFramescaperCapturePcmPacketizer(
 			sequence,
 			presentationTimeUs,
 			durationUs,
-			receiptTimeMs: finiteNonNegative(receiptTime(), 'Capture PCM receipt time'),
+			receiptTimeMs: finiteNonNegative(chunk.receiptTimeMs ?? receiptTime(), 'Capture PCM receipt time'),
 			droppedBefore: Object.freeze({ value: droppedFrames, confidence: 'exact' }),
 			frameCount: frames,
 			sampleRate,

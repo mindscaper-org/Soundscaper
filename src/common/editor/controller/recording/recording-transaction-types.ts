@@ -101,6 +101,7 @@ export interface RecordingWriterFinish {
 }
 
 export interface RecordingCaptureChunk {
+	readonly receiptTimeMs?: number;
 	readonly frameStart: number;
 	readonly frames: number;
 	readonly channels: readonly Float32Array[];
@@ -125,6 +126,7 @@ export interface RecordingSoundActivationPort {
 }
 
 export interface RecordingControllerFactoryOptions {
+	readonly receiptTime?: () => number;
 	readonly chunkFrames?: number;
 	readonly maxPendingChunks?: number;
 	readonly context: RecordingAudioContext;
