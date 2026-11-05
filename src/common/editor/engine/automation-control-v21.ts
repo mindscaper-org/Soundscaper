@@ -5,6 +5,8 @@ import type { EngineRuntimeMethodMap } from './runtime-types.ts';
 import { ENGINE_ASSERT_ACTIVE } from './runtime-symbols.ts';
 import { restoreAutomationReadbackV21 } from './automation-readback-v21.ts';
 import { isPlaybackLoopEnabled } from './playback-frequency-range.ts';
+import { normalizeParameterAddress, type ParameterAddress } from '../parameter-address.ts';
+import type { EngineGainOwner, EngineProject } from './types.ts';
 
 export interface AutomationControlPreviewInputV21 {
 	readonly graph: Readonly<{ readonly parameterRegistry: ScheduledParameterRegistry }> | null;
@@ -42,6 +44,14 @@ export function scheduleAutomationControlPreviewV21(
 }
 
 export const engineAutomationControlMethods = {
+	configureMixerParameter(address: unknown, value: number) {
+		this[ENGINE_ASSERT_ACTIVE]();
+		const normalized = normalizeParameterAddress(address);
+		const project = projectWithMixerParameter(this.project, normalized, value);
+		if (!project || !this.previewScheduledParameter(normalized, value)) return false;
+		this.project = project;
+		return true;
+	},
 	restoreScheduledAutomationLane(lane: unknown) {
 		this[ENGINE_ASSERT_ACTIVE]();
 		if (!this.graph || !this.context || !this.project) return false;
@@ -69,7 +79,30 @@ export const engineAutomationControlMethods = {
 			transportRate: this.playbackRate,
 		});
 	},
-} satisfies EngineRuntimeMethodMap<'previewScheduledParameter' | 'restoreScheduledAutomationLane'>;
+} satisfies EngineRuntimeMethodMap<'previewScheduledParameter' | 'restoreScheduledAutomationLane' | 'configureMixerParameter'>;
+
+/** Live scalar adoption owns a private project copy; routes, mute, solo and automation remain authored. */
+function projectWithMixerParameter(project: EngineProject | null, address: ParameterAddress, value: number): EngineProject | null {
+	if (!project || address.kind !== 'strip' || address.parameterId === 'mute') return null;
+	const { strip, parameterId } = address;
+	const updated = (owner: EngineGainOwner | undefined): EngineGainOwner | null =>
+		parameterId === 'gain' && owner?.envelope?.length ? null : { ...owner, [parameterId]: value };
+	if (strip.kind === 'master') {
+		const master = updated(project.master); return master ? { ...project, master } : null;
+	}
+	if (strip.kind === 'track') {
+		const owner = project.tracks?.find(track => track.id === strip.id), track = owner && updated(owner);
+		if (!track) return null;
+		return { ...project, tracks: project.tracks!.map(current => current.id === strip.id ? { ...current, ...track } : current) };
+	}
+	for (const key of ['groups', 'sends', 'cues'] as const) {
+		const buses = project.mixer?.[key];
+		const owner = buses?.find(bus => bus.id === strip.id), bus = owner && updated(owner);
+		if (owner) return bus ? { ...project, mixer: { ...project.mixer,
+			[key]: buses!.map(current => current.id === strip.id ? bus : current) } } : null;
+	}
+	return null;
+}
 
 function finiteNumber(value: unknown, name: string): number {
 	if (typeof value !== 'number' || !Number.isFinite(value) || Object.is(value, -0)) {

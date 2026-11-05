@@ -237,6 +237,8 @@ export interface EnginePublicApi {
 	getOutputDeviceState(): EngineOutputDeviceState;
 	setPlaybackGain(gain: number): number;
 	getPlaybackGain(): number;
+	/** Apply one existing live gain/pan target and adopt its static value without rebuilding processor history. */
+	configureMixerParameter(address: unknown, value: number): boolean;
 	/** Listening destination shared by transport and temporary audio auditions. */
 	getPlaybackDestination(): AudioNode;
 	/** Audition a band in device playback only; leaving playback retires it. */

@@ -12,9 +12,9 @@ import type { AutomationLaneV21 } from '../../../automation-lane-v21.ts';
 
 type StripAddress = Extract<ParameterAddress, { readonly kind: 'strip' }>;
 type Runtime = Pick<EditorActionRuntime, 'getProject' | 'copy'> & Readonly<{
-	commit: (command: AudioEditorCommand) => unknown;
+	commit: (command: AudioEditorCommand, selection?: Parameters<EditorActionRuntime['commit']>[1], options?: Parameters<EditorActionRuntime['commit']>[2]) => unknown;
 	engine: Pick<EditorActionRuntime['engine'], 'previewScheduledParameter'>
-		& Partial<Pick<EditorActionRuntime['engine'], 'restoreScheduledAutomationLane'>>;
+		& Partial<Pick<EditorActionRuntime['engine'], 'restoreScheduledAutomationLane' | 'configureMixerParameter'>>;
 	state: Pick<EditorActionRuntime['state'], 'readOnly'>;
 }>;
 interface StripChannel extends Readonly<Record<string, unknown>> { readonly id?: string; readonly type?: string }
@@ -82,24 +82,30 @@ export function createMixerParameterActions(runtime: Runtime) {
 			return normalized === 0 ? 0 : normalized;
 		},
 		valuesEqual: (left: number, right: number) => left === right,
-		applyPreview: (target, value: number) => runtime.engine.previewScheduledParameter(addresses.get(target.identity), value)
+		applyPreview: (target, value: number) => (runtime.engine.configureMixerParameter ?? runtime.engine.previewScheduledParameter).call(runtime.engine, addresses.get(target.identity), value)
 			? ++previewRevision : false,
 		restorePreview: (target, value: number) => {
 			const persisted = runtime.getProject();
 			const project = persisted ? projectForRuntimeConsumers(persisted) as unknown as StripProject : null;
 			const lane = project?.automationLanes?.find(({ address }) => canonicalParameterAddressKey(address) === target.identity);
 			if (lane && runtime.engine.restoreScheduledAutomationLane) {
+				if (runtime.engine.configureMixerParameter) runtime.engine.configureMixerParameter(addresses.get(target.identity), value);
 				return runtime.engine.restoreScheduledAutomationLane(lane) ? ++previewRevision : false;
 			}
-			return runtime.engine.previewScheduledParameter(addresses.get(target.identity), value) ? ++previewRevision : false;
+			return (runtime.engine.configureMixerParameter ?? runtime.engine.previewScheduledParameter).call(runtime.engine, addresses.get(target.identity), value) ? ++previewRevision : false;
 		},
-		commitValue: (target, value: number) => {
+		commitValue: (target, value: number, { adopted }) => {
 			const location = locate(target.identity);
 			if (!location) throw new Error('Mixer strip not found.');
+			const persisted = runtime.getProject();
+			const project = persisted ? projectForRuntimeConsumers(persisted) as unknown as StripProject : null;
+			const lane = project?.automationLanes?.find(({ address }) => canonicalParameterAddressKey(address) === target.identity);
+			const skipPlaybackEngine = adopted && Boolean(runtime.engine.configureMixerParameter)
+				&& (!lane || runtime.engine.restoreScheduledAutomationLane?.(lane) === true);
 			const changes = { [location.address.parameterId]: value };
-			if (location.scope === 'master') return runtime.commit({ type: 'master/update', changes });
-			if (location.scope === 'track') return runtime.commit({ type: 'track/update', trackId: location.id, changes });
-			return runtime.commit({ type: 'mixer/bus-update', busType: location.scope, busId: location.id, changes });
+			if (location.scope === 'master') return runtime.commit({ type: 'master/update', changes }, {}, { skipPlaybackEngine });
+			if (location.scope === 'track') return runtime.commit({ type: 'track/update', trackId: location.id, changes }, {}, { skipPlaybackEngine });
+			return runtime.commit({ type: 'mixer/bus-update', busType: location.scope, busId: location.id, changes }, {}, { skipPlaybackEngine });
 		},
 		currentValue: runtime.getProject,
 		createTargetMissingError: () => new Error('Mixer strip not found.'),
