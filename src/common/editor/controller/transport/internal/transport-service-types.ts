@@ -44,6 +44,7 @@ export interface TransportServiceState extends Pick<ControllerTransportState,
 	readonly projectBinPreview: unknown;
 	readonly recorder: unknown;
 	readonly recordingStarting: boolean;
+	readonly recordingAdmissionPending?: boolean;
 	readonly selectedClipId: string | null;
 	readonly timedRecording: unknown;
 	readonly timedRecordingPreparing: boolean;

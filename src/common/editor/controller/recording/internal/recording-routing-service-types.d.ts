@@ -90,6 +90,7 @@ export interface RecordingRoutingState {
 	microphoneMetering: boolean;
 	recorder: object | null;
 	recordingStarting: boolean;
+	readonly recordingAdmissionPending?: boolean;
 	recordingFinishing: boolean;
 	timedRecordingPreparing: boolean;
 	timedRecording: object | null;

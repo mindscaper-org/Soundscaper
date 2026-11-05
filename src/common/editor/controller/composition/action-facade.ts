@@ -243,7 +243,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			setPlayAtSpeedRate,
 			stop: yieldProgramPlayhead(() => handleTransport('stop')),
 			seek: yieldProgramPlayhead((frame: number) => {
-				if (state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recorder) {
+				if (state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording || state.recorder) {
 					return engine.getPositionFrames();
 				}
 				endScrub();

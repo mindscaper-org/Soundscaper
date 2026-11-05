@@ -549,7 +549,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 	});
 	const recording = createRecordingComposition({
 		state: recordingAccess, lifetime, document: documentScope, projectRuntime, session: sessionController, store, engine, copy, locale, mediaDevices, getProjectWriteFence: (id) => state.projectLock?.projectId === id && !state.projectLock.readOnly && !state.readOnly ? state.projectLock.writeFence ?? null : null, recordPersistedSnapshot: (project) => doc.saves.recordPersistedSnapshot(/** @type {import('./controller/document/document-composition-types.ts').DocumentProject} */ (project)),
-		capturePool: recordingCapturePool, createRecorder: recordingControllerFactory, microphoneMeter: microphoneMeterService,
+		capturePool: recordingCapturePool, createRecorder: recordingControllerFactory, microphoneMeter: microphoneMeterService, pendingDocumentEdits: bindings.midiController,
 		soundActivation: soundActivationPolicyService, openRecovery: takeCycleOpenRecoveryBinding, retention: doc.retention,
 		sourceBuffers, sourceChunkProviders, sourcePeaks, currentTimeMs, scheduleTimer, clearTimer: clearScheduledTimer, productSettingKey,
 		projectSampleRate, getMicrofadeNewClips: () => state.preferences.editing.applyMicrofadesToNewClips,

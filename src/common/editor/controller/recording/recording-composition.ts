@@ -15,6 +15,7 @@ import {
 } from '../../recording-routing.js';
 import { createStreamingWindowedSincResampler } from '../../resample.js';
 import { abortError } from '../shared/app-helpers.ts';
+import { createRecordingMidiAdmission } from './internal/recording-midi-admission.ts';
 import { createLegacyRecordingCaptureService } from './internal/legacy-recording-capture-service.ts';
 import { planNewRecordingTracks } from './internal/new-recording-tracks.ts';
 import type { RecordingFinalizationCommonRuntime, RoutedRecordingFinalizationRuntime } from './internal/recording-finalization-types.ts';
@@ -316,6 +317,10 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 
 	const session = createRecordingSessionService({
 		state,
+		prepareRecordingStart: createRecordingMidiAdmission({ pending: dependencies.pendingDocumentEdits,
+			getProject: requireProject, getRoutes: () => state.recordingRouting.routes,
+			getPreferredInput: () => ({ deviceId: state.preferredInputDeviceId || RECORDING_DEFAULT_DEVICE_ID, channelCount: state.preferredInputChannelCount }),
+			sampleRate: () => captureRuntime.recordingInputSampleRate?.() ?? dependencies.projectSampleRate(), capturePool, engine, releaseInputs: releaseUnretainedRecordingInputs }),
 		getProjectId: () => document.get()?.id || null,
 		abortError,
 		addTrack: dependencies.addTrack,

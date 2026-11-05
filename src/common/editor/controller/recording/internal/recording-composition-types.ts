@@ -132,6 +132,7 @@ export interface RecordingCompositionDependencies {
 	readonly mediaDevices: RecordingRoutingMediaDevices | null | undefined;
 	readonly capturePool: RecordingCapturePool & RecordingRoutingCapturePool<RecordingMediaStream>;
 	readonly createRecorder: RecordingControllerFactory;
+	readonly pendingDocumentEdits?: import('./recording-midi-admission.ts').PendingRecordingDocumentEdits<RecordingCompositionProject>;
 	readonly microphoneMeter: MicrophoneMeterService;
 	readonly soundActivation: SoundActivationPolicyService;
 	readonly openRecovery: Pick<ReturnType<typeof createTakeCycleOpenRecoveryAppPort>, 'bind'>;

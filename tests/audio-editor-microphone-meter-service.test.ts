@@ -251,6 +251,7 @@ function createHarness(overrides: Readonly<{
 		microphoneMetering: false,
 		recorder: null,
 		recordingStarting: false,
+		recordingAdmissionPending: false,
 		timedRecordingPreparing: false,
 		timedRecording: null,
 		preferences: { recording: { retainInputs: false } },
@@ -408,3 +409,15 @@ function deferred<Value>() {
 	const promise = new Promise<Value>((fulfill) => { resolve = fulfill; });
 	return { promise, resolve };
 }
+
+test('disabling idle metering cannot release an input owned by pending Record admission', async () => {
+	const f = createHarness();
+	await f.service.setMicrophoneMetering(true);
+	f.state.recordingAdmissionPending = true;
+	await f.service.setMicrophoneMetering(false);
+	assert.deepEqual(f.releasedDevices, []);
+	f.state.recordingAdmissionPending = false;
+	await f.service.setMicrophoneMetering(false);
+	f.service.dispose();
+	assert.deepEqual(f.releasedDevices, ['default']);
+});

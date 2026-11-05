@@ -51,7 +51,7 @@ export interface MidiService {
 	/** Advance pending work only across an authoritative selection-only update. */
 	followSelection(before: MidiProject, after: MidiProject): void;
 	/** Wait for MIDI work requested before this barrier, including source publication. */
-	settled(): Promise<void>;
+	settled(expectedProject?: MidiProject, readiness?: PromiseLike<unknown>): Promise<void>;
 	hasPendingEdits(): boolean;
 	commitTransfer(command: AudioEditorCommand, preview: (command: AudioEditorCommand) => MidiTransferSnapshot, selection?: MidiTransferSelection, options?: ProjectChangedOptions): Promise<unknown>;
 	addTrack(): Promise<MidiCreatedTrack>;

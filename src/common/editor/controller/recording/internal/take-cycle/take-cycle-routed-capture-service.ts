@@ -189,7 +189,7 @@ export function createTakeCycleRoutedCaptureService(
 			};
 		});
 		inputsOwned = true;
-		const sources = await acquireSources(plan.groups, lanes, runtime.recordingInputSampleRate?.() ?? project.sampleRate);
+		const sources = await acquireSources(plan.groups, lanes, runtime.recordingInputSampleRate?.() ?? project.sampleRate, scope.reusePreparedInputsOnly === true);
 		assertScopeCurrent(scope, project.id);
 		if (!sources.some(({ lanes: sourceLanes }) => sourceLanes.length)) {
 			throw new Error('No routed take cycle inputs are available.');
@@ -308,14 +308,14 @@ export function createTakeCycleRoutedCaptureService(
 			readonly track: RecordingTrack; readonly route: RecordingRoute;
 		}>[] }>[],
 		lanes: LiveLane[],
-		projectSampleRate: number,
+		projectSampleRate: number, reusePreparedInputsOnly = false,
 	): Promise<LiveSource[]> {
 		const laneFor = (trackId: string) => lanes.find((lane) => lane.track.id === trackId)!;
 		const acquired = await acquireTakeCycleRoutedSources(
 			groups,
 			projectSampleRate,
 			runtime,
-			async ({ track }, error) => failLane(laneFor(track.id), error),
+			async ({ track }, error) => failLane(laneFor(track.id), error), reusePreparedInputsOnly,
 		);
 		return acquired.map((source) => ({
 			...source,

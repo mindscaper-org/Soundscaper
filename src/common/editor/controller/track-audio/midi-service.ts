@@ -29,12 +29,20 @@ type ImportedMidiTrack = Readonly<{ name: string; data: MidiClipData; program?: 
 export function createMidiService(dependencies: MidiServiceDependencies): Readonly<MidiService> {
 	let pending: Promise<unknown> = Promise.resolve();
 	const requests = new Set<{ expected: MidiProject }>();
+	const waiters = new Set<{ expected: MidiProject }>();
 	let active: { origin: MidiProject; request: { expected: MidiProject } } | null = null;
 	const service: MidiService = {
 		followSelection: (before, after) => {
-			for (const request of requests) if (request.expected === before) request.expected = after;
+			for (const request of [...requests, ...waiters]) if (request.expected === before) request.expected = after;
 		},
-		settled: async () => { await pending; },
+		settled: async (expectedProject, readiness) => {
+			if (!expectedProject) { await pending; return; }
+			const waiter = { expected: expectedProject }; waiters.add(waiter);
+			try {
+				await Promise.all([pending, readiness]);
+				if (dependencies.getProject() !== waiter.expected) throw new DOMException('The document changed before recording.', 'AbortError');
+			} finally { waiters.delete(waiter); }
+		},
 		hasPendingEdits: () => requests.size > 0,
 		commitTransfer: (command, preview, selection, options) => {
 			const detached = structuredClone(command);
@@ -169,7 +177,7 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 		const previous = requireProject();
 		const result = dependencies.commit(...args);
 		const next = requireProject();
-		for (const request of requests) if (request.expected === previous) request.expected = next;
+		for (const request of [...requests, ...waiters]) if (request.expected === previous) request.expected = next;
 		return result;
 	}
 	function enqueue<Result>(operation: (project: MidiProject) => Promise<Result>): Promise<Result> {

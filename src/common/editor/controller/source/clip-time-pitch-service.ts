@@ -46,7 +46,7 @@ export interface ClipTimePitchCachePort {
 }
 
 export interface ClipTimePitchPlaybackState {
-	readonly recordingStarting: boolean;
+	readonly recordingStarting: boolean; readonly recordingAdmissionPending?: boolean;
 	readonly recorder: unknown;
 }
 
@@ -321,7 +321,7 @@ export function createClipTimePitchCacheService<
 					.then(async () => {
 						assertPreparationOwned(snapshot, projectToken, generation, abort.signal);
 						if (!dependencies.state.recorder
-							&& !dependencies.state.recordingStarting
+							&& !(dependencies.state.recordingStarting || dependencies.state.recordingAdmissionPending)
 							&& dependencies.getPlaybackState() === 'playing') {
 							await dependencies.applyProjectToPlaybackEngine(dependencies.getProject());
 							assertPreparationOwned(snapshot, projectToken, generation, abort.signal);

@@ -57,7 +57,7 @@ export function createSelectionViewService<
 	let zeroCrossingGeneration = 0;
 
 	function seekSelectionPlayhead(frame: number): void {
-		if (state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recorder) return;
+		if (state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording || state.recorder) return;
 		engine.seek(frame);
 	}
 

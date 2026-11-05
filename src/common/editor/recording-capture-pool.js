@@ -99,7 +99,7 @@ export function createRecordingCapturePool(options = {}) {
 				channelCount,
 			});
 			return stream;
-		}).finally(() => pending.delete(key));
+		}).finally(() => { if (pending.get(key) === acquisition) pending.delete(key); });
 		pending.set(key, acquisition);
 		return acquisition;
 	}
@@ -142,7 +142,7 @@ export function createRecordingCapturePool(options = {}) {
 				channelCount: exposedAudioChannelCount(stream),
 			});
 			return stream;
-		}).finally(() => pending.delete(pendingKey));
+		}).finally(() => { if (pending.get(pendingKey) === acquisition) pending.delete(pendingKey); });
 		pending.set(pendingKey, acquisition);
 		return acquisition;
 	}
@@ -208,7 +208,10 @@ export function createRecordingCapturePool(options = {}) {
 	}
 
 	function invalidate(key) {
-		generations.set(key, generationFor(key) + 1);
+		const sourceKey = key === DISPLAY_REPLACEMENT_KEY ? DISPLAY_INPUT_KEY : key;
+		generations.set(sourceKey, generationFor(sourceKey) + 1);
+		pending.delete(key);
+		if (sourceKey === DISPLAY_INPUT_KEY) pending.delete(DISPLAY_REPLACEMENT_KEY);
 	}
 }
 

@@ -118,6 +118,7 @@ export interface EditorDocumentSnapshotState extends Readonly<SelectedLabelState
 	readonly projectAdministrationPending?: boolean;
 	readonly importing: boolean;
 	readonly recordingStarting: boolean;
+	readonly recordingAdmissionPending?: boolean;
 	readonly timedRecordingPreparing: boolean;
 	readonly timedRecording: TimedRecordingSnapshot | null;
 	readonly activeTimedRecording: TimedRecordingSnapshot | null;
@@ -290,7 +291,7 @@ export function createEditorDocumentSnapshot<Project extends SnapshotProject>(
 		projectActivationPending: state.projectActivationPending,
 		projectAdministrationPending: Boolean(state.projectAdministrationPending),
 		importing: state.importing,
-		recordingStarting: state.recordingStarting,
+		recordingStarting: state.recordingStarting || Boolean(state.recordingAdmissionPending),
 		recordingScheduling: state.timedRecordingPreparing || state.timedRecordingCancelling,
 		scheduledRecording: state.timedRecording
 			? Object.freeze({

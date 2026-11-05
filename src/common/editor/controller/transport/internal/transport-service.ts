@@ -50,7 +50,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 	let foregroundPlayPreparation: symbol | null = null;
 	let transportRequestGeneration = 0;
 	const scrubbing = createTimePitchScrub({ engine, getProject, normalizeFrame: normalizePlaybackFrame,
-		blocked: () => state.disposed || Boolean(state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recorder),
+		blocked: () => state.disposed || Boolean(state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording || state.recorder),
 		assertSources: () => { if (hasMissingTimelineSources()) throw createLocalizedError(Error, copy, 'localSourcesMissing'); },
 		prepare: (project, abortController) => beginPlaybackCachePreparation(project, { abortController }),
 	});
@@ -93,7 +93,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 		scrubbing.cancel();
 		const requestGeneration = ++transportRequestGeneration;
 		foregroundPlayPreparation = null;
-		if (state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recorder) return false;
+		if (state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording || state.recorder) return false;
 		if (hasMissingTimelineSources()) throw createLocalizedError(Error, copy, 'localSourcesMissing');
 		const rate = setPlayAtSpeedRate(requestedRate);
 		if (state.projectBinPreview) {
@@ -154,7 +154,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 		const playbackStart = ['play', 'play-selection', 'play-spectral-selection', 'cut-preview'].includes(action);
 		const generation = playbackStart || ['stop', 'record', 'play-stop-select'].includes(action)
 			? ++transportRequestGeneration : transportRequestGeneration;
-		if ((state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recorder)
+		if ((state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording || state.recorder)
 			&& action !== 'stop' && action !== 'record') return;
 		if (action === 'play-stop-select') {
 			if (!['playing', 'paused'].includes(engine.getState().state)) return handleTransport('play');
@@ -219,7 +219,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 			cancelPlaybackCachePreparation();
 			cancelPlayAtSpeedPreparation();
 			if (state.timedRecording || state.timedRecordingPreparing) return cancelTimedRecording();
-			return state.recorder || state.recordingStarting ? stopRecording() : engine.stop();
+			return state.recorder || state.recordingStarting || state.recordingAdmissionPending ? stopRecording() : engine.stop();
 		}
 		if (action === 'jump-start') return engine.seek(0);
 		if (action === 'jump-end') return engine.seek(projectDurationFrames(getProject()));

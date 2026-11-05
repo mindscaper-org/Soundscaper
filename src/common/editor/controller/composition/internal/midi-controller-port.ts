@@ -5,7 +5,7 @@ import type { MidiProject, MidiTransferSelection, MidiTransferSnapshot } from '.
 
 export interface MidiControllerBinding {
 	followSelection(before: MidiProject, after: MidiProject): void;
-	settled(): Promise<void>;
+	settled(expectedProject?: MidiProject, readiness?: PromiseLike<unknown>): Promise<void>;
 	hasPendingEdits(): boolean;
 	commitTransfer(command: AudioEditorCommand, preview: (command: AudioEditorCommand) => MidiTransferSnapshot,
 		selection?: MidiTransferSelection, options?: ProjectChangedOptions): unknown;
@@ -19,7 +19,7 @@ export function createMidiControllerPort() {
 			if (owner && owner !== value) throw new Error('The MIDI controller owner is already bound.');
 			owner = value;
 		},
-		settled: async (): Promise<void> => { await owner?.settled(); },
+		settled: async (expectedProject?: MidiProject, readiness?: PromiseLike<unknown>): Promise<void> => { await owner?.settled(expectedProject, readiness); },
 		followSelection: (before: MidiProject, after: MidiProject): void => { owner?.followSelection(before, after); },
 		hasPendingEdits: (): boolean => owner?.hasPendingEdits() ?? false,
 		commitTransfer(command: AudioEditorCommand, preview: (command: AudioEditorCommand) => MidiTransferSnapshot,

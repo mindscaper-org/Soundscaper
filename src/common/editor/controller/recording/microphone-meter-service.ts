@@ -82,7 +82,7 @@ export function createMicrophoneMeterService(
 		if (!next) {
 			state.microphoneMetering = false;
 			invalidate();
-			if (!state.recorder && !state.recordingStarting) {
+			if (!state.recorder && !(state.recordingStarting || state.recordingAdmissionPending)) {
 				stopMicrophoneMetering({ releaseInput: true });
 			}
 			void Promise.resolve(dependencies.persistSetting('microphone-metering', false));
@@ -257,7 +257,7 @@ export function createMicrophoneMeterService(
 			if (pendingContextRelease === releaseContext) pendingContextRelease = null;
 			const update = (): void => {
 				if (session !== nextSession || routedCaptureOwnsMeter()
-					|| (!state.microphoneMetering && !state.recorder && !state.recordingStarting)
+					|| (!state.microphoneMetering && !state.recorder && !(state.recordingStarting || state.recordingAdmissionPending))
 					|| state.disposed) return;
 				let peak = 0;
 				let squaredRms = 0;
@@ -459,7 +459,7 @@ export function createMicrophoneMeterService(
 	}
 
 	function operationIsStale(operationGeneration: number, force: boolean): boolean {
-		const recordingOwnsMeter = force && (state.recordingStarting || state.recorder !== null);
+		const recordingOwnsMeter = force && (state.recordingStarting || state.recordingAdmissionPending || state.recorder !== null);
 		return generation !== operationGeneration || (!state.microphoneMetering && !recordingOwnsMeter) || state.disposed;
 	}
 
@@ -472,7 +472,7 @@ export function createMicrophoneMeterService(
 	function canReleaseInput(): boolean {
 		return !state.preferences.recording.retainInputs
 			&& !state.recorder
-			&& !state.recordingStarting
+			&& !(state.recordingStarting || state.recordingAdmissionPending)
 			&& !state.timedRecordingPreparing
 			&& !state.timedRecording;
 	}

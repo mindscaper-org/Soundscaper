@@ -39,6 +39,7 @@ export interface SelectionViewProject extends ClipSelectionNavigationProject {
 
 export interface SelectionViewState extends ClipSelectionNavigationState, SelectedLabelState {
 	readonly recordingStarting?: boolean;
+	readonly recordingAdmissionPending?: boolean;
 	readonly timedRecordingPreparing?: boolean;
 	readonly timedRecording?: unknown;
 	readonly recorder?: unknown;

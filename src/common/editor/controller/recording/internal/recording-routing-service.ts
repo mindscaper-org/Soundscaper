@@ -218,7 +218,7 @@ export function createRecordingRoutingService<
 
 	async function configureDisplayInput() {
 		if (!supportsDisplayAudioCapture(mediaDevices)) throw new Error('Display audio capture is not supported in this browser.');
-		if (state.recorder || state.recordingStarting || state.timedRecordingPreparing || state.timedRecording) {
+		if (state.recorder || state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording) {
 			throw new Error('The display source cannot be changed while recording is active.');
 		}
 		await keepSelectedRecordingInputsOpen();
@@ -268,7 +268,7 @@ export function createRecordingRoutingService<
 	}
 
 	async function setRecordingSampleRate(sampleRate: number) {
-		if (state.recorder || state.recordingStarting || state.timedRecordingPreparing || state.timedRecording) {
+		if (state.recorder || state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording) {
 			throw new Error('The recording sample rate cannot be changed while recording is active.');
 		}
 		const normalized = normalizeRecordingSampleRate(sampleRate);
@@ -283,7 +283,7 @@ export function createRecordingRoutingService<
 	}
 
 	async function setHostInventory(host: string, report: NativeAudioInventoryReport | null) {
-		if (state.recorder || state.recordingStarting || state.timedRecordingPreparing || state.timedRecording) {
+		if (state.recorder || state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording) {
 			throw new Error('The audio host cannot be changed while recording is active.');
 		}
 		const normalized = host.trim();
@@ -463,7 +463,7 @@ export function createRecordingRoutingService<
 		const retainInputs = Boolean(enabled);
 		await updatePreferences({ recording: { retainInputs } });
 		if (retainInputs) state.recordingReleaseAfterStop = false;
-		else if (state.recorder || state.recordingStarting || state.timedRecordingPreparing || state.timedRecording) {
+		else if (state.recorder || state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording) {
 			state.recordingReleaseAfterStop = true;
 		}
 		else releaseUnretainedRecordingInputs();
@@ -473,7 +473,7 @@ export function createRecordingRoutingService<
 	}
 
 	function releaseInputs() {
-		if (state.recorder || state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recordingFinishing) return false;
+		if (state.recorder || state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording || state.recordingFinishing) return false;
 		if (state.microphoneMetering) {
 			state.microphoneMetering = false;
 			invalidateMicrophoneMeter();

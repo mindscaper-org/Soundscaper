@@ -43,6 +43,7 @@ export interface ControllerRecordingState<Routing = ControllerRecordingRouting> 
 	recordingWriter: RecordingSourceWriter | null;
 	recordingStream: RecordingMediaStream | null;
 	recordingStarting: boolean;
+	recordingAdmissionPending?: boolean;
 	recordingStartGeneration: number;
 	recordingStartPromise: Promise<void> | null;
 	timedRecording: TimedRecordingDescriptor | null;
@@ -113,6 +114,7 @@ export function createControllerRecordingState<Routing = ControllerRecordingRout
 		recordingWriter: null,
 		recordingStream: null,
 		recordingStarting: false,
+		recordingAdmissionPending: false,
 		recordingStartGeneration: 0,
 		recordingStartPromise: null,
 		timedRecording: null,

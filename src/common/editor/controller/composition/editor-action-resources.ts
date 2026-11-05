@@ -48,6 +48,7 @@ interface EditorActionState extends ExportActionState, SelectedLabelState {
 	readonly playAtSpeedRate: number;
 	readonly recorder: unknown;
 	readonly recordingStarting: boolean;
+	readonly recordingAdmissionPending?: boolean;
 	readonly timedRecording: unknown;
 	readonly timedRecordingPreparing: boolean;
 }

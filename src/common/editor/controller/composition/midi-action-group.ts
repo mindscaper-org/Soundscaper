@@ -93,8 +93,17 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 		for (const context of awaitingService) if (context.project === before) context.project = after;
 		owner?.followSelection(before, after);
 	}
-	return Object.freeze({ commitTransfer, hasPendingEdits, followSelection, settled: async () => {
-		await Promise.allSettled([...pendingCalls]);
-		if (loaded) await (await loaded).settled();
+	return Object.freeze({ commitTransfer, hasPendingEdits, followSelection, settled: async (expectedProject?: MidiProject, readiness?: PromiseLike<unknown>) => {
+		if (!expectedProject) {
+			await Promise.allSettled([...pendingCalls]);
+			if (loaded) await (await loaded).settled();
+			return;
+		}
+		const context = { project: expectedProject }; awaitingService.add(context);
+		try {
+			const fenced = owner ? owner.settled(context.project, readiness) : service().then(service => service.settled(context.project, readiness));
+			void fenced.catch(() => undefined);
+			await Promise.all([Promise.allSettled([...pendingCalls]), fenced]);
+		} finally { awaitingService.delete(context); }
 	}, actions, importFiles: createMidiImportFiles(scope, service) });
 }
