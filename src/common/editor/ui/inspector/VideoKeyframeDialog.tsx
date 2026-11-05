@@ -89,7 +89,7 @@ function VideoKeyframeDialogSession({
 		if (disabled || !model.clipId || !model.keyframes) return;
 		try {
 			const command = createVideoKeyframeSetCommand(model, keyframes);
-			if (focusFallback) captureFocus(focusFallback);
+			captureFocus(focusFallback);
 			setPending(true); setError('');
 			void runAwaitedAudioEditorOperation(run, () => controller.actions.edit.commit(command))
 				.then(() => { setStatus(message); })
