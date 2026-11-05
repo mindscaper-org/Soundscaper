@@ -29,7 +29,7 @@ export function routeMidiImportControls(tracks: readonly MidiFileTrack[]): reado
 	const destinationAt = tracks.map(track => midiImportDestinationAt(track.events ?? []));
 	const incoming: RoutedEvent[][] = tracks.map(() => []);
 	const routed = tracks.map((track, index) => {
-		if (track.notes.length || !track.events?.length) return track;
+		if (!track.events?.length) return track;
 		const retained: MidiFileEvent[] = [];
 		let destination: MidiImportDestination = { port: 0 };
 		for (const { event, order } of track.events.map((event, order) => ({ event, order })).sort((a, b) => a.event.frame - b.event.frame)) {
@@ -38,7 +38,7 @@ export function routeMidiImportControls(tracks: readonly MidiFileTrack[]): reado
 			const expression = type === 0xe0 || type === 0xb0 && EXPRESSION_CONTROLLERS.has(event.data[0]!);
 			const key = midiImportDestinationKey(destination);
 			const owner = expression ? owners.get(`${event.status & 0x0f}:${key}`) : undefined;
-			if (owner === undefined || owner === null || midiImportDestinationKey(destinationAt[owner]!(event.frame)) !== key) retained.push(event);
+			if (owner === undefined || owner === null || owner === index || midiImportDestinationKey(destinationAt[owner]!(event.frame)) !== key) retained.push(event);
 			else incoming[owner]!.push({ source: index, order, event, destination });
 		}
 		return retained.length === track.events.length ? track : { ...track, events: retained };
