@@ -4,13 +4,14 @@ import {
 	addDeliveryReportItem,
 	type createDeliveryReport,
 } from './delivery-report.ts';
+import { clipHasLoopRepeats } from './audio-clip-loop.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
 type DeliveryReportDraft = ReturnType<typeof createDeliveryReport>;
 
 export interface InterchangeTimeEffectOmission {
 	/** Which authority states the time effect, for the report's data field. */
-	readonly kind: 'speed' | 'audio-warp' | 'video-retime' | 'reverse';
+	readonly kind: 'speed' | 'audio-warp' | 'video-retime' | 'reverse' | 'repeat';
 	readonly data: DataRecord;
 }
 
@@ -26,6 +27,9 @@ export interface InterchangeTimeEffectOmission {
  * behind. A silent wrong number is worse than a stated omission.
  */
 export function interchangeClipTimeEffect(clip: DataRecord): InterchangeTimeEffectOmission | null {
+	if (typeof clip.durationFrames === 'number' && clipHasLoopRepeats({ ...clip, durationFrames: clip.durationFrames })) {
+		return { kind: 'repeat', data: Object.freeze({ repeats: true }) };
+	}
 	const speed = clip.speedRatio == null ? 1 : Number(clip.speedRatio);
 	if (clip.reversed === true) return { kind: 'reverse', data: Object.freeze({ reversed: true,
 		...(speed !== 1 ? { speedRatio: speed } : {}),
