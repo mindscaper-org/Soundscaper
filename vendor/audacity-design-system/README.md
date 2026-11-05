@@ -836,3 +836,9 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      meters such as 3/8 and 5/8 retain every visible bar boundary. Covered by
      mounted canvas painting and production project-signature regressions.
      Upstream-PR candidate.
+
+111. The hidden native horizontal range input keeps the same left-to-right
+     coordinates as its painted thumb and fill, including inside right-to-left
+     controls. Shared `Slider`/stepped-slider hit geometry stays aligned while
+     surrounding labels retain their direction. Covered by production English
+     and Arabic pointer regressions. Upstream-PR candidate.
