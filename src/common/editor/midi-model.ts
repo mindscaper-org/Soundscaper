@@ -239,6 +239,9 @@ function normalizeInterchange(value: unknown): MidiClipInterchange {
 		const event = record(value, 'MIDI event');
 		const status = integer(event.status, 0x80, 0xff, 'MIDI event.status');
 		const conductor = event.conductor;
+		const textChannel = event.textChannel;
+		if (textChannel !== undefined && (status !== 255 || ![1, 2, 4, 5, 6, 7, 8, 9].includes(Number(event.metaType))
+			|| textChannel !== null && (typeof textChannel !== 'number' || !Number.isSafeInteger(textChannel) || textChannel < 0 || textChannel > 15))) throw new RangeError('Invalid MIDI text channel provenance.');
 		if (conductor !== undefined && (typeof conductor !== 'boolean' || status !== 255 || event.metaType !== 0x54)) {
 			throw new RangeError('Invalid MIDI event.conductor provenance.');
 		}
@@ -259,6 +262,7 @@ function normalizeInterchange(value: unknown): MidiClipInterchange {
 			data,
 			...(event.metaType === undefined ? {} : { metaType: integer(event.metaType, 0, 127, 'MIDI event.metaType') }),
 			...(conductor === undefined ? {} : { conductor }),
+			...(textChannel === undefined ? {} : { textChannel }),
 			...(event.releaseId === undefined ? {} : { releaseId: midiReleaseId(event.releaseId) }),
 		};
 	});

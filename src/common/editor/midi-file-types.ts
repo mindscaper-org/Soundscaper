@@ -12,6 +12,8 @@ export interface MidiFileEvent {
 	readonly conductor?: boolean;
 	/** Parser-owned identity of a channel-mode key release; no bytes are added to SMF. */
 	readonly releaseId?: string;
+	/** Raw-order FF20 text association; null explicitly means no channel. */
+	readonly textChannel?: number | null;
 }
 
 export interface MidiFileTrack {
@@ -103,6 +105,8 @@ export function validateMidiFileDocument(document: MidiFileDocument): void {
 			}
 		}
 		for (const event of track.events ?? []) {
+			if (event.textChannel !== undefined && (event.status !== 255 || ![1, 2, 4, 5, 6, 7, 8, 9].includes(event.metaType ?? -1)
+				|| event.textChannel !== null && (!Number.isSafeInteger(event.textChannel) || event.textChannel < 0 || event.textChannel > 15))) throw new RangeError('Invalid MIDI text channel provenance.');
 			if (event.releaseId !== undefined && (!validReleaseId(event.releaseId) || (event.status & 240) !== 176
 				|| ![123, 124, 125, 126, 127].includes(event.data[0]!))) throw new RangeError('Invalid MIDI key-release provenance.');
 			if (event.conductor !== undefined && (typeof event.conductor !== 'boolean' || event.status !== 255 || event.metaType !== 0x54)) {

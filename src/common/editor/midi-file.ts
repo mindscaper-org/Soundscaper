@@ -12,7 +12,7 @@ import { createMidiFileNoteOrderGuard } from './midi-file-note-order.ts';
 import { decodeMidiFileText } from './midi-file-text.ts';
 import { roundRational } from './timeline-time.ts';
 import { midiFileNoteDestinations } from './midi-file-destinations.ts';
-import { midiPortEvents, type MidiPortTickEvent as TickEvent } from './midi-file-port-events.ts';
+import { midiPortEvents, midiTextChannelEvents, type MidiPortTickEvent as TickEvent } from './midi-file-port-events.ts';
 
 // Independent implementation of Standard MIDI Files 1.0 (MIDI Association RP-001).
 // https://midi.org/standard-midi-files
@@ -50,6 +50,7 @@ function parseTrack(bytes: Uint8Array, index: number, budget: { count: number })
 	let runningStatus = 0;
 	let name = `MIDI ${index + 1}`;
 	let named = false;
+	let textChannel: number | null = null;
 	while (reader.position < bytes.length) {
 		if (++budget.count > MIDI_FILE_MAX_EVENTS) throw new RangeError('MIDI file contains too many events.');
 		tick += reader.variable();
@@ -65,19 +66,23 @@ function parseTrack(bytes: Uint8Array, index: number, budget: { count: number })
 			const type = status & 240;
 			const data = [...reader.read(type === 192 || type === 208 ? 1 : 2)];
 			if (data.some(byte => byte > 127)) throw new RangeError('Invalid MIDI channel data byte.');
+			textChannel = null;
 			events.push({ tick, status, data });
 		} else {
 			runningStatus = 0;
 			if (status !== 255 && status !== 240 && status !== 247) throw new RangeError('Unsupported MIDI system status.');
 			const metaType = status === 255 ? reader.byte() : undefined;
 			const data = [...reader.read(reader.variable())];
+			if (metaType === 32 && data.length === 1 && data[0]! <= 15) textChannel = data[0]!;
 			if (metaType === 47) {
 				if (data.length) throw new RangeError('Invalid MIDI end-of-track event.');
 				if (reader.position !== bytes.length) throw new RangeError('MIDI track contains data after end-of-track.');
 				return { name, events, endTick: tick, named };
 			}
-			if (metaType === 3) { name = decodeMidiFileText(Uint8Array.from(data)); named = true; }
-			else if (status !== 247 || data.length) events.push({ tick, status, data, ...(metaType === undefined ? {} : { metaType }) });
+			if (metaType === 3) {
+				if (textChannel !== null) throw new RangeError('A channel-scoped MIDI track name cannot retain its association. Use an unscoped track name.');
+				name = decodeMidiFileText(Uint8Array.from(data)); named = true;
+			} else if (status !== 247 || data.length) events.push({ tick, status, data, ...(metaType === undefined ? {} : { metaType }) });
 		}
 	}
 	throw new RangeError('MIDI track is missing its end-of-track event.');
@@ -142,6 +147,8 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 		const notes: MidiNote[] = [];
 		const events: MidiFileEvent[] = [];
 		let noteIndex = 0;
+		const hasTextChannels = track.events.some(event => event.metaType === 32 && event.data.length === 1 && event.data[0]! <= 15);
+		let textChannel: number | null = null;
 		const hasPorts = track.events.some(event => event.metaType === 0x21 && event.data.length === 1);
 		let port = 0;
 		const finish = (start: TickEvent, endTick: number, releaseVelocity = 0, allSoundOff = false,
@@ -159,6 +166,8 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 		};
 		for (const [order, event] of track.events.entries()) {
 			const type = event.status & 240;
+			if (event.status < 240) textChannel = null;
+			else if (event.metaType === 32 && event.data.length === 1 && event.data[0]! <= 15) textChannel = event.data[0]!;
 			if (event.metaType === 0x21 && event.data.length === 1) port = event.data[0]!;
 			if (event.metaType === 81) continue;
 			if (event.metaType === 88) {
@@ -174,6 +183,7 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 			} else {
 				events.push({ frame: tickToFrame(event.tick), status: event.status, data: event.data, ...(event.metaType === undefined ? {} : { metaType: event.metaType }),
 					...(type === 176 && [123, 124, 125, 126, 127].includes(event.data[0]!) ? { releaseId: midiFileNoteReleaseId(trackIndex, order) } : {}),
+					...(hasTextChannels && event.status === 255 && [1, 2, 4, 5, 6, 7, 8, 9].includes(event.metaType ?? -1) ? { textChannel } : {}),
 					...(event.metaType === 0x54 ? { conductor: format === 0 || trackIndex === 0 } : {}) });
 			}
 		}
@@ -219,7 +229,7 @@ function trackBytes(events: readonly TickEvent[], endTick: number | undefined, p
 		result.push(...variableBytes(tick - previous));
 		previous = tick;
 	};
-	for (const event of midiPortEvents([...events].sort((a, b) => a.tick - b.tick || eventOrder(a) - eventOrder(b)), paddingBudget)) {
+	for (const event of midiTextChannelEvents(midiPortEvents([...events].sort((a, b) => a.tick - b.tick || eventOrder(a) - eventOrder(b)), paddingBudget), paddingBudget)) {
 		observe?.(event);
 		if (event.status === 240) {
 			if (multipartSysex) throw new RangeError('MIDI export interrupts an incomplete multipart System Exclusive message.');

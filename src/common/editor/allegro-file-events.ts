@@ -49,6 +49,7 @@ export function allegroAttributeToEvent(name: string, value: string, frame: numb
 }
 
 export function allegroEventFields(event: MidiFileEvent): string {
+	if (event.textChannel !== undefined && event.textChannel !== null) throw new RangeError('Allegro cannot retain this text channel association. Export MIDI or save the native project.');
 	const type = event.status & 240;
 	const channel = event.status & 15;
 	if (type === 176) return `V${channel} -control${event.data[0]}r:${event.data[1]! / 127}`;
