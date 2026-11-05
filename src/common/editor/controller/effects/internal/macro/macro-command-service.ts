@@ -151,6 +151,9 @@ export function createMacroCommandService(runtime: MacroCommandServiceRuntime) {
 		if (typeof target !== 'function') {
 			throw new RangeError(`The macro command ${command} has no editor action (${path}).`);
 		}
+		if (command === 'SelNextClip' || command === 'SelPrevClip') {
+			return (target as (options: Readonly<{ nativeRegion: boolean }>) => unknown)({ nativeRegion: true });
+		}
 		if (command === 'SelectNone') {
 			const timeline = actions?.timeline;
 			const noTracks = timeline && typeof timeline === 'object'
