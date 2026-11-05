@@ -883,3 +883,10 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      frequency inputs, giving the two editable controls distinct accessible
      names. Covered by mounted localization/editing checks and the production
      spectrogram-ruler keyboard workflow. Upstream-PR candidate.
+
+118. `RulerFlyout` shares `ContextMenu`'s existing viewport and content bounds
+     lifecycle through `utils/retain-floating-bounds`. Resizing keeps its
+     controls reachable without replacing the active input, restores its
+     anchor when room returns, and releases tracking on close. Covered by
+     mounted focus/placement checks and a production resize/edit workflow.
+     Upstream-PR candidate.

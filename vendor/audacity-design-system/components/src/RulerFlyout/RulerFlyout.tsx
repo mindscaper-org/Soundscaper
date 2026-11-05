@@ -1,6 +1,7 @@
 import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React from 'react';
 import { rulerFlyoutGroupItems as getGroupItems } from '../utils/ruler-focus-items';
+import { retainFloatingBounds } from '../utils/retain-floating-bounds';
 import { Icon } from '../Icon';
 import { LabeledRadio } from '../LabeledRadio';
 import { LabeledCheckbox } from '../LabeledCheckbox';
@@ -156,6 +157,11 @@ export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
   const zoomGroupRef = React.useRef<HTMLDivElement>(null);
   const radioGroupRef = React.useRef<HTMLDivElement>(null);
   const lastGroupRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!isOpen || !flyoutRef.current) return;
+    return retainFloatingBounds(flyoutRef.current, x, y);
+  }, [isOpen, x, y]);
 
   // Collect visible group refs
   const getGroups = React.useCallback((): HTMLDivElement[] => {

@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useTheme } from '../ThemeProvider';
 import { ContextMenuActionFocus } from '../ContextMenuItem/context-menu-action-focus';
+import { retainFloatingBounds } from '../utils/retain-floating-bounds';
 import './ContextMenu.css';
 
 export interface ContextMenuProps {
@@ -230,29 +231,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   // Adjust position if menu would go off-screen
   useEffect(() => {
     if (!isOpen || !menuRef.current) return;
-
-    const menu = menuRef.current;
-    const position = () => {
-      const rect = menu.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      let adjustedX = x;
-      let adjustedY = y;
-      if (x + rect.width > viewportWidth) adjustedX = viewportWidth - rect.width - 10;
-      if (y + rect.height > viewportHeight) adjustedY = viewportHeight - rect.height - 10;
-      if (adjustedX < 0) adjustedX = 10;
-      if (adjustedY < 0) adjustedY = 10;
-      menu.style.left = `${adjustedX}px`;
-      menu.style.top = `${adjustedY}px`;
-    };
-    position();
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(position);
-    observer?.observe(menu);
-    window.addEventListener('resize', position);
-    return () => {
-      observer?.disconnect();
-      window.removeEventListener('resize', position);
-    };
+    return retainFloatingBounds(menuRef.current, x, y);
   }, [isOpen, x, y]);
 
   if (!isOpen) return null;
