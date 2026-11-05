@@ -53,13 +53,17 @@ export function createMidiImportFiles(scope: MidiImportRuntime,
 			assertCurrent(context);
 			if (!kinds.some(kind => kind !== 'other')) return scope.importFiles(files, options);
 			let result: unknown;
+			let placedFiles = 0;
+			const retainsTrackPlacement = options.destination === 'timeline' && typeof options.trackId === 'string';
 			for (let index = 0; index < files.length; index += 1) {
 				options.signal?.throwIfAborted();
 				assertCurrent(context);
 				const file = files[index]!;
 				if (kinds[index] === 'other') {
-					result = await scope.importFiles([file], options);
+					result = await scope.importFiles([file], retainsTrackPlacement ? { ...options, fileIndexOffset: placedFiles } : options);
 					if (result && typeof result === 'object' && 'cancelled' in result && result.cancelled === true) return result;
+					if (result && typeof result === 'object' && 'importedFileCount' in result
+						&& typeof result.importedFileCount === 'number' && Number.isSafeInteger(result.importedFileCount) && result.importedFileCount > 0) placedFiles += result.importedFileCount;
 					context.project = scope.getProject(); continue;
 				}
 				const { MIDI_FILE_MAX_BYTES } = await import('../../../midi-file-types.ts');
