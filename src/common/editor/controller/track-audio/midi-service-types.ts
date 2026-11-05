@@ -3,6 +3,7 @@ import type { MidiInstrument, MidiNote } from '../../midi-model.ts';
 import type { MidiFileDocument } from '../../midi-file-types.ts';
 import type { ProjectChangedOptions } from '../document/project-mutation-service.ts';
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
+import type { DeliveryReport } from '../../delivery-report.ts';
 
 export interface MidiProject extends Readonly<Record<string, unknown>> {
 	readonly id: string;
@@ -32,6 +33,7 @@ export interface MidiServiceDependencies {
 	}>;
 	previewNote(pitch: number, instrument: MidiInstrument): Promise<void>;
 	saveFile(request: Readonly<Record<string, unknown>>): Promise<unknown> | unknown;
+	publishDeliveryReport?(report: DeliveryReport): void;
 }
 export interface MidiCreatedTrack { readonly trackId: string; readonly clipId: string }
 export interface MidiImportedClip { readonly trackId: string | null; readonly clipId: string }

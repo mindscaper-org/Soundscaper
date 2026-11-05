@@ -30,6 +30,11 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 			await previewMidiNote(scope.engine, pitch, instrument);
 		},
 		saveFile: request => scope.fileService.saveFile(request),
+		publishDeliveryReport: report => {
+			if (scope.state.phase === 'disposed' || scope.state.phase === 'disposing') return;
+			scope.state.deliveryReport = report;
+			scope.publishDocumentSnapshot();
+		},
 	}));
 	function edit<Result>(action: (service: Readonly<MidiService>) => Promise<Result>): Promise<Result> {
 		const context = { project: scope.getProject() };

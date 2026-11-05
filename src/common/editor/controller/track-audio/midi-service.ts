@@ -22,6 +22,7 @@ import { midiTransferExtensions } from '../../commands/midi-transfer-context.ts'
 import { routeMidiImportControls } from './internal/midi-import-channel-routing.ts';
 import { prepareMidiTransferPublication } from './internal/midi-transfer-publication.ts';
 import { midiWarpNoteGrowth } from './internal/midi-warp-note-growth.ts';
+import { deliverMidiFile } from './internal/midi-file-delivery.ts';
 import type { MidiProject, MidiService, MidiServiceDependencies } from './midi-service-types.ts';
 
 type ImportedMidiTrack = Readonly<{ name: string; data: MidiClipData; program?: number; durationFrames?: number }>;
@@ -31,10 +32,11 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 	let pending: Promise<unknown> = Promise.resolve();
 	const requests = new Set<{ expected: MidiProject }>();
 	const waiters = new Set<{ expected: MidiProject }>();
+	const deliveries = new Set<{ expected: MidiProject }>();
 	let active: { origin: MidiProject; request: { expected: MidiProject } } | null = null;
 	const service: MidiService = {
 		followSelection: (before, after) => {
-			for (const request of [...requests, ...waiters]) if (request.expected === before) request.expected = after;
+			for (const request of [...requests, ...waiters, ...deliveries]) if (request.expected === before) request.expected = after;
 		},
 		settled: async (expectedProject, readiness) => {
 			if (!expectedProject) { await pending; return; }
@@ -154,12 +156,9 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 			if (project.id !== requested.id) throw new EditorProjectChangedError();
 			const document = midiDocumentFromProject(project);
 			const name = project.title.replace(/[\\/:*?"<>|]/gu, '_') || 'MIDI';
-			if (format === 'midi') {
-				const { writeMidiFile } = await import('../../midi-file.ts');
-				return dependencies.saveFile({ purpose: 'interchange', bytes: writeMidiFile(document), mimeType: 'audio/midi', suggestedName: `${name}.mid`, extensions: ['mid', 'midi'] });
-			}
-			const { writeAllegroFile } = await import('../../allegro-file.ts');
-			return dependencies.saveFile({ purpose: 'interchange', text: writeAllegroFile(document), mimeType: 'text/plain', suggestedName: `${name}.gro`, extensions: ['gro'] });
+			const waiter = { expected: project }; deliveries.add(waiter);
+			try { return await deliverMidiFile(dependencies, document, format, name, () => dependencies.getProject() === waiter.expected); }
+			finally { deliveries.delete(waiter); }
 		},
 	};
 	return Object.freeze(service);

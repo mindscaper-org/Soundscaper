@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 /** Stable report codes select translated presentation; diagnostics remain report data. */
 export const REPORT_ITEM_COPY: Readonly<Record<string, string>> = Object.freeze({
+	"reportItem.ALLEGRO_TRACK_EXTENT_CONVERTED": "Allegro retains the note and update stream but cannot encode trailing track silence. Save MIDI or the native project to retain those track endpoints.",
 	"reportItem.ASSISTANCE_TRANSCRIPTS_OMITTED": "Assistance transcripts and their source bindings were omitted.",
 	"reportItem.AUDACITY_EFFECT_UNSUPPORTED_STATE_EXPORTED_AS_MISSING": "An unsupported Audacity effect state was exported as a missing effect",
 	"reportItem.AUDACITY_LABELS_BEFORE_ZERO_OMITTED": "Labels entirely before the timeline origin were omitted.",
