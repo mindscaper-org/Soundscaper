@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { hasCoreEditingProjectAuthority, isSoundscaperProductionProject } from '../../../project-schema-version.ts'; import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
+import { isSoundscaperProductionProject } from '../../../project-schema-version.ts'; import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
 
 import {
 	createAddClipCommand,
@@ -15,6 +15,7 @@ import { commitSourceFormatRewrite } from './source-selection-format-commit.ts';
 import { loadSourceProvenanceDerivation } from '../../../source-provenance-derivation-loader.ts';
 import { resampledClipCommands } from './clip-resample-service.ts';
 import { trackReplacementPlacement } from './track-replacement-placement.ts';
+import { requireWritableAudioTransformTrack } from './track-transform-admission.ts';
 import { stereoTrackRenderRange } from './stereo-track-render-range.ts';
 import { splitStereoSourceChannels } from './split-stereo-source-channels.ts';
 import { splitStereoClipCommands } from './split-stereo-clip-commands.ts';
@@ -455,10 +456,7 @@ export function createTrackTransformService(
 	}
 
 	function requireAudioTrack(project: ControllerProject, trackId: string | null): ControllerTrack {
-		if (!hasCoreEditingProjectAuthority(project)) throw createLocalizedError(Error, dependencies.copy, 'v2Required');
-		const track = findControllerTrack(project, trackId);
-		if (!track || track.type !== 'audio') throw createLocalizedError(Error, dependencies.copy, 'audioTrackRequired');
-		return track;
+		return requireWritableAudioTransformTrack(project, trackId, dependencies.copy);
 	}
 
 	function requireStereoTrack(project: ControllerProject, trackId: string | null): ControllerTrack {

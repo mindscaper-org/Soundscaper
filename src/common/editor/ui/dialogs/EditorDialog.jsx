@@ -33,10 +33,6 @@ import { selectAudioEditorEditBlock } from '../../edit-blocking.ts';
 import { resetSoundscaperPluginPreferences } from '../soundscaper-plugin-preferences-reset.ts';
 
 export default function EditorDialog({ type, value, onValueChange, trackId, controller, snapshot, copy, locale, run, fileService = null, showArmControls = false, onClose }) {
-	const editBlocked = ['rename', 'track-rename', 'resample', 'track-rate'].includes(type)
-		&& selectAudioEditorEditBlock(snapshot).blocked;
-	const editBlockedRef = useRef(editBlocked);
-	editBlockedRef.current = editBlocked;
 	const cancelTimedRecordingOnClose = useRef(false);
 	const projectSession = editorProjectEditSessionKey(controller, snapshot.project?.id);
 	const projectIdAtOpen = useRef(snapshot.project?.id ?? null);
@@ -45,6 +41,11 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 		editingTargetAtOpen.current = { type, projectSession, trackId: snapshot.selectedTrackId ?? null };
 		projectIdAtOpen.current = snapshot.project?.id ?? null;
 	}
+	const resampleLocked = type === 'resample' && snapshot.project?.tracks?.some((track) => track.id === editingTargetAtOpen.current.trackId && track.locked);
+	const editBlocked = ['rename', 'track-rename', 'resample', 'track-rate'].includes(type)
+		&& (selectAudioEditorEditBlock(snapshot).blocked || resampleLocked);
+	const editBlockedRef = useRef(editBlocked);
+	editBlockedRef.current = editBlocked;
 	// These actions intentionally replace the project before their promise settles.
 	const replacesProject = ['projects', 'delete', 'clear'].includes(type);
 	const operationState = useOwnedDialogOperation({
@@ -150,7 +151,7 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 		<Button variant="secondary" onClick={onDismiss}>{copy.cancel}</Button>
 	);
 	const confirm = (label, onConfirm, disabled = false) => (
-		<Button variant="primary" disabled={disabled || editBlocked} onClick={onConfirm}>{label}</Button>
+		<Button variant="primary" disabled={disabled || editBlocked} title={resampleLocked ? copy.unlockTrack : undefined} onClick={onConfirm}>{label}</Button>
 	);
 	const footerActions = () => {
 		if (type === 'rename' || type === 'track-rename') return <>
