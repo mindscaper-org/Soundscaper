@@ -96,8 +96,12 @@ function readMidiBytes(file: MidiImportFile, signal?: AbortSignal): Promise<Arra
 
 function readAllegroText(file: MidiImportFile, signal?: AbortSignal): Promise<string> {
 	return raceAbortableRead(async () => {
+		if (typeof file.arrayBuffer === 'function') {
+			const bytes = await file.arrayBuffer();
+			const { decodeMidiFileText } = await import('../../../midi-file-text.ts');
+			return decodeMidiFileText(new Uint8Array(bytes));
+		}
 		if (typeof file.text === 'function') return file.text();
-		if (typeof file.arrayBuffer === 'function') return new TextDecoder().decode(await file.arrayBuffer());
 		throw new TypeError('Allegro import requires readable text or file bytes.');
 	}, signal);
 }
