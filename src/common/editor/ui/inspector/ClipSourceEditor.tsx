@@ -67,7 +67,7 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 	const [loadedAudio, setLoadedAudio] = useState<{ sourceId: string; buffer: TimelineAudioBuffer } | null>(null);
 	const rawVisual = controller.getClipVisualData(clipId);
 	const visual = loadedAudio?.sourceId === source.id ? { ...rawVisual, buffer: loadedAudio.buffer } : rawVisual;
-	const available = Boolean(visual?.available && (visual.buffer || visual.peaks));
+	const available = Boolean(visual?.available);
 	const pixel = (frame: number) => (frame - startFrame) / (endFrame - startFrame) * width;
 	const sourceAt = (frame: number) => Math.round(clipDisplayFrameToSource(project, clip, source, frame));
 	const frameAt = (clientX: number) => {
