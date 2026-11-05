@@ -43,6 +43,7 @@ test('piano-roll view and drag updates retain unchanged note options while edite
 		snapshot={{ project: document, selectedTrackId: 'track', selectedClipId: 'clip' }} copy={{}} blocked={false} run={operation => operation()} />);
 	try {
 		await act(async () => { render(project); });
+		dom.one('[data-note-id="1"]').getBoundingClientRect = () => ({ left: 0, width: 50 });
 		const option = dom.one('[value="note-4000"]');
 		const initialProps = reactProps(option);
 		const triplets = dom.container.querySelectorAll('input').find(input => input.type === 'checkbox');
@@ -52,7 +53,7 @@ test('piano-roll view and drag updates retain unchanged note options while edite
 		assert.equal(dom.container.querySelectorAll('select')[2]?.options.length, notes.length + 1);
 		await act(async () => {
 			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({});
-			reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ button: 0, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} });
+			reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ currentTarget: dom.one('[data-note-id="1"]'), button: 0, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} });
 		});
 		await act(async () => {
 			for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: 60, clientY: 10 } as MouseEvent);

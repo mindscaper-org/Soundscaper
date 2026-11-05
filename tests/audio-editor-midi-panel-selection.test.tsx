@@ -41,18 +41,19 @@ test('Ctrl-click removes an already selected MIDI note from the next Delete', as
 	const root = createRoot(dom.container as unknown as Element);
 	try {
 		await act(async () => root.render(<PianoRollWorkspacePanel controller={controller} snapshot={{ project, selectedTrackId: 'track', selectedClipId: 'clip' }} copy={{}} blocked={false} run={operation => operation()} />));
+		dom.one('[data-note-id="1"]').getBoundingClientRect = () => ({ left: 0, width: 50 });
 		const grid = dom.one('[tabindex="0"]');
 		await act(async () => { reactProps(grid).onKeyDown?.({ key: 'a', ctrlKey: true, preventDefault() {}, stopPropagation() {} }); });
 		await act(async () => {
 			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({});
-			reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ button: 0, ctrlKey: true, clientX: 20, clientY: 20, preventDefault() {}, stopPropagation() {} });
+			reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ currentTarget: dom.one('[data-note-id="1"]'), button: 0, ctrlKey: true, clientX: 20, clientY: 20, preventDefault() {}, stopPropagation() {} });
 		});
 		await act(async () => { for (const listener of [...listeners.get('mouseup') ?? []]) listener({} as MouseEvent); });
 		await act(async () => { reactProps(grid).onKeyDown?.({ key: 'Delete', stopPropagation() {} }); });
 		assert.deepEqual(deleted, [['second']]);
 		await act(async () => {
 			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({});
-			reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ button: 0, ctrlKey: true, clientX: 20, clientY: 20, preventDefault() {}, stopPropagation() {} });
+			reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ currentTarget: dom.one('[data-note-id="1"]'), button: 0, ctrlKey: true, clientX: 20, clientY: 20, preventDefault() {}, stopPropagation() {} });
 		});
 		await act(async () => { for (const listener of [...listeners.get('mouseup') ?? []]) listener({} as MouseEvent); });
 		await act(async () => { reactProps(grid).onKeyDown?.({ key: 'Delete', stopPropagation() {} }); });

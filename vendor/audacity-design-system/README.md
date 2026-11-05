@@ -738,3 +738,20 @@ are the places where the two keyboard models meet, so a future sync should re-ch
     follows the host's existing toggle-selection convention, with one selection
     transition per click. Covered by focused MIDI grid and panel-selection
     regressions. Upstream-PR candidate.
+
+92. Piano-roll Select All normalizes letter case so Caps Lock preserves the
+    Ctrl/Meta+A shortcut. Covered by focused grid and MIDI browser regressions.
+    Upstream-PR candidate.
+
+93. NoteRect measures its current edge on mousedown so horizontal wheel panning
+    under a stationary cursor cannot turn edge resizing into note movement.
+    Covered by mounted hit testing and the piano-roll scrolled-edge browser
+    workflow. Upstream-PR candidate.
+
+94. NoteRect scales its resize zones for narrow notes, retaining a center body
+    for movement at the minimum rendered width. Covered by mounted note hit
+    testing and the short-note piano-roll browser workflow. Upstream-PR candidate.
+
+95. Piano-roll wheel scrolling converts native line/page deltas into note-row
+    and viewport pixels before panning. Covered by mounted native wheel tests
+    and the MIDI wheel-units browser workflow. Upstream-PR candidate.

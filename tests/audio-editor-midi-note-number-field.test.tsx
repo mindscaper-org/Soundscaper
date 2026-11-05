@@ -21,6 +21,15 @@ test('MIDI note numbers keep partial typing local and commit a complete valid va
 		for (const value of ['', '6', '67']) await act(async () => { reactProps(input).onChange?.({ currentTarget: { value } }); });
 		assert.equal(input.value, '67');
 		assert.deepEqual(commits, []);
+		input.focus();
+		for (const key of ['Enter', 'Escape']) {
+			let prevented = false;
+			await act(async () => { reactProps(input).onKeyDown?.({ key, nativeEvent: { isComposing: true }, currentTarget: { blur() { dom.container.ownerDocument.body.focus(); } },
+				preventDefault() { prevented = true; }, stopPropagation() {} }); });
+			assert.equal(prevented, false, 'the input method owns its confirmation and cancellation keys');
+			assert.strictEqual(dom.container.ownerDocument.activeElement, input);
+			assert.equal(input.value, '67');
+		}
 		await act(async () => { reactProps(input).onBlur?.({}); });
 		assert.deepEqual(commits, [67]);
 		await act(async () => { reactProps(input).onFocus?.({}); reactProps(input).onChange?.({ currentTarget: { value: '128' } }); });

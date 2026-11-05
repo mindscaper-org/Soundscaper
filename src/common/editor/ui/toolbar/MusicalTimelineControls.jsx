@@ -358,8 +358,8 @@ function removeEventWithFocus(button, remove) {
 	requestAnimationFrame(() => {
 		const escapedId = globalThis.CSS?.escape ? globalThis.CSS.escape(neighborId || '') : neighborId;
 		const nextRow = escapedId ? section?.querySelector(`[data-musical-event-id="${escapedId}"]`) : null;
-		const focusTarget = nextRow?.querySelector('input, button')
-			|| section?.querySelector('.kw-audio-editor__musical-map-heading button');
+		const focusTarget = nextRow?.querySelector('input:enabled:not([type="hidden"]), button:enabled')
+			|| section?.querySelector('.kw-audio-editor__musical-map-heading button:enabled');
 		focusTarget?.focus();
 	});
 }

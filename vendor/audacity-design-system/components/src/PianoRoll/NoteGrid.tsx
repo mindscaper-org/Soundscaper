@@ -531,7 +531,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
       if (selectedIds.length > 0) {
         onDeleteNotes(selectedIds);
       }
-    } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
+    } else if (e.key.toLowerCase() === 'a' && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
       e.preventDefault();
       e.stopPropagation();
       // Select all notes
@@ -572,6 +572,9 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
+      const horizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      const scale = e.deltaMode === 1 ? noteHeightRef.current : e.deltaMode === 2 ? (horizontal ? widthRef.current : heightRef.current) : 1;
+      const deltaX = e.deltaX * scale, deltaY = e.deltaY * scale;
 
       if (e.metaKey || e.ctrlKey) {
         // Cmd/Ctrl + scroll = horizontal zoom toward cursor
@@ -580,24 +583,24 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
         const cursorX = e.clientX - rect.left;
         const timeAtCursor = (cursorX + scrollXRef.current) / ppsRef.current;
 
-        const zoomDelta = e.deltaY || e.deltaX;
+        const zoomDelta = deltaY || deltaX;
         const zoomFactor = zoomDelta > 0 ? 0.9 : 1.1;
         const newPps = Math.max(MIN_PPS, Math.min(MAX_PPS, ppsRef.current * zoomFactor));
         const newScrollX = Math.max(0, timeAtCursor * newPps - cursorX);
 
         onPpsChangeRef.current(newPps);
         onScrollXChangeRef.current(newScrollX);
-      } else if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      } else if (horizontal) {
         // Shift + scroll or horizontal trackpad swipe = horizontal pan
         if (!onScrollXChangeRef.current) return;
-        const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+        const delta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
         const newScrollX = Math.max(0, scrollXRef.current + delta);
         onScrollXChangeRef.current(newScrollX);
       } else {
         // Plain scroll = vertical pan
         const totalHeight = TOTAL_PITCHES * noteHeightRef.current;
         const maxScrollY = Math.max(0, totalHeight - heightRef.current);
-        const newScrollY = Math.max(0, Math.min(maxScrollY, scrollYRef.current + e.deltaY));
+        const newScrollY = Math.max(0, Math.min(maxScrollY, scrollYRef.current + deltaY));
         onScrollYChangeRef.current(newScrollY);
       }
     };

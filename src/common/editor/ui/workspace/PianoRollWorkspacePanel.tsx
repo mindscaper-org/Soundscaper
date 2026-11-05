@@ -200,8 +200,8 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 			</select></label>
 			<label><input type="checkbox" checked={triplet} onChange={event => setTriplet(event.currentTarget.checked)} />{copy.triplets}</label>
 			<label><input type="checkbox" checked={keyboardEnabled} onChange={event => setKeyboardEnabled(event.currentTarget.checked)} />{copy.keyboard}</label>
-			{keyboardEnabled && <label>{copy.octave}<input type="number" min={-1} max={8} value={octave}
-				onChange={event => setOctave(Math.max(-1, Math.min(8, Number(event.currentTarget.value))))} title={copy.keyboardHint} /></label>}
+			{keyboardEnabled && <label>{copy.octave}<MidiNoteNumberField min={-1} max={8} step={1} value={octave}
+				onCommit={setOctave} disabled={false} title={copy.keyboardHint} /></label>}
 			<button type="button" disabled={disabled} onClick={addNote}>{copy.addNote}</button>
 			<button type="button" disabled={disabled || !selectedNotes.length} onClick={deleteSelected}>{copy.deleteNotes}</button>
 			<div className="kw-audio-editor__piano-roll-note-editor" role="group" aria-label={copy.noteEditor}>

@@ -8,16 +8,17 @@ interface MidiNoteNumberFieldProps {
 	readonly max?: number;
 	readonly step: number;
 	readonly disabled: boolean;
+	readonly title?: string;
 	readonly onCommit: (value: number) => void;
 }
 
 /** Keep an authored number intact while the asynchronous note edit is pending. */
-export function MidiNoteNumberField({ value, min, max, step, disabled, onCommit }: MidiNoteNumberFieldProps) {
+export function MidiNoteNumberField({ value, min, max, step, disabled, title, onCommit }: MidiNoteNumberFieldProps) {
 	const [draft, setDraft] = useState(String(value));
 	const focused = useRef(false);
 	const cancelled = useRef(false);
 	useEffect(() => { if (!focused.current) setDraft(String(value)); }, [value]);
-	return <input type="number" min={min} max={max} step={step} disabled={disabled} value={draft}
+	return <input type="number" min={min} max={max} step={step} disabled={disabled} title={title} value={draft}
 		onFocus={() => { focused.current = true; cancelled.current = false; }}
 		onChange={event => setDraft(event.currentTarget.value)}
 		onBlur={() => {
@@ -28,6 +29,7 @@ export function MidiNoteNumberField({ value, min, max, step, disabled, onCommit 
 			if (parsed !== value) onCommit(parsed);
 		}}
 		onKeyDown={event => {
+			if (event.nativeEvent?.isComposing || event.nativeEvent?.keyCode === 229) return;
 			if (event.key !== 'Enter' && event.key !== 'Escape') return;
 			event.preventDefault(); event.stopPropagation();
 			cancelled.current = event.key === 'Escape';

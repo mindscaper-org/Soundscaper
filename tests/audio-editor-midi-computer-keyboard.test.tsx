@@ -40,6 +40,14 @@ test('enabling the computer keyboard immediately admits note/octave keys while t
 		assert.equal(octave?.value, '4');
 		await act(async () => { reactProps(panel).onKeyDown?.({ key: 'a', target: octave, preventDefault() {}, stopPropagation() {} }); });
 		assert.deepEqual(previews, [60]);
+		assert.ok(octave);
+		await act(async () => { reactProps(octave).onFocus?.(); });
+		await act(async () => { reactProps(octave).onChange?.({ currentTarget: { value: '' } }); });
+		assert.equal(octave.value, '', 'an incomplete signed octave must stay editable');
+		await act(async () => { reactProps(octave).onChange?.({ currentTarget: { value: '-1' } }); });
+		await act(async () => { reactProps(octave).onBlur?.(); });
+		await act(async () => { reactProps(panel).onKeyDown?.({ key: 'a', target: keyboard, preventDefault() {}, stopPropagation() {} }); });
+		assert.deepEqual(previews, [60, 0]);
 	} finally {
 		await act(async () => root.unmount());
 		if (context) Object.defineProperty(ReactTestElement.prototype, 'getContext', context);

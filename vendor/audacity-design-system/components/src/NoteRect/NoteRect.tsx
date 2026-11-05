@@ -14,6 +14,13 @@ function pitchToName(pitch: number): string {
 
 export type NoteEdge = 'left' | 'right' | 'body';
 
+function edgeAtPointer(event: React.MouseEvent): NoteEdge {
+  const rect = event.currentTarget.getBoundingClientRect();
+  const localX = event.clientX - rect.left;
+  const edgeWidth = Math.min(EDGE_THRESHOLD, rect.width / 3);
+  return localX <= edgeWidth ? 'left' : localX >= rect.width - edgeWidth ? 'right' : 'body';
+}
+
 export interface NoteRectNote {
   id: number;
   pitch: number;
@@ -81,15 +88,7 @@ export const NoteRect: React.FC<NoteRectProps> = ({
   const [hoverEdge, setHoverEdge] = useState<NoteEdge>('body');
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const localX = e.clientX - rect.left;
-    if (localX <= EDGE_THRESHOLD) {
-      setHoverEdge('left');
-    } else if (localX >= rect.width - EDGE_THRESHOLD) {
-      setHoverEdge('right');
-    } else {
-      setHoverEdge('body');
-    }
+    setHoverEdge(edgeAtPointer(e));
   }, []);
 
   const cursor = hoverEdge === 'body' ? 'pointer' : 'ew-resize';
@@ -132,7 +131,7 @@ export const NoteRect: React.FC<NoteRectProps> = ({
       onMouseMove={handleMouseMove}
       onMouseDown={(e) => {
         e.stopPropagation();
-        onMouseDown(e, note, hoverEdge);
+        onMouseDown(e, note, edgeAtPointer(e));
       }}
     >
       {showLabel && (

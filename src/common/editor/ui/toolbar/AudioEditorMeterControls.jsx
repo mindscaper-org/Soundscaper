@@ -17,6 +17,7 @@ import { MeterPanelGrip } from '../workspace/MeterPanelControls.jsx';
 import { formatDb } from '../meter-settings.ts';
 import { playbackMeterWithChannels } from '../playback-meter-channel-presentation.ts';
 import { AudacityAudioMeter, MeterSettingsFlyout } from './AudioEditorMeters.jsx';
+import { useMenuTriggerDismissal } from '../use-menu-trigger-dismissal.ts';
 
 // Browser adaptations of Audacity's RecordLevel.qml/RecordLevelPopup.qml and
 // PlaybackLevel.qml/PlaybackMeterCustomisePopup.qml at eee7be71d602bfd852d6d30e58b70a8ab43ed28f.
@@ -34,7 +35,9 @@ export function AudacityToolbarFlyoutButton({
 		triggerRef.current = element?.querySelector('button') || null;
 	}, []);
 	const close = useCallback(() => setPosition(null), []);
+	const consumeTriggerDismissal = useMenuTriggerDismissal(triggerRef, Boolean(position));
 	const toggle = (event) => {
+		if (consumeTriggerDismissal()) return;
 		if (position) {
 			close();
 			return;

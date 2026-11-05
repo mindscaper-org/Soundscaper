@@ -23,19 +23,42 @@ interface GridFixture {
 test('clicking a piano-roll note gives its grid keyboard focus for note shortcuts', async () => {
 	await withGrid(async ({ dom, document }) => {
 		await act(async () => {
-			reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ button: 0, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} });
+			reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ currentTarget: dom.one('[data-note-id="1"]'), button: 0, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} });
 		});
 		assert.strictEqual(document.activeElement, dom.one('[tabindex="0"]'), 'note shortcuts must follow the clicked note');
+	});
+});
+
+test('Caps Lock does not change the piano-roll Select All shortcut', async () => {
+	await withGrid(async ({ dom, deleted }) => {
+		const grid = dom.one('[tabindex="0"]');
+		await act(async () => { reactProps(grid).onKeyDown?.({ key: 'A', ctrlKey: true, preventDefault() {}, stopPropagation() {} }); });
+		await act(async () => { reactProps(grid).onKeyDown?.({ key: 'Delete', stopPropagation() {} }); });
+		assert.deepEqual(deleted, [[1, 2]]);
+	}, [
+		{ id: 1, pitch: 60, velocity: 100, startTime: 0, duration: 0.5, selected: true },
+		{ id: 2, pitch: 64, velocity: 100, startTime: 1, duration: 0.5, selected: false },
+	]);
+});
+
+test('MIDI Select All releases distinct modified A shortcuts', async () => {
+	await withGrid(async ({ dom }) => {
+		for (const modifier of ['shiftKey', 'altKey']) {
+			let prevented = false;
+			await act(async () => { reactProps(dom.one('[tabindex="0"]')).onKeyDown?.({ key: 'A', ctrlKey: true, [modifier]: true,
+				preventDefault() { prevented = true; }, stopPropagation() {} }); });
+			assert.equal(prevented, false);
+		}
 	});
 });
 
 test('resizing a selected note keeps the complete resized selection for the next Delete', async () => {
 	await withGrid(async ({ dom, listeners, resized, deleted }) => {
 		const note = dom.one('[data-note-id="1"]');
-		await act(async () => { reactProps(note).onMouseMove?.({ currentTarget: note, clientX: 10 }); });
-		await act(async () => { reactProps(note).onMouseDown?.({ button: 0, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} }); });
+		await act(async () => { reactProps(note).onMouseMove?.({ currentTarget: note, clientX: 47 }); });
+		await act(async () => { reactProps(note).onMouseDown?.({ currentTarget: note, button: 0, clientX: 47, clientY: 10, preventDefault() {}, stopPropagation() {} }); });
 		await act(async () => {
-			for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: 35, clientY: 10 } as MouseEvent);
+			for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: 72, clientY: 10 } as MouseEvent);
 		});
 		await act(async () => { for (const listener of [...listeners.get('mouseup') ?? []]) listener({} as MouseEvent); });
 		assert.deepEqual(resized, [{ id: 1, duration: 0.75 }, { id: 2, duration: 0.75 }]);
@@ -46,7 +69,7 @@ test('resizing a selected note keeps the complete resized selection for the next
 
 test('moving a note group against time and pitch limits preserves its offsets and intervals', async () => {
 	await withGrid(async ({ dom, listeners, updated }) => {
-		await act(async () => { reactProps(dom.one('[data-note-id="2"]')).onMouseDown?.({ button: 0, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} }); });
+		await act(async () => { reactProps(dom.one('[data-note-id="2"]')).onMouseDown?.({ currentTarget: dom.one('[data-note-id="2"]'), button: 0, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} }); });
 		await act(async () => { for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: -90, clientY: -1190 } as MouseEvent); });
 		assert.deepEqual(updated, [{ id: 1, changes: { startTime: 0, pitch: 125 } }, { id: 2, changes: { startTime: 0.5, pitch: 127 } }]);
 	}, [
@@ -57,7 +80,7 @@ test('moving a note group against time and pitch limits preserves its offsets an
 
 test('a secondary-button note gesture does not move or resize authored notes', async () => {
 	await withGrid(async ({ dom, listeners, updated, resized }) => {
-		await act(async () => { reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ button: 2, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} }); });
+		await act(async () => { reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ currentTarget: dom.one('[data-note-id="1"]'), button: 2, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} }); });
 		await act(async () => { for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: 60, clientY: 10 } as MouseEvent); });
 		assert.deepEqual(updated, []);
 		assert.deepEqual(resized, []);
@@ -67,9 +90,9 @@ test('a secondary-button note gesture does not move or resize authored notes', a
 test('drawing after a minimum-length resize reuses the positive audible length', async () => {
 	await withGrid(async ({ dom, listeners, added, resized }) => {
 		const note = dom.one('[data-note-id="1"]');
-		await act(async () => { reactProps(note).onMouseMove?.({ currentTarget: note, clientX: 10 }); });
-		await act(async () => { reactProps(note).onMouseDown?.({ button: 0, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} }); });
-		await act(async () => { for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: -37, clientY: 10 } as MouseEvent); });
+		await act(async () => { reactProps(note).onMouseMove?.({ currentTarget: note, clientX: 47 }); });
+		await act(async () => { reactProps(note).onMouseDown?.({ currentTarget: note, button: 0, clientX: 47, clientY: 10, preventDefault() {}, stopPropagation() {} }); });
+		await act(async () => { for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: 0, clientY: 10 } as MouseEvent); });
 		await act(async () => { for (const listener of [...listeners.get('mouseup') ?? []]) listener({} as MouseEvent); });
 		assert.equal(resized[0]?.duration, 1 / 64);
 		const grid = dom.one('[tabindex="0"]');
@@ -81,7 +104,7 @@ test('drawing after a minimum-length resize reuses the positive audible length',
 
 test('leaving the window finishes a piano-roll drag before later pointer movement', async () => {
 	await withGrid(async ({ dom, listeners, windowListeners, updated }) => {
-		await act(async () => { reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ button: 0, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} }); });
+		await act(async () => { reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ currentTarget: dom.one('[data-note-id="1"]'), button: 0, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} }); });
 		await act(async () => { for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: 35, clientY: 10 } as MouseEvent); });
 		assert.equal(updated.length, 2);
 		await act(async () => { for (const listener of [...windowListeners.get('blur') ?? []]) listener({ type: 'blur' } as FocusEvent); });
@@ -102,7 +125,7 @@ test('closing a piano roll during note placement prevents a later mouseup from a
 
 test('releasing another mouse button keeps the primary note drag active until primary release', async () => {
 	await withGrid(async ({ dom, listeners, updated }) => {
-		await act(async () => { reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ button: 0, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} }); });
+		await act(async () => { reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ currentTarget: dom.one('[data-note-id="1"]'), button: 0, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} }); });
 		await act(async () => { for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: 35, clientY: 10 } as MouseEvent); });
 		await act(async () => { for (const listener of [...listeners.get('mouseup') ?? []]) listener({ type: 'mouseup', button: 1, buttons: 1 } as MouseEvent); });
 		await act(async () => { for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: 60, clientY: 10 } as MouseEvent); });
@@ -150,11 +173,12 @@ async function withGrid(action: (fixture: GridFixture) => Promise<void>, initial
 			snap={{ subdivision: 4, triplet: false }} timeBasis="beats" onAddNote={note => { added.push(note); }} onUpdateNote={(id, changes) => { updated.push({ id, changes }); }} onMoveNotes={noop}
 			onResizeNote={(id, duration) => { resized.push({ id, duration }); }} onDeleteNotes={ids => { deleted.push(ids); }}
 			onSelectNote={(id, additive) => { setNotes(previous => previous.map(note => ({ ...note, selected: note.id === id || (additive === true && note.selected) }))); }}
-			onSelectNotes={noop} onDeselectAll={noop} onScrollYChange={noop} />;
+			onSelectNotes={(ids, additive) => { setNotes(previous => previous.map(note => ({ ...note, selected: ids.includes(note.id) || (additive === true && note.selected) }))); }} onDeselectAll={noop} onScrollYChange={noop} />;
 	}
 	const root = createRoot(dom.container as unknown as Element);
 	try {
 		await act(async () => root.render(<Grid />));
+		for (const note of dom.container.querySelectorAll('[data-note-id]')) note.getBoundingClientRect = () => ({ left: 0, width: 50 });
 		await action({ dom, document, listeners, resized, deleted, updated, added, windowListeners,
 			unmount: async () => { await act(async () => root.unmount()); } });
 	} finally {
