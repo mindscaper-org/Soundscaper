@@ -101,20 +101,17 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 			const keys: AllegroKeyPart[] = [];
 			const timeTokens = tokens.filter(token => /^T/i.test(token));
 			if (timeTokens.length > 1) throw new RangeError('Allegro time is specified twice.');
-			if (timeTokens[0]) {
-				const position = timeTokens[0].slice(1);
-				currentBeat = position.split('+').every(term => /^[SIQHW]/i.test(term))
-					? allegroDuration(position, 0, { frameToBeat: value => value, beatToFrame: value => value }, 1) : null;
-				// Discovery retains the beat itself; repeated provisional-map rebuilds
-				// cannot improve that declaration's final position.
-				currentFrame = deferBeatTempoFrames && currentBeat !== null && tokens.some(token => token.startsWith('-tempor:'))
-					? currentBeat * sampleRate * 0.6 : allegroDuration(position, 0, timing, sampleRate);
-			}
 			for (const token of tokens) {
 				const initial = token[0]!.toUpperCase();
 				const value = token.slice(1);
-				if (initial === 'T') continue;
-				if (initial === '-') {
+				if (initial === 'T') {
+					currentBeat = value.split('+').every(term => /^[SIQHW]/i.test(term))
+						? allegroDuration(value, 0, { frameToBeat: frame => frame, beatToFrame: beat => beat }, 1) : null;
+					// Discovery retains the beat itself; repeated provisional-map rebuilds
+					// cannot improve that declaration's final position.
+					currentFrame = deferBeatTempoFrames && currentBeat !== null && tokens.some(field => field.startsWith('-tempor:'))
+						? currentBeat * sampleRate * 0.6 : allegroDuration(value, 0, timing, sampleRate);
+				} else if (initial === '-') {
 					const attribute = /^-([a-zA-Z][\da-zA-Z_]*):(.+)$/.exec(token);
 					if (!attribute) throw new RangeError(`Invalid Allegro attribute: ${token}.`);
 					attributes.push([attribute[1]!, attribute[2]!]);
