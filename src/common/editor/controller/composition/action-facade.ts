@@ -114,15 +114,24 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			scope.handleError(error);
 		});
 	};
-	const afterMidiEdits = <Args extends unknown[], Result>(operation: (...args: Args) => Result) => async (...args: Args) => {
+	const afterMidiEdits = <Args extends unknown[], Result>(operation: (...args: Args) => Result) => async (...args: Args): Promise<Awaited<Result>> => {
 		const projectId = getProject()?.id;
 		await midi.settled();
 		if (getProject()?.id !== projectId) throw new Error('The project changed before saving pending MIDI edits.');
-		return operation(...args);
+		return await operation(...args);
 	};
 	const prepareClose = afterMidiEdits(prepareFileClose);
 	const saveCurrentScape = afterMidiEdits(saveScape);
 	const crossProductHandoffActions = createCrossProductHandoffActionFacade({ ...scope, flushProject: afterMidiEdits(flushProject), copy: { get projectSaved() { return copy.projectSaved; }, get projectSaving() { return copy.projectSaving; } } });
+	let exportGeneration = 0;
+	const handleSettledExport: typeof handleExportAction = (action, settings) => {
+		if (action === 'cancel') exportGeneration += 1;
+		if (action !== 'start') return handleExportAction(action, settings);
+		const request = ++exportGeneration;
+		return afterMidiEdits(() => request === exportGeneration ? handleExportAction(action, settings) : undefined)();
+	};
+	const exportActions = createExportActionGroup({ handleExportAction: handleSettledExport,
+		publishBlenderTracks: afterMidiEdits(publishBlenderTracks), state, productName: product.name, getProjectTitle: () => getProject()?.title ?? null, getProject, projectForRuntimeConsumers: scope.projectForRuntimeConsumers, store, fileService, persistSetting, publishDocumentSnapshot, createId: createStableId });
 	const actions = Object.freeze({
 		midi: midi.actions,
 		project: Object.freeze({
@@ -492,7 +501,8 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			contrast: restricted('audioAnalysis', analysisService.captureContrast), repeatLast: restricted('audioAnalysis', analysisService.repeatLast),
 			measureLoudness: restricted('audioAnalysis', analysisService.measureLoudness),
 		}),
-		export: createExportActionGroup({ handleExportAction, publishBlenderTracks, state, productName: product.name, getProjectTitle: () => getProject()?.title ?? null, getProject, projectForRuntimeConsumers: scope.projectForRuntimeConsumers, store, fileService, persistSetting, publishDocumentSnapshot, createId: createStableId }),
+		export: Object.freeze({ ...exportActions, exportEdl: afterMidiEdits(exportActions.exportEdl),
+			exportOtio: afterMidiEdits(exportActions.exportOtio), exportFcpxml: afterMidiEdits(exportActions.exportFcpxml) }),
 		media: createProjectMediaActionGroup({
 			state, getProject, store, publishDocumentSnapshot, setStatus, copy, fileService, ffmpeg, commit, saveScape: () => Promise.resolve(saveCurrentScape()),
 		}),
