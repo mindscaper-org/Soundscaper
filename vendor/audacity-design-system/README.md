@@ -911,3 +911,11 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      retain the same localized names for the already supported scales. Covered
      by focused scale projection/localization checks and a production ruler to
      Preferences workflow. Upstream-PR candidate.
+
+122. `EnvelopeInteractionLayer` retires its current drag on native window blur
+     or a move without the primary button before another preview can publish.
+     The host completes the last intended gain once, retaining ordinary and
+     auxiliary-button gestures, Escape cancellation and fresh later drags.
+     The existing lifecycle hook and focused native-event utility own cleanup
+     without growing the capped interaction component. Covered by native-history checks
+     and an outside-release browser workflow. Upstream-PR candidate.
