@@ -26,6 +26,10 @@ export async function renderSimpleDryTrackPcm(project: EffectAudioProject, sourc
 		|| track.audioFreeze != null || new Set(track.clipIds).size !== track.clipIds?.length) return null;
 	const scope = requestedClipIds?.length ? new Set(requestedClipIds) : null;
 	const trackIds = new Set(track.clipIds?.filter((id) => !scope || scope.has(id)));
+	// Canonical musical/sequence clips need the engine's coordinate projection;
+	// ignoring their absent scalar bounds could omit another audible overlap.
+	if (project.clips.some(clip => trackIds.has(clip.id) && (typeof clip.timelineStartFrame !== 'number'
+		|| typeof clip.durationFrames !== 'number'))) return null;
 	const clips = project.clips.filter((clip) => trackIds.has(clip.id)
 		&& typeof clip.timelineStartFrame === 'number' && typeof clip.durationFrames === 'number'
 		&& clip.timelineStartFrame < endFrame && clip.timelineStartFrame + clip.durationFrames > startFrame);
