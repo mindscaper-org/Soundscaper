@@ -9,10 +9,12 @@ import {
 import { createMidiTempoTimeline } from './midi-file-timing.ts';
 import { midiFileNoteReleases } from './midi-file-note-releases.ts';
 import { decodeMidiFileText } from './midi-file-text.ts';
+import { roundRational } from './timeline-time.ts';
+import { midiFileNoteDestinations } from './midi-file-destinations.ts';
 
 // Independent implementation of Standard MIDI Files 1.0 (MIDI Association RP-001).
 // https://midi.org/standard-midi-files
-interface TickEvent { readonly tick: number; readonly status: number; readonly data: readonly number[]; readonly metaType?: number }
+interface TickEvent { readonly tick: number; readonly status: number; readonly data: readonly number[]; readonly metaType?: number; readonly order?: number }
 interface TickTrack { readonly name: string; readonly events: readonly TickEvent[]; readonly endTick: number }
 const textDecoder = new TextDecoder();
 const textEncoder = new TextEncoder();
@@ -109,25 +111,28 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 	if (tracks.length !== count) throw new RangeError('Truncated MIDI track collection.');
 	const tempoEvents = tracks.flatMap(track => track.events).filter(event => event.metaType === 81).sort((a, b) => a.tick - b.tick);
 	const tempos: MidiFileTempo[] = [{ frame: 0, bpm: 120 }];
-	const tickSegments = [{ tick: 0, frame: 0, bpm: 120 }];
+	const tickDenominator = BigInt(division) * 1_000_000n;
+	const tickSegments = [{ tick: 0, numerator: 0n, sampleMicros: 500_000n * BigInt(sampleRate) }];
 	for (const event of tempoEvents) {
 		if (event.data.length !== 3) throw new RangeError('Invalid MIDI tempo event.');
 		const micros = event.data[0]! * 65_536 + event.data[1]! * 256 + event.data[2]!;
 		if (!micros) throw new RangeError('Invalid zero MIDI tempo.');
 		const previous = tickSegments[tickSegments.length - 1]!;
+		const numerator = previous.numerator + BigInt(event.tick - previous.tick) * previous.sampleMicros;
 		const frame = division & 0x8000 ? smpteFrame(event.tick, division, sampleRate)
-			: previous.frame + (event.tick - previous.tick) / division * 60 / previous.bpm * sampleRate;
-		const segment = { tick: event.tick, frame, bpm: 60_000_000 / micros };
-		if (segment.tick === previous.tick) { tickSegments[tickSegments.length - 1] = segment; tempos[tempos.length - 1] = { frame: Math.round(frame), bpm: segment.bpm }; }
-		else { tickSegments.push(segment); tempos.push({ frame: Math.round(frame), bpm: segment.bpm }); }
+			: roundRational(numerator, tickDenominator, 'point');
+		const segment = { tick: event.tick, numerator, sampleMicros: BigInt(micros) * BigInt(sampleRate) };
+		const tempo = { frame, bpm: 60_000_000 / micros };
+		if (segment.tick === previous.tick) { tickSegments[tickSegments.length - 1] = segment; tempos[tempos.length - 1] = tempo; }
+		else { tickSegments.push(segment); tempos.push(tempo); }
 	}
 	const tickToFrame = (tick: number): number => {
-		if (division & 0x8000) return Math.round(smpteFrame(tick, division, sampleRate));
+		if (division & 0x8000) return smpteFrame(tick, division, sampleRate);
 		let low = 0;
 		let high = tickSegments.length;
 		while (low + 1 < high) { const middle = Math.floor((low + high) / 2); if (tickSegments[middle]!.tick <= tick) low = middle; else high = middle; }
 		const segment = tickSegments[low]!;
-		return Math.round(segment.frame + (tick - segment.tick) / division * 60 / segment.bpm * sampleRate);
+		return roundRational(segment.numerator + BigInt(tick - segment.tick) * segment.sampleMicros, tickDenominator, 'point');
 	};
 	const signatures: MidiFileSignature[] = [];
 	const releases = midiFileNoteReleases(tracks);
@@ -135,11 +140,13 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 		const notes: MidiNote[] = [];
 		const events: MidiFileEvent[] = [];
 		let noteIndex = 0;
-		const finish = (start: TickEvent, endTick: number, releaseVelocity = 0): void => {
+		const finish = (start: TickEvent, endTick: number, releaseVelocity = 0, allSoundOff = false): void => {
 			const startFrame = tickToFrame(start.tick);
+			const endFrame = tickToFrame(endTick);
 			notes.push({ id: `midi-${trackIndex}-${noteIndex++}`, pitch: start.data[0]!, channel: start.status & 15,
-				velocity: start.data[1]!, startFrame, durationFrames: Math.max(1, tickToFrame(endTick) - startFrame),
-				...(releaseVelocity ? { releaseVelocity } : {}) });
+				velocity: start.data[1]!, startFrame, durationFrames: Math.max(1, endFrame - startFrame),
+				...(releaseVelocity ? { releaseVelocity } : {}),
+				...(allSoundOff && endFrame === startFrame ? { onsetStop: { kind: 'all-sound-off' as const, frame: startFrame, channel: start.status & 15 } } : {}) });
 		};
 		for (const event of track.events) {
 			const type = event.status & 240;
@@ -152,7 +159,7 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 			} else if (type === 128 || type === 144) {
 				if (type === 144 && event.data[1]) {
 					const release = releases.get(event);
-					finish(event, release?.tick ?? track.endTick, release?.velocity ?? 0);
+					finish(event, release?.tick ?? track.endTick, release?.velocity ?? 0, release?.allSoundOff);
 				}
 			} else {
 				events.push({ frame: tickToFrame(event.tick), status: event.status, data: event.data, ...(event.metaType === undefined ? {} : { metaType: event.metaType }),
@@ -160,7 +167,8 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 			}
 		}
 		notes.sort((a, b) => a.startFrame - b.startFrame || a.pitch - b.pitch);
-		return { name: track.name, notes, durationFrames: tickToFrame(track.endTick), ...(events.length ? { events } : {}) };
+		return { name: track.name, notes, durationFrames: tickToFrame(track.endTick), ...(events.length ? { events } : {}),
+			...(notes.length ? { noteDestinations: midiFileNoteDestinations(track.events) } : {}) };
 	});
 	if (!signatures.some(signature => signature.frame === 0)) signatures.unshift({ frame: 0, numerator: 4, denominator: 4 });
 	const document = { sampleRate, tracks: result, tempos, signatures: signatures.sort((a, b) => a.frame - b.frame) };
@@ -172,7 +180,8 @@ function smpteFrame(tick: number, division: number, sampleRate: number): number 
 	const code = 256 - (division >> 8);
 	const ticksPerFrame = division & 255;
 	if (![24, 25, 29, 30].includes(code) || !ticksPerFrame) throw new RangeError('Invalid MIDI SMPTE time division.');
-	return tick / ((code === 29 ? 30_000 / 1001 : code) * ticksPerFrame) * sampleRate;
+	return roundRational(BigInt(tick) * BigInt(sampleRate) * (code === 29 ? 1001n : 1n),
+		BigInt(code === 29 ? 30_000 : code) * BigInt(ticksPerFrame), 'point');
 }
 
 function variableBytes(value: number): number[] {
@@ -216,6 +225,7 @@ function trackBytes(events: readonly TickEvent[], endTick: number | undefined, p
 }
 
 function eventOrder(event: TickEvent): number {
+	if (event.order !== undefined) return event.order;
 	const type = event.status & 240;
 	// Match the frame renderer: apply setup first, release old keys, then retrigger.
 	return type === 128 ? 1 : type === 144 ? 2 : 0;
@@ -251,18 +261,27 @@ export function writeMidiFile(document: MidiFileDocument): Uint8Array<ArrayBuffe
 	if (separateConductor) for (const byte of trackBytes(conductor, undefined, paddingBudget)) bytes.push(byte);
 	for (const [index, track] of document.tracks.entries()) {
 		const events: TickEvent[] = [{ tick: 0, status: 255, metaType: 3, data: [...textEncoder.encode(track.name)] }];
+		const auxiliary = (track.events ?? []).filter(writtenAuxiliaryEvent);
+		const stops = new Map<string, number>();
+		for (const [position, event] of auxiliary.entries()) {
+			const order = (position + 1) / (auxiliary.length + 1);
+			events.push({ ...event, tick: tick(event.frame), order });
+			if ((event.status & 240) === 176 && event.data[0] === 120) {
+				const key = `${event.frame}:${event.status & 15}`;
+				if (!stops.has(key)) stops.set(key, order - 0.5 / (auxiliary.length + 1));
+			}
+		}
 		if (!separateConductor && index === 0) for (const event of conductor) events.push(event);
 		if (track.program !== undefined && !track.events?.some(event => (event.status & 240) === 192)) {
 			events.push({ tick: 0, status: 192, data: [track.program] });
 		}
 		for (const note of track.notes) {
 			if (note.velocity === 0) throw new RangeError('A zero-velocity MIDI note cannot be exported as a sounding note. Raise its velocity or delete it.');
-			events.push({ tick: tick(note.startFrame), status: 144 | note.channel, data: [note.pitch, note.velocity] });
-			events.push({ tick: Math.max(tick(note.startFrame) + 1, tick(note.startFrame + note.durationFrames)), status: 128 | note.channel, data: [note.pitch, note.releaseVelocity ?? 0] });
-		}
-		for (const event of track.events ?? []) {
-			if (!writtenAuxiliaryEvent(event)) continue;
-			events.push({ ...event, tick: tick(event.frame) });
+			const stopOrder = note.onsetStop ? stops.get(`${note.startFrame}:${note.channel}`) : undefined;
+			if (note.onsetStop && stopOrder === undefined) throw new RangeError('MIDI export cannot preserve a same-frame panic whose causal event is on another track. Save the native project.');
+			events.push({ tick: tick(note.startFrame), status: 144 | note.channel, data: [note.pitch, note.velocity], ...(stopOrder === undefined ? {} : { order: stopOrder }) });
+			events.push({ tick: note.onsetStop ? tick(note.startFrame) : Math.max(tick(note.startFrame) + 1, tick(note.startFrame + note.durationFrames)),
+				status: 128 | note.channel, data: [note.pitch, note.releaseVelocity ?? 0] });
 		}
 		for (const byte of trackBytes(events, track.durationFrames === undefined ? undefined : tick(track.durationFrames), paddingBudget)) bytes.push(byte);
 		if (bytes.length > MIDI_FILE_MAX_BYTES) throw new RangeError('MIDI export exceeds the 16 MiB limit.');

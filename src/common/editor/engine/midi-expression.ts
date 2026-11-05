@@ -78,6 +78,8 @@ export function midiExpressionPhaseArea(state: MidiExpressionState, frame: numbe
 
 /** Key release remains authored data; a pedal extends only the sounding voice. */
 export function midiNoteSoundEnd(note: MidiNote, timeline: MidiExpressionTimeline): number {
+	if (note.onsetStop?.kind === 'all-sound-off' && note.onsetStop.frame === note.startFrame
+		&& note.onsetStop.channel === note.channel) return note.startFrame;
 	let end = Math.min(note.startFrame + note.durationFrames,
 		timeline.keyReleases[firstFrameAfter(timeline.keyReleases, note.startFrame)] ?? Number.POSITIVE_INFINITY);
 	const atRelease = midiExpressionStateIndex(timeline.states, end);

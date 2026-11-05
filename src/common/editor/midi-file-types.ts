@@ -19,6 +19,14 @@ export interface MidiFileTrack {
 	readonly durationFrames?: number;
 	readonly events?: readonly MidiFileEvent[];
 	readonly program?: number;
+	/** Transient import routing captured at raw NoteOn events, never persisted in clips. */
+	readonly noteDestinations?: readonly MidiNoteDestination[];
+}
+
+export interface MidiNoteDestination {
+	readonly channel: number;
+	readonly port: number;
+	readonly device?: readonly number[];
 }
 
 export interface MidiFileTempo {
@@ -67,6 +75,14 @@ export function validateMidiFileDocument(document: MidiFileDocument): void {
 		if (track.durationFrames !== undefined) midiFileInteger(track.durationFrames, 0, Number.MAX_SAFE_INTEGER, 'track duration');
 		count += track.notes.length + (track.events?.length ?? 0);
 		if (track.program !== undefined) midiFileInteger(track.program, 0, 127, 'program');
+		if (track.noteDestinations) {
+			midiFileInteger(track.noteDestinations.length, 0, track.notes.length, 'note destination count');
+			for (const destination of track.noteDestinations) {
+				midiFileInteger(destination.channel, 0, 15, 'note destination channel');
+				midiFileInteger(destination.port, 0, 255, 'note destination port');
+				for (const byte of destination.device ?? []) midiFileInteger(byte, 0, 255, 'note destination device');
+			}
+		}
 		for (const note of track.notes) {
 			midiFileInteger(note.pitch, 0, 127, 'pitch');
 			midiFileInteger(note.velocity, 0, 127, 'velocity');
@@ -74,6 +90,8 @@ export function validateMidiFileDocument(document: MidiFileDocument): void {
 			midiFileInteger(note.channel, 0, 15, 'channel');
 			midiFileInteger(note.startFrame, 0, Number.MAX_SAFE_INTEGER, 'note start');
 			midiFileInteger(note.durationFrames, 1, Number.MAX_SAFE_INTEGER - note.startFrame, 'note duration');
+			if (note.onsetStop && (note.onsetStop.kind !== 'all-sound-off' || note.onsetStop.frame !== note.startFrame
+				|| note.onsetStop.channel !== note.channel)) throw new RangeError('Invalid MIDI note onset stop.');
 		}
 		for (const event of track.events ?? []) {
 			if (event.conductor !== undefined && (typeof event.conductor !== 'boolean' || event.status !== 255 || event.metaType !== 0x54)) {

@@ -16,6 +16,8 @@ export interface MidiNote {
 	readonly velocity: number;
 	/** Release velocity retained from MIDI note-off messages. */
 	readonly releaseVelocity?: number;
+	/** Parser-owned immediate CC120 release, bound to this original source onset. */
+	readonly onsetStop?: Readonly<{ kind: 'all-sound-off'; frame: number; channel: number }>;
 	/** Zero-based MIDI channel, 0–15. */
 	readonly channel: number;
 }
@@ -90,6 +92,8 @@ export function normalizeMidiNote(value: unknown): MidiNote {
 	const startFrame = integer(input.startFrame, 0, Number.MAX_SAFE_INTEGER, 'MIDI note.startFrame');
 	const durationFrames = integer(input.durationFrames, 1, Number.MAX_SAFE_INTEGER, 'MIDI note.durationFrames');
 	if (!Number.isSafeInteger(startFrame + durationFrames)) throw new RangeError('MIDI note end exceeds the frame range.');
+	const channel = integer(input.channel ?? 0, 0, 15, 'MIDI note.channel');
+	const onsetStop = normalizeOnsetStop(input.onsetStop, startFrame, channel);
 	return {
 		id: input.id,
 		pitch: integer(input.pitch, 0, 127, 'MIDI note.pitch'),
@@ -97,8 +101,26 @@ export function normalizeMidiNote(value: unknown): MidiNote {
 		durationFrames,
 		velocity: integer(input.velocity, 0, 127, 'MIDI note.velocity'),
 		...(input.releaseVelocity === undefined ? {} : { releaseVelocity: integer(input.releaseVelocity, 0, 127, 'MIDI note.releaseVelocity') }),
-		channel: integer(input.channel ?? 0, 0, 15, 'MIDI note.channel'),
+		channel, ...(onsetStop ? { onsetStop } : {}),
 	};
+}
+
+function normalizeOnsetStop(value: unknown, frame: number, channel: number): MidiNote['onsetStop'] {
+	if (value === undefined) return undefined;
+	const stop = record(value, 'MIDI note.onsetStop');
+	const stopFrame = integer(stop.frame, 0, Number.MAX_SAFE_INTEGER, 'MIDI note.onsetStop.frame');
+	const stopChannel = integer(stop.channel, 0, 15, 'MIDI note.onsetStop.channel');
+	if (stop.kind !== 'all-sound-off' || stopFrame !== frame || stopChannel !== channel
+		|| Object.keys(stop).some(key => !['kind', 'frame', 'channel'].includes(key))) {
+		throw new RangeError('MIDI note.onsetStop must name its original onset and channel.');
+	}
+	return { kind: 'all-sound-off', frame: stopFrame, channel: stopChannel };
+}
+function editedMidiNote(previous: MidiNote, changes: Partial<MidiNote>): MidiNote {
+	const next = { ...previous, ...changes, id: previous.id };
+	next.onsetStop = next.startFrame === previous.startFrame && next.channel === previous.channel
+		? previous.onsetStop : undefined;
+	return normalizeMidiNote(next);
 }
 
 export function normalizeMidiNotes(value: unknown): readonly MidiNote[] {
@@ -128,7 +150,8 @@ export function normalizeMidiTrackData(value: unknown): MidiTrackData {
 }
 
 export function addMidiNoteData(data: MidiClipData, note: MidiNote): MidiClipData {
-	return normalizeMidiClipData({ ...data, notes: [...data.notes, note] });
+	const authored = { ...note }; delete authored.onsetStop;
+	return normalizeMidiClipData({ ...data, notes: [...data.notes, authored] });
 }
 
 export function updateMidiNoteData(
@@ -139,7 +162,7 @@ export function updateMidiNoteData(
 	if (!data.notes.some(note => note.id === noteId)) throw new ReferenceError(`MIDI note ${noteId} is missing.`);
 	return normalizeMidiClipData({
 		...data,
-		notes: data.notes.map(note => note.id === noteId ? { ...note, ...updates, id: note.id } : note),
+		notes: data.notes.map(note => note.id === noteId ? editedMidiNote(note, updates) : note),
 	});
 }
 
@@ -155,7 +178,7 @@ export function updateMidiNotesData(
 		const previous = notes.get(id);
 		if (!previous) throw new ReferenceError(`MIDI note ${id} is missing.`);
 		// Validate each step, including repeated edits to one note, before publishing the batch.
-		notes.set(id, normalizeMidiNote({ ...previous, ...changes, id }));
+		notes.set(id, editedMidiNote(previous, changes));
 	}
 	return normalizeMidiClipData({ ...data, notes: data.notes.map(note => notes.get(note.id)!) });
 }

@@ -6,6 +6,12 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Source editor display and authoring share the owning project tempo and sample grid. */
 export const FOUNDATION_TIME_CONVERSION_SOURCE_EDITOR_SITES: readonly FoundationTimeConversionSite[] = deepFreezeAuditSites([
 	{
+		id: 'midi-file-import-clock',
+		file: 'src/common/editor/midi-file.ts',
+		behavior: 'SMF import accumulates exact PPQ microsecond/tick numerators or SMPTE rational frame-rate/tick coordinates, including 30000/1001 fps, then rounds each note, event and conductor point once to its nearest destination sample.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
 		id: 'm4a-chapter-region-admission',
 		file: 'src/common/editor/export-embedded-chapter-encoding.ts',
 		behavior: 'M4A chapter admission uses the chapter resolver’s nearest-sample nominal endpoint when no actual rendered delivery length is supplied, so unsupported independent ends are refused against the same output clock.',

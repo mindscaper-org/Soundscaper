@@ -8,7 +8,7 @@ interface TickMessage {
 }
 interface NoteStart { readonly event: TickMessage; readonly track: number }
 interface RoutedMessage extends NoteStart { readonly destination: string; readonly order: number }
-interface NoteRelease { readonly tick: number; readonly velocity: number }
+interface NoteRelease { readonly tick: number; readonly velocity: number; readonly allSoundOff?: true }
 
 /** Synchronous SMF tracks can share a destination and release each other's keys. */
 export function midiFileNoteReleases(tracks: readonly Readonly<{ events: readonly TickMessage[] }>[]): ReadonlyMap<TickMessage, NoteRelease> {
@@ -35,7 +35,9 @@ export function midiFileNoteReleases(tracks: readonly Readonly<{ events: readonl
 			const notes = keys.get(pitch) ?? [];
 			notes.push({ event, track }); keys.set(pitch, notes); active.set(destination, keys);
 		} else if (type === 176) {
-			for (const notes of keys.values()) for (const note of notes) releases.set(note.event, { tick: event.tick, velocity: 0 });
+			for (const notes of keys.values()) for (const note of notes) releases.set(note.event, {
+				tick: event.tick, velocity: 0, ...(event.data[0] === 120 ? { allSoundOff: true as const } : {}),
+			});
 			active.delete(destination);
 		} else {
 			const notes = keys.get(pitch);

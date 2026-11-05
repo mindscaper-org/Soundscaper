@@ -10,6 +10,12 @@ export function createMidiClipNoteProjection(data: MidiClipData) {
 	return function* project(start: number, frames: number, global: (frame: number) => number): Generator<MidiNote> {
 		const reversed = global(start + frames) < global(start);
 		for (const { note, soundEnd } of notes) {
+			if (note.onsetStop) {
+				if (note.startFrame < start || note.startFrame >= start + frames) continue;
+				const startFrame = global(note.startFrame);
+				yield { ...note, startFrame, onsetStop: { ...note.onsetStop, frame: startFrame } };
+				continue;
+			}
 			const from = Math.max(start, note.startFrame);
 			const keyEnd = note.startFrame + note.durationFrames;
 			let to = Math.min(start + frames, keyEnd);
