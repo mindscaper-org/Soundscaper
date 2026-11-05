@@ -2,6 +2,7 @@
 
 import type { ParameterAddress } from '../../../parameter-address.ts';
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts'; import type { AnalysisAudioBuffer, AnalysisRange } from '../analysis-service.ts';
+import { projectAnalysisTrackDetectors } from './analysis-track-detectors.ts';
 
 /** Group, send and cue strips gate audibility exactly like tracks do. */
 export interface AnalysisRenderMixerStrip {
@@ -68,7 +69,7 @@ export function createAnalysisRenderer<Project extends AnalysisRenderProject, Bu
 		if (scope === 'track') {
 			const selected = snapshot.tracks.find((track) => track.id === selectedTrackId);
 			if (!selected || selected.type !== 'audio') throw createLocalizedError(Error, dependencies.copy, 'audioTrackRequired');
-			snapshot = { ...snapshot,
+			snapshot = projectAnalysisTrackDetectors(snapshot, selected.id) ?? { ...snapshot,
 				tracks: snapshot.tracks.map((track) => track.type === 'audio'
 					? { ...track, mute: track.id !== selected.id, solo: false } : track),
 				master: { gain: 1, effects: [] },
