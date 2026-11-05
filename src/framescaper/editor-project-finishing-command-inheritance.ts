@@ -17,6 +17,7 @@ import {
 	type FramescaperProjectFinishing,
 } from './editor-project-finishing-validation.ts';
 import { reconcileInheritedFramescaperProjectStateFinishing } from './editor-project-finishing-inherited-state.ts';
+import { assertJoinedCameraFinishing } from './editor-join-finishing-admission.ts';
 
 /** Apply one maintained visual command without allowing it to observe or erase finishing state. */
 export function applyInheritedFramescaperProjectCommandFinishing(
@@ -26,6 +27,7 @@ export function applyInheritedFramescaperProjectCommandFinishing(
 	options: FramescaperProjectCommandOptionsVisual,
 ): FramescaperProjectFinishing {
 	validateFramescaperProjectFinishing(profile, project);
+	assertJoinedCameraFinishing(project, command);
 	const foundation = framescaperProjectVisualFoundationFinishing(profile, project);
 	const finishing = project as unknown as Readonly<Record<string, unknown>>;
 	// Compatible inherited strip commands must start from the accepted curves.

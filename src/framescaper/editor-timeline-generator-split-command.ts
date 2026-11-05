@@ -13,14 +13,27 @@ import type { FramescaperVideoVisualPresentationSetCommandFinishing } from './ed
 export function prepareTimelineGeneratorSplitCommand(project: FramescaperProjectTimelineImage,
 	command: FramescaperProjectCommandTimelineImage): FramescaperProjectCommandTimelineImage {
 	const clips = new Map<string, VideoGeneratorClipV1 | VideoStillClipV1>();
+	const cameras = new Set<string>();
 	for (const clip of project.clips as readonly Readonly<Record<string, unknown>>[]) {
 		if (clip.kind === 'generator') clips.set(String(clip.id), normalizeVideoGeneratorClipV1(clip));
 		else if (clip.kind === 'still') clips.set(String(clip.id), normalizeVideoStillClipV1(clip));
+		else if (clip.kind === 'video') cameras.add(String(clip.id));
 	}
 	const owners = new Map(project.tracks.flatMap(track => (Array.isArray(track.clipIds)
 		? track.clipIds as readonly string[] : []).map(id => [id, track.id] as const)));
 	const presentations = createSplitVisualPresentationPlanner(project.videoVisualPresentations as readonly unknown[]);
+	const prepared = new Map<string, FramescaperVideoVisualPresentationSetCommandFinishing>();
+	collectPrepared(command);
 	return visit(command);
+
+	function collectPrepared(value: FramescaperProjectCommandTimelineImage): void {
+		if (value.type === 'batch') {
+			for (const child of (value as FramescaperProjectCommandBatchTimelineImage).commands) collectPrepared(child);
+		} else if (value.type === 'video-visual-presentation/set') {
+			const mutation = value as FramescaperVideoVisualPresentationSetCommandFinishing;
+			if (mutation.expectedPresentation === null) prepared.set(mutation.presentationId, mutation);
+		}
+	}
 
 	function visit(value: FramescaperProjectCommandTimelineImage): FramescaperProjectCommandTimelineImage {
 		if (value.type === 'batch') return { ...value, commands: (value as FramescaperProjectCommandBatchTimelineImage).commands.map(visit) };
@@ -39,7 +52,13 @@ export function prepareTimelineGeneratorSplitCommand(project: FramescaperProject
 		if (value.type !== 'clip/split') return value;
 		const split = value as Extract<AudioEditorCommand, { type: 'clip/split' }>;
 		const expectedClip = clips.get(split.clipId);
-		if (!expectedClip) return value;
+		if (!expectedClip) {
+			if (!cameras.has(split.clipId)) return value;
+			cameras.add(split.rightClipId);
+			const copies = presentations.copy(split.clipId, split.rightClipId).filter(copy =>
+				JSON.stringify(prepared.get(copy.presentationId)?.presentation) !== JSON.stringify(copy.presentation));
+			return copies.length ? { type: 'batch', commands: [value, ...copies] } : value;
+		}
 		const sequence = project.sequences.find(item => item.id === expectedClip.sequenceId);
 		if (!sequence) throw new ReferenceError('A generated visual split requires its sequence clock.');
 		const boundary = sampleFrameToVideoFrame(split.atFrame, sequence.rate, project.sampleRate, 'point');
