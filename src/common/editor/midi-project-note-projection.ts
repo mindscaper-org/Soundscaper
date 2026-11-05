@@ -10,16 +10,19 @@ export function createMidiClipNoteProjection(data: MidiClipData) {
 	return function* project(start: number, frames: number, global: (frame: number) => number): Generator<MidiNote> {
 		const reversed = global(start + frames) < global(start);
 		for (const { note, soundEnd } of notes) {
-			const keyEnd = note.startFrame + note.durationFrames;
+			const keyEnd = note.onsetStop?.kind === 'all-notes-off' ? note.startFrame : note.startFrame + note.durationFrames;
 			if (reversed && Math.min(start + frames, soundEnd) > Math.max(start, keyEnd)) {
 				throw new RangeError('Reversed MIDI pedal-held tails cannot retain their key-release semantics in this delivery. Save the native project.');
 			}
-			if (note.onsetStop) {
-				if (note.startFrame < start || note.startFrame >= start + frames) continue;
+			if (note.onsetStop && note.startFrame >= start && note.startFrame < start + frames) {
 				const startFrame = global(note.startFrame);
-				yield { ...note, startFrame, onsetStop: { ...note.onsetStop, frame: startFrame } };
+				const onsetStop = note.onsetStop.kind === 'all-notes-off' ? { ...note.onsetStop, frame: startFrame,
+					soundEndFrame: note.onsetStop.soundEndFrame === null ? null : global(note.onsetStop.soundEndFrame) }
+					: { ...note.onsetStop, frame: startFrame };
+				yield { ...note, startFrame, onsetStop };
 				continue;
 			}
+			if (note.onsetStop?.kind === 'all-sound-off') continue;
 			const from = Math.max(start, note.startFrame);
 			let to = Math.min(start + frames, keyEnd);
 			if (!reversed && keyEnd <= start && soundEnd > start) {
@@ -27,7 +30,7 @@ export function createMidiClipNoteProjection(data: MidiClipData) {
 				to = Math.min(start + frames, start + 1);
 			}
 			if (to <= from) continue;
-			yield { ...note, startFrame: Math.min(global(from), global(to)), durationFrames: Math.max(1, Math.abs(global(to) - global(from))) };
+			yield { ...note, onsetStop: undefined, startFrame: Math.min(global(from), global(to)), durationFrames: Math.max(1, Math.abs(global(to) - global(from))) };
 		}
 	};
 }

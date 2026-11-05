@@ -10,6 +10,8 @@ export interface MidiFileEvent {
 	readonly metaType?: number;
 	/** Imported SMPTE Offset role: only the original conductor's offset is active. */
 	readonly conductor?: boolean;
+	/** Parser-owned identity of a channel-mode key release; no bytes are added to SMF. */
+	readonly releaseId?: string;
 }
 
 export interface MidiFileTrack {
@@ -94,10 +96,15 @@ export function validateMidiFileDocument(document: MidiFileDocument): void {
 			midiFileInteger(note.channel, 0, 15, 'channel');
 			midiFileInteger(note.startFrame, 0, Number.MAX_SAFE_INTEGER, 'note start');
 			midiFileInteger(note.durationFrames, 1, Number.MAX_SAFE_INTEGER - note.startFrame, 'note duration');
-			if (note.onsetStop && (note.onsetStop.kind !== 'all-sound-off' || note.onsetStop.frame !== note.startFrame
-				|| note.onsetStop.channel !== note.channel)) throw new RangeError('Invalid MIDI note onset stop.');
+			if (note.onsetStop && (!['all-sound-off', 'all-notes-off'].includes(note.onsetStop.kind) || note.onsetStop.frame !== note.startFrame
+				|| note.onsetStop.channel !== note.channel || note.onsetStop.kind === 'all-notes-off' && (!validReleaseId(note.onsetStop.releaseId)
+					|| note.onsetStop.soundEndFrame !== null && (!Number.isSafeInteger(note.onsetStop.soundEndFrame) || note.onsetStop.soundEndFrame < note.startFrame)))) {
+				throw new RangeError('Invalid MIDI note onset stop.');
+			}
 		}
 		for (const event of track.events ?? []) {
+			if (event.releaseId !== undefined && (!validReleaseId(event.releaseId) || (event.status & 240) !== 176
+				|| ![123, 124, 125, 126, 127].includes(event.data[0]!))) throw new RangeError('Invalid MIDI key-release provenance.');
 			if (event.conductor !== undefined && (typeof event.conductor !== 'boolean' || event.status !== 255 || event.metaType !== 0x54)) {
 				throw new RangeError('Invalid MIDI conductor provenance.');
 			}
@@ -127,3 +134,5 @@ export function validateMidiFileDocument(document: MidiFileDocument): void {
 		if (signature.notated32ndNotesPerQuarter !== undefined) midiFileInteger(signature.notated32ndNotesPerQuarter, 0, 255, 'notation clock');
 	}
 }
+
+function validReleaseId(value: unknown): value is string { return typeof value === 'string' && value.length > 0 && value.length <= 2048; }

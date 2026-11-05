@@ -16,8 +16,10 @@ export interface MidiNote {
 	readonly velocity: number;
 	/** Release velocity retained from MIDI note-off messages. */
 	readonly releaseVelocity?: number;
-	/** Parser-owned immediate CC120 release, bound to this original source onset. */
-	readonly onsetStop?: Readonly<{ kind: 'all-sound-off'; frame: number; channel: number }>;
+	/** Parser-owned release bound to this original source onset and causal mode message. */
+	readonly onsetStop?: Readonly<{ frame: number; channel: number } & (
+		{ kind: 'all-sound-off' } | { kind: 'all-notes-off'; releaseId: string; soundEndFrame: number | null }
+	)>;
 	/** Authored SMF FF21 destination; explicit zero survives later selector changes. */
 	readonly midiPort?: number;
 	/** Zero-based MIDI channel, 0–15. */
@@ -113,11 +115,19 @@ function normalizeOnsetStop(value: unknown, frame: number, channel: number): Mid
 	const stop = record(value, 'MIDI note.onsetStop');
 	const stopFrame = integer(stop.frame, 0, Number.MAX_SAFE_INTEGER, 'MIDI note.onsetStop.frame');
 	const stopChannel = integer(stop.channel, 0, 15, 'MIDI note.onsetStop.channel');
-	if (stop.kind !== 'all-sound-off' || stopFrame !== frame || stopChannel !== channel
-		|| Object.keys(stop).some(key => !['kind', 'frame', 'channel'].includes(key))) {
+	const keyRelease = stop.kind === 'all-notes-off';
+	if ((!keyRelease && stop.kind !== 'all-sound-off') || stopFrame !== frame || stopChannel !== channel
+		|| Object.keys(stop).some(key => !['kind', 'frame', 'channel', ...(keyRelease ? ['releaseId', 'soundEndFrame'] : [])].includes(key))) {
 		throw new RangeError('MIDI note.onsetStop must name its original onset and channel.');
 	}
-	return { kind: 'all-sound-off', frame: stopFrame, channel: stopChannel };
+	return keyRelease ? { kind: 'all-notes-off', frame: stopFrame, channel: stopChannel, releaseId: midiReleaseId(stop.releaseId),
+		soundEndFrame: stop.soundEndFrame === null ? null : integer(stop.soundEndFrame, frame, Number.MAX_SAFE_INTEGER, 'MIDI note.onsetStop.soundEndFrame') }
+		: { kind: 'all-sound-off', frame: stopFrame, channel: stopChannel };
+}
+
+function midiReleaseId(value: unknown): string {
+	if (typeof value !== 'string' || !value || value.length > 2048) throw new RangeError('Invalid MIDI onset-stop release ID.');
+	return value;
 }
 function editedMidiNote(previous: MidiNote, changes: Partial<MidiNote>): MidiNote {
 	const next = { ...previous, ...changes, id: previous.id };
@@ -233,6 +243,9 @@ function normalizeInterchange(value: unknown): MidiClipInterchange {
 			throw new RangeError('Invalid MIDI event.conductor provenance.');
 		}
 		const data = boundedArray(event.data, 1_048_576, 'MIDI event.data').map(byte => integer(byte, 0, status < 0xf0 ? 127 : 255, 'MIDI event byte'));
+		if (event.releaseId !== undefined && ((status & 240) !== 176 || ![123, 124, 125, 126, 127].includes(data[0]!))) {
+			throw new RangeError('Invalid MIDI key-release provenance.');
+		}
 		if (status < 0xf0) {
 			const type = status & 0xf0;
 			if (type === 0x80 || type === 0x90 || data.length !== (type === 0xc0 || type === 0xd0 ? 1 : 2)) {
@@ -246,6 +259,7 @@ function normalizeInterchange(value: unknown): MidiClipInterchange {
 			data,
 			...(event.metaType === undefined ? {} : { metaType: integer(event.metaType, 0, 127, 'MIDI event.metaType') }),
 			...(conductor === undefined ? {} : { conductor }),
+			...(event.releaseId === undefined ? {} : { releaseId: midiReleaseId(event.releaseId) }),
 		};
 	});
 	const tempos = boundedArray(input.tempos, 100_000, 'MIDI interchange.tempos').map(value => {

@@ -57,11 +57,13 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 				occurrence += 1;
 				for (const note of noteProjection(start, sourceFrames, global)) {
 					reserveEvents(1);
-					notes.push({ ...note, id: `${prefix}:${note.id}` });
+					const onsetStop = note.onsetStop?.kind === 'all-notes-off'
+						? { ...note.onsetStop, releaseId: `${prefix}:${note.onsetStop.releaseId}` } : note.onsetStop;
+					notes.push({ ...note, id: `${prefix}:${note.id}`, ...(onsetStop ? { onsetStop } : {}) });
 				}
 				const visible = eventProjection.events(start, sourceFrames, timelineStart, global, initializePerformance);
 				reserveEvents(visible.length);
-				for (const event of visible) events.push(event);
+				for (const event of visible) events.push(event.releaseId === undefined ? event : { ...event, releaseId: `${prefix}:${event.releaseId}` });
 				if (preserveTempos) {
 					const visible = eventProjection.tempos(start, sourceFrames, timelineStart, global);
 					addTiming(tempos, visible);

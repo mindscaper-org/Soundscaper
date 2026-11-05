@@ -48,6 +48,6 @@ test('same-tick All Notes Off remains pedal-held and is not treated as immediate
 	const f = midiServiceFixture();
 	await f.service.importDocument(parseMidiFile(midi(true, 123), { sampleRate: 8000 }));
 	const clip = f.project().clips[0]; assert.ok(clip);
-	assert.equal(readMidiClip(clip)?.notes[0]?.onsetStop, undefined);
+	assert.equal(readMidiClip(clip)?.notes[0]?.onsetStop?.kind, 'all-notes-off');
 	assert.ok(f.pcm.get(clip.sourceId)?.[0]?.slice(100, 1000).some(value => value !== 0));
 });

@@ -113,6 +113,9 @@ export function midiExpressionPhaseArea(state: MidiExpressionState, frame: numbe
 export function midiNoteSoundEnd(note: MidiNote, timeline: MidiExpressionTimeline): number {
 	if (note.onsetStop?.kind === 'all-sound-off' && note.onsetStop.frame === note.startFrame
 		&& note.onsetStop.channel === note.channel) return note.startFrame;
+	if (note.onsetStop?.kind === 'all-notes-off' && note.onsetStop.frame === note.startFrame && note.onsetStop.channel === note.channel) {
+		return note.onsetStop.soundEndFrame ?? Number.POSITIVE_INFINITY;
+	}
 	let end = Math.min(note.startFrame + note.durationFrames,
 		timeline.keyReleases[firstFrameAfter(timeline.keyReleases, note.startFrame)] ?? Number.POSITIVE_INFINITY);
 	const atRelease = midiExpressionStateIndex(timeline.states, end);

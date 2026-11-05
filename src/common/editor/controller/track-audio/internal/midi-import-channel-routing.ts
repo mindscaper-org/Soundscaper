@@ -11,7 +11,7 @@ interface RoutedEvent {
 	readonly destination?: MidiImportDestination;
 }
 
-const EXPRESSION_CONTROLLERS = new Set([7, 11, 64, 120, 121, 123]);
+const EXPRESSION_CONTROLLERS = new Set([7, 11, 64, 120, 121, 123, 124, 125, 126, 127]);
 
 /** Keep separately authored channel controls with their unique playable owner. */
 export function routeMidiImportControls(tracks: readonly MidiFileTrack[]): readonly MidiFileTrack[] {

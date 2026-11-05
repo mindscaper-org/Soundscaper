@@ -7,7 +7,7 @@ import {
 	type MidiFileDocument, type MidiFileEvent, type MidiFileReadOptions, type MidiFileSignature, type MidiFileTempo,
 } from './midi-file-types.ts';
 import { createMidiFileWriteClock } from './midi-file-write-clock.ts';
-import { midiFileNoteReleases } from './midi-file-note-releases.ts';
+import { midiFileNoteReleaseId, midiFileNoteReleases } from './midi-file-note-releases.ts';
 import { createMidiFileNoteOrderGuard } from './midi-file-note-order.ts';
 import { decodeMidiFileText } from './midi-file-text.ts';
 import { roundRational } from './timeline-time.ts';
@@ -144,16 +144,20 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 		let noteIndex = 0;
 		const hasPorts = track.events.some(event => event.metaType === 0x21 && event.data.length === 1);
 		let port = 0;
-		const finish = (start: TickEvent, endTick: number, releaseVelocity = 0, allSoundOff = false): void => {
+		const finish = (start: TickEvent, endTick: number, releaseVelocity = 0, allSoundOff = false,
+			allNotesOff?: Readonly<{ id: string; soundEndTick: number | null }>): void => {
 			const startFrame = tickToFrame(start.tick);
 			const endFrame = tickToFrame(endTick);
+			const stop = allNotesOff ? { kind: 'all-notes-off' as const, frame: startFrame, channel: start.status & 15,
+				releaseId: allNotesOff.id, soundEndFrame: allNotesOff.soundEndTick === null ? null : tickToFrame(allNotesOff.soundEndTick) }
+				: allSoundOff ? { kind: 'all-sound-off' as const, frame: startFrame, channel: start.status & 15 } : null;
 			notes.push({ id: `midi-${trackIndex}-${noteIndex++}`, pitch: start.data[0]!, channel: start.status & 15,
 				velocity: start.data[1]!, startFrame, durationFrames: Math.max(1, endFrame - startFrame),
 				...(releaseVelocity ? { releaseVelocity } : {}),
 				...(hasPorts ? { midiPort: port } : {}),
-				...(allSoundOff && endFrame === startFrame ? { onsetStop: { kind: 'all-sound-off' as const, frame: startFrame, channel: start.status & 15 } } : {}) });
+				...(stop && endFrame === startFrame ? { onsetStop: stop } : {}) });
 		};
-		for (const event of track.events) {
+		for (const [order, event] of track.events.entries()) {
 			const type = event.status & 240;
 			if (event.metaType === 0x21 && event.data.length === 1) port = event.data[0]!;
 			if (event.metaType === 81) continue;
@@ -165,10 +169,11 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 			} else if (type === 128 || type === 144) {
 				if (type === 144 && event.data[1]) {
 					const release = releases.get(event);
-					finish(event, release?.tick ?? track.endTick, release?.velocity ?? 0, release?.allSoundOff);
+					finish(event, release?.tick ?? track.endTick, release?.velocity ?? 0, release?.allSoundOff, release?.allNotesOff);
 				}
 			} else {
 				events.push({ frame: tickToFrame(event.tick), status: event.status, data: event.data, ...(event.metaType === undefined ? {} : { metaType: event.metaType }),
+					...(type === 176 && [123, 124, 125, 126, 127].includes(event.data[0]!) ? { releaseId: midiFileNoteReleaseId(trackIndex, order) } : {}),
 					...(event.metaType === 0x54 ? { conductor: format === 0 || trackIndex === 0 } : {}) });
 			}
 		}
@@ -271,6 +276,7 @@ export function writeMidiFile(document: MidiFileDocument): Uint8Array<ArrayBuffe
 		const events: TickEvent[] = [{ tick: 0, status: 255, metaType: 3, data: [...textEncoder.encode(track.name)] }];
 		const auxiliary = (track.events ?? []).filter(writtenAuxiliaryEvent);
 		const stops = new Map<string, number>();
+		const keyReleases = new Map<string, number>();
 		let port = 0;
 		for (const [position, event] of auxiliary.entries()) {
 			if (event.status === 255 && event.metaType === 0x21 && event.data.length === 1) port = event.data[0]!;
@@ -279,6 +285,9 @@ export function writeMidiFile(document: MidiFileDocument): Uint8Array<ArrayBuffe
 			if ((event.status & 240) === 176 && event.data[0] === 120) {
 				const key = `${event.frame}:${event.status & 15}:${port}`;
 				if (!stops.has(key)) stops.set(key, order - 0.5 / (auxiliary.length + 1));
+			} else if (event.releaseId !== undefined) {
+				const key = `${event.releaseId}:${event.frame}:${event.status & 15}:${port}`;
+				keyReleases.set(key, keyReleases.has(key) ? Number.NaN : order - 0.5 / (auxiliary.length + 1));
 			}
 		}
 		if (!separateConductor && index === 0) for (const event of conductor) events.push(event);
@@ -287,8 +296,10 @@ export function writeMidiFile(document: MidiFileDocument): Uint8Array<ArrayBuffe
 		}
 		for (const note of track.notes) {
 			if (note.velocity === 0) throw new RangeError('A zero-velocity MIDI note cannot be exported as a sounding note. Raise its velocity or delete it.');
-			const stopOrder = note.onsetStop ? stops.get(`${note.startFrame}:${note.channel}:${note.midiPort ?? 0}`) : undefined;
-			if (note.onsetStop && stopOrder === undefined) throw new RangeError('MIDI export cannot preserve a same-frame panic whose causal event is on another track. Save the native project.');
+			const identity = `${note.startFrame}:${note.channel}:${note.midiPort ?? 0}`;
+			const stopOrder = note.onsetStop?.kind === 'all-notes-off' ? keyReleases.get(`${note.onsetStop.releaseId}:${identity}`)
+				: note.onsetStop ? stops.get(identity) : undefined;
+			if (note.onsetStop && (stopOrder === undefined || !Number.isFinite(stopOrder))) throw new RangeError('MIDI export cannot preserve a same-frame panic without its unambiguous local causal event. Save the native project.');
 			const on = { tick: tick(note.startFrame), status: 144 | note.channel, data: [note.pitch, note.velocity], midiPort: note.midiPort, ...(stopOrder === undefined ? {} : { order: stopOrder }) };
 			const off = { tick: note.onsetStop ? tick(note.startFrame) : Math.max(tick(note.startFrame) + 1, tick(note.startFrame + note.durationFrames)),
 				status: 128 | note.channel, data: [note.pitch, note.releaseVelocity ?? 0], midiPort: note.midiPort };
