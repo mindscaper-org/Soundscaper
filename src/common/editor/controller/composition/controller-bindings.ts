@@ -107,8 +107,8 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 	const { handleRecordingPoolChange } = deferControllerMethods(() => services.recording().inputs, ['handleRecordingPoolChange']);
 	const { synchronizeTarget: synchronizeMicrophoneMeterTarget } = deferControllerMethods(() => services.microphoneMeterService(), ['synchronizeTarget']);
 	const { commit, updateSelection, projectChanged, saveNow: saveNowUnsettled, flushProject: flushProjectUnsettled } = deferControllerMethods(() => services.doc().mutation, ['commit', 'updateSelection', 'projectChanged', 'saveNow', 'flushProject']);
-	const saveNow = async (...args: Parameters<typeof saveNowUnsettled>) => { await midiController.settled(); return saveNowUnsettled(...args); };
-	const flushProject = async (...args: Parameters<typeof flushProjectUnsettled>) => { await midiController.settled(); return flushProjectUnsettled(...args); };
+	const saveNow = async (...args: Parameters<typeof saveNowUnsettled>) => { if (midiController.hasPendingEdits()) await midiController.settled(); return saveNowUnsettled(...args); };
+	const flushProject = async (...args: Parameters<typeof flushProjectUnsettled>) => { if (midiController.hasPendingEdits()) await midiController.settled(); return flushProjectUnsettled(...args); };
 	const labels = createEditorLabelActionGroup({
 		getTrack: () => services.tracks().track,
 		getLabelService: () => services.edits().labels,

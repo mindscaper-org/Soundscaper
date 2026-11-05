@@ -117,7 +117,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	};
 	const afterMidiEdits = <Args extends unknown[], Result>(operation: (...args: Args) => Result) => async (...args: Args): Promise<Awaited<Result>> => {
 		const projectId = getProject()?.id;
-		await midi.settled();
+		if (midi.hasPendingEdits()) await midi.settled();
 		if (getProject()?.id !== projectId) throw new Error('The project changed before saving pending MIDI edits.');
 		return await operation(...args);
 	};
