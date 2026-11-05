@@ -103,3 +103,17 @@ test('TTS regeneration refuses overlap without publishing a partial command', ()
 	assert.equal(original.sources.some(({ id }) => id === source.id), false);
 	assert.equal(original.clips.find(({ id }: { id: string }) => id === 'tts-clip')?.durationFrames, 100);
 });
+
+test('TTS regeneration checks neighboring clips against the retained speed', () => {
+	for (const speedRatio of [0.5, 2]) {
+		const history = executeEditorCommand(createEditorHistory(project()), { type: 'clip/transform-many', transforms: [{
+			clipId: 'tts-clip', trackId: 'voice-track', changes: { speedRatio, durationFrames: 100 / speedRatio },
+		}] });
+		const source = generated(speedRatio === 2 ? 300 : 150);
+		const regenerate = () => executeEditorCommand(history, { type: 'batch', commands: [
+			createAddSourceCommand(source), createRegenerateTtsClipCommand('tts-clip', source.id),
+		] });
+		if (speedRatio === 0.5) assert.throws(regenerate, /overlap/u);
+		else assert.equal(regenerate().present.clips.find(({ id }: { id: string }) => id === 'tts-clip')?.durationFrames, 150);
+	}
+});

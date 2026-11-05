@@ -30,8 +30,8 @@ export function regenerateTtsClip(project, clipId, sourceId) {
 		|| source.frameCount < 1) {
 		throw new RangeError('TTS regeneration requires a positive audio source.');
 	}
-	const durationFrames = scaleSampleFrame(source.frameCount, source.sampleRate,
-		project.sampleRate, 'point');
+	const sourceTimelineFrames = scaleSampleFrame(source.frameCount, source.sampleRate, project.sampleRate, 'point');
+	const durationFrames = Math.max(1, Math.round(sourceTimelineFrames / (clip.speedRatio ?? 1)));
 	const newEnd = clip.timelineStartFrame + durationFrames;
 	if (!Number.isSafeInteger(durationFrames) || durationFrames < 1 || !Number.isSafeInteger(newEnd)) {
 		throw new RangeError('Regenerated TTS clip exceeds safe timeline frames.');
