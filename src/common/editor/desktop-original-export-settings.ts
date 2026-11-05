@@ -6,6 +6,7 @@ import { inspectWavBlobPcm } from './wav-import.js';
 import { originalMpegExportSettings, readOriginalMpegFrameHeader } from './desktop-original-mpeg-settings.ts';
 import { readDesktopOriginalM4aMovie } from './desktop-original-m4a-movie.ts';
 import { readDesktopOriginalAudioBitRate } from './desktop-original-audio-bit-rate.ts';
+import { readOriginalFlacHeader } from './desktop-original-flac-settings.ts';
 import { BIT_RATES } from './media-export-values.js';
 
 type DataRecord = Readonly<Record<string, unknown>>;
@@ -54,10 +55,9 @@ export async function resolveDesktopOriginalExportSettings(
 			header = frameHeader;
 		}
 		if (format === 'flac') {
-			const offset = id3Offset(header);
-			if (offset !== null && offset + 42 > header.length && offset + 42 <= file.size) {
-				header = new Uint8Array(await file.slice(offset, offset + 42).arrayBuffer());
-			}
+			const flac = await readOriginalFlacHeader(file, header);
+			if (!flac) return null;
+			header = flac;
 		}
 		if (format === 'wavpack') header = await originalWavPackAudioHeader(file, header);
 		if (format === 'ogg-vorbis' && matchesEncodedContainer('opus', header)) format = 'opus';
