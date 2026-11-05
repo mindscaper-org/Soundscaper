@@ -927,3 +927,10 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      resizing keeps one bounded source-time delta. Focused math and painting
      owners reduce the capped NoteGrid and canvas components. Covered by native
      authored MIDI/export, source-clock and gesture regressions. Upstream-PR candidate.
+
+124. `SelectionToolbar` passes its host's disabled endpoint-editing policy into
+     the existing `TimeCode` controls. Start/end fields cannot open value entry
+     when no range is active or editing is blocked; duration viewing remains
+     available. Shared endpoint props reduce duplicate component input. Covered
+     by mounted admission and active-range/format regressions plus a physical
+     pointer and native project-export workflow. Upstream-PR candidate.
