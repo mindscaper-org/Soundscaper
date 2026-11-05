@@ -216,8 +216,8 @@ export function writeAllegroFile(document: MidiFileDocument): string {
 		}
 		const events: { frame: number; fields: string }[] = [];
 		if (track.program !== undefined && !track.events?.some(event => (event.status & 240) === 192)) events.push({ frame: 0, fields: `V0 -programi:${track.program}` });
-		for (const note of track.notes) events.push({ frame: note.startFrame, fields: `V${note.channel} K${note.pitch} P${note.pitch} U${seconds(note.durationFrames)} L${note.velocity}` });
 		for (const event of track.events ?? []) events.push({ frame: event.frame, fields: allegroEventFields(event) });
+		for (const note of track.notes) events.push({ frame: note.startFrame, fields: `V${note.channel} K${note.pitch} P${note.pitch} U${seconds(note.durationFrames)} L${note.velocity}` });
 		for (const event of events.sort((a, b) => a.frame - b.frame)) lines.push(`T${seconds(event.frame)} ${event.fields}`);
 	}
 	const text = `${lines.join('\n')}\n`;
