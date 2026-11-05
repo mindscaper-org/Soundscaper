@@ -10,6 +10,7 @@ import type { NativeAudioDeviceReport, NativeAudioInventoryReport } from '../src
 import type { NativeAudioSessionOpenRequestV1, SoundscaperNativeServicesBridge } from '../src/common/editor/ui/soundscaper-native-services-bridge.ts';
 import type { MicrophoneMeterInputReplacement } from '../src/common/editor/controller/recording/microphone-meter-service.ts';
 import { deferred } from './helpers/async-test-control.ts';
+import type { RecordingRoute } from '../src/common/editor/recording-routing.js';
 
 test('native host selection replaces the inventory and connects the selected devices at the recording rate', async () => {
 	const fixture = hostFixture();
@@ -197,15 +198,82 @@ test('meter retirement precedes native AudioContext replacement', async () => {
 	finally { await fixture.runtime.dispose(); }
 });
 
+test('an authored second native input reconnects the session instead of leaving a valid Record pin unavailable', async () => {
+	const fixture = hostFixture('wasapi');
+	try {
+		await fixture.runtime.refresh();
+		assert.equal(fixture.opened[0]?.channelCount, 1);
+		fixture.changeRoutes({ track: { kind: 'device', deviceId: 'native:wasapi:in:input-wasapi', channelStart: 1, channelCount: 1 } });
+		await fixture.runtime.settle();
+		assert.equal(fixture.opened[2]?.channelCount, 2, 'Mono2 requires both physical input planes even while global Mono remains selected');
+		assert.equal(fixture.settings().preferredInputChannelCount, 1);
+		assert.equal(fixture.opened[2]?.candidates[0]?.deviceHandle, 'input-wasapi');
+		assert.equal(fixture.opened[3]?.channelCount, 2, 'the selected speaker format is unchanged');
+		fixture.changeRoutes({ track: { kind: 'device', deviceId: 'native:wasapi:in:input-wasapi', channelStart: 0, channelCount: 1 } });
+		await fixture.runtime.settle();
+		assert.equal(fixture.opened[4]?.channelCount, 1);
+	} finally { await fixture.runtime.dispose(); }
+});
+
+test('restored native routes request their complete physical extent and ignore unrelated sources', async () => {
+	const fixture = hostFixture('wasapi', false, [
+		{ handle: 'input-wasapi', label: 'Eight-input interface', direction: 'input', channelCount: 8, isDefault: true },
+		{ handle: 'output-wasapi', label: 'Speakers', direction: 'output', channelCount: 2 },
+	], { routes: {
+		pair: { kind: 'device', deviceId: 'default', channelStart: 4, channelCount: 2 },
+		other: { kind: 'device', deviceId: 'native:wasapi:in:other', channelStart: 30, channelCount: 2 },
+		desktop: { kind: 'display', channelStart: 0, channelCount: 2 },
+	} });
+	try {
+		await fixture.runtime.refresh();
+		assert.equal(fixture.opened[0]?.channelCount, 6);
+		fixture.changeRoutes({ pair: { kind: 'device', deviceId: 'default', channelStart: 4, channelCount: 2 },
+			lower: { kind: 'device', deviceId: 'native:wasapi:in:input-wasapi', channelStart: 2, channelCount: 1 } });
+		await fixture.runtime.settle();
+		assert.equal(fixture.opened.length, 2, 'unchanged physical demand must not close a working native session');
+	} finally { await fixture.runtime.dispose(); }
+});
+
+test('native route demand preserves the actual hardware capacity and existing global stereo minimum', async () => {
+	const fixture = hostFixture('wasapi', false, undefined, { routes: {
+		unavailable: { kind: 'device', deviceId: 'native:wasapi:in:input-wasapi', channelStart: 2, channelCount: 1 },
+	} });
+	try {
+		await fixture.runtime.refresh();
+		assert.equal(fixture.opened[0]?.channelCount, 2, 'an unavailable third plane cannot be invented on stereo hardware');
+		fixture.change({ preferredInputChannelCount: 2 }); await fixture.runtime.settle();
+		fixture.changeRoutes({}); await fixture.runtime.settle();
+		assert.equal(fixture.opened.at(-2)?.channelCount, 2, 'removing an explicit route preserves the selected global Stereo format');
+	} finally { await fixture.runtime.dispose(); }
+});
+
+test('returning to the prior native channel demand during a pending rebind still attaches the latest pin', async () => {
+	const entered = deferred<void>(), release = deferred<void>();
+	const fixture = hostFixture('wasapi', false, undefined, { bind: async id => {
+		if (id === 'session-6') { entered.resolve(); await release.promise; }
+	} });
+	const pin = (channelStart: number) => ({ track: { kind: 'device' as const, deviceId: 'native:wasapi:in:input-wasapi', channelStart, channelCount: 1 } });
+	try {
+		await fixture.runtime.refresh();
+		fixture.changeRoutes(pin(1)); await fixture.runtime.settle();
+		fixture.changeRoutes(pin(0)); await entered.promise;
+		fixture.changeRoutes(pin(1)); release.resolve(); await fixture.runtime.settle();
+		assert.equal(fixture.opened.filter(request => request.direction === 'input').at(-1)?.channelCount, 2,
+			'the old connected key cannot suppress a newer pin while its physical route is being replaced');
+	} finally { release.resolve(); await fixture.runtime.dispose(); }
+});
+
 function hostFixture(host = 'electron', failOutput = false, devices?: readonly NativeAudioDeviceReport[], meter: Readonly<{
 	prepareInputReplacement?: () => MicrophoneMeterInputReplacement;
 	bind?: (sessionId: string) => Promise<void>;
 	close?: () => void;
 	context?: () => void;
+	routes?: Readonly<Record<string, RecordingRoute>>;
 }> = {}) {
 	let settings = { host, recordingSampleRate: 96_000, preferredInputDeviceId: '',
 		preferredOutputDeviceId: '', preferredInputChannelCount: 1 };
 	let inventory: NativeAudioInventoryReport | null = null;
+	let routes = meter.routes ?? {};
 	let requests = 0;
 	let enabled = false;
 	let sequence = 0;
@@ -219,7 +287,7 @@ function hostFixture(host = 'electron', failOutput = false, devices?: readonly N
 	const bound: string[] = [];
 	const closed: string[] = [];
 	const controller: SoundscaperAudioHostController = {
-		getSnapshot: () => ({ audioDevices: settings, recordingScheduling: scheduled && preparingSchedule,
+		getSnapshot: () => ({ audioDevices: settings, recordingInputs: { routes }, recordingScheduling: scheduled && preparingSchedule,
 			scheduledRecording: scheduled && !preparingSchedule ? { startTimeMs: 100 } : null }),
 		subscribe: (listener) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
 		actions: { audioDevices: {
@@ -263,6 +331,7 @@ function hostFixture(host = 'electron', failOutput = false, devices?: readonly N
 		failOutput: (value: boolean) => { failOutput = value; },
 		failRate: (value: boolean) => { failRate = value; },
 		inventory: () => inventory, accessRequests: () => requests,
+		changeRoutes: (next: Readonly<Record<string, RecordingRoute>>) => { routes = next; for (const listener of listeners) listener(); },
 		change: (patch: Partial<typeof settings>) => { settings = { ...settings, ...patch }; for (const listener of listeners) listener(); },
 	};
 }
