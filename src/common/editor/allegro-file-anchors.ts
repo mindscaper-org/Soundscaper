@@ -1,14 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { MidiFileTempo } from './midi-file-types.ts';
+import { resolveAllegroTempoClock } from './allegro-file-tempo-clock.ts';
 
-export interface AllegroTempoDeclaration extends MidiFileTempo { readonly order: number }
+export interface AllegroTempoDeclaration extends MidiFileTempo { readonly order: number; readonly beat?: number }
 export interface AllegroBeatAnchor { readonly frame: number; readonly beat: number; readonly order: number }
 
 /** Explicit-time anchors describe one global clock, regardless of their line order. */
 export function allegroTempoDeclarations(tempos: readonly AllegroTempoDeclaration[],
 	anchors: readonly AllegroBeatAnchor[], sampleRate: number): MidiFileTempo[] {
-	if (!anchors.length) return tempos.map(({ frame, bpm }) => ({ frame, bpm }));
+	if (!anchors.length) return resolveAllegroTempoClock(tempos, sampleRate);
 	// A repeated time replaces that anchor, matching the source parser's insertion.
 	const ordered = [...new Map(anchors.map(anchor => [anchor.frame, anchor])).values()]
 		.sort((left, right) => left.frame - right.frame);

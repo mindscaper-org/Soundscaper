@@ -11,24 +11,28 @@ import { allegroDuration, allegroNumber, allegroPitch, allegroString, allegroTok
 import { allegroAttributeToEvent, allegroEventFields } from './allegro-file-events.ts';
 import { offsetAllegroFrame, offsetAllegroNotes, offsetAllegroTiming } from './allegro-file-offset.ts';
 import { allegroTempoDeclarations, type AllegroBeatAnchor, type AllegroTempoDeclaration } from './allegro-file-anchors.ts';
+import { sameAllegroTempoClock } from './allegro-file-tempo-clock.ts';
 
 // Current Audacity/PortSMF Allegro grammar: numeric T/U values are seconds.
 // https://github.com/rbdannenberg/portsmf/blob/master/allegrord.cpp
 // This parser is independently implemented; no upstream source is copied.
 // Local coordinates remain unquantized until the track offset has been applied.
 interface AllegroTrack { name: string; notes: MidiNote[]; events: MidiFileEvent[] }
-interface AllegroParseResult { readonly document: MidiFileDocument; readonly tempoDeclarations: readonly MidiFileTempo[] }
+interface AllegroParseResult { readonly document: MidiFileDocument | null; readonly tempoDeclarations: readonly MidiFileTempo[] }
 
 export function parseAllegroFile(text: string, options: MidiFileReadOptions = {}): MidiFileDocument {
 	if (text.length > MIDI_FILE_MAX_BYTES || new TextEncoder().encode(text).length > MIDI_FILE_MAX_BYTES) throw new RangeError('Allegro file exceeds the 16 MiB import limit.');
 	const sampleRate = midiFileSampleRate(options.sampleRate);
 	const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
 	// Read the time map before notes, including files whose tempo declarations follow notes.
-	const first = parseLines(lines, sampleRate, []);
-	return parseLines(lines, sampleRate, first.tempoDeclarations).document;
+	const first = parseLines(lines, sampleRate, [], false);
+	const final = parseLines(lines, sampleRate, first.tempoDeclarations, true).document;
+	if (!final) throw new Error('Allegro materialization produced no document.');
+	return final;
 }
 
-function parseLines(lines: readonly string[], sampleRate: number, knownTempos: readonly MidiFileTempo[]): AllegroParseResult {
+function parseLines(lines: readonly string[], sampleRate: number, knownTempos: readonly MidiFileTempo[], materialize: boolean): AllegroParseResult {
+	const deferBeatTempoFrames = !materialize && !lines.some(line => line.includes('-beatr:'));
 	const tracks = new Map<number, AllegroTrack>();
 	const declarations: AllegroTempoDeclaration[] = [];
 	const beatAnchors: AllegroBeatAnchor[] = [];
@@ -50,6 +54,7 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 	};
 	let trackIndex = 0;
 	let currentFrame = 0;
+	let currentBeat: number | null = null;
 	let pitch = 60;
 	let velocity = 100;
 	let channel = 0;
@@ -92,7 +97,15 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 			const attributes = new Map<string, string>();
 			const timeTokens = tokens.filter(token => /^T/i.test(token));
 			if (timeTokens.length > 1) throw new RangeError('Allegro time is specified twice.');
-			if (timeTokens[0]) currentFrame = allegroDuration(timeTokens[0].slice(1), 0, timing, sampleRate);
+			if (timeTokens[0]) {
+				const position = timeTokens[0].slice(1);
+				currentBeat = position.split('+').every(term => /^[SIQHW]/i.test(term))
+					? allegroDuration(position, 0, { frameToBeat: value => value, beatToFrame: value => value }, 1) : null;
+				// Discovery retains the beat itself; repeated provisional-map rebuilds
+				// cannot improve that declaration's final position.
+				currentFrame = deferBeatTempoFrames && currentBeat !== null && tokens.some(token => token.startsWith('-tempor:'))
+					? currentBeat * sampleRate * 0.6 : allegroDuration(position, 0, timing, sampleRate);
+			}
 			for (const token of tokens) {
 				const initial = token[0]!.toUpperCase();
 				const value = token.slice(1);
@@ -117,7 +130,7 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 				if (name === 'tempor') {
 					const bpm = allegroNumber(value, 'tempo');
 					if (bpm <= 0 || bpm > 60_000_000) throw new RangeError('Invalid Allegro tempo.');
-					declarations.push({ frame: currentFrame, bpm, order: declarationOrder++ });
+					declarations.push({ frame: currentFrame, bpm, order: declarationOrder++, ...(currentBeat === null ? {} : { beat: currentBeat }) });
 					if (!knownTempos.length) timingDirty = true;
 				} else if (name === 'beatr') {
 					const beat = allegroNumber(value, 'beat anchor');
@@ -148,6 +161,7 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 			}
 			if (next !== null) currentFrame += next;
 			else if (isNote) currentFrame += duration;
+			if (next !== null || isNote) currentBeat = null;
 		} catch (error) {
 			throw new RangeError(`Allegro line ${lineIndex + 1}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
 		}
@@ -155,6 +169,8 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 	if (!tracks.size) throw new RangeError('Allegro file contains no tracks or events.');
 	for (const signature of keySignatures.values()) signature.track.events.push({ frame: signature.frame, status: 255, metaType: 89, data: [signature.key & 255, signature.minor ? 1 : 0] });
 	const tempoDeclarations = allegroTempoDeclarations(declarations, beatAnchors, sampleRate);
+	if (!materialize) return { document: null, tempoDeclarations };
+	if (!sameAllegroTempoClock(knownTempos, tempoDeclarations)) throw new RangeError('Allegro tempo expressions cannot be resolved to one stable clock. Use explicit second or beat positions.');
 	const tempos = tempoDeclarations.length ? [...tempoDeclarations] : [{ frame: 0, bpm: 100 }];
 	if (!tempos.some(tempo => tempo.frame === 0)) tempos.unshift({ frame: 0, bpm: 100 });
 	const signatures: MidiFileSignature[] = [];
