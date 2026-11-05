@@ -9,6 +9,7 @@ import type { MidiInstrument, MidiNote } from '../../midi-model.ts';
 import type { MidiClipResize, MidiNoteUpdate } from '../track-audio/midi-service-types.ts';
 import { createMidiImportFiles } from './internal/midi-import-files.ts';
 import { resolveMidiCopy } from '../../../i18n/editor-midi-copy.ts';
+import { EditorProjectChangedError } from '../shared/lifecycle.ts';
 
 /** Keep the beta synthesizer and file codecs outside the initial editor graph. */
 export function createMidiActionGroup(scope: EditorActionRuntime) {
@@ -34,7 +35,7 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 		const context = { project: scope.getProject() };
 		if (!owner) awaitingService.add(context);
 		const operation = owner ? action(owner) : service().then(loaded => {
-			if (scope.getProject() !== context.project) throw new Error('The project changed before the MIDI edit.');
+			if (scope.getProject() !== context.project) throw new EditorProjectChangedError();
 			return action(loaded);
 		}).finally(() => { awaitingService.delete(context); });
 		pendingCalls.add(operation);
@@ -89,9 +90,11 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 		return edit(service => service.commitTransfer(command, preview, selection, options));
 	};
 	function hasPendingEdits(): boolean { return pendingCalls.size > 0 || Boolean(owner?.hasPendingEdits()); }
+	const importer = createMidiImportFiles(scope, service);
 	function followSelection(before: MidiProject, after: MidiProject): void {
 		for (const context of awaitingService) if (context.project === before) context.project = after;
 		owner?.followSelection(before, after);
+		importer.followSelection(before, after);
 	}
 	return Object.freeze({ commitTransfer, hasPendingEdits, followSelection, settled: async (expectedProject?: MidiProject, readiness?: PromiseLike<unknown>) => {
 		if (!expectedProject) {
@@ -105,5 +108,5 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 			void fenced.catch(() => undefined);
 			await Promise.all([Promise.allSettled([...pendingCalls]), fenced]);
 		} finally { awaitingService.delete(context); }
-	}, actions, importFiles: createMidiImportFiles(scope, service) });
+	}, actions, importFiles: importer.importFiles });
 }

@@ -14,7 +14,7 @@ const note = { id: 'n', pitch: 60, startFrame: 0, durationFrames: 4000, velocity
 test('dropping a MIDI file into Project Bin imports media without changing the timeline or tempo', async () => {
 	const f = midiServiceFixture();
 	const bytes = writeMidiFile({ sampleRate: 8000, tempos: [{ frame: 0, bpm: 90 }], signatures: [], tracks: [{ name: 'Melody', notes: [note] }] });
-	const importFiles = createMidiImportFiles({ getProject: f.project, importFiles: () => { throw new Error('Unexpected audio decoder route'); } }, async () => f.service);
+	const importFiles = createMidiImportFiles({ getProject: f.project, importFiles: () => { throw new Error('Unexpected audio decoder route'); } }, async () => f.service).importFiles;
 	await importFiles([new File([bytes], 'Melody.mid')], { destination: 'project-bin' });
 	assert.equal(f.project().clips.length, 0);
 	assert.equal(f.project().tracks.length, 0);

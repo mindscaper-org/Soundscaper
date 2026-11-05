@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { createMidiClip, createMidiTrack } from '../../midi-factory.ts';
+import { EditorProjectChangedError } from '../shared/lifecycle.ts';
 import {
 	addMidiNoteData, readMidiClip, readMidiTrack, removeMidiNoteData, updateMidiNotesData,
 	normalizeMidiTrackData, withMidiTrackData, type MidiClipData, type MidiInstrument,
@@ -150,7 +151,7 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 			const requested = requireProject();
 			await pending;
 			const project = requireProject();
-			if (project.id !== requested.id) throw new Error('The project changed before MIDI export.');
+			if (project.id !== requested.id) throw new EditorProjectChangedError();
 			const document = midiDocumentFromProject(project);
 			const name = project.title.replace(/[\\/:*?"<>|]/gu, '_') || 'MIDI';
 			if (format === 'midi') {
@@ -171,7 +172,7 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 	function assertCurrent(project: MidiProject): void {
 		if (dependencies.editingBlocked()) throw new Error('MIDI editing is currently unavailable.');
 		const expected = active?.origin === project ? active.request.expected : project;
-		if (dependencies.getProject() !== expected) throw new Error('The project changed during MIDI rendering.');
+		if (dependencies.getProject() !== expected) throw new EditorProjectChangedError();
 	}
 	function commitOwned(...args: Parameters<MidiServiceDependencies['commit']>): unknown {
 		const previous = requireProject();
@@ -185,7 +186,7 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 		requests.add(request);
 		const work = pending.then(async () => {
 			const project = requireProject();
-			if (request.expected !== project) throw new Error('The project changed before the MIDI edit.');
+			if (request.expected !== project) throw new EditorProjectChangedError();
 			assertCurrent(project);
 			active = { origin: project, request };
 			try { return await operation(project); }
