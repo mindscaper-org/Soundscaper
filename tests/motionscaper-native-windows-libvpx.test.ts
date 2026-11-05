@@ -158,8 +158,7 @@ for (const target of targets) {
 				const command = phase(commands, name);
 				assert.deepEqual(command.args, ['-C', framescaperMediaHostBuildPaths(workRoot).ffmpegBuild, operation,
 					...(windows ? ['-f', `${join(sourceRoot, 'ffmpeg', 'Makefile').replaceAll('\\', '/')}`,
-						`SRC_PATH=${join(sourceRoot, 'ffmpeg').replaceAll('\\', '/')}`,
-						`SRC_LINK=${join(sourceRoot, 'ffmpeg').replaceAll('\\', '/')}`,
+						'SRC_PATH=src', 'SRC_LINK=src',
 						'SHELL=C:/Program Files/Git/bin/bash.exe', '.SHELLFLAGS=-e -c',
 						...['CCDEP', 'CXXDEP', 'ASDEP', 'HOSTCCDEP'].map(macro => `${macro}=`
 							+ '$(DEP$(1)) $(DEP$(1)FLAGS) $($(1)DEP_FLAGS) $< 2>&1 | '

@@ -83,3 +83,8 @@ Static SVT-AV1 metadata retains its `-UEB_DLL` directive, and unknown linker
 option warnings still fail configuration. The source cache, upstream archive
 and extracted-tree pins remain unchanged; the adapter and command plan belong
 to the media-host source manifest.
+
+Windows Make uses that authenticated physical `src` copy through relative
+`SRC_PATH` and `SRC_LINK` aliases. This keeps the complete public-header install
+recipe within Windows command-line limits even when the source cache has a long
+absolute path.

@@ -73,7 +73,7 @@ for (const target of ['win-x64', 'win-arm64'] as const) {
 			const command = phase(plan, name);
 			const ffmpegSource = join(root, 'raw ffmpeg').replaceAll('\\', '/');
 			assert.deepEqual(command.args, ['-C', paths.ffmpegBuild, operation,
-				'-f', `${ffmpegSource}/Makefile`, `SRC_PATH=${ffmpegSource}`, `SRC_LINK=${ffmpegSource}`,
+				'-f', `${ffmpegSource}/Makefile`, 'SRC_PATH=src', 'SRC_LINK=src',
 				'SHELL=C:/Program Files/Git/bin/bash.exe', '.SHELLFLAGS=-e -c',
 				...macros.map(macro => `${macro}=${dependencyCommand}`)]);
 			assert.ok(!('SHELL' in command.environment));

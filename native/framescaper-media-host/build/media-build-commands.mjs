@@ -222,11 +222,11 @@ export function createFramescaperMediaHostBuildCommands(input) {
 			'GEN_VCPROJ=$(if $(VCPROJ_SRCS),$(file >$@.sources,$(VCPROJ_SRCS)))'
 			+ `${makeShellPath(tools.executables.shell.path)} ${makeShellPath(join(hostRoot, 'build/windows-vpx-project.sh'))} `
 			+ `${makeShellPath(join(externalSourceRoots.libvpx, 'build/make/gen_msvs_vcxproj.sh'))} $@.sources`] : [];
-	// Configure records Git Bash's /c aliases, which native Make cannot open.
-	// Read the authenticated upstream Makefile directly and override both aliases.
+	// Both aliases use the authenticated physical working copy, avoiding /c paths.
+	// Relative header names also keep Windows install recipes below cmd.exe limits.
 	const dependencyFilter = 'windows-msvc-dependencies.awk';
 	const ffmpegMake = windows ? ['-f', makefilePath(join(ffmpegSourceRoot, 'Makefile'), true),
-		`SRC_PATH=${makefilePath(ffmpegSourceRoot, true)}`, `SRC_LINK=${makefilePath(ffmpegSourceRoot, true)}`,
+		'SRC_PATH=src', 'SRC_LINK=src',
 		`SHELL=${makefilePath(tools.executables.shell.path, true)}`, '.SHELLFLAGS=-e -c',
 		...['CCDEP', 'CXXDEP', 'ASDEP', 'HOSTCCDEP'].map((name) => `${name}=`
 			+ '$(DEP$(1)) $(DEP$(1)FLAGS) $($(1)DEP_FLAGS) $< 2>&1 | '
