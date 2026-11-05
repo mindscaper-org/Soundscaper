@@ -26,10 +26,8 @@ test('the vocabulary is Audacity\'s parameterised selection tier and its bare ti
 });
 
 test('a command step keeps only the parameters it was given', () => {
-	// Audacity's parameters are optional in the sense that an absent one means
-	// "leave this alone", not "use the default": SelectTime with neither Start nor
-	// End returns without touching the selection at all. A step that default-filled
-	// would turn every import into a full selection rewrite.
+	// Local command creation preserves absent fields. Native file import resolves
+	// its own defaults before reaching this model.
 	const step = createMacroCommandStep('SelectTime', { id: 'step-a', params: { start: 1.5 } });
 
 	assert.deepEqual(step, {

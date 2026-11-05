@@ -1,6 +1,7 @@
 import { parseMacroParameters } from './audacity-macro-parameter-parser.ts';
 import { audacityMacroParserFailure, macroSyntaxError } from './audacity-macro-parser-failure.ts';
 import { normalizeCommandParameterName } from './audacity-command-parameters.js';
+import { importedAudacitySelectionParameters } from './audacity-macro-select-commands.ts';
 import {
 	AUDACITY_EFFECT_MACRO_COMMANDS,
 	audacityMacroEffectDefaults,
@@ -231,10 +232,8 @@ function audacityMacroCommand(type) {
 }
 
 /**
- * Read a command line into a step that keeps only the parameters it carried.
- *
- * A fixed temporary ID validates the vocabulary and every supplied range before
- * any caller-provided ID factory is touched, the way the effect path does.
+ * Preserve native time defaults at import; local command creation keeps its
+ * separate omitted-edge behavior. Validate before touching the ID factory.
  */
 function parseMacroCommand(command, profile, fields) {
 	const nativeNames = new Map(profile.params.map((descriptor) => [
@@ -246,7 +245,7 @@ function parseMacroCommand(command, profile, fields) {
 		if (!descriptor) throw new RangeError(`Unsupported ${command} parameter: ${name}.`);
 		params[descriptor.model] = decimalCommaValue(rawValue);
 	}
-	return createMacroCommandStep(command, { id: 'macro-parse-validation', params });
+	return createMacroCommandStep(command, { id: 'macro-parse-validation', params: importedAudacitySelectionParameters(command, params) });
 }
 
 function parseAudacityEffect(type, command, fields) {

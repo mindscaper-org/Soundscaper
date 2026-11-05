@@ -7,16 +7,15 @@
  * effects. This is the model for the others: a step naming a command and the
  * parameters it was actually given.
  *
- * It deliberately does not go through `createEffectMacroStep`. That factory's
- * whole job is to fill in every parameter an effect defines, and a command
- * parameter means the opposite — absent is "leave this alone", not "use the
- * default", so a default-filled command step would turn every import into a full
- * rewrite of whatever it touches.
+ * Locally authored commands preserve optional fields as absent. The native
+ * import boundary resolves format-specific defaults before constructing this
+ * model; effects use their separate default-filled factory.
  */
 
 import { audacityMacroMenuCommand, audacityMacroMenuCommandNames } from './audacity-macro-menu-commands.ts';
 import {
 	AUDACITY_SELECT_COMMAND_PROFILES,
+	assertAudacitySelectionExport,
 	audacitySelectCommandProfile,
 	decodeMacroCommandParameter,
 	type MacroCommandParameterDescriptor,
@@ -97,6 +96,7 @@ export function encodeMacroCommandStepParameters(
 ): readonly (readonly [string, string])[] {
 	const profile = macroCommandStepProfile(step.command);
 	if (!profile) throw new RangeError(`Unsupported macro command: ${step.command}.`);
+	assertAudacitySelectionExport(step.command, step.params);
 	const entries: (readonly [string, string])[] = [];
 	for (const descriptor of profile.params) {
 		if (!Object.hasOwn(step.params, descriptor.model)) continue;
