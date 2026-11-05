@@ -8,7 +8,7 @@ import type {
 	RecordingRoutingServiceRuntime,
 } from './recording-routing-service-types.d.ts';
 import { adaptNativeAudioInventory, type NativeAudioInventoryReport } from '../native-audio-inventory.ts';
-import { normalizeRecordingSampleRate } from '../recording-model.ts';
+import { createRecordingRateSetting } from './recording-rate-setting.ts';
 import { recordingTrackRoute } from '../../../recording-routing.js';
 import { preferredRecordingRoutes } from './preferred-recording-routes.ts';
 import { supportsDisplayAudioCapture } from '../../../recording-display-input.ts';
@@ -46,6 +46,8 @@ export function createRecordingRoutingService<
 	let inventoryGeneration = 0;
 	let routingLoadGeneration = 0;
 	let retainedNativeInventory: RecordingRoutingNativeInventory | null = null;
+	const setRecordingSampleRate = createRecordingRateSetting({ state, engine, lifetime,
+		persist: persistAudioDevicePreferences, publish: publishDocumentSnapshot });
 	async function loadRecordingRouting(currentProject: Project | null = getProject()) {
 		const generation = ++routingLoadGeneration;
 		if (!currentProject) {
@@ -265,21 +267,6 @@ export function createRecordingRoutingService<
 	function recordingInputSampleRate() {
 		return state.audioHost === 'browser' || state.audioHost === 'electron'
 			? projectSampleRate() : state.preferredRecordingSampleRate;
-	}
-
-	async function setRecordingSampleRate(sampleRate: number) {
-		if (state.recorder || state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording) {
-			throw new Error('The recording sample rate cannot be changed while recording is active.');
-		}
-		const normalized = normalizeRecordingSampleRate(sampleRate);
-		if (normalized !== sampleRate) throw new RangeError('Recording sample rate must be an integer between 8000 and 768000 Hz.');
-		if (state.audioHost !== 'browser' && state.audioHost !== 'electron') {
-			await engine.getAudioContext?.({ resume: false, sampleRate: normalized });
-		}
-		state.preferredRecordingSampleRate = normalized;
-		await persistAudioDevicePreferences();
-		publishDocumentSnapshot();
-		return normalized;
 	}
 
 	async function setHostInventory(host: string, report: NativeAudioInventoryReport | null) {
