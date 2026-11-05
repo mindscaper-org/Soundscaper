@@ -108,6 +108,8 @@ export interface EditCompositionDependencies<History extends ControllerRuntimeHi
 	readonly getProject: () => EditCompositionProject | null;
 	readonly getCommandProject: () => EditCommandProject;
 	readonly editingBlocked: (allowReadOnly?: boolean) => boolean;
+	readonly previewMidiTransfer?: (command: AudioEditorCommand) => import('../track-audio/midi-service-types.ts').MidiTransferSnapshot;
+	readonly commitMidiTransfer?: (...args: Parameters<import('../track-audio/midi-service-types.ts').MidiService['commitTransfer']>) => unknown;
 	readonly commit:
 		& LabelServiceDependencies['commit']
 		& ClipboardEditServiceDependencies['commit']

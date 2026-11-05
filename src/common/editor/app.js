@@ -110,7 +110,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 	/** @type {ReturnType<typeof createControllerBindings<import('./engine/public-api.ts').EnginePublicApi>>} */
 	const bindings = createControllerBindings({
 		clips: () => clips,
-		doc: () => doc,
+		doc: () => doc, previewMidiTransfer: command => { if (!documentState.project) throw new Error('MIDI transfer requires an open project.'); return projectRuntime.applyCommand(documentState.project, command); },
 		documentChannel: () => documentChannel,
 		edits: () => edits,
 		effects: () => effects,
@@ -494,7 +494,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		prepareCommittedOutput: (clip, source, prepareOptions) => clipTimePitchCache.prepareCommittedOutput(clip, source, { ...prepareOptions, projectSampleRate: projectSampleRate() }),
 		materializeTimePitchCacheEntry: (entry, signal) => sources.timePitchCaches.materializeTimePitchCacheEntry(entry, signal), createLinkedRenderEngine: () => sources.timePitchCaches.createCacheAwareRenderEngine(),
 		retireSourceChunkProvider: sources.sourceLifecycle.retireSourceChunkProvider,
-		getProject: () => documentState.project, getCommandProject, editingBlocked, commit: bindings.commit, publishProjectState: bindings.publishProjectState, publishDocumentSnapshot, setStatus: bindings.setStatus, handleError: bindings.handleError,
+		getProject: () => documentState.project, getCommandProject, editingBlocked, commit: bindings.commit, commitMidiTransfer: bindings.midiController.commitTransfer, previewMidiTransfer: bindings.previewMidiTransfer, publishProjectState: bindings.publishProjectState, publishDocumentSnapshot, setStatus: bindings.setStatus, handleError: bindings.handleError,
 		normalizePlaybackFrame, cancelPlaybackCachePreparation: bindings.cancelPlaybackCachePreparation, cancelPlayAtSpeedPreparation, stopProjectBinPreview: bindings.projectBin.stopPreview, hasMissingTimelineSources: bindings.hasMissingTimelineSources,
 		activateVideoSource: bindings.activateVideoSource, activateStoredSource: bindings.activateStoredSource, activeSelection, snapTimelineFrame: bindings.selection.snapFrame, preflightStorage: bindings.preflightStorage, projectSampleRate, cacheSourceBuffer: bindings.cacheSourceBuffer,
 	});
@@ -533,7 +533,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		sourceBuffers, sourcePeaks, sourceChunkFrames: SOURCE_CHUNK_FRAMES, taskProgress, saveLabelFile: options.saveLabelFile, fileService, derivedSources: tracks.derivedAudio.derivedSources, updatePreferences: bindings.updatePreferences, confirmMonoConversion: options.confirmMonoConversion || (({ title, body }) => ({ accepted: typeof globalThis.confirm === 'function' ? globalThis.confirm(`${title}\n\n${body}`) : false, dontShowAgain: false })),
 		effectTargets: (...args) => effects.selection.audacityEffectTargets(...args),
 		persistEffectResults: (results, type, scope) => effects.result.persistAudacityEffectResults(results, type, scope),
-		getProject: () => documentState.project, getCommandProject, editingBlocked, updateSelection: bindings.updateSelection, commit: bindings.commit, setStatus: bindings.setStatus, publishDocumentSnapshot, handleError: bindings.handleError, preflightStorage: bindings.preflightStorage,
+		getProject: () => documentState.project, getCommandProject, editingBlocked, updateSelection: bindings.updateSelection, commit: bindings.commit, commitMidiTransfer: bindings.midiController.commitTransfer, previewMidiTransfer: bindings.previewMidiTransfer, setStatus: bindings.setStatus, publishDocumentSnapshot, handleError: bindings.handleError, preflightStorage: bindings.preflightStorage,
 		normalizeTimelineFrame, snapTimelineFrame: bindings.selection.snapFrame, activeSelection, cacheSourceBuffer: bindings.cacheSourceBuffer, projectChanged: bindings.projectChanged, garbageCollectSources: bindings.garbageCollectSources, compactLiveSourceState: bindings.compactLiveSourceState,
 	});
 	const imports = createImportComposition({
@@ -541,7 +541,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		sourceBuffers, sourceChunkProviders, sourcePeaks, sourceResolver: clipTimePitchSourceResolver, sourceChunkFrames: SOURCE_CHUNK_FRAMES, prepareTimePitchCaches: bindings.prepareCommittedTimePitchCaches,
 		protectedSourceIds: stagedProjectBinSourceIds, trackColors: AUDIO_EDITOR_TRACK_COLORS, taskProgress, projectVisual: sources.projectVisual,
 		createPreviewEngine: (previewOptions) => playbackPreviews.create(previewOptions),
-		getProject: () => documentState.project, editingBlocked, commit: bindings.commit, updateSelection: bindings.updateSelection, setStatus: bindings.setStatus, publishDocumentSnapshot, handleError: bindings.handleError, preflightStorage: bindings.preflightStorage, projectSampleRate,
+		getProject: () => documentState.project, editingBlocked, commit: bindings.commit, commitMidiTransfer: bindings.midiController.commitTransfer, previewMidiTransfer: bindings.previewMidiTransfer, updateSelection: bindings.updateSelection, setStatus: bindings.setStatus, publishDocumentSnapshot, handleError: bindings.handleError, preflightStorage: bindings.preflightStorage, projectSampleRate,
 		activateStoredSource: bindings.activateStoredSource, invalidateSourceRuntime: sources.sourceLifecycle.invalidateSourceRuntime, retireSourceChunkProvider: sources.sourceLifecycle.retireSourceChunkProvider,
 		retireTimelinePlayback, cacheSourceBuffer: bindings.cacheSourceBuffer,
 		...createControllerDocumentCheckpoints(documentState),

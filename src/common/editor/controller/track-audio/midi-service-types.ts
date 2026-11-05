@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { MidiInstrument, MidiNote } from '../../midi-model.ts';
 import type { MidiFileDocument } from '../../midi-file-types.ts';
+import type { ProjectChangedOptions } from '../document/project-mutation-service.ts';
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
 
 export interface MidiProject extends Readonly<Record<string, unknown>> {
@@ -21,7 +22,7 @@ export interface MidiSourceWriter {
 export interface MidiServiceDependencies {
 	getProject(): MidiProject | null;
 	editingBlocked(): boolean;
-	commit(command: AudioEditorCommand, selection?: Readonly<{ selectTrackId?: string; selectClipId?: string }>): unknown;
+	commit(command: AudioEditorCommand, selection?: MidiTransferSelection, options?: ProjectChangedOptions): unknown;
 	createId(prefix: string): string;
 	readonly trackName: () => string;
 	readonly clipName: () => string;
@@ -40,7 +41,16 @@ export interface MidiClipResize {
 	readonly sourceStartFrame: number;
 	readonly durationFrames: number;
 }
+export interface MidiTransferSnapshot {
+	readonly clips: readonly Readonly<{ id: string; sourceId?: unknown; sourceDurationFrames?: unknown; opaqueExtensions?: unknown }>[];
+	readonly tracks: readonly Readonly<{ clipIds?: readonly string[]; opaqueExtensions?: unknown }>[];
+	readonly sources?: readonly Readonly<{ id: string; kind?: unknown; sampleRate?: unknown; frameCount?: unknown }>[];
+}
+export interface MidiTransferSelection { readonly selectTrackId?: string | null; readonly selectClipId?: string | null }
 export interface MidiService {
+	/** Wait for MIDI work requested before this barrier, including source publication. */
+	settled(): Promise<void>;
+	commitTransfer(command: AudioEditorCommand, preview: (command: AudioEditorCommand) => MidiTransferSnapshot, selection?: MidiTransferSelection, options?: ProjectChangedOptions): Promise<unknown>;
 	addTrack(): Promise<MidiCreatedTrack>;
 	addNote(clipId: string, note: MidiNote): Promise<void>;
 	updateNote(clipId: string, noteId: string, changes: Partial<MidiNote>): Promise<void>;

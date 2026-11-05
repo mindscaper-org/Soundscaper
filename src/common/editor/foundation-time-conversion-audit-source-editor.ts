@@ -18,6 +18,12 @@ export const FOUNDATION_TIME_CONVERSION_SOURCE_EDITOR_SITES: readonly Foundation
 		conversions: [{ helper: 'roundRational', policies: ['point'] }],
 	},
 	{
+		id: 'midi-loop-growth-source-phase',
+		file: 'src/common/editor/controller/track-audio/midi-service.ts',
+		behavior: 'Growing a MIDI loop period retains the same authored source phase by resolving its exact old/new source-to-period ratio once to the nearest loop-offset frame.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
 		id: 'midi-warp-note-growth-extent',
 		file: 'src/common/editor/controller/track-audio/internal/midi-warp-note-growth.ts',
 		behavior: 'MIDI note growth preserves authored warp anchors and rounds its positive final-segment continuation outward to the enclosing sample endpoint; musical extents retain exact rational beats.',

@@ -98,9 +98,17 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	const sequenceExtensions = snapshotProductActionExtensions<(...args: unknown[]) => unknown>(scope, 'productSequenceActions', [
 		'label', 'setActive', 'stepFrame', 'seekLabel',
 	]);
-	const crossProductHandoffActions = createCrossProductHandoffActionFacade({ ...scope, copy: { get projectSaved() { return copy.projectSaved; }, get projectSaving() { return copy.projectSaving; } } });
 	const macros = createEffectMacroActions(effectLibraryScope, restricted);
-	const midi = createMidiActionGroup(scope);
+	const midi = createMidiActionGroup(scope); scope.midiController?.bind(midi);
+	const afterMidiEdits = <Args extends unknown[], Result>(operation: (...args: Args) => Result) => async (...args: Args) => {
+		const projectId = getProject()?.id;
+		await midi.settled();
+		if (getProject()?.id !== projectId) throw new Error('The project changed before saving pending MIDI edits.');
+		return operation(...args);
+	};
+	const prepareClose = afterMidiEdits(prepareFileClose);
+	const saveCurrentScape = afterMidiEdits(saveScape);
+	const crossProductHandoffActions = createCrossProductHandoffActionFacade({ ...scope, flushProject: afterMidiEdits(flushProject), copy: { get projectSaved() { return copy.projectSaved; }, get projectSaving() { return copy.projectSaving; } } });
 	const actions = Object.freeze({
 		midi: midi.actions,
 		project: Object.freeze({
@@ -109,27 +117,27 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			openRecent: storedProjectOpenActions.openRecent,
 			clearRecent: clearRecentProjects,
 			openAudacityProject,
-			openAup4, openDawproject, openSesx, saveDawproject,
+			openAup4, openDawproject, openSesx, saveDawproject: afterMidiEdits(saveDawproject),
 			openScape,
 			openScapeFile,
 			inspectScape,
-			saveAup3,
-			saveAup4,
-			saveScape,
-			saveAs: saveScape,
+			saveAup3: afterMidiEdits(saveAup3),
+			saveAup4: afterMidiEdits(saveAup4),
+			saveScape: saveCurrentScape,
+			saveAs: saveCurrentScape,
 			dismissAup4CompatibilitySummary,
-			close: async (id = getProject()?.id, options: Parameters<typeof closeProjectTab>[1] = {}) => { if (options.discard) return closeProjectTab(id, options); if (!await prepareFileClose(id)) return { closed: false }; return id && sessionTab(id) ? closeProjectTab(id) : { closed: true }; },
-			prepareClose: prepareFileClose,
+			close: async (id = getProject()?.id, options: Parameters<typeof closeProjectTab>[1] = {}) => { if (options.discard) return closeProjectTab(id, options); if (!await prepareClose(id)) return { closed: false }; return id && sessionTab(id) ? closeProjectTab(id) : { closed: true }; },
+			prepareClose,
 			openById: storedProjectOpenActions.openById,
 			list: listProjects,
-			save: saveNow,
-			saveFile: saveProjectFile,
-			flush: flushProject,
-			prepareHandoff: prepareProjectHandoff,
+			save: afterMidiEdits(saveNow),
+			saveFile: afterMidiEdits(saveProjectFile),
+			flush: afterMidiEdits(flushProject),
+			prepareHandoff: afterMidiEdits(prepareProjectHandoff),
 			...crossProductHandoffActions,
 			claimLock: claimProjectLock,
 			rename: (...args: Parameters<typeof renameProject>) => renameProject(...args),
-			duplicate: (...args: Parameters<typeof duplicateProject>) => duplicateProject(...args),
+			duplicate: afterMidiEdits(duplicateProject),
 			remove: deleteProject,
 			clear: clearLocalData,
 			importFiles: midi.importFiles,
@@ -159,8 +167,11 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 		video: createVideoActionGroup(scope, restricted),
 		edit: Object.freeze({
 			execute: handleEdit,
-			commit: (...args: Parameters<typeof commit>) => commit(args[0]
-				? prepareFrozenTrackEditCommand(getProject(), snapshotInertEditorCommand(args[0])) : args[0], args[1], args[2]),
+			commit: (...args: Parameters<typeof commit>) => {
+				if (!args[0]) return commit(...args);
+				const prepared = prepareFrozenTrackEditCommand(getProject(), snapshotInertEditorCommand(args[0]));
+				return scope.previewMidiTransfer ? midi.commitTransfer(prepared, scope.previewMidiTransfer, args[1], args[2]) : commit(prepared, args[1], args[2]);
+			},
 			undo: () => handleEdit('undo'),
 			redo: () => handleEdit('redo'),
 			copy: () => handleEdit('copy'),
@@ -469,7 +480,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 		}),
 		export: createExportActionGroup({ handleExportAction, publishBlenderTracks, state, productName: product.name, getProjectTitle: () => getProject()?.title ?? null, getProject, projectForRuntimeConsumers: scope.projectForRuntimeConsumers, store, fileService, persistSetting, publishDocumentSnapshot, createId: createStableId }),
 		media: createProjectMediaActionGroup({
-			state, getProject, store, publishDocumentSnapshot, setStatus, copy, fileService, ffmpeg, commit, saveScape: () => Promise.resolve(saveScape()),
+			state, getProject, store, publishDocumentSnapshot, setStatus, copy, fileService, ffmpeg, commit, saveScape: () => Promise.resolve(saveCurrentScape()),
 		}),
 	});
 	// A macro's bare commands walk this tree, and it does not exist until the

@@ -222,7 +222,11 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 		setPreview: (preview) => { state.projectBinPreview = preview; },
 		editingBlocked: dependencies.editingBlocked,
 		previewBlocked: () => dependencies.editingBlocked(true),
-		commit: (command, selection) => dependencies.commit(prepareFrozenTrackEditCommand(dependencies.getProject(), command), selection),
+		commit: (command, selection) => {
+			const prepared = prepareFrozenTrackEditCommand(dependencies.getProject(), command);
+			return dependencies.commitMidiTransfer && dependencies.previewMidiTransfer ? dependencies.commitMidiTransfer(prepared,
+				dependencies.previewMidiTransfer, selection) : dependencies.commit(prepared, selection);
+		},
 		updateSelection: dependencies.updateSelection,
 		getPositionFrames: () => engine.getPositionFrames(),
 		normalizeTimelineStartFrame: projectImport.normalizeImportTimelineStartFrame,

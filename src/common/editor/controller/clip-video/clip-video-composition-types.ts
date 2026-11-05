@@ -100,6 +100,8 @@ export interface ClipVideoCompositionDependencies {
 	readonly getProject: () => ClipVideoCompositionProject | null;
 	readonly getCommandProject: () => ClipVideoCommandProject;
 	readonly editingBlocked: () => boolean;
+	readonly previewMidiTransfer?: Parameters<import('../composition/controller-bindings.ts').MidiControllerBinding['commitTransfer']>[1];
+	readonly commitMidiTransfer?: import('../composition/controller-bindings.ts').MidiControllerBinding['commitTransfer'];
 	readonly commit:
 		& SequenceTimingServiceDependencies['commit']
 		& VideoEditServiceDependencies['commit']

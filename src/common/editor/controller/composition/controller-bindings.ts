@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { AudioEditorCommand } from '../../commands/protocol.ts';
+import type { MidiTransferSnapshot } from '../track-audio/midi-service-types.ts';
 import type { createClipVideoComposition } from '../clip-video/clip-video-composition.ts';
 import type { DocumentProject, DocumentHistory } from '../document/document-composition-types.ts';
 import type { createDocumentComposition } from '../document/document-composition.ts';
@@ -21,6 +23,8 @@ import type { ClipTimePitchRenderEngine } from '../source/clip-time-pitch-servic
 import type { createControllerStorageCapacityService } from '../shared/storage-capacity-runtime.ts';
 import type { createTrackAudioComposition } from '../track-audio/track-audio-composition.ts';
 import type { createTransportComposition } from '../transport/transport-composition.ts';
+export type { MidiControllerBinding } from './internal/midi-controller-port.ts';
+import { createMidiControllerPort } from './internal/midi-controller-port.ts';
 import { deferControllerMethods, deferAsyncControllerMethods } from './internal/deferred-controller-methods.ts';
 import { createEditorLabelActionGroup } from './label-action-group.ts';
 import { createEditorSelectionActionGroup } from './selection-action-group.ts';
@@ -29,6 +33,7 @@ import { createEditorProjectBinActionGroup } from './project-bin-action-group.ts
 export interface ControllerBindingServices<RenderEngine extends ClipTimePitchRenderEngine = ClipTimePitchRenderEngine> {
 	readonly clips: () => ReturnType<typeof createClipVideoComposition>;
 	readonly doc: () => ReturnType<typeof createDocumentComposition>;
+	readonly previewMidiTransfer: (command: AudioEditorCommand) => MidiTransferSnapshot;
 	readonly documentChannel: () => ReturnType<typeof createSnapshotComposition>['document'];
 	readonly edits: () => ReturnType<typeof createEditComposition>;
 	readonly effects: () => ReturnType<typeof createEffectsComposition>;
@@ -52,6 +57,7 @@ export interface ControllerBindingServices<RenderEngine extends ClipTimePitchRen
 
 /** Resolve each service at invocation; construction never reads an uninitialized owner. */
 export function createControllerBindings<RenderEngine extends ClipTimePitchRenderEngine>(services: ControllerBindingServices<RenderEngine>) {
+	const midiController = createMidiControllerPort();
 	const { load: loadPreferences } = deferControllerMethods(() => services.preferences(), ['load']);
 	const { switchProject } = deferControllerMethods(() => services.projectSwitchService(), ['switchProject']);
 	const { materializeFreesoundUploadClip } = deferAsyncControllerMethods(() => services.tracks(), ['materializeFreesoundUploadClip']);
@@ -100,7 +106,9 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 	const { syncRecordingPoolSnapshot, setMonitoring, setRecordingInputGain, setLatencyOffset, invalidateTakeCycleRecording } = deferControllerMethods(() => services.recording(), ['syncRecordingPoolSnapshot', 'setMonitoring', 'setRecordingInputGain', 'setLatencyOffset', 'invalidateTakeCycleRecording']);
 	const { handleRecordingPoolChange } = deferControllerMethods(() => services.recording().inputs, ['handleRecordingPoolChange']);
 	const { synchronizeTarget: synchronizeMicrophoneMeterTarget } = deferControllerMethods(() => services.microphoneMeterService(), ['synchronizeTarget']);
-	const { commit, updateSelection, projectChanged, saveNow, flushProject } = deferControllerMethods(() => services.doc().mutation, ['commit', 'updateSelection', 'projectChanged', 'saveNow', 'flushProject']);
+	const { commit, updateSelection, projectChanged, saveNow: saveNowUnsettled, flushProject: flushProjectUnsettled } = deferControllerMethods(() => services.doc().mutation, ['commit', 'updateSelection', 'projectChanged', 'saveNow', 'flushProject']);
+	const saveNow = async (...args: Parameters<typeof saveNowUnsettled>) => { await midiController.settled(); return saveNowUnsettled(...args); };
+	const flushProject = async (...args: Parameters<typeof flushProjectUnsettled>) => { await midiController.settled(); return flushProjectUnsettled(...args); };
 	const labels = createEditorLabelActionGroup({
 		getTrack: () => services.tracks().track,
 		getLabelService: () => services.edits().labels,
@@ -134,6 +142,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 	const { refreshStorageUsage, estimateStorageForPreflight, preflightStorage } = deferControllerMethods(() => services.storageCapacityService(), ['refreshStorageUsage', 'estimateStorageForPreflight', 'preflightStorage']);
 	const { openScape, saveScape, openAup4, openAudacityProject, saveAup3, saveAup4, saveProjectFile, prepareFileClose } = deferAsyncControllerMethods(() => services.nativeProjectService(), ['openScape', 'saveScape', 'openAup4', 'openAudacityProject', 'saveAup3', 'saveAup4', 'saveProjectFile', 'prepareFileClose']);
 	return Object.freeze({
+		midiController, previewMidiTransfer: services.previewMidiTransfer,
 		setSourceSelection, readSourceSelection, readSourceSelectionDuration, readSourceSelectionSampleRate, loadSourceAudio, loadSourceAudioWindow,
 		openScape, saveScape, openAup4, openAudacityProject, saveAup3, saveAup4, saveProjectFile, prepareFileClose,
 		loadPreferences, switchProject, labels, selection, projectBin,

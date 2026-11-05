@@ -7,6 +7,7 @@ import {
 import { midiDocumentFromProject } from '../../midi-project-interchange.ts';
 import { midiProjectTiming } from '../../midi-project-timing.ts';
 import { trimAudioWarpClipToTimelineRange } from '../../audio-warp-clip-edit.ts';
+import { roundRational } from '../../timeline-time.ts';
 import { barStartBeat } from '../../musical-grid.ts';
 import { createIndexedBeatFrameProjector } from '../../indexed-tempo-projector.ts';
 import { resolveRuntimeClipProjection } from '../../runtime-clip-projection.ts';
@@ -17,6 +18,7 @@ import { clipLoopUpdateFields, readClipLoop } from '../../audio-clip-loop.ts';
 import { publishMidiSource } from './internal/midi-source-publication.ts';
 import { midiTransferExtensions } from '../../commands/midi-transfer-context.ts';
 import { routeMidiImportControls } from './internal/midi-import-channel-routing.ts';
+import { prepareMidiTransferPublication } from './internal/midi-transfer-publication.ts';
 import { midiWarpNoteGrowth } from './internal/midi-warp-note-growth.ts';
 import type { MidiProject, MidiService, MidiServiceDependencies } from './midi-service-types.ts';
 
@@ -26,6 +28,21 @@ type ImportedMidiTrack = Readonly<{ name: string; data: MidiClipData; program?: 
 export function createMidiService(dependencies: MidiServiceDependencies): Readonly<MidiService> {
 	let pending: Promise<unknown> = Promise.resolve();
 	const service: MidiService = {
+		settled: async () => { await pending; },
+		commitTransfer: (command, preview, selection, options) => {
+			const detached = structuredClone(command);
+			return enqueue(async project => {
+				const sources: AudioSourceLeaf[] = [];
+				try {
+					const additions = await prepareMidiTransferPublication(dependencies, {
+						clips: project.clips.map(clip => ({ ...clip, id: String(clip.id) })),
+						tracks: project.tracks.flatMap(track => Array.isArray(track.clipIds) ? [{ ...track, clipIds: track.clipIds.filter((id: unknown): id is string => typeof id === 'string') }] : []),
+					}, preview(detached), () => assertCurrent(project), sources);
+					assertCurrent(project);
+					return dependencies.commit(additions.length ? { type: 'batch', commands: [detached, ...additions] } : detached, selection, options);
+				} catch (error) { return rollbackSources(sources, error); }
+			});
+		},
 		addTrack: () => enqueue(async project => {
 			const timing = midiProjectTiming(project);
 			const durationFrames = createIndexedBeatFrameProjector(timing.tempoMap, project.sampleRate)(barStartBeat(4, timing.signatureMap));
@@ -175,10 +192,13 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 				?? Math.max(Number(clip.durationFrames), Math.round(sourceFrames * Number(clip.durationFrames) / Number(clip.sourceDurationFrames)));
 			const loop = readClipLoop(clip);
 			const periodFrames = loop ? Math.max(1, Math.round(loop.periodFrames * sourceFrames / Number(clip.sourceDurationFrames))) : 0;
+			const offsetFrames = loop ? Math.min(periodFrames - 1, roundRational(
+				BigInt(loop.offsetFrames) * BigInt(periodFrames) * BigInt(Number(clip.sourceDurationFrames)),
+				BigInt(loop.periodFrames) * BigInt(sourceFrames), 'point')) : 0;
 			await publishEdit(project, clip, next, trackData.instrument, Number(clip.sourceStartFrame) + sourceFrames, source => [
 				{ type: 'midi/clip-set', clipId, data: next, sourceId: source.id, sourceDurationFrames: sourceFrames, durationFrames, ...warpedGrowth },
 				...(loop && sourceFrames !== Number(clip.sourceDurationFrames) ? [{ type: 'clip/update' as const, clipId, changes: { loop: {
-					periodFrames, offsetFrames: Math.min(periodFrames - 1, Math.round(loop.offsetFrames * sourceFrames / Number(clip.sourceDurationFrames))), durationFrames,
+					periodFrames, offsetFrames, durationFrames,
 				} } }] : []),
 			]);
 		});

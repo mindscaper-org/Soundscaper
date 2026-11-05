@@ -51,6 +51,8 @@ interface EditorActionState extends ExportActionState {
 }
 
 export interface EditorActionResources {
+	readonly previewMidiTransfer?: import('./controller-bindings.ts').ControllerBindingServices['previewMidiTransfer'];
+	readonly midiController?: import('./internal/midi-controller-port.ts').MidiControllerPort;
 	readonly onProjectOpenFailure?: ProjectOpenRecoveryRuntime['onProjectOpenFailure'];
 	readonly assertActive?: () => void;
 	readonly AUDIO_EDITOR_DEFAULT_SHORTCUTS: typeof AUDIO_EDITOR_DEFAULT_SHORTCUTS;
