@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { MidiInstrument, MidiNote } from '../midi-model.ts';
 import type { MidiFileEvent } from '../midi-file-types.ts';
-import { compileMidiExpression, midiExpressionPhaseArea, midiExpressionStateIndex, midiNoteSoundEnd, type MidiExpressionTimeline } from './midi-expression.ts';
+import { createMidiExpressionIndex, midiExpressionPhaseArea, midiExpressionStateIndex, midiNoteSoundEnd, type MidiExpressionTimeline } from './midi-expression.ts';
 
 interface PreparedNote {
 	readonly index: number;
@@ -29,9 +29,9 @@ export function createMidiRenderer(
 	events: readonly MidiFileEvent[] = [],
 ): (startFrame: number, frameCount: number) => Float32Array<ArrayBuffer> {
 	if (!Number.isSafeInteger(sampleRate) || sampleRate < 1) throw new RangeError('Invalid MIDI synthesis sample rate.');
-	const channels = compileMidiExpression(events);
+	const expression = createMidiExpressionIndex(events);
 	const prepared = notes.map((note, index): PreparedNote => {
-		const timeline = channels[note.channel]!;
+		const timeline = expression.forNote(note);
 		const onsetState = timeline.states[midiExpressionStateIndex(timeline.states, note.startFrame)]!;
 		return { index, startFrame: note.startFrame, soundEnd: midiNoteSoundEnd(note, timeline),
 			frequency: 440 * 2 ** ((note.pitch - 69) / 12), amplitude: note.velocity / 127 * 0.18,

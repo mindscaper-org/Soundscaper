@@ -21,6 +21,8 @@ export interface MidiFileTrack {
 	readonly program?: number;
 	/** Transient import routing captured at raw NoteOn events, never persisted in clips. */
 	readonly noteDestinations?: readonly MidiNoteDestination[];
+	/** Transient raw timing-only role; authored empty tracks have no flag. */
+	readonly conductorOnly?: true;
 }
 
 export interface MidiNoteDestination {
@@ -75,6 +77,7 @@ export function validateMidiFileDocument(document: MidiFileDocument): void {
 		if (track.durationFrames !== undefined) midiFileInteger(track.durationFrames, 0, Number.MAX_SAFE_INTEGER, 'track duration');
 		count += track.notes.length + (track.events?.length ?? 0);
 		if (track.program !== undefined) midiFileInteger(track.program, 0, 127, 'program');
+		if (track.conductorOnly !== undefined && track.conductorOnly !== true) throw new RangeError('Invalid MIDI conductor-only role.');
 		if (track.noteDestinations) {
 			midiFileInteger(track.noteDestinations.length, 0, track.notes.length, 'note destination count');
 			for (const destination of track.noteDestinations) {
@@ -87,6 +90,7 @@ export function validateMidiFileDocument(document: MidiFileDocument): void {
 			midiFileInteger(note.pitch, 0, 127, 'pitch');
 			midiFileInteger(note.velocity, 0, 127, 'velocity');
 			if (note.releaseVelocity !== undefined) midiFileInteger(note.releaseVelocity, 0, 127, 'release velocity');
+			if (note.midiPort !== undefined) midiFileInteger(note.midiPort, 0, 255, 'note port');
 			midiFileInteger(note.channel, 0, 15, 'channel');
 			midiFileInteger(note.startFrame, 0, Number.MAX_SAFE_INTEGER, 'note start');
 			midiFileInteger(note.durationFrames, 1, Number.MAX_SAFE_INTEGER - note.startFrame, 'note duration');

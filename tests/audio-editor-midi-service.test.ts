@@ -122,7 +122,7 @@ test('MIDI note geometry edits still extend a clip when its edited note goes bey
 test('MIDI import skips an empty conductor track and adopts initial timing into an empty project', async () => {
 	const f = fixture();
 	const created = await f.service.importDocument({ sampleRate: 8000,
-		tracks: [{ name: 'Conductor', notes: [] }, { name: 'Melody', notes: [
+		tracks: [{ name: 'Conductor', notes: [], conductorOnly: true }, { name: 'Melody', notes: [
 			{ id: 'n', pitch: 60, startFrame: 0, durationFrames: 4000, velocity: 90, channel: 2 },
 		] }], tempos: [{ frame: 0, bpm: 90 }], signatures: [{ frame: 0, numerator: 3, denominator: 4 }],
 	});

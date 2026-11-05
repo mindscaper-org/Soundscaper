@@ -18,6 +18,8 @@ export interface MidiNote {
 	readonly releaseVelocity?: number;
 	/** Parser-owned immediate CC120 release, bound to this original source onset. */
 	readonly onsetStop?: Readonly<{ kind: 'all-sound-off'; frame: number; channel: number }>;
+	/** Authored SMF FF21 destination; explicit zero survives later selector changes. */
+	readonly midiPort?: number;
 	/** Zero-based MIDI channel, 0–15. */
 	readonly channel: number;
 }
@@ -101,6 +103,7 @@ export function normalizeMidiNote(value: unknown): MidiNote {
 		durationFrames,
 		velocity: integer(input.velocity, 0, 127, 'MIDI note.velocity'),
 		...(input.releaseVelocity === undefined ? {} : { releaseVelocity: integer(input.releaseVelocity, 0, 127, 'MIDI note.releaseVelocity') }),
+		...(input.midiPort === undefined ? {} : { midiPort: integer(input.midiPort, 0, 255, 'MIDI note.midiPort') }),
 		channel, ...(onsetStop ? { onsetStop } : {}),
 	};
 }

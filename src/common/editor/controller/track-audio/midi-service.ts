@@ -125,9 +125,10 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 				const offset = options.timelineStartFrame ?? 0;
 				if (!Number.isSafeInteger(offset) || offset < 0) throw new RangeError('Invalid MIDI import position.');
 				const routed = routeMidiImportControls(detached.tracks);
-				const hasContent = routed.some(track => track.notes.length || track.events?.length);
-				const tracks = hasContent ? routed.filter(track => track.notes.length || track.events?.length) : routed.slice(0, 1);
-				const emptyTrackEnd = routed.filter(track => !track.notes.length && !track.events?.length)
+				const authored = routed.filter((track, index) => track.notes.length || track.events?.length
+					|| !track.conductorOnly && !detached.tracks[index]?.events?.length);
+				const tracks = authored.length ? authored : routed.slice(0, 1);
+				const emptyTrackEnd = routed.filter(track => !tracks.includes(track))
 					.reduce((end, track) => Math.max(end, track.durationFrames ?? 0), 0);
 				const prepared = tracks.map(track => ({ name: track.name || dependencies.trackName(), program: track.program,
 					durationFrames: track.durationFrames,

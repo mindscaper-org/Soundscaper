@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { MidiClipData, MidiNote } from './midi-model.ts';
-import { compileMidiExpression, midiNoteSoundEnd } from './engine/midi-expression.ts';
+import { createMidiExpressionIndex, midiNoteSoundEnd } from './engine/midi-expression.ts';
 
 /** A trimmed window can begin after key release while its damper-held voice still sounds. */
 export function createMidiClipNoteProjection(data: MidiClipData) {
-	const expression = compileMidiExpression(data.interchange?.events ?? []);
-	const notes = data.notes.map(note => ({ note, soundEnd: midiNoteSoundEnd(note, expression[note.channel]!) }));
+	const expression = createMidiExpressionIndex(data.interchange?.events ?? []);
+	const notes = data.notes.map(note => ({ note, soundEnd: midiNoteSoundEnd(note, expression.forNote(note)) }));
 	return function* project(start: number, frames: number, global: (frame: number) => number): Generator<MidiNote> {
 		const reversed = global(start + frames) < global(start);
 		for (const { note, soundEnd } of notes) {

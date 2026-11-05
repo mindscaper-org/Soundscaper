@@ -13,6 +13,7 @@ import { createMemoryProjectStore } from './helpers/memory-project-store.ts';
 
 const offset = (hour: number) => [0, 255, 0x54, 5, hour, 0, 0, 0, 0];
 const note = [0, 0x90, 60, 100, 0x83, 0x60, 0x80, 60, 0];
+const tempo = [0, 255, 81, 3, 7, 161, 32];
 function file(format: 0 | 1, tracks: readonly (readonly number[])[]): Uint8Array<ArrayBuffer> {
 	return Uint8Array.from([77, 84, 104, 100, 0, 0, 0, 6, 0, format, tracks.length >> 8, tracks.length & 255, 1, 224,
 		...tracks.flatMap(events => {
@@ -36,7 +37,7 @@ for (const format of [0, 1] as const) test(`MIDI type${format} keeps its active 
 
 test('a type1 nonconductor SMPTE offset remains semantically ignored after export', async () => {
 	const f = midiServiceFixture();
-	await f.service.importDocument(parseMidiFile(file(1, [[], [...offset(2), ...note]]), { sampleRate: 8000 }));
+	await f.service.importDocument(parseMidiFile(file(1, [tempo, [...offset(2), ...note]]), { sampleRate: 8000 }));
 	assert.equal(readMidiClip(f.project().clips[0])?.interchange?.events.find(event => event.metaType === 0x54)?.conductor, false);
 	await f.service.exportFile('midi');
 	const bytes = f.saves[0]?.bytes;
@@ -108,7 +109,7 @@ test('matching active SMPTE offsets deduplicate and a left trim refuses unsuppor
 
 test('at the native 256-track limit an ignored SMPTE offset cannot become active on the folded conductor', async () => {
 	const f = midiServiceFixture();
-	await f.service.importDocument(parseMidiFile(file(1, [[], [...offset(2), ...note],
+	await f.service.importDocument(parseMidiFile(file(1, [tempo, [...offset(2), ...note],
 		...Array.from({ length: 254 }, () => note)]), { sampleRate: 8000 }));
 	await f.service.addTrack();
 	assert.equal(f.project().tracks.length, 256);

@@ -26,9 +26,41 @@ const INITIAL_STATE: MidiExpressionState = {
 
 /** Compile setup and performance controls once per render window, independently of prior windows. */
 export function compileMidiExpression(events: readonly MidiFileEvent[]): readonly MidiExpressionTimeline[] {
-	const channels = Array.from({ length: 16 }, () => ({ states: [INITIAL_STATE], stops: [] as number[], keyReleases: [] as number[], pedalReleases: [] as number[] }));
 	const relevant = events.filter(event => (event.status & 0xf0) === 0xb0 || (event.status & 0xf0) === 0xe0)
 		.slice().sort((left, right) => left.frame - right.frame);
+	return compileExpressionEvents(relevant);
+}
+
+/** One source snapshot owns namespace compilation and note-on selector lookup. */
+export function createMidiExpressionIndex(events: readonly MidiFileEvent[]) {
+	const groups = new Map<number, MidiFileEvent[]>();
+	const selectors: { frame: number; port: number }[] = [];
+	let port = 0;
+	for (const event of [...events].sort((left, right) => left.frame - right.frame)) {
+		if (event.status === 255 && event.metaType === 0x21 && event.data.length === 1) {
+			port = event.data[0]!; selectors.push({ frame: event.frame, port });
+		} else if ((event.status & 0xf0) === 0xb0 || (event.status & 0xf0) === 0xe0) {
+			const group = groups.get(port); if (group) group.push(event); else groups.set(port, [event]);
+		}
+	}
+	const timelines = new Map([...groups].map(([key, group]) => [key, compileExpressionEvents(group)]));
+	const empty = compileExpressionEvents([]);
+	return { forNote(note: MidiNote): MidiExpressionTimeline {
+		let selected = note.midiPort;
+		if (selected === undefined) {
+			let low = 0, high = selectors.length;
+			while (low < high) {
+				const middle = (low + high) >>> 1;
+				if (selectors[middle]!.frame <= note.startFrame) low = middle + 1; else high = middle;
+			}
+			selected = selectors[low - 1]?.port ?? 0;
+		}
+		return (timelines.get(selected) ?? empty)[note.channel]!;
+	} };
+}
+
+function compileExpressionEvents(relevant: readonly MidiFileEvent[]): readonly MidiExpressionTimeline[] {
+	const channels = Array.from({ length: 16 }, () => ({ states: [INITIAL_STATE], stops: [] as number[], keyReleases: [] as number[], pedalReleases: [] as number[] }));
 	for (const event of relevant) {
 		if (!Number.isSafeInteger(event.frame) || event.frame < 0 || event.data.length !== 2
 			|| event.data.some(value => !Number.isSafeInteger(value) || value < 0 || value > 127)) {
