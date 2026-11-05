@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts'; import { publishLocalizedStatus } from '../../../../i18n/presentation-message.ts'; import type { RecordingCaptureControllerLike } from './recording-session-service.ts';
+import { raceAbortablePromise } from '../../../../foundation/abort-race.ts';
 import { isCurrentAssertion } from '../../shared/lifecycle.ts';
 import {
 	recordingCapturePeak, recordingCaptureChannelMeters,
@@ -149,7 +150,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 						sampleRate: runtime.recordingInputSampleRate?.() ?? sampleRate,
 					});
 				}
-				return { sourceKey, routes, promise };
+				return { sourceKey, routes, promise: raceAbortablePromise(promise, scope.signal) };
 			});
 			const settled = await Promise.allSettled(acquisitions.map(({ promise }) => promise));
 			scope.assertCurrent();
@@ -532,7 +533,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 				state.recordingFatalError = null;
 				runtime.releaseUnretainedRecordingInputs();
 				runtime.syncRecordingPoolSnapshot();
-			} else runtime.releaseUnretainedRecordingInputs();
+			} else if (ownsGeneration()) runtime.releaseUnretainedRecordingInputs();
 			if (errorName(error) === 'AbortError') return;
 			throw error;
 		} finally {

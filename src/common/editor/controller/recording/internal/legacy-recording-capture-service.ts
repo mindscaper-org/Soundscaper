@@ -6,6 +6,7 @@ import { createLocalizedError } from '../../../../i18n/presentation-message.ts';
 	RecordingStartScope,
 	RecordingSourceWriter,
 } from '../recording-transaction-types.ts';
+import { raceAbortablePromise } from '../../../../foundation/abort-race.ts';
 import { isCurrentAssertion } from '../../shared/lifecycle.ts';
 import type { RecordingCaptureControllerLike } from './recording-session-service.ts';
 import {
@@ -68,10 +69,10 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 				&& (!stream || !runtime.recordingStreamIsLive(stream, 'device'))) {
 				throw createLocalizedError(Error, { ['recordingPreparedInputClosed']: runtime.messages.preparedInputClosed }, 'recordingPreparedInputClosed');
 			}
-			if (!options.reusePreparedInputsOnly || !stream) stream = await runtime.capturePool.acquireHardware(runtime.defaultDeviceId, {
+			if (!options.reusePreparedInputsOnly || !stream) stream = await raceAbortablePromise(runtime.capturePool.acquireHardware(runtime.defaultDeviceId, {
 				channelCount: 2,
 				sampleRate: runtime.recordingInputSampleRate?.() ?? sampleRate,
-			});
+			}), scope.signal);
 			scope.assertCurrent();
 			if (!runtime.recordingStreamIsLive(stream, 'device')) throw new MediaInputLostError('The recording input disconnected before recording could start.');
 			runtime.syncRecordingPoolSnapshot();
@@ -297,7 +298,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 				await Promise.resolve(recorder?.dispose?.({ stopTracks: false })).catch(() => undefined);
 				await writer?.abort().catch(() => undefined);
 			}
-			runtime.releaseUnretainedRecordingInputs();
+			if (ownsGeneration()) runtime.releaseUnretainedRecordingInputs();
 			if (ownsStart()) {
 				runtime.syncRecordingPoolSnapshot();
 				state.recorder = null;

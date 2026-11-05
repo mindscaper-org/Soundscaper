@@ -341,16 +341,16 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 				&& !state.audioInputDevices.some(device => device.deviceId === state.preferredInputDeviceId)) {
 				throw new Error('The selected native audio input is unavailable.');
 			}
-			await ordinaryRecovery.begin();
-			scope.assertCurrent();
-			const route = recordingTrackRoute(state.recordingRouting.routes, options.trackId);
-			const routed = route && (
-				route.kind === 'display'
-				|| route.deviceId !== RECORDING_DEFAULT_DEVICE_ID
-				|| route.channelStart > 0
-				|| route.channelCount !== 2
-			);
 			try {
+				await ordinaryRecovery.begin();
+				scope.assertCurrent();
+				const route = recordingTrackRoute(state.recordingRouting.routes, options.trackId);
+				const routed = route && (
+					route.kind === 'display'
+					|| route.deviceId !== RECORDING_DEFAULT_DEVICE_ID
+					|| route.channelStart > 0
+					|| route.channelCount !== 2
+				);
 				await (options.trackId && !routed ? legacyCapture.capture(options, scope) : routedCapture.capture(options, scope));
 				if (!state.recorder) await ordinaryRecovery.abandon();
 			} catch (error) { await ordinaryRecovery.abandon(); throw error; }

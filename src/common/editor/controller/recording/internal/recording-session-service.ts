@@ -133,7 +133,7 @@ export interface RecordingFinalizationSnapshot {
 
 export interface RecordingSessionServiceRuntime {
 	readonly state: RecordingSessionMutableState;
-	readonly prepareRecordingStart?: (options: RecordingStartOptions, scope: RecordingStartScope, mode: 'ordinary' | 'new-track' | 'take-cycle') => MaybePromise<RecordingStartOptions> | undefined;
+	readonly prepareRecordingStart?: (options: RecordingStartOptions, scope: RecordingStartScope, mode: 'ordinary' | 'new-track' | 'take-cycle', previousStart?: PromiseLike<void>) => MaybePromise<RecordingStartOptions> | undefined;
 	readonly prepareRecordingOptions?: (options: RecordingStartOptions) => RecordingStartOptions;
 	readonly getProjectId: () => string | null;
 	readonly beginRecording: (

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, collectClientErrors, openExportDialog, downloadBytes, closeDialog } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, collectClientErrors, openExportDialog, downloadBytes, closeDialog } from './audio-editor-test-helpers.js';
 import { installOscillatorMicrophone, persistedProject } from './helpers/complex-editing-workflows.js';
 
 test.use({ browserCoverage: false });
@@ -62,4 +62,53 @@ test('Stop cancels a pending recording storage check and a late response cannot 
 	expect(peak).toBeGreaterThan(.03);
 	await closeDialog(dialog);
 	expect(errors).toEqual([]);
+});
+
+test('Stop cancels a pending native microphone grant and a retry records before the old grant returns', async ({ page }) => {
+	await installOscillatorMicrophone(page);
+	await page.addInitScript(() => {
+		const request = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+		const gate = { requests: 0, release: () => {} };
+		globalThis.__nativeRecordGrant = gate;
+		Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { configurable: true, value: async constraints => {
+			const ordinal = ++gate.requests;
+			const stream = await request(constraints);
+			if (ordinal === 1) await new Promise(resolve => { gate.release = resolve; });
+			return stream;
+		} });
+	});
+	const errors = collectClientErrors(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await preferences.getByRole('tab', { name: /Playback\/Recording/u }).click();
+	await preferences.getByRole('checkbox', { name: 'Keep input devices open between recordings', exact: true }).uncheck();
+	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
+	const projectId = await editor.getAttribute('data-project-id');
+	const record = editor.locator('[data-transport="record"] .kw-audio-editor__split-button-main button');
+	const stop = editor.getByRole('button', { name: 'Stop', exact: true });
+	try {
+		await record.click();
+		await expect.poll(() => page.evaluate(() => globalThis.__nativeRecordGrant.requests)).toBe(1);
+		await stop.click();
+		await expect(record).toBeEnabled();
+		await record.click();
+		await expect.poll(() => page.evaluate(() => globalThis.__nativeRecordGrant.requests)).toBe(2);
+		await expect(record).toHaveAttribute('aria-pressed', 'true');
+		const playhead = editor.getByRole('slider', { name: 'Playhead', exact: true });
+		const started = Number(await playhead.getAttribute('aria-valuenow'));
+		await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(started + 6000);
+		await page.evaluate(() => globalThis.__nativeRecordGrant.release());
+		await expect.poll(() => page.evaluate(() => globalThis.__complexWorkflowStreams[0].destination.stream.getAudioTracks()[0].readyState)).toBe('ended');
+		await expect(record).toHaveAttribute('aria-pressed', 'true');
+		await stop.click();
+		await expect(editor).toHaveAttribute('data-clip-count', '1');
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		const saved = await persistedProject(page, projectId);
+		expect(saved.sources[0].frameCount).toBeGreaterThan(6000);
+		expect(errors).toEqual([]);
+	} finally {
+		await page.evaluate(() => globalThis.__nativeRecordGrant?.release());
+		await stop.click();
+	}
 });

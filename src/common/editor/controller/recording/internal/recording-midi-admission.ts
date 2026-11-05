@@ -25,9 +25,10 @@ export function createRecordingMidiAdmission<Project extends RecordingProject>(r
 	readonly engine: Pick<RecordingEnginePort, 'getAudioContext'>;
 	releaseInputs(): void;
 }>): NonNullable<RecordingSessionServiceRuntime['prepareRecordingStart']> {
-	return (options, scope, mode) => {
+	return (options, scope, mode, previousStart) => {
 		const pending = runtime.pending;
-		if (!pending?.hasPendingEdits()) return undefined;
+		const pendingMidi = pending?.hasPendingEdits() ?? false;
+		if (!pendingMidi && !previousStart) return undefined;
 		const project = runtime.getProject();
 		const route = options.trackId ? recordingTrackRoute(runtime.getRoutes(), options.trackId) : null;
 		const legacy = options.trackId && (!route || (route.kind === 'device' && route.deviceId === 'default'
@@ -47,9 +48,9 @@ export function createRecordingMidiAdmission<Project extends RecordingProject>(r
 			})));
 		const context = invoke(() => runtime.engine.getAudioContext()).then(async value => { await value.resume(); });
 		const preparation = Promise.allSettled([context, ...acquisitions]);
-		const readiness = raceAbortablePromise(preparation, scope.signal);
+		const readiness = raceAbortablePromise(Promise.all([preparation, previousStart]).then(([prepared]) => prepared), scope.signal);
 		void readiness.catch(() => undefined);
-		const fenced = invoke(() => pending.settled(project, readiness));
+		const fenced = pendingMidi && pending ? invoke(() => pending.settled(project, readiness)) : Promise.resolve();
 		void fenced.catch(() => undefined);
 		const admission = Promise.all([fenced, readiness]).then(([, results]) => {
 			scope.assertCurrent();

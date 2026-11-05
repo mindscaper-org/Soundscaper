@@ -13,6 +13,7 @@ export function createRecordingStartRequests(runtime: RecordingSessionServiceRun
 	const publishDocumentSnapshot = runtime.publishDocumentSnapshot ?? (() => {});
 	const releaseInputs = runtime.releaseUnretainedRecordingInputs ?? (() => {});
 	let startAbort: AbortController | null = null;
+	let retiring: Promise<void> | null = null;
 	return Object.freeze({ startRecording, startSoundActivatedRecording, startRecordingOnNewTrack, startTakeCycleRecording, cancelRecordingStart });
 
 	function startBlocked(): boolean {
@@ -59,10 +60,11 @@ export function createRecordingStartRequests(runtime: RecordingSessionServiceRun
 		state.recordingKind = soundActivated ? 'sound-activated' : 'ordinary';
 		const begin = (value: RecordingStartOptions) => { scope.assertCurrent(); const prepared = prepare(value); return prepared ? runtime.beginRecording(prepared, scope) : undefined; };
 		const operation = invokeAsPromise(() => {
-			const staging = runtime.prepareRecordingStart?.(options, scope, mode);
-			if (!staging) return begin(options);
+			const previous = retiring;
+			const staging = runtime.prepareRecordingStart?.(options, scope, mode, previous ?? undefined);
+			if (!staging && !previous) return begin(options);
 			state.recordingAdmissionPending = true;
-			return Promise.resolve(staging).then(begin);
+			return Promise.all([previous, staging]).then(([, prepared]) => begin(prepared ?? options));
 		});
 		const tracked = operation.finally(() => {
 			if (state.recordingStartPromise === tracked) {
@@ -86,13 +88,14 @@ export function createRecordingStartRequests(runtime: RecordingSessionServiceRun
 		const scope = createStartScope();
 		state.recordingKind = 'take-cycle';
 		const operation = invokeAsPromise(async () => {
-			const staging = runtime.prepareRecordingStart?.({}, scope, 'take-cycle');
+			const previous = retiring;
+			const staging = runtime.prepareRecordingStart?.({}, scope, 'take-cycle', previous ?? undefined);
 			let preparedScope = scope;
-			if (staging) {
+			if (staging || previous) {
 				state.recordingAdmissionPending = true;
-				const prepared = await staging;
+				const [, prepared] = await Promise.all([previous, staging]);
 				scope.assertCurrent();
-				preparedScope = { ...scope, reusePreparedInputsOnly: prepared.reusePreparedInputsOnly };
+				preparedScope = { ...scope, reusePreparedInputsOnly: prepared?.reusePreparedInputsOnly };
 			}
 			state.recordingStarting = true;
 			const recorder = await runtime.beginTakeCycleRecording!(preparedScope);
@@ -129,13 +132,16 @@ export function createRecordingStartRequests(runtime: RecordingSessionServiceRun
 
 	function cancelRecordingStart(): boolean {
 		if (!state.recordingStarting && !state.recordingStartPromise) return false;
-		const admissionPending = state.recordingAdmissionPending;
+		const canceled = state.recordingStartPromise;
 		state.recordingStartGeneration += 1;
 		state.recordingStarting = false;
 		state.recordingAdmissionPending = false;
 		startAbort?.abort(runtime.abortError?.() || new DOMException('The recording start was cancelled.', 'AbortError'));
 		startAbort = null;
-		if (admissionPending) {
+		if (!state.recorder && canceled) {
+			const retirement = Promise.allSettled([retiring, canceled]).then(() => undefined);
+			retiring = retirement;
+			void retirement.then(() => { if (retiring === retirement) retiring = null; });
 			state.recordingStartPromise = null;
 			state.recordingKind = null;
 			runtime.setSoundActivationCaptureEnabled?.(false);

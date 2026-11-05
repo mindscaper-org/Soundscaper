@@ -74,3 +74,36 @@ test('canceled MIDI admission rejects before the MIDI write or native permission
 	assert.equal(result?.status, 'rejected');
 	assert.equal(released, 0, 'the canceled start owner releases synchronously; late admission completion does not release a newer input');
 });
+
+test('a retry stages display permission before waiting for the canceled capture journal to retire', async () => {
+	const retiring = deferred<void>(), events: string[] = [];
+	const prepare = createRecordingMidiAdmission({ getProject: () => ({ id: 'project', tracks: [] }),
+		pending: { hasPendingEdits: () => false, async settled() { assert.fail('ordinary retry does not load MIDI'); } },
+		getRoutes: () => ({}), getPreferredInput: () => ({ deviceId: 'display', channelCount: 1 }), sampleRate: () => 48_000,
+		capturePool: { async acquireDisplay() { events.push('permission'); return { getAudioTracks: () => [] }; }, async acquireHardware() { assert.fail('display source'); } },
+		engine: { async getAudioContext() { events.push('context'); return { sampleRate: 48_000, currentTime: 0, async resume() {} }; } }, releaseInputs() {},
+	});
+	const request = prepare({}, { projectId: 'project', generation: 3, assertCurrent() {} }, 'new-track', retiring.promise);
+	assert.deepEqual(events, ['permission', 'context']);
+	let completed = false; const completion = Promise.resolve(request).then(value => { completed = true; return value; });
+	await settle(); assert.equal(completed, false);
+	retiring.resolve(); assert.equal((await completion)?.reusePreparedInputsOnly, true);
+});
+
+test('repeated Stop and retry retain every previous capture cleanup before beginning a fresh transaction', async () => {
+	const cleanup = deferred<void>(); let begins = 0, preparations = 0;
+	const state = Object.assign(createControllerRecordingState({ recordingRouting: { routes: {}, offsets: {} }, recordingInputGain: 1, preferredInputDeviceId: 'default' }),
+		{ readOnly: false, disposed: false, projectBinPreview: null });
+	const requests = createRecordingStartRequests({ state, getProjectId: () => 'project',
+		prepareRecordingStart(options, _scope, _mode, previous) { if (!previous) return undefined; preparations++; return Promise.resolve(options); },
+		async beginRecording(_options, scope) { begins++; if (begins === 1) { state.recordingStarting = true; await cleanup.promise; scope.assertCurrent(); } },
+		async performLegacyFinalization() {}, async performRoutedFinalization() {},
+	});
+	const first = Promise.allSettled([requests.startRecording()]); requests.cancelRecordingStart();
+	const second = Promise.allSettled([requests.startRecording()]); requests.cancelRecordingStart();
+	const third = Promise.allSettled([requests.startRecording()]); await settle();
+	assert.equal(preparations, 2); assert.equal(begins, 1, 'fresh permissions stage, but old recovery cleanup remains authoritative');
+	cleanup.resolve(); const [[old], [superseded], [current]] = await Promise.all([first, second, third]);
+	assert.equal(old?.status, 'rejected'); assert.equal(superseded?.status, 'rejected'); assert.equal(current?.status, 'fulfilled');
+	assert.equal(begins, 2); assert.equal(state.recordingStartPromise, null);
+});
