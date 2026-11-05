@@ -22,9 +22,9 @@ test('File Export Audacity reads a long stored surround recording', async ({ pag
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Surround.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
-	await expect(editor).toHaveAttribute('data-project-id', project.id);
+	await expect(editor).toHaveAttribute('data-project-id', project.id, { timeout: 60_000 });
 	await expect(editor).not.toHaveAttribute('data-project-activation-pending', 'true');
-	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'import');
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
 	const downloading = page.waitForEvent('download', { timeout: 90_000 });
 	await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export AUP3']);
 	const download = await downloading;

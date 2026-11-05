@@ -48,9 +48,21 @@ test('a supported native one-second seek still imports and moves live playback w
 		return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
 	};
 	await expect.poll(seconds).toBeGreaterThan(0.05);
-	const selection = await end.textContent(), before = await seconds(), wall = Date.now();
-	await playhead.focus(); await page.keyboard.press('Control+Alt+Shift+F7');
-	await expect.poll(async () => await seconds() - before - (Date.now() - wall) / 1000).toBeGreaterThan(0.7);
+	const selection = await end.textContent();
+	await playhead.focus();
+	const observation = await display.evaluateHandle(element => {
+		const read = () => { const match = /^(\d+)h(\d+)m([\d.]+)s$/u.exec(element.textContent); return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]); };
+		let origin = null, jump = 0;
+		const keydown = event => { if (event.key === 'F7' && event.ctrlKey && event.altKey && event.shiftKey) origin = { seconds: read(), time: performance.now() }; };
+		const observer = new MutationObserver(() => { if (origin) jump = Math.max(jump, read() - origin.seconds - (performance.now() - origin.time) / 1000); });
+		window.addEventListener('keydown', keydown, true);
+		observer.observe(element, { childList: true, characterData: true, subtree: true });
+		return { get jump() { return jump; }, close() { observer.disconnect(); window.removeEventListener('keydown', keydown, true); } };
+	});
+	try {
+		await page.keyboard.press('Control+Alt+Shift+F7');
+		await expect.poll(() => observation.evaluate(value => value.jump)).toBeGreaterThan(0.7);
+	} finally { await observation.evaluate(value => value.close()); await observation.dispose(); }
 	await expect(end).toHaveText(selection);
 	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
 });
