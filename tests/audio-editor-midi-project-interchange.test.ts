@@ -154,7 +154,8 @@ function loopingFixtureClip(project: ReturnType<typeof fixture>) {
 
 function assertInterchangeRoundtrip(document: MidiFileDocument): void {
 	const content = (value: MidiFileDocument) => value.tracks.filter(track => track.notes.length).map(track => ({
-		notes: track.notes.map(({ id: _id, ...note }) => note).sort((a, b) => a.startFrame - b.startFrame || a.pitch - b.pitch),
+		notes: track.notes.map(({ id: _id, onsetStop, ...note }) => ({ ...note, ...(onsetStop ? { onsetStop } : {}) }))
+			.sort((a, b) => a.startFrame - b.startFrame || a.pitch - b.pitch),
 		events: (track.events ?? []).filter(event => (event.status & 240) !== 192),
 	}));
 	assert.deepEqual(content(parseMidiFile(writeMidiFile(document), { sampleRate: document.sampleRate })), content(document));

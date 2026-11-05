@@ -7,6 +7,7 @@ import {
 } from '../../midi-model.ts';
 import { midiDocumentFromProject } from '../../midi-project-interchange.ts';
 import { midiProjectTiming } from '../../midi-project-timing.ts';
+import { midiInitialTimingEvent } from '../../midi-initial-timing.ts';
 import { trimAudioWarpClipToTimelineRange } from '../../audio-warp-clip-edit.ts';
 import { roundRational } from '../../timeline-time.ts';
 import { barStartBeat } from '../../musical-grid.ts';
@@ -251,8 +252,8 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 		const commands: AudioEditorCommand[] = [];
 		const importedTiming = tracks[0]?.data.interchange;
 		if (!project.clips.length && importedTiming) {
-			const signature = importedTiming.signatures.find(event => event.frame === 0);
-			const tempo = importedTiming.tempos.find(event => event.frame === 0);
+			const signature = midiInitialTimingEvent(importedTiming.signatures);
+			const tempo = midiInitialTimingEvent(importedTiming.tempos);
 			commands.push({ type: 'tempo/set', ...(tempo ? { bpm: tempo.bpm } : {}),
 				...(signature ? { numerator: signature.numerator, denominator: signature.denominator } : {}) });
 		}

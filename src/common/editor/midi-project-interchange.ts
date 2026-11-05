@@ -2,6 +2,7 @@
 import { readMidiClip, readMidiTrack } from './midi-model.ts';
 import { MIDI_FILE_MAX_EVENTS, validateMidiFileDocument, type MidiFileDocument, type MidiFileEvent, type MidiFileSignature } from './midi-file-types.ts';
 import { midiProjectTiming } from './midi-project-timing.ts';
+import { midiInitialTimingEvent } from './midi-initial-timing.ts';
 import { midiClipOccurrences } from './midi-project-source-projection.ts';
 import { createMidiClipEventProjection } from './midi-project-event-projection.ts';
 import { createMidiClipNoteProjection } from './midi-project-note-projection.ts';
@@ -44,9 +45,9 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 			if (!persistedClip || !data) continue;
 			const eventProjection = createMidiClipEventProjection(data.interchange);
 			const noteProjection = createMidiClipNoteProjection(data);
-			const importedRootTempo = data.interchange?.tempos.find(tempo => tempo.frame === 0);
+			const importedRootTempo = data.interchange && midiInitialTimingEvent(data.interchange.tempos);
 			const preserveTempos = !timing.hasTempoChanges && importedRootTempo && Math.abs(importedRootTempo.bpm - timing.tempos[0]!.bpm) < 0.000001;
-			const importedRootSignature = data.interchange?.signatures.find(signature => signature.frame === 0);
+			const importedRootSignature = data.interchange && midiInitialTimingEvent(data.interchange.signatures);
 			const preserveSignatures = !timing.hasSignatureChanges && importedRootSignature && importedRootSignature.numerator === timing.signatures[0]!.numerator
 				&& importedRootSignature.denominator === timing.signatures[0]!.denominator;
 			if (preserveSignatures && !preservedRootSignature) preservedRootSignature = importedRootSignature;
