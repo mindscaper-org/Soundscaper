@@ -10,21 +10,30 @@ export function isMidiPerformanceStateEvent(event: MidiFileEvent): boolean {
 export function createMidiPerformanceStateProjection(events: readonly MidiFileEvent[]) {
 	const defaults = new Map<string, MidiFileEvent>();
 	for (const event of events) for (const change of changes(event)) defaults.set(key(change), defaultState(change));
+	const windows = new Map<string, Readonly<{ state: readonly MidiFileEvent[]; undo: readonly MidiFileEvent[] }>>();
 	return {
 		initial(frame: number): MidiFileEvent[] { return [...defaults.values()].map(event => ({ ...event, frame })); },
 		reversed(start: number, frames: number, timelineStart: number, global: (frame: number) => number): MidiFileEvent[] {
-			const state = new Map(defaults);
-			const undo: MidiFileEvent[] = [];
-			for (const event of events) {
-				if (event.frame >= start + frames) break;
-				for (const change of changes(event)) {
-					const identity = key(change);
-					const before = state.get(identity)!;
-					if (event.frame >= start) undo.push({ ...before, frame: global(event.frame) });
-					state.set(identity, change);
+			const windowKey = `${start}:${frames}`;
+			let window = windows.get(windowKey);
+			if (!window) {
+				const state = new Map(defaults);
+				const undo: MidiFileEvent[] = [];
+				for (const event of events) {
+					if (event.frame >= start + frames) break;
+					for (const change of changes(event)) {
+						const identity = key(change);
+						const before = state.get(identity)!;
+						if (event.frame >= start) undo.push({ ...before, frame: event.frame });
+						state.set(identity, change);
+					}
 				}
+				window = { state: [...state.values()], undo: undo.reverse() };
+				// A loop has its body and at most two partial edge windows.
+				if (windows.size < 3) windows.set(windowKey, window);
 			}
-			return [...[...state.values()].map(event => ({ ...event, frame: timelineStart })), ...undo.reverse()];
+			return [...window.state.map(event => ({ ...event, frame: timelineStart })),
+				...window.undo.map(event => ({ ...event, frame: global(event.frame) }))];
 		},
 	};
 }
