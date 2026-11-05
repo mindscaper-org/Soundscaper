@@ -131,9 +131,26 @@ namespace Soundscaper.Qualification.Win32 {
    }
   }
   private static bool Retired(Grant grant,Dialog dialog) {
-   grant.Verify();
-   foreach(Dialog current in Dialogs(grant,null)) if(Equal(current.RuntimeId,dialog.RuntimeId)) return false;
-   return true;
+   grant.Verify();uint pid;
+   if(GetWindowThreadProcessId(dialog.Handle,out pid)==0||pid!=grant.Owner.pid) { grant.Verify();return true; }
+   bool retired;
+   try {
+    AutomationElement actual=AutomationElement.FromHandle(dialog.Handle);
+    if(actual==null) throw new ElementNotAvailableException("The retained dialog UIAutomation element is unavailable.");
+    if(actual.Current.ProcessId!=grant.Owner.pid) {
+     bool lost=GetWindowThreadProcessId(dialog.Handle,out pid)==0||pid!=grant.Owner.pid;grant.Verify();
+     if(lost) return true;
+     throw new InvalidOperationException("UIAutomation dialog lease changed.");
+    }
+    int[] runtimeId=actual.GetRuntimeId();
+    if(runtimeId==null||runtimeId.Length==0) throw new ElementNotAvailableException("The retained dialog UIAutomation runtime identity is unavailable.");
+    retired=!Equal(runtimeId,dialog.RuntimeId)||actual.Current.IsOffscreen;
+   } catch(ElementNotAvailableException) {
+    bool lost=GetWindowThreadProcessId(dialog.Handle,out pid)==0||pid!=grant.Owner.pid;grant.Verify();
+    if(lost) return true;
+    throw;
+   }
+   grant.Verify();return retired;
   }
   public static ChooserResult Choose(Grant grant,string kind,string path,string directory,string caption,string action) {
    if(!Environment.UserInteractive) throw new InvalidOperationException("An interactive owned desktop is required for UIAutomation.");
