@@ -2,9 +2,9 @@
 import { installDesktopSpeedWarmupManifest } from './desktop-speed-warmup-fixture.js';
 
 /** The production native worklet exchanges owned PCM packets with an independent helper thread. */
-export async function installNativeOutputPeer(page, { outputChannelCount = 2 } = {}) {
+export async function installNativeOutputPeer(page, { outputChannelCount = 2, measureFrequency = false } = {}) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(({ outputChannelCount }) => {
+	await page.addInitScript(({ outputChannelCount, measureFrequency }) => {
 		const sessions = new Map(), peers = new Map();
 		const pendingFences = new Map();
 		let next = 0, nextFence = 0;
@@ -52,21 +52,34 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2 } =
 			bindNativeAudioSession: async ({ sessionId }) => {
 				const request = sessions.get(sessionId), pair = new MessageChannel();
 				const url = URL.createObjectURL(new Blob([`
-					let latestPacket = null;
+					let latestPacket = null, previousSample = null;
+					const frequencies = [];
 					onmessage = ({ data }) => {
 						if (data.fence) { postMessage({ fence: data.fence, packet: latestPacket }); return; }
-						const { port } = data;
+						const { port, rate, measureFrequency } = data;
 						let packets = 0;
 						const powers = [];
 						port.onmessage = ({ data }) => {
 							if (data.kind !== 'audio') return;
+							let frequency;
+							if (measureFrequency) {
+								let crossings = 0;
+								for (const sample of data.channels[0]) {
+									if (previousSample !== null && (sample >= 0) !== (previousSample >= 0)) crossings++;
+									previousSample = sample;
+								}
+								frequencies.push({ crossings, frames: data.frameCount });
+								if (frequencies.length > 16) frequencies.shift();
+								frequency = frequencies.reduce((sum, packet) => sum + packet.crossings, 0) * rate
+									/ (2 * frequencies.reduce((sum, packet) => sum + packet.frames, 0));
+							}
 							const means = data.channels.map(channel => channel.reduce((sum, value) => sum + value, 0) / channel.length);
 							powers.push(data.channels.map(channel => channel.reduce((sum, value) => sum + value * value, 0) / channel.length));
 							if (powers.length > 64) powers.shift();
 							const rms = means.map((_, index) => Math.sqrt(powers.reduce((sum, packet) => sum + packet[index], 0) / powers.length));
 							latestPacket = { startFrame: data.startFrame, endFrame: data.startFrame + data.frameCount,
 								frameCount: data.frameCount, peaks: data.channels.map(channel => channel.reduce((peak, value) => Math.max(peak, Math.abs(value)), 0)) };
-							postMessage({ packets: ++packets, mean: means[0], channelMeans: means, channelRms: rms, packet: latestPacket });
+							postMessage({ frequency, packets: ++packets, mean: means[0], channelMeans: means, channelRms: rms, packet: latestPacket });
 							port.postMessage({ ...data, kind: 'return', status: 'ok', framesTransferred: data.frameCount },
 								data.channels.map(channel => channel.buffer));
 						};
@@ -90,7 +103,7 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2 } =
 						}
 					};
 					worker.onerror = reject;
-					worker.postMessage({ port: pair.port1 }, [pair.port1]);
+					worker.postMessage({ port: pair.port1, rate: request.sampleRate, measureFrequency }, [pair.port1]);
 				});
 				window.postMessage({ type: 'soundscaper-native-realtime-port-v1', offer: {
 					sessionId, protocolVersion: 1, generation: 1, sampleFormat: 'f32-planar', sampleRate: request.sampleRate,
@@ -118,5 +131,5 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2 } =
 			bridge[name] = async () => { throw new Error(`Unexpected native fixture method ${name}`); };
 		}
 		Object.defineProperty(window, 'soundscaperDesktop', { configurable: true, value: { v1: bridge } });
-	}, { outputChannelCount });
+	}, { outputChannelCount, measureFrequency });
 }

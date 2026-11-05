@@ -13,7 +13,8 @@ export const SOUNDSCAPER_NATIVE_AUDIO_PORT_EVENT = 'soundscaper-native-realtime-
 
 type EnginePort = Readonly<{
 	getAudioContext(options?: Readonly<{ resume?: boolean; sampleRate?: number }>): Promise<AudioContext>;
-	getState(): Readonly<{ state: string }>;
+	getState(): Readonly<{ state: string; positionFrame?: number; cutPreview?: boolean }>;
+	seek?(frame: number): number;
 	pause(): void;
 	play(): Promise<void>;
 }>;
@@ -292,7 +293,12 @@ function createAttachment() {
 }
 
 async function restartIfPlaying(engine: EnginePort): Promise<void> {
-	if (engine.getState().state !== 'playing') return;
+	const state = engine.getState();
+	if (state.state !== 'playing') return;
+	if (engine.seek && state.positionFrame !== undefined && !state.cutPreview) {
+		engine.seek(state.positionFrame);
+		return;
+	}
 	engine.pause();
 	await engine.play();
 }
