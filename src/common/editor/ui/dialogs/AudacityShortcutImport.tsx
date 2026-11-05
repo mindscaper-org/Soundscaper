@@ -6,6 +6,7 @@ import { resolveEditorCopyScope } from '../../../i18n/editor-copy-scope.ts';
 import { KEYBOARD_MAP_COPY_BY_LOCALE } from '../../../i18n/editor-keyboard-map-copy.ts';
 import { createShortcutImportSession, type ShortcutImportSession, type ShortcutImportSource } from '../../controller/preferences/shortcut-import-session.ts';
 import { runAwaitedAudioEditorOperation } from '../workspace/audio-editor-workspace-runner.ts';
+import { useOperationFocusRecovery } from '../useOperationFocusRecovery.ts';
 import { isReservedVideoNavigationShortcut } from './shortcut-editor-reservations.ts';
 import type { ShortcutEditorCommand } from './ShortcutEditorRow.tsx';
 
@@ -27,6 +28,7 @@ export default function AudacityShortcutImport({ productId, commands, shortcuts,
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const [source, setSource] = useState<ShortcutImportSource | null>(null);
 	const [busy, setBusy] = useState(false);
+	const captureImportFocus = useOperationFocusRecovery(busy, controller);
 	const [error, setError] = useState<'invalid' | 'too-large' | null>(null);
 	const [importedCount, setImportedCount] = useState<number | null>(null);
 	const sessionRef = useRef<ShortcutImportSession | null>(null);
@@ -35,10 +37,7 @@ export default function AudacityShortcutImport({ productId, commands, shortcuts,
 			loadImporter: () => import('../../audacity-shortcut-import.ts'),
 			saveShortcuts: shortcuts => runAwaitedAudioEditorOperation(run, () => controller.actions.preferences.update({ shortcuts })),
 			onSource: setSource, onBusy: setBusy, onReadError: setError,
-			onImported: count => {
-				setImportedCount(count);
-				if (count !== null) queueMicrotask(() => buttonRef.current?.focus());
-			},
+			onImported: setImportedCount,
 		});
 		sessionRef.current = session;
 		return () => { session.dispose(); sessionRef.current = null; };
@@ -88,7 +87,10 @@ export default function AudacityShortcutImport({ productId, commands, shortcuts,
 				{plan.skipped.map((entry, index) => <li key={index}>{entry.command}{entry.binding ? ` (${entry.binding})` : ''}: {skipLabels[entry.reason]}</li>)}
 			</ul></details>}
 			<div className="kw-audio-editor__custom-workspace-actions">
-				<Button variant="primary" disabled={busy || !plan.importedCount} onClick={() => { void sessionRef.current?.apply(plan); }}>{labels.importApply}</Button>
+				<Button variant="primary" disabled={busy || !plan.importedCount} onClick={() => {
+					captureImportFocus(() => buttonRef.current);
+					void sessionRef.current?.apply(plan);
+				}}>{labels.importApply}</Button>
 				<Button variant="secondary" disabled={busy} onClick={cancel}>{copy.cancel}</Button>
 			</div>
 		</section>}
