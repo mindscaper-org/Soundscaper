@@ -1,4 +1,6 @@
 import React from 'react';
+import { consumeChoiceActivation } from '../hooks/choice-activation';
+import { radioThemeStyle } from '../utils/choice-theme';
 import { useTheme } from '../ThemeProvider';
 import './Radio.css';
 
@@ -49,13 +51,7 @@ export const Radio: React.FC<RadioProps> = ({
 }) => {
   const { theme } = useTheme();
 
-  const style = {
-    '--radio-border': theme.border.control.radio,
-    '--radio-border-hover': theme.border.focus,
-    '--radio-bg': theme.background.control.radio.idle,
-    '--radio-pip': theme.background.control.button.primary.idle,
-    '--radio-pip-disabled': theme.foreground.icon.disabled,
-  } as React.CSSProperties;
+  const style = radioThemeStyle(theme);
 
   const handleChange = () => {
     if (!disabled && !checked) {
@@ -64,11 +60,7 @@ export const Radio: React.FC<RadioProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Only change on Enter/Space, and only if not already checked
-    if ((e.key === 'Enter' || e.key === ' ') && !disabled && !checked) {
-      e.preventDefault();
-      onChange?.(true);
-    }
+    if (!disabled && !checked && consumeChoiceActivation(e)) handleChange();
   };
 
   return (

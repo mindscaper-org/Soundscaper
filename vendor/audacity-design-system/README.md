@@ -855,3 +855,12 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      the existing Delete path shares that cancellation. Normal model
      publications retain a newer valid gesture. Covered by mounted ownership
      tests and production held-drag workflows. Upstream-PR candidate.
+
+114. `Checkbox` and `Radio` preserve already handled and Ctrl/Meta/Alt-modified
+     activation keys for their owning command or control. Plain Enter and Space
+     retain their existing choice behavior through the shared `choice-activation`
+     hook utility. Their unchanged theme variable construction lives in
+     `utils/choice-theme` so the existing component chunk ceiling stays intact.
+     Covered by mounted primitive checks
+     and production Snap-command and Chirp-interpolation regressions.
+     Upstream-PR candidate.
