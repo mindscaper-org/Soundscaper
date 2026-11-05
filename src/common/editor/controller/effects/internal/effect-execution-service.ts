@@ -5,7 +5,8 @@ import {
 	isCurrentAssertion,
 	type EditorProjectToken,
 	type EditorTaskScope,
-} from '../../shared/lifecycle.ts'; import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
+} from '../../shared/lifecycle.ts'; import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { selectionEffectChangesLength } from './selection-effect-length.ts';
+import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
 import { createSelectionEffectPreviewService } from './effect-preview-service.ts';
 import { createPreparedSelectionPcmCache, preparedSelectionPcmKey } from './prepared-selection-pcm-cache.ts';
 import { tryPrepareCoalescedEffectContext, type SimpleDryRangeRenderer } from './coalesced-effect-context.ts';
@@ -128,8 +129,10 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 		if (editingBlocked()) return;
 		runtime.pauseSourcePreview?.();
 		const type = state.audacityEffectType;
-		const definition = AUDIO_SELECTION_EFFECT_DEFINITIONS[type];
-		const targets = audacityEffectTargets({ includeSilentTracks: Boolean(definition.lengthChanging) });
+		let params = normalizeAudioSelectionEffectParams(type, currentAudacityEffectParams());
+		const definition = { ...AUDIO_SELECTION_EFFECT_DEFINITIONS[type], lengthChanging: selectionEffectChangesLength(
+			type, params, AUDIO_SELECTION_EFFECT_DEFINITIONS[type]) };
+		const targets = audacityEffectTargets({ includeSilentTracks: definition.lengthChanging });
 		if (!targets.length) throw createLocalizedError(Error, copy, 'audacitySelectionHint');
 		const sampleRate = targets[0]?.sourceSampleRate ?? projectSampleRate();
 		const selection = activeSelection();
@@ -137,7 +140,6 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 			target.track.id,
 			audacitySpectralEffectContext(target, definition),
 		]));
-		let params = normalizeAudioSelectionEffectParams(type, currentAudacityEffectParams());
 		if (definition.requiresNoiseProfile && !state.audacityNoiseProfile) throw createLocalizedError(Error, copy, 'noiseProfileMissing');
 		if (definition.requiresControlTrack && !state.audacityControlTrackId) throw createLocalizedError(Error, copy, 'autoDuckControlTrack');
 		const contextFrames = definition.preRollSeconds
@@ -272,7 +274,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 		const role = normalizeNyquistRole(request.role || request.pluginType || request.type);
 		const preview = Boolean(request.preview);
 		const selection = activeSelection();
-		const availableTargets = audacityEffectTargets();
+		const availableTargets = audacityEffectTargets({ includeSilentTracks: role === 'process' || role === 'prompt' });
 		const sampleRate = role === 'generate' ? projectSampleRate() : availableTargets[0]?.sourceSampleRate ?? projectSampleRate();
 		const targets = role === 'generate'
 			? [null]

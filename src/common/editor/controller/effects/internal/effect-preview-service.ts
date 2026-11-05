@@ -1,3 +1,4 @@
+import { selectionEffectChangesLength } from './selection-effect-length.ts';
 import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { previewRenderedClipStarts, previewGeometryFromTargets, type PreviewGeometryProject } from './preview-rendered-clip-placement.ts';
@@ -55,10 +56,12 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 		if (request.type) setAudacityEffectType(request.type);
 		if (request.params) setAudacityEffectParamsFromController(request.params);
 		if ('controlTrackId' in request) setAudacityControlTrack(request.controlTrackId);
-		const fullTargets = audacityEffectTargets();
-		if (!fullTargets.length) throw createLocalizedError(Error, copy, 'audacitySelectionHint');
 		const type = state.audacityEffectType;
-		const definition = AUDIO_SELECTION_EFFECT_DEFINITIONS[type];
+		let params = normalizeAudioSelectionEffectParams(type, currentAudacityEffectParams());
+		const definition = { ...AUDIO_SELECTION_EFFECT_DEFINITIONS[type], lengthChanging: selectionEffectChangesLength(
+			type, params, AUDIO_SELECTION_EFFECT_DEFINITIONS[type]) };
+		const fullTargets = audacityEffectTargets({ includeSilentTracks: definition.lengthChanging });
+		if (!fullTargets.length) throw createLocalizedError(Error, copy, 'audacitySelectionHint');
 		const sampleRate = fullTargets[0]?.sourceSampleRate ?? projectSampleRate();
 		const maximumFrames = Math.max(1, Math.round(sampleRate * 6));
 		const previewStartFrame = Math.min(...fullTargets.map((target: RuntimeValue) => target.startFrame));
@@ -67,7 +70,6 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 			Math.max(...fullTargets.map((target: RuntimeValue) => target.endFrame)),
 		);
 		const previewFrameCount = previewEndFrame - previewStartFrame;
-		let params = normalizeAudioSelectionEffectParams(type, currentAudacityEffectParams());
 		const placeExactClips = Boolean(definition.lengthChanging) && fullTargets.length > 1
 			&& fullTargets.every((target: RuntimeValue) => target.clipId && !target.sourceId);
 		// Whole-range transforms must run before trimming the six-second audition.
