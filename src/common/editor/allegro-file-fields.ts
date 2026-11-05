@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { createMidiTempoTimeline } from './midi-file-timing.ts';
+import { MIDI_FILE_MAX_EVENTS } from './midi-file-types.ts';
 
 type TempoTimeline = ReturnType<typeof createMidiTempoTimeline>;
 const PITCH_CLASSES: Readonly<Record<string, number>> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
@@ -103,4 +104,59 @@ export function allegroString(value: string): string {
 export function allegroQuotedString(value: string): string {
 	if (/[\r\n\0]/u.test(value)) throw new RangeError('Text containing line breaks or NUL cannot be represented in Allegro. Export MIDI instead.');
 	return `"${value.replace(/[\\"]/gu, character => `\\${character}`)}"`;
+}
+
+type Timing = Parameters<typeof allegroDuration>[2];
+const beats: Timing = { frameToBeat: frame => frame, beatToFrame: beat => beat };
+
+export interface AllegroTempoDiscoveryPlan {
+	readonly deferBeatTempos: boolean;
+	readonly ignoreOriginAnchors: boolean;
+}
+
+const ordinary: AllegroTempoDiscoveryPlan = { deferBeatTempos: true, ignoreOriginAnchors: false };
+const fallback: AllegroTempoDiscoveryPlan = { deferBeatTempos: false, ignoreOriginAnchors: false };
+
+/** A prefix origin anchor is an identity for ordered, explicit beat declarations. */
+export function allegroTempoDiscoveryPlan(lines: readonly string[]): AllegroTempoDiscoveryPlan {
+	if (!lines.some(line => line.includes('-beatr:'))) return ordinary;
+	let hasAnchor = false, eligible = true, tempoStarted = false, count = 0;
+	let previousBeat = -Infinity;
+	try {
+		for (const raw of lines) {
+			const line = raw.trim();
+			const offset = /^#offset\s+(.+)$/iu.exec(line);
+			if (offset && allegroNumber(offset[1]!, 'offset') !== 0) eligible = false;
+			if (!line || line.startsWith('#')) continue;
+			if (++count > MIDI_FILE_MAX_EVENTS) return fallback;
+			const tokens = allegroTokens(line);
+			const anchors = tokens.filter(token => token.startsWith('-beatr:'));
+			const tempo = tokens.some(token => token.startsWith('-tempor:'));
+			const times = tokens.filter(token => /^T/iu.test(token));
+			const position = times.length === 1 ? times[0]!.slice(1) : null;
+			if (anchors.length) {
+				hasAnchor = true;
+				if (tempoStarted || tempo || position === null || allegroNumber(position, 'time') !== 0
+					|| anchors.some(token => allegroNumber(token.slice(7), 'beat anchor') !== 0)) eligible = false;
+			}
+			if (tempo) {
+				tempoStarted = true;
+				const beat = position === null ? null : beatPosition(position)
+					?? (allegroNumber(position, 'time') === 0 ? 0 : null);
+				if (beat === null || beat < previousBeat) eligible = false;
+				else previousBeat = beat;
+			}
+		}
+	} catch { return fallback; } // Main parsing retains the owning line's admission error.
+	return !hasAnchor ? ordinary : { deferBeatTempos: eligible, ignoreOriginAnchors: eligible };
+}
+
+/** Keep time evaluation shared between discovery and lexical note materialization. */
+export function allegroTimeField(value: string, sampleRate: number, timing: Timing, defer: boolean): Readonly<{ frame: number; beat: number | null }> {
+	const beat = beatPosition(value);
+	return { beat, frame: defer && beat !== null ? beat * sampleRate * 0.6 : allegroDuration(value, 0, timing, sampleRate) };
+}
+
+function beatPosition(value: string): number | null {
+	return value.split('+').every(term => /^[SIQHW]/iu.test(term)) ? allegroDuration(value, 0, beats, 1) : null;
 }
