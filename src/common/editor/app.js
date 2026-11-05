@@ -565,7 +565,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		capabilities,
 		clearLocalData, clearLoopRegion, closeProjectTab,
 		continueLoudnessMeasurement, copy,
-		createStableId,
+		createStableId, startMidiPreviewTask: () => lifetime.startTask(createStableId('midi-preview'), { scope: EDITOR_PROJECT_TASK_SCOPE }),
 		deleteProject,
 		engine, playbackPreviews,
 		exportVideo, ffmpeg, fileService, findClip, findTrack,

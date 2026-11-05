@@ -31,7 +31,7 @@ export interface MidiServiceDependencies {
 		beginSourceWrite(id: string, metadata: Readonly<Record<string, unknown>>): Promise<MidiSourceWriter>;
 		deleteSource(id: string): Promise<unknown>;
 	}>;
-	previewNote(pitch: number, instrument: MidiInstrument): Promise<void>;
+	previewNote(pitch: number, instrument: MidiInstrument, signal?: AbortSignal): Promise<void>;
 	saveFile(request: Readonly<Record<string, unknown>>): Promise<unknown> | unknown;
 	publishDeliveryReport?(report: DeliveryReport): void;
 }
@@ -63,7 +63,7 @@ export interface MidiService {
 	deleteNotes(clipId: string, noteIds: readonly string[]): Promise<void>;
 	resizeClip(clipId: string, changes: MidiClipResize): Promise<void>;
 	setInstrument(trackId: string, instrument: MidiInstrument): Promise<void>;
-	previewNote(pitch: number, instrument?: MidiInstrument): Promise<void>;
+	previewNote(pitch: number, instrument?: MidiInstrument, signal?: AbortSignal): Promise<void>;
 	importDocument(document: MidiFileDocument, options?: Readonly<{ timelineStartFrame?: number; destination?: 'timeline' | 'project-bin'; signal?: AbortSignal }>): Promise<readonly MidiImportedClip[]>;
 	exportFile(format: 'midi' | 'allegro'): Promise<unknown>;
 }

@@ -125,9 +125,10 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 				commitOwned({ type: 'batch', commands });
 			} catch (error) { await rollbackSources(sources, error); }
 		}),
-		previewNote: async (pitch, instrument = 'triangle') => {
+		previewNote: async (pitch, instrument = 'triangle', signal) => {
+			signal?.throwIfAborted();
 			if (!Number.isSafeInteger(pitch) || pitch < 0 || pitch > 127) throw new RangeError('Invalid MIDI preview pitch.');
-			await dependencies.previewNote(pitch, normalizeMidiTrackData({ version: 1, instrument }).instrument);
+			await dependencies.previewNote(pitch, normalizeMidiTrackData({ version: 1, instrument }).instrument, signal);
 		},
 		importDocument: (document, options = {}) => {
 			const detached = structuredClone(document);

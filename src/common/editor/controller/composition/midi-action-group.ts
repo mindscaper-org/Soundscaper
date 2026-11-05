@@ -10,6 +10,7 @@ import type { MidiClipResize, MidiNoteUpdate } from '../track-audio/midi-service
 import { createMidiImportFiles } from './internal/midi-import-files.ts';
 import { resolveMidiCopy } from '../../../i18n/editor-midi-copy.ts';
 import { EditorProjectChangedError } from '../shared/lifecycle.ts';
+import { raceAbortableRead } from '../../../foundation/abort-race.ts';
 
 /** Keep the beta synthesizer and file codecs outside the initial editor graph. */
 export function createMidiActionGroup(scope: EditorActionRuntime) {
@@ -25,9 +26,9 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 		trackName: () => resolveMidiCopy(scope.copy).track,
 		clipName: () => resolveMidiCopy(scope.copy).clip,
 		store: scope.store,
-		previewNote: async (pitch, instrument) => {
+		previewNote: async (pitch, instrument, signal) => {
 			const { previewMidiNote } = await import('../track-audio/midi-preview.ts');
-			await previewMidiNote(scope.engine, pitch, instrument);
+			await previewMidiNote(scope.engine, pitch, instrument, signal);
 		},
 		saveFile: request => scope.fileService.saveFile(request),
 		publishDeliveryReport: report => {
@@ -55,7 +56,15 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 		deleteNotes: (clipId: string, ids: readonly string[]) => edit(service => service.deleteNotes(clipId, ids)),
 		resizeClip: (clipId: string, changes: MidiClipResize) => edit(service => service.resizeClip(clipId, changes)),
 		setInstrument: (trackId: string, instrument: MidiInstrument) => edit(service => service.setInstrument(trackId, instrument)),
-		previewNote: async (pitch: number, instrument?: MidiInstrument) => (await service()).previewNote(pitch, instrument),
+		previewNote: async (pitch: number, instrument?: MidiInstrument) => {
+			const task = scope.startMidiPreviewTask();
+			try {
+				const loaded = await raceAbortableRead(service, task.signal);
+				task.assertCurrent();
+				await loaded.previewNote(pitch, instrument, task.signal);
+			} catch (error) { if (!task.signal.aborted) throw error; }
+			finally { task.finish(); }
+		},
 		exportFile: async (format: 'midi' | 'allegro') => (await service()).exportFile(format),
 	});
 	const commitTransfer = (command: AudioEditorCommand, preview: (command: AudioEditorCommand) => MidiTransferSnapshot,

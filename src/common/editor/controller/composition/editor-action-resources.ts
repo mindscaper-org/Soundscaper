@@ -100,5 +100,6 @@ export interface EditorActionResources {
 	readonly locale?: string;
 	readonly macroScriptStartedAt?: () => string;
 	readonly startMacroScriptTask: () => EditorTaskScope;
+	readonly startMidiPreviewTask: () => EditorTaskScope;
 	readonly onMacroScriptLog?: (entry: Readonly<{ level: 'info' | 'warn' | 'error'; text: string; at: number }>) => void;
 }
