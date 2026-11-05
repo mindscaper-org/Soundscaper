@@ -39,7 +39,9 @@ void refuses(const fields& input, const char* message) {
 #ifdef _WIN32
 class handle final {
 public:
-	explicit handle(HANDLE value) : value_(value) { require(value != INVALID_HANDLE_VALUE, "Open fixture handle"); }
+	explicit handle(HANDLE value) : value_(value) {
+		if (value == INVALID_HANDLE_VALUE) throw std::runtime_error("Open fixture handle failed (Windows error " + std::to_string(GetLastError()) + ").");
+	}
 	~handle() { CloseHandle(value_); }
 	handle(const handle&) = delete;
 	handle& operator=(const handle&) = delete;
@@ -85,7 +87,9 @@ void junction(const std::filesystem::path& path, const std::filesystem::path& ta
 	require(CreateDirectoryW(path.c_str(), nullptr) != 0, "Create reparse fixture directory");
 	handle directory{CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
 		FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, nullptr)};
-	const std::wstring substitute = L"\\??\\" + target.native(), print = target.native();
+	auto preferred_target = target;
+	preferred_target.make_preferred();
+	const std::wstring substitute = L"\\??\\" + preferred_target.native(), print = preferred_target.native();
 	struct mount_point { DWORD tag; WORD length; WORD reserved; WORD substitute_offset; WORD substitute_length; WORD print_offset; WORD print_length; };
 	const auto path_bytes = (substitute.size() + print.size() + 2) * sizeof(wchar_t);
 	std::vector<std::byte> storage(sizeof(mount_point) + path_bytes);
@@ -140,6 +144,7 @@ void windows_cases(const std::filesystem::path& root) {
 	const auto alias = root / "alias.tmp"; std::filesystem::create_hard_link(destination, alias);
 	refuses(grant(alias, destination), "Same-inode hard-link replacement accepted");
 	const auto link = root / "junction"; junction(link, foreign);
+	require(read(link / "other.mscape") == "foreign" && identity(link / "other.mscape") == identity(foreign / "other.mscape"), "Native junction fixture must resolve to its expected target before refusal checks");
 	refuses(grant(source, link), "Reparse destination accepted");
 	refuses(grant(link, destination), "Reparse source accepted");
 	write(foreign / "input.tmp", "foreign-candidate");

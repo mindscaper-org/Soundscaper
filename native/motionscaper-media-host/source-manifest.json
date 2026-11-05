@@ -105,8 +105,8 @@
 		},
 		{
 			"path": "native/motionscaper-media-host/tests/file_replacement.cpp",
-			"byteLength": 9751,
-			"sha256": "6c3ce3617d7793cd2ce2f32ec4138c86a40435f953155aec21cb364148d95b27"
+			"byteLength": 10137,
+			"sha256": "06c83c282cf0f5953f02c4666cf11944fe3e6fd5c3fb42bfec4c69901965804f"
 		},
 		{
 			"path": "native/motionscaper-media-host/tests/frame_carrier_fixture.cpp",
