@@ -140,6 +140,7 @@ export function ShortcutEditorRow({ productId = 'soundscaper', command, commands
 	}, [persisted]);
 	const errorId = useId();
 	const bindingsRef = useRef<HTMLDivElement | null>(null);
+	const assignmentFocus = useRef<HTMLButtonElement | null>(null);
 	// Adding or removing a binding replaces the pressed control. Hand focus to
 	// the new field or the surviving control once React has rebuilt the row.
 	const [focusAfterChange, setFocusAfterChange] = useState<{ readonly selector: string } | null>(null);
@@ -166,7 +167,16 @@ export function ShortcutEditorRow({ productId = 'soundscaper', command, commands
 			: '';
 	const unchanged = draft.bindings.length === persisted.length
 		&& draft.bindings.every((binding, index) => binding === persisted[index]);
+	useLayoutEffect(() => {
+		const button = assignmentFocus.current;
+		if (!button || !unchanged) return;
+		assignmentFocus.current = null;
+		const document = button.ownerDocument;
+		if (command.disabled || (document.activeElement !== button && document.activeElement !== document.body)) return;
+		bindingsRef.current?.querySelector<HTMLInputElement>('[data-shortcut-binding="0"]')?.focus();
+	}, [unchanged, command.disabled]);
 	const updateDraft = (next: string[]) => {
+		assignmentFocus.current = null;
 		const saved = editableEntries(persisted);
 		unassignedDraft.current = next.length !== saved.length || next.some((entry, index) => entry !== saved[index]);
 		setEntries(next);
@@ -240,7 +250,9 @@ export function ShortcutEditorRow({ productId = 'soundscaper', command, commands
 			<Button
 				variant="secondary"
 				disabled={command.disabled || Boolean(error) || unchanged}
-				onClick={() => {
+				onClick={(event) => {
+					const button = event?.currentTarget;
+					assignmentFocus.current = button && button.ownerDocument.activeElement === button ? button : null;
 					unassignedDraft.current = false;
 					return run(() => controller.actions.preferences.setShortcut(preferenceId, draft.bindings));
 				}}
