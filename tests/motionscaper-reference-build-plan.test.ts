@@ -15,10 +15,10 @@ test('native MSVC reference plan retains spaced paths as literal argv and select
 	assert.equal(plan.decoder, 'C:\\owned output\\motion-reference-decoder.exe');
 	assert.deepEqual(plan.commands[0]?.args.slice(0, 6), ['-S', 'C:\\source checkout\\scripts\\lib\\motionscaper-reference-native', '-B', 'C:\\owned output\\reference-build', '--fresh', '-G']);
 	assert.ok(plan.commands[0]?.args.includes('Ninja Multi-Config'));
-	assert.ok(plan.commands[0]?.args.includes('-DCMAKE_TOOLCHAIN_FILE=C:\\source checkout\\native\\framescaper-media-host\\build\\toolchains\\win-arm64.cmake'));
-	assert.ok(plan.commands[0]?.args.includes('-DFRAMESCAPER_CXX_COMPILER=C:\\VS tools\\cl.exe'));
-	assert.ok(plan.commands[0]?.args.includes('-DCMAKE_RC_COMPILER=C:\\SDK tools\\rc.exe'));
-	assert.ok(plan.commands[0]?.args.includes(`-DMOTION_REFERENCE_LIBRARY_DIRECTORIES=${roots('C:\\native work', true).map(root => win32.join(root, 'lib')).join(';')}`));
+	assert.ok(plan.commands[0]?.args.includes('-DCMAKE_TOOLCHAIN_FILE=C:/source checkout/native/framescaper-media-host/build/toolchains/win-arm64.cmake'));
+	assert.ok(plan.commands[0]?.args.includes('-DFRAMESCAPER_CXX_COMPILER=C:/VS tools/cl.exe'));
+	assert.ok(plan.commands[0]?.args.includes('-DCMAKE_RC_COMPILER=C:/SDK tools/rc.exe'));
+	assert.ok(plan.commands[0]?.args.includes(`-DMOTION_REFERENCE_LIBRARY_DIRECTORIES=${roots('C:\\native work', true).map(root => win32.join(root, 'lib').replaceAll('\\', '/')).join(';')}`));
 	assert.deepEqual(plan.commands[1]?.args, ['--build', 'C:\\owned output\\reference-build', '--config', 'Release', '--target', 'motion-reference-decoder', '--parallel', '1']);
 	assert.ok(plan.commands.every(command => command.executable === 'C:\\tools space\\cmake.exe'));
 });
@@ -51,8 +51,9 @@ for (const target of ['linux-x64', 'linux-arm64', 'mac-arm64', 'win-x64', 'win-a
 			tools: { cmake: tool('cmake'), ninja: tool('ninja'), c: tool('cc'), cxx: tool('cxx'), pkgConfig: tool('pkg-config'), ...(windows ? { rc: tool('rc') } : {}) } };
 		const plan = createMotionReferenceCompilePlan(input);
 		assert.equal(plan.compileBudgetMs, 60_000);
-		assert.ok(plan.commands[0]!.args.includes(`-DMOTION_REFERENCE_INCLUDE_DIRECTORIES=${installRoots.map(root => path.join(root, 'include')).join(';')}`));
-		assert.ok(plan.commands[0]!.args.includes(`-DMOTION_REFERENCE_LIBRARY_DIRECTORIES=${installRoots.map(root => path.join(root, 'lib')).join(';')}`));
+		const cmakePath = (value: string) => windows ? value.replaceAll('\\', '/') : value;
+		assert.ok(plan.commands[0]!.args.includes(`-DMOTION_REFERENCE_INCLUDE_DIRECTORIES=${installRoots.map(root => cmakePath(path.join(root, 'include'))).join(';')}`));
+		assert.ok(plan.commands[0]!.args.includes(`-DMOTION_REFERENCE_LIBRARY_DIRECTORIES=${installRoots.map(root => cmakePath(path.join(root, 'lib'))).join(';')}`));
 		const environment = createMotionReferenceCompileEnvironment({ PATH: '/tools', PKG_CONFIG_PATH: '/ambient', NODE_V8_COVERAGE: '/ambient-coverage' }, installRoots, target);
 		assert.equal(environment.PKG_CONFIG_LIBDIR, installRoots.flatMap(root => [path.join(root, 'lib/pkgconfig'), path.join(root, 'share/pkgconfig')]).join(windows ? ';' : ':'));
 		assert.equal(environment.PKG_CONFIG_PATH, ''); assert.equal(environment.PKG_CONFIG_SYSROOT_DIR, ''); assert.equal(environment.NODE_V8_COVERAGE, undefined);

@@ -88,3 +88,9 @@ Windows Make uses that authenticated physical `src` copy through relative
 `SRC_PATH` and `SRC_LINK` aliases. This keeps the complete public-header install
 recipe within Windows command-line limits even when the source cache has a long
 absolute path.
+
+The reference decoder's Windows CMake cache definitions use forward slashes,
+including compiler paths and each approved include/library directory. CMake
+embeds those values in generated source, where native backslashes can become
+invalid escapes. Executable paths, working directories and audited decoder
+identities retain canonical Windows spelling.

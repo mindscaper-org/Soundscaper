@@ -22,18 +22,20 @@ export function createMotionReferenceCompilePlan(input: MotionReferenceCompileIn
 	for (const role of ['cmake', 'ninja', 'c', 'cxx', 'pkgConfig'] as const) canonical(input.tools[role]);
 	if (input.target.startsWith('win-') && !input.tools.rc) throw new Error('Reference Windows compiler plan requires its authenticated resource compiler.');
 	if (input.tools.rc) canonical(input.tools.rc);
+	// CMake embeds cache paths in quoted source, where native backslashes are escapes.
+	const cmakePath = (value: string): string => input.target.startsWith('win-') ? value.replaceAll('\\', '/') : value;
 	requireMotionReferenceInstallRoots(input.installRoots, input.target);
 	const decoder = path.join(input.directory, motionReferenceDecoderName(input.target));
 	const build = path.join(input.directory, 'reference-build');
 	const configure = ['-S', path.join(input.repositoryRoot, 'scripts/lib/motionscaper-reference-native'), '-B', build, '--fresh',
 		'-G', input.target.startsWith('win-') ? 'Ninja Multi-Config' : 'Ninja', '-DCMAKE_BUILD_TYPE=Release',
-		`-DCMAKE_TOOLCHAIN_FILE=${path.join(input.repositoryRoot, 'native/framescaper-media-host/build/toolchains', `${input.target}.cmake`)}`,
-		`-DCMAKE_MAKE_PROGRAM=${input.tools.ninja}`, `-DFRAMESCAPER_C_COMPILER=${input.tools.c}`,
-		`-DFRAMESCAPER_CXX_COMPILER=${input.tools.cxx}`, `-DPKG_CONFIG_EXECUTABLE=${input.tools.pkgConfig}`,
-		...(input.tools.rc ? [`-DCMAKE_RC_COMPILER=${input.tools.rc}`] : []),
-		`-DMOTION_REFERENCE_OUTPUT_DIRECTORY=${input.directory}`,
-		`-DMOTION_REFERENCE_INCLUDE_DIRECTORIES=${input.installRoots.map(root => path.join(root, 'include')).join(';')}`,
-		`-DMOTION_REFERENCE_LIBRARY_DIRECTORIES=${input.installRoots.map(root => path.join(root, 'lib')).join(';')}`];
+		`-DCMAKE_TOOLCHAIN_FILE=${cmakePath(path.join(input.repositoryRoot, 'native/framescaper-media-host/build/toolchains', `${input.target}.cmake`))}`,
+		`-DCMAKE_MAKE_PROGRAM=${cmakePath(input.tools.ninja)}`, `-DFRAMESCAPER_C_COMPILER=${cmakePath(input.tools.c)}`,
+		`-DFRAMESCAPER_CXX_COMPILER=${cmakePath(input.tools.cxx)}`, `-DPKG_CONFIG_EXECUTABLE=${cmakePath(input.tools.pkgConfig)}`,
+		...(input.tools.rc ? [`-DCMAKE_RC_COMPILER=${cmakePath(input.tools.rc)}`] : []),
+		`-DMOTION_REFERENCE_OUTPUT_DIRECTORY=${cmakePath(input.directory)}`,
+		`-DMOTION_REFERENCE_INCLUDE_DIRECTORIES=${input.installRoots.map(root => cmakePath(path.join(root, 'include'))).join(';')}`,
+		`-DMOTION_REFERENCE_LIBRARY_DIRECTORIES=${input.installRoots.map(root => cmakePath(path.join(root, 'lib'))).join(';')}`];
 	const commands: readonly MotionReferenceCompileCommand[] = [
 		{ phase: 'configure', executable: input.tools.cmake, args: configure, cwd: input.repositoryRoot },
 		{ phase: 'compile', executable: input.tools.cmake, args: ['--build', build, '--config', 'Release', '--target', 'motion-reference-decoder', '--parallel', '1'], cwd: input.repositoryRoot },
