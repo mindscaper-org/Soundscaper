@@ -23,22 +23,27 @@ export async function correctImportedRiffMetadata(file: Blob, tags: unknown, sig
 	const inspected = await readRiffInfoFields(file, signal, onWarning);
 	if (inspected === null) return tags;
 	const { fields } = inspected;
-	// Re-read independent tags without the rejected INFO bytes. Keeping the
-	// original demuxer projection would retain its incorrectly decoded text.
-	const admittedTags = inspected.withoutInfo ? await readImportedMetadataTags(inspected.withoutInfo, signal) : tags;
+	// Hide INFO when rejected or blank text masks independent tags. Invalid
+	// text also requires discarding the demuxer's incorrectly decoded projection.
+	const independentTags = inspected.withoutInfo ? await readImportedMetadataTags(inspected.withoutInfo, signal) : tags;
+	const admittedTags = inspected.invalidText ? independentTags : tags;
 	if (!record(admittedTags)) return admittedTags;
 	const raw = record(admittedTags.raw) ? admittedTags.raw : {};
 	const corrected: Record<string, unknown> = { ...admittedTags, raw: { ...raw, ...fields } };
 	for (const [id, text] of Object.entries(fields)) {
 		const field = INFO_TAG_FIELDS[id];
-		if (field && (admittedTags[field] == null || admittedTags[field] === raw[id])) corrected[field] = text;
+		if (!field) continue;
+		const independent = record(independentTags) ? independentTags[field] : undefined;
+		if (text === '' && (admittedTags[field] == null || admittedTags[field] === '') && typeof independent === 'string' && independent !== '') {
+			corrected[field] = independent;
+		} else if (admittedTags[field] == null || admittedTags[field] === raw[id]) corrected[field] = text;
 	}
 	return corrected;
 }
 
 /** Scan bounded metadata slices and skip the encoded audio rather than materializing it. */
 async function readRiffInfoFields(file: Blob, signal?: AbortSignal,
-	onWarning?: (warning: string) => void): Promise<{ fields: Readonly<Record<string, string>>; withoutInfo: Blob | null } | null> {
+	onWarning?: (warning: string) => void): Promise<{ fields: Readonly<Record<string, string>>; withoutInfo: Blob | null; invalidText: boolean } | null> {
 	signal?.throwIfAborted();
 	if (file.size < 12) return null;
 	const header = await readBlobBytes(file, 0, 12, signal);
@@ -95,14 +100,15 @@ async function readRiffInfoFields(file: Blob, signal?: AbortSignal,
 	});
 	const parts: BlobPart[] = [];
 	let start = 0;
-	if (invalid) {
+	const needsIndependent = invalid || Object.entries(fields).some(([id, text]) => Object.hasOwn(INFO_TAG_FIELDS, id) && text === '');
+	if (needsIndependent) {
 		for (const offset of infoHeaders) {
 			parts.push(file.slice(start, offset), 'JUNK');
 			start = offset + 4;
 		}
 		parts.push(file.slice(start));
 	}
-	return { fields, withoutInfo: invalid ? new Blob(parts, { type: file.type }) : null };
+	return { fields, withoutInfo: needsIndependent ? new Blob(parts, { type: file.type }) : null, invalidText: invalid };
 }
 
 function record(value: unknown): value is MetadataRecord {
