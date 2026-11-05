@@ -184,6 +184,7 @@ function variableBytes(value: number): number[] {
 function trackBytes(events: readonly TickEvent[], endTick: number | undefined, paddingBudget: { remaining: number }): number[] {
 	const result: number[] = [];
 	let previous = 0;
+	let multipartSysex = false;
 	const appendDelta = (tick: number): void => {
 		midiFileInteger(tick, 0, Number.MAX_SAFE_INTEGER, 'event tick');
 		while (tick - previous > 0x0fffffff) {
@@ -196,6 +197,10 @@ function trackBytes(events: readonly TickEvent[], endTick: number | undefined, p
 		previous = tick;
 	};
 	for (const event of [...events].sort((a, b) => a.tick - b.tick || eventOrder(a) - eventOrder(b))) {
+		if (event.status === 240) {
+			if (multipartSysex) throw new RangeError('MIDI export interrupts an incomplete multipart System Exclusive message.');
+			multipartSysex = event.data.at(-1) !== 247;
+		} else if (event.status === 247 && multipartSysex && event.data.at(-1) === 247) multipartSysex = false;
 		appendDelta(event.tick);
 		result.push(event.status);
 		if (event.status === 255) result.push(event.metaType!);
@@ -203,6 +208,7 @@ function trackBytes(events: readonly TickEvent[], endTick: number | undefined, p
 		for (const byte of event.data) result.push(byte);
 		if (result.length > MIDI_FILE_MAX_BYTES) throw new RangeError('MIDI export exceeds the 16 MiB limit.');
 	}
+	if (multipartSysex) throw new RangeError('MIDI export ends with an incomplete multipart System Exclusive message.');
 	appendDelta(Math.max(previous, endTick ?? previous));
 	result.push(255, 47, 0);
 	return [77, 84, 114, 107, ...uint32Bytes(result.length), ...result];
@@ -210,7 +216,8 @@ function trackBytes(events: readonly TickEvent[], endTick: number | undefined, p
 
 function eventOrder(event: TickEvent): number {
 	const type = event.status & 240;
-	return type === 128 ? 0 : type === 144 ? 2 : 1;
+	// Match the frame renderer: apply setup first, release old keys, then retrigger.
+	return type === 128 ? 1 : type === 144 ? 2 : 0;
 }
 
 function uint32Bytes(value: number): number[] { return [value >>> 24, value >>> 16 & 255, value >>> 8 & 255, value & 255]; }
