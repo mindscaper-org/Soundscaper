@@ -6,6 +6,12 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Source editor display and authoring share the owning project tempo and sample grid. */
 export const FOUNDATION_TIME_CONVERSION_SOURCE_EDITOR_SITES: readonly FoundationTimeConversionSite[] = deepFreezeAuditSites([
 	{
+		id: 'midi-source-warp-delivery',
+		file: 'src/common/editor/midi-project-source-projection.ts',
+		behavior: 'MIDI delivery maps source events through the authored warp, rounding musical beat positions and sample-domain warp offsets once to the nearest project sample.',
+		conversions: [{ helper: 'beatToSampleFrame', policies: ['point'] }, { helper: 'roundRational', policies: ['point'] }],
+	},
+	{
 		id: 'clip-source-ruler-musical-origin',
 		file: 'src/common/editor/ui/inspector/clip-source-ruler-model.ts',
 		behavior: 'Source ruler bars reset their label origin at the clip while project tempo and signature changes retain their exact sample positions in local and global views.',

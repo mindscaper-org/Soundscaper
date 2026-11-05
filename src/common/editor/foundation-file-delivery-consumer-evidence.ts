@@ -4,9 +4,19 @@ import type { FoundationRuntimeConsumerEvidence } from './foundation-runtime-con
 
 export const FOUNDATION_FILE_DELIVERY_RUNTIME_CONSUMERS: readonly FoundationRuntimeConsumerEvidence[] = Object.freeze([
 	{
-		id: 'midi-file-export-geometry', surface: 'interchange', file: 'src/common/editor/midi-project-interchange.ts',
-		entryPoint: 'midiDocumentFromProject', inputIdentifier: 'projectionProject', projectedIdentifier: 'clip', boundary: 'resolveRuntimeClipProjection',
+		id: 'midi-file-export-geometry', surface: 'interchange', file: 'src/common/editor/midi-project-source-projection.ts',
+		entryPoint: 'midiClipOccurrences', inputIdentifier: 'project', projectedIdentifier: 'clip', boundary: 'resolveRuntimeClipProjection',
 		evidence: 'MIDI and Allegro export resolve each authored clip through the normalized current tempo map before clipping, stretching or reversing source-relative notes and events into delivered sample positions.',
+	},
+	{
+		id: 'mix-render-musical-range', surface: 'audio-export', file: 'src/common/editor/controller/track-audio/mix-render-model.ts',
+		entryPoint: 'createMixRenderPlan', inputIdentifier: 'project', projectedIdentifier: 'clips', boundary: 'resolveRuntimeClipProjection',
+		evidence: 'Mix rendering resolves each selected clip before deriving the delivered sample span, pre-roll and memory admission from current musical placement and duration.',
+	},
+	{
+		id: 'stereo-render-musical-range', surface: 'audio-export', file: 'src/common/editor/controller/track-audio/internal/stereo-track-render-range.ts',
+		entryPoint: 'stereoTrackRenderRange', inputIdentifier: 'project', projectedIdentifier: 'resolved', boundary: 'resolveRuntimeClipProjection',
+		evidence: 'Stereo conversion resolves selected clip geometry before finding the rendered programme boundaries and retaining the audible tails of each removed track rack.',
 	},
 	{
 		id: 'audio-source-readiness', surface: 'audio-export', file: 'src/common/editor/controller/export/audio-export-source-inventory.ts',
