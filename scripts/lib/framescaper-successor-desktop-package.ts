@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { createHash } from 'node:crypto';
 import { lstat, readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { extractFile, listPackage, statFile } from '@electron/asar';
 import { parseMotionscaperNativePayload, loadMotionscaperNativeExecutable } from '../../desktop/motionscaper-native-payload.ts';
 import { normalizeFramescaperSuccessorDesktopMetadata } from '../../desktop/framescaper-successor-contract.ts';
@@ -40,7 +40,7 @@ export async function verifyFramescaperSuccessorDesktopStage(root: string, targe
 export async function verifyFramescaperSuccessorPackagedResources(root: string, stage: SuccessorStage): Promise<void> {
 	const asar = join(root, 'app.asar'), files: FileIdentity[] = [];
 	for (const entry of listPackage(asar, { isPack: false })) {
-		const path = entry.replace(/^\//u, ''), metadata = statFile(asar, path, false);
+		const path = entry.replaceAll(sep, '/').replace(/^\//u, ''), metadata = statFile(asar, path, false);
 		if ('files' in metadata) continue; if ('link' in metadata || 'unpacked' in metadata && metadata.unpacked) throw new Error('Successor app archive contains an unadmitted link or unpacked file.');
 		files.push(identity(`app/${path}`, extractFile(asar, path)));
 	}
