@@ -109,7 +109,7 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 			if (!tokens.length) continue;
 			if (++eventCount > MIDI_FILE_MAX_EVENTS) throw new RangeError('Allegro file contains too many events.');
 			const track = ensureTrack();
-			let isNote = false;
+			let isNote = false, pitchSpecified = false;
 			let key: number | null = null;
 			let next: number | null = null;
 			const attributes: [string, string][] = [];
@@ -131,11 +131,11 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 				else if (initial === 'L') velocity = allegroVelocity(value);
 				else if (initial === 'K') key = allegroPitch(value, pitch);
 				else if (initial === 'N') next = allegroDuration(value, currentFrame, timing, sampleRate);
-				else if (initial === 'P' || /^[A-G]$/.test(initial)) { pitch = allegroPitch(initial === 'P' ? value : token, pitch); isNote = true; }
+				else if (initial === 'P' || /^[A-G]$/.test(initial)) { pitch = allegroPitch(initial === 'P' ? value : token, pitch); isNote = true; pitchSpecified = true; }
 				else if (initial === 'U' || /^[SIQHW]$/.test(initial)) { duration = allegroDuration(initial === 'U' ? value : token, currentFrame, timing, sampleRate); isNote = true; }
 				else throw new RangeError(`Unknown Allegro field: ${token}.`);
 			}
-			if (key !== null && !isNote && key < 128) { pitch = key; isNote = true; }
+			if (key !== null && !pitchSpecified && key < 128) { pitch = key; isNote = true; }
 			if (isNote && attributes.some(([name]) => name === 'tempor' || name === 'beatr')) {
 				throw new RangeError('A note sharing a conductor update cannot retain its clock evaluation order. Use separate conductor and note lines.');
 			}
