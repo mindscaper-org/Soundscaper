@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useEffect, useRef, useState } from 'react';
-import { createVideoEffectPointerCancellation } from './video-effect-pointer-cancellation.ts';
+import { createNativeInputPointerCancellation } from './native-input-pointer-cancellation.ts';
 
 export default function VideoEffectNumberInput({ value, minimum, maximum, step, label, disabled,
 	onBegin, onPreview, onCommit, onCancel }: Readonly<{
@@ -19,7 +19,7 @@ export default function VideoEffectNumberInput({ value, minimum, maximum, step, 
 	const [draft, setDraft] = useState(() => String(value));
 	const active = useRef(false);
 	const original = useRef(value);
-	const pointer = useRef(createVideoEffectPointerCancellation()).current;
+	const pointer = useRef(createNativeInputPointerCancellation()).current;
 	useEffect(() => { if (!active.current) setDraft(String(value)); }, [value]);
 	const begin = () => {
 		pointer.resumeKeyboard();

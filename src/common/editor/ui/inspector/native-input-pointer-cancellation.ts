@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 /** Native form inputs can keep emitting changes after a canceled pointer edit. */
-export function createVideoEffectPointerCancellation() {
+export function createNativeInputPointerCancellation() {
 	let held = false;
 	let canceled = false;
 	let owner: number | null = null;
