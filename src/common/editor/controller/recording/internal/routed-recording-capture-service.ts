@@ -210,7 +210,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 			}
 			const context = await runtime.engine.getAudioContext();
 			scope.assertCurrent();
-			await context.resume();
+			await Promise.all([context.resume(), runtime.soundActivation?.settled?.(scope.signal)]);
 			scope.assertCurrent();
 			await dropFailedSourceSessions();
 			scope.assertCurrent();

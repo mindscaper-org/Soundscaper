@@ -120,6 +120,8 @@ export interface RecordingSoundActivationSource {
  * identified input source.
  */
 export interface RecordingSoundActivationPort {
+	/** Wait for a requested durable preference before freezing a take's settings. */
+	settled?(signal?: AbortSignal): Promise<void>;
 	getSettings(source: RecordingSoundActivationSource): SoundActivationSettings | null;
 	getAddTimestamps?(source: RecordingSoundActivationSource): boolean;
 	setState(source: RecordingSoundActivationSource, state: SoundActivationGateState): void;

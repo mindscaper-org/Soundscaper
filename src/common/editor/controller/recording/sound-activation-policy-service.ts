@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { raceAbortablePromise } from '../../../foundation/abort-race.ts';
 import {
 	SOUND_ACTIVATION_PREFERENCE_LIMITS,
 	normalizeSoundActivationPreferences,
@@ -73,6 +74,7 @@ export interface SoundActivationPolicySnapshot {
 }
 
 export interface SoundActivationPolicyService extends RecordingSoundActivationPort {
+	settled(signal?: AbortSignal): Promise<void>;
 	getSnapshot(): SoundActivationPolicySnapshot;
 	getAddTimestamps(source: RecordingSoundActivationSource): boolean;
 	setCaptureEnabled(enabled: boolean): void;
@@ -118,10 +120,15 @@ export function createSoundActivationPolicyService(
 	const sessions = new Map<string, SourceSession>();
 	const publish = dependencies.publish ?? (() => {});
 	let preferenceUpdatePending = false;
+	let pendingPreferenceUpdate: Promise<boolean> | null = null;
 	let pendingPreferences: SoundActivationPreferences | null = null;
 	let captureEnabled = dependencies.captureEnabledByDefault ?? null;
 
 	return Object.freeze({
+		settled: async (signal?: AbortSignal) => {
+			const pending = pendingPreferenceUpdate;
+			if (pending) await raceAbortablePromise(pending, signal);
+		},
 		getSettings,
 		getAddTimestamps,
 		setState,
@@ -220,17 +227,27 @@ export function createSoundActivationPolicyService(
 		const patch = frozenPreferencePatch(next);
 		pendingPreferences = current;
 		preferenceUpdatePending = true;
-		try {
-			publish();
-			await dependencies.updatePreferences(patch);
-			if (!preferencesEqual(readPublishedPreferences(), next)) {
-				throw new Error('The sound activation preference update did not commit atomically.');
+		let complete!: (changed: boolean) => void;
+		let fail!: (error: unknown) => void;
+		const operation = new Promise<boolean>((resolve, reject) => { complete = resolve; fail = reject; });
+		pendingPreferenceUpdate = operation;
+		void commitPreference().then(complete, fail);
+		return operation;
+
+		async function commitPreference(): Promise<boolean> {
+			try {
+				publish();
+				await dependencies.updatePreferences(patch);
+				if (!preferencesEqual(readPublishedPreferences(), next)) {
+					throw new Error('The sound activation preference update did not commit atomically.');
+				}
+				return true;
+			} finally {
+				preferenceUpdatePending = false;
+				pendingPreferences = null;
+				pendingPreferenceUpdate = null;
+				publish();
 			}
-			return true;
-		} finally {
-			preferenceUpdatePending = false;
-			pendingPreferences = null;
-			publish();
 		}
 	}
 

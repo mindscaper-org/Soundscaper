@@ -82,7 +82,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 			}
 			const context = await runtime.engine.getAudioContext();
 			scope.assertCurrent();
-			await context.resume();
+			await Promise.all([context.resume(), runtime.soundActivation?.settled?.(scope.signal)]);
 			scope.assertCurrent();
 			await runtime.startMicrophoneMetering();
 			scope.assertCurrent();
