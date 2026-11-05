@@ -78,8 +78,8 @@ const KNOWN_COMMANDS = new Set([
 export function audacityShortcutImportCommand(
 	command: string, legacy: boolean, availableActionIds?: ReadonlySet<string>,
 ): string | null {
-	// Native stopped cursor moves first collapse a range; local actions always step.
-	if (legacy && LEGACY_CURSOR_COLLAPSE_COMMANDS.has(command)) return null;
+	// Native collapse commands retain an anchor that these local actions reset or step.
+	if (legacy && (command === 'SelectNone' || LEGACY_CURSOR_COLLAPSE_COMMANDS.has(command))) return null;
 	// Native label commands have fixed modes; the local action follows transport state.
 	if (legacy && (command === 'AddLabel' || command === 'AddLabelPlaying')) return null;
 	const sourceId = legacy

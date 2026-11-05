@@ -151,6 +151,16 @@ export function createMacroCommandService(runtime: MacroCommandServiceRuntime) {
 		if (typeof target !== 'function') {
 			throw new RangeError(`The macro command ${command} has no editor action (${path}).`);
 		}
+		if (command === 'SelectNone') {
+			const timeline = actions?.timeline;
+			const noTracks = timeline && typeof timeline === 'object'
+				? (timeline as Readonly<Record<string, unknown>>).selectNoTracks : null;
+			if (typeof noTracks !== 'function') throw new RangeError('SelectNone requires the editor\'s track deselection action.');
+			const project = runtime.getProject();
+			const frame = resolveSelectionRange(project)?.startFrame ?? project.selection?.startFrame ?? 0;
+			runtime.setExactSelection(frame, frame, { trackIds: [], clipIds: [], frequencyRange: project.selection?.frequencyRange ?? null });
+			return (noTracks as () => unknown)();
+		}
 		const editAction = EDIT_ACTIONS[command];
 		const edit = actions?.edit;
 		const execute = edit && typeof edit === 'object'
