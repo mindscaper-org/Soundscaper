@@ -694,7 +694,7 @@
   },
   "src/common/editor/ui/AudioEditorMenuBar.jsx": {
     "no-restricted-syntax": {
-      "count": 3
+      "count": 2
     }
   },
   "src/common/editor/ui/DesignSystemRuntime.jsx": {
