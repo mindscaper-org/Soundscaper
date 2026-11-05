@@ -255,7 +255,9 @@ export function createEffectMacroService<Buffer = MacroRenderBuffer>(runtime: Ef
 			const effectName = String(request.name || publishedCopyFor(runtime.copy).untitledMacro || publishedCopyFor(runtime.copy).macrosPalette).trim()
 				|| publishedCopyFor(runtime.copy).untitledMacro
 				|| publishedCopyFor(runtime.copy).macrosPalette;
-			const options = { assertCurrent: () => assertOwnership(runtime, ownership), effectName, selectionDetails };
+			const options = { assertCurrent: () => assertOwnership(runtime, ownership), effectName, selectionDetails,
+				allowIndependentLengths: plans.some(plan => plan.effects.some(effect =>
+					effect.type === 'audacity-truncate-silence' && effect.params.independent === true)) };
 			if (results.length > 1) await runtime.persistAudacityEffectResults!(results, null, options);
 			else await runtime.persistAudacityEffectResult(results[0]!.target, null, results[0]!.channels, options);
 			assertOwnership(runtime, ownership);
