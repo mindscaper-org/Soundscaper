@@ -7,6 +7,8 @@ import {
 	type MidiFileDocument, type MidiFileEvent, type MidiFileReadOptions, type MidiFileSignature, type MidiFileTempo,
 } from './midi-file-types.ts';
 import { createMidiTempoTimeline } from './midi-file-timing.ts';
+import { midiFileNoteReleases } from './midi-file-note-releases.ts';
+import { decodeMidiFileText } from './midi-file-text.ts';
 
 // Independent implementation of Standard MIDI Files 1.0 (MIDI Association RP-001).
 // https://midi.org/standard-midi-files
@@ -70,7 +72,7 @@ function parseTrack(bytes: Uint8Array, index: number, budget: { count: number })
 				if (reader.position !== bytes.length) throw new RangeError('MIDI track contains data after end-of-track.');
 				return { name, events, endTick: tick };
 			}
-			if (metaType === 3) name = textDecoder.decode(Uint8Array.from(data));
+			if (metaType === 3) name = decodeMidiFileText(Uint8Array.from(data));
 			else if (status !== 247 || data.length) events.push({ tick, status, data, ...(metaType === undefined ? {} : { metaType }) });
 		}
 	}
@@ -128,10 +130,10 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 		return Math.round(segment.frame + (tick - segment.tick) / division * 60 / segment.bpm * sampleRate);
 	};
 	const signatures: MidiFileSignature[] = [];
+	const releases = midiFileNoteReleases(tracks);
 	const result = tracks.map((track, trackIndex) => {
 		const notes: MidiNote[] = [];
 		const events: MidiFileEvent[] = [];
-		const active = new Map<number, TickEvent[]>();
 		let noteIndex = 0;
 		const finish = (start: TickEvent, endTick: number, releaseVelocity = 0): void => {
 			const startFrame = tickToFrame(start.tick);
@@ -144,23 +146,18 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 			if (event.metaType === 81) continue;
 			if (event.metaType === 88) {
 				if (event.data.length !== 4 || event.data[1]! > 30 || !event.data[0]) throw new RangeError('Invalid MIDI time signature.');
-				signatures.push({ frame: tickToFrame(event.tick), numerator: event.data[0]!, denominator: 2 ** event.data[1]! });
+				signatures.push({ frame: tickToFrame(event.tick), numerator: event.data[0]!, denominator: 2 ** event.data[1]!,
+					...(event.data[2] === 24 ? {} : { clocksPerMetronomeClick: event.data[2]! }),
+					...(event.data[3] === 8 ? {} : { notated32ndNotesPerQuarter: event.data[3]! }) });
 			} else if (type === 128 || type === 144) {
-				const key = (event.status & 15) * 128 + event.data[0]!;
-				const stack = active.get(key) ?? [];
-				if (type === 144 && event.data[1]) { stack.push(event); active.set(key, stack); }
-				else { const start = stack.shift(); if (start) finish(start, event.tick, type === 128 ? event.data[1]! : 64); }
-			} else {
-				if (type === 176 && [120, 123, 124, 125, 126, 127].includes(event.data[0]!)) {
-					for (const [key, stack] of active) if (Math.floor(key / 128) === (event.status & 15)) {
-						for (const start of stack) finish(start, event.tick);
-						active.delete(key);
-					}
+				if (type === 144 && event.data[1]) {
+					const release = releases.get(event);
+					finish(event, release?.tick ?? track.endTick, release?.velocity ?? 0);
 				}
+			} else {
 				events.push({ frame: tickToFrame(event.tick), status: event.status, data: event.data, ...(event.metaType === undefined ? {} : { metaType: event.metaType }) });
 			}
 		}
-		for (const stack of active.values()) for (const start of stack) finish(start, track.endTick);
 		notes.sort((a, b) => a.startFrame - b.startFrame || a.pitch - b.pitch);
 		return { name: track.name, notes, durationFrames: tickToFrame(track.endTick), ...(events.length ? { events } : {}) };
 	});
@@ -238,7 +235,7 @@ export function writeMidiFile(document: MidiFileDocument): Uint8Array<ArrayBuffe
 		return { tick: tick(tempo.frame), status: 255, metaType: 81, data: uint32Bytes(micros).slice(1) };
 	});
 	for (const signature of document.signatures) conductor.push({ tick: tick(signature.frame), status: 255, metaType: 88,
-		data: [signature.numerator, Math.log2(signature.denominator), 24, 8] });
+		data: [signature.numerator, Math.log2(signature.denominator), signature.clocksPerMetronomeClick ?? 24, signature.notated32ndNotesPerQuarter ?? 8] });
 	const count = document.tracks.length + (separateConductor ? 1 : 0);
 	const bytes = [77, 84, 104, 100, 0, 0, 0, 6, 0, 1, count >> 8, count & 255, division >> 8, division & 255];
 	if (separateConductor) for (const byte of trackBytes(conductor, undefined, paddingBudget)) bytes.push(byte);

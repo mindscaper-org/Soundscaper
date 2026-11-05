@@ -319,7 +319,7 @@ test('folders own their submix bus, tracks route to it, and sends carry their le
 test('signature automation lands on bars and a change between bars is moved and reported', () => {
 	const plan = importSeconds();
 	const signature = plan.project.signatureMap as { events: { bar: number; numerator: number; denominator: number }[] };
-	assert.deepEqual(signature.events.map((event) => [event.bar, event.numerator, event.denominator]), [[0, 3, 4], [2, 4, 4]]);
+	assert.deepEqual(signature.events.map((event) => [event.bar, event.numerator, event.denominator]), [[0, 3, 4], [2, 5, 8]]);
 	const converted = plan.report.items.find((item) => item.code === 'dawproject.signature-points-converted');
 	assert.deepEqual(converted?.data, { points: 1 });
 });

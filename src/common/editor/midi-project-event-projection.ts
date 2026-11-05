@@ -19,16 +19,28 @@ export function createMidiClipEventProjection(interchange: MidiClipInterchange |
 			let window = windows.get(key);
 			if (!window) {
 				const state = new Map<string, OrderedEvent>();
+				const banks = new Map<number, Map<number, OrderedEvent>>();
+				const programBanks = new Map<number, readonly OrderedEvent[]>();
 				const initial: OrderedEvent[] = [], visible: MidiFileEvent[] = [];
 				for (let index = 0; index < events.length; index += 1) {
 					const event = events[index]!;
 					if (event.frame >= start + frames) break;
 					if (event.frame >= start) visible.push(event);
 					else if (event.status === 240 || event.status === 247) initial.push({ event, index });
-					else if (event.status < 240) state.set(`${event.status}:${[160, 176].includes(event.status & 240) ? event.data[0] : ''}`, { event, index });
-					else if (event.status === 255 && [2, 4, 89].includes(event.metaType ?? -1)) state.set(`meta:${event.metaType}`, { event, index });
+					else if (event.status < 240) {
+						const type = event.status & 240, channel = event.status & 15;
+						const ordered = { event, index };
+						state.set(`${event.status}:${[160, 176].includes(type) ? event.data[0] : ''}`, ordered);
+						if (type === 176 && [0, 32].includes(event.data[0]!)) {
+							const selected = banks.get(channel) ?? new Map<number, OrderedEvent>();
+							selected.set(event.data[0]!, ordered); banks.set(channel, selected);
+						} else if (type === 192) programBanks.set(channel, [...(banks.get(channel)?.values() ?? [])]);
+					}
+					else if (event.status === 255 && [2, 4, 9, 0x21, 89].includes(event.metaType ?? -1)) state.set(`meta:${event.metaType}`, { event, index });
 				}
-				window = { initial: [...initial, ...state.values()].sort((a, b) => a.index - b.index).map(value => value.event), visible };
+				// Bank Select is pending state: the active patch also needs the bank at its last Program Change.
+				const retained = new Map([...initial, ...state.values(), ...[...programBanks.values()].flat()].map(value => [value.index, value]));
+				window = { initial: [...retained.values()].sort((a, b) => a.index - b.index).map(value => value.event), visible };
 				if (windows.size < 3) windows.set(key, window);
 			}
 			if (global(start + frames) < global(start)) return [

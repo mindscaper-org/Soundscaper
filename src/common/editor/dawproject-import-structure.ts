@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { addDeliveryReportItem, type createDeliveryReport } from './delivery-report.ts';
-import { clamp, parameterToLinearGain, parameterToPan } from './dawproject-format.ts';
+import { parameterToLinearGain, parameterToPan } from './dawproject-format.ts';
 import type { DawprojectChannel, DawprojectDocument, DawprojectTrack } from './dawproject-import.ts';
 import type { DawprojectAudioEvent, DawprojectAutomationEvent, DawprojectAutomationPoint } from './dawproject-import-timeline.ts';
 import { dawprojectImportedVolumeCurve } from './dawproject-import-volume-curve.ts';
+import { dawprojectStaticGain } from './dawproject-import-gain.ts';
 
 /**
  * The structural half of the DAWproject importer: tracks, folders, buses,
@@ -116,7 +117,7 @@ export function walkTrack(track: DawprojectTrack, parentFolderId: string | null,
 			if (parentFolderId === null) {
 				// Structural gates belong to the folder; its owned bus cannot
 				// duplicate them as independent mixer mute or solo state.
-				build.groups.push({ ...strip(id, name, channel), mute: false, solo: false });
+				build.groups.push({ ...strip(id, name, channel, build), mute: false, solo: false });
 				if (channel.id) build.busByChannelId.set(channel.id, id);
 				registerParameters(channel, { kind: 'group', id }, build);
 			} else {
@@ -132,14 +133,14 @@ export function walkTrack(track: DawprojectTrack, parentFolderId: string | null,
 		return;
 	}
 	if (role === 'master') {
-		build.master = strip('master', 'Master', channel!);
+		build.master = strip('master', 'Master', channel!, build);
 		build.masterChannels = channel!.audioChannels ?? 2;
 		registerParameters(channel!, { kind: 'master', id: null }, build);
 		return;
 	}
 	if (role === 'submix' || role === 'effect') {
 		const id = build.createStableId(role === 'submix' ? 'group-bus' : 'send-bus');
-		(role === 'submix' ? build.groups : build.sends).push(strip(id, track.name || (role === 'submix' ? 'Group' : 'Send'), channel!));
+		(role === 'submix' ? build.groups : build.sends).push(strip(id, track.name || (role === 'submix' ? 'Group' : 'Send'), channel!, build));
 		if (channel!.id) {
 			build.stripByChannelId.set(channel!.id, { kind: role === 'submix' ? 'group' : 'send', id });
 			build.busByChannelId.set(channel!.id, id);
@@ -187,10 +188,11 @@ function isInsideFolder(trackId: string, folderId: string, build: Build): boolea
 }
 
 function createAudioTrack(name: string, channel: DawprojectChannel | null, build: Build): TrackBuild {
+	const id = build.createStableId('track');
 	const built: TrackBuild = {
-		id: build.createStableId('track'),
+		id,
 		name: name.trim() ? name : `Track ${String(build.tracks.length + 1)}`,
-		gain: clamp(gainOf(channel?.volume), 0, 4),
+		gain: dawprojectStaticGain(channel?.volume, build.draft, { kind: 'track', id }),
 		pan: panOf(channel?.pan),
 		mute: channel?.mute?.value === true,
 		solo: channel?.solo === true,
@@ -201,9 +203,9 @@ function createAudioTrack(name: string, channel: DawprojectChannel | null, build
 	return built;
 }
 
-function strip(id: string, name: string, channel: DawprojectChannel): StripBuild {
+function strip(id: string, name: string, channel: DawprojectChannel, build: Build): StripBuild {
 	return {
-		id, name, gain: clamp(gainOf(channel.volume), 0, 4), pan: panOf(channel.pan),
+		id, name, gain: dawprojectStaticGain(channel.volume, build.draft, { kind: id === 'master' ? 'master' : 'mixer-node', id }), pan: panOf(channel.pan),
 		channelCount: channel.audioChannels ?? 2,
 		mute: channel.mute?.value === true, solo: channel.solo, envelope: [],
 	};
@@ -241,7 +243,7 @@ export function resolveRouting(document: DawprojectDocument, build: Build): void
 			if (!send.enabled || !send.destination) continue;
 			const target = build.stripByChannelId.get(send.destination);
 			if (target?.kind !== 'send') continue;
-			route.sends[target.id] = clamp(gainOf(send.volume), 0, 4);
+			route.sends[target.id] = dawprojectStaticGain(send.volume, build.draft, { kind: 'track', id: built.id, sendId: target.id });
 			build.sendTaps.push({ trackId: built.id, sendId: target.id, level: route.sends[target.id],
 				position: send.type === 'pre' ? 'pre-fader' : 'post-fader' });
 		}
@@ -267,7 +269,7 @@ function resolveBusRouting(channel: DawprojectChannel, build: Build): void {
 		if (!send.enabled || !send.destination) continue;
 		const target = build.stripByChannelId.get(send.destination);
 		if (target?.kind !== 'send') continue;
-		sends.push({ sendId: target.id, level: clamp(gainOf(send.volume), 0, 4),
+		sends.push({ sendId: target.id, level: dawprojectStaticGain(send.volume, build.draft, { kind: 'mixer-node', id: busId, sendId: target.id }),
 			position: send.type === 'pre' ? 'pre-fader' : 'post-fader' });
 	}
 	build.nodeRoutes.push({ busId, groupId: destination?.kind === 'group' ? destination.id : null,
@@ -379,11 +381,6 @@ function visibleAutomationPoints(points: readonly DawprojectAutomationPoint[]): 
 
 export function stripRecord(value: StripBuild): DataRecord {
 	return { id: value.id, name: value.name, gain: value.gain, pan: value.pan, mute: value.mute, solo: value.solo, envelope: value.envelope };
-}
-
-function gainOf(parameter: Readonly<{ value: number | null; unit: string | null }> | null | undefined): number {
-	if (!parameter || parameter.value === null) return 1;
-	return parameterToLinearGain(parameter.value, parameter.unit) ?? 1;
 }
 
 function panOf(parameter: Readonly<{ value: number | null; unit: string | null }> | null | undefined): number {

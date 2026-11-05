@@ -28,6 +28,8 @@ export interface MidiFileSignature {
 	readonly frame: number;
 	readonly numerator: number;
 	readonly denominator: number;
+	readonly clocksPerMetronomeClick?: number;
+	readonly notated32ndNotesPerQuarter?: number;
 }
 
 export interface MidiFileDocument {
@@ -94,5 +96,7 @@ export function validateMidiFileDocument(document: MidiFileDocument): void {
 		midiFileInteger(signature.numerator, 1, 255, 'signature numerator');
 		const exponent = Math.log2(signature.denominator);
 		midiFileInteger(exponent, 0, 30, 'signature denominator');
+		if (signature.clocksPerMetronomeClick !== undefined) midiFileInteger(signature.clocksPerMetronomeClick, 0, 255, 'metronome clock');
+		if (signature.notated32ndNotesPerQuarter !== undefined) midiFileInteger(signature.notated32ndNotesPerQuarter, 0, 255, 'notation clock');
 	}
 }

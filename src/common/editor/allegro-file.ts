@@ -174,6 +174,9 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 
 export function writeAllegroFile(document: MidiFileDocument): string {
 	validateMidiFileDocument(document);
+	if (document.signatures.some(signature => (signature.clocksPerMetronomeClick ?? 24) !== 24 || (signature.notated32ndNotesPerQuarter ?? 8) !== 8)) {
+		throw new RangeError('MIDI metronome and notation clocks cannot be represented in Allegro.');
+	}
 	const lines = ['#offset 0'];
 	const seconds = (frame: number): string => String(Number((frame / document.sampleRate).toFixed(10)));
 	for (const [index, track] of document.tracks.entries()) {

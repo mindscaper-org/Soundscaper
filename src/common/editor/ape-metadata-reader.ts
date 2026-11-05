@@ -126,6 +126,8 @@ function apeFooter(bytes: Uint8Array, inspectItems = true): Readonly<{ size: num
 
 /** ID3v1 may follow APEv2 for compatibility with older tagging programs. */
 async function apeTagEnd(file: Blob, signal?: AbortSignal): Promise<number> {
+	const footer = await metadataBlobBytes(file, file.size - 32, file.size, signal);
+	if (apeFooter(footer, false)) return file.size;
 	if (file.size >= 160) {
 		const marker = await metadataBlobBytes(file, file.size - 128, file.size - 125, signal);
 		if (new TextDecoder().decode(marker) === 'TAG' && await isExternalWavPackTrailer(file, file.size - 128, signal)) return file.size - 128;

@@ -2,10 +2,10 @@
 
 import { allegroNumber, allegroString } from './allegro-file-fields.ts';
 import { midiFileInteger, type MidiFileEvent } from './midi-file-types.ts';
+import { decodeMidiFileText } from './midi-file-text.ts';
 
 const TEXT_ATTRIBUTES: Readonly<Record<string, number>> = { texts: 1, copyrights: 2, names: 3, instruments: 4, lyrics: 5, markers: 6, cues: 7, miscs: 8 };
 const encoder = new TextEncoder();
-const decoder = new TextDecoder();
 
 function channelByte(channel: number): number { return midiFileInteger(channel, 0, 15, 'Allegro channel'); }
 function normalizedByte(value: string): number {
@@ -52,7 +52,7 @@ export function allegroEventFields(event: MidiFileEvent): string {
 	if (event.status === 240) return `V- -sysexs:"f0${event.data.map(byte => byte.toString(16).padStart(2, '0')).join('')}"`;
 	if (event.status === 255) {
 		const name = Object.keys(TEXT_ATTRIBUTES).find(attribute => TEXT_ATTRIBUTES[attribute] === event.metaType);
-		if (name) return `V- -${name}:${JSON.stringify(decoder.decode(Uint8Array.from(event.data)))}`;
+		if (name) return `V- -${name}:${JSON.stringify(decodeMidiFileText(Uint8Array.from(event.data)))}`;
 		if (event.metaType === 127) return `V- -sqspecifics:"${event.data.map(byte => byte.toString(16).padStart(2, '0')).join('')}"`;
 		if (event.metaType === 89) return `V- -keysigi:${event.data[0]! > 127 ? event.data[0]! - 256 : event.data[0]} -modea:'${event.data[1] ? 'minor' : 'major'}'`;
 	}

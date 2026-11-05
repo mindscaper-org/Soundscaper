@@ -231,6 +231,12 @@ function normalizeInterchange(value: unknown): MidiClipInterchange {
 			frame: integer(signature.frame, 0, Number.MAX_SAFE_INTEGER, 'MIDI signature.frame'),
 			numerator: integer(signature.numerator, 1, 255, 'MIDI signature.numerator'),
 			denominator,
+			...(signature.clocksPerMetronomeClick === undefined ? {} : {
+				clocksPerMetronomeClick: integer(signature.clocksPerMetronomeClick, 0, 255, 'MIDI signature.clocksPerMetronomeClick'),
+			}),
+			...(signature.notated32ndNotesPerQuarter === undefined ? {} : {
+				notated32ndNotesPerQuarter: integer(signature.notated32ndNotesPerQuarter, 0, 255, 'MIDI signature.notated32ndNotesPerQuarter'),
+			}),
 		};
 	});
 	return { events, tempos, signatures };
