@@ -8,7 +8,7 @@ import {
 } from './midi-file-types.ts';
 import { createMidiTempoTimeline } from './midi-file-timing.ts';
 import { allegroDuration, allegroNumber, allegroPitch, allegroString, allegroTokens, allegroVelocity } from './allegro-file-fields.ts';
-import { allegroAttributeToEvent, allegroEventFields } from './allegro-file-events.ts';
+import { allegroAttributeToEvent, allegroEventFields, assertAllegroGlobalTextChannel } from './allegro-file-events.ts';
 import { offsetAllegroFrame, offsetAllegroNotes, offsetAllegroTiming } from './allegro-file-offset.ts';
 import { allegroTempoDeclarations, type AllegroBeatAnchor, type AllegroTempoDeclaration } from './allegro-file-anchors.ts';
 import { sameAllegroTempoClock } from './allegro-file-tempo-clock.ts';
@@ -144,8 +144,9 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 					if (name === 'timesig_numr') signatureNumerator = allegroNumber(value, 'signature numerator');
 					else signatureDenominator = allegroNumber(value, 'signature denominator');
 					signatureParts.set(currentFrame, { numerator: signatureNumerator, denominator: signatureDenominator });
-				} else if (name === 'seqnames' || name === 'tracknames') track.name = allegroString(value);
-				else if (name === 'keysigi' || name === 'modea') {
+				} else if (name === 'seqnames' || name === 'tracknames') {
+					assertAllegroGlobalTextChannel(channel); track.name = allegroString(value);
+				} else if (name === 'keysigi' || name === 'modea') {
 					if (name === 'keysigi') keys.push({ track: trackIndex, frame: currentFrame, key: midiFileInteger(allegroNumber(value, 'key signature'), -7, 7, 'key signature') });
 					else { const mode = allegroString(value); if (mode !== 'major' && mode !== 'minor') throw new RangeError('Unsupported Allegro key mode.'); keys.push({ track: trackIndex, frame: currentFrame, minor: mode === 'minor' }); }
 				} else updates.push(allegroAttributeToEvent(name, value, currentFrame, channel, key));

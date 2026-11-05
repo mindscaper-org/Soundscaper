@@ -14,6 +14,10 @@ function normalizedByte(value: string): number {
 	return Math.round(number * 127);
 }
 
+export function assertAllegroGlobalTextChannel(channel: number): void {
+	if (channel !== -1) throw new RangeError('Channel-scoped Allegro text cannot retain its MIDI association. Import MIDI instead.');
+}
+
 export function allegroAttributeToEvent(name: string, value: string, frame: number, channel: number, key: number | null): MidiFileEvent {
 	const controller = /^control(\d+)r$/.exec(name);
 	if (controller) return { frame, status: 176 | channelByte(channel), data: [midiFileInteger(Number(controller[1]), 0, 127, 'controller'), normalizedByte(value)] };
@@ -27,7 +31,10 @@ export function allegroAttributeToEvent(name: string, value: string, frame: numb
 		const position = Math.min(16_383, Math.round((bend + 1) * 8192));
 		return { frame, status: 224 | channelByte(channel), data: [position & 127, position >> 7] };
 	}
-	if (TEXT_ATTRIBUTES[name] !== undefined) return { frame, status: 255, metaType: TEXT_ATTRIBUTES[name], data: [...encoder.encode(allegroString(value))] };
+	if (TEXT_ATTRIBUTES[name] !== undefined) {
+		assertAllegroGlobalTextChannel(channel);
+		return { frame, status: 255, metaType: TEXT_ATTRIBUTES[name], data: [...encoder.encode(allegroString(value))] };
+	}
 	if (name === 'sysexs' || name === 'sqspecifics') {
 		const hex = allegroString(value);
 		if (!/^(?:[\da-f]{2})*$/i.test(hex)) throw new RangeError('Invalid Allegro hexadecimal message.');

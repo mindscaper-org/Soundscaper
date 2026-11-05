@@ -55,7 +55,7 @@ async function imported(text: string) {
 }
 
 test('unknown Allegro backslash escapes retain their following literal character', () => {
-	const document = parseAllegroFile('T0 -texts:"Unknown\\q\\u0041"\nT0 V0 P60 U1\n');
+	const document = parseAllegroFile('T0 V- -texts:"Unknown\\q\\u0041"\nT0 V0 P60 U1\n');
 	const event = document.tracks[0]?.events?.[0]; assert.ok(event);
 	assert.equal(new TextDecoder().decode(Uint8Array.from(event.data)), 'Unknownqu0041');
 });
