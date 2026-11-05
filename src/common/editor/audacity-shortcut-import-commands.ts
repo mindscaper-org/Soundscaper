@@ -19,8 +19,6 @@ const LEGACY_COMMANDS: Readonly<Record<string, string>> = Object.freeze({
 	Cut: 'cut-per-track-ripple', Copy: 'action://copy', Paste: 'action://paste',
 	Silence: 'silence-audio-selection',
 	SelAllTracks: 'select-all-tracks', SelAll: 'select-all',
-	SelTrackStartToCursor: 'select-track-start-to-cursor',
-	SelCursorToTrackEnd: 'select-cursor-to-track-end',
 	SelTrackStartToEnd: 'select-track-start-to-end',
 	SelCursorStoredCursor: 'select-cursor-to-stored-cursor',
 	SelStore: 'store-selection', SelRestore: 'retrieve-selection',
