@@ -22,12 +22,16 @@ for (const [legacy, command, target] of [
 test('ordinary selection, one-second seeks and explicit all-state cursor jumps remain independent', () => {
 	const plan = parseAudacityShortcutImport(`<audacitykeyboard audacityversion="3.7.7">
 		<command name="SeekRightShort" key="Ctrl+F7"/><command name="SeekLeftShort" key="Ctrl+F8"/>
-		<command name="CursorLongJumpRight" key="Ctrl+F9"/><command name="SelExtRight" key="Ctrl+F10"/>
+		<command name="SelExtRight" key="Ctrl+F10"/>
 	</audacitykeyboard>`, {});
-	assert.equal(plan.importedCount, 4);
+	assert.equal(plan.importedCount, 3);
 	assert.deepEqual(plan.skipped, []);
 	assert.deepEqual(plan.shortcuts, { 'play-position-increase': ['Ctrl+F7'], 'play-position-decrease': ['Ctrl+F8'],
-		'cursor-long-jump-right': ['Ctrl+F9'], 'track-view-item-extend-right': ['Ctrl+F10'] });
+		'track-view-item-extend-right': ['Ctrl+F10'] });
+	const modern = parseAudacityShortcutImport('<Shortcuts><SC><key>cursor-long-jump-right</key><seq>Ctrl+F9</seq></SC></Shortcuts>', {});
+	assert.equal(modern.importedCount, 1);
+	assert.deepEqual(modern.skipped, []);
+	assert.deepEqual(modern.shortcuts, { 'cursor-long-jump-right': ['Ctrl+F9'] });
 });
 
 test('the native long-seek profile is truthful without removing ordinary editor selection keys', () => {

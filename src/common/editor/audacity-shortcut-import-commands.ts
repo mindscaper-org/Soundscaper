@@ -30,7 +30,6 @@ const LEGACY_COMMANDS: Readonly<Record<string, string>> = Object.freeze({
 	CursTrackStart: 'cursor-to-track-start', CursTrackEnd: 'cursor-to-track-end',
 	CursProjectStart: 'action://playback/rewind-start',
 	CursProjectEnd: 'action://playback/rewind-end',
-	CursorLeft: 'play-position-decrease', CursorRight: 'play-position-increase',
 	TrackFocusUp: 'track-view-above-item', TrackFocusDown: 'track-view-below-item',
 	TrackFocusFirst: 'track-view-first-track', TrackFocusLast: 'track-view-last-track',
 	TrackFocusUpSelection: 'track-view-extend-track-selection-prev',
@@ -51,6 +50,11 @@ const LEGACY_COMMANDS: Readonly<Record<string, string>> = Object.freeze({
 	EditMetaData: 'edit-meta-data', EditMetadata: 'edit-meta-data',
 	MacroManager: 'manage-macros', ApplyMacro: 'apply-macros-palette',
 });
+
+const LEGACY_CURSOR_COLLAPSE_COMMANDS = new Set([
+	'CursorLeft', 'CursorRight', 'CursorShortJumpLeft', 'CursorShortJumpRight',
+	'CursorLongJumpLeft', 'CursorLongJumpRight',
+]);
 
 const CONTEXTUAL_COMMANDS: Readonly<Record<string, string>> = Object.freeze({
 	'nav-next-section': 'track-view-next-panel', 'nav-next-panel': 'track-view-next-panel',
@@ -74,6 +78,8 @@ const KNOWN_COMMANDS = new Set([
 export function audacityShortcutImportCommand(
 	command: string, legacy: boolean, availableActionIds?: ReadonlySet<string>,
 ): string | null {
+	// Native stopped cursor moves first collapse a range; local actions always step.
+	if (legacy && LEGACY_CURSOR_COLLAPSE_COMMANDS.has(command)) return null;
 	// Native label commands have fixed modes; the local action follows transport state.
 	if (legacy && (command === 'AddLabel' || command === 'AddLabelPlaying')) return null;
 	const sourceId = legacy
