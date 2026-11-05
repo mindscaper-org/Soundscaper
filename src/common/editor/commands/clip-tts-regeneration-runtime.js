@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createEnvelopeValueEvaluator } from '../automation.js';
+import { withoutClipLoop } from '../audio-clip-loop.ts';
 import { clipEndFrame } from '../project.js';
 import { hasCoreEditingProjectAuthority } from '../project-schema-version.ts';
 import { scaleSampleFrame } from '../timeline-time.ts';
@@ -52,6 +53,7 @@ export function regenerateTtsClip(project, clipId, sourceId) {
 		trimStartFrames: 0,
 		trimEndFrames: 0,
 		warpMap: null,
+		opaqueExtensions: withoutClipLoop(clip.opaqueExtensions),
 		fadeInFrames: Math.min(clip.fadeInFrames ?? 0, durationFrames),
 		fadeOutFrames: Math.min(clip.fadeOutFrames ?? 0, durationFrames),
 		envelope: retainedEnvelope(clip.envelope, clip.durationFrames, durationFrames),

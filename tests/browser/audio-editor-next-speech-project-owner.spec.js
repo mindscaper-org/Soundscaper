@@ -81,3 +81,32 @@ test('replacing generated speech preserves its authored clip speed and length', 
 	await expect(properties.getByRole('textbox', { name: 'Speed', exact: true })).toHaveValue('200');
 	await expect(properties.getByRole('textbox', { name: 'Length', exact: true })).toHaveValue('1');
 });
+
+test('replacing a looped trimmed speech clip retires the old source loop', async ({ page }) => {
+	await installMilestone7LocalAssistanceFixture(page);
+	await page.addInitScript(createRound7SpeechPreviewBridge, true);
+	const editor = await bootEditor(page, '/embed/en/');
+	await chooseCommandAction(page, editor, 'Generate', 'Text to Speech');
+	const speech = page.getByRole('dialog',{name:'Text to Speech', exact: true });
+	await speech.getByRole('textbox',{name:'Script', exact: true }).fill('Replace the complete speech source.');
+	await speech.getByRole('button',{name:'Generate preview', exact: true }).click();
+	await speech.getByRole('button',{name:'Add as new track at playhead', exact: true }).click();
+	await expect(speech.getByText('Speech added on a new track.', { exact: true })).toBeVisible();
+	await speech.getByRole('button',{name:'Close', exact: true }).last().click();
+	const clip = clipByName(editor, 'Generated Speech');
+	const properties = await openClipProperties(page, editor, clip, { additional: false });
+	await commitInput(properties.getByRole('textbox',{name:'Length', exact: true }), '0.5');
+	await expect(properties.getByRole('textbox',{name:'Length', exact: true })).toHaveValue('0.5');
+	await closeClipProperties(properties);
+	const loop = clip.getByRole('slider',{name:'Looped clip length', exact: true });
+	await loop.focus(); await loop.press('ArrowRight');
+	await expect(loop).toHaveAttribute('aria-valuenow', '1');
+	await expect(clip.locator('[data-loop-boundary-frame]')).toHaveCount(1);
+	await chooseCommandAction(page, editor, 'Generate', 'Text to Speech');
+	await expect(speech.getByRole('textbox',{name:'Script', exact: true })).toHaveValue('Replace the complete speech source.');
+	await speech.getByRole('button',{name:'Generate preview', exact: true }).click();
+	await speech.getByRole('button',{name:'Replace selected speech clip', exact: true }).click();
+	await expect(speech.getByText('Selected speech clip replaced.', { exact: true })).toBeVisible();
+	await speech.getByRole('button',{name:'Close', exact: true }).last().click();
+	await expect(clip.locator('[data-loop-boundary-frame]')).toHaveCount(0);
+});
