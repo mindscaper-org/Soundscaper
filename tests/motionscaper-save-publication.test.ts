@@ -8,12 +8,14 @@ import { createMotionscaperFileAuthority } from '../desktop/motionscaper-file-au
 import { createMotionSavedFileAuthority } from '../desktop/motion-saved-file-authority.ts';
 import type { MotionSavePublicationCheckpoint } from '../desktop/motion-save-publication.ts';
 import { readMotionSaveJournal, writeMotionSaveJournal } from '../desktop/motion-save-publication-journal.ts';
+import type { MotionSaveFileReplacement } from '../desktop/motion-save-file-replacement.ts';
+import { motionSaveReplacementForTest } from './helpers/motionscaper-native-replacement.ts';
 
-async function fixture(checkpoint?: (phase: MotionSavePublicationCheckpoint) => Promise<void>) {
+async function fixture(checkpoint?: (phase: MotionSavePublicationCheckpoint) => Promise<void>, replaceFile?: MotionSaveFileReplacement) {
 	const directory = await mkdtemp(join(tmpdir(), 'motion-save-publication-')), path = join(directory, 'saved.mscape');
 	await writeFile(path, 'previous complete archive');
 	const dialogs = { chooseOpen: async () => path, chooseSave: async () => path };
-	const files = createMotionscaperFileAuthority(dialogs, { checkpoint });
+	const files = createMotionscaperFileAuthority(dialogs, { checkpoint, replaceFile });
 	const bound = await files.selectOpen(); assert.ok(bound); await files.bindOpened({ token: bound.token, projectId: 'motion' }); await files.release({ token: bound.token });
 	const receiver = createMotionSavedFileAuthority({ chooseFile: async () => path });
 	const watch = await receiver.select(); assert.ok(watch);
@@ -149,7 +151,7 @@ test('restart recovery reports a published transaction and never restores its pr
 });
 
 test('native backup leaves an in-flight old snapshot readable across prepare, rollback and publication while in-place mutations still refuse', async () => {
-	const f = await fixture();
+	const f = await fixture(undefined, await motionSaveReplacementForTest());
 	try {
 		const old = await f.receiver.poll({ watchId: f.watch.watchId, afterGeneration: 0 }); assert.equal(old.state, 'snapshot');
 		if (old.state !== 'snapshot') throw new Error('Missing retained old descriptor.');

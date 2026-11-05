@@ -1,14 +1,18 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { rename, rm, type FileHandle } from 'node:fs/promises';
+import { rm, type FileHandle } from 'node:fs/promises';
 import { basename } from 'node:path';
 import type { MotionRecoveredPublication, MotionSaveFileReceipt } from '../src/motionscaper/desktop-file-contract.ts';
 import { assertMotionSaveDirectory, captureMotionSaveDirectory, copyMotionSaveBackup, hashMotionSavePath, motionSaveBackupPath, motionSaveTemporaryPath, optionalMotionSaveFile, readMotionSaveJournal, removeMotionSaveJournal,
 	syncMotionSaveDirectory, writeMotionSaveJournal } from './motion-save-publication-journal.ts';
 import { sameMotionSaveFile, type MotionSaveDirectoryIdentity, type MotionSaveFingerprint } from './motion-save-file-identity.ts';
 import type { MotionSaveJournal, MotionReadSaveJournal } from './motion-save-publication-codec.ts';
+import { replaceMotionSaveFile, type MotionSaveFileReplacement } from './motion-save-file-replacement.ts';
 
 export type MotionSavePublicationCheckpoint = 'candidate-directory-sync' | 'candidate-fingerprint' | 'before-publication' | 'rollback-directory-sync' | 'published-cleanup';
-export interface MotionSavePublicationOptions { readonly checkpoint?: (phase: MotionSavePublicationCheckpoint) => Promise<void> }
+export interface MotionSavePublicationOptions {
+	readonly checkpoint?: (phase: MotionSavePublicationCheckpoint) => Promise<void>;
+	readonly replaceFile?: MotionSaveFileReplacement;
+}
 export interface MotionSavePublication {
 	prepare(): Promise<MotionSaveFileReceipt>; publish(): Promise<MotionSaveFileReceipt>; status(): Promise<MotionSaveFileReceipt>;
 	abort(acknowledge?: boolean): Promise<MotionSaveFingerprint | null | undefined>;
@@ -52,11 +56,11 @@ export function createMotionSavePublication(input: Input): MotionSavePublication
 			assertExpected(input.expected, await optionalMotionSaveFile(input.path));
 			journal = { format: 'motionscaper-save-publication', version: 2, transactionId: input.transactionId, projectId: input.projectId,
 				phase: 'pending', candidate, sha256: input.sha256, previous: input.expected, backup: backupFingerprint, previousSha256 };
-			await writeMotionSaveJournal(input.path, journal, undefined, input.parent); await syncMotionSaveDirectory(input.path, input.parent);
+			await writeMotionSaveJournal(input.path, journal, undefined, input.parent, input.replaceFile); await syncMotionSaveDirectory(input.path, input.parent);
 			await input.close();
 			await assertMotionSaveDirectory(input.path, input.parent);
 			assertExpected(input.expected, await optionalMotionSaveFile(input.path));
-			await rename(input.temporary, input.path);
+			await replaceMotionSaveFile({ source: input.temporary, destination: input.path, parent: input.parent, candidate: journal.candidate, expected: input.expected }, input.replaceFile);
 		}
 		await owned();
 		await input.checkpoint?.('candidate-directory-sync'); await syncMotionSaveDirectory(input.path, input.parent);
@@ -84,7 +88,7 @@ export function createMotionSavePublication(input: Input): MotionSavePublication
 			await assertMotionSaveDirectory(input.path, input.parent);
 			if (!sameMotionSaveFile(candidate, await optionalMotionSaveFile(input.path))) throw new Error('Motion Save candidate changed before publication.');
 			// This atomic state transition is the only publication point. Later failures cannot revoke it.
-			try { await writeMotionSaveJournal(input.path, { ...current.journal, phase: 'published' }, current.checksum, input.parent); }
+			try { await writeMotionSaveJournal(input.path, { ...current.journal, phase: 'published' }, current.checksum, input.parent, input.replaceFile); }
 			catch (error) {
 				const observed = await owned(); if (observed.journal.phase !== 'published') throw error;
 				published = receipt('published', message(error)); return published;
@@ -122,7 +126,7 @@ export function createMotionSavePublication(input: Input): MotionSavePublication
 			}
 			if (acknowledge && current) throw new Error('Roll back the pending Motion Save before acknowledging it.');
 			prepared = false;
-			const restored = current ? await rollbackMotionSavePublication(input.path, current, input.parent, input.checkpoint, true) : undefined;
+			const restored = current ? await rollbackMotionSavePublication(input.path, current, input.parent, input, true) : undefined;
 			await assertMotionSaveDirectory(input.path, input.parent);
 			await rm(input.temporary, { force: true }); await rm(motionSaveBackupPath(input.path, input.transactionId), { force: true });
 			stopped = true; return restored;
@@ -135,7 +139,7 @@ export async function recoverMotionSavePublication(path: string, options: Motion
 	const current = await readMotionSaveJournal(path); if (!current) return undefined;
 	const { journal } = current;
 	if (journal.phase === 'pending') {
-		await rollbackMotionSavePublication(path, current, parent, options.checkpoint, true);
+		await rollbackMotionSavePublication(path, current, parent, options, true);
 		await assertMotionSaveDirectory(path, parent);
 		await rm(motionSaveTemporaryPath(path, journal.transactionId), { force: true });
 	}
@@ -155,7 +159,7 @@ export async function acknowledgeMotionSaveRecovery(path: string, transactionId:
 	await syncMotionSaveDirectory(path, selectedParent);
 	await removeMotionSaveJournal(path, transactionId, selectedParent); await syncMotionSaveDirectory(path, selectedParent);
 }
-async function rollbackMotionSavePublication(path: string, captured: MotionReadSaveJournal, parent: MotionSaveDirectoryIdentity, checkpoint?: MotionSavePublicationOptions['checkpoint'], retainRecovery = false): Promise<MotionSaveFingerprint | null | undefined> {
+async function rollbackMotionSavePublication(path: string, captured: MotionReadSaveJournal, parent: MotionSaveDirectoryIdentity, options: MotionSavePublicationOptions, retainRecovery = false): Promise<MotionSaveFingerprint | null | undefined> {
 	await assertMotionSaveDirectory(path, parent);
 	const current = await readMotionSaveJournal(path);
 	if (!current || current.checksum !== captured.checksum || current.journal.phase !== 'pending') throw new Error('Motion Save transaction changed before rollback.');
@@ -168,19 +172,19 @@ async function rollbackMotionSavePublication(path: string, captured: MotionReadS
 			if (!prior || await hashMotionSavePath(backup, prior) !== journal.previousSha256) throw new Error('Motion Save prior backup is unavailable or corrupt.');
 			if (!sameMotionSaveFile(candidate, await optionalMotionSaveFile(path))) throw new Error('Motion Save destination changed before rollback.');
 			await assertMotionSaveDirectory(path, parent);
-			await rename(backup, path);
+			await replaceMotionSaveFile({ source: backup, destination: path, parent, candidate: prior, expected: candidate }, options.replaceFile);
 		} else { await assertMotionSaveDirectory(path, parent); await rm(path); }
-		await checkpoint?.('rollback-directory-sync'); await syncMotionSaveDirectory(path, parent);
+		await options.checkpoint?.('rollback-directory-sync'); await syncMotionSaveDirectory(path, parent);
 		restored = await optionalMotionSaveFile(path);
 		if (journal.previous && (!restored || await hashMotionSavePath(path, restored) !== journal.previousSha256)) throw new Error('Motion Save rollback verification failed.');
 	} else if (sameMotionSaveFile(journal.backup, candidate)) {
 		if (!candidate || await hashMotionSavePath(path, candidate) !== journal.previousSha256) throw new Error('Motion Save restored backup changed before retry.');
-		await checkpoint?.('rollback-directory-sync'); await syncMotionSaveDirectory(path, parent); restored = candidate;
+		await options.checkpoint?.('rollback-directory-sync'); await syncMotionSaveDirectory(path, parent); restored = candidate;
 	} else if (sameMotionSaveFile(journal.previous, candidate) || journal.previous === null && candidate === null) restored = candidate;
 	// A different external inode owns the path. Its bytes must never be overwritten.
 	await assertMotionSaveDirectory(path, parent);
 	await rm(backup, { force: true });
-	if (retainRecovery) await writeMotionSaveJournal(path, { ...journal, phase: 'rolled-back' }, current.checksum, parent);
+	if (retainRecovery) await writeMotionSaveJournal(path, { ...journal, phase: 'rolled-back' }, current.checksum, parent, options.replaceFile);
 	else await removeMotionSaveJournal(path, journal.transactionId, parent);
 	await syncMotionSaveDirectory(path, parent);
 	return restored;

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 #include "frame_carrier.hpp"
 #include "prores_encoder.hpp"
+#include "file-replacement.hpp"
 #include "../../common/sha256.hpp"
 #include <array>
 #include <charconv>
@@ -33,6 +34,12 @@ int main(const int argc, char** argv) {
 	std::filesystem::path output;
 	bool output_admitted = false;
 	try {
+		if (argc == 10 && std::string_view{argv[1]} == "--replace-file-v1") {
+			const std::array<std::string_view, 8> fields{argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9]};
+			motionscaper::files::replace_file(fields);
+			std::cout << "{\"productId\":\"motionscaper\",\"helperContractVersion\":1,\"operation\":\"replace-file\"}\n";
+			return 0;
+		}
 		if (argc == 2 && std::string_view{argv[1]} == "--self-test") {
 			if (!motionscaper::media::prores_available()) throw std::runtime_error("Pinned ProRes encoder is unavailable.");
 			std::cout << "{\"productId\":\"motionscaper\",\"helperContractVersion\":1,\"carrierVersion\":1,\"operation\":\"prores-4444\",\"inputPixelFormat\":\"rgba-f32le\",\"encoderPixelFormat\":\"yuva444p10\",\"colorSpace\":\"rec709\",\"alphaMode\":\"straight\",\"maximumFrames\":32768,\"pcmCarrierVersion\":1,\"audioCodec\":\"pcm-s24le\",\"maximumAudioSamples\":134217728}\n";

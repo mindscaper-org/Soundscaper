@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { createHash } from 'node:crypto';
 import { constants, type BigIntStats } from 'node:fs';
-import { lstat, open, link, rename, rm, type FileHandle } from 'node:fs/promises';
+import { lstat, open, link, rm, type FileHandle } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { nativeChildFileIdentityFromStat } from './native-child-file-identity.ts';
 import { motionSaveFingerprint, sameMotionSaveFile, type MotionSaveDirectoryIdentity, type MotionSaveFingerprint } from './motion-save-file-identity.ts';
+import { replaceMotionSaveFile, type MotionSaveFileReplacement } from './motion-save-file-replacement.ts';
 import { decodeMotionSaveJournal, encodeMotionSaveJournal, type MotionSaveJournal, type MotionReadSaveJournal } from './motion-save-publication-codec.ts';
 
 export { motionSaveFingerprint, sameMotionSaveFile } from './motion-save-file-identity.ts';
@@ -95,7 +96,7 @@ export async function readMotionSaveJournal(path: string): Promise<MotionReadSav
 		return decodeMotionSaveJournal(value);
 	} finally { await file.close(); }
 }
-export async function writeMotionSaveJournal(path: string, journal: MotionSaveJournal, previous?: string, parent?: MotionSaveDirectoryIdentity): Promise<void> {
+export async function writeMotionSaveJournal(path: string, journal: MotionSaveJournal, previous?: string, parent?: MotionSaveDirectoryIdentity, replaceFile?: MotionSaveFileReplacement): Promise<void> {
 	if (parent) await assertMotionSaveDirectory(path, parent);
 	const journalPath = motionSaveJournalPath(path), temporary = `${journalPath}.${journal.transactionId}.tmp`;
 	const bytes = new TextEncoder().encode(JSON.stringify(encodeMotionSaveJournal(journal)));
@@ -105,7 +106,13 @@ export async function writeMotionSaveJournal(path: string, journal: MotionSaveJo
 	try {
 		if (parent) await assertMotionSaveDirectory(path, parent);
 		if (previous === undefined) await link(temporary, journalPath);
-		else { const current = await readMotionSaveJournal(path); if (current?.checksum !== previous) throw new Error('Motion Save transaction ownership changed.'); await rename(temporary, journalPath); }
+		else {
+			const expected = await optionalMotionSaveFile(journalPath), current = await readMotionSaveJournal(path);
+			if (!expected || current?.checksum !== previous) throw new Error('Motion Save transaction ownership changed.');
+			const candidate = await optionalMotionSaveFile(temporary);
+			if (!candidate) throw new Error('Motion Save journal candidate is unavailable.');
+			await replaceMotionSaveFile({ source: temporary, destination: journalPath, parent: parent ?? await captureMotionSaveDirectory(path), candidate, expected }, replaceFile);
+		}
 	} finally { if (parent) await assertMotionSaveDirectory(path, parent); await rm(temporary, { force: true }); }
 }
 export async function removeMotionSaveJournal(path: string, transactionId: string, parent?: MotionSaveDirectoryIdentity): Promise<void> {

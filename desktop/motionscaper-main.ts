@@ -18,6 +18,7 @@ import { dispatchMotionscaperFileCall } from './motionscaper-file-ipc.ts';
 import { createMotionscaperLaunchAuthority, motionLaunchPaths } from './motionscaper-launch-authority.ts';
 import { dispatchMotionscaperLaunchCall } from './motionscaper-launch-ipc.ts';
 import { createMotionscaperNativeEncoder } from './motionscaper-native-executor.ts';
+import { createMotionscaperNativeFileReplacement } from './motionscaper-native-file-replacement.ts';
 import { createMotionscaperDeliveryAuthority } from './motionscaper-delivery-authority.ts';
 import { dispatchMotionscaperDeliveryCall } from './motionscaper-delivery-ipc.ts';
 import { createMotionscaperProtocolHandler } from './motionscaper-protocol.ts';
@@ -85,6 +86,7 @@ async function start(): Promise<void> {
 		: resolve(import.meta.dirname, '../../renderer');
 	const nativeMetadata: unknown = JSON.parse(await readFile(new URL('./native-payload.json', import.meta.url), 'utf8'));
 	const nativeEncoder = await createMotionscaperNativeEncoder(app.isPackaged ? process.resourcesPath : resolve(import.meta.dirname, '../..'), nativeMetadata);
+	const replaceFile = await createMotionscaperNativeFileReplacement(app.isPackaged ? process.resourcesPath : resolve(import.meta.dirname, '../..'), nativeMetadata);
 	if (nativeEncoder && process.argv.includes('--motionscaper-shell-smoke')) {
 		const { smokeMotionscaperNativeDelivery } = await import('./motionscaper-native-smoke.ts');
 		nativeSmoke = await smokeMotionscaperNativeDelivery(nativeEncoder);
@@ -136,7 +138,7 @@ async function start(): Promise<void> {
 			const selection = await dialog.showSaveDialog(window, { title: nativeCopy().motionscaperNativeSaveTitle, defaultPath: defaultPath ?? suggestedName, filters: [{ name: nativeCopy().motionscaperNativeProjectFilter, extensions: ['mscape'] }] });
 			return selection.canceled ? null : selection.filePath ?? null;
 		},
-	});
+	}, { replaceFile });
 	nativeFiles = files;
 	ipcMain.handle(channels.projectLaunch, (event: Electron.IpcMainInvokeEvent, method: unknown, request: unknown) => dispatchMotionscaperLaunchCall(launches, {
 		ownWindow: window !== null && event.sender === window.webContents,

@@ -45,13 +45,23 @@
 		},
 		{
 			"path": "native/motionscaper-media-host/CMakeLists.txt",
-			"byteLength": 3165,
-			"sha256": "a9df0e8d234d3408d9607871cd04ca1022e324b1c8c055026557598cff708521"
+			"byteLength": 3632,
+			"sha256": "7504bf3386068ff72de30761a12724c3b578bdf84ac6f7a0e180d77bedbf9ccd"
 		},
 		{
 			"path": "native/motionscaper-media-host/THIRD_PARTY_NOTICES.md",
 			"byteLength": 2004,
 			"sha256": "39bbbb60dfbe6bcac11383bb0b9dac4cf135c00a703fa8d0b7972565349f6797"
+		},
+		{
+			"path": "native/motionscaper-media-host/src/file-replacement.cpp",
+			"byteLength": 9196,
+			"sha256": "5eda4cf01459776ec64e67db003838409c076c0006393ce20ce39c24d52ecad7"
+		},
+		{
+			"path": "native/motionscaper-media-host/src/file-replacement.hpp",
+			"byteLength": 345,
+			"sha256": "eceadfc7061ca8447fe5acef007d743489e38345aefbedae989ea209a60948b9"
 		},
 		{
 			"path": "native/motionscaper-media-host/src/frame_carrier.cpp",
@@ -65,8 +75,8 @@
 		},
 		{
 			"path": "native/motionscaper-media-host/src/media_host.cpp",
-			"byteLength": 4813,
-			"sha256": "b6cbd539138a2ce2913dea6f6c6441added1cfed45bfba9b51ec0bb2454c4705"
+			"byteLength": 5214,
+			"sha256": "3c87ea94e17b602f6688786f4c15d399ad7fc082ea0813f4b37d13797bdcf4e5"
 		},
 		{
 			"path": "native/motionscaper-media-host/src/pcm_carrier.cpp",
@@ -92,6 +102,11 @@
 			"path": "native/motionscaper-media-host/src/windows.manifest",
 			"byteLength": 472,
 			"sha256": "6ba9e2d2796ad00991e8fa867fa08b09404a11a4990ed2960541ea75886112fe"
+		},
+		{
+			"path": "native/motionscaper-media-host/tests/file_replacement.cpp",
+			"byteLength": 9751,
+			"sha256": "6c3ce3617d7793cd2ce2f32ec4138c86a40435f953155aec21cb364148d95b27"
 		},
 		{
 			"path": "native/motionscaper-media-host/tests/frame_carrier_fixture.cpp",

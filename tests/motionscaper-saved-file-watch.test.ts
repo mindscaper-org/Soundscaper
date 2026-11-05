@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, writeFile, rename, rm, symlink } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createMotionSavedFileAuthority } from '../desktop/motion-saved-file-authority.ts';
 import type { MotionSavedFileSnapshot } from '../src/common/editor/motion-saved-file-contract.ts';
+import { replaceWatchedMotionFileForTest } from './helpers/motionscaper-native-replacement.ts';
 async function fixture() {
 	const directory = await mkdtemp(join(tmpdir(), 'motionscaper-watch-')), path = join(directory, 'Selected.mscape');
 	await writeFile(path, 'saved-one'); const authority = createMotionSavedFileAuthority({ chooseFile: () => Promise.resolve(path) });
@@ -19,7 +20,7 @@ test('selected saved file watches reopen atomic replacement while pinned old sna
 	const f = await fixture(); try {
 		const selected = await f.authority.select(); assert.ok(selected); assert.deepEqual(Object.keys(selected).sort(), ['name', 'watchId']);
 		const first = await snapshot(f, selected.watchId, 0); assert.equal(first.name, 'Selected.mscape'); assert.equal(first.generation, 1);
-		await writeFile(join(f.directory, 'replacement.tmp'), 'saved-two'); await rename(join(f.directory, 'replacement.tmp'), f.path);
+		await writeFile(join(f.directory, 'replacement.tmp'), 'saved-two'); await replaceWatchedMotionFileForTest(join(f.directory, 'replacement.tmp'), f.path);
 		const second = await snapshot(f, selected.watchId, first.generation); assert.equal(second.generation, 2); assert.notEqual(second.token, first.token);
 		assert.equal(Buffer.from(await f.authority.read({ token: first.token, offset: 0, length: 9 })).toString(), 'saved-one');
 		assert.equal(Buffer.from(await f.authority.read({ token: second.token, offset: 0, length: 9 })).toString(), 'saved-two');

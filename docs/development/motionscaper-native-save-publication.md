@@ -28,6 +28,19 @@ its original numeric checksum before migration; that original checksum remains
 the compare-and-swap token until the next journal write. Unsafe numeric identities
 and malformed string identities are refused.
 
+Windows preparation and rollback use the authenticated media helper's native
+`FileRenameInformationEx` operation with replacement and POSIX semantics. Existing
+snapshot descriptors retain their old bytes while the destination receives the
+candidate inode. The operation checks the selected parent and both file IDs,
+rejects reparse points and aliases, and never falls back to unlinking the
+destination or releasing another process's snapshot. An absent destination
+grant permits creation without replacing a file that appeared meanwhile.
+POSIX targets retain their existing rename operation.
+Journal phase transitions use the same operation, so an independent receiver's
+pending-journal descriptor does not block publication. Development shells without
+a native payload retain ordinary rename; an open-destination refusal leaves the
+Save uncommitted behind its journal.
+
 The watcher defers the exact candidate identified by a pending journal. Native
 replacement, directory synchronization and destination verification finish
 behind that fence. The Motion store then durably reserves the expected saved
@@ -111,3 +124,8 @@ platform implementation; the Windows path does not perform a POSIX directory
 fsync. Journals and backups are recovery artifacts beside their selected file,
 not portable project content. Remaining platform and full-release gates retain
 the qualification boundaries in the implementation order.
+
+Focused Windows tests that retain snapshots require a genuine current staged
+helper through `SCAPE_TEST_MOTION_NATIVE_STAGE`. The stage's native payload
+manifest and executable are verified by the same loader as the desktop app;
+these cases do not substitute a JavaScript replacement for the Windows operation.
