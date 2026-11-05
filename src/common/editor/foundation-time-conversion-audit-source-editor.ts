@@ -12,6 +12,12 @@ export const FOUNDATION_TIME_CONVERSION_SOURCE_EDITOR_SITES: readonly Foundation
 		conversions: [{ helper: 'roundRational', policies: ['point'] }],
 	},
 	{
+		id: 'midi-file-emitted-clock',
+		file: 'src/common/editor/midi-file-write-clock.ts',
+		behavior: 'SMF export places each tempo at its nearest emitted PPQ tick, retains that exact integer-microsecond clock origin, and rounds note, event, signature and end-marker sample positions to the nearest tick of the actual emitted clock.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
 		id: 'midi-file-import-clock',
 		file: 'src/common/editor/midi-file.ts',
 		behavior: 'SMF import accumulates exact PPQ microsecond/tick numerators or SMPTE rational frame-rate/tick coordinates, including 30000/1001 fps, then rounds each note, event and conductor point once to its nearest destination sample.',

@@ -6,7 +6,7 @@ import {
 	midiFileInteger, midiFileSampleRate, validateMidiFileDocument,
 	type MidiFileDocument, type MidiFileEvent, type MidiFileReadOptions, type MidiFileSignature, type MidiFileTempo,
 } from './midi-file-types.ts';
-import { createMidiTempoTimeline } from './midi-file-timing.ts';
+import { createMidiFileWriteClock } from './midi-file-write-clock.ts';
 import { midiFileNoteReleases } from './midi-file-note-releases.ts';
 import { createMidiFileNoteOrderGuard } from './midi-file-note-order.ts';
 import { decodeMidiFileText } from './midi-file-text.ts';
@@ -257,13 +257,9 @@ export function writeMidiFile(document: MidiFileDocument): Uint8Array<ArrayBuffe
 	if (eventCount > MIDI_FILE_MAX_EVENTS) throw new RangeError('MIDI export exceeds the reader event limit.');
 	const paddingBudget = { remaining: MIDI_FILE_MAX_EVENTS - eventCount };
 	const division = 9600;
-	const quantizedTempos = document.tempos.map(tempo => ({ ...tempo, bpm: 60_000_000 / Math.round(60_000_000 / tempo.bpm) }));
-	const timing = createMidiTempoTimeline(quantizedTempos, document.sampleRate);
-	const tick = (frame: number): number => Math.round(timing.frameToBeat(frame) * division);
-	const conductor: TickEvent[] = document.tempos.map(tempo => {
-		const micros = midiFileInteger(Math.round(60_000_000 / tempo.bpm), 1, 0xffffff, 'tempo');
-		return { tick: tick(tempo.frame), status: 255, metaType: 81, data: uint32Bytes(micros).slice(1) };
-	});
+	const clock = createMidiFileWriteClock(document.tempos, document.sampleRate, division);
+	const tick = clock.tick;
+	const conductor: TickEvent[] = clock.tempos.map(tempo => ({ tick: tempo.tick, status: 255, metaType: 81, data: uint32Bytes(tempo.micros).slice(1) }));
 	for (const signature of document.signatures) conductor.push({ tick: tick(signature.frame), status: 255, metaType: 88,
 		data: [signature.numerator, Math.log2(signature.denominator), signature.clocksPerMetronomeClick ?? 24, signature.notated32ndNotesPerQuarter ?? 8] });
 	for (const offset of offsets) conductor.push({ ...offset, tick: 0 });
