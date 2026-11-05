@@ -18,7 +18,8 @@ interface NoteRelease { readonly tick: number; readonly velocity: number; readon
 export function midiFileNoteReleaseId(track: number, order: number): string { return `midi-release-${String(track)}-${String(order)}`; }
 
 /** Synchronous SMF tracks can share a destination and release each other's keys. */
-export function midiFileNoteReleases(tracks: readonly Readonly<{ events: readonly TickMessage[] }>[]): ReadonlyMap<TickMessage, NoteRelease> {
+export function midiFileNoteReleases(tracks: readonly Readonly<{ events: readonly TickMessage[] }>[],
+	frame: (tick: number) => number = tick => tick): ReadonlyMap<TickMessage, NoteRelease> {
 	const messages: RoutedMessage[] = [];
 	for (const [track, value] of tracks.entries()) {
 		let device = '', port = 0;
@@ -36,15 +37,34 @@ export function midiFileNoteReleases(tracks: readonly Readonly<{ events: readonl
 	const releases = new Map<TickMessage, NoteRelease>();
 	const pedals = new Map<string, boolean>();
 	const held = new Map<string, KeyRelease[]>();
+	const checkSustain = messages.some(({ event }) => (event.status & 240) === 176 && event.data[0] === 64 && event.data[1]! >= 64);
+	const released = new Set<string>(), unheld = new Set<string>();
+	let lastFrame = -1;
+	const assertSustainOrder = (): void => {
+		for (const destination of unheld) if (pedals.get(destination)) {
+			throw new RangeError('MIDI import cannot preserve sustain and key-release order at the same sample.');
+		}
+	};
+	const releaseAtFrame = (onset: TickMessage, destination: string): void => {
+		if (!checkSustain || frame(onset.tick) >= lastFrame) return;
+		released.add(destination);
+		if (!pedals.get(destination)) unheld.add(destination);
+	};
 	for (const { event, track, order, destination } of messages) {
+		const at = checkSustain ? frame(event.tick) : event.tick;
+		if (at !== lastFrame) {
+			assertSustainOrder(); released.clear(); unheld.clear(); lastFrame = at;
+		}
 		const type = event.status & 240;
 		if (type === 176 && [64, 120, 121].includes(event.data[0]!)) {
 			const sustain = event.data[0] === 64 && event.data[1]! >= 64;
 			if (!sustain) {
+				if (released.has(destination)) unheld.add(destination);
 				for (const release of held.get(destination) ?? []) release.soundEndTick = event.tick;
 				held.delete(destination);
 			}
 			if (event.data[0] !== 120) { pedals.set(destination, sustain); continue; }
+			released.delete(destination); unheld.delete(destination);
 		}
 		const keys = active.get(destination) ?? new Map<number, KeyQueue>();
 		const pitch = event.data[0]!;
@@ -53,6 +73,7 @@ export function midiFileNoteReleases(tracks: readonly Readonly<{ events: readonl
 			queueNote(notes, { event, track }); keys.set(pitch, notes); active.set(destination, keys);
 		} else if (type === 176) {
 			for (const notes of keys.values()) for (let note = notes.first; note; note = note.next) {
+				if (event.data[0] !== 120) releaseAtFrame(note.event, destination);
 				const allNotesOff = { id: midiFileNoteReleaseId(track, order), soundEndTick: pedals.get(destination) ? null : event.tick };
 				releases.set(note.event, { tick: event.tick, velocity: 0,
 					...(event.data[0] === 120 ? { allSoundOff: true as const } : { allNotesOff }) });
@@ -66,11 +87,13 @@ export function midiFileNoteReleases(tracks: readonly Readonly<{ events: readonl
 			if (!notes?.first) continue;
 			// Preserve each track's authored pair when several parts overlap on one key.
 			const note = takeNote(notes, track);
+			releaseAtFrame(note.event, destination);
 			releases.set(note.event, { tick: event.tick, velocity: type === 128 ? event.data[1]! : 64 });
 			if (!notes.first) keys.delete(pitch);
 			if (!keys.size) active.delete(destination);
 		}
 	}
+	assertSustainOrder();
 	return releases;
 }
 

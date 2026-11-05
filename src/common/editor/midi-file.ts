@@ -142,7 +142,7 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 		return roundRational(segment.numerator + BigInt(tick - segment.tick) * segment.sampleMicros, tickDenominator, 'point');
 	};
 	const signatures: MidiFileSignature[] = [];
-	const releases = midiFileNoteReleases(tracks);
+	const releases = midiFileNoteReleases(tracks, tickToFrame);
 	assertMidiFileProgramOrder(tracks, tickToFrame, releases, () => createMidiFileWriteClock(tempos, sampleRate, 9600).tick);
 	const result = tracks.map((track, trackIndex) => {
 		const notes: MidiNote[] = [];
