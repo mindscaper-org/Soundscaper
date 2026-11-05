@@ -20,7 +20,7 @@ interface DragState {
 interface ClipBoundaryDragState {
   edge: 'left' | 'right';
   clipId: number;
-  startMouseX: number;
+  initialPointerTime: number;
   initialStart: number;
   initialTrimStart: number;
   initialDuration: number;
@@ -96,6 +96,10 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
   const lastPlayedPitchRef = useRef<number | null>(null);
   const releaseGesture = useRef<() => void>(() => {});
   useEffect(() => () => releaseGesture.current(), []);
+  useEffect(() => {
+    const maximum = Math.max(0, TOTAL_PITCHES * noteHeight - height);
+    if (scrollY > maximum) onScrollYChange(maximum);
+  }, [height, noteHeight, scrollY, onScrollYChange]);
 
   // Effective highlighted pitch: keyboard hover > preview note > ghost note > drag
   const effectiveHoveredPitch = hoveredKeyPitch ?? previewNote?.pitch ?? ghostNote?.pitch ?? dragPitch ?? null;
@@ -210,7 +214,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
         clipBoundaryDragRef.current = {
           edge: boundaryHit.edge,
           clipId: boundaryHit.clip.id,
-          startMouseX: e.clientX,
+          initialPointerTime: pointerPosition(e).time,
           initialStart: boundaryHit.clip.start,
           initialTrimStart: boundaryHit.clip.trimStart ?? 0,
           initialDuration: boundaryHit.clip.duration,
@@ -221,8 +225,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
           const drag = clipBoundaryDragRef.current;
           if (!drag) return;
 
-          const dx = me.clientX - drag.startMouseX;
-          const deltaTime = dx / pixelsPerSecond;
+          const deltaTime = pointerPosition(me).time - drag.initialPointerTime;
           const minDuration = (60 / bpm) / 4; // minimum 1/4 beat
 
           if (drag.edge === 'left') {
@@ -294,13 +297,14 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
           const boxRight = Math.max(box.startX, box.currentX);
           const boxTop = Math.min(box.startY, box.currentY);
           const boxBottom = Math.max(box.startY, box.currentY);
+          const view = viewRef.current;
 
           const matchedIds: number[] = [];
           for (const { note, globalTimeOffset } of allNotes) {
-            const nx = (note.startTime + globalTimeOffset) * pixelsPerSecond - scrollX;
-            const ny = (TOTAL_PITCHES - 1 - note.pitch) * noteHeight - scrollY;
-            const nw = note.duration * pixelsPerSecond;
-            const nh = noteHeight;
+            const nx = (note.startTime + globalTimeOffset) * view.pixelsPerSecond - view.scrollX;
+            const ny = (TOTAL_PITCHES - 1 - note.pitch) * view.noteHeight - view.scrollY;
+            const nw = note.duration * view.pixelsPerSecond;
+            const nh = view.noteHeight;
 
             // AABB overlap test
             if (nx + nw > boxLeft && nx < boxRight && ny + nh > boxTop && ny < boxBottom) {
@@ -335,10 +339,9 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
     lastPlayedPitchRef.current = pitch;
 
     const handlePreviewMove = (me: MouseEvent) => {
-      const r = containerRef.current?.getBoundingClientRect();
-      if (!r) return;
-      const newPitch = Math.max(0, Math.min(127, yToPitch(me.clientY - r.top)));
-      const newTime = Math.max(0, snapTime(xToTime(me.clientX - r.left)));
+      const position = pointerPosition(me);
+      const newPitch = Math.max(0, Math.min(127, Math.ceil(position.pitch)));
+      const newTime = Math.max(0, snapTime(position.time));
       if (newPitch !== lastPlayedPitchRef.current) {
         onPlayNote?.(newPitch);
         lastPlayedPitchRef.current = newPitch;
@@ -364,7 +367,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
     };
 
     releaseGesture.current = retainPianoRollMouseGesture(document, handlePreviewMove, handlePreviewUp);
-  }, [snapTime, xToTime, yToPitch, bpm, snap, onAddNote, onDeselectAll, allNotes, pixelsPerSecond, scrollX, scrollY, noteHeight, onSelectNotes, visibleClips, onResizeClip, getClipBoundaryEdge, onPlayNote]);
+  }, [snapTime, xToTime, yToPitch, pointerPosition, bpm, snap, onAddNote, onDeselectAll, allNotes, pixelsPerSecond, scrollX, scrollY, noteHeight, onSelectNotes, visibleClips, onResizeClip, getClipBoundaryEdge, onPlayNote]);
 
   // Handle note mouse down (drag or resize)
   const handleNoteMouseDown = useCallback((e: React.MouseEvent, note: { id: number; pitch: number; velocity: number; selected?: boolean }, edge: NoteEdge) => {
@@ -489,20 +492,16 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
         // Compute snapped start delta from the anchor note, apply same shift to all
         const anchor = drag.initials.find(i => i.id === drag.noteId)!;
         const snappedStart = snapTime(anchor.startTime + deltaTime);
-        const clampedStart = Math.max(0, snappedStart);
-        const startDelta = clampedStart - anchor.startTime;
-        const anchorEndTime = anchor.startTime + anchor.duration;
-        if (anchorEndTime - clampedStart >= minDuration) {
-          for (const init of drag.initials) {
-            const newStart = Math.max(0, init.startTime + startDelta);
-            const endTime = init.startTime + init.duration;
-            const newDur = endTime - newStart;
-            if (newDur >= minDuration) {
-              onUpdateNote(init.id, { startTime: newStart, duration: newDur });
-            }
-          }
-          lastResizeDuration = anchorEndTime - clampedStart;
+        let minimumStart = Infinity, maximumShift = Infinity;
+        for (const init of drag.initials) {
+          minimumStart = Math.min(minimumStart, init.startTime);
+          maximumShift = Math.min(maximumShift, Math.max(0, init.duration - minDuration));
         }
+        const startDelta = Math.max(-minimumStart, Math.min(maximumShift, snappedStart - anchor.startTime));
+        for (const init of drag.initials) {
+          onUpdateNote(init.id, { startTime: init.startTime + startDelta, duration: init.duration - startDelta });
+        }
+        lastResizeDuration = anchor.duration - startDelta;
       }
     };
 
@@ -532,6 +531,13 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
       e.stopPropagation();
       const selectedIds = allNotes.filter(nc => nc.note.selected).map(nc => nc.note.id);
       if (selectedIds.length > 0) {
+        if (dragRef.current) {
+          releaseGesture.current();
+          dragRef.current = null;
+          lastPlayedPitchRef.current = null;
+          setDragPitch(null);
+          setGridCursor('crosshair');
+        }
         onDeleteNotes(selectedIds);
       }
     } else if (e.key.toLowerCase() === 'a' && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {

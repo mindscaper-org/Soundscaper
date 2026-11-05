@@ -756,9 +756,10 @@ are the places where the two keyboard models meet, so a future sync should re-ch
     and viewport pixels before panning. Covered by mounted native wheel tests
     and the MIDI wheel-units browser workflow. Upstream-PR candidate.
 
-96. Active piano-roll note movement and resizing measure pointer offsets in the
-    current viewport's source coordinates, retaining placement while wheel pan
-    or zoom changes the grid. Covered by mounted held-drag and production MIDI
+96. Held piano-roll note movement, resizing, placement and clip-edge dragging
+    measure pointers in the current viewport's source coordinates. Marquee hits
+    use the current visible note projection on release. Wheel pan and zoom retain
+    gesture placement. Covered by mounted held-viewport and production MIDI
     viewport-gesture regressions. Upstream-PR candidate.
 
 97. Piano-roll pitch labels select black or white text by the painted note's
@@ -774,3 +775,24 @@ are the places where the two keyboard models meet, so a future sync should re-ch
 99. Search reset buttons expose the existing localized Reset action with their
     search caption and participate in keyboard traversal. Covered by the Model
     Manager search-reset workflow. Upstream-PR candidate.
+
+100. Selected-note left resizing shares one delta bounded by source zero and
+     every selected note's minimum length. Onset spacing and original right
+     edges remain intact. Covered by mounted and production group-resize
+     regressions. Upstream-PR candidate.
+
+101. Deleting during a held note drag retires its pointer session and discards
+     unpublished host note edits before deletion, preventing a later missing-note
+     error on release. Covered by mounted host and production held-drag deletion
+     regressions. Upstream-PR candidate.
+
+102. Piano preview keys retain their visual layout as named native buttons in
+     the existing accessibility profile's tab group. Arrow navigation follows
+     semitone order; Enter/Space audition without starting transport. Covered by
+     mounted keyboard navigation and production audition regressions.
+     Upstream-PR candidate.
+
+103. Piano-roll viewport growth reconciles the existing pitch scroll limit so
+     the bottom row remains MIDI0 without blank out-of-range rows. Covered by
+     mounted viewport and production dock-resize regressions.
+     Upstream-PR candidate.

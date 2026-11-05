@@ -167,7 +167,12 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 		const { changes, sourceDurationFrames } = midiPanelClipResize(project, clip, sampleRate, edge, start, duration, trimStart);
 		pendingClip.current = changes; setClipDraft({ ...changes, sourceDurationFrames });
 	};
-	const deleteSelected = () => edit(() => controller.actions.midi.deleteNotes(clip.id, [...selectedIds]));
+	const deleteNotes = (ids: readonly string[]) => {
+		if (disabled) return;
+		pendingNotes.current = new Map(); setDrafts(new Map());
+		edit(() => controller.actions.midi.deleteNotes(clip.id, ids));
+	};
+	const deleteSelected = () => deleteNotes([...selectedIds]);
 	const addNote = () => {
 		const note: MidiNote = {
 			id: createStableId('midi-note'), pitch: 60, velocity: 100, channel: 0,
@@ -223,7 +228,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 			</div>
 		</div>
 		<div className="kw-audio-editor__piano-roll-grid" role="group" aria-label={copy.grid}>
-			<PianoKeyboard scrollY={scrollY} noteHeight={16} height={gridHeight + 52} onKeyClick={preview} onHoverKey={setHoveredPitch} clipStripVisible />
+			<PianoKeyboard ariaLabel={copy.preview} scrollY={scrollY} noteHeight={16} height={gridHeight + 52} onKeyClick={preview} onHoverKey={setHoveredPitch} clipStripVisible />
 			<div className="kw-audio-editor__piano-roll-notes" onMouseDownCapture={() => { if (!disabled) gesture.current = true; }}>
 				<PianoRollRuler width={gridWidth} scrollX={scrollX} pixelsPerSecond={pixelsPerSecond} bpm={bpm} beatsPerMeasure={beatsPerMeasure} snap={snap} timeBasis="beats" />
 				<PianoRollClipStrip clips={[designClip]} activeClipId={1} width={gridWidth} scrollX={scrollX} pixelsPerSecond={pixelsPerSecond}
@@ -236,7 +241,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 							startFrame: Math.max(0, Math.round(note.startTime * sampleRate)), durationFrames: Math.max(1, Math.round(note.duration * sampleRate)) }));
 						setSelectedIds(new Set([id]));
 					}}
-					onDeleteNotes={ids => edit(() => controller.actions.midi.deleteNotes(clip.id, ids.flatMap(id => notes[id - 1]?.id ? [notes[id - 1]!.id] : [])))}
+					onDeleteNotes={ids => deleteNotes(ids.flatMap(id => notes[id - 1]?.id ? [notes[id - 1]!.id] : []))}
 					onUpdateNote={(id, changes) => update(id, midiNoteChanges(changes, sampleRate))}
 					onResizeNote={(id, duration) => update(id, { durationFrames: Math.max(1, Math.round(duration * sampleRate)) })}
 					onMoveNotes={(ids, pitch, time) => ids.forEach(id => { const note = notes[id - 1]; if (note) update(id, { pitch: Math.max(0, Math.min(127, note.pitch + pitch)), startFrame: Math.max(0, note.startFrame + Math.round(time * sampleRate)) }); })}

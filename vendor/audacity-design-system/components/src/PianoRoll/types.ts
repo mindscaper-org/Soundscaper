@@ -78,6 +78,7 @@ export interface PianoRollSidebarProps {
 }
 
 export interface PianoKeyboardProps {
+  ariaLabel?: string;
   scrollY: number;
   noteHeight: number;
   height: number;

@@ -42,7 +42,7 @@ test('Ctrl-click removes an already selected MIDI note from the next Delete', as
 	try {
 		await act(async () => root.render(<PianoRollWorkspacePanel controller={controller} snapshot={{ project, selectedTrackId: 'track', selectedClipId: 'clip' }} copy={{}} blocked={false} run={operation => operation()} />));
 		dom.one('[data-note-id="1"]').getBoundingClientRect = () => ({ left: 0, width: 50 });
-		const grid = dom.one('[tabindex="0"]');
+		const grid = dom.one('.kw-audio-editor__piano-roll-notes').querySelector('[tabindex="0"]'); assert.ok(grid);
 		await act(async () => { reactProps(grid).onKeyDown?.({ key: 'a', ctrlKey: true, preventDefault() {}, stopPropagation() {} }); });
 		await act(async () => {
 			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({});

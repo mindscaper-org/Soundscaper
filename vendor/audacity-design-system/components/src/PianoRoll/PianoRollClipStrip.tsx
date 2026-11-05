@@ -42,6 +42,13 @@ export const PianoRollClipStrip: React.FC<PianoRollClipStripProps> = ({
 }) => {
   const { theme } = useTheme();
   const pr = theme.audio.pianoRoll;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef({ scrollX, pixelsPerSecond });
+  viewRef.current = { scrollX, pixelsPerSecond };
+  const pointerTime = useCallback((event: Pick<MouseEvent, 'clientX'>) => {
+    const bounds = containerRef.current?.getBoundingClientRect(), view = viewRef.current;
+    return (event.clientX - (bounds?.left ?? 0) + view.scrollX) / view.pixelsPerSecond;
+  }, []);
   const clipColors = trackColor ? (theme.audio.clip as Record<string, any>)[trackColor] : null; // justified: dynamic string-index into theme tokens (no index signature)
   const dragRef = useRef<{
     clipId: number;
@@ -49,7 +56,7 @@ export const PianoRollClipStrip: React.FC<PianoRollClipStripProps> = ({
     initialStart: number;
     initialTrimStart: number;
     initialDuration: number;
-    startMouseX: number;
+    initialPointerTime: number;
   } | null>(null);
   const releaseMove = useRef<() => void>(() => {});
   useEffect(() => () => { releaseMove.current(); dragRef.current = null; document.body.style.cursor = ''; }, []);
@@ -65,8 +72,7 @@ export const PianoRollClipStrip: React.FC<PianoRollClipStripProps> = ({
     const handleMouseMove = (e: MouseEvent) => {
       const drag = dragRef.current;
       if (!drag) return;
-      const deltaX = e.clientX - drag.startMouseX;
-      const deltaTime = deltaX / pixelsPerSecond;
+      const deltaTime = pointerTime(e) - drag.initialPointerTime;
 
       if (drag.edge === 'left') {
         // Left edge adjusts trimStart (like trimming audio)
@@ -101,7 +107,7 @@ export const PianoRollClipStrip: React.FC<PianoRollClipStripProps> = ({
       document.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('blur', handleMouseUp);
     };
-  }, [pixelsPerSecond, snapTime, onResizeClip]);
+  }, [pointerTime, snapTime, onResizeClip]);
 
   const handleEdgeMouseDown = useCallback((
     e: React.MouseEvent,
@@ -120,10 +126,10 @@ export const PianoRollClipStrip: React.FC<PianoRollClipStripProps> = ({
       initialStart: clipStart,
       initialTrimStart: clipTrimStart,
       initialDuration: clipDuration,
-      startMouseX: e.clientX,
+      initialPointerTime: pointerTime(e),
     };
     document.body.style.cursor = 'ew-resize';
-  }, []);
+  }, [pointerTime]);
 
   const handleClipMouseDown = useCallback((e: React.MouseEvent, clip: MidiClip) => {
     if (e.button !== 0) return;
@@ -154,6 +160,7 @@ export const PianoRollClipStrip: React.FC<PianoRollClipStripProps> = ({
 
   return (
     <div
+      ref={containerRef}
       style={{
         position: 'relative',
         height: CLIP_STRIP_HEIGHT,
