@@ -10,6 +10,10 @@ export function createMidiClipNoteProjection(data: MidiClipData) {
 	return function* project(start: number, frames: number, global: (frame: number) => number): Generator<MidiNote> {
 		const reversed = global(start + frames) < global(start);
 		for (const { note, soundEnd } of notes) {
+			const keyEnd = note.startFrame + note.durationFrames;
+			if (reversed && Math.min(start + frames, soundEnd) > Math.max(start, keyEnd)) {
+				throw new RangeError('Reversed MIDI pedal-held tails cannot retain their key-release semantics in this delivery. Save the native project.');
+			}
 			if (note.onsetStop) {
 				if (note.startFrame < start || note.startFrame >= start + frames) continue;
 				const startFrame = global(note.startFrame);
@@ -17,7 +21,6 @@ export function createMidiClipNoteProjection(data: MidiClipData) {
 				continue;
 			}
 			const from = Math.max(start, note.startFrame);
-			const keyEnd = note.startFrame + note.durationFrames;
 			let to = Math.min(start + frames, keyEnd);
 			if (!reversed && keyEnd <= start && soundEnd > start) {
 				// Recreate the released voice under the replayed pedal state at the cut.
