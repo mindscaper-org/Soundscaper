@@ -4,6 +4,11 @@ import type { FoundationRuntimeConsumerEvidence } from './foundation-runtime-con
 
 export const FOUNDATION_FILE_DELIVERY_RUNTIME_CONSUMERS: readonly FoundationRuntimeConsumerEvidence[] = Object.freeze([
 	{
+		id: 'blender-stem-musical-range', surface: 'audio-export', file: 'src/common/editor/controller/export/blender-publication.ts',
+		entryPoint: 'publishBlenderTracks', inputIdentifier: 'original', projectedIdentifier: 'project', boundary: 'projectForRuntimeConsumers',
+		evidence: 'Blender stem publication resolves the authored project before computing track durations and render boundaries, preserving current musical placement through the desktop bridge.',
+	},
+	{
 		id: 'midi-file-export-geometry', surface: 'interchange', file: 'src/common/editor/midi-project-source-projection.ts',
 		entryPoint: 'midiClipOccurrences', inputIdentifier: 'project', projectedIdentifier: 'clip', boundary: 'resolveRuntimeClipProjection',
 		evidence: 'MIDI and Allegro export resolve each authored clip through the normalized current tempo map before clipping, stretching or reversing source-relative notes and events into delivered sample positions.',
