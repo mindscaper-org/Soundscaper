@@ -79,7 +79,8 @@ function compileExpressionEvents(relevant: readonly MidiFileEvent[]): readonly M
 				case 11: next.expression = event.data[1]! / 127; break;
 				case 64: next.sustain = event.data[1]! >= 64; break;
 				case 120: channel.stops.push(event.frame); break;
-				case 123: channel.keyReleases.push(event.frame); break;
+				case 123: case 124: case 125: case 126: case 127:
+					channel.keyReleases.push(event.frame); break;
 				case 121:
 					next.expression = 1;
 					next.sustain = false;
