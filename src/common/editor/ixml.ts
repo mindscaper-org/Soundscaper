@@ -116,9 +116,6 @@ function parseIxmlDocument(xml: string): {
 	readonly tracks: readonly TrackFields[];
 	readonly syncPoints: readonly SyncPointFields[];
 } {
-	if (/<!\s*(?:DOCTYPE|ENTITY)\b/iu.test(xml)) {
-		throw new IxmlValidationError('Active XML and external declarations are not allowed in iXML.');
-	}
 	const document: Partial<Record<DocumentField, string>> = {};
 	const tracks: TrackFields[] = [];
 	const syncPoints: SyncPointFields[] = [];
