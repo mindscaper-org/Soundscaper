@@ -399,7 +399,7 @@
 	gap: 2px;
 }
 
-.kw-audio-editor__signature-fields input {
+.kw-audio-editor__signature-fields :is(input, select) {
 	min-width: 0;
 }
 

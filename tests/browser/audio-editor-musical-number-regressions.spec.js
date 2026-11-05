@@ -8,9 +8,8 @@ registerAudioEditorHooks();
 test('unusable musical signature drafts restore the saved value', async ({ page }) => {
 	const editor = await bootEditor(page, '/en/');
 	await page.locator('[data-sidebar] [data-workspace-select]').selectOption('music');
-	const denominator = editor.getByRole('spinbutton', { name: 'Time signature: denominator', exact: true });
-	await denominator.fill('3');
-	await denominator.press('Enter');
+	const denominator = editor.getByRole('combobox', { name: 'Time signature: denominator', exact: true });
+	await expect(denominator.getByRole('option', { name: '3', exact: true })).toHaveCount(0);
 	await expect(denominator).toHaveValue('4');
 	const numerator = editor.getByRole('spinbutton', { name: 'Time signature: numerator', exact: true });
 	for (const draft of ['0', '1001']) {
@@ -18,7 +17,8 @@ test('unusable musical signature drafts restore the saved value', async ({ page 
 		await numerator.press('Enter');
 		await expect(numerator).toHaveValue('4');
 	}
-	await denominator.fill('8');
+	await denominator.focus();
+	await denominator.selectOption('8');
 	await denominator.press('Enter');
 	await expect(denominator).toHaveValue('8');
 });

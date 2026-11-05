@@ -25,8 +25,9 @@ test('compound-meter ruler keeps bar labels readable after ordinary Zoom out com
 	await page.locator('[data-sidebar] [data-workspace-select]').selectOption('music');
 	await importFiles(editor, [createWavFixture({ name: 'minute recording.wav', duration: 60, channelCount: 1 })]);
 	await editor.getByRole('spinbutton', { name: 'Time signature: numerator', exact: true }).fill('6');
-	const denominator = editor.getByRole('spinbutton', { name: 'Time signature: denominator', exact: true });
-	await denominator.fill('8');
+	const denominator = editor.getByRole('combobox', { name: 'Time signature: denominator', exact: true });
+	await denominator.focus();
+	await denominator.selectOption('8');
 	await denominator.blur();
 	const ruler = editor.locator('[data-ruler]');
 	await ruler.press('Shift+F10');

@@ -8,8 +8,9 @@ test('every three-eighths piano-roll bar matches the ruler measure line', async 
 	await page.locator('[data-sidebar] [data-workspace-select]').selectOption('music');
 	await expect(editor).toHaveAttribute('data-workspace-preset', 'music');
 	await editor.getByRole('spinbutton', { name: 'Time signature: numerator', exact: true }).fill('3');
-	const denominator = editor.getByRole('spinbutton', { name: 'Time signature: denominator', exact: true });
-	await denominator.fill('8');
+	const denominator = editor.getByRole('combobox', { name: 'Time signature: denominator', exact: true });
+	await denominator.focus();
+	await denominator.selectOption('8');
 	await denominator.blur();
 	await expect(denominator).toHaveValue('8');
 	await page.locator('[data-sidebar] [data-workspace-select]').selectOption('modern');

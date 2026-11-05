@@ -53,8 +53,9 @@ for (const product of ['soundscaper', 'framescaper']) {
 			} else {
 				await page.setViewportSize({ width: 2200, height: 1000 });
 				await chooseNestedCommandAction(page, editor, 'View', ['Workspace', 'Music']);
-				const denominator = editor.getByRole('spinbutton', { name: 'Time signature: denominator', exact: true });
-				await denominator.fill('8');
+				const denominator = editor.getByRole('combobox', { name: 'Time signature: denominator', exact: true });
+				await denominator.focus();
+				await denominator.selectOption('8');
 				await denominator.blur();
 				await editor.locator('[data-ruler]').press('Shift+F10');
 				await page.locator('.timeline-ruler-context-menu').getByRole('menuitem', { name: 'Beats & measures', exact: true }).click();

@@ -105,7 +105,7 @@ test('a later authored signature keeps the piano ruler and note-grid measures to
 	const event = flyout.getByRole('form', { name: 'Time signature event 2', exact: true });
 	await event.getByRole('spinbutton', { name: 'Bar position', exact: true }).fill('2');
 	await event.getByRole('spinbutton', { name: 'numerator', exact: true }).fill('3');
-	await event.getByRole('spinbutton', { name: 'denominator', exact: true }).fill('4');
+	await event.getByRole('combobox', { name: 'denominator', exact: true }).selectOption('4');
 	await event.getByRole('button', { name: 'Save', exact: true }).click();
 	await page.keyboard.press('Escape');
 	const changed = await newPianoRoll(page, editor, workspace);
@@ -128,8 +128,9 @@ test('the native4/8 half-bar pulse has the same name in both shipped musical rul
 	const editor = await bootEditor(page, '/en/');
 	const workspace = page.locator('[data-sidebar] [data-workspace-select]');
 	await workspace.selectOption('music');
-	const denominator = editor.getByRole('spinbutton', { name: 'Time signature: denominator', exact: true });
-	await denominator.fill('8'); await denominator.blur();
+	const denominator = editor.getByRole('combobox', { name: 'Time signature: denominator', exact: true });
+	await denominator.focus();
+	await denominator.selectOption('8'); await denominator.blur();
 	await chooseNestedCommandAction(page, editor, 'Tracks', ['Add new track', 'MIDI track (beta)']);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 	const ruler = editor.locator('[data-ruler]');
