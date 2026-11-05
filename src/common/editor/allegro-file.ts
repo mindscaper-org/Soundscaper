@@ -81,9 +81,10 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 	let noteCount = 0;
 	let eventCount = 0;
 	const ensureTrack = (): AllegroTrack => {
-		let track = tracks.get(trackIndex);
-		if (!track) { track = { name: `MIDI ${trackIndex + 1}`, notes: [], events: [] }; tracks.set(trackIndex, track); }
-		return track;
+		for (let index = tracks.size; index <= trackIndex; index += 1) {
+			tracks.set(index, { name: `MIDI ${index + 1}`, notes: [], events: [] });
+		}
+		return tracks.get(trackIndex)!;
 	};
 	for (const [lineIndex, raw] of lines.entries()) {
 		const line = raw.trim();
