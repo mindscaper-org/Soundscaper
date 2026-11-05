@@ -20,6 +20,14 @@ digest, and the prior file and backup identities. Main derives the journal,
 temporary and backup names from the selected destination. The selected parent
 directory's device/inode identity fences later writes, rollback and cleanup.
 
+Filesystem identities use bigint stat reads and canonical decimal strings, so
+64-bit NTFS file IDs remain distinct. Byte counts stay bounded numbers, and
+timestamps retain Node's fractional-millisecond comparison precision. Version 2
+journals seal the string identities. A valid version 1 journal is checked against
+its original numeric checksum before migration; that original checksum remains
+the compare-and-swap token until the next journal write. Unsafe numeric identities
+and malformed string identities are refused.
+
 The watcher defers the exact candidate identified by a pending journal. Native
 replacement, directory synchronization and destination verification finish
 behind that fence. The Motion store then durably reserves the expected saved

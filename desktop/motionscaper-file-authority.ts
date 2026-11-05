@@ -6,10 +6,11 @@ import { basename, extname, isAbsolute } from 'node:path';
 import { MOTIONSCAPER_FILE_CHUNK_BYTES, type MotionDesktopFiles, type MotionOpenFileCapability, type MotionRecoveredPublication, type MotionSaveFileReceipt } from '../src/motionscaper/desktop-file-contract.ts';
 import { withProjectFileExtension } from '../src/common/project-file-extensions.ts';
 import { acknowledgeMotionSaveRecovery, createMotionSavePublication, recoverMotionSavePublication, type MotionSavePublication, type MotionSavePublicationOptions } from './motion-save-publication.ts';
-import { assertMotionSaveDirectory, captureMotionSaveDirectory, motionSaveTemporaryPath, readMotionSaveJournal, sameMotionSaveFile, type MotionSaveDirectoryIdentity } from './motion-save-publication-journal.ts';
+import { assertMotionSaveDirectory, captureMotionSaveDirectory, motionSaveTemporaryPath, readMotionSaveJournal } from './motion-save-publication-journal.ts';
 import { MOTION_SAVED_FILE_MAXIMUM_BYTES } from '../src/common/editor/motion-saved-file-contract.ts';
+import { motionSaveFingerprint as fingerprintOf, sameMotionSaveFile, type MotionSaveDirectoryIdentity, type MotionSaveFingerprint } from './motion-save-file-identity.ts';
 
-interface Fingerprint { readonly dev: number; readonly ino: number; readonly size: number; readonly mtimeMs: number; readonly ctimeMs: number }
+type Fingerprint = MotionSaveFingerprint;
 interface Binding { readonly path: string; readonly fingerprint: Fingerprint | null }
 interface ReadCapability extends Binding { readonly file: FileHandle; readonly fingerprint: Fingerprint; readonly parent: MotionSaveDirectoryIdentity; readonly recoveredPublication?: MotionRecoveredPublication; busy: boolean }
 interface WriteCapability extends Binding { readonly projectId: string; readonly saveCopy: boolean; readonly transactionId: string; readonly parent: MotionSaveDirectoryIdentity; readonly temporary: string; readonly file: FileHandle; readonly digest: Hash; publication?: MotionSavePublication; flight?: Promise<void>; bytes: number; busy: boolean; failed: boolean; closed: boolean }
@@ -97,7 +98,7 @@ export function createMotionscaperFileAuthority(dialogs: MotionFileDialogs, opti
 			const file = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
 			const held: OpeningFile = { file, closed: false }; openingFiles.add(held);
 			try {
-				assertFingerprint(fingerprint, fingerprintOf(await file.stat())); active();
+				assertFingerprint(fingerprint, fingerprintOf(await file.stat({ bigint: true }))); active();
 				const token = randomUUID(); readers.set(token, { path, parent, fingerprint, file, busy: false, ...(recoveredPublication ? { recoveredPublication } : {}) });
 				openingFiles.delete(held);
 				return { token, name: basename(path), byteLength: fingerprint.size, ...(recoveredPublication ? { recoveredPublication } : {}) };
@@ -121,14 +122,14 @@ export function createMotionscaperFileAuthority(dialogs: MotionFileDialogs, opti
 			if (value.busy) throw new Error('Motionscaper read capability already has a pending chunk.');
 			value.busy = true;
 			try {
-				assertFingerprint(value.fingerprint, fingerprintOf(await value.file.stat()));
+				assertFingerprint(value.fingerprint, fingerprintOf(await value.file.stat({ bigint: true })));
 				const bytes = new Uint8Array(length); let read = 0;
 				while (read < length) {
 					const result = await value.file.read(bytes, read, length - read, offset + read);
 					if (!result.bytesRead) throw new Error('Motionscaper selected archive changed during read.');
 					read += result.bytesRead;
 				}
-				assertFingerprint(value.fingerprint, fingerprintOf(await value.file.stat())); return bytes;
+				assertFingerprint(value.fingerprint, fingerprintOf(await value.file.stat({ bigint: true }))); return bytes;
 			} finally { value.busy = false; }
 		},
 		async release({ token, acknowledgeRecovery = false }) {
@@ -352,13 +353,12 @@ function safeName(value: string): string {
 	const name = withProjectFileExtension(value.replace(/[\\/\p{Cc}<>:"|?*]/gu, '_').trim() || 'Motionscaper project', '.mscape');
 	return `${name.slice(0, -'.mscape'.length).slice(0, 180) || 'Motionscaper project'}.mscape`;
 }
-function fingerprintOf(value: Fingerprint): Fingerprint { return { dev: value.dev, ino: value.ino, size: value.size, mtimeMs: value.mtimeMs, ctimeMs: value.ctimeMs }; }
 function assertFingerprint(expected: Fingerprint | null, actual: Fingerprint | null): void { if (JSON.stringify(expected) !== JSON.stringify(actual)) throw new Error('The selected Motionscaper archive changed outside this save.'); }
 async function optionalFile(path: string): Promise<Fingerprint | null> {
 	if (!isAbsolute(path)) throw new TypeError('A native Motionscaper dialog must select an absolute path.');
-	const stats = await lstat(path).catch((error: unknown) => { if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') return null; throw error; });
+	const stats = await lstat(path, { bigint: true }).catch((error: unknown) => { if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') return null; throw error; });
 	if (!stats) return null;
-	if (!stats.isFile() || stats.isSymbolicLink() || !Number.isSafeInteger(stats.size)) throw new TypeError('Motionscaper file capability requires a regular file.');
+	if (!stats.isFile() || stats.isSymbolicLink() || stats.size < 0n || stats.size > BigInt(Number.MAX_SAFE_INTEGER)) throw new TypeError('Motionscaper file capability requires a regular file.');
 	return fingerprintOf(stats);
 }
 async function requireFile(path: string): Promise<Fingerprint> { const value = await optionalFile(path); if (!value) throw new Error('Motionscaper selected archive no longer exists.'); return value; }

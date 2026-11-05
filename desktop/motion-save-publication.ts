@@ -3,7 +3,9 @@ import { rename, rm, type FileHandle } from 'node:fs/promises';
 import { basename } from 'node:path';
 import type { MotionRecoveredPublication, MotionSaveFileReceipt } from '../src/motionscaper/desktop-file-contract.ts';
 import { assertMotionSaveDirectory, captureMotionSaveDirectory, copyMotionSaveBackup, hashMotionSavePath, motionSaveBackupPath, motionSaveTemporaryPath, optionalMotionSaveFile, readMotionSaveJournal, removeMotionSaveJournal,
-	sameMotionSaveFile, syncMotionSaveDirectory, writeMotionSaveJournal, type MotionSaveDirectoryIdentity, type MotionSaveFingerprint, type MotionSaveJournal, type MotionReadSaveJournal } from './motion-save-publication-journal.ts';
+	syncMotionSaveDirectory, writeMotionSaveJournal } from './motion-save-publication-journal.ts';
+import { sameMotionSaveFile, type MotionSaveDirectoryIdentity, type MotionSaveFingerprint } from './motion-save-file-identity.ts';
+import type { MotionSaveJournal, MotionReadSaveJournal } from './motion-save-publication-codec.ts';
 
 export type MotionSavePublicationCheckpoint = 'candidate-directory-sync' | 'candidate-fingerprint' | 'before-publication' | 'rollback-directory-sync' | 'published-cleanup';
 export interface MotionSavePublicationOptions { readonly checkpoint?: (phase: MotionSavePublicationCheckpoint) => Promise<void> }
@@ -48,7 +50,7 @@ export function createMotionSavePublication(input: Input): MotionSavePublication
 				previousSha256 = copy.sha256; backupFingerprint = copy.fingerprint;
 			}
 			assertExpected(input.expected, await optionalMotionSaveFile(input.path));
-			journal = { format: 'motionscaper-save-publication', version: 1, transactionId: input.transactionId, projectId: input.projectId,
+			journal = { format: 'motionscaper-save-publication', version: 2, transactionId: input.transactionId, projectId: input.projectId,
 				phase: 'pending', candidate, sha256: input.sha256, previous: input.expected, backup: backupFingerprint, previousSha256 };
 			await writeMotionSaveJournal(input.path, journal, undefined, input.parent); await syncMotionSaveDirectory(input.path, input.parent);
 			await input.close();

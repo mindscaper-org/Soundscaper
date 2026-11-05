@@ -8,7 +8,8 @@ import { openMotionNativeFrameReader } from '../src/common/editor/motion-native-
 import { createScapeArchiveByteSource } from '../src/common/scape/archive-byte-source.ts';
 import { MOTION_DELIVERY_CHUNK_BYTES, MOTION_PRORES_DELIVERY_PROFILE, type MotionDesktopDelivery } from '../src/motionscaper/desktop-delivery-contract.ts';
 import { hashMotionscaperNativeOutput, type MotionNativeEncoder } from './motionscaper-native-executor.ts';
-interface Fingerprint { readonly dev: number; readonly ino: number; readonly size: number; readonly mtimeMs: number; readonly ctimeMs: number }
+import { motionSaveFingerprint, type MotionSaveFingerprint } from './motion-save-file-identity.ts';
+type Fingerprint = MotionSaveFingerprint;
 interface Upload {
 	readonly file: FileHandle; readonly digest: Hash; readonly maximumBytes: number; bytes: number; closed: boolean;
 }
@@ -173,9 +174,9 @@ export function createMotionscaperDeliveryAuthority(options: {
 }
 async function optionalFile(path: string): Promise<Fingerprint | null> {
 	try {
-		const value = await lstat(path);
+		const value = await lstat(path, { bigint: true });
 		if (!value.isFile() || value.isSymbolicLink()) throw new Error('Motionscaper native destination must be a regular file.');
-		return { dev: value.dev, ino: value.ino, size: value.size, mtimeMs: value.mtimeMs, ctimeMs: value.ctimeMs };
+		return motionSaveFingerprint(value);
 	} catch (error) { if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return null; throw error; }
 }
 

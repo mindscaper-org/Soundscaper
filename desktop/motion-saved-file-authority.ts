@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { randomUUID } from 'node:crypto';
-import { constants, watch, type FSWatcher, type Stats } from 'node:fs';
+import { constants, watch, type BigIntStats, type FSWatcher } from 'node:fs';
 import { lstat, open, type FileHandle } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute } from 'node:path';
 import { MOTION_SAVED_FILE_CHUNK_BYTES, MOTION_SAVED_FILE_MAXIMUM_BYTES, type MotionSavedFileCapabilities, type MotionSavedFileDiscovery } from '../src/common/editor/motion-saved-file-contract.ts';
 import { motionSavePublicationEligibility } from './motion-save-publication-journal.ts';
-interface Fingerprint { readonly dev: number; readonly ino: number; readonly size: number; readonly mtimeMs: number; readonly ctimeMs: number; readonly nlink: number }
-interface WatchEntry { readonly path: string; readonly name: string; readonly parent: Readonly<{ dev: number; ino: number }>; generation: number; fingerprint: Fingerprint | null | undefined; publication: string | undefined; watcher: FSWatcher | null; closed: boolean; polling: Promise<MotionSavedFileDiscovery> | null }
+import { motionSaveFingerprint, type MotionSaveDirectoryIdentity, type MotionSaveFingerprint } from './motion-save-file-identity.ts';
+import { nativeChildFileIdentityFromStat } from './native-child-file-identity.ts';
+interface Fingerprint extends MotionSaveFingerprint { readonly nlink: bigint }
+interface WatchEntry { readonly path: string; readonly name: string; readonly parent: MotionSaveDirectoryIdentity; generation: number; fingerprint: Fingerprint | null | undefined; publication: string | undefined; watcher: FSWatcher | null; closed: boolean; polling: Promise<MotionSavedFileDiscovery> | null }
 interface Snapshot { readonly watchId: string; readonly file: FileHandle; readonly fingerprint: Fingerprint; closed: boolean; reading: Promise<Uint8Array> | null; closing: Promise<void> | null }
 export interface MotionSavedFileAuthority extends MotionSavedFileCapabilities { dispose(): Promise<void> }
 
@@ -56,7 +58,7 @@ export function createMotionSavedFileAuthority(options: Readonly<{ chooseFile: (
 		const file = await open(entry.path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
 		try {
 			if (entry.closed || closed) throw new Error('Motion saved file watch is closed.');
-			if (!sameFingerprint(fingerprint, fingerprintOf(await file.stat())) || !sameFingerprint(fingerprint, await selectedFile(entry.path, false))) throw new Error('Selected Motion file changed during snapshot discovery; retry discovery.');
+			if (!sameFingerprint(fingerprint, fingerprintOf(await file.stat({ bigint: true }))) || !sameFingerprint(fingerprint, await selectedFile(entry.path, false))) throw new Error('Selected Motion file changed during snapshot discovery; retry discovery.');
 			const publication = await motionSavePublicationEligibility(entry.path, file, fingerprint);
 			if (!sameFingerprint(fingerprint, await selectedFile(entry.path, false))) throw new Error('Selected Motion file changed during publication discovery; retry.');
 			const changed = !sameFingerprint(entry.fingerprint, fingerprint) || entry.publication !== publication;
@@ -90,14 +92,14 @@ export function createMotionSavedFileAuthority(options: Readonly<{ chooseFile: (
 			if (length < 1 || length > MOTION_SAVED_FILE_CHUNK_BYTES || offset > entry.fingerprint.size - length) throw new RangeError('Motion snapshot read is outside its bounded range.');
 			if (entry.reading) throw new Error('Motion snapshot read is already in flight.');
 			entry.reading = (async () => {
-				assertPinned(entry.fingerprint, fingerprintOf(await entry.file.stat()));
+				assertPinned(entry.fingerprint, fingerprintOf(await entry.file.stat({ bigint: true })));
 				const bytes = new Uint8Array(length); let position = 0;
 				while (position < length) {
 					if (entry.closed || closed) throw new Error('Motion snapshot read was cancelled.');
 					const result = await entry.file.read(bytes, position, length - position, offset + position);
 					if (!result.bytesRead) throw new Error('Motion saved file changed during read.'); position += result.bytesRead;
 				}
-				assertPinned(entry.fingerprint, fingerprintOf(await entry.file.stat())); if (entry.closed || closed) throw new Error('Motion snapshot read was cancelled.'); return bytes;
+				assertPinned(entry.fingerprint, fingerprintOf(await entry.file.stat({ bigint: true }))); if (entry.closed || closed) throw new Error('Motion snapshot read was cancelled.'); return bytes;
 			})();
 			try { return await entry.reading; } finally { entry.reading = null; }
 		},
@@ -111,26 +113,26 @@ export function createMotionSavedFileAuthority(options: Readonly<{ chooseFile: (
 		},
 	};
 }
-function fingerprintOf(stat: Stats): Fingerprint { return { dev: stat.dev, ino: stat.ino, size: stat.size, mtimeMs: stat.mtimeMs, ctimeMs: stat.ctimeMs, nlink: stat.nlink }; }
+function fingerprintOf(stat: BigIntStats): Fingerprint { return { ...motionSaveFingerprint(stat), nlink: stat.nlink }; }
 function sameFingerprint(first: Fingerprint | null | undefined, second: Fingerprint | null): boolean {
 	return !!first && !!second && first.dev === second.dev && first.ino === second.ino && first.size === second.size && first.mtimeMs === second.mtimeMs && first.ctimeMs === second.ctimeMs;
 }
 function assertPinned(expected: Fingerprint, actual: Fingerprint): void {
 	// Atomic replacement unlinks the old inode; its open descriptor still owns those immutable bytes.
 	if (expected.dev !== actual.dev || expected.ino !== actual.ino || expected.size !== actual.size || expected.mtimeMs !== actual.mtimeMs
-		|| expected.ctimeMs !== actual.ctimeMs && actual.nlink !== 0) throw new Error('Pinned Motion saved file changed during read.');
+		|| expected.ctimeMs !== actual.ctimeMs && actual.nlink !== 0n) throw new Error('Pinned Motion saved file changed during read.');
 }
 async function selectedFile(path: string, required: boolean): Promise<Fingerprint | null> {
 	try {
-		const stat = await lstat(path);
-		if (!stat.isFile() || stat.isSymbolicLink() || stat.size < 1 || stat.size > MOTION_SAVED_FILE_MAXIMUM_BYTES) {
+		const stat = await lstat(path, { bigint: true });
+		if (!stat.isFile() || stat.isSymbolicLink() || stat.size < 1n || stat.size > BigInt(MOTION_SAVED_FILE_MAXIMUM_BYTES)) {
 			if (!required) return null; throw new Error('Selected Motion archive must be a regular file within its 64 GiB byte admission.');
 		}
 		return fingerprintOf(stat);
 	} catch (error) { if (!required && (error as NodeJS.ErrnoException).code === 'ENOENT') return null; throw error; }
 }
-async function selectedParent(path: string, required: boolean): Promise<Readonly<{ dev: number; ino: number }> | null> {
-	try { const stat = await lstat(dirname(path)); if (!stat.isDirectory() || stat.isSymbolicLink()) { if (!required) return null; throw new Error('Choose a Motion file in a regular directory.'); } return { dev: stat.dev, ino: stat.ino }; }
+async function selectedParent(path: string, required: boolean): Promise<MotionSaveDirectoryIdentity | null> {
+	try { const stat = await lstat(dirname(path), { bigint: true }); if (!stat.isDirectory() || stat.isSymbolicLink()) { if (!required) return null; throw new Error('Choose a Motion file in a regular directory.'); } return nativeChildFileIdentityFromStat(stat); }
 	catch (error) { if (!required && (error as NodeJS.ErrnoException).code === 'ENOENT') return null; throw error; }
 }
 function integer(value: number): void { if (!Number.isSafeInteger(value) || value < 0) throw new TypeError('Motion file count must be a nonnegative safe integer.'); }
