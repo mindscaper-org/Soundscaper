@@ -776,10 +776,10 @@ are the places where the two keyboard models meet, so a future sync should re-ch
     search caption and participate in keyboard traversal. Covered by the Model
     Manager search-reset workflow. Upstream-PR candidate.
 
-100. Selected-note left resizing shares one delta bounded by source zero and
-     every selected note's minimum length. Onset spacing and original right
-     edges remain intact. Covered by mounted and production group-resize
-     regressions. Upstream-PR candidate.
+100. Selected-note resizing shares one delta bounded by source zero and every
+     selected note's minimum length. Left resizing retains onset spacing and
+     original right edges; right resizing retains all onsets. Covered by mounted
+     and production group-resize regressions. Upstream-PR candidate.
 
 101. Deleting during a held note drag retires its pointer session and discards
      unpublished host note edits before deletion, preventing a later missing-note
@@ -795,4 +795,24 @@ are the places where the two keyboard models meet, so a future sync should re-ch
 103. Piano-roll viewport growth reconciles the existing pitch scroll limit so
      the bottom row remains MIDI0 without blank out-of-range rows. Covered by
      mounted viewport and production dock-resize regressions.
+     Upstream-PR candidate.
+
+104. `NoteRect` and `NoteGrid` share the painted minimum note width for marquee
+     intersection and offscreen culling. A short note's visible pixels remain
+     selectable and present at viewport edges. Covered by mounted geometry and
+     production box-selection regressions. Upstream-PR candidate.
+
+105. `NoteGrid` permits its existing keyboard focus indicator; the host applies
+     the theme's inset focus outline so clipping cannot hide it. Note selection
+     styling remains independent. Covered by production keyboard traversal.
+     Upstream-PR candidate.
+
+106. Mixer strips forward read-only state to their faders, pan knobs, mute/solo
+     and effect mutation controls while keeping effect settings inspectable.
+     Covered by mounted control admission and production project-lock workflows.
+     Upstream-PR candidate.
+
+107. Manual numeric dialogs preserve composing Enter/Escape before nested controls
+     or ancestor dialogs can submit or dismiss them. Covered by mounted native
+     composition/229 and production direct-entry regressions.
      Upstream-PR candidate.
