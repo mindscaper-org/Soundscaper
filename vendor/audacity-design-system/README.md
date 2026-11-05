@@ -898,3 +898,10 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      geometry utility stays outside the capped component pool. Covered by
      mounted grab/ownership checks and the production mixer workflow.
      Upstream-PR candidate.
+
+120. `NoteGrid` leaves modified Delete/Backspace and previously prevented
+     editing keys to their existing command owner. Ordinary note deletion and
+     Ctrl/Meta Select All retain their policy. The focused editing-key utility
+     reduces the grid component. Covered by mounted admission/selection checks,
+     existing gesture-deletion regressions, and the production assigned-key
+     workflow. Upstream-PR candidate.

@@ -8,6 +8,7 @@ import type { NoteGridProps } from './types';
 import type { MidiNote, MidiClip } from '@audacity-ui/core';
 import { retainPianoRollMouseGesture } from './piano-roll-mouse-gesture';
 import { useNoteGridNoteDrag } from './use-note-grid-note-drag';
+import { handleNoteGridEditingKey } from '../utils/note-grid-editing-key';
 
 interface DragState {
   type: 'move' | 'resize-left' | 'resize-right';
@@ -526,24 +527,8 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
 
   // Handle keyboard events
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      e.stopPropagation();
-      const selectedIds = allNotes.filter(nc => nc.note.selected).map(nc => nc.note.id);
-      if (selectedIds.length > 0) {
-        if (dragRef.current) {
-          cancelNoteDrag();
-        }
-        onDeleteNotes(selectedIds);
-      }
-    } else if (e.key.toLowerCase() === 'a' && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      // Select all notes
-      const unselectedIds = allNotes.filter(nc => !nc.note.selected).map(nc => nc.note.id);
-      if (unselectedIds.length > 0) {
-        onSelectNotes(unselectedIds, true);
-      }
-    }
+    handleNoteGridEditingKey(e, { notes: allNotes, retireDrag: () => { if (dragRef.current) cancelNoteDrag(); },
+      deleteNotes: onDeleteNotes, selectNotes: onSelectNotes });
   }, [allNotes, cancelNoteDrag, dragRef, onDeleteNotes, onSelectNotes]);
 
   // Refs for values used in the wheel handler — avoids re-attaching the listener on every scroll frame
