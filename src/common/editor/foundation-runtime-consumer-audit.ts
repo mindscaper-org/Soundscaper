@@ -248,6 +248,10 @@ export const FOUNDATION_RUNTIME_TIMING_READER_EXCLUSIONS: readonly FoundationRun
 /** Non-shield importers discovered beside the owned consumer and boundary files. */
 export const FOUNDATION_RUNTIME_PROJECTION_IMPORTER_EXCLUSIONS: readonly FoundationRuntimeProjectionImporterExclusion[] = deepFreeze([
 	{
+		file: 'src/common/editor/controller/track-audio/internal/midi-warp-note-growth.ts',
+		reason: 'The MIDI authoring helper extends a validated source warp and resolves its new persisted extent for one atomic edit; it consumes no media or delivery range and delegates delivery to the registered MIDI source projection.',
+	},
+	{
 		file: 'src/common/editor/controller/track-audio/midi-service.ts',
 		reason: 'MIDI note authoring resolves clip geometry to trim, move and render edits while preserving canonical musical authority; delivery is owned by the separately registered MIDI source projection.',
 	},

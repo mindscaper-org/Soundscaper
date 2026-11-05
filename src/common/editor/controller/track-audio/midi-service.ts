@@ -17,6 +17,7 @@ import { clipLoopUpdateFields, readClipLoop } from '../../audio-clip-loop.ts';
 import { publishMidiSource } from './internal/midi-source-publication.ts';
 import { midiTransferExtensions } from '../../commands/midi-transfer-context.ts';
 import { routeMidiImportControls } from './internal/midi-import-channel-routing.ts';
+import { midiWarpNoteGrowth } from './internal/midi-warp-note-growth.ts';
 import type { MidiProject, MidiService, MidiServiceDependencies } from './midi-service-types.ts';
 
 type ImportedMidiTrack = Readonly<{ name: string; data: MidiClipData; program?: number; durationFrames?: number }>;
@@ -169,11 +170,13 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 					? end : Math.max(end, note.startFrame + note.durationFrames);
 			}, 0);
 			const sourceFrames = Math.max(Number(clip.sourceDurationFrames), noteEnd - Number(clip.sourceStartFrame));
-			const durationFrames = Math.max(Number(clip.durationFrames), Math.round(sourceFrames * Number(clip.durationFrames) / Number(clip.sourceDurationFrames)));
+			const warpedGrowth = midiWarpNoteGrowth(project, clip, sourceFrames);
+			const durationFrames = warpedGrowth?.durationFrames
+				?? Math.max(Number(clip.durationFrames), Math.round(sourceFrames * Number(clip.durationFrames) / Number(clip.sourceDurationFrames)));
 			const loop = readClipLoop(clip);
 			const periodFrames = loop ? Math.max(1, Math.round(loop.periodFrames * sourceFrames / Number(clip.sourceDurationFrames))) : 0;
 			await publishEdit(project, clip, next, trackData.instrument, Number(clip.sourceStartFrame) + sourceFrames, source => [
-				{ type: 'midi/clip-set', clipId, data: next, sourceId: source.id, sourceDurationFrames: sourceFrames, durationFrames },
+				{ type: 'midi/clip-set', clipId, data: next, sourceId: source.id, sourceDurationFrames: sourceFrames, durationFrames, ...warpedGrowth },
 				...(loop && sourceFrames !== Number(clip.sourceDurationFrames) ? [{ type: 'clip/update' as const, clipId, changes: { loop: {
 					periodFrames, offsetFrames: Math.min(periodFrames - 1, Math.round(loop.offsetFrames * sourceFrames / Number(clip.sourceDurationFrames))), durationFrames,
 				} } }] : []),

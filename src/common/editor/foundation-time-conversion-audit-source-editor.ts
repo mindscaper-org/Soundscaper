@@ -6,6 +6,12 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Source editor display and authoring share the owning project tempo and sample grid. */
 export const FOUNDATION_TIME_CONVERSION_SOURCE_EDITOR_SITES: readonly FoundationTimeConversionSite[] = deepFreezeAuditSites([
 	{
+		id: 'midi-warp-note-growth-extent',
+		file: 'src/common/editor/controller/track-audio/internal/midi-warp-note-growth.ts',
+		behavior: 'MIDI note growth preserves authored warp anchors and rounds its positive final-segment continuation outward to the enclosing sample endpoint; musical extents retain exact rational beats.',
+		conversions: [{ helper: 'roundRational', policies: ['enclosingEnd'] }],
+	},
+	{
 		id: 'midi-source-warp-delivery',
 		file: 'src/common/editor/midi-project-source-projection.ts',
 		behavior: 'MIDI delivery maps source events through the authored warp, rounding musical beat positions and sample-domain warp offsets once to the nearest project sample.',
