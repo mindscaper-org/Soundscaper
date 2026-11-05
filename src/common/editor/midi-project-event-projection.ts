@@ -36,7 +36,9 @@ export function createMidiClipEventProjection(interchange: MidiClipInterchange |
 							selected.set(event.data[0]!, ordered); banks.set(channel, selected);
 						} else if (type === 192) programBanks.set(channel, [...(banks.get(channel)?.values() ?? [])]);
 					}
-					else if (event.status === 255 && [2, 4, 9, 0x21, 89].includes(event.metaType ?? -1)) state.set(`meta:${event.metaType}`, { event, index });
+					else if (event.status === 255 && event.metaType === 0x54 && event.conductor !== false) {
+						throw new RangeError('MIDI export cannot preserve SMPTE synchronization after trimming its source origin.');
+					} else if (event.status === 255 && [2, 4, 9, 0x21, 89].includes(event.metaType ?? -1)) state.set(`meta:${event.metaType}`, { event, index });
 				}
 				// Bank Select is pending state: the active patch also needs the bank at its last Program Change.
 				const retained = new Map([...initial, ...state.values(), ...[...programBanks.values()].flat()].map(value => [value.index, value]));

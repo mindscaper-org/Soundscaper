@@ -8,6 +8,8 @@ export interface MidiFileEvent {
 	readonly status: number;
 	readonly data: readonly number[];
 	readonly metaType?: number;
+	/** Imported SMPTE Offset role: only the original conductor's offset is active. */
+	readonly conductor?: boolean;
 }
 
 export interface MidiFileTrack {
@@ -74,6 +76,9 @@ export function validateMidiFileDocument(document: MidiFileDocument): void {
 			midiFileInteger(note.durationFrames, 1, Number.MAX_SAFE_INTEGER - note.startFrame, 'note duration');
 		}
 		for (const event of track.events ?? []) {
+			if (event.conductor !== undefined && (typeof event.conductor !== 'boolean' || event.status !== 255 || event.metaType !== 0x54)) {
+				throw new RangeError('Invalid MIDI conductor provenance.');
+			}
 			midiFileInteger(event.frame, 0, Number.MAX_SAFE_INTEGER, 'event time');
 			midiFileInteger(event.status, 128, 255, 'event status');
 			for (const byte of event.data) midiFileInteger(byte, 0, event.status < 240 ? 127 : 255, 'event byte');

@@ -155,7 +155,8 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 					finish(event, release?.tick ?? track.endTick, release?.velocity ?? 0);
 				}
 			} else {
-				events.push({ frame: tickToFrame(event.tick), status: event.status, data: event.data, ...(event.metaType === undefined ? {} : { metaType: event.metaType }) });
+				events.push({ frame: tickToFrame(event.tick), status: event.status, data: event.data, ...(event.metaType === undefined ? {} : { metaType: event.metaType }),
+					...(event.metaType === 0x54 ? { conductor: format === 0 || trackIndex === 0 } : {}) });
 			}
 		}
 		notes.sort((a, b) => a.startFrame - b.startFrame || a.pitch - b.pitch);
@@ -225,7 +226,8 @@ function uint32Bytes(value: number): number[] { return [value >>> 24, value >>> 
 export function writeMidiFile(document: MidiFileDocument): Uint8Array<ArrayBuffer> {
 	validateMidiFileDocument(document);
 	const separateConductor = document.tracks.length < MIDI_FILE_MAX_TRACKS;
-	let eventCount = document.tempos.length + document.signatures.length + (separateConductor ? 1 : 0);
+	const offsets = conductorSmpteOffsets(document, separateConductor);
+	let eventCount = document.tempos.length + document.signatures.length + offsets.length + (separateConductor ? 1 : 0);
 	for (const track of document.tracks) {
 		eventCount += track.notes.length * 2 + 2;
 		if (track.program !== undefined && !track.events?.some(event => (event.status & 240) === 192)) eventCount += 1;
@@ -243,6 +245,7 @@ export function writeMidiFile(document: MidiFileDocument): Uint8Array<ArrayBuffe
 	});
 	for (const signature of document.signatures) conductor.push({ tick: tick(signature.frame), status: 255, metaType: 88,
 		data: [signature.numerator, Math.log2(signature.denominator), signature.clocksPerMetronomeClick ?? 24, signature.notated32ndNotesPerQuarter ?? 8] });
+	for (const offset of offsets) conductor.push({ ...offset, tick: 0 });
 	const count = document.tracks.length + (separateConductor ? 1 : 0);
 	const bytes = [77, 84, 104, 100, 0, 0, 0, 6, 0, 1, count >> 8, count & 255, division >> 8, division & 255];
 	if (separateConductor) for (const byte of trackBytes(conductor, undefined, paddingBudget)) bytes.push(byte);
@@ -267,4 +270,23 @@ export function writeMidiFile(document: MidiFileDocument): Uint8Array<ArrayBuffe
 	return Uint8Array.from(bytes);
 }
 
-function writtenAuxiliaryEvent(event: MidiFileEvent): boolean { return !(event.status === 255 && [3, 47, 81, 88].includes(event.metaType!)); }
+function writtenAuxiliaryEvent(event: MidiFileEvent): boolean {
+	return !(event.status === 255 && ([3, 47, 81, 88].includes(event.metaType!) || event.metaType === 0x54 && event.conductor === true));
+}
+
+/** Format 1 gives SMPTE offsets meaning only on its actual tempo-map track. */
+function conductorSmpteOffsets(document: MidiFileDocument, separateConductor: boolean): readonly MidiFileEvent[] {
+	let retained: MidiFileEvent | undefined;
+	for (const [index, track] of document.tracks.entries()) for (const event of track.events ?? []) {
+		if (event.status !== 255 || event.metaType !== 0x54) continue;
+		if (event.conductor === undefined) throw new RangeError('MIDI SMPTE Offset has ambiguous conductor provenance. Reimport the original MIDI file.');
+		if (!event.conductor) {
+			if (!separateConductor && index === 0) throw new RangeError('MIDI export cannot activate an ignored SMPTE Offset on its tempo-map track.');
+			continue;
+		}
+		if (event.frame !== 0) throw new RangeError('MIDI export cannot relocate an active SMPTE Offset from its original start.');
+		if (retained && JSON.stringify(retained.data) !== JSON.stringify(event.data)) throw new RangeError('MIDI export has conflicting active SMPTE Offsets.');
+		retained ??= event;
+	}
+	return retained ? [retained] : [];
+}

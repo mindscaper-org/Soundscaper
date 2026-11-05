@@ -202,6 +202,10 @@ function normalizeInterchange(value: unknown): MidiClipInterchange {
 	const events = boundedArray(input.events, 1_000_000, 'MIDI interchange.events').map(value => {
 		const event = record(value, 'MIDI event');
 		const status = integer(event.status, 0x80, 0xff, 'MIDI event.status');
+		const conductor = event.conductor;
+		if (conductor !== undefined && (typeof conductor !== 'boolean' || status !== 255 || event.metaType !== 0x54)) {
+			throw new RangeError('Invalid MIDI event.conductor provenance.');
+		}
 		const data = boundedArray(event.data, 1_048_576, 'MIDI event.data').map(byte => integer(byte, 0, status < 0xf0 ? 127 : 255, 'MIDI event byte'));
 		if (status < 0xf0) {
 			const type = status & 0xf0;
@@ -215,6 +219,7 @@ function normalizeInterchange(value: unknown): MidiClipInterchange {
 			status,
 			data,
 			...(event.metaType === undefined ? {} : { metaType: integer(event.metaType, 0, 127, 'MIDI event.metaType') }),
+			...(conductor === undefined ? {} : { conductor }),
 		};
 	});
 	const tempos = boundedArray(input.tempos, 100_000, 'MIDI interchange.tempos').map(value => {
