@@ -152,7 +152,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			close: async (id = getProject()?.id, options: Parameters<typeof closeProjectTab>[1] = {}) => { if (options.discard) return closeProjectTab(id, options); if (!await prepareClose(id)) return { closed: false }; return id && sessionTab(id) ? closeProjectTab(id) : { closed: true }; },
 			prepareClose,
 			openById: storedProjectOpenActions.openById,
-			list: listProjects,
+			list: afterMidiEdits(listProjects),
 			save: afterMidiEdits(saveNow),
 			saveFile: afterMidiEdits(saveProjectFile),
 			flush: afterMidiEdits(flushProject),

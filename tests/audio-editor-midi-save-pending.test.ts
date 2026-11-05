@@ -8,7 +8,7 @@ import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.j
 import { readMidiClip } from '../src/common/editor/midi-model.ts';
 import { deferred, settle } from './helpers/async-test-control.ts';
 
-for (const action of ['save', 'flush', 'prepareClose'] as const) test(`Project ${action} includes a requested MIDI note edit while PCM publication is pending`, async t => {
+for (const action of ['save', 'flush', 'prepareClose', 'list'] as const) test(`Project ${action} includes a requested MIDI note edit while PCM publication is pending`, async t => {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const memory = createMemoryStore();
 	const entered = deferred<void>();
@@ -46,4 +46,5 @@ for (const action of ['save', 'flush', 'prepareClose'] as const) test(`Project $
 	const saved = await store.loadProject(controller.project!.id);
 	const clip = saved.clips.find((value: { id: string }) => value.id === clipId);
 	assert.equal(readMidiClip(clip)?.notes[0]?.pitch, 67);
+	if (action === 'list') assert.equal(controller.getSnapshot().projects.find(project => project.id === saved.id)?.revision, saved.revision);
 });
