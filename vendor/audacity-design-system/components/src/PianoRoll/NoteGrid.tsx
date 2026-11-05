@@ -11,9 +11,8 @@ import { retainPianoRollMouseGesture } from './piano-roll-mouse-gesture';
 interface DragState {
   type: 'move' | 'resize-left' | 'resize-right';
   noteId: number;
-  startX: number;
-  startY: number;
   hasMoved: boolean;
+  initialPointer: { time: number; pitch: number };
   /** Initial positions of all selected notes (for multi-note drag) */
   initials: Array<{ id: number; pitch: number; startTime: number; duration: number }>;
 }
@@ -86,6 +85,13 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
   previewNoteRef.current = previewNote;
   const [ghostNote, setGhostNote] = useState<{ pitch: number; startTime: number; duration: number } | null>(null);
   const isDraggingRef = useRef(false);
+  const viewRef = useRef({ scrollX, scrollY, pixelsPerSecond, noteHeight });
+  viewRef.current = { scrollX, scrollY, pixelsPerSecond, noteHeight };
+  const pointerPosition = useCallback((event: Pick<MouseEvent, 'clientX' | 'clientY'>) => {
+    const bounds = containerRef.current?.getBoundingClientRect(), view = viewRef.current;
+    return { time: (event.clientX - (bounds?.left ?? 0) + view.scrollX) / view.pixelsPerSecond,
+      pitch: TOTAL_PITCHES - 1 - (event.clientY - (bounds?.top ?? 0) + view.scrollY) / view.noteHeight };
+  }, []);
   const [dragPitch, setDragPitch] = useState<number | null>(null);
   const lastPlayedPitchRef = useRef<number | null>(null);
   const releaseGesture = useRef<() => void>(() => {});
@@ -395,9 +401,8 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
       dragRef.current = {
         type: 'move',
         noteId: note.id,
-        startX: e.clientX,
-        startY: e.clientY,
         hasMoved: false,
+        initialPointer: pointerPosition(e),
         initials,
       };
       setGridCursor('grabbing');
@@ -414,9 +419,8 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
       dragRef.current = {
         type: edge === 'left' ? 'resize-left' : 'resize-right',
         noteId: note.id,
-        startX: e.clientX,
-        startY: e.clientY,
         hasMoved: false,
+        initialPointer: pointerPosition(e),
         initials: selectedNotes.map(nc => ({
           id: nc.note.id,
           pitch: nc.note.pitch,
@@ -433,8 +437,10 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
       const drag = dragRef.current;
       if (!drag) return;
 
-      const dx = me.clientX - drag.startX;
-      const dy = me.clientY - drag.startY;
+      const currentPointer = pointerPosition(me);
+      const deltaTime = currentPointer.time - drag.initialPointer.time;
+      const dx = deltaTime * viewRef.current.pixelsPerSecond;
+      const dy = (drag.initialPointer.pitch - currentPointer.pitch) * viewRef.current.noteHeight;
 
       if (!drag.hasMoved && Math.abs(dx) < NOTE_MOVE_THRESHOLD && Math.abs(dy) < NOTE_MOVE_THRESHOLD) {
         return;
@@ -442,14 +448,13 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
       drag.hasMoved = true;
 
       if (drag.type === 'move') {
-        const deltaTime = dx / pixelsPerSecond;
         let minimumTime = Infinity, minimumPitch = 127, maximumPitch = 0;
         for (const init of drag.initials) {
           minimumTime = Math.min(minimumTime, init.startTime);
           minimumPitch = Math.min(minimumPitch, init.pitch);
           maximumPitch = Math.max(maximumPitch, init.pitch);
         }
-        const deltaPitch = Math.max(-minimumPitch, Math.min(127 - maximumPitch, -Math.round(dy / noteHeight)));
+        const deltaPitch = Math.max(-minimumPitch, Math.min(127 - maximumPitch, -Math.round(drag.initialPointer.pitch - currentPointer.pitch)));
 
         // Apply snapped delta to all selected notes
         const anchor = drag.initials.find(i => i.id === drag.noteId)!;
@@ -469,7 +474,6 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
           onUpdateNote(init.id, { startTime: newTime, pitch: newPitch });
         }
       } else if (drag.type === 'resize-right') {
-        const deltaTime = dx / pixelsPerSecond;
         const minDuration = (60 / bpm) / 32; // 1/32 note
         // Compute snapped duration from the anchor note, apply same delta to all
         const anchor = drag.initials.find(i => i.id === drag.noteId)!;
@@ -481,7 +485,6 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
         }
         lastResizeDuration = anchorNewDuration;
       } else if (drag.type === 'resize-left') {
-        const deltaTime = dx / pixelsPerSecond;
         const minDuration = (60 / bpm) / 32;
         // Compute snapped start delta from the anchor note, apply same shift to all
         const anchor = drag.initials.find(i => i.id === drag.noteId)!;
@@ -521,7 +524,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
     };
 
     releaseGesture.current = retainPianoRollMouseGesture(document, handleMouseMove, handleMouseUp);
-  }, [allNotes, pixelsPerSecond, noteHeight, snapTime, bpm, onSelectNote, onUpdateNote, onResizeNote]);
+  }, [allNotes, pointerPosition, snapTime, bpm, onSelectNote, onUpdateNote, onResizeNote]);
 
   // Handle keyboard events
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {

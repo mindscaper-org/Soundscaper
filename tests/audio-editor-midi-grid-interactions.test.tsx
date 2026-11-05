@@ -18,6 +18,7 @@ interface GridFixture {
 	readonly added: MidiNote[];
 	readonly windowListeners: Map<string, Set<EventListener>>;
 	readonly unmount: () => Promise<void>;
+	readonly pan: (pixels: number) => void;
 }
 
 test('clicking a piano-roll note gives its grid keyboard focus for note shortcuts', async () => {
@@ -76,6 +77,19 @@ test('moving a note group against time and pitch limits preserves its offsets an
 		{ id: 1, pitch: 60, velocity: 100, startTime: 0.5, duration: 0.5, selected: true },
 		{ id: 2, pitch: 62, velocity: 100, startTime: 1, duration: 0.5, selected: true },
 	]);
+});
+
+test('a held note drag follows the current source clock after a horizontal pan', async () => {
+	await withGrid(async ({ dom, listeners, updated, pan }) => {
+		const note = dom.one('[data-note-id="2"]');
+		await act(async () => { reactProps(note).onMouseDown?.({ currentTarget: note, button: 0, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} }); });
+		await act(async () => { pan(50); });
+		await act(async () => { for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: 11, clientY: 10 } as MouseEvent); });
+		assert.deepEqual(updated, [{ id: 1, changes: { startTime: 0.5, pitch: 60 } }, { id: 2, changes: { startTime: 1.5, pitch: 64 } }]);
+		updated.length = 0;
+		await act(async () => { for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: 35, clientY: 10 } as MouseEvent); });
+		assert.deepEqual(updated, [{ id: 1, changes: { startTime: 0.75, pitch: 60 } }, { id: 2, changes: { startTime: 1.75, pitch: 64 } }]);
+	});
 });
 
 test('a secondary-button note gesture does not move or resize authored notes', async () => {
@@ -163,13 +177,16 @@ async function withGrid(action: (fixture: GridFixture) => Promise<void>, initial
 	const updated: GridFixture['updated'] = [];
 	const added: GridFixture['added'] = [];
 	const noop = () => undefined;
+	let pan: (pixels: number) => void = noop;
 	function Grid() {
+		const [scrollX, setScrollX] = useState(0);
+		pan = setScrollX;
 		const [notes, setNotes] = useState<MidiNote[]>(() => initialNotes ? [...initialNotes] : [
 			{ id: 1, pitch: 60, velocity: 100, startTime: 0, duration: 0.5, selected: true },
 			{ id: 2, pitch: 64, velocity: 100, startTime: 1, duration: 0.5, selected: true },
 		]);
 		return <NoteGrid clip={{ id: 1, name: 'Notes', start: 0, duration: 2, trimStart: 0, notes }} width={800} height={200}
-			bpm={120} beatsPerMeasure={4} pixelsPerSecond={100} scrollX={0} scrollY={1024} noteHeight={16}
+			bpm={120} beatsPerMeasure={4} pixelsPerSecond={100} scrollX={scrollX} scrollY={1024} noteHeight={16}
 			snap={{ subdivision: 4, triplet: false }} timeBasis="beats" onAddNote={note => { added.push(note); }} onUpdateNote={(id, changes) => { updated.push({ id, changes }); }} onMoveNotes={noop}
 			onResizeNote={(id, duration) => { resized.push({ id, duration }); }} onDeleteNotes={ids => { deleted.push(ids); }}
 			onSelectNote={(id, additive) => { setNotes(previous => previous.map(note => ({ ...note, selected: note.id === id || (additive === true && note.selected) }))); }}
@@ -179,7 +196,7 @@ async function withGrid(action: (fixture: GridFixture) => Promise<void>, initial
 	try {
 		await act(async () => root.render(<Grid />));
 		for (const note of dom.container.querySelectorAll('[data-note-id]')) note.getBoundingClientRect = () => ({ left: 0, width: 50 });
-		await action({ dom, document, listeners, resized, deleted, updated, added, windowListeners,
+		await action({ dom, document, listeners, resized, deleted, updated, added, windowListeners, pan,
 			unmount: async () => { await act(async () => root.unmount()); } });
 	} finally {
 		await act(async () => { for (const listener of [...listeners.get('mouseup') ?? []]) listener({} as MouseEvent); });

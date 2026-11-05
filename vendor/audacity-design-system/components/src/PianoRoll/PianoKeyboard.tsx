@@ -219,13 +219,13 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
               <span
                 style={{
                   position: 'absolute',
-                  left: BLACK_KEY_WIDTH + 4,
+                  left: 8,
                   top: '50%',
                   transform: 'translateY(-50%)',
                   fontSize: 10,
                   fontFamily: 'Inter, sans-serif',
                   fontWeight: 500,
-                  color: theme.foreground.text.secondary,
+                  color: WHITE_KEY_FACE,
                   pointerEvents: 'none',
                   lineHeight: 1,
                   whiteSpace: 'nowrap',

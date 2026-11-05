@@ -755,3 +755,22 @@ are the places where the two keyboard models meet, so a future sync should re-ch
 95. Piano-roll wheel scrolling converts native line/page deltas into note-row
     and viewport pixels before panning. Covered by mounted native wheel tests
     and the MIDI wheel-units browser workflow. Upstream-PR candidate.
+
+96. Active piano-roll note movement and resizing measure pointer offsets in the
+    current viewport's source coordinates, retaining placement while wheel pan
+    or zoom changes the grid. Covered by mounted held-drag and production MIDI
+    viewport-gesture regressions. Upstream-PR candidate.
+
+97. Piano-roll pitch labels select black or white text by the painted note's
+    luminance. Velocity shades the fill against its pitch lane without fading
+    interactive labels. Covered across both themes, selection states, track
+    colors and velocities by mounted contrast and production MIDI regressions.
+    Upstream-PR candidate.
+
+98. Black piano keys keep their hover pitch labels inside the clipped key face,
+    using light ink on the dark key. Covered by the production piano-key hover
+    regression. Upstream-PR candidate.
+
+99. Search reset buttons expose the existing localized Reset action with their
+    search caption and participate in keyboard traversal. Covered by the Model
+    Manager search-reset workflow. Upstream-PR candidate.
