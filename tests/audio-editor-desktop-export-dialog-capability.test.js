@@ -23,6 +23,6 @@ test('desktop export dialog lists every format and checks the selected format wi
 	assert.match(dialog, /exportDialogBitRateOptions\(settings\.format, desktop, settings\.sampleRate/u);
 	assert.match(dialog, /exportDialogVorbisQualityOptions\(desktop\)/u);
 	assert.match(dialog, /max=\{maximumAudioSampleRate\}/u);
-	assert.match(dialog, /disabled=\{blocked \|\| admRequired \|\| Boolean\(desktopFormatRefusal\)\}/u);
+	assert.match(dialog, /disabled=\{settingsDisabled \|\| blocked \|\| admRequired \|\| Boolean\(desktopFormatRefusal\)\}/u);
 	assert.doesNotMatch(dialog, /data-desktop-codec-status/u);
 });
