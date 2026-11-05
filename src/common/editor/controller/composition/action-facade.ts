@@ -2,7 +2,7 @@
 
 import type { EngineParametricEqPreview } from '../../engine/public-api.ts';
 import type { EditorActionRuntime } from './action-facade-runtime.ts';
-import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-command.ts';
+import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-command.ts'; import { admitRackEffectActivation } from '../../rack-effect-channel-width.ts';
 import { snapshotInertEditorCommand } from '../../commands/editor-command-snapshot.ts';
 import type { AudioEditorCommandPayloads } from '../../commands/protocol.ts';
 import { assertEditorActionRuntime } from './action-facade-runtime.ts';
@@ -374,7 +374,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			addMono: addTrack,
 			addStereo: addTrack,
 			addLabel: addLabelTrack, ...trackStructuralOperations,
-			update: (trackId: string | null, changes: Readonly<Record<string, unknown>>) => commit({ type: 'track/update', trackId, changes }, { selectTrackId: trackId }),
+			update: (trackId: string | null, changes: Readonly<Record<string, unknown>>) => commit({ type: 'track/update', trackId, changes: admitRackEffectActivation(getProject(), 'track', trackId, changes, copy.effectUnsupported) }, { selectTrackId: trackId }),
 			reorder: reorderTrack,
 			moveUp: (trackId: string | null = state.selectedTrackId) => moveTrack(trackId, 'up'),
 			moveDown: (trackId: string | null = state.selectedTrackId) => moveTrack(trackId, 'down'),
@@ -407,13 +407,13 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 				commit({ type: 'mixer/bus-add', busType, bus: { ...options, id } });
 				return id;
 			},
-			updateBus: (busType: AudioEditorCommandPayloads['mixer/bus-add']['busType'], busId: string, changes: Readonly<Record<string, unknown>>) => commit({ type: 'mixer/bus-update', busType, busId, changes }),
+			updateBus: (busType: AudioEditorCommandPayloads['mixer/bus-add']['busType'], busId: string, changes: Readonly<Record<string, unknown>>) => commit({ type: 'mixer/bus-update', busType, busId, changes: admitRackEffectActivation(getProject(), busType, busId, changes, copy.effectUnsupported) }),
 			removeBus: (busType: AudioEditorCommandPayloads['mixer/bus-add']['busType'], busId: string) => commit({ type: 'mixer/bus-remove', busType, busId }),
 			setRoute: (trackId: string | null, changes: Readonly<Record<string, unknown>>) => commit({ type: 'mixer/route-update', trackId, changes }),
 			setSend: (trackId: string | null, sendId: string, gain: number) => commit({
 				type: 'mixer/route-update', trackId, changes: { sends: { [sendId]: gain } },
 			}),
-			updateMaster: (changes: Readonly<Record<string, unknown>>) => commit({ type: 'master/update', changes }),
+			updateMaster: (changes: Readonly<Record<string, unknown>>) => commit({ type: 'master/update', changes: admitRackEffectActivation(getProject(), 'master', null, changes, copy.effectUnsupported) }),
 		}),
 		generators: Object.freeze({
 			generate: restricted('audioGenerators', generateSignal), repeatLast: restricted('audioGenerators', repeatLastGenerator),

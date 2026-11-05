@@ -30,11 +30,12 @@ export function findStereoLimitedMultichannelRenderEffects(
 	));
 }
 
-const STEREO_LIMITED_EFFECT_TYPES: ReadonlySet<string> = new Set([
+export const STEREO_LIMITED_RENDER_EFFECT_TYPES: readonly string[] = Object.freeze([
 	'compressor',
 	'convolver',
 	'reverb',
 ]);
+const STEREO_LIMITED_EFFECT_TYPES = new Set(STEREO_LIMITED_RENDER_EFFECT_TYPES);
 
 const STEREO_EXPANDING_EFFECT_TYPES: ReadonlySet<string> = new Set([
 	'convolver',
