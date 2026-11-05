@@ -340,6 +340,7 @@ const framescaperProjectCommandModules = Object.freeze([
 	'editor-audio-finishing-reconciliation-finishing',
 	'editor-clip-placement-command',
 	'editor-join-finishing-admission',
+	'editor-track-duplicate-finishing',
 	'editor-multicamera-source-retention-sequence',
 	'editor-project-assistance-commands',
 	'editor-project-assistance-transition-allocation',
