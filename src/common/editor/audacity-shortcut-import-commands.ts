@@ -63,7 +63,6 @@ const CONTEXTUAL_COMMANDS: Readonly<Record<string, string>> = Object.freeze({
 	'seek-left-short': 'play-position-decrease', 'seek-right-short': 'play-position-increase',
 	'sel-ext-left': 'track-view-item-extend-left', 'sel-ext-right': 'track-view-item-extend-right',
 	'sel-cntr-right': 'track-view-item-reduce-left', 'sel-cntr-left': 'track-view-item-reduce-right',
-	'track-close': 'remove-tracks',
 	'action://record/stop': 'action://playback/toggle-play-stop',
 	'pitch-up': 'realtime-effect-move-up', 'pitch-down': 'realtime-effect-move-down',
 });
