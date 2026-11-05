@@ -85,7 +85,12 @@ function uint32(value: number, littleEndian: boolean): Uint8Array<ArrayBuffer> {
 	return bytes;
 }
 
-export async function metadataBlobBytes(blob: Blob, start: number, end: number, signal?: AbortSignal): Promise<Uint8Array<ArrayBuffer>> {
+export interface MetadataByteSource {
+	readonly size: number;
+	slice(start: number, end: number): Readonly<{ arrayBuffer(): PromiseLike<ArrayBuffer> }>;
+}
+
+export async function metadataBlobBytes(blob: MetadataByteSource, start: number, end: number, signal?: AbortSignal): Promise<Uint8Array<ArrayBuffer>> {
 	signal?.throwIfAborted();
 	if (end > blob.size || start < 0 || end < start) throw new RangeError('The metadata container is truncated.');
 	const bytes = new Uint8Array(await blob.slice(start, end).arrayBuffer());

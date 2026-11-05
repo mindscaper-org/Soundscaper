@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { metadataBlobBytes } from './audio-metadata-values.ts';
+import { metadataBlobBytes, type MetadataByteSource } from './audio-metadata-values.ts';
 
 export function apeFooter(bytes: Uint8Array, inspectItems = true): Readonly<{ size: number; header: boolean }> | null {
 	if (new TextDecoder().decode(bytes.subarray(0, 8)) !== 'APETAGEX') return null;
@@ -13,7 +13,7 @@ export function apeFooter(bytes: Uint8Array, inspectItems = true): Readonly<{ si
 }
 
 /** Native WavPack readers also admit a complete APEv2 tag before the audio. */
-export async function leadingApeTagEnd(file: Blob, signal?: AbortSignal): Promise<number> {
+export async function leadingApeTagEnd(file: MetadataByteSource, signal?: AbortSignal): Promise<number> {
 	signal?.throwIfAborted();
 	const header = await metadataBlobBytes(file, 0, Math.min(32, file.size), signal);
 	const info = apeFooter(header, false);

@@ -7,6 +7,7 @@ import { originalMpegExportSettings, readOriginalMpegFrameHeader } from './deskt
 import { readDesktopOriginalM4aMovie } from './desktop-original-m4a-movie.ts';
 import { readDesktopOriginalAudioBitRate } from './desktop-original-audio-bit-rate.ts';
 import { readOriginalFlacHeader } from './desktop-original-flac-settings.ts';
+import { leadingApeTagEnd } from './ape-tag-location.ts';
 import { BIT_RATES } from './media-export-values.js';
 
 type DataRecord = Readonly<Record<string, unknown>>;
@@ -110,8 +111,9 @@ export async function resolveDesktopOriginalExportSettings(
 
 /** Imported wrapper/MD5 blocks carry no audio format flags. Seek only bounded headers. */
 async function originalWavPackAudioHeader(file: NamedByteSource, prefix: Uint8Array): Promise<Uint8Array> {
-	let offset = 0;
-	let header = prefix.subarray(0, 32);
+	let offset = await leadingApeTagEnd(file);
+	let header = offset + 32 <= prefix.length ? prefix.subarray(offset, offset + 32)
+		: new Uint8Array(await file.slice(offset, offset + 32).arrayBuffer());
 	for (let block = 0; block < 1_000_000; block++) {
 		if (header.length !== 32 || ascii(header, 0, 4) !== 'wvpk') throw new RangeError('Invalid WavPack header.');
 		const view = new DataView(header.buffer, header.byteOffset, header.byteLength);
