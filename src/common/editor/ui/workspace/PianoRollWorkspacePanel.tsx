@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { NoteGrid } from '@soundscaper/design-system/PianoRoll/NoteGrid';
 import { PianoKeyboard } from '@soundscaper/design-system/PianoRoll/PianoKeyboard';
 import { PianoRollRuler } from '@soundscaper/design-system/PianoRoll/PianoRollRuler';
@@ -85,6 +85,9 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	const [octave, setOctave] = useState(3);
 	const [hoveredPitch, setHoveredPitch] = useState<number | null>(null);
 	const gesture = useRef(false);
+	const gestureNotes = useRef(new Set<string>());
+	const draftRevision = useRef(0);
+	const [gestureRevision, setGestureRevision] = useState(0);
 	const pendingNotes = useRef(new Map<string, Partial<MidiNote>>());
 	const pendingClip = useRef<ClipChanges | null>(null);
 	const mounted = useRef(true);
@@ -103,6 +106,26 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	const selectedNotes = useMemo(() => notes.filter(note => selectedIds.has(note.id)), [notes, selectedIds]);
 	const noteOptions = useMemo(() => notes.map(note => <MidiNoteOption key={note.id} note={note} format={copy.noteOption} sampleRate={sampleRate} />), [copy.noteOption, notes, sampleRate]);
 	const activeNote = selectedNotes[0];
+	const retireNoteGesture = useCallback(() => {
+		if (!gesture.current) return;
+		gesture.current = false;
+		gestureNotes.current = new Set();
+		pendingNotes.current = new Map(); pendingClip.current = null;
+		draftRevision.current += 1;
+		setDrafts(new Map()); setClipDraft(null);
+		setGestureRevision(previous => previous + 1);
+	}, []);
+	useLayoutEffect(() => {
+		const remaining = new Set(persistedNotes.map(note => note.id));
+		if ([...gestureNotes.current].some(id => !remaining.has(id))) retireNoteGesture();
+	}, [persistedNotes, retireNoteGesture]);
+	const beginGesture = (event: ReactMouseEvent<HTMLDivElement>) => {
+		if (disabled) return;
+		gesture.current = true;
+		const target = event.target instanceof Element ? event.target.closest('[data-note-id]') : null;
+		const note = notes[Number(target?.getAttribute('data-note-id')) - 1];
+		gestureNotes.current = new Set(note ? selectedIds.has(note.id) ? selectedIds : [note.id] : []);
+	};
 
 	useEffect(() => {
 		mounted.current = true;
@@ -114,6 +137,8 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 			if ('button' in event && event.button !== 0) return;
 			if (!gesture.current) return;
 			gesture.current = false;
+			gestureNotes.current = new Set();
+			const revision = draftRevision.current;
 			const updates = [...pendingNotes.current].map(([id, changes]) => ({ id, changes }));
 			const resizedClip = pendingClip.current;
 			pendingNotes.current = new Map();
@@ -125,7 +150,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 					if (updates.length) await controller.actions.midi.updateNotes(clip.id, updates);
 					if (resizedClip) await controller.actions.midi.resizeClip(clip.id, resizedClip);
 				} finally {
-					if (mounted.current) { setDrafts(new Map()); setClipDraft(null); }
+					if (mounted.current && draftRevision.current === revision) { setDrafts(new Map()); setClipDraft(null); }
 				}
 			});
 		};
@@ -156,6 +181,8 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 		const note = notes[numericId - 1];
 		if (!note || disabled) return;
 		if (!gesture.current) { edit(() => controller.actions.midi.updateNote(clip.id, note.id, changes)); return; }
+		gestureNotes.current.add(note.id);
+		draftRevision.current += 1;
 		pendingNotes.current.set(note.id, { ...pendingNotes.current.get(note.id), ...changes });
 		setDrafts(new Map(pendingNotes.current));
 	};
@@ -165,10 +192,12 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	const resize = (edge: 'left' | 'right', start: number, duration: number, trimStart: number) => {
 		if (disabled) return;
 		const { changes, sourceDurationFrames } = midiPanelClipResize(project, clip, sampleRate, edge, start, duration, trimStart);
+		draftRevision.current += 1;
 		pendingClip.current = changes; setClipDraft({ ...changes, sourceDurationFrames });
 	};
 	const deleteNotes = (ids: readonly string[]) => {
 		if (disabled) return;
+		retireNoteGesture();
 		pendingNotes.current = new Map(); setDrafts(new Map());
 		edit(() => controller.actions.midi.deleteNotes(clip.id, ids));
 	};
@@ -229,11 +258,11 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 		</div>
 		<div className="kw-audio-editor__piano-roll-grid" role="group" aria-label={copy.grid}>
 			<PianoKeyboard ariaLabel={copy.preview} scrollY={scrollY} noteHeight={16} height={gridHeight + 52} onKeyClick={preview} onHoverKey={setHoveredPitch} clipStripVisible />
-			<div className="kw-audio-editor__piano-roll-notes" onMouseDownCapture={() => { if (!disabled) gesture.current = true; }}>
+			<div className="kw-audio-editor__piano-roll-notes" onMouseDownCapture={beginGesture}>
 				<PianoRollRuler width={gridWidth} scrollX={scrollX} pixelsPerSecond={pixelsPerSecond} bpm={bpm} beatsPerMeasure={beatsPerMeasure} snap={snap} timeBasis="beats" />
 				<PianoRollClipStrip clips={[designClip]} activeClipId={1} width={gridWidth} scrollX={scrollX} pixelsPerSecond={pixelsPerSecond}
 					bpm={bpm} snap={snap} onResizeClip={resize} />
-				<NoteGrid clip={designClip} bpm={bpm} beatsPerMeasure={beatsPerMeasure} width={gridWidth} height={gridHeight}
+				<NoteGrid clip={designClip} gestureRevision={gestureRevision} bpm={bpm} beatsPerMeasure={beatsPerMeasure} width={gridWidth} height={gridHeight}
 					pixelsPerSecond={pixelsPerSecond} scrollX={scrollX} scrollY={scrollY} noteHeight={16} snap={snap} timeBasis="beats"
 					onAddNote={note => {
 						const id = createStableId('midi-note');

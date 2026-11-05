@@ -848,3 +848,10 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      disabling an open parent retires its child popup. Covered by mounted state
      transitions and the existing Open recent menu during real recording.
      Upstream-PR candidate.
+
+113. `NoteGrid` accepts an authoring gesture revision so its consumer can retire
+     a held note edit whose target was removed by Undo or another admitted edit.
+     The extracted note-drag owner releases listeners and pitch highlighting;
+     the existing Delete path shares that cancellation. Normal model
+     publications retain a newer valid gesture. Covered by mounted ownership
+     tests and production held-drag workflows. Upstream-PR candidate.

@@ -7,6 +7,7 @@ import { TOTAL_PITCHES, NOTE_MOVE_THRESHOLD, DEFAULT_VELOCITY, MIN_PPS, MAX_PPS,
 import type { NoteGridProps } from './types';
 import type { MidiNote, MidiClip } from '@audacity-ui/core';
 import { retainPianoRollMouseGesture } from './piano-roll-mouse-gesture';
+import { useNoteGridNoteDrag } from './use-note-grid-note-drag';
 
 interface DragState {
   type: 'move' | 'resize-left' | 'resize-right';
@@ -44,6 +45,7 @@ interface NoteWithContext {
 
 export const NoteGrid: React.FC<NoteGridProps> = ({
   clip,
+  gestureRevision,
   allClips,
   bpm,
   beatsPerMeasure,
@@ -73,10 +75,10 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
   onPlayNote,
 }) => {
   const { theme } = useTheme();
-  const dragRef = useRef<DragState | null>(null);
+  const { dragRef, gridCursor, setGridCursor, dragPitch, setDragPitch, lastPlayedPitchRef,
+    releaseGesture, cancelNoteDrag } = useNoteGridNoteDrag<DragState>(gestureRevision);
   const clipBoundaryDragRef = useRef<ClipBoundaryDragState | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [gridCursor, setGridCursor] = useState<string>('crosshair');
   const boxSelectionRef = useRef<BoxSelectionState | null>(null);
   const lastResizedDurationRef = useRef<number | null>(null);
   const [boxSelectionRect, setBoxSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -92,10 +94,6 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
     return { time: (event.clientX - (bounds?.left ?? 0) + view.scrollX) / view.pixelsPerSecond,
       pitch: TOTAL_PITCHES - 1 - (event.clientY - (bounds?.top ?? 0) + view.scrollY) / view.noteHeight };
   }, []);
-  const [dragPitch, setDragPitch] = useState<number | null>(null);
-  const lastPlayedPitchRef = useRef<number | null>(null);
-  const releaseGesture = useRef<() => void>(() => {});
-  useEffect(() => () => releaseGesture.current(), []);
   useEffect(() => {
     const maximum = Math.max(0, TOTAL_PITCHES * noteHeight - height);
     if (scrollY > maximum) onScrollYChange(maximum);
@@ -533,11 +531,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
       const selectedIds = allNotes.filter(nc => nc.note.selected).map(nc => nc.note.id);
       if (selectedIds.length > 0) {
         if (dragRef.current) {
-          releaseGesture.current();
-          dragRef.current = null;
-          lastPlayedPitchRef.current = null;
-          setDragPitch(null);
-          setGridCursor('crosshair');
+          cancelNoteDrag();
         }
         onDeleteNotes(selectedIds);
       }
@@ -550,7 +544,7 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
         onSelectNotes(unselectedIds, true);
       }
     }
-  }, [allNotes, onDeleteNotes, onSelectNotes]);
+  }, [allNotes, cancelNoteDrag, dragRef, onDeleteNotes, onSelectNotes]);
 
   // Refs for values used in the wheel handler — avoids re-attaching the listener on every scroll frame
   const scrollXRef = useRef(scrollX);

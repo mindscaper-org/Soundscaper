@@ -102,6 +102,8 @@ export interface PianoRollRulerProps {
 
 export interface NoteGridProps {
   clip?: MidiClip | null;
+  /** Retire a note gesture whose authoring target disappeared. */
+  gestureRevision?: number;
   allClips?: MidiClip[];
   bpm: number;
   beatsPerMeasure: number;
