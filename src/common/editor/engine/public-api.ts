@@ -69,6 +69,12 @@ export interface EngineStateSnapshot {
 	readonly playbackMode: 'normal' | 'naive' | 'staffpad' | 'audio-warp-exact';
 }
 
+export interface EngineCutPreviewSegment {
+	readonly startFrame: number;
+	readonly endFrame: number;
+	readonly contextStartTime: number;
+}
+
 export interface EngineCutPreviewSelection {
 	readonly startFrame: number;
 	readonly endFrame: number;
@@ -232,6 +238,8 @@ export interface EnginePublicApi {
 	play(): Promise<void>;
 	/** Audition the join around a selected gap without changing the project. */
 	playCutPreview(selection: EngineCutPreviewSelection): Promise<void>;
+	/** Original timeline intervals joined by the active cut audition, on its audio clock. */
+	getCutPreviewSegments?(): readonly EngineCutPreviewSegment[] | null;
 	playAtSpeed(rate: number, options?: EnginePlayAtSpeedOptions): Promise<void>;
 	/** Resolves to the actual context start after asynchronous playback priming. */
 	playAt(contextTime: number, fromFrame?: number, onBeforeStart?: import('./clocked-playback-start.ts').ClockedPlaybackStartHook): Promise<number>;

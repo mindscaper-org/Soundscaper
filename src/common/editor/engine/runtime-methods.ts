@@ -37,7 +37,7 @@ export const ENGINE_PUBLIC_METHOD_NAMES = [
 	'getPlaybackDestination',
 	'setPlaybackFrequencyRange',
 	'play',
-	'playCutPreview',
+	'playCutPreview', 'getCutPreviewSegments',
 	'playAtSpeed',
 	'playAt',
 	'getPlaybackGraphLatencyFrames',

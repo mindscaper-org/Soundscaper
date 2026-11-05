@@ -156,6 +156,20 @@ export function resumeCutPreview(engine: EngineRuntimeHost): Promise<void> | nul
 }
 
 export const engineCutPreviewMethods = {
+	getCutPreviewSegments() {
+		const session = sessionFor(this);
+		if (!session || this.state !== 'playing') return null;
+		const beforeLeft = Math.max(0, session.beforeFrames - session.offsetFrames);
+		const afterOffset = Math.max(0, session.offsetFrames - session.beforeFrames);
+		return Object.freeze([
+			...(beforeLeft ? [Object.freeze({ startFrame: session.beforeStart + session.offsetFrames,
+				endFrame: session.beforeStart + session.beforeFrames, contextStartTime: this.playbackStartTime })] : []),
+			...(session.totalFrames > session.beforeFrames + afterOffset ? [Object.freeze({
+				startFrame: session.afterStart + afterOffset, endFrame: session.afterStart + session.totalFrames - session.beforeFrames,
+				contextStartTime: this.playbackStartTime + beforeLeft / this.sampleRate,
+			})] : []),
+		]);
+	},
 	async playCutPreview(selection: EngineCutPreviewSelection) {
 		this[ENGINE_ASSERT_ACTIVE]();
 		const project = this.project;
@@ -202,4 +216,4 @@ export const engineCutPreviewMethods = {
 		}
 		startJoinedPreview(this, context, { project, buffer, beforeStart, beforeFrames, afterStart: afterFrames ? end : start, totalFrames });
 	},
-} satisfies EngineRuntimeMethodMap<'playCutPreview'>;
+} satisfies EngineRuntimeMethodMap<'playCutPreview' | 'getCutPreviewSegments'>;

@@ -8,8 +8,8 @@ import type { EngineProject } from '../src/common/editor/engine/types.ts';
 import { createProject } from './helpers/audio-editor-runtime-harness.js';
 import { MockAudioBuffer, MockAudioContext } from './helpers/mock-audio-context.js';
 
-function fixture(multipleTracks = false) {
-	const context = new MockAudioContext();
+function fixture(multipleTracks = false, contextRate = 48_000) {
+	const context = new MockAudioContext({ sampleRate: contextRate });
 	const project = createProject();
 	project.clips[0]!.durationFrames = 480_000;
 	if (multipleTracks) project.tracks.unshift({ ...project.tracks[0]!, id: 'upper-track' });
@@ -189,4 +189,24 @@ test('cut preview skips selected video tracks and rejects video-only selections'
 	} finally {
 		await engine.dispose();
 	}
+});
+
+for (const pauseTime of [.25, .75]) test(`cut-preview clock segments retain exact resume offsets at ${pauseTime}s`, async () => {
+	const { context, engine } = fixture(false, 44_100);
+	try {
+		context.currentTime = 37;
+		await engine.playCutPreview({ startFrame: 22800, endFrame: 25200 });
+		assert.deepEqual(engine.getCutPreviewSegments?.(), [
+			{ startFrame: 0, endFrame: 22800, contextStartTime: 37 },
+			{ startFrame: 25200, endFrame: 73200, contextStartTime: 37.475 },
+		]);
+		context.currentTime = 37 + pauseTime; engine.pause();
+		assert.equal(engine.getCutPreviewSegments?.(), null);
+		context.currentTime = 51; await engine.play();
+		assert.deepEqual(engine.getCutPreviewSegments?.(), pauseTime < .475 ? [
+			{ startFrame: 12000, endFrame: 22800, contextStartTime: 51 },
+			{ startFrame: 25200, endFrame: 73200, contextStartTime: 51.225 },
+		] : [{ startFrame: 38400, endFrame: 73200, contextStartTime: 51 }]);
+		engine.stop(); assert.equal(engine.getCutPreviewSegments?.(), null);
+	} finally { await engine.dispose(); }
 });
