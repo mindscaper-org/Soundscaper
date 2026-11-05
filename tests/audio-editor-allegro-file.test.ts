@@ -46,9 +46,9 @@ test('Allegro beat durations follow tempo changes and explicit beat anchors', ()
 });
 
 test('Allegro preserves expressive channel messages, text and hexadecimal SysEx using PortSMF attributes', () => {
-	const parsed = parseAllegroFile('#track 0 Metadata\nT0 V2 -bendr:0.25\nT0 V2 -pressurer:0.5\nT0 V2 K60 -pressurer:1\nT0 V- -sysexs:"f07d0102f7"\nT0 V- -texts:"two words \\"quoted\\""\nT0 V- -keysigi:-3\nT0 V- -modea:\'minor\'\nT0 V2 P60 U1 L100\n');
+	const parsed = parseAllegroFile('#track 0 Metadata\nT0 V2 -bendr:0.25\nT0 V2 -pressurer:0.5\nT0 V- -sysexs:"f07d0102f7"\nT0 V- -texts:"two words \\"quoted\\""\nT0 V- -keysigi:-3\nT0 V- -modea:\'minor\'\nT0 V2 P60 U1 L100\n');
 	assert.deepEqual(parsed.tracks[0]?.events?.map(event => [event.status, event.metaType, event.data]), [
-		[0xe2, undefined, [0, 80]], [0xd2, undefined, [64]], [0xa2, undefined, [60, 127]],
+		[0xe2, undefined, [0, 80]], [0xd2, undefined, [64]],
 		[0xf0, undefined, [0x7d, 1, 2, 0xf7]], [0xff, 1, [...new TextEncoder().encode('two words "quoted"')]], [0xff, 89, [253, 1]],
 	]);
 	assert.deepEqual(parseAllegroFile(writeAllegroFile(parsed)), parsed);

@@ -47,7 +47,7 @@ export function allegroEventFields(event: MidiFileEvent): string {
 	if (type === 176) return `V${channel} -control${event.data[0]}r:${event.data[1]! / 127}`;
 	if (type === 192) return `V${channel} -programi:${event.data[0]}`;
 	if (type === 208) return `V${channel} -pressurer:${event.data[0]! / 127}`;
-	if (type === 160) return `V${channel} K${event.data[0]} -pressurer:${event.data[1]! / 127}`;
+	if (type === 160) throw new RangeError('Polyphonic pressure cannot be represented in Allegro without creating a note in PortSMF. Export MIDI instead.');
 	if (type === 224) return `V${channel} -bendr:${(event.data[0]! + event.data[1]! * 128) / 8192 - 1}`;
 	if (event.status === 240) return `V- -sysexs:"f0${event.data.map(byte => byte.toString(16).padStart(2, '0')).join('')}"`;
 	if (event.status === 255) {

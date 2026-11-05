@@ -10,6 +10,7 @@ import { createMidiTempoTimeline } from './midi-file-timing.ts';
 import { allegroDuration, allegroNumber, allegroPitch, allegroString, allegroTokens, allegroVelocity } from './allegro-file-fields.ts';
 import { allegroAttributeToEvent, allegroEventFields } from './allegro-file-events.ts';
 import { offsetAllegroFrame, offsetAllegroNotes, offsetAllegroTiming } from './allegro-file-offset.ts';
+import { allegroTempoDeclarations, type AllegroBeatAnchor, type AllegroTempoDeclaration } from './allegro-file-anchors.ts';
 
 // Current Audacity/PortSMF Allegro grammar: numeric T/U values are seconds.
 // https://github.com/rbdannenberg/portsmf/blob/master/allegrord.cpp
@@ -29,14 +30,16 @@ export function parseAllegroFile(text: string, options: MidiFileReadOptions = {}
 
 function parseLines(lines: readonly string[], sampleRate: number, knownTempos: readonly MidiFileTempo[]): AllegroParseResult {
 	const tracks = new Map<number, AllegroTrack>();
-	const declarations: MidiFileTempo[] = [];
+	const declarations: AllegroTempoDeclaration[] = [];
+	const beatAnchors: AllegroBeatAnchor[] = [];
+	let declarationOrder = 0;
 	const signatureParts = new Map<number, { numerator?: number; denominator?: number }>();
 	const keySignatures = new Map<string, { frame: number; track: AllegroTrack; key: number; minor: boolean }>();
 	let resolvedTiming = createMidiTempoTimeline(knownTempos, sampleRate, 100);
 	let timingDirty = false;
 	const currentTiming = () => {
 		if (timingDirty) {
-			resolvedTiming = createMidiTempoTimeline(declarations, sampleRate, 100);
+			resolvedTiming = createMidiTempoTimeline(allegroTempoDeclarations(declarations, beatAnchors, sampleRate), sampleRate, 100);
 			timingDirty = false;
 		}
 		return resolvedTiming;
@@ -55,7 +58,6 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 	let offsetSeen = false;
 	let noteCount = 0;
 	let eventCount = 0;
-	let beatAnchor = { frame: 0, beat: 0 };
 	const ensureTrack = (): AllegroTrack => {
 		let track = tracks.get(trackIndex);
 		if (!track) { track = { name: `MIDI ${trackIndex + 1}`, notes: [], events: [] }; tracks.set(trackIndex, track); }
@@ -107,20 +109,19 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 				else if (initial === 'U' || /^[SIQHW]$/.test(initial)) { duration = allegroDuration(initial === 'U' ? value : token, currentFrame, timing, sampleRate); isNote = true; }
 				else throw new RangeError(`Unknown Allegro field: ${token}.`);
 			}
-			if (key !== null && !isNote && !attributes.size && key < 128) { pitch = key; isNote = true; }
+			if (key !== null && !isNote && key < 128) { pitch = key; isNote = true; }
+			if (isNote && [...attributes.keys()].some(name => name !== 'tempor' && name !== 'beatr')) {
+				throw new RangeError('Note-attached Allegro attributes cannot be retained as MIDI channel updates. Use separate update lines.');
+			}
 			for (const [name, value] of attributes) {
 				if (name === 'tempor') {
 					const bpm = allegroNumber(value, 'tempo');
 					if (bpm <= 0 || bpm > 60_000_000) throw new RangeError('Invalid Allegro tempo.');
-					declarations.push({ frame: currentFrame, bpm });
+					declarations.push({ frame: currentFrame, bpm, order: declarationOrder++ });
 					if (!knownTempos.length) timingDirty = true;
 				} else if (name === 'beatr') {
 					const beat = allegroNumber(value, 'beat anchor');
-					if (currentFrame === 0 && beat === 0) continue;
-					if (currentFrame <= beatAnchor.frame || beat <= beatAnchor.beat) throw new RangeError('Allegro beat anchors must increase in time and beat.');
-					const bpm = (beat - beatAnchor.beat) / (currentFrame - beatAnchor.frame) * sampleRate * 60;
-					declarations.push({ frame: beatAnchor.frame, bpm });
-					beatAnchor = { frame: currentFrame, beat };
+					beatAnchors.push({ frame: currentFrame, beat, order: declarationOrder++ });
 					if (!knownTempos.length) timingDirty = true;
 				} else if (name === 'timesig_numr' || name === 'timesig_denr') {
 					const frame = currentFrame;
@@ -153,7 +154,8 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 	}
 	if (!tracks.size) throw new RangeError('Allegro file contains no tracks or events.');
 	for (const signature of keySignatures.values()) signature.track.events.push({ frame: signature.frame, status: 255, metaType: 89, data: [signature.key & 255, signature.minor ? 1 : 0] });
-	const tempos = declarations.length ? declarations : [{ frame: 0, bpm: 100 }];
+	const tempoDeclarations = allegroTempoDeclarations(declarations, beatAnchors, sampleRate);
+	const tempos = tempoDeclarations.length ? [...tempoDeclarations] : [{ frame: 0, bpm: 100 }];
 	if (!tempos.some(tempo => tempo.frame === 0)) tempos.unshift({ frame: 0, bpm: 100 });
 	const signatures: MidiFileSignature[] = [];
 	for (const [frame, parts] of signatureParts) {
@@ -170,7 +172,7 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 		})),
 	};
 	validateMidiFileDocument(document);
-	return { document, tempoDeclarations: declarations };
+	return { document, tempoDeclarations };
 }
 
 export function writeAllegroFile(document: MidiFileDocument): string {
