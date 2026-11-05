@@ -281,7 +281,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			configureDisplayInput,
 			setOutput: async (...args: Parameters<typeof setAudioOutputDevice>) => {
 				const deviceId = await setAudioOutputDevice(...args);
-				await scope.playbackPreviews?.setOutput(deviceId);
+				await scope.playbackPreviews?.setOutput(engine.getOutputDeviceState?.().preferredDeviceId ?? deviceId);
 				return deviceId;
 			},
 			setPlaybackGain: (gain: number) => {
