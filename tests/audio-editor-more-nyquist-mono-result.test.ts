@@ -9,9 +9,10 @@ import { createNyquistArchiveStore } from '../src/common/editor/nyquist/archive-
 import { loadNyquistWasm } from '../src/common/editor/nyquist/runtime.js';
 import { createFixture, createCurrentAudioEditorProject, createAudioEditorController, createMemoryEngine, ENGLISH_COPY } from './helpers/audio-editor-nyquist-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
+import { createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { conformNyquistTargetChannels, nyquistAudioResultBytes } from '../src/common/editor/controller/effects/internal/nyquist/nyquist-audio.ts';
 
-test('published Vocal Reduction to mono applies its result to both channels of the stereo selection', async context => {
+for (const emptyPeer of [false, true]) test(`published Vocal Reduction to mono applies its result with selected empty peer=${emptyPeer}`, async context => {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const left = Float32Array.from({ length: 4_800 }, (_, i) => .2 * Math.sin(i * Math.PI * 880 / 48_000));
 	const right = Float32Array.from({ length: left.length }, (_, i) => .05 * Math.cos(i * Math.PI * 1_760 / 48_000));
@@ -19,20 +20,21 @@ test('published Vocal Reduction to mono applies its result to both channels of t
 		tracks: [{ id: 'voice', name: 'Voice', input: left }] });
 	const writer = await store.beginSourceWrite('stereo', { name: 'Stereo.wav', mimeType: 'audio/wav', sampleRate: 48_000, channelCount: 2 });
 	await writer.write([left, right]); await writer.commit({ sampleRate: 48_000, channelCount: 2 });
-	await store.saveProject(createCurrentAudioEditorProject({ id: project.id, sampleRate: 48_000, tracks: project.tracks,
+	await store.saveProject(createCurrentAudioEditorProject({ id: project.id, sampleRate: 48_000, tracks: emptyPeer ? [{ ...createAudioTrack({ id: 'blank', name: 'Blank', clipIds: [] }), clipIds: [] }, ...project.tracks] : project.tracks,
 		sources: [{ ...project.sources[0], id: 'stereo', storageKey: 'stereo', channelCount: 2 }],
 		clips: project.clips.map(clip => ({ ...clip, sourceId: 'stereo' })) }));
 	const runtime = await loadNyquistWasm(readFileSync(new URL('../src/common/editor/nyquist/nyquist.wasm', import.meta.url)));
+	const requests: number[] = [];
 	const options = { headless: true, locale: 'en', copy: ENGLISH_COPY, store,
 		engine: createMemoryEngine() as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
-		nyquistEvaluator: (request: Parameters<typeof runtime.evaluate>[0]) => Promise.resolve(runtime.evaluate(request)),
+		nyquistEvaluator: (request: Parameters<typeof runtime.evaluate>[0]) => { requests.push(request.channels?.length ?? 0); return Promise.resolve(runtime.evaluate(request)); },
 		renderSnapshot: async () => ({ length: left.length, sampleRate: 48_000, numberOfChannels: 2,
 			getChannelData: (channel: number) => channel === 0 ? left : right }),
 	};
 	const controller = createAudioEditorController(null, options);
 	context.after(async () => { await controller.dispose(); });
 	await controller.ready; controller.actions.timeline.selectTrack('voice');
-	controller.actions.timeline.setSelection(0, left.length, { trackIds: ['voice'], clipIds: [] });
+	controller.actions.timeline.setSelection(0, left.length, { trackIds: emptyPeer ? ['blank', 'voice'] : ['voice'], clipIds: [] });
 	const fixture = new URL('./fixtures/nyquist-archive/', import.meta.url);
 	const manifest = await parseNyquistArchiveManifest(gunzipSync(readFileSync(new URL('manifest.json.gz', fixture))));
 	const artifact = manifest.artifacts.find((entry: { fileName: string }) => entry.fileName === 'vocalrediso.ny'); assert.ok(artifact);
@@ -40,9 +42,12 @@ test('published Vocal Reduction to mono applies its result to both channels of t
 	const plugin = await installNyquistArchivePlugin(archive, artifact, {
 		fetchImpl: async () => new Response(gunzipSync(readFileSync(new URL('vocalrediso.ny.gz', fixture)))),
 	});
-	await controller.actions.nyquist.evaluate({ source: archive.source(plugin.id), role: 'process', name: plugin.name,
+	const result = await controller.actions.nyquist.evaluate({ source: archive.source(plugin.id), role: 'process', name: plugin.name,
 		controls: Object.fromEntries(plugin.controls.filter((control: { variable?: string }) => control.variable)
 			.map((control: { variable: string; defaultValue: unknown }) => [control.variable, control.defaultValue])) });
+	assert.deepEqual(requests, [2], 'a selected empty lane is not another stereo processing input');
+	assert.ok(result && typeof result === 'object' && 'type' in result); assert.equal(result.type, 'audio');
+	if (emptyPeer) assert.deepEqual(controller.project?.tracks.find(track => track.id === 'blank')?.clipIds, []);
 	const sourceId = controller.project?.clips[0]?.sourceId; assert.ok(sourceId);
 	const source = controller.project?.sources.find(candidate => candidate.id === sourceId);
 	assert.equal(source?.channelCount, 2);

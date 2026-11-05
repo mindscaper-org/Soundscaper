@@ -10,6 +10,7 @@ import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/prese
 import { createSelectionEffectPreviewService } from './effect-preview-service.ts';
 import { createPreparedSelectionPcmCache, preparedSelectionPcmKey } from './prepared-selection-pcm-cache.ts';
 import { tryPrepareCoalescedEffectContext, type SimpleDryRangeRenderer } from './coalesced-effect-context.ts';
+import type { EffectTarget } from '../effect-selection-service.ts';
 import type { MacroTransaction } from '../../document/project-mutation-service.ts';
 
 const SELECTION_EFFECT_TASK = 'selection-effect-apply';
@@ -274,9 +275,12 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 		const role = normalizeNyquistRole(request.role || request.pluginType || request.type);
 		const preview = Boolean(request.preview);
 		const selection = activeSelection();
-		const availableTargets = audacityEffectTargets({ includeSilentTracks: role === 'process' || role === 'prompt' });
+		const requestedTargets: readonly EffectTarget[] = audacityEffectTargets({ includeSilentTracks: role === 'process' || role === 'prompt' });
+		const hasMaterial = (target: EffectTarget): boolean => target.hasAudio || Boolean(target.track.clipIds?.length);
+		const availableTargets = (role === 'process' || role === 'prompt') && requestedTargets.some(hasMaterial)
+			? requestedTargets.filter(hasMaterial) : requestedTargets;
 		const sampleRate = role === 'generate' ? projectSampleRate() : availableTargets[0]?.sourceSampleRate ?? projectSampleRate();
-		const targets = role === 'generate'
+		const targets: readonly (EffectTarget | null)[] = role === 'generate'
 			? [null]
 			: availableTargets.length ? availableTargets : role === 'prompt' ? [null] : [];
 		if (!targets.length) throw createLocalizedError(Error, copy, copy.nyquistSelectionRequired ? 'nyquistSelectionRequired' : 'audacitySelectionHint');
@@ -308,7 +312,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 		try {
 			const evaluations = [];
 			let aggregateAudioBytes = 0;
-			const hostTargets = availableTargets.length ? availableTargets : targets;
+			const hostTargets: readonly (EffectTarget | null)[] = availableTargets.length ? availableTargets : targets;
 			const hostProperties = runtime.prepareNyquistHostProperties?.(hostTargets) ?? nyquistHostProperties;
 			for (let index = 0; index < targets.length; index += 1) {
 				const target = targets[index];
