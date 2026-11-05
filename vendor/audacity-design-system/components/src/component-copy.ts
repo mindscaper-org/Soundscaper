@@ -43,6 +43,8 @@ export const COMPONENT_COPY = Object.freeze({
 	logarithmicDb: "dB (logarithmic)",
 	linear: "Linear",
 	logarithmic: "Logarithmic",
+	bark: "Bark",
+	erb: "ERB",
 	period: "Period",
 	halfWave: "Half wave",
 	frequencyRange: "Frequency range",

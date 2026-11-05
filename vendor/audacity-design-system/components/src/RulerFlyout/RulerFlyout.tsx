@@ -373,7 +373,7 @@ export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
             {radioOptions.map((opt) => (
               <LabeledRadio
                 key={opt.value}
-                label={(({ 'linear-amp': copy.linearAmplitude, 'linear-db': copy.linearDb, 'logarithmic-db': copy.logarithmicDb, linear: copy.linear, logarithmic: copy.logarithmic, period: copy.period } as Record<string, string>)[opt.value]) ?? opt.label}
+                label={(({ 'linear-amp': copy.linearAmplitude, 'linear-db': copy.linearDb, 'logarithmic-db': copy.logarithmicDb, linear: copy.linear, logarithmic: copy.logarithmic, bark: copy.bark, erb: copy.erb, period: copy.period } as Record<string, string>)[opt.value]) ?? opt.label}
                 name="ruler-format"
                 value={opt.value}
                 checked={checkedValue === opt.value}

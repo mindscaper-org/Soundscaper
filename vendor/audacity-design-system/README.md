@@ -905,3 +905,9 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      reduces the grid component. Covered by mounted admission/selection checks,
      existing gesture-deletion regressions, and the production assigned-key
      workflow. Upstream-PR candidate.
+
+121. Spectrogram Bark and ERB labels use the existing component copy catalog,
+     shared with the host's Preferences scale choices. The ruler and Preferences
+     retain the same localized names for the already supported scales. Covered
+     by focused scale projection/localization checks and a production ruler to
+     Preferences workflow. Upstream-PR candidate.
