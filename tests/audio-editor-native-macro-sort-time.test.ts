@@ -5,6 +5,7 @@ import { createMacroCommandService } from '../src/common/editor/controller/effec
 import { createTrackStructuralOperationService } from '../src/common/editor/controller/track-audio/internal/track-structural-operation-service.ts';
 import { planTrackSort } from '../src/common/editor/controller/track-audio/internal/track-structural-operation-planner.ts';
 import { createMacroCommandStep } from '../src/common/editor/macro-command-steps.ts';
+import { parseAudacityShortcutImport } from '../src/common/editor/audacity-shortcut-import.ts';
 import { applyEditorCommand } from '../src/common/editor/commands.js';
 import { createAudioEditorProjectV17, validateAudioEditorProjectV17 } from '../src/common/editor/project-v17.ts';
 import { createAudioClip, createAudioSource, createAudioTrack, createLabelTrack } from '../src/common/editor/project-media-factory.ts';
@@ -52,6 +53,21 @@ test('native sort propagates an owning lock refusal without publishing a partial
 	const fixture = sortFixture(false, true);
 	assert.throws(() => fixture.runNative(), /locked track/iu);
 	assert.deepEqual(fixture.names(), ['Voice', 'Empty']);
+});
+
+test('legacy SortByTime shortcut refuses the local empty-last ordering', () => {
+	const plan = parseAudacityShortcutImport('<audacitykeyboard><command name="SortByTime" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>',
+		{ 'sort-by-time': [] }, { availableActionIds: ['sort-by-time'] });
+	assert.equal(plan.importedCount, 0);
+	assert.deepEqual(plan.skipped, [{ command: 'SortByTime', reason: 'unsupported-command' }]);
+});
+
+test('modern sort-by-time shortcuts retain the ordinary local action', () => {
+	const plan = parseAudacityShortcutImport('<Shortcuts><SC><key>sort-by-time</key><seq>Ctrl+Alt+Shift+F7</seq></SC></Shortcuts>',
+		{ 'sort-by-time': [] }, { availableActionIds: ['sort-by-time'] });
+	assert.equal(plan.importedCount, 1);
+	assert.deepEqual(plan.shortcuts['sort-by-time'], ['Ctrl+Alt+Shift+F7']);
+	assert.deepEqual(plan.skipped, []);
 });
 
 function sortProject(label = false) {

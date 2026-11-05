@@ -79,6 +79,8 @@ const KNOWN_COMMANDS = new Set([
 export function audacityShortcutImportCommand(
 	command: string, legacy: boolean, availableActionIds?: ReadonlySet<string>,
 ): string | null {
+	// Native chronological sorting includes empty lanes at zero; local sorting keeps them last.
+	if (legacy && command === 'SortByTime') return null;
 	// Native region/collapse commands retain facets that these local actions replace.
 	if (legacy && (LEGACY_SELECTION_SCOPE_COMMANDS.has(command) || LEGACY_CURSOR_COLLAPSE_COMMANDS.has(command))) return null;
 	// Native label commands have fixed modes; the local action follows transport state.

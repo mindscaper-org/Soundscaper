@@ -26,3 +26,20 @@ for (const empty of [true, false]) test(`native SortByTime preserves chronologic
 	const after = await editor.locator('[data-track-row] .track-control-panel__track-name-text').allTextContents();
 	expect(after).toEqual(empty ? before : [...before].reverse());
 });
+
+test('legacy native SortByTime shortcut truthfully declines changed empty-lane ordering', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [toneA]);
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();
+	const choosing = page.waitForEvent('filechooser');
+	await preferences.getByRole('button', { name: 'Import Audacity shortcuts', exact: true }).click();
+	await (await choosing).setFiles({ name: 'Native sort.xml', mimeType: 'application/xml',
+		buffer: Buffer.from('<audacitykeyboard><command name="SortByTime" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>') });
+	const review = preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true });
+	await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 1 skipped.');
+	await expect(review.getByRole('button', { name: 'Apply shortcuts', exact: true })).toBeDisabled();
+	await review.getByText('Skipped shortcuts', { exact: true }).click();
+	await expect(review.getByRole('listitem')).toHaveText('SortByTime: Command unavailable');
+});
