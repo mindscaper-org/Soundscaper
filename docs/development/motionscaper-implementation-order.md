@@ -1,9 +1,9 @@
 # Motionscaper implementation order
 
-Status: **Planned**. This document owns the agreed Motionscaper scope,
-implementation order, dependencies, and completion gates. It describes future
-work, not capabilities already shipped. All packages below are required for the
-first public release; internal milestones do not reduce that release scope.
+Status: **In progress** on `feat/motionscaper`. This document
+owns the agreed Motionscaper scope, implementation order, dependencies and
+completion gates. It describes the release target; all packages below remain
+required for the first public release.
 
 Motionscaper is a new local-first motion-graphics and compositing program for
 the browser and Electron. It shares the editor platform with Soundscaper and
@@ -70,6 +70,18 @@ controls. Keyboard shortcuts may supplement the menu entry.
 The table is the default execution order. Its prerequisites identify the
 minimum dependency closure; a later package does not make an unfinished earlier
 package complete.
+
+### Implementation status
+
+Each package below owns its implementation and acceptance requirements. A
+working product surface does not by itself qualify its saved formats, linked
+consumers, installed Adobe host or desktop target. Mark a package complete only
+when its maintained workflows and corresponding gates pass; keep unavailable
+host or platform qualification explicit.
+
+Keep run-specific progress, failure investigations and validation logs under
+ignored `private/`. This document owns the release scope, dependency order and
+acceptance contracts.
 
 ## M01. Product registration and platform seams
 
@@ -350,6 +362,7 @@ and commit the refreshed desktop-test runtime snapshots.
 - [Product origins and handoff](../decisions/product-origins.md)
 - [Project compatibility](../policies/project-compatibility.md)
 - [CanvasKit documentation](https://docs.skia.org/docs/user/modules/canvaskit/)
+- [Native Adobe project-format feasibility](motionscaper-aep-native-format-research.md)
 - [Adobe project formats](https://helpx.adobe.com/mena_en/after-effects/desktop/work-with-projects/after-effects-projects/projects.html)
 - [Adobe script workflow](https://helpx.adobe.com/after-effects/desktop/automate-in-after-effects/automate-animation/scripts.html)
 - [Adobe SDK third-party-host limitations](https://ae-plugins.docsforadobe.dev/ppro/other-hosts/)

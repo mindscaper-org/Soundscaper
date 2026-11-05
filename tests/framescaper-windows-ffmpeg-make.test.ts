@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -23,8 +23,8 @@ test('Windows FFmpeg uses native Make source paths and the attested Git shell', 
 		for (const command of plan.filter(({ phase }) => ['ffmpeg-build', 'ffmpeg-install'].includes(phase))) {
 			assert.ok(command.args.includes('-f'));
 			assert.ok(command.args.includes('C:/sources/ffmpeg/Makefile'));
-			assert.ok(command.args.includes('SRC_PATH=C:/sources/ffmpeg'));
-			assert.ok(command.args.includes('SRC_LINK=C:/sources/ffmpeg'));
+			assert.ok(command.args.includes('SRC_PATH=src'));
+			assert.ok(command.args.includes('SRC_LINK=src'));
 			assert.ok(command.args.includes('SHELL=C:/Program Files/Git/bin/bash.exe'));
 			assert.ok(command.args.includes('.SHELLFLAGS=-e -c'));
 		}
@@ -44,6 +44,8 @@ test('FFmpeg build and install bypass the POSIX generated Makefile and override 
 	writeFileSync(join(source, 'feature.mk'), 'FEATURE_PRESENT=yes\n');
 	for (const command of plan.filter(({ phase }) => ['ffmpeg-build', 'ffmpeg-install'].includes(phase))) {
 		mkdirSync(join(command.cwd, 'ffbuild'), { recursive: true });
+		mkdirSync(join(command.cwd, 'src'), { recursive: true });
+		copyFileSync(join(source, 'feature.mk'), join(command.cwd, 'src', 'feature.mk'));
 		writeFileSync(join(command.cwd, 'Makefile'), 'include /unresolvable/git-bash/ffmpeg/Makefile\n');
 		writeFileSync(join(command.cwd, 'ffbuild/config.mak'), 'SRC_PATH=/unresolvable/git-bash/ffmpeg\nSRC_LINK=/unresolvable/git-bash/ffmpeg\n');
 		const result = spawnSync('make', [...command.args], { cwd: dirname(command.cwd), encoding: 'utf8' });

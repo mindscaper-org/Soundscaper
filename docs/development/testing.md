@@ -125,8 +125,8 @@ early. Tooling and handbook suites have no shipped JavaScript in the canonical
 coverage denominator and keep their structural tests without inventing a new
 coverage budget. Keep development RAM usage within 12 GB. Prepared sites
 retain their exact build evidence, source-map authentication and separate
-origins. `SCAPE_BROWSER_PRODUCTS=soundscaper` or `framescaper` selects one ordinary
-browser product; leaving it unset preserves the two-product preparation.
+origins. `SCAPE_BROWSER_PRODUCTS=soundscaper`, `framescaper`, or `motionscaper`
+selects one ordinary browser product; leaving it unset prepares all three.
 
 PR CI records the affected plan in the existing Build job and passes it to the
 existing Node, browser and Coverage jobs. It does not allocate a job per module.
@@ -163,17 +163,18 @@ npm run check-all
 ```
 
 `check-all` schedules up to four checks or test shards at once. It splits lint
-using the existing eight lint shards, Node suites across four execution slots,
+using the existing eight lint shards, Node suites across five execution slots,
 and browser suites into four partitions spanning all three engines. Each
 Node shard uses two test processes and each browser shard admits up to two
 workers. Firefox and WebKit projects allow one worker per shard, matching their
 native audio/video CI limits; this project limit also applies to ordinary local
 runs. Browser shards still run concurrently.
-Browser preparation runs the production build once, builds Framescaper, and
-authenticates the two product sites before browser tests start. Four browser
-shards share one owned preview pair, avoiding port collisions. Node coverage is
+Browser preparation runs the production build once, builds Framescaper and
+Motionscaper, and authenticates all three product sites before browser tests
+start. Four browser shards share one owned set of previews, avoiding port
+collisions. Node coverage is
 collected separately for each shard and reported over their fresh union after
-all four pass, using the same local coverage policy as `npm run check`.
+all five pass, using the same local coverage policy as `npm run check`.
 
 Before any Node or browser shard starts, `check-all` provisions and verifies the
 pinned interchange readers and DAWproject schema validator through
@@ -215,11 +216,11 @@ gates; focused regressions and fixture-only runner tests remain allowed.
 
 `npm test` runs JavaScript and TypeScript Node tests through the repository
 runner. CI balances batches of up to 16 files from the same semantic suite
-across four slots, using registered test calls and source size as deterministic
+across five slots, using registered test calls and source size as deterministic
 cost estimates. Browser batches contain up to four files from the same suite.
 The same inventory drives browser assignment, which partitions only files
 actually collected by the requested Playwright project.
-Every file runs in exactly one slot. The four legacy artifact names remain
+Every file runs in exactly one slot. The five artifact names remain
 stable, but no longer constrain module placement. Inspect one assigned slot:
 
 ```sh

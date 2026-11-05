@@ -28,6 +28,17 @@ const EXPECTED_RUNTIME_PACKAGES = [
 	'@types/dom-mediacapture-transform',
 	'@types/dom-webcodecs',
 	'@zip.js/zip.js',
+	'@vitejs/plugin-react',
+	'@webgpu/types',
+	`@rolldown/binding-${process.platform}-${process.arch}`,
+	'canvaskit-wasm',
+	'lightningcss',
+	`lightningcss-${process.platform}-${process.arch}`,
+	'react',
+	'react-dom',
+	'rolldown',
+	'scheduler',
+	'vite',
 	'axe-core',
 	'esbuild',
 	'fflate',
@@ -38,7 +49,7 @@ const EXPECTED_RUNTIME_PACKAGES = [
 	'sql.js',
 	'typescript',
 	'xmlchars',
-];
+].sort((left, right) => left.localeCompare(right));
 
 const BURN_IN_FONT_FILES = [
 	'inter-cyrillic-ext-600-normal.woff',
@@ -76,6 +87,11 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'the nightly label clipboard test must receive the original archive rewrite helper bytes',
 	);
 	assert.deepEqual(
+		await readFile(join(fixture.outputRoot, 'scripts/lib/browser-coverage-cleanup.ts')),
+		await readFile(new URL('../scripts/lib/browser-coverage-cleanup.ts', import.meta.url)),
+		'the nightly Chromium collectors must receive the original cleanup helper bytes',
+	);
+	assert.deepEqual(
 		await readFile(join(fixture.outputRoot, 'tests/helpers/riff-info-length-fixtures.ts')),
 		await readFile(new URL('./helpers/riff-info-length-fixtures.ts', import.meta.url)),
 		'the RIFF text-boundary browser test must receive its original fixture loader',
@@ -85,10 +101,19 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		await readFile(new URL('../native/soundscaper-professional-host/tests/os_audio_codec_self_test.cpp', import.meta.url)),
 		'the native codec browser fixtures must receive their pinned canary source bytes',
 	);
+	assert.deepEqual(
+		await readFile(join(fixture.outputRoot, 'vendor/audacity-design-system/components/src/Track/track-fade-handle-geometry.ts')),
+		await readFile(new URL('../vendor/audacity-design-system/components/src/Track/track-fade-handle-geometry.ts', import.meta.url)),
+		'the generated thumbnail browser harness must receive its original fade geometry helper bytes',
+	);
 	const releaseReader = await import(pathToFileURL(join(fixture.outputRoot, 'scripts/lib/product-release-lines.mjs')).href);
 	const recorderUrl = new URL('../fixtures/bwfmetaedit-ixml-clock.wav.base64',
 		pathToFileURL(join(fixture.outputRoot, 'tests/browser/example.spec.js')));
 	const recorder = Buffer.from(await readFile(recorderUrl, 'utf8'), 'base64');
+	for (const file of ['arabic.woff2', 'cjk.woff2', 'arabic-OFL.txt', 'cjk-OFL.txt', 'sources.json']) {
+		const path = `tests/fixtures/motionscaper-fonts/${file}`;
+		assert.deepEqual(await readFile(join(fixture.outputRoot, path)), await readFile(new URL(`../${path}`, import.meta.url)), `retained font bytes and attribution survive staging: ${file}`);
+	}
 	const originalRecorder = Buffer.from(await readFile(new URL('./fixtures/bwfmetaedit-ixml-clock.wav.base64', import.meta.url), 'utf8'), 'base64');
 	assert.deepEqual(recorder, originalRecorder);
 	assert.equal(recorder.readUInt32LE(recorder.indexOf('fmt ') + 12), 48_000);
@@ -116,12 +141,17 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'@noble/hashes',
 		'@playwright/test',
 		'@zip.js/zip.js',
+		'@vitejs/plugin-react',
+		'canvaskit-wasm',
 		'esbuild',
 		'fflate',
 		'mediabunny',
+		'react',
+		'react-dom',
 		'saxes',
 		'sql.js',
 		'typescript',
+		'vite',
 	]);
 
 	const packageMetadata = await readJson(join(fixture.outputRoot, 'package.json'));
@@ -162,6 +192,8 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'scripts/lib/desktop-nightly-tests-phases.mjs',
 		'scripts/lib/pages-site-static-server.mjs',
 		'scripts/lib/product-web-routing.mjs',
+		'scripts/lib/build-worker-chunk-groups.mjs',
+		'scripts/lib/build-worker-chunks.mjs',
 		'scripts/lib/desktop-nightly-tests-local-assistance.mjs',
 		'scripts/lib/local-model-real-test-cases.mjs',
 		'scripts/lib/local-model-mirror-publication.mjs',
@@ -213,8 +245,11 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'sites/soundscaper/.browser-product-build.json',
 		'sites/framescaper/en/index.html',
 		'sites/framescaper/.browser-product-build.json',
+		'sites/motionscaper/en/index.html',
+		'sites/motionscaper/.browser-product-build.json',
 		'sites/soundscaper-source-maps/app.js.map',
 		'sites/framescaper-source-maps/app.js.map',
+		'sites/motionscaper-source-maps/app.js.map',
 		'handbook/src/content/docs/reference/macro-programs.md',
 		'tests/browser/example.spec.js',
 		'tests/browser/dual-origin/framescaper-service-worker.spec.js',
@@ -391,4 +426,29 @@ test('nightly test staging admits exactly one esbuild binary package for the tar
 		}),
 		/installed esbuild binary package scope is missing/iu,
 	);
+});
+
+test('nightly fixture toolchains retain installed nested versions and refuse incomplete native bindings', async (context) => {
+	const fixture = await createFixture(context);
+	const { resolveNightlyTestRuntimePackages } = await import('../scripts/lib/desktop-nightly-tests-staging.mjs');
+	const root = fixture.repositoryRoot;
+	const nestedOwner = join(root, 'node_modules/canvaskit-wasm');
+	await rm(join(root, 'node_modules/@webgpu/types'), { recursive: true });
+	await writeFixturePackage(nestedOwner, '@webgpu/types', { version: '0.1.21', dependencies: { 'nested-missing': '1.0.0' } });
+	await assert.rejects(resolveNightlyTestRuntimePackages(root), /Required runtime package nested-missing is missing/u);
+	await writeFixturePackage(nestedOwner, '@webgpu/types', { version: '0.1.21' });
+	const packages = await resolveNightlyTestRuntimePackages(root);
+	assert.ok(packages.some(entry => entry.name === 'canvaskit-wasm'));
+	assert.ok(!packages.some(entry => entry.name === '@webgpu/types'), 'nested version stays inside its owning package instead of being flattened');
+	await stageDesktopNightlyTests({ repositoryRoot: root, outputRoot: fixture.outputRoot, browserSourceRoot: fixture.browserSourceRoot });
+	assert.equal((await readJson(join(fixture.outputRoot, 'node_modules/canvaskit-wasm/node_modules/@webgpu/types/package.json'))).version, '0.1.21');
+	const binding = `@rolldown/binding-${process.platform}-${process.arch}`;
+	const metadataPath = join(root, 'node_modules', binding, 'package.json');
+	const metadata = await readJson(metadataPath);
+	await writeFile(metadataPath, JSON.stringify({ ...metadata, version: '9.9.9' }));
+	await assert.rejects(resolveNightlyTestRuntimePackages(root), /native binding .*pinned version/u);
+	await writeFile(metadataPath, JSON.stringify({ ...metadata, cpu: ['unrelated-architecture'] }));
+	await assert.rejects(resolveNightlyTestRuntimePackages(root), /native binding .*installed target/u);
+	await rm(join(root, 'node_modules', binding), { recursive: true });
+	await assert.rejects(resolveNightlyTestRuntimePackages(root), /exact installed target-native binding closure/u);
 });

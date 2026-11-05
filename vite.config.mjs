@@ -2,7 +2,8 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-import { chunkGroups, workerChunkGroups } from './scripts/lib/build-chunk-groups.mjs';
+import { MOTION_LINK_BRIDGE_ENTRY } from './scripts/lib/motion-link-web-routing.mjs';
+import { chunkGroupsForBuild, workerChunkGroups } from './scripts/lib/build-chunk-groups.mjs';
 import {
 	buildSourceMapsRequested,
 	relocateBuildSourceMaps,
@@ -12,6 +13,7 @@ import {
 	enforceDesktopRendererProductIsolation,
 } from './scripts/lib/desktop-renderer-product-isolation.mjs';
 import { productResolveAliases, productSubstitutionPlugin } from './scripts/lib/product-aliases.mjs';
+import { framescaperBuildApplicationVersion, resolveFramescaperBuildLine } from './scripts/lib/product-build-line.mjs';
 import {
 	readProductReleaseLinesSync,
 	resolveProductApplicationVersion,
@@ -30,10 +32,11 @@ import { createPffftNodeModuleBrowserShim } from './scripts/vite-pffft-browser-s
 import { PRODUCT_IDS, normalizeProductId } from './src/common/product-identities.js';
 
 const productId = resolveBuiltProductId(process.env.SCAPE_PRODUCT);
-const applicationVersion = resolveProductApplicationVersion(
-	productId, readProductReleaseLinesSync(import.meta.dirname),
-);
+const framescaperLine = resolveFramescaperBuildLine(productId, process.env.SCAPE_FRAMESCAPER_LINE);
+const applicationVersion = framescaperBuildApplicationVersion(import.meta.dirname, framescaperLine,
+	resolveProductApplicationVersion(productId, readProductReleaseLinesSync(import.meta.dirname)));
 const desktopCodecComposition = process.env.SCAPE_DESKTOP_CODEC_RUNTIME === 'main-process';
+const compositionLinkEntry = !desktopCodecComposition && (productId === 'motionscaper' || framescaperLine === 'successor');
 // Off by default, and `hidden` when asked for: the emitted JavaScript never gains
 // a `sourceMappingURL` comment, and the plugin below moves the maps out of the
 // output directory, so a build with SCAPE_BUILD_SOURCE_MAPS=1 ships the same
@@ -51,7 +54,7 @@ const buildSourceMaps = buildSourceMapsRequested(process.env);
  * quietly emitting a Soundscaper bundle and deploying it to the other origin.
  *
  * @param {string | undefined} value
- * @returns {'soundscaper' | 'framescaper'}
+ * @returns {'soundscaper' | 'framescaper' | 'motionscaper'}
  */
 function resolveBuiltProductId(value) {
 	const requested = value === undefined || value === '' ? 'soundscaper' : value;
@@ -62,7 +65,7 @@ function resolveBuiltProductId(value) {
 	}
 	// `normalizeProductId` re-admits the id against the shared product table; the
 	// cast only narrows its `string` return to the two ids just checked above.
-	return /** @type {'soundscaper' | 'framescaper'} */ (normalizeProductId(requested));
+	return /** @type {'soundscaper' | 'framescaper' | 'motionscaper'} */ (normalizeProductId(requested));
 }
 
 /** @returns {import('vite').Plugin} */
@@ -104,7 +107,7 @@ export default defineConfig({
 	preview: { headers: authoredWildcardResponseHeaders() },
 	publicDir: productId === 'soundscaper' && desktopCodecComposition ? false : 'public',
 	plugins: [
-		...(!desktopCodecComposition ? [localDownloadPagePlugin(productId)] : []),
+		...(!desktopCodecComposition && productId !== 'motionscaper' ? [localDownloadPagePlugin(productId)] : []),
 		productSubstitutionPlugin({
 			productId, desktopCodecComposition, repositoryRoot: import.meta.dirname,
 		}),
@@ -112,7 +115,7 @@ export default defineConfig({
 		createTranslationCatalogBundlePlugin(),
 		react(),
 		assertDesignSystemCssLayered(),
-		enforceStartupGraphBudgets(productId),
+		enforceStartupGraphBudgets(productId, { framescaperLine }),
 		...(productId === 'soundscaper' && desktopCodecComposition
 			? [emitDesktopRendererProductPublicAssets(import.meta.dirname, productId)]
 			: []),
@@ -131,6 +134,7 @@ export default defineConfig({
 	envPrefix: ['VITE_', 'PUBLIC_'],
 	define: {
 		__SCAPE_PRODUCT__: JSON.stringify(productId),
+		__SCAPE_FRAMESCAPER_LINE__: JSON.stringify(framescaperLine),
 		__SCAPE_VERSION__: JSON.stringify(applicationVersion),
 		__SCAPE_DESKTOP_RENDERER__: JSON.stringify(productId === 'soundscaper' && desktopCodecComposition),
 	},
@@ -157,9 +161,11 @@ export default defineConfig({
 		assetsInlineLimit: 0,
 		sourcemap: buildSourceMaps ? 'hidden' : false,
 		rolldownOptions: {
+			...(compositionLinkEntry
+				? { input: { index: 'index.html', 'composition-link-bridge': MOTION_LINK_BRIDGE_ENTRY } } : {}),
 			output: {
 				codeSplitting: {
-					groups: chunkGroups,
+					groups: chunkGroupsForBuild({ compositionLinkEntry }),
 					minSize: 20_000,
 				},
 				strictExecutionOrder: true,

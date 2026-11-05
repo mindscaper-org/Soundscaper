@@ -8,6 +8,7 @@ import { extractJob, readWorkflow } from './helpers/workflow-jobs.js';
 const SOURCE_MAP_ARTIFACTS = Object.freeze([
 	['verified-site-source-maps', '.wrangler/browser-products/soundscaper-source-maps'],
 	['verified-framescaper-site-source-maps', '.wrangler/browser-products/framescaper-source-maps'],
+	['verified-motionscaper-site-source-maps', '.wrangler/browser-products/motionscaper-source-maps'],
 ]);
 
 test('only Chromium coverage jobs download the authenticated product source maps', async () => {

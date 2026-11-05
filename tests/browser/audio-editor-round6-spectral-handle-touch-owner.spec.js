@@ -13,7 +13,7 @@ test('a spectral band handle keeps its first native touch adjustment', async ({ 
 	const brush = editor.getByRole('button', { name: 'Spectral brush', exact: true });
 	const surface = await brush.boundingBox();
 	expect(surface).not.toBeNull();
-	await page.mouse.move(surface.x + 100, surface.y + surface.height / 2);
+	await brush.hover({ position: { x: 100, y: surface.height / 2 } });
 	await page.mouse.down();
 	await page.mouse.move(surface.x + 125, surface.y + surface.height / 2 + 25);
 	await page.mouse.up();

@@ -16,6 +16,7 @@ import { showClipTimingFields,
 } from './audio-editor-test-helpers.js';
 import { chooseClipMediaSetting, expectClipMediaSettingChecked } from './audio-editor-clip-settings-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
+import { attachTempoInputDiagnostics, installTempoInputDiagnostics } from './helpers/tempo-input-diagnostics.ts';
 import {
 	addClipGainPoint,
 	addTrackAutomation,
@@ -49,6 +50,16 @@ const sessions = [
 
 test.describe('realistic mixed-state session persistence', () => {
 	registerAudioEditorHooks();
+	test.beforeEach(async ({ page, browserName }) => {
+		if (browserName === 'webkit') {
+			await installTempoInputDiagnostics(page);
+		}
+	});
+	test.afterEach(async ({ page, browserName }, testInfo) => {
+		if (browserName === 'webkit') {
+			await attachTempoInputDiagnostics(page, testInfo);
+		}
+	});
 
 	for (const session of sessions) {
 		test(session.name, async ({ page }) => {

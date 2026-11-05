@@ -39,7 +39,7 @@ export async function recoverSoundscaperScape<Result>(
 	const signal = options.signal;
 	return withScapeProjectInput(input, signal, async (entries) => {
 		const envelope = await readScapeArchiveEnvelope(entries, options.archiveLimits, signal,
-			options.projectAssetExtension?.assetKinds, isDesktopScapeArchiveByteSource(input), options, { missingAssetKinds: [...mediaKinds] });
+			options.projectAssetExtension?.assetKinds, isDesktopScapeArchiveByteSource(input), options, undefined, { missingAssetKinds: [...mediaKinds] });
 		verifyScapeAssetBytes(encoder.encode(envelope.projectText), envelope.manifest.project, 'project document');
 		const original = parseScapeProjectDocument(envelope.projectText, { currentProjectSchemaFamily: 'soundscaper' });
 		if (classifyProjectSchemaIdentity(original, 'soundscaper').disposition !== 'current') return null;

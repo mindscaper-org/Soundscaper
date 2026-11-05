@@ -1,12 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { transform } from 'esbuild';
-import { rolldown } from 'rolldown';
+import { rolldown, type OutputChunk } from 'rolldown';
 
+import { chunkGroups } from '../scripts/lib/build-chunk-groups.mjs';
 import {
 	createTranslationCatalogBundlePlugin,
 	renderTranslationCatalogModule,
@@ -17,20 +20,25 @@ async function loadModule(source: string): Promise<Record<string, unknown>> {
 	return await import(`data:text/javascript,${encodeURIComponent(source)}`) as Record<string, unknown>;
 }
 
-async function loadBundledModule(plugin: ReturnType<typeof createTranslationCatalogBundlePlugin>, source: string,
+async function bundleModuleSource(plugin: ReturnType<typeof createTranslationCatalogBundlePlugin>, source: string,
 	onDependency?: (source: string) => Promise<void>) {
-	for (const match of source.matchAll(/(?:from\s*|import\()\s*("scape:translation-(?:source-text|locale-text:)[^"\\]*")/gu)) {
-		const specifier: unknown = JSON.parse(match[1]!);
+	for (const match of source.matchAll(/(?:from\s*|import\()\s*("(?:[^"\\]|\\.)*")/gu)) {
+		const specifier: unknown = JSON.parse(match[1]!.replace(/\\0(?!\d)/gu, '\\u0000').replace(/\\x([\da-f]{2})/giu, '\\u00$1'));
 		assert.equal(typeof specifier, 'string');
 		const id = plugin.resolveId(specifier as string, undefined);
-		assert.ok(id);
+		if (!id) continue;
 		const dependency = await plugin.load.call({ addWatchFile() {} }, id);
 		assert.ok(dependency);
 		await onDependency?.(dependency);
-		const url = `data:text/javascript,${encodeURIComponent(dependency)}`;
+		const url = `data:text/javascript,${encodeURIComponent(await bundleModuleSource(plugin, dependency, onDependency))}`;
 		source = source.replace(match[0], match[0].replace(match[1]!, JSON.stringify(url)));
 	}
-	return loadModule(source);
+	return source;
+}
+
+async function loadBundledModule(plugin: ReturnType<typeof createTranslationCatalogBundlePlugin>, source: string,
+	onDependency?: (source: string) => Promise<void>) {
+	return loadModule(await bundleModuleSource(plugin, source, onDependency));
 }
 
 test('compact catalogs retain translation tuples, provenance and community attribution exactly', async () => {
@@ -78,16 +86,109 @@ test('the bundle plugin only substitutes lazy imports from the generated catalog
 	assert.equal(plugin.resolveId('./hi.json?raw', importer), null);
 	assert.equal(plugin.resolveId('scape:translation-locale-text:unregistered', importer), null);
 	assert.equal(await plugin.load.call({ addWatchFile() {} }, '\0unrelated'), null);
-	const id = plugin.resolveId('./hi.json', importer);
+	const id = plugin.resolveId('./af.json', importer);
 	assert.equal(typeof id, 'string');
 	assert.ok(id);
 	const watched: string[] = [];
 	const source = await plugin.load.call({ addWatchFile: (path: string) => watched.push(path) }, id);
 	assert.ok(source);
-	const path = fileURLToPath(new URL('../src/common/i18n/translations/hi.json', import.meta.url));
+	const path = fileURLToPath(new URL('../src/common/i18n/translations/af.json', import.meta.url));
 	assert.deepEqual(watched, [path]);
 	const catalog: unknown = JSON.parse(await readFile(path, 'utf8'));
 	assert.deepEqual((await loadBundledModule(plugin, source)).default, catalog);
+});
+
+test('expanded locale fragments retain semantic owners and assemble the exact catalog', async (context) => {
+	const directory = await mkdtemp(join(tmpdir(), 'translation-catalog-owners-'));
+	context.after(() => rm(directory, { recursive: true, force: true }));
+	const translations = join(directory, 'src/common/i18n/translations');
+	await mkdir(translations, { recursive: true });
+	const entries = {
+		core: Object.fromEntries([['__proto__', ['human', 'Prototype', 'Prototype traduit']],
+			['ui.transport.play', ['audacity', 'Play', 'Lecture']]]),
+		motion: { 'ui.motionscaper.play': ['machine', 'Play motion', 'Lire le mouvement'] },
+		framescaper: {
+			'ui.framescaperNative.queuePause': ['human', 'Pause queue', 'Suspendre la file'],
+			'ui.framescaperFinishing.apply': ['machine', 'Apply finishing', 'Appliquer la finition'],
+		},
+	};
+	const catalog = { schemaVersion: 2, locale: 'fr',
+		provenance: { machine: { model: 'gpt-6-luna' }, audacity: { licenseSpdx: 'GPL-3.0-only' } },
+		entries: { ...entries.core, ...entries.motion, ...entries.framescaper },
+		community: { 'ui.framescaperNative.queuePause': { contributor: 'A translator' } } };
+	await writeFile(join(translations, 'fr.json'), JSON.stringify(catalog));
+	const plugin = createTranslationCatalogBundlePlugin();
+	const id = plugin.resolveId('./fr.json', join(translations, 'index.js'));
+	assert.ok(id);
+	const loader = { addWatchFile() {} };
+	let facade = await plugin.load.call(loader, id);
+	assert.ok(facade);
+	for (const owner of ['core', 'motion', 'framescaper'] as const) {
+		const partId: string = id.replace(/[.]mjs$/u, `.${owner}.mjs`);
+		assert.ok(facade.includes(`import(${JSON.stringify(partId)})`), `${owner} stays independently lazy.`);
+		const source = await plugin.load.call(loader, partId);
+		assert.ok(source);
+		assert.deepEqual((await loadModule(source)).default, entries[owner], owner);
+		facade = facade.replace(JSON.stringify(partId), JSON.stringify(`data:text/javascript,${encodeURIComponent(source)}`));
+	}
+	const built = await loadModule(facade);
+	assert.deepEqual(built.default, catalog);
+	for (const [key, value] of Object.entries(catalog)) assert.deepEqual(built[key], value);
+});
+
+test('production chunks preserve complete catalogs within the chunk budget', async (context) => {
+	const directory = await mkdtemp(join(tmpdir(), 'translation-catalog-bundle-'));
+	context.after(() => rm(directory, { recursive: true, force: true }));
+	const importer = fileURLToPath(new URL('../src/common/i18n/translations/index.js', import.meta.url));
+	const bundle = await rolldown({
+		input: importer,
+		preserveEntrySignatures: 'allow-extension',
+		plugins: [createTranslationCatalogBundlePlugin()],
+	});
+	try {
+		const result = await bundle.write({
+			dir: directory, format: 'es', minify: true, strictExecutionOrder: true,
+			entryFileNames: 'index.mjs', chunkFileNames: '[name]-[hash].mjs',
+			codeSplitting: { groups: chunkGroups, minSize: 20_000 },
+		});
+		const chunks = result.output.filter((item): item is OutputChunk => item.type === 'chunk');
+		for (const chunk of chunks) {
+			assert.ok(Buffer.byteLength(chunk.code) < 490_000,
+				`${chunk.fileName} must leave room under the unchanged 500 KB ceiling.`);
+		}
+		for (const owner of ['core', 'motion', 'framescaper']) {
+			assert.ok(chunks.some(chunk => chunk.fileName.startsWith(`translation-hi-${owner}-`)),
+				`The complete Hindi catalog must keep its ${owner} owner separate.`);
+		}
+		const entry = chunks.find(chunk => chunk.isEntry);
+		assert.ok(entry);
+		const pending = [entry];
+		const visited = new Set<string>();
+		for (const chunk of pending) {
+			if (visited.has(chunk.fileName)) continue;
+			visited.add(chunk.fileName);
+			assert.ok(Object.keys(chunk.modules).every(id => !id.startsWith('\0scape:translation-catalog:')),
+				'Catalog bytes stay behind the locale loader.');
+			for (const name of chunk.imports) {
+				const dependency = chunks.find(candidate => candidate.fileName === name);
+				assert.ok(dependency);
+				pending.push(dependency);
+			}
+		}
+		for (const name of entry.dynamicImports) {
+			const locale = chunks.find(chunk => chunk.fileName === name);
+			assert.ok(locale);
+			assert.ok(locale.imports.every(dependency => !dependency.startsWith('translation-')),
+				`${name} must keep expanded catalog data out of the boot preload list.`);
+		}
+		const built = await import(pathToFileURL(join(directory, 'index.mjs')).href) as {
+			TRANSLATION_CATALOG_LOADERS: Record<string, () => Promise<{ default: Record<string, unknown> }>>;
+		};
+		for (const [locale, load] of Object.entries(built.TRANSLATION_CATALOG_LOADERS)) {
+			const catalog: unknown = JSON.parse(await readFile(new URL(`../src/common/i18n/translations/${locale}.json`, import.meta.url), 'utf8'));
+			assert.deepEqual((await load()).default, catalog, locale);
+		}
+	} finally { await bundle.close(); }
 });
 
 test('the complete Hindi catalog fits the production chunk budget without removing entries', async () => {
@@ -106,7 +207,7 @@ test('the complete Hindi catalog fits the production chunk budget without removi
 		const minified = await transform(dependency, { minify: true, charset: 'utf8' });
 		assert.ok(Buffer.byteLength(minified.code) < 490_000, 'Each lazy text dependency stays below the unchanged chunk ceiling.');
 	});
-	assert.ok(dependencies >= 2, 'The real expanded Hindi catalog needs locale text beside the shared English text.');
+	assert.ok(dependencies >= 2, 'The expanded Hindi catalog keeps its data in separate lazy modules.');
 	assert.deepEqual(module.default, catalog);
 	for (const [key, value] of Object.entries(catalog)) assert.deepEqual(module[key], value);
 });

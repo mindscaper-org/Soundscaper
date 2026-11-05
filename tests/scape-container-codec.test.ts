@@ -28,14 +28,30 @@ function entry(filename: string, value: unknown): ScapeArchiveEntry {
 	};
 }
 
-function archive(): ScapeArchiveEntry[] {
+function archive(assetKind?: string): ScapeArchiveEntry[] {
 	const project = entry('project.json', identity);
+	const asset = entry('asset.bin', {});
 	return [entry('manifest.json', {
 		format: 'scape-project', formatVersion: 1,
 		project: { ...identity, entry: project.filename, size: project.uncompressedSize, sha256: '0'.repeat(64) },
-		assets: [],
-	}), project];
+		assets: assetKind === undefined ? [] : [{ sourceId: 'future', kind: assetKind, encoding: 'opaque',
+			entry: asset.filename, size: asset.uncompressedSize, sha256: '0'.repeat(64) }],
+	}), project, ...(assetKind === undefined ? [] : [asset])];
 }
+
+void test('Scape codecs may preserve bounded unknown asset kinds for a classified document identity', async () => {
+	const entries = archive('future-asset');
+	await assert.rejects(readScapeArchiveEnvelope(entries, codec), /invalid kind/u);
+	await assert.rejects(readScapeArchiveEnvelope(entries, { ...codec, preserveUnknownAssetKinds: () => false }), /invalid kind/u);
+	const preserving: ScapeFamilyCodec<'test-product'> = { ...codec, preserveUnknownAssetKinds: value => {
+		assert.deepEqual(value, identity);
+		return true;
+	} };
+	assert.equal((await readScapeArchiveEnvelope(entries, preserving)).manifest.assets[0]!.kind, 'future-asset');
+	for (const invalid of ['../asset', 'x'.repeat(65)]) {
+		await assert.rejects(readScapeArchiveEnvelope(archive(invalid), preserving), /invalid kind/u);
+	}
+});
 
 void test('Scape envelope delegates family identity and document parsing to its supplied codec', async () => {
 	const envelope = await readScapeArchiveEnvelope(archive(), codec);

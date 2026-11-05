@@ -38,6 +38,7 @@ interface FixtureOptions {
 	readonly enumerateDevices?: () => Promise<readonly RecordingRoutingMediaDevice[]>;
 	readonly acquireHardware?: (deviceId: string) => Promise<unknown>;
 	readonly persistSetting?: (key: string, value: unknown, options?: unknown) => Promise<unknown>;
+	readonly publishDocumentSnapshot?: (state: Readonly<RecordingRoutingState>) => void;
 	readonly getAudioContext?: (options: Readonly<{ resume?: boolean; sampleRate?: number }>) => Promise<unknown>;
 	readonly setOutputDevice?: (deviceId: string) => Promise<OutputDeviceResult>;
 }
@@ -146,7 +147,7 @@ export function createFixture(options: FixtureOptions = {}) {
 		productSettingKey: (key: string) => key,
 		getProject: () => project,
 		projectSampleRate: () => 48_000,
-		publishDocumentSnapshot: () => { publishes += 1; },
+		publishDocumentSnapshot: () => { publishes += 1; options.publishDocumentSnapshot?.(state); },
 		recordingCapturePool,
 		recordingRouteSourceKey: (route: RecordingInputRoute) => (
 			route.kind === 'display' ? 'display' : `device:${route.deviceId}`

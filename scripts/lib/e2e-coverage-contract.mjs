@@ -3,6 +3,7 @@
 import { diagnosticErrorMessage as errorMessage } from './diagnostic-error-message.ts';
 
 import { canonicalJson as stableJson } from './canonical-json.mjs';
+import { createRawV8SurfaceValidation } from './e2e-v8-profile-observations.ts';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { isAbsolute, sep } from 'node:path';
@@ -176,31 +177,9 @@ export function validateRawV8Surface(profiles, surface, inventory) {
 	if (!Array.isArray(profiles) || profiles.length === 0) {
 		return [`${surface} supplied no raw V8 coverage profiles.`];
 	}
-	const expected = new Map(inventory.scripts
-		.filter((script) => script.surface === surface)
-		.map((script) => [script.coverageUrl, script]));
-	const observed = new Set();
-	const failures = [];
-	for (const [index, profile] of profiles.entries()) {
-		if (!profile || !Array.isArray(profile.result)) {
-			failures.push(`${surface} raw V8 profile ${index + 1} has no result array.`);
-			continue;
-		}
-		for (const entry of profile.result) {
-			if (typeof entry?.url !== 'string' || entry.url === '') {
-				failures.push(`${surface} raw V8 profile ${index + 1} has an entry without a URL.`);
-				continue;
-			}
-			observed.add(entry.url);
-		}
-	}
-	if (![...observed].some((url) => expected.has(url))) {
-		failures.push(`${surface} supplied no admitted executable coverage entries.`);
-	}
-	for (const url of observed) {
-		if (!expected.has(url)) failures.push(`${surface} reported un-inventoried executable script ${url}.`);
-	}
-	return failures;
+	const validation = createRawV8SurfaceValidation(surface, inventory.scripts);
+	for (const profile of profiles) validation.observe(profile);
+	return validation.finish();
 }
 
 export function analyzeE2ECoverage({
