@@ -123,6 +123,9 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 				else throw new RangeError(`Unknown Allegro field: ${token}.`);
 			}
 			if (key !== null && !isNote && key < 128) { pitch = key; isNote = true; }
+			if (isNote && (attributes.has('tempor') || attributes.has('beatr'))) {
+				throw new RangeError('A note sharing a conductor update cannot retain its clock evaluation order. Use separate conductor and note lines.');
+			}
 			if (isNote && [...attributes.keys()].some(name => name !== 'tempor' && name !== 'beatr')) {
 				throw new RangeError('Note-attached Allegro attributes cannot be retained as MIDI channel updates. Use separate update lines.');
 			}
@@ -201,7 +204,7 @@ export function writeAllegroFile(document: MidiFileDocument): string {
 	const lines = ['#offset 0'];
 	const seconds = (frame: number): string => String(Number((frame / document.sampleRate).toFixed(10)));
 	for (const [index, track] of document.tracks.entries()) {
-		if (/[\r\n]/u.test(track.name)) throw new RangeError('A multiline track name cannot be represented in Allegro. Export MIDI instead.');
+		if (/[\r\n]/u.test(track.name) || track.name !== track.name.trim()) throw new RangeError('This track name cannot be represented verbatim in Allegro. Export MIDI instead.');
 		lines.push(`#track ${index} ${track.name}`);
 		if (index === 0) {
 			for (const tempo of document.tempos) lines.push(`T${seconds(tempo.frame)} -tempor:${tempo.bpm}`);

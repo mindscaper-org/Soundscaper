@@ -14,8 +14,8 @@ async function imported(name: string) {
 	return f;
 }
 
-test('Allegro export refuses a multiline admitted track name before silently changing it', async () => {
-	for (const name of ['Piano\nVerse', 'Piano\rVerse']) {
+test('Allegro export refuses admitted track names whose line grammar would change their text', async () => {
+	for (const name of ['Piano\nVerse', 'Piano\rVerse', '  Piano  ', '\tPiano', 'Piano\t']) {
 		const f = await imported(name);
 		await assert.rejects(f.service.exportFile('allegro'), /track name.*Allegro|Allegro.*track name/u);
 		assert.equal(f.saves.length, 0);
