@@ -302,3 +302,21 @@ test('regenerating a speech instance retains the private script of its Project B
 	assert.ok(regenerated.assistanceAssets.some(reference => reference.kind === 'tts-script-v1'
 		&& reference.sourceId === regenerated.clips[0]?.sourceId));
 });
+
+test('speech replacement refuses a locked owner before publishing audio or script bytes', async () => {
+	const digest = 'b'.repeat(64);
+	const prior = createAssistanceTtsScriptBodyPublicationV1({ assetId: 'script-original', text: 'Original voice',
+		language: 'a', voiceId: 'af_heart', speed: 1,
+		source: { sourceId: 'source-original', sourceSha256: digest, sourceStartFrame: 0, sourceEndFrame: 4 },
+		model: { modelId: REVIEWED.modelId, modelVersion: REVIEWED.modelVersion, artifactSha256s: REVIEWED.artifactSha256s },
+		recipe: { id: 'kokoro-text-to-speech', version: 1 } });
+	const project = { id: 'project-1', revision: 1, sampleRate: 48000, primarySequenceId: 'sequence-1',
+		sources: [{ id: 'source-original', contentSha256: digest, frameCount: 4, kind: 'audio' }],
+		clips: [{ id: 'selected', sourceId: 'source-original' }],
+		tracks: [{ id: 'owner', clipIds: ['selected'], locked: true }], assistanceAssets: [prior.reference] };
+	const state = fixture({ project, selectedClipId: 'selected', existingBodyBytes: prior.bytes });
+	assert.equal((await state.port.loadInitial())?.text, 'Original voice');
+	await assert.rejects(state.port.accept(REVIEWED), /locked/u);
+	assert.equal(state.bytesWritten, 0);
+	assert.deepEqual(state.commands, []);
+});

@@ -22,7 +22,9 @@ export default function LocalProcessingOverlays({ activeSurface, fileService, ca
 	readonly controller?: unknown;
 	readonly fileService: { readonly isDesktop: boolean; readonly bridge?: unknown };
 	readonly capabilities: { readonly assistanceAssets?: boolean };
-	readonly snapshot: { readonly project?: { readonly id: string } | null;
+	readonly snapshot: { readonly project?: { readonly id: string;
+		readonly tracks?: readonly Readonly<{ locked?: boolean; clipIds?: readonly string[] }>[] } | null;
+		readonly selectedClipId?: string | null;
 		readonly audioDevices?: { readonly playbackGain?: number; readonly preferredOutputDeviceId?: string } };
 	readonly copy: Readonly<Record<string, string>>;
 	readonly locale: string;
@@ -56,6 +58,8 @@ export default function LocalProcessingOverlays({ activeSurface, fileService, ca
 			<div data-editor-surface="text-to-speech"><TextToSpeechDialog
 				key={editorProjectEditSessionKey(controller, snapshot.project?.id)}
 				bridgeScope={fileService.bridge} projectPort={textToSpeechProjectPort ?? null}
+				replacementLocked={snapshot.project?.tracks?.some(track => track.locked === true
+					&& track.clipIds?.includes(snapshot.selectedClipId ?? '') === true) ?? false}
 				copy={copy} locale={locale} onClose={close} /></div>}
 		</Suspense>
 		</AudioEditorListeningOutputDeviceContext.Provider>

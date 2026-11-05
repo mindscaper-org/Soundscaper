@@ -4,6 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, closeClipProperties, commitInput, openClipProperties } from './audio-editor-test-helpers.js';
 import { installMilestone7LocalAssistanceFixture } from './helpers/milestone-7-local-assistance.js';
 import { createRound7SpeechPreviewBridge } from '../helpers/round7-speech-preview-bridge.ts';
+import { chooseTrackMenuAction } from './helpers/track-menu.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createSoundscaperScapeNativeRuntime } from '../../src/soundscaper/editor-scape-native.ts';
 
@@ -142,4 +143,34 @@ test('regenerating speech retains its original script for a Project Bin peer', a
 	await expect(speech.getByRole('textbox',{name:'Script', exact: true })).toHaveValue('The original retained narration.');
 	await speech.getByRole('button', { name: 'Generate preview', exact: true }).click();
 	await expect(speech.getByRole('button', { name: 'Replace selected speech clip', exact: true })).toBeEnabled();
+});
+
+test('locked speech replacement waits for an unlocked target while its preview remains available', async ({ page }) => {
+	await installMilestone7LocalAssistanceFixture(page);
+	await page.addInitScript(createRound7SpeechPreviewBridge, true);
+	const editor = await bootEditor(page, '/embed/en/');
+	await chooseCommandAction(page, editor, 'Generate', 'Text to Speech');
+	const speech = page.getByRole('dialog', { name: 'Text to Speech', exact: true });
+	await speech.getByRole('textbox', { name: 'Script', exact: true }).fill('A voice on a locked track.');
+	await speech.getByRole('button', { name: 'Generate preview', exact: true }).click();
+	await speech.getByRole('button', { name: 'Add as new track at playhead', exact: true }).click();
+	await expect(speech.getByText('Speech added on a new track.', { exact: true })).toBeVisible();
+	await speech.getByRole('button', { name: 'Close', exact: true }).last().click();
+	const clip = clipByName(editor, 'Generated Speech');
+	const track = clip.locator('xpath=ancestor::div[@data-track-row]');
+	await chooseTrackMenuAction(page, editor, track, 'Lock track');
+	await clip.locator('.clip-header').click();
+	await chooseCommandAction(page, editor, 'Generate', 'Text to Speech');
+	await expect(speech.getByRole('textbox', { name: 'Script', exact: true })).toHaveValue('A voice on a locked track.');
+	await speech.getByRole('button', { name: 'Generate preview', exact: true }).click();
+	await expect(speech.locator('audio')).toBeVisible();
+	await expect(speech.getByRole('button', { name: 'Replace selected speech clip', exact: true })).toBeDisabled();
+	await speech.getByRole('button', { name: 'Close', exact: true }).last().click();
+	await chooseTrackMenuAction(page, editor, track, 'Unlock track');
+	await clip.locator('.clip-header').click();
+	await chooseCommandAction(page, editor, 'Generate', 'Text to Speech');
+	await speech.getByRole('button', { name: 'Generate preview', exact: true }).click();
+	await expect(speech.getByRole('button', { name: 'Replace selected speech clip', exact: true })).toBeEnabled();
+	await speech.getByRole('button', { name: 'Replace selected speech clip', exact: true }).click();
+	await expect(speech.getByText('Selected speech clip replaced.', { exact: true })).toBeVisible();
 });

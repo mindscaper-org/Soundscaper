@@ -105,6 +105,7 @@ export function createTextToSpeechProjectPort(
 		if (!project || project.id !== openedProjectId) {
 			throw new Error('The project changed while speech was being reviewed.');
 		}
+		assertCurrent(project);
 		if (!(reviewed.audio instanceof Blob) || reviewed.audio.size < 1
 			|| reviewed.audio.size > MAXIMUM_OUTPUT_BYTES) {
 			throw new TypeError('Reviewed speech audio has an invalid size.');
@@ -180,6 +181,10 @@ export function createTextToSpeechProjectPort(
 			|| !current.clips.some(({ id, sourceId }) => id === selected.clipId
 				&& sourceId === selected.reference.sourceId))) {
 			throw new Error('The selected speech clip changed while it was being reviewed.');
+		}
+		if (selected && current.tracks.some(track => track.locked === true
+			&& Array.isArray(track.clipIds) && track.clipIds.includes(selected.clipId))) {
+			throw new Error('The selected speech track is locked.');
 		}
 	}
 
