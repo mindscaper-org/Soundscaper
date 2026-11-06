@@ -125,6 +125,8 @@ async play({ clockedStart = false } = {}) {
 			await this[ENGINE_ENSURE_MASTER_LOUDNESS_METER](context);
 			if (!playbackRequestIsCurrent(this, generation)) return;
 			await this[ENGINE_SCHEDULE_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds);
+		} catch (error) {
+			if (playbackRequestIsCurrent(this, generation)) throw error;
 		} finally {
 			if (this.pendingPlayRequest === request && this.state !== 'playing') resetPlaybackFrequencyRange(this);
 			if (this.pendingPlayRequest === request) { this.pendingPlayRequest = 0; setPendingPlaybackClocked(this, false); }
