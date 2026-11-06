@@ -28,8 +28,12 @@ test('MIDI export preserves edited clip extent and encloses quantized note-off e
 	assert.equal(parseMidiFile(writeMidiFile(exported)).tracks.find(track => track.notes.length)?.durationFrames, 84_000);
 	const document: MidiFileDocument = { sampleRate: 48_000, tracks: [{ name: 'Tiny', durationFrames: 1,
 		notes: [{ id: 'n', pitch: 60, velocity: 90, channel: 0, startFrame: 0, durationFrames: 1 }] }], tempos: [], signatures: [] };
-	const tiny = parseMidiFile(writeMidiFile(document)).tracks.find(track => track.notes.length)!;
-	assert.ok(tiny.durationFrames! >= tiny.notes[0]!.startFrame + tiny.notes[0]!.durationFrames);
+	const tinyBytes = writeMidiFile(document);
+	const tiny = parseMidiFile(tinyBytes).tracks.find(track => track.notes.length)!;
+	// All three deltas are zero: EOT encloses the actual release, while the model keeps its one-sample placeholder.
+	assert.deepEqual([...tinyBytes.slice(-12)], [0, 144, 60, 90, 0, 128, 60, 0, 0, 255, 47, 0]);
+	assert.equal(tiny.durationFrames, 0);
+	assert.equal(tiny.notes[0]!.durationFrames, 1);
 });
 
 test('Allegro unqualified named pitches use the format octave rather than the preceding note octave', () => {

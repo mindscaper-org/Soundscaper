@@ -313,8 +313,10 @@ export function writeMidiFile(document: MidiFileDocument): Uint8Array<ArrayBuffe
 				: note.onsetStop ? stops.get(identity) : undefined;
 			if (note.onsetStop && (stopOrder === undefined || !Number.isFinite(stopOrder))) throw new RangeError('MIDI export cannot preserve a same-frame panic without its unambiguous local causal event. Save the native project.');
 			const on = { tick: tick(note.startFrame), status: 144 | note.channel, data: [note.pitch, note.velocity], midiPort: note.midiPort, ...(stopOrder === undefined ? {} : { order: stopOrder }) };
-			const off = { tick: note.onsetStop ? tick(note.startFrame) : Math.max(tick(note.startFrame) + 1, tick(note.startFrame + note.durationFrames)),
-				status: 128 | note.channel, data: [note.pitch, note.releaseVelocity ?? 0], midiPort: note.midiPort };
+			const end = note.onsetStop ? on.tick : Math.max(on.tick, tick(note.startFrame + note.durationFrames));
+			// Coincident ordinary pairs retain insertion order; old key releases still precede retriggers.
+			const off = { tick: end, status: 128 | note.channel, data: [note.pitch, note.releaseVelocity ?? 0], midiPort: note.midiPort,
+				...(!note.onsetStop && end === on.tick ? { order: eventOrder(on) } : {}) };
 			noteOrder.register(on, off);
 			events.push(on, off);
 		}
