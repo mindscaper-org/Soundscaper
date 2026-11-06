@@ -17,6 +17,9 @@
  * upstream already applies one function later to the tracks being edited.
  */
 
+import { createIndexedBeatFrameProjector } from './indexed-tempo-projector.ts';
+import { resolveRuntimeTrackProjection, type RuntimeClipProject } from './runtime-clip-projection.ts';
+
 export interface LabeledAudioRegion {
 	readonly startFrame: number;
 	readonly endFrame: number;
@@ -33,6 +36,8 @@ export interface LabeledAudioTargets {
 }
 
 interface LabeledAudioLabel {
+	readonly anchor?: unknown;
+	readonly coordinateDomain?: unknown;
 	readonly startFrame?: unknown;
 	readonly endFrame?: unknown;
 }
@@ -45,6 +50,8 @@ interface LabeledAudioTrack {
 }
 
 interface LabeledAudioProject {
+	readonly sampleRate?: RuntimeClipProject['sampleRate'];
+	readonly tempoMap?: RuntimeClipProject['tempoMap'];
 	readonly tracks?: readonly LabeledAudioTrack[];
 }
 
@@ -66,8 +73,14 @@ export function selectLabeledAudioRegions(
 	const chosen = labelTracks.filter((track) => selectedIds.has(String(track.id)));
 	const sources = chosen.length > 0 ? chosen : labelTracks;
 	const regions: LabeledAudioRegion[] = [];
+	let beatFrame: ReturnType<typeof createIndexedBeatFrameProjector> | undefined;
 	for (const track of sources) {
-		for (const label of Array.isArray(track.labels) ? (track.labels as readonly LabeledAudioLabel[]) : []) {
+		const labels = Array.isArray(track.labels) ? (track.labels as readonly LabeledAudioLabel[]) : [];
+		const resolved = labels.some(label => label.anchor === 'musical' && label.coordinateDomain !== 'resolved-samples')
+			? resolveRuntimeTrackProjection({ sampleRate: project.sampleRate, tempoMap: project.tempoMap }, track,
+				(beat, tempoMap, sampleRate) => (beatFrame ??= createIndexedBeatFrameProjector(tempoMap, sampleRate))(beat)).labels
+			: labels;
+		for (const label of resolved as readonly LabeledAudioLabel[]) {
 			const startFrame = Number(label.startFrame);
 			const endFrame = Number(label.endFrame);
 			if (!Number.isSafeInteger(startFrame) || !Number.isSafeInteger(endFrame)) continue;
