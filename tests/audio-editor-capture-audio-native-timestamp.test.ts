@@ -82,10 +82,47 @@ test('native sub-quantum timestamp jitter preserves known sample continuity', as
 	assert.deepEqual(f.errors, []);
 });
 
-test('a native timestamp regression fails capture instead of silently reordering samples', async () => {
+test('native wall-clock bursts and regressions retain all ordered lossless PCM', async () => {
 	const f = await fixture(); await f.recorder.start(0);
-	await f.push(100_000); await f.push(90_000);
+	// Real Chromium WebAudio destination blocks: 10 ms of PCM can arrive
+	// with only 2 ms between estimated capture timestamps.
+	for (const timestamp of [4_052_355, 4_054_410, 4_053_000, 4_082_355]) await f.push(timestamp);
+	await f.recorder.stop(); await f.recorder.dispose();
+	assert.deepEqual(timing(f.packets), [[0, 40_000, 0]]);
+	assert.deepEqual(f.errors, []);
+});
+
+test('a long lossless native burst clock neither adds holes nor drifts from delivered sample counts', async () => {
+	const f = await fixture(); await f.recorder.start(20_000);
+	for (let index = 0; index < 1_000; index++) {
+		const timestamp = 1_000_000 + Math.floor(index / 10) * 100_000 + [0, 2_055, 1_000, 11_000, 12_000, 50_000, 51_000, 52_000, 80_000, 90_000][index % 10]!;
+		await f.push(timestamp);
+	}
+	await f.recorder.stop(); await f.recorder.dispose();
+	let deliveredFrames = 0;
+	for (const packet of f.packets) {
+		assert.equal(packet.kind, 'pcm-audio');
+		if (packet.kind !== 'pcm-audio') throw new Error('Native audio must produce PCM.');
+		assert.equal(packet.presentationTimeUs, Math.round((960 + deliveredFrames) * 1_000_000 / 48_000));
+		deliveredFrames += packet.frameCount;
+	}
+	assert.equal(deliveredFrames, 480_000);
+	assert.ok(f.packets.every(packet => packet.droppedBefore.value === 0));
+	assert.deepEqual(f.errors, []);
+});
+
+test('native loss with a backward timestamp fails instead of guessing its position', async () => {
+	const f = await fixture(); await f.recorder.start(0);
+	await f.push(100_000); await f.push(90_000, 1);
 	try { assert.match(String(f.errors[0]), /timestamp|backward|overlap/iu); }
+	finally { await Promise.resolve(f.recorder.stop()).catch(() => undefined); await Promise.resolve(f.recorder.dispose()).catch(() => undefined); }
+});
+
+test('loss after an unreliable native clock fails rather than inventing exact placement', async () => {
+	const f = await fixture(); await f.recorder.start(0);
+	await f.push(100_000); await f.push(102_055);
+	await f.push(112_055); await f.push(122_055); await f.push(152_055, 2);
+	try { assert.match(String(f.errors[0]), /ambiguous|unreliable/iu); }
 	finally { await Promise.resolve(f.recorder.stop()).catch(() => undefined); await Promise.resolve(f.recorder.dispose()).catch(() => undefined); }
 });
 

@@ -17,6 +17,7 @@ export function createFramescaperAudioDataFrameClock(sampleRate: number) {
 	let sharedStart: number | null = null, previousTimestamp: number | null = null;
 	let previousFrames = 0, nextFrame: number | null = null, seenDiscarded: number | null = null;
 	let seenTotal = 0, pendingDiscarded = 0;
+	let reliableLossClock = true;
 	return Object.freeze({
 		start(frame: number, counters: NativeAudioDataCounters): void {
 			if (counters.discardedFrames) throw new Error('Capture AudioData lost initial blocks before establishing its source clock.');
@@ -25,7 +26,6 @@ export function createFramescaperAudioDataFrameClock(sampleRate: number) {
 		map(timestamp: number, frames: number, counters: NativeAudioDataCounters): number {
 			if (sharedStart === null) throw new Error('Capture AudioData clock has not started.');
 			if (!Number.isSafeInteger(timestamp)) throw new RangeError('Capture AudioData timestamp must be an exact microsecond point.');
-			if (previousTimestamp !== null && timestamp < previousTimestamp) throw new Error('Capture AudioData timestamp moved backward.');
 			if (seenDiscarded !== null && (counters.discardedFrames < seenDiscarded || counters.totalFrames < seenTotal)) {
 				throw new Error('Capture AudioData counters moved backward.');
 			}
@@ -36,10 +36,16 @@ export function createFramescaperAudioDataFrameClock(sampleRate: number) {
 			// growth may therefore describe losses after an already-dequeued frame.
 			// Rounded native block intervals locate that loss; only the counter and
 			// fixed observed block size determine the exact number of missing samples.
-			const missingBlocks = previousTimestamp === null ? 0 : roundRational(
+			const timestampMissingBlocks = previousTimestamp === null ? 0 : roundRational(
 				(BigInt(timestamp) - BigInt(previousTimestamp)) * BigInt(sampleRate),
 				1_000_000n * BigInt(previousFrames), 'point') - 1;
-			if (missingBlocks < 0) throw new Error('Capture AudioData timestamps overlap.');
+			// Native FIFO order and zero discard evidence retain every PCM block.
+			// WebAudio destinations timestamp estimated capture with TimeTicks::Now(),
+			// so their wall-clock bursts must not reorder or shorten that PCM.
+			if (!pendingDiscarded && timestampMissingBlocks !== 0) reliableLossClock = false;
+			if (pendingDiscarded && !reliableLossClock) throw new Error('Capture AudioData loss has an unreliable timestamp clock; exact placement is ambiguous.');
+			const missingBlocks = pendingDiscarded ? timestampMissingBlocks : 0;
+			if (missingBlocks < 0) throw new Error('Capture AudioData timestamps overlap across discarded media.');
 			if (missingBlocks > pendingDiscarded) throw new Error('Capture AudioData timestamp gap lacks native discard evidence.');
 			const frameStart = (nextFrame ?? sharedStart) + missingBlocks * previousFrames;
 			if (!Number.isSafeInteger(frameStart) || frameStart < 0 || !Number.isSafeInteger(frameStart + frames)) {
