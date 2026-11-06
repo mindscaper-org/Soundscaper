@@ -16,6 +16,11 @@ for (const [field, value] of [['pitchCents', '2'], ['speedRatio', '200']]) {
 		await importFiles(editor, [recording]);
 		const clip = clipByName(editor, recording.name);
 		await clip.locator('.clip-header').click();
+		if (field === 'pitchCents') {
+			const ordinary = await openClipProperties(page, editor, clip);
+			await commitInput(clipField(ordinary, field), value);
+			await closeClipProperties(ordinary);
+		}
 		await chooseNestedCommandAction(page, editor, 'Effect', ['Pitch and tempo', 'Audio warp and transients']);
 		const warp = page.getByRole('dialog', { name: 'Audio warp and transients', exact: true });
 		await warp.getByRole('button', { name: 'Create identity warp map', exact: true }).click();
@@ -26,7 +31,8 @@ for (const [field, value] of [['pitchCents', '2'], ['speedRatio', '200']]) {
 		await warp.getByRole('button', { name: 'Close', exact: true }).click();
 		const properties = await openClipProperties(page, editor, clip);
 		await expectClipMediaSettingChecked(properties, 'Link pitch and tempo', false);
-		await commitInput(clipField(properties, field), value);
+		if (field === 'pitchCents') await expect(clipField(properties, field)).toBeDisabled();
+		else await commitInput(clipField(properties, field), value);
 		await expect(clipField(properties, field)).toHaveValue(value);
 		await closeClipProperties(properties);
 		const before = await exportSamples(page, editor);

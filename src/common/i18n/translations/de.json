@@ -546,6 +546,7 @@
 		"clipGroup": ["machine","Group","Gruppe"],
 		"clipIn": ["machine","Source in","Quellanfang"],
 		"clipInSource": ["machine","Clip in its source","Clip in seiner Quelle"],
+		"clipIndependentPitchWarp": ["human","Independent pitch editing is unavailable while an audio warp map controls playback.","Eine unabhängige Tonhöhenänderung ist nicht verfügbar, solange eine Audio-Warp-Map die Wiedergabe steuert."],
 		"clipIndependentTimePitchChannels": ["machine","Independent pitch and tempo editing supports mono or stereo sources. Enable Link pitch and tempo to change the speed of this multichannel recording.","Unabhängige Tonhöhen- und Tempoänderungen unterstützen Mono- oder Stereoquellen. Aktiviere Tonhöhe und Tempo verknüpfen, um die Geschwindigkeit dieser Mehrkanalaufnahme zu ändern."],
 		"clipLastEnd": ["machine","Last end","Letztes Ende"],
 		"clipLengthField": ["machine","Length","Länge"],

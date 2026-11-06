@@ -7,6 +7,7 @@ import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import type { ClipPropertiesFocusRequest } from '../../controller/composition/clip-properties-panel-opening.ts';
 import { END_FADE_SHAPE_PRESETS } from '../../clip-fade-presets.ts';
 import { readClipLoop } from '../../audio-clip-loop.ts';
+import { clipPitchEditingAvailable } from '../../clip-time-pitch-playback-projection.ts';
 import { collectClipTransformIds } from '../../commands/clip-basic-runtime.js';
 import { clipGestureBlocked } from '../timeline/clip-gesture-admission.ts';
 import type { ClipSourceTimingProject, ClipSourceTimingSource } from '../../clip-source-timing.ts';
@@ -124,6 +125,7 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 	const enabled = !blocked;
 	const capabilities = snapshot.capabilities as { readonly audioEffects?: boolean } | undefined;
 	const timePitchEnabled = enabled && capabilities?.audioEffects !== false;
+	const pitchAvailable = presentation.clips.every(clipPitchEditingAvailable);
 	const mediaControls = clipAudioPropertyControls({ clips: presentation.clips, source, copy, actions: editor.actions.clip,
 		disabled: !timePitchEnabled, run, update, setTimePitch });
 	const shapeLabels: Record<string, string> = { linear: copy.fadeShapeLinear, logarithmic: copy.fadeShapeLogarithmic,
@@ -151,16 +153,18 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 				onTrimEndChange={enabled && !readClipLoop(clip ?? {}) ? seconds => trim('end', seconds) : undefined}
 				onFadeChange={enabled && project ? (side, seconds) => setFade(side, Math.round(seconds * project.sampleRate)) : undefined}
 				onFadeShapeChange={enabled ? (side, id) => { const preset = END_FADE_SHAPE_PRESETS.find(preset => preset.id === id); if (preset) update(() => ({ [side === 'in' ? 'fadeInShape' : 'fadeOutShape']: preset.shape })); } : undefined}
-				pitchControl={<NumberField testId="pitch" label={pitchUnit === 'percent' ? copy.clipPitchPercent : copy.clipPitchField}
+				pitchControl={<div data-clip-pitch-admission role="group" aria-label={copy.clipPitchField}
+					title={pitchAvailable ? undefined : copy.clipIndependentPitchWarp} aria-description={pitchAvailable ? undefined : copy.clipIndependentPitchWarp}>
+					<NumberField testId="pitch" label={pitchUnit === 'percent' ? copy.clipPitchPercent : copy.clipPitchField}
 					glyph={<ClipPitchUnitToggle unit={pitchUnit} onChange={setPitchUnit} copy={copy} />}
 					value={presentation.selection?.pitchSemitones === 'mixed' ? 'mixed' : Number(clipPitchInUnit((presentation.selection?.pitchSemitones ?? presentation.clip?.pitchSemitones ?? 0) * 100, pitchUnit))}
 					step={pitchUnit === 'percent' ? 0.1 : 1} digits={pitchUnit === 'percent' ? 3 : 2}
-					onCommit={timePitchEnabled ? value => { run(() => {
+					onCommit={timePitchEnabled && pitchAvailable ? value => { run(() => {
 						if (presentation.clips.every(clip => clip.linkPitchAndTempo)) setTimePitch({ speedRatio: clipLinkedPitchSpeed(value, pitchUnit, copy.clipLinkedPitchRange) });
 						else setTimePitch({ pitchCents: clipPitchUnitToCents(value, pitchUnit, copy) });
-					}); } : undefined} />}
+					}); } : undefined} /></div>}
 				onSpeedChange={timePitchEnabled ? percent => setTimePitch({ speedRatio: percent / 100 }) : undefined}
-				onReverseChange={timePitchEnabled && !presentation.clips.some(clip => (clip as { readonly warpMap?: unknown }).warpMap != null) ? reversed => update(() => ({ reversed })) : undefined}
+				onReverseChange={timePitchEnabled && !presentation.clips.some(clip => clip.warpMap != null) ? reversed => update(() => ({ reversed })) : undefined}
 				resetPitchSpeedDisabled={presentation.clips.every(clip => (clip.pitchCents ?? 0) === 0 && (clip.speedRatio ?? 1) === 1 && !clip.preserveFormants)}
 				onResetPitchSpeed={timePitchEnabled ? () => setTimePitch({ pitchCents: 0, speedRatio: 1, preserveFormants: false }) : undefined} />
 		</fieldset>
