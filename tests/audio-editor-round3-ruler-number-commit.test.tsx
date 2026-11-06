@@ -30,7 +30,7 @@ test('the ruler field commits complete finite numbers and refuses incomplete or 
 		for (const text of ['', '1e', '1000Hz', 'Infinity', '23000', '-2']) {
 			changes.length = 0;
 			await act(async () => { reactProps(input).onChange({ target: { value: text } }); });
-			await act(async () => { reactProps(field).onBlur(); });
+			await act(async () => { reactProps(field).onBlur({ currentTarget: field, relatedTarget: null }); });
 			assert.deepEqual(changes, [], text);
 			assert.equal(input.value, '20000', 'refusal restores the saved value');
 		}

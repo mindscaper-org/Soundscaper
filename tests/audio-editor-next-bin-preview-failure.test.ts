@@ -74,7 +74,7 @@ test('a superseded failed engine start cannot clear another bin audition', async
 		await started;
 		await owner.preview.playPauseProjectBinClip('second');
 		release();
-		await assert.rejects(first, /Old output failed/u);
+		await assert.rejects(first, { name: 'AbortError' });
 		assert.equal(owner.active?.clipId, 'second');
 		assert.equal(owner.active?.state, 'playing');
 		assert.ok((context.bufferSources as unknown as readonly SourceNode[]).some(node => node.started && !node.stopped));

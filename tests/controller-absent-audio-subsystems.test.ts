@@ -46,6 +46,10 @@ test('an absent subsystem refuses the work it was never composed for', async () 
 			}
 			if (SILENT_MEMBERS.has(member)) continue;
 			const call = value as (...args: readonly unknown[]) => unknown;
+			if (name === 'selectionEffectExecution' && member === 'readSelectionTargetLocked') {
+				assert.equal(call(), false, 'an absent selection has no target lock');
+				continue;
+			}
 			if (SYNCHRONOUS_MEMBERS.has(member)) {
 				assert.throws(() => call(), /Framescaper does not compose/u, `${name}.${member}`);
 				continue;

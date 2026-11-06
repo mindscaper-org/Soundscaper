@@ -7,14 +7,18 @@ import { integratedLoudnessPower } from '../src/common/editor/audacity-effects/b
 import { createEbuR128Meter, createFixedWeightEbuR128Meter } from '../src/common/editor/ebu-r128.js';
 import { measureBextLoudness } from '../src/common/editor/broadcast-loudness.ts';
 
-test('split at silences stops reading once its first 128 deliverable regions are known', () => {
-	const pcm = Float32Array.from({ length: 11_001 }, (_, frame) => frame % 11 === 0 ? 0.5 : 0);
+test('split at silences refuses partial results as soon as its region limit is exceeded', () => {
 	let reads = 0;
-	const regions = findClipSilenceRegions({ timelineStartFrame: 0, durationFrames: pcm.length, sourceStartFrame: 0 }, {
-		sampleRate: 1_000, numberOfChannels: 1, getChannelData() { reads += 1; return pcm; },
+	const pcm = new Proxy(Float32Array.from({ length: 11_001 }, (_, frame) => frame % 11 === 0 ? 0.5 : 0), {
+		get(target, key) {
+			if (typeof key === 'string' && /^\d+$/u.test(key)) reads++;
+			return Reflect.get(target, key, target) as unknown;
+		},
 	});
-	assert.deepEqual(regions, Array.from({ length: 128 }, (_, index) => [index * 11 + 1, index * 11 + 11]));
-	assert.ok(reads <= 1_410, `the returned region limit also bounds scanning; received ${reads} reads`);
+	assert.throws(() => findClipSilenceRegions({ timelineStartFrame: 0, durationFrames: pcm.length, sourceStartFrame: 0 }, {
+		sampleRate: 1_000, numberOfChannels: 1, getChannelData() { return pcm; },
+	}), /More than 128 silent regions/u);
+	assert.equal(reads, 1_420, 'the 129th region refuses before scanning the remaining source');
 });
 
 test('fixed-weight loudness retains all-channel peak, RMS and complete programme measurements', () => {
