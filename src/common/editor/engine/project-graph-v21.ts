@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { connectSurroundMonitoring } from '../surround-monitoring.ts';
+import { inheritsTrackFolderMuteV12 } from '../track-folder-media-runtime.ts';
 import { resolveTerminalChannelWidths, stereoStripPanAvailable } from '../terminal-channel-widths.ts';
 import { createAdmProgrammeRouter } from './adm-programme-routing.ts';
 import { normalizeAutomationLaneV21 } from '../automation-lane-v21.ts';
@@ -222,6 +223,7 @@ export function buildProjectGraphV21(
 			}, latencyFrames));
 		}
 		const gate = addNode(nodes, context.createGain());
+		const inheritedMute = strip.ref.kind === 'track' && strip.mute && inheritsTrackFolderMuteV12(project, strip.ref.id);
 		const audible = (!respectMuteSolo || !strip.mute) && soloActive(strip.key);
 		setParam(gate.gain, audible ? 1 : 0, context.currentTime);
 		registerStripParam(
@@ -230,7 +232,7 @@ export function buildProjectGraphV21(
 			'mute',
 			gate.gain,
 			latencyFrames,
-			(value) => respectMuteSolo && soloActive(strip.key) ? 1 - value : respectMuteSolo ? 0 : 1,
+			(value) => respectMuteSolo && !inheritedMute && soloActive(strip.key) ? 1 - value : respectMuteSolo ? 0 : 1,
 			activeStripParameters,
 		);
 		connect(output, gate);
