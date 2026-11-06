@@ -41,6 +41,8 @@ for (const locale of ['en', 'ar']) for (const side of ['left', 'right']) test(`$
 		if (side === 'left') expect(target.x + target.width).toBeLessThan(workspace.x + workspace.width / 2);
 		else expect(target.x).toBeGreaterThan(workspace.x + workspace.width / 2);
 		await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 8 });
+		// WebKit needs another move inside the target to deliver dragover before drop.
+		await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2);
 		await page.mouse.up();
 	} finally { await page.mouse.up(); }
 	await expect(editor.locator(`[data-panel-dock="${side}"] [data-workspace-panel="project-bin"]`)).toBeVisible();
