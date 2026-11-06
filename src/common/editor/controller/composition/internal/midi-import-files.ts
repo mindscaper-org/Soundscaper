@@ -3,6 +3,7 @@ import type { MidiService } from '../../track-audio/midi-service-types.ts';
 import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 import { isImportFileName } from '../../../import-file-extensions.ts';
 import { EditorProjectChangedError } from '../../shared/lifecycle.ts';
+import { isLegacyAupFile } from '../../shared/app-helpers.ts';
 
 interface MidiImportOptions extends Readonly<Record<string, unknown>> {
 	readonly timelineStartFrame?: number;
@@ -52,16 +53,23 @@ export function createMidiImportFiles(scope: MidiImportRuntime,
 			}));
 			assertCurrent(context);
 			if (!kinds.some(kind => kind !== 'other')) return scope.importFiles(files, options);
+			const entries = files.map((file, index) => ({ kind: kinds[index]!, files: [file] }));
+			const ordinary = entries.filter(entry => entry.kind === 'other');
+			// A legacy document and its selected block files form one ordinary import.
+			// Open that document before appending MIDI, regardless of picker order.
+			const queue = ordinary.some(entry => isLegacyAupFile(entry.files[0]))
+				? [{ kind: 'other', files: ordinary.flatMap(entry => entry.files) }, ...entries.filter(entry => entry.kind !== 'other')]
+				: entries;
 			let result: unknown;
 			let failure: Readonly<{ error: unknown }> | null = null;
 			let placedFiles = 0;
 			const retainsTrackPlacement = options.destination === 'timeline' && typeof options.trackId === 'string';
-			for (let index = 0; index < files.length; index += 1) {
+			for (const entry of queue) {
 				options.signal?.throwIfAborted();
 				assertCurrent(context);
-				const file = files[index]!;
-				if (kinds[index] === 'other') {
-					result = await scope.importFiles([file], retainsTrackPlacement ? { ...options, fileIndexOffset: placedFiles } : options);
+				const file = entry.files[0]!;
+				if (entry.kind === 'other') {
+					result = await scope.importFiles(entry.files, retainsTrackPlacement ? { ...options, fileIndexOffset: placedFiles } : options);
 					if (result && typeof result === 'object' && 'cancelled' in result && result.cancelled === true) return result;
 					if (result && typeof result === 'object' && 'importedFileCount' in result
 						&& typeof result.importedFileCount === 'number' && Number.isSafeInteger(result.importedFileCount) && result.importedFileCount > 0) placedFiles += result.importedFileCount;
@@ -71,7 +79,7 @@ export function createMidiImportFiles(scope: MidiImportRuntime,
 					const { MIDI_FILE_MAX_BYTES } = await import('../../../midi-file-types.ts');
 					if (file.size !== undefined && file.size > MIDI_FILE_MAX_BYTES) throw new RangeError('MIDI files cannot exceed 16 MiB.');
 					const sampleRate = context.project?.sampleRate ?? 48_000;
-					const parse = kinds[index] === 'midi'
+					const parse = entry.kind === 'midi'
 						? async () => {
 							const { parseMidiFile } = await import('../../../midi-file.ts');
 							const bytes = await readMidiBytes(file, options.signal);
