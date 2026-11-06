@@ -255,7 +255,8 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 		if (!project.clips.length && importedTiming) {
 			const signature = midiInitialTimingEvent(importedTiming.signatures);
 			const tempo = midiInitialTimingEvent(importedTiming.tempos);
-			commands.push({ type: 'tempo/set', ...(tempo ? { bpm: tempo.bpm } : {}),
+			// Source tempos have a wider range than the optional global project clock.
+			commands.push({ type: 'tempo/set', ...(tempo && tempo.bpm >= 1 && tempo.bpm <= 1_000 ? { bpm: tempo.bpm } : {}),
 				...(signature ? { numerator: signature.numerator, denominator: signature.denominator } : {}) });
 		}
 		const created: { trackId: string; clipId: string }[] = [];
