@@ -304,8 +304,8 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 			{menu?.kind === 'view' ? <>
 				{AUDIO_EDITOR_TRACK_DISPLAY_MODES.map(mode => <ContextMenuItem key={mode} label={labels[mode]} checked={displayMode === mode} onClick={() => setDisplayMode(mode)} onClose={() => setMenu(null)} />)}
 				<ContextMenuItem isDivider />
-				<ContextMenuItem label={copy.zoomIn} onClick={() => setVerticalZoom(Math.min(10, verticalZoom + 1))} onClose={() => setMenu(null)} />
-				<ContextMenuItem label={copy.zoomOut} onClick={() => setVerticalZoom(Math.max(0, verticalZoom - 1))} onClose={() => setMenu(null)} />
+				<ContextMenuItem label={copy.zoomIn} disabled={displayMode === 'spectrogram'} onClick={() => setVerticalZoom(Math.min(10, verticalZoom + 1))} onClose={() => setMenu(null)} />
+				<ContextMenuItem label={copy.zoomOut} disabled={displayMode === 'spectrogram'} onClick={() => setVerticalZoom(Math.max(0, verticalZoom - 1))} onClose={() => setMenu(null)} />
 			</> : <>
 				<ContextMenuItem label={copy.clipSourceAddMarker} disabled={blocked || !menu || menu.frame <= range.startFrame || menu.frame >= range.endFrame} onClick={() => run(() => controller.actions.audioWarp.addSourceMarker(clipId, sourceAt(menu!.frame)))} onClose={() => setMenu(null)} />
 				<ContextMenuItem label={copy.selectAll} onClick={() => run(() => applySelection({ startFrame: 0, endFrame: range.totalFrames }))} onClose={() => setMenu(null)} />
