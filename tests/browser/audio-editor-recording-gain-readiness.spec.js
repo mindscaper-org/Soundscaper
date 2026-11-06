@@ -14,21 +14,14 @@ for (const when of ['before', 'during']) test(`Record level zero ${when} cold re
 	await page.addInitScript(() => {
 		globalThis.__recordGainPeaks = [];
 		globalThis.__recordGainPreparing = false;
-		const NativeContext = AudioContext;
-		globalThis.AudioContext = class extends NativeContext {
-			constructor(...args) {
-				super(...args);
-				const worklet = this.audioWorklet;
-				const addModule = worklet.addModule.bind(worklet);
-				worklet.addModule = async (url, ...options) => {
-					// Preserve the real module and processor; delay only its cold readiness.
-					if (String(url).includes('recording-worklet-')) {
-						globalThis.__recordGainPreparing = true;
-						await new Promise(resolve => { globalThis.__releaseRecordGain = resolve; });
-					}
-					return addModule(url, ...options);
-				};
+		const addModule = Worklet.prototype.addModule;
+		Worklet.prototype.addModule = async function (url, ...options) {
+			// Intercept either AudioContext constructor alias and retain native PCM.
+			if (String(url).includes('recording-worklet-')) {
+				globalThis.__recordGainPreparing = true;
+				await new Promise(resolve => { globalThis.__releaseRecordGain = resolve; });
 			}
+			return Reflect.apply(addModule, this, [url, ...options]);
 		};
 		const NativeWorklet = AudioWorkletNode;
 		globalThis.AudioWorkletNode = class extends NativeWorklet {
