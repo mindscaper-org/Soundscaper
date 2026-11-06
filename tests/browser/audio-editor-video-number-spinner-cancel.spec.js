@@ -14,9 +14,14 @@ test('video exact-number Escape retires native spinner repeats through release',
 	const input = rack.locator('[data-video-effect-type="color-adjust"] [data-video-effect-param="brightness"] input[type="number"]');
 	await expect(input).toHaveValue('0');
 	await input.scrollIntoViewIfNeeded();
+	// Expose WebKit's native spinner before measuring and holding its increment arrow.
+	await input.focus();
+	await expect(input).toBeFocused();
+	await input.hover();
 	const box = await input.boundingBox();
 	expect(box).not.toBeNull();
-	await page.mouse.move(box.x + box.width - 8, box.y + box.height / 4);
+	const padding = await input.evaluate(field => Number.parseFloat(getComputedStyle(field).paddingRight));
+	await page.mouse.move(box.x + box.width - padding - 7, box.y + box.height / 2 - 4);
 	await page.mouse.down();
 	try {
 		await expect.poll(async () => Number(await input.inputValue())).toBeGreaterThan(.01);
