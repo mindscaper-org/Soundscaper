@@ -15,7 +15,7 @@ export function normalizeMediaMetadata(value: unknown = {}): Readonly<Record<str
 	const result: Record<string, string> = {};
 	for (const [rawKey, rawValue] of entries) {
 		const key = String(rawKey).trim();
-		if (!/^[A-Za-z0-9_.-]{1,64}$/.test(key)) throw new RangeError(`Invalid metadata field name: ${rawKey}.`);
+		if (!/^[A-Za-z0-9_. -]{1,64}$/.test(key)) throw new RangeError(`Invalid metadata field name: ${rawKey}.`);
 		const standardKey = key.toLowerCase().replace(/[^a-z0-9]/gu, '');
 		const text = String(rawValue);
 		// eslint-disable-next-line no-control-regex
