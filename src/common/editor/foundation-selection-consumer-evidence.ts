@@ -4,6 +4,17 @@ import type { FoundationRuntimeConsumerEvidence } from './foundation-runtime-con
 /** Label presentation, selected spans and track-header ranges own native timing boundaries. */
 export const FOUNDATION_SELECTION_RUNTIME_CONSUMERS: readonly FoundationRuntimeConsumerEvidence[] = [
 	{
+		id: 'native-adjacent-clip-selection', surface: 'navigation',
+		file: 'src/common/editor/controller/track-audio/internal/clip-selection-navigation-service.ts',
+		entryPoint: 'nativeAdjacentClipRange', inputIdentifier: 'project', projectedIdentifier: 'range', boundary: 'resolveSelectionRange',
+		evidence: 'Native adjacent-clip navigation resolves the current header selection before comparing its sample boundaries against the projected audio candidates.',
+	},
+	{
+		id: 'midi-panel-selected-clip', surface: 'timeline', file: 'src/common/editor/ui/workspace/midi-panel-projection.ts',
+		entryPoint: 'resolveMidiPanelClip', inputIdentifier: 'timingProject', projectedIdentifier: null, boundary: 'resolveRuntimeClipProjection',
+		evidence: 'The piano roll resolves the selected persisted musical clip through the normalized project tempo before its source editor consumes sample coordinates.',
+	},
+	{
 		id: 'native-clip-join-availability', surface: 'timeline', file: 'src/common/editor/commands/clip-join-availability.ts',
 		entryPoint: 'clipJoinAvailabilityProject', inputIdentifier: 'project', projectedIdentifier: 'clips', boundary: 'resolveRuntimeClipProjection',
 		evidence: 'Join preflight resolves selected musical audio timing before measuring adjacency; command mutation retains the authored timing authority.',

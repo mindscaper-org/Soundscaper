@@ -18,7 +18,8 @@ export type MidiPanelProject = Pick<EditorProject, 'id' | 'sampleRate' | 'source
 };
 
 export function resolveMidiPanelClip(project: MidiPanelProject, clip: MidiPanelAudioClip): EditorAudioClip {
-	return resolveRuntimeClipProjection({ ...project, tempoMap: midiProjectTiming(project).tempoMap }, clip);
+	const timingProject = { ...project, tempoMap: midiProjectTiming(project).tempoMap };
+	return resolveRuntimeClipProjection(timingProject, clip);
 }
 
 /** Each pending publication owns one sparse, ordered note projection. */

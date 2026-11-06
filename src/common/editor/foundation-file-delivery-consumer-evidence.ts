@@ -4,6 +4,11 @@ import type { FoundationRuntimeConsumerEvidence } from './foundation-runtime-con
 
 export const FOUNDATION_FILE_DELIVERY_RUNTIME_CONSUMERS: readonly FoundationRuntimeConsumerEvidence[] = Object.freeze([
 	{
+		id: 'midi-clip-pitch-delivery-report', surface: 'interchange', file: 'src/common/editor/midi-file-delivery-report.ts',
+		entryPoint: 'addClipPitchOmissions', inputIdentifier: 'project', projectedIdentifier: 'clip', boundary: 'resolveRuntimeClipProjection',
+		evidence: 'MIDI delivery diagnostics resolve each authored clip before deriving the audible pitch shift omitted by the exported source-note stream.',
+	},
+	{
 		id: 'blender-stem-musical-range', surface: 'audio-export', file: 'src/common/editor/controller/export/blender-publication.ts',
 		entryPoint: 'publishBlenderTracks', inputIdentifier: 'original', projectedIdentifier: 'project', boundary: 'projectForRuntimeConsumers',
 		evidence: 'Blender stem publication resolves the authored project before computing track durations and render boundaries, preserving current musical placement through the desktop bridge.',
