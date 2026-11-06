@@ -18,7 +18,7 @@ export const { createRecordingCapturePool } = await import('../../src/common/edi
 
 export const { createProjectStore } = await import('../../src/common/editor/storage.js');
 
-export function createCapturePool({ hardware = {}, display = null, hardwareFailures = new Set() } = {}) {
+export function createCapturePool({ hardware = {}, display = /** @type {ReturnType<typeof createMockStream> | null} */ (null), hardwareFailures = new Set() } = {}) {
 	const hardwareEntries = new Map();
 	let displayEntry = null;
 	let disposed = false;

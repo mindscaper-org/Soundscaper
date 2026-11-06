@@ -494,9 +494,11 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		dependencies.publishDocumentSnapshot();
 		return state.latencyOffsetMs;
 	};
-	const setRecordingInputGain = (value: unknown) => (
-		microphoneMeter.setRecordingInputGain(value, normalizeRecordingInputGain)
-	);
+	const setRecordingInputGain = (value: unknown) => {
+		const gain = microphoneMeter.setRecordingInputGain(value, normalizeRecordingInputGain);
+		if (state.recordingKind === 'take-cycle' && state.recordingStarting) takeCycle.routed.setInputGain(gain);
+		return gain;
+	};
 	const invalidateTakeCycleRecording = async (reason: unknown): Promise<void> => {
 		state.recordingStartGeneration += 1;
 		takeCycle.cancel(reason);

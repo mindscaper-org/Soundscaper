@@ -36,11 +36,7 @@ import type {
 	TakeCycleRoutedCaptureStartRequest,
 	TakeCycleRoutedLaneResult,
 } from './take-cycle-routed-capture-types.ts';
-import type {
-	RecordingCaptureChunk,
-	RecordingRoute,
-	RecordingTrack,
-} from '../../recording-transaction-types.ts';
+import type { RecordingCaptureChunk } from '../../recording-transaction-types.ts';
 import type { RecordingCaptureControllerLike, RecordingStartScope } from '../recording-session-service.ts';
 import {
 	pauseTakeCycleCaptureTransport,
@@ -48,9 +44,9 @@ import {
 	settleTakeCycleCaptureControllers,
 	settleTakeCycleRecordingSessionAfterInterruption,
 } from './take-cycle-routed-capture-settlement.ts';
-import { acquireTakeCycleRoutedSources } from './take-cycle-routed-source-acquisition.ts';
+import { acquireTakeCycleRoutedLiveSources } from './take-cycle-routed-source-acquisition.ts';
 import { startTakeCycleRoutedPlayback } from './take-cycle-routed-playback-start.ts';
-import { createTakeCycleRoutedCaptureControls } from './take-cycle-routed-capture-controls.ts';
+import { createTakeCyclePendingInputBinding, createTakeCycleRoutedCaptureControls, synchronizeTakeCycleInputGain } from './take-cycle-routed-capture-controls.ts';
 export type {
 	TakeCycleRoutedCaptureEngine,
 	TakeCycleRoutedCaptureProject,
@@ -71,10 +67,12 @@ export function createTakeCycleRoutedCaptureService(
 	let stopPromise: Promise<TakeCycleRoutedCaptureResult> | null = null;
 	let lastResult: TakeCycleRoutedCaptureResult | null = null;
 	let inputsOwned = false;
+	const pendingInput = createTakeCyclePendingInputBinding();
 	return createTakeCycleRoutedCaptureControls(
 		() => phase === 'active' ? activeCapture?.sources ?? null : null,
 		start,
 		stop,
+		pendingInput.read,
 	);
 	async function start(
 		requestValue: TakeCycleRoutedCaptureStartRequest,
@@ -189,7 +187,8 @@ export function createTakeCycleRoutedCaptureService(
 			};
 		});
 		inputsOwned = true;
-		const sources = await acquireSources(plan.groups, lanes, runtime.recordingInputSampleRate?.() ?? project.sampleRate, scope.reusePreparedInputsOnly === true);
+		const sources = await acquireTakeCycleRoutedLiveSources(plan.groups, lanes, runtime.recordingInputSampleRate?.() ?? project.sampleRate,
+			runtime, failLane, scope.reusePreparedInputsOnly === true);
 		assertScopeCurrent(scope, project.id);
 		if (!sources.some(({ lanes: sourceLanes }) => sourceLanes.length)) {
 			throw new Error('No routed take cycle inputs are available.');
@@ -220,6 +219,7 @@ export function createTakeCycleRoutedCaptureService(
 			publicationGeneration: session.publicationGeneration,
 			scope, session, lanes, sources, cleanupLifetime() {}, abortReason: null, abortPromise: null,
 		};
+		const releaseInput = pendingInput.bind(sources, () => assertCaptureCurrent(pending));
 		try {
 			for (const source of sources) for (const lane of source.lanes) {
 				try {
@@ -272,6 +272,7 @@ export function createTakeCycleRoutedCaptureService(
 						},
 					});
 					assertCaptureCurrent(pending);
+					synchronizeTakeCycleInputGain([source], runtime.inputGain ?? 1);
 				} catch (error) {
 					assertCaptureCurrent(pending);
 					for (const lane of source.lanes) await failLane(lane, error);
@@ -293,35 +294,16 @@ export function createTakeCycleRoutedCaptureService(
 			});
 			runtime.engine.seek(project.loop.startFrame);
 			await startTakeCycleRoutedPlayback({
-				context, engine: runtime.engine, loopStartFrame: project.loop.startFrame,
+				context, engine: runtime.engine, loopStartFrame: project.loop.startFrame, readInputGain: () => runtime.inputGain ?? 1,
 				sources: controlled, assertCurrent: () => assertCaptureCurrent(pending),
 			});
 			return pending;
 		} catch (error) {
 			await rollbackCaptureOnce(pending, error);
 			throw error;
+		} finally {
+			releaseInput();
 		}
-	}
-
-	async function acquireSources(
-		groups: readonly Readonly<{ readonly sourceKey: string; readonly routes: readonly Readonly<{
-			readonly track: RecordingTrack; readonly route: RecordingRoute;
-		}>[] }>[],
-		lanes: LiveLane[],
-		projectSampleRate: number, reusePreparedInputsOnly = false,
-	): Promise<LiveSource[]> {
-		const laneFor = (trackId: string) => lanes.find((lane) => lane.track.id === trackId)!;
-		const acquired = await acquireTakeCycleRoutedSources(
-			groups,
-			projectSampleRate,
-			runtime,
-			async ({ track }, error) => failLane(laneFor(track.id), error), reusePreparedInputsOnly,
-		);
-		return acquired.map((source) => ({
-			...source,
-			lanes: source.lanes.map(({ track }) => laneFor(track.id)),
-			controller: null, tail: Promise.resolve(), accepting: true, stopping: false, expectedFrameStart: null,
-		}));
 	}
 
 	function enqueueChunk(

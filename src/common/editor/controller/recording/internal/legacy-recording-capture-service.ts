@@ -202,6 +202,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 			state.recordingResampler = previewResampler;
 			state.recordingSampleRate = captureSampleRate;
 			state.recorder = recorder;
+			recorder.setInputGain(state.recordingInputGain);
 			const timing = planRecordingStartTiming({
 				project,
 				timedStartTimeMs: timedStart ? timedStartTimeMs : null,

@@ -3,6 +3,7 @@
 import { positiveTakeCycleRoutedInteger } from './take-cycle-routed-capture-validation.ts';
 import type { TakeCycleRoutedCaptureRuntime } from './take-cycle-routed-capture-types.ts';
 import type { RecordingRoute, RecordingTrack } from '../../recording-transaction-types.ts';
+import type { TakeCycleRoutedLiveLane, TakeCycleRoutedLiveSource } from './take-cycle-routed-capture-state.ts';
 
 export interface TakeCycleRoutedAcquisitionLane {
 	readonly track: RecordingTrack;
@@ -15,6 +16,24 @@ export interface TakeCycleRoutedAcquiredSource {
 	readonly stream: Awaited<ReturnType<TakeCycleRoutedCaptureRuntime['capturePool']['acquireHardware']>>;
 	readonly channelCount: number;
 	readonly lanes: readonly TakeCycleRoutedAcquisitionLane[];
+}
+
+/** Attach the live controller slots to the same acquired source objects used by capture. */
+export async function acquireTakeCycleRoutedLiveSources(
+	groups: readonly Readonly<{ readonly sourceKey: string; readonly routes: readonly TakeCycleRoutedAcquisitionLane[] }>[],
+	lanes: TakeCycleRoutedLiveLane[],
+	projectSampleRate: number,
+	runtime: TakeCycleRoutedCaptureRuntime,
+	failLane: (lane: TakeCycleRoutedLiveLane, error: unknown) => Promise<void>,
+	reusePreparedInputsOnly = false,
+): Promise<TakeCycleRoutedLiveSource[]> {
+	const laneFor = (trackId: string) => lanes.find(lane => lane.track.id === trackId)!;
+	const acquired = await acquireTakeCycleRoutedSources(groups, projectSampleRate, runtime,
+		async ({ track }, error) => failLane(laneFor(track.id), error), reusePreparedInputsOnly);
+	return acquired.map(source => ({
+		...source, lanes: source.lanes.map(({ track }) => laneFor(track.id)),
+		controller: null, tail: Promise.resolve(), accepting: true, stopping: false, expectedFrameStart: null,
+	}));
 }
 
 export async function acquireTakeCycleRoutedSources(

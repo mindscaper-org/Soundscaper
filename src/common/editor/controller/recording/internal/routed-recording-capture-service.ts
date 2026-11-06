@@ -424,6 +424,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 			state.recordingPreview = state.recordingPreviews[0] || null;
 			state.recordingSelection = selection ? { ...selection } : null;
 			state.recorder = routedRecorder;
+			routedRecorder.setInputGain(state.recordingInputGain);
 			const timing = planRecordingStartTiming({
 				project,
 				timedStartTimeMs: timedStart ? timedStartTimeMs : null,
