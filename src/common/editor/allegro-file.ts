@@ -115,6 +115,7 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 			const attributes: [string, string][] = [];
 			const updates: MidiFileEvent[] = [];
 			const keys: AllegroKeyPart[] = [];
+			const hasEventField = tokens.some(token => /^[A-GKLPUSIQHW-]/iu.test(token));
 			const timeTokens = tokens.filter(token => /^T/i.test(token));
 			if (timeTokens.length > 1) throw new RangeError('Allegro time is specified twice.');
 			for (const token of tokens) {
@@ -185,9 +186,10 @@ function parseLines(lines: readonly string[], sampleRate: number, knownTempos: r
 				eventClock.position(`${lineIndex}:note:start`, currentFrame, materialize, timing);
 				eventClock.position(`${lineIndex}:note:end`, currentFrame + duration, materialize, timing);
 			}
-			if (next !== null) currentFrame += next;
+			// PortSMF applies N only on a line that actually denotes an event.
+			if (next !== null && hasEventField) currentFrame += next;
 			else if (isNote) currentFrame += duration;
-			if (next !== null || isNote) currentBeat = null;
+			if ((next !== null && hasEventField) || isNote) currentBeat = null;
 		} catch (error) {
 			throw new RangeError(`Allegro line ${lineIndex + 1}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
 		}
