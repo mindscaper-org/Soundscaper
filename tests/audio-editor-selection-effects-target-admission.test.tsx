@@ -12,6 +12,7 @@ import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { projectForRuntimeConsumers } from '../src/common/editor/project-current-runtime.ts';
 import { resolveEditingSelection } from '../src/common/editor/commands/editing-selection-authority.ts';
+import { normalizeAudioSelectionEffectParams } from '../src/common/editor/effects.js';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
@@ -24,9 +25,9 @@ function fixture() {
 		return projectForRuntimeConsumers({ ...createSoundscaperProject({ id: 'effects', sources: [source], tracks, clips, selection: selection ?? { startFrame: 0, endFrame: 0 } }), sources: [source], tracks, clips });
 	};
 	let project = make([], null);
-	const state = { selectedTrackId: 'a', selectedClipId: 'clip-a', audacityEffectType: 'audacity-amplify',
+	const parameters: Record<string, Readonly<Record<string, unknown>>> = {};
+	const state = { audacityEffectParams: parameters, selectedTrackId: 'a', selectedClipId: 'clip-a', audacityEffectType: 'audacity-amplify',
 		preferences: { editing: { applyEffectsToAllAudio: false } } };
-	let params: Readonly<Record<string, unknown>> = { gainDb: 3, allowClipping: false };
 	const sourceEditor = createSourceEditorEffects({ getProject: () => project,
 		loadSourceBuffer: async () => null, publishDocumentSnapshot() {} });
 	const planner = createEffectSelectionService({ state, getProject: () => project, sourceTarget: sourceEditor.target,
@@ -39,12 +40,13 @@ function fixture() {
 		copy: { audioTrackRequired: '', maximumFrequency: '', minimumFrequency: '', parameterRangeError: '', spectralEffectLengthChanging: '', timeSelectionRequired: '', v2Required: '' },
 	});
 	const service = createSelectionEffectExecutionService({ state, audacityEffectTargets: planner.audacityEffectTargets,
-		currentAudacityEffectParams: () => params,
+		normalizeAudioSelectionEffectParams,
+		currentAudacityEffectParams: (type: string = state.audacityEffectType) => parameters[type] ??= {},
 		AUDIO_SELECTION_EFFECT_DEFINITIONS: { 'audacity-amplify': {}, 'audacity-repeat': { lengthChanging: true }, 'multi-tap-delay': {} },
 	});
 	return { state, service, sourceEditor, get project() { return project; },
 		set(locked: readonly string[], selection: typeof project.selection | null = null) { project = make(locked, selection); },
-		params(next: Readonly<Record<string, unknown>>) { params = next; },
+		params(next: Readonly<Record<string, unknown>>) { parameters[state.audacityEffectType] = next; },
 	};
 }
 
@@ -74,7 +76,7 @@ test('empty selected lanes participate only when an effect changes their time', 
 	assert.equal(f.service.readSelectionTargetLocked(), false);
 	f.state.audacityEffectType = 'audacity-repeat';
 	assert.equal(f.service.readSelectionTargetLocked(), true);
-	f.state.audacityEffectType = 'multi-tap-delay'; f.params({ duration: 'selection', mix: .5 });
+	f.state.audacityEffectType = 'multi-tap-delay'; f.params({ duration: 'keep', mix: .5 });
 	assert.equal(f.service.readSelectionTargetLocked(), false);
 	f.params({ duration: 'extend', mix: .5 });
 	assert.equal(f.service.readSelectionTargetLocked(), true);
@@ -118,4 +120,28 @@ test('locked Apply is disabled without losing Preview, presets, Cancel or a late
 		await act(async () => root.unmount()); globals.IS_REACT_ACT_ENVIRONMENT = priorAct;
 		if (priorReact) Object.defineProperty(globalThis, 'React', priorReact); else Reflect.deleteProperty(globalThis, 'React'); dom.restore();
 	}
+});
+
+test('a read for an immediate effect plans its own implicit all-audio context', () => {
+	const f = fixture(); f.state.selectedClipId = ''; f.state.audacityEffectType = 'audacity-auto-duck';
+	f.state.preferences.editing.applyEffectsToAllAudio = true; f.set(['b']);
+	assert.equal(f.service.readSelectionTargetLocked(), false, 'Auto Duck requires explicit targets');
+	assert.equal(f.service.readSelectionTargetLocked('audacity-invert'), true, 'Invert uses the actual implicit-all targets before its menu invocation changes effect type');
+	assert.equal(f.state.audacityEffectType, 'audacity-auto-duck', 'read-only menu admission must not change active effect controls');
+});
+
+test('an immediate requested length-changing effect includes its silent selected targets', () => {
+	const f = fixture(); f.state.selectedClipId = '';
+	f.set(['b'], { ...f.project.selection, startFrame: 96_000, endFrame: 144_000, trackIds: ['a', 'b'] });
+	assert.equal(f.service.readSelectionTargetLocked(), false);
+	assert.equal(f.service.readSelectionTargetLocked('audacity-repeat'), true);
+	assert.equal(f.state.audacityEffectType, 'audacity-amplify');
+});
+
+test('admission for current and requested effects leaves the control parameter cache unchanged', () => {
+	const f = fixture(); f.set(['a']);
+	const before = structuredClone(f.state);
+	assert.equal(f.service.readSelectionTargetLocked(), true);
+	assert.equal(f.service.readSelectionTargetLocked('audacity-invert'), true);
+	assert.deepEqual(f.state, before);
 });

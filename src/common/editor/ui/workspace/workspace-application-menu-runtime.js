@@ -113,6 +113,10 @@ export function createWorkspaceApplicationMenus({
 	const { selectionMenu, viewMenu } = createWorkspaceSelectionViewMenuPorts({
 		controller, parityRuntime, snapshot, run, zoomProject, setShowArmControls, toggleWorkspacePanel, openSurface,
 	});
+	const immediateSelectionEffect = (type) => snapshot.effects?.selectionTypes
+		.find((candidate) => candidate.type === type)?.hasSettings === false;
+	const selectionEffectMutationLocked = (type) => immediateSelectionEffect(type)
+		&& controller.actions.effects.readSelectionTargetLocked?.(type) === true;
 	const menus = createApplicationMenus({
 			selectionMenu, viewMenu,
 			productId,
@@ -368,10 +372,12 @@ export function createWorkspaceApplicationMenus({
 				openEffects: () => openEffects(snapshot.selectedTrackId),
 				openMacrosPalette: () => openSurface('macros-palette'),
 				runMacro: (macro) => run(() => controller.actions.macros.run(macro)),
-				openSelectionEffect: (type) => snapshot.effects?.selectionTypes
-					.find((candidate) => candidate.type === type)?.hasSettings === false
-					? run(() => controller.actions.effects.applySelection({ type }))
-					: openSelectionEffect(type),
+				selectionEffectMutationLocked,
+				openSelectionEffect: (type) => {
+					if (selectionEffectMutationLocked(type)) return;
+					return immediateSelectionEffect(type)
+						? run(() => controller.actions.effects.applySelection({ type })) : openSelectionEffect(type);
+				},
 				repeatLastEffect: () => run(() => controller.actions.effects.repeatLast()),
 				openSpectralSelection,
 				deleteSpectralSelection: () => run(() => controller.actions.spectral.delete()),

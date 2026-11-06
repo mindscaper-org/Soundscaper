@@ -127,10 +127,9 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 	}
 
 	/** Synchronous UI admission uses the same Source/range/clip targets as Apply. */
-	function readSelectionTargetLocked(): boolean {
-		const type: string = state.audacityEffectType;
-		const targets: readonly EffectTarget[] = audacityEffectTargets({ includeSilentTracks:
-			selectionEffectChangesLength(type, currentAudacityEffectParams(), AUDIO_SELECTION_EFFECT_DEFINITIONS[type]) });
+	function readSelectionTargetLocked(type: string = state.audacityEffectType): boolean {
+		const targets: readonly EffectTarget[] = audacityEffectTargets({ effectType: type, includeSilentTracks:
+			selectionEffectChangesLength(type, normalizeAudioSelectionEffectParams(type, state.audacityEffectParams?.[type] ?? {}), AUDIO_SELECTION_EFFECT_DEFINITIONS[type]) });
 		return targets.some(target => target.track.locked === true);
 	}
 

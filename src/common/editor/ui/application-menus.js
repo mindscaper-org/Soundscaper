@@ -179,6 +179,7 @@ export default function createApplicationMenus({
 	const effectGroups = createEffectMenuEntries({
 		organization: preferences?.effects?.menuOrganization,
 		copy, effectLabels, productId, locale,
+		typeBlocked: actions.selectionEffectMutationLocked,
 		disabled: editBlocked || !effectTargeting.effectAudioTrack,
 		selectionActive: effectTargeting.explicitEffectSelectionActive,
 		allAudioTarget: effectTargeting.effectPreferenceTargetsAll,
