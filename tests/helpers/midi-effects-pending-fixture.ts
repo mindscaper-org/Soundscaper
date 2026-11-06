@@ -9,7 +9,7 @@ import { MockAudioBuffer } from './audio-editor-controller-fixtures.js';
 import { deferred } from './async-test-control.ts';
 
 /** Real synthesis, storage, commands and DSP; render this neutral fixture's canonical PCM. */
-export async function midiEffectsFixture(t: TestContext, blockSourceRegistration = false) {
+export async function midiEffectsFixture(t: TestContext, blockSourceRegistration = false, carrier: 'channels' | 'buffer' = 'channels') {
 	const memory = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: crypto.randomUUID() });
 	const entered = deferred<void>(), release = deferred<void>();
 	const sourceReadEntered = deferred<void>(), releaseSourceRead = deferred<void>();
@@ -33,6 +33,12 @@ export async function midiEffectsFixture(t: TestContext, blockSourceRegistration
 	const bufferContext = { createBuffer: (...args: ConstructorParameters<typeof MockAudioBuffer>) => new MockAudioBuffer(...args) };
 	const inputs: Float32Array[] = [];
 	const readyInputs: boolean[] = [], renderedSourceIds: string[] = [];
+	const renderSamples = (samples: Float32Array, sampleRate: number) => {
+		if (carrier === 'channels') return { sampleRate, channels: [samples] };
+		const buffer = new MockAudioBuffer(1, samples.length, sampleRate);
+		buffer.getChannelData(0).set(samples);
+		return buffer;
+	};
 	const engineFactory = (): EnginePublicApi => {
 		const engine = midiPreviewEngine();
 		let project: Parameters<EnginePublicApi['loadProject']>[0] = null;
@@ -42,7 +48,9 @@ export async function midiEffectsFixture(t: TestContext, blockSourceRegistration
 		engine.loadProject = (next, sourceBuffers) => { project = next; buffers = sourceBuffers; return engine; };
 		engine.renderMix = async (options = {}) => {
 			assert.ok(project);
-			const track = project.tracks?.find(track => track.type === 'audio'); assert.ok(track);
+			const sampleRate = project.sampleRate;
+			assert.ok(typeof sampleRate === 'number' && Number.isFinite(sampleRate));
+			const track = project.tracks?.find(track => track.type === 'audio' && (carrier === 'channels' || Array.isArray(track.clipIds) && track.clipIds.length > 0)); assert.ok(track);
 			if (!Array.isArray(track.clipIds) || typeof track.clipIds[0] !== 'string') throw new Error('The fixture requires its selected strip clip.');
 			const selectedId: string = track.clipIds[0];
 			const clip = project.clips?.find(clip => clip.id === selectedId); assert.ok(clip);
@@ -54,14 +62,14 @@ export async function midiEffectsFixture(t: TestContext, blockSourceRegistration
 			if (blockSourceRegistration && !ready) {
 				const samples = new Float32Array((options.endFrame ?? 384_000) - (options.startFrame ?? 0));
 				inputs.push(samples);
-				return { sampleRate: project.sampleRate, channels: [samples] };
+				return renderSamples(samples, sampleRate);
 			}
 			const buffer = await memory.loadSourceAudioBuffer(clip.sourceId, bufferContext);
 			const start = options.startFrame ?? 0, count = (options.endFrame ?? buffer.length) - start;
 			const samples = buffer.getChannelData(0).slice(start, start + count);
 			// The worker owns its input, so keep an independent observation for the signed-PCM assertion.
 			inputs.push(samples.slice());
-			return { sampleRate: project.sampleRate, channels: [samples] };
+			return renderSamples(samples, sampleRate);
 		};
 		return engine;
 	};

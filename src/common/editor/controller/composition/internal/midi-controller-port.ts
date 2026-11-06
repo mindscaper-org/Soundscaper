@@ -3,6 +3,7 @@ import type { ProjectChangedOptions } from '../../document/project-mutation-serv
 import type { AudioEditorCommand } from '../../../commands/protocol.ts';
 import type { MidiProject, MidiTransferSelection, MidiTransferSnapshot } from '../../track-audio/midi-service-types.ts';
 import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
+import type { AnalysisActions } from '../../analysis/analysis-composition.ts';
 
 export interface MidiControllerBinding {
 	followSelection(before: MidiProject, after: MidiProject): void;
@@ -81,5 +82,24 @@ export function createMidiPendingSnapshotAdmission<Project extends object>(ports
 			};
 		},
 		cancel(): void { queued?.abort(retired()); queued = null; },
+	});
+}
+
+type MidiAnalysisRestriction = <Args extends unknown[], Result>(operation: (...args: Args) => Result) => (...args: Args) => Result;
+
+/** Analysis must capture and cache PCM only after the preceding requested edit. */
+export function createMidiPendingAnalysisActions<Project extends object>(
+	service: AnalysisActions,
+	ports: MidiPendingSnapshotPorts<Project>,
+	restrict: MidiAnalysisRestriction,
+) {
+	const admission = createMidiPendingSnapshotAdmission(ports);
+	const prepare = <Args extends unknown[], Result>(operation: (...args: Args) => Result) => restrict((...args: Args) => {
+		admission.cancel();
+		return admission.run(operation)(...args);
+	});
+	return Object.freeze({
+		run: prepare(service.run), plotSpectrum: prepare(service.plotSpectrum), findClipping: prepare(service.findClipping),
+		contrast: prepare(service.captureContrast), repeatLast: prepare(service.repeatLast), measureLoudness: prepare(service.measureLoudness),
 	});
 }

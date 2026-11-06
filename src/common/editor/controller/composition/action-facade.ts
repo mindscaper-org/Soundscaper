@@ -13,7 +13,7 @@ import {
 import { createClipSpreadsheetAction } from './internal/clip-spreadsheet-action.ts';
 import { createAuditionOutputActions } from './internal/audition-output-actions.ts';
 import { createMidiActionGroup } from './midi-action-group.ts';
-import { createMidiPendingSnapshotAdmission } from './internal/midi-controller-port.ts';
+import { createMidiPendingAnalysisActions, createMidiPendingSnapshotAdmission } from './internal/midi-controller-port.ts';
 import { createMixerParameterActions } from './internal/mixer-parameter-actions.ts';
 import { createProjectOwnedFeatureActionFacades } from './internal/project-owned-feature-action-facades.ts';
 import { createTimelineAnnotationActionFacade } from '../document/timeline-annotation-action-facade.ts';
@@ -495,13 +495,10 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			presets: createEffectPresetActions(effectLibraryScope, restricted),
 		}),
 		macros,
-		analysis: Object.freeze({
-			run: restricted('audioAnalysis', analysisService.run),
-			plotSpectrum: restricted('audioAnalysis', analysisService.plotSpectrum),
-			findClipping: restricted('audioAnalysis', analysisService.findClipping),
-			contrast: restricted('audioAnalysis', analysisService.captureContrast), repeatLast: restricted('audioAnalysis', analysisService.repeatLast),
-			measureLoudness: restricted('audioAnalysis', analysisService.measureLoudness),
-		}),
+		analysis: createMidiPendingAnalysisActions<NonNullable<ReturnType<typeof getProject>>>(analysisService, { ...midi, getProject,
+			prepareAudio: scope.prepareEffectSnapshotSources, captureTarget: clipboardSelection,
+			active: () => state.phase !== 'disposing' && state.phase !== 'disposed',
+		}, action => restricted('audioAnalysis', action)),
 		export: Object.freeze({ ...exportActions, exportEdl: afterMidiEdits(exportActions.exportEdl),
 			exportOtio: afterMidiEdits(exportActions.exportOtio), exportFcpxml: afterMidiEdits(exportActions.exportFcpxml) }),
 		media: createProjectMediaActionGroup({
