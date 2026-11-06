@@ -16,6 +16,12 @@ interface AiffInspection {
 	readonly warnings: readonly string[];
 }
 
+interface AiffComment {
+	readonly timestamp: string;
+	readonly markerId: number;
+	readonly text: string;
+}
+
 export async function inspectAiffMetadata(file: Blob, signal?: AbortSignal): Promise<AiffInspection | null> {
 	if (file.size < 12) return null;
 	const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
@@ -23,7 +29,7 @@ export async function inspectAiffMetadata(file: Blob, signal?: AbortSignal): Pro
 	if (ascii(header, 0, 4) !== 'FORM' || !['AIFF', 'AIFC'].includes(ascii(header, 8, 12))) return null;
 	const raw: Record<string, unknown> = {};
 	const annotations: string[] = [];
-	const comments: Readonly<Record<string, unknown>>[] = [];
+	const comments: AiffComment[] = [];
 	const embeddedId3: Record<string, unknown>[] = [];
 	const warnings: string[] = [];
 	let title: string | undefined;
@@ -101,7 +107,9 @@ export async function inspectAiffMetadata(file: Blob, signal?: AbortSignal): Pro
 	}
 	const normalizedTitle = title || stringValue(ownDataValue(firstId3 ?? null, 'title'));
 	const normalizedArtist = artist || stringValue(ownDataValue(firstId3 ?? null, 'artist'));
-	const normalizedComment = annotations.some(text => text.trim() !== '') ? annotations.join('\n') : stringValue(ownDataValue(firstId3 ?? null, 'comment'));
+	const fileComment = comments.filter(comment => comment.markerId === 0 && comment.text.trim() !== '').map(comment => comment.text).join('\n');
+	const normalizedComment = annotations.some(text => text.trim() !== '') ? annotations.join('\n')
+		: fileComment || stringValue(ownDataValue(firstId3 ?? null, 'comment'));
 	const normalized = {
 		...(firstId3 ?? {}),
 		...(images.length ? { images } : {}),
@@ -158,11 +166,11 @@ function writeAscii(bytes: Uint8Array, offset: number, value: string): void {
 	}
 }
 
-function parseAiffComments(bytes: Uint8Array): Readonly<Record<string, unknown>>[] {
+function parseAiffComments(bytes: Uint8Array): AiffComment[] {
 	if (bytes.byteLength < 2) return [];
 	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 	const count = view.getUint16(0, false);
-	const comments: Readonly<Record<string, unknown>>[] = [];
+	const comments: AiffComment[] = [];
 	let offset = 2;
 	for (let index = 0; index < count && offset + 8 <= bytes.byteLength; index += 1) {
 		const timestamp = view.getUint32(offset, false);

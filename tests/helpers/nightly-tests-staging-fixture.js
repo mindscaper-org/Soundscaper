@@ -196,7 +196,8 @@ export async function createFixture(context) {
 			'ffmpeg-long-info.wav.gz.base64', 'ffmpeg-short-info.wav.gz.base64',
 			'ffmpeg-mp3-info.wav.base64', 'ffmpeg-pcm-info.wav.base64',
 			'chromium-audio-only.webm.base64', 'libsndfile-float32.aifc.base64',
-			'libsndfile-utf8-text.aiff.base64', 'libsndfile-zero-based-cues.wav.base64', 'python-uncompressed.aif.base64',
+			'libsndfile-comment-whitespace.aiff.base64', 'libsndfile-utf8-text.aiff.base64',
+			'libsndfile-zero-based-cues.wav.base64', 'python-uncompressed.aif.base64', 'sox-comt-comment.aiff.base64',
 		].map(async (file) => [`tests/fixtures/${file}`, await readFile(new URL(`../fixtures/${file}`, import.meta.url), 'utf8')])),
 		['src/common/editor/example.ts', 'export const source = true;\n'],
 	]) await writeFixtureFile(repositoryRoot, path, body);
