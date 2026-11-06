@@ -10,7 +10,7 @@ import { createStableId } from '../../stable-id.js';
 import type { EditorAudioClip, EditorAudioTrack, EditorProject } from '../../types.ts';
 import { resolveMidiCopy } from '../../../i18n/editor-midi-copy.ts';
 import { useElementSize } from '../use-element-size.ts';
-import { createMidiPanelPlayheadProjector, designSystemMidiClip, midiBeatsPerMeasure, midiNoteChanges, midiPanelClipResize, midiPanelSelection } from './midi-panel-projection.ts';
+import { createMidiPanelPlayheadProjector, designSystemMidiClip, midiBeatsPerMeasure, midiNoteChanges, midiPanelClipResize, midiPanelSelection, midiPanelDraftNotes, midiPanelNoteDraft, discardMidiPanelDraftNotes, type MidiPanelNoteDrafts } from './midi-panel-projection.ts';
 import { MidiNoteNumberField } from './MidiNoteNumberField.tsx';
 import { createMidiPanelMusicalClock } from './midi-panel-musical-clock.ts';
 import { pianoRollGridMath } from '@soundscaper/design-system/PianoRoll/musical-clock';
@@ -77,7 +77,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	const [panelRef, panelSize] = useElementSize();
 	const [controlsRef, controlsSize] = useElementSize();
 	const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
-	const [drafts, setDrafts] = useState<ReadonlyMap<string, Partial<MidiNote>>>(() => new Map());
+	const [drafts, setDrafts] = useState<MidiPanelNoteDrafts>(() => new Map());
 	const [clipDraft, setClipDraft] = useState<(ClipChanges & { readonly sourceDurationFrames: number }) | null>(null);
 	const [scrollX, setScrollX] = useState(clip.sourceStartFrame / sampleRate * 100);
 	const [scrollY, setScrollY] = useState((128 - 60 - 4) * 16);
@@ -89,7 +89,8 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	const [hoveredPitch, setHoveredPitch] = useState<number | null>(null);
 	const gesture = useRef(false);
 	const gestureNotes = useRef(new Set<string>());
-	const draftRevision = useRef(0);
+	const clipDraftRevision = useRef(0);
+	const gestureDraft = useRef<symbol | null>(null);
 	const [gestureRevision, setGestureRevision] = useState(0);
 	const pendingNotes = useRef(new Map<string, Partial<MidiNote>>());
 	const pendingClip = useRef<ClipChanges | null>(null);
@@ -97,10 +98,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	const tempo = project.tempo as { readonly bpm?: number; readonly timeSignature?: { readonly numerator?: number; readonly denominator?: number } } | undefined;
 	const bpm = tempo?.bpm ?? 120;
 	const beatsPerMeasure = midiBeatsPerMeasure(tempo?.timeSignature);
-	const notes = useMemo(() => drafts.size ? persistedNotes.map(note => {
-		const changes = drafts.get(note.id);
-		return changes ? { ...note, ...changes } : note;
-	}) : persistedNotes, [persistedNotes, drafts]);
+	const notes = useMemo(() => midiPanelDraftNotes(persistedNotes, drafts), [persistedNotes, drafts]);
 	const effectiveClip = useMemo(() => clipDraft ? { ...clip, ...clipDraft } : clip, [clip, clipDraft]);
 	const designClip = useMemo(() => designSystemMidiClip(effectiveClip, project.sampleRate, selectedIds, notes, sampleRate), [effectiveClip, project.sampleRate, sampleRate, selectedIds, notes]);
 	const snap = useMemo(() => ({ subdivision, triplet }), [subdivision, triplet]);
@@ -116,8 +114,10 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 		gesture.current = false;
 		gestureNotes.current = new Set();
 		pendingNotes.current = new Map(); pendingClip.current = null;
-		draftRevision.current += 1;
-		setDrafts(new Map()); setClipDraft(null);
+		clipDraftRevision.current += 1;
+		const owner = gestureDraft.current; gestureDraft.current = null;
+		if (owner) setDrafts(previous => midiPanelNoteDraft(previous, owner, null));
+		setClipDraft(null);
 		setGestureRevision(previous => previous + 1);
 	}, []);
 	useLayoutEffect(() => {
@@ -127,6 +127,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	const beginGesture = (event: ReactMouseEvent<HTMLDivElement>) => {
 		if (disabled) return;
 		gesture.current = true;
+		gestureDraft.current = Symbol();
 		const target = event.target instanceof Element ? event.target.closest('[data-note-id]') : null;
 		const note = notes[Number(target?.getAttribute('data-note-id')) - 1];
 		gestureNotes.current = new Set(note ? selectedIds.has(note.id) ? selectedIds : [note.id] : []);
@@ -143,19 +144,21 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 			if (!gesture.current) return;
 			gesture.current = false;
 			gestureNotes.current = new Set();
-			const revision = draftRevision.current;
+			const revision = clipDraftRevision.current;
+			const owner = gestureDraft.current; gestureDraft.current = null;
 			const updates = [...pendingNotes.current].map(([id, changes]) => ({ id, changes }));
 			const resizedClip = pendingClip.current;
 			pendingNotes.current = new Map();
 			pendingClip.current = null;
-			if (disabled) { setDrafts(new Map()); setClipDraft(null); return; }
+			if (disabled) { if (owner) setDrafts(previous => midiPanelNoteDraft(previous, owner, null)); setClipDraft(null); return; }
 			if (!updates.length && !resizedClip) return;
 			run(async () => {
 				try {
 					if (updates.length) await controller.actions.midi.updateNotes(clip.id, updates);
 					if (resizedClip) await controller.actions.midi.resizeClip(clip.id, resizedClip);
 				} finally {
-					if (mounted.current && draftRevision.current === revision) { setDrafts(new Map()); setClipDraft(null); }
+					if (mounted.current && owner) setDrafts(previous => midiPanelNoteDraft(previous, owner, null));
+					if (mounted.current && resizedClip && clipDraftRevision.current === revision) setClipDraft(null);
 				}
 			});
 		};
@@ -187,23 +190,31 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 		if (!note || disabled) return;
 		if (!gesture.current) { edit(() => controller.actions.midi.updateNote(clip.id, note.id, changes)); return; }
 		gestureNotes.current.add(note.id);
-		draftRevision.current += 1;
 		pendingNotes.current.set(note.id, { ...pendingNotes.current.get(note.id), ...changes });
-		setDrafts(new Map(pendingNotes.current));
+		const owner = gestureDraft.current ??= Symbol();
+		const updates = new Map(pendingNotes.current);
+		setDrafts(previous => midiPanelNoteDraft(previous, owner, updates));
 	};
 	const editSelected = (changes: Partial<MidiNote>) => {
-		edit(() => controller.actions.midi.updateNotes(clip.id, selectedNotes.map(note => ({ id: note.id, changes }))));
+		if (disabled) return;
+		const owner = Symbol(), updates = selectedNotes.map(note => ({ id: note.id, changes }));
+		setDrafts(previous => midiPanelNoteDraft(previous, owner, new Map(updates.map(update => [update.id, update.changes]))));
+		run(async () => {
+			try { await controller.actions.midi.updateNotes(clip.id, updates); }
+			finally { if (mounted.current) setDrafts(previous => midiPanelNoteDraft(previous, owner, null)); }
+		});
 	};
 	const resize = (edge: 'left' | 'right', start: number, duration: number, trimStart: number) => {
 		if (disabled) return;
 		const { changes, sourceDurationFrames } = midiPanelClipResize(project, clip, sampleRate, edge, start, duration, trimStart);
-		draftRevision.current += 1;
+		clipDraftRevision.current += 1;
 		pendingClip.current = changes; setClipDraft({ ...changes, sourceDurationFrames });
 	};
 	const deleteNotes = (ids: readonly string[]) => {
 		if (disabled) return;
 		retireNoteGesture();
-		pendingNotes.current = new Map(); setDrafts(new Map());
+		pendingNotes.current = new Map();
+		const removed = new Set(ids); setDrafts(previous => discardMidiPanelDraftNotes(previous, removed));
 		edit(() => controller.actions.midi.deleteNotes(clip.id, ids));
 	};
 	const deleteSelected = () => deleteNotes([...selectedIds]);

@@ -8,6 +8,28 @@ import { createAudioWarpRuntimeEvaluator } from '../../audio-warp-runtime.ts';
 import type { HoldTempoMap } from '../../timeline-time.ts';
 import { clipSourceDisplayRange, clipSourceFrameToDisplay } from '../../clip-source-timing.ts';
 
+/** Each pending publication owns one sparse, ordered note projection. */
+export type MidiPanelNoteDrafts = ReadonlyMap<symbol, ReadonlyMap<string, Partial<MidiNote>>>;
+
+export function midiPanelNoteDraft(drafts: MidiPanelNoteDrafts, owner: symbol, changes: ReadonlyMap<string, Partial<MidiNote>> | null): MidiPanelNoteDrafts {
+	const next = new Map(drafts);
+	next.delete(owner);
+	if (changes?.size) next.set(owner, changes);
+	return next;
+}
+
+export function midiPanelDraftNotes(notes: readonly MidiNote[], drafts: MidiPanelNoteDrafts): readonly MidiNote[] {
+	if (!drafts.size) return notes;
+	const changes = new Map<string, Partial<MidiNote>>();
+	for (const operation of drafts.values()) for (const [id, update] of operation) changes.set(id, { ...changes.get(id), ...update });
+	if (!changes.size) return notes;
+	return notes.map(note => changes.has(note.id) ? { ...note, ...changes.get(note.id) } : note);
+}
+
+export function discardMidiPanelDraftNotes(drafts: MidiPanelNoteDrafts, ids: ReadonlySet<string>): MidiPanelNoteDrafts {
+	return new Map([...drafts].map(([owner, changes]) => [owner, new Map([...changes].filter(([id]) => !ids.has(id)))]));
+}
+
 /** MIDI tempo measures quarter notes; the signature denominator sets bar length. */
 export function midiBeatsPerMeasure(signature?: Readonly<{ numerator?: number; denominator?: number }>): number {
 	return (signature?.numerator ?? 4) * 4 / (signature?.denominator ?? 4);
