@@ -2,7 +2,9 @@
 
 import { createRecordingStartRequests } from './recording-start-requests.ts';
 import { transitionRoutedRecordingSources } from './routed-recording-transition.ts';
-import { confirmRoutedRecordingStart } from './confirmed-recording-sources.ts';
+import { confirmRoutedRecordingResume, confirmRoutedRecordingStart } from './confirmed-recording-sources.ts';
+import { recordingResumeTiming } from './recording-start-timing.ts';
+import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 
 type MaybePromise<T> = T | PromiseLike<T>;
 
@@ -18,6 +20,7 @@ export interface RecordingControllerLike {
 	readonly state?: string;
 	pause?(): boolean | void;
 	resume?(): boolean | void;
+	resumeConfirmed?(options: Readonly<{ startFrame: number }>): Promise<Readonly<{ startFrame: number }>>;
 	stop(): MaybePromise<void>;
 	dispose?(options?: Readonly<{ stopTracks?: boolean }>): MaybePromise<void>;
 	setMonitoring?(enabled: boolean): void;
@@ -157,7 +160,10 @@ export interface RecordingSessionServiceRuntime {
 		options?: Readonly<{ force?: boolean }>,
 	) => void;
 	readonly retainInputs?: () => boolean;
-	readonly playTransport?: () => MaybePromise<unknown>;
+	readonly playTransport?: (onBeforeStart?: (sourceStartTime: number) => Promise<number>) => MaybePromise<unknown>;
+	readonly getTransportContext?: () => Promise<Readonly<{ currentTime: number; sampleRate: number }>>;
+	readonly getTransportLatencyFrames?: () => number;
+	readonly signal?: AbortSignal;
 	readonly pauseTransport?: () => void;
 	readonly getTransportState?: () => string;
 	readonly updateTransportState?: (state: string) => void;
@@ -176,6 +182,7 @@ export function createRoutedRecordingController(
 	sourceSessions: readonly RoutedRecordingSourceSession[],
 ): RoutedRecordingController {
 	let controllerState: RoutedRecordingController['state'] = 'ready';
+	let generation = 0;
 	let stopPromise: Promise<void> | null = null;
 	let disposePromise: Promise<void> | null = null;
 	return {
@@ -206,6 +213,14 @@ export function createRoutedRecordingController(
 			if (controllerState !== 'paused') return false;
 			return transitionSources('resume');
 		},
+		async resumeConfirmed(options) {
+			const current = generation;
+			try {
+				const result = await confirmRoutedRecordingResume(sourceSessions, options.startFrame);
+				if (generation !== current) throw new DOMException('Recording resume cancelled.', 'AbortError');
+				controllerState = 'recording'; return result;
+			} catch (error) { await beginStop(); throw error; }
+		},
 		stop() {
 			if (stopPromise) return stopPromise;
 			if (controllerState === 'stopped' || controllerState === 'disposed') return Promise.resolve();
@@ -223,6 +238,7 @@ export function createRoutedRecordingController(
 		},
 		dispose() {
 			if (disposePromise) return disposePromise;
+			generation++;
 			disposePromise = Promise.allSettled(sourceSessions.map((session) => (
 				invokeAsPromise(() => session.controller.dispose?.({ stopTracks: false }))
 			))).then(() => { controllerState = 'disposed'; });
@@ -238,6 +254,7 @@ export function createRoutedRecordingController(
 
 	function beginStop(): Promise<void> {
 		if (stopPromise) return stopPromise;
+		generation++;
 		controllerState = 'stopping';
 		stopPromise = Promise.allSettled(sourceSessions.map((session) => (
 			session.stopped ? Promise.resolve() : invokeAsPromise(() => session.controller.stop())
@@ -256,12 +273,58 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 	const releaseInputs = runtime.releaseUnretainedRecordingInputs || (() => {});
 	const handleError = runtime.handleError || (() => {});
 
-	const { startRecording, startSoundActivatedRecording, startRecordingOnNewTrack, startTakeCycleRecording, cancelRecordingStart } = createRecordingStartRequests(runtime);
+	const { startRecording, startSoundActivatedRecording, startRecordingOnNewTrack, startTakeCycleRecording, cancelRecordingStart: cancelStart } = createRecordingStartRequests(runtime);
+	let pausedLatencyFrames = 0;
+	let resuming: { recorder: RecordingControllerLike; projectId: string | null; generation: number;
+		abort: AbortController; promise: Promise<boolean> } | null = null;
+	const cancelResume = () => {
+		const previous = resuming;
+		resuming = null; previous?.abort.abort();
+		if (previous && !state.disposed && !runtime.signal?.aborted && state.recorder === previous.recorder
+			&& runtime.getProjectId() === previous.projectId) runtime.pauseTransport?.();
+	};
+	runtime.signal?.addEventListener('abort', cancelResume, { once: true });
+	const cancelRecordingStart = () => { cancelResume(); return cancelStart(); };
 
-	function toggleRecordingPause(): boolean {
+	function resumeOnAudibleClock(recorder: RecordingControllerLike): Promise<boolean> {
+		if (resuming?.recorder === recorder) return resuming.promise;
+		const owned = { recorder, projectId: runtime.getProjectId(), generation: state.recordingStartGeneration,
+			abort: new AbortController(), promise: Promise.resolve(false) };
+		resuming = owned;
+		const current = () => resuming === owned && !owned.abort.signal.aborted && !state.disposed && !state.recordingFinishing
+			&& state.recorder === recorder && state.recordingPaused && runtime.getProjectId() === owned.projectId
+			&& state.recordingStartGeneration === owned.generation;
+		const assertCurrent = () => { if (!current()) throw new DOMException('Recording resume cancelled.', 'AbortError'); };
+		owned.promise = Promise.resolve().then(async () => {
+			try {
+				await raceAbortableRead(() => runtime.playTransport!(async candidate => {
+					assertCurrent(); const context = await runtime.getTransportContext!(); assertCurrent();
+					const timing = recordingResumeTiming(context, candidate, runtime.getTransportLatencyFrames?.() ?? 0);
+					let confirmed = await recorder.resumeConfirmed!({ startFrame: timing.requestedFrame });
+					for (let attempt = 0; attempt <= 4; attempt++) {
+						assertCurrent();
+						if (timing.isFuture(confirmed.startFrame)) return timing.sourceTime(confirmed.startFrame);
+						if (attempt === 4) break;
+						confirmed = await recorder.resumeConfirmed!({ startFrame: timing.minimumFutureFrame(attempt) });
+					}
+					throw new Error('The recording input could not confirm a future audible resume.');
+				}), owned.abort.signal, 'immediate');
+				if (!current()) return state.recordingPaused;
+				state.recordingPaused = false; runtime.updateTransportState?.('recording'); publishDocumentSnapshot(); return false;
+			} catch (error) {
+				if (!current()) return state.recordingPaused;
+				runtime.pauseTransport?.(); throw error;
+			} finally { if (resuming === owned) resuming = null; }
+		});
+		return owned.promise;
+	}
+
+	function toggleRecordingPause(): boolean | Promise<boolean> {
 		if (!state.recorder) return false;
 		if (state.recordingKind === 'take-cycle') return false;
 		if (state.recordingPaused) {
+			if (pausedLatencyFrames > 0 && runtime.getTransportState?.() === 'paused'
+				&& state.recorder.resumeConfirmed && runtime.playTransport && runtime.getTransportContext) return resumeOnAudibleClock(state.recorder);
 			const resumed = state.recorder.resume?.();
 			if (resumed !== false) {
 				state.recordingPaused = false;
@@ -271,8 +334,10 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 				runtime.updateTransportState?.('recording');
 			}
 		} else {
+			const latencyFrames = runtime.getTransportLatencyFrames?.() ?? 0;
 			const paused = state.recorder.pause?.();
 			if (paused !== false) {
+				pausedLatencyFrames = latencyFrames;
 				state.recordingPaused = true;
 				runtime.pauseTransport?.();
 				runtime.updateTransportState?.('paused-recording');
@@ -313,6 +378,7 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 	}
 
 	function resetFinalizedState(): void {
+		pausedLatencyFrames = 0;
 		try {
 			state.recordingCleanup?.();
 		} catch (error) {
@@ -369,6 +435,7 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 	}
 
 	function finalizeRecording(): Promise<void> {
+		cancelResume();
 		if (state.recordingFinalizePromise) return state.recordingFinalizePromise;
 		if (!state.recorder || state.recordingFinishing) return Promise.resolve();
 		const operation = performFinalizeRecording();
@@ -380,6 +447,7 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 	}
 
 	async function stopRecording(): Promise<unknown> {
+		cancelResume();
 		if (state.timedRecording || state.timedRecordingPreparing) return runtime.cancelTimedRecording?.();
 		if (state.recordingStarting || state.recordingAdmissionPending) {
 			cancelRecordingStart();

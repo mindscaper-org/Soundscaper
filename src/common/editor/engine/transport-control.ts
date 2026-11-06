@@ -78,7 +78,7 @@ function assertPlaybackRequestCurrent(engine: EngineRuntimeHost, generation: num
 	if (!playbackRequestIsCurrent(engine, generation)) throw createAbortError();
 }
 export const engineTransportControlMethods = {
-async play({ clockedStart = false } = {}) {
+async play({ clockedStart = false, onBeforeStart } = {}) {
 		this[ENGINE_ASSERT_ACTIVE]();
 		if (!this.project) throw new Error('Load an audio editor project before playback.');
 		const previewResume = this.state === 'paused' ? resumeCutPreview(this) : null;
@@ -116,7 +116,7 @@ async play({ clockedStart = false } = {}) {
 				this.playbackMode = 'audio-warp-exact';
 				await this[ENGINE_ENSURE_MASTER_LOUDNESS_METER](context);
 				if (!playbackRequestIsCurrent(this, generation)) return;
-				await this[ENGINE_SCHEDULE_PREPARED_SPEED_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds);
+				await this[ENGINE_SCHEDULE_PREPARED_SPEED_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds, onBeforeStart);
 				return;
 			}
 			this.playbackMode = 'normal';
@@ -124,7 +124,7 @@ async play({ clockedStart = false } = {}) {
 			if (!playbackRequestIsCurrent(this, generation)) return;
 			await this[ENGINE_ENSURE_MASTER_LOUDNESS_METER](context);
 			if (!playbackRequestIsCurrent(this, generation)) return;
-			await this[ENGINE_SCHEDULE_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds);
+			await this[ENGINE_SCHEDULE_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds, onBeforeStart);
 		} catch (error) {
 			if (playbackRequestIsCurrent(this, generation)) throw error;
 		} finally {
@@ -135,6 +135,7 @@ async play({ clockedStart = false } = {}) {
 
 async playAtSpeed(rate, {
 		clockedStart = false,
+		onBeforeStart,
 		preservePitch = false,
 		pitchPreserver = null,
 		signal = null,
@@ -181,7 +182,7 @@ async playAtSpeed(rate, {
 				await ensureProjectWorklets(context, this.project);
 				throwIfAborted(signal);
 				assertPlaybackRequestCurrent(this, generation);
-				await this[ENGINE_SCHEDULE_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds);
+				await this[ENGINE_SCHEDULE_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds, onBeforeStart);
 				throwIfAborted(signal);
 				assertPlaybackRequestCurrent(this, generation);
 				return;
@@ -196,7 +197,7 @@ async playAtSpeed(rate, {
 			const context = await this.getAudioContext();
 			throwIfAborted(signal);
 			assertPlaybackRequestCurrent(this, generation);
-			await this[ENGINE_SCHEDULE_PREPARED_SPEED_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds);
+			await this[ENGINE_SCHEDULE_PREPARED_SPEED_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds, onBeforeStart);
 			throwIfAborted(signal);
 			assertPlaybackRequestCurrent(this, generation);
 		} finally {

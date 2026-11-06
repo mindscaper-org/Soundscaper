@@ -135,6 +135,7 @@ export type EnginePitchPreserver = (
 export interface EnginePlayOptions {
 	/** Leave the existing clocked lead for an accompanying audio-clock client. */
 	readonly clockedStart?: boolean;
+	readonly onBeforeStart?: import('./clocked-playback-start.ts').ClockedPlaybackStartHook;
 }
 
 export interface EnginePlayAtSpeedOptions extends EnginePlayOptions {

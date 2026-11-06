@@ -76,7 +76,7 @@ export type RecordingCompositionStore = TakeCycleAppCompositionDependencies['sto
 }>;
 
 export type RecordingCompositionEngine = RecordingEnginePort & TakeCycleRoutedCaptureEngine & Readonly<{
-	play(): PromiseLike<unknown> | unknown;
+	play(options?: import('../../../engine/public-api.ts').EnginePlayOptions): PromiseLike<unknown> | unknown;
 	stop(): unknown;
 	getState(): Readonly<{ readonly state: string }>;
 	setChunkSources(providers: SourceChunkProviderRegistry<string, unknown>): unknown;

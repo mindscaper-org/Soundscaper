@@ -174,6 +174,15 @@ export function createSoundActivatedRecordingCaptureSession(
 			expectedNextFrame = null;
 			publishState(previous);
 		};
+		const markResumed = () => {
+			if (pendingPause) pendingPause.resumed = true;
+			if (!pendingPause || pendingPause.flushed) {
+				if (gate.state === 'paused' && !gate.resume()) return false;
+				// Paused context time is deliberately absent from compacted capture.
+				expectedNextFrame = null;
+			}
+			publishState('paused'); return true;
+		};
 		return Object.freeze({
 			get state() { return controller.state; },
 			start(options?: Readonly<{ startFrame?: number; stopFrame?: number }>) {
@@ -238,14 +247,16 @@ export function createSoundActivatedRecordingCaptureSession(
 				if (currentState() !== 'paused') return false;
 				const result = controller.resume();
 				if (result === false) return false;
-				if (pendingPause) pendingPause.resumed = true;
-				if (!pendingPause || pendingPause.flushed) {
-					if (!gate.resume()) return false;
-					// Paused AudioContext time leaves a gap in the recorder's frame clock.
-					expectedNextFrame = null;
+				return markResumed() ? result : false;
+			},
+			async resumeConfirmed(options: Readonly<{ startFrame: number }>) {
+				if (!controller.resumeConfirmed) throw new Error('The recording input cannot confirm its resume.');
+				const generation = phaseGeneration;
+				const confirmed = await controller.resumeConfirmed(options);
+				if (generation !== phaseGeneration || gate.state === 'cancelled' || gate.state === 'disarmed') {
+					throw new DOMException('Recording resume cancelled.', 'AbortError');
 				}
-				publishState('paused');
-				return result;
+				markResumed(); return confirmed;
 			},
 			async stop() {
 				// Stop flushes the worklet's final partial chunk and drains its

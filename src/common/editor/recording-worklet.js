@@ -33,6 +33,7 @@ export class StreamingRecorderProcessor extends ProcessorBase {
 		this.inputLossGraceFrames = Math.ceil((Number(globalThis.sampleRate) || 48_000) * 5);
 		this.paused = false;
 		this.pausedAtFrame = null;
+		this.resumeFrame = null;
 		this.startFrame = 0;
 		this.stopFrame = Infinity;
 		this.nextFrame = 0;
@@ -70,9 +71,20 @@ export class StreamingRecorderProcessor extends ProcessorBase {
 			} else outputChannel.fill(0);
 		}
 
+		let resumedAt = null;
+		if (this.recording && this.paused && this.resumeFrame !== null
+			&& this.resumeFrame < this.nextFrame && (!this.fixedStopFrame || this.resumeFrame < this.stopFrame)) {
+			resumedAt = this.resumeFrame;
+			const pauseFrames = Math.max(0, resumedAt - (this.pausedAtFrame ?? resumedAt));
+			if (!this.fixedStopFrame && Number.isFinite(this.stopFrame)) this.stopFrame += pauseFrames;
+			this.paused = false;
+			this.pausedAtFrame = null;
+			this.resumeFrame = null;
+			this.port.postMessage({ type: 'resumed', frame: resumedAt });
+		}
 		if (this.recording && this.paused && this.fixedStopFrame && this.nextFrame >= this.stopFrame) this.#finish();
 		if (!this.recording || this.paused) return true;
-		const firstIndex = Math.max(0, this.startFrame - globalFrame);
+		const firstIndex = Math.max(0, this.startFrame - globalFrame, (resumedAt ?? globalFrame) - globalFrame);
 		const lastIndex = Math.min(blockLength, this.stopFrame - globalFrame);
 		if (lastIndex <= firstIndex) {
 			if (globalFrame >= this.stopFrame) this.#finish();
@@ -150,6 +162,7 @@ export class StreamingRecorderProcessor extends ProcessorBase {
 			this.startFrame = requestedStartFrame;
 			this.stopFrame = Number.isFinite(message.stopFrame) ? Math.max(this.startFrame, Math.floor(message.stopFrame)) : Infinity;
 			this.recording = true;
+			this.resumeFrame = null;
 			this.hasCapturedFrames = false;
 			this.missingInputFrames = 0;
 			this.inputUnavailable = false;
@@ -177,17 +190,32 @@ export class StreamingRecorderProcessor extends ProcessorBase {
 				: Number.isFinite(this.stopFrame) ? this.stopFrame + this.startFrame - previousStartFrame : Infinity;
 			this.port.postMessage({ type: 'rescheduled', requestId: message.requestId,
 				startFrame: this.startFrame, stopFrame: this.stopFrame });
-		} else if (message.type === 'pause' && this.recording && !this.paused) {
+		} else if (message.type === 'pause' && this.recording && (!this.paused || this.resumeFrame !== null)) {
 			if (!this.#flush()) return;
+			if (!this.paused) this.pausedAtFrame = this.nextFrame;
 			this.paused = true;
-			this.pausedAtFrame = this.nextFrame;
+			this.resumeFrame = null;
 			this.port.postMessage({ type: 'paused', frame: this.nextFrame });
 		} else if (message.type === 'resume' && this.recording && this.paused) {
+			if (message.confirmResume) {
+				const firstAvailableFrame = Math.max(this.nextFrame,
+					Number.isFinite(globalThis.currentFrame) ? Math.floor(globalThis.currentFrame) : 0);
+				if (!Number.isSafeInteger(message.startFrame) || message.startFrame < firstAvailableFrame) {
+					this.port.postMessage({ type: 'resume-missed', requestId: message.requestId, firstAvailableFrame });
+					return;
+				}
+				this.resumeFrame = message.startFrame;
+				this.port.postMessage({ type: 'resume-scheduled', requestId: message.requestId, startFrame: message.startFrame });
+				return;
+			}
 			const pauseFrames = Math.max(0, this.nextFrame - (this.pausedAtFrame ?? this.nextFrame));
 			if (!this.fixedStopFrame && Number.isFinite(this.stopFrame)) this.stopFrame += pauseFrames;
 			this.paused = false;
 			this.pausedAtFrame = null;
+			this.resumeFrame = null;
 			this.port.postMessage({ type: 'resumed', frame: this.nextFrame });
+		} else if (message.type === 'resume' && message.confirmResume) {
+			this.port.postMessage({ type: 'resume-rejected', requestId: message.requestId });
 		} else if (message.type === 'stop') {
 			if (this.recording) this.#finish();
 			else this.port.postMessage({ type: 'stopped', frame: this.nextFrame });
@@ -209,6 +237,7 @@ export class StreamingRecorderProcessor extends ProcessorBase {
 		this.recording = false;
 		this.paused = false;
 		this.pausedAtFrame = null;
+		this.resumeFrame = null;
 		if (this.#flush()) this.port.postMessage({ type: 'stopped', frame: this.nextFrame });
 	}
 
