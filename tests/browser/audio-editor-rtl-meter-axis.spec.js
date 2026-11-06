@@ -23,10 +23,10 @@ for (const locale of ['en', 'ar']) test(`${locale} horizontal meter volume follo
 	await expect(slider).toHaveValue('1');
 	const rect = await slider.boundingBox();
 	expect(rect).toBeTruthy();
-	await page.mouse.click(rect.x + rect.width - 12, rect.y + rect.height / 2);
+	await page.mouse.click(rect.x + rect.width - 1, rect.y + rect.height / 2);
 	await expect(slider).toHaveValue('1');
 	await expect(slider).toHaveCSS('direction', 'ltr');
-	await page.mouse.move(rect.x + rect.width - 12, rect.y + rect.height / 2);
+	await page.mouse.move(rect.x + rect.width - 1, rect.y + rect.height / 2);
 	await page.mouse.down();
 	await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2, { steps: 4 });
 	await page.mouse.up();

@@ -20,9 +20,9 @@ test('piano-roll growth preserves the lower pitch scroll limit', async ({ page }
 	await grid.hover({ position: { x: 200, y: 50 } }); await page.mouse.wheel(0, 10000);
 	const note = panel.locator('.note-rect[data-note-id="1"]'); await expect(note).toBeVisible();
 	const oldBounds = await grid.boundingBox(); if (!oldBounds) throw new Error('Grid is not visible');
-	await expect(note).toHaveCSS('top', `${oldBounds.height - 15}px`);
+	const renderedHeight = () => grid.evaluate(element => Number.parseFloat(getComputedStyle(element).height));
+	await expect(note).toHaveCSS('top', `${await renderedHeight() - 15}px`);
 	await resize.focus(); await resize.press('Shift+ArrowUp');
 	await expect.poll(async () => (await grid.boundingBox()).height).toBeGreaterThan(oldBounds.height + 30);
-	const newBounds = await grid.boundingBox();
-	await expect(note).toHaveCSS('top', `${newBounds.height - 15}px`);
+	await expect(note).toHaveCSS('top', `${await renderedHeight() - 15}px`);
 });

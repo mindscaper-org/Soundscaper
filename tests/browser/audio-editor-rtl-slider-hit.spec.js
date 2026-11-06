@@ -14,8 +14,13 @@ for (const locale of ['en', 'ar']) test(`${locale} track-volume painted thumb is
 	const initial = await input.inputValue();
 	const thumb = await slider.locator('.slider__handle').boundingBox();
 	expect(thumb).toBeTruthy();
+	const native = await input.boundingBox(); expect(native).not.toBeNull();
 	await page.mouse.click(thumb.x + thumb.width / 2, thumb.y + thumb.height / 2);
-	await expect(input).toHaveValue(initial);
+	// Native range hits resolve to physical pixels; the painted position may
+	// move by that one pixel, while a reversed axis jumps across the control.
+	await expect.poll(async () => Math.abs(Number(await input.inputValue()) - Number(initial)))
+		.toBeLessThanOrEqual(100 / (native.width - thumb.width));
+	await expect.poll(async () => Math.abs((await slider.locator('.slider__handle').boundingBox()).x - thumb.x)).toBeLessThanOrEqual(1);
 	await expect(row.locator('.audio-editor-track-controls')).toHaveCSS('direction', locale === 'ar' ? 'rtl' : 'ltr');
 	const x = thumb.x + thumb.width / 2;
 	const y = thumb.y + thumb.height / 2;

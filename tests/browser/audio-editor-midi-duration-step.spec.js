@@ -15,6 +15,7 @@ test('a native duration increment advances a valid half-second MIDI note by its 
 	await expect(duration).toHaveValue('0.501');
 	await duration.fill('0.001'); await duration.press('Enter');
 	await expect(duration).toHaveValue('0.001');
+	await expect(editor.locator('.note-rect[data-note-id="1"]')).toHaveCSS('width', '4px');
 	await duration.press('ArrowDown'); await duration.press('Tab');
 	await expect(duration).toHaveValue(String(1 / 48_000));
 });

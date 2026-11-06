@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { applySoundscaperProjectCommand } from '../../src/soundscaper/editor-project-commands.ts';
 import { createProjectStore } from '../../src/common/editor/storage.js';
@@ -23,6 +23,8 @@ test('native send name retains its multiline text through ordinary append and Un
 	const editor = await bootEditor(page, '/embed/en/');
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Multiline.sscape', mimeType: 'application/zip', buffer: bytes });
 	await expect(editor).toHaveAttribute('data-project-id', project.id);
+	await waitForProjectActivation(editor);
+	await expect(editor.locator('[data-edit-block-reason]')).toHaveCount(0);
 	const row = editor.locator('[data-output-track-row][data-output-scope="send"]');
 	const display = row.locator('.track-control-panel__track-name-text');
 	await expect.poll(() => display.textContent()).toBe(ORIGINAL);

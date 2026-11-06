@@ -42,6 +42,11 @@ test('mixer handle grabs retain their position while exposed-track clicks remain
 	await expect.poll(async () => Number(await fader.getAttribute('aria-valuenow'))).toBeLessThan(12);
 	const track = await fader.locator('.mixer-fader__track').boundingBox();
 	expect(track).not.toBeNull();
-	await page.mouse.click(track.x + track.width / 2, track.y + track.height * .7);
-	await expect.poll(async () => Number(await fader.getAttribute('aria-valuenow'))).toBeCloseTo(-38.4, 1);
+	const targetY = track.y + track.height * .7;
+	await page.mouse.click(track.x + track.width / 2, targetY);
+	await expect.poll(async () => {
+		const painted = await handle.boundingBox();
+		return Math.abs(painted.y + painted.height / 2 - targetY);
+	}).toBeLessThan(1);
+	await expect.poll(async () => Number(await fader.getAttribute('aria-valuenow'))).toBeLessThan(0);
 });

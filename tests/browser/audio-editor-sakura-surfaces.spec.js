@@ -10,6 +10,7 @@ for (const product of ['soundscaper', 'framescaper']) {
 		test('uses flat pink timecodes and colors meters, ruler selection and loop', async ({ page }, testInfo) => {
 			const editor = await bootEditor(page, `${product === 'soundscaper' ? '' : '/framescaper'}/embed/en/?useskin=sakura`);
 			await importFiles(editor, [monoTone]);
+			await chooseCommandAction(page, editor, 'Select', 'Select all');
 			await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 			const dialog = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 			await dialog.getByRole('tab', { name: /Appearance$/u }).click();
