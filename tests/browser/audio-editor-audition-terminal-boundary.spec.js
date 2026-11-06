@@ -7,25 +7,7 @@ import {
 
 for (const audition of ['source-range', 'source-full', 'bin']) {
 	test(`the ${audition} audition stops at its media end and can replay`, async ({ page }) => {
-		await page.addInitScript(() => {
-			globalThis.__auditionOutputs = [];
-			const connect = AudioNode.prototype.connect;
-			AudioNode.prototype.connect = function (destination, ...ports) {
-				const result = Reflect.apply(connect, this, [destination, ...ports]);
-				if (destination === this.context.destination && this.context instanceof AudioContext) {
-					const analyser = this.context.createAnalyser();
-					analyser.fftSize = 2048;
-					Reflect.apply(connect, this, [analyser, ...ports]);
-					globalThis.__auditionOutputs.push({ analyser, context: this.context });
-				}
-				return result;
-			};
-			globalThis.__readAuditionOutputs = () => globalThis.__auditionOutputs.map(({ analyser, context }) => {
-				const samples = new Float32Array(analyser.fftSize);
-				analyser.getFloatTimeDomainData(samples);
-				return { time: context.currentTime, peak: samples.reduce((peak, value) => Math.max(peak, Math.abs(value)), 0) };
-			});
-		});
+		await installAuditionOutputProbe(page);
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/');
 		const recording = createWavFixture({ name: 'Finite audition.wav', frequency: 440,
@@ -76,4 +58,59 @@ for (const audition of ['source-range', 'source-full', 'bin']) {
 
 async function outputPeak(page) {
 	return page.evaluate(() => Math.max(0, ...globalThis.__readAuditionOutputs().map(output => output.peak)));
+}
+
+for (const completed of [false, true]) {
+	test(`a different Bin file plays from zero after ${completed ? 'natural end' : 'explicit Pause'}`, async ({ page }) => {
+		await installAuditionOutputProbe(page);
+		const editor = await bootEditor(page, '/embed/en/');
+		const first = createWavFixture({ name: 'First.wav', frequency: 440, duration: 1,
+			channelCount: 1, channelAmplitudes: [.1] });
+		const second = createWavFixture({ name: 'Shorter.wav', frequency: 660, duration: .75,
+			channelCount: 1, channelAmplitudes: [.1] });
+		await importFiles(editor, [first, second]);
+		await expect(editor).toHaveAttribute('data-clip-count', '2');
+		for (const file of [first, second]) {
+			await clipByName(editor, file.name).locator('.clip-header').click({ button: 'right' });
+			await page.getByRole('menuitem', { name: 'Move to Project bin', exact: true }).click();
+		}
+		const firstCard = editor.locator('[data-project-bin-item]').filter({
+			has: page.getByRole('button', { name: /^(?:Play|Pause): First$/u }),
+		});
+		const secondCard = editor.locator('[data-project-bin-item]').filter({
+			has: page.getByRole('button', { name: /^(?:Play|Pause): Shorter$/u }),
+		});
+		await firstCard.getByRole('button', { name: 'Play: First', exact: true }).click();
+		await expect.poll(() => outputPeak(page)).toBeGreaterThan(.03);
+		if (completed) {
+			await expect(firstCard.getByRole('button', { name: 'Play: First', exact: true })).toBeVisible();
+			await expect.poll(() => outputPeak(page)).toBeLessThan(.00001);
+		} else {
+			await firstCard.getByRole('button', { name: 'Pause: First', exact: true }).click();
+		}
+		await secondCard.getByRole('button', { name: 'Play: Shorter', exact: true }).click();
+		await expect.poll(() => outputPeak(page)).toBeGreaterThan(.03);
+	});
+}
+
+async function installAuditionOutputProbe(page) {
+	await page.addInitScript(() => {
+		globalThis.__auditionOutputs = [];
+		const connect = AudioNode.prototype.connect;
+		AudioNode.prototype.connect = function (destination, ...ports) {
+			const result = Reflect.apply(connect, this, [destination, ...ports]);
+			if (destination === this.context.destination && this.context instanceof AudioContext) {
+				const analyser = this.context.createAnalyser();
+				analyser.fftSize = 2048;
+				Reflect.apply(connect, this, [analyser, ...ports]);
+				globalThis.__auditionOutputs.push({ analyser, context: this.context });
+			}
+			return result;
+		};
+		globalThis.__readAuditionOutputs = () => globalThis.__auditionOutputs.map(({ analyser, context }) => {
+			const samples = new Float32Array(analyser.fftSize);
+			analyser.getFloatTimeDomainData(samples);
+			return { time: context.currentTime, peak: samples.reduce((peak, value) => Math.max(peak, Math.abs(value)), 0) };
+		});
+	});
 }

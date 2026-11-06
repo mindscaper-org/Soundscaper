@@ -160,6 +160,7 @@ export function createProjectBinPreviewService(
 			});
 			previewEndFrame = previewClip.durationFrames;
 			previewEngine.setPlayRange?.({ startFrame: 0, endFrame: previewEndFrame });
+			previewEngine.seek?.(0);
 			const preview = Object.freeze({
 				clipId,
 				binItemId: clip.binItemId || clip.id,

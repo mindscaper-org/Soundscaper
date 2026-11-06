@@ -25,6 +25,8 @@ export interface TakeCompPreviewEngine {
 		options?: Readonly<{ readonly chunkSources?: EngineChunkSourceInput }>,
 	): unknown;
 	setSourceResolver?(resolver?: EngineSourceResolver | null): unknown;
+	setPlayRange?(range: Readonly<{ startFrame: number; endFrame: number }> | null): unknown;
+	seek?(frame: number): unknown;
 	play(): Promise<void>;
 	getState?(): Readonly<{ state: string }>;
 	pause(): void;
@@ -72,6 +74,7 @@ export function createTakeCompPreviewService(
 	let activeTask: EditorTaskScope | null = null;
 	let activeGroupId: string | null = null;
 	let releaseTask: (() => void) | null = null;
+	let previewEndFrame = 0;
 
 	return Object.freeze({ auditionTake, auditionLane, stop, stopGroup, dispose });
 
@@ -130,6 +133,9 @@ export function createTakeCompPreviewService(
 			engine.loadProject(previewProject(project, group, selectedTakes, dependencies.createId), dependencies.sourceBuffers, {
 				chunkSources: dependencies.sourceChunkProviders,
 			});
+			previewEndFrame = selectedTakes.reduce((end, take) => Math.max(end, take.endSample - group.startSample), 0);
+			engine.setPlayRange?.(previewEndFrame > 0 ? { startFrame: 0, endFrame: previewEndFrame } : null);
+			engine.seek?.(0);
 			const playing = Object.freeze({
 				key, groupId, laneId,
 				takeIds: Object.freeze([...takeIds]),
@@ -164,6 +170,7 @@ export function createTakeCompPreviewService(
 		const task = activeTask!;
 		try {
 			task.assertCurrent();
+			engine?.setPlayRange?.(previewEndFrame > 0 ? { startFrame: 0, endFrame: previewEndFrame } : null);
 			await engine?.play();
 			task.assertCurrent();
 			dependencies.assertProject(token);

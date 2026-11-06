@@ -11,7 +11,7 @@ import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { MidiPreviewContext, midiPreviewEngine } from './helpers/midi-preview-context.ts';
 import { waitFor } from './helpers/async-test-control.ts';
 
-function fixture(t: TestContext, { trimmed = false, musical = false } = {}) {
+function fixture(t: TestContext, { trimmed = false, musical = false, secondItem = false } = {}) {
 	const context = new MidiPreviewContext(), engine = midiPreviewEngine(context);
 	const lifetime = new EditorControllerLifetime(), generation = new EditorProjectGeneration();
 	const sourceRate = trimmed ? 24_000 : 48_000;
@@ -46,7 +46,9 @@ function fixture(t: TestContext, { trimmed = false, musical = false } = {}) {
 	let binPreview: ProjectBinPreview | null = null;
 	const binClip = musical ? { ...clip, anchor: 'musical' as const, musicalExtent: 'beat' as const,
 		musicalStartBeat: { num: 4, den: 1 }, musicalDurationBeats: { num: 2, den: 1 }, durationFrames: undefined } : clip;
-	const binProject = { ...project, clips: [], projectBin: { clips: [binClip] } };
+	const binClips = [{ ...binClip, binItemId: 'first-item' }, ...(secondItem
+		? [{ ...clip, id: 'second', binItemId: 'second-item', durationFrames: 14_400, sourceDurationFrames: 14_400 }] : [])];
+	const binProject = { ...project, clips: [], projectBin: { clips: binClips } };
 	const bin = createProjectBinPreviewService({
 		lifetime, copy: { audioClipNotFound: 'Missing clip', localSourcesMissing: 'Missing source' },
 		retireTimelinePlayback() {}, sourceBuffers: buffers, sourceChunkProviders: new Map(),
@@ -135,3 +137,22 @@ test('Bin Pause/Resume restores its finite range and retains the current positio
 	assert.equal(f.engine.getState().playbackEndFrame, 48_000);
 	assert.equal(f.engine.getPositionFrames(), pausedPosition);
 });
+
+for (const completed of [false, true]) {
+	test(`a different Bin item starts at zero after ${completed ? 'natural end' : 'explicit Pause'}`, async t => {
+		const f = fixture(t, { secondItem: true });
+		await f.bin.playPauseProjectBinClip('clip');
+		if (completed) {
+			const start = f.engine.getPlaybackAudibleStartTime();
+			assert.ok(start !== null);
+			f.context.currentTime = start + 1.01;
+			await waitFor(() => f.preview()?.state === 'stopped', 'the first Bin item to finish');
+		} else {
+			f.context.currentTime += .2;
+			await f.bin.playPauseProjectBinClip('clip');
+		}
+		await f.bin.playPauseProjectBinClip('second');
+		assert.equal(f.engine.getState().playbackEndFrame, 14_400);
+		assert.equal(f.engine.getPositionFrames(), 0);
+	});
+}
