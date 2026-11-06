@@ -50,18 +50,33 @@ test('a supported native one-second seek still imports and moves live playback w
 	await expect.poll(seconds).toBeGreaterThan(0.05);
 	const selection = await end.textContent();
 	await playhead.focus();
-	const observation = await display.evaluateHandle(element => {
+	const observation = await display.evaluateHandle((element, sourceSampleRate) => {
 		const read = () => { const match = /^(\d+)h(\d+)m([\d.]+)s$/u.exec(element.textContent); return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]); };
-		let origin = null, jump = 0;
-		const keydown = event => { if (event.key === 'F7' && event.ctrlKey && event.altKey && event.shiftKey) origin = { seconds: read(), time: performance.now() }; };
-		const observer = new MutationObserver(() => { if (origin) jump = Math.max(jump, read() - origin.seconds - (performance.now() - origin.time) / 1000); });
+		let origin = null, jump = null;
+		const keydown = event => { if (event.key === 'F7' && event.ctrlKey && event.altKey && event.shiftKey) origin = read(); };
+		const streams = new Map();
+		const postMessage = MessagePort.prototype.postMessage;
+		MessagePort.prototype.postMessage = function (message, ...rest) {
+			const result = Reflect.apply(postMessage, this, [message, ...rest]);
+			// Measure the worklet reschedule itself: elapsed wall time includes graph
+			// preparation and coverage overhead that are not part of the seek distance.
+			if (origin !== null && message?.type === 'configure-stream' && !message.resample) {
+				streams.set(message.streamId, message.startFrame / sourceSampleRate);
+			}
+			if (message?.type === 'play-stream' && streams.has(message.streamId)) jump = streams.get(message.streamId) - origin;
+			return result;
+		};
 		window.addEventListener('keydown', keydown, true);
-		observer.observe(element, { childList: true, characterData: true, subtree: true });
-		return { get jump() { return jump; }, close() { observer.disconnect(); window.removeEventListener('keydown', keydown, true); } };
-	});
+		return { get jump() { return jump; }, get target() { return origin + jump; }, close() {
+			MessagePort.prototype.postMessage = postMessage;
+			window.removeEventListener('keydown', keydown, true);
+		} };
+	}, halfMinuteTone.buffer.readUInt32LE(24));
 	try {
 		await page.keyboard.press('Control+Alt+Shift+F7');
 		await expect.poll(() => observation.evaluate(value => value.jump)).toBeGreaterThan(0.7);
+		expect(await observation.evaluate(value => value.jump)).toBeLessThan(1.3);
+		await expect.poll(seconds).toBeGreaterThan(await observation.evaluate(value => value.target) + 0.05);
 	} finally { await observation.evaluate(value => value.close()); await observation.dispose(); }
 	await expect(end).toHaveText(selection);
 	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
