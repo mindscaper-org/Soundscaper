@@ -140,7 +140,7 @@ export async function installNativePluginParameterHost(page, options = {}) {
 					instanceId, format, stablePluginId: 'org.test.gain', binarySha256: await binaryHash,
 					stateBody: { kind: 'native-plugin-state', bodyId: `native-plugin-state:${expected.sha256}`,
 						byteLength: bytes.byteLength, sha256: expected.sha256 },
-					enabled: true, bypassed: false, continuity: 'live', latencySamples: 0,
+					enabled: true, bypassed, continuity: 'live', latencySamples: 0,
 				} };
 			},
 			restoreNativePluginState: async ({ instanceId, stateBody }) => {
@@ -148,7 +148,7 @@ export async function installNativePluginParameterHost(page, options = {}) {
 				if (!bytes || bytes.byteLength !== stateBody.byteLength || await digest(bytes) !== stateBody.sha256) throw new Error('The requested saved state is absent.');
 				return { bytes: new Uint8Array(bytes), projectState: { instanceId, format,
 					stablePluginId: 'org.test.gain', binarySha256: await binaryHash, stateBody,
-					enabled: true, bypassed: false, continuity: 'live', latencySamples: 0 } };
+					enabled: true, bypassed, continuity: 'live', latencySamples: 0 } };
 			}, openNativePluginVendorUi: vendorUi ? async ({ instanceId }) => ({ status: 'opened', window: {
 				instanceId, windowHandleId: 'test-vendor-window', surface: 'helper-owned-top-level',
 			} }) : refused,
