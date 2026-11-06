@@ -113,5 +113,6 @@ export const MACRO_NYQUIST_COPY_BY_LOCALE = Object.freeze({
 			macroRunFailed: 'The macro could not be applied: {message}',
 			macroImportFailed: 'The macro could not be imported: {message}',
 			macroExportFailed: 'The macro could not be exported: {message}',
+			macroAutoDuckNativeControl: 'Audacity Auto Duck macros use the unselected audio track immediately below the last selected track. Other control-track choices cannot be retained.',
 	}),
 });

@@ -1784,6 +1784,7 @@
 		"lufsMomentary": ["machine","LUFS · M","LUFS · M"],
 		"lufsShort": ["machine","LUFS · S","LUFS · S"],
 		"macroApplied": ["machine","Macro applied.","ماکرو اعمال شد."],
+		"macroAutoDuckNativeControl": ["human","Audacity Auto Duck macros use the unselected audio track immediately below the last selected track. Other control-track choices cannot be retained.","ماکروهای Auto Duck در Audacity از ترک صوتی انتخاب‌نشده‌ای استفاده می‌کنند که بلافاصله زیر آخرین ترک انتخاب‌شده قرار دارد. انتخاب‌های دیگر برای ترک کنترل قابل حفظ نیستند."],
 		"macroEffectsRequired": ["machine","Add at least one effect to the macro.","دست‌کم یک جلوه به ماکرو اضافه کنید."],
 		"macroEmptyHint": ["machine","Add effects to define what this macro applies and in which order.","جلوه‌هایی اضافه کنید تا مشخص شود این ماکرو چه چیزی را و به چه ترتیبی اعمال می‌کند."],
 		"macroExportFailed": ["machine","The macro could not be exported: {message}","ماکرو برون‌بری نشد: {message}"],

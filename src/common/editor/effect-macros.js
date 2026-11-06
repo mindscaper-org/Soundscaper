@@ -4,6 +4,8 @@ import { normalizeCommandParameterName } from './audacity-command-parameters.js'
 import { importedAudacitySelectionParameters } from './audacity-macro-select-commands.ts';
 import {
 	AUDACITY_EFFECT_MACRO_COMMANDS,
+	AUDACITY_AUTO_DUCK_NATIVE_CONTEXT,
+	assertNativeAutoDuckMacroControl,
 	audacityMacroEffectDefaults,
 	audacityMacroEffectProfile,
 	decodeAudacityMacroEffectParameters,
@@ -66,6 +68,7 @@ export function serializeAudacityEffectMacro(effects) {
 			continue;
 		}
 		const normalized = normalizeEffectMacroStep(effect);
+		assertNativeAutoDuckMacroControl(normalized);
 		const command = audacityMacroCommand(normalized.type);
 		if (command) {
 			const parameters = encodeAudacityMacroEffectParameters(normalized.type, normalized.params)
@@ -178,7 +181,7 @@ export function createEffectMacroDraft(options = {}) {
 /**
  * Normalize a macro manager draft to its settings-only model. Effect routing,
  * processor state, disabled entries, and other rack-only metadata are omitted;
- * a portable Noise Reduction profile is retained with its step.
+ * portable Noise Reduction profiles and native Auto Duck binding rules are retained.
  */
 export function normalizeEffectMacroDraft(value, options = {}) {
 	if (!isPlainObject(value)) throw new TypeError('An effect macro draft must be an object.');
@@ -211,6 +214,11 @@ export function normalizeEffectMacroDraft(value, options = {}) {
 			effectOptions.context = normalizeNoiseReductionContext({
 				noiseProfile: candidate.context.noiseProfile,
 			});
+		}
+		if (candidate?.type === 'audacity-auto-duck'
+			&& candidate.context?.audacityControlTrackPolicy === AUDACITY_AUTO_DUCK_NATIVE_CONTEXT.audacityControlTrackPolicy
+			&& (candidate.context.controlTrackId == null || candidate.context.controlTrackId === '')) {
+			effectOptions.context = AUDACITY_AUTO_DUCK_NATIVE_CONTEXT;
 		}
 		const effect = createEffectMacroStep(candidate?.type, effectOptions);
 		effects.push(freezeValue(effect));
@@ -282,6 +290,7 @@ function parseAudacityEffect(type, command, fields) {
 	return createEffectMacroStep(type, {
 		id: 'macro-parse-validation',
 		params: { ...audacityMacroEffectDefaults(type), ...params },
+		...(type === 'audacity-auto-duck' ? { context: AUDACITY_AUTO_DUCK_NATIVE_CONTEXT } : {}),
 	});
 }
 

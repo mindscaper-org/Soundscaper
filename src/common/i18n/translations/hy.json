@@ -1784,6 +1784,7 @@
 		"lufsMomentary": ["machine","LUFS · M","LUFS · M"],
 		"lufsShort": ["machine","LUFS · S","LUFS · S"],
 		"macroApplied": ["machine","Macro applied.","Մակրոն կիրառվեց."],
+		"macroAutoDuckNativeControl": ["human","Audacity Auto Duck macros use the unselected audio track immediately below the last selected track. Other control-track choices cannot be retained.","Audacity-ի Auto Duck մակրոներն օգտագործում են վերջին ընտրված շերտից անմիջապես ներքև գտնվող չընտրված ձայնային շերտը։ Կառավարման շերտի այլ ընտրանքները չեն կարող պահպանվել։"],
 		"macroEffectsRequired": ["machine","Add at least one effect to the macro.","Մակրոյին ավելացրեք առնվազն մեկ էֆեկտ."],
 		"macroEmptyHint": ["machine","Add effects to define what this macro applies and in which order.","Ավելացրեք էֆեկտներ՝ սահմանելու համար, թե ինչ է կիրառում այս մակրոն և ինչ հերթականությամբ."],
 		"macroExportFailed": ["machine","The macro could not be exported: {message}","Հնարավոր չեղավ արտածել մակրոն: {message}"],

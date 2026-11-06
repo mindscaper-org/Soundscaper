@@ -1784,6 +1784,7 @@
 		"lufsMomentary": ["machine","LUFS · M","LUFS · M"],
 		"lufsShort": ["machine","LUFS · S","LUFS · S"],
 		"macroApplied": ["machine","Macro applied.","Η μακροεντολή εφαρμόστηκε."],
+		"macroAutoDuckNativeControl": ["human","Audacity Auto Duck macros use the unselected audio track immediately below the last selected track. Other control-track choices cannot be retained.","Οι μακροεντολές Auto Duck του Audacity χρησιμοποιούν τη μη επιλεγμένη ηχητική τροχιά ακριβώς κάτω από την τελευταία επιλεγμένη τροχιά. Άλλες επιλογές τροχιάς ελέγχου δεν μπορούν να διατηρηθούν."],
 		"macroEffectsRequired": ["machine","Add at least one effect to the macro.","Προσθέστε τουλάχιστον ένα εφέ στη μακροεντολή."],
 		"macroEmptyHint": ["machine","Add effects to define what this macro applies and in which order.","Προσθέστε εφέ για να ορίσετε τι εφαρμόζει αυτή η μακροεντολή και με ποια σειρά."],
 		"macroExportFailed": ["machine","The macro could not be exported: {message}","Δεν ήταν δυνατή η εξαγωγή της μακροεντολής: {message}"],

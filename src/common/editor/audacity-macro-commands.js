@@ -40,6 +40,18 @@ const TRUNCATE_SILENCE_NATIVE_ACTIONS = Object.freeze([
 	'Truncate Detected Silence', 'Compress Excess Silence',
 ]);
 const LOUDNESS_TARGETS = Object.freeze(['lufs', 'rms']);
+export const AUDACITY_AUTO_DUCK_NATIVE_CONTEXT = Object.freeze({ audacityControlTrackPolicy: 'below-last-selected-audio' });
+
+/** Native Auto Duck derives its control from selection, rather than storing a track ID. */
+export function assertNativeAutoDuckMacroControl(effect) {
+	if (effect.type !== 'audacity-auto-duck') return;
+	const context = effect.context;
+	if (context?.audacityControlTrackPolicy === AUDACITY_AUTO_DUCK_NATIVE_CONTEXT.audacityControlTrackPolicy
+		&& (context.controlTrackId == null || context.controlTrackId === '')) return;
+	throw createLocalizedError(RangeError, {}, 'macroAutoDuckNativeControl', undefined, {
+		fallback: 'Audacity Auto Duck macros use the unselected audio track immediately below the last selected track. Other control-track choices cannot be retained.',
+	});
+}
 
 /**
  * Audacity's EffectDefinitionInterface::GetSquashedName: the internal symbol

@@ -1784,6 +1784,7 @@
 		"lufsMomentary": ["machine","LUFS · M","LUFS · M"],
 		"lufsShort": ["machine","LUFS · S","LUFS · S"],
 		"macroApplied": ["machine","Macro applied.","Macro aplicat."],
+		"macroAutoDuckNativeControl": ["human","Audacity Auto Duck macros use the unselected audio track immediately below the last selected track. Other control-track choices cannot be retained.","Macrocomenzile Auto Duck din Audacity folosesc pista audio neselectată aflată imediat sub ultima pistă selectată. Alte alegeri ale pistei de control nu pot fi păstrate."],
 		"macroEffectsRequired": ["machine","Add at least one effect to the macro.","Adaugă cel puțin un efect în macro."],
 		"macroEmptyHint": ["machine","Add effects to define what this macro applies and in which order.","Adaugă efecte pentru a defini ce aplică acest macro și în ce ordine."],
 		"macroExportFailed": ["machine","The macro could not be exported: {message}","Macro-ul nu a putut fi exportat: {message}"],

@@ -1784,6 +1784,7 @@
 		"lufsMomentary": ["machine","LUFS · M","LUFS · M"],
 		"lufsShort": ["machine","LUFS · S","LUFS · S"],
 		"macroApplied": ["machine","Macro applied.","宏已应用。"],
+		"macroAutoDuckNativeControl": ["human","Audacity Auto Duck macros use the unselected audio track immediately below the last selected track. Other control-track choices cannot be retained.","Audacity 的 Auto Duck 宏使用最后一个所选轨道正下方的未选中音轨。无法保留其他控制轨道选择。"],
 		"macroEffectsRequired": ["machine","Add at least one effect to the macro.","请在宏中添加至少一个效果器。"],
 		"macroEmptyHint": ["machine","Add effects to define what this macro applies and in which order.","添加效果器以定义此宏应用哪些效果及其顺序。"],
 		"macroExportFailed": ["machine","The macro could not be exported: {message}","无法导出宏：{message}"],

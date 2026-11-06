@@ -99,7 +99,9 @@ test('every Audacity effect with a macro command round-trips through concrete ma
 		.filter((type) => type !== 'audacity-noise-reduction');
 	const draft = createEffectMacroDraft({
 		name: 'Every command',
-		effects: types.map((type) => ({ type, ...(type === 'audacity-amplify' ? { params: { allowClipping: true } } : {}) })),
+		effects: types.map((type) => type === 'audacity-auto-duck'
+			? parseAudacityEffectMacro('AutoDuck:').effects[0]
+			: ({ type, ...(type === 'audacity-amplify' ? { params: { allowClipping: true } } : {}) })),
 		idFactory: (prefix, index) => `source-${prefix}-${index}`,
 	});
 	const exported = serializeAudacityEffectMacro(draft.effects);

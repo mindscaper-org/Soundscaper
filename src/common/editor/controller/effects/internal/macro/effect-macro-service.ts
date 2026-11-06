@@ -28,7 +28,7 @@ import { createIsolatedTrackRenderProjectV21 } from '../../../shared/isolated-tr
 import type { RunOfflineSelectionChain } from './offline-selection-chain.ts';
 import { MACRO_NEIGHBOUR_PCM_CACHE_LIMIT_BYTES } from './macro-neighbour-pcm-cache.ts';
 import { macroSpectralContext, type MacroSpectralSelection } from './macro-spectral-context.ts';
-import { macroNeedsSilentTargets } from './macro-target-admission.ts';
+import { bindNativeAutoDuckControls, macroNeedsSilentTargets } from './macro-target-admission.ts';
 import { runMacroTargetPlans } from './macro-linked-truncation.ts';
 import { macroRackHistoryFrames, macroRackHistoryScratchBytes } from './macro-rack-history.ts';
 
@@ -74,6 +74,7 @@ interface MacroProject {
 	readonly master: Readonly<Record<string, unknown>>;
 	readonly mixer: object;
 	readonly selection?: Readonly<{
+		trackIds?: readonly string[];
 		frequencyRange?: Readonly<{ minimumFrequency: number; maximumFrequency: number }> | null;
 	}> | null;
 }
@@ -208,9 +209,12 @@ export function createEffectMacroService<Buffer = MacroRenderBuffer>(runtime: Ef
 		if (!enabledEffects.length) {
 			throw createLocalizedError(Error, runtime.copy, runtime.copy.macroEffectsRequired ? 'macroEffectsRequired' : 'effectRackEmpty');
 		}
+		const nativeControl = bindNativeAutoDuckControls(enabledEffects, project, targets, Boolean(request.focusedTrack || request.trackId));
+		if (nativeControl.refusal) throw createLocalizedError(Error, runtime.copy,
+			nativeControl.refusal === 'selection' ? 'audioTrackRequired' : 'macroAutoDuckNativeControl');
 		const sampleRate = targets[0]?.sourceSampleRate ?? runtime.projectSampleRate();
 		const plans = targets.map((target) => {
-			const effects = enabledEffects.map((effect) => materializeStep(effect, target.sourceTrackId ?? target.track.id));
+			const effects = nativeControl.effects.map((effect) => materializeStep(effect, target.sourceTrackId ?? target.track.id));
 			const spectral = macroSpectralContext(project.selection?.frequencyRange, target, effects,
 				() => createLocalizedError(Error, runtime.copy, 'spectralEffectLengthChanging'));
 			const preRollFrames = macroRackHistoryFrames(effects, sampleRate, target.startFrame);

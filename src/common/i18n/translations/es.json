@@ -1784,6 +1784,7 @@
 		"lufsMomentary": ["machine","LUFS · M","LUFS · M"],
 		"lufsShort": ["machine","LUFS · S","LUFS · S"],
 		"macroApplied": ["machine","Macro applied.","Macro aplicado."],
+		"macroAutoDuckNativeControl": ["human","Audacity Auto Duck macros use the unselected audio track immediately below the last selected track. Other control-track choices cannot be retained.","Las macros Auto Duck de Audacity usan la pista de audio no seleccionada situada justo debajo de la última pista seleccionada. No se pueden conservar otras opciones de pista de control."],
 		"macroEffectsRequired": ["machine","Add at least one effect to the macro.","Añade al menos un efecto al macro."],
 		"macroEmptyHint": ["machine","Add effects to define what this macro applies and in which order.","Añade efectos para definir qué aplica este macro y en qué orden."],
 		"macroExportFailed": ["machine","The macro could not be exported: {message}","El macro no se pudo exportar: {message}"],

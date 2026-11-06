@@ -1784,6 +1784,7 @@
 		"lufsMomentary": ["machine","LUFS · M","LUFS · M"],
 		"lufsShort": ["machine","LUFS · S","LUFS · S"],
 		"macroApplied": ["machine","Macro applied.","已套用巨集。"],
+		"macroAutoDuckNativeControl": ["human","Audacity Auto Duck macros use the unselected audio track immediately below the last selected track. Other control-track choices cannot be retained.","Audacity 的 Auto Duck 巨集使用最後一個所選軌道正下方未選取的音訊軌道。無法保留其他控制軌道選擇。"],
 		"macroEffectsRequired": ["machine","Add at least one effect to the macro.","請在巨集中加入至少一個效果器。"],
 		"macroEmptyHint": ["machine","Add effects to define what this macro applies and in which order.","加入效果器以定義此巨集要套用的內容及順序。"],
 		"macroExportFailed": ["machine","The macro could not be exported: {message}","無法匯出巨集：{message}"],

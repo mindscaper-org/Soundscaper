@@ -1784,6 +1784,7 @@
 		"lufsMomentary": ["machine","LUFS · M","LUFS · M"],
 		"lufsShort": ["machine","LUFS · S","LUFS · S"],
 		"macroApplied": ["machine","Macro applied.","マクロを適用しました。"],
+		"macroAutoDuckNativeControl": ["human","Audacity Auto Duck macros use the unselected audio track immediately below the last selected track. Other control-track choices cannot be retained.","AudacityのAuto Duckマクロは、最後に選択したトラックのすぐ下にある未選択の音声トラックを使用します。それ以外の制御トラックの指定は保持できません。"],
 		"macroEffectsRequired": ["machine","Add at least one effect to the macro.","マクロに少なくとも1つのエフェクトを追加してください。"],
 		"macroEmptyHint": ["machine","Add effects to define what this macro applies and in which order.","このマクロが適用する内容と順序を定義するために、エフェクトを追加してください。"],
 		"macroExportFailed": ["machine","The macro could not be exported: {message}","マクロの書き出しに失敗しました: {message}"],
