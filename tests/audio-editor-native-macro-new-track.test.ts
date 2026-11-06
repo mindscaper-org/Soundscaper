@@ -6,9 +6,9 @@ import { createMacroCommandStep } from '../src/common/editor/macro-command-steps
 import { applyEditorCommand } from '../src/common/editor/commands.js';
 import type { AudioEditorCommand } from '../src/common/editor/commands/protocol.ts';
 import { createAudioEditorProjectV17, validateAudioEditorProjectV17 } from '../src/common/editor/project-v17.ts';
-import { createAudioSource, createAudioClip, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
+import { createAudioSource, createAudioClip, createAudioTrack, createLabelTrack } from '../src/common/editor/project-media-factory.ts';
 
-for (const command of ['NewMonoTrack', 'NewStereoTrack']) test(`${command} selects only its new lane and preserves temporal and spectral bounds`, () => {
+for (const command of ['NewMonoTrack', 'NewStereoTrack', 'NewLabelTrack']) test(`${command} selects only its new lane and preserves temporal and spectral bounds`, () => {
 	const f = fixture(); f.run(command);
 	assert.deepEqual(f.project().selection, { ...f.originalSelection, trackIds: ['created'], clipIds: [] });
 	f.run('RemoveTracks');
@@ -17,8 +17,8 @@ for (const command of ['NewMonoTrack', 'NewStereoTrack']) test(`${command} selec
 	assert.ok(validateAudioEditorProjectV17(f.project()));
 });
 
-test('ordinary local add-track action retains its existing document selection', () => {
-	const f = fixture(); f.add();
+for (const label of [false, true]) test(`ordinary local add-${label ? 'label' : 'audio'} action retains its existing document selection`, () => {
+	const f = fixture(); f.add(label);
 	assert.deepEqual(f.project().selection, f.originalSelection);
 });
 
@@ -37,12 +37,12 @@ function fixture(failure?: 'null' | 'missing' | 'old' | 'changed-project' | 'thr
 		selection: { startFrame: 1000, endFrame: 3000, trackIds: ['voice'], clipIds: [], frequencyRange: { minimumFrequency: 100, maximumFrequency: 400 } },
 	});
 	const originalSelection = structuredClone(project.selection);
-	const add = () => {
+	const add = (label = false) => {
 		if (failure === 'throws') throw new Error('creation failed');
 		if (failure === 'null') return null;
 		if (failure === 'missing') return 'missing';
 		if (failure === 'old') return 'voice';
-		project = applyEditorCommand(project, { type: 'track/add', track: { ...createAudioTrack({ id: 'created' }, 8000) } });
+		project = applyEditorCommand(project, { type: 'track/add', track: label ? { ...createLabelTrack({ id: 'created' }) } : { ...createAudioTrack({ id: 'created' }, 8000) } });
 		if (failure === 'changed-project') project = { ...project, id: 'other-project' };
 		return 'created';
 	};
@@ -50,7 +50,7 @@ function fixture(failure?: 'null' | 'missing' | 'old' | 'changed-project' | 'thr
 		getSelectedTrackId: () => project.tracks.some(track => track.id === 'created') ? 'created' : 'voice',
 		projectSampleRate: () => 8000, timelineDurationFrames: () => 8000,
 		setExactSelection: (startFrame, endFrame, details) => { project = { ...project, selection: { ...project.selection, ...details, startFrame, endFrame } }; },
-		getActions: () => ({ track: { addMono: add, addStereo: add }, edit: { commit: (command: AudioEditorCommand) => { project = applyEditorCommand(project, command); } } }),
+		getActions: () => ({ track: { addMono: add, addStereo: add, addLabel: () => add(true) }, edit: { commit: (command: AudioEditorCommand) => { project = applyEditorCommand(project, command); } } }),
 	});
 	return { run: (command: string) => service.runMacroCommand(createMacroCommandStep(command)), add, project: () => project, originalSelection };
 }

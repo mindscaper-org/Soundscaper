@@ -151,7 +151,7 @@ export function createMacroCommandService(runtime: MacroCommandServiceRuntime) {
 		if (typeof target !== 'function') {
 			throw new RangeError(`The macro command ${command} has no editor action (${path}).`);
 		}
-		if (command === 'NewMonoTrack' || command === 'NewStereoTrack') {
+		if (command === 'NewMonoTrack' || command === 'NewStereoTrack' || command === 'NewLabelTrack') {
 			const before = runtime.getProject();
 			const selection = before.selection;
 			const range = resolveSelectionRange(before) ?? selection ?? { startFrame: 0, endFrame: 0 };

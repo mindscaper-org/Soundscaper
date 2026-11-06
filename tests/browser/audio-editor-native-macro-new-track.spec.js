@@ -2,7 +2,7 @@
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, closeDialog, importFiles } from './audio-editor-test-helpers.js';
 
-for (const [command, explicit] of [['NewMonoTrack', false], ['NewStereoTrack', false], ['NewMonoTrack', true]]) {
+for (const [command, explicit] of [['NewMonoTrack', false], ['NewStereoTrack', false], ['NewMonoTrack', true], ['NewLabelTrack', false], ['NewLabelTrack', true]]) {
 	test(`native ${command} selects its created lane before RemoveTracks, explicit=${explicit}`, async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
 		await editor.locator('[data-track-row]').first().locator('.track-control-panel__track-name-text').click();
