@@ -934,3 +934,10 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      available. Shared endpoint props reduce duplicate component input. Covered
      by mounted admission and active-range/format regressions plus a physical
      pointer and native project-export workflow. Upstream-PR candidate.
+
+125. `NumberStepper` distinguishes button or keyboard steps from ordinary
+     text drafts. `RulerFlyout` frequency fields publish typing on Enter or
+     blur and publish each step once, so earlier partial numbers cannot replace
+     later keystrokes. Moving focus to the field's arrow buttons retains the
+     current draft. Covered by mounted typing, stepping and localized-name
+     checks plus the production flyout resize workflow. Upstream-PR candidate.

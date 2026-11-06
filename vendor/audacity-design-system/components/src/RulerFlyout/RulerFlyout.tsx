@@ -42,21 +42,15 @@ function FreqStepper({ label, value, onCommit, min, max, step, width, className 
 
   return (
     <div
-      onBlur={() => tryCommit(draft)}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) tryCommit(draft); }}
       onKeyDown={(e) => { if (!e.nativeEvent?.isComposing && e.key === 'Enter') tryCommit(draft); }}
     >
       <NumberStepper
         ref={ref}
         ariaLabel={label}
         value={draft}
-        onChange={(val) => {
-          // Arrow buttons produce a clean integer — commit immediately
-          const n = Number(val);
-          if (Number.isFinite(n) && n >= min && n <= max && /^-?\d+$/.test(val.trim())) {
-            onCommit(n);
-          }
-          setDraft(val);
-        }}
+        onChange={setDraft}
+        onStep={tryCommit}
         min={min}
         max={max}
         step={step}

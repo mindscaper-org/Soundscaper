@@ -31,6 +31,12 @@ for (const [locale, minimum, maximum] of [['en', 'Min', 'Max'], ['de', 'Untergre
 			assert.deepEqual(fields.map(field => field.getAttribute('aria-label')), [minimum, maximum]);
 			await act(async () => reactProps(fields[0]!).onChange({ target: { value: '500' } }));
 			await act(async () => reactProps(fields[1]!).onChange({ target: { value: '12000' } }));
+			assert.deepEqual(writes, [], 'typing retains its own draft until confirmation');
+			for (const field of fields) {
+				const stepper = field.closest('.number-stepper'); assert.ok(stepper);
+				const owner = dom.container.querySelectorAll('div').find(element => element.childNodes.includes(stepper)); assert.ok(owner);
+				await act(async () => reactProps(owner).onKeyDown({ key: 'Enter', nativeEvent: { isComposing: false } }));
+			}
 			assert.deepEqual(writes, [{ edge: 'minimum', frequency: 500 }, { edge: 'maximum', frequency: 12_000 }]);
 			assert.deepEqual(fields.map(field => field.value), ['500', '12000']);
 		} finally {
