@@ -10,9 +10,24 @@ for(const lookahead of [0,100])test(`ordinary Record Resume postfader loopback l
 	await page.addInitScript(()=>{
 		const Native=AudioContext,Node=AudioWorkletNode,connect=AudioNode.prototype.connect;
 		const state=window.__resumePdc={context:null,stream:null,events:[],chunks:[]};
-		function shared(){if(!state.context||state.context.state==='closed'){state.context=new Native({sampleRate:48000});state.destination=state.context.createMediaStreamDestination();state.stream=state.destination.stream;}return state.context;}
+		function shared() {
+			if (!state.context || state.context.state === 'closed') {
+				state.context = new Native({ sampleRate: 48000 });
+				state.destination = state.context.createMediaStreamDestination();
+				state.stream = state.destination.stream;
+				// A real loopback has a causal delay. Firefox silences a feedback
+				// cycle without a DelayNode, including through a MediaStream.
+				state.delay = state.context.createDelay();
+				state.delay.delayTime.value = 128 / 48000;
+				Reflect.apply(connect, state.delay, [state.destination]);
+				const track = state.stream.getAudioTracks()[0], settings = track.getSettings.bind(track);
+				Object.defineProperty(track, 'getSettings', { configurable: true, value: () => ({ ...settings(),
+					channelCount: state.destination.channelCount, sampleRate: 48000, latency: 128 / 48000 }) });
+			}
+			return state.context;
+		}
 		window.AudioContext=new Proxy(Native,{construct(){return shared();}});
-		AudioNode.prototype.connect=function(destination,...ports){const result=Reflect.apply(connect,this,[destination,...ports]);if(this.context===state.context&&destination===state.context.destination&&this!==state.destination)Reflect.apply(connect,this,[state.destination,...ports]);return result;};
+		AudioNode.prototype.connect=function(destination,...ports){const result=Reflect.apply(connect,this,[destination,...ports]);if(this.context===state.context&&destination===state.context.destination&&this!==state.destination)Reflect.apply(connect,this,[state.delay,...ports]);return result;};
 		window.AudioWorkletNode=new Proxy(Node,{construct(target,args){const node=Reflect.construct(target,args);if(args[1]==='kw-audio-recorder'){node.port.addEventListener('message',event=>{const m=event.data;if(['paused','resumed','started'].includes(m.type))state.events.push({...m});if(m.type==='audio-chunk'){const channel=m.channels[0];let energy=0,peak=0;for(const value of channel){energy+=value*value;peak=Math.max(peak,Math.abs(value));}state.chunks.push({frame:m.frameStart,frames:m.frames,rms:Math.sqrt(energy/channel.length),peak});}});node.port.start();}return node;}});
 		Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{
 			enumerateDevices:async()=>[{kind:'audioinput',deviceId:'default',groupId:'loopback',label:'Real programme loopback'}],
