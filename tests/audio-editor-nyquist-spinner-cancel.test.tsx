@@ -9,6 +9,7 @@ import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 interface Fixture {
 	readonly value: () => number;
+	readonly focused: () => boolean;
 	pointer(phase: 'Down' | 'Up', id?: number): Promise<void>;
 	change(value: number): Promise<void>;
 	key(key: string): Promise<void>;
@@ -27,7 +28,7 @@ async function withField(check: (fixture: Fixture) => Promise<void>): Promise<vo
 		await act(async () => render());
 		const input = dom.one('input');
 		await act(async () => { reactProps(input).onFocus!(); });
-		await check({ value: () => value,
+		await check({ value: () => value, focused: () => input.ownerDocument.activeElement === input,
 			pointer: async (phase, id = 7) => { await act(async () => {
 				reactProps(input)[`onPointer${phase}`]?.({ pointerId: id, button: 0, isPrimary: true,
 					currentTarget: input, preventDefault() {} });
@@ -44,6 +45,15 @@ async function withField(check: (fixture: Fixture) => Promise<void>): Promise<vo
 		await act(async () => root.unmount()); globals.IS_REACT_ACT_ENVIRONMENT = previous; dom.restore();
 	}
 }
+
+test('a native spinner claims keyboard focus for Escape cancellation', async () => {
+	await withField(async field => {
+		assert.equal(field.focused(), false);
+		await field.pointer('Down');
+		assert.equal(field.focused(), true);
+		await field.pointer('Up');
+	});
+});
 
 test('Nyquist Escape rejects the remainder of a held native spinner until its release', async () => {
 	await withField(async field => {

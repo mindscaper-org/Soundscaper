@@ -46,6 +46,7 @@ export default function NyquistNumberInput({ value, minimum, maximum, integer, d
 		onPointerDown={event => {
 			if (disabled || event.button !== 0) return;
 			if (event.isPrimary === false || !pointer.begin(event.pointerId)) { event.preventDefault(); return; }
+			event.currentTarget.focus({ preventScroll: true });
 			event.currentTarget.setPointerCapture?.(event.pointerId);
 			begin();
 		}}
