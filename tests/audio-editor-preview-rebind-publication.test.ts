@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { clipFixture, createHarness, createPreviewEngine, projectFixture } from './helpers/project-bin-service-harness.ts';
+import { deferred, waitFor } from './helpers/async-test-control.ts';
 
 test('a Project Bin audition publishes its existing engine resuming after output replacement', async () => {
 	const engine = createPreviewEngine(Promise.resolve());
@@ -37,6 +38,26 @@ test('a stale playing notification cannot override the actual paused preview eng
 	engine.emit('playing');
 	assert.equal(fixture.preview?.state, 'paused');
 	state = 'playing'; engine.emit('playing');
-	assert.equal(fixture.preview?.state, 'playing');
+	assert.equal(fixture.preview?.state, 'paused', 'an actual late start still cannot override the user Pause');
+	assert.equal(state, 'paused', 'the late voice is paused too');
+	await fixture.service.dispose();
+});
+
+test('Pause while a bin audition initially warms cannot be undone by its late playing event', async () => {
+	const ready = deferred<void>(), entered = deferred<void>();
+	let state = 'ready', onState: (value: string) => void = () => {};
+	const fixture = createHarness(projectFixture({ projectBinClips: [clipFixture({ id: 'bin', sourceId: 'audio' })] }), {
+		createPreviewEngine: options => {
+			onState = options.onState;
+			return { loadProject() {}, getState: () => ({ state }),
+				async play() { entered.resolve(); await ready.promise; state = 'playing'; onState(state); },
+				pause() { state = 'paused'; onState(state); }, stop() { state = 'stopped'; onState(state); } };
+		},
+	});
+	const start = fixture.service.playPauseProjectBinClip('bin');
+	const stopped = assert.rejects(start, error => error instanceof Error && error.name === 'AbortError');
+	await entered.promise; await waitFor(() => fixture.preview?.state === 'playing', 'optimistic audition state');
+	await fixture.service.playPauseProjectBinClip('bin'); ready.resolve(); await stopped;
+	assert.equal(fixture.preview?.state, 'paused'); assert.equal(state, 'paused');
 	await fixture.service.dispose();
 });

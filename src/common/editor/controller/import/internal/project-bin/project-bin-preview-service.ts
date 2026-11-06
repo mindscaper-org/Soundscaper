@@ -77,6 +77,7 @@ export function createProjectBinPreviewService(
 	dependencies: ProjectBinPreviewDependencies,
 ): Readonly<ProjectBinPreviewService> {
 	let previewEngine: ProjectBinPreviewEngine | null = null;
+	let playbackRequested = false;
 
 	return Object.freeze({
 		playPauseProjectBinClip,
@@ -105,6 +106,7 @@ export function createProjectBinPreviewService(
 		dependencies.assertProject(projectToken);
 		dependencies.retireTimelinePlayback();
 		if (videoClip && !audioClip) {
+			playbackRequested = true;
 			const visual = dependencies.getVisualData(clipId);
 			const preview = Object.freeze({
 				clipId,
@@ -161,6 +163,7 @@ export function createProjectBinPreviewService(
 				...(videoClip ? { mediaUrl: dependencies.getVisualData(clipId)?.mediaUrl || null, audioSourceId: source.id } : {}),
 			});
 			startingPreview = preview;
+			playbackRequested = true;
 			dependencies.setPreview(preview);
 			dependencies.publish();
 			await dependencies.prepareTimePitchCaches?.({ ...project, clips: [...project.clips, ...projectBinClips(project)] },
@@ -188,6 +191,7 @@ export function createProjectBinPreviewService(
 		audioClipId: string,
 	): Promise<ProjectBinPreview> {
 		if (active.state === 'playing') {
+			playbackRequested = false;
 			dependencies.lifetime.cancelTask(PROJECT_BIN_PREVIEW_TASK);
 			previewEngine?.pause();
 			const paused = Object.freeze({ ...active, state: 'paused' as const });
@@ -195,6 +199,7 @@ export function createProjectBinPreviewService(
 			dependencies.publish();
 			return paused;
 		}
+		playbackRequested = true;
 		if (video) {
 			const playing = Object.freeze({ ...active, state: 'playing' as const });
 			dependencies.setPreview(playing);
@@ -233,6 +238,7 @@ export function createProjectBinPreviewService(
 	async function stopProjectBinPreview(
 		{ dispose = false }: Readonly<{ dispose?: boolean }> = {},
 	): Promise<boolean> {
+		playbackRequested = false;
 		dependencies.lifetime.cancelTask(PROJECT_BIN_PREVIEW_TASK);
 		const changed = Boolean(dependencies.getPreview());
 		dependencies.setPreview(null);
@@ -255,10 +261,12 @@ export function createProjectBinPreviewService(
 
 	function handlePreviewState(engine: ProjectBinPreviewEngine | null, state: string): void {
 		const active = dependencies.getPreview();
-		if (!engine || previewEngine !== engine || dependencies.lifetime.inactive
-			|| !active || (active.kind !== 'audio' && !active.audioSourceId)) return;
+		if (!engine || previewEngine !== engine || dependencies.lifetime.inactive) return;
+		if (state === 'playing' && !playbackRequested) { engine.pause(); return; }
+		if (!active || (active.kind !== 'audio' && !active.audioSourceId)) return;
 		if (state === 'playing' && (active.state !== 'paused'
 			|| (engine.getState && engine.getState().state !== 'playing'))) return;
+		if (state !== 'playing' && state !== 'paused') playbackRequested = false;
 		dependencies.setPreview(Object.freeze({
 			...active,
 			state: state === 'playing' ? 'playing' : state === 'paused' ? 'paused' : 'stopped',
