@@ -11,7 +11,22 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2, me
 		const unavailable = { status: 'unavailable', reason: 'not-built', detail: '' };
 		const queueCapacity = 8;
 		window.__nativeOutput = { packets: 0, mean: 0, channelMeans: [], channelRms: [], loss: [], packetHistory: [], queueCapacity };
+		let observationFailure = null;
+		const failObservation = message => {
+			observationFailure = message;
+			for (const [id, pending] of pendingFences) {
+				pending.reject(new Error(message)); pendingFences.delete(id);
+			}
+		};
+		for (const field of ['packets', 'mean', 'channelMeans', 'channelRms', 'frequency', 'packetHistory']) {
+			let value = window.__nativeOutput[field];
+			Object.defineProperty(window.__nativeOutput, field, { enumerable: true,
+				get() { if (observationFailure) throw new Error(observationFailure); return value; },
+				set(next) { value = next; },
+			});
+		}
 		window.__nativeOutput.fence = () => {
+			if (observationFailure) return Promise.reject(new Error(observationFailure));
 			const current = [...peers.entries()].at(-1);
 			if (!current) throw new Error('No native output peer is attached.');
 			const [sessionId, peer] = current, fence = ++nextFence;
@@ -21,9 +36,11 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2, me
 			});
 		};
 		// This output-only fixture never grants an unrelated browser microphone.
-		Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
+		const mediaDevices = navigator.mediaDevices ?? {};
+		Object.defineProperty(mediaDevices, 'getUserMedia', {
 			configurable: true, value: async () => new MediaStream(),
 		});
+		Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: mediaDevices });
 		const bridge = {
 			getExternalFfmpegStatus: async () => ({ state: 'unconfigured', location: null, version: null,
 				detail: '', canInstall: false, canBrowse: false, canClear: false }),
@@ -51,20 +68,21 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2, me
 			},
 			bindNativeAudioSession: async ({ sessionId }) => {
 				const request = sessions.get(sessionId), pair = new MessageChannel();
-				const url = URL.createObjectURL(new Blob([`
-					let latestPacket = null, previousSample = null;
+				const observations = new MessageChannel();
+				const observerUrl = URL.createObjectURL(new Blob([`
+					let previousSample = null;
 					const frequencies = [];
 					onmessage = ({ data }) => {
-						if (data.fence) { postMessage({ fence: data.fence, packet: latestPacket }); return; }
 						const { port, rate, measureFrequency } = data;
 						let packets = 0;
 						const powers = [];
 						port.onmessage = ({ data }) => {
 							if (data.kind !== 'audio') return;
+							const channels = data.channels;
 							let frequency;
 							if (measureFrequency) {
 								let crossings = 0;
-								for (const sample of data.channels[0]) {
+								for (const sample of channels[0]) {
 									if (previousSample !== null && (sample >= 0) !== (previousSample >= 0)) crossings++;
 									previousSample = sample;
 								}
@@ -73,37 +91,76 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2, me
 								frequency = frequencies.reduce((sum, packet) => sum + packet.crossings, 0) * rate
 									/ (2 * frequencies.reduce((sum, packet) => sum + packet.frames, 0));
 							}
-							const means = data.channels.map(channel => channel.reduce((sum, value) => sum + value, 0) / channel.length);
-							powers.push(data.channels.map(channel => channel.reduce((sum, value) => sum + value * value, 0) / channel.length));
+							const means = channels.map(channel => channel.reduce((sum, value) => sum + value, 0) / channel.length);
+							powers.push(channels.map(channel => channel.reduce((sum, value) => sum + value * value, 0) / channel.length));
 							if (powers.length > 64) powers.shift();
 							const rms = means.map((_, index) => Math.sqrt(powers.reduce((sum, packet) => sum + packet[index], 0) / powers.length));
-							latestPacket = { startFrame: data.startFrame, endFrame: data.startFrame + data.frameCount,
-								frameCount: data.frameCount, peaks: data.channels.map(channel => channel.reduce((peak, value) => Math.max(peak, Math.abs(value)), 0)) };
-							postMessage({ frequency, packets: ++packets, mean: means[0], channelMeans: means, channelRms: rms, packet: latestPacket });
-							port.postMessage({ ...data, kind: 'return', status: 'ok', framesTransferred: data.frameCount },
-								data.channels.map(channel => channel.buffer));
+							const packet = { startFrame: data.startFrame, endFrame: data.startFrame + data.frameCount,
+								frameCount: data.frameCount, peaks: channels.map(channel => channel.reduce((peak, value) => Math.max(peak, Math.abs(value)), 0)) };
+							port.postMessage({ sequence: data.sequence, frequency, packets: ++packets,
+								mean: means[0], channelMeans: means, channelRms: rms, packet });
 						};
 						port.start();
 						postMessage({ ready: true });
 					};
 				`], { type: 'text/javascript' }));
+				const observer = new Worker(observerUrl);
+				const url = URL.createObjectURL(new Blob([`
+					let latestPacket = null, lastSequence = -1, measuredSequence = -1;
+					let pending = 0, failed = false;
+					const fences = [];
+					const finishFences = () => {
+						for (let index = fences.length - 1; index >= 0; index--) {
+							if (fences[index].sequence > measuredSequence) continue;
+							postMessage({ fence: fences[index].id, packet: latestPacket }); fences.splice(index, 1);
+						}
+					};
+					onmessage = ({ data }) => {
+						if (data.fence) { fences.push({ id: data.fence, sequence: lastSequence }); finishFences(); return; }
+						const { port, observations } = data;
+						observations.onmessage = ({ data }) => {
+							pending--; measuredSequence = data.sequence; latestPacket = data.packet;
+							postMessage(data); finishFences();
+						};
+						observations.start();
+						port.onmessage = ({ data }) => {
+							if (data.kind !== 'audio') return;
+							lastSequence = data.sequence;
+							// One bounded copy models the native device write. Neither FFT
+							// nor telemetry can delay the next eight-credit packet return.
+							const channels = !failed && pending < 64 ? data.channels.map(channel => channel.slice()) : null;
+							port.postMessage({ ...data, kind: 'return', status: 'ok', framesTransferred: data.frameCount },
+								data.channels.map(channel => channel.buffer));
+							if (!channels) {
+								failed = true; postMessage({ observationFailure: 'The bounded native PCM observer could not keep up.' }); return;
+							}
+							pending++; observations.postMessage({ ...data, channels }, channels.map(channel => channel.buffer));
+						};
+						port.start(); postMessage({ ready: true });
+					};
+				`], { type: 'text/javascript' }));
 				const worker = new Worker(url);
-				peers.set(sessionId, { worker, url });
+				peers.set(sessionId, { worker, url, observer, observerUrl });
 				await new Promise((resolve, reject) => {
+					observer.onmessage = ({ data }) => {
+						if (data.ready) worker.postMessage({ port: pair.port1, observations: observations.port2 }, [pair.port1, observations.port2]);
+					};
+					observer.onerror = error => { failObservation(`Native PCM observer failed: ${error.message}`); reject(error); };
 					worker.onmessage = ({ data }) => {
-						if (data.fence) {
+						if (data.observationFailure) { failObservation(data.observationFailure); }
+						else if (data.fence) {
 							const pending = pendingFences.get(data.fence);
 							pendingFences.delete(data.fence);
 							pending?.resolve({ sessionId, packet: data.packet, periodFrames: request.periodFrames, queueCapacity });
 						} else if (data.ready) resolve();
-						else {
+						else if (!observationFailure) {
 							Object.assign(window.__nativeOutput, data, { sessionId });
 							window.__nativeOutput.packetHistory.push({ ...data.packet, sessionId });
 							if (window.__nativeOutput.packetHistory.length > 64) window.__nativeOutput.packetHistory.shift();
 						}
 					};
-					worker.onerror = reject;
-					worker.postMessage({ port: pair.port1, rate: request.sampleRate, measureFrequency }, [pair.port1]);
+					worker.onerror = error => { failObservation(`Native fixture transport failed: ${error.message}`); reject(error); };
+					observer.postMessage({ port: observations.port1, rate: request.sampleRate, measureFrequency }, [observations.port1]);
 				});
 				window.postMessage({ type: 'soundscaper-native-realtime-port-v1', offer: {
 					sessionId, protocolVersion: 1, generation: 1, sampleFormat: 'f32-planar', sampleRate: request.sampleRate,
@@ -119,7 +176,8 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2, me
 				}
 				const peer = peers.get(sessionId);
 				peer?.worker.terminate();
-				if (peer) URL.revokeObjectURL(peer.url);
+				peer?.observer.terminate();
+				if (peer) { URL.revokeObjectURL(peer.url); URL.revokeObjectURL(peer.observerUrl); }
 				peers.delete(sessionId);
 				return true;
 			},

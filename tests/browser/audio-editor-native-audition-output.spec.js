@@ -4,7 +4,12 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, clipByName, closeWorkspacePanel, importFiles, openSourceMonitor } from './audio-editor-test-helpers.js';
 import { installNativeOutputPeer } from './helpers/native-output-peer.js';
 
-for (const audition of ['source', 'bin']) test(`native ${audition} audition follows rate replacement and preserves the main context on retirement`, async ({ page }) => {
+// The shipping native peer is Electron/Chromium. Even a minimal immediate-return
+// peer overruns WebKit's eight-credit deadline; retain its browser fallback case.
+const liveNativeDeadlineReason = 'WebKit cannot qualify the desktop native peer eight-credit realtime deadline.';
+
+for (const audition of ['source', 'bin']) test(`native ${audition} audition follows rate replacement and preserves the main context on retirement`, async ({ page, browserName }) => {
+	test.skip(browserName === 'webkit', liveNativeDeadlineReason);
 	await installAuditionProbe(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	const recording = createWavFixture({ name: 'Native audition.wav', sampleRate: 16000, frequency: 440, duration: 12, channelCount: 1 });
@@ -57,7 +62,8 @@ for (const audition of ['source', 'bin']) test(`native ${audition} audition foll
 	await expect(editor.getByRole('alert')).toHaveCount(0);
 });
 
-test('a Source selection still stops at its right edge after native rate replacement', async ({ page }) => {
+test('a Source selection still stops at its right edge after native rate replacement', async ({ page, browserName }) => {
+	test.skip(browserName === 'webkit', liveNativeDeadlineReason);
 	await installAuditionProbe(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	const recording = createWavFixture({ name: 'Bounded native audition.wav', sampleRate: 16000, frequency: 440, duration: 12, channelCount: 1 });
@@ -95,7 +101,10 @@ test('a Source selection still stops at its right edge after native rate replace
 });
 
 async function nativeRms(page) {
-	return page.evaluate(() => Math.max(0, ...window.__nativeOutput.channelRms));
+	return page.evaluate(() => {
+		if (window.__nativeOutput.loss.length) throw new Error(`Native fixture transport loss: ${JSON.stringify(window.__nativeOutput.loss)}`);
+		return Math.max(0, ...window.__nativeOutput.channelRms);
+	});
 }
 
 async function expectNativeStopped(page) {
