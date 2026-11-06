@@ -201,7 +201,7 @@ export function createFramescaperCaptureAppComposition(
 	const recorderFactory = createFramescaperBrowserRecorderFactory({
 		MediaRecorder,
 		MediaStreamTrackProcessor: TrackProcessor,
-		getAudioContext: options.getAudioContext, observeInput: options.observeInput,
+		getAudioContext: options.getAudioContext, observeInput: options.observeInput, onWarning: options.onWarning,
 		...(options.recordingControllerFactory ? { recordingControllerFactory: options.recordingControllerFactory } : {}),
 		...(options.receiptTime ? { receiptTime: options.receiptTime } : {}),
 	});

@@ -105,6 +105,7 @@ export interface FramescaperBrowserAudioRecorderOptions {
 	readonly onChunk: (chunk: Readonly<CapturePcmChunk>) => PromiseLike<void> | void;
 	readonly onBackpressure?: (pendingChunks: number, error: Error) => PromiseLike<void> | void;
 	readonly onError?: (error: unknown) => void;
+	readonly onWarning?: (error: unknown) => void;
 }
 export interface FramescaperBrowserAudioRecorder {
 	readonly role: FramescaperCaptureAudioRole;
@@ -218,7 +219,7 @@ async function createWorkletRecorder(input: Readonly<{
 	if (!options.context) {
 		throw new Error('Capture audio requires an AudioWorklet context.');
 	}
-	const context = await acquireFramescaperCaptureAudioContext(options.context, format.sampleRate, options.createAudioContext);
+	const context = await acquireFramescaperCaptureAudioContext(options.context, format.sampleRate, options.createAudioContext, { monitoring, onWarning: options.onWarning });
 	const factory = options.recordingControllerFactory
 		?? (createRecordingController as unknown as FramescaperWorkletRecordingControllerFactory);
 	const frameMapper = createFramescaperCapturePcmFrameMapper();
@@ -231,6 +232,7 @@ async function createWorkletRecorder(input: Readonly<{
 		channelCount: format.channelCount,
 		chunkFrames,
 		monitor: monitoring,
+		monitorDestination: context.monitorDestination,
 		inputGain,
 		maxPendingChunks: maximumPendingChunks,
 		onChunk: (chunk) => sink.push(frameMapper.map(chunk)),
