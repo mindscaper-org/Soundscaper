@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, clipByName, closeWorkspacePanel, importFiles, openSourceMonitor } from './audio-editor-test-helpers.js';
+import { bootEditor, clipByName, closeWorkspacePanel, collectClientErrors, importFiles, openSourceMonitor } from './audio-editor-test-helpers.js';
 import { installNativeOutputPeer, NATIVE_OUTPUT_PEER_WEBKIT_REASON } from './helpers/native-output-peer.js';
 
 for (const audition of ['source', 'bin']) test(`native ${audition} audition follows rate replacement and preserves the main context on retirement`, async ({ page, browserName }) => {
@@ -125,13 +125,10 @@ async function expectNativeStopped(page) {
 	expect(later.every(packet => packet.peaks.every(peak => peak < .0001)), 'Stop may retire packets entirely or continue emitting silence').toBe(true);
 }
 
-// Native route retirement checkpoints pause V8 while the eight-credit audio
-// transport keeps advancing. Measure this live handoff without that pause.
-const realtimeTest = test.extend({ browserCoverage: false });
-
-realtimeTest('Source native-to-browser fallback matches the same surround programme played directly in the browser', async ({ page, browserName }) => {
+test('Source native-to-browser fallback matches the same surround programme played directly in the browser', async ({ page, browserName }) => {
 	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
 	await installAuditionProbe(page, { browserInput: true });
+	const errors = collectClientErrors(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	const recording = createWavFixture({ name: 'Rear programme.wav', sampleRate: 16000, frequency: 440, duration: 12,
 		channelCount: 6, channelAmplitudes: [0, 0, 0, 0, .4, 0] });
@@ -159,6 +156,7 @@ realtimeTest('Source native-to-browser fallback matches the same surround progra
 	await closeWorkspacePanel(editor, 'source-monitor');
 	expect(await page.evaluate(index => window.__nativeAuditionProof.contexts[index].state, ownerIndex)).not.toBe('closed');
 	await expect(editor.getByRole('alert')).toHaveCount(0);
+	expect(errors).toEqual([]);
 });
 
 async function browserPeak(page) {
@@ -168,6 +166,11 @@ async function browserPeak(page) {
 async function installAuditionProbe(page, { browserInput = false } = {}) {
 	await installNativeOutputPeer(page);
 	await page.addInitScript(({ browserInput }) => {
+		// Match the native peer's stereo endpoint. Container audio can advertise
+		// six channels yet fail asynchronously when that physical device opens.
+		if (browserInput) Object.defineProperty(AudioDestinationNode.prototype, 'maxChannelCount', {
+			configurable: true, get() { return 2; },
+		});
 		window.__nativeAuditionProof = { contexts: [], outputs: [] };
 		const OriginalContext = AudioContext;
 		window.AudioContext = new Proxy(OriginalContext, { construct(target, args, newTarget) {
