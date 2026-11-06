@@ -35,6 +35,7 @@ interface PreparedSession {
 }
 
 const ROUTES = new WeakMap<BaseAudioContext, Readonly<{ node: AudioNode; channelCount: number }>>();
+const OUTPUT_FAILURES = new WeakMap<BaseAudioContext, Error>();
 const routeListeners = new Set<(context: BaseAudioContext) => void>();
 
 /** Auditions retain their own graph while following the owning native session. */
@@ -57,6 +58,11 @@ export function soundscaperNativeAudioOutputChannelCount(context: BaseAudioConte
 	return ROUTES.get(context)?.channelCount ?? null;
 }
 
+/** A failed route cannot satisfy an audition's pending native-output admission. */
+export function soundscaperNativeAudioOutputFailure(context: BaseAudioContext): Error | null {
+	return OUTPUT_FAILURES.get(context) ?? null;
+}
+
 export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 	engine: EnginePort;
 	windowValue?: WindowPort | null;
@@ -73,6 +79,7 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 	let listening = false;
 	let disposed = false;
 	let preparationGeneration = 0;
+	let lastOutputContext: AudioContext | null = null;
 	const directionGenerations = new Map<'input' | 'output', number>();
 	const preparations = new Set<Promise<void>>();
 
@@ -146,6 +153,9 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 		backend: string; deviceHandle: string;
 	}>): Promise<void> => {
 		assertOpen();
+		if (request.direction !== 'input' && lastOutputContext && OUTPUT_FAILURES.delete(lastOutputContext)) {
+			publishOutputRoute(lastOutputContext);
+		}
 		const generation = ++preparationGeneration;
 		for (const direction of ['input', 'output'] as const) {
 			if (request.direction === direction || request.direction === 'duplex') directionGenerations.set(direction, generation);
@@ -172,6 +182,7 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 		listen();
 		const context = await options.engine.getAudioContext({ resume: true, sampleRate: request.sampleRate });
 		assertCurrent(generation, request.direction);
+		if (request.direction !== 'input') lastOutputContext = context;
 		// The worklet copies frames one-to-one between the engine graph and
 		// the native device, so a route at any other rate would repitch
 		// playback against the export render and mis-clock capture. The
@@ -184,6 +195,10 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 		const lost = (value: Readonly<{ reason?: unknown }>, fallback: string): void => {
 			if (!prepared.has(sessionId)) return;
 			const reason = nativeAudioLossReason(value.reason, fallback);
+			if (request.direction !== 'input' && directionGenerations.get('output') === generation) {
+				OUTPUT_FAILURES.set(context, new Error('The selected audio output is unavailable.', { cause: reason }));
+				publishOutputRoute(context);
+			}
 			capture?.revoke(String(value.reason || fallback));
 			void (async () => {
 				try { await options.onDeviceLoss?.(sessionId, reason); }
