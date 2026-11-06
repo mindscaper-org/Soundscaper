@@ -146,7 +146,7 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 				const prepared = tracks.map(track => ({ name: track.name || dependencies.trackName(), program: track.program,
 					durationFrames: track.durationFrames,
 					data: { version: 1 as const, notes: track.notes, interchange: { events: track.events ?? [], tempos: detached.tempos, signatures: detached.signatures } } }));
-				const minimumFrames = Math.max(1, emptyTrackEnd, Math.round(project.sampleRate * 60 / (detached.tempos[0]?.bpm ?? 120) * 4));
+				const minimumFrames = Math.max(1, emptyTrackEnd);
 				return options.destination === 'project-bin' ? importBinTracks(project, prepared, minimumFrames, options.signal)
 					: importTracks(project, prepared, offset, minimumFrames, options.signal);
 			});
