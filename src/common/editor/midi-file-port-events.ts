@@ -2,6 +2,8 @@
 
 export interface MidiPortTickEvent {
 	readonly tick: number;
+	/** Source-frame order survives events collapsing onto one emitted tick. */
+	readonly frame?: number;
 	readonly status: number;
 	readonly data: readonly number[];
 	readonly metaType?: number;
