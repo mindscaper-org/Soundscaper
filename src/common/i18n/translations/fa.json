@@ -2407,6 +2407,7 @@
 		"reportItem.delivery.channel-map": ["machine","Channel map","نقشه کانال"],
 		"reportItem.delivery.dither": ["machine","Dither","دیزر"],
 		"reportItem.delivery.encoder": ["machine","Video encoder selected","رمزگذار ویدیو انتخاب شد"],
+		"reportItem.delivery.ixml-tracks-omitted": ["human","Recorder track names and roles were omitted because the export changes channel routing.","نام‌ها و نقش‌های ترک‌های دستگاه ضبط حذف شدند، زیرا خروجی مسیردهی کانال‌ها را تغییر می‌دهد."],
 		"reportItem.delivery.lossless-encode": ["machine","Lossless encode","کدگذاری بدون اتلاف"],
 		"reportItem.delivery.lossy-encode": ["machine","Lossy encode","کدگذاری با اتلاف"],
 		"reportItem.delivery.loudness-delivered-mismatch": ["machine","The delivered file’s loudness differs from the normalization projection.","بلندی صدای فایل تحویلی با پیش‌بینی نرمال‌سازی تفاوت دارد."],

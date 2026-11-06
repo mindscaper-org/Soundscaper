@@ -2407,6 +2407,7 @@
 		"reportItem.delivery.channel-map": ["machine","Channel map","خريطة القنوات"],
 		"reportItem.delivery.dither": ["machine","Dither","التشويش"],
 		"reportItem.delivery.encoder": ["machine","Video encoder selected","حُدد مُرمّز الفيديو"],
+		"reportItem.delivery.ixml-tracks-omitted": ["human","Recorder track names and roles were omitted because the export changes channel routing.","تم حذف أسماء مسارات جهاز التسجيل وأدوارها لأن التصدير يغيّر توجيه القنوات."],
 		"reportItem.delivery.lossless-encode": ["machine","Lossless encode","ترميز بلا فقد"],
 		"reportItem.delivery.lossy-encode": ["machine","Lossy encode","ترميز بفقد"],
 		"reportItem.delivery.loudness-delivered-mismatch": ["machine","The delivered file’s loudness differs from the normalization projection.","تختلف جهارة الملف الناتج عن توقعات التطبيع."],

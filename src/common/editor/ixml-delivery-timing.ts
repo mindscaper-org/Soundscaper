@@ -21,6 +21,28 @@ interface MappedPoint { readonly position: bigint; readonly duration: bigint | n
 interface DeliveryRange { readonly startFrame: number; readonly endFrame: number }
 const MAX_UINT64 = 0xffff_ffff_ffff_ffffn;
 
+interface IxmlDeliveryChannelMapping {
+	readonly inputChannelCount: number;
+	readonly outputChannelCount: number;
+	readonly channels: readonly Readonly<{ inputs: readonly Readonly<{ channel: number; gain: number }>[] }>[];
+}
+
+/** Recorder inputs name the source channels, not a new fold or permutation. */
+export function ixmlForDeliveryChannels(
+	input: IxmlMetadataInput | null | undefined, mapping: IxmlDeliveryChannelMapping,
+): Readonly<{ metadata: IxmlMetadata | null; omittedTrackCount: number }> {
+	if (input == null) return { metadata: null, omittedTrackCount: 0 };
+	const sameRouting = mapping.inputChannelCount === mapping.outputChannelCount
+		&& mapping.channels.every((output, index) => output.inputs.every(value => value.gain === 0 || value.channel === index));
+	if (sameRouting) return { metadata: normalizeIxmlMetadata(input), omittedTrackCount: 0 };
+	const metadata = parseIxmlPayload(encodeIxmlPayload(input));
+	const lists = xmlTree(metadata.rawXml).children.filter(node => node.name === 'TRACK_LIST');
+	const omittedTrackCount = lists.reduce((count, list) => count + list.children.filter(node => node.name === 'TRACK').length, 0);
+	if (!omittedTrackCount) return { metadata, omittedTrackCount: 0 };
+	const rawXml = applyReplacements(metadata.rawXml, lists.map(list => ({ start: list.start, end: list.end, text: '' })));
+	return { metadata: parseIxmlPayload(new TextEncoder().encode(rawXml)), omittedTrackCount };
+}
+
 /** Relative recorder sync points become project positions; source XML remains a separate original. */
 export function ixmlAtImportOrigin(
 	input: IxmlMetadataInput,

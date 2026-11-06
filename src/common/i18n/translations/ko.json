@@ -2407,6 +2407,7 @@
 		"reportItem.delivery.channel-map": ["machine","Channel map","채널 맵"],
 		"reportItem.delivery.dither": ["machine","Dither","디더링"],
 		"reportItem.delivery.encoder": ["machine","Video encoder selected","비디오 인코더 선택됨"],
+		"reportItem.delivery.ixml-tracks-omitted": ["human","Recorder track names and roles were omitted because the export changes channel routing.","내보내기로 채널 라우팅이 변경되므로 레코더 트랙 이름과 역할이 생략되었습니다."],
 		"reportItem.delivery.lossless-encode": ["machine","Lossless encode","무손실 인코딩"],
 		"reportItem.delivery.lossy-encode": ["machine","Lossy encode","손실 인코딩"],
 		"reportItem.delivery.loudness-delivered-mismatch": ["machine","The delivered file’s loudness differs from the normalization projection.","납품 파일의 라우드니스가 정규화 예측값과 다릅니다."],

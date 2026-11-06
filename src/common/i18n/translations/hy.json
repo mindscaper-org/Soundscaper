@@ -2407,6 +2407,7 @@
 		"reportItem.delivery.channel-map": ["machine","Channel map","Ալիքների քարտեզ"],
 		"reportItem.delivery.dither": ["machine","Dither","Դիթերինգ"],
 		"reportItem.delivery.encoder": ["machine","Video encoder selected","Տեսանյութի կոդավորիչն ընտրվել է"],
+		"reportItem.delivery.ixml-tracks-omitted": ["human","Recorder track names and roles were omitted because the export changes channel routing.","Ձայնագրիչի ուղիների անուններն ու դերերը բաց են թողնվել, քանի որ արտահանումը փոխում է ալիքների երթուղավորումը։"],
 		"reportItem.delivery.lossless-encode": ["machine","Lossless encode","Անկորուստ կոդավորում"],
 		"reportItem.delivery.lossy-encode": ["machine","Lossy encode","Կորուստներով կոդավորում"],
 		"reportItem.delivery.loudness-delivered-mismatch": ["machine","The delivered file’s loudness differs from the normalization projection.","Առաքված ֆայլի ձայնեղությունը տարբերվում է նորմալացման կանխատեսումից։"],

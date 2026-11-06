@@ -2407,6 +2407,7 @@
 		"reportItem.delivery.channel-map": ["machine","Channel map","Карта каналов"],
 		"reportItem.delivery.dither": ["machine","Dither","Шум при квантовании"],
 		"reportItem.delivery.encoder": ["machine","Video encoder selected","Видеокодировщик выбран"],
+		"reportItem.delivery.ixml-tracks-omitted": ["human","Recorder track names and roles were omitted because the export changes channel routing.","Названия и роли дорожек рекордера опущены, поскольку экспорт изменяет маршрутизацию каналов."],
 		"reportItem.delivery.lossless-encode": ["machine","Lossless encode","Кодирование без потерь"],
 		"reportItem.delivery.lossy-encode": ["machine","Lossy encode","Кодирование с потерями"],
 		"reportItem.delivery.loudness-delivered-mismatch": ["machine","The delivered file’s loudness differs from the normalization projection.","Громкость выданного файла отличается от прогнозируемой после нормализации."],

@@ -3,7 +3,7 @@ import { fitExportFileName } from './export-name-byte-budget.ts';
 import { createBwfExportMetadata, projectBextMetadata } from './broadcast-wave-project.ts';
 import { createMasteringSequenceBext } from './mastering-sequence-bext.ts';
 import { cartForDeliveryRange } from './cart-delivery-range.ts';
-import { ixmlForDeliveryRange } from './ixml-delivery-timing.ts';
+import { ixmlForDeliveryChannels, ixmlForDeliveryRange } from './ixml-delivery-timing.ts';
 import { inspectPreservedAdmRiffChunks, sameBextMetadata } from './adm-riff-passthrough.ts';
 import { createBw64AdmExport, resolveBw64Adm } from './export-bw64-adm.js';
 import {
@@ -68,6 +68,7 @@ export const FAST_RENDER_THRESHOLDS = Object.freeze({
  * @typedef {Object} AudioExportPlan
  * @property {import('./cart-metadata.ts').CartMetadata | null} cart
  * @property {import('./ixml.ts').IxmlMetadata | null} ixml
+ * @property {number} [ixmlOmittedTrackCount]
  * @property {'mix' | 'stems' | 'chapters' | 'clips'} mode
  * @property {import('./media-export.js').MediaExportFormatId} format
  * @property {number} sampleRate
@@ -232,8 +233,9 @@ export function createExportPlan(project, options = {}) {
 		masteringSequenceCues: masteringSequence !== null,
 	}, spans);
 	let markers = masteringSequence ? masteringSequence.cues : markerExport.markers;
-	const ixmlMetadata = (deliveryRange) => preservedRiffChunks?.ixml ? null : ixmlForDeliveryRange(
-		runtimeProject.metadata?.ixml, deliveryRange, runtimeProject.sampleRate, sampleRate, encoding.bitDepth, masteringSequence?.plan,
+	const ixmlChannels = ixmlForDeliveryChannels(preservedRiffChunks?.ixml ? null : runtimeProject.metadata?.ixml, encoding.channelMapping);
+	const ixmlMetadata = (deliveryRange) => ixmlForDeliveryRange(
+		ixmlChannels.metadata, deliveryRange, runtimeProject.sampleRate, sampleRate, encoding.bitDepth, masteringSequence?.plan,
 	);
 	const ixml = ixmlMetadata(range);
 	const spanIxml = spans?.map((span) => ixmlMetadata(span));
@@ -456,6 +458,7 @@ export function createExportPlan(project, options = {}) {
 		markers,
 		markerInterchangeReport: markerExport.report,
 		ixml,
+		ixmlOmittedTrackCount: ixmlChannels.omittedTrackCount,
 		cart,
 		...(bext ? { bext } : {}),
 		...(adm ? {

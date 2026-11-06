@@ -2407,6 +2407,7 @@
 		"reportItem.delivery.channel-map": ["machine","Channel map","通道映射"],
 		"reportItem.delivery.dither": ["machine","Dither","抖动"],
 		"reportItem.delivery.encoder": ["machine","Video encoder selected","已选择视频编码器"],
+		"reportItem.delivery.ixml-tracks-omitted": ["human","Recorder track names and roles were omitted because the export changes channel routing.","导出更改了声道路由，因此省略了录音设备的音轨名称和角色。"],
 		"reportItem.delivery.lossless-encode": ["machine","Lossless encode","无损编码"],
 		"reportItem.delivery.lossy-encode": ["machine","Lossy encode","有损编码"],
 		"reportItem.delivery.loudness-delivered-mismatch": ["machine","The delivered file’s loudness differs from the normalization projection.","交付文件的响度与标准化预测值不同。"],

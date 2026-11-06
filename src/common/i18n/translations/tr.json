@@ -2407,6 +2407,7 @@
 		"reportItem.delivery.channel-map": ["machine","Channel map","Kanal haritası"],
 		"reportItem.delivery.dither": ["machine","Dither","Titreşim gürültüsü"],
 		"reportItem.delivery.encoder": ["machine","Video encoder selected","Video kodlayıcısı seçildi"],
+		"reportItem.delivery.ixml-tracks-omitted": ["human","Recorder track names and roles were omitted because the export changes channel routing.","Dışa aktarma kanal yönlendirmesini değiştirdiği için kayıt cihazının parça adları ve rolleri atlandı."],
 		"reportItem.delivery.lossless-encode": ["machine","Lossless encode","Kayıpsız kodlama"],
 		"reportItem.delivery.lossy-encode": ["machine","Lossy encode","Kayıplı kodlama"],
 		"reportItem.delivery.loudness-delivered-mismatch": ["machine","The delivered file’s loudness differs from the normalization projection.","Teslim edilen dosyanın gürlüğü normalleştirme tahmininden farklı."],

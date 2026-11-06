@@ -2407,6 +2407,7 @@
 		"reportItem.delivery.channel-map": ["machine","Channel map","Mapa de canles"],
 		"reportItem.delivery.dither": ["machine","Dither","Dithering"],
 		"reportItem.delivery.encoder": ["machine","Video encoder selected","Seleccionouse o codificador de vídeo"],
+		"reportItem.delivery.ixml-tracks-omitted": ["human","Recorder track names and roles were omitted because the export changes channel routing.","Omitíronse os nomes e as funcións das pistas da gravadora porque a exportación cambia o encamiñamento das canles."],
 		"reportItem.delivery.lossless-encode": ["machine","Lossless encode","Codificación sen perdas"],
 		"reportItem.delivery.lossy-encode": ["machine","Lossy encode","Codificación con perdas"],
 		"reportItem.delivery.loudness-delivered-mismatch": ["machine","The delivered file’s loudness differs from the normalization projection.","A sonoridade do ficheiro entregado difire da proxección da normalización."],
