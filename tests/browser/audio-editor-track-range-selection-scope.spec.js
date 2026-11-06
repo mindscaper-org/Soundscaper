@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js';
+import { expect, test, createWavFixture, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, disableNativeSavePicker, importFiles } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
+import { runSpectralRange } from './helpers/guide-spectral-range.js';
 for (const range of [false, true]) test(`Invert keeps unselected peer unchanged after track range=${range}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
@@ -25,3 +26,19 @@ function coefficient(values, frequency) {
 	for (let frame = 14400; frame < 33600; frame++) sum += values[frame] * Math.sin(2 * Math.PI * frequency * frame / 48000);
 	return sum;
 }
+
+for (const kind of ['range', 'tracks']) test(`${kind} selection command retains spectral playback`, async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [toneA]);
+	await chooseCommandAction(page, editor, 'Select', 'Select all');
+	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
+	await runSpectralRange(page, editor, { minimum: 900, maximum: 1100, operation: 'select' });
+	const options = editor.locator('[data-transport="play"]').getByRole('button', { name: 'Play options', exact: true });
+	const command = page.getByRole('menu', { name: 'Play options', exact: true }).getByRole('menuitem', { name: 'Play selected frequencies', exact: true });
+	await options.click();
+	await expect(command).toHaveAttribute('aria-disabled', 'false');
+	await page.keyboard.press('Escape');
+	await chooseNestedCommandAction(page, editor, 'Select', kind === 'tracks' ? ['Tracks', 'Select all tracks'] : ['Region', 'Track start to end']);
+	await options.click();
+	await expect(command).toHaveAttribute('aria-disabled', 'false');
+});

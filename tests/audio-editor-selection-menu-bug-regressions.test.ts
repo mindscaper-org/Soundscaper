@@ -63,3 +63,21 @@ for (const command of ['selectTrackStartToEnd', 'selectTrackStartToCursor', 'sel
 		assert.deepEqual(selection.frequencyRange, frequencyRange);
 	});
 }
+
+test('selecting all tracks preserves the selected time and frequency range', async context => {
+	const controller = await fixture();
+	context.after(async () => { await controller.dispose(); });
+	const firstTrack = controller.getSnapshot().project?.tracks?.[0];
+	assert.ok(firstTrack);
+	controller.actions.track.addMono();
+	const trackIds = controller.getSnapshot().project?.tracks?.map(track => track.id);
+	const frequencyRange = { minimumFrequency: 100, maximumFrequency: 400 };
+	controller.actions.timeline.setExactSelection(4800, 9600, { trackIds: [firstTrack.id], frequencyRange });
+	controller.actions.timeline.selectAllTracks();
+	const selection = controller.getSnapshot().project?.selection;
+	assert.ok(selection);
+	assert.equal(selection.startFrame, 4800);
+	assert.equal(selection.endFrame, 9600);
+	assert.deepEqual(selection.trackIds, trackIds);
+	assert.deepEqual(selection.frequencyRange, frequencyRange);
+});
