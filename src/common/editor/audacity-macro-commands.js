@@ -17,9 +17,11 @@
 
 import {
 	AUP4_REALTIME_EFFECT_PROFILES,
+	canEncodeAup4NativeRealtimeEffect,
 	decodeAudacityRealtimeEffectParameters,
 	encodeAudacityRealtimeEffectParameters,
-} from './aup4-effects.js';
+} from './aup4-effect-profiles.js';
+import { createLocalizedError } from '../i18n/presentation-message.ts';
 import {
 	booleanParam,
 	boundedIndex,
@@ -245,6 +247,11 @@ export function audacityMacroEffectDefaults(type) {
  */
 export function encodeAudacityMacroEffectParameters(type, params = {}) {
 	const profile = AUDACITY_SELECTION_EFFECT_MACRO_PROFILES[type];
+	if (type === 'audacity-reverb' && !canEncodeAup4NativeRealtimeEffect({ type, params })) {
+		throw createLocalizedError(RangeError, {}, 'parameterRangeError', {
+			label: 'Audacity Reverb WetGain / DryGain (dB)', minimum: -20, maximum: 10,
+		}, { fallback: '{label} must be between {minimum} and {maximum}.' });
+	}
 	if (type === 'audacity-amplify') {
 		// Batch Amplify captures Ratio only and always allows clipping. Keep
 		// the interactive flag readable for imported one-line effect presets.
