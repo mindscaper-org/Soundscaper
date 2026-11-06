@@ -79,7 +79,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 	const { bootstrap } = deferAsyncControllerMethods(() => services.projectBootstrapService(), ['bootstrap']);
 	const { openProject } = deferAsyncControllerMethods(() => services.projectSwitchService(), ['openProject']);
 	const { claimProjectLock } = deferAsyncControllerMethods(() => services.projectLockService(), ['claimProjectLock']);
-	const { loadProjectSources } = deferAsyncControllerMethods(() => services.sources().sourceLifecycle, ['loadProjectSources']);
+	const { loadProjectSources, ensureProjectSourcesAvailable } = deferAsyncControllerMethods(() => services.sources().sourceLifecycle, ['loadProjectSources', 'ensureProjectSourcesAvailable']);
 	const { listProjects, clearRecentProjects, renameProject, duplicateProject, garbageCollectSources } = deferAsyncControllerMethods(() => services.projectAdminService(), ['listProjects', 'clearRecentProjects', 'renameProject', 'duplicateProject', 'garbageCollectSources']);
 	const { disjoinSelectedClip } = deferAsyncControllerMethods(() => services.edits().clipboard, ['disjoinSelectedClip']);
 	const { generateSelectionSilence, generateSignal, repeatLastGenerator } = deferAsyncControllerMethods(() => services.edits(), ['generateSelectionSilence', 'generateSignal', 'repeatLastGenerator']);
@@ -143,6 +143,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 	const { openScape, saveScape, openAup4, openAudacityProject, saveAup3, saveAup4, saveProjectFile, prepareFileClose } = deferAsyncControllerMethods(() => services.nativeProjectService(), ['openScape', 'saveScape', 'openAup4', 'openAudacityProject', 'saveAup3', 'saveAup4', 'saveProjectFile', 'prepareFileClose']);
 	return Object.freeze({
 		midiController, previewMidiTransfer: services.previewMidiTransfer,
+		prepareEffectSnapshotSources: (project: DocumentProject, signal: AbortSignal) => ensureProjectSourcesAvailable(project, { signal }),
 		setSourceSelection, readSourceSelection, readSourceSelectionDuration, readSourceSelectionSampleRate, loadSourceAudio, loadSourceAudioWindow, readSelectionTargetLocked,
 		openScape, saveScape, openAup4, openAudacityProject, saveAup3, saveAup4, saveProjectFile, prepareFileClose,
 		loadPreferences, switchProject, labels, selection, projectBin,

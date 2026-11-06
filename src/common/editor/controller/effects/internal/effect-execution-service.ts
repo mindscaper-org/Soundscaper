@@ -76,7 +76,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 		return true;
 	}
 
-	async function prepareAudacityEffectFromController(type: string) {
+	async function prepareAudacityEffectFromController(type: string, beforeReadAudio?: () => Promise<() => void>) {
 		const generation = ++preparationGeneration;
 		preparedAudio.clear();
 		setAudacityEffectType(type);
@@ -86,6 +86,9 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 		// this asynchronous scan runs restores the marker and wins in the resolver.
 		state.audacityEffectTouchedParams.get(type)?.delete('gainDb');
 		const previewGeneration = state.audacityPreviewGeneration;
+		if (beforeReadAudio) (await beforeReadAudio())();
+		if (generation !== preparationGeneration || previewGeneration !== state.audacityPreviewGeneration
+			|| state.audacityEffectType !== type) return currentAudacityEffectParams();
 		const projectToken = runtime.captureProject();
 		const authority = runtime.getPreparedAudioAuthority?.() ?? null;
 		const targets = audacityEffectTargets();

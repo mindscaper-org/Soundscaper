@@ -13,6 +13,7 @@ import {
 import { createClipSpreadsheetAction } from './internal/clip-spreadsheet-action.ts';
 import { createAuditionOutputActions } from './internal/audition-output-actions.ts';
 import { createMidiActionGroup } from './midi-action-group.ts';
+import { createMidiPendingSnapshotAdmission } from './internal/midi-controller-port.ts';
 import { createMixerParameterActions } from './internal/mixer-parameter-actions.ts';
 import { createProjectOwnedFeatureActionFacades } from './internal/project-owned-feature-action-facades.ts';
 import { createTimelineAnnotationActionFacade } from '../document/timeline-annotation-action-facade.ts';
@@ -103,6 +104,10 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	const midi = createMidiActionGroup(scope); scope.midiController?.bind(midi);
 	const clipboardSelection = () => JSON.stringify([getProject()?.id, getProject()?.selection,
 		state.selectedClipId, state.selectedTrackId, state.selectedLabels]);
+	const effectSnapshot = createMidiPendingSnapshotAdmission<NonNullable<ReturnType<typeof getProject>>>({ ...midi, getProject,
+		prepareAudio: scope.prepareEffectSnapshotSources,
+		captureTarget: () => JSON.stringify([clipboardSelection(), scope.readSourceSelection()]),
+		active: () => state.phase !== 'disposing' && state.phase !== 'disposed' });
 	const handleEdit: typeof handleImmediateEdit = (action, options) => {
 		if (!midi.hasPendingEdits() || !['copy', 'duplicate', 'labeled-copy', 'labeled-cut', 'labeled-split-cut'].includes(action)
 			&& action !== 'cut' && !action.startsWith('cut-')) return handleImmediateEdit(action, options);
@@ -477,16 +482,16 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			copyStack: restricted('audioEffects', copyEffectStack),
 			pasteStack: restricted('audioEffects', pasteEffectStack),
 			setMasterGain: (gain: number) => commit({ type: 'master/update', changes: { gain: Math.max(0, Math.min(4, Number(gain))) } }),
-			setSelectionType: restricted('audioEffects', prepareAudacityEffectFromController),
+			setSelectionType: restricted('audioEffects', (type: string) => { effectSnapshot.cancel(); return prepareAudacityEffectFromController(type, effectSnapshot.beforeRead()); }),
 			setSelectionParams: restricted('audioEffects', setAudacityEffectParamsFromController),
 			setControlTrack: restricted('audioEffects', setAudacityControlTrack),
-			captureNoiseProfile: restricted('audioEffects', captureSelectedNoiseProfile),
-			captureRackNoiseProfile: restricted('audioEffects', captureRackNoiseProfileFromController),
-			applySelection: restricted('audioEffects', applyAudacityEffectFromController),
-			previewSelection: restricted('audioEffects', previewAudacityEffectFromController),
-			cancelPreview: () => cancelAudacityEffectPreview(),
-			cancelSelection: () => cancelSelectedAudacityEffect(),
-			repeatLast: restricted('audioEffects', repeatLastAudacityEffect),
+			captureNoiseProfile: restricted('audioEffects', effectSnapshot.run(captureSelectedNoiseProfile)),
+			captureRackNoiseProfile: restricted('audioEffects', effectSnapshot.run(captureRackNoiseProfileFromController)),
+			applySelection: restricted('audioEffects', effectSnapshot.run(applyAudacityEffectFromController)),
+			previewSelection: restricted('audioEffects', effectSnapshot.run(previewAudacityEffectFromController)),
+			cancelPreview: () => { effectSnapshot.cancel(); return cancelAudacityEffectPreview(); },
+			cancelSelection: () => { effectSnapshot.cancel(); return cancelSelectedAudacityEffect(); },
+			repeatLast: restricted('audioEffects', effectSnapshot.run(repeatLastAudacityEffect)),
 			presets: createEffectPresetActions(effectLibraryScope, restricted),
 		}),
 		macros,

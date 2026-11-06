@@ -24,6 +24,7 @@ import type { InterchangeProductProjection } from '../../interchange-multicamera
 import type { ProjectOpenRecoveryRuntime } from '../document/project-open-recovery.ts';
 import type { SelectedLabelState } from '../../label-clipboard-selection.ts';
 import type { MicrophoneMeterService } from '../recording/microphone-meter-service.ts';
+import type { DocumentProject } from '../document/document-composition-types.ts';
 
 type EffectLibraryState =
 	& EffectMacroLibraryServiceRuntime['state']
@@ -59,6 +60,7 @@ export interface EditorActionResources {
 	readonly prepareMicrophoneMeterInputReplacement?: MicrophoneMeterService['prepareInputReplacement'];
 	readonly previewMidiTransfer?: import('./controller-bindings.ts').ControllerBindingServices['previewMidiTransfer'];
 	readonly midiController?: import('./internal/midi-controller-port.ts').MidiControllerPort;
+	readonly prepareEffectSnapshotSources?: (project: DocumentProject, signal: AbortSignal) => Promise<unknown>;
 	readonly onProjectOpenFailure?: ProjectOpenRecoveryRuntime['onProjectOpenFailure'];
 	readonly assertActive?: () => void;
 	readonly AUDIO_EDITOR_DEFAULT_SHORTCUTS: typeof AUDIO_EDITOR_DEFAULT_SHORTCUTS;
