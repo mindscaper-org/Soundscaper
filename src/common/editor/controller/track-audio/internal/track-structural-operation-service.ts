@@ -30,7 +30,7 @@ export interface TrackStructuralOperationService {
 	alignEndToPlayhead(): unknown;
 	alignEndToSelectionEnd(): unknown;
 	sortByTime(options?: TrackSortOptions): unknown;
-	sortByName(): unknown;
+	sortByName(options?: TrackSortOptions): unknown;
 	muteAll(): unknown;
 	unmuteAll(): unknown;
 }
@@ -48,7 +48,7 @@ export function createTrackStructuralOperationService(
 		alignEndToPlayhead: () => align('end-playhead', () => dependencies.getPositionFrames()),
 		alignEndToSelectionEnd: () => align('end-selection-end', selectionEnd),
 		sortByTime: (options = {}) => sort('time', options),
-		sortByName: () => sort('name'),
+		sortByName: (options = {}) => sort('name', options),
 		muteAll: () => setAllMuted(true),
 		unmuteAll: () => setAllMuted(false),
 	});

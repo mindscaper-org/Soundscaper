@@ -177,7 +177,7 @@ export function createMacroCommandService(runtime: MacroCommandServiceRuntime) {
 		if (command === 'SelNextClip' || command === 'SelPrevClip') {
 			return (target as (options: Readonly<{ nativeRegion: boolean }>) => unknown)({ nativeRegion: true });
 		}
-		if (command === 'SortByTime') {
+		if (command === 'SortByTime' || command === 'SortByName') {
 			return (target as (options: Readonly<{ nativeSort: boolean }>) => unknown)({ nativeSort: true });
 		}
 		if (command === 'SelectNone') {

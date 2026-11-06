@@ -167,7 +167,7 @@ export function planTrackSort(
 		const sorted = [...timed].sort((left, right) => {
 			const comparison = criterion === 'time'
 				? compareNumbers(starts!.get(left.nodeId)!, starts!.get(right.nodeId)!)
-				: compareNames(left.name, right.name);
+				: compareNames(left.name, right.name, options.nativeSort === true);
 			return comparison || left.ordinal - right.ordinal;
 		});
 		if (sorted.every((block, index) => block.nodeId === timed[index]?.nodeId)) continue;
@@ -350,8 +350,12 @@ function compareNumbers(left: number, right: number): number {
 	return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function compareNames(left: string, right: string): number {
+function compareNames(left: string, right: string, nativeSort: boolean): number {
 	const canonicalLeft = left.normalize('NFKC').toLocaleLowerCase('en-US');
 	const canonicalRight = right.normalize('NFKC').toLocaleLowerCase('en-US');
+	// Native name sorting reverses case-sensitive ties; local sorting stays stable.
+	if (nativeSort && canonicalLeft === canonicalRight && left.toLocaleLowerCase('en-US') === right.toLocaleLowerCase('en-US')) {
+		return left < right ? 1 : left > right ? -1 : 0;
+	}
 	return canonicalLeft < canonicalRight ? -1 : canonicalLeft > canonicalRight ? 1 : 0;
 }
