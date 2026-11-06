@@ -126,6 +126,14 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 		return resolved;
 	}
 
+	/** Synchronous UI admission uses the same Source/range/clip targets as Apply. */
+	function readSelectionTargetLocked(): boolean {
+		const type: string = state.audacityEffectType;
+		const targets: readonly EffectTarget[] = audacityEffectTargets({ includeSilentTracks:
+			selectionEffectChangesLength(type, currentAudacityEffectParams(), AUDIO_SELECTION_EFFECT_DEFINITIONS[type]) });
+		return targets.some(target => target.track.locked === true);
+	}
+
 	async function applySelectedAudacityEffect() {
 		if (editingBlocked()) return;
 		runtime.pauseSourcePreview?.();
@@ -464,7 +472,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 	}
 
 	return Object.freeze({
-		applySelectedAudacityEffect, cancelSelectedAudacityEffect,
+		applySelectedAudacityEffect, cancelSelectedAudacityEffect, readSelectionTargetLocked,
 		prepareAudacityEffectFromController,
 		previewAudacityEffectFromController,
 		runNyquistEvaluation,
