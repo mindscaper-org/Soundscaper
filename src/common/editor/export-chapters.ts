@@ -261,12 +261,15 @@ export function createExportChapterPlan<Plan extends DataRecord>(
 	const bext = declared && typeof declared === 'object' && !Array.isArray(declared)
 		? declared as DataRecord
 		: null;
+	const metadata = Object.hasOwn(output, 'metadata') ? { metadata: output.metadata } : {};
 	return Object.freeze({
 		...plan,
+		...metadata,
 		...(Object.hasOwn(output, 'markers') ? { markers: output.markers, markerInterchangeReport: output.markerInterchangeReport } : {}),
 		...(Object.hasOwn(output, 'cart') ? { cart: output.cart } : {}),
 		...(Object.hasOwn(output, 'ixml') ? { ixml: output.ixml } : {}),
-		...(bext ? { bext, encoding: Object.freeze({ ...dataRecord(plan.encoding), bext }) } : {}),
+		...(bext ? { bext } : {}),
+		...(bext || Object.hasOwn(output, 'metadata') ? { encoding: Object.freeze({ ...dataRecord(plan.encoding), ...metadata, ...(bext ? { bext } : {}) }) } : {}),
 		// One chapter is an ordinary whole-mix delivery of its own span, so
 		// everything downstream of here reads the plan it always read.
 		mode: 'mix',
