@@ -182,9 +182,9 @@ export async function installNavigationCoverageCheckpoints({ checkpoint, session
 	let identifier;
 	try {
 		({ identifier } = await session.send('Page.addScriptToEvaluateOnNewDocument', {
+			runImmediately: true,
 			source: INSTALL_NAVIGATION_COVERAGE_CHECKPOINT,
 		}));
-		await session.send('Runtime.evaluate', { expression: INSTALL_NAVIGATION_COVERAGE_CHECKPOINT });
 	} catch (error) {
 		session.off?.('Debugger.scriptParsed', onScriptParsed);
 		session.off?.('Debugger.paused', onPaused);
