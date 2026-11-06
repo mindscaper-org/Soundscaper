@@ -31,7 +31,7 @@ import {
 import { playbackOutputDestination } from './playback-output.ts';
 import { rememberPlaybackPitchPreserver } from './project-refresh-speed.ts';
 import { capturePlaybackSourceResolver } from './playback-source-resolver.ts';
-import { resetPlaybackSession } from './playback-session.ts';
+import { resetPlaybackSession, setPendingPlaybackClocked } from './playback-session.ts';
 import { isPlaybackLoopEnabled, resetPlaybackFrequencyRange } from './playback-frequency-range.ts';
 import { isCutPreviewActive, isCutPreviewPaused, pauseCutPreview, readCutPreviewPosition, resumeCutPreview } from './cut-preview.ts';
 import { resetProductionMeterSessionV21 } from './production-meter-runtime-session-v21.ts';
@@ -78,7 +78,7 @@ function assertPlaybackRequestCurrent(engine: EngineRuntimeHost, generation: num
 	if (!playbackRequestIsCurrent(engine, generation)) throw createAbortError();
 }
 export const engineTransportControlMethods = {
-async play() {
+async play({ clockedStart = false } = {}) {
 		this[ENGINE_ASSERT_ACTIVE]();
 		if (!this.project) throw new Error('Load an audio editor project before playback.');
 		const previewResume = this.state === 'paused' ? resumeCutPreview(this) : null;
@@ -93,6 +93,8 @@ async play() {
 		// still settling its sources used to do nothing at all.
 		const request = ++this.playRequestSequence;
 		this.pendingPlayRequest = request;
+		setPendingPlaybackClocked(this, clockedStart);
+		const minimumStartLeadSeconds = clockedStart ? clockedPlaybackStartLeadSeconds(false) : 0;
 		try {
 			this.playbackRate = 1;
 			this.preparedSpeedPlayback = null;
@@ -114,7 +116,7 @@ async play() {
 				this.playbackMode = 'audio-warp-exact';
 				await this[ENGINE_ENSURE_MASTER_LOUDNESS_METER](context);
 				if (!playbackRequestIsCurrent(this, generation)) return;
-				await this[ENGINE_SCHEDULE_PREPARED_SPEED_PLAYBACK](this.positionFrame, context.currentTime);
+				await this[ENGINE_SCHEDULE_PREPARED_SPEED_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds);
 				return;
 			}
 			this.playbackMode = 'normal';
@@ -122,14 +124,15 @@ async play() {
 			if (!playbackRequestIsCurrent(this, generation)) return;
 			await this[ENGINE_ENSURE_MASTER_LOUDNESS_METER](context);
 			if (!playbackRequestIsCurrent(this, generation)) return;
-			await this[ENGINE_SCHEDULE_PLAYBACK](this.positionFrame, context.currentTime);
+			await this[ENGINE_SCHEDULE_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds);
 		} finally {
 			if (this.pendingPlayRequest === request && this.state !== 'playing') resetPlaybackFrequencyRange(this);
-			if (this.pendingPlayRequest === request) this.pendingPlayRequest = 0;
+			if (this.pendingPlayRequest === request) { this.pendingPlayRequest = 0; setPendingPlaybackClocked(this, false); }
 		}
 	},
 
 async playAtSpeed(rate, {
+		clockedStart = false,
 		preservePitch = false,
 		pitchPreserver = null,
 		signal = null,
@@ -143,6 +146,7 @@ async playAtSpeed(rate, {
 		this[ENGINE_CANCEL_SCRUB]();
 		const generation = this.scrubGeneration;
 		const normalizedRate = normalizePlayAtSpeedRate(rate);
+		const minimumStartLeadSeconds = clockedStart ? clockedPlaybackStartLeadSeconds(false) : 0;
 		if (projectHasAuthoredAudioWarp(this.project)
 			&& this.getAudioWarpRenderStatus().path === 'exact-offline') {
 			throw new Error('Variable-speed audio warp playback requires realtime warp acceleration.');
@@ -175,7 +179,7 @@ async playAtSpeed(rate, {
 				await ensureProjectWorklets(context, this.project);
 				throwIfAborted(signal);
 				assertPlaybackRequestCurrent(this, generation);
-				await this[ENGINE_SCHEDULE_PLAYBACK](this.positionFrame, context.currentTime);
+				await this[ENGINE_SCHEDULE_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds);
 				throwIfAborted(signal);
 				assertPlaybackRequestCurrent(this, generation);
 				return;
@@ -190,7 +194,7 @@ async playAtSpeed(rate, {
 			const context = await this.getAudioContext();
 			throwIfAborted(signal);
 			assertPlaybackRequestCurrent(this, generation);
-			await this[ENGINE_SCHEDULE_PREPARED_SPEED_PLAYBACK](this.positionFrame, context.currentTime);
+			await this[ENGINE_SCHEDULE_PREPARED_SPEED_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds);
 			throwIfAborted(signal);
 			assertPlaybackRequestCurrent(this, generation);
 		} finally {

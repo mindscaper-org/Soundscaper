@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { playbackSessionStart, restorePlaybackSessionStart } from './playback-session.ts';
+import { pendingPlaybackIsClocked, playbackSessionStart, restorePlaybackSessionStart } from './playback-session.ts';
 import { playbackFrequencyRange } from './playback-frequency-range.ts';
 import { isCutPreviewActive } from './cut-preview.ts';
 import { ENGINE_EMIT_POSITION } from './runtime-symbols.ts';
@@ -20,6 +20,7 @@ export const engineProjectRefreshMethods = {
 		const wasPlaying = this.state === 'playing';
 		// A pending Play is reissued after loadProject retires its old generation.
 		const playRequested = this.pendingPlayRequest !== 0;
+		const clockedStart = playRequested && pendingPlaybackIsClocked(this);
 		const position = this.getPositionFrames();
 		const sessionStart = playbackSessionStart(this);
 		const playbackRate = this.playbackRate;
@@ -45,7 +46,7 @@ export const engineProjectRefreshMethods = {
 		if (wasPlaying && playbackMode === 'naive') return this.playAtSpeed(playbackRate);
 		// Cached StaffPad and joined cut mixes are stale after an edit.
 		if (wasPlaying && !cachedAudition) return this.play();
-		if (!wasPlaying && playRequested) return this.play();
+		if (!wasPlaying && playRequested) return this.play({ clockedStart });
 		this[ENGINE_EMIT_POSITION]();
 		return Promise.resolve();
 	},

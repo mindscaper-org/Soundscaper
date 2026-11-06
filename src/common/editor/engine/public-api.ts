@@ -132,7 +132,12 @@ export type EnginePitchPreserver = (
 	}>,
 ) => Promise<readonly (Float32Array | ArrayLike<number>)[]>;
 
-export interface EnginePlayAtSpeedOptions {
+export interface EnginePlayOptions {
+	/** Leave the existing clocked lead for an accompanying audio-clock client. */
+	readonly clockedStart?: boolean;
+}
+
+export interface EnginePlayAtSpeedOptions extends EnginePlayOptions {
 	readonly preservePitch?: boolean;
 	readonly pitchPreserver?: EnginePitchPreserver | null;
 	readonly signal?: AbortSignal | null;
@@ -247,7 +252,7 @@ export interface EnginePublicApi {
 	/** Audition a band in device playback only; leaving playback retires it. */
 	setPlaybackFrequencyRange(range: EnginePlaybackFrequencyRange | null): EnginePlaybackFrequencyRange | null;
 	getAudioWarpRenderStatus(): Readonly<AudioWarpRenderPathStatus>;
-	play(): Promise<void>;
+	play(options?: EnginePlayOptions): Promise<void>;
 	/** Audition the join around a selected gap without changing the project. */
 	playCutPreview(selection: EngineCutPreviewSelection): Promise<void>;
 	/** Original timeline intervals joined by the active cut audition, on its audio clock. */

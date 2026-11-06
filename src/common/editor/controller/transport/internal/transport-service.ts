@@ -131,8 +131,9 @@ export function createEditorTransportService<Project extends TransportProject = 
 			throwIfAborted(abort.signal);
 			if (snapshot !== getProject()) throw abortError();
 			engine.setPlayRange?.(null);
-			if (typeof engine.playAtSpeed !== 'function') return engine.play();
+			if (typeof engine.playAtSpeed !== 'function') return engine.play({ clockedStart: state.metronomeEnabled });
 			await engine.playAtSpeed(rate, {
+				clockedStart: state.metronomeEnabled,
 				preservePitch,
 				pitchPreserver: playAtSpeedPitchPreserver,
 				signal: abort.signal,
@@ -208,10 +209,10 @@ export function createEditorTransportService<Project extends TransportProject = 
 			try {
 				await beginPlaybackCachePreparation(snapshot);
 				if (generation !== transportRequestGeneration || foregroundPlayPreparation !== preparation || snapshot !== getProject()) return;
-				if (spectral) return await playSpectralSelection(engine, spectral, () => generation === transportRequestGeneration && foregroundPlayPreparation === preparation);
+				if (spectral) return await playSpectralSelection(engine, spectral, () => generation === transportRequestGeneration && foregroundPlayPreparation === preparation, { clockedStart: state.metronomeEnabled });
 				engine.setPlaybackFrequencyRange?.(null);
 				bindPlaybackToTimeSelection(engine, action === 'play-selection' && !snapshot.loop?.enabled ? playbackSelection() : null);
-				return await engine.play();
+				return await engine.play({ clockedStart: state.metronomeEnabled });
 			} finally {
 				if (foregroundPlayPreparation === preparation) foregroundPlayPreparation = null;
 			}

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts';
+import type { EnginePlayOptions } from '../../../engine/public-api.ts';
 import type { TransportCopy, TransportEngine, TransportSelection } from './transport-service-types.ts';
 
 /** A bounded run resumes inside its selection and otherwise starts at the left edge. */
@@ -33,12 +34,13 @@ export async function playSpectralSelection(
 	engine: TransportEngine,
 	spectral: ReturnType<typeof requireSpectralPlaybackSelection>,
 	current: () => boolean,
+	options?: EnginePlayOptions,
 ) {
 	if (engine.getState().cutPreview) engine.stop();
 	bindPlaybackToTimeSelection(engine, spectral.selection);
 	engine.setPlaybackFrequencyRange(spectral.frequencyRange);
 	try {
-		return await engine.play();
+		return await engine.play(options);
 	} catch (error) {
 		if (current()) engine.setPlaybackFrequencyRange(null);
 		throw error;
