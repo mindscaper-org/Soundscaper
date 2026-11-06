@@ -2,7 +2,7 @@
 
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, waitForProjectActivation } from './audio-editor-test-helpers.js';
-import { installNativeOutputPeer } from './helpers/native-output-peer.js';
+import { installNativeOutputPeer, NATIVE_OUTPUT_PEER_WEBKIT_REASON } from './helpers/native-output-peer.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
 import { createProjectStore } from '../../src/common/editor/storage.js';
@@ -30,7 +30,8 @@ async function echoProgramme() {
 }
 
 for (const gesture of ['keyboard', 'pointer']) for (const when of ['before', 'during']) {
-	test(`${gesture} mixer commit ${when} playback retains the already-entered echo`, async ({ page }) => {
+	test(`${gesture} mixer commit ${when} playback retains the already-entered echo`, async ({ page, browserName }) => {
+		test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
 		await installNativeOutputPeer(page);
 		await page.addInitScript(() => {
 			globalThis.__mixerProgrammeStarts = []; globalThis.__mixerProgrammePackets = [];

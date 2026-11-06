@@ -3,14 +3,15 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, waitForProjectActivation, clipByName, openEffectsForTrack, commitInput } from './audio-editor-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
-import { installNativeOutputPeer } from './helpers/native-output-peer.js';
+import { installNativeOutputPeer, NATIVE_OUTPUT_PEER_WEBKIT_REASON } from './helpers/native-output-peer.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
 import { normalizeAutomationLaneV21 } from '../../src/common/editor/automation-lane-v21.ts';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
-for (const gesture of ['none', 'master', 'rack']) test(`muted folder remains silent after live ${gesture} commit and Pause/Play`, async ({ page }) => {
+for (const gesture of ['none', 'master', 'rack']) test(`muted folder remains silent after live ${gesture} commit and Pause/Play`, async ({ page, browserName }) => {
+	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
 	await installNativeOutputPeer(page);
 	const fixture = await programme(gesture === 'rack');
 	const editor = await bootEditor(page, '/embed/en/');

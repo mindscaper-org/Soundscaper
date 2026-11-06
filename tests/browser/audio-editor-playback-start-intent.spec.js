@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, waitForProjectActivation, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
-import { installNativeOutputPeer } from './helpers/native-output-peer.js';
+import { installNativeOutputPeer, NATIVE_OUTPUT_PEER_WEBKIT_REASON } from './helpers/native-output-peer.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
-for (const edit of [false, true]) test(`Stop survives cold worklet readiness and a stopped mixer edit=${edit}`, async ({ page }) => {
+for (const edit of [false, true]) test(`Stop survives cold worklet readiness and a stopped mixer edit=${edit}`, async ({ page, browserName }) => {
+	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
 	await installNativeOutputPeer(page);
 	await page.addInitScript(() => {
 		window.__stoppedWarmup = { armed: false, entered: [], finished: 0 };

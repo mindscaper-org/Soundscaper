@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { installDesktopSpeedWarmupManifest } from './desktop-speed-warmup-fixture.js';
 
+// The desktop peer ships in Electron. WebKit's worklet message batching cannot
+// sustain its eight-credit deadline, including with an immediate-return peer.
+export const NATIVE_OUTPUT_PEER_WEBKIT_REASON = 'WebKit cannot qualify the desktop native peer eight-credit realtime deadline.';
+
 /** The production native worklet exchanges owned PCM packets with an independent helper thread. */
 export async function installNativeOutputPeer(page, { outputChannelCount = 2, measureFrequency = false } = {}) {
 	await installDesktopSpeedWarmupManifest(page);

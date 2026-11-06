@@ -2,10 +2,11 @@
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, importFiles } from './audio-editor-test-helpers.js';
-import { installNativeOutputPeer } from './helpers/native-output-peer.js';
+import { installNativeOutputPeer, NATIVE_OUTPUT_PEER_WEBKIT_REASON } from './helpers/native-output-peer.js';
 
 for (const [rate, refresh] of [[2, false], [1, true], [2, true]]) {
-	test(`native ${rate}x timeline playback retains its actual pitch through device refresh=${refresh}`, async ({ page }) => {
+	test(`native ${rate}x timeline playback retains its actual pitch through device refresh=${refresh}`, async ({ page, browserName }) => {
+		test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
 		await installNativeOutputPeer(page, { measureFrequency: true });
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [createWavFixture({ name: 'Native timeline440.wav', sampleRate: 48_000,

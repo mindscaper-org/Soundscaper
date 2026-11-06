@@ -2,14 +2,10 @@
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, clipByName, closeWorkspacePanel, importFiles, openSourceMonitor } from './audio-editor-test-helpers.js';
-import { installNativeOutputPeer } from './helpers/native-output-peer.js';
-
-// The shipping native peer is Electron/Chromium. Even a minimal immediate-return
-// peer overruns WebKit's eight-credit deadline; retain its browser fallback case.
-const liveNativeDeadlineReason = 'WebKit cannot qualify the desktop native peer eight-credit realtime deadline.';
+import { installNativeOutputPeer, NATIVE_OUTPUT_PEER_WEBKIT_REASON } from './helpers/native-output-peer.js';
 
 for (const audition of ['source', 'bin']) test(`native ${audition} audition follows rate replacement and preserves the main context on retirement`, async ({ page, browserName }) => {
-	test.skip(browserName === 'webkit', liveNativeDeadlineReason);
+	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
 	await installAuditionProbe(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	const recording = createWavFixture({ name: 'Native audition.wav', sampleRate: 16000, frequency: 440, duration: 12, channelCount: 1 });
@@ -63,7 +59,7 @@ for (const audition of ['source', 'bin']) test(`native ${audition} audition foll
 });
 
 test('a Source selection still stops at its right edge after native rate replacement', async ({ page, browserName }) => {
-	test.skip(browserName === 'webkit', liveNativeDeadlineReason);
+	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
 	await installAuditionProbe(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	const recording = createWavFixture({ name: 'Bounded native audition.wav', sampleRate: 16000, frequency: 440, duration: 12, channelCount: 1 });
@@ -136,6 +132,8 @@ test('Source native-to-browser fallback matches the same surround programme play
 		channelCount: 6, channelAmplitudes: [0, 0, 0, 0, .4, 0] });
 	await importFiles(editor, [recording]);
 	const source = await openSourceMonitor(page, editor, clipByName(editor, recording.name));
+	await source.getByRole('button', { name: 'Loop selection', exact: true }).click();
+	await expect(source.getByRole('button', { name: 'Loop selection', exact: true })).toHaveAttribute('aria-pressed', 'true');
 	await source.getByRole('button', { name: 'Play', exact: true }).click();
 	await expect.poll(() => browserPeak(page)).toBeGreaterThan(.01);
 	const controlPeak = await browserPeak(page);
