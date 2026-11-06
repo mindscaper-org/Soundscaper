@@ -6,6 +6,10 @@ import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 import { expectCapturePhase, openRecordingSetup, selectSourceRoles } from './helpers/framescaper-capture-harness.js';
 import { installRound6NativeCapture } from './helpers/framescaper-round6-native-audio-capture.js';
 
+// Coverage pauses V8 when worklets load; native input keeps advancing and can
+// discard blocks before this realtime durability proof can consume them.
+test.use({ browserCoverage: false });
+
 for (const monitoring of [true, false]) {
 	test(`native microphone and shared-screen capture remains durable and isolates monitor output with monitoring=${String(monitoring)}`, async ({ page, browserName }, testInfo) => {
 		await installRound6NativeCapture(page);

@@ -125,7 +125,12 @@ async function expectNativeStopped(page) {
 	expect(later.every(packet => packet.peaks.every(peak => peak < .0001)), 'Stop may retire packets entirely or continue emitting silence').toBe(true);
 }
 
-test('Source native-to-browser fallback matches the same surround programme played directly in the browser', async ({ page }) => {
+// Native route retirement checkpoints pause V8 while the eight-credit audio
+// transport keeps advancing. Measure this live handoff without that pause.
+const realtimeTest = test.extend({ browserCoverage: false });
+
+realtimeTest('Source native-to-browser fallback matches the same surround programme played directly in the browser', async ({ page, browserName }) => {
+	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
 	await installAuditionProbe(page, { browserInput: true });
 	const editor = await bootEditor(page, '/embed/en/');
 	const recording = createWavFixture({ name: 'Rear programme.wav', sampleRate: 16000, frequency: 440, duration: 12,
