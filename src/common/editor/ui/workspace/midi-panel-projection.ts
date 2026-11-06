@@ -2,11 +2,24 @@
 
 import { readMidiClip, readMidiTrack, type MidiNote } from '../../midi-model.ts';
 import type { EditorAudioClip, EditorAudioTrack, EditorProject } from '../../types.ts';
+import type { AudioClipLeaf } from '../../project-media-types.ts';
+import { resolveRuntimeClipProjection } from '../../runtime-clip-projection.ts';
+import { midiProjectTiming } from '../../midi-project-timing.ts';
 import type { MidiClip, MidiNote as DesignSystemMidiNote } from '@audacity-ui/core';
 import { readClipLoop } from '../../audio-clip-loop.ts';
 import { createAudioWarpRuntimeEvaluator } from '../../audio-warp-runtime.ts';
 import type { HoldTempoMap } from '../../timeline-time.ts';
 import { clipSourceDisplayRange, clipSourceFrameToDisplay } from '../../clip-source-timing.ts';
+
+/** Selection reads persisted clips; editing consumes only the selected clip's resolved coordinates. */
+type MidiPanelAudioClip = EditorAudioClip | (AudioClipLeaf & Readonly<Record<string, unknown>>);
+export type MidiPanelProject = Pick<EditorProject, 'id' | 'sampleRate' | 'sources' | 'tracks' | 'tempoMap' | 'signatureMap'> & Readonly<Record<string, unknown>> & {
+	readonly clips: readonly (MidiPanelAudioClip | EditorProject['clips'][number])[];
+};
+
+export function resolveMidiPanelClip(project: MidiPanelProject, clip: MidiPanelAudioClip): EditorAudioClip {
+	return resolveRuntimeClipProjection({ ...project, tempoMap: midiProjectTiming(project).tempoMap }, clip);
+}
 
 /** Each pending publication owns one sparse, ordered note projection. */
 export type MidiPanelNoteDrafts = ReadonlyMap<symbol, ReadonlyMap<string, Partial<MidiNote>>>;
@@ -35,7 +48,7 @@ export function midiBeatsPerMeasure(signature?: Readonly<{ numerator?: number; d
 	return (signature?.numerator ?? 4) * 4 / (signature?.denominator ?? 4);
 }
 
-export function midiPanelSelection(project: EditorProject | null, trackId: string | null, clipId: string | null) {
+export function midiPanelSelection(project: MidiPanelProject | null, trackId: string | null, clipId: string | null) {
 	if (!project) return null;
 	const selectedClip = project.clips.find((clip) => clip.id === clipId && readMidiClip(clip));
 	const track = project.tracks.find((entry) => readMidiTrack(entry) && (selectedClip
@@ -44,7 +57,7 @@ export function midiPanelSelection(project: EditorProject | null, trackId: strin
 	if (track?.type !== 'audio') return null;
 	const clip = selectedClip ?? project.clips.find((entry) => track.clipIds.includes(entry.id) && readMidiClip(entry));
 	if (clip?.kind !== 'audio') return null;
-	return { track: track as EditorAudioTrack, clip: clip as EditorAudioClip };
+	return { track: track as EditorAudioTrack, clip };
 }
 
 export function designSystemMidiClip(
@@ -75,7 +88,7 @@ export function midiNoteChanges(updates: Partial<DesignSystemMidiNote>, sampleRa
 }
 
 /** The piano roll edits source notes even when the timeline plays a transformed clip. */
-export function createMidiPanelPlayheadProjector(project: EditorProject, clip: EditorAudioClip): (position: number) => number | null {
+export function createMidiPanelPlayheadProjector(project: MidiPanelProject, clip: EditorAudioClip): (position: number) => number | null {
 	const loop = readClipLoop(clip);
 	const warp = clip.warpMap == null ? null : createAudioWarpRuntimeEvaluator({ sampleRate: project.sampleRate,
 		tempoMap: project.tempoMap as unknown as HoldTempoMap }, clip);
@@ -89,7 +102,7 @@ export function createMidiPanelPlayheadProjector(project: EditorProject, clip: E
 }
 
 /** Local strip edges address source seconds; its mutation port addresses project frames. */
-export function midiPanelClipResize(project: EditorProject, clip: EditorAudioClip, sourceRate: number,
+export function midiPanelClipResize(project: MidiPanelProject, clip: EditorAudioClip, sourceRate: number,
 	edge: 'left' | 'right', start: number, duration: number, trimStart: number) {
 	let sourceStartFrame = Math.max(0, Math.round(trimStart * sourceRate));
 	let sourceDurationFrames = Math.max(1, Math.round(duration * sourceRate));

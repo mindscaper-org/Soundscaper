@@ -7,10 +7,10 @@ import { PianoRollRuler } from '@soundscaper/design-system/PianoRoll/PianoRollRu
 import { PianoRollClipStrip } from '@soundscaper/design-system/PianoRoll/PianoRollClipStrip';
 import { readMidiClip, readMidiTrack, type MidiInstrument, type MidiNote } from '../../midi-model.ts';
 import { createStableId } from '../../stable-id.js';
-import type { EditorAudioClip, EditorAudioTrack, EditorProject } from '../../types.ts';
+import type { EditorAudioClip, EditorAudioTrack } from '../../types.ts';
 import { resolveMidiCopy } from '../../../i18n/editor-midi-copy.ts';
 import { useElementSize } from '../use-element-size.ts';
-import { createMidiPanelPlayheadProjector, designSystemMidiClip, midiBeatsPerMeasure, midiNoteChanges, midiPanelClipResize, midiPanelSelection, midiPanelDraftNotes, midiPanelNoteDraft, discardMidiPanelDraftNotes, type MidiPanelNoteDrafts } from './midi-panel-projection.ts';
+import { createMidiPanelPlayheadProjector, designSystemMidiClip, midiBeatsPerMeasure, midiNoteChanges, midiPanelClipResize, midiPanelSelection, midiPanelDraftNotes, midiPanelNoteDraft, discardMidiPanelDraftNotes, resolveMidiPanelClip, type MidiPanelNoteDrafts, type MidiPanelProject } from './midi-panel-projection.ts';
 import { MidiNoteNumberField } from './MidiNoteNumberField.tsx';
 import { createMidiPanelMusicalClock } from './midi-panel-musical-clock.ts';
 import { pianoRollGridMath } from '@soundscaper/design-system/PianoRoll/musical-clock';
@@ -42,7 +42,7 @@ interface PianoRollController {
 interface PianoRollWorkspacePanelProps {
 	readonly controller: PianoRollController;
 	readonly snapshot: {
-		readonly project: EditorProject | null;
+		readonly project: MidiPanelProject | null;
 		readonly selectedTrackId: string | null;
 		readonly selectedClipId: string | null;
 		readonly readOnly?: boolean;
@@ -60,14 +60,15 @@ const SUBDIVISIONS = [1, 2, 4, 8, 16, 32] as const;
 type Subdivision = typeof SUBDIVISIONS[number];
 
 export default function PianoRollWorkspacePanel(props: PianoRollWorkspacePanelProps) {
-	const selection = midiPanelSelection(props.snapshot.project, props.snapshot.selectedTrackId, props.snapshot.selectedClipId);
-	if (!selection || !props.snapshot.project) return <p className="kw-audio-editor__panel-empty">{resolveMidiCopy(props.copy).empty}</p>;
-	return <PianoRollEditor key={`${props.snapshot.project.id}:${selection.clip.id}`} {...props}
-		project={props.snapshot.project} track={selection.track} clip={selection.clip} />;
+	const project = props.snapshot.project, selection = midiPanelSelection(project, props.snapshot.selectedTrackId, props.snapshot.selectedClipId);
+	const persistedClip = selection?.clip;
+	const clip = useMemo(() => project && persistedClip ? resolveMidiPanelClip(project, persistedClip) : null, [project, persistedClip]);
+	if (!selection || !project || !clip) return <p className="kw-audio-editor__panel-empty">{resolveMidiCopy(props.copy).empty}</p>;
+	return <PianoRollEditor key={`${project.id}:${clip.id}`} {...props} project={project} track={selection.track} clip={clip} />;
 }
 
 function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, project, track, clip }: PianoRollWorkspacePanelProps & {
-	readonly project: EditorProject; readonly track: EditorAudioTrack; readonly clip: EditorAudioClip;
+	readonly project: MidiPanelProject; readonly track: EditorAudioTrack; readonly clip: EditorAudioClip;
 }) {
 	const copy = resolveMidiCopy(inputCopy);
 	const sampleRate = project.sources?.find(source => source.id === clip.sourceId)?.sampleRate ?? project.sampleRate;
@@ -310,7 +311,7 @@ const MidiNoteOption = memo(function MidiNoteOption({ note, format, sampleRate }
 
 /** Transport ticks move only the cursor; the note editor keeps its render cadence. */
 function PianoRollPlayhead({ controller, project, clip, sampleRate, pixelsPerSecond, scrollX, width }: {
-	readonly controller: PianoRollController; readonly project: EditorProject; readonly clip: EditorAudioClip;
+	readonly controller: PianoRollController; readonly project: MidiPanelProject; readonly clip: EditorAudioClip;
 	readonly sampleRate: number; readonly pixelsPerSecond: number; readonly scrollX: number; readonly width: number;
 }) {
 	const telemetry = useSyncExternalStore(controller.subscribeTelemetry, controller.getTelemetrySnapshot, controller.getTelemetrySnapshot);
