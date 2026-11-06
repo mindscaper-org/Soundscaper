@@ -44,12 +44,14 @@ test('moving and reversing a retained onset panic project maps its stop to the s
 	const f = midiServiceFixture();
 	await f.service.importDocument(parseMidiFile(midi(), { sampleRate: 8000 }));
 	const clip = f.project().clips[0]; assert.ok(clip);
+	assert.ok(typeof clip.durationFrames === 'number');
+	assert.equal(clip.durationFrames, 4001);
 	f.apply({ type: 'clip/move', clipId: clip.id, timelineStartFrame: 8000 });
 	f.apply({ type: 'clip/update', clipId: clip.id, changes: { reversed: true } });
 	await f.service.exportFile('midi');
 	const bytes = f.saves[0]?.bytes; assert.ok(bytes instanceof Uint8Array);
 	const note = parseMidiFile(bytes, { sampleRate: 8000 }).tracks.flatMap(track => track.notes)[0]; assert.ok(note);
 	assert.deepEqual(note.onsetStop, { kind: 'all-sound-off', frame: note.startFrame, channel: note.channel });
-	assert.equal(note.startFrame, 24_000);
+	assert.equal(note.startFrame, 8000 + clip.durationFrames);
 	assert.ok(writeMidiFile(parseMidiFile(bytes, { sampleRate: 8000 })).length > 0);
 });
