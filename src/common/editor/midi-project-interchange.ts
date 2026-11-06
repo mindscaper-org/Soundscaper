@@ -4,6 +4,7 @@ import { MIDI_FILE_MAX_EVENTS, validateMidiFileDocument, type MidiFileDocument, 
 import { midiProjectTiming } from './midi-project-timing.ts';
 import { midiInitialTimingEvent } from './midi-initial-timing.ts';
 import { midiClipOccurrences } from './midi-project-source-projection.ts';
+import { quietMidiClipPerformanceEvents, type MidiPerformanceOccurrence } from './midi-project-performance-state.ts';
 import { createMidiClipEventProjection } from './midi-project-event-projection.ts';
 import { createMidiClipNoteProjection } from './midi-project-note-projection.ts';
 import { assertMidiClipTailBoundaries, type MidiClipTailBoundary } from './midi-project-clip-tail-boundaries.ts';
@@ -33,11 +34,16 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 			target.set(value.frame, value);
 		}
 	};
+	const rawSources: readonly unknown[] = Array.isArray(project.sources) ? project.sources : [];
+	const sourcesById = new Map(rawSources.filter(isRecord).map(source => [String(source.id), source]));
+	const occurrences: MidiPerformanceOccurrence[] = [];
+	let exportedTracks = 0;
 	const clipsById = new Map(project.clips.map(clip => [String(clip.id), clip]));
 	const boundaries: MidiClipTailBoundary[] = [];
 	const tracks = project.tracks.flatMap(track => {
 		const metadata = readMidiTrack(track);
 		if (!metadata) return [];
+		const trackIndex = exportedTracks++;
 		const notes: MidiFileDocument['tracks'][number]['notes'][number][] = [];
 		const events: MidiFileEvent[] = [];
 		let durationFrames = 0;
@@ -45,6 +51,7 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 			const persistedClip = clipsById.get(String(id));
 			const data = readMidiClip(persistedClip);
 			if (!persistedClip || !data) continue;
+			const source = sourcesById.get(String(persistedClip.sourceId));
 			const eventProjection = createMidiClipEventProjection(data.interchange);
 			const noteProjection = createMidiClipNoteProjection(data);
 			const importedRootTempo = data.interchange && midiInitialTimingEvent(data.interchange.tempos);
@@ -61,6 +68,7 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 				clipEnd = Math.max(clipEnd, timelineEnd);
 				const prefix = `${String(persistedClip.id)}${occurrence ? `:loop-${occurrence}` : ''}`;
 				occurrence += 1;
+				const firstOccurrenceNote = notes.length;
 				for (const note of noteProjection(start, sourceFrames, global)) {
 					reserveEvents(1);
 					const onsetStop = note.onsetStop?.kind === 'all-notes-off'
@@ -68,6 +76,9 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 					notes.push({ ...note, id: `${prefix}:${note.id}`, ...(onsetStop ? { onsetStop } : {}) });
 				}
 				const visible = eventProjection.events(start, sourceFrames, timelineStart, global, initializePerformance);
+				occurrences.push({ track: trackIndex, start: timelineStart, end: timelineEnd, notes: notes.slice(firstOccurrenceNote), events: visible,
+					eligible: Boolean(source && source.sampleRate === project.sampleRate && start === 0 && sourceFrames === source.frameCount
+						&& timelineEnd - timelineStart === sourceFrames && initializePerformance !== true && persistedClip.reversed !== true && persistedClip.warpMap == null) });
 				reserveEvents(visible.length);
 				for (const event of visible) events.push(event.releaseId === undefined ? event : { ...event, releaseId: `${prefix}:${event.releaseId}` });
 				if (preserveTempos) {
@@ -89,7 +100,16 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 	const document = { sampleRate: project.sampleRate, tracks, tempos: [...tempos.values()].sort(byFrame), signatures: [...signatures.values()].sort(byFrame) };
 	validateMidiFileDocument(document);
 	assertMidiClipTailBoundaries(document, boundaries);
+	for (const [index, additions] of quietMidiClipPerformanceEvents(document, occurrences, reserveEvents)) {
+		const events = tracks[index]!.events;
+		for (const event of additions) events.push(event);
+		events.sort(byFrame);
+	}
 	return document;
 }
 
 function byFrame(a: Readonly<{ frame: number }>, b: Readonly<{ frame: number }>): number { return a.frame - b.frame; }
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+	return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
