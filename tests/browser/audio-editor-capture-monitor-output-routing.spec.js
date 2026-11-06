@@ -4,11 +4,12 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor } from './audio-editor-test-helpers.js';
 import { selectSourceRoles, expectCapturePhase } from './helpers/framescaper-capture-harness.js';
 
+// Skip before page/browser setup: WebKit rejects Chromium's device flags.
+test.skip(({ browserName }) => browserName !== 'chromium', 'Chromium provides the qualified fake-hardware speaker inventory.');
 test.use({ launchOptions: { args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] } });
 
-for (const sourceRate of [48_000, 44_100]) test(`capture monitoring follows Speakers changes at ${sourceRate} Hz without interrupting capture`, async ({ page, browserName }) => {
+for (const sourceRate of [48_000, 44_100]) test(`capture monitoring follows Speakers changes at ${sourceRate} Hz without interrupting capture`, async ({ page }) => {
 	// These are real Chromium audio-device IDs and real AudioContext.setSinkId calls.
-	test.skip(browserName !== 'chromium', 'Chromium provides the qualified fake-hardware speaker inventory.');
 	await page.context().grantPermissions(['microphone']);
 	await installCaptureToneAndMonitorObserver(page, sourceRate);
 	const editor = await bootEditor(page, '/framescaper/en/');
