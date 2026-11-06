@@ -15,17 +15,23 @@ for (const audition of ['source-range', 'source-full', 'bin']) {
 		await importFiles(editor, [recording]);
 		await expect(editor).toHaveAttribute('data-clip-count', '1');
 		let play, pause, position;
+		let selectedEnd = 1;
 		if (audition.startsWith('source')) {
 			const source = await openSourceMonitor(page, editor, clipByName(editor, recording.name));
 			if (audition === 'source-range') {
 				const waveform = source.getByRole('region', { name: 'Source waveform', exact: true });
 				const box = await waveform.boundingBox();
 				expect(box).not.toBeNull();
+				await waveform.evaluate(value => value.addEventListener('pointerup', event => {
+					const bounds = value.getBoundingClientRect();
+					globalThis.__auditionSelectedEnd = Math.round((event.clientX - bounds.left) / bounds.width * 48_000) / 48_000;
+				}, { once: true }));
 				await page.mouse.move(box.x + box.width * .1, box.y + 80);
 				await page.mouse.down();
 				await page.mouse.move(box.x + box.width * .8, box.y + 80, { steps: 5 });
 				await page.mouse.up();
 				await expect(waveform.locator('.audio-editor-source-selection')).toBeVisible();
+				selectedEnd = await page.evaluate(() => globalThis.__auditionSelectedEnd);
 			}
 			play = source.getByRole('button', { name: 'Play', exact: true });
 			pause = source.getByRole('button', { name: 'Pause', exact: true });
@@ -48,7 +54,7 @@ for (const audition of ['source-range', 'source-full', 'bin']) {
 			.map(output => output.time)))).toBeGreaterThan(audibleAt + 1 + 2048 / 48000);
 		expect(await outputPeak(page)).toBeLessThan(.00001);
 		await expect(play).toBeVisible();
-		if (position) expect(Number(await position.getAttribute('aria-valuenow'))).toBe(audition === 'source-range' ? .8 : 1);
+		if (position) expect(Number(await position.getAttribute('aria-valuenow'))).toBe(selectedEnd);
 		await play.click();
 		await expect(pause).toBeVisible();
 		await expect.poll(() => outputPeak(page)).toBeGreaterThan(.03);
