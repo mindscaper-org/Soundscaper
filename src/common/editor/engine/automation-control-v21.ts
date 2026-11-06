@@ -7,6 +7,7 @@ import { restoreAutomationReadbackV21 } from './automation-readback-v21.ts';
 import { isPlaybackLoopEnabled } from './playback-frequency-range.ts';
 import { normalizeParameterAddress, type ParameterAddress } from '../parameter-address.ts';
 import type { EngineGainOwner, EngineProject } from './types.ts';
+import { inheritTrackFolderMediaStateProjectionV12 } from '../track-folder-media-runtime.ts';
 
 export interface AutomationControlPreviewInputV21 {
 	readonly graph: Readonly<{ readonly parameterRegistry: ScheduledParameterRegistry }> | null;
@@ -47,9 +48,10 @@ export const engineAutomationControlMethods = {
 	configureMixerParameter(address: unknown, value: number) {
 		this[ENGINE_ASSERT_ACTIVE]();
 		const normalized = normalizeParameterAddress(address);
-		const project = projectWithMixerParameter(this.project, normalized, value);
-		if (!project || !this.previewScheduledParameter(normalized, value)) return false;
-		this.project = project;
+		const previous = this.project;
+		const project = projectWithMixerParameter(previous, normalized, value);
+		if (!previous || !project || !this.previewScheduledParameter(normalized, value)) return false;
+		this.project = inheritTrackFolderMediaStateProjectionV12(previous, project);
 		return true;
 	},
 	restoreScheduledAutomationLane(lane: unknown) {

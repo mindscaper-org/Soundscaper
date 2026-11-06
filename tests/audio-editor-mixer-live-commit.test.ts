@@ -10,6 +10,8 @@ import { MockChunkStreamClient, MockNode, MockParam } from './helpers/mock-audio
 import { createMockAudioWorkletNodeClass } from './helpers/mock-audio-worklet-node.js';
 import { settle } from './helpers/async-test-control.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
+import { ScheduledParameterRegistry } from '../src/common/editor/engine/scheduled-parameter-registry.ts';
+import { normalizeAutomationLaneV21 } from '../src/common/editor/automation-lane-v21.ts';
 
 class MixerParam extends MockParam {
 	cancelScheduledValues(time: number): void {
@@ -149,3 +151,57 @@ test('legacy envelope targets retain their ordinary rebuild fallback and gain co
 	assert.ok(f.context.gains.some(node => node.gain.events.some(event => event[1] === .4 && event[2] === 4)),
 		'the future envelope gain must still multiply the newly adopted .5 static value');
 });
+
+for (const scope of ['master', 'track', 'group'] as const) test(`live ${scope} adoption retains inherited folder mute across Pause and Play`, async t => {
+	const f = await fixture(t);
+	const trackId = f.controller.getSnapshot().selectedTrackId; assert.ok(typeof trackId === 'string');
+	const folderId = f.controller.actions.trackFolders.wrapSelection([trackId], 'Muted'); assert.ok(typeof folderId === 'string');
+	const lane = normalizeAutomationLaneV21({ id: 'mute', address: { kind: 'strip', strip: { kind: 'track', id: trackId }, parameterId: 'mute' },
+		timebase: 'absolute-samples', points: [{ id: 'zero', position: 0, value: 0 }], segments: [] });
+	f.controller.actions.edit.commit({ type: 'automation-lane/set', laneId: lane.id, expected: null, lane });
+	f.controller.actions.trackFolders.update(folderId, { mute: true });
+	await settle(3);
+	await f.controller.actions.transport.playPause();
+	assert.equal(currentMuteGain(f.engine, lane.address), 0);
+	const before = structuredClone(f.controller.getSnapshot().project);
+	const address = { kind: 'strip' as const, strip: scope === 'master' ? { kind: 'master' as const }
+		: { kind: scope === 'track' ? 'track' as const : 'mixer-node' as const, id: scope === 'track' ? trackId : folderId }, parameterId: 'gain' as const };
+	f.controller.actions.mixer.beginParameterGesture(address);
+	f.controller.actions.mixer.commitParameterGesture(address, .5);
+	await settle(3);
+	await f.controller.actions.transport.playPause();
+	await f.controller.actions.transport.playPause();
+	assert.equal(currentMuteGain(f.engine, lane.address), 0, 'a local mute=0 lane cannot reopen its explicitly muted ancestor');
+	assert.deepEqual(f.controller.getSnapshot().project?.trackFolders, before?.trackFolders);
+	assert.deepEqual(f.controller.getSnapshot().project?.automationLanes, before?.automationLanes);
+});
+
+test('an admitted live Tremolo parameter commit retains folder mute across Pause and Play', async t => {
+	const f = await fixture(t);
+	const trackId = f.controller.getSnapshot().selectedTrackId; assert.ok(typeof trackId === 'string');
+	const effectId = f.controller.actions.effects.add({ type: 'tremolo', scope: 'track', trackId }); assert.ok(typeof effectId === 'string');
+	const folderId = f.controller.actions.trackFolders.wrapSelection([trackId], 'Muted'); assert.ok(typeof folderId === 'string');
+	const lane = normalizeAutomationLaneV21({ id: 'mute', address: { kind: 'strip', strip: { kind: 'track', id: trackId }, parameterId: 'mute' },
+		timebase: 'absolute-samples', points: [{ id: 'zero', position: 0, value: 0 }], segments: [] });
+	f.controller.actions.edit.commit({ type: 'automation-lane/set', laneId: lane.id, expected: null, lane });
+	f.controller.actions.trackFolders.update(folderId, { mute: true });
+	await settle(3);
+	await f.controller.actions.transport.playPause();
+	assert.equal(currentMuteGain(f.engine, lane.address), 0);
+	f.controller.actions.effects.beginRackEffectGesture('track', trackId, effectId);
+	f.controller.actions.effects.commitRackEffectGesture('track', trackId, effectId, { depth: 50 });
+	await settle(3);
+	await f.controller.actions.transport.playPause();
+	await f.controller.actions.transport.playPause();
+	assert.equal(currentMuteGain(f.engine, lane.address), 0);
+});
+
+function currentMuteGain(engine: ReturnType<typeof createAudioEditorEngine>, address: unknown): number {
+	const graph: unknown = Reflect.get(engine, 'graph');
+	assert.ok(graph && typeof graph === 'object' && 'parameterRegistry' in graph);
+	assert.ok(graph.parameterRegistry instanceof ScheduledParameterRegistry);
+	const target = graph.parameterRegistry.get(address);
+	assert.ok(target?.binding.kind === 'audio-param');
+	const param = target.binding.params[0]?.param; assert.ok(param);
+	return param.value;
+}
