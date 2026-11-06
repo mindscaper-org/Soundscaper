@@ -3,7 +3,7 @@ import { fitExportFileName } from './export-name-byte-budget.ts';
 import { createBwfExportMetadata, projectBextMetadata } from './broadcast-wave-project.ts';
 import { createMasteringSequenceBext } from './mastering-sequence-bext.ts';
 import { cartForDeliveryRange } from './cart-delivery-range.ts';
-import { ixmlForDeliveryChannels, ixmlForDeliveryRange } from './ixml-delivery-timing.ts';
+import { ixmlForDeliveryChannels, ixmlForDeliveryFileIdentity, ixmlForDeliveryRange } from './ixml-delivery-timing.ts';
 import { inspectPreservedAdmRiffChunks, sameBextMetadata } from './adm-riff-passthrough.ts';
 import { createBw64AdmExport, resolveBw64Adm } from './export-bw64-adm.js';
 import {
@@ -69,6 +69,7 @@ export const FAST_RENDER_THRESHOLDS = Object.freeze({
  * @property {import('./cart-metadata.ts').CartMetadata | null} cart
  * @property {import('./ixml.ts').IxmlMetadata | null} ixml
  * @property {number} [ixmlOmittedTrackCount]
+ * @property {boolean} [ixmlFileUidOmitted]
  * @property {'mix' | 'stems' | 'chapters' | 'clips'} mode
  * @property {import('./media-export.js').MediaExportFormatId} format
  * @property {number} sampleRate
@@ -234,8 +235,9 @@ export function createExportPlan(project, options = {}) {
 	}, spans);
 	let markers = masteringSequence ? masteringSequence.cues : markerExport.markers;
 	const ixmlChannels = ixmlForDeliveryChannels(preservedRiffChunks?.ixml ? null : runtimeProject.metadata?.ixml, encoding.channelMapping);
+	const ixmlDelivery = ixmlForDeliveryFileIdentity(ixmlChannels.metadata, options.preserveIxmlFileIdentity === true);
 	const ixmlMetadata = (deliveryRange) => ixmlForDeliveryRange(
-		ixmlChannels.metadata, deliveryRange, runtimeProject.sampleRate, sampleRate, encoding.bitDepth, masteringSequence?.plan,
+		ixmlDelivery.metadata, deliveryRange, runtimeProject.sampleRate, sampleRate, encoding.bitDepth, masteringSequence?.plan,
 	);
 	const ixml = ixmlMetadata(range);
 	const spanIxml = spans?.map((span) => ixmlMetadata(span));
@@ -459,6 +461,7 @@ export function createExportPlan(project, options = {}) {
 		markerInterchangeReport: markerExport.report,
 		ixml,
 		ixmlOmittedTrackCount: ixmlChannels.omittedTrackCount,
+		ixmlFileUidOmitted: ixmlDelivery.omittedFileUid,
 		cart,
 		...(bext ? { bext } : {}),
 		...(adm ? {

@@ -97,6 +97,7 @@ export const REPORT_ITEM_COPY: Readonly<Record<string, string>> = Object.freeze(
 	"reportItem.delivery.channel-map": "Channel map",
 	"reportItem.delivery.dither": "Dither",
 	"reportItem.delivery.encoder": "Video encoder selected",
+	"reportItem.delivery.ixml-file-uid-omitted": "The source file identifier was omitted from newly rendered audio files.",
 	"reportItem.delivery.ixml-tracks-omitted": "Recorder track names and roles were omitted because the export changes channel routing.",
 	"reportItem.delivery.lossless-encode": "Lossless encode",
 	"reportItem.delivery.lossy-encode": "Lossy encode",

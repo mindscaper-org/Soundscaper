@@ -190,6 +190,7 @@ export async function createFixture(context) {
 		['tests/fixtures/bwfmetaedit-cp1252-info.wav.base64', 'ordinary BWF MetaEdit fixture\n'],
 		['tests/fixtures/bwfmetaedit-ixml-clock.wav.base64', await readFile(new URL('../fixtures/bwfmetaedit-ixml-clock.wav.base64', import.meta.url), 'utf8')],
 		['tests/fixtures/bwfmetaedit-mid-side.wav.base64', await readFile(new URL('../fixtures/bwfmetaedit-mid-side.wav.base64', import.meta.url), 'utf8')],
+		['tests/fixtures/bwfmetaedit-file-uid.wav.base64', await readFile(new URL('../fixtures/bwfmetaedit-file-uid.wav.base64', import.meta.url), 'utf8')],
 		['tests/fixtures/ffmpeg-libmp3lame-one-second.mp3.base64', await readFile(new URL('../fixtures/ffmpeg-libmp3lame-one-second.mp3.base64', import.meta.url), 'utf8')],
 		...await Promise.all([
 			'ffmpeg-aac-lc-600s-silence.m4a.gz.base64',

@@ -2407,6 +2407,7 @@
 		"reportItem.delivery.channel-map": ["machine","Channel map","Bản đồ kênh"],
 		"reportItem.delivery.dither": ["machine","Dither","Nhiễu dither"],
 		"reportItem.delivery.encoder": ["machine","Video encoder selected","Đã chọn bộ mã hóa video"],
+		"reportItem.delivery.ixml-file-uid-omitted": ["human","The source file identifier was omitted from newly rendered audio files.","Mã định danh tệp nguồn đã được lược bỏ khỏi các tệp âm thanh mới được kết xuất."],
 		"reportItem.delivery.ixml-tracks-omitted": ["human","Recorder track names and roles were omitted because the export changes channel routing.","Tên và vai trò của các rãnh trên máy ghi đã bị lược bỏ vì thao tác xuất thay đổi cách định tuyến kênh."],
 		"reportItem.delivery.lossless-encode": ["machine","Lossless encode","Mã hóa không mất dữ liệu"],
 		"reportItem.delivery.lossy-encode": ["machine","Lossy encode","Mã hóa có mất dữ liệu"],

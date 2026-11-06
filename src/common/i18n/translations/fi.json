@@ -2407,6 +2407,7 @@
 		"reportItem.delivery.channel-map": ["machine","Channel map","Kanavakartta"],
 		"reportItem.delivery.dither": ["machine","Dither","Ditherointi"],
 		"reportItem.delivery.encoder": ["machine","Video encoder selected","Videokooderi valittiin"],
+		"reportItem.delivery.ixml-file-uid-omitted": ["human","The source file identifier was omitted from newly rendered audio files.","Lähdetiedoston tunniste jätettiin pois uusista renderöidyistä äänitiedostoista."],
 		"reportItem.delivery.ixml-tracks-omitted": ["human","Recorder track names and roles were omitted because the export changes channel routing.","Tallentimen raitojen nimet ja roolit jätettiin pois, koska vienti muuttaa kanavien reititystä."],
 		"reportItem.delivery.lossless-encode": ["machine","Lossless encode","Häviötön koodaus"],
 		"reportItem.delivery.lossy-encode": ["machine","Lossy encode","Häviöllinen koodaus"],

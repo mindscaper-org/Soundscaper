@@ -2407,6 +2407,7 @@
 		"reportItem.delivery.channel-map": ["machine","Channel map","चैनल मैप"],
 		"reportItem.delivery.dither": ["machine","Dither","डिदर"],
 		"reportItem.delivery.encoder": ["machine","Video encoder selected","वीडियो एन्कोडर चुना गया"],
+		"reportItem.delivery.ixml-file-uid-omitted": ["human","The source file identifier was omitted from newly rendered audio files.","नए रेंडर किए गए ऑडियो फ़ाइलों से स्रोत फ़ाइल का पहचानकर्ता हटा दिया गया।"],
 		"reportItem.delivery.ixml-tracks-omitted": ["human","Recorder track names and roles were omitted because the export changes channel routing.","रिकॉर्डर ट्रैक के नाम और भूमिकाएँ छोड़ दी गईं, क्योंकि निर्यात चैनल रूटिंग बदलता है।"],
 		"reportItem.delivery.lossless-encode": ["machine","Lossless encode","हानिरहित एन्कोडिंग"],
 		"reportItem.delivery.lossy-encode": ["machine","Lossy encode","हानिपूर्ण एन्कोडिंग"],

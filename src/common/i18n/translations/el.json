@@ -2407,6 +2407,7 @@
 		"reportItem.delivery.channel-map": ["machine","Channel map","Χάρτης καναλιών"],
 		"reportItem.delivery.dither": ["machine","Dither","Θόρυβος διασποράς"],
 		"reportItem.delivery.encoder": ["machine","Video encoder selected","Επιλέχθηκε κωδικοποιητής βίντεο"],
+		"reportItem.delivery.ixml-file-uid-omitted": ["human","The source file identifier was omitted from newly rendered audio files.","Το αναγνωριστικό του αρχείου προέλευσης παραλείφθηκε από τα νέα αρχεία ήχου που δημιουργήθηκαν."],
 		"reportItem.delivery.ixml-tracks-omitted": ["human","Recorder track names and roles were omitted because the export changes channel routing.","Τα ονόματα και οι ρόλοι των καναλιών εγγραφής παραλείφθηκαν επειδή η εξαγωγή αλλάζει τη δρομολόγηση καναλιών."],
 		"reportItem.delivery.lossless-encode": ["machine","Lossless encode","Κωδικοποίηση χωρίς απώλειες"],
 		"reportItem.delivery.lossy-encode": ["machine","Lossy encode","Κωδικοποίηση με απώλειες"],

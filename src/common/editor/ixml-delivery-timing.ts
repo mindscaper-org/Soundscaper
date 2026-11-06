@@ -21,6 +21,19 @@ interface MappedPoint { readonly position: bigint; readonly duration: bigint | n
 interface DeliveryRange { readonly startFrame: number; readonly endFrame: number }
 const MAX_UINT64 = 0xffff_ffff_ffff_ffffn;
 
+/** A recorder's physical-file identity cannot name newly rendered files. */
+export function ixmlForDeliveryFileIdentity(
+	input: IxmlMetadataInput | null | undefined, preserveOriginal: boolean,
+): Readonly<{ metadata: IxmlMetadata | null; omittedFileUid: boolean }> {
+	if (input == null) return { metadata: null, omittedFileUid: false };
+	if (preserveOriginal) return { metadata: normalizeIxmlMetadata(input), omittedFileUid: false };
+	const metadata = parseIxmlPayload(encodeIxmlPayload(input));
+	const identifiers = xmlTree(metadata.rawXml).children.filter(node => node.name === 'FILE_UID');
+	if (!identifiers.length) return { metadata, omittedFileUid: false };
+	const rawXml = applyReplacements(metadata.rawXml, identifiers.map(node => ({ start: node.start, end: node.end, text: '' })));
+	return { metadata: parseIxmlPayload(new TextEncoder().encode(rawXml)), omittedFileUid: identifiers.some(node => node.text.trim().length > 0) };
+}
+
 interface IxmlDeliveryChannelMapping {
 	readonly inputChannelCount: number;
 	readonly outputChannelCount: number;

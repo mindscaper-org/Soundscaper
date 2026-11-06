@@ -2407,6 +2407,7 @@
 		"reportItem.delivery.channel-map": ["machine","Channel map","通道對應表"],
 		"reportItem.delivery.dither": ["machine","Dither","高頻抖動"],
 		"reportItem.delivery.encoder": ["machine","Video encoder selected","已選擇視訊編碼器"],
+		"reportItem.delivery.ixml-file-uid-omitted": ["human","The source file identifier was omitted from newly rendered audio files.","新算繪的音訊檔案中已省略來源檔案識別碼。"],
 		"reportItem.delivery.ixml-tracks-omitted": ["human","Recorder track names and roles were omitted because the export changes channel routing.","匯出變更了聲道路由，因此省略了錄音設備的音軌名稱與角色。"],
 		"reportItem.delivery.lossless-encode": ["machine","Lossless encode","無損編碼"],
 		"reportItem.delivery.lossy-encode": ["machine","Lossy encode","有損編碼"],
