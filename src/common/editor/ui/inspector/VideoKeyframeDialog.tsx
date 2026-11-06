@@ -81,6 +81,7 @@ function VideoKeyframeDialogSession({
 	const focusOwner = useMemo(() => ({ controller, clipId: model.clipId }), [controller, model.clipId]);
 	const captureFocus = useOperationFocusRecovery(pending, focusOwner);
 	const selected = choices.find(({ key }) => key === targetKey) ?? choices[0] ?? null;
+	const targetHasCurve = Boolean(selected && model.keyframes?.curves.some(curve => videoKeyframeTargetKey(curve.target) === selected.key));
 	const editingCurve = model.keyframes?.curves.find(({ target }) => videoKeyframeTargetKey(target) === curveKey)
 		?? model.keyframes?.curves[0] ?? null;
 	const disabled = model.operationsBlocked || pending;
@@ -101,7 +102,8 @@ function VideoKeyframeDialogSession({
 	};
 	const addCurve = (event: FormEvent<HTMLFormElement>): void => {
 		event.preventDefault();
-		if (!selected) return;
+		if (!selected || targetHasCurve) return;
+		const form = event.currentTarget;
 		try {
 			const start = { position: normalizeRational(parseRationalText(startText)), value: parseNumber(startValue) };
 			const end = { position: normalizeRational(parseRationalText(endText)), value: parseNumber(endValue) };
@@ -113,7 +115,8 @@ function VideoKeyframeDialogSession({
 					kind,
 					...easedVideoKeyframeBezierControls(start, end),
 				} : { kind },
-			}), { key: 'videoKeyframesApplied', fallback: 'Video keyframes applied.' });
+			}), { key: 'videoKeyframesApplied', fallback: 'Video keyframes applied.' },
+			() => form.querySelector<HTMLElement>('[data-video-keyframe-field="target"]'));
 		} catch {
 			setError({ key: 'videoKeyframesInvalid', fallback: 'Check the exact positions, values, and curve shape.' });
 		}
@@ -175,7 +178,7 @@ function VideoKeyframeDialogSession({
 							{videoKeyframeInterpolationKinds(selected?.integer ?? false).map((value) => <option key={value} value={value}>{label(copy, `videoKeyframes${titleCase(value)}`, titleCase(value))}</option>)}
 						</select>
 					</label>
-					<button type="submit" data-video-keyframe-add>{label(copy, 'videoKeyframesAdd', 'Add curve')}</button>
+					<button type="submit" data-video-keyframe-add disabled={targetHasCurve}>{label(copy, 'videoKeyframesAdd', 'Add curve')}</button>
 				</fieldset>
 			</form>
 			<VideoKeyframeCurveEditor
