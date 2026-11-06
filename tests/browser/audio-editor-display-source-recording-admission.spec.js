@@ -7,7 +7,8 @@ test('display source selection observes the active recording lock in Preferences
 	test.skip(browserName === 'firefox', 'Firefox does not support display audio capture.');
 	await page.addInitScript(() => {
 		window.__displaySourceRequests = 0;
-		Object.defineProperty(navigator.mediaDevices, 'getDisplayMedia', { configurable: true, value: async () => {
+		const mediaDevices = navigator.mediaDevices ?? {};
+		Object.defineProperty(mediaDevices, 'getDisplayMedia', { configurable: true, value: async () => {
 			window.__displaySourceRequests += 1;
 			const context = new AudioContext();
 			const oscillator = context.createOscillator();
@@ -20,6 +21,7 @@ test('display source selection observes the active recording lock in Preferences
 			destination.stream.addTrack(canvas.captureStream().getVideoTracks()[0]);
 			return destination.stream;
 		} });
+		Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: mediaDevices });
 	});
 	const editor = await bootEditor(page, '/embed/en/');
 	await editor.getByRole('button', { name: 'Audio setup', exact: true }).click();

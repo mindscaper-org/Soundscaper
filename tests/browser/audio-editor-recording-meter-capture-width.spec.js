@@ -5,6 +5,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction } from './au
 
 test('an armed stereo recording retains two meter bars while an unarmed mono track is selected', async ({ page }) => {
 	await page.addInitScript(() => {
+		const inputs = []; globalThis.__stereoMeterInputs = inputs;
 		Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: {
 			enumerateDevices: async () => [{ kind: 'audioinput', deviceId: 'default', groupId: 'stereo', label: 'Stereo microphone' }],
 			async getUserMedia() {
@@ -18,6 +19,10 @@ test('an armed stereo recording retains two meter bars while an unarmed mono tra
 				oscillator.connect(gain).connect(merger, 0, 0);
 				merger.connect(destination); oscillator.start();
 				await context.resume();
+				const track = destination.stream.getAudioTracks()[0], settings = track.getSettings.bind(track);
+				Object.defineProperty(track, 'getSettings', { configurable: true,
+					value: () => ({ ...settings(), channelCount: destination.channelCount, sampleRate: context.sampleRate, latency: 0 }) });
+				inputs.push({ context, oscillator, gain, merger, destination });
 				return destination.stream;
 			},
 		} });
