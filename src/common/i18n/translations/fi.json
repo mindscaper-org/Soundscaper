@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["machine","Time signature events","Tahtilajitapahtumat"],
 		"silenceAudio": ["machine","Silence audio","Korvaa ääni hiljaisuudella"],
 		"silenceGenerator": ["machine","Silence","Hiljaisuus"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","Löytyi yli {limit} hiljaista aluetta. Valitse pienempi aikaväli."],
 		"skin": ["machine","Skin","Ulkoasu"],
 		"skinCarousel": ["machine","carousel","karuselli"],
 		"skinDefault": ["machine","Default","Oletus"],

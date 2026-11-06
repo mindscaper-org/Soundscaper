@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["machine","Time signature events","박자표 이벤트"],
 		"silenceAudio": ["machine","Silence audio","오디오를 무음으로 대체"],
 		"silenceGenerator": ["machine","Silence","무음"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","무음 구간이 {limit}개를 초과합니다. 더 작은 범위를 선택하세요."],
 		"skin": ["machine","Skin","스킨"],
 		"skinCarousel": ["machine","carousel","캐러셀"],
 		"skinDefault": ["machine","Default","기본"],

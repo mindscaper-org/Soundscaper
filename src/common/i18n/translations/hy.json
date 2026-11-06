@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["machine","Time signature events","Տակտաչափի իրադարձություններ"],
 		"silenceAudio": ["machine","Silence audio","Լռեցնել աուդիոն"],
 		"silenceGenerator": ["machine","Silence","Լռություն"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","Հայտնաբերվել է {limit}-ից ավելի լուռ հատված։ Ընտրեք ավելի փոքր միջակայք։"],
 		"skin": ["machine","Skin","Ոճ"],
 		"skinCarousel": ["machine","carousel","կարուսել"],
 		"skinDefault": ["machine","Default","Լռելյայն"],

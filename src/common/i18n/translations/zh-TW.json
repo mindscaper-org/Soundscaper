@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["machine","Time signature events","拍號事件"],
 		"silenceAudio": ["machine","Silence audio","靜音音訊"],
 		"silenceGenerator": ["machine","Silence","靜音"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","找到的靜音區域超過 {limit} 個。請選取較小的範圍。"],
 		"skin": ["machine","Skin","外觀"],
 		"skinCarousel": ["machine","carousel","輪播"],
 		"skinDefault": ["machine","Default","預設"],

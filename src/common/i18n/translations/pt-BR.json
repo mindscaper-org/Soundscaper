@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["machine","Time signature events","Eventos de fórmula de compasso"],
 		"silenceAudio": ["machine","Silence audio","Silenciar áudio"],
 		"silenceGenerator": ["machine","Silence","Silêncio"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","Foram encontradas mais de {limit} regiões silenciosas. Selecione um intervalo menor."],
 		"skin": ["machine","Skin","Aparência"],
 		"skinCarousel": ["machine","carousel","carrossel"],
 		"skinDefault": ["machine","Default","Padrão"],

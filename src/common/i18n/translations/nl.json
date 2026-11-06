@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["machine","Time signature events","Tijdsaanduiding-gebeurtenissen"],
 		"silenceAudio": ["machine","Silence audio","Audio dempen"],
 		"silenceGenerator": ["machine","Silence","Stilte"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","Er zijn meer dan {limit} stille gebieden gevonden. Selecteer een kleiner bereik."],
 		"skin": ["machine","Skin","Uiterlijk"],
 		"skinCarousel": ["machine","carousel","carrousel"],
 		"skinDefault": ["machine","Default","Standaard"],

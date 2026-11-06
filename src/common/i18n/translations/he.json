@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["human","Time signature events","אירועי שינוי משקל"],
 		"silenceAudio": ["machine","Silence audio","השתקת שמע"],
 		"silenceGenerator": ["machine","Silence","שקט"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","נמצאו יותר מ־{limit} קטעים שקטים. יש לבחור טווח קטן יותר."],
 		"skin": ["machine","Skin","עיצוב"],
 		"skinCarousel": ["machine","carousel","קרוסלה"],
 		"skinDefault": ["machine","Default","ברירת מחדל"],

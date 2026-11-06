@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["human","Time signature events","Schimbări de măsură"],
 		"silenceAudio": ["machine","Silence audio","Silență audio"],
 		"silenceGenerator": ["machine","Silence","Silență"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","Au fost găsite mai mult de {limit} regiuni silențioase. Selectați un interval mai mic."],
 		"skin": ["machine","Skin","Aspect"],
 		"skinCarousel": ["machine","carousel","carusel"],
 		"skinDefault": ["machine","Default","Implicit"],

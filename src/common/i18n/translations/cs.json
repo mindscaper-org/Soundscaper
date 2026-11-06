@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["machine","Time signature events","Události změny taktu"],
 		"silenceAudio": ["machine","Silence audio","Ztišit zvuk"],
 		"silenceGenerator": ["machine","Silence","Ticho"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","Bylo nalezeno více než {limit} tichých oblastí. Vyberte menší rozsah."],
 		"skin": ["machine","Skin","Vzhled"],
 		"skinCarousel": ["machine","carousel","karusel"],
 		"skinDefault": ["machine","Default","Výchozí"],

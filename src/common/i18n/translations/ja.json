@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["machine","Time signature events","拍子記号イベント"],
 		"silenceAudio": ["machine","Silence audio","オーディオを沈黙で置き換え"],
 		"silenceGenerator": ["machine","Silence","沈黙"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","無音区間が {limit} 個を超えています。選択範囲を狭めてください。"],
 		"skin": ["machine","Skin","スキン"],
 		"skinCarousel": ["machine","carousel","カルーセル"],
 		"skinDefault": ["machine","Default","デフォルト"],

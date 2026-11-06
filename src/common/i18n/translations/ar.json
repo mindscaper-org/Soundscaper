@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["human","Time signature events","تغييرات الميزان"],
 		"silenceAudio": ["machine","Silence audio","إسكات الصوت"],
 		"silenceGenerator": ["machine","Silence","الصمت"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","عُثر على أكثر من {limit} منطقة صامتة. حدد نطاقًا أصغر."],
 		"skin": ["machine","Skin","المظهر"],
 		"skinCarousel": ["machine","carousel","عرض دوّار"],
 		"skinDefault": ["machine","Default","الافتراضي"],

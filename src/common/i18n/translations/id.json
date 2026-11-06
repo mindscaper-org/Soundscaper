@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["machine","Time signature events","Peristiwa tanda birama"],
 		"silenceAudio": ["machine","Silence audio","Heningkan audio"],
 		"silenceGenerator": ["machine","Silence","Keheningan"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","Ditemukan lebih dari {limit} bagian hening. Pilih rentang yang lebih kecil."],
 		"skin": ["machine","Skin","Tampilan"],
 		"skinCarousel": ["machine","carousel","karusel"],
 		"skinDefault": ["machine","Default","Default"],

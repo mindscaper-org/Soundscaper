@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["human","Time signature events","رویدادهای تغییر کسر میزان"],
 		"silenceAudio": ["machine","Silence audio","ساکت کردن صدا"],
 		"silenceGenerator": ["machine","Silence","سکوت"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","بیش از {limit} ناحیهٔ ساکت پیدا شد. بازهٔ کوچک‌تری انتخاب کنید."],
 		"skin": ["machine","Skin","پوسته"],
 		"skinCarousel": ["machine","carousel","گردونه"],
 		"skinDefault": ["machine","Default","پیش‌فرض"],

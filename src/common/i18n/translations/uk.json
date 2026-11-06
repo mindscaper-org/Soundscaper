@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["machine","Time signature events","Події розміру такту"],
 		"silenceAudio": ["machine","Silence audio","Замінити звук тишею"],
 		"silenceGenerator": ["machine","Silence","Тиша"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","Знайдено понад {limit} ділянок тиші. Виберіть менший діапазон."],
 		"skin": ["machine","Skin","Оформлення"],
 		"skinCarousel": ["machine","carousel","карусель"],
 		"skinDefault": ["machine","Default","Типове"],

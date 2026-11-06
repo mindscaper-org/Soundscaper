@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["machine","Time signature events","События тактового размера"],
 		"silenceAudio": ["machine","Silence audio","Заглушить аудио"],
 		"silenceGenerator": ["machine","Silence","Тишина"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","Найдено более {limit} участков тишины. Выберите меньший диапазон."],
 		"skin": ["machine","Skin","Оформление"],
 		"skinCarousel": ["machine","carousel","карусель"],
 		"skinDefault": ["machine","Default","По умолчанию"],

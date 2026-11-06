@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["machine","Time signature events","Συμβάντα ένδειξης μέτρου"],
 		"silenceAudio": ["machine","Silence audio","Αντικατάσταση ήχου με σιωπή"],
 		"silenceGenerator": ["machine","Silence","Σιωπή"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","Βρέθηκαν περισσότερες από {limit} σιωπηλές περιοχές. Επιλέξτε μικρότερο εύρος."],
 		"skin": ["machine","Skin","Εμφάνιση"],
 		"skinCarousel": ["machine","carousel","καρουζέλ"],
 		"skinDefault": ["machine","Default","Προεπιλογή"],

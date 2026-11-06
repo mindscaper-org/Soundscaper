@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["machine","Time signature events","टाइम सिग्नेचर इवेंट"],
 		"silenceAudio": ["machine","Silence audio","ऑडियो को मौन करें"],
 		"silenceGenerator": ["machine","Silence","मौन"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","{limit} से अधिक मौन क्षेत्र मिले। एक छोटी सीमा चुनें।"],
 		"skin": ["machine","Skin","स्किन"],
 		"skinCarousel": ["machine","carousel","कैरोसेल"],
 		"skinDefault": ["machine","Default","डिफ़ॉल्ट"],

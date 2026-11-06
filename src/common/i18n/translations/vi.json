@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["machine","Time signature events","Các sự kiện số chỉ nhịp"],
 		"silenceAudio": ["machine","Silence audio","Làm im lặng audio"],
 		"silenceGenerator": ["machine","Silence","Khoảng lặng"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","Đã tìm thấy hơn {limit} vùng im lặng. Hãy chọn một khoảng nhỏ hơn."],
 		"skin": ["machine","Skin","Giao diện"],
 		"skinCarousel": ["machine","carousel","băng chuyền"],
 		"skinDefault": ["machine","Default","Mặc định"],

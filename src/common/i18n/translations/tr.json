@@ -2641,6 +2641,7 @@
 		"signatureEvents": ["human","Time signature events","Ölçü işareti değişiklikleri"],
 		"silenceAudio": ["machine","Silence audio","Sesi sustur"],
 		"silenceGenerator": ["machine","Silence","Sessizlik"],
+		"silenceRegionLimit": ["human","More than {limit} silent regions were found. Select a smaller range.","{limit} sınırından fazla sessiz bölge bulundu. Daha küçük bir aralık seçin."],
 		"skin": ["machine","Skin","Görünüm"],
 		"skinCarousel": ["machine","carousel","döngüsel galeri"],
 		"skinDefault": ["machine","Default","Varsayılan"],
