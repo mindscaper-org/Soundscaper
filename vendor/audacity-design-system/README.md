@@ -941,3 +941,11 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      later keystrokes. Moving focus to the field's arrow buttons retains the
      current draft. Covered by mounted typing, stepping and localized-name
      checks plus the production flyout resize workflow. Upstream-PR candidate.
+
+126. `EnvelopeInteractionLayer` retains the dragged point by object identity
+     and remaps crossed neighbors into the sorted preview before deleting them.
+     A point crossing a neighbor remains the active point through release,
+     including zero-gain points. One identity index keeps remapping linear after
+     sorting. Covered by mounted crossing, cancellation, ownership and bounded-work
+     controls plus native project and rendered-audio workflows.
+     Upstream-PR candidate.
