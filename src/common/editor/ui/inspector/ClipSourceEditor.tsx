@@ -7,6 +7,7 @@ import { clipSourceDisplayRange, clipDisplayFrameToSource } from '../../clip-sou
 import { AUDIO_EDITOR_TRACK_DISPLAY_MODES, type TrackDisplayMode } from '../../track-display-mode.ts';
 import { renderAmplitudeRulers, renderFrequencyRulers } from '../timeline/track-row-helpers.jsx';
 import { useNonPassiveWheel } from '../useNonPassiveWheel.js';
+import { isContextMenuKey } from '../timeline/context-menu-keyboard.ts';
 import ClipSourceWaveforms from './ClipSourceWaveforms.tsx';
 import ClipSourceFades from './ClipSourceFades.tsx';
 import { clipSourceSpectrogramOptions } from './clip-source-spectrogram-options.ts';
@@ -258,6 +259,12 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 			</div>
 			<div ref={waveRef} className="audio-editor-source-wave-area" role="region" aria-label={copy.clipSourceWaveform} tabIndex={0}
 				data-source-frame-count={source.frameCount} data-source-gesture={gesture.current?.kind} onPointerDown={event => begin(event, 'selection')} onPointerMove={move} onPointerUp={finish}
+				onKeyDown={event => {
+					if (event.target !== event.currentTarget || !isContextMenuKey(event)) return;
+					event.preventDefault(); event.stopPropagation();
+					const rect = event.currentTarget.getBoundingClientRect(), frame = transport.positionFrame;
+					setMenu({ kind: 'wave', x: rect.left + Math.max(0, Math.min(rect.width, pixel(frame))), y: rect.top + rect.height / 2, frame });
+				}}
 				onPointerCancel={event => { if (gesture.current?.pointerId === event.pointerId) cancelGesture(); }}
 				onLostPointerCapture={event => { if (gesture.current?.pointerId === event.pointerId) cancelGesture(); }}
 				onContextMenu={event => { event.preventDefault(); setMenu({ kind: 'wave', x: event.clientX, y: event.clientY, frame: frameAt(event.clientX) }); }}>
