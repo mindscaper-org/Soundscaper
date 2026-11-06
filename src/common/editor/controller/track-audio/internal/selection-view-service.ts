@@ -182,10 +182,12 @@ export function createSelectionViewService<
 		startFrame: unknown,
 		endFrame: unknown,
 		details: SelectionViewSelectionDetails = {},
+		options: Readonly<{ nativeTime?: boolean }> = {},
 	) {
 		const project = getProject();
 		if (!project) throw createLocalizedError(Error, copy, 'v2Required');
-		return applySelectionRange(project, startFrame, endFrame, details, false);
+		if (options.nativeTime && ![startFrame, endFrame].every(frame => typeof frame === 'number' && Number.isSafeInteger(frame) && frame >= 0)) throw createLocalizedError(RangeError, copy, 'invalidFrameValue', undefined, { fallback: 'Invalid frame value.' });
+		return applySelectionRange(project, startFrame, endFrame, details, false, true, options.nativeTime === true);
 	}
 
 	/**
@@ -210,11 +212,12 @@ export function createSelectionViewService<
 		details: SelectionViewSelectionDetails,
 		snap: boolean,
 		carryPlayhead = true,
+		nativeTime = false,
 	) {
 		if (!Number.isFinite(Number(startFrame)) || !Number.isFinite(Number(endFrame))) {
 			throw createLocalizedError(TypeError, copy, 'selectionFramesFinite');
 		}
-		const maximumFrame = project.tracks.length
+		const maximumFrame = nativeTime ? Number.MAX_SAFE_INTEGER : project.tracks.length
 			? editorTimelineDurationFrames(project, projectSampleRate())
 			: projectDurationFrames(project);
 		const clampSelectionFrame = (value: unknown) => Math.max(0, Math.min(maximumFrame, Math.round(Number(value))));
@@ -279,7 +282,7 @@ export function createSelectionViewService<
 		return next.selection;
 	}
 
-	function selectAllTracks() {
+	function selectAllTracks(options: Readonly<{ nativeTime?: boolean }> = {}) {
 		const project = getProject();
 		if (!project) return null;
 		const selection = resolveSelectionRange(project, { selectedClipId: state.selectedClipId })
@@ -288,7 +291,7 @@ export function createSelectionViewService<
 		// Widening the selection's track scope leaves its time range exactly as it
 		// was, so it is not a new time selection and does not move the playhead.
 		const next = applySelectionRange(
-			project, selection.startFrame, selection.endFrame, { trackIds, frequencyRange: project.selection?.frequencyRange ?? null }, false, false,
+			project, selection.startFrame, selection.endFrame, { trackIds, frequencyRange: project.selection?.frequencyRange ?? null }, false, false, options.nativeTime === true,
 		);
 		if (!state.selectedTrackId && trackIds.length) {
 			state.selectedTrackId = trackIds[0];

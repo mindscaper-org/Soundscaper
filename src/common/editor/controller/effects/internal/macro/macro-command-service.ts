@@ -46,6 +46,7 @@ export interface MacroCommandServiceRuntime {
 		startFrame: number,
 		endFrame: number,
 		details?: Readonly<Record<string, unknown>>,
+		options?: Readonly<{ nativeTime?: boolean }>,
 	) => unknown;
 	/**
 	 * The editor's own action tree, read at call time.
@@ -121,7 +122,7 @@ export function createMacroCommandService(runtime: MacroCommandServiceRuntime) {
 		if (wantsFrequencies && (has(params, 'high') || has(params, 'low'))) {
 			details.frequencyRange = frequencyRange(params, selection);
 		}
-		runtime.setExactSelection(range.startFrame, range.endFrame, details);
+		runtime.setExactSelection(range.startFrame, range.endFrame, details, { nativeTime: true });
 		// Native No tracks also retires the focused-track edit fallback. A macro
 		// that explicitly removes every track must publish the same empty scope.
 		if (changesTracks && Array.isArray(details.trackIds) && details.trackIds.length === 0) {
@@ -163,16 +164,16 @@ export function createMacroCommandService(runtime: MacroCommandServiceRuntime) {
 			}
 			runtime.setExactSelection(range.startFrame, range.endFrame, {
 				trackIds: [created], clipIds: [], frequencyRange: selection?.frequencyRange ?? null,
-			});
+			}, { nativeTime: true });
 			return created;
 		}
 		if (command === 'SelectAll' || command === 'SelAllTracks') {
 			const frequencyRange = runtime.getProject().selection?.frequencyRange;
 			const result = command === 'SelectAll' ? (target as (options: Readonly<{ nativeRegion: boolean }>) => unknown)({ nativeRegion: true })
-				: (target as () => unknown)();
+				: (target as (options: Readonly<{ nativeTime: boolean }>) => unknown)({ nativeTime: true });
 			const selection = runtime.getProject().selection;
 			return frequencyRange && selection ? runtime.setExactSelection(selection.startFrame, selection.endFrame,
-				{ ...selection, frequencyRange }) : result;
+				{ ...selection, frequencyRange }, { nativeTime: true }) : result;
 		}
 		if (command === 'SelNextClip' || command === 'SelPrevClip') {
 			return (target as (options: Readonly<{ nativeRegion: boolean }>) => unknown)({ nativeRegion: true });
@@ -190,7 +191,7 @@ export function createMacroCommandService(runtime: MacroCommandServiceRuntime) {
 			if (typeof noTracks !== 'function') throw new RangeError('SelectNone requires the editor\'s track deselection action.');
 			const project = runtime.getProject();
 			const frame = resolveSelectionRange(project)?.startFrame ?? project.selection?.startFrame ?? 0;
-			runtime.setExactSelection(frame, frame, { trackIds: [], clipIds: [], frequencyRange: project.selection?.frequencyRange ?? null });
+			runtime.setExactSelection(frame, frame, { trackIds: [], clipIds: [], frequencyRange: project.selection?.frequencyRange ?? null }, { nativeTime: true });
 			return (noTracks as () => unknown)();
 		}
 		const editAction = EDIT_ACTIONS[command];
