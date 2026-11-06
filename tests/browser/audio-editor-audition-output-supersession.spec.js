@@ -3,6 +3,7 @@
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, clipByName, importFiles, openSourceMonitor } from './audio-editor-test-helpers.js';
 
+test.skip(({ browserName }) => browserName !== 'chromium', 'Chromium provides the native speaker-device fixture.');
 test.use({ launchOptions: { args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] } });
 
 test('a late Speakers choice cannot retarget Source playback away from the current main output', async ({ page }) => {
