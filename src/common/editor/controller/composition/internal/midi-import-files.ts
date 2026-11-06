@@ -53,6 +53,7 @@ export function createMidiImportFiles(scope: MidiImportRuntime,
 			assertCurrent(context);
 			if (!kinds.some(kind => kind !== 'other')) return scope.importFiles(files, options);
 			let result: unknown;
+			let failure: Readonly<{ error: unknown }> | null = null;
 			let placedFiles = 0;
 			const retainsTrackPlacement = options.destination === 'timeline' && typeof options.trackId === 'string';
 			for (let index = 0; index < files.length; index += 1) {
@@ -66,33 +67,54 @@ export function createMidiImportFiles(scope: MidiImportRuntime,
 						&& typeof result.importedFileCount === 'number' && Number.isSafeInteger(result.importedFileCount) && result.importedFileCount > 0) placedFiles += result.importedFileCount;
 					context.project = scope.getProject(); continue;
 				}
-				const { MIDI_FILE_MAX_BYTES } = await import('../../../midi-file-types.ts');
-				if (file.size !== undefined && file.size > MIDI_FILE_MAX_BYTES) throw new RangeError('MIDI files cannot exceed 16 MiB.');
-				const sampleRate = context.project?.sampleRate ?? 48_000;
-				const parse = kinds[index] === 'midi'
-					? async () => {
-						const { parseMidiFile } = await import('../../../midi-file.ts');
-						const bytes = await readMidiBytes(file, options.signal);
-						assertCurrent(context);
-						return parseMidiFile(bytes, { sampleRate });
-					}
-					: async () => {
-						const { parseAllegroFile } = await import('../../../allegro-file.ts');
-						const text = await readAllegroText(file, options.signal);
-						assertCurrent(context);
-						return parseAllegroFile(text, { sampleRate });
-					};
-				const document = await parse();
-				assertCurrent(context);
-				const loaded = await raceAbortableRead(service, options.signal);
-				assertCurrent(context);
-				result = await loaded.importDocument(document, options);
-				context.project = scope.getProject();
+				try {
+					const { MIDI_FILE_MAX_BYTES } = await import('../../../midi-file-types.ts');
+					if (file.size !== undefined && file.size > MIDI_FILE_MAX_BYTES) throw new RangeError('MIDI files cannot exceed 16 MiB.');
+					const sampleRate = context.project?.sampleRate ?? 48_000;
+					const parse = kinds[index] === 'midi'
+						? async () => {
+							const { parseMidiFile } = await import('../../../midi-file.ts');
+							const bytes = await readMidiBytes(file, options.signal);
+							assertCurrent(context);
+							return parseMidiFile(bytes, { sampleRate });
+						}
+						: async () => {
+							const { parseAllegroFile } = await import('../../../allegro-file.ts');
+							const text = await readAllegroText(file, options.signal);
+							assertCurrent(context);
+							return parseAllegroFile(text, { sampleRate });
+						};
+					const document = await parse();
+					assertCurrent(context);
+					const loaded = await raceAbortableRead(service, options.signal);
+					assertCurrent(context);
+					result = await loaded.importDocument(document, options);
+					context.project = scope.getProject();
+				} catch (error) {
+					options.signal?.throwIfAborted();
+					assertCurrent(context);
+					if (terminatesImportBatch(error)) throw error;
+					failure ??= { error };
+				}
 			}
+			if (failure) throw failure.error;
 			return result;
 		} finally { requests.delete(context); }
 	}
 	return Object.freeze({ importFiles, followSelection });
+}
+
+function terminatesImportBatch(error: unknown): boolean {
+	const seen = new Set<object>();
+	while (error && typeof error === 'object' && seen.size < 16 && !seen.has(error)) {
+		seen.add(error);
+		const code = 'code' in error ? error.code : undefined;
+		if (('name' in error && error.name === 'AbortError') || code === 'ABORTED'
+			|| code === 'DISPOSED' || code === 'PROJECT_CHANGED') return true;
+		const cause: unknown = Object.getOwnPropertyDescriptor(error, 'cause')?.value;
+		error = cause;
+	}
+	return false;
 }
 
 function readMidiBytes(file: MidiImportFile, signal?: AbortSignal): Promise<ArrayBuffer> {
