@@ -69,7 +69,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	const editorThemeVariables = useAudioEditorThemeVariables();
 	const parityRuntime = useControllerOwnedActionRuntime(controller, productId, locale);
 	const snapshot = useAudioEditorSnapshot(controller);
-	const [activeSurface, setActiveSurface] = useTakeCycleRecoverySurface(productId, snapshot.takeCycleRecovery);
+	const [activeSurface, setActiveSurface, surfaceRequestId] = useTakeCycleRecoverySurface(productId, snapshot.takeCycleRecovery);
 	useProjectRecoverySurface(productId, snapshot.projectRecovery?.projectId, setActiveSurface, snapshot.projectRecovery?.requestId);
 	usePrivacyPolicySurface(productId, initialSurface, setActiveSurface);
 	const { windows: effectWindows, open: setEffectWindow, close: closeEffectWindow } = useWorkspaceEffectWindows(snapshot.project?.id ?? null);
@@ -461,7 +461,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		toggleRecording, toolbarButtons: toolbarButtonPreferences, toolbars: toolbarPreferences, uiFlags, zoomProject, toolbarDock, onToolbarDock: setToolbarDock,
 	};
 	const overlayModel = createWorkspaceOverlayModel({
-		activeSurface, applicationMenus, aboutLabel, capabilities, closeNyquist,
+		activeSurface, surfaceRequestId, applicationMenus, aboutLabel, capabilities, closeNyquist,
 		controller, copy, dialog, displayAudioSupported, dialogTrackId, dialogValue,
 		effectWindows, editBlocked, fileService, confirmFileSizeWarning, generatorType, locale, macroDraft,
 		nyquistTarget, preferences, preferencesPage, projectBinEffectivelyOpen, productId,
