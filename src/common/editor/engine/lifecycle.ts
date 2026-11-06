@@ -335,7 +335,8 @@ async setOutputDevice(deviceId = '') {
 		const previousPreferred = this.preferredOutputDeviceId;
 		const previousActive = this.activeOutputDeviceId;
 		try {
-			await context.setSinkId(normalized);
+			// Preserve the live physical sink while still superseding older choices.
+			if (context.sinkId !== normalized) await context.setSinkId(normalized);
 			this[ENGINE_ASSERT_ACTIVE]();
 			if (context !== this.context || generation !== this.outputDeviceGeneration) {
 				await reconcilePhysicalOutputDevice(this, context, normalized);

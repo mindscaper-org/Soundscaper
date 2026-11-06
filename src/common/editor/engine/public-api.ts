@@ -21,6 +21,7 @@ import type {
 } from './native-effect-pdc-control.ts';
 
 export interface EngineAudioContext extends AudioContext {
+	readonly sinkId?: string | Readonly<{ type: 'none' }>;
 	setSinkId?(deviceId: string): Promise<void>;
 }
 

@@ -166,11 +166,6 @@ async function browserPeak(page) {
 async function installAuditionProbe(page, { browserInput = false } = {}) {
 	await installNativeOutputPeer(page);
 	await page.addInitScript(({ browserInput }) => {
-		// Match the native peer's stereo endpoint. Container audio can advertise
-		// six channels yet fail asynchronously when that physical device opens.
-		if (browserInput) Object.defineProperty(AudioDestinationNode.prototype, 'maxChannelCount', {
-			configurable: true, get() { return 2; },
-		});
 		window.__nativeAuditionProof = { contexts: [], outputs: [] };
 		const OriginalContext = AudioContext;
 		window.AudioContext = new Proxy(OriginalContext, { construct(target, args, newTarget) {
