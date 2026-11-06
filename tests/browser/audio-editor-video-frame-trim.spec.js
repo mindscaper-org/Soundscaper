@@ -1,8 +1,10 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import {
 	bootEditor,
+	chooseNestedCommandAction,
 	getMenuItem,
 	importFiles,
+	openNestedCommandMenu,
 	waitForEditor,
 } from './audio-editor-test-helpers.js';
 import { createDeterministicAvFixture } from './fixtures/deterministic-av-media.js';
@@ -137,26 +139,11 @@ async function setProgramPlayhead(page, editor, sequenceFrame, timecode, timing)
 }
 
 async function activateTrimMenuByKeyboard(page, editor, label) {
-	const boundaries = await openClipBoundariesByKeyboard(page, editor);
-	const item = getMenuItem(boundaries, label);
-	await expect(item).toBeEnabled();
-	await item.focus();
-	await page.keyboard.press('Enter');
+	await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', label]);
 }
 
 async function openClipBoundariesByKeyboard(page, editor) {
-	const menubar = editor.getByRole('menubar', { name: 'Application menu', exact: true });
-	const edit = menubar.getByRole('menuitem', { name: 'Edit', exact: true });
-	await edit.focus();
-	await page.keyboard.press('Enter');
-	const editMenu = page.getByRole('menu', { name: 'Edit', exact: true });
-	await expect(editMenu).toBeVisible();
-	const boundariesItem = getMenuItem(editMenu, 'Audio clips');
-	await boundariesItem.focus();
-	await page.keyboard.press('ArrowRight');
-	const boundaries = boundariesItem.getByRole('menu');
-	await expect(boundaries).toBeVisible();
-	return boundaries;
+	return openNestedCommandMenu(page, editor, 'Edit', ['Audio clips']);
 }
 
 async function clickHistory(editor, label) {
