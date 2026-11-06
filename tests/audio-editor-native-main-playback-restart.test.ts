@@ -97,7 +97,7 @@ function fixture(reversed = false) {
 		tracks: [{ id: 'track', clipIds: ['clip'] }],
 	}), new Map([['source', buffer as unknown as AudioBuffer]]));
 	engine.renderMix = async (options = {}) => new MockAudioBuffer(1,
-		Number(options.endFrame ?? frames) - Number(options.startFrame ?? 0), 48_000) as unknown as AudioBuffer;
+		Number(options.outputFrames ?? (Number(options.endFrame ?? frames) - Number(options.startFrame ?? 0))), 48_000) as unknown as AudioBuffer;
 	const bus = new EventTarget(); Object.defineProperty(bus, 'window', { value: bus });
 	const renderer = createSoundscaperNativeAudioRenderer({ engine, windowValue: bus,
 		createNode: async () => ({ node: context.createGain() as unknown as AudioNode,
