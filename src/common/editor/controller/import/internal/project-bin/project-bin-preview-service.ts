@@ -40,6 +40,8 @@ export interface ProjectBinPreviewEngine {
 		options?: EngineLoadProjectOptions,
 	): unknown;
 	setSourceResolver?(resolver?: EngineSourceResolver | null): unknown;
+	setPlayRange?(range: Readonly<{ startFrame: number; endFrame: number }> | null): unknown;
+	seek?(frame: number): unknown;
 	play(): Promise<void>;
 	getState?(): Readonly<{ state: string }>;
 	pause(): void;
@@ -78,6 +80,7 @@ export function createProjectBinPreviewService(
 ): Readonly<ProjectBinPreviewService> {
 	let previewEngine: ProjectBinPreviewEngine | null = null;
 	let playbackRequested = false;
+	let previewEndFrame = 0;
 
 	return Object.freeze({
 		playPauseProjectBinClip,
@@ -155,6 +158,8 @@ export function createProjectBinPreviewService(
 			previewEngine.loadProject(previewProject, dependencies.sourceBuffers, {
 				chunkSources: dependencies.sourceChunkProviders,
 			});
+			previewEndFrame = previewClip.durationFrames;
+			previewEngine.setPlayRange?.({ startFrame: 0, endFrame: previewEndFrame });
 			const preview = Object.freeze({
 				clipId,
 				binItemId: clip.binItemId || clip.id,
@@ -214,6 +219,8 @@ export function createProjectBinPreviewService(
 			await dependencies.prepareTimePitchCaches?.({ ...project, clips: [...project.clips, ...projectBinClips(project)] },
 				task.signal, { clipIds: [audioClipId] });
 			assertCurrent(task, projectToken);
+			previewEngine?.setPlayRange?.({ startFrame: 0, endFrame: previewEndFrame });
+			if (active.state === 'stopped') previewEngine?.seek?.(0);
 			await previewEngine?.play();
 			assertCurrent(task, projectToken);
 			const playing = Object.freeze({ ...active, state: 'playing' as const });
