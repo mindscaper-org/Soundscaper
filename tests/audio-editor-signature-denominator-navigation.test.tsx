@@ -32,15 +32,17 @@ async function withToolbar(body: (harness: Harness) => Promise<void>, blocked = 
 		}
 	} });
 	const root = createRoot(dom.container as unknown as Element);
-	let project = createSoundscaperProject({ id: 'denominator-navigation' });
+	let signature = { id: 'signature-root', bar: 0, numerator: 4, denominator: 4 };
+	let project = createSoundscaperProject({ id: 'denominator-navigation', signatureMap: { events: [signature] } });
 	const commits: number[] = [];
 	const controller = { actions: { project: {
 		updateSignatureEvent(id: string, changes: { readonly denominator: number }): void {
-			assert.equal(id, project.signatureMap.events[0]!.id);
+			assert.equal(id, signature.id);
 			commits.push(changes.denominator);
+			signature = { ...signature, denominator: changes.denominator };
 			project = createSoundscaperProject({ ...project,
 				tempo: { ...project.tempo, timeSignature: { ...project.tempo.timeSignature, denominator: changes.denominator } },
-				signatureMap: { ...project.signatureMap, events: project.signatureMap.events.map(event => ({ ...event, denominator: changes.denominator })) },
+				signatureMap: { ...project.signatureMap, events: [signature] },
 			});
 		},
 	} } };

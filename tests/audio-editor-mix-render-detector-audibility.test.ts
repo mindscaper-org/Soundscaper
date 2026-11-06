@@ -5,11 +5,19 @@ import test from 'node:test';
 import { createMixRenderSnapshotV21 } from '../src/common/editor/controller/track-audio/internal/mix-render/mix-render-snapshot-v21.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
-import { normalizeMixerGraphV21, type MixerGraphV21 } from '../src/common/editor/mixer-graph-v21.ts';
+import { normalizeMixerGraphV21, type MixerGraphV21, type MixerStripV21 } from '../src/common/editor/mixer-graph-v21.ts';
 import { normalizeAutomationLaneV21 } from '../src/common/editor/automation-lane-v21.ts';
 import { createProjectVcaGainResolverV21 } from '../src/common/editor/engine/project-strip-control-index-v21.ts';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { projectTrackFolderMediaStateV12 } from '../src/common/editor/track-folder-media-runtime.ts';
+
+function controllerBus(bus: MixerStripV21) {
+	return { ...bus, effects: bus.effects.map(effect => {
+		const { id, type } = effect;
+		assert.ok(typeof id === 'string' && typeof type === 'string');
+		return { ...effect, id, type };
+	}) };
+}
 
 function fixture(folder = false, vca = false) {
 	const source = createAudioSource({ id: 'source', frameCount: 48000, channelCount: 1 });
@@ -37,7 +45,7 @@ function fixture(folder = false, vca = false) {
 	// The controller consumer owns scalar playback bounds; native persistence owns their canonical placement.
 	const project = { ...authored, clips, tracks: authored.tracks.map(track => ({ ...track })),
 		sources: authored.sources.map(item => ({ ...item })),
-		mixer: { ...authored.mixer, groups: authored.mixer.groups.map(item => ({ ...item })), sends: authored.mixer.sends.map(item => ({ ...item })) } };
+		mixer: { ...authored.mixer, groups: authored.mixer.groups.map(controllerBus), sends: authored.mixer.sends.map(controllerBus) } };
 	return { project, graph };
 }
 
