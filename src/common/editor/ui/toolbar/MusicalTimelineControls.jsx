@@ -286,9 +286,14 @@ function RationalFields({ label, name, value, disabled, positive = false, numera
 }
 
 function NumberField({ label, name, value, disabled = false, minimum, choices = null }) {
+	const choiceRef = useRef(null);
+	useLayoutEffect(() => {
+		// Native form.reset() follows option defaults, including after a save.
+		for (const option of choiceRef.current?.options || []) option.defaultSelected = Number(option.value) === value;
+	}, [value]);
 	return <label>
 		<span>{label}</span>
-		{choices ? <select name={name} defaultValue={value} disabled={disabled}>
+		{choices ? <select ref={choiceRef} name={name} defaultValue={value} disabled={disabled}>
 			{choices.map(choice => <option key={choice} value={choice}>{choice}</option>)}
 		</select> : <input type="number" name={name} defaultValue={value ?? minimum ?? 0} min={minimum} step="1" disabled={disabled} />}
 	</label>;
