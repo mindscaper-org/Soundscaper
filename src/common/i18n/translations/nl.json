@@ -2346,6 +2346,7 @@
 		"reportItem.MASTERING_SEQUENCES_OMITTED": ["machine","Regions were exported as labels; mastering delivery order was omitted.","Gebieden zijn als labels geëxporteerd; de mastering-aflevervolgorde is weggelaten."],
 		"reportItem.MASTER_CHANNEL_LAYOUT_OMITTED": ["machine","Master channel layout omitted","Masterkanaalindeling weggelaten"],
 		"reportItem.MASTER_ENVELOPE_OMITTED": ["machine","Master envelope omitted","Masterenvelop weggelaten"],
+		"reportItem.MIDI_CLIP_PITCH_OMITTED": ["human","Clip pitch settings are omitted. Export audio to retain the audible pitch.","De toonhoogte-instellingen van de clip worden weggelaten. Exporteer audio om de hoorbare toonhoogte te behouden."],
 		"reportItem.MISSING_LOCAL_AUDIO": ["machine","Local audio is unavailable.","Lokale audio is niet beschikbaar."],
 		"reportItem.MISSING_REALTIME_EFFECT": ["machine","A realtime effect is unavailable.","Een realtime-effect is niet beschikbaar."],
 		"reportItem.MISSING_SAMPLE_BLOCK": ["machine","Missing sample block","Sampleblok ontbreekt"],

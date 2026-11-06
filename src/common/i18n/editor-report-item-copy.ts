@@ -38,6 +38,7 @@ export const REPORT_ITEM_COPY: Readonly<Record<string, string>> = Object.freeze(
 	"reportItem.MISSING_LOCAL_AUDIO": "Local audio is unavailable.",
 	"reportItem.MISSING_REALTIME_EFFECT": "A realtime effect is unavailable.",
 	"reportItem.MISSING_SAMPLE_BLOCK": "Missing sample block",
+	"reportItem.MIDI_CLIP_PITCH_OMITTED": "Clip pitch settings are omitted. Export audio to retain the audible pitch.",
 	"reportItem.MIXER_GROUPS_OMITTED": "Mixer groups omitted",
 	"reportItem.MIXER_ROUTES_OMITTED": "Tracks retained their own levels; buses, sends, VCAs and routing were omitted.",
 	"reportItem.MIXER_SENDS_OMITTED": "Mixer sends omitted",

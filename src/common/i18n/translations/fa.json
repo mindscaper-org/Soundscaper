@@ -2346,6 +2346,7 @@
 		"reportItem.MASTERING_SEQUENCES_OMITTED": ["machine","Regions were exported as labels; mastering delivery order was omitted.","ناحیه‌ها به‌صورت برچسب صادر شدند؛ ترتیب تحویل مسترینگ در خروجی لحاظ نشد."],
 		"reportItem.MASTER_CHANNEL_LAYOUT_OMITTED": ["machine","Master channel layout omitted","چیدمان کانال اصلی در خروجی لحاظ نشد"],
 		"reportItem.MASTER_ENVELOPE_OMITTED": ["machine","Master envelope omitted","پوش کانال اصلی در خروجی لحاظ نشد"],
+		"reportItem.MIDI_CLIP_PITCH_OMITTED": ["human","Clip pitch settings are omitted. Export audio to retain the audible pitch.","تنظیمات زیر و بمی کلیپ حذف می‌شوند. برای حفظ زیر و بمی شنیده‌شده، صدا را صادر کنید."],
 		"reportItem.MISSING_LOCAL_AUDIO": ["machine","Local audio is unavailable.","صدای محلی در دسترس نیست."],
 		"reportItem.MISSING_REALTIME_EFFECT": ["machine","A realtime effect is unavailable.","یک افکت بلادرنگ در دسترس نیست."],
 		"reportItem.MISSING_SAMPLE_BLOCK": ["machine","Missing sample block","بلوک نمونهٔ مفقود"],

@@ -2346,6 +2346,7 @@
 		"reportItem.MASTERING_SEQUENCES_OMITTED": ["machine","Regions were exported as labels; mastering delivery order was omitted.","Οι περιοχές εξήχθησαν ως ετικέτες· παραλείφθηκε η σειρά παράδοσης mastering."],
 		"reportItem.MASTER_CHANNEL_LAYOUT_OMITTED": ["machine","Master channel layout omitted","Παραλείφθηκε η διάταξη κύριων καναλιών"],
 		"reportItem.MASTER_ENVELOPE_OMITTED": ["machine","Master envelope omitted","Παραλείφθηκε η κύρια περιβάλλουσα"],
+		"reportItem.MIDI_CLIP_PITCH_OMITTED": ["human","Clip pitch settings are omitted. Export audio to retain the audible pitch.","Οι ρυθμίσεις τονικού ύψους του κλιπ παραλείπονται. Εξαγάγετε ήχο για να διατηρήσετε το τονικό ύψος που ακούγεται."],
 		"reportItem.MISSING_LOCAL_AUDIO": ["machine","Local audio is unavailable.","Ο τοπικός ήχος δεν είναι διαθέσιμος."],
 		"reportItem.MISSING_REALTIME_EFFECT": ["machine","A realtime effect is unavailable.","Ένα εφέ πραγματικού χρόνου δεν είναι διαθέσιμο."],
 		"reportItem.MISSING_SAMPLE_BLOCK": ["machine","Missing sample block","Λείπει μπλοκ δειγμάτων"],

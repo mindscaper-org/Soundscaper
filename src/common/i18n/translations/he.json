@@ -2346,6 +2346,7 @@
 		"reportItem.MASTERING_SEQUENCES_OMITTED": ["machine","Regions were exported as labels; mastering delivery order was omitted.","האזורים יוצאו כתוויות; סדר המסירה של המאסטרינג הושמט."],
 		"reportItem.MASTER_CHANNEL_LAYOUT_OMITTED": ["machine","Master channel layout omitted","פריסת ערוצי המאסטר הושמטה"],
 		"reportItem.MASTER_ENVELOPE_OMITTED": ["machine","Master envelope omitted","מעטפת המאסטר הושמטה"],
+		"reportItem.MIDI_CLIP_PITCH_OMITTED": ["human","Clip pitch settings are omitted. Export audio to retain the audible pitch.","הגדרות גובה הצליל של המקטע מושמטות. יש לייצא שמע כדי לשמר את גובה הצליל הנשמע."],
 		"reportItem.MISSING_LOCAL_AUDIO": ["machine","Local audio is unavailable.","האודיו המקומי אינו זמין."],
 		"reportItem.MISSING_REALTIME_EFFECT": ["machine","A realtime effect is unavailable.","אפקט זמן אמת אינו זמין."],
 		"reportItem.MISSING_SAMPLE_BLOCK": ["machine","Missing sample block","מקטע דגימות חסר"],

@@ -2346,6 +2346,7 @@
 		"reportItem.MASTERING_SEQUENCES_OMITTED": ["machine","Regions were exported as labels; mastering delivery order was omitted.","Đã xuất vùng thành nhãn; đã bỏ qua thứ tự bàn giao mastering."],
 		"reportItem.MASTER_CHANNEL_LAYOUT_OMITTED": ["machine","Master channel layout omitted","Đã bỏ qua bố trí kênh tổng"],
 		"reportItem.MASTER_ENVELOPE_OMITTED": ["machine","Master envelope omitted","Đã bỏ qua đường bao tổng"],
+		"reportItem.MIDI_CLIP_PITCH_OMITTED": ["human","Clip pitch settings are omitted. Export audio to retain the audible pitch.","Các thiết lập cao độ của đoạn bị bỏ qua. Hãy xuất âm thanh để giữ cao độ nghe được."],
 		"reportItem.MISSING_LOCAL_AUDIO": ["machine","Local audio is unavailable.","Âm thanh cục bộ không khả dụng."],
 		"reportItem.MISSING_REALTIME_EFFECT": ["machine","A realtime effect is unavailable.","Một hiệu ứng thời gian thực không khả dụng."],
 		"reportItem.MISSING_SAMPLE_BLOCK": ["machine","Missing sample block","Thiếu khối mẫu"],

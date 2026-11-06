@@ -2346,6 +2346,7 @@
 		"reportItem.MASTERING_SEQUENCES_OMITTED": ["machine","Regions were exported as labels; mastering delivery order was omitted.","영역을 레이블로 내보냈습니다. 마스터링 납품 순서는 생략했습니다."],
 		"reportItem.MASTER_CHANNEL_LAYOUT_OMITTED": ["machine","Master channel layout omitted","마스터 채널 레이아웃 생략됨"],
 		"reportItem.MASTER_ENVELOPE_OMITTED": ["machine","Master envelope omitted","마스터 엔벌로프 생략됨"],
+		"reportItem.MIDI_CLIP_PITCH_OMITTED": ["human","Clip pitch settings are omitted. Export audio to retain the audible pitch.","클립의 피치 설정은 생략됩니다. 들리는 피치를 유지하려면 오디오를 내보내세요."],
 		"reportItem.MISSING_LOCAL_AUDIO": ["machine","Local audio is unavailable.","로컬 오디오를 사용할 수 없습니다."],
 		"reportItem.MISSING_REALTIME_EFFECT": ["machine","A realtime effect is unavailable.","실시간 효과를 사용할 수 없습니다."],
 		"reportItem.MISSING_SAMPLE_BLOCK": ["machine","Missing sample block","샘플 블록 누락"],

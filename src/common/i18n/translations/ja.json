@@ -2346,6 +2346,7 @@
 		"reportItem.MASTERING_SEQUENCES_OMITTED": ["machine","Regions were exported as labels; mastering delivery order was omitted.","範囲をラベルとして書き出しました。マスタリングの納品順序は省略しました。"],
 		"reportItem.MASTER_CHANNEL_LAYOUT_OMITTED": ["machine","Master channel layout omitted","マスターチャンネルレイアウトを省略しました"],
 		"reportItem.MASTER_ENVELOPE_OMITTED": ["machine","Master envelope omitted","マスターエンベロープを省略しました"],
+		"reportItem.MIDI_CLIP_PITCH_OMITTED": ["human","Clip pitch settings are omitted. Export audio to retain the audible pitch.","クリップのピッチ設定は省略されます。聞こえるピッチを保持するには音声を書き出してください。"],
 		"reportItem.MISSING_LOCAL_AUDIO": ["machine","Local audio is unavailable.","ローカルオーディオは利用できません。"],
 		"reportItem.MISSING_REALTIME_EFFECT": ["machine","A realtime effect is unavailable.","リアルタイムエフェクトは利用できません。"],
 		"reportItem.MISSING_SAMPLE_BLOCK": ["machine","Missing sample block","サンプルブロックがありません"],

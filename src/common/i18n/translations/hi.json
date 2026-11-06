@@ -2346,6 +2346,7 @@
 		"reportItem.MASTERING_SEQUENCES_OMITTED": ["machine","Regions were exported as labels; mastering delivery order was omitted.","क्षेत्रों को लेबल के रूप में निर्यात किया गया; मास्टरिंग डिलीवरी क्रम छोड़ दिया गया।"],
 		"reportItem.MASTER_CHANNEL_LAYOUT_OMITTED": ["machine","Master channel layout omitted","मास्टर चैनल लेआउट छोड़ दिया गया"],
 		"reportItem.MASTER_ENVELOPE_OMITTED": ["machine","Master envelope omitted","मास्टर एनवेलप छोड़ दिया गया"],
+		"reportItem.MIDI_CLIP_PITCH_OMITTED": ["human","Clip pitch settings are omitted. Export audio to retain the audible pitch.","क्लिप की पिच सेटिंग छोड़ दी जाती हैं। सुनाई देने वाली पिच बनाए रखने के लिए ऑडियो निर्यात करें।"],
 		"reportItem.MISSING_LOCAL_AUDIO": ["machine","Local audio is unavailable.","स्थानीय ऑडियो उपलब्ध नहीं है।"],
 		"reportItem.MISSING_REALTIME_EFFECT": ["machine","A realtime effect is unavailable.","एक रीयलटाइम प्रभाव उपलब्ध नहीं है।"],
 		"reportItem.MISSING_SAMPLE_BLOCK": ["machine","Missing sample block","नमूना ब्लॉक गायब है"],

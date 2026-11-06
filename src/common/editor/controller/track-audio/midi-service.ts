@@ -159,7 +159,7 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 			const document = midiDocumentFromProject(project);
 			const name = project.title.replace(/[\\/:*?"<>|]/gu, '_') || 'MIDI';
 			const waiter = { expected: project }; deliveries.add(waiter);
-			try { return await deliverMidiFile(dependencies, document, format, name, () => dependencies.getProject() === waiter.expected); }
+			try { return await deliverMidiFile(dependencies, document, format, name, () => dependencies.getProject() === waiter.expected, project); }
 			finally { deliveries.delete(waiter); }
 		},
 	};

@@ -2346,6 +2346,7 @@
 		"reportItem.MASTERING_SEQUENCES_OMITTED": ["machine","Regions were exported as labels; mastering delivery order was omitted.","Տիրույթներն արտահանվել են որպես պիտակներ․ վարպետացման առաքման հերթականությունը բաց է թողնվել։"],
 		"reportItem.MASTER_CHANNEL_LAYOUT_OMITTED": ["machine","Master channel layout omitted","Հիմնական ալիքների դասավորությունը բաց է թողնվել"],
 		"reportItem.MASTER_ENVELOPE_OMITTED": ["machine","Master envelope omitted","Հիմնական ծրարագիծը բաց է թողնվել"],
+		"reportItem.MIDI_CLIP_PITCH_OMITTED": ["human","Clip pitch settings are omitted. Export audio to retain the audible pitch.","Հոլովակի տոնայնության կարգավորումները բաց են թողնվում։ Լսվող տոնայնությունը պահպանելու համար արտահանեք ձայնը։"],
 		"reportItem.MISSING_LOCAL_AUDIO": ["machine","Local audio is unavailable.","Տեղային ձայնը հասանելի չէ։"],
 		"reportItem.MISSING_REALTIME_EFFECT": ["machine","A realtime effect is unavailable.","Իրական ժամանակի մի էֆեկտ հասանելի չէ։"],
 		"reportItem.MISSING_SAMPLE_BLOCK": ["machine","Missing sample block","Նմուշների բլոկը բացակայում է"],

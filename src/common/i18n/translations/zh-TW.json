@@ -2346,6 +2346,7 @@
 		"reportItem.MASTERING_SEQUENCES_OMITTED": ["machine","Regions were exported as labels; mastering delivery order was omitted.","區域已匯出為標籤；已省略母帶交付順序。"],
 		"reportItem.MASTER_CHANNEL_LAYOUT_OMITTED": ["machine","Master channel layout omitted","已省略主聲道配置"],
 		"reportItem.MASTER_ENVELOPE_OMITTED": ["machine","Master envelope omitted","已省略主包絡"],
+		"reportItem.MIDI_CLIP_PITCH_OMITTED": ["human","Clip pitch settings are omitted. Export audio to retain the audible pitch.","片段的音高設定將被省略。請匯出音訊以保留實際聽到的音高。"],
 		"reportItem.MISSING_LOCAL_AUDIO": ["machine","Local audio is unavailable.","本地音訊不可用。"],
 		"reportItem.MISSING_REALTIME_EFFECT": ["machine","A realtime effect is unavailable.","實時效果不可用。"],
 		"reportItem.MISSING_SAMPLE_BLOCK": ["machine","Missing sample block","取樣塊缺失"],

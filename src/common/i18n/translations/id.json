@@ -2346,6 +2346,7 @@
 		"reportItem.MASTERING_SEQUENCES_OMITTED": ["machine","Regions were exported as labels; mastering delivery order was omitted.","Wilayah diekspor sebagai label; urutan pengiriman mastering dihilangkan."],
 		"reportItem.MASTER_CHANNEL_LAYOUT_OMITTED": ["machine","Master channel layout omitted","Tata letak kanal master dihilangkan"],
 		"reportItem.MASTER_ENVELOPE_OMITTED": ["machine","Master envelope omitted","Amplop master dihilangkan"],
+		"reportItem.MIDI_CLIP_PITCH_OMITTED": ["human","Clip pitch settings are omitted. Export audio to retain the audible pitch.","Pengaturan nada klip dihilangkan. Ekspor audio untuk mempertahankan nada yang terdengar."],
 		"reportItem.MISSING_LOCAL_AUDIO": ["machine","Local audio is unavailable.","Audio lokal tidak tersedia."],
 		"reportItem.MISSING_REALTIME_EFFECT": ["machine","A realtime effect is unavailable.","Efek waktu nyata tidak tersedia."],
 		"reportItem.MISSING_SAMPLE_BLOCK": ["machine","Missing sample block","Blok sampel hilang"],

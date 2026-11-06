@@ -1,0 +1,46 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+import { expect, test } from './audio-editor-test-fixtures.js';
+import { bootEditor, importFiles, disableNativeSavePicker, clipByName, openClipProperties, closeClipProperties, clipField, commitInput, chooseNestedCommandAction, chooseFileAction, downloadBytes } from './audio-editor-test-helpers.js';
+import { chooseClipMediaSetting, expectClipMediaSettingChecked } from './audio-editor-clip-settings-test-helpers.js';
+import { exportSamples } from './helpers/round2-audio-export.js';
+import { parseMidiFile, writeMidiFile } from '../../src/common/editor/midi-file.ts';
+
+for (const ratio of [1, 2]) test(`MIDI linked pitch finishing report speed ${ratio}`, async ({ page }) => {
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	const bytes = writeMidiFile({ sampleRate: 48000, tempos: [], signatures: [], tracks: [{ name: 'Pitch programme', durationFrames: 96000, notes: [{ id: 'n', pitch: 69, velocity: 100, channel: 0, startFrame: 0, durationFrames: 96000 }] }] });
+	await importFiles(editor, [{ name: 'Pitch programme.mid', mimeType: 'audio/midi', buffer: Buffer.from(bytes) }]);
+	const properties = await openClipProperties(page, editor, clipByName(editor, 'Pitch programme'));
+	await chooseClipMediaSetting(properties, 'Link pitch and tempo');
+	await expectClipMediaSettingChecked(properties, 'Link pitch and tempo', true);
+	await commitInput(clipField(properties, 'speedRatio'), String(ratio * 100));
+	await expect(clipField(properties, 'pitchCents')).toHaveValue(String(ratio === 2 ? 12 : 0));
+	await closeClipProperties(properties);
+	const pcm = await exportSamples(page, editor);
+	const portion = pcm.slice(12000, 36000);
+	let crossings = 0;
+	for (let i = 1; i < portion.length; i++) if (portion[i - 1] < 0 && portion[i] >= 0) crossings++;
+	const frequency = crossings * 2;
+	expect(frequency).toBeGreaterThan(440 * ratio - 8);
+	expect(frequency).toBeLessThan(440 * ratio + 8);
+	const downloading = page.waitForEvent('download');
+	await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export MIDI (beta)']);
+	const download = await downloading;
+	const delivered = parseMidiFile(await downloadBytes(download), { sampleRate: 48000 });
+	await download.delete();
+	const note = delivered.tracks.flatMap(track => track.notes)[0];
+	expect(note.pitch).toBe(69);
+	expect(note.durationFrames).toBe(96000 / ratio);
+	await chooseFileAction(page, editor, 'Delivery Report');
+	const dialog = page.getByRole('dialog', { name: 'Delivery Report', exact: true });
+	await expect(dialog.locator('[data-delivery-report]')).toContainText('midi');
+	if (ratio === 2) await expect(dialog).toContainText('Clip pitch settings are omitted. Export audio to retain the audible pitch.');
+	const saving = page.waitForEvent('download');
+	await dialog.getByRole('button', { name: 'Save report', exact: true }).click();
+	const reportDownload = await saving;
+	const saved = JSON.parse(new TextDecoder().decode(await downloadBytes(reportDownload)));
+	await reportDownload.delete();
+	console.log('MIDI_FINISHING_REPORT', JSON.stringify({ ratio, frequency, note, report: saved }));
+	if (ratio === 1) expect(saved.counts.omitted).toBe(0);
+	else expect(saved.counts.omitted, 'The report must disclose the unencoded audible pitch finishing').toBeGreaterThan(0);
+});

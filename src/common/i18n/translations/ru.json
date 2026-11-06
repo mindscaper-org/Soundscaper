@@ -2346,6 +2346,7 @@
 		"reportItem.MASTERING_SEQUENCES_OMITTED": ["machine","Regions were exported as labels; mastering delivery order was omitted.","Области экспортированы как метки; порядок мастеринговой выдачи пропущен."],
 		"reportItem.MASTER_CHANNEL_LAYOUT_OMITTED": ["machine","Master channel layout omitted","Схема каналов мастера пропущена"],
 		"reportItem.MASTER_ENVELOPE_OMITTED": ["machine","Master envelope omitted","Огибающая мастера пропущена"],
+		"reportItem.MIDI_CLIP_PITCH_OMITTED": ["human","Clip pitch settings are omitted. Export audio to retain the audible pitch.","Настройки высоты тона клипа пропускаются. Экспортируйте аудио, чтобы сохранить слышимую высоту тона."],
 		"reportItem.MISSING_LOCAL_AUDIO": ["machine","Local audio is unavailable.","Локальное аудио недоступно."],
 		"reportItem.MISSING_REALTIME_EFFECT": ["machine","A realtime effect is unavailable.","Эффект реального времени недоступен."],
 		"reportItem.MISSING_SAMPLE_BLOCK": ["machine","Missing sample block","Отсутствует блок сэмплов"],

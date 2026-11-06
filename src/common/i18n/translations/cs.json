@@ -2346,6 +2346,7 @@
 		"reportItem.MASTERING_SEQUENCES_OMITTED": ["machine","Regions were exported as labels; mastering delivery order was omitted.","Oblasti byly exportovány jako popisky; pořadí výstupu masteringu bylo vynecháno."],
 		"reportItem.MASTER_CHANNEL_LAYOUT_OMITTED": ["machine","Master channel layout omitted","Rozložení kanálů hlavního výstupu bylo vynecháno"],
 		"reportItem.MASTER_ENVELOPE_OMITTED": ["machine","Master envelope omitted","Obálka hlavního výstupu byla vynechána"],
+		"reportItem.MIDI_CLIP_PITCH_OMITTED": ["human","Clip pitch settings are omitted. Export audio to retain the audible pitch.","Nastavení výšky tónu klipu se vynechá. Chcete-li zachovat slyšitelnou výšku tónu, exportujte zvuk."],
 		"reportItem.MISSING_LOCAL_AUDIO": ["machine","Local audio is unavailable.","Místní zvuk není dostupný."],
 		"reportItem.MISSING_REALTIME_EFFECT": ["machine","A realtime effect is unavailable.","Efekt v reálném čase není dostupný."],
 		"reportItem.MISSING_SAMPLE_BLOCK": ["machine","Missing sample block","Chybějící blok vzorků"],
