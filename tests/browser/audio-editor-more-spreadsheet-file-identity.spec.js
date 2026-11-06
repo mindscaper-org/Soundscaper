@@ -7,6 +7,7 @@ import { persistedProject } from './helpers/complex-editing-workflows.js';
 test('the spreadsheet uses the selected filename when an unpadded namesake is also imported', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [{ ...toneA, name: 'take.wav' }, { ...toneB, name: ' take.wav ' }]);
+	await expect(editor).toHaveAttribute('data-clip-count', '2');
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 	const project = await persistedProject(page, await editor.getAttribute('data-project-id'));
 	const intended = project.sources.find(source => source.name === ' take.wav ');
