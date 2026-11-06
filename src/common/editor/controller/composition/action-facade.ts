@@ -213,7 +213,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			splitAt: splitAtFrame,
 			splitIntoNewTrack: () => handleEdit('split-new-track'),
 			join: () => handleEdit('join'),
-			disjoin: () => disjoinSelectedClip(),
+			disjoin: (options?: Readonly<{ nativeSilence?: boolean }>) => disjoinSelectedClip(options),
 			group: () => handleEdit('group'),
 			ungroup: () => handleEdit('ungroup'),
 			duplicate: () => handleEdit('duplicate'),

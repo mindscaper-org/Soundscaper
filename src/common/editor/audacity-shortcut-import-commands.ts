@@ -81,6 +81,8 @@ export function audacityShortcutImportCommand(
 ): string | null {
 	// Native chronological sorting includes empty lanes at zero; local sorting keeps them last.
 	if (legacy && (command === 'SortByTime' || command === 'SortByName')) return null;
+	// Native Disjoin removes absolute zeros; local Disjoin also removes near silence.
+	if (legacy && command === 'Disjoin') return null;
 	// Native region/collapse commands retain facets that these local actions replace.
 	if (legacy && (LEGACY_SELECTION_SCOPE_COMMANDS.has(command) || LEGACY_CURSOR_COLLAPSE_COMMANDS.has(command))) return null;
 	// Native label commands have fixed modes; the local action follows transport state.

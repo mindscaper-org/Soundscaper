@@ -180,6 +180,9 @@ export function createMacroCommandService(runtime: MacroCommandServiceRuntime) {
 		if (command === 'SortByTime' || command === 'SortByName') {
 			return (target as (options: Readonly<{ nativeSort: boolean }>) => unknown)({ nativeSort: true });
 		}
+		if (command === 'Disjoin') {
+			return (target as (options: Readonly<{ nativeSilence: boolean }>) => unknown)({ nativeSilence: true });
+		}
 		if (command === 'SelectNone') {
 			const timeline = actions?.timeline;
 			const noTracks = timeline && typeof timeline === 'object'
