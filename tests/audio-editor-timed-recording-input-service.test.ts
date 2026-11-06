@@ -118,6 +118,27 @@ function createFixture(options: FixtureOptions = {}) {
 
 const currentScope = Object.freeze({ assertCurrent() {} });
 
+for (const reusePreparedInputsOnly of [false, true]) test(`a timed default input accepts its negotiated mono format (prepared=${reusePreparedInputsOnly})`, async () => {
+	const mono = stream('mono', 1);
+	const fixture = createFixture({ preferredChannels: 2, retainedHardware: { default: mono }, acquireHardware: async () => mono });
+	assert.deepEqual(await fixture.service.prepareTimedRecordingInputs({ trackId: 'track-1', reusePreparedInputsOnly }, currentScope),
+		{ inputKeys: ['device:default'] });
+});
+
+for (const route of [
+	{ kind: 'device' as const, deviceId: 'default', channelStart: 1, channelCount: 1 },
+	{ kind: 'device' as const, deviceId: 'interface', channelStart: 0, channelCount: 2 },
+]) test(`a timed explicit pin retains its actual channel requirement (${route.deviceId}:${route.channelStart})`, async () => {
+	const fixture = createFixture({ routes: { 'track-1': route }, acquireHardware: async () => stream('mono', 1) });
+	await assert.rejects(fixture.service.prepareTimedRecordingInputs({ trackId: 'track-1' }, currentScope), /Every assigned/u);
+});
+
+test('a timed armed multitrack stereo route still refuses a mono source', async () => {
+	const fixture = createFixture({ routes: { 'track-1': { kind: 'device', deviceId: 'default', channelStart: 0, channelCount: 2 } },
+		acquireHardware: async () => stream('mono', 1) });
+	await assert.rejects(fixture.service.prepareTimedRecordingInputs({}, currentScope), /Every assigned/u);
+});
+
 test('explicit default-track preparation preserves the legacy route and immutable result contract', async () => {
 	const fixture = createFixture({
 		preferredChannels: 1,
