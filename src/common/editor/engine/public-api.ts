@@ -64,6 +64,9 @@ export interface EngineStateSnapshot {
 	readonly cutPreview?: boolean;
 	readonly positionFrame: number;
 	readonly durationFrames: number;
+	readonly playbackStartFrame?: number | null;
+	/** End of the scheduled run, including a bounded audition or retained tail. */
+	readonly playbackEndFrame?: number | null;
 	readonly loop: NormalizedLoop;
 	readonly playbackRate: number;
 	readonly playbackMode: 'normal' | 'naive' | 'staffpad' | 'audio-warp-exact';

@@ -439,6 +439,8 @@ export function createEditorTransportService<Project extends TransportProject = 
 		anchor.cursorFrame = Math.max(anchor.cursorFrame, position);
 		const horizonFrame = anchor.frame
 			+ (context.currentTime + METRONOME_LOOKAHEAD_SECONDS - anchor.contextTime) * framesPerSecond;
+		const terminalTime = !loop && playback?.playbackEndFrame != null && playback.playbackStartFrame != null && audibleStartTime !== null
+			? audibleStartTime + (playback.playbackEndFrame - playback.playbackStartFrame) / framesPerSecond : undefined;
 		for (let queued = 0; queued < METRONOME_MAXIMUM_PULSES_PER_TICK; queued += 1) {
 			const cursorFrame = Math.max(0, Math.round(anchor.cursorFrame));
 			const timelineFrame = loop
@@ -453,11 +455,12 @@ export function createEditorTransportService<Project extends TransportProject = 
 				pulseFrame = Math.round(cursorFrame + loop.endFrame - timelineFrame + firstPulseFrame - loop.startFrame);
 			}
 			if (pulseFrame > horizonFrame) return;
+			if (!loop && playback?.playbackEndFrame != null && pulseFrame >= playback.playbackEndFrame) return;
 			const when = anchor.contextTime + (pulseFrame - anchor.frame) / framesPerSecond;
 			// A pulse already behind the audio clock cannot be sounded, but the cursor still
 			// has to step past it so the window keeps moving forward.
 			if (when >= context.currentTime) {
-				emitMetronomeClick(context, engine.getPlaybackDestination?.() ?? context.destination, state, when, pulse.accent ?? (pulse.beatIndex % 4 === 0 ? 'bar' : 'beat'));
+				emitMetronomeClick(context, engine.getPlaybackDestination?.() ?? context.destination, state, when, pulse.accent ?? (pulse.beatIndex % 4 === 0 ? 'bar' : 'beat'), terminalTime);
 			}
 			anchor.cursorFrame = pulseFrame + 1;
 		}

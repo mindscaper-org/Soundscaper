@@ -463,6 +463,8 @@ getState() {
 			cutPreview,
 			positionFrame: this.getPositionFrames(),
 			durationFrames: this.durationFrames,
+			playbackStartFrame: this.playbackStartFrame,
+			playbackEndFrame: this.playEndFrame,
 			loop: { ...this.loop, enabled: isPlaybackLoopEnabled(this) && !cutPreview },
 			playbackRate: this.playbackRate,
 			playbackMode: this.playbackMode,

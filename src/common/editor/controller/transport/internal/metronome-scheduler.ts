@@ -49,7 +49,7 @@ export function stopPendingMetronomeClicks(state: PendingClicks): void {
 }
 
 /** Click voices share the editor's listening gain and remain cancelable while queued. */
-export function emitMetronomeClick(context: EngineAudioContext, destination: AudioNode, state: PendingClicks, when: number, accent: string): void {
+export function emitMetronomeClick(context: EngineAudioContext, destination: AudioNode, state: PendingClicks, when: number, accent: string, endTime?: number): void {
 	const oscillator = context.createOscillator();
 	const gain = context.createGain();
 	state.metronomePending = [...(state.metronomePending ?? []), oscillator];
@@ -58,7 +58,7 @@ export function emitMetronomeClick(context: EngineAudioContext, destination: Aud
 	gain.gain.exponentialRampToValueAtTime(0.12, when + 0.002);
 	gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.035);
 	oscillator.connect(gain); gain.connect(destination);
-	oscillator.start(when); oscillator.stop(when + 0.04);
+	oscillator.start(when); oscillator.stop(Math.min(when + 0.04, endTime ?? Infinity));
 	oscillator.onended = () => {
 		state.metronomePending = (state.metronomePending ?? []).filter(pending => pending !== oscillator);
 		try { oscillator.disconnect(); } catch { /* Already disconnected. */ }
