@@ -39,7 +39,7 @@ for (const routed of [false, true]) for (const timed of [false, true]) for (cons
 		assert.equal(engine.getPositionFrames(), initialFrame, 'an owned capture cannot have its programme clock moved');
 		if (!timed) {
 			await created[0]!.onChunk({ frameStart: 0, frames: 8_192, channels: [new Float32Array(8_192).fill(0.25)] });
-			controller.actions.recording.pause();
+			await controller.actions.recording.pause();
 		}
 		controller.actions.timeline.setExactSelection(1_000, 4_096, { trackIds: [trackId] });
 		if (navigation === 'skip') controller.actions.timeline.skipToSelectionEnd();

@@ -55,9 +55,9 @@ test('Record Pause and Resume do not restart backing audio that already finished
 	await controller.actions.recording.start({ trackId: 'recording-track' });
 	assert.equal(engine.getState().state, 'playing');
 	audio.currentTime = 0.5; context.mock.timers.tick(500);
-	controller.actions.recording.pause();
+	await controller.actions.recording.pause();
 	assert.equal(engine.getState().state, 'paused');
-	controller.actions.recording.pause();
+	await controller.actions.recording.pause();
 	for (let turn = 0; turn < 30; turn++) await Promise.resolve();
 	assert.equal(engine.getState().state, 'playing', 'an interrupted backing run still resumes normally');
 	audio.currentTime = 35; context.mock.timers.tick(35_000);
@@ -65,8 +65,8 @@ test('Record Pause and Resume do not restart backing audio that already finished
 	assert.equal(engine.getState().state, 'stopped');
 	assert.equal(controller.getSnapshot().recording, true);
 	const audibleSources = audio.bufferSources.length;
-	controller.actions.recording.pause();
-	controller.actions.recording.pause();
+	await controller.actions.recording.pause();
+	await controller.actions.recording.pause();
 	for (let turn = 0; turn < 30; turn++) await Promise.resolve();
 	assert.equal(audio.bufferSources.length, audibleSources, 'resuming capture must not schedule the old backing clip again');
 	assert.equal(engine.getState().state, 'stopped');
