@@ -10,7 +10,8 @@ interface Range { readonly startFrame: number; readonly endFrame: number }
 
 /** Keep processor-history routes intact; dry PCM needs only the two search neighborhoods. */
 export async function renderZeroCrossingEdges<Project extends SelectionViewProject, Rendered extends RenderedAudio>(
-	runtime: SelectionViewServiceRuntime<Project, Rendered>, project: Project, trackIds: readonly string[],
+	runtime: Pick<SelectionViewServiceRuntime<Project, Rendered>, 'getProject' | 'cloneProject' | 'renderSnapshot'
+		| 'audioBufferChannels' | 'findNearestAudioZeroCrossing'>, project: Project, trackIds: readonly string[],
 	selection: Range, radius: number, range: Range,
 ): Promise<Range | null> {
 	const edges = [selection.startFrame, selection.endFrame];
@@ -28,7 +29,7 @@ export async function renderZeroCrossingEdges<Project extends SelectionViewProje
 		if (runtime.getProject() !== project) return null;
 		const rendered = await Promise.all(captures.map(capture => runtime.renderSnapshot(capture.project, {
 			...window, includeTail: false, outputFrames: window.endFrame - window.startFrame,
-			trackId: capture.trackId, includeMaster: false, includeTrackPan: false, respectMuteSolo: false,
+			trackId: capture.trackId, includeMaster: false, includeTrackPan: false, respectMuteSolo: capture.respectMuteSolo,
 		})));
 		if (runtime.getProject() !== project) return null;
 		const channels = rendered.flatMap(runtime.audioBufferChannels);

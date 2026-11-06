@@ -77,7 +77,7 @@ export interface SelectionViewRenderRange {
 	readonly trackId?: string;
 	readonly includeMaster?: false;
 	readonly includeTrackPan?: false;
-	readonly respectMuteSolo?: false;
+	readonly respectMuteSolo?: boolean;
 }
 
 export interface SelectionViewZeroCrossingOptions {
