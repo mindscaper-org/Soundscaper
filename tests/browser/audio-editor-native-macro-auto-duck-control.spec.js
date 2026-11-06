@@ -17,6 +17,7 @@ for (const precedingSilent of [false, true]) test(`native AutoDuck follows contr
 	await importFiles(editor, media); await expect(editor).toHaveAttribute('data-clip-count', String(media.length));
 	await clipByName(editor, 'Music.wav').locator('.clip-header').click();
 	await chooseNestedCommandAction(page,editor,'Select',['Region','Track start to end']);
+	await chooseNestedCommandAction(page, editor, 'Select', ['Tracks', 'No tracks']);
 	// Scope the retained range to Music with the normal track-header toggle.
 	await clipByName(editor, 'Music.wav').locator('xpath=ancestor::div[@data-track-row][1]')
 		.locator('.track-control-panel__track-name-text').click({ modifiers: ['ControlOrMeta'] });

@@ -307,7 +307,14 @@ export function createSelectionViewService<
 		endFrame: unknown,
 		project = getProject(),
 	) {
-		return project ? applySelectionRange(project, startFrame, endFrame, {}, true, false) : null;
+		return project ? applySelectionRange(project, startFrame, endFrame, trackRangeSelectionDetails(project), true, false) : null;
+	}
+	function trackRangeSelectionDetails(project = getProject()): SelectionViewSelectionDetails {
+		const trackIds = project?.selection?.trackIds ?? [];
+		return {
+			trackIds: trackIds.length ? trackIds : state.selectedTrackId ? [state.selectedTrackId] : [],
+			frequencyRange: project?.selection?.frequencyRange ?? null,
+		};
 	}
 
 	function selectLeftOfPlaybackPosition(requestedFrame: unknown = null) {
@@ -349,7 +356,7 @@ export function createSelectionViewService<
 	function selectTrackStartToEnd() {
 		const range = selectedTracksTimeRange();
 		if (!range) return null;
-		return setExactSelection(range.startFrame, range.endFrame).selection;
+		return setExactSelection(range.startFrame, range.endFrame, trackRangeSelectionDetails()).selection;
 	}
 
 	function selectedTracksTimeRange() {
