@@ -48,6 +48,7 @@ export default function VideoEffectNumberInput({ value, minimum, maximum, step, 
 		aria-label={label} disabled={disabled} onFocus={begin} onPointerDown={(event) => {
 			if (disabled || event.button !== 0) return;
 			if (event.isPrimary === false || !pointer.begin(event.pointerId)) { event.preventDefault(); return; }
+			event.currentTarget.focus();
 			event.currentTarget.setPointerCapture?.(event.pointerId);
 			begin();
 		}}

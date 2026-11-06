@@ -26,9 +26,14 @@ test('video exact-number Escape retires native repeats until the owned pointer i
 	try {
 		await act(async()=>{root.render(<Fixture/>);});
 		const field=dom.one('input');
+		const outside=dom.container.ownerDocument.createElement('button');
+		dom.container.appendChild(outside); outside.focus();
 		const pointer=(pointerId:number)=>({pointerId,button:0,isPrimary:true,currentTarget:field,preventDefault(){}});
 		const change=(value:string)=>({currentTarget:{value,valueAsNumber:Number(value)}});
+		await act(async()=>{reactProps(field).onPointerDown?.({...pointer(0),button:2});});
+		assert.strictEqual(dom.container.ownerDocument.activeElement,outside,'an auxiliary press keeps the existing focus');
 		await act(async()=>{reactProps(field).onPointerDown?.(pointer(1));});
+		assert.strictEqual(dom.container.ownerDocument.activeElement,field,'the admitted native pointer edit owns keyboard cancellation');
 		await act(async()=>{reactProps(field).onChange?.(change('.02'));});
 		await act(async()=>{reactProps(field).onKeyDown?.({key:'Escape',nativeEvent:{isComposing:false},preventDefault(){},stopPropagation(){}});});
 		await act(async()=>{reactProps(field).onChange?.(change('.03'));});
