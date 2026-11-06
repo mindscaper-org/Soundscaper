@@ -18,7 +18,7 @@ import { trackReplacementPlacement } from './track-replacement-placement.ts';
 import { requireWritableAudioTransformTrack } from './track-transform-admission.ts';
 import { stereoTrackRenderRange } from './stereo-track-render-range.ts';
 import { splitStereoSourceChannels } from './split-stereo-source-channels.ts';
-import { splitStereoClipCommands } from './split-stereo-clip-commands.ts';
+import { planSplitStereoSources, splitStereoClipCommands } from './split-stereo-clip-commands.ts';
 import { assertStereoSplitRoutingRepresentable } from './stereo-split-routing-admission.ts';
 import { monoMergeRoutingCompatible } from './mono-merge-routing-admission.ts';
 import { admChannelTransformCommands } from './adm-channel-transforms.ts';
@@ -248,16 +248,15 @@ export function createTrackTransformService(
 		const trackIndex = project.tracks.findIndex((candidate) => candidate.id === track.id);
 		const clips = trackClips(project, track);
 		const sources = dependencies.derivedSources.uniqueClipSources(clips);
-		const bytes = sources.reduce((sum, source) => sum
+		const { sourceById, sourcePairs, sourcesToSplit } = planSplitStereoSources(clips, sources);
+		const bytes = sourcesToSplit.reduce((sum, source) => sum
 			+ source.frameCount * 2 * Float32Array.BYTES_PER_ELEMENT, 0);
-		const sourceById = new Map(sources.map(source => [source.id, source]));
 		return runTransform(dependencies.copy.rewritingChannels ? 'rewritingChannels' : 'audacityProcessing', async (ownership) => {
 			await dependencies.preflightStorage(bytes, 'effect');
 			assertOwned(ownership);
 			const derived: DerivedSourceRecord[] = [];
 			try {
-				const sourcePairs = new Map<string, Readonly<{ left: ControllerSource; right: ControllerSource }>>();
-				for (const source of sources) {
+				for (const source of sourcesToSplit) {
 					const channels = await dependencies.derivedSources.sourceChannelsForEdit(source);
 					assertOwned(ownership);
 					const [leftChannel, rightChannel] = splitStereoSourceChannels(channels);
