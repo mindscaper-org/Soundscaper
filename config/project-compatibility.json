@@ -1758,7 +1758,8 @@
 				"tests/audio-editor-scape-project.test.js",
 				"src/common/editor/scape-literal-json-keys.ts",
 				"tests/audio-editor-p4-literal-json-keys.test.ts",
-				"tests/browser/audio-editor-p4-literal-metadata-import.spec.js"
+				"tests/audio-editor-p4-reserved-metadata-key.test.ts",
+				"tests/browser/audio-editor-import-preservation-custody.spec.js"
 			],
 			"policyAuthority": "family-v1-active",
 			"historicalPreFreezeNarrative": {
