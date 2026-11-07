@@ -7,6 +7,8 @@ test('piano editing releases an assigned Alt Delete command while retaining ordi
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [{ name: 'chord.mid', mimeType: 'audio/midi',
 		buffer: Buffer.from('4d546864000000060000000101e04d54726b0000001400ff510307a12000903c648360803c0000ff2f00', 'hex') }]);
+	await expect(editor).toHaveAttribute('data-clip-count', '1');
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();
