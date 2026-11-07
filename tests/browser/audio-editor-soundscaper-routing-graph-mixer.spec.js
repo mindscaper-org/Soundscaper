@@ -9,6 +9,7 @@ import {
 	chooseFileAction,
 	chooseNestedCommandAction,
 	collectClientErrors,
+	disableNativeSavePicker,
 	registerAudioEditorHooks,
 	setDocumentTheme,
 } from './audio-editor-test-helpers.js';
@@ -32,6 +33,7 @@ test.describe('Soundscaper mixer routing graph', () => {
 	registerAudioEditorHooks();
 
 	test('opts into a spatial graph with pointer and keyboard editing, validation, and focused inspectors', async ({ page }) => {
+		await disableNativeSavePicker(page);
 		const clientErrors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/');
 		await chooseNestedCommandAction(page, editor, 'Window', ['Mixer']);
@@ -180,7 +182,9 @@ test.describe('Soundscaper mixer routing graph', () => {
 
 		const projectId = await editor.getAttribute('data-project-id');
 		expect(projectId).toBeTruthy();
+		const downloading = page.waitForEvent('download');
 		await chooseFileAction(page, editor, 'Save project');
+		expect(await (await downloading).failure()).toBeNull();
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 		const reopened = await bootEditor(page, `/embed/en/?project=${encodeURIComponent(projectId)}`);
 		const reopenedMixer = reopened.locator('[data-mixer-panel]');

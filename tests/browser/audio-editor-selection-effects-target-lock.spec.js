@@ -29,6 +29,8 @@ for (const locked of [false, true]) test(`Amplify preserves ${locked ? 'locked l
 	if (locked) await chooseTrackMenuAction(page, editor, row, 'Lock track');
 	await chooseNestedCommandAction(page, editor, 'Effect', ['Volume and compression', 'Amplify']);
 	const dialog = page.getByRole('dialog', { name: 'Apply effect', exact: true });
+	const gain = dialog.getByRole('spinbutton', { name: 'Amplification (dB)', exact: true });
+	await expect.poll(async () => Number(await gain.inputValue())).toBeCloseTo(9.12, 2);
 	const apply = dialog.getByRole('button', { name: 'Apply to selection', exact: true });
 	if (locked) {
 		await expect(apply).toBeDisabled();

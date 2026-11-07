@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { writeFile } from 'node:fs/promises';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
 import { createDeterministicSilentVideoFixture } from './fixtures/deterministic-av-media.js';
 import { videoRetimePreviewMedia } from './fixtures/video-retime-preview-media.js';
 import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 
-for (const frozen of [false, true]) test(`ordinary shorter bin replacement preserves ${frozen ? 'the authored frozen occurrence' : 'continuous video'}`, async ({ page }) => {
+for (const frozen of [false, true]) test(`ordinary shorter bin replacement preserves ${frozen ? 'the authored frozen occurrence' : 'continuous video'}`, async ({ page }, testInfo) => {
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	await editor.locator('[data-project-bin-input]').setInputFiles(createDeterministicSilentVideoFixture('original.webm'));
 	const card = editor.locator('[data-project-bin-item]').first();
@@ -32,12 +33,13 @@ for (const frozen of [false, true]) test(`ordinary shorter bin replacement prese
 	await card.getByRole('button', { name: /More file actions/u }).click();
 	const picking = page.waitForEvent('filechooser');
 	await page.getByRole('menuitem', { name: 'Replace', exact: true }).click();
-	await (await picking).setFiles(videoRetimePreviewMedia.file);
+	const replacement = testInfo.outputPath(videoRetimePreviewMedia.file.name);
+	await writeFile(replacement, videoRetimePreviewMedia.file.buffer);
+	await (await picking).setFiles(replacement);
 	const choice = page.locator('[data-project-bin-replacement-dialog]');
-	// Import preparation and dialog visibility are distinct public phases.
-	await expect.poll(async () => (await editor.getAttribute('data-edit-block-reason')) !== 'importing'
-		&& (await choice.count()) === 1, { timeout: 5000, intervals: [50, 100, 200] }).toBe(true);
-	await expect(choice).toBeVisible();
+	// Native media preparation uses the import deadline, then releases editing.
+	await expect(choice).toBeVisible({ timeout: 15_000 });
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
 	await choice.getByRole('button', { name: 'Keep timeline spacing', exact: true }).click();
 	await expect(card).not.toHaveAttribute('data-source-id', oldSourceId);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');

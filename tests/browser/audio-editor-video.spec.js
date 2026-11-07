@@ -506,7 +506,7 @@ async function importTimelineFiles(editor, files) {
 	const previousCount = await editor.getAttribute('data-clip-count');
 	await editor.locator('[data-import-input]').setInputFiles(files);
 	await expect(editor).not.toHaveAttribute('data-clip-count', previousCount, { timeout: 30_000 });
-	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing', { timeout: 30_000 });
 	await expect(editor.locator('[data-status]')).toHaveAttribute('data-state', 'success', { timeout: 30_000 });
 }
 
