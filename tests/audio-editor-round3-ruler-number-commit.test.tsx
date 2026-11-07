@@ -40,3 +40,36 @@ test('the ruler field commits complete finite numbers and refuses incomplete or 
 		actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
 	}
 });
+
+test('a delayed frequency update preserves the next typed draft', async () => {
+	const dom = installReactTestDom();
+	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+	const { createRoot } = await import('react-dom/client');
+	const root = createRoot(dom.container as unknown as Element);
+	const changes: number[] = [];
+	const render = (maximum: number) => root.render(<RulerFlyout isOpen x={0} y={0} mode="spectrogram"
+		onClose={() => undefined} minFreq={0} maxFreq={maximum} sampleRate={48_000}
+		onMaxFreqChange={value => { changes.push(value); }} />);
+	try {
+		await act(async () => render(20_000));
+		const input = dom.container.querySelectorAll('input').filter(element => element.type === 'text')[1];
+		assert.ok(input?.parentNode?.parentNode instanceof ReactTestElement);
+		const field = input.parentNode.parentNode;
+		await act(async () => { reactProps(input).onChange({ target: { value: '1e3' } }); });
+		await act(async () => { reactProps(field).onKeyDown({ key: 'Enter' }); });
+		assert.deepEqual(changes, [1000]);
+		await act(async () => { reactProps(input).onChange({ target: { value: '23000' } }); });
+		await act(async () => render(1000));
+		assert.equal(input.value, '23000', 'the previous commit must not replace the next draft');
+		await act(async () => { reactProps(field).onKeyDown({ key: 'Enter' }); });
+		assert.deepEqual(changes, [1000, 23_000]);
+		await act(async () => render(23_000));
+		assert.equal(input.value, '23000');
+	} finally {
+		await act(async () => root.unmount());
+		dom.restore();
+		actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
+	}
+});
