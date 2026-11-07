@@ -5,6 +5,8 @@ import { chooseCommandAction, collectClientErrors } from './audio-editor-test-he
 import { closeDissolve, openDissolve, ordinaryCameraPair, setClipSamples } from './helpers/round7-dissolve-user-path.js';
 
 test('a normally trimmed one-frame camera clip offers no impossible dissolve', async ({ page }) => {
+	// Native import, transition edits, timing inspection and Undo run in sequence.
+	test.setTimeout(60_000);
 	const errors = collectClientErrors(page);
 	const { editor, outgoing } = await ordinaryCameraPair(page);
 	// The default project sequence is 30fps with a 48kHz clock: one frame is
