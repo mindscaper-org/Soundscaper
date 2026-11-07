@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { importAndReopenAudio } from './helpers/audio-import-archive-custody.ts';
 import { encodeAiff } from '../src/common/editor/aiff.js';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
@@ -41,3 +42,14 @@ test('AIFF MIME fallback keeps explicit alternative format suffixes and generic 
 		assert.equal(maintainedAiffMimeType({ name: 'Recording.original', type }), null);
 	}
 });
+
+for (const [name, type] of [['Recording', 'audio/aiff'], ['Recording.original', 'audio/x-aiff'], ['Recording.aiff', 'audio/aiff']]) {
+	test(`AIFF identity and both PCM channels survive archive reopen for ${name}`, async context => {
+		const expected = [new Float32Array(4800).fill(.25), new Float32Array(4800).fill(-.125)];
+		const encoded = encodeAiff(expected, { sampleRate: 48_000, bitDepth: 16, dither: false }); assert.ok(encoded instanceof Uint8Array);
+		const file = new File([Uint8Array.from(encoded)], name, { type });
+		const { source, channels, contribution } = await importAndReopenAudio(context, file);
+		assert.deepEqual([source.sampleRate, source.frameCount, source.channelCount, source.mimeType], [48_000, 4800, 2, 'audio/aiff']);
+		assert.equal(contribution.origin?.mimeType, type); assert.deepEqual(channels, expected);
+	});
+}
