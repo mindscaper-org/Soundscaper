@@ -40,7 +40,8 @@ async function installNativeOriginalBridge(page, native) {
 	})();` });
 }
 
-for (const [channelCount, channelMask] of [[2, 5], [2, 9], [2, 3], [1, 1], [1, 4]]) test(`Original WAV retains ${channelCount}-channel roles ${channelMask}`, async ({ page }) => {
+// Node retains all accepted/refused masks through real native import and overwrite.
+for (const [channelCount, channelMask] of [[2, 5], [2, 3], [1, 4]]) test(`Original WAV retains ${channelCount}-channel roles ${channelMask}`, async ({ page }) => {
 	const samples = Array.from({ length: channelCount }, (_, channel) => Float32Array.from({ length: 2400 }, () => channel ? -.0625 : .125));
 	const bytes = encodeWav(samples, { sampleRate: 48000, bitDepth: 20, channelMask, dither: false });
 	const file = new File([new Uint8Array(bytes).buffer], 'Channel roles.wav', { type: 'audio/wav' });
