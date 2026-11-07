@@ -40,12 +40,13 @@ test('live analyzers subscribe and paint only while their sections are expanded'
 		await act(async () => root.render(<RealtimeAnalysisPanel controller={controller} copy={ENGLISH_COPY} settings={DEFAULT_PLAYBACK_METER_SETTINGS} />));
 		assert.deepEqual(
 			dom.container.querySelectorAll('[data-analysis-section]').map((node) => node.getAttribute('data-analysis-section')),
-			['levels', 'loudness', 'spectrum', 'spectrogram', 'correlation'],
+			['levels', 'loudness', 'spectrum', 'spectrogram', 'correlation', 'acx'],
 		);
 		assert.ok(dom.find('[data-live-analysis-levels]'));
 		assert.equal(dom.find('[data-live-analysis-spectrum]'), null);
 		assert.equal(subscribers, 1, 'only the expanded levels section subscribes to telemetry');
 		assert.equal(visualLeases, 0, 'levels alone do not start visual sampling');
+		assert.equal(dom.find('[data-acx-compliance]'), null, 'ACX checks stay dormant until expanded');
 
 		const spectrum = dom.one('[data-analysis-section="spectrum"]');
 		await act(async () => reactProps(spectrum).onToggle({ currentTarget: { open: true } }));

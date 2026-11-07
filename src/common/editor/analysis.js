@@ -8,6 +8,7 @@ export { findNearestAudioZeroCrossing } from './zero-crossing.js';
 
 export { ANALYSIS_FLOOR_DB, amplitudeToDb, calculateAudioSpectrum } from './audio-spectrum.ts';
 import { amplitudeToDb, validateAnalysisChannels } from './audio-spectrum.ts';
+import { createAcxNoiseFloorAnalyzer } from './acx-noise-floor.ts';
 
 /**
  * @typedef {Object} AudioAnalysisResult
@@ -17,6 +18,7 @@ import { amplitudeToDb, validateAnalysisChannels } from './audio-spectrum.ts';
  * @property {number} peakDbfs
  * @property {number} truePeakDbtp
  * @property {number} rmsDbfs
+ * @property {number | null} noiseFloorDbfs
  * @property {number | null} stereoCorrelation
  * @property {number | null} momentaryLufs
  * @property {number | null} shortTermLufs
@@ -54,6 +56,7 @@ export function createStreamingAudioAnalyzer(options = {}) {
 		running: true,
 	});
 	const samplePeaks = new Float64Array(channelCount);
+	const noiseFloor = createAcxNoiseFloorAnalyzer(sampleRate);
 	const momentaryFrames = Math.max(1, Math.round(sampleRate * 0.4));
 	const momentaryStep = Math.max(1, Math.round(sampleRate * 0.1));
 	const shortTermFrames = Math.max(momentaryFrames, Math.round(sampleRate * 3));
@@ -83,6 +86,7 @@ export function createStreamingAudioAnalyzer(options = {}) {
 
 		for (let frame = 0; frame < frames; frame += 1) {
 			let frameClipped = false;
+			let frameSquares = 0;
 			let left = 0;
 			let right = 0;
 			for (let channel = 0; channel < channelCount; channel += 1) {
@@ -93,12 +97,14 @@ export function createStreamingAudioAnalyzer(options = {}) {
 				const absolute = Math.abs(sample);
 				samplePeaks[channel] = Math.max(samplePeaks[channel], absolute);
 				sampleSquareSum += sample * sample;
+				frameSquares += sample * sample;
 				if (absolute >= clipThreshold) {
 					clippedSamples += 1;
 					frameClipped = true;
 				}
 			}
 			if (frameClipped) clippedFrames += 1;
+			noiseFloor.pushFrame(frameSquares / channelCount);
 			if (channelCount >= 2) {
 				const count = frameCount + 1;
 				const leftDelta = left - leftMean;
@@ -136,6 +142,7 @@ export function createStreamingAudioAnalyzer(options = {}) {
 			truePeakEstimated: true,
 			rmsAmplitude: frameCount ? Math.sqrt(sampleSquareSum / (frameCount * channelCount)) : 0,
 			rmsDbfs: amplitudeToDb(frameCount ? Math.sqrt(sampleSquareSum / (frameCount * channelCount)) : 0),
+			noiseFloorDbfs: noiseFloor.finish(),
 			clippedSamples,
 			clippedFrames,
 			stereoCorrelation: calculateCorrelation(),

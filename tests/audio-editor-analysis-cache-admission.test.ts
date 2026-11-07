@@ -50,6 +50,19 @@ test('updated finite loudness maxima do not reuse an older persisted level repor
 	assert.equal(fixture.saved.length, 1);
 });
 
+test('ACX noise-floor measurement does not reuse older levels without a noise floor', async () => {
+	const fixture = createFixture(null);
+	const corrected = { rmsDbfs: -20, noiseFloorDbfs: -65 };
+	const service = createAudioAnalysisService({ ...fixture.dependencies,
+		loadAnalysis: async key => key.startsWith('audio-editor-analysis-v5:')
+			? { result: { rmsDbfs: -20 }, visuals: null, report: null } : null,
+		analyzeChannels: async () => corrected,
+	});
+	assert.deepEqual(await service.run(), corrected);
+	assert.equal(fixture.renders(), 1);
+	assert.equal(fixture.saved.length, 1);
+});
+
 test('track analysis renders the track captured for its cache key while selection changes', async () => {
 	let selectedTrackId = 'track-a';
 	let releaseLookup!: () => void;
