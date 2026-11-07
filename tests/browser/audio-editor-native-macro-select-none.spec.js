@@ -27,6 +27,7 @@ test('legacy SelectNone shortcuts disclose the incompatible reset while local cl
 	await (await choosing).setFiles({ name: 'native.xml', mimeType: 'application/xml',
 		buffer: Buffer.from('<audacitykeyboard audacityversion="3.7.7"><command name="SelectNone" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>') });
 	const review = preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true });
+	await expect(preferences.getByRole('button', { name: 'Import Audacity shortcuts', exact: true })).toBeEnabled({ timeout: 15_000 });
 	await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 1 skipped.');
 	await expect(review.getByRole('button', { name: 'Apply shortcuts', exact: true })).toBeDisabled();
 	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
