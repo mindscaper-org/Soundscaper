@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseAudacityShortcutImport } from '../src/common/editor/audacity-shortcut-import.ts';
 import { AUDACITY_SHORTCUT_PROFILE, AUDACITY_SHORTCUT_BINDINGS_BY_ACTION } from '../src/common/editor/audacity-shortcut-profile.ts';
+import { importShortcutPreferences } from './helpers/shortcut-import-custody.ts';
 
 for (const [legacy, command, target] of [
 	[true, 'SeekLeftLong', 'track-view-item-extend-left'],
@@ -43,4 +44,24 @@ test('the native long-seek profile is truthful without removing ordinary editor 
 	assert.deepEqual(AUDACITY_SHORTCUT_BINDINGS_BY_ACTION['track-view-item-extend-left'], ['Shift+Left']);
 	assert.deepEqual(AUDACITY_SHORTCUT_BINDINGS_BY_ACTION['track-view-item-extend-right'], ['Shift+Right']);
 	assert.deepEqual(AUDACITY_SHORTCUT_BINDINGS_BY_ACTION['cursor-long-jump-left'], ['Shift+,']);
+});
+
+for (const legacy of [false, true]) for (const command of legacy ? ['SeekLeftLong', 'SeekRightLong'] : ['seek-left-long', 'seek-right-long']) {
+	test(`${command} review preserves durable selection and all-state jump bindings`, async context => {
+		const xml = legacy ? `<audacitykeyboard><command name="${command}" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>`
+			: `<Shortcuts><SC><key>${command}</key><seq>Ctrl+Alt+Shift+F7</seq></SC></Shortcuts>`;
+		const { plan, before, persisted, saves } = await importShortcutPreferences(context, xml,
+			{ 'track-view-item-extend-left': ['Shift+Left'], 'cursor-long-jump-left': ['Shift+,'], 'cursor-long-jump-right': ['Shift+.'] });
+		assert.deepEqual(plan.skipped, [{ command, reason: 'unsupported-command' }]);
+		assert.equal(plan.importedCount, 0); assert.equal(saves, 0); assert.deepEqual(persisted, before);
+	});
+}
+
+test('native short seeks persist independently of selection adjustment keys', async context => {
+	const { plan, persisted, saves } = await importShortcutPreferences(context,
+		'<audacitykeyboard><command name="SeekRightShort" key="Ctrl+F7"/></audacitykeyboard>',
+		{ 'play-position-increase': ['Ctrl+Right'], 'track-view-item-extend-right': ['Shift+Right'] });
+	assert.equal(plan.importedCount, 1); assert.equal(saves, 1);
+	assert.deepEqual(persisted['play-position-increase'], ['Ctrl+F7']);
+	assert.deepEqual(persisted['track-view-item-extend-right'], ['Shift+Right']);
 });
