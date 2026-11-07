@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { importAndReopenAudio } from './helpers/audio-import-archive-custody.ts';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { inspectImportedMediaMetadata } from '../src/common/editor/imported-media-metadata.ts';
@@ -26,4 +27,16 @@ for (const bundle of ['mediabunny.cjs', 'mediabunny.node.cjs', 'mediabunny.mjs']
 		try{console.log(JSON.stringify((await input.getMetadataTags()).artist));}finally{input.dispose();}
 	`, bundle, Buffer.from(await file.arrayBuffer()).toString('base64')], { timeout: 10_000 });
 	assert.equal(JSON.parse(stdout) as unknown, 'Current performer');
+});
+
+for (const originalFirst of [false, true]) test(`nested ORIGINAL order ${originalFirst} retains programme credits through archive reopen`, async context => {
+	const expected = Float32Array.from({ length: 3840 }, (_, frame) => (frame % 19 - 9) / 64);
+	const { source, contribution, channels } = await importAndReopenAudio(context, await originalWorkTaggedWebmOpusFixture(originalFirst),
+		{ decoded: { sampleRate: 48_000, channels: [expected] } });
+	assert.deepEqual([source.sampleRate, source.frameCount, source.channelCount], [48_000, 3840, 1]);
+	assert.deepEqual(channels, [expected]); assert.deepEqual(contribution.warnings, []);
+	assert.equal(contribution.metadata.normalized.artist, 'Current performer');
+	assert.equal(contribution.metadata.normalized.title, 'Current title');
+	assert.deepEqual(contribution.metadata.raw.ARTIST, originalFirst
+		? { 0: 'Original performer', 1: 'Current performer' } : { 0: 'Current performer', 1: 'Original performer' });
 });
