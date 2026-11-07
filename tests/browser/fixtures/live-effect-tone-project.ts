@@ -6,9 +6,9 @@ import { createProjectStore } from '../../../src/common/editor/storage.js';
 import { exportScapeProject } from '../../../src/common/editor/scape-project.js';
 
 /** A resident source keeps live-effect continuity independent of storage streaming. */
-export async function liveEffectToneProject() {
+export async function liveEffectToneProject(channelAmplitudes: readonly number[] = [.6]) {
 	const source = createAudioSource({ id: 'tone', name: 'Continuous tone', sampleRate: 48_000,
-		frameCount: 16 * 48_000, channelCount: 1 });
+		frameCount: 16 * 48_000, channelCount: channelAmplitudes.length });
 	const project = createSoundscaperProject({ id: crypto.randomUUID(), sampleRate: 48_000, sources: [source],
 		clips: [createAudioClip({ id: 'clip', sourceId: source.id, durationFrames: source.frameCount,
 			sourceDurationFrames: source.frameCount })],
@@ -17,8 +17,8 @@ export async function liveEffectToneProject() {
 	try {
 		const writer = await store.beginSourceWrite(source.storageKey, source);
 		for (let offset = 0; offset < source.frameCount; offset += source.chunkFrames) {
-			await writer.write([Float32Array.from({ length: Math.min(source.chunkFrames, source.frameCount - offset) },
-				(_, frame) => .6 * Math.sin(2 * Math.PI * 1000 * (offset + frame) / 48_000))]);
+			await writer.write(channelAmplitudes.map(amplitude => Float32Array.from({ length: Math.min(source.chunkFrames, source.frameCount - offset) },
+				(_, frame) => amplitude * Math.sin(2 * Math.PI * 1000 * (offset + frame) / 48_000))));
 		}
 		await writer.commit();
 		const archive = await exportScapeProject(project, store);
