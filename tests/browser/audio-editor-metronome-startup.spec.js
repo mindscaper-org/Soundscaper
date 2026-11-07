@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { installLiveOutputObserver } from './helpers/live-output-observer.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
@@ -6,18 +7,23 @@ import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/
 import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
+// Permit the test-only blob worklet without changing the shipped script policy.
+test.use({ browserCoverage: false, bypassCSP: true });
+
 async function observeActualClicks(page) {
+	await installLiveOutputObserver(page, '__metronomeMaster', { observeMaster: false });
 	await page.addInitScript(() => {
-		globalThis.__selectionMetronome = { starts: [], clicks: [], context: null };
+		globalThis.__selectionMetronome = { starts: [], clicks: [], context: null, contexts: [] };
 		const NativeContext = AudioContext;
 		globalThis.AudioContext = new Proxy(NativeContext, { construct(target, args) {
 			const context = Reflect.construct(target, args);
-			globalThis.__selectionMetronome.context = context;
+			globalThis.__selectionMetronome.contexts.push(context);
 			return context;
 		} });
 		const begin = AudioBufferSourceNode.prototype.start;
 		AudioBufferSourceNode.prototype.start = function (...args) {
 			if (this.context instanceof NativeContext && this.buffer?.length >= 48_000) {
+				globalThis.__selectionMetronome.context = this.context;
 				globalThis.__selectionMetronome.starts.push(args[0] ?? this.context.currentTime);
 			}
 			return Reflect.apply(begin, this, args);
@@ -28,7 +34,10 @@ async function observeActualClicks(page) {
 			if (args[1] === 'kw-audio-chunk-stream') {
 				const post = node.port.postMessage;
 				node.port.postMessage = function (value, ...rest) {
-					if (value.type === 'play-stream') globalThis.__selectionMetronome.starts.push(value.contextStartFrame / node.context.sampleRate);
+					if (value.type === 'play-stream') {
+						globalThis.__selectionMetronome.context = node.context;
+						globalThis.__selectionMetronome.starts.push(value.contextStartFrame / node.context.sampleRate);
+					}
 					return Reflect.apply(post, this, [value, ...rest]);
 				};
 			}
@@ -46,16 +55,10 @@ async function observeActualClicks(page) {
 			if (!gain) throw new Error('The metronome observation requires its actual envelope gain.');
 			const click = { time: args[0] ?? this.context.currentTime, peak: 0, finished: false };
 			globalThis.__selectionMetronome.clicks.push(click);
-			const analyser = this.context.createAnalyser(), silence = this.context.createGain();
-			silence.gain.value = 0; gain.connect(analyser); analyser.connect(silence); silence.connect(this.context.destination);
-			const values = new Float32Array(analyser.fftSize);
-			const read = () => {
-				analyser.getFloatTimeDomainData(values);
-				click.peak = Math.max(click.peak, ...values.map(Math.abs));
-				if (this.context.currentTime < click.time + .3) requestAnimationFrame(read);
-				else { click.finished = true; analyser.disconnect(); silence.disconnect(); }
-			};
-			requestAnimationFrame(read);
+			const stop = globalThis.__observeLiveOutput(gain, sample => {
+				click.peak = Math.max(click.peak, sample.peak);
+				if (sample.time > click.time + .3) { click.finished = true; stop(); }
+			});
 			return Reflect.apply(start, this, args);
 		};
 	});
@@ -86,6 +89,8 @@ for (const { name, lookahead, rate } of [
 	const editor = await bootEditor(page, '/embed/en/');
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Metronome.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-project-id', project.id); await waitForProjectActivation(editor);
+	await page.evaluate(() => Promise.all(globalThis.__selectionMetronome.contexts
+		.filter(context => context.state !== 'closed').map(context => globalThis.__prepareLiveOutputObservation(context))));
 	await editor.getByRole('button', { name: 'Customize toolbar', exact: true }).click();
 	await page.getByRole('dialog', { name: 'Customize toolbar', exact: true }).getByRole('checkbox', { name: 'Metronome', exact: true }).click();
 	await page.keyboard.press('Escape'); await editor.getByRole('button', { name: 'Metronome', exact: true }).click();

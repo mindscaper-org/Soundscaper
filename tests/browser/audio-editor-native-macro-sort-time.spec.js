@@ -38,6 +38,7 @@ test('legacy native SortByTime shortcut truthfully declines changed empty-lane o
 	await (await choosing).setFiles({ name: 'Native sort.xml', mimeType: 'application/xml',
 		buffer: Buffer.from('<audacitykeyboard><command name="SortByTime" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>') });
 	const review = preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true });
+	await expect(preferences.getByRole('button', { name: 'Import Audacity shortcuts', exact: true })).toBeEnabled({ timeout: 15_000 });
 	await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 1 skipped.');
 	await expect(review.getByRole('button', { name: 'Apply shortcuts', exact: true })).toBeDisabled();
 	await review.getByText('Skipped shortcuts', { exact: true }).click();

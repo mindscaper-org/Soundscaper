@@ -8,6 +8,16 @@ import { createRiffId3Chunk } from '../src/common/editor/id3-metadata.js';
 import { createDesktopSelectedRangeBlob, retireDesktopSelectedRangeBlob, type DesktopSelectedRangeDescriptor } from '../src/common/editor/desktop-selected-range-blob.ts';
 import { nativeOriginalImportFixture } from './helpers/native-original-import-fixture.ts';
 import { riffMetadataReadView } from '../src/common/editor/riff-metadata-read-view.ts';
+import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
+import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project-store.ts';
+import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
+import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
+import { normalizeSourceProvenance } from '../src/common/editor/source-provenance.ts';
+import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
+import { COPY, audioBuffer, createAudioEditorController, createMemoryEngine } from './helpers/audio-editor-controller-harness.js';
+import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
+import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
+import { readWavePcm } from './helpers/read-wave-pcm.ts';
 
 // Actual FFmpeg 5.1.4 / @ffmpeg/core 0.12.10 outputs. Input: 4800 mono samples,
 // sin(i*.1)*.2, 48 kHz s16 WAV (dither:false). Encode with adpcm_ima_wav,
@@ -75,3 +85,58 @@ for (const codec of ['pcm', 'mp3']) test(`native selected-range ${codec} metadat
 		assert.deepEqual(inspected.warnings, []);
 	} finally { retireDesktopSelectedRangeBlob(selected); await native.close(); }
 });
+
+// Native codec samples remain covered by independent browser decode oracles.
+// These decoder-port samples isolate metadata and durable PCM custody from codecs.
+for (const codec of ['ima', 'mp3', 'pcm']) for (const desktop of codec === 'ima' ? [false] : [false, true]) {
+	test(`${codec} ${desktop ? 'selected-range' : 'File'} credits and PCM survive controller import and Scape reopen`, async context => {
+		type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
+		const bytes = recording(codec), file = new File([bytes], `${codec}.wav`, { type: 'audio/wav' });
+		const expected = codec === 'pcm' ? readWavePcm(bytes).channels
+			: [Float32Array.from({ length: 4800 }, (_, frame) => (frame % 17 - 8) / 64)];
+		const native = desktop ? await nativeOriginalImportFixture(file) : null;
+		const fileService = native ? createAudioEditorFileService({ bridge: {
+			chooseFiles: native.bridge.chooseFiles, releaseRead: native.bridge.releaseRead,
+		}, fetch: native.fetch }) : undefined;
+		const runtime = createSoundscaperProjectRuntimeSelection();
+		const store = createSoundscaperProjectStore({ indexedDB: createInstrumentedIndexedDB(), preferOpfs: false });
+		const recipient = createSoundscaperProjectStore({ indexedDB: createInstrumentedIndexedDB(), preferOpfs: false });
+		let decodes = 0;
+		const engine = { ...createMemoryEngine(), decodeAudioData: async () => {
+			decodes += 1; return audioBuffer(expected.map(channel => channel.slice()), 48_000);
+		} };
+		const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store,
+			projectRuntime: runtime, sessionController: runtime.createSessionController(), ...(fileService ? { fileService } : {}),
+			engine: engine as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'] });
+		context.after(async () => { await controller.dispose(); await recipient.close(); await native?.close(); });
+		await controller.ready;
+		if (fileService) {
+			const choices = await fileService.chooseFiles({ purpose: 'audio', multiple: false });
+			assert.equal(choices.length, 1); assert.equal(choices[0].readProfile, 'selected-range-v1');
+			await fileService.withReadDescriptors(choices, {}, async (files: readonly File[]) => {
+				await controller.actions.project.importFiles(files);
+			});
+		} else await controller.actions.project.importFiles([file]);
+		assert.equal(decodes, codec === 'pcm' ? 0 : 1);
+		const project: unknown = controller.project; assert.ok(validateSoundscaperProject(project));
+		assert.equal(project.sources.length, 1); assert.equal(project.clips.length, 1);
+		const archive = createSoundscaperScapeNativeRuntime();
+		const exported = await archive.exportScapeProject(project, store); assert.ok(exported.blob);
+		const reopened = await archive.importScapeProject(exported.blob, recipient);
+		assert.equal(reopened.readOnly, false);
+		const restored: unknown = reopened.project; assert.ok(validateSoundscaperProject(restored));
+		assert.equal(restored.sources.length, 1); assert.equal(restored.clips.length, 1);
+		const source = restored.sources[0]; assert.ok(source?.kind === 'audio');
+		assert.equal(source.sampleRate, 48_000); assert.equal(source.frameCount, 4800); assert.equal(source.channelCount, 1);
+		const contribution = normalizeSourceProvenance(source.provenance).contributions[0]; assert.ok(contribution);
+		assert.equal(contribution.metadata.normalized.title, 'Harbour voices');
+		assert.equal(contribution.metadata.normalized.artist, 'Elodie field recording');
+		assert.equal(contribution.metadata.raw.ISFT, 'Lavf59.27.100');
+		assert.ok(contribution.origin?.kind === 'local-file');
+		assert.equal(contribution.origin.originalFileName, file.name);
+		assert.equal(contribution.origin.byteLength, file.size);
+		const samples: number[] = [];
+		for await (const chunk of recipient.readSourceChunks(source.storageKey)) samples.push(...chunk.channels[0]);
+		assert.deepEqual(Float32Array.from(samples), expected[0]);
+	});
+}

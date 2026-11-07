@@ -51,10 +51,12 @@ test('a late Speakers choice cannot retarget Source playback away from the curre
 	await speakers.selectOption(current);
 	await expect.poll(() => page.evaluate(() => window.__auditionOutputSelection.contexts.map(context => context.sinkId)))
 		.toEqual([current, current]);
-	const completed = await page.evaluate(() => window.__auditionOutputSelection.completed.filter(route => route.index === 1).length);
 	await page.evaluate(() => { window.__auditionOutputSelection.release(); });
-	await expect.poll(() => page.evaluate(() => window.__auditionOutputSelection.completed.filter(route => route.index === 1).length))
-		.toBeGreaterThan(completed);
+	// Wait for the stale main-output switch and its repair; Source already uses
+	// the current sink and must not need another physical switch to retain it.
+	await expect.poll(() => page.evaluate(() => window.__auditionOutputSelection.completed
+		.filter(route => route.index === 0).slice(-2).map(route => route.deviceId)))
+		.toEqual([older, current]);
 	await expect(speakers).toHaveValue(current);
 	await expect.poll(() => page.evaluate(() => window.__auditionOutputSelection.contexts.map(context => context.sinkId)))
 		.toEqual([current, current]);

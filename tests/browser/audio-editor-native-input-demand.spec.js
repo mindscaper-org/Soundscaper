@@ -3,9 +3,11 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
 import { installNativeInputPeer } from './helpers/native-input-peer.js';
+import { NATIVE_OUTPUT_PEER_WEBKIT_REASON } from './helpers/native-output-peer.js';
 
 for (const [channel, stereo] of [['0', false], ['1', false], ['1', true], ['2', false]]) {
-	test(`an explicit native Mono ${Number(channel) + 1} pin records with global ${stereo ? 'Stereo' : 'Mono'}`, async ({ page }) => {
+	test(`an explicit native Mono ${Number(channel) + 1} pin records with global ${stereo ? 'Stereo' : 'Mono'}`, async ({ page, browserName }) => {
+		test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
 		await installNativeInputPeer(page);
 		await page.addInitScript(() => {
 			const api = window.soundscaperDesktop.v1, describe = api.describeNativeAudioBackend;

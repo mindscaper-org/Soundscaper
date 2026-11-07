@@ -2,7 +2,8 @@
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, importFiles, clipByName, openClipProperties, clipField } from './audio-editor-test-helpers.js';
 
-for (const [command, expectedStart] of [['Cut', 0.2], ['DeleteKey', 0.2], ['SplitCut', 0.4]]) {
+// Node persists and executes every native alias through the actual action handler.
+for (const [command, expectedStart] of [['Cut', 0.2], ['SplitCut', 0.4]]) {
 	test(`native ${command} import retains its fixed gap behavior for an ordinary selected range`, async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [toneA]);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
@@ -21,6 +22,7 @@ for (const [command, expectedStart] of [['Cut', 0.2], ['DeleteKey', 0.2], ['Spli
 		await preferences.getByRole('button', { name: 'Import Audacity shortcuts', exact: true }).click();
 		await (await choosing).setFiles({ name: 'audacity.xml', mimeType: 'application/xml',
 			buffer: Buffer.from(`<audacitykeyboard audacityversion="3.7.7"><command name="${command}" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>`) });
+		await expect(preferences.getByRole('button', { name: 'Import Audacity shortcuts', exact: true })).toBeEnabled({ timeout: 15_000 });
 		const review = preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true });
 		await expect(review.getByRole('status')).toHaveText('1 command ready to import; 0 skipped.');
 		await review.getByRole('button', { name: 'Apply shortcuts', exact: true }).click();

@@ -17,6 +17,7 @@ async function importReview(page, editor, xml) {
 	await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click(); const choosing = page.waitForEvent('filechooser');
 	await preferences.getByRole('button', { name: 'Import Audacity shortcuts', exact: true }).click();
 	await (await choosing).setFiles({ name: 'audacity.xml', mimeType: 'application/xml', buffer: Buffer.from(xml) });
+	await expect(preferences.getByRole('button', { name: 'Import Audacity shortcuts', exact: true })).toBeEnabled({ timeout: 15_000 });
 	return { preferences, review: preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true }) };
 }
 async function samplePlayhead(page, editor) {
@@ -26,12 +27,14 @@ async function samplePlayhead(page, editor) {
 	await playhead.focus(); return playhead;
 }
 
-for (const command of ['CursorRight', 'CursorLongJumpRight']) test(`legacy ${command} refuses to skip native stopped range collapse`, async ({ page }) => {
+// Node retains all six native commands and their durable preference refusals.
+test('legacy cursor imports refuse to skip stopped range collapse', async ({ page }) => {
+	const commands = ['CursorRight', 'CursorLongJumpRight'];
 	const editor = await bootEditor(page, '/embed/en/'); await prepare(page, editor);
-	const { preferences, review } = await importReview(page, editor, `<audacitykeyboard audacityversion="3.7.7"><command name="${command}" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>`);
-	await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 1 skipped.');
+	const { preferences, review } = await importReview(page, editor, `<audacitykeyboard audacityversion="3.7.7">${commands.map(command => `<command name="${command}" key="Ctrl+Alt+Shift+F7"/>`).join('')}</audacitykeyboard>`);
+	await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 2 skipped.');
 	await expect(review.getByRole('button', { name: 'Apply shortcuts', exact: true })).toBeDisabled();
-	await review.getByText('Skipped shortcuts', { exact: true }).click(); await expect(review.getByRole('listitem')).toHaveText(`${command}: Command unavailable`);
+	await review.getByText('Skipped shortcuts', { exact: true }).click(); await expect(review.getByRole('listitem')).toHaveText(commands.map(command => `${command}: Command unavailable`));
 	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
 	const playhead = await samplePlayhead(page, editor); await page.keyboard.press('Control+Alt+Shift+F7');
 	await expect(playhead.locator('.timecode-digit')).toHaveText([...String(9600).padStart(12, '0')]);

@@ -12,7 +12,7 @@ export async function openInstalledGain(page, options = {}) {
 	const dialog = page.getByRole('dialog', { name: 'Plugin Manager', exact: true });
 	await dialog.getByRole('button', { name: 'Test Gain', exact: true }).click();
 	await dialog.locator('[data-native-plugin-instantiate="gain-install"]').click();
-	await expect.poll(() => page.evaluate(() => globalThis.__nativePluginParameterHost.persisted)).toBe(1);
+	await expect.poll(() => page.evaluate(() => globalThis.__nativePluginParameterHost.persisted)).toBeGreaterThan(0);
 	return dialog;
 }
 

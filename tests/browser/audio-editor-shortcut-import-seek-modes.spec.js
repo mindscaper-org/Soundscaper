@@ -9,25 +9,29 @@ async function importReview(page, editor, xml) {
 	const choosing = page.waitForEvent('filechooser');
 	await preferences.getByRole('button', { name: 'Import Audacity shortcuts', exact: true }).click();
 	await (await choosing).setFiles({ name: 'audacity.xml', mimeType: 'application/xml', buffer: Buffer.from(xml) });
+	await expect(preferences.getByRole('button', { name: 'Import Audacity shortcuts', exact: true })).toBeEnabled({ timeout: 15_000 });
 	return { preferences, review: preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true }) };
 }
 
-for (const [command, xml] of [
-	['SeekRightLong', '<audacitykeyboard audacityversion="3.7.7"><command name="SeekRightLong" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>'],
-	['seek-left-long', '<Shortcuts><SC><key>seek-left-long</key><seq>Ctrl+Alt+Shift+F7</seq></SC></Shortcuts>'],
-]) test(`shortcut import refuses ${command} without assigning a selection or all-state cursor command`, async ({ page }) => {
+// Node retains the independent dialect and durable preference cases.
+test('shortcut import reviews both long-seek dialects without changing selection', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
-	const { preferences, review } = await importReview(page, editor, xml);
-	await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 1 skipped.');
-	await expect(review.getByRole('button', { name: 'Apply shortcuts', exact: true })).toBeDisabled();
-	await review.getByText('Skipped shortcuts', { exact: true }).click();
-	await expect(review.getByRole('listitem')).toHaveText(`${command}: Command unavailable`);
-	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
-	const start = editor.getByRole('group', { name: 'Selection start', exact: true }).locator('.timecode__display');
-	const before = await start.textContent();
-	await editor.getByRole('group', { name: 'Playhead', exact: true }).focus();
-	await page.keyboard.press('Control+Alt+Shift+F7');
-	await expect(start).toHaveText(before);
+	for (const [command, xml] of [
+		['SeekRightLong', '<audacitykeyboard audacityversion="3.7.7"><command name="SeekRightLong" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>'],
+		['seek-left-long', '<Shortcuts><SC><key>seek-left-long</key><seq>Ctrl+Alt+Shift+F7</seq></SC></Shortcuts>'],
+	]) {
+		const { preferences, review } = await importReview(page, editor, xml);
+		await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 1 skipped.');
+		await expect(review.getByRole('button', { name: 'Apply shortcuts', exact: true })).toBeDisabled();
+		await review.getByText('Skipped shortcuts', { exact: true }).click();
+		await expect(review.getByRole('listitem')).toHaveText(`${command}: Command unavailable`);
+		await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
+		const start = editor.getByRole('group', { name: 'Selection start', exact: true }).locator('.timecode__display');
+		const before = await start.textContent();
+		await editor.getByRole('group', { name: 'Playhead', exact: true }).focus();
+		await page.keyboard.press('Control+Alt+Shift+F7');
+		await expect(start).toHaveText(before);
+	}
 });
 
 test('a supported native one-second seek still imports and moves live playback without changing selection', async ({ page }) => {

@@ -33,7 +33,7 @@ for (const monitoring of [true, false]) {
 		try { await expectCapturePhase(panel, 'recording'); }
 		catch (error) {
 			const frames = await page.evaluate(() => window.__round6CaptureNativeFrameSizes());
-			throw new Error(`Native AudioData: ${JSON.stringify({ count: frames.length, frameSizes: [...new Set(frames)] })}\n${await panel.innerText()}`, { cause: error });
+			throw new Error(`Native AudioData: ${JSON.stringify({ count: frames.length, frameSizes: [...new Set(frames)] })}\n${await panel.textContent()}`, { cause: error });
 		}
 		const captureStart = await page.evaluate(() => window.__round6CaptureNativeDiagnostics());
 		try {
@@ -43,7 +43,7 @@ for (const monitoring of [true, false]) {
 			await expect.poll(() => page.evaluate(() => window.__round6CaptureNativePcm().frames)).toBeGreaterThan(16_384);
 		} catch (error) {
 			const diagnostics = await page.evaluate(() => window.__round6CaptureNativeDiagnostics());
-			throw new Error(`Native capture clocks: ${JSON.stringify({ captureStart, diagnostics })}\n${await panel.innerText()}`, { cause: error });
+			throw new Error(`Native capture clocks: ${JSON.stringify({ captureStart, diagnostics })}\n${await panel.textContent()}`, { cause: error });
 		}
 		await testInfo.attach('native-capture-clocks', {
 			body: JSON.stringify({ captureStart, diagnostics: await page.evaluate(() => window.__round6CaptureNativeDiagnostics()) }),
@@ -65,7 +65,7 @@ for (const monitoring of [true, false]) {
 		await panel.getByRole('button', { name: 'Stop and import', exact: true }).click();
 		await expect(panel).toHaveAttribute('data-capture-phase', /^(?:inactive|recovery)$/u, { timeout: 30_000 });
 		const nativeFailures = await page.evaluate(() => window.__round6CaptureNativeFailures());
-		expect(await panel.getAttribute('data-capture-phase'), `${await panel.innerText()}\n${JSON.stringify(nativeFailures)}`).toBe('inactive');
+		expect(await panel.getAttribute('data-capture-phase'), `${await panel.textContent()}\n${JSON.stringify(nativeFailures)}`).toBe('inactive');
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 		const saved = await page.evaluate(async ({ databaseName, id }) => {
 			const read = request => new Promise((resolve, reject) => {

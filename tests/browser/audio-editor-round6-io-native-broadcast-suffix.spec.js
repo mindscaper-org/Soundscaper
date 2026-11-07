@@ -10,10 +10,12 @@ import { installNativeCaptionSidecar } from './helpers/native-caption-sidecar.js
 const recording = Buffer.from(readFileSync(new URL('../fixtures/bwfmetaedit-ixml-clock.wav.base64', import.meta.url), 'utf8').trim(), 'base64');
 const aifc = Buffer.from(readFileSync(new URL('../fixtures/python-uncompressed.aif.base64', import.meta.url), 'utf8').trim(), 'base64');
 
-for (const format of [
-	{ extension: 'bwf', bytes: recording, mimeType: 'application/octet-stream' },
-	{ extension: 'aifc', bytes: aifc, mimeType: 'audio/x-aiff' },
-]) for (const desktop of [false, true]) {
+// Node covers both formats through File and selected-range import and Scape
+// reopen. Keep one actual renderer/picker witness for each input boundary.
+for (const { format, desktop } of [
+	{ format: { extension: 'bwf', bytes: recording, mimeType: 'application/octet-stream' }, desktop: false },
+	{ format: { extension: 'aifc', bytes: aifc, mimeType: 'audio/x-aiff' }, desktop: true },
+]) {
 	test(`File Import saves and reopens the same ordinary ${desktop ? 'native picker' : 'browser'} ${format.extension.toUpperCase()} recording`, async ({ page }) => {
 		const name = `production-take.${format.extension}`;
 		const native = desktop ? await installNativeCaptionSidecar(page, name, format.bytes) : null;

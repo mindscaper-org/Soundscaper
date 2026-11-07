@@ -2,6 +2,11 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createFramescaperProjectStore } from '../src/framescaper/editor-project-store.ts';
+import { createFramescaperScapeNativeRuntime } from '../src/framescaper/editor-scape-native.ts';
+import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
+import { validateFramescaperProject } from '../src/framescaper/editor-project.ts';
+import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
 import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
@@ -26,5 +31,14 @@ for (const title of ['東京での録音', '東京での録音'.repeat(12)]) {
 		assert.equal(native.saveChoices.length, 1);
 		assert.ok(JSON.stringify(native.saveChoices).includes(name), 'the actual native default is preserved');
 		assert.deepEqual(await native.savedBytes(), Buffer.from(await exported.blob.arrayBuffer()));
+		const profile = FRAMESCAPER_PROJECT_RUNTIME_PROFILE;
+		const recipient = createFramescaperProjectStore(profile, { indexedDB: createInstrumentedIndexedDB(), preferOpfs: false });
+		context.after(async () => { await recipient.close(); });
+		const savedBytes = await native.savedBytes(); assert.ok(savedBytes);
+		const reopened = await createFramescaperScapeNativeRuntime(profile).importScapeProject(new Blob([Uint8Array.from(savedBytes)]), recipient);
+		assert.equal(reopened.readOnly, false);
+		const restored: unknown = reopened.project; assert.ok(validateFramescaperProject(profile, restored));
+		assert.equal(restored.title, title); assert.equal(restored.id, project.id);
+		assert.equal(restored.sources.length, 0); assert.equal(restored.schemaFamily, 'framescaper');
 	});
 }
