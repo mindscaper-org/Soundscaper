@@ -9,6 +9,9 @@ import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/edi
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 import { aiffWithRepeatedAnnotations } from './helpers/next200-aiff-metadata-fixture.ts';
+import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project-store.ts';
+import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
+import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
 class TrackedAiff extends File {
 	metadataPayloadBytes = 0;
@@ -45,6 +48,19 @@ for (const count of [513, 18, 16, 2]) test(`File Import retains PCM while boundi
 	await controller.actions.project.flush();
 	const saved: unknown = await store.loadProject(project.id); assert.ok(validateSoundscaperProject(saved));
 	assert.deepEqual(saved.sources, project.sources);
+	const recipient = createSoundscaperProjectStore({ indexedDB: createInstrumentedIndexedDB(), preferOpfs: false });
+	context.after(async () => { await recipient.close(); });
+	const archive = createSoundscaperScapeNativeRuntime();
+	const exported = await archive.exportScapeProject(project, store); assert.ok(exported.blob);
+	const reopened = await archive.importScapeProject(exported.blob, recipient); assert.equal(reopened.readOnly, false);
+	const restored: unknown = reopened.project; assert.ok(validateSoundscaperProject(restored));
+	assert.equal(restored.clips.length, 1); assert.equal(restored.sources.length, 1);
+	const retained = restored.sources[0]; assert.ok(retained?.kind === 'audio');
+	assert.deepEqual([retained.sampleRate, retained.frameCount, retained.channelCount], [48_000, 4800, 1]);
+	assert.equal(retained.provenance?.contributions[0]?.metadata.normalized.title, 'Retained title');
+	assert.equal(retained.provenance?.contributions[0]?.warnings.some(warning => warning.includes('aggregate')), count > 17);
+	const retainedChunk = await recipient.readSourceChunk(retained.storageKey, 0); assert.ok(retainedChunk);
+	assertPcmSamplesEqual(retainedChunk.channels[0], new Float32Array(4800).fill(.25));
 });
 
 test('metadata aggregate admission preserves AbortError without later reads', async () => {
