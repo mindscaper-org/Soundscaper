@@ -9,6 +9,11 @@ import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { createProjectStore } from '../src/common/editor/storage.js';
 import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
 import { nativeSidecarFixture } from './helpers/framescaper-native-sidecar-fixture.ts';
+import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
+import { createFramescaperProjectStore } from '../src/framescaper/editor-project-store.ts';
+import { createFramescaperScapeNativeRuntime } from '../src/framescaper/editor-scape-native.ts';
+import { validateFramescaperProject } from '../src/framescaper/editor-project.ts';
+import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
 for (const title of ['Ordinary programme', 'Ordinary programme '.repeat(9) + 'Mixdown', '東京での録音'.repeat(20)]) {
 	test(`the native suggested name preserves the project suffix for a ${title.length} character title`, async (context) => {
@@ -28,6 +33,14 @@ for (const title of ['Ordinary programme', 'Ordinary programme '.repeat(9) + 'Mi
 		assert.ok(saved.fileName.endsWith('.fscape'), 'retain the selected product file suffix');
 		await service.withScapeReadDescriptor(files[0], {}, async (source: ScapeArchiveByteSource) => {
 			assert.deepEqual(await source.read({ offset: 0, length: source.size }), new Uint8Array(await blob.arrayBuffer()));
+			const profile = FRAMESCAPER_PROJECT_RUNTIME_PROFILE;
+			const recipient = createFramescaperProjectStore(profile, { indexedDB: createInstrumentedIndexedDB(), preferOpfs: false });
+			context.after(async () => { await recipient.close(); });
+			const reopened = await createFramescaperScapeNativeRuntime(profile).importScapeProject(source, recipient);
+			assert.equal(reopened.readOnly, false);
+			const restored: unknown = reopened.project; assert.ok(validateFramescaperProject(profile, restored));
+			assert.equal(restored.title, title); assert.equal(restored.id, project.id);
+			assert.equal(restored.schemaFamily, 'framescaper'); assert.equal(restored.sources.length, 0);
 		});
 	});
 }
