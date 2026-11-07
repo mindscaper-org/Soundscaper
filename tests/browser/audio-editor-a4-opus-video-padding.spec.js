@@ -8,7 +8,10 @@ import { opusPaddingAvFixture } from '../helpers/ordinary-ogg-opus-fixture.ts';
 for (const padded of [false, true]) test(`video File Import discards final Opus encoder padding (bounded=${padded})`, async ({ page, browserName }, testInfo) => {
 	// Firefox may exhaust both existing disposable15s poster/thumbnail seek waits.
 	if (padded) test.setTimeout(60_000);
-	const file = opusPaddingAvFixture(padded ? 32 * 1024 ** 2 : 0);
+	// Size selects the bounded route without changing the native decoder's Segment.
+	// The oversized in-Segment Void remains covered by the focused Node reader test.
+	const file = opusPaddingAvFixture(padded ? 32 * 1024 ** 2 : 0, { paddingAfterSegment: true });
+	if (padded) expect(file.size).toBeGreaterThan(32 * 1024 ** 2);
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	// Preserve native media backing after the editor clears its file input.
 	const filePath = testInfo.outputPath(file.name);

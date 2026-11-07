@@ -23,6 +23,14 @@ test('large Void bytes are skipped without materializing the video or padding bo
 	assert.ok(reads < 100); assert.ok(bytes < 1500);
 });
 
+test('the bounded native-video fixture retains its complete original Segment before trailing padding', async () => {
+	const original = Buffer.from(await opusPaddingAvFixture().arrayBuffer());
+	const padded = opusPaddingAvFixture(32 * 1024 ** 2, { paddingAfterSegment: true });
+	assert.ok(padded.size > 32 * 1024 ** 2);
+	assert.deepEqual(Buffer.from(await padded.slice(0, original.length).arrayBuffer()), original);
+	assert.equal(await readMatroskaOpusEndPadding(padded, 2), 648);
+});
+
 test('padding larger than the final packet is refused before any PCM trim', async () => {
 	const bytes = new Uint8Array(await opusPaddingAvFixture().arrayBuffer());
 	const index = Buffer.from(bytes).indexOf(Buffer.from([0x75, 0xa2])); assert.ok(index > 0); assert.equal(bytes[index + 2], 0x84);
