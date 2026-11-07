@@ -180,9 +180,8 @@ npm run check-all
 using the existing eight lint shards, Node suites across four execution slots,
 and browser suites into four partitions spanning all three engines. Each
 Node shard uses two test processes and each browser shard admits up to two
-workers. Firefox and WebKit projects allow one worker per shard, matching their
-native audio/video CI limits; this project limit also applies to ordinary local
-runs. Browser shards still run concurrently.
+workers for every engine. Ordinary local browser runs also default to two
+workers. Browser shards still run concurrently.
 Browser preparation runs the production build once, builds Framescaper, and
 authenticates the two product sites before browser tests start. Four browser
 shards share one owned preview pair, avoiding port collisions. Node coverage is
