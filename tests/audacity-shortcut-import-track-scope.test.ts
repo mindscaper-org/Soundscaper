@@ -4,6 +4,7 @@ import test from 'node:test';
 import { parseAudacityShortcutImport } from '../src/common/editor/audacity-shortcut-import.ts';
 import { AUDACITY_SHORTCUT_PROFILE } from '../src/common/editor/audacity-shortcut-profile.ts';
 import { audacityPrimaryShortcut, audioEditorPrimaryShortcut } from '../src/common/editor/audacity-shortcut-bindings.ts';
+import { importShortcutPreferences } from './helpers/shortcut-import-custody.ts';
 
 for (const [command, xml] of [
 	['TrackClose', '<audacitykeyboard audacityversion="3.7.7"><command name="TrackClose" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>'],
@@ -29,4 +30,20 @@ test('the source focused-track command is unsupported while the editor retains i
 	assert.equal(entry.reason, 'unsupported');
 	assert.equal(audacityPrimaryShortcut('remove-tracks'), null);
 	assert.equal(audioEditorPrimaryShortcut('remove-tracks'), 'Shift+C');
+});
+
+for (const [command, xml] of [
+	['TrackClose', '<audacitykeyboard><command name="TrackClose" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>'],
+	['track-close', '<Shortcuts><SC><key>track-close</key><seq>Ctrl+Alt+Shift+F7</seq></SC></Shortcuts>'],
+] as const) test(`${command} review leaves the durable selected-track removal binding intact`, async context => {
+	const { plan, before, persisted, saves } = await importShortcutPreferences(context, xml, { 'remove-tracks': ['Shift+C'] });
+	assert.deepEqual(plan.skipped, [{ command, reason: 'unsupported-command' }]);
+	assert.equal(plan.importedCount, 0); assert.equal(saves, 0); assert.deepEqual(persisted, before);
+});
+
+test('native RemoveTracks persists only the supported selected-track command', async context => {
+	const { plan, persisted, saves } = await importShortcutPreferences(context,
+		'<audacitykeyboard><command name="RemoveTracks" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>', { 'remove-tracks': ['Shift+C'] });
+	assert.equal(plan.importedCount, 1); assert.equal(saves, 1);
+	assert.deepEqual(persisted['remove-tracks'], ['Ctrl+Alt+Shift+F7']);
 });
