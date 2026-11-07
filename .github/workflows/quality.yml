@@ -681,7 +681,7 @@ jobs:
           path: .wrangler/browser-products/framescaper-source-maps
 
       - name: Run browser workflows against the existing build
-        run: npm run test:browser:built -- --project=${{ matrix.project }} --suite-shard=${{ matrix.shard }}/4 --workers=${{ matrix.project == 'webkit' && 1 || 2 }}
+        run: npm run test:browser:built -- --project=${{ matrix.project }} --suite-shard=${{ matrix.shard }}/4 --workers=2
         env:
           # Chromium is the only engine whose V8 coverage Playwright can read, so
           # it is the only one that records. Every other project runs exactly as
@@ -841,10 +841,7 @@ jobs:
 
       - name: Run Firefox workflows against the existing build
         timeout-minutes: 180
-        # A second Firefox content process can starve the live AudioContext even
-        # after the PulseAudio clock probe passes. The four shard runners still
-        # keep the suite parallel without competing for one runner's audio clock.
-        run: npm run test:browser:built -- --project=firefox --suite-shard=${{ matrix.shard }}/4 --workers=1
+        run: npm run test:browser:built -- --project=firefox --suite-shard=${{ matrix.shard }}/4 --workers=2
 
       - name: Upload Firefox diagnostics
         if: always()

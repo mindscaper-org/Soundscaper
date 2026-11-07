@@ -76,14 +76,21 @@ test('Playwright runs the maintained evergreen browser-engine matrix', async () 
 		'the ordinary suite must not accidentally run the separately served dual-origin workflow');
 });
 
-test('native audio and video browser projects retain their single-worker admission bound outside CI', async () => {
-	delete process.env.CI;
-	const { default: config } = await import('../playwright.config.mjs?native-media-workers');
-	for (const name of ['firefox', 'webkit']) {
-		assert.equal(config.projects.find(project => project.name === name).workers, 1,
-			`${name} native audio clocks and decoder processes must not compete within a shard`);
+test('ordinary browser projects admit two workers per shard in CI and local runs', async () => {
+	const previous = process.env.CI;
+	try {
+		for (const ci of ['', 'true']) {
+			process.env.CI = ci;
+			const { default: config } = await import(`../playwright.config.mjs?browser-workers-${ci}`);
+			assert.equal(config.workers, 2);
+			for (const project of config.projects) {
+				assert.equal(project.workers ?? config.workers, 2, `${project.name} must admit two workers`);
+			}
+		}
+	} finally {
+		if (previous === undefined) delete process.env.CI;
+		else process.env.CI = previous;
 	}
-	assert.equal(config.projects.find(project => project.name === 'chromium').workers, undefined);
 });
 
 test('ordinary Playwright previews separately built Soundscaper and Framescaper origins', async () => {
@@ -279,8 +286,8 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(browserJob, /npm install --global --prefix "\$HOME\/\.local" npm@12\.0\.1/u);
 	assert.match(browserJob, /name: verified-soundscaper-browser-site-build/u);
 	assertEngineIsSharded(browserJob, `${label} browser`, 'npm run test:browser:built -- --project=${{ matrix.project }}', browserShardCount);
-	assert.match(browserJob, /--workers=\$\{\{ matrix\.project == 'webkit' && 1 \|\| 2 \}\}/u,
-		`${label} must give WebKit real-time audio one worker per shard`);
+	assert.match(browserJob, /--suite-shard=\$\{\{ matrix\.shard \}\}\/4 --workers=2\s*$/mu,
+		`${label} must give Chromium and WebKit two workers per shard`);
 
 	// The handbook suite has its own Playwright config, so `--suite-shard` cannot
 	// divide it alongside the site suite. It has to be pinned to one leg of the
@@ -302,8 +309,8 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(firefoxJob, /name: verified-soundscaper-browser-site-build/u);
 	assertEngineIsSharded(firefoxJob, `${label} firefox`, 'npm run test:browser:built -- --project=firefox', firefoxShardCount);
 	assert.ok(
-		firefoxJob.includes(`--suite-shard=\${{ matrix.shard }}/${firefoxShardCount} --workers=1`),
-		`${label} must keep Firefox media workflows on one worker per shard`,
+		firefoxJob.includes(`--suite-shard=\${{ matrix.shard }}/${firefoxShardCount} --workers=2`),
+		`${label} must give Firefox two workers per shard`,
 	);
 	assert.ok(
 		firefoxJob.indexOf('ci-firefox-audio-clock.mjs')

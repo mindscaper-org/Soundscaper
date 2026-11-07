@@ -27,11 +27,13 @@ function FreqStepper({ label, value, onCommit, min, max, step, width, className 
 }) {
   const [draft, setDraft] = React.useState(String(value));
   const ref = React.useRef<HTMLInputElement>(null);
+  const pendingDraft = React.useRef(false);
 
   // Sync draft when external value changes (e.g. from arrow buttons on the other field)
-  React.useEffect(() => { setDraft(String(value)); }, [value]);
+  React.useEffect(() => { if (!pendingDraft.current) setDraft(String(value)); }, [value]);
 
   const tryCommit = (raw: string) => {
+    pendingDraft.current = false;
     const n = raw.trim() ? Number(raw) : NaN;
     if (Number.isFinite(n) && n >= min && n <= max) {
       onCommit(n);
@@ -49,7 +51,7 @@ function FreqStepper({ label, value, onCommit, min, max, step, width, className 
         ref={ref}
         ariaLabel={label}
         value={draft}
-        onChange={setDraft}
+        onChange={raw => { pendingDraft.current = true; setDraft(raw); }}
         onStep={tryCommit}
         min={min}
         max={max}
