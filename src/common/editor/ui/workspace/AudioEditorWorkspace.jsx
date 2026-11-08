@@ -36,6 +36,7 @@ import {
 	useSoundscaperNativeServicesMenuRefresh,
 } from './workspace-application-menu-runtime.js';
 import { usePrivacyPolicySurface } from '../use-privacy-policy-surface.ts';
+import { useEditorNotificationMenus } from '../editor-notification-menus.ts';
 import { useTakeCycleRecoverySurface } from '../use-take-cycle-recovery-surface.ts';
 import { useProjectRecoverySurface } from '../use-project-recovery-surface.ts';
 import { supportsDisplayAudioCapture } from '../../recording-display-input.ts';
@@ -366,7 +367,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		toggleFullscreen,
 		workspaceRef,
 	});
-	const applicationMenus = createWorkspaceApplicationMenus({
+	const applicationMenus = useEditorNotificationMenus(createWorkspaceApplicationMenus({
 		aboutLabel,
 		aup4InputRef,
 		blocked,
@@ -415,7 +416,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		toggleWorkspacePanel,
 		uiFlags,
 		zoomProject,
-	});
+	}), copy);
 	const { activateSearchEntry, searchEntries } = useWorkspaceSearchRuntime({
 		applicationMenus,
 		controller,

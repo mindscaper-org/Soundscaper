@@ -1,0 +1,50 @@
+.kw-audio-editor__toasts {
+	top: 12px;
+	bottom: auto;
+	max-height: calc(100% - 24px);
+	gap: 8px;
+	overscroll-behavior: contain;
+	scrollbar-gutter: stable;
+}
+
+.kw-audio-editor__toast {
+	min-height: 64px;
+	overflow: hidden;
+}
+
+.kw-audio-editor__toast[data-actionable] {
+	min-height: 128px;
+}
+
+.kw-audio-editor__toast[data-timed]::after {
+	display: block;
+	height: 6px;
+	content: '';
+	background: var(--accent);
+	transform-origin: left;
+	animation: editor-toast-countdown 10s linear forwards;
+}
+
+.kw-audio-editor__toast[data-timed]:is(:hover, :focus-within)::after {
+	animation-play-state: paused;
+}
+
+.kw-editor-notification-history {
+	display: grid;
+	max-height: 50vh;
+	gap: 12px;
+	padding-inline-start: 24px;
+	overflow: auto;
+	overscroll-behavior: contain;
+}
+
+.kw-editor-notification-history li {
+	padding: 8px;
+	border-bottom: 1px solid var(--line);
+	overflow-wrap: anywhere;
+}
+
+@keyframes editor-toast-countdown {
+	from { transform: scaleX(1); }
+	to { transform: scaleX(0); }
+}

@@ -4,6 +4,7 @@ import { useTheme } from '@soundscaper/design-system/ThemeProvider';
 
 import { EditorComponentCopyProvider } from './EditorComponentCopyProvider.tsx';
 import { EditorSkinProvider, useEditorSkin } from './skins/EditorSkinProvider.tsx';
+import { EditorNotificationProvider } from './EditorNotificationProvider.tsx';
 import EditorMusicalTimeCodeProvider from './EditorMusicalTimeCodeProvider.tsx';
 
 import { wcagContrastRatio } from './theme-contrast.ts';
@@ -25,7 +26,7 @@ export function DesignSystemProviders({ children, copy, locale = 'en', controlle
 	return (
 		<EditorComponentCopyProvider copy={copy} locale={locale}><AccessibilityProfileProvider initialProfileId={accessibilityProfile}>
 			<EditorSkinProvider controller={controller} mode={theme}>
-				<EditorMusicalTimeCodeProvider controller={controller}>{children}</EditorMusicalTimeCodeProvider>
+				<EditorNotificationProvider><EditorMusicalTimeCodeProvider controller={controller}>{children}</EditorMusicalTimeCodeProvider></EditorNotificationProvider>
 			</EditorSkinProvider>
 		</AccessibilityProfileProvider></EditorComponentCopyProvider>
 	);

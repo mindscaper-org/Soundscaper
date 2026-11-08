@@ -134,10 +134,13 @@ test('dismissal stays with its project when switching A to B and back to A', asy
 		await render('project-b');
 		assert.ok(dom.find('[data-project-feature-compatibility-summary]'), 'B remains available');
 		await act(async () => { context.mock.timers.tick(10_000); });
-		assert.equal(dom.find('[data-project-feature-compatibility-summary]'), null, 'B expires automatically');
+		assert.ok(dom.find('[data-project-feature-compatibility-summary]'), 'B retains its report action until dismissed');
+		const dismissB = dom.container.querySelectorAll('button').find(button => button.textContent === `×${ENGLISH_COPY.aup4CompatibilityDismiss}`);
+		assert.ok(dismissB);
+		await act(async () => { reactProps(dismissB).onClick({ currentTarget: dismissB }); });
 		await render('project-a');
 		await render('project-b');
-		assert.equal(dom.find('[data-project-feature-compatibility-summary]'), null, 'B stays dismissed after expiry');
+		assert.equal(dom.find('[data-project-feature-compatibility-summary]'), null, 'B stays dismissed');
 	} finally {
 		await act(async () => root.unmount());
 		actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;

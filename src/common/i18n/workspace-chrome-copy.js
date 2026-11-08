@@ -19,6 +19,12 @@ const ENTRIES = Object.freeze([
 	['trackHeaders', 'Track headers'],
 	['trackHeadersShow', 'Show track headers'],
 	['trackHeadersHide', 'Hide track headers'],
+	['notificationHistory', 'Notifications'],
+	['notificationHistoryOpen', 'Notification history…'],
+	['notificationHistoryNote', 'Recent messages in this editor session. Project actions remain available only in their original notification or menu.'],
+	['notificationMute', 'Mute informational notifications'],
+	['notificationClear', 'Clear history'],
+	['notificationEmpty', 'No notifications in this session.'],
 ]);
 
 export const WORKSPACE_CHROME_COPY_BY_LOCALE = Object.freeze({
