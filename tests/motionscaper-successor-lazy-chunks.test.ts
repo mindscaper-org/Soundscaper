@@ -60,6 +60,24 @@ test('successor repository shares its eager environment owner when migration als
 	assert.ok(reached(chunks, migration).has(repository), 'migration retains the same repository implementation');
 });
 
+test('successor retained-archive admission shares the startup runtime without an extra request', async () => {
+	const main = '/fixture/src/main.jsx';
+	const runtime = '/fixture/src/framescaper/editor-project-successor-runtime.ts';
+	const archive = '/fixture/src/framescaper/editor-project-successor-archive.ts';
+	const custody = '/fixture/src/framescaper/editor-project-successor-archive-custody.ts';
+	const record = '/fixture/src/framescaper/editor-project-successor-archive-record.ts';
+	const chunks = await generate({
+		[main]: `import { open } from '${runtime}'; globalThis.open = open;`,
+		[runtime]: `import { inspect } from '${archive}'; import { retain } from '${custody}'; export const open = value => retain(inspect(value));`,
+		[archive]: `import { format } from '${record}'; export const inspect = value => globalThis.inspectArchive(value, format);`,
+		[custody]: `import { format } from '${record}'; export const retain = value => globalThis.retainArchive(value, format);`,
+		[record]: 'export const format = "retained-archive-v1";',
+	}, main);
+	const owner = chunks.find(chunk => Object.hasOwn(chunk.modules, runtime));
+	assert.ok(owner);
+	for (const id of [archive, custody, record]) assert.ok(Object.hasOwn(owner.modules, id), `${id} shares its eager admission owner`);
+});
+
 test('eager Motion values cannot import the lazy CanvasKit decoration implementation', async () => {
 	const main = '/fixture/src/main.jsx';
 	const values = '/fixture/src/common/editor/motion-values.ts';

@@ -31,6 +31,10 @@ const successorRuntimeModules = [
 	'editor-project-successor-runtime',
 	// Startup opens this repository; migration shares that same runtime owner.
 	'editor-project-successor-repository',
+	// Retained-original admission is shared with startup and migration.
+	'editor-project-successor-archive',
+	'editor-project-successor-archive-custody',
+	'editor-project-successor-archive-record',
 	'editor-project-successor-opaque',
 	'editor-composition-link-owner-record',
 	'editor-composition-link-records',
