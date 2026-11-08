@@ -272,7 +272,9 @@ export async function setProjectTempo(page, editor, bpm) {
 	if (await workspace.inputValue() !== 'music') await workspace.selectOption('music');
 	await expect(editor).toHaveAttribute('data-workspace-preset', 'music');
 	const tempo = editor.getByRole('spinbutton', { name: 'Project tempo (BPM)', exact: true });
-	await tempo.fill(String(bpm));
+	await tempo.press('ControlOrMeta+A');
+	await tempo.pressSequentially(String(bpm));
+	await expect(tempo).toHaveValue(String(bpm));
 	await tempo.blur();
 	await expect(tempo).toHaveValue(String(bpm));
 }

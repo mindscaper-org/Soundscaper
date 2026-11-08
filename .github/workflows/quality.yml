@@ -14,6 +14,7 @@ on:
         description: Exact pushed translation-sync commit to publish
         type: string
         default: ''
+  workflow_call:
 
 permissions:
   contents: read
@@ -27,9 +28,9 @@ concurrency:
 
 jobs:
   # Keep four static jobs independent, but run each check's internal shards
-  # sequentially. Together with four browser shards per engine, the dependency
-  # graph permits at most 19 concurrent jobs, leaving one of the organization's
-  # 20 runner slots for other workflows. The complete run schedules 25 jobs.
+  # sequentially. Chromium and WebKit use four shards each; Firefox uses three
+  # so the five Node shards and native checks fit within 19 concurrent runners.
+  # Leave one of the organization's 20 slots available; schedule 25 jobs in total.
   build:
     name: Build
     runs-on: ubuntu-24.04
@@ -103,6 +104,8 @@ jobs:
       - name: Build and verify the Framescaper browser site
         run: npm run build:browser:framescaper
 
+      - name: Build and verify the Motionscaper browser site
+        run: npm run build:browser:motionscaper
       - name: Prepare and verify the ordinary Soundscaper browser site once
         run: npm run prepare:browser:products
         env:
@@ -140,6 +143,15 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      - name: Upload the verified Motionscaper website build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verified-motionscaper-site-build
+          path: .wrangler/browser-products/motionscaper/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Upload the website build's source maps
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -156,6 +168,13 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      - name: Upload the Motionscaper website build's source maps
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verified-motionscaper-site-source-maps
+          path: .wrangler/browser-products/motionscaper-source-maps/
+          if-no-files-found: error
+          retention-days: 1
       - name: Prepare one fresh desktop test runtime for consuming suites
         uses: ./.github/actions/prepare-desktop-runtime-test-fixture
 
@@ -279,8 +298,8 @@ jobs:
       - name: Check the architecture rules
         run: npm run check:architecture
         env:
-          CONTROLLER_DOMAIN_BASE_REVISION: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.event.before || github.sha }}
-          MAINTAINABILITY_BASE_REVISION: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.event.before || github.sha }}
+          CONTROLLER_DOMAIN_BASE_REVISION: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.ref_type == 'branch' && github.event.before || github.sha }}
+          MAINTAINABILITY_BASE_REVISION: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.ref_type == 'branch' && github.event.before || github.sha }}
 
       - name: Audit the pinned third-party payloads
         run: npm run audit:ci
@@ -382,11 +401,11 @@ jobs:
     needs: build
     strategy:
       fail-fast: false
-      # Module and integration suite batches are balanced across four slots.
+      # Module and integration suite batches are balanced across five slots.
       # Keep the artifact IDs stable; these names no longer assign product ownership.
-      # Coverage is checked only after all four slots upload their profiles.
+      # Coverage is checked only after all five slots upload their profiles.
       matrix:
-        shard: [common-1, common-2, framescaper, soundscaper]
+        shard: [common-1, common-2, framescaper, soundscaper, motionscaper]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -668,10 +687,17 @@ jobs:
           name: verified-framescaper-site-build
           path: .wrangler/browser-products/framescaper
 
+      - name: Download the verified Motionscaper website build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verified-motionscaper-site-build
+          path: .wrangler/browser-products/motionscaper
+
       # Beside each site rather than inside it: the sites are digest-verified
       # file by file, so nothing may be added within them. Every engine authenticates
       # served bytes; Chromium additionally authenticates and consumes the
-      # sibling maps for coverage.
+      # sibling maps for coverage. Motion offline rehosting authenticates and
+      # copies its recorded maps in every engine.
       - name: Download the website build's source maps
         if: matrix.project == 'chromium'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -686,6 +712,12 @@ jobs:
           name: verified-framescaper-site-source-maps
           path: .wrangler/browser-products/framescaper-source-maps
 
+      - name: Download the Motionscaper website build's source maps
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verified-motionscaper-site-source-maps
+          path: .wrangler/browser-products/motionscaper-source-maps
+
       - name: Run browser workflows against the existing build
         run: npm run test:browser:built -- --project=${{ matrix.project }} --suite-shard=${{ matrix.shard }}/4 --workers=2
         env:
@@ -697,6 +729,12 @@ jobs:
       - name: Run the reciprocal-origin editable-copy workflow
         if: matrix.project == 'chromium' && matrix.shard == 1
         run: npm run test:browser:dual-origin
+
+      - name: Run saved composition links between real editors
+        if: matrix.project == 'chromium' && matrix.shard == 1
+        run: npm run test:browser:motion-links
+        env:
+          SCAPE_BROWSER_COVERAGE: '1'
 
       - name: Download the checked Soundscaper handbook
         if: matrix.project == 'chromium' && matrix.shard == 1
@@ -741,17 +779,17 @@ jobs:
           retention-days: 7
 
   firefox:
-    name: Browser / firefox ${{ matrix.shard }}/4
+    name: Browser / firefox ${{ matrix.shard }}/3
     needs: build
     strategy:
       fail-fast: false
-      # Share the same four-shard budget as Chromium and WebKit.
+      # Three shards retain twelve runner-hours while leaving room for Motion tests.
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3]
     runs-on: ubuntu-24.04
     # Run 40315820118 spent 28 minutes installing Firefox and PulseAudio.
-    # Keep setup separate from the three-hour consolidated test deadline.
-    timeout-minutes: 210
+    # Keep setup separate from the four-hour consolidated test deadline.
+    timeout-minutes: 270
     env:
       SCAPE_MODULE_PLAN: .wrangler/module-plan.json
       SCAPE_BROWSER_PRODUCTS_PREPARED: '1'
@@ -808,7 +846,7 @@ jobs:
 
       - name: Resolve the selected test prerequisites
         id: test-prerequisites
-        run: node scripts/ci-test-prerequisites.mjs --project=firefox --shard=${{ matrix.shard }}/4 >> "$GITHUB_OUTPUT"
+        run: node scripts/ci-test-prerequisites.mjs --project=firefox --shard=${{ matrix.shard }}/3 >> "$GITHUB_OUTPUT"
 
       - name: Set up the interchange reference Python
         if: steps.test-prerequisites.outputs.interchange == 'true'
@@ -845,9 +883,21 @@ jobs:
           name: verified-framescaper-site-build
           path: .wrangler/browser-products/framescaper
 
+      - name: Download the verified Motionscaper website build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verified-motionscaper-site-build
+          path: .wrangler/browser-products/motionscaper
+
+      - name: Download the Motionscaper website build's source maps
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verified-motionscaper-site-source-maps
+          path: .wrangler/browser-products/motionscaper-source-maps
+
       - name: Run Firefox workflows against the existing build
-        timeout-minutes: 180
-        run: npm run test:browser:built -- --project=firefox --suite-shard=${{ matrix.shard }}/4 --workers=2
+        timeout-minutes: 240
+        run: npm run test:browser:built -- --project=firefox --suite-shard=${{ matrix.shard }}/3 --workers=2
 
       - name: Upload Firefox diagnostics
         if: always()

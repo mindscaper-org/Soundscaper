@@ -99,7 +99,8 @@ async function mountedClipPropertiesFixture() {
 		},
 		startNormalizePeak: async () => {
 			const button = dom.one('[data-clip-properties-action="normalize-peak"]');
-			await act(async () => reactProps(button).onClick({ currentTarget: button }));
+			assert.equal(button.getAttribute('title'), ENGLISH_COPY.normalizePeak);
+			await act(async () => reactProps(button).onClick());
 		},
 		cleanup: async () => {
 			for (const call of normalizeCalls) call.completion.resolve();

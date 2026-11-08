@@ -134,6 +134,9 @@ export function createFramescaperMediaHostBuildRecipe(value) {
 		outputRoot,
 		paths,
 		zlibSourceRoot: externalSourceRoots.zlib,
+		libvpxSourceRoot: externalSourceRoots.libvpx,
+		ffmpegSourceRoot,
+		ffmpegExtractedTree: manifest.ffmpeg.extractedTree,
 		externalManifest,
 		witnesses: Object.freeze(witnesses),
 	}));
@@ -177,6 +180,14 @@ export function executeFramescaperMediaHostBuildRecipe(
 	authenticateFramescaperMediaHostExternalSourceRoot(
 		state.externalManifest, 'zlib', state.paths.zlibSource,
 	);
+	if (recipe.target.id.startsWith('win-')) {
+		stageFramescaperMediaHostFfmpegSourceRoot(
+			state.ffmpegExtractedTree, state.ffmpegSourceRoot, join(state.paths.ffmpegBuild, 'src'),
+		);
+		stageFramescaperMediaHostExternalSourceRoot(
+			state.externalManifest, 'libvpx', state.libvpxSourceRoot, state.paths.libvpxSource,
+		);
+	}
 	for (const command of recipe.commands) {
 		verifyWitnesses(state.witnesses);
 		const result = run(command.executable, [...command.args], {
@@ -187,6 +198,22 @@ export function executeFramescaperMediaHostBuildRecipe(
 		}
 		if (command.phase === 'ffmpeg-configure') verifyConfiguration(state.paths.ffmpegBuild);
 	}
+}
+
+export function stageFramescaperMediaHostExternalSourceRoot(manifest, id, sourceRoot, destinationRoot) {
+	authenticateFramescaperMediaHostExternalSourceRoot(manifest, id, sourceRoot);
+	cpSync(sourceRoot, destinationRoot, {
+		recursive: true, force: false, errorOnExist: true, preserveTimestamps: true,
+	});
+	authenticateFramescaperMediaHostExternalSourceRoot(manifest, id, destinationRoot);
+}
+
+export function stageFramescaperMediaHostFfmpegSourceRoot(expected, sourceRoot, destinationRoot) {
+	addSourceTreeWitness(sourceRoot, expected, [], 'FFmpeg staged source tree');
+	cpSync(sourceRoot, destinationRoot, {
+		recursive: true, force: false, errorOnExist: true, preserveTimestamps: true,
+	});
+	addSourceTreeWitness(destinationRoot, expected, [], 'FFmpeg staged source tree');
 }
 
 function exactTarget(hostRoot, manifest, value, witnesses) {

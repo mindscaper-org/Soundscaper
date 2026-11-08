@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
+import { readParametricEqSpectrum } from './helpers/parametric-eq-spectrum-probe.ts';
 import { addRackEffect, bootEditor, closeWorkspacePanel, commitInput, importFiles, openEffectsForTrack } from './audio-editor-test-helpers.js';
 
 for (const variant of ['neighboring bin', 'skipped high-frequency bin', 'quieter neighboring bin']) {
@@ -66,19 +67,7 @@ for (const variant of ['neighboring bin', 'skipped high-frequency bin', 'quieter
 		// input peak's height and position together after its painted frame is ready.
 		let spectrum;
 		await expect.poll(async () => {
-			spectrum = await inputCanvas.evaluate(canvas => {
-				const { width, height } = canvas;
-				const pixels = canvas.getContext('2d').getImageData(0, 0, width, height).data;
-				let top = height; let first = 0; let last = 0;
-				for (let x = 0; x < width; x++) {
-					for (let y = 0; y < height; y++) if (pixels[(y * width + x) * 4 + 3] > 20) {
-						if (y < top) { top = y; first = x; last = x; } else if (y === top) last = x;
-						break;
-					}
-				}
-				return { plot: { width, height, top: top / height, peakX: (first + last) / 2 },
-					observed: window.__round6EqSpectrum };
-			});
+			spectrum = await inputCanvas.evaluate(readParametricEqSpectrum);
 			return spectrum.plot.top;
 		}).toBeLessThan(.35);
 		const { plot, observed } = spectrum;

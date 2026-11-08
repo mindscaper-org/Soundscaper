@@ -27,7 +27,7 @@ export const LOCAL_ASSISTANCE_HARNESS_SCRIPTS = Object.freeze([
 ]);
 
 /** Read, authenticate, and classify every private local-assistance session. */
-export function assembleLocalAssistanceRawProfiles({ directory, evidence, runRuntime }) {
+export function assembleLocalAssistanceRawProfiles({ directory, evidence, runRuntime, profiles }) {
 	if (!existsSync(directory)) throw new Error('Nightly local-assistance coverage directory is missing.');
 	const entries = readdirSync(directory, { withFileTypes: true })
 		.sort((left, right) => left.name.localeCompare(right.name));
@@ -42,19 +42,25 @@ export function assembleLocalAssistanceRawProfiles({ directory, evidence, runRun
 	if (E2E_PRODUCTS.some((productId) => !products.has(productId))) {
 		throw new Error('Local-assistance coverage does not identify both product runtimes.');
 	}
-	const profiles = new Map();
+	// Preserve the direct helper's Map API; the production assembler always
+	// supplies a disk-backed group and never takes this collecting path.
+	const collected = profiles === undefined ? new Map() : null;
+	profiles ??= collectingGroup(collected);
 	const observed = new Map();
 	for (const session of sessions) appendSessionProfiles(profiles, observed, session, evidence);
-	for (const [surface, values] of profiles) {
-		const cache = values[0]?.profile['source-map-cache'];
+	for (const surface of E2E_PRODUCTS.flatMap((productId) => (
+		['main', 'preload', 'renderer'].map((realm) => `nightly-electron-${productId}-${realm}`)
+	))) {
+		const cache = {};
 		for (const script of observed.values()) {
 			if (script.sourceMap !== null
 				&& surface === `nightly-electron-${script.productId}-${script.realm}`) {
 				cache[script.coverageUrl] = script.sourceMap;
 			}
 		}
+		profiles.attachMaps(surface, cache);
 	}
-	return profiles;
+	return collected;
 }
 
 function readSession(directory, sessionId, evidence, runRuntime) {
@@ -62,13 +68,7 @@ function readSession(directory, sessionId, evidence, runRuntime) {
 	const manifest = readJson(manifestPath, `local-assistance session ${sessionId}`);
 	const runtime = validateManifest(manifest, sessionId, evidence, runRuntime);
 	validateClosedInventory(directory, manifest);
-	const cdp = readRecordedProfile(directory, manifest.cdpProfile, 'CDP');
-	const node = manifest.nodeProfiles.map((record) => ({
-		name: record.fileName,
-		profile: readRecordedProfile(directory, record, 'Node'),
-		identity: nodeProfileIdentity(record.fileName),
-	}));
-	return Object.freeze({ cdp, directory, manifest, node, runtime, sessionId });
+	return Object.freeze({ directory, manifest, runtime, sessionId });
 }
 
 function validateManifest(value, sessionId, evidence, runRuntime) {
@@ -164,17 +164,24 @@ function readRecordedProfile(directory, descriptor, label) {
 
 function appendSessionProfiles(profiles, observed, session, evidence) {
 	const observedMain = new Set();
-	const cdpClassified = classifyCdpProfile(session, evidence);
-	appendClassified(profiles, observed, cdpClassified, `local-cdp-${session.sessionId}`);
-	for (const node of session.node) {
-		const classified = resultEntries(node.profile.result, `Node profile ${node.name}`)
+	{
+		const cdpClassified = classifyCdpProfile({
+			...session, cdp: readRecordedProfile(session.directory, session.manifest.cdpProfile, 'CDP'),
+		}, evidence);
+		appendClassified(profiles, observed, cdpClassified, `local-cdp-${session.sessionId}`);
+	}
+	for (const descriptor of session.manifest.nodeProfiles) {
+		const name = descriptor.fileName;
+		const identity = nodeProfileIdentity(name);
+		const profile = readRecordedProfile(session.directory, descriptor, 'Node');
+		const classified = resultEntries(profile.result, `Node profile ${name}`)
 			.map((entry) => classifyNodeEntry(entry, session.runtime, evidence));
-		if (node.identity.pid === session.runtime.mainProcessId && node.identity.threadId === 0) {
+		if (identity.pid === session.runtime.mainProcessId && identity.threadId === 0) {
 			for (const match of classified) {
 				if (match?.script.realm === 'main') observedMain.add(match.script.coverageUrl);
 			}
 		}
-		appendClassified(profiles, observed, classified, `local-node-${session.sessionId}-${node.name}`);
+		appendClassified(profiles, observed, classified, `local-node-${session.sessionId}-${name}`);
 	}
 	if (observedMain.size === 0) {
 		throw new Error(`Local-assistance session ${session.sessionId} main profile recorded no product main code.`);
@@ -273,11 +280,22 @@ function appendClassified(profiles, observed, values, prefix) {
 		grouped.set(value.surface, list);
 	}
 	for (const [surface, result] of grouped) {
-		const list = profiles.get(surface) ?? [];
-		list.push({ name: safeName(`${prefix}-${surface}.json`),
-			profile: { result, 'source-map-cache': {} } });
-		profiles.set(surface, list);
+		profiles.write(surface, safeName(`${prefix}-${surface}.json`), { result, 'source-map-cache': {} });
 	}
+}
+
+function collectingGroup(profiles) {
+	return {
+		write(surface, name, profile) {
+			const list = profiles.get(surface) ?? [];
+			list.push({ name, profile });
+			profiles.set(surface, list);
+		},
+		attachMaps(surface, cache) {
+			const first = profiles.get(surface)?.[0];
+			if (first !== undefined) Object.assign(first.profile['source-map-cache'], cache);
+		},
+	};
 }
 
 function ownedMatch(entry, script) {

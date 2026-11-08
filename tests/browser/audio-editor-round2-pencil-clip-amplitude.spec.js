@@ -6,6 +6,15 @@ import { showClipTimingFields, bootEditor, chooseNestedCommandAction, clipByName
 import { exportSamples } from './helpers/round2-audio-export.js';
 import { chooseClipMediaSetting } from './audio-editor-clip-settings-test-helpers.js';
 
+import { attachMenuKeyboardDiagnostics, installMenuKeyboardDiagnostics } from './helpers/menu-keyboard-diagnostics.ts';
+
+test.beforeEach(async ({ page, browserName }) => {
+	if (browserName === 'chromium') await installMenuKeyboardDiagnostics(page, { menu: 'View', branch: 'Zoom' });
+});
+test.afterEach(async ({ page, browserName }, testInfo) => {
+	if (browserName === 'chromium') await attachMenuKeyboardDiagnostics(page, testInfo);
+});
+
 test('drawing an inverted clip places the audible sample at the visible pencil height', async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');

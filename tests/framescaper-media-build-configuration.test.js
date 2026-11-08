@@ -57,12 +57,12 @@ test('the Windows x265 build explicitly selects the static MSVC runtime', () => 
 	const svt = commands.find(({ phase }) => phase === 'svt-av1-configure');
 	assert.ok(svt.args.includes('-DCMAKE_OUTPUT_DIRECTORY=D:/work/svt-av1-build/bin'),
 		'SVT must leave the authenticated source tree unchanged when it writes its library.');
-	assert.equal(vpx.args[0], '../../sources/libvpx/configure',
-		'Native Windows Make must keep source prerequisites relative so every codec source reaches its project.');
+	assert.equal(vpx.args[0], 'src/configure',
+		'Native Windows Make must read the authenticated source staged beneath its build root.');
 	assert.ok(vpx.args.includes('--prefix=D:/work/libvpx-install'));
 	assert.ok(vpx.args.includes('--target=arm64-win64-vs17'));
-	assert.equal(Object.hasOwn(vpx.environment, 'CC'), false);
-	assert.equal(Object.hasOwn(vpx.environment, 'CXX'), false);
+	assert.equal(vpx.environment.CC, '');
+	assert.equal(vpx.environment.CXX, '');
 	assert.equal(commands.find(({ phase }) => phase === 'x264-configure').environment.CC, 'c');
 	assert.equal(commands.find(({ phase }) => phase === 'libvpx-build').environment.PATH.split(';')[0], 'C:/Program Files/Git/bin');
 	for (const phase of ['libvpx-build', 'libvpx-install']) {

@@ -5,6 +5,7 @@ import { lstat, mkdir, readdir, readlink, rename, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import nativeFixtureSources from './desktop-nightly-tests-native-fixture-inputs.cjs';
 import { NIGHTLY_BROWSER_CODEC_INPUTS } from './desktop-nightly-tests-browser-codec-inputs.mjs';
+import { NIGHTLY_MOTION_FIXTURE_INPUTS } from './desktop-nightly-tests-motion-fixture-inputs.mjs';
 import { NIGHTLY_BROWSER_MEDIA_INPUTS } from './desktop-nightly-tests-browser-media-inputs.mjs';
 import { NIGHTLY_INTERCHANGE_INPUTS, validateNightlyInterchange } from './desktop-nightly-tests-interchange-inputs.mjs';
 import {
@@ -25,32 +26,11 @@ import {
 	pruneUnpackableSymlinks,
 } from './desktop-nightly-tests-browser-pruning.mjs';
 
-export const NIGHTLY_TEST_RUNTIME_PACKAGE_ROOTS = Object.freeze([
-	'@axe-core/playwright',
-	'@echogarden/pffft-wasm',
-	'@ffmpeg/core',
-	'@ffmpeg/ffmpeg',
-	'@fontsource/inter',
-	'@noble/hashes',
-	'@playwright/test',
-	'@zip.js/zip.js',
-	'esbuild',
-	'fflate',
-	'mediabunny',
-	'saxes',
-	'sql.js',
-	'typescript',
-]);
-
-// esbuild publishes its compiled binary as one optional dependency per platform
-// and resolves it from `process.arch` at run time. The closure walk deliberately
-// ignores optional dependencies, so the installed binary package is admitted
-// here instead: exactly one may be present, and the launcher points
-// ESBUILD_BINARY_PATH at it so the packaged runner never repeats that lookup
-// against an Electron whose architecture differs from the build host's Node.
-const ESBUILD_BINARY_SCOPE = '@esbuild';
+export { NIGHTLY_TEST_RUNTIME_PACKAGE_ROOTS, resolveNightlyTestRuntimePackages } from './desktop-nightly-tests-runtime-packages.mjs';
+import { resolveNightlyTestRuntimePackages } from './desktop-nightly-tests-runtime-packages.mjs';
 
 export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
+	...NIGHTLY_MOTION_FIXTURE_INPUTS,
 	...nativeFixtureSources.filter(source => !source.startsWith('src/')).map(source => ({ source, destination: source, kind: 'file', label: 'native browser fixture support' })),
 	...['flac', 'mpeg-audio', 'opus', 'vorbis', 'wavpack'].map((format) => ({
 		source: `desktop/bundled-${format}-stream.ts`, destination: `desktop/bundled-${format}-stream.ts`,
@@ -85,6 +65,8 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	{ source: 'scripts/lib/desktop-nightly-tests-phases.mjs', destination: 'scripts/lib/desktop-nightly-tests-phases.mjs', kind: 'file', label: 'serial nightly test phases' },
 	{ source: 'scripts/lib/pages-site-static-server.mjs', destination: 'scripts/lib/pages-site-static-server.mjs', kind: 'file', label: 'Pages-compatible nightly product server' },
 	{ source: 'scripts/lib/product-web-routing.mjs', destination: 'scripts/lib/product-web-routing.mjs', kind: 'file', label: 'Pages routing policy reader' },
+	{ source: 'scripts/lib/build-worker-chunk-groups.mjs', destination: 'scripts/lib/build-worker-chunk-groups.mjs', kind: 'file', label: 'production worker chunk ownership for browser fixtures' },
+	{ source: 'scripts/lib/build-worker-chunks.mjs', destination: 'scripts/lib/build-worker-chunks.mjs', kind: 'file', label: 'production worker chunk ownership for browser fixtures' },
 	{ source: 'scripts/lib/desktop-nightly-tests-local-assistance.mjs', destination: 'scripts/lib/desktop-nightly-tests-local-assistance.mjs', kind: 'file', label: 'real local assistance model runtime' },
 	{ source: 'scripts/lib/local-model-real-test-cases.mjs', destination: 'scripts/lib/local-model-real-test-cases.mjs', kind: 'file', label: 'real local model case validation' },
 	{ source: 'scripts/lib/local-model-mirror-publication.mjs', destination: 'scripts/lib/local-model-mirror-publication.mjs', kind: 'file', label: 'live local model public-delivery verification' },
@@ -122,6 +104,7 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	// collector, so every spec reaches these helpers whether or not the packaged
 	// run records anything — an unresolved import here would abort the suite.
 	{ source: 'scripts/lib/browser-coverage-profile.mjs', destination: 'scripts/lib/browser-coverage-profile.mjs', kind: 'file', label: 'browser coverage profile writer' },
+	{ source: 'scripts/lib/browser-coverage-cleanup.ts', destination: 'scripts/lib/browser-coverage-cleanup.ts', kind: 'file', label: 'browser coverage cleanup' },
 	{ source: 'scripts/lib/browser-webassembly-coverage.mjs', destination: 'scripts/lib/browser-webassembly-coverage.mjs', kind: 'file', label: 'browser WebAssembly coverage admission' },
 	{ source: 'scripts/lib/cdp-javascript-coverage.mjs', destination: 'scripts/lib/cdp-javascript-coverage.mjs', kind: 'file', label: 'CDP JavaScript coverage admission' },
 	{ source: 'scripts/lib/browser-dynamic-coverage-sources.mjs', destination: 'scripts/lib/browser-dynamic-coverage-sources.mjs', kind: 'file', label: 'browser dynamic-source admission' },
@@ -153,14 +136,16 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	{ source: 'playwright.nightly-packaged-metrics.config.mjs', destination: 'playwright.nightly-packaged-metrics.config.mjs', kind: 'file', label: 'nightly packaged-runtime Playwright config' },
 	{ source: 'playwright.nightly-local-assistance.config.mjs', destination: 'playwright.nightly-local-assistance.config.mjs', kind: 'file', label: 'real model Electron test config' },
 	{ source: 'playwright.nightly-tests.config.mjs', destination: 'playwright.nightly-tests.config.mjs', kind: 'file', label: 'nightly test Playwright config' },
-	{ source: '.wrangler/dual-origin-browser/soundscaper', destination: 'sites/soundscaper', kind: 'directory', label: 'verified reciprocal Soundscaper browser site' },
-	{ source: '.wrangler/dual-origin-browser/framescaper', destination: 'sites/framescaper', kind: 'directory', label: 'verified reciprocal Framescaper browser site' },
-	{ source: '.wrangler/dual-origin-browser/soundscaper-source-maps', destination: 'sites/soundscaper-source-maps', kind: 'directory', label: 'reciprocal Soundscaper browser source maps' },
-	{ source: '.wrangler/dual-origin-browser/framescaper-source-maps', destination: 'sites/framescaper-source-maps', kind: 'directory', label: 'reciprocal Framescaper browser source maps' },
+	...['soundscaper', 'framescaper', 'motionscaper'].flatMap((product) => ['', '-source-maps'].map((suffix) => ({
+		source: `.wrangler/dual-origin-browser/${product}${suffix}`, destination: `sites/${product}${suffix}`,
+		kind: 'directory', label: `verified ${product} browser ${suffix ? 'source maps' : 'site'}`,
+	}))),
 	{ source: 'src', destination: 'src', kind: 'directory', label: 'browser-test source tree' },
 	{ source: 'functions/download/index.ts', destination: 'functions/download/index.ts', kind: 'file', label: 'download-page browser fixture handler' },
 	{ source: 'vendor/audacity-design-system/tokens', destination: 'vendor/audacity-design-system/tokens', kind: 'directory', label: 'design-system tokens used by browser assertions' },
 	{ source: 'vendor/audacity-design-system/components/src/utils/roseus-colormap.ts', destination: 'vendor/audacity-design-system/components/src/utils/roseus-colormap.ts', kind: 'file', label: 'spectrogram painter browser harness colormap' },
+	{ source: 'vendor/audacity-design-system/components/src/Slider/native-range-touch-owner.ts', destination: 'vendor/audacity-design-system/components/src/Slider/native-range-touch-owner.ts', kind: 'file', label: 'native range touch ownership used by browser fixtures' },
+	{ source: 'vendor/audacity-design-system/components/src/Track/track-fade-handle-geometry.ts', destination: 'vendor/audacity-design-system/components/src/Track/track-fade-handle-geometry.ts', kind: 'file', label: 'fade handle geometry used by browser fixtures' },
 	{ source: 'handbook/guides', destination: 'handbook/guides', kind: 'directory', label: 'handbook guide step data the browser suite replays' },
 	{ source: 'handbook/src/content/docs/reference/macro-programs.md', destination: 'handbook/src/content/docs/reference/macro-programs.md', kind: 'file', label: 'macro-program reference the browser suite replays' },
 	{ source: 'tests/browser', destination: 'tests/browser', kind: 'directory', label: 'browser test tree', exclude: new Set(['AGENTS.md', 'handbook']) },
@@ -187,6 +172,9 @@ const REQUIRED_NOTICE_FILES = Object.freeze({
 	'@echogarden/pffft-wasm': Object.freeze(['COPYING']),
 	'@fontsource/inter': Object.freeze(['LICENSE']),
 	'@playwright/test': Object.freeze(['LICENSE', 'NOTICE']),
+	'@vitejs/plugin-react': Object.freeze(['LICENSE']),
+	'canvaskit-wasm': Object.freeze(['LICENSE']),
+	vite: Object.freeze(['LICENSE.md']),
 	'axe-core': Object.freeze(['LICENSE', 'LICENSE-3RD-PARTY.txt']),
 	esbuild: Object.freeze(['LICENSE.md']),
 	playwright: Object.freeze(['LICENSE', 'NOTICE', 'ThirdPartyNotices.txt']),
@@ -194,7 +182,6 @@ const REQUIRED_NOTICE_FILES = Object.freeze({
 	typescript: Object.freeze(['LICENSE.txt', 'ThirdPartyNoticeText.txt']),
 });
 const NOTICE_NAME = /^(?:copying|licen[cs]e|notice|thirdpartynotice[a-z]*)(?:[._-].*)?$/iu;
-const PACKAGE_NAME = /^(?:@[a-z\d](?:[a-z\d._-]*[a-z\d])?\/[a-z\d](?:[a-z\d._-]*[a-z\d])?|[a-z\d](?:[a-z\d._-]*[a-z\d])?)$/u;
 const SOURCE_REVISION = /^[a-f\d]{40}$/u;
 export async function stageDesktopNightlyTests({
 	repositoryRoot,
@@ -306,43 +293,7 @@ async function copyRequiredInputs(root, output) {
 		});
 	}
 }
-export async function resolveNightlyTestRuntimePackages(root) {
-	const packages = new Map();
-	const pending = [...NIGHTLY_TEST_RUNTIME_PACKAGE_ROOTS];
-	if (pending.includes('esbuild')) pending.push(await resolveEsbuildBinaryPackage(root));
-	while (pending.length) {
-		const name = pending.shift();
-		assertPackageName(name);
-		if (packages.has(name)) continue;
-		const packageRoot = join(root, 'node_modules', ...name.split('/'));
-		const metadata = await readRequiredJson(join(packageRoot, 'package.json'), `runtime package ${name}`);
-		if (metadata.name !== name || typeof metadata.version !== 'string' || !metadata.version) {
-			throw new Error(`Runtime package ${name} has mismatched package metadata.`);
-		}
-		packages.set(name, { name, version: metadata.version, root: packageRoot });
-		for (const dependency of Object.keys(metadata.dependencies ?? {}).sort()) {
-			assertPackageName(dependency);
-			pending.push(dependency);
-		}
-	}
-	return [...packages.values()].sort((left, right) => left.name.localeCompare(right.name));
-}
 
-async function resolveEsbuildBinaryPackage(root) {
-	const scopeRoot = join(root, 'node_modules', ESBUILD_BINARY_SCOPE);
-	await assertDirectory(scopeRoot, 'installed esbuild binary package scope');
-	const installed = (await readdir(scopeRoot, { withFileTypes: true }))
-		.filter((entry) => entry.isDirectory())
-		.map((entry) => entry.name)
-		.sort();
-	if (installed.length !== 1) {
-		throw new Error(
-			`Exactly one ${ESBUILD_BINARY_SCOPE} binary package must be installed, found ${installed.length}`
-			+ `${installed.length ? `: ${installed.join(', ')}` : '.'}`,
-		);
-	}
-	return `${ESBUILD_BINARY_SCOPE}/${installed[0]}`;
-}
 
 async function validateRuntimePackages(root, runtimePackages) {
 	const nodeModulesRoot = join(root, 'node_modules');
@@ -538,8 +489,4 @@ function normalizeTargetValue(value, label) {
 		throw new TypeError(`Nightly test target ${label} is invalid.`);
 	}
 	return value;
-}
-
-function assertPackageName(name) {
-	if (typeof name !== 'string' || !PACKAGE_NAME.test(name)) throw new Error(`Unsafe runtime package name: ${String(name)}`);
 }

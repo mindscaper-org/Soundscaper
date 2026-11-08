@@ -63,9 +63,14 @@ const CLAIMS: readonly ManifestClaim[] = Object.freeze([
 
 test('every path the desktop payload manifests name is backed by the repository', async () => {
 	const checked = CLAIMS.filter(({ path }) => !isGenerated(path));
-	assert.ok(
-		checked.length >= CLAIMS.length - 5,
-		'only the built browser sites, their source maps, and provisioned interchange readers may be generated',
+	assert.deepEqual(
+		CLAIMS.filter(({ path }) => isGenerated(path)).map(({ list, path, kind }) => ({ list, path, kind })),
+		[...['soundscaper', 'framescaper', 'motionscaper'].flatMap((productId) => ['', '-source-maps'].map((suffix) => ({
+			list: 'NIGHTLY_TEST_PAYLOAD_INPUTS',
+			path: `.wrangler/dual-origin-browser/${productId}${suffix}`,
+			kind: 'directory',
+		}))), { list: 'NIGHTLY_TEST_PAYLOAD_INPUTS', path: 'vendor/interchange-conformance', kind: 'directory' }],
+		'only built browser sites, their source maps, and provisioned interchange readers may be generated',
 	);
 	const failures: string[] = [];
 	for (const claim of checked) {

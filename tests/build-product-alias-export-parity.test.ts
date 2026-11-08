@@ -5,6 +5,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { PRODUCT_IDS } from '../src/common/product-identities.js';
 
 import {
 	PRODUCT_STAND_IN_ALIASES,
@@ -31,12 +32,10 @@ const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
 const sourceRoot = resolve(repositoryRoot, 'src');
 const SOURCE_EXTENSION = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/u;
 
-const COMPOSITIONS = [
-	{ productId: 'soundscaper', desktopCodecComposition: false },
-	{ productId: 'soundscaper', desktopCodecComposition: true },
-	{ productId: 'framescaper', desktopCodecComposition: false },
-	{ productId: 'framescaper', desktopCodecComposition: true },
-] as const;
+const COMPOSITIONS = PRODUCT_IDS.flatMap((productId) => [
+	{ productId, desktopCodecComposition: false },
+	{ productId, desktopCodecComposition: true },
+]);
 
 test('product substitutions resolve the imported file, not its relative spelling', () => {
 	const composition = { productId: 'soundscaper', desktopCodecComposition: false, repositoryRoot };

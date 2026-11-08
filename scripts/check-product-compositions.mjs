@@ -4,11 +4,12 @@
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import ts from 'typescript';
+import { PRODUCT_IDS } from '../src/common/product-identities.js';
 import { productStandInAliasesFor } from './lib/product-aliases.mjs';
 import { createProductCompilerHost } from './lib/product-compiler-host.mjs';
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
-const compositions = ['soundscaper-browser', 'soundscaper-desktop', 'framescaper-browser', 'framescaper-desktop'];
+const compositions = PRODUCT_IDS.flatMap((productId) => [`${productId}-browser`, `${productId}-desktop`]);
 const selected = process.argv[2];
 
 if (selected === undefined) {

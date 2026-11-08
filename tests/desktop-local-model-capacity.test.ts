@@ -75,4 +75,3 @@ test('anomalous or unavailable native statfs information fails closed', async ()
 	});
 	await assert.rejects(failed.reserve('/models', 1), /could not inspect.*capacity/iu);
 });
-

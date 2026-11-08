@@ -2,6 +2,8 @@
 
 import { EventEmitter } from 'node:events';
 
+import { cleanupCoverage, drainCoverageWork, ownCoverageSessionListeners } from './browser-coverage-cleanup.ts';
+
 import {
 	appendCdpJavaScriptCoverage,
 	attachCdpExecutionContextLifecycle,
@@ -168,14 +170,15 @@ export function createBrowserServiceWorkerCoverageCollector({
 		const workletInstrumented = recorder.type === 'worklet'
 			? recorder.session.send('Runtime.evaluate', { expression: INSTALL_WORKLET_COVERAGE_CHECKPOINT })
 			: Promise.resolve();
-		const startup = await Promise.all([
+		const startup = [
 			debuggerEnabled,
 			profilerEnabled,
 			runtimeEnabled,
 			coverageStarted,
 			workletInstrumented,
-		]);
-		if (recorder.type === 'worklet' && startup[4]?.result?.value !== true) {
+		];
+		await drainCoverageWork([...startup]);
+		if (recorder.type === 'worklet' && (await workletInstrumented)?.result?.value !== true) {
 			throw new Error('Audio worklet coverage checkpoint instrumentation was not installed.');
 		}
 		if (recorder.waitingForDebugger) {
@@ -184,7 +187,7 @@ export function createBrowserServiceWorkerCoverageCollector({
 	}
 
 	async function settle() {
-		while (pending.length > 0) await Promise.all(pending.splice(0, pending.length));
+		await drainCoverageWork(pending);
 		if (failures.length === 1) throw failures.shift();
 		if (failures.length > 1) {
 			throw new AggregateError(failures.splice(0), 'Service workers could not record coverage.');
@@ -248,7 +251,7 @@ export function createBrowserServiceWorkerCoverageCollector({
 		async checkpoint({ releaseWorklets = false } = {}) {
 			if (!attached || finished) return;
 			await settle();
-			await Promise.all([...recorders.values()].map(checkpointRecorder));
+			await drainCoverageWork([...recorders.values()].map(checkpointRecorder));
 			if (releaseWorklets) {
 				for (const recorder of recorders.values()) {
 					if (!recorder.active || recorder.type !== 'worklet') continue;
@@ -267,7 +270,7 @@ export function createBrowserServiceWorkerCoverageCollector({
 			let collectionError = null;
 			try {
 				await settle();
-				await Promise.all([...recorders.values()].map(checkpointRecorder));
+				await drainCoverageWork([...recorders.values()].map(checkpointRecorder));
 				for (const recorder of recorders.values()) {
 					if (!recorder.active) continue;
 					try {
@@ -287,22 +290,26 @@ export function createBrowserServiceWorkerCoverageCollector({
 				collectionError = error;
 			}
 			let cleanupError = null;
+			for (const recorder of recorders.values()) recorder.acceptsScripts = false;
 			try {
-				if (!rootClosed) await rootSession.send('Target.setAutoAttach', {
-					autoAttach: false,
-					flatten: true,
-					waitForDebuggerOnStart: false,
-				});
-				for (const recorder of recorders.values()) {
-					await recorder.session.detach?.().catch(() => undefined);
-					recorder.session.close?.();
-				}
-				await rootSession.detach?.().catch((error) => {
-					if (!rootClosed) throw error;
-				});
-			} catch (error) {
-				cleanupError = error;
-			}
+				await cleanupCoverage([
+					() => settle(),
+					() => !rootClosed ? rootSession.send('Target.setAutoAttach', {
+						autoAttach: false, flatten: true, waitForDebuggerOnStart: false,
+					}) : undefined,
+					...[...recorders.values()].flatMap(recorder => [
+						() => recorder.session.detach?.().catch(() => undefined),
+						() => recorder.session.close?.(),
+					]),
+					() => rootSession.detach?.().catch(error => { if (!rootClosed) throw error; }),
+					() => {
+						rootSession.off?.('Target.attachedToTarget', onAttached);
+						rootSession.off?.('Target.detachedFromTarget', onDetached);
+						rootSession.off?.('close', onClose);
+					},
+				]);
+			} catch (error) { cleanupError = error; }
+			if (collectionError !== null || cleanupError !== null) recorders.clear();
 			if (collectionError !== null && cleanupError !== null) {
 				throw new AggregateError(
 					[collectionError, cleanupError],
@@ -331,6 +338,7 @@ export function createBrowserServiceWorkerCoverageCollector({
 			const paused = countTargetTypes(
 				[...recorders.values()].filter(({ waitingForDebugger }) => waitingForDebugger),
 			);
+			recorders.clear();
 			return Object.freeze({
 				entries,
 				pausedTargetCounts: Object.fromEntries(paused),
@@ -494,10 +502,8 @@ function createPlaywrightBrowserTargetAdapter(browser, targetTypes) {
 			const child = children.get(sessionId);
 			if (!child) throw new Error('Playwright lost a paused service-worker CDP target.');
 			return Object.freeze({
-				close() {},
+				...ownCoverageSessionListeners(child),
 				detach: () => releaseTarget(sessionId),
-				on: child.on.bind(child),
-				off: child.off.bind(child),
 				send: child.send.bind(child),
 			});
 		},
