@@ -8,16 +8,16 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { zstdDecompressSync } from 'node:zlib';
 
-import { fetchWithTransientRetry } from './provision-interchange-conformance.mjs';
+import { configureCiArtifactFetch } from './lib/ci-artifact-fetch.ts';
+import { downloadCiBytes } from './lib/ci-download-retry.mjs';
 import { assertSafeTree } from './lib/desktop-nightly-tests-staging-filesystem.mjs';
 import { relocateNightlyPython, withNightlyInterchangeWork } from './lib/nightly-interchange-work.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
+configureCiArtifactFetch();
 
-export async function verifiedNightlyPythonArchive({ url, sha256 }, fetchImpl = fetchWithTransientRetry) {
-	const response = await fetchImpl(url);
-	if (!response.ok) throw new Error(`Nightly reference Python download failed: HTTP ${response.status}.`);
-	const bytes = Buffer.from(await response.arrayBuffer());
+export async function verifiedNightlyPythonArchive({ url, sha256 }, fetchImpl = globalThis.fetch) {
+	const bytes = await downloadCiBytes(url, { fetchImpl, maximumBytes: 128 * 1024 * 1024, timeoutMs: 300_000 });
 	if (createHash('sha256').update(bytes).digest('hex') !== sha256) {
 		throw new Error('Nightly reference Python archive digest does not match its committed pin.');
 	}
