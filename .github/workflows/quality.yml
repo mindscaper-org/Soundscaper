@@ -471,7 +471,11 @@ jobs:
         if: steps.test-prerequisites.outputs.electron == 'true'
         run: |
           if [ ! -x node_modules/electron/dist/electron ]; then
-            node node_modules/electron/install.js
+            for attempt in 1 2 3; do
+              if node node_modules/electron/install.js; then break; fi
+              if [ "$attempt" -eq 3 ]; then exit 1; fi
+              sleep "$((attempt * 5))"
+            done
           fi
           test -x node_modules/electron/dist/electron
 

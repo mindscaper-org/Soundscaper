@@ -73,15 +73,20 @@ test('verified tools are exported only after their bytes and native architecture
 		const archive = Buffer.from('authenticated test archive');
 		const pin = { ...WINDOWS_ARM64_SEVEN_ZIP,
 			byteLength: archive.length, sha256: createHash('sha256').update(archive).digest('hex') };
+		let requests = 0;
 		const tools = await prepareCiNativeTooling({
 			platform: 'win32', arch: 'arm64', env, ninjaRoot: join(root, 'Tools/Ninja'), sevenZip: pin,
-			fetchImpl: () => Promise.resolve(new Response(archive)),
+			fetchImpl: async () => {
+				requests += 1;
+				return requests === 1 ? new Response(null, { status: 504 }) : new Response(archive);
+			},
 			extract: async (_archive: string, destination: string) => {
 				await mkdir(join(destination, '7zip/bin'), { recursive: true });
 				await writeFile(join(destination, '7zip/bin/7za.exe'), pe());
 			},
 		});
 		assert.equal(tools.length, 5);
+		assert.equal(requests, 2);
 		assert.match(await readFile(env.GITHUB_ENV, 'utf8'), /ELECTRON_BUILDER_7ZIP_PATH=.*7za\.exe/u);
 		assert.match(await readFile(env.GITHUB_ENV, 'utf8'), /LLVMInstallDir=/u);
 		assert.match(await readFile(env.GITHUB_ENV, 'utf8'), /SIGNTOOL_PATH=.*arm64.*signtool\.exe/u);

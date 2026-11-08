@@ -15,6 +15,7 @@ import {
 	readMilestone5NativeSourceAcquisitions,
 } from './lib/milestone-5-native-source-acquisitions.mjs';
 import { materializeMilestone5SourceArchive } from './lib/milestone-5-source-archive-extraction.mjs';
+import { downloadCiBytes } from './lib/ci-download-retry.mjs';
 
 /**
  * Provision the Milestone 5 native source acquisition cache.
@@ -164,6 +165,7 @@ function downloadArchiveWithCurl(source, staging) {
 	try {
 		execFileSync(curlExecutable(), [
 			'--fail', '--silent', '--show-error', '--location',
+			'--retry', '2', '--retry-max-time', String(Math.round(DOWNLOAD_TIMEOUT_MS / 1000)),
 			'--max-time', String(Math.round(DOWNLOAD_TIMEOUT_MS / 1000)),
 			'--max-filesize', String(source.archive.byteLength),
 			'--output', path, '--', source.archive.url,
@@ -176,11 +178,9 @@ function downloadArchiveWithCurl(source, staging) {
 }
 
 async function downloadArchiveWithFetch(source) {
-	let response;
 	try {
-		response = await fetch(source.archive.url, {
-			redirect: 'follow',
-			signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+		return await downloadCiBytes(source.archive.url, {
+			maximumBytes: source.archive.byteLength, timeoutMs: DOWNLOAD_TIMEOUT_MS,
 		});
 	} catch (error) {
 		throw new Error(
@@ -188,17 +188,6 @@ async function downloadArchiveWithFetch(source) {
 			{ cause: error },
 		);
 	}
-	if (!response.ok) throw new Error(`${source.archive.url} answered HTTP ${response.status}.`);
-	const chunks = [];
-	let received = 0;
-	for await (const chunk of response.body) {
-		received += chunk.byteLength;
-		if (received > source.archive.byteLength) {
-			throw new Error(`${source.archive.url} sent more than its pinned ${source.archive.byteLength} bytes.`);
-		}
-		chunks.push(chunk);
-	}
-	return Buffer.concat(chunks);
 }
 
 function curlExecutable() {
