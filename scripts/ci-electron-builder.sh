@@ -36,7 +36,7 @@ is_transient_download_failure() {
 for ((attempt = 1; attempt <= attempt_limit; attempt += 1)); do
 	attempt_log="$retry_log_directory/attempt-$attempt.log"
 	set +e
-	npx electron-builder "$@" 2>&1 | tee "$attempt_log"
+	node --import ./scripts/ci-github-release-fetch.mjs node_modules/electron-builder/out/cli/cli.js "$@" 2>&1 | tee "$attempt_log"
 	pipeline_status=("${PIPESTATUS[@]}")
 	set -e
 	builder_status="${pipeline_status[0]}"

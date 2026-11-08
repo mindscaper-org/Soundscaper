@@ -1122,7 +1122,7 @@ jobs:
               SOUNDSCAPER_DESKTOP_TARGET_ARCH="${{ matrix.target.arch }}" \
               node scripts/desktop-prepare.mjs
             SCAPE_PRODUCT="$product" CSC_IDENTITY_AUTO_DISCOVERY=false \
-              npx electron-builder --config electron-builder.config.cjs \
+              bash scripts/ci-electron-builder.sh --config electron-builder.config.cjs \
               --config.directories.output="release/desktop-lease-matrix/$product" \
               --${{ matrix.target.platform }} --${{ matrix.target.arch }} --dir
           done

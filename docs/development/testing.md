@@ -160,9 +160,12 @@ checkout workspace. Missing or damaged trees fall back to `npm ci`.
 Pinned GitHub release downloads can recover from a failing public download URL
 through the official release-asset API. The fallback selects the exact tag,
 filename and original URL; existing archive length, SHA-256 and native
-architecture checks still admit the result. Electron installation preloads this
-transport and the existing HTTP/1.1 CI dispatcher while retaining Electron's
-packaged checksum verification.
+architecture checks still admit the result. Electron installation and all CI
+electron-builder entry points preload this transport and the existing HTTP/1.1
+CI dispatcher while retaining Electron's packaged checksum verification.
+Nightly reference Python and interchange wheel provisioning use the same
+transport. Interrupted bodies restart their complete transfer before digest
+verification; Python and wheel archives are bounded to 128 MiB each.
 
 `npm run check` is the canonical non-browser gate. It runs lint, strict type
 checks, architecture and file-size guards, audits, documentation checks, the
