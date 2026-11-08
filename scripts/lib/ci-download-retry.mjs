@@ -2,12 +2,7 @@
 
 // Bootstrap downloads run before npm ci; keep this module dependency-free.
 import { setTimeout as delay } from 'node:timers/promises';
-
-const TRANSIENT_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
-const TRANSIENT_CODES = new Set([
-	'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'EAI_AGAIN',
-	'UND_ERR_SOCKET', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT',
-]);
+import { fetchGithubReleaseAsset, isTransientCiDownloadFailure } from './ci-github-release-fetch.mjs';
 
 class DownloadResponseError extends Error {
 	constructor(status) {
@@ -27,7 +22,9 @@ export async function downloadCiBytes(url, {
 }) {
 	for (let attempt = 0; ; attempt += 1) {
 		try {
-			const response = await fetchImpl(url, { redirect: 'follow', signal: AbortSignal.timeout(timeoutMs) });
+			const response = await fetchGithubReleaseAsset(url, {
+				redirect: 'follow', signal: AbortSignal.timeout(timeoutMs),
+			}, { fetchImpl });
 			if (!response.ok) {
 				await response.body?.cancel().catch(() => undefined);
 				throw new DownloadResponseError(response.status);
@@ -41,9 +38,7 @@ export async function downloadCiBytes(url, {
 			}
 			return Buffer.concat(chunks);
 		} catch (error) {
-			const transient = error instanceof DownloadResponseError ? TRANSIENT_STATUSES.has(error.status)
-				: error?.name === 'TimeoutError' || TRANSIENT_CODES.has(error?.cause?.code ?? error?.code);
-			if (!transient || attempt >= 2) throw error;
+			if (!isTransientCiDownloadFailure(error) || attempt >= 2) throw error;
 			await wait(500 * 2 ** attempt);
 		}
 	}

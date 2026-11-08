@@ -17,9 +17,10 @@ test('desktop distribution job environments do not reference an unassigned runne
 
 test('desktop preview restores Electron before the native protocol test shard', async () => {
 	const tests = extractJob(await readWorkflow('desktop-preview.yml'), 'tests');
-	assert.match(tests, /if: steps\.test-prerequisites\.outputs\.electron == 'true'\s+run: \|\s+if \[ ! -x node_modules\/electron\/dist\/electron \]; then/u);
+	assert.match(tests, /if: steps\.test-prerequisites\.outputs\.electron == 'true'/u);
+	assert.match(tests, /run: \|\s+if \[ ! -x node_modules\/electron\/dist\/electron \]; then/u);
 	assert.match(tests, /test -x node_modules\/electron\/dist\/electron/u);
-	assert.ok(tests.indexOf('node node_modules/electron/install.js')
+	assert.ok(tests.indexOf('node --import ./scripts/ci-github-release-fetch.mjs node_modules/electron/install.js')
 		< tests.indexOf('run: xvfb-run --auto-servernum npm run test --'));
 });
 

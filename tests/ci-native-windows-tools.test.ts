@@ -76,9 +76,13 @@ test('verified tools are exported only after their bytes and native architecture
 		let requests = 0;
 		const tools = await prepareCiNativeTooling({
 			platform: 'win32', arch: 'arm64', env, ninjaRoot: join(root, 'Tools/Ninja'), sevenZip: pin,
-			fetchImpl: async () => {
+			fetchImpl: async input => {
 				requests += 1;
-				return requests === 1 ? new Response(null, { status: 504 }) : new Response(archive);
+				if (String(input) === pin.url) return new Response(null, { status: 504 });
+				if (String(input).includes('/releases/tags/')) return Response.json({ tag_name: '7zip@1.0.1',
+					assets: [{ id: 123, name: '7zip-win-arm64.tar.gz', browser_download_url: pin.url }] });
+				assert.equal(String(input), 'https://api.github.com/repos/electron-userland/electron-builder-binaries/releases/assets/123');
+				return new Response(archive);
 			},
 			extract: async (_archive: string, destination: string) => {
 				await mkdir(join(destination, '7zip/bin'), { recursive: true });
@@ -86,7 +90,7 @@ test('verified tools are exported only after their bytes and native architecture
 			},
 		});
 		assert.equal(tools.length, 5);
-		assert.equal(requests, 2);
+		assert.equal(requests, 3);
 		assert.match(await readFile(env.GITHUB_ENV, 'utf8'), /ELECTRON_BUILDER_7ZIP_PATH=.*7za\.exe/u);
 		assert.match(await readFile(env.GITHUB_ENV, 'utf8'), /LLVMInstallDir=/u);
 		assert.match(await readFile(env.GITHUB_ENV, 'utf8'), /SIGNTOOL_PATH=.*arm64.*signtool\.exe/u);

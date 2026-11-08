@@ -157,6 +157,13 @@ lockfile, package patches, and installation policy. A restored tree is checked
 before use; Windows admits absolute workspace junctions only to the exact
 checkout workspace. Missing or damaged trees fall back to `npm ci`.
 
+Pinned GitHub release downloads can recover from a failing public download URL
+through the official release-asset API. The fallback selects the exact tag,
+filename and original URL; existing archive length, SHA-256 and native
+architecture checks still admit the result. Electron installation preloads this
+transport and the existing HTTP/1.1 CI dispatcher while retaining Electron's
+packaged checksum verification.
+
 `npm run check` is the canonical non-browser gate. It runs lint, strict type
 checks, architecture and file-size guards, audits, documentation checks, the
 production build, and Node coverage. `npm run check:static` runs everything in

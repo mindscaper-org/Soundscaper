@@ -16,6 +16,7 @@ import {
 } from './lib/milestone-5-native-source-acquisitions.mjs';
 import { materializeMilestone5SourceArchive } from './lib/milestone-5-source-archive-extraction.mjs';
 import { downloadCiBytes } from './lib/ci-download-retry.mjs';
+import { githubReleaseDownload } from './lib/ci-github-release-fetch.mjs';
 
 /**
  * Provision the Milestone 5 native source acquisition cache.
@@ -153,6 +154,8 @@ async function provision(source) {
  * build host may require. `fetch` remains the fallback where curl is absent.
  */
 async function downloadArchive(source, staging) {
+	// GitHub's public release route may fail while its exact asset API works.
+	if (githubReleaseDownload(source.archive.url)) return downloadArchiveWithFetch(source);
 	if (curlExecutable()) return downloadArchiveWithCurl(source, staging);
 	return downloadArchiveWithFetch(source);
 }
