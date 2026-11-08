@@ -71,3 +71,24 @@ test('AE conversion recognizes the official spaced rotation match name', () => {
 	}] }] }, options());
 	assert.deepEqual(result.project.compositions[0]!.layers[0]!.transform.rotation.value, [0, 0, 37]);
 });
+
+test('AE conversion keeps NTSC frame rates exact without extending whole-frame compositions', () => {
+	for (const numerator of [24_000, 30_000, 48_000, 60_000, 120_000]) {
+		const frameRate = numerator / 1001, duration = 240 / frameRate, source = fixture();
+		const original = { ...layer('clock'), inPoint: 0, outPoint: duration, startTime: 0 };
+		const result = convertMotionscaperAeExchange({ ...source, compositions: [{ ...source.compositions[0]!, frameRate, duration, layers: [original] }] }, options());
+		const comp = result.project.compositions[0]!;
+		assert.deepEqual(comp.frameRate, { num: numerator, den: 1001 });
+		assert.equal(comp.durationFrames, 240);
+		assert.deepEqual(comp.layers[0]!.outFrame, { num: 240, den: 1 });
+		assert.ok(!result.report.some(entry => entry.code === 'duration-rounding'));
+	}
+});
+
+test('AE conversion keeps genuinely fractional durations rounded outward at a custom rate', () => {
+	const source = fixture(), frameRate = 27.1234567;
+	const result = convertMotionscaperAeExchange({ ...source, compositions: [{ ...source.compositions[0]!, frameRate, duration: 240.25 / frameRate, layers: [] }] }, options());
+	assert.equal(result.project.compositions[0]!.durationFrames, 241);
+	assert.ok(result.report.some(entry => entry.code === 'duration-rounding'));
+	assert.ok(result.report.some(entry => entry.code === 'clock-quantization'));
+});

@@ -56,11 +56,11 @@ export function convertMotionAeTextDocument(input: TextProperty, fontBindings: r
 	if (!font) return fail(`No explicit retained-font binding exists for PostScript face “${source.font}”. Import that face and bind it before conversion.`);
 	const tracking = source.tracking * source.fontSize / 1000;
 	if (source.text.length > 65_536 || source.text.normalize('NFC') !== source.text || source.fontSize < 1 || source.fontSize > 4096 || Math.abs(tracking) > 32768 || layout.size.some(value => value > 32768)) return fail('This text exceeds the canonical Motion document or rendering limits; original text is retained without truncation.');
-	const text = source.text.replace(/\r\n?/gu, '\n'), color = source.fillColor.map(value => selected.colorSpace === 'srgb' ? decodeMotionChannel(value, 'srgb') : value);
+	const text = source.text.replace(/\r\n?/gu, '\n').split('\u0003').join('\n'), color = source.fillColor.map(value => selected.colorSpace === 'srgb' ? decodeMotionChannel(value, 'srgb') : value);
 	const document = normalizedText({ runs: [{ text, fontAssetId: font.asset.id, fontSize: motionScalar(source.fontSize), tracking: motionScalar(tracking), color: motionColor([color[0]!, color[1]!, color[2]!, 1]) }],
 		align: source.justification, lineHeight: motionScalar(selected.spacing), boxSize: motionVector(layout.size) });
 	const messages = [fontMessage, layoutMessage];
-	if (text !== source.text) messages.push({ status: 'editable', code: 'text-newlines', message: 'AE paragraph carriage returns became Motion line feeds; original source text remains in custody.' });
+	if (text !== source.text) messages.push({ status: 'editable', code: 'text-newlines', message: 'AE paragraph and hard line breaks became Motion line feeds; original source text remains in custody.' });
 	return freezeMotionValue({ status: 'editable', document, localOffset: layout.position, messages });
 }
 function dynamic(property: MotionProperty): boolean {

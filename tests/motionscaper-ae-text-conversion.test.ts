@@ -85,3 +85,20 @@ test('Motion AE optional text custody is closed and rejects ambiguous geometry',
 		assert.throws(() => normalizeMotionAeProperties([{ ...property(), value }], { properties: 0, keys: 0 }));
 	}
 });
+
+test('Motion AE Source Text retains hard line breaks in custody and maps them to reviewed Motion lines', () => {
+	const text = 'First\u0003second\rthird\r\nfourth\nfifth', input = property({ ...source, text });
+	const retained = normalizeMotionAeProperties([input], { properties: 0, keys: 0 })[0]!;
+	assert.equal(retained.kind, 'text');
+	if (retained.kind !== 'text') throw new Error('Expected Source Text.');
+	assert.equal(retained.value.text, text);
+	const converted = convertMotionAeTextDocument(retained, bindings, options);
+	assert.equal(converted.document?.runs[0]!.text, 'First\nsecond\nthird\nfourth\nfifth');
+	assert.ok(converted.messages.some(message => message.code === 'text-newlines'));
+	assert.equal(input.value.text, text);
+	for (const control of ['\u0000', '\u0001', '\u0002', '\u0004', '\u0008', '\u000b', '\u001f']) {
+		assert.throws(() => normalizeMotionAeProperties([property({ ...source, text: `First${control}second` })], { properties: 0, keys: 0 }), /inert text/iu);
+	}
+	assert.throws(() => normalizeMotionAeProperties([{ ...input, name: 'Source\u0003Text' }], { properties: 0, keys: 0 }), /inert text/iu);
+	assert.throws(() => normalizeMotionAeProperties([property({ ...source, font: 'Face\u0003Regular' })], { properties: 0, keys: 0 }), /inert text/iu);
+});

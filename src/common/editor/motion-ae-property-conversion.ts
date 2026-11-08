@@ -21,6 +21,16 @@ export function motionAeBoundedClock(value: number): Readonly<{ value: Rational;
 	return { value: rational, quantized: rational.num / rational.den !== value };
 }
 
+/** Recover host NTSC clocks without treating nearby custom decimal rates as NTSC labels. */
+export function motionAeFrameRate(value: number): Readonly<{ value: Rational; quantized: boolean }> {
+	if (!Number.isFinite(value) || value < 1 || value > 1000) throw new RangeError('AE composition frame rate is outside its finite range.');
+	for (const numerator of [24_000, 30_000, 48_000, 60_000, 120_000]) {
+		const exact = numerator / 1001;
+		if (Math.abs(value - exact) <= Number.EPSILON * exact * 4) return { value: { num: numerator, den: 1001 }, quantized: value !== exact };
+	}
+	return motionAeBoundedClock(value);
+}
+
 /** Maps numeric units only. Unknown expression languages and AE spatial/temporal speed are never guessed. */
 export function convertMotionAeNumericProperty(input: Extract<MotionAeProperty, { kind: 'numeric' }>, options: MotionAeNumericConversionOptions): MotionAeNumericConversion {
 	const source = normalizeMotionAeProperties([input], { properties: 0, keys: 0 })[0]!;
@@ -29,6 +39,7 @@ export function convertMotionAeNumericProperty(input: Extract<MotionAeProperty, 
 	if (frequency <= 0 || frequency > 1000 || !Number.isFinite(options.scale) || (options.axes.length !== 1 && options.axes.length !== 3)
 		|| options.defaults.length !== options.axes.length || options.defaults.some((value) => !Number.isFinite(value))) throw new TypeError('AE numeric mapping is invalid.');
 	const unsupported = (message: string): MotionAeNumericConversion => ({ status: 'unsupported', property: null, message, quantizedClock: false });
+	if (source.dimensionsSeparated === true) return unsupported('Combined AE Position is inactive when dimensions are separated. Map the captured individual channels instead.');
 	if (options.axes.some((axis) => axis !== null && (!Number.isInteger(axis) || axis < 0 || axis >= source.value.length))) return unsupported('The AE property dimensions require a different mapping.');
 	let expression: Readonly<{ source: string; enabled: true; references: readonly never[] }> | null = null;
 	let expressionMessage = '';

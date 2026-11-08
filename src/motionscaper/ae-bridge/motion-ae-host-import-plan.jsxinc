@@ -228,6 +228,8 @@ function matte(input) {
     return { layerId: id(value.layerId), type: mode };
 }
 function numericProperty(property, warnings, budget) {
+    if (property.dimensionsSeparated === true)
+        throw new Error('Separated Position requires an explicit installed-AE channel mapping. Use a Motion-authored exchange with combined Position or render the original composition.');
     var value = vector(property.value), spatial = boolean(property.spatial), rawKeys = array(property.keys, 4096), keys = [];
     budget.keys += rawKeys.length;
     if (budget.keys > 262144)

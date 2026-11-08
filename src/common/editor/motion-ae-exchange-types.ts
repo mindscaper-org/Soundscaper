@@ -53,6 +53,8 @@ export interface MotionAeVectorStyle {
 export type MotionAeProperty =
 	| (MotionAePropertyBase & { readonly kind: 'group'; readonly children: readonly MotionAeProperty[]; readonly mask?: MotionAeMaskMetadata; readonly enabled?: boolean; readonly vectorStyle?: MotionAeVectorStyle })
 	| (MotionAePropertyBase & { readonly kind: 'numeric'; readonly value: readonly number[]; readonly spatial: boolean;
+		/** Captured only on the Position leader; its combined values are inactive when true. */
+		readonly dimensionsSeparated?: boolean;
 		readonly keys: readonly MotionAeKey<readonly number[]>[]; readonly expression: MotionAeExpression | null; readonly samples?: MotionAeNumericSamples })
 	| (MotionAePropertyBase & { readonly kind: 'shape'; readonly value: MotionAeShape;
 		readonly keys: readonly MotionAeKey<MotionAeShape>[]; readonly expression: MotionAeExpression | null })

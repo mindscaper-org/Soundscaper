@@ -1,7 +1,7 @@
 # Direct After Effects format research
 
-Reviewed 2026-10-11 in response to the suggestion to inspect Storytold's Adobe
-interoperability projects. This is a source review, not an adopted dependency,
+Source reviews through 2026-11-08 of Storytold's Adobe interoperability projects
+and related format candidates. This is a source review, not an adopted dependency,
 executed parser qualification or installed-After-Effects result. Direct
 `.aep`/`.aepx` parsing remains separate feasibility work outside the first
 release's implemented M11 bridge. No installed AE environment is available.
@@ -149,14 +149,46 @@ qualification was executed here. The proposal is another native-format
 candidate, not an adopted dependency or evidence of Motionscaper compatibility.
 The M11 bridge boundary and its installed-host completion gate remain unchanged.
 
-## Recommended follow-on
+## Current implementation comparison
+
+EffectCraft's importer [PR 2558](https://github.com/storytold/effectcraft/pull/2558)
+merged on November 4 and is included, alongside export, in
+[v0.22.0](https://github.com/storytold/effectcraft/releases/tag/v0.22.0).
+The source comparison below pins main at
+`a41ff5015c6687db15a6f074a47b870b8f09fece`. The earlier unmerged-proposal reviews
+above describe their historical snapshots.
+
+The current [`effectcraft-aep` crate](https://github.com/storytold/effectcraft/blob/a41ff5015c6687db15a6f074a47b870b8f09fece/crates/aep/Cargo.toml)
+includes the container reader, an adapter to EffectCraft's project model, and a
+writer that builds its chunks in code. It now depends on EffectCraft's time,
+color, keyframe, project and effects crates, Serde and thiserror. Adopting it
+would require an independently reviewed dependency closure and a Motion adapter;
+it is not a standalone zero-dependency parser that can replace the bridge.
+
+| Concern | EffectCraft | Motionscaper bridge contract |
+| --- | --- | --- |
+| Native format | Reads binary AEP and XML AEPX; writes binary AEP. | Uses installed-AE scripts and inert exchange JSON. Selecting AEP/AEPX opens bridge instructions. Native parsing remains separate work. |
+| Timing | [Frame mapping](https://github.com/storytold/effectcraft/blob/a41ff5015c6687db15a6f074a47b870b8f09fece/crates/aep/src/import/time.rs) retains exact rational NTSC rates and frame-aligned times. | Recovers exact 24000, 30000, 48000, 60000 and 120000 / 1001 rates from host floating clocks. Other rates use the reported bounded clock. Duration counts use the source rate before quantization, avoiding an added frame. |
+| Extreme stretch | [PR 3256](https://github.com/storytold/effectcraft/pull/3256) clamps out-of-range stretch and reports the correction. | Refuses magnitudes below 1 or above 9900 percent before source-time division, matching installed-import preflight. Valid negative stretch retains its sign; source data is not silently corrected. |
+| Separated Position | [Parity proposal 2760](https://github.com/storytold/effectcraft/pull/2760), still unmerged at this review, replaces inactive combined Position with the active axis channels. | Captures the leader's explicit separation state. Complete scalar axes become independent hold/linear or reviewed sampled curves. Missing state, duplicate/incomplete axes, unsupported easing or expressions are reported; stale combined coordinates are not substituted. Motion-authored reverse export uses combined Position; direct installed import of separated exchange data requires a separate host mapping. |
+| Text breaks | [Text mapping](https://github.com/storytold/effectcraft/blob/a41ff5015c6687db15a6f074a47b870b8f09fece/crates/aep/src/import/text.rs) treats U+0003 as a line break. | Retains U+0003 exactly in Source Text custody and converts it, CR and CRLF to Motion line feeds under reviewed text reflow. Names, fonts and other strings retain their existing control-character restrictions. |
+| Disabled shapes and image sequences | Reads shape visibility and sequence references. | Captured vector enable switches already control paint. Uncollected source image sequences are explicitly refused rather than represented by their first frame. |
+| Text, effects and renderer fidelity | Broader text, effect and layer-style mappings; unsupported data is reported. | Retains the reviewed text/font, shape, Gaussian and limited scene subsets and complete rendered fallback. No arbitrary effect, font substitution, expression execution or renderer compatibility follows from agreement with another importer. |
+
+These are independent TypeScript bridge changes informed by the source comparison;
+no EffectCraft code, crate or fixture is vendored. Upstream's reported AE renders
+do not qualify Motionscaper's installed-host matrix. Source custody, media
+verification, explicit import review and the installed-AE completion gate remain
+the [bridge's requirements](motionscaper-after-effects-bridge.md).
+
+## Native-format follow-on
 
 Keep the existing script/exchange/rendered-transfer workflow and its explicit
 installed-host qualification gate. Do not add these dependencies to the release
 branch on the basis of repository claims.
 
 A separate feasibility spike should compare the pinned standalone Rust reader,
-PR 1869's container crate and py-aep on our own versioned fixtures, retaining
+the current EffectCraft container crate and py-aep on our own versioned fixtures, retaining
 their source and provenance records. Start with read-only extraction into
 Motionscaper's inert exchange/report model. Require hard limits, cancellation,
 exact original-AEP custody, explicit unsupported entries, and user-selected
@@ -166,8 +198,8 @@ inputs, unknown chunks and save/reopen custody. Use upstream agreement only as a
 diagnostic, not the correctness oracle.
 
 Treat direct binary writing as a separate experiment comparing py-aep and
-PR 1869's template-based writer, with new destinations and pinned target versions.
+EffectCraft's code-built writer, with new destinations and pinned target versions.
 Its acceptance still requires real installed-AE reopen/render evidence,
 unavailable here. None of these candidates eliminates that gate or provides
-native AE plug-in compatibility. This review adds no implementation, vendored
-source, runtime asset or dependency change.
+native AE plug-in compatibility. The native-format review adopts no parser,
+vendored source, runtime asset or dependency.

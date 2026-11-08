@@ -38,5 +38,6 @@ export function sampleMotionAeNumericProperty(
 	report.push({ scopeId: layerId, propertyPath: path, status: 'sampled', code: expression?.enabled ? 'expression' : 'frame-sampling',
 		message: 'Evaluated explicitly in AE at ' + String(clock.frameRate) + ' frames per second, including the terminal grid point. Authored keys and expression text remain retained. Subframe motion and motion blur are not preserved by these samples.' });
 	return { kind: property.kind, name: property.name, matchName: property.matchName, value: property.value, spatial: property.spatial,
-		keys: property.keys, expression, samples: { frameRate: clock.frameRate, firstFrame: 0, values } };
+		keys: property.keys, expression, samples: { frameRate: clock.frameRate, firstFrame: 0, values },
+		...(property.dimensionsSeparated === undefined ? {} : { dimensionsSeparated: property.dimensionsSeparated }) };
 }

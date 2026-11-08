@@ -13,7 +13,12 @@ const selected = { postScriptName: motionAeTextFont.postScriptName, file: new Bl
 function options() { let serial = 0; return { projectId: 'retained-text', allocateId: () => `font-${String(++serial)}`, text: motionAeTextOptions, fonts: [selected],
 	prepareFont: async (file: Blob, metadata: { id: string; name: string; style: string }) => ({ body: file, asset: { ...motionAeTextFont.asset, ...metadata, sha256, storageKey: `motion-sha256:${sha256}` } }),
 }; }
-const manifest = () => new Blob([JSON.stringify(motionAeTextFixture())]);
+const manifest = () => {
+	const source = motionAeTextFixture();
+	return new Blob([JSON.stringify({ ...source, compositions: source.compositions.map(comp => ({ ...comp, layers: comp.layers.map(layer => ({ ...layer,
+		properties: layer.properties.map(group => group.kind === 'group' ? { ...group, children: group.children.map(property => property.kind === 'text' ? { ...property, value: { ...property.value, text: 'Retained\u0003text' } } : property) } : group),
+	})) })) })]);
+};
 test('Motion AE selected font association and exact body survive publication, reopen and full .mscape transfer', async () => {
 	const database = createInstrumentedIndexedDB(), store = createMotionscaperProjectStore({ indexedDB: database as unknown as IDBFactory });
 	const destination = createMotionscaperProjectStore({ indexedDB: createInstrumentedIndexedDB() as unknown as IDBFactory });
@@ -29,6 +34,12 @@ test('Motion AE selected font association and exact body survive publication, re
 		await importMotionscaperArchive(archive, project => destination.beginImport(project));
 		const reopened = (await destination.load(saved.id))!.project;
 		assert.deepEqual(reopened.interchangeCustody, saved.interchangeCustody); assert.deepEqual(new Uint8Array(await (await destination.loadAsset(font))!.arrayBuffer()), bytes);
+		const layer = reopened.compositions[0]!.layers[0]!;
+		if (layer.kind !== 'text') throw new Error('Expected editable text.');
+		assert.equal(layer.document.runs[0]!.text, 'Retained\ntext');
+		const text = reopened.interchangeCustody!.exchange.compositions[0]!.layers[0]!.properties[1]!;
+		if (text.kind !== 'group' || text.children[0]?.kind !== 'text') throw new Error('Expected original Source Text.');
+		assert.equal(text.children[0].value.text, 'Retained\u0003text');
 		assert.throws(() => normalizeMotionscaperProject({ ...saved, assets: [{ ...font, sha256: 'b'.repeat(64), storageKey: `motion-sha256:${'b'.repeat(64)}` }] }), /custody.*font/iu);
 		assert.throws(() => normalizeMotionscaperProject({ ...saved, interchangeCustody: { ...saved.interchangeCustody, fonts: [...saved.interchangeCustody!.fonts!, ...saved.interchangeCustody!.fonts!] } }), /custody.*font/iu);
 	} finally { await store.close(); await destination.close(); }

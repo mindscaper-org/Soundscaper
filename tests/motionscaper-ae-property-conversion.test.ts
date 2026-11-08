@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { convertMotionAeNumericProperty } from '../src/common/editor/motion-ae-property-conversion.ts';
+import { convertMotionAeNumericProperty, motionAeFrameRate } from '../src/common/editor/motion-ae-property-conversion.ts';
 import type { MotionAeProperty } from '../src/common/editor/motion-ae-exchange-types.ts';
 import { evaluateInterpolationCurve } from '../src/common/editor/interpolation-curve.ts';
 const numeric: Extract<MotionAeProperty, { kind: 'numeric' }> = { kind: 'numeric', name: 'Opacity', matchName: 'ADBE Opacity', value: [100], spatial: false, keys: [], expression: null };
@@ -33,4 +33,12 @@ test('AE vector mapping retains a constant third axis and reports bounded clock 
 	assert.deepEqual(result.property.value, [10, 20, 0]); assert.equal(result.property.curves[2], null);
 	assert.equal(convertMotionAeNumericProperty({ ...numeric, keys: [key(-1, 1)] }, { frameRate: { num: 24, den: 1 }, axes: [0], defaults: [0], scale: 1 }).status, 'unsupported');
 	assert.equal(convertMotionAeNumericProperty({ ...numeric, keys: [key(0.123456789, 1)] }, { frameRate: { num: 24, den: 1 }, axes: [0], defaults: [0], scale: 1 }).quantizedClock, true);
+});
+
+test('AE frame-rate recovery distinguishes host roundoff from custom decimal rates', () => {
+	const ntsc = 30_000 / 1001, roundoff = ntsc + Number.EPSILON * ntsc * 2;
+	assert.deepEqual(motionAeFrameRate(roundoff).value, { num: 30_000, den: 1001 });
+	assert.equal(motionAeFrameRate(roundoff).quantized, true);
+	assert.deepEqual(motionAeFrameRate(29.97).value, { num: 2997, den: 100 });
+	for (const rate of [0, -1, NaN, Infinity, 1001]) assert.throws(() => motionAeFrameRate(rate), /frame rate/iu);
 });

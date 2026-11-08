@@ -10,14 +10,24 @@ import { motionAeTextFixture } from '../helpers/motionscaper-ae-text-fixture.ts'
 import type { MotionAeExchange } from '../../src/common/editor/motion-ae-exchange-types.ts';
 import { importMotionscaperArchive } from '../../src/motionscaper/editor-scape.ts';
 import type { MotionscaperProject } from '../../src/motionscaper/editor-project-types.ts';
-test.use({ baseURL: ordinaryBrowserProductSitePlan().sites[2]!.origin });
+test.use({ baseURL: ordinaryBrowserProductSitePlan().sites.find(site => site.productId === 'motionscaper')!.origin });
 async function menu(page: Page, command: string, top = 'File'): Promise<void> {
 	await page.getByRole('menuitem', { name: top, exact: true }).click(); await page.getByRole('menuitem', { name: command, exact: true }).click();
 }
 test('AE menu retains reviewed editable text and actual font bytes through rendering, Save and reverse exchange', async ({ page }: { page: Page }) => {
 	const fontPath = resolve('node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2'), fontBytes = await readFile(fontPath), fontSha256 = createHash('sha256').update(fontBytes).digest('hex');
+	const source = motionAeTextFixture('Inter-Regular'), frameRate = 30_000 / 1001;
+	const manifest: MotionAeExchange = { ...source, compositions: source.compositions.map(comp => ({ ...comp, frameRate, duration: 60 / frameRate,
+		layers: comp.layers.map(layer => ({ ...layer, outPoint: 60 / frameRate, properties: layer.properties.map(group => {
+			if (group.kind !== 'group') return group;
+			if (group.matchName === 'ADBE Text Properties') return { ...group, children: group.children.map(property => property.kind === 'text' ? { ...property, value: { ...property.value, text: 'Retained\u0003text' } } : property) };
+			return { ...group, children: [...group.children.map(property => property.kind === 'numeric' && property.matchName === 'ADBE Position' ? { ...property, value: [999, 888], dimensionsSeparated: true } : property),
+				...([100, 120].map((value, axis) => ({ kind: 'numeric' as const, matchName: `ADBE Position_${String(axis)}`, name: 'Position axis', value: [value], keys: [], spatial: false, expression: null }))),
+			] };
+		}) })),
+	})) };
 	await page.goto('/embed/en/'); await menu(page, 'After Effects Bridge'); const dialog = page.getByRole('dialog', { name: 'After Effects Bridge', exact: true });
-	await dialog.getByLabel('AE exchange manifest', { exact: true }).setInputFiles({ name: 'motionae.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(motionAeTextFixture('Inter-Regular'))) });
+	await dialog.getByLabel('AE exchange manifest', { exact: true }).setInputFiles({ name: 'motionae.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(manifest)) });
 	await dialog.getByText('Editable Text Import Options', { exact: true }).click();
 	await dialog.getByLabel('Enable reviewed editable text import', { exact: true }).check();
 	await dialog.getByLabel('Exact PostScript font name', { exact: true }).fill('Inter-Regular');
@@ -43,12 +53,18 @@ test('AE menu retains reviewed editable text and actual font bytes through rende
 		const entries = await reader.getEntries(), manifest = entries.find(entry => entry.filename === 'motionae.json')!, original = entries.find(entry => entry.filename === 'original.mscape')!;
 		if (manifest.directory || original.directory) throw new Error('Expected package files.');
 		const exchange = JSON.parse(await manifest.getData!(new TextWriter())) as MotionAeExchange, layer = exchange.compositions[0]!.layers[0]!;
+		expect(exchange.compositions[0]!.frameRate).toBe(frameRate);
 		expect(layer.kind).toBe('text'); const group = layer.properties.find(property => property.matchName === 'ADBE Text Properties');
 		if (group?.kind !== 'group' || group.children[0]?.kind !== 'text') throw new Error('Expected editable Source Text.');
 		expect(group.children[0].value.font).toBe('Inter-Regular'); expect(group.children[0].value.text).toBe('Retained\rtext');
 		let retained: MotionscaperProject | undefined; const chunks: Uint8Array[] = [];
 		await importMotionscaperArchive(new Blob([await original.getData!(new Uint8ArrayWriter())]), _project => ({ writeAssetChunk: (_asset, bytes) => { chunks.push(bytes); return Promise.resolve(); }, finishAsset: () => Promise.resolve(), commit: value => { retained = value; return Promise.resolve(); }, rollback: () => Promise.resolve() }));
 		expect(retained?.interchangeCustody?.fonts?.[0]?.sha256).toBe(fontSha256);
+		expect(retained?.compositions[0]!.frameRate).toEqual({ num: 30_000, den: 1001 }); expect(retained?.compositions[0]!.durationFrames).toBe(60);
+		expect(retained?.compositions[0]!.layers[0]!.transform.position.value).toEqual([100, 120, 0]);
+		const originalText = retained?.interchangeCustody?.exchange.compositions[0]?.layers[0]?.properties[1];
+		if (originalText?.kind !== 'group' || originalText.children[0]?.kind !== 'text') throw new Error('Expected original text custody.');
+		expect(originalText.children[0].value.text).toBe('Retained\u0003text');
 		expect(createHash('sha256').update(Buffer.concat(chunks)).digest('hex')).toBe(fontSha256);
 	} finally { await reader.close(); }
 });

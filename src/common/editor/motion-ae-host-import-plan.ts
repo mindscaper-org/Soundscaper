@@ -57,6 +57,7 @@ function matte(input: unknown): MotionAeLayer['matte'] {
 	return { layerId: id(value.layerId), type: mode };
 }
 function numericProperty(property: Record<string, unknown>, warnings: string[], budget: { properties: number; keys: number }): MotionAeImportNumeric {
+	if (property.dimensionsSeparated === true) throw new Error('Separated Position requires an explicit installed-AE channel mapping. Use a Motion-authored exchange with combined Position or render the original composition.');
 	const value = vector(property.value), spatial = boolean(property.spatial), rawKeys = array(property.keys, 4096), keys: MotionAeKey<readonly number[]>[] = [];
 	budget.keys += rawKeys.length; if (budget.keys > 262_144) throw new Error('AE import key budget exceeded.');
 	if (spatial && value.length !== 2 && value.length !== 3) throw new Error('AE spatial dimensions are invalid.');

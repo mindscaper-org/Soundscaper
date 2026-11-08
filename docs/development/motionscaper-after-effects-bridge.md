@@ -17,8 +17,8 @@ for the API. The bridge will not change those application preferences, parse
 binary `.aep` projects, or claim native AE plug-in compatibility.
 
 A [pinned review of Storytold and the external AEP format candidates](motionscaper-aep-native-format-research.md)
-records the unmerged EffectCraft importer, py-aep's experimental binary writer,
-and a bounded Rust reader. Direct native-format support remains separate
+records EffectCraft's native importer/exporter, py-aep's experimental binary
+writer, a bounded Rust reader and the bridge's shared conversion contracts. Direct native-format support remains separate
 follow-on feasibility work; those projects are not adopted dependencies or
 Motionscaper compatibility evidence.
 
@@ -91,6 +91,16 @@ validates its closed ES3 expression source before mutation, applies values and
 keys first, then checks activation errors and one finite in-point sample.
 Failure rolls back only newly created objects. That probe does not qualify all
 frames or subframes. See [expression mapping](motionscaper-ae-expressions.md).
+
+Position separation is captured explicitly on its numeric leader. The Motion
+converter uses complete active scalar axes with independent hold/linear keys or
+complete frame samples and ignores inactive combined values. Missing state or
+unsupported channels require review and a rendered fallback. Motion-authored
+reverse transfers emit combined Position; the installed importer refuses
+unmapped separated data before mutation. NTSC rates retain exact rational clocks,
+and stretches outside the host's signed 1–9900 percent range are refused before
+source-time conversion. Source Text retains AE's U+0003 hard line breaks in
+custody; reviewed editable text maps them to line feeds alongside CR and CRLF.
 
 The destination project must already have matching working space, linear blend
 and bit depth settings; the script never changes those project-wide settings.

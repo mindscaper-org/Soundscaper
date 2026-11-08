@@ -70,8 +70,8 @@ function readMotionAeHostProperty(property, host, layerId, path, report, budget,
     }
     var base = property.valueAtTime(0, true);
     if (kind === 'numeric') {
-        var authored = { kind: kind, name: name, matchName: matchName, value: copyNumbers(base), spatial: spatial, keys: readKeys(copyNumbers), expression: expression };
-        if (host.sampling && (count > 0 || (expression === null || expression === void 0 ? void 0 : expression.enabled))) {
+        var authored = __assign({ kind: kind, name: name, matchName: matchName, value: copyNumbers(base), spatial: spatial, keys: readKeys(copyNumbers), expression: expression }, (matchName === 'ADBE Position' && property.isSeparationLeader === true && typeof property.dimensionsSeparated === 'boolean' ? { dimensionsSeparated: property.dimensionsSeparated } : {}));
+        if (host.sampling && authored.dimensionsSeparated !== true && (count > 0 || (expression === null || expression === void 0 ? void 0 : expression.enabled))) {
             try {
                 return sampleMotionAeNumericProperty(authored, property, host.sampling, host.checkCancelled, layerId, path, report, budget);
             }

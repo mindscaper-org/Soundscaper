@@ -28,7 +28,7 @@ function layer(value: unknown, budget: MotionAeCustodyBudget): MotionAeLayer {
 	if (scene && (r.kind !== 'camera' && r.kind !== 'light' || (r.kind === 'camera' && scene.lightType !== undefined))) throw new TypeError('AE scene metadata must match its camera/light owner.');
 	const matte = r.matte === null ? null : motionRecord(r.matte, ['layerId', 'type'], 'AE matte');
 	const inPoint = motionNumber(r.inPoint, 'AE layer in point', -1e6, 1e6), outPoint = motionNumber(r.outPoint, 'AE layer out point', -1e6, 1e6);
-	const stretch = motionNumber(r.stretch, 'AE layer stretch', -9900, 9900); if (stretch === 0 || outPoint < inPoint) throw new RangeError('AE layer timing is invalid.');
+	const stretch = motionNumber(r.stretch, 'AE layer stretch', -9900, 9900); if (Math.abs(stretch) < 1 || outPoint < inPoint) throw new RangeError('AE layer timing is invalid.');
 	return { id: motionId(r.id), name: motionString(r.name, 'AE layer name', 1024, true),
 		kind: motionEnum(r.kind, ['footage', 'composition', 'null', 'solid', 'text', 'shape', 'camera', 'light'], 'AE layer kind'), sourceId: r.sourceId === null ? null : motionId(r.sourceId), parentId: r.parentId === null ? null : motionId(r.parentId),
 		matte: matte === null ? null : { layerId: motionId(matte.layerId), type: motionEnum(matte.type, ['alpha', 'alpha-inverted', 'luma', 'luma-inverted'], 'AE matte type') },

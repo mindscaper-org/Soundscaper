@@ -5,7 +5,7 @@ import { motionAeLayerBlend } from '../common/editor/motion-ae-layer-blend.ts';
 import { normalizeMotionAeExchange } from '../common/editor/motion-ae-exchange.ts';
 import type { MotionAeComposition, MotionAeExchange, MotionAeLayer, MotionAeReportEntry } from '../common/editor/motion-ae-exchange-types.ts';
 import { motionAeRenderedSequence } from '../common/editor/motion-ae-render-sequence.ts';
-import { motionAeBoundedClock } from '../common/editor/motion-ae-property-conversion.ts';
+import { motionAeBoundedClock, motionAeFrameRate } from '../common/editor/motion-ae-property-conversion.ts';
 import { convertMotionAeTransform } from '../common/editor/motion-ae-transform-conversion.ts';
 import { convertMotionAeSceneLayer, type MotionAeSceneConversion, type MotionAeSceneReview } from '../common/editor/motion-ae-scene-conversion.ts';
 import { convertMotionAeShapes } from '../common/editor/motion-ae-shape-conversion.ts';
@@ -57,8 +57,8 @@ export function convertMotionscaperAeExchange(input: unknown, options: Readonly<
 		const id = motionId(options.allocateId()); if (used.has(id)) throw new Error('AE destination identity is duplicated.');
 		used.add(id); ids.set(source.id, id);
 	}
-	const clock = (value: number, scope: string) => {
-		const converted = motionAeBoundedClock(value);
+	const clock = (value: number, scope: string, convert = motionAeBoundedClock) => {
+		const converted = convert(value);
 		if (converted.quantized) report.push({ scopeId: scope, propertyPath: '', status: 'sampled', code: 'clock-quantization', message: 'AE floating timing was rounded to the bounded one-millionth clock. Original timing remains in the exchange.' });
 		return converted.value;
 	};
@@ -92,11 +92,11 @@ export function convertMotionscaperAeExchange(input: unknown, options: Readonly<
 		return { kind: 'null' };
 	}
 	function composition(source: MotionAeComposition): MotionComposition {
-		const frameRate = clock(source.frameRate, source.id), frequency = frameRate.num / frameRate.den;
-		const duration = clock(source.duration * frequency, source.id);
+		const frameRate = clock(source.frameRate, source.id, motionAeFrameRate), frequency = frameRate.num / frameRate.den;
+		const duration = clock(source.duration * source.frameRate, source.id);
 		const durationFrames = Math.max(1, Math.ceil(duration.num / duration.den));
 		if (source.pixelAspect !== 1) issue(source.id, 'pixel-aspect', 'This composition uses non-square pixels; the partial Motion document uses square pixels. Render a square-pixel reference in AE.');
-		if (durationFrames !== source.duration * frequency) report.push({ scopeId: source.id, propertyPath: '', status: 'sampled', code: 'duration-rounding', message: 'Composition duration was rounded outward to a whole Motion frame.' });
+		if (durationFrames !== duration.num / duration.den) report.push({ scopeId: source.id, propertyPath: '', status: 'sampled', code: 'duration-rounding', message: 'Composition duration was rounded outward to a whole Motion frame.' });
 		if (source.displayStartTime !== 0) issue(source.id, 'display-time', 'AE display start time remains in the exchange; the Motion timeline starts at zero.');
 		if (source.background.some((value) => value !== 0)) issue(source.id, 'viewer-background', 'AE composition viewer background is retained in the exchange. The Motion document keeps transparent composition output.');
 		const sequence = motionAeRenderedSequence(exchange, source, media);

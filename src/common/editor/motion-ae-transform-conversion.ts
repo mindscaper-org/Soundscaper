@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { MotionAeLayer, MotionAeReportEntry } from './motion-ae-exchange-types.ts';
 import { convertMotionAeNumericProperty } from './motion-ae-property-conversion.ts';
+import { convertMotionAeSeparatedPosition } from './motion-ae-position-conversion.ts';
 import type { MotionTransform } from './motion-composition.ts';
 import type { Rational } from './timeline-time.ts';
 import type { MotionAeExpressionReview } from './motion-ae-expression-conversion.ts';
@@ -19,9 +20,16 @@ export function convertMotionAeTransform(layer: MotionAeLayer, frameRate: Ration
 		if (group.matchName !== 'ADBE Transform Group' || group.kind !== 'group') {
 			reportUnsupported(root, 'This property group remains in the original exchange. Render the complete composition in AE to retain its appearance.'); continue;
 		}
+		const position = convertMotionAeSeparatedPosition(group.children, frameRate, [Math.max(0, layer.inPoint), Math.min(durationFrames * frameRate.den / frameRate.num, layer.outPoint)]);
+		if (position) {
+			report.push({ scopeId: layer.id, propertyPath: root, status: position.status, code: 'position-separation', message: position.message });
+			if (position.quantizedClock) report.push({ scopeId: layer.id, propertyPath: root, status: 'sampled', code: 'clock-quantization', message: 'Separated AE Position key times were rounded to one millionth of a Motion frame. Original times remain in custody.' });
+			if (position.property?.kind === 'vector3') transform = { ...transform, position: position.property };
+		}
 		const names = new Set<string>();
 		for (let index = 0; index < group.children.length; index++) {
 			const property = group.children[index]!, path = `${root}/${String(index)}:${property.matchName}`;
+			if (property.matchName.startsWith('ADBE Position_') || position && property.matchName === 'ADBE Position') continue;
 			if (names.has(property.matchName)) { reportUnsupported(path, 'Duplicate transform identity is not mapped.'); continue; }
 			names.add(property.matchName);
 			if (property.kind !== 'numeric') { reportUnsupported(path, 'This transform requires numeric conversion or AE rendering.'); continue; }

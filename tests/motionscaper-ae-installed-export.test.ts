@@ -178,3 +178,19 @@ test('Motion AE generated reviewed Gaussian exporter retains exact profile, effe
 	assert.equal(gaussian.children[0]!.kind, 'numeric'); assert.deepEqual(controls.writes, []);
 	assert.equal(fixture.files.get('/source/Original.aep'), 'original-project-bytes'); assert.equal(fixture.files.get('/source/Clip.mp4'), 'original-media-bytes'); assert.equal(fixture.project.numItems, 2);
 });
+
+test('generated AE exporter captures Position separation state and never samples the inactive leader', async () => {
+	for (const separated of [false, true]) for (const sampled of [false, true]) {
+		const fixture = host(false, true), transform = fixture.layer.property('ADBE Transform Group')!;
+		const position = transform.property();
+		Object.assign(position, { isSeparationLeader: true, dimensionsSeparated: separated });
+		vm.runInNewContext(await script(sampled), fixture.sandbox, { timeout: 5000 });
+		assert.match(fixture.alerts[0]!, /Exchange written/u);
+		const exchange = parseMotionAeExchange([...fixture.files].find(([path]) => path.endsWith('/motionae.json'))![1]), group = exchange.compositions[0]!.layers[0]!.properties[0]!;
+		if (group.kind !== 'group' || group.children[0]?.kind !== 'numeric') throw new Error('Expected Position custody.');
+		assert.equal(group.children[0].dimensionsSeparated, separated);
+		assert.equal(group.children[0].samples !== undefined, sampled && !separated);
+		assert.equal(fixture.preExpression.filter(before => !before).length, sampled && !separated ? 25 : 0);
+		assert.equal(fixture.files.get('/source/Original.aep'), 'original-project-bytes');
+	}
+});

@@ -5,6 +5,7 @@ export interface MotionAePropertyHost {
 	readonly name: string; readonly matchName: string; readonly numProperties?: number; readonly numKeys?: number;
 	readonly canSetEnabled?: boolean; readonly enabled?: boolean;
 	readonly isSpatial?: boolean; readonly expressionEnabled?: boolean; readonly expression?: string;
+	readonly isSeparationLeader?: boolean; readonly dimensionsSeparated?: boolean;
 	readonly propertyValueType: unknown; readonly propertyType: unknown;
 	property(index: number): MotionAePropertyHost;
 	valueAtTime(time: number, preExpression: boolean): unknown;
@@ -70,8 +71,9 @@ export function readMotionAeHostProperty(
 	}
 	const base = property.valueAtTime(0, true);
 	if (kind === 'numeric') {
-		const authored: Extract<MotionAeProperty, { kind: 'numeric' }> = { kind, name, matchName, value: copyNumbers(base), spatial, keys: readKeys(copyNumbers), expression };
-		if (host.sampling && (count > 0 || expression?.enabled)) {
+		const authored: Extract<MotionAeProperty, { kind: 'numeric' }> = { kind, name, matchName, value: copyNumbers(base), spatial, keys: readKeys(copyNumbers), expression,
+			...(matchName === 'ADBE Position' && property.isSeparationLeader === true && typeof property.dimensionsSeparated === 'boolean' ? { dimensionsSeparated: property.dimensionsSeparated } : {}) };
+		if (host.sampling && authored.dimensionsSeparated !== true && (count > 0 || expression?.enabled)) {
 			try { return sampleMotionAeNumericProperty(authored, property, host.sampling, host.checkCancelled, layerId, path, report, budget); }
 			catch (error) {
 				if (String(error).indexOf('budget') >= 0) throw error;

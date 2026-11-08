@@ -2,7 +2,7 @@
 import type { MotionAeExpression, MotionAeKey, MotionAeMaskMetadata, MotionAeProperty, MotionAeShape, MotionAeText } from './motion-ae-exchange-types.ts';
 import { MOTION_AE_EXCHANGE_LIMITS as limits } from './motion-ae-exchange-types.ts';
 import { motionArray, motionBoolean, motionEnum, motionNumber, motionRecord } from './motion-values.ts';
-import { motionAeCustodyString as motionString } from './motion-ae-custody-string.ts';
+import { motionAeCustodyString as motionString, motionAeSourceText } from './motion-ae-custody-string.ts';
 import { normalizeMotionAeTextLayout } from './motion-ae-text-layout.ts';
 import { normalizeMotionAeVectorStyle } from './motion-ae-shape-custody.ts';
 
@@ -33,7 +33,7 @@ function shape(value: unknown): MotionAeShape {
 function text(value: unknown): MotionAeText {
 	const fields = ['text', 'font', 'fontSize', 'fillColor', 'applyFill', 'applyStroke', 'strokeColor', 'strokeWidth', 'tracking', 'leading', 'autoLeading', 'justification'];
 	const r = motionRecord(value, [...fields, 'styleScope', 'styleSupport', 'layout'], 'AE text', fields);
-	return { text: motionString(r.text, 'AE text', 262_144, true), font: motionString(r.font, 'AE font', 512), fontSize: motionNumber(r.fontSize, 'AE font size', 0.01, 1e6),
+	return { text: motionAeSourceText(r.text), font: motionString(r.font, 'AE font', 512), fontSize: motionNumber(r.fontSize, 'AE font size', 0.01, 1e6),
 		fillColor: motionAeVector(r.fillColor, 'AE fill color', 3, true) as readonly [number, number, number], applyFill: motionBoolean(r.applyFill, 'AE apply fill'),
 		applyStroke: motionBoolean(r.applyStroke, 'AE apply stroke'), strokeColor: motionAeVector(r.strokeColor, 'AE stroke color', 3, true) as readonly [number, number, number],
 		strokeWidth: motionNumber(r.strokeWidth, 'AE stroke width', 0, 1e6), tracking: motionNumber(r.tracking, 'AE tracking'), leading: motionNumber(r.leading, 'AE leading', 0, 1e6),
@@ -70,11 +70,11 @@ export function normalizeMotionAeProperties(input: unknown, budget: MotionAeCust
 	if (depth > limits.propertyDepth) throw new RangeError('AE property depth budget exceeded.');
 	return motionArray(input, limits.properties, 'AE properties').map((value): MotionAeProperty => {
 		budget.properties++; if (budget.properties > limits.properties) throw new RangeError('AE property budget exceeded.');
-		const d = motionRecord(value, ['kind', 'matchName', 'name', 'children', 'value', 'keys', 'expression', 'spatial', 'reason', 'samples', 'mask', 'enabled', 'vectorStyle'], 'AE property', ['kind']);
+		const d = motionRecord(value, ['kind', 'matchName', 'name', 'children', 'value', 'keys', 'expression', 'spatial', 'reason', 'samples', 'mask', 'enabled', 'vectorStyle', 'dimensionsSeparated'], 'AE property', ['kind']);
 		const kind = motionEnum(d.kind, ['group', 'numeric', 'shape', 'text', 'unsupported'], 'AE property kind');
 		const fields = kind === 'group' ? ['children'] : kind === 'unsupported' ? ['reason'] : kind === 'numeric' ? ['value', 'keys', 'expression', 'spatial'] : ['value', 'keys', 'expression'];
 		const required = ['kind', 'matchName', 'name', ...fields];
-		const r = motionRecord(value, kind === 'numeric' ? [...required, 'samples'] : kind === 'group' ? [...required, 'mask', 'enabled', 'vectorStyle'] : required, 'AE property', required);
+		const r = motionRecord(value, kind === 'numeric' ? [...required, 'samples', 'dimensionsSeparated'] : kind === 'group' ? [...required, 'mask', 'enabled', 'vectorStyle'] : required, 'AE property', required);
 		const base = { matchName: motionString(r.matchName, 'AE match name', 256), name: motionString(r.name, 'AE property name', 1024, true) };
 		if (kind === 'group') {
 			if (r.vectorStyle !== undefined && !base.matchName.startsWith('ADBE Vector ')) throw new TypeError('AE vector style metadata requires a vector group.');
@@ -87,10 +87,12 @@ export function normalizeMotionAeProperties(input: unknown, budget: MotionAeCust
 		const expr = expression(r.expression);
 		if (kind === 'numeric') {
 			const numeric = motionAeVector(r.value, 'AE numeric value'), spatial = motionBoolean(r.spatial, 'AE spatial');
+			const dimensionsSeparated = r.dimensionsSeparated === undefined ? undefined : motionBoolean(r.dimensionsSeparated, 'AE separated dimensions');
+			if (dimensionsSeparated !== undefined && (base.matchName !== 'ADBE Position' || ![2, 3].includes(numeric.length))) throw new TypeError('AE separation metadata requires a two- or three-dimensional Position leader.');
 			if (spatial && numeric.length !== 2 && numeric.length !== 3) throw new TypeError('AE spatial value must have two or three dimensions.');
 			const authored = keys(r.keys, (v) => motionAeVector(v, 'AE key value', numeric.length), numeric.length, spatial, budget);
 			const samples = r.samples === undefined ? undefined : numericSamples(r.samples, numeric.length, budget);
-			return { ...base, kind, value: numeric, spatial, keys: authored, expression: expr, ...(samples === undefined ? {} : { samples }) };
+			return { ...base, kind, value: numeric, spatial, keys: authored, expression: expr, ...(samples === undefined ? {} : { samples }), ...(dimensionsSeparated === undefined ? {} : { dimensionsSeparated }) };
 		}
 		if (kind === 'shape') return { ...base, kind, value: shape(r.value), keys: keys(r.keys, shape, 1, false, budget), expression: expr };
 		return { ...base, kind, value: text(r.value), keys: keys(r.keys, text, 1, false, budget), expression: expr };

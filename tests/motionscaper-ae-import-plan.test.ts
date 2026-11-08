@@ -35,3 +35,11 @@ test('AE host plan refuses constructor and timing values that the documented hos
 	for (const stretch of [0.5, -0.5]) { const input = fixture(); input.compositions[0]!.layers[0]!.stretch = stretch; assert.throws(() => prepareMotionAeHostImport(JSON.stringify(input)), /timing/iu); }
 	const input = fixture(); input.compositions[0]!.layers[0]!.startTime = -10801; assert.throws(() => prepareMotionAeHostImport(JSON.stringify(input)), /range/iu);
 });
+
+test('AE installed import preflight refuses inactive combined Position before creating host objects', () => {
+	const input = fixture(), property = input.compositions[0]!.layers[0]!.properties[0]!.children[0]!;
+	Object.assign(property, { dimensionsSeparated: true });
+	assert.throws(() => prepareMotionAeHostImport(JSON.stringify(input)), /Separated Position.*mapping/u);
+	Object.assign(property, { dimensionsSeparated: false });
+	assert.deepEqual(prepareMotionAeHostImport(JSON.stringify(input)).compositions[0]!.layers[0]!.properties[0]!.value, [32, 32]);
+});

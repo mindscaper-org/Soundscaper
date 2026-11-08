@@ -73,3 +73,15 @@ test('Motion AE Gaussian profile custody preserves optional absence and exact in
 	assert.ok(Object.isFrozen(value.gaussianProfile?.controls));
 	assert.throws(() => normalizeMotionAeExchange({ ...source, gaussianProfile: { ...gaussianProfile, reviewed: false } }), /review/iu);
 });
+
+test('AE exchange rejects stretches outside the host range before any source-time division', () => {
+	const source = fixture(), comp = (source.compositions as Record<string, unknown>[])[0]!;
+	const exchange = (stretch: number) => ({ ...source, compositions: [{ ...comp, layers: [{ id: 'timed-layer', name: 'Timed', kind: 'null', sourceId: null,
+		parentId: null, matte: null, startTime: 0, inPoint: 0, outPoint: 2, stretch, enabled: true, threeD: false, adjustment: false, blendMode: 'normal', properties: [] }] }] });
+	for (const stretch of [0, -0, 0.5, -0.5, Number.MIN_VALUE, -Number.MIN_VALUE, 1e-300, -1e-300, 9900.01, -9900.01, NaN, Infinity, -Infinity]) {
+		assert.throws(() => normalizeMotionAeExchange(exchange(stretch)), /stretch|timing/iu, String(stretch));
+	}
+	for (const stretch of [1, -1, 100, -100, 9900, -9900]) {
+		assert.equal(normalizeMotionAeExchange(exchange(stretch)).compositions[0]!.layers[0]!.stretch, stretch);
+	}
+});
