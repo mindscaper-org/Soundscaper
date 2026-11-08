@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { prepareBrowserProjectPicker } from './helpers/browser-project-picker.js';
 import type { Page } from '@playwright/test';
 import { expect, test } from './helpers/motionscaper-linked-fixture.js';
 import { motionscaperMixedPreviewFixture } from '../helpers/motionscaper-mixed-preview-fixture.ts';
@@ -32,6 +33,7 @@ for (const adjustment of [false, true]) test(`successor File Open displays compl
 	await expect(page.locator('[data-editor-ready]')).toHaveAttribute('data-editor-ready', 'true');
 	await expect(page.locator('[data-project-id]')).not.toHaveAttribute('data-project-activation-pending', 'true');
 	await expect(page.locator('[data-project-id]')).not.toHaveAttribute('data-edit-block-reason', /.+/u);
+	await prepareBrowserProjectPicker(page, page.locator('[data-audio-editor]'));
 	const selecting = page.waitForEvent('filechooser'); await menu(page, /^Open\s+Ctrl\+O$/u);
 	await (await selecting).setFiles({ name: 'Mixed.fscape', mimeType: 'application/zip', buffer: bytes });
 	await expect(page.locator('[data-project-id]')).toHaveAttribute('data-project-id', project.id);

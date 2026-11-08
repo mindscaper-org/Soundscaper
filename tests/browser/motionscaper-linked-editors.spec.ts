@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { prepareBrowserProjectPicker } from './helpers/browser-project-picker.js';
 import type { Page } from '@playwright/test';
 import { expect, test, withBrowserCoverageContext, inspectLinkedOfflineReadiness } from './helpers/motionscaper-linked-fixture.js';
 import { waitForProjectActivation } from './audio-editor-test-helpers.js';
@@ -87,6 +88,7 @@ test('actual editor menus connect saved compositions, update automatically, and 
 	const path = await archive.path(); if (!path) throw new Error('The successor archive download is absent.'); const bytes = await readFile(path);
 	await withBrowserCoverageContext({ browser, launchOptions: { ...launchOptions, headless, channel }, browserCoverage, browserCoverageSites, options: { baseURL: frameOrigin, serviceWorkers: 'block' }, title: `${test.info().titlePath.join(' ')} fresh recipient` }, async fresh => {
 		const imported = await fresh.newPage(); imported.on('pageerror', error => errors.push(error.message)); await imported.addInitScript(() => Object.defineProperty(globalThis, 'showSaveFilePicker', { configurable: true, value: undefined })); await imported.goto('/embed/en/'); await expect(imported.locator('[data-audio-editor-bound="true"]')).toBeVisible(); await expect(imported.locator('[data-editor-ready]')).toHaveAttribute('data-editor-ready', 'true'); await expect(imported.locator('[data-project-id]')).not.toHaveAttribute('data-project-activation-pending', 'true'); await expect(imported.locator('[data-project-id]')).not.toHaveAttribute('data-edit-block-reason', /.+/u);
+		await prepareBrowserProjectPicker(imported, imported.locator('[data-audio-editor]'));
 		const chooser = imported.waitForEvent('filechooser'); await menu(imported, 'File', /^Open\s+Ctrl\+O$/u); await (await chooser).setFiles({ name: archive.suggestedFilename(), mimeType: 'application/zip', buffer: bytes });
 		await expect(imported.locator('[data-project-id]')).toHaveAttribute('data-project-id', projectId!);
 		await menu(imported, 'File', 'Linked compositions…'); await expect(imported.getByRole('dialog').locator('code')).toHaveText(conformed!); await close(imported);

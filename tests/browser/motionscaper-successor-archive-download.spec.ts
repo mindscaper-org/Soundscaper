@@ -13,7 +13,7 @@ test('large successor original download verifies temporary storage support, exac
 		import { openFramescaperSuccessorDatabase } from './src/framescaper/editor-project-successor-database.ts';
 		import { stageFramescaperArchiveCustody, readFramescaperArchiveCustody } from './src/framescaper/editor-project-successor-archive-custody.ts';
 		import { FRAMESCAPER_ARCHIVE_STORES } from './src/framescaper/editor-project-successor-archive-record.ts';
-		import { transact } from './src/common/editor/storage/indexeddb-backend.ts';
+		import { transact } from './src/common/media/indexeddb.ts';
 		import { createAudioEditorFileService } from './src/common/editor/file-service.js';
 		import { createScapeArchiveByteSource } from './src/common/scape/archive-byte-source.ts';
 		import { saveFramescaperRetainedOriginal } from './src/framescaper/editor-project-successor-original-save.ts';

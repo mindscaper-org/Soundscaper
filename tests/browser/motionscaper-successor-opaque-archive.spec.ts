@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { prepareBrowserProjectPicker } from './helpers/browser-project-picker.js';
 import { readFile } from 'node:fs/promises';
 import { expect, audioTest as test } from './helpers/motionscaper-linked-fixture.js';
 import { createMotionscaperOpaqueArchive } from '../helpers/motionscaper-opaque-archive.ts';
@@ -17,6 +18,7 @@ for (const [family, version] of [['framescaper', 3], ['motionscaper', 1]] as con
 		});
 		await expect.poll(async () => (await inventory())[0]?.length).toBe(1); const before = await inventory();
 		const original = Buffer.from(await (await createMotionscaperOpaqueArchive(family, version)).arrayBuffer());
+		await prepareBrowserProjectPicker(page, editor);
 		await page.getByRole('menuitem', { name: 'File', exact: true }).click();
 		const open = page.getByRole('menuitem', { name: /^Open(?: Ctrl\+O)?$/u }); await expect(open).toBeEnabled();
 		const selected = page.waitForEvent('filechooser'); await open.click();

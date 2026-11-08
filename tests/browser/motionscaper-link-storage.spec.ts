@@ -34,7 +34,7 @@ import { openFramescaperSuccessorDatabase } from ${source('src/framescaper/edito
 import { createMotionCompositionOffer } from ${source('src/common/editor/motion-link-protocol.ts')};
 import { createMotionscaperRevision } from ${source('src/common/editor/motion-project-revision.ts')};
 import { createMotionscaperProject } from ${source('src/motionscaper/editor-project.ts')};
-import { digestScapeBytes } from ${source('src/common/editor/scape-archive-media.ts')};
+import { digestBytes as digestScapeBytes } from ${source('src/common/media/bytes.ts')};
 import { BlobWriter, TextReader, ZipWriter } from ${source('node_modules/@zip.js/zip.js/index-native.js')};
 import { createFramescaperBaselineImageFixture } from ${source('tests/helpers/framescaper-baseline-image-fixture.ts')};
 import { createFramescaperProject } from ${source('src/framescaper/editor-project.ts')};

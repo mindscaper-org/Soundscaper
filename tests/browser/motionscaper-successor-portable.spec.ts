@@ -30,7 +30,7 @@ import { createMotionscaperProject } from ${source('src/motionscaper/editor-proj
 import { createMotionscaperRevision } from ${source('src/common/editor/motion-project-revision.ts')};
 import { createMotionCompositionOffer } from ${source('src/common/editor/motion-link-protocol.ts')};
 import { createAudioSource } from ${source('src/common/editor/project-media-factory.ts')};
-import { digestScapeBytes } from ${source('src/common/editor/scape-archive-media.ts')};
+import { digestBytes as digestScapeBytes } from ${source('src/common/media/bytes.ts')};
 import { importFramescaperSuccessorPortableArchive } from ${source('src/framescaper/editor-project-successor-portable-import.ts')};
 import { exportFramescaperSuccessorPortableArchive } from ${source('src/framescaper/editor-project-successor-portable-export.ts')};
 async function create() {
