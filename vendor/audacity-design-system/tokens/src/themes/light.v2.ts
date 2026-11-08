@@ -187,7 +187,7 @@ export const lightTheme: ThemeTokens = {
         hover: '#EDEEF1',        // Light gray on hover
         selected: '#DEEBFF',     // Blue tint when selected
         text: '#14151A',         // Dark text
-        textSecondary: '#6F788F', // Muted gray for secondary text
+        textSecondary: '#5A6274', // Secondary text clears AA on every light row surface
         border: '#E2E3E6',       // Default border
       },
     },
@@ -224,7 +224,7 @@ export const lightTheme: ThemeTokens = {
   foreground: {
     text: {
       primary: '#14151A',        // Dark text for body content
-      secondary: '#6F788F',      // Muted gray for labels
+      secondary: '#5A6274',      // Secondary labels clear AA on every light panel surface
       tertiary: '#949CAC',       // Light gray for hints
       disabled: '#C0C5CE',       // Very light gray for disabled
       inverse: '#FFFFFF',        // White text (for dark canvas)

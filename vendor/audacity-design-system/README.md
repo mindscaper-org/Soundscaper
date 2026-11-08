@@ -54,7 +54,7 @@ monitor, grid-view, cloud-download, sparkles and sliders glyphs omitted from the
 upstream enum. Literal codepoints stay in that inventory; component mappings keep their
 existing glyphs. Covered by `tests/vendored-design-system-icon-map.test.ts`.
 
-Tracked so upstream syncs know what to preserve. Aside from this list, keep the tree pristine.
+Tracked so upstream syncs know what to preserve. Also retain the [selective UI ports](SELECTIVE_UI_PORTS.md).
 See the [2026-09-09 override audit](OVERRIDE_AUDIT.md) for the latest comparison of
 application overrides and source patches against the pin and upstream master.
 
