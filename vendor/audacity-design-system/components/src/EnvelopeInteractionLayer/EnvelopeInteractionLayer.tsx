@@ -600,7 +600,7 @@ const EnvelopeInteractionLayerComponent: React.FC<EnvelopeInteractionLayerProps>
   return (
     <>
       <div
-        ref={containerRef}
+        ref={containerRef} data-envelope-hover={isHoveringPoint ? 'point' : isNearEnvelope ? 'curve' : undefined}
         onMouseDown={handleMouseDown}
         onMouseMove={handleContainerMouseMove}
         onMouseLeave={handleContainerMouseLeave}

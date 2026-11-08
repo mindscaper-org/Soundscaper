@@ -25,6 +25,23 @@ const ENTRIES = Object.freeze([
 	['notificationMute', 'Mute informational notifications'],
 	['notificationClear', 'Clear history'],
 	['notificationEmpty', 'No notifications in this session.'],
+	['statusHelpEnabled', 'Contextual status help'],
+	['statusHelpStopped', 'Stopped'],
+	['statusHelpPlaying', 'Playing'],
+	['statusHelpPaused', 'Paused'],
+	['statusHelpSpeed', '{state} · {speed}'],
+	['statusHelpValue', '{label}: {value}'],
+	['statusHelpShortcut', '{label} ({shortcut})'],
+	['statusHelpRuler', 'Drag in the ruler to select a time range. Right-click for timeline settings.'],
+	['statusHelpClip', 'Drag the clip to move it. Drag an edge to trim.'],
+	['statusHelpTrack', 'Select this track or adjust its controls.'],
+	['statusHelpFade', 'Drag to change the fade length. Right-click for fade settings.'],
+	['statusHelpTrim', 'Drag to trim the clip edge.'],
+	['statusHelpStretch', 'Drag to stretch the clip.'],
+	['statusHelpSelectionStart', 'Drag to adjust the selection start.'],
+	['statusHelpSelectionEnd', 'Drag to adjust the selection end.'],
+	['statusHelpEnvelopePoint', 'Drag to adjust this envelope point.'],
+	['statusHelpEnvelopeCurve', 'Click to add an envelope point.'],
 ]);
 
 export const WORKSPACE_CHROME_COPY_BY_LOCALE = Object.freeze({

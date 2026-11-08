@@ -438,6 +438,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 			>{editorToolbar}</div>}
 
 			{(uiFlags.selectionToolbar || uiFlags.statusbar) && <AccessibleSelectionToolbar
+				menus={applicationMenus} locale={locale}
 				controller={controller}
 				snapshot={snapshot}
 				copy={copy}

@@ -9,11 +9,13 @@ test.describe('project lock notifications', () => {
 		const editor = await bootEditor(page, '/embed/en/');
 		await chooseNestedCommandAction(page, editor, 'Tracks', ['Add new track', 'Audio track']);
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', { timeout: 10_000 });
+		await chooseCommandAction(page, editor, 'View', 'Contextual status help');
 		const otherPage = await context.newPage();
 		await otherPage.goto('/embed/en/');
 		await waitForEditor(otherPage);
 		const toast = editor.getByRole('region', { name: 'This project is already open in another tab.', exact: true });
 		await expect(toast).toBeVisible();
+		await expect(editor.locator('[data-status]')).not.toContainText('Stopped');
 		await expect(toast.getByRole('button', { name: 'Close', exact: true })).toHaveText('×Close');
 		await page.clock.install();
 		await page.clock.fastForward(15_000);
