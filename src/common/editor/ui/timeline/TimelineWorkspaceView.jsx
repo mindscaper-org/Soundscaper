@@ -6,7 +6,7 @@ import AudioEditorSampleTools from '../AudioEditorSampleTools.jsx';
 import { TRACK_HEADER_DRAWER_HANDLE_WIDTH } from './constants.ts';
 import { DEFAULT_TRACK_HEIGHT as TRACK_HEIGHT } from './geometry.ts';
 import { TrackListView } from './TrackListView.jsx';
-import { TimelineRulerCanvas } from './TimelineRulerCanvas.jsx';
+import { TimelineRulerCanvas, rulerGeometryData } from './TimelineRulerCanvas.jsx';
 import { TimelineRulerCornerContent } from './TimelineRulerCornerContent.jsx';
 import { TrackHeaderDrawerToggle } from './TrackHeaderDrawerToggle.jsx';
 import { TimelineAnnotationLayer } from './TimelineAnnotationLayer.jsx';
@@ -282,7 +282,7 @@ export function TimelineWorkspaceView({
 							className="audio-editor-ruler-viewport"
 							data-ruler
 							data-ruler-focus
-							data-ruler-interaction
+							data-ruler-interaction {...rulerGeometryData(pixelsPerSecond)}
 							data-time-format={rulerScale.kind === 'timecode' ? 'timecode'
 								: rulerScale.kind === 'minutes-seconds' ? 'minutes-seconds' : 'beats-measures'}
 							data-track-lane

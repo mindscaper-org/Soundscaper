@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { RecordingSessionServiceRuntime, RecordingStartOptions, RecordingStartScope } from './recording-session-service.ts';
+import { createRecordingStartOwnership, type OwnedRecordingStartScope } from './recording-start-ownership.ts';
 
 type MaybePromise<Value> = Value | PromiseLike<Value>;
 function invokeAsPromise<Value>(operation: () => MaybePromise<Value>): Promise<Value> {
@@ -8,13 +9,14 @@ function invokeAsPromise<Value>(operation: () => MaybePromise<Value>): Promise<V
 }
 
 /** Own one start intent while permission staging and prior MIDI publication settle. */
-export function createRecordingStartRequests(runtime: RecordingSessionServiceRuntime) {
+export function createRecordingStartRequests(runtime: RecordingSessionServiceRuntime, stopping: () => boolean = () => false) {
 	const { state } = runtime;
 	const publishDocumentSnapshot = runtime.publishDocumentSnapshot ?? (() => {});
 	const releaseInputs = runtime.releaseUnretainedRecordingInputs ?? (() => {});
-	let startAbort: AbortController | null = null;
+	let activeScope: OwnedRecordingStartScope | null = null;
 	let retiring: Promise<void> | null = null;
-	return Object.freeze({ startRecording, startSoundActivatedRecording, startRecordingOnNewTrack, startTakeCycleRecording, cancelRecordingStart });
+	return Object.freeze({ startRecording, startSoundActivatedRecording, startRecordingOnNewTrack, startTakeCycleRecording, cancelRecordingStart,
+		get scope() { return activeScope; }, clearScope() { activeScope = null; } });
 
 	function startBlocked(): boolean {
 		return state.readOnly
@@ -22,6 +24,7 @@ export function createRecordingStartRequests(runtime: RecordingSessionServiceRun
 			|| state.takeCycleRecoveryInspecting === true
 			|| state.recordingStarting
 			|| Boolean(state.recordingStartPromise)
+			|| stopping()
 			|| Boolean(state.recorder);
 	}
 
@@ -31,18 +34,9 @@ export function createRecordingStartRequests(runtime: RecordingSessionServiceRun
 	}
 
 	function createStartScope(): RecordingStartScope {
-		const generation = ++state.recordingStartGeneration;
-		const abort = new AbortController();
-		startAbort = abort;
-		const projectId = runtime.getProjectId();
-		const assertCurrent = () => {
-			if (state.disposed
-				|| generation !== state.recordingStartGeneration
-				|| projectId !== runtime.getProjectId()) {
-				throw runtime.abortError?.() || new DOMException('The recording start was superseded.', 'AbortError');
-			}
-		};
-		return Object.freeze({ generation, projectId, signal: abort.signal, assertCurrent });
+		activeScope = createRecordingStartOwnership(state, runtime.getProjectId,
+			runtime.abortError ?? (() => new DOMException('The recording start was superseded.', 'AbortError')));
+		return activeScope;
 	}
 
 	function startRecording(options: RecordingStartOptions = {}) { return startRecordingSession(options, false); }
@@ -65,13 +59,14 @@ export function createRecordingStartRequests(runtime: RecordingSessionServiceRun
 			if (!staging && !previous) return begin(options);
 			state.recordingAdmissionPending = true;
 			return Promise.all([previous, staging]).then(([, prepared]) => begin(prepared ?? options));
+		}).then(outcome => {
+			if (typeof outcome === 'object' && outcome !== null && outcome.kind === 'handed-off') throw outcome.failure;
 		});
 		const tracked = operation.finally(() => {
 			if (state.recordingStartPromise === tracked) {
 				state.recordingStartPromise = null;
 				state.recordingAdmissionPending = false;
-				startAbort = null;
-				if (!state.recorder) { state.recordingKind = null; runtime.setSoundActivationCaptureEnabled?.(false); }
+				if (!state.recorder) { activeScope = null; state.recordingKind = null; runtime.setSoundActivationCaptureEnabled?.(false); }
 				publishDocumentSnapshot();
 			}
 		});
@@ -106,9 +101,8 @@ export function createRecordingStartRequests(runtime: RecordingSessionServiceRun
 			if (state.recordingStartPromise === tracked) {
 				state.recordingStartPromise = null;
 				state.recordingAdmissionPending = false;
-				startAbort = null;
 				state.recordingStarting = false;
-				if (!state.recorder) state.recordingKind = null;
+				if (!state.recorder) { activeScope = null; state.recordingKind = null; }
 				publishDocumentSnapshot();
 			}
 		});
@@ -118,10 +112,7 @@ export function createRecordingStartRequests(runtime: RecordingSessionServiceRun
 	}
 
 	async function startRecordingOnNewTrack(options: RecordingStartOptions = {}): Promise<string | null> {
-		if (state.readOnly || state.takeCycleRecovery || state.takeCycleRecoveryInspecting
-			|| state.recordingStarting || state.recordingStartPromise
-			|| state.timedRecordingPreparing
-			|| state.timedRecording || state.recorder) return null;
+		if (startBlocked() || state.timedRecordingPreparing || state.timedRecording) return null;
 		let trackId: string | null = null;
 		await startRecordingSession(options, false, value => {
 			trackId = runtime.addTrack?.({ armed: true }) || null;
@@ -136,8 +127,7 @@ export function createRecordingStartRequests(runtime: RecordingSessionServiceRun
 		state.recordingStartGeneration += 1;
 		state.recordingStarting = false;
 		state.recordingAdmissionPending = false;
-		startAbort?.abort(runtime.abortError?.() || new DOMException('The recording start was cancelled.', 'AbortError'));
-		startAbort = null;
+		activeScope?.cancel();
 		if (!state.recorder && canceled) {
 			const retirement = Promise.allSettled([retiring, canceled]).then(() => undefined);
 			retiring = retirement;

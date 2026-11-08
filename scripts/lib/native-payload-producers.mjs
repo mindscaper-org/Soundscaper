@@ -52,10 +52,11 @@ export function auditNativePayloadProducers(repositoryRoot) {
 	if (!exactKeys(register, ['schemaVersion', 'targets', 'ciProducers', 'packageProducers'])
 		|| register.schemaVersion !== 1
 		|| JSON.stringify(register.targets) !== JSON.stringify(TARGETS)
-		|| !Array.isArray(register.ciProducers) || register.ciProducers.length !== 4
+		|| !Array.isArray(register.ciProducers) || register.ciProducers.length !== 5
 		|| !Array.isArray(register.packageProducers) || register.packageProducers.length !== 4) {
 		findings.push('Native payload producer register identity or inventory is invalid.');
 	}
+	if (!register.ciProducers?.some(({ id }) => id === 'lightscaper-photo-native')) findings.push('Native Photo CI producer is missing.');
 	const ids = [...(register.ciProducers ?? []), ...(register.packageProducers ?? [])]
 		.map(({ id }) => id);
 	if (new Set(ids).size !== ids.length) findings.push('Native payload producer IDs are not unique.');

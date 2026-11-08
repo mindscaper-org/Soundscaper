@@ -217,6 +217,28 @@ test('the archived Electron progress test runs alone before the parallel Node ba
 	assert.deepEqual(batches.flat().sort(), [...selected].sort());
 });
 
+test('the full-size HDR boundary fixture runs alone without changing shard ownership', () => {
+	const ordinaryFirst = '/repository/tests/ordinary-first.test.js';
+	const boundary = '/repository/tests/lightscaper-hdr-frame-handoff-current.test.ts';
+	const ordinaryLast = '/repository/tests/ordinary-last.test.ts';
+	assert.deepEqual(
+		partitionNodeTestExecutionBatches([ordinaryFirst, boundary, ordinaryLast]),
+		[[boundary], [ordinaryFirst, ordinaryLast]],
+		'the real above-64MiB native proof must retain its deadline without parallel CPU pressure',
+	);
+	const discovered = listNodeTestFiles(ROOT).filter((file) => basename(file) === basename(boundary));
+	assert.equal(discovered.length, 1, 'the full-size HDR fixture must remain discoverable');
+	assert.equal(classifyNodeTestFile(ROOT, discovered[0]), 'common', 'the handoff retains its cross-product owner');
+	const shards = NODE_TEST_SHARD_IDS.filter((shard) => selectNodeTestFiles(ROOT, { shard }).includes(discovered[0]));
+	assert.deepEqual(shards, ['common-2'], 'scheduling must preserve the existing execution shard');
+	const selected = selectNodeTestFiles(ROOT, { shard: shards[0] });
+	const batches = partitionNodeTestExecutionBatches(selected);
+	assert.deepEqual(batches.flat().sort(), [...selected].sort(), 'every selected test must still run exactly once');
+	const boundaryBatch = batches.findIndex((batch) => batch.includes(discovered[0]));
+	assert.deepEqual(batches[boundaryBatch], discovered, 'the actual HDR fixture must be a singleton');
+	assert.ok(boundaryBatch < batches.length - 1, 'the fixture must finish before the parallel batch starts');
+});
+
 for (const workflowName of SHARDED_WORKFLOWS) {
 	test(`${workflowName} runs one job per shard and no more`, async () => {
 		const job = extractJob(await readWorkflow(workflowName), 'tests');

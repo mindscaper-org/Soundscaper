@@ -9,9 +9,11 @@ import { resolveSelectionRange } from '../../selection-range.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
 import VideoDeliveryFields from '../VideoDeliveryFields.jsx';
+import GraphicWatermarkFields, { useGraphicWatermarkSelection } from '../GraphicWatermarkFields.tsx';
+import PhotoTextWatermarkFields, { DEFAULT_IMAGE_EXPORT_TEXT_SELECTION } from '../PhotoTextWatermarkFields.tsx';
 import {
 	previewPresetSettingsFromDialog, previewPresetSettingsFromPreset,
-	statedVideoCanvas, statedVideoDeliveryTarget,
+	statedVideoCanvas, statedVideoDeliveryTarget, statedVideoTextWatermark,
 } from '../export-preset-model.ts';
 import { changeVideoDeliveryDialogSetting } from './video-delivery-setting-change.ts';
 import {
@@ -54,7 +56,8 @@ import {
 	exportDialogVorbisQualityOptions, normalizeExportDialogAudioSettings,
 } from '../export-dialog-audio-codec-options.ts';
 import { samePresetParams } from './effect-helpers.ts';
-export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fileService, onClose }) {
+
+export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fileService, locale = 'en', onClose }) {
 	const exportProgress = useAudioEditorTelemetrySelector(controller, (telemetry) => telemetry.taskProgress?.kind === 'export' ? telemetry.taskProgress.value : telemetry.exportProgress);
 	const [metadataOpen, setMetadataOpen] = useState(false);
 	const [metadataTab, setMetadataTab] = useState('general');
@@ -71,6 +74,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		[controller, isOpen, projectIdentity],
 	);
 	const currentOperationOwner = useRef(operationOwner);
+	const graphic = useGraphicWatermarkSelection(operationOwner);
 	const submission = useExportDialogSubmission(operationOwner, (cause) => setError(feedbackFailure(cause)));
 	const downloadRef = useRef(null);
 	const startedDownloadUrl = useRef(snapshot.export?.output?.url || null);
@@ -248,7 +252,9 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 					? parseJsonChannelMapping(admittedSettings.channelMatrix, copy.customChannelMapping, copy)
 					: admittedSettings.channelMapping,
 		});
-		return controller.actions.export.start(request);
+		const graphicWatermark = productId === 'framescaper' && videoFormat ? graphic.capture() : undefined;
+		const textWatermark = productId === 'framescaper' && videoFormat ? statedVideoTextWatermark(admittedSettings) : undefined;
+		return controller.actions.export.start({ ...request, ...(graphicWatermark ? { graphicWatermark } : {}), ...(textWatermark ? { textWatermark } : {}) });
 	});
 
 	const qualityChannelCount = desktop
@@ -413,6 +419,9 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 							captionDeliveryUnavailable={captionDeliveryUnavailable} productId={productId}
 						/>
 					)}
+					{productId === 'framescaper' && videoFormat && <GraphicWatermarkFields {...graphic} locale={locale} disabled={exporting} />}
+					{productId === 'framescaper' && videoFormat && <PhotoTextWatermarkFields value={settings.textWatermark ?? DEFAULT_IMAGE_EXPORT_TEXT_SELECTION}
+						locale={locale} disabled={exporting} onChange={value => { set('textWatermark', value); }} />}
 				</section>
 				{!videoFormat && (
 					<ExportRenderingSection

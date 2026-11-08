@@ -8,13 +8,18 @@ import { createProjectStore } from '../../src/common/editor/storage.js';
 
 for (const mute of [true, false]) test(`Mix and Render ignores a ${mute ? 'muted' : 'healthy'} VCA listening gate while preserving gain`, async ({ page }) => {
 	const { project, source, samples } = vcaPrintProject(mute);
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` }); let blob;
+	const store = createProjectStore({ databaseName: `browser-vca-print-${crypto.randomUUID()}`, indexedDB: null, preferOpfs: false }); let archiveBytes;
 	try {
 		const writer = await store.beginSourceWrite(source.storageKey, source);
-		await writer.write([samples]); await writer.commit(); blob = (await exportScapeProject(project, store)).blob;
-	} finally { await store.close(); }
+		await writer.write([samples]); await writer.commit();
+		const archive = await exportScapeProject(project, store);
+		archiveBytes = Buffer.from(await archive.blob.arrayBuffer());
+	} finally {
+		try { await store.clear(); }
+		finally { await store.close(); }
+	}
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
-	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'VCA.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
+	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'VCA.sscape', mimeType: 'application/zip', buffer: archiveBytes });
 	await expect(editor).toHaveAttribute('data-project-id', project.id);
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'read-only');
 	await chooseCommandAction(page, editor, 'Select', 'Select all');

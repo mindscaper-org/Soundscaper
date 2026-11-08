@@ -123,6 +123,7 @@ void test('suite prerequisite listing filters the first collection without start
 		const selected = JSON.parse(output) as typeof report;
 		assert.deepEqual(analyzeModuleBrowserCollection(selected).files, files.slice(0, 4).map(file => join(setup.root, 'tests/browser', file)));
 		assert.deepEqual(selected.config, report.config);
+		assert.deepEqual((selected as typeof report & { suiteShard: unknown }).suiteShard, { current: 1, total: 4 });
 		assert.deepEqual(selected.stats, report.stats);
 		assert.deepEqual(selected.errors, []);
 		assert.deepEqual(selected.suites, [{ ...report.suites[0], suites: report.suites[0]!.suites!.slice(0, 4) }]);

@@ -324,7 +324,7 @@ function verifyPinnedSourceClosure(repositoryRoot, root, manifest, witnesses) {
 		'CMakeLists.txt', 'CMakePresets.json', 'build/ffmpeg-9.0.1-configure.json',
 		'build/external-source-authentication.mjs', 'build/ffmpeg-9.0.1-external-sources.json',
 		'build/media-build-commands.mjs', 'build/recipe-driver.mjs',
-		'build/source-authentication.mjs', 'build/targets.json', 'build/windows-vpx.pc', 'build/windows-vpx-project.sh',
+		'build/source-authentication.mjs', 'build/targets.json', 'build/windows-ffmpeg-dependencies.sh', 'build/windows-installed-codec-text.ts', 'build/windows-svt-pkg-config.ts', 'build/windows-vpx.pc', 'build/windows-vpx-project.sh', 'build/windows-zlib-header.ts',
 		...TARGETS.map(({ toolchainFile }) => toolchainFile),
 	]) if (!paths.includes(required)) throw new Error(`Required build input ${required} is not pinned.`);
 	verifySharedSourceClosure(repositoryRoot, manifest.sharedSourceFiles, witnesses);

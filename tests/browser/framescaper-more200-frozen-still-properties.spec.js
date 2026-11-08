@@ -3,7 +3,7 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
 import { showClipTimingFields } from './audio-editor-inspector-test-helpers.js';
-import { videoPreviewBenchmarkMedia } from './fixtures/video-preview-benchmark-media.js';
+import { createDeterministicSilentVideoFixture } from './fixtures/deterministic-av-media.js';
 import { hasWebGl2Capability } from './helpers/webgl2-capability.js';
 import { hasDurableMediaStorageCapability } from './helpers/durable-media-storage-capability.js';
 
@@ -11,7 +11,7 @@ test('a newly frozen picture edits its duration in Clip properties with Undo', a
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	test.skip(!await page.evaluate(hasWebGl2Capability), 'Exact composited Freeze requires WebGL2.');
 	test.skip(!await page.evaluate(hasDurableMediaStorageCapability, 'indexeddb-only'), 'Freeze requires durable IndexedDB Blob storage.');
-	await editor.locator('[data-project-bin-input]').setInputFiles(videoPreviewBenchmarkMedia.file);
+	await editor.locator('[data-project-bin-input]').setInputFiles(createDeterministicSilentVideoFixture('freeze-workflow.webm'));
 	const card = editor.locator('[data-project-bin-item]').first(); await expect(card).toBeVisible();
 	await card.getByRole('button', { name: /Add to timeline/u }).click();
 	const camera = editor.getByRole('group', { name: /^Video clip:/u }).first(); await camera.press('Enter');

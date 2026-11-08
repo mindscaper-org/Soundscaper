@@ -20,8 +20,10 @@ for (const unavailable of [false, true]) test(`Recover preserves healthy media b
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 	const originalId = await editor.getAttribute('data-project-id'), url = page.url();
 	const original = await persistedProject(page, originalId);
-	await page.close();
 	const reopened = await context.newPage();
+	// Retain a blank page while closing the editor: WebKit retires its automation
+	// session when the context loses its last page. Navigate only after closure.
+	await page.close();
 	await installLinkedAudioBridge(reopened, { original: toneA, changed: toneB }, { unavailable });
 	await reopened.goto(url);
 	const active = await waitForEditor(reopened);

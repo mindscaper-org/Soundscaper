@@ -105,19 +105,19 @@ test('legacy capture covers blocked actions, armed-track lookup, and range recor
 	assert.equal(await createLegacyRecordingCaptureService(blocked.runtime).capture(
 		{ trackId: 'track-1' },
 		createScope(() => true),
-	), undefined);
+	), 'cancelled');
 	blocked.state.readOnly = false;
 	blocked.state.recordingStarting = true;
 	assert.equal(await createLegacyRecordingCaptureService(blocked.runtime).capture(
 		{ trackId: 'track-1' },
 		createScope(() => true),
-	), undefined);
+	), 'cancelled');
 	blocked.state.recordingStarting = false;
 	blocked.state.recorder = { stop: async () => {} };
 	assert.equal(await createLegacyRecordingCaptureService(blocked.runtime).capture(
 		{ trackId: 'track-1' },
 		createScope(() => true),
-	), undefined);
+	), 'cancelled');
 
 	const ranged = createRecordingCaptureFixture({ selection: { startFrame: 20, endFrame: 80 } });
 	ranged.state.leadInRecording = true;

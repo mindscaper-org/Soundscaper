@@ -23,6 +23,8 @@ import {
 	type ProjectRevisionRecord,
 } from './project-repository-support.ts';
 import { cloneStorageValue as clone } from './storage-clone.ts';
+import { captureProjectMediaResourceAuditV1, assertProjectMediaResourceAuditBackendV1, projectMediaResourceAuditKeysV1,
+	assertProjectMediaResourceAuditRowV1, type ProjectMediaResourceAuditV1 } from './project-media-resource-audit-v1.ts';
 
 /** Add exact-current publication to a project repository without widening its ordinary save path. */
 export class ProjectCompareAndSwapRepository implements ProjectRepositoryPort {
@@ -123,6 +125,7 @@ export class ProjectCompareAndSwapRepository implements ProjectRepositoryPort {
 		if (postCommit !== undefined && typeof postCommit !== 'function') {
 			throw new TypeError('Project post-commit maintenance must be a function.');
 		}
+		const audit = captureProjectMediaResourceAuditV1(projectValue);
 		const expected = canonicalProject(expectedValue);
 		const project = canonicalProject(projectValue);
 		if (project.id !== expected.id) {
@@ -136,9 +139,10 @@ export class ProjectCompareAndSwapRepository implements ProjectRepositoryPort {
 			project,
 		};
 		const database = await this.#port.database();
+		if (audit) assertProjectMediaResourceAuditBackendV1(audit, this.#port, database);
 		const published = database
-			? await publishIndexedDb(database, expected, project, revisionRecord, writeFence)
-			: publishMemory(this.#port, expected, project, revisionRecord, writeFence);
+			? await publishIndexedDb(database, expected, project, revisionRecord, writeFence, audit)
+			: publishMemory(this.#port, expected, project, revisionRecord, writeFence, audit);
 		if (!published) return null;
 		const committedProject = clone(project);
 		try {
@@ -189,6 +193,7 @@ async function publishIndexedDb(
 	project: ProjectDocument,
 	revisionRecord: ProjectRevisionRecord,
 	writeFence?: string,
+	audit?: Readonly<ProjectMediaResourceAuditV1>,
 ): Promise<boolean> {
 	return transact(database, ['projects', 'revisions', 'sources', 'mediaAssets', 'settings'], 'readwrite', async ({
 		projects, revisions, sources, mediaAssets, settings,
@@ -196,6 +201,7 @@ async function publishIndexedDb(
 		if (writeFence && (await request(settings.get(projectWriteFenceKey(project.id))) as { value?: unknown } | undefined)?.value !== writeFence) return false;
 		const current = await request(projects.get(project.id));
 		if (!sameProject(current, expected)) return false;
+		if (audit) for (const key of projectMediaResourceAuditKeysV1(audit)) assertProjectMediaResourceAuditRowV1(audit, key, await request(mediaAssets.get(key)));
 		projects.put(project);
 		revisions.put(revisionRecord);
 		await publishProjectSources({ sources, mediaAssets }, collectProjectStorageKeys(project));
@@ -209,10 +215,12 @@ function publishMemory(
 	project: ProjectDocument,
 	revisionRecord: ProjectRevisionRecord,
 	writeFence?: string,
+	audit?: Readonly<ProjectMediaResourceAuditV1>,
 ): boolean {
 	const { memory } = port;
 	if (writeFence && (memory.settings.get(projectWriteFenceKey(project.id)) as { value?: unknown } | undefined)?.value !== writeFence) return false;
 	if (!sameProject(memory.projects.get(project.id), expected)) return false;
+	if (audit) for (const key of projectMediaResourceAuditKeysV1(audit)) assertProjectMediaResourceAuditRowV1(audit, key, memory.mediaAssets.get(key));
 	const changes: Array<Readonly<{ map: Map<string, unknown>; key: string; value: unknown }>> = [
 		{ map: memory.projects, key: project.id, value: project },
 		{ map: memory.revisions, key: revisionRecord.key, value: revisionRecord },

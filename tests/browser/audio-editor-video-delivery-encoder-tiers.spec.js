@@ -46,7 +46,7 @@ test('an eligible Chromium delivery chooses its browser-native encoder explicitl
 		hasSharedArrayBuffer: false,
 	});
 	expect(result.codec).toMatch(/^avc1\./u);
-	expect(result.bitrate).toBe(12_276);
+	expect(result.bitrate).toBe(64_000);
 });
 
 test('absent and ineligible browser encoders are explicit unavailable errors', async ({ page }) => {

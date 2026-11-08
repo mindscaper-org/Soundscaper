@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { PRODUCT_IDS } from '../src/common/products.js';
 import { OPFS_SYNC_OPERATION_IDS } from '../src/common/editor/storage/opfs-sync-worker-protocol.ts';
 
 const closureUrl = new URL('../config/milestone-2-closure.json', import.meta.url);
@@ -45,12 +44,28 @@ test('milestone 2 closes the exact dedicated OPFS worker boundary', async () => 
 
 test('both web products pin worker and IndexedDB fallback evidence', async () => {
 	const capabilities = JSON.parse(await readFile(capabilitiesUrl, 'utf8'));
-	for (const productId of PRODUCT_IDS) {
+	// This worker evidence belongs to the frozen milestone-2 product scope.
+	for (const productId of ['soundscaper', 'framescaper']) {
 		const tier = capabilities.products[productId].platforms['web-enhanced'];
 		assert.equal(tier.status, 'partial');
 		for (const path of WEB_EVIDENCE) {
 			assert.ok(tier.evidence.includes(path), `${productId} is missing ${path}`);
 			await assert.doesNotReject(access(new URL(`../${path}`, import.meta.url)), path);
 		}
+	}
+});
+
+
+test('Lightscaper records its own optional storage and fallback evidence', async () => {
+	const capabilities = JSON.parse(await readFile(capabilitiesUrl, 'utf8'));
+	const tier = capabilities.products.lightscaper.platforms['web-enhanced'];
+	assert.equal(tier.status, 'partial');
+	for (const path of [
+		'src/lightscaper/storage/photo-media-store.ts',
+		'tests/lightscaper-photo-media-store.test.ts',
+		'tests/browser/lightscaper-managed-fallback-ui-current.spec.ts',
+	]) {
+		assert.ok(tier.evidence.includes(path), `Lightscaper is missing ${path}`);
+		await assert.doesNotReject(access(new URL(`../${path}`, import.meta.url)), path);
 	}
 });

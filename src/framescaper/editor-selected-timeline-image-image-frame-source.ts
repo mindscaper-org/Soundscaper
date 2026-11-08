@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { sequenceFrameAtSample } from '../common/editor/sequence-frame-navigation.ts';
+import { resizeRgba8NearestV1 } from '../common/editor/imaging/pixel-frame-resize-v1.ts';
 import { resolveVideoCanvasMaterializationSize, type VideoCanvasFit } from '../common/editor/video-canvas-fit.ts';
 import type { BlobLike } from '../common/editor/storage/media-records.ts';
 import {
@@ -19,6 +20,12 @@ import {
 	type FramescaperImageClipV1,
 	type FramescaperImageSourceV1,
 } from '../common/editor/timeline-image-model.ts';
+import { normalizeFramescaperImageSourceCurrentV1, type FramescaperImageSourceCurrentV1 } from '../common/editor/timeline-image-model-current-v1.ts';
+
+export type FramescaperCurrentImageSourceTimelineImage = FramescaperImageSourceCurrentV1;
+export function framescaperImageDimensionsTimelineImage(source: FramescaperCurrentImageSourceTimelineImage) {
+	return source.schemaVersion !== 1 ? source.developed : source.canonical;
+}
 
 export interface FramescaperStoredImageFrameTimelineImage {
 	readonly sourceTicks: bigint;
@@ -134,29 +141,16 @@ export function scaleFramescaperImageRgbaTimelineImage(
 		throw new RangeError('timelineImage image RGBA bytes do not match their canonical dimensions.');
 	}
 	throwIfAborted(signal);
-	if (sourceWidth === targetWidth && sourceHeight === targetHeight) {
-		return pixelsValue.slice() as Uint8Array<ArrayBuffer>;
-	}
-	const output = new Uint8Array(targetWidth * targetHeight * 4);
-	for (let y = 0; y < targetHeight; y += 1) {
-		throwIfAborted(signal);
-		const sourceY = Math.min(sourceHeight - 1, Math.floor(y * sourceHeight / targetHeight));
-		for (let x = 0; x < targetWidth; x += 1) {
-			const sourceX = Math.min(sourceWidth - 1, Math.floor(x * sourceWidth / targetWidth));
-			const sourceOffset = (sourceY * sourceWidth + sourceX) * 4;
-			output.set(pixelsValue.subarray(sourceOffset, sourceOffset + 4), (y * targetWidth + x) * 4);
-		}
-	}
-	return output;
+	return resizeRgba8NearestV1(pixelsValue, sourceWidth, sourceHeight, targetWidth, targetHeight, signal);
 }
 
 export function fitFramescaperImagePreviewSizeTimelineImage(
-	source: FramescaperImageSourceV1,
+	source: FramescaperCurrentImageSourceTimelineImage,
 	maximumWidthValue: number,
 	maximumHeightValue: number,
 	fit: VideoCanvasFit = 'contain',
 ): Readonly<{ readonly width: number; readonly height: number }> {
-	const canonical = normalizeFramescaperImageSourceV1(source).canonical;
+	const canonical = framescaperImageDimensionsTimelineImage(normalizeFramescaperImageSourceCurrentV1(source));
 	const maximumWidth = dimension(maximumWidthValue, 'timelineImage image preview width');
 	const maximumHeight = dimension(maximumHeightValue, 'timelineImage image preview height');
 	return resolveVideoCanvasMaterializationSize(fit, maximumWidth, maximumHeight, canonical.width, canonical.height);
@@ -165,7 +159,7 @@ export function fitFramescaperImagePreviewSizeTimelineImage(
 export function framescaperImageSourceForClipTimelineImage(
 	sources: readonly unknown[],
 	clipValue: unknown,
-): FramescaperImageSourceV1 {
+): FramescaperCurrentImageSourceTimelineImage {
 	const clip = normalizeFramescaperImageClipV1(clipValue);
 	const source = sources.find((candidate) => (
 		candidate && typeof candidate === 'object'
@@ -173,7 +167,7 @@ export function framescaperImageSourceForClipTimelineImage(
 		&& (candidate as Readonly<Record<string, unknown>>).id === clip.sourceId
 	));
 	if (source === undefined) throw new ReferenceError(`timelineImage image source ${clip.sourceId} is unavailable.`);
-	const normalized = normalizeFramescaperImageSourceV1(source);
+	const normalized = normalizeFramescaperImageSourceCurrentV1(source);
 	if (normalized.id !== clip.sourceId) throw new ReferenceError('timelineImage image clip changed source authority.');
 	return normalized;
 }

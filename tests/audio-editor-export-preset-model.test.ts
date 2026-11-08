@@ -82,7 +82,7 @@ test('applying a preset resets omitted preset-owned defaults instead of retainin
 		canvasFrameRateExact: null,
 		canvasBackgroundColor: '', videoQuality: 'balanced', videoAudioLayout: 'preserve',
 		canvasMaximumWidth: null, canvasMaximumHeight: null, canvasMaximumFrameRate: null, includeAudio: true,
-		deliveryTarget: '',
+		deliveryTarget: '', textWatermark: undefined,
 	});
 });
 

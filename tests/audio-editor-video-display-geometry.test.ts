@@ -119,6 +119,67 @@ test('a decoder that turned the frame moves the residual stretch with it', () =>
 	assert.equal(geometry.displayHeight, 64);
 });
 
+test('a decoder that stretches horizontally after a quarter turn owes the stretch on the other axis', () => {
+	for (const rotationDegrees of [90, 270]) {
+		const geometry = resolveVideoDisplayGeometry(characteristics({
+			codedWidth: 192, codedHeight: 144, rotationDegrees, pixelAspectRatio: { num: 2, den: 1 },
+		}), { width: 288, height: 192 });
+		assert.deepEqual(geometry, {
+			reconciliation: 'residual', displayWidth: 144, displayHeight: 384,
+			residualRotationDegrees: 0, residualScaleX: 1 / 2, residualScaleY: 2,
+		});
+	}
+});
+
+test('post-turn aspect correction retains arbitrary decoder scaling', () => {
+	const geometry = resolveVideoDisplayGeometry(characteristics({
+		codedWidth: 192, codedHeight: 144, rotationDegrees: 270, pixelAspectRatio: { num: 2, den: 1 },
+	}), { width: 576, height: 384 });
+	assert.equal(geometry.reconciliation, 'residual'); assert.equal(geometry.residualRotationDegrees, 0);
+	assert.equal(geometry.displayWidth, 288); assert.equal(geometry.displayHeight, 768);
+});
+
+test('an unambiguous reciprocal aspect undoes a horizontal squeeze after either quarter turn', () => {
+	for (const rotationDegrees of [90, 270]) {
+		const geometry = resolveVideoDisplayGeometry(characteristics({
+			codedWidth: 192, codedHeight: 144, rotationDegrees, pixelAspectRatio: { num: 1, den: 2 },
+		}), { width: 72, height: 192 });
+		assert.deepEqual(geometry, {
+			reconciliation: 'residual', displayWidth: 144, displayHeight: 96,
+			residualRotationDegrees: 0, residualScaleX: 2, residualScaleY: 1 / 2,
+		});
+	}
+});
+
+test('post-turn aspect matching admits the canonical nearest-pixel presentation', () => {
+	const geometry = resolveVideoDisplayGeometry(characteristics({
+		codedWidth: 720, codedHeight: 576, rotationDegrees: 270, pixelAspectRatio: { num: 64, den: 45 },
+	}), { width: 819, height: 720 });
+	assert.equal(geometry.reconciliation, 'residual'); assert.equal(geometry.residualRotationDegrees, 0);
+	assert.equal(geometry.residualScaleX, 45 / 64); assert.equal(geometry.residualScaleY, 64 / 45);
+	assert.equal(geometry.displayWidth, 576); assert.equal(geometry.displayHeight, 1_024);
+});
+
+test('an existing geometry explanation keeps precedence over an ambiguous post-turn aspect', () => {
+	const geometry = resolveVideoDisplayGeometry(characteristics({
+		codedWidth: 200, codedHeight: 100, rotationDegrees: 270, pixelAspectRatio: { num: 4, den: 1 },
+	}), { width: 200, height: 100 });
+	assert.deepEqual(geometry, {
+		reconciliation: 'residual', displayWidth: 100, displayHeight: 800,
+		residualRotationDegrees: 270, residualScaleX: 4, residualScaleY: 1,
+	});
+});
+
+test('unmatched quarter-turn anamorphic dimensions remain a disclosed disagreement', () => {
+	const geometry = resolveVideoDisplayGeometry(characteristics({
+		codedWidth: 192, codedHeight: 144, rotationDegrees: 270, pixelAspectRatio: { num: 2, den: 1 },
+	}), { width: 640, height: 640 });
+	assert.deepEqual(geometry, {
+		reconciliation: 'disagreed', displayWidth: 640, displayHeight: 640,
+		residualRotationDegrees: 0, residualScaleX: 1, residualScaleY: 1,
+	});
+});
+
 test('geometry that no rotation or stretch explains is reported as disagreement', () => {
 	const geometry = resolveVideoDisplayGeometry(
 		characteristics({ codedWidth: 1_920, codedHeight: 1_080 }),

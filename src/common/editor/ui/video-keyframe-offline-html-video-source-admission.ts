@@ -12,6 +12,8 @@ export interface VideoKeyframeOfflineHtmlVideoSourceAsset {
 	readonly decodedHeight: number;
 	readonly displayWidth: number;
 	readonly displayHeight: number;
+	readonly presentedWidth?: number;
+	readonly presentedHeight?: number;
 	readonly presentationForEntry: (
 		entry: Readonly<Record<string, unknown>>,
 	) => VideoRetimeFrameDescriptor;
@@ -51,7 +53,7 @@ export function admitVideoKeyframeOfflineHtmlVideoSourceAssets(
 		const source = closedRecord(sourceValue, name, [
 			'sourceId', 'identity', 'blob', 'clipIds', 'decodedWidth', 'decodedHeight',
 			'displayWidth', 'displayHeight', 'presentationForEntry',
-		]);
+		], ['presentedWidth', 'presentedHeight']);
 		const sourceId = boundedId(source.sourceId, `${name}.sourceId`);
 		if (assets.has(sourceId)) throw new RangeError(`Duplicate offline HTML video source ID ${sourceId}.`);
 		const identity = digest(source.identity, `${name}.identity`);
@@ -62,6 +64,14 @@ export function admitVideoKeyframeOfflineHtmlVideoSourceAssets(
 		planVideoPreviewCapture({ sourceWidth: decodedWidth, sourceHeight: decodedHeight });
 		const displayWidth = dimension(source.displayWidth, `${name}.displayWidth`);
 		const displayHeight = dimension(source.displayHeight, `${name}.displayHeight`);
+		if (Object.hasOwn(source, 'presentedWidth') !== Object.hasOwn(source, 'presentedHeight')) {
+			throw new TypeError(`${name} requires both presented dimensions or neither.`);
+		}
+		const presented = Object.hasOwn(source, 'presentedWidth') ? {
+			presentedWidth: dimension(source.presentedWidth, `${name}.presentedWidth`),
+			presentedHeight: dimension(source.presentedHeight, `${name}.presentedHeight`),
+		} : null;
+		if (presented) planVideoPreviewCapture({ sourceWidth: presented.presentedWidth, sourceHeight: presented.presentedHeight });
 		const clipValues = denseArray(source.clipIds, `${name}.clipIds`, MAXIMUM_CLIP_REFERENCES);
 		clipReferences += clipValues.length;
 		if (clipReferences > MAXIMUM_CLIP_REFERENCES || clipValues.length < 1) {
@@ -85,6 +95,7 @@ export function admitVideoKeyframeOfflineHtmlVideoSourceAssets(
 			decodedHeight,
 			displayWidth,
 			displayHeight,
+			...presented,
 			presentationForEntry: source.presentationForEntry as VideoKeyframeOfflineHtmlVideoSourceAssetSnapshot['presentationForEntry'],
 		}));
 	}
@@ -117,10 +128,10 @@ export function bindVideoKeyframeOfflineHtmlVideoEntry(
 	return Object.freeze({ asset, entry, occurrenceKey: `${String(sourceId.length)}:${sourceId}${clipId}` });
 }
 
-function closedRecord(value: unknown, name: string, required: readonly string[]): Readonly<Record<string, unknown>> {
+function closedRecord(value: unknown, name: string, required: readonly string[], optional: readonly string[] = []): Readonly<Record<string, unknown>> {
 	const record = dataRecord(value, name);
 	const keys = Reflect.ownKeys(record);
-	if (keys.length !== required.length || keys.some((key) => typeof key !== 'string' || !required.includes(key))
+	if (keys.some((key) => typeof key !== 'string' || (!required.includes(key) && !optional.includes(key)))
 		|| required.some((key) => !keys.includes(key))) {
 		throw new TypeError(`${name} must be a closed own-data record.`);
 	}

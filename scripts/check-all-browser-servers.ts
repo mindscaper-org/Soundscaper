@@ -13,7 +13,7 @@ const { sites } = ordinaryBrowserProductSitePlan();
 const children: ChildProcess[] = [];
 let failure: Error | undefined;
 
-// Own the shared pair explicitly; never attach tests to an unrelated preview.
+// Own every configured product preview; never attach tests to an unrelated server.
 for (const site of sites) {
 	const port = Number(new URL(site.origin).port);
 	await new Promise<void>((resolvePort, reject) => {
@@ -44,7 +44,7 @@ while (!ready && !failure && Date.now() < deadline) {
 	if (!ready) await setTimeout(100);
 }
 if (!ready || failure) throw failure ?? new Error('Browser preview servers did not become ready within 120 seconds.');
-process.stdout.write(progressRecord({ type: 'start', id: 'servers-ready', label: 'Both product previews are ready' }));
+process.stdout.write(progressRecord({ type: 'start', id: 'servers-ready', label: 'Configured product previews are ready' }));
 // Child handles keep this supervisor alive. A server exit fails its scope;
 // the coordinator then cancels dependent work and kills the whole scope.
 for (const child of children) child.once('exit', () => {

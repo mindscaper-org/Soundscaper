@@ -5,10 +5,12 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 const ROOT = new URL('../', import.meta.url);
+const PRODUCT_IDS = Object.freeze(['soundscaper', 'framescaper', 'lightscaper']);
 
 const SURFACES = Object.freeze([
 	Object.freeze({
 		label: 'desktop preparation',
+		productIds: PRODUCT_IDS,
 		args: ['--input-type=module', '--eval', [
 			"const module = await import('./scripts/desktop-prepare.mjs');",
 			'process.stdout.write(module.resolveDesktopProductId(process.env.SCAPE_PRODUCT));',
@@ -16,13 +18,16 @@ const SURFACES = Object.freeze([
 	}),
 	Object.freeze({
 		label: 'electron-builder',
+		productIds: PRODUCT_IDS,
 		args: ['--eval', [
 			"const config = require('./electron-builder.config.cjs');",
-			"process.stdout.write(config.productName === 'Framescaper' ? 'framescaper' : 'soundscaper');",
+			"const productIds = new Map([['Soundscaper', 'soundscaper'], ['Framescaper', 'framescaper'], ['Lightscaper', 'lightscaper']]);",
+			"process.stdout.write(productIds.get(config.productName) ?? 'unrecognized-product');",
 		].join(' ')],
 	}),
 	Object.freeze({
 		label: 'desktop runtime constants',
+		productIds: PRODUCT_IDS,
 		args: ['--input-type=module', '--eval', [
 			"const module = await import('./desktop/constants.js');",
 			'process.stdout.write(module.PRODUCT_ID);',
@@ -30,6 +35,7 @@ const SURFACES = Object.freeze([
 	}),
 	Object.freeze({
 		label: 'packaged desktop smoke',
+		productIds: Object.freeze(['soundscaper', 'framescaper']),
 		args: ['--input-type=module', '--eval', [
 			"const module = await import('./scripts/desktop-smoke.mjs');",
 			'process.stdout.write(module.resolveDesktopProductId(process.env.SCAPE_PRODUCT));',
@@ -46,8 +52,8 @@ test('desktop selectors default only an absent SCAPE_PRODUCT to Soundscaper', ()
 });
 
 test('desktop selectors accept each exact product id without cross-product fallback', () => {
-	for (const productId of ['soundscaper', 'framescaper']) {
-		for (const surface of SURFACES) {
+	for (const surface of SURFACES) {
+		for (const productId of surface.productIds) {
 			const result = runSurface(surface, productId);
 			assert.equal(result.status, 0, `${surface.label}/${productId}: ${result.stderr}`);
 			assert.equal(result.stdout, productId, `${surface.label}/${productId}`);
@@ -56,8 +62,11 @@ test('desktop selectors accept each exact product id without cross-product fallb
 });
 
 test('desktop selectors reject empty and unrecognized SCAPE_PRODUCT values', () => {
-	for (const productId of ['', 'lightscaper', 'Framescaper', 'framescaper ']) {
-		for (const surface of SURFACES) {
+	for (const surface of SURFACES) {
+		for (const productId of [
+			'', 'unknownscaper', 'Framescaper', 'framescaper ', 'Lightscaper', 'lightscaper ',
+			...PRODUCT_IDS.filter(candidate => !surface.productIds.includes(candidate)),
+		]) {
 			const result = runSurface(surface, productId);
 			assert.notEqual(result.status, 0, `${surface.label} accepted ${JSON.stringify(productId)}`);
 			assert.match(

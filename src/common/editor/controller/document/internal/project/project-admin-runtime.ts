@@ -126,7 +126,7 @@ export interface ProjectAdminServiceRuntime<
 	saveNow(): Awaitable<unknown>;
 	scheduleTimer(callback: () => void, delayMs: number): number;
 	readonly sessionController: Readonly<{
-		clipboardForProject?(projectId: string): AudioEditorSessionClipboard | null;
+		clipboardForProject?(projectId: string): Pick<AudioEditorSessionClipboard, 'originProjectId' | 'sources'> | null;
 		getClipboardGeneration?(): object;
 		getSnapshot(): Readonly<{ tabs: readonly AdminSessionTab<Project, History>[] }>;
 		getHistoryStorageKeys?(): ReadonlySet<string>;

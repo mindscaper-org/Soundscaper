@@ -10,8 +10,8 @@ import { basename, dirname, resolve } from 'node:path';
 // product's own tree, and to `common` otherwise. A test that reaches into both
 // products is cross-product work and belongs to `common` too. The common owner
 // runs as two execution shards to keep one runner from carrying all shared tests.
-const NODE_TEST_OWNER_IDS = Object.freeze(['common', 'framescaper', 'soundscaper']);
-export const NODE_TEST_SHARD_IDS = Object.freeze(['common-1', 'common-2', 'framescaper', 'soundscaper']);
+const NODE_TEST_OWNER_IDS = Object.freeze(['common', 'framescaper', 'soundscaper', 'lightscaper']);
+export const NODE_TEST_SHARD_IDS = Object.freeze(['common-1', 'common-2', 'framescaper', 'soundscaper', 'lightscaper']);
 
 const TEST_FILE_PATTERN = /\.test\.(?:[cm]?[jt]s|[jt]sx)$/u;
 const RELATIVE_SPECIFIER = /(?:from|import|require)\s*\(?\s*['"](\.[^'"]*)['"]/gu;
@@ -26,6 +26,7 @@ const productReferencePattern = (product) =>
 const PRODUCTS = Object.freeze([
 	{ id: 'framescaper', reference: productReferencePattern('framescaper'), name: /framescaper/u },
 	{ id: 'soundscaper', reference: productReferencePattern('soundscaper'), name: /soundscaper/u },
+	{ id: 'lightscaper', reference: productReferencePattern('lightscaper'), name: /lightscaper/u },
 ]);
 
 // This probe asserts that two workers and an AudioWorklet continue while the
@@ -36,6 +37,8 @@ const ISOLATED_NODE_TEST_NAMES = new Set([
 	'desktop-parallel-stack-protocol.test.ts',
 	// Chromium startup can abort under the shared batch's process/memory pressure.
 	'desktop-nightly-tests-progress-archive.test.ts',
+	// The genuine above-64MiB HDR proof keeps its deadline without CPU contention.
+	'lightscaper-hdr-frame-handoff-current.test.ts',
 ]);
 
 export function listNodeTestFiles(repositoryRoot) {
@@ -93,7 +96,7 @@ export function partitionNodeTestExecutionBatches(testFiles) {
 	for (const testFile of testFiles) {
 		(ISOLATED_NODE_TEST_NAMES.has(basename(testFile)) ? isolated : parallel).push(testFile);
 	}
-	// Start real-time probes on the clean runner. A completed high-concurrency
+	// Start isolated probes on the clean runner. A completed high-concurrency
 	// batch can leave short-lived child-process and scheduler pressure behind.
 	return [
 		...isolated.map((testFile) => [testFile]),

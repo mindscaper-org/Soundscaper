@@ -72,7 +72,7 @@ test('retained production CPU evidence binds the exact candidate graphs without 
 	assert.deepEqual(measured.sessions, measured.graphs.map(graph => ({ fileName: graph.fileName, providers: ['cpu'] })));
 });
 
-test('CPU evidence authenticates the historical runtime snapshot and exact measured processor/reference source bytes', async () => {
+test('historical CPU evidence authenticates its retained runtime and measured processor/reference source bytes', async () => {
 	const measured = await report();
 	for (const pin of [measured.runtime.snapshot, measured.provenance.conversionReport, measured.provenance.sourceRegister,
 		measured.provenance.toolchainLock, ...measured.provenance.processorSources, ...measured.provenance.runnerSources]) {

@@ -8,10 +8,10 @@ import { bootEditor, chooseExportProjectFileAction, chooseNestedCommandAction, d
 
 let archive;
 let originalId;
-test.beforeAll(async ({ browser }) => {
-	const context = await browser.newContext();
+test.beforeAll(async ({ createBrowserContext }) => {
+	const context = await createBrowserContext();
 	try {
-		const page = await context.newPage();
+		const page = context.pages()[0] ?? await context.newPage();
 		await disableNativeSavePicker(page);
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [toneA]);

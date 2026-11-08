@@ -131,6 +131,41 @@ test('the helper bounds each apt-get call with a wall clock', () => {
 	}
 });
 
+test('the explicit complete-inventory mode includes installed packages that need upgrades', () => {
+	const harness = createHarness({ installed: ['xvfb'] });
+	try {
+		const result = harness.run(['xvfb', 'pulseaudio'], { CI_APT_REQUIRE_ALL: '1' });
+		assert.equal(result.status, 0, result.stderr);
+		assert.ok(harness.aptCalls().some(call => call.includes('install') && call.endsWith('xvfb pulseaudio')));
+		assert.equal(harness.timeoutInvocations(), harness.aptInvocations());
+	} finally {
+		harness.cleanup();
+	}
+});
+
+test('an invalid complete-inventory mode refuses package installation', () => {
+	const harness = createHarness({ installed: [] });
+	try {
+		const result = harness.run(['xvfb'], { CI_APT_REQUIRE_ALL: 'yes' });
+		assert.equal(result.status, 64);
+		assert.equal(harness.aptInvocations(), 0);
+	} finally {
+		harness.cleanup();
+	}
+});
+
+test('complete-inventory retries also bound interrupted package configuration', () => {
+	const harness = createHarness({ installed: ['xvfb'], failuresBeforeSuccess: 1 });
+	try {
+		const result = harness.run(['xvfb'], { CI_APT_REQUIRE_ALL: '1' });
+		assert.equal(result.status, 0, result.stderr);
+		assert.ok(harness.dpkgRepairs() > 0);
+		assert.equal(harness.timeoutInvocations(), harness.aptInvocations() + harness.dpkgRepairs());
+	} finally {
+		harness.cleanup();
+	}
+});
+
 test('the helper retries an apt-get call that a mirror failure aborted', () => {
 	const harness = createHarness({ installed: [], failuresBeforeSuccess: 2 });
 	try {
@@ -272,13 +307,14 @@ function createHarness({ installed, failuresBeforeSuccess = 0 }) {
 	);
 
 	return {
-		run(packages) {
+		run(packages, overrides = {}) {
 			return spawnSync('bash', [helperPath, ...packages], {
 				encoding: 'utf8',
 				env: {
 					...process.env,
 					PATH: `${binary}:${process.env.PATH ?? ''}`,
 					CI_APT_RETRY_DELAY_SECONDS: '0',
+					...overrides,
 				},
 			});
 		},

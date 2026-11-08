@@ -22,6 +22,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  lightscaper-internal-desktop:
+    if: github.ref_type != 'tag'
+    needs: quality
+    uses: ./.github/workflows/lightscaper-desktop-native-internal.yml
+
   # Match Quality's four independent static lanes. Each lane walks its own
   # complete check set; the aggregate retains the downstream quality contract.
   quality:
@@ -218,7 +223,7 @@ jobs:
       # Balance module and integration suites across four stable artifact slots.
       # Wait for static checks before starting the test runners.
       matrix:
-        shard: [common-1, common-2, framescaper, soundscaper]
+        shard: [common-1, common-2, framescaper, soundscaper, lightscaper]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -247,6 +252,10 @@ jobs:
       - name: Install virtual display for the native-helper Electron proof
         timeout-minutes: 10
         run: bash scripts/ci-apt-install.sh xvfb
+
+      - name: Install Lightscaper native association test prerequisites
+        timeout-minutes: 10
+        run: bash scripts/ci-apt-install.sh libglib2.0-dev pkg-config shared-mime-info
 
       - name: Allow unprivileged user namespaces for the native isolation launcher
         # ubuntu-24.04 images restrict unprivileged user namespaces through
@@ -287,6 +296,10 @@ jobs:
       - name: Provision pinned Boost closure for Framescaper native tests
         if: steps.test-prerequisites.outputs.boost == 'true'
         run: node scripts/ci-provision-framescaper-boost.mjs
+
+      # Semantic suites can place Lightscaper consumers in any execution slot.
+      - name: Provision pinned Lightscaper RAW fixtures
+        run: node scripts/provision-lightscaper-raw-fixtures.mjs
 
       - name: Restore Electron binary for the desktop protocol test
         if: steps.test-prerequisites.outputs.electron == 'true'

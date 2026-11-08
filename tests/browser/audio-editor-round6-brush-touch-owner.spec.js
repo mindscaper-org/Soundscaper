@@ -18,10 +18,17 @@ for (const secondary of [false, true]) test(`a spectral brush completes ${second
 	const first = { x: Math.round(bounds.x + 50), y: Math.round(bounds.y + bounds.height / 4), id: 1 };
 	const middle = { ...first, x: first.x + 10, y: first.y + 5 };
 	const final = { ...first, x: first.x + 20, y: first.y + 10 };
+	await expect(brush).toBeEnabled();
+	await brush.hover({ position: { x: first.x - bounds.x, y: first.y - bounds.y } });
+	expect(await brush.evaluate((element, point) => (
+		element.ownerDocument.elementFromPoint(point.x, point.y) === element
+	), first)).toBe(true);
 	await page.mouse.move(first.x, first.y);
 	await page.mouse.down();
-	await expect(brush.locator('.audio-editor-spectral-brush__preview')).toBeVisible();
+	const draft = brush.locator('.audio-editor-spectral-brush__preview');
+	await expect(draft).toBeVisible();
 	await page.mouse.move(final.x, final.y, { steps: 3 });
+	await expect(draft).toBeVisible();
 	await page.mouse.up();
 	const handles = editor.locator('[data-spectral-selection] [role="slider"]');
 	await expect(handles).toHaveCount(5);

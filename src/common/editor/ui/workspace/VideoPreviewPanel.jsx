@@ -4,11 +4,11 @@ import {
 	FRAMESCAPER_PROJECT_SCHEMA_FAMILY,
 	isCurrentProjectSchemaIdentity,
 } from '../../project-schema-identity.ts';
-import { createVideoKeyframeRenderStateProvider } from '../../video-keyframe-render-state-provider.ts';
+import { createVideoPreviewKeyframeStateProvider } from './video-preview-keyframe-state-provider.ts';
+import { resolveVideoKeyframePreviewStateCurrent } from '../../video-keyframe-preview-state-v2.ts';
 import {
 	isVideoKeyframePreviewFailureCurrent,
 	isVideoKeyframePreviewStateError,
-	resolveVideoKeyframePreviewState,
 } from '../../video-keyframe-preview-state.ts';
 import { useVideoPreviewTimelineResolution } from './use-video-preview-timeline-resolution.ts';
 import {
@@ -36,7 +36,8 @@ import {
 	shouldHideVideoPreviewIdentityFallback,
 } from './video-preview-fallback.ts';
 import { publishEvaluatedVideoPreviewFrame } from './video-preview-external-display.ts';
-import { createExactPreviewRenderCoordinator } from '../../controller/clip-video/exact-preview-render-coordinator.ts';
+import { dispatchExactProductVideoPreview } from './video-preview-exact-frame-dispatch.ts';
+import { useVideoPreviewRenderLifetime } from './use-video-preview-render-lifetime.ts';
 import { areVideoPreviewMediaLayersReadyForExactRender, shouldRenderExactProductVideoPreview } from './video-preview-exact-render-policy.ts';
 import { bindFramescaperPreviewFreezeCapture } from './video-preview-freeze-capture.ts';
 import { resolveRegisteredVideoRetimePreview } from './video-preview-retime.ts';
@@ -47,6 +48,7 @@ import {
 } from './video-preview-openfx-status.jsx';
 import { videoPreviewPanelStateAttributes } from './video-preview-panel-state-attributes.js';
 import { useVideoPreviewTransportState } from './use-video-preview-transport-state.js';
+import { focusedVideoPreviewSequenceId, focusVideoPreviewProjects } from './video-preview-focused-project.ts';
 
 export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 	const canvasRef = useRef(null);
@@ -66,9 +68,10 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 		transportState: 'stopped',
 	});
 	const animationFrameRef = useRef(0);
-	const [exactRenders] = useState(() => createExactPreviewRenderCoordinator(() => {
-		if (compositorRef.current) requestProductVisualFrameRef.current();
-	}));
+	const renderPreviewFrameRef = useRef(() => {});
+	const renderLifetimeRef = useRef(null);
+	const beforeSessionReplace = useCallback(() => renderLifetimeRef.current?.beforeReplace() ?? Promise.resolve(), []);
+	const afterSessionReplace = useCallback(() => renderLifetimeRef.current?.afterReplace(), []);
 	const requestProductVisualFrameRef = useRef(() => {});
 	const freezeCaptureProjectRef = useRef(null);
 	const freezeEvaluatedFrameRef = useRef(null);
@@ -84,8 +87,10 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 		compositorTimelineRef,
 		compositorStateRef,
 	});
-	const project = snapshot.videoPreviewProject || snapshot.project;
-	const canonicalProject = snapshot.project;
+	const focusedSequenceId = focusedVideoPreviewSequenceId(snapshot.project, snapshot.selectedClipId);
+	const { project, canonicalProject } = useMemo(() => focusVideoPreviewProjects(
+		snapshot.project, snapshot.videoPreviewProject || snapshot.project, focusedSequenceId,
+	), [snapshot.project, snapshot.videoPreviewProject, focusedSequenceId]);
 	freezeCaptureProjectRef.current = canonicalProject;
 	const retimePreview = useMemo(() => resolveRegisteredVideoRetimePreview(
 		project, typeof controller.actions.sequences?.retimeSet === 'function',
@@ -93,10 +98,10 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 	const resolveClipPresentation = retimePreview.resolver?.resolveClipPresentation;
 	const keyframeStateProvider = useMemo(() => {
 		void project;
-		return createVideoKeyframeRenderStateProvider();
-	}, [project]);
+		return createVideoPreviewKeyframeStateProvider(controller);
+	}, [controller, project]);
 	const resolveClipRenderState = useCallback(
-		(request) => resolveVideoKeyframePreviewState(keyframeStateProvider, request),
+		(request) => resolveVideoKeyframePreviewStateCurrent(keyframeStateProvider, request),
 		[keyframeStateProvider],
 	);
 	const videoEffectBypass = useMemo(
@@ -122,6 +127,7 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 		state: visualPreviewState,
 		updateFrame: updateVisualPreviewFrame,
 		resolveTransitionWeight,
+		retireAndJoin: retireVisualSession,
 	} = useProductVideoVisualPreviewSession({
 		owner: controller,
 		project: canonicalProject,
@@ -129,6 +135,9 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 		height: referenceCanvas.height,
 		fit: referenceCanvas.fit,
 		requestFrame: () => { requestProductVisualFrameRef.current(); },
+		beforeReplace: beforeSessionReplace,
+		afterReplace: afterSessionReplace,
+		failureMessage: copy.videoPreviewUnavailable,
 	});
 	const { timelineResolver, layerResolution } = useVideoPreviewTimelineResolution({ project, positionFrame,
 		renderCanvas: referenceCanvas, resolveClipRenderState, resolveClipPresentation, resolveTransitionWeight });
@@ -211,8 +220,29 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 		renderIssueSignatureRef.current = signature;
 		setRenderIssue(issue);
 	}, []);
+	const renderLifetime = useVideoPreviewRenderLifetime({
+		engine: controller.engine, canvasRef, compositorRef, create: createVideoPreviewCompositor,
+		joinSession: retireVisualSession,
+		requestFrame: () => requestProductVisualFrameRef.current(),
+		onReady: (fallback) => updateCompositorState(fallback ? 'fallback' : 'webgl'),
+		onFailure: () => { updateVisualPreviewFrame(null, copy.videoPreviewUnavailable); updateCompositorState('fallback'); },
+		onContextLost: () => {
+			updateRenderIssue(createVideoPreviewCompositorFallbackReport(composedLayersRef.current));
+			updateCompositorState('fallback');
+		},
+		onRetire: () => {
+			if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+			animationFrameRef.current = 0;
+			retiredVideoElementsRef.current.length = 0;
+		},
+	});
+	renderLifetimeRef.current = renderLifetime;
 	const renderPreviewFrame = useCallback(function renderPreviewFrameCallback() {
 		animationFrameRef.current = 0;
+		const lifetime = renderLifetimeRef.current;
+		if (!lifetime?.mayRender()) return;
+		const exactRenders = lifetime.coordinatorRef.current;
+		if (!exactRenders) return;
 		if (exactRenders.deferWhileActive()) return;
 		const compositor = compositorRef.current;
 		const playhead = playheadRef.current;
@@ -229,8 +259,8 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 			if (!visualSession) return;
 			try {
 				updateVisualPreviewFrame(visualSession.resolve(timelineFrame));
-			} catch (error) {
-				updateVisualPreviewFrame(null, error instanceof Error ? error.message : String(error));
+			} catch {
+				updateVisualPreviewFrame(null, copy.videoPreviewUnavailable);
 			}
 			return;
 		}
@@ -253,9 +283,9 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 		if (layersSynchronized) {
 			releaseRetiredVideoPreviewElements(compositor, retiredVideoElementsRef.current);
 		}
-		const failProductFrame = (error) => {
+		const failProductFrame = () => {
 			composedLayersRef.current = [];
-			updateVisualPreviewFrame(null, error instanceof Error ? error.message : String(error));
+			updateVisualPreviewFrame(null, copy.videoPreviewUnavailable);
 			updateCompositorState('fallback');
 			updateOpenFxIssue([], true);
 		};
@@ -272,13 +302,14 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 			updateRenderIssue(report, renderedEffectIds);
 			updateOpenFxIssue(openFxDispositions, reportsOpenFxDegradation);
 			const freezeProject = freezeCaptureProjectRef.current;
-			if (report.status !== 'fallback'
+			if (report.status !== 'fallback' && freezeProject === canonicalProject
 				&& isCurrentProjectSchemaIdentity(
 					freezeProject, FRAMESCAPER_PROJECT_SCHEMA_FAMILY,
 				)) {
 				freezeEvaluatedFrameRef.current = {
 					projectId: freezeProject.id,
 					projectRevision: freezeProject.revision,
+					sequenceId: freezeProject.primarySequenceId,
 					timelineSample: timelineFrame,
 				};
 			}
@@ -291,7 +322,7 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 			updateCompositorState(report.status === 'fallback'
 				? 'fallback' : report.renderedEntryCount > 0 ? 'ready' : 'webgl');
 			if (shouldContinueVideoPreviewPlayback(report, playhead.transportState)) {
-				animationFrameRef.current = requestAnimationFrame(renderPreviewFrameCallback);
+				requestProductVisualFrameRef.current();
 			}
 		};
 		try {
@@ -299,36 +330,26 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 			const productFrame = visualSession?.resolve(timelineFrame) ?? null;
 			if (shouldRenderExactProductVideoPreview(visualSession, playhead.transportState)) {
 				if (!layersSynchronized || !areVideoPreviewMediaLayersReadyForExactRender(compositorLayersRef.current)) return;
-				void exactRenders.run({
-					render: () => visualSession.renderExact({
-						timelineSample: timelineFrame, mediaLayers: compositorLayersRef.current,
-					}),
-					isCurrent: () => visualSessionRef.current === visualSession && compositorRef.current === compositor,
+				void dispatchExactProductVideoPreview({
+					coordinator: exactRenders, session: visualSession, timelineSample: timelineFrame, mediaLayers: compositorLayersRef.current,
+					isCurrent: () => lifetime.mayRender() && visualSessionRef.current === visualSession && compositorRef.current === compositor,
 					publish: (result) => publishProductFrame(result.frame, result.layers, true, result.renderedEffectIds,
 						result.openFxDispositions, result.reportsOpenFxDegradation),
 					onError: failProductFrame,
-				});
+				}).catch(failProductFrame);
 				return;
 			}
 			publishProductFrame(productFrame, composeProductVideoVisualPreviewLayers(
 				compositorLayersRef.current, productFrame,
 			), Boolean(visualSession));
 		} catch (error) { failProductFrame(error); }
-	}, [exactRenders, controller, project, updateCompositorState, updateOpenFxIssue, updateRenderIssue, updateVisualPreviewFrame,
+	}, [canonicalProject, copy.videoPreviewUnavailable, controller, project, updateCompositorState, updateOpenFxIssue, updateRenderIssue, updateVisualPreviewFrame,
 		videoEffectBypass, visualSessionRef]);
 	const requestPreviewFrame = useCallback(() => {
 		if (animationFrameRef.current) return;
-		animationFrameRef.current = requestAnimationFrame(renderPreviewFrame);
-	}, [renderPreviewFrame]);
-	requestProductVisualFrameRef.current = requestPreviewFrame;
-	// The compositor owns GPU resources that outlive every project revision, so
-	// its lifecycle effect requests frames through this render-stable seam.
-	// `requestPreviewFrame` changes identity with the project, and depending on
-	// it would dispose the render targets, the uploaded video textures and every
-	// compiled program after each edit, undo or redo.
-	const requestStablePreviewFrame = useCallback(() => {
-		requestProductVisualFrameRef.current();
+		animationFrameRef.current = requestAnimationFrame(() => { animationFrameRef.current = 0; renderPreviewFrameRef.current(); });
 	}, []);
+	requestProductVisualFrameRef.current = requestPreviewFrame;
 	const registerVideoElement = useCallback((clipId, element) => {
 		const previousElement = videoElementsRef.current.get(clipId);
 		if (compositorRef.current && previousElement && previousElement !== element) {
@@ -368,43 +389,11 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 	}, [controller, requestPreviewFrame, run]);
 
 	useEffect(() => {
-		const canvas = canvasRef.current;
-		if (!canvas) return undefined;
-		try {
-			compositorRef.current = createVideoPreviewCompositor(canvas, {
-				onContextLost: () => {
-					updateRenderIssue(createVideoPreviewCompositorFallbackReport(
-						composedLayersRef.current,
-					));
-					updateCompositorState('fallback');
-				},
-				onContextRestored: () => {
-					updateCompositorState('webgl');
-					requestStablePreviewFrame();
-				},
-			});
-			updateCompositorState('webgl');
-		} catch {
-			compositorRef.current = null;
-			updateCompositorState('fallback');
-			return undefined;
-		}
-		const retiredVideoElements = retiredVideoElementsRef.current;
-		const resizeObserver = typeof ResizeObserver === 'function'
-			? new ResizeObserver(requestStablePreviewFrame)
-			: null;
-		resizeObserver?.observe(canvas);
-		if (!resizeObserver) window.addEventListener('resize', requestStablePreviewFrame);
-		return () => {
-			resizeObserver?.disconnect();
-			if (!resizeObserver) window.removeEventListener('resize', requestStablePreviewFrame);
-			if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-			animationFrameRef.current = 0;
-			compositorRef.current?.dispose();
-			compositorRef.current = null;
-			retiredVideoElements.length = 0;
-		};
-	}, [requestStablePreviewFrame, updateCompositorState, updateRenderIssue]);
+		void renderLifetimeRef.current?.supersede().catch(() => {
+			updateVisualPreviewFrame(null, copy.videoPreviewUnavailable);
+		});
+	}, [copy.videoPreviewUnavailable, project, referenceCanvas, snapshot.preferences?.view?.videoPreviewResolution,
+		videoEffectBypass, updateVisualPreviewFrame]);
 	useEffect(() => {
 		if (!isCurrentProjectSchemaIdentity(
 			canonicalProject, FRAMESCAPER_PROJECT_SCHEMA_FAMILY,
@@ -441,12 +430,14 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 		renderOptionsRef.current.referenceWidth = referenceCanvas.width;
 		renderOptionsRef.current.referenceHeight = referenceCanvas.height;
 		renderOptionsRef.current.previewResolution = snapshot.preferences?.view?.videoPreviewResolution;
+		renderPreviewFrameRef.current = renderPreviewFrame;
 		requestPreviewFrame();
 	}, [
 		compositorTimeline,
 		positionFrame,
 		referenceCanvas.height,
 		referenceCanvas.width,
+		renderPreviewFrame,
 		requestPreviewFrame,
 		snapshot.preferences?.view?.videoPreviewResolution,
 		transportState,

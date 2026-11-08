@@ -122,16 +122,17 @@ test.describe('audio warp and transient workflow', () => {
 		expect(errors).toEqual([]);
 	});
 
-	test('native realtime and exact-offline production playback agree for a nonidentity map', async ({ page, browser }) => {
+	test('native realtime and exact-offline production playback agree for a nonidentity map', async ({ page, createBrowserContext }) => {
 		test.setTimeout(120_000);
 		await installWarpCapture(page);
 		await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
 
 		const realtime = await captureProductionWarpPlayback(page, 'realtime');
-		const fallbackContext = await browser.newContext();
+		await page.context().close();
+		const fallbackContext = await createBrowserContext();
 		let exact;
 		try {
-			const fallbackPage = await fallbackContext.newPage();
+			const fallbackPage = fallbackContext.pages()[0] ?? await fallbackContext.newPage();
 			await installWarpCapture(fallbackPage);
 			await stubStorageEstimate(fallbackPage, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
 			exact = await captureProductionWarpPlayback(fallbackPage, 'fallback');

@@ -297,7 +297,7 @@ test.describe('native timeline annotations', () => {
 		expect(errors).toEqual([]);
 	});
 
-	test('opens Soundscaper V29 as opaque read-only in Framescaper and preserves annotations at home', async ({ browser, page }) => {
+	test('opens Soundscaper V29 as opaque read-only in Framescaper and preserves annotations at home', async ({ createBrowserContext, page }) => {
 		test.setTimeout(90_000);
 		const originErrors = collectClientErrors(page);
 		const origin = await bootEditor(page, '/embed/en/');
@@ -319,11 +319,12 @@ test.describe('native timeline annotations', () => {
 		const baseURL = new URL(page.url()).origin;
 		// The archive carries this handoff; release each editor before booting
 		// the next product so coverage runs keep one editor runtime alive.
-		await page.close({ runBeforeUnload: false });
-		const openedPages = [];
+		await page.context().close();
+		const openedContexts = [];
 		try {
-			const framesPage = await browser.newPage({ baseURL, serviceWorkers: 'block' });
-			openedPages.push(framesPage);
+			const framesContext = await createBrowserContext({ baseURL, serviceWorkers: 'block' });
+			openedContexts.push(framesContext);
+			const framesPage = framesContext.pages()[0] ?? await framesContext.newPage();
 			const frameErrors = collectClientErrors(framesPage);
 			const framescaper = await bootEditor(framesPage, '/framescaper/embed/en/');
 			await openScapeArchive(framescaper, outbound, 'timeline-annotations.sscape');
@@ -337,9 +338,10 @@ test.describe('native timeline annotations', () => {
 			await expect(framesPage.getByRole('dialog', { name: 'Project features unavailable' }))
 				.toHaveCount(0);
 			expect(frameErrors).toEqual([]);
-			await framesPage.close({ runBeforeUnload: false });
-			const homePage = await browser.newPage({ baseURL, serviceWorkers: 'block' });
-			openedPages.push(homePage);
+			await framesContext.close();
+			const homeContext = await createBrowserContext({ baseURL, serviceWorkers: 'block' });
+			openedContexts.push(homeContext);
+			const homePage = homeContext.pages()[0] ?? await homeContext.newPage();
 			const homeErrors = collectClientErrors(homePage);
 			const home = await bootEditor(homePage, '/embed/en/');
 			await openScapeArchive(home, outbound, 'timeline-annotations-return.sscape');
@@ -352,8 +354,8 @@ test.describe('native timeline annotations', () => {
 			await expect(returnedPanel.getByRole('button', { name: /Cross-product cue, Marker/u })).toBeVisible();
 			expect(homeErrors).toEqual([]);
 		} finally {
-			for (const openedPage of openedPages.reverse()) {
-				if (!openedPage.isClosed()) await openedPage.close({ runBeforeUnload: false });
+			for (const openedContext of openedContexts.reverse()) {
+				await openedContext.close();
 			}
 		}
 		expect(originErrors).toEqual([]);

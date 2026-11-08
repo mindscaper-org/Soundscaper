@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { PROJECT_SCHEMA_VERSION, readProjectSchemaIdentity } from '../../../../project-schema-identity.ts';
+import {
+	PROJECT_SCHEMA_VERSION, isTimelineProjectSchemaFamily, readProjectSchemaIdentity,
+} from '../../../../project-schema-identity.ts';
 import type { LocalAssistanceGuidedPreparationUnavailableReason } from
 	'../../../../assistance/local-assistance-preparation.ts';
 import type { LocalAssistanceGuidedPrimitiveFence } from './local-assistance-guided-transcript-context.ts';
@@ -30,8 +32,8 @@ export interface InventorySource { readonly sourceId: string; readonly mediaKind
 export function primitiveFence(value: unknown): PrimitiveFence {
 	const row = dataRecord(value, 'primitive selection fence');
 	const identity = readProjectSchemaIdentity(row);
-	if (identity.schemaVersion !== PROJECT_SCHEMA_VERSION) {
-		throw new RangeError('Primitive selection requires the current project schema.');
+	if (!isTimelineProjectSchemaFamily(identity.schemaFamily) || identity.schemaVersion !== PROJECT_SCHEMA_VERSION) {
+		throw new RangeError('Primitive selection requires the current timeline project schema.');
 	}
 	const occurrenceIds = Array.isArray(row.occurrenceIds)
 		? row.occurrenceIds.map((id) => String(id)) : [];
@@ -56,6 +58,7 @@ export function normalizeInventory(value: unknown): readonly InventorySource[] {
 }
 
 export function assertSafeProjectTopology(project: Record<string, unknown>): void {
+	assertTimelineProject(project);
 	if (recordArray(project.subsequences).length > 0 || recordArray(project.multicameraGroups).length > 0) {
 		throw new UnavailableError('timing-authority-unavailable');
 	}
@@ -75,6 +78,7 @@ export function assertSafeProjectTopology(project: Record<string, unknown>): voi
 
 export function projectRecord(value: unknown, selectedClipIdValue: string | null): Record<string, unknown> {
 	const row = dataRecord(value, 'aggregate project');
+	assertTimelineProject(row);
 	const clips = recordArray(row.clips);
 	let selectedClipId = clips.some(clip => clip.id === selectedClipIdValue) ? selectedClipIdValue : null;
 	if (selectedClipId === null) {
@@ -89,6 +93,13 @@ export function projectRecord(value: unknown, selectedClipIdValue: string | null
 		}
 	}
 	return { ...row, selectedClipId };
+}
+
+function assertTimelineProject(value: unknown): void {
+	const identity = readProjectSchemaIdentity(value);
+	if (!isTimelineProjectSchemaFamily(identity.schemaFamily) || identity.schemaVersion !== PROJECT_SCHEMA_VERSION) {
+		throw new RangeError('Guided assistance requires the current timeline project schema.');
+	}
 }
 
 export function recordArray(value: unknown): Record<string, unknown>[] {

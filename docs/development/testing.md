@@ -139,8 +139,11 @@ early. Tooling and handbook suites have no shipped JavaScript in the canonical
 coverage denominator and keep their structural tests without inventing a new
 coverage budget. Keep development RAM usage within 12 GB. Prepared sites
 retain their exact build evidence, source-map authentication and separate
-origins. `SCAPE_BROWSER_PRODUCTS=soundscaper` or `framescaper` selects one ordinary
-browser product; leaving it unset preserves the two-product preparation.
+origins. `SCAPE_BROWSER_PRODUCTS=soundscaper`, `framescaper` or `lightscaper`
+selects one ordinary browser product; comma-separated IDs select a subset.
+Leaving it unset preserves preparation of all three products. Lightscaper
+workflows declare the additional product origins needed for editable handoff
+and product switching.
 
 PR CI records the affected plan in the existing Build job and passes it to the
 existing Node, browser and Coverage jobs. It does not allocate a job per module.
@@ -194,16 +197,18 @@ npm run check-all
 ```
 
 `check-all` schedules up to four checks or test shards at once. It splits lint
-using the existing eight lint shards, Node suites across four execution slots,
-and browser suites into four partitions spanning all three engines. Each
-Node shard uses two test processes and each browser shard admits up to two
-workers for every engine. Ordinary local browser runs also default to two
-workers. Browser shards still run concurrently.
-Browser preparation runs the production build once, builds Framescaper, and
-authenticates the two product sites before browser tests start. Four browser
-shards share one owned preview pair, avoiding port collisions. Node coverage is
+using the existing eight lint shards, Node suites across five execution slots,
+and the browser suite into four partitions spanning all three engines. Each
+Node shard uses two test processes. Each browser shard uses one worker and zero
+retries, preserving the native Lightscaper qualification requirements.
+Ordinary local browser runs admit up to two workers per engine. Browser shards
+still run concurrently.
+Browser preparation runs the production build once, builds the separate
+Framescaper and Lightscaper sites, and authenticates all three product sites
+before browser tests start. Four browser shards share owned Soundscaper,
+Framescaper and Lightscaper previews, avoiding port collisions. Node coverage is
 collected separately for each shard and reported over their fresh union after
-all four pass, using the same local coverage policy as `npm run check`.
+all five pass, using the same local coverage policy as `npm run check`.
 
 Before any Node or browser shard starts, `check-all` provisions and verifies the
 pinned interchange readers and DAWproject schema validator through
@@ -220,7 +225,7 @@ The command requires Linux with cgroup v2 memory accounting and a working
 systemd user session (`systemd-run --user`). Every check or shard runs in a
 verified scope with `MemoryMax=8G` and `MemorySwapMax=0`: the 8 GiB cap includes
 its native processes and descendants, including detached children. The shared
-preview pair has a separate 8 GiB scope. These are per-scope ceilings, so four
+preview servers have a separate 8 GiB scope. These are per-scope ceilings, so four
 busy shards can together use up to 32 GiB, plus previews and the coordinator.
 An unavailable memory controller fails the command before checks start;
 there is no uncapped fallback. Other platforms can use the existing individual
@@ -228,10 +233,9 @@ commands. An allocation killed by the scope's memory limit fails its check.
 
 The terminal shows a progress bar for completed checks and the currently
 running tests. Successful test results stay quiet; test failures print as they
-finish, including failed browser attempts that will retry. Piped output prints
-periodic snapshots. Command diagnostics retain their task prefix, even when
-they contain expected errors; `FAIL` identifies reported test failures or
-failed commands. Full command output is saved under
+finish. Piped output prints periodic snapshots. Command diagnostics retain their
+task prefix, even when they contain expected errors; `FAIL` identifies reported
+test failures or failed commands. Full command output is saved under
 `test-results/check-all/logs/`; browser diagnostics have separate directories under
 `test-results/check-all/`. Independent checks continue after a failure, while
 checks that need a failed prerequisite are marked blocked. Any failed or blocked
@@ -245,11 +249,11 @@ gates; focused regressions and fixture-only runner tests remain allowed.
 
 `npm test` runs JavaScript and TypeScript Node tests through the repository
 runner. CI balances batches of up to 16 files from the same semantic suite
-across four slots, using registered test calls and source size as deterministic
+across five slots, using registered test calls and source size as deterministic
 cost estimates. Browser batches contain up to four files from the same suite.
 The same inventory drives browser assignment, which partitions only files
 actually collected by the requested Playwright project.
-Every file runs in exactly one slot. The four legacy artifact names remain
+Every file runs in exactly one slot. The five legacy artifact names remain
 stable, but no longer constrain module placement. Inspect one assigned slot:
 
 ```sh

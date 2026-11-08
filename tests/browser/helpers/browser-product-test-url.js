@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { PRODUCT_IDS } from '../../../src/common/product-identities.js';
+
 export const BROWSER_PRODUCT_ORIGINS_VARIABLE = 'SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS';
 
 /**
@@ -13,17 +15,19 @@ export function resolveBrowserProductTestUrl(path, environment = process.env) {
 	const encoded = environment[BROWSER_PRODUCT_ORIGINS_VARIABLE];
 	if (encoded === undefined || encoded === '') return path;
 	const origins = browserProductOrigins(encoded);
-	if (path === '/framescaper' || path.startsWith('/framescaper/')) {
-		const canonicalPath = path.slice('/framescaper'.length) || '/';
-		return new URL(canonicalPath, selectedOrigin(origins, 'framescaper')).href;
+	for (const productId of PRODUCT_IDS.filter((product) => product !== 'soundscaper')) {
+		const prefix = `/${productId}`;
+		if (path === prefix || path.startsWith(`${prefix}/`)) {
+			return productUrl(path.slice(prefix.length) || '/', productId, origins);
+		}
 	}
-	if (path.startsWith('/')) return new URL(path, selectedOrigin(origins, 'soundscaper')).href;
+	if (path.startsWith('/')) return productUrl(path, 'soundscaper', origins);
 	return path;
 }
 
-function selectedOrigin(origins, product) {
-	if (!origins[product]) throw new Error(`The ${product} origin was not selected for this browser run.`);
-	return origins[product];
+function productUrl(path, productId, origins) {
+	if (!origins[productId]) throw new Error(`${BROWSER_PRODUCT_ORIGINS_VARIABLE} omits ${productId}.`);
+	return new URL(path, origins[productId]).href;
 }
 
 function browserProductOrigins(encoded) {
@@ -34,27 +38,29 @@ function browserProductOrigins(encoded) {
 		throw new Error(`${BROWSER_PRODUCT_ORIGINS_VARIABLE} must be valid JSON.`, { cause: error });
 	}
 	if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length === 0) {
-		throw new Error(`${BROWSER_PRODUCT_ORIGINS_VARIABLE} must name selected loopback product origins.`);
+		throw new Error(`${BROWSER_PRODUCT_ORIGINS_VARIABLE} must name loopback product origins.`);
 	}
 	const origins = {};
 	for (const productId of Object.keys(value)) {
-		if (!['soundscaper', 'framescaper'].includes(productId)) throw new Error(`${BROWSER_PRODUCT_ORIGINS_VARIABLE} names an unknown product: ${productId}.`);
+		if (!PRODUCT_IDS.includes(productId)) {
+			throw new Error(`${BROWSER_PRODUCT_ORIGINS_VARIABLE} must name registered products.`);
+		}
 		let url;
 		try {
 			url = new URL(value[productId]);
 		} catch (error) {
 			throw new Error(
-				`${BROWSER_PRODUCT_ORIGINS_VARIABLE} must name selected loopback product origins.`,
+				`${BROWSER_PRODUCT_ORIGINS_VARIABLE} must name loopback product origins.`,
 				{ cause: error },
 			);
 		}
 		if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1'
 			|| !url.port || url.pathname !== '/' || url.search || url.hash) {
-			throw new Error(`${BROWSER_PRODUCT_ORIGINS_VARIABLE} must name selected loopback product origins.`);
+			throw new Error(`${BROWSER_PRODUCT_ORIGINS_VARIABLE} must name loopback product origins.`);
 		}
 		origins[productId] = url.origin;
 	}
-	if (origins.soundscaper === origins.framescaper) {
+	if (new Set(Object.values(origins)).size !== Object.keys(origins).length) {
 		throw new Error(`${BROWSER_PRODUCT_ORIGINS_VARIABLE} must name distinct product origins.`);
 	}
 	return origins;

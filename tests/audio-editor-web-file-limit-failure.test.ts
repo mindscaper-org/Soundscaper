@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { createHash, randomUUID } from 'node:crypto';
 import test from 'node:test';
 
 import { createLocalizedError } from '../src/common/i18n/presentation-message.ts';
@@ -13,8 +14,10 @@ import {
 } from '../src/common/editor/web-file-limit-failure.ts';
 import { aup4PoolImportFailure } from '../src/common/editor/aup4-worker-values.js';
 import { prepareMediaAssetStaging } from '../src/common/editor/storage/media-asset-staged-sink.ts';
-import { MediaRepository } from '../src/common/editor/storage/media-repository.ts';
-import { getMemoryDatabase } from '../src/common/editor/storage/memory-backend.ts';
+import { createProjectStore } from '../src/common/editor/storage.js';
+import { MEDIA_ASSET_STAGING_STATE_KEY, MEDIA_ASSET_STAGING_STORE_NAME } from '../src/common/editor/storage/media-asset-staging-schema.ts';
+import { closedMediaAssetPathLease } from '../src/common/editor/storage/media-asset-path-staging.ts';
+import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { SourceWriteRepository } from '../src/common/editor/storage/source-write-repository.ts';
 
 test('web file-limit failures include quota, bounded imports, and nested OPFS writes', () => {
@@ -146,12 +149,57 @@ test('an OPFS media plan rejection is identified before a lease is acquired', as
 	assert.equal(acquired, false);
 });
 
-test('a direct media OPFS write rejection is identified after rollback', async () => {
-	const failure = new Error('OPFS write refused');
-	const media = new MediaRepository(
-		{ memory: getMemoryDatabase('web-file-limit-direct-media-write'), database: async () => null },
-		{ writeBlob: async () => { throw failure; } } as never,
-	);
-	await assert.rejects(media.writeAsset('source', new Blob(['media'])),
-		(error: unknown) => error instanceof BrowserFileStorageError && error.cause === failure);
+test('a streamed media OPFS write rejection preserves cause through rollback and lease cleanup', { timeout: 15_000 }, async () => {
+	const failure = new Error('OPFS write refused'), events: string[] = [];
+	const files = new Map<string, Blob>();
+	// Explicit Node filesystem port, not a native directory witness. The actual
+	// OpfsRepository and streamed writer own planning, errors and rollback.
+	const directory = {
+		async getDirectoryHandle() { return directory; },
+		async getFileHandle(path: string, options: Readonly<{ create?: boolean }> = {}) {
+			if (!files.has(path) && !options.create) throw new DOMException('missing', 'NotFoundError');
+			if (!files.has(path)) { files.set(path, new Blob()); events.push('create'); }
+			return {
+				async getFile() { const blob = files.get(path); assert.ok(blob); return blob; },
+				async createWritable() {
+					return {
+						async write(bytes: ArrayBuffer) {
+							assert.equal(new TextDecoder().decode(bytes), 'media');
+							events.push('write'); throw failure;
+						},
+						async close() { events.push('close'); },
+						async abort() { events.push('abort'); },
+					};
+				},
+			};
+		},
+		async removeEntry(path: string) {
+			events.push('remove');
+			if (!files.delete(path)) throw new DOMException('missing', 'NotFoundError');
+		},
+	};
+	const indexedDB = createInstrumentedIndexedDB(), databaseName = `web-file-limit-media-${randomUUID()}`;
+	const store = createProjectStore({ indexedDB, memoryFallback: false, databaseName,
+		preferOpfs: true, opfsRoot: directory as never });
+	try {
+		const bytes = new TextEncoder().encode('media');
+		const writer = await store.beginMediaAssetWrite('source', {}, {
+			expectedBytes: bytes.byteLength, expectedSha256: createHash('sha256').update(bytes).digest('hex'),
+		});
+		const leases = indexedDB.records(databaseName, MEDIA_ASSET_STAGING_STORE_NAME).flatMap((value: unknown) =>
+			value && typeof value === 'object' && 'path' in value ? [closedMediaAssetPathLease(value)] : []);
+		assert.equal(leases.length, 1);
+		const lease = leases[0]; assert.ok(lease && typeof lease.path === 'string');
+		assert.equal(lease.sourceId, 'source'); assert.equal(files.has(lease.path), true);
+		assert.equal(await store.getMediaAssetMetadata('source'), null);
+		await assert.rejects(writer.write(bytes), (error: unknown) =>
+			error instanceof BrowserFileStorageError && error.cause === failure);
+		await assert.rejects(writer.commit(), /The streamed media writer is closed/);
+		assert.deepEqual(events, ['create', 'write', 'abort', 'remove']);
+		assert.equal(files.size, 0);
+		assert.equal(await store.getMediaAssetMetadata('source'), null);
+		assert.deepEqual(indexedDB.records(databaseName, MEDIA_ASSET_STAGING_STORE_NAME).map((value: unknown) => {
+			assert.ok(value && typeof value === 'object' && 'key' in value); return value.key;
+		}), [MEDIA_ASSET_STAGING_STATE_KEY]);
+	} finally { await store.close(); }
 });

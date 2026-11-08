@@ -22,7 +22,7 @@ function requestHarness<Result>(result: Result, error: Error | null = null): Req
 	return { result, error, onsuccess: null, onerror: null };
 }
 
-test('IndexedDB promise adapters reject every asynchronous error callback', async () => {
+test('IndexedDB request errors reject while transaction ownership joins only terminal events', { timeout: 15_000 }, async () => {
 	const failedRequest = requestHarness('', null);
 	const requestPromise = request(failedRequest as unknown as IDBRequest<string>);
 	failedRequest.onerror?.();
@@ -54,8 +54,18 @@ test('IndexedDB promise adapters reject every asynchronous error callback', asyn
 		onerror: null as (() => void) | null,
 	};
 	const transactionPromise = transactionCompletion(errored as unknown as IDBTransaction);
+	let transactionSettled = false;
+	const observed = transactionPromise.then(
+		() => { transactionSettled = true; },
+		() => { transactionSettled = true; },
+	);
 	errored.onerror?.();
-	await assert.rejects(transactionPromise, /transaction failed/u);
+	await Promise.resolve();
+	assert.equal(transactionSettled, false, 'a request error must not retire transaction ownership');
+	assert.equal(typeof errored.oncomplete, 'function');
+	errored.oncomplete?.();
+	await transactionPromise;
+	await observed;
 
 	const deleteCursor = requestHarness<IDBCursor | null>(null, null);
 	const deletePromise = deleteByIndex({

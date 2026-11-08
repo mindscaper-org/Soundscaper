@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
 	chmod, lstat, mkdir, mkdtemp, readFile, readdir, readlink, rm, symlink, writeFile,
@@ -13,7 +14,6 @@ import appImageUtil from 'app-builder-lib/out/targets/appimage/appImageUtil.js';
 import appLauncher from 'app-builder-lib/out/targets/appimage/appLauncher.js';
 import iconConverter from 'app-builder-lib/out/util/iconConverter.js';
 
-import { generateDesktopIcon } from '../scripts/desktop-icons.mjs';
 import {
 	normalizeDesktopPackageInstalledClosure,
 	validateDesktopPackageSpecificResources,
@@ -48,13 +48,26 @@ test('AppImage normalization authenticates the Linux icon set through the real b
 	const fixture = await appImageFixture(context, 'linux-arm64');
 	const sourceRoot = await mkdtemp(join(tmpdir(), 'desktop-package-canonical-icon-'));
 	context.after(() => rm(sourceRoot, { recursive: true, force: true }));
-	await generateDesktopIcon({ outputPath: join(sourceRoot, 'icon.png') });
+	const generated = spawnSync(process.execPath, [
+		'--input-type=module', '--eval', [
+			'process.umask(0o002);',
+			'const { generateDesktopIcon } = await import(process.argv[1]);',
+			'await generateDesktopIcon({ outputPath: process.argv[2] });',
+		].join(' '),
+		new URL('../scripts/desktop-icons.mjs', import.meta.url).href, join(sourceRoot, 'icon.png'),
+	], { encoding: 'utf8', timeout: 15_000 });
+	assert.equal(generated.error, undefined);
+	assert.equal(generated.signal, null);
+	assert.equal(generated.status, 0, generated.stderr);
 	const { icons, isFallback } = await iconConverter.convertIcon({
 		sources: [join(sourceRoot, 'linux')], fallbackSources: [], roots: [sourceRoot],
 		format: 'set', outDir: join(sourceRoot, 'converted'),
 	});
 	assert.equal(isFallback, false);
 	assert.deepEqual(icons.map(({ size }) => size), ICON_SIZES);
+	for (const { file, size } of icons) {
+		assert.equal((await lstat(file)).mode & 0o777, 0o644, `generated ${size}px PNG must have canonical mode0644`);
+	}
 	for (const path of ['.DirIcon', 'soundscaper.png', 'usr/share/icons']) {
 		await rm(join(fixture.root, path), { recursive: true });
 	}

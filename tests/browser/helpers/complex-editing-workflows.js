@@ -7,17 +7,15 @@ import {
 	chooseCommandAction,
 	chooseNestedCommandAction,
 	clickClipInterior,
-	clipField,
-	closeClipProperties, closeDialog,
-	commitInput,
-	openClipProperties,
-	showClipTimingFields,
+	closeDialog,
 	openEffectsForTrack,
 } from '../audio-editor-test-helpers.js';
-import { chooseClipMediaSetting, expectClipMediaSettingChecked, setClipGain } from '../audio-editor-clip-settings-test-helpers.js';
 import { SOUNDSCAPER_DATABASE_NAME } from './editor-databases.js';
-import { readClipTimeFrames, setClipTimeFrames } from '../audio-editor-clip-timing-test-helpers.js';
 import { chooseTrackMenuAction } from './track-menu.js';
+import { editAuthoredClipProperties, readAuthoredClipDuration } from './authored-clip-properties.ts';
+import { selectClipRange } from './clip-range-selection.ts';
+
+export { selectClipRange } from './clip-range-selection.ts';
 
 export const selectionEffects = Object.freeze({
 	amplify: { category: 'Volume and compression', name: 'Amplify' },
@@ -94,34 +92,8 @@ export async function installOscillatorMicrophone(page) {
 }
 
 export async function editClipProperties(page, editor, clip, edits) {
-	const dialog = await openClipProperties(page, editor, clip);
-	await showClipTimingFields(dialog);
-	for (const [field, value] of Object.entries(edits)) {
-		if (value === undefined) continue;
-		if (['startFrame', 'durationFrame', 'sourceInFrame', 'fadeInFrame', 'fadeOutFrame'].includes(field)) {
-			await setClipTimeFrames(dialog, field, value);
-			continue;
-		}
-		if (field === 'stretchToTempo') {
-			const toggle = dialog.getByRole('switch', { name: 'Stretch with project tempo changes', exact: true });
-			if ((await toggle.getAttribute('aria-checked')) !== String(Boolean(value))) await chooseClipMediaSetting(dialog, 'Stretch with project tempo changes');
-			await expectClipMediaSettingChecked(dialog, 'Stretch with project tempo changes', Boolean(value));
-			continue;
-		}
-		if (field === 'gain') {
-			await setClipGain(dialog, value);
-			continue;
-		}
-		const input = clipField(dialog, field);
-		const displayValue = field === 'speedRatio' ? Number(value) * 100 : value;
-		await commitInput(input, String(displayValue));
-		if (Number.isFinite(Number(value))) {
-			await expect.poll(async () => Number(await input.inputValue())).toBeCloseTo(Number(displayValue), 6);
-		} else {
-			await expect(input).toHaveValue(String(value));
-		}
-	}
-	await closeClipProperties(dialog);
+	await selectClipHeader(clip);
+	await editAuthoredClipProperties(page, editor, clip, edits, persistedProject);
 }
 
 export function trackRow(clip) {
@@ -179,10 +151,8 @@ export async function duplicateClip(page, editor, clip) {
 }
 
 export async function clipDurationFrames(page, editor, clip) {
-	const dialog = await openClipProperties(page, editor, clip);
-	const duration = await readClipTimeFrames(dialog, 'durationFrame');
-	await closeClipProperties(dialog);
-	return duration;
+	await selectClipHeader(clip);
+	return readAuthoredClipDuration(page, editor, clip, persistedProject);
 }
 
 export async function splitClip(page, editor, clip, position) {
@@ -208,11 +178,11 @@ export async function addClipGainPoint(page, editor, clip, position, verticalOff
 	const envelope = clip.locator('.envelope-overlay');
 	await expect(envelope).toBeVisible();
 	const before = await clip.locator('.envelope-point').count();
-	const bounds = await envelope.boundingBox();
-	expect(bounds).not.toBeNull();
-	const curvePoint = await envelope.locator('path').evaluateAll((paths, targetX) => {
+	await editor.locator('.audio-editor-timeline-scroll').evaluate(scroll => scroll.scrollTo({ left: 0, behavior: 'instant' }));
+	const inspectTarget = () => envelope.evaluate((svg, { fraction, offset }) => {
+		const bounds = svg.getBoundingClientRect(), targetX = bounds.x + bounds.width * fraction;
 		let closest = null;
-		for (const path of paths) {
+		for (const path of svg.querySelectorAll('path')) {
 			const matrix = path.getScreenCTM();
 			if (!matrix) continue;
 			const length = path.getTotalLength();
@@ -220,15 +190,38 @@ export async function addClipGainPoint(page, editor, clip, position, verticalOff
 				const point = path.getPointAtLength(length * step / 100);
 				const client = new DOMPoint(point.x, point.y).matrixTransform(matrix);
 				const distance = Math.abs(client.x - targetX);
-				if (!closest || distance < closest.distance) {
-					closest = { distance, x: client.x, y: client.y };
-				}
+				if (!closest || distance < closest.distance) closest = { distance, x: client.x, y: client.y };
 			}
 		}
-		return closest && { x: closest.x, y: closest.y };
-	}, bounds.x + bounds.width * position);
-	expect(curvePoint).not.toBeNull();
-	await page.mouse.click(curvePoint.x, curvePoint.y + verticalOffset);
+		const group = svg.closest('[data-clip-id]'), track = group?.closest('.track');
+		const row = group?.closest('[data-track-row]'), lane = group?.closest('[data-track-lane]');
+		const scroll = svg.closest('.audio-editor-timeline-scroll');
+		const laneBox = lane?.getBoundingClientRect(), scrollBox = scroll?.getBoundingClientRect();
+		const headerBox = row?.querySelector('[data-track-header]')?.getBoundingClientRect();
+		// TrackNew rounds the clip wrapper, while its sibling interaction layer keeps exact geometry.
+		const surfaces = [...(track?.children ?? [])].filter(node => node instanceof HTMLElement
+			&& node.style.position === 'absolute' && node.style.zIndex === '3' && node.style.pointerEvents === 'auto'
+			&& Math.round(parseFloat(node.style.left)) === parseFloat(group.style.left)
+			&& Math.round(parseFloat(node.style.width)) === parseFloat(group.style.width));
+		const point = closest && { x: closest.x, y: closest.y + offset };
+		const hit = point && svg.ownerDocument.elementFromPoint(point.x, point.y);
+		const visible = laneBox && scrollBox && headerBox && {
+			left: Math.max(laneBox.left, scrollBox.left, headerBox.right), right: Math.min(laneBox.right, scrollBox.right),
+			top: Math.max(laneBox.top, scrollBox.top), bottom: Math.min(laneBox.bottom, scrollBox.bottom),
+		};
+		const exposed = point && visible && point.x > visible.left && point.x < visible.right
+			&& point.y > visible.top && point.y < visible.bottom;
+		const describe = element => element && { tag: element.tagName, class: element.getAttribute('class'),
+			clipId: element.closest('[data-clip-id]')?.getAttribute('data-clip-id'), style: element.getAttribute('style') };
+		return { ready: Boolean(exposed && surfaces.length === 1 && hit === surfaces[0]),
+			fraction, offset, targetX, point, svg: bounds.toJSON(), visible, scrollLeft: scroll?.scrollLeft,
+			clipId: group?.getAttribute('data-clip-id'), trackId: row?.getAttribute('data-track-id'),
+			surfaceCount: surfaces.length, surface: describe(surfaces[0]), hit: describe(hit) };
+	}, { fraction: position, offset: verticalOffset });
+	await expect.poll(inspectTarget).toMatchObject({ ready: true });
+	const target = await inspectTarget();
+	expect(target.ready, `Clip gain target is not exposed: ${JSON.stringify(target)}`).toBe(true);
+	await page.mouse.click(target.point.x, target.point.y);
 	await expect(clip.locator('.envelope-point')).toHaveCount(before + 1);
 	return clip.locator('.envelope-point');
 }
@@ -275,26 +268,6 @@ export async function setProjectTempo(page, editor, bpm) {
 	await tempo.fill(String(bpm));
 	await tempo.blur();
 	await expect(tempo).toHaveValue(String(bpm));
-}
-
-export async function selectClipRange(page, editor, clip, start, end) {
-	for (const label of ['Clip gain', 'Split tool']) {
-		const tool = editor.getByRole('button', { name: label, exact: true });
-		if (await tool.getAttribute('aria-pressed') === 'true') await tool.click();
-	}
-	const row = clip.locator('xpath=ancestor::*[@data-track-row][1]');
-	if (await row.locator('[data-track-automation-controls]').isVisible()) {
-		await chooseTrackMenuAction(page, editor, row, 'Add automation');
-		await expect(row.locator('[data-track-automation-controls]')).toHaveCount(0);
-	}
-	const bounds = await clip.boundingBox();
-	expect(bounds).not.toBeNull();
-	const y = bounds.y + bounds.height * 0.58;
-	await page.mouse.move(bounds.x + bounds.width * start, y);
-	await page.mouse.down();
-	await page.mouse.move(bounds.x + bounds.width * end, y, { steps: 5 });
-	await page.mouse.up();
-	await expect(editor.locator('[data-time-selection-overlay]')).not.toHaveCount(0);
 }
 
 export async function deleteClipRange(page, editor, clip, {
@@ -442,7 +415,7 @@ export async function setTrackMuteSolo(row, { mute = false, solo = false }) {
 	}
 }
 
-export async function persistedProject(page, projectId) {
+export async function persistedProject(page, projectId, databaseName = SOUNDSCAPER_DATABASE_NAME) {
 	return page.evaluate(({ databaseName, id }) => new Promise((resolve, reject) => {
 		const opening = indexedDB.open(databaseName);
 		opening.onerror = () => reject(opening.error);
@@ -458,7 +431,7 @@ export async function persistedProject(page, projectId) {
 				resolve(request.result ?? null);
 			};
 		};
-	}), { databaseName: SOUNDSCAPER_DATABASE_NAME, id: projectId });
+	}), { databaseName, id: projectId });
 }
 
 export async function revealTimelineClip(page, editor, clipId) {

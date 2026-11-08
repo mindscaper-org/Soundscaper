@@ -14,7 +14,8 @@
 			],
 			"products": [
 				"soundscaper",
-				"framescaper"
+				"framescaper",
+				"lightscaper"
 			],
 			"independent": true,
 			"dependencies": [],
@@ -49,20 +50,25 @@
 				"tests/framescaper-more200-raster-sample-centres.test.ts",
 				"tests/framescaper-more200-cube-header-admission.test.ts",
 				"tests/framescaper-more200-cube-numeric-admission.test.tsx",
-				"tests/framescaper-next-image-alpha-resampling.test.ts"
+				"tests/framescaper-next-image-alpha-resampling.test.ts",
+				"tests/cube-lut-reference-contract.test.ts"
 			],
 			"products": [
-				"framescaper"
+				"framescaper",
+				"lightscaper"
 			],
 			"independent": true,
-			"dependencies": [],
+			"dependencies": [
+				"foundation"
+			],
 			"publicFiles": [
 				"src/common/imaging/cube-lut-v1.ts",
 				"src/common/imaging/image-animation-topology.ts",
 				"src/common/imaging/image-format-signature.ts",
 				"src/common/imaging/image-import-admission.ts",
 				"src/common/imaging/linear-color-grade.ts",
-				"src/common/imaging/mask-path-raster.ts"
+				"src/common/imaging/mask-path-raster.ts",
+				"src/common/imaging/cube-lut-reference-contract.ts"
 			],
 			"coverageScope": "editor"
 		},
@@ -79,7 +85,8 @@
 			],
 			"products": [
 				"soundscaper",
-				"framescaper"
+				"framescaper",
+				"lightscaper"
 			],
 			"independent": true,
 			"dependencies": [
@@ -107,7 +114,8 @@
 			],
 			"products": [
 				"soundscaper",
-				"framescaper"
+				"framescaper",
+				"lightscaper"
 			],
 			"independent": true,
 			"dependencies": [
@@ -153,7 +161,8 @@
 				"tests/audio-editor-timeline-image-*.test.*"
 			],
 			"products": [
-				"framescaper"
+				"framescaper",
+				"lightscaper"
 			],
 			"independent": false
 		},
@@ -167,7 +176,8 @@
 			],
 			"products": [
 				"soundscaper",
-				"framescaper"
+				"framescaper",
+				"lightscaper"
 			],
 			"independent": false
 		},
@@ -202,6 +212,26 @@
 			"independent": false
 		},
 		{
+			"id": "lightscaper",
+			"sourcePrefixes": [
+				"src/lightscaper/",
+				"src/common/editor/ui/lightscaper/",
+				"desktop/lightscaper-",
+				"native/lightscaper-"
+			],
+			"nodeTests": [
+				"tests/lightscaper-*.test.*",
+				"tests/module-lightscaper-integration.test.ts"
+			],
+			"browserTests": [
+				"tests/browser/lightscaper-*.spec.*"
+			],
+			"products": [
+				"lightscaper"
+			],
+			"independent": false
+		},
+		{
 			"id": "platform",
 			"sourcePrefixes": [
 				"src/",
@@ -212,7 +242,8 @@
 			"nodeTests": [],
 			"products": [
 				"soundscaper",
-				"framescaper"
+				"framescaper",
+				"lightscaper"
 			],
 			"independent": false
 		},
@@ -236,7 +267,8 @@
 			"nodeTests": [],
 			"products": [
 				"soundscaper",
-				"framescaper"
+				"framescaper",
+				"lightscaper"
 			],
 			"independent": false
 		}
@@ -324,7 +356,8 @@
 			],
 			"products": [
 				"soundscaper",
-				"framescaper"
+				"framescaper",
+				"lightscaper"
 			]
 		},
 		{
@@ -371,6 +404,56 @@
 				"platform"
 			],
 			"products": [
+				"soundscaper",
+				"framescaper"
+			]
+		},
+		{
+			"files": [
+				"tests/browser/lightscaper-*.spec.*"
+			],
+			"modules": [
+				"lightscaper"
+			],
+			"products": [
+				"lightscaper"
+			]
+		},
+		{
+			"files": [
+				"tests/browser/lightscaper-develop-*.spec.*",
+				"tests/browser/lightscaper-native-gpu-*.spec.*",
+				"tests/browser/lightscaper-linear-*.spec.*",
+				"tests/browser/lightscaper-raw-*.spec.*"
+			],
+			"modules": [
+				"imaging"
+			],
+			"products": [
+				"lightscaper"
+			]
+		},
+		{
+			"files": [
+				"tests/browser/lightscaper-*frame*.spec.*"
+			],
+			"modules": [
+				"lightscaper"
+			],
+			"products": [
+				"lightscaper",
+				"framescaper"
+			]
+		},
+		{
+			"files": [
+				"tests/browser/lightscaper-product-shell.spec.js"
+			],
+			"modules": [
+				"lightscaper"
+			],
+			"products": [
+				"lightscaper",
 				"soundscaper",
 				"framescaper"
 			]

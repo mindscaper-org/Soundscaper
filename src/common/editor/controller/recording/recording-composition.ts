@@ -48,6 +48,7 @@ import type {
 import { createRoutedRecordingCaptureService } from './internal/routed-recording-capture-service.ts';
 import { SOURCE_CHUNK_FRAMES } from '../source/source-audio.ts';
 import { createOrdinaryRecordingRecoveryComposition } from './internal/ordinary-recording-recovery-composition.ts';
+import { startOwnedOrdinaryRecording } from './internal/recording-start-ownership.ts';
 import { createTakeCycleAppComposition } from './internal/take-cycle/take-cycle-app-composition.ts';
 import { createTakeCycleOpenRecoveryCoordinator } from './take-cycle-open-recovery-app-port.ts';
 import { createTakeCycleRecordingAppSession } from './internal/take-cycle/take-cycle-recording-app-session.ts';
@@ -341,19 +342,14 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 				&& !state.audioInputDevices.some(device => device.deviceId === state.preferredInputDeviceId)) {
 				throw new Error('The selected native audio input is unavailable.');
 			}
-			try {
-				await ordinaryRecovery.begin();
-				scope.assertCurrent();
-				const route = recordingTrackRoute(state.recordingRouting.routes, options.trackId);
-				const routed = route && (
-					route.kind === 'display'
-					|| route.deviceId !== RECORDING_DEFAULT_DEVICE_ID
-					|| route.channelStart > 0
-					|| route.channelCount !== 2
-				);
-				await (options.trackId && !routed ? legacyCapture.capture(options, scope) : routedCapture.capture(options, scope));
-				if (!state.recorder) await ordinaryRecovery.abandon();
-			} catch (error) { await ordinaryRecovery.abandon(); throw error; }
+			await startOwnedOrdinaryRecording({ begin: ordinaryRecovery.begin, scope,
+				capture: () => {
+					const route = recordingTrackRoute(state.recordingRouting.routes, options.trackId);
+					const routed = route && (route.kind === 'display' || route.deviceId !== RECORDING_DEFAULT_DEVICE_ID
+						|| route.channelStart > 0 || route.channelCount !== 2);
+					return options.trackId && !routed ? legacyCapture.capture(options, scope) : routedCapture.capture(options, scope);
+				},
+				abandon: ordinaryRecovery.abandon });
 		},
 		beginTakeCycleRecording: takeCycleSession.begin,
 		performLegacyFinalization: async (input) => {

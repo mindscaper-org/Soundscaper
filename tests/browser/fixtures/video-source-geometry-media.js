@@ -33,6 +33,7 @@ export const videoSourceGeometryMedia = Object.freeze([
 		presentedByEngine: Object.freeze({
 			chromium: Object.freeze({ width: 384, height: 144 }),
 			firefox: Object.freeze({ width: 192, height: 144 }),
+			webkit: Object.freeze({ width: 384, height: 144 }),
 		}),
 		quadrants: QUADRANTS,
 	}),
@@ -51,6 +52,7 @@ export const videoSourceGeometryMedia = Object.freeze([
 		presentedByEngine: Object.freeze({
 			chromium: Object.freeze({ width: 144, height: 192 }),
 			firefox: Object.freeze({ width: 144, height: 192 }),
+			webkit: Object.freeze({ width: 144, height: 192 }),
 		}),
 		quadrants: QUADRANTS,
 	}),
@@ -69,6 +71,7 @@ export const videoSourceGeometryMedia = Object.freeze([
 		presentedByEngine: Object.freeze({
 			chromium: Object.freeze({ width: 144, height: 384 }),
 			firefox: Object.freeze({ width: 144, height: 192 }),
+			webkit: Object.freeze({ width: 288, height: 192 }),
 		}),
 		quadrants: QUADRANTS,
 	}),

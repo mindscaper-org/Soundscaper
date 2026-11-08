@@ -34,9 +34,9 @@ described in [architecture](docs/architecture/overview.md#shared-module-ownershi
 and [testing](docs/development/testing.md#module-and-affected-checks).
 PR CI consumes the same affected plan within its existing job slots. Main and
 release checks retain the complete gate. Module unit suites and explicit
-integration suites are balanced across four execution slots. The artifact IDs
-`common-1`, `common-2`, `framescaper` and `soundscaper` remain stable; slot names
-do not determine test ownership. Complete coverage is checked over the required
+integration suites are balanced across five execution slots. The artifact IDs
+`common-1`, `common-2`, `framescaper`, `soundscaper` and `lightscaper` remain
+stable; slot names do not determine test ownership. Complete coverage is checked over the required
 union, never per execution slot.
 
 Inspect or run the Node portion of a module, including its integration consumers:

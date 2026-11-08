@@ -156,7 +156,10 @@ test('generated captured proxy cleans both staged bodies after failed project CA
 	const failure = new Error('planned project CAS failure');
 	indexedDB.failNextPutForStore('projects', failure);
 
-	await assert.rejects(scheduler(scheduled), /IndexedDB transaction failed/u);
+	await assert.rejects(scheduler(scheduled), (error: unknown) => {
+		assert.equal(error, failure);
+		return true;
+	});
 	assert.equal(generated, 1);
 	assert.deepEqual(await value.store.loadProject(PROJECT_ID), base);
 	assert.equal(await mediaRow(database, PROXY_KEY), undefined);

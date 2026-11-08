@@ -12,8 +12,19 @@ for (const jobName of ['browser', 'firefox']) {
 		const selection = job.indexOf('node scripts/ci-test-prerequisites.mjs');
 		const provision = job.indexOf('run: npm run provision:interchange-conformance');
 		assert.ok(selection >= 0 && provision > selection);
+		for (const [product, artifact] of [
+			['soundscaper', 'verified-soundscaper-browser-site-build'],
+			['framescaper', 'verified-framescaper-site-build'],
+			['lightscaper', 'verified-lightscaper-site-build'],
+		] as const) {
+			const download = job.split(/\n {6}- /u).find((step: string) => step.includes(`name: ${artifact}\n`));
+			assert.ok(download?.includes('uses: actions/download-artifact@'));
+			assert.ok(download.includes(`path: .wrangler/browser-products/${product}\n`));
+			assert.doesNotMatch(download, /^ +if:/mu, 'every selected spec may import a production artifact during collection');
+			assert.ok(job.indexOf(download) < selection, `${product} assets must exist before Playwright imports the selected specs`);
+		}
 		assert.ok(job.includes(jobName === 'browser' ? '--project=${{ matrix.project }}' : '--project=firefox'));
-		assert.ok(job.includes('--shard=${{ matrix.shard }}/4'));
+		assert.ok(job.includes(jobName === 'browser' ? '--shard=${{ matrix.shard }}/3' : '--shard=${{ matrix.shard }}/4'));
 		for (const step of job.split(/\n {6}- /u).filter((step: string) => (
 			step.includes('uses: actions/setup-python@') || step.includes('id: interchange-cache-key')
 			|| step.includes('path: .wrangler/test-download-cache/interchange')

@@ -2,6 +2,8 @@
 
 import { createRecordingStartRequests } from './recording-start-requests.ts';
 import { transitionRoutedRecordingSources } from './routed-recording-transition.ts';
+import type { RecordingCaptureOutcome } from './recording-start-ownership.ts';
+import { stopOwnedRecording } from './recording-stop-operation.ts';
 import { confirmRoutedRecordingResume, confirmRoutedRecordingStart } from './confirmed-recording-sources.ts';
 import { recordingResumeTiming } from './recording-start-timing.ts';
 import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
@@ -75,6 +77,9 @@ export interface RecordingStartScope {
 	readonly generation: number;
 	readonly projectId: string | null;
 	assertCurrent(): void;
+	claimRecorder?(recorder: RecordingControllerLike): void;
+	isHandedOff?(recorder: RecordingControllerLike): boolean;
+	isCancellation?(error: unknown): boolean;
 }
 
 export interface RecordingSessionMutableState {
@@ -142,7 +147,7 @@ export interface RecordingSessionServiceRuntime {
 	readonly beginRecording: (
 		options: RecordingStartOptions,
 		scope: RecordingStartScope,
-	) => MaybePromise<void>;
+	) => MaybePromise<void | RecordingCaptureOutcome>;
 	readonly beginTakeCycleRecording?: (
 		scope: RecordingStartScope,
 	) => MaybePromise<RecordingControllerLike>;
@@ -272,8 +277,10 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 	const publishDocumentSnapshot = runtime.publishDocumentSnapshot || (() => {});
 	const releaseInputs = runtime.releaseUnretainedRecordingInputs || (() => {});
 	const handleError = runtime.handleError || (() => {});
+	let stopPromise: Promise<void> | null = null;
 
-	const { startRecording, startSoundActivatedRecording, startRecordingOnNewTrack, startTakeCycleRecording, cancelRecordingStart: cancelStart } = createRecordingStartRequests(runtime);
+	const starts = createRecordingStartRequests(runtime, () => stopPromise !== null);
+	const { startRecording, startSoundActivatedRecording, startRecordingOnNewTrack, startTakeCycleRecording, cancelRecordingStart: cancelStart } = starts;
 	let pausedLatencyFrames = 0;
 	let resuming: { recorder: RecordingControllerLike; projectId: string | null; generation: number;
 		abort: AbortController; promise: Promise<boolean> } | null = null;
@@ -386,6 +393,7 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 		}
 		state.recordingCleanup = null;
 		state.recorder = null;
+		starts.clearScope();
 		state.activeTimedRecording = null;
 		state.recordingKind = null;
 		runtime.setSoundActivationCaptureEnabled?.(false);
@@ -438,46 +446,30 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 		cancelResume();
 		if (state.recordingFinalizePromise) return state.recordingFinalizePromise;
 		if (!state.recorder || state.recordingFinishing) return Promise.resolve();
+		const scope = starts.scope;
+		scope?.claimRecorder(state.recorder);
+		if (state.recordingStarting || state.recordingStartPromise) cancelRecordingStart();
 		const operation = performFinalizeRecording();
 		const tracked = operation.finally(() => {
 			if (state.recordingFinalizePromise === tracked) state.recordingFinalizePromise = null;
 		});
 		state.recordingFinalizePromise = tracked;
+		scope?.claimFinalization(tracked);
 		return tracked;
 	}
 
 	async function stopRecording(): Promise<unknown> {
 		cancelResume();
 		if (state.timedRecording || state.timedRecordingPreparing) return runtime.cancelTimedRecording?.();
-		if (state.recordingStarting || state.recordingAdmissionPending) {
-			cancelRecordingStart();
-			publishDocumentSnapshot();
-		}
-		if (state.recordingFinalizePromise) return state.recordingFinalizePromise;
-		if (!state.recorder) return undefined;
-		if (state.recordingKind === 'take-cycle') return finalizeRecording();
-		let stopError: unknown = null;
-		try {
-			await state.recorder.stop();
-		} catch (error) {
-			stopError = error;
-		}
-		let finalizationError: unknown = null;
-		try {
-			await finalizeRecording();
-		} catch (error) {
-			finalizationError = error;
-		}
-		if (stopError && finalizationError) {
-			throw new AggregateError(
-				[stopError, finalizationError],
-				'Recording stop and finalization both failed.',
-				{ cause: stopError },
-			);
-		}
-		if (finalizationError) throw finalizationError;
-		if (stopError) throw stopError;
-		return undefined;
+		if (stopPromise) return stopPromise;
+		let resolveStop!: () => void;
+		let rejectStop!: (reason: unknown) => void;
+		const operation = new Promise<void>((resolve, reject) => { resolveStop = resolve; rejectStop = reject; });
+		const tracked = operation.finally(() => { if (stopPromise === tracked) stopPromise = null; });
+		stopPromise = tracked;
+		void stopOwnedRecording({ state, scope: starts.scope,
+			cancelStart: cancelRecordingStart, publish: publishDocumentSnapshot, finalize: finalizeRecording }).then(resolveStop, rejectStop);
+		return tracked;
 	}
 
 	return Object.freeze({

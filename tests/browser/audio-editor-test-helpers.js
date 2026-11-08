@@ -1,16 +1,13 @@
 import { readFile } from 'node:fs/promises';
 
-import {
-	AxeBuilder,
-	expect,
-} from './audio-editor-test-fixtures.js';
+import { AxeBuilder, expect } from './audio-editor-test-fixtures.js';
 import { projectFileExtensionForProduct } from '../../src/common/project-file-extensions.ts';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 import { settleFiniteAnimations } from './helpers/settle-finite-animations.js';
 import { closeWorkspacePanel } from './helpers/workspace-panel-chrome.js';
 import { openChromeDrawer, openTrackHeaderDrawer } from './helpers/responsive-layout.js';
 import { seedWorkspaceOnboardingComplete } from './helpers/browser-environment-stubs.js';
-import { createFileActionChooser } from './helpers/browser-project-picker.js';
+import { createFileActionChooser, prepareBrowserProjectPicker } from './helpers/browser-project-picker.js';
 
 export { resolveBrowserProductTestUrl };
 
@@ -65,6 +62,7 @@ export async function bootEditor(page, path, { defaultWorkspace = false } = {}) 
 	// must not hold navigation open after the application can already be used.
 	await page.goto(resolveBrowserProductTestUrl(path), { waitUntil: 'domcontentloaded' });
 	const editor = await waitForEditor(page);
+	await prepareBrowserProjectPicker(page, editor);
 	await expect(editor).toHaveAttribute('data-project-id', /.+/u, { timeout: 20_000 });
 	await waitForProjectActivation(editor);
 	const decline = page.getByRole('button', { name: /^(Decline|Ablehnen)$/ });
@@ -158,7 +156,8 @@ export { clipByName, clipNameAccessiblePattern } from './audio-editor-clip-locat
 
 export function clipField(editor, name) {
 	const upstream = { pitchCents: 'pitch', speedRatio: 'speed', name: 'name', startFrame: 'start', durationFrame: 'length',
-		fadeInFrames: 'fade-in', fadeOutFrames: 'fade-out', sourceStartFrame: 'trim-start' }[name];
+		fadeInFrames: 'fade-in', fadeOutFrames: 'fade-out', sourceStartFrame: 'trim-start',
+		fadeInFrame: 'fade-in', fadeOutFrame: 'fade-out', sourceInFrame: 'trim-start' }[name];
 	return editor.locator(`[data-clip-field="${name}"] input${upstream ? `, [data-clip-properties-field="${upstream}"] input` : ''}`).first();
 }
 

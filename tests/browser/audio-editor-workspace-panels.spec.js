@@ -21,6 +21,7 @@ import {
 	registerAudioEditorHooks,
 	waitForEditor,
 } from './audio-editor-test-helpers.js';
+import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test.describe('audio editor React/design-system workflows', () => {
 	registerAudioEditorHooks();
@@ -471,14 +472,10 @@ test.describe('audio editor React/design-system workflows', () => {
 		await firstTrackMenuButton.click();
 		const trackMenu = page.locator('.audio-editor-track-menu');
 		await expect(trackMenu.getByRole('menuitem', { name: 'Collapse track', exact: true })).toHaveCount(0);
-		await trackMenu.getByRole('menuitem', { name: /^Track height(?:\s|$)/u }).focus();
-		await page.keyboard.press('ArrowRight');
-		await trackMenu.getByRole('menuitem', { name: 'Decrease track height', exact: true }).click();
+		await page.keyboard.press('Escape');
+		await chooseTrackMenuAction(page, editor, trackRows.first(), ['Track height', 'Decrease track height']);
 		await expect.poll(async () => (await trackRows.first().boundingBox())?.height).toBe(98);
-		await firstTrackMenuButton.click();
-		await trackMenu.getByRole('menuitem', { name: /^Track height(?:\s|$)/u }).focus();
-		await page.keyboard.press('ArrowRight');
-		await trackMenu.getByRole('menuitem', { name: 'Increase track height', exact: true }).click();
+		await chooseTrackMenuAction(page, editor, trackRows.first(), ['Track height', 'Increase track height']);
 		await expect.poll(async () => (await trackRows.first().boundingBox())?.height).toBe(114);
 	});
 

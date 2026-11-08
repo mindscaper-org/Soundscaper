@@ -5,7 +5,7 @@ import test from 'node:test';
 
 import { applyLinearColorGradeChannels } from '../src/common/imaging/linear-color-grade.ts';
 import { parseCubeLutV1, requireCubeLutBody, sampleCubeLut } from '../src/common/imaging/cube-lut-v1.ts';
-import { rasterizeCubicMaskPaths, type CubicMaskPath } from '../src/common/imaging/mask-path-raster.ts';
+import { rasterizeCubicMaskPaths, rasterizeCubicMaskPathsWork, type CubicMaskPath } from '../src/common/imaging/mask-path-raster.ts';
 
 const grade = {
 	exposureStops: 1, contrast: 1, pivot: 0.18,
@@ -61,4 +61,18 @@ test('shared cube LUT sampling retains red-fastest lattice order and authenticat
 	assert.equal(requireCubeLutBody(reference, lut), lut);
 	assert.throws(() => requireCubeLutBody({ ...reference, sha256: '0'.repeat(64) }, lut), /does not match/u);
 	assert.throws(() => requireCubeLutBody(reference, { ...lut }), /verified/u);
+});
+
+test('shared path work yields after a bounded row span and leaves the caller plane available for retirement', () => {
+	const width = 256, height = 257;
+	const plane = new Uint8Array(width * height).fill(17);
+	const work = rasterizeCubicMaskPathsWork([rectangle(0, 0, 1, 1)], 'nonzero', width, height, plane);
+	assert.deepEqual(work.next(), { done: false, value: undefined });
+	assert.ok(plane.subarray(0, 65_536).every(value => value === 255));
+	assert.ok(plane.subarray(65_536).every(value => value === 17));
+	assert.deepEqual(work.next(), { done: true, value: plane });
+	assert.ok(plane.every(value => value === 255));
+	assert.equal(rasterizeCubicMaskPaths([], 'nonzero', width, height, plane), plane);
+	assert.ok(plane.every(value => value === 0));
+	assert.throws(() => rasterizeCubicMaskPathsWork([], 'nonzero', width, height, new Uint8Array(1)).next(), /dimensions/u);
 });

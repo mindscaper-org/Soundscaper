@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
-import { showClipTimingFields, bootEditor, chooseCommandAction, clipByName, closeClipProperties, importFiles,
+import { showClipTimingFields, bootEditor, chooseCommandAction, clipByName, clipField, closeClipProperties, commitInput, importFiles,
 	openClipProperties } from './audio-editor-test-helpers.js';
-import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 test('Nyquist preview preserves the relative placement of two header-selected clips', async ({ page }) => {
 	await page.addInitScript(() => {
@@ -15,12 +15,17 @@ test('Nyquist preview preserves the relative placement of two header-selected cl
 		};
 	});
 	const editor = await bootEditor(page, '/embed/en/');
+	const projectId = await editor.getAttribute('data-project-id');
 	await importFiles(editor, [toneA, toneB]);
 	const first = clipByName(editor, toneA.name);
 	const second = clipByName(editor, toneB.name);
 	const properties = await openClipProperties(page, editor, second);
 	await showClipTimingFields(properties);
-	await setClipTimeFrames(properties, 'startFrame', 19_200);
+	const start = clipField(properties, 'startFrame');
+	await commitInput(start, '0.4');
+	await expect(start).toHaveValue('0.4');
+	const clipId = await properties.locator('[data-clip-properties-active-clip]').getAttribute('data-clip-properties-active-clip');
+	await expect.poll(async () => (await persistedProject(page, projectId))?.clips.find(clip => clip.id === clipId)?.timelineStartFrame).toBe(19_200);
 	await closeClipProperties(properties);
 	await first.locator('.clip-header').click();
 	await second.locator('.clip-header').click({ modifiers: ['Shift'] });

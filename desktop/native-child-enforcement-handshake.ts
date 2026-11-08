@@ -36,7 +36,7 @@ export function waitForNativeChildEnforcement(
 
 export function nativeChildEnforcementFailure(
 	error: unknown,
-	outcome: NativeChildIsolationCompletion | null,
+	outcome: Readonly<Omit<NativeChildIsolationCompletion, 'exitCode'> & { exitCode: number | null }> | null,
 ): Error {
 	const cause = error instanceof Error ? error : new Error(String(error));
 	if (outcome === null) return cause;

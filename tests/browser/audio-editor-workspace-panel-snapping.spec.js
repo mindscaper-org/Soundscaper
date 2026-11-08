@@ -12,6 +12,7 @@ import {
 	registerAudioEditorHooks,
 	waitForEditor,
 } from './audio-editor-test-helpers.js';
+import { savedWorkspacePanels } from './helpers/workspace-preferences.js';
 
 test.describe('Audacity-style workspace panel snapping', () => {
 	registerAudioEditorHooks();
@@ -38,6 +39,9 @@ test.describe('Audacity-style workspace panel snapping', () => {
 		expect(after.width).toBeGreaterThan(420);
 		expect(after.width).toBeGreaterThan(before.width + 150);
 
+		await expect.poll(() => savedWorkspacePanels(page)).toMatchObject({
+			'project-bin': { dock: 'left', width: Math.round(after.width) },
+		});
 		await page.reload();
 		await waitForEditor(page);
 		await expect(dock).toHaveAttribute('data-workspace-dock-wide', 'true');
@@ -111,6 +115,10 @@ test.describe('Audacity-style workspace panel snapping', () => {
 		await expect(historyContent).toHaveAttribute('data-mount-probe', 'retained');
 		expect((await requiredBounds(group)).height).toBeCloseTo((await requiredBounds(rightDock)).height, 0);
 
+		await expect.poll(() => savedWorkspacePanels(page)).toMatchObject({
+			metadata: { dock: 'right', tabActive: true },
+			history: { dock: 'right', tabActive: false },
+		});
 		await page.reload();
 		await waitForEditor(page);
 		const restoredGroup = editor.locator(
@@ -159,6 +167,10 @@ test.describe('Audacity-style workspace panel snapping', () => {
 		const resizedHeight = await frameHeight(dock);
 		expect(resizedHeight).toBeGreaterThan(before - 16);
 		await expect(group).toHaveAttribute('data-workspace-panel-size', String(Math.round(resizedHeight)));
+		await expect.poll(() => savedWorkspacePanels(page)).toMatchObject({
+			metadata: { dock: 'top', tabActive: true, size: Math.round(resizedHeight) },
+			history: { dock: 'top', tabActive: false, size: Math.round(resizedHeight) },
+		});
 		await page.reload();
 		await waitForEditor(page);
 		await expect(group.getByRole('tab', { name: 'Metadata', exact: true })).toHaveAttribute('aria-selected', 'true');

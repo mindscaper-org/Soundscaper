@@ -24,7 +24,7 @@ test('product release lines select declared versions and active channels', () =>
 		const channel = product.applicationVersionChannel;
 		assert.equal(resolveProductApplicationVersion(productId, RELEASE_LINES), product[channel].version);
 		assert.equal(product.candidate.tagPrefix, `${productId}-v`);
-		assert.equal(product.stable.tagPrefix, productId === 'soundscaper' ? 'v' : 'framescaper-v');
+		assert.equal(product.stable.tagPrefix, productId === 'soundscaper' ? 'v' : `${productId}-v`);
 		for (const releaseChannel of ['candidate', 'stable']) {
 			const tag = expectedProductReleaseTag(productId, RELEASE_LINES, releaseChannel);
 			assert.equal(tag, `${product[releaseChannel].tagPrefix}${product[releaseChannel].version}`);
@@ -37,6 +37,19 @@ test('product release lines select declared versions and active channels', () =>
 			}
 		}
 	}
+});
+
+test('Lightscaper has a versioned web build while release publication remains deferred', () => {
+	assert.equal(resolveProductApplicationVersion('lightscaper', RELEASE_LINES), '0.1.0-beta.1');
+	assert.equal(RELEASE_LINES.products.lightscaper.releaseChannel, 'deferred');
+	assert.equal(expectedProductReleaseTag('lightscaper', RELEASE_LINES), 'lightscaper-v0.1.0-beta.1');
+	assert.throws(
+		() => resolveProductReleaseTag('lightscaper-v0.1.0-beta.1', RELEASE_LINES),
+		/lightscaper release channel is deferred/iu,
+	);
+	const changed = structuredClone(RELEASE_LINES);
+	changed.products.lightscaper.candidate.tagPrefix = 'framescaper-v';
+	assert.throws(() => validateProductReleaseLines(changed), /release tag ownership is invalid/iu);
 });
 
 function fixtureReleaseLines() {

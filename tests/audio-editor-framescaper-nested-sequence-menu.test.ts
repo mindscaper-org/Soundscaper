@@ -241,6 +241,7 @@ test('the product action owner snapshots strict exact commands before execution'
 function project(): Record<string, unknown> {
 	return createFramescaperProject(FRAMESCAPER_PROJECT_RUNTIME_PROFILE, {
 		id: 'nested-menu', title: 'Nested menu', now: '2026-08-28T00:00:00.000Z',
+		sampleRate: 48_000, loop: { enabled: false }, snap: { enabled: false, division: 'samples' },
 		primarySequenceId: 'main',
 		sequences: [
 			sequence('main', 30),
@@ -288,10 +289,7 @@ function applicationMenuInput(productId: string) {
 	const nestedProject = project();
 	return {
 		productId, aboutLabel: 'About', capabilities: {}, locale: 'en', copy: copyValues(),
-		project: {
-			...nestedProject, sampleRate: 48_000, sources: [], clips: [], tracks: [],
-			selection: null, loop: { enabled: false }, snap: { enabled: false, division: 'samples' },
-		}, snapshot: {
+		project: nestedProject, snapshot: {
 			selectedTrackId: null,
 			preferences: {
 				workspace: {

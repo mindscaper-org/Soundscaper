@@ -38,7 +38,7 @@ test('a failed pending shortcut save retains the newer binding for an ordinary r
 		await page.evaluate(() => window.__round7RefuseShortcutSave());
 		await page.evaluate(() => window.__round7ReleaseShortcutStorage());
 		await expect.poll(() => savedBinding(page)).toEqual(['Ctrl+Alt+Shift+F6']);
-		await expect(page.getByRole('alert').filter({ hasText: 'The IndexedDB transaction failed.' })).toBeVisible();
+		await expect(page.getByRole('alert').filter({ hasText: 'The IndexedDB transaction was aborted.' })).toBeVisible();
 		await expect(field).toHaveValue('Ctrl+Alt+Shift+F8');
 		await assign.click();
 		await expect.poll(() => savedBinding(page)).toEqual(['Ctrl+Alt+Shift+F8']);

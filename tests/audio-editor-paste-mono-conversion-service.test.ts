@@ -8,6 +8,7 @@ import {
 	prepareMonoConvertingPasteCommand,
 	type PasteMonoDerivedSourcesPort,
 } from '../src/common/editor/controller/edit/paste-mono-conversion-service.ts';
+import type { CurrentAudioEditorMutationCommandV2 as CurrentCommand } from '../src/common/editor/commands/clipboard-command-v2.ts';
 import type {
 	AudioEditorClipboard,
 	AudioEditorCommand,
@@ -496,8 +497,8 @@ test('mono conversion reports both commit and derived-source rollback failures',
 });
 
 
-function onlyPaste(command: AudioEditorCommand): Extract<AudioEditorCommand, { readonly type: 'clipboard/paste' }> {
-	const found: Extract<AudioEditorCommand, { readonly type: 'clipboard/paste' }>[] = [];
+function onlyPaste(command: CurrentCommand): Extract<CurrentCommand, { readonly type: 'clipboard/paste' }> {
+	const found: Extract<CurrentCommand, { readonly type: 'clipboard/paste' }>[] = [];
 	visit(command, (candidate) => {
 		if (candidate.type === 'clipboard/paste') found.push(candidate);
 	});
@@ -505,7 +506,7 @@ function onlyPaste(command: AudioEditorCommand): Extract<AudioEditorCommand, { r
 	return found[0]!;
 }
 
-function sourceAddIds(command: AudioEditorCommand): string[] {
+function sourceAddIds(command: CurrentCommand): string[] {
 	const result: string[] = [];
 	visit(command, (candidate) => {
 		if (candidate.type === 'source/add') result.push(String(candidate.source.id));
@@ -513,7 +514,7 @@ function sourceAddIds(command: AudioEditorCommand): string[] {
 	return result;
 }
 
-function visit(command: AudioEditorCommand, callback: (candidate: AudioEditorCommand) => void): void {
+function visit(command: CurrentCommand, callback: (candidate: CurrentCommand) => void): void {
 	callback(command);
 	if (command.type === 'batch') command.commands.forEach((child) => { visit(child, callback); });
 }

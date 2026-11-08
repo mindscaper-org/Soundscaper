@@ -140,7 +140,11 @@ test('a tag failure retains the release commit and reports how to tag it', async
 test('the CLI offers read-only help, rejects arguments, and creates an RC without a remote', async context => {
 	const fixture = await repositoryFixture(context);
 	await mkdir(join(fixture.root, 'scripts', 'lib'), { recursive: true });
-	for (const path of ['scripts/create-soundscaper-rc.mjs', 'scripts/prepare-soundscaper-release.mjs', 'scripts/lib/product-release-lines.mjs']) {
+	await mkdir(join(fixture.root, 'src', 'common'), { recursive: true });
+	for (const path of [
+		'scripts/create-soundscaper-rc.mjs', 'scripts/prepare-soundscaper-release.mjs',
+		'scripts/lib/product-release-lines.mjs', 'src/common/product-identities.js',
+	]) {
 		await writeFile(join(fixture.root, path), await readFile(new URL(`../${path}`, import.meta.url)));
 	}
 	const script = join(fixture.root, 'scripts', 'create-soundscaper-rc.mjs');

@@ -20,6 +20,8 @@ test('check-all preview children use their own product identity and retain inher
 	const fixture = await mkdtemp(join(tmpdir(), 'scape-check-all-preview-'));
 	context.after(() => rm(fixture, { recursive: true, force: true }));
 	await mkdir(join(fixture, 'scripts/lib'), { recursive: true });
+	await mkdir(join(fixture, 'src/common'), { recursive: true });
+	await cp(join(root, 'src/common/product-identities.js'), join(fixture, 'src/common/product-identities.js'));
 	await mkdir(join(fixture, 'node_modules/vite/bin'), { recursive: true });
 	for (const file of ['check-all-browser-servers.ts', 'lib/browser-product-site-plan.mjs', 'lib/check-all-output.ts']) {
 		await cp(join(root, 'scripts', file), join(fixture, 'scripts', file));
@@ -34,10 +36,11 @@ test('check-all preview children use their own product identity and retain inher
 			inherited: process.env.SCAPE_PREVIEW_TEST_SENTINEL,
 		}));
 	`);
-	const [soundscaperPort, framescaperPort] = await availablePorts();
+	const [soundscaperPort, framescaperPort, lightscaperPort] = await availablePorts();
 	const environment: NodeJS.ProcessEnv = { ...process.env,
 		SCAPE_PRODUCT: 'soundscaper', SCAPE_BROWSER_PRODUCTS: '', SCAPE_PREVIEW_TEST_SENTINEL: 'preserved',
 		PLAYWRIGHT_PORT: String(soundscaperPort), PLAYWRIGHT_FRAMESCAPER_PORT: String(framescaperPort),
+		PLAYWRIGHT_LIGHTSCAPER_PORT: String(lightscaperPort),
 	};
 	delete environment.NODE_TEST_CONTEXT;
 	delete environment.NODE_V8_COVERAGE;
@@ -59,12 +62,13 @@ test('check-all preview children use their own product identity and retain inher
 		.sort((left, right) => left.productId.localeCompare(right.productId));
 	assert.deepEqual(identities, [
 		{ productId: 'framescaper', outputDirectory: '.wrangler/browser-products/framescaper', inherited: 'preserved' },
+		{ productId: 'lightscaper', outputDirectory: '.wrangler/browser-products/lightscaper', inherited: 'preserved' },
 		{ productId: 'soundscaper', outputDirectory: '.wrangler/browser-products/soundscaper', inherited: 'preserved' },
 	]);
 });
 
 async function availablePorts(): Promise<readonly number[]> {
-	const servers = [createServer(), createServer()];
+	const servers = [createServer(), createServer(), createServer()];
 	try {
 		await Promise.all(servers.map(server => new Promise<void>((resolveListening, reject) => {
 			server.once('error', reject);
@@ -89,6 +93,7 @@ test('check-all preview children select each product independently of their pare
 	process.env.SCAPE_BROWSER_PRODUCTS = '';
 	process.env.PLAYWRIGHT_PORT = '4530';
 	process.env.PLAYWRIGHT_FRAMESCAPER_PORT = '4531';
+	process.env.PLAYWRIGHT_LIGHTSCAPER_PORT = '4532';
 	context.mock.method(childProcess, 'spawn', (command: string, args: readonly string[], options: SpawnOptions) => {
 		spawned.push({ command, args, options });
 		return new childProcess.ChildProcess();
@@ -116,13 +121,13 @@ test('check-all preview children select each product independently of their pare
 	} finally {
 		context.mock.restoreAll();
 		syncBuiltinESMExports();
-		for (const key of ['SCAPE_PRODUCT', 'SCAPE_BROWSER_PRODUCTS', 'PLAYWRIGHT_PORT', 'PLAYWRIGHT_FRAMESCAPER_PORT']) {
+		for (const key of ['SCAPE_PRODUCT', 'SCAPE_BROWSER_PRODUCTS', 'PLAYWRIGHT_PORT', 'PLAYWRIGHT_FRAMESCAPER_PORT', 'PLAYWRIGHT_LIGHTSCAPER_PORT']) {
 			if (environment[key] === undefined) delete process.env[key];
 			else process.env[key] = environment[key];
 		}
 	}
-	assert.equal(spawned.length, 2);
-	for (const [index, product] of ['soundscaper', 'framescaper'].entries()) {
+	assert.equal(spawned.length, 3);
+	for (const [index, product] of ['soundscaper', 'framescaper', 'lightscaper'].entries()) {
 		const launch = spawned[index]!;
 		assert.equal(launch.command, process.execPath);
 		assert.equal(launch.args[0], resolve(import.meta.dirname, '../node_modules/vite/bin/vite.js'));
@@ -131,6 +136,6 @@ test('check-all preview children select each product independently of their pare
 		assert.equal(launch.options.env?.PATH, environment.PATH, 'unrelated environment remains available to Vite');
 		assert.notEqual(launch.options.env, process.env);
 	}
-	assert.deepEqual(requests, ['http://127.0.0.1:4530/en/', 'http://127.0.0.1:4531/en/']);
+	assert.deepEqual(requests, ['http://127.0.0.1:4530/en/', 'http://127.0.0.1:4531/en/', 'http://127.0.0.1:4532/en/']);
 	assert.match(output, /"id":"servers-ready"/u);
 });

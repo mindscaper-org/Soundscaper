@@ -46,13 +46,9 @@ const GREEN_LUT = `LUT_3D_SIZE 2\n${'0.0 1.0 0.0\n'.repeat(8)}`;
 const live = new AbortController().signal;
 
 function plate(fill: number, alpha = 255): UnifiedExactRenderVisualRgbaV13 {
-	const pixels = new Uint8Array(BYTES);
-	for (let offset = 0; offset < BYTES; offset += 4) {
-		pixels[offset] = fill;
-		pixels[offset + 1] = fill;
-		pixels[offset + 2] = fill;
-		pixels[offset + 3] = alpha;
-	}
+	const pixels = Uint8Array.from({ length: BYTES }, (_value, offset) => (
+		offset % 4 === 3 ? alpha : fill
+	));
 	return { width: WIDTH, height: HEIGHT, pixels };
 }
 
@@ -295,16 +291,20 @@ test('grading refuses an HDR interpretation instead of tone mapping it', () => {
 	);
 });
 
-test('an aborted grade throws its own reason', () => {
-	const controller = new AbortController();
-	const reason = new DOMException('the finishing frame was superseded', 'AbortError');
-	controller.abort(reason);
-
-	assert.throws(() => gradeEncodedFrame(plate(128), interpretation(), [], new Map(), controller.signal),
-		(error: unknown) => error === reason);
-	assert.throws(() => gradeLinearFrame(plate(128), [], new Map(), controller.signal),
-		(error: unknown) => error === reason);
-
+test('grades preserve native default and custom abort reasons and refuse forged signals', () => {
+	const defaultController = new AbortController(); defaultController.abort();
+	const forged = { aborted: true, reason: undefined } as unknown as AbortSignal;
+	for (const runGrade of [
+		(signal: AbortSignal) => gradeEncodedFrame(plate(128), interpretation(), [], new Map(), signal),
+		(signal: AbortSignal) => gradeLinearFrame(plate(128), [], new Map(), signal),
+	]) {
+		for (const reason of [new DOMException('the finishing frame was superseded', 'AbortError'), Symbol('opaque cancellation')]) {
+			const controller = new AbortController(); controller.abort(reason);
+			assert.throws(() => runGrade(controller.signal), (error: unknown) => error === reason);
+		}
+		assert.throws(() => runGrade(defaultController.signal), (error: unknown) => error === defaultController.signal.reason && error instanceof DOMException && error.name === 'AbortError');
+		assert.throws(() => runGrade(forged), TypeError);
+	}
 });
 
 test('a linear grade applies gain to already-decoded pixels without decoding them again', () => {

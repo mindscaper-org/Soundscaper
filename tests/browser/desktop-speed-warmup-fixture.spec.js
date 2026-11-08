@@ -8,7 +8,7 @@ import { createServer } from 'node:http';
 // The override scenario serves a synthetic feature module outside the built site.
 const syntheticRouteTest = test.extend({ browserCoverage: false });
 
-syntheticRouteTest('ordinary web pages retain HTTP caching without desktop manifest interception', async ({ page, browser }) => {
+syntheticRouteTest('ordinary web pages retain HTTP caching without desktop manifest interception', async ({ page, createBrowserContext }) => {
 	const requests = new Map();
 	const server = createServer((request, response) => {
 		if (request.url.startsWith('/cached-resource')) {
@@ -24,7 +24,6 @@ syntheticRouteTest('ordinary web pages retain HTTP caching without desktop manif
 		server.once('error', reject);
 		server.listen(0, '127.0.0.1', resolve);
 	});
-	const control = await browser.newContext({ serviceWorkers: 'block' });
 	try {
 		const address = server.address();
 		expect(address).not.toBeNull();
@@ -38,13 +37,15 @@ syntheticRouteTest('ordinary web pages retain HTTP caching without desktop manif
 			}, resource);
 			expect(bodies).toEqual(['cached resource', 'cached resource']);
 		};
-		await fetchTwice(await control.newPage(), '/cached-resource-control');
 		await fetchTwice(page, '/cached-resource-fixture');
-		// Match the engine's fresh-context cache policy: WebKit's ephemeral
-		// contexts do not cache these fetches even without request interception.
-		expect(requests.get('/cached-resource-fixture')).toBe(requests.get('/cached-resource-control'));
+		await page.context().close();
+		const control = await createBrowserContext({ serviceWorkers: 'block' });
+		try {
+			await fetchTwice(control.pages()[0] ?? await control.newPage(), '/cached-resource-control');
+			// Both actual contexts use the same engine storage/cache policy.
+			expect(requests.get('/cached-resource-fixture')).toBe(requests.get('/cached-resource-control'));
+		} finally { await control.close(); }
 	} finally {
-		await control.close();
 		await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
 	}
 });

@@ -38,7 +38,7 @@ import {
 } from './export-plan-admission.js';
 import { inheritTrackFolderMediaStateProjectionV12 } from './track-folder-media-runtime.ts';
 import { scaleSampleFrame } from './timeline-time.ts';
-import { createMediaMetadataDelivery } from './media-metadata.ts';
+import { createMediaMetadataDelivery } from './media-metadata-delivery.ts';
 
 export const FAST_RENDER_THRESHOLDS = Object.freeze({
 	mobile: { outputBytes: 96 * 1024 ** 2, totalBytes: 320 * 1024 ** 2 },

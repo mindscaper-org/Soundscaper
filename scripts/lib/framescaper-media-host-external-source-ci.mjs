@@ -22,6 +22,7 @@ const DOWNLOAD_TIMEOUT_MS = 300_000;
 const MAXIMUM_ARCHIVE_BYTES = 64 * 1024 * 1024;
 const MAXIMUM_ENVIRONMENT_BYTES = 1024 * 1024;
 const MAXIMUM_OUTPUT_BYTES = 1024 * 1024;
+const MAXIMUM_CURL_DIAGNOSTIC_CHARACTERS = 4096;
 
 export async function runFramescaperMediaHostExternalSourceCiProvisioning(
 	options, dependencies = {},
@@ -67,16 +68,29 @@ export async function runFramescaperMediaHostExternalSourceCiProvisioning(
 	}
 }
 
+/**
+ * @param {{
+ * destination: string,
+ * source: unknown,
+ * fetchImpl?: typeof globalThis.fetch,
+ * runCurl?: (command: string, args: readonly string[], options: { shell: boolean, maxBuffer: number }) => {
+ * status: number | null, signal: string | null, error?: unknown, stdout: Buffer, stderr?: Buffer | string
+ * }
+ * }} options
+ */
 export async function downloadPinnedFramescaperMediaHostSource({
-	destination, source, fetchImpl,
+	destination, source, fetchImpl = undefined, runCurl = undefined,
 }) {
 	const path = absolutePath(destination, 'external-source archive');
 	const admission = sourceAdmission(source);
 	if (fetchImpl !== undefined && typeof fetchImpl !== 'function') {
 		throw new TypeError('The injected fetch implementation must be callable.');
 	}
+	if (runCurl !== undefined && typeof runCurl !== 'function') {
+		throw new TypeError('The injected curl command runner must be callable.');
+	}
 	const response = fetchImpl === undefined
-		? curlResponse(admission)
+		? curlResponse(admission, runCurl)
 		: await fetchResponse(fetchImpl, admission);
 	const length = response?.headers?.get('content-length');
 	if (!response?.ok || response.status !== 200 || response.body === null
@@ -128,15 +142,18 @@ async function fetchResponse(fetchImpl, admission) {
 	return response;
 }
 
-function curlResponse(admission) {
-	const outcome = spawnSync('curl', [
+function curlResponse(admission, runCurl = spawnSync) {
+	const outcome = runCurl('curl', [
 		'--fail', '--location', '--silent', '--show-error', '--retry', '2',
 		'--max-time', String(DOWNLOAD_TIMEOUT_MS / 1_000),
 		'--max-filesize', String(admission.byteLength), '--proto', '=https', admission.url,
 	], { shell: false, maxBuffer: admission.byteLength + MAXIMUM_OUTPUT_BYTES });
 	if (outcome.status !== 0 || outcome.error !== undefined || outcome.signal !== null
 		|| !Buffer.isBuffer(outcome.stdout)) {
-		throw new Error(`${admission.id} download could not reach its pinned URL.`, {
+		const stderr = String(outcome.stderr ?? '').slice(0, MAXIMUM_CURL_DIAGNOSTIC_CHARACTERS)
+			.replace(/\p{Cc}/gu, ' ');
+		throw new Error(`${admission.id} download could not reach its pinned URL. `
+			+ `curl status=${String(outcome.status)}, signal=${String(outcome.signal)}; stderr: ${stderr || '(empty)'}`, {
 			cause: outcome.error,
 		});
 	}

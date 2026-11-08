@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseNestedCommandAction, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { createPngFixture } from '../helpers/png-fixture.mjs';
 
 test('an imported image can be renamed from its existing timeline header', async ({ page }) => {
@@ -9,6 +9,7 @@ test('an imported image can be renamed from its existing timeline header', async
 	await (await choosing).setFiles({ name: 'poster.png', mimeType: 'image/png', buffer: createPngFixture(16) });
 	const clip = editor.getByRole('group', { name: 'Image clip: poster', exact: true });
 	await expect(clip).toBeVisible();
+	await waitForProjectActivation(editor);
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
 	await clip.focus();
 	await expect(clip).toBeFocused();

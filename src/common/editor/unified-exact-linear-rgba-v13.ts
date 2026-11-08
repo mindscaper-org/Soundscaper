@@ -4,7 +4,7 @@
 
 import type { VideoColorOutputSpaceV1 } from './video-color-management-v27.ts';
 import { createManagedSdrLinearByteEncoderV1 } from './video-color-byte-encoding.ts';
-import type { VideoClipCompositionBlendMode } from './video-clip-composition.ts';
+import { compositeLinearPremultipliedRgbaSpanV1, type LinearRgbaBlendModeV1 } from './imaging/linear-rgba-composite-v1.ts';
 import {
 	videoPreviewRenderGeometry,
 	type VideoPreviewRenderGeometry,
@@ -19,7 +19,7 @@ export interface UnifiedExactLinearPremultipliedFrameV13 {
 	readonly pixels: Float64Array<ArrayBuffer>;
 }
 
-export type UnifiedExactLinearBlendModeV13 = VideoClipCompositionBlendMode | 'add';
+export type UnifiedExactLinearBlendModeV13 = LinearRgbaBlendModeV1;
 
 export interface UnifiedExactLinearCompositionEntryV13 {
 	readonly frame: UnifiedExactLinearPremultipliedFrameV13;
@@ -138,6 +138,10 @@ export function compositeUnifiedExactLinearFrameV13(
 	assertSameGeometry(target, source, 'linear composite');
 	if (blendMode === 'normal' && hasOrdinaryFrameFields(target) && hasOrdinaryFrameFields(source)) {
 		compositeNormalLinearPixels(target.pixels, source.pixels);
+		return;
+	}
+	if (hasOrdinaryFrameFields(target) && hasOrdinaryFrameFields(source)) {
+		compositeLinearPremultipliedRgbaSpanV1(target.pixels, source.pixels, blendMode);
 		return;
 	}
 	for (let offset = 0; offset < target.pixels.length; offset += 4) {
@@ -388,6 +392,7 @@ function sampleChannel(
 	const bottom = c + (d - c) * mixX;
 	return top + (bottom - top) * mixY;
 }
+
 
 function blend(backdrop: number, source: number, mode: UnifiedExactLinearBlendModeV13): number {
 	if (mode === 'add') return Math.min(1, backdrop + source);

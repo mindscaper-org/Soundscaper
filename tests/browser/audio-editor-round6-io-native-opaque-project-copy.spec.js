@@ -7,10 +7,10 @@ import { installNativeCaptionSidecar } from './helpers/native-caption-sidecar.js
 
 let archive;
 let originalId;
-test.beforeAll(async ({ browser }) => {
-	const context = await browser.newContext();
+test.beforeAll(async ({ createBrowserContext }) => {
+	const context = await createBrowserContext();
 	try {
-		const page = await context.newPage();
+		const page = context.pages()[0] ?? await context.newPage();
 		await disableNativeSavePicker(page);
 		const soundscaper = await bootEditor(page, '/embed/en/');
 		await importFiles(soundscaper, [toneA]);

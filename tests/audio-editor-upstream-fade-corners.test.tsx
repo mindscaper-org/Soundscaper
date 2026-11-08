@@ -5,7 +5,7 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ClipFadeOverlays } from '../src/common/editor/ui/timeline/ClipFadeOverlays.tsx';
 import { presentCapturedClipFadeGesture } from '../src/common/editor/ui/timeline/clip-fade-gesture-presentation.ts';
-import { installReactTestDom } from './helpers/react-test-dom.ts';
+import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 test('unselected audio clips expose corner zones without preview fades or selection changes', async context => {
 	const dom = installReactTestDom();
@@ -45,7 +45,9 @@ test('unselected audio clips expose corner zones without preview fades or select
 	assert.equal(dom.find('[data-fade-peek="in"]'), null);
 	assert.deepEqual(changes, [], 'hover is a preview only');
 	assert.equal(listeners.size, 0, 'idle overlays defer pointer admission to the native timeline');
-	const owner = dom.one('.audio-editor-clip-fade') as unknown as HTMLElement;
+	const overlay = dom.one('.audio-editor-clip-fade');
+	assert.equal(reactProps(overlay).onPointerDownCapture, undefined);
+	const owner = overlay as unknown as HTMLElement;
 	const present = (target: typeof zone | HTMLElement, pointerId: number) => presentCapturedClipFadeGesture(owner, {
 		target: target as HTMLElement, pointerId, clipId: 'one', edge: 'in', shape: false,
 	});

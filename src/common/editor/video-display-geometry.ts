@@ -81,6 +81,22 @@ export function resolveVideoDisplayGeometry(
 			});
 		}
 	}
+	// Some decoders stretch the presented horizontal axis after applying the
+	// quarter turn. Undo that stretch and move it to the coded width's new axis.
+	// Keep this last: an existing explanation wins when the ratios are ambiguous.
+	if (quarterTurn && anamorphic) {
+		const expectedWidth = codedHeight * aspectNum, expectedHeight = codedWidth * aspectDen;
+		if (expectedWidth * height === expectedHeight * width
+			|| matchesRoundedAspect(expectedWidth, expectedHeight, width, height)) {
+			const residualScaleX = aspectDen / aspectNum, residualScaleY = aspectNum / aspectDen;
+			return Object.freeze({
+				reconciliation: 'residual',
+				displayWidth: Math.max(1, Math.round(width * residualScaleX)),
+				displayHeight: Math.max(1, Math.round(height * residualScaleY)),
+				residualRotationDegrees: 0, residualScaleX, residualScaleY,
+			});
+		}
+	}
 	return unreconciled('disagreed', width, height);
 }
 

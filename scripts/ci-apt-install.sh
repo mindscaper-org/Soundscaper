@@ -21,10 +21,19 @@ if [[ "$#" -eq 0 ]]; then
 	exit 64
 fi
 
+# Playwright's simulated inventory includes upgrades as well as absent packages.
+# That caller must install its complete inventory before verifying it again.
+# Other callers retain the fast path for packages the runner already carries.
+require_all="${CI_APT_REQUIRE_ALL:-0}"
+if [[ "$require_all" != '0' && "$require_all" != '1' ]]; then
+	echo 'CI_APT_REQUIRE_ALL must be 0 or 1.' >&2
+	exit 64
+fi
+
 missing=()
 for package in "$@"; do
 	status="$(dpkg-query --show --showformat='${db:Status-Status}' "$package" 2>/dev/null || true)"
-	if [[ "$status" != 'installed' ]]; then
+	if [[ "$require_all" == '1' || "$status" != 'installed' ]]; then
 		missing+=("$package")
 	fi
 done
@@ -61,7 +70,13 @@ run_apt() {
 	for ((attempt = 1; attempt <= attempt_limit; attempt++)); do
 		if ((attempt > 1)) && [[ "$repairs_dpkg" == 'repair' ]]; then
 			# A no-op when the database is already consistent.
-			sudo dpkg --configure -a || true
+			if [[ "$require_all" == '1' ]]; then
+				# Leave room for all four bounded apt attempts inside this
+				# caller's outer deadline, including an interrupted repair.
+				sudo timeout --kill-after=5s 30s dpkg --configure -a || true
+			else
+				sudo dpkg --configure -a || true
+			fi
 		fi
 		# SIGTERM first so apt can unwind its own transaction; SIGKILL only for a
 		# process that ignored it.

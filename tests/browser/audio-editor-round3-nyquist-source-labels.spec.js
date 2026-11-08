@@ -1,15 +1,20 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
-import { showClipTimingFields, bootEditor, chooseCommandAction, clipByName, importFiles, openClipProperties, openSourceMonitor } from './audio-editor-test-helpers.js';
-import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
+import { showClipTimingFields, bootEditor, chooseCommandAction, clipByName, clipField, commitInput, importFiles, openClipProperties, openSourceMonitor } from './audio-editor-test-helpers.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 test('Nyquist labels from a source selection retain its clip placement', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
+	const projectId = await editor.getAttribute('data-project-id');
 	await importFiles(editor, [toneA]);
 	const panel = await openClipProperties(page, editor, clipByName(editor, toneA.name));
 	await showClipTimingFields(panel);
-	await setClipTimeFrames(panel, 'startFrame', 48_000);
+	const start = clipField(panel, 'startFrame');
+	await commitInput(start, '1');
+	await expect(start).toHaveValue('1');
+	const clipId = await panel.locator('[data-clip-properties-active-clip]').getAttribute('data-clip-properties-active-clip');
+	await expect.poll(async () => (await persistedProject(page, projectId))?.clips.find(clip => clip.id === clipId)?.timelineStartFrame).toBe(48_000);
 	const sourceMonitor = await openSourceMonitor(page, editor);
 	const waveform = sourceMonitor.getByRole('region', { name: 'Source waveform', exact: true });
 	await waveform.focus();

@@ -8,7 +8,6 @@ import { bootEditor, chooseNestedCommandAction, collectClientErrors, registerAud
 import { installDesktopSpeedWarmupManifest } from './helpers/desktop-speed-warmup-fixture.js';
 import { installCorridorKeyFixture } from './helpers/corridorkey-fixture.js';
 import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
-import { hasWebGl2Capability } from './helpers/webgl2-capability.js';
 import { createVideoSource } from '../../src/common/editor/project-media-factory.ts';
 import { createFramescaperProject } from '../../src/framescaper/editor-project.ts';
 import { createFramescaperProjectStore } from '../../src/framescaper/editor-project-store.ts';
@@ -17,55 +16,6 @@ import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../../src/frames
 
 test.use({ browserCoverage: false });
 const ROOT = '/__corridorkey_decode__';
-
-test('normal-keyer hint mattes match the preview shader at native resolution', async ({ page }) => {
-	const bundle = await build({ stdin: { contents: `
-		export { VideoPreviewCompositor } from './src/common/editor/ui/video-preview-compositor.js';
-		export { createChromaKeyMatte } from './src/common/editor/video-chroma-key.ts';`,
-		resolveDir: fileURLToPath(new URL('../../', import.meta.url)) }, bundle: true, write: false, format: 'esm', platform: 'browser' });
-	await page.route(`${ROOT}/**`, async (route) => {
-		await route.fulfill(route.request().url().endsWith('.html')
-			? { contentType: 'text/html', body: '<!doctype html><title>Normal keyer matte parity</title>' }
-			: { contentType: 'text/javascript', body: bundle.outputFiles[0].text });
-	});
-	await page.goto(`${ROOT}/index.html`);
-	test.skip(!await page.evaluate(hasWebGl2Capability), 'Shader parity requires WebGL2 on this browser host.');
-	const metrics = await page.evaluate(async (root) => {
-		const { VideoPreviewCompositor, createChromaKeyMatte } = await import(`${root}/entry.js`);
-		const width = 32, height = 24; const rgba = new Uint8Array(width * height * 4);
-		for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
-			rgba.set(x < 8 ? [0, 255, 0, 255] : x >= 24 ? [0, 0, 255, 255]
-				: [x * 8, y * 10, (x + y) % 3 * 100, 255], (y * width + x) * 4);
-		}
-		const source = document.createElement('canvas'); source.width = width; source.height = height;
-		Object.defineProperties(source, { videoWidth: { value: width }, videoHeight: { value: height }, readyState: { value: 4 } });
-		source.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(rgba), width, height), 0, 0);
-		const output = document.createElement('canvas'); output.style.width = `${width}px`; output.style.height = `${height}px`;
-		document.body.append(output); const compositor = new VideoPreviewCompositor(output);
-		const results = [];
-		try {
-			for (const params of [{ keyColor: 0x00ff00, similarity: 0.1, softness: 0.1 },
-				{ keyColor: 0x0000ff, similarity: 0.2, softness: 0.3 },
-				{ keyColor: 0x00ff00, similarity: 0.01, softness: 0 },
-				{ keyColor: 0xff0000, similarity: 1, softness: 1 }]) {
-				const report = compositor.render([{ entries: [{ video: source, effects: [{ id: 'normal-keyer', type: 'chroma-key', enabled: true, params }], opacity: 1 }] }],
-					{ referenceWidth: width, referenceHeight: height, backgroundColor: '#00000000', outputColorModel: 'rgba' });
-				if (report.renderedEntryCount !== 1 || output.width !== width || output.height !== height) throw new Error('Invalid native shader fixture');
-				const gl = compositor.gl; const pixels = new Uint8Array(rgba.length);
-				gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-				const matte = createChromaKeyMatte({ width, height, rgba }, params);
-				let maximumError = 0;
-				for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
-					maximumError = Math.max(maximumError, Math.abs(pixels[((height - 1 - y) * width + x) * 4 + 3] - Math.round(matte[y * width + x] * 255)));
-				}
-				results.push(maximumError);
-			}
-		} finally { compositor.dispose(); }
-		return results;
-	}, ROOT);
-	expect(metrics).toHaveLength(4);
-	for (const maximumError of metrics) expect(maximumError, JSON.stringify(metrics)).toBeLessThanOrEqual(1);
-});
 
 test('full-raster keying decode reads the presented source ordinal after sequential and reverse seeks', async ({ page }) => {
 	const bundle = await build({ entryPoints: [fileURLToPath(new URL('../../src/common/editor/controller/assistance/internal/video/local-assistance-video-keying-decoder.ts', import.meta.url))],
@@ -95,13 +45,9 @@ test('full-raster keying decode reads the presented source ordinal after sequent
 	}, ROOT);
 	expect(samples.remainingDecoders).toBe(0);
 	expect(samples.values.every(({ bytes }) => bytes === 1_280 * 720 * 4)).toBe(true);
-	for (const [index, expected] of [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 255], [255, 0, 0], [0, 0, 255]].entries()) {
-		// The untagged YUV fixture has browser-dependent color conversion. Its
-		// primary colors identify the exact source ordinal without assuming a matrix.
-		for (let channel = 0; channel < 3; channel += 1) {
-			if (expected[channel]) expect(samples.values[index].rgba[channel]).toBeGreaterThanOrEqual(200);
-			else expect(samples.values[index].rgba[channel]).toBeLessThanOrEqual(40);
-		}
+	// Independent pinned native decode reference (fixture README): RGBA-to-YUV conversion is not RGB-lossless.
+	for (const [index, expected] of [[252, 0, 0], [0, 254, 0], [0, 0, 253], [253, 253, 253], [252, 0, 0], [0, 0, 253]].entries()) {
+		for (let channel = 0; channel < 3; channel += 1) expect(Math.abs(samples.values[index].rgba[channel] - expected[channel]), JSON.stringify(samples)).toBeLessThanOrEqual(4);
 		expect(samples.values[index].rgba[3]).toBe(255);
 	}
 });

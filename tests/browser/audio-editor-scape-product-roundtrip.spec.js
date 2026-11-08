@@ -33,7 +33,7 @@ const PRODUCT_PATHS = {
 test.describe('exact selected-schema cross-product Scape handoffs', () => {
 	registerAudioEditorHooks();
 
-	test('Framescaper v1 holds Soundscaper v1 opaquely without damaging its archive', async ({ browser, browserName, page }) => {
+	test('Framescaper v1 holds Soundscaper v1 opaquely without damaging its archive', async ({ createBrowserContext, browserName, page }) => {
 		test.slow(
 			browserName === 'webkit',
 			'This handoff boots three isolated editor runtimes before its final playback proof.',
@@ -51,9 +51,11 @@ test.describe('exact selected-schema cross-product Scape handoffs', () => {
 		expect(outbound.project.schemaVersion).toBe(PROJECT_SCHEMA_VERSION);
 
 		const baseURL = new URL(page.url()).origin;
+		// The authenticated archive carries the handoff; retire each real library before opening the next.
+		await page.context().close();
 		const openedRuntimes = [];
 		try {
-			const recipient = await openProductRuntime(browser, baseURL, 'framescaper');
+			const recipient = await openProductRuntime(createBrowserContext, baseURL, 'framescaper');
 			openedRuntimes.push(recipient);
 			const recipientErrors = collectClientErrors(recipient.page);
 			await openScapeArchive(recipient.editor, outboundArchive, 'soundscaper-v30-outbound.sscape');
@@ -65,7 +67,8 @@ test.describe('exact selected-schema cross-product Scape handoffs', () => {
 			await expect(recipient.page.getByRole('dialog', { name: 'Project features unavailable' }))
 				.toHaveCount(0);
 
-			const home = await openProductRuntime(browser, baseURL, 'soundscaper');
+			await recipient.context.close();
+			const home = await openProductRuntime(createBrowserContext, baseURL, 'soundscaper');
 			openedRuntimes.push(home);
 			const homeErrors = collectClientErrors(home.page);
 			await openScapeArchive(home.editor, outboundArchive, 'soundscaper-v30-return.sscape');
@@ -79,12 +82,12 @@ test.describe('exact selected-schema cross-product Scape handoffs', () => {
 			expect(homeErrors).toEqual([]);
 		} finally {
 			for (const runtime of openedRuntimes.reverse()) {
-				if (!runtime.page.isClosed()) await runtime.page.close({ runBeforeUnload: false });
+				await runtime.context.close();
 			}
 		}
 	});
 
-	test('Soundscaper v1 holds Framescaper v1 opaquely without damaging its archive', async ({ browser, browserName, page }) => {
+	test('Soundscaper v1 holds Framescaper v1 opaquely without damaging its archive', async ({ createBrowserContext, browserName, page }) => {
 		test.slow(
 			browserName === 'webkit',
 			'This handoff boots three isolated editor runtimes before its final playback proof.',
@@ -102,9 +105,11 @@ test.describe('exact selected-schema cross-product Scape handoffs', () => {
 		expect(outbound.project.schemaVersion).toBe(PROJECT_SCHEMA_VERSION);
 
 		const baseURL = new URL(page.url()).origin;
+		// The authenticated archive carries the handoff; retire each real library before opening the next.
+		await page.context().close();
 		const openedRuntimes = [];
 		try {
-			const recipient = await openProductRuntime(browser, baseURL, 'soundscaper');
+			const recipient = await openProductRuntime(createBrowserContext, baseURL, 'soundscaper');
 			openedRuntimes.push(recipient);
 			const recipientErrors = collectClientErrors(recipient.page);
 			await openScapeArchive(recipient.editor, outboundArchive, 'framescaper-v1-outbound.fscape');
@@ -116,7 +121,8 @@ test.describe('exact selected-schema cross-product Scape handoffs', () => {
 			await expect(recipient.page.getByRole('dialog', { name: 'Project features unavailable' }))
 				.toHaveCount(0);
 
-			const home = await openProductRuntime(browser, baseURL, 'framescaper');
+			await recipient.context.close();
+			const home = await openProductRuntime(createBrowserContext, baseURL, 'framescaper');
 			openedRuntimes.push(home);
 			const homeErrors = collectClientErrors(home.page);
 			await openScapeArchive(home.editor, outboundArchive, 'framescaper-v1-home.fscape');
@@ -130,12 +136,12 @@ test.describe('exact selected-schema cross-product Scape handoffs', () => {
 			expect(homeErrors).toEqual([]);
 		} finally {
 			for (const runtime of openedRuntimes.reverse()) {
-				if (!runtime.page.isClosed()) await runtime.page.close({ runBeforeUnload: false });
+				await runtime.context.close();
 			}
 		}
 	});
 
-	test('a reserved Lightscaper suffix and the legacy one open in both products', async ({ browser, page }) => {
+	test('a reserved Lightscaper suffix and the legacy one open in both products', async ({ createBrowserContext, page }) => {
 		await disableDirectScapeSave(page);
 		const origin = await bootEditor(page, PRODUCT_PATHS.soundscaper);
 		await importFiles(origin, [toneA]);
@@ -144,6 +150,8 @@ test.describe('exact selected-schema cross-product Scape handoffs', () => {
 		const archive = await exportScapeArchive(page, origin, 'soundscaper');
 
 		const baseURL = new URL(page.url()).origin;
+		// The authenticated archive carries the handoff; retire each real library before opening the next.
+		await page.context().close();
 		const openedRuntimes = [];
 		try {
 			// The suffix is only a routing hint, so a Scape archive under the
@@ -153,26 +161,28 @@ test.describe('exact selected-schema cross-product Scape handoffs', () => {
 				['soundscaper', 'reserved.liscape'],
 				['framescaper', 'legacy.SCAPE'],
 			]) {
-				const runtime = await openProductRuntime(browser, baseURL, productId);
+				const runtime = await openProductRuntime(createBrowserContext, baseURL, productId);
 				openedRuntimes.push(runtime);
 				const errors = collectClientErrors(runtime.page);
 				await openScapeArchive(runtime.editor, archive, name);
 				await expect(runtime.editor).toHaveAttribute('data-project-id', projectId, { timeout: 20_000 });
 				expect(errors).toEqual([]);
+				await runtime.context.close();
 			}
 		} finally {
 			for (const runtime of openedRuntimes.reverse()) {
-				if (!runtime.page.isClosed()) await runtime.page.close({ runBeforeUnload: false });
+				await runtime.context.close();
 			}
 		}
 	});
 });
 
-async function openProductRuntime(browser, baseURL, productId) {
-	const page = await browser.newPage({ baseURL, serviceWorkers: 'block' });
+async function openProductRuntime(createBrowserContext, baseURL, productId) {
+	const context = await createBrowserContext({ baseURL, serviceWorkers: 'block' });
+	const page = context.pages()[0] ?? await context.newPage();
 	await disableDirectScapeSave(page);
 	const editor = await bootEditor(page, PRODUCT_PATHS[productId]);
-	return { editor, page };
+	return { editor, page, context };
 }
 
 async function disableDirectScapeSave(page) {

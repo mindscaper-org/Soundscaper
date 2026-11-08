@@ -34,6 +34,7 @@ test('Framescaper source compaction shares its feature declaration foundation', 
 
 test('the Framescaper project command spine has one non-recursive semantic owner', () => {
 	for (const path of [
+		'src/framescaper/editor-project-commands.ts',
 		'src/framescaper/editor-project-retime-command-admission.ts',
 		'src/framescaper/editor-project-sequence-commands.ts',
 		'src/framescaper/editor-project-visual-command-inheritance.ts',
@@ -61,10 +62,10 @@ test('the Framescaper project command spine has one non-recursive semantic owner
 		assert.equal(chunkGroupForModulePath(path), 'framescaper-project-commands', path);
 	}
 	assert.equal(
-		FRAMESCAPER_PROJECT_COMMAND_CHUNK_TEST.test('src/framescaper/editor-project-commands.ts'),
+		FRAMESCAPER_PROJECT_COMMAND_CHUNK_TEST.test('src/framescaper/editor-project-commands.ts.foreign'),
 		false,
 	);
-	assert.equal(chunkGroupForModulePath('src/framescaper/editor-project-commands.ts'), null);
+	assert.equal(chunkGroupForModulePath('src/framescaper/editor-project-commands.ts.foreign'), null);
 	assert.equal(
 		FRAMESCAPER_PROJECT_COMMAND_CHUNK_TEST.test(
 			'src/framescaper/editor-timeline-image-publication-timeline-image.ts',

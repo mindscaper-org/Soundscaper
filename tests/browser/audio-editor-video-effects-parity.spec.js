@@ -1,11 +1,9 @@
 import { expect } from '@playwright/test';
 import { test } from './audio-editor-test-fixtures.js';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 import { readFile } from 'node:fs/promises';
 import { buildVideoFfmpegArgs } from '../../src/common/editor/video-ffmpeg.js';
-import {
-	VIDEO_EFFECT_TYPES,
-	videoEffectDefaults,
-} from '../../src/common/editor/video-effects.js';
+import { PARITY_CASES, SCALED_PARITY_CASES, effect } from './video-effect-parity-cases.ts';
 import {
 	VIDEO_EFFECT_PARITY_HEIGHT,
 	VIDEO_EFFECT_PARITY_MAXIMUM_CHANNEL_MAE,
@@ -50,87 +48,37 @@ const RUNTIME_ROUTES = new Map([
 	}],
 ]);
 
-const PARITY_CASES = Object.freeze([
-	parityCase('color-adjust-default', 'color-chart', effect('color-adjust')),
-	parityCase('transparency-baseline', 'transparency'),
-	parityCase('color-adjust-upper-boundaries', 'color-chart', effect('color-adjust', {
-		brightness: 1,
-		contrast: 2,
-		saturation: 3,
-		gamma: 4,
-		hueDegrees: 180,
-	})),
-	parityCase('color-adjust-lower-boundaries', 'color-chart', effect('color-adjust', {
-		brightness: -1,
-		contrast: 0,
-		saturation: 0,
-		gamma: 0.25,
-		hueDegrees: -180,
-	})),
-	parityCase('color-adjust-eq-upper-boundaries', 'color-chart', effect('color-adjust', {
-		brightness: 1,
-		contrast: 2,
-		saturation: 3,
-		gamma: 4,
-		hueDegrees: 0,
-	})),
-	parityCase('color-adjust-hue-boundary', 'color-chart', effect('color-adjust', {
-		hueDegrees: 180,
-	})),
-	parityCase('pixelate-default', 'gradient', effect('pixelate')),
-	parityCase('pixelate-lower-boundary', 'gradient', effect('pixelate', { blockSize: 2 })),
-	parityCase('pixelate-upper-boundary', 'color-chart', effect('pixelate', { blockSize: 128 })),
-	parityCase('vignette-default', 'gradient', effect('vignette')),
-	parityCase('vignette-default-transparency', 'transparency', effect('vignette')),
-	parityCase('vignette-lower-boundary', 'transparency', effect('vignette', { amount: 0 })),
-	parityCase('vignette-upper-boundary', 'gradient', effect('vignette', { amount: 1 })),
-	parityCase('gaussian-blur-default', 'edge', effect('gaussian-blur')),
-	parityCase('gaussian-blur-lower-boundary', 'edge', effect('gaussian-blur', { sigma: 0 })),
-	parityCase('gaussian-blur-upper-boundary', 'edge', effect('gaussian-blur', { sigma: 20 })),
-	parityCase('sharpen-default', 'edge', effect('sharpen')),
-	parityCase('sharpen-zero-control', 'gradient', effect('sharpen', { amount: 0 })),
-	parityCase('sharpen-upper-boundary', 'edge', effect('sharpen', { amount: 2 })),
-	parityCase('rgb-split-default', 'transparency', effect('rgb-split')),
-	parityCase('rgb-split-default-opaque', 'gradient', effect('rgb-split')),
-	parityCase('rgb-split-boundaries', 'transparency', effect('rgb-split', {
-		offsetX: 64,
-		offsetY: -64,
-	})),
-	parityCase('rgb-split-opposite-boundaries', 'transparency', effect('rgb-split', {
-		offsetX: -64,
-		offsetY: 64,
-	})),
-	parityCase('chroma-key-default', 'color-chart', effect('chroma-key')),
-	parityCase('chroma-key-default-gradient', 'gradient', effect('chroma-key')),
-	parityCase('chroma-key-hard-boundary', 'color-chart', effect('chroma-key', { similarity: 0.01, softness: 0 })),
-	parityCase('chroma-key-wide-boundary', 'color-chart', effect('chroma-key', { similarity: 1, softness: 1 })),
-	parityCase('luma-key-dark-default', 'gradient', effect('luma-key')),
-	parityCase('luma-key-bright', 'gradient', effect('luma-key', { mode: 1, cutoff: 0.8 })),
-	parityCase('spill-suppression-default', 'color-chart', effect('spill-suppression')),
-	parityCase('spill-suppression-blue-boundary', 'color-chart', effect('spill-suppression', { screen: 1, strength: 1 })),
-	parityCase('glow-default', 'edge', effect('glow')),
-	parityCase('glow-upper-boundary', 'edge', effect('glow', { threshold: 0, sigma: 20, intensity: 1 })),
-	parityCase('outline-default', 'transparency', effect('outline')),
-	parityCase('outline-upper-boundary', 'transparency', effect('outline', { width: 16, color: 0xff0080, opacity: 1 })),
-	parityCase('drop-shadow-default', 'transparency', effect('drop-shadow')),
-	parityCase('drop-shadow-hard-boundary', 'transparency', effect('drop-shadow', { offsetX: -64, offsetY: 64, sigma: 0, opacity: 1, color: 0x4080ff })),
-	parityCase(
-		'first-batch-default-stack',
-		'gradient',
-		...VIDEO_EFFECT_TYPES.slice(0, 6).map((type) => effect(type)),
-	),
-	parityCase(
-		'second-batch-default-stack',
-		'gradient',
-		...VIDEO_EFFECT_TYPES.slice(6).map((type) => effect(type)),
-	),
-	parityCase(
-		'keying-default-stack',
-		'gradient',
-		effect('chroma-key'),
-		effect('luma-key'),
-	),
-]);
+
+test('actual DOM Grain31 keeps asymmetric top-origin seed coordinates', async ({ page }) => {
+	await requireNativeGpuCapabilityCurrentV1(page, test.info(), 'webgl2');
+	await installParityRuntimeRoutes(page);
+	await page.goto(`${PARITY_ROUTE_ROOT}/index.html`);
+	const source = [40, 80, 120, 100, 140, 180, 160, 200, 240].flatMap(value => [value, value, value, 255]);
+	const result = await page.evaluate(async ({ root, source, grain }) => {
+		const { VideoPreviewCompositor } = await import(`${root}/source/common/editor/ui/video-preview-compositor.js`);
+		const drawable = document.createElement('canvas'); drawable.width = 3; drawable.height = 3;
+		const context = drawable.getContext('2d');
+		context.putImageData(new ImageData(new Uint8ClampedArray(source), 3, 3), 0, 0);
+		Object.defineProperties(drawable, { videoWidth: { value: 3 }, videoHeight: { value: 3 }, readyState: { value: 4 } });
+		const canvas = document.createElement('canvas'); document.body.append(canvas);
+		const compositor = new VideoPreviewCompositor(canvas), gl = compositor.gl;
+		const pixels = new Uint8Array(36);
+		try {
+			const report = compositor.render([{ entries: [{ video: drawable, effects: [grain], opacity: 1 }] }],
+				{ outputWidth: 3, outputHeight: 3, referenceWidth: 3, referenceHeight: 3, outputColorModel: 'rgba' });
+			gl.finish(); gl.readPixels(0, 0, 3, 3, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+			const top = new Uint8Array(36);
+			for (let y = 0; y < 3; y++) top.set(pixels.subarray((2 - y) * 12, (3 - y) * 12), y * 12);
+			return { pixels: [...top], source: [...context.getImageData(0, 0, 3, 3).data], report,
+				nativeWebgl2: gl instanceof WebGL2RenderingContext, glError: gl.getError() };
+		} finally { pixels.fill(0); compositor.dispose(); canvas.remove(); drawable.width = 0; drawable.height = 0; }
+	}, { root: PARITY_ROUTE_ROOT, source, grain: effect('grain-v1', { amount: 50, size: 1, roughness: 50, seed: 2718 }) });
+	// Independent integer lattice/envelope literal; no production scalar computes it.
+	expect(result.pixels).toEqual([40, 82, 120, 97, 142, 180, 160, 199, 240].flatMap(value => [value, value, value, 255]));
+	expect(result.source).toEqual(source); expect(result.nativeWebgl2).toBe(true); expect(result.glError).toBe(0);
+	expect(result.report.status).toBe('rendered'); expect(result.report.renderedEntryCount).toBe(1);
+	expect(result.report.effects.omitted).toEqual([]); expect(result.report.effects.fallbackRendered).toEqual([]);
+});
 
 test('WebGL preview stays within the calibrated FFmpeg golden-frame thresholds', async ({ page }, testInfo) => {
 	test.skip(
@@ -210,10 +158,7 @@ test('WebGL preview stays within the calibrated FFmpeg golden-frame thresholds',
 	}
 
 	const scaledFixture = createVideoEffectParityFixture('gradient');
-	const scaledCases = [
-		['scaled-letterboxed-first-batch-stack', VIDEO_EFFECT_TYPES.slice(0, 6).map((type) => effect(type))],
-		...VIDEO_EFFECT_TYPES.slice(6).map((type) => [`scaled-letterboxed-${type}`, [effect(type)]]),
-	];
+	const scaledCases = SCALED_PARITY_CASES;
 	for (const [name, scaledEffects] of caseFilter
 		? scaledCases.filter(([name]) => selectedCaseNames.has(name))
 		: scaledCases) {
@@ -328,18 +273,6 @@ test('WebGL preview stays within the calibrated FFmpeg golden-frame thresholds',
 	}
 });
 
-function parityCase(name, fixture, ...effects) {
-	return Object.freeze({ name, fixture, effects: Object.freeze(effects) });
-}
-
-function effect(type, params = {}) {
-	return Object.freeze({
-		id: `parity-${type}`,
-		type,
-		enabled: true,
-		params: Object.freeze({ ...videoEffectDefaults(type), ...params }),
-	});
-}
 
 function effectFilterGraph(effects, width, height) {
 	const plan = {

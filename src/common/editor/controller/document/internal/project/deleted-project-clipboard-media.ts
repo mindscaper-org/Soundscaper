@@ -13,7 +13,7 @@ export interface DeletedProjectClipboardStore {
 
 /** The clipboard outlives its origin tab; deletion must not remove its sole PCM authority. */
 export async function preserveDeletedProjectClipboardMedia(
-	projectId: string, clipboard: Readonly<AudioEditorSessionClipboard> | null | undefined,
+	projectId: string, clipboard: Readonly<Pick<AudioEditorSessionClipboard, 'originProjectId' | 'sources'>> | null | undefined,
 	store: DeletedProjectClipboardStore, assertCurrent: () => void,
 ): Promise<void> {
 	if (!clipboard || clipboard.originProjectId !== projectId) return;

@@ -131,8 +131,9 @@ test.describe('milestone 2 browser storage durability', () => {
 		const projectId = await editor.getAttribute('data-project-id');
 		const archive = await exportProject(page, editor);
 
-		await page.close();
 		const recoveryPage = await context.newPage();
+		// Keep WebKit's native context alive while retiring the original page.
+		await page.close();
 		await recoveryPage.goto('/logo/soundscaper.svg');
 		await recoveryPage.evaluate(async (databaseName) => {
 			await new Promise((resolve, reject) => {
