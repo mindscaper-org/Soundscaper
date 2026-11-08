@@ -2,6 +2,8 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { importCaptionInterchangeV1, exportCaptionInterchangeV1 } from '../src/common/editor/video-caption-interchange-v27.ts';
+import { normalizeVideoCaptionTrackV1 } from '../src/common/editor/video-caption-track-v27.ts';
 
 import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
 import { openFramescaperCaptionSidecarFile } from '../src/common/editor/ui/framescaper-caption-file-interchange.ts';
@@ -43,4 +45,22 @@ test('the shared finishing reader retains a native cube LUT lease until its cons
 	});
 	assert.equal(parsed.size, 2);
 	assert.equal(fixture.releases.length, 1);
+});
+
+for (const desktop of [false, true]) test(`the ${desktop ? 'native' : 'browser'} caption read reaches the canonical cue document and exports unchanged`, async context => {
+	const native = desktop ? await nativeSidecarFixture('dialogue.srt', SUBRIP) : null;
+	if (native) context.after(native.close);
+	const sidecar = await openFramescaperCaptionSidecarFile(native
+		? { fileService: createAudioEditorFileService({ bridge: native.bridge, fetch: native.fetch }) }
+		: { file: new File([SUBRIP], 'dialogue.srt', { type: 'application/x-subrip' }) }); assert.ok(sidecar);
+	const imported = importCaptionInterchangeV1(sidecar.text, { format: sidecar.format, sampleRate: 48_000,
+		trackId: 'captions', sequenceId: 'main', trackName: 'Dialogue', language: 'en' }, normalizeVideoCaptionTrackV1);
+	assert.deepEqual(imported.losses, []); assert.equal(imported.track.cues.length, 1);
+	const cue = imported.track.cues[0]; assert.ok(cue);
+	assert.equal(cue.startFrame, 4800); assert.equal(cue.endFrame, 24000);
+	assert.equal(cue.text, 'A normal caption');
+	const exported = exportCaptionInterchangeV1(imported.track, { format: 'srt', sampleRate: 48_000 });
+	assert.deepEqual(exported.losses.map(loss => loss.code), ['track-metadata-omitted', 'cue-identity-omitted']);
+	assert.equal(exported.text, SUBRIP.trimEnd() + '\n');
+	if (native) assert.equal(native.releases.length, 1);
 });

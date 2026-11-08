@@ -256,11 +256,10 @@ function exportSrtCue(
 	if (cue.regionId !== null) losses.push(captionLoss('region-omitted', `cues.${cue.id}.regionId`, 'SRT cannot preserve the caption region.', { id: cue.regionId }));
 	if (cue.speakerId !== null) losses.push(captionLoss('speaker-omitted', `cues.${cue.id}.speakerId`, 'SRT cannot preserve the caption speaker.', { id: cue.speakerId }));
 	if (cue.words.length > 0) losses.push(captionLoss('word-timing-omitted', `cues.${cue.id}.words`, 'SRT cannot preserve word timing.', { count: cue.words.length }));
-	// SRT is plain text with no entity syntax; cue bodies export verbatim. A
-	// blank line terminates an SRT block, so blank, leading, and trailing cue
-	// lines are the one unrepresentable structure — dropped and reported.
+	// Normalize blank lines with a report; refuse literal text that becomes SRT markup.
 	const printable = cue.text.split('\n').filter((line) => line.trim().length > 0);
 	const body = printable.length > 0 ? printable.join('\n') : ' ';
+	if (parseSrtCueMarkup(body).text !== body) throw interchangeError('Caption cue markup is outside the passive maintained subset.', 'ACTIVE_CONTENT');
 	if (body !== cue.text) {
 		losses.push(captionLoss('text-lines-normalized', `cues.${cue.id}.text`, 'SRT cannot preserve leading, trailing, or blank caption lines.', {}));
 	}

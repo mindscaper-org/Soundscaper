@@ -20,7 +20,7 @@ import {
 } from '../../../../project-media-factory.ts';
 import type { SourceProvenanceCarrier } from '../../../../source-provenance-derivation.ts';
 import { loadSourceProvenanceDerivation } from '../../../../source-provenance-derivation-loader.ts';
-import { streamWavBlobPcm } from '../../../../wav-import.js';
+import { publishLocalAssistanceAudioSource } from './local-assistance-audio-source-publication.ts';
 import {
 	assertLocalAssistanceAudioResultCurrent,
 	normalizeLocalAssistanceAudioResult,
@@ -36,7 +36,7 @@ type Awaitable<Value> = PromiseLike<Value> | Value;
 type DataRecord = Readonly<Record<string, unknown>>;
 
 export type LocalAssistanceEnhancementPlacement = 'project-bin' | 'replace-selection';
-export type LocalAssistanceSeparationPlacement = 'project-bin' | 'project-bin-and-muted-tracks';
+export type LocalAssistanceSeparationPlacement = 'project-bin' | 'project-bin-and-muted-tracks' | 'replace-selection';
 export type LocalAssistanceAudioPublicationChoice = Readonly<{
 	readonly placement?: LocalAssistanceEnhancementPlacement | LocalAssistanceSeparationPlacement;
 }>;
@@ -75,7 +75,9 @@ export interface LocalAssistanceAudioPublicationDependencies {
 	readonly createId: (prefix: string) => string;
 	readonly preflightStorage: (bytes: number, category: 'effect') => Promise<unknown>;
 	readonly store: LocalAssistanceAudioPublicationStore;
-	readonly commit: (command: DataRecord) => void;
+	readonly commit: (command: DataRecord, selection?: Readonly<{
+		selectClipId: string; selectTrackId: string;
+	}>) => void;
 }
 
 export interface LocalAssistanceAudioPublicationAcceptance {
@@ -127,20 +129,20 @@ export function createLocalAssistanceAudioPublicationAcceptance(
 		const choice = normalizeChoice(choiceValue, result.operation);
 		const initial = normalizeAuthority(dependencies.currentAuthority(), result);
 		assertSameFence(result.selectionFence, initial.fence);
-		assertPlacementAdmitted(choice, initial);
-		const rawPcmBytes = publicationBytes(result.outputs);
+		const rawPcmBytes = publicationBytes(result.outputs, choice === 'replace-selection'
+			? initial.timelineEndFrame - initial.timelineStartFrame : undefined);
 		await dependencies.preflightStorage(rawPcmBytes, 'effect');
 		assertLocalAssistanceAudioResultCurrent(value, result);
 		assertAuthorityCurrent(dependencies, result, initial);
 		const { deriveSourceProvenance } = await loadSourceProvenanceDerivation();
 		assertLocalAssistanceAudioResultCurrent(value, result);
 		assertAuthorityCurrent(dependencies, result, initial);
-		const plans = createPublicationPlans(
-			dependencies, result, initial, deriveSourceProvenance,
+		let plans = createPublicationPlans(
+			dependencies, result, initial, deriveSourceProvenance, choice === 'replace-selection',
 		);
 		const publishedIds: string[] = [];
 		try {
-			await publishSourcesBoundedly(dependencies.store, plans, (plan) => {
+			plans = await publishSourcesBoundedly(dependencies.store, plans, (plan) => {
 				publishedIds.push(String(plan.source.id));
 				assertLocalAssistanceAudioResultCurrent(value, result);
 				assertAuthorityCurrent(dependencies, result, initial);
@@ -151,7 +153,9 @@ export function createLocalAssistanceAudioPublicationAcceptance(
 			dependencies.assertProject(token);
 			assertAuthorityCurrent(dependencies, result, initial);
 			assertLocalAssistanceAudioResultCurrent(value, result);
-			dependencies.commit(command as unknown as DataRecord);
+			dependencies.commit(command as unknown as DataRecord, choice === 'replace-selection'
+				? { selectClipId: plans[0]!.timelineClipId, selectTrackId: String(initial.track.id) }
+				: undefined);
 		} catch (error) {
 			await rollbackSources(dependencies.store, publishedIds, error);
 		}
@@ -163,6 +167,7 @@ function createPublicationPlans(
 	result: NormalizedLocalAssistanceAudioResult,
 	authority: NormalizedAuthority,
 	deriveSourceProvenance: DeriveSourceProvenance,
+	canonicalRate: boolean,
 ): readonly PublicationPlan[] {
 	const provenance = deriveSourceProvenance([
 		authority.source as SourceProvenanceCarrier,
@@ -182,8 +187,10 @@ function createPublicationPlans(
 		const name = SOURCE_NAMES[output.slotId];
 		const source = createAudioSource({
 			id: sourceId, storageKey: sourceId, name, kind: 'audio', mimeType: 'audio/wav',
-			frameCount: output.review.frameCount, channelCount: output.review.channelCount,
-			sampleRate: output.review.sampleRate, originalSampleRate: output.review.sampleRate,
+			frameCount: canonicalRate ? authority.timelineEndFrame - authority.timelineStartFrame
+				: output.review.frameCount, channelCount: output.review.channelCount,
+			sampleRate: canonicalRate ? authority.projectSampleRate : output.review.sampleRate,
+			originalSampleRate: output.review.sampleRate,
 			sampleFormat: 'float32', chunkFrames: SOURCE_CHUNK_FRAMES,
 			contentSha256: output.claim.sha256, byteLength: output.claim.byteLength,
 			...(provenance ? { provenance } : {}),
@@ -204,59 +211,26 @@ async function publishSourcesBoundedly(
 	store: LocalAssistanceAudioPublicationStore,
 	plans: readonly PublicationPlan[],
 	onPublished: (plan: PublicationPlan) => void,
-): Promise<void> {
+): Promise<readonly PublicationPlan[]> {
+	const published = [...plans];
 	let next = 0;
 	let failed = false;
 	let primaryFailure: unknown;
 	async function drain(): Promise<void> {
 		while (!failed && next < plans.length) {
-			const plan = plans[next++]!;
-			try { await publishSource(store, plan); onPublished(plan); }
+			const index = next++, plan = plans[index]!;
+			try {
+				const source = await publishLocalAssistanceAudioSource(store, plan.source, plan.output, SOURCE_CHUNK_FRAMES);
+				published[index] = Object.freeze({ ...plan, source });
+				onPublished(plan);
+			}
 			catch (error) { if (!failed) { primaryFailure = error; failed = true; } }
 		}
 	}
 	await Promise.all(Array.from({ length: Math.min(2, plans.length) }, () => drain()));
 	// Every already-admitted writer settles before rollback can delete published source IDs.
 	if (failed) throw primaryFailure;
-}
-
-async function publishSource(
-	store: LocalAssistanceAudioPublicationStore,
-	plan: PublicationPlan,
-): Promise<void> {
-	const sourceId = String(plan.source.id);
-	let writer: LocalAssistanceAudioSourceWriter | null = null;
-	let committed = false;
-	try {
-		writer = await store.beginSourceWrite(sourceId, {
-			name: plan.source.name, mimeType: 'audio/wav', sampleFormat: 'float32',
-			sampleRate: plan.output.review.sampleRate,
-			channelCount: plan.output.review.channelCount, chunkFrames: SOURCE_CHUNK_FRAMES,
-			contentSha256: plan.output.claim.sha256, byteLength: plan.output.claim.byteLength,
-		});
-		await streamWavBlobPcm(plan.output.bytes, {
-			chunkFrames: SOURCE_CHUNK_FRAMES,
-			onChunk: (channels: Float32Array[]) => writer!.write(channels),
-		});
-		if (writer.framesWritten !== undefined
-			&& writer.framesWritten !== plan.output.review.frameCount) {
-			throw new Error('The assistance WAV writer persisted inexact frame geometry.');
-		}
-		await writer.commit({
-			sampleRate: plan.output.review.sampleRate,
-			channelCount: plan.output.review.channelCount, chunkFrames: SOURCE_CHUNK_FRAMES,
-			contentSha256: plan.output.claim.sha256, byteLength: plan.output.claim.byteLength,
-		}, { ifAbsent: true });
-		committed = true;
-	} catch (error) {
-		if (!committed) await Promise.resolve(writer?.abort(error)).catch(() => undefined);
-		try { await store.deleteSource(sourceId); }
-		catch (cleanupError) {
-			throw new AggregateError([error, cleanupError],
-				'Assistance audio source publication and cleanup both failed.', { cause: error });
-		}
-		throw error;
-	}
+	return Object.freeze(published);
 }
 
 function publicationCommand(
@@ -267,14 +241,28 @@ function publicationCommand(
 	createId: (prefix: string) => string,
 ): AudioEditorCommand {
 	const commands: AudioEditorCommand[] = [];
-	if ((result.operation === 'speech-enhancement' || result.operation === 'dereverberation')
-		&& choice === 'replace-selection') {
-		const plan = plans[0]!;
-		commands.push(createAddSourceCommand(plan.source));
+	const sequence = authority.fence.sequenceId === authority.project.primarySequenceId
+		? {} : { sequenceId: authority.fence.sequenceId };
+	if (choice === 'replace-selection') {
+		for (const plan of plans) commands.push(createAddSourceCommand(plan.source));
+		if (authority.clip.avLinkId != null) {
+			commands.push({ type: 'clip/unlink-av', clipId: String(authority.clip.id) });
+		}
 		commands.push(replacementDeleteCommand(authority, createId));
-		commands.push(createAddClipCommand(String(authority.track.id), createTimelineClip(
-			plan, authority, plan.timelineClipId,
-		)));
+		for (const [index, plan] of plans.entries()) {
+			const trackId = index === 0 ? String(authority.track.id) : plan.trackId;
+			if (index > 0) commands.push({
+				...createAddTrackCommand(createAudioTrack({
+					id: trackId, name: SOURCE_NAMES[plan.output.slotId], mute: false,
+				}, authority.projectSampleRate)), ...sequence,
+			});
+			commands.push(createAddClipCommand(trackId, createTimelineClip(
+				plan, authority, plan.timelineClipId,
+			)));
+		}
+		commands.push({ type: 'selection/set', startFrame: authority.timelineStartFrame,
+			endFrame: authority.timelineEndFrame, trackIds: [String(authority.track.id)],
+			clipIds: [plans[0]!.timelineClipId], frequencyRange: null });
 		return Object.freeze({ type: 'batch', commands: Object.freeze(commands) });
 	}
 	for (const plan of plans) {
@@ -296,7 +284,7 @@ function publicationCommand(
 				...createAddTrackCommand(createAudioTrack({
 					id: plan.trackId, name: SOURCE_NAMES[plan.output.slotId], mute: true,
 				}, authority.projectSampleRate)),
-				sequenceId: authority.fence.sequenceId,
+				...sequence,
 			});
 			commands.push(createAddClipCommand(plan.trackId, createTimelineClip(
 				plan, authority, plan.timelineClipId,
@@ -314,7 +302,7 @@ function createTimelineClip(
 	return createAudioClip({
 		id: clipId, sourceId: String(plan.source.id), title: SOURCE_NAMES[plan.output.slotId],
 		timelineStartFrame: authority.timelineStartFrame, sourceStartFrame: 0,
-		sourceDurationFrames: plan.output.review.frameCount,
+		sourceDurationFrames: Number(plan.source.frameCount),
 		durationFrames: authority.timelineEndFrame - authority.timelineStartFrame,
 		avLinkId: null,
 	}) as unknown as DataRecord;
@@ -408,28 +396,19 @@ function normalizeChoice(
 	if (Object.keys(choice).some((key) => key !== 'placement')) {
 		throw new TypeError('Audio publication choice has an unsupported field.');
 	}
-	const placement = choice.placement ?? 'project-bin';
+	const placement = choice.placement ?? 'replace-selection';
 	const allowed = operation === 'speech-enhancement' || operation === 'dereverberation'
 		? ['project-bin', 'replace-selection']
-		: ['project-bin', 'project-bin-and-muted-tracks'];
+		: ['project-bin', 'project-bin-and-muted-tracks', 'replace-selection'];
 	if (!allowed.includes(String(placement))) {
 		throw new RangeError('Audio publication placement is invalid for this workflow.');
 	}
 	return placement as LocalAssistanceEnhancementPlacement | LocalAssistanceSeparationPlacement;
 }
 
-function assertPlacementAdmitted(
-	choice: LocalAssistanceEnhancementPlacement | LocalAssistanceSeparationPlacement,
-	authority: NormalizedAuthority,
-): void {
-	if (choice === 'replace-selection' && authority.clip.avLinkId != null) {
-		throw new RangeError('Exact enhancement replacement refuses a linked A/V occurrence; publish it to Project Bin.');
-	}
-}
-
-function publicationBytes(outputs: readonly LocalAssistanceAudioReviewedOutput[]): number {
+function publicationBytes(outputs: readonly LocalAssistanceAudioReviewedOutput[], frameCount?: number): number {
 	const bytes = outputs.reduce((sum, { review }) => (
-		sum + review.frameCount * review.channelCount * Float32Array.BYTES_PER_ELEMENT
+		sum + (frameCount ?? review.frameCount) * review.channelCount * Float32Array.BYTES_PER_ELEMENT
 	), 0);
 	if (!Number.isSafeInteger(bytes) || bytes < 1) {
 		throw new RangeError('Assistance audio publication exceeds safe capacity accounting.');

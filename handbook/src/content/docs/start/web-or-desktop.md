@@ -28,9 +28,26 @@ seal its loader needs to execute Electron and native binaries; that seal makes
 no publisher or trust claim. Windows SmartScreen or macOS Gatekeeper can
 therefore display an unknown-developer warning for preview and stable packages.
 
-Opening an `.aup4` file imports an independent project into the desktop
-library. Later edits do not rewrite the file you opened. **Save** updates the
-library copy; **Save As** creates a new Audacity interchange file.
+Opening an `.sscape` or `.fscape` project imports a working copy into the
+local temporary-project library. **Save** (Ctrl+S, or Command+S on macOS)
+updates the original project file. A new project asks for a file location on
+its first save. **File → Export project file** chooses a new destination.
+
+In **Edit → Preferences → General → Saving**, **Auto-saving** controls
+whether editing also updates that project file automatically. It defaults to
+**Off** on desktop and **On** on the web. Internal recovery copies continue
+saving in either mode. Web file updates require a browser with file-access
+support and permission to write the file; otherwise export a project file.
+
+Desktop **Ask to save projects when closing** defaults to **On**. If a project's
+working copy differs from its saved file, closing the project or app offers
+**Save**, **Discard**, and **Cancel**. Save writes the changes, Discard removes
+the temporary working copy without changing the project file, and Cancel keeps
+the project open. Turning this preference off keeps the internal recovery copy
+without asking.
+
+Opening an `.aup4` or another interchange format imports an independent project.
+Saving creates a Scape project; it does not rewrite that interchange file.
 
 ## Phones and tablets
 

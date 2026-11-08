@@ -29,6 +29,18 @@ function rms(samples: Float32Array): number {
 }
 
 for (const type of TYPES) {
+	for (const warmFrames of [12_032, 12_160, 12_288]) test(`${type} retains partial convolution windows across a single-band edit after ${warmFrames} frames`, () => {
+		const processor = createAudacityLiveProcessor(type, RATE) as Processor;
+		processor.process([tone(warmFrames)], [new Float32Array(warmFrames)]);
+		const gains = Array<number>(31).fill(0); gains[17] = 1;
+		processor.updateParams(type === 'audacity-graphic-eq' ? { gains }
+			: { points: [{ frequency: 20, gain: 0 }, { frequency: 1000, gain: 1 }, { frequency: 20_000, gain: 0 }] });
+		for (let offset = 0; offset < 8192; offset += 128) {
+			const output = new Float32Array(128);
+			processor.process([tone(128, warmFrames + offset)], [output]);
+			assert.ok(rms(output) > .4, `The block at ${offset} must retain audible PCM.`);
+		}
+	});
 	test(`${type} keeps its healthy convolution output across a same-geometry gain edit`, () => {
 		const processor = createAudacityLiveProcessor(type, RATE) as Processor;
 		const warm = new Float32Array(WARM_FRAMES);

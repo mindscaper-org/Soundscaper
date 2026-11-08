@@ -1,4 +1,5 @@
 import React from 'react';
+import { activateLabeledChoice } from '../hooks/choice-activation';
 import { Radio } from '../Radio';
 import { useTheme } from '../ThemeProvider';
 import './LabeledRadio.css';
@@ -59,6 +60,7 @@ export const LabeledRadio: React.FC<LabeledRadioProps> = ({
   className = '',
 }) => {
   const { theme } = useTheme();
+  const rootRef = React.useRef<HTMLDivElement>(null);
   const hasDescription = bold && description;
 
   const style = {
@@ -66,7 +68,8 @@ export const LabeledRadio: React.FC<LabeledRadioProps> = ({
   } as React.CSSProperties;
 
   return (
-    <div className={`labeled-radio ${hasDescription ? 'labeled-radio--with-description' : ''} ${className}`} style={style}>
+    <div ref={rootRef} className={`labeled-radio ${hasDescription ? 'labeled-radio--with-description' : ''} ${className}`} style={style}
+      onClick={(event) => activateLabeledChoice(event, rootRef.current, checked, disabled, onChange)}>
       <Radio
         checked={checked}
         aria-label={label}

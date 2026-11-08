@@ -166,6 +166,7 @@ test('cancelling a Freesound workspace import releases its admission', async () 
 		const operation = actions.importSound({
 			soundId: 42, destination: 'project-bin', signal: abort.signal,
 		});
+		await waitFor(() => requests === 1);
 		abort.abort();
 		detail.resolve(Response.json({ data: SOUND_WITHOUT_PREVIEW }));
 		await assert.rejects(operation, /abort/iu);

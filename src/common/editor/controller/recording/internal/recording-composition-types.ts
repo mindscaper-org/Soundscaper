@@ -55,7 +55,7 @@ export type RecordingCompositionState = ControllerRecordingState & {
 	takeCycleRecoveryInspecting: boolean;
 	history: TakeCyclePublicationHistory | null;
 	saveState: string;
-	readonly preferences: Readonly<{ readonly recording: Readonly<{ readonly retainInputs: boolean }> }>;
+	readonly preferences: Readonly<{ readonly recording: Readonly<{ readonly retainInputs: boolean; readonly alwaysRecordToNewTrack?: boolean }> }>;
 	readonly projectLock: Readonly<{ readonly readOnly?: boolean }> | null;
 };
 
@@ -76,7 +76,7 @@ export type RecordingCompositionStore = TakeCycleAppCompositionDependencies['sto
 }>;
 
 export type RecordingCompositionEngine = RecordingEnginePort & TakeCycleRoutedCaptureEngine & Readonly<{
-	play(): PromiseLike<unknown> | unknown;
+	play(options?: import('../../../engine/public-api.ts').EnginePlayOptions): PromiseLike<unknown> | unknown;
 	stop(): unknown;
 	getState(): Readonly<{ readonly state: string }>;
 	setChunkSources(providers: SourceChunkProviderRegistry<string, unknown>): unknown;
@@ -132,6 +132,7 @@ export interface RecordingCompositionDependencies {
 	readonly mediaDevices: RecordingRoutingMediaDevices | null | undefined;
 	readonly capturePool: RecordingCapturePool & RecordingRoutingCapturePool<RecordingMediaStream>;
 	readonly createRecorder: RecordingControllerFactory;
+	readonly pendingDocumentEdits?: import('./recording-midi-admission.ts').PendingRecordingDocumentEdits<RecordingCompositionProject>;
 	readonly microphoneMeter: MicrophoneMeterService;
 	readonly soundActivation: SoundActivationPolicyService;
 	readonly openRecovery: Pick<ReturnType<typeof createTakeCycleOpenRecoveryAppPort>, 'bind'>;

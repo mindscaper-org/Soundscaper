@@ -14,6 +14,7 @@ interface ReadResult {
 }
 
 class FakeAudioData {
+	timestamp = 0;
 	readonly numberOfFrames: number;
 	readonly numberOfChannels: number;
 	readonly sampleRate: number;
@@ -45,6 +46,8 @@ class FakeAudioData {
 }
 
 class FakeReader {
+	nextTimestamp = 0;
+	totalFrames = 0;
 	readonly queued: ReadResult[] = [];
 	readonly waiting: Array<(result: ReadResult) => void> = [];
 	cancelCalls = 0;
@@ -57,7 +60,12 @@ class FakeReader {
 		return new Promise((resolve) => { this.waiting.push(resolve); });
 	}
 
-	push(value: FakeAudioData): void { this.deliver({ done: false, value }); }
+	push(value: FakeAudioData): void {
+		this.totalFrames += 1;
+		value.timestamp = Math.round(this.nextTimestamp);
+		this.nextTimestamp += value.numberOfFrames * 1_000_000 / value.sampleRate;
+		this.deliver({ done: false, value });
+	}
 	finish(): void { this.deliver({ done: true }); }
 	cancel(): Promise<void> {
 		this.cancelCalls += 1;
@@ -77,6 +85,8 @@ function createProcessorHarness({ constructError }: Readonly<{ constructError?: 
 	const reader = new FakeReader();
 	let construction: Readonly<Record<string, unknown>> | null = null;
 	class TrackProcessor {
+		readonly discardedFrames = 0;
+		get totalFrames() { return reader.totalFrames; }
 		readonly readable = { getReader: () => reader };
 		constructor(options: Readonly<Record<string, unknown>>) {
 			if (constructError) throw constructError;

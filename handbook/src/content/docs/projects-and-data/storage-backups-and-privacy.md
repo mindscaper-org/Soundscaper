@@ -15,12 +15,25 @@ On the web, audio and media use the browser's origin-private file system when
 available, with IndexedDB fallbacks. Soundscaper requests persistent storage,
 but the browser decides whether to grant it.
 
+## Temporary projects
+
+**Edit → Preferences → Advanced → Temporary data** controls the internal
+working copies. **Maximum number of temporary projects** defaults to **10**.
+The editor removes older closed copies beyond this limit. Open projects are
+kept even when they exceed the limit. Clear the checkbox to keep all internal
+projects. Exported `.sscape` and `.fscape` files are unaffected by this limit.
+
+On desktop, **Temporary data folder → Browse** selects another storage
+location. Restart the app to move the existing temporary-project library to
+that location. Browser storage locations are managed by the browser.
+
 ## What can remove a project
 
 - Clearing site data removes the browser's local project library.
 - Private or restricted browser contexts can fall back to temporary memory.
 - Browser quota and eviction policies remain authoritative.
 - Removing desktop application data manually removes its local library.
+- The temporary-project limit removes older closed working copies; export project files you want to retain.
 - A device or storage failure can remove every local copy on that device.
 
 Uninstalling a packaged desktop build is designed to preserve its library, but

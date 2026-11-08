@@ -92,8 +92,6 @@ function validateXmlDocument(bytes: Uint8Array, index: number): void {
 	} catch (error) {
 		throw new Error(`SXML sub-chunk ${index + 1} is not valid UTF-8.`, { cause: error });
 	}
-	if (/<!\s*(?:DOCTYPE|ENTITY)\b/iu.test(xml)) throw new Error('Active or external XML declarations are not allowed in SXML.');
-	if (/<\?(?!xml\s)/iu.test(xml)) throw new Error('Active XML processing instructions are not allowed in SXML.');
 	let elements = 0;
 	let depth = 0;
 	const parser = new SaxesParser({ xmlns: true, position: false });

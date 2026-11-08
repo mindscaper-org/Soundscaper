@@ -19,6 +19,20 @@ import { formatPresentationMessage, type LocalizedPresentationMessage } from '..
 
 const NOW = '2026-08-12T12:00:00.000Z';
 
+test('an audition resumed by output replacement retains the next Pause action', async () => {
+	const fixture = compositionFixture();
+	await fixture.composition.auditionTake('group-a', 'take-b');
+	const engine = fixture.previewEngines[0]!;
+	engine.emit('paused');
+	engine.emit('playing');
+	assert.equal((await fixture.composition.auditionTake('group-a', 'take-b')).state, 'paused');
+	assert.equal(engine.pauseCount, 1);
+	await fixture.composition.stopAudition();
+	engine.emit('playing');
+	assert.equal((await fixture.composition.auditionTake('group-a', 'take-b')).state, 'playing');
+	await fixture.composition.dispose();
+});
+
 test('take flatten statuses carry owned identities while published media names stay stable', async () => {
 	const statuses: Array<{ message: string; localization?: LocalizedPresentationMessage }> = [];
 	const fixture = compositionFixture({

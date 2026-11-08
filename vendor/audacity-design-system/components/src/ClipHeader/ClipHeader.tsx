@@ -1,3 +1,4 @@
+import { iconNameToChar } from '../Icon/icon-codes.ts';
 import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React from 'react';
 import type { ClipColor } from '../types/clip';
@@ -315,7 +316,7 @@ export const ClipHeader: React.FC<ClipHeaderProps> = ({
                 className="clip-header__badge-icon musescore-icon"
                 aria-hidden="true"
               >
-                {'\uF475'}
+                {iconNameToChar('CLOCK')}
               </span>}
               value={clipSpeedLabel(stretchPercent)}
               onClick={onSpeedClick}

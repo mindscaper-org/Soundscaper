@@ -280,22 +280,25 @@ export async function generateWaveformPeaks(
 	channels: Float32Array[],
 	copy: WorkerCopy,
 	chunkFrames = 65_536,
+	signal?: AbortSignal,
 ): Promise<WaveformPeaks> {
+	throwIfAborted(signal);
 	if (typeof Worker !== 'function') return generateWaveformPeaksFallback(channels);
 	const worker = new Worker(new URL('../../peaks-worker.js', import.meta.url), { type: 'module' });
 	try {
 		worker.postMessage({ type: 'start', channelCount: channels.length,
 			frameCount: channels[0]?.length || 0 });
-		await waitForAnalysisWorker(worker, 'ready', copy);
+		await waitForAnalysisWorker(worker, 'ready', copy, { signal });
 		const frameCount = channels[0]?.length || 0;
 		for (let offset = 0; offset < frameCount; offset += chunkFrames) {
+			throwIfAborted(signal);
 			const chunks = channels.map((channel) => channel.slice(offset, Math.min(frameCount, offset + chunkFrames)));
 			const transfer = chunks.map((chunk) => chunk.buffer);
 			worker.postMessage({ type: 'chunk', channels: transfer }, transfer);
-			await waitForAnalysisWorker(worker, 'ack', copy);
+			await waitForAnalysisWorker(worker, 'ack', copy, { signal });
 		}
 		worker.postMessage({ type: 'finish' });
-		const message = await waitForAnalysisWorker(worker, 'result', copy);
+		const message = await waitForAnalysisWorker(worker, 'result', copy, { signal });
 		return { version: WAVEFORM_PEAKS_VERSION, channelCount: channels.length, levels: message.levels || [] };
 	} finally {
 		worker.terminate();

@@ -35,7 +35,9 @@ test('the dialog attaches embedded chapters only for an opted-in supported mixed
 	]) {
 		assert.equal(Object.hasOwn(createExportDialogRequest(settings), 'embedLabelChapters'), false);
 	}
-	assert.equal(Object.hasOwn(createExportDialogRequest(chosen, { desktop: true }), 'embedLabelChapters'), false);
+	for (const format of ['mp3', 'aac-m4a']) {
+		assert.equal(createExportDialogRequest({ ...chosen, format }, { desktop: true }).embedLabelChapters, true);
+	}
 });
 
 test('chapter embedding sees labels on every label track, independent of the split-export track', () => {

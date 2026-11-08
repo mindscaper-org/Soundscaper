@@ -28,7 +28,7 @@ test('check-all includes every static gate, all Node shards, fresh coverage and 
 	}
 	const browser = plan.filter(job => job.browser);
 	assert.equal(browser.length, 4);
-	assert.deepEqual(browser.map(job => job.args.find(arg => arg.startsWith('--shard='))), ['--shard=1/4', '--shard=2/4', '--shard=3/4', '--shard=4/4']);
+	assert.deepEqual(browser.map(job => job.args.find(arg => arg.startsWith('--suite-shard='))), ['--suite-shard=1/4', '--suite-shard=2/4', '--suite-shard=3/4', '--suite-shard=4/4']);
 	assert.ok(browser.every(job => !job.args.some(arg => arg.startsWith('--project='))), 'the ordinary suite runs all three engines');
 	assert.equal(new Set(browser.map(job => job.args.find(arg => arg.startsWith('--output=')))).size, 4);
 	assert.ok(browser.every(job => job.dependsOn.includes('build')));

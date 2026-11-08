@@ -60,6 +60,7 @@ export default function EffectPresetBar({
 	const consumeSaveDismissal = useMenuTriggerDismissal(saveTriggerRef, Boolean(saveMenu));
 	const consumeOptionsDismissal = useMenuTriggerDismissal(optionsTriggerRef, Boolean(optionsMenu));
 	const [saveAsName, setSaveAsName] = useState(null);
+	const [saveAsMultiline, setSaveAsMultiline] = useState(false);
 	const [nameSaving, setNameSaving] = useState(false);
 	const nameSaveRef = useRef(null);
 	const captureNameFocus = useOperationFocusRecovery(nameSaving, resetKey);
@@ -173,7 +174,7 @@ export default function EffectPresetBar({
 					/>
 					<ContextMenuItem
 						label={copy.saveEffectPresetAs}
-						onClick={() => { close(); setSaveAsName(selected?.label || ''); }}
+						onClick={() => { close(); const name = selected?.label || ''; setSaveAsMultiline(/[\r\n]/u.test(name)); setSaveAsName(name); }}
 					/>
 				</ContextMenu>
 
@@ -186,7 +187,7 @@ export default function EffectPresetBar({
 					<ContextMenuItem
 						label={copy.importEffectPreset}
 						disabled={disabled}
-						onClick={() => { close(); fileRef.current?.click(); }}
+						onClick={() => { close(); optionsTriggerRef.current?.focus({ preventScroll: true }); fileRef.current?.click(); }}
 					/>
 					<ContextMenuItem
 						label={copy.exportEffectPreset}
@@ -235,10 +236,14 @@ export default function EffectPresetBar({
 						/>
 					)}
 				>
-					<form id={saveFormId} onSubmit={(event) => { event.preventDefault(); saveAs(); }}>
+					<form id={saveFormId} onSubmit={(event) => { event.preventDefault(); saveAs(); }} onKeyDown={(event) => {
+						if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey
+							|| event.nativeEvent?.isComposing || event.target.tagName !== 'TEXTAREA') return;
+						event.preventDefault(); event.stopPropagation(); saveAs();
+					}}>
 						<label className="audio-editor-field">
 							<span>{copy.effectPresetName}</span>
-							<TextInput disabled={nameSaving} value={saveAsName} onChange={setSaveAsName} width="100%" data-preset-name />
+							<TextInput multiline={saveAsMultiline} disabled={nameSaving} value={saveAsName} onChange={setSaveAsName} width="100%" data-preset-name />
 						</label>
 					</form>
 				</AudioEditorDialogShell>

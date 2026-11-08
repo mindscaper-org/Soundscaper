@@ -138,6 +138,9 @@
 .kw-processing-search .search-field { width: 100% !important; box-sizing: border-box; }
 .kw-plugin-folder-preferences { display: grid; gap: 16px; min-width: 0; }
 .kw-plugin-folder-preferences > p { margin: 0; }
+.kw-plugin-scan-status { display: grid; gap: 8px; }
+.kw-plugin-scan-status p { margin: 0; }
+.kw-plugin-scan-status__detail { white-space: pre-line; overflow-wrap: anywhere; }
 .kw-plugin-folder-preferences fieldset { margin: 0; padding: 12px; border: 1px solid var(--line); min-width: 0; }
 .kw-plugin-folder-preferences legend,
 .kw-plugin-folder-preferences__label { font-weight: 600; }

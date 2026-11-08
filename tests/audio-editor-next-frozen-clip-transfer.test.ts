@@ -34,7 +34,7 @@ for (const action of ['track', 'new-track', 'bin', 'remove-project', 'partial', 
 		tracks: [createAudioTrack({ id: 'voice', clipIds: ['clip'] }), createAudioTrack({ id: 'destination', clipIds: [] })],
 		clips: [createAudioClip({ id: 'clip', sourceId: source.id, durationFrames: 8, sourceDurationFrames: 8 })] }));
 	controller.actions.projectBin.moveFromTimeline('clip');
-	const clipId = controller.actions.projectBin.place('clip', { trackId: 'voice', timelineStartFrame: 0 }); assert.ok(clipId);
+	const clipId = await controller.actions.projectBin.place('clip', { trackId: 'voice', timelineStartFrame: 0 }); assert.ok(clipId);
 	if (action === 'partial') controller.actions.edit.commit({ type: 'clip/add', trackId: 'voice', clip:
 		createAudioClip({ id: 'remaining', sourceId: source.id, timelineStartFrame: 8, durationFrames: 8, sourceDurationFrames: 8 }) });
 	await freeze.actions.freeze('voice');

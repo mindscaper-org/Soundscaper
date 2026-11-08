@@ -31,13 +31,21 @@ type BeatFrameResolver = (beat: RationalInput) => number;
 
 /** Editing bounds include annotations in the active programme without extending rendered media. */
 export function runtimeTimelineAnnotationExtent(project: object | null | undefined): number {
-	if (!project || !('timelineAnnotations' in project) || project.timelineAnnotations === undefined) return 0;
+	return runtimeTimelineAnnotationContentRange(project)?.endFrame ?? 0;
+}
+
+/** Both selection edges follow the same active programme and owning timing projection. */
+export function runtimeTimelineAnnotationContentRange(project: object | null | undefined): Readonly<{ startFrame: number; endFrame: number }> | null {
+	if (!project || !('timelineAnnotations' in project) || project.timelineAnnotations === undefined) return null;
 	if (!Array.isArray(project.timelineAnnotations)) throw new TypeError('project.timelineAnnotations must be an array.');
-	if (project.timelineAnnotations.length === 0) return 0;
+	if (project.timelineAnnotations.length === 0) return null;
 	const owner = 'primarySequenceId' in project ? project.primarySequenceId : undefined;
-	return resolveRuntimeTimelineAnnotationsProjection(project as RuntimeTimelineAnnotationProject)
-		.reduce((end, annotation) => typeof owner === 'string' && annotation.sequenceId !== owner
-			? end : Math.max(end, annotation.timelineEndFrame), 0);
+	let startFrame = Number.POSITIVE_INFINITY, endFrame = 0;
+	for (const annotation of resolveRuntimeTimelineAnnotationsInDocumentOrder(project as RuntimeTimelineAnnotationProject)) {
+		if (typeof owner === 'string' && annotation.sequenceId !== owner) continue;
+		startFrame = Math.min(startFrame, annotation.timelineStartFrame); endFrame = Math.max(endFrame, annotation.timelineEndFrame);
+	}
+	return startFrame === Infinity ? null : { startFrame, endFrame };
 }
 
 /** Resolve one annotation without introducing a second runtime timing authority. */

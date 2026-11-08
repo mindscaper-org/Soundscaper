@@ -162,6 +162,7 @@ test('V1 sound activation preferences survive strict update and load round trips
 	});
 	assert.deepEqual(updated.recording, {
 		retainInputs: true,
+		alwaysRecordToNewTrack: false,
 		soundActivation: {
 			enabled: true,
 			addTimestamps: true,

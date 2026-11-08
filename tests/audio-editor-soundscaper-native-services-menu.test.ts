@@ -65,15 +65,15 @@ test('every native surface is reached from an existing menu family and none is a
 
 test('a healthy tier opens each surface exactly once per click', () => {
 	const { items, opened } = build();
-	find(items.effect, 'native-effect-use').onClick?.();
+	find(items.effect, 'native-effect-manage').onClick?.();
 	find(items.analyze, 'native-analyzer-use').onClick?.();
-	assert.deepEqual(opened, ['native-effect-use', 'native-analyzer-use']);
+	assert.deepEqual(opened, ['native-effect-manage', 'native-analyzer-use']);
 });
 
 test('the audio switch does not disable independently enabled effects or analyzers', () => {
 	const { items } = build({}, { ...HEALTHY, enabled: false, usableAudioBackends: [] });
 	assert.deepEqual(items.tools, [], 'audio hosts are configured directly in Audio settings');
-	assert.equal(find(items.effect, 'native-effect-use').disabled, false);
+	assert.equal(find(items.effect, 'native-effect-manage').disabled, false);
 	assert.equal(find(items.analyze, 'native-analyzer-use').disabled, false);
 });
 
@@ -90,7 +90,7 @@ test('audio and plug-in helper health never disable the other native service fam
 	});
 	const audioFailedItems = build({}, audioFailed).items;
 	assert.deepEqual(audioFailedItems.tools, []);
-	assert.equal(find(audioFailedItems.effect, 'native-effect-use').disabled, false);
+	assert.equal(find(audioFailedItems.effect, 'native-effect-manage').disabled, false);
 	assert.equal(find(audioFailedItems.analyze, 'native-analyzer-use').disabled, false);
 
 	const pluginsFailed = resolveSoundscaperNativeServicesSnapshot({
@@ -104,7 +104,7 @@ test('audio and plug-in helper health never disable the other native service fam
 	});
 	const pluginsFailedItems = build({}, pluginsFailed).items;
 	assert.deepEqual(pluginsFailedItems.tools, []);
-	assert.equal(find(pluginsFailedItems.effect, 'native-effect-use').disabled, true);
+	assert.equal(find(pluginsFailedItems.effect, 'native-effect-manage').disabled, false);
 	assert.equal(find(pluginsFailedItems.analyze, 'native-analyzer-use').disabled, true);
 });
 
@@ -146,21 +146,21 @@ test('the surfaces that turn the tier on or repair it stay reachable while it is
 
 test('a disabled entry says which problem it has, not merely that it is unavailable', () => {
 	const noFormat = build({}, { ...HEALTHY, enabledPluginFormats: [] });
-	assert.match(find(noFormat.items.effect, 'native-effect-use').disabledReason, /no native effect format/iu);
+	assert.match(find(noFormat.items.analyze, 'native-analyzer-use').disabledReason, /Vamp/iu);
 });
 
 test('a disabled entry cannot be activated at all', () => {
 	const { items, opened } = build({}, { ...HEALTHY, pluginEnabled: false });
-	const entry = find(items.effect, 'native-effect-use');
+	const entry = find(items.analyze, 'native-analyzer-use');
 	assert.equal(entry.disabled, true);
 	assert.equal(entry.onClick, undefined, 'a disabled entry must carry no activation path');
 	assert.deepEqual(opened, []);
 });
 
-test('effect use is refused while the project is read-only or editing is blocked', () => {
+test('the manager stays reachable while read-only projects block analyzer use', () => {
 	for (const overrides of [{ readOnly: true }, { editingBlocked: true }]) {
 		const { items } = build(overrides);
-		assert.equal(find(items.effect, 'native-effect-use').disabled, true);
+		assert.equal(find(items.analyze, 'native-analyzer-use').disabled, true);
 		assert.equal(find(items.effect, 'native-effect-manage').disabled, false,
 			'managing existing effects must survive a read-only project');
 	}
@@ -183,11 +183,17 @@ test('a group stays reachable while any child is, and the always-reachable ones 
 	assert.deepEqual(items.tools, []);
 	assert.equal(items.effect[0].disabled, false, 'manage keeps the effect group reachable');
 	assert.deepEqual(items.tools, [], 'audio hosts are configured directly in Audio settings');
-	assert.equal(find(items.effect, 'native-effect-use').disabled, true);
+	assert.equal(find(items.analyze, 'native-analyzer-use').disabled, true);
 });
 
 test('native audio dialogs have no menu entry or surface after host settings replace them', () => {
 	const { items } = build();
 	assert.deepEqual(items.tools, []);
 	assert.ok(SOUNDSCAPER_NATIVE_SERVICE_SURFACES.every((surface) => !surface.startsWith('native-audio')));
+});
+
+test('Audio Plugins is consolidated into the single Plugin Manager entry', () => {
+	const { items } = build();
+	assert.deepEqual(items.effect.map(({ id }) => id), ['native-effect-manage']);
+	assert.deepEqual(SOUNDSCAPER_NATIVE_SERVICE_SURFACES, ['native-effect-manage', 'native-analyzer-use']);
 });

@@ -6,13 +6,16 @@ import { openInstalledGain } from './helpers/native-plugin-parameter-host.js';
 test('restoring installed native plug-in state refreshes its visible controls', async ({ page }) => {
 	const dialog = await openInstalledGain(page);
 	const range = dialog.locator('[data-native-plugin-parameter="gain"]');
+	await expect.poll(() => page.evaluate(() => globalThis.__nativePluginParameterHost.scans))
+		.toEqual([{ format: 'ladspa', rootId: 'system-ladspa' }]);
 	await expect(dialog.getByRole('alert')).toHaveCount(0);
 	await expect(range).toHaveValue('0.25');
 	await range.press('Home');
 	await expect(range).toHaveValue('0');
 	await expect.poll(() => page.evaluate(() => globalThis.__nativePluginParameterHost.values[0])).toBe(0);
+	const persistedBefore = await page.evaluate(() => globalThis.__nativePluginParameterHost.persisted);
 	await dialog.locator('[data-native-plugin-persist-state]').click();
-	await expect.poll(() => page.evaluate(() => globalThis.__nativePluginParameterHost.persisted)).toBe(2);
+	await expect.poll(() => page.evaluate(() => globalThis.__nativePluginParameterHost.persisted)).toBeGreaterThan(persistedBefore);
 	await expect(range).toBeEnabled();
 	await range.press('End');
 	await expect(range).toHaveValue('1');

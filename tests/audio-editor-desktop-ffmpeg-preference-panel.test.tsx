@@ -53,8 +53,8 @@ test('renders the configured location as display-only status with bounded action
 			state: 'ready',
 			location: 'C:\\Tools\\ffmpeg.exe',
 			version: '8.0.2',
-			detail: 'All required probes passed.',
-			canInstall: false,
+			detail: 'FFmpeg 8.0.2 passed the compatibility probe.',
+			canInstall: true,
 			canBrowse: true,
 			canClear: true,
 		}}
@@ -64,12 +64,37 @@ test('renders the configured location as display-only status with bounded action
 	assert.match(markup, /data-external-ffmpeg-state="ready"/u);
 	assert.match(markup, /value="C:\\Tools\\ffmpeg.exe"/u);
 	assert.match(markup, /readOnly=""/u);
-	assert.match(markup, /FFmpeg 8\.0\.2 is ready/u);
+	assert.match(markup, /<h4[^>]*>FFmpeg<\/h4>/u);
+	assert.match(markup, /Used to import\/export proprietary file formats\./u);
+	assert.match(markup, /Detected version: <\/span><strong>8\.0\.2<\/strong>/u);
+	assert.doesNotMatch(markup, /is ready|passed the compatibility probe/u);
 	assert.match(markup, />Browse</u);
-	assert.match(markup, />Clear</u);
+	assert.doesNotMatch(markup, />Clear</u);
 	assert.match(markup, />Rescan</u);
-	assert.match(markup, /disabled=""[^>]*><span[^>]*>Install</u);
+	assert.doesNotMatch(markup, />Install</u);
 });
+
+for (const state of ['unconfigured', 'unsupported', 'quarantined', 'error']) {
+	test(`keeps Install and diagnostic details available when FFmpeg is ${state}`, () => {
+		const markup = renderToStaticMarkup(<DesktopFfmpegPreferencePanel
+			fileService={{
+				getExternalFfmpegStatus: async () => ({ state }),
+				installExternalFfmpeg: async () => ({ state: 'ready' }),
+			}}
+			initialStatus={{
+				state,
+				location: '/fixture/bin/ffmpeg',
+				version: '3.0.0',
+				detail: 'The selected installation needs attention.',
+				canInstall: true,
+			}}
+		/>);
+
+		assert.match(markup, /The selected installation needs attention\./u);
+		assert.match(markup, />Install</u);
+		assert.doesNotMatch(markup, /disabled=""[^>]*><span[^>]*>Install</u);
+	});
+}
 
 test('a missing desktop bridge yields a disabled, actionable unavailable surface', () => {
 	const markup = renderToStaticMarkup(<DesktopFfmpegPreferencePanel
@@ -78,5 +103,5 @@ test('a missing desktop bridge yields a disabled, actionable unavailable surface
 	/>);
 
 	assert.match(markup, /External FFmpeg controls are unavailable in this desktop build/u);
-	assert.equal((markup.match(/disabled=""/gu) || []).length, 4);
+	assert.equal((markup.match(/disabled=""/gu) || []).length, 3);
 });

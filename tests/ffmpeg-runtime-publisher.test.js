@@ -12,7 +12,6 @@ import {
 import {
 	REQUIRED_LICENSING_CHECKS,
 	createFixture,
-	descriptor,
 	writeJson,
 	writeManifest,
 } from './helpers/ffmpeg-runtime-fixture.mjs';
@@ -151,11 +150,7 @@ test('licensing blocks are descriptive and do not weaken authenticated runtime p
 	for (const check of licensing.distributionChecks) {
 		if (REQUIRED_LICENSING_CHECKS.includes(check.id)) check.status = 'blocked';
 	}
-	const licensingBytes = Buffer.from(`${JSON.stringify(licensing, null, 2)}\n`);
 	await writeJson(licensingPath, licensing);
-	fixture.manifest.evidence.licensingMatrix = descriptor(
-		'config/production-licensing-matrix.json', licensingBytes,
-	);
 	fixture.manifest.distributionChecks.runtimePublication = {
 		allowed: false,
 		blockedBy: [...REQUIRED_LICENSING_CHECKS],

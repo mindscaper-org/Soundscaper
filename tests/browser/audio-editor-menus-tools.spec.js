@@ -89,14 +89,14 @@ test.describe('audio editor React/design-system workflows', () => {
 		await expect(menu).toBeVisible();
 		await expect(file).toHaveAttribute('aria-expanded', 'true');
 		const newProject = getMenuItem(menu, 'New');
-		const projectManagement = getMenuItem(menu, 'Project management');
+		const lastCommand = menu.getByRole('menuitem').last();
 		await expect(newProject).toBeFocused();
 		await page.keyboard.press('ArrowUp');
-		await expect(projectManagement).toBeFocused();
+		await expect(lastCommand).toBeFocused();
 		await page.keyboard.press('Home');
 		await expect(newProject).toBeFocused();
 		await page.keyboard.press('End');
-		await expect(projectManagement).toBeFocused();
+		await expect(lastCommand).toBeFocused();
 		await page.keyboard.press('ArrowDown');
 		await expect(newProject).toBeFocused();
 		await page.keyboard.press('Escape');
@@ -251,8 +251,6 @@ test.describe('audio editor React/design-system workflows', () => {
 				'Sample data import',
 				'Sample data export',
 			]],
-			// Diagnostics is implemented and covered by its own spec; it is not omitted.
-			['Help', ['Check for updates']],
 		]) {
 			await menubar.getByRole('menuitem', { name: menuName, exact: true }).click();
 			const menu = page.getByRole('menu', { name: menuName, exact: true });
@@ -261,6 +259,10 @@ test.describe('audio editor React/design-system workflows', () => {
 			await page.keyboard.press('Escape');
 		}
 
+		await chooseCommandAction(page, editor, 'Help', 'Check for updates');
+		const desktopFeature = page.getByRole('dialog', { name: 'Desktop feature', exact: true });
+		await expect(desktopFeature).toBeVisible();
+		await desktopFeature.getByRole('button', { name: 'Cancel', exact: true }).click();
 		await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Project properties']);
 		await expect(editor.locator('[data-workspace-panel="metadata"]')).toBeVisible();
 	});

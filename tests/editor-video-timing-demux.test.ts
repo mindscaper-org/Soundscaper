@@ -23,6 +23,19 @@ import { normalizeVideoSourceCharacteristics } from '../src/common/editor/video-
 const CFR = videoTimingProbeMedia.find(({ id }) => id === 'cfr-25fps-mp4-v1')!;
 const VFR = videoTimingProbeMedia.find(({ id }) => id === 'vfr-irregular-webm-v1')!;
 
+test('Matroska header reads include their short timing fields without separate body I/O', async () => {
+	const reader = createVideoTimingDemuxReader(fixtureBlob(matroskaTimingFixture([
+		block(0, 'simple'), block(10, 'group', 7),
+	])));
+	const timing = await demuxMatroskaVideoTiming({
+		byteLength: reader.byteLength,
+		read: () => { throw new Error('A small timing field was read twice.'); },
+		readAtMost: (offset, length) => reader.readAtMost(offset, length),
+	});
+	assert.deepEqual(timing?.presentationTicks, [0n, 10n]);
+	assert.equal(timing?.finalFrameDurationTicks, 7n);
+});
+
 function blobFor(fixture: Readonly<{
 	readonly file: Readonly<{ readonly buffer: Uint8Array; readonly mimeType: string }>;
 }>): Blob {

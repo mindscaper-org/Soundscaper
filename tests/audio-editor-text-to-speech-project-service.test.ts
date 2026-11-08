@@ -6,6 +6,8 @@ import { test } from 'node:test';
 
 import { createAssistanceTtsScriptBodyPublicationV1 } from '../src/common/editor/assistance/tts-script-body-publication-v1.ts';
 import { createTextToSpeechProjectPort } from '../src/common/editor/controller/assistance/local-assistance-text-to-speech-project-service.ts';
+import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
+import { applySoundscaperProjectCommand, snapshotSoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
 
 function pcm16Wave(samples: readonly number[], sampleRate = 24_000): Blob {
 	const bytes = new Uint8Array(44 + samples.length * 2);
@@ -236,5 +238,85 @@ test('existing script bytes with incompatible metadata are refused before projec
 			encoding: 'canonical-json-v1' } });
 	await state.port.loadInitial();
 	await assert.rejects(state.port.accept(REVIEWED), /conflicting metadata/u);
+	assert.deepEqual(state.commands, []);
+});
+
+test('regenerating speech retains the authored playback speed and its matching timeline duration', async () => {
+	const digest = 'b'.repeat(64);
+	const prior = createAssistanceTtsScriptBodyPublicationV1({ assetId: 'script-original', text: 'Original voice',
+		language: 'a', voiceId: 'af_heart', speed: 1,
+		source: { sourceId: 'voice-source', sourceSha256: digest, sourceStartFrame: 0, sourceEndFrame: 24000 },
+		model: { modelId: REVIEWED.modelId, modelVersion: REVIEWED.modelVersion, artifactSha256s: REVIEWED.artifactSha256s },
+		recipe: { id: 'kokoro-text-to-speech', version: 1 } });
+	const initial = createSoundscaperProject({ sampleRate: 48000,
+		sources: [{ kind: 'audio', id: 'voice-source', name: 'Voice', storageKey: 'voice-source',
+			sampleRate: 24000, originalSampleRate: 24000, channelCount: 1, frameCount: 24000,
+			mimeType: 'audio/wav', contentSha256: digest }],
+		tracks: [{ id: 'voice-track', type: 'audio', clipIds: ['voice-clip'] }],
+		clips: [{ kind: 'audio', id: 'voice-clip', sourceId: 'voice-source', timelineStartFrame: 0,
+			sourceStartFrame: 0, sourceDurationFrames: 24000, durationFrames: 24000, speedRatio: 2,
+			linkPitchAndTempo: true }],
+		assistanceAssets: [prior.reference] });
+	const state = fixture({ project: { ...initial, primarySequenceId: String(initial.primarySequenceId),
+		sources: initial.sources.map(value => ({ ...value })), clips: initial.clips.map(value => ({ ...value })),
+		tracks: initial.tracks.map(value => ({ ...value })), assistanceAssets: [...initial.assistanceAssets] },
+		selectedClipId: 'voice-clip', existingBodyBytes: prior.bytes });
+	assert.equal((await state.port.loadInitial())?.text, 'Original voice');
+	await state.port.accept({ ...REVIEWED, audio: pcm16Wave(Array.from({ length: 12000 }, (_, index) =>
+		Math.round(Math.sin(index / 20) * 8000))) });
+	const regenerated = applySoundscaperProjectCommand(initial, snapshotSoundscaperProjectCommand(state.commands[0]));
+	const clip = regenerated.clips.find(value => value.id === 'voice-clip');
+	assert.equal(clip?.speedRatio, 2);
+	assert.equal(clip?.durationFrames, 12000, 'half a second of new speech retains its authored2x speed');
+});
+
+test('regenerating a speech instance retains the private script of its Project Bin template', async () => {
+	const digest = 'b'.repeat(64);
+	const prior = createAssistanceTtsScriptBodyPublicationV1({ assetId: 'script-original', text: 'Original voice',
+		language: 'a', voiceId: 'af_heart', speed: 1,
+		source: { sourceId: 'voice-source', sourceSha256: digest, sourceStartFrame: 0, sourceEndFrame: 24000 },
+		model: { modelId: REVIEWED.modelId, modelVersion: REVIEWED.modelVersion, artifactSha256s: REVIEWED.artifactSha256s },
+		recipe: { id: 'kokoro-text-to-speech', version: 1 } });
+	const original = createSoundscaperProject({ sampleRate: 48000,
+		sources: [{ kind: 'audio', id: 'voice-source', name: 'Voice', storageKey: 'voice-source',
+			sampleRate: 24000, originalSampleRate: 24000, channelCount: 1, frameCount: 24000,
+			mimeType: 'audio/wav', contentSha256: digest }],
+		tracks: [{ id: 'voice-track', type: 'audio', clipIds: ['voice-clip', 'template'] }],
+		clips: ['voice-clip', 'template'].map((id, index) => ({ kind: 'audio', id, sourceId: 'voice-source',
+			timelineStartFrame: index * 96000, sourceStartFrame: 0, sourceDurationFrames: 24000, durationFrames: 48000 })),
+		assistanceAssets: [prior.reference] });
+	const initial = applySoundscaperProjectCommand(original,
+		snapshotSoundscaperProjectCommand({ type: 'project-bin/move-from-timeline', clipIds: ['template'] }));
+	assert.equal(initial.clips.length, 1);
+	assert.equal(initial.projectBin.clips.length, 1);
+	const state = fixture({ project: { ...initial, primarySequenceId: String(initial.primarySequenceId),
+		sources: initial.sources.map(value => ({ ...value })), clips: initial.clips.map(value => ({ ...value })),
+		tracks: initial.tracks.map(value => ({ ...value })), assistanceAssets: [...initial.assistanceAssets] },
+		selectedClipId: 'voice-clip', existingBodyBytes: prior.bytes });
+	assert.equal((await state.port.loadInitial())?.text, 'Original voice');
+	await state.port.accept(REVIEWED);
+	const regenerated = applySoundscaperProjectCommand(initial, snapshotSoundscaperProjectCommand(state.commands[0]));
+	assert.equal(regenerated.projectBin.clips[0]?.sourceId, 'voice-source');
+	assert.ok(regenerated.assistanceAssets.some(reference => reference.kind === 'tts-script-v1'
+		&& reference.sourceId === 'voice-source'), 'the retained template remains editable as its original speech');
+	assert.ok(regenerated.assistanceAssets.some(reference => reference.kind === 'tts-script-v1'
+		&& reference.sourceId === regenerated.clips[0]?.sourceId));
+});
+
+test('speech replacement refuses a locked owner before publishing audio or script bytes', async () => {
+	const digest = 'b'.repeat(64);
+	const prior = createAssistanceTtsScriptBodyPublicationV1({ assetId: 'script-original', text: 'Original voice',
+		language: 'a', voiceId: 'af_heart', speed: 1,
+		source: { sourceId: 'source-original', sourceSha256: digest, sourceStartFrame: 0, sourceEndFrame: 4 },
+		model: { modelId: REVIEWED.modelId, modelVersion: REVIEWED.modelVersion, artifactSha256s: REVIEWED.artifactSha256s },
+		recipe: { id: 'kokoro-text-to-speech', version: 1 } });
+	const project = { id: 'project-1', revision: 1, sampleRate: 48000, primarySequenceId: 'sequence-1',
+		sources: [{ id: 'source-original', contentSha256: digest, frameCount: 4, kind: 'audio' }],
+		clips: [{ id: 'selected', sourceId: 'source-original' }],
+		tracks: [{ id: 'owner', clipIds: ['selected'], locked: true }], assistanceAssets: [prior.reference] };
+	const state = fixture({ project, selectedClipId: 'selected', existingBodyBytes: prior.bytes });
+	assert.equal((await state.port.loadInitial())?.text, 'Original voice');
+	await assert.rejects(state.port.accept(REVIEWED), /locked/u);
+	assert.equal(state.bytesWritten, 0);
 	assert.deepEqual(state.commands, []);
 });

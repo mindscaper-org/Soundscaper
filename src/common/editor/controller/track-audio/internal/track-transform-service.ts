@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { hasCoreEditingProjectAuthority, isSoundscaperProductionProject } from '../../../project-schema-version.ts'; import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
+import { isSoundscaperProductionProject } from '../../../project-schema-version.ts'; import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
 
 import {
 	createAddClipCommand,
@@ -10,12 +10,15 @@ import {
 } from '../../../commands/factories.ts';
 import type { AudioEditorCommand } from '../../../commands/protocol.ts';
 import { scaleSampleFrame } from '../../../timeline-time.ts';
+import type { StageClipSourceClockRewrite } from '../../../clip-source-timing.ts';
+import { commitSourceFormatRewrite } from './source-selection-format-commit.ts';
 import { loadSourceProvenanceDerivation } from '../../../source-provenance-derivation-loader.ts';
 import { resampledClipCommands } from './clip-resample-service.ts';
 import { trackReplacementPlacement } from './track-replacement-placement.ts';
+import { requireWritableAudioTransformTrack } from './track-transform-admission.ts';
 import { stereoTrackRenderRange } from './stereo-track-render-range.ts';
 import { splitStereoSourceChannels } from './split-stereo-source-channels.ts';
-import { splitStereoClipCommands } from './split-stereo-clip-commands.ts';
+import { planSplitStereoSources, splitStereoClipCommands } from './split-stereo-clip-commands.ts';
 import { assertStereoSplitRoutingRepresentable } from './stereo-split-routing-admission.ts';
 import { monoMergeRoutingCompatible } from './mono-merge-routing-admission.ts';
 import { admChannelTransformCommands } from './adm-channel-transforms.ts';
@@ -67,6 +70,7 @@ interface CommitSelection {
 }
 
 export interface TrackTransformServiceDependencies {
+	readonly stageSourceSelectionClockRewrite?: StageClipSourceClockRewrite;
 	readonly previewCommand?: MixRenderCommandPreview;
 	readonly lifetime: Pick<EditorControllerLifetime, 'assertActive' | 'startTask'>;
 	readonly copy: TrackTransformCopy;
@@ -169,7 +173,11 @@ export function createTrackTransformService(
 				for (const clip of clips) addResampledClipCommands(commands, track, clip, replacements, sampleRate, sourceById, linkedVideoByLink);
 				assertOwned(ownership);
 				commands.push(...resampledClipSelectionCommands(dependencies.getProject().selection, clips.map(clip => clip.id)));
-				dependencies.commit({ type: 'batch', commands }, { selectTrackId: track.id }, { microfadeNewClips: false });
+				commitSourceFormatRewrite(dependencies.stageSourceSelectionClockRewrite,
+					[...replacements].map(([previousSourceId, record]) => ({ clipIds: clips.map(clip => clip.id),
+						previousSourceId, sourceId: record.source.id, frameCount: record.source.frameCount,
+						numerator: sampleRate, denominator: sourceById.get(previousSourceId)!.sampleRate })),
+					() => dependencies.commit({ type: 'batch', commands }, { selectTrackId: track.id }, { microfadeNewClips: false }));
 				setLocalizedStatus(dependencies.setStatus, dependencies.copy, "done", undefined, 'success');
 				return track.id;
 			} catch (error) {
@@ -240,16 +248,15 @@ export function createTrackTransformService(
 		const trackIndex = project.tracks.findIndex((candidate) => candidate.id === track.id);
 		const clips = trackClips(project, track);
 		const sources = dependencies.derivedSources.uniqueClipSources(clips);
-		const bytes = sources.reduce((sum, source) => sum
+		const { sourceById, sourcePairs, sourcesToSplit } = planSplitStereoSources(clips, sources);
+		const bytes = sourcesToSplit.reduce((sum, source) => sum
 			+ source.frameCount * 2 * Float32Array.BYTES_PER_ELEMENT, 0);
-		const sourceById = new Map(sources.map(source => [source.id, source]));
 		return runTransform(dependencies.copy.rewritingChannels ? 'rewritingChannels' : 'audacityProcessing', async (ownership) => {
 			await dependencies.preflightStorage(bytes, 'effect');
 			assertOwned(ownership);
 			const derived: DerivedSourceRecord[] = [];
 			try {
-				const sourcePairs = new Map<string, Readonly<{ left: ControllerSource; right: ControllerSource }>>();
-				for (const source of sources) {
+				for (const source of sourcesToSplit) {
 					const channels = await dependencies.derivedSources.sourceChannelsForEdit(source);
 					assertOwned(ownership);
 					const [leftChannel, rightChannel] = splitStereoSourceChannels(channels);
@@ -346,7 +353,7 @@ export function createTrackTransformService(
 			.map((clipId) => clipById.get(clipId))
 			.filter((clip): clip is ControllerClip => Boolean(clip));
 		const { startFrame, endFrame } = stereoTrackRenderRange([track, partner], clips, dependencies.projectSampleRate(),
-			Array.isArray(project.automationLanes) ? project.automationLanes : []);
+			Array.isArray(project.automationLanes) ? project.automationLanes : [], project);
 		if (!monoMergeRoutingCompatible(project, track.id, partner.id, endFrame > startFrame)) throw createLocalizedError(Error, dependencies.copy, 'compatibleMonoTrackRequired');
 		if (endFrame <= startFrame) return dependencies.commit({ type: 'batch', commands: [
 			{ type: 'track/update', trackId: track.id, changes: { pan: 0 } },
@@ -448,10 +455,7 @@ export function createTrackTransformService(
 	}
 
 	function requireAudioTrack(project: ControllerProject, trackId: string | null): ControllerTrack {
-		if (!hasCoreEditingProjectAuthority(project)) throw createLocalizedError(Error, dependencies.copy, 'v2Required');
-		const track = findControllerTrack(project, trackId);
-		if (!track || track.type !== 'audio') throw createLocalizedError(Error, dependencies.copy, 'audioTrackRequired');
-		return track;
+		return requireWritableAudioTransformTrack(project, trackId, dependencies.copy);
 	}
 
 	function requireStereoTrack(project: ControllerProject, trackId: string | null): ControllerTrack {

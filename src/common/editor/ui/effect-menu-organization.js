@@ -43,7 +43,7 @@ export function resolveEffectMenuTargeting({
  * The Effect menu's effect entries, either as category submenus or as one
  * alphabetical list.
  *
- * @param {{organization?: string, copy: Record<string, string>, effectLabels: Map<string, string>, productId: string, disabled: boolean, selectionActive?: boolean, allAudioTarget?: boolean, repairAvailable?: boolean, locale?: string}} context
+ * @param {{organization?: string, copy: Record<string, string>, effectLabels: Map<string, string>, productId: string, disabled: boolean, typeBlocked?: (type: string) => boolean, selectionActive?: boolean, allAudioTarget?: boolean, repairAvailable?: boolean, locale?: string}} context
  * @param {(type: string) => unknown} openSelectionEffect
  * @returns {object[]} menu entries to splice into the Effect menu
  */
@@ -54,7 +54,7 @@ export function createEffectMenuEntries(context, openSelectionEffect) {
 	const entry = (type) => ({
 		id: type,
 		label: effectLabels.get(type),
-		disabled: disabled || (type === 'audacity-repair' && context.repairAvailable === false) || (!selectionActive
+		disabled: disabled || context.typeBlocked?.(type) || (type === 'audacity-repair' && context.repairAvailable === false) || (!selectionActive
 			&& !(allAudioTarget && audioSelectionEffectAppliesToAllAudio(type))),
 		onClick: () => openSelectionEffect(type),
 	});

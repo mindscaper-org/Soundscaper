@@ -31,9 +31,11 @@ export async function ordinaryCameraPair(page) {
 	await expect(cameras).toHaveCount(1);
 	const split = editor.getByRole('button', { name: 'Split tool', exact: true });
 	await split.click();
+	await expect(split).toHaveAttribute('aria-pressed', 'true');
 	await clickClipInterior(page, cameras.first(), 0.5);
-	await split.click();
 	await expect(cameras).toHaveCount(2);
+	await split.click();
+	await expect(split).toHaveAttribute('aria-pressed', 'false');
 	const ids = await cameras.evaluateAll(clips => clips.map(clip => clip.getAttribute('data-clip-id')));
 	expect(ids.every(Boolean)).toBe(true);
 	const outgoing = editor.locator(`[data-clip-id="${ids[0]}"][role="group"]`);

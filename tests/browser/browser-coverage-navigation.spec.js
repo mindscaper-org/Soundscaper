@@ -41,6 +41,41 @@ registerProcessor('coverage-lifecycle', CoverageLifecycleProcessor);
 // ranges directly. Do not put the suite-wide recorder on the same isolate.
 test.use({ browserCoverage: false });
 
+test('popup navigation during checkpoint installation retains both document ranges', async ({ browserName, context, page }) => {
+	test.skip(browserName !== 'chromium', 'V8 precise coverage is Chromium-only.');
+	const opening = page.waitForEvent('popup');
+	await page.evaluate(() => window.open('about:blank'));
+	const popup = await opening;
+	const session = await context.newCDPSession(popup);
+	for (const domain of ['Profiler', 'Runtime', 'Page', 'Debugger']) await session.send(`${domain}.enable`);
+	await session.send('Profiler.startPreciseCoverage', { callCount: true, detailed: true });
+	const entries = [];
+	const checkpoint = async () => { entries.push(...(await session.send('Profiler.takePreciseCoverage')).result); };
+	await popup.evaluate(source => { (0, eval)(source); }, FIXTURE_SOURCE);
+	await popup.evaluate(() => globalThis.coverageBeforeNavigation());
+	const send = session.send.bind(session);
+	session.send = async (method, parameters) => {
+		const result = await send(method, parameters);
+		if (method === 'Page.addScriptToEvaluateOnNewDocument') await popup.goto('/privacy/');
+		return result;
+	};
+	const checkpoints = await installNavigationCoverageCheckpoints({ checkpoint, session });
+	try {
+		await popup.evaluate(source => { (0, eval)(source); }, FIXTURE_SOURCE);
+		await popup.evaluate(() => globalThis.coverageAfterNavigation());
+		await checkpoints.settle();
+		await checkpoint();
+	} finally {
+		await checkpoints.dispose();
+		await session.send('Profiler.stopPreciseCoverage');
+		await session.detach();
+		await popup.close();
+	}
+	const fixtureEntries = entries.filter(({ url }) => url === FIXTURE_URL);
+	expect(fixtureEntries.some(entry => functionCount(entry, 'coverageBeforeNavigation') > 0)).toBe(true);
+	expect(fixtureEntries.some(entry => functionCount(entry, 'coverageAfterNavigation') > 0)).toBe(true);
+});
+
 test('precise coverage retains execution on both sides of a reload', async ({ browserName, context, page }) => {
 	test.skip(browserName !== 'chromium', 'V8 precise coverage is Chromium-only.');
 

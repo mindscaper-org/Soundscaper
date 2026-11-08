@@ -48,7 +48,7 @@ export function useDesktopEditorBridge({
 				: controller.actions.edit[action]();
 			const actions = {
 				'project:open': () => openDesktopFiles('project'),
-				'project:save': () => controller.actions.project.flush(),
+				'project:save': () => controller.actions.project.saveFile(),
 				'project:save-as': () => controller.actions.project.saveScape({ saveCopy: snapshot.readOnly }),
 				'audio:export': () => openSurface('export'),
 				'edit:undo': () => edit('undo'),
@@ -69,7 +69,7 @@ export function useDesktopEditorBridge({
 			let allow = false;
 			try {
 				const current = controller.getSnapshot();
-				const activeWork = editorCloseHasActiveWork(current);
+				const activeWork = editorCloseHasActiveWork({ ...current, taskProgress: controller.getTelemetrySnapshot?.().taskProgress });
 				if (activeWork) {
 					const stopAndQuit = globalThis.confirm?.(desktopActiveWorkQuitPrompt(copy)) ?? false;
 					if (!stopAndQuit) return;
@@ -81,9 +81,10 @@ export function useDesktopEditorBridge({
 					await Promise.resolve(controller.actions.nyquist.cancel());
 					await Promise.resolve(controller.actions.transport.stop());
 					const remaining = controller.getSnapshot();
-					if (remaining.importing || remaining.save?.state === 'saving'
+					if (remaining.importing || (remaining.save?.state === 'saving' && controller.getTelemetrySnapshot?.().taskProgress?.kind === 'project-io')
 						|| remaining.processingEffect || remaining.analysisProcessing) return;
 				}
+				if (controller.actions.project.prepareClose && !await controller.actions.project.prepareClose()) return;
 				await controller.actions.project.flush();
 				allow = true;
 			} catch (error) {

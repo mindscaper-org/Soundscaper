@@ -40,7 +40,7 @@ owner, and date.
 - [x] Approve use of Audacity-created AUP4 fixtures and compressed/derived interoperability data.
 - [x] Approve the Audacity trademark disclaimer and confirm product copy does not imply affiliation or endorsement.
 - [x] Approve use of the Audacity design-system packages based on package-level MIT declarations even though upstream supplies no LICENSE file.
-- [x] Approve the same treatment for `MusescoreIcon.ttf` and its WOFF2 derivative, which lack separate font-license metadata.
+- [x] Retain Muse Framework's GPLv3 terms and font-embedding exception for the updated `MusescoreIcon.ttf` and its WOFF2 derivative in `LICENSES/muse-framework-icons-LICENSE.txt`.
 - [x] Approve the GPL-3.0-only MuseScore icon-code inventory adaptation.
 
 These issues are documented in

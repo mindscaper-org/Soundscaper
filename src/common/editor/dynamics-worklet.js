@@ -21,7 +21,9 @@ export class DynamicsProcessor extends (globalThis.AudioWorkletProcessor || clas
 
 	process(inputs, outputs) {
 		const input = inputs[0] || [];
-		const detector = inputs[1]?.length ? inputs[1] : input;
+		// A connected silent detector may have no channels in Firefox. Its
+		// empty input still owns detection; only a missing port uses programme.
+		const detector = inputs[1] ?? input;
 		const output = outputs[0] || [];
 		if (this.type === 'limiter') this.processLimiter(input, detector, output);
 		else this.processGate(input, detector, output);

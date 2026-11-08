@@ -103,7 +103,7 @@ export const FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES: readonly FoundationRuntim
 	},
 	{
 		boundary: 'loadProject',
-		file: 'src/common/editor/engine/lifecycle.ts',
+		file: 'src/common/editor/engine/project-loading.ts',
 		root: false,
 		delegate: 'resolveTimePitchPlaybackProject',
 		guardsBrand: false,
@@ -119,6 +119,8 @@ export const FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES: readonly FoundationRuntim
 
 /** Files that own the raw-project boundary for every WP-0.2 consumer surface. */
 export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShieldedOwner[] = deepFreeze([
+	{ file: 'src/common/editor/midi-file-delivery-report.ts', surfaces: ['interchange'] },
+	{ file: 'src/common/editor/ui/workspace/midi-panel-projection.ts', surfaces: ['timeline'] },
 	{ file: 'src/common/editor/controller/source/clip-time-pitch-service.ts', surfaces: ['playback'] },
 	{ file: 'src/common/editor/controller/source/internal/processed-spectrogram-pcm.ts', surfaces: ['waveform'] },
 	{ file: 'src/common/editor/controller/clip-video/clip-time-pitch-render-service.ts', surfaces: ['composition'] },
@@ -137,19 +139,23 @@ export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShiel
 	{ file: 'src/common/editor/ui/workspace/project-bin-video-preview-model.ts', surfaces: ['preview'] },
 	{ file: 'src/common/editor/ui/workspace/useProjectBinPresentation.ts', surfaces: ['preview'] },
 	{ file: 'src/common/editor/ui/workspace/project-bin-warp-ranges.ts', surfaces: ['waveform'] },
-	{ file: 'src/common/editor/engine/lifecycle.ts', surfaces: ['playback'] },
+	{ file: 'src/common/editor/engine/project-loading.ts', surfaces: ['playback'] },
 	{ file: 'src/common/editor/engine/project-refresh-playback.ts', surfaces: ['playback'] },
 	{ file: 'src/common/editor/export.js', surfaces: ['audio-export'] },
 	{ file: 'src/common/editor/ui/export-dialog-embedded-chapters.ts', surfaces: ['audio-export'] },
 	{ file: 'src/common/editor/controller/edit/internal/label-service.ts', surfaces: ['interchange'] },
 	{ file: 'src/common/editor/controller/export/video-export-source-inventory.ts', surfaces: ['video-export'] },
 	{ file: 'src/common/editor/controller/export/audio-export-source-inventory.ts', surfaces: ['audio-export'] },
+	{ file: 'src/common/editor/controller/export/blender-publication.ts', surfaces: ['audio-export'] },
 	{ file: 'src/common/editor/export-clip-boundaries.ts', surfaces: ['audio-export'] },
 	{ file: 'src/common/editor/export-clips.ts', surfaces: ['audio-export'] },
 	{ file: 'src/common/editor/export-chapters.ts', surfaces: ['audio-export'] },
 	{ file: 'src/common/editor/controller/track-audio/internal/freesound-clip-upload-materializer.ts', surfaces: ['audio-export'] },
 	{ file: 'src/common/editor/aup4-export.js', surfaces: ['interchange'] },
 	{ file: 'src/common/editor/aup4-annotation-interchange.ts', surfaces: ['interchange'] },
+	{ file: 'src/common/editor/midi-project-source-projection.ts', surfaces: ['interchange'] },
+	{ file: 'src/common/editor/controller/track-audio/mix-render-model.ts', surfaces: ['audio-export'] },
+	{ file: 'src/common/editor/controller/track-audio/internal/stereo-track-render-range.ts', surfaces: ['audio-export'] },
 	{ file: 'src/common/editor/timeline-annotation-riff-interchange.ts', surfaces: ['interchange'] },
 	{ file: 'src/common/editor/project-attribution-report.ts', surfaces: ['interchange'] },
 	{ file: 'src/common/editor/controller/export/interchange-export-action.ts', surfaces: ['interchange'] },
@@ -182,6 +188,22 @@ export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShiel
 
 /** Exact non-consumer readers co-located with a shield owner. No wildcard exclusions are admitted. */
 export const FOUNDATION_RUNTIME_TIMING_READER_EXCLUSIONS: readonly FoundationRuntimeTimingReaderExclusion[] = deepFreeze([
+	{
+		file: 'src/common/editor/midi-file-delivery-report.ts', entryPoint: 'midiFileDeliveryReport',
+		reason: 'The delivery report reads only the supplied MIDI document event extents directly; authored project clip timing is resolved by the separately registered addClipPitchOmissions helper.',
+	},
+	{
+		file: 'src/common/editor/ui/workspace/midi-panel-projection.ts', entryPoint: 'createMidiPanelPlayheadProjector',
+		reason: 'The piano-roll playhead mapper receives the selected clip from resolveMidiPanelClip and converts its resolved programme geometry to source-note coordinates without reading persisted clip timing.',
+	},
+	{
+		file: 'src/common/editor/ui/workspace/midi-panel-projection.ts', entryPoint: 'midiPanelClipResize',
+		reason: 'The piano-roll resize adapter receives the clip already resolved by resolveMidiPanelClip and converts source editor gestures to command coordinates; the owning mutation port preserves canonical musical authority.',
+	},
+	{
+		file: 'src/common/editor/midi-project-source-projection.ts', entryPoint: 'sourceProjector',
+		reason: 'The private source mapper receives the resolved clip from midiClipOccurrences before converting source frames through its warp, reversal or loop period into delivered project positions.',
+	},
 	{
 		file: 'src/common/editor/export-chapters.ts', entryPoint: 'annotationBoundaries',
 		reason: 'Marker chapter boundaries read sample fields only after the separate maintained timeline annotation projection; they consume projected annotations rather than persisted clip timing.',
@@ -240,6 +262,22 @@ export const FOUNDATION_RUNTIME_TIMING_READER_EXCLUSIONS: readonly FoundationRun
 
 /** Non-shield importers discovered beside the owned consumer and boundary files. */
 export const FOUNDATION_RUNTIME_PROJECTION_IMPORTER_EXCLUSIONS: readonly FoundationRuntimeProjectionImporterExclusion[] = deepFreeze([
+	{
+		file: 'src/common/editor/labeled-audio-regions.ts',
+		reason: 'The labeled edit adapter resolves musical label tracks before deriving command ranges; it consumes label regions for edit planning rather than runtime clip playback or media delivery.',
+	},
+	{
+		file: 'src/common/editor/controller/clip-video/internal/clip/clip-property-service.ts',
+		reason: 'The clip property adapter imports only the pitch-editing capability predicate from the time-pitch module; it admits authored edit commands and invokes no runtime projection boundary.',
+	},
+	{
+		file: 'src/common/editor/controller/track-audio/internal/midi-warp-note-growth.ts',
+		reason: 'The MIDI authoring helper extends a validated source warp and resolves its new persisted extent for one atomic edit; it consumes no media or delivery range and delegates delivery to the registered MIDI source projection.',
+	},
+	{
+		file: 'src/common/editor/controller/track-audio/midi-service.ts',
+		reason: 'MIDI note authoring resolves clip geometry to trim, move and render edits while preserving canonical musical authority; delivery is owned by the separately registered MIDI source projection.',
+	},
 	{
 		file: 'src/common/editor/commands/timeline-annotation-add-batch.ts',
 		reason: 'The annotation command adapter checks a branded transaction draft, restores authoritative annotations, and reconciles ordered additions through the existing command admissions; it is not a runtime playback or media consumer.',

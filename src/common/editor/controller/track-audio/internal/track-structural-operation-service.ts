@@ -9,6 +9,7 @@ import {
 	planTrackAlignment,
 	planTrackSort,
 	type TrackAlignmentMode,
+	type TrackSortOptions,
 } from './track-structural-operation-planner.ts';
 
 export interface TrackStructuralOperationServiceDependencies {
@@ -28,8 +29,8 @@ export interface TrackStructuralOperationService {
 	alignStartToSelectionEnd(): unknown;
 	alignEndToPlayhead(): unknown;
 	alignEndToSelectionEnd(): unknown;
-	sortByTime(): unknown;
-	sortByName(): unknown;
+	sortByTime(options?: TrackSortOptions): unknown;
+	sortByName(options?: TrackSortOptions): unknown;
 	muteAll(): unknown;
 	unmuteAll(): unknown;
 }
@@ -46,8 +47,8 @@ export function createTrackStructuralOperationService(
 		alignStartToSelectionEnd: () => align('start-selection-end', selectionEnd),
 		alignEndToPlayhead: () => align('end-playhead', () => dependencies.getPositionFrames()),
 		alignEndToSelectionEnd: () => align('end-selection-end', selectionEnd),
-		sortByTime: () => sort('time'),
-		sortByName: () => sort('name'),
+		sortByTime: (options = {}) => sort('time', options),
+		sortByName: (options = {}) => sort('name', options),
 		muteAll: () => setAllMuted(true),
 		unmuteAll: () => setAllMuted(false),
 	});
@@ -75,9 +76,9 @@ export function createTrackStructuralOperationService(
 		] } : clipCommand);
 	}
 
-	function sort(criterion: 'time' | 'name'): unknown {
+	function sort(criterion: 'time' | 'name', options: TrackSortOptions = {}): unknown {
 		assertWritable();
-		const commands = planTrackSort(dependencies.getProject(), criterion);
+		const commands = planTrackSort(dependencies.getProject(), criterion, options);
 		return commands.length === 0 ? null : dependencies.commit({ type: 'batch', commands });
 	}
 

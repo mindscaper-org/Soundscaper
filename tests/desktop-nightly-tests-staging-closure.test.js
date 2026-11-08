@@ -47,6 +47,9 @@ const SOURCE_EXTENSION_SUBSTITUTIONS = Object.freeze({
 // readDesktopPreloadSource bundles these runtime imports from
 // their maintained TypeScript owners. Audit their staged destinations too.
 const PRELOAD_FIXTURE_ALIASES = Object.freeze({
+	'./project-library-runtime/desktop/desktop-audio-codec-operation-contract.js': './desktop-audio-codec-operation-contract.ts',
+	'./project-library-runtime/desktop/desktop-audio-codec-capability-contract.js': './desktop-audio-codec-capability-contract.ts',
+	'./project-library-runtime/desktop/project-saving-preload.js': './project-saving-preload.ts',
 	'./project-library-runtime/desktop/audiocom-authorization.js': './audiocom-authorization.ts',
 	'./project-library-runtime/desktop/audiocom-links.js': './audiocom-links.ts',
 	'./project-library-runtime/desktop/ara-preload.js': './ara-preload.ts',
@@ -93,6 +96,8 @@ test('nightly payload production modules have a closed local-import graph', () =
 	assert.ok(result.visited.has('desktop/ara-preload.ts'));
 	assert.ok(result.visited.has('desktop/blender-preload.ts'));
 	assert.ok(result.visited.has('desktop/assistance-keyed-video-preload.ts'));
+	assert.ok(result.visited.has('desktop/desktop-audio-codec-operation-contract.ts'));
+	assert.ok(result.visited.has('desktop/desktop-audio-codec-capability-contract.ts'));
 	assert.ok(result.queryImports.some(({ specifier }) => specifier.endsWith('?worker&url')));
 });
 
@@ -168,6 +173,16 @@ test('nightly payload production-module audit rejects an unstaged local dependen
 		() => inspectLocalImportClosure(withoutCoveragePrefixes),
 		/Unstaged local import .*browser-gpu-production-coverage\.mjs.*e2e-coverage-prefixes\.mjs/u,
 	);
+});
+
+test('nightly preload contract aliases still require their maintained owners in the staged payload', () => {
+	for (const name of ['operation', 'capability']) {
+		const owner = `desktop/desktop-audio-codec-${name}-contract.ts`;
+		const withoutOwner = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(({ source }) => source !== owner);
+		assert.throws(() => inspectLocalImportClosure(withoutOwner), error => (
+			error instanceof Error && error.message.startsWith('Unstaged local import ') && error.message.includes(owner)
+		));
+	}
 });
 
 function inspectLocalImportClosure(inputs) {

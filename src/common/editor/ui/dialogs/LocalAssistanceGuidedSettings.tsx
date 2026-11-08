@@ -13,6 +13,8 @@ import type {
 	AssistanceWorkflowSettingsV1,
 } from '../../assistance/workflow-settings-v1.ts';
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
+import type { LocalAssistanceModel } from '../../assistance/local-assistance-bridge.ts';
+import { assistanceTaskRecognizerChoices } from '../local-assistance-task-controls.ts';
 
 type Copy = Readonly<Record<string, string | undefined>>;
 type EditorialField = 'title' | 'hook' | 'chapters' | 'explanation';
@@ -20,23 +22,27 @@ type EditorialField = 'title' | 'hook' | 'chapters' | 'explanation';
 export interface LocalAssistanceGuidedSettingsProps {
 	readonly copy: Copy;
 	readonly settings: AssistanceWorkflowSettingsV1;
+	readonly models?: readonly LocalAssistanceModel[];
 	readonly disabled: boolean;
 	readonly onChange: (settings: AssistanceWorkflowSettingsV1) => unknown;
 }
 
 export default function LocalAssistanceGuidedSettings({
-	copy, settings, disabled, onChange,
+	copy, settings, models = [], disabled, onChange,
 }: LocalAssistanceGuidedSettingsProps) {
 	const commit = (next: AssistanceWorkflowSettingsV1): void => { void onChange(next); };
+	const recognizers = assistanceTaskRecognizerChoices(models);
 	switch (settings.workflowId) {
 		case 'transcribe-captions': return <SettingsGroup copy={copy}>
-			<SelectSetting label={text(copy, 'localAssistanceRecognizer', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceRecognizer)}
+			{recognizers.length > 1 && <SelectSetting label={copy.assistanceModelName || 'Model'}
 				value={settings.recognizer} disabled={disabled} onChange={(recognizer) => commit({
 					...settings, recognizer: recognizer as 'parakeet' | 'whisper',
 				})}>
-				<option value="parakeet">{text(copy, 'localAssistanceRecognizerParakeet', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceRecognizerParakeet)}</option>
-				<option value="whisper">{text(copy, 'localAssistanceRecognizerWhisper', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceRecognizerWhisper)}</option>
-			</SelectSetting>
+				{recognizers.map(({ recognizer }) => <option key={recognizer} value={recognizer}>
+					{recognizer === 'parakeet' ? text(copy, 'localAssistanceRecognizerParakeet', 'Parakeet')
+						: text(copy, 'localAssistanceRecognizerWhisper', 'Whisper')}
+				</option>)}
+			</SelectSetting>}
 			<SelectSetting label={text(copy, 'localAssistanceLanguage', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceLanguage)}
 				value={settings.language} disabled={disabled} onChange={(language) => commit({
 					...settings, language: language as 'auto' | 'en',
@@ -44,13 +50,13 @@ export default function LocalAssistanceGuidedSettings({
 				<option value="auto">{text(copy, 'localAssistanceLanguageAuto', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceLanguageAuto)}</option>
 				<option value="en">{text(copy, 'localAssistanceLanguageEnglish', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceLanguageEnglish)}</option>
 			</SelectSetting>
-			<CheckboxSetting disabled={disabled || settings.recognizer !== 'whisper'}
+			{settings.recognizer === 'whisper' && <CheckboxSetting disabled={disabled}
 				checked={settings.englishWhisperAlignment === 'when-installed'}
 				onChange={(checked) => commit({ ...settings,
 					englishWhisperAlignment: checked ? 'when-installed' : 'off' })}>
 				{text(copy, 'localAssistanceEnglishAlignment',
 					'Use installed wav2vec2 alignment for English Whisper')}
-			</CheckboxSetting>
+			</CheckboxSetting>}
 		</SettingsGroup>;
 		case 'clean-filler-silence': return <SettingsGroup copy={copy}>
 			<SelectSetting label={text(copy, 'localAssistanceCleanupPreset', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceCleanupPreset)}
@@ -64,49 +70,16 @@ export default function LocalAssistanceGuidedSettings({
 					LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceCleanupPresetAggressive)}</option>
 			</SelectSetting>
 		</SettingsGroup>;
-		case 'identify-speakers': return <FixedSettings copy={copy}>
-			{text(copy, 'localAssistanceAnonymousSpeakers',
-				LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceAnonymousSpeakers)}
-		</FixedSettings>;
-		case 'enhance-dialogue': return <SettingsGroup copy={copy}>
-			<SelectSetting label={text(copy, 'localAssistancePlacement', 'Acceptance placement')}
-				value={settings.placement} disabled={disabled} onChange={(placement) => commit({
-					...settings, placement: placement as 'project-bin' | 'replace-selection',
-				})}>
-				<option value="project-bin">{text(copy, 'localAssistanceProjectBin', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceProjectBin)}</option>
-				<option value="replace-selection">{text(copy, 'localAssistanceReplaceSelection',
-					LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceReplaceSelection)}</option>
-			</SelectSetting>
-		</SettingsGroup>;
-		case 'reduce-reverb': return <SettingsGroup copy={copy}>
-			<SelectSetting label={text(copy, 'localAssistancePlacement', 'Acceptance placement')}
-				value={settings.placement} disabled={disabled} onChange={(placement) => commit({
-					...settings, placement: placement as 'project-bin' | 'replace-selection',
-				})}>
-				<option value="project-bin">{text(copy, 'localAssistanceProjectBin', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceProjectBin)}</option>
-				<option value="replace-selection">{text(copy, 'localAssistanceReplaceSelection',
-					LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceReplaceSelection)}</option>
-			</SelectSetting>
-		</SettingsGroup>;
-		case 'separate-dialogue-music-effects': return <SettingsGroup copy={copy}>
-			<SelectSetting label={text(copy, 'localAssistancePlacement', 'Acceptance placement')}
-				value={settings.placement} disabled={disabled} onChange={(placement) => commit({
-					...settings, placement: placement as 'project-bin' | 'muted-aligned-tracks',
-				})}>
-				<option value="project-bin">{text(copy, 'localAssistanceProjectBin', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceProjectBin)}</option>
-				<option value="muted-aligned-tracks">{text(copy, 'localAssistanceMutedAlignedStems',
-					LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceMutedAlignedStems)}</option>
-			</SelectSetting>
-		</SettingsGroup>;
+		case 'identify-speakers':
+		case 'enhance-dialogue':
+		case 'reduce-reverb':
+		case 'separate-dialogue-music-effects': return null;
 		case 'mark-reactions': return <SettingsGroup copy={copy}>
 			<NumberSetting label={text(copy, 'localAssistanceReactionThreshold', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceReactionThreshold)}
 				value={settings.threshold} min={0} max={1} step={0.05} disabled={disabled}
 				onChange={(threshold) => commit({ ...settings, threshold })} />
 		</SettingsGroup>;
-		case 'index-transcript': return <FixedSettings copy={copy}>
-			{text(copy, 'localAssistanceTranscriptChunking',
-				'256-token document chunks with a 32-token overlap.')}
-		</FixedSettings>;
+		case 'index-transcript': return null;
 		case 'detect-beats-tempo': return <SettingsGroup copy={copy}>
 			<CheckboxSetting disabled={disabled} checked={settings.publishBeatLabels}
 				onChange={(publishBeatLabels) => commit({ ...settings, publishBeatLabels })}>
@@ -171,10 +144,7 @@ export default function LocalAssistanceGuidedSettings({
 					</CheckboxSetting>)}
 			</div>
 		</SettingsGroup>;
-		default: return <FixedSettings copy={copy}>
-			{text(copy, 'localAssistanceAdvancedFixedSettings',
-				LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceAdvancedFixedSettings)}
-		</FixedSettings>;
+		default: return null;
 	}
 }
 
@@ -183,10 +153,6 @@ function SettingsGroup({ copy, children }: Readonly<{ copy: Copy; children: Reac
 		<legend>{text(copy, 'localAssistanceWorkflowSettings', 'Workflow settings')}</legend>
 		{children}
 	</fieldset>;
-}
-
-function FixedSettings({ copy, children }: Readonly<{ copy: Copy; children: ReactNode }>) {
-	return <SettingsGroup copy={copy}><p>{children}</p></SettingsGroup>;
 }
 
 function SelectSetting({ label, value, disabled, onChange, children }: Readonly<{

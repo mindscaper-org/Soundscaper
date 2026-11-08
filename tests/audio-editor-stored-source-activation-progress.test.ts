@@ -105,6 +105,16 @@ test('precomputed import peaks activate short chunk sources without rereading st
 	assert.deepEqual(progress, [1]);
 });
 
+test('import playback activates without awaiting optional waveform persistence', async () => {
+	const fixture = activationFixture();
+	const peaks = { version: WAVEFORM_PEAKS_VERSION, channelCount: 1, levels: [] };
+	Object.assign(fixture.runtime.store, { saveAnalysis: () => { throw new Error('Import must defer this write'); } });
+	const result = await activateStoredSourceWithProgress(fixture.runtime, fixture.source, null, { peaks, persistPeaks: false });
+	assert.equal(result, peaks);
+	assert.equal(fixture.sourcePeaks.get('source'), peaks);
+	assert.equal(fixture.pulls(), 0);
+});
+
 test('precomputed import peaks retain cache rollback when activation is cancelled while saving', async () => {
 	const fixture = activationFixture();
 	const controller = new AbortController();

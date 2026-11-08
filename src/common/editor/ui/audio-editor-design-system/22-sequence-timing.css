@@ -68,6 +68,7 @@
 }
 
 .kw-audio-editor__sequence-timing-editor input[type='text'],
+.kw-audio-editor__sequence-timing-editor textarea,
 .kw-audio-editor__sequence-timing-editor select {
 	min-width: 0;
 	padding: 3px 4px;
@@ -142,6 +143,7 @@
 @media (forced-colors: active) {
 	.kw-audio-editor__sequence-frame-step:hover:not(:disabled),
 	.kw-audio-editor__sequence-timing-editor input[type='text'],
+	.kw-audio-editor__sequence-timing-editor textarea,
 	.kw-audio-editor__sequence-timing-editor select {
 		border-color: CanvasText;
 	}

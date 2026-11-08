@@ -28,6 +28,8 @@ import {
 	type ProjectBinSource,
 } from '../../project-bin-types.ts';
 import { projectBinReplacementShortensClip } from './project-bin-runtime.ts';
+import { claimProtectedSources } from '../protected-source-claims.ts';
+import { replacementSelectionChange } from './project-bin-replacement-selection.ts';
 
 const PROJECT_BIN_REPLACEMENT_TASK = 'project-bin-replacement';
 
@@ -38,6 +40,7 @@ interface ReplacementStage {
 	readonly replacements: readonly ProjectBinReplacementEntry[];
 	readonly sources: readonly ProjectBinSource[];
 	readonly templates: readonly ProjectBinClip[];
+	readonly releaseProtection: () => void;
 }
 
 export interface ProjectBinStoragePort {
@@ -76,6 +79,10 @@ export interface ProjectBinReplacementDependencies {
 		file: unknown,
 		options: Readonly<{ signal: AbortSignal }>,
 	): Promise<ProjectBinImportResult | null>;
+	awaitVideoSourceActivation?(sourceId: string, options: Readonly<{ signal: AbortSignal }>): Promise<void>;
+	updateSelection?(command: Extract<AudioEditorCommand, { type: 'selection/set' }>): unknown;
+	setSelectedClipId?(clipId: string | null): void;
+	setSelectedTrackId?(trackId: string | null): void;
 	projectChanged(): void;
 	publish(): void;
 	revokeVideoVisual(sourceId: string): PromiseLike<unknown> | unknown;
@@ -120,7 +127,9 @@ export function createProjectBinReplacementService(
 		const projectToken = dependencies.captureProject();
 		const task = dependencies.lifetime.startTask(PROJECT_BIN_REPLACEMENT_TASK);
 		let restored = false;
-		let protectedSources: readonly ProjectBinSource[] = [];
+		let importedDocument: ProjectBinProject | null = null;
+		let importedHistory: unknown;
+		let releaseProtection = (): void => undefined;
 		let protectionTransferred = false;
 		const importing = dependencies.claimImporting?.();
 		if (!importing) dependencies.setImporting(true);
@@ -129,6 +138,9 @@ export function createProjectBinReplacementService(
 			const result = await dependencies.importProjectBinFile(file, { signal: task.signal });
 			assertCurrent(task, projectToken);
 			const importedProject = dependencies.getProject();
+			importedDocument = importedProject;
+			const importedCheckpoint = dependencies.captureActiveDocument();
+			importedHistory = importedCheckpoint.history;
 			if (!result) {
 				restoreBaseDocument(baseDocument);
 				return null;
@@ -145,11 +157,42 @@ export function createProjectBinReplacementService(
 			const importedSources = importedItemClips
 				.map((clip) => findProjectBinSource(importedProject, clip.sourceId))
 				.filter((source): source is ProjectBinSource => Boolean(source));
-			protectedSources = importedSources;
-			for (const source of importedSources) dependencies.protectedSourceIds.add(source.id);
+			releaseProtection = claimProtectedSources(importedSources.map(source => source.id), dependencies.protectedSourceIds);
+			try {
+				for (const source of importedSources) if (source.kind === 'video') {
+					await dependencies.awaitVideoSourceActivation?.(source.id, { signal: task.signal });
+					assertCurrent(task, projectToken);
+					const current = dependencies.captureActiveDocument();
+					if (current.project !== importedProject || current.history !== importedHistory) {
+						throw new DOMException('The project changed during video replacement preparation.', 'AbortError');
+					}
+				}
+			} catch (error) {
+				try {
+					if (isCurrentAssertion(() => { dependencies.lifetime.assertActive(); dependencies.assertProject(projectToken); })) {
+						const latestCheckpoint = dependencies.captureActiveDocument(), latest = latestCheckpoint.project;
+						const ownsImported = latest === importedProject && latestCheckpoint.history === importedHistory;
+						const selection = !ownsImported && dependencies.updateSelection
+							? replacementSelectionChange(baseProject, importedCheckpoint, latestCheckpoint) : null;
+						if (ownsImported || selection) {
+							restoreBaseDocument(baseDocument);
+							if (selection) {
+								dependencies.updateSelection?.(selection);
+								dependencies.setSelectedClipId?.(selection.clipIds?.[0] ?? null);
+								dependencies.setSelectedTrackId?.(selection.trackIds?.[0] ?? null);
+								dependencies.publish();
+							}
+						}
+					}
+				} finally {
+					const retained = new Set(dependencies.getProject().sources.map(source => source.id));
+					await discardImportedReplacement(importedSources.filter(source => !retained.has(source.id)));
+				}
+				throw error;
+			}
 			restoreBaseDocument(baseDocument);
 			if (!sameKinds(importedKinds, targetKinds) || importedSources.length !== targetItemClips.length) {
-				await discardImportedReplacement(importedSources, true);
+				await discardImportedReplacement(importedSources);
 				assertCurrent(task, projectToken);
 				throw createLocalizedError(Error, { projectBinReplacementIncompatible: dependencies.copy.projectBinReplacementIncompatible
 					|| 'The replacement file is not compatible with this Project Bin item.' }, 'projectBinReplacementIncompatible');
@@ -181,6 +224,7 @@ export function createProjectBinReplacementService(
 				replacements: Object.freeze(replacements),
 				sources: Object.freeze(importedSources),
 				templates: Object.freeze(importedItemClips),
+				releaseProtection,
 			}));
 			protectionTransferred = true;
 			return Object.freeze({
@@ -189,9 +233,7 @@ export function createProjectBinReplacementService(
 				shortenedClipIds: Object.freeze(shortenedClipIds),
 			});
 		} finally {
-			if (!protectionTransferred) {
-				for (const source of protectedSources) dependencies.protectedSourceIds.delete(source.id);
-			}
+			if (!protectionTransferred) releaseProtection();
 			if (!restored && taskOwnsWork(task)) {
 				let projectIsCurrent = true;
 				try {
@@ -199,7 +241,8 @@ export function createProjectBinReplacementService(
 				} catch {
 					projectIsCurrent = false;
 				}
-				if (projectIsCurrent) restoreBaseDocument(baseDocument);
+				if (projectIsCurrent && (importedDocument === null || dependencies.getProject() === importedDocument
+					&& dependencies.captureActiveDocument().history === importedHistory)) restoreBaseDocument(baseDocument);
 				// A switched project must not be replaced by this task's saved document.
 				else finishImporting();
 			}
@@ -251,7 +294,7 @@ export function createProjectBinReplacementService(
 			throw error;
 		}
 		stages.delete(token);
-		for (const source of stage.sources) dependencies.protectedSourceIds.delete(source.id);
+		stage.releaseProtection();
 		return stage.clipId;
 	}
 
@@ -259,7 +302,7 @@ export function createProjectBinReplacementService(
 		const stage = stages.get(token);
 		if (!stage) return false;
 		stages.delete(token);
-		const retirement = discardImportedReplacement(stage.sources, true);
+		const retirement = discardImportedReplacement(stage.sources, stage.releaseProtection);
 		retiringStages.add(retirement);
 		try { await retirement; }
 		finally { retiringStages.delete(retirement); }
@@ -274,7 +317,7 @@ export function createProjectBinReplacementService(
 
 	async function discardImportedReplacement(
 		sources: readonly ProjectBinSource[],
-		releaseProtection = false,
+		releaseProtection?: () => void,
 	): Promise<void> {
 		try {
 			for (const source of sources) {
@@ -313,11 +356,7 @@ export function createProjectBinReplacementService(
 					}
 				}
 			}
-		} finally {
-			if (releaseProtection) {
-				for (const source of sources) dependencies.protectedSourceIds.delete(source.id);
-			}
-		}
+		} finally { releaseProtection?.(); }
 	}
 }
 

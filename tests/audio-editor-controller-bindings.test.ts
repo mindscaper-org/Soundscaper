@@ -23,7 +23,7 @@ test('controller binding construction leaves unrelated owners uninitialized', ()
 		publishDocument: () => { publishes += 1; }, publishTelemetry() {}, updateTaskProgress() {},
 	});
 	const bindings = createControllerBindings({
-		clips: unavailable, doc: unavailable, documentChannel: unavailable, edits: unavailable,
+		clips: unavailable, doc: unavailable, previewMidiTransfer: unavailable, documentChannel: unavailable, edits: unavailable,
 		effects: unavailable, imports: unavailable, microphoneMeterService: unavailable,
 		nativeProjectService: unavailable,
 		preferences: () => { preferenceReads += 1; return { actions: preferenceActions } as never; },

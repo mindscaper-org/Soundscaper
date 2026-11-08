@@ -320,8 +320,10 @@ export function registerDesktopPluginDiscovery({
 		const digest = String(value?.digest || '');
 		// A fault write still in flight lands before the clearance, so the user
 		// clears the quarantine that exists rather than racing its record.
-		await Promise.all([hosting?.settleQuarantineWrites(), vamp.settleQuarantineWrites(), ara.settleQuarantineWrites()]);
+		await Promise.all([scannerQuarantine.settle(), hosting?.settleQuarantineWrites(), vamp.settleQuarantineWrites(), ara.settleQuarantineWrites()]);
+		const scannerFault = quarantine.describe(digest)?.scope === 'scanner';
 		const cleared = await quarantine.clear(digest, clearance);
+		if (cleared && scannerFault) service.clearQuarantine();
 		// The in-memory hold releases with the durable one, or an explicit
 		// re-enable would leave the digest dead until the editor restarts.
 		const restored = hosting ? hosting.isolation.restoreDigest(digest) : false;

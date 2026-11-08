@@ -94,9 +94,6 @@ const REFERENCE_PATTERNS: Readonly<Record<string, RegExp>> = Object.freeze({
 
 export function inspectAdmAxml(input: string | Uint8Array | ArrayBuffer | ArrayBufferView): AdmAxmlDocument | null {
 	const xml = decodeAxml(input);
-	if (/<!\s*(?:DOCTYPE|ENTITY)\b/iu.test(xml)) throw new Error('Active or external XML declarations are not allowed in ADM AXML.');
-	if (/<\?(?!xml\s)/iu.test(xml)) throw new Error('Active XML processing instructions are not allowed in ADM AXML.');
-
 	const programmes: ProgrammeBuilder[] = [];
 	const contents: ContentBuilder[] = [];
 	const objects: ObjectBuilder[] = [];

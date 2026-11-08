@@ -115,7 +115,7 @@ export function createPreparedProjectSources<Buffer, Provider>(
 				}
 			}
 			state = 'discarded';
-			cleanupPromise = disposePreparedProviders(options.prepared).finally(() => {
+			cleanupPromise = disposePreparedProviders(options.prepared, options.sourceChunkProviders).finally(() => {
 				options.prepared.clear();
 			});
 			try {
@@ -137,7 +137,7 @@ export function createPreparedProjectSources<Buffer, Provider>(
 		if (state === 'discarded') return cleanupPromise ?? Promise.resolve();
 		if (state !== 'prepared') return Promise.resolve();
 		state = 'discarded';
-		cleanupPromise = disposePreparedProviders(options.prepared).finally(() => {
+		cleanupPromise = disposePreparedProviders(options.prepared, options.sourceChunkProviders).finally(() => {
 			options.prepared.clear();
 		});
 		return cleanupPromise;
@@ -146,10 +146,12 @@ export function createPreparedProjectSources<Buffer, Provider>(
 
 async function disposePreparedProviders(
 	prepared: ReadonlyMap<string, PreparedProjectSourceEntry>,
+	registry: Iterable<readonly [string, unknown]>,
 ): Promise<void> {
 	const providers = new Set<Readonly<{ dispose(): PromiseLike<void> | void }>>();
+	const registryOwned = new Set([...registry].map(([, provider]) => provider));
 	for (const entry of prepared.values()) {
-		if (entry.kind === 'provider' && isDisposable(entry.value)) providers.add(entry.value);
+		if (entry.kind === 'provider' && isDisposable(entry.value) && !registryOwned.has(entry.value)) providers.add(entry.value);
 	}
 	const results = await Promise.allSettled([...providers].map(
 		(provider) => Promise.resolve().then(() => provider.dispose()),

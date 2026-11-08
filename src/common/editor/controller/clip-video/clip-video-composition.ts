@@ -196,7 +196,11 @@ export function createClipVideoComposition(dependencies: ClipVideoCompositionDep
 		createId: createStableId,
 		snapTimelineFrame: dependencies.snapTimelineFrame,
 		activeSelection: dependencies.activeSelection,
-		commit: (command, selection) => dependencies.commit(prepareFrozenTrackEditCommand(requireProject(), command), selection),
+		commit: (command, selection) => {
+			const prepared = prepareFrozenTrackEditCommand(requireProject(), command);
+			return dependencies.commitMidiTransfer && dependencies.previewMidiTransfer ? dependencies.commitMidiTransfer(prepared,
+				dependencies.previewMidiTransfer, selection) : dependencies.commit(prepared, selection);
+		},
 		createDuplicateClipboard: (project, options) => {
 			const runtime = dependencies.projectRuntime;
 			const owner = requireProject();

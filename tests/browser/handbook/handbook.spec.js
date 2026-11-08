@@ -101,7 +101,7 @@ test('compares Web and Desktop with accessible symbols and explains the capabili
 	expect(await tables.count()).toBeGreaterThan(0);
 	for (const table of await tables.all()) {
 		await expect(table.getByRole('columnheader')).toHaveText([
-			'Capability', 'Soundscaper Web', 'Soundscaper Desktop', 'Audacity 4', 'Audition',
+			'Capability', 'Soundscaper Web', 'Soundscaper Desktop', 'Audacity 4.0.2', 'Audition',
 		]);
 	}
 
@@ -120,7 +120,8 @@ test('compares Web and Desktop with accessible symbols and explains the capabili
 	for (const [capability, web, desktop] of [
 		['Dedicated single-file editor', 'Supported', 'Supported'],
 		['Microphone and desktop audio together', 'Limited', 'Supported'],
-		['Third-party plug-in formats', 'Unavailable', 'Supported'],
+		...['VST2 plug-ins', 'VST3 plug-ins', 'CLAP plug-ins', 'Audio Units (AU)', 'LV2 plug-ins', 'LADSPA plug-ins', 'Vamp analysers']
+			.map((format) => [format, 'Unavailable', 'Supported']),
 		['Speech enhancement', 'Unavailable', 'Supported'],
 		['Transcription and diarisation', 'Unavailable', 'Supported'],
 		['Source separation into stems', 'Unavailable', 'Supported'],

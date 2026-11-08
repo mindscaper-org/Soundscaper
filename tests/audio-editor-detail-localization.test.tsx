@@ -36,7 +36,7 @@ test('audio and video overlaps localize valid and invalid descriptions from sema
 test('native diagnostic numbers use localized templates and active number formatting', () => {
 	const instance: NonNullable<SoundscaperNativeServicesDialogState['pluginInstance']> = {instanceId:'plugin_instance_ladspa',entryId:'effect',stablePluginId:'gain',format:'ladspa',binarySha256:'a'.repeat(64),inputChannels:2,outputChannels:2,state:'hosted',enabled:true,bypassed:false,latencySamples:1234};
 	const state: SoundscaperNativeServicesDialogState = {...EMPTY_SOUNDSCAPER_NATIVE_SERVICES_DIALOG_STATE,pluginInstance:instance,pluginOffline:{instance,blocksRendered:2500,renderedSha256:'b'.repeat(64)}};
-	const html = renderToStaticMarkup(<EditorComponentCopyProvider copy={{}} locale="de"><SoundscaperNativeEffectManagePanel mode="use" state={state} copy={resolveSoundscaperNativeServicesCopy({'ui.soundscaperNative.latencyFrames':'Latenz: {count} Frames','ui.soundscaperNative.blocksRendered':'Blöcke: {count}'})} disabled={false} perform={noop} /></EditorComponentCopyProvider>);
+	const html = renderToStaticMarkup(<EditorComponentCopyProvider copy={{}} locale="de"><SoundscaperNativeEffectManagePanel state={state} copy={resolveSoundscaperNativeServicesCopy({'ui.soundscaperNative.latencyFrames':'Latenz: {count} Frames','ui.soundscaperNative.blocksRendered':'Blöcke: {count}'})} disabled={false} perform={noop} /></EditorComponentCopyProvider>);
 	assert.ok(html.includes('Latenz: 1.234 Frames')); assert.ok(html.includes('Blöcke: 2.500')); assert.ok(!html.includes('latency frames'));
 });
 test('an existing native host refreshes its separate root with the new locale and copy', () => {

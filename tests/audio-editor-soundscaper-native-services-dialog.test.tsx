@@ -517,7 +517,7 @@ test('the menu-opened surface mounts and unmounts one host, and nothing before i
 	assert.deepEqual(rendered, [], 'nothing is mounted until a menu entry asks for it');
 	host.open('native-effect-manage');
 	assert.equal(rendered.length, 1);
-	host.open('native-effect-use');
+	host.open('native-effect-manage');
 	assert.equal(rendered.length, 2, 'reopening reuses the one host rather than stacking dialogs');
 	assert.equal(appended.length, 1, 'one container, however often the menu opens the surface');
 	assert.equal(container.dataset.editorSurface, 'soundscaper-native-services');

@@ -134,6 +134,8 @@ SOUNDSCAPER_PRO_API soundscaper_pro_status soundscaper_pro_plugin_open(
 SOUNDSCAPER_PRO_API soundscaper_pro_status soundscaper_pro_plugin_process(
 	soundscaper_pro_plugin_instance *instance, const float *const *inputs, uint32_t input_channels,
 	float **outputs, uint32_t output_channels, uint32_t frames);
+SOUNDSCAPER_PRO_API soundscaper_pro_status soundscaper_pro_plugin_audio_topology(
+	soundscaper_pro_plugin_instance *instance, uint32_t *input_channels, uint32_t *output_channels);
 SOUNDSCAPER_PRO_API uint32_t soundscaper_pro_plugin_latency(soundscaper_pro_plugin_instance *instance);
 SOUNDSCAPER_PRO_API soundscaper_pro_status soundscaper_pro_plugin_save_state(
 	soundscaper_pro_plugin_instance *instance, uint8_t *bytes, size_t capacity, size_t *written);

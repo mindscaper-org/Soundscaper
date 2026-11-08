@@ -50,7 +50,7 @@ test('Advanced speaker diarization requires one installed model for each task', 
 		store.selectOperation('speaker-diarization');
 		assert.equal(store.getSnapshot().phase, 'unavailable');
 		assert.equal(store.getSnapshot().unavailableReason, 'no-compatible-model');
-		assert.deepEqual(store.getSnapshot().selectedModelIds, []);
+		assert.deepEqual(store.getSnapshot().selectedModelIds, models.map(({ modelId }) => modelId));
 		await store.dispose();
 	}
 });
@@ -85,18 +85,19 @@ test('Advanced speaker diarization keeps one exact binding per task independent 
 	}
 });
 
-test('speaker diarization renders one installed-model selector per required task', () => {
+test('speaker diarization renders a model selector only for a task with multiple installed models', () => {
 	const snapshot = selectionSnapshot({
 		selectedOperation: 'speaker-diarization',
 		models: Object.freeze([EMBEDDING_MODEL, SECOND_SEGMENTATION_MODEL, SEGMENTATION_MODEL]),
 		selectedModelIds: Object.freeze([SEGMENTATION_MODEL.modelId, EMBEDDING_MODEL.modelId]),
 	});
 	const markup = renderLocalAssistance(snapshot, null);
-	assert.match(markup, /Installed compatible model · speaker-segmentation/u);
-	assert.match(markup, /Installed compatible model · speaker-embedding/u);
+	assert.match(markup, /Model · speaker-segmentation/u);
+	assert.doesNotMatch(markup, /Model · speaker-embedding/u);
 	assert.match(markup, /<option value="segmentation-model" selected="">/u);
-	assert.match(markup, /<option value="embedding-model" selected="">/u);
-	assert.equal(markup.match(/<select/gu)?.length, 4);
+	assert.doesNotMatch(markup, /<option value="embedding-model"/u);
+	assert.equal(markup.match(/<select/gu)?.length, 2);
+	assert.doesNotMatch(markup, /Selected media/u);
 	assert.doesNotMatch(markup, /Mark Cuts mode/u);
 });
 

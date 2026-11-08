@@ -47,6 +47,9 @@ export const MACRO_NYQUIST_COPY_BY_LOCALE = Object.freeze({
 			webFileLimitTitle: 'Browser file limit reached',
 			webFileLimitDescription: 'One or more files could not be loaded within the browser\'s file size or storage limits. The desktop version can handle larger files.',
 			downloadDesktopVersion: 'Download desktop version',
+			webDesktopFeatureTitle: 'Desktop feature',
+			webDesktopFeatureDescription: 'This feature is not in the web version. Download the desktop version to use it.',
+			webDesktopFeatureDownload: 'Download',
 			export: 'Export',
 			exportDialog: 'Export audio',
 			render: 'Render',
@@ -110,5 +113,6 @@ export const MACRO_NYQUIST_COPY_BY_LOCALE = Object.freeze({
 			macroRunFailed: 'The macro could not be applied: {message}',
 			macroImportFailed: 'The macro could not be imported: {message}',
 			macroExportFailed: 'The macro could not be exported: {message}',
+			macroAutoDuckNativeControl: 'Audacity Auto Duck macros use the unselected audio track immediately below the last selected track. Other control-track choices cannot be retained.',
 	}),
 });

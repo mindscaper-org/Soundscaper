@@ -69,8 +69,8 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	const editorThemeVariables = useAudioEditorThemeVariables();
 	const parityRuntime = useControllerOwnedActionRuntime(controller, productId, locale);
 	const snapshot = useAudioEditorSnapshot(controller);
-	const [activeSurface, setActiveSurface] = useTakeCycleRecoverySurface(productId, snapshot.takeCycleRecovery);
-	useProjectRecoverySurface(productId, snapshot.startupProjectRecovery?.projectId, setActiveSurface);
+	const [activeSurface, setActiveSurface, surfaceRequestId] = useTakeCycleRecoverySurface(productId, snapshot.takeCycleRecovery);
+	useProjectRecoverySurface(productId, snapshot.projectRecovery?.projectId, setActiveSurface, snapshot.projectRecovery?.requestId);
 	usePrivacyPolicySurface(productId, initialSurface, setActiveSurface);
 	const { windows: effectWindows, open: setEffectWindow, close: closeEffectWindow } = useWorkspaceEffectWindows(snapshot.project?.id ?? null);
 	const [macroDraft, setMacroDraft] = useState(null);
@@ -208,7 +208,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 			: controller.actions.recording.pause());
 		if (snapshot.scheduledRecording || snapshot.recordingScheduling) return undefined;
 		const trackId = focusedRecordingTrackId(project, snapshot.selectedTrackId, showArmControls);
-		return run(() => controller.actions.recording.start({ trackId }));
+		return run(() => controller.actions.recording.start({ trackId, multitrack: showArmControls }));
 	}, [controller, project, run, showArmControls, snapshot.recording, snapshot.recordingKind, snapshot.recordingScheduling, snapshot.scheduledRecording, snapshot.selectedTrackId]);
 
 	const openTimedRecording = useCallback(() => {
@@ -266,8 +266,8 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		: snapshot.save?.state === 'dirty'
 			? copy.projectDirty
 			: copy.projectSaved;
-	const recordLabel = showArmControls ? copy.record : copy.recordActiveTrack;
-	const recordingTargetLocked = hasLockedRecordingTarget(project,
+	const recordLabel = snapshot.preferences.recording?.alwaysRecordToNewTrack ? copy.recordToNewTrack : showArmControls ? copy.record : copy.recordActiveTrack;
+	const recordingTargetLocked = !snapshot.preferences.recording?.alwaysRecordToNewTrack && hasLockedRecordingTarget(project,
 		focusedRecordingTrackId(project, snapshot.selectedTrackId, showArmControls), snapshot.recordingInputs?.routes);
 	const editItems = createWorkspaceEditItems({
 		copy, editBlocked, copyBlocked: blocked, editSelectionActive, selectedLabels: snapshot.selectedLabels, hasClipboard: Boolean(snapshot.history?.hasClipboard), splitAvailable: editingActions.split,
@@ -383,7 +383,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		fileService,
 		importInputRef,
 		locale,
-		openDesktopFiles,
+		openDesktopFiles, openProjectFile,
 		openEffects, openAssistanceSearch: assistanceSearchRuntime.openAssistanceSearch,
 		openExternal,
 		openGenerator,
@@ -436,7 +436,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		fileService,
 		isFullscreen,
 		onError,
-		openDesktopFiles,
+		openDesktopFiles, openProjectFile,
 		openDesktopProjectDescriptor,
 		openSurface,
 		run,
@@ -461,7 +461,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		toggleRecording, toolbarButtons: toolbarButtonPreferences, toolbars: toolbarPreferences, uiFlags, zoomProject, toolbarDock, onToolbarDock: setToolbarDock,
 	};
 	const overlayModel = createWorkspaceOverlayModel({
-		activeSurface, applicationMenus, aboutLabel, capabilities, closeNyquist,
+		activeSurface, surfaceRequestId, applicationMenus, aboutLabel, capabilities, closeNyquist,
 		controller, copy, dialog, displayAudioSupported, dialogTrackId, dialogValue,
 		effectWindows, editBlocked, fileService, confirmFileSizeWarning, generatorType, locale, macroDraft,
 		nyquistTarget, preferences, preferencesPage, projectBinEffectivelyOpen, productId,

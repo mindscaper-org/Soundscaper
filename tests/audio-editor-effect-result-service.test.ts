@@ -309,3 +309,12 @@ test('the editor mutation is one final commit after all source and analysis comm
 		'editor-commit',
 	]);
 });
+
+for (const materialize of [false, true]) test(`generated destination policy materializes a silent target only when requested: ${materialize}`, async () => {
+	const { service, events } = createHarness();
+	await service.persistAudacityEffectResults([{ target: target('track-1', { hasAudio: false }),
+		channels: [Float32Array.of(.25, .5)] }], null, { materializeSilentTargets: materialize });
+	assert.equal(events.sourcesWritten.length, materialize ? 1 : 0);
+	assert.equal(events.rangeReplacements.length, materialize ? 1 : 0);
+	assert.equal(events.commits.length, 1);
+});

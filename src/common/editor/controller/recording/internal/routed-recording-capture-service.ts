@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts'; import { publishLocalizedStatus } from '../../../../i18n/presentation-message.ts'; import type { RecordingCaptureControllerLike } from './recording-session-service.ts';
+import { raceAbortablePromise } from '../../../../foundation/abort-race.ts';
 import { isCurrentAssertion } from '../../shared/lifecycle.ts';
 import {
 	recordingCapturePeak, recordingCaptureChannelMeters,
@@ -19,7 +20,9 @@ import { timedRecordingStopFrame } from '../recording-model.ts';
 import { audibleRecordingStartTime, planRecordingStartTiming } from './recording-start-timing.ts';
 import { recordingSourceAlignment } from './recording-source-alignment.ts';
 import { assertRecordingTargetsUnlocked } from '../../../recording-target-admission.ts';
-import { recordingCaptureFailure, type RecordingCaptureOutcome } from './recording-start-ownership.ts';
+import { isRecordingCaptureAbort, recordingCaptureFailure, type RecordingCaptureOutcome } from './recording-start-ownership.ts';
+import { observeMediaInputInterruption } from '../../shared/media-input-interruption.ts';
+import { RecordingInputLossError } from '../../../recording-input-events.ts';
 import type {
 	RecordingMediaStream,
 	RecordingStartOptions,
@@ -28,9 +31,6 @@ import type {
 	RoutedRecordingEntry,
 	RoutedRecordingSourceSession,
 } from '../recording-transaction-types.ts';
-function errorName(error: unknown): string | undefined {
-	return (error as Readonly<{ name?: string }> | null)?.name;
-}
 
 function hasController(
 	session: RoutedRecordingSourceSession,
@@ -76,6 +76,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 			SoundActivatedRecordingCaptureSession
 		>();
 		let routedRecorder: ReturnType<RoutedRecordingCaptureRuntime['createRoutedController']> | null = null;
+		let finalizationRequested = false;
 		const ownsGeneration = () => scope.generation === state.recordingStartGeneration;
 		const isCurrent = () => {
 			if (!ownsGeneration()) return false;
@@ -86,7 +87,8 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 				&& routedRecorder?.state !== 'ready'
 				&& sourceSessions.length
 				&& sourceSessions.every((source) => source.stopped)
-				&& !state.recordingFinishing) {
+				&& !state.recordingFinishing && !finalizationRequested) {
+				finalizationRequested = true;
 				void runtime.finalizeRecording().catch(runtime.handleError);
 			}
 		};
@@ -146,7 +148,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 						sampleRate: runtime.recordingInputSampleRate?.() ?? sampleRate,
 					});
 				}
-				return { sourceKey, routes, promise };
+				return { sourceKey, routes, promise: raceAbortablePromise(promise, scope.signal) };
 			});
 			const settled = await Promise.allSettled(acquisitions.map(({ promise }) => promise));
 			scope.assertCurrent();
@@ -183,11 +185,10 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 					listeners: [],
 				};
 				sourceSessions.push(session);
-				for (const mediaTrack of stream.getTracks?.() || []) {
-					const disconnect = () => disconnectSession(session);
-					mediaTrack.addEventListener?.('ended', disconnect, { once: true });
-					session.listeners.push(() => mediaTrack.removeEventListener?.('ended', disconnect));
-				}
+				session.listeners.push(observeMediaInputInterruption({
+					tracks: stream.getTracks?.() ?? stream.getAudioTracks(),
+					onInterrupted: error => { if (isCurrent()) { state.recordingFatalError = error; disconnectSession(session); } },
+				}));
 				if (!runtime.recordingStreamIsLive(stream, session.kind)) disconnectSession(session);
 			}
 			await dropFailedSourceSessions();
@@ -207,7 +208,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 			}
 			const context = await runtime.engine.getAudioContext();
 			scope.assertCurrent();
-			await context.resume();
+			await Promise.all([context.resume(), runtime.soundActivation?.settled?.(scope.signal)]);
 			scope.assertCurrent();
 			await dropFailedSourceSessions();
 			scope.assertCurrent();
@@ -389,23 +390,19 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 							runtime.updatePlayhead();
 							runtime.publishRecordingPreview();
 						},
-						onError: handleFatalRecordingError,
+						onError: error => { if (!isCurrent()) return; if (error instanceof RecordingInputLossError) { state.recordingFatalError = error; disconnectSession(session); } else handleFatalRecordingError(error); },
 						onState: (recordingState) => {
 							if (recordingState !== 'stopped' || !isCurrent()) return;
 							soundActivation.cancel();
 							session.stopped = true;
-							if (state.recorder === routedRecorder
-								&& sourceSessions.every((source) => source.stopped)
-								&& !state.recordingFinishing) {
-								void runtime.finalizeRecording().catch(runtime.handleError);
-							}
+							maybeFinalizeDisconnectedSession();
 						},
 					});
 					session.controller = soundActivation.wrapController(createdController);
 					scope.assertCurrent();
 					if (!runtime.recordingStreamIsLive(session.stream, session.kind)) disconnectSession(session);
 				} catch (error) {
-					if (errorName(error) === 'AbortError') throw error;
+					if (isRecordingCaptureAbort(error)) throw error;
 					sourceFailures.push(error);
 					session.failed = true;
 					const health = runtime.recordingStreamIsLive(session.stream, session.kind)
@@ -425,6 +422,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 			state.recordingPreview = state.recordingPreviews[0] || null;
 			state.recordingSelection = selection ? { ...selection } : null;
 			state.recorder = routedRecorder;
+			routedRecorder.setInputGain(state.recordingInputGain);
 			const timing = planRecordingStartTiming({
 				project,
 				timedStartTimeMs: timedStart ? timedStartTimeMs : null,
@@ -458,15 +456,15 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 					}
 				}
 			};
-			const contextStateChange = () => {
-				if (context.state === 'suspended' && isCurrent() && state.recorder) {
-					void runtime.stopRecording().catch(runtime.handleError);
+			const cleanupContext = observeMediaInputInterruption({ context, onInterrupted: async error => {
+				if (isCurrent() && state.recorder && !state.recordingFinishing) {
+					state.recordingFatalError = error;
+					await runtime.stopRecording().catch(runtime.handleError);
 				}
-			};
-			context.addEventListener?.('statechange', contextStateChange);
+			} });
 			state.recordingCleanup = () => {
 				for (const session of sourceSessions) for (const remove of session.listeners) remove();
-				context.removeEventListener?.('statechange', contextStateChange);
+				cleanupContext();
 			};
 			runtime.engine.setLoop(false);
 			runtime.engine.seek(timing.seekFrame);
@@ -534,7 +532,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 				state.recordingFatalError = null;
 				runtime.releaseUnretainedRecordingInputs();
 				runtime.syncRecordingPoolSnapshot();
-			} else runtime.releaseUnretainedRecordingInputs();
+			} else if (ownsGeneration()) runtime.releaseUnretainedRecordingInputs();
 			return recordingCaptureFailure(error, handedOff, scope);
 		} finally {
 			if (isCurrent()) {

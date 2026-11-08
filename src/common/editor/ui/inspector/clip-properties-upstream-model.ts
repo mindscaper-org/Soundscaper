@@ -15,6 +15,7 @@ export interface PropertyClip {
 	readonly speedRatio?: number;
 	readonly pitchCents?: number;
 	readonly linkPitchAndTempo?: boolean;
+	readonly warpMap?: unknown;
 	readonly fadeInFrames?: number;
 	readonly fadeOutFrames?: number;
 	readonly fadeInShape?: number;

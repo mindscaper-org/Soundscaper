@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { deferred } from './helpers/async-test-control.ts';
 
 import { createAudioEditorEngine } from '../src/common/editor/engine/runtime-class.ts';
 import type { EngineProject } from '../src/common/editor/engine/types.ts';
@@ -133,4 +134,22 @@ test('loading a different project starts its loudness measurement afresh', async
 		await engine.dispose();
 		restore();
 	}
+});
+
+
+test('preparing a replacement leaves the shared session meter running until handoff', async () => {
+	const { engine, meter, sources, restore } = await playingMeteredEngine();
+	const context = await engine.getAudioContext();
+	const entered = deferred<void>(); const ready = deferred<void>();
+	context.resume = () => { entered.resolve(); return ready.promise; };
+	const sent = meter.messages.length;
+	try {
+		const applying = engine.applyProject(editorProject('Delayed edit'), sources);
+		await entered.promise;
+		assert.deepEqual(meter.messages.slice(sent).filter(({ type }) => type === 'reset' || type === 'running'), []);
+		assert.equal(engine.getLoudnessMeasurementState().running, true);
+		ready.resolve(); await applying;
+		assert.deepEqual(meter.messages.slice(sent).filter(({ type }) => type === 'reset'), []);
+		assert.deepEqual(meter.messages.at(-1), { type: 'running', running: true });
+	} finally { ready.resolve(); await engine.dispose(); restore(); }
 });

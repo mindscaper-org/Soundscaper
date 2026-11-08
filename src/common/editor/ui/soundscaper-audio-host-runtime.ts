@@ -2,8 +2,9 @@
 
 import { AudioHostError, audioHostOperation, type AudioHostFailureCode } from './audio-host-failure.ts';
 import { nativeAudioDeviceId, type NativeAudioDeviceReport, type NativeAudioInventoryReport } from '../controller/recording/native-audio-inventory.ts';
-import { createNativeAudioRouteOpenRequest, isNativeAudioStreamingBackend } from './soundscaper-native-audio-route.ts';
+import { createNativeAudioRouteOpenRequest, isNativeAudioStreamingBackend, nativeAudioInputChannelDemand } from './soundscaper-native-audio-route.ts';
 import type { NativeAudioAvailability, NativeAudioSessionOpenRequestV1, SoundscaperNativeServicesBridge } from './soundscaper-native-services-bridge.ts';
+import type { MicrophoneMeterInputReplacement } from '../controller/recording/microphone-meter-service.ts';
 
 interface AudioHostPreferences {
 	readonly inputAccess?: boolean;
@@ -16,12 +17,13 @@ interface AudioHostPreferences {
 
 export interface SoundscaperAudioHostController {
 	getSnapshot(): Readonly<{ audioDevices: AudioHostPreferences & Readonly<{ inputAccess?: boolean }>; recording?: boolean;
-		recordingStarting?: boolean; recordingFinishing?: boolean; recordingScheduling?: boolean; scheduledRecording?: unknown }>;
+		recordingStarting?: boolean; recordingFinishing?: boolean; recordingScheduling?: boolean; scheduledRecording?: unknown;
+		recordingInputs?: Readonly<{ routes: unknown }> }>;
 	subscribe(listener: () => void): () => void;
 	readonly actions: Readonly<{ audioDevices: Readonly<{
 		setHostInventory(host: string, inventory: NativeAudioInventoryReport | null): Promise<unknown>;
 		requestAccess(): Promise<unknown>;
-	}> }>;
+	}>; recording?: Readonly<{ prepareInputReplacement?(): MicrophoneMeterInputReplacement }> }>;
 }
 
 export interface SoundscaperAudioHostSnapshot {
@@ -80,10 +82,13 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 	let suppressChanges = false;
 	let disposed = false;
 	let disposal: Promise<void> | null = null;
+	let requestGeneration = 0;
+	let inputReplacement: MicrophoneMeterInputReplacement | null = null;
+	let inputAttachment: MicrophoneMeterInputReplacement | null = null;
 	const unsubscribe = controller.subscribe(() => {
 		if (disposed || suppressChanges || busy()) return;
 		const key = preferenceKey();
-		if (key === connectedKey || key === requestedKey) return;
+		if (key === requestedKey || key === connectedKey && !snapshot.pending) return;
 		requestedKey = key;
 		void enqueue(async () => {
 			await activate(preferences().host || 'electron', false);
@@ -116,7 +121,8 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			disposed = true;
 			unsubscribe();
 			if (RUNTIMES.get(controller) === runtime) RUNTIMES.delete(controller);
-			const pending = queue.then(closeSessions).finally(() => { listeners.clear(); });
+			const retired = settleInputReplacement('disposed');
+			const pending = Promise.all([queue, retired]).then(closeSessions).finally(() => { listeners.clear(); });
 			disposal = pending;
 			void pending.catch(() => { if (disposal === pending) disposal = null; });
 			return pending;
@@ -129,7 +135,14 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 	function preferenceKey(): string {
 		const value = preferences();
 		return [value.host, value.preferredInputDeviceId, value.preferredOutputDeviceId,
-			value.preferredInputChannelCount, value.recordingSampleRate].join('|');
+			value.preferredInputChannelCount, value.recordingSampleRate,
+			isNativeAudioStreamingBackend(value.host) ? inputChannelCount(value) : 0].join('|');
+	}
+	function inputChannelCount(value: AudioHostPreferences): number {
+		const input = inventory?.backend === value.host ? selectedDevice(inventory, 'input', value.preferredInputDeviceId) : null;
+		const deviceId = input ? nativeAudioDeviceId(value.host, 'audio-input', input.handle) : value.preferredInputDeviceId;
+		return Math.min(nativeAudioInputChannelDemand(value.preferredInputChannelCount, deviceId,
+			controller.getSnapshot().recordingInputs?.routes), input?.channelCount || 2);
 	}
 	function busy(): boolean {
 		const value = controller.getSnapshot();
@@ -144,14 +157,33 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 	function assertActive(): void { if (disposed) throw new AudioHostError('closed', 'The audio host workspace has closed.'); }
 	function enqueue(operation: () => Promise<void>): Promise<void> {
 		if (disposed) return Promise.resolve();
+		const request = ++requestGeneration;
 		queue = queue.then(async () => {
 			if (disposed) return;
 			publish({ pending: true, error: '', failureCode: null });
-			try { await operation(); }
+			let completed = false;
+			try { await operation(); completed = true; }
 			catch (error) { publish({ error: error instanceof Error ? error.message : String(error), failureCode: error instanceof AudioHostError ? error.code : 'operation' }); }
-			finally { requestedKey = preferenceKey(); publish({ pending: false }); }
+			finally {
+				try { await settleInputReplacement(disposed ? 'disposed' : request !== requestGeneration ? 'superseded' : completed ? 'ready' : 'failed'); }
+				catch (error) { publish({ error: error instanceof Error ? error.message : String(error), failureCode: 'operation' }); }
+				requestedKey = preferenceKey(); publish({ pending: false });
+			}
 		});
 		return queue;
+	}
+	async function settleInputReplacement(outcome: Parameters<MicrophoneMeterInputReplacement['finish']>[0]): Promise<void> {
+		const current = inputReplacement;
+		if (outcome === 'disposed') {
+			const attached = inputAttachment; inputReplacement = null; inputAttachment = null;
+			await Promise.all([current?.finish(outcome), attached !== current ? attached?.finish(outcome) : undefined]);
+			return;
+		}
+		if (!current) return;
+		if (outcome !== 'superseded') {
+			inputReplacement = null; inputAttachment = outcome === 'ready' ? current : null;
+		}
+		await current.finish(outcome);
 	}
 	async function readAvailability(): Promise<void> {
 		availability = await audioHostOperation('availability', () => bridge.nativeAudioHelperAvailability());
@@ -180,10 +212,12 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			if (!snapshot.hosts.some((candidate) => candidate.id === host)) {
 				throw new AudioHostError('unavailable', availability?.payload.detail || 'This native audio host is unavailable. Choose Electron or refresh audio devices.');
 			}
+			inputReplacement = controller.actions.recording?.prepareInputReplacement?.() ?? inputReplacement;
 			const context = await audioHostOperation('rate-mismatch', () => options.engine.getAudioContext({ resume: true, sampleRate: preferences().recordingSampleRate }));
 			assertActive();
 			if (context.sampleRate !== preferences().recordingSampleRate) throw new AudioHostError('rate-mismatch', 'The audio host could not use the selected recording sample rate. Choose another sample rate.');
 		}
+		if (host === 'electron') inputReplacement = controller.actions.recording?.prepareInputReplacement?.() ?? inputReplacement;
 		await closeSessions();
 		assertActive();
 		if (host === 'electron') {
@@ -205,9 +239,9 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 		}
 		if (!inventory) throw new AudioHostError('inventory', 'The selected host did not provide an audio device inventory.');
 		await setInventory(host, inventory);
-		const settings = preferences();
+		const settings = preferences(), routeKey = preferenceKey();
 		try {
-			for (const request of routeRequests(host, inventory, settings)) {
+			for (const request of routeRequests(host, inventory, settings, inputChannelCount(settings))) {
 				const opened = await audioHostOperation('session-open', () => bridge.openNativeAudioSession(request));
 				if (opened.status !== 'opened') throw new AudioHostError('session-open', opened.message);
 				sessions.add(opened.sessionId);
@@ -215,7 +249,7 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 				await audioHostOperation('session-open', () => bridge.bindNativeAudioSession({ sessionId: opened.sessionId, queueCapacity: 8 }));
 				assertActive();
 			}
-			connectedKey = preferenceKey();
+			connectedKey = routeKey;
 		} catch (error) { await closeSessions(); throw error; }
 	}
 	async function setInventory(host: string, value: NativeAudioInventoryReport | null): Promise<void> {
@@ -228,7 +262,7 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 	}
 }
 
-function routeRequests(host: string, inventory: NativeAudioInventoryReport, settings: AudioHostPreferences): readonly NativeAudioSessionOpenRequestV1[] {
+function routeRequests(host: string, inventory: NativeAudioInventoryReport, settings: AudioHostPreferences, inputChannels: number): readonly NativeAudioSessionOpenRequestV1[] {
 	if (!isNativeAudioStreamingBackend(host)) return [];
 	const input = selectedDevice(inventory, 'input', settings.preferredInputDeviceId);
 	const output = selectedDevice(inventory, 'output', settings.preferredOutputDeviceId);
@@ -237,7 +271,6 @@ function routeRequests(host: string, inventory: NativeAudioInventoryReport, sett
 		mode: host === 'asio' ? 'exclusive' : 'shared', sampleRate: settings.recordingSampleRate,
 		periodFrames: 256, channelCount,
 	});
-	const inputChannels = Math.min(settings.preferredInputChannelCount || 1, input?.channelCount || 2);
 	const outputChannels = Math.min(2, output?.channelCount || 2);
 	if (input && output && input.handle === output.handle && inputChannels === outputChannels) return [request(input, 'duplex', inputChannels)];
 	return [input ? request(input, 'input', inputChannels) : null, output ? request(output, 'output', outputChannels) : null]

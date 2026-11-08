@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { readClipLoop } from '../../../../audio-clip-loop.ts';
+import { clipPitchEditingAvailable } from '../../../../clip-time-pitch-playback-projection.ts';
 import { assertCameraAudioDurationChange } from './camera-audio-time-pitch-admission.ts';
 import { assertScalarTimePitchChange } from './scalar-time-pitch-admission.ts';
 
@@ -242,6 +243,10 @@ export function createClipPropertyService(
 		}
 		if (!Number.isFinite(speedRatio) || speedRatio < 0.001 || speedRatio > 1_000) {
 			throw createLocalizedError(RangeError, dependencies.copy, 'clipSpeedPositive');
+		}
+		if (changes.pitchCents != null && pitchCents !== 0 && pitchCents !== clip.pitchCents
+			&& !clipPitchEditingAvailable({ warpMap: clip.warpMap, linkPitchAndTempo: linked })) {
+			throw createLocalizedError(RangeError, dependencies.copy, 'clipIndependentPitchWarp');
 		}
 		const durationFrames = changes.speedRatio == null && !(linked && changes.pitchCents != null)
 			? clip.durationFrames

@@ -67,7 +67,8 @@ test.describe('File project management submenu', () => {
 		await expect(fileMenu.getByRole('menuitem').first()).toBeFocused();
 		const projectManagement = getMenuItem(fileMenu, 'Project management');
 		await page.keyboard.press('End');
-		await expect(projectManagement).toBeFocused();
+		await expect(fileMenu.getByRole('menuitem').last()).toBeFocused();
+		await projectManagement.focus();
 		await page.keyboard.press('ArrowRight');
 		const submenu = projectManagement.getByRole('menu');
 		const localProjects = getMenuItem(submenu, 'Local projects');

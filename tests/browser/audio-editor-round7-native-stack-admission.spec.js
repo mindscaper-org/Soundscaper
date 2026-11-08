@@ -58,8 +58,8 @@ async function openHostedStack(page) {
 	});
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [createWavFixture({ name: 'recording.wav', duration: 1, channelCount: 2 })]);
-	await chooseCommandAction(page, editor, 'Effect', 'Audio Plugins');
-	const dialog = page.getByRole('dialog', { name: 'Audio Plugins', exact: true });
+	await chooseCommandAction(page, editor, 'Effect', 'Plugin Manager');
+	const dialog = page.getByRole('dialog', { name: 'Plugin Manager', exact: true });
 	await dialog.getByRole('button', { name: 'Test Gain', exact: true }).click();
 	await dialog.locator('[data-native-plugin-instantiate="gain-install"]').click();
 	await expect.poll(() => page.evaluate(() => globalThis.__nativePluginParameterHost.persisted)).toBe(1);

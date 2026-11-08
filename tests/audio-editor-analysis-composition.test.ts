@@ -119,6 +119,31 @@ test('the immutable composition opts loudness into repeat caching while missing 
 	assert.equal(f.errors.length, 1);
 });
 
+test('spectrum composition overlays only selected audio tracks that contain clips', async () => {
+	const f = fixture();
+	const project = { ...f.dependencies.getProject()!,
+		clips: ['bass', 'lead', 'other'].map(id => ({ id, timelineStartFrame: 0, durationFrames: 2048 })),
+		tracks: [
+			{ id: 'empty', type: 'audio', clipIds: [] },
+			{ id: 'bass', name: 'Bass', color: 'blue', type: 'audio', clipIds: ['bass'] },
+			{ id: 'lead', name: 'Lead', color: 'orange', type: 'audio', clipIds: ['lead'] },
+			{ id: 'labels', type: 'label', clipIds: [] },
+			{ id: 'other', type: 'audio', clipIds: ['other'] },
+		],
+		selection: { startFrame: 0, endFrame: 2048, trackIds: ['empty', 'bass', 'lead', 'labels'], clipIds: [] },
+	};
+	const actions = createAnalysisComposition({ ...f.dependencies,
+		getProject: () => project, getActiveSelection: () => project.selection,
+		renderSnapshot: async () => ({ sampleRate: 48_000, numberOfChannels: 1, length: 2048,
+			getChannelData: () => new Float32Array(2048) }),
+	});
+	const report = await actions.plotSpectrum();
+	assert.ok(report && typeof report === 'object' && 'tracks' in report);
+	assert.deepEqual((report.tracks as Array<{ trackId: string; name: string; color: string }>).map(({ trackId, name, color }) =>
+		({ trackId, name, color })), [{ trackId: 'bass', name: 'Bass', color: 'blue' }, { trackId: 'lead', name: 'Lead', color: 'orange' }]);
+	assert.deepEqual(f.errors, []);
+});
+
 /** Compile-time checks only: a numeric scope must fail at both public boundaries. */
 export function checkAnalysisScopeTypes(
 	actions: ReturnType<typeof createAnalysisComposition>,

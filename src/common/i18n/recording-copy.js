@@ -8,6 +8,7 @@ export const RECORDING_COPY_BY_LOCALE = Object.freeze({
 			recordingOffsetSource: 'Recording source',
 			recordingDefaultInput: 'Default input',
 			recordingPreferences: 'Recording',
+			recordingAlwaysRecordToNewTrack: 'Always record to a new track',
 			recordingAllowInputs: 'Enable microphones',
 			recordingRefreshInputs: 'Refresh inputs',
 			recordingReleaseInputs: 'Disable microphones',

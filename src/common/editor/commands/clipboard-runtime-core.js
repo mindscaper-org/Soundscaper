@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { compareCodeUnits } from '../code-unit-order.ts';
+import { adoptMidiTransferContext, midiTransferExtensions } from './midi-transfer-context.ts';
 import { commandIdentity, setCommandIdentity } from './command-identity-map.ts';
 import {
 	assertFrame,
@@ -179,7 +180,7 @@ export function createClipboardRuntimeOwner(owner) {
 						...(typeof segment.linkPitchAndTempo === 'boolean' ? { linkPitchAndTempo: segment.linkPitchAndTempo } : {}),
 						...(typeof segment.preserveFormants === 'boolean' ? { preserveFormants: segment.preserveFormants } : {}),
 						...(typeof segment.stretchToTempo === 'boolean' ? { stretchToTempo: segment.stretchToTempo } : {}),
-						opaqueExtensions: structuredClone(segment.opaqueExtensions ?? {}),
+						opaqueExtensions: structuredClone(midiTransferExtensions(segment, track)),
 						...(Number.isSafeInteger(segment.renderCacheRevision) ? {
 							renderCacheRevision: segment.renderCacheRevision,
 						} : {}),
@@ -376,7 +377,7 @@ export function createClipboardRuntimeOwner(owner) {
 			project, clipboard, command, scale, atFrame, mode, conformedAnchorBySequenceId,
 		);
 		for (const { track, clip } of additions) {
-			project.clips.push(clip);
+			project.clips.push(adoptMidiTransferContext(clip, track));
 			track.clipIds.push(clip.id);
 		}
 		for (const track of new Set(additions.map((addition) => addition.track))) sortTrack(project, track);

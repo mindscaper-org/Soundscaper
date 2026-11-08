@@ -1,3 +1,4 @@
+import { iconNameToChar } from '../Icon/icon-codes.ts';
 import { useComponentCopy } from '../contexts/ComponentCopyContext';
 /**
  * NumberStepper - Number input with up/down arrows
@@ -31,6 +32,8 @@ export interface NumberStepperProps {
    * Change handler
    */
   onChange?: (value: string) => void;
+  /** Notify an owning field when an arrow button or key steps its draft. */
+  onStep?: (value: string) => void;
   /**
    * Tab index for keyboard navigation
    */
@@ -75,6 +78,7 @@ export const NumberStepper = React.forwardRef<HTMLInputElement, NumberStepperPro
   ariaLabel,
   disabled = false,
   onChange,
+  onStep,
   tabIndex,
   className = '',
   width,
@@ -119,6 +123,7 @@ export const NumberStepper = React.forwardRef<HTMLInputElement, NumberStepperPro
       setInternalValue(newStringValue);
     }
     onChange?.(newStringValue);
+    onStep?.(newStringValue);
   };
   const handleIncrement = () => handleStep(step);
   const handleDecrement = () => handleStep(-step);
@@ -194,7 +199,7 @@ export const NumberStepper = React.forwardRef<HTMLInputElement, NumberStepperPro
           disabled={disabled}
           tabIndex={-1}
         >
-          <span className="number-stepper__icon musescore-icon" aria-hidden="true">{'\uEF10'}</span>
+          <span className="number-stepper__icon musescore-icon" aria-hidden="true">{iconNameToChar('SMALL_ARROW_UP')}</span>
         </button>
         <button
           type="button"
@@ -204,7 +209,7 @@ export const NumberStepper = React.forwardRef<HTMLInputElement, NumberStepperPro
           disabled={disabled}
           tabIndex={-1}
         >
-          <span className="number-stepper__icon musescore-icon" aria-hidden="true">{'\uEF12'}</span>
+          <span className="number-stepper__icon musescore-icon" aria-hidden="true">{iconNameToChar('SMALL_ARROW_DOWN')}</span>
         </button>
       </div>
     </div>

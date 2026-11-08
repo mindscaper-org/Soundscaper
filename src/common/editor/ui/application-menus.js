@@ -41,6 +41,8 @@ import { resolveSelectionRange } from '../selection-range.ts';
 import { createOriginalFileOverwriteMenuItems } from './original-file-overwrite-menu.ts';
 import { repairSelectionAvailable } from './repair-menu-admission.ts';
 import { selectedTrackRemovalAvailable } from '../selected-track-removal.ts';
+import { createMidiExportMenuItems, createMidiTrackMenuItems } from './midi-application-menu.ts';
+import { isMidiClip } from '../midi-model.ts';
 
 /**
  * The video tracks an edit list would describe.
@@ -177,6 +179,7 @@ export default function createApplicationMenus({
 	const effectGroups = createEffectMenuEntries({
 		organization: preferences?.effects?.menuOrganization,
 		copy, effectLabels, productId, locale,
+		typeBlocked: actions.selectionEffectMutationLocked,
 		disabled: editBlocked || !effectTargeting.effectAudioTrack,
 		selectionActive: effectTargeting.explicitEffectSelectionActive,
 		allAudioTarget: effectTargeting.effectPreferenceTargetsAll,
@@ -244,6 +247,7 @@ export default function createApplicationMenus({
 					parityLabel: copy.audacityParityMatchExportOther,
 					items: [
 						...blenderItems.file,
+						...createMidiExportMenuItems({ copy, productId, blocked, midiAvailable: Boolean(project?.clips.some(isMidiClip)) }, { midi: actions.exportMidi, allegro: actions.exportAllegro }),
 						...(productId === 'soundscaper' ? [{ id: 'save-aup3', label: copy.saveAsAup3, preserveLabel: true, disabled: blocked, onClick: actions.saveAup3 }] : []),
 						...(productId === 'soundscaper' ? [{ id: 'save-aup4', label: copy.saveAsAup4, preserveLabel: true, disabled: blocked, onClick: actions.saveAup4 }] : []),
 						{
@@ -387,6 +391,7 @@ export default function createApplicationMenus({
 					label: copy.addNewTrack,
 					items: [
 						{ id: 'new-audio-track', label: copy.audioTrack, disabled: editBlocked, onClick: actions.addAudioTrack },
+						...createMidiTrackMenuItems({ copy, productId, blocked: editBlocked }, actions.addMidiTrack),
 						{ id: 'new-label-track', label: copy.labelTrack, disabled: editBlocked, onClick: actions.addLabelTrack },
 					],
 				},
@@ -400,7 +405,7 @@ export default function createApplicationMenus({
 				divider(),
 				{ id: 'mix-render', label: copy.mixRenderTitle, preserveLabel: true,
 					disabled: editBlocked || !mixableAudioSelected, onClick: actions.mixAndRender },
-				{ id: AUDIO_EDITOR_APPLICATION_MENU_ACTION_IDS.trackResample, label: copy.resample, disabled: editBlocked || !selectedAudioTrack, onClick: actions.openResample },
+				{ id: AUDIO_EDITOR_APPLICATION_MENU_ACTION_IDS.trackResample, label: copy.resample, disabled: editBlocked || !selectedAudioTrack || Boolean(selectedAudioTrack.locked), disabledReason: selectedAudioTrack?.locked ? copy.unlockTrack : undefined, onClick: actions.openResample },
 				structuralMenus.alignMenu,
 				structuralMenus.sortMenu,
 			],

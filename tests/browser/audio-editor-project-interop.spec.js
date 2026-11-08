@@ -117,7 +117,9 @@ test.describe('audio editor React/design-system workflows', () => {
 		await closeEffectsPanel(effectsPanel);
 
 		const analysisPanel = await openAnalysisPanel(page, editor);
-		await expect(analysisPanel.locator('[data-analysis-section]')).toHaveCount(5);
+		await expect(analysisPanel.locator('summary')).toHaveText([
+			'Live metering', 'EBU R 128', 'Frequency spectrum', 'Spectrogram', 'Correlation', 'ACX compliance',
+		]);
 		await analysisPanel.locator('[data-analysis-section="spectrum"] summary').click();
 		await analysisPanel.locator('[data-analysis-section="spectrogram"] summary').click();
 		await editor.getByRole('button', { name: 'Play', exact: true }).click();

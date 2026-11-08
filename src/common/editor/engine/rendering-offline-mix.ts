@@ -10,9 +10,7 @@ import {
 	positiveInteger,
 	sliceAudioBuffer,
 } from './buffer-math.ts';
-import {
-	scheduleProjectClips,
-} from './clip-scheduler.ts';
+import { scheduleRenderTimeline } from './rendering-timeline.ts';
 import {
 	ensureProjectWorklets,
 	getParametricEqWasmModule,
@@ -41,7 +39,7 @@ import type {
 import {
 	renderNativePluginRealtimePcmIfRequired,
 } from './native-plugin-realtime-render.ts';
-import { resolveRenderFrameRange, resolveRenderPreRollFrames, resolveRenderTailSeconds } from './rendering-range.ts';
+import { resolveRenderFrameRange, resolveRenderPreRollFrames, resolveRenderTailSeconds, resolveRenderTimelineRanges } from './rendering-range.ts';
 import type { EngineRenderMixOptions } from './public-api.ts';
 
 /**
@@ -63,17 +61,19 @@ export async function renderMix(this: EngineRuntimeHost, {
 		respectMuteSolo = true,
 		outputFrames: requestedOutputFrames = null,
 		preRollFrames = 0,
+		joinedRanges,
 		signal = null,
 		onProgress = null,
 	}: EngineRenderMixOptions = {}) {
 		if (!this.project) throw new Error('Load an audio editor project before rendering.');
 		const native = await renderNativePluginRealtimePcmIfRequired(this, {
 			startFrame, endFrame, includeTail, trackId, includeMaster, includeTrackPan,
-			respectMuteSolo, outputFrames: requestedOutputFrames, preRollFrames, signal, onProgress,
+			respectMuteSolo, outputFrames: requestedOutputFrames, preRollFrames, joinedRanges, signal, onProgress,
 		});
 		if (native) return native;
 		throwIfAborted(signal);
 		const { fromFrame, toFrame } = resolveRenderFrameRange(startFrame, endFrame);
+		const timeline = resolveRenderTimelineRanges(fromFrame, toFrame, joinedRanges);
 		const renderFromFrame = fromFrame - resolveRenderPreRollFrames(this.project, fromFrame, preRollFrames,
 			{ trackId, includeMaster, respectMuteSolo });
 		const warmupFrames = fromFrame - renderFromFrame;
@@ -85,7 +85,7 @@ export async function renderMix(this: EngineRuntimeHost, {
 			graph: this.projectGraphSelection ?? undefined,
 		});
 		const requestedLength = requestedOutputFrames == null
-			? Math.max(1, toFrame - fromFrame + tailFrames)
+			? Math.max(1, timeline.frameCount + tailFrames)
 			: positiveInteger(requestedOutputFrames, 1);
 		const captureOffset = warmupFrames + processingLatencyFrames;
 		const outputLength = captureOffset + requestedLength;
@@ -106,6 +106,7 @@ export async function renderMix(this: EngineRuntimeHost, {
 					includeMaster,
 					includeTrackPan,
 					respectMuteSolo,
+					joinedRanges,
 				});
 			}
 			throw new Error('OfflineAudioContext is not available in this browser.');
@@ -142,7 +143,7 @@ export async function renderMix(this: EngineRuntimeHost, {
 					parametricEqFailure ||= parametricEqProcessingError(error);
 				},
 			});
-			await scheduleProjectClips({
+			await scheduleRenderTimeline({
 				context,
 				project: this.project,
 				sources: this.sources,
@@ -162,7 +163,7 @@ export async function renderMix(this: EngineRuntimeHost, {
 				mode: 'offline',
 				signal,
 				onProgress,
-			});
+			}, timeline.ranges.map((range, index) => index ? range : { ...range, startFrame: renderFromFrame }));
 			throwIfAborted(signal);
 			const rendered = await abortable(context.startRendering(), signal);
 			assertOfflineRenderOutputBufferGeometry(rendered, admission);

@@ -6,8 +6,7 @@ import { useAccessibilityProfile } from '../contexts/AccessibilityProfileContext
 import { Button } from '../Button';
 import { GhostButton } from '../GhostButton';
 import { Icon, type IconName } from '../Icon';
-import { PanKnob } from '../PanKnob';
-import { Slider } from '../Slider';
+import { TrackControlPanelMuteSoloButtons, TrackControlPanelParameters } from './TrackControlPanelParameters';
 import { ToggleButton } from '../ToggleButton';
 import { Dropdown } from '../Dropdown';
 import { TrackMeter } from '../TrackMeter';
@@ -20,6 +19,7 @@ export interface TrackControlPanelProps {
   defaultVolume?: number;
   pan?: number; // -100 to 100
   panDisabled?: boolean;
+  parametersDisabled?: boolean;
   isMuted?: boolean;
   isSolo?: boolean;
   isFocused?: boolean;
@@ -112,6 +112,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
   defaultVolume = 75,
   pan = 0,
   panDisabled = false,
+  parametersDisabled = false,
   isMuted = false,
   isSolo = false,
   isFocused = false,
@@ -639,6 +640,12 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
   };
 
   const { theme } = useTheme(); const { copy } = useComponentCopy();
+  const parameterProps = {
+    copy, disabled: parametersDisabled, tabIndex: childTabIndex, volume, defaultVolume, pan, panDisabled,
+    isMuted, isSolo, onMuteToggle, onSoloToggle, onVolumeChange, onPanChange,
+    onVolumeGestureStart, onVolumeGestureEnd, onVolumeGestureCancel,
+    onPanGestureStart, onPanGestureEnd, onPanGestureCancel,
+  };
 
   const style = {
     '--tcp-bg-idle': theme.background.trackHeader.idle,
@@ -889,29 +896,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
 
             {/* Mute and Solo buttons in header for audio tracks <= 70px */}
             {!isLabelTrack && trackHeight && trackHeight <= 70 && (
-              <div
-                className="track-control-panel__button-group"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <ToggleButton
-                  active={isMuted}
-                  onClick={onMuteToggle}
-                  ariaLabel={copy.mute}
-                  tabIndex={childTabIndex}
-                  size={20}
-                >
-                  M
-                </ToggleButton>
-                <ToggleButton
-                  active={isSolo}
-                  onClick={onSoloToggle}
-                  ariaLabel={copy.solo}
-                  tabIndex={childTabIndex}
-                  size={20}
-                >
-                  S
-                </ToggleButton>
-              </div>
+              <TrackControlPanelMuteSoloButtons {...parameterProps} />
             )}
 
             <GhostButton
@@ -924,72 +909,7 @@ export const TrackControlPanel: React.FC<TrackControlPanelProps> = ({
         </div>
 
         {!isLabelTrack && (!trackHeight || trackHeight > 70) && (
-          <div className="track-control-panel__controls-row">
-            {/* Pan Knob — wrapped in a focusable slot so the outline
-                sits around the whole control. */}
-            <div
-              className="track-control-panel__slot track-control-panel__slot--pan"
-              data-tcp-slot="pan"
-              tabIndex={-1}
-              role="group"
-              aria-label={copy.pan}
-            >
-              <PanKnob
-                value={pan}
-                disabled={panDisabled}
-                onChange={onPanChange}
-                onGestureStart={onPanGestureStart}
-                onGestureEnd={onPanGestureEnd}
-                onGestureCancel={onPanGestureCancel}
-                tabIndex={childTabIndex}
-              />
-            </div>
-
-            {/* Volume Slider */}
-            <div
-              className="track-control-panel__slot track-control-panel__slot--volume"
-              data-tcp-slot="volume"
-              tabIndex={-1}
-              role="group"
-              aria-label={copy.volume}
-            >
-              <Slider
-                value={volume}
-                defaultValue={defaultVolume}
-                onChange={onVolumeChange}
-                onGestureStart={onVolumeGestureStart}
-                onGestureEnd={onVolumeGestureEnd}
-                onGestureCancel={onVolumeGestureCancel}
-                ariaLabel={copy.volume}
-                tabIndex={childTabIndex}
-              />
-            </div>
-
-            {/* Mute and Solo Buttons */}
-            <div
-              className="track-control-panel__button-group"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ToggleButton
-                active={isMuted}
-                onClick={onMuteToggle}
-                ariaLabel={copy.mute}
-                tabIndex={childTabIndex}
-                size={20}
-              >
-                M
-              </ToggleButton>
-              <ToggleButton
-                active={isSolo}
-                onClick={onSoloToggle}
-                ariaLabel={copy.solo}
-                tabIndex={childTabIndex}
-                size={20}
-              >
-                S
-              </ToggleButton>
-            </div>
-          </div>
+          <TrackControlPanelParameters {...parameterProps} />
         )}
 
         {/* Bottom row: Effects button + instrument dropdown (MIDI tracks) */}

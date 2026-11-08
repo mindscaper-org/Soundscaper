@@ -35,6 +35,16 @@ for (const unavailable of [false, true]) test(`selection before a ${unavailable 
 	await installLinkedAudioBridge(reopened, { original: toneA, changed: toneB }, { unavailable });
 	await reopened.goto(url);
 	const active = await waitForEditor(reopened);
+	if (unavailable) {
+		const recovery = reopened.getByRole('dialog', { name: 'Project recovery', exact: true });
+		await reopened.keyboard.press('Escape');
+		await expect(recovery).toBeHidden();
+		// Explicitly return to the degraded original to exercise healthy-range export.
+		await active.getByRole('tab', { name: 'Untitled project', exact: true }).first().click();
+		await expect(recovery).toBeVisible();
+		await reopened.keyboard.press('Escape');
+		await expect(recovery).toBeHidden();
+	}
 	await expect(active).toHaveAttribute('data-project-id', id);
 	await expect(active).not.toHaveAttribute('data-project-activation-pending', 'true');
 	const selected = clipByName(active, toneB.name); await selected.focus(); await selected.press('Enter');

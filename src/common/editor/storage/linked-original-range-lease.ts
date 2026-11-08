@@ -22,6 +22,7 @@ export interface LinkedOriginalRangeLease {
 	readonly locatorRevision: unknown;
 	readonly byteLength: unknown;
 	readonly mimeType: unknown;
+	readonly boundedReads?: boolean;
 	readRange(
 		request: LinkedOriginalRangeReadRequest,
 	): PromiseLike<Uint8Array> | Uint8Array;
@@ -67,6 +68,7 @@ export async function verifyLinkedOriginalRangeLease(
 		const source = createLinkedOriginalRangeByteSource({
 			size: lease.byteLength,
 			type: lease.mimeType,
+			boundedReads: lease.boundedReads,
 			readRange: lease.readRange,
 		});
 		await verifyRangeDigest(source, expected.sha256, signal);
@@ -98,13 +100,15 @@ function rangeLeaseValue(value: LinkedOriginalRangeLease): Readonly<{
 	locatorRevision: string;
 	byteLength: number;
 	mimeType: string;
+	boundedReads: boolean;
 	readRange(request: LinkedOriginalRangeReadRequest): PromiseLike<Uint8Array> | Uint8Array;
 	release(): PromiseLike<void> | void;
 }> {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) {
 		throw new TypeError('A linked original range lease is required.');
 	}
-	const fields = ['locatorRevision', 'byteLength', 'mimeType', 'readRange', 'release'];
+	const fields = ['locatorRevision', 'byteLength', 'mimeType', 'readRange', 'release',
+		...(Object.hasOwn(value, 'boundedReads') ? ['boundedReads'] : [])];
 	const keys = Reflect.ownKeys(value);
 	if (keys.length !== fields.length || keys.some((key) => !fields.includes(String(key)))) {
 		throw new TypeError('A linked original range lease must be a closed object.');
@@ -127,12 +131,16 @@ function rangeLeaseValue(value: LinkedOriginalRangeLease): Readonly<{
 	if (typeof value.readRange !== 'function' || typeof value.release !== 'function') {
 		throw new TypeError('A linked original range lease requires owned range operations.');
 	}
+	if (Object.hasOwn(value, 'boundedReads') && typeof value.boundedReads !== 'boolean') {
+		throw new TypeError('Linked original range read deadline ownership must be a boolean.');
+	}
 	const readRange = value.readRange;
 	const release = value.release;
 	return Object.freeze({
 		locatorRevision: value.locatorRevision,
 		byteLength: Number(value.byteLength),
 		mimeType: value.mimeType,
+		boundedReads: value.boundedReads === true,
 		readRange: (request: LinkedOriginalRangeReadRequest) => Reflect.apply(
 			readRange,
 			value,

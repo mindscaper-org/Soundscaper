@@ -142,6 +142,7 @@ export interface EffectSelectionServiceRuntime {
 
 export interface EffectTargetOptions {
 	readonly includeSilentTracks?: boolean;
+	readonly effectType?: string;
 }
 
 export interface EffectDefinitionForSelection {
@@ -228,7 +229,7 @@ export function createEffectSelectionService(runtime: EffectSelectionServiceRunt
 			return effectTargetsForRange(project, selection, new Set(selection.trackIds), options);
 		}
 		if (runtime.state.preferences?.editing?.applyEffectsToAllAudio === true
-			&& audioSelectionEffectAppliesToAllAudio(runtime.state.audacityEffectType)) {
+			&& audioSelectionEffectAppliesToAllAudio(options.effectType ?? runtime.state.audacityEffectType)) {
 			if (selection) return effectTargetsForRange(project, selection, null, options);
 			const range = projectAudioRange(project);
 			if (!range) return [];

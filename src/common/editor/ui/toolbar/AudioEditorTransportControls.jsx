@@ -361,7 +361,6 @@ export function AccessibleSelectionToolbar({
 		];
 		timecodes.forEach((timecode, index) => {
 			timecode.setAttribute('aria-label', timecodeLabels[index] || copy.selection);
-			timecode.setAttribute('aria-disabled', String(!canEdit && index < 2));
 			timecode.querySelector('.timecode__format-button')?.setAttribute(
 				'aria-label',
 				`${timecodeLabels[index] || copy.selection}: ${copy.format}`,
@@ -414,6 +413,7 @@ export function AccessibleSelectionToolbar({
 			}}
 		>
 			<SelectionToolbar
+				disabled={!canEdit}
 				selectionStart={selectionStart}
 				selectionEnd={selectionEnd}
 				status={showStatusbar ? statusMessage : ''}

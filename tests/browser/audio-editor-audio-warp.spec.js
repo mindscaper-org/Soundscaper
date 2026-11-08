@@ -205,7 +205,7 @@ test.describe('audio warp and transient workflow', () => {
 			.toContainText('This project is read-only.');
 		await expect(page.getByRole('dialog', { name: 'Project features unavailable', exact: true })).toHaveCount(0);
 		await expect(clipByName(editor, 'Warp drums')).toHaveCount(0);
-		await expect(editor.getByRole('menuitem', { name: 'Effect', exact: true })).toHaveCount(0);
+		await expect(editor.getByRole('menuitem', { name: 'Effect', exact: true })).toBeVisible();
 		await expect(editor.locator('[data-editor-surface="audio-warp"]')).toHaveCount(0);
 	});
 });

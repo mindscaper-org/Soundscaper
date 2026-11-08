@@ -20,6 +20,8 @@ interface MergeablePreferences extends Readonly<Record<string, unknown>> {
 	readonly effects?: object;
 	readonly performance?: object;
 	readonly advanced?: object;
+	readonly saving?: object;
+	readonly temporaryData?: object;
 	readonly startup?: object;
 }
 
@@ -48,6 +50,8 @@ export function mergePreferences(preferences: MergeablePreferences, patch: Merge
 		effects: { ...preferences.effects, ...patch.effects },
 		performance: { ...preferences.performance, ...patch.performance },
 		advanced: { ...preferences.advanced, ...patch.advanced },
+		saving: { ...preferences.saving, ...patch.saving },
+		temporaryData: { ...preferences.temporaryData, ...patch.temporaryData },
 		startup: { ...preferences.startup, ...patch.startup },
 	};
 }

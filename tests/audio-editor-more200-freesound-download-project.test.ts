@@ -6,6 +6,7 @@ import { createFreesoundWorkspaceActions } from '../src/common/editor/ui/workspa
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
+import { waitFor } from './helpers/async-test-control.ts';
 
 for (const retirement of ['new project', 'reopened generation', 'cancelled request']) test(`an outgoing Freesound download cannot hold ${retirement} admission`, async context => {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
@@ -26,6 +27,7 @@ for (const retirement of ['new project', 'reopened generation', 'cancelled reque
 	const outgoingRefusal = assert.rejects(outgoing, /project changed|no longer current|abort/iu);
 	let incomingOutcome: Promise<unknown> | undefined;
 	try {
+		await waitFor(() => requests === 1, 'the outgoing Freesound detail request');
 		const original = controller.project;
 		if (retirement === 'cancelled request') cancellation.abort();
 		else {
@@ -34,6 +36,7 @@ for (const retirement of ['new project', 'reopened generation', 'cancelled reque
 		}
 		const incoming = actions.importSound({ soundId: 43, destination: 'project-bin' });
 		incomingOutcome = incoming.then(() => null, (error: unknown) => error);
+		await waitFor(() => requests === 2, 'the replacement Freesound detail request');
 		assert.equal(requests, 2, 'the fresh project must reach its own file download');
 		details[0]!.resolve(Response.json({ data: soundWithoutPreview(42) }));
 		await outgoingRefusal;

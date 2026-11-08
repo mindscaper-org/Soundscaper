@@ -46,9 +46,10 @@ export type { RecordingRoute };
 
 export interface RecordingMediaTrack {
 	readonly readyState?: string;
+	readonly muted?: boolean;
 	getSettings?(): Readonly<{ readonly channelCount?: number; readonly latency?: number }>;
-	addEventListener?(type: 'ended', listener: () => void, options?: AddEventListenerOptions): void;
-	removeEventListener?(type: 'ended', listener: () => void): void;
+	addEventListener?(type: 'ended' | 'mute' | 'unmute', listener: () => void, options?: AddEventListenerOptions): void;
+	removeEventListener?(type: 'ended' | 'mute' | 'unmute', listener: () => void): void;
 }
 
 export interface RecordingMediaStream {
@@ -100,6 +101,7 @@ export interface RecordingWriterFinish {
 }
 
 export interface RecordingCaptureChunk {
+	readonly receiptTimeMs?: number;
 	readonly frameStart: number;
 	readonly frames: number;
 	readonly channels: readonly Float32Array[];
@@ -118,12 +120,15 @@ export interface RecordingSoundActivationSource {
  * identified input source.
  */
 export interface RecordingSoundActivationPort {
+	/** Wait for a requested durable preference before freezing a take's settings. */
+	settled?(signal?: AbortSignal): Promise<void>;
 	getSettings(source: RecordingSoundActivationSource): SoundActivationSettings | null;
 	getAddTimestamps?(source: RecordingSoundActivationSource): boolean;
 	setState(source: RecordingSoundActivationSource, state: SoundActivationGateState): void;
 }
 
 export interface RecordingControllerFactoryOptions {
+	readonly receiptTime?: () => number;
 	readonly chunkFrames?: number;
 	readonly maxPendingChunks?: number;
 	readonly context: RecordingAudioContext;

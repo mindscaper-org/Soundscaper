@@ -395,11 +395,13 @@ async function installCaptureHarness(page, options = {}) {
 		class FixtureMediaStreamTrackProcessor {
 			constructor({ track }) {
 				harness.audioProcessorConstructions += 1;
+				this.discardedFrames = 0;
+				this.totalFrames = 0;
 				const settings = track.getSettings();
 				const sampleRate = settings.sampleRate || 48_000;
 				const channelCount = settings.channelCount || 2;
 				const frames = 4_096;
-			const frameIntervalMs = audioFrameIntervalMs ?? Math.ceil(frames * 1_000 / sampleRate);
+				const frameIntervalMs = audioFrameIntervalMs ?? Math.ceil(frames * 1_000 / sampleRate);
 				let canceled = false;
 				let frameStart = 0;
 				let pending = null;
@@ -416,9 +418,11 @@ async function installCaptureHarness(page, options = {}) {
 									}
 									const start = frameStart;
 									frameStart += frames;
+									this.totalFrames += 1;
 									resolve({
 										done: false,
 										value: {
+											timestamp: Math.round(start * 1_000_000 / sampleRate),
 											numberOfFrames: frames,
 											numberOfChannels: channelCount,
 											sampleRate,

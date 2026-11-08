@@ -321,7 +321,7 @@ Exact formats and conditional availability are listed in the
 
 ### Embed chapter labels {#embedded-chapters}
 
-In the browser editor, choose **File → Export audio**, select **MP3** or
+In the browser or desktop editor, choose **File → Export audio**, select **MP3** or
 **AAC / M4A**, and enable **Embed labels as chapters** under **Audio options**.
 The option starts unchecked and includes label titles and times inside one
 mixed file. Add labels before exporting; stems, chapter splits, and mastering

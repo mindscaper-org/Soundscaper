@@ -4,6 +4,31 @@ import type { FoundationRuntimeConsumerEvidence } from './foundation-runtime-con
 
 export const FOUNDATION_FILE_DELIVERY_RUNTIME_CONSUMERS: readonly FoundationRuntimeConsumerEvidence[] = Object.freeze([
 	{
+		id: 'midi-clip-pitch-delivery-report', surface: 'interchange', file: 'src/common/editor/midi-file-delivery-report.ts',
+		entryPoint: 'addClipPitchOmissions', inputIdentifier: 'project', projectedIdentifier: 'clip', boundary: 'resolveRuntimeClipProjection',
+		evidence: 'MIDI delivery diagnostics resolve each authored clip before deriving the audible pitch shift omitted by the exported source-note stream.',
+	},
+	{
+		id: 'blender-stem-musical-range', surface: 'audio-export', file: 'src/common/editor/controller/export/blender-publication.ts',
+		entryPoint: 'publishBlenderTracks', inputIdentifier: 'original', projectedIdentifier: 'project', boundary: 'projectForRuntimeConsumers',
+		evidence: 'Blender stem publication resolves the authored project before computing track durations and render boundaries, preserving current musical placement through the desktop bridge.',
+	},
+	{
+		id: 'midi-file-export-geometry', surface: 'interchange', file: 'src/common/editor/midi-project-source-projection.ts',
+		entryPoint: 'midiClipOccurrences', inputIdentifier: 'project', projectedIdentifier: 'clip', boundary: 'resolveRuntimeClipProjection',
+		evidence: 'MIDI and Allegro export resolve each authored clip through the normalized current tempo map before clipping, stretching or reversing source-relative notes and events into delivered sample positions.',
+	},
+	{
+		id: 'mix-render-musical-range', surface: 'audio-export', file: 'src/common/editor/controller/track-audio/mix-render-model.ts',
+		entryPoint: 'createMixRenderPlan', inputIdentifier: 'project', projectedIdentifier: 'clips', boundary: 'resolveRuntimeClipProjection',
+		evidence: 'Mix rendering resolves each selected clip before deriving the delivered sample span, pre-roll and memory admission from current musical placement and duration.',
+	},
+	{
+		id: 'stereo-render-musical-range', surface: 'audio-export', file: 'src/common/editor/controller/track-audio/internal/stereo-track-render-range.ts',
+		entryPoint: 'stereoTrackRenderRange', inputIdentifier: 'project', projectedIdentifier: 'resolved', boundary: 'resolveRuntimeClipProjection',
+		evidence: 'Stereo conversion resolves selected clip geometry before finding the rendered programme boundaries and retaining the audible tails of each removed track rack.',
+	},
+	{
 		id: 'audio-source-readiness', surface: 'audio-export', file: 'src/common/editor/controller/export/audio-export-source-inventory.ts',
 		entryPoint: 'audioExportSourceInventory', inputIdentifier: 'project', projectedIdentifier: 'resolved', boundary: 'projectForRuntimeConsumers',
 		evidence: 'Audio source readiness resolves authored clip timing before excluding strictly future inputs from a selected output span; earlier inputs and full-project scalar cache dependencies remain available without changing the delivered render project.',

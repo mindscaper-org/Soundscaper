@@ -9,5 +9,7 @@ import { prepareDesktopAssistanceOnly } from './lib/desktop-assistance-runtime-p
 configureCiArtifactFetch();
 const targetId = `${process.env.SOUNDSCAPER_DESKTOP_TARGET_PLATFORM}-${process.env.SOUNDSCAPER_DESKTOP_TARGET_ARCH}`;
 await prepareDesktopAssistanceOnly({ repositoryRoot: resolve(import.meta.dirname, '..'), targetId,
-	sourceRevision: process.env.SOUNDSCAPER_SOURCE_REVISION });
+	sourceRevision: process.env.SOUNDSCAPER_SOURCE_REVISION,
+	handoffRoot: process.env.SOUNDSCAPER_ASSISTANCE_RUNTIME_HANDOFF_ROOT,
+	enginePartsRoot: process.env.SOUNDSCAPER_ASSISTANCE_ENGINE_PARTS_ROOT });
 console.log(`Prepared authenticated AI runtimes for ${targetId}.`);

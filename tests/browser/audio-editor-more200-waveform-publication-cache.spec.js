@@ -61,7 +61,7 @@ for (const operation of ['tone', 'nyquist', 'invert', 'encoded import', 'camera 
 		await importFiles(editor, [encoded ? { name: 'Microphone.bin', mimeType: 'application/octet-stream', buffer: Buffer.from(await encoded.arrayBuffer()) }
 			: createMonoCameraFixture('Camera.webm')]);
 	}
-	expect(await page.evaluate(() => globalThis.__waveformCacheFault.count)).toBeGreaterThan(0);
+	await expect.poll(() => page.evaluate(() => globalThis.__waveformCacheFault.count)).toBeGreaterThan(0);
 	await expect(editor).toHaveAttribute('data-clip-count', operation === 'camera import' ? '2' : '1');
 	const samples = await exportSamples(page, editor); expect(samples.length).toBeGreaterThan(1000);
 	expect(Math.max(...samples.slice(0, 48_000).map(Math.abs))).toBeGreaterThan(.05);

@@ -3,6 +3,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
+import { Icon } from '@soundscaper/design-system/Icon';
 
 import { formatLocalizedTemplate } from '../localization-template.ts';
 import { mouseShortcutBinding, mouseShortcutKey } from '../../mouse-shortcut.ts';
@@ -139,6 +140,7 @@ export function ShortcutEditorRow({ productId = 'soundscaper', command, commands
 	}, [persisted]);
 	const errorId = useId();
 	const bindingsRef = useRef<HTMLDivElement | null>(null);
+	const assignmentFocus = useRef<HTMLButtonElement | null>(null);
 	// Adding or removing a binding replaces the pressed control. Hand focus to
 	// the new field or the surviving control once React has rebuilt the row.
 	const [focusAfterChange, setFocusAfterChange] = useState<{ readonly selector: string } | null>(null);
@@ -165,7 +167,16 @@ export function ShortcutEditorRow({ productId = 'soundscaper', command, commands
 			: '';
 	const unchanged = draft.bindings.length === persisted.length
 		&& draft.bindings.every((binding, index) => binding === persisted[index]);
+	useLayoutEffect(() => {
+		const button = assignmentFocus.current;
+		if (!button || !unchanged) return;
+		assignmentFocus.current = null;
+		const document = button.ownerDocument;
+		if (command.disabled || (document.activeElement !== button && document.activeElement !== document.body)) return;
+		bindingsRef.current?.querySelector<HTMLInputElement>('[data-shortcut-binding="0"]')?.focus();
+	}, [unchanged, command.disabled]);
 	const updateDraft = (next: string[]) => {
+		assignmentFocus.current = null;
 		const saved = editableEntries(persisted);
 		unassignedDraft.current = next.length !== saved.length || next.some((entry, index) => entry !== saved[index]);
 		setEntries(next);
@@ -224,7 +235,7 @@ export function ShortcutEditorRow({ productId = 'soundscaper', command, commands
 							disabled={command.disabled}
 							aria-label={`${copy.shortcutRemoveBinding}: ${command.label} ${index + 1}`}
 							onClick={() => removeEntry(index)}
-						>{'\u00d7'}</button>}
+						><Icon name="close" size={12} /></button>}
 						{index === entries.length - 1 && <button
 							type="button"
 							className="kw-audio-editor-preferences__shortcut-add"
@@ -239,7 +250,9 @@ export function ShortcutEditorRow({ productId = 'soundscaper', command, commands
 			<Button
 				variant="secondary"
 				disabled={command.disabled || Boolean(error) || unchanged}
-				onClick={() => {
+				onClick={(event) => {
+					const button = event?.currentTarget;
+					assignmentFocus.current = button && button.ownerDocument.activeElement === button ? button : null;
 					unassignedDraft.current = false;
 					return run(() => controller.actions.preferences.setShortcut(preferenceId, draft.bindings));
 				}}

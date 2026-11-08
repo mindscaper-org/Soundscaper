@@ -31,18 +31,26 @@ test('commented-out CI commands and broken per-target rows cannot satisfy the pr
 	} finally { await rm(fixture, { recursive: true, force: true }); }
 });
 
-test('a broken package-generation import chain cannot satisfy the producer audit', async () => {
+test('package-generation audit follows alternate imports but rejects an unreachable builder', async () => {
 	const fixture = await producerFixture();
 	try {
-		const pipelinePath = join(fixture, 'scripts/lib/desktop-assistance-runtime-families.mjs');
-		const source = await readFile(pipelinePath, 'utf8');
-		await writeFile(pipelinePath, source.replace(
-			"import { stageDesktopLlamaCppRuntime } from './desktop-assistance-llama-runtime.mjs';",
-			"// import removed from './desktop-assistance-llama-runtime.mjs';",
-		), 'utf8');
+		for (const path of ['scripts/lib/desktop-assistance-runtime-families.mjs',
+			'scripts/lib/desktop-assistance-engine-parts.ts']) {
+			const pipelinePath = join(fixture, path);
+			const source = await readFile(pipelinePath, 'utf8');
+			const builderImport = "import { stageDesktopLlamaCppRuntime } from './desktop-assistance-llama-runtime.mjs';";
+			assert.ok(source.includes(builderImport), `${path} must import the builder before removal`);
+			await writeFile(pipelinePath, source.replace(builderImport,
+				"// import removed from './desktop-assistance-llama-runtime.mjs';"), 'utf8');
+			if (path.endsWith('runtime-families.mjs')) {
+				assert.deepEqual(auditNativePayloadProducers(fixture), { status: 'passed', findings: [] },
+					'the registered engine-parts route still reaches the builder');
+			}
+		}
 		const audit = auditNativePayloadProducers(fixture);
 		assert.equal(audit.status, 'failed');
-		assert.ok(audit.findings.some((finding) => finding.includes('assistance-llama-cpp pipeline')));
+		assert.ok(audit.findings.some((finding) => finding.includes('assistance-llama-cpp pipeline')
+			&& finding.includes('desktop-assistance-llama-runtime.mjs')));
 	} finally { await rm(fixture, { recursive: true, force: true }); }
 });
 

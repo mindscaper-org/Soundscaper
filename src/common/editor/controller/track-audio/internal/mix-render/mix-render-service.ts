@@ -216,7 +216,7 @@ export function createMixRenderService(
 							? job.plan.tailFrames / project.sampleRate : false,
 						includeMaster: false,
 						includeTrackPan: job.includeTrackPan,
-						respectMuteSolo: false,
+						respectMuteSolo: isSoundscaperProductionProject(job.renderProject),
 						preRollFrames: job.plan.preRollFrames,
 					});
 					assertOwned(ownership);
@@ -398,7 +398,7 @@ export function createMixRenderService(
 				includeTail: plan.tailFrames ? plan.tailFrames / sampleRate : false,
 				includeMaster: false,
 				includeTrackPan,
-				respectMuteSolo: false,
+				respectMuteSolo: isSoundscaperProductionProject(project),
 				preRollFrames: plan.preRollFrames,
 				outputFrames: plan.outputFrames,
 				sampleRate,

@@ -17,6 +17,7 @@ export interface VoiceActivityResult {
 }
 
 export interface VoiceActivityRequest {
+	readonly jobId?: string;
 	readonly modelId?: string;
 	readonly audioPath: string;
 	readonly model: Readonly<{ readonly model: string }>;

@@ -41,6 +41,7 @@ export function createReversedChunkSource(source: EngineChunkSource): EngineChun
 		frameCount: source.frameCount,
 		chunkFrames: source.chunkFrames,
 		sampleRate: source.sampleRate,
+		boundedReads: source.boundedReads,
 		async readStorageChunk(chunkIndex: number, context: EngineChunkReadContext = {}) {
 			const startFrame = chunkIndex * source.chunkFrames;
 			const endFrame = Math.min(source.frameCount, startFrame + source.chunkFrames);

@@ -62,6 +62,7 @@ export interface DawprojectTrack {
 	readonly id: string | null;
 	readonly name: string;
 	readonly color: string | null;
+	readonly loaded?: boolean;
 	readonly contentTypes: readonly string[];
 	readonly channel: DawprojectChannel | null;
 	readonly children: readonly DawprojectTrack[];
@@ -204,10 +205,12 @@ function parseTransport(element: XmlElement | null): DawprojectTransport {
 
 function parseTrack(element: XmlElement): DawprojectTrack {
 	const channel = childElement(element, 'Channel');
+	const loaded = booleanAttribute(element, 'loaded');
 	return Object.freeze({
 		id: attribute(element, 'id'),
 		name: attribute(element, 'name') ?? '',
 		color: attribute(element, 'color'),
+		...(loaded === null ? {} : { loaded }),
 		contentTypes: Object.freeze((attribute(element, 'contentType') ?? '').split(/\s+/u).filter(Boolean)),
 		channel: channel ? parseChannel(channel) : null,
 		children: Object.freeze(childElements(element, 'Track').map(parseTrack)),

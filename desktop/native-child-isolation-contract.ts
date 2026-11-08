@@ -32,6 +32,8 @@ export interface NativeChildIsolationPathGrant {
 }
 
 export interface NativeChildIsolationLaunchRequest {
+	/** Trusted Windows x64 VST2 compatibility only; sandbox launchers never receive this. */
+	readonly windowsVst2LowAddressHeap?: true;
 	readonly executable: NativeChildIsolationArtifactDescriptor;
 	readonly arguments: readonly string[];
 	readonly readOnly: readonly NativeChildIsolationPathGrant[];

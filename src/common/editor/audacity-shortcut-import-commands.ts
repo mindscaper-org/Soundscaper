@@ -14,13 +14,11 @@ const LEGACY_COMMANDS: Readonly<Record<string, string>> = Object.freeze({
 	SaveCopy: 'file-save-copy', Close: 'file-close', Export: 'export-audio',
 	ImportAudio: 'project-import', ExportLabels: 'export-labels', ImportLabels: 'import-labels',
 	ImportRaw: 'import-raw', Exit: 'quit',
-	DeleteKey: 'action://delete', DeleteKey2: 'action://delete',
+	Delete: 'delete-per-track-ripple', DeleteKey: 'delete-per-track-ripple', DeleteKey2: 'delete-per-track-ripple',
 	SplitCut: 'cut-leave-gap', SplitDelete: 'delete-leave-gap',
-	Cut: 'action://cut', Copy: 'action://copy', Paste: 'action://paste',
+	Cut: 'cut-per-track-ripple', Copy: 'action://copy', Paste: 'action://paste',
 	Silence: 'silence-audio-selection',
 	SelAllTracks: 'select-all-tracks', SelAll: 'select-all',
-	SelTrackStartToCursor: 'select-track-start-to-cursor',
-	SelCursorToTrackEnd: 'select-cursor-to-track-end',
 	SelTrackStartToEnd: 'select-track-start-to-end',
 	SelCursorStoredCursor: 'select-cursor-to-stored-cursor',
 	SelStore: 'store-selection', SelRestore: 'retrieve-selection',
@@ -32,22 +30,19 @@ const LEGACY_COMMANDS: Readonly<Record<string, string>> = Object.freeze({
 	CursTrackStart: 'cursor-to-track-start', CursTrackEnd: 'cursor-to-track-end',
 	CursProjectStart: 'action://playback/rewind-start',
 	CursProjectEnd: 'action://playback/rewind-end',
-	CursorLeft: 'play-position-decrease', CursorRight: 'play-position-increase',
 	TrackFocusUp: 'track-view-above-item', TrackFocusDown: 'track-view-below-item',
 	TrackFocusFirst: 'track-view-first-track', TrackFocusLast: 'track-view-last-track',
 	TrackFocusUpSelection: 'track-view-extend-track-selection-prev',
 	TrackFocusDownSelection: 'track-view-extend-track-selection-next',
 	TrackFocusToggle: 'track-view-toggle-selection',
 	PrevFrame: 'track-view-prev-panel', NextFrame: 'track-view-next-panel',
-	Play: 'action://playback/play', 'Play/Stop': 'action://playback/toggle-play-stop',
+	'Play/Stop': 'action://playback/toggle-play-stop',
 	Stop: 'action://playback/stop', Pause: 'action://playback/pause',
 	DefaultPlayStop: 'action://playback/toggle-play-stop',
-	PlayLooped: 'action://playback/toggle-play-from-cursor',
 	Record1stChoice: 'record-on-current-track', Record2ndChoice: 'record-on-new-track',
 	RecordNewTrack: 'record-on-new-track', Record: 'record-on-current-track',
 	AppendRecord: 'record-on-current-track',
-	MixAndRender: 'mix-render', MixAndRenderToNewTrack: 'mix-render',
-	AddLabel: 'label-add', AddLabelPlaying: 'label-add',
+	MixAndRender: 'mix-render',
 	FitInWindow: 'zoom-to-fit-project', FitVertically: 'fit-height',
 	ZoomSel: 'zoom-to-selection', ZoomSelection: 'zoom-to-selection',
 	FullScreenOnOff: 'fullscreen',
@@ -56,16 +51,20 @@ const LEGACY_COMMANDS: Readonly<Record<string, string>> = Object.freeze({
 	MacroManager: 'manage-macros', ApplyMacro: 'apply-macros-palette',
 });
 
+const LEGACY_CURSOR_COLLAPSE_COMMANDS = new Set([
+	'CursorLeft', 'CursorRight', 'CursorShortJumpLeft', 'CursorShortJumpRight',
+	'CursorLongJumpLeft', 'CursorLongJumpRight',
+]);
+const LEGACY_SELECTION_SCOPE_COMMANDS = new Set(['SelectNone', 'SelNextClip', 'SelPrevClip', 'SelectAll', 'SelAll', 'SelAllTracks']);
+
 const CONTEXTUAL_COMMANDS: Readonly<Record<string, string>> = Object.freeze({
 	'nav-next-section': 'track-view-next-panel', 'nav-next-panel': 'track-view-next-panel',
 	'nav-prev-section': 'track-view-prev-panel', 'nav-prev-panel': 'track-view-prev-panel',
 	'curs-project-start': 'action://playback/rewind-start',
 	'curs-project-end': 'action://playback/rewind-end',
 	'seek-left-short': 'play-position-decrease', 'seek-right-short': 'play-position-increase',
-	'seek-left-long': 'track-view-item-extend-left', 'seek-right-long': 'track-view-item-extend-right',
 	'sel-ext-left': 'track-view-item-extend-left', 'sel-ext-right': 'track-view-item-extend-right',
 	'sel-cntr-right': 'track-view-item-reduce-left', 'sel-cntr-left': 'track-view-item-reduce-right',
-	'track-close': 'remove-tracks', 'mix-and-render-to-new-track': 'mix-render',
 	'action://record/stop': 'action://playback/toggle-play-stop',
 	'pitch-up': 'realtime-effect-move-up', 'pitch-down': 'realtime-effect-move-down',
 });
@@ -80,6 +79,14 @@ const KNOWN_COMMANDS = new Set([
 export function audacityShortcutImportCommand(
 	command: string, legacy: boolean, availableActionIds?: ReadonlySet<string>,
 ): string | null {
+	// Native chronological sorting includes empty lanes at zero; local sorting keeps them last.
+	if (legacy && (command === 'SortByTime' || command === 'SortByName')) return null;
+	// Native Disjoin removes absolute zeros; local Disjoin also removes near silence.
+	if (legacy && command === 'Disjoin') return null;
+	// Native region/collapse commands retain facets that these local actions replace.
+	if (legacy && (LEGACY_SELECTION_SCOPE_COMMANDS.has(command) || LEGACY_CURSOR_COLLAPSE_COMMANDS.has(command))) return null;
+	// Native label commands have fixed modes; the local action follows transport state.
+	if (legacy && (command === 'AddLabel' || command === 'AddLabelPlaying')) return null;
 	const sourceId = legacy
 		? LEGACY_COMMANDS[command] ?? command.replace(/([a-z\d])([A-Z])/gu, '$1-$2').toLowerCase()
 		: command;

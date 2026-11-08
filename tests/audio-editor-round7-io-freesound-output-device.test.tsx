@@ -6,6 +6,7 @@ import React, { act } from 'react';
 import { FreesoundPanelContainer } from '../src/common/editor/ui/workspace/FreesoundPanelContainer.tsx';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import { settle } from './helpers/async-test-control.ts';
 
 const SOUND = {
 	id: 42, name: 'Rain.ogg', creator: { username: 'field-recorder', pageUrl: 'https://freesound.org/people/field-recorder/' },
@@ -51,7 +52,7 @@ for (const [initialOutput, delayed] of [['', false], ['speakers-a', false], ['sp
 	try {
 		await render(initialOutput);
 		await act(async () => reactProps(dom.one('input')).onChange({ currentTarget: { value: 'rain' } }));
-		await act(async () => reactProps(dom.one('form')).onSubmit({ preventDefault() {} }));
+		await act(async () => { reactProps(dom.one('form')).onSubmit({ preventDefault() {} }); await settle(); });
 		await clickPreview('Play preview');
 		assert.equal(audios.length, 1);
 		const audio = audios[0]!;

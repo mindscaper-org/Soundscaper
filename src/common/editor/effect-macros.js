@@ -1,8 +1,11 @@
 import { parseMacroParameters } from './audacity-macro-parameter-parser.ts';
 import { audacityMacroParserFailure, macroSyntaxError } from './audacity-macro-parser-failure.ts';
 import { normalizeCommandParameterName } from './audacity-command-parameters.js';
+import { importedAudacitySelectionParameters } from './audacity-macro-select-commands.ts';
 import {
 	AUDACITY_EFFECT_MACRO_COMMANDS,
+	AUDACITY_AUTO_DUCK_NATIVE_CONTEXT,
+	assertNativeAutoDuckMacroControl,
 	audacityMacroEffectDefaults,
 	audacityMacroEffectProfile,
 	decodeAudacityMacroEffectParameters,
@@ -65,6 +68,7 @@ export function serializeAudacityEffectMacro(effects) {
 			continue;
 		}
 		const normalized = normalizeEffectMacroStep(effect);
+		assertNativeAutoDuckMacroControl(normalized);
 		const command = audacityMacroCommand(normalized.type);
 		if (command) {
 			const parameters = encodeAudacityMacroEffectParameters(normalized.type, normalized.params)
@@ -177,7 +181,7 @@ export function createEffectMacroDraft(options = {}) {
 /**
  * Normalize a macro manager draft to its settings-only model. Effect routing,
  * processor state, disabled entries, and other rack-only metadata are omitted;
- * a portable Noise Reduction profile is retained with its step.
+ * portable Noise Reduction profiles and native Auto Duck binding rules are retained.
  */
 export function normalizeEffectMacroDraft(value, options = {}) {
 	if (!isPlainObject(value)) throw new TypeError('An effect macro draft must be an object.');
@@ -211,6 +215,11 @@ export function normalizeEffectMacroDraft(value, options = {}) {
 				noiseProfile: candidate.context.noiseProfile,
 			});
 		}
+		if (candidate?.type === 'audacity-auto-duck'
+			&& candidate.context?.audacityControlTrackPolicy === AUDACITY_AUTO_DUCK_NATIVE_CONTEXT.audacityControlTrackPolicy
+			&& (candidate.context.controlTrackId == null || candidate.context.controlTrackId === '')) {
+			effectOptions.context = AUDACITY_AUTO_DUCK_NATIVE_CONTEXT;
+		}
 		const effect = createEffectMacroStep(candidate?.type, effectOptions);
 		effects.push(freezeValue(effect));
 		if (effects.length > MAX_MACRO_EFFECTS) throw new RangeError('An effect macro has too many steps.');
@@ -231,10 +240,8 @@ function audacityMacroCommand(type) {
 }
 
 /**
- * Read a command line into a step that keeps only the parameters it carried.
- *
- * A fixed temporary ID validates the vocabulary and every supplied range before
- * any caller-provided ID factory is touched, the way the effect path does.
+ * Preserve native time defaults at import; local command creation keeps its
+ * separate omitted-edge behavior. Validate before touching the ID factory.
  */
 function parseMacroCommand(command, profile, fields) {
 	const nativeNames = new Map(profile.params.map((descriptor) => [
@@ -246,7 +253,7 @@ function parseMacroCommand(command, profile, fields) {
 		if (!descriptor) throw new RangeError(`Unsupported ${command} parameter: ${name}.`);
 		params[descriptor.model] = decimalCommaValue(rawValue);
 	}
-	return createMacroCommandStep(command, { id: 'macro-parse-validation', params });
+	return createMacroCommandStep(command, { id: 'macro-parse-validation', params: importedAudacitySelectionParameters(command, params) });
 }
 
 function parseAudacityEffect(type, command, fields) {
@@ -283,6 +290,7 @@ function parseAudacityEffect(type, command, fields) {
 	return createEffectMacroStep(type, {
 		id: 'macro-parse-validation',
 		params: { ...audacityMacroEffectDefaults(type), ...params },
+		...(type === 'audacity-auto-duck' ? { context: AUDACITY_AUTO_DUCK_NATIVE_CONTEXT } : {}),
 	});
 }
 

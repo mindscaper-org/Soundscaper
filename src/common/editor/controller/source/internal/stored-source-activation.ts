@@ -48,7 +48,7 @@ export async function activateStoredSourceWithProgress<Buffer, Provider, Peaks, 
 	signal?.throwIfAborted();
 	const peakKey = runtime.peakCacheKey(source.id);
 	try {
-		await saveOptionalWaveformPeaks(() => runtime.store.saveAnalysis(peakKey, peaks));
+		if (options.persistPeaks !== false) await saveOptionalWaveformPeaks(() => runtime.store.saveAnalysis(peakKey, peaks));
 		signal?.throwIfAborted();
 		runtime.sourcePeaks.set(source.id, peaks);
 		onProgress?.(1);

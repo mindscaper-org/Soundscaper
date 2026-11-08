@@ -55,11 +55,15 @@ test('a failed packaged soak relaunch leaves no retired runtime for final cleanu
 		installRuntimeHooks() {},
 		async prepareContext() {},
 		async waitForEditor() {},
-		launchRuntime: (options: { profile: string }) => {
+		launchRuntime: (options: { profile: string; initializePreferences: boolean }) => {
+			assert.equal(options.initializePreferences, true);
 			profiles.push(options.profile);
 			return Promise.resolve(runtime);
 		},
-		relaunchRuntime: () => Promise.reject(relaunchError),
+		relaunchRuntime: (options: { initializePreferences?: boolean }) => {
+			assert.notEqual(options.initializePreferences, true, 'recovery must not be blocked by Preferences');
+			return Promise.reject(relaunchError);
+		},
 	});
 	const profile = profiles[0];
 	assert.ok(profile);

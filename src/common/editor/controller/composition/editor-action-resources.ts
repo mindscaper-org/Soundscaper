@@ -21,13 +21,22 @@ import type { TrimMediaFfmpegHost } from '../document/trim-media-service.ts';
 import type { ExportActionState } from '../export/export-action-group.ts';
 import type { EditorTaskScope } from '../shared/lifecycle.ts';
 import type { InterchangeProductProjection } from '../../interchange-multicamera-delivery.ts';
+import type { ProjectOpenRecoveryRuntime } from '../document/project-open-recovery.ts';
+import type { SelectedLabelState } from '../../label-clipboard-selection.ts';
+import type { MicrophoneMeterService } from '../recording/microphone-meter-service.ts';
+import type { DocumentProject } from '../document/document-composition-types.ts';
 
 type EffectLibraryState =
 	& EffectMacroLibraryServiceRuntime['state']
 	& MacroScriptLibraryServiceRuntime['state']
 	& Pick<EffectControlsState, 'audacityEffectType' | 'effectPresets'>;
-interface EditorActionState extends ExportActionState {
+interface EditorActionState extends ExportActionState, SelectedLabelState {
+	readonly readOnly?: boolean;
+	readonly projectActivationPending?: boolean;
+	readonly phase?: string;
+	projectRecovery?: ProjectOpenRecoveryRuntime['state']['projectRecovery'];
 	selectedTrackId: string | null;
+	readonly selectedClipId?: string | null;
 	readonly timelineView: string;
 	readonly preferences?: Readonly<{
 		readonly waveformVisualization?: Readonly<{
@@ -41,11 +50,19 @@ interface EditorActionState extends ExportActionState {
 	readonly playAtSpeedRate: number;
 	readonly recorder: unknown;
 	readonly recordingStarting: boolean;
+	readonly preferredOutputDeviceId?: string;
+	readonly recordingAdmissionPending?: boolean;
 	readonly timedRecording: unknown;
 	readonly timedRecordingPreparing: boolean;
 }
 
 export interface EditorActionResources {
+	readonly prepareMicrophoneMeterInputReplacement?: MicrophoneMeterService['prepareInputReplacement'];
+	readonly previewMidiTransfer?: import('./controller-bindings.ts').ControllerBindingServices['previewMidiTransfer'];
+	readonly midiController?: import('./internal/midi-controller-port.ts').MidiControllerPort;
+	readonly prepareEffectSnapshotSources?: (project: DocumentProject, signal: AbortSignal) => Promise<unknown>;
+	readonly onProjectOpenFailure?: ProjectOpenRecoveryRuntime['onProjectOpenFailure'];
+	readonly assertActive?: () => void;
 	readonly AUDIO_EDITOR_DEFAULT_SHORTCUTS: typeof AUDIO_EDITOR_DEFAULT_SHORTCUTS;
 	readonly analysisService: AnalysisActions;
 	readonly audioWarpService: ReturnType<typeof createTrackAudioComposition>['audioWarp'];
@@ -85,5 +102,6 @@ export interface EditorActionResources {
 	readonly locale?: string;
 	readonly macroScriptStartedAt?: () => string;
 	readonly startMacroScriptTask: () => EditorTaskScope;
+	readonly startMidiPreviewTask: () => EditorTaskScope;
 	readonly onMacroScriptLog?: (entry: Readonly<{ level: 'info' | 'warn' | 'error'; text: string; at: number }>) => void;
 }

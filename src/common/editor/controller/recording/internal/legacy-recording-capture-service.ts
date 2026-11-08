@@ -6,6 +6,7 @@ import { createLocalizedError } from '../../../../i18n/presentation-message.ts';
 	RecordingStartScope,
 	RecordingSourceWriter,
 } from '../recording-transaction-types.ts';
+import { raceAbortablePromise } from '../../../../foundation/abort-race.ts';
 import { isCurrentAssertion } from '../../shared/lifecycle.ts';
 import type { RecordingCaptureControllerLike } from './recording-session-service.ts';
 import {
@@ -21,6 +22,7 @@ import { recordingSourceAlignment } from './recording-source-alignment.ts';
 import { assertRecordingTargetsUnlocked } from '../../../recording-target-admission.ts';
 import { probeCaptureAudioInputChannelCount } from '../../../capture-audio-input-channel-probe.ts';
 import { recordingCaptureFailure, type RecordingCaptureOutcome } from './recording-start-ownership.ts';
+import { observeMediaInputInterruption, MediaInputLostError } from '../../shared/media-input-interruption.ts';
 
 /**
  * Perform the browser-facing default-input capture transaction. Promise
@@ -64,11 +66,12 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 				&& (!stream || !runtime.recordingStreamIsLive(stream, 'device'))) {
 				throw createLocalizedError(Error, { ['recordingPreparedInputClosed']: runtime.messages.preparedInputClosed }, 'recordingPreparedInputClosed');
 			}
-			if (!options.reusePreparedInputsOnly || !stream) stream = await runtime.capturePool.acquireHardware(runtime.defaultDeviceId, {
+			if (!options.reusePreparedInputsOnly || !stream) stream = await raceAbortablePromise(runtime.capturePool.acquireHardware(runtime.defaultDeviceId, {
 				channelCount: 2,
 				sampleRate: runtime.recordingInputSampleRate?.() ?? sampleRate,
-			});
+			}), scope.signal);
 			scope.assertCurrent();
+			if (!runtime.recordingStreamIsLive(stream, 'device')) throw new MediaInputLostError('The recording input disconnected before recording could start.');
 			runtime.syncRecordingPoolSnapshot();
 			if (!timedStart) {
 				await runtime.beginPlaybackCachePreparation(project);
@@ -76,7 +79,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 			}
 			const context = await runtime.engine.getAudioContext();
 			scope.assertCurrent();
-			await context.resume();
+			await Promise.all([context.resume(), runtime.soundActivation?.settled?.(scope.signal)]);
 			scope.assertCurrent();
 			await runtime.startMicrophoneMetering();
 			scope.assertCurrent();
@@ -183,6 +186,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 			});
 			recorder = soundActivation.wrapController(createdRecorder);
 			scope.assertCurrent();
+			if (!runtime.recordingStreamIsLive(stream, 'device')) throw new MediaInputLostError('The recording input disconnected while recording was being prepared.');
 			state.recordingStartFrame = recordingStartFrame;
 			state.recordingSourceOffsetFrames = persistedSourceOffsetFrames;
 			state.recordingPreview = preview;
@@ -195,6 +199,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 			state.recordingResampler = previewResampler;
 			state.recordingSampleRate = captureSampleRate;
 			state.recorder = recorder;
+			recorder.setInputGain(state.recordingInputGain);
 			const timing = planRecordingStartTiming({
 				project,
 				timedStartTimeMs: timedStart ? timedStartTimeMs : null,
@@ -225,20 +230,15 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 						: undefined),
 				};
 			};
-			const interrupt = () => {
+			const interrupt = async (error: Error) => {
 				if (ownsStart() && state.recorder && !state.recordingFinishing) {
-					void runtime.stopRecording().catch(runtime.handleError);
+					state.recordingFatalError = error;
+					await runtime.stopRecording().catch(runtime.handleError);
 				}
 			};
-			inputTrack?.addEventListener?.('ended', interrupt, { once: true });
-			const contextStateChange = () => {
-				if (context.state === 'suspended' && state.recorder) interrupt();
-			};
-			context.addEventListener?.('statechange', contextStateChange);
-			state.recordingCleanup = () => {
-				inputTrack?.removeEventListener?.('ended', interrupt);
-				context.removeEventListener?.('statechange', contextStateChange);
-			};
+			state.recordingCleanup = observeMediaInputInterruption({
+				tracks: stream.getTracks?.() ?? stream.getAudioTracks(), context, onInterrupted: interrupt,
+			});
 			runtime.engine.setLoop(false);
 			runtime.engine.seek(timing.seekFrame);
 			if (timedStart) {
@@ -296,7 +296,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 				await Promise.resolve(recorder?.dispose?.({ stopTracks: false })).catch(() => undefined);
 				await writer?.abort().catch(() => undefined);
 			}
-			runtime.releaseUnretainedRecordingInputs();
+			if (ownsGeneration()) runtime.releaseUnretainedRecordingInputs();
 			if (ownsStart()) {
 				runtime.syncRecordingPoolSnapshot();
 				state.recorder = null;

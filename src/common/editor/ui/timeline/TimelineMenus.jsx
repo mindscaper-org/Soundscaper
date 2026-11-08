@@ -299,7 +299,7 @@ export function TimelineMenus({
 					}}
 					onClose={() => setClipMenu(null)}
 				/>
-				<ClipFadeMenuEntries clip={menuClip} copy={copy} disabled={mutationsBlocked} onClose={() => setClipMenu(null)} onRemove={(id, changes) => run(() => {
+				<ClipFadeMenuEntries clip={menuClip} copy={copy} disabled={mutationsBlocked} onClose={() => setClipMenu(null)} onChange={(id, changes) => run(() => {
 					const command = clipFadeChangeCommand(project, id, sampleRate, changes);
 					if (command) controller.actions.edit.commit(command);
 				})} />

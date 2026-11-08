@@ -16,6 +16,8 @@ export function installReactTestDom(): ReactTestDom {
 		document, Node: ReactTestNode, Element: ReactTestElement, HTMLElement: ReactTestElement,
 		HTMLIFrameElement: class {}, addEventListener() {}, removeEventListener() {},
 		getSelection: () => null, location: { protocol: 'http:' },
+		getComputedStyle: (element: ReactTestElement) => ({ display: String(Reflect.get(element.style, 'display') ?? ''),
+			visibility: String(Reflect.get(element.style, 'visibility') ?? '') }),
 		// Components that defer work through the window timers rather than the
 		// bare globals still have to run under the fake document.
 		setTimeout: globalThis.setTimeout.bind(globalThis),

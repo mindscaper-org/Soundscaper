@@ -40,8 +40,13 @@ for (const mode of ['staffpad', 'cut-preview', 'exact-warp'] as const) test(`${m
 	const readings: EngineMeterSnapshot[] = [];
 	const engine = createAudioEditorEngine({ audioContextFactory: () => device as unknown as AudioContext,
 		offlineAudioContextFactory: null, audioWarpRealtimeAcceleration: false, meterInterval: 10,
-		softwareRenderer: options => ({ sampleRate, channels: [new Float32Array(Number(options.endFrame) - Number(options.startFrame)).fill(.4),
-			new Float32Array(Number(options.endFrame) - Number(options.startFrame)).fill(-.4)] }),
+		softwareRenderer: options => {
+			const outputFrames = Array.isArray(options.joinedRanges) ? options.joinedRanges.reduce((total: number, range: unknown) => {
+				assert.ok(range && typeof range === 'object' && 'startFrame' in range && 'endFrame' in range);
+				return total + Number(range.endFrame) - Number(range.startFrame);
+			}, 0) : Number(options.endFrame) - Number(options.startFrame);
+			return { sampleRate, channels: [new Float32Array(outputFrames).fill(.4), new Float32Array(outputFrames).fill(-.4)] };
+		},
 		onMeter: reading => { readings.push(reading); } });
 	context.after(async () => { await engine.dispose(); });
 	engine.loadProject(project, new Map([['source', new MockAudioBuffer(2, frames, sampleRate) as unknown as AudioBuffer]]));

@@ -52,7 +52,7 @@ export function flacPictureBytes(picture: Id3Artwork): Uint8Array<ArrayBuffer> {
 	const description = encoder.encode(picture.description);
 	const size = pictureDimensions(bytes, picture.mimeType);
 	return metadataBytes(big32(picture.pictureType), big32(mime.length), mime,
-		big32(description.length), description, big32(size.width), big32(size.height), big32(size.depth), big32(0), big32(bytes.length), bytes);
+		big32(description.length), description, big32(size.width), big32(size.height), big32(size.depth), big32(size.colors), big32(bytes.length), bytes);
 }
 
 export function artworkComments(metadata: Readonly<Record<string, string>>): readonly string[] {
@@ -85,7 +85,12 @@ function uint32(value: number, littleEndian: boolean): Uint8Array<ArrayBuffer> {
 	return bytes;
 }
 
-export async function metadataBlobBytes(blob: Blob, start: number, end: number, signal?: AbortSignal): Promise<Uint8Array<ArrayBuffer>> {
+export interface MetadataByteSource {
+	readonly size: number;
+	slice(start: number, end: number): Readonly<{ arrayBuffer(): PromiseLike<ArrayBuffer> }>;
+}
+
+export async function metadataBlobBytes(blob: MetadataByteSource, start: number, end: number, signal?: AbortSignal): Promise<Uint8Array<ArrayBuffer>> {
 	signal?.throwIfAborted();
 	if (end > blob.size || start < 0 || end < start) throw new RangeError('The metadata container is truncated.');
 	const bytes = new Uint8Array(await blob.slice(start, end).arrayBuffer());
@@ -93,11 +98,25 @@ export async function metadataBlobBytes(blob: Blob, start: number, end: number, 
 	return bytes;
 }
 
-function pictureDimensions(bytes: Uint8Array, mime: string): Readonly<{ width: number; height: number; depth: number }> {
+function pictureDimensions(bytes: Uint8Array, mime: string): Readonly<{ width: number; height: number; depth: number; colors: number }> {
 	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 	if (mime === 'image/png' && bytes.length >= 29) {
 		const channels: Readonly<Record<number, number>> = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
-		return { width: view.getUint32(16), height: view.getUint32(20), depth: bytes[24]! * (channels[bytes[25]!] ?? 1) };
+		const indexed = bytes[25] === 3;
+		let colors = 0;
+		if (indexed) for (let offset = 8; offset + 12 <= bytes.length;) {
+			const length = view.getUint32(offset);
+			if (length > bytes.length - offset - 12) break;
+			if (bytes[offset + 4] === 80 && bytes[offset + 5] === 76 && bytes[offset + 6] === 84 && bytes[offset + 7] === 69) {
+				if (length % 3 === 0 && length <= 768) colors = length / 3;
+				break;
+			}
+			offset += length + 12;
+		}
+		// Indexed pixels reference an RGB palette with eight-bit color samples;
+		// their packed index width is not the PICTURE color depth (RFC9639 §8.8).
+		return { width: view.getUint32(16), height: view.getUint32(20),
+			depth: indexed ? 24 : bytes[24]! * (channels[bytes[25]!] ?? 1), colors };
 	}
 	if (mime === 'image/jpeg') {
 		for (let offset = 2; offset + 4 < bytes.length;) {
@@ -110,10 +129,10 @@ function pictureDimensions(bytes: Uint8Array, mime: string): Readonly<{ width: n
 			const length = view.getUint16(offset);
 			if (length < 2 || offset + length > bytes.length) break;
 			if ([192, 193, 194, 195, 197, 198, 199, 201, 202, 203, 205, 206, 207].includes(marker) && length >= 8) {
-				return { width: view.getUint16(offset + 5), height: view.getUint16(offset + 3), depth: bytes[offset + 2]! * bytes[offset + 7]! };
+				return { width: view.getUint16(offset + 5), height: view.getUint16(offset + 3), depth: bytes[offset + 2]! * bytes[offset + 7]!, colors: 0 };
 			}
 			offset += length;
 		}
 	}
-	return { width: 0, height: 0, depth: 0 };
+	return { width: 0, height: 0, depth: 0, colors: 0 };
 }

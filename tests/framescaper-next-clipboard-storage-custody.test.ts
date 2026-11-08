@@ -53,7 +53,7 @@ test('NP030: copied native image sequence bodies survive project deletion and ex
  const before=record(controller.project),source=record((before.sources as unknown[])[0]),sequence=record(source.imageSequence),pack=record(sequence.sourcePack),inventory=record(sequence.inventory);
  const bin=record(before.projectBin),clip=record((bin.clips as unknown[])[0]);
  assert.notEqual(source.id,source.storageKey,'native sequence uses a physical pack key distinct from its logical source');
- controller.actions.projectBin.place(String(clip.id),{timelineStartFrame:0});
+ await controller.actions.projectBin.place(String(clip.id),{timelineStartFrame:0});
  const placed=record((record(controller.project).clips as unknown[])[0]);
  controller.actions.timeline.selectClip(String(placed.id));controller.actions.edit.copy();
  assert.equal(controller.getSnapshot().history.hasClipboard,true);

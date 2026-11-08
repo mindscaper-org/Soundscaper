@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { withProjectOpenRecovery } from '../../project-open-recovery.ts';
+
 const DAMAGE_CODES = new Set([
 	'INVALID_BINARY_XML', 'INVALID_DICTIONARY', 'INVALID_DOCUMENT', 'INVALID_PROJECT_XML',
 	'TRUNCATED_BINARY_XML', 'UNKNOWN_FIELD', 'UNKNOWN_NAME', 'UNCLOSED_TAG', 'MISMATCHED_TAG',
@@ -13,11 +15,10 @@ export async function openAudacityWithRecovery<File, Options extends { readonly 
 	client: { openFile(projectId: string, file: File, options: Options): Promise<Result> },
 	projectId: string, file: File, options: Options,
 ): Promise<Result> {
-	try { return await client.openFile(projectId, file, options); }
-	catch (error: unknown) {
-		if (options.recover || !isDamage(error)) throw error;
-		return client.openFile(projectId, file, { ...options, recover: true });
-	}
+	return withProjectOpenRecovery(() => client.openFile(projectId, file, options), async (error) => {
+		if (options.recover || !isDamage(error)) return null;
+		return { value: await client.openFile(projectId, file, { ...options, recover: true }) };
+	});
 }
 
 function isDamage(error: unknown): boolean {

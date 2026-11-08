@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { createRecoveringOnlineFetch, onlineReadResponseError, recoverOnlineRead } from '../../../online-request-recovery.ts';
 
 import type { AudiocomPreparedPreview, AudiocomSearchResult } from '../audiocom-panel-session.ts';
 import type { WavPackImportGroupDecoder } from '../../../browser-streamed-wavpack-import.ts';
@@ -25,14 +26,17 @@ export async function prepareAudiocomPreview(
 	const wavpack = result.previewMime === 'audio/x-wavpack' || result.previewMime === 'audio/wavpack';
 	const aiff = result.previewMime === 'audio/aiff' || result.previewMime === 'audio/x-aiff';
 	if (!wavpack && !aiff) return { url: result.previewUrl, dispose() {} };
-	const response = await (dependencies.fetch ?? fetch)(result.previewUrl, { signal, credentials: 'include', redirect: 'error' });
-	signal.throwIfAborted();
-	if (!response.ok) {
-		await response.body?.cancel();
-		throw new AudiocomApiError(response.status, response.status === 401
-			? 'The audio.com session expired.' : 'The audio.com original could not be downloaded for preview.');
-	}
-	const source = await boundedOriginal(response, signal);
+	const fetchRequest = createRecoveringOnlineFetch(dependencies.fetch ?? fetch, { bufferResponses: false, maximumAttempts: 1 });
+	const source = await recoverOnlineRead(async () => {
+		const response = await fetchRequest(result.previewUrl!, { signal, credentials: 'include', redirect: 'error' });
+		signal.throwIfAborted();
+		if (!response.ok) {
+			await response.body?.cancel();
+			throw onlineReadResponseError(response, new AudiocomApiError(response.status, response.status === 401
+				? 'The audio.com session expired.' : 'The audio.com original could not be downloaded for preview.'));
+		}
+		return boundedOriginal(response, signal);
+	}, signal);
 	const { createWavStreamEncoder } = await import('../../../wav.js');
 	const parts: BlobPart[] = [];
 	const encoder = (sampleRate: number, channelCount: number, frameCount: number): ReturnType<typeof createWavStreamEncoder> => {

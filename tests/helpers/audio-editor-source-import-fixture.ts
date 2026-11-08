@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { EditorControllerLifetime } from '../../src/common/editor/controller/shared/lifecycle.ts';
+import { createVideoImportDerivativeScheduler } from '../../src/common/editor/controller/import/internal/video-import-derivatives.ts';
 
 import type {
 	ImportVideoFileInput,
@@ -84,6 +86,8 @@ function isSourceAddCommand(value: unknown): value is Readonly<{
 }
 
 export function createFixture() {
+	const lifetime = new EditorControllerLifetime();
+	const protectedSourceIds = new Set<string>();
 	const calls: string[] = [];
 	const addedSources: Record<string, unknown>[] = [];
 	const derivatives: Array<{ timestamp?: number; type?: string }> = [];
@@ -115,6 +119,7 @@ export function createFixture() {
 		activateFails: false,
 		replaceMediaBeforeRollback: false,
 		activationGate: null as Promise<void> | null,
+		audioWriteGate: null as Promise<void> | null,
 		bindFails: false,
 		commitFails: false,
 		commitMutatesThenFails: false,
@@ -171,10 +176,11 @@ export function createFixture() {
 			calls.push('writer-write');
 			if (options.writerFails) throw new Error('writer failed');
 		},
-		async commit() { calls.push('writer-commit'); },
+		async commit() { calls.push('writer-commit'); if (options.audioWriteGate) await options.audioWriteGate; },
 		async abort() { calls.push('writer-abort'); },
 	};
 	const runtime: ImportVideoRuntime = {
+		scheduleDerivatives: request => { derivativesScheduler.schedule(request); },
 		SOURCE_CHUNK_FRAMES: 65_536,
 		activateVideoSource: async (source: { id: string }) => {
 			calls.push(`activate:${source.id}`);
@@ -196,7 +202,13 @@ export function createFixture() {
 		commit: (command, selection = {}) => {
 			if (command.type !== 'batch') throw new TypeError('The fixture accepts only batch imports.');
 			calls.push('commit');
-			if (options.commitFails) throw new Error('commit failed');
+			if (options.commitFails) {
+				if (options.replaceMediaBeforeRollback) {
+					const id = 'video-source-1';
+					mediaGenerations.set(id, (mediaGenerations.get(id) ?? 0) + 1);
+				}
+				throw new Error('commit failed');
+			}
 			if (options.commitMutatesThenFails) {
 				project = {
 					...project,
@@ -208,6 +220,8 @@ export function createFixture() {
 				throw new Error('post-commit publication failed');
 			}
 			commits.push({ command, selection });
+			project = { ...project, sources: [...project.sources,
+				...command.commands.filter(isSourceAddCommand).map(({ source }) => source)] };
 		},
 		copy: {
 			audioAnalysisFailed: 'Audio analysis failed.',
@@ -387,7 +401,22 @@ export function createFixture() {
 			}
 		},
 	};
+	const derivativesScheduler = createVideoImportDerivativeScheduler({
+		lifetime, protectedSourceIds, store: runtime.store, sourcePeaks,
+		activateVideoSource: (...args) => runtime.activateVideoSource(...args),
+		revokeVideoVisual: (...args) => runtime.revokeVideoVisual(...args),
+		assertProject: token => runtime.assertProject(token), getProject: () => runtime.getProject(),
+		peakCacheKey: sourceId => runtime.peakCacheKey(sourceId),
+		audioEditorVideoThumbnailTimes: duration => runtime.audioEditorVideoThumbnailTimes(duration),
+		generatePeaks: channels => runtime.generateWaveformPeaks(channels, runtime.copy),
+		publishDerivative: () => { calls.push('publish-derivative'); return true; },
+		publish: () => { calls.push('publish'); },
+	});
 	return {
+		lifetime, protectedSourceIds,
+		finishDerivatives: derivativesScheduler.whenIdle,
+		awaitVideoActivation: derivativesScheduler.awaitActivation,
+		editProject: (value: typeof project) => { project = value; },
 		addedSources,
 		boundSnapshots,
 		calls,

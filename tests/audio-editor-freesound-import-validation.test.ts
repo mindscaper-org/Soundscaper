@@ -5,29 +5,29 @@ import test from 'node:test';
 
 import { createFreesoundImportService } from '../src/common/editor/controller/import/freesound-import-service.ts';
 
-function searchWith(response: Response) {
+function searchWith(createResponse: () => Response) {
 	return createFreesoundImportService({
 		enabled: true,
 		apiBaseUrl: 'https://soundscaper.org',
 		createContributionId: () => 'unused',
 		importFile: async () => undefined,
-		fetch: async () => response,
+		fetch: async () => createResponse(),
 	}).search({ query: 'rain' });
 }
 
 test('Freesound search keeps upstream error details and status for failed proxy responses', async () => {
-	await assert.rejects(searchWith(Response.json({ error: { message: 'Proxy maintenance' } }, {
+	await assert.rejects(searchWith(() => Response.json({ error: { message: 'Proxy maintenance' } }, {
 		status: 503,
 	})), /Proxy maintenance \(503\)/u);
-	await assert.rejects(searchWith(new Response('not JSON', { status: 502 })),
+	await assert.rejects(searchWith(() => new Response('not JSON', { status: 502 })),
 		/Freesound request failed \(502\)/u);
 });
 
 test('Freesound search refuses oversized or malformed JSON before normalizing sounds', async () => {
-	await assert.rejects(searchWith(new Response(null, { headers: {
+	await assert.rejects(searchWith(() => new Response(null, { headers: {
 		'Content-Length': String(3 * 1_024 * 1_024),
 	} })), /response was too large/u);
-	await assert.rejects(searchWith(new Response('{', { headers: {
+	await assert.rejects(searchWith(() => new Response('{', { headers: {
 		'Content-Type': 'application/json',
 	} })), /not valid JSON/u);
 });

@@ -86,6 +86,16 @@ test('only desktop Soundscaper substitutes unavailable Framescaper copy owners',
 	}
 });
 
+test('only desktop Soundscaper substitutes web-only desktop command offers', () => {
+	for (const composition of COMPOSITIONS) {
+		assert.equal(productSubstitutionForImport('../web-desktop-command-menus.ts',
+			resolve(repositoryRoot, 'src/common/editor/ui/workspace/workspace-application-menu-runtime.js'),
+			{ ...composition, repositoryRoot }), composition.productId === 'soundscaper'
+				&& composition.desktopCodecComposition
+				? resolve(repositoryRoot, 'src/soundscaper/editor-web-desktop-command-menus.ts') : null);
+	}
+});
+
 test('desktop Soundscaper does not compose Framescaper capture setup surfaces', () => {
 	const standIn = resolve(repositoryRoot, 'src/soundscaper/editor-capture-toolbar-control.tsx');
 	for (const composition of COMPOSITIONS) {

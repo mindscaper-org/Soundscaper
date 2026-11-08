@@ -115,7 +115,7 @@ export function createExportDialogRequest(settings, options = {}) {
 		mimeType: settings.customMimeType,
 		customArguments: settings.customArguments.split(/\r?\n/).map((argument) => argument.trim()).filter(Boolean),
 		includeTail: settings.mode === 'clips' ? false : settings.includeTail,
-		...(settings.embedLabelChapters === true && exportDialogSupportsEmbeddedChapters(settings, options.desktop === true)
+		...(settings.embedLabelChapters === true && exportDialogSupportsEmbeddedChapters(settings)
 			&& (options.project === undefined || exportDialogHasDeliveredChapterLabels(options.project, settings))
 			? { embedLabelChapters: true } : {}),
 		// Stated only when a target was chosen: there is no default target, and an

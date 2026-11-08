@@ -6,6 +6,7 @@ import {
 	createDeliveryReport,
 	sealDeliveryReport,
 } from './delivery-report.ts';
+import { collectTakeGroupSourceIds } from './take-group-source-references.ts';
 
 /**
  * Planning for consolidate: which media has to be copied into managed storage.
@@ -99,9 +100,11 @@ export function createConsolidatePlan(request: ConsolidatePlanRequest): Consolid
 
 	// Only sources the project actually references are worth copying; a binding
 	// with no source left is stale, and reported rather than acted on.
-	const referenced = new Set(
-		asRecords(project.clips).map((clip) => String(clip.sourceId ?? '')).filter(Boolean),
-	);
+	const bin = asRecords([project.projectBin])[0];
+	const referenced = collectTakeGroupSourceIds(project, new Set(
+		[...asRecords(project.clips), ...asRecords(bin?.clips)]
+			.map((clip) => String(clip.sourceId ?? '')).filter(Boolean),
+	));
 
 	const plans: ConsolidateSourcePlan[] = [];
 	for (const source of asRecords(project.sources)) {

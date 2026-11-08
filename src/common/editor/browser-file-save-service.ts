@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createFileSystemPreparedSave, type PreparedDirectSave } from './file-save-stream.ts';
+import { createFileSystemPreparedSave, withProjectFileTarget, type PreparedDirectSave } from './file-save-stream.ts';
 import { releaseDownloadObjectUrl } from './object-url-revoke.ts';
 import { sanitizeSuggestedFileName } from './portable-save-file-name.ts';
 
@@ -97,7 +97,7 @@ export function createBrowserFileSaveService(options: BrowserFileSaveServiceOpti
 			}
 		}
 		if (!target) return Object.freeze({ mode: 'cancelled', cancelled: true, fileName });
-		return isWritableTarget(target) ? createFileSystemPreparedSave({ target, fileName, signal: request.signal })
+		return isWritableTarget(target) ? withProjectFileTarget(createFileSystemPreparedSave({ target, fileName, signal: request.signal }), target)
 			: Object.freeze({ mode: 'blob', target, fileName });
 	}
 	async function writeFile(target: BrowserSaveTarget | null | undefined, input: BlobPart, request: BrowserFileSaveRequest = {}): Promise<BrowserSavedFile> {

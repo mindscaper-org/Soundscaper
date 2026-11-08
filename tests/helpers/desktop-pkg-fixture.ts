@@ -10,10 +10,16 @@ export async function writeDesktopPkgFixture(path: string, options: {
 	readonly extraComponent?: boolean;
 	readonly symlinkTarget?: string;
 	readonly payloadEscape?: boolean;
+	readonly codeSignatureSidecar?: Buffer;
+	readonly xarMetadata?: Readonly<Record<string, {
+		readonly mode?: string | null;
+		readonly type?: 'file' | 'directory' | 'symlink';
+		readonly link?: string;
+	}>>;
 } = {}): Promise<void> {
 	const application = 'org.soundscaper.desktop.pkg';
 	const optional = 'org.soundscaper.desktop.ffmpeg.pkg';
-	const cpioEntries: Array<readonly [string, number, string]> = [
+	const cpioEntries: Array<readonly [string, number, string | Buffer]> = [
 		['.', 0o040755, ''],
 		['./Soundscaper.app', 0o040755, ''],
 		['Soundscaper.app/Contents', 0o040755, ''],
@@ -21,6 +27,9 @@ export async function writeDesktopPkgFixture(path: string, options: {
 		['Soundscaper.app/Contents/MacOS/Soundscaper', 0o100755, 'application fixture'],
 		['Soundscaper.app/current', 0o120777, options.symlinkTarget ?? 'Contents'],
 	];
+	if (options.codeSignatureSidecar) cpioEntries.push([
+		'Soundscaper.app/Contents/MacOS/._Soundscaper', 0o100644, options.codeSignatureSidecar,
+	]);
 	if (options.payloadEscape) cpioEntries.push(['../outside', 0o100644, 'escape']);
 	const payload = gzipSync(cpioArchive(cpioEntries));
 	const files: Array<readonly [string, Buffer]> = [
@@ -36,8 +45,12 @@ export async function writeDesktopPkgFixture(path: string, options: {
 	const directories = new Set(files.flatMap(([name]) => name.includes('/') ? [name.slice(0, name.indexOf('/'))] : []));
 	let nextId = 1;
 	let offset = 0;
-	const fileXml = (name: string, contents: Buffer): string => {
-		const xml = `<file id="${nextId++}"><name>${name}</name><type>file</type><mode>0644</mode><data><length>${contents.length}</length><offset>${offset}</offset><size>${contents.length}</size><encoding style="application/octet-stream"/></data></file>`;
+	const fileXml = (path: string, contents: Buffer): string => {
+		const name = path.slice(path.lastIndexOf('/') + 1);
+		const metadata = options.xarMetadata?.[path];
+		const mode = metadata?.mode === null ? '' : `<mode>${metadata?.mode ?? '0644'}</mode>`;
+		const link = metadata?.link === undefined ? '' : `<link type="symbolic">${metadata.link}</link>`;
+		const xml = `<file id="${nextId++}"><name>${name}</name><type>${metadata?.type ?? 'file'}</type>${mode}${link}<data><length>${contents.length}</length><offset>${offset}</offset><size>${contents.length}</size><encoding style="application/octet-stream"/></data></file>`;
 		offset += contents.length;
 		return xml;
 	};
@@ -47,7 +60,7 @@ export async function writeDesktopPkgFixture(path: string, options: {
 	for (const directory of directories) {
 		const id = nextId++;
 		const children = files.filter(([name]) => name.startsWith(`${directory}/`))
-			.map(([name, contents]) => record(name.slice(directory.length + 1), contents)).join('');
+			.map(([name, contents]) => record(name, contents)).join('');
 		records.push(`<file id="${id}"><name>${directory}</name><type>directory</type><mode>0755</mode>${children}</file>`);
 	}
 	const toc = Buffer.from(`<?xml version="1.0"?><xar><toc>${records.join('')}</toc></xar>`);
@@ -59,12 +72,12 @@ export async function writeDesktopPkgFixture(path: string, options: {
 	await writeFile(path, Buffer.concat([header, compressedToc, ...chunks]));
 }
 
-function cpioArchive(entries: readonly (readonly [string, number, string])[]): Buffer {
+function cpioArchive(entries: readonly (readonly [string, number, string | Buffer])[]): Buffer {
 	const chunks: Buffer[] = [];
 	let index = 1;
 	for (const [name, mode, data] of [...entries, ['TRAILER!!!', 0, ''] as const]) {
 		const filename = Buffer.from(`${name}\0`);
-		const contents = Buffer.from(data);
+		const contents = typeof data === 'string' ? Buffer.from(data) : data;
 		const fields = [index++, mode, 0, 0, 1, 0, contents.length, 0, 0, 0, 0, filename.length, 0];
 		const header = Buffer.from(`070701${fields.map(value => value.toString(16).padStart(8, '0')).join('')}`);
 		chunks.push(header, filename, Buffer.alloc((4 - (header.length + filename.length) % 4) % 4),

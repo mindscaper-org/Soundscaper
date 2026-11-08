@@ -39,7 +39,7 @@ for (const jobName of ['browser', 'firefox']) {
 for (const workflowName of ['quality.yml', 'desktop-preview.yml', 'soundscaper-stable-1.yml']) {
 	test(`${workflowName} Node prerequisites follow the actual selected shard closure`, async () => {
 		const job = extractJob(await readWorkflow(workflowName), 'tests');
-		assert.ok(job.includes('node scripts/ci-test-prerequisites.mjs --node-shard=${{ matrix.shard }}'));
+		assert.ok(job.includes('node scripts/ci-test-prerequisites.mjs --node-module-shard=${{ matrix.shard }}'));
 		const provisions = job.split(/\n {6}- /u).filter((step: string) => step.includes('run: npm run provision:interchange-conformance'));
 		assert.equal(provisions.length, 1);
 		assert.ok(provisions[0]?.includes(REQUIRED));

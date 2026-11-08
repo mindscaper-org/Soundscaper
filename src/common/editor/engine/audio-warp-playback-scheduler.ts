@@ -12,6 +12,7 @@ import { confirmClockedPlaybackStart, type ClockedPlaybackStartHook } from './cl
 import { clampFrame, playRangeStopFrame } from './buffer-math.ts';
 import { createAnalyser } from './effect-rack.ts';
 import { playbackOutputDestination } from './playback-output.ts';
+import { createPlaybackGraphOutput, attachPlaybackGraphOutput } from './playback-graph-output.ts';
 import { isPlaybackLoopEnabled } from './playback-frequency-range.ts';
 import type { ProjectGraph } from './project-graph.ts';
 import { ScheduledParameterRegistry } from './scheduled-parameter-registry.ts';
@@ -60,7 +61,8 @@ export async function scheduleExactWarpPlayback(
 	const playbackDestination = playbackOutputDestination(
 		engine, context, soundscaperNativeAudioDestination(context, context.destination),
 	);
-	const meterDestination = engine.masterLoudnessMeter?.node || playbackDestination;
+	const output = createPlaybackGraphOutput(engine, context, engine.masterLoudnessMeter?.node || playbackDestination);
+	const meterDestination = output;
 	if (engine.meterListeners.size > 0) {
 		masterAnalyser = createAnalyser(context, nodes);
 		connect(masterAnalyser, meterDestination);
@@ -69,6 +71,7 @@ export async function scheduleExactWarpPlayback(
 		? createStripMeterAnalyserBankV21(context, nodes, masterAnalyser, { kind: 'master' }, activeWindow.channels.length) : null;
 	const graph: ProjectGraph = { ...exactGraph(nodes, masterAnalyser),
 		productionStripAnalysersV21: masterBank ? new Map([['master', masterBank]]) : undefined };
+	attachPlaybackGraphOutput(graph, output);
 	engine.graph = graph;
 	engine.playEndFrame = isPlaybackLoopEnabled(engine)
 		? engine.loop.endFrame
@@ -129,7 +132,7 @@ async function scheduleWindow(
 	const source = addNode(transientNodes, context.createBufferSource());
 	prepared.audioBuffer ||= exactAudioBuffer(context, prepared);
 	source.buffer = prepared.audioBuffer;
-	connect(source, graph.masterAnalyser || engine.masterLoudnessMeter?.node
+	connect(source, graph.masterAnalyser || graph.outputGate || engine.masterLoudnessMeter?.node
 		|| playbackOutputDestination(
 			engine, context, soundscaperNativeAudioDestination(context, context.destination),
 		));

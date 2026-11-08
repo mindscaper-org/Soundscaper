@@ -15,6 +15,7 @@ interface WorkflowStep {
 }
 
 interface WorkflowJob {
+	uses?: string;
 	needs?: string | string[];
 	if?: string;
 	steps?: WorkflowStep[];
@@ -75,19 +76,22 @@ function assertOfflineInputs(job: WorkflowJob, metadataName: string): void {
 
 test('preview builds each target AI closure once before the quality gates and retains offline inputs', async () => {
 	const workflow = await readWorkflow('desktop-preview');
-	const producer = getJob(workflow, 'prepare-assistance-runtime-handoff');
-	assert.deepEqual(dependencies(producer), [], 'native runtime compilation must overlap the quality gate');
-	const targets = producer.strategy?.matrix?.target;
+	const caller = getJob(workflow, 'prepare-assistance-runtime-handoff');
+	assert.deepEqual(dependencies(caller), [], 'native runtime compilation must overlap the quality gate');
+	assert.equal(caller.uses, './.github/workflows/desktop-assistance-runtimes.yml');
+	const targets = caller.strategy?.matrix?.target;
 	assert.ok(targets);
 	assert.deepEqual(targets.map(target => `${target.platform}-${target.arch}`).sort(),
 		['linux-arm64', 'linux-x64', 'mac-arm64', 'win-arm64', 'win-x64']);
+	const reusable = await readWorkflow('desktop-assistance-runtimes');
+	const producer = getJob(reusable, 'prepare');
 	const preparers = producer.steps?.filter(step => /scripts\/prepare-assistance-runtimes\.mjs/u.test(step.run ?? ''));
 	assert.ok(preparers);
 	assert.equal(preparers.length, 1);
 	assert.ok(producer.steps?.every(step => !/scripts\/desktop-prepare\.mjs|ci-build-os-audio-codec-host/u.test(step.run ?? '')),
 		'the AI producer must not compile or stage unrelated application components');
 	assert.equal(preparers[0]?.env?.SOUNDSCAPER_SOURCE_REVISION, '${{ github.sha }}');
-	const metadata = artifactStep(producer, 'upload', 'assistance-runtime-handoff');
+	const metadata = artifactStep(producer, 'upload', 'inputs.handoff-artifact-prefix');
 	const archives = artifactStep(producer, 'upload', 'assistance-runtime-archives');
 	assert.equal(metadata.with?.['if-no-files-found'], 'error');
 	assert.equal(archives.with?.['if-no-files-found'], 'error');

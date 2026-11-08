@@ -15,6 +15,7 @@
 		"electron-builder.config.cjs",
 		"scripts/performance/*.ts",
 		"scripts/diagnose-windows-make-arguments.ts",
+		"scripts/build-assistance-engine-part.ts",
 		"scripts/check-all*.ts",
 		"scripts/lib/check-all*.ts",
 		"scripts/lib/ci-artifact-fetch.ts",

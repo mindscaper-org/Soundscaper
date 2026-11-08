@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { createRecoveringOnlineFetch, readOnlineMutationAcknowledgment } from '../../../online-request-recovery.ts';
 
 import type {
 	AudiocomAccount, AudiocomApiClient, AudiocomAuthorizationReservation,
@@ -26,7 +27,7 @@ export function createAudiocomApiClient(options: ClientOptions = {}): AudiocomAp
 	const location = options.location ?? globalThis.location;
 	const desktop = location?.protocol === 'soundscaper-app:';
 	const apiOrigin = selectedAudiocomApiOrigin(options.apiOrigin);
-	const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
+	const fetchImpl = createRecoveringOnlineFetch(options.fetch ?? globalThis.fetch.bind(globalThis));
 	const requestUrl = (path: string): string => desktop
 		? `${DESKTOP_PREFIX}${path}` : new URL(path, location?.origin ?? 'https://soundscaper.org').href;
 	const request = (path: string, init: RequestInit = {}): Promise<Response> => {
@@ -90,11 +91,14 @@ export function createAudiocomApiClient(options: ClientOptions = {}): AudiocomAp
 				title: draft.title, description: draft.description, category: draft.category, license: draft.license,
 				listed: draft.visibility === 'listed' ? '1' : '0', downloadable: draft.downloadable ? '1' : '0',
 			});
-			const data = record(await responseData(await request(`${PREFIX}uploads?${params}`, {
+			const response = await request(`${PREFIX}uploads?${params}`, {
 				method: 'POST', signal, body: transfer,
 				headers: { 'Content-Type': uploadMime(transfer), 'X-Audiocom-Filename': encodeURIComponent(transfer.name), 'X-Audiocom-Content-Length': String(transfer.size) },
-			})));
-			return { audio: normalizeResult(data.audio, requestUrl, provider), processing: data.processing === true };
+			});
+			return readOnlineMutationAcknowledgment(response, async () => {
+				const data = record(await responseData(response));
+				return { audio: normalizeResult(data.audio, requestUrl, provider), processing: data.processing === true };
+			});
 		},
 	};
 }

@@ -153,7 +153,7 @@ test('StaffPad play-at-speed preflight rejects unsafe whole-project PCM before o
 	await engine.dispose();
 });
 
-test('applyProject keeps active naive play-at-speed timing and stops stale StaffPad playback', async () => {
+test('applyProject keeps active naive timing and rebuilds StaffPad playback at its existing speed', async () => {
 	const context = new MockAudioContext();
 	const project = createProject();
 	const source = new MockAudioBuffer(1, 48_000, 48_000);
@@ -174,16 +174,19 @@ test('applyProject keeps active naive play-at-speed timing and stops stale Staff
 	assert.equal(context.bufferSources.at(-1).playbackRate.value, 1.5);
 
 	engine.stop();
+	let pitchPreserverCalls = 0;
 	await engine.playAtSpeed(2, {
 		preservePitch: true,
 		async pitchPreserver(channels) {
+			pitchPreserverCalls += 1;
 			return channels.map(() => new Float32Array(24_000));
 		},
 	});
 	await engine.applyProject({ ...project, title: 'StaffPad cache refresh' }, sources);
-	assert.equal(engine.getState().state, 'stopped');
-	assert.equal(engine.getState().playbackMode, 'normal');
-	assert.equal(engine.getState().playbackRate, 1);
+	assert.equal(pitchPreserverCalls, 2, 'the replacement uses a fresh pitch-preserved mix');
+	assert.equal(engine.getState().state, 'playing');
+	assert.equal(engine.getState().playbackMode, 'staffpad');
+	assert.equal(engine.getState().playbackRate, 2);
 	await engine.dispose();
 });
 

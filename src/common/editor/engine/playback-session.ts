@@ -8,6 +8,16 @@ import type { EngineRuntimeHost, EngineRuntimeMethodMap } from './runtime-types.
 // The scheduler's playbackStartFrame changes on seeks and graph rebuilds.
 // The session origin remains the place the user started playback.
 const sessionStarts = new WeakMap<EngineRuntimeHost, number>();
+const clockedPendingStarts = new WeakSet<EngineRuntimeHost>();
+
+export function pendingPlaybackIsClocked(engine: EngineRuntimeHost): boolean {
+	return clockedPendingStarts.has(engine);
+}
+
+export function setPendingPlaybackClocked(engine: EngineRuntimeHost, clocked: boolean): void {
+	if (clocked) clockedPendingStarts.add(engine);
+	else clockedPendingStarts.delete(engine);
+}
 
 export function playbackSessionStart(engine: EngineRuntimeHost): number | undefined {
 	return sessionStarts.get(engine);

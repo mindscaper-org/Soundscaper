@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { lstatSync, mkdirSync, readdirSync } from 'node:fs';
+import { lstatSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { mkdir, readFile } from 'node:fs/promises';
-import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { configureDesktopBrowserCachesSync, migrateDesktopBrowserCaches } from './desktop-browser-cache.ts';
 import { migrateDesktopProjectLibraries } from './desktop-project-library-migration.ts';
@@ -12,8 +12,8 @@ import { migrateDesktopStorageEntriesSync } from './desktop-storage-migration-sy
 import { resolveDesktopStoragePaths } from './desktop-storage-paths.ts';
 
 interface DesktopStorageApplication {
-	getPath(name: 'home' | 'appData' | 'userData'): string;
-	setPath(name: 'sessionData' | 'crashDumps', path: string): void;
+	getPath(name: 'home' | 'appData' | 'userData' | 'exe'): string;
+	setPath(name: 'userData' | 'sessionData' | 'crashDumps', path: string): void;
 	setAppLogsPath(path: string): void;
 	readonly commandLine: {
 		getSwitchValue(name: string): string;
@@ -59,11 +59,14 @@ export function configureDesktopStorage(options: DesktopStorageBootstrapOptions)
 	// Artifact tests and explicitly selected profiles must never touch the real home.
 	const isolated = app.commandLine.getSwitchValue('user-data-dir') !== ''
 		|| options.argv.some((argument) => /^--soundscaper-(?:smoke|nightly-tests|soak-debug)(?:=|-|$)/u.test(argument));
-	const platform = isolated ? 'darwin' : options.platform;
+	const portableRoot = isolated ? null : findPortableSettingsDirectory(options);
+	// The single-instance lock belongs to the selected profile, so select it now.
+	if (portableRoot !== null) app.setPath('userData', portableRoot);
+	const platform = isolated || portableRoot !== null ? 'darwin' : options.platform;
 	const legacyAppData = app.getPath('appData');
 	const paths = resolveDesktopStoragePaths({
 		platform, environment, appName, homePath: app.getPath('home'),
-		appDataPath: legacyAppData, userDataPath: app.getPath('userData'),
+		appDataPath: portableRoot ?? legacyAppData, userDataPath: app.getPath('userData'),
 	});
 	const enabled = platform === 'linux';
 	const legacyRenderInputs = join(paths.configRoot, 'framescaper-native-render-inputs');
@@ -75,12 +78,18 @@ export function configureDesktopStorage(options: DesktopStorageBootstrapOptions)
 		xdgEnabled: enabled,
 		renderInputRoot,
 		projectsDirectory(): Promise<string | null> {
-			return isolated ? Promise.resolve(null) : resolveDesktopProjectsDirectory({
+			return isolated || portableRoot !== null ? Promise.resolve(null) : resolveDesktopProjectsDirectory({
 				platform: options.platform, homePath: app.getPath('home'),
 				configHomePath: legacyAppData, environment,
 			});
 		},
 		prepareBeforeReady(): void {
+			if (!prepared && portableRoot !== null) {
+				for (const path of [paths.logsRoot, paths.crashDumpsRoot]) mkdirSync(path, { recursive: true, mode: 0o700 });
+				app.setPath('sessionData', paths.sessionDataRoot);
+				app.setAppLogsPath(paths.logsRoot);
+				app.setPath('crashDumps', paths.crashDumpsRoot);
+			}
 			if (prepared || !enabled) { prepared = true; return; }
 			// Electron starts writing Local State and Crashpad before asynchronous I/O
 			// settles. Relocate its profile synchronously before changing its paths.
@@ -105,7 +114,7 @@ export function configureDesktopStorage(options: DesktopStorageBootstrapOptions)
 			prepared = true;
 		},
 		async migrate(): Promise<void> {
-			if (isolated) return;
+			if (isolated || portableRoot !== null) return;
 			if (!prepared) throw new Error('Desktop storage must be prepared under the single-instance lock before ready.');
 			await migrateDesktopProjectLibraries({
 				legacyAppDataPath: legacyAppData, projectLibraryAppDataPath: paths.projectLibraryAppData, appName,
@@ -129,6 +138,25 @@ export function configureDesktopStorage(options: DesktopStorageBootstrapOptions)
 			await migrateDesktopBrowserCaches(paths.sessionDataRoot, paths.cacheRoot);
 		},
 	});
+}
+
+function findPortableSettingsDirectory(options: DesktopStorageBootstrapOptions): string | null {
+	const { app, platform, environment } = options;
+	let executable = app.getPath('exe');
+	if (platform === 'linux' && environment.APPIMAGE) executable = environment.APPIMAGE;
+	if (platform === 'win32' && environment.PORTABLE_EXECUTABLE_FILE) executable = environment.PORTABLE_EXECUTABLE_FILE;
+	const directory = platform === 'win32' && environment.PORTABLE_EXECUTABLE_DIR
+		? environment.PORTABLE_EXECUTABLE_DIR : dirname(executable);
+	if (directory.includes('\0') || !isAbsolute(directory)) {
+		throw new TypeError('Desktop executable directory must be an absolute path without NUL bytes.');
+	}
+	const path = join(directory, 'Portable Settings');
+	try {
+		return statSync(path).isDirectory() ? path : null;
+	} catch (error) {
+		if (error && typeof error === 'object' && 'code' in error && (error.code === 'ENOENT' || error.code === 'ENOTDIR')) return null;
+		throw error;
+	}
 }
 
 async function hasChosenLegacyModels(configRoot: string): Promise<boolean> {

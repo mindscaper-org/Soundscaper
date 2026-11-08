@@ -6,6 +6,7 @@ import { SKINS } from './skin-themes.ts';
 import SkinCarousel from './SkinCarousel.tsx';
 import { appearancePreview } from './appearance-previews.ts';
 import type { AudioEditorWorkspaceRunner } from '../workspace/audio-editor-workspace-runner.ts';
+import { useOperationFocusRecovery } from '../useOperationFocusRecovery.ts';
 
 export default function SkinPreferences({ controller, copy, run, savedSkin }: {
 	controller: { actions: { preferences: { setSkin: (skin: SkinId) => unknown } } };
@@ -15,10 +16,12 @@ export default function SkinPreferences({ controller, copy, run, savedSkin }: {
 }) {
 	const skin = useEditorSkin();
 	const [saving, setSaving] = useState(false);
+	const captureOperationFocus = useOperationFocusRecovery(saving, controller);
 	const [error, setError] = usePresentationFeedback(copy);
 	const effective = skin.preview ?? normalizeSkin(savedSkin);
 	const name = (id: SkinId) => id === 'default' ? copy.skinDefault : id === 'high-contrast' ? copy.highContrastTheme : SKINS[id].name;
 	const select = (id: SkinId) => {
+		captureOperationFocus();
 		setSaving(true);
 		setError('');
 		// Await the preference action itself: some workspace runners catch errors

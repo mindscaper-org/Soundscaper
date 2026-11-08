@@ -23,12 +23,14 @@ import { disposeGraph } from './dispose-project-graph.ts';
 import { cancelParallelStackPreparation, parallelStackSourceStartTime, setParallelStackEndFrame } from './parallel-stack-playback.ts';
 export { disposeGraph } from './dispose-project-graph.ts';
 import { playbackOutputDestination } from './playback-output.ts';
+import { setPendingPlaybackClocked } from './playback-session.ts';
 import { isPlaybackLoopEnabled } from './playback-frequency-range.ts';
 import { observeActiveStreamCompletion, unexpectedActiveStreamAbort } from './playback-stream-failure.ts';
 import { suspendParallelProductionMeterSessionV21 } from './production-meter-runtime-session-v21.ts';
 import { samplePlaybackMeters } from './playback-meter-sampling.ts';
 import { roundScheduledParameterContextFrameOffset } from './scheduled-parameter-registry.ts';
 import { isCutPreviewActive, releaseCutPreview } from './cut-preview.ts';
+import { cancelProjectRefresh } from './project-refresh-state.ts';
 import {
 	ENGINE_CANCEL_SCRUB,
 	ENGINE_EMIT_METERS,
@@ -357,6 +359,9 @@ async [ENGINE_ENSURE_MASTER_LOUDNESS_METER](context) {
 	},
 
 [ENGINE_CANCEL_SCRUB]() {
+		cancelProjectRefresh(this);
+		this.pendingPlayRequest = 0;
+		setPendingPlaybackClocked(this, false);
 		this.scrubbing = false;
 		this.scrubNextAt = 0;
 		this.scrubGeneration += 1;

@@ -12,6 +12,7 @@ module.exports = Object.freeze([
 	...keyingSourceInputs,
 	'native/soundscaper-professional-host/tests/os_audio_codec_self_test.cpp',
 	'desktop/preload.mjs',
+	'desktop/project-saving-preload.ts',
 	'desktop/audiocom-authorization.ts',
 	'desktop/audiocom-links.ts',
 	'desktop/ara-preload.ts',

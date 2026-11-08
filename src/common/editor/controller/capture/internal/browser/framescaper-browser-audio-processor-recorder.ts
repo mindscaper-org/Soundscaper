@@ -4,11 +4,13 @@ import type {
 	FramescaperAudioDataLike,
 	FramescaperAudioTrackProcessorConstructor,
 	FramescaperAudioTrackProcessorReader,
+	FramescaperAudioTrackProcessorLike,
 	FramescaperBrowserAudioRecorder,
 	FramescaperBrowserAudioRecorderOptions,
 	FramescaperCaptureAudioRecorderState,
 } from './framescaper-browser-audio-recorder.ts';
 import { createFramescaperAudioDataChunker } from './framescaper-audio-data-chunker.ts';
+import { createFramescaperAudioDataFrameClock, readNativeAudioDataCounters } from './framescaper-audio-data-frame-clock.ts';
 
 interface ActualAudioFormat {
 	readonly sampleRate: number;
@@ -45,7 +47,9 @@ export function createFramescaperBrowserAudioProcessorRecorder(input: Readonly<{
 	const { options, format, chunkFrames, inputGain, sink, failures } = input;
 	let state: FramescaperCaptureAudioRecorderState = 'ready';
 	let inputFrameStart = 0;
+	const frameClock = createFramescaperAudioDataFrameClock(format.sampleRate);
 	let reader: FramescaperAudioTrackProcessorReader | null = null;
+	let processor: FramescaperAudioTrackProcessorLike | null = null;
 	let fallback: FramescaperBrowserAudioRecorder | null = null;
 	let readLoop: Promise<void> | null = null;
 	let startPromise: Promise<void> | null = null;
@@ -65,24 +69,31 @@ export function createFramescaperBrowserAudioProcessorRecorder(input: Readonly<{
 	function start(startFrameValue = 0): Promise<void> | void {
 		assertStartable(currentState(), failures.failure, startPromise);
 		inputFrameStart = boundedInteger(startFrameValue, 0, Number.MAX_SAFE_INTEGER, 'Capture audio start frame');
+		let nativeReady = false;
 		try {
-			const processor = new input.Processor({
+			processor = new input.Processor({
 				track: options.track,
 				maxBufferSize: input.maximumPendingChunks,
 			});
 			reader = processor.readable.getReader();
+			const counters = readNativeAudioDataCounters(processor);
+			if (!counters) throw new DOMException('Native audio discard counters are unavailable.', 'NotSupportedError');
+			nativeReady = true;
+			frameClock.start(inputFrameStart, counters);
 			state = 'recording';
 			readLoop = runReader();
 			void readLoop.catch(() => undefined);
 		} catch (error) {
-			if (!input.createFallback) {
+			if (nativeReady || !input.createFallback) {
 				state = 'failed';
 				throw failures.fail(error);
 			}
-			startPromise = input.createFallback().then(async (created) => {
+			startPromise = (async () => {
+				await cancelReader(); releaseReader();
+				const created = await input.createFallback!();
 				fallback = created;
 				await created.start(inputFrameStart);
-			}).catch((fallbackError: unknown) => {
+			})().catch((fallbackError: unknown) => {
 				state = 'failed';
 				throw failures.fail(fallbackError);
 			});
@@ -148,10 +159,11 @@ export function createFramescaperBrowserAudioProcessorRecorder(input: Readonly<{
 				}
 				const data = result.value;
 				if (!data) throw new Error('The capture audio processor returned an empty frame.');
-				const frameStart = inputFrameStart;
 				try {
 					validateAudioData(data, format);
-					inputFrameStart = exactFrameSum(inputFrameStart, data.numberOfFrames);
+					const counters = processor && readNativeAudioDataCounters(processor);
+					if (!counters) throw new Error('Native audio discard counters became unavailable.');
+					const frameStart = frameClock.map(data.timestamp, data.numberOfFrames, counters);
 					if (!isAcceptingProcessorData()) continue;
 					chunks.append(data, frameStart);
 				} finally {
@@ -242,11 +254,6 @@ function boundedInteger(value: unknown, minimum: number, maximum: number, name: 
 	return Number(value);
 }
 
-function exactFrameSum(left: number, right: number): number {
-	const result = left + right;
-	if (!Number.isSafeInteger(result) || result < 0) throw new RangeError('Capture audio frame position exceeds the safe range.');
-	return result;
-}
 
 function assertStartable(
 	state: FramescaperCaptureAudioRecorderState,

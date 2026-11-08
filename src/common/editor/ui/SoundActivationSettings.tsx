@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useId } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import './audio-editor-design-system/20-sound-activation.css';
 
@@ -66,6 +66,8 @@ export default function SoundActivationSettings({
 	if (productId !== 'soundscaper') return null;
 	const model = createSoundActivationUiModel(soundActivation, readOnly, locale, copy);
 	const actions = controller.actions.recording.soundActivation;
+	const decibels = new Intl.NumberFormat(locale, { maximumFractionDigits: 2, useGrouping: false });
+	const decibelText = (value: number) => copy.soundActivationDecibelsValue.replace('{value}', decibels.format(value));
 	const update = (operation: () => unknown) => {
 		if (model.controlsDisabled) return false;
 		rememberFocus();
@@ -87,7 +89,7 @@ export default function SoundActivationSettings({
 			<fieldset
 				className="kw-audio-editor-sound-activation__controls"
 				aria-label={copy.soundActivationSettings}
-				aria-disabled={model.controlsDisabled}
+				aria-disabled={model.controlsDisabled && model.blockReason !== 'preference-update'}
 			>
 				<SoundActivationRange
 					helpLabel={copy.helpMenu}
@@ -97,11 +99,13 @@ export default function SoundActivationSettings({
 					value={model.preferences.thresholdDb}
 					defaultValue={DEFAULT_SOUND_ACTIVATION_PREFERENCES.thresholdDb}
 					valueText={model.thresholdValueText}
+					formatValue={decibelText}
 					range={SOUND_ACTIVATION_UI_RANGES.thresholdDb}
 					disabled={model.controlsDisabled}
+					preferencePending={model.blockReason === 'preference-update'} run={run}
 					statusId={statusId}
 					dataAttribute="threshold"
-					onChange={(value) => update(() => actions.setThresholdDb(value))}
+					onChange={(value) => actions.setThresholdDb(value)}
 				/>
 				<SoundActivationRange
 					helpLabel={copy.helpMenu}
@@ -111,11 +115,13 @@ export default function SoundActivationSettings({
 					value={model.preferences.hysteresisDb}
 					defaultValue={DEFAULT_SOUND_ACTIVATION_PREFERENCES.hysteresisDb}
 					valueText={model.hysteresisValueText}
+					formatValue={decibelText}
 					range={SOUND_ACTIVATION_UI_RANGES.hysteresisDb}
 					disabled={model.controlsDisabled}
+					preferencePending={model.blockReason === 'preference-update'} run={run}
 					statusId={statusId}
 					dataAttribute="hysteresis"
-					onChange={(value) => update(() => actions.setHysteresisDb(value))}
+					onChange={(value) => actions.setHysteresisDb(value)}
 				/>
 				<SoundActivationTime
 					helpLabel={copy.helpMenu}
@@ -165,11 +171,52 @@ interface SoundActivationRangeProps {
 	readonly value: number;
 	readonly defaultValue?: number;
 	readonly valueText: string;
+	readonly formatValue?: (value: number) => string;
 	readonly range: Readonly<{ minimum: number; maximum: number; step: number }>;
 	readonly disabled: boolean;
+	readonly preferencePending?: boolean;
+	readonly run?: (operation: () => unknown) => unknown;
 	readonly statusId: string;
 	readonly dataAttribute: 'threshold' | 'hysteresis' | 'hold';
 	onChange(value: number): unknown;
+}
+
+/** Keep an admitted range operable while its own writes drain, as native plug-in parameters do. */
+function useSoundActivationRangeWrites(value: number, disabled: boolean, preferencePending: boolean,
+	commit: (value: number) => unknown, run: (operation: () => unknown) => unknown) {
+	const [draft, setDraft] = useState<number | null>(null);
+	const session = useRef<{ next: number | null; operation: Promise<void> | null }>({ next: null, operation: null }).current;
+	const unavailable = disabled && !(preferencePending && session.operation !== null);
+	const current = useRef({ commit, unavailable });
+	current.current = { commit, unavailable };
+	const mounted = useRef(false);
+	useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+	useEffect(() => {
+		if (unavailable) { session.next = null; setDraft(null); }
+	}, [session, unavailable]);
+	const update = (next: number) => {
+		if (unavailable) return;
+		session.next = next;
+		setDraft(next);
+		if (session.operation) return;
+		const operation = Promise.resolve().then(async () => {
+			try {
+				while (session.next !== null && !current.current.unavailable) {
+					const admitted = session.next;
+					session.next = null;
+					await current.current.commit(admitted);
+				}
+			} finally {
+				session.next = null;
+				session.operation = null;
+				if (mounted.current) setDraft(null);
+			}
+		});
+		session.operation = operation;
+		run(() => operation);
+		void operation.catch(() => undefined);
+	};
+	return { value: draft ?? value, disabled: unavailable, update };
 }
 
 function SoundActivationRange({
@@ -180,13 +227,18 @@ function SoundActivationRange({
 	value,
 	defaultValue,
 	valueText,
+	formatValue,
 	range,
 	disabled,
+	preferencePending = false,
+	run = operation => operation(),
 	statusId,
 	dataAttribute,
 	onChange,
 }: SoundActivationRangeProps) {
 	const descriptionId = useId();
+	const writes = useSoundActivationRangeWrites(value, disabled, preferencePending, onChange, run);
+	const displayedText = formatValue?.(writes.value) ?? valueText;
 	const data = { [`data-sound-activation-${dataAttribute}`]: true };
 	return <label className="kw-audio-editor-sound-activation__control">
 		<span>
@@ -195,7 +247,7 @@ function SoundActivationRange({
 				<EditorHelpTooltip subject={label} description={description} helpLabel={helpLabel}
 					hook={name} describedBy={descriptionId} />
 			</span>
-			<output htmlFor={name}>{valueText}</output>
+			<output htmlFor={name}>{displayedText}</output>
 		</span>
 		<input
 			type="range"
@@ -204,18 +256,18 @@ function SoundActivationRange({
 			name={name}
 			aria-label={label}
 			aria-describedby={`${descriptionId} ${statusId}`}
-			aria-valuetext={valueText}
+			aria-valuetext={displayedText}
 			min={range.minimum}
 			max={range.maximum}
 			step={range.step}
-			value={value}
-			disabled={disabled}
-			onChange={(event) => onChange(event.currentTarget.valueAsNumber)}
+			value={writes.value}
+			disabled={writes.disabled}
+			onChange={(event) => writes.update(event.currentTarget.valueAsNumber)}
 			onDoubleClick={(event) => {
-				if (disabled || defaultValue === undefined) return;
+				if (writes.disabled || defaultValue === undefined) return;
 				event.preventDefault();
 				event.stopPropagation();
-				onChange(defaultValue);
+				writes.update(defaultValue);
 			}}
 		/>
 		<span id={descriptionId} className="kw-audio-editor-sr-only">{description}</span>

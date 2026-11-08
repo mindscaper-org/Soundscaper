@@ -72,10 +72,10 @@ test('cancellation after a factory returns retires the graph before rejecting it
 
 test('a worker fault during graph handoff stops playback before the graph can be scheduled', async () => {
 	const error = new Error('Worker missed its deadline');
-	const graph = { abortController: new AbortController() } as ProjectGraph;
+	const graph = { nodes: [], abortController: new AbortController() } as unknown as ProjectGraph;
 	const errors: unknown[] = [];
 	const engine = {
-		context: {}, project: {}, scrubGeneration: 1, disposed: false,
+		context: new MockAudioContext(), project: {}, scrubGeneration: 1, disposed: false,
 		graph: null, meterListeners: new Set(), playbackMode: 'normal', playbackRate: 1,
 		projectGraphSelection: 'v21',
 		[ENGINE_HANDLE_SCHEDULING_ERROR]: (failure: unknown) => { errors.push(failure); },
@@ -91,11 +91,11 @@ test('a worker fault during graph handoff stops playback before the graph can be
 
 test('a worker fault after graph handoff retires it before transport can assign it', async () => {
 	const error = new Error('Worker missed its deadline');
-	const graph = { abortController: new AbortController() } as ProjectGraph;
+	const graph = { nodes: [], abortController: new AbortController() } as unknown as ProjectGraph;
 	const errors: unknown[] = [];
 	let fail: (error: Error) => void = () => { throw new Error('No active graph'); };
 	const engine = {
-		context: {}, project: {}, scrubGeneration: 1, disposed: false,
+		context: new MockAudioContext(), project: {}, scrubGeneration: 1, disposed: false,
 		graph: null, meterListeners: new Set(), playbackMode: 'normal', playbackRate: 1,
 		projectGraphSelection: 'v21',
 		[ENGINE_HANDLE_SCHEDULING_ERROR]: (failure: unknown) => { errors.push(failure); },
@@ -113,11 +113,11 @@ test('a worker fault after graph handoff retires it before transport can assign 
 
 test('a worker fault still stops the active graph after a live effect preview replaces project identity', async () => {
 	const error = new Error('Worker missed its deadline after live preview');
-	const graph = { abortController: new AbortController() } as ProjectGraph;
+	const graph = { nodes: [], abortController: new AbortController() } as unknown as ProjectGraph;
 	const errors: unknown[] = [];
 	let fail: (error: Error) => void = () => { throw new Error('No active graph'); };
 	const engine = {
-		context: {}, project: {}, scrubGeneration: 1, disposed: false,
+		context: new MockAudioContext(), project: {}, scrubGeneration: 1, disposed: false,
 		graph: null, meterListeners: new Set(), playbackMode: 'normal', playbackRate: 1,
 		projectGraphSelection: 'v21',
 		[ENGINE_HANDLE_SCHEDULING_ERROR]: (failure: unknown) => { errors.push(failure); },

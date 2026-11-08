@@ -69,7 +69,7 @@ for (const action of ['bin', 'import', 'generate', 'move', 'duplicate-move', 'ny
 	context.after(async () => { await controller.dispose(); }); await controller.ready;
 	await controller.actions.project.openScapeFile(new File([archive.blob], '24k.sscape'), () => 'copy');
 	assert.equal(controller.getSnapshot().readOnly, false);
-	if (action === 'bin') controller.actions.projectBin.place('bin-clip');
+	if (action === 'bin') await controller.actions.projectBin.place('bin-clip');
 	else if (action === 'generate') await controller.actions.generators.generate('tone', { durationSeconds: 1, frequency: 440 });
 	else if (action === 'move' || action === 'duplicate-move') controller.actions.clip.moveToNewTrack('clip', 0, { exactFrame: true, duplicate: action === 'duplicate-move' });
 	else if (action === 'nyquist') await controller.actions.nyquist.evaluate({ source: '(osc 60 1)', role: 'generate' });

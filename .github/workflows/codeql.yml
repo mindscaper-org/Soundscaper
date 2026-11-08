@@ -36,9 +36,36 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Node.js for the dependency-free tools bootstrap
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Restore the pinned CodeQL bundle
+        id: codeql-tools-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .wrangler/ci-input-cache/codeql
+          key: codeql-tools-linux64-v1-${{ hashFiles('config/codeql-tools.json') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: codeql-tools-linux64-v1-${{ hashFiles('config/codeql-tools.json') }}-
+
+      - name: Prepare and verify the CodeQL tools
+        id: codeql-tools
+        run: node scripts/ci-codeql-tools.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Save the verified CodeQL bundle before analysis
+        if: steps.codeql-tools-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .wrangler/ci-input-cache/codeql
+          key: codeql-tools-linux64-v1-${{ hashFiles('config/codeql-tools.json') }}-${{ github.run_id }}-${{ github.run_attempt }}
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
+          tools: ${{ steps.codeql-tools.outputs.archive }}
           languages: ${{ matrix.language }}
           build-mode: none
 

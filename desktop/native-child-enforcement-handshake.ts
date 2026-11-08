@@ -6,10 +6,12 @@ import type { Readable } from 'node:stream';
 
 import type { NativeChildIsolationCompletion } from './native-child-isolation-contract.ts';
 
-const ENFORCEMENT_FRAME = Buffer.from('M5_NATIVE_ISOLATION_ENFORCED_V1\n');
 const NATIVE_FAILURE = /(?:^|\n)M5_NATIVE_ISOLATION_FAILURE_V1 (windows|macos) ([a-z][a-z-]{0,63}) (\d{1,10})(?:\n|$)/u;
 
-export function waitForNativeChildEnforcement(stream: Readable, timeoutMs: number): Promise<void> {
+export function waitForNativeChildEnforcement(
+	stream: Readable, timeoutMs: number, expectedFrame = 'M5_NATIVE_ISOLATION_ENFORCED_V1\n',
+): Promise<void> {
+	const enforcementFrame = Buffer.from(expectedFrame);
 	return new Promise((resolve, reject) => {
 		let bytes = Buffer.alloc(0);
 		const timer = setTimeout(() => settle(new Error('The isolation launcher enforcement handshake timed out.')),
@@ -21,12 +23,12 @@ export function waitForNativeChildEnforcement(stream: Readable, timeoutMs: numbe
 		};
 		const onData = (chunk: Buffer) => {
 			bytes = Buffer.concat([bytes, Buffer.from(chunk)]);
-			if (bytes.byteLength > ENFORCEMENT_FRAME.byteLength) {
+			if (bytes.byteLength > enforcementFrame.byteLength) {
 				settle(new Error('The enforcement handshake is malformed.'));
 			}
 		};
 		const onError = (error: Error) => { settle(error); };
-		const onEnd = () => settle(bytes.equals(ENFORCEMENT_FRAME)
+		const onEnd = () => settle(bytes.equals(enforcementFrame)
 			? null : new Error('The enforcement handshake ended early.'));
 		stream.on('data', onData); stream.once('error', onError); stream.once('end', onEnd);
 	});

@@ -11,7 +11,8 @@ export function editorCloseHasActiveWork(current: Readonly<Record<string, unknow
 	const capture = current.capture as Readonly<{ phase?: unknown }> | null | undefined;
 	const webVcr = current.webVcr as Readonly<{ phase?: unknown; modeActive?: unknown }> | null | undefined;
 	return Boolean(current.importing
-		|| (current.save as Readonly<{ state?: unknown }> | undefined)?.state === 'saving'
+		|| ((current.save as Readonly<{ state?: unknown }> | undefined)?.state === 'saving'
+			&& (current.taskProgress as Readonly<{ kind?: unknown }> | undefined)?.kind === 'project-io')
 		|| current.recording
 		|| current.recordingStarting
 		|| current.recordingScheduling

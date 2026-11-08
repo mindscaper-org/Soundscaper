@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useTheme } from '../ThemeProvider/ThemeProvider';
 import { RULER_HEIGHT } from './constants';
+import { paintPianoRollRulerTicks } from './paint-piano-roll-ruler';
 import type { PianoRollRulerProps } from './types';
 
 /**
@@ -13,6 +14,7 @@ export const PianoRollRuler: React.FC<PianoRollRulerProps> = ({
   scrollX,
   pixelsPerSecond,
   bpm,
+  musicalClock,
   beatsPerMeasure,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -54,72 +56,8 @@ export const PianoRollRuler: React.FC<PianoRollRulerProps> = ({
     ctx.lineTo(width, midHeight + 0.5);
     ctx.stroke();
 
-    // Beat/measure calculations
-    const secondsPerBeat = 60 / bpm;
-    const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
-
-    const startMeasure = Math.floor((scrollX / pixelsPerSecond) / secondsPerMeasure);
-    const endMeasure = Math.ceil(((scrollX + width) / pixelsPerSecond) / secondsPerMeasure);
-
-    // Hide beat ticks/labels when they're too close together
-    const beatPixelSpacing = secondsPerBeat * pixelsPerSecond;
-    const showBeats = beatPixelSpacing >= 32;
-
-    ctx.font = '11px system-ui, sans-serif';
-    ctx.fillStyle = textColor;
-    ctx.lineWidth = 1;
-
-    for (let measure = startMeasure; measure <= endMeasure; measure++) {
-      for (let beat = 0; beat < beatsPerMeasure; beat++) {
-        if (!showBeats && beat !== 0) continue;
-
-        const timeInSeconds = measure * secondsPerMeasure + beat * secondsPerBeat;
-        const x = timeInSeconds * pixelsPerSecond - scrollX;
-
-        if (x < 0 || x > width) continue;
-
-        const tickX = Math.floor(x) + 0.5;
-        const isMeasureBoundary = beat === 0;
-
-        if (isMeasureBoundary) {
-          // Major tick — full height in both sections
-          ctx.strokeStyle = lineColor;
-
-          // Top section
-          ctx.beginPath();
-          ctx.moveTo(tickX, 0);
-          ctx.lineTo(tickX, midHeight);
-          ctx.stroke();
-
-          // Bottom section
-          ctx.beginPath();
-          ctx.moveTo(tickX, midHeight);
-          ctx.lineTo(tickX, height);
-          ctx.stroke();
-
-          // Measure label
-          ctx.fillStyle = textColor;
-          const label = `${measure + 1}`;
-          const textY = midHeight / 2 + 4;
-          ctx.fillText(label, x + 4, textY);
-        } else {
-          // Minor tick — shorter, bottom section only
-          ctx.strokeStyle = tickColor;
-          const minorTickHeight = (height - midHeight) * 0.4;
-          ctx.beginPath();
-          ctx.moveTo(tickX, height - minorTickHeight);
-          ctx.lineTo(tickX, height);
-          ctx.stroke();
-
-          // Beat label (e.g., "1.2", "1.3")
-          ctx.fillStyle = tickColor;
-          const label = `${measure + 1}.${beat + 1}`;
-          const textY = midHeight / 2 + 4;
-          ctx.fillText(label, x + 4, textY);
-        }
-      }
-    }
-  }, [width, scrollX, pixelsPerSecond, bpm, beatsPerMeasure, theme]);
+    paintPianoRollRulerTicks(ctx, { width, height, scrollX, pixelsPerSecond, bpm, beatsPerMeasure, musicalClock }, { lineColor, textColor, tickColor });
+  }, [width, scrollX, pixelsPerSecond, bpm, beatsPerMeasure, musicalClock, theme]);
 
   return (
     <canvas

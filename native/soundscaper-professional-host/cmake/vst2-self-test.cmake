@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+
+add_executable(soundscaper_plugin_identity_self_test tests/plugin_stable_identity_self_test.cpp)
+target_compile_features(soundscaper_plugin_identity_self_test PRIVATE cxx_std_20)
+target_include_directories(soundscaper_plugin_identity_self_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+add_test(NAME soundscaper_plugin_identity_self_test COMMAND soundscaper_plugin_identity_self_test)
+
+juce_add_plugin(SoundscaperVST2Fixture
+	COMPANY_NAME Soundscaper PLUGIN_MANUFACTURER_CODE Scpr PLUGIN_CODE V2Fx
+	FORMATS VST VST3 PRODUCT_NAME SoundscaperVST2Fixture VERSION 1.0.0
+	COPY_PLUGIN_AFTER_BUILD FALSE)
+target_sources(SoundscaperVST2Fixture PRIVATE tests/professional_vst2_fixture.cpp)
+target_compile_features(SoundscaperVST2Fixture PRIVATE cxx_std_20)
+target_compile_definitions(SoundscaperVST2Fixture PRIVATE
+	JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
+target_link_libraries(SoundscaperVST2Fixture PRIVATE juce::juce_audio_processors juce_vst2_sdk)
+get_target_property(vst2_fixture_bundle SoundscaperVST2Fixture_VST JUCE_PLUGIN_ARTEFACT_FILE)
+add_executable(soundscaper_vst2_host_self_test tests/vst2_host_self_test.cpp)
+target_compile_features(soundscaper_vst2_host_self_test PRIVATE cxx_std_20)
+target_link_libraries(soundscaper_vst2_host_self_test PRIVATE soundscaper_professional_plugin juce_vst2_sdk)
+add_dependencies(soundscaper_vst2_host_self_test SoundscaperVST2Fixture_VST)
+add_test(NAME soundscaper_vst2_host_self_test
+	COMMAND soundscaper_vst2_host_self_test "${vst2_fixture_bundle}")
+set_tests_properties(soundscaper_vst2_host_self_test PROPERTIES TIMEOUT 30)
+get_target_property(vst3_fixture_bundle SoundscaperVST2Fixture_VST3 JUCE_PLUGIN_ARTEFACT_FILE)
+add_dependencies(soundscaper_vst2_host_self_test SoundscaperVST2Fixture_VST3)
+add_test(NAME soundscaper_vst3_identity_host_self_test
+	COMMAND soundscaper_vst2_host_self_test "${vst3_fixture_bundle}" vst3)
+set_tests_properties(soundscaper_vst3_identity_host_self_test PROPERTIES TIMEOUT 30)
+install(TARGETS soundscaper_vst2_host_self_test RUNTIME DESTINATION self-test)
+if(APPLE)
+	install(DIRECTORY "${vst2_fixture_bundle}" DESTINATION self-test)
+else()
+	install(FILES "${vst2_fixture_bundle}" DESTINATION self-test)
+endif()

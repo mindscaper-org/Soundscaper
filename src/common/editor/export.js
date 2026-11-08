@@ -3,7 +3,7 @@ import { fitExportFileName } from './export-name-byte-budget.ts';
 import { createBwfExportMetadata, projectBextMetadata } from './broadcast-wave-project.ts';
 import { createMasteringSequenceBext } from './mastering-sequence-bext.ts';
 import { cartForDeliveryRange } from './cart-delivery-range.ts';
-import { ixmlForDeliveryRange } from './ixml-delivery-timing.ts';
+import { ixmlForDeliveryChannels, ixmlForDeliveryFileIdentity, ixmlForDeliveryRange } from './ixml-delivery-timing.ts';
 import { inspectPreservedAdmRiffChunks, sameBextMetadata } from './adm-riff-passthrough.ts';
 import { createBw64AdmExport, resolveBw64Adm } from './export-bw64-adm.js';
 import {
@@ -38,6 +38,7 @@ import {
 } from './export-plan-admission.js';
 import { inheritTrackFolderMediaStateProjectionV12 } from './track-folder-media-runtime.ts';
 import { scaleSampleFrame } from './timeline-time.ts';
+import { createMediaMetadataDelivery } from './media-metadata.ts';
 
 export const FAST_RENDER_THRESHOLDS = Object.freeze({
 	mobile: { outputBytes: 96 * 1024 ** 2, totalBytes: 320 * 1024 ** 2 },
@@ -57,6 +58,7 @@ export const FAST_RENDER_THRESHOLDS = Object.freeze({
  * @property {{startFrame: number, endFrame: number, durationFrames: number}} [range]
  * @property {number} [outputFrames]
  * @property {number | null} [outputFileBytes]
+ * @property {Readonly<Record<string, string>>} [metadata]
  * @property {import('./broadcast-wave.ts').BextMetadata} [bext]
  * @property {import('./cart-metadata.ts').CartMetadata | null} [cart]
  * @property {import('./ixml.ts').IxmlMetadata | null} [ixml]
@@ -68,6 +70,8 @@ export const FAST_RENDER_THRESHOLDS = Object.freeze({
  * @typedef {Object} AudioExportPlan
  * @property {import('./cart-metadata.ts').CartMetadata | null} cart
  * @property {import('./ixml.ts').IxmlMetadata | null} ixml
+ * @property {number} [ixmlOmittedTrackCount]
+ * @property {boolean} [ixmlFileUidOmitted]
  * @property {'mix' | 'stems' | 'chapters' | 'clips'} mode
  * @property {import('./media-export.js').MediaExportFormatId} format
  * @property {number} sampleRate
@@ -223,6 +227,12 @@ export function createExportPlan(project, options = {}) {
 		outputSampleRate: sampleRate,
 		admMetadata: bw64Adm?.metadata ?? null,
 	});
+	const metadataDelivery = createMediaMetadataDelivery(encoding.metadata, runtimeProject.sampleRate, sampleRate);
+	const projectEndFrame = projectDurationFrames(runtimeProject);
+	const metadataForRange = (span) => metadataDelivery(!masteringSequence && span.startFrame === 0 && span.endFrame === projectEndFrame
+		? null : span, masteringSequence?.plan.segments);
+	encoding = Object.freeze({ ...encoding, metadata: metadataForRange(range) });
+	const spanMetadata = spans?.map(metadataForRange);
 	const markerExport = createExportSpanMarkers(runtimeProject, {
 		range,
 		outputSampleRate: sampleRate,
@@ -232,8 +242,10 @@ export function createExportPlan(project, options = {}) {
 		masteringSequenceCues: masteringSequence !== null,
 	}, spans);
 	let markers = masteringSequence ? masteringSequence.cues : markerExport.markers;
-	const ixmlMetadata = (deliveryRange) => preservedRiffChunks?.ixml ? null : ixmlForDeliveryRange(
-		runtimeProject.metadata?.ixml, deliveryRange, runtimeProject.sampleRate, sampleRate, encoding.bitDepth, masteringSequence?.plan,
+	const ixmlChannels = ixmlForDeliveryChannels(preservedRiffChunks?.ixml ? null : runtimeProject.metadata?.ixml, encoding.channelMapping);
+	const ixmlDelivery = ixmlForDeliveryFileIdentity(ixmlChannels.metadata, options.preserveIxmlFileIdentity === true);
+	const ixmlMetadata = (deliveryRange) => ixmlForDeliveryRange(
+		ixmlDelivery.metadata, deliveryRange, runtimeProject.sampleRate, sampleRate, encoding.bitDepth, masteringSequence?.plan,
 	);
 	const ixml = ixmlMetadata(range);
 	const spanIxml = spans?.map((span) => ixmlMetadata(span));
@@ -293,10 +305,10 @@ export function createExportPlan(project, options = {}) {
 	}) : null;
 	const outputBytes = estimatePcmBytes(outputFrames, encoding.channelCount);
 	// Spans share encoding settings but each file has its own container size.
-	const layoutForFrames = (totalFrames, outputMarkers = markers, outputIxml = ixml) => (format === 'aiff'
+	const layoutForFrames = (totalFrames, outputMarkers = markers, outputIxml = ixml, outputMetadata = encoding.metadata) => (format === 'aiff'
 		? inspectAiffLayout({
 			sampleRate, channelCount: encoding.channelCount, totalFrames,
-			sampleFormat: encoding.sampleFormat, metadata: encoding.metadata, markers: outputMarkers,
+			sampleFormat: encoding.sampleFormat, metadata: outputMetadata, markers: outputMarkers,
 		})
 		: format === 'wav' || format === 'bwf' || format === 'bw64'
 			? inspectWavLayout({
@@ -306,7 +318,7 @@ export function createExportPlan(project, options = {}) {
 				totalFrames,
 				bitDepth: encoding.bitDepth,
 				float: encoding.floatingPoint,
-				metadata: encoding.metadata,
+				metadata: outputMetadata,
 				markers: outputMarkers,
 				ixml: outputIxml,
 				cart,
@@ -333,7 +345,8 @@ export function createExportPlan(project, options = {}) {
 				durationFrames: span.durationFrames,
 			}),
 			outputFrames: spanOutputFrames[spanIndex],
-			outputFileBytes: layoutForFrames(spanOutputFrames[spanIndex], markerExport.outputs[spanIndex].markers, spanIxml[spanIndex])?.byteLength ?? null,
+			outputFileBytes: layoutForFrames(spanOutputFrames[spanIndex], markerExport.outputs[spanIndex].markers, spanIxml[spanIndex], spanMetadata[spanIndex])?.byteLength ?? null,
+			metadata: spanMetadata[spanIndex],
 			...markerExport.outputs[spanIndex],
 			// Where this file, rather than the whole delivery, sits on the timeline.
 			...(bext ? { bext: bwfMetadata(span.startFrame) } : {}),
@@ -456,6 +469,8 @@ export function createExportPlan(project, options = {}) {
 		markers,
 		markerInterchangeReport: markerExport.report,
 		ixml,
+		ixmlOmittedTrackCount: ixmlChannels.omittedTrackCount,
+		ixmlFileUidOmitted: ixmlDelivery.omittedFileUid,
 		cart,
 		...(bext ? { bext } : {}),
 		...(adm ? {

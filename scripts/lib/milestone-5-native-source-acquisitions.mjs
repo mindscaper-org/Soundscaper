@@ -25,7 +25,7 @@ export const MILESTONE_5_NATIVE_SOURCE_IDS = Object.freeze([
 	'electron-node-api-headers',
 	'juce',
 	'clap',
-	'vst3-sdk',
+	'vst3-sdk', 'fst',
 	'vamp-plugin-sdk', 'ara-api', 'ara-library', 'asio-sdk',
 	'ladspa-sdk', 'lv2',
 	'x264',

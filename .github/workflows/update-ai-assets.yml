@@ -50,10 +50,23 @@ jobs:
             `targets=${JSON.stringify(selectDesktopNightlyTestTargets(process.env.AI_ASSET_TARGETS))}\n`);
           NODE
 
+  prepare:
+    name: Build AI assets / ${{ matrix.target.platform }} / ${{ matrix.target.arch }}
+    if: github.ref == 'refs/heads/main' && needs.asset-targets.result == 'success'
+    needs: asset-targets
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.asset-targets.outputs.targets) }}
+    uses: ./.github/workflows/desktop-assistance-runtimes.yml
+    with:
+      target: ${{ toJSON(matrix.target) }}
+      handoff-artifact-prefix: prepared-assistance-runtime-handoff
+
   publish:
     name: Publish AI assets / ${{ matrix.target.platform }} / ${{ matrix.target.arch }}
     if: github.ref == 'refs/heads/main' && needs.asset-targets.result == 'success'
-    needs: asset-targets
+    needs: [asset-targets, prepare]
     timeout-minutes: ${{ matrix.target.platform == 'win' && 180 || 90 }}
     strategy:
       fail-fast: false
@@ -85,20 +98,17 @@ jobs:
         with:
           scope: desktop-native
 
-      - name: Install local-model build tools
-        if: runner.os == 'Linux'
-        timeout-minutes: 10
-        run: bash scripts/ci-apt-install.sh build-essential cmake pkg-config python3
-
-      - name: Set up the locked Kokoro G2P builder
-        uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
+      - name: Download the prepared runtime handoff
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          version: 0.12.5
+          name: prepared-assistance-runtime-handoff-${{ matrix.target.platform }}-${{ matrix.target.arch }}
+          path: ${{ github.workspace }}/.native-build/assistance-runtime-handoff
 
-      - name: Prepare the verified Kokoro G2P bundle
-        uses: ./.github/actions/verified-kokoro-g2p
+      - name: Download the authenticated AI runtime archives
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          target: ${{ matrix.target.platform }}-${{ matrix.target.arch }}
+          name: assistance-runtime-archives-${{ matrix.target.platform }}-${{ matrix.target.arch }}
+          path: ${{ github.workspace }}/.native-build/assistance-runtime-handoff-cache
 
       - name: Stage the authenticated AI runtime archives
         run: node scripts/prepare-assistance-runtimes.mjs
@@ -106,6 +116,7 @@ jobs:
           SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ matrix.target.platform }}
           SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.target.arch }}
           SOUNDSCAPER_SOURCE_REVISION: ${{ github.sha }}
+          SOUNDSCAPER_ASSISTANCE_RUNTIME_HANDOFF_ROOT: ${{ github.workspace }}/.native-build/assistance-runtime-handoff
 
       - name: Publish and verify the immutable archives
         run: npm run desktop:publish:assistance-runtimes

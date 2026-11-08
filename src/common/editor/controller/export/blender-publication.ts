@@ -6,15 +6,18 @@ import { projectEffectTailFrames } from '../../effects.js';
 import { stemProject } from './temporary-export.ts';
 import { projectTrackFolderMediaStateV12 } from '../../track-folder-media-runtime.ts';
 import { audioBufferChannels, type RenderedAudio } from '../../rendered-audio-channels.ts';
+import { projectForRuntimeConsumers } from '../../project-current-runtime.ts';
 
-export interface BlenderRenderProject {
+export interface BlenderRenderProject extends Readonly<Record<string, unknown>> {
 	readonly id: string;
 	readonly title: string;
 	readonly revision: number;
 	readonly sampleRate: number;
 	readonly tracks: readonly { readonly id: string; readonly type: string; readonly name?: string;
-		readonly clipIds: readonly string[]; readonly mute?: boolean; readonly solo?: boolean }[];
-	readonly clips: readonly { readonly id: string; readonly timelineStartFrame: number; readonly durationFrames: number }[];
+		readonly clipIds?: readonly string[]; readonly mute?: boolean; readonly solo?: boolean }[];
+	readonly clips: readonly (Readonly<Record<string, unknown>> & {
+		readonly id: string; readonly timelineStartFrame?: number; readonly durationFrames?: number;
+	})[];
 }
 export interface BlenderPublishRequest {
 	readonly bridge: BlenderBridge;
@@ -51,8 +54,8 @@ export async function publishBlenderTracks(runtime: BlenderPublicationRuntime, r
 	};
 	assertCurrent();
 	if (!original) throw new Error('Blender export requires an open project.');
-	const project = projectTrackFolderMediaStateV12(original);
-	const tracks = project.tracks.filter((track) => track.type === 'audio' && track.clipIds.length > 0);
+	const project = projectTrackFolderMediaStateV12(projectForRuntimeConsumers(original));
+	const tracks = project.tracks.filter((track) => track.type === 'audio' && (track.clipIds?.length ?? 0) > 0);
 	if (tracks.length > BLENDER_TRACK_LIMIT) throw new Error(`Blender supports at most ${String(BLENDER_TRACK_LIMIT)} audio tracks per export.`);
 	const solo = project.tracks.some((track) => track.type === 'audio' && track.solo);
 	const endFrame = project.clips.reduce((end, clip) => Math.max(end, clip.timelineStartFrame + clip.durationFrames), 0);

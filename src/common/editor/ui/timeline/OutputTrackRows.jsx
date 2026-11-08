@@ -1,4 +1,5 @@
 import { beginTrackNameRename } from './track-name-keyboard.ts';
+import { retainEnvelopeCompletion } from './useAudioTrackEnvelope.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CLIP_CONTENT_OFFSET } from '@soundscaper/design-system/constants';
 import { EnvelopeCurve } from '@soundscaper/design-system/EnvelopeCurve';
@@ -227,8 +228,7 @@ export function OutputTrackRow({
 
 	useEffect(() => {
 		if (!stripEnvelopeAvailable || !envelopeEditActive) return undefined;
-		const finishEnvelopeEdit = (event) => {
-			if (event.button !== 0) return;
+		const finishEnvelopeEdit = () => {
 			globalThis.setTimeout(() => {
 				const points = previewRef.current;
 				setEnvelopeEditActive(false);
@@ -250,8 +250,7 @@ export function OutputTrackRow({
 				}));
 			}, 0);
 		};
-		document.addEventListener('mouseup', finishEnvelopeEdit);
-		return () => document.removeEventListener('mouseup', finishEnvelopeEdit);
+		return retainEnvelopeCompletion(finishEnvelopeEdit);
 	}, [bus.envelope, canonicalDurationFrames, envelopeEditActive, envelopeEndFrame, envelopeStartFrame, run, sampleRate, stripEnvelopeAvailable, update]);
 
 	useEffect(() => {

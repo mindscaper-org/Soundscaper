@@ -5,7 +5,9 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseExportProjectFileAction, chooseNestedCommandAction, commitInput } from './audio-editor-test-helpers.js';
 import { installNativeCaptionSidecar } from './helpers/native-caption-sidecar.js';
 
-for (const title of ['東京での録音', '東京での録音'.repeat(12)]) test(`native project Save accepts its valid ${Buffer.byteLength(title + '.fscape')} byte default filename`, async ({ page }) => {
+// Node checks both title sizes through native save and independent archive reopen.
+const title = '東京での録音'.repeat(12);
+test('native project Save accepts a long valid multibyte default filename', async ({ page }) => {
 	const native = await installNativeCaptionSidecar(page, 'ordinary.srt', '', { saveName: 'choice.fscape', saveSuggestedName: true });
 	try {
 		const editor = await bootEditor(page, '/framescaper/embed/en/');

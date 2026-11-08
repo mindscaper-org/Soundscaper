@@ -3,8 +3,10 @@
 import { secondsToFrames } from '../../design-system-adapters.js';
 import { CLIP_HEADER_HEIGHT, isClipCollapsed } from '@soundscaper/design-system/utils/clipHandleRows';
 import type { WaveformRulerFormat } from '../../waveform-display-preferences.ts';
+import type { SpectrogramScale } from './spectrogram-scale.ts';
 
 export type { WaveformRulerFormat } from '../../waveform-display-preferences.ts';
+export { normalizeSpectrogramScale, type SpectrogramScale } from './spectrogram-scale.ts';
 
 export const DEFAULT_WAVEFORM_RULER_STATE = Object.freeze({
 	format: 'linear-db' as const,
@@ -16,8 +18,6 @@ export const MINIMUM_TRACK_HEIGHT = 40;
 export const DEFAULT_TRACK_HEIGHT = 114;
 export const RECORDING_INPUT_CONTROLS_HEIGHT = 24;
 export const AUTOMATION_CONTROLS_HEIGHT = 24;
-
-export type SpectrogramScale = 'linear' | 'logarithmic' | 'mel' | 'bark' | 'erb' | 'period';
 
 export interface TimelineTrackGeometry {
 	readonly id?: string;
@@ -50,12 +50,6 @@ export function audioEditorClipBodyGeometry(trackHeight: number): Readonly<{
 		? Math.min(CLIP_HEADER_HEIGHT, height)
 		: 0;
 	return { top, height: height - top };
-}
-
-export function normalizeSpectrogramScale(value: unknown): SpectrogramScale {
-	const scale = String(value || 'mel').toLowerCase();
-	if (scale === 'log') return 'logarithmic';
-	return isSpectrogramScale(scale) ? scale : 'mel';
 }
 
 export function normalizeWaveformRulerFormat(value: unknown): WaveformRulerFormat {
@@ -190,10 +184,6 @@ export function dbToLinear(value: number): number {
 export function meterPercent(dbfs: number | null | undefined): number {
 	const value = Number.isFinite(dbfs) ? Number(dbfs) : -60;
 	return (Math.max(-60, Math.min(0, value)) + 60) / 60 * 100;
-}
-
-function isSpectrogramScale(value: string): value is SpectrogramScale {
-	return ['linear', 'logarithmic', 'mel', 'bark', 'erb', 'period'].includes(value);
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

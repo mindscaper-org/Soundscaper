@@ -352,25 +352,20 @@ const EnvelopeInteractionLayerComponent: React.FC<EnvelopeInteractionLayerProps>
           }
         }
 
-        dragState.hiddenIndices = hiddenIndices;
-        setLocalHiddenIndices(hiddenIndices);
-        onHiddenPointsChange?.(hiddenIndices);
-
-        // Update point position
-        const newPoints = [...envelopePoints];
-        newPoints[dragState.pointIndex] = {
+        // Keep point ownership and eaten neighbors in the sorted preview's indices.
+        const movedPoint = {
           time: relativeTime,
           db: db === -Infinity ? -Infinity : Math.max(-60, Math.min(12, db)),
         };
+        const newPoints = [...envelopePoints];
+        newPoints[dragState.pointIndex] = movedPoint;
         newPoints.sort((a, b) => a.time - b.time);
-
-        // Update the point index after sorting
-        const newPointIndex = newPoints.findIndex(
-          (p) => p.time === relativeTime && Math.abs(p.db - Math.max(-60, Math.min(12, db))) < 0.001
-        );
-        if (newPointIndex !== -1) {
-          dragState.pointIndex = newPointIndex;
-        }
+        const sortedIndices = new Map(newPoints.map((point, index) => [point, index] as const));
+        dragState.pointIndex = sortedIndices.get(movedPoint)!;
+        const sortedHidden = hiddenIndices.map(index => sortedIndices.get(envelopePoints[index])!);
+        dragState.hiddenIndices = sortedHidden;
+        setLocalHiddenIndices(sortedHidden);
+        onHiddenPointsChange?.(sortedHidden);
 
         onEnvelopePointsChange(newPoints);
       } else if (dragState.type === 'segment') {

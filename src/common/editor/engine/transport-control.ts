@@ -29,7 +29,9 @@ import {
 	buildProjectGraph,
 } from './project-graph.ts';
 import { playbackOutputDestination } from './playback-output.ts';
-import { resetPlaybackSession } from './playback-session.ts';
+import { rememberPlaybackPitchPreserver } from './project-refresh-speed.ts';
+import { capturePlaybackSourceResolver } from './playback-source-resolver.ts';
+import { resetPlaybackSession, setPendingPlaybackClocked } from './playback-session.ts';
 import { isPlaybackLoopEnabled, resetPlaybackFrequencyRange } from './playback-frequency-range.ts';
 import { isCutPreviewActive, isCutPreviewPaused, pauseCutPreview, readCutPreviewPosition, resumeCutPreview } from './cut-preview.ts';
 import { resetProductionMeterSessionV21 } from './production-meter-runtime-session-v21.ts';
@@ -77,11 +79,12 @@ function assertPlaybackRequestCurrent(engine: EngineRuntimeHost, generation: num
 	if (!playbackRequestIsCurrent(engine, generation)) throw createAbortError();
 }
 export const engineTransportControlMethods = {
-async play() {
+async play({ clockedStart = false, onBeforeStart } = {}) {
 		this[ENGINE_ASSERT_ACTIVE]();
 		if (!this.project) throw new Error('Load an audio editor project before playback.');
 		const previewResume = this.state === 'paused' ? resumeCutPreview(this) : null;
 		if (this.state === 'playing' || previewResume) return previewResume ?? undefined;
+		capturePlaybackSourceResolver(this);
 		this[ENGINE_CANCEL_SCRUB]();
 		const generation = this.scrubGeneration;
 		// The request stays marked while this method is suspended. A project
@@ -91,6 +94,8 @@ async play() {
 		// still settling its sources used to do nothing at all.
 		const request = ++this.playRequestSequence;
 		this.pendingPlayRequest = request;
+		setPendingPlaybackClocked(this, clockedStart);
+		const minimumStartLeadSeconds = clockedStart ? clockedPlaybackStartLeadSeconds(false) : 0;
 		try {
 			this.playbackRate = 1;
 			this.preparedSpeedPlayback = null;
@@ -112,7 +117,7 @@ async play() {
 				this.playbackMode = 'audio-warp-exact';
 				await this[ENGINE_ENSURE_MASTER_LOUDNESS_METER](context);
 				if (!playbackRequestIsCurrent(this, generation)) return;
-				await this[ENGINE_SCHEDULE_PREPARED_SPEED_PLAYBACK](this.positionFrame, context.currentTime);
+				await this[ENGINE_SCHEDULE_PREPARED_SPEED_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds, onBeforeStart);
 				return;
 			}
 			this.playbackMode = 'normal';
@@ -120,14 +125,18 @@ async play() {
 			if (!playbackRequestIsCurrent(this, generation)) return;
 			await this[ENGINE_ENSURE_MASTER_LOUDNESS_METER](context);
 			if (!playbackRequestIsCurrent(this, generation)) return;
-			await this[ENGINE_SCHEDULE_PLAYBACK](this.positionFrame, context.currentTime);
+			await this[ENGINE_SCHEDULE_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds, onBeforeStart);
+		} catch (error) {
+			if (playbackRequestIsCurrent(this, generation)) throw error;
 		} finally {
 			if (this.pendingPlayRequest === request && this.state !== 'playing') resetPlaybackFrequencyRange(this);
-			if (this.pendingPlayRequest === request) this.pendingPlayRequest = 0;
+			if (this.pendingPlayRequest === request) { this.pendingPlayRequest = 0; setPendingPlaybackClocked(this, false); }
 		}
 	},
 
 async playAtSpeed(rate, {
+		clockedStart = false,
+		onBeforeStart,
 		preservePitch = false,
 		pitchPreserver = null,
 		signal = null,
@@ -137,9 +146,11 @@ async playAtSpeed(rate, {
 		resetPlaybackFrequencyRange(this);
 		if (!this.project) throw new Error('Load an audio editor project before playback.');
 		if (this.state === 'playing') return;
+		capturePlaybackSourceResolver(this);
 		this[ENGINE_CANCEL_SCRUB]();
 		const generation = this.scrubGeneration;
 		const normalizedRate = normalizePlayAtSpeedRate(rate);
+		const minimumStartLeadSeconds = clockedStart ? clockedPlaybackStartLeadSeconds(false) : 0;
 		if (projectHasAuthoredAudioWarp(this.project)
 			&& this.getAudioWarpRenderStatus().path === 'exact-offline') {
 			throw new Error('Variable-speed audio warp playback requires realtime warp acceleration.');
@@ -172,7 +183,7 @@ async playAtSpeed(rate, {
 				await ensureProjectWorklets(context, this.project);
 				throwIfAborted(signal);
 				assertPlaybackRequestCurrent(this, generation);
-				await this[ENGINE_SCHEDULE_PLAYBACK](this.positionFrame, context.currentTime);
+				await this[ENGINE_SCHEDULE_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds, onBeforeStart);
 				throwIfAborted(signal);
 				assertPlaybackRequestCurrent(this, generation);
 				return;
@@ -180,13 +191,14 @@ async playAtSpeed(rate, {
 			if (typeof pitchPreserver !== 'function') {
 				throw new TypeError('Pitch-preserving playback requires a StaffPad renderer.');
 			}
+			rememberPlaybackPitchPreserver(this, pitchPreserver);
 			await prepareSpeedRender(this, normalizedRate, pitchPreserver, signal, onProgress,
 				() => assertPlaybackRequestCurrent(this, generation));
 			this.playbackMode = 'staffpad';
 			const context = await this.getAudioContext();
 			throwIfAborted(signal);
 			assertPlaybackRequestCurrent(this, generation);
-			await this[ENGINE_SCHEDULE_PREPARED_SPEED_PLAYBACK](this.positionFrame, context.currentTime);
+			await this[ENGINE_SCHEDULE_PREPARED_SPEED_PLAYBACK](this.positionFrame, context.currentTime, minimumStartLeadSeconds, onBeforeStart);
 			throwIfAborted(signal);
 			assertPlaybackRequestCurrent(this, generation);
 		} finally {
@@ -199,6 +211,7 @@ async playAt(this: EngineRuntimeHost, contextTime, fromFrame = this.positionFram
 		resetPlaybackFrequencyRange(this);
 		if (!this.project) throw new Error('Load an audio editor project before playback.');
 		resetPlaybackSession(this);
+		capturePlaybackSourceResolver(this);
 		// Recording and the other clocked starts run to their own end, never to
 		// the end of whatever bounded the last thing that was played.
 		this.playRange = null;
@@ -317,6 +330,7 @@ async scrub(frame, { durationMs = DEFAULT_SCRUB_FRAME_MS } = {}) {
 		const nextFrame = clampFrame(frame, 0, this.playbackDurationFrames);
 		const frameMs = clamp(Number(durationMs) || DEFAULT_SCRUB_FRAME_MS, 16, 250);
 		if (!this.scrubbing) {
+			capturePlaybackSourceResolver(this);
 			this[ENGINE_CANCEL_SCRUB]();
 			this[ENGINE_HALT_GRAPH]();
 			this.scrubbing = true;
@@ -459,6 +473,8 @@ getState() {
 			cutPreview,
 			positionFrame: this.getPositionFrames(),
 			durationFrames: this.durationFrames,
+			playbackStartFrame: this.playbackStartFrame,
+			playbackEndFrame: this.playEndFrame,
 			loop: { ...this.loop, enabled: isPlaybackLoopEnabled(this) && !cutPreview },
 			playbackRate: this.playbackRate,
 			playbackMode: this.playbackMode,

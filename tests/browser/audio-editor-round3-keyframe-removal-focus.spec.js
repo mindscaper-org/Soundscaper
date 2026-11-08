@@ -13,7 +13,7 @@ test('removing the final keyframe curve preserves keyboard authoring focus', asy
 	await dialog.getByRole('combobox', { name: 'Target', exact: true }).selectOption({ label: 'Scale X' });
 	await dialog.getByRole('spinbutton', { name: 'End value', exact: true }).fill('1.2');
 	await dialog.getByRole('button', { name: 'Add curve', exact: true }).click();
-	await expect(dialog.getByRole('button', { name: 'Add curve', exact: true })).toBeEnabled();
+	await expect(dialog.getByRole('combobox', { name: 'Curve', exact: true })).toHaveValue(JSON.stringify(['composition', 'transform.scaleX']));
 	await dialog.getByRole('button', { name: 'Remove curve', exact: true }).focus();
 	await page.keyboard.press('Enter');
 	await expect(dialog.getByText('Add a curve to begin editing.', { exact: true })).toBeVisible();

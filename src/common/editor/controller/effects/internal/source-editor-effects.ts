@@ -5,6 +5,8 @@ import type { EffectSelectionProject, EffectTarget } from '../effect-selection-s
 import type { SourceEditorAudioWindow, SourceEditorAudioWindowRequest } from './source-editor-audio-window.ts';
 import { SOURCE_CHUNK_FRAMES } from '../../../source-pcm-contract.ts';
 import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
+import { roundRational } from '../../../timeline-time.ts';
+import type { ClipSourceClockRewrite } from '../../../clip-source-timing.ts';
 
 const SOURCE_TRACK_PREFIX = 'source-editor:';
 
@@ -35,6 +37,14 @@ interface SelectedSource extends SourceEditorSelection {
 /** Source coordinates are kept separate from the project's timeline selection. */
 export function createSourceEditorEffects<Buffer extends AudioBufferLike>(dependencies: Dependencies<Buffer>) {
 	let selection: SelectedSource | null = null;
+	const clockRewrites = new Map<string, ClipSourceClockRewrite>();
+	const clockKey = (projectId: string, clipId: string, from: string, to: string) => JSON.stringify([projectId, clipId, from, to]);
+	function mappedSelection(previous: SelectedSource, rewrite: ClipSourceClockRewrite): SelectedSource {
+		const mapped = (frame: number) => roundRational(BigInt(frame) * BigInt(rewrite.numerator), BigInt(rewrite.denominator), 'point');
+		const startFrame = Math.max(0, Math.min(rewrite.frameCount - 1, mapped(previous.startFrame)));
+		return { ...previous, sourceId: rewrite.sourceId, sourceFrameCount: rewrite.frameCount,
+			startFrame, endFrame: Math.max(startFrame + 1, Math.min(rewrite.frameCount, mapped(previous.endFrame))) };
+	}
 	function setSourceSelection(request: SourceEditorSelection | null): void {
 		if (request === null) selection = null;
 		else {
@@ -49,6 +59,25 @@ export function createSourceEditorEffects<Buffer extends AudioBufferLike>(depend
 		}
 		dependencies.publishDocumentSnapshot();
 	}
+	function stageSourceSelectionClockRewrite(rewrite: ClipSourceClockRewrite): () => void {
+		const previous = selection;
+		if (!previous || previous.projectId !== dependencies.getProject().id
+			|| !rewrite.clipIds.includes(previous.clipId) || previous.sourceId !== rewrite.previousSourceId) return () => undefined;
+		const forward = clockKey(previous.projectId, previous.clipId, previous.sourceId, rewrite.sourceId);
+		const backward = clockKey(previous.projectId, previous.clipId, rewrite.sourceId, previous.sourceId);
+		const before = [clockRewrites.get(forward), clockRewrites.get(backward)];
+		clockRewrites.set(forward, rewrite);
+		clockRewrites.set(backward, { ...rewrite, previousSourceId: rewrite.sourceId, sourceId: previous.sourceId,
+			frameCount: previous.sourceFrameCount, numerator: rewrite.denominator, denominator: rewrite.numerator });
+		const staged = mappedSelection(previous, rewrite);
+		selection = staged;
+		return () => {
+			if (selection === staged) selection = previous;
+			for (const [index, key] of [forward, backward].entries()) {
+				const saved = before[index]; if (saved) clockRewrites.set(key, saved); else clockRewrites.delete(key);
+			}
+		};
+	}
 	function target(): EffectTarget | null {
 		if (!selection) return null;
 		const project = dependencies.getProject();
@@ -59,10 +88,14 @@ export function createSourceEditorEffects<Buffer extends AudioBufferLike>(depend
 		const track = project.tracks.find((item) => item.type === 'audio' && item.clipIds?.includes(clip.id));
 		if (!source || !track) return null;
 		if (source.id !== selection.sourceId) {
-			const startFrame = Math.min(selection.startFrame, source.frameCount - 1);
-			const endFrame = Math.max(startFrame + 1, Math.min(source.frameCount,
-				selection.endFrame + source.frameCount - selection.sourceFrameCount));
-			selection = { ...selection, sourceId: source.id, sourceFrameCount: source.frameCount, startFrame, endFrame };
+			const clock = clockRewrites.get(clockKey(project.id, clip.id, selection.sourceId, source.id));
+			if (clock) selection = mappedSelection(selection, clock);
+			else {
+				const startFrame = Math.min(selection.startFrame, source.frameCount - 1);
+				const endFrame = Math.max(startFrame + 1, Math.min(source.frameCount,
+					selection.endFrame + source.frameCount - selection.sourceFrameCount));
+				selection = { ...selection, sourceId: source.id, sourceFrameCount: source.frameCount, startFrame, endFrame };
+			}
 		}
 		let privateTrackId = `${SOURCE_TRACK_PREFIX}${source.id}`;
 		while (project.tracks.some(item => item.id === privateTrackId)) privateTrackId = `${SOURCE_TRACK_PREFIX}${privateTrackId}`;
@@ -160,7 +193,7 @@ export function createSourceEditorEffects<Buffer extends AudioBufferLike>(depend
 		return current?.sourceSampleRate ? current.durationFrames / current.sourceSampleRate : null;
 	}
 	function readSourceSelectionSampleRate(): number | null { return target()?.sourceSampleRate ?? null; }
-	return Object.freeze({ setSourceSelection, readSourceSelection, target, readSourceSelectionDuration, readSourceSelectionSampleRate, loadSourceAudio, loadSourceAudioWindow, renderRange, expandResult });
+	return Object.freeze({ setSourceSelection, stageSourceSelectionClockRewrite, readSourceSelection, target, readSourceSelectionDuration, readSourceSelectionSampleRate, loadSourceAudio, loadSourceAudioWindow, renderRange, expandResult });
 }
 
 function findSource(project: EffectSelectionProject, sourceId: string): SourceEditorAudioSource | null {

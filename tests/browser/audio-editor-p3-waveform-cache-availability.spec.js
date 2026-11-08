@@ -84,6 +84,8 @@ for (const operation of ['resample', 'render']) test(`${operation} keeps healthy
 	if (operation === 'render') {
 		await clip.getByRole('button', { name: 'Clip menu', exact: true }).click();
 		await page.locator('.audio-editor-clip-context-menu').getByRole('menuitem', { name: 'Render pitch and speed', exact: true }).click();
+		await expect(editor.locator('[data-status]')).toHaveText('Done');
+		await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'rendering');
 		const properties = await openClipProperties(page, editor, clip);
 		await expect(clipField(properties, 'speedRatio')).toHaveValue('100'); await closeClipProperties(properties);
 	} else {

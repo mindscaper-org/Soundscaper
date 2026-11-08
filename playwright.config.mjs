@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig, devices } from '@playwright/test';
 import { resolve } from 'node:path';
+import { browserSuiteTestMatch } from './scripts/lib/module-browser-suites.ts';
 
 import {
 	ordinaryBrowserProductSitePlan,
@@ -13,12 +14,15 @@ const modulePlan = process.env.SCAPE_MODULE_PLAN
 	? (await import('./scripts/lib/check-module-repository.ts')).readModuleExecutionPlan(import.meta.dirname, process.env.SCAPE_MODULE_PLAN)
 	: null;
 const browserCoverage = process.env.SCAPE_BROWSER_COVERAGE === '1';
+const suiteTestMatch = browserSuiteTestMatch(import.meta.dirname, process.env.SCAPE_BROWSER_SUITE_FILES,
+	modulePlan?.mode === 'focused' ? modulePlan.browserTests : undefined);
 process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS = JSON.stringify(Object.fromEntries(sitePlan.sites.map(site => [site.productId, site.origin])));
 
 export default defineConfig({
 	testDir: './tests/browser',
 	testIgnore: ['handbook/**', 'dual-origin/**', 'audiocity/**'],
-	...(modulePlan?.mode === 'focused' ? { testMatch: modulePlan.browserTests.map(file => resolve(import.meta.dirname, file).replaceAll('\\', '/')) } : {}),
+	...(suiteTestMatch ? { testMatch: suiteTestMatch } : {}),
+	...(!suiteTestMatch && modulePlan?.mode === 'focused' ? { testMatch: modulePlan.browserTests.map(file => resolve(import.meta.dirname, file).replaceAll('\\', '/')) } : {}),
 	timeout: 30000,
 	expect: { timeout: 5000 },
 	fullyParallel: true,
@@ -27,9 +31,9 @@ export default defineConfig({
 	retries: process.env.CI ? 1 : 0,
 	// Media-heavy workflows spawn native decoder/capture processes. Letting
 	// Playwright scale to half of a high-core workstation can starve those
-	// processes until otherwise healthy workflows hit their bounds. Native-media
-	// project limits below also apply to local runs and check-all's shared shards.
-	workers: process.env.CI ? 2 : 4,
+	// processes until otherwise healthy workflows hit their bounds. Use the same
+	// two-worker limit for every engine in CI, local runs, and check-all shards.
+	workers: 2,
 	reporter: process.env.CI
 		? [['github'], ['html', { outputFolder: 'playwright-report', open: 'never' }]]
 		: 'list',
@@ -49,7 +53,7 @@ export default defineConfig({
 			// Explicit realtime assertions and per-test budgets retain their bounds.
 			...(browserCoverage ? { timeout: 90_000, expect: { timeout: 15_000 } } : {}),
 		},
-		{ name: 'firefox', workers: 1, use: { ...devices['Desktop Firefox'], browserName: 'firefox' } },
-		{ name: 'webkit', workers: 1, use: { ...devices['Desktop Safari'], browserName: 'webkit', deviceScaleFactor: 1 } },
+		{ name: 'firefox', use: { ...devices['Desktop Firefox'], browserName: 'firefox' } },
+		{ name: 'webkit', use: { ...devices['Desktop Safari'], browserName: 'webkit', deviceScaleFactor: 1 } },
 	],
 });

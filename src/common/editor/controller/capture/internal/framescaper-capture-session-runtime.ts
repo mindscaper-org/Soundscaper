@@ -2,19 +2,32 @@
 
 import type { CaptureFailure } from '../../../framescaper-capture-domain.ts';
 import type { CapturePreviewSource } from '../../../platform/capture-source-port.ts';
+import type { FramescaperCaptureInputObserver } from '../framescaper-capture-session-types.ts';
 
 export function installCaptureSourceEndWatchers<Stream, Track>(
 	sources: readonly Readonly<CapturePreviewSource<Stream, Track>>[],
-	onEnded: () => void,
+	onEnded: (error: Error) => void | PromiseLike<void>,
+	observeInput?: FramescaperCaptureInputObserver,
 ): readonly (() => void)[] {
 	return Object.freeze(sources.flatMap(({ track }) => {
 		const eventTarget = track as Readonly<{
+			readyState?: string; muted?: boolean;
 			addEventListener?: (type: string, listener: () => void, options?: unknown) => void;
 			removeEventListener?: (type: string, listener: () => void) => void;
 		}>;
 		if (typeof eventTarget.addEventListener !== 'function') return [];
-		eventTarget.addEventListener('ended', onEnded, { once: true });
-		return [() => eventTarget.removeEventListener?.('ended', onEnded)];
+		if (observeInput) return [observeInput({ tracks: [eventTarget], onInterrupted: onEnded })];
+		const report = () => {
+			try { globalThis.console?.warn?.('Capture interruption cleanup failed.'); }
+			catch { /* Diagnostic observers cannot own capture cleanup. */ }
+		};
+		const ended = () => {
+			try { void Promise.resolve(onEnded(new Error('A required capture source ended.'))).catch(report); }
+			catch { report(); }
+		};
+		eventTarget.addEventListener('ended', ended, { once: true });
+		if (eventTarget.readyState === 'ended') ended();
+		return [() => eventTarget.removeEventListener?.('ended', ended)];
 	}));
 }
 
@@ -23,7 +36,7 @@ export function captureSessionFailure(
 	fallback: CaptureFailure['code'],
 ): Readonly<CaptureFailure> {
 	const name = error && typeof error === 'object' ? (error as { readonly name?: unknown }).name : null;
-	const code = name === 'NotAllowedError'
+	const code = name === 'MediaInputLostError' || name === 'RecordingInputLossError' ? 'device-lost' : name === 'NotAllowedError'
 		? 'permission-denied'
 		: name === 'AbortError' ? 'permission-dismissed'
 			: ['NotFoundError', 'NotReadableError', 'OverconstrainedError'].includes(String(name)) ? 'device-lost' : fallback;

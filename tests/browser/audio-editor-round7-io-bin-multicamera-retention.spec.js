@@ -6,6 +6,8 @@ import { videoTimingProbeMedia } from './fixtures/video-timing-probe-media.js';
 import { videoSourceGeometryMedia } from './fixtures/video-source-geometry-media.js';
 
 test('removing an inactive camera from Project bin preserves its editable multicamera angle', async ({ page }) => {
+	// Two native camera imports and their bin edits share this workflow deadline.
+	test.setTimeout(60_000);
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Project properties']);
 	const metadata = editor.locator('[data-workspace-panel="metadata"]');

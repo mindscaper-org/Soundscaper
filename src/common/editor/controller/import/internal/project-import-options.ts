@@ -11,6 +11,8 @@ export interface NormalizedProjectImportOptions extends Readonly<Record<string, 
 	readonly destination: ProjectImportDestination;
 	readonly trackId: string | null;
 	readonly trackIndex?: number;
+	/** Ordinary media retain one placement index across a mixed MIDI batch. */
+	readonly fileIndexOffset?: number;
 	readonly timelineStartFrame: number;
 	readonly timelineStartExplicit?: boolean;
 	readonly signal?: AbortSignal;
@@ -46,6 +48,9 @@ export function normalizeProjectImportOptions(
 	timelineFramesFinite: string,
 ): Readonly<NormalizedProjectImportOptions> {
 	const candidate = optionRecord(value);
+	if (candidate.fileIndexOffset !== undefined && (!Number.isSafeInteger(candidate.fileIndexOffset) || Number(candidate.fileIndexOffset) < 0)) {
+		throw new RangeError('Import file placement offset must be a non-negative safe integer.');
+	}
 	const destination = normalizeProjectImportDestination(
 		candidate.destination ?? 'auto', candidate.projectBinVisible,
 	);
@@ -61,6 +66,7 @@ export function normalizeProjectImportOptions(
 		),
 		...(typeof candidate.trackIndex === 'number' && Number.isSafeInteger(candidate.trackIndex)
 			? { trackIndex: candidate.trackIndex } : {}),
+		...(candidate.fileIndexOffset === undefined ? {} : { fileIndexOffset: Number(candidate.fileIndexOffset) }),
 		...normalizeLinkedOriginalImportLocator(candidate),
 		...(candidate.sourceProvenance == null ? {} : {
 			// The import's already-deferred attribution admission validates and

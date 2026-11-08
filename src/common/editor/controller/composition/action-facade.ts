@@ -2,7 +2,7 @@
 
 import type { EngineParametricEqPreview } from '../../engine/public-api.ts';
 import type { EditorActionRuntime } from './action-facade-runtime.ts';
-import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-command.ts';
+import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-command.ts'; import { admitRackEffectActivation } from '../../rack-effect-channel-width.ts';
 import { snapshotInertEditorCommand } from '../../commands/editor-command-snapshot.ts';
 import type { AudioEditorCommandPayloads } from '../../commands/protocol.ts';
 import { assertEditorActionRuntime } from './action-facade-runtime.ts';
@@ -11,6 +11,9 @@ import {
 	createRecordingPreferenceActionFacade,
 } from '../recording/recording-action-facade.ts';
 import { createClipSpreadsheetAction } from './internal/clip-spreadsheet-action.ts';
+import { createAuditionOutputActions } from './internal/audition-output-actions.ts';
+import { createMidiActionGroup } from './midi-action-group.ts';
+import { createMidiPendingAnalysisActions, createMidiPendingSnapshotAdmission } from './internal/midi-controller-port.ts';
 import { createMixerParameterActions } from './internal/mixer-parameter-actions.ts';
 import { createProjectOwnedFeatureActionFacades } from './internal/project-owned-feature-action-facades.ts';
 import { createTimelineAnnotationActionFacade } from '../document/timeline-annotation-action-facade.ts';
@@ -46,8 +49,8 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	duplicateTrack, engine, framescaperCaptureActions, framescaperWebVcrActions, ffmpeg,
 	fileService, findTrack, persistSetting, publishDocumentSnapshot, flushProject, generateSelectionSilence,
 	generateSignal, repeatLastGenerator, getClipVisualData, getVisibleClips,
-	handleClipAction, handleEdit, handleExportAction, handlePlayAtSpeed, handleTransport, handleScrub, endScrub,
-	importFiles, pasteClipSpreadsheet, inspectScape, labels, listProjects, makeStereoTrack,
+	handleClipAction, handleEdit: handleImmediateEdit, handleExportAction, handlePlayAtSpeed, handleTransport, handleScrub, endScrub,
+	pasteClipSpreadsheet, inspectScape, labels, listProjects, makeStereoTrack,
 	materializeFreesoundUploadClip, publishBlenderTracks, mixAndRenderTracks, moveClips, moveClipsToNewTrack, moveTrack, newProject,
 	normalizePlaybackFrame, openAudacityProject, openAup4, openProject, openScape, openScapeFile, overwriteClips,
 	openDawproject, openSesx, saveDawproject, pasteEffectStack, pauseLoudnessMeasurement,
@@ -58,11 +61,11 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	renameProject,
 	renderClipPitchSpeed, reorderTrack, repeatLastAudacityEffect, requestInputAccess, requestStoragePersistence,
 	requestFrequencyWaveform, requestWaveformPcmWindow, resampleClip, reinterpretClip, resampleTrack, resetClipPitchSpeed, resetLoudnessMeasurement,
-	resizeTrackHeight, fitTrackHeights, runNyquistEvaluation, saveAup3, saveAup4, saveNow, saveScape,
+	resizeTrackHeight, fitTrackHeights, runNyquistEvaluation, saveAup3, saveAup4, saveNow, saveScape, saveProjectFile, prepareFileClose,
 	selection, sessionTab,
 	setAllTracksView, setAudacityControlTrack, setAudacityEffectParamsFromController,
-	setAudioOutputDevice, setAutoFitTrackHeight, setClipTimePitch, setClipsTimePitch, setLoopRegion, setLoopRegionInOut, setStatus,
-	setLoopRegionToSelection, setPlayAtSpeedRate, setPreferredInputChannelCount, setRecordingSampleRate, setHostInventory,
+	setAutoFitTrackHeight, setClipTimePitch, setClipsTimePitch, setLoopRegion, setLoopRegionInOut, setStatus,
+	setLoopRegionToSelection, setPlayAtSpeedRate, setPreferredInputChannelCount, setRecordingSampleRate,
 	setPreferredInputDevice, setSampleEditMode, setSelectionToLoopRegion,
 	effectPreviewState, effectSelectionService, setTimelineView, setTimelineViewportWidth,
 	setTrackChannelHeightRatio, setTrackDisplayMode,
@@ -82,7 +85,9 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	};
 	const effectLibraryScope = scope;
 	const storedProjectOpenActions = createStoredProjectOpenActions({
-		copy, state, store, sessionTab, switchProject, openProject,
+		copy, state, store, sessionTab, switchProject, openProject, publishProjectState: publishDocumentSnapshot,
+		onProjectOpenFailure: scope.onProjectOpenFailure, assertActive: scope.assertActive,
+		getProjectId: () => getProject()?.id ?? null, hasMissingTimelineSources: scope.hasMissingTimelineSources,
 	});
 	const yieldProgramPlayhead = <Args extends unknown[], Result>(operation: (...args: Args) => Result) => (...args: Args): Result => {
 		if (capabilities.videoCompositing) videoNavigationService.shuttleStop();
@@ -95,37 +100,76 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	const sequenceExtensions = snapshotProductActionExtensions<(...args: unknown[]) => unknown>(scope, 'productSequenceActions', [
 		'label', 'setActive', 'stepFrame', 'seekLabel',
 	]);
-	const crossProductHandoffActions = createCrossProductHandoffActionFacade({ ...scope, copy: { get projectSaved() { return copy.projectSaved; }, get projectSaving() { return copy.projectSaving; } } });
 	const macros = createEffectMacroActions(effectLibraryScope, restricted);
+	const midi = createMidiActionGroup(scope); scope.midiController?.bind(midi);
+	const clipboardSelection = () => JSON.stringify([getProject()?.id, getProject()?.selection,
+		state.selectedClipId, state.selectedTrackId, state.selectedLabels]);
+	const effectSnapshot = createMidiPendingSnapshotAdmission<NonNullable<ReturnType<typeof getProject>>>({ ...midi, getProject,
+		prepareAudio: scope.prepareEffectSnapshotSources,
+		captureTarget: () => JSON.stringify([clipboardSelection(), scope.readSourceSelection()]),
+		active: () => state.phase !== 'disposing' && state.phase !== 'disposed' });
+	const handleEdit: typeof handleImmediateEdit = (action, options) => {
+		if (!midi.hasPendingEdits() || !['copy', 'duplicate', 'labeled-copy', 'labeled-cut', 'labeled-split-cut'].includes(action)
+			&& action !== 'cut' && !action.startsWith('cut-')) return handleImmediateEdit(action, options);
+		const selection = clipboardSelection();
+		return midi.settled().then(() => {
+			if (clipboardSelection() !== selection) throw new DOMException('The selection changed before the clipboard edit.', 'AbortError');
+			return handleImmediateEdit(action, options);
+		}).catch((error: unknown) => {
+			if (options?.propagateErrors) throw error;
+			scope.handleError(error);
+		});
+	};
+	const afterMidiEdits = <Args extends unknown[], Result>(operation: (...args: Args) => Result) => async (...args: Args): Promise<Awaited<Result>> => {
+		const projectId = getProject()?.id;
+		if (midi.hasPendingEdits()) await midi.settled();
+		if (getProject()?.id !== projectId) throw new Error('The project changed before saving pending MIDI edits.');
+		return await operation(...args);
+	};
+	const prepareClose = afterMidiEdits(prepareFileClose);
+	const saveCurrentScape = afterMidiEdits(saveScape);
+	const crossProductHandoffActions = createCrossProductHandoffActionFacade({ ...scope, flushProject: afterMidiEdits(flushProject), copy: { get projectSaved() { return copy.projectSaved; }, get projectSaving() { return copy.projectSaving; } } });
+	let exportGeneration = 0;
+	const handleSettledExport: typeof handleExportAction = (action, settings) => {
+		if (action === 'cancel') exportGeneration += 1;
+		if (action !== 'start') return handleExportAction(action, settings);
+		const request = ++exportGeneration;
+		return afterMidiEdits(() => request === exportGeneration ? handleExportAction(action, settings) : undefined)();
+	};
+	const exportActions = createExportActionGroup({ handleExportAction: handleSettledExport,
+		publishBlenderTracks: afterMidiEdits(publishBlenderTracks), state, productName: product.name, getProjectTitle: () => getProject()?.title ?? null, getProject, projectForRuntimeConsumers: scope.projectForRuntimeConsumers, store, fileService, persistSetting, publishDocumentSnapshot, createId: createStableId });
 	const actions = Object.freeze({
+		midi: midi.actions,
 		project: Object.freeze({
 			create: (...args: Parameters<typeof newProject>) => newProject(...args),
-			open: (...args: Parameters<typeof openProject>) => openProject(...args),
+			open: storedProjectOpenActions.open,
 			openRecent: storedProjectOpenActions.openRecent,
 			clearRecent: clearRecentProjects,
 			openAudacityProject,
-			openAup4, openDawproject, openSesx, saveDawproject,
+			openAup4, openDawproject, openSesx, saveDawproject: afterMidiEdits(saveDawproject),
 			openScape,
 			openScapeFile,
 			inspectScape,
-			saveAup3,
-			saveAup4,
-			saveScape,
-			saveAs: saveScape,
+			saveAup3: afterMidiEdits(saveAup3),
+			saveAup4: afterMidiEdits(saveAup4),
+			saveScape: saveCurrentScape,
+			saveAs: saveCurrentScape,
 			dismissAup4CompatibilitySummary,
-			close: closeProjectTab,
+			close: async (id = getProject()?.id, options: Parameters<typeof closeProjectTab>[1] = {}) => { if (options.discard) return closeProjectTab(id, options); if (!await prepareClose(id)) return { closed: false }; return id && sessionTab(id) ? closeProjectTab(id) : { closed: true }; },
+			prepareClose,
 			openById: storedProjectOpenActions.openById,
-			list: listProjects,
-			save: saveNow,
-			flush: flushProject,
-			prepareHandoff: prepareProjectHandoff,
+			list: afterMidiEdits(listProjects),
+			save: afterMidiEdits(saveNow),
+			saveFile: afterMidiEdits(saveProjectFile),
+			flush: afterMidiEdits(flushProject),
+			prepareHandoff: afterMidiEdits(prepareProjectHandoff),
 			...crossProductHandoffActions,
 			claimLock: claimProjectLock,
 			rename: (...args: Parameters<typeof renameProject>) => renameProject(...args),
-			duplicate: (...args: Parameters<typeof duplicateProject>) => duplicateProject(...args),
+			duplicate: afterMidiEdits(duplicateProject),
 			remove: deleteProject,
 			clear: clearLocalData,
-			importFiles,
+			importFiles: midi.importFiles,
 			cancelTask: () => scope.taskProgress?.cancelActive() ?? false,
 			setTempo: (bpm: number) => commit({ type: 'tempo/set', bpm }),
 			setTimeSignature: (numerator: number, denominator: number) => commit({ type: 'tempo/set', numerator, denominator }),
@@ -152,8 +196,11 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 		video: createVideoActionGroup(scope, restricted),
 		edit: Object.freeze({
 			execute: handleEdit,
-			commit: (...args: Parameters<typeof commit>) => commit(args[0]
-				? prepareFrozenTrackEditCommand(getProject(), snapshotInertEditorCommand(args[0])) : args[0], args[1], args[2]),
+			commit: (...args: Parameters<typeof commit>) => {
+				if (!args[0]) return commit(...args);
+				const prepared = prepareFrozenTrackEditCommand(getProject(), snapshotInertEditorCommand(args[0]));
+				return scope.previewMidiTransfer ? midi.commitTransfer(prepared, scope.previewMidiTransfer, args[1], args[2]) : commit(prepared, args[1], args[2]);
+			},
 			undo: () => handleEdit('undo'),
 			redo: () => handleEdit('redo'),
 			copy: () => handleEdit('copy'),
@@ -166,7 +213,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			splitAt: splitAtFrame,
 			splitIntoNewTrack: () => handleEdit('split-new-track'),
 			join: () => handleEdit('join'),
-			disjoin: () => disjoinSelectedClip(),
+			disjoin: (options?: Readonly<{ nativeSilence?: boolean }>) => disjoinSelectedClip(options),
 			group: () => handleEdit('group'),
 			ungroup: () => handleEdit('ungroup'),
 			duplicate: () => handleEdit('duplicate'),
@@ -202,7 +249,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			setPlayAtSpeedRate,
 			stop: yieldProgramPlayhead(() => handleTransport('stop')),
 			seek: yieldProgramPlayhead((frame: number) => {
-				if (state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recorder) {
+				if (state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording || state.recorder) {
 					return engine.getPositionFrames();
 				}
 				endScrub();
@@ -236,13 +283,8 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			setPreferredInput: setPreferredInputDevice,
 			setPreferredInputChannelCount,
 			setRecordingSampleRate,
-			setHostInventory,
+			...createAuditionOutputActions(scope),
 			configureDisplayInput,
-			setOutput: async (...args: Parameters<typeof setAudioOutputDevice>) => {
-				const deviceId = await setAudioOutputDevice(...args);
-				await scope.playbackPreviews?.setOutput(deviceId);
-				return deviceId;
-			},
 			setPlaybackGain: (gain: number) => {
 				const value = engine.setPlaybackGain(Number(gain));
 				scope.playbackPreviews?.setGain(value);
@@ -333,7 +375,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			addMono: addTrack,
 			addStereo: addTrack,
 			addLabel: addLabelTrack, ...trackStructuralOperations,
-			update: (trackId: string | null, changes: Readonly<Record<string, unknown>>) => commit({ type: 'track/update', trackId, changes }, { selectTrackId: trackId }),
+			update: (trackId: string | null, changes: Readonly<Record<string, unknown>>) => commit({ type: 'track/update', trackId, changes: admitRackEffectActivation(getProject(), 'track', trackId, changes, copy.effectUnsupported) }, { selectTrackId: trackId }),
 			reorder: reorderTrack,
 			moveUp: (trackId: string | null = state.selectedTrackId) => moveTrack(trackId, 'up'),
 			moveDown: (trackId: string | null = state.selectedTrackId) => moveTrack(trackId, 'down'),
@@ -366,13 +408,13 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 				commit({ type: 'mixer/bus-add', busType, bus: { ...options, id } });
 				return id;
 			},
-			updateBus: (busType: AudioEditorCommandPayloads['mixer/bus-add']['busType'], busId: string, changes: Readonly<Record<string, unknown>>) => commit({ type: 'mixer/bus-update', busType, busId, changes }),
+			updateBus: (busType: AudioEditorCommandPayloads['mixer/bus-add']['busType'], busId: string, changes: Readonly<Record<string, unknown>>) => commit({ type: 'mixer/bus-update', busType, busId, changes: admitRackEffectActivation(getProject(), busType, busId, changes, copy.effectUnsupported) }),
 			removeBus: (busType: AudioEditorCommandPayloads['mixer/bus-add']['busType'], busId: string) => commit({ type: 'mixer/bus-remove', busType, busId }),
 			setRoute: (trackId: string | null, changes: Readonly<Record<string, unknown>>) => commit({ type: 'mixer/route-update', trackId, changes }),
 			setSend: (trackId: string | null, sendId: string, gain: number) => commit({
 				type: 'mixer/route-update', trackId, changes: { sends: { [sendId]: gain } },
 			}),
-			updateMaster: (changes: Readonly<Record<string, unknown>>) => commit({ type: 'master/update', changes }),
+			updateMaster: (changes: Readonly<Record<string, unknown>>) => commit({ type: 'master/update', changes: admitRackEffectActivation(getProject(), 'master', null, changes, copy.effectUnsupported) }),
 		}),
 		generators: Object.freeze({
 			generate: restricted('audioGenerators', generateSignal), repeatLast: restricted('audioGenerators', repeatLastGenerator),
@@ -413,7 +455,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			materializeFreesoundUpload: materializeFreesoundUploadClip,
 		}),
 		effects: Object.freeze({
-			setSourceSelection: scope.setSourceSelection, readSourceSelection: scope.readSourceSelection, readSourceSelectionDuration: scope.readSourceSelectionDuration, readSourceSelectionSampleRate: scope.readSourceSelectionSampleRate, loadSourceAudio: scope.loadSourceAudio, loadSourceAudioWindow: scope.loadSourceAudioWindow,
+			setSourceSelection: scope.setSourceSelection, readSourceSelection: scope.readSourceSelection, readSourceSelectionDuration: scope.readSourceSelectionDuration, readSourceSelectionSampleRate: scope.readSourceSelectionSampleRate, loadSourceAudio: scope.loadSourceAudio, loadSourceAudioWindow: scope.loadSourceAudioWindow, readSelectionTargetLocked: scope.readSelectionTargetLocked,
 			add: restricted('audioEffects', addEffect),
 			update: restricted('audioEffects', updateRackEffect),
 			copy: restricted('audioEffects', copyRackEffect),
@@ -440,29 +482,27 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			copyStack: restricted('audioEffects', copyEffectStack),
 			pasteStack: restricted('audioEffects', pasteEffectStack),
 			setMasterGain: (gain: number) => commit({ type: 'master/update', changes: { gain: Math.max(0, Math.min(4, Number(gain))) } }),
-			setSelectionType: restricted('audioEffects', prepareAudacityEffectFromController),
+			setSelectionType: restricted('audioEffects', (type: string) => { effectSnapshot.cancel(); return prepareAudacityEffectFromController(type, effectSnapshot.beforeRead()); }),
 			setSelectionParams: restricted('audioEffects', setAudacityEffectParamsFromController),
 			setControlTrack: restricted('audioEffects', setAudacityControlTrack),
-			captureNoiseProfile: restricted('audioEffects', captureSelectedNoiseProfile),
-			captureRackNoiseProfile: restricted('audioEffects', captureRackNoiseProfileFromController),
-			applySelection: restricted('audioEffects', applyAudacityEffectFromController),
-			previewSelection: restricted('audioEffects', previewAudacityEffectFromController),
-			cancelPreview: () => cancelAudacityEffectPreview(),
-			cancelSelection: () => cancelSelectedAudacityEffect(),
-			repeatLast: restricted('audioEffects', repeatLastAudacityEffect),
+			captureNoiseProfile: restricted('audioEffects', effectSnapshot.run(captureSelectedNoiseProfile)),
+			captureRackNoiseProfile: restricted('audioEffects', effectSnapshot.run(captureRackNoiseProfileFromController)),
+			applySelection: restricted('audioEffects', effectSnapshot.run(applyAudacityEffectFromController)),
+			previewSelection: restricted('audioEffects', effectSnapshot.run(previewAudacityEffectFromController)),
+			cancelPreview: () => { effectSnapshot.cancel(); return cancelAudacityEffectPreview(); },
+			cancelSelection: () => { effectSnapshot.cancel(); return cancelSelectedAudacityEffect(); },
+			repeatLast: restricted('audioEffects', effectSnapshot.run(repeatLastAudacityEffect)),
 			presets: createEffectPresetActions(effectLibraryScope, restricted),
 		}),
 		macros,
-		analysis: Object.freeze({
-			run: restricted('audioAnalysis', analysisService.run),
-			plotSpectrum: restricted('audioAnalysis', analysisService.plotSpectrum),
-			findClipping: restricted('audioAnalysis', analysisService.findClipping),
-			contrast: restricted('audioAnalysis', analysisService.captureContrast), repeatLast: restricted('audioAnalysis', analysisService.repeatLast),
-			measureLoudness: restricted('audioAnalysis', analysisService.measureLoudness),
-		}),
-		export: createExportActionGroup({ handleExportAction, publishBlenderTracks, state, productName: product.name, getProjectTitle: () => getProject()?.title ?? null, getProject, projectForRuntimeConsumers: scope.projectForRuntimeConsumers, store, fileService, persistSetting, publishDocumentSnapshot, createId: createStableId }),
+		analysis: createMidiPendingAnalysisActions<NonNullable<ReturnType<typeof getProject>>>(analysisService, { ...midi, getProject,
+			prepareAudio: scope.prepareEffectSnapshotSources, captureTarget: clipboardSelection,
+			active: () => state.phase !== 'disposing' && state.phase !== 'disposed',
+		}, action => restricted('audioAnalysis', action)),
+		export: Object.freeze({ ...exportActions, exportEdl: afterMidiEdits(exportActions.exportEdl),
+			exportOtio: afterMidiEdits(exportActions.exportOtio), exportFcpxml: afterMidiEdits(exportActions.exportFcpxml) }),
 		media: createProjectMediaActionGroup({
-			state, getProject, store, publishDocumentSnapshot, setStatus, copy, fileService, ffmpeg, commit, saveScape: () => Promise.resolve(saveScape()),
+			state, getProject, store, publishDocumentSnapshot, setStatus, copy, fileService, ffmpeg, commit, saveScape: () => Promise.resolve(saveCurrentScape()),
 		}),
 	});
 	// A macro's bare commands walk this tree, and it does not exist until the

@@ -3,10 +3,11 @@ import { raceAbortableRead } from '../foundation/abort-race.ts';
 import { oggPageCrc } from './ogg-page-crc.ts';
 
 export interface VorbisPacketGeometry { readonly duration: number; readonly byteLength: number }
+export interface VorbisInitialGeometry { readonly origin: number; readonly minimumEncodedFrames: number }
 
 /** Vorbis I A.2 allows a broadcast recording to retain an absolute positive clock. */
-export async function inspectVorbisAbsoluteOrigin(file: Blob, serial: number, sampleRate: number,
-	packets: AsyncIterable<VorbisPacketGeometry>, signal?: AbortSignal): Promise<number> {
+export async function inspectVorbisInitialGeometry(file: Blob, serial: number, sampleRate: number,
+	packets: AsyncIterable<VorbisPacketGeometry>, signal?: AbortSignal): Promise<VorbisInitialGeometry> {
 	let offset = 0, metadataPackets = 3, decodedFrames = 0, audioPackets = 0;
 	const iterator = packets[Symbol.asyncIterator]();
 	const read = async (start: number, length: number): Promise<Uint8Array<ArrayBuffer>> => {
@@ -44,10 +45,14 @@ export async function inspectVorbisAbsoluteOrigin(file: Blob, serial: number, sa
 						decodedFrames += frames;
 					}
 					// A final granule also contains trailing trim and cannot prove an absolute origin.
-					if (header[5]! & 4) return 0;
+					if (header[5]! & 4) return { origin: 0, minimumEncodedFrames: decodedFrames };
 					const granule = view.getBigInt64(6, true);
-					if (granule < 0n || granule > BigInt(Number.MAX_SAFE_INTEGER)) throw new RangeError('The initial Vorbis granule is unsupported.');
-					return Math.max(0, Number(granule) - decodedFrames);
+					// Some playable exports omit page clocks even for completed packets.
+					// Count their frames until a later clock can establish the origin.
+					if (granule !== -1n) {
+						if (granule < 0n || granule > BigInt(Number.MAX_SAFE_INTEGER)) throw new RangeError('The initial Vorbis granule is unsupported.');
+						return { origin: Math.max(0, Number(granule) - decodedFrames), minimumEncodedFrames: decodedFrames };
+					}
 				}
 			}
 			offset += size;

@@ -79,8 +79,11 @@ export function useApplicationMenuKeyboard({
 			event.stopImmediatePropagation?.();
 			const trigger = menuButtonsRef.current[openMenu.index];
 			const nextMenuIndex = openMenu.index + 1;
+			const owner = event.target.ownerDocument, closingFocus = owner.activeElement;
 			setOpenMenu(null);
 			requestAnimationFrame(() => {
+				if (owner.activeElement !== closingFocus && owner.activeElement !== owner.body
+					&& owner.activeElement !== owner.documentElement) return;
 				if (event.shiftKey) {
 					trigger?.focus?.({ preventScroll: true });
 					return;

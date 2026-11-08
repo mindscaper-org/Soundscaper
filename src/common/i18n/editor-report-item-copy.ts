@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 /** Stable report codes select translated presentation; diagnostics remain report data. */
 export const REPORT_ITEM_COPY: Readonly<Record<string, string>> = Object.freeze({
+	"reportItem.ALLEGRO_TRACK_EXTENT_CONVERTED": "Allegro retains the note and update stream but cannot encode trailing track silence. Save MIDI or the native project to retain those track endpoints.",
 	"reportItem.ASSISTANCE_TRANSCRIPTS_OMITTED": "Assistance transcripts and their source bindings were omitted.",
 	"reportItem.AUDACITY_EFFECT_UNSUPPORTED_STATE_EXPORTED_AS_MISSING": "An unsupported Audacity effect state was exported as a missing effect",
+	"reportItem.AUDACITY_LABELS_BEFORE_ZERO_OMITTED": "Labels entirely before the timeline origin were omitted.",
+	"reportItem.AUDACITY_LABELS_BEFORE_ZERO_TRIMMED": "Label regions crossing the timeline origin were trimmed to start at zero.",
 	"reportItem.AUDACITY_RECOVERY_COPY": "Audacity recovery copy",
 	"reportItem.AUDIO_WARP_MAPS_OMITTED": "Warped timing was rendered into clips; editable warp maps were omitted.",
 	"reportItem.AUDIO_WARP_RENDERED": "Audio warp rendered",
@@ -35,6 +38,7 @@ export const REPORT_ITEM_COPY: Readonly<Record<string, string>> = Object.freeze(
 	"reportItem.MISSING_LOCAL_AUDIO": "Local audio is unavailable.",
 	"reportItem.MISSING_REALTIME_EFFECT": "A realtime effect is unavailable.",
 	"reportItem.MISSING_SAMPLE_BLOCK": "Missing sample block",
+	"reportItem.MIDI_CLIP_PITCH_OMITTED": "Clip pitch settings are omitted. Export audio to retain the audible pitch.",
 	"reportItem.MIXER_GROUPS_OMITTED": "Mixer groups omitted",
 	"reportItem.MIXER_ROUTES_OMITTED": "Tracks retained their own levels; buses, sends, VCAs and routing were omitted.",
 	"reportItem.MIXER_SENDS_OMITTED": "Mixer sends omitted",
@@ -75,6 +79,9 @@ export const REPORT_ITEM_COPY: Readonly<Record<string, string>> = Object.freeze(
 	"reportItem.UNSUPPORTED_NESTED_WAVECLIP": "Nested audio clips could not be imported",
 	"reportItem.UNSUPPORTED_TRACK_GAIN": "Unsupported track gain",
 	"reportItem.VIDEO_OMITTED": "Video tracks and their effects were omitted.",
+	"reportItem.dawproject.color-omitted": "An authored RGB color outside the track and clip palette was omitted.",
+	"reportItem.dawproject.inactive-track-converted": "Inactive tracks were imported muted; their audio remains available for reactivation.",
+	"reportItem.dawproject.midi-authoring-converted": "Editable MIDI notes, messages, and instrument settings were converted to fallback audio.",
 	"reportItem.delivery.adm-immersive-bed": "ADM immersive bed",
 	"reportItem.delivery.adm-objects": "ADM objects",
 	"reportItem.delivery.adm-passthrough": "ADM passthrough",
@@ -91,6 +98,8 @@ export const REPORT_ITEM_COPY: Readonly<Record<string, string>> = Object.freeze(
 	"reportItem.delivery.channel-map": "Channel map",
 	"reportItem.delivery.dither": "Dither",
 	"reportItem.delivery.encoder": "Video encoder selected",
+	"reportItem.delivery.ixml-file-uid-omitted": "The source file identifier was omitted from newly rendered audio files.",
+	"reportItem.delivery.ixml-tracks-omitted": "Recorder track names and roles were omitted because the export changes channel routing.",
 	"reportItem.delivery.lossless-encode": "Lossless encode",
 	"reportItem.delivery.lossy-encode": "Lossy encode",
 	"reportItem.delivery.loudness-delivered-mismatch": "The delivered file\u2019s loudness differs from the normalization projection.",

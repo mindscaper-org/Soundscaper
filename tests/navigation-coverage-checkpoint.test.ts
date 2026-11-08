@@ -9,6 +9,15 @@ import {
 	installPageOperationCoverageCheckpoints,
 } from '../scripts/lib/navigation-coverage-checkpoint.mjs';
 
+test('hook installation covers current and future documents in one navigation-safe command', async () => {
+	const session = new FakeSession();
+	const checkpoints = await installNavigationCoverageCheckpoints({ checkpoint: async () => undefined, session });
+	assert.equal(session.runImmediately, true);
+	assert.equal(session.methods.includes('Runtime.evaluate'), false, 'a separate current-document evaluation can race popup navigation');
+	assert.notEqual(session.hookScriptId(), '0', 'the same CDP install executes in the existing document');
+	await checkpoints.dispose();
+});
+
 test('a navigation pauses until its coverage checkpoint finishes', async () => {
 	const session = new FakeSession();
 	let releaseCheckpoint: (() => void) | undefined;
@@ -123,25 +132,27 @@ test('page navigation and close operations checkpoint before the original call',
 
 class FakeSession extends EventEmitter {
 	readonly methods: string[] = [];
+	runImmediately = false;
 	#nextScriptId = 0;
 
 	hookScriptId(): string {
 		return String(this.#nextScriptId);
 	}
 
-	async send(method: string, parameters?: { expression?: string; source?: string }): Promise<Record<string, unknown>> {
+	async send(method: string, parameters?: { expression?: string; source?: string; runImmediately?: boolean }): Promise<Record<string, unknown>> {
 		this.methods.push(method);
 		if (method === 'Page.addScriptToEvaluateOnNewDocument') {
-			return { identifier: 'coverage-hook' };
+			this.runImmediately = parameters?.runImmediately === true;
 		}
-		if (method === 'Runtime.evaluate'
-			&& parameters?.expression?.includes('soundscaper-coverage://navigation-checkpoint.js')) {
+		if (method === 'Page.addScriptToEvaluateOnNewDocument' && this.runImmediately
+			|| method === 'Runtime.evaluate' && parameters?.expression?.includes('soundscaper-coverage://navigation-checkpoint.js')) {
 			this.#nextScriptId += 1;
 			this.emit('Debugger.scriptParsed', {
 				scriptId: String(this.#nextScriptId),
 				url: 'soundscaper-coverage://navigation-checkpoint.js',
 			});
 		}
+		if (method === 'Page.addScriptToEvaluateOnNewDocument') return { identifier: 'coverage-hook' };
 		return {};
 	}
 }

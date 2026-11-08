@@ -23,6 +23,19 @@ const QUERY = Object.freeze({
 	]),
 });
 
+test('missing component diagnostics are bounded codec identifiers rather than paths or process output', () => {
+	const query = { ...QUERY, operations: [QUERY.operations[0]] };
+	const entry = { ...QUERY.operations[0], available: false, provider: null,
+		reason: 'unsupported-by-configured-ffmpeg', missingCapabilities: ['encoder:libopus'] };
+	const normalize = (missingCapabilities: unknown) => normalizeDesktopAudioCodecCapabilityResult({
+		schemaVersion: 2, capabilities: [{ ...entry, missingCapabilities }],
+	}, query);
+	assert.deepEqual(normalize(entry.missingCapabilities).capabilities[0]?.missingCapabilities, ['encoder:libopus']);
+	for (const invalid of [['/private/ffmpeg'], ['encoder:libopus\nprocess log'], Array(33).fill('encoder:libopus')]) {
+		assert.throws(() => normalize(invalid), /diagnostic/iu);
+	}
+});
+
 test('capability query is a closed bounded set of exact audio tuples', () => {
 	const normalized = normalizeDesktopAudioCodecCapabilityQuery(QUERY);
 	assert.notEqual(normalized, QUERY);

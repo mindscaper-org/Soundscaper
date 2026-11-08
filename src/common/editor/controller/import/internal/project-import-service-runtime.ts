@@ -24,11 +24,7 @@ import { inspectDecodedAudioSampleRate } from '../../../audio-file-metadata.js';
 import { streamAiffBlobPcm } from '../../../aiff-pcm-chunk-reader.ts';
 import { inspectDesktopStandalonePcm } from './desktop-standalone-pcm-import.ts';
 import { createIncrementalPcmImporter } from './incremental-wav-import-service.ts';
-import {
-	createImportedAudioContentIdentityWriter,
-	rollbackImportedAudioContentIdentityWriter,
-	type ImportedAudioContentIdentity,
-} from '../imported-audio-content-identity.ts';
+import { persistDecodedAudioImport } from './decoded-audio-import-persistence.ts';
 import { createLegacyAudacityProjectImport } from './legacy-audacity-project-import.ts';
 import { createLinkedAudioImportAdmission } from './linked-media/linked-audio-import-admission.ts';
 import { createLinkedPcmImporter } from './linked-media/linked-wav-import-service.ts';
@@ -53,7 +49,7 @@ type RuntimeValue = any;
 
 export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime) {
 	const {
-		SOURCE_CHUNK_FRAMES, activateStoredSource, audioBufferChannels,
+		SOURCE_CHUNK_FRAMES, activateStoredSource,
 		bufferFromChannels, cacheSourceBuffer, canonicalizeBuffer, commit,
 		convertLegacyAupToProject, copy, createAddClipCommand, createAddSourceCommand,
 		createAddTrackCommand, createStableId, decodeLegacyAupProject, assertProject, captureProject,
@@ -65,11 +61,12 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		publishDocumentSnapshot, retireSourceChunkProvider, setStatus, sourceBuffers,
 		sourcePcmBytes, sourcePeaks, state, store,
 		streamWavBlobPcm, stripExtension, switchProject, warnEnvelope,
-		writeBuffer, taskProgress,
+		taskProgress,
 	} = runtime;
 	let activeImportProgress: EditorTaskProgressHandle | null = null;
 	const importResultWithWarnings = createImportResultWithWarnings(copy);
 	const importIncrementalPcm = createIncrementalPcmImporter({
+		scheduleAudioDerivatives: runtime.scheduleAudioDerivatives,
 		SOURCE_CHUNK_FRAMES, activateStoredSource, commit, copy, createStableId,
 		getProject: requireProject, importResultWithWarnings, preflightStorage,
 		prepareImportedMediaCommand, projectSampleRate,
@@ -158,7 +155,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			importQueue = files.filter((file: RuntimeValue) => file !== legacyProject && !isLegacyAupFile(file)
 				&& !(consumedLegacyFiles ? consumedLegacyFiles.has(file) : isLegacyBlockFile(file)));
 		}
-		let audioFileIndex = 0;
+		let audioFileIndex = importOptions.fileIndexOffset ?? 0;
 		for (const file of importQueue) {
 			if (cancellation.signal.aborted) break;
 			setImportFileProgress(file, completedBytes, totalBytes);
@@ -187,6 +184,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		}
 		webFileLimitFailures.throwIfAny();
 		if (cancellation.signal.aborted) return Object.freeze({ cancelled: true as const });
+		if (importOptions.fileIndexOffset !== undefined) return Object.freeze({ importedFileCount: successes });
 	}
 
 	function setImportFileProgress(file: RuntimeValue, completedBytes: number, totalBytes: number) {
@@ -375,6 +373,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			catch (error) { throw new Error('The project changed during audio import.', { cause: error }); }
 			if ((getProject()?.id ?? null) !== startingProjectId) throw new Error('The project changed during audio import.');
 		};
+		const importOwnership = { assertCurrent: assertImportProjectCurrent, projectToken: startingProjectToken ?? undefined };
 		assertImportProjectCurrent(); validateImportTimelineTrack(attributedImportOptions);
 		const wavSignature = await inspectWavContainerSignature(file, isWavFile);
 		assertImportProjectCurrent();
@@ -389,7 +388,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		if (wavSignature === 'RF64' || wavSignature === 'BW64') {
 			if (!wavDescriptor) throw new Error(`The ${wavSignature} WAV file could not be inspected incrementally.`);
 			return importIncrementalPcm(file, wavDescriptor, wavMetadata.importOptions, wavMetadata,
-				{ requireChunkStream }, { assertCurrent: assertImportProjectCurrent });
+				{ requireChunkStream }, importOwnership);
 		}
 		const desktopPcmDescriptor = await inspectDesktopStandalonePcm(file, ffmpeg, wavDescriptor);
 		assertImportProjectCurrent();
@@ -399,13 +398,13 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 				: prepareWavImportMetadata(desktopPcmDescriptor, attributedImportOptions);
 			return importIncrementalPcm(file, desktopPcmDescriptor, pcmMetadata.importOptions, pcmMetadata, {
 				requireChunkStream: true,
-			}, { assertCurrent: assertImportProjectCurrent });
+			}, importOwnership);
 		}
 		// Stream every PCM WAV: Web Audio decoding resamples to the output rate
 		// and folds channels above stereo, making source identity depend on size.
 		if (wavDescriptor) {
 			return importIncrementalPcm(file, wavDescriptor, wavMetadata.importOptions, wavMetadata,
-				{ requireChunkStream }, { assertCurrent: assertImportProjectCurrent });
+				{ requireChunkStream }, importOwnership);
 		}
 		const { inspectStreamedAudioImportFile, scanEncodedAudioMarkers, decodeStandaloneAudioForImport } = await loadImportAdmissionExecution();
 		const streamedAudio = await inspectStreamedAudioImportFile(file, attributedImportOptions.signal); assertImportProjectCurrent();
@@ -414,7 +413,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		if (wavSignature === 'RIFX' || streamedAudio && !nativeAdmission && !nativeContainer) {
 			const { importStreamedAudioFile, NATIVE_AAC_IMPORT_FALLBACK } = await import('./streamed-audio-import-service.ts');
 			const imported = await importStreamedAudioFile(file, { ...attributedImportOptions, confirmFileSizeWarning: runtime.confirmFileSizeWarning, rescueMarkers: wavSignature === 'RIFX' }, ffmpeg, wavMetadata,
-				importIncrementalPcm, assertImportProjectCurrent);
+				importIncrementalPcm, assertImportProjectCurrent, importOwnership.projectToken);
 			if (imported !== NATIVE_AAC_IMPORT_FALLBACK) return imported;
 		}
 		await preflightStorage(Math.max(file.size * 8, 8 * 1024 * 1024), 'import');
@@ -448,27 +447,9 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		const trackName = stripExtension(file.name) || `${publishedCopyFor(copy).track} ${requireProject().tracks.length + 1}`;
 		const sourceName = file.name;
 		const mimeType = file.type || 'audio/wav';
-		const writer = createImportedAudioContentIdentityWriter(await store.beginSourceWrite(sourceId, {
-			name: sourceName,
-			mimeType,
-			sampleRate: canonical.sampleRate,
-			channelCount: canonical.numberOfChannels,
-			chunkFrames: SOURCE_CHUNK_FRAMES,
-		}), SOURCE_CHUNK_FRAMES);
-		let contentIdentity: ImportedAudioContentIdentity;
+		const contentIdentity = await persistDecodedAudioImport(runtime, sourceId,
+			{ name: sourceName, mimeType }, canonical, assertImportProjectCurrent);
 		let importedResult: RuntimeValue;
-		try {
-			assertImportProjectCurrent();
-			await writeBuffer(writer, canonical);
-			assertImportProjectCurrent();
-			await writer.commit({ sampleRate: canonical.sampleRate, channelCount: canonical.numberOfChannels });
-			assertImportProjectCurrent();
-			contentIdentity = writer.contentIdentity(canonical.length);
-		} catch (error) {
-			return rollbackImportedAudioContentIdentityWriter(
-				writer, () => store.deleteSource(sourceId), error,
-			);
-		}
 		try {
 			assertImportProjectCurrent();
 			const prepared = prepareImportedMediaCommand({
@@ -502,11 +483,6 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 				)),
 			}, trackName, wavMetadata.importOptions, wavMetadata.projectBext, wavDescriptor?.markers || rescuedMarkerScan?.markers || [], wavDescriptor?.sampleRate || rescuedMarkerScan?.sampleRate || canonical.sampleRate, wavMetadata.projectIxml, wavMetadata.projectCart, wavMetadata.projectAdmCandidate, wavDescriptor);
 			if (!isNativeContainerAudioView(canonical)) cacheSourceBuffer(sourceId, canonical);
-			const peaks = await generateWaveformPeaks(audioBufferChannels(canonical), copy);
-			assertImportProjectCurrent();
-			sourcePeaks.set(sourceId, peaks);
-			await store.saveAnalysis(peakCacheKey(sourceId), peaks).catch(() => undefined);
-			assertImportProjectCurrent();
 			commit(prepared.command, prepared.selection);
 			importedResult = prepared.result;
 		} catch (error) {
@@ -525,6 +501,13 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 				);
 			}
 			throw error;
+		}
+		if (startingProjectToken !== null) {
+			try { runtime.scheduleAudioDerivatives({
+				source: { id: sourceId, contentSha256: contentIdentity.contentSha256 },
+				projectToken: startingProjectToken,
+				storedSource: { id: sourceId, frameCount: canonical.length, channelCount: canonical.numberOfChannels },
+			}); } catch { /* The playable import is already committed. */ }
 		}
 		warnEnvelope();
 		return importResultWithWarnings(importedResult, [...wavMetadata.warnings, ...(rescuedMarkerScan?.metadataWarnings ?? [])]);

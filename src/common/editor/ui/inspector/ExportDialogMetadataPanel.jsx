@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { useRef } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 import { TextInput } from '@soundscaper/design-system/TextInput';
@@ -18,6 +19,8 @@ const METADATA_FIELDS = Object.freeze(['metadataTitle', 'metadataArtist', 'metad
 export default function ExportDialogMetadataPanel({
 	isOpen, copy, format, project, settings, activeTab, onTabChange, onChange, onClose,
 }) {
+	const multilineFields = useRef(new Set(METADATA_FIELDS.filter(name => name === 'metadataComments'
+		|| /[\r\n]/u.test(settings[name])))).current;
 	return (
 		<AudioEditorDialogShell
 			isOpen={isOpen}
@@ -77,7 +80,7 @@ export default function ExportDialogMetadataPanel({
 								{METADATA_FIELDS.map((name) => (
 									<label className="audio-editor-metadata-table__row" role="row" key={name}>
 										<span role="cell">{copy[name]}</span>
-										<span role="cell"><TextInput multiline={name === 'metadataComments'} value={settings[name]} onChange={(value) => onChange(name, value)} width="100%" /></span>
+										<span role="cell"><TextInput multiline={multilineFields.has(name)} value={settings[name]} onChange={(value) => onChange(name, value)} width="100%" /></span>
 									</label>
 								))}
 							</div>

@@ -27,6 +27,8 @@ import { brandFrameResourceCommandProjectV2 } from './frame-resource-command-car
 import { pasteClipboardV7 } from './clipboard-runtime-v7.ts';
 import { isCurrentClipboardPasteCommandV2, type CurrentAudioEditorMutationCommandV2 } from './clipboard-command-v2.ts';
 import { dispatchTimelineAnnotationAppendRuns } from './timeline-annotation-add-batch.ts';
+import { createRackWidthTopologyAdmission } from './rack-width-topology-admission.ts';
+import { prepareMidiSourceReplacement } from './midi-source-replacement.ts';
 
 type DataRecord = Record<PropertyKey, unknown>;
 
@@ -85,6 +87,7 @@ function createCommandAdmission(
 	const admissions = [
 		createTrackLockAdmission(persistedProject, commandProject),
 		createVideoRetimePreservationAdmission(persistedProject, commandProject),
+		createRackWidthTopologyAdmission(persistedProject),
 	];
 	return Object.freeze({
 		beforeCommand: (project: unknown, command: CurrentAudioEditorMutationCommandV2) => {
@@ -125,6 +128,7 @@ function mutateCommand(
 	}
 	const isChild = command.type !== 'batch';
 	if (isChild) admission.beforeCommand(project, command);
+	const reconcileMidi = prepareMidiSourceReplacement(project, command);
 	if (isTrackFolderProjectSchema(project)
 		&& (command.type === 'track/add' || command.type === 'track/remove' || command.type === 'track/reorder')
 		&& !(Array.isArray(project.trackFolders) && project.trackFolders.length > 0)) {
@@ -134,6 +138,7 @@ function mutateCommand(
 		const clips = recordArray(project.clips, 'project.clips');
 		const before = new Map(clips.map((clip) => [clip.id, commandTimingSignature(clip)]));
 		dispatchMutationCommand(handlers, project, command, resourceV2);
+		reconcileMidi?.();
 		const operation = {};
 		for (const clip of recordArray(project.clips, 'project.clips')) {
 			const previous = before.get(clip.id);
@@ -145,6 +150,7 @@ function mutateCommand(
 		return;
 	}
 	dispatchMutationCommand(handlers, project, command, resourceV2);
+	reconcileMidi?.();
 	if (isChild) admission.afterCommand(project);
 }
 

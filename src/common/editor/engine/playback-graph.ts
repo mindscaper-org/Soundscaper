@@ -4,6 +4,7 @@ import { getParametricEqWasmModule } from './effect-worklets.ts';
 import { buildProjectGraph, type ProjectGraph } from './project-graph.ts';
 import { prepareParallelStackPlayback, parallelStackPlaybackEnabled } from './parallel-stack-playback.ts';
 import { publishParallelStackStatus } from './parallel-stack-preferences.ts';
+import { createPlaybackGraphOutput, attachPlaybackGraphOutput } from './playback-graph-output.ts';
 import { disposeGraph } from './dispose-project-graph.ts';
 import { ENGINE_EMIT_PARAMETRIC_EQ_ERROR, ENGINE_HANDLE_SCHEDULING_ERROR } from './runtime-symbols.ts';
 import type { EngineRuntimeHost } from './runtime-types.ts';
@@ -16,13 +17,15 @@ export function buildPlaybackGraph(
 ): ProjectGraph | null | Promise<ProjectGraph | null> {
 	const { context, project, scrubGeneration } = engine;
 	if (!context || !project) return null;
-	const conventional = () => buildProjectGraph(context, destination, project, {
+	const output = createPlaybackGraphOutput(engine, context, destination);
+	const attach = (graph: ProjectGraph) => attachPlaybackGraphOutput(graph, output);
+	const conventional = (): ProjectGraph => { try { return attach(buildProjectGraph(context, output, project, {
 		metering: engine.meterListeners.size > 0,
 		respectMuteSolo: true, effectAnalysis: true, monitoring: true,
 		graph: engine.projectGraphSelection ?? undefined,
 		parametricEqWasmModule: getParametricEqWasmModule(context),
 		onParametricEqError: (error: unknown) => engine[ENGINE_EMIT_PARAMETRIC_EQ_ERROR](error),
-	});
+	})); } catch (error) { output.disconnect(); throw error; } };
 	// Seek and the conventional scheduler have synchronous graph construction semantics.
 	if (!parallelStackPlaybackEnabled(engine)) return conventional();
 	if (engine.projectGraphSelection !== 'v21') {
@@ -44,7 +47,7 @@ export function buildPlaybackGraph(
 			|| (engine.graph === null && engine.project === project)
 		);
 		try { prepared = await prepareParallelStackPlayback(engine, {
-			context, destination, project, fromFrame,
+			context, destination: output, project, fromFrame,
 			metering: engine.meterListeners.size > 0,
 			playbackMode: engine.playbackMode,
 			playbackRate: engine.playbackRate,
@@ -60,12 +63,15 @@ export function buildPlaybackGraph(
 				engine[ENGINE_HANDLE_SCHEDULING_ERROR](error);
 			},
 		}); } catch (error) {
+			output.disconnect();
 			if (failure) throw failure;
 			if (error instanceof Error && error.name === 'AbortError') return null;
 			throw error;
 		}
+		if (prepared) attach(prepared);
 		if (!current()) {
 			if (prepared) disposeGraph(prepared, true);
+			else output.disconnect();
 			return null;
 		}
 		if (failure) {

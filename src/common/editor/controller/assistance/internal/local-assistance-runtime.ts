@@ -45,9 +45,11 @@ import {
 	acknowledgeLocalAssistanceGuidedEditorialSelection,
 } from './guided/local-assistance-guided-editorial-acceptance.ts';
 import { validateAssistanceWorkflow } from '../../../assistance/workflow.ts';
-import type { LocalAssistanceGuidedWorkflowAcceptanceRequest } from
+import type { LocalAssistanceGuidedWorkflowAcceptanceRequest, LocalAssistanceSelectedMediaPreparationPort,
+	LocalAssistanceAudioEffectWorkflowId, LocalAssistanceAudioEffectBatch } from
 	'../../../assistance/local-assistance-preparation.ts';
 import type { DeferredLocalAssistanceRuntimeDependencies } from '../deferred-local-assistance-runtime.ts';
+import { createLocalAssistanceAudioEffectBatch } from './audio/local-assistance-audio-effect-batch.ts';
 
 /** Compose the stateful selected-media and proposal-acceptance ports after invocation. */
 export function createLocalAssistancePreparationRuntime(
@@ -253,6 +255,9 @@ export function createLocalAssistancePreparationRuntime(
 	}
 	return Object.freeze({
 		...advancedSelectedPreparation,
+		createAudioEffectBatch: async (workflowId: LocalAssistanceAudioEffectWorkflowId): Promise<LocalAssistanceAudioEffectBatch> =>
+			createLocalAssistanceAudioEffectBatch(dependencies, workflowId,
+				(child): LocalAssistanceSelectedMediaPreparationPort => createLocalAssistancePreparationRuntime(child)),
 		prepareAdvancedWorkflow: advancedPreparation.prepareAdvancedWorkflow,
 		prepareGuidedWorkflow: guidedPreparation.prepareGuidedWorkflow,
 		assertCurrentWorkflowFence: (

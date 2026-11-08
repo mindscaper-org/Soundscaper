@@ -64,13 +64,13 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 			}
 		}
 		await setTimeout(80);
-		const failed = process.env.FIXTURE_FAIL === '1' && process.argv.includes('--shard=common-1');
+		const failed = process.env.FIXTURE_FAIL === '1' && process.argv.includes('--module-shard=common-1');
 		progress({type: 'end', id: name, ...(failed ? {failure: 'fixture assertion failed'} : {})});
 		record('end');
 		process.exitCode = failed ? 1 : 0;
 	`;
 	for (const file of ['scripts/run-lint.mjs', 'scripts/run-node-tests.mjs', 'scripts/compact-v8-coverage.mjs',
-		'scripts/report-local-node-coverage.mjs', 'fake-npm.mjs', 'node_modules/@playwright/test/cli.js']) {
+		'scripts/report-local-node-coverage.mjs', 'scripts/run-module-browser-tests.ts', 'fake-npm.mjs', 'node_modules/@playwright/test/cli.js']) {
 		await writeFile(join(fixture, file), stub);
 	}
 	await writeFile(join(fixture, 'scripts/check-all-browser-servers.ts'), `
@@ -103,7 +103,7 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 	await assert.rejects(readFile(join(fixture, '.wrangler/check-all.lock')), { code: 'ENOENT' });
 	assert.match(await readFile(join(fixture, 'test-results/check-all/logs/node-common-1.log'), 'utf8'), /passing-result-noise/u);
 	const activity = (await readFile(join(fixture, 'activity.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line) as { type: string; name: string });
-	assert.ok(activity.some(event => event.type === 'start' && event.name.includes('--shard=lightscaper')), 'Lightscaper remains an independently executed fixture shard');
+	assert.ok(activity.some(event => event.type === 'start' && event.name.includes('--module-shard=lightscaper')), 'Lightscaper remains an independently executed fixture shard');
 	const active = new Set<string>();
 	let maximum = 0;
 	for (const event of activity) {
@@ -113,7 +113,7 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 	}
 	assert.equal(active.size, 0);
 	assert.equal(maximum, 4);
-	assert.equal(activity.filter(event => event.type === 'start' && event.name.startsWith('cli.js:')).length, 4);
+	assert.equal(activity.filter(event => event.type === 'start' && event.name.startsWith('run-module-browser-tests.ts:')).length, 4);
 	assert.equal(activity.filter(event => event.type === 'start' && event.name.startsWith('report-local')).length, 0);
 	await writeFile(join(fixture, 'activity.jsonl'), '');
 	const passed = await run(false);

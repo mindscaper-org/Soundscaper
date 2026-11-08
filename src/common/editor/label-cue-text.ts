@@ -10,6 +10,11 @@ export function decodeSubRipLabelText(value: string): string {
 	}
 }
 
+/** Detect literal emphasis wrappers that the maintained SubRip reader would consume. */
+export function containsSubRipLabelMarkup(value: string): boolean {
+	return decodeSubRipLabelText(value) !== value;
+}
+
 /** Labels are plain text; WebVTT cue payloads give punctuation markup meaning. */
 export function encodeWebVttLabelText(value: string): string {
 	return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');

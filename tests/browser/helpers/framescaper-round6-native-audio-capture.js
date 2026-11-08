@@ -101,6 +101,32 @@ export async function installRound6NativeCapture(page) {
 			return peaks;
 		};
 		const audio = async role => {
+			if (typeof MediaStreamTrackGenerator === 'function' && typeof AudioData === 'function') {
+				// WebAudio destinations use wall-clock capture timestamps, which can
+				// become ambiguous when a busy runner loses a native block. Supply a
+				// sample-counted source while retaining real AudioData and track processing.
+				const track = new MediaStreamTrackGenerator({ kind: 'audio' });
+				const writer = track.writable.getWriter();
+				Object.defineProperty(track, 'getSettings', { value: () => ({ sampleRate: 48_000, channelCount: 1 }) });
+				let frame = 0, pending = false;
+				const write = async () => {
+					if (pending) return;
+					if (track.readyState === 'ended') { clearInterval(timer); return; }
+					pending = true;
+					const samples = Float32Array.from({ length: 480 }, (_, index) =>
+						.2 * Math.sin(2 * Math.PI * (role === 'microphone' ? 440 : 220) * (frame + index) / 48_000));
+					const data = new AudioData({ format: 'f32-planar', sampleRate: 48_000, numberOfFrames: 480,
+						numberOfChannels: 1, timestamp: frame * 1_000_000 / 48_000, data: samples });
+					try { await writer.write(data); frame += 480; }
+					catch (error) {
+						clearInterval(timer);
+						if (track.readyState !== 'ended') failures.push(`Native source: ${String(error)}`);
+					} finally { data.close(); pending = false; }
+				};
+				const timer = setInterval(() => { void write(); }, 10);
+				tracks.set(track.id, role);
+				return new MediaStream([track]);
+			}
 			const context = new AudioContext({ sampleRate: 48000 });
 			contexts.find(({ reference }) => reference.deref() === context).role = role;
 			const oscillator = context.createOscillator();

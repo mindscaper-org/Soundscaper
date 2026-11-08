@@ -40,7 +40,7 @@ export function withFramescaperCaptureListeningOutput(
 		let recorder: FramescaperWorkletRecordingController;
 		try {
 			update();
-			output.connect(context.destination);
+			output.connect(request.monitorDestination ?? context.destination);
 			unsubscribe = listening.subscribe(update);
 			recorder = await factory({ ...request, monitorDestination: output });
 		} catch (error) {

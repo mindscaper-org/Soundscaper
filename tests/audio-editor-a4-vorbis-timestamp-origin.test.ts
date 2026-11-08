@@ -3,16 +3,18 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { prepareStreamedAudioImport } from '../src/common/editor/browser-streamed-audio-import.ts';
-import { inspectVorbisAbsoluteOrigin } from '../src/common/editor/vorbis-initial-granule.ts';
+import { inspectVorbisInitialGeometry } from '../src/common/editor/vorbis-initial-granule.ts';
 import { oggPageCrc } from '../src/common/editor/ogg-page-crc.ts';
 import { chunkGroupForModulePath } from '../scripts/lib/build-chunk-groups.mjs';
 import { vorbisTimestampFixture, vorbisTimestampReference } from './helpers/vorbis-timestamp-fixture.ts';
+import { vorbisMissingGranuleFixture } from './helpers/vorbis-missing-granule-fixture.ts';
 
-for (const absolute of [false, true]) test(`Vorbis File Import preserves recorded extent independently of broadcast timestamp=${String(absolute)}`, async () => {
+for (const [absolute, missingPages] of [[false, 0], [true, 0], [false, Infinity], [true, 2]] as const) test(`Vorbis File Import preserves recorded extent independently of broadcast timestamp=${String(absolute)}, missing page clocks=${String(missingPages)}`, async () => {
 	const previous = globalThis.fetch;
 	globalThis.fetch = async url => { assert.ok(url instanceof URL); return new Response(Uint8Array.from(await readFile(url))); };
 	try {
-		const prepared = await prepareStreamedAudioImport(vorbisTimestampFixture(absolute));
+		const prepared = await prepareStreamedAudioImport(missingPages
+			? await vorbisMissingGranuleFixture(absolute, missingPages) : vorbisTimestampFixture(absolute));
 		try {
 			assert.equal(prepared.descriptor.frameCount, 4800);
 			assert.equal(prepared.descriptor.sampleRate, 48_000); assert.equal(prepared.descriptor.channelCount, 2);
@@ -38,7 +40,8 @@ test('Vorbis clock inspection reads bounded headers and retires held reads or me
 		requests.push(end - start); return super.slice(start, end, type);
 	} }
 	const packets = { async *[Symbol.asyncIterator]() { yield { duration: 0, byteLength: 61 }; } };
-	assert.equal(await inspectVorbisAbsoluteOrigin(new Observed([original], original.name), serial, 48_000, packets), 48_000);
+	assert.deepEqual(await inspectVorbisInitialGeometry(new Observed([original], original.name), serial, 48_000, packets),
+		{ origin: 48_000, minimumEncodedFrames: 0 });
 	assert.ok(requests.length > 1 && Math.max(...requests) <= 65_307);
 	for (const phase of ['read', 'packet']) {
 		const abort = new AbortController(), reason = new DOMException('Cancel broadcast import', 'AbortError');
@@ -55,7 +58,7 @@ test('Vorbis clock inspection reads bounded headers and retires held reads or me
 			return { next: () => { entered?.(); return new Promise(resolve => { release = () => { resolve({ done: false, value: { duration: 0, byteLength: 61 } }); }; }); },
 				return: () => { retired = true; return Promise.resolve({ done: true, value: undefined }); } };
 		} };
-		const pending = inspectVorbisAbsoluteOrigin(new Held([original], original.name), serial, 48_000,
+		const pending = inspectVorbisInitialGeometry(new Held([original], original.name), serial, 48_000,
 			phase === 'packet' ? pendingPackets : packets, abort.signal);
 		await started; abort.abort(reason); await assert.rejects(pending, error => error === reason); release?.();
 		if (phase === 'packet') assert.equal(retired, true);
@@ -74,10 +77,34 @@ test('Vorbis clock admission keeps first-page CRC, granule and packet duration c
 	const size = 27 + laces.length + laces.reduce((sum, length) => sum + length, 0);
 	const packets = { async *[Symbol.asyncIterator]() { yield { duration: 0, byteLength: 61 }; } };
 	const badCrc = encoded.slice(); badCrc[offset + 22]! ^= 1;
-	await assert.rejects(inspectVorbisAbsoluteOrigin(new Blob([badCrc]), serial, 48_000, packets), /checksum/u);
-	const unsafe = encoded.slice(), view = new DataView(unsafe.buffer);
-	view.setBigInt64(offset + 6, 1n << 54n, true); view.setUint32(offset + 22, oggPageCrc(unsafe.subarray(offset, offset + size)), true);
-	await assert.rejects(inspectVorbisAbsoluteOrigin(new Blob([unsafe]), serial, 48_000, packets), /granule/u);
+	await assert.rejects(inspectVorbisInitialGeometry(new Blob([badCrc]), serial, 48_000, packets), /checksum/u);
+	for (const granule of [-2n, 1n << 54n]) {
+		const unsafe = encoded.slice(), view = new DataView(unsafe.buffer);
+		view.setBigInt64(offset + 6, granule, true); view.setUint32(offset + 22, oggPageCrc(unsafe.subarray(offset, offset + size)), true);
+		await assert.rejects(inspectVorbisInitialGeometry(new Blob([unsafe]), serial, 48_000, packets), /granule/u);
+	}
 	const wrongDuration = { async *[Symbol.asyncIterator]() { yield { duration: 1, byteLength: 61 }; } };
-	await assert.rejects(inspectVorbisAbsoluteOrigin(original, serial, 48_000, wrongDuration), /duration/u);
+	await assert.rejects(inspectVorbisInitialGeometry(original, serial, 48_000, wrongDuration), /duration/u);
+});
+
+test('Vorbis missing page clocks retain later CRC and final encoded-extent checks', async () => {
+	const previous = globalThis.fetch;
+	globalThis.fetch = async url => { assert.ok(url instanceof URL); return new Response(Uint8Array.from(await readFile(url))); };
+	try {
+		const encoded = new Uint8Array(await (await vorbisMissingGranuleFixture()).arrayBuffer());
+		const badCrc = encoded.slice(), oversized = encoded.slice();
+		for (let offset = 0, pageIndex = 0; offset < encoded.length; pageIndex++) {
+			const laces = encoded.subarray(offset + 27, offset + 27 + encoded[offset + 26]!);
+			const size = 27 + laces.length + laces.reduce((sum, length) => sum + length, 0);
+			if (pageIndex === 3) badCrc[offset + 22]! ^= 1;
+			if (encoded[offset + 5]! & 4) {
+				const view = new DataView(oversized.buffer);
+				view.setBigInt64(offset + 6, 10_000n, true);
+				view.setUint32(offset + 22, oggPageCrc(oversized.subarray(offset, offset + size)), true);
+			}
+			offset += size;
+		}
+		await assert.rejects(prepareStreamedAudioImport(new Blob([badCrc])), /checksum/u);
+		await assert.rejects(prepareStreamedAudioImport(new Blob([oversized])), /final granule exceeds/u);
+	} finally { globalThis.fetch = previous; }
 });

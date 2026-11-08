@@ -6,6 +6,7 @@ import type {
 } from '../desktop-read-materialization.ts';
 import { throwIfAborted } from '../../foundation/abort-error.ts';
 import { MEDIA_CONTENT_DIGEST_CHUNK_BYTES } from '../../media/content-digest.ts';
+import { readSourceWithRecovery, SourceReadConnectionError } from './source-read-recovery.ts';
 
 export const DESKTOP_LINKED_ORIGINAL_RANGE_MAXIMUM_BYTES = MEDIA_CONTENT_DIGEST_CHUNK_BYTES;
 
@@ -30,6 +31,18 @@ export async function readDesktopLinkedOriginalRange(
 	fetchRange: DesktopReadFetch,
 	kind: DesktopLinkedOriginalRangeKind,
 ): Promise<Uint8Array> {
+	return readSourceWithRecovery((signal, progress) => readDesktopRangeAttempt(descriptor, { ...request, signal }, fetchRange, kind, progress), {
+		signal: request.signal,
+	});
+}
+
+async function readDesktopRangeAttempt(
+	descriptor: DesktopLinkedOriginalRangeDescriptor,
+	request: DesktopLinkedOriginalRangeRequest,
+	fetchRange: DesktopReadFetch,
+	kind: DesktopLinkedOriginalRangeKind,
+	progress?: () => void,
+): Promise<Uint8Array> {
 	const label = `linked-${kind}`;
 	assertDescriptor(descriptor, label);
 	assertRequest(request, descriptor.size, label);
@@ -45,10 +58,10 @@ export async function readDesktopLinkedOriginalRange(
 			cache: 'no-store',
 			credentials: 'omit',
 			...(request.signal ? { signal: request.signal } : {}),
-		}), request.signal);
+		}), request.signal, late => { if (late.body) cancelTransport(late.body, request.signal?.reason); });
 	} catch (error) {
 		throwIfAborted(request.signal, `Desktop ${label} range read cancelled.`);
-		throw error;
+		throw new SourceReadConnectionError(error);
 	}
 	throwIfAborted(request.signal, `Desktop ${label} range read cancelled.`);
 	assertResponse(response, label);
@@ -57,6 +70,9 @@ export async function readDesktopLinkedOriginalRange(
 	try {
 		throwIfAborted(request.signal, `Desktop ${label} range read cancelled.`);
 		if (response.ok !== true || response.status !== 206) {
+			if ([404, 408, 429, 500, 502, 503, 504].includes(response.status)) {
+				throw new SourceReadConnectionError(undefined, `Desktop ${label} range read failed with status ${response.status}.`);
+			}
 			throw new Error(`Desktop ${label} range read failed with status ${response.status || 'unknown'}.`);
 		}
 		if (readHeader(response, 'Accept-Ranges', label) !== 'bytes') {
@@ -75,11 +91,17 @@ export async function readDesktopLinkedOriginalRange(
 			throw new Error(`Desktop ${label} range read requires a readable body.`);
 		}
 		reader = body.getReader();
+		progress?.();
 		const bytes = new Uint8Array(request.length);
 		let received = 0;
 		while (true) {
 			throwIfAborted(request.signal, `Desktop ${label} range read cancelled.`);
-			const result = await awaitWithAbort(reader.read(), request.signal);
+			let result: ReadableStreamReadResult<Uint8Array>;
+			try { result = await awaitWithAbort(reader.read(), request.signal); }
+			catch (error) {
+				throwIfAborted(request.signal, `Desktop ${label} range read cancelled.`);
+				throw new SourceReadConnectionError(error);
+			}
 			throwIfAborted(request.signal, `Desktop ${label} range read cancelled.`);
 			if (!result || typeof result !== 'object') {
 				throw new TypeError(`Desktop ${label} range read returned an invalid body result.`);
@@ -93,6 +115,7 @@ export async function readDesktopLinkedOriginalRange(
 			}
 			bytes.set(result.value, received);
 			received += result.value.byteLength;
+			if (result.value.byteLength > 0) progress?.();
 		}
 		if (received !== request.length) {
 			throw new Error(`Desktop ${label} range read returned too few body bytes.`);
@@ -177,11 +200,11 @@ function readContentLength(response: DesktopReadResponse, label: string): number
 	return length;
 }
 
-function awaitWithAbort<Value>(operation: PromiseLike<Value>, signal?: AbortSignal): Promise<Value> {
+function awaitWithAbort<Value>(operation: PromiseLike<Value>, signal?: AbortSignal, discardLateValue?: (value: Value) => void): Promise<Value> {
 	if (!signal) return Promise.resolve(operation);
 	return new Promise<Value>((resolve, reject) => {
 		if (signal.aborted) {
-			void Promise.resolve(operation).catch(() => undefined);
+			void Promise.resolve(operation).then(discardLateValue, () => undefined).catch(() => undefined);
 			reject(signal.reason);
 			return;
 		}
@@ -195,9 +218,12 @@ function awaitWithAbort<Value>(operation: PromiseLike<Value>, signal?: AbortSign
 		};
 		signal.addEventListener('abort', onAbort, { once: true });
 		void Promise.resolve(operation).then(
-			(value) => { if (!settled) { settled = true; cleanup(); resolve(value); } },
+			(value) => {
+				if (!settled) { settled = true; cleanup(); resolve(value); }
+				else discardLateValue?.(value);
+			},
 			(error: unknown) => { if (!settled) { settled = true; cleanup(); reject(error); } },
-		);
+		).catch(reject);
 	});
 }
 

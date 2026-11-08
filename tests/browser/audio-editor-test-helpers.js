@@ -7,6 +7,7 @@ import { settleFiniteAnimations } from './helpers/settle-finite-animations.js';
 import { closeWorkspacePanel } from './helpers/workspace-panel-chrome.js';
 import { openChromeDrawer, openTrackHeaderDrawer } from './helpers/responsive-layout.js';
 import { seedWorkspaceOnboardingComplete } from './helpers/browser-environment-stubs.js';
+import { createFileActionChooser } from './helpers/browser-project-picker.js';
 
 export { resolveBrowserProductTestUrl };
 
@@ -341,9 +342,7 @@ export async function openEffectStackMenu(panel, scope) {
 	return menu;
 }
 
-export async function chooseFileAction(page, editor, action, options = {}) {
-	await chooseCommandAction(page, editor, 'File', action, options);
-}
+export const chooseFileAction = createFileActionChooser(chooseCommandAction);
 
 export async function showToolbarButton(page, editor, label) {
 	await editor.getByRole('button', { name: 'Customize toolbar', exact: true }).click();

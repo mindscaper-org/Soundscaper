@@ -9,6 +9,7 @@ import type {
 	RoutedRecordingSourceSession,
 } from '../recording-session-service.ts';
 import type { TakeCycleRoutedCaptureEngine } from './take-cycle-routed-capture-types.ts';
+import { synchronizeTakeCycleInputGain } from './take-cycle-routed-capture-controls.ts';
 
 interface ClockedContext {
 	readonly currentTime: number;
@@ -22,13 +23,14 @@ interface ControlledSource {
 
 /** Arm every take-cycle input on the audio clock before playback sources start. */
 export async function startTakeCycleRoutedPlayback({
-	context, engine, loopStartFrame, sources, assertCurrent,
+	context, engine, loopStartFrame, sources, assertCurrent, readInputGain,
 }: Readonly<{
 	context: ClockedContext;
 	engine: Pick<TakeCycleRoutedCaptureEngine, 'playAt' | 'getPlaybackGraphLatencyFrames'>;
 	loopStartFrame: number;
 	sources: readonly ControlledSource[];
 	assertCurrent: () => void;
+	readInputGain?: () => number;
 }>): Promise<void> {
 	const controlled = sources.map((source) => {
 		if (!source.controller) throw new Error('No routed take cycle recorder is available.');
@@ -39,6 +41,7 @@ export async function startTakeCycleRoutedPlayback({
 	let recorderArmed = false;
 	const playbackStartTime = await engine.playAt(scheduledTime, loopStartFrame, async (candidate) => {
 		assertCurrent();
+		if (readInputGain) synchronizeTakeCycleInputGain(controlled, readInputGain());
 		const requestedFrame = secondsToSampleFrame(audibleRecordingStartTime(
 			candidate, scheduledTime, engine.getPlaybackGraphLatencyFrames?.() ?? 0, context.sampleRate,
 		), context.sampleRate, 'enclosingEnd');
@@ -58,6 +61,7 @@ export async function startTakeCycleRoutedPlayback({
 	});
 	assertCurrent();
 	if (recorderArmed) return;
+	if (readInputGain) synchronizeTakeCycleInputGain(controlled, readInputGain());
 	// Older engine integrations ignore the optional pre-start callback.
 	const startFrame = secondsToSampleFrame(audibleRecordingStartTime(
 		playbackStartTime, scheduledTime,

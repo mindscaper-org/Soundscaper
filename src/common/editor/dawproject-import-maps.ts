@@ -98,18 +98,21 @@ export function buildSignatureMap(document: DawprojectDocument, draft: Draft, te
 			numerator: integerAttribute(point, 'numerator') ?? 0,
 			denominator: integerAttribute(point, 'denominator') ?? 0,
 		}))
-		.filter((point) => Number.isFinite(point.beat) && point.beat >= 0 && point.numerator > 0 && point.denominator > 0)
+		.filter((point) => Number.isFinite(point.beat) && point.numerator > 0 && point.denominator > 0)
 		.sort((left, right) => left.beat - right.beat);
 	const finalPoints = points.filter((point, index) => points[index + 1]?.beat !== point.beat);
+	const initial = finalPoints.filter(point => point.beat <= 0).at(-1);
+	if (initial) events[0] = { ...events[0]!, numerator: initial.numerator, denominator: initial.denominator };
 	let previousBeat = 0;
 	let offBar = 0;
 	for (const point of finalPoints) {
+		if (point.beat <= 0) continue;
 		const previous = events.at(-1)!;
 		const barsSince = (point.beat - previousBeat) / (previous.numerator * 4 / previous.denominator);
 		const bar = previous.bar + Math.round(barsSince);
 		if (Math.abs(barsSince - Math.round(barsSince)) > 1e-6) offBar += 1;
-		if (bar === 0 && events.length === 1) {
-			events[0] = { ...events[0]!, numerator: point.numerator, denominator: point.denominator };
+		if (bar === previous.bar) {
+			events[events.length - 1] = { ...previous, numerator: point.numerator, denominator: point.denominator };
 			continue;
 		}
 		if (bar <= previous.bar) continue;

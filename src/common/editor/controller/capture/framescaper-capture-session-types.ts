@@ -149,7 +149,23 @@ export interface FramescaperCaptureDisplaySelectionPort {
 	}>): PromiseLike<void> | void;
 }
 
+export type FramescaperCaptureInputObserver = (options: Readonly<{
+	tracks?: readonly Readonly<{
+		readyState?: string; muted?: boolean;
+		addEventListener?(type: 'ended' | 'mute' | 'unmute', listener: () => void, options?: AddEventListenerOptions): void;
+		removeEventListener?(type: 'ended' | 'mute' | 'unmute', listener: () => void): void;
+	}>[];
+	context?: Readonly<{
+		state?: string;
+		resume?(): PromiseLike<void> | void;
+		addEventListener?(type: 'statechange', listener: () => void): void;
+		removeEventListener?(type: 'statechange', listener: () => void): void;
+	}>;
+	onInterrupted(error: Error): void | PromiseLike<void>;
+}>) => () => void;
+
 export interface FramescaperCaptureSessionServiceOptions<Stream = unknown, Track = unknown> {
+	readonly observeInput?: FramescaperCaptureInputObserver;
 	readonly enabled: boolean;
 	readonly embedded: boolean;
 	readonly sourcePort: CaptureSourcePortV1<Stream, Track>;

@@ -108,7 +108,7 @@ export function GeneratorRadioGroup({ label, value, onChange, options }) {
 					className="kw-audio-editor-generator__radio-option"
 					data-generator-radio-value={id}
 					onClick={(event) => {
-						if (!event.target.closest('[role="radio"]')) selectAndFocus(id);
+						if (!event.target.closest('.labeled-radio')) selectAndFocus(id);
 					}}
 				>
 					<LabeledRadio label={text} name="generator-interpolation" value={id} checked={value === id} tabIndex={value === id ? 0 : -1} onChange={() => onChange(id)} />

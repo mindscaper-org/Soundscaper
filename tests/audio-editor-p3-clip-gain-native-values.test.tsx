@@ -41,6 +41,25 @@ for (const value of ['', '25', '-61', 'NaN']) {
 	});
 }
 
+test('a clamped unchanged decrement preserves the original silent gain', async () => {
+	const f = await fixture(0);
+	try {
+		const decrease = f.buttons().find(button => button.getAttribute('aria-label') === 'Decrease value');
+		assert.ok(decrease);
+		await act(async () => reactProps(decrease).onClick());
+		await f.applyGain();
+		assert.deepEqual(f.updates, []);
+	} finally { await f.cleanup(); }
+});
+
+test('explicit typing minus sixty decibels still authors its linear gain', async () => {
+	const f = await fixture(0);
+	try {
+		await f.type('-6'); await f.type('-60'); await f.applyGain();
+		assert.deepEqual(f.updates, [{ gain: 0.001 }]);
+	} finally { await f.cleanup(); }
+});
+
 async function fixture(gain: number) {
 	const dom = installReactTestDom();
 	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
@@ -66,7 +85,7 @@ async function fixture(gain: number) {
 		return button;
 	};
 	return {
-		updates, dialog, apply,
+		updates, dialog, apply, buttons: () => dom.container.querySelectorAll('button'),
 		applyGain: async () => { await act(async () => reactProps(apply()).onClick({})); },
 		type: async (value: string) => {
 			const input = dom.one('input');

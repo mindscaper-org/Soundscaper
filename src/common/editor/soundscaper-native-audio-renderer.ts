@@ -13,7 +13,8 @@ export const SOUNDSCAPER_NATIVE_AUDIO_PORT_EVENT = 'soundscaper-native-realtime-
 
 type EnginePort = Readonly<{
 	getAudioContext(options?: Readonly<{ resume?: boolean; sampleRate?: number }>): Promise<AudioContext>;
-	getState(): Readonly<{ state: string }>;
+	getState(): Readonly<{ state: string; positionFrame?: number; cutPreview?: boolean }>;
+	seek?(frame: number): number;
 	pause(): void;
 	play(): Promise<void>;
 }>;
@@ -34,6 +35,18 @@ interface PreparedSession {
 }
 
 const ROUTES = new WeakMap<BaseAudioContext, Readonly<{ node: AudioNode; channelCount: number }>>();
+const OUTPUT_FAILURES = new WeakMap<BaseAudioContext, Error>();
+const routeListeners = new Set<(context: BaseAudioContext) => void>();
+
+/** Auditions retain their own graph while following the owning native session. */
+export function observeSoundscaperNativeAudioOutputs(listener: (context: BaseAudioContext) => void): () => void {
+	routeListeners.add(listener);
+	return () => { routeListeners.delete(listener); };
+}
+
+function publishOutputRoute(context: BaseAudioContext): void {
+	for (const listener of routeListeners) listener(context);
+}
 
 /** Live project graphs consult this only for output/duplex sessions. */
 export function soundscaperNativeAudioDestination(context: BaseAudioContext, fallback: AudioNode): AudioNode {
@@ -43,6 +56,11 @@ export function soundscaperNativeAudioDestination(context: BaseAudioContext, fal
 /** The attached output request owns physical width; intermediary GainNodes do not. */
 export function soundscaperNativeAudioOutputChannelCount(context: BaseAudioContext): number | null {
 	return ROUTES.get(context)?.channelCount ?? null;
+}
+
+/** A failed route cannot satisfy an audition's pending native-output admission. */
+export function soundscaperNativeAudioOutputFailure(context: BaseAudioContext): Error | null {
+	return OUTPUT_FAILURES.get(context) ?? null;
 }
 
 export function createSoundscaperNativeAudioRenderer(options: Readonly<{
@@ -61,6 +79,7 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 	let listening = false;
 	let disposed = false;
 	let preparationGeneration = 0;
+	let lastOutputContext: AudioContext | null = null;
 	const directionGenerations = new Map<'input' | 'output', number>();
 	const preparations = new Set<Promise<void>>();
 
@@ -96,6 +115,7 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 			session.attachment.resolve();
 			if (session.direction !== 'input') {
 				ROUTES.set(session.context, Object.freeze({ node: session.node, channelCount: session.channelCount }));
+				publishOutputRoute(session.context);
 				void restartIfPlaying(options.engine).catch(() => undefined);
 			}
 		} else session.attachment.reject(new Error(outcome.message));
@@ -118,6 +138,7 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 			}
 			if (ROUTES.get(current.context)?.node === current.node) {
 				ROUTES.delete(current.context);
+				publishOutputRoute(current.context);
 				outputReleased = true;
 			}
 			current.capture?.revoke('session-closed');
@@ -132,6 +153,9 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 		backend: string; deviceHandle: string;
 	}>): Promise<void> => {
 		assertOpen();
+		if (request.direction !== 'input' && lastOutputContext && OUTPUT_FAILURES.delete(lastOutputContext)) {
+			publishOutputRoute(lastOutputContext);
+		}
 		const generation = ++preparationGeneration;
 		for (const direction of ['input', 'output'] as const) {
 			if (request.direction === direction || request.direction === 'duplex') directionGenerations.set(direction, generation);
@@ -158,6 +182,7 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 		listen();
 		const context = await options.engine.getAudioContext({ resume: true, sampleRate: request.sampleRate });
 		assertCurrent(generation, request.direction);
+		if (request.direction !== 'input') lastOutputContext = context;
 		// The worklet copies frames one-to-one between the engine graph and
 		// the native device, so a route at any other rate would repitch
 		// playback against the export render and mis-clock capture. The
@@ -170,6 +195,10 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 		const lost = (value: Readonly<{ reason?: unknown }>, fallback: string): void => {
 			if (!prepared.has(sessionId)) return;
 			const reason = nativeAudioLossReason(value.reason, fallback);
+			if (request.direction !== 'input' && directionGenerations.get('output') === generation) {
+				OUTPUT_FAILURES.set(context, new Error('The selected audio output is unavailable.', { cause: reason }));
+				publishOutputRoute(context);
+			}
 			capture?.revoke(String(value.reason || fallback));
 			void (async () => {
 				try { await options.onDeviceLoss?.(sessionId, reason); }
@@ -279,7 +308,12 @@ function createAttachment() {
 }
 
 async function restartIfPlaying(engine: EnginePort): Promise<void> {
-	if (engine.getState().state !== 'playing') return;
+	const state = engine.getState();
+	if (state.state !== 'playing') return;
+	if (engine.seek && state.positionFrame !== undefined && !state.cutPreview) {
+		engine.seek(state.positionFrame);
+		return;
+	}
 	engine.pause();
 	await engine.play();
 }

@@ -34,6 +34,6 @@ for (const kind of ['generator', 'image']) test(`DAWproject exports programme au
 	await chooseCommandAction(page, editor, 'File', 'Delivery Report');
 	const report = page.getByRole('dialog', { name: 'Delivery Report', exact: true });
 	await expect(report).toBeVisible();
-	await expect(report.locator('[data-severity="warning"]')).toContainText(new RegExp(kind, 'u'));
+	await expect(report.locator('[data-severity="warning"]').filter({ hasText: new RegExp(kind, 'u') })).toHaveCount(1);
 	await expect(visual).toBeVisible();
 });

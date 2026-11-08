@@ -26,6 +26,7 @@ import {
 	type AudioEditorCommand,
 } from '../src/common/editor/commands/protocol.ts';
 import { createEditorCommandRuntime } from '../src/common/editor/commands/runtime-registry.ts';
+import { MIDI_COMMAND_TYPES } from '../src/common/editor/commands/midi-commands.ts';
 import { createEffect } from '../src/common/editor/effects.js';
 import {
 	createCurrentAudioEditorProject,
@@ -35,6 +36,7 @@ const NOW = '2026-07-26T12:00:00.000Z';
 
 test('command domains partition the authoritative protocol exactly once', () => {
 	const domainTypes = [
+		...MIDI_COMMAND_TYPES,
 		...PROJECT_SOURCE_BIN_COMMAND_TYPES,
 		...TEMPO_SIGNATURE_COMMAND_TYPES,
 		...SEQUENCE_TIMING_COMMAND_TYPES,
@@ -50,7 +52,7 @@ test('command domains partition the authoritative protocol exactly once', () => 
 		...AUDIO_PRODUCTION_COMMAND_TYPES,
 		...MASTERING_SEQUENCE_COMMAND_TYPES,
 	];
-	assert.equal(AUDIO_EDITOR_COMMAND_TYPES.length, 110);
+	assert.equal(AUDIO_EDITOR_COMMAND_TYPES.length, 112);
 	assert.equal(new Set(domainTypes).size, domainTypes.length, 'a command type belongs to only one domain');
 	assert.deepEqual([...domainTypes].sort(), [...AUDIO_EDITOR_COMMAND_TYPES].sort());
 });
@@ -126,6 +128,7 @@ test('a failing child leaves an atomic batch input untouched', () => {
 
 function domainHandlers(handlers: Record<string, unknown>): EditorCommandHandlerDomains {
 	return {
+		midi: pick(handlers, MIDI_COMMAND_TYPES),
 		projectSourceBin: pick(handlers, PROJECT_SOURCE_BIN_COMMAND_TYPES),
 		tempoSignature: pick(handlers, TEMPO_SIGNATURE_COMMAND_TYPES),
 		sequenceTiming: pick(handlers, SEQUENCE_TIMING_COMMAND_TYPES),

@@ -25,7 +25,7 @@ import {
 	type SoundscaperEditorProjectEnvironment,
 } from './editor-project-environment.ts';
 import { validateSoundscaperProject } from './editor-project-validation.ts';
-import { bindSoundscaperProjectRecovery, hasSoundscaperStartupRecovery } from './editor-project-recovery-binding.ts';
+import { bindSoundscaperProjectRecovery, hasSoundscaperProjectOpenRecovery } from './editor-project-recovery-binding.ts';
 import { createSoundscaperScapeNativeRuntime } from './editor-scape-native.ts';
 import {
 	createSoundscaperNativePluginActions,
@@ -96,7 +96,7 @@ export function createSoundscaperAudioEditorController(
 		projectRuntime: environment.runtime,
 		playbackProjectService: environment.playback,
 		createProjectIfAbsent: (project, publicationOptions) => environment.createProjectIfAbsent(project, { ...publicationOptions, confirmFileSizeWarning: publicationOptions?.confirmFileSizeWarning ?? presentation.confirmFileSizeWarning }),
-		onStartupProjectFailure: (projectId, error) => hasSoundscaperStartupRecovery(environment.controllerStore, projectId, error),
+		onProjectOpenFailure: (projectId, error) => hasSoundscaperProjectOpenRecovery(environment.controllerStore, projectId, error),
 		adaptAudacityProject: async (value: unknown, context?: DawprojectImportRoutingContext) => recoverSoundscaperNativePluginStatesFromAup4(
 			importSoundscaperAudacityProject(value, context),
 			nativePluginStateStore,

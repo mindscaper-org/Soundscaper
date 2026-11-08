@@ -363,8 +363,9 @@ export class OpfsRepository {
 			if (retainedPaths.has(name) || handle.kind !== 'file') continue;
 			if (await isCurrentlyRetained?.(name)) continue;
 			try {
-				const file = await handle.getFile();
-				if (file.lastModified < cutoff) await this.deletePath(name);
+				const file = await this.#sync.snapshot(directory, 'media-asset-chunk-read', name) ?? await handle.getFile();
+				if ('lastModified' in file && typeof file.lastModified === 'number'
+					&& file.lastModified < cutoff) await this.deletePath(name);
 			} catch { /* A concurrently removed file needs no cleanup. */ }
 		}
 	}

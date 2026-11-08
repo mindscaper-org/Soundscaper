@@ -45,7 +45,8 @@
 		"tests/helpers/lightscaper-managed-import-boundaries-native-v2.ts",
 		"tests/**/*.typecheck.ts",
 		"tests/electron/local-assistance-models/model-test-fixture.ts",
-		"tests/fixtures/streaming-analysis-worker.ts"
+		"tests/fixtures/streaming-analysis-worker.ts",
+		"tests/browser/fixtures/live-effect-tone-project.ts"
 	],
 	"files": [
 		"tests/helpers/lightscaper-opfs-cross-worker-read-native.ts",

@@ -8,6 +8,8 @@ import { applyAudacityParityToMenus } from '../src/common/editor/audacity-action
 import { createBlenderApplicationMenuItems } from '../src/common/editor/ui/blender-application-menu.ts';
 import { materializeApplicationMenu } from '../src/common/editor/ui/application-menu-materialization.ts';
 import { EDITOR_ENGLISH_COPY } from '../src/common/i18n/editor-copy-inventory.ts';
+import { organizeNativePreferences } from '../src/common/editor/ui/local-processing-menus.ts';
+import { findMenuItem } from './helpers/application-menu-fixture.ts';
 
 test('Blender export and connection are localized opt-in menu entries', () => {
 	const context = { blocked: false, materialAvailable: true, copy: EDITOR_ENGLISH_COPY };
@@ -38,6 +40,33 @@ test('Blender sync can always stop after audio removal or a blocked editing stat
 	const pending = createBlenderApplicationMenuItems({ ...port, busy: () => true }, { copy: {}, blocked: false, materialAvailable: true });
 	assert.equal(pending.file[0]?.disabled, true);
 	assert.equal(pending.tools[1]?.disabled, false, 'a running render can be stopped from its menu');
+});
+
+test('desktop Blender sync shares Desktop services with MCP and keeps live availability', () => {
+	let active = false;
+	const blender = createBlenderApplicationMenuItems({ active: () => active, busy: () => false,
+		exportTracks: () => undefined, toggleLiveSync: () => { active = !active; },
+	}, { copy: EDITOR_ENGLISH_COPY, blocked: false, materialAvailable: true });
+	const mcp = { id: 'desktop-mcp-connection', label: 'MCP connection' };
+	const menus = organizeNativePreferences([{ id: 'tools', items: [
+		...blender.tools, { id: 'desktop-services', label: 'Desktop services', items: [mcp] },
+	] }]);
+	assert.deepEqual(menus[0]?.items?.map(({ id }) => id), ['desktop-services']);
+	const services = findMenuItem(menus, 'desktop-services');
+	assert.deepEqual(services?.items?.map(({ id }) => id), [
+		'blender-start-live-sync', 'blender-stop-live-sync', 'desktop-mcp-connection',
+	]);
+	assert.equal(findMenuItem(menus, 'desktop-mcp-connection'), mcp);
+	const start = findMenuItem(menus, 'blender-start-live-sync');
+	const stop = findMenuItem(menus, 'blender-stop-live-sync');
+	assert.ok(start && stop);
+	start.onClick?.();
+	assert.equal(materializeApplicationMenu(start).disabled, true);
+	assert.equal(materializeApplicationMenu(stop).disabled, false);
+	stop.onClick?.();
+	assert.equal(active, false);
+	const standalone = organizeNativePreferences([{ id: 'tools', items: blender.tools }]);
+	assert.equal(findMenuItem(standalone, 'desktop-services')?.label, 'Desktop services');
 });
 
 test('Blender commands retain their handlers when deferred menu availability changes', () => {

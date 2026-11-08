@@ -17,6 +17,7 @@ import {
 } from '../soundscaper-native-services-dialog-model.ts';
 import type { SoundscaperNativeEffectPanelProps } from './SoundscaperNativeEffectPanels.tsx';
 import { soundscaperPluginScanRuntimeFor } from '../soundscaper-plugin-scan-runtime.ts';
+import SoundscaperPluginScanStatus from './SoundscaperPluginScanStatus.tsx';
 
 export default function SoundscaperPluginFoldersPreferences({ productId, copy }: {
 	readonly productId: string;
@@ -37,10 +38,11 @@ function PluginFoldersPreferences({ bridge, copy: hostCopy }: {
 	const state = useSyncExternalStore(runtime.subscribe, runtime.getState, runtime.getState);
 	const scanner = soundscaperPluginScanRuntimeFor(bridge);
 	const scan = useSyncExternalStore(scanner.subscribe, scanner.getSnapshot, scanner.getSnapshot);
-	useEffect(() => { void runtime.perform({ type: 'refresh' }); }, [runtime, tier?.pluginEnabled]);
+	useEffect(() => { void runtime.perform({ type: 'refresh' }); }, [runtime, tier?.pluginEnabled, scan.generation, scan.status]);
 	const perform = (action: SoundscaperNativeServicesDialogAction): void => { void runtime.perform(action); };
 	return <PreferencePanel title={copy.pluginFolders}>
 		{state.error && <p role="alert">{state.error}</p>}
+		<SoundscaperPluginScanStatus scan={scan} plugins={state.plugins} copy={copy} />
 		<SoundscaperPluginFoldersPanel copy={copy} state={state}
 			disabled={state.pending !== null || scan.status === 'running'} perform={perform}
 			scanning={scan.status === 'running'} scanFolders={() => { void scanner.scan().then(() => runtime.perform({ type: 'refresh' })); }} />
@@ -68,7 +70,6 @@ export function SoundscaperPluginFoldersPanel({ copy, state, disabled, perform, 
 	const scanning = backgroundScanning || Object.values(state.scans).some((scan) => scan.running);
 	return <div className="kw-plugin-folder-preferences">
 		<p>{copy.pluginFoldersHelp}</p>
-		{plugins !== null && !plugins.enabled && <p>{copy.pluginScanningOff}</p>}
 		{formats.map((format) => {
 			const custom = format.roots.filter((root) => root.origin === 'custom' && root.admitted);
 			return <fieldset key={format.format} data-native-plugin-format={format.format}>

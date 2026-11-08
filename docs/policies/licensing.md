@@ -153,8 +153,10 @@ A row may move from `blocked` only when the missing material is checked in and
 its automated check passes.
 
 The checked-in FFmpeg runtime policy manifest is an engineering integrity gate,
-not a license or patent approval. It binds installed runtime bytes to the
-current notice, source descriptor, licensing matrix, and release policy. Its
+not a license or patent approval. It binds installed runtime bytes to the FFmpeg
+notice section, source descriptor, CORS configuration, and publication policy.
+General policy documents and matrices are not digest-pinned; the audit checks
+the relevant FFmpeg licensing and security entries directly. Its
 distribution checks mirror the matrix for reporting; they are not an approval
 ceremony or a publication switch. The payload digest is an internal consistency
 check, not a human or release approval. Public build and test publication depend
@@ -434,12 +436,15 @@ performance conclusion for a user's installation.
 
 The matrix's `nativeFormatPolicies` register carries one fail-closed row for
 the JUCE native-audio stack, one per operating-system backend (CoreAudio,
-WASAPI, ASIO, PipeWire and ALSA), and one per plug-in format (VST3, CLAP, Audio
+WASAPI, ASIO, PipeWire and ALSA), and one per plug-in format (VST2, VST3, CLAP, Audio
 Units, Linux-only LADSPA effects, LV2, cross-platform Vamp analyzers, and OFX).
-The acquisition register pins the exact JUCE, CLAP, VST3, LADSPA 1.17, Vamp
+The acquisition register pins the exact JUCE, CLAP, VST3, FST 0.177.0, LADSPA 1.17, Vamp
 Plugin SDK 2.10.0, ASIO and LV2 source inputs, the four external native codec
 libraries, and zlib. LADSPA selects the official header's
-LGPL-2.1-or-later terms; Vamp selects BSD-3-Clause. A
+LGPL-2.1-or-later terms; Vamp selects BSD-3-Clause. VST2 uses the
+independently reverse-engineered FST headers under GPL-3.0-or-later, combined
+with this AGPL work under GPLv3 section 13; the proprietary Steinberg VST2 SDK
+is not acquired or redistributed. A
 verified archive hash proves source identity only: it does not supply notices,
 corresponding source, platform compatibility, self-tests, or package verification.
 

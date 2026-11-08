@@ -151,7 +151,7 @@ export interface ClipboardEditService {
 	splitAtFrame(frame: unknown, trackIds?: string | readonly string[] | null): unknown;
 	commitSplitAtFrames(frames: readonly unknown[], trackIds?: string | readonly string[] | null): unknown;
 	prepareControllerPaste(mode: ClipboardPasteMode, atFrame?: number, pasteAsNewClip?: boolean): CurrentAudioEditorMutationCommandV2;
-	disjoinSelectedClip(): Promise<void>;
+	disjoinSelectedClip(options?: Readonly<{ nativeSilence?: boolean }>): Promise<void>;
 	disjoinLabeledRegions(
 		regions: readonly Readonly<{ startFrame: number; endFrame: number }>[],
 		trackIds: readonly string[],
@@ -274,7 +274,7 @@ export function createClipboardEditService(
 	}
 
 	/** Detach a drawn range or selected clips, reading streamed audio on demand. */
-	async function disjoinSelectedClip(): Promise<void> {
+	async function disjoinSelectedClip(options: Readonly<{ nativeSilence?: boolean }> = {}): Promise<void> {
 		dependencies.lifetime.assertActive();
 		if (dependencies.editingBlocked()) return;
 		const project = dependencies.getProject();
@@ -297,7 +297,7 @@ export function createClipboardEditService(
 			const current = dependencies.getProject();
 			if (current.id !== project.id || current.revision !== project.revision) return;
 			if (!buffer) continue;
-			commands.push(...detachCommandsForClip(clip, findClipSilenceRegions(clip, buffer, authority.range, project)));
+			commands.push(...detachCommandsForClip(clip, findClipSilenceRegions(clip, buffer, authority.range, project, { absoluteSilence: options.nativeSilence })));
 		}
 		if (!commands.length) {
 			setLocalizedStatus(dependencies.setStatus, dependencies.copy, "noSilencesFound", undefined, 'info');

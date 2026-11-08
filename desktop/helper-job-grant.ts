@@ -132,7 +132,7 @@ export const NATIVE_AUDIO_INVENTORY_DEVICE_HANDLE = 'inventory';
  * this vocabulary.
  */
 export const HELPER_EFFECT_PLUGIN_FORMATS = Object.freeze([
-	'vst3', 'clap', 'au', 'lv2', 'ladspa', 'fixture',
+	'vst3', 'vst2', 'clap', 'au', 'lv2', 'ladspa', 'fixture',
 ] as const);
 export type HelperEffectPluginFormat = (typeof HELPER_EFFECT_PLUGIN_FORMATS)[number];
 

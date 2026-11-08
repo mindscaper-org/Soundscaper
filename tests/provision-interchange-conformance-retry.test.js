@@ -51,3 +51,35 @@ test('interchange reference provisioning stops after three transient failures', 
 	}), /fetch failed/u);
 	assert.equal(attempts, 3);
 });
+
+test('interchange provisioning retries the HTTP/2 stream failure seen on hosted Windows', async () => {
+	let attempts = 0;
+	const result = await fetchWithTransientRetry('https://files.pythonhosted.org/wheel', {
+		fetchImpl: async () => {
+			attempts += 1;
+			if (attempts === 1) throw new TypeError('fetch failed', { cause: { code: 'ERR_HTTP2_STREAM_ERROR' } });
+			return new Response('wheel');
+		},
+		delayImpl: async () => {},
+	});
+	assert.equal(await result.text(), 'wheel');
+	assert.equal(attempts, 2);
+});
+
+test('interchange provisioning discards transient HTTP error bodies before retrying', async () => {
+	let attempts = 0;
+	let cancelled = false;
+	const result = await fetchWithTransientRetry('https://pypi.org/pypi/example/1/json', {
+		fetchImpl: async () => {
+			attempts += 1;
+			return attempts === 1
+				? new Response(new ReadableStream({ cancel() { cancelled = true; } }), { status: 503 })
+				: Response.json({ name: 'example' });
+		},
+		delayImpl: async () => {},
+	});
+	assert.equal(result.status, 200);
+	assert.deepEqual(await result.json(), { name: 'example' });
+	assert.equal(attempts, 2);
+	assert.equal(cancelled, true);
+});

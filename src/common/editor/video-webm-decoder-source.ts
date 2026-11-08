@@ -25,7 +25,14 @@ export async function prepareVideoWebmDecoderSource(
 	const source = new Blob([input], { type: input.type });
 	if (source.size !== input.size) return input;
 	const reader = createVideoTimingDemuxReader(source, options);
-	const profile = await liveProfile(reader);
+	const segment = await webmSegment(reader);
+	// Trailing global padding carries no media and need not enter native seek ranges.
+	if (segment && !segment.unknown && segment.end < source.size
+		&& await onlyTrailingVoid(reader, segment.end)) {
+		throwIfAborted(options.signal);
+		return source.slice(0, segment.end, input.type);
+	}
+	const profile = await liveProfile(reader, segment);
 	if (!profile) return input;
 	const timing = await demuxMatroskaVideoTiming(reader, options);
 	throwIfAborted(options.signal);
@@ -48,11 +55,25 @@ function isWebm(input: Blob): boolean {
 		|| ('name' in input && typeof input.name === 'string' && /\.webm$/iu.test(input.name));
 }
 
-async function liveProfile(reader: VideoTimingDemuxReader): Promise<Profile | null> {
+async function webmSegment(reader: VideoTimingDemuxReader): Promise<Element | null> {
 	const ebml = await element(reader, 0, reader.byteLength);
 	if (!ebml || ebml.id !== 0x1a45_dfa3 || ebml.unknown || !await webmDocType(reader, ebml)) return null;
 	const segment = await element(reader, ebml.end, reader.byteLength);
-	if (!segment || segment.id !== SEGMENT || !segment.unknown) return null;
+	return segment?.id === SEGMENT ? segment : null;
+}
+
+async function onlyTrailingVoid(reader: VideoTimingDemuxReader, offset: number): Promise<boolean> {
+	while (offset < reader.byteLength) {
+		if ((await reader.read(offset, 1))[0] !== 0xec) return false;
+		const padding = await element(reader, offset, reader.byteLength);
+		if (!padding || padding.unknown) return false;
+		offset = padding.end;
+	}
+	return true;
+}
+
+async function liveProfile(reader: VideoTimingDemuxReader, segment: Element | null): Promise<Profile | null> {
+	if (!segment || !segment.unknown) return null;
 	let info: Element | null = null, videoTrack: bigint | null = null, origin: bigint | null = null;
 	let timestamp = 0n, offset = segment.body;
 	while (offset < segment.end) {

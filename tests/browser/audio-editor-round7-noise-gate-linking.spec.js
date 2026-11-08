@@ -1,34 +1,31 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
-import { addRackEffect, bootEditor, chooseDropdown, commitInput, importFiles, openEffectsForTrack } from './audio-editor-test-helpers.js';
+import { expect, test } from './audio-editor-test-fixtures.js';
+import { addRackEffect, bootEditor, chooseDropdown, commitInput, waitForProjectActivation, openEffectsForTrack } from './audio-editor-test-helpers.js';
+import { liveEffectToneProject } from './fixtures/live-effect-tone-project.ts';
+import { installLiveOutputObserver, waitForLiveOutputObserver } from './helpers/live-output-observer.js';
 
-test.use({ browserCoverage: false });
+// Permit the test-only blob worklet without changing the shipped script policy.
+test.use({ browserCoverage: false, bypassCSP: true });
 
 test('linking a running Noise gate immediately shares its sounding channel gain', async ({ page }) => {
+	await installLiveOutputObserver(page, '__round7GateOutput', { observeMaster: false });
 	await page.addInitScript(() => {
 		window.__round7GateNodes = [];
 		const NativeNode = AudioWorkletNode;
-		const connect = AudioNode.prototype.connect;
 		window.AudioWorkletNode = class extends NativeNode {
 			constructor(...args) {
 				super(...args);
 				if (args[2]?.processorOptions?.type !== 'noise-gate' || !(this.context instanceof AudioContext)) return;
-				const observed = { samples: [], linkedAt: null, params: args[2].processorOptions.params };
+				const observed = { samples: [], linkedAt: null, params: args[2].processorOptions.params, error: null };
 				window.__round7GateNodes.push(observed);
-				const observer = this.context.createScriptProcessor(256, 2, 2);
-				const silent = this.context.createGain(); silent.gain.value = 0;
-				Reflect.apply(connect, this, [observer]);
-				Reflect.apply(connect, observer, [silent]);
-				Reflect.apply(connect, silent, [this.context.destination]);
-				observer.onaudioprocess = event => {
-					const rms = [0, 1].map(channel => {
-						const input = event.inputBuffer.getChannelData(channel);
-						return Math.sqrt(input.reduce((power, sample) => power + sample * sample, 0) / input.length);
+				// Playback may construct its effect in a fresh realtime context.
+				void globalThis.__prepareLiveOutputObservation(this.context).then(() => {
+					globalThis.__observeLiveOutput(this, sample => {
+						observed.samples.push({ time: sample.time, rms: sample.channels });
+						if (observed.samples.length > 2000) observed.samples.shift();
 					});
-					observed.samples.push({ time: event.playbackTime, rms });
-					if (observed.samples.length > 2000) observed.samples.shift();
-				};
+				}).catch(error => { observed.error = String(error); });
 				const post = this.port.postMessage.bind(this.port);
 				this.port.postMessage = (...messages) => {
 					if (messages[0]?.type === 'configure') observed.params = messages[0].params;
@@ -41,16 +38,23 @@ test('linking a running Noise gate immediately shares its sounding channel gain'
 		};
 	});
 	const editor = await bootEditor(page, '/embed/en/');
-	await importFiles(editor, [createWavFixture({ name: 'independent gate stereo recording.wav',
-		frequency: 1000, duration: 16, channelCount: 2, channelAmplitudes: [.6, .006] })]);
-	const panel = await openEffectsForTrack(editor, 1);
+	const { projectId, file } = await liveEffectToneProject([.6, .006]);
+	await editor.locator('[data-aup4-input]').setInputFiles(file);
+	await expect(editor).toHaveAttribute('data-project-id', projectId);
+	await waitForProjectActivation(editor);
+	await waitForLiveOutputObserver(page);
+	const panel = await openEffectsForTrack(editor, 0);
 	await addRackEffect(page, panel, 'track', 'Noise gate');
 	const dialog = page.getByRole('dialog', { name: 'Noise gate', exact: true });
 	await commitInput(dialog.locator('[data-effect-param="attack"] input[type="number"]'), '1000');
 	const linking = dialog.getByRole('group', { name: 'Stereo linking', exact: true });
 	await chooseDropdown(page, linking, 'Independent channels');
 	await editor.getByRole('button', { name: 'Play', exact: true }).click();
-	await expect.poll(() => page.evaluate(() => window.__round7GateNodes.at(-1)?.samples.at(-1)?.rms[0] ?? 0)).toBeGreaterThan(.4);
+	await expect.poll(() => page.evaluate(() => {
+		const observed = window.__round7GateNodes.at(-1);
+		if (observed?.error) throw new Error(observed.error);
+		return observed?.samples.at(-1)?.rms[0] ?? 0;
+	})).toBeGreaterThan(.4);
 	expect(await page.evaluate(() => window.__round7GateNodes.at(-1).params.attack)).toBe(1);
 	const before = await page.evaluate(() => window.__round7GateNodes.at(-1).samples.at(-1).rms);
 	expect(before[1] / before[0]).toBeLessThan(.001);

@@ -1,0 +1,27 @@
+.audio-editor-acx-compliance {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.audio-editor-acx-compliance table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 12px;
+}
+
+.audio-editor-acx-compliance :is(th, td) {
+	padding: 6px 4px;
+	border-bottom: 1px solid var(--line);
+	text-align: start;
+	vertical-align: top;
+}
+
+.audio-editor-acx-compliance td {
+	font-variant-numeric: tabular-nums;
+}
+
+.audio-editor-acx-compliance small {
+	display: block;
+	margin-top: 3px;
+	font-weight: normal;
+}

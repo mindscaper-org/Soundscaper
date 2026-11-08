@@ -6,9 +6,10 @@ import React, { act } from 'react';
 import { useOperationFocusRecovery } from '../src/common/editor/ui/useOperationFocusRecovery.ts';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-function Probe({ pending, owner }: Readonly<{ pending: boolean; owner: string }>) {
+function Probe({ pending, owner, fallback = false }: Readonly<{ pending: boolean; owner: string; fallback?: boolean }>) {
 	const capture = useOperationFocusRecovery(pending, owner);
-	return <><button onClick={() => capture()}>Move marker</button><input /></>;
+	const input = React.useRef<HTMLInputElement>(null);
+	return <><button onClick={() => capture(fallback ? () => input.current : undefined)}>Move marker</button><input ref={input} /></>;
 }
 
 test('operation focus recovery retains its owner and never steals a newly chosen focus target', async () => {
@@ -43,6 +44,15 @@ test('operation focus recovery retains its owner and never steals a newly chosen
 		document.body.focus();
 		await render(false, 'clip-b');
 		assert.equal(document.activeElement, document.body);
+		await act(async () => root.render(<Probe pending={false} owner="clip-b" fallback />));
+		button.focus();
+		reactProps(button).onClick();
+		await act(async () => root.render(<Probe pending owner="clip-b" fallback />));
+		// WebKit can retain the disabled submitter as the active element.
+		button.setAttribute('disabled', '');
+		assert.equal(document.activeElement, button);
+		await act(async () => root.render(<Probe pending={false} owner="clip-b" fallback />));
+		assert.equal(document.activeElement, other, 'a disabled active submitter must yield to its editable fallback');
 	} finally {
 		await act(async () => root.unmount());
 		globals.IS_REACT_ACT_ENVIRONMENT = priorAct;

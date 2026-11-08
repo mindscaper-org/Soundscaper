@@ -8,6 +8,16 @@ export type ClipSourceTimingClip = AudioWarpAuthorityRuntimeClip;
 export type ClipSourceTimingProject = AudioWarpAuthorityRuntimeProject;
 export interface ClipSourceTimingSource { readonly sampleRate: number; readonly frameCount: number }
 export interface ClipSourceDisplayRange { readonly startFrame: number; readonly endFrame: number; readonly totalFrames: number }
+/** Exact native-frame mapping for a whole-source format rewrite. */
+export interface ClipSourceClockRewrite {
+	readonly clipIds: readonly string[];
+	readonly previousSourceId: string;
+	readonly sourceId: string;
+	readonly frameCount: number;
+	readonly numerator: number;
+	readonly denominator: number;
+}
+export type StageClipSourceClockRewrite = (rewrite: ClipSourceClockRewrite) => () => void;
 
 /** Full media, with the active clip's output duration replacing its original source span. */
 export function clipSourceDisplayRange(clip: ClipSourceTimingClip, source: ClipSourceTimingSource, sampleRate: number): ClipSourceDisplayRange {

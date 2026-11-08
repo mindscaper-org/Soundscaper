@@ -18,6 +18,7 @@ public:
 		const float *const *inputs, uint32_t inputChannels, float **outputs,
 		uint32_t outputChannels, uint32_t frames) = 0;
 	virtual uint32_t latency() const = 0;
+	virtual void audioTopology(uint32_t &inputs, uint32_t &outputs) const = 0;
 	virtual soundscaper_pro_status saveState(uint8_t *bytes, size_t capacity, size_t &written) = 0;
 	virtual soundscaper_pro_status loadState(const uint8_t *bytes, size_t length) = 0;
 	virtual bool hasVendorUi() const = 0;

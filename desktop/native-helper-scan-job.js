@@ -21,6 +21,7 @@ import { HELPER_CONTRACT_VERSION, HELPER_JOB_ID_LENGTH, MAXIMUM_HELPER_WIRE_MESS
 /** Closed format-to-candidate mapping; the verified payload declares its subset. */
 export const SCANNABLE_PLUGIN_FORMATS = Object.freeze({
 	fixture: Object.freeze({ darwin: ['.scapefx'], linux: ['.scapefx'], win32: ['.scapefx'] }),
+	vst2: Object.freeze({ darwin: ['.vst'], linux: ['.so'], win32: ['.dll'] }),
 	vst3: Object.freeze({ darwin: ['.vst3'], linux: ['.vst3'], win32: ['.vst3'] }),
 	clap: Object.freeze({ darwin: ['.clap'], linux: ['.clap'], win32: ['.clap'] }),
 	au: Object.freeze({ darwin: ['.component'] }),

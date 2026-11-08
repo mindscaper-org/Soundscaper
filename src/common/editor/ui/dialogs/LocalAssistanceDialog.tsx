@@ -40,7 +40,10 @@ import type { LocalModelManagerBridge } from '../local-model-manager-bridge.ts';
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 import LocalAssistanceTaskSummary, { LocalAssistanceTaskActions } from './LocalAssistanceTaskSummary.tsx';
 import { AssistanceLoadingProgress } from './AssistanceLoadingDialog.tsx';
+import { assistanceOperationActionLabel } from '../local-assistance-task-controls.ts';
 import AssistanceProcessingProgress from './AssistanceProcessingProgress.tsx';
+import { useLocalAssistanceTaskExecution } from './useLocalAssistanceTaskExecution.ts';
+import LocalAssistanceTaskProcessingDialog from './LocalAssistanceTaskProcessingDialog.tsx';
 import './LocalAssistanceDialog.css';
 import './ProcessingDialogs.css';
 
@@ -58,6 +61,7 @@ export interface LocalAssistanceDialogProps {
 	readonly preparation: LocalAssistanceSelectedMediaPreparationPort | null;
 	readonly copy: Copy;
 	readonly onClose: () => void;
+	readonly onModelsMissing?: (settings: AssistanceWorkflowSettingsV1, installedModelIds?: readonly string[]) => void;
 }
 
 export interface LocalAssistanceDialogViewProps {
@@ -108,7 +112,7 @@ export default function LocalAssistanceDialog({
 }
 
 function LocalAssistanceProjectSession({
-	bridge, preparation, copy, onClose, request, initialSettings, modelBridge = null, locale = 'en',
+	bridge, preparation, copy, onClose, onModelsMissing, request, initialSettings, modelBridge = null, locale = 'en',
 }: LocalAssistanceDialogProps) {
 	const store = useMemo(() => createLocalAssistanceAdvancedWorkflowSessionStore({
 		bridge, preparation,
@@ -127,6 +131,8 @@ function LocalAssistanceProjectSession({
 	const guided = useSyncExternalStore(
 		guidedStore.subscribe, guidedStore.getSnapshot, guidedStore.getSnapshot,
 	);
+	const execution = useLocalAssistanceTaskExecution(guidedStore, workflowId, snapshot, guided, onClose,
+		{ bridge, preparation, onModelsMissing });
 	useEffect(() => {
 		const disconnect = store.connect();
 		void store.load();
@@ -135,6 +141,9 @@ function LocalAssistanceProjectSession({
 			void Promise.all([store.dispose(), guidedStore.dispose()]);
 		};
 	}, [guidedStore, store]);
+	if (execution.direct && workflowId) return <LocalAssistanceTaskProcessingDialog
+		workflowId={workflowId} inventory={snapshot} snapshot={execution.snapshot} error={execution.error}
+		copy={copy} onClose={onClose} />;
 	if (managingModels) return <Suspense fallback={<p role="status">{copy.loading}</p>}>
 		<LocalModelManagerDialog bridge={modelBridge} copy={copy} locale={locale}
 			modelFilter={guided.settings ? assistanceTaskModelFilter(guided.settings) : undefined}
@@ -158,7 +167,7 @@ function LocalAssistanceProjectSession({
 		onSurfaceChange={guidedStore.selectSurface}
 		onSelectWorkflow={guidedStore.selectWorkflow}
 		onGuidedSettingsChange={guidedStore.setSettings}
-		onRunGuided={() => guidedStore.run()}
+		onRunGuided={execution.run}
 		onCancelGuided={() => guidedStore.cancel()}
 		onReviewGuided={() => guidedStore.review()}
 		onAcceptGuided={() => guidedStore.accept()}
@@ -201,7 +210,7 @@ export function LocalAssistanceDialogView({
 	onGuidedHighlightTitleChange = () => undefined,
 	onGuidedHighlightTrimChange = () => undefined,
 	onGuidedHighlightCropChange = () => undefined,
-	onSelectSource, onSelectOperation,
+	onSelectOperation,
 	onShotDetectionModeChange = () => undefined, onSelectModel,
 	onRun, onCancel, onReview, onAccept,
 	onCleanupSelectionChange = () => undefined,
@@ -210,7 +219,7 @@ export function LocalAssistanceDialogView({
 }: LocalAssistanceDialogViewProps) {
 	const activeSurface = request ? request.mode === 'task' ? 'guided' : 'advanced' : surface ?? guided.surface;
 	const source = snapshot.sources.find(({ sourceId }) => sourceId === snapshot.selectedSourceId) ?? null;
-	const operationSet = new Set(source?.operations ?? []);
+	const operationSet = new Set(snapshot.sources.flatMap(({ operations }) => operations));
 	const shotDetectionMode = snapshot.selectedOperation === 'shot-detection'
 		? snapshot.shotDetectionMode : undefined;
 	const modelChoices = useAssistanceModelChoices(snapshot.models, snapshot.selectedOperation, shotDetectionMode);
@@ -228,6 +237,7 @@ export function LocalAssistanceDialogView({
 		footer={<DialogFooter
 			className="audio-editor-dialog-footer"
 			rightContent={request?.mode === 'task' ? <LocalAssistanceTaskActions copy={copy}
+				workflowId={request.workflowId}
 				canRun={guided.canRun && snapshot.sources.length > 0 && snapshot.phase !== 'loading'
 					&& !!guided.settings && assistanceTaskModelsReady(guided.settings, snapshot.models, snapshot.sources)}
 				reviewReady={guided.review !== null} canCancel={guided.canCancel} canReview={guided.canReview} canAccept={guided.canAccept}
@@ -266,7 +276,7 @@ export function LocalAssistanceDialogView({
 		{request?.mode === 'task' && <LocalAssistanceTaskSummary snapshot={snapshot}
 			settings={guided.settings} copy={copy} disabled={guided.canCancel || busy(snapshot)}
 			onManageModels={onManageModels} />}
-		{activeSurface === 'guided' && <LocalAssistanceGuidedPanel copy={copy} snapshot={guided} focusedTask={request?.mode === 'task'}
+		{activeSurface === 'guided' && <LocalAssistanceGuidedPanel copy={copy} snapshot={guided} models={snapshot.models} focusedTask={request?.mode === 'task'}
 			onSelectWorkflow={onSelectWorkflow} onSettingsChange={onGuidedSettingsChange}
 			onRun={onRunGuided} onCancel={onCancelGuided} onReview={onReviewGuided}
 			onAccept={onAcceptGuided}
@@ -279,15 +289,6 @@ export function LocalAssistanceDialogView({
 			className="kw-local-assistance__advanced" role="tabpanel"
 			aria-label={text(copy, 'localAssistanceAdvanced', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceAdvanced)}>
 		<div className="kw-local-assistance__selections">
-			<label>{text(copy, 'localAssistanceSource', 'Selected media')}
-				<select value={snapshot.selectedSourceId ?? ''} disabled={busy(snapshot)}
-					onChange={(event) => { void onSelectSource(event.currentTarget.value); }}>
-					<option value="" disabled>{text(copy, 'localAssistanceChoose', 'Choose')}</option>
-					{snapshot.sources.map((candidate) => <option value={candidate.sourceId} key={candidate.sourceId}>
-						{candidate.label}
-					</option>)}
-				</select>
-			</label>
 			<label>{text(copy, 'localAssistanceOperation', 'Operation')}
 				<select value={snapshot.selectedOperation ?? ''} disabled={!source || busy(snapshot)}
 					onChange={(event) => { void onSelectOperation(event.currentTarget.value as AssistanceOperation); }}>
@@ -309,12 +310,12 @@ export function LocalAssistanceDialogView({
 						void onShotDetectionModeChange('accurate');
 					}} />{text(copy, 'localAssistanceShotDetectionAccurate', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceShotDetectionAccurate)}</label>
 			</fieldset>}
-			{modelChoices.map(({ slot, compatibleModels }) => {
+			{modelChoices.filter(({ compatibleModels }) => compatibleModels.length > 1).map(({ slot, compatibleModels }) => {
 				const selectedModelId = snapshot.selectedModelIds.find(
 					(modelId) => compatibleModels.some((model) => model.modelId === modelId),
 				) ?? '';
 				return <label key={slot.join('|') || 'unselected-operation'}>
-					{text(copy, 'localAssistanceModel', 'Installed compatible model')}
+					{copy.assistanceModelName || 'Model'}
 					{modelChoices.length > 1 && ` · ${slot.join(' / ')}`}
 					<select value={selectedModelId}
 						disabled={!snapshot.selectedOperation || busy(snapshot)}
@@ -334,7 +335,7 @@ export function LocalAssistanceDialogView({
 			LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceWorkflowConsent)}</p>
 		<div className="kw-local-assistance__run-actions">
 			<Button variant="primary" disabled={!snapshot.canRun} onClick={() => { void onRun(); }}>
-				{text(copy, 'localAssistanceRun', 'Run locally')}
+				{assistanceOperationActionLabel(snapshot.selectedOperation, copy)}
 			</Button>
 			<Button variant="secondary" disabled={!snapshot.canCancel} onClick={() => { void onCancel(); }}>
 				{text(copy, 'localAssistanceCancel', 'Cancel')}

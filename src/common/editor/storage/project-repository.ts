@@ -18,6 +18,7 @@ import {
 	readStoredLinkedOriginalProvisionalRootInventory,
 } from './linked-original-provisional-root.ts';
 import { publishSource } from './media-records.ts';
+import { publishProjectSources } from './project-source-publication.ts';
 import { ProjectCommittedMaintenanceError } from './project-committed-maintenance-error.ts';
 import { sameProjectSnapshot } from './project-snapshot-equality.ts';
 import { pruneProjectRevisions } from './project-revision-pruning.ts';
@@ -153,12 +154,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
 			]);
 			if (current !== undefined || currentRevision !== undefined || revisionCount > 0) return false;
 			await Promise.all([request(projects.put(snapshot)), request(revisions.put(revisionRecord))]);
-			for (const sourceId of sourceIds) {
-				const source = asRecord(await request(sources.get(sourceId)));
-				if (source?.pendingProjectUntil) await request(sources.put(publishSource(source)));
-				const media = asRecord(await request(mediaAssets.get(sourceId)));
-				if (media?.pendingProjectUntil) await request(mediaAssets.put(publishSource(media)));
-			}
+			await publishProjectSources({ sources, mediaAssets }, sourceIds);
 			return true;
 		});
 		return created ? this.#rememberCreation(snapshot, creationFence) : null;
@@ -210,12 +206,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
 		}) => {
 			projects.put(snapshot);
 			revisions.put(revisionRecord);
-			for (const sourceId of collectProjectStorageKeys(snapshot)) {
-				const source = asRecord(await request(sources.get(sourceId)));
-				if (source?.pendingProjectUntil) sources.put(publishSource(source));
-				const mediaAsset = asRecord(await request(mediaAssets.get(sourceId)));
-				if (mediaAsset?.pendingProjectUntil) mediaAssets.put(publishSource(mediaAsset));
-			}
+			await publishProjectSources({ sources, mediaAssets }, collectProjectStorageKeys(snapshot));
 		});
 		const committedProject = clone(snapshot);
 		try {

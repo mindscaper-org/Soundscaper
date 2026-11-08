@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 
-/** Recover focus lost by an operation, optionally replacing a removed control. */
+/** Recover focus lost by an operation, optionally replacing a removed or explicitly disabled control. */
 export function useOperationFocusRecovery(pending: boolean, owner: unknown): (fallback?: () => HTMLElement | null) => void {
 	const restore = useRef<Readonly<{ target: HTMLElement; owner: unknown; fallback?: () => HTMLElement | null }> | null>(null);
 	useEffect(() => {
@@ -11,8 +11,9 @@ export function useOperationFocusRecovery(pending: boolean, owner: unknown): (fa
 		restore.current = null;
 		if (!captured || !Object.is(captured.owner, owner)) return;
 		const document = captured.target.ownerDocument;
-		if (document.activeElement !== document.body) return;
-		const target = captured.target.isConnected ? captured.target : captured.fallback?.();
+		if (document.activeElement !== document.body && document.activeElement !== captured.target) return;
+		const target = captured.target.isConnected && !(captured.fallback && captured.target.hasAttribute('disabled'))
+			? captured.target : captured.fallback?.();
 		if (target?.isConnected) target.focus();
 	}, [owner, pending]);
 	return (fallback) => {

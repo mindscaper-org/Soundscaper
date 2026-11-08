@@ -3,18 +3,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createProjectSourceBinRuntimeHandlers } from '../src/common/editor/commands/project-source-bin-runtime.js';
+import { createMidiTrack } from '../src/common/editor/midi-factory.ts';
 import { commandFixture, countPropertyReads } from './helpers/round3-command-fixtures.ts';
 
 const handlers = createProjectSourceBinRuntimeHandlers(() => undefined);
 
 void test('moving timeline material to the bin indexes requested IDs and linked item membership once', context => {
-	for (const property of ['id', 'avLinkId']) {
+	for (const unrelatedMidiOwner of [false, true]) for (const property of ['id', 'avLinkId']) {
 		const project = commandFixture();
+		if (unrelatedMidiOwner) project.tracks.push({ ...createMidiTrack({ id: 'unmoved-midi' }), clipIds: [] });
 		for (let index = 0; index < project.clips.length; index += 1) project.clips[index]!.avLinkId = `pair-${String(Math.floor(index / 2))}`;
 		const ids = project.clips.map(clip => clip.id);
 		const reads = countPropertyReads(project.clips, property);
 		handlers['project-bin/move-from-timeline'](project, { clipIds: ids });
-		context.diagnostic(`120-clip bin move ${property}: ${String(reads())} reads`);
+		context.diagnostic(`120-clip bin move ${property}, unrelated MIDI=${String(unrelatedMidiOwner)}: ${String(reads())} reads`);
 		assert.ok(reads() <= 120 * 12, String(reads()));
 		assert.equal(project.clips.length, 0);
 		assert.equal(project.projectBin.clips.length, 120);

@@ -35,8 +35,9 @@ export function recordingCapturePeakDb(channels: readonly Float32Array[]): numbe
 export function routedRecordingDetectorChannels(routes: readonly RecordingRoute[], availableChannels: number): readonly number[] {
 	const channels = new Set<number>();
 	for (const route of routes) {
-		for (let channel = route.channelStart; channel < Math.min(availableChannels, route.channelStart + route.channelCount); channel++) {
-			channels.add(channel);
+		for (let channel = route.channelStart; channel < route.channelStart + route.channelCount; channel++) {
+			if (channel < availableChannels) channels.add(channel);
+			else if (route.kind === 'display' && availableChannels > 0) channels.add(0);
 		}
 	}
 	return Object.freeze([...channels].sort((left, right) => left - right));

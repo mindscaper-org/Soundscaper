@@ -7,9 +7,9 @@ import PreferenceDropdownField from './PreferenceDropdownField.jsx';
 
 const PluginFoldersPreferences = lazy(() => import('./SoundscaperPluginFoldersPreferences.tsx'));
 
-export default function EffectsPreferencesPage({ controller, snapshot, copy, run, productId = 'soundscaper' }) {
+export default function EffectsPreferencesPage({ controller, snapshot, copy, run, productId = 'soundscaper', plugins = null }) {
 	return (
-		<>
+		<div className="kw-audio-editor-preferences__effects">
 		<PreferencePanel title={copy.effectOptions}>
 			<div className="kw-audio-editor-preferences__grid">
 				<PreferenceDropdownField
@@ -25,9 +25,10 @@ export default function EffectsPreferencesPage({ controller, snapshot, copy, run
 				/>
 			</div>
 		</PreferencePanel>
+		{plugins}
 		<Suspense fallback={null}>
 			<PluginFoldersPreferences productId={productId} copy={copy} />
 		</Suspense>
-		</>
+		</div>
 	);
 }

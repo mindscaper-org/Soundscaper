@@ -59,6 +59,8 @@ interface AudioDeliveryPlan {
 	readonly adm?: unknown;
 	readonly markers?: unknown;
 	readonly markerInterchangeReport?: unknown;
+	readonly ixmlOmittedTrackCount?: unknown;
+	readonly ixmlFileUidOmitted?: unknown;
 	readonly masteringSequence?: unknown;
 	readonly binaural?: unknown;
 }
@@ -121,6 +123,14 @@ export function inventoryDeliveryConversions(
 	}
 
 	const sampleFormat = typeof encoding.sampleFormat === 'string' ? encoding.sampleFormat : null;
+	const omittedIxmlTracks = numberOrNull(plan.ixmlOmittedTrackCount) ?? 0;
+	if (omittedIxmlTracks > 0 && ['wav', 'bwf', 'bw64'].includes(descriptor?.id ?? '')) conversions.push({
+		code: 'delivery.ixml-tracks-omitted', disposition: 'omitted', severity: 'warning',
+		data: { tracks: omittedIxmlTracks },
+	});
+	if (plan.ixmlFileUidOmitted === true && ['wav', 'bwf', 'bw64'].includes(descriptor?.id ?? '')) conversions.push({
+		code: 'delivery.ixml-file-uid-omitted', disposition: 'omitted', severity: 'warning', data: {},
+	});
 	if (sampleFormat && encoding.floatingPoint !== true) {
 		conversions.push({
 			code: 'delivery.quantize',

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { importAndReopenAudio } from './helpers/audio-import-archive-custody.ts';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { inspectImportedMediaMetadata } from '../src/common/editor/imported-media-metadata.ts';
@@ -24,4 +25,15 @@ for (const bundle of ['mediabunny.cjs', 'mediabunny.node.cjs', 'mediabunny.mjs']
 		try{console.log(JSON.stringify((await input.getMetadataTags()).artist));}finally{input.dispose();}
 	`, bundle, Buffer.from(await file.arrayBuffer()).toString('base64')], { timeout: 10_000 });
 	assert.equal(JSON.parse(stdout) as unknown, 'Default performer');
+});
+
+for (const nonDefault of [true, false]) for (const flagLast of [true, false]) test(`default credit ${nonDefault}, flag last ${flagLast} persists through archive reopen`, async context => {
+	const expected = Float32Array.from({ length: 3840 }, (_, frame) => (frame % 13 - 6) / 64);
+	const { source, contribution, channels } = await importAndReopenAudio(context, await translatedTaggedWebmOpusFixture(nonDefault, flagLast),
+		{ decoded: { sampleRate: 48_000, channels: [expected] } });
+	assert.deepEqual([source.sampleRate, source.frameCount, source.channelCount], [48_000, 3840, 1]);
+	assert.deepEqual(channels, [expected]); assert.deepEqual(contribution.warnings, []);
+	assert.equal(contribution.metadata.normalized.artist, nonDefault ? 'Default performer' : 'Translated performer; Default performer');
+	assert.deepEqual(contribution.metadata.raw.ARTIST, { 0: 'Translated performer', 1: 'Default performer' });
+	assert.equal(contribution.metadata.normalized.comment, 'After credits');
 });

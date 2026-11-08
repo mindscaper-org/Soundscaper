@@ -1,18 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createEngineRealtimeContext, prepareAutomaticRealtimeSampleRate, prepareRealtimeSampleRate } from './realtime-sample-rate.ts';
+import { configureRealtimeContextLease, isBorrowedRealtimeContext, releaseEngineRealtimeContext, type EngineRealtimeContextLease } from './realtime-context-custody.ts';
 export { createRealtimeContext } from './realtime-sample-rate.ts';
 import { ChunkStreamClient } from '../chunk-stream-client.js';
 import { createChunkStreamAudioNode } from '../chunk-stream-worklet-node.js';
 import { createAudioWarpRenderPathStatus } from '../audio-warp-runtime.ts';
-import { resolveAdmEbuChannelWeights } from '../loudness-channel-layout.ts';
 import { clearPreparedAudioWarpPlayback } from './audio-warp-fallback.ts';
 import { clearPlaybackMeterDemand } from './playback-meter-demand.ts';
-import {
-	getProjectDurationFrames,
-	getProjectTimelineDurationFrames,
-	normalizeLoop,
-} from './buffer-math.ts';
 import {
 	normalizeChunkSource,
 	normalizeSourceResolver,
@@ -22,25 +17,18 @@ import {
 	normalizeDecodeSampleRate,
 } from './pinned-decode.ts';
 import {
-	configureMasterLoudnessMeterChannelCount,
 	configureNativeSurroundDestination,
 } from '../surround-monitoring.ts';
-import {
-	inheritTrackFolderMediaStateProjectionV12,
-	projectTrackFolderMediaStateV12,
-} from '../track-folder-media-runtime.ts';
-import { resolveProjectGraphSelection } from './project-graph-selection.ts';
 import { engineProjectRefreshMethods } from './project-refresh-playback.ts';
+import { engineProjectLoadingMethods } from './project-loading.ts';
+import { setPlaybackSourceResolver } from './playback-source-resolver.ts';
 import { disposePlaybackFrequencyOutput } from './playback-frequency-range.ts';
-import { resolveTimePitchPlaybackProject } from '../clip-time-pitch-playback-projection.ts';
 import {
 	ENGINE_ASSERT_ACTIVE,
 	ENGINE_CANCEL_SCRUB,
 	ENGINE_DISPOSE_RESOURCES,
-	ENGINE_EMIT_POSITION,
 	ENGINE_GET_CONTEXT,
 	ENGINE_HALT_GRAPH,
-	ENGINE_SET_STATE,
 } from './runtime-symbols.ts';
 import type {
 	EngineOfflineContextFactory,
@@ -61,6 +49,7 @@ export class AudioEditorEngineDisposedError extends Error {
 
 export interface EngineRuntimeOptions {
 	readonly audioContextFactory?: EngineRealtimeContextFactory | null;
+	readonly realtimeContextLease?: EngineRealtimeContextLease;
 	readonly offlineAudioContextFactory?: EngineOfflineContextFactory | null;
 	readonly softwareRenderer?: EngineSoftwareRenderer | null;
 	readonly audioWarpRealtimeAcceleration?: boolean;
@@ -82,6 +71,7 @@ export function initializeEngineRuntime(
 	engine: EngineRuntimeHost,
 	{
 		audioContextFactory,
+		realtimeContextLease,
 		offlineAudioContextFactory,
 		softwareRenderer,
 		audioWarpRealtimeAcceleration,
@@ -97,6 +87,7 @@ export function initializeEngineRuntime(
 		monotonicNow = null,
 	}: EngineRuntimeOptions = {},
 ): void {
+	configureRealtimeContextLease(engine, realtimeContextLease);
 	engine.audioContextFactory = audioContextFactory === undefined
 		? getAudioContextConstructor()
 		: audioContextFactory;
@@ -268,76 +259,13 @@ export function createOfflineContext(
 }
 
 export const engineLifecycleMethods = {
-loadProject(project, sourceBuffers = new Map(), options = {}) {
-		this[ENGINE_ASSERT_ACTIVE]();
-		this[ENGINE_CANCEL_SCRUB]();
-		this[ENGINE_HALT_GRAPH]();
-		const mediaProject = project ? projectTrackFolderMediaStateV12(project) : project;
-		const resolvedProject = mediaProject?.schemaVersion
-			? resolveTimePitchPlaybackProject(mediaProject)
-			: mediaProject;
-		const runtimeProject = mediaProject && resolvedProject
-			? inheritTrackFolderMediaStateProjectionV12(mediaProject, resolvedProject)
-			: resolvedProject;
-		this.project = runtimeProject || null;
-		// One builder per session. Resolved here, and only here, so a scheduler,
-		// a scrub and a render of this project can never disagree about it.
-		this.projectGraphSelection = runtimeProject
-			? options.graph ?? resolveProjectGraphSelection(runtimeProject)
-			: null;
-		if (this.context && runtimeProject) {
-			configureNativeSurroundDestination(this.context.destination, Number(runtimeProject.masterChannels) || 2);
-		}
-		const meterChannelCount = this.context && runtimeProject
-			? configureMasterLoudnessMeterChannelCount(this.context.destination, runtimeProject.masterChannels)
-			: null;
-		const runtimeMetadata = runtimeProject?.metadata;
-		const meterChannelWeights = meterChannelCount === null ? null : resolveAdmEbuChannelWeights(
-			runtimeMetadata && typeof runtimeMetadata === 'object' && 'adm' in runtimeMetadata
-				? runtimeMetadata.adm
-				: null,
-			meterChannelCount,
-		);
-		if (this.masterLoudnessMeterChannelCount !== meterChannelCount
-			|| this.masterLoudnessMeterChannelWeights !== meterChannelWeights) {
-			this.masterLoudnessMeter?.dispose();
-			this.masterLoudnessMeter = null;
-			this.masterLoudnessMeterChannelCount = null;
-			this.masterLoudnessMeterChannelWeights = null;
-			this.masterLoudnessMeterPromise = null;
-			this.masterLoudnessMeterError = null;
-		}
-		this.sources = sourceBuffers instanceof Map ? new Map(sourceBuffers) : new Map(Object.entries(sourceBuffers || {}));
-		if (options.chunkSources !== undefined) this.setChunkSources(options.chunkSources);
-		this.durationFrames = getProjectDurationFrames(runtimeProject);
-		this.playbackDurationFrames = getProjectTimelineDurationFrames(runtimeProject);
-		this.playbackRate = 1;
-		this.playbackMode = 'normal';
-		this.preparedSpeedPlayback = null;
-		clearPreparedAudioWarpPlayback(this);
-		this.positionFrame = Math.min(this.positionFrame, this.playbackDurationFrames);
-		this.playEndFrame = this.playbackDurationFrames;
-		this.loop = normalizeLoop(runtimeProject?.loop, this.playbackDurationFrames, this.durationFrames);
-		this.playRange = null;
-		// The graph stops here, so the meter always stops with it; `play()` re-arms it
-		// with the manual pause honoured. Retiring the measurement itself belongs to a
-		// genuinely new project, not to re-applying the edited one.
-		this.masterLoudnessMeter?.setRunning(false);
-		if (!options.preserveLoudnessMeasurement) {
-			this.loudnessMeasurementManuallyPaused = false;
-			this.masterLoudnessMeter?.reset();
-			this.latestMasterLoudnessMeter = null;
-		}
-		this[ENGINE_SET_STATE](runtimeProject ? 'stopped' : 'empty');
-		this[ENGINE_EMIT_POSITION]();
-		return this;
-	},
+...engineProjectLoadingMethods,
 
 ...engineProjectRefreshMethods,
 
 setSourceResolver(sourceResolver = null) {
 		this[ENGINE_ASSERT_ACTIVE]();
-		this.sourceResolver = normalizeSourceResolver(sourceResolver);
+		setPlaybackSourceResolver(this, normalizeSourceResolver(sourceResolver));
 		clearPreparedAudioWarpPlayback(this);
 		return this;
 	},
@@ -407,7 +335,8 @@ async setOutputDevice(deviceId = '') {
 		const previousPreferred = this.preferredOutputDeviceId;
 		const previousActive = this.activeOutputDeviceId;
 		try {
-			await context.setSinkId(normalized);
+			// Preserve the live physical sink while still superseding older choices.
+			if (context.sinkId !== normalized) await context.setSinkId(normalized);
 			this[ENGINE_ASSERT_ACTIVE]();
 			if (context !== this.context || generation !== this.outputDeviceGeneration) {
 				await reconcilePhysicalOutputDevice(this, context, normalized);
@@ -476,7 +405,7 @@ async [ENGINE_DISPOSE_RESOURCES]() {
 		this.playbackOutputDestination = null;
 		const context = this.context;
 		this.context = null;
-		if (context?.state !== 'closed') await context?.close?.();
+		await releaseEngineRealtimeContext(this, context);
 		try {
 			this.chunkStreamClient?.dispose?.();
 		} finally {
@@ -488,19 +417,18 @@ async [ENGINE_GET_CONTEXT]() {
 		if (this.context) await prepareAutomaticRealtimeSampleRate(this);
 		this[ENGINE_ASSERT_ACTIVE]();
 		if (this.context) return this.context;
-		if (!this.audioContextFactory) throw new Error('Web Audio is not supported in this browser.');
 		const generation = this.lifecycleGeneration;
 		const context = createEngineRealtimeContext(this, this.audioContextFactory);
 		if (this.disposed || generation !== this.lifecycleGeneration) {
-			if (context?.state !== 'closed') await context?.close?.();
+			await releaseEngineRealtimeContext(this, context);
 			throw new AudioEditorEngineDisposedError();
 		}
 		this.context = context;
-		if (this.project) {
+		if (this.project && !isBorrowedRealtimeContext(this, context)) {
 			configureNativeSurroundDestination(context.destination, Number(this.project.masterChannels) || 2);
 		}
 		const preferredOutputDeviceId = this.preferredOutputDeviceId;
-		if (preferredOutputDeviceId) {
+		if (preferredOutputDeviceId && !isBorrowedRealtimeContext(this, context)) {
 			const outputDeviceGeneration = this.outputDeviceGeneration;
 			try {
 				if (typeof context.setSinkId !== 'function') {
@@ -515,7 +443,7 @@ async [ENGINE_GET_CONTEXT]() {
 				}
 			} catch (error) {
 				if (this.disposed || generation !== this.lifecycleGeneration) {
-					if (context?.state !== 'closed') await context?.close?.();
+					await releaseEngineRealtimeContext(this, context);
 					throw new AudioEditorEngineDisposedError();
 				}
 				if (context === this.context && outputDeviceGeneration === this.outputDeviceGeneration) {

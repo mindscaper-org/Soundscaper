@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { iconNameToChar } from '../../audacity-iconcodes.js';
 import { memo } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { Icon } from '@soundscaper/design-system/Icon';
@@ -71,6 +72,7 @@ export const FreesoundResultRow = memo(function FreesoundResultRow({ result, pre
 					disabled={result.previewAvailable === false}
 					aria-label={`${copy.seekPreview}: ${result.name}`}
 					onKeyDown={(event) => {
+						if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
 						const position = previewing ? positionSeconds : 0;
 						const step = Math.min(1, result.durationSeconds / 100) * (event.shiftKey ? 10 : 1);
 						const next = event.key === 'Home' ? 0 : event.key === 'End' ? result.durationSeconds
@@ -97,7 +99,7 @@ export const FreesoundResultRow = memo(function FreesoundResultRow({ result, pre
 				</a>
 				<Button
 					size="small"
-					icon={<span aria-hidden="true">{'\uF3B0'}</span>}
+					icon={<span aria-hidden="true">{iconNameToChar('PAN_SCORE')}</span>}
 					disabled={mutationDisabled}
 					onClick={() => onInsertAtPlayhead(result.soundId)}
 				>
@@ -106,7 +108,7 @@ export const FreesoundResultRow = memo(function FreesoundResultRow({ result, pre
 				</Button>
 				{projectBinVisible ? <Button
 					size="small"
-					icon={<span aria-hidden="true">{'\uF3AF'}</span>}
+					icon={<span aria-hidden="true">{iconNameToChar('CONTINUOUS_VIEW_VERTICAL')}</span>}
 					disabled={mutationDisabled}
 					onClick={() => onAddToProjectBin(result.soundId)}
 				>

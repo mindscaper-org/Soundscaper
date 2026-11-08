@@ -62,7 +62,8 @@ export async function prepareDesktopPcmStream(geometry: DesktopPcmStreamGeometry
 		if (consumed) throw new Error('The prepared desktop PCM stream was consumed.');
 		if (typeof producePcm !== 'function') throw new TypeError('Desktop PCM streaming requires a producer.');
 		consumed = true;
-		return { producePcm, plan, channelMapping: 'preserve', extension: `.${media.extension}`, mimeType: media.mimeType, settings };
+		return { producePcm, plan, channelMapping: 'preserve', extension: `.${media.extension}`, mimeType: media.mimeType,
+			settings: { ...settings, embeddedChapters: media.embeddedChapters } };
 	};
 	return Object.freeze({
 		async encode(producePcm: DesktopPcmStreamProducer) {

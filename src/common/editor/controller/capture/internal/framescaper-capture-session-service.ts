@@ -1,18 +1,23 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createCaptureRuntimeAvailability, type CaptureFailure, type CapturePacket, type CaptureRuntimeAvailability, type CaptureSourceRole } from '../../../framescaper-capture-domain.ts';
+import { createCaptureRuntimeAvailability, type CaptureFailure, type CaptureRuntimeAvailability, type CaptureSourceRole } from '../../../framescaper-capture-domain.ts';
 import type { CapturePreviewLease, CapturePreviewSource } from '../../../platform/capture-source-port.ts';
 import type { FramescaperCaptureOriginAuthority } from '../framescaper-capture-origin-guard.ts';
 import { createFramescaperCaptureActiveTimeClock } from './framescaper-capture-active-time-clock.ts';
 import { createFramescaperCaptureDisplaySelection } from './framescaper-capture-display-selection.ts';
+import { createFramescaperCaptureClockJournal } from './framescaper-capture-clock-journal.ts';
+import { createFramescaperCapturePacketAdmission } from './framescaper-capture-packet-admission.ts';
 import { createFramescaperCaptureMetrics } from './framescaper-capture-metrics.ts';
 import { findFramescaperCaptureRecovery } from './framescaper-capture-recovery-admission.ts';
-import { applyCaptureSourceSettings, capturePreviewSourceSnapshots, createFramescaperCapturePreviewResources,
+import { configureCapturePreviewSource, settleCaptureSourceSettings, capturePreviewSourceSnapshots, createFramescaperCapturePreviewResources,
 	disposeCapturePreviewOwnership, selectedCaptureDevices,
 	type FramescaperCapturePreviewResources } from './framescaper-capture-preview-resources.ts';
 import { captureSessionFailure, captureSessionInputGain, installCaptureSourceEndWatchers,
 	safelyStopCaptureClock, waitForCaptureCountdown } from './framescaper-capture-session-runtime.ts';
 import { createFramescaperCaptureRecorderStartFence } from './framescaper-capture-recorder-start.ts';
+import { createFramescaperCapturePauseActions } from './framescaper-capture-pause-actions.ts';
+import { createFramescaperCaptureFailureAdmission } from './framescaper-capture-failure-admission.ts';
+import { createFramescaperCaptureRecoveryActions } from './framescaper-capture-recovery-actions.ts';
 import { createFramescaperCaptureStateMachine, type FramescaperCaptureArmOptions } from './framescaper-capture-state-machine.ts';
 import type {
 	FramescaperCaptureDurableSession, FramescaperCaptureRecorder, FramescaperCaptureSessionActions,
@@ -35,12 +40,13 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 	let previewResources: FramescaperCapturePreviewResources | null = null;
 	let recorders: readonly ActiveRecorder<Stream, Track>[] = Object.freeze([]);
 	let durableSession: FramescaperCaptureDurableSession | null = null;
+	const clockJournal = createFramescaperCaptureClockJournal(options.durable, session => { durableSession = session; });
 	let clock: ReturnType<typeof createFramescaperCaptureActiveTimeClock> | null = null;
 	let metrics: ReturnType<typeof createFramescaperCaptureMetrics> | null = null;
 	let originAuthority: Readonly<FramescaperCaptureOriginAuthority> | null = null;
 	let countdownAbort: AbortController | null = null;
 	let startPromise: Promise<void> | null = null; let stopPromise: Promise<void> | null = null;
-	let recoveryPromise: Promise<void> | null = null; let recoveryFinalizationPromise: Promise<void> | null = null;
+	let recoveryPromise: Promise<void> | null = null;
 	let initializePromise: Promise<void> | null = null; let disposePromise: Promise<void> | null = null;
 	const pendingOperations = new Set<Promise<unknown>>();
 	let monitoring = false; let inputGain = 1;
@@ -102,6 +108,7 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 		const sourceToken = await displaySelection.renewToken(roles);
 		const previous = previewLease;
 		const previousResources = previewResources;
+		clearSourceEndWatchers();
 		previewLease = null;
 		previewResources = null;
 		const previousDisposal = disposeCapturePreviewOwnership(previous, previousResources);
@@ -135,6 +142,7 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 			previewLease = openedLease;
 			previewResources = openedResources;
 			machine.previewReady(requestGeneration, openedLease.sources.map(({ sourceId, role }) => ({ sourceId, role })));
+			sourceEndCleanups = installCaptureSourceEndWatchers(openedLease.sources, reportSourceFailure, options.observeInput);
 			selectedDeviceIds = selectedCaptureDevices(openedLease.sources, selectedDeviceIds);
 			displaySelection.consume(sourceToken);
 			notify();
@@ -206,12 +214,7 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 		settings: Readonly<FramescaperCaptureSourceSettings>,
 	): Promise<void> {
 		assertActive();
-		if (machine.snapshot.phase !== 'previewing' || !previewLease) {
-			throw new Error('Capture source settings can change only while previewing.');
-		}
-		const source = previewLease.sources.find((candidate) => candidate.sourceId === sourceId);
-		if (!source) throw new Error('The selected capture source is not active.');
-		await applyCaptureSourceSettings(source.track, settings);
+		await configureCapturePreviewSource(machine.snapshot.phase, previewLease, sourceId, settings);
 		notify();
 	}
 	async function release(): Promise<void> {
@@ -222,6 +225,7 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 		const resources = previewResources;
 		previewLease = null;
 		previewResources = null;
+		clearSourceEndWatchers();
 		clearDeviceInventory();
 		notify();
 		await disposeCapturePreviewOwnership(lease, resources);
@@ -269,13 +273,15 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 			if (signal.aborted || machine.snapshot.phase !== 'countdown') return;
 			const lease = previewLease;
 			if (!lease) throw new Error('Capture preview ownership was released before record start.');
+			await settleCaptureSourceSettings(lease.sources.map(source => source.track));
+			if (signal.aborted || machine.snapshot.phase !== 'countdown') return;
 			const sessionId = createId('framescaper-capture-session');
 			const identities = lease.sources.map((source) => Object.freeze({
 				streamId: createId(`${source.role}-capture-stream`),
 				sourceId: options.createSourceIdentity?.(source, createId) ?? createId(`${source.role}-capture-source`),
 				role: source.role,
 			}));
-			clock = createFramescaperCaptureActiveTimeClock(now());
+			clock = createFramescaperCaptureActiveTimeClock(now(), true);
 			metrics = createFramescaperCaptureMetrics(identities);
 			const created: ActiveRecorder<Stream, Track>[] = [];
 			for (let index = 0; index < lease.sources.length; index += 1) {
@@ -304,12 +310,9 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 					...identity, required: true as const, format: recorder.format,
 				}))),
 			});
-			sourceEndCleanups = installCaptureSourceEndWatchers(lease.sources, () => {
-				reportActiveFailure(new Error('A required capture source ended.'));
-			});
-			const sharedStartActiveTimeUs = clock.snapshot(now()).activeTimeUs;
 			machine.startRecording();
-			await recorderStarts.start(recorders, sharedStartActiveTimeUs, () => !signal.aborted && machine.snapshot.phase === 'recording');
+			await clockJournal.start(clock, durableSession, now(), recorders, recorderStarts,
+				() => !signal.aborted && machine.snapshot.phase === 'recording');
 			notify();
 		} catch (error) {
 			if (signal.aborted && machine.snapshot.phase === 'finalizing' && !recorderStarts.hasDurablePacket) {
@@ -325,40 +328,15 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 			if (!disposed || !signal.aborted) throw error;
 		}
 	}
-	async function onPacket(packet: Readonly<CapturePacket>): Promise<void> {
-		if (!durableSession || !clock || !metrics) throw new Error('Capture packet arrived before durable admission.');
-		const phase = machine.snapshot.phase;
-		if (!['recording', 'paused', 'finalizing'].includes(phase)) {
-			throw new Error(`Capture packet arrived while ${phase}.`);
-		}
-		const observedActiveTimeUs = clock.snapshot(now()).activeTimeUs;
-		const next = await options.durable.append(durableSession, packet);
-		durableSession = next;
-		recorderStarts.admitDurablePacket();
-		metrics.observe(packet, observedActiveTimeUs);
-		notify();
-	}
-	async function pause(): Promise<void> {
-		assertActive();
-		machine.pause();
-		if (!clock) throw new Error('Capture clock is unavailable.');
-		clock.pause(now());
-		await Promise.all(recorders.map(({ recorder }) => recorder.pause()));
-		notify();
-	}
-	async function resume(): Promise<void> {
-		assertActive();
-		machine.resume();
-		if (!clock || !durableSession) throw new Error('Capture recovery evidence is unavailable.');
-		const clockSnapshot = clock.resume(now());
-		const span = clockSnapshot.pauseSpans.at(-1)!;
-		durableSession = await options.durable.recordPauseSpan(durableSession, {
-			startMicroseconds: Math.round((span.startedAtMs - clockSnapshot.startedAtMs) * 1_000),
-			endMicroseconds: Math.round((span.endedAtMs - clockSnapshot.startedAtMs) * 1_000),
-		});
-		await Promise.all(recorders.map(({ recorder }) => recorder.resume(Math.round(span.durationMs * 1_000))));
-		notify();
-	}
+	const onPacket = createFramescaperCapturePacketAdmission({
+		session: () => durableSession, clock: () => clock, metrics: () => metrics, phase: () => machine.snapshot.phase,
+		beforeAppend: clockJournal.settled, append: (session, packet) => options.durable.append(session, packet),
+		setSession: session => { durableSession = session; }, admitDurablePacket: recorderStarts.admitDurablePacket, notify,
+	});
+	const pauseActions = createFramescaperCapturePauseActions({ assertActive, machine,
+		clock: () => clock, session: () => durableSession, setSession: session => { durableSession = session; },
+		recorders: () => recorders.map(({ recorder }) => recorder), durable: options.durable, clockJournal, now, notify,
+		recover: error => recoverActive(error, 'encoder-failed') });
 	function stop(): Promise<void> {
 		assertActive();
 		if (stopPromise) return stopPromise;
@@ -371,6 +349,7 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 	async function stopAndFinalize(): Promise<void> {
 		try {
 			await Promise.resolve(startPromise).catch(() => undefined);
+			await pauseActions.settled();
 			if (machine.snapshot.phase === 'recovery') return;
 			if (!durableSession) {
 				await releaseCaptureResources();
@@ -398,10 +377,19 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 			throw error;
 		}
 	}
-	function reportActiveFailure(error: unknown): void {
-		if (disposed || recoveryPromise || stopPromise) return;
-		if (!['countdown', 'recording', 'paused', 'finalizing'].includes(machine.snapshot.phase)) return;
-		void recoverActive(error, 'encoder-failed').catch(() => undefined);
+	const reportActiveFailure = createFramescaperCaptureFailureAdmission({
+		blocked: () => Boolean(disposed || recoveryPromise || stopPromise), phase: () => machine.snapshot.phase,
+		hasDurableSession: () => durableSession !== null, abortPreparation: error => countdownAbort?.abort(error),
+		stopPreparation: () => { machine.stop(); }, waitForStart: () => startPromise, failBeforeDurability,
+		recover: error => recoverActive(error, 'encoder-failed'), track: trackOperation });
+	function reportSourceFailure(error: unknown): void {
+		if (!['previewing', 'armed'].includes(machine.snapshot.phase)) return reportActiveFailure(error);
+		machine.fail(captureSessionFailure(error, 'device-lost'));
+		void trackOperation(releaseCaptureResources().then(notify)).catch(() => undefined);
+	}
+	function clearSourceEndWatchers(): void {
+		for (const cleanup of sourceEndCleanups) cleanup();
+		sourceEndCleanups = Object.freeze([]);
 	}
 	function recoverActive(error: unknown, code: CaptureFailure['code']): Promise<void> {
 		if (recoveryPromise) return recoveryPromise;
@@ -430,47 +418,19 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 		releaseOrigin('stopped');
 		notify();
 	}
-	function finalizeRecovery(provenance: 'recovered' | 'import-as-is'): Promise<void> {
-		assertActive();
-		if (recoveryFinalizationPromise) return recoveryFinalizationPromise;
-		if (!durableSession) throw new Error('No recoverable Framescaper capture is selected.');
-		machine.beginRecoveryFinalization();
-		recoveryFinalizationPromise = trackOperation(
-			Promise.resolve().then(() => completeRecoveryFinalization(provenance)));
-		notify();
-		return recoveryFinalizationPromise;
-	}
-	async function completeRecoveryFinalization(provenance: 'recovered' | 'import-as-is'): Promise<void> {
-		try {
-			if (!durableSession) throw new Error('No recoverable Framescaper capture is selected.');
-			await options.finalize({
-				session: durableSession,
-				metrics: metrics?.snapshot ?? Object.freeze([]),
-				provenance,
-			});
-			machine.completeFinalization();
-			releaseOrigin('stopped');
-			clearSettledSession();
-			notify();
-		} catch (error) {
-			machine.enterRecovery(captureSessionFailure(error, 'finalization-failed'));
-			recoveryFinalizationPromise = null;
-			notify();
-			throw error;
-		}
-	}
-
-	async function discard(): Promise<void> {
-		assertActive();
-		if (machine.snapshot.phase !== 'recovery' || !durableSession) {
-			throw new Error('No recoverable Framescaper capture is selected.');
-		}
-		await options.durable.discard(durableSession);
-		machine.completeRecovery();
-		releaseOrigin('discarded');
-		clearSettledSession();
-		notify();
-	}
+	const recoveryActions = createFramescaperCaptureRecoveryActions({
+		assertActive, session: () => durableSession, settled: () => recoveryPromise,
+		begin: () => { machine.beginRecoveryFinalization(); },
+		finalize: (session, provenance) => options.finalize({ session,
+			metrics: metrics?.snapshot ?? Object.freeze([]), provenance }),
+		discard: session => options.durable.discard(session),
+		complete(decision) {
+			machine.completeFinalization(); releaseOrigin(decision === 'discarded' ? 'discarded' : 'stopped');
+			clearSettledSession(); notify();
+		},
+		fail(error) { machine.enterRecovery(captureSessionFailure(error, 'finalization-failed')); notify(); },
+		notify, track: trackOperation,
+	});
 
 	function restoreRecovery(session: FramescaperCaptureDurableSession): void {
 		durableSession = session;
@@ -488,6 +448,7 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 
 	async function releaseCaptureResources(): Promise<unknown[]> {
 		await recorderStarts.waitForPendingStart();
+		await clockJournal.settled().catch(() => undefined);
 		const activeRecorders = recorders;
 		const stopResults = activeRecorders.map(({ recorder }) => {
 			try { return Promise.resolve(recorder.stop()); }
@@ -499,8 +460,7 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 		previewResources = null;
 		clearDeviceInventory();
 		await disposeCapturePreviewOwnership(lease, resources).catch(() => undefined);
-		for (const cleanup of sourceEndCleanups) cleanup();
-		sourceEndCleanups = Object.freeze([]);
+		clearSourceEndWatchers();
 		const settled = await Promise.allSettled(stopResults);
 		await Promise.allSettled(activeRecorders.map(({ recorder }) => Promise.resolve(recorder.dispose())));
 		recorders = Object.freeze([]);
@@ -515,7 +475,6 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 		startPromise = null;
 		stopPromise = null;
 		recoveryPromise = null;
-		recoveryFinalizationPromise = null;
 		recorderStarts.reset();
 	}
 
@@ -547,6 +506,7 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 		if (['countdown', 'recording', 'paused', 'finalizing'].includes(machine.snapshot.phase)) {
 			await recoverActive(new Error('Capture runtime closed.'), 'runtime-lost');
 		} else if (previewLease) {
+			clearSourceEndWatchers();
 			await disposeCapturePreviewOwnership(previewLease, previewResources);
 			previewLease = null;
 			previewResources = null;
@@ -581,12 +541,12 @@ export function createFramescaperCaptureSessionService<Stream = unknown, Track =
 		configure, setSetupDefaults: (changes: Parameters<FramescaperCaptureSessionActions['setSetupDefaults']>[0]) => options.setupDefaults?.update(changes),
 		arm,
 		start,
-		pause: () => trackAction(pause),
-		resume: () => trackAction(resume),
+		pause: () => trackAction(pauseActions.pause),
+		resume: () => trackAction(pauseActions.resume),
 		stop,
-		recover: () => finalizeRecovery('recovered'),
-		importAsIs: () => finalizeRecovery('import-as-is'),
-		discard: () => trackAction(discard),
+		recover: () => recoveryActions.recover('recovered'),
+		importAsIs: () => recoveryActions.recover('import-as-is'),
+		discard: recoveryActions.discard,
 		resetFailure, sealForShutdown: () => recoverActive(new Error('Capture runtime is shutting down.'), 'runtime-lost'),
 	});
 	return Object.freeze({

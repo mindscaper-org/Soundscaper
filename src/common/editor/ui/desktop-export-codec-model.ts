@@ -31,6 +31,11 @@ interface DesktopExportCodecSettings {
 	readonly compressionLevel?: unknown;
 	readonly quality?: unknown;
 	readonly bitRate?: unknown;
+	readonly bitRateMode?: unknown;
+	readonly averageBitRate?: unknown;
+	readonly vbrQuality?: unknown;
+	readonly bitRatePreset?: unknown;
+	readonly vbrMode?: unknown;
 }
 
 interface DesktopExportCodecSelection {

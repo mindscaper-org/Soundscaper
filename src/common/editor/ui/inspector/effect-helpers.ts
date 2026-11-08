@@ -4,6 +4,7 @@ import {
 	AUDIO_EFFECT_DEFINITIONS,
 	audioSelectionEffectLabel,
 	audioEffectTypes,
+	createEffect,
 } from '../../effects.js';
 import { AUDACITY_EFFECT_DEFINITIONS } from '../../audacity-effects/manifest.js';
 import {
@@ -13,6 +14,13 @@ import { formatLocalizedTemplate } from '../localization-template.ts';
 
 type Copy = Readonly<Record<string, string>>;
 type CopyOrLocale = Copy | string | undefined;
+
+/** Replacing a slot starts from its new processor's default configuration. */
+export function defaultRackEffectReplacement(type: string) {
+	const effect = createEffect(type);
+	return { type, params: effect.params, context: effect.context ?? null, state: effect.state ?? null,
+		...(type === 'audacity-noise-reduction' ? { enabled: false } : {}) };
+}
 const resolveAudioEffectLabel = audioSelectionEffectLabel as unknown as (
 	type: string | null | undefined,
 	copyOrLocale: CopyOrLocale,

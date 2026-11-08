@@ -121,6 +121,7 @@ export const DEFAULT_PANELS = Object.freeze({
 	clock: Object.freeze({ visible: false, dock: 'floating', order: 14, size: 640 }),
 	'clip-properties': Object.freeze({ visible: false, dock: 'right', order: 15, size: 400 }),
 	'clip-spreadsheet': Object.freeze({ visible: false, dock: 'bottom', order: 16, size: 360, width: 1000 }),
+	'piano-roll': Object.freeze({ visible: false, dock: 'bottom', order: 18, size: 380, width: 1000 }),
 });
 
 export const DEFAULT_FLOATING_PANEL_GEOMETRY = Object.freeze({
@@ -144,6 +145,7 @@ export const DEFAULT_FLOATING_PANEL_GEOMETRY = Object.freeze({
 	clock: Object.freeze({ x: 240, y: 160, width: 640, height: 200 }),
 	'clip-properties': Object.freeze({ x: 272, y: 192, width: 400, height: 520 }),
 	'clip-spreadsheet': Object.freeze({ x: 48, y: 96, width: 1000, height: 460 }),
+	'piano-roll': Object.freeze({ x: 48, y: 96, width: 1000, height: 460 }),
 });
 
 export const AUDIO_EDITOR_WORKSPACE_PRESETS = Object.freeze({

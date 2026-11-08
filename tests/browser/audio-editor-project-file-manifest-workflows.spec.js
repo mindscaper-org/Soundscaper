@@ -140,7 +140,7 @@ test.describe('project archive and checksum files', () => {
 		expect(errors).toEqual([]);
 	});
 
-	test('rejects a late corrupt audio body without changing the open project or stored media, then opens a valid copy', async ({ page }) => {
+	test('offers recovery for a late corrupt audio body without changing the open project or stored media, then opens a valid copy', async ({ page }) => {
 		test.setTimeout(60_000);
 		await disableNativeSavePicker(page);
 		const errors = collectClientErrors(page);
@@ -169,8 +169,11 @@ test.describe('project archive and checksum files', () => {
 		const collision = page.getByRole('dialog', { name: 'Project already exists', exact: true });
 		await expect(collision).toBeVisible();
 		await collision.getByRole('button', { name: 'Open as copy', exact: true }).click();
-		await expect(editor.locator('[data-editor-toast="workspace-error"]'))
-			.toContainText(`${toneB.name} failed SHA-256 verification.`, { timeout: 20_000 });
+		const recovery = page.getByRole('dialog', { name: 'Project recovery', exact: true });
+		await expect(recovery).toBeVisible();
+		await expect(recovery.getByRole('heading', { name: 'Proposed repairs', exact: true })).toBeVisible();
+		await recovery.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await expect(recovery).toBeHidden();
 		await expect(editor).toHaveAttribute('data-project-id', projectId);
 		await expect(editor).toHaveAttribute('data-clip-count', '2');
 		await expect(clipByName(editor, toneA.name)).toBeVisible();

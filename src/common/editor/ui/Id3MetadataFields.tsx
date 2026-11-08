@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ID3_DESCRIPTIVE_FIELDS, id3ProjectFieldValue, isId3ProjectTag, updateId3ProjectField } from '../id3-descriptive-fields.ts';
 import { createId3Artwork, parseId3Artwork, suggestId3ArtworkDescription, type Id3Artwork } from '../id3-artwork.ts';
 import { id3MetadataCopy } from '../../i18n/editor-id3-metadata-copy.ts';
@@ -32,12 +32,23 @@ export default function Id3MetadataFields({ metadata, copy, locale, disabled, on
 		catch { return { artwork: [] as readonly Id3Artwork[], failed: true }; }
 	}, [artworkValue]);
 	const { artwork } = parsedArtwork;
+	const artworkControls = useRef<HTMLFieldSetElement>(null);
+	const artworkRemoval = useRef<{ control: HTMLButtonElement; index: number; value: string; count: number } | null>(null);
+	useLayoutEffect(() => {
+		const request = artworkRemoval.current;
+		if (!request || request.value === artworkValue || disabled || busy) return;
+		artworkRemoval.current = null;
+		const document = request.control.ownerDocument;
+		if (artwork.length >= request.count || (document.activeElement !== request.control && document.activeElement !== document.body)) return;
+		const buttons = artworkControls.current?.querySelectorAll<HTMLButtonElement>('[data-id3-artwork-remove]');
+		(buttons?.[Math.min(request.index, artwork.length - 1)] ?? artworkControls.current?.querySelector<HTMLInputElement>('[data-id3-artwork-add]'))?.focus();
+	}, [artwork, artworkValue, busy, disabled]);
 	const artworkError = parsedArtwork.failed ? labels.artworkError : '';
 	const commitArtwork = (items: readonly Id3Artwork[]): void => {
 		try {
 			onUpdate(updateId3ProjectField(metadata, 'id3Artwork', items.length ? JSON.stringify(parseId3Artwork(items)) : ''));
 			setError('');
-		} catch { setError(labels.artworkError); }
+		} catch { artworkRemoval.current = null; setError(labels.artworkError); }
 	};
 	const addArtwork = async (file: File): Promise<void> => {
 		setBusy(true);
@@ -80,7 +91,7 @@ export default function Id3MetadataFields({ metadata, copy, locale, disabled, on
 					))}
 				</fieldset>
 			))}
-			<fieldset>
+			<fieldset ref={artworkControls}>
 				<legend>{labels.artwork}</legend>
 				{artwork.map((picture, index) => (
 					<div key={index} className="audio-editor-id3-artwork">
@@ -91,10 +102,15 @@ export default function Id3MetadataFields({ metadata, copy, locale, disabled, on
 						</select></label>
 						<MetadataEditorField name={`id3-picture-${index}`} label={labels.pictureDescription} value={picture.description}
 							disabled={disabled || busy} onCommit={(description: string) => commitArtwork(artwork.map((item, position) => position === index ? { ...item, description } : item))} />
-						<button type="button" disabled={disabled || busy} onClick={() => commitArtwork(artwork.filter((_item, position) => position !== index))}>{labels.remove}</button>
+						<button type="button" data-id3-artwork-remove disabled={disabled || busy} onClick={event => {
+							const control = event.currentTarget;
+							artworkRemoval.current = control.ownerDocument.activeElement === control
+								? { control, index, value: artworkValue, count: artwork.length } : null;
+							commitArtwork(artwork.filter((_item, position) => position !== index));
+						}}>{labels.remove}</button>
 					</div>
 				))}
-				<label><span>{labels.addArtwork}</span><input type="file" accept="image/png,image/jpeg" disabled={disabled || busy}
+				<label><span>{labels.addArtwork}</span><input type="file" data-id3-artwork-add accept="image/png,image/jpeg" disabled={disabled || busy}
 					onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void addArtwork(file); }} /></label>
 			</fieldset>
 			<fieldset>

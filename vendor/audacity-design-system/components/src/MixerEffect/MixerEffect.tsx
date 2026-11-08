@@ -17,6 +17,8 @@ export interface MixerEffectProps {
    * @default false
    */
   enabled?: boolean;
+  /** Prevent power, removal and replacement while retaining settings inspection. */
+  disabled?: boolean;
   /**
    * Called when the power/enable button is clicked
    */
@@ -57,6 +59,7 @@ export interface MixerEffectProps {
 export const MixerEffect: React.FC<MixerEffectProps> = ({
   effectName,
   enabled = false,
+  disabled = false,
   onToggle,
   trackColor,
   onDropdownClick,
@@ -111,6 +114,7 @@ export const MixerEffect: React.FC<MixerEffectProps> = ({
         <button
           className="mixer-effect__power"
           onClick={onToggle}
+          disabled={disabled}
           aria-label={enabled ? copy.disableEffect : copy.enableEffect}
           aria-pressed={enabled}
         >
@@ -127,6 +131,7 @@ export const MixerEffect: React.FC<MixerEffectProps> = ({
       <button
         className="mixer-effect__dropdown"
         onClick={handleDropdownClick}
+        disabled={disabled}
         aria-label={copy.selectEffect}
       >
         <Icon name="caret-down" size={16} color={iconColor} />
@@ -141,6 +146,7 @@ export const MixerEffect: React.FC<MixerEffectProps> = ({
         >
           <ContextMenuItem
             label={copy.removeEffect}
+            disabled={disabled}
             onClick={() => {
               onRemoveEffect?.();
               setMenuOpen(false);
@@ -151,11 +157,13 @@ export const MixerEffect: React.FC<MixerEffectProps> = ({
             <ContextMenuItem
               key={categoryName}
               label={categoryName}
+              disabled={disabled}
             >
               {effectDefs.map((effectDef) => (
                 <ContextMenuItem
                   key={effectDef.id}
                   label={effectDef.name}
+                  disabled={disabled}
                   checked={effectDef.name === effectName}
                   onClick={() => {
                     onReplaceEffect?.(effectDef.name);

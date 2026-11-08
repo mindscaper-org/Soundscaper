@@ -55,12 +55,17 @@ export default function ClipFadesDialog({ clip, sampleRate, copy, blocked, onPre
 					<NumberStepper ariaLabel={edge === 'in' ? labels.fadeInLength : labels.fadeOutLength}
 						incrementLabel={labels.increaseValue} decrementLabel={labels.decreaseValue} value={lengthDrafts[edge] ?? String((value[field] ?? 0) / sampleRate)} min={0} max={clip.durationFrames / sampleRate}
 						step={0.1} disabled={blocked} onChange={text => {
-							setLengthDrafts(previous => ({ ...previous, [edge]: text }));
 							const seconds = parseLengthSeconds(text, clip.durationFrames / sampleRate);
-							if (Number.isFinite(seconds)) {
-								const length = clipFadeLengthChange(value, edge, Math.round(seconds * sampleRate));
-								setChanges(previous => ({ ...shapesForNewClipFades(clip, length), ...previous, ...length }));
-							}
+							const length = Number.isFinite(seconds) ? clipFadeLengthChange(value, edge, Math.round(seconds * sampleRate)) : null;
+							// The arrows parse periods, so keep the already accepted comma entry on that grammar too.
+							setLengthDrafts(previous => {
+								const next = { ...previous, [edge]: text.replace(',', '.') };
+								const opposite = edge === 'in' ? 'out' : 'in';
+								if (length?.[fadeField(opposite)] !== undefined
+									&& Number.isFinite(parseLengthSeconds(previous[opposite] ?? '', clip.durationFrames / sampleRate))) delete next[opposite];
+								return next;
+							});
+							if (length) setChanges(previous => ({ ...shapesForNewClipFades(clip, length), ...previous, ...length }));
 						}} /><span aria-hidden="true">{` ${labels.secondsUnit}`}</span>
 				</label>
 				<label htmlFor={`${baseId}-${edge}`}>{shapeLabel}</label>

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { hasPendingVideoPreviewMediaSeek } from '../../controller/clip-video/video-preview-media-seek.ts';
+
 /**
  * Ordinary playing frames retain the shader path. Resource-dependent current
  * sessions explicitly own continuous exact execution; a resource is never
@@ -23,5 +25,6 @@ export function areVideoPreviewMediaLayersReadyForExactRender(
 ): boolean {
 	return layers.every((layer) => layer.entries.every(({ video }) => (
 		video != null && Number(video.readyState) >= 2 && video.seeking !== true
+			&& !hasPendingVideoPreviewMediaSeek(video)
 	)));
 }

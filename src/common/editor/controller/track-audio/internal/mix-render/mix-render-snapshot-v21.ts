@@ -5,6 +5,7 @@ import { createMixRenderMediaIndex } from './mix-render-media-index.ts';
 import { authoredMixRenderAdm } from './mix-render-adm.ts';
 import { prepareIndividualPreFaderPrint, prepareIndividualPreFaderSnapshot } from './individual-pre-fader-print.ts';
 import { prepareMixRenderDetectorClosure, type MixRenderDetectorClosure } from './mix-render-detector-closure.ts';
+import { prepareMixRenderAudibility } from './mix-render-audibility.ts';
 import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
 import {
 	createDefaultMixerGraphV21,
@@ -82,6 +83,7 @@ export function prepareMixRenderSnapshotsV21(authored: ControllerProject): Reado
 			const target = targetTracks[0];
 			const preWidth = target && individualPreFaderWidth(target, renderEffects);
 			if (target && preWidth != null) prepareIndividualPreFaderSnapshot(snapshot, target.id, preWidth, authoredMixRenderAdm(authored) === null);
+			prepareMixRenderAudibility(snapshot, targetIds, nodeIds);
 			return reconcileMixRenderRequirementsV21(snapshot);
 		}
 		const edges = graph.edges.filter((edge) => edgeSurvivesCombined(
@@ -109,6 +111,7 @@ export function prepareMixRenderSnapshotsV21(authored: ControllerProject): Reado
 			laneSurvivesMixSnapshot(lane, renderTrackIds, retainedNodeIds, edgeIds)
 			&& (renderEffects || !laneTargetsEffect(lane))
 		));
+		prepareMixRenderAudibility(snapshot, targetIds, nodeIds);
 		return reconcileMixRenderRequirementsV21(snapshot);
 	}
 }
@@ -139,7 +142,7 @@ function narrowMedia(
 		.map((track) => {
 			const result = (targetIds.has(track.id)
 				? { ...track, mute: false, solo: false, ...(renderEffects ? {} : { effects: [] }) }
-				: { ...track, mute: false, solo: false }
+				: { ...track }
 			) as Record<string, unknown>;
 			delete result.envelope;
 			return result as unknown as ControllerTrack;

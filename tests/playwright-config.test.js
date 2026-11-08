@@ -76,14 +76,21 @@ test('Playwright runs the maintained evergreen browser-engine matrix', async () 
 		'the ordinary suite must not accidentally run the separately served dual-origin workflow');
 });
 
-test('native audio and video browser projects retain their single-worker admission bound outside CI', async () => {
-	delete process.env.CI;
-	const { default: config } = await import('../playwright.config.mjs?native-media-workers');
-	for (const name of ['firefox', 'webkit']) {
-		assert.equal(config.projects.find(project => project.name === name).workers, 1,
-			`${name} native audio clocks and decoder processes must not compete within a shard`);
+test('ordinary browser projects admit two workers per shard in CI and local runs', async () => {
+	const previous = process.env.CI;
+	try {
+		for (const ci of ['', 'true']) {
+			process.env.CI = ci;
+			const { default: config } = await import(`../playwright.config.mjs?browser-workers-${ci}`);
+			assert.equal(config.workers, 2);
+			for (const project of config.projects) {
+				assert.equal(project.workers ?? config.workers, 2, `${project.name} must admit two workers`);
+			}
+		}
+	} finally {
+		if (previous === undefined) delete process.env.CI;
+		else process.env.CI = previous;
 	}
-	assert.equal(config.projects.find(project => project.name === 'chromium').workers, undefined);
 });
 
 test('ordinary Playwright previews separately built product origins', async () => {
@@ -254,7 +261,7 @@ test('quality verification keeps Chromium and WebKit in the pinned container and
 	);
 	assert.ok(collectionStep, 'the execution policy must use the actual collected shard');
 	assert.match(collectionStep.groups.step,
-		/--shard=\$\{\{ matrix\.shard \}\}\/3 --workers=\$\{\{ matrix\.project == 'webkit' && 1 \|\| 2 \}\} --retries=1 --list --reporter=json/u);
+		/--suite-shard=\$\{\{ matrix\.shard \}\}\/3 --workers=\$\{\{ matrix\.project == 'webkit' && 1 \|\| 2 \}\} --retries=1 --list --reporter=json/u);
 	assert.match(collectionStep.groups.step,
 		/node scripts\/ci-browser-shard-policy\.ts [^\n]+ "\$\{\{ matrix\.shard \}\}\/3"/u,
 		'the collection and policy must agree on the three-way partition');
@@ -296,7 +303,7 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(browserJob, /--workers=\$\{\{ steps\.browser-run-shape\.outputs\.workers \}\} --retries=\$\{\{ steps\.browser-run-shape\.outputs\.retries \}\}/u,
 		`${label} must execute the collected shard's worker and retry policy`);
 
-	// The handbook suite has its own Playwright config, so `--shard` cannot
+	// The handbook suite has its own Playwright config, so `--suite-shard` cannot
 	// divide it alongside the site suite. It has to be pinned to one leg of the
 	// matrix or the shards would each run the whole of it.
 	const handbookLegs = [...browserJob.matchAll(
@@ -315,12 +322,12 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(firefoxJob, /node scripts\/ci-firefox-audio-clock\.mjs/u);
 	assert.match(firefoxJob, /name: verified-soundscaper-browser-site-build/u);
 	assertEngineIsSharded(firefoxJob, `${label} firefox`, 'npm run test:browser:built -- --project=firefox', firefoxShardCount);
-	assert.ok(firefoxJob.includes(`--shard=\${{ matrix.shard }}/${firefoxShardCount} --workers=1 --retries=1 --list --reporter=json`),
+	assert.ok(firefoxJob.includes(`--suite-shard=\${{ matrix.shard }}/${firefoxShardCount} --workers=1 --retries=1 --list --reporter=json`),
 		`${label} must collect Firefox's actual complete shard`);
 	assert.ok(firefoxJob.includes(`firefox "\${{ matrix.shard }}/${firefoxShardCount}" 1 >> "$GITHUB_OUTPUT"`),
 		`${label} must bind Firefox's policy to the collected partition`);
 	assert.ok(
-		firefoxJob.includes(`--shard=\${{ matrix.shard }}/${firefoxShardCount} --workers=\${{ steps.browser-run-shape.outputs.workers }} --retries=\${{ steps.browser-run-shape.outputs.retries }}`),
+		firefoxJob.includes(`--suite-shard=\${{ matrix.shard }}/${firefoxShardCount} --workers=\${{ steps.browser-run-shape.outputs.workers }} --retries=\${{ steps.browser-run-shape.outputs.retries }}`),
 		`${label} must execute Firefox's collected worker and retry policy`,
 	);
 	assert.ok(
@@ -332,7 +339,7 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 
 /**
  * Playwright is the pipeline's long pole, so every engine is split across
- * runners with `--shard`. Three things have to agree for that gate to be meaningful:
+ * runners with `--suite-shard`. Three things have to agree for that gate to be meaningful:
  * same tests the unsharded job did, and each is silent when it does not: the
  * `/N` denominator has to equal the number of matrix legs, or the shards the
  * matrix never runs take their tests with them; the job name has to say which
@@ -348,8 +355,8 @@ function assertEngineIsSharded(job, label, runCommand, expectedShardCount, denom
 
 	const total = denominator;
 	assert.ok(
-		job.includes(`${runCommand} --shard=\${{ matrix.shard }}/${total}`),
-		`${label} must run \`${runCommand}\` under --shard=\${{ matrix.shard }}/${total}`,
+		job.includes(`${runCommand} --suite-shard=\${{ matrix.shard }}/${total}`),
+		`${label} must run \`${runCommand}\` under --suite-shard=\${{ matrix.shard }}/${total}`,
 	);
 	assert.match(
 		job,

@@ -5,22 +5,22 @@ import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { decodeStandaloneAudioForImport } from '../src/common/editor/controller/import/internal/standalone-audio-import-decoder.ts';
 import { nativeG711OddWavFixture } from './helpers/native-g711-odd-wav-fixture.ts';
 
-for (const format of ['alaw', 'ulaw'] as const) test(`native ${format} import finishes a terminal odd RIFF data chunk without changing its samples`, async () => {
-	const { file } = nativeG711OddWavFixture(format), original = await file.arrayBuffer();
+for (const format of ['alaw', 'ulaw'] as const) for (const frames of [4800, 4801] as const) test(`native ${format} import forwards ${frames} authored frames without changing its encoded samples`, async () => {
+	const { file } = nativeG711OddWavFixture(format, frames), original = await file.arrayBuffer();
 	const calls: ArrayBuffer[] = [];
 	const result = await decodeStandaloneAudioForImport({ file, codecRuntime: null, sampleRate: 48_000,
 		getAudioContext: async () => ({}), inspectEncodedSampleRate: () => 48_000, inspectDecodedSampleRate: () => 48_000,
 		async decodeWithWebAudio(encoded) {
 			calls.push(encoded);
-			return { sampleRate: 48_000, length: 4801 };
+			return { sampleRate: 48_000, length: frames };
 		},
 		async decodeWithCodec() { assert.fail('The existing native format must finish without external codec fallback.'); },
 		async bufferFromChannels() { assert.fail('No alternate PCM producer is needed.'); },
 	});
-	assert.equal(calls.length, 1); assert.equal(result.decoded.length, 4801);
+	assert.equal(calls.length, 1); assert.equal(result.decoded.length, frames);
 	const encoded = calls[0]!;
-	assert.equal(encoded.byteLength, original.byteLength + 8);
-	assert.equal(new TextDecoder().decode(encoded.slice(-8, -4)), 'JUNK');
+	assert.equal(encoded.byteLength, original.byteLength + (frames % 2 ? 8 : 0));
+	if (frames % 2) assert.equal(new TextDecoder().decode(encoded.slice(-8, -4)), 'JUNK');
 	assertPcmSamplesEqual(new Uint8Array(encoded).subarray(8, original.byteLength), new Uint8Array(original).subarray(8), 'Encoded RIFF bytes');
 });
 

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { calculateAudioSpectrum } from '../../audio-spectrum.ts';
-import { projectUnwarpedClipSourceRange } from '../../audio-clip-source-projection.ts';
+import { projectUnwarpedClipSourceRange, type UnwarpedClipSourceProjection } from '../../audio-clip-source-projection.ts';
 import { readClipLoop } from '../../audio-clip-loop.ts';
 import { buildAudioWarpRuntimeSegments, type AudioWarpRuntimeClip, type AudioWarpRuntimeProject } from '../../audio-warp-runtime.ts';
 import {
@@ -94,6 +94,19 @@ export function spectralSelectionPeaks(channels: readonly Float32Array[], sample
 	return peaks;
 }
 
+/** A sub-period wrap selects two source spans without the intervening samples. */
+function selectedSourceRanges(clip: UnwarpedClipSourceProjection, start: number, end: number) {
+	const loop = readClipLoop(clip);
+	if (loop && end - start < loop.periodFrames) {
+		const remaining = loop.periodFrames - (start + loop.offsetFrames) % loop.periodFrames;
+		if (end - start > remaining) return [
+			projectUnwarpedClipSourceRange(clip, start, start + remaining),
+			projectUnwarpedClipSourceRange(clip, start + remaining, end),
+		];
+	}
+	return [projectUnwarpedClipSourceRange(clip, start, end)];
+}
+
 /** Inspect only selected PCM, with bounded FFT windows, once at the beginning of a drag. */
 export function selectedTrackSpectralPeaks(
 	controller: TimelineClipVisualController & Readonly<{ project?: AudioWarpRuntimeProject | null }>,
@@ -113,7 +126,7 @@ export function selectedTrackSpectralPeaks(
 		if (!visual) continue;
 		const sourceDuration = clip.sourceDurationFrames || clip.durationFrames;
 		const ratio = sourceDuration / (readClipLoop(clip)?.periodFrames ?? clip.durationFrames);
-		const sourceRange = projectUnwarpedClipSourceRange({
+		const sourceRanges = selectedSourceRanges({
 			opaqueExtensions: clip.opaqueExtensions,
 			durationFrames: clip.durationFrames,
 			sourceStartFrame: clip.sourceStartFrame,
@@ -126,10 +139,10 @@ export function selectedTrackSpectralPeaks(
 		const channels = buffer
 			? Array.from({ length: buffer.numberOfChannels }, (_, index) => buffer.getChannelData(index))
 			: window?.channels ?? [];
-		const selectedChannels = channels.map(channel => channel.subarray(
-			Math.max(0, Math.floor(sourceRange.startFrame - offset)),
-			Math.max(0, Math.ceil(sourceRange.endFrame - offset)),
-		));
+		const selectedChannels = sourceRanges.map(range => channels.map(channel => channel.subarray(
+			Math.max(0, Math.floor(range.startFrame - offset)),
+			Math.max(0, Math.ceil(range.endFrame - offset)),
+		)));
 		const nativeRate = visual.source?.sampleRate ?? sampleRate * ratio;
 		if (clip.warpMap != null) {
 			if (!controller.project) throw new TypeError('Warped spectral peaks require their project.');
@@ -147,7 +160,7 @@ export function selectedTrackSpectralPeaks(
 		}
 		const effectiveRate = clip.linkPitchAndTempo ? sampleRate * ratio
 			: nativeRate * 2 ** ((clip.pitchCents || 0) / 1_200);
-		peaks.push(...spectralSelectionPeaks(selectedChannels, effectiveRate, size));
+		for (const selected of selectedChannels) peaks.push(...spectralSelectionPeaks(selected, effectiveRate, size));
 	}
 	return [...new Set(peaks)].sort((left, right) => left - right);
 }

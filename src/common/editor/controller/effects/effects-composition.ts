@@ -269,7 +269,7 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 			activeSelection: dependencies.activeSelection,
 			audacityEffectTarget: (...args) => selection.audacityEffectTarget(...args),
 			persistAudacityEffectResult,
-			audacityEffectTargets: () => selection.audacityEffectTargets(),
+			audacityEffectTargets: () => selection.audacityEffectTargets({ includeSilentTracks: true }),
 			persistAudacityEffectResults: result.persistAudacityEffectResults,
 			matchAudacitySelectionChannels,
 			assertAudioOutput: assertAudacityEffectOutput,
@@ -396,6 +396,7 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 			playNyquistPreview: nyquistHost.playNyquistPreview,
 			preflightStorage: dependencies.preflightStorage,
 			getProject: dependencies.getProject,
+			effectPreviewProject: dependencies.getCommandProject,
 			getPreparedAudioAuthority: () => state.preferences?.performance?.optimizeFor === 'speed'
 				? dependencies.getProject() : null,
 			canSliceDryPcm: canSliceSimpleDryTrackPcm,

@@ -1,3 +1,4 @@
+import { iconNameToChar } from '../../audacity-iconcodes.js';
 import { VIDEO_FILMSTRIP_COPY } from '../../../i18n/editor-video-filmstrip-copy.ts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CLIP_CONTENT_OFFSET } from '@soundscaper/design-system/constants';
@@ -91,7 +92,7 @@ export function VideoFilmstripClip({
 		frames: visualData?.frames, thumbnailUrlAt: visualData?.thumbnailUrlAt,
 	}), [visualData?.thumbnails, visualData?.thumbnailUrls, visualData?.frames, visualData?.thumbnailUrlAt]);
 	const timestampLookup = useMemo(() => createVideoThumbnailTimestampLookup(
-		thumbnailData.thumbnails ?? thumbnailData.thumbnailUrls ?? thumbnailData.frames,
+		thumbnailData.thumbnails ?? thumbnailData.thumbnailUrls ?? thumbnailData.frames, { nearest: true },
 	), [thumbnailData]);
 	const thumbnailModels = useMemo(() => thumbnailPoints.map((point, index) => ({
 		key: `${point.timelineFrame}:${point.sourceFrame}:${index}`,
@@ -145,14 +146,14 @@ export function VideoFilmstripClip({
 							aria-label={edge === 'left'
 								? (copy['ui.videoFilmstrip.trimLeftEdge'] || VIDEO_FILMSTRIP_COPY.trimLeftEdge)
 								: (copy['ui.videoFilmstrip.trimRightEdge'] || VIDEO_FILMSTRIP_COPY.trimRightEdge)}>
-							<span className="musescore-icon" aria-hidden="true">{edge === 'left' ? '\uF4B1' : '\uF4B0'}</span>
+							<span className="musescore-icon" aria-hidden="true">{edge === 'left' ? iconNameToChar('TRIM_HANDLE_LEFT') : iconNameToChar('TRIM_HANDLE_RIGHT')}</span>
 						</button>
 						<button type="button" tabIndex={-1} className={`clip-display__handle clip-display__handle--stretch-${edge}`}
 							style={edge === 'left' ? { left: Math.max(-26, -left) } : undefined}
 							aria-label={edge === 'left'
 								? (copy['ui.videoFilmstrip.stretchLeftEdge'] || VIDEO_FILMSTRIP_COPY.stretchLeftEdge)
 								: (copy['ui.videoFilmstrip.stretchRightEdge'] || VIDEO_FILMSTRIP_COPY.stretchRightEdge)}>
-							<span className="musescore-icon" aria-hidden="true">{'\uF475'}</span>
+							<span className="musescore-icon" aria-hidden="true">{iconNameToChar('CLOCK')}</span>
 						</button>
 					</span>;
 				})}

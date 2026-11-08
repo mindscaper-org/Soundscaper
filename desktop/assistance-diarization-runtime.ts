@@ -18,6 +18,7 @@ export interface SpeakerDiarizationResult {
 }
 
 export interface SpeakerDiarizationRequest {
+	readonly jobId?: string;
 	readonly audioPath: string;
 	readonly modelIds?: Readonly<{
 		readonly segmentation: string;

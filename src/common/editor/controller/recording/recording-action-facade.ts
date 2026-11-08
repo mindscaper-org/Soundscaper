@@ -4,6 +4,7 @@ import type { SoundActivationPolicyService } from './sound-activation-policy-ser
 import { DEFAULT_SOUND_ACTIVATION_PREFERENCES } from '../../sound-activation-preferences.ts';
 
 import type { EditorActionFunctions } from '../composition/editor-action-functions.ts';
+import type { EditorActionResources } from '../composition/editor-action-resources.ts';
 import type { RestrictToCapability } from '../composition/action-facade-runtime.ts';
 
 export type RecordingActionScope = Pick<EditorActionFunctions,
@@ -30,7 +31,7 @@ export type RecordingActionScope = Pick<EditorActionFunctions,
 	| 'releaseInputs'
 	| 'updatePreferences'
 	| 'revertFactorySettings'
-> & { readonly soundActivationPolicyService: SoundActivationPolicyService };
+> & Pick<EditorActionResources, 'prepareMicrophoneMeterInputReplacement'> & { readonly soundActivationPolicyService: SoundActivationPolicyService };
 
 /** Assemble the recording action group without growing the legacy facade. */
 export function createRecordingActionFacade(
@@ -54,6 +55,7 @@ export function createRecordingActionFacade(
 		toggleLeadIn: restricted('audioRecording', scope.toggleLeadInRecording),
 		setMonitoring: restricted('audioRecording', scope.setMonitoring),
 		setMetering: restricted('audioRecording', scope.setMicrophoneMetering),
+		prepareInputReplacement: scope.prepareMicrophoneMeterInputReplacement,
 		setLevel: restricted('audioRecording', scope.setRecordingInputGain),
 		setLatencyOffset: restricted('audioRecording', scope.setLatencyOffset),
 		requestInputAccess: restricted('audioRecording', scope.requestInputAccess),

@@ -2,6 +2,7 @@
 
 import { createFitTrackHeights } from './fit-track-heights.ts';
 import { runtimeTimelineAnnotationExtent } from '../../../runtime-timeline-annotation-projection.ts';
+import { takeCompContentRange } from '../../../take-comp-content-range.ts';
 import { AUDIO_EDITOR_MIN_PIXELS_PER_SECOND } from '../../../timeline-zoom-limits.ts';
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts'; import type { ControllerTransportMeters, ControllerTransportState } from '../transport-state.ts';
 
@@ -36,7 +37,7 @@ export interface ViewStateServiceRuntime<Project extends ViewStateProject = View
 	readonly MAX_PIXELS_PER_SECOND: number;
 	readonly commit: (
 		command: Readonly<{ readonly type: 'batch'; readonly commands: readonly unknown[] }>,
-		selection?: Readonly<{ readonly selectTrackId?: unknown }>,
+		selection?: Readonly<{ readonly selectTrackId?: string | null }>,
 	) => unknown;
 	readonly copy: Readonly<{ readonly trackNotFound: string }>;
 	readonly editingBlocked: () => boolean;
@@ -114,7 +115,8 @@ export function createViewStateService<Project extends ViewStateProject = ViewSt
 			const sampleRate = projectSampleRate();
 			const editorDurationSeconds = editorTimelineDurationFrames(project, sampleRate) / sampleRate;
 			const annotationEndFrame = runtimeTimelineAnnotationExtent(project);
-			const contentDurationFrames = Math.max(projectDurationFrames(project), annotationEndFrame);
+			const contentDurationFrames = Math.max(projectDurationFrames(project), annotationEndFrame,
+				takeCompContentRange(project)?.endFrame ?? 0);
 			const fitDurationSeconds = contentDurationFrames > 0
 				? contentDurationFrames / sampleRate
 				: editorDurationSeconds;
@@ -201,7 +203,7 @@ export function createViewStateService<Project extends ViewStateProject = ViewSt
 			})
 			.filter(Boolean);
 		state.autoFitTrackHeight = false;
-		if (commands.length) commit({ type: 'batch', commands }, { selectTrackId: trackId });
+		if (commands.length) commit({ type: 'batch', commands }, { selectTrackId: selectedTrack.id });
 		else publishProjectState();
 		return selectedTrack.id;
 	}

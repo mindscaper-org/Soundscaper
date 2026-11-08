@@ -9,6 +9,10 @@ import type {
 export type RecordingCaptureOutcome = 'recording' | 'cancelled' | 'handed-off'
 	| Readonly<{ kind: 'handed-off'; failure: unknown }>;
 
+export function isRecordingCaptureAbort(error: unknown): boolean {
+	return (error as Readonly<{ name?: unknown }> | null | undefined)?.name === 'AbortError';
+}
+
 export interface OwnedRecordingStartScope extends RecordingStartScope {
 	readonly finalization: Promise<void> | null;
 	claimRecorder(recorder: RecordingControllerLike): void;
@@ -51,9 +55,8 @@ export function createRecordingStartOwnership(
 
 /** A transferred recorder belongs to Stop/finalization, including when its start fails. */
 export function recordingCaptureFailure(error: unknown, handedOff: boolean, scope: RecordingStartScope): RecordingCaptureOutcome {
-	const aborted = (error as Readonly<{ name?: unknown }> | null | undefined)?.name === 'AbortError';
 	if (handedOff) return scope.isCancellation?.(error) ? 'handed-off' : { kind: 'handed-off', failure: error };
-	if (aborted) return 'cancelled';
+	if (isRecordingCaptureAbort(error)) return 'cancelled';
 	throw error;
 }
 

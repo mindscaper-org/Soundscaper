@@ -57,6 +57,7 @@ export interface ControllerResourceCallbacks {
 	readonly onState: (state: string) => void;
 	readonly setStatus: (message: string, state?: string, localization?: import('../../../i18n/presentation-message.ts').LocalizedPresentationMessage) => void;
 	readonly updateExportProgress: (value: unknown) => void;
+	readonly getPlaybackOutputDevice?: () => string;
 }
 
 /** Construct the session's audio resources without capturing controller state. */
@@ -81,7 +82,10 @@ export function createControllerResources(options: ControllerResourceOptions, ca
 	if (options.productId === 'soundscaper') enableParallelEffectStackPlayback(engine);
 	const renderEngineFactory = options.engineFactory || createAudioEditorEngine;
 	const playbackPreviews = createPlaybackPreviewEngines(renderEngineFactory, () => engine.getPlaybackGain(),
-		() => engine.getOutputDeviceState?.().preferredDeviceId ?? '');
+		callbacks.getPlaybackOutputDevice ?? (() => engine.getOutputDeviceState?.().preferredDeviceId ?? ''), {
+			getAudioContext: () => engine.getAudioContext({ resume: false }),
+			createEngine: (lease, previewOptions) => renderEngineFactory({ ...previewOptions, realtimeContextLease: lease }),
+		});
 	const clipTimePitchCache = options.clipTimePitchCache || new ClipTimePitchRenderCacheCoordinator({
 		store, client: options.staffPadRenderClient,
 		loadSourceChannels: async (source: Readonly<{ id: string; frameCount: number; channelCount: number; storageKey?: string }>, context = {}) => {

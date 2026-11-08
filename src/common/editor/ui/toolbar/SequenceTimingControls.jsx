@@ -92,6 +92,8 @@ function SequenceTimingEditor({ project, view, disabled, controller, copy, run }
 	const dropFrameAvailable = isSequenceDropFrameRate(view.rate);
 	const [startTimecodeError, setStartTimecodeError] = React.useState(false);
 	const [nameDraft, setNameDraft] = React.useState(view.name);
+	const multilineName = /[\r\n]/u.test(view.name + nameDraft);
+	const NameInput = multilineName ? 'textarea' : 'input';
 	const nameBlurGuard = React.useRef(createDraftBlurCommitGuard()).current;
 	const timecodeBlurGuard = React.useRef(createDraftBlurCommitGuard()).current;
 	React.useEffect(() => setNameDraft(view.name), [view.name]);
@@ -105,17 +107,21 @@ function SequenceTimingEditor({ project, view, disabled, controller, copy, run }
 		</header>
 		<label>
 			<span>{copy.sequenceName}</span>
-			<input
-				type="text"
+			<NameInput
+				type={multilineName ? undefined : 'text'}
+				rows={multilineName ? 2 : undefined}
 				value={nameDraft}
 				onChange={(event) => setNameDraft(event.currentTarget.value)}
 				disabled={disabled}
-				onKeyDown={(event) => handleSequenceFieldKeyDown(event, nameBlurGuard, view.name, () => setNameDraft(view.name))}
-				onBlur={(event) => {
+				onKeyDown={(event) => {
+					if (multilineName && event.key === 'Enter' && event.shiftKey) return;
+					handleSequenceFieldKeyDown(event, nameBlurGuard, view.name, () => setNameDraft(view.name));
+				}}
+				onBlur={() => {
 					if (!draftBlurShouldCommit(nameBlurGuard)) return;
-					const name = event.currentTarget.value.trim();
-					setNameDraft(name || view.name);
-					if (name && name !== view.name) update({ name });
+					const name = nameDraft.trim() ? nameDraft : view.name;
+					setNameDraft(name);
+					if (name !== view.name) update({ name });
 				}}
 			/>
 		</label>

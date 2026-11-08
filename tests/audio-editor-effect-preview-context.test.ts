@@ -4,7 +4,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createSelectionEffectPreviewService } from '../src/common/editor/controller/effects/internal/effect-preview-service.ts';
+import { previewRenderedClipStarts } from '../src/common/editor/controller/effects/internal/preview-rendered-clip-placement.ts';
 import { mixNyquistPreviewChannels } from '../src/common/editor/controller/effects/internal/nyquist/nyquist-audio.ts';
+import { createAudioEditorProjectV17 } from '../src/common/editor/project-v17.ts';
+import { createAudioClip, createAudioTrack, createAudioSource } from '../src/common/editor/project-media-factory.ts';
+import { applyEditorCommand } from '../src/common/editor/commands.js';
 import { AUDIO_SELECTION_EFFECT_DEFINITIONS } from '../src/common/editor/effects.js';
 
 interface RenderCall {
@@ -23,7 +27,18 @@ interface WorkerInput {
 	}>;
 }
 
-function fixture(start: number, end: number, projectEnd: number, cancelOnRender = 0, exactRangePcm = false, outputRatio = 1) {
+interface PreviewFixtureTarget {
+	readonly track: Readonly<{ id: string }>;
+	readonly clipId: string;
+	readonly clipIds: readonly string[];
+	readonly startFrame: number;
+	readonly endFrame: number;
+	readonly durationFrames: number;
+	readonly channelCount: number;
+}
+
+function fixture(start: number, end: number, projectEnd: number, cancelOnRender = 0, exactRangePcm = false, outputRatio = 1,
+	options: Readonly<{ targets?: readonly PreviewFixtureTarget[]; sampleRate?: number; params?: Readonly<Record<string, number>>; project?: ReturnType<typeof createAudioEditorProjectV17> }> = {}) {
 	const renders: RenderCall[] = [];
 	const jobs: WorkerInput[] = [];
 	const played: Float32Array[][] = [];
@@ -52,7 +67,7 @@ function fixture(start: number, end: number, projectEnd: number, cancelOnRender 
 		abortError: () => new DOMException('Preview was cancelled', 'AbortError'),
 		assertAudacityEffectOutput: (channels: Float32Array[]) => assert.equal(channels.length, 1),
 		audacityEffectMemoryError: () => new Error('Preview exceeds memory limit'),
-		audacityEffectTargets: () => [{ track: { id: 'selected-track' },
+		audacityEffectTargets: () => options.targets ?? [{ track: { id: 'selected-track' },
 			startFrame: start, endFrame: end, durationFrames: end - start,
 			channelCount: 1, clipIds: ['selected-clip'] }],
 		audacitySpectralEffectContext: () => null,
@@ -62,18 +77,20 @@ function fixture(start: number, end: number, projectEnd: number, cancelOnRender 
 		},
 		cancelAudacityEffectPreview: () => { state.audacityPreviewGeneration += 1; },
 		copy: { audacityPreviewProcessing: 'Preparing preview', audacityPreviewPlaying: 'Playing' },
-		currentAudacityEffectParams: () => ({}),
+		currentAudacityEffectParams: () => options.params ?? {},
 		engine: {
 			pause: () => undefined,
 			getPlaybackDestination: () => ({}),
 			getAudioContext: async () => ({ createBufferSource: () => source, destination: {} }),
 		},
 		estimateAudioSelectionEffectPeakBytes: () => 0,
+		effectPreviewProject: options.project ? () => ({ clips: options.project!.clips.map(clip => ({ ...clip,
+			timelineStartFrame: Number(clip.timelineStartFrame), durationFrames: Number(clip.durationFrames) })), tracks: options.project!.tracks }) : undefined,
 		getProject: () => ({ id: 'selected-project' }),
 		mixNyquistPreviewChannels,
-		normalizeAudioSelectionEffectParams: () => ({}),
+		normalizeAudioSelectionEffectParams: (_type: string, params: unknown) => params,
 		projectDurationFrames: () => projectEnd,
-		projectSampleRate: () => 100,
+		projectSampleRate: () => options.sampleRate ?? 100,
 		publishDocumentSnapshot: () => { published += 1; },
 		renderDryTrackRange: async (trackId: string, from: number, to: number,
 			channels: number, clipIds: readonly string[]) => {
@@ -109,6 +126,75 @@ test('duration-changing previews use the rendered length within the six-second a
 		assert.equal(value.played[0]![0]!.length, outputFrames);
 		assert.notEqual(value.played[0]![0]!.at(-1), 0, 'the preview neither drops the tail nor appends silence');
 	}
+});
+
+test('duration-changing multi-clip preview preserves the same ripple timing as Apply', async () => {
+	const rate = 8000;
+	const project = createAudioEditorProjectV17({ sampleRate: rate,
+		sources: [createAudioSource({ id: 'source', sampleRate: rate, frameCount: rate, channelCount: 1 })],
+		clips: [0, 3 * rate].map((start, index) => ({ ...createAudioClip({ id: `clip-${index}`, sourceId: 'source',
+			timelineStartFrame: start, durationFrames: rate, sourceDurationFrames: rate }) })),
+		tracks: [{ ...createAudioTrack({ id: 'selected-track', clipIds: ['clip-0', 'clip-1'] }, rate) }],
+	});
+	const applied = applyEditorCommand(project, { type: 'clip/render-replace-many', entries: project.clips.map((clip, index) => ({
+		clipId: clip.id, source: { ...createAudioSource({ id: `processed-${index}`, sampleRate: rate, frameCount: 2 * rate, channelCount: 1 }) },
+	})) });
+	const expectedEnd = Math.max(...applied.clips.map(clip => Number(clip.timelineStartFrame) + Number(clip.durationFrames)));
+	assert.equal(expectedEnd, 6 * rate);
+	const value = fixture(0, 4 * rate, 4 * rate, 0, false, 2, { sampleRate: rate, project, params: { tempoPercent: -50 },
+		targets: [0, 3 * rate].map((start, index) => ({ track: { id: 'selected-track' }, clipId: `clip-${index}`,
+			clipIds: [`clip-${index}`], startFrame: start, endFrame: start + rate, durationFrames: rate, channelCount: 1 })),
+	});
+	value.state.audacityEffectType = 'audacity-change-tempo';
+	await value.preview();
+	assert.equal(value.played[0]![0]!.length, expectedEnd, 'Preview must retain the same later-clip gap and end as Apply');
+	assert.equal(value.played[0]![0]![3 * rate], 0, 'the second clip starts at its rippled position, not the old timeline offset');
+	assert.notEqual(value.played[0]![0]![4 * rate], 0);
+});
+
+test('shortening an earlier selected clip brings later selected audio into the audition', async () => {
+	const rate = 8000;
+	const value = fixture(0, 60000, 60000, 0, false, 0.5, { sampleRate: rate, params: { tempoPercent: 100 },
+		targets: [{ track: { id: 'track' }, clipId: 'first', clipIds: ['first'], startFrame: 0, endFrame: 16000, durationFrames: 16000, channelCount: 1 },
+			{ track: { id: 'track' }, clipId: 'last', clipIds: ['last'], startFrame: 52000, endFrame: 60000, durationFrames: 8000, channelCount: 1 }],
+	});
+	value.state.audacityEffectType = 'audacity-change-tempo';
+	await value.preview();
+	assert.equal(value.jobs.length, 2);
+	assert.equal(value.played[0]![0]!.length, 48000);
+	assert.notEqual(value.played[0]![0]![44000], 0, 'later audio enters the six-second audition after the earlier contraction');
+});
+
+test('preview placement keeps independent lanes and grouped component timing equal to publication', () => {
+	const rate = 8000;
+	for (const grouped of [false, true]) {
+		const project = createAudioEditorProjectV17({ sampleRate: rate,
+			sources: [createAudioSource({ id: 'source', sampleRate: rate, frameCount: rate, channelCount: 1 })],
+			clips: [0, 3 * rate].map((start, index) => ({ ...createAudioClip({ id: `clip-${index}`, sourceId: 'source',
+				timelineStartFrame: start, durationFrames: rate, sourceDurationFrames: rate, ...(grouped ? { groupId: 'group' } : {}) }) })),
+			tracks: [0, 1].map(index => ({ ...createAudioTrack({ id: `track-${index}`, clipIds: [`clip-${index}`] }, rate) })),
+		});
+		const entries = project.clips.map((clip, index) => ({ clipId: clip.id, source: {
+			...createAudioSource({ id: `processed-${index}`, sampleRate: rate, frameCount: 2 * rate, channelCount: 1 }),
+		} }));
+		const applied = applyEditorCommand(project, { type: 'clip/render-replace-many', entries });
+		const before = structuredClone(project);
+		const actual = previewRenderedClipStarts({ ...project, clips: project.clips.map(clip => ({ ...clip,
+			timelineStartFrame: Number(clip.timelineStartFrame), durationFrames: Number(clip.durationFrames) })) },
+			entries.map(entry => ({ clipId: entry.clipId, frameCount: entry.source.frameCount })));
+		assert.deepEqual(actual, applied.clips.map(clip => clip.timelineStartFrame));
+		assert.deepEqual(actual, [0, grouped ? 6 * rate : 3 * rate]);
+		assert.deepEqual(project, before, 'preview geometry cannot mutate the document');
+	}
+});
+
+test('preview placement retains empty-clip deletion ripple and mixed-group refusal', () => {
+	const clips = [0, 24000].map((timelineStartFrame, index) => ({ id: `clip-${index}`, timelineStartFrame, durationFrames: 8000 }));
+	const project = { clips, tracks: [{ id: 'track', clipIds: clips.map(clip => clip.id) }] };
+	const results = [{ clipId: 'clip-0', frameCount: 0 }, { clipId: 'clip-1', frameCount: 4000 }];
+	assert.deepEqual(previewRenderedClipStarts(project, results), [0, 16000]);
+	assert.throws(() => previewRenderedClipStarts({ ...project, clips: clips.map(clip => ({ ...clip, groupId: 'same' })) }, results),
+		/inconsistent effect duration ratios/u);
 });
 
 test('Amplify previews reuse an admitted full-selection render and preserve its frame offset', async () => {

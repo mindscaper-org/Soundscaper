@@ -93,12 +93,14 @@ The following are not completion requirements:
 
 ## Deferred-capability fences
 
-Through stable 1.0:
+Outside the opt-in MIDI beta:
 
 - `export-midi`, `midi-device-info`, and `local://midi-track` remain disabled,
   excluded, and inert;
-- add no MIDI schema, ports, capability flags, dependencies, imports, exports,
-  UI placeholders, event input, instruments, or device enumeration.
+- device input, native MIDI bridges, and the full Audacity/AUP4 MIDI contract
+  remain post-1.0 scope. The beta uses existing audio carriers with editable
+  versioned note metadata and rendered audio fallbacks; it allocates no new
+  project schema or native/device capabilities.
 
 Through milestones 1–7:
 
@@ -989,12 +991,19 @@ blocks the Soundscaper Stable 1.0 release.
 The `8B` name is retained only as a legacy packet identifier so existing
 machine-readable evidence links remain stable.
 
-**Status:** **Planned, not implemented, and explicitly excluded from stable 1.0.**
-Audacity design review, compatibility decisions, implementation, and QA all
-move together into post-1.0 milestone 9+.
+**Status:** **Opt-in MIDI beta implemented; full MIDI integration remains post-1.0.**
+The beta adds **Tracks > Add new track > MIDI track (beta)** and
+**Window > Piano roll (beta)**, with no Add tracks flyout entry. Its design-system
+grid and keyboard support note editing, velocity, channels, snapping, audition,
+and four built-in synthesis waveforms. MIDI and recorded audio share playback,
+seeking, loops, mute/solo, mixer processing, and audio mix export. The shared
+import control accepts Standard MIDI and Allegro files; **File > Export other**
+provides both formats. Versioned note metadata and rendered PCM use existing
+audio carriers and survive project saves and history; see
+[project compatibility](docs/policies/project-compatibility.md).
 
-No MIDI schema, event type, track type, port, piano roll, instrument, import,
-export, or native bridge exists yet. Post-1.0 implementation begins only after:
+Device input, native MIDI services, MPE, sampler/plug-in instruments, and full
+Audacity/AUP4 MIDI compatibility remain deferred. New schema allocation begins only after:
 
 1. the relevant Audacity design and source revision are public and pinned;
 2. its project model, events, editor UX, tempo interaction, routing, plug-in
@@ -1029,9 +1038,9 @@ Planned implementation:
 - Web without Web MIDI remains a complete file-based editor; Electron adds
   devices and instruments without forking the project model.
 
-Until implementation lands, the actions remain inert and menu-hidden because
-there is no MIDI runtime. The full DAW goal is a post-1.0 claim and closes only
-after this packet's implementation and compatibility review pass.
+The legacy parity actions remain inert and menu-hidden; the beta has explicit
+menu commands. The full DAW goal remains a post-1.0 claim and closes only after
+this packet's remaining implementation and compatibility review pass.
 
 ### 9+. Installable distribution (PWA and Trusted Web Activity)
 

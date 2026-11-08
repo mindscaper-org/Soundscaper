@@ -53,6 +53,7 @@ test('a consumer can isolate live meter rendering without replacing the track pa
 
 test('volume and pan controls expose complete automation gesture lifecycles', async () => {
 	const source = await readFile(PANEL_URL, 'utf8');
+	const controls = await readFile(new URL('../vendor/audacity-design-system/components/src/TrackControlPanel/TrackControlPanelParameters.tsx', import.meta.url), 'utf8');
 
 	for (const name of [
 		'onVolumeGestureStart', 'onVolumeGestureEnd', 'onVolumeGestureCancel',
@@ -60,6 +61,6 @@ test('volume and pan controls expose complete automation gesture lifecycles', as
 	]) {
 		assert.match(source, new RegExp(`${name}\\?:`, 'u'));
 	}
-	assert.match(source, /<PanKnob[\s\S]*?onGestureStart=\{onPanGestureStart\}[\s\S]*?onGestureEnd=\{onPanGestureEnd\}[\s\S]*?onGestureCancel=\{onPanGestureCancel\}/u);
-	assert.match(source, /<Slider[\s\S]*?onGestureStart=\{onVolumeGestureStart\}[\s\S]*?onGestureEnd=\{onVolumeGestureEnd\}[\s\S]*?onGestureCancel=\{onVolumeGestureCancel\}/u);
+	assert.match(controls, /<PanKnob[\s\S]*?onGestureStart=\{props.onPanGestureStart\}[\s\S]*?onGestureEnd=\{props.onPanGestureEnd\}[\s\S]*?onGestureCancel=\{props.onPanGestureCancel\}/u);
+	assert.match(controls, /<Slider[\s\S]*?onGestureStart=\{props.onVolumeGestureStart\}[\s\S]*?onGestureEnd=\{props.onVolumeGestureEnd\}[\s\S]*?onGestureCancel=\{props.onVolumeGestureCancel\}/u);
 });

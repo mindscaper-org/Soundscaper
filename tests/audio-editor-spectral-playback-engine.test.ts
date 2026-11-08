@@ -387,7 +387,7 @@ test('other audition and recording paths retire a staged frequency band', async 
 			else if (mode === 'scrub') await engine.scrub(0);
 			else {
 				engine.renderMix = async (options = {}) => new MockAudioBuffer(
-					2, Number(options.endFrame) - Number(options.startFrame), 48_000,
+					2, Number(options.outputFrames ?? (Number(options.endFrame) - Number(options.startFrame))), 48_000,
 				) as unknown as AudioBuffer;
 				await engine.playCutPreview({ startFrame: 12_000, endFrame: 24_000 });
 			}

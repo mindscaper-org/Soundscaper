@@ -76,8 +76,8 @@ test('each Guided recipe selects one frozen, strictly validated default settings
 		targetAspectWidth: 9, targetAspectHeight: 16, editorialRerank: false,
 	});
 	const markup = renderDialog(guided.getSnapshot());
-	assert.match(markup, /Exact settings/u);
-	assert.match(markup, /&quot;resultCount&quot;:5/u);
+	assert.doesNotMatch(markup, /Exact settings|Technical details/u);
+	assert.match(markup, /Highlight proposals/u);
 });
 
 test('Guided workflow settings are editable only through their exact validated body', () => {

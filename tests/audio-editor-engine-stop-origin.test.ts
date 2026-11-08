@@ -168,7 +168,7 @@ test('a fresh cut preview replaces the prior playback start and preserves it on 
 	const { context, engine } = fixture();
 	try {
 		engine.renderMix = async (options = {}) => new MockAudioBuffer(
-			1, Number(options.endFrame) - Number(options.startFrame), 48_000,
+			1, Number(options.outputFrames), 48_000,
 		) as unknown as AudioBuffer;
 		engine.seek(START_FRAME);
 		await engine.play();

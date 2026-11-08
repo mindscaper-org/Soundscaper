@@ -4,6 +4,7 @@ import { collectProjectStorageKeys, compactProjectSourceMetadata } from '../rete
 import { sameSerializedScapeProjectDocument } from '../scape-project-document.ts';
 import { request, transact } from '../../media/indexeddb.ts';
 import { publishSource } from './media-records.ts';
+import { publishProjectSources } from './project-source-publication.ts';
 import { ProjectCommittedMaintenanceError } from './project-committed-maintenance-error.ts';
 import { pruneProjectRevisions } from './project-revision-pruning.ts';
 import { restoreProjectSnapshotIfCurrent } from './project-snapshot-restoration-repository.ts';
@@ -203,12 +204,7 @@ async function publishIndexedDb(
 		if (audit) for (const key of projectMediaResourceAuditKeysV1(audit)) assertProjectMediaResourceAuditRowV1(audit, key, await request(mediaAssets.get(key)));
 		projects.put(project);
 		revisions.put(revisionRecord);
-		for (const sourceId of collectProjectStorageKeys(project)) {
-			const source = asRecord(await request(sources.get(sourceId)));
-			if (source?.pendingProjectUntil) sources.put(publishSource(source));
-			const mediaAsset = asRecord(await request(mediaAssets.get(sourceId)));
-			if (mediaAsset?.pendingProjectUntil) mediaAssets.put(publishSource(mediaAsset));
-		}
+		await publishProjectSources({ sources, mediaAssets }, collectProjectStorageKeys(project));
 		return true;
 	});
 }

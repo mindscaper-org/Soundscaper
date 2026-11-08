@@ -148,6 +148,21 @@ test('an entirely unsupported import explains its skips and cannot be applied', 
 	await expect(review.getByRole('listitem')).toHaveText('FutureAudacityCommand: Command unavailable');
 });
 
+for (const [command, version] of [['PlayLooped', '3.0.5'], ['Play', '3.7.7']]) {
+	test(`incompatible Audacity ${command} playback mode is reviewed as unavailable`, async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		const preferences = await openShortcutPreferences(page, editor);
+		await chooseShortcutExport(page, preferences, `<audacitykeyboard audacityversion="${version}">
+			<command name="${command}" key="Ctrl+Alt+Shift+F7"/>
+		</audacitykeyboard>`);
+		const review = preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true });
+		await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 1 skipped.');
+		await expect(review.getByRole('button', { name: 'Apply shortcuts', exact: true })).toBeDisabled();
+		await review.getByText('Skipped shortcuts', { exact: true }).click();
+		await expect(review.getByRole('listitem')).toHaveText(`${command}: Command unavailable`);
+	});
+}
+
 async function openShortcutPreferences(page, editor) {
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });

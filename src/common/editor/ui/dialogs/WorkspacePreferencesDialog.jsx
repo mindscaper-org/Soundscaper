@@ -29,6 +29,7 @@ import TrackDisplayPreferencesPage from './TrackDisplayPreferencesPage.jsx';
 import { ShortcutEditorRow } from './ShortcutEditorRow.tsx';
 import AudacityShortcutImport from './AudacityShortcutImport.tsx';
 import { useWorkspaceDeletionFocus } from './useWorkspaceDeletionFocus.ts';
+import { useWorkspaceCreationFocus } from './useWorkspaceCreationFocus.ts';
 import { useShortcutCommands, useShortcutCommandGroups } from './useShortcutPresentation.ts';
 import { createShortcutDraftConflictIndex } from './shortcut-draft-conflict-index.ts';
 import { shortcutCategoryMessageKey } from './workspace-preferences-shortcut-categories.ts';
@@ -68,6 +69,8 @@ export default function WorkspacePreferencesDialog({
 	const [shortcutSort, setShortcutSort] = useState(DEFAULT_SHORTCUT_SORT_MODE);
 	const [workspaceName, setWorkspaceName] = useState('');
 	const workspaceNameRevision = useRef(0);
+	const workspaceNameRef = useRef(null);
+	const captureWorkspaceCreation = useWorkspaceCreationFocus(workspaceNameRef, workspaceName, workspaceNameRevision.current, controller);
 	const preferences = snapshot.preferences;
 	const commands = useShortcutCommands(menus, {
 		locale,
@@ -78,6 +81,8 @@ export default function WorkspacePreferencesDialog({
 	const conflictFor = useMemo(() => selectedPage === 'shortcuts' ? createShortcutDraftConflictIndex(preferences.shortcuts) : undefined, [preferences.shortcuts, selectedPage]);
 	const activeCustom = preferences.workspace.custom.find((workspace) => workspace.id === preferences.workspace.activeId);
 	const captureWorkspaceDeletion = useWorkspaceDeletionFocus(workspacePresetRef, preferences.workspace.custom, controller);
+	const mediaPreferencesAvailable = fileService?.isDesktop
+		|| menus.some((menu) => menu.nativePreferences?.some((entry) => entry.section === 'media'));
 	// Audacity's own page order, with the one page it has no counterpart for —
 	// Workspace, holding both the presets and the panel inventory — kept after
 	// Shortcuts.
@@ -88,7 +93,7 @@ export default function WorkspacePreferencesDialog({
 		{ id: 'playback-recording', label: copy.preferencesPlaybackRecording, icon: iconNameToChar('MICROPHONE') },
 		{ id: 'track-display', label: copy.preferencesTrackDisplay, icon: iconNameToChar('WAVEFORM') },
 		{ id: 'editing', label: copy.preferencesEditing, icon: iconNameToChar('EDIT') },
-		...(fileService?.isDesktop ? [{ id: 'media', label: copy.assistanceMediaPreferences || 'Media', icon: iconNameToChar('SETTINGS_COG') }] : []),
+		...(mediaPreferencesAvailable ? [{ id: 'media', label: copy.assistanceMediaPreferences || 'Media', icon: iconNameToChar('SETTINGS_COG') }] : []),
 		{ id: 'effects', label: copy.preferencesEffects, icon: iconNameToChar('WAVEFORM') },
 		{ id: 'shortcuts', label: copy.shortcuts, icon: iconNameToChar('SHORTCUTS') },
 		{ id: 'workspace', label: copy.workspace, icon: iconNameToChar('WORKSPACE') },
@@ -149,7 +154,7 @@ export default function WorkspacePreferencesDialog({
 						id={`dialog-panel-${selectedPage}`}
 						aria-label={selectedPageLabel}
 					>
-						<NativePreferencesPanel menus={menus} section={selectedPage} copy={copy} onNavigate={onClose} />
+						{selectedPage !== 'effects' && <NativePreferencesPanel menus={menus} section={selectedPage} copy={copy} onNavigate={onClose} />}
 						{selectedPage === 'general' && (
 							<GeneralPreferencesPage
 								controller={controller}
@@ -186,7 +191,7 @@ export default function WorkspacePreferencesDialog({
 						)}
 
 						{selectedPage === 'advanced' && (
-							<AdvancedPreferencesPage controller={controller} preferences={preferences} copy={copy} run={run} productId={productId} />
+							<AdvancedPreferencesPage fileService={fileService} controller={controller} preferences={preferences} copy={copy} run={run} productId={productId} />
 						)}
 
 						{selectedPage === 'workspace' && (
@@ -201,14 +206,15 @@ export default function WorkspacePreferencesDialog({
 								/></div>
 								<label className="kw-audio-editor-preferences__workspace-name">
 									<span>{copy.workspaceName}</span>
-									<input aria-label={copy.workspaceName} placeholder={copy.workspaceName} value={workspaceName} onChange={(event) => {
+									<input ref={workspaceNameRef} aria-label={copy.workspaceName} placeholder={copy.workspaceName} value={workspaceName} onChange={(event) => {
 										workspaceNameRevision.current += 1;
 										setWorkspaceName(event.currentTarget.value);
 									}} />
 								</label>
 								<div className="kw-audio-editor__custom-workspace-actions">
-									<Button variant="secondary" disabled={!workspaceName.trim()} onClick={() => {
+									<Button variant="secondary" disabled={!workspaceName.trim()} onClick={(event) => {
 										const submittedRevision = workspaceNameRevision.current;
+										captureWorkspaceCreation(event?.currentTarget, submittedRevision);
 										void runAwaitedAudioEditorOperation(
 											run,
 											() => controller.actions.preferences.createWorkspace(workspaceName.trim()),
@@ -274,6 +280,7 @@ export default function WorkspacePreferencesDialog({
 								snapshot={snapshot}
 								copy={copy}
 								run={run}
+								plugins={<NativePreferencesPanel menus={menus} section="effects" copy={copy} onNavigate={onClose} />}
 							/>
 						)}
 

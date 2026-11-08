@@ -3,7 +3,9 @@
 /** Inspect fixed XAR components and unpack only the app's legacy gzip/CPIO payload. */
 
 import { lstat, readdir, realpath, rename } from 'node:fs/promises';
-import { dirname, join, posix, resolve } from 'node:path';
+import { basename, dirname, join, posix, resolve } from 'node:path';
+
+import { removePkgCodeSignatureSidecars } from './desktop-pkg-appledouble.ts';
 
 const TOOL_OPTIONS = Object.freeze({ encoding: 'utf8', maxBuffer: 128 * 1024 * 1024, timeout: 5 * 60_000 });
 const MAXIMUM_FILES = 100_000;
@@ -17,11 +19,14 @@ export async function expandPkgWithSevenZip({ artifact, extractedRoot, productId
 	const inventory = records(await execute(sevenZip, ['l', '-tXar', '-slt', '-bd', '-spd', artifact], TOOL_OPTIONS), 'Xar');
 	const allowedFiles = new Set(['Distribution', `${app}/PackageInfo`, `${app}/Payload`, `${app}/Bom`,
 		`${optional}/PackageInfo`, `${optional}/Scripts`, `${optional}/Bom`]);
+	const generatedMetadata = new Set(['Distribution', `${app}/PackageInfo`]);
 	const selected = [];
 	for (const [path, properties] of inventory) {
 		if (path === '[TOC].xml') continue; // 7-Zip's synthesized view of the XAR header.
 		if ((path === app || path === optional) && properties.get('Mode')?.startsWith('d')) continue;
-		if (!allowedFiles.has(path) || !properties.get('Mode')?.startsWith('-')) {
+		const mode = properties.get('Mode');
+		// productbuild omits Unix modes on its generated metadata; verify the extracted files below.
+		if (!allowedFiles.has(path) || (!mode?.startsWith('-') && !(mode === '' && generatedMetadata.has(path)))) {
 			throw new Error(`The PKG XAR contains an unexpected component or payload: ${path}.`);
 		}
 		selected.push(path);
@@ -32,6 +37,7 @@ export async function expandPkgWithSevenZip({ artifact, extractedRoot, productId
 	}
 	// Explicit archive type prevents 7-Zip from silently opening the nested Payload.
 	await execute(sevenZip, ['x', '-tXar', '-y', '-bd', '-spd', `-o${extractedRoot}`, artifact, ...selected], TOOL_OPTIONS);
+	for (const path of generatedMetadata) await canonicalFile(join(extractedRoot, path));
 	const payload = join(extractedRoot, app, 'Payload');
 	await canonicalFile(payload);
 	const compressed = join(extractedRoot, '.application-payload.gz');
@@ -46,6 +52,7 @@ export async function expandPkgWithSevenZip({ artifact, extractedRoot, productId
 	await canonicalFile(cpio);
 	const applicationName = productId === 'soundscaper' ? 'Soundscaper.app' : 'Framescaper.app';
 	const entries = records(await execute(sevenZip, ['l', '-tCpio', '-slt', '-bd', '-spd', cpio], TOOL_OPTIONS), 'Cpio');
+	const signingSidecars = [];
 	for (const [name, properties] of entries) {
 		const mode = properties.get('Mode') ?? '';
 		const withoutPrefix = name.replace(/^(?:\.\/)+/u, '');
@@ -71,8 +78,10 @@ export async function expandPkgWithSevenZip({ artifact, extractedRoot, productId
 				throw new Error(`The PKG CPIO contains a symbolic link outside its application: ${name}.`);
 			}
 		}
+		if (basename(path).startsWith('._')) signingSidecars.push(path);
 	}
 	await execute(sevenZip, ['x', '-tCpio', '-y', '-bd', '-spd', `-o${payload}`, cpio], TOOL_OPTIONS);
+	await removePkgCodeSignatureSidecars(payload, signingSidecars);
 }
 
 function records(result, type) {

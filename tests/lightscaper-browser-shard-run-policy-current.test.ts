@@ -10,6 +10,7 @@ import { promisify } from 'node:util';
 import test from 'node:test';
 import { browserShardRunPolicy } from '../scripts/lib/browser-shard-run-policy.ts';
 import { currentModuleSourceFingerprint } from '../scripts/lib/check-module-repository.ts';
+import { selectedModuleBrowserReport } from '../scripts/run-module-browser-tests.ts';
 
 const root = resolve('tests/browser');
 function collection(file = 'audio-editor-fixture.spec.js') {
@@ -18,6 +19,16 @@ function collection(file = 'audio-editor-fixture.spec.js') {
 		suites: [{ specs: [{ id: 'actual-case', file, tests: [{ projectName: 'chromium', results: [] as unknown[] }] }] }] };
 }
 const options = { project: 'chromium', shard: '1/4', workers: 2, testRoot: root } as const;
+
+test('suite collection applies the Lightscaper policy to its selected partition', () => {
+	const report = collection('lightscaper-future-workflow.spec.ts');
+	const selected = selectedModuleBrowserReport({ ...report, config: { ...report.config, shard: null } },
+		[resolve(root, 'lightscaper-future-workflow.spec.ts')]);
+	const scheduled = { ...selected, suiteShard: { current: 1, total: 4 } };
+	assert.deepEqual(browserShardRunPolicy(scheduled, options),
+		{ workers: 1, retries: 0, collectedTests: 1, lightscaperTests: 1 });
+	assert.throws(() => browserShardRunPolicy({ ...scheduled, suiteShard: { current: 2, total: 4 } }, options), /differs/u);
+});
 
 test('ordinary shards retain their existing worker count and CI one-retry policy', () => {
 	assert.deepEqual(browserShardRunPolicy(collection(), options), { workers: 2, retries: 1, collectedTests: 1, lightscaperTests: 0 });

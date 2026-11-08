@@ -27,10 +27,12 @@ for (const unavailable of [false, true]) test(`Recover preserves healthy media b
 	await installLinkedAudioBridge(reopened, { original: toneA, changed: toneB }, { unavailable });
 	await reopened.goto(url);
 	const active = await waitForEditor(reopened);
-	await expect(active).toHaveAttribute('data-project-id', originalId); await waitForProjectActivation(active);
-	await chooseCommandAction(reopened, active, 'File', 'New'); await expect(active).not.toHaveAttribute('data-project-id', originalId);
-	await waitForProjectActivation(active);
-	await chooseNestedCommandAction(reopened, active, 'File', ['Project management', 'Recover a project']);
+	if (!unavailable) {
+		await expect(active).toHaveAttribute('data-project-id', originalId); await waitForProjectActivation(active);
+		await chooseCommandAction(reopened, active, 'File', 'New'); await expect(active).not.toHaveAttribute('data-project-id', originalId);
+		await waitForProjectActivation(active);
+		await chooseNestedCommandAction(reopened, active, 'File', ['Project management', 'Recover a project']);
+	}
 	const dialog = reopened.getByRole('dialog', { name: 'Project recovery', exact: true }); await expect(dialog).toBeVisible();
 	await dialog.getByLabel('Project to recover').selectOption(originalId);
 	await expect(dialog.getByLabel('Saved version').locator('option').first()).toContainText(unavailable ? 'Needs repair' : 'Ready to recover');

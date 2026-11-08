@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readDesktopPreloadSource } from './helpers/desktop-preload-source.mjs';
+import { desktopCodecPreloadContext } from './helpers/desktop-codec-preload-context.ts';
 import test from 'node:test';
-import vm from 'node:vm';
 
 test('preload rejects FFmpeg bitrate clamps and unsupported AAC sample rates before IPC', async () => {
 	const fixture = await preload();
@@ -14,7 +13,7 @@ test('preload rejects FFmpeg bitrate clamps and unsupported AAC sample rates bef
 	]) {
 		await assert.rejects(
 			() => fixture.bridge.runDesktopAudioCodecOperation(request),
-			/codec (?:encode settings|PCM geometry)/iu,
+			/desktop audio.*(?:settings|sample rate|PCM geometry|bitrate)/iu,
 		);
 	}
 	assert.equal(fixture.invocations.length, 0);
@@ -51,27 +50,11 @@ test('preload admits fixed Audacity decode formats and refuses them for encoding
 });
 
 async function preload() {
-	let bridge;
 	const invocations = [];
 	const mainFailure = new Error('main witness');
-	const source = await readDesktopPreloadSource();
-	vm.runInNewContext(source, {
-		ArrayBuffer, clearTimeout, Date, Float32Array, Object, Promise, RangeError,
-		setTimeout, String, structuredClone, TextEncoder, TypeError, Uint8Array, URL,
-		window: { postMessage() {} },
-		require: () => ({
-			contextBridge: {
-				exposeInMainWorld(name, value) { if (name === 'soundscaperDesktop') bridge = value.v1; },
-			},
-			ipcRenderer: {
-				invoke(channel, value) {
-					invocations.push([channel, value]);
-					return Promise.reject(mainFailure);
-				},
-				send() {}, on() {}, removeListener() {}, postMessage() {},
-			},
-		}),
+	const bridge = await desktopCodecPreloadContext((channel, value) => {
+		invocations.push([channel, value]);
+		return Promise.reject(mainFailure);
 	});
-	assert.ok(bridge);
 	return { bridge, invocations, mainFailure };
 }

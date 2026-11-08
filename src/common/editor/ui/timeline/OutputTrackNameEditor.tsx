@@ -17,10 +17,11 @@ export function OutputTrackNameEditor({
 }: OutputTrackNameEditorProps) {
 	const editorRef = useRef<HTMLLabelElement>(null);
 	const completedRef = useRef(false);
+	const multiline = useRef(/[\r\n]/u.test(initialName)).current;
 	const [name, setName] = useState(initialName);
 	useEffect(() => setName(initialName), [initialName]);
 	useEffect(() => {
-		const input = editorRef.current?.querySelector('input');
+		const input = editorRef.current?.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea');
 		input?.focus();
 		input?.select();
 	}, []);
@@ -38,11 +39,12 @@ export function OutputTrackNameEditor({
 		onKeyDown={event => {
 			if (event.nativeEvent?.isComposing) return;
 			if (event.key !== 'Enter' && event.key !== 'Escape') return;
+			if (multiline && event.key === 'Enter' && event.shiftKey) return;
 			event.preventDefault();
 			complete(event.key === 'Enter', true);
 		}}
 	>
 		<span className="kw-audio-editor-sr-only">{label}: {initialName}</span>
-		<TextInput value={name} disabled={blocked} width="100%" onChange={setName} />
+		<TextInput value={name} multiline={multiline} disabled={blocked} width="100%" onChange={setName} />
 	</label>;
 }

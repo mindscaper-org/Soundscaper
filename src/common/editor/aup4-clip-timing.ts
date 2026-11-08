@@ -19,6 +19,7 @@ export interface Aup4ClipStretch {
 }
 
 export interface Aup4ClipTiming extends Aup4ClipStretch {
+	readonly whollyBeforeZero: boolean;
 	readonly trimLeftSeconds: number;
 	readonly trimStartFrames: number;
 	readonly trimEndFrames: number;
@@ -84,12 +85,16 @@ export function readAup4ClipTiming(
 	const trimRightSeconds = nonNegative(readAttribute(clipNode, 'trimRight', 0));
 	const offsetSeconds = finite(readAttribute(clipNode, 'offset', 0), 0);
 	const visibleStartSeconds = offsetSeconds + trimLeftSeconds;
-	if (visibleStartSeconds < 0) trimLeftSeconds -= visibleStartSeconds;
+	const visibleEndSeconds = offsetSeconds + frameCount / trackRate * stretch.stretchRatio - trimRightSeconds;
+	const whollyBeforeZero = visibleStartSeconds < 0 && visibleEndSeconds <= 0;
+	// Retain a wholly hidden clip's original source window for Project Bin.
+	if (visibleStartSeconds < 0 && !whollyBeforeZero) trimLeftSeconds -= visibleStartSeconds;
 	const trimStartFrames = Math.min(frameCount, secondsToSampleFrame(trimLeftSeconds / stretch.stretchRatio, trackRate));
 	const trimEndFrames = secondsToSampleFrame(trimRightSeconds / stretch.stretchRatio, trackRate);
 	const sourceDurationFrames = Math.max(0, frameCount - trimStartFrames - trimEndFrames);
 	return Object.freeze({
 		...stretch,
+		whollyBeforeZero,
 		trimLeftSeconds,
 		trimStartFrames,
 		trimEndFrames,

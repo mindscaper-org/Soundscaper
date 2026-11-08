@@ -101,8 +101,9 @@ Moving a source file does not remove it from the denominator or create a lower
 coverage budget.
 
 `config/module-policy.json` declares which modules have independently complete
-coverage and their inherited cohort. Imaging can use a partial PR gate; owners
-without independent coverage still require the full union. A partial gate
+coverage and their inherited cohort. Foundation, imaging, media and Scape can
+use a partial PR gate; owners without independent coverage still require the
+full union. A partial gate
 inventories every production source owned by the selected module and includes
 unexecuted files with `c8 --all`. It scores the complete module denominator at
 the existing cohort's line, branch and function floors, keeping distinct
@@ -121,6 +122,12 @@ module checks remain useful owner targets; they are not a substitute for an
 affected-change plan or the full integration gate. See
 [module checks](testing.md#module-and-affected-checks) for commands and fallback
 behavior.
+
+Focused module execution combines fresh Node and Chromium profiles before
+scoring the complete owned source inventory. Its inventory follows the same
+include/exclude policy as `.c8rc.json`; test-only tooling and handbook sources
+do not become shipped-code coverage cohorts. Independent module floors and the
+complete CI union retain their existing thresholds.
 
 After CI has merged the Node and Chromium evidence, run
 `npm run coverage:tighten` to raise floors to coverage gained by a scope.

@@ -48,7 +48,35 @@ test('sequence fields retain composition and invalid timecode admission', async 
 	} finally { await fixture.cleanup(); }
 });
 
-async function mountSequenceFields() {
+for (const name of ['Opening\nRoom', 'Opening\r\nRoom', '  Opening Room  ']) {
+	test(`sequence name retains admitted text through blur: ${JSON.stringify(name)}`, async () => {
+		const fixture = await mountSequenceFields(name);
+		try {
+			const input = fixture.field('name');
+			if (/[\r\n]/u.test(name)) assert.equal(input.tagName, 'TEXTAREA');
+			await act(async () => { input.blur(); });
+			assert.deepEqual(fixture.updates, [], 'an unchanged name cannot create a destructive rename');
+			await fixture.change(input, `${name}!`);
+			await fixture.key(input, 'Enter');
+			assert.deepEqual(fixture.updates, [{ name: `${name}!` }]);
+		} finally { await fixture.cleanup(); }
+	});
+}
+
+test('multiline sequence names keep Shift+Enter and Escape draft cancellation', async () => {
+	const fixture = await mountSequenceFields('Opening\nRoom');
+	try {
+		const input = fixture.field('name');
+		await fixture.change(input, 'Changed\nRoom');
+		await fixture.key(input, 'Enter', false, true);
+		assert.deepEqual(fixture.updates, [], 'Shift+Enter belongs to the multiline editor');
+		await fixture.key(input, 'Escape');
+		assert.equal(input.value, 'Opening\nRoom');
+		assert.deepEqual(fixture.updates, []);
+	} finally { await fixture.cleanup(); }
+});
+
+async function mountSequenceFields(name = 'Main sequence') {
 	const dom = installReactTestDom();
 	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const priorAct = globals.IS_REACT_ACT_ENVIRONMENT;
@@ -59,7 +87,7 @@ async function mountSequenceFields() {
 	const root = createRoot(dom.container as unknown as Element);
 	const updates: unknown[] = [];
 	await act(async () => root.render(<SequenceTimingProjectProperties
-		project={{ primarySequenceId: 'primary', sequences: [{ id: 'primary', name: 'Main sequence',
+		project={{ primarySequenceId: 'primary', sequences: [{ id: 'primary', name,
 			rate: { num: 25, den: 1 }, startTimecode: { negative: false, hours: 0, minutes: 0, seconds: 0, frames: 0 }, dropFrame: false }] }}
 		snapshot={{ readOnly: false, recording: false }} copy={ENGLISH_COPY}
 		controller={{ actions: { sequences: { update: (_id: string, changes: unknown) => { updates.push(changes); } } } }}
@@ -67,7 +95,7 @@ async function mountSequenceFields() {
 	return {
 		updates,
 		field: (field: 'name' | 'timecode') => {
-			const input = (field === 'name' ? dom.one('input') : dom.one('[data-sequence-start-timecode]')) as ReactTestElement & Pick<HTMLInputElement, 'blur'>;
+			const input = (field === 'name' ? dom.find('textarea') ?? dom.one('input') : dom.one('[data-sequence-start-timecode]')) as ReactTestElement & Pick<HTMLInputElement, 'blur'>;
 			// A real native blur synchronously sends React its owning onBlur callback.
 			input.blur = () => { reactProps(input).onBlur({ currentTarget: input }); };
 			return input;
@@ -76,8 +104,8 @@ async function mountSequenceFields() {
 			input.value = value;
 			reactProps(input).onChange?.({ currentTarget: input });
 		}),
-		key: async (input: ReactTestElement, key: string, isComposing = false) => act(async () => {
-			reactProps(input).onKeyDown?.({ key, currentTarget: input, nativeEvent: { isComposing },
+		key: async (input: ReactTestElement, key: string, isComposing = false, shiftKey = false) => act(async () => {
+			reactProps(input).onKeyDown?.({ key, shiftKey, currentTarget: input, nativeEvent: { isComposing },
 				preventDefault() {}, stopPropagation() {} });
 		}),
 		cleanup: async () => {

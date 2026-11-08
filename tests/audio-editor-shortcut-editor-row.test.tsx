@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { iconNameToChar } from '../vendor/audacity-design-system/components/src/Icon/icon-codes.ts';
 
 import {
 	ShortcutEditorRow,
@@ -84,6 +85,7 @@ test('every binding gets its own editable field, with controls to add and remove
 	assert.match(markup, /data-shortcut-remove="0"/u);
 	assert.match(markup, /data-shortcut-remove="1"/u);
 	assert.match(markup, /data-shortcut-add="true"/u);
+	assert.ok(markup.includes(iconNameToChar('CLOSE_X_ROUNDED')));
 });
 
 test('a command with one binding offers no remove control for it', () => {

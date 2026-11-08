@@ -3,10 +3,11 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { zipSync } from 'fflate';
 
@@ -22,7 +23,10 @@ test('the provisioner reinstalls verified cached readers with all network calls 
 	await Promise.all([
 		copyFile(new URL('../scripts/provision-interchange-conformance.mjs', import.meta.url), join(root, 'scripts/provision-interchange-conformance.mjs')),
 		copyFile(new URL('../scripts/lib/interchange-download-cache.mjs', import.meta.url), join(root, 'scripts/lib/interchange-download-cache.mjs')),
+		...['ci-artifact-fetch.ts', 'ci-download-retry.mjs', 'ci-github-release-fetch.mjs'].map(file =>
+			copyFile(new URL(`../scripts/lib/${file}`, import.meta.url), join(root, 'scripts/lib', file))),
 	]);
+	await symlink(fileURLToPath(new URL('../node_modules', import.meta.url)), join(root, 'node_modules'), 'junction');
 	const module = 'class Adapter:\n    def __init__(self, name): self.name = name\n'
 		+ 'class Manifest:\n    adapters = [Adapter(name) for name in ["cmx_3600", "fcpx_xml", "otio_json"]]\n'
 		+ 'class plugins:\n    ActiveManifest = Manifest\n';

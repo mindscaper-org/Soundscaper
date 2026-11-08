@@ -148,3 +148,93 @@ test('a failed catalog remains runtime-free and offers retry', async () => {
 		assert.equal(dom.find('[data-processing]'), null);
 	});
 });
+
+test('a model lost after admission returns to an explicit re-download before resuming processing', async () => {
+	await mounted(async (dom, root) => {
+		let models: readonly LocalModelManagerModel[] = [{ ...MODEL, availability: 'installed', installedBytes: 4_096 }];
+		const installs: string[] = [];
+		const removals: string[] = [];
+		let recover = (): void => undefined;
+		const bridge: LocalModelManagerBridge = { ...fixture().bridge,
+			listAssistanceModels: async () => ({ runtimeAvailable: true, runtimeReason: null, models }),
+			installAssistanceModel: async modelId => {
+				installs.push(modelId);
+				models = [{ ...MODEL, availability: 'installed', installedBytes: 4_096 }];
+				return models[0];
+			},
+			removeAssistanceModel: async modelId => { removals.push(modelId); models = [MODEL]; return 0; },
+		};
+		await act(async () => root.render(<AssistanceModelGate title="Enhance Dialogue"
+			copy={{}} locale="en" bridge={bridge} modelFilter={filter} requiresModel onClose={() => undefined}>
+			{onModelsMissing => { recover = onModelsMissing; return <p data-processing>Processing runtime</p>; }}
+		</AssistanceModelGate>));
+		assert.ok(dom.find('[data-processing]'));
+		models = [MODEL];
+		await act(async () => recover());
+		assert.equal(dom.find('[data-processing]'), null);
+		assert.ok(dom.find('[data-assistance-model-prerequisites]'));
+		assert.deepEqual(installs, []);
+		const download = dom.one('[data-assistance-model-prerequisites]').querySelectorAll('button')
+			.find(button => button.textContent === 'Re-download');
+		assert.ok(download);
+		await act(async () => { await reactProps(download).onClick(); });
+		assert.deepEqual(installs, [MODEL.modelId]);
+		assert.deepEqual(removals, []);
+		assert.ok(dom.find('[data-processing]'));
+	});
+});
+
+test('a stale installed manifest cannot loop back into processing without explicit recovery', async () => {
+	await mounted(async (dom, root) => {
+		let models: readonly LocalModelManagerModel[] = [{ ...MODEL, availability: 'installed', installedBytes: 4_096 }];
+		const calls: string[] = [];
+		let recover = (): void => undefined;
+		const bridge: LocalModelManagerBridge = { ...fixture().bridge,
+			listAssistanceModels: async () => ({ runtimeAvailable: true, runtimeReason: null, models }),
+			installAssistanceModel: async modelId => {
+				calls.push(`install:${modelId}`);
+				models = [{ ...MODEL, availability: 'installed', installedBytes: 4_096 }];
+				return models[0];
+			},
+			removeAssistanceModel: async modelId => { calls.push(`remove:${modelId}`); models = [MODEL]; return 0; },
+		};
+		await act(async () => root.render(<AssistanceModelGate title="Enhance Dialogue"
+			copy={{}} locale="en" bridge={bridge} modelFilter={filter} requiresModel onClose={() => undefined}>
+			{onModelsMissing => { recover = onModelsMissing; return <p data-processing>Processing runtime</p>; }}
+		</AssistanceModelGate>));
+		assert.ok(dom.find('[data-processing]'));
+		await act(async () => recover());
+		assert.equal(dom.find('[data-processing]'), null);
+		assert.deepEqual(calls, []);
+		const download = dom.one('[data-assistance-model-prerequisites]').querySelectorAll('button')
+			.find(button => button.textContent === 'Re-download');
+		assert.ok(download);
+		await act(async () => { await reactProps(download).onClick(); });
+		assert.deepEqual(calls, [`remove:${MODEL.modelId}`, `install:${MODEL.modelId}`]);
+		assert.ok(dom.find('[data-processing]'));
+	});
+});
+
+test('installing a missing model through the shared Model Manager resumes the pending task', async () => {
+	await mounted(async (dom, root) => {
+		let models: readonly LocalModelManagerModel[] = [{ ...MODEL, availability: 'installed', installedBytes: 4_096 }];
+		let recover = (): void => undefined;
+		const bridge: LocalModelManagerBridge = { ...fixture().bridge,
+			listAssistanceModels: async () => ({ runtimeAvailable: true, runtimeReason: null, models }),
+			installAssistanceModel: async () => {
+				models = [{ ...MODEL, availability: 'installed', installedBytes: 4_096 }];
+				return models[0];
+			},
+		};
+		await act(async () => root.render(<AssistanceModelGate title="Enhance Dialogue"
+			copy={{}} locale="en" bridge={bridge} modelFilter={filter} requiresModel onClose={() => undefined}>
+			{onModelsMissing => { recover = onModelsMissing; return <p data-processing>Processing runtime</p>; }}
+		</AssistanceModelGate>));
+		models = [MODEL];
+		await act(async () => recover());
+		assert.ok(dom.find('[data-assistance-model-prerequisites]'));
+		await act(async () => { await localModelManagerStoreFor(bridge).install(MODEL.modelId); });
+		assert.ok(dom.find('[data-processing]'));
+		assert.equal(dom.find('[data-assistance-model-prerequisites]'), null);
+	});
+});

@@ -304,7 +304,7 @@ const FOUNDATION_TIME_CONVERSION_EDITOR_SITES: readonly FoundationTimeConversion
 	{
 		id: 'indexed-tempo-projection',
 		file: 'src/common/editor/indexed-tempo-projector.ts',
-		behavior: 'One validated held tempo map is preindexed at exact event positions, then arbitrary beat coordinates binary-search that index and point-round only their absolute result.',
+		behavior: 'One validated held tempo map is preindexed at exact event positions. Frame callers point-round only their absolute result; continuous source view clocks project and invert the same exact positions without intermediate frame snapping, leaving native edit boundaries to choose their own rounding.',
 		conversions: [
 			{ helper: 'beatToSampleFrame', policies: ['point'] },
 			{ helper: 'roundRational', policies: ['point'] },

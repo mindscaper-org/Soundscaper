@@ -39,6 +39,19 @@ const incompatibleReport = Object.freeze({
 	]),
 });
 
+test('archive recovery shows proposed repairs and only offers a fresh copy or cancellation', () => {
+	const markup = renderToStaticMarkup(React.createElement(ScapeOpenDecisionDialog, {
+		copy: ENGLISH_COPY, prompt: { kind: 'recovery', inspected: { title: 'Damaged archive', recoveryChanges: [
+			{ path: 'sources[1]', reason: 'Technical diagnostic', reasonCode: 'media-unavailable' },
+		] } }, onSettle: () => true,
+	}));
+	assert.match(markup, /Project recovery/u);
+	assert.match(markup, /Proposed repairs/u);
+	assert.match(markup, /Removed media that is missing or unreadable/u);
+	assert.match(markup, /Recover as a new project/u);
+	assert.doesNotMatch(markup, /same ID|Project features unavailable|Open read-only|>Replace</u);
+});
+
 function prompt(kind: 'compatibility' | 'collision' | 'compatibility-collision') {
 	return Object.freeze({
 		requestId: 1,

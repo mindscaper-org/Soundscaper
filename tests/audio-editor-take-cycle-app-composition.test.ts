@@ -34,22 +34,24 @@ test('the active take recorder forwards live input controls and retires them at 
 	const fixture = await appFixture();
 	try {
 		const recorder = await fixture.composition.start(fixture.scope);
+		const liveStart = fixture.recorder.gains.length;
 		recorder.setInputGain?.(0);
 		recorder.setMonitoring?.(true);
-		assert.deepEqual(fixture.recorder.gains, [0]);
+		assert.deepEqual(fixture.recorder.gains.slice(liveStart), [0]);
 		assert.deepEqual(fixture.recorder.monitoring, [true]);
 		recorder.setInputGain?.(.5);
 		recorder.setMonitoring?.(false);
-		assert.deepEqual(fixture.recorder.gains, [0, .5]);
+		assert.deepEqual(fixture.recorder.gains.slice(liveStart), [0, .5]);
 		assert.deepEqual(fixture.recorder.monitoring, [true, false]);
 		await recorder.stop();
 		const next = await fixture.composition.start(fixture.scope);
+		const nextStart = [...fixture.recorder.gains];
 		recorder.setInputGain?.(1);
 		recorder.setMonitoring?.(true);
-		assert.deepEqual(fixture.recorder.gains, [0, .5]);
+		assert.deepEqual(fixture.recorder.gains, nextStart);
 		assert.deepEqual(fixture.recorder.monitoring, [true, false]);
 		next.setInputGain?.(.25);
-		assert.deepEqual(fixture.recorder.gains, [0, .5, .25]);
+		assert.deepEqual(fixture.recorder.gains.slice(nextStart.length), [.25]);
 		await next.stop();
 	} finally {
 		await fixture.composition.routed.stop();

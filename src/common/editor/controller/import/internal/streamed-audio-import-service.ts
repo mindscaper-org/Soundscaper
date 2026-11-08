@@ -8,6 +8,7 @@ import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 import { InitialAacSbrError } from '../../../aac-initial-profile-error.ts';
 import { isStreamedAudioImportFile } from '../../../streamed-audio-import-file.ts';
 import { scanEncodedAudioMarkers } from '../../../encoded-audio-marker-scan.ts';
+import type { EditorProjectToken } from '../../shared/lifecycle.ts';
 
 export const NATIVE_AAC_IMPORT_FALLBACK = Symbol('native opaque AAC profile');
 
@@ -18,6 +19,7 @@ export async function importStreamedAudioFile(
 	metadata: unknown,
 	importPcm: ReturnType<typeof createIncrementalPcmImporter>,
 	assertCurrent: () => void,
+	projectToken?: EditorProjectToken,
 ): Promise<unknown> {
 	const { prepareStreamedAudioImport } = await import('../../../browser-streamed-audio-import.ts');
 	const markerScan = options.rescueMarkers ? await scanEncodedAudioMarkers(file, options.signal) : null;
@@ -31,7 +33,7 @@ export async function importStreamedAudioFile(
 		const sourceMetadata = markerScan?.metadataWarnings?.length && metadata && typeof metadata === 'object'
 			? { ...metadata, warnings: [...metadataWarnings(metadata), ...markerScan.metadataWarnings] } : metadata;
 		return await importPcm(file, { ...prepared.descriptor, stream: prepared.stream, ...(markerScan ? { markers: markerScan.markers } : {}) }, options,
-			sourceMetadata, { requireChunkStream: true }, { assertCurrent });
+			sourceMetadata, { requireChunkStream: true }, { assertCurrent, projectToken });
 	} catch (error) {
 		options.signal?.throwIfAborted(); assertCurrent();
 		// importPcm has already rolled back its writer. Only a first-frame

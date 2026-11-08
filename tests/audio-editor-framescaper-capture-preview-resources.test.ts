@@ -68,3 +68,41 @@ test('browser audio level monitor reports RMS without connecting to output and r
 		clears: 1, closes: 1, sourceDisconnects: 1, analyserDisconnects: 1,
 	});
 });
+
+test('stereo capture preview measures channel energy without opposite-polarity cancellation', async () => {
+	let sample: (() => void) | undefined;
+	let splitterDisconnects = 0;
+	let analyserDisconnects = 0;
+	interface MeterNode { readonly kind: 'analyser' | 'splitter'; level?: number }
+	function assertNode(value: unknown): asserts value is MeterNode {
+		assert.ok(value && typeof value === 'object' && 'kind' in value && (value.kind === 'analyser' || value.kind === 'splitter'));
+	}
+	const splitter = {
+		kind: 'splitter' as const,
+		connect(destination: unknown, channel = 0) { assertNode(destination); destination.level = channel === 0 ? 0.5 : -0.5; },
+		disconnect() { splitterDisconnects += 1; },
+	};
+	const monitor = await createBrowserFramescaperCaptureLevelMonitor({
+		sourceId: 'stereo-system', role: 'system-audio', stream: {}, track: {}, settings: { channelCount: 2 }, capabilities: {},
+	}, () => undefined, {
+		createAudioContext: () => ({ state: 'running',
+			createMediaStreamSource: () => ({ connect(destination: unknown) {
+				assertNode(destination);
+				if (destination.kind === 'analyser') destination.level = 0; // Web Audio's L+R downmix cancels this admitted stereo input.
+			}, disconnect() {} }),
+			createChannelSplitter: () => splitter,
+			createAnalyser: () => { const analyser = { kind: 'analyser' as const, level: 0, fftSize: 0, frequencyBinCount: 1024,
+				getFloatTimeDomainData(values: Float32Array) { values.fill(this.level); },
+				disconnect() { analyserDisconnects += 1; },
+			}; return analyser; },
+			async close() {},
+		}),
+		setInterval(callback) { sample = callback; return 1; }, clearInterval() {},
+	});
+	assert.ok(sample);
+	sample();
+	assert.equal(monitor.level, 0.5, 'audible recorded stereo must retain its input level even when left and right cancel in mono');
+	await monitor.dispose();
+	assert.equal(splitterDisconnects, 1);
+	assert.equal(analyserDisconnects, 2);
+});

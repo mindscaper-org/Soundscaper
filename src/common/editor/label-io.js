@@ -1,5 +1,5 @@
 import { annotateLabelParserFailure } from './label-and-preset-parser-failure.ts';
-import { decodeSubRipLabelText, decodeWebVttLabelText, encodeWebVttLabelText } from './label-cue-text.ts';
+import { containsSubRipLabelMarkup, decodeSubRipLabelText, decodeWebVttLabelText, encodeWebVttLabelText } from './label-cue-text.ts';
 import { decodeLabelInputText } from './label-input-text.ts';
 import { labelTimeFrame } from './label-time-frame.ts';
 import { AUDIO_EDITOR_LABEL_MAX_INPUT_CHARS } from './label-input-limits.ts';
@@ -368,6 +368,7 @@ function serializeTimed(labels, context, format) {
 		// caption exporter does, which keeps an unnamed label visually empty.
 		const titleLines = label.title.replace(/\r\n?/g, '\n').split('\n')
 			.filter((line) => line.trim().length > 0);
+		if (format === 'srt' && containsSubRipLabelMarkup(titleLines.join('\n'))) throw labelError('SubRip cannot preserve literal markup in a plain label. Export WebVTT or TXT instead.', 'UNREPRESENTABLE_TEXT', { index });
 		if (titleLines.length === 0) lines.push(' ');
 		for (const line of titleLines) lines.push(format === 'vtt' ? encodeWebVttLabelText(line) : line);
 		lines.push('');

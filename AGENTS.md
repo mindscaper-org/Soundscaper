@@ -42,6 +42,7 @@
 - Use tabs in existing JavaScript/JSX sources.
 - Before declaring an implementation task complete, commit your changes in
   atomic commits. Explicitly select your own files when committing.
+- Never branch off main unless prompted to.
 - Clean up your worktrees, branches, and caches after a merge.
-- Write work logs in ignored `private/`, never in `docs/`. Keep docs for durable
-  technical information.
+- Write work ledgers in ignored `private/`, never in `docs/`. Keep docs for durable
+  technical information. Don't store logs of test runs in there unless you actually need them.

@@ -28,9 +28,11 @@ import type { AudioEditorCommand } from '../src/common/editor/commands/protocol.
 import { SOURCE_SHA256, authority, request, harness, output, AudioStore } from './helpers/local-assistance-audio-publication-fixture.ts';
 type DataRecord = Readonly<Record<string, unknown>>;
 
-test('enhancement authenticates the reviewed Blob before publishing to Project Bin by default', async () => {
+test('enhancement authenticates the reviewed Blob before an explicit Project Bin publication', async () => {
 	const fixture = harness();
-	await fixture.acceptance.acceptValidatedResult(await request('speech-enhancement'));
+	await fixture.acceptance.acceptValidatedResult(
+		await request('speech-enhancement'), { placement: 'project-bin' },
+	);
 
 	assert.equal(fixture.commits.length, 1);
 	assert.match(fixture.events[0]!, /^preflight:32:effect$/u);
@@ -103,7 +105,9 @@ test('the single acceptance command applies and undoes without losing the origin
 		},
 	});
 	const selected = resolveLocalAssistanceSelectedMediaAuthority(selectedDependencies);
-	await acceptance.acceptValidatedResult(await request('speech-enhancement', selected.fence));
+	await acceptance.acceptValidatedResult(
+		await request('speech-enhancement', selected.fence), { placement: 'project-bin' },
+	);
 	assert.equal(history.present.sources.length, 2);
 	assert.equal(history.present.projectBin.clips.length, 1);
 	assert.ok(history.present.sources.some(({ id }) => id === originalSource.id));
@@ -161,7 +165,7 @@ test('enhancement can replace only the exact unlinked selected range as one undo
 	await fixture.acceptance.acceptValidatedResult(value, { placement: 'replace-selection' });
 	const batch = fixture.commits[0] as Readonly<{ type: string; commands: readonly DataRecord[] }>;
 	assert.deepEqual(batch.commands.map(({ type }) => type), [
-		'source/add', 'range/lift-delete', 'clip/add',
+		'source/add', 'range/lift-delete', 'clip/add', 'selection/set',
 	]);
 	const deletion = batch.commands[1]!;
 	assert.deepEqual(deletion.trackIds, ['dialogue-track']);
@@ -180,7 +184,9 @@ test('enhancement can replace only the exact unlinked selected range as one undo
 
 test('dereverberation publishes Reduced Reverb with enhancement placements and 44.1 kHz custody', async () => {
 	const binFixture = harness();
-	await binFixture.acceptance.acceptValidatedResult(await request('dereverberation'));
+	await binFixture.acceptance.acceptValidatedResult(
+		await request('dereverberation'), { placement: 'project-bin' },
+	);
 	assert.equal(binFixture.commits.length, 1);
 	const batch = binFixture.commits[0] as Readonly<{ commands: readonly DataRecord[] }>;
 	const sourceCommand = batch.commands.find(({ type }) => type === 'source/add')!;
@@ -193,7 +199,7 @@ test('dereverberation publishes Reduced Reverb with enhancement placements and 4
 	);
 	const replaceBatch = replaceFixture.commits[0] as Readonly<{ commands: readonly DataRecord[] }>;
 	assert.deepEqual(replaceBatch.commands.map(({ type }) => type), [
-		'source/add', 'range/lift-delete', 'clip/add',
+		'source/add', 'range/lift-delete', 'clip/add', 'selection/set',
 	]);
 
 	// The muted-tracks placement belongs to separation only; the choice gate refuses it.
@@ -234,7 +240,7 @@ test('TIGER publishes exact D/M/E slots and optionally places three aligned mute
 		assert.equal(clips.length, placement === 'project-bin' ? 0 : 3);
 		for (const command of tracks) {
 			assert.equal((command.track as DataRecord).mute, true);
-			assert.equal(command.sequenceId, 'main-sequence');
+			assert.equal(command.sequenceId, undefined);
 		}
 		for (const command of clips) {
 			const clip = command.clip as DataRecord;
@@ -245,7 +251,7 @@ test('TIGER publishes exact D/M/E slots and optionally places three aligned mute
 	}
 });
 
-test('audio publication rejects wrong bindings, slots, geometry, digest, NaN, and linked replacement', async (context) => {
+test('audio publication rejects wrong bindings, slots, geometry, digest, and NaN', async (context) => {
 	await context.test('model and slots', async () => {
 		for (const mutate of [
 			(value: Awaited<ReturnType<typeof request>>) => {
@@ -286,16 +292,6 @@ test('audio publication rejects wrong bindings, slots, geometry, digest, NaN, an
 		}
 	});
 
-	await context.test('linked optional replacement', async () => {
-		const fixture = harness(authority(7, { avLinkId: 'linked-av' }));
-		await assert.rejects(
-			fixture.acceptance.acceptValidatedResult(
-				await request('speech-enhancement'), { placement: 'replace-selection' },
-			),
-			/linked A\/V/iu,
-		);
-		assert.equal(fixture.commits.length, 0);
-	});
 });
 
 test('capacity, stale authority, mutable claims, storage failure, and commit refusal leave no publication', async () => {

@@ -2,14 +2,16 @@
 import { normalizeDesktopAudioStreamCommand, audioStreamRecord, audioStreamInteger,
 	DESKTOP_AUDIO_STREAM_MAXIMUM_PACKET_FRAMES, DESKTOP_AUDIO_STREAM_MAXIMUM_PACKET_BYTES,
 	type DesktopAudioStreamCommand, type DesktopAudioStreamPlan } from '../../../desktop/desktop-audio-stream-contract.ts';
-import { registerFileBackedExport } from './file-backed-audio-export.ts';
+import { registerRangeBackedAudioExport } from './file-backed-audio-export.ts';
 import { inspectWavBlobPcm, streamWavBlobPcm } from './wav-import.js';
 import type { WavPcmDescriptor } from './wav-pcm-chunk-reader.ts';
 import { applyMediaChannelMapping } from './media-export.js';
 import { writeInterleavedFloat32Pcm } from './interleaved-float32-pcm.ts';
 import { writeDesktopPcmStream, type DesktopPcmStreamProducer } from './desktop-audio-pcm-stream-write.ts';
-import { confirmFileSizeWarning, type FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
-import { LARGE_AUDIO_FILE_BYTES } from './large-audio-policy.ts';
+import type { FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
+import { embeddedChapterEncodingFields } from './export-embedded-chapter-encoding.ts';
+import type { EmbeddedExportChapter } from './export-embedded-chapters.ts';
+import { finalizeDesktopAudioBlob } from './desktop-audio-embedded-chapters.ts';
 import { assertFfmpegOutputReady, abortFfmpegOutputSink, streamFfmpegOutputFile,
 	type FfmpegOutputSink } from './ffmpeg-output-stream.ts';
 
@@ -17,6 +19,8 @@ export interface DesktopAudioStreamEncoderSettings extends FileSizeWarningOption
 	readonly signal?: AbortSignal; readonly assertCurrent?: () => void;
 	readonly maximumOutputChunkBytes?: number; readonly onProgress?: (value: number) => void;
 	readonly maximumOutputBytes?: number;
+	readonly embeddedChapters?: readonly EmbeddedExportChapter[];
+	readonly metadata?: Readonly<Record<string, unknown>>;
 }
 export interface DesktopAudioStreamFileResult {
 	readonly blob: Blob; readonly bytes: null; readonly extension: string; readonly mimeType: string;
@@ -47,9 +51,11 @@ export async function withDesktopAudioStreamOwnership<Result>(request: DesktopAu
 }
 
 /** Transfer one mapped WAV through acknowledged bounded chunks into native scratch. */
-export async function encodeDesktopAudioStreamFile(request: DesktopAudioStreamEncoderRequest,
+export async function encodeDesktopAudioStreamFile(requestValue: DesktopAudioStreamEncoderRequest,
 	bridge: DesktopAudioStreamCommandBridge,
 ): Promise<DesktopAudioStreamFileResult> {
+	const request = { ...requestValue, settings: { ...requestValue.settings,
+		...embeddedChapterEncodingFields(requestValue.plan.tuple.format, requestValue.settings.embeddedChapters, requestValue.plan.tuple.sampleRate) } };
 	assertFfmpegOutputReady(request.settings);
 	const begun = audioStreamRecord(await bridge(normalizeDesktopAudioStreamCommand({ type: 'begin', plan: request.plan })), ['operationId']);
 	const operationId = String(begun.operationId);
@@ -90,8 +96,6 @@ export async function encodeDesktopAudioStreamFile(request: DesktopAudioStreamEn
 		const result = audioStreamRecord(await executeWithProgress(operationId, request, bridge), ['byteLength']);
 		assertFfmpegOutputReady(request.settings);
 		const byteLength = audioStreamInteger(result.byteLength, 1, request.plan.maximumOutputBytes, 'output length');
-		await confirmFileSizeWarning(byteLength, request.settings.maximumOutputBytes ?? LARGE_AUDIO_FILE_BYTES,
-			'Compressed audio export', request.settings);
 		const read = async (offset: number, length: number): Promise<Uint8Array<ArrayBuffer>> => {
 			if (released) throw new Error('The desktop encoded audio file was released.');
 			assertFfmpegOutputReady(request.settings);
@@ -100,13 +104,14 @@ export async function encodeDesktopAudioStreamFile(request: DesktopAudioStreamEn
 			if (!(value instanceof Uint8Array) || value.byteLength !== length) throw new Error('The desktop encoded audio range drifted.');
 			return value.slice();
 		};
-		const blob = registerFileBackedExport(new EncodedAudioRangeBlob(byteLength, request.mimeType, 0, read));
+		const blob = registerRangeBackedAudioExport(new EncodedAudioRangeBlob(byteLength, request.mimeType, 0, read));
+		const output = await finalizeDesktopAudioBlob(blob, request.plan.tuple.format, request.plan.tuple.sampleRate, request.settings);
 		const { validateStreamedAudioOutput } = await import('./browser-streamed-audio-output-validation.ts');
 		await validateStreamedAudioOutput(blob, { format: request.plan.tuple.format,
 			frameCount: request.plan.frameCount, channelCount: request.plan.tuple.channelCount,
 			sampleRate: request.plan.tuple.sampleRate, signal: request.settings.signal });
 		assertFfmpegOutputReady(request.settings);
-		return Object.freeze({ blob, bytes: null, extension: request.extension, mimeType: request.mimeType, cleanup });
+		return Object.freeze({ blob: output, bytes: null, extension: request.extension, mimeType: request.mimeType, cleanup });
 	} catch (error) {
 		const failures: unknown[] = [error];
 		try { await cleanup(); } catch (cleanupError) { failures.push(cleanupError); }

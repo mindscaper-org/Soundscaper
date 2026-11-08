@@ -70,7 +70,8 @@ function sourceFixture(id: string, overrides: Partial<ControllerSource> = {}): C
 	};
 }
 
-function createResampleFixture(initialProject: ControllerProject, inputChannels?: Float32Array[]) {
+function createResampleFixture(initialProject: ControllerProject, inputChannels?: Float32Array[],
+	selection: Pick<ClipResampleServiceDependencies, 'stageSourceSelectionClockRewrite'> = {}) {
 	const project = initialProject;
 	let blocked = false;
 	let sequence = 0;
@@ -90,6 +91,7 @@ function createResampleFixture(initialProject: ControllerProject, inputChannels?
 		statuses: [] as unknown[][],
 	};
 	const dependencies: ClipResampleServiceDependencies = {
+		...selection,
 		lifetime: {
 			assertActive() { /* always active in this fixture */ },
 			startTask: (name) => ({
@@ -165,6 +167,27 @@ function createResampleFixture(initialProject: ControllerProject, inputChannels?
 		setPersistenceFails(value: boolean) { persistenceFails = value; },
 	};
 }
+
+test('clip resample and reinterpret stage the native selection clock before publishing their replacement', async () => {
+	for (const reinterpret of [false, true]) {
+		const source = sourceFixture('source', { frameCount: 4 });
+		const clip = clipFixture('clip', source.id, { durationFrames: 4, sourceDurationFrames: 4 });
+		let stages = 0;
+		const f = createResampleFixture(projectFixture({ sources: [source], clips: [clip],
+			tracks: [trackFixture({ clipIds: [clip.id] })] }), [Float32Array.of(0.1, 0.2, 0.3, 0.4)], {
+			stageSourceSelectionClockRewrite(rewrite) {
+				assert.equal(f.calls.commits.length, 0);
+				assert.deepEqual(rewrite.clipIds, [clip.id]);
+				assert.equal(rewrite.previousSourceId, source.id);
+				assert.equal(rewrite.numerator / rewrite.denominator, reinterpret ? 2 : 0.5);
+				stages += 1; return () => undefined;
+			},
+		});
+		if (reinterpret) await f.service.reinterpretClip(clip.id, { sampleFormat: 'int16' });
+		else await f.service.resampleClip(clip.id, { sampleRate: 24_000 });
+		assert.equal(stages, 1);
+	}
+});
 
 test('resampling one clip repoints only that clip and leaves its source for the others', async () => {
 	const source = sourceFixture('source', { sampleRate: 24_000, frameCount: 100 });

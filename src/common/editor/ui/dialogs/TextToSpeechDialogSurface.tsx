@@ -7,6 +7,7 @@ import TextToSpeechDialog from './TextToSpeechDialog.tsx';
 
 export interface TextToSpeechDialogSurfaceProps {
 	readonly bridgeScope: unknown;
+	readonly replacementLocked?: boolean;
 	readonly projectPort: TextToSpeechProjectPort | null;
 	readonly copy: Readonly<Record<string, string>>;
 	readonly locale: string;

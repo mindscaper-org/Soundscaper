@@ -4,11 +4,27 @@ import type {
 	RecordingAudioContext,
 	RecordingMediaStream,
 } from '../../recording-transaction-types.ts';
+import { observeMediaInputInterruption, MediaInputLostError } from '../../../shared/media-input-interruption.ts';
+import { RecordingInputLossError } from '../../../../recording-input-events.ts';
 
 interface ObservedSource {
 	readonly sourceKey: string;
 	readonly kind: 'device' | 'display';
 	readonly stream: RecordingMediaStream;
+}
+
+export function takeCycleRecorderInterruptionError(state: string, sourceKey: string): Error {
+	const message = `Take cycle routed recorder ${sourceKey} ${state} unexpectedly.`;
+	return state === 'failed' ? new Error(message) : new MediaInputLostError(message);
+}
+
+export function handleTakeCycleRecorderFailure(
+	error: unknown,
+	onInputLost: (loss: MediaInputLostError) => void,
+	onFailure: (failure: unknown) => void,
+): void {
+	if (error instanceof RecordingInputLossError) onInputLost(new MediaInputLostError(error.message, { cause: error }));
+	else onFailure(error);
 }
 
 /** Own every browser lifetime signal that can invalidate continuous cycle PCM. */
@@ -24,27 +40,21 @@ export function observeTakeCycleRoutedCaptureLifetime<Source extends ObservedSou
 	const interrupt = (error: Error, source: Source | null) => {
 		if (interrupted || disposed) return;
 		interrupted = true;
-		options.onInterrupted(error, source);
+		try { options.onInterrupted(error, source); }
+		catch { /* Failure observers cannot escape the browser lifetime event. */ }
 	};
 	for (const source of options.sources) {
-		const ended = () => interrupt(new Error(
-			`Take cycle routed input ${source.sourceKey} ended unexpectedly.`,
-		), source);
-		for (const track of source.stream.getTracks?.() ?? []) {
-			track.addEventListener?.('ended', ended, { once: true });
-			removers.push(() => track.removeEventListener?.('ended', ended));
-		}
-		if (!options.isLive(source.stream, source.kind)) ended();
+		removers.push(observeMediaInputInterruption({
+			tracks: source.stream.getTracks?.() ?? source.stream.getAudioTracks(),
+			onInterrupted: error => interrupt(error, source),
+		}));
+		if (!options.isLive(source.stream, source.kind)) interrupt(
+			new MediaInputLostError(`Take cycle routed input ${source.sourceKey} is disconnected.`), source,
+		);
 	}
-	const contextStateChange = () => {
-		const state = options.context.state;
-		if (state === 'suspended' || state === 'closed' || state === 'interrupted') {
-			interrupt(new Error(`Take cycle routed audio context became ${state}.`), null);
-		}
-	};
-	options.context.addEventListener?.('statechange', contextStateChange);
-	removers.push(() => options.context.removeEventListener?.('statechange', contextStateChange));
-	contextStateChange();
+	removers.push(observeMediaInputInterruption({
+		context: options.context, onInterrupted: error => interrupt(error, null),
+	}));
 	return () => {
 		if (disposed) return;
 		disposed = true;

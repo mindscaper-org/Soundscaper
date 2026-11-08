@@ -127,6 +127,7 @@ export interface DocumentCompositionDependencies {
 	readonly copy: DocumentCompositionCopy;
 	readonly lifetime: EditorControllerLifetime;
 	readonly document: ControllerDocumentScope<DocumentProject>;
+	readonly onSelectionChanged?: (before: DocumentProject, after: DocumentProject) => void;
 	/** Product operations act on the admitted document and its history. */
 	readonly projectRuntime: Readonly<{
 		readonly cloneProject: (project: DocumentProject) => DocumentProject;

@@ -43,6 +43,7 @@ const INITIAL_STATE: TextToSpeechDialogState = Object.freeze({
 
 export interface TextToSpeechDialogProps {
 	readonly port: TextToSpeechPort | null;
+	readonly replacementLocked?: boolean;
 	readonly modelBridge: LocalModelManagerBridge | null;
 	readonly copy: Copy;
 	readonly locale: string;
@@ -50,7 +51,7 @@ export interface TextToSpeechDialogProps {
 }
 
 export default function TextToSpeechDialog({
-	port, modelBridge, copy, locale, onClose,
+	port, modelBridge, copy, locale, onClose, replacementLocked = false,
 }: TextToSpeechDialogProps) {
 	const [state, setState] = useState<TextToSpeechDialogState>(INITIAL_STATE);
 	const [managingModels, setManagingModels] = useState(false);
@@ -134,7 +135,8 @@ export default function TextToSpeechDialog({
 		setState((current) => ({ ...current, phase: 'ready', reviewed: null, error: null, failureCode: null }));
 	};
 	const accept = async (): Promise<void> => {
-		if (!port || state.phase !== 'preview' || !state.reviewed || acceptancePending.current) return;
+		if (!port || state.phase !== 'preview' || !state.reviewed || acceptancePending.current
+			|| state.placement === 'regenerate-selected' && replacementLocked) return;
 		acceptancePending.current = true;
 		const reviewed = state.reviewed;
 		setState((current) => ({ ...current, phase: 'accepting', error: null, failureCode: null }));
@@ -155,7 +157,7 @@ export default function TextToSpeechDialog({
 	const presented = port === null ? { ...state, error: text(copy,
 		'unavailable', 'Text to Speech is unavailable in this desktop build.') } : state.error ? { ...state,
 		error: text(copy, state.failureCode ?? 'generationFailed', TEXT_TO_SPEECH_COPY_BY_LOCALE.en[state.failureCode ?? 'generationFailed']), diagnostic: state.error } : state;
-	return <TextToSpeechDialogView copy={copy} state={presented} previewUrl={previewUrl}
+	return <TextToSpeechDialogView copy={copy} state={presented} previewUrl={previewUrl} replacementLocked={replacementLocked}
 		onClose={close} onManageModels={() => setManagingModels(true)}
 		onTextChange={(value) => edit({ text: value })}
 		onLanguageChange={(language) => {
@@ -170,6 +172,7 @@ export default function TextToSpeechDialog({
 
 export interface TextToSpeechDialogViewProps {
 	readonly copy: Copy;
+	readonly replacementLocked?: boolean;
 	readonly state: TextToSpeechDialogState;
 	readonly previewUrl: string | null;
 	readonly onClose: () => void;
@@ -186,7 +189,7 @@ export interface TextToSpeechDialogViewProps {
 /** Static view kept separate from the session so menu and state coverage can render it directly. */
 export function TextToSpeechDialogView({
 	copy, state, previewUrl, onClose, onManageModels, onTextChange, onLanguageChange,
-	onVoiceChange, onSpeedChange, onGenerate, onCancel, onAccept,
+	onVoiceChange, onSpeedChange, onGenerate, onCancel, onAccept, replacementLocked = false,
 }: TextToSpeechDialogViewProps) {
 	const locked = state.phase === 'generating' || state.phase === 'accepting'
 		|| state.phase === 'loading' || state.phase === 'accepted';
@@ -204,7 +207,8 @@ export function TextToSpeechDialogView({
 			</Button>
 			{state.phase === 'generating' ? <Button variant="primary" onClick={onCancel}>
 				{text(copy, 'cancel', 'Cancel generation')}
-			</Button> : previewReady ? <Button variant="primary" onClick={onAccept}>
+			</Button> : previewReady ? <Button variant="primary" onClick={onAccept}
+				disabled={state.placement === 'regenerate-selected' && replacementLocked}>
 				{state.placement === 'regenerate-selected'
 					? text(copy, 'replace', 'Replace selected speech clip')
 					: text(copy, 'accept', 'Add as new track at playhead')}

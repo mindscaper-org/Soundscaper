@@ -9,8 +9,8 @@ function fixture() {
 	const project: BlenderRenderProject = { id: 'project-a', title: 'Audio', revision: 2, sampleRate: 48_000,
 		tracks: [{ id: 'a', type: 'audio', name: 'Voice', clipIds: ['clip-a'], mute: false, solo: true },
 			{ id: 'b', type: 'audio', name: 'Music', clipIds: ['clip-b'], mute: false, solo: false }],
-		clips: [{ id: 'clip-a', timelineStartFrame: 12_000, durationFrames: 24_000 },
-			{ id: 'clip-b', timelineStartFrame: 0, durationFrames: 48_000 }] };
+		clips: [{ id: 'clip-a', timelineStartFrame: 12_000, durationFrames: 24_000, sourceStartFrame: 0, sourceDurationFrames: 24_000 },
+			{ id: 'clip-b', timelineStartFrame: 0, durationFrames: 48_000, sourceStartFrame: 0, sourceDurationFrames: 48_000 }] };
 	const begins: BlenderBeginRequest[] = [];
 	const writes: BlenderWriteRequest[] = [];
 	const events: string[] = [];

@@ -11,6 +11,7 @@ test('File Import and native Save retain Ogg-FLAC programme credits and artwork'
 			data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j7mQAAAAASUVORK5CYII=' }]) });
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 30_000 });
+	await expect.poll(async () => (await sourcePeakChannels(page, file.name)).channelCount).toBe(1);
 	const peak = await sourcePeakChannels(page, file.name); expect(peak.channels[0].maximum).toBeGreaterThan(.29);
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing', { timeout: 30_000 });
 	const downloading = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);

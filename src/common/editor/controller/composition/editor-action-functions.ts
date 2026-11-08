@@ -29,6 +29,7 @@ import type { createSettingPersistence } from '../preferences/setting-persistenc
 
 /** Action assembly preserves the contracts declared by the owning services. */
 export interface EditorActionFunctions {
+	readonly readSelectionTargetLocked: ReturnType<typeof createEffectsComposition>['execution']['readSelectionTargetLocked'];
 	readonly setSourceSelection: ReturnType<typeof createEffectsComposition>['sourceEditor']['setSourceSelection'];
 	readonly readSourceSelection: ReturnType<typeof createEffectsComposition>['sourceEditor']['readSourceSelection'];
 	readonly readSourceSelectionDuration: ReturnType<typeof createEffectsComposition>['sourceEditor']['readSourceSelectionDuration'];
@@ -176,6 +177,8 @@ export interface EditorActionFunctions {
 	readonly saveDawproject: ReturnType<typeof createNativeProjectService>['saveDawproject'];
 	readonly saveEffectPreset: ReturnType<typeof createEffectsComposition>['controls']['saveEffectPreset'];
 	readonly saveNow: ReturnType<typeof createDocumentComposition>['mutation']['saveNow'];
+	readonly saveProjectFile: ReturnType<typeof import('../document/native-project-composition.ts').createNativeProjectComposition>['saveProjectFile'];
+	readonly prepareFileClose: ReturnType<typeof import('../document/native-project-composition.ts').createNativeProjectComposition>['prepareFileClose'];
 	readonly saveScape: ReturnType<typeof createNativeProjectService>['saveScape'];
 	readonly scheduleTimedRecording: ReturnType<typeof createRecordingComposition>['timed']['scheduleTimedRecording'];
 	readonly sessionTab: ReturnType<typeof createDocumentComposition>['session']['sessionTab'];

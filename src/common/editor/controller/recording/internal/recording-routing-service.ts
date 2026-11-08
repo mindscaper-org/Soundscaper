@@ -8,7 +8,7 @@ import type {
 	RecordingRoutingServiceRuntime,
 } from './recording-routing-service-types.d.ts';
 import { adaptNativeAudioInventory, type NativeAudioInventoryReport } from '../native-audio-inventory.ts';
-import { normalizeRecordingSampleRate } from '../recording-model.ts';
+import { createRecordingRateSetting } from './recording-rate-setting.ts';
 import { recordingTrackRoute } from '../../../recording-routing.js';
 import { preferredRecordingRoutes } from './preferred-recording-routes.ts';
 import { supportsDisplayAudioCapture } from '../../../recording-display-input.ts';
@@ -44,8 +44,12 @@ export function createRecordingRoutingService<
 	} = runtime;
 	let outputDeviceSelectionGeneration = 0;
 	let inventoryGeneration = 0;
+	let routingLoadGeneration = 0;
 	let retainedNativeInventory: RecordingRoutingNativeInventory | null = null;
+	const setRecordingSampleRate = createRecordingRateSetting({ state, engine, lifetime,
+		persist: persistAudioDevicePreferences, publish: publishDocumentSnapshot });
 	async function loadRecordingRouting(currentProject: Project | null = getProject()) {
+		const generation = ++routingLoadGeneration;
 		if (!currentProject) {
 			state.recordingRouting = normalizeRecordingRouting();
 			state.recordingDevices = [];
@@ -58,8 +62,9 @@ export function createRecordingRoutingService<
 		} catch {
 			// Local routing is optional and must never prevent a project from opening.
 		}
+		if (generation !== routingLoadGeneration || getProject()?.id !== currentProject.id) return state.recordingRouting;
 		const storedRouting = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
-		state.recordingRouting = normalizeRecordingRouting(storedRouting, currentProject.tracks);
+		state.recordingRouting = normalizeRecordingRouting(storedRouting, getProject()?.tracks ?? currentProject.tracks);
 		state.recordingRouteHealth = Object.fromEntries(Object.keys(state.recordingRouting.routes)
 			.map((trackId) => [trackId, 'unavailable']));
 		updateRecordingDeviceRows();
@@ -215,7 +220,7 @@ export function createRecordingRoutingService<
 
 	async function configureDisplayInput() {
 		if (!supportsDisplayAudioCapture(mediaDevices)) throw new Error('Display audio capture is not supported in this browser.');
-		if (state.recorder || state.recordingStarting || state.timedRecordingPreparing || state.timedRecording) {
+		if (state.recorder || state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording) {
 			throw new Error('The display source cannot be changed while recording is active.');
 		}
 		await keepSelectedRecordingInputsOpen();
@@ -254,7 +259,9 @@ export function createRecordingRoutingService<
 			deviceId: state.preferredInputDeviceId, channelCount: state.preferredInputChannelCount,
 			deviceLabel: state.audioInputDevices.find(device => device.deviceId === state.preferredInputDeviceId)?.label ?? '',
 		}, followTrackId);
-		return previous === state.recordingRouting ? Promise.resolve() : persistRecordingRouting();
+		if (previous === state.recordingRouting) return Promise.resolve();
+		runtime.synchronizeMicrophoneMeterTarget();
+		return persistRecordingRouting();
 	}
 
 	function recordingInputSampleRate() {
@@ -262,23 +269,8 @@ export function createRecordingRoutingService<
 			? projectSampleRate() : state.preferredRecordingSampleRate;
 	}
 
-	async function setRecordingSampleRate(sampleRate: number) {
-		if (state.recorder || state.recordingStarting || state.timedRecordingPreparing || state.timedRecording) {
-			throw new Error('The recording sample rate cannot be changed while recording is active.');
-		}
-		const normalized = normalizeRecordingSampleRate(sampleRate);
-		if (normalized !== sampleRate) throw new RangeError('Recording sample rate must be an integer between 8000 and 768000 Hz.');
-		if (state.audioHost !== 'browser' && state.audioHost !== 'electron') {
-			await engine.getAudioContext?.({ resume: false, sampleRate: normalized });
-		}
-		state.preferredRecordingSampleRate = normalized;
-		await persistAudioDevicePreferences();
-		publishDocumentSnapshot();
-		return normalized;
-	}
-
 	async function setHostInventory(host: string, report: NativeAudioInventoryReport | null) {
-		if (state.recorder || state.recordingStarting || state.timedRecordingPreparing || state.timedRecording) {
+		if (state.recorder || state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording) {
 			throw new Error('The audio host cannot be changed while recording is active.');
 		}
 		const normalized = host.trim();
@@ -421,8 +413,9 @@ export function createRecordingRoutingService<
 		}
 		for (const source of state.recordingPoolSources) {
 			if (source.kind !== 'device' || !source.deviceId) continue;
-			const existing = rows.get(source.deviceId) || { deviceId: source.deviceId, label: '' };
-			rows.set(source.deviceId, { ...existing, channelCount: source.channelCount });
+			const existing: RecordingRoutingDeviceRow = rows.get(source.deviceId) || { deviceId: source.deviceId, label: '' };
+			const channelCount = source.deviceId.startsWith('native:') && existing.channels?.length ? existing.channels.length : source.channelCount;
+				rows.set(source.deviceId, { ...existing, channelCount });
 		}
 		state.recordingDevices = Object.freeze([...rows.values()].map((device) => Object.freeze({
 			deviceId: device.deviceId,
@@ -458,7 +451,7 @@ export function createRecordingRoutingService<
 		const retainInputs = Boolean(enabled);
 		await updatePreferences({ recording: { retainInputs } });
 		if (retainInputs) state.recordingReleaseAfterStop = false;
-		else if (state.recorder || state.recordingStarting || state.timedRecordingPreparing || state.timedRecording) {
+		else if (state.recorder || state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording) {
 			state.recordingReleaseAfterStop = true;
 		}
 		else releaseUnretainedRecordingInputs();
@@ -468,7 +461,7 @@ export function createRecordingRoutingService<
 	}
 
 	function releaseInputs() {
-		if (state.recorder || state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recordingFinishing) return false;
+		if (state.recorder || state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording || state.recordingFinishing) return false;
 		if (state.microphoneMetering) {
 			state.microphoneMetering = false;
 			invalidateMicrophoneMeter();

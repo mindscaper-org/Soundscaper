@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { fadeField } from './clip-fade-geometry.ts';
 import type { ClipFadeEdge } from './clip-fade-geometry.ts';
 import {
 	clipFadeEditsCommand, clipFadeEditsPreviews, planSelectedClipFadeEdits,
-	planSelectedClipFadeCommand,
+	planSelectedClipFadeCommand, clipFadeEditIntent,
 } from './selected-clip-fades.ts';
 import type { ClipFadeTarget, SelectedClipFadeChanges, SelectedClipFadeEdit } from './selected-clip-fades.ts';
 
@@ -24,8 +23,7 @@ export function clipFadeChangeCommand(project: FadeProject, clipId: string, samp
 	changes: SelectedClipFadeChanges, editedEdge?: ClipFadeEdge) {
 	return planSelectedClipFadeCommand({ clips: project.clips, editedClipId: clipId,
 		selectedIds: project.selection?.clipIds ?? [], sampleRate,
-		edit: editedEdge ? { kind: 'length', edge: editedEdge, frames: changes[fadeField(editedEdge)] ?? 0 }
-			: { kind: 'properties', changes },
+		edit: clipFadeEditIntent(changes, editedEdge),
 	});
 }
 

@@ -103,7 +103,8 @@ test.describe('non-destructive clip fade handles', () => {
 			await expect(clip.locator('.clip-display')).toHaveAttribute('data-selected', 'false');
 			await expect(clip.locator('button[data-clip-fade-handle]')).toHaveCount(2);
 			await expect(clip.locator('[data-fade-zone]')).toHaveCount(2);
-			await expect(fadeIn).toHaveCSS('opacity', '0');
+			// Existing fades remain editable while the deselected clip is hovered.
+			await expect(fadeIn).toHaveCSS('opacity', '1');
 			await editor.getByRole('menuitem', { name: 'File', exact: true }).focus();
 			await page.mouse.move(0, 0);
 			await expect(fadeIn).toHaveCSS('opacity', '0');
@@ -341,8 +342,11 @@ test.describe('non-destructive clip fade handles', () => {
 		let clip = clipByName(editor, toneA.name);
 		await selectClip(clip);
 		const fadeIn = clip.getByRole('slider', { name: 'Fade in', exact: true });
-		await fadeIn.press('Home'); await fadeIn.press('0');
+		// Resetting the shape creates a default fade on a bare edge; clear its length afterwards.
+		await fadeIn.press('0'); await fadeIn.press('Home');
+		await expect(fadeIn).toHaveAttribute('aria-valuenow', '0');
 		for (let step = 0; step < 4; step++) await fadeIn.press('ArrowRight');
+		await expect(fadeIn).toHaveAttribute('aria-valuenow', '0.4');
 		let shape = clip.getByRole('slider', { name: 'Fade in shape', exact: true });
 		const curve = clip.locator('path[data-fade-curve="in"]');
 		const originalCurve = await curve.getAttribute('d');
@@ -410,8 +414,8 @@ test.describe('non-destructive clip fade handles', () => {
 		const shape = clip.getByRole('slider', { name: 'Fade in shape', exact: true });
 		const menu = page.getByRole('menu').filter({ has: page.getByRole('menuitem', { name: 'Edit fade-in', exact: true }) });
 		await shape.focus(); await shape.press('Shift+F10');
-		await expect(menu.getByRole('menuitem', { name: 'Edit fade-in', exact: true })).toBeFocused();
-		await expect(menu.getByRole('menuitemradio')).toHaveCount(0);
+		await expect(menu.getByRole('menuitemradio', { name: /Linear/u })).toBeFocused();
+		await expect(menu.getByRole('menuitemradio')).toHaveCount(5);
 		await page.keyboard.press('Escape');
 		await expect(menu).toHaveCount(0); await expect(shape).toBeFocused();
 		await shape.press('Shift+F10');
@@ -543,33 +547,33 @@ test.describe('non-destructive clip fade handles', () => {
 		await first.click({ modifiers: ['Control'], position: { x: 40, y: 60 } });
 		await expect(first.locator('.clip-display')).toHaveAttribute('data-selected', 'false');
 		await expect(second.locator('.clip-display')).toHaveAttribute('data-selected', 'true');
-		await expect(firstFade).toHaveCSS('pointer-events', 'none');
-		const corner = first.locator('[data-fade-zone="in"]');
-		await expect(corner).toBeVisible();
-		const bounds = await corner.boundingBox();
+		await expect(firstFade).toHaveCSS('pointer-events', 'auto');
+		const handle = firstFade;
+		await expect(handle).toBeVisible();
+		const bounds = await handle.boundingBox();
 		expect(bounds).not.toBeNull();
-		// Unselected clips expose the clipped boundary zone, not the hidden slider.
-		const x = bounds.x + 27, y = bounds.y + 16;
+		// Hover reveals the fade grip without selecting its clip.
+		const x = bounds.x + bounds.width / 2, y = bounds.y + bounds.height / 2;
 		await page.mouse.move(x, y);
-		await corner.evaluate(element => {
+		await handle.evaluate(element => {
 			window.addEventListener('pointerdown', event => {
-				if (event.target === element) element.setAttribute('data-test-pointer-id', String(event.pointerId));
+				if (element.contains(event.target)) element.setAttribute('data-test-pointer-id', String(event.pointerId));
 			}, { capture: true, once: true });
 		});
 		await page.mouse.down();
-		const pointerId = await corner.evaluate(element => {
+		const pointerId = await handle.evaluate(element => {
 			const id = element.getAttribute('data-test-pointer-id');
 			element.removeAttribute('data-test-pointer-id');
 			return id === null ? null : Number(id);
 		});
 		expect(pointerId).not.toBeNull();
-		expect(await corner.evaluate((element, id) => element.hasPointerCapture(id), pointerId)).toBe(true);
+		expect(await handle.evaluate((element, id) => element.hasPointerCapture(id), pointerId)).toBe(true);
 		await page.mouse.move(x + 30, y, { steps: 5 });
 		await expect.poll(async () => Number(await firstFade.getAttribute('aria-valuenow'))).toBeGreaterThan(0.002);
 		await expect(first.locator('.clip-display')).toHaveAttribute('data-selected', 'false');
 		await expect(secondFade).toHaveAttribute('aria-valuenow', '0.002');
 		await page.mouse.up();
-		expect(await corner.evaluate((element, id) => element.hasPointerCapture(id), pointerId)).toBe(false);
+		expect(await handle.evaluate((element, id) => element.hasPointerCapture(id), pointerId)).toBe(false);
 		await expect(first.locator('.clip-display')).toHaveAttribute('data-selected', 'false');
 		await expect(second.locator('.clip-display')).toHaveAttribute('data-selected', 'true');
 		await editor.getByRole('button', { name: 'Undo', exact: true }).click();

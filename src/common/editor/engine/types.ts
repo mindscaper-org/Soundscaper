@@ -110,6 +110,8 @@ export interface EngineChunkSource {
 	readonly frameCount: number;
 	readonly chunkFrames: number;
 	readonly sampleRate: number;
+	/** True when the provider bounds each underlying read, including long initial verification. */
+	readonly boundedReads?: boolean;
 	readStorageChunk(chunkIndex: number, context?: EngineChunkReadContext): Promise<EngineChunkReadValue> | EngineChunkReadValue;
 }
 
@@ -121,11 +123,11 @@ export interface ResolvedClipSource {
 	readonly reversed: boolean;
 }
 
-export type EngineSourceResolver = (
+export type EngineSourceResolver = ((
 	clip: EngineClip,
 	context: Readonly<{
 		project: EngineProject;
 		sources: ReadonlyMap<unknown, AudioBuffer>;
 		defaultBuffer: AudioBuffer | null;
 	}>,
-) => unknown;
+) => unknown) & { readonly snapshot?: () => EngineSourceResolver };

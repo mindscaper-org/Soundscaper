@@ -35,7 +35,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	endif()
 endif()
 
-foreach(required SOUNDSCAPER_JUCE_ROOT SOUNDSCAPER_CLAP_ROOT SOUNDSCAPER_VAMP_ROOT SOUNDSCAPER_VST3_PROVENANCE_COMMIT SOUNDSCAPER_ARA_SDK_ROOT)
+foreach(required SOUNDSCAPER_JUCE_ROOT SOUNDSCAPER_FST_ROOT SOUNDSCAPER_CLAP_ROOT SOUNDSCAPER_VAMP_ROOT SOUNDSCAPER_VST3_PROVENANCE_COMMIT SOUNDSCAPER_ARA_SDK_ROOT)
 	if(NOT DEFINED ${required} OR "${${required}}" STREQUAL "")
 		message(FATAL_ERROR "${required} is required by the authenticated build recipe")
 	endif()
@@ -67,6 +67,20 @@ endif()
 
 add_subdirectory("${SOUNDSCAPER_JUCE_ROOT}" "${CMAKE_CURRENT_BINARY_DIR}/juce" EXCLUDE_FROM_ALL)
 juce_set_ara_sdk_path("${SOUNDSCAPER_ARA_SDK_ROOT}")
+# FST supplies independently reverse-engineered GPL compatibility headers. Copy
+# the authenticated headers into JUCE's expected layout without mutating the
+# read-only source snapshot or requiring Windows symbolic-link privileges.
+foreach(header aeffect.h aeffectx.h fst.h)
+	if(NOT EXISTS "${SOUNDSCAPER_FST_ROOT}/fst/${header}")
+		message(FATAL_ERROR "The authenticated FST VST2 compatibility headers are absent")
+	endif()
+	configure_file("${SOUNDSCAPER_FST_ROOT}/fst/${header}"
+		"${CMAKE_CURRENT_BINARY_DIR}/fst-sdk/pluginterfaces/vst2.x/${header}" COPYONLY)
+endforeach()
+include(cmake/fst-juce-compatibility.cmake)
+soundscaper_write_fst_juce_header("${SOUNDSCAPER_FST_ROOT}/fst/fst.h"
+	"${CMAKE_CURRENT_BINARY_DIR}/fst-sdk/pluginterfaces/vst2.x/fst.h")
+juce_set_vst2_sdk_path("${CMAKE_CURRENT_BINARY_DIR}/fst-sdk")
 
 add_library(soundscaper_professional_audio STATIC
 	src/juce_audio_adapter.cpp src/os_aac_m4a_profile.cpp src/os_audio_codec_contract.h
@@ -144,12 +158,13 @@ target_link_libraries(soundscaper_professional_audio PRIVATE juce::juce_audio_de
 target_include_directories(soundscaper_professional_plugin PRIVATE "${SOUNDSCAPER_CLAP_ROOT}/include")
 target_compile_definitions(soundscaper_professional_plugin PRIVATE
 	SOUNDSCAPER_PRO_PLUGIN_ONLY=1
+	JUCE_PLUGINHOST_VST=1
 	JUCE_PLUGINHOST_VST3=1
 	JUCE_PLUGINHOST_ARA=1
 	SOUNDSCAPER_VST3_PROVENANCE_COMMIT="${SOUNDSCAPER_VST3_PROVENANCE_COMMIT}"
 )
 target_link_libraries(soundscaper_professional_plugin PRIVATE
-	juce::juce_audio_processors juce::juce_gui_extra juce_ara_sdk
+	juce::juce_audio_processors juce::juce_gui_extra juce_ara_sdk juce_vst2_sdk
 )
 
 if(APPLE)
@@ -216,6 +231,9 @@ else()
 endif()
 
 include(CTest)
+if(BUILD_TESTING)
+	include(cmake/vst2-self-test.cmake)
+endif()
 if(BUILD_TESTING)
 	add_executable(soundscaper_os_mp3_profile_self_test
 		src/os_mp3_profile.cpp tests/os_mp3_profile_self_test.cpp)
@@ -308,6 +326,15 @@ if(BUILD_TESTING AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
 		C_VISIBILITY_PRESET hidden
 	)
 	add_executable(soundscaper_ladspa_host_self_test tests/ladspa_host_self_test.cpp)
+	add_executable(soundscaper_ladspa_native_identity_self_test
+		src/ladspa_plugin_metadata.cpp tests/ladspa_native_identity_self_test.cpp)
+	target_compile_features(soundscaper_ladspa_native_identity_self_test PRIVATE cxx_std_20)
+	target_include_directories(soundscaper_ladspa_native_identity_self_test PRIVATE
+		"${CMAKE_CURRENT_SOURCE_DIR}/src" "${SOUNDSCAPER_LADSPA_ROOT}/src")
+	target_link_libraries(soundscaper_ladspa_native_identity_self_test PRIVATE ${CMAKE_DL_LIBS})
+	add_dependencies(soundscaper_ladspa_native_identity_self_test soundscaper_professional_ladspa_fixture)
+	add_test(NAME soundscaper_ladspa_native_identity_self_test
+		COMMAND soundscaper_ladspa_native_identity_self_test $<TARGET_FILE:soundscaper_professional_ladspa_fixture>)
 	target_compile_features(soundscaper_ladspa_host_self_test PRIVATE cxx_std_20)
 	target_include_directories(soundscaper_ladspa_host_self_test PRIVATE
 		"${CMAKE_CURRENT_SOURCE_DIR}/src")

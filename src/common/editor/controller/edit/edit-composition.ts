@@ -178,7 +178,8 @@ export function createEditComposition<History extends ControllerRuntimeHistory>(
 						);
 						if (!transferredMedia || !originProjectId || originProjectId === project.id) {
 							assertCurrent();
-							return dependencies.commit(prepared);
+							return dependencies.commitMidiTransfer && dependencies.previewMidiTransfer ? dependencies.commitMidiTransfer(prepared,
+								dependencies.previewMidiTransfer) : dependencies.commit(prepared);
 						}
 						return import('./internal/paste-linked-source-aliases.ts').then(({ commitPasteWithLinkedSourceAliases }) => (
 							commitPasteWithLinkedSourceAliases({
@@ -188,7 +189,8 @@ export function createEditComposition<History extends ControllerRuntimeHistory>(
 								store: dependencies.store,
 								assertCurrent,
 								getCurrentProject: dependencies.getCommandProject,
-								commit: dependencies.commit,
+								commit: command => dependencies.commitMidiTransfer && dependencies.previewMidiTransfer ? dependencies.commitMidiTransfer(command,
+									dependencies.previewMidiTransfer) : dependencies.commit(command),
 							})
 						));
 					},

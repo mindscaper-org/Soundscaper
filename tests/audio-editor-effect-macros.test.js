@@ -99,7 +99,9 @@ test('every Audacity effect with a macro command round-trips through concrete ma
 		.filter((type) => type !== 'audacity-noise-reduction');
 	const draft = createEffectMacroDraft({
 		name: 'Every command',
-		effects: types.map((type) => ({ type })),
+		effects: types.map((type) => type === 'audacity-auto-duck'
+			? parseAudacityEffectMacro('AutoDuck:').effects[0]
+			: ({ type, ...(type === 'audacity-amplify' ? { params: { allowClipping: true } } : {}) })),
 		idFactory: (prefix, index) => `source-${prefix}-${index}`,
 	});
 	const exported = serializeAudacityEffectMacro(draft.effects);
@@ -427,18 +429,16 @@ test('a bare Audacity command round-trips as its own line', () => {
 	);
 });
 
-test('a command line carries only the parameters it was given', () => {
-	// Absent means "leave this alone" upstream, so a step that default-filled
-	// would turn every import into a full rewrite of the selection.
+test('native time commands retain zero defaults while unrelated parameters remain optional', () => {
 	const parse = (line) => parseAudacityEffectMacro(line, { idFactory: () => 'step' }).effects[0];
 
-	assert.deepEqual(parse('SelectTime:Start="2.5"').params, { start: 2.5 });
+	assert.deepEqual(parse('SelectTime:Start="2.5"').params, { start: 2.5, end: 0 });
 	assert.deepEqual(parse('SelectTracks:Track="1" TrackCount="2" Mode="Add"').params,
 		{ track: 1, trackCount: 2, mode: 'add' });
 	assert.deepEqual(parse('SelectFrequencies:High="8000" Low="200"').params, { high: 8_000, low: 200 });
 	// Audacity's own decimal-comma locales write the same file.
-	assert.deepEqual(parse('SelectTime:Start="0,25"').params, { start: 0.25 });
-	assert.equal(serializeAudacityEffectMacro([parse('SelectTime:Start="2.5"')]), 'SelectTime:Start="2.5"\n');
+	assert.deepEqual(parse('SelectTime:Start="0,25"').params, { start: 0.25, end: 0 });
+	assert.equal(serializeAudacityEffectMacro([parse('SelectTime:Start="2.5"')]), 'SelectTime:Start="2.5" End="0"\n');
 
 	assert.throws(() => parseAudacityEffectMacro('SelectTime:Future="1"'),
 		/Unsupported SelectTime parameter: Future/u);
@@ -508,7 +508,7 @@ test('macros Audacity itself wrote import with its own names, units and implied 
 
 test('decibel and semitone settings survive a macro round trip through Audacity units', () => {
 	for (const gainDb of [0.1, -0.9151498112, 12.3456, -37.5]) {
-		const exported = serializeAudacityEffectMacro([{ type: 'audacity-amplify', id: 'a', params: { gainDb } }]);
+		const exported = serializeAudacityEffectMacro([{ type: 'audacity-amplify', id: 'a', params: { gainDb, allowClipping: true } }]);
 		assert.equal(parseAudacityEffectMacro(exported, { idFactory: () => 'a' })
 			.effects[0].params.gainDb, gainDb);
 	}

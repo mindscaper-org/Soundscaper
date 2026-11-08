@@ -43,6 +43,8 @@ export default function AudioEditorSearch({
 	const previousFocusRef = useRef(null);
 	const optionRefs = useRef([]);
 	const wasOpenRef = useRef(open);
+	const openRef = useRef(open);
+	openRef.current = open;
 	const listboxId = useId();
 	const [query, setQuery] = useState('');
 	const [activeKey, setActiveKey] = useState(null);
@@ -90,7 +92,7 @@ export default function AudioEditorSearch({
 	}, []);
 
 	const focusInput = useCallback(() => {
-		requestAnimationFrame(() => inputRef.current?.focus?.({ preventScroll: true }));
+		requestAnimationFrame(() => { if (openRef.current) inputRef.current?.focus?.({ preventScroll: true }); });
 	}, []);
 
 	const requestOpen = useCallback((focusCandidate) => {

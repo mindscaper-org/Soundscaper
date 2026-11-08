@@ -77,6 +77,8 @@ export function createApplicationViewMenu(context, viewMenu) {
 				],
 			},
 			clipSelectionNavigationMenus.skip,
+			{ id: 'timeline-page-left', label: copy.audacityParityLabelScrollTimelineLeftOnePage },
+			{ id: 'timeline-page-right', label: copy.audacityParityLabelScrollTimelineRightOnePage },
 			...productItems.view,
 			...(desktopHost.view.length ? [divider(), ...desktopHost.view] : []),
 		],

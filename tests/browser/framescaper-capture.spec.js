@@ -420,7 +420,7 @@ test.describe('Framescaper v1 recoverable capture', () => {
 		await expect.poll(async () => (await captureHarnessState(page)).audioDataClosed).toBeGreaterThanOrEqual(2);
 		expect(await page.evaluate(() => globalThis.__framescaperCaptureHarness.endNewest('microphone'))).toBe(true);
 		await expectCapturePhase(panel, 'recovery');
-		await expect(panel.getByRole('status')).toContainText('The capture encoder failed.');
+		await expect(panel.getByRole('status')).toContainText('The selected capture device is unavailable.');
 		await expect.poll(async () => (await captureHarnessState(page)).stopCalls).toBe(3);
 		await expect.poll(() => storedCaptureRecoveryState(page, projectId), { timeout: 30_000 }).toEqual({
 			state: 'sealed', retainedPresentationRangeCount: 1,

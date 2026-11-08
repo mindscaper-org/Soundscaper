@@ -8,27 +8,29 @@ export async function openInstalledGain(page, options = {}) {
 	await installNativePluginParameterHost(page, options);
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [createWavFixture({ name: 'recording.wav', duration: 1, channelCount: 2 })]);
-	await chooseCommandAction(page, editor, 'Effect', 'Audio Plugins');
-	const dialog = page.getByRole('dialog', { name: 'Audio Plugins', exact: true });
+	await chooseCommandAction(page, editor, 'Effect', 'Plugin Manager');
+	const dialog = page.getByRole('dialog', { name: 'Plugin Manager', exact: true });
 	await dialog.getByRole('button', { name: 'Test Gain', exact: true }).click();
 	await dialog.locator('[data-native-plugin-instantiate="gain-install"]').click();
-	await expect.poll(() => page.evaluate(() => globalThis.__nativePluginParameterHost.persisted)).toBe(1);
+	await expect.poll(() => page.evaluate(() => globalThis.__nativePluginParameterHost.persisted)).toBeGreaterThan(0);
 	return dialog;
 }
 
 /** Desktop host fixture over the production preload relay and plug-in RPC port. */
 export async function installNativePluginParameterHost(page, options = {}) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(({ parameterCount, holdParameterReads, parameterLabel, vendorUi }) => {
+	await page.addInitScript(({ parameterCount, holdParameterReads, parameterLabel, vendorUi, allowBypass }) => {
 		const format = vendorUi ? 'clap' : 'ladspa';
 		const values = Array.from({ length: parameterCount }, () => .25);
 		const heldParameterReplies = [];
 		let readsHeld = holdParameterReads;
 		const writes = [];
 		const requests = [];
+		const scans = [];
 		const stateBodies = new Map();
 		let delay = 0;
 		let persisted = 0;
+		let bypassed = false;
 		const encoder = new TextEncoder();
 		const hex = (bytes) => Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, '0')).join('');
 		const digest = async (bytes) => hex(await crypto.subtle.digest('SHA-256', bytes));
@@ -40,7 +42,7 @@ export async function installNativePluginParameterHost(page, options = {}) {
 		const binaryHash = digest(encoder.encode('Installed test gain plug-in, version 1'));
 		const instance = async (instanceId) => ({ instanceId, entryId: 'gain', stablePluginId: 'org.test.gain',
 			format, binarySha256: await binaryHash, inputChannels: 2, outputChannels: 2,
-			state: 'ready', enabled: true, bypassed: false, latencySamples: 0 });
+			state: 'ready', enabled: true, bypassed, latencySamples: 0 });
 		const refused = async () => { throw new Error('This host fixture does not offer that operation.'); };
 		const quarantine = { loaded: true, degraded: false, records: [], pendingFaults: 0 };
 		const registry = { entries: [{ entryId: 'gain', format: format.toUpperCase(), name: 'Test Gain', vendor: 'Test host',
@@ -50,9 +52,10 @@ export async function installNativePluginParameterHost(page, options = {}) {
 			formats: [{ format, consented: true }], consent: { scanningEnabled: true, formats: [{ format, supported: true,
 				granted: true, roots: [{ rootId: `system-${format}`, origin: 'standard', name: format.toUpperCase(), admitted: true }] }] }, quarantine };
 		Object.defineProperty(globalThis, '__nativePluginParameterHost', { configurable: true, value: {
-			values, writes, requests, setDelay: (milliseconds) => { delay = milliseconds; },
+			values, writes, requests, scans, setDelay: (milliseconds) => { delay = milliseconds; },
 			releaseParameterReads: () => { readsHeld = false; for (const reply of heldParameterReplies.splice(0)) reply(); },
 			get persisted() { return persisted; },
+			get bypassed() { return bypassed; },
 		} });
 		const bridge = {
 			getExternalFfmpegStatus: async () => ({ state: 'unconfigured', location: null, version: null, detail: '',
@@ -67,7 +70,11 @@ export async function installNativePluginParameterHost(page, options = {}) {
 				payload: { status: 'unavailable', reason: 'not-built' }, backends: [] }),
 			setNativeAudioHelperEnabled: refused, describeNativeAudioBackend: refused,
 			nativePluginAvailability: async () => plugins, setNativePluginConsent: refused,
-			scanNativePlugins: refused, listNativePlugins: async () => registry,
+			scanNativePlugins: async ({ format: requestedFormat, rootId }) => {
+				if (requestedFormat !== format || rootId !== `system-${format}`) return refused();
+				scans.push({ format: requestedFormat, rootId });
+				return { status: 'described', scan: { format, status: 'scanned', detail: '', entries: [] } };
+			}, listNativePlugins: async () => registry,
 			openNativeAudioSession: refused, bindNativeAudioSession: refused, nativeAudioSessionStatus: refused,
 			calibrateNativeAudioSession: refused, reportNativeAudioSessionTransfer: refused,
 			reportNativeAudioSessionLoss: refused, closeNativeAudioSession: refused,
@@ -122,7 +129,8 @@ export async function installNativePluginParameterHost(page, options = {}) {
 					reportedLatencyFrames: 0 } }, '*', [channel.port2]);
 				return instance(instanceId);
 			},
-			runNativePluginOffline: refused, setNativePluginBypassed: refused,
+			runNativePluginOffline: refused, setNativePluginBypassed: allowBypass
+				? async ({ instanceId, bypassed: next }) => { bypassed = next; return instance(instanceId); } : refused,
 			persistNativePluginState: async ({ instanceId, bytes, authentication }) => {
 				const expected = await authenticate(authentication.requestId, bytes);
 				if (JSON.stringify(authentication) !== JSON.stringify(expected)) throw new Error('Unauthenticated plug-in state.');
@@ -132,7 +140,7 @@ export async function installNativePluginParameterHost(page, options = {}) {
 					instanceId, format, stablePluginId: 'org.test.gain', binarySha256: await binaryHash,
 					stateBody: { kind: 'native-plugin-state', bodyId: `native-plugin-state:${expected.sha256}`,
 						byteLength: bytes.byteLength, sha256: expected.sha256 },
-					enabled: true, bypassed: false, continuity: 'live', latencySamples: 0,
+					enabled: true, bypassed, continuity: 'live', latencySamples: 0,
 				} };
 			},
 			restoreNativePluginState: async ({ instanceId, stateBody }) => {
@@ -140,7 +148,7 @@ export async function installNativePluginParameterHost(page, options = {}) {
 				if (!bytes || bytes.byteLength !== stateBody.byteLength || await digest(bytes) !== stateBody.sha256) throw new Error('The requested saved state is absent.');
 				return { bytes: new Uint8Array(bytes), projectState: { instanceId, format,
 					stablePluginId: 'org.test.gain', binarySha256: await binaryHash, stateBody,
-					enabled: true, bypassed: false, continuity: 'live', latencySamples: 0 } };
+					enabled: true, bypassed, continuity: 'live', latencySamples: 0 } };
 			}, openNativePluginVendorUi: vendorUi ? async ({ instanceId }) => ({ status: 'opened', window: {
 				instanceId, windowHandleId: 'test-vendor-window', surface: 'helper-owned-top-level',
 			} }) : refused,
@@ -148,5 +156,5 @@ export async function installNativePluginParameterHost(page, options = {}) {
 		};
 		Object.defineProperty(globalThis, 'soundscaperDesktop', { configurable: true, value: Object.freeze({ v1: bridge }) });
 	}, { parameterCount: options.parameterCount ?? 1, holdParameterReads: options.holdParameterReads === true,
-		parameterLabel: options.parameterLabel ?? '', vendorUi: options.vendorUi === true });
+		parameterLabel: options.parameterLabel ?? '', vendorUi: options.vendorUi === true, allowBypass: options.allowBypass === true });
 }

@@ -5,6 +5,7 @@ import { applicationInstallPromptCapture } from '../../../offline/install-prompt
 import { documentationUrl } from '../../documentation-links.ts';
 import { desktopDownloadUrl } from '../../desktop-download-links.ts';
 import { INSTALL_APPLICATION_MENU_ITEM_ID } from '../install-application-menu.ts';
+import { exposeWebDesktopCommands } from '../web-desktop-command-menus.ts';
 import { moveAudioEditorTrackBlock, trackSourceRate } from '../application-menu-model.js';
 import createApplicationMenus from '../application-menus.js';
 import { createDesktopHostMenuItems } from '../desktop-host-menu.ts';
@@ -40,7 +41,7 @@ export function createWorkspaceApplicationMenus({
 		fileService,
 		importInputRef,
 		locale,
-		openDesktopFiles,
+		openDesktopFiles, openProjectFile = undefined,
 		openEffects,
 		openAssistanceSearch = undefined,
 		openExternal,
@@ -112,6 +113,10 @@ export function createWorkspaceApplicationMenus({
 	const { selectionMenu, viewMenu } = createWorkspaceSelectionViewMenuPorts({
 		controller, parityRuntime, snapshot, run, zoomProject, setShowArmControls, toggleWorkspacePanel, openSurface,
 	});
+	const immediateSelectionEffect = (type) => snapshot.effects?.selectionTypes
+		.find((candidate) => candidate.type === type)?.hasSettings === false;
+	const selectionEffectMutationLocked = (type) => immediateSelectionEffect(type)
+		&& controller.actions.effects.readSelectionTargetLocked?.(type) === true;
 	const menus = createApplicationMenus({
 			selectionMenu, viewMenu,
 			productId,
@@ -221,14 +226,16 @@ export function createWorkspaceApplicationMenus({
 				openAudacityRecovery: () => openSurface('audacity-recovery'),
 				openFile: () => fileService.isDesktop
 					? run(() => openDesktopFiles('project'))
-					: aup4InputRef.current?.click(),
+					: fileService.browserProjectPickerAvailable && openProjectFile
+						? run(async () => { for (const file of await fileService.chooseBrowserProjectFiles()) await openProjectFile(file); })
+						: aup4InputRef.current?.click(),
 				openRecentProject: (projectId) => run(() => controller.actions.project.openRecent(projectId)),
 				switchProject: (projectId) => run(() => controller.actions.project.openById(projectId)),
 				clearRecentProjects: () => run(() => controller.actions.project.clearRecent()),
 				closeProject: () => run(() => controller.actions.project.close()),
 				claimProjectLock: () => run(() => controller.actions.project.claimLock()),
 				saveDawproject: () => run(() => controller.actions.project.saveDawproject()),
-				saveProject: () => run(() => controller.actions.project.save()),
+				saveProject: () => run(() => controller.actions.project.saveFile()),
 				saveScape: () => run(() => controller.actions.project.saveScape({ saveCopy: snapshot.readOnly })),
 				saveAup3: () => run(() => controller.actions.project.saveAup3({ saveCopy: snapshot.readOnly })),
 				saveAup4: () => run(() => controller.actions.project.saveAup4({ saveCopy: snapshot.readOnly })),
@@ -320,6 +327,9 @@ export function createWorkspaceApplicationMenus({
 				releaseInputs: () => run(() => controller.actions.recording.releaseInputs()),
 				addTrack: () => run(() => controller.actions.track.add()),
 				addAudioTrack: () => run(() => controller.actions.track.add()),
+				addMidiTrack: () => run(() => controller.actions.midi.addTrack()),
+				exportMidi: () => run(() => controller.actions.midi.exportFile('midi')),
+				exportAllegro: () => run(() => controller.actions.midi.exportFile('allegro')),
 				addMonoTrack: () => run(() => controller.actions.track.addMono()),
 				addStereoTrack: () => run(() => controller.actions.track.addStereo()),
 				addLabelTrack: () => run(() => controller.actions.track.addLabel()),
@@ -364,10 +374,12 @@ export function createWorkspaceApplicationMenus({
 				openEffects: () => openEffects(snapshot.selectedTrackId),
 				openMacrosPalette: () => openSurface('macros-palette'),
 				runMacro: (macro) => run(() => controller.actions.macros.run(macro)),
-				openSelectionEffect: (type) => snapshot.effects?.selectionTypes
-					.find((candidate) => candidate.type === type)?.hasSettings === false
-					? run(() => controller.actions.effects.applySelection({ type }))
-					: openSelectionEffect(type),
+				selectionEffectMutationLocked,
+				openSelectionEffect: (type) => {
+					if (selectionEffectMutationLocked(type)) return;
+					return immediateSelectionEffect(type)
+						? run(() => controller.actions.effects.applySelection({ type })) : openSelectionEffect(type);
+				},
 				repeatLastEffect: () => run(() => controller.actions.effects.repeatLast()),
 				openSpectralSelection,
 				deleteSpectralSelection: () => run(() => controller.actions.spectral.delete()),
@@ -396,7 +408,10 @@ export function createWorkspaceApplicationMenus({
 					about: () => setDialog('about'),
 				},
 		});
-	return fileService.isDesktop ? withoutInstallApplicationEntry(menus) : menus;
+	return fileService.isDesktop ? withoutInstallApplicationEntry(menus) : exposeWebDesktopCommands(menus, {
+		productId, copy, locale, organization: snapshot.preferences?.effects?.menuOrganization,
+		onUnavailable: () => openSurface('web-desktop-feature'),
+	});
 }
 
 /**

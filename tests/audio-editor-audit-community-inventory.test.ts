@@ -11,9 +11,9 @@ test('the opted-in translator inventories every optional surface and retains its
 	const inventory = await loadCommunityTranslationInventory();
 	assert.deepEqual(inventory.english, EDITOR_COPY_AUDIT_INVENTORY);
 	assert.equal(await loadCommunityTranslationInventory(), inventory);
-	const keys = ['ui.freesoundAttribution.panel', 'ui.audiocom.searchLabel', 'ui.nyquistBundled.highPassFilterFrequency'];
+	const keys = ['ui.freesoundAttribution.panel', 'ui.audiocom.searchLabel', 'ui.nyquistBundled.highpass.control.FREQUENCY.label', 'ui.acxCompliance.title'];
 	// Every lazy owner must participate even when the key names evolve.
-	for (const owner of ['freesoundAttribution', 'audiocom', 'nyquistBundled', 'photoDebugSoak', 'photoLinked', 'photoBackend',
+	for (const owner of ['freesoundAttribution', 'audiocom', 'nyquistBundled', 'acxCompliance', 'photoDebugSoak', 'photoLinked', 'photoBackend',
 		'photoRawPreviewSource', 'photoBatchExportMenu', 'photoBatchExport', 'photoJpegExport', 'photoDevelopSoftProof',
 		'photoDevelopPreviewRenderer', 'photoRasterProfile', 'photoPngExport', 'photoExportPresets', 'imageExportGraphic',
 		'imageExportText', 'imageHdrMerge', 'photoFramescaperHandoff', 'photoFramescaperReceive',
@@ -24,7 +24,7 @@ test('the opted-in translator inventories every optional surface and retains its
 	}
 	const { published, catalog } = await loadCommunityTranslationBaseline('de', inventory);
 	const snapshot = createContributionSnapshot('de', inventory.english, published, catalog);
-	for (const key of keys.slice(0, 2)) {
+	for (const key of keys) {
 		const baseline = snapshot.entries[key];
 		assert.ok(baseline, key);
 		assert.equal(baseline.source, inventory.english[key]);

@@ -29,7 +29,7 @@ function defineEditorActionFunctionNames<const Names extends readonly (keyof Edi
 }
 
 export const EDITOR_ACTION_FUNCTION_NAMES = defineEditorActionFunctionNames([
-	'setSourceSelection', 'readSourceSelection', 'readSourceSelectionDuration', 'readSourceSelectionSampleRate', 'loadSourceAudio', 'loadSourceAudioWindow',
+	'setSourceSelection', 'readSourceSelection', 'readSourceSelectionDuration', 'readSourceSelectionSampleRate', 'loadSourceAudio', 'loadSourceAudioWindow', 'readSelectionTargetLocked',
 	'addEffect',
 	'addLabelTrack',
 	'addTrack',
@@ -169,7 +169,7 @@ export const EDITOR_ACTION_FUNCTION_NAMES = defineEditorActionFunctionNames([
 	'saveDawproject',
 	'saveEffectPreset',
 	'saveNow',
-	'saveScape',
+	'saveScape', 'saveProjectFile', 'prepareFileClose',
 	'scheduleTimedRecording',
 	'sessionTab',
 	'setAllTracksView',

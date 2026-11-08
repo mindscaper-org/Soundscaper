@@ -148,6 +148,12 @@ function lanePoints(lane: DataRecord, context: DawprojectExportContext): readonl
 			...(normalized.timebase === 'musical-beats' && typeof position !== 'number' ? { beat: rationalToNumber(position) } : {}),
 			interpolation: kind === 'hold' ? 'hold' as const : 'linear' as const };
 	});
+	const first = points[0];
+	// Native lanes hold their first value before their first anchor. State that
+	// interval explicitly rather than relying on the receiver's parameter default.
+	if (first && (first.beat ?? first.frame) > 0) {
+		points.unshift({ ...first, frame: 0, ...(first.beat === undefined ? {} : { beat: 0 }), interpolation: 'hold' });
+	}
 	if (approximated > 0) {
 		addDeliveryReportItem(context.draft, {
 			code: 'dawproject.automation-curve-converted',

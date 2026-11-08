@@ -21,6 +21,41 @@ interface MappedPoint { readonly position: bigint; readonly duration: bigint | n
 interface DeliveryRange { readonly startFrame: number; readonly endFrame: number }
 const MAX_UINT64 = 0xffff_ffff_ffff_ffffn;
 
+/** A recorder's physical-file identity cannot name newly rendered files. */
+export function ixmlForDeliveryFileIdentity(
+	input: IxmlMetadataInput | null | undefined, preserveOriginal: boolean,
+): Readonly<{ metadata: IxmlMetadata | null; omittedFileUid: boolean }> {
+	if (input == null) return { metadata: null, omittedFileUid: false };
+	if (preserveOriginal) return { metadata: normalizeIxmlMetadata(input), omittedFileUid: false };
+	const metadata = parseIxmlPayload(encodeIxmlPayload(input));
+	const identifiers = xmlTree(metadata.rawXml).children.filter(node => node.name === 'FILE_UID');
+	if (!identifiers.length) return { metadata, omittedFileUid: false };
+	const rawXml = applyReplacements(metadata.rawXml, identifiers.map(node => ({ start: node.start, end: node.end, text: '' })));
+	return { metadata: parseIxmlPayload(new TextEncoder().encode(rawXml)), omittedFileUid: identifiers.some(node => node.text.trim().length > 0) };
+}
+
+interface IxmlDeliveryChannelMapping {
+	readonly inputChannelCount: number;
+	readonly outputChannelCount: number;
+	readonly channels: readonly Readonly<{ inputs: readonly Readonly<{ channel: number; gain: number }>[] }>[];
+}
+
+/** Recorder inputs name the source channels, not a new fold or permutation. */
+export function ixmlForDeliveryChannels(
+	input: IxmlMetadataInput | null | undefined, mapping: IxmlDeliveryChannelMapping,
+): Readonly<{ metadata: IxmlMetadata | null; omittedTrackCount: number }> {
+	if (input == null) return { metadata: null, omittedTrackCount: 0 };
+	const sameRouting = mapping.inputChannelCount === mapping.outputChannelCount
+		&& mapping.channels.every((output, index) => output.inputs.every(value => value.gain === 0 || value.channel === index));
+	if (sameRouting) return { metadata: normalizeIxmlMetadata(input), omittedTrackCount: 0 };
+	const metadata = parseIxmlPayload(encodeIxmlPayload(input));
+	const lists = xmlTree(metadata.rawXml).children.filter(node => node.name === 'TRACK_LIST');
+	const omittedTrackCount = lists.reduce((count, list) => count + list.children.filter(node => node.name === 'TRACK').length, 0);
+	if (!omittedTrackCount) return { metadata, omittedTrackCount: 0 };
+	const rawXml = applyReplacements(metadata.rawXml, lists.map(list => ({ start: list.start, end: list.end, text: '' })));
+	return { metadata: parseIxmlPayload(new TextEncoder().encode(rawXml)), omittedTrackCount };
+}
+
 /** Relative recorder sync points become project positions; source XML remains a separate original. */
 export function ixmlAtImportOrigin(
 	input: IxmlMetadataInput,
@@ -31,7 +66,7 @@ export function ixmlAtImportOrigin(
 	const origin = safeFrame(timelineStartFrame);
 	return transform(input, sourceSampleRate, projectSampleRate, undefined, (position, duration) => [{
 		position: bounded(scale(position, sourceSampleRate, projectSampleRate) + origin),
-		duration: duration === null ? null : scale(duration, sourceSampleRate, projectSampleRate),
+		duration: duration === null ? null : scale(position + duration, sourceSampleRate, projectSampleRate) - scale(position, sourceSampleRate, projectSampleRate),
 	}]);
 }
 
@@ -53,12 +88,12 @@ export function ixmlForDeliveryRange(
 			const end = safeFrame(segment.sourceEndFrame);
 			if (end < start) throw new RangeError('An iXML delivery range cannot end before it starts.');
 			const eventEnd = duration === null ? position : position + duration;
-			if (position > end || eventEnd < start || (duration !== null && duration > 0n && eventEnd === start)) continue;
+			if (position >= end || eventEnd < start || (duration !== null && duration > 0n && eventEnd === start)) continue;
 			const clippedStart = position < start ? start : position;
 			const clippedEnd = eventEnd > end ? end : eventEnd;
 			const relative = scale(clippedStart - start, projectSampleRate, outputSampleRate);
 			mapped.push({ position: bounded(safeFrame(segment.outputStartFrame) + relative),
-				duration: duration === null ? null : scale(clippedEnd - clippedStart, projectSampleRate, outputSampleRate) });
+				duration: duration === null ? null : scale(clippedEnd - start, projectSampleRate, outputSampleRate) - relative });
 		}
 		return mapped;
 	});

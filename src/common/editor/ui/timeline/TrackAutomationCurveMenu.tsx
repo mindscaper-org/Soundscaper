@@ -103,6 +103,12 @@ export function TrackAutomationCurveMenu({
 	}, [menu]);
 	const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
 		if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+		if (event.key === 'Tab') {
+			event.stopPropagation();
+			if (returnFocus.isConnected) returnFocus.focus({ preventScroll: true });
+			onClose();
+			return;
+		}
 		if (event.key === 'Escape') {
 			event.preventDefault();
 			event.stopPropagation();
@@ -153,6 +159,7 @@ export function TrackAutomationCurveMenu({
 				key={kind}
 				type="button"
 				role="menuitemradio"
+				tabIndex={-1}
 				aria-checked={selectedTrackAutomationSegmentKind(lane, menu.segmentIndex) === kind}
 				onClick={(event) => activate(event, () => onKind(kind))}
 			>
@@ -161,12 +168,13 @@ export function TrackAutomationCurveMenu({
 			{lane && <button
 				type="button"
 				role="menuitem"
+				tabIndex={-1}
 				className="audio-editor-track-automation-menu__delete"
 				onClick={(event) => activate(event, onDelete)}
 			>
 				{copy.automationDeleteLane || 'Delete automation lane'}
 			</button>}
-			<button type="button" role="menuitem" onClick={(event) => activate(event, onClose)}>{copy.close || 'Close'}</button>
+			<button type="button" role="menuitem" tabIndex={-1} onClick={(event) => activate(event, onClose)}>{copy.close || 'Close'}</button>
 		</div>
 	</div>, host);
 }

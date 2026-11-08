@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useCallback, useEffect, useRef, type RefObject } from 'react';
+import { retainEnvelopeDragEvents } from '../utils/envelope-drag-events';
 
 export function useEnvelopeDragLifecycle<Point extends object, Drag>(
 	dragRef: RefObject<Drag | null>,
@@ -23,25 +24,10 @@ export function useEnvelopeDragLifecycle<Point extends object, Drag>(
 		dragRef.current = null;
 		originalPoints.current = null;
 	}, [dragRef, publishHidden, publishHovered, setDragging, setHidden, setTooltip]);
-	useEffect(() => {
-		const preventAutoscroll = (event: MouseEvent) => {
-			// Windows Chromium otherwise enters native autoscroll and consumes the next menu key.
-			if (dragRef.current && event.button === 1 && (event.buttons & 1) !== 0) event.preventDefault();
-		};
-		const cancelOnEscape = (event: KeyboardEvent) => {
-			if (event.key !== 'Escape' || !dragRef.current) return;
-			event.preventDefault();
-			event.stopPropagation();
-			const original = originalPoints.current;
-			finishDrag();
-			if (original) publishPoints(original);
-		};
-		document.addEventListener('mousedown', preventAutoscroll, true);
-		document.addEventListener('keydown', cancelOnEscape);
-		return () => {
-			document.removeEventListener('mousedown', preventAutoscroll, true);
-			document.removeEventListener('keydown', cancelOnEscape);
-		};
-	}, [dragRef, finishDrag, publishPoints]);
+	useEffect(() => retainEnvelopeDragEvents(dragRef, finishDrag, () => {
+		const original = originalPoints.current;
+		finishDrag();
+		if (original) publishPoints(original);
+	}), [dragRef, finishDrag, publishPoints]);
 	return { rememberBeforeDrag, finishDrag };
 }

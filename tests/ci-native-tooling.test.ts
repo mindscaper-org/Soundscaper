@@ -41,8 +41,12 @@ test('every ARM runner installs native Node before installing dependencies', () 
 				// Publishing an ARM archive does not execute its payload on the runner.
 				const runner = row.runner ?? job['runs-on'];
 				if (!String(runner).endsWith('-arm') && runner !== 'macos-15') continue;
-				assertNativeArmSetup(job, row,
-					Array.isArray(matrix.include) ? 'matrix' : 'matrix.target', `${name}/${id}`);
+				const reusable = job.uses === './.github/workflows/desktop-assistance-runtimes.yml';
+				const implementation = reusable
+					? record(record(record(load(readFileSync(resolve(root,
+						'.github/workflows/desktop-assistance-runtimes.yml'), 'utf8'))).jobs).prepare) : job;
+				assertNativeArmSetup(implementation, row, reusable ? 'fromJSON(inputs.target)'
+					: Array.isArray(matrix.include) ? 'matrix' : 'matrix.target', `${name}/${id}`);
 				checked += 1;
 			}
 		}
@@ -88,7 +92,7 @@ test('Windows media and OpenFX activate native compiler hosts without replacing 
 function assertNativeArmSetup(
 	job: Record<string, unknown>,
 	row: Record<string, unknown>,
-	matrixBinding: 'matrix' | 'matrix.target',
+	matrixBinding: 'matrix' | 'matrix.target' | 'fromJSON(inputs.target)',
 	label: string,
 ): void {
 	assert.ok(Array.isArray(job.steps), `${label} steps`);

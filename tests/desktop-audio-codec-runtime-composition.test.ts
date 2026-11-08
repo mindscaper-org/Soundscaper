@@ -80,6 +80,16 @@ test('capability status preserves bundled then operating-system provider priorit
 	assert.deepEqual(trace, ['preflight:bundled', 'preflight:operating-system']);
 });
 
+test('unavailable formats identify the exact FFmpeg components missing from the configured build', async () => {
+	const service = createDesktopAudioCodecRuntimeComposition({
+		target: 'linux-x64', scratchRoot: SCRATCH,
+		externalFfmpegPreferences: preferences(() => opusAdmission('/private/ffmpeg')),
+	});
+	const result = await service.capabilities(capabilityQuery());
+	const flac = result.capabilities.find(entry => entry.format === 'flac' && entry.operation === 'audio-encode');
+	assert.deepEqual(flac?.missingCapabilities, ['encoder:flac', 'muxer:flac']);
+});
+
 test('capability status preflights exact encode settings before falling through a tier', async () => {
 	const trace: string[] = [];
 	const bundled = runtimeFactory('bundled', 'supported', trace, Uint8Array.of(1));

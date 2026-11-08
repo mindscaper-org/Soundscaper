@@ -35,7 +35,7 @@ export function browserShardRunPolicy(report: unknown, options: BrowserShardOpti
 	const current = Number(match[1]), total = Number(match[2]);
 	requireValue(Number.isSafeInteger(current) && current <= total && total <= 64, 'Invalid browser shard bounds.');
 	requireValue(options.workers === 1 || options.workers === 2, 'Invalid ordinary worker count.');
-	const value = object(report), config = object(value.config), shard = object(config.shard);
+	const value = object(report), config = object(value.config), shard = object(value.suiteShard ?? config.shard);
 	requireValue(config.rootDir === resolve(options.testRoot) && config.workers === options.workers
 		&& shard.current === current && shard.total === total, 'Collection root, workers or shard differs.');
 	const projects = array(config.projects).map(object).filter(project => project.name === options.project);

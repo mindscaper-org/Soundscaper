@@ -79,7 +79,6 @@ export const AUDACITY_SHORTCUT_BINDINGS_BY_ACTION = freezeBindings([
 	['cursor-short-jump-right', '.'],
 	['cursor-long-jump-left', 'Shift+,'],
 	['cursor-long-jump-right', 'Shift+.'],
-	['mix-render', 'Ctrl+Shift+M'],
 	['local://mute-all', 'Ctrl+U'],
 	['local://unmute-all', 'Ctrl+Shift+U'],
 	['mute-tracks', 'Ctrl+Alt+U'],
@@ -92,7 +91,6 @@ export const AUDACITY_SHORTCUT_BINDINGS_BY_ACTION = freezeBindings([
 	['track-gain-dec', 'Alt+Shift+Down'],
 	['track-mute', 'Shift+U'],
 	['track-solo', 'Shift+S'],
-	['remove-tracks', 'Shift+C'],
 	['action://playback/play', 'P'],
 	['play-stop-select', 'X'],
 	['play-cut-preview', 'C'],
@@ -129,13 +127,19 @@ export const AUDACITY_SHORTCUT_BINDINGS_BY_ACTION = freezeBindings([
 
 /**
  * Defaults intentionally retained outside Audacity's XML inventory:
- * Soundscaper's fullscreen and Play Selection keys, plus the Labeled Audio
+ * The editor's generic Mix & Render, remove-selected tracks, fullscreen and
+ * Play Selection keys, plus the Labeled Audio
  * submenu, whose commands Audacity 4 has not carried over and which therefore
- * keep the Audacity 3 defaults from au3/src/menus/LabelMenus.cpp.
+ * keep the Audacity 3 defaults from au3/src/menus/LabelMenus.cpp. Timeline paging
+ * carries the Audacity 4.0.2 additions without changing the pinned 4.0.0 profile.
  */
 export const AUDIO_EDITOR_SUPPLEMENTAL_SHORTCUT_BINDINGS_BY_ACTION: Readonly<Record<string, readonly string[]>> = freezeBindings([
+	['mix-render', 'Ctrl+Shift+M'],
+	['remove-tracks', 'Shift+C'],
 	['fullscreen', 'F11'],
 	['action://playback/play-selection', 'W'],
+	['timeline-page-left', 'PageUp'],
+	['timeline-page-right', 'PageDown'],
 	['cut-labels', 'Alt+X'],
 	['delete-labels', 'Alt+K'],
 	['split-cut-labels', 'Alt+Shift+X'],

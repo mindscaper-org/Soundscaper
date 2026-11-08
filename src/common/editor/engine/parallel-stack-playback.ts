@@ -3,6 +3,7 @@
 import type { ProjectGraph } from './project-graph.ts';
 import type { EngineProject } from './types.ts';
 import { throwIfAborted } from './async-utils.ts';
+import { disposeGraph } from './dispose-project-graph.ts';
 
 export interface ParallelStackPlaybackRequest {
 	readonly context: AudioContext;
@@ -57,6 +58,12 @@ export function registerParallelStackPlayback(engine: object, factory: ParallelS
 	registrations.set(engine, { factory, enabled, pending: null });
 }
 
+/** A replacement prepares independently; aborting it must not retire the running registration. */
+export function inheritParallelStackPlayback(engine: object, candidate: object): void {
+	const registration = registrations.get(engine);
+	if (registration) registrations.set(candidate, { ...registration, pending: null });
+}
+
 export function parallelStackPlaybackEnabled(engine: object): boolean { return registrations.get(engine)?.enabled() ?? false; }
 
 export function parallelStackPreparationPending(engine: object): boolean {
@@ -80,7 +87,7 @@ export async function prepareParallelStackPlayback(
 	registration.pending = pending;
 	try {
 		const graph = await registration.factory(request, pending.signal);
-		if (pending.signal.aborted) graph?.abortController.abort();
+		if (pending.signal.aborted && graph) disposeGraph(graph, true);
 		throwIfAborted(pending.signal);
 		return graph;
 	} finally {

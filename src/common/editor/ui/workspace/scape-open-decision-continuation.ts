@@ -117,6 +117,7 @@ export function createScapeOpenDecisionContinuation<Inspection extends ScapeOpen
 
 function assertChoiceForKind(kind: ScapeOpenDecisionKind, choice: ScapeOpenDecisionChoice): void {
 	const valid = choice === 'cancel'
+		|| (kind === 'recovery' && choice === 'copy')
 		|| (kind === 'compatibility' && choice === 'open-read-only')
 		|| (kind === 'collision' && (choice === 'copy' || choice === 'replace'))
 		|| (kind === 'compatibility-collision' && choice === 'copy-read-only');

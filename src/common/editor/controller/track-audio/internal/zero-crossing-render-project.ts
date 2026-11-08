@@ -11,12 +11,14 @@ export function zeroCrossingRenderProject<Project extends SelectionViewProject>(
 	const width = resolveTerminalChannelWidths(project as unknown as TerminalWidthProject, masterChannels).tracks.get(trackId) ?? masterChannels;
 	const outputChannels = Math.max(width, masterChannels);
 	const wide = width > masterChannels ? { ...project, masterChannels: outputChannels } : project;
-	if (!hasProductionMixerProjectAuthority(wide)) return { project: wide, trackId };
+	if (!hasProductionMixerProjectAuthority(wide)) return { project: wide, trackId, respectMuteSolo: false };
 	const native = wide as unknown as IsolatedTrackRenderProjectV21;
 	const capture = createIsolatedTrackRenderProjectV21({ ...native, mixer: { ...native.mixer,
 		outputs: native.mixer.outputs.map(output => output.role === 'main' ? { ...output, channelCount: outputChannels } : output),
 	} }, { trackId, effects: [], preserveTrackProcessing: true });
 	return { project: capture as unknown as Project,
+		// The programme uses a pre-fader tap, independently of retained key gates.
+		respectMuteSolo: capture.mixer.edges.some(edge => edge.kind === 'sidechain'),
 		// A retained detector closure must reach the selected rack, without contributing output audio.
 		trackId: capture.tracks.length > 1 ? undefined : trackId };
 }

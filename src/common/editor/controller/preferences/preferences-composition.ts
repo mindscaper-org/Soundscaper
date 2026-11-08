@@ -20,6 +20,7 @@ export function createPreferencesComposition(d: {
 	readonly defaultWorkspace: string;
 	readonly defaultOptimizationMode?: AudioEditorOptimizationMode;
 	readonly defaultWaveformRenderer?: 'gpu';
+	readonly isDesktop?: boolean;
 	readonly state: { preferences: Preferences; preferencesReadOnly: boolean; timelineView: string };
 	readonly lifetime: EditorControllerLifetime;
 	readonly copy: Readonly<{ preferencesNewerSchema: string; shortcutActionRequired: string; shortcutConflict: string }>;
@@ -43,6 +44,9 @@ export function createPreferencesComposition(d: {
 			const loaded = loadAudioEditorPreferencesV1(saved);
 			if (loaded.readOnly) return loaded;
 			let preferences = loaded.preferences;
+			if (d.isDesktop && (saved as { saving?: { autoSaving?: unknown } }).saving?.autoSaving === undefined) {
+				preferences = updateAudioEditorPreferencesV1(preferences, { saving: { autoSaving: false } });
+			}
 			const savedMode = (saved as { readonly performance?: { readonly optimizeFor?: unknown } }).performance?.optimizeFor;
 			if (d.defaultOptimizationMode === 'speed' && savedMode !== 'memory' && savedMode !== 'speed') {
 				preferences = updateAudioEditorPreferencesV1(preferences, { performance: { optimizeFor: 'speed' } });
@@ -52,7 +56,7 @@ export function createPreferencesComposition(d: {
 			}
 			return { ...loaded, preferences };
 		},
-		createPreferences: (activeId) => createAudioEditorPreferencesV1({ workspace: { activeId }, performance: { optimizeFor: d.defaultOptimizationMode ?? 'memory' }, waveformDisplay: { renderer: d.defaultWaveformRenderer } }),
+		createPreferences: (activeId) => createAudioEditorPreferencesV1({ workspace: { activeId }, saving: { autoSaving: !d.isDesktop }, performance: { optimizeFor: d.defaultOptimizationMode ?? 'memory' }, waveformDisplay: { renderer: d.defaultWaveformRenderer } }),
 		applyWorkspace: applyAudioEditorWorkspace, updatePreferences: (preferences, patch) => updateAudioEditorPreferencesV1(preferences, patch ?? {}),
 		normalizeShortcut: normalizeAudioEditorShortcut, findShortcutConflicts: findAudioEditorShortcutConflicts,
 		createWorkspace: createCustomAudioEditorWorkspace, updateWorkspace: (preferences, id, changes) => updateCustomAudioEditorWorkspace(preferences, id, changes ?? {}), deleteWorkspace: (preferences, id) => deleteCustomAudioEditorWorkspace(preferences, id, d.defaultWorkspace),

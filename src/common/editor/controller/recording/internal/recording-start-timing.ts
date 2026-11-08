@@ -40,6 +40,30 @@ export function audibleRecordingStartTime(
 	return sourceStartTime + graphLatencyFrames / contextSampleRate;
 }
 
+/** Resume uses the same audible graph boundary as initial recording, on the input clock. */
+export function recordingResumeTiming(
+	context: Readonly<{ currentTime: number; sampleRate: number }>, candidate: number, latencyFrames: number,
+) {
+	if (!Number.isSafeInteger(latencyFrames) || latencyFrames < 0) {
+		throw new RangeError('Invalid playback graph latency for recording.');
+	}
+	const frameAt = (sourceTime: number) => {
+		// Round the source clock before adding integer PDC, so converting the
+		// confirmed capture frame back cannot precede the source candidate.
+		const frame = secondsToSampleFrame(sourceTime, context.sampleRate, 'enclosingEnd') + latencyFrames;
+		if (!Number.isSafeInteger(frame)) throw new RangeError('The recording start is outside the safe integer range.');
+		return frame;
+	};
+	const requestedFrame = frameAt(candidate);
+	const sourceTime = (confirmedFrame: number) => (confirmedFrame - latencyFrames) / context.sampleRate;
+	return {
+		requestedFrame,
+		minimumFutureFrame: (attempt: number) => frameAt(context.currentTime + CLOCKED_RECORDING_START_LEAD_SECONDS * 2 ** attempt),
+		sourceTime,
+		isFuture: (confirmedFrame: number) => sourceTime(confirmedFrame) > context.currentTime + 128 / context.sampleRate,
+	};
+}
+
 /** Resolve the timing shared by legacy and routed recording starts. */
 export function planRecordingStartTiming({
 	project,

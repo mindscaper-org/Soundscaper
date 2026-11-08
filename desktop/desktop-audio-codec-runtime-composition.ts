@@ -3,6 +3,7 @@
 /** One-target main-process composition for bundled, OS, then external audio codecs. */
 
 import { createHash } from 'node:crypto';
+import { capabilityRequest, unavailableCapability } from './desktop-audio-codec-capability-probe.ts';
 import { snapshotDesktopAudioCodecAdmission as snapshotAdmission } from './desktop-audio-codec-admission-snapshot.ts';
 import { DesktopCodecOperationQueue } from './desktop-codec-operation-queue.ts';
 import { posix, win32 } from 'node:path';
@@ -235,26 +236,7 @@ async function inspectCapability(
 		if (preflight.disposition === 'rejected') break;
 	}
 	return unavailableCapability(tuple, admission === null
-		? 'configure-external-ffmpeg' : 'unsupported-by-configured-ffmpeg');
-}
-
-function capabilityRequest(tuple: DesktopAudioCodecCapabilityTuple): DesktopAudioCodecRequest {
-	const input = tuple.operation === 'audio-encode'
-		? new Uint8Array(tuple.channelCount * Float32Array.BYTES_PER_ELEMENT)
-		: Uint8Array.of(0);
-	return normalizeDesktopAudioCodecRequest({
-		...tuple, input,
-		...(tuple.operation === 'audio-decode' ? { sampleRate: null, channelCount: null } : {}),
-		settings: tuple.settings,
-		maximumOutputBytes: 1_024,
-	});
-}
-
-function unavailableCapability(
-	tuple: DesktopAudioCodecCapabilityTuple,
-	reason: 'configure-external-ffmpeg' | 'unsupported-by-configured-ffmpeg' | 'unsupported-settings',
-): DesktopAudioCodecCapabilityEntry {
-	return Object.freeze({ ...tuple, available: false, provider: null, reason });
+		? 'configure-external-ffmpeg' : 'unsupported-by-configured-ffmpeg', request, admission?.capabilities);
 }
 
 function externalRuntime(options: Readonly<{

@@ -9,6 +9,7 @@ import { partitionNodeTestBootstrapBatches } from './lib/node-test-bootstrap.mjs
 
 import {
 	describeNodeTestSelection,
+	NODE_TEST_SHARD_IDS,
 	parseNodeTestSelection,
 	partitionNodeTestExecutionBatches,
 	selectNodeTestFiles,
@@ -32,10 +33,22 @@ const argv = process.argv.slice(2);
 const coverageArgument = argv.find((argument) => argument.startsWith('--coverage-directory='));
 const desktopFixtureArgument = argv.find(argument => argument.startsWith('--desktop-runtime-fixture='));
 const requireLinuxNative = argv.includes('--require-linux-native');
-const selection = parseNodeTestSelection(argv.filter((argument) => (
+let selectionArguments = argv.filter((argument) => (
 	argument !== coverageArgument && argument !== desktopFixtureArgument && argument !== '--require-linux-native'
-)));
+));
+let moduleSelection = null;
+if (selectionArguments.some(argument => /^--(?:module(?:-shard)?|suite|list|json)(?:=|$)/u.test(argument))) {
+	const { parseModuleNodeSelection, selectModuleNodeFiles } = await import('./lib/module-test-selection.ts');
+	const options = parseModuleNodeSelection(selectionArguments, NODE_TEST_SHARD_IDS);
+	moduleSelection = { options, ...selectModuleNodeFiles(root, options, NODE_TEST_SHARD_IDS) };
+	selectionArguments = [...options.remaining];
+}
+const selection = parseNodeTestSelection(selectionArguments);
 let testFiles = selectNodeTestFiles(root, selection);
+if (moduleSelection) {
+	const selected = new Set(moduleSelection.files);
+	testFiles = testFiles.filter(file => selected.has(file));
+}
 let modulePlan = null;
 if (process.env.SCAPE_MODULE_PLAN) {
 	const { readModuleExecutionPlan } = await import('./lib/check-module-repository.ts');
@@ -44,10 +57,19 @@ if (process.env.SCAPE_MODULE_PLAN) {
 	testFiles = testFiles.filter(file => selected.has(file.slice(root.length + 1).replaceAll('\\', '/')));
 }
 
+if (moduleSelection?.options.list) {
+	const selected = new Set(testFiles.map(file => file.slice(root.length + 1).replaceAll('\\', '/')));
+	const suites = moduleSelection.suites.map(suite => ({ ...suite, files: suite.files.filter(file => selected.has(file)) }))
+		.filter(suite => suite.files.length);
+	console.log(moduleSelection.options.json ? JSON.stringify({ suites, testFiles }, null, 2)
+		: suites.map(suite => `${suite.id}: ${suite.files.length} Node files, ${suite.fixtures.length} fixtures`).join('\n'));
+	process.exit(0);
+}
+if (moduleSelection) console.log(`Module suites: ${moduleSelection.suites.map(suite => suite.id).join(', ')}.`);
 if (requireLinuxNative) assertRequiredLinuxNativeTestHost(process.platform, process.arch);
 
 if (testFiles.length === 0) {
-	if (modulePlan?.mode === 'focused') {
+	if (modulePlan?.mode === 'focused' || moduleSelection?.options.shard) {
 		if (coverageArgument !== undefined) {
 			const coverageDirectory = resolve(root, coverageArgument.slice('--coverage-directory='.length));
 			rmSync(coverageDirectory, { recursive: true, force: true });

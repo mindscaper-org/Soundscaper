@@ -158,6 +158,76 @@ test.describe('audio.com panel', () => {
 		await expect(uploads.locator('[data-upload-status="draft"]')).toHaveCount(1);
 	});
 
+	test('automatically recovers a temporarily unavailable search without losing the account', async ({ page }) => {
+		const failures = [];
+		page.on('pageerror', error => failures.push(error.message));
+		const requests = await mockAudiocom(page, { connected: true });
+		const editor = await bootEditor(page, '/embed/en/');
+		await chooseNestedCommandAction(page, editor, 'Window', ['audio.com']);
+		const panel = editor.locator('[data-workspace-panel="audiocom"]');
+		await expect(panel.getByText('Connected to audio.com', { exact: true })).toBeVisible();
+		requests.failNextSearch = true;
+		await panel.getByRole('searchbox', { name: 'Search audio.com', exact: true }).fill('rain');
+		await panel.getByRole('button', { name: 'Search', exact: true }).click();
+		await expect(panel.getByRole('link', { name: AUDIO.title, exact: true })).toBeVisible();
+		expect(requests.searches).toHaveLength(2);
+		await expect(panel.getByText('Connected to audio.com', { exact: true })).toBeVisible();
+		expect(failures).toEqual([]);
+	});
+
+	test('an upload requested while offline continues once after reconnection', async ({ page, context }) => {
+		const failures = [];
+		page.on('pageerror', error => failures.push(error.message));
+		const requests = await mockAudiocom(page, { connected: true });
+		const editor = await bootEditor(page, '/embed/en/');
+		await chooseNestedCommandAction(page, editor, 'Window', ['audio.com']);
+		const panel = editor.locator('[data-workspace-panel="audiocom"]');
+		const uploads = panel.locator('[data-audiocom-uploads]');
+		await expect(panel.getByText('Connected to audio.com', { exact: true })).toBeVisible();
+		await uploads.locator('summary').click();
+		await uploads.locator('input[type="file"]').setInputFiles({
+			name: 'offline.wav', mimeType: 'audio/wav', buffer: Buffer.from('RIFF-offline'),
+		});
+		await uploads.getByRole('button', { name: /^Publish\s*: offline\.wav$/u }).click();
+		const dialog = page.locator('[data-audiocom-publish-dialog]');
+		await dialog.locator('[name="rightsConfirmed"]').check();
+		await context.setOffline(true);
+		try {
+			await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
+			await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+			await expect(uploads.locator('[data-upload-status="uploading"]')).toBeVisible();
+			expect(requests.uploads).toHaveLength(0);
+		} finally { await context.setOffline(false); }
+		await expect(uploads.locator('[data-upload-status="processing"]')).toBeVisible();
+		expect(requests.uploads).toHaveLength(1);
+		expect(failures).toEqual([]);
+	});
+
+	test('a lost upload acknowledgment keeps a retryable item without replaying publication', async ({ page }) => {
+		const failures = [];
+		page.on('pageerror', error => failures.push(error.message));
+		const requests = await mockAudiocom(page, { connected: true });
+		const editor = await bootEditor(page, '/embed/en/');
+		await chooseNestedCommandAction(page, editor, 'Window', ['audio.com']);
+		const panel = editor.locator('[data-workspace-panel="audiocom"]');
+		const uploads = panel.locator('[data-audiocom-uploads]');
+		await expect(panel.getByText('Connected to audio.com', { exact: true })).toBeVisible();
+		await uploads.locator('summary').click();
+		await uploads.locator('input[type="file"]').setInputFiles({
+			name: 'interrupted.wav', mimeType: 'audio/wav', buffer: Buffer.from('RIFF-interrupted'),
+		});
+		await uploads.getByRole('button', { name: /^Publish\s*: interrupted\.wav$/u }).click();
+		const dialog = page.locator('[data-audiocom-publish-dialog]');
+		await dialog.locator('[name="rightsConfirmed"]').check();
+		requests.dropNextUpload = true;
+		await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+		const item = uploads.locator('li').filter({ hasText: 'interrupted.wav' });
+		await expect(item).toHaveAttribute('data-upload-status', 'error');
+		expect(requests.uploads).toHaveLength(1);
+		await expect(item).toContainText(/may have received/iu);
+		expect(failures).toEqual([]);
+	});
+
 	test('reports rejected search sessions and rejects project files before uploading', async ({ page }) => {
 		const requests = await mockAudiocom(page, { connected: true });
 		const editor = await bootEditor(page, '/embed/en/');
@@ -220,7 +290,8 @@ async function mockAudiocom(page, options = {}) {
 		};
 	});
 	const preview = createWavFixture({ name: 'preview.wav', frequency: 440, duration: 0.25, channelCount: 1 });
-	const requests = { sessions: 0, starts: [], searches: [], uploads: [], projectUploads: [], preparations: [], disconnects: 0, expireSearch: false, failNextUpload: false };
+	const requests = { sessions: 0, starts: [], searches: [], uploads: [], projectUploads: [], preparations: [], disconnects: 0,
+		expireSearch: false, failNextUpload: false, failNextSearch: false, dropNextUpload: false };
 	let project;
 	const projectId = '12345678-1234-4234-8234-123456789abc';
 	await page.context().route('https://api.audio.com/auth/authorize**', route => route.fulfill({
@@ -270,11 +341,16 @@ async function mockAudiocom(page, options = {}) {
 			const query = url.searchParams.get('q');
 			const pageNumber = Number(url.searchParams.get('page') || '1');
 			requests.searches.push({ query, page: String(pageNumber) });
+			if (requests.failNextSearch) {
+				requests.failNextSearch = false;
+				return route.fulfill({ status: 503, json: { error: { message: 'Search temporarily unavailable.' } } });
+			}
 			return data({ results: [AUDIO], page: pageNumber, hasNext: pageNumber === 1 });
 		}
 		if (url.pathname === '/api/audiocom/uploads') {
 			requests.uploads.push({ filename: request.headers()['x-audiocom-filename'], contentType: request.headers()['content-type'],
 				byteLength: request.headers()['x-audiocom-content-length'], metadata: Object.fromEntries(url.searchParams) });
+			if (requests.dropNextUpload) { requests.dropNextUpload = false; return route.abort('connectionreset'); }
 			if (requests.failNextUpload) {
 				requests.failNextUpload = false;
 				return route.fulfill({ status: 503, json: { error: { message: 'audio.com is temporarily unavailable.' } } });

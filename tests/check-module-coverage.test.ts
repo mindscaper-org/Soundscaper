@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { analyzeModuleCoverage, runModuleCoverageGate } from '../scripts/lib/check-module-coverage.ts';
+import { analyzeModuleCoverage, productionModuleCoverageTargets, runModuleCoverageGate } from '../scripts/lib/check-module-coverage.ts';
 import { parseModulePolicy } from '../scripts/lib/module-policy.ts';
 
 const root = '/repository';
@@ -18,6 +18,13 @@ const policy = parseModulePolicy({ schemaVersion: 1, modules: [
 	{ id: 'imaging', sourcePrefixes: ['src/common/imaging/'], coverageScope: 'editor' },
 	{ id: 'editor', sourcePrefixes: ['src/common/editor/'] },
 ] });
+
+test('test-only module suites retain structural checks without inventing shipped-code cohorts', () => {
+	const mixed = parseModulePolicy({ schemaVersion: 1, modules: [...policy.modules,
+		{ id: 'tooling', sourcePrefixes: ['scripts/'] }, { id: 'handbook', sourcePrefixes: ['handbook/'] }] });
+	assert.deepEqual(productionModuleCoverageTargets(mixed, ['imaging', 'tooling', 'handbook']), ['imaging']);
+	assert.throws(() => productionModuleCoverageTargets(mixed, ['missing']), /Unknown module/u);
+});
 
 function coverage(covered: number, total = 100): Record<string, unknown> {
 	return Object.fromEntries(['lines', 'branches', 'functions'].map(metric => [metric, { covered, total }]));

@@ -224,7 +224,7 @@ export function createClipSourcePreviewService(dependencies: ClipSourcePreviewDe
 	function configureRange(): void {
 		const range = snapshot.loopRange ?? snapshot.selection;
 		engine?.setLoop(snapshot.loop, range?.startFrame ?? 0, range?.endFrame ?? snapshot.durationFrames);
-		engine?.setPlayRange(snapshot.loop ? null : snapshot.selection);
+		engine?.setPlayRange(snapshot.loop ? null : snapshot.selection ?? { startFrame: 0, endFrame: snapshot.durationFrames });
 	}
 
 	function trim(clipId: string, changes: ClipSourceTrim): unknown {

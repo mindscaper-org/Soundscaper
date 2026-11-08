@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type RefObje
 import { ClipFadeOverlays } from '../timeline/ClipFadeOverlays.tsx';
 import type { ClipFadeChanges } from '../timeline/ClipFadeOverlays.tsx';
 import type { FadeClip } from '../timeline/clip-fade-geometry.ts';
+import { clipFadeEditIntent, planSelectedClipFadeEdits } from '../timeline/selected-clip-fades.ts';
 
 const ClipFadesDialog = lazy(() => import('../timeline/ClipFadesDialog.tsx'));
 const NO_PREVIEW = (_changes: ClipFadeChanges | null) => undefined;
@@ -37,7 +38,10 @@ export default function ClipSourceFades({ rootRef, clip, startFrame, endFrame, w
 			style={{ left: (first - startFrame) / (endFrame - startFrame) * width, width: Math.max(0, last - first) / (endFrame - startFrame) * width }} />
 		{mounted && <ClipFadeOverlays rootRef={rootRef} clips={clips} selectedIds={selectedIds} startFrame={startFrame} endFrame={endFrame}
 			pixelsPerSecond={width * sampleRate / (endFrame - startFrame)} sampleRate={sampleRate} blocked={blocked} showFadeShapeHandles
-			crossfadedFadeEdges={NO_CROSSFADES} handleTabIndex={0} onChange={onChange} onEditFades={() => setEditingClip(clip)} onTabOut={() => rootRef.current?.focus()}
+			crossfadedFadeEdges={NO_CROSSFADES} handleTabIndex={0} onChange={(id, changes, edge) => {
+				const [edit] = planSelectedClipFadeEdits({ clips, editedClipId: id, selectedIds, sampleRate, edit: clipFadeEditIntent(changes, edge) });
+				if (edit) onChange(id, edit.changes);
+			}} onEditFades={() => setEditingClip(clip)} onTabOut={() => rootRef.current?.focus()}
 			copy={{ ...copy, fadeIn: copy.fadeIn, fadeOut: copy.fadeOut, fadeInShape: copy.fadeInShape, fadeOutShape: copy.fadeOutShape, legacyLinearFadeShape: copy.legacyLinearFadeShape }} />}
 		{editingClip && <div onPointerDown={event => event.stopPropagation()} onContextMenu={event => event.stopPropagation()}><Suspense fallback={null}><ClipFadesDialog portalHost={rootRef.current?.closest('[data-audio-editor]')} clip={editingClip} sampleRate={sampleRate} copy={copy} blocked={blocked}
 			onPreview={preview} onClose={close} onApply={changes => onChange(editingClip.id, changes)} /></Suspense></div>}

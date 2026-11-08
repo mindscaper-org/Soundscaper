@@ -8,7 +8,7 @@ import {
 	MAXIMUM_OFFLINE_RENDER_OUTPUT_USEFUL_BINARY_BYTES,
 	planOfflineRenderOutputAdmission,
 } from './offline-render-admission.ts';
-import { resolveRenderFrameRange, resolveRenderTailSeconds } from './rendering-range.ts';
+import { resolveRenderFrameRange, resolveRenderTailSeconds, resolveRenderTimelineRanges } from './rendering-range.ts';
 import { scaleSampleFrame } from '../timeline-time.ts';
 import {
 	assertNativePluginOfflineRenderAdmission,
@@ -39,13 +39,14 @@ export async function renderNativePluginRealtimePcmIfRequired(
 	if (!project) throw new Error('Load an audio editor project before rendering.');
 	admitNativePluginRealtimeRender(project, options);
 	const { fromFrame, toFrame } = resolveRenderFrameRange(options.startFrame ?? 0, options.endFrame ?? host.durationFrames);
+	const timeline = resolveRenderTimelineRanges(fromFrame, toFrame, options.joinedRanges);
 	const tailFrames = Math.round(resolveRenderTailSeconds(project, options.includeTail ?? false, {
 		trackId: options.trackId, includeMaster: options.includeMaster, respectMuteSolo: options.respectMuteSolo,
 	}) * host.sampleRate);
 	const outputSampleRate = positiveInteger(options.sampleRate, host.sampleRate);
 	const outputFrames = options.outputFrames == null
 		? Math.max(1, scaleSampleFrame(
-			toFrame - fromFrame + tailFrames, host.sampleRate, outputSampleRate, 'point',
+			timeline.frameCount + tailFrames, host.sampleRate, outputSampleRate, 'point',
 		))
 		: positiveInteger(options.outputFrames, 1);
 	// Freeze copies the returned PCM once before staging. Admit both complete

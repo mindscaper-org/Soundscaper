@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTheme } from '../ThemeProvider';
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import './SearchField.css';
 
 export interface SearchFieldProps {
@@ -58,6 +59,7 @@ export function SearchField({
   className = '',
 }: SearchFieldProps) {
   const { theme } = useTheme();
+  const { copy } = useComponentCopy();
   const [isFocused, setIsFocused] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -123,6 +125,7 @@ export function SearchField({
         className="search-field__input"
         value={value}
         placeholder={placeholder}
+        aria-label={placeholder}
         disabled={disabled}
         onChange={handleChange}
         onFocus={() => setIsFocused(true)}
@@ -133,7 +136,7 @@ export function SearchField({
         <button
           className="search-field__clear"
           onClick={handleClear}
-          tabIndex={-1}
+          aria-label={`${copy.reset}: ${placeholder}`}
           type="button"
         >
           {/* Times/X icon */}

@@ -4,6 +4,11 @@ import { realpath, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { renameIntoPlaceExclusively } from './exclusive-rename.mjs';
+import {
+	FFMPEG_NOTICE_SECTION,
+	FFMPEG_RUNTIME_EVIDENCE_PATHS as EVIDENCE_PATHS,
+	readFfmpegRuntimeEvidence,
+} from './ffmpeg-runtime-evidence.mjs';
 import { createFfmpegRuntimeEvidenceRepinner } from './ffmpeg-runtime-manifest-repin.mjs';
 import {
 	assert,
@@ -26,15 +31,6 @@ export const FFMPEG_RUNTIME_MANIFEST_PATH = 'config/ffmpeg-runtime-manifest.json
 
 const VERIFIED_RELEASES = new WeakSet();
 const SHA256_PATTERN = /^[a-f\d]{64}$/u;
-const EVIDENCE_PATHS = Object.freeze({
-	lineEndings: '.gitattributes',
-	correspondingSource: 'desktop/ffmpeg-corresponding-source.json',
-	notices: 'THIRD_PARTY_LICENSES.md',
-	licensingPolicy: 'docs/policies/licensing.md',
-	licensingMatrix: 'config/production-licensing-matrix.json',
-	securityMatrix: 'config/production-security-matrix.json',
-	threatModel: 'docs/policies/security.md',
-});
 const PUBLICATION_CHECK_IDS = Object.freeze([
 	'dependency-notice-version-audit',
 	'ffmpeg-enabled-codec-patent-review',
@@ -57,7 +53,7 @@ const PURPOSES = Object.freeze({
 });
 export const repinFfmpegRuntimeEvidence = createFfmpegRuntimeEvidenceRepinner({
 	assert, canonicalJson, evidencePaths: EVIDENCE_PATHS, manifestPath: FFMPEG_RUNTIME_MANIFEST_PATH,
-	parseJson, readRegularFile, sha256, validateManifestShape,
+	parseJson, readRegularFile, readEvidence: readFfmpegRuntimeEvidence, sha256, validateManifestShape,
 });
 
 export async function verifyFfmpegRuntimeManifest({
@@ -98,21 +94,26 @@ export async function verifyFfmpegRuntimeManifest({
 	const evidence = Object.fromEntries(await Promise.all(Object.entries(EVIDENCE_PATHS).map(async ([id, expectedPath]) => {
 		const descriptor = manifest.evidence[id];
 		assert(descriptor.path === expectedPath, `evidence.${id}.path must be ${expectedPath}`);
-		const bytes = await readRegularFile(root, descriptor.path, `runtime evidence ${id}`);
+		const bytes = await readFfmpegRuntimeEvidence(root, descriptor, `runtime evidence ${id}`);
 		verifyDescriptorBytes(bytes, descriptor, `runtime evidence ${id}`);
 		return [id, Object.freeze({ ...descriptor, bytes })];
 	})));
 	const corsBytes = await readRegularFile(root, manifest.publication.cors.path, 'runtime CORS policy');
 	verifyDescriptorBytes(corsBytes, manifest.publication.cors, 'runtime CORS policy');
 	validateCorsPolicy(parseJson(corsBytes, 'runtime CORS policy'), manifest.publication.corsOrigins);
-	const licensingMatrix = parseJson(evidence.licensingMatrix.bytes, 'production licensing matrix');
+	const [licensingBytes, securityBytes, attributes] = await Promise.all([
+		readRegularFile(root, 'config/production-licensing-matrix.json', 'production licensing matrix'),
+		readRegularFile(root, manifest.security.matrixPath, 'production security matrix'),
+		readRegularFile(root, '.gitattributes', 'line-ending policy'),
+	]);
+	const licensingMatrix = parseJson(licensingBytes, 'production licensing matrix');
 	validateLinkedEvidence(
 		manifest,
 		evidence,
 		licensingMatrix,
-		parseJson(evidence.securityMatrix.bytes, 'production security matrix'),
+		parseJson(securityBytes, 'production security matrix'),
 	);
-	validateLineEndingPolicy(String(evidence.lineEndings.bytes), manifest);
+	validateLineEndingPolicy(String(attributes), manifest);
 	validateDistributionChecks(manifest.distributionChecks, licensingMatrix);
 	deepFreeze(manifest);
 
@@ -244,7 +245,11 @@ function validateManifestShape(manifest) {
 
 	assertPlainObject(manifest.evidence, 'evidence');
 	assertExactKeys(manifest.evidence, Object.keys(EVIDENCE_PATHS), 'evidence');
-	for (const [id, descriptor] of Object.entries(manifest.evidence)) validateFileDescriptor(descriptor, `evidence.${id}`);
+	validateFileDescriptor(manifest.evidence.correspondingSource, 'evidence.correspondingSource');
+	assertPlainObject(manifest.evidence.notices, 'evidence.notices');
+	const { section, ...noticeDescriptor } = manifest.evidence.notices;
+	assert(section === FFMPEG_NOTICE_SECTION, `evidence.notices.section must be ${FFMPEG_NOTICE_SECTION}`);
+	validateFileDescriptor(noticeDescriptor, 'evidence.notices');
 
 	assertPlainObject(manifest.security, 'security');
 	assertExactKeys(manifest.security, ['matrixPath', 'riskId', 'controlId'], 'security');
@@ -334,11 +339,10 @@ function validateLinkedEvidence(manifest, evidence, licensingMatrix, securityMat
 
 function validateLineEndingPolicy(attributes, manifest) {
 	const requiredPaths = [
-		'.gitattributes',
 		FFMPEG_RUNTIME_MANIFEST_PATH,
 		manifest.publication.cors.path,
 		manifest.publication.policy.path,
-		...Object.values(EVIDENCE_PATHS).filter((path) => path !== '.gitattributes'),
+		...Object.values(EVIDENCE_PATHS),
 	];
 	const lines = new Set(attributes.split(/\r?\n/u).map((line) => line.trim()));
 	for (const path of requiredPaths) {

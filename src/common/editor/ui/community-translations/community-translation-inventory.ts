@@ -33,8 +33,9 @@ export function loadCommunityTranslationInventory(): Promise<CommunityTranslatio
 		import('../../../i18n/image-hdr-merge-copy.ts'),
 		import('../../../i18n/lightscaper-photo-framescaper-handoff-copy.ts'),
 		import('../../../i18n/lightscaper-photo-framescaper-handoff-menu-copy.ts'),
+		import('../../../i18n/editor-acx-compliance-copy.ts'),
 	]).then(([freesound, audiocom, nyquist, debug, linked, backend, raw, batchMenu, batch, jpeg,
-		softProof, renderer, profile, png, presets, graphic, text, hdr, handoff, handoffMenu]) => {
+		softProof, renderer, profile, png, presets, graphic, text, hdr, handoff, handoffMenu, acx]) => {
 		const owners = [
 			{ owner: 'freesoundAttribution', en: freesound.FREESOUND_ATTRIBUTION_ENGLISH_COPY },
 			{ owner: 'audiocom', en: audiocom.AUDIOCOM_COPY_BY_LOCALE.en },
@@ -59,6 +60,7 @@ export function loadCommunityTranslationInventory(): Promise<CommunityTranslatio
 			{ owner: 'photoFramescaperCollectionHandoff', en: handoff.photoFramescaperCollectionHandoffCopy('en') },
 			{ owner: 'photoFramescaperHandoffMenu', en: { download: handoffMenu.photoFramescaperHandoffMenuLabel('en'),
 				receive: handoffMenu.photoFramescaperReceiveMenuLabel('en'), collection: handoffMenu.photoFramescaperCollectionHandoffMenuLabel('en') } },
+			{ owner: 'acxCompliance', en: acx.ACX_COMPLIANCE_COPY },
 		];
 		const english: Record<string, string> = { ...EDITOR_ENGLISH_COPY };
 		const metadata: Record<string, EditorCopyMetadata> = { ...getEditorCopyMetadata() };

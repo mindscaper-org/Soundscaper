@@ -2,7 +2,7 @@
 
 import { CLIP_CONTENT_OFFSET } from '@soundscaper/design-system/constants';
 
-import { timelineDomScrollForElement } from '../timeline/timeline-scroll-space.ts';
+import { readTimelineContentScrollX, timelineDomScrollForElement } from '../timeline/timeline-scroll-space.ts';
 
 const TIMELINE_ZOOM_WHEEL_THRESHOLD = 48;
 const TIMELINE_ZOOM_WHEEL_IDLE_MILLISECONDS = 250;
@@ -46,6 +46,12 @@ export function timelineFrameStartScroll(scroll, {
 }) {
 	return timelineDomScrollForElement(scroll, CLIP_CONTENT_OFFSET
 		+ positionFrame / sampleRate * pixelsPerSecond);
+}
+
+/** Advance one unobscured timeline viewport, including capped deep-zoom scroll space. */
+export function pagedTimelineScroll(scroll, direction) {
+	const { viewportWidth } = resolveTimelineViewportGeometry(scroll);
+	return timelineDomScrollForElement(scroll, readTimelineContentScrollX(scroll) + Math.sign(direction) * viewportWidth);
 }
 
 /**

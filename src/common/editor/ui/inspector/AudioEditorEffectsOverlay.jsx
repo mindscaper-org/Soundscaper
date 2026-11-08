@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'; import { publishedCopyFor } from '../../controller/shared/presentation-localization.ts'; import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { EffectsPanel } from '@soundscaper/design-system/EffectsPanel';
-import { audioSelectionEffectDefaults, createEffect } from '../../effects.js';
+import { audioSelectionEffectDefaults } from '../../effects.js';
+import { unavailableRackEffectTypes } from '../../rack-effect-channel-width.ts';
 import { audioEffectControlTracks } from '../../audio-effect-control-tracks.ts';
 import { serializeAudacityEffectMacro } from '../../effect-macros.js';
 import { AUDIO_EDITOR_SAMPLE_RATE, findTrack } from '../../project.js';
@@ -18,6 +19,7 @@ import MasterGainControl from './MasterGainControl.tsx';
 import EffectStackMenu from './EffectStackMenu.tsx';
 import {
 	effectHasEditableSettings,
+	defaultRackEffectReplacement,
 	effectPresetChoices,
 	resolveSupportedEffectType,
 	samePresetParams,
@@ -159,14 +161,7 @@ export function AudioEditorEffectsOverlay({
 			setMessage({ key: 'effectEngineUnsupported' });
 			return;
 		}
-		const fresh = createEffect(type);
-		const changes = {
-			type,
-			params: fresh.params,
-			context: fresh.context ?? null,
-			state: fresh.state ?? null,
-		};
-		if (type === 'audacity-noise-reduction') changes.enabled = false;
+		const changes = defaultRackEffectReplacement(type);
 		if (type === 'audacity-auto-duck') {
 			const controlTrack = audioEffectControlTracks(project?.tracks || [], scope === 'track' ? targetId : null)[0];
 			if (!controlTrack) {
@@ -518,6 +513,7 @@ export function AudioEditorEffectsOverlay({
 					copy={copy}
 					disabled={blocked}
 					effectTypes={pickerEffect?.type === 'native-plugin' ? [] : null}
+					unavailableEffectTypes={unavailableRackEffectTypes(project, picker.scope, targetId)}
 					flyout={picker.flyout}
 					anchor={picker.anchor}
 					onClose={() => setPicker(null)}

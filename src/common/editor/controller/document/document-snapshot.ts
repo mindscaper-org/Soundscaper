@@ -69,6 +69,8 @@ export function createSelectionEffectTypeSnapshot(
 }
 
 interface SnapshotPreferences extends Readonly<Record<string, unknown>> {
+	readonly saving?: import('../../saving-preferences.ts').SavingPreferences;
+	readonly temporaryData?: import('../../saving-preferences.ts').TemporaryDataPreferences;
 	readonly playback?: Readonly<{ playAtSpeedMode?: string }>;
 	readonly recording: Readonly<{ retainInputs: boolean }>;
 }
@@ -116,6 +118,7 @@ export interface EditorDocumentSnapshotState extends Readonly<SelectedLabelState
 	readonly projectAdministrationPending?: boolean;
 	readonly importing: boolean;
 	readonly recordingStarting: boolean;
+	readonly recordingAdmissionPending?: boolean;
 	readonly timedRecordingPreparing: boolean;
 	readonly timedRecording: TimedRecordingSnapshot | null;
 	readonly activeTimedRecording: TimedRecordingSnapshot | null;
@@ -123,7 +126,7 @@ export interface EditorDocumentSnapshotState extends Readonly<SelectedLabelState
 	readonly recorder: unknown;
 	readonly recordingKind: 'ordinary' | 'sound-activated' | 'take-cycle' | null;
 	readonly takeCycleRecovery: TakeCyclePendingOpenRecovery | null;
-	readonly startupProjectRecovery?: Readonly<{ projectId: string; message: string }> | null;
+	readonly projectRecovery?: Readonly<{ projectId: string; message: string; requestId: number }> | null;
 	readonly recordingPreview: unknown;
 	readonly recordingPreviews: readonly unknown[];
 	readonly recordingDevices: readonly unknown[];
@@ -288,7 +291,7 @@ export function createEditorDocumentSnapshot<Project extends SnapshotProject>(
 		projectActivationPending: state.projectActivationPending,
 		projectAdministrationPending: Boolean(state.projectAdministrationPending),
 		importing: state.importing,
-		recordingStarting: state.recordingStarting,
+		recordingStarting: state.recordingStarting || Boolean(state.recordingAdmissionPending),
 		recordingScheduling: state.timedRecordingPreparing || state.timedRecordingCancelling,
 		scheduledRecording: state.timedRecording
 			? Object.freeze({
@@ -312,7 +315,7 @@ export function createEditorDocumentSnapshot<Project extends SnapshotProject>(
 		recording: Boolean(state.recorder && !state.timedRecording && !state.timedRecordingCancelling),
 		recordingKind: state.recordingKind,
 		takeCycleRecovery: state.takeCycleRecovery,
-		startupProjectRecovery: state.startupProjectRecovery ?? null,
+		projectRecovery: state.projectRecovery ?? null,
 		recordingPreview: runtime.recordingPreviewSnapshot(state.recordingPreview),
 		recordingPreviews: Object.freeze(state.recordingPreviews
 			.map(runtime.recordingPreviewSnapshot)

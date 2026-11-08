@@ -15,7 +15,9 @@ import {
 } from '../../recording-routing.js';
 import { createStreamingWindowedSincResampler } from '../../resample.js';
 import { abortError } from '../shared/app-helpers.ts';
+import { createRecordingMidiAdmission } from './internal/recording-midi-admission.ts';
 import { createLegacyRecordingCaptureService } from './internal/legacy-recording-capture-service.ts';
+import { planNewRecordingTracks } from './internal/new-recording-tracks.ts';
 import type { RecordingFinalizationCommonRuntime, RoutedRecordingFinalizationRuntime } from './internal/recording-finalization-types.ts';
 import {
 	createRecordingInputCoordinationService,
@@ -104,6 +106,7 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		engine,
 		getMicrophoneMeterSession: microphoneMeter.getSession,
 		invalidateMicrophoneMeter: microphoneMeter.invalidate,
+		synchronizeMicrophoneMeterTarget: microphoneMeter.synchronizeTarget,
 		mediaDevices: dependencies.mediaDevices,
 		microphoneMeterDeviceId: microphoneMeter.getDeviceId,
 		normalizePreferredInputDeviceId,
@@ -315,9 +318,23 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 
 	const session = createRecordingSessionService({
 		state,
+		prepareRecordingStart: createRecordingMidiAdmission({ pending: dependencies.pendingDocumentEdits,
+			getProject: requireProject, getRoutes: () => state.recordingRouting.routes,
+			getPreferredInput: () => ({ deviceId: state.preferredInputDeviceId || RECORDING_DEFAULT_DEVICE_ID, channelCount: state.preferredInputChannelCount }),
+			sampleRate: () => captureRuntime.recordingInputSampleRate?.() ?? dependencies.projectSampleRate(), capturePool, engine, releaseInputs: releaseUnretainedRecordingInputs }),
 		getProjectId: () => document.get()?.id || null,
 		abortError,
 		addTrack: dependencies.addTrack,
+		prepareRecordingOptions: (options) => {
+			if (!state.preferences.recording.alwaysRecordToNewTrack) return options;
+			const plan = planNewRecordingTracks(requireProject(), state.recordingRouting, options, createStableId, publishedCopyFor(copy).recordingLabel);
+			if (!plan) return options;
+			dependencies.commit(plan.command, { selectTrackId: plan.selectTrackId });
+			state.recordingRouting = normalizeRecordingRouting(plan.routing, requireProject().tracks);
+			void routing.persistRecordingRouting().catch(dependencies.handleError);
+			dependencies.publishDocumentSnapshot();
+			return plan.options;
+		},
 		stopProjectBinPreview: dependencies.stopProjectBinPreview,
 		cancelTimedRecording: () => timed.cancelTimedRecording(),
 		beginRecording: async (options, scope) => {
@@ -347,7 +364,10 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		},
 		releaseUnretainedRecordingInputs,
 		retainInputs: () => state.preferences.recording.retainInputs,
-		playTransport: () => engine.play(),
+		playTransport: onBeforeStart => engine.play(onBeforeStart ? { clockedStart: true, onBeforeStart } : undefined),
+		getTransportContext: () => engine.getAudioContext({ resume: false }),
+		getTransportLatencyFrames: () => engine.getPlaybackGraphLatencyFrames?.() ?? 0,
+		signal: dependencies.lifetime.signal,
 		pauseTransport: () => engine.pause(),
 		getTransportState: () => engine.getState().state,
 		updateTransportState: dependencies.updateTransportState,
@@ -470,9 +490,11 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		dependencies.publishDocumentSnapshot();
 		return state.latencyOffsetMs;
 	};
-	const setRecordingInputGain = (value: unknown) => (
-		microphoneMeter.setRecordingInputGain(value, normalizeRecordingInputGain)
-	);
+	const setRecordingInputGain = (value: unknown) => {
+		const gain = microphoneMeter.setRecordingInputGain(value, normalizeRecordingInputGain);
+		if (state.recordingKind === 'take-cycle' && state.recordingStarting) takeCycle.routed.setInputGain(gain);
+		return gain;
+	};
 	const invalidateTakeCycleRecording = async (reason: unknown): Promise<void> => {
 		state.recordingStartGeneration += 1;
 		takeCycle.cancel(reason);
