@@ -37,7 +37,7 @@ export function resolveAudioEditorDesktopBridge(scope = globalThis) {
 export function createAudioEditorFileService(options = {}) {
 	const scope = options.scope || globalThis;
 	const bridge = options.bridge === undefined ? resolveAudioEditorDesktopBridge(scope) : options.bridge;
-	const browserFiles = createBrowserFileSaveService({ scope, document: options.document, urlApi: options.urlApi, setTimeout: options.setTimeout });
+	const browserFiles = createBrowserFileSaveService({ scope, document: options.document, urlApi: options.urlApi, setTimeout: options.setTimeout, retainProjectFileTarget: true });
 	const fetchFile = options.fetch || scope.fetch?.bind(scope);
 	const isDesktop = Boolean(bridge);
 	const externalMediaFiles = createDesktopExternalMediaFiles(bridge, fetchFile);

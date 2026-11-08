@@ -60,6 +60,8 @@ interface BrowserSaveScope {
 		types?: readonly BrowserSavePickerType[]; excludeAcceptAllOption: false }>) => PromiseLike<BrowserSaveTarget>;
 }
 export interface BrowserFileSaveServiceOptions {
+	/** Timeline project Save reuses permission; other deliveries keep scalar receipts. */
+	readonly retainProjectFileTarget?: boolean;
 	readonly scope?: BrowserSaveScope;
 	readonly document?: DownloadDocument | null;
 	readonly urlApi?: SaveUrlApi;
@@ -97,8 +99,9 @@ export function createBrowserFileSaveService(options: BrowserFileSaveServiceOpti
 			}
 		}
 		if (!target) return Object.freeze({ mode: 'cancelled', cancelled: true, fileName });
-		return isWritableTarget(target) ? withProjectFileTarget(createFileSystemPreparedSave({ target, fileName, signal: request.signal }), target)
-			: Object.freeze({ mode: 'blob', target, fileName });
+		if (!isWritableTarget(target)) return Object.freeze({ mode: 'blob', target, fileName });
+		const prepared = createFileSystemPreparedSave({ target, fileName, signal: request.signal });
+		return options.retainProjectFileTarget ? withProjectFileTarget(prepared, target) : prepared;
 	}
 	async function writeFile(target: BrowserSaveTarget | null | undefined, input: BlobPart, request: BrowserFileSaveRequest = {}): Promise<BrowserSavedFile> {
 		throwIfAborted(request.signal);
