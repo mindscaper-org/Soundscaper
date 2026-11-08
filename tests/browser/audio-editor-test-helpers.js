@@ -7,7 +7,7 @@ import { settleFiniteAnimations } from './helpers/settle-finite-animations.js';
 import { closeWorkspacePanel } from './helpers/workspace-panel-chrome.js';
 import { openChromeDrawer, openTrackHeaderDrawer } from './helpers/responsive-layout.js';
 import { seedWorkspaceOnboardingComplete } from './helpers/browser-environment-stubs.js';
-import { createFileActionChooser } from './helpers/browser-project-picker.js';
+import { createFileActionChooser, prepareBrowserProjectPicker } from './helpers/browser-project-picker.js';
 
 export { resolveBrowserProductTestUrl };
 
@@ -62,6 +62,7 @@ export async function bootEditor(page, path, { defaultWorkspace = false } = {}) 
 	// must not hold navigation open after the application can already be used.
 	await page.goto(resolveBrowserProductTestUrl(path), { waitUntil: 'domcontentloaded' });
 	const editor = await waitForEditor(page);
+	await prepareBrowserProjectPicker(page, editor);
 	await expect(editor).toHaveAttribute('data-project-id', /.+/u, { timeout: 20_000 });
 	await waitForProjectActivation(editor);
 	const decline = page.getByRole('button', { name: /^(Decline|Ablehnen)$/ });
