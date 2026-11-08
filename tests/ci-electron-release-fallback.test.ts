@@ -6,6 +6,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 const execute = promisify(execFile);
@@ -30,7 +31,7 @@ test('the Electron preload recovers a persistent release failure without bypassi
 			return new Response(${JSON.stringify(bytes)});
 		};
 	`);
-	await execute(process.execPath, ['--import', fixture, '--import', './scripts/ci-github-release-fetch.mjs', '--input-type=module', '-e', `
+	await execute(process.execPath, ['--import', pathToFileURL(fixture).href, '--import', './scripts/ci-github-release-fetch.mjs', '--input-type=module', '-e', `
 		import assert from 'node:assert/strict';
 		import { readFile } from 'node:fs/promises';
 		import { downloadArtifact } from '@electron/get';
