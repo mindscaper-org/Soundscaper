@@ -58,6 +58,7 @@ for (const delayPreview of [false, true]) test(`pausing a ${delayPreview ? 'stil
 		const editor = await bootEditor(page, '/embed/en/');
 		await chooseNestedCommandAction(page, editor, 'Window', ['Freesound']);
 		const panel = editor.locator('[data-workspace-panel="freesound"]');
+		await expect(panel.getByRole('button', { name: 'Connect to Freesound', exact: true })).toBeVisible();
 		await panel.getByRole('searchbox', { name: 'Search Freesound', exact: true }).fill('rain');
 		await panel.getByRole('button', { name: 'Search', exact: true }).click();
 		const result = panel.getByRole('listitem');

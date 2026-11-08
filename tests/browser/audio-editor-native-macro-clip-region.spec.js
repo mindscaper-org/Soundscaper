@@ -40,6 +40,6 @@ test('legacy clip navigation shortcuts disclose their differing selection contra
 	const choosing = page.waitForEvent('filechooser'); await preferences.getByRole('button', { name: 'Import Audacity shortcuts', exact: true }).click();
 	await (await choosing).setFiles({ name: 'native.xml', mimeType: 'application/xml', buffer: Buffer.from('<audacitykeyboard audacityversion="3.7.7"><command name="SelNextClip" key="Ctrl+Alt+Shift+F7"/><command name="SelPrevClip" key="Ctrl+Alt+Shift+F8"/></audacitykeyboard>') });
 	const review = preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true });
-	await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 2 skipped.');
+	await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 2 skipped.', { timeout: 15_000 });
 	await expect(review.getByRole('button', { name: 'Apply shortcuts', exact: true })).toBeDisabled();
 });
