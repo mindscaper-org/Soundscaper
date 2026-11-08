@@ -11,7 +11,7 @@ const SOURCE_MAP_ARTIFACTS = Object.freeze([
 	['verified-motionscaper-site-source-maps', '.wrangler/browser-products/motionscaper-source-maps'],
 ]);
 
-test('only Chromium coverage jobs download the authenticated product source maps', async () => {
+test('Chromium coverage and every Motion offline consumer receive authenticated source maps', async () => {
 	const workflow = await readWorkflow('quality.yml');
 	const downloads = extractJob(workflow, 'browser').split(/\n {6}- /u)
 		.filter(step => /uses: actions\/download-artifact@/u.test(step));
@@ -19,8 +19,13 @@ test('only Chromium coverage jobs download the authenticated product source maps
 		const matching = downloads.filter(step => step.includes(`name: ${name}\n`));
 		assert.equal(matching.length, 1, `Chromium must download ${name} exactly once`);
 		assert.ok(matching[0].includes(`path: ${path}\n`), `${name} must land at its consumed path`);
-		assert.match(matching[0], /if: matrix\.project == 'chromium'/u);
-		assert.ok(!extractJob(workflow, 'firefox').includes(`name: ${name}\n`));
+		if (name === 'verified-motionscaper-site-source-maps') {
+			assert.doesNotMatch(matching[0], /if:/u, 'WebKit offline rehosting authenticates the Motion maps too');
+			assert.match(extractJob(workflow, 'firefox'), new RegExp(`name: ${name}\\n\\s+path: ${path}\\n`, 'u'));
+		} else {
+			assert.match(matching[0], /if: matrix\.project == 'chromium'/u);
+			assert.ok(!extractJob(workflow, 'firefox').includes(`name: ${name}\n`));
+		}
 	}
 });
 
