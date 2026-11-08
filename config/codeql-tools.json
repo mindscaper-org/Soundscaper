@@ -1,0 +1,8 @@
+{
+	"schemaVersion": 1,
+	"actionRevision": "cdf488f595d80d6e07e03d4674febd5ab45fa938",
+	"version": "2.27.4",
+	"url": "https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.27.4/codeql-bundle-linux64.tar.zst",
+	"byteLength": 559484083,
+	"sha256": "da3e952c7fe978a0b6b93e75d9cbabbdf8535667ca0810bd4b2ae37bc840ffee"
+}

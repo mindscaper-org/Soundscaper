@@ -167,6 +167,13 @@ Nightly reference Python and interchange wheel provisioning use the same
 transport. Interrupted bodies restart their complete transfer before digest
 verification; Python and wheel archives are bounded to 128 MiB each.
 
+CodeQL receives a verified local CLI tarball through its `tools` input. The
+bundle version, length and SHA-256 live in `config/codeql-tools.json`, tied to the
+pinned action revision. Each restored archive is checked before reuse; a miss
+or corruption downloads fresh bytes through the release-asset fallback and
+saves the verified archive before analysis. Review the bundle pin when updating
+the CodeQL action.
+
 `npm run check` is the canonical non-browser gate. It runs lint, strict type
 checks, architecture and file-size guards, audits, documentation checks, the
 production build, and Node coverage. `npm run check:static` runs everything in
