@@ -45,7 +45,9 @@ test('Freesound waveform releases an assigned modified endpoint command', async 
 	await expect(editor.locator('[data-label-track]')).toHaveCount(0);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Freesound']);
 	const panel = editor.locator('[data-workspace-panel="freesound"]');
-	await panel.getByRole('searchbox', { name: 'Search Freesound', exact: true }).fill('rain');
+	const query = panel.getByRole('searchbox', { name: 'Search Freesound', exact: true });
+	await query.fill('rain');
+	await expect(query).toHaveValue('rain');
 	await panel.getByRole('button', { name: 'Search', exact: true }).click();
 	const waveform = panel.getByRole('slider', { name: 'Seek and play preview: Rain in the garden', exact: true });
 	await expect(waveform).toBeVisible();
