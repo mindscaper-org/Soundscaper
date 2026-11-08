@@ -14,15 +14,17 @@ export type MaterializedApplicationMenu<T> = T extends readonly (infer Item)[]
 		}
 		: T;
 
-/** Resolve one menu-open snapshot without mutating or retaining deferred hooks. */
+/** Resolve an opening, or refresh live fields while retaining its deferred resolutions. */
 export function materializeApplicationMenu<const Menu extends object>(
 	menu: Menu,
+	resolutionSnapshot?: object,
 ): MaterializedApplicationMenu<Menu> {
-	return materializeMenuRecord(menu) as MaterializedApplicationMenu<Menu>;
+	return materializeMenuRecord(menu, resolutionSnapshot) as MaterializedApplicationMenu<Menu>;
 }
 
-function materializeMenuRecord(value: object): Readonly<Record<string, unknown>> {
+function materializeMenuRecord(value: object, resolutionSnapshot?: object): Readonly<Record<string, unknown>> {
 	const input = value as Readonly<Record<string, unknown>>;
+	const snapshot = resolutionSnapshot as Readonly<Record<string, unknown>> | undefined;
 	const output: Record<string, unknown> = {};
 	for (const key of Object.keys(input)) {
 		if (key === 'items' || key === 'resolve') continue;
@@ -30,13 +32,18 @@ function materializeMenuRecord(value: object): Readonly<Record<string, unknown>>
 	}
 
 	if (Array.isArray(input.items)) {
-		output.items = Object.freeze(input.items.map((item) => (
-			isMenuRecord(item) ? materializeMenuRecord(item) : item
-		)));
+		const previous = Array.isArray(snapshot?.items) ? snapshot.items : [];
+		output.items = Object.freeze(input.items.map((item) => {
+			if (!isMenuRecord(item)) return item;
+			const prior = snapshot === undefined ? undefined
+				: previous.find(candidate => isMenuRecord(candidate) && candidate.id === item.id) ?? {};
+			return materializeMenuRecord(item, prior);
+		}));
 	}
 
 	if (Object.hasOwn(input, 'resolve')) {
-		const resolution = resolveMenuItem(input);
+		const resolution: Readonly<ApplicationMenuResolution> = snapshot === undefined ? resolveMenuItem(input)
+			: isMenuResolution(snapshot) ? snapshot : FAILED_RESOLUTION;
 		output.disabled = resolution.disabled;
 		if (resolution.disabledReason === undefined) delete output.disabledReason;
 		else output.disabledReason = resolution.disabledReason;

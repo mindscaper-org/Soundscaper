@@ -126,6 +126,7 @@ export default function AudioEditorMenuBar({
 		setOpenMenu({
 			id: menu.id,
 			index,
+			menu: materializeApplicationMenu(menu),
 			x: compact ? 8 : rect.left,
 			y: compact ? rect.bottom + 4 : rect.bottom,
 			autoFocus: keyboard,
@@ -276,8 +277,8 @@ export default function AudioEditorMenuBar({
 	};
 	const currentMenu = useMemo(() => {
 		const menu = orderedMenus.find(item => item.id === openMenu?.id);
-		return menu ? materializeApplicationMenu(menu) : null;
-	}, [openMenu?.id, orderedMenus]);
+		return menu ? materializeApplicationMenu(menu, openMenu.menu) : null;
+	}, [openMenu, orderedMenus]);
 	const drawer = compact && chromeDrawer ? chromeDrawer : null;
 	const search = searchEnabled && (
 		<AudioEditorSearch
