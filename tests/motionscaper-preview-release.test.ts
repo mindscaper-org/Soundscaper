@@ -7,7 +7,8 @@ import { extractJob } from './helpers/workflow-jobs.js';
 test('Motion candidate tags use desktop quality and Node gates without entering inherited publishers', async () => {
 	const workflow = await readFile(new URL('../.github/workflows/desktop-preview.yml', import.meta.url), 'utf8');
 	for (const stage of ['alpha', 'beta', 'rc']) assert.ok(workflow.includes(`'motionscaper-v*-${stage}.*'`));
-	assert.ok(extractJob(workflow, 'quality').includes("release ? [release.productId] : ['soundscaper', 'framescaper']"));
+	assert.ok(extractJob(workflow, 'build').includes("release ? [release.productId] : ['soundscaper', 'framescaper']"));
+	assert.match(extractJob(workflow, 'quality'), /release-products: \$\{\{ needs\.build\.outputs\.release-products \}\}/u);
 	const motion = extractJob(workflow, 'motionscaper-preview');
 	assert.match(motion, /needs: \[quality, tests\]/u);
 	assert.match(motion, /startsWith\(github.ref, 'refs\/tags\/motionscaper-v'\)/u);

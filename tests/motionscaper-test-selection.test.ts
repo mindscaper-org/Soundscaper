@@ -49,10 +49,10 @@ test('browser plans refuse duplicate products and shared origins', () => {
 	const plan = ordinaryBrowserProductSitePlan({});
 	assert.throws(() => assertPlan({
 		...plan, sites: [plan.sites[0], plan.sites[1], plan.sites[1]],
-	}), /exactly once/u);
+	}), /unique productId/u);
 	assert.throws(() => assertPlan({
 		...plan, sites: plan.sites.map((site: { productId: string; origin: string }) => (
 			site.productId === 'motionscaper' ? { ...site, origin: plan.sites[0].origin } : site
 		)),
-	}), /distinct/u);
+	}), /unique origin/u);
 });

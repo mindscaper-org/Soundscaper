@@ -54,7 +54,7 @@ test('Motion libvpx by-name assembler lookup executes the attested tool before a
 	for (const command of commands('linux-x64', root, nasm, ambient).filter(value => vpxPhases.has(value.phase))) {
 		// Upstream --as=nasm replaces AS with a bare command; exercise that real shell lookup.
 		const output = execFileSync('/bin/sh', ['-c', 'command -v nasm; nasm'], {
-			env: command.environment, encoding: 'utf8', timeout: 5_000, maxBuffer: 65_536,
+			env: { ...command.environment }, encoding: 'utf8', timeout: 5_000, maxBuffer: 65_536,
 		});
 		assert.deepEqual(output.trimEnd().split('\n'), [nasm, 'attested-nasm'], command.phase);
 	}
