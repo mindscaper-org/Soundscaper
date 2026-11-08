@@ -34,7 +34,8 @@ test('ordinary browser CI authenticates and transfers Lightscaper builds and sib
 
 test('desktop preview delegates ordinary browser artifacts to Quality', async () => {
 	const source = await workflow('desktop-preview.yml');
-	assert.match(extractJob(source, 'quality'), /# testing and combined coverage enforcement belong to quality\.yml\./u);
+	assert.match(extractJob(source, 'quality'), /needs: \[lint, typecheck, audits, build\]/u);
+	assert.doesNotMatch(source, /^ {2}(?:browser(?:-[a-z-]+)?|firefox|coverage):$/mu);
 	assert.doesNotMatch(source, /name: verified-lightscaper-site-(?:build|source-maps)/u,
 		'desktop distribution does not publish the ordinary browser site artifacts');
 });
@@ -66,10 +67,10 @@ test('ordinary browser CI executes the exact collected shard with its required r
 		assert.ok(prerequisites.includes(`node scripts/ci-test-prerequisites.mjs --project=${project} --shard=${shard} >> "$GITHUB_OUTPUT"`));
 		assert.ok(job.indexOf(collectName) < job.indexOf(runName), `${jobName} must collect before execution`);
 		assert.ok(collect.includes('id: browser-run-shape'));
-		assert.ok(collect.includes(`node node_modules/@playwright/test/cli.js test --config=playwright.config.mjs --project=${project} --shard=${shard} --workers=${normalWorkers} --retries=1 --list --reporter=json > "$RUNNER_TEMP/browser-shard-collection.json"`));
+		assert.ok(collect.includes(`node --import tsx scripts/run-module-browser-tests.ts --config=playwright.config.mjs --project=${project} --suite-shard=${shard} --workers=${normalWorkers} --retries=1 --list --reporter=json > "$RUNNER_TEMP/browser-shard-collection.json"`));
 		const projectArgument = jobName === 'browser' ? `"${project}"` : project, workersArgument = jobName === 'browser' ? `"${normalWorkers}"` : normalWorkers;
 		assert.ok(collect.includes(`node scripts/ci-browser-shard-policy.ts "$RUNNER_TEMP/browser-shard-collection.json" ${projectArgument} "${shard}" ${workersArgument} >> "$GITHUB_OUTPUT"`));
-		assert.ok(run.includes(`npm run test:browser:built -- --project=${project} --shard=${shard} --workers=\${{ steps.browser-run-shape.outputs.workers }} --retries=\${{ steps.browser-run-shape.outputs.retries }}`));
+		assert.ok(run.includes(`npm run test:browser:built -- --project=${project} --suite-shard=${shard} --workers=\${{ steps.browser-run-shape.outputs.workers }} --retries=\${{ steps.browser-run-shape.outputs.retries }}`));
 		assert.doesNotMatch(collect + run, /--grep(?:[= ]|$)/u, 'policy selection must not filter the shard');
 		assert.doesNotMatch(run.split('\n').find(line => line.trimStart().startsWith('run:')) ?? '', /--list/u, 'the execution step must run the collected tests');
 		assert.doesNotMatch(collect + run, /PWTEST_SHARD_WEIGHTS/u, 'retired shard weights must not change collection or execution');

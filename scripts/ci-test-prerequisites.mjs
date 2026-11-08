@@ -73,10 +73,12 @@ async function selectedFiles(repositoryRoot, argv) {
 		|| !parts || Number(parts[1]) < 1 || Number(parts[1]) > Number(parts[2])) {
 		throw new Error('Browser prerequisite selection requires --project and a valid --shard=index/total.');
 	}
+	// The child owns a 60-second Playwright collection deadline, followed by
+	// repository suite inventory and partitioning. Allow both phases to settle.
 	const result = spawnSync(process.execPath, [
 		resolve(repositoryRoot, 'scripts/run-module-browser-tests.ts'), '--list', '--reporter=json',
 		`--project=${project}`, `--suite-shard=${shard}`,
-	], { cwd: repositoryRoot, encoding: 'utf8', maxBuffer: 32 * 1024 ** 2, timeout: 60_000 });
+	], { cwd: repositoryRoot, encoding: 'utf8', maxBuffer: 32 * 1024 ** 2, timeout: 180_000 });
 	if (result.error) throw result.error;
 	if (result.status !== 0) throw new Error(`Playwright prerequisite collection failed: ${result.stderr || result.stdout}`);
 	return selectedBrowserTestFiles(JSON.parse(result.stdout));

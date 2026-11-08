@@ -206,6 +206,6 @@ test('cancellation after placement but before grade acknowledgement wipes the un
 			grades: [], luts: new Map(), width: 1, height: 1, blendMode: 'normal', opacity: 1, signal: controller.signal,
 		}), error => error === reason);
 	} finally { globalThis.Float64Array = native; }
-	assert.equal(outputs.length, 1, 'placement completed before cancellation was delivered');
-	assert.equal(outputs[0]?.every(value => value === 0), true);
+	assert.ok(outputs.some(output => output.length === 4), 'the placed RGBA pixel existed before cancellation was delivered');
+	for (const output of outputs) assert.equal(output.every(value => value === 0), true);
 });

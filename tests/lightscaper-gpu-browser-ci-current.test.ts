@@ -174,10 +174,11 @@ for (const [workflowName, buildJob] of [['quality.yml', 'build']] as const) {
 test('desktop preview delegates browser GPU and combined coverage qualification to quality.yml', async () => {
 	const workflow = await text('.github/workflows/desktop-preview.yml');
 	const quality = extractJob(workflow, 'quality'), tests = extractJob(workflow, 'tests');
-	assert.match(quality, /# The Node suite runs in the per-product `tests` shards below\. Browser\n\s+# testing and combined coverage enforcement belong to quality\.yml\./u);
-	assert.match(quality, /^ {8}run: npm run check:static$/mu);
+	assert.match(quality, /^ {4}needs: \[lint, typecheck, audits, build\]$/mu);
+	assert.match(quality, /name: Require every static shard to succeed/u);
+	assert.match(quality, /run: test "\$STATIC_JOB_RESULTS" = 'success,success,success,success'/u);
 	assert.match(tests, /^ {4}needs: quality$/mu);
-	assert.match(tests, /run: xvfb-run --auto-servernum npm run test -- --shard=\$\{\{ matrix\.shard \}\}/u);
+	assert.match(tests, /run: xvfb-run --auto-servernum npm run test -- --module-shard=\$\{\{ matrix\.shard \}\}/u);
 	assert.doesNotMatch(workflow, /^ {2}(?:browser(?:-[a-z-]+)?|firefox|coverage):$/mu,
 		'the deliberate desktop nightly policy does not duplicate browser or combined coverage jobs');
 	assert.doesNotMatch(workflow, /^ +run:.*(?:npx playwright test|npm run test:browser|npm run coverage:check)/mu);
