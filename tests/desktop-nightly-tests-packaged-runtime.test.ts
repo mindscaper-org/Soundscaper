@@ -325,7 +325,7 @@ test('packaged video benchmark seeds exact effects and drives localized controls
 	assert.doesNotMatch(source, /name: '(?:Clip properties|Add effect|Play|Stop)'/u);
 });
 
-test('nightly product staging builds isolated Soundscaper and Framescaper trees', async (context) => {
+test('nightly product staging builds isolated Soundscaper, Framescaper and Motionscaper trees', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-nightly-products-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
 	const outputRoot = join(root, 'release/desktop-nightly-products');
@@ -390,7 +390,7 @@ test('nightly product staging builds isolated Soundscaper and Framescaper trees'
 	assert.ok(calls.every(({ sourceMaps }) => sourceMaps === '1'));
 	assert.ok(calls.every(({ r2AccessKey }) => r2AccessKey === undefined));
 	assert.deepEqual(calls.filter(({ args }) => args.includes('--dir')).map(({ args }) => args.slice(0, 2)),
-		Array.from({ length: 2 }, () => ['--import', pathToFileURL(join(root, 'scripts/ci-github-release-fetch.mjs')).href]));
+		Array.from({ length: 3 }, () => ['--import', pathToFileURL(join(root, 'scripts/ci-github-release-fetch.mjs')).href]));
 	assert.deepEqual(calls.filter(({ args }) => args.some((value) => value.endsWith('publish-assistance-runtime-assets.mjs')))
 		.map(({ args }) => args.at(-1)), ['--verify', '--verify']);
 	calls.length = 0;
