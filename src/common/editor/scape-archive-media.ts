@@ -3,7 +3,7 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { hex as scapeHex, type DigestWriter } from '../media/bytes.ts';
 import type { ScapeExtractedAsset } from '../scape/asset-bytes.ts';
-import { encodeProjectIdKey } from './project-validation-primitives.ts';
+export { safeScapeEntryId } from './scape-byte-stream.ts';
 
 import type { ScapeArchiveEntry } from '../scape/archive-envelope.ts';
 import { aggregateScapeErrors, awaitScapeOperation, throwIfScapeAborted } from '../scape/abort.ts';
@@ -61,13 +61,6 @@ export interface ScapeSourceWriter {
 		channels: readonly Float32Array[],
 		options?: Readonly<{ signal?: AbortSignal }>,
 	): PromiseLike<unknown>;
-}
-
-export function safeScapeEntryId(value: unknown): string {
-	const encoded = encodeProjectIdKey(String(value || '')).replaceAll('_', '_5F').replaceAll('%', '_');
-	if (encoded === '.') return '_2E';
-	if (encoded === '..') return '_2E_2E';
-	return encoded;
 }
 
 export function scapeAudioSourceStream(
