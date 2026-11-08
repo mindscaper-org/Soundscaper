@@ -60,15 +60,23 @@ export function readAup4AnnotationTracks(
 			selected: Boolean(xmlAttribute(node, 'isSelected', false)),
 			opaqueExtensions: { aup4Label: opaqueNode(node) },
 		}));
-		addAup4CompatibilityItem(compatibilityReport, {
-			code: labels.length
+		const omitted = labels.filter(label => label.endSeconds < 0 || label.startSeconds < 0 && label.endSeconds === 0).length;
+		const trimmed = labels.filter(label => label.startSeconds < 0 && label.endSeconds > 0).length;
+		const retained = labels.length - omitted;
+		if (retained || !labels.length) addAup4CompatibilityItem(compatibilityReport, {
+			code: retained
 				? 'AUDACITY_LABEL_TRACK_CONVERTED_TO_TIMELINE_ANNOTATIONS'
 				: 'AUDACITY_EMPTY_LABEL_TRACK_OMITTED',
-			severity: labels.length ? 'info' : 'warning',
-			disposition: labels.length ? 'converted' : 'omitted',
+			severity: retained ? 'info' : 'warning',
+			disposition: retained ? 'converted' : 'omitted',
 			scope: { kind: 'label-track', trackIndex: index },
-			data: { labelCount: labels.length, sharedBatchIdentity: labels.length > 1 },
+			data: { labelCount: retained, sharedBatchIdentity: labels.length > 1 },
 		});
+		for (const [count, disposition, code] of [[omitted, 'omitted', 'AUDACITY_LABELS_BEFORE_ZERO_OMITTED'],
+			[trimmed, 'converted', 'AUDACITY_LABELS_BEFORE_ZERO_TRIMMED']] as const) if (count) {
+			addAup4CompatibilityItem(compatibilityReport, { code, severity: 'warning', disposition,
+				scope: { kind: 'label-track', trackIndex: index }, data: { labelCount: count } });
+		}
 		return {
 			name: String(xmlAttribute(labelNode, 'name', `Labels ${String(index + 1)}`)),
 			selected: Boolean(xmlAttribute(labelNode, 'isSelected', false)),

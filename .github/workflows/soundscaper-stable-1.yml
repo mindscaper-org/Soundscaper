@@ -409,7 +409,7 @@ jobs:
         run: node scripts/publish-assistance-runtime-assets.mjs --verify
       - name: Build release packages
         run: >-
-          npx electron-builder --config electron-builder.config.cjs
+          bash scripts/ci-electron-builder.sh --config electron-builder.config.cjs
           --${{ matrix.target.platform }} --${{ matrix.target.arch }} --publish never
       - name: Install virtual display for Linux package smoke
         if: runner.os == 'Linux'

@@ -13,7 +13,8 @@ import { useEffectPickerCatalog } from './useEffectPresentation.ts';
  * stream; the Macro Manager passes the wider set a macro step accepts.
  */
 export default function EffectPicker({
-	copy, disabled, flyout = false, anchor = null, effectTypes = null,
+	copy, disabled, flyout = false, anchor = null, effectTypes = /** @type {readonly string[] | null} */ (null),
+	unavailableEffectTypes = /** @type {readonly string[]} */ ([]),
 	onClose, onChoose, onCopyEffect = null, onRemoveEffect = null,
 }) {
 	const types = useMemo(() => effectTypes || audioEffectTypes(), [effectTypes]);
@@ -23,7 +24,7 @@ export default function EffectPicker({
 	const [type, setType] = useState(types[0] || '');
 	const [query, setQuery] = useState('');
 	const catalog = useEffectPickerCatalog(types, copy);
-	const options = useMemo(() => catalog.map(({ value, label }) => ({ value, label })), [catalog]);
+	const options = useMemo(() => catalog.filter(({ value }) => !unavailableEffectTypes.includes(value)).map(({ value, label }) => ({ value, label })), [catalog, unavailableEffectTypes]);
 	const matchingTypes = useMemo(() => {
 		const normalizedQuery = query.trim().toLocaleLowerCase();
 		return normalizedQuery
@@ -102,8 +103,9 @@ export default function EffectPicker({
 								key={value}
 								type="button"
 								role="menuitem"
-								disabled={disabled}
-								onClick={() => runAndRestoreFocus(() => onChoose(value))}
+								disabled={disabled || unavailableEffectTypes.includes(value)}
+								title={unavailableEffectTypes.includes(value) ? copy.effectUnsupported : undefined}
+								onClick={() => { if (!disabled && !unavailableEffectTypes.includes(value)) runAndRestoreFocus(() => onChoose(value)); }}
 							>
 								{label}
 							</button>
@@ -128,7 +130,7 @@ export default function EffectPicker({
 				className="audio-editor-dialog-footer"
 				rightContent={<>
 					<Button variant="secondary" onClick={onClose}>{copy.cancel}</Button>
-					<Button variant="primary" disabled={disabled || !type} onClick={() => onChoose(type)}>{copy.addEffect}</Button>
+					<Button variant="primary" disabled={disabled || !type || unavailableEffectTypes.includes(type)} onClick={() => { if (!disabled && !unavailableEffectTypes.includes(type)) runAndRestoreFocus(() => onChoose(type)); }}>{copy.addEffect}</Button>
 				</>}
 			/>}
 		>

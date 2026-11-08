@@ -42,3 +42,21 @@ export async function confirmRoutedRecordingStart(
 	}
 	return sharedFrame;
 }
+
+/** Every paused source resumes on one context frame, including independent native inputs. */
+export async function confirmRoutedRecordingResume(sessions: readonly RoutedRecordingSourceSession[], startFrame: number): Promise<Readonly<{ startFrame: number }>> {
+	const live = sessions.filter(session => !session.disconnected && !session.stopped);
+	if (!live.length) throw new Error('No recording input remains to resume.');
+	const confirmed = await Promise.all(live.map(async session => {
+		if (!session.controller.resumeConfirmed) throw new Error('A recording input cannot confirm its scheduled resume.');
+		return session.controller.resumeConfirmed({ startFrame });
+	}));
+	for (let attempt = 0; attempt < 4; attempt++) {
+		const shared = Math.max(...confirmed.map(result => result.startFrame));
+		if (confirmed.every(result => result.startFrame === shared)) return { startFrame: shared };
+		await Promise.all(live.map(async (session, index) => {
+			if (confirmed[index]!.startFrame !== shared) confirmed[index] = await session.controller.resumeConfirmed!({ startFrame: shared });
+		}));
+	}
+	throw new Error('The recording inputs could not confirm a shared resume frame.');
+}

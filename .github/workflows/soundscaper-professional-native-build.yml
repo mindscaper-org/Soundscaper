@@ -133,7 +133,7 @@ jobs:
         run: |
           set -euo pipefail
           SOUNDSCAPER_SOURCE_REVISION="$(git rev-parse HEAD)" npm run desktop:prepare
-          npx electron-builder --config electron-builder.config.cjs \
+          bash scripts/ci-electron-builder.sh --config electron-builder.config.cjs \
             --${{ matrix.platform }} --${{ matrix.arch }} --dir --publish never
           mkdir -p "$RUNNER_TEMP/soundscaper-packaged-app"
           cp -a release/desktop/. "$RUNNER_TEMP/soundscaper-packaged-app/"

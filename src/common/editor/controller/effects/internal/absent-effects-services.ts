@@ -49,6 +49,7 @@ export function createAbsentSelectionEffectExecutionService(context: AbsentSubsy
 	return Object.freeze({
 		applySelectedAudacityEffect: reject,
 		cancelSelectedAudacityEffect: (): boolean => false,
+		readSelectionTargetLocked: (): boolean => false,
 		prepareAudacityEffectFromController: reject,
 		previewAudacityEffectFromController: reject,
 		runNyquistEvaluation: reject,

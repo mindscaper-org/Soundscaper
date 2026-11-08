@@ -114,10 +114,9 @@ const TRACK_PARAMS: readonly MacroCommandParameterDescriptor[] = Object.freeze([
 /**
  * The commands, in Audacity's own declaration order.
  *
- * Every parameter is optional in Audacity's sense: absent means "leave this
- * alone", not "use the default". `SelectTime` given neither `Start` nor `End`
- * returns without touching the selection at all, so a step keeps only the
- * parameters it was actually given.
+ * Internal commands keep optional fields absent. Native time import resolves
+ * a missing counterpart to zero when one edge is supplied; a command with
+ * neither edge leaves the existing time selection alone.
  */
 export const AUDACITY_SELECT_COMMAND_PROFILES: Readonly<Record<string, MacroCommandProfile>> =
 	Object.freeze({
@@ -133,6 +132,27 @@ export function audacitySelectCommandProfile(command: unknown): MacroCommandProf
 	return typeof command === 'string' && Object.hasOwn(AUDACITY_SELECT_COMMAND_PROFILES, command)
 		? AUDACITY_SELECT_COMMAND_PROFILES[command]!
 		: null;
+}
+
+/** Native selection bounds use zero defaults; local commands preserve the missing edge. */
+export function importedAudacitySelectionParameters(command: string, params: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
+	const resolved = partialTimeSelection(command, params) ? { start: 0, end: 0, ...params } : params;
+	if ((command !== 'SelectFrequencies' && command !== 'Select') || (!Object.hasOwn(params, 'low') && !Object.hasOwn(params, 'high'))) return resolved;
+	const low = finiteNumber(params.low ?? 0), high = finiteNumber(params.high ?? 0);
+	if (low === undefined || high === undefined) throw new RangeError('Native frequency bounds must be finite numbers.');
+	if (low === high) throw new RangeError('An empty native frequency range cannot be retained by this editor.');
+	return { ...resolved, low: Math.min(low, high), high: Math.max(low, high) };
+}
+
+export function assertAudacitySelectionExport(command: string, params: Readonly<Record<string, unknown>>): void {
+	if (partialTimeSelection(command, params)) throw new RangeError('A partial local time selection cannot retain its meaning in an Audacity macro. Specify both time edges before exporting.');
+	if ((command === 'SelectFrequencies' || command === 'Select') && Object.hasOwn(params, 'low') !== Object.hasOwn(params, 'high')) {
+		throw new RangeError('A partial local frequency selection cannot retain its meaning in an Audacity macro. Specify both frequency edges before exporting.');
+	}
+}
+
+function partialTimeSelection(command: string, params: Readonly<Record<string, unknown>>): boolean {
+	return (command === 'SelectTime' || command === 'Select') && Object.hasOwn(params, 'start') !== Object.hasOwn(params, 'end');
 }
 
 /** Read one supplied parameter, refusing anything the upstream range refuses. */

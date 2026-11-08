@@ -34,6 +34,7 @@ export interface FramescaperBrowserRecorderFactoryOptions<
 	readonly MediaStreamTrackProcessor?: FramescaperAudioTrackProcessorConstructor | null;
 	readonly recordingControllerFactory?: FramescaperWorkletRecordingControllerFactory;
 	readonly observeInput?: FramescaperBrowserAudioRecorderOptions['observeInput'];
+	readonly onWarning?: (error: unknown) => void;
 	getAudioContext(): PromiseLike<Readonly<{
 		readonly sampleRate: number;
 		readonly audioWorklet?: Readonly<{ readonly addModule?: unknown }>;
@@ -119,12 +120,13 @@ async function createAudioRecorder<Recorder extends FramescaperMediaRecorderLike
 		MediaStreamTrackProcessor: options.MediaStreamTrackProcessor,
 		recordingControllerFactory: options.recordingControllerFactory,
 		monitoring: request.source.role === 'microphone' && request.monitoring,
-		inputGain: request.inputGain,
+		inputGain: request.inputGain, receiptTime: options.receiptTime,
 		onChunk: (chunk) => {
 			if (!packetizer) throw new Error('Framescaper PCM arrived before recorder admission.');
 			return request.onPacket(packetizer.packet(chunk));
 		},
 		onError: request.onError,
+		onWarning: options.onWarning,
 		onBackpressure: () => request.onBackpressure(),
 	});
 	packetizer = createFramescaperCapturePcmPacketizer({

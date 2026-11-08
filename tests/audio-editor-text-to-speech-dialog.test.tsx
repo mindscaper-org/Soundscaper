@@ -24,9 +24,9 @@ const actions = {
 	onGenerate: () => undefined, onCancel: () => undefined, onAccept: () => undefined,
 };
 
-function markup(state: TextToSpeechDialogState, previewUrl: string | null = null): string {
+function markup(state: TextToSpeechDialogState, previewUrl: string | null = null, replacementLocked = false): string {
 	return renderToStaticMarkup(<TextToSpeechDialogView copy={{}} state={state}
-		previewUrl={previewUrl} {...actions} />);
+		previewUrl={previewUrl} replacementLocked={replacementLocked} {...actions} />);
 }
 
 test('script, language and compatible voice are editable before local generation', () => {
@@ -125,3 +125,21 @@ function button(root: ReactTestElement, label: string): ReactTestElement {
 	assert.ok(found, `Missing button ${label}`);
 	return found;
 }
+
+test('a locked speech replacement is disabled while a new-track preview remains usable', () => {
+	const reviewed: TextToSpeechReviewed = { audio: new Blob(['RIFF'], { type: 'audio/wav' }),
+		request: { text: ready.text, language: ready.language, voiceId: ready.voiceId, speed: ready.speed },
+		modelId: 'kokoro-82m', modelVersion: '1', artifactSha256s: ['a'.repeat(64)] };
+	for (const placement of ['new-track', 'regenerate-selected'] as const) {
+		const state: TextToSpeechDialogState = { ...ready, phase: 'preview', reviewed, placement };
+		const html = markup(state, 'blob:preview', true);
+		const button = html.match(/<button\b[^>]*>[\s\S]*?<\/button>/gu)?.find(value => value.includes(
+			placement === 'new-track' ? 'Add as new track at playhead' : 'Replace selected speech clip'));
+		assert.ok(button);
+		assert.equal(button.includes('disabled=""'), placement === 'regenerate-selected');
+		const unlocked = markup(state, 'blob:preview').match(/<button\b[^>]*>[\s\S]*?<\/button>/gu)
+			?.find(value => value.includes(placement === 'new-track' ? 'Add as new track at playhead' : 'Replace selected speech clip'));
+		assert.ok(unlocked);
+		assert.equal(unlocked.includes('disabled=""'), false);
+	}
+});

@@ -1,8 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { readMidiClip, readMidiTrack } from './midi-model.ts';
-import { validateMidiFileDocument, type MidiFileDocument, type MidiFileEvent } from './midi-file-types.ts';
+import { MIDI_FILE_MAX_EVENTS, validateMidiFileDocument, type MidiFileDocument, type MidiFileEvent, type MidiFileSignature } from './midi-file-types.ts';
 import { midiProjectTiming } from './midi-project-timing.ts';
-import { resolveRuntimeClipProjection } from './runtime-clip-projection.ts';
+import { midiInitialTimingEvent } from './midi-initial-timing.ts';
+import { midiClipOccurrences } from './midi-project-source-projection.ts';
+import { quietMidiClipPerformanceEvents, type MidiPerformanceOccurrence } from './midi-project-performance-state.ts';
+import { createMidiClipEventProjection } from './midi-project-event-projection.ts';
+import { createMidiClipNoteProjection } from './midi-project-note-projection.ts';
+import { assertMidiClipTailBoundaries, type MidiClipTailBoundary } from './midi-project-clip-tail-boundaries.ts';
 
 interface MidiExportProject extends Readonly<Record<string, unknown>> {
 	readonly sampleRate: number;
@@ -15,73 +20,96 @@ interface MidiExportProject extends Readonly<Record<string, unknown>> {
 export function midiDocumentFromProject(project: MidiExportProject): MidiFileDocument {
 	const timing = midiProjectTiming(project);
 	const projectionProject = { sampleRate: project.sampleRate, tempoMap: timing.tempoMap };
-	const tempos = [...timing.tempos];
-	const signatures = [...timing.signatures];
+	const tempos = new Map(timing.tempos.map(tempo => [tempo.frame, tempo]));
+	const signatures = new Map(timing.signatures.map(signature => [signature.frame, signature]));
+	let preservedRootSignature: MidiFileSignature | undefined;
+	let eventCount = tempos.size + signatures.size;
+	const reserveEvents = (count: number): void => {
+		eventCount += count;
+		if (eventCount > MIDI_FILE_MAX_EVENTS) throw new RangeError('MIDI export contains too many events.');
+	};
+	const addTiming = <Value extends Readonly<{ frame: number }>>(target: Map<number, Value>, values: readonly Value[]): void => {
+		for (const value of values) {
+			if (!target.has(value.frame)) reserveEvents(1);
+			target.set(value.frame, value);
+		}
+	};
+	const rawSources: readonly unknown[] = Array.isArray(project.sources) ? project.sources : [];
+	const sourcesById = new Map(rawSources.filter(isRecord).map(source => [String(source.id), source]));
+	const occurrences: MidiPerformanceOccurrence[] = [];
+	let exportedTracks = 0;
 	const clipsById = new Map(project.clips.map(clip => [String(clip.id), clip]));
+	const boundaries: MidiClipTailBoundary[] = [];
 	const tracks = project.tracks.flatMap(track => {
 		const metadata = readMidiTrack(track);
 		if (!metadata) return [];
+		const trackIndex = exportedTracks++;
 		const notes: MidiFileDocument['tracks'][number]['notes'][number][] = [];
 		const events: MidiFileEvent[] = [];
+		let durationFrames = 0;
 		for (const id of Array.isArray(track.clipIds) ? track.clipIds : []) {
 			const persistedClip = clipsById.get(String(id));
 			const data = readMidiClip(persistedClip);
 			if (!persistedClip || !data) continue;
-			const clip = resolveRuntimeClipProjection(projectionProject, persistedClip);
-			const start = Number(clip.sourceStartFrame ?? 0);
-			const sourceFrames = Number(clip.sourceDurationFrames);
-			if (sourceFrames <= 0 || clip.durationFrames <= 0) throw new RangeError('MIDI export clip duration must be positive.');
-			const ratio = Number(clip.durationFrames) / sourceFrames;
-			const reversed = clip.reversed === true;
-			const global = (frame: number) => Math.round(Number(clip.timelineStartFrame) + (reversed ? start + sourceFrames - frame : frame - start) * ratio);
-			for (const note of data.notes) {
-				const from = Math.max(start, note.startFrame);
-				const to = Math.min(start + sourceFrames, note.startFrame + note.durationFrames);
-				if (to <= from) continue;
-				notes.push({ ...note, id: `${String(clip.id)}:${note.id}`, startFrame: Math.min(global(from), global(to)), durationFrames: Math.max(1, Math.abs(global(to) - global(from))) });
+			const source = sourcesById.get(String(persistedClip.sourceId));
+			const eventProjection = createMidiClipEventProjection(data.interchange);
+			const noteProjection = createMidiClipNoteProjection(data);
+			const importedRootTempo = data.interchange && midiInitialTimingEvent(data.interchange.tempos);
+			const preserveTempos = !timing.hasTempoChanges && importedRootTempo && Math.abs(importedRootTempo.bpm - timing.tempos[0]!.bpm) < 0.000001;
+			const importedRootSignature = data.interchange && midiInitialTimingEvent(data.interchange.signatures);
+			const preserveSignatures = !timing.hasSignatureChanges && importedRootSignature && importedRootSignature.numerator === timing.signatures[0]!.numerator
+				&& importedRootSignature.denominator === timing.signatures[0]!.denominator;
+			if (preserveSignatures && !preservedRootSignature) preservedRootSignature = importedRootSignature;
+			let occurrence = 0;
+			const firstNote = notes.length;
+			let clipEnd = 0;
+			for (const { start, sourceFrames, timelineStart, timelineEnd, global, initializePerformance } of midiClipOccurrences(projectionProject, persistedClip)) {
+				durationFrames = Math.max(durationFrames, timelineEnd);
+				clipEnd = Math.max(clipEnd, timelineEnd);
+				const prefix = `${String(persistedClip.id)}${occurrence ? `:loop-${occurrence}` : ''}`;
+				occurrence += 1;
+				const firstOccurrenceNote = notes.length;
+				for (const note of noteProjection(start, sourceFrames, global)) {
+					reserveEvents(1);
+					const onsetStop = note.onsetStop?.kind === 'all-notes-off'
+						? { ...note.onsetStop, releaseId: `${prefix}:${note.onsetStop.releaseId}` } : note.onsetStop;
+					notes.push({ ...note, id: `${prefix}:${note.id}`, ...(onsetStop ? { onsetStop } : {}) });
+				}
+				const visible = eventProjection.events(start, sourceFrames, timelineStart, global, initializePerformance);
+				occurrences.push({ track: trackIndex, start: timelineStart, end: timelineEnd, notes: notes.slice(firstOccurrenceNote), events: visible,
+					eligible: Boolean(source && source.sampleRate === project.sampleRate && start === 0 && sourceFrames === source.frameCount
+						&& timelineEnd - timelineStart === sourceFrames && initializePerformance !== true && persistedClip.reversed !== true && persistedClip.warpMap == null) });
+				reserveEvents(visible.length);
+				for (const event of visible) events.push(event.releaseId === undefined ? event : { ...event, releaseId: `${prefix}:${event.releaseId}` });
+				if (preserveTempos) {
+					const visible = eventProjection.tempos(start, sourceFrames, timelineStart, global, initializePerformance);
+					addTiming(tempos, visible);
+				}
+				if (preserveSignatures) {
+					const visible = eventProjection.signatures(start, sourceFrames, timelineStart, global, initializePerformance);
+					addTiming(signatures, visible);
+				}
 			}
-			events.push(...visibleEvents(data.interchange?.events ?? [], start, sourceFrames, Number(clip.timelineStartFrame), global));
-			const importedTempos = data.interchange?.tempos ?? [];
-			const importedRootTempo = importedTempos.find(tempo => tempo.frame === 0);
-			if (!timing.hasTempoChanges && importedRootTempo && Math.abs(importedRootTempo.bpm - timing.tempos[0]!.bpm) < 0.000001) {
-				tempos.push(...visibleTiming(importedTempos, start, sourceFrames, Number(clip.timelineStartFrame), global));
-			}
-			const importedSignatures = data.interchange?.signatures ?? [];
-			const importedRootSignature = importedSignatures.find(signature => signature.frame === 0);
-			if (!timing.hasSignatureChanges && importedRootSignature && importedRootSignature.numerator === timing.signatures[0]!.numerator
-				&& importedRootSignature.denominator === timing.signatures[0]!.denominator) {
-				signatures.push(...visibleTiming(importedSignatures, start, sourceFrames, Number(clip.timelineStartFrame), global));
-			}
+			if (notes.length > firstNote) boundaries.push({ notes: notes.slice(firstNote), events, endFrame: clipEnd });
 		}
-		return [{ name: String(track.name), notes, events, ...(metadata.program === undefined ? {} : { program: metadata.program }) }];
+		return [{ name: String(track.name), notes, events, durationFrames, ...(metadata.program === undefined ? {} : { program: metadata.program }) }];
 	});
 	if (!tracks.length) throw new RangeError('The project has no MIDI tracks to export.');
-	const document = { sampleRate: project.sampleRate, tracks, tempos: uniqueFrames([...tempos, timing.tempos[0]!]), signatures: uniqueFrames([...signatures, timing.signatures[0]!]) };
+	tempos.set(0, timing.tempos[0]!);
+	signatures.set(0, { ...preservedRootSignature, ...timing.signatures[0]! });
+	const document = { sampleRate: project.sampleRate, tracks, tempos: [...tempos.values()].sort(byFrame), signatures: [...signatures.values()].sort(byFrame) };
 	validateMidiFileDocument(document);
+	assertMidiClipTailBoundaries(document, boundaries);
+	for (const [index, additions] of quietMidiClipPerformanceEvents(document, occurrences, reserveEvents)) {
+		const events = tracks[index]!.events;
+		for (const event of additions) events.push(event);
+		events.sort(byFrame);
+	}
 	return document;
 }
 
-function visibleEvents(events: readonly MidiFileEvent[], start: number, frames: number, timelineStart: number, global: (frame: number) => number): MidiFileEvent[] {
-	const state = new Map<string, MidiFileEvent>();
-	const initial: MidiFileEvent[] = [];
-	const visible: MidiFileEvent[] = [];
-	for (const event of [...events].sort((a, b) => a.frame - b.frame)) {
-		if (event.frame >= start && event.frame < start + frames) visible.push({ ...event, frame: global(event.frame) });
-		else if (event.frame < start) {
-			if (event.status === 240 || event.status === 247) initial.push({ ...event, frame: timelineStart });
-			else if (event.status < 240) state.set(`${event.status}:${[160, 176].includes(event.status & 240) ? event.data[0] : ''}`, event);
-			else if (event.status === 255 && [2, 4, 89].includes(event.metaType ?? -1)) state.set(`meta:${event.metaType}`, event);
-		}
-	}
-	return [...initial, ...[...state.values()].map(event => ({ ...event, frame: timelineStart })), ...visible];
-}
+function byFrame(a: Readonly<{ frame: number }>, b: Readonly<{ frame: number }>): number { return a.frame - b.frame; }
 
-function visibleTiming<Value extends Readonly<{ frame: number }>>(values: readonly Value[], start: number, frames: number, timelineStart: number, global: (frame: number) => number): Value[] {
-	const sorted = [...values].filter(value => value.frame > 0).sort((a, b) => a.frame - b.frame);
-	const before = sorted.filter(value => value.frame < start).at(-1);
-	return [...(before ? [{ ...before, frame: timelineStart }] : []), ...sorted.filter(value => value.frame >= start && value.frame < start + frames).map(value => ({ ...value, frame: global(value.frame) }))];
-}
-
-function uniqueFrames<Value extends Readonly<{ frame: number }>>(values: readonly Value[]): Value[] {
-	return [...new Map(values.map(value => [value.frame, value])).values()].sort((a, b) => a.frame - b.frame);
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+	return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

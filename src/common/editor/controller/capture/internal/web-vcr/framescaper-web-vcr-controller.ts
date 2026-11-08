@@ -3,7 +3,6 @@
 import type { CaptureDestination, CapturePhase } from '../../../../framescaper-capture-domain.ts';
 import { constrainWebVcrCropToAspect } from '../../../../web-vcr-geometry.ts';
 import {
-	WEB_VCR_RESOLUTIONS,
 	normalizeWebVcrAspect,
 	normalizeWebVcrCommandV1,
 	normalizeWebVcrNormalizedCrop,
@@ -21,7 +20,7 @@ import { isWebVcrRecoveryOwner } from '../framescaper-capture-source-adapter-rou
 import { clearFramescaperWebVcrBrowserData } from './framescaper-web-vcr-data-clear.ts';
 import { finalizeFramescaperWebVcrCapture, recoverFramescaperWebVcrStartFailure } from './framescaper-web-vcr-finalizer.ts';
 import { framescaperCaptureWorkActive as captureWorkActive, settleFramescaperWebVcrGuestClose,
-	unavailableWebVcrCapability as unavailable, webVcrErrorMessage as errorMessage } from
+	acceptedWebVcrCapability, unavailableWebVcrCapability as unavailable, webVcrErrorMessage as errorMessage } from
 	'./framescaper-web-vcr-controller-helpers.ts';
 import { evaluateFramescaperWebVcrTakeObservation, freezeFramescaperWebVcrTake,
 	type FramescaperWebVcrFrozenTake } from './framescaper-web-vcr-take-authority.ts';
@@ -39,6 +38,7 @@ import type {
 } from '../../framescaper-web-vcr-controller-types.ts';
 import type { WebVcrAudioMonitor } from './web-vcr-audio-monitor.ts';
 import { createFramescaperWebVcrSnapshotOrder } from './framescaper-web-vcr-snapshot-order.ts';
+import { createFramescaperWebVcrGuestLifecycle } from './framescaper-web-vcr-guest-lifecycle.ts';
 export type {
 	FramescaperWebVcrActions,
 	FramescaperWebVcrBridgeV1,
@@ -65,7 +65,7 @@ export function createFramescaperWebVcrController(
 	let initialized = false;
 	let disposed = false;
 	let unsubscribe: (() => void) | null = null;
-	let activatePromise: Promise<void> | null = null;
+	const guestLifecycle = createFramescaperWebVcrGuestLifecycle();
 	let recordPromise: Promise<void> | null = null;
 	let stopPromise: Promise<void> | null = null;
 	let sealPromise: Promise<void> | null = null;
@@ -127,17 +127,7 @@ export function createFramescaperWebVcrController(
 			try {
 				const handshake = await bridge.handshake();
 				if (disposed) return;
-				if (handshake.version !== 1 || handshake.capability.status === 'checking') {
-					throw new Error('Web VCR desktop handshake is incomplete.');
-				}
-				capability = handshake.capability.status === 'available'
-					? Object.freeze({
-						status: 'available',
-						resolutions: Object.freeze(handshake.capability.resolutions.filter((value) => (
-							WEB_VCR_RESOLUTIONS.includes(value)
-						))),
-					})
-					: handshake.capability;
+				capability = acceptedWebVcrCapability(handshake);
 				unsubscribe = bridge.subscribe(receiveHostSnapshot);
 			} catch (error) {
 				capability = unavailable('desktop-bridge-unavailable', errorMessage(error));
@@ -150,14 +140,10 @@ export function createFramescaperWebVcrController(
 
 	function activate(): Promise<void> {
 		assertOperational();
-		if (activatePromise) return activatePromise;
-		const operation = activateReserved();
-		activatePromise = operation;
-		void operation.finally(() => { if (activatePromise === operation) activatePromise = null; }).catch(() => undefined);
-		return operation;
+		return guestLifecycle.activate(activateReserved);
 	}
 
-	async function activateReserved(): Promise<void> {
+	async function activateReserved(isCurrent: () => boolean): Promise<void> {
 		assertAvailable();
 		if (recoveryOwned()) {
 			modeActive = true;
@@ -168,15 +154,15 @@ export function createFramescaperWebVcrController(
 		if (modeActive && host) {
 			options.showPanel?.();
 			await dispatch({ kind: 'set-visibility', visible: true });
-			if (activeCapturePhase() === 'inactive') {
-				options.adapter.select('web-vcr');
-				await capture().actions.requestPreview(['display', 'system-audio']);
-			}
+			await restorePreviewAfterControlFailure();
+			localFailure = null;
+			notify();
 			return;
 		}
 		const phase = activeCapturePhase();
 		if (phase === 'previewing') await capture().actions.release();
 		else if (phase !== 'inactive') throw new Error('Web VCR cannot replace active capture work.');
+		if (!isCurrent()) return;
 		options.adapter.select('web-vcr');
 		modeActive = true;
 		opening = true;
@@ -185,9 +171,15 @@ export function createFramescaperWebVcrController(
 		options.showPanel?.();
 		notify();
 		try {
-			host = normalizeWebVcrSnapshot(await bridge!.open({ resolution: '1080p' }));
+			const opened = normalizeWebVcrSnapshot(await bridge!.open({ resolution: '1080p' }));
+			if (!isCurrent()) {
+				if (opened.sessionId) await bridge!.dispose({ version: 1, sessionId: opened.sessionId, generation: opened.generation });
+				return;
+			}
+			host = opened;
 			await capture().actions.requestPreview(['display', 'system-audio']);
 		} catch (error) {
+			if (!isCurrent()) return;
 			localFailure = errorMessage(error);
 			warn(error);
 			throw error;
@@ -206,18 +198,23 @@ export function createFramescaperWebVcrController(
 			notify();
 			return;
 		}
-		if (activeCapturePhase() === 'previewing') await capture().actions.release();
-		else if (activeCapturePhase() === 'failed') capture().actions.resetFailure();
-		const reference = sessionReference();
-		if (reference) await bridge?.dispose(reference);
-		options.adapter.select('devices');
-		modeActive = false;
-		host = null;
-		dimensions = null;
-		frozen = null;
-		monitor = null;
-		options.hidePanel?.();
-		notify();
+		await guestLifecycle.close(async pending => {
+			modeActive = false;
+			opening = false;
+			options.hidePanel?.();
+			notify();
+			await pending?.catch(warn);
+			if (activeCapturePhase() === 'previewing') await capture().actions.release();
+			else if (activeCapturePhase() === 'failed') capture().actions.resetFailure();
+			const reference = sessionReference();
+			if (reference) await bridge?.dispose(reference);
+			options.adapter.select('devices');
+			host = null;
+			dimensions = null;
+			frozen = null;
+			monitor = null;
+			notify();
+		});
 	}
 
 	function record(): Promise<void> {
@@ -526,8 +523,11 @@ export function createFramescaperWebVcrController(
 		unsubscribe = null;
 		monitor?.dispose();
 		monitor = null;
-		const reference = sessionReference();
-		if (reference) await bridge?.dispose(reference);
+		await guestLifecycle.close(async pending => {
+			await pending?.catch(warn);
+			const reference = sessionReference();
+			if (reference) await bridge?.dispose(reference);
+		});
 	}
 
 	function assertReadyReference(): void {

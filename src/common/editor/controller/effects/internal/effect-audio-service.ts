@@ -117,7 +117,7 @@ export function createEffectAudioService<Buffer = EffectAudioBuffer>(runtime: Ef
 			trackId: authoredControlContext ? null : trackId,
 			includeMaster: authoredControlContext,
 			includeTrackPan: authoredControlContext,
-			respectMuteSolo: false,
+			respectMuteSolo: authoredControlContext,
 			outputFrames: endFrame - startFrame,
 		}, runtime.sourceBuffers, signal);
 		signal?.throwIfAborted();

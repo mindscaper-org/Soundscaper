@@ -2,6 +2,24 @@ import { useEffect, useRef, useState } from 'react';
 
 import { mergeDesignEnvelopePoints } from '../../automation.js';
 
+/** @param {(event: Event) => void} complete */
+export function retainEnvelopeCompletion(complete) {
+	/** @param {MouseEvent} event */
+	const release = (event) => { if (event.button === 0) complete(event); };
+	/** @param {MouseEvent} event */
+	const move = (event) => {
+		if (typeof event.buttons === 'number' && (event.buttons & 1) === 0) complete(event);
+	};
+	document.addEventListener('mouseup', release);
+	document.addEventListener('mousemove', move);
+	window.addEventListener('blur', complete);
+	return () => {
+		document.removeEventListener('mouseup', release);
+		document.removeEventListener('mousemove', move);
+		window.removeEventListener('blur', complete);
+	};
+}
+
 export function useAudioTrackEnvelope({
 	controller,
 	run,
@@ -41,8 +59,7 @@ export function useAudioTrackEnvelope({
 				setEnvelopePreviewRevision((revision) => revision + 1);
 			});
 		};
-		const finishEnvelopeEdit = (event) => {
-			if (event.button !== 0) return;
+		const finishEnvelopeEdit = () => {
 			afterEvent(() => {
 				const previews = [...envelopePreviewRef.current.values()];
 				if (!previews.length) return;
@@ -55,11 +72,13 @@ export function useAudioTrackEnvelope({
 				}
 			});
 		};
-		document.addEventListener('mouseup', finishEnvelopeEdit);
+		const releaseCompletion = retainEnvelopeCompletion(event => {
+			if (event.type !== 'mousemove' || envelopePreviewRef.current.size) finishEnvelopeEdit();
+		});
 		document.addEventListener('keydown', discardEnvelopeEdit);
 		return () => {
 			for (const task of pendingTasks) clearTimeout(task);
-			document.removeEventListener('mouseup', finishEnvelopeEdit);
+			releaseCompletion();
 			document.removeEventListener('keydown', discardEnvelopeEdit);
 		};
 	}, [controller, run]);

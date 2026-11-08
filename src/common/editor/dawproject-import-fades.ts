@@ -52,8 +52,14 @@ function importedClipFades(event: DawprojectAudioEvent, startFrame: number, dura
 	function subdivide(left: number, right: number): void {
 		const middle = Math.floor((left + right) / 2);
 		if (middle <= left || middle >= right || frames.size >= 4096) return;
-		const linear = valueAt(left) + (valueAt(right) - valueAt(left)) * (middle - left) / (right - left);
-		if (Math.abs(valueAt(middle) - linear) <= 0.00001) return;
+		const leftValue = valueAt(left), rightValue = valueAt(right);
+		// Higher-order products can cross their chord at the midpoint alone.
+		const inaccurate = [0.25, 0.5, 0.75].some(fraction => {
+			const frame = left + Math.floor((right - left) * fraction);
+			const linear = leftValue + (rightValue - leftValue) * (frame - left) / (right - left);
+			return frame > left && frame < right && Math.abs(valueAt(frame) - linear) > 0.00001;
+		});
+		if (!inaccurate) return;
 		frames.add(middle); subdivide(left, middle); subdivide(middle, right);
 	}
 }

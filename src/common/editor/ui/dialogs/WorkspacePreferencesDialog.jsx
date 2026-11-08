@@ -29,6 +29,7 @@ import TrackDisplayPreferencesPage from './TrackDisplayPreferencesPage.jsx';
 import { ShortcutEditorRow } from './ShortcutEditorRow.tsx';
 import AudacityShortcutImport from './AudacityShortcutImport.tsx';
 import { useWorkspaceDeletionFocus } from './useWorkspaceDeletionFocus.ts';
+import { useWorkspaceCreationFocus } from './useWorkspaceCreationFocus.ts';
 import { useShortcutCommands, useShortcutCommandGroups } from './useShortcutPresentation.ts';
 import { createShortcutDraftConflictIndex } from './shortcut-draft-conflict-index.ts';
 import { shortcutCategoryMessageKey } from './workspace-preferences-shortcut-categories.ts';
@@ -68,6 +69,8 @@ export default function WorkspacePreferencesDialog({
 	const [shortcutSort, setShortcutSort] = useState(DEFAULT_SHORTCUT_SORT_MODE);
 	const [workspaceName, setWorkspaceName] = useState('');
 	const workspaceNameRevision = useRef(0);
+	const workspaceNameRef = useRef(null);
+	const captureWorkspaceCreation = useWorkspaceCreationFocus(workspaceNameRef, workspaceName, workspaceNameRevision.current, controller);
 	const preferences = snapshot.preferences;
 	const commands = useShortcutCommands(menus, {
 		locale,
@@ -203,14 +206,15 @@ export default function WorkspacePreferencesDialog({
 								/></div>
 								<label className="kw-audio-editor-preferences__workspace-name">
 									<span>{copy.workspaceName}</span>
-									<input aria-label={copy.workspaceName} placeholder={copy.workspaceName} value={workspaceName} onChange={(event) => {
+									<input ref={workspaceNameRef} aria-label={copy.workspaceName} placeholder={copy.workspaceName} value={workspaceName} onChange={(event) => {
 										workspaceNameRevision.current += 1;
 										setWorkspaceName(event.currentTarget.value);
 									}} />
 								</label>
 								<div className="kw-audio-editor__custom-workspace-actions">
-									<Button variant="secondary" disabled={!workspaceName.trim()} onClick={() => {
+									<Button variant="secondary" disabled={!workspaceName.trim()} onClick={(event) => {
 										const submittedRevision = workspaceNameRevision.current;
+										captureWorkspaceCreation(event?.currentTarget, submittedRevision);
 										void runAwaitedAudioEditorOperation(
 											run,
 											() => controller.actions.preferences.createWorkspace(workspaceName.trim()),

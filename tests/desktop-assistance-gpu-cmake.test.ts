@@ -48,8 +48,10 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 add_library(ort_fixture STATIC fixture.cc)
 `);
 	await write(join(librarySource, 'fixture.cc'), 'int scape_fixture() { return 0; }\n');
-	await runFile('cmake', ['-S', librarySource, '-B', libraryBuild, ...plan.generatorArgs, '-DCMAKE_BUILD_TYPE=Release'], { timeout: 30_000 });
-	await runFile('cmake', ['--build', libraryBuild, '--config', 'Release'], { timeout: 30_000 });
+	// Match the Sherpa fixture: cold MSVC compiler discovery alone can exceed 30s.
+	const timeout = 120_000;
+	await runFile('cmake', ['-S', librarySource, '-B', libraryBuild, ...plan.generatorArgs, '-DCMAKE_BUILD_TYPE=Release'], { timeout });
+	await runFile('cmake', ['--build', libraryBuild, '--config', 'Release'], { timeout });
 	const library = await find(libraryBuild, process.platform === 'win32' ? 'ort_fixture.lib' : 'libort_fixture.a');
 	assert.ok(library);
 	const directory = engine === 'onnx' ? 'assistance-onnx-webgpu-node-api' : 'assistance-kokoro-g2p-gpu';
@@ -76,8 +78,8 @@ add_library(ort_fixture STATIC fixture.cc)
 		...(engine === 'onnx' ? [`-DORT_NODE_SOURCE=${upstream}`, `-DNODE_HEADERS=${root}`,
 			`-DNODE_ADDON_API=${root}`, `-DNODE_LIBRARY=${library}`, `-DNODE_DELAY_HOOK=${hook}`]
 			: [`-DPROBE_SOURCE=${probe}`]),
-	], { timeout: 30_000 });
-	const built = await runFile('cmake', ['--build', build, ...plan.buildArgs], { timeout: 30_000 });
+	], { timeout });
+	const built = await runFile('cmake', ['--build', build, ...plan.buildArgs], { timeout });
 	assert.doesNotMatch(`${built.stdout}\n${built.stderr}`, /D900[27]/u, 'MSVC must honor every reproducibility flag');
 	await assert.rejects(access(join(build, 'CMakeFiles/VerifyGlobs.cmake')), { code: 'ENOENT' });
 	const extension = process.platform === 'win32' ? '.exe' : '';

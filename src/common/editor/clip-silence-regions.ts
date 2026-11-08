@@ -9,6 +9,8 @@
 
 import { readClipLoop } from './audio-clip-loop.ts';
 import { createClipSilenceWarpProjection } from './clip-silence-warp-projection.ts';
+import { EDIT_COMMAND_COPY_BY_LOCALE } from '../i18n/edit-command-copy.js';
+import { createLocalizedError } from '../i18n/presentation-message.ts';
 import type { RuntimeClipProject } from './runtime-clip-projection.ts';
 import type { AudioWarpRuntimeClip } from './audio-warp-runtime.ts';
 
@@ -54,11 +56,13 @@ export function findClipSilenceRegions(
 	buffer: ClipSilenceScanBuffer,
 	bounds: ClipSilenceScanBounds | null = null,
 	project: RuntimeClipProject | null = null,
+	options: Readonly<{ absoluteSilence?: boolean }> = {},
 ): readonly ClipSilenceRegion[] {
 	if (clip.warpMap != null) {
 		const projection = createClipSilenceWarpProjection(clip, bounds, project);
-		return projection.toTimeline(findClipSilenceRegions(projection.clip, buffer, projection.bounds));
+		return projection.toTimeline(findClipSilenceRegions(projection.clip, buffer, projection.bounds, null, options));
 	}
+	const silencePeak = options.absoluteSilence ? 0 : SILENCE_PEAK;
 	const sourceDurationFrames = clip.sourceDurationFrames ?? clip.durationFrames;
 	if (!(sourceDurationFrames > 0) || !(clip.durationFrames > 0)) return Object.freeze([]);
 	const loop = readClipLoop(clip);
@@ -76,6 +80,7 @@ export function findClipSilenceRegions(
 		const timelineEnd = Math.min(bounds?.endFrame ?? clipEndFrame,
 			clip.timelineStartFrame + Math.round(end * timelineFramesPerSourceFrame));
 		if (timelineStart > clip.timelineStartFrame && timelineEnd < clipEndFrame && timelineEnd > timelineStart) {
+			if (regions.length === MAXIMUM_REGIONS) throw createLocalizedError(RangeError, EDIT_COMMAND_COPY_BY_LOCALE.en, 'silenceRegionLimit', { limit: MAXIMUM_REGIONS });
 			regions.push(Object.freeze([timelineStart, timelineEnd]));
 		}
 	};
@@ -92,10 +97,9 @@ export function findClipSilenceRegions(
 		for (let channel = 0; channel < channels.length; channel += 1) {
 			peak = Math.max(peak, Math.abs(channels[channel]?.[sourceFrame] ?? 0));
 		}
-		if (peak <= SILENCE_PEAK) silenceStart ??= relativeSourceFrame;
+		if (peak <= silencePeak) silenceStart ??= relativeSourceFrame;
 		else if (silenceStart != null) {
 			append(silenceStart, relativeSourceFrame);
-			if (regions.length === MAXIMUM_REGIONS) return Object.freeze(regions);
 			silenceStart = null;
 		}
 	}

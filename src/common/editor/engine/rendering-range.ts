@@ -4,6 +4,7 @@ import { projectEffectTailFrames } from '../effects.js';
 import type { ScheduledChunkStreamUnderrun } from './clip-scheduler.ts';
 import { clamp, clampFrame, DEFAULT_SAMPLE_RATE, MAX_EFFECT_TAIL_SECONDS } from './buffer-math.ts';
 import type { EngineProject } from './types.ts';
+import type { EngineRenderTimelineRange } from './public-api.ts';
 
 const tailFrames = projectEffectTailFrames as (
 	project: EngineProject,
@@ -19,6 +20,24 @@ const tailFrames = projectEffectTailFrames as (
 export function resolveRenderFrameRange(startFrame: unknown, endFrame: unknown): Readonly<{ fromFrame: number; toFrame: number }> {
 	const fromFrame = clampFrame(startFrame, 0, Number.MAX_SAFE_INTEGER);
 	return { fromFrame, toFrame: clampFrame(endFrame, fromFrame, Number.MAX_SAFE_INTEGER) };
+}
+
+/** A bounded cut render omits input, rather than cutting an already processed result. */
+export function resolveRenderTimelineRanges(fromFrame: number, toFrame: number, joinedRanges?: unknown) {
+	if (joinedRanges === undefined) return { ranges: [{ startFrame: fromFrame, endFrame: toFrame }], frameCount: toFrame - fromFrame };
+	if (!Array.isArray(joinedRanges) || joinedRanges.length < 1 || joinedRanges.length > 2) throw new RangeError('Joined rendering requires one or two timeline intervals.');
+	const ranges: EngineRenderTimelineRange[] = [];
+	let frameCount = 0, previousEnd = fromFrame;
+	for (const value of joinedRanges as unknown[]) {
+		if (!value || typeof value !== 'object' || !('startFrame' in value) || !('endFrame' in value)) throw new RangeError('Invalid joined render interval.');
+		const { startFrame, endFrame } = value;
+		if (typeof startFrame !== 'number' || typeof endFrame !== 'number'
+			|| !Number.isSafeInteger(startFrame) || !Number.isSafeInteger(endFrame)
+			|| startFrame < previousEnd || endFrame <= startFrame || endFrame > toFrame) throw new RangeError('Joined render intervals must be ordered and inside the render range.');
+		ranges.push({ startFrame, endFrame }); frameCount += endFrame - startFrame; previousEnd = endFrame;
+	}
+	if (ranges[0]!.startFrame !== fromFrame || previousEnd !== toFrame || !Number.isSafeInteger(frameCount)) throw new RangeError('Joined render intervals must retain the enclosing endpoints.');
+	return { ranges, frameCount };
 }
 
 /** Charge the audible insert history before capturing a selected passage.

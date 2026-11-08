@@ -122,11 +122,10 @@ export default function AudioEditorMenuBar({
 		setSearchOpen(false);
 		onAssistanceSearchClose?.();
 		setActiveIndex(index);
-		const menu = materializeApplicationMenu(orderedMenus[index]);
+		const menu = orderedMenus[index];
 		setOpenMenu({
 			id: menu.id,
 			index,
-			menu,
 			x: compact ? 8 : rect.left,
 			y: compact ? rect.bottom + 4 : rect.bottom,
 			autoFocus: keyboard,
@@ -191,7 +190,6 @@ export default function AudioEditorMenuBar({
 		let semanticsFrame;
 		const frame = requestAnimationFrame(() => {
 			const root = document.querySelector('#kw-audio-editor-design-system .kw-audio-editor__application-menu[role="menu"]');
-			root?.setAttribute('aria-label', openMenu.menu.label || copy.applicationMenu);
 			const applyCheckedSemantics = () => {
 				for (const marker of root?.querySelectorAll('[data-audio-editor-menu-checked]') || []) {
 					const item = marker.closest(MENU_ITEM_SELECTOR);
@@ -276,7 +274,10 @@ export default function AudioEditorMenuBar({
 		'--header-text': theme.foreground.text.primary,
 		'--header-menu-hover': theme.background.surface.hover,
 	};
-	const currentMenu = openMenu?.menu || null;
+	const currentMenu = useMemo(() => {
+		const menu = orderedMenus.find(item => item.id === openMenu?.id);
+		return menu ? materializeApplicationMenu(menu) : null;
+	}, [openMenu?.id, orderedMenus]);
 	const drawer = compact && chromeDrawer ? chromeDrawer : null;
 	const search = searchEnabled && (
 		<AudioEditorSearch
@@ -392,6 +393,7 @@ export default function AudioEditorMenuBar({
 				<div onClickCapture={onOpenMenuClickCapture}>
 					<ContextMenu
 						isOpen
+						ariaLabel={currentMenu.label || copy.applicationMenu}
 						x={openMenu.x}
 						y={openMenu.y}
 						autoFocus={false}

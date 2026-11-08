@@ -5,7 +5,7 @@ import { Button } from '@soundscaper/design-system/Button';
 import { VIDEO_EFFECT_TYPES, videoEffectDefinition } from '../../video-effects.js';
 import { DesignCheckbox, LabeledDropdown } from './inspector-controls.jsx';
 import VideoEffectNumberInput from './VideoEffectNumberInput.tsx';
-import { createVideoEffectPointerCancellation } from './video-effect-pointer-cancellation.ts';
+import { createNativeInputPointerCancellation } from './native-input-pointer-cancellation.ts';
 import { useVideoEffectRemovalFocus } from './useVideoEffectRemovalFocus.ts';
 
 export function VideoEffectRack({ clip, controller, copy, disabled, onError }) {
@@ -170,7 +170,7 @@ function VideoEffectColor({ clipId, effectId, name, parameter, value, actions, c
 function VideoEffectSlider({ clipId, effectId, name, parameter, value, actions, copy, disabled, onError }) {
 	const nativeInput = useNativeRangeTouchOwner();
 	const gesture = useEffectGesture({ actions, clipId, effectId, disabled, onError });
-	const pointer = useRef(createVideoEffectPointerCancellation()).current;
+	const pointer = useRef(createNativeInputPointerCancellation()).current;
 	const mouseCustody = useRef(null);
 	useEffect(() => () => { mouseCustody.current?.(); mouseCustody.current = null; }, [actions, clipId, effectId]);
 	const label = parameterLabel(parameter, copy);

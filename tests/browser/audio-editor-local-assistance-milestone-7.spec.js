@@ -446,7 +446,8 @@ async function applyDirectEffectAndUndo(page, editor, label) {
 	await expect(processing.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
 	await expect(processing.getByRole('combobox')).toHaveCount(0);
 	await completeMilestone7Run(page);
-	await expect(processing).toBeHidden();
+	// Releasing the proposal still leaves real stem imports and publication to finish.
+	await expect(processing).toBeHidden({ timeout: 30_000 });
 	await expect(editor).toHaveAttribute('data-clip-count', label.startsWith('Separate') ? '4' : '2');
 	await expect(editor.getByRole('group', { name: /^Video clip:/u })).toHaveCount(1);
 	await editor.getByRole('button', { name: 'Undo', exact: true }).click();

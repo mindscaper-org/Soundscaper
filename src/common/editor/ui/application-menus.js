@@ -179,6 +179,7 @@ export default function createApplicationMenus({
 	const effectGroups = createEffectMenuEntries({
 		organization: preferences?.effects?.menuOrganization,
 		copy, effectLabels, productId, locale,
+		typeBlocked: actions.selectionEffectMutationLocked,
 		disabled: editBlocked || !effectTargeting.effectAudioTrack,
 		selectionActive: effectTargeting.explicitEffectSelectionActive,
 		allAudioTarget: effectTargeting.effectPreferenceTargetsAll,
@@ -404,7 +405,7 @@ export default function createApplicationMenus({
 				divider(),
 				{ id: 'mix-render', label: copy.mixRenderTitle, preserveLabel: true,
 					disabled: editBlocked || !mixableAudioSelected, onClick: actions.mixAndRender },
-				{ id: AUDIO_EDITOR_APPLICATION_MENU_ACTION_IDS.trackResample, label: copy.resample, disabled: editBlocked || !selectedAudioTrack, onClick: actions.openResample },
+				{ id: AUDIO_EDITOR_APPLICATION_MENU_ACTION_IDS.trackResample, label: copy.resample, disabled: editBlocked || !selectedAudioTrack || Boolean(selectedAudioTrack.locked), disabledReason: selectedAudioTrack?.locked ? copy.unlockTrack : undefined, onClick: actions.openResample },
 				structuralMenus.alignMenu,
 				structuralMenus.sortMenu,
 			],

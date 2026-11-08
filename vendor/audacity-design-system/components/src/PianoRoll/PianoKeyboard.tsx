@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useTheme } from '../ThemeProvider/ThemeProvider';
+import { useContainerTabGroup } from '../hooks/useContainerTabGroup';
 import { PIANO_KEY_WIDTH, TOTAL_PITCHES, NOTE_HEIGHT, RULER_HEIGHT, CLIP_STRIP_HEIGHT } from './constants';
 import type { PianoKeyboardProps } from './types';
 
@@ -43,6 +44,7 @@ const BLACK_KEY_ACTIVE = '#3a5858';
 const LABEL_COLOR = 'rgba(20,21,26,0.5)';
 
 export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
+  ariaLabel,
   scrollY,
   noteHeight,
   height,
@@ -53,6 +55,9 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
 }) => {
   const { theme } = useTheme();
   const [hoveredPitch, setHoveredPitch] = useState<number | null>(null);
+  const keyboardRef = useRef<HTMLDivElement>(null);
+  const navigation = useContainerTabGroup({ containerRef: keyboardRef, groupId: 'piano-keyboard',
+    selector: '[data-piano-key]', ariaLabel });
 
   const setHover = (pitch: number | null) => {
     setHoveredPitch(pitch);
@@ -63,8 +68,8 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
   const gridHeight = height - topOffset;
 
   const keyElements = useMemo(() => {
-    const whiteKeys: React.ReactNode[] = [];
-    const blackKeys: React.ReactNode[] = [];
+    const whiteKeys: React.ReactElement[] = [];
+    const blackKeys: React.ReactElement[] = [];
 
     for (let octave = 10; octave >= 0; octave--) {
       const octaveBasePitch = octave * 12;
@@ -79,7 +84,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
         if (pitch > 127 || pitch < 0) continue;
 
         const y = octaveTopY + key.offset;
-        if (y + key.height < -8 || y > gridHeight + 8) continue;
+        if (y + key.height <= 0 || y >= gridHeight) continue;
 
         const isHovered = hoveredPitch === pitch;
         const isActive = highlightedPitch === pitch;
@@ -95,9 +100,13 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
         const noteName = `${key.name}${displayOctave}`;
 
         whiteKeys.push(
-          <div
+          <button
             key={pitch}
+            type="button"
+            data-piano-key={pitch}
+            aria-label={noteName}
             style={{
+              margin: 0, padding: 0, border: 0, textAlign: 'left',
               position: 'absolute',
               left: 0,
               top: y,
@@ -110,10 +119,12 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
             }}
             onMouseEnter={() => setHover(pitch)}
             onMouseLeave={() => setHover(null)}
+            onFocus={() => setHover(pitch)}
+            onBlur={() => setHover(null)}
             onClick={() => onKeyClick?.(pitch)}
           >
             {/* White key face */}
-            <div
+            <span
               style={{
                 position: 'absolute',
                 left: 0,
@@ -145,7 +156,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
                 {noteName}
               </span>
             )}
-          </div>
+          </button>
         );
       }
 
@@ -155,7 +166,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
         if (pitch > 127 || pitch < 0) continue;
 
         const y = octaveTopY + bk.offset - BLACK_KEY_HEIGHT / 2;
-        if (y + BLACK_KEY_HEIGHT < -8 || y > gridHeight + 8) continue;
+        if (y + BLACK_KEY_HEIGHT <= 0 || y >= gridHeight) continue;
 
         const isHovered = hoveredPitch === pitch;
         const isActive = highlightedPitch === pitch;
@@ -169,9 +180,13 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
             : BLACK_KEY_FACE;
 
         blackKeys.push(
-          <div
+          <button
             key={pitch}
+            type="button"
+            data-piano-key={pitch}
+            aria-label={noteName}
             style={{
+              margin: 0, padding: 0, border: 0, textAlign: 'left',
               position: 'absolute',
               left: 0,
               top: y,
@@ -185,10 +200,12 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
             }}
             onMouseEnter={() => setHover(pitch)}
             onMouseLeave={() => setHover(null)}
+            onFocus={() => setHover(pitch)}
+            onBlur={() => setHover(null)}
             onClick={(e) => { e.stopPropagation(); onKeyClick?.(pitch); }}
           >
             {/* Black key face with gradient */}
-            <div
+            <span
               style={{
                 position: 'absolute',
                 left: 3,
@@ -201,7 +218,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
               }}
             />
             {/* Right edge highlight */}
-            <div
+            <span
               style={{
                 position: 'absolute',
                 right: 2,
@@ -219,13 +236,13 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
               <span
                 style={{
                   position: 'absolute',
-                  left: BLACK_KEY_WIDTH + 4,
+                  left: 8,
                   top: '50%',
                   transform: 'translateY(-50%)',
                   fontSize: 10,
                   fontFamily: 'Inter, sans-serif',
                   fontWeight: 500,
-                  color: theme.foreground.text.secondary,
+                  color: WHITE_KEY_FACE,
                   pointerEvents: 'none',
                   lineHeight: 1,
                   whiteSpace: 'nowrap',
@@ -235,13 +252,15 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
                 {noteName}
               </span>
             )}
-          </div>
+          </button>
         );
       }
     }
 
-    return [...whiteKeys, ...blackKeys];
+    return [...whiteKeys, ...blackKeys].sort((left, right) => Number(right.key) - Number(left.key));
   }, [scrollY, noteHeight, gridHeight, hoveredPitch, highlightedPitch, onKeyClick, onHoverKey]);
+
+  useEffect(() => { navigation.initTabIndices(); }, [navigation.initTabIndices, keyElements]);
 
   return (
     <div
@@ -266,6 +285,17 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
 
       {/* Piano keys */}
       <div
+        ref={keyboardRef}
+        {...navigation.containerProps}
+        data-piano-keyboard
+        onFocus={navigation.onFocus}
+        onBlur={navigation.onBlur}
+        onClickCapture={navigation.onClickCapture}
+        onKeyDown={event => {
+          navigation.onKeyDown(event);
+          if (!event.ctrlKey && !event.metaKey && !event.altKey
+            && (event.key === ' ' || event.key === 'Enter')) event.stopPropagation();
+        }}
         style={{
           position: 'relative',
           flex: 1,

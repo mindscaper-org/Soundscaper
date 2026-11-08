@@ -251,6 +251,8 @@ export async function installWebVcrHost(page, { recordingFixture = false } = {})
 			class FixtureMediaStreamTrackProcessor {
 				constructor({ track }) {
 					if (track.kind !== 'audio') return new NativeProcessor({ track });
+					this.discardedFrames = 0;
+					this.totalFrames = 0;
 					let canceled = false;
 					let frameStart = 0;
 					let pending = null;
@@ -264,7 +266,9 @@ export async function installWebVcrHost(page, { recordingFixture = false } = {})
 										if (canceled) { resolve({ done: true }); return; }
 										const start = frameStart;
 										frameStart += 4_096;
+										this.totalFrames += 1;
 										resolve({ done: false, value: {
+											timestamp: Math.round(start * 1_000_000 / 48_000),
 											numberOfFrames: 4_096, numberOfChannels: 2, sampleRate: 48_000,
 											copyTo(destination, options) {
 												for (let index = 0; index < destination.length; index += 1) {

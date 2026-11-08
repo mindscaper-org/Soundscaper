@@ -3,6 +3,12 @@
 import { desktopOriginalForProject } from '../../../desktop-overwrite-original.ts';
 import { selectAudioEditorControllerEditBlock, type AudioEditorControllerEditState } from '../../../edit-blocking.ts';
 
+const originalOverwriteSettings = new WeakSet<object>();
+/** Identity authority exists only during the adapter's authorized same-file write. */
+export function isOriginalOverwriteSettings(value: unknown): boolean {
+	return value !== null && typeof value === 'object' && originalOverwriteSettings.has(value);
+}
+
 export interface OriginalOverwriteState extends AudioEditorControllerEditState {
 	readonly disposed?: boolean;
 	readonly recordingFinishing?: boolean;
@@ -48,11 +54,14 @@ export function createOriginalOverwriteActions(runtime: OriginalOverwriteRuntime
 			if (!target || runtime.state.disposed || runtime.state.recordingFinishing
 				|| !Array.isArray(project?.clips) || !project.clips.length
 				|| selectAudioEditorControllerEditBlock(runtime.state).blocked || originalFile() !== original) return;
-			return await runtime.handleExportAction('start', {
+			const settings = {
 				...original.settings, mode: 'mix', range: 'project',
 				masteringSequenceId: null, loudnessNormalization: null,
 				saveTarget: target,
-			});
+			};
+			originalOverwriteSettings.add(settings);
+			try { return await runtime.handleExportAction('start', settings); }
+			finally { originalOverwriteSettings.delete(settings); }
 		} finally {
 			try {
 				if (target) await runtime.fileService.releaseSaveTarget?.(target);

@@ -199,8 +199,12 @@ function timecode(
 	if (!Number.isSafeInteger(frames) || Number(frames) < 0) {
 		throw annotateFormatFileFailure(new RangeError(`EDL ${label} must be a non-negative frame count.`), 'edl', 'TIMECODE');
 	}
+	const fields = sequenceTimecodeFromFrameCount(Number(frames), rate, dropFrame);
+	if (fields.hours > 99) {
+		throw annotateFormatFileFailure(new RangeError('CMX3600 requires two-digit hour fields. Export OTIO or FCPXML for this timecode.'), 'edl', 'HOUR_FIELDS');
+	}
 	return formatSequenceTimecode(
-		sequenceTimecodeFromFrameCount(Number(frames), rate, dropFrame),
+		fields,
 		rate,
 		dropFrame,
 	);
@@ -228,7 +232,7 @@ function reportReel(
 }
 
 function sanitizeTitle(value: string): string {
-	return value.replaceAll(/[\r\n\v\f\u0085\u2028\u2029]+/gu, ' ').slice(0, 70);
+	return value.replaceAll(/[\r\n\v\f\u0085\u2028\u2029]+/gu, ' ');
 }
 
 export function createEdlExport(request: EdlExportRequest): EdlExportResult {

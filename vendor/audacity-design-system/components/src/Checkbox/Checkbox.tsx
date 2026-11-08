@@ -6,6 +6,8 @@ import { iconNameToChar } from '../Icon/icon-codes.ts';
  */
 
 import React from 'react';
+import { consumeChoiceActivation } from '../hooks/choice-activation';
+import { checkboxThemeStyle } from '../utils/choice-theme';
 import { useTheme } from '../ThemeProvider';
 import './Checkbox.css';
 
@@ -56,12 +58,7 @@ export function Checkbox({
   const [isHovered, setIsHovered] = React.useState(false);
   const [isPressed, setIsPressed] = React.useState(false);
 
-  const style = {
-    '--checkbox-bg-idle': theme.background.control.checkbox.idle,
-    '--checkbox-bg-hover': theme.background.control.checkbox.hover,
-    '--checkbox-bg-pressed': theme.background.control.checkbox.pressed,
-    '--checkbox-icon-color': theme.foreground.icon.primary,
-  } as React.CSSProperties;
+  const style = checkboxThemeStyle(theme);
 
   const handleClick = () => {
     if (!disabled && onChange) {
@@ -70,10 +67,7 @@ export function Checkbox({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === ' ' || e.key === 'Enter') {
-      e.preventDefault();
-      handleClick();
-    }
+    if (consumeChoiceActivation(e)) handleClick();
   };
 
   const getStateClass = () => {

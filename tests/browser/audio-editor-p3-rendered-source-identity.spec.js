@@ -35,8 +35,11 @@ for (const chunkFrames of [1024, 65536]) for (const authenticated of [false, tru
 	await editor.locator('[data-aup4-input]').setInputFiles(file);
 	await expect(editor).toHaveAttribute('data-project-id', projectId); await waitForProjectActivation(editor);
 	const clip = editor.locator('[data-clip-id="clip"]').first();
+	await expect(clip.getByRole('button', { name: 'Clip speed', exact: true })).toBeVisible();
 	await clip.getByRole('button', { name: 'Clip menu', exact: true }).click();
 	await page.locator('.audio-editor-clip-context-menu').getByRole('menuitem', { name: 'Render pitch and speed', exact: true }).click();
+	await expect(clip.getByRole('button', { name: 'Clip speed', exact: true })).toHaveCount(0);
+	await expect(editor.locator('[data-edit-block-reason]')).toHaveCount(0);
 	const properties = await openClipProperties(page, editor, clip);
 	await expect(clipField(properties, 'speedRatio')).toHaveValue('100'); await closeClipProperties(properties);
 	const saving = page.waitForEvent('download', { timeout: 10_000 });

@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { inspectOpusInitialGranule } from './opus-initial-granule.ts';
-import { inspectVorbisAbsoluteOrigin, type VorbisPacketGeometry } from './vorbis-initial-granule.ts';
+import { inspectVorbisInitialGeometry, type VorbisPacketGeometry } from './vorbis-initial-granule.ts';
 
 export interface OggGaplessGeometry {
 	readonly sampleRate: number;
 	readonly sourceFrames: number;
+	/** Sequential packet inspection can prove more audio than sparse-clock seeking. */
+	readonly minimumEncodedFrames?: number;
 }
 
 const MAXIMUM_PAGE_BYTES = 65_307;
@@ -30,8 +32,9 @@ export async function inspectOggGaplessGeometry(file: Blob, codec: 'opus' | 'vor
 		sampleRate = new DataView(body.buffer, body.byteOffset, body.byteLength).getUint32(12, true);
 	}
 	const serial = new DataView(first.buffer).getUint32(14, true);
-	const origin = codec === 'opus' ? await inspectOpusInitialGranule(file, serial, signal)
-		: vorbisPackets ? await inspectVorbisAbsoluteOrigin(file, serial, sampleRate, vorbisPackets, signal) : 0;
+	const vorbis = codec === 'vorbis' && vorbisPackets
+		? await inspectVorbisInitialGeometry(file, serial, sampleRate, vorbisPackets, signal) : null;
+	const origin = codec === 'opus' ? await inspectOpusInitialGranule(file, serial, signal) : vorbis?.origin ?? 0;
 	const tail = new Uint8Array(await file.slice(Math.max(0, file.size - MAXIMUM_PAGE_BYTES * 2)).arrayBuffer());
 	signal?.throwIfAborted();
 	for (let offset = tail.length - 27; offset >= 0; offset -= 1) {
@@ -40,7 +43,7 @@ export async function inspectOggGaplessGeometry(file: Blob, codec: 'opus' | 'vor
 		if (!size) continue;
 		const view = new DataView(tail.buffer, tail.byteOffset + offset, size);
 		if (view.getUint32(14, true) !== serial) continue;
-		const geometry = endPageGeometry(tail.subarray(offset, offset + size), preSkip, sampleRate, origin);
+		const geometry = endPageGeometry(tail.subarray(offset, offset + size), preSkip, sampleRate, origin, vorbis?.minimumEncodedFrames);
 		await rejectChainedAudio(file, file.size - tail.length + offset + size, signal);
 		return geometry;
 	}
@@ -48,20 +51,20 @@ export async function inspectOggGaplessGeometry(file: Blob, codec: 'opus' | 'vor
 	// Follow physical page headers without reading intervening encoded payloads.
 	const end = await findEarlierEndPage(file, serial, signal);
 	if (end) {
-		const geometry = endPageGeometry(end.page, preSkip, sampleRate, origin);
+		const geometry = endPageGeometry(end.page, preSkip, sampleRate, origin, vorbis?.minimumEncodedFrames);
 		await rejectChainedAudio(file, end.endOffset, signal);
 		return geometry;
 	}
 	throw new Error('The Ogg audio source has no final granule for its primary stream.');
 }
 
-function endPageGeometry(page: Uint8Array, preSkip: number, sampleRate: number, origin: number): OggGaplessGeometry {
+function endPageGeometry(page: Uint8Array, preSkip: number, sampleRate: number, origin: number, minimumEncodedFrames?: number): OggGaplessGeometry {
 	verifyPageChecksum(page);
 	const granule = new DataView(page.buffer, page.byteOffset, page.byteLength).getBigUint64(6, true);
 	if (granule > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('The Ogg source granule exceeds the safe range.');
 	const sourceFrames = Number(granule) - origin - preSkip;
 	if (sourceFrames < 1 || sampleRate < 1) throw new Error('The Ogg source declares empty gapless geometry.');
-	return Object.freeze({ sampleRate, sourceFrames });
+	return Object.freeze({ sampleRate, sourceFrames, ...(minimumEncodedFrames === undefined ? {} : { minimumEncodedFrames }) });
 }
 
 async function findEarlierEndPage(file: Blob, serial: number, signal?: AbortSignal): Promise<Readonly<{ page: Uint8Array; endOffset: number }> | null> {

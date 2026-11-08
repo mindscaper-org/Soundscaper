@@ -83,4 +83,126 @@ test.describe('beta MIDI editing and shared transport', () => {
 		}
 		expect(errors).toEqual([]);
 	});
+
+	test('drawing notes with triplets enabled uses the selected triplet length', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		const noteEditor = await openPianoRoll(page, editor);
+		const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
+		await panel.getByRole('checkbox', { name: 'Triplets', exact: true }).check();
+		const grid = panel.getByRole('group', { name: 'Piano roll notes', exact: true });
+		await grid.click({ position: { x: 171, y: 76 } });
+		await expect(noteEditor.getByRole('spinbutton', { name: 'Pitch (MIDI number)', exact: true })).toHaveValue('62');
+		await expect(noteEditor.getByRole('spinbutton', { name: 'Note duration (seconds)', exact: true })).toHaveValue(String(1 / 12));
+	});
+
+	test('clicking a piano-roll note routes Delete to notes after using the note controls', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		const noteEditor = await openPianoRoll(page, editor);
+		const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
+		await panel.getByRole('button', { name: 'Add note', exact: true }).click();
+		const notes = noteEditor.getByRole('combobox', { name: 'Selected note', exact: true });
+		await expect(notes.getByRole('option')).toHaveCount(3);
+		await panel.getByRole('group', { name: 'Piano roll notes', exact: true }).click({ position: { x: 110, y: 108 } });
+		await page.keyboard.press('Delete');
+		await expect(notes.getByRole('option')).toHaveCount(2);
+	});
+
+	test('resizing selected notes preserves the group for the next Delete', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		const noteEditor = await openPianoRoll(page, editor);
+		const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
+		await panel.getByRole('button', { name: 'Add note', exact: true }).click();
+		await expect(noteEditor.getByRole('combobox', { name: 'Selected note', exact: true }).getByRole('option')).toHaveCount(3);
+		const grid = panel.getByRole('group', { name: 'Piano roll notes', exact: true });
+		await grid.click({ position: { x: 110, y: 108 } });
+		await page.keyboard.press('ControlOrMeta+a');
+		const bounds = await grid.boundingBox();
+		if (!bounds) throw new Error('Piano roll grid is not visible.');
+		await page.mouse.move(bounds.x + 115, bounds.y + 108);
+		await expect.poll(() => page.evaluate(({ x, y }) => {
+			const target = document.elementFromPoint(x, y);
+			return target ? getComputedStyle(target).cursor : null;
+		}, { x: bounds.x + 115, y: bounds.y + 108 })).toBe('ew-resize');
+		await page.mouse.down();
+		await page.mouse.move(bounds.x + 140, bounds.y + 108, { steps: 3 });
+		await page.mouse.up();
+		await expect(noteEditor.getByRole('spinbutton', { name: 'Note duration (seconds)', exact: true })).toHaveValue('0.75');
+		await page.keyboard.press('Delete');
+		await expect(noteEditor.getByRole('combobox', { name: 'Selected note', exact: true }).getByRole('option')).toHaveCount(1);
+	});
+
+	test('typing a complete pitch value keeps every digit while editing a note', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		const noteEditor = await openPianoRoll(page, editor);
+		await noteEditor.getByRole('combobox', { name: 'Selected note', exact: true }).selectOption({ index: 1 });
+		const pitch = noteEditor.getByRole('spinbutton', { name: 'Pitch (MIDI number)', exact: true });
+		await pitch.focus();
+		await pitch.press('ControlOrMeta+a');
+		await pitch.pressSequentially('67', { delay: 30 });
+		await expect(pitch).toHaveValue('67');
+		await pitch.press('Tab');
+		await expect(pitch).toHaveValue('67');
+	});
+
+	test('select all notes also works with Caps Lock active', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		const noteEditor = await openPianoRoll(page, editor);
+		const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
+		await panel.getByRole('button', { name: 'Add note', exact: true }).click();
+		await expect(noteEditor.getByRole('combobox', { name: 'Selected note', exact: true }).getByRole('option')).toHaveCount(3);
+		await panel.getByRole('group', { name: 'Piano roll notes', exact: true }).click({ position: { x: 110, y: 108 } });
+		await page.keyboard.press('ControlOrMeta+A');
+		await page.keyboard.press('Delete');
+		await expect(noteEditor.getByRole('combobox', { name: 'Selected note', exact: true }).getByRole('option')).toHaveCount(1);
+	});
+
+	test('computer keyboard shortcuts work immediately after enabling the keyboard', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		await openPianoRoll(page, editor);
+		const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
+		await panel.getByRole('checkbox', { name: 'Computer keyboard', exact: true }).check();
+		await page.keyboard.press('x');
+		await expect(panel.getByRole('spinbutton', { name: 'Keyboard octave', exact: true })).toHaveValue('4');
+	});
+
+	test('typing the lowest keyboard octave preserves its minus sign', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		await openPianoRoll(page, editor);
+		const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
+		await panel.getByRole('checkbox', { name: 'Computer keyboard', exact: true }).check();
+		const octave = panel.getByRole('spinbutton', { name: 'Keyboard octave', exact: true });
+		await octave.focus();
+		await octave.press('ControlOrMeta+a');
+		await octave.pressSequentially('-1', { delay: 30 });
+		await octave.press('Tab');
+		await expect(octave).toHaveValue('-1');
+	});
+
+	test('MIDI note fields leave Enter and Escape to an active input method', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		const noteEditor = await openPianoRoll(page, editor);
+		await noteEditor.getByRole('combobox', { name: 'Selected note', exact: true }).selectOption({ index: 1 });
+		const pitch = noteEditor.getByRole('spinbutton', { name: 'Pitch (MIDI number)', exact: true });
+		await pitch.fill('67');
+		for (const key of ['Enter', 'Escape']) {
+			const prevented = await pitch.evaluate((input, key) => {
+				const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, isComposing: true });
+				input.dispatchEvent(event);
+				return event.defaultPrevented;
+			}, key);
+			expect(prevented).toBe(false);
+			await expect(pitch).toBeFocused();
+			await expect(pitch).toHaveValue('67');
+		}
+		await pitch.press('Enter');
+		await expect(pitch).toHaveValue('67');
+	});
 });

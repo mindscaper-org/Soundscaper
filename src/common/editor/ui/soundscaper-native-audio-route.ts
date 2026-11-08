@@ -10,6 +10,21 @@ export function isNativeAudioStreamingBackend(value: string): value is NativeAud
 	return ['coreaudio', 'wasapi', 'asio', 'pipewire', 'alsa'].includes(value);
 }
 
+/** A pin to input N needs all physical planes through N, independently of its mono/stereo output width. */
+export function nativeAudioInputChannelDemand(preferredWidth: number, deviceId: string, routes: unknown): number {
+	let required = preferredWidth || 1;
+	if (!routes || typeof routes !== 'object' || Array.isArray(routes)) return required;
+	for (const candidate of Object.values(routes)) {
+		const route: unknown = candidate;
+		if (!route || typeof route !== 'object' || !('kind' in route) || route.kind !== 'device'
+			|| !('deviceId' in route) || route.deviceId !== deviceId && route.deviceId !== 'default'
+			|| !('channelStart' in route) || typeof route.channelStart !== 'number' || !Number.isSafeInteger(route.channelStart) || route.channelStart < 0
+			|| !('channelCount' in route) || typeof route.channelCount !== 'number' || !Number.isSafeInteger(route.channelCount) || route.channelCount < 1) continue;
+		required = Math.max(required, route.channelStart + route.channelCount);
+	}
+	return required;
+}
+
 /** Validate and freeze the exact native route form before it reaches the desktop bridge. */
 export function createNativeAudioRouteOpenRequest(
 	value: NativeAudioSessionOpenRequestV1,

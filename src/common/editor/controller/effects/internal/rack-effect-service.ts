@@ -121,7 +121,7 @@ export function createRackEffectService(runtime: RackEffectServiceRuntime) {
 			if (!effectOptions.context.noiseProfile) effectOptions.enabled = false;
 		}
 		const effect = (type === 'native-plugin' ? createNativePluginEffect(effectOptions) : createEffect(type, effectOptions)) as ControllerRackEffect;
-		assertStandardRackEffectConfiguration(project, scope, trackId, effect, engine.sampleRate);
+		assertStandardRackEffectConfiguration(project, scope, trackId, effect, engine.sampleRate, copy.effectUnsupported);
 		commit(rackCommand('effect/add', scope, trackId, { effect: effect as unknown as CommandObject }));
 		if (type === 'audacity-noise-reduction' && !effectOptions.context?.noiseProfile) {
 			setLocalizedStatus(setStatus, copy, "noiseReductionAddedDisabled");
@@ -144,7 +144,7 @@ export function createRackEffectService(runtime: RackEffectServiceRuntime) {
 			const activationOnly = keys.every((key) => key === 'enabled');
 			if (!replacing && !activationOnly) throw createLocalizedError(Error, copy, 'missingEffectReadOnly');
 		}
-		assertStandardRackEffectUpdate(requireProject(), rackScope(scope), trackId, effect, changes, engine.sampleRate);
+		assertStandardRackEffectUpdate(requireProject(), rackScope(scope), trackId, effect, changes, engine.sampleRate, copy.effectUnsupported);
 		const result = commit(rackCommand('effect/update', rackScope(scope), trackId, { effectId, changes }), {}, options);
 		state.rackEffectGestures.delete(effectGestureKey(scope, trackId, effectId));
 		state.parametricEqGestures.delete(effectGestureKey(scope, trackId, effectId));
@@ -205,7 +205,7 @@ export function createRackEffectService(runtime: RackEffectServiceRuntime) {
 						? params
 						: { ...resolved.effect.params, ...params },
 				});
-				assertStandardRackEffectConfiguration(requireProject(), resolved.scope, resolved.targetId, normalized, engine.sampleRate);
+				assertStandardRackEffectConfiguration(requireProject(), resolved.scope, resolved.targetId, normalized, engine.sampleRate, copy.effectUnsupported);
 				return normalized.params;
 			},
 			valuesEqual: effectParametersMatch,
@@ -447,7 +447,7 @@ export function createRackEffectService(runtime: RackEffectServiceRuntime) {
 			if (!noiseProfile) effectOptions.enabled = false;
 		}
 		const materialized = createEffect(effect.type, effectOptions) as ControllerRackEffect;
-		assertStandardRackEffectConfiguration(requireProject(), rackScope(scope), trackId, materialized, engine.sampleRate);
+		assertStandardRackEffectConfiguration(requireProject(), rackScope(scope), trackId, materialized, engine.sampleRate, copy.effectUnsupported);
 		return materialized;
 	}
 

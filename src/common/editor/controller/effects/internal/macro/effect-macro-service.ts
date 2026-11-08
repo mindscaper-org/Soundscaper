@@ -28,6 +28,7 @@ import { createIsolatedTrackRenderProjectV21 } from '../../../shared/isolated-tr
 import type { RunOfflineSelectionChain } from './offline-selection-chain.ts';
 import { MACRO_NEIGHBOUR_PCM_CACHE_LIMIT_BYTES } from './macro-neighbour-pcm-cache.ts';
 import { macroSpectralContext, type MacroSpectralSelection } from './macro-spectral-context.ts';
+import { bindNativeAutoDuckControls, macroNeedsSilentTargets } from './macro-target-admission.ts';
 import { runMacroTargetPlans } from './macro-linked-truncation.ts';
 import { macroRackHistoryFrames, macroRackHistoryScratchBytes } from './macro-rack-history.ts';
 
@@ -73,6 +74,7 @@ interface MacroProject {
 	readonly master: Readonly<Record<string, unknown>>;
 	readonly mixer: object;
 	readonly selection?: Readonly<{
+		trackIds?: readonly string[];
 		frequencyRange?: Readonly<{ minimumFrequency: number; maximumFrequency: number }> | null;
 	}> | null;
 }
@@ -116,7 +118,7 @@ export interface EffectMacroServiceRuntime<Buffer = MacroRenderBuffer> {
 	readonly runSelectionEffectChain?: RunOfflineSelectionChain;
 	readonly getProject: () => MacroProject;
 	readonly audacityEffectTarget: (trackId?: string | null) => EffectTarget | null;
-	readonly audacityEffectTargets?: () => readonly EffectTarget[];
+	readonly audacityEffectTargets?: (options?: Readonly<{ includeSilentTracks?: boolean }>) => readonly EffectTarget[];
 	readonly effectSelectionDetails?: (targets: readonly EffectTarget[]) => PersistEffectResultOptions['selectionDetails'];
 	readonly editingBlocked: () => boolean;
 	readonly materializeRackEffect: (
@@ -197,19 +199,22 @@ export function createEffectMacroService<Buffer = MacroRenderBuffer>(runtime: Ef
 	async function runEffectMacro(request: EffectMacroRequest = {}): Promise<true | null> {
 		if (runtime.editingBlocked()) return null;
 		const project = runtime.getProject();
-		const target = runtime.audacityEffectTarget(request.trackId);
-		const targets = request.focusedTrack || request.trackId || !runtime.audacityEffectTargets
-			? (target ? [target] : []) : runtime.audacityEffectTargets();
-		if (!targets.length) throw createLocalizedError(Error, runtime.copy, runtime.copy.macroSelectionRequired ? 'macroSelectionRequired' : 'audacitySelectionHint');
 		const enabledEffects = (Array.isArray(request.effects) ? request.effects : []).filter((effect) => (
 			effect?.enabled !== false && effect?.type !== 'missing'
 		));
+		const target = runtime.audacityEffectTarget(request.trackId);
+		const targets = request.focusedTrack || request.trackId || !runtime.audacityEffectTargets
+			? (target ? [target] : []) : runtime.audacityEffectTargets({ includeSilentTracks: macroNeedsSilentTargets(enabledEffects) });
+		if (!targets.length) throw createLocalizedError(Error, runtime.copy, runtime.copy.macroSelectionRequired ? 'macroSelectionRequired' : 'audacitySelectionHint');
 		if (!enabledEffects.length) {
 			throw createLocalizedError(Error, runtime.copy, runtime.copy.macroEffectsRequired ? 'macroEffectsRequired' : 'effectRackEmpty');
 		}
+		const nativeControl = bindNativeAutoDuckControls(enabledEffects, project, targets, Boolean(request.focusedTrack || request.trackId));
+		if (nativeControl.refusal) throw createLocalizedError(Error, runtime.copy,
+			nativeControl.refusal === 'selection' ? 'audioTrackRequired' : 'macroAutoDuckNativeControl');
 		const sampleRate = targets[0]?.sourceSampleRate ?? runtime.projectSampleRate();
 		const plans = targets.map((target) => {
-			const effects = enabledEffects.map((effect) => materializeStep(effect, target.sourceTrackId ?? target.track.id));
+			const effects = nativeControl.effects.map((effect) => materializeStep(effect, target.sourceTrackId ?? target.track.id));
 			const spectral = macroSpectralContext(project.selection?.frequencyRange, target, effects,
 				() => createLocalizedError(Error, runtime.copy, 'spectralEffectLengthChanging'));
 			const preRollFrames = macroRackHistoryFrames(effects, sampleRate, target.startFrame);
@@ -254,7 +259,9 @@ export function createEffectMacroService<Buffer = MacroRenderBuffer>(runtime: Ef
 			const effectName = String(request.name || publishedCopyFor(runtime.copy).untitledMacro || publishedCopyFor(runtime.copy).macrosPalette).trim()
 				|| publishedCopyFor(runtime.copy).untitledMacro
 				|| publishedCopyFor(runtime.copy).macrosPalette;
-			const options = { assertCurrent: () => assertOwnership(runtime, ownership), effectName, selectionDetails };
+			const options = { assertCurrent: () => assertOwnership(runtime, ownership), effectName, selectionDetails,
+				allowIndependentLengths: plans.some(plan => plan.effects.some(effect =>
+					effect.type === 'audacity-truncate-silence' && effect.params.independent === true)) };
 			if (results.length > 1) await runtime.persistAudacityEffectResults!(results, null, options);
 			else await runtime.persistAudacityEffectResult(results[0]!.target, null, results[0]!.channels, options);
 			assertOwnership(runtime, ownership);

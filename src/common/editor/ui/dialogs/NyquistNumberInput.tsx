@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useEffect, useRef, useState } from 'react';
+import { createNativeInputPointerCancellation } from '../inspector/native-input-pointer-cancellation.ts';
 
 /** Nyquist bindings receive complete numbers while the field retains its draft. */
 export default function NyquistNumberInput({ value, minimum, maximum, integer, disabled, onChange }: Readonly<{
@@ -14,9 +15,11 @@ export default function NyquistNumberInput({ value, minimum, maximum, integer, d
 	const [draft, setDraft] = useState(String(value));
 	const active = useRef(false);
 	const original = useRef(value);
+	const pointer = useRef(createNativeInputPointerCancellation()).current;
 	useEffect(() => { if (!active.current) setDraft(String(value)); }, [value]);
 	const begin = () => {
-		if (active.current || disabled) return;
+		pointer.resumeKeyboard();
+		if (active.current || disabled || !pointer.allowsPreview()) return;
 		active.current = true;
 		original.current = value;
 	};
@@ -24,6 +27,7 @@ export default function NyquistNumberInput({ value, minimum, maximum, integer, d
 		Math.min(maximum ?? Infinity, integer ? Math.round(number) : number));
 	const cancel = () => {
 		if (!active.current) return;
+		pointer.cancel();
 		active.current = false;
 		onChange(original.current);
 		setDraft(String(original.current));
@@ -39,7 +43,19 @@ export default function NyquistNumberInput({ value, minimum, maximum, integer, d
 	};
 	return <input type="number" value={draft} disabled={disabled} min={minimum} max={maximum}
 		step={integer ? 1 : 'any'} onFocus={begin} onBlur={commit}
+		onPointerDown={event => {
+			if (disabled || event.button !== 0) return;
+			if (event.isPrimary === false || !pointer.begin(event.pointerId)) { event.preventDefault(); return; }
+			event.currentTarget.focus({ preventScroll: true });
+			event.currentTarget.setPointerCapture?.(event.pointerId);
+			begin();
+		}}
+		onPointerUp={event => { pointer.finish(event.pointerId); }}
+		onPointerCancel={event => { pointer.finish(event.pointerId); }}
+		onLostPointerCapture={event => { pointer.finish(event.pointerId); }}
 		onChange={event => {
+			pointer.resumeKeyboard();
+			if (!pointer.allowsPreview()) return;
 			begin();
 			setDraft(event.currentTarget.value);
 			const number = event.currentTarget.valueAsNumber;

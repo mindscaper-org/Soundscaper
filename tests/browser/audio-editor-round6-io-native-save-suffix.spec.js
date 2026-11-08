@@ -5,7 +5,10 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseExportProjectFileAction, chooseFileAction, chooseNestedCommandAction, commitInput } from './audio-editor-test-helpers.js';
 import { installNativeCaptionSidecar } from './helpers/native-caption-sidecar.js';
 
-for (const title of ['Ordinary programme', 'Ordinary programme '.repeat(9) + 'Mixdown', '東京での録音'.repeat(20)]) test(`native Save and Open preserve a ${title.length} character project title`, async ({ page }) => {
+// Node retains all title lengths through native Save/Open and archive decoding.
+// The multibyte title also exercises the real rename and collision-copy dialogs.
+const title = '東京での録音'.repeat(20);
+test('native Save and Open preserve a long multibyte project title', async ({ page }) => {
 	const native = await installNativeCaptionSidecar(page, 'ordinary.srt', '', { saveName: 'choice.fscape', saveSuggestedName: true, openSavedFile: true });
 	try {
 		const editor = await bootEditor(page, '/framescaper/embed/en/');

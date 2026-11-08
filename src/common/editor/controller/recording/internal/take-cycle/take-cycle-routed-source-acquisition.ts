@@ -3,6 +3,7 @@
 import { positiveTakeCycleRoutedInteger } from './take-cycle-routed-capture-validation.ts';
 import type { TakeCycleRoutedCaptureRuntime } from './take-cycle-routed-capture-types.ts';
 import type { RecordingRoute, RecordingTrack } from '../../recording-transaction-types.ts';
+import type { TakeCycleRoutedLiveLane, TakeCycleRoutedLiveSource } from './take-cycle-routed-capture-state.ts';
 
 export interface TakeCycleRoutedAcquisitionLane {
 	readonly track: RecordingTrack;
@@ -17,6 +18,24 @@ export interface TakeCycleRoutedAcquiredSource {
 	readonly lanes: readonly TakeCycleRoutedAcquisitionLane[];
 }
 
+/** Attach the live controller slots to the same acquired source objects used by capture. */
+export async function acquireTakeCycleRoutedLiveSources(
+	groups: readonly Readonly<{ readonly sourceKey: string; readonly routes: readonly TakeCycleRoutedAcquisitionLane[] }>[],
+	lanes: TakeCycleRoutedLiveLane[],
+	projectSampleRate: number,
+	runtime: TakeCycleRoutedCaptureRuntime,
+	failLane: (lane: TakeCycleRoutedLiveLane, error: unknown) => Promise<void>,
+	reusePreparedInputsOnly = false,
+): Promise<TakeCycleRoutedLiveSource[]> {
+	const laneFor = (trackId: string) => lanes.find(lane => lane.track.id === trackId)!;
+	const acquired = await acquireTakeCycleRoutedSources(groups, projectSampleRate, runtime,
+		async ({ track }, error) => failLane(laneFor(track.id), error), reusePreparedInputsOnly);
+	return acquired.map(source => ({
+		...source, lanes: source.lanes.map(({ track }) => laneFor(track.id)),
+		controller: null, tail: Promise.resolve(), accepting: true, stopping: false, expectedFrameStart: null,
+	}));
+}
+
 export async function acquireTakeCycleRoutedSources(
 	groups: readonly Readonly<{ readonly sourceKey: string; readonly routes: readonly TakeCycleRoutedAcquisitionLane[] }>[],
 	projectSampleRate: number,
@@ -24,16 +43,20 @@ export async function acquireTakeCycleRoutedSources(
 		'capturePool' | 'recordingStreamIsLive' | 'streamAudioChannelCount'
 	>,
 	failLane: (lane: TakeCycleRoutedAcquisitionLane, error: unknown) => Promise<void>,
+	reusePreparedInputsOnly = false,
 ): Promise<readonly TakeCycleRoutedAcquiredSource[]> {
 	const acquisitions = groups.map(async ({ sourceKey, routes }) => {
 		const first = routes[0]?.route;
 		if (!first) throw new Error('Take cycle routed source group is empty.');
 		const requiredChannels = Math.max(...routes.map(({ route }) => route.channelStart + route.channelCount));
-		const stream = first.kind === 'display'
+		const stream = reusePreparedInputsOnly
+			? first.kind === 'display' ? runtime.capturePool.getDisplay?.() : runtime.capturePool.getHardware?.(first.deviceId)
+			: first.kind === 'display'
 			? await runtime.capturePool.acquireDisplay()
 			: await runtime.capturePool.acquireHardware(first.deviceId, {
 				channelCount: requiredChannels, sampleRate: projectSampleRate,
 			});
+		if (!stream) throw new Error(`Take cycle routed input ${sourceKey} is unavailable.`);
 		return { sourceKey, routes, first, stream };
 	});
 	const settled = await Promise.allSettled(acquisitions);

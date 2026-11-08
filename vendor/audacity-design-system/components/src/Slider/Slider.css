@@ -14,6 +14,7 @@
 
 /* Hidden input for accessibility and interaction */
 .slider__input {
+  direction: ltr;
   position: absolute;
   top: 0;
   left: 0;

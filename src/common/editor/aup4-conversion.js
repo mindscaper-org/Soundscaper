@@ -118,6 +118,7 @@ export async function decodeAudacityProjectTree(root, loadBlock, options = {}) {
 	}
 	const sources = [];
 	const clips = [];
+	const binClips = [];
 	const tracks = [];
 	const sourceAudio = [];
 	const reusedSources = new Map();
@@ -190,10 +191,11 @@ export async function decodeAudacityProjectTree(root, loadBlock, options = {}) {
 			}
 			const clipNode = channelNodes[0];
 			const {
-				stretchRatio, stretchToTempo, trimLeftSeconds, trimStartFrames, trimEndFrames,
+				stretchRatio, stretchToTempo, whollyBeforeZero, trimLeftSeconds, trimStartFrames, trimEndFrames,
 				sourceDurationFrames, timelineStartFrame, durationFrames,
 			} = readAup4ClipTiming(clipNode, frameCount, trackRate, projectRate, importedTempoBpm);
 			if (sourceDurationFrames <= 0 || durationFrames <= 0) continue;
+			if (whollyBeforeZero) warn(state, `Audio ${String(audacityXmlAttribute(clipNode, 'name', `Audio ${clipIndex + 1}`))} lies before time zero and is retained in Project Bin instead of the timeline.`);
 			const sourceId = reusedSource?.id || idFactory('source');
 			const clipId = idFactory('clip');
 			const pitchAndSpeedPreset = readPitchAndSpeedPreset(clipNode);
@@ -255,14 +257,14 @@ export async function decodeAudacityProjectTree(root, loadBlock, options = {}) {
 					} : null,
 				},
 			});
-			if (channelNodes.some((node) => Boolean(audacityXmlAttribute(node, 'isSelected', false)))) selectedClipIds.push(clipId);
+			if (!whollyBeforeZero && channelNodes.some((node) => Boolean(audacityXmlAttribute(node, 'isSelected', false)))) selectedClipIds.push(clipId);
 			if (!reusedSource) {
 				sources.push(source);
 				if (sourceKey) reusedSources.set(sourceKey, source);
 				sourceAudio.push(audioPlan ? { ...audioPlan, sourceId } : { sourceId, sampleRate: trackRate, channels });
 			}
-			clips.push(clip);
-			clipIds.push(clip.id);
+			if (whollyBeforeZero) binClips.push(clip);
+			else { clips.push(clip); clipIds.push(clip.id); }
 		}
 		const selected = group.some((node) => Boolean(audacityXmlAttribute(node, 'isSelected', false)));
 		if (selected) selectedTrackIds.push(trackId);
@@ -381,6 +383,7 @@ export async function decodeAudacityProjectTree(root, loadBlock, options = {}) {
 		},
 		sources,
 		clips,
+		projectBin: { clips: binClips },
 		tracks,
 		timelineAnnotations: annotationImport.annotations,
 		master: {

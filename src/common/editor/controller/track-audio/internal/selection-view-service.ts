@@ -57,7 +57,7 @@ export function createSelectionViewService<
 	let zeroCrossingGeneration = 0;
 
 	function seekSelectionPlayhead(frame: number): void {
-		if (state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recorder) return;
+		if (state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording || state.recorder) return;
 		engine.seek(frame);
 	}
 
@@ -182,10 +182,12 @@ export function createSelectionViewService<
 		startFrame: unknown,
 		endFrame: unknown,
 		details: SelectionViewSelectionDetails = {},
+		options: Readonly<{ nativeTime?: boolean }> = {},
 	) {
 		const project = getProject();
 		if (!project) throw createLocalizedError(Error, copy, 'v2Required');
-		return applySelectionRange(project, startFrame, endFrame, details, false);
+		if (options.nativeTime && ![startFrame, endFrame].every(frame => typeof frame === 'number' && Number.isSafeInteger(frame) && frame >= 0)) throw createLocalizedError(RangeError, copy, 'invalidFrameValue', undefined, { fallback: 'Invalid frame value.' });
+		return applySelectionRange(project, startFrame, endFrame, details, false, true, options.nativeTime === true);
 	}
 
 	/**
@@ -210,11 +212,12 @@ export function createSelectionViewService<
 		details: SelectionViewSelectionDetails,
 		snap: boolean,
 		carryPlayhead = true,
+		nativeTime = false,
 	) {
 		if (!Number.isFinite(Number(startFrame)) || !Number.isFinite(Number(endFrame))) {
 			throw createLocalizedError(TypeError, copy, 'selectionFramesFinite');
 		}
-		const maximumFrame = project.tracks.length
+		const maximumFrame = nativeTime ? Number.MAX_SAFE_INTEGER : project.tracks.length
 			? editorTimelineDurationFrames(project, projectSampleRate())
 			: projectDurationFrames(project);
 		const clampSelectionFrame = (value: unknown) => Math.max(0, Math.min(maximumFrame, Math.round(Number(value))));
@@ -264,12 +267,14 @@ export function createSelectionViewService<
 	 * The range ends at the content, not at the timeline's visible extent, which
 	 * deliberately runs past it so there is somewhere to drag to.
 	 */
-	function selectAll() {
+	function selectAll(options: Readonly<{ nativeRegion?: boolean }> = {}) {
 		const project = getProject();
 		if (!project) return null;
 		const trackIds = project.tracks.map((track) => track.id);
-		const endFrame = Math.max(projectDurationFrames(project), selectedTrackContentRange(project, trackIds, () => 0)?.endFrame ?? 0);
-		const next = applySelectionRange(project, 0, endFrame, { trackIds }, false);
+		const content = selectedTrackContentRange(project, trackIds, () => 0, { nativeAll: options.nativeRegion === true });
+		const startFrame = options.nativeRegion ? content?.startFrame ?? 0 : 0;
+		const endFrame = options.nativeRegion ? content?.endFrame ?? 0 : Math.max(projectDurationFrames(project), content?.endFrame ?? 0);
+		const next = applySelectionRange(project, startFrame, endFrame, { trackIds }, false);
 		if (!state.selectedTrackId && trackIds.length) {
 			state.selectedTrackId = trackIds[0];
 			synchronizeMicrophoneMeterTarget();
@@ -277,7 +282,7 @@ export function createSelectionViewService<
 		return next.selection;
 	}
 
-	function selectAllTracks() {
+	function selectAllTracks(options: Readonly<{ nativeTime?: boolean }> = {}) {
 		const project = getProject();
 		if (!project) return null;
 		const selection = resolveSelectionRange(project, { selectedClipId: state.selectedClipId })
@@ -286,7 +291,7 @@ export function createSelectionViewService<
 		// Widening the selection's track scope leaves its time range exactly as it
 		// was, so it is not a new time selection and does not move the playhead.
 		const next = applySelectionRange(
-			project, selection.startFrame, selection.endFrame, { trackIds }, false, false,
+			project, selection.startFrame, selection.endFrame, { trackIds, frequencyRange: project.selection?.frequencyRange ?? null }, false, false, options.nativeTime === true,
 		);
 		if (!state.selectedTrackId && trackIds.length) {
 			state.selectedTrackId = trackIds[0];
@@ -305,7 +310,14 @@ export function createSelectionViewService<
 		endFrame: unknown,
 		project = getProject(),
 	) {
-		return project ? applySelectionRange(project, startFrame, endFrame, {}, true, false) : null;
+		return project ? applySelectionRange(project, startFrame, endFrame, trackRangeSelectionDetails(project), true, false) : null;
+	}
+	function trackRangeSelectionDetails(project = getProject()): SelectionViewSelectionDetails {
+		const trackIds = project?.selection?.trackIds ?? [];
+		return {
+			trackIds: trackIds.length ? trackIds : state.selectedTrackId ? [state.selectedTrackId] : [],
+			frequencyRange: project?.selection?.frequencyRange ?? null,
+		};
 	}
 
 	function selectLeftOfPlaybackPosition(requestedFrame: unknown = null) {
@@ -347,7 +359,7 @@ export function createSelectionViewService<
 	function selectTrackStartToEnd() {
 		const range = selectedTracksTimeRange();
 		if (!range) return null;
-		return setExactSelection(range.startFrame, range.endFrame).selection;
+		return setExactSelection(range.startFrame, range.endFrame, trackRangeSelectionDetails()).selection;
 	}
 
 	function selectedTracksTimeRange() {

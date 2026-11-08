@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { AdmAuthoredObject } from '../adm-authored-objects.ts';
+import { MAX_ADM_NAME_BYTES } from '../adm-normalization-guards.ts';
 import {
 	ADM_BED_CHANNEL_ORDER,
 	admBedChannelCount,
@@ -112,7 +113,7 @@ function defaultAssignments(project: UnknownRecord, layout: AdmBedLayout): AdmAu
 export function createDefaultAdmMetadata(projectValue: unknown, layout?: AdmBedLayout): AdmAuthoredMetadata {
 	const project = record(projectValue);
 	const selectedLayout = layout ?? projectLayout(project);
-	const title = String(record(project.metadata).title || project.title || 'Programme').trim() || 'Programme';
+	const title = defaultAdmName(String(record(project.metadata).title || project.title || 'Programme'), 'Programme');
 	return normalizeAdmProjectMetadata({
 		mode: 'authored',
 		programme: { name: title, language: '' },
@@ -188,7 +189,7 @@ export function addAdmEditorObject(
 		...value,
 		objects: [...value.objects ?? [], {
 			id: createId(),
-			name: source.label,
+			name: defaultAdmName(source.label, 'Object'),
 			stripKind: source.stripKind,
 			stripId: source.stripId,
 			sourceChannel: source.sourceChannel,
@@ -233,4 +234,20 @@ function sameSourceChannel(
 	right: Pick<AdmEditorSourceChannel, 'stripKind' | 'stripId' | 'sourceChannel'>,
 ): boolean {
 	return left.stripKind === right.stripKind && left.stripId === right.stripId && left.sourceChannel === right.sourceChannel;
+}
+
+/** Project names are broader than ADM names; constrain only newly generated defaults. */
+function defaultAdmName(value: string, fallback: string): string {
+	const encoder = new TextEncoder();
+	let name = '', bytes = 0;
+	for (const original of value.trim()) {
+		const code = original.charCodeAt(0);
+		const character = code < 0x20 || code === 0x7f ? ' ' : original;
+		if (!name && !character.trim()) continue;
+		const width = encoder.encode(character).byteLength;
+		if (bytes + width > MAX_ADM_NAME_BYTES) break;
+		name += character;
+		bytes += width;
+	}
+	return name.trim() || fallback;
 }

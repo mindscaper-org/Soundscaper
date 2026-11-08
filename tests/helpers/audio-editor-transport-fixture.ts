@@ -186,6 +186,7 @@ export function createTransportFixture() {
 		},
 	} as unknown as TransportServiceRuntime;
 	return {
+		runtime,
 		service: createEditorTransportService(runtime),
 		state,
 		calls,

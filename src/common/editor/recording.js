@@ -1,5 +1,6 @@
 import { soundscaperNativeAudioCaptureSource, subscribeSoundscaperNativeAudioCaptureLoss } from './soundscaper-native-audio-capture.ts';
-import { handleRecordingInputEvent } from './recording-input-events.ts';
+import { recordingChunkAtArrival } from './recording-chunk-arrival.ts';
+import { createRecordingResumeConfirmation, handleRecordingInputEvent, normalizeRecordingTimeout } from './recording-input-events.ts';
 import {
 	RECORDING_INPUT_GAIN_DEFAULT,
 	normalizeRecordingChannelCount,
@@ -34,7 +35,7 @@ export async function createRecordingController({
 	monitorDestination = /** @type {AudioNode | null} */ (null),
 	fixedStopFrame = false,
 	inputGain = RECORDING_INPUT_GAIN_DEFAULT,
-	onChunk,
+	onChunk, receiptTime,
 	onState,
 	onError,
 	maxPendingChunks = 32,
@@ -52,8 +53,8 @@ export async function createRecordingController({
 	}
 	const normalizedChannelCount = normalizeRecordingChannelCount(channelCount);
 	let currentInputGain = normalizeRecordingInputGain(inputGain);
-	const normalizedStopTimeoutMs = normalizeRecordingStopTimeout(stopTimeoutMs);
-	const normalizedStartTimeoutMs = normalizeRecordingStartTimeout(startTimeoutMs);
+	const normalizedStopTimeoutMs = normalizeRecordingTimeout(stopTimeoutMs, 'stop');
+	const normalizedStartTimeoutMs = normalizeRecordingTimeout(startTimeoutMs, 'start');
 	await loadRecordingWorklet(context, workletUrl);
 
 	const createNode = nodeFactory || ((audioContext, name, options) => {
@@ -91,6 +92,11 @@ export async function createRecordingController({
 	let rescheduleRequest = null;
 	let nextStartRequestId = 1;
 	let disposePromise = null;
+	const resumeConfirmation = createRecordingResumeConfirmation({ sampleRate: context.sampleRate || 48_000,
+		timeoutMs: normalizedStartTimeoutMs, postMessage: message => node.port.postMessage(message),
+		assertPaused: scheduled => { assertMutable(); if (state !== 'paused' && !scheduled) throw new Error('Recording is not paused.'); },
+		onScheduled: () => { if (!disposing) { state = 'recording'; notifyState(); } }, fail: failRecording,
+		setTimeout: setTimeoutFn, clearTimeout: clearTimeoutFn });
 	node.port.onmessage = (event) => handleMessage(event.data || {});
 	node.port.onmessageerror = (event) => failRecording(
 		event?.error || new Error('The recording worklet sent an unreadable message.'),
@@ -114,6 +120,7 @@ export async function createRecordingController({
 		pause,
 		pauseAfterFlush: pause,
 		resume,
+		resumeConfirmed: resumeConfirmation.resume,
 		stop,
 		setMonitoring(enabled) {
 			assertMutable();
@@ -185,6 +192,7 @@ export async function createRecordingController({
 
 	function sendStart(message) {
 		assertMutable();
+		resumeConfirmation.reset();
 		if (state === 'recording' || state === 'stopping') throw new Error('Recording is already active.');
 		acceptingChunks = true;
 		writeError = null;
@@ -298,6 +306,7 @@ export async function createRecordingController({
 	function pause(onFlushed) {
 		assertMutable();
 		if (state !== 'recording') return false;
+		resumeConfirmation.cancel();
 		pauseCompletions.push(onFlushed);
 		try {
 			node.port.postMessage({ type: 'pause' });
@@ -313,6 +322,7 @@ export async function createRecordingController({
 	function resume() {
 		assertMutable();
 		if (state !== 'paused') return false;
+		resumeConfirmation.reset();
 		try {
 			node.port.postMessage({ type: 'resume' });
 		} catch (error) {
@@ -335,6 +345,7 @@ export async function createRecordingController({
 
 	function beginStop() {
 		if (stopRequest) return stopRequest.promise;
+		resumeConfirmation.cancel();
 		settleStartRequest(new Error('Recording stopped before its start was acknowledged.'));
 		settleRescheduleRequest(new Error('Recording stopped before rescheduling was acknowledged.'));
 		let resolve;
@@ -364,6 +375,7 @@ export async function createRecordingController({
 
 	function handleMessage(message) {
 		if (disposed) return;
+		if (resumeConfirmation.handle(message)) return;
 		if (handleRecordingInputEvent(message, error => {
 			writeError ||= error;
 			try { onError?.(error); } catch { /* Observers cannot prevent draining accepted PCM. */ }
@@ -424,11 +436,7 @@ export async function createRecordingController({
 				try { node.port.postMessage({ type: 'stop' }); } catch { /* Failure is already recorded. */ }
 				return;
 			}
-			const chunk = {
-				frameStart: message.frameStart,
-				frames: message.frames,
-				channels: (message.channels || []).map((channel) => channel instanceof Float32Array ? channel : new Float32Array(channel)),
-			};
+			const chunk = recordingChunkAtArrival(message, receiptTime);
 			writeQueue = writeQueue.then(async () => {
 				await onChunk?.(chunk);
 				if (Number.isSafeInteger(message.chunkId) && message.chunkId > 0) {
@@ -439,6 +447,7 @@ export async function createRecordingController({
 				try { node.port.postMessage({ type: 'stop' }); } catch { /* Failure is already recorded. */ }
 			}).finally(() => { pendingChunks -= 1; });
 		} else if (message.type === 'stopped') {
+			resumeConfirmation.cancel();
 			acceptingChunks = false;
 			if (stopRequest?.timer != null && typeof clearTimeoutFn === 'function') clearTimeoutFn(stopRequest.timer);
 			if (stopRequest) stopRequest.timer = null;
@@ -465,6 +474,7 @@ export async function createRecordingController({
 	function failRecording(error) {
 		if (disposed) return;
 		const failure = error instanceof Error ? error : new Error(String(error));
+		resumeConfirmation.cancel(failure);
 		const firstFailure = writeError == null;
 		pauseCompletions.length = 0;
 		if (firstFailure) writeError = failure;
@@ -508,22 +518,6 @@ export async function createRecordingController({
 			try { onError?.(error); } catch { /* State observers cannot block cleanup. */ }
 		}
 	}
-}
-
-function normalizeRecordingStopTimeout(value) {
-	const number = Number(value);
-	if (!Number.isSafeInteger(number) || number < 1 || number > 60_000) {
-		throw new RangeError('Recording stopTimeoutMs must be between 1 and 60000 milliseconds.');
-	}
-	return number;
-}
-
-function normalizeRecordingStartTimeout(value) {
-	const number = Number(value);
-	if (!Number.isSafeInteger(number) || number < 1 || number > 60_000) {
-		throw new RangeError('Recording startTimeoutMs must be between 1 and 60000 milliseconds.');
-	}
-	return number;
 }
 
 export async function loadRecordingWorklet(context, workletUrl) {

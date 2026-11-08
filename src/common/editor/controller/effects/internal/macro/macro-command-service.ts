@@ -46,6 +46,7 @@ export interface MacroCommandServiceRuntime {
 		startFrame: number,
 		endFrame: number,
 		details?: Readonly<Record<string, unknown>>,
+		options?: Readonly<{ nativeTime?: boolean }>,
 	) => unknown;
 	/**
 	 * The editor's own action tree, read at call time.
@@ -121,7 +122,7 @@ export function createMacroCommandService(runtime: MacroCommandServiceRuntime) {
 		if (wantsFrequencies && (has(params, 'high') || has(params, 'low'))) {
 			details.frequencyRange = frequencyRange(params, selection);
 		}
-		runtime.setExactSelection(range.startFrame, range.endFrame, details);
+		runtime.setExactSelection(range.startFrame, range.endFrame, details, { nativeTime: true });
 		// Native No tracks also retires the focused-track edit fallback. A macro
 		// that explicitly removes every track must publish the same empty scope.
 		if (changesTracks && Array.isArray(details.trackIds) && details.trackIds.length === 0) {
@@ -150,6 +151,48 @@ export function createMacroCommandService(runtime: MacroCommandServiceRuntime) {
 		}
 		if (typeof target !== 'function') {
 			throw new RangeError(`The macro command ${command} has no editor action (${path}).`);
+		}
+		if (command === 'NewMonoTrack' || command === 'NewStereoTrack' || command === 'NewLabelTrack') {
+			const before = runtime.getProject();
+			const selection = before.selection;
+			const range = resolveSelectionRange(before) ?? selection ?? { startFrame: 0, endFrame: 0 };
+			const created = (target as () => unknown)();
+			const after = runtime.getProject();
+			if (typeof created !== 'string' || after.id !== before.id || before.tracks.some(track => track.id === created)
+				|| !after.tracks.some(track => track.id === created)) {
+				throw new RangeError(`The macro command ${command} did not create a track in the current project.`);
+			}
+			runtime.setExactSelection(range.startFrame, range.endFrame, {
+				trackIds: [created], clipIds: [], frequencyRange: selection?.frequencyRange ?? null,
+			}, { nativeTime: true });
+			return created;
+		}
+		if (command === 'SelectAll' || command === 'SelAllTracks') {
+			const frequencyRange = runtime.getProject().selection?.frequencyRange;
+			const result = command === 'SelectAll' ? (target as (options: Readonly<{ nativeRegion: boolean }>) => unknown)({ nativeRegion: true })
+				: (target as (options: Readonly<{ nativeTime: boolean }>) => unknown)({ nativeTime: true });
+			const selection = runtime.getProject().selection;
+			return frequencyRange && selection ? runtime.setExactSelection(selection.startFrame, selection.endFrame,
+				{ ...selection, frequencyRange }, { nativeTime: true }) : result;
+		}
+		if (command === 'SelNextClip' || command === 'SelPrevClip') {
+			return (target as (options: Readonly<{ nativeRegion: boolean }>) => unknown)({ nativeRegion: true });
+		}
+		if (command === 'SortByTime' || command === 'SortByName') {
+			return (target as (options: Readonly<{ nativeSort: boolean }>) => unknown)({ nativeSort: true });
+		}
+		if (command === 'Disjoin') {
+			return (target as (options: Readonly<{ nativeSilence: boolean }>) => unknown)({ nativeSilence: true });
+		}
+		if (command === 'SelectNone') {
+			const timeline = actions?.timeline;
+			const noTracks = timeline && typeof timeline === 'object'
+				? (timeline as Readonly<Record<string, unknown>>).selectNoTracks : null;
+			if (typeof noTracks !== 'function') throw new RangeError('SelectNone requires the editor\'s track deselection action.');
+			const project = runtime.getProject();
+			const frame = resolveSelectionRange(project)?.startFrame ?? project.selection?.startFrame ?? 0;
+			runtime.setExactSelection(frame, frame, { trackIds: [], clipIds: [], frequencyRange: project.selection?.frequencyRange ?? null }, { nativeTime: true });
+			return (noTracks as () => unknown)();
 		}
 		const editAction = EDIT_ACTIONS[command];
 		const edit = actions?.edit;

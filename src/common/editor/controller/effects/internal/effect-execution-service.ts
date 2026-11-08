@@ -5,10 +5,12 @@ import {
 	isCurrentAssertion,
 	type EditorProjectToken,
 	type EditorTaskScope,
-} from '../../shared/lifecycle.ts'; import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
+} from '../../shared/lifecycle.ts'; import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { selectionEffectChangesLength } from './selection-effect-length.ts';
+import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
 import { createSelectionEffectPreviewService } from './effect-preview-service.ts';
 import { createPreparedSelectionPcmCache, preparedSelectionPcmKey } from './prepared-selection-pcm-cache.ts';
 import { tryPrepareCoalescedEffectContext, type SimpleDryRangeRenderer } from './coalesced-effect-context.ts';
+import type { EffectTarget } from '../effect-selection-service.ts';
 import type { MacroTransaction } from '../../document/project-mutation-service.ts';
 
 const SELECTION_EFFECT_TASK = 'selection-effect-apply';
@@ -74,7 +76,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 		return true;
 	}
 
-	async function prepareAudacityEffectFromController(type: string) {
+	async function prepareAudacityEffectFromController(type: string, beforeReadAudio?: () => Promise<() => void>) {
 		const generation = ++preparationGeneration;
 		preparedAudio.clear();
 		setAudacityEffectType(type);
@@ -84,6 +86,9 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 		// this asynchronous scan runs restores the marker and wins in the resolver.
 		state.audacityEffectTouchedParams.get(type)?.delete('gainDb');
 		const previewGeneration = state.audacityPreviewGeneration;
+		if (beforeReadAudio) (await beforeReadAudio())();
+		if (generation !== preparationGeneration || previewGeneration !== state.audacityPreviewGeneration
+			|| state.audacityEffectType !== type) return currentAudacityEffectParams();
 		const projectToken = runtime.captureProject();
 		const authority = runtime.getPreparedAudioAuthority?.() ?? null;
 		const targets = audacityEffectTargets();
@@ -124,12 +129,21 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 		return resolved;
 	}
 
+	/** Synchronous UI admission uses the same Source/range/clip targets as Apply. */
+	function readSelectionTargetLocked(type: string = state.audacityEffectType): boolean {
+		const targets: readonly EffectTarget[] = audacityEffectTargets({ effectType: type, includeSilentTracks:
+			selectionEffectChangesLength(type, normalizeAudioSelectionEffectParams(type, state.audacityEffectParams?.[type] ?? {}), AUDIO_SELECTION_EFFECT_DEFINITIONS[type]) });
+		return targets.some(target => target.track.locked === true);
+	}
+
 	async function applySelectedAudacityEffect() {
 		if (editingBlocked()) return;
 		runtime.pauseSourcePreview?.();
 		const type = state.audacityEffectType;
-		const definition = AUDIO_SELECTION_EFFECT_DEFINITIONS[type];
-		const targets = audacityEffectTargets({ includeSilentTracks: Boolean(definition.lengthChanging) });
+		let params = normalizeAudioSelectionEffectParams(type, currentAudacityEffectParams());
+		const definition = { ...AUDIO_SELECTION_EFFECT_DEFINITIONS[type], lengthChanging: selectionEffectChangesLength(
+			type, params, AUDIO_SELECTION_EFFECT_DEFINITIONS[type]) };
+		const targets = audacityEffectTargets({ includeSilentTracks: definition.lengthChanging });
 		if (!targets.length) throw createLocalizedError(Error, copy, 'audacitySelectionHint');
 		const sampleRate = targets[0]?.sourceSampleRate ?? projectSampleRate();
 		const selection = activeSelection();
@@ -137,7 +151,6 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 			target.track.id,
 			audacitySpectralEffectContext(target, definition),
 		]));
-		let params = normalizeAudioSelectionEffectParams(type, currentAudacityEffectParams());
 		if (definition.requiresNoiseProfile && !state.audacityNoiseProfile) throw createLocalizedError(Error, copy, 'noiseProfileMissing');
 		if (definition.requiresControlTrack && !state.audacityControlTrackId) throw createLocalizedError(Error, copy, 'autoDuckControlTrack');
 		const contextFrames = definition.preRollSeconds
@@ -272,9 +285,12 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 		const role = normalizeNyquistRole(request.role || request.pluginType || request.type);
 		const preview = Boolean(request.preview);
 		const selection = activeSelection();
-		const availableTargets = audacityEffectTargets();
+		const requestedTargets: readonly EffectTarget[] = audacityEffectTargets({ includeSilentTracks: role === 'process' || role === 'prompt' });
+		const hasMaterial = (target: EffectTarget): boolean => target.hasAudio || Boolean(target.track.clipIds?.length);
+		const availableTargets = (role === 'process' || role === 'prompt') && requestedTargets.some(hasMaterial)
+			? requestedTargets.filter(hasMaterial) : requestedTargets;
 		const sampleRate = role === 'generate' ? projectSampleRate() : availableTargets[0]?.sourceSampleRate ?? projectSampleRate();
-		const targets = role === 'generate'
+		const targets: readonly (EffectTarget | null)[] = role === 'generate'
 			? [null]
 			: availableTargets.length ? availableTargets : role === 'prompt' ? [null] : [];
 		if (!targets.length) throw createLocalizedError(Error, copy, copy.nyquistSelectionRequired ? 'nyquistSelectionRequired' : 'audacitySelectionHint');
@@ -306,7 +322,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 		try {
 			const evaluations = [];
 			let aggregateAudioBytes = 0;
-			const hostTargets = availableTargets.length ? availableTargets : targets;
+			const hostTargets: readonly (EffectTarget | null)[] = availableTargets.length ? availableTargets : targets;
 			const hostProperties = runtime.prepareNyquistHostProperties?.(hostTargets) ?? nyquistHostProperties;
 			for (let index = 0; index < targets.length; index += 1) {
 				const target = targets[index];
@@ -458,7 +474,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 	}
 
 	return Object.freeze({
-		applySelectedAudacityEffect, cancelSelectedAudacityEffect,
+		applySelectedAudacityEffect, cancelSelectedAudacityEffect, readSelectionTargetLocked,
 		prepareAudacityEffectFromController,
 		previewAudacityEffectFromController,
 		runNyquistEvaluation,

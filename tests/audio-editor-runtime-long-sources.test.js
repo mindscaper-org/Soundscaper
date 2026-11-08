@@ -125,7 +125,8 @@ test('stopping playback disconnects a long-source node whose factory resolves la
 	engine.stop();
 	resolveFactory(lateNode);
 
-	await assert.rejects(playback, { name: 'AbortError' });
+	await playback;
+	assert.equal(engine.getState().state, 'stopped');
 	assert.equal(streamClient.opens, 0);
 	assert.equal(lateNode.disconnected, true);
 	assert.equal(graph.sources.size, 0);

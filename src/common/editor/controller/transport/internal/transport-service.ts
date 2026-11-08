@@ -6,6 +6,7 @@ import { hasCoreEditingProjectAuthority } from '../../../project-schema-version.
 import { resolveSelectionRange } from '../../../selection-range.ts';
 import { bindPlaybackToTimeSelection, playSpectralSelection, requireSpectralPlaybackSelection } from './selection-playback.ts';
 import { createTimePitchScrub } from './time-pitch-scrub.ts';
+import { createCutPreviewMetronome, emitMetronomeClick, stopPendingMetronomeClicks } from './metronome-scheduler.ts';
 import type {
 	TransportLoopCommand,
 	TransportProject,
@@ -47,10 +48,11 @@ export function createEditorTransportService<Project extends TransportProject = 
 	} = runtime;
 	const playbackSelection = () => resolveSelectionRange(getProject(), { selectedClipId: state.selectedClipId }) ?? activeSelection();
 	let metronomeSchedulerGeneration = 0;
+	const cutMetronome = createCutPreviewMetronome();
 	let foregroundPlayPreparation: symbol | null = null;
 	let transportRequestGeneration = 0;
 	const scrubbing = createTimePitchScrub({ engine, getProject, normalizeFrame: normalizePlaybackFrame,
-		blocked: () => state.disposed || Boolean(state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recorder),
+		blocked: () => state.disposed || Boolean(state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording || state.recorder),
 		assertSources: () => { if (hasMissingTimelineSources()) throw createLocalizedError(Error, copy, 'localSourcesMissing'); },
 		prepare: (project, abortController) => beginPlaybackCachePreparation(project, { abortController }),
 	});
@@ -93,7 +95,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 		scrubbing.cancel();
 		const requestGeneration = ++transportRequestGeneration;
 		foregroundPlayPreparation = null;
-		if (state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recorder) return false;
+		if (state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording || state.recorder) return false;
 		if (hasMissingTimelineSources()) throw createLocalizedError(Error, copy, 'localSourcesMissing');
 		const rate = setPlayAtSpeedRate(requestedRate);
 		if (state.projectBinPreview) {
@@ -129,8 +131,9 @@ export function createEditorTransportService<Project extends TransportProject = 
 			throwIfAborted(abort.signal);
 			if (snapshot !== getProject()) throw abortError();
 			engine.setPlayRange?.(null);
-			if (typeof engine.playAtSpeed !== 'function') return engine.play();
+			if (typeof engine.playAtSpeed !== 'function') return engine.play({ clockedStart: state.metronomeEnabled });
 			await engine.playAtSpeed(rate, {
+				clockedStart: state.metronomeEnabled,
 				preservePitch,
 				pitchPreserver: playAtSpeedPitchPreserver,
 				signal: abort.signal,
@@ -154,7 +157,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 		const playbackStart = ['play', 'play-selection', 'play-spectral-selection', 'cut-preview'].includes(action);
 		const generation = playbackStart || ['stop', 'record', 'play-stop-select'].includes(action)
 			? ++transportRequestGeneration : transportRequestGeneration;
-		if ((state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recorder)
+		if ((state.recordingStarting || state.recordingAdmissionPending || state.timedRecordingPreparing || state.timedRecording || state.recorder)
 			&& action !== 'stop' && action !== 'record') return;
 		if (action === 'play-stop-select') {
 			if (!['playing', 'paused'].includes(engine.getState().state)) return handleTransport('play');
@@ -206,10 +209,10 @@ export function createEditorTransportService<Project extends TransportProject = 
 			try {
 				await beginPlaybackCachePreparation(snapshot);
 				if (generation !== transportRequestGeneration || foregroundPlayPreparation !== preparation || snapshot !== getProject()) return;
-				if (spectral) return await playSpectralSelection(engine, spectral, () => generation === transportRequestGeneration && foregroundPlayPreparation === preparation);
+				if (spectral) return await playSpectralSelection(engine, spectral, () => generation === transportRequestGeneration && foregroundPlayPreparation === preparation, { clockedStart: state.metronomeEnabled });
 				engine.setPlaybackFrequencyRange?.(null);
 				bindPlaybackToTimeSelection(engine, action === 'play-selection' && !snapshot.loop?.enabled ? playbackSelection() : null);
-				return await engine.play();
+				return await engine.play({ clockedStart: state.metronomeEnabled });
 			} finally {
 				if (foregroundPlayPreparation === preparation) foregroundPlayPreparation = null;
 			}
@@ -219,7 +222,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 			cancelPlaybackCachePreparation();
 			cancelPlayAtSpeedPreparation();
 			if (state.timedRecording || state.timedRecordingPreparing) return cancelTimedRecording();
-			return state.recorder || state.recordingStarting ? stopRecording() : engine.stop();
+			return state.recorder || state.recordingStarting || state.recordingAdmissionPending ? stopRecording() : engine.stop();
 		}
 		if (action === 'jump-start') return engine.seek(0);
 		if (action === 'jump-end') return engine.seek(projectDurationFrames(getProject()));
@@ -263,8 +266,8 @@ export function createEditorTransportService<Project extends TransportProject = 
 	}
 
 	function setLoopRegion(startFrame: number, endFrame: number) {
-		const start = normalizeTimelineFrame(Math.min(startFrame, endFrame));
-		const end = normalizeTimelineFrame(Math.max(startFrame, endFrame));
+		const start = normalizePlaybackFrame(Math.min(startFrame, endFrame));
+		const end = normalizePlaybackFrame(Math.max(startFrame, endFrame));
 		if (end <= start) throw createLocalizedError(Error, copy, 'timeSelectionRequired');
 		const next = commitLoopRange({ enabled: true, startFrame: start, endFrame: end });
 		engine.setLoop(next.loop);
@@ -385,6 +388,19 @@ export function createEditorTransportService<Project extends TransportProject = 
 		const playbackRate = Number(playback?.playbackRate) || 1;
 		const framesPerSecond = sampleRate * playbackRate;
 		if (!Number.isFinite(framesPerSecond) || framesPerSecond <= 0) return;
+		const scheduleAt = (positionFrame: number) => calculateAudioEditorMetronomeSchedule({
+			bpm: project?.tempo?.bpm, tempoMap: project?.tempoMap, signatureMap: project?.signatureMap,
+			timeSignature: project?.tempo?.timeSignature, sampleRate, positionFrame, playbackRate,
+		});
+		const segments = playback?.cutPreview ? engine.getCutPreviewSegments?.() : null;
+		if (segments) {
+			if (!state.metronomeEnabled) return;
+			const plan = cutMetronome.plan(segments, sampleRate, context.currentTime, METRONOME_LOOKAHEAD_SECONDS, scheduleAt);
+			if (plan.changed) stopPendingMetronomeClicks(state);
+			for (const pulse of plan.pulses) emitMetronomeClick(context, engine.getPlaybackDestination?.() ?? context.destination, state, pulse.when, pulse.accent);
+			return;
+		}
+		if (cutMetronome.reset()) stopPendingMetronomeClicks(state);
 		let position = Math.max(0, engine.getPositionFrames());
 		const playbackStartTime = engine.getPlaybackAudibleStartTime?.() ?? null;
 		let audibleStartTime = playbackStartTime !== null && Number.isFinite(playbackStartTime)
@@ -413,10 +429,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 			|| anchor.loopEndFrame !== (loop?.endFrame ?? null)
 			|| drift > METRONOME_RESYNC_SECONDS * framesPerSecond) {
 			if (anchor) {
-				for (const oscillator of state.metronomePending ?? []) {
-					try { oscillator.stop(); } catch { /* Already stopped. */ }
-				}
-				state.metronomePending = [];
+				stopPendingMetronomeClicks(state);
 			}
 			anchor = { contextTime: Math.max(context.currentTime, audibleStartTime ?? context.currentTime),
 				frame: position, cursorFrame: position, playbackRate, audibleStartTime,
@@ -427,15 +440,8 @@ export function createEditorTransportService<Project extends TransportProject = 
 		anchor.cursorFrame = Math.max(anchor.cursorFrame, position);
 		const horizonFrame = anchor.frame
 			+ (context.currentTime + METRONOME_LOOKAHEAD_SECONDS - anchor.contextTime) * framesPerSecond;
-		const scheduleAt = (positionFrame: number) => calculateAudioEditorMetronomeSchedule({
-			bpm: project?.tempo?.bpm,
-			tempoMap: project?.tempoMap,
-			signatureMap: project?.signatureMap,
-			timeSignature: project?.tempo?.timeSignature,
-			sampleRate,
-			positionFrame,
-			playbackRate,
-		});
+		const terminalTime = !loop && playback?.playbackEndFrame != null && playback.playbackStartFrame != null && audibleStartTime !== null
+			? audibleStartTime + (playback.playbackEndFrame - playback.playbackStartFrame) / framesPerSecond : undefined;
 		for (let queued = 0; queued < METRONOME_MAXIMUM_PULSES_PER_TICK; queued += 1) {
 			const cursorFrame = Math.max(0, Math.round(anchor.cursorFrame));
 			const timelineFrame = loop
@@ -450,11 +456,12 @@ export function createEditorTransportService<Project extends TransportProject = 
 				pulseFrame = Math.round(cursorFrame + loop.endFrame - timelineFrame + firstPulseFrame - loop.startFrame);
 			}
 			if (pulseFrame > horizonFrame) return;
+			if (!loop && playback?.playbackEndFrame != null && pulseFrame >= playback.playbackEndFrame) return;
 			const when = anchor.contextTime + (pulseFrame - anchor.frame) / framesPerSecond;
 			// A pulse already behind the audio clock cannot be sounded, but the cursor still
 			// has to step past it so the window keeps moving forward.
 			if (when >= context.currentTime) {
-				emitMetronomeClick(context, when, pulse.accent ?? (pulse.beatIndex % 4 === 0 ? 'bar' : 'beat'));
+				emitMetronomeClick(context, engine.getPlaybackDestination?.() ?? context.destination, state, when, pulse.accent ?? (pulse.beatIndex % 4 === 0 ? 'bar' : 'beat'), terminalTime);
 			}
 			anchor.cursorFrame = pulseFrame + 1;
 		}
@@ -465,40 +472,13 @@ export function createEditorTransportService<Project extends TransportProject = 
 		return startFrame + ((frame - startFrame) % length + length) % length;
 	}
 
-	function emitMetronomeClick(context: EngineAudioContext, when: number, accent: string) {
-		const oscillator = context.createOscillator();
-		const gain = context.createGain();
-		// A click queued inside the lookahead has not sounded yet, so stopping the
-		// metronome has to reach it; otherwise the transport stops and the last window of
-		// clicks keeps playing after it.
-		state.metronomePending = [...(state.metronomePending ?? []), oscillator];
-		oscillator.frequency.setValueAtTime(
-			accent === 'bar' ? 1320 : accent === 'group' ? 1100 : 880,
-			when,
-		);
-		gain.gain.setValueAtTime(0.0001, when);
-		gain.gain.exponentialRampToValueAtTime(0.12, when + 0.002);
-		gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.035);
-		oscillator.connect(gain);
-		gain.connect(engine.getPlaybackDestination?.() ?? context.destination);
-		oscillator.start(when);
-		oscillator.stop(when + 0.04);
-		oscillator.onended = () => {
-			state.metronomePending = (state.metronomePending ?? []).filter((pending) => pending !== oscillator);
-			try { oscillator.disconnect(); } catch { /* Already disconnected. */ }
-			try { gain.disconnect(); } catch { /* Already disconnected. */ }
-		};
-	}
-
 	function stopMetronome() {
+		cutMetronome.reset();
 		metronomeSchedulerGeneration += 1;
 		globalThis.clearTimeout(state.metronomeTimer);
 		state.metronomeTimer = 0;
 		state.metronomeAnchor = null;
-		for (const oscillator of state.metronomePending ?? []) {
-			try { oscillator.stop(); } catch { /* Already stopped or never started. */ }
-		}
-		state.metronomePending = [];
+		stopPendingMetronomeClicks(state);
 	}
 
 	function normalizeTimelineFrame(value: unknown) {

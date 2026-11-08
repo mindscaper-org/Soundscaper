@@ -19,6 +19,8 @@ export interface CaptureActiveTimeSnapshot {
 }
 
 export interface FramescaperCaptureActiveTimeClock {
+	/** Read a delayed native arrival without advancing the monotonic lifecycle clock. */
+	readonly activeTimeUsAt: (receivedAtMs: number) => number;
 	readonly snapshot: (observedAtMs: number) => Readonly<CaptureActiveTimeSnapshot>;
 	readonly pause: (pausedAtMs: number) => Readonly<CaptureActiveTimeSnapshot>;
 	readonly resume: (resumedAtMs: number) => Readonly<CaptureActiveTimeSnapshot>;
@@ -30,11 +32,11 @@ export interface FramescaperCaptureActiveTimeClock {
  * removed from packet presentation time without changing the monotonic origin.
  */
 export function createFramescaperCaptureActiveTimeClock(
-	startedAtMs: number,
+	startedAtMs: number, initiallyPaused = false,
 ): FramescaperCaptureActiveTimeClock {
 	const normalizedStart = finiteNonNegativeTime(startedAtMs, 'Capture clock start time');
 	let lastObservedAtMs = normalizedStart;
-	let currentPauseStartedAtMs: number | null = null;
+	let currentPauseStartedAtMs: number | null = initiallyPaused ? normalizedStart : null;
 	let stoppedAtMs: number | null = null;
 	const pauseSpans: CapturePauseSpan[] = [];
 
@@ -77,6 +79,14 @@ export function createFramescaperCaptureActiveTimeClock(
 		});
 	}
 
+	function activeTimeUsAt(receivedAtMs: number): number {
+		const received = finiteNonNegativeTime(receivedAtMs, 'Capture receipt time');
+		const at = Math.max(normalizedStart, Math.min(received, stoppedAtMs ?? received));
+		const pausedMs = pauseSpans.reduce((total, span) => total + Math.max(0, Math.min(at, span.endedAtMs) - span.startedAtMs), 0)
+			+ (currentPauseStartedAtMs === null ? 0 : Math.max(0, at - currentPauseStartedAtMs));
+		return millisecondsToSafeMicroseconds(at - normalizedStart - pausedMs);
+	}
+
 	function snapshot(observedAtMs: number): Readonly<CaptureActiveTimeSnapshot> {
 		return createSnapshot(observe(observedAtMs, 'observation'));
 	}
@@ -117,7 +127,7 @@ export function createFramescaperCaptureActiveTimeClock(
 		return createSnapshot(normalizedStop);
 	}
 
-	return Object.freeze({ snapshot, pause, resume, stop });
+	return Object.freeze({ snapshot, activeTimeUsAt, pause, resume, stop });
 }
 
 function finiteNonNegativeTime(value: number, name: string): number {

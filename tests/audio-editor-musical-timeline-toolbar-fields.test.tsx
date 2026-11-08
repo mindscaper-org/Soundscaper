@@ -145,7 +145,7 @@ async function withMusicalToolbar(
 			tempo: () => tempo,
 			signature: () => signature,
 			field: (label) => {
-				const found = dom.container.querySelectorAll('input')
+				const found = dom.container.querySelectorAll('input, select')
 					.find((input) => input.getAttribute('aria-label') === label);
 				assert.ok(found, `Missing toolbar field ${label}`);
 				return found;
@@ -218,13 +218,18 @@ test('retyping the project tempo commits the finished value once', async () => {
 	});
 });
 
-test('invalid time signature drafts restore the authoritative value without issuing a command', async () => {
+test('unusable time signature values stay out of project authoring', async () => {
 	await withMusicalToolbar(async (harness) => {
 		for (const [label, drafts] of [
 			['Time signature: numerator', ['0', '1001']],
 			['Time signature: denominator', ['3', '0']],
 		] as const) {
 			const field = (): ReactTestElement => harness.field(label);
+			if (field().tagName === 'SELECT') {
+				const choices = field().querySelectorAll('option').map(option => option.getAttribute('value'));
+				for (const draft of drafts) assert.equal(choices.includes(draft), false);
+				continue;
+			}
 			for (const draft of drafts) {
 				harness.focus(field);
 				await harness.type(field, ['Backspace', ...draft]);

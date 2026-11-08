@@ -8,13 +8,13 @@ for (const failure of ['read', 'write']) test(`Analyze selection exports its val
 	await page.addInitScript(({ failing }) => {
 		const get = IDBObjectStore.prototype.get, put = IDBObjectStore.prototype.put;
 		IDBObjectStore.prototype.get = function (key) {
-			if (failing === 'read' && this.name === 'analysis' && String(key).startsWith('audio-editor-analysis-v5:')) {
+			if (failing === 'read' && this.name === 'analysis' && String(key).startsWith('audio-editor-analysis-v6:')) {
 				throw new DOMException('Analysis cache unavailable', 'InvalidStateError');
 			}
 			return get.call(this, key);
 		};
 		IDBObjectStore.prototype.put = function (value, key) {
-			if (failing === 'write' && this.name === 'analysis' && String(value?.key).startsWith('audio-editor-analysis-v5:')) {
+			if (failing === 'write' && this.name === 'analysis' && String(value?.key).startsWith('audio-editor-analysis-v6:')) {
 				throw new DOMException('Analysis cache quota exceeded', 'QuotaExceededError');
 			}
 			return key === undefined ? put.call(this, value) : put.call(this, value, key);

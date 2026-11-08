@@ -25,11 +25,11 @@ for (const failure of ['read', 'write'] as const) test(`Analyze selection remain
 	controller.actions.timeline.setSelection(0, 48_000);
 	const load = store.loadAnalysis.bind(store), save = store.saveAnalysis.bind(store);
 	store.loadAnalysis = async key => {
-		if (failure === 'read' && key.startsWith('audio-editor-analysis-v5:')) throw new DOMException('Cache database unavailable', 'InvalidStateError');
+		if (failure === 'read' && key.startsWith('audio-editor-analysis-v6:')) throw new DOMException('Cache database unavailable', 'InvalidStateError');
 		return load(key);
 	};
 	store.saveAnalysis = async (key, value) => {
-		if (failure === 'write' && key.startsWith('audio-editor-analysis-v5:')) throw new DOMException('Cache quota exceeded', 'QuotaExceededError');
+		if (failure === 'write' && key.startsWith('audio-editor-analysis-v6:')) throw new DOMException('Cache quota exceeded', 'QuotaExceededError');
 		return save(key, value);
 	};
 	const dom = installReactTestDom();

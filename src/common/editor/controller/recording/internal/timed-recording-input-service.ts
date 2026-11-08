@@ -138,7 +138,7 @@ export function createTimedRecordingInputService<Stream>(
 			? runtime.capturePool.getDisplay?.()
 			: runtime.capturePool.getHardware?.(route.deviceId);
 		if (options.reusePreparedInputsOnly && (!retained
-			|| (route.kind !== 'display'
+			|| (needsRoutedRecording && route.kind !== 'display'
 				&& runtime.streamAudioChannelCount(retained) < requestedChannels))) {
 			throw createLocalizedError(Error, { ['recordingPreparedInputClosed']: runtime.messages.preparedInputClosed }, 'recordingPreparedInputClosed');
 		}
@@ -151,6 +151,9 @@ export function createTimedRecordingInputService<Stream>(
 		scope.assertCurrent();
 		if (!runtime.recordingStreamIsLive(stream, route.kind)) {
 			throw createLocalizedError(Error, { ['recordingPreparedInputClosed']: runtime.messages.preparedInputClosed }, 'recordingPreparedInputClosed');
+		}
+		if (needsRoutedRecording && route.kind !== 'display' && runtime.streamAudioChannelCount(stream) < requestedChannels) {
+			throw createLocalizedError(Error, { ['timedRecordingAssignedInputsUnavailable']: runtime.messages.assignedInputsUnavailable }, 'timedRecordingAssignedInputsUnavailable');
 		}
 		return frozenInputs([runtime.recordingRouteSourceKey(route)]);
 	}

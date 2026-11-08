@@ -25,7 +25,10 @@ export interface TakeCompPreviewEngine {
 		options?: Readonly<{ readonly chunkSources?: EngineChunkSourceInput }>,
 	): unknown;
 	setSourceResolver?(resolver?: EngineSourceResolver | null): unknown;
+	setPlayRange?(range: Readonly<{ startFrame: number; endFrame: number }> | null): unknown;
+	seek?(frame: number): unknown;
 	play(): Promise<void>;
+	getState?(): Readonly<{ state: string }>;
 	pause(): void;
 	stop?(): void;
 	dispose?(): Promise<void> | void;
@@ -71,6 +74,7 @@ export function createTakeCompPreviewService(
 	let activeTask: EditorTaskScope | null = null;
 	let activeGroupId: string | null = null;
 	let releaseTask: (() => void) | null = null;
+	let previewEndFrame = 0;
 
 	return Object.freeze({ auditionTake, auditionLane, stop, stopGroup, dispose });
 
@@ -129,6 +133,9 @@ export function createTakeCompPreviewService(
 			engine.loadProject(previewProject(project, group, selectedTakes, dependencies.createId), dependencies.sourceBuffers, {
 				chunkSources: dependencies.sourceChunkProviders,
 			});
+			previewEndFrame = selectedTakes.reduce((end, take) => Math.max(end, take.endSample - group.startSample), 0);
+			engine.setPlayRange?.(previewEndFrame > 0 ? { startFrame: 0, endFrame: previewEndFrame } : null);
+			engine.seek?.(0);
 			const playing = Object.freeze({
 				key, groupId, laneId,
 				takeIds: Object.freeze([...takeIds]),
@@ -163,6 +170,7 @@ export function createTakeCompPreviewService(
 		const task = activeTask!;
 		try {
 			task.assertCurrent();
+			engine?.setPlayRange?.(previewEndFrame > 0 ? { startFrame: 0, endFrame: previewEndFrame } : null);
 			await engine?.play();
 			task.assertCurrent();
 			dependencies.assertProject(token);
@@ -212,10 +220,12 @@ export function createTakeCompPreviewService(
 	}
 
 	function handleEngineState(source: TakeCompPreviewEngine | null, state: string): void {
-		if (!source || engine !== source || !active || state === 'playing') return;
+		if (!source || engine !== source || !active) return;
+		if (state === 'playing' && (active.state !== 'paused'
+			|| (source.getState && source.getState().state !== 'playing'))) return;
 		active = Object.freeze({
 			...active,
-			state: state === 'paused' ? 'paused' : 'stopped',
+			state: state === 'playing' ? 'playing' : state === 'paused' ? 'paused' : 'stopped',
 		});
 		if (active.state === 'stopped') releaseTask?.();
 	}

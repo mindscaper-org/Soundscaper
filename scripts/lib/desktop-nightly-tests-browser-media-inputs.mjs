@@ -5,6 +5,8 @@
 export const NIGHTLY_BROWSER_MEDIA_INPUTS = Object.freeze([
 	'bwfmetaedit-cp1252-info.wav.base64',
 	'bwfmetaedit-ixml-clock.wav.base64',
+	'bwfmetaedit-mid-side.wav.base64',
+	'bwfmetaedit-file-uid.wav.base64',
 	'chromium-audio-only.webm.base64',
 	'ffmpeg-aac-lc-600s-silence.m4a.gz.base64',
 	'ffmpeg-ima-info.wav.base64',
@@ -13,10 +15,12 @@ export const NIGHTLY_BROWSER_MEDIA_INPUTS = Object.freeze([
 	'ffmpeg-mp3-info.wav.base64',
 	'ffmpeg-pcm-info.wav.base64',
 	'ffmpeg-short-info.wav.gz.base64',
+	'libsndfile-comment-whitespace.aiff.base64',
 	'libsndfile-float32.aifc.base64',
 	'libsndfile-utf8-text.aiff.base64',
 	'libsndfile-zero-based-cues.wav.base64',
 	'python-uncompressed.aif.base64',
+	'sox-comt-comment.aiff.base64',
 ].map(file => ({
 	source: `tests/fixtures/${file}`, destination: `tests/fixtures/${file}`,
 	kind: 'file', label: 'ordinary original media browser workflow support',

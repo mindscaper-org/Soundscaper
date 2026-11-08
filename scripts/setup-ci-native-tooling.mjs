@@ -9,6 +9,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { zstdDecompressSync } from 'node:zlib';
+import { downloadCiBytes } from './lib/ci-download-retry.mjs';
 
 const run = promisify(execFile);
 
@@ -70,9 +71,7 @@ export function assertNativeWindowsExecutable(bytes, label) {
 }
 
 async function downloadPinnedArchive(pin, fetchImpl) {
-	const response = await fetchImpl(pin.url, { signal: AbortSignal.timeout(60_000) });
-	if (!response.ok) throw new Error(`Native tool archive download failed: HTTP ${response.status}.`);
-	const bytes = Buffer.from(await response.arrayBuffer());
+	const bytes = await downloadCiBytes(pin.url, { fetchImpl, maximumBytes: pin.byteLength });
 	if (bytes.length !== pin.byteLength
 		|| createHash('sha256').update(bytes).digest('hex') !== pin.sha256) {
 		throw new Error('Native tool archive failed its byte length/SHA-256 check.');

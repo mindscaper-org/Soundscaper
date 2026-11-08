@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { prepareVideoWebmDecoderSource } from '../src/common/editor/video-webm-decoder-source.ts';
 import { demuxVideoTiming } from '../src/common/editor/video-timing-demux.ts';
 import { createDesktopSelectedRangeBlob } from '../src/common/editor/desktop-selected-range-blob.ts';
+import { opusPaddingAvFixture } from './helpers/ordinary-ogg-opus-fixture.ts';
 
 const RECORDED_WEBM =
 	'GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQRChYECGFOAZwH/////////FUmpZpkq17GDD0JATYCGQ2hyb21lV0GG'
@@ -109,6 +110,29 @@ test('a finite Segment retains identity without parsing its packet payload', asy
 	bytes.set([1,0,0,0,0,0,6,0x82],40);
 	const input=new File([bytes],'Finite.webm',{type:'video/webm'});
 	assert.equal(await prepareVideoWebmDecoderSource(input,{maximumTotalBytes:128}),input);
+});
+
+test('a native decoder view excludes only complete Void padding after a finite Segment', async () => {
+	const original = opusPaddingAvFixture();
+	const padded = opusPaddingAvFixture(32 * 1024 ** 2, { paddingAfterSegment: true });
+	const output = await prepareVideoWebmDecoderSource(padded, { maximumTotalBytes: 256 });
+	assert.equal(output.size, original.size);
+	assert.deepEqual(new Uint8Array(await output.arrayBuffer()), new Uint8Array(await original.arrayBuffer()));
+	assert.ok(padded.size > 32 * 1024 ** 2);
+	assert.deepEqual(await packets(output), await packets(original));
+});
+
+test('additional media and unknown-size trailing elements are never removed from a native decoder view', async () => {
+	const original = opusPaddingAvFixture();
+	for (const suffix of [original, new Blob([Uint8Array.of(0xec, 0x80), original]), Uint8Array.of(0xec, 0xff)]) {
+		const input = new File([original, suffix], 'Extended.webm', { type: 'video/webm' });
+		assert.equal(await prepareVideoWebmDecoderSource(input), input);
+	}
+});
+
+test('truncated trailing Void cannot be published as a complete decoder view', async () => {
+	const input = new File([opusPaddingAvFixture(), Uint8Array.of(0xec, 0x82, 0)], 'Truncated.webm', { type: 'video/webm' });
+	await assert.rejects(prepareVideoWebmDecoderSource(input), /ended inside/u);
 });
 
 test('growing the Info size field retains all encoded RGB and alpha', async () => {

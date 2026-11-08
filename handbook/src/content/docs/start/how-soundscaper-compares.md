@@ -44,7 +44,8 @@ product enables see
   at commit [`747249776831`](https://github.com/audacity/audacity/commit/7472497768314bcd4c641ef6dc91e366d92b2fcc),
   together with its [menu source](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/src/appshell/qml/Audacity/AppShell/appmenumodel.cpp),
   [toolbar registrations](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/src/projectscene/internal/projectsceneuiactions.cpp),
-  and [built-in effect registrations](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/src/effects/builtin_collection/internal/builtincollectionloader.cpp).
+  [built-in effect registrations](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/src/effects/builtin_collection/internal/builtincollectionloader.cpp),
+  and [plug-in module build list](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/src/effects/CMakeLists.txt).
   Registered actions with disabled controls are qualified below. An absence
   means the capability was not found in this audited release. The repository's
   separate `4.0.0` source pins at `4c177d43` retain the provenance of Soundscaper's
@@ -195,7 +196,13 @@ bindings are reported.
 | Parametric EQ | + — a new parametric EQ with automatable bands | + — a new parametric EQ with automatable bands | ~ — Filter Curve and Graphic EQ | + — parametric, graphic, and FFT filters |
 | Effect presets | + — apply, save, import, export | + — apply, save, import, export | + — apply, save, import, export | + |
 | Macros and batch chains | + — saved step-list macros, templates, and JavaScript macro programs | + — saved step-list macros, templates, and JavaScript macro programs | / — Macros menu and manager disabled in 4.0.2 | + — Favorites and Batch Process |
-| Third-party plug-in formats | / — native plug-ins require Desktop | + — VST2, VST3, CLAP, AU on macOS, LV2 and LADSPA on Linux, and Vamp analysers | + — VST3 and Nyquist, AU on macOS, LV2 on Linux; no VST2 host in the audited release | ~ — VST2 and VST3, plus AU on macOS; no CLAP or LV2 |
+| VST2 plug-ins | / — native plug-ins require Desktop | + | / — no VST2 host in the audited release | + |
+| VST3 plug-ins | / — native plug-ins require Desktop | + | + | + |
+| CLAP plug-ins | / — native plug-ins require Desktop | + | / — no CLAP host in the audited release | / |
+| Audio Units (AU) | / — native plug-ins require Desktop | + — on macOS | + — on macOS | + — on macOS |
+| LV2 plug-ins | / — native plug-ins require Desktop | + — on Linux | + — on Linux | / |
+| LADSPA plug-ins | / — native plug-ins require Desktop | + — on Linux | / — no LADSPA host in the audited release | / — no LADSPA host documented |
+| Vamp analysers | / — native plug-ins require Desktop | + | / — no Vamp host in the audited release | / — no Vamp host documented |
 | ARA clip editing | / — native ARA hosting requires Desktop | + — one mono or stereo clip through an allowed ARA-capable VST3 plug-in and matching native runtime | / — no ARA host in the audited build | / — no ARA host documented in the audited plug-in workflow |
 | Nyquist scripting | + — bundled plug-ins and the Nyquist prompt | + — bundled plug-ins and the Nyquist prompt | + — bundled plug-ins and the Nyquist prompt | / |
 | Sandboxed effect packages | ~ — reviewed WebAssembly packages, one ships and external ones are fenced | ~ — reviewed WebAssembly packages, one ships and external ones are fenced | / | / |

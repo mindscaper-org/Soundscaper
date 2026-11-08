@@ -54,7 +54,7 @@ test('copying a keyframe curve uses the curve selected in the editor', async ({ 
 	await dialog.getByRole('spinbutton', { name: 'Start value', exact: true }).fill('0.5');
 	await dialog.getByRole('spinbutton', { name: 'End value', exact: true }).fill('0.8');
 	await dialog.getByRole('button', { name: 'Add curve', exact: true }).click();
-	await expect(dialog.getByRole('button', { name: 'Add curve', exact: true })).toBeEnabled();
+	await expect(dialog.getByRole('combobox', { name: 'Curve', exact: true }).locator('option', { hasText: /^Opacity$/u })).toHaveAttribute('value', JSON.stringify(['composition', 'opacity']));
 	await target.selectOption({ label: 'Scale X' });
 	const curve = dialog.getByRole('combobox', { name: 'Curve', exact: true });
 	await curve.selectOption({ label: 'Opacity' });

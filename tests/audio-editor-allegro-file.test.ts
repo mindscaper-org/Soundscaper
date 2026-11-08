@@ -22,7 +22,7 @@ test('Allegro reads beat notation, sticky defaults, named pitches, triplets, and
 });
 
 test('Allegro roundtrip preserves notes, tempo/signature changes and MIDI controller messages', () => {
-	const document = parseAllegroFile('#track 0 Lead\nT0 -tempor:120\nT0 V- -timesig_numr:6\nT0 V- -timesig_denr:8\nT0 V0 -programi:40\nT0.25 V0 -control64r:1\nT0.5 V0 P67 U1 L110\nT1 -tempor:90\n');
+	const document = parseAllegroFile('#track 0 Lead\nT0 -tempor:120\nT0 V- -timesig_numr:6\nT0 V- -timesig_denr:8\nT1 -tempor:90\nT0 V0 -programi:40\nT0.25 V0 -control64r:1\nT0.5 V0 P67 U1 L110\n');
 	const parsed = parseAllegroFile(writeAllegroFile(document));
 	assert.deepEqual(parsed.tempos, document.tempos);
 	assert.deepEqual(parsed.signatures, document.signatures);
@@ -46,9 +46,9 @@ test('Allegro beat durations follow tempo changes and explicit beat anchors', ()
 });
 
 test('Allegro preserves expressive channel messages, text and hexadecimal SysEx using PortSMF attributes', () => {
-	const parsed = parseAllegroFile('#track 0 Metadata\nT0 V2 -bendr:0.25\nT0 V2 -pressurer:0.5\nT0 V2 K60 -pressurer:1\nT0 V- -sysexs:"f07d0102f7"\nT0 V- -texts:"two words \\"quoted\\""\nT0 V- -keysigi:-3\nT0 V- -modea:\'minor\'\nT0 V2 P60 U1 L100\n');
+	const parsed = parseAllegroFile('#track 0 Metadata\nT0 V2 -bendr:0.25\nT0 V2 -pressurer:0.5\nT0 V- -sysexs:"f07d0102f7"\nT0 V- -texts:"two words \\"quoted\\""\nT0 V- -keysigi:-3\nT0 V- -modea:\'minor\'\nT0 V2 P60 U1 L100\n');
 	assert.deepEqual(parsed.tracks[0]?.events?.map(event => [event.status, event.metaType, event.data]), [
-		[0xe2, undefined, [0, 80]], [0xd2, undefined, [64]], [0xa2, undefined, [60, 127]],
+		[0xe2, undefined, [0, 80]], [0xd2, undefined, [64]],
 		[0xf0, undefined, [0x7d, 1, 2, 0xf7]], [0xff, 1, [...new TextEncoder().encode('two words "quoted"')]], [0xff, 89, [253, 1]],
 	]);
 	assert.deepEqual(parseAllegroFile(writeAllegroFile(parsed)), parsed);

@@ -248,10 +248,15 @@ const PADDED_AUDIO_AV_BASE64 =
 	+ 'kLOBB7eL94EB8YICafCCASU=';
 
 /** A legal trailing Void selects the same bounded decoder as an ordinary large video. */
-export function opusPaddingAvFixture(paddingBytes = 0): File {
+export function opusPaddingAvFixture(paddingBytes = 0, { paddingAfterSegment = false }: { paddingAfterSegment?: boolean } = {}): File {
 	const bytes = Uint8Array.from(Buffer.from(PADDED_AUDIO_AV_BASE64, 'base64'));
 	if (paddingBytes === 0) return new File([bytes], 'Short audio.webm', { type: 'video/webm' });
 	if (!Number.isSafeInteger(paddingBytes) || paddingBytes < 0 || paddingBytes > 64 * 1024 ** 2) throw new RangeError('Fixture padding is outside its bound.');
+	if (paddingAfterSegment) {
+		const padding = new Uint8Array(paddingBytes + 5); padding[0] = 0xec;
+		new DataView(padding.buffer).setUint32(1, 0x1000_0000 + paddingBytes);
+		return new File([bytes, padding], 'Short audio padded.webm', { type: 'video/webm' });
+	}
 	const segment = Buffer.from(bytes).indexOf(Buffer.from([0x18, 0x53, 0x80, 0x67]));
 	if (segment < 0 || bytes[segment + 4] !== 1) throw new Error('The fixture must retain its finite eight-byte Segment size.');
 	const view = new DataView(bytes.buffer), segmentSize = view.getBigUint64(segment + 4) & 0x00ff_ffff_ffff_ffffn;

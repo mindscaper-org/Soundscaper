@@ -310,6 +310,7 @@ test.describe('audio editor React/design-system workflows', () => {
 				configurable: true,
 				async value(deviceId) {
 					window.__audioSinkIds.push(deviceId);
+					Object.defineProperty(this, 'sinkId', { configurable: true, value: deviceId });
 				},
 			});
 			Object.defineProperty(navigator, 'mediaDevices', {

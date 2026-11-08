@@ -16,6 +16,12 @@ interface AiffInspection {
 	readonly warnings: readonly string[];
 }
 
+interface AiffComment {
+	readonly timestamp: string;
+	readonly markerId: number;
+	readonly text: string;
+}
+
 export async function inspectAiffMetadata(file: Blob, signal?: AbortSignal): Promise<AiffInspection | null> {
 	if (file.size < 12) return null;
 	const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
@@ -23,7 +29,7 @@ export async function inspectAiffMetadata(file: Blob, signal?: AbortSignal): Pro
 	if (ascii(header, 0, 4) !== 'FORM' || !['AIFF', 'AIFC'].includes(ascii(header, 8, 12))) return null;
 	const raw: Record<string, unknown> = {};
 	const annotations: string[] = [];
-	const comments: Readonly<Record<string, unknown>>[] = [];
+	const comments: AiffComment[] = [];
 	const embeddedId3: Record<string, unknown>[] = [];
 	const warnings: string[] = [];
 	let title: string | undefined;
@@ -77,7 +83,7 @@ export async function inspectAiffMetadata(file: Blob, signal?: AbortSignal): Pro
 				}
 				else if (id === 'COMT') comments.push(...parseAiffComments(bytes));
 				else {
-					const text = decodeAiffMetadataText(bytes);
+					const text = decodeAiffMetadataText(bytes, id !== 'ANNO');
 					const rawKey = Object.hasOwn(raw, id) ? `${id}[${String(chunkCount)}]` : id;
 					raw[rawKey] = text;
 					if (id === 'NAME' && title === undefined) title = text;
@@ -99,16 +105,17 @@ export async function inspectAiffMetadata(file: Blob, signal?: AbortSignal): Pro
 		if (Array.isArray(pictures)) images.push(...pictures.slice(0, MAXIMUM_METADATA_ARRAY_LENGTH + 1 - images.length));
 		if (images.length > MAXIMUM_METADATA_ARRAY_LENGTH) break;
 	}
+	const normalizedTitle = title || stringValue(ownDataValue(firstId3 ?? null, 'title'));
+	const normalizedArtist = artist || stringValue(ownDataValue(firstId3 ?? null, 'artist'));
+	const fileComment = comments.filter(comment => comment.markerId === 0 && comment.text.trim() !== '').map(comment => comment.text).join('\n');
+	const normalizedComment = annotations.some(text => text.trim() !== '') ? annotations.join('\n')
+		: fileComment || stringValue(ownDataValue(firstId3 ?? null, 'comment'));
 	const normalized = {
 		...(firstId3 ?? {}),
 		...(images.length ? { images } : {}),
-		...(title || stringValue(ownDataValue(firstId3 ?? null, 'title'))
-			? { title: title ?? stringValue(ownDataValue(firstId3 ?? null, 'title')) } : {}),
-		...(artist || stringValue(ownDataValue(firstId3 ?? null, 'artist'))
-			? { artist: artist ?? stringValue(ownDataValue(firstId3 ?? null, 'artist')) } : {}),
-		...(annotations.length || stringValue(ownDataValue(firstId3 ?? null, 'comment'))
-			? { comment: annotations.length
-				? annotations.join('\n') : stringValue(ownDataValue(firstId3 ?? null, 'comment')) } : {}),
+		...(normalizedTitle ? { title: normalizedTitle } : {}),
+		...(normalizedArtist ? { artist: normalizedArtist } : {}),
+		...(normalizedComment ? { comment: normalizedComment } : {}),
 		raw,
 	};
 	return Object.freeze({
@@ -159,11 +166,11 @@ function writeAscii(bytes: Uint8Array, offset: number, value: string): void {
 	}
 }
 
-function parseAiffComments(bytes: Uint8Array): Readonly<Record<string, unknown>>[] {
+function parseAiffComments(bytes: Uint8Array): AiffComment[] {
 	if (bytes.byteLength < 2) return [];
 	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 	const count = view.getUint16(0, false);
-	const comments: Readonly<Record<string, unknown>>[] = [];
+	const comments: AiffComment[] = [];
 	let offset = 2;
 	for (let index = 0; index < count && offset + 8 <= bytes.byteLength; index += 1) {
 		const timestamp = view.getUint32(offset, false);
@@ -177,7 +184,7 @@ function parseAiffComments(bytes: Uint8Array): Readonly<Record<string, unknown>>
 		comments.push(Object.freeze({
 			timestamp: Number.isNaN(date.getTime()) ? String(timestamp) : date.toISOString(),
 			markerId,
-			text: decodeAiffMetadataText(bytes.subarray(textStart, textEnd)),
+			text: decodeAiffMetadataText(bytes.subarray(textStart, textEnd), false),
 		}));
 		offset = textEnd + textLength % 2;
 	}

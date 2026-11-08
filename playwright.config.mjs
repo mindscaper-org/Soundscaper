@@ -31,9 +31,9 @@ export default defineConfig({
 	retries: process.env.CI ? 1 : 0,
 	// Media-heavy workflows spawn native decoder/capture processes. Letting
 	// Playwright scale to half of a high-core workstation can starve those
-	// processes until otherwise healthy workflows hit their bounds. Native-media
-	// project limits below also apply to local runs and check-all's shared shards.
-	workers: process.env.CI ? 2 : 4,
+	// processes until otherwise healthy workflows hit their bounds. Use the same
+	// two-worker limit for every engine in CI, local runs, and check-all shards.
+	workers: 2,
 	reporter: process.env.CI
 		? [['github'], ['html', { outputFolder: 'playwright-report', open: 'never' }]]
 		: 'list',
@@ -53,7 +53,7 @@ export default defineConfig({
 			// Explicit realtime assertions and per-test budgets retain their bounds.
 			...(browserCoverage ? { timeout: 90_000, expect: { timeout: 15_000 } } : {}),
 		},
-		{ name: 'firefox', workers: 1, use: { ...devices['Desktop Firefox'], browserName: 'firefox' } },
-		{ name: 'webkit', workers: 1, use: { ...devices['Desktop Safari'], browserName: 'webkit', deviceScaleFactor: 1 } },
+		{ name: 'firefox', use: { ...devices['Desktop Firefox'], browserName: 'firefox' } },
+		{ name: 'webkit', use: { ...devices['Desktop Safari'], browserName: 'webkit', deviceScaleFactor: 1 } },
 	],
 });

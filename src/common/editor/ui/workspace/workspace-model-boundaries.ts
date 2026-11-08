@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 export const WORKSPACE_OVERLAY_MODEL_KEYS = Object.freeze([
-	'activeSurface', 'applicationMenus', 'aboutLabel', 'capabilities',
+	'activeSurface', 'surfaceRequestId', 'applicationMenus', 'aboutLabel', 'capabilities',
 	'closeNyquist', 'controller', 'copy', 'dialog', 'displayAudioSupported',
 	'dialogTrackId', 'dialogValue', 'effectWindows', 'editBlocked', 'fileService', 'confirmFileSizeWarning',
 	'generatorType', 'locale', 'macroDraft', 'nyquistTarget', 'preferences',

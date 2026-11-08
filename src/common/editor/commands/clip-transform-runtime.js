@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createFrozenClipReader } from './frozen-clip-reader.ts';
+import { inheritMidiTrackForTransfer } from './midi-track-transfer.ts';
 import { commandIdentity, setCommandIdentity } from './command-identity-map.ts';
 
 import { clipSourceTrimFields } from '../clip-source-trim.ts';
@@ -187,6 +188,7 @@ export function transformClips(project, command) {
 	const changedTrackIds = new Set(state.flatMap(item => [item.oldTrack.id, item.track.id]));
 	const updatesByTrack = new Map();
 	for (const item of state) {
+		if (item.clip.sourceId === item.updated.sourceId) inheritMidiTrackForTransfer(item.updated, item.oldTrack, item.track);
 		const entries = updatesByTrack.get(item.track.id) || [];
 		entries.push(item.updated);
 		updatesByTrack.set(item.track.id, entries);

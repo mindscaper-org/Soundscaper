@@ -29,6 +29,7 @@ export interface FramescaperAudioTrackLike {
 	getSettings?(): Readonly<{ sampleRate?: unknown; channelCount?: unknown }>;
 }
 export interface FramescaperAudioDataLike {
+	readonly timestamp: number;
 	readonly numberOfFrames: number;
 	readonly numberOfChannels: number;
 	readonly sampleRate: number;
@@ -49,6 +50,8 @@ export interface FramescaperAudioTrackProcessorReader {
 	releaseLock(): void;
 }
 export interface FramescaperAudioTrackProcessorLike {
+	readonly discardedFrames?: number;
+	readonly totalFrames?: number;
 	readonly readable: {
 		getReader(): FramescaperAudioTrackProcessorReader;
 	};
@@ -76,6 +79,7 @@ export interface FramescaperWorkletRecordingControllerOptions {
 	readonly monitorDestination?: AudioNode;
 	readonly inputGain: number;
 	readonly maxPendingChunks: number;
+	readonly receiptTime?: () => number;
 	readonly onChunk: (chunk: CapturePcmChunk) => PromiseLike<void> | void;
 	readonly onError: (error: unknown) => void;
 }
@@ -97,9 +101,11 @@ export interface FramescaperBrowserAudioRecorderOptions {
 	readonly inputGain?: number;
 	readonly chunkFrames?: number;
 	readonly maximumPendingChunks?: number;
+	readonly receiptTime?: () => number;
 	readonly onChunk: (chunk: Readonly<CapturePcmChunk>) => PromiseLike<void> | void;
 	readonly onBackpressure?: (pendingChunks: number, error: Error) => PromiseLike<void> | void;
 	readonly onError?: (error: unknown) => void;
+	readonly onWarning?: (error: unknown) => void;
 }
 export interface FramescaperBrowserAudioRecorder {
 	readonly role: FramescaperCaptureAudioRole;
@@ -157,7 +163,7 @@ export async function createFramescaperBrowserAudioRecorder(
 		channelCount: format.channelCount,
 		chunkFrames,
 		maximumPendingChunks,
-		onChunk: options.onChunk,
+		onChunk: options.onChunk, receiptTime: options.receiptTime,
 		onBackpressure: options.onBackpressure,
 		fail: failures.fail,
 	});
@@ -213,7 +219,7 @@ async function createWorkletRecorder(input: Readonly<{
 	if (!options.context) {
 		throw new Error('Capture audio requires an AudioWorklet context.');
 	}
-	const context = await acquireFramescaperCaptureAudioContext(options.context, format.sampleRate, options.createAudioContext);
+	const context = await acquireFramescaperCaptureAudioContext(options.context, format.sampleRate, options.createAudioContext, { monitoring, onWarning: options.onWarning });
 	const factory = options.recordingControllerFactory
 		?? (createRecordingController as unknown as FramescaperWorkletRecordingControllerFactory);
 	const frameMapper = createFramescaperCapturePcmFrameMapper();
@@ -226,9 +232,11 @@ async function createWorkletRecorder(input: Readonly<{
 		channelCount: format.channelCount,
 		chunkFrames,
 		monitor: monitoring,
+		monitorDestination: context.monitorDestination,
 		inputGain,
 		maxPendingChunks: maximumPendingChunks,
 		onChunk: (chunk) => sink.push(frameMapper.map(chunk)),
+		receiptTime: options.receiptTime ?? (() => globalThis.performance?.now?.() ?? Date.now()),
 		onError: (error) => {
 			failures.fail(error);
 			state = 'failed';
@@ -316,6 +324,7 @@ function createBoundedPcmSink(input: Readonly<{
 	chunkFrames: number;
 	maximumPendingChunks: number;
 	onChunk: (chunk: Readonly<CapturePcmChunk>) => PromiseLike<void> | void;
+	receiptTime?: () => number;
 	onBackpressure?: (pendingChunks: number, error: Error) => PromiseLike<void> | void;
 	fail(error: unknown): Error;
 }>): BoundedPcmSink {
@@ -335,7 +344,9 @@ function createBoundedPcmSink(input: Readonly<{
 			return Promise.reject(failure);
 		}
 		pendingChunks += 1;
-		const completion = queue.then(() => input.onChunk(chunk));
+		const receiptTimeMs = chunk.receiptTimeMs ?? input.receiptTime?.() ?? globalThis.performance?.now?.() ?? Date.now();
+		const arrived = { ...chunk, receiptTimeMs };
+		const completion = queue.then(() => input.onChunk(arrived));
 		queue = completion.catch((error: unknown) => {
 			throw input.fail(error);
 		}).finally(() => { pendingChunks -= 1; });

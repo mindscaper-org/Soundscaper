@@ -21,7 +21,7 @@ test('piano roll preserves sample timing, trim and transient selection when proj
 	]);
 	assert.equal(projected.start, 2);
 	assert.equal(projected.trimStart, 0.5);
-	assert.equal(projected.duration, 1.5);
+	assert.equal(projected.duration, 2);
 	assert.deepEqual(projected.notes, [
 		{ id: 1, pitch: 60, velocity: 96, startTime: 0.5, duration: 0.25, selected: true },
 		{ id: 2, pitch: 64, velocity: 80, startTime: 1, duration: 0.5, selected: false },

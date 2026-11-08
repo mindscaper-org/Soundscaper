@@ -18,7 +18,7 @@ test('MIDI type 1 applies conductor tempo changes to notes with running status a
 	]), { sampleRate: 48_000 });
 	assert.equal(parsed.tracks[1]?.name, 'Lead');
 	assert.deepEqual(parsed.tracks[1]?.notes.map(({ id: _id, ...note }) => note), [{
-		pitch: 60, velocity: 100, channel: 2, startFrame: 0, durationFrames: 72_000,
+		pitch: 60, velocity: 100, channel: 2, startFrame: 0, durationFrames: 72_000, releaseVelocity: 64,
 	}]);
 	assert.deepEqual(parsed.tempos, [{ frame: 0, bpm: 120 }, { frame: 24_000, bpm: 60 }]);
 });

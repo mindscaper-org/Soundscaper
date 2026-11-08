@@ -21,13 +21,18 @@ export function prepareMidiSourceReplacement(
 	const clips = allClips(project).filter(clip => readMidiClip(clip) !== null);
 	if (!clips.length) return null;
 	const clipSources = new Map(clips.map(clip => [clip.id, clip.sourceId]));
+	const clipStarts = new Map(clips.map(clip => [clip.id, clip.sourceStartFrame]));
 	const sources = sourceIndex(project);
 	const midiSources = new Map(clips.map(clip => [clip.sourceId, sourceIdentity(sources.get(clip.sourceId))]));
+	// Consolidation changes physical encoding after verifying identical sample bits.
+	const repacked = command.type === 'source/rewrite-media'
+		&& Object.keys(command.changes ?? {}).every(field => field === 'storageKey');
 	return () => {
 		const currentSources = sourceIndex(project);
 		for (const clip of allClips(project)) {
 			if (!readMidiClip(clip)) continue;
 			const prior = clipSources.get(clip.id);
+			if (repacked && prior === clip.sourceId && clipStarts.get(clip.id) === clip.sourceStartFrame) continue;
 			const sourceChanged = (prior !== undefined && prior !== clip.sourceId)
 				|| !midiSources.has(clip.sourceId)
 				|| midiSources.get(clip.sourceId) !== sourceIdentity(currentSources.get(clip.sourceId));

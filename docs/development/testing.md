@@ -49,6 +49,20 @@ Use `--test-name-pattern='test name'` before the file to narrow a run further.
 | User interaction | Build, then run the affected Playwright spec or named test |
 | Patch, WASM, codec, or notice metadata | Matching `audit:*` command |
 
+### Choose the test layer
+
+Exercise deterministic edge cases in Node against the owning production modules.
+Use integration tests for boundaries such as metadata inspection, import attribution,
+source admission, and Scape save/reopen. Assert independent expected values in the
+reopened document; checking source text or repeating the implementation is insufficient.
+
+Keep browser workflows for menu wiring, real input events, layout, media decoding,
+and browser storage. A representative workflow can cover related inputs in one
+import/save batch while Node tests retain the complete format-variation matrix.
+Before removing overlapping browser cases, verify that the replacement tests fail
+when the covered behavior is deliberately broken. Preserve browser-specific risks
+and existing coverage floors, and compare focused timings using the same worker count.
+
 ## Module and affected checks
 
 The semantic test targets live in `config/module-policy.json`. They are
@@ -143,6 +157,23 @@ lockfile, package patches, and installation policy. A restored tree is checked
 before use; Windows admits absolute workspace junctions only to the exact
 checkout workspace. Missing or damaged trees fall back to `npm ci`.
 
+Pinned GitHub release downloads can recover from a failing public download URL
+through the official release-asset API. The fallback selects the exact tag,
+filename and original URL; existing archive length, SHA-256 and native
+architecture checks still admit the result. Electron installation and all CI
+electron-builder entry points preload this transport and the existing HTTP/1.1
+CI dispatcher while retaining Electron's packaged checksum verification.
+Nightly reference Python and interchange wheel provisioning use the same
+transport. Interrupted bodies restart their complete transfer before digest
+verification; Python and wheel archives are bounded to 128 MiB each.
+
+CodeQL receives a verified local CLI tarball through its `tools` input. The
+bundle version, length and SHA-256 live in `config/codeql-tools.json`, tied to the
+pinned action revision. Each restored archive is checked before reuse; a miss
+or corruption downloads fresh bytes through the release-asset fallback and
+saves the verified archive before analysis. Review the bundle pin when updating
+the CodeQL action.
+
 `npm run check` is the canonical non-browser gate. It runs lint, strict type
 checks, architecture and file-size guards, audits, documentation checks, the
 production build, and Node coverage. `npm run check:static` runs everything in
@@ -166,9 +197,8 @@ npm run check-all
 using the existing eight lint shards, Node suites across five execution slots,
 and browser suites into four partitions spanning all three engines. Each
 Node shard uses two test processes and each browser shard admits up to two
-workers. Firefox and WebKit projects allow one worker per shard, matching their
-native audio/video CI limits; this project limit also applies to ordinary local
-runs. Browser shards still run concurrently.
+workers for every engine. Ordinary local browser runs also default to two
+workers. Browser shards still run concurrently.
 Browser preparation runs the production build once, builds Framescaper and
 Motionscaper, and authenticates all three product sites before browser tests
 start. Four browser shards share one owned set of previews, avoiding port

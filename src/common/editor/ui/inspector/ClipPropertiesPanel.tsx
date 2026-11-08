@@ -7,6 +7,9 @@ import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import type { ClipPropertiesFocusRequest } from '../../controller/composition/clip-properties-panel-opening.ts';
 import { END_FADE_SHAPE_PRESETS } from '../../clip-fade-presets.ts';
 import { readClipLoop } from '../../audio-clip-loop.ts';
+import { clipPitchEditingAvailable } from '../../clip-time-pitch-playback-projection.ts';
+import { collectClipTransformIds } from '../../commands/clip-basic-runtime.js';
+import { clipGestureBlocked } from '../timeline/clip-gesture-admission.ts';
 import type { ClipSourceTimingProject, ClipSourceTimingSource } from '../../clip-source-timing.ts';
 import { clipSourceTrim } from './clip-source-view.ts';
 import { clipPropertiesMediaRange } from './clip-properties-media-range.ts';
@@ -98,6 +101,7 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 		: editor.actions.clip.setTimePitch(presentation.clips[0]!.id, changes));
 	const clip = presentation.clips[0];
 	const source = project?.sources.find(source => source.id === clip?.sourceId);
+	const moveBlocked = blocked || !project || !clip || clipGestureBlocked(project, collectClipTransformIds(project, clip.id));
 	const trimSourceFrame = (edge: 'start' | 'end', sourceFrame: number) => run(() => {
 		if (!clip || !source || !project) return;
 		const changes = clipSourceTrim(clip as Parameters<typeof clipSourceTrim>[0], source as Parameters<typeof clipSourceTrim>[1], project.sampleRate, edge, sourceFrame, project as unknown as ClipSourceTimingProject);
@@ -115,12 +119,13 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 			{ project: project as unknown as ClipSourceTimingProject, source: source as ClipSourceTimingSource });
 		return editor.actions.clipSourcePreview ? editor.actions.clipSourcePreview.trim(clip.id, changes) : editor.actions.clip.trim(clip.id, changes);
 	});
-	const setStart = (frames: number) => run(() => clip && editor.actions.clip.move(clip.id, presentation.tracks[0]!.id, frames, { exactFrame: true }));
+	const setStart = (frames: number) => !moveBlocked && run(() => clip && editor.actions.clip.move(clip.id, presentation.tracks[0]!.id, frames, { exactFrame: true }));
 	const setFade = (side: 'in' | 'out', frames: number) => update(clip => ({ [side === 'in' ? 'fadeInFrames' : 'fadeOutFrames']: Math.min(clip.durationFrames, Math.max(0, frames)) }));
 	const reportFailure = (cause: unknown) => { runCommand(() => { throw cause; }); };
 	const enabled = !blocked;
 	const capabilities = snapshot.capabilities as { readonly audioEffects?: boolean } | undefined;
 	const timePitchEnabled = enabled && capabilities?.audioEffects !== false;
+	const pitchAvailable = presentation.clips.every(clipPitchEditingAvailable);
 	const mediaControls = clipAudioPropertyControls({ clips: presentation.clips, source, copy, actions: editor.actions.clip,
 		disabled: !timePitchEnabled, run, update, setTimePitch });
 	const shapeLabels: Record<string, string> = { linear: copy.fadeShapeLinear, logarithmic: copy.fadeShapeLogarithmic,
@@ -142,22 +147,24 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 				onRename={enabled && clip ? name => update(() => ({ title: name })) : undefined}
 				onColorChange={enabled ? color => update(() => ({ color: color === 'track' ? 'auto' : color })) : undefined}
 				onTrackChange={enabled ? trackId => run(() => editor.actions.edit.commit({ type: 'batch', commands: presentation.clips.map(clip => ({ type: 'clip/move', clipId: clip.id, trackId, timelineStartFrame: clip.timelineStartFrame })) })) : undefined}
-				onStartChange={enabled && clip && project ? seconds => setStart(Math.max(0, Math.round(seconds * project.sampleRate))) : undefined}
+				onStartChange={!moveBlocked && clip && project ? seconds => { setStart(Math.max(0, Math.round(seconds * project.sampleRate))); } : undefined}
 				onDurationChange={enabled && clip && source && project ? seconds => setDuration(Math.max(1, Math.round(seconds * project.sampleRate))) : undefined}
 				onTrimStartChange={enabled && !readClipLoop(clip ?? {}) ? seconds => trim('start', seconds) : undefined}
 				onTrimEndChange={enabled && !readClipLoop(clip ?? {}) ? seconds => trim('end', seconds) : undefined}
 				onFadeChange={enabled && project ? (side, seconds) => setFade(side, Math.round(seconds * project.sampleRate)) : undefined}
 				onFadeShapeChange={enabled ? (side, id) => { const preset = END_FADE_SHAPE_PRESETS.find(preset => preset.id === id); if (preset) update(() => ({ [side === 'in' ? 'fadeInShape' : 'fadeOutShape']: preset.shape })); } : undefined}
-				pitchControl={<NumberField testId="pitch" label={pitchUnit === 'percent' ? copy.clipPitchPercent : copy.clipPitchField}
+				pitchControl={<div data-clip-pitch-admission role="group" aria-label={copy.clipPitchField}
+					title={pitchAvailable ? undefined : copy.clipIndependentPitchWarp} aria-description={pitchAvailable ? undefined : copy.clipIndependentPitchWarp}>
+					<NumberField testId="pitch" label={pitchUnit === 'percent' ? copy.clipPitchPercent : copy.clipPitchField}
 					glyph={<ClipPitchUnitToggle unit={pitchUnit} onChange={setPitchUnit} copy={copy} />}
 					value={presentation.selection?.pitchSemitones === 'mixed' ? 'mixed' : Number(clipPitchInUnit((presentation.selection?.pitchSemitones ?? presentation.clip?.pitchSemitones ?? 0) * 100, pitchUnit))}
 					step={pitchUnit === 'percent' ? 0.1 : 1} digits={pitchUnit === 'percent' ? 3 : 2}
-					onCommit={timePitchEnabled ? value => { run(() => {
+					onCommit={timePitchEnabled && pitchAvailable ? value => { run(() => {
 						if (presentation.clips.every(clip => clip.linkPitchAndTempo)) setTimePitch({ speedRatio: clipLinkedPitchSpeed(value, pitchUnit, copy.clipLinkedPitchRange) });
 						else setTimePitch({ pitchCents: clipPitchUnitToCents(value, pitchUnit, copy) });
-					}); } : undefined} />}
+					}); } : undefined} /></div>}
 				onSpeedChange={timePitchEnabled ? percent => setTimePitch({ speedRatio: percent / 100 }) : undefined}
-				onReverseChange={timePitchEnabled && !presentation.clips.some(clip => (clip as { readonly warpMap?: unknown }).warpMap != null) ? reversed => update(() => ({ reversed })) : undefined}
+				onReverseChange={timePitchEnabled && !presentation.clips.some(clip => clip.warpMap != null) ? reversed => update(() => ({ reversed })) : undefined}
 				resetPitchSpeedDisabled={presentation.clips.every(clip => (clip.pitchCents ?? 0) === 0 && (clip.speedRatio ?? 1) === 1 && !clip.preserveFormants)}
 				onResetPitchSpeed={timePitchEnabled ? () => setTimePitch({ pitchCents: 0, speedRatio: 1, preserveFormants: false }) : undefined} />
 		</fieldset>

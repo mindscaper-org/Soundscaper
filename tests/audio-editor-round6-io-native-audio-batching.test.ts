@@ -12,7 +12,9 @@ class NativeAudioBlock implements FramescaperAudioDataLike {
 	readonly numberOfFrames = 480;
 	closed = false;
 	readonly channels: readonly Float32Array[];
+	readonly timestamp: number;
 	constructor(start: number) {
+		this.timestamp = Math.round(start * 1_000_000 / this.sampleRate);
 		this.channels = [0, 1].map(channel => Float32Array.from({ length: 480 }, (_, index) =>
 			0.2 * Math.sin((start + index) * (channel + 1) / 17)));
 	}
@@ -24,6 +26,7 @@ class NativeAudioBlock implements FramescaperAudioDataLike {
 }
 
 function nativeProcessor() {
+	let totalFrames = 0;
 	type Result = Readonly<{ done: boolean; value?: NativeAudioBlock }>;
 	const queued: Result[] = [];
 	let waiting: ((result: Result) => void) | null = null;
@@ -38,8 +41,11 @@ function nativeProcessor() {
 		releaseLock() { releaseCalls += 1; },
 	};
 	return {
-		Processor: class { readonly readable = { getReader: () => reader }; },
-		push: (value: NativeAudioBlock) => { deliver({ done: false, value }); },
+		Processor: class {
+			readonly readable = { getReader: () => reader }; readonly discardedFrames = 0;
+			get totalFrames() { return totalFrames; }
+		},
+		push: (value: NativeAudioBlock) => { totalFrames += 1; deliver({ done: false, value }); },
 		releaseCalls: () => releaseCalls,
 	};
 }

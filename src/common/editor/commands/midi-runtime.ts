@@ -46,6 +46,8 @@ function setMidiClip(projectValue: EditorCommandProject, command: Extract<AudioE
 		sourceId: command.sourceId,
 		sourceDurationFrames: positiveSafeInteger(command.sourceDurationFrames, 'MIDI source duration'),
 		...(command.durationFrames === undefined ? {} : { durationFrames: positiveSafeInteger(command.durationFrames, 'MIDI clip duration') }),
+		...(command.warpMap === undefined ? {} : { warpMap: command.warpMap }),
+		...(command.musicalDurationBeats === undefined ? {} : { musicalDurationBeats: command.musicalDurationBeats }),
 		renderCacheRevision: positiveSafeInteger(Number(clip.renderCacheRevision ?? 0) + 1, 'MIDI render cache revision'),
 	});
 	assertClipSourceBounds(project, updated);

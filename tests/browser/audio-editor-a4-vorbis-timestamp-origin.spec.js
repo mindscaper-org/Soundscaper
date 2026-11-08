@@ -2,15 +2,17 @@
 import { strFromU8, unzipSync } from 'fflate';
 import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
 import { vorbisTimestampFixture, vorbisTimestampReference } from '../helpers/vorbis-timestamp-fixture.ts';
+import { vorbisMissingGranuleFixture } from '../helpers/vorbis-missing-granule-fixture.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import {
 	bootEditor, chooseDropdown, chooseExportProjectFileAction, disableNativeSavePicker,
 	downloadBytes, openExportDialog, readDownloadBytes,
 } from './audio-editor-test-helpers.js';
 
-for (const absolute of [false, true]) test(`File Import owns the Vorbis recording extent rather than its absolute broadcast clock=${String(absolute)}`, async ({ page }) => {
+for (const [absolute, missingPages] of [[false, 0], [true, 0], [false, Infinity], [true, 2]]) test(`File Import owns the Vorbis recording extent rather than its absolute broadcast clock=${String(absolute)}, missing page clocks=${String(missingPages)}`, async ({ page }) => {
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
-	const file = vorbisTimestampFixture(absolute), reference = vorbisTimestampReference();
+	const file = missingPages ? await vorbisMissingGranuleFixture(absolute, missingPages) : vorbisTimestampFixture(absolute);
+	const reference = vorbisTimestampReference();
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 10_000 });
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');

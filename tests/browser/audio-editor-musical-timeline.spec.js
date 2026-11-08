@@ -20,14 +20,15 @@ test.describe('musical timeline controls', () => {
 		await expect(editor).toHaveAttribute('data-workspace-preset', 'music');
 		const projectTempo = editor.getByRole('spinbutton', { name: 'Project tempo (BPM)', exact: true });
 		const signatureNumerator = editor.getByRole('spinbutton', { name: 'Time signature: numerator', exact: true });
-		const signatureDenominator = editor.getByRole('spinbutton', { name: 'Time signature: denominator', exact: true });
+		const signatureDenominator = editor.getByRole('combobox', { name: 'Time signature: denominator', exact: true });
 		await expect(projectTempo).toBeVisible();
 		await expect(signatureNumerator).toBeVisible();
 		// The toolbar fields hold a draft while they are being typed in and commit
 		// when focus leaves them, so the last one has to be blurred explicitly.
 		await projectTempo.fill('33.333333333333336');
 		await signatureNumerator.fill('64');
-		await signatureDenominator.fill('64');
+		await signatureDenominator.focus();
+		await signatureDenominator.selectOption('64');
 		await signatureDenominator.blur();
 
 		const musicalTimelineButton = editor.getByRole('button', { name: 'Musical timeline', exact: true });
@@ -41,7 +42,7 @@ test.describe('musical timeline controls', () => {
 		await expect(rootTempo.getByRole('spinbutton', { name: 'Tempo (BPM) denominator', exact: true })).toHaveValue('3');
 		const rootSignature = flyout.getByRole('form', { name: 'Time signature event 1', exact: true });
 		await expect(rootSignature.getByRole('spinbutton', { name: 'numerator', exact: true })).toHaveValue('64');
-		await expect(rootSignature.getByRole('spinbutton', { name: 'denominator', exact: true })).toHaveValue('64');
+		await expect(rootSignature.getByRole('combobox', { name: 'denominator', exact: true })).toHaveValue('64');
 		await flyout.getByRole('button', { name: 'Add tempo event', exact: true }).click();
 		let secondTempo = flyout.getByRole('form', { name: 'Tempo event 2', exact: true });
 		await expect(secondTempo).toBeVisible();
@@ -65,8 +66,9 @@ test.describe('musical timeline controls', () => {
 		await expect(secondSignature).toBeVisible();
 		await secondSignature.getByRole('spinbutton', { name: 'Bar position', exact: true }).fill('2');
 		await secondSignature.getByRole('spinbutton', { name: 'numerator', exact: true }).fill('7');
-		const secondSignatureDenominator = secondSignature.getByRole('spinbutton', { name: 'denominator', exact: true });
-		await secondSignatureDenominator.fill('8');
+		const secondSignatureDenominator = secondSignature.getByRole('combobox', { name: 'denominator', exact: true });
+		await secondSignatureDenominator.focus();
+		await secondSignatureDenominator.selectOption('8');
 		await expect(secondSignatureDenominator).toHaveValue('8');
 		const signatureSave = secondSignature.getByRole('button', { name: 'Save', exact: true });
 		await signatureSave.focus();
@@ -75,7 +77,7 @@ test.describe('musical timeline controls', () => {
 		secondSignature = flyout.getByRole('form', { name: 'Time signature event 2', exact: true });
 		await expect(secondSignature.getByRole('spinbutton', { name: 'Bar position', exact: true })).toHaveValue('2');
 		await expect(secondSignature.getByRole('spinbutton', { name: 'numerator', exact: true })).toHaveValue('7');
-		await expect(secondSignature.getByRole('spinbutton', { name: 'denominator', exact: true })).toHaveValue('8');
+		await expect(secondSignature.getByRole('combobox', { name: 'denominator', exact: true })).toHaveValue('8');
 		await flyout.getByRole('button', { name: 'Add tempo event', exact: true }).click();
 		const thirdTempo = flyout.getByRole('form', { name: 'Tempo event 3', exact: true });
 		await thirdTempo.getByRole('button', { name: 'Remove tempo event', exact: true }).click();
@@ -118,7 +120,7 @@ test.describe('musical timeline controls', () => {
 		secondSignature = flyout.getByRole('form', { name: 'Time signature event 2', exact: true });
 		await expect(secondSignature.getByRole('spinbutton', { name: 'Bar position', exact: true })).toHaveValue('2');
 		await expect(secondSignature.getByRole('spinbutton', { name: 'numerator', exact: true })).toHaveValue('7');
-		await expect(secondSignature.getByRole('spinbutton', { name: 'denominator', exact: true })).toHaveValue('8');
+		await expect(secondSignature.getByRole('combobox', { name: 'denominator', exact: true })).toHaveValue('8');
 		expect(errors).toEqual([]);
 	});
 

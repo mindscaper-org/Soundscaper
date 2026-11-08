@@ -8,6 +8,7 @@ import { createRegenerateTtsClipCommand, createAddSourceCommand } from
 import { createEditorHistory, executeEditorCommand, undoEditorCommand } from
 	'../src/common/editor/history.js';
 import { createCurrentAudioEditorProject } from '../src/common/editor/project-current.ts';
+import { readClipLoop } from '../src/common/editor/audio-clip-loop.ts';
 
 const NOW = '2026-09-22T00:00:00.000Z';
 const oldSource = Object.freeze({
@@ -102,4 +103,37 @@ test('TTS regeneration refuses overlap without publishing a partial command', ()
 	}, { now: NOW }), /overlap/u);
 	assert.equal(original.sources.some(({ id }) => id === source.id), false);
 	assert.equal(original.clips.find(({ id }: { id: string }) => id === 'tts-clip')?.durationFrames, 100);
+});
+
+test('TTS regeneration checks neighboring clips against the retained speed', () => {
+	for (const speedRatio of [0.5, 2]) {
+		const history = executeEditorCommand(createEditorHistory(project()), { type: 'clip/transform-many', transforms: [{
+			clipId: 'tts-clip', trackId: 'voice-track', changes: { speedRatio, durationFrames: 100 / speedRatio },
+		}] });
+		const source = generated(speedRatio === 2 ? 300 : 150);
+		const regenerate = () => executeEditorCommand(history, { type: 'batch', commands: [
+			createAddSourceCommand(source), createRegenerateTtsClipCommand('tts-clip', source.id),
+		] });
+		if (speedRatio === 0.5) assert.throws(regenerate, /overlap/u);
+		else assert.equal(regenerate().present.clips.find(({ id }: { id: string }) => id === 'tts-clip')?.durationFrames, 150);
+	}
+});
+
+test('regenerating looped speech retires the old source period and restores it with Undo', () => {
+	const base = project();
+	const initial = createCurrentAudioEditorProject({ ...base, clips: base.clips.map(clip => clip.id === 'tts-clip'
+		? { ...clip, opaqueExtensions: { 'example.authoring': { retained: true } } } : clip) });
+	const looped = executeEditorCommand(createEditorHistory(initial), { type: 'clip/update', clipId: 'tts-clip', changes: {
+		loop: { periodFrames: 100, offsetFrames: 25, durationFrames: 200 },
+	} }, { now: NOW });
+	assert.deepEqual(readClipLoop(looped.present.clips.find((clip: { id: string }) => clip.id === 'tts-clip')!), { periodFrames: 100, offsetFrames: 25 });
+	const source = generated(150);
+	const replaced = executeEditorCommand(looped, { type: 'batch', commands: [
+		createAddSourceCommand(source), createRegenerateTtsClipCommand('tts-clip', source.id),
+	] }, { now: NOW });
+	const clip = replaced.present.clips.find((clip: { id: string }) => clip.id === 'tts-clip')!;
+	assert.equal(readClipLoop(clip), null, 'the full replacement voice plays once at its authored speed');
+	assert.equal(clip.durationFrames, 150);
+	assert.deepEqual(clip.opaqueExtensions, { 'example.authoring': { retained: true } });
+	assert.deepEqual(undoEditorCommand(replaced, { now: NOW }).present.clips, looped.present.clips);
 });

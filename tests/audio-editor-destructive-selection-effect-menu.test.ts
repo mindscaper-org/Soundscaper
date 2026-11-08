@@ -6,10 +6,13 @@ import test from 'node:test';
 import { AUDIO_SELECTION_EFFECT_DEFINITIONS } from '../src/common/editor/effects.js';
 import { createSelectionEffectTypeSnapshot } from '../src/common/editor/controller/document/document-snapshot.ts';
 import { createWorkspaceApplicationMenus } from '../src/common/editor/ui/workspace/workspace-application-menu-runtime.js';
+import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
+import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { WORKSPACE_PANEL_IDS } from '../src/common/editor/ui/workspace/workspace-panel-model.ts';
 
 interface MenuItem {
 	readonly id?: unknown;
+	readonly disabled?: boolean;
 	readonly items?: readonly MenuItem[];
 	readonly onClick?: () => unknown;
 }
@@ -52,6 +55,39 @@ test('destructive effects without settings apply directly while configurable eff
 	assert.equal(optionalMenuItem(framescaperMenus as readonly MenuItem[], 'reviewed-utility-gain'), null);
 });
 
+test('immediate effects disable their locked target while configurable effects retain their dialog', () => {
+	const applied: unknown[] = [], opened: string[] = [], checked: string[] = [];
+	const effects = { applySelection: (request: unknown) => { applied.push(request); },
+		readSelectionTargetLocked: (type: string) => { checked.push(type); return true; } };
+	const controller = { actions: new Proxy({ effects }, { get: (target, property, receiver) => Reflect.get(target, property, receiver) ?? actionPorts() }),
+		getTelemetrySnapshot: () => ({ positionFrame: 0 }) };
+	const menus = createWorkspaceApplicationMenus(workspaceInput({ controller,
+		openSelectionEffect: (type: string) => { opened.push(type); }, run: (operation: () => unknown) => operation() }));
+	assert.equal(menuItem(menus, 'audacity-invert').disabled, true);
+	assert.equal(menuItem(menus, 'audacity-amplify').disabled, false);
+	menuItem(menus, 'audacity-amplify').onClick?.();
+	assert.deepEqual(opened, ['audacity-amplify']);
+	menuItem(menus, 'audacity-invert').onClick?.();
+	assert.deepEqual(applied, []);
+	assert.ok(checked.every(type => type === 'audacity-invert'), 'configurable effects keep Preview without a destructive admission gate');
+});
+
+test('a previously enabled immediate effect rechecks live admission without changing its requested type', () => {
+	let locked = false;
+	const applied: unknown[] = [], checked: string[] = [];
+	const effects = { applySelection: (request: unknown) => { applied.push(request); },
+		readSelectionTargetLocked: (type: string) => { checked.push(type); return locked; } };
+	const controller = { actions: new Proxy({ effects }, { get: (target, property, receiver) => Reflect.get(target, property, receiver) ?? actionPorts() }),
+		getTelemetrySnapshot: () => ({ positionFrame: 0 }) };
+	const menus = createWorkspaceApplicationMenus(workspaceInput({ controller,
+		openSelectionEffect: () => undefined, run: (operation: () => unknown) => operation() }));
+	const invert = menuItem(menus, 'audacity-invert');
+	assert.equal(invert.disabled, false);
+	locked = true; invert.onClick?.(); assert.deepEqual(applied, []);
+	locked = false; invert.onClick?.(); assert.deepEqual(applied, [{ type: 'audacity-invert' }]);
+	assert.ok(checked.length >= 3); assert.ok(checked.every(type => type === 'audacity-invert'));
+});
+
 test('selection effect inventory marks only definitions with editable settings or inputs', () => {
 	type Definition = Parameters<typeof createSelectionEffectTypeSnapshot>[2];
 	const definitions = AUDIO_SELECTION_EFFECT_DEFINITIONS as unknown as Readonly<Record<string, Definition>>;
@@ -72,18 +108,11 @@ test('selection effect inventory marks only definitions with editable settings o
 });
 
 function workspaceInput(overrides: Readonly<Record<string, unknown>>) {
-	const track = { id: 'track-a', type: 'audio', clipIds: ['clip-a'], effects: [] };
-	const project = {
-		id: 'project', sampleRate: 48_000,
-		sources: [{ id: 'source-a', channelCount: 1, sampleRate: 48_000, sampleFormat: 'float32' }],
-		clips: [{
-			id: 'clip-a', kind: 'audio', sourceId: 'source-a', timelineStartFrame: 0,
-			durationFrames: 20, sourceStartFrame: 0, sourceDurationFrames: 20,
-		}],
-		tracks: [track],
-		selection: { startFrame: 0, endFrame: 20, trackIds: ['track-a'], clipIds: [] },
-		loop: { enabled: false }, snap: { enabled: false, division: 'samples' },
-	};
+	const source = createAudioSource({ id: 'source-a', sampleRate: 48_000, frameCount: 20, channelCount: 1 });
+	const track = createAudioTrack({ id: 'track-a', clipIds: ['clip-a'] });
+	const project = createSoundscaperProject({ id: 'project', sources: [source], tracks: [track],
+		clips: [createAudioClip({ id: 'clip-a', sourceId: source.id, durationFrames: 20, sourceDurationFrames: 20 })],
+		selection: { startFrame: 0, endFrame: 20, trackIds: [track.id] } });
 	const snapshot = {
 		project, selectedTrackId: track.id,
 		preferences: { workspace: {

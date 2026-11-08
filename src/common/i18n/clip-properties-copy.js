@@ -52,6 +52,7 @@ export const CLIP_PROPERTIES_COPY_BY_LOCALE = Object.freeze({
 			clipLinkedPitchRange: 'Linked pitch must correspond to a speed ratio between 0.001 and 1000.',
 			clipLinkedAudioDurationRequiresUnlink: 'Use Edit → Audio clips → Unlink audio before changing this linked recording’s duration.',
 			clipIndependentTimePitchChannels: 'Independent pitch and tempo editing supports mono or stereo sources. Enable Link pitch and tempo to change the speed of this multichannel recording.',
+			clipIndependentPitchWarp: 'Independent pitch editing is unavailable while an audio warp map controls playback.',
 			clipPropertiesSelectedClips: 'Selected clips',
 			noClipSelected: 'Select a clip to edit its start, length, fades, and gain precisely.',
 			clipName: 'Clip name',

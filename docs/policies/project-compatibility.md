@@ -2530,8 +2530,10 @@ native instrument state.
 Destructive audio edits that replace or rewrite a MIDI clip's source retire
 that clip's editable MIDI carrier and retain the resulting waveform as ordinary
 audio. This prevents a later note edit from silently regenerating the original
-instrument over a processed, resampled, or consolidated source. Clip placement,
-trimming against an unchanged source, and source renaming retain the carrier.
+instrument over a processed or resampled source. Lossless consolidation retains
+the carrier when the managed rewrite verifies identical PCM and changes only
+its storage key. Clip placement, trimming against an unchanged source, and
+source renaming retain the carrier.
 The normal history transaction retains undo for the conversion.
 
 ## Schema retirement

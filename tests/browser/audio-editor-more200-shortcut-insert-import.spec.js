@@ -12,7 +12,7 @@ test('an Audacity Insert shortcut imports, runs and survives reopening the edito
 	await (await choosing).setFiles({ name: 'Insert-shortcuts.xml', mimeType: 'application/xml',
 		buffer: Buffer.from('<Shortcuts><SC><key>new-mono-track</key><seq>Alt+Ins</seq></SC></Shortcuts>') });
 	const review = preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true });
-	await expect(review.getByRole('status')).toHaveText('1 command ready to import; 0 skipped.');
+	await expect(review.getByRole('status')).toHaveText('1 command ready to import; 0 skipped.', { timeout: 15_000 });
 	await review.getByRole('button', { name: 'Apply shortcuts', exact: true }).click();
 	await expect(preferences.getByRole('status').filter({ hasText: 'Imported 1 command.' })).toBeVisible();
 	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();

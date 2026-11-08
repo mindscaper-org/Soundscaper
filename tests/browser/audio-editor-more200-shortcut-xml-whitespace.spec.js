@@ -12,6 +12,7 @@ test('a formatted full shortcut file reviews skips and applies its supported com
 	await preferences.getByRole('button', { name: 'Import Audacity shortcuts', exact: true }).click();
 	await (await choosing).setFiles({ name: 'Full-shortcuts.xml', mimeType: 'application/xml', buffer: Buffer.from(largeAudacityShortcutXml(true)) });
 	const review = preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true });
+	await expect(preferences.getByRole('button', { name: 'Import Audacity shortcuts', exact: true })).toBeEnabled({ timeout: 15_000 });
 	await expect(review.getByRole('status')).toHaveText('1 command ready to import; 900 skipped.');
 	await review.getByRole('button', { name: 'Apply shortcuts', exact: true }).click();
 	await expect(preferences.getByRole('status').filter({ hasText: 'Imported 1 command.' })).toBeVisible();

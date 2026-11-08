@@ -2,8 +2,11 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import { useTheme } from '../ThemeProvider/ThemeProvider';
 import { CLIP_STRIP_HEIGHT } from './constants';
 import type { MidiClip, SnapGrid } from '@audacity-ui/core';
+import { retainPianoRollMouseGesture } from './piano-roll-mouse-gesture';
+import { pianoRollGridMath, type PianoRollMusicalClock } from './musical-clock';
 
 export interface PianoRollClipStripProps {
+  musicalClock?: PianoRollMusicalClock;
   clips: MidiClip[];
   activeClipId?: number;
   pixelsPerSecond: number;
@@ -32,6 +35,7 @@ export const PianoRollClipStrip: React.FC<PianoRollClipStripProps> = ({
   width,
   snap,
   bpm,
+  musicalClock,
   onResizeClip,
   onSelectClip,
   onMoveClip,
@@ -41,6 +45,13 @@ export const PianoRollClipStrip: React.FC<PianoRollClipStripProps> = ({
 }) => {
   const { theme } = useTheme();
   const pr = theme.audio.pianoRoll;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef({ scrollX, pixelsPerSecond });
+  viewRef.current = { scrollX, pixelsPerSecond };
+  const pointerTime = useCallback((event: Pick<MouseEvent, 'clientX'>) => {
+    const bounds = containerRef.current?.getBoundingClientRect(), view = viewRef.current;
+    return (event.clientX - (bounds?.left ?? 0) + view.scrollX) / view.pixelsPerSecond;
+  }, []);
   const clipColors = trackColor ? (theme.audio.clip as Record<string, any>)[trackColor] : null; // justified: dynamic string-index into theme tokens (no index signature)
   const dragRef = useRef<{
     clipId: number;
@@ -48,22 +59,20 @@ export const PianoRollClipStrip: React.FC<PianoRollClipStripProps> = ({
     initialStart: number;
     initialTrimStart: number;
     initialDuration: number;
-    startMouseX: number;
+    initialPointerTime: number;
   } | null>(null);
+  const releaseMove = useRef<() => void>(() => {});
+  useEffect(() => () => { releaseMove.current(); dragRef.current = null; document.body.style.cursor = ''; }, []);
 
   const snapTime = useCallback((t: number): number => {
-    const beatDuration = 60 / bpm;
-    const subDivisions = snap.subdivision * (snap.triplet ? 1.5 : 1);
-    const gridStep = beatDuration / subDivisions;
-    return Math.round(t / gridStep) * gridStep;
-  }, [bpm, snap]);
+    return pianoRollGridMath(bpm, snap, musicalClock).snapTime(t);
+  }, [bpm, snap, musicalClock]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       const drag = dragRef.current;
       if (!drag) return;
-      const deltaX = e.clientX - drag.startMouseX;
-      const deltaTime = deltaX / pixelsPerSecond;
+      const deltaTime = pointerTime(e) - drag.initialPointerTime;
 
       if (drag.edge === 'left') {
         // Left edge adjusts trimStart (like trimming audio)
@@ -84,18 +93,21 @@ export const PianoRollClipStrip: React.FC<PianoRollClipStripProps> = ({
       }
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (event: Event) => {
+      if ('button' in event && event.button !== 0) return;
       dragRef.current = null;
       document.body.style.cursor = '';
     };
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('blur', handleMouseUp);
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('blur', handleMouseUp);
     };
-  }, [pixelsPerSecond, snapTime, onResizeClip]);
+  }, [pointerTime, snapTime, onResizeClip]);
 
   const handleEdgeMouseDown = useCallback((
     e: React.MouseEvent,
@@ -105,6 +117,7 @@ export const PianoRollClipStrip: React.FC<PianoRollClipStripProps> = ({
     clipTrimStart: number,
     clipDuration: number,
   ) => {
+    if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
     dragRef.current = {
@@ -113,12 +126,13 @@ export const PianoRollClipStrip: React.FC<PianoRollClipStripProps> = ({
       initialStart: clipStart,
       initialTrimStart: clipTrimStart,
       initialDuration: clipDuration,
-      startMouseX: e.clientX,
+      initialPointerTime: pointerTime(e),
     };
     document.body.style.cursor = 'ew-resize';
-  }, []);
+  }, [pointerTime]);
 
   const handleClipMouseDown = useCallback((e: React.MouseEvent, clip: MidiClip) => {
+    if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
     const startX = e.clientX;
@@ -139,16 +153,14 @@ export const PianoRollClipStrip: React.FC<PianoRollClipStripProps> = ({
       if (!hasMoved) {
         onSelectClip?.(clip.id);
       }
-      document.removeEventListener('mousemove', handleMove);
-      document.removeEventListener('mouseup', handleUp);
     };
 
-    document.addEventListener('mousemove', handleMove);
-    document.addEventListener('mouseup', handleUp);
+    releaseMove.current = retainPianoRollMouseGesture(document, handleMove, handleUp);
   }, [onSelectClip, onMoveClip, pixelsPerSecond, snapTime]);
 
   return (
     <div
+      ref={containerRef}
       style={{
         position: 'relative',
         height: CLIP_STRIP_HEIGHT,

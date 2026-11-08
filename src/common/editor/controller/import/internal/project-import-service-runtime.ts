@@ -155,7 +155,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			importQueue = files.filter((file: RuntimeValue) => file !== legacyProject && !isLegacyAupFile(file)
 				&& !(consumedLegacyFiles ? consumedLegacyFiles.has(file) : isLegacyBlockFile(file)));
 		}
-		let audioFileIndex = 0;
+		let audioFileIndex = importOptions.fileIndexOffset ?? 0;
 		for (const file of importQueue) {
 			if (cancellation.signal.aborted) break;
 			setImportFileProgress(file, completedBytes, totalBytes);
@@ -184,6 +184,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		}
 		webFileLimitFailures.throwIfAny();
 		if (cancellation.signal.aborted) return Object.freeze({ cancelled: true as const });
+		if (importOptions.fileIndexOffset !== undefined) return Object.freeze({ importedFileCount: successes });
 	}
 
 	function setImportFileProgress(file: RuntimeValue, completedBytes: number, totalBytes: number) {

@@ -64,7 +64,7 @@ function LazyInspectorFallback({ copy }) {
 
 export default function AudioEditorWorkspaceOverlays({ model }) {
 	const {
-		activeSurface,
+		activeSurface, surfaceRequestId,
 		applicationMenus,
 		aboutLabel,
 		capabilities,
@@ -500,7 +500,7 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 				</div>
 			)}
 			{activeSurface?.startsWith('offline-analysis-') && <div data-editor-surface={activeSurface}>
-				<AnalysisDialog mode={activeSurface.slice('offline-analysis-'.length)} controller={controller} snapshot={snapshot} copy={copy} fileService={fileService} onClose={() => setActiveSurface(null)} />
+				<AnalysisDialog mode={activeSurface.slice('offline-analysis-'.length)} requestId={surfaceRequestId} controller={controller} snapshot={snapshot} copy={copy} fileService={fileService} onClose={() => setActiveSurface(null)} />
 			</div>}
 			<LocalProcessingOverlays activeSurface={activeSurface} fileService={fileService} controller={controller}
 				capabilities={capabilities} snapshot={snapshot} copy={copy} locale={locale}

@@ -486,3 +486,13 @@ function deferred<T>() {
 	});
 	return { promise, resolve, reject };
 }
+
+test('pending Record admission retains capture input and prevents source or host replacement', async () => {
+	const f = createFixture(); f.state.recordingAdmissionPending = true;
+	await assert.rejects(f.service.configureDisplayInput(), /while recording is active/u);
+	await assert.rejects(f.service.setRecordingSampleRate(96_000), /while recording is active/u);
+	await assert.rejects(f.service.setHostInventory('electron', null), /while recording is active/u);
+	await f.service.setRetainInputs(false);
+	assert.equal(f.service.releaseInputs(), false); assert.equal(f.releaseAllCalls(), 0);
+	assert.equal(f.state.recordingReleaseAfterStop, true);
+});

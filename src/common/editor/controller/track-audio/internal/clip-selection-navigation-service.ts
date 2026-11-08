@@ -48,6 +48,8 @@ export interface ClipSelectionNavigationState {
 	selectedAnnotationId: string | null;
 }
 
+interface ClipSelectionNavigationOptions { readonly nativeRegion?: boolean }
+
 export interface ClipSelectionNavigationSelectionCommand {
 	readonly type: 'selection/set';
 	readonly startFrame: number;
@@ -87,8 +89,8 @@ export function createClipSelectionNavigationService<
 	return Object.freeze({
 		selectPreviousClipBoundaryToCursor: () => selectClipBoundary(false),
 		selectCursorToNextClipBoundary: () => selectClipBoundary(true),
-		selectPreviousClip: () => selectAdjacentClip(false),
-		selectNextClip: () => selectAdjacentClip(true),
+		selectPreviousClip: (options?: ClipSelectionNavigationOptions) => options?.nativeRegion ? selectNativeClipRegion(false) : selectAdjacentClip(false),
+		selectNextClip: (options?: ClipSelectionNavigationOptions) => options?.nativeRegion ? selectNativeClipRegion(true) : selectAdjacentClip(true),
 		skipToSelectionStart: () => skipToSelectionBoundary('startFrame'),
 		skipToSelectionEnd: () => skipToSelectionBoundary('endFrame'),
 		selectNoTracks,
@@ -136,6 +138,22 @@ export function createClipSelectionNavigationService<
 			dependencies.state.selectedTrackId = previousFocus.selectedTrackId;
 			dependencies.state.selectedClipId = previousFocus.selectedClipId;
 			dependencies.state.selectedAnnotationId = previousFocus.selectedAnnotationId;
+			throw error;
+		}
+	}
+
+	function selectNativeClipRegion(next: boolean): SelectionResult | null {
+		const project = dependencies.getProject(), selection = project?.selection;
+		if (!project || !selection) return null;
+		const range = nativeAdjacentClipRange(project, selection, next);
+		if (!range) return null;
+		const command = { ...selectionCommand(selection, range.startFrame, range.endFrame), clipIds: [],
+			...(Object.hasOwn(selection, 'annotationIds') ? { annotationIds: [] } : {}) };
+		const clipId = dependencies.state.selectedClipId, annotationId = dependencies.state.selectedAnnotationId;
+		dependencies.state.selectedClipId = null; dependencies.state.selectedAnnotationId = null;
+		try { return dependencies.updateSelection(command); }
+		catch (error) {
+			dependencies.state.selectedClipId = clipId; dependencies.state.selectedAnnotationId = annotationId;
 			throw error;
 		}
 	}
@@ -237,12 +255,38 @@ function adjacentClip(
 		.sort(compareCandidateOrder)[0] ?? null;
 }
 
+/** Native clip navigation changes the region, retaining track and spectral scope. */
+function nativeAdjacentClipRange(project: RuntimeClipProject, selection: ClipSelectionNavigationSelection, next: boolean) {
+	const range = resolveSelectionRange(project) ?? selection;
+	const start = selectionFrame(range.startFrame, 'selection.startFrame'), end = selectionFrame(range.endFrame, 'selection.endFrame');
+	const byTrack = new Map<string, ProjectedAudioClipCandidate[]>();
+	for (const clip of projectedAudioClips(project, selection, true)) {
+		const clips = byTrack.get(clip.trackId) ?? [];
+		clips.push(clip); byTrack.set(clip.trackId, clips);
+	}
+	let found: ProjectedAudioClipCandidate | null = null;
+	for (const clips of byTrack.values()) {
+		clips.sort((a, b) => a.startFrame - b.startFrame || a.documentIndex - b.documentIndex);
+		const sameStart = clips.find(clip => clip.startFrame === start);
+		let candidate = sameStart && (next ? sameStart.endFrame > end : sameStart.endFrame < end) ? sameStart : undefined;
+		if (!candidate && next) candidate = clips.find(clip => clip.startFrame > start);
+		else if (!candidate) for (const clip of clips) {
+			if (clip.startFrame >= start) break;
+			candidate = clip;
+		}
+		if (candidate && (!found || (next ? candidate.startFrame < found.startFrame : candidate.startFrame > found.startFrame)
+			|| (candidate.startFrame === found.startFrame && (next ? candidate.endFrame < found.endFrame : candidate.endFrame > found.endFrame)))) found = candidate;
+	}
+	return found ? { startFrame: found.startFrame, endFrame: found.endFrame } : null;
+}
+
 function projectedAudioClips(
-	project: ClipSelectionNavigationProject,
+	project: RuntimeClipProject,
 	selection: ClipSelectionNavigationSelection,
+	includeHidden = false,
 ): ProjectedAudioClipCandidate[] {
 	const navigationProject = { ...project,
-		clips: project.clips.filter(clip => clip.kind === 'audio'), projectBin: { clips: [] },
+		clips: (project.clips ?? []).filter(clip => clip.kind === 'audio'), projectBin: { clips: [] },
 	};
 	const projection = resolveRuntimeProjectProjection(navigationProject);
 	const clipById = new Map<string, Readonly<{
@@ -257,7 +301,11 @@ function projectedAudioClips(
 	}
 
 	const selectedTrackIds = new Set(selectionIds(selection.trackIds, 'selection.trackIds'));
-	const audioTracks = visibleNavigationTracks(projection.tracks, createDocumentTrackFolderSnapshot(project))
+	const tracks = projection.tracks.map((track): Readonly<{ id: string; type: unknown; clipIds: unknown }> => {
+		const record = track as Readonly<Record<string, unknown>>;
+		return { ...record, id: nonEmptyId(record.id, 'track.id'), type: record.type, clipIds: record.clipIds };
+	});
+	const audioTracks = (includeHidden ? tracks : visibleNavigationTracks(tracks, createDocumentTrackFolderSnapshot(project)))
 		.map((track, trackIndex) => ({ track, trackIndex }))
 		.filter(({ track }) => track.type === 'audio');
 	const selectedAudioTracks = audioTracks.filter(({ track }) => (

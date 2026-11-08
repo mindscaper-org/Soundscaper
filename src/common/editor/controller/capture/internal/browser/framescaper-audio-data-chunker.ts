@@ -15,6 +15,7 @@ export function createFramescaperAudioDataChunker(input: Readonly<{
 	let frameStart = 0;
 
 	function append(data: FramescaperAudioDataLike, start: number): void {
+		if (channels && start !== frameStart + frames) flush();
 		for (let offset = 0; offset < data.numberOfFrames;) {
 			if (!channels) {
 				channels = Array.from({ length: input.channelCount }, () => new Float32Array(input.chunkFrames));

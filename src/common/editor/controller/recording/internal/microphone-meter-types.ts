@@ -4,6 +4,7 @@ import type { AudioTrackLike } from '../recording-model.ts';
 import type { OwnedStateWriteScope } from '../../shared/owned-state.ts';
 import type { ControllerRecordingState } from '../recording-state.ts';
 import type { RoutedInputLoudnessMeter } from '../recording-transaction-types.ts';
+import type { MicrophoneMeterInputReplacement } from './microphone-meter-replacement.ts';
 
 export interface RecordingDeviceRoute {
 	readonly kind: 'device';
@@ -24,6 +25,7 @@ export interface MicrophoneMeterState {
 	microphoneMetering: boolean;
 	readonly recorder: Readonly<{ setInputGain?(value: number): void }> | null;
 	readonly recordingStarting: boolean;
+	readonly recordingAdmissionPending?: boolean;
 	/** Active routed capture owns input telemetry over the retained idle graph. */
 	readonly recordingEntries?: readonly unknown[] | null;
 	readonly timedRecordingPreparing: boolean;
@@ -121,6 +123,7 @@ export interface LoudnessMeterOptions {
 export interface MicrophoneMeterDependencies {
 	readonly state: OwnedStateWriteScope<MicrophoneMeterState, MicrophoneMeterOwnerState>;
 	readonly defaultDeviceId: string;
+	getPreferredInput?(): Readonly<{ deviceId: string; channelCount: number }>;
 	readonly recordingCapturePool: RecordingCapturePoolPort;
 	getAudioContext(): Promise<MeterAudioContext>;
 	createLoudnessMeterNode(
@@ -144,6 +147,7 @@ export interface MicrophoneMeterDependencies {
 }
 
 export interface MicrophoneMeterService {
+	prepareInputReplacement(): MicrophoneMeterInputReplacement;
 	getSession(): MicrophoneMeterSession | null;
 	getRoutedLoudnessMeter(): RoutedInputLoudnessMeter | null;
 	getRoutedLoudnessMeterKey(): string | null;

@@ -13,7 +13,7 @@ import './analysis-dialog.css';
 
 const MODES = Object.freeze({ levels: 'analyzeSelection', spectrum: 'plotSpectrum', clipping: 'findClipping', contrast: 'contrast' });
 
-export default function AnalysisDialog({ mode, controller, snapshot, copy, fileService, onClose }) {
+export default function AnalysisDialog({ mode, requestId = 0, controller, snapshot, copy, fileService, onClose }) {
 	const project = snapshot.project;
 	const projectId = project?.id ?? null;
 	const repeatRequest = mode === 'repeat' ? snapshot.lastAnalysisRequest : null;
@@ -68,7 +68,7 @@ export default function AnalysisDialog({ mode, controller, snapshot, copy, fileS
 	// The modal analyses capture the selection on opening; contrast deliberately
 	// remains open while the user changes the timeline selection between captures.
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [mode, projectId]);
+	}, [mode, projectId, requestId]);
 	const captureContrast = (role) => {
 		if (blocked || pending || !selection) return;
 		perform(() => controller.actions.analysis.contrast(role, 'master'), (report) => ({ result: null, report }));

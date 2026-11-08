@@ -129,6 +129,7 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 			? project?.tracks.find((track) => track.type === 'audio' && track.clipIds?.length)
 			: null);
 	const effectTargetAvailable = Boolean(effectTargetTrack);
+	const targetLocked = controller.actions.effects.readSelectionTargetLocked?.() === true;
 	const selectedClipIds = new Set([
 		...(project?.selection?.clipIds || []), snapshot.selectedClipId,
 	].filter(Boolean));
@@ -271,12 +272,15 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 							<span data-apply-audacity-effect>
 								<Button
 									variant="primary"
-									disabled={blocked || !effectTargetAvailable}
-									onClick={() => run(() => controller.actions.effects.applySelection({
-										type: selectionType,
-										params: selectionParams,
-										controlTrackId: eligibleControlTrackId || null,
-									}), () => onClose?.())}
+									disabled={blocked || !effectTargetAvailable || targetLocked}
+									onClick={() => {
+										if (controller.actions.effects.readSelectionTargetLocked?.()) return;
+										return run(() => controller.actions.effects.applySelection({
+											type: selectionType,
+											params: selectionParams,
+											controlTrackId: eligibleControlTrackId || null,
+										}), () => onClose?.());
+									}}
 								>{copy.applyAudacityEffect}</Button>
 							</span>
 						</>

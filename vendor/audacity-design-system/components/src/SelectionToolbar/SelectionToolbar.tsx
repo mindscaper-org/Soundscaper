@@ -25,6 +25,8 @@ export interface SelectionToolbarProps {
    * @default null (no selection)
    */
   selectionEnd: number | null;
+  /** Disable start/end value entry while retaining the duration display. */
+  disabled?: boolean;
   /**
    * Playback status text
    * @default 'Stopped'
@@ -107,6 +109,7 @@ export interface SelectionToolbarProps {
 export function SelectionToolbar({
   selectionStart,
   selectionEnd,
+  disabled = false,
   status = 'Stopped',
   instructionText = 'Click and drag to select audio',
   format = 'hh:mm:ss+milliseconds',
@@ -157,6 +160,7 @@ export function SelectionToolbar({
   const startValue = selectionStart ?? 0;
   const endValue = selectionEnd ?? 0;
   const durationValue = duration ?? 0;
+  const endpointProps = { format, sampleRate, frameRate, disabled, onFormatChange, showFormatSelector: true };
 
   return (
     <div
@@ -190,22 +194,14 @@ export function SelectionToolbar({
         <span className="selection-toolbar__label">{copy.selection}</span>
         <div className="selection-toolbar__timecodes">
           <TimeCode
+            {...endpointProps}
             value={startValue}
-            format={format}
-            sampleRate={sampleRate}
-            frameRate={frameRate}
             onChange={onSelectionStartChange}
-            onFormatChange={onFormatChange}
-            showFormatSelector={true}
           />
           <TimeCode
+            {...endpointProps}
             value={endValue}
-            format={format}
-            sampleRate={sampleRate}
-            frameRate={frameRate}
             onChange={onSelectionEndChange}
-            onFormatChange={onFormatChange}
-            showFormatSelector={true}
           />
         </div>
 

@@ -14,7 +14,7 @@ function deferred() {
 	return { promise, resolve };
 }
 
-test('project-bin operations preserve grouped moves and prepare atomic A/V placement IDs', () => {
+test('project-bin operations preserve grouped moves and prepare atomic A/V placement IDs', async () => {
 	const timelineProject = projectFixture({
 		clips: [
 			clipFixture({ id: 'first', groupId: 'group' }),
@@ -47,7 +47,7 @@ test('project-bin operations preserve grouped moves and prepare atomic A/V place
 		],
 	}), { getPositionFrames: () => positionFrames });
 	positionFrames = 42;
-	const placedId = placement.service.placeProjectBinClip('bin-video');
+	const placedId = await placement.service.placeProjectBinClip('bin-video');
 	assert.match(placedId ?? '', /^clip-/);
 	const placementCommit = placement.commits[0];
 	assert.equal(placementCommit?.command.type, 'batch');

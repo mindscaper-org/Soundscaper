@@ -9,6 +9,9 @@ import { createAudioEditorFileService } from '../src/common/editor/file-service.
 import { inspectAiffBlobPcm } from '../src/common/editor/aiff-pcm-chunk-reader.ts';
 import { inspectWavBlobPcm } from '../src/common/editor/wav-import.js';
 import { nativeSidecarFixture } from './helpers/framescaper-native-sidecar-fixture.ts';
+import { importAndReopenAudio } from './helpers/audio-import-archive-custody.ts';
+import { readWavePcm } from './helpers/read-wave-pcm.ts';
+import { readRiffChunks } from './helpers/read-riff-chunks.ts';
 
 // The established production fixture is unchanged BWF MetaEdit output over
 // an ordinary one-second Python wave recording. BWF is its conventional suffix.
@@ -54,3 +57,20 @@ test('the existing WAV suffix and unrelated native refusals retain their admissi
 	assert.equal(acceptsFile('video', '/production/take.bwf'), false);
 	assert.equal(acceptsFile('labels', '/production/take.bwf'), false);
 });
+
+for (const extension of ['bwf', 'aifc']) for (const desktop of [false, true]) {
+	test(`${extension} ${desktop ? 'selected-range' : 'File'} PCM and metadata survive Framescaper Scape reopen`, async context => {
+		const file = new File([extension === 'bwf' ? recording : aifc], `production-take.${extension}`,
+			{ type: extension === 'bwf' ? 'application/octet-stream' : 'audio/x-aiff' });
+		const { source, project, channels } = await importAndReopenAudio(context, file, { product: 'framescaper', desktop });
+		const rate = extension === 'bwf' ? 48_000 : 8000;
+		assert.equal(source.sampleRate, rate); assert.equal(source.frameCount, rate); assert.equal(source.channelCount, 1);
+		const expected = extension === 'bwf' ? readWavePcm(recording).channels[0]
+			: Float32Array.from({ length: 8000 }, (_, frame) => Math.round(8192 * Math.sin(2 * Math.PI * 440 * frame / 8000)) / 32768 || 0);
+		assert.deepEqual(channels[0], expected);
+		if (extension === 'bwf') {
+			assert.equal(project.metadata.bext?.description, 'Production boom take');
+			assert.equal(project.metadata.ixml?.rawXml, new TextDecoder().decode(readRiffChunks(recording).get('iXML')));
+		}
+	});
+}

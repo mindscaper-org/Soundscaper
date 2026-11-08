@@ -87,6 +87,19 @@ async function expectTrackLockAction(page, row, label) {
 }
 
 test.describe('custom toolbar buttons', () => {
+	test('Escape restores the existing action when cancelling an action search', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		let dialog = await openCustomButtonDialog(page, editor);
+		await configureButton(dialog, { name: 'Cancel action search', action: UNDO_ACTION });
+		await saveButton(dialog);
+		dialog = await openCustomButtonDialog(page, editor, 'Cancel action search');
+		const search = dialog.getByRole('combobox', { name: 'Search actions', exact: true });
+		await search.fill('redo');
+		await search.press('Escape');
+		await expect(search).toHaveValue(/Undo/u);
+		await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+	});
+
 	test('finds and persists the monitor and graduation cap from the bundled font', async ({ page }) => {
 		const errors = collectClientErrors(page);
 		let editor = await bootEditor(page, '/embed/en/');

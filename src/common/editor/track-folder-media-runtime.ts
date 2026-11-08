@@ -14,6 +14,7 @@ export const TRACK_FOLDER_STATE_PROJECTION_MARKER = 'trackFolderStateProjectionV
 type DataRecord = Record<PropertyKey, unknown>;
 
 const TRUSTED_MEDIA_PROJECTIONS = new WeakMap<object, string>();
+const INHERITED_MUTE_TRACKS = new WeakMap<object, ReadonlySet<string>>();
 // Re-projection cache per canonical input identity. The fingerprint is the
 // folder lineage PLUS leaf audibility flags, so a hit skips hierarchy
 // validation and the full state derivation while any input change - folder,
@@ -76,9 +77,12 @@ export function projectTrackFolderMediaStateV12<Project extends object>(project:
 	});
 	const projection = deriveTrackFolderStateProjectionV12(sequences, { trackFolders, tracks });
 	const stateByTrackId = new Map<string, TrackFolderStateNodeV12>();
+	const mutedFolders = new Set<string>();
 	for (const sequence of projection.sequences) for (const state of sequence.nodes) {
 		if (state.kind === 'track') stateByTrackId.set(state.id, state);
+		else if (state.mute) mutedFolders.add(state.id);
 	}
+	const inheritedMuteTracks = new Set<string>();
 	const projectedTracks = tracks.map((value, index) => {
 		const track = dataRecord(value, `track folder media project.tracks[${String(index)}]`);
 		const id = requiredOwnData(track, 'id', `track folder media project.tracks[${String(index)}]`);
@@ -86,6 +90,7 @@ export function projectTrackFolderMediaStateV12<Project extends object>(project:
 		const state = stateByTrackId.get(id);
 		if (!state || state.kind !== 'track') throw new ReferenceError(`Missing projected track state for ${id}.`);
 		if (state.type === 'audio') {
+			if (state.ancestorFolderIds.some(folderId => mutedFolders.has(folderId))) inheritedMuteTracks.add(id);
 			return replaceDataProperties(track, {
 				mute: state.effectiveMuted,
 				solo: state.effectiveSoloed,
@@ -101,6 +106,7 @@ export function projectTrackFolderMediaStateV12<Project extends object>(project:
 		[TRACK_FOLDER_STATE_PROJECTION_MARKER]: TRACK_FOLDER_STATE_PROJECTION_VERSION,
 	}) as unknown as Project;
 	TRUSTED_MEDIA_PROJECTIONS.set(projected, lineage);
+	INHERITED_MUTE_TRACKS.set(projected, inheritedMuteTracks);
 	MEDIA_PROJECTION_CACHE.set(project, { fingerprint, projected });
 	return projected;
 }
@@ -137,7 +143,14 @@ export function inheritTrackFolderMediaStateProjectionV12<Project extends object
 		throw new TypeError('A derived track folder media projection must retain its source folder lineage.');
 	}
 	TRUSTED_MEDIA_PROJECTIONS.set(target, sourceLineage);
+	const inheritedMuteTracks = INHERITED_MUTE_TRACKS.get(source);
+	if (inheritedMuteTracks) INHERITED_MUTE_TRACKS.set(target, inheritedMuteTracks);
 	return target;
+}
+
+/** Inherited mute is a separate gate from a leaf's own automatable mute. */
+export function inheritsTrackFolderMuteV12(project: object, trackId: string): boolean {
+	return INHERITED_MUTE_TRACKS.get(project)?.has(trackId) ?? false;
 }
 
 /** Return whether a transient project carries both the exact marker and private trust. */

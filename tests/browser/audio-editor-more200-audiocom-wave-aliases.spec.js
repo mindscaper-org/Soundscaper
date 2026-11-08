@@ -2,8 +2,11 @@
 import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
 
-for (const extension of ['wav', 'wave', 'rf64', 'bw64']) test(`audio.com publishes an ordinary WAVE file named .${extension}`, async ({ page }) => {
-	const file = createWavFixture({ name: `Field take.${extension}`, frequency: 440, duration: .01, channelCount: 1 });
+// The Node upload contract retains each alias independently and checks queued bodies.
+test('audio.com publishes maintained WAVE aliases with their own names and bytes', async ({ page }) => {
+	test.setTimeout(60_000);
+	const files = ['wav', 'wave', 'rf64', 'bw64'].map((extension, index) =>
+		createWavFixture({ name: `Field take.${extension}`, frequency: 440 + index * 55, duration: .01, channelCount: 1 }));
 	const sent = [];
 	await page.addInitScript(() => {
 		const fetch = globalThis.fetch.bind(globalThis);
@@ -22,6 +25,7 @@ for (const extension of ['wav', 'wave', 'rf64', 'bw64']) test(`audio.com publish
 		const bytes = Buffer.from(await page.evaluate(() => globalThis.__waveUploadBody));
 		const headers = request.headers();
 		const admitted = { name: decodeURIComponent(headers['x-audiocom-filename']), mime: headers['content-type'] };
+		const file = files.find(file => file.name === admitted.name); expect(file).toBeDefined();
 		expect(headers['x-audiocom-content-length']).toBe(String(file.buffer.byteLength));
 		sent.push(admitted); expect(bytes).toEqual(file.buffer);
 		return route.fulfill({ json: { data: { processing: false, audio: { id: '123', title: 'Field take', authorName: 'Recorder', username: 'recorder',
@@ -31,12 +35,14 @@ for (const extension of ['wav', 'wave', 'rf64', 'bw64']) test(`audio.com publish
 	await chooseCommandAction(page, editor, 'Window', 'audio.com');
 	const uploads = editor.locator('[data-audiocom-uploads]');
 	await uploads.locator('summary').click();
-	await uploads.locator('input[type="file"]').setInputFiles({ ...file, mimeType: '' });
-	const row = uploads.locator('li'); await expect(row).toHaveAttribute('data-upload-status', 'draft');
-	await row.getByRole('button', { name: /^Publish/u }).click();
-	const dialog = page.locator('[data-audiocom-publish-dialog]');
-	await dialog.locator('[name="rightsConfirmed"]').check();
-	await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
-	await expect(row).toHaveAttribute('data-upload-status', 'complete');
-	expect(sent).toHaveLength(1); expect(sent[0].name).toBe(file.name); expect(sent[0].mime).toBe('audio/wav');
+	for (const file of files) {
+		await uploads.locator('input[type="file"]').setInputFiles({ ...file, mimeType: '' });
+		const row = uploads.locator('li').last(); await expect(row).toHaveAttribute('data-upload-status', 'draft');
+		await row.getByRole('button', { name: /^Publish/u }).click();
+		const dialog = page.locator('[data-audiocom-publish-dialog]');
+		await dialog.locator('[name="rightsConfirmed"]').check();
+		await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+		await expect(row).toHaveAttribute('data-upload-status', 'complete');
+	}
+	expect(sent).toEqual(files.map(file => ({ name: file.name, mime: 'audio/wav' })));
 });

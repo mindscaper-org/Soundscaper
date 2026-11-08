@@ -33,7 +33,7 @@ test('a bare asynchronous command returns its editor action completion', async (
 function createHarness(selection: MacroCommandSelection = { startFrame: 200, endFrame: 400 }) {
 	const applied: Array<[number, number, Record<string, unknown>]> = [];
 	const ran: string[] = [];
-	const project: MacroCommandProject = {
+	let project: MacroCommandProject = {
 		tracks: [{ id: 'track-a' }, { id: 'track-b' }, { id: 'track-c' }, { id: 'track-d' }],
 		selection,
 	};
@@ -41,7 +41,7 @@ function createHarness(selection: MacroCommandSelection = { startFrame: 200, end
 		getActions: () => ({
 			edit: { cut: () => { ran.push('edit.cut'); } },
 			timeline: { selectAll: () => { ran.push('timeline.selectAll'); } },
-			track: { addMono: () => { ran.push('track.addMono'); } },
+			track: { addMono: () => { ran.push('track.addMono'); project = { ...project, tracks: [...project.tracks, { id: 'created' }] }; return 'created'; } },
 		}),
 		getProject: () => project,
 		projectSampleRate: () => SAMPLE_RATE,
@@ -160,7 +160,8 @@ test('a bare command runs the editor action it names', () => {
 	harness.run('Cut');
 	harness.run('NewMonoTrack');
 	assert.deepEqual(harness.ran, ['timeline.selectAll', 'edit.cut', 'track.addMono']);
-	assert.deepEqual(harness.applied, [], 'a bare command sets no selection of its own');
+	assert.deepEqual(harness.applied, [[200, 400, { trackIds: ['created'], clipIds: [], frequencyRange: null }]],
+		'native creation selects only its returned track while ordinary bare actions delegate unchanged');
 });
 
 test('a command whose action is gone says so rather than doing nothing', () => {

@@ -100,6 +100,7 @@ export function AudioDevicesFlyout({
 			{displayInputSelected && displayInputSupported && (
 				<Button
 					variant="secondary"
+					disabled={busy}
 					onClick={() => run(() => controller.actions.audioDevices.configureDisplayInput())}
 				>
 					{devices.displayCaptureOpen ? copy.audioDeviceChangeDisplaySource : copy.audioDeviceChooseDisplaySource}

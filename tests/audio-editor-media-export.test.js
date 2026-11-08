@@ -78,7 +78,7 @@ test('media export settings normalize aliases, arbitrary rates, sample formats, 
 	assert.equal(vorbis.dither, 'none');
 	assert.throws(() => normalizeMediaExportSettings('flac', { sampleFormat: 'float32' }), /does not support/);
 	assert.throws(() => normalizeMediaExportSettings('mp2', { inputChannelCount: 6 }), /at most 2/);
-	assert.throws(() => normalizeMediaExportSettings('wav', { metadata: { 'bad key': 'value' } }), /field name/);
+	assert.throws(() => normalizeMediaExportSettings('wav', { metadata: { 'bad=key': 'value' } }), /field name/);
 	const bwf = normalizeMediaExportSettings('bwf', {
 		inputChannelCount: 2,
 		sampleFormat: 'int24',

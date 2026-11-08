@@ -90,6 +90,7 @@ export interface RecordingRoutingState {
 	microphoneMetering: boolean;
 	recorder: object | null;
 	recordingStarting: boolean;
+	readonly recordingAdmissionPending?: boolean;
 	recordingFinishing: boolean;
 	timedRecordingPreparing: boolean;
 	timedRecording: object | null;
@@ -121,6 +122,7 @@ export interface RecordingRoutingServiceRuntime<
 	readonly microphoneMeterDeviceId: () => string;
 	readonly getMicrophoneMeterSession: () => Pick<MicrophoneMeterSession, 'deviceId'> | null;
 	readonly invalidateMicrophoneMeter: () => unknown;
+	readonly synchronizeMicrophoneMeterTarget: () => void;
 	readonly normalizePreferredInputDeviceId: typeof normalizePreferredInputDeviceId;
 	readonly normalizePreferredOutputDeviceId: typeof normalizePreferredOutputDeviceId;
 	readonly normalizeRecordingRouting: (

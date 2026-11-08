@@ -6,7 +6,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 import { Icon } from '@soundscaper/design-system/Icon';
-import { TextInput } from '@soundscaper/design-system/TextInput';
 import { createEffectMacroStep, effectMacroStepTypes } from '../../effect-macro-steps.ts';
 import { isMacroCommandStep } from '../../macro-command-steps.ts';
 import { parseAudacityEffectMacro, serializeAudacityEffectMacro } from '../../effect-macros.js';
@@ -25,6 +24,7 @@ import { macroStartsWithCommand } from './macro-run-target.ts';
 import MacroManagerLibraryList from './MacroManagerLibraryList.jsx';
 import MacroManagerStepList from './MacroManagerStepList.jsx';
 import MacroScriptPanel from './MacroScriptPanel.jsx';
+import { MacroNameInput } from './MacroNameInput.tsx';
 import { resolveEffectMacroTemplateCopy } from './effect-macro-template-copy.ts';
 import { resolveMacroManagerCopy } from './macro-manager-copy.ts';
 import { publishedCopyFor } from '../../controller/shared/presentation-localization.ts';
@@ -462,7 +462,7 @@ export function AudioEditorMacroManagerDialog({
 						) : draft ? <>
 							<label className="audio-editor-field audio-editor-macros-palette__name">
 								<span>{copy.macroName}</span>
-								<TextInput value={draft.name || ''} onChange={(name) => writeDraft((current) => ({ ...current, name }))} width="100%" />
+								<MacroNameInput key={draft.id} value={draft.name || ''} onChange={(name) => writeDraft((current) => ({ ...current, name }))} onCommit={() => undefined} />
 							</label>
 							<MacroManagerStepList
 								copy={copy}

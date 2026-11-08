@@ -99,8 +99,7 @@ export function useAudioTrackRowNavigation({
 					? candidate
 					: best
 			));
-			onFocusTrackClip(candidateIndex, false, closest.id);
-			return;
+			if (onFocusTrackClip(candidateIndex, false, closest.id) !== false) return;
 		}
 	};
 	const trimClipBySecondsLegacy = (clipId, edge, deltaSeconds) => {

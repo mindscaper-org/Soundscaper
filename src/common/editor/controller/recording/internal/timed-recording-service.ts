@@ -55,6 +55,7 @@ export interface TimedRecordingMutableState<TimerHandle = unknown> {
 	readonly disposed: boolean;
 	recorder: RecordingControllerLike | null;
 	recordingStarting: boolean;
+	recordingAdmissionPending?: boolean;
 	recordingStartPromise: Promise<void> | null;
 	recordingDiscardRequested: boolean;
 	recordingReleaseAfterStop: boolean;
@@ -243,7 +244,7 @@ export function createTimedRecordingService<TimerHandle>(
 		activating = null;
 		state.timedRecordingCancelling = hadPreparedRecorder;
 		if (hadPreparedRecorder) state.recordingDiscardRequested = true;
-		if (state.recordingStarting) runtime.cancelRecordingStart();
+		if (state.recordingStarting || state.recordingAdmissionPending) runtime.cancelRecordingStart();
 		if (hadPreparedRecorder) void discardPreparedTimedRecording(preparedRecorder);
 		if (hadTimer && options.releaseInputs !== false) {
 			releaseInputs({ force: true });

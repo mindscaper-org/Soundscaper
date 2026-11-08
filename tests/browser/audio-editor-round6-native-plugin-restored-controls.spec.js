@@ -13,8 +13,9 @@ test('restoring installed native plug-in state refreshes its visible controls', 
 	await range.press('Home');
 	await expect(range).toHaveValue('0');
 	await expect.poll(() => page.evaluate(() => globalThis.__nativePluginParameterHost.values[0])).toBe(0);
+	const persistedBefore = await page.evaluate(() => globalThis.__nativePluginParameterHost.persisted);
 	await dialog.locator('[data-native-plugin-persist-state]').click();
-	await expect.poll(() => page.evaluate(() => globalThis.__nativePluginParameterHost.persisted)).toBe(2);
+	await expect.poll(() => page.evaluate(() => globalThis.__nativePluginParameterHost.persisted)).toBeGreaterThan(persistedBefore);
 	await expect(range).toBeEnabled();
 	await range.press('End');
 	await expect(range).toHaveValue('1');

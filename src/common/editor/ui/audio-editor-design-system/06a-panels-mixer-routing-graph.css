@@ -56,7 +56,7 @@
 	gap: 5px;
 }
 
-.kw-routing-graph :is(button, select, input) {
+.kw-routing-graph :is(button, select, input, textarea) {
 	color: var(--text);
 	background: var(--control);
 	border: 1px solid var(--line);
@@ -358,7 +358,7 @@
 	align-items: center;
 }
 
-.kw-routing-graph__inspector :is(input:not([type='checkbox']), select) {
+.kw-routing-graph__inspector :is(input:not([type='checkbox']), select, textarea) {
 	width: 100%;
 	min-width: 0;
 	box-sizing: border-box;

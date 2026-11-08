@@ -254,7 +254,7 @@ test('the Electron protocol test shard restores its native binary before running
 	const restore = /- name: Restore Electron binary for the desktop protocol test\n([\s\S]*?)(?=\n\s+- name:|$)/u.exec(job)?.[0];
 	assert.ok(restore, 'the Quality test job must restore the Electron binary');
 	assert.match(restore, /if: steps\.test-prerequisites\.outputs\.electron == 'true'/u);
-	assert.match(restore, /node node_modules\/electron\/install\.js/u);
+	assert.match(restore, /node --import \.\/scripts\/ci-github-release-fetch\.mjs node_modules\/electron\/install\.js/u);
 	assert.ok(job.indexOf(restore) < job.indexOf('npm run test:shard'));
 });
 

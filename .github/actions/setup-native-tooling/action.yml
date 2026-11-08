@@ -9,6 +9,8 @@ runs:
   steps:
     - name: Verify and select native tooling
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
       run: node scripts/setup-ci-native-tooling.mjs ${{ inputs.windows-media-tools == 'true' && '--windows-media-tools' || '' }}
     - name: Activate native Windows ARM64 compiler tools
       if: runner.os == 'Windows' && runner.arch == 'ARM64'
@@ -39,4 +41,6 @@ runs:
     - name: Build the native Windows ARM64 resource editor
       if: runner.os == 'Windows' && runner.arch == 'ARM64'
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
       run: node scripts/setup-ci-native-tooling.mjs --build-rcedit

@@ -12,6 +12,8 @@ import type { DawprojectDocument, DawprojectTrack } from './dawproject-import.ts
 import type { SourceProvenanceV1 } from './source-provenance.ts';
 import { buildSignatureMap, buildTempoMap } from './dawproject-import-maps.ts';
 import { dawprojectImportedClipFades } from './dawproject-import-fades.ts';
+import { dawprojectMarkerExtensions } from './dawproject-marker-metadata.ts';
+import { dawprojectImportColor } from './dawproject-colors.ts';
 import {
 	type Build,
 	type DataRecord,
@@ -26,6 +28,7 @@ import {
 	createDawprojectTimeResolver,
 	flattenDawprojectArrangement,
 	type DawprojectAudioEvent,
+	type DawprojectMarkerEvent,
 	type DawprojectFlattenedOmissions,
 } from './dawproject-import-timeline.ts';
 
@@ -189,6 +192,7 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 		clips,
 		tracks: build.tracks.map((track) => ({
 			type: 'audio', id: track.id, name: track.name, gain: track.gain, pan: track.pan,
+			...(track.color ? { color: track.color } : {}),
 			mute: track.mute, solo: track.solo, clipIds: track.clipIds, envelope: track.envelope,
 		})),
 		trackFolders: build.folders,
@@ -305,7 +309,7 @@ function createClip(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInf
 		});
 		return null;
 	}
-	const requested = Math.max(1, Math.round(span * sourceRate));
+	const requested = Math.max(1, Math.round((sourceOffset + span) * sourceRate) - sourceStartFrame);
 	let durationFrames = durationCandidate;
 	let sourceDurationFrames = requested;
 	if (requested > available) {
@@ -351,10 +355,12 @@ function createClip(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInf
 			message: 'A negative fade-in marks an earlier crossfade head; its available source audio and fade timing are retained.',
 		});
 	}
+	const color = dawprojectImportColor(event.color, draft, { kind: 'clip', id: clipId });
 	return {
 		id: clipId,
 		sourceId: String(source.id),
 		title: event.name?.trim() ? event.name : event.mediaName?.trim() ? event.mediaName : String(source.name),
+		...(color ? { color } : {}),
 		timelineStartFrame: startFrame,
 		sourceStartFrame,
 		sourceDurationFrames,
@@ -364,7 +370,7 @@ function createClip(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInf
 	};
 }
 
-function createMarkers(markers: readonly Readonly<{ frame: number; name: string; color: string | null }>[], build: Build): DataRecord[] {
+function createMarkers(markers: readonly DawprojectMarkerEvent[], build: Build): DataRecord[] {
 	let clamped = 0;
 	let colored = 0;
 	const annotations = markers.map((marker) => {
@@ -379,7 +385,7 @@ function createMarkers(markers: readonly Readonly<{ frame: number; name: string;
 			name: marker.name,
 			color: 'auto',
 			batchId: null,
-			opaqueExtensions: {},
+			opaqueExtensions: dawprojectMarkerExtensions(marker.comment),
 		};
 	});
 	if (clamped > 0) {

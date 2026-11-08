@@ -28,6 +28,7 @@ export const EDIT_COMMAND_COPY_BY_LOCALE = Object.freeze({
 			splitDelete: 'Split delete',
 			silenceAudio: 'Silence audio',
 			noSilencesFound: 'No separable silent regions were found in the selected clip.',
+			silenceRegionLimit: 'More than {limit} silent regions were found. Select a smaller range.',
 			generatingAudio: 'Generating audio',
 			clipBoundaries: 'Audio clips',
 			splitIntoNewTrack: 'Split into new track',

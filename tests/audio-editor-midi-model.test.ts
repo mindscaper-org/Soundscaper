@@ -83,6 +83,14 @@ test('MIDI admission rejects invalid pitches, velocities, channels, frames and d
 	]);
 });
 
+test('MIDI note normalization retains optional release velocity and rejects invalid values', () => {
+	assert.deepEqual(normalizeMidiNotes([{ ...note, releaseVelocity: 99 }]), [{ ...note, releaseVelocity: 99 }]);
+	assert.deepEqual(normalizeMidiNotes([note]), [note]);
+	for (const releaseVelocity of [-1, 128, 1.5]) {
+		assert.throws(() => normalizeMidiNotes([{ ...note, releaseVelocity }]), /releaseVelocity/iu);
+	}
+});
+
 test('untagged audio remains audio and malformed or future MIDI metadata is rejected', () => {
 	assert.equal(readMidiTrack({ type: 'audio', opaqueExtensions: {} }), null);
 	assert.equal(readMidiClip({ kind: 'audio', opaqueExtensions: {} }), null);

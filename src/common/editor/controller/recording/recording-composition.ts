@@ -15,6 +15,7 @@ import {
 } from '../../recording-routing.js';
 import { createStreamingWindowedSincResampler } from '../../resample.js';
 import { abortError } from '../shared/app-helpers.ts';
+import { createRecordingMidiAdmission } from './internal/recording-midi-admission.ts';
 import { createLegacyRecordingCaptureService } from './internal/legacy-recording-capture-service.ts';
 import { planNewRecordingTracks } from './internal/new-recording-tracks.ts';
 import type { RecordingFinalizationCommonRuntime, RoutedRecordingFinalizationRuntime } from './internal/recording-finalization-types.ts';
@@ -104,6 +105,7 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		engine,
 		getMicrophoneMeterSession: microphoneMeter.getSession,
 		invalidateMicrophoneMeter: microphoneMeter.invalidate,
+		synchronizeMicrophoneMeterTarget: microphoneMeter.synchronizeTarget,
 		mediaDevices: dependencies.mediaDevices,
 		microphoneMeterDeviceId: microphoneMeter.getDeviceId,
 		normalizePreferredInputDeviceId,
@@ -315,6 +317,10 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 
 	const session = createRecordingSessionService({
 		state,
+		prepareRecordingStart: createRecordingMidiAdmission({ pending: dependencies.pendingDocumentEdits,
+			getProject: requireProject, getRoutes: () => state.recordingRouting.routes,
+			getPreferredInput: () => ({ deviceId: state.preferredInputDeviceId || RECORDING_DEFAULT_DEVICE_ID, channelCount: state.preferredInputChannelCount }),
+			sampleRate: () => captureRuntime.recordingInputSampleRate?.() ?? dependencies.projectSampleRate(), capturePool, engine, releaseInputs: releaseUnretainedRecordingInputs }),
 		getProjectId: () => document.get()?.id || null,
 		abortError,
 		addTrack: dependencies.addTrack,
@@ -335,16 +341,16 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 				&& !state.audioInputDevices.some(device => device.deviceId === state.preferredInputDeviceId)) {
 				throw new Error('The selected native audio input is unavailable.');
 			}
-			await ordinaryRecovery.begin();
-			scope.assertCurrent();
-			const route = recordingTrackRoute(state.recordingRouting.routes, options.trackId);
-			const routed = route && (
-				route.kind === 'display'
-				|| route.deviceId !== RECORDING_DEFAULT_DEVICE_ID
-				|| route.channelStart > 0
-				|| route.channelCount !== 2
-			);
 			try {
+				await ordinaryRecovery.begin();
+				scope.assertCurrent();
+				const route = recordingTrackRoute(state.recordingRouting.routes, options.trackId);
+				const routed = route && (
+					route.kind === 'display'
+					|| route.deviceId !== RECORDING_DEFAULT_DEVICE_ID
+					|| route.channelStart > 0
+					|| route.channelCount !== 2
+				);
 				await (options.trackId && !routed ? legacyCapture.capture(options, scope) : routedCapture.capture(options, scope));
 				if (!state.recorder) await ordinaryRecovery.abandon();
 			} catch (error) { await ordinaryRecovery.abandon(); throw error; }
@@ -362,7 +368,10 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		},
 		releaseUnretainedRecordingInputs,
 		retainInputs: () => state.preferences.recording.retainInputs,
-		playTransport: () => engine.play(),
+		playTransport: onBeforeStart => engine.play(onBeforeStart ? { clockedStart: true, onBeforeStart } : undefined),
+		getTransportContext: () => engine.getAudioContext({ resume: false }),
+		getTransportLatencyFrames: () => engine.getPlaybackGraphLatencyFrames?.() ?? 0,
+		signal: dependencies.lifetime.signal,
 		pauseTransport: () => engine.pause(),
 		getTransportState: () => engine.getState().state,
 		updateTransportState: dependencies.updateTransportState,
@@ -485,9 +494,11 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		dependencies.publishDocumentSnapshot();
 		return state.latencyOffsetMs;
 	};
-	const setRecordingInputGain = (value: unknown) => (
-		microphoneMeter.setRecordingInputGain(value, normalizeRecordingInputGain)
-	);
+	const setRecordingInputGain = (value: unknown) => {
+		const gain = microphoneMeter.setRecordingInputGain(value, normalizeRecordingInputGain);
+		if (state.recordingKind === 'take-cycle' && state.recordingStarting) takeCycle.routed.setInputGain(gain);
+		return gain;
+	};
 	const invalidateTakeCycleRecording = async (reason: unknown): Promise<void> => {
 		state.recordingStartGeneration += 1;
 		takeCycle.cancel(reason);

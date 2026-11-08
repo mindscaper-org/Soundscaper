@@ -16,7 +16,7 @@ function fixture() {
 	const imported: MidiFileDocument[] = [];
 	const options: unknown[] = [];
 	const route = createMidiImportFiles({ getProject: () => project, importFiles: files => { audio.push([...files]); return 'ordinary'; } },
-		async () => ({ importDocument: async (value, settings) => { imported.push(value); options.push(settings); return []; } }));
+		async () => ({ importDocument: async (value, settings) => { imported.push(value); options.push(settings); return []; } })).importFiles;
 	return { route, audio, imported, options, replace(id = 'other') { project = { id, sampleRate: 48_000 }; } };
 }
 
@@ -66,7 +66,7 @@ test('shared MIDI import retains destination identity while its lazy service loa
 		async () => {
 			project = { ...project };
 			return { importDocument: async () => { imported = true; return []; } };
-		});
+		}).importFiles;
 	await assert.rejects(route([new File([writeMidiFile(document)], 'score.mid')]), /project changed/iu);
 	assert.equal(imported, false);
 });
@@ -155,4 +155,18 @@ for (const phase of ['signature', 'payload'] as const) test(`MIDI ${phase} reads
 	await Promise.resolve();
 	assert.equal(f.audio.length, 0);
 	assert.equal(f.imported.length, 0);
+});
+
+for (const kind of ['midi', 'allegro'] as const) test(`selection-only changes while the ${kind} import service loads keep the request`, async () => {
+	let project = { id: 'first', sampleRate: 48_000 };
+	let imported = false;
+	const importer = createMidiImportFiles({ getProject: () => project, importFiles: () => assert.fail('Unexpected media route') },
+		async () => {
+			const before = project; project = { ...project };
+			importer.followSelection(before, project);
+			return { importDocument: async () => { imported = true; return []; } };
+		});
+	const file = kind === 'midi' ? new File([writeMidiFile(document)], 'score.mid') : new File([writeAllegroFile(document)], 'score.gro');
+	await importer.importFiles([file]);
+	assert.equal(imported, true);
 });

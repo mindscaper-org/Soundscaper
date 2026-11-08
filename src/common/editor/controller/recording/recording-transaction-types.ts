@@ -101,6 +101,7 @@ export interface RecordingWriterFinish {
 }
 
 export interface RecordingCaptureChunk {
+	readonly receiptTimeMs?: number;
 	readonly frameStart: number;
 	readonly frames: number;
 	readonly channels: readonly Float32Array[];
@@ -119,12 +120,15 @@ export interface RecordingSoundActivationSource {
  * identified input source.
  */
 export interface RecordingSoundActivationPort {
+	/** Wait for a requested durable preference before freezing a take's settings. */
+	settled?(signal?: AbortSignal): Promise<void>;
 	getSettings(source: RecordingSoundActivationSource): SoundActivationSettings | null;
 	getAddTimestamps?(source: RecordingSoundActivationSource): boolean;
 	setState(source: RecordingSoundActivationSource, state: SoundActivationGateState): void;
 }
 
 export interface RecordingControllerFactoryOptions {
+	readonly receiptTime?: () => number;
 	readonly chunkFrames?: number;
 	readonly maxPendingChunks?: number;
 	readonly context: RecordingAudioContext;

@@ -32,6 +32,8 @@ export interface NumberStepperProps {
    * Change handler
    */
   onChange?: (value: string) => void;
+  /** Notify an owning field when an arrow button or key steps its draft. */
+  onStep?: (value: string) => void;
   /**
    * Tab index for keyboard navigation
    */
@@ -76,6 +78,7 @@ export const NumberStepper = React.forwardRef<HTMLInputElement, NumberStepperPro
   ariaLabel,
   disabled = false,
   onChange,
+  onStep,
   tabIndex,
   className = '',
   width,
@@ -120,6 +123,7 @@ export const NumberStepper = React.forwardRef<HTMLInputElement, NumberStepperPro
       setInternalValue(newStringValue);
     }
     onChange?.(newStringValue);
+    onStep?.(newStringValue);
   };
   const handleIncrement = () => handleStep(step);
   const handleDecrement = () => handleStep(-step);

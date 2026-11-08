@@ -3,7 +3,7 @@
 import { formatLocalizedTemplate } from '../localization-template.ts';
 
 import { useEffect, useMemo, useRef } from 'react';
-import RoutingInspectorForm from './RoutingInspectorForm.tsx';
+import RoutingInspectorForm, { RoutingNameInput, routingFormName } from './RoutingInspectorForm.tsx';
 import RoutingEdgeLevelInput, { routingLevelDraftValue, routingLevelDisplayDb as linearToDb } from './RoutingEdgeLevelInput.tsx';
 
 import type { MixerEdgeV21, MixerGraphV21 } from '../../mixer-graph-v21.ts';
@@ -132,10 +132,10 @@ function NodeInspector(props: SoundscaperRoutingGraphInspectorProps & Readonly<{
 			const data = new FormData(event.currentTarget);
 			emitCandidate(props, 'node-update', () => updateSoundscaperRoutingNode(
 				project, graph, selection.collection, selection.id,
-				{ name: String(data.get('name') ?? ''), channelCount: Number(data.get('channelCount')) },
+				{ name: routingFormName(data, node.name), channelCount: Number(data.get('channelCount')) },
 			));
 		}}>
-			<label>{copy.name} <input name="name" maxLength={1024} defaultValue={node.name} readOnly={managed} disabled={disabled || managed} /></label>
+			<label>{copy.name} <RoutingNameInput value={node.name} readOnly={managed} disabled={disabled || managed} /></label>
 			<label>{copy.channels} <input name="channelCount" type="number" min={1} max={32} step={1} defaultValue={node.channelCount} disabled={disabled || managed} /></label>
 			<button type="submit" disabled={disabled || managed}>{copy.saveNode}</button>
 		</RoutingInspectorForm>
@@ -159,12 +159,12 @@ function OutputInspector(props: SoundscaperRoutingGraphInspectorProps & Readonly
 			if (disabled) return;
 			const data = new FormData(event.currentTarget);
 			emitCandidate(props, 'output-update', () => updateSoundscaperRoutingOutput(project, graph, output.id, {
-				name: String(data.get('name') ?? ''),
+				name: routingFormName(data, output.name),
 				role: String(data.get('role')) as typeof output.role,
 				channelCount: Number(data.get('channelCount')),
 			}));
 		}}>
-			<label>{copy.name} <input name="name" maxLength={1024} defaultValue={output.name} disabled={disabled} /></label>
+			<label>{copy.name} <RoutingNameInput value={output.name} disabled={disabled} /></label>
 			<label>{copy.role} <select name="role" defaultValue={output.role} disabled={disabled}>
 				<option value="main">{copy.main}</option><option value="cue">{copy.cue}</option>
 				<option value="control-room">{copy.controlRoom}</option><option value="auxiliary">{copy.auxiliary}</option>
@@ -183,18 +183,18 @@ function VcaInspector(props: SoundscaperRoutingGraphInspectorProps & Readonly<{ 
 	const members = new Set(vca.members.map(routingEndpointValue));
 	return <>
 		<h3>{vca.name || vca.id}</h3><p>{copy.vca} · {vca.members.length} {copy.members}</p>
-		<RoutingInspectorForm owner={vca.id} savedValues={{ name: vca.name, gain: vca.gain, mute: vca.mute, member: [...members] }} onSubmit={(event) => {
+		<RoutingInspectorForm owner={vca.id} continuousNumbers={['gain']} savedValues={{ name: vca.name, gain: vca.gain, mute: vca.mute, member: [...members] }} onSubmit={(event) => {
 			event.preventDefault();
 			if (disabled) return;
 			const data = new FormData(event.currentTarget);
 			const selected = new Set(data.getAll('member').map(String));
 			emitCandidate(props, 'vca-update', () => updateSoundscaperRoutingVca(project, graph, vca.id, {
-				name: String(data.get('name') ?? ''), gain: Number(data.get('gain')),
+				name: routingFormName(data, vca.name), gain: Number(data.get('gain')),
 				mute: data.has('mute'),
 				members: memberOptions.filter(({ value }) => selected.has(value)).map(({ endpoint }) => endpoint),
 			}));
 		}}>
-			<label>{copy.name} <input name="name" maxLength={1024} defaultValue={vca.name} disabled={disabled} /></label>
+			<label>{copy.name} <RoutingNameInput value={vca.name} disabled={disabled} /></label>
 			<label>{copy.gain} <input name="gain" type="number" min={0} max={4} step="0.01" defaultValue={vca.gain} disabled={disabled} /></label>
 			<label><input name="mute" type="checkbox" defaultChecked={vca.mute} disabled={disabled} /> {copy.mute}</label>
 			<fieldset><legend>{copy.members}</legend>{memberOptions.map(({ value, label }) => <label key={value}>

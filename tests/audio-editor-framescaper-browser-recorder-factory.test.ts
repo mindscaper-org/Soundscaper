@@ -48,6 +48,8 @@ test('browser recorder factory packetizes actual PCM and marks pause input gaps 
 	await waitFor(() => before.closed, 'the first native block to be copied');
 	assert.equal(await recorder.pause(), true);
 	await waitFor(() => packets.length === 1, 'the first captured packet');
+	const paused = audioData(2, Array.from({ length: 18 }, () => 0)); processor.push(paused);
+	await waitFor(() => paused.closed, 'paused native audio to be consumed without capture');
 	assert.equal(await recorder.resume(), true);
 	const after = audioData(20, [0.75]);
 	processor.push(after);
@@ -157,6 +159,7 @@ class FakeMediaRecorder {
 }
 
 function processorHarness() {
+	let totalFrames = 0;
 	type Result = Readonly<{ done: boolean; value?: ReturnType<typeof audioData> }>;
 	const queued: Result[] = [];
 	const waiting: ((value: Result) => void)[] = [];
@@ -166,8 +169,12 @@ function processorHarness() {
 		releaseLock() {},
 	};
 	return {
-		Processor: class { readonly readable = { getReader: () => reader }; },
+		Processor: class {
+			readonly readable = { getReader: () => reader }; readonly discardedFrames = 0;
+			get totalFrames() { return totalFrames; }
+		},
 		push(value: ReturnType<typeof audioData>) {
+			totalFrames += 1;
 			const resolve = waiting.shift();
 			if (resolve) resolve({ done: false, value });
 			else queued.push({ done: false, value });
@@ -178,7 +185,7 @@ function processorHarness() {
 function audioData(frameStart: number, samples: readonly number[]) {
 	return {
 		numberOfFrames: samples.length, numberOfChannels: 1, sampleRate: 48_000,
-		timestamp: frameStart, closed: false,
+		timestamp: Math.round(frameStart * 1_000_000 / 48_000), closed: false,
 		copyTo(destination: Float32Array) { destination.set(samples); },
 		close() { this.closed = true; },
 	};

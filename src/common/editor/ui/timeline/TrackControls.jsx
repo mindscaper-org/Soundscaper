@@ -247,6 +247,7 @@ export function TrackControls({
 				defaultVolume={gainDbToDesignVolume(0)}
 				pan={panToDesignValue(staticGestures.value(staticAddress('pan'), track.pan))}
 				panDisabled={!panAvailable}
+				parametersDisabled={controller.getSnapshot().readOnly === true}
 				isMuted={track.mute}
 				isSolo={track.solo}
 				isFocused={selected}

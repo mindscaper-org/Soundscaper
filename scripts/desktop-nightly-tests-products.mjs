@@ -65,6 +65,7 @@ export async function packageDesktopNightlyTestProducts({
 			], { cwd: repositoryRoot, environment: commandEnvironment });
 		}
 		await run(process.execPath, [
+			'--import', pathToFileURL(resolve(repositoryRoot, 'scripts/ci-github-release-fetch.mjs')).href,
 			resolve(repositoryRoot, 'node_modules/electron-builder/out/cli/cli.js'),
 			'--config', resolve(repositoryRoot, 'electron-builder.config.cjs'),
 			`--${platform}`, `--${arch}`, '--dir', '--publish', 'never',

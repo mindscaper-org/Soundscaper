@@ -83,9 +83,7 @@ export default function AudioEditorMixerPanel({ controller, snapshot, copy, run,
 	const effectLabels = new Map((snapshot.effects?.rackTypes || []).map(({ type, label }) => [type, label]));
 	const effectProps = (effects, scope, targetId) => (effects || []).map((effect) => ({
 		name: rackEffectLabel(effect, effectLabels, copy),
-		enabled: effect.type === 'missing'
-			? effect.enabled !== false
-			: effect.enabled !== false && effect.bypassed !== true,
+		enabled: effect.enabled !== false,
 		onToggle: () => run(() => controller.actions.effects.update(scope, targetId, effect.id, { enabled: effect.enabled === false })),
 		onRemoveEffect: () => run(() => controller.actions.effects.remove(scope, targetId, effect.id)),
 		onClick: () => onOpenEffects(scope === 'master' ? null : targetId, null, scope),
@@ -125,6 +123,7 @@ export default function AudioEditorMixerPanel({ controller, snapshot, copy, run,
 			run(() => update(changes));
 		};
 		return {
+			disabled: snapshot.readOnly === true,
 			className: `kw-audio-editor__mixer-channel kw-audio-editor__mixer-channel--${type}`,
 			trackName: isMaster ? copy.master : channel.name,
 			trackColor: mixerChannelColor(channel.color, type),

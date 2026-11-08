@@ -110,7 +110,7 @@ export interface ProjectBinService extends ProjectBinReplacementService,
 		'canRelinkLinkedVideo' | 'classifyLinkedVideoRelink' | 'relinkLinkedVideo'
 	> {
 	moveClipsToProjectBin(clipId?: string | readonly (string | null | undefined)[] | null): readonly string[] | null;
-	placeProjectBinClip(binClipId: string, placement?: Readonly<{ trackId?: string | null; timelineStartFrame?: unknown }>): string | null;
+	placeProjectBinClip(binClipId: string, placement?: Readonly<{ trackId?: string | null; timelineStartFrame?: unknown }>): string | null | Promise<string>;
 	renameProjectBinClip(clipId: string, requestedName: unknown): string | null;
 	removeProjectBinClip(clipId: string): string | null;
 	setProjectBinClipColor(clipId: string, color: string): string | null;
@@ -177,7 +177,7 @@ export function createProjectBinService(
 	function placeProjectBinClip(
 		binClipId: string,
 		placement: Readonly<{ trackId?: string | null; timelineStartFrame?: unknown }> = {},
-	): string | null {
+	): string | null | Promise<string> {
 		dependencies.lifetime.assertActive();
 		if (dependencies.editingBlocked()) return null;
 		const project = dependencies.getProject();
@@ -275,11 +275,12 @@ export function createProjectBinService(
 		});
 		const selectedTrack = videoClip ? videoTrack : audioTrack;
 		if (!selectedTrack) throw createLocalizedError(Error, dependencies.copy, 'audioClipNotFound');
-		dependencies.commit(commands.length === 1 ? commands[0] : { type: 'batch', commands }, {
+		const publication = dependencies.commit(commands.length === 1 ? commands[0] : { type: 'batch', commands }, {
 			selectTrackId: selectedTrack.id,
 			selectClipId: selectedPlacement.clipId,
 		});
-		return selectedPlacement.clipId;
+		return publication && typeof publication === 'object' && 'then' in publication && typeof publication.then === 'function'
+			? Promise.resolve(publication).then(() => selectedPlacement.clipId) : selectedPlacement.clipId;
 	}
 
 	function renameProjectBinClip(clipId: string, requestedName: unknown): string | null {

@@ -7,6 +7,11 @@ import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 import { cachedInterchangeWheel, interchangeCacheIdentity } from './lib/interchange-download-cache.mjs';
+import { configureCiArtifactFetch } from './lib/ci-artifact-fetch.ts';
+import { downloadCiBytes } from './lib/ci-download-retry.mjs';
+import { isTransientCiDownloadFailure } from './lib/ci-github-release-fetch.mjs';
+
+configureCiArtifactFetch();
 
 /**
  * Provision the interchange conformance reference implementations.
@@ -37,9 +42,6 @@ const target = resolve(root, 'vendor/interchange-conformance');
 const stamp = resolve(target, '.provisioned.json');
 const checkOnly = process.argv.includes('--check');
 const cacheRoot = resolve(root, '.wrangler/test-download-cache/interchange');
-const TRANSIENT_CONNECTION_ERRORS = new Set([
-	'UND_ERR_CONNECT_TIMEOUT', 'ETIMEDOUT', 'ECONNRESET', 'EAI_AGAIN',
-]);
 
 /** The stamp records what was installed, so a version bump re-provisions rather than silently reusing. */
 function currentStamp() {
@@ -108,28 +110,30 @@ function expectedStampSafe() {
 	}
 }
 
-/** Retry a temporary PyPI connection failure; release and wheel identities stay pinned below. */
+/** Retry temporary PyPI transport or service failures; release and wheel identities stay pinned below. */
 export async function fetchWithTransientRetry(url, { fetchImpl = fetch, delayImpl = delay } = {}) {
 	for (let attempt = 0; ; attempt += 1) {
 		try {
-			return await fetchImpl(url);
+			const response = await fetchImpl(url);
+			if (!isTransientCiDownloadFailure({ status: response.status }) || attempt >= 2) return response;
+			await response.body?.cancel().catch(() => undefined);
 		} catch (error) {
-			const code = error instanceof TypeError ? error.cause?.code : undefined;
-			if (attempt >= 2 || !TRANSIENT_CONNECTION_ERRORS.has(code)) throw error;
-			await delayImpl(250 * 2 ** attempt);
+			if (attempt >= 2 || !isTransientCiDownloadFailure(error)) throw error;
 		}
+		await delayImpl(250 * 2 ** attempt);
 	}
 }
 
 async function download(url) {
-	const response = await fetchWithTransientRetry(url);
-	if (!response.ok) throw new Error(`Downloading ${url} failed with HTTP ${response.status}.`);
-	return Buffer.from(await response.arrayBuffer());
+	return downloadCiBytes(url, { maximumBytes: 128 * 1024 * 1024, timeoutMs: 300_000 });
 }
 
 async function pypiRelease(name, version) {
 	const response = await fetchWithTransientRetry(`https://pypi.org/pypi/${encodeURIComponent(name)}/${encodeURIComponent(version)}/json`);
-	if (!response.ok) throw new Error(`PyPI has no ${name} ${version} (HTTP ${response.status}).`);
+	if (!response.ok) {
+		await response.body?.cancel().catch(() => undefined);
+		throw new Error(`PyPI has no ${name} ${version} (HTTP ${response.status}).`);
+	}
 	return response.json();
 }
 

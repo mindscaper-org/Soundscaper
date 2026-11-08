@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { renderMidiFrames } from '../../../engine/midi-synthesis.ts';
+import { createMidiRenderer } from '../../../engine/midi-synthesis.ts';
 import type { MidiClipData, MidiInstrument } from '../../../midi-model.ts';
 import { createAudioSource } from '../../../project-media-factory.ts';
 import { SOURCE_CHUNK_FRAMES } from '../../../source-pcm-contract.ts';
@@ -23,8 +23,9 @@ export async function publishMidiSource(
 	const writer = await dependencies.store.beginSourceWrite(id, metadata);
 	try {
 		assertCurrent();
+		const render = createMidiRenderer(data.notes, instrument, sampleRate, interchange?.events);
 		for (let start = 0; start < frameCount; start += SOURCE_CHUNK_FRAMES) {
-			const samples = renderMidiFrames(data.notes, instrument, sampleRate, start, Math.min(SOURCE_CHUNK_FRAMES, frameCount - start), interchange?.events);
+			const samples = render(start, Math.min(SOURCE_CHUNK_FRAMES, frameCount - start));
 			await writer.write([samples]);
 			assertCurrent();
 		}

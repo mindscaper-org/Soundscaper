@@ -108,6 +108,7 @@ export interface ProjectMutationServiceDependencies<
 	readonly assertEditingAllowed: () => void;
 	readonly getProject: () => Project | null;
 	readonly setProject: (project: Project | null) => void;
+	readonly onSelectionChanged?: (before: Project, after: Project) => void;
 	readonly getHistory: () => History | null;
 	readonly setHistory: (history: History) => void;
 	readonly executeEditorCommand: (
@@ -299,16 +300,21 @@ export function createProjectMutationService<
 		assertWritable();
 		assertEditorCommandCapabilities(command, dependencies.capabilities, dependencies.productName);
 		const history = requireHistory();
+		const previous = requireProject();
 		const nextProject = dependencies.applyEditorCommand(history.present, command);
 		const nextHistory = dependencies.retention.synchronizeLiveHistory({ ...history, present: nextProject });
 		dependencies.setHistory(nextHistory);
 		dependencies.state.history = nextHistory;
 		dependencies.setProject(nextHistory.present);
+		if (isSelectionOnly(command)) dependencies.onSelectionChanged?.(previous, requireProject());
 		dependencies.synchronizeAnnotationFocus();
 		if (dependencies.state.selectedLabels?.length) dependencies.state.selectedLabels = [];
 		if (openMacroTransactions === 0 && playbackProjectPending()) queuePlaybackProject(nextHistory.present);
 		dependencies.publisher.publishProjectState();
 		return nextHistory.present;
+	}
+	function isSelectionOnly(command: AudioEditorCommand): boolean {
+		return command.type === 'selection/set' || command.type === 'batch' && command.commands.every(isSelectionOnly);
 	}
 
 	function projectChanged(options: ProjectChangedOptions = {}): void {

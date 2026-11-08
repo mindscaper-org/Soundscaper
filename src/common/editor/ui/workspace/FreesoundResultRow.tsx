@@ -72,6 +72,7 @@ export const FreesoundResultRow = memo(function FreesoundResultRow({ result, pre
 					disabled={result.previewAvailable === false}
 					aria-label={`${copy.seekPreview}: ${result.name}`}
 					onKeyDown={(event) => {
+						if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
 						const position = previewing ? positionSeconds : 0;
 						const step = Math.min(1, result.durationSeconds / 100) * (event.shiftKey ? 10 : 1);
 						const next = event.key === 'Home' ? 0 : event.key === 'End' ? result.durationSeconds

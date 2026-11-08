@@ -6,7 +6,9 @@ import type {
 	FramescaperCapturePreviewSurface,
 } from '../../framescaper-capture-session-types.ts';
 
-interface BrowserCaptureAnalyser {
+interface BrowserCaptureAudioNode { disconnect(): void }
+
+interface BrowserCaptureAnalyser extends BrowserCaptureAudioNode {
 	fftSize: number;
 	readonly frequencyBinCount: number;
 	getFloatTimeDomainData(values: Float32Array): void;
@@ -14,7 +16,7 @@ interface BrowserCaptureAnalyser {
 }
 
 interface BrowserCaptureAudioSourceNode {
-	connect(destination: BrowserCaptureAnalyser): unknown;
+	connect(destination: BrowserCaptureAudioNode, output?: number): unknown;
 	disconnect(): void;
 }
 
@@ -22,6 +24,7 @@ interface BrowserCaptureAudioContext {
 	readonly state: string;
 	createMediaStreamSource(stream: unknown): BrowserCaptureAudioSourceNode;
 	createAnalyser(): BrowserCaptureAnalyser;
+	createChannelSplitter?(outputs: number): BrowserCaptureAudioSourceNode;
 	resume?(): PromiseLike<void> | void;
 	close(): PromiseLike<void> | void;
 }
@@ -59,24 +62,35 @@ export async function createBrowserFramescaperCaptureLevelMonitor<Stream, Track>
 	}
 	const context = (dependencies.createAudioContext ?? createRuntimeAudioContext)();
 	let sourceNode: BrowserCaptureAudioSourceNode | null = null;
-	let analyser: BrowserCaptureAnalyser | null = null;
+	let splitter: BrowserCaptureAudioSourceNode | null = null;
+	const analysers: BrowserCaptureAnalyser[] = [];
 	let timer: unknown = null;
 	let level: number | null = null;
 	let disposed = false;
 	try {
 		sourceNode = context.createMediaStreamSource(source.stream);
-		analyser = context.createAnalyser();
-		analyser.fftSize = 2_048;
-		sourceNode.connect(analyser);
+		const requestedChannels = source.settings.channelCount;
+		const channelCount = typeof requestedChannels === 'number' && Number.isSafeInteger(requestedChannels)
+			&& requestedChannels > 1 && requestedChannels <= 32 && context.createChannelSplitter ? requestedChannels : 1;
+		if (channelCount > 1) splitter = context.createChannelSplitter!(channelCount);
+		for (let channel = 0; channel < channelCount; channel += 1) {
+			const analyser = context.createAnalyser();
+			analysers.push(analyser);
+			analyser.fftSize = 2_048;
+			if (splitter) splitter.connect(analyser, channel);
+		}
+		sourceNode.connect(splitter ?? analysers[0]!);
 		if (context.state === 'suspended') await context.resume?.();
-		const samples = new Float32Array(Math.max(1, analyser.fftSize));
+		const samples = new Float32Array(Math.max(1, analysers[0]!.fftSize));
 		const sample = (): void => {
-			if (disposed || !analyser) return;
+			if (disposed) return;
 			try {
-				analyser.getFloatTimeDomainData(samples);
 				let sum = 0;
-				for (const value of samples) sum += value * value;
-				level = Math.max(0, Math.min(1, Math.sqrt(sum / samples.length)));
+				for (const analyser of analysers) {
+					analyser.getFloatTimeDomainData(samples);
+					for (const value of samples) sum += value * value;
+				}
+				level = Math.max(0, Math.min(1, Math.sqrt(sum / (samples.length * analysers.length))));
 			} catch {
 				level = null;
 			}
@@ -85,7 +99,8 @@ export async function createBrowserFramescaperCaptureLevelMonitor<Stream, Track>
 		timer = (dependencies.setInterval ?? runtimeSetInterval)(sample, 50);
 	} catch (error) {
 		try { sourceNode?.disconnect(); } catch { /* Continue exact cleanup. */ }
-		try { analyser?.disconnect(); } catch { /* Continue exact cleanup. */ }
+		try { splitter?.disconnect(); } catch { /* Continue exact cleanup. */ }
+		for (const analyser of analysers) { try { analyser.disconnect(); } catch { /* Continue exact cleanup. */ } }
 		try { await context.close(); } catch { /* Preserve the construction failure. */ }
 		throw error;
 	}
@@ -98,7 +113,8 @@ export async function createBrowserFramescaperCaptureLevelMonitor<Stream, Track>
 			if (timer !== null) (dependencies.clearInterval ?? runtimeClearInterval)(timer);
 			const failures: unknown[] = [];
 			try { sourceNode?.disconnect(); } catch (error) { failures.push(error); }
-			try { analyser?.disconnect(); } catch (error) { failures.push(error); }
+			try { splitter?.disconnect(); } catch (error) { failures.push(error); }
+			for (const analyser of analysers) { try { analyser.disconnect(); } catch (error) { failures.push(error); } }
 			try { await context.close(); } catch (error) { failures.push(error); }
 			level = null;
 			if (failures.length) throw new AggregateError(failures, 'Capture level monitor did not release cleanly.');

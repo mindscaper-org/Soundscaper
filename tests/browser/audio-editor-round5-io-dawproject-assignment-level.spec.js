@@ -41,7 +41,7 @@ test('DAWproject discloses the authored assignment level omitted from its delive
 	await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export DAWproject']);
 	await chooseCommandAction(page, editor, 'File', 'Delivery Report');
 	const report = page.getByRole('dialog', { name: 'Delivery Report', exact: true });
-	const warning = report.locator('[data-severity="warning"]');
+	const warning = report.locator('[data-severity="warning"]').filter({ hasText: 'Group bus 1 → Master' });
 	await expect(warning).toContainText('Group bus 1 → Master');
 	await expect(warning).toContainText('−12 dB');
 	await expect(warning).toContainText('unity');

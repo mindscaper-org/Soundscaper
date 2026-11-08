@@ -8,6 +8,8 @@ export interface TrackSelectionContextTrack {
 	readonly type?: string;
 	readonly clipIds?: readonly string[];
 	readonly locked?: boolean;
+	readonly mute?: boolean;
+	readonly solo?: boolean;
 	readonly laneGroupId?: string | null;
 }
 
@@ -102,6 +104,7 @@ function trackChannelMenuFacts(project: TrackSelectionContextProject | null, aud
 		const members = sequenceTrackMembers(project, audioTrack?.id);
 		for (const [index, candidate] of (project?.tracks ?? []).entries()) {
 			if (candidate.id === audioTrack?.id || (members && !members.has(candidate.id))
+				|| Boolean(candidate.mute) !== Boolean(audioTrack?.mute) || Boolean(candidate.solo) !== Boolean(audioTrack?.solo)
 				|| !isStandaloneMonoAudioTrack(candidate, channelCountFor(candidate))) continue;
 			partner ??= candidate;
 			if (index > primaryIndex) { partner = candidate; break; }

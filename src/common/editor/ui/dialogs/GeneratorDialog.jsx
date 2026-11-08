@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 import { PreferencePanel } from '@soundscaper/design-system/PreferencePanel';
@@ -26,6 +26,7 @@ import { generatorReplacementTargetLocked } from './generator-replacement-admiss
 const MORSE_SPEED_RANGE = Object.freeze({ minimum: 5, maximum: 60 });
 
 export default function GeneratorDialog({ type, controller, snapshot = {}, copy, locale, run, onClose }) {
+	const formId = useId();
 	const project = controller.project;
 	const sampleRate = project?.sampleRate || 48_000;
 	const durationOrigin = resolveSelectionRange(project)?.startFrame
@@ -161,11 +162,11 @@ export default function GeneratorDialog({ type, controller, snapshot = {}, copy,
 				className="audio-editor-dialog-footer"
 				rightContent={<>
 					<Button variant="secondary" onClick={cancelAndClose}>{copy.cancel}</Button>
-					<Button variant="primary" disabled={editBlocked || unsendable || invalidDtmfTiming || invalidDuration || pending} onClick={generate}>{copy.generate}</Button>
+					<Button type="submit" form={formId} variant="primary" disabled={editBlocked || unsendable || invalidDtmfTiming || invalidDuration || pending} onClick={event => { event?.preventDefault(); generate(); }}>{copy.generate}</Button>
 				</>}
 			/>}
 		>
-				<form className="kw-audio-editor-generator" onSubmit={(event) => {
+				<form id={formId} className="kw-audio-editor-generator" onSubmit={(event) => {
 					event.preventDefault();
 					generate();
 				}}>

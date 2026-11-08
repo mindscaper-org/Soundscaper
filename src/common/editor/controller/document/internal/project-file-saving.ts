@@ -173,8 +173,19 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 }
 
 function emptyProject(project: FileSavingProject): boolean {
-	const value = project as FileSavingProject & { tracks?: readonly unknown[]; clips?: readonly unknown[]; sources?: readonly unknown[] };
-	return !value.clips?.length && !value.sources?.length;
+	const value = project as FileSavingProject & { tracks?: readonly { labels?: readonly unknown[] }[]; clips?: readonly unknown[]; sources?: readonly unknown[]; timelineAnnotations?: readonly unknown[] };
+	return !value.clips?.length && !value.sources?.length && !value.timelineAnnotations?.length
+		&& !value.tracks?.some(track => track.labels?.length) && !authoredTiming(project);
+}
+function authoredTiming(project: FileSavingProject): boolean {
+	const value = project as FileSavingProject & {
+		tempo?: { bpm?: number; timeSignature?: { numerator?: number; denominator?: number } };
+		tempoMap?: { events?: readonly unknown[] };
+		signatureMap?: { events?: readonly unknown[] };
+	};
+	return (value.tempo?.bpm ?? 120) !== 120 || (value.tempo?.timeSignature?.numerator ?? 4) !== 4
+		|| (value.tempo?.timeSignature?.denominator ?? 4) !== 4
+		|| (value.tempoMap?.events?.length ?? 0) > 1 || (value.signatureMap?.events?.length ?? 0) > 1;
 }
 async function fingerprint(project: FileSavingProject): Promise<string> {
 	const content = Object.fromEntries(Object.entries(project).filter(([key]) => !['revision', 'updatedAt', 'createdAt', 'selection', 'playheadFrame'].includes(key)));

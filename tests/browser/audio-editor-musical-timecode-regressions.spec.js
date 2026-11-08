@@ -23,9 +23,10 @@ test('beats and bars timecode follows the project tempo and time signature', asy
 	await page.getByRole('menuitem', { name: 'beats:bars', exact: true }).click();
 	await expect(display.locator('.timecode-digit')).toHaveText(['0', '0', '0', '3']);
 	const numerator = editor.getByRole('spinbutton', { name: 'Time signature: numerator', exact: true });
-	const denominator = editor.getByRole('spinbutton', { name: 'Time signature: denominator', exact: true });
+	const denominator = editor.getByRole('combobox', { name: 'Time signature: denominator', exact: true });
 	await numerator.fill('3');
-	await denominator.fill('8');
+	await denominator.focus();
+	await denominator.selectOption('8');
 	await denominator.press('Tab');
 	await expect(display.locator('.timecode-digit')).toHaveText(['0', '0', '1', '2']);
 	await display.locator('.timecode-digit').last().click();

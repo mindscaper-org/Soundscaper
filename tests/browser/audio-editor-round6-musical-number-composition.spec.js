@@ -11,11 +11,16 @@ for (const [label, saved, draft] of [
 	test(`musical numeric authoring preserves native ${label} composition`, async ({ page }) => {
 		const editor = await bootEditor(page, '/en/');
 		await page.locator('[data-sidebar] [data-workspace-select]').selectOption('music');
-		const field = editor.getByRole('spinbutton', { name: label, exact: true });
-		await field.fill(saved);
+		const choice = label === 'Time signature: denominator';
+		const field = editor.getByRole(choice ? 'combobox' : 'spinbutton', { name: label, exact: true });
+		if (choice) await field.selectOption(saved);
+		else await field.fill(saved);
+		await field.focus();
 		await field.press('Enter');
 		await expect(field).toHaveValue(saved);
-		await field.fill(draft);
+		if (choice) await field.selectOption(draft);
+		else await field.fill(draft);
+		await field.focus();
 		for (const key of ['Escape', 'Enter']) {
 			const prevented = await field.evaluate((input, key) => {
 				const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, isComposing: true });

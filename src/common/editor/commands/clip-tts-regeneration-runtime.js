@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createEnvelopeValueEvaluator } from '../automation.js';
+import { withoutClipLoop } from '../audio-clip-loop.ts';
 import { clipEndFrame } from '../project.js';
 import { hasCoreEditingProjectAuthority } from '../project-schema-version.ts';
 import { scaleSampleFrame } from '../timeline-time.ts';
@@ -30,8 +31,8 @@ export function regenerateTtsClip(project, clipId, sourceId) {
 		|| source.frameCount < 1) {
 		throw new RangeError('TTS regeneration requires a positive audio source.');
 	}
-	const durationFrames = scaleSampleFrame(source.frameCount, source.sampleRate,
-		project.sampleRate, 'point');
+	const sourceTimelineFrames = scaleSampleFrame(source.frameCount, source.sampleRate, project.sampleRate, 'point');
+	const durationFrames = Math.max(1, Math.round(sourceTimelineFrames / (clip.speedRatio ?? 1)));
 	const newEnd = clip.timelineStartFrame + durationFrames;
 	if (!Number.isSafeInteger(durationFrames) || durationFrames < 1 || !Number.isSafeInteger(newEnd)) {
 		throw new RangeError('Regenerated TTS clip exceeds safe timeline frames.');
@@ -52,6 +53,7 @@ export function regenerateTtsClip(project, clipId, sourceId) {
 		trimStartFrames: 0,
 		trimEndFrames: 0,
 		warpMap: null,
+		opaqueExtensions: withoutClipLoop(clip.opaqueExtensions),
 		fadeInFrames: Math.min(clip.fadeInFrames ?? 0, durationFrames),
 		fadeOutFrames: Math.min(clip.fadeOutFrames ?? 0, durationFrames),
 		envelope: retainedEnvelope(clip.envelope, clip.durationFrames, durationFrames),

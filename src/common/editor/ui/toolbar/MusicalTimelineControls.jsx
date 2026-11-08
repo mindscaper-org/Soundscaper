@@ -11,6 +11,8 @@ import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
 import { AudacityToolbarFlyoutButton } from './AudioEditorMeterControls.jsx';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
+const SIGNATURE_DENOMINATORS = Object.freeze(Array.from({ length: 53 }, (_, exponent) => 2 ** exponent));
+
 export function MusicalTimelineControls({ project, snapshot, controller, copy, run }) {
 	const tempoMap = project?.tempoMap;
 	const signatureMap = project?.signatureMap;
@@ -54,6 +56,7 @@ export function MusicalTimelineControls({ project, snapshot, controller, copy, r
 				<AuthoritativeNumberField
 					min="1"
 					max="4503599627370496"
+					choices={SIGNATURE_DENOMINATORS}
 					ariaLabel={`${copy.timeSignature}: ${copy.denominator}`}
 					value={rootSignature?.denominator || project?.tempo?.timeSignature?.denominator || 4}
 					disabled={disabled}
@@ -144,7 +147,7 @@ export function MusicalTimelineControls({ project, snapshot, controller, copy, r
  * draft and re-adopts the project's value only while it is idle; a usable draft
  * commits on blur or Enter, and Escape or an unusable one restores the project.
  */
-function AuthoritativeNumberField({ value, accepts, onCommit, ariaLabel, min, max, step, disabled }) {
+function AuthoritativeNumberField({ value, accepts, onCommit, ariaLabel, min, max, step, disabled, choices = null }) {
 	const inputRef = useRef(null);
 	useLayoutEffect(() => {
 		const input = inputRef.current;
@@ -160,17 +163,13 @@ function AuthoritativeNumberField({ value, accepts, onCommit, ariaLabel, min, ma
 		}
 		onCommit(draft);
 	};
-	return <input
-		ref={inputRef}
-		type="number"
-		min={min}
-		max={max}
-		step={step}
-		aria-label={ariaLabel}
-		defaultValue={value}
-		disabled={disabled}
-		onBlur={(event) => commitDraft(event.currentTarget)}
-		onKeyDown={(event) => {
+	const fieldProps = {
+		ref: inputRef,
+		'aria-label': ariaLabel,
+		defaultValue: value,
+		disabled,
+		onBlur: (event) => commitDraft(event.currentTarget),
+		onKeyDown: (event) => {
 			if (event.nativeEvent?.isComposing) return;
 			if (event.key === 'Enter') {
 				event.preventDefault();
@@ -178,8 +177,10 @@ function AuthoritativeNumberField({ value, accepts, onCommit, ariaLabel, min, ma
 			} else if (event.key === 'Escape') {
 				event.currentTarget.value = String(value);
 			}
-		}}
-	/>;
+		},
+	};
+	return choices ? <select {...fieldProps}>{choices.map(choice => <option key={choice} value={choice}>{choice}</option>)}</select>
+		: <input {...fieldProps} type="number" min={min} max={max} step={step} />;
 }
 
 function TempoEventForm({ event, index, mode, sampleRate, disabled, controller, copy, run }) {
@@ -260,7 +261,7 @@ function SignatureEventForm({ event, index, disabled, controller, copy, run }) {
 		<span className="kw-audio-editor__musical-map-event-id">{event.id}</span>
 		<NumberField label={copy.barPosition} name="bar" value={event.bar} disabled={disabled || index === 0} minimum={0} />
 		<NumberField label={copy.numerator} name="numerator" value={event.numerator} disabled={disabled} minimum={1} />
-		<NumberField label={copy.denominator} name="denominator" value={event.denominator} disabled={disabled} minimum={1} />
+		<NumberField label={copy.denominator} name="denominator" value={event.denominator} disabled={disabled} minimum={1} choices={SIGNATURE_DENOMINATORS} />
 		<div className="kw-audio-editor__musical-map-event-actions">
 			<button type="submit" disabled={disabled}>{copy.save}</button>
 			<button
@@ -284,10 +285,17 @@ function RationalFields({ label, name, value, disabled, positive = false, numera
 	</fieldset>;
 }
 
-function NumberField({ label, name, value, disabled = false, minimum }) {
+function NumberField({ label, name, value, disabled = false, minimum, choices = null }) {
+	const choiceRef = useRef(null);
+	useLayoutEffect(() => {
+		// Native form.reset() follows option defaults, including after a save.
+		for (const option of choiceRef.current?.options || []) option.defaultSelected = Number(option.value) === value;
+	}, [value]);
 	return <label>
 		<span>{label}</span>
-		<input type="number" name={name} defaultValue={value ?? minimum ?? 0} min={minimum} step="1" disabled={disabled} />
+		{choices ? <select ref={choiceRef} name={name} defaultValue={value} disabled={disabled}>
+			{choices.map(choice => <option key={choice} value={choice}>{choice}</option>)}
+		</select> : <input type="number" name={name} defaultValue={value ?? minimum ?? 0} min={minimum} step="1" disabled={disabled} />}
 	</label>;
 }
 
@@ -358,8 +366,8 @@ function removeEventWithFocus(button, remove) {
 	requestAnimationFrame(() => {
 		const escapedId = globalThis.CSS?.escape ? globalThis.CSS.escape(neighborId || '') : neighborId;
 		const nextRow = escapedId ? section?.querySelector(`[data-musical-event-id="${escapedId}"]`) : null;
-		const focusTarget = nextRow?.querySelector('input, button')
-			|| section?.querySelector('.kw-audio-editor__musical-map-heading button');
+		const focusTarget = nextRow?.querySelector('input:enabled:not([type="hidden"]), button:enabled')
+			|| section?.querySelector('.kw-audio-editor__musical-map-heading button:enabled');
 		focusTarget?.focus();
 	});
 }

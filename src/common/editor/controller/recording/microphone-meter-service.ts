@@ -3,6 +3,8 @@ import { recordingTrackRoute } from '../../recording-routing.js';
 import { retainRealtimeContext } from '../../engine/realtime-context-custody.ts';
 
 import { soundscaperNativeAudioCaptureSource } from '../../soundscaper-native-audio-capture.ts';
+import { createMicrophoneMeterReplacement } from './internal/microphone-meter-replacement.ts';
+export type { MicrophoneMeterInputReplacement } from './internal/microphone-meter-replacement.ts';
 import type { RoutedInputLoudnessMeter } from './recording-transaction-types.ts';
 
 import type { RecordingDeviceRoute, RecordingRouteLike, AudioNodePort, AnalyserNodePort, MeterAudioContext, NodeLoudnessMeter, MicrophoneMeterSession, MicrophoneMeterDependencies, MicrophoneMeterService } from './internal/microphone-meter-types.ts';
@@ -20,8 +22,15 @@ export function createMicrophoneMeterService(
 	let routedLoudnessMeter: RoutedInputLoudnessMeter | null = null;
 	let routedLoudnessMeterKey: string | null = null;
 	let inputChannels: readonly Readonly<{ peak: number; rms: number }>[] = [];
+	const replacement = createMicrophoneMeterReplacement({
+		suspend: () => { invalidate(); startPromise = null; stopMicrophoneMetering({ releaseInput: false }); },
+		resume: async () => { if (state.microphoneMetering && !state.disposed) await setMicrophoneMetering(true); },
+		fail: async () => { if (state.microphoneMetering && !state.disposed) await setMicrophoneMetering(false); },
+		cancel: () => { state.microphoneMetering = false; invalidate(); stopMicrophoneMetering({ releaseInput: false }); },
+	});
 
 	return Object.freeze({
+		prepareInputReplacement: replacement.begin,
 		getSession: () => session,
 		getRoutedLoudnessMeter: () => routedLoudnessMeter,
 		getRoutedLoudnessMeterKey: () => routedLoudnessMeterKey,
@@ -63,7 +72,7 @@ export function createMicrophoneMeterService(
 			? selectedRoute
 			: Object.values(state.recordingRouting.routes)
 				.find((candidate) => candidate?.kind === 'device');
-		return normalizeRoute(route, dependencies.defaultDeviceId);
+		return normalizeRoute(route ?? dependencies.getPreferredInput?.(), dependencies.defaultDeviceId);
 	}
 
 	function getRouteKey(route: RecordingDeviceRoute = getRoute()): string {
@@ -82,7 +91,7 @@ export function createMicrophoneMeterService(
 		if (!next) {
 			state.microphoneMetering = false;
 			invalidate();
-			if (!state.recorder && !state.recordingStarting) {
+			if (!state.recorder && !(state.recordingStarting || state.recordingAdmissionPending)) {
 				stopMicrophoneMetering({ releaseInput: true });
 			}
 			void Promise.resolve(dependencies.persistSetting('microphone-metering', false));
@@ -95,6 +104,10 @@ export function createMicrophoneMeterService(
 		if (session) return true;
 		try {
 			while (state.microphoneMetering && !session && !state.disposed) {
+				if (replacement.pending) {
+					await replacement.settled();
+					if (!state.microphoneMetering || session || state.disposed) break;
+				}
 				if (!startPromise) {
 					const operation = startMicrophoneMetering();
 					const tracked = operation.finally(() => {
@@ -145,7 +158,7 @@ export function createMicrophoneMeterService(
 			disconnect(merger);
 			loudnessMeter?.dispose?.();
 			for (const analyser of analysers) disconnect(analyser);
-			releaseIfUnused(deviceId);
+			releaseIfUnused(deviceId, stream, operationGeneration);
 		};
 		try {
 			stream ||= await dependencies.recordingCapturePool.acquireHardware(deviceId, {
@@ -153,12 +166,12 @@ export function createMicrophoneMeterService(
 				sampleRate: dependencies.projectSampleRate(),
 			});
 			if (operationIsStale(operationGeneration, force)) {
-				releaseIfUnused(deviceId);
+				releaseIfUnused(deviceId, stream, operationGeneration);
 				return false;
 			}
 			const context = await dependencies.getAudioContext();
 			if (operationIsStale(operationGeneration, force)) {
-				releaseIfUnused(deviceId);
+				releaseIfUnused(deviceId, stream, operationGeneration);
 				return false;
 			}
 			releaseContext = retainRealtimeContext(context);
@@ -257,7 +270,7 @@ export function createMicrophoneMeterService(
 			if (pendingContextRelease === releaseContext) pendingContextRelease = null;
 			const update = (): void => {
 				if (session !== nextSession || routedCaptureOwnsMeter()
-					|| (!state.microphoneMetering && !state.recorder && !state.recordingStarting)
+					|| (!state.microphoneMetering && !state.recorder && !(state.recordingStarting || state.recordingAdmissionPending))
 					|| state.disposed) return;
 				let peak = 0;
 				let squaredRms = 0;
@@ -294,6 +307,7 @@ export function createMicrophoneMeterService(
 			return true;
 		} catch (error) {
 			discardPendingGraph();
+			if (operationIsStale(operationGeneration, force)) return false;
 			throw error;
 		}
 	}
@@ -427,6 +441,7 @@ export function createMicrophoneMeterService(
 
 	function dispose(): void {
 		state.microphoneMetering = false;
+		replacement.dispose();
 		invalidate();
 		stopMicrophoneMetering({ releaseInput: false });
 		clearRoutedLoudnessMeter();
@@ -459,12 +474,15 @@ export function createMicrophoneMeterService(
 	}
 
 	function operationIsStale(operationGeneration: number, force: boolean): boolean {
-		const recordingOwnsMeter = force && (state.recordingStarting || state.recorder !== null);
+		const recordingOwnsMeter = force && (state.recordingStarting || state.recordingAdmissionPending || state.recorder !== null);
 		return generation !== operationGeneration || (!state.microphoneMetering && !recordingOwnsMeter) || state.disposed;
 	}
 
-	function releaseIfUnused(deviceId: string): void {
-		if (!canReleaseInput()) return;
+	function releaseIfUnused(deviceId: string, stream: MicrophoneMeterSession['stream'] | null, ownerGeneration: number): void {
+		if (!stream || !canReleaseInput() || session?.deviceId === deviceId) return;
+		if (generation !== ownerGeneration && state.microphoneMetering && getRoute().deviceId === deviceId) return;
+		const retained = dependencies.recordingCapturePool.getHardware?.(deviceId);
+		if (retained && retained !== stream) return;
 		dependencies.recordingCapturePool.releaseHardware(deviceId);
 		dependencies.syncRecordingPoolSnapshot();
 	}
@@ -472,7 +490,7 @@ export function createMicrophoneMeterService(
 	function canReleaseInput(): boolean {
 		return !state.preferences.recording.retainInputs
 			&& !state.recorder
-			&& !state.recordingStarting
+			&& !(state.recordingStarting || state.recordingAdmissionPending)
 			&& !state.timedRecordingPreparing
 			&& !state.timedRecording;
 	}

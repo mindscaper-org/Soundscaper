@@ -6,7 +6,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createPackage } from '@electron/asar';
 import { DesktopSettingsStore } from '../desktop/settings.js';
 
@@ -389,6 +389,8 @@ test('nightly product staging builds isolated Soundscaper and Framescaper trees'
 	]);
 	assert.ok(calls.every(({ sourceMaps }) => sourceMaps === '1'));
 	assert.ok(calls.every(({ r2AccessKey }) => r2AccessKey === undefined));
+	assert.deepEqual(calls.filter(({ args }) => args.includes('--dir')).map(({ args }) => args.slice(0, 2)),
+		Array.from({ length: 2 }, () => ['--import', pathToFileURL(join(root, 'scripts/ci-github-release-fetch.mjs')).href]));
 	assert.deepEqual(calls.filter(({ args }) => args.some((value) => value.endsWith('publish-assistance-runtime-assets.mjs')))
 		.map(({ args }) => args.at(-1)), ['--verify', '--verify']);
 	calls.length = 0;

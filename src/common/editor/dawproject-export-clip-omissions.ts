@@ -18,8 +18,8 @@ export function reportOmittedClipFeatures(
 	const features: string[] = [];
 	if (finite(clip.gain, 1) !== 1) features.push('gain');
 	if (records(clip.envelope).length > 0) features.push('envelope');
-	if (finite(clip.fadeInFrames, 0) > 0 && finite(clip.fadeInShape, 1) !== 1) features.push('fadeInShape');
-	if (finite(clip.fadeOutFrames, 0) > 0 && finite(clip.fadeOutShape, 1) !== 1) features.push('fadeOutShape');
+	if (finite(clip.fadeInFrames, 0) > 0 && clip.fadeInShape !== undefined) features.push('fadeInShape');
+	if (finite(clip.fadeOutFrames, 0) > 0 && clip.fadeOutShape !== undefined) features.push('fadeOutShape');
 	if (finite(clip.pitchCents, 0) !== 0) features.push('pitchCents');
 	if (clip.reversed === true) features.push('reversed');
 	if (clip.inverted === true) features.push('inverted');

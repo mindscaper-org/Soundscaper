@@ -21,6 +21,7 @@ import type {
 } from './native-effect-pdc-control.ts';
 
 export interface EngineAudioContext extends AudioContext {
+	readonly sinkId?: string | Readonly<{ type: 'none' }>;
 	setSinkId?(deviceId: string): Promise<void>;
 }
 
@@ -64,9 +65,18 @@ export interface EngineStateSnapshot {
 	readonly cutPreview?: boolean;
 	readonly positionFrame: number;
 	readonly durationFrames: number;
+	readonly playbackStartFrame?: number | null;
+	/** End of the scheduled run, including a bounded audition or retained tail. */
+	readonly playbackEndFrame?: number | null;
 	readonly loop: NormalizedLoop;
 	readonly playbackRate: number;
 	readonly playbackMode: 'normal' | 'naive' | 'staffpad' | 'audio-warp-exact';
+}
+
+export interface EngineCutPreviewSegment {
+	readonly startFrame: number;
+	readonly endFrame: number;
+	readonly contextStartTime: number;
 }
 
 export interface EngineCutPreviewSelection {
@@ -123,7 +133,13 @@ export type EnginePitchPreserver = (
 	}>,
 ) => Promise<readonly (Float32Array | ArrayLike<number>)[]>;
 
-export interface EnginePlayAtSpeedOptions {
+export interface EnginePlayOptions {
+	/** Leave the existing clocked lead for an accompanying audio-clock client. */
+	readonly clockedStart?: boolean;
+	readonly onBeforeStart?: import('./clocked-playback-start.ts').ClockedPlaybackStartHook;
+}
+
+export interface EnginePlayAtSpeedOptions extends EnginePlayOptions {
 	readonly preservePitch?: boolean;
 	readonly pitchPreserver?: EnginePitchPreserver | null;
 	readonly signal?: AbortSignal | null;
@@ -153,7 +169,14 @@ export interface EngineParametricEqPreview {
 	disconnect(): void;
 }
 
+export interface EngineRenderTimelineRange {
+	readonly startFrame: number;
+	readonly endFrame: number;
+}
+
 export interface EngineRenderMixOptions {
+	/** At most two retained intervals, joined before effects while preserving their original automation clocks. */
+	readonly joinedRanges?: readonly EngineRenderTimelineRange[];
 	readonly startFrame?: number;
 	readonly endFrame?: number;
 	readonly includeTail?: boolean | number;
@@ -224,14 +247,18 @@ export interface EnginePublicApi {
 	getOutputDeviceState(): EngineOutputDeviceState;
 	setPlaybackGain(gain: number): number;
 	getPlaybackGain(): number;
+	/** Apply one existing live gain/pan target and adopt its static value without rebuilding processor history. */
+	configureMixerParameter(address: unknown, value: number): boolean;
 	/** Listening destination shared by transport and temporary audio auditions. */
 	getPlaybackDestination(): AudioNode;
 	/** Audition a band in device playback only; leaving playback retires it. */
 	setPlaybackFrequencyRange(range: EnginePlaybackFrequencyRange | null): EnginePlaybackFrequencyRange | null;
 	getAudioWarpRenderStatus(): Readonly<AudioWarpRenderPathStatus>;
-	play(): Promise<void>;
+	play(options?: EnginePlayOptions): Promise<void>;
 	/** Audition the join around a selected gap without changing the project. */
 	playCutPreview(selection: EngineCutPreviewSelection): Promise<void>;
+	/** Original timeline intervals joined by the active cut audition, on its audio clock. */
+	getCutPreviewSegments?(): readonly EngineCutPreviewSegment[] | null;
 	playAtSpeed(rate: number, options?: EnginePlayAtSpeedOptions): Promise<void>;
 	/** Resolves to the actual context start after asynchronous playback priming. */
 	playAt(contextTime: number, fromFrame?: number, onBeforeStart?: import('./clocked-playback-start.ts').ClockedPlaybackStartHook): Promise<number>;

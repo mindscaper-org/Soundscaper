@@ -694,7 +694,7 @@
   },
   "src/common/editor/ui/AudioEditorMenuBar.jsx": {
     "no-restricted-syntax": {
-      "count": 3
+      "count": 2
     }
   },
   "src/common/editor/ui/DesignSystemRuntime.jsx": {
@@ -795,7 +795,7 @@
   },
   "src/common/editor/ui/toolbar/AudioEditorTransportControls.jsx": {
     "no-restricted-syntax": {
-      "count": 12
+      "count": 11
     }
   },
   "src/common/editor/ui/workspace/linked-audio-choice-handoff.ts": {

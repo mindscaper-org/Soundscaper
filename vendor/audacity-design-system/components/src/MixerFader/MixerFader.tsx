@@ -4,6 +4,7 @@ import { MixerFaderHandle } from '../MixerFaderHandle';
 import './MixerFader.css';
 import { ManualValueDialog } from '../ManualValueDialog/ManualValueDialog';
 import { useValueContextMenu } from '../hooks/useValueContextMenu';
+import { mixerFaderGrabOffsetY, mixerFaderValueFromY } from '../utils/mixer-fader-pointer-geometry';
 
 export interface MixerFaderProps {
   /**
@@ -89,6 +90,7 @@ export const MixerFader: React.FC<MixerFaderProps> = ({
   const trackRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
   const pointerIdRef = useRef<number | null>(null);
+  const grabOffsetYRef = useRef(0);
   const gestureCancelRef = useRef(onGestureCancel);
   gestureCancelRef.current = onGestureCancel;
   const [internalValue, setInternalValue] = useState(valueProp);
@@ -113,13 +115,8 @@ export const MixerFader: React.FC<MixerFaderProps> = ({
   };
 
   const valueFromY = useCallback((clientY: number): number => {
-    if (!trackRef.current) return clampedValue;
-    const rect = trackRef.current.getBoundingClientRect();
-    const trackHeight = rect.height;
-    if (trackHeight === 0) return clampedValue;
-    const y = Math.max(0, Math.min(trackHeight, clientY - rect.top));
-    const norm = 1 - y / trackHeight;
-    return min + norm * (max - min);
+    const rect = trackRef.current?.getBoundingClientRect();
+    return rect ? mixerFaderValueFromY(clientY, rect, min, max, grabOffsetYRef.current, clampedValue) : clampedValue;
   }, [min, max, clampedValue]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
@@ -130,11 +127,13 @@ export const MixerFader: React.FC<MixerFaderProps> = ({
     e.preventDefault();
     draggingRef.current = true;
     pointerIdRef.current = e.pointerId;
+    const rect = trackRef.current?.getBoundingClientRect();
+    grabOffsetYRef.current = rect ? mixerFaderGrabOffsetY(e.clientY, rect, clampedValue, min, max, HANDLE_HEIGHT) : 0;
     onGestureStart?.(clampedValue);
     trackRef.current?.setPointerCapture(e.pointerId);
     const newValue = valueFromY(e.clientY);
     setValue(newValue);
-  }, [clampedValue, disabled, onGestureStart, setValue, valueFromY]);
+  }, [clampedValue, disabled, min, max, onGestureStart, setValue, valueFromY]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
     if (!draggingRef.current || e.pointerId !== pointerIdRef.current) return;

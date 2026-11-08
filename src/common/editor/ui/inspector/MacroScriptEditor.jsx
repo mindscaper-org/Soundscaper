@@ -2,10 +2,10 @@
 
 import { formatLocalizedTemplate } from '../localization-template.ts';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { Checkbox } from '@soundscaper/design-system/Checkbox';
-import { TextInput } from '@soundscaper/design-system/TextInput';
+import { MacroNameInput } from './MacroNameInput.tsx';
 
 /**
  * The editor for a macro written as a program.
@@ -35,12 +35,21 @@ export default function MacroScriptEditor({
 	runnable = true,
 }) {
 	const sourceRef = useRef(null);
+	const pendingSelectionRef = useRef(null);
 	const nameFocusedRef = useRef(false);
 	const nameCancelledRef = useRef(false);
 	const [nameDraft, setNameDraft] = useState(script.name || '');
 	const [tabEscapes, setTabEscapes] = useState(false);
 	const [reviewedSource, setReviewedSource] = useState(null);
 	const reviewed = reviewedSource === script.source;
+	useLayoutEffect(() => {
+		const pending = pendingSelectionRef.current;
+		pendingSelectionRef.current = null;
+		const field = sourceRef.current;
+		if (!pending || !field || field.value !== pending.value || field.ownerDocument.activeElement !== field) return;
+		field.selectionStart = pending.position;
+		field.selectionEnd = pending.position;
+	}, [script.source]);
 	useEffect(() => {
 		if (!nameFocusedRef.current) setNameDraft(script.name || '');
 	}, [script.name]);
@@ -73,11 +82,9 @@ export default function MacroScriptEditor({
 		event.preventDefault();
 		const field = event.currentTarget;
 		const { selectionStart: start, selectionEnd: end, value } = field;
-		onChange({ ...script, source: `${value.slice(0, start)}  ${value.slice(end)}` });
-		requestAnimationFrame(() => {
-			field.selectionStart = start + 2;
-			field.selectionEnd = start + 2;
-		});
+		const source = `${value.slice(0, start)}  ${value.slice(end)}`;
+		pendingSelectionRef.current = { value: source, position: start + 2 };
+		onChange({ ...script, source });
 	};
 
 	return (
@@ -98,12 +105,12 @@ export default function MacroScriptEditor({
 				event.target.blur();
 			}}>
 				<span>{copy.programName}</span>
-				<TextInput
+				<MacroNameInput
 					value={nameDraft}
+					onCommit={commitName}
 					onFocus={() => { nameFocusedRef.current = true; nameCancelledRef.current = false; }}
 					onChange={setNameDraft}
 					onBlur={finishName}
-					width="100%"
 				/>
 			</label>
 			<label className="audio-editor-field audio-editor-macro-script__source">
@@ -118,7 +125,7 @@ export default function MacroScriptEditor({
 					data-macro-script-source
 					value={script.source || ''}
 					onKeyDown={handleKeyDown}
-					onBlur={() => setTabEscapes(false)}
+					onBlur={() => { pendingSelectionRef.current = null; setTabEscapes(false); }}
 					onChange={(event) => onChange({ ...script, source: event.target.value })}
 				/>
 			</label>

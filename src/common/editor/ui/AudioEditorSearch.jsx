@@ -45,6 +45,8 @@ export default function AudioEditorSearch({
 	const wasOpenRef = useRef(open);
 	const focusFrameRef = useRef(/** @type {number | null} */ (null));
 	const restoreFrameRef = useRef(/** @type {number | null} */ (null));
+	const openRef = useRef(open);
+	openRef.current = open;
 	const listboxId = useId();
 	const [query, setQuery] = useState('');
 	const [activeKey, setActiveKey] = useState(null);
@@ -106,7 +108,7 @@ export default function AudioEditorSearch({
 		cancelFocusRestore();
 		focusFrameRef.current = requestAnimationFrame(() => {
 			focusFrameRef.current = null;
-			inputRef.current?.focus?.({ preventScroll: true });
+			if (openRef.current) inputRef.current?.focus?.({ preventScroll: true });
 		});
 	}, [cancelInputFocus, cancelFocusRestore]);
 

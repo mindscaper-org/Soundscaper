@@ -293,9 +293,15 @@ jobs:
 
       - name: Restore Electron binary for the desktop protocol test
         if: steps.test-prerequisites.outputs.electron == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           if [ ! -x node_modules/electron/dist/electron ]; then
-            node node_modules/electron/install.js
+            for attempt in 1 2 3; do
+              if node --import ./scripts/ci-github-release-fetch.mjs node_modules/electron/install.js; then break; fi
+              if [ "$attempt" -eq 3 ]; then exit 1; fi
+              sleep "$((attempt * 5))"
+            done
           fi
           test -x node_modules/electron/dist/electron
 
@@ -1123,7 +1129,7 @@ jobs:
               SOUNDSCAPER_DESKTOP_TARGET_ARCH="${{ matrix.target.arch }}" \
               node scripts/desktop-prepare.mjs
             SCAPE_PRODUCT="$product" CSC_IDENTITY_AUTO_DISCOVERY=false \
-              npx electron-builder --config electron-builder.config.cjs \
+              bash scripts/ci-electron-builder.sh --config electron-builder.config.cjs \
               --config.directories.output="release/desktop-lease-matrix/$product" \
               --${{ matrix.target.platform }} --${{ matrix.target.arch }} --dir
           done

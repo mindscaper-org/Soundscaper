@@ -25,6 +25,9 @@ test('desktop package jobs route electron-builder through the transient-download
 		'both mutually exclusive nightly-with-tests packaging steps must use the helper',
 	);
 	assert.doesNotMatch(packageWithTestsJob, /\bnpx electron-builder\b/u);
+	for (const name of ['desktop-preview.yml', 'desktop-nightly-tests.yml', 'soundscaper-stable-1.yml', 'soundscaper-professional-native-build.yml']) {
+		assert.doesNotMatch(await readWorkflow(name), /\bnpx electron-builder\b/u, `${name} must share the CI download entry point`);
+	}
 });
 
 test('electron-builder retries the observed Electron ZIP HTTP 504 and preserves its arguments', () => {
@@ -34,8 +37,8 @@ test('electron-builder retries the observed Electron ZIP HTTP 504 and preserves 
 		assert.equal(result.status, 0, result.stderr);
 		assert.equal(harness.attempts(), 2);
 		assert.deepEqual(harness.calls(), [
-			'electron-builder --config electron-builder.config.cjs --win --arm64 --publish never',
-			'electron-builder --config electron-builder.config.cjs --win --arm64 --publish never',
+			'--import ./scripts/ci-github-release-fetch.mjs node_modules/electron-builder/out/cli/cli.js --config electron-builder.config.cjs --win --arm64 --publish never',
+			'--import ./scripts/ci-github-release-fetch.mjs node_modules/electron-builder/out/cli/cli.js --config electron-builder.config.cjs --win --arm64 --publish never',
 		]);
 	} finally {
 		harness.cleanup();
@@ -105,8 +108,7 @@ function createHarness(mode) {
 	mkdirSync(binary);
 	const callsPath = join(root, 'calls.log');
 	const counterPath = join(root, 'counter');
-	const npxPath = join(binary, 'npx');
-	writeFileSync(npxPath, `#!/bin/sh
+	const mockRunner = `#!/bin/sh
 printf '%s\\n' "$*" >> "$FAKE_NPX_CALLS"
 attempt="$(cat "$FAKE_NPX_COUNTER" 2>/dev/null || printf 0)"
 attempt=$((attempt + 1))
@@ -154,8 +156,11 @@ case "$FAKE_NPX_MODE" in
     ;;
 esac
 exit 0
-`);
-	chmodSync(npxPath, 0o755);
+`;
+	for (const executable of ['npx', 'node']) {
+		writeFileSync(join(binary, executable), mockRunner);
+		chmodSync(join(binary, executable), 0o755);
+	}
 
 	return {
 		run(arguments_) {

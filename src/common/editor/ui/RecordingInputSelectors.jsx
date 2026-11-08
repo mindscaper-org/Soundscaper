@@ -25,9 +25,11 @@ export default function RecordingInputSelectors({
 	const sourceOptions = buildSourceOptions({ devices, route, routes, track, channelCount, copy, displayAudioSupported });
 	const displayAudioTooltip = sourceOptions.find((option) => option.value === DISPLAY_SOURCE_KEY)?.title;
 	const availableChannels = sourceChannelCount(sourceKey, devices, route, channelCount);
-	const channelOptions = sourceKey
-		? buildChannelOptions({ sourceKey, availableChannels, channelCount, routes, trackId: track.id, route })
-		: [];
+	const channelOptionsForCount = (count) => buildChannelOptions({ sourceKey,
+		availableChannels: sourceChannelCount(sourceKey, devices, route, count),
+		channelCount: count, routes, trackId: track.id, route });
+	const channelOptions = sourceKey ? channelOptionsForCount(channelCount) : [];
+	const stereoAvailable = availableChannels >= 2 && channelOptionsForCount(2).some((option) => !option.disabled);
 	const health = (Object.hasOwn(inputs.health || {}, track.id) ? inputs.health[track.id] : null) || routeHealth(route, devices, inputs.sources);
 	const healthLabel = recordingInputHealthLabel(copy, health);
 	const controlsDisabled = disabled || typeof controller.actions.recording.setTrackInput !== 'function';
@@ -69,24 +71,18 @@ export default function RecordingInputSelectors({
 	};
 	const handleChannelChange = (event) => {
 		const channelStart = Number(event.currentTarget.value);
-		if (!route || !Number.isSafeInteger(channelStart)) return;
+		if (!route || controlsDisabled || !Number.isSafeInteger(channelStart)
+			|| !channelOptions.some((option) => option.channelStart === channelStart && !option.disabled)) return;
 		setRoute({ ...route, channelStart, channelCount });
 	};
 	const handleChannelCountChange = (event) => {
-		if (!route) return;
+		if (!route || controlsDisabled) return;
 		const nextChannelCount = Number(event.currentTarget.value) === 2 ? 2 : 1;
 		if (nextChannelCount > availableChannels) return;
-		const nextOptions = buildChannelOptions({
-			sourceKey,
-			availableChannels: sourceChannelCount(sourceKey, devices, route, nextChannelCount),
-			channelCount: nextChannelCount,
-			routes,
-			trackId: track.id,
-			route,
-		});
-		const current = nextOptions.find((option) => !option.disabled && option.channelStart === route.channelStart);
-		const nextChannelStart = current?.channelStart ?? nextOptions.find((option) => !option.disabled)?.channelStart ?? 0;
-		setRoute({ ...route, channelStart: nextChannelStart, channelCount: nextChannelCount });
+		const nextOptions = channelOptionsForCount(nextChannelCount);
+		const next = nextOptions.find((option) => !option.disabled && option.channelStart === route.channelStart)
+			?? nextOptions.find((option) => !option.disabled);
+		if (next) setRoute({ ...route, channelStart: next.channelStart, channelCount: nextChannelCount });
 	};
 	const stopTrackSelection = (event) => event.stopPropagation();
 
@@ -122,7 +118,7 @@ export default function RecordingInputSelectors({
 					onChange={handleChannelCountChange}
 				>
 					<option value="1">{copy.mono}</option>
-					<option value="2" disabled={availableChannels < 2}>{copy.stereo}</option>
+					<option value="2" disabled={!stereoAvailable}>{copy.stereo}</option>
 				</select>
 			</label>
 			<label>
@@ -215,6 +211,7 @@ function buildChannelOptions({ sourceKey, availableChannels, channelCount, route
 	const maximum = Number(availableChannels) || channelCount;
 	const options = [];
 	for (let channelStart = 0; channelStart + channelCount <= maximum; channelStart += channelCount) {
+		if (sourceKey === DISPLAY_SOURCE_KEY && channelStart !== 0) break;
 		if (channelCount === 2 && channelStart % 2 !== 0) continue;
 		// Every caller normalizes channelCount to a mono or stereo bank.
 		const conflicting = occupied.has(channelStart) || (channelCount === 2 && occupied.has(channelStart + 1));

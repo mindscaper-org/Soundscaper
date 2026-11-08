@@ -706,3 +706,247 @@ are the places where the two keyboard models meet, so a future sync should re-ch
     access remains available. Native frame-based edits, selected-target batches,
     localization and Undo remain host-owned. Covered by the focused fade-menu,
     selected-fade, native pointer and clip-handle visibility regressions.
+
+87. `NoteGrid` applies the selected triplet subdivision to default ghost-note
+    and drawn-note lengths. A manually resized note still supplies the next
+    drawn note's length. Covered by the beta MIDI browser workflow.
+    Upstream-PR candidate.
+
+88. `NoteGrid` retains its local clip list while the active clip is unchanged,
+    so viewport and grid-control updates reuse the note-context projection.
+    Authored and draft note edits replace that clip projection as before.
+    Covered by `tests/audio-editor-midi-panel-performance.test.tsx` and the
+    beta MIDI browser workflow. Upstream-PR candidate.
+
+89. `NoteGrid` focuses its keyboard owner when a note or background gesture
+    starts, keeping Delete and selection shortcuts inside the piano roll after
+    using a control. Resizing an already selected note preserves the complete
+    group selection for subsequent edits. Covered by the focused MIDI grid
+    interaction tests and beta MIDI browser workflow. Upstream-PR candidate.
+
+90. `NoteGrid` limits a selected group's movement with one shared time/pitch
+    delta, preserving onset spacing and chord intervals at source and MIDI
+    pitch boundaries. Its remembered resize length stays positive after snap
+    rounding, so subsequent drawn notes retain the actual minimum length.
+    Note and clip-strip gestures admit the primary mouse button, preventing
+    secondary-button movement from editing notes or trim boundaries. Covered
+    by the focused MIDI grid interaction regressions. Upstream-PR candidate.
+
+91. Piano-roll pointer sessions retire their document listeners on unmount and
+    finish at the last visible point when the window loses focus. Releasing a
+    secondary mouse button leaves the primary gesture active. Ctrl/Meta-click
+    follows the host's existing toggle-selection convention, with one selection
+    transition per click. Covered by focused MIDI grid and panel-selection
+    regressions. Upstream-PR candidate.
+
+92. Piano-roll Select All normalizes letter case so Caps Lock preserves the
+    Ctrl/Meta+A shortcut. Covered by focused grid and MIDI browser regressions.
+    Upstream-PR candidate.
+
+93. NoteRect measures its current edge on mousedown so horizontal wheel panning
+    under a stationary cursor cannot turn edge resizing into note movement.
+    Covered by mounted hit testing and the piano-roll scrolled-edge browser
+    workflow. Upstream-PR candidate.
+
+94. NoteRect scales its resize zones for narrow notes, retaining a center body
+    for movement at the minimum rendered width. Covered by mounted note hit
+    testing and the short-note piano-roll browser workflow. Upstream-PR candidate.
+
+95. Piano-roll wheel scrolling converts native line/page deltas into note-row
+    and viewport pixels before panning. Covered by mounted native wheel tests
+    and the MIDI wheel-units browser workflow. Upstream-PR candidate.
+
+96. Held piano-roll note movement, resizing, placement and clip-edge dragging
+    measure pointers in the current viewport's source coordinates. Marquee hits
+    use the current visible note projection on release. Wheel pan and zoom retain
+    gesture placement. Covered by mounted held-viewport and production MIDI
+    viewport-gesture regressions. Upstream-PR candidate.
+
+97. Piano-roll pitch labels select black or white text by the painted note's
+    luminance. Velocity shades the fill against its pitch lane without fading
+    interactive labels. Covered across both themes, selection states, track
+    colors and velocities by mounted contrast and production MIDI regressions.
+    Upstream-PR candidate.
+
+98. Black piano keys keep their hover pitch labels inside the clipped key face,
+    using light ink on the dark key. Covered by the production piano-key hover
+    regression. Upstream-PR candidate.
+
+99. Search reset buttons expose the existing localized Reset action with their
+    search caption and participate in keyboard traversal. Covered by the Model
+    Manager search-reset workflow. Upstream-PR candidate.
+
+100. Selected-note resizing shares one delta bounded by source zero and every
+     selected note's minimum length. Left resizing retains onset spacing and
+     original right edges; right resizing retains all onsets. Covered by mounted
+     and production group-resize regressions. Upstream-PR candidate.
+
+101. Deleting during a held note drag retires its pointer session and discards
+     unpublished host note edits before deletion, preventing a later missing-note
+     error on release. Covered by mounted host and production held-drag deletion
+     regressions. Upstream-PR candidate.
+
+102. Piano preview keys retain their visual layout as named native buttons in
+     the existing accessibility profile's tab group. Arrow navigation follows
+     semitone order; Enter/Space audition without starting transport. Covered by
+     mounted keyboard navigation and production audition regressions.
+     Upstream-PR candidate.
+
+103. Piano-roll viewport growth reconciles the existing pitch scroll limit so
+     the bottom row remains MIDI0 without blank out-of-range rows. Covered by
+     mounted viewport and production dock-resize regressions.
+     Upstream-PR candidate.
+
+104. `NoteRect` and `NoteGrid` share the painted minimum note width for marquee
+     intersection and offscreen culling. A short note's visible pixels remain
+     selectable and present at viewport edges. Covered by mounted geometry and
+     production box-selection regressions. Upstream-PR candidate.
+
+105. `NoteGrid` permits its existing keyboard focus indicator; the host applies
+     the theme's inset focus outline so clipping cannot hide it. Note selection
+     styling remains independent. Covered by production keyboard traversal.
+     Upstream-PR candidate.
+
+106. Mixer strips forward read-only state to their faders, pan knobs, mute/solo
+     and effect mutation controls while keeping effect settings inspectable.
+     Timeline strips also forward read-only admission to their existing gain,
+     pan and mute/solo controls, including compact headers. Their controls live
+     in `TrackControlPanelParameters.tsx`, reducing the growth-frozen parent.
+     Covered by mounted control admission and production project-lock workflows.
+     Upstream-PR candidate.
+
+107. Manual numeric dialogs preserve composing Enter/Escape before nested controls
+     or ancestor dialogs can submit or dismiss them. Covered by mounted native
+     composition/229 and production direct-entry regressions.
+     Upstream-PR candidate.
+
+108. Native `Slider` Escape cancellation retires input from its still-held
+     pointer through release, so native range changes cannot restart and commit
+     the canceled edit. Fresh pointer and keyboard gestures remain available.
+     Covered by mounted lifecycle and production track-volume regressions.
+     Upstream-PR candidate.
+
+109. Open `ContextMenu` placement follows viewport and content resizing, keeping
+     its existing bounds when the editor changes layout and returning to its
+     original anchor when space returns. Covered by mounted resize and production
+     desktop-to-compact menu regressions. Upstream-PR candidate.
+
+110. Piano-roll grid measure lines use complete bar duration independently of
+     whole quarter beats or the visible snap subdivisions. Fractional-quarter
+     meters such as 3/8 and 5/8 retain every visible bar boundary. Covered by
+     mounted canvas painting and production project-signature regressions.
+     Upstream-PR candidate.
+
+111. The hidden native horizontal range input keeps the same left-to-right
+     coordinates as its painted thumb and fill, including inside right-to-left
+     controls. Shared `Slider`/stepped-slider hit geometry stays aligned while
+     surrounding labels retain their direction. Covered by production English
+     and Arabic pointer regressions. Upstream-PR candidate.
+
+112. A disabled `ContextMenuItem` cannot open or retain an actionable submenu.
+     Pointer hover follows the same admission as click and keyboard entry, and
+     disabling an open parent retires its child popup. Covered by mounted state
+     transitions and the existing Open recent menu during real recording.
+     Upstream-PR candidate.
+
+113. `NoteGrid` accepts an authoring gesture revision so its consumer can retire
+     a held note edit whose target was removed by Undo or another admitted edit.
+     The extracted note-drag owner releases listeners and pitch highlighting;
+     the existing Delete path shares that cancellation. Normal model
+     publications retain a newer valid gesture. Covered by mounted ownership
+     tests and production held-drag workflows. Upstream-PR candidate.
+
+114. `Checkbox` and `Radio` preserve already handled and Ctrl/Meta/Alt-modified
+     activation keys for their owning command or control. Plain Enter and Space
+     retain their existing choice behavior through the shared `choice-activation`
+     hook utility. Their unchanged theme variable construction lives in
+     `utils/choice-theme` so the existing component chunk ceiling stays intact.
+     Covered by mounted primitive checks
+     and production Snap-command and Chirp-interpolation regressions.
+     Upstream-PR candidate.
+
+115. `LabeledRadio` forwards label and description clicks once to the existing
+     choice, retains checked and disabled behavior, and focuses its visible
+     radio. Generator label-area handling leaves that activation to the shared
+     wrapper. The event helper stays with `choice-activation` to preserve the
+     component chunk ceiling. Covered by mounted callback/focus controls and
+     the production waveform-ruler label workflow. Upstream-PR candidate.
+
+116. `RulerFlyout` enumerates each visible choice once, retaining native inputs
+     and the checked radio while excluding hidden or disabled controls. Hidden
+     native radio inputs no longer become extra arrow-navigation stops. The
+     focused candidate helper belongs to the existing utility chunk owner.
+     Covered by mounted group/native-control checks and the production ruler
+     Tab/arrow/activation workflow. Upstream-PR candidate.
+
+117. `RulerFlyout` passes its localized Min and Max labels to the existing
+     frequency inputs, giving the two editable controls distinct accessible
+     names. Covered by mounted localization/editing checks and the production
+     spectrogram-ruler keyboard workflow. Upstream-PR candidate.
+
+118. `RulerFlyout` shares `ContextMenu`'s existing viewport and content bounds
+     lifecycle through `utils/retain-floating-bounds`. Resizing keeps its
+     controls reachable without replacing the active input, restores its
+     anchor when room returns, and releases tracking on close. Covered by
+     mounted focus/placement checks and a production resize/edit workflow.
+     Upstream-PR candidate.
+
+119. `MixerFader` retains the physical grab offset inside its painted handle,
+     preserving gain on a no-motion grab and moving only by the pointer delta.
+     The painted handle remains a pointer target at the track endpoints.
+     Exposed-track clicks keep their existing absolute setting behavior. The
+     geometry utility stays outside the capped component pool. Covered by
+     mounted grab/ownership checks and the production mixer workflow.
+     Upstream-PR candidate.
+
+120. `NoteGrid` leaves modified Delete/Backspace and previously prevented
+     editing keys to their existing command owner. Ordinary note deletion and
+     Ctrl/Meta Select All retain their policy. The focused editing-key utility
+     reduces the grid component. Covered by mounted admission/selection checks,
+     existing gesture-deletion regressions, and the production assigned-key
+     workflow. Upstream-PR candidate.
+
+121. Spectrogram Bark and ERB labels use the existing component copy catalog,
+     shared with the host's Preferences scale choices. The ruler and Preferences
+     retain the same localized names for the already supported scales. Covered
+     by focused scale projection/localization checks and a production ruler to
+     Preferences workflow. Upstream-PR candidate.
+
+122. `EnvelopeInteractionLayer` retires its current drag on native window blur
+     or a move without the primary button before another preview can publish.
+     The host completes the last intended gain once, retaining ordinary and
+     auxiliary-button gestures, Escape cancellation and fresh later drags.
+     The existing lifecycle hook and focused native-event utility own cleanup
+     without growing the capped interaction component. Covered by native-history checks
+     and an outside-release browser workflow. Upstream-PR candidate.
+
+123. Piano-roll rulers, grid lines, snapping and note lengths share an optional
+     host musical clock for authored tempo and signature changes. The clock
+     retains local source seconds independently of clip playback transforms;
+     the existing constant 4/4 path stays intact. Group
+     resizing keeps one bounded source-time delta. Focused math and painting
+     owners reduce the capped NoteGrid and canvas components. Covered by native
+     authored MIDI/export, source-clock and gesture regressions. Upstream-PR candidate.
+
+124. `SelectionToolbar` passes its host's disabled endpoint-editing policy into
+     the existing `TimeCode` controls. Start/end fields cannot open value entry
+     when no range is active or editing is blocked; duration viewing remains
+     available. Shared endpoint props reduce duplicate component input. Covered
+     by mounted admission and active-range/format regressions plus a physical
+     pointer and native project-export workflow. Upstream-PR candidate.
+
+125. `NumberStepper` distinguishes button or keyboard steps from ordinary
+     text drafts. `RulerFlyout` frequency fields publish typing on Enter or
+     blur and publish each step once, so earlier partial numbers cannot replace
+     later keystrokes. A delayed committed value also preserves a newer text
+     draft. Moving focus to the field's arrow buttons retains the
+     current draft. Covered by mounted typing, stepping and localized-name
+     checks plus the production flyout resize workflow. Upstream-PR candidate.
+
+126. `EnvelopeInteractionLayer` retains the dragged point by object identity
+     and remaps crossed neighbors into the sorted preview before deleting them.
+     A point crossing a neighbor remains the active point through release,
+     including zero-gain points. One identity index keeps remapping linear after
+     sorting. Covered by mounted crossing, cancellation, ownership and bounded-work
+     controls plus native project and rendered-audio workflows.
+     Upstream-PR candidate.

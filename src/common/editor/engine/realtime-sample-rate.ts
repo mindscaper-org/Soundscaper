@@ -3,7 +3,8 @@
 import { hasNativePluginRealtimeContext } from '../native-plugin-realtime-node.js';
 import { disposePlaybackFrequencyOutput } from './playback-frequency-range.ts';
 import { ENGINE_ASSERT_ACTIVE } from './runtime-symbols.ts';
-import { hasRealtimeContextBorrowers } from './realtime-context-custody.ts';
+import { acquireLeasedRealtimeContext, assertLeasedRealtimeSampleRate, hasRealtimeContextBorrowers,
+	isBorrowedRealtimeContext, realtimeContextLeaseChanged, releaseEngineRealtimeContext } from './realtime-context-custody.ts';
 import type { EngineAudioContext } from './public-api.ts';
 import type { EngineRealtimeContextFactory, EngineRuntimeHost } from './runtime-types.ts';
 
@@ -20,7 +21,10 @@ function automaticProjectRate(engine: EngineRuntimeHost): number | undefined {
 }
 
 /** An automatic context follows its project, without pinning a future project's clock. */
-export function createEngineRealtimeContext(engine: EngineRuntimeHost, factory: EngineRealtimeContextFactory): EngineAudioContext {
+export function createEngineRealtimeContext(engine: EngineRuntimeHost, factory: EngineRealtimeContextFactory | null): EngineAudioContext {
+	const leased = acquireLeasedRealtimeContext(engine);
+	if (leased) return leased;
+	if (!factory) throw new Error('Web Audio is not supported in this browser.');
 	const explicit = sampleRates.get(engine);
 	const automatic = explicit === undefined ? automaticProjectRate(engine) : undefined;
 	let context: EngineAudioContext;
@@ -39,6 +43,12 @@ export function createEngineRealtimeContext(engine: EngineRuntimeHost, factory: 
  * native plug-in owners retain their explicitly selected or attached context.
  */
 export async function prepareAutomaticRealtimeSampleRate(engine: EngineRuntimeHost): Promise<void> {
+	if (engine.context && realtimeContextLeaseChanged(engine)) {
+		await retireRealtimeContext(engine, engine.context);
+		engine[ENGINE_ASSERT_ACTIVE]();
+		return;
+	}
+	if (engine.context && isBorrowedRealtimeContext(engine, engine.context)) return;
 	if (sampleRates.has(engine)) return;
 	const rate = automaticProjectRate(engine), previous = engine.context;
 	if (!previous || rate === undefined || previous.sampleRate === rate || automaticAttempts.get(previous) === rate) return;
@@ -53,6 +63,8 @@ export async function prepareRealtimeSampleRate(engine: EngineRuntimeHost, sampl
 	if (!Number.isSafeInteger(sampleRate) || sampleRate < 8_000 || sampleRate > 768_000) {
 		throw new RangeError('Audio sample rate must be an integer between 8000 and 768000 Hz.');
 	}
+	assertLeasedRealtimeSampleRate(engine, sampleRate);
+	if (engine.context && isBorrowedRealtimeContext(engine, engine.context)) return;
 	const previous = engine.context;
 	if (previous && previous.sampleRate !== sampleRate) {
 		if (engine.state === 'playing' || engine.pendingPlayRequest || engine.scrubbing) {
@@ -85,7 +97,7 @@ async function retireRealtimeContext(engine: EngineRuntimeHost, previous: Engine
 	engine.audioWarpPlaybackPreparation = null;
 	engine.context = null;
 	engine.activeOutputDeviceId = '';
-	if (previous.state !== 'closed') await previous.close?.();
+	await releaseEngineRealtimeContext(engine, previous);
 }
 
 export function createRealtimeContext(factory: EngineRealtimeContextFactory, sampleRate?: number): EngineAudioContext {

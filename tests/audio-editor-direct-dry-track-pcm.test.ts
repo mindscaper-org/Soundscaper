@@ -106,3 +106,26 @@ test('a project switch fences direct PCM completion before its caller can consum
 	harness.switchProject();
 	await assert.rejects(pending, { name: 'AbortError' });
 });
+
+test('an overlapping beat-anchored clip is retained by the dry effect render', async () => {
+	const { project, sources } = fixture();
+	const canonical = createAudioEditorProjectV17({
+		sampleRate: 44_100,
+		sources: [createAudioSource({ id: 'source', sampleRate: 44_100, channelCount: 2, frameCount: 2_003 })],
+		tracks: [createAudioTrack({ id: 'track', clipIds: ['clip', 'musical'] })],
+		clips: [createAudioClip({ id: 'clip', sourceId: 'source', timelineStartFrame: 101,
+			sourceStartFrame: 17, durationFrames: 1_501 }),
+		createAudioClip({ id: 'musical', sourceId: 'source', sourceStartFrame: 0, sourceDurationFrames: 221,
+			anchor: 'musical', musicalStartBeat: { num: 0, den: 1 }, musicalExtent: 'beat',
+			musicalDurationBeats: { num: 1, den: 100 } })],
+	});
+	const musicalProject: EffectAudioProject = { ...project,
+		tracks: canonical.tracks.map(track => ({ ...track })), clips: canonical.clips.map(clip => ({ ...clip })) };
+	assert.equal(musicalProject.clips[1]?.timelineStartFrame, undefined);
+	const harness = createHarness({ project: musicalProject, sourceBuffers: sources });
+	await harness.service.renderDryTrackRange('track', 101, 221, 2);
+	assert.equal(harness.snapshots.length, 1, 'the engine must mix both audible clips');
+	assert.deepEqual(harness.snapshots[0]?.tracks[0]?.clipIds, ['clip', 'musical']);
+	assert.ok(await renderSimpleDryTrackPcm(musicalProject, sources, 'track', 101, 221, 2, ['clip']),
+		'an explicit ordinary-clip scope can still use exact direct PCM');
+});

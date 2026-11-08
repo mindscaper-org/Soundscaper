@@ -33,6 +33,7 @@ interface SpeechProject extends RecordValue {
 	readonly primarySequenceId?: string;
 	readonly sources: readonly RecordValue[];
 	readonly clips: readonly RecordValue[];
+	readonly projectBin?: Readonly<{ clips: readonly RecordValue[] }>;
 	readonly tracks: readonly RecordValue[];
 	readonly assistanceAssets?: readonly unknown[];
 }
@@ -104,6 +105,7 @@ export function createTextToSpeechProjectPort(
 		if (!project || project.id !== openedProjectId) {
 			throw new Error('The project changed while speech was being reviewed.');
 		}
+		assertCurrent(project);
 		if (!(reviewed.audio instanceof Blob) || reviewed.audio.size < 1
 			|| reviewed.audio.size > MAXIMUM_OUTPUT_BYTES) {
 			throw new TypeError('Reviewed speech audio has an invalid size.');
@@ -130,8 +132,9 @@ export function createTextToSpeechProjectPort(
 			provenance: createNonImportedSourceProvenance('generated'),
 		});
 		const selected = target;
-		const sourceHasPeerClip = selected !== null && project.clips.some(({ id, sourceId: clipSourceId }) =>
-			id !== selected.clipId && clipSourceId === selected.reference.sourceId);
+		const sourceHasPeerClip = selected !== null && (project.clips.some(({ id, sourceId: clipSourceId }) =>
+			id !== selected.clipId && clipSourceId === selected.reference.sourceId)
+			|| Boolean(project.projectBin?.clips.some(clip => clip.sourceId === selected.reference.sourceId)));
 		const reference = sourceHasPeerClip ? null : selected?.reference ?? null;
 		const publication = createAssistanceTtsScriptBodyPublicationV1({
 			assetId: reference?.id ?? dependencies.createId('tts-script'),
@@ -178,6 +181,10 @@ export function createTextToSpeechProjectPort(
 			|| !current.clips.some(({ id, sourceId }) => id === selected.clipId
 				&& sourceId === selected.reference.sourceId))) {
 			throw new Error('The selected speech clip changed while it was being reviewed.');
+		}
+		if (selected && current.tracks.some(track => track.locked === true
+			&& Array.isArray(track.clipIds) && track.clipIds.includes(selected.clipId))) {
+			throw new Error('The selected speech track is locked.');
 		}
 	}
 

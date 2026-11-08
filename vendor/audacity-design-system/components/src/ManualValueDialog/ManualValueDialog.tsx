@@ -54,7 +54,9 @@ export function ManualValueDialog({ isOpen, title, label, value, unit, min, max,
 	return createPortal(<div ref={portalRef} onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()}>
 		<Dialog isOpen={isOpen} title={title} onClose={onClose} os={os} width={320} minHeight={0} className="manual-value-dialog"
 		footer={<DialogFooter primaryText={copy.apply} secondaryText={copy.cancel} primaryDisabled={parsed === null} onPrimaryClick={apply} onSecondaryClick={onClose} />}>
-		<div data-manual-value-dialog onKeyDown={event => {
+		<div data-manual-value-dialog onKeyDownCapture={event => {
+			if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) event.stopPropagation();
+		}} onKeyDown={event => {
 			if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); apply(); }
 			if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); }
 		}}>

@@ -10,6 +10,11 @@ import {
 	type RuntimeProjectProjection,
 } from './runtime-clip-projection.ts';
 
+/** Authored warp segments own pitch; linked Pitch edits their audible rate. */
+export function clipPitchEditingAvailable(clip: Readonly<{ warpMap?: unknown; linkPitchAndTempo?: unknown }>): boolean {
+	return clip.warpMap == null || clip.linkPitchAndTempo === true;
+}
+
 /** Beat extent owns programme duration; the persisted scalar is only an edit setting. */
 export function clipTimePitchPlaybackProjection<Clip extends RuntimePersistedClip>(
 	project: RuntimeClipProject,

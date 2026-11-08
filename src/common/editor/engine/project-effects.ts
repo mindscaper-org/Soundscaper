@@ -7,6 +7,7 @@ import type {
 	EngineTrack,
 	UnknownRecord,
 } from './types.ts';
+import { inheritTrackFolderMediaStateProjectionV12 } from '../track-folder-media-runtime.ts';
 
 const PARAMETRIC_EQ_TYPES: ReadonlySet<string> = new Set(['eq', 'parametric-eq', 'parametric_eq']);
 
@@ -81,6 +82,7 @@ export function projectWithEffectParams(
 	predicate: (effect: EngineEffect) => boolean = () => true,
 ): EngineProject | null {
 	if (!project) return null;
+	const derive = (updated: EngineProject) => inheritTrackFolderMediaStateProjectionV12(project, updated);
 	const normalizedScope = String(scope || '');
 	const replaceEffects = (effects: readonly EngineEffect[] | undefined): EngineEffect[] | null => {
 		if (!Array.isArray(effects)) return null;
@@ -95,7 +97,7 @@ export function projectWithEffectParams(
 	};
 	if (normalizedScope === 'master') {
 		const effects = replaceEffects(project.master?.effects);
-		return effects ? { ...project, master: { ...project.master, effects } } : null;
+		return effects ? derive({ ...project, master: { ...project.master, effects } }) : null;
 	}
 	if (normalizedScope === 'track') {
 		const index = (project.tracks || []).findIndex((track) => String(track?.id) === String(targetId));
@@ -104,7 +106,7 @@ export function projectWithEffectParams(
 		if (!effects || !project.tracks) return null;
 		const tracks = project.tracks.slice();
 		tracks[index] = { ...tracks[index], effects };
-		return { ...project, tracks };
+		return derive({ ...project, tracks });
 	}
 	if (normalizedScope === 'group' || normalizedScope === 'send') {
 		const key = normalizedScope === 'group' ? 'groups' : 'sends';
@@ -115,7 +117,7 @@ export function projectWithEffectParams(
 		if (!effects) return null;
 		const nextBuses = buses.slice();
 		nextBuses[index] = { ...nextBuses[index], effects };
-		return { ...project, mixer: { ...project.mixer, [key]: nextBuses } };
+		return derive({ ...project, mixer: { ...project.mixer, [key]: nextBuses } });
 	}
 	return null;
 }

@@ -1,5 +1,7 @@
 import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React from 'react';
+import { rulerFlyoutGroupItems as getGroupItems } from '../utils/ruler-focus-items';
+import { retainFloatingBounds } from '../utils/retain-floating-bounds';
 import { Icon } from '../Icon';
 import { LabeledRadio } from '../LabeledRadio';
 import { LabeledCheckbox } from '../LabeledCheckbox';
@@ -13,7 +15,8 @@ import './RulerFlyout.css';
  * Lets the user type freely; only validates + commits on blur, Enter,
  * or arrow-button clicks.
  */
-function FreqStepper({ value, onCommit, min, max, step, width, className }: {
+function FreqStepper({ label, value, onCommit, min, max, step, width, className }: {
+  label: string;
   value: number;
   onCommit: (n: number) => void;
   min: number;
@@ -24,11 +27,13 @@ function FreqStepper({ value, onCommit, min, max, step, width, className }: {
 }) {
   const [draft, setDraft] = React.useState(String(value));
   const ref = React.useRef<HTMLInputElement>(null);
+  const pendingDraft = React.useRef(false);
 
   // Sync draft when external value changes (e.g. from arrow buttons on the other field)
-  React.useEffect(() => { setDraft(String(value)); }, [value]);
+  React.useEffect(() => { if (!pendingDraft.current) setDraft(String(value)); }, [value]);
 
   const tryCommit = (raw: string) => {
+    pendingDraft.current = false;
     const n = raw.trim() ? Number(raw) : NaN;
     if (Number.isFinite(n) && n >= min && n <= max) {
       onCommit(n);
@@ -39,20 +44,15 @@ function FreqStepper({ value, onCommit, min, max, step, width, className }: {
 
   return (
     <div
-      onBlur={() => tryCommit(draft)}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) tryCommit(draft); }}
       onKeyDown={(e) => { if (!e.nativeEvent?.isComposing && e.key === 'Enter') tryCommit(draft); }}
     >
       <NumberStepper
         ref={ref}
+        ariaLabel={label}
         value={draft}
-        onChange={(val) => {
-          // Arrow buttons produce a clean integer — commit immediately
-          const n = Number(val);
-          if (Number.isFinite(n) && n >= min && n <= max && /^-?\d+$/.test(val.trim())) {
-            onCommit(n);
-          }
-          setDraft(val);
-        }}
+        onChange={raw => { pendingDraft.current = true; setDraft(raw); }}
+        onStep={tryCommit}
         min={min}
         max={max}
         step={step}
@@ -125,13 +125,6 @@ const SPECTROGRAM_OPTIONS: { value: SpectrogramScale; label: string }[] = [
   { value: 'period', label: 'Period' },
 ];
 
-/** Query focusable items within a group container */
-function getGroupItems(group: HTMLElement): HTMLElement[] {
-  return Array.from(
-    group.querySelectorAll<HTMLElement>('button, input, [role="radio"], [role="checkbox"]')
-  );
-}
-
 export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
   isOpen,
   onClose,
@@ -160,6 +153,11 @@ export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
   const zoomGroupRef = React.useRef<HTMLDivElement>(null);
   const radioGroupRef = React.useRef<HTMLDivElement>(null);
   const lastGroupRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!isOpen || !flyoutRef.current) return;
+    return retainFloatingBounds(flyoutRef.current, x, y);
+  }, [isOpen, x, y]);
 
   // Collect visible group refs
   const getGroups = React.useCallback((): HTMLDivElement[] => {
@@ -371,7 +369,7 @@ export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
             {radioOptions.map((opt) => (
               <LabeledRadio
                 key={opt.value}
-                label={(({ 'linear-amp': copy.linearAmplitude, 'linear-db': copy.linearDb, 'logarithmic-db': copy.logarithmicDb, linear: copy.linear, logarithmic: copy.logarithmic, period: copy.period } as Record<string, string>)[opt.value]) ?? opt.label}
+                label={(({ 'linear-amp': copy.linearAmplitude, 'linear-db': copy.linearDb, 'logarithmic-db': copy.logarithmicDb, linear: copy.linear, logarithmic: copy.logarithmic, bark: copy.bark, erb: copy.erb, period: copy.period } as Record<string, string>)[opt.value]) ?? opt.label}
                 name="ruler-format"
                 value={opt.value}
                 checked={checkedValue === opt.value}
@@ -393,6 +391,7 @@ export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
             <div className="ruler-flyout__freq-row">
               <label className="ruler-flyout__freq-label">{copy.minimum}</label>
               <FreqStepper
+                label={copy.minimum}
                 value={minFreq}
                 onCommit={(n) => onMinFreqChange?.(n)}
                 min={0}
@@ -406,6 +405,7 @@ export const RulerFlyout: React.FC<RulerFlyoutProps> = ({
             <div className="ruler-flyout__freq-row">
               <label className="ruler-flyout__freq-label">{copy.maximum}</label>
               <FreqStepper
+                label={copy.maximum}
                 value={maxFreq}
                 onCommit={(n) => onMaxFreqChange?.(n)}
                 min={minFreq + 1}

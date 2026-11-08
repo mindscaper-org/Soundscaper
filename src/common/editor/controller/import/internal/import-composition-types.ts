@@ -121,6 +121,8 @@ export interface ImportCompositionDependencies {
 	readonly createPreviewEngine: ProjectBinServiceDependencies['createPreviewEngine'];
 	readonly getProject: () => ImportCompositionProject | null;
 	readonly editingBlocked: (allowReadOnly?: boolean) => boolean;
+	readonly previewMidiTransfer?: (command: import('../../../commands/protocol.ts').AudioEditorCommand) => import('../../track-audio/midi-service-types.ts').MidiTransferSnapshot;
+	readonly commitMidiTransfer?: (...args: Parameters<import('../../track-audio/midi-service-types.ts').MidiService['commitTransfer']>) => unknown;
 	readonly commit: ProjectBinServiceDependencies['commit'];
 	readonly updateSelection: ProjectBinServiceDependencies['updateSelection'];
 	readonly setStatus: (message: string, state?: string, localization?: import('../../../../i18n/presentation-message.ts').LocalizedPresentationMessage) => void;

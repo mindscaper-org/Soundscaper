@@ -2,6 +2,7 @@
 import { clearPreparedAudioWarpPlayback } from './audio-warp-fallback.ts';
 import { clearPlaybackMeterDemand } from './playback-meter-demand.ts';
 import { disposePlaybackFrequencyOutput } from './playback-frequency-range.ts';
+import { releaseEngineRealtimeContext } from './realtime-context-custody.ts';
 import { ENGINE_CANCEL_SCRUB, ENGINE_DISPOSE_RESOURCES, ENGINE_HALT_GRAPH } from './runtime-symbols.ts';
 import type { EngineRuntimeHost } from './runtime-types.ts';
 
@@ -28,7 +29,7 @@ export async function disposeEngineResources(this: EngineRuntimeHost): Promise<v
 	this.latestMasterLoudnessMeter = null; this.masterLoudnessMeterError = null;
 	disposePlaybackFrequencyOutput(this); this.playbackOutputNode?.disconnect(); this.playbackOutputNode = null; this.playbackOutputDestination = null;
 	const errors: unknown[] = [], context = this.context;
-	try { if (context?.state !== 'closed') await context?.close?.(); this.context = null; } catch (error) { errors.push(error); }
+	try { await releaseEngineRealtimeContext(this, context); this.context = null; } catch (error) { errors.push(error); }
 	try { await this.chunkStreamClient?.dispose?.(); this.chunkStreamClient = null; } catch (error) { errors.push(error); }
 	if (errors.length === 1) throw errors[0];
 	if (errors.length) throw new AggregateError(errors, 'Audio engine resource cleanup failed.', { cause: errors[0] });

@@ -7,6 +7,7 @@ import { clipSourceDisplayRange, clipDisplayFrameToSource } from '../../clip-sou
 import { AUDIO_EDITOR_TRACK_DISPLAY_MODES, type TrackDisplayMode } from '../../track-display-mode.ts';
 import { renderAmplitudeRulers, renderFrequencyRulers } from '../timeline/track-row-helpers.jsx';
 import { useNonPassiveWheel } from '../useNonPassiveWheel.js';
+import { isContextMenuKey } from '../timeline/context-menu-keyboard.ts';
 import ClipSourceWaveforms from './ClipSourceWaveforms.tsx';
 import ClipSourceFades from './ClipSourceFades.tsx';
 import { clipSourceSpectrogramOptions } from './clip-source-spectrogram-options.ts';
@@ -67,7 +68,7 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 	const [loadedAudio, setLoadedAudio] = useState<{ sourceId: string; buffer: TimelineAudioBuffer } | null>(null);
 	const rawVisual = controller.getClipVisualData(clipId);
 	const visual = loadedAudio?.sourceId === source.id ? { ...rawVisual, buffer: loadedAudio.buffer } : rawVisual;
-	const available = Boolean(visual?.available && (visual.buffer || visual.peaks));
+	const available = Boolean(visual?.available);
 	const pixel = (frame: number) => (frame - startFrame) / (endFrame - startFrame) * width;
 	const sourceAt = (frame: number) => Math.round(clipDisplayFrameToSource(project, clip, source, frame));
 	const frameAt = (clientX: number) => {
@@ -152,10 +153,10 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 		setView({ startFrame: nextStart, endFrame: nextStart + nextSpan });
 	});
 	const begin = (event: PointerEvent<HTMLElement>, kind: Gesture['kind'], pointIndex?: number) => {
-		if (event.button !== 0 || event.isPrimary === false || gesture.current || blocked) return;
 		const handle = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-clip-fade-handle], [data-clip-fade-shape-handle]') : null;
 		if (handle?.dataset.clipFadeHandle) kind = handle.dataset.clipFadeHandle === 'in' ? 'fade-in' : 'fade-out';
 		if (handle?.dataset.clipFadeShapeHandle) kind = handle.dataset.clipFadeShapeHandle === 'in' ? 'shape-in' : 'shape-out';
+		if (event.button !== 0 || event.isPrimary === false || gesture.current || (kind === 'selection' && !event.ctrlKey && !event.metaKey ? previewBlocked : blocked)) return;
 		event.preventDefault(); event.stopPropagation(); (handle ?? waveRef.current)?.focus(); focus();
 		const frame = frameAt(event.clientX);
 		if (kind === 'selection' && (event.ctrlKey || event.metaKey)) {
@@ -258,6 +259,12 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 			</div>
 			<div ref={waveRef} className="audio-editor-source-wave-area" role="region" aria-label={copy.clipSourceWaveform} tabIndex={0}
 				data-source-frame-count={source.frameCount} data-source-gesture={gesture.current?.kind} onPointerDown={event => begin(event, 'selection')} onPointerMove={move} onPointerUp={finish}
+				onKeyDown={event => {
+					if (event.target !== event.currentTarget || !isContextMenuKey(event)) return;
+					event.preventDefault(); event.stopPropagation();
+					const rect = event.currentTarget.getBoundingClientRect(), frame = transport.positionFrame;
+					setMenu({ kind: 'wave', x: rect.left + Math.max(0, Math.min(rect.width, pixel(frame))), y: rect.top + rect.height / 2, frame });
+				}}
 				onPointerCancel={event => { if (gesture.current?.pointerId === event.pointerId) cancelGesture(); }}
 				onLostPointerCapture={event => { if (gesture.current?.pointerId === event.pointerId) cancelGesture(); }}
 				onContextMenu={event => { event.preventDefault(); setMenu({ kind: 'wave', x: event.clientX, y: event.clientY, frame: frameAt(event.clientX) }); }}>
@@ -297,8 +304,8 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 			{menu?.kind === 'view' ? <>
 				{AUDIO_EDITOR_TRACK_DISPLAY_MODES.map(mode => <ContextMenuItem key={mode} label={labels[mode]} checked={displayMode === mode} onClick={() => setDisplayMode(mode)} onClose={() => setMenu(null)} />)}
 				<ContextMenuItem isDivider />
-				<ContextMenuItem label={copy.zoomIn} onClick={() => setVerticalZoom(Math.min(10, verticalZoom + 1))} onClose={() => setMenu(null)} />
-				<ContextMenuItem label={copy.zoomOut} onClick={() => setVerticalZoom(Math.max(0, verticalZoom - 1))} onClose={() => setMenu(null)} />
+				<ContextMenuItem label={copy.zoomIn} disabled={displayMode === 'spectrogram'} onClick={() => setVerticalZoom(Math.min(10, verticalZoom + 1))} onClose={() => setMenu(null)} />
+				<ContextMenuItem label={copy.zoomOut} disabled={displayMode === 'spectrogram'} onClick={() => setVerticalZoom(Math.max(0, verticalZoom - 1))} onClose={() => setMenu(null)} />
 			</> : <>
 				<ContextMenuItem label={copy.clipSourceAddMarker} disabled={blocked || !menu || menu.frame <= range.startFrame || menu.frame >= range.endFrame} onClick={() => run(() => controller.actions.audioWarp.addSourceMarker(clipId, sourceAt(menu!.frame)))} onClose={() => setMenu(null)} />
 				<ContextMenuItem label={copy.selectAll} onClick={() => run(() => applySelection({ startFrame: 0, endFrame: range.totalFrames }))} onClose={() => setMenu(null)} />

@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useEffect, useRef, useState } from 'react';
+import { useComponentCopy } from '@soundscaper/design-system/contexts/ComponentCopyContext';
 
 import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
 import { EbuR128WorkspacePanel } from '../toolbar/AudioEditorMeters.jsx';
 import { ChannelCorrelationJellyfish } from './ChannelCorrelationJellyfish.tsx';
+import AcxCompliancePanel from './AcxCompliancePanel.tsx';
+import { ACX_COMPLIANCE_COPY } from '../../../i18n/editor-acx-compliance-copy.ts';
+import { useTranslationScope } from '../use-translation-scope.ts';
 
 const SPECTRUM_WIDTH = 320;
 const SPECTRUM_HEIGHT = 112;
@@ -12,7 +16,9 @@ const SPECTROGRAM_WIDTH = 320;
 const SPECTROGRAM_HEIGHT = 96;
 const MAXIMUM_SPECTRUM_BINS = 128;
 
-export default function RealtimeAnalysisPanel({ controller, copy, settings, active = true, projectId = '' }) {
+export default function RealtimeAnalysisPanel({ controller, copy, settings, active = true, projectId = '', snapshot = undefined, fileService = undefined }) {
+	const { locale } = useComponentCopy();
+	const acxCopy = useTranslationScope('acxCompliance', ACX_COMPLIANCE_COPY, locale, copy);
 	return <div className="audio-editor-realtime-analysis" data-realtime-analysis>
 		<AnalysisSection id="levels" title={copy.metering} initiallyOpen active={active}>
 			<LiveLevels controller={controller} copy={copy} />
@@ -34,6 +40,9 @@ export default function RealtimeAnalysisPanel({ controller, copy, settings, acti
 			<VisualAnalysisLease controller={controller}>
 				<ChannelCorrelationJellyfish controller={controller} copy={copy} />
 			</VisualAnalysisLease>
+		</AnalysisSection>
+		<AnalysisSection id="acx" title={acxCopy.title} active={active}>
+			<AcxCompliancePanel controller={controller} snapshot={snapshot} copy={acxCopy} commonCopy={copy} fileService={fileService} />
 		</AnalysisSection>
 	</div>;
 }

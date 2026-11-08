@@ -41,3 +41,43 @@ test('Track start to end selects real clip endpoints instead of the nearest time
 	assert.equal(selection.startFrame, 0);
 	assert.equal(selection.endFrame, 38_400);
 });
+
+for (const command of ['selectTrackStartToEnd', 'selectTrackStartToCursor', 'selectCursorToTrackEnd'] as const) {
+	for (const multiple of [false, true]) test(`${command} preserves ${multiple ? 'multiple' : 'one'} selected tracks and spectral bounds`, async context => {
+		const controller = await fixture();
+		context.after(async () => { await controller.dispose(); });
+		const project = controller.getSnapshot().project;
+		assert.ok(project);
+		const track = project.tracks?.[0];
+		assert.ok(track);
+		const peerId = controller.actions.track.addMono();
+		assert.ok(typeof peerId === 'string');
+		const trackIds = multiple ? [track.id, peerId] : [track.id];
+		const frequencyRange = { minimumFrequency: 100, maximumFrequency: 400 };
+		controller.actions.timeline.setExactSelection(4800, 9600, { trackIds, clipIds: [], frequencyRange });
+		controller.actions.timeline[command]();
+		const selection = controller.getSnapshot().project?.selection;
+		assert.ok(selection);
+		assert.deepEqual(selection.trackIds, trackIds, 'a time-boundary command cannot select an unrequested audio track');
+		assert.deepEqual(selection.clipIds, []);
+		assert.deepEqual(selection.frequencyRange, frequencyRange);
+	});
+}
+
+test('selecting all tracks preserves the selected time and frequency range', async context => {
+	const controller = await fixture();
+	context.after(async () => { await controller.dispose(); });
+	const firstTrack = controller.getSnapshot().project?.tracks?.[0];
+	assert.ok(firstTrack);
+	controller.actions.track.addMono();
+	const trackIds = controller.getSnapshot().project?.tracks?.map(track => track.id);
+	const frequencyRange = { minimumFrequency: 100, maximumFrequency: 400 };
+	controller.actions.timeline.setExactSelection(4800, 9600, { trackIds: [firstTrack.id], frequencyRange });
+	controller.actions.timeline.selectAllTracks();
+	const selection = controller.getSnapshot().project?.selection;
+	assert.ok(selection);
+	assert.equal(selection.startFrame, 4800);
+	assert.equal(selection.endFrame, 9600);
+	assert.deepEqual(selection.trackIds, trackIds);
+	assert.deepEqual(selection.frequencyRange, frequencyRange);
+});

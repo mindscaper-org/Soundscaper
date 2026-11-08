@@ -18,6 +18,9 @@ export function createHarness(options: Readonly<{
 	memoryLimitBytes?: number;
 	target?: boolean;
 	audacityRack?: boolean;
+	targetTrackId?: string;
+	projectSampleRate?: number;
+	onMaterialize?: (effect: Readonly<Record<string, unknown>>) => void;
 	project?: Readonly<Record<string, unknown>>;
 	validateRenderSnapshot?: (project: Readonly<Record<string, unknown>>) => void;
 	multipleTargets?: boolean;
@@ -35,8 +38,10 @@ export function createHarness(options: Readonly<{
 	};
 	if (options.multipleTargets) defaultProject.tracks.push({ ...defaultProject.tracks[0]!, id: 'track-b', name: 'Second track' });
 	let project = (options.project ?? defaultProject) as typeof defaultProject;
+	const targetTrack = options.targetTrackId ? project.tracks.find(track => track.id === options.targetTrackId) : project.tracks[0];
+	if (options.targetTrackId && !targetTrack) throw new Error('The fixture target track is missing.');
 	const target: EffectTarget = {
-		track: project.tracks[0], startFrame: 100, endFrame: 300, durationFrames: 200,
+		track: targetTrack ?? project.tracks[0], startFrame: 100, endFrame: 300, durationFrames: 200,
 		channelCount: 1, hasAudio: true,
 		...(options.targetClipIds ? { clipIds: options.targetClipIds } : {}),
 		...(options.sourceSampleRate ? { sourceId: 'source-a', sourceTrackId: 'track-a', sourceClipId: 'clip-a',
@@ -95,11 +100,12 @@ export function createHarness(options: Readonly<{
 		audacityEffectTargets: () => options.target === false ? [] : options.multipleTargets
 			? [target, { ...target, track: project.tracks[1]! }] : [target],
 		editingBlocked: () => Boolean(options.blocked || processing),
-		materializeRackEffect: (effect) => ({
-			id: String(effect.id), type: String(effect.type), enabled: true,
-			params: effect.params as Readonly<Record<string, unknown>> ?? {},
-		}),
-		projectSampleRate: () => 1_000,
+		materializeRackEffect: (effect) => {
+			options.onMaterialize?.(effect);
+			return { id: String(effect.id), type: String(effect.type), enabled: true,
+				params: effect.params as Readonly<Record<string, unknown>> ?? {} };
+		},
+		projectSampleRate: () => options.projectSampleRate ?? 1_000,
 		effectRackLatencyFrames: () => 0,
 		isAudacityRackEffectType: () => Boolean(options.audacityRack),
 		estimateAudacityEffectPeakBytes: () => options.memoryLimitBytes === 1 ? 2 : 0,

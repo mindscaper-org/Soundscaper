@@ -269,6 +269,11 @@
 	z-index: var(--effects-z);
 }
 
+.kw-audio-editor__workspace:dir(rtl) {
+	/* Dock targets and resize handles use physical left/right coordinates. */
+	flex-direction: row-reverse;
+}
+
 .kw-audio-editor__workspace-main {
 	display: flex;
 	min-width: 0;
