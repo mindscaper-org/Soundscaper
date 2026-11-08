@@ -3,13 +3,14 @@
 import { ACCEPTED_PROJECT_FILE_EXTENSION_LIST, isProjectFileName } from '../../../project-file-extensions.ts';
 import { isScapeProjectFile } from '../../scape-project-format.ts';
 import { IMPORT_FILE_EXTENSION_LIST, isImportFileName } from '../../import-file-extensions.ts';
+import { TIMELINE_INTERCHANGE_EXTENSION_LIST, isTimelineInterchangeFile } from '../../timeline-interchange-file.ts';
 
 // The workspace routes single files and dropped batches through the same
 // classifier, so both reach it from this one module.
 export { isProjectFileName };
 
-export const WORKSPACE_PROJECT_FILE_ACCEPT = `${ACCEPTED_PROJECT_FILE_EXTENSION_LIST},.aup,.aup3,.aup4,.dawproject,application/vnd.soundscaper.scape+zip,application/x-audacity-project,application/vnd.audacity.aup4`;
-export const WORKSPACE_IMPORT_FILE_ACCEPT = `audio/*,video/mp4,video/webm,application/ogg,application/x-ogg,${IMPORT_FILE_EXTENSION_LIST},application/x-cue,text/plain,text/vtt,application/x-subrip`;
+export const WORKSPACE_PROJECT_FILE_ACCEPT = `${ACCEPTED_PROJECT_FILE_EXTENSION_LIST},.aup,.aup3,.aup4,.dawproject,${TIMELINE_INTERCHANGE_EXTENSION_LIST},application/vnd.soundscaper.scape+zip,application/x-audacity-project,application/vnd.audacity.aup4`;
+export const WORKSPACE_IMPORT_FILE_ACCEPT = `audio/*,video/mp4,video/webm,application/ogg,application/x-ogg,${IMPORT_FILE_EXTENSION_LIST},${TIMELINE_INTERCHANGE_EXTENSION_LIST},application/x-cue,text/plain,text/vtt,application/x-subrip`;
 export const WORKSPACE_OPEN_FILE_ACCEPT = `${WORKSPACE_PROJECT_FILE_ACCEPT},${WORKSPACE_IMPORT_FILE_ACCEPT}`;
 
 const LEGACY_AUDACITY_PROJECT_PATTERN = /\.(?:aup|aup3|aup4|dawproject|sesx?)$/iu;
@@ -38,7 +39,7 @@ export function partitionWorkspaceFiles(files) {
 		const type = String(file?.type || '').split(';', 1)[0].trim().toLowerCase();
 		const mimeFallback = !isImportFileName(name);
 		if (hasLegacyBlocks && /\.aup$/iu.test(name)) media.push(file);
-		else if (isScapeProjectFile(file) || LEGACY_AUDACITY_PROJECT_PATTERN.test(name)) projects.push(file);
+		else if (isScapeProjectFile(file) || LEGACY_AUDACITY_PROJECT_PATTERN.test(name) || isTimelineInterchangeFile(name)) projects.push(file);
 		else if (LABEL_PATTERN.test(name) || (mimeFallback && LABEL_MIME_TYPES.has(type))) labels.push(file);
 		else if (CUE_PATTERN.test(name) || (mimeFallback && type === 'application/x-cue')) cues.push(file);
 		else media.push(file);

@@ -11,8 +11,10 @@ export interface DawprojectFadeLayer {
 	readonly fadeOutFrames: number;
 }
 
+type FadeEvent = Pick<DawprojectAudioEvent, 'startFrame' | 'endFrame' | 'fadeInFrames' | 'fadeOutFrames' | 'fadeLayers' | 'contentStopFrame'>;
+
 /** Preserve fade phase and content stops while retaining the parent clip extent. */
-export function dawprojectImportedClipFades(event: DawprojectAudioEvent, startFrame: number, durationFrames: number) {
+export function dawprojectImportedClipFades(event: FadeEvent, startFrame: number, durationFrames: number) {
 	const fades = importedClipFades(event, startFrame, durationFrames);
 	const stop = event.contentStopFrame;
 	if (stop === undefined || stop === null || stop >= startFrame + durationFrames) return fades;
@@ -24,7 +26,7 @@ export function dawprojectImportedClipFades(event: DawprojectAudioEvent, startFr
 	return { ...fades, envelope };
 }
 
-function importedClipFades(event: DawprojectAudioEvent, startFrame: number, durationFrames: number) {
+function importedClipFades(event: FadeEvent, startFrame: number, durationFrames: number) {
 	const layers = (event.fadeLayers ?? [event]).map((layer) => ({
 		...layer, endFrame: layer.endFrame ?? event.endFrame,
 		fadeInFrames: Math.min((layer.endFrame ?? event.endFrame) - layer.startFrame, Math.max(0, layer.fadeInFrames)),

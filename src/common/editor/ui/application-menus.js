@@ -43,6 +43,7 @@ import { repairSelectionAvailable } from './repair-menu-admission.ts';
 import { selectedTrackRemovalAvailable } from '../selected-track-removal.ts';
 import { createMidiExportMenuItems, createMidiTrackMenuItems } from './midi-application-menu.ts';
 import { isMidiClip } from '../midi-model.ts';
+import { resolveInterchangeCopy } from '../../i18n/editor-interchange-copy.ts';
 
 /**
  * The video tracks an edit list would describe.
@@ -259,7 +260,7 @@ export default function createApplicationMenus({
 						{
 							id: 'export-edl',
 							label: copy.exportEdl,
-							disabled: blocked || !edlTracks.length,
+							disabled: blocked || (!edlTracks.length && !projectHasTimelineAudio(project)),
 							onClick: actions.exportEdl,
 						},
 						{
@@ -275,6 +276,7 @@ export default function createApplicationMenus({
 							onClick: actions.exportFcpxml,
 						},
 						{ id: 'export-dawproject', label: copy.saveDawproject, disabled: blocked, onClick: actions.saveDawproject },
+						{ id: 'export-omf', label: resolveInterchangeCopy(copy).exportOmf, disabled: blocked, onClick: actions.exportOmf },
 						...productItems.fileExport,
 					],
 				},

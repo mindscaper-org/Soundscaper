@@ -21,6 +21,7 @@ import type { DawprojectImportRoutingContext } from '../../dawproject-import-str
 import type { InterchangeProductProjection } from '../../interchange-multicamera-delivery.ts';
 import type { SampleBlockReference } from '../../storage/sample-block-source.ts';
 import type { AudacitySampleBlockStoragePlan } from '../../aup4-import-block-storage.ts';
+import type { OwnedMediaAssetWriter } from '../../storage/media-asset-write-contract.ts';
 
 export type NativeAwaitable<Value> = PromiseLike<Value> | Value;
 export type NativeSaveState = 'dirty' | 'saved' | 'saving' | string;
@@ -129,6 +130,9 @@ export interface NativeSourceWriter {
 }
 
 export interface NativeProjectStore {
+	getMediaAssetMetadata?(storageKey: string): PromiseLike<Readonly<Record<string, unknown>> | null>;
+	beginMediaAssetWrite?(storageKey: string, metadata: Readonly<Record<string, unknown>>,
+		options: Readonly<{ expectedBytes: number; expectedSha256: string; signal?: AbortSignal }>): PromiseLike<OwnedMediaAssetWriter>;
 	writeSampleBlockSource?(sourceId: string, baseSourceId: string,
 		channels: readonly (readonly SampleBlockReference[])[],
 		metadata: Readonly<Record<string, unknown>>): PromiseLike<unknown> | unknown;
@@ -433,6 +437,8 @@ export interface NativeProjectServiceRuntime {
 		project: NativeProjectDocument,
 	) => NativeAwaitable<NativeProjectDocument>;
 	readonly loadProject: (value: unknown) => Readonly<{ project: NativeProjectDocument }>;
+	/** Construct source-derived interchange options in the active product's family. */
+	readonly createImportedProject?: (options: Readonly<Record<string, unknown>>) => NativeAwaitable<NativeProjectDocument>;
 	readonly importScapeProject: (
 		file: NativeScapeProjectFile,
 		store: NativeProjectStore,

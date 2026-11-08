@@ -72,6 +72,18 @@ export function createNativeProjectComposition(dependencies: NativeProjectCompos
 	);
 	return Object.freeze({
 		...service, openAudacityProject, openAup4: openAudacityProject,
+		openInterchange: (...args: Parameters<typeof service.openInterchange>) => (
+			taskProgress.run('project-io', copy.importing, () => service.openInterchange(...args), undefined, { key: 'importing' })
+		),
+		openDawproject: (...args: Parameters<typeof service.openDawproject>) => (
+			taskProgress.run('project-io', copy.importing, () => service.openDawproject(...args), undefined, { key: 'importing' })
+		),
+		openSesx: (...args: Parameters<typeof service.openSesx>) => (
+			taskProgress.run('project-io', copy.importing, () => service.openSesx(...args), undefined, { key: 'importing' })
+		),
+		saveDawproject: (...args: Parameters<typeof service.saveDawproject>) => (
+			taskProgress.run('project-io', copy.dawprojectSaving ?? copy.projectSaving, () => service.saveDawproject(...args), undefined, { key: 'dawprojectSaving' })
+		),
 		saveProjectFile: saving.service.save, prepareFileClose: saving.service.prepareClose,
 		openScape: (...args: Parameters<typeof service.openScape>) => (
 			taskProgress.run('project-io', copy.importing, () => service.openScape(...args), undefined, { key: "importing" })

@@ -15,7 +15,7 @@ import {
 	interchangeCaptionTrackOmission,
 	interchangeClipTimeEffect,
 } from './interchange-omission-inventory.ts';
-import { createVisibleVideoTrackPredicate } from './video-track-visibility.js';
+import { createInterchangeVisibility } from './interchange-track-visibility.ts';
 
 /**
  * Project → EDL events.
@@ -41,8 +41,8 @@ import { createVisibleVideoTrackPredicate } from './video-track-visibility.js';
  *    is derived from it, which is also the honest rendering of a speed-changed
  *    clip emitted at unity — and the exporter reports that omission.
  *
- * Visibility is read through the shared video-track predicate, including solo,
- * so a track that does not compose does not appear in the list either. An EDL
+ * Visibility is read through the shared interchange predicate, including mixer
+ * audibility and solo, so only a contributing track appears in the list. An EDL
  * that describes a different programme than the one that would render is the
  * exact asymmetry the project forbids.
  */
@@ -70,7 +70,7 @@ export interface EdlProjectExportRequest {
 	readonly project: Readonly<Record<string, unknown>>;
 	/** Defaults to the project's primary sequence. */
 	readonly sequenceId?: string;
-	/** The single video track the list describes. Defaults to the first visible one. */
+	/** The selected contributing track; defaults to picture, then audible audio. */
 	readonly trackId?: string;
 	/**
 	 * Explicit source-id → reel mapping. A source with no entry falls back to
@@ -103,15 +103,17 @@ export function createProjectEdlExport(request: EdlProjectExportRequest): EdlExp
 
 	const tracks = (Array.isArray(project.tracks) ? project.tracks : [])
 		.filter((track): track is ProjectTrack => Boolean(track) && typeof track === 'object');
-	const isVisible = createVisibleVideoTrackPredicate(tracks);
-	const videoTracks = tracks.filter((track) => track.type === 'video' && isVisible(track));
+	const visibility = createInterchangeVisibility(tracks, project);
+	const isVisible = visibility.contributes;
+	const contributingTracks = tracks.filter((track) => isVisible(track));
 	const selected = request?.trackId
-		? videoTracks.find((track) => String(track.id) === request.trackId)
-		: videoTracks[0];
+		? contributingTracks.find((track) => String(track.id) === request.trackId)
+		: contributingTracks.find((track) => track.type === 'video')
+			?? contributingTracks.find((track) => track.type === 'audio');
 	if (!selected) {
 		throw new ReferenceError(request?.trackId
-			? `Video track ${request.trackId} is missing or does not compose.`
-			: 'The project has no visible video track to describe.');
+			? `Track ${request.trackId} is missing or does not contribute.`
+			: 'The project has no visible video track or audible audio track to describe.');
 	}
 
 	const reelNames = request?.reelNames ?? {};
@@ -121,10 +123,10 @@ export function createProjectEdlExport(request: EdlProjectExportRequest): EdlExp
 	const clips = clipIdsOf(selected)
 		.map((clipId) => {
 			const clip = clipById.get(clipId);
-			if (!clip) throw new ReferenceError(`Video track ${selected.id} references missing clip ${clipId}.`);
+			if (!clip) throw new ReferenceError(`Track ${selected.id} references missing clip ${clipId}.`);
 			return clip;
 		})
-		.filter((clip) => clip.kind === 'video')
+		.filter((clip) => clip.kind === selected.type)
 		.sort((left, right) => (
 			nonNegativeInteger(left.timelineStartFrame, 'clip.timelineStartFrame')
 			- nonNegativeInteger(right.timelineStartFrame, 'clip.timelineStartFrame')
@@ -184,13 +186,14 @@ export function createProjectEdlExport(request: EdlProjectExportRequest): EdlExp
 		events.push(Object.freeze({
 			reel: String(suppliedReel ?? source?.name ?? clip.sourceId ?? ''),
 			reelIdentity: suppliedReel === undefined ? sourceId : `explicit:${suppliedReel}`,
-			trackKind: 'V' as const,
+			trackKind: selected.type === 'video' ? 'V' as const : 'A' as const,
 			sourceInFrames: sourceIn,
 			// Derived, so the cut's two sides can never disagree by a rounded frame.
 			sourceOutFrames: sourceIn + recordFrames,
 			recordInFrames: recordIn + sequence.startFrameCount,
 			recordOutFrames: recordOut + sequence.startFrameCount,
 			clipName: String(clip.title ?? source?.name ?? ''),
+			sourceFile: String(source?.name ?? ''),
 			speedRatio: clip.speedRatio == null ? 1 : Number(clip.speedRatio),
 			transition: clip.transition == null ? null : String(clip.transition),
 		}));
@@ -199,6 +202,7 @@ export function createProjectEdlExport(request: EdlProjectExportRequest): EdlExp
 	return createEdlExport({
 		title: String(request?.title ?? project.title ?? sequence.name ?? 'UNTITLED'),
 		rate: sequence.rate,
+		startFrameCount: sequence.startFrameCount,
 		dropFrame: sequence.dropFrame,
 		events,
 		// Everything the one-track profile left behind is named, not silently lost.
@@ -253,7 +257,7 @@ function describeCaptionTrackOmission(
 }
 
 /**
- * The profile emits one video track. Every other track that would have
+ * The profile emits one selected track. Every other track that would have
  * contributed to the programme becomes an itemized omission, because "this list
  * is not the whole sequence" is exactly what a downstream reader needs told.
  */
@@ -266,7 +270,7 @@ function describeOmissions(
 	for (const track of tracks) {
 		if (track.id === selected.id) continue;
 		const isVideo = track.type === 'video';
-		if (isVideo && !isVisible(track)) continue;
+		if (!isVisible(track)) continue;
 		if (!isVideo && track.type !== 'audio') continue;
 		if (clipIdsOf(track).length === 0) continue;
 		items.push(Object.freeze({
@@ -274,8 +278,8 @@ function describeOmissions(
 			scope: Object.freeze({ kind: 'track', id: String(track.id) }),
 			data: Object.freeze({ name: String(track.name ?? ''), clips: clipIdsOf(track).length }),
 			message: isVideo
-				? 'The profile describes one video track; this one is not in the list.'
-				: 'The profile emits no audio events, so this track is not in the list.',
+				? 'The profile describes one selected track; this video track is not in the list.'
+				: 'The profile describes one selected track; this audio track is not in the list.',
 		}));
 	}
 	return Object.freeze(items);

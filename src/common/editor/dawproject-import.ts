@@ -64,6 +64,7 @@ export interface DawprojectTrack {
 	readonly color: string | null;
 	readonly loaded?: boolean;
 	readonly contentTypes: readonly string[];
+	readonly comment?: string | null;
 	readonly channel: DawprojectChannel | null;
 	readonly children: readonly DawprojectTrack[];
 }
@@ -209,6 +210,7 @@ function parseTrack(element: XmlElement): DawprojectTrack {
 	return Object.freeze({
 		id: attribute(element, 'id'),
 		name: attribute(element, 'name') ?? '',
+		...(attribute(element, 'comment') === null ? {} : { comment: attribute(element, 'comment') }),
 		color: attribute(element, 'color'),
 		...(loaded === null ? {} : { loaded }),
 		contentTypes: Object.freeze((attribute(element, 'contentType') ?? '').split(/\s+/u).filter(Boolean)),

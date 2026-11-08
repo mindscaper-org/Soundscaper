@@ -9,7 +9,7 @@ import { createDawprojectExport } from '../src/common/editor/dawproject-export.t
 import { createAudioEditorProjectV17 } from '../src/common/editor/project-v17.ts';
 import { createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { createFixture } from './helpers/native-project-service-fixture.ts';
-test('DAWproject exchange reports converting a drawn MIDI part to ordinary audio', async () => {
+test('DAWproject exchange retains a drawn MIDI part with an audible persisted fallback', async () => {
     const f = midiServiceFixture({ id: 'project-a' });
     const part = await f.service.addTrack();
     await f.service.addNote(part.clipId, { id: 'drawn', startFrame: 0, durationFrames: 4000, pitch: 60, velocity: 90, channel: 0 });
@@ -30,12 +30,13 @@ test('DAWproject exchange reports converting a drawn MIDI part to ordinary audio
     const opened = await createNativeProjectService(createFixture().runtime).openDawproject(new File([archive], 'Drawn MIDI.dawproject'));
     assert.ok(opened && validateAudioEditorProjectV17(opened.project));
     assert.equal(opened.project.clips.length, 1);
-    assert.equal(readMidiClip(opened.project.clips[0]), null);
-    assert.equal(readMidiTrack(opened.project.tracks[0]), null);
+    assert.equal(readMidiClip(opened.project.clips[0])?.notes[0]?.pitch, 60);
+    assert.equal(readMidiClip(opened.project.clips[0])?.notes[0]?.durationFrames, opened.project.sampleRate / 2);
+    assert.equal(readMidiTrack(opened.project.tracks[0])?.instrument, 'triangle');
     const report = exported.report;
     assert.ok(report && typeof report === 'object' && 'items' in report && Array.isArray(report.items));
-    assert.ok(report.items.some((item: unknown) => item && typeof item === 'object' && 'severity' in item
-        && item.severity === 'warning' && /MIDI|note authoring/iu.test(JSON.stringify(item))), JSON.stringify(report.items));
+    assert.ok(report.items.some((item: unknown) => item && typeof item === 'object' && 'code' in item
+        && item.code === 'dawproject.midi-notes-preserved' && /MIDI|note authoring/iu.test(JSON.stringify(item))), JSON.stringify(report.items));
 });
 test('ordinary audio does not receive a MIDI conversion warning', () => {
     const project = createAudioEditorProjectV17({ sampleRate: 8000, tracks: [createAudioTrack({ id: 'voice' }, 8000)] });

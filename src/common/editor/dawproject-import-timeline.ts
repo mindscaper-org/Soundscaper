@@ -20,6 +20,7 @@ import {
 import type { DawprojectDocument } from './dawproject-import.ts';
 import { warpInverse, warpValue, type Warp } from './dawproject-import-warps.ts';
 import type { DawprojectFadeLayer } from './dawproject-import-fades.ts';
+import { readDawprojectNotes, type DawprojectMidiEvent } from './dawproject-import-midi.ts';
 import { readDawprojectAutomationPoints } from './dawproject-import-points.ts';
 
 /**
@@ -106,6 +107,7 @@ export interface DawprojectFlattenedOmissions {
 }
 
 export interface DawprojectFlattenedArrangement {
+	readonly midi: readonly DawprojectMidiEvent[];
 	readonly audio: readonly DawprojectAudioEvent[];
 	readonly markers: readonly DawprojectMarkerEvent[];
 	readonly automation: readonly DawprojectAutomationEvent[];
@@ -141,6 +143,7 @@ interface ClipInfo {
 }
 
 interface WalkState {
+	readonly midi: DawprojectMidiEvent[];
 	readonly audio: DawprojectAudioEvent[];
 	readonly markers: DawprojectMarkerEvent[];
 	readonly automation: DawprojectAutomationEvent[];
@@ -179,7 +182,7 @@ export function flattenDawprojectArrangement(
 	resolver: DawprojectTimeResolver,
 ): DawprojectFlattenedArrangement {
 	const state: WalkState = {
-		audio: [], markers: [], automation: [],
+		audio: [], midi: [], markers: [], automation: [],
 		notes: 0, video: 0, clipAutomation: 0, unresolvedReferences: 0, unsupportedContent: 0, loopedClips: 0,
 	};
 	const arrangement = document.arrangement;
@@ -189,6 +192,7 @@ export function flattenDawprojectArrangement(
 	}
 	return Object.freeze({
 		audio: Object.freeze(state.audio),
+		midi: Object.freeze(state.midi),
 		markers: Object.freeze(state.markers),
 		automation: Object.freeze(state.automation),
 		omitted: Object.freeze({
@@ -241,9 +245,17 @@ function visitTimeline(
 		case 'Video':
 			state.video += 1;
 			return;
-		case 'Notes':
-			state.notes += childElements(element, 'Note').length;
+		case 'Notes': {
+			const inner = rebase(scope, timeUnit(attribute(element, 'timeUnit')) ?? scope.unit, resolver);
+			const event = readDawprojectNotes(element, { trackId: inner.trackId, sampleRate: resolver.sampleRate,
+				name: clip?.name ?? null, color: clip?.color ?? null, enabled: clip?.enabled !== false,
+				startFrame: scope.window?.start ?? 0,
+				endFrame: scope.window?.end ?? null, contentStopFrame: clip?.contentStopFrame,
+				fadeInFrames: clip?.fadeInFrames ?? 0, fadeOutFrames: clip?.fadeOutFrames ?? 0, fadeLayers: clip?.fadeLayers,
+				frameAt: time => frameOf(inner, time, resolver) });
+			if (event) state.midi.push(event);
 			return;
+		}
 		case 'Points':
 			if (clip) state.clipAutomation += 1;
 			else visitPoints(element, scope, state, resolver);

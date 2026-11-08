@@ -8,6 +8,7 @@ import { join, resolve } from 'node:path';
 import test from 'node:test';
 import { interchangePythonExecutable } from '../scripts/lib/interchange-python.mjs';
 
+import { withMidiTrackData, withMidiClipData } from '../src/common/editor/midi-model.ts';
 import { createDawprojectExport } from '../src/common/editor/dawproject-export.ts';
 
 /**
@@ -202,4 +203,18 @@ test('parallel sends to one return retain distinct schema-qualified identities',
 	const result = createDawprojectExport({ project });
 	assert.equal((result.projectXml.match(/<Send /gu) ?? []).length, 2);
 	validate('Project', result.projectXml);
+});
+
+
+test('standard MIDI Notes and application comment metadata conform to the published schema', () => {
+	const project = fullProject();
+	const track = withMidiTrackData({ ...project.tracks[0]!, type: 'audio' }, { version: 1, instrument: 'square', program: 19 });
+	const clip = withMidiClipData({ ...project.clips[0]!, kind: 'audio' }, { version: 1,
+		notes: [{ id: 'n', pitch: 62, startFrame: 3000, durationFrames: 20000, velocity: 100, channel: 2, releaseVelocity: 35 }],
+		interchange: { events: [{ frame: 3000, status: 0xb2, data: [1, 40] }], tempos: [], signatures: [] },
+	});
+	const exported = createDawprojectExport({ project: { ...project, tracks: [track, ...project.tracks.slice(1)], clips: [clip, ...project.clips.slice(1)] } });
+	assert.match(exported.projectXml, /<Notes /u);
+	validate('Project', exported.projectXml);
+	validate('MetaData', exported.metadataXml);
 });

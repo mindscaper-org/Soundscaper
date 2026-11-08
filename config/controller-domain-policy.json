@@ -180,6 +180,7 @@
 		"import/audiocom-project-archives.ts",
 		"import/dawproject-audio-decode.ts",
 		"import/deferred-dawproject-service.ts",
+		"import/deferred-interchange-service.ts",
 		"import/deferred-sesx-service.ts",
 		"import/freesound-import-service.ts",
 		"import/import-composition.ts",

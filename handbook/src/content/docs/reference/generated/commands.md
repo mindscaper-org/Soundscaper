@@ -182,6 +182,7 @@ Product availability follows each product profile’s command filters and each l
 | Export DAWproject | `export-dawproject` | — | File > Export other | Soundscaper, Framescaper | Soundscaper local |
 | Export FCPXML | `export-fcpxml` | — | File > Export other | Soundscaper, Framescaper | Soundscaper local |
 | Export MIDI (beta) | `midi-export-file` | — | File > Export other | Soundscaper | Soundscaper local |
+| Export OMF | `export-omf` | — | File > Export other | Soundscaper, Framescaper | Soundscaper local |
 | Export OpenTimelineIO | `export-otio` | — | File > Export other | Soundscaper, Framescaper | Soundscaper local |
 | Export audio | `export-audio` | Ctrl+Shift+E | File | Soundscaper, Framescaper | Audacity |
 | Export clip | `clip-export` | — | Clip context | Soundscaper, Framescaper | Audacity |

@@ -3,9 +3,11 @@
 import { addDeliveryReportItem, type createDeliveryReport } from './delivery-report.ts';
 import { parameterToLinearGain, parameterToPan } from './dawproject-format.ts';
 import type { DawprojectChannel, DawprojectDocument, DawprojectTrack } from './dawproject-import.ts';
-import type { DawprojectAudioEvent, DawprojectAutomationEvent, DawprojectAutomationPoint } from './dawproject-import-timeline.ts';
+import type { DawprojectAutomationEvent, DawprojectAutomationPoint } from './dawproject-import-timeline.ts';
 import { dawprojectImportedVolumeCurve } from './dawproject-import-volume-curve.ts';
 import { dawprojectStaticGain } from './dawproject-import-gain.ts';
+import { readDawprojectMidiTrackComment } from './dawproject-midi-metadata.ts';
+import { withMidiTrackData } from './midi-model.ts';
 import { dawprojectImportColor } from './dawproject-colors.ts';
 
 /**
@@ -32,6 +34,7 @@ export interface EnvelopePoint {
 }
 
 export interface TrackBuild {
+	readonly opaqueExtensions?: Readonly<Record<string, unknown>>;
 	readonly id: string;
 	readonly name: string;
 	readonly color?: string;
@@ -154,17 +157,20 @@ export function walkTrack(track: DawprojectTrack, parentFolderId: string | null,
 		build.omittedNodes += 1;
 		return;
 	}
-	if (track.contentTypes.length > 0 && !track.contentTypes.includes('audio')) {
+	if (track.contentTypes.length > 0 && !track.contentTypes.includes('audio') && !track.contentTypes.includes('notes')) {
 		build.omittedTracks += 1;
 		addDeliveryReportItem(build.draft, {
 			code: 'dawproject.track-content-omitted', disposition: 'omitted', severity: 'warning',
 			scope: { kind: 'track', id: track.id ?? track.name },
 			data: { name: track.name, contentTypes: track.contentTypes },
-			message: 'The track holds no audio; note, automation, and video tracks have no audio track to become.',
+			message: 'The track holds no audio or notes; automation and video tracks have no audio track to become.',
 		});
 		return;
 	}
 	const built = createAudioTrack(track.name, channel, build, track.color, track.loaded === false);
+	const midi = readDawprojectMidiTrackComment(track.comment);
+	if (midi || track.contentTypes.includes('notes')) Object.assign(built,
+		withMidiTrackData({ ...built, type: 'audio' }, midi ?? { version: 1, instrument: 'triangle' }));
 	if (track.id) build.trackByDawId.set(track.id, built);
 	if (channel) registerParameters(channel, { kind: 'track', id: built.id }, build);
 	build.trackNodes.push({ kind: 'track', id: built.id, parentFolderId });
@@ -289,7 +295,7 @@ function resolveBusRouting(channel: DawprojectChannel, build: Build): void {
 		sends });
 }
 
-export function trackForEvent(event: DawprojectAudioEvent, build: Build, document: DawprojectDocument): TrackBuild {
+export function trackForEvent(event: Readonly<{ trackId: string | null }>, build: Build, document: DawprojectDocument): TrackBuild {
 	if (event.trackId) {
 		const existing = build.trackByDawId.get(event.trackId);
 		if (existing) return existing;

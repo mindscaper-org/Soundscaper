@@ -78,7 +78,7 @@ export async function withDesktopProjectReadDescriptor<Value>(
 			return consumers.openMaterialized(files[0]);
 		});
 	} finally {
-		if (/\.sesx?$/iu.test(String(descriptor?.name || '')) && typeof descriptor?.id === 'string') {
+		if (/\.(?:sesx?|edl|otio|fcpxml|omfi?)$/iu.test(String(descriptor?.name || '')) && typeof descriptor?.id === 'string') {
 			await fileService.releaseSesxSession?.(descriptor.id);
 		}
 	}

@@ -2,6 +2,7 @@
 
 import { annotateFormatFileFailure } from '../../format-file-parser-failure.ts';
 import { isScapeProjectFile } from '../../scape-project-format.ts';
+import { isTimelineInterchangeFile } from '../../timeline-interchange-file.ts';
 import { isWorkspaceImportFile, partitionWorkspaceFiles } from './workspace-file-routing.js';
 import { withWebFileLoadLimitContext } from '../../web-file-limit-failure.ts';
 
@@ -12,6 +13,7 @@ interface ProjectFileController {
 			openAudacityProject(file: File): unknown;
 			openDawproject(file: File): unknown;
 			openSesx?(file: File): unknown;
+			openInterchange?(file: File): unknown;
 			create?(options: Readonly<{ title: string }>): unknown;
 			importFiles?(files: readonly File[], options: Readonly<{ destination: 'timeline' }>): unknown;
 		};
@@ -35,6 +37,10 @@ async function routeWorkspaceProjectFile(
 	await controller.ready;
 	if (/\.aup$/iu.test(file.name) && openLegacyAup) return openLegacyAup(file);
 	if (isScapeProjectFile(file)) return openScape(file);
+	if (isTimelineInterchangeFile(file.name)) {
+		if (!controller.actions.project.openInterchange) throw new TypeError('Timeline interchange import is unavailable.');
+		return controller.actions.project.openInterchange(file);
+	}
 	if (/\.dawproject$/iu.test(file.name)) return controller.actions.project.openDawproject(file);
 	if (/\.sesx?$/iu.test(file.name)) {
 		const format = /\.ses$/iu.test(file.name) ? 'SES' : 'SESX';

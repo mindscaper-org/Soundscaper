@@ -211,7 +211,7 @@
 	},
 	"allow": {
 		"src/common/editor/app.js": {
-			"maxLines": 680,
+			"maxLines": 679,
 			"reason": "Legacy JavaScript composition root retained while its typed services and ports complete staged migration."
 		},
 		"src/common/editor/nyquist/plugins/catalog.js": {

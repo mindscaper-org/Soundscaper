@@ -49,7 +49,7 @@ export class SesxMediaSessionStore {
 
 	async registerSelection(sessionReadId, filePath, { owner } = {}) {
 		if (typeof sessionReadId !== 'string' || !/^[a-f0-9]{64}$/u.test(sessionReadId)
-			|| typeof filePath !== 'string' || !isAbsolute(filePath) || !/\.sesx?$/iu.test(filePath)) {
+			|| typeof filePath !== 'string' || !isAbsolute(filePath) || !/\.(?:sesx?|edl|otio|fcpxml|omfi?)$/iu.test(filePath)) {
 			throw new TypeError('A selected SES or SESX file and read capability are required');
 		}
 		if ((typeof owner !== 'object' || owner === null) && typeof owner !== 'function') {
@@ -84,7 +84,7 @@ export class SesxMediaSessionStore {
 	async chooseFolder({ sessionReadId, owner } = {}) {
 		const session = this.#requireSession(sessionReadId, owner);
 		const selected = await this.#dialog.showOpenDialog(this.#windowFor(), {
-			title: 'Locate Adobe Audition media', properties: ['openDirectory'],
+			title: 'Locate session media', properties: ['openDirectory'],
 		});
 		this.#assertCurrent(sessionReadId, session);
 		if (selected.canceled || selected.filePaths?.length !== 1) return Object.freeze({ status: 'cancelled' });

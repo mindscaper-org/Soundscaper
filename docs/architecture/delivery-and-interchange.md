@@ -191,17 +191,40 @@ Their common timing rules are:
 - require exact structure and integer boundaries, using tolerance only for an
   inherently floating-point representation.
 
-CMX3600 EDL exports one selected sequence track, supported cuts/transitions,
+CMX3600 EDL exports cuts on one selected video or audible audio sequence track,
 reel mapping, and timecode; it does not flatten unsupported tracks heuristically.
+The default is the first visible video track, then the first contributing audio
+track. Source-file, exact-rate, and sequence-origin comments preserve relinking
+and initial gaps when the EDL is reopened here. External lists without rate
+metadata use a reported default of 30 fps NDF or 30000/1001 DF.
 OTIO exports audio/video tracks with gaps, item ranges, sequence/VFR metadata,
 and nested stacks where admitted; it does not invent effects, transitions, or
 embedded media. FCPXML exports a spine with connected lanes, stable-identity
-resources, rational times, format, and default roles; it does not claim import,
-event/library management, time maps, transitions, or Motion vocabulary.
+resources, rational times, format, and default roles.
+
+EDL, OTIO and FCPXML imports share File > Open, the ordinary Import chooser,
+and drop routing. They retain cut placement, source trims and sequence clocks;
+OTIO also accepts nested tracks/stacks and FCPXML accepts asset clips and
+connected lanes. Unsupported effects, time maps, transitions and event/library
+authoring appear in the import report. Selected companion media and desktop
+session-folder lookup bind referenced sources. Missing media retains an offline
+source and its edit for relinking rather than silently dropping clips.
+
+OMF uses a bounded OMF2 Bento container with composition, master and source
+mobs, mono/stereo WAV essence, gaps and source offsets. Export Other embeds
+24-bit PCM audio, with a 256 MiB decoded-PCM limit; the domain writer can also
+describe linked WAV sources. Overlapping clips become separate tracks. Import
+reads embedded WAV/AIFF or retains linked references, and reports unsupported
+components. The profile does not carry picture or editable MIDI authoring.
 
 DAWproject is project exchange, not a rendered edit list. Muted tracks are
 exported as muted rather than omitted. Exact sample positions, beat-positioned
 tempo and signature maps, and float32 WAV media preserve the maintained scope.
+MIDI clips exchange editable standard Notes. Soundscaper comment metadata
+retains auxiliary MIDI messages and instrument/program settings; receiving
+applications must assign their own instrument. Imported notes also receive a
+synthesized PCM fallback before activation. Audio-oriented interchange and
+Audacity exports report when only the MIDI carrier's PCM is delivered.
 
 DAWproject import validates and decodes before constructing the project,
 persists sources before switching documents, and removes newly persisted bodies

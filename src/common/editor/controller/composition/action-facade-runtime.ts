@@ -120,6 +120,7 @@ export const EDITOR_ACTION_FUNCTION_NAMES = defineEditorActionFunctionNames([
 	'openAup4',
 	'openDawproject',
 	'openSesx',
+	'openInterchange',
 	'openProject',
 	'openScape',
 	'openScapeFile',

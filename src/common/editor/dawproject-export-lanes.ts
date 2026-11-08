@@ -4,7 +4,7 @@ import { readClipLoop } from './audio-clip-loop.ts';
 import { compareCodeUnits } from './code-unit-order.ts';
 import { addDeliveryReportItem } from './delivery-report.ts';
 import { reportOmittedClipFeatures } from './dawproject-export-clip-omissions.ts';
-import { reportDawprojectMidiConversion } from './dawproject-export-midi-report.ts';
+import { buildDawprojectMidiClip } from './dawproject-export-midi.ts';
 import { buildStripAutomation, reportUnconsumedLanes } from './dawproject-export-automation.ts';
 import { interchangeClipTimeEffect } from './interchange-omission-inventory.ts';
 import { interchangeSourceInSeconds } from './interchange-source-in-point.ts';
@@ -83,7 +83,6 @@ function buildNodeLanes(node: DawprojectStructureNode, context: DawprojectExport
 	const clips = orderedClips(track, context);
 	const clipElements = clips
 		.map((clip) => (type === 'audio' ? buildAudioClip(clip, context) : buildVideoClip(clip, context)));
-	if (type === 'audio') reportDawprojectMidiConversion(track, clips.filter((_, index) => clipElements[index] !== null), context);
 	return xmlElement('Lanes', { track: context.ids.id('track', trackId), id: context.ids.id('track-lanes', trackId) }, [
 		xmlElement('Clips', { id: context.ids.id('clips', trackId) }, clipElements),
 		...(type === 'audio' ? buildStripAutomation(`track:${trackId}`, track, context) : []),
@@ -137,6 +136,8 @@ function buildAudioClip(clip: DataRecord, context: DawprojectExportContext): Xml
 		});
 		return null;
 	}
+	const midi = buildDawprojectMidiClip(clip, context);
+	if (midi) return midi;
 	if (source.kind === 'video') {
 		addDeliveryReportItem(draft, {
 			code: 'dawproject.video-audio-omitted',
