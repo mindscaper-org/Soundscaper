@@ -100,6 +100,8 @@ export class OpfsSyncWorkerRuntime {
 		// Some engines grant exclusive access even for read-only handles. Keep
 		// overlapping waveform and playback reads on this worker, ordered by file.
 		const path = normalizeOpfsWorkerPath(request.path);
+		const admitted = Object.freeze({ path, operationId: readOperation(request.operationId),
+			...(type === 'read' ? normalizeOpfsReadRange(request.offset, request.length) : {}) });
 		const previous = this.#reads.get(path);
 		let release = (): void => {};
 		const completed = new Promise<void>(resolve => { release = resolve; });
@@ -107,7 +109,7 @@ export class OpfsSyncWorkerRuntime {
 		try {
 			await previous;
 			this.#throwIfCancelled(id);
-			return type === 'read' ? await this.#read(request, id) : await this.#snapshot(request, id);
+			return type === 'read' ? await this.#read(admitted, id) : await this.#snapshot(admitted, id);
 		} finally {
 			release();
 			if (this.#reads.get(path) === completed) this.#reads.delete(path);
