@@ -109,7 +109,7 @@ export function createProjectEdlExport(request: EdlProjectExportRequest): EdlExp
 	const selected = request?.trackId
 		? contributingTracks.find((track) => String(track.id) === request.trackId)
 		: contributingTracks.find((track) => track.type === 'video')
-			?? contributingTracks.find((track) => track.type === 'audio');
+			?? contributingTracks.find((track) => track.type === 'audio' && clipIdsOf(track).some(id => clipById.get(id)?.kind === 'audio'));
 	if (!selected) {
 		throw new ReferenceError(request?.trackId
 			? `Track ${request.trackId} is missing or does not contribute.`

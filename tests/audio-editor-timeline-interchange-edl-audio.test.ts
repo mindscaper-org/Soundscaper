@@ -35,6 +35,11 @@ test('an explicit EDL audio track can be selected alongside a visible video trac
 	assert.throws(() => createProjectEdlExport({ project, trackId: 'silent' }), /missing|does not/iu);
 });
 
+test('the default audio EDL skips empty tracks before the first audible edit', () => {
+	const result = createProjectEdlExport({ project: { ...project, tracks: [{ id: 'empty', type: 'audio', clipIds: [] }, ...project.tracks] } });
+	assert.match(result.text, /^001 ORIGINAL A C/mu);
+});
+
 test('source file comments cannot inject EDL records', () => {
 	const result = createEdlExport({ title: 'Cut', rate: { num: 25, den: 1 }, events: [{ reel: 'AX', trackKind: 'A', sourceInFrames: 0, sourceOutFrames: 25, recordInFrames: 0, recordOutFrames: 25, sourceFile: 'original.wav\nTITLE: injected' }] });
 	assert.equal(result.text.split('\n').filter(line => line.startsWith('TITLE:')).length, 1);
