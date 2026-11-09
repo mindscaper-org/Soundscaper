@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -20,7 +19,12 @@ import {
 	validateRawV8Surface,
 } from '../scripts/lib/e2e-coverage-contract.mjs';
 import { e2eExecutableCoverageKey } from '../scripts/lib/e2e-coverage-integrity.mjs';
+import { createCommittedRepositoryFixture } from './helpers/committed-repository-fixture.ts';
 
+const repositoryFiles = new Map(E2E_COVERAGE_CONFIGURATION.requiredSurfaces.flatMap((_surface, index) => (
+	index === 2 ? [] : [[`src/surface-${index}.js`, `export const surface${index} = true;\n`]]
+)));
+const repositoryFixture = createCommittedRepositoryFixture(repositoryFiles);
 const workspaces = [];
 
 test('executable coverage keys hash the code-unit canonical bytes without a newline', () => {
@@ -36,6 +40,7 @@ test('executable coverage keys hash the code-unit canonical bytes without a newl
 
 after(() => {
 	for (const workspace of workspaces) rmSync(workspace, { recursive: true, force: true });
+	repositoryFixture.dispose();
 });
 
 test('the E2E gate requires every browser and packaged Electron realm at literal 100%', () => {
@@ -292,8 +297,8 @@ test('incompatible coverage maps and stale revisions cannot be combined', () => 
 function makeFixture({ sharedBrowserSource = false } = {}) {
 	const workspace = mkdtempSync(join(tmpdir(), 'soundscaper-e2e-contract-'));
 	workspaces.push(workspace);
+	const sourceRevision = repositoryFixture.copyTo(workspace);
 	const artifactRoot = join(workspace, 'coverage/e2e');
-	mkdirSync(join(workspace, 'src'), { recursive: true });
 	mkdirSync(join(artifactRoot, 'executables'), { recursive: true });
 	const surfaces = E2E_COVERAGE_CONFIGURATION.requiredSurfaces.map(({ id }) => id);
 	const generatedPath = 'generated/nightly-electron-soundscaper-main/main.mjs';
@@ -311,8 +316,7 @@ function makeFixture({ sharedBrowserSource = false } = {}) {
 			};
 		}
 		const path = `src/surface-${index}.js`;
-		const body = `export const surface${index} = true;\n`;
-		writeFileSync(join(workspace, path), body);
+		const body = repositoryFiles.get(path);
 		return { path, origin: 'repository', sha256: sha256(body), surfaces: [surface] };
 	});
 	if (sharedBrowserSource) {
@@ -338,7 +342,6 @@ function makeFixture({ sharedBrowserSource = false } = {}) {
 			coverageKey: e2eExecutableCoverageKey(script),
 		};
 	});
-	const sourceRevision = commitFixtureRepository(workspace);
 	const unsigned = {
 		schemaVersion: 1,
 		kind: 'soundscaper-e2e-executable-inventory',
@@ -432,18 +435,4 @@ function withDigest(inventory) {
 
 function sha256(value) {
 	return `sha256:${createHash('sha256').update(value).digest('hex')}`;
-}
-
-function commitFixtureRepository(repositoryRoot) {
-	for (const args of [
-		['init', '--quiet'],
-		['config', 'user.name', 'Coverage Fixture'],
-		['config', 'user.email', 'coverage@example.invalid'],
-		['add', 'src'],
-		['commit', '--quiet', '-m', 'fixture'],
-	]) {
-		const outcome = spawnSync('git', args, { cwd: repositoryRoot, encoding: 'utf8' });
-		assert.equal(outcome.status, 0, outcome.stderr);
-	}
-	return spawnSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).stdout.trim();
 }
