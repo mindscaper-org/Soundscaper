@@ -70,10 +70,11 @@
 }
 
 .kw-audio-editor__freesound > .kw-audio-editor__freesound-toasts {
-	right: 10px;
-	bottom: 10px;
-	width: min(360px, calc(100% - 20px));
-	max-height: calc(100% - 20px);
+	position: static;
+	width: auto;
+	max-height: min(160px, 40%);
+	flex: none;
+	margin: 6px 10px;
 }
 
 .kw-audio-editor__freesound-results {
