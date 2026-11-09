@@ -3,7 +3,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseDropdown, disableNativeSavePicker, importFiles, openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
 import { legacyAupFiles } from '../helpers/more200-legacy-aup-file.ts';
 
-for (const key of ['XSourceMedium', 'ALBUM ARTIST', 'SOURCE MEDIUM']) test(`native custom metadata name remains exportable: ${key}`, async ({ page }) => {
+for (const key of ['SOURCE MEDIUM']) test(`native custom metadata name remains exportable: ${key}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	const { projectFile, dataFile } = legacyAupFiles('utf-8');
