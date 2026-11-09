@@ -14,7 +14,7 @@ const rms = samples => Math.sqrt(samples.reduce((sum, value) => sum + value * va
 
 test('splitting a mixed mono and stereo track preserves each recording level', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [stereo, mono]);
 	const source = clipByName(editor, mono.name);
 	const destination = clipByName(editor, stereo.name).locator('xpath=ancestor::*[@data-track-row][1]');

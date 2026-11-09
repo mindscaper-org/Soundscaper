@@ -41,7 +41,7 @@ for (const channelCount of [2, 4]) {
 
 async function importRecording(page, channelCount, renderDryBaseline = false) {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: `capture-${channelCount}-channels.wav`,
 		frequency: 750, duration: 1, channelCount })]);
 	const original = renderDryBaseline ? await exportSamples(page, editor) : null;

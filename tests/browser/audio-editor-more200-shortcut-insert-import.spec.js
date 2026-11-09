@@ -3,7 +3,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, waitForEditor } from './audio-editor-test-helpers.js';
 
 test('an Audacity Insert shortcut imports, runs and survives reopening the editor', async ({ page }) => {
-	let editor = await bootEditor(page, '/embed/en/');
+	let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();

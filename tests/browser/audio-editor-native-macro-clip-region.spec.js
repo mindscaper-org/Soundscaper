@@ -13,7 +13,7 @@ async function runNativeMacro(page, editor, source) {
 }
 
 for (const navigate of [false, true]) test(`native clip navigation retains spectral scope with navigate=${navigate}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [toneA]);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [toneA]);
 	await clipByName(editor, toneA.name).locator('.clip-header').click(); await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 	await runNativeMacro(page, editor, `SelectAll:\nSelectTime:Start="0" End="${navigate ? '0' : '0.8'}"\nSelectFrequencies:Low="900" High="1100"\n${navigate ? 'SelNextClip:\n' : ''}`);
 	await editor.getByRole('button', { name: 'Spectrogram options', exact: true }).click();
@@ -24,7 +24,7 @@ for (const navigate of [false, true]) test(`native clip navigation retains spect
 });
 
 for (const navigate of [false, true]) test(`native aligned-track clip choice uses the earliest end with navigate=${navigate}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, createWavFixture({ name: 'short.wav', frequency: 660, duration: 0.6 })]);
 	await runNativeMacro(page, editor, `SelectAll:\nSelectTime:Start="0" End="${navigate ? '0' : '0.6'}"\n${navigate ? 'SelNextClip:\n' : ''}`);
 	const group = editor.getByRole('group', { name: 'Selection end', exact: true });
@@ -33,7 +33,7 @@ for (const navigate of [false, true]) test(`native aligned-track clip choice use
 });
 
 test('legacy clip navigation shortcuts disclose their differing selection contract', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();

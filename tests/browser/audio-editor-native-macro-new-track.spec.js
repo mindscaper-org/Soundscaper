@@ -4,7 +4,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, closeDialog
 
 for (const [command, explicit] of [['NewMonoTrack', false], ['NewStereoTrack', false], ['NewMonoTrack', true], ['NewLabelTrack', false], ['NewLabelTrack', true]]) {
 	test(`native ${command} selects its created lane before RemoveTracks, explicit=${explicit}`, async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await editor.locator('[data-track-row]').first().locator('.track-control-panel__track-name-text').click();
 		await chooseNestedCommandAction(page, editor, 'Tracks', ['Remove tracks']);
 		await importFiles(editor, [toneA]); await expect(editor.locator('[data-track-row]')).toHaveCount(1);

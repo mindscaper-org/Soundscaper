@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 for (const amplitude of [1e-40, .125]) test(`Normalize restores a finite float recording at amplitude ${amplitude}`, async ({ page }) => {
 	const samples = Float32Array.from({ length: 48_000 }, (_, frame) => amplitude * Math.sin(2 * Math.PI * 500 * frame / 48_000));
 	const file = { name: 'Quiet float.wav', mimeType: 'audio/wav', buffer: Buffer.from(encodeWav([samples], { sampleRate: 48_000, float: true })) };
-	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
+	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await editor.locator('[data-aup4-input]').setInputFiles(file);
 	await expect(editor.locator('[data-clip-id]')).toHaveCount(1); await waitForProjectActivation(editor);
 	const panel = await openSourceMonitor(page, editor, editor.locator('[data-clip-id]'));

@@ -8,7 +8,7 @@ import { readDawprojectArchive } from '../../src/common/editor/dawproject-archiv
 test('authored comment indentation and final line break survive DAWproject delivery and File Open', async ({ page }) => {
 	test.setTimeout(60_000);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]); await waitForProjectActivation(editor);
 	await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
 	const comments = '\n  Opening: retain the breath.\n\tEnding: let it ring.\n';

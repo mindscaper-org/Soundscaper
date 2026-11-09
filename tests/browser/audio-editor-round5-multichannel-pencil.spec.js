@@ -26,7 +26,7 @@ async function exportChannels(page, editor) {
 
 test('Pencil edits the visible right channel of a normal multichannel recording', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'six-channel-pencil.wav', frequency: 1000,
 		duration: 0.002, channelCount: 6, channelAmplitudes: [0, 0, 0, 0, 0, 0] });
 	await importFiles(editor, [recording]);

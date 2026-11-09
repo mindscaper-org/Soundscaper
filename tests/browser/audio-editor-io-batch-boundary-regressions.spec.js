@@ -22,7 +22,7 @@ async function openQueue(page, editor) {
 }
 
 test('a mixed-programme BW64 preset is unavailable for a stems batch', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
 	const metadata = editor.locator('[data-workspace-panel="metadata"]');
@@ -46,7 +46,7 @@ test('a mixed-programme BW64 preset is unavailable for a stems batch', async ({ 
 
 test('a paused delivery cannot export a different project after switching tabs', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Rename project']);
 	const naming = page.getByRole('dialog', { name: 'Rename project', exact: true });

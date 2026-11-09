@@ -15,7 +15,7 @@ for (const extension of ['aifc', 'mp4', 'm4v']) test(`the spreadsheet referenced
 			constructor(options) { super({ ...options, sampleRate: options?.sampleRate ?? 48_000 }); }
 		};
 	});
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'Template.wav', frequency: 330, duration: extension === 'aifc' ? 0.1 : 0.02 })]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Clip spreadsheet']);
 	const grid = editor.locator('[data-workspace-panel="clip-spreadsheet"]').getByRole('grid');
@@ -64,7 +64,7 @@ test('the desktop spreadsheet chooser offers audio-only MP4 and M4V source alias
 	await page.addInitScript(() => Object.defineProperty(globalThis, 'soundscaperDesktop', { value: { v1: {
 		chooseFiles: request => globalThis.__spreadsheetNativePanel(request),
 	} } }));
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'Template.wav', duration: 0.1 })]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Clip spreadsheet']);
 	const grid = editor.locator('[data-workspace-panel="clip-spreadsheet"]').getByRole('grid');

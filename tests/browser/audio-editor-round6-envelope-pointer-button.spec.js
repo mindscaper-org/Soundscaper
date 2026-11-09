@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('a context click on clip gain preserves its authored point and actual audio', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const clip = clipByName(editor, monoTone.name);
 	await addClipGainPoint(page, editor, clip, .5);

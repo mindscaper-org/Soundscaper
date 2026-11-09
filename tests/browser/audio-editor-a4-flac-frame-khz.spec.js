@@ -5,7 +5,7 @@ import { bootEditor, chooseDropdown, chooseExportProjectFileAction, disableNativ
 	openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
 
 for (const sampleRate of [64_000, 48_000]) test(`File Export and Import retain a ${sampleRate}Hz FLAC programme`, async ({ page }) => {
-	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
+	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'Programme.wav', duration: .1, frequency: 330, channelAmplitudes: [.3, .1] })]);
 	const dialog = await openExportDialog(page, editor);
 	await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'FLAC');

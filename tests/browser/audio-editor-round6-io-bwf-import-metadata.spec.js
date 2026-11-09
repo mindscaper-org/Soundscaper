@@ -14,7 +14,7 @@ const recording = Buffer.from(readFileSync(new URL('../fixtures/bwfmetaedit-ixml
 
 test('WAV and BWF recorder deliveries import together and retain BEXT and complete iXML', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, ['wav', 'bwf'].map(extension => ({
 		name: `production-take.${extension}`, mimeType: 'application/octet-stream', buffer: recording,
 	})));

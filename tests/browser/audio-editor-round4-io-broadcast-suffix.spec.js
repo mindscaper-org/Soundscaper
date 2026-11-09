@@ -5,7 +5,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseFileAction, importFiles } from './audio-editor-test-helpers.js';
 
 test('File Open accepts a normal broadcast WAV with its BWF suffix and no audio MIME association', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = {
 		name: 'location-take.bwf', mimeType: 'application/octet-stream',
 		buffer: Buffer.from(encodeWav([Float32Array.from({ length: 4_800 }, (_, frame) => (

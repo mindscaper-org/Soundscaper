@@ -9,7 +9,7 @@ import { parseXmlDocument, walkXml } from '../../src/common/editor/dawproject-xm
 
 for (const channels of [2, 1]) test(`own DAWproject export and Open retain an authored ${channels}-channel group bus`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Mixer']);
 	const mixer = editor.locator('[data-mixer-panel]');

@@ -8,7 +8,7 @@ import {
 import { selectClipRange } from './helpers/complex-editing-workflows.js';
 
 test('the last editable clip can be removed from a frozen track and restored with Undo', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name);
 	const effects = await openEffectsForTrack(editor, 1);
@@ -36,7 +36,7 @@ test('the last editable clip can be removed from a frozen track and restored wit
 });
 
 for (const extent of ['complete', 'partial']) test(`lifting a ${extent} frozen range preserves valid freeze ownership and one Undo`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name);
 	const effects = await openEffectsForTrack(editor, 1);

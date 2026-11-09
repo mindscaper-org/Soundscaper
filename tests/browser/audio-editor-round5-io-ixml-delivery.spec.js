@@ -14,7 +14,7 @@ for (const delivery of [
 	{ rate: 48_000, bits: 16, slate: 24_000, name: 'an unchanged broadcast delivery preserves the original recorder XML' },
 ]) test(delivery.name, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'production-take.wav', mimeType: 'audio/wav', buffer: recording }]);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');

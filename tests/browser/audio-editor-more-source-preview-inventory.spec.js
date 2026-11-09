@@ -13,7 +13,7 @@ test('a healthy source can audition while an unrelated pitched recording cannot 
 			}
 		};
 	});
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const healthy = createWavFixture({ name: 'healthy.wav', duration: 1 });
 	const pitched = createWavFixture({ name: 'pitched.wav', duration: 1, frequency: 220 });
 	await importFiles(editor, [healthy, pitched]);

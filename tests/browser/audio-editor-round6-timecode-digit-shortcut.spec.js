@@ -4,7 +4,7 @@ import { expect, monoTone, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
 test('active time digits release a configured modified numeric chord', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });

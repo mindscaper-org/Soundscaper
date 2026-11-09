@@ -14,7 +14,7 @@ test.describe('BW64 ADM metadata UI', () => {
 	registerAudioEditorHooks();
 
 	test('blocks BW64 export until ADM is enabled', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		const dialog = await openExportDialog(page, editor);
 		await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'BW64 / ADM');
@@ -35,7 +35,7 @@ test.describe('BW64 ADM metadata UI', () => {
 	});
 
 	test('authors a DirectSpeakers bed and carries its draft into BW64 export', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
 		let panel = editor.locator('[data-workspace-panel="metadata"]');

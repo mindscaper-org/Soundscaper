@@ -3,7 +3,7 @@ import { expect, test, monoTone } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, closeClipProperties, disableNativeSavePicker, downloadBytes, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
 
 for (const reversed of [false, true]) test(`cut-only export discloses reversed playback=${String(reversed)}`, async ({ page }) => {
-	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [monoTone]);
+	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [monoTone]);
 	if (reversed) {
 		const properties = await openClipProperties(page, editor, clipByName(editor, monoTone.name), { additional: false });
 		await properties.getByRole('switch', { name: 'Reverse', exact: true }).click(); await closeClipProperties(properties);

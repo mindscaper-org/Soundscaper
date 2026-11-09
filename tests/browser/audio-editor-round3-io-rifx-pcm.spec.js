@@ -6,7 +6,7 @@ import { libsndfileRifxTone } from '../helpers/libsndfile-rifx-fixture.ts';
 
 test('ordinary libsndfile big-endian WAV imports and renders its normal samples', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'soundscaper-r3-rifx.wav', mimeType: 'audio/wav', buffer: Buffer.from(libsndfileRifxTone()) }]);
 	await expect(clipByName(editor, 'soundscaper-r3-rifx.wav')).toBeVisible();
 	const samples = await exportSamples(page, editor);

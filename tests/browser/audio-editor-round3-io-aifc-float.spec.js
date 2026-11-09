@@ -8,7 +8,7 @@ import {
 
 test('an ordinary libsndfile AIFF-C float recording imports and delivers its tone', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	// libsndfile 1.2.2 sf_open(SF_FORMAT_AIFF | SF_FORMAT_FLOAT), sf_write_float:
 	// 4,800 mono 48 kHz samples of a 440 Hz sine at amplitude 0.25. Bytes are unchanged.
 	const encoded = await readFile(new URL('../fixtures/libsndfile-float32.aifc.base64', import.meta.url), 'ascii');

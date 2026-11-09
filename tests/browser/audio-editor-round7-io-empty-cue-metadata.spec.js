@@ -4,7 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseFileAction } from './audio-editor-test-helpers.js';
 
 test('CUE import accepts an unnamed first track beside an ordinary named track', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	// K3b writes both quoted fields when a track has either title or performer.
 	const sheet = 'REM Cue file written by K3b\n\nPERFORMER "Presenter"\nTITLE ""\nFILE "Programme.wav" WAVE\n  TRACK 01 AUDIO\n    PERFORMER "Presenter"\n    TITLE ""\n    INDEX 01 00:00:00\n  TRACK 02 AUDIO\n    PERFORMER ""\n    TITLE "Interview"\n    INDEX 01 00:00:20\n';
 	const picking = page.waitForEvent('filechooser');

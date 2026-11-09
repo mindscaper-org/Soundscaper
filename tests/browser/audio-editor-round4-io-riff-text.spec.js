@@ -7,7 +7,7 @@ import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-tes
 const recording = Buffer.from(readFileSync(new URL('../fixtures/bwfmetaedit-cp1252-info.wav.base64', import.meta.url), 'utf8').trim(), 'base64');
 
 test('ordinary BWF MetaEdit production text follows its declared Western encoding', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'field-notes.wav', mimeType: 'audio/wav', buffer: recording }]);
 	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 20_000 });
 	await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');

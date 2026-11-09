@@ -7,7 +7,7 @@ import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-tes
 const recording = Buffer.from(readFileSync(new URL('../fixtures/libsndfile-utf8-text.aiff.base64', import.meta.url), 'utf8').trim(), 'base64');
 
 test('ordinary AIFF production text retains its accented title and artist', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'studio-notes.aiff', mimeType: 'audio/aiff', buffer: recording }]);
 	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 20_000 });
 	await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');

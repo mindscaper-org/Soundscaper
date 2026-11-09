@@ -10,7 +10,7 @@ import {
 
 test('cut-only interchange delivery reports the authored clip gain it omits', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const properties = await openClipProperties(page, editor, clipByName(editor, monoTone.name));
 	await setClipGain(properties, -6);

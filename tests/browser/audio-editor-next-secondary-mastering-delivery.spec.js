@@ -28,7 +28,7 @@ for (const emptyPrimary of [false, true]) test(`File Export delivers a secondary
 		blob = (await exportScapeProject(project, store)).blob;
 	} finally { await store.close(); }
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const choosing = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Open');
 	await (await choosing).setFiles({ name: 'Two programmes.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-project-id', project.id);

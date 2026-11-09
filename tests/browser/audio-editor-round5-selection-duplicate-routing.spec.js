@@ -6,7 +6,7 @@ import {
 } from './audio-editor-test-helpers.js';
 
 test('Edit Duplicate preserves the selected recording output and send in one undoable edit', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Mixer']);

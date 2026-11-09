@@ -15,7 +15,7 @@ function rms(samples) {
 for (const position of ['pre-fader', 'post-fader']) test(`DAWproject keeps an authored ${position} send and its audible level after reopening`, async ({ page }) => {
 	test.setTimeout(90_000);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Mixer']);
 	const mixer = editor.locator('[data-mixer-panel]');

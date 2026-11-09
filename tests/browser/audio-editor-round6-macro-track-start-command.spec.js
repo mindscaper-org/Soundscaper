@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clickClipInterior, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 for (const command of ['SelTrackStartToCursor', 'SelCursorStoredCursor']) test(`the ${command} macro name retains its own selection meaning`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name);
 	await clickClipInterior(page, clip, .5);

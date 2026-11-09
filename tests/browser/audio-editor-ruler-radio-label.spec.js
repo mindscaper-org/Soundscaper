@@ -3,7 +3,7 @@ import { expect, test, monoTone } from './audio-editor-test-fixtures.js';
 import { bootEditor, importFiles } from './audio-editor-test-helpers.js';
 
 test('ruler format text labels activate their existing radio choices', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const row = editor.locator('[data-track-row]').filter({ has: page.locator('[data-clip-id]') }).first();
 	const ruler = row.locator('[data-track-ruler]');

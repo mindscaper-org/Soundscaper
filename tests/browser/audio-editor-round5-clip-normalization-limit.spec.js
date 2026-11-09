@@ -7,7 +7,7 @@ import { bootEditor, clipByName, importFiles, openClipProperties } from './audio
 test('normalizing a quiet recording reports an unreachable target without substituting a different gain', async ({ page }) => {
 	const recording = createWavFixture({ name: 'quiet-microphone.wav', frequency: 440,
 		duration: 0.8, channelCount: 1, channelAmplitudes: [0.002] });
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [recording]);
 	const properties = await openClipProperties(page, editor, clipByName(editor, recording.name));
 	await expectClipGain(properties, 0);

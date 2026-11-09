@@ -15,7 +15,7 @@ test.describe('audio editor sample-depth zoom', () => {
 
 	test('reaches the zoom where samples are drawn individually and arms the pencil', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		await clipByName(editor, longTone.name).click({ position: { x: 24, y: 10 } });
 		const timeline = editor.locator('[data-timeline]');

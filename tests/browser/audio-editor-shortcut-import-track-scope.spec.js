@@ -15,7 +15,7 @@ async function importReview(page, editor, xml) {
 
 // Node retains the independent dialect and durable preference cases.
 test('shortcut import reviews both track-close dialects without deleting selected peers', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [toneA, toneB]);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [toneA, toneB]);
 	for (const [command, xml] of [
 		['TrackClose', '<audacitykeyboard audacityversion="3.7.7"><command name="TrackClose" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>'],
 		['track-close', '<Shortcuts><SC><key>track-close</key><seq>Ctrl+Alt+Shift+F7</seq></SC></Shortcuts>'],
@@ -34,7 +34,7 @@ test('shortcut import reviews both track-close dialects without deleting selecte
 });
 
 test('the supported native RemoveTracks shortcut still removes the complete selection', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [toneA, toneB]);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [toneA, toneB]);
 	const { preferences, review } = await importReview(page, editor,
 		'<audacitykeyboard audacityversion="3.7.7"><command name="RemoveTracks" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>');
 	await expect(review.getByRole('status')).toHaveText('1 command ready to import; 0 skipped.');

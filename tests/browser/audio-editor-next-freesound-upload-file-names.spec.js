@@ -25,7 +25,7 @@ for (const [name, expectedName] of [['  Field take.wav', 'Field take.wav'], ['Fi
 					: { uploadFilename: 'remote.wav' };
 			await route.fulfill({ json: { data } });
 		});
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await chooseNestedCommandAction(page, editor, 'Window', ['Freesound']);
 		const uploads = editor.locator('[data-freesound-uploads="true"]');
 		await uploads.getByText('Upload to Freesound', { exact: true }).click();

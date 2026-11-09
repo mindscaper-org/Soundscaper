@@ -4,7 +4,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
 test('typing selection endpoints in start-to-end order retains a positive one-sample range', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'sample edit.wav', duration: 1 })]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	for (const [name, frame] of [['Selection start', 24_001], ['Selection end', 24_002]]) {

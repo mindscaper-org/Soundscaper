@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 test('named region creation uses an ordinary header-selected recording', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Markers']);
 	const panel = editor.getByRole('region', { name: 'Markers and named regions', exact: true });

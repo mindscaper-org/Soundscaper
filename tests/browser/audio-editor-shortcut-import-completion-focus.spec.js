@@ -4,7 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
 
 test('keyboard shortcut import completion hands focus to its surviving Import control', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();
@@ -39,7 +39,7 @@ test('shortcut import completion preserves a later selected search field', async
 			'await globalThis.__waitForImportSave(()=>$1.saveShortcuts($2.shortcuts))');
 		await route.fulfill({ response, body: next });
 	});
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();

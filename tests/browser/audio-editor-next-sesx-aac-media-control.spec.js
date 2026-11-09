@@ -8,7 +8,7 @@ import { aacLcM4a48_000Fixture } from '../helpers/os-audio-codec-fixtures.ts';
 // This shipping import control independently exercises real browser decoding;
 // the desktop admission regression records its existing utility-codec port.
 test('the AAC body used by the SESX filename regression decodes through File Import', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const name = 'SESX AAC control.m4a';
 	const choosing = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Import');
 	await (await choosing).setFiles({ name, mimeType: 'audio/mp4', buffer: Buffer.from(aacLcM4a48_000Fixture()) });

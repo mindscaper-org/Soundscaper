@@ -4,7 +4,7 @@ import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js'
 import { bootEditor, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 test('Fades reports the opposite length that Apply saves after either edge pushes it away', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const file = createWavFixture({ name: 'Fade lengths.wav', duration: 1 });
 	await importFiles(editor, [file]);
 	const clip = clipByName(editor, file.name);

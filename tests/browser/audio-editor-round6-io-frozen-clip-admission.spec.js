@@ -10,7 +10,7 @@ import {
 
 for (const frozen of [false, true]) test(`individual clip export ${frozen ? 'explains the normal frozen-track refusal' : 'delivers ordinary unfrozen PCM'}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	if (frozen) {
 		const effects = await openEffectsForTrack(editor, 1);

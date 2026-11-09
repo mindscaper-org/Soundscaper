@@ -10,7 +10,7 @@ const warning = 'Recorder track names and roles were omitted because the export 
 
 for (const layout of ['Stereo', 'Mono']) test(`BWF ${layout} export retains truthful recorder channel metadata`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'Mid-side.wav', mimeType: 'audio/wav', buffer: recording }]);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 	const dialog = await openExportDialog(page, editor);

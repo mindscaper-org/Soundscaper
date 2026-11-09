@@ -4,7 +4,7 @@ import { expect, test, monoTone } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 test('Clip Spreadsheet speed preserves the repeated content of a normal looped recording', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const clip = clipByName(editor, monoTone.name);
 	await clip.locator('.clip-header').click();

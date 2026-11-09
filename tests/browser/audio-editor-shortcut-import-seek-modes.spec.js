@@ -15,7 +15,7 @@ async function importReview(page, editor, xml) {
 
 // Node retains the independent dialect and durable preference cases.
 test('shortcut import reviews both long-seek dialects without changing selection', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	for (const [command, xml] of [
 		['SeekRightLong', '<audacitykeyboard audacityversion="3.7.7"><command name="SeekRightLong" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>'],
 		['seek-left-long', '<Shortcuts><SC><key>seek-left-long</key><seq>Ctrl+Alt+Shift+F7</seq></SC></Shortcuts>'],
@@ -35,7 +35,7 @@ test('shortcut import reviews both long-seek dialects without changing selection
 });
 
 test('a supported native one-second seek still imports and moves live playback without changing selection', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [halfMinuteTone]);
 	const { preferences, review } = await importReview(page, editor,
 		'<audacitykeyboard audacityversion="3.7.7"><command name="SeekRightShort" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>');

@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, clipByName, importFiles } from './audi
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('the spectral dialog offers editing only for available selected audio targets', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const clip = clipByName(editor, monoTone.name);
 	const track = clip.locator('xpath=ancestor::div[@data-track-row][1]');

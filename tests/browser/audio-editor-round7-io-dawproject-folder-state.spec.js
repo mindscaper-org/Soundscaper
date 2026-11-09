@@ -9,7 +9,7 @@ import { parseDawprojectDocument } from '../../src/common/editor/dawproject-impo
 
 for (const mute of [false, true]) test(`own DAWproject archive and Open preserve folder mute=${mute}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const recording = clipByName(editor, monoTone.name);
 	const track = recording.locator('xpath=ancestor::div[@data-track-row][1]');

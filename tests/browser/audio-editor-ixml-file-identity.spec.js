@@ -12,7 +12,7 @@ const warning = 'The source file identifier was omitted from newly rendered audi
 
 test('native Save retains the original recorder file identity as source context', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'Recorder.wav', mimeType: 'audio/wav', buffer: recording }]);
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 	const downloading = page.waitForEvent('download');
@@ -25,7 +25,7 @@ test('native Save retains the original recorder file identity as source context'
 
 test('different rendered BWF ranges retain family context without claiming the source physical identity', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'Recorder.wav', mimeType: 'audio/wav', buffer: recording }]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	const lengths = [];

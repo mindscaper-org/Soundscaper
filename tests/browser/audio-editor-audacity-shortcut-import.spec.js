@@ -28,7 +28,7 @@ const EXPORTS = [
 
 for (const exported of EXPORTS) {
 	test(`reviews Audacity ${exported.version} shortcuts and keeps the applied bindings after reload`, async ({ page }) => {
-		let editor = await bootEditor(page, '/embed/en/');
+		let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		let preferences = await openShortcutPreferences(page, editor);
 		let mono = await shortcutCommand(preferences, 'New mono track');
 		const original = await mono.getByRole('textbox').first().inputValue();
@@ -75,7 +75,7 @@ for (const exported of EXPORTS) {
 }
 
 test('canceling a shortcut import leaves the existing bindings unchanged', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const preferences = await openShortcutPreferences(page, editor);
 	const mono = await shortcutCommand(preferences, 'New mono track');
 	const original = await mono.getByRole('textbox').first().inputValue();
@@ -88,7 +88,7 @@ test('canceling a shortcut import leaves the existing bindings unchanged', async
 });
 
 test('malformed shortcut XML reports an error and preserves the saved shortcut', async ({ page }) => {
-	let editor = await bootEditor(page, '/embed/en/');
+	let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	let preferences = await openShortcutPreferences(page, editor);
 	let mono = await shortcutCommand(preferences, 'New mono track');
 	const original = await mono.getByRole('textbox').first().inputValue();
@@ -106,7 +106,7 @@ test('malformed shortcut XML reports an error and preserves the saved shortcut',
 });
 
 test('clearing a command and reassigning its shortcut applies the reviewed changes together', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const preferences = await openShortcutPreferences(page, editor);
 	const mono = await shortcutCommand(preferences, 'New mono track');
 	await expect(mono.getByRole('textbox').first()).toHaveValue('Ctrl+Shift+N');
@@ -136,7 +136,7 @@ test('clearing a command and reassigning its shortcut applies the reviewed chang
 });
 
 test('an entirely unsupported import explains its skips and cannot be applied', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const preferences = await openShortcutPreferences(page, editor);
 	await chooseShortcutExport(page, preferences, `<audacitykeyboard audacityversion="3.7.7">
 		<command name="FutureAudacityCommand" key="Ctrl+Alt+Shift+F7"/>
@@ -150,7 +150,7 @@ test('an entirely unsupported import explains its skips and cannot be applied', 
 
 for (const [command, version] of [['PlayLooped', '3.0.5'], ['Play', '3.7.7']]) {
 	test(`incompatible Audacity ${command} playback mode is reviewed as unavailable`, async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const preferences = await openShortcutPreferences(page, editor);
 		await chooseShortcutExport(page, preferences, `<audacitykeyboard audacityversion="${version}">
 			<command name="${command}" key="Ctrl+Alt+Shift+F7"/>

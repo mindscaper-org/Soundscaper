@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 for (const owner of ['fade', 'label']) test(`the native ${owner} popup releases ordinary project shortcuts`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name);
 	await clip.locator('.clip-header').click();

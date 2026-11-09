@@ -29,7 +29,7 @@ for (const variant of ['aligned', 'delayed-default', 'long-primary']) test(`mult
 			return pending;
 		};
 	});
-	const editor = await bootEditor(page, '/embed/en/'), original = multipleAudioOriginFixture(variant);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }), original = multipleAudioOriginFixture(variant);
 	await importFiles(editor, [{ name: 'Multiple.mp4', mimeType: 'video/mp4', buffer: original }]);
 	await expect(editor).toHaveAttribute('data-clip-count', '2');
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');

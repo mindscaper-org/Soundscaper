@@ -30,7 +30,7 @@ async function samplePlayhead(page, editor) {
 // Node retains all six native commands and their durable preference refusals.
 test('legacy cursor imports refuse to skip stopped range collapse', async ({ page }) => {
 	const commands = ['CursorRight', 'CursorLongJumpRight'];
-	const editor = await bootEditor(page, '/embed/en/'); await prepare(page, editor);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await prepare(page, editor);
 	const { preferences, review } = await importReview(page, editor, `<audacitykeyboard audacityversion="3.7.7">${commands.map(command => `<command name="${command}" key="Ctrl+Alt+Shift+F7"/>`).join('')}</audacitykeyboard>`);
 	await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 2 skipped.');
 	await expect(review.getByRole('button', { name: 'Apply shortcuts', exact: true })).toBeDisabled();
@@ -42,7 +42,7 @@ test('legacy cursor imports refuse to skip stopped range collapse', async ({ pag
 });
 
 test('the modern local cursor step still advances a stopped point cursor', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/'); await prepare(page, editor, true);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await prepare(page, editor, true);
 	const { preferences, review } = await importReview(page, editor, '<Shortcuts><SC><key>play-position-increase</key><seq>Ctrl+Alt+Shift+F7</seq></SC></Shortcuts>');
 	await expect(review.getByRole('status')).toHaveText('1 command ready to import; 0 skipped.');
 	await review.getByRole('button', { name: 'Apply shortcuts', exact: true }).click(); await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();

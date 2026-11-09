@@ -16,7 +16,7 @@ test.describe('Audacity action runtime browser routes', () => {
 	test('runs item and track navigation through shipped shortcuts and command search', async ({ page }) => {
 		test.setTimeout(120_000);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA, toneB]);
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', {
 			timeout: 20_000,
@@ -130,7 +130,7 @@ test.describe('Audacity action runtime browser routes', () => {
 	test('opens safe runtime surfaces and toggles presentation through command search', async ({ page }) => {
 		test.setTimeout(120_000);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', {
 			timeout: 20_000,

@@ -29,7 +29,7 @@ async function importReview(page, editor, xml) {
 // Each endpoint's individual import and durable binding checks live in Node.
 test('shortcut import refuses both native endpoint replacements without changing the selection', async ({ page }) => {
 	const commands = ['SelTrackStartToCursor', 'SelCursorToTrackEnd'];
-	const editor = await bootEditor(page, '/embed/en/'); await selectRange(page, editor);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await selectRange(page, editor);
 	const { preferences, review } = await importReview(page, editor,
 		`<audacitykeyboard audacityversion="3.7.7">${commands.map(command => `<command name="${command}" key="Ctrl+Alt+Shift+F7"/>`).join('')}</audacitykeyboard>`);
 	await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 2 skipped.');
@@ -45,7 +45,7 @@ test('shortcut import refuses both native endpoint replacements without changing
 });
 
 test('the modern playhead-anchored action retains its ordinary local selection behavior', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/'); await selectRange(page, editor);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await selectRange(page, editor);
 	const { preferences, review } = await importReview(page, editor,
 		'<Shortcuts><SC><key>track-start-cursor</key><seq>Ctrl+Alt+Shift+F7</seq></SC></Shortcuts>');
 	await expect(review.getByRole('status')).toHaveText('1 command ready to import; 0 skipped.');

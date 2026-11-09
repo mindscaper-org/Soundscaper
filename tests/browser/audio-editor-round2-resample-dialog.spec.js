@@ -5,7 +5,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
 
 test('clip format refuses an omitted sample rate without rewriting media', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const properties = await openClipProperties(page, editor, clipByName(editor, toneA.name));
 	await resampleClipFormat(properties, 24_000);

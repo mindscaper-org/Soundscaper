@@ -4,7 +4,7 @@ import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js'
 import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
 test('Playback meter preserves the ordinary silent right channel', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'left-channel-meter.wav', frequency: 440,
 		duration: 20, channelCount: 2, channelAmplitudes: [0.8, 0] })]);
 	await chooseCommandAction(page, editor, 'Window', 'Mixer');

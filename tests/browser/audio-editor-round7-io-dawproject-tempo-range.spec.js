@@ -7,7 +7,7 @@ import { bootEditor, chooseFileAction, chooseNestedCommandAction, disableNativeS
 
 for (const bpm of [999, 1_000]) test(`native DAWproject download and Open retain ordinary authored ${bpm} BPM`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/en/');
+	const editor = await bootEditor(page, '/en/', { showProjectBin: false });
 	await page.locator('[data-sidebar] [data-workspace-select]').selectOption('music');
 	await importFiles(editor, [monoTone]);
 	const tempo = editor.locator('[data-action-id="playback-bpm"] input');

@@ -8,7 +8,7 @@ import { bootEditor, chooseCommandAction, chooseFileAction, chooseNestedCommandA
 
 for (const layout of ['stereo', 'mono']) test(`own DAWproject export and Open retain the ${layout} master delivery width`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
 	const metadata = editor.locator('[data-workspace-panel="metadata"]');

@@ -24,7 +24,7 @@ for (const trackIds of [['master'], ['voice', 'voice:volume']]) test(`native tra
 		await writer.write([new Float32Array(4_800).fill(0.125)]); await writer.commit();
 		native = (await createSoundscaperScapeNativeRuntime().exportScapeProject(project, store)).blob;
 	} finally { await store.close(); }
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	let choosing = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Open');
 	await (await choosing).setFiles({ name: 'Native identities.sscape', mimeType: 'application/zip', buffer: Buffer.from(await native.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-project-id', project.id, { timeout: 30_000 }); await waitForProjectActivation(editor);

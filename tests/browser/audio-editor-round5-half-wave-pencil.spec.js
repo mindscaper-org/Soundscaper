@@ -9,7 +9,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('drawing in linear Half-wave writes the positive sample shown by its ruler', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'half-wave-pencil.wav', frequency: 1000,
 		duration: 0.002, channelCount: 1, channelAmplitudes: [0] });
 	await importFiles(editor, [recording]);

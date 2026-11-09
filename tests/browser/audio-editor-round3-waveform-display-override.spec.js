@@ -5,7 +5,7 @@ import { bootEditor, clipByName, importFiles } from './audio-editor-test-helpers
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('a track can choose Waveform while the Spectrogram tool is enabled', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB]);
 	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 	const clip = clipByName(editor, toneA.name);

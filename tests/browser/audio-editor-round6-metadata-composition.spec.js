@@ -4,7 +4,7 @@ import { expect, monoTone, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
 for (const tab of ['General', 'BEXT', 'ADM']) test(`${tab} metadata releases native composition before publishing its completed text`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
 	const metadata = editor.locator('[data-metadata-editor]');

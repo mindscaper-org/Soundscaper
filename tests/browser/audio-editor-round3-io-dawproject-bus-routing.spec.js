@@ -7,7 +7,7 @@ import { parseXmlDocument, walkXml } from '../../src/common/editor/dawproject-xm
 
 test('DAWproject preserves an ordinary group bus routed through another group', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Mixer']);
 	const mixer = editor.locator('[data-mixer-panel]');

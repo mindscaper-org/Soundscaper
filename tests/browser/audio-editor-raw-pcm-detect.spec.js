@@ -6,7 +6,7 @@ import { bootEditor, chooseCommandAction, chooseExportProjectFileAction, disable
 
 test('Detect estimates raw PCM settings and imports the reviewed stereo audio', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tools', 'Import raw data');
 	const dialog = page.getByRole('dialog', { name: 'Import raw data', exact: true });
 	const detect = dialog.getByRole('button', { name: 'Detect', exact: true });
@@ -47,7 +47,7 @@ test('Detect estimates raw PCM settings and imports the reviewed stereo audio', 
 });
 
 test('Detect keeps manual settings when raw PCM is silent', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tools', 'Import raw data');
 	const dialog = page.getByRole('dialog', { name: 'Import raw data', exact: true });
 	await dialog.getByLabel('Raw PCM file').setInputFiles({ name: 'silence.raw', mimeType: 'application/octet-stream', buffer: Buffer.alloc(4096) });

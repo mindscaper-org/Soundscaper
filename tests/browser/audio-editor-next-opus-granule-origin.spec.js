@@ -6,7 +6,7 @@ import { croppedOpusGranuleFixture } from '../helpers/ogg-multiplexed-tail-fixtu
 
 test('ordinary file import retains cropped Opus audio with a nonzero granule origin', async ({ page }) => {
 	const fixture = await croppedOpusGranuleFixture();
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'Cropped live stream.opus', mimeType: 'audio/ogg', buffer: Buffer.from(fixture.cropped) }]);
 	const clip = editor.locator('[data-clip-id]').first();
 	await expect(clip).toBeVisible();

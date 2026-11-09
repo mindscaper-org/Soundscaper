@@ -28,7 +28,7 @@ for (const pan of [{ track: 1, master: 0 }, { track: -1, master: 0 }, { track: 0
 			blob = (await exportScapeProject(project, store)).blob;
 		} finally { await store.close(); }
 		await disableNativeSavePicker(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const choosing = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Open');
 		await (await choosing).setFiles({ name: 'Mono pan.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
 		await expect(editor).toHaveAttribute('data-project-id', project.id);

@@ -8,7 +8,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 test('a macro Invert operates on the same source-editor selection as the effect menu', async ({ page }) => {
 	test.setTimeout(60_000);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'source-macro.wav', frequency: 1000,
 		duration: 0.8, channelCount: 1, sampleRate: 44_100 });
 	await importFiles(editor, [recording]);

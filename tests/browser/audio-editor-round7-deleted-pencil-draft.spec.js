@@ -6,7 +6,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName,
 test('deleting a recording retires its held sample-pencil stroke before pointer release', async ({ page }) => {
 	const errors = [];
 	page.on('pageerror', error => errors.push(error.message));
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'Sample stroke recording.wav', duration: .002, frequency: 1000, channelCount: 1 });
 	await importFiles(editor, [recording]);
 	const clip = clipByName(editor, recording.name);

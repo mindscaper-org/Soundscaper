@@ -6,7 +6,7 @@ import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 for (const selection of ['clip', 'range']) {
 	test(`Split into new track keeps a foldered ${selection} selection inside its folder`, async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const original = clipByName(editor, toneA.name);
 		const track = original.locator('xpath=ancestor::div[@data-track-row][1]');

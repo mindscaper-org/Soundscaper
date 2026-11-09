@@ -6,7 +6,7 @@ import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 for (const [duration, amplitude, peakOnly] of [[.1, .25, false], [1, 0, false], [1, .25, false], [.1, .25, true]]) test(`${duration}s amplitude ${amplitude} ${peakOnly ? 'peak' : 'LUFS'} normalization reports whether measurement exists`, async ({ page }) => {
 	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'Recording.wav', duration, frequency: 1000, channelCount: 1, channelAmplitudes: [amplitude] });
 	await importFiles(editor, [recording]);
 	const properties = await openClipProperties(page, editor, clipByName(editor, recording.name));

@@ -22,7 +22,7 @@ test.describe('time selection and the playhead', () => {
 
 	test('drawing a time selection carries the playhead to the start of the selection', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const playhead = editor.getByRole('slider', { name: 'Playhead' });
 		const clip = clipByName(editor, toneA.name);
@@ -49,7 +49,7 @@ test.describe('time selection and the playhead', () => {
 
 	test('selecting a clip from its header leaves the playhead where it was', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const playhead = editor.getByRole('slider', { name: 'Playhead' });
 		const clip = clipByName(editor, toneA.name);

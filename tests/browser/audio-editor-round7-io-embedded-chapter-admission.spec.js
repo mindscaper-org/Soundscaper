@@ -8,7 +8,7 @@ import {
 
 async function chapterDialog(page, labelText) {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'Programme.wav', duration: 0.5, frequency: 330 })]);
 	await importFiles(editor, [{ name: 'Programme-labels.txt', mimeType: 'text/plain', buffer: Buffer.from(labelText) }]);
 	const dialog = await openExportDialog(page, editor);

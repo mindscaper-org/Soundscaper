@@ -9,7 +9,7 @@ for (const mode of ['independent tempo', 'surround channel']) {
 	test(`spectral center snapping includes the sounding ${mode}`, async ({ page }) => {
 		test.setTimeout(90_000);
 		await page.setViewportSize({ width: 1920, height: 1000 });
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const recording = createWavFixture({ name: `spectral-${mode}.wav`, frequency: 512,
 			sampleRate: 8192, duration: 4, channelCount: mode === 'surround channel' ? 6 : 1,
 			channelAmplitudes: mode === 'surround channel' ? [0, 0, .5, 0, 0, 0] : [.5] });

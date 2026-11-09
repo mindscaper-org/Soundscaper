@@ -7,7 +7,7 @@ import { safeScapeEntryId } from '../../src/common/editor/scape-archive-media.ts
 
 for (const form of ['NFC', 'NFD']) test(`spreadsheet chooses the actual ${form} recording for a canonical filename reference`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'Template.wav', duration: 0.1 })]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Clip spreadsheet']);
 	const grid = editor.locator('[data-workspace-panel="clip-spreadsheet"]').getByRole('grid');

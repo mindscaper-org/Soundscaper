@@ -4,7 +4,7 @@ import { expect, monoTone, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 test('keyboard context-menu completion returns focus before the chosen action closes the menu', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const row = clipByName(editor, monoTone.name).locator('xpath=ancestor::div[@data-track-row][1]');
 	const trigger = row.getByRole('button', { name: 'Track menu', exact: true });

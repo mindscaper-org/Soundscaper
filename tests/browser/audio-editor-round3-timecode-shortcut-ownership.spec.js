@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, importFiles } from './audio-editor-test-helpers.js';
 
 test('erase keys while editing playhead digits cannot delete the selected clip', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = editor.locator('[data-clip-id]').first();
 	await clip.press('Enter');

@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, clipByName, importFiles } from './audi
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 for (const entry of ['track', 'selection']) test(`${entry} Duplicate copies a locked recording and preserves its source`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clips = clipByName(editor, toneA.name);
 	const source = clips.first();

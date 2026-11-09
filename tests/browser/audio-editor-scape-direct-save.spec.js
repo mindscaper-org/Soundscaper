@@ -15,7 +15,7 @@ test.describe('direct Scape save publication', () => {
 		const errors = collectClientErrors(page);
 		let downloads = 0;
 		page.on('download', () => { downloads += 1; });
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await page.evaluate(() => {
 			globalThis.__scapeDirectSave = {
 				aborts: 0,
@@ -101,7 +101,7 @@ test.describe('direct Scape save publication', () => {
 
 	test('retains the bounded browser-download fallback when File System Access is unavailable', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await page.evaluate(() => Object.defineProperty(globalThis, 'showSaveFilePicker', {
 			configurable: true,
 			value: undefined,

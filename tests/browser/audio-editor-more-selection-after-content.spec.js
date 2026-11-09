@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-tes
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 test('the selection toolbar can precisely extend generation beyond the imported clip', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'one second.wav', duration: 1, channelCount: 1 })]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	const end = editor.getByRole('group', { name: 'Selection end', exact: true });

@@ -4,7 +4,7 @@ import { createWavFixture, expect, test, toneA } from './audio-editor-test-fixtu
 import { bootEditor, chooseCommandAction, clipByName, importFiles, openSourceMonitor } from './audio-editor-test-helpers.js';
 
 test('modified Source waveform Space runs the configured command without starting audition', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
@@ -27,7 +27,7 @@ test('modified Source waveform Space runs the configured command without startin
 });
 
 test('Source waveform leaves Shift Space to the timeline play-from-cursor command', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'shift-space.wav', frequency: 440, duration: 5, channelCount: 1 });
 	await importFiles(editor, [recording]);
 	const properties = await openSourceMonitor(page, editor, clipByName(editor, recording.name));

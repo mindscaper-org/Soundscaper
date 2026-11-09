@@ -10,7 +10,7 @@ for (const choice of ['mono', 'headphone-mono', 'headphone-empty-custom']) test(
 	const headphones = choice !== 'mono';
 	const mapping = choice === 'headphone-empty-custom' ? 'custom' : 'mono';
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
 	const metadata = editor.locator('[data-workspace-panel="metadata"]');

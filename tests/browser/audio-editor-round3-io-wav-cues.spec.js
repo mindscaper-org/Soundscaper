@@ -5,7 +5,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseFileAction, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
 
 test('ordinary libsndfile WAV cue indices become timeline markers', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	// libsndfile's SFC_SET_CUE writes these two ordinary zero-based cue indices.
 	const encoded = await readFile(new URL('../fixtures/libsndfile-zero-based-cues.wav.base64', import.meta.url), 'ascii');
 	const choosing = page.waitForEvent('filechooser');

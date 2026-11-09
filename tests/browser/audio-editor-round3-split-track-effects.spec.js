@@ -5,7 +5,7 @@ import { addRackEffect, bootEditor, chooseNestedCommandAction, clipByName, close
 	closeEffectsPanel, importFiles, openEffectsForTrack } from './audio-editor-test-helpers.js';
 
 for (const mode of ['header', 'range']) test(`Split into new track retains the processor chain for ${mode} selection`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name);
 	await clip.locator('.clip-header').click();

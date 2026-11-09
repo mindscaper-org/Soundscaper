@@ -4,7 +4,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName,
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 for (const automated of [false, true]) test(`cut-only export discloses authored track automation=${String(automated)}`, async ({ page }) => {
-	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [monoTone]);
+	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [monoTone]);
 	if (automated) {
 		const row = clipByName(editor, monoTone.name).locator('xpath=ancestor::div[@data-track-row]');
 		await chooseTrackMenuAction(page, editor, row, 'Add automation');

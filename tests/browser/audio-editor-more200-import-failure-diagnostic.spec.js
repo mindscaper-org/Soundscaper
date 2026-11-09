@@ -4,7 +4,7 @@ import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js'
 import { bootEditor, chooseFileAction } from './audio-editor-test-helpers.js';
 
 test('File Import keeps the failed recording name and decoder explanation beside the summary', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const choosing = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Import');
 	await (await choosing).setFiles({ name: 'Broken recording.wav', mimeType: 'audio/wav', buffer: Buffer.from('no decodable audio') });
 	const error = page.locator('[data-editor-toast="workspace-status-error"]');
@@ -15,7 +15,7 @@ test('File Import keeps the failed recording name and decoder explanation beside
 });
 
 test('a mixed File Import keeps healthy PCM and names both failed recordings', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const choosing = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Import');
 	await (await choosing).setFiles([
 		{ name: 'Broken A.wav', mimeType: 'audio/wav', buffer: Buffer.from('no decodable audio') },

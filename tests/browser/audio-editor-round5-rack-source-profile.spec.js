@@ -5,7 +5,7 @@ import { addRackEffect, bootEditor, chooseCommandAction, dockWorkspacePanel, imp
 	openSourceMonitor, openEffectsForTrack } from './audio-editor-test-helpers.js';
 
 test('an open Source editor does not prevent the selected track rack from capturing its timeline profile', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	const panel = await openEffectsForTrack(editor, 1);

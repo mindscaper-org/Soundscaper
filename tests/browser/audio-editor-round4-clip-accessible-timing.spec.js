@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, clickClipInterior, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 test('short split clips announce their authored timing rather than their painted width', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const split = editor.getByRole('button', { name: 'Split tool', exact: true });
 	await split.click();

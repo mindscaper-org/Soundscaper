@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 test('right stretch arrows follow their direction and Alt+S reaches the playhead', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name);
 	const fadeOut = clip.getByRole('slider', { name: 'Fade out', exact: true });
@@ -31,7 +31,7 @@ test('right stretch arrows follow their direction and Alt+S reaches the playhead
 
 for (const kind of ['Trim', 'Stretch']) for (const edge of ['left', 'right']) {
 	test(`${kind} ${edge} release without a final move produces one undoable edit`, async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		const duration = clip.getByRole('slider', { name: 'Fade out', exact: true });
@@ -63,7 +63,7 @@ for (const kind of ['Trim', 'Stretch']) for (const edge of ['left', 'right']) {
 }
 
 for (const height of [54, 60]) test(`trim and stretch handles remain reachable inside a ${height}px collapsed clip`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name);
 	await clip.locator('.clip-header').click();

@@ -10,7 +10,7 @@ for (const sourceRate of [32_000, 48_000]) {
 	test(`an ordinary ${sourceRate} Hz broadcast source retains its CART cue time in a 96 kHz delivery`, async ({ page }) => {
 		await disableNativeSavePicker(page);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const buffer = encodeWav([new Float32Array(sourceRate)], {
 			sampleRate: sourceRate, bitDepth: 16, bext: { description: 'Radio continuity take' },
 			cart: { title: 'Radio continuity take', postTimers: [{ usage: 'SEC1', value: sourceRate / 2 }] },

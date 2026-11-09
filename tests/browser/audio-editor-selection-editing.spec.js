@@ -44,7 +44,7 @@ async function audacitySelectionCursor(display, expectedSha256) {
 }
 
 async function setup(page, files = [longTone]) {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, files);
 	await chooseCommandAction(page, editor, 'Select', 'Select none');
 	const wave = await waveform(editor);

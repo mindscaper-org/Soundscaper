@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, clipByName, importFiles } from './audi
 import { addClipGainPoint } from './helpers/complex-editing-workflows.js';
 
 test('Undo retires a held clip-gain draft when its authored points change', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'Undo gain draft.wav', duration: .8 });
 	await importFiles(editor, [recording]);
 	const clip = clipByName(editor, recording.name);

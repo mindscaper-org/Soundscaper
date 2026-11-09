@@ -16,7 +16,7 @@ for (const mode of ['cancel cold', 'keep cold', 'cancel completed']) {
 			entered = true; await held; await route.fulfill({ response, body: observed });
 		});
 		await disableNativeSavePicker(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [createWavFixture({ name: 'Recording.wav', duration: .1 })]);
 		const projectId = await editor.getAttribute('data-project-id');
 		try {

@@ -4,7 +4,7 @@ import { expect, monoTone, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
 test('the playhead format entry releases a configured modified context-menu chord', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });

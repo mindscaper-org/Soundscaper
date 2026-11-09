@@ -29,7 +29,7 @@ for (const mode of ['static', 'track', 'bus']) test(`cut export retains actually
 		const archive = await createSoundscaperScapeNativeRuntime().exportScapeProject(project, store); expect(archive.blob).toBeInstanceOf(Blob);
 		file = { name: 'Mute.sscape', mimeType: 'application/zip', buffer: Buffer.from(await archive.blob.arrayBuffer()) };
 	} finally { await store.close(); }
-	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
+	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await editor.locator('[data-aup4-input]').setInputFiles(file); await expect(editor).toHaveAttribute('data-project-id', project.id); await waitForProjectActivation(editor);
 	const output = await exportSamples(page, editor); const peak = output.reduce((best, sample) => Math.max(best, Math.abs(sample)), 0);
 	if (automated) expect(peak).toBeGreaterThan(.17); else expect(peak).toBeLessThan(.00001);

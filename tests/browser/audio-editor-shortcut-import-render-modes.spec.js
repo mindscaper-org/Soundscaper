@@ -4,7 +4,7 @@ import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js'
 
 // Node retains both dialects' parser, session and durable binding matrix.
 test('shortcut import reviews both new-track render dialects without replacing the mix binding', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();

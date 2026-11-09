@@ -13,7 +13,7 @@ test.describe('Audacity Split Tool guideline', () => {
 
 	test('tracks clip hover, expands with Shift, and yields Alt-click', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await chooseNestedCommandAction(page, editor, 'Tracks', ['Add new track', 'Audio track']);
 		await editor.getByRole('button', { name: 'Split tool', exact: true }).click();

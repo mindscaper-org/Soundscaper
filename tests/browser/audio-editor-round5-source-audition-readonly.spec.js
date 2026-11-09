@@ -5,7 +5,7 @@ import { bootEditor, clipByName, importFiles, openSourceMonitor, resolveBrowserP
 
 test('a read-only tab can audition its recording through Clip properties', async ({ page, context }) => {
 	test.setTimeout(90_000);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'source-audition.wav', frequency: 750, duration: 5, channelCount: 1 })]);
 	const properties = await openSourceMonitor(page, editor, clipByName(editor, 'source-audition.wav'));
 	const source = properties.locator('[data-clip-source-editor]');

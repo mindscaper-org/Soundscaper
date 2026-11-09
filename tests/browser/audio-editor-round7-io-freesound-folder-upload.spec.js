@@ -33,7 +33,7 @@ for (const folder of [false, true]) test(`Freesound renders a normal ${folder ? 
 			await route.fulfill({ status: 404, json: {} });
 		}
 	});
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const clip = clipByName(editor, monoTone.name);
 	await expect(clip).toHaveAttribute('aria-label', 'browser-mono-tone.wav clip, starts at 0 seconds, 0.8 seconds long');

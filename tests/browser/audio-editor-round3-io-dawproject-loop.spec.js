@@ -9,7 +9,7 @@ import { readDawprojectArchive } from '../../src/common/editor/dawproject-archiv
 
 test('DAWproject delivers an ordinary loop extension as repeated content at its original speed', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const clip = clipByName(editor, monoTone.name);
 	await clip.locator('.clip-header').click();

@@ -11,7 +11,7 @@ for (const mode of ['duplicate', 'archive copy']) {
 	test(`an unchanged ${mode} of a pristine ADM project remains exportable`, async ({ page }) => {
 		test.setTimeout(60_000);
 		await disableNativeSavePicker(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 		await preferences.getByRole('tab', { name: /Editing$/u }).click();
