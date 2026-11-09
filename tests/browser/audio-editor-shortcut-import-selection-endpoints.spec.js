@@ -26,24 +26,6 @@ async function importReview(page, editor, xml) {
 	return { preferences, review: preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true }) };
 }
 
-// Each endpoint's individual import and durable binding checks live in Node.
-test('shortcut import refuses both native endpoint replacements without changing the selection', async ({ page }) => {
-	const commands = ['SelTrackStartToCursor', 'SelCursorToTrackEnd'];
-	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await selectRange(page, editor);
-	const { preferences, review } = await importReview(page, editor,
-		`<audacitykeyboard audacityversion="3.7.7">${commands.map(command => `<command name="${command}" key="Ctrl+Alt+Shift+F7"/>`).join('')}</audacitykeyboard>`);
-	await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 2 skipped.');
-	await expect(review.getByRole('button', { name: 'Apply shortcuts', exact: true })).toBeDisabled();
-	await review.getByText('Skipped shortcuts', { exact: true }).click();
-	await expect(review.getByRole('listitem')).toHaveText(commands.map(command => `${command}: Command unavailable`));
-	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
-	await editor.getByRole('group', { name: 'Playhead', exact: true }).focus();
-	await page.keyboard.press('Control+Alt+Shift+F7');
-	for (const [name, frame] of [['Selection start', 9600], ['Selection end', 19200]]) {
-		await expect(editor.getByRole('group', { name, exact: true }).locator('.timecode-digit')).toHaveText([...String(frame).padStart(12, '0')]);
-	}
-});
-
 test('the modern playhead-anchored action retains its ordinary local selection behavior', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await selectRange(page, editor);
 	const { preferences, review } = await importReview(page, editor,

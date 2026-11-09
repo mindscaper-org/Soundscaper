@@ -13,26 +13,6 @@ async function importReview(page, editor, xml) {
 	return { preferences, review: preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true }) };
 }
 
-// Node retains the independent dialect and durable preference cases.
-test('shortcut import reviews both track-close dialects without deleting selected peers', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [toneA, toneB]);
-	for (const [command, xml] of [
-		['TrackClose', '<audacitykeyboard audacityversion="3.7.7"><command name="TrackClose" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>'],
-		['track-close', '<Shortcuts><SC><key>track-close</key><seq>Ctrl+Alt+Shift+F7</seq></SC></Shortcuts>'],
-	]) {
-		const { preferences, review } = await importReview(page, editor, xml);
-		await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 1 skipped.');
-		await expect(review.getByRole('button', { name: 'Apply shortcuts', exact: true })).toBeDisabled();
-		await review.getByText('Skipped shortcuts', { exact: true }).click();
-		await expect(review.getByRole('listitem')).toHaveText(`${command}: Command unavailable`);
-		await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
-		await clipByName(editor, toneA.name).locator('.clip-header').click();
-		await clipByName(editor, toneB.name).locator('.clip-header').click({ modifiers: ['Shift'] });
-		await page.keyboard.press('Control+Alt+Shift+F7');
-		await expect(editor).toHaveAttribute('data-clip-count', '2');
-	}
-});
-
 test('the supported native RemoveTracks shortcut still removes the complete selection', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [toneA, toneB]);
 	const { preferences, review } = await importReview(page, editor,
